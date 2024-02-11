@@ -58,7 +58,7 @@ def test_ignored():
   )
 
   assert (
-      CMakeTarget("Foo_src_c7682dc9df_abcdefg_baz")
+      CMakeTarget("Foo_src_c7682dc9_abcdefgb")
       == x.get_cmake_target_pair(
           x.repository_id.parse_target(
               "//foo/src/aaaaaaaaaa/bbbbbbbbbb/cccccccccc/dddddddddd"

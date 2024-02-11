@@ -1,34 +1,12 @@
 load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
-load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 
 package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 
-# To enable debug checks, specify:
-# bazel build --//tensorstore/kvstore/gcs_grpc:debug
-bool_flag(
-    name = "debug",
-    build_setting_default = False,
-)
-
-config_setting(
-    name = "debug_setting",
-    flag_values = {
-        ":debug": "True",
-    },
-    visibility = ["//visibility:private"],
-)
-
-DEBUG_LOCAL_DEFINES = select({
-    ":debug_setting": ["TENSORSTORE_GCS_GRPC_DEBUG"],
-    "//conditions:default": [],
-})
-
 tensorstore_cc_library(
     name = "gcs_grpc",
     srcs = ["gcs_grpc.cc"],
-    local_defines = DEBUG_LOCAL_DEFINES,
     deps = [
         ":get_credentials",
         ":storage_stub_pool",
@@ -37,15 +15,15 @@ tensorstore_cc_library(
         "//tensorstore/internal:data_copy_concurrency_resource",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:retry",
-        "//tensorstore/internal:schedule_at",
-        "//tensorstore/internal:type_traits",
         "//tensorstore/internal:uri_utils",
         "//tensorstore/internal/cache_key",
         "//tensorstore/internal/grpc:utils",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:absl_time",
         "//tensorstore/internal/json_binding:bindable",
+        "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/internal/metrics",
+        "//tensorstore/internal/thread:schedule_at",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:byte_range",
         "//tensorstore/kvstore:generation",
@@ -64,6 +42,7 @@ tensorstore_cc_library(
         "//tensorstore/util/execution:any_receiver",
         "//tensorstore/util/garbage_collection",
         "@com_github_grpc_grpc//:grpc++",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/crc:crc32c",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status",
@@ -90,17 +69,24 @@ tensorstore_cc_test(
         "//tensorstore/internal/grpc:grpc_mock",
         "//tensorstore/internal/grpc:utils",
         "//tensorstore/kvstore",
+        "//tensorstore/kvstore:byte_range",
+        "//tensorstore/kvstore:generation",
         "//tensorstore/kvstore:key_range",
         "//tensorstore/kvstore:test_util",
         "//tensorstore/proto:parse_text_proto_or_die",
         "//tensorstore/proto:protobuf_matchers",
         "//tensorstore/util:future",
+        "//tensorstore/util:span",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util/execution",
         "//tensorstore/util/execution:sender_testutil",
+        "@com_github_grpc_grpc//:grpc++",
+        "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/synchronization",
+        "@com_google_absl//absl/time",
         "@com_google_googleapis//google/storage/v2:storage_cc_proto",
         "@com_google_googletest//:gtest_main",
     ],
@@ -137,15 +123,19 @@ tensorstore_cc_test(
     deps = [
         ":gcs_grpc",
         "//tensorstore/internal:no_destructor",
-        "//tensorstore/internal:thread",
+        "//tensorstore/internal/thread",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:generation",
         "//tensorstore/kvstore:test_util",
         "//tensorstore/kvstore/gcs:gcs_testbench",
         "//tensorstore/util:future",
+        "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/log:absl_check",
+        "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/time",
+        "@com_google_absl//absl/strings:cord",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -166,11 +156,11 @@ tensorstore_cc_library(
     name = "storage_stub_pool",
     srcs = ["storage_stub_pool.cc"],
     hdrs = ["storage_stub_pool.h"],
-    local_defines = DEBUG_LOCAL_DEFINES,
     visibility = ["//visibility:private"],
     deps = [
         "//tensorstore/internal:env",
         "//tensorstore/internal:no_destructor",
+        "//tensorstore/internal/log:verbose_flag",
         "@com_github_grpc_grpc//:grpc++",
         "@com_github_grpc_grpc//:grpc_security_base",
         "@com_google_absl//absl/base:core_headers",

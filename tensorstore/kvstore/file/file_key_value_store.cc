@@ -86,7 +86,6 @@
 
 #include <atomic>
 #include <cassert>
-#include <cstddef>
 #include <memory>
 #include <optional>
 #include <string>
@@ -107,23 +106,29 @@
 #include "tensorstore/internal/context_binding.h"
 #include "tensorstore/internal/file_io_concurrency_resource.h"
 #include "tensorstore/internal/flat_cord_builder.h"
+#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/metrics/counter.h"
-#include "tensorstore/internal/os_error_code.h"
+#include "tensorstore/internal/os/error_code.h"
 #include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/file/unique_handle.h"
 #include "tensorstore/kvstore/file/util.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
+#include "tensorstore/kvstore/operations.h"
+#include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/registry.h"
+#include "tensorstore/kvstore/spec.h"
+#include "tensorstore/kvstore/supported_features.h"
 #include "tensorstore/kvstore/url_registry.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
@@ -417,7 +422,7 @@ absl::Status VerifyRegularFile(FileDescriptor fd, FileInfo* info,
 
 Result<UniqueFileDescriptor> OpenValueFile(const char* path,
                                            StorageGeneration* generation,
-                                           std::int64_t* size = nullptr) {
+                                           int64_t* size = nullptr) {
   UniqueFileDescriptor fd =
       internal_file_util::OpenExistingFileForReading(path);
   if (!fd.valid()) {
@@ -615,28 +620,25 @@ struct ReadTask {
   kvstore::ReadOptions options;
 
   Result<ReadResult> operator()() const {
-    ReadResult read_result;
-    read_result.stamp.time = absl::Now();
-    std::int64_t size;
+    TimestampedStorageGeneration stamp;
+    stamp.time = absl::Now();
+    int64_t size;
     TENSORSTORE_ASSIGN_OR_RETURN(
-        auto fd,
-        OpenValueFile(full_path.c_str(), &read_result.stamp.generation, &size));
+        auto fd, OpenValueFile(full_path.c_str(), &stamp.generation, &size));
     if (!fd.valid()) {
-      read_result.state = ReadResult::kMissing;
-      return read_result;
+      return kvstore::ReadResult::Missing(stamp.time);
     }
-    if (read_result.stamp.generation == options.if_not_equal ||
+    if (stamp.generation == options.if_not_equal ||
         (!StorageGeneration::IsUnknown(options.if_equal) &&
-         read_result.stamp.generation != options.if_equal)) {
-      return read_result;
+         stamp.generation != options.if_equal)) {
+      return kvstore::ReadResult::Unspecified(std::move(stamp));
     }
     TENSORSTORE_ASSIGN_OR_RETURN(auto byte_range,
                                  options.byte_range.Validate(size));
-    read_result.state = ReadResult::kValue;
     internal::FlatCordBuilder buffer(byte_range.size());
-    std::size_t offset = 0;
+    size_t offset = 0;
     while (offset < buffer.size()) {
-      std::ptrdiff_t n = internal_file_util::ReadFromFile(
+      ptrdiff_t n = internal_file_util::ReadFromFile(
           fd.get(), buffer.data() + offset, buffer.size() - offset,
           byte_range.inclusive_min + offset);
       if (n > 0) {
@@ -650,8 +652,8 @@ struct ReadTask {
       }
       return StatusFromErrno("Error reading file: ", full_path);
     }
-    read_result.value = std::move(buffer).Build();
-    return read_result;
+    return kvstore::ReadResult::Value(std::move(buffer).Build(),
+                                      std::move(stamp));
   }
 };
 

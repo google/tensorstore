@@ -1,6 +1,6 @@
 exports_files(["LICENSE"])
 
-# These deps are included in pypa/test_requirements.txt
+# These deps are included in pypa/cpp_test_requirements.txt
 PYPA_DEPS = [
     "@pypa_flask//:flask",
     "@pypa_scalpl//:scalpl",

@@ -14,6 +14,8 @@
 
 #include "tensorstore/kvstore/gcs_http/gcs_mock.h"
 
+#include <stdint.h>
+
 #include <limits>
 #include <map>
 #include <optional>
@@ -25,14 +27,18 @@
 #include "absl/hash/hash.h"
 #include "absl/log/absl_log.h"
 #include "absl/random/distributions.h"
+#include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/substitute.h"
 #include "absl/synchronization/mutex.h"
+#include "absl/time/time.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/util/future.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -47,8 +53,8 @@ const char kInvalidLongBody[] =
 // QueryParameters are common between various GCS calls.
 // https://cloud.google.com/storage/docs/json_api/v1/objects
 struct QueryParameters {
-  std::optional<std::int64_t> ifGenerationMatch;
-  std::optional<std::int64_t> ifGenerationNotMatch;
+  std::optional<int64_t> ifGenerationMatch;
+  std::optional<int64_t> ifGenerationNotMatch;
 };
 
 // Parse QueryParameters or return an error HttpResponse
@@ -57,7 +63,7 @@ std::optional<internal_http::HttpResponse> ParseQueryParameters(
     QueryParameters* query_params) {
   // The generation must be numeric.
   for (auto it = params.find("ifGenerationMatch"); it != params.end();) {
-    std::int64_t v = 0;
+    int64_t v = 0;
     if (!absl::SimpleAtoi(it->second, &v)) {
       return HttpResponse{
           400, absl::Cord(absl::Substitute(kInvalidLongBody, it->second))};
@@ -66,7 +72,7 @@ std::optional<internal_http::HttpResponse> ParseQueryParameters(
     break;
   }
   for (auto it = params.find("ifGenerationNotMatch"); it != params.end();) {
-    std::int64_t v = 0;
+    int64_t v = 0;
     if (!absl::SimpleAtoi(it->second, &v)) {
       return HttpResponse{
           400, absl::Cord(absl::Substitute(kInvalidLongBody, it->second))};
@@ -203,7 +209,7 @@ GCSMockStorageBucket::HandleListRequest(std::string_view path,
                                         const ParamMap& params) {
   // https://cloud.google.com/storage/docs/json_api/v1/objects/list
   // TODO: handle Delimiter
-  std::int64_t maxResults = std::numeric_limits<std::int64_t>::max();
+  int64_t maxResults = std::numeric_limits<int64_t>::max();
   for (auto it = params.find("maxResults"); it != params.end();) {
     if (!absl::SimpleAtoi(it->second, &maxResults) || maxResults < 1) {
       return HttpResponse{
@@ -274,7 +280,7 @@ GCSMockStorageBucket::HandleInsertRequest(std::string_view path,
 
     auto it = data_.find(name);
     if (parsed_parameters.ifGenerationMatch.has_value()) {
-      const std::int64_t v = parsed_parameters.ifGenerationMatch.value();
+      const int64_t v = parsed_parameters.ifGenerationMatch.value();
       if (v == 0) {
         if (it != data_.end()) {
           // Live version => failure
@@ -288,7 +294,7 @@ GCSMockStorageBucket::HandleInsertRequest(std::string_view path,
     }
 
     if (parsed_parameters.ifGenerationNotMatch.has_value()) {
-      const std::int64_t v = parsed_parameters.ifGenerationNotMatch.value();
+      const int64_t v = parsed_parameters.ifGenerationNotMatch.value();
       if (it != data_.end() && v == it->second.generation) {
         // generation matches.
         return HttpResponse{412, absl::Cord()};
@@ -329,7 +335,7 @@ GCSMockStorageBucket::HandleGetRequest(std::string_view path,
     auto it = data_.find(name);
 
     if (parsed_parameters.ifGenerationMatch.has_value()) {
-      const std::int64_t v = parsed_parameters.ifGenerationMatch.value();
+      const int64_t v = parsed_parameters.ifGenerationMatch.value();
       if (v == 0) {
         if (it != data_.end()) {
           // Live version => failure
@@ -345,7 +351,7 @@ GCSMockStorageBucket::HandleGetRequest(std::string_view path,
     if (it == data_.end()) break;
 
     if (parsed_parameters.ifGenerationNotMatch.has_value()) {
-      const std::int64_t v = parsed_parameters.ifGenerationNotMatch.value();
+      const int64_t v = parsed_parameters.ifGenerationNotMatch.value();
       if (v == it->second.generation) {
         // generation matches.
         return HttpResponse{304};
@@ -386,7 +392,7 @@ GCSMockStorageBucket::HandleDeleteRequest(std::string_view path,
     }
 
     if (parsed_parameters.ifGenerationMatch.has_value()) {
-      const std::int64_t v = parsed_parameters.ifGenerationMatch.value();
+      const int64_t v = parsed_parameters.ifGenerationMatch.value();
       if (v == 0 || v != it->second.generation) {
         // Live version, but generation does not match.
         return HttpResponse{412, absl::Cord()};

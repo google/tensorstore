@@ -16,12 +16,12 @@ storage and manipulation of large multi-dimensional arrays that:
 
 * Natively supports multiple storage systems, such as local and network
   filesystems, [Google Cloud Storage](https://cloud.google.com/storage),
-  HTTP servers, and in-memory storage.
+  Amazon S3-compatible object stores, HTTP servers, and in-memory storage.
 
 * Offers an asynchronous API to enable high-throughput access even to
   high-latency remote storage.
 
-* Supports read/writeback caching and transactions, with strong atomicity,
+* Supports read caching and transactions, with strong atomicity,
   isolation, consistency, and durability (ACID) guarantees.
 
 * Supports safe, efficient access from multiple processes and machines via

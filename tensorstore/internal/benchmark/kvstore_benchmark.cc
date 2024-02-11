@@ -19,8 +19,8 @@
 
 # 1 GB file
 
-bazel run -c opt //tensorstore/internal/benchmark:kvstore_benchmark
--- \
+bazel run -c opt \
+  //tensorstore/internal/benchmark:kvstore_benchmark -- \
   --kvstore_spec='"file:///tmp/tensorstore_kvstore_benchmark"' \
   --clean_before_write \
   --repeat_writes=10 \
@@ -28,8 +28,8 @@ bazel run -c opt //tensorstore/internal/benchmark:kvstore_benchmark
 
 # 4 GB memory, 4MB chunks
 
-bazel run -c opt //tensorstore/internal/benchmark:kvstore_benchmark
--- \
+bazel run -c opt \
+  //tensorstore/internal/benchmark:kvstore_benchmark -- \
   --kvstore_spec='"memory://abc/"' \
   --chunk_size=4194304 \
   --total_bytes=4294967296 \
@@ -76,7 +76,6 @@ bazel run -c opt //tensorstore/internal/benchmark:kvstore_benchmark
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
-#include "tensorstore/data_type.h"
 #include "absl/flags/parse.h"
 #include "tensorstore/internal/benchmark/metric_utils.h"
 #include "tensorstore/internal/metrics/registry.h"
@@ -216,7 +215,6 @@ Prepared DoWriteBenchmark(Context context, kvstore::Spec kvstore_spec,
       absl::GetFlag(FLAGS_total_bytes) < 8) {
     return result;
   }
-  std::cout << "Starting write benchmark." << std::endl;
   const bool clear_metrics_before_run =
       absl::GetFlag(FLAGS_per_operation_metrics);
 
@@ -234,8 +232,8 @@ Prepared DoWriteBenchmark(Context context, kvstore::Spec kvstore_spec,
         std::string_view(data, size),
         [](std::string_view s) { delete[] (const_cast<char*>(s.data())); });
   }();
-
   ABSL_CHECK(!data.empty());
+
   const size_t num_chunks = tensorstore::CeilOfRatio(
       absl::GetFlag(FLAGS_total_bytes), absl::GetFlag(FLAGS_chunk_size));
 
@@ -243,6 +241,9 @@ Prepared DoWriteBenchmark(Context context, kvstore::Spec kvstore_spec,
     result.keys.push_back(absl::StrFormat("bm/%03d/%09d", i / 256, i));
   }
   result.write_size = data.size() * result.keys.size();
+
+  std::cout << "Starting write benchmark. chunk_size=" << data.size()
+            << ", keys=" << result.keys.size() << std::endl;
 
   // Repeat the benchmark `--repeat_writes` time using the same source arrays.
   for (int64_t i = 0, num_repeats = absl::GetFlag(FLAGS_repeat_writes);
@@ -255,7 +256,7 @@ Prepared DoWriteBenchmark(Context context, kvstore::Spec kvstore_spec,
         auto kvstore, kvstore::Open(kvstore_spec, context).result());
     std::shuffle(result.keys.begin(), result.keys.end(), gen);
 
-    // Perform the actual read.
+    // Perform the actual write.
     auto start_time = absl::Now();
     std::atomic<size_t> files_written = 0;
     std::atomic<size_t> bytes_written = 0;
@@ -271,6 +272,7 @@ Prepared DoWriteBenchmark(Context context, kvstore::Spec kvstore_spec,
     // Promise/Future pair used to track completion of all reads.
     auto [promise, future] = PromiseFuturePair<void>::Make(absl::OkStatus());
     for (const auto& key : result.keys) {
+      if (promise.ready()) break;
       LinkValue(value_lambda, promise, kvstore::Write(kvstore, key, data, {}));
     }
 
@@ -343,8 +345,9 @@ void DoReadBenchmark(Context context, kvstore::Spec kvstore_spec,
     // Promise/Future pair used to track completion of all reads.
     auto [promise, future] = PromiseFuturePair<void>::Make(absl::OkStatus());
     for (size_t j = 0;
-         j < std::max(std::size_t{1}, absl::GetFlag(FLAGS_read_blowup)); j++) {
+         j < std::max(size_t{1}, absl::GetFlag(FLAGS_read_blowup)); j++) {
       for (const auto& key : input.keys) {
+        if (promise.ready()) break;
         LinkValue(value_lambda, promise, kvstore::Read(kvstore, key));
       }
     }

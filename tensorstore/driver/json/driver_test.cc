@@ -14,22 +14,32 @@
 
 /// End-to-end tests of the json driver.
 
+#include <optional>
+#include <string>
+#include <utility>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "absl/time/clock.h"
+#include "absl/status/status.h"
+#include "absl/strings/cord.h"
+#include <nlohmann/json.hpp>
+#include "tensorstore/array.h"
 #include "tensorstore/context.h"
 #include "tensorstore/driver/driver_testutil.h"
 #include "tensorstore/index_space/dim_expression.h"
-#include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/global_initializer.h"
-#include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/parse_json_matches.h"
+#include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/memory/memory_key_value_store.h"
 #include "tensorstore/kvstore/mock_kvstore.h"
+#include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/open.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/spec.h"
+#include "tensorstore/tensorstore.h"
+#include "tensorstore/transaction.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -249,6 +259,7 @@ TEST(JsonDriverTest, ReadError) {
   {
     auto write_future =
         tensorstore::Write(MakeScalarArray<::nlohmann::json>(42), store);
+    write_future.Force();
     TENSORSTORE_EXPECT_OK(write_future.copy_future);
     mock_key_value_store->read_requests.pop().promise.SetResult(
         absl::UnknownError("read error2"));
@@ -274,6 +285,7 @@ TEST(JsonDriverTest, ConditionalWriteback) {
   {
     auto write_future =
         tensorstore::Write(MakeScalarArray<::nlohmann::json>(42), store);
+    write_future.Force();
     TENSORSTORE_EXPECT_OK(write_future.copy_future);
     mock_key_value_store->read_requests.pop()(memory_store);
     mock_key_value_store->write_requests.pop()(memory_store);
@@ -284,6 +296,7 @@ TEST(JsonDriverTest, ConditionalWriteback) {
   {
     auto write_future =
         tensorstore::Write(MakeScalarArray<::nlohmann::json>(42), store);
+    write_future.Force();
     TENSORSTORE_EXPECT_OK(write_future.copy_future);
     mock_key_value_store->read_requests.pop()(memory_store);
     // No write request, since value is unchanged.
@@ -304,6 +317,7 @@ TEST(JsonDriverTest, UnconditionalWriteback) {
                                    tensorstore::Open(spec, context).result());
   auto write_future =
       tensorstore::Write(MakeScalarArray<::nlohmann::json>(42), store);
+  write_future.Force();
   {
     auto write_req = mock_key_value_store->write_requests.pop();
     EXPECT_EQ(tensorstore::StorageGeneration::Unknown(),
@@ -315,49 +329,44 @@ TEST(JsonDriverTest, UnconditionalWriteback) {
 
 TEST(JsonDriverTest, ZeroElementWrite) {
   auto json_spec = GetSpec("");
-  json_spec["cache_pool"] = {{"total_bytes_limit", 10000000}};
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
-                                   tensorstore::Open(json_spec).result());
-  // Confirm that a one-element write is not immediately committed due to cache.
-  {
-    auto write_future =
-        tensorstore::Write(MakeScalarArray<::nlohmann::json>(42), store);
-    TENSORSTORE_EXPECT_OK(write_future.copy_future);
-    absl::SleepFor(absl::Milliseconds(10));
-    EXPECT_FALSE(write_future.commit_future.ready());
-    // When forced, future becomes ready.
-    TENSORSTORE_EXPECT_OK(write_future.commit_future);
-  }
-
+  json_spec["kvstore"] = {{"driver", "mock_key_value_store"},
+                          {"path", GetPath()}};
+  auto context = tensorstore::Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto mock_key_value_store_resource,
+      context.GetResource<tensorstore::internal::MockKeyValueStoreResource>());
+  auto mock_key_value_store = *mock_key_value_store_resource;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::Open(json_spec, context).result());
   // Test that a write to zero elements is detected as a non-modification, and
   // leads to an immediately-ready future.
   {
     auto write_future = tensorstore::Write(
         tensorstore::AllocateArray<::nlohmann::json>({0}),
         store | tensorstore::Dims(0).AddNew().SizedInterval(0, 0));
-    TENSORSTORE_EXPECT_OK(write_future.copy_future);
-    absl::SleepFor(absl::Milliseconds(10));
-    EXPECT_TRUE(write_future.commit_future.ready());
     TENSORSTORE_EXPECT_OK(write_future.commit_future);
   }
 }
 
 TENSORSTORE_GLOBAL_INITIALIZER {
   tensorstore::internal::TestTensorStoreDriverSpecRoundtripOptions options;
+  ::nlohmann::json kvstore_json = {{"driver", "file"},
+                                   {"path", "${TEMPDIR}/" + GetPath()}};
   options.test_name = "json";
   options.create_spec = {
       {"driver", "json"},
-      {"kvstore", {{"driver", "memory"}, {"path", GetPath()}}},
+      {"kvstore", kvstore_json},
   };
   options.full_spec = {
       {"dtype", "json"},
       {"driver", "json"},
-      {"kvstore", {{"driver", "memory"}, {"path", GetPath()}}},
+      {"kvstore", kvstore_json},
       {"transform", {{"input_rank", 0}}},
   };
   options.minimal_spec = options.full_spec;
   options.check_not_found_before_create = false;
   options.check_not_found_before_commit = false;
+  options.check_serialization = true;
   tensorstore::internal::RegisterTensorStoreDriverSpecRoundtripTest(
       std::move(options));
 }
@@ -419,6 +428,34 @@ TEST(SpecTest, InvalidCodec) {
                    {"schema", {{"codec", {{"driver", "n5"}}}}}}),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "codec not supported by json driver"));
+}
+
+TENSORSTORE_GLOBAL_INITIALIZER {
+  tensorstore::internal::TensorStoreRepeatableReadTestOptions options;
+  options.test_suite_name = "RepeatableReadTest";
+  options.fill_value = tensorstore::MakeScalarArray<::nlohmann::json>(
+      ::nlohmann::json::value_t::discarded);
+  options.value1 = tensorstore::MakeScalarArray<::nlohmann::json>(1);
+  options.value2 = tensorstore::MakeScalarArray<::nlohmann::json>(2);
+  options.value3 = tensorstore::MakeScalarArray<::nlohmann::json>(3);
+  options.key = "key.json";
+
+  options.encode_value = [](tensorstore::SharedArray<const void> value)
+      -> tensorstore::Result<std::optional<absl::Cord>> {
+    return absl::Cord(
+        static_cast<const ::nlohmann::json*>(value.data())->dump());
+  };
+  options.make_tensorstore = [](const tensorstore::Context& context)
+      -> tensorstore::Result<tensorstore::TensorStore<>> {
+    return tensorstore::Open(
+               {{"driver", "json"},
+                {"kvstore",
+                 {{"driver", "mock_key_value_store"}, {"path", "key.json"}}},
+                {"recheck_cached_data", true}},
+               context)
+        .result();
+  };
+  tensorstore::internal::RegisterTensorStoreRepeatableReadTest(options);
 }
 
 }  // namespace

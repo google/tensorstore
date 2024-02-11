@@ -15,6 +15,9 @@
 #ifndef TENSORSTORE_CHUNK_LAYOUT_H_
 #define TENSORSTORE_CHUNK_LAYOUT_H_
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <iosfwd>
 #include <memory>
 #include <string_view>
@@ -23,7 +26,6 @@
 
 #include "absl/status/status.h"
 #include "tensorstore/box.h"
-#include "tensorstore/contiguous_layout.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/integer_range.h"
@@ -31,8 +33,8 @@
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/json_serialization_options.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/serialization/fwd.h"
-#include "tensorstore/strided_layout.h"
 #include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/maybe_hard_constraint.h"
@@ -148,7 +150,7 @@ class ChunkLayout {
   constexpr static internal::IntegerRange<Usage> kUsages =
       internal::IntegerRange<Usage>::Inclusive(kWrite, kCodec);
 
-  constexpr static std::size_t kNumUsages = 3;
+  constexpr static size_t kNumUsages = 3;
 
   constexpr static double kDefaultAspectRatioValue = 0;
   constexpr static Index kDefaultShapeValue = 0;
@@ -278,7 +280,7 @@ class ChunkLayout {
   ///             {64, 0, 0}, /*hard_constraint=*/true}));
   ///     EXPECT_THAT(constraints.read_chunk_shape(),
   ///                 ::testing::ElementsAre(64, 0, 0));
-  ///     EXPECT_EQ(tensorstore::DimensionSet({1, 0, 0}),
+  ///     EXPECT_EQ(tensorstore::DimensionSet::FromBools({1, 0, 0}),
   ///               constraints.read_chunk_elements().hard_constraint);
   ///
   ///     // Sets a soft constraint on the chunk size for dimensions 0 and 2.
@@ -289,7 +291,7 @@ class ChunkLayout {
   ///             {100, 0, 100}, /*hard_constraint=*/false}));
   ///     EXPECT_THAT(constraints.read_chunk_shape(),
   ///                 ::testing::ElementsAre(64, 0, 100));
-  ///     EXPECT_EQ(tensorstore::DimensionSet({1, 0, 0}),
+  ///     EXPECT_EQ(tensorstore::DimensionSet::FromBools({1, 0, 0}),
   ///               constraints.read_chunk_elements().hard_constraint);
   ///
   ///     // Sets a hard constraint on the chunk size for dimensions 1 and 2.
@@ -298,7 +300,7 @@ class ChunkLayout {
   ///             {0, 50, 80}, /*hard_constraint=*/true}));
   ///     EXPECT_THAT(constraints.read_chunk_shape(),
   ///                 ::testing::ElementsAre(64, 50, 80));
-  ///     EXPECT_EQ(tensorstore::DimensionSet({1, 1, 1}),
+  ///     EXPECT_EQ(tensorstore::DimensionSet::FromBools({1, 1, 1}),
   ///               constraints.read_chunk_elements().hard_constraint);
   ///
   /// This type inherits from `span<const Index>`.
@@ -661,7 +663,7 @@ class ChunkLayout {
   ///             {5, 6, kImplicit}));
   ///     EXPECT_THAT(constraints.grid_origin(),
   ///                 ::testing::ElementsAre(5, 6, kImplicit));
-  ///     EXPECT_EQ(tensorstore::DimensionSet({1, 1, 0}),
+  ///     EXPECT_EQ(tensorstore::DimensionSet::FromBools({1, 1, 0}),
   ///               constraints.grid_origin().hard_constraint);
   ///
   ///     // Sets a soft constraint on the origin for dimensions 0 and 2
@@ -670,7 +672,7 @@ class ChunkLayout {
   ///             {9, kImplicit, 10}, /*hard_constraint=*/false}));
   ///     EXPECT_THAT(constraints.grid_origin(),
   ///                 ::testing::ElementsAre(5, 6, 10));
-  ///     EXPECT_EQ(tensorstore::DimensionSet({1, 1, 0}),
+  ///     EXPECT_EQ(tensorstore::DimensionSet::FromBools({1, 1, 0}),
   ///               constraints.grid_origin().hard_constraint);
   ///
   /// Specifying the special value of `kImplicit` for a given dimension
@@ -700,6 +702,9 @@ class ChunkLayout {
 
   /// Returns the rank constraint, or `dynamic_rank` if unspecified.
   DimensionIndex rank() const;
+
+  /// Returns `true` if any hard constraints, other than rank, are specified.
+  bool HasHardConstraints() const;
 
   /// Sets `box` to the precise write/read chunk template.
   ///

@@ -14,30 +14,34 @@
 
 #include "tensorstore/kvstore/ocdbt/io/indirect_data_kvstore_driver.h"
 
+#include <stdint.h>
+
 #include <cassert>
-#include <cstring>
-#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
 
+#include "absl/base/attributes.h"
+#include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/kvstore.h"
-#include "tensorstore/kvstore/ocdbt/debug_log.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
-
 namespace {
+
+ABSL_CONST_INIT internal_log::VerboseFlag ocdbt_logging("ocdbt");
 
 class IndirectDataKvStoreDriver : public kvstore::Driver {
  public:
@@ -54,7 +58,7 @@ class IndirectDataKvStoreDriver : public kvstore::Driver {
     // `offset` and `length` are validated by `IndirectDataReference::Validate`
     // when the `IndirectDataReference` is decoded.
     options.byte_range.exclusive_max = byte_range.exclusive_max + ref.offset;
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+    ABSL_LOG_IF(INFO, ocdbt_logging)
         << "read: " << ref << " " << options.byte_range;
 
     return kvstore::Read(base_, ref.file_id.FullPath(), std::move(options));

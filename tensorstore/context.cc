@@ -23,7 +23,7 @@
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/context_impl.h"
 #include "tensorstore/context_resource_provider.h"
-#include "tensorstore/internal/heterogeneous_container.h"
+#include "tensorstore/internal/container/heterogeneous_container.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/no_destructor.h"

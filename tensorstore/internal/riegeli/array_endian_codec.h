@@ -15,15 +15,22 @@
 #ifndef TENSORSTORE_INTERNAL_RIEGELI_ARRAY_ENDIAN_CODEC_H_
 #define TENSORSTORE_INTERNAL_RIEGELI_ARRAY_ENDIAN_CODEC_H_
 
-#include <memory>
+#include <stddef.h>
 
+#include <memory>
+#include <string_view>
+#include <utility>
+
+#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "riegeli/bytes/reader.h"
 #include "riegeli/bytes/writer.h"
 #include "tensorstore/array.h"
 #include "tensorstore/contiguous_layout.h"
+#include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
 #include "tensorstore/util/endian.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 
 namespace tensorstore {

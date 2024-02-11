@@ -1,0 +1,10 @@
+# DO NOT EDIT: Generated from cpp_test_requirements.txt by pypi_solver
+moto[s3,server]==4.2.8
+grpcio==1.59.2
+flask==3.0.0
+requests-toolbelt==1.0.0
+scalpl==0.4.2
+crc32c==2.3.post0
+werkzeug==3.0.1
+googleapis-common-protos==1.61.0
+protobuf==4.25.0

@@ -36,7 +36,8 @@ class AsyncInitializedCacheMixin {
 ///
 /// \tparam CacheType The derived cache type, must inherit from `Cache` and
 ///     `AsyncInitializedCacheMixin`.
-/// \param pool The cache pool in which to create the cache.
+/// \param pool The cache pool in which to create the cache, or `nullptr` to use
+///     a disabled cache pool.
 /// \param cache_identifier String that, along with the `CacheType`, identifies
 ///     the cache within the `pool`.
 /// \param make_cache Callable compatible with signature
@@ -53,13 +54,13 @@ class AsyncInitializedCacheMixin {
 /// \returns The existing or new cache.
 template <typename CacheType, typename MakeCache, typename AsyncInitialize>
 CachePtr<CacheType> GetOrCreateAsyncInitializedCache(
-    CachePool& pool, std::string_view cache_identifier, MakeCache make_cache,
+    CachePool* pool, std::string_view cache_identifier, MakeCache make_cache,
     AsyncInitialize async_initialize) {
   static_assert(std::is_base_of_v<AsyncInitializedCacheMixin, CacheType>,
                 "CacheType must inherit from AsyncInitializedCacheMixin");
   Promise<void> initialized_promise;
   CacheType* created_cache = nullptr;
-  auto cache = pool.GetCache<CacheType>(cache_identifier, [&] {
+  auto cache = internal::GetCache<CacheType>(pool, cache_identifier, [&] {
     auto cache = make_cache();
     auto [promise, future] = PromiseFuturePair<void>::Make(MakeResult());
     cache->initialized_ = std::move(future);

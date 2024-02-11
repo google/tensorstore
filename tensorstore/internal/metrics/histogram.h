@@ -15,10 +15,12 @@
 #ifndef TENSORSTORE_INTERNAL_METRICS_HISTOGRAM_H_
 #define TENSORSTORE_INTERNAL_METRICS_HISTOGRAM_H_
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <array>
 #include <atomic>
 #include <cmath>
-#include <cstdint>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -39,6 +41,8 @@
 
 namespace tensorstore {
 namespace internal_metrics {
+
+#ifndef TENSORSTORE_METRICS_DISABLED
 
 /// CounterCell holds an individual "counter" metric value.
 template <typename Bucketer>
@@ -86,7 +90,7 @@ struct DefaultBucketer {
 template <typename Bucketer, typename... Fields>
 class ABSL_CACHELINE_ALIGNED Histogram {
   using Cell = HistogramCell<Bucketer>;
-  using Impl = AbstractMetric<Cell, Fields...>;
+  using Impl = AbstractMetric<Cell, false, Fields...>;
 
  public:
   using value_type = double;
@@ -269,6 +273,36 @@ class ABSL_CACHELINE_ALIGNED HistogramCell : public Bucketer {
   std::atomic<double> sum_squared_deviation_{0.0};
   std::array<std::atomic<int64_t>, Max> buckets_{};
 };
+
+#else
+struct DefaultBucketer;
+template <typename Bucketer>
+struct HistogramCell {
+  using value_type = double;
+  static void Observe(value_type value) {}
+};
+
+template <typename Bucketer, typename... Fields>
+class Histogram {
+ public:
+  using value_type = double;
+  using Cell = HistogramCell<Bucketer>;
+
+  static Histogram& New(
+      std::string_view metric_name,
+      typename internal::FirstType<std::string_view, Fields>... field_names,
+      MetricMetadata metadata) {
+    static constexpr Histogram metric;
+    return const_cast<Histogram&>(metric);
+  }
+  static void Observe(value_type value,
+                      typename FieldTraits<Fields>::param_type... labels) {}
+  static Cell& GetCell(typename FieldTraits<Fields>::param_type... labels) {
+    static constexpr Cell cell;
+    return const_cast<Cell&>(cell);
+  }
+};
+#endif  // TENSORSTORE_METRICS_DISABLED
 
 }  // namespace internal_metrics
 }  // namespace tensorstore

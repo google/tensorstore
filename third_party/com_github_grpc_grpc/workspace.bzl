@@ -12,10 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load(
-    "//third_party:repo.bzl",
-    "third_party_http_archive",
-)
+load("//third_party:repo.bzl", "third_party_http_archive")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 
 # NOTE: Switch back to a tagged release with darwin-arm64
@@ -25,17 +22,18 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_github_grpc_grpc",
-        sha256 = "9cf1a69a921534ac0b760dcbefb900f3c2f735f56070bf0536506913bb5bfd74",
-        strip_prefix = "grpc-1.55.0",
+        sha256 = "437068b8b777d3b339da94d3498f1dc20642ac9bfa76db43abdd522186b1542b",
+        strip_prefix = "grpc-1.60.0",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/grpc/grpc/archive/v1.55.0.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/grpc/grpc/archive/v1.60.0.tar.gz",
         ],
         patches = [
+            # Fixes, including https://github.com/grpc/grpc/issues/34482
             Label("//third_party:com_github_grpc_grpc/patches/update_build_system.diff"),
         ],
         patch_args = ["-p1"],
         repo_mapping = {
-            "@upb": "@com_google_protobuf_upb",
+            "@upb": "@com_google_protobuf",
             "@com_googlesource_code_re2": "@com_google_re2",
             "@com_github_google_benchmark": "@com_google_benchmark",
             "@io_bazel_rules_go": "@local_proto_mirror",
@@ -95,13 +93,15 @@ GRPC_NATIVE_BINDINGS = {
     "protocol_compiler": "@com_google_protobuf//:protoc",
 
     # upb mappings.
-    "upb_json_lib": "@com_google_protobuf_upb//:json",
-    "upb_lib": "@com_google_protobuf_upb//:upb",
-    "upb_lib_descriptor": "@com_google_protobuf_upb//:cmake_descriptor_upb",
-    "upb_lib_descriptor_reflection": "@com_google_protobuf_upb//:cmake_descriptor_upbdefs",
-    "upb_reflection": "@com_google_protobuf_upb//:reflection",
-    "upb_textformat_lib": "@com_google_protobuf_upb//:textformat",
-    "upb_collections_lib": "@com_google_protobuf_upb//:collections",
+    "upb_json_lib": "@com_google_protobuf//upb:json",
+    "upb_lib": "@com_google_protobuf//upb:upb",
+    "upb_lib_descriptor": "@com_google_protobuf//upb:cmake_descriptor_upb",
+    "upb_lib_descriptor_reflection": "@com_google_protobuf//upb:cmake_descriptor_upbdefs",
+    "upb_reflection": "@com_google_protobuf//upb:reflection",
+    "upb_textformat_lib": "@com_google_protobuf//upb:text",
+    "upb_collections_lib": "@com_google_protobuf//upb:collections",
+    "upb_base_lib": "@com_google_protobuf//upb:base",
+    "upb_mem_lib": "@com_google_protobuf//upb:mem",
 
     # These exist to be used by grpc_build_system.bzl
     "benchmark": "@com_google_benchmark//:benchmark",

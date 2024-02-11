@@ -49,20 +49,20 @@ constexpr std::pair<Int4, int8_t> kInt4ToInt8[] = {
 };
 
 TEST(Int4Test, Int8ToInt4) {
-  for (const auto [i8, i4] : kInt8ToInt4) {
+  for (const auto& [i8, i4] : kInt8ToInt4) {
     EXPECT_EQ(static_cast<Int4>(i8), i4);
   }
 }
 
 TEST(Int4Test, Int4ToInt8) {
-  for (const auto [i4, i8] : kInt4ToInt8) {
+  for (const auto& [i4, i8] : kInt4ToInt8) {
     EXPECT_EQ(static_cast<int8_t>(i4), i8);
   }
 }
 
 template <typename X>
 void TestInt4ToXToInt4() {
-  for (const auto [i4, i8] : kInt4ToInt8) {
+  for (const auto& [i4, i8] : kInt4ToInt8) {
     EXPECT_EQ(static_cast<Int4>(static_cast<X>(i4)), i4);
   }
 }
@@ -198,7 +198,7 @@ TEST(Int4Test, NonCanonicalRepresentationsCompareCorrectly) {
 }
 
 TEST(Int4Test, JsonConversion) {
-  for (const auto [i4, i8] : kInt4ToInt8) {
+  for (const auto& [i4, i8] : kInt4ToInt8) {
     EXPECT_THAT(::nlohmann::json(i4), tensorstore::MatchesJson(i8));
   }
 }

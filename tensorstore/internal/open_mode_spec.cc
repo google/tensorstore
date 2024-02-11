@@ -61,6 +61,17 @@ TENSORSTORE_DEFINE_JSON_BINDER(
                                   jb::DefaultValue([](bool* v) {
                                     *v = false;
                                   }))),
+        jb::Member("assume_cached_metadata",
+                   jb::Validate(
+                       [](const auto& options, auto* obj) {
+                         if (obj->assume_metadata) {
+                           obj->assume_cached_metadata = false;
+                         }
+                       },
+                       jb::Projection(&OpenModeSpec::assume_cached_metadata,
+                                      jb::DefaultValue([](bool* v) {
+                                        *v = false;
+                                      })))),
         // For backward compatibility, accept `allow_metadata_mismatch` even
         // though it is no longer supported.
         jb::Member("allow_metadata_mismatch", [](auto is_loading,
@@ -84,6 +95,9 @@ absl::Status OpenModeSpec::ApplyOptions(const SpecOptions& options) {
         (open_mode & OpenMode::delete_existing) == OpenMode::delete_existing;
     assume_metadata =
         (open_mode & OpenMode::assume_metadata) == OpenMode::assume_metadata;
+    assume_cached_metadata =
+        !assume_metadata && ((open_mode & OpenMode::assume_cached_metadata) ==
+                             OpenMode::assume_cached_metadata);
   }
   return absl::Status();
 }
@@ -107,9 +121,21 @@ absl::Status OpenModeSpec::Validate(ReadWriteMode read_write_mode) const {
         "with `assume_metadata`");
   }
 
+  if (delete_existing && assume_cached_metadata) {
+    return absl::InvalidArgumentError(
+        "Cannot specify an open mode of `delete_existing` "
+        "with `assume_cached_metadata`");
+  }
+
   if (assume_metadata && !open) {
     return absl::InvalidArgumentError(
         "Cannot specify an open mode of `assume_metadata` "
+        "without `open`");
+  }
+
+  if (assume_cached_metadata && !open) {
+    return absl::InvalidArgumentError(
+        "Cannot specify an open mode of `assume_cached_metadata` "
         "without `open`");
   }
 

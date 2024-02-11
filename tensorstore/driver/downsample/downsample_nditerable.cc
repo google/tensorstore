@@ -21,6 +21,7 @@
 #include <type_traits>
 #include <vector>
 
+#include "absl/log/absl_log.h"
 #include "absl/numeric/int128.h"
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
@@ -29,6 +30,7 @@
 #include "tensorstore/downsample_method.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/arena.h"
+#include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/internal/nditerable.h"
 #include "tensorstore/internal/nditerable_buffer_management.h"
 #include "tensorstore/internal/nditerable_util.h"
@@ -37,6 +39,13 @@
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/str_cat.h"
+
+// Uncomment the line below for debug logging.
+// #define TENSORSTORE_INTERNAL_DOWNSAMPLE_DEBUG 1
+
+#ifndef TENSORSTORE_INTERNAL_DOWNSAMPLE_DEBUG
+#define TENSORSTORE_INTERNAL_DOWNSAMPLE_DEBUG 0
+#endif
 
 namespace tensorstore {
 namespace internal_downsample {
@@ -158,33 +167,58 @@ struct MeanAccumulateElement {
 };
 
 template <>
-struct MeanAccumulateElement<float16_t> {
-  using type = float32_t;
+struct MeanAccumulateElement<::tensorstore::dtypes::float8_e4m3fn_t> {
+  using type = ::tensorstore::dtypes::float32_t;
 };
 
 template <>
-struct MeanAccumulateElement<bfloat16_t> {
-  using type = float32_t;
+struct MeanAccumulateElement<::tensorstore::dtypes::float8_e4m3fnuz_t> {
+  using type = ::tensorstore::dtypes::float32_t;
 };
 
 template <>
-struct MeanAccumulateElement<float32_t> {
-  using type = float32_t;
+struct MeanAccumulateElement<::tensorstore::dtypes::float8_e4m3b11fnuz_t> {
+  using type = ::tensorstore::dtypes::float32_t;
 };
 
 template <>
-struct MeanAccumulateElement<float64_t> {
-  using type = float64_t;
+struct MeanAccumulateElement<::tensorstore::dtypes::float8_e5m2_t> {
+  using type = ::tensorstore::dtypes::float32_t;
 };
 
 template <>
-struct MeanAccumulateElement<complex64_t> {
-  using type = complex64_t;
+struct MeanAccumulateElement<::tensorstore::dtypes::float8_e5m2fnuz_t> {
+  using type = ::tensorstore::dtypes::float32_t;
 };
 
 template <>
-struct MeanAccumulateElement<complex128_t> {
-  using type = complex128_t;
+struct MeanAccumulateElement<::tensorstore::dtypes::float16_t> {
+  using type = ::tensorstore::dtypes::float32_t;
+};
+
+template <>
+struct MeanAccumulateElement<::tensorstore::dtypes::bfloat16_t> {
+  using type = ::tensorstore::dtypes::float32_t;
+};
+
+template <>
+struct MeanAccumulateElement<::tensorstore::dtypes::float32_t> {
+  using type = ::tensorstore::dtypes::float32_t;
+};
+
+template <>
+struct MeanAccumulateElement<::tensorstore::dtypes::float64_t> {
+  using type = ::tensorstore::dtypes::float64_t;
+};
+
+template <>
+struct MeanAccumulateElement<::tensorstore::dtypes::complex64_t> {
+  using type = ::tensorstore::dtypes::complex64_t;
+};
+
+template <>
+struct MeanAccumulateElement<::tensorstore::dtypes::complex128_t> {
+  using type = ::tensorstore::dtypes::complex128_t;
 };
 
 template <>
@@ -193,7 +227,7 @@ struct MeanAccumulateElement<bool> {
 };
 
 template <>
-struct MeanAccumulateElement<int4_t> {
+struct MeanAccumulateElement<::tensorstore::dtypes::int4_t> {
   using type = int64_t;
 };
 
@@ -294,7 +328,7 @@ struct IsOrderingSupported {
 
 #define TENSORSTORE_INTERNAL_SPECIALIZE_ORDERING_SUPPORTED(T, ...) \
   template <>                                                      \
-  struct IsOrderingSupported<T> {                                  \
+  struct IsOrderingSupported<::tensorstore::dtypes::T> {           \
     constexpr static bool value = true;                            \
   };                                                               \
   /**/
@@ -468,54 +502,99 @@ struct DownsampleImpl {
   /// total.
   struct ProcessInput {
     template <typename ArrayAccessor>
-    static Index Loop(void* accumulate_buffer, Index output_block_size,
-                      IterationBufferPointer source_pointer,
-                      Index base_block_size, Index base_block_offset,
-                      Index inner_downsample_factor, Index outer_divisor,
-                      Index prior_calls) {
+    static bool Loop(void* accumulate_buffer,
+                     internal::IterationBufferShape output_block_shape,
+                     IterationBufferPointer source_pointer,
+                     internal::IterationBufferShape base_block_shape,
+                     internal::IterationBufferShape base_block_offset,
+                     internal::IterationBufferShape downsample_factor,
+                     Index outer_divisor, Index prior_calls) {
       auto* acc = static_cast<AccumulateElement*>(accumulate_buffer);
-      if (inner_downsample_factor == 1) {
-        // Block does not need to be downsampled, just add it to the accumulate
-        // buffer.
-        for (Index i = 0; i < base_block_size; ++i) {
-          Traits::ProcessInput(
-              acc, i,
-              *ArrayAccessor::template GetPointerAtOffset<Element>(
-                  source_pointer, i),
-              /*max_total_elements=*/outer_divisor,
-              /*element_offset=*/prior_calls);
-        }
-      } else {
-        // Block needs to be downsampled.
+      const Index max_total_elements =
+          outer_divisor * downsample_factor[0] * downsample_factor[1];
 
-        // Handle `output_index=0` specially to account for `base_block_offset`.
-        for (Index offset = 0;
-             offset < inner_downsample_factor - base_block_offset &&
-             offset - base_block_offset < base_block_size;
-             ++offset) {
-          Traits::ProcessInput(
-              acc, /*output_index=*/0,
-              *ArrayAccessor::template GetPointerAtOffset<Element>(
-                  source_pointer, offset),
-              /*max_total_elements=*/outer_divisor * inner_downsample_factor,
-              /*element_offset=*/prior_calls + offset * outer_divisor);
-        }
-        // Handle `output_index>0`.
-        for (Index offset = 0; offset < inner_downsample_factor; ++offset) {
-          for (Index output_index = 1, source_i = offset - base_block_offset +
-                                                  inner_downsample_factor;
-               source_i < base_block_size;
-               ++output_index, source_i += inner_downsample_factor) {
-            Traits::ProcessInput(
-                acc, output_index,
-                *ArrayAccessor::template GetPointerAtOffset<Element>(
-                    source_pointer, source_i),
-                /*max_total_elements=*/outer_divisor * inner_downsample_factor,
-                /*element_offset=*/prior_calls + offset * outer_divisor);
+      const auto for_each_source_index = [&](auto inner_dim_i, auto callback) {
+        if (downsample_factor[inner_dim_i] == 1) {
+          // Source block does not need to be downsampled along `inner_dim_i`.
+          for (Index i = 0; i < base_block_shape[inner_dim_i]; ++i) {
+            callback(/*output_index=*/i, /*source_index=*/i,
+                     /*source_element_offset=*/0, /*num_source_elements=*/1);
+          }
+        } else {
+          // Source block needs to be downsampled along `inner_dim_i`.
+
+          // Handle `output_index=0` specially to account for
+          // `base_block_offset[inner_dim_i]`.
+          const Index offset0_num_source_elements = std::min(
+              downsample_factor[inner_dim_i] - base_block_offset[inner_dim_i],
+              base_block_shape[inner_dim_i] + base_block_offset[inner_dim_i]);
+          for (Index offset = 0; offset < offset0_num_source_elements;
+               ++offset) {
+            callback(
+                /*output_index=*/0, /*source_index=*/offset,
+                /*element_offset=*/offset,
+                /*num_source_elements=*/offset0_num_source_elements);
+          }
+
+          // Handle `output_index>0`.
+          for (Index offset = 0; offset < downsample_factor[inner_dim_i];
+               ++offset) {
+            for (Index output_index = 1,
+                       source_i = offset - base_block_offset[inner_dim_i] +
+                                  downsample_factor[inner_dim_i];
+                 source_i < base_block_shape[inner_dim_i];
+                 ++output_index, source_i += downsample_factor[inner_dim_i]) {
+              callback(
+                  output_index, source_i, /*element_offset=*/offset,
+                  /*num_source_elements=*/
+                  std::min(downsample_factor[inner_dim_i],
+                           base_block_shape[inner_dim_i] +
+                               base_block_offset[inner_dim_i] -
+                               output_index * downsample_factor[inner_dim_i]));
+            }
           }
         }
-      }
-      return output_block_size;
+      };
+
+      const auto process_input_row = [&](Index output_outer_i,
+                                         Index source_outer_i,
+                                         Index num_outer_elements,
+                                         Index outer_element_offset) {
+        for_each_source_index(
+            std::integral_constant<Index, 1>{},
+            [&](Index output_inner_i, Index source_inner_i, Index element_i,
+                Index num_source_elements) {
+#if TENSORSTORE_INTERNAL_DOWNSAMPLE_DEBUG
+              std::string value_str;
+              dtype_v<Element>->append_to_string(
+                  &value_str,
+                  ArrayAccessor::template GetPointerAtPosition<Element>(
+                      source_pointer, source_outer_i, source_inner_i));
+              ABSL_LOG(INFO)
+                  << "output=" << output_outer_i << "," << output_inner_i
+                  << "; source=" << source_outer_i << "," << source_inner_i
+                  << "; element_i="
+                  << outer_element_offset + element_i * num_outer_elements
+                  << "; value=" << value_str;
+#endif
+              Traits::ProcessInput(
+                  acc, output_outer_i * output_block_shape[1] + output_inner_i,
+                  *ArrayAccessor::template GetPointerAtPosition<Element>(
+                      source_pointer, source_outer_i, source_inner_i),
+                  /*max_total_elements=*/max_total_elements,
+                  /*element_offset=*/outer_element_offset +
+                      element_i * num_outer_elements);
+            });
+      };
+      for_each_source_index(
+          std::integral_constant<Index, 0>{},
+          [&](Index output_outer_i, Index source_outer_i, Index element_i,
+              Index num_source_elements) {
+            process_input_row(output_outer_i, source_outer_i,
+                              outer_divisor * num_source_elements,
+                              prior_calls * num_source_elements + element_i);
+          });
+      return true;
     }
   };
 
@@ -523,39 +602,68 @@ struct DownsampleImpl {
   /// from the accumulated values.
   struct ComputeOutput {
     template <typename ArrayAccessor>
-    static Index Loop(void* accumulate_buffer, Index output_block_size,
-                      IterationBufferPointer output_pointer,
-                      Index base_block_size, Index base_block_offset,
-                      Index inner_downsample_factor, Index outer_divisor) {
+    static bool Loop(void* accumulate_buffer,
+                     internal::IterationBufferShape output_block_shape,
+                     IterationBufferPointer output_pointer,
+                     internal::IterationBufferShape base_block_shape,
+                     internal::IterationBufferShape base_block_offset,
+                     internal::IterationBufferShape downsample_factor,
+                     Index outer_divisor) {
+      const Index max_total_elements =
+          outer_divisor * downsample_factor[0] * downsample_factor[1];
       auto* acc = static_cast<AccumulateElement*>(accumulate_buffer);
-      const Index full_divisor = outer_divisor * inner_downsample_factor;
-      Index full_divisor_begin_offset = 0;
-      Index full_divisor_end_offset = output_block_size;
-      const auto compute_and_store_output_value = [&](Index i, Index divisor) {
-        Traits::Finalize(*ArrayAccessor::template GetPointerAtOffset<Element>(
-                             output_pointer, i),
-                         acc, i, full_divisor, divisor);
-      };
-      if (base_block_offset != 0) {
-        ++full_divisor_begin_offset;
-        compute_and_store_output_value(
-            0, outer_divisor * (inner_downsample_factor - base_block_offset));
-      }
-      if (output_block_size * inner_downsample_factor !=
-              base_block_size + base_block_offset &&
-          full_divisor_begin_offset != output_block_size) {
-        --full_divisor_end_offset;
-        compute_and_store_output_value(
-            full_divisor_end_offset,
+      for (Index outer_i = 0; outer_i < output_block_shape[0]; ++outer_i) {
+        Index divisor1 =
             outer_divisor *
-                (base_block_size + base_block_offset + inner_downsample_factor -
-                 output_block_size * inner_downsample_factor));
+            std::min(downsample_factor[0],
+                     outer_i == 0
+                         ? std::min(base_block_shape[0], (downsample_factor[0] -
+                                                          base_block_offset[0]))
+                         : (base_block_shape[0] + base_block_offset[0] -
+                            outer_i * downsample_factor[0]));
+        const Index full_divisor = divisor1 * downsample_factor[1];
+        const auto compute_and_store_output_value = [&](Index i,
+                                                        Index divisor) {
+          Traits::Finalize(
+              *ArrayAccessor::template GetPointerAtPosition<Element>(
+                  output_pointer, outer_i, i),
+              acc, outer_i * output_block_shape[1] + i, max_total_elements,
+              divisor);
+#if TENSORSTORE_INTERNAL_DOWNSAMPLE_DEBUG
+          std::string value_str;
+          dtype_v<Element>->append_to_string(
+              &value_str, ArrayAccessor::template GetPointerAtPosition<Element>(
+                              output_pointer, outer_i, i));
+          ABSL_LOG(INFO) << "Finalize: output=" << outer_i << "," << i
+                         << ", full_divisor=" << max_total_elements
+                         << ", divisor=" << divisor << ", value=" << value_str;
+#endif
+        };
+        Index full_divisor_begin_offset = 0;
+        Index full_divisor_end_offset = output_block_shape[1];
+        if (base_block_offset[1] != 0) {
+          ++full_divisor_begin_offset;
+          compute_and_store_output_value(
+              0, divisor1 *
+                     std::min(base_block_shape[1],
+                              (downsample_factor[1] - base_block_offset[1])));
+        }
+        if (output_block_shape[1] * downsample_factor[1] !=
+                base_block_shape[1] + base_block_offset[1] &&
+            full_divisor_begin_offset != output_block_shape[1]) {
+          --full_divisor_end_offset;
+          compute_and_store_output_value(
+              full_divisor_end_offset,
+              divisor1 * (base_block_shape[1] + base_block_offset[1] +
+                          downsample_factor[1] -
+                          output_block_shape[1] * downsample_factor[1]));
+        }
+        for (Index i = full_divisor_begin_offset; i < full_divisor_end_offset;
+             ++i) {
+          compute_and_store_output_value(i, full_divisor);
+        }
       }
-      for (Index i = full_divisor_begin_offset; i < full_divisor_end_offset;
-           ++i) {
-        compute_and_store_output_value(i, full_divisor);
-      }
-      return output_block_size;
+      return true;
     }
   };
 };
@@ -568,15 +676,17 @@ struct DownsampleFunctions {
 
   using Initialize = void (*)(void* p, Index n);
 
-  using ProcessInput =
-      internal::ElementwiseFunction<1, /*base_block_size*/ Index,
-                                    /*base_block_offset*/ Index,
-                                    /*inner_downsample_factor*/ Index,
-                                    /*outer_divisor*/ Index,
-                                    /*prior_calls*/ Index>;
+  using ProcessInput = internal::ElementwiseFunction<
+      1, /*base_block_shape*/ internal::IterationBufferShape,
+      /*base_block_offset*/ internal::IterationBufferShape,
+      /*downsample_factor*/ internal::IterationBufferShape,
+      /*outer_divisor*/ Index,
+      /*prior_calls*/ Index>;
   using ComputeOutput = internal::ElementwiseFunction<
-      1, /*base_block_size*/ Index, /*base_block_offset*/ Index,
-      /*inner_downsample_factor*/ Index, /*outer_divisor*/ Index>;
+      1, /*base_block_shape*/ internal::IterationBufferShape,
+      /*base_block_offset*/ internal::IterationBufferShape,
+      /*downsample_factor*/ internal::IterationBufferShape,
+      /*outer_divisor*/ Index>;
 
   AllocateAccumulateBuffer allocate_accumulate_buffer;
   DeallocateAccumulateBuffer deallocate_accumulate_buffer;
@@ -735,7 +845,7 @@ class DownsampledNDIterator : public NDIterator::Base<DownsampledNDIterator> {
     compute_output_ = downsample_functions.compute_output[layout.buffer_kind];
     deallocate_accumulate_buffer_ =
         downsample_functions.deallocate_accumulate_buffer;
-    block_size_ = layout.block_size;
+    const Index block_size = layout.block_shape[0] * layout.block_shape[1];
     DimensionIndex num_downsample_dims = 0;
     const auto is_downsample_dim = [&](DimensionIndex base_iter_dim) {
       const DimensionIndex dim =
@@ -813,9 +923,9 @@ class DownsampledNDIterator : public NDIterator::Base<DownsampledNDIterator> {
       ++downsample_dim_i;
     }
     accumulate_buffer_size_ =
-        layout.block_size * (downsample_functions.store_all_elements
-                                 ? product_of_downsample_factors
-                                 : 1);
+        block_size * (downsample_functions.store_all_elements
+                          ? product_of_downsample_factors
+                          : 1);
     accumulate_buffer_ = downsample_functions.allocate_accumulate_buffer(
         accumulate_buffer_size_, allocator);
   }
@@ -829,9 +939,10 @@ class DownsampledNDIterator : public NDIterator::Base<DownsampledNDIterator> {
     return base_.get_allocator();
   }
 
-  Index GetBlock(span<const Index> indices, Index block_size,
-                 IterationBufferPointer* pointer,
-                 absl::Status* status) override {
+  bool GetBlock(span<const Index> indices,
+                internal::IterationBufferShape block_shape,
+                IterationBufferPointer* pointer,
+                absl::Status* status) override {
     const DimensionIndex num_downsample_dims = num_downsample_dims_;
     const DimensionIndex base_iteration_rank = base_iteration_rank_;
     const DimensionIndex base_iter_dim_offset =
@@ -882,7 +993,10 @@ class DownsampledNDIterator : public NDIterator::Base<DownsampledNDIterator> {
     std::fill_n(initial_base_indices, base_iter_dim_offset, 0);
     std::copy_n(indices.begin(), indices.size(),
                 initial_base_indices + base_iter_dim_offset);
-    Index last_divisor = 1;
+    DimensionIndex num_outer_downsample_dims = num_downsample_dims;
+    internal::IterationBufferShape base_block_shape = block_shape;
+    internal::IterationBufferShape base_block_offset{0, 0};
+    internal::IterationBufferShape inner_downsample_factor{1, 1};
     for (DimensionIndex i = 0; i < num_downsample_dims; ++i) {
       const Index downsample_factor = downsample_factors[i];
       const DimensionIndex base_dim = downsample_dims[i];
@@ -890,43 +1004,35 @@ class DownsampledNDIterator : public NDIterator::Base<DownsampledNDIterator> {
       Index& initial_base_index = initial_base_indices[base_dim];
       Index base_inclusive_min =
           initial_base_index * downsample_factor - downsample_dim_origin[i];
-      const Index base_exclusive_max =
-          std::min(base_inclusive_min + downsample_factor,
-                   downsample_dim_iteration_shape[i]);
-      initial_base_index = base_inclusive_min =
-          std::max(Index(0), base_inclusive_min);
-      const Index bound = base_downsample_dim_offsets_bounds[i] =
-          base_exclusive_max - base_inclusive_min;
-      outer_divisor *= last_divisor;
-      last_divisor = bound;
+      if (base_dim >= base_iteration_rank - 2) {
+        // This downsampling factor applies to one of the 2 inner-most
+        // dimensions.
+        const DimensionIndex inner_dim_i = base_dim - (base_iteration_rank - 2);
+        --num_outer_downsample_dims;
+
+        const Index base_exclusive_max = std::min(
+            base_inclusive_min + block_shape[inner_dim_i] * downsample_factor,
+            downsample_dim_iteration_shape[i]);
+        const Index adjusted_base_inclusive_min =
+            std::max(Index(0), base_inclusive_min);
+        inner_downsample_factor[inner_dim_i] = downsample_factor;
+        base_block_offset[inner_dim_i] =
+            adjusted_base_inclusive_min - base_inclusive_min;
+        base_block_shape[inner_dim_i] =
+            base_exclusive_max - adjusted_base_inclusive_min;
+      } else {
+        // This downsampling factor applies to an outer dimension.
+        Index base_exclusive_max =
+            std::min(base_inclusive_min + downsample_factor,
+                     downsample_dim_iteration_shape[i]);
+        initial_base_index = base_inclusive_min =
+            std::max(Index(0), base_inclusive_min);
+        const Index bound = base_downsample_dim_offsets_bounds[i] =
+            base_exclusive_max - base_inclusive_min;
+        outer_divisor *= bound;
+      }
     }
     std::copy_n(initial_base_indices, base_iteration_rank, base_indices);
-    DimensionIndex num_outer_downsample_dims;
-    Index base_block_size;
-    Index base_block_offset;
-    DimensionIndex inner_downsample_factor;
-    if (downsample_dims[num_downsample_dims - 1] == base_iteration_rank - 1) {
-      // Inner dimension is downsampled as well.
-      num_outer_downsample_dims = num_downsample_dims - 1;
-      inner_downsample_factor = downsample_factors[num_downsample_dims - 1];
-      const Index inner_index = indices[indices.size() - 1];
-      Index base_inclusive_min = inner_index * inner_downsample_factor -
-                                 downsample_dim_origin[num_downsample_dims - 1];
-      const Index base_exclusive_max =
-          std::min(base_inclusive_min + block_size * inner_downsample_factor,
-                   downsample_dim_iteration_shape[num_downsample_dims - 1]);
-      const Index adjusted_base_inclusive_min =
-          std::max(Index(0), base_inclusive_min);
-      base_block_offset = adjusted_base_inclusive_min - base_inclusive_min;
-      base_block_size = base_exclusive_max - adjusted_base_inclusive_min;
-    } else {
-      // Inner dimension is not downsampled.
-      num_outer_downsample_dims = num_downsample_dims;
-      inner_downsample_factor = 1;
-      base_block_offset = 0;
-      base_block_size = block_size;
-      outer_divisor *= last_divisor;
-    }
 
     // Request and accumulate all of the required base (input) blocks.
     auto process_input = process_input_;
@@ -938,27 +1044,32 @@ class DownsampledNDIterator : public NDIterator::Base<DownsampledNDIterator> {
         base_indices[dim] =
             initial_base_indices[dim] + base_downsample_dim_offsets[i];
       }
+      ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_DOWNSAMPLE_DEBUG)
+          << "Output block: " << indices << ", block_shape=" << block_shape[0]
+          << "," << block_shape[1] << ": Getting base block: "
+          << span<const Index>(base_indices, base_iteration_rank)
+          << " of shape=" << base_block_shape[0] << "," << base_block_shape[1];
       if (!base_.GetBlock(span<const Index>(base_indices, base_iteration_rank),
-                          base_block_size, status)) {
-        return 0;
+                          base_block_shape, status)) {
+        return false;
       }
-      process_input(accumulate_buffer_, block_size, base_.block_pointers()[0],
-                    base_block_size, base_block_offset, inner_downsample_factor,
-                    outer_divisor, prior_accumulate_calls);
+      process_input(accumulate_buffer_, block_shape, base_.block_pointers()[0],
+                    base_block_shape, base_block_offset,
+                    inner_downsample_factor, outer_divisor,
+                    prior_accumulate_calls);
       ++prior_accumulate_calls;
     } while (internal::AdvanceIndices(num_outer_downsample_dims,
                                       base_downsample_dim_offsets,
                                       base_downsample_dim_offsets_bounds));
 
     // Compute the downsampled output from the accumulated state.
-    compute_output_(accumulate_buffer_, block_size, *pointer, base_block_size,
+    compute_output_(accumulate_buffer_, block_shape, *pointer, base_block_shape,
                     base_block_offset, inner_downsample_factor, outer_divisor);
-    return block_size;
+    return true;
   }
 
  private:
   internal::NDIteratorsWithManagedBuffers<1> base_;
-  Index block_size_;
   Index accumulate_buffer_size_;
   DimensionIndex num_downsample_dims_;
   DimensionIndex base_iteration_rank_;
@@ -1044,16 +1155,18 @@ class DownsampledNDIterable : public NDIterable::Base<DownsampledNDIterable> {
     explicit ComputeBaseLayout(const DownsampledNDIterable& iterable,
                                NDIterable::IterationLayoutView layout,
                                NDIterable::IterationLayoutView& base_layout) {
-      const Index inner_dim = layout.iteration_dimensions.back();
-      inner_downsample_factor = 1;
       const Index* downsample_factors = iterable.downsample_factors();
       const Index* base_shape = iterable.base_shape();
       const DimensionIndex target_rank = layout.full_rank();
       const DimensionIndex base_rank = iterable.base_rank_;
       const DimensionIndex base_iteration_rank =
           layout.iteration_rank() + base_rank - iterable.target_rank_;
-      if (inner_dim != -1) {
-        inner_downsample_factor = downsample_factors[inner_dim];
+      for (DimensionIndex inner_dim_i = 0; inner_dim_i < 2; ++inner_dim_i) {
+        DimensionIndex inner_dim =
+            layout.iteration_dimensions[layout.iteration_dimensions.size() - 2 +
+                                        inner_dim_i];
+        inner_downsample_factor[inner_dim_i] =
+            inner_dim == -1 ? 1 : downsample_factors[inner_dim];
       }
       // Iteration dimension `iter_dim` of the `DownsampledNDIterator`
       // corresponds to iteration dimension `iter_dim + base_iter_dim_offset` of
@@ -1111,7 +1224,7 @@ class DownsampledNDIterable : public NDIterable::Base<DownsampledNDIterable> {
           iterable.base_.GetIterationBufferConstraint(base_layout)
               .min_buffer_kind;
     }
-    Index inner_downsample_factor;
+    internal::IterationBufferShape inner_downsample_factor;
     IterationBufferKind base_buffer_constraint;
 
    private:
@@ -1137,7 +1250,8 @@ class DownsampledNDIterable : public NDIterable::Base<DownsampledNDIterable> {
             : 1;
     return base_.GetWorkingMemoryBytesPerElement(
                base_layout, compute_base_layout.base_buffer_constraint) *
-               compute_base_layout.inner_downsample_factor +
+               compute_base_layout.inner_downsample_factor[0] *
+               compute_base_layout.inner_downsample_factor[1] +
            accumulate_elements_per_output_element *
                downsample_functions_.accumulate_data_type.size();
   }
@@ -1153,8 +1267,13 @@ class DownsampledNDIterable : public NDIterable::Base<DownsampledNDIterable> {
     NDIterable::IterationBufferKindLayoutView base_layout;
     ComputeBaseLayout compute_base_layout(*this, layout, base_layout);
     base_layout.buffer_kind = compute_base_layout.base_buffer_constraint;
-    base_layout.block_size =
-        compute_base_layout.inner_downsample_factor * layout.block_size;
+    for (DimensionIndex i = 0; i < 2; ++i) {
+      base_layout.block_shape[i] = std::min(
+          base_layout
+              .iteration_shape[base_layout.iteration_shape.size() - 2 + i],
+          compute_base_layout.inner_downsample_factor[i] *
+              layout.block_shape[i]);
+    }
     return internal::MakeUniqueWithVirtualIntrusiveAllocator<
         DownsampledNDIterator>(get_allocator(), downsample_functions_,
                                *base_.iterables[0], downsample_factors(),

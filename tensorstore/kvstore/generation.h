@@ -259,6 +259,11 @@ struct StorageGeneration {
   /// Checks if `Clean(generation) != Unknown()`.
   static bool IsConditional(const StorageGeneration& generation);
 
+  /// Checks if `generation` is the same as `condition`, ignoring dirty flags on
+  /// the inner-most layer.
+  static bool IsConditionalOn(const StorageGeneration& generation,
+                              const StorageGeneration& condition);
+
   /// Checks if `if_equal` is unspecified, or equal to `generation`.
   static bool EqualOrUnspecified(const StorageGeneration& generation,
                                  const StorageGeneration& if_equal);

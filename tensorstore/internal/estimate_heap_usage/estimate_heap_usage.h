@@ -20,7 +20,8 @@
 /// Defines `EstimateHeapUsage` for use by `Cache` implementations to estimate
 /// memory usage.
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <memory>
 #include <string>
 #include <type_traits>

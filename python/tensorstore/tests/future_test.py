@@ -15,9 +15,9 @@
 import asyncio
 import os
 import pickle
-import time
 import signal
 import threading
+import time
 
 import pytest
 import tensorstore as ts
@@ -26,7 +26,6 @@ pytestmark = pytest.mark.asyncio
 
 
 def test_promise_new():
-
   promise, future = ts.Promise.new()
   assert future.done() == False
   promise.set_result(5)
@@ -44,7 +43,6 @@ def test_promise_result_release_gil():
 
 
 def test_promise_set_exception():
-
   promise, future = ts.Promise.new()
   assert future.done() == False
   promise.set_exception(ValueError('abc'))
@@ -55,13 +53,15 @@ def test_promise_set_exception():
 
 @pytest.mark.skipif(
     os.name == 'nt',
-    reason='CTRL_C_EVENT is delayed on Windows until keyboard input is received'
+    reason=(
+        'CTRL_C_EVENT is delayed on Windows until keyboard input is received'
+    ),
 )
 @pytest.mark.skipif(
     'signal.getsignal(signal.SIGINT) != signal.default_int_handler',
-    reason='SIGINT handler not installed')
+    reason='SIGINT handler not installed',
+)
 def test_promise_wait_interrupt():
-
   promise, future = ts.Promise.new()
 
   def do_interrupt():
@@ -101,7 +101,6 @@ def test_promise_timeout():
 
 
 async def test_coroutine():
-
   async def do_async():
     return 42
 
@@ -109,7 +108,6 @@ async def test_coroutine():
 
 
 async def test_coroutine_explicit_loop():
-
   data = threading.local()
 
   loop_promise, loop_future = ts.Promise.new()
@@ -140,9 +138,9 @@ async def test_coroutine_explicit_loop():
 
 
 @pytest.mark.filterwarnings(
-    'ignore:coroutine .* was never awaited:RuntimeWarning')
+    'ignore:coroutine .* was never awaited:RuntimeWarning'
+)
 def test_coroutine_no_event_loop_specified():
-
   async def do_async():
     return 42
 
@@ -158,7 +156,6 @@ def test_gc_result_cycle(gc_tester):
 
 
 def test_gc_callback_cycle(gc_tester):
-
   def callback(f):
     del f
     pass
@@ -187,3 +184,33 @@ def test_pickle_failure():
     pickle.dumps(p)
   with pytest.raises(TypeError):
     pickle.dumps(f)
+
+
+def test_release_future_after_calling_add_done_callback():
+  p, f = ts.Promise.new()
+  result = None
+
+  def callback(f):
+    nonlocal result
+    result = f.result()
+
+  f.add_done_callback(callback)
+  del f
+  p.set_result(10)
+  assert result == 10
+
+
+def test_promise_not_fulfilled():
+  p, f = ts.Promise.new()
+
+  exc = None
+
+  def callback(f):
+    nonlocal exc
+    exc = f.exception()
+
+  f.add_done_callback(callback)
+
+  del p
+  assert f.done()
+  assert exc is not None

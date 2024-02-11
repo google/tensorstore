@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef THIRD_PARTY_PY_TENSORSTORE_DEFINE_HEAP_TYPE_H_
-#define THIRD_PARTY_PY_TENSORSTORE_DEFINE_HEAP_TYPE_H_
+#ifndef PYTHON_TENSORSTORE_DEFINE_HEAP_TYPE_H_
+#define PYTHON_TENSORSTORE_DEFINE_HEAP_TYPE_H_
 
 /// \file
 ///
@@ -176,4 +176,4 @@ struct type_caster<tensorstore::internal_python::StaticHeapTypeWrapper<T>>
 }  // namespace detail
 }  // namespace pybind11
 
-#endif  // THIRD_PARTY_PY_TENSORSTORE_DEFINE_HEAP_TYPE_H_
+#endif  // PYTHON_TENSORSTORE_DEFINE_HEAP_TYPE_H_

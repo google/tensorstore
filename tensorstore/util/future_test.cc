@@ -24,12 +24,12 @@
 #include <type_traits>
 #include <utility>
 
+#include <benchmark/benchmark.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
-#include <benchmark/benchmark.h>
 #include "tensorstore/internal/concurrent_testutil.h"
 #include "tensorstore/internal/metrics/collect.h"
 #include "tensorstore/internal/metrics/registry.h"
@@ -1859,6 +1859,9 @@ TEST(FutureTest, FutureResultFuture) {
 }
 
 TEST(FutureTest, Live) {
+#ifdef TENSORSTORE_METRICS_DISABLED
+  GTEST_SKIP() << "metrics disabled";
+#endif
   auto& registry = tensorstore::internal_metrics::GetMetricRegistry();
   EXPECT_EQ(
       0, std::get<int64_t>(

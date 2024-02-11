@@ -57,6 +57,10 @@ class InvocationContext(object):
   def caller_package_id(self) -> PackageId:
     raise NotImplementedError("caller_package_id")
 
+  def record_rule_location(self, mnemonic):
+    # Adds debugging information to registered rules.
+    pass
+
   def workspace_root_for_label(self, repository_id: RepositoryId) -> str:
     # This should return something like the Package.source_directory
     return self.resolve_source_root(repository_id).as_posix()

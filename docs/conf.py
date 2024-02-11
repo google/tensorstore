@@ -13,7 +13,7 @@
 # limitations under the License.
 """Sphinx configuration for TensorStore."""
 
-from typing import Optional, NamedTuple
+from typing import NamedTuple, Optional
 
 import docutils.nodes
 import sphinx.addnodes
@@ -77,18 +77,10 @@ html_use_index = False
 html_favicon = '_templates/logo.svg'
 
 html_theme_options = {
-    'logo_svg':
-        'logo.svg',
-    'site_url':
-        'https://google.github.io/tensorstore/',
-    'repo_url':
-        'https://github.com/google/tensorstore/',
-    'repo_name':
-        'google/tensorstore',
-    'repo_type':
-        'github',
-    'globaltoc_collapse':
-        True,
+    'logo_svg': 'logo.svg',
+    'site_url': 'https://google.github.io/tensorstore/',
+    'repo_url': 'https://github.com/google/tensorstore/',
+    'globaltoc_collapse': True,
     'features': [
         'navigation.expand',
         # 'navigation.tabs',
@@ -99,11 +91,10 @@ html_theme_options = {
         'navigation.top',
         # 'search.highlight',
         # 'search.share',
-        "toc.follow",
-        "toc.sticky",
+        'toc.follow',
+        'toc.sticky',
     ],
-    'toc_title_is_page_title':
-        True,
+    'toc_title_is_page_title': True,
     'palette': [
         {
             'media': '(prefers-color-scheme: dark)',
@@ -131,14 +122,26 @@ html_theme_options = {
 templates_path = ['_templates']
 
 intersphinx_mapping = {
-    'python':
-        ('https://docs.python.org/3', ('intersphinx_inv/python3.inv', None)),
-    'zarr': ('https://zarr.readthedocs.io/en/stable',
-             ('intersphinx_inv/zarr.inv', None)),
-    'numpy':
-        ('https://numpy.org/doc/stable/', ('intersphinx_inv/numpy.inv', None)),
-    'dask': ('https://docs.dask.org/en/latest/', ('intersphinx_inv/dask.inv',
-                                                  None)),
+    'python': (
+        'https://docs.python.org/3',
+        ('intersphinx_inv/python3.inv', None),
+    ),
+    'zarr': (
+        'https://zarr.readthedocs.io/en/stable',
+        ('intersphinx_inv/zarr.inv', None),
+    ),
+    'zarr-specs': (
+        'https://zarr-specs.readthedocs.io/en/latest',
+        ('intersphinx_inv/zarr-specs.inv', None),
+    ),
+    'numpy': (
+        'https://numpy.org/doc/stable/',
+        ('intersphinx_inv/numpy.inv', None),
+    ),
+    'dask': (
+        'https://docs.dask.org/en/latest/',
+        ('intersphinx_inv/dask.inv', None),
+    ),
 }
 
 rst_prolog = """
@@ -184,8 +187,8 @@ napoleon_use_admonition_for_examples = True
 napoleon_use_admonition_for_notes = True
 
 json_schemas = [
-    "*schema.yml",
-    "**/*schema.yml",
+    '*schema.yml',
+    '**/*schema.yml',
 ]
 
 json_schema_rst_prolog = """
@@ -196,13 +199,13 @@ json_schema_rst_prolog = """
 .. highlight:: json
 """
 
-python_apigen_modules = {"tensorstore": "python/api/tensorstore."}
+python_apigen_modules = {'tensorstore': 'python/api/tensorstore.'}
 
 python_apigen_default_groups = [
-    ("class:.*", "Classes"),
-    (r".*:.*\.__(init|new)__", "Constructors"),
-    (r".*:.*\.__eq__", "Comparison operators"),
-    (r".*:.*\.__(str|repr)__", "String representation"),
+    ('class:.*', 'Classes'),
+    (r'.*:.*\.__(init|new)__', 'Constructors'),
+    (r'.*:.*\.__eq__', 'Comparison operators'),
+    (r'.*:.*\.__(str|repr)__', 'String representation'),
 ]
 
 python_apigen_rst_prolog = """
@@ -214,11 +217,15 @@ python_apigen_rst_prolog = """
 
 """
 
-python_module_names_to_strip_from_xrefs = ["tensorstore"]
+python_module_names_to_strip_from_xrefs = [
+    'tensorstore',
+    'collections.abc',
+    'numbers',
+]
 
 python_type_aliases = {
-    "dtype": "numpy.dtype",
-    "Real": "numbers.Real",
+    'dtype': 'numpy.dtype',
+    'Real': 'numbers.Real',
 }
 
 python_strip_property_prefix = True
@@ -241,25 +248,28 @@ class TypeXrefTarget(NamedTuple):
 
 
 python_type_to_xref_mappings = {
-    "numpy.typing.ArrayLike":
-        TypeXrefTarget("py", "data", "numpy.typing.ArrayLike", "ArrayLike"),
-    "NumpyIndexingSpec":
-        TypeXrefTarget("std", "ref", "python-numpy-style-indexing",
-                       "NumpyIndexingSpec"),
-    "DimSelectionLike":
-        TypeXrefTarget("std", "ref", "python-dim-selections",
-                       "DimSelectionLike"),
-    "DownsampleMethod":
-        TypeXrefTarget("json", "schema", "DownsampleMethod",
-                       "DownsampleMethod"),
+    'numpy.typing.ArrayLike': TypeXrefTarget(
+        'py', 'data', 'numpy.typing.ArrayLike', 'ArrayLike'
+    ),
+    'NumpyIndexingSpec': TypeXrefTarget(
+        'std', 'ref', 'python-numpy-style-indexing', 'NumpyIndexingSpec'
+    ),
+    'DimSelectionLike': TypeXrefTarget(
+        'std', 'ref', 'python-dim-selections', 'DimSelectionLike'
+    ),
+    'DownsampleMethod': TypeXrefTarget(
+        'json', 'schema', 'DownsampleMethod', 'DownsampleMethod'
+    ),
 }
 
 _orig_python_type_to_xref = sphinx.domains.python.type_to_xref
 
 
 def _python_type_to_xref(
-    target: str, env: Optional[sphinx.environment.BuildEnvironment] = None,
-    suppress_prefix: bool = False) -> sphinx.addnodes.pending_xref:
+    target: str,
+    env: Optional[sphinx.environment.BuildEnvironment] = None,
+    suppress_prefix: bool = False,
+) -> sphinx.addnodes.pending_xref:
   xref_info = python_type_to_xref_mappings.get(target)
   if xref_info is not None:
     return sphinx.addnodes.pending_xref(
@@ -279,14 +289,13 @@ sphinx.domains.python.type_to_xref = _python_type_to_xref
 
 
 def setup(app):
-
   # Exclude pybind11-builtin base class when displaying base classes.
   #
   # This base class is purely an implementation detail and not helpful to
   # display to users.
   def _autodoc_process_bases(app, name, obj, options, bases):
     bases[:] = [
-        base for base in bases if base.__module__ != "pybind11_builtins"
+        base for base in bases if base.__module__ != 'pybind11_builtins'
     ]
 
-  app.connect("autodoc-process-bases", _autodoc_process_bases)
+  app.connect('autodoc-process-bases', _autodoc_process_bases)

@@ -17,6 +17,7 @@
 #include "tensorstore/context.h"
 #include "tensorstore/internal/test_util.h"
 #include "tensorstore/open.h"
+#include "tensorstore/open_mode.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/serialization/std_tuple.h"
 #include "tensorstore/serialization/test_util.h"
@@ -28,6 +29,7 @@
 namespace {
 
 using ::tensorstore::Context;
+using ::tensorstore::OpenMode;
 using ::tensorstore::serialization::SerializationRoundTrip;
 
 TEST(TensorStoreSerializationTest, Invalid) {
@@ -95,6 +97,52 @@ TEST(TensorStoreSerializationTest, SharedContext) {
   // decoded_t2 shares cache with decoded_t1
   EXPECT_THAT(tensorstore::Read(decoded_t2).result(),
               ::testing::Optional(tensorstore::MakeArray<uint32_t>({42, 42})));
+}
+
+TEST(TensorStoreSerializationTest, MetadataNotRead) {
+  // Checks that metadata is not re-read due to serialization using
+  // `assume_cached_metadata`.  The deserialized TensorStore will use a fresh
+  // memory_key_value_store resource which does not contain the metadata.
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
+                                   tensorstore::Spec::FromJson({
+                                       {"driver", "n5"},
+                                       {"kvstore", {{"driver", "memory"}}},
+                                       {"metadata",
+                                        {{"compression", {{"type", "raw"}}},
+                                         {"dataType", "uint32"},
+                                         {"dimensions", {2}},
+                                         {"blockSize", {2}}}},
+                                       {"create", true},
+                                       {"open", true},
+                                   }));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto t, tensorstore::Open(spec).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto decoded, SerializationRoundTrip(t));
+  // Verify that the spec can be obtained from the deserialized TensorStore and
+  // matches the original spec (and doesn't include "assume_cached_metadata").
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto t_spec, t.spec());
+  EXPECT_THAT(decoded.spec(), ::testing::Optional(t_spec));
+}
+
+TEST(TensorStoreSerializationTest, MetadataNotReadAssumeMetadata) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
+                                   tensorstore::Spec::FromJson({
+                                       {"driver", "n5"},
+                                       {"kvstore", {{"driver", "memory"}}},
+                                       {"metadata",
+                                        {{"compression", {{"type", "raw"}}},
+                                         {"dataType", "uint32"},
+                                         {"dimensions", {2}},
+                                         {"blockSize", {2}}}},
+                                       {"assume_metadata", true},
+                                       {"open", true},
+                                   }));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto t, tensorstore::Open(spec).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto t_spec, t.spec());
+  EXPECT_EQ(OpenMode::assume_metadata | OpenMode::open, t_spec.open_mode());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto decoded, SerializationRoundTrip(t));
+  // Verify that the spec can be obtained from the deserialized TensorStore and
+  // matches the original spec.
+  EXPECT_THAT(decoded.spec(), ::testing::Optional(t_spec));
 }
 
 }  // namespace

@@ -14,16 +14,25 @@
 
 #include "tensorstore/kvstore/driver.h"
 
+#include <memory>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include "absl/strings/cord.h"
+#include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
+#include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/queue_testutil.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
+#include "tensorstore/kvstore/read_result.h"
+#include "tensorstore/kvstore/read_result_testutil.h"
+#include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/util/status_testutil.h"
 
@@ -134,14 +143,31 @@ TEST_F(HttpKeyValueStoreTest, ReadByteRange) {
   auto read_future = kvstore::Read(store, "abc", options);
   auto request = mock_transport->requests_.pop();
   EXPECT_EQ("https://example.com/my/path/abc", request.request.url);
-  EXPECT_THAT(
-      request.request.headers,
-      ::testing::ElementsAre("cache-control: no-cache", "Range: bytes=10-19"));
+  EXPECT_THAT(request.request.method, "GET");
+  EXPECT_THAT(request.request.headers,
+              ::testing::UnorderedElementsAre("cache-control: no-cache",
+                                              "Range: bytes=10-19"));
   request.promise.SetResult(HttpResponse{
       206, absl::Cord("valueabcde"), {{"content-range", "bytes 10-19/50"}}});
   EXPECT_THAT(read_future.result(),
               MatchesKvsReadResult(absl::Cord("valueabcde"),
                                    StorageGeneration::Invalid()));
+}
+
+TEST_F(HttpKeyValueStoreTest, ReadZeroByteRange) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, kvstore::Open("https://example.com/my/path/").result());
+  kvstore::ReadOptions options;
+  options.byte_range.inclusive_min = 10;
+  options.byte_range.exclusive_max = 10;
+  auto read_future = kvstore::Read(store, "abc", options);
+  auto request = mock_transport->requests_.pop();
+  EXPECT_EQ("https://example.com/my/path/abc", request.request.url);
+  EXPECT_THAT(request.request.headers,
+              ::testing::ElementsAre("cache-control: no-cache"));
+  request.promise.SetResult(HttpResponse{200, absl::Cord(), {}});
+  EXPECT_THAT(read_future.result(),
+              MatchesKvsReadResult(absl::Cord(), StorageGeneration::Invalid()));
 }
 
 TEST_F(HttpKeyValueStoreTest, ReadWithStalenessBound) {
@@ -421,6 +447,7 @@ TEST(SpecTest, SpecRoundtrip) {
   tensorstore::internal::KeyValueStoreSpecRoundtripOptions options;
   options.check_write_read = false;
   options.check_data_persists = false;
+  options.check_data_after_serialization = false;
   options.full_spec = {{"driver", "http"},
                        {"base_url", "https://example.com?query"},
                        {"headers", {"a: b"}},

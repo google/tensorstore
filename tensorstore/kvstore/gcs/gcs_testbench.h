@@ -18,7 +18,8 @@
 #include <optional>
 #include <string>
 
-#include "tensorstore/internal/subprocess.h"
+#include "absl/status/status.h"
+#include "tensorstore/internal/os/subprocess.h"
 
 namespace gcs_testbench {
 
@@ -26,18 +27,20 @@ namespace gcs_testbench {
 class StorageTestbench {
  public:
   StorageTestbench();
+  ~StorageTestbench();
 
   // Spawns the subprocess and returns the grpc address.
   void SpawnProcess();
 
   // Issues a gRPC CreateBucket request against the testbench.
-  void CreateBucket(std::string bucket);
+  static absl::Status CreateBucket(std::string grpc_endpoint,
+                                   std::string bucket);
 
   std::string http_address();
   std::string grpc_address();
 
-  const int http_port;
-  const int grpc_port;
+  int http_port;
+  int grpc_port;
   bool running = false;
 
   std::optional<tensorstore::internal::Subprocess> child;

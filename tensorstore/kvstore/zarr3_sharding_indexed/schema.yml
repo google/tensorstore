@@ -1,0 +1,53 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: kvstore/zarr_sharding_indexed
+title: Read/write adapter for the :ref:`zarr v3<zarr3-driver>` sharded_indexed format.
+description: JSON specification of the key-value store.
+allOf:
+- $ref: KvStore
+- type: object
+  properties:
+    driver:
+      const: zarr_sharding_indexed
+    base:
+      $ref: KvStore
+      title: Underlying key-value store with path to shard.
+    grid_shape:
+      type: array
+      items:
+        type: integer
+        minimum: 1
+      title: "Shape of the grid of entries in the shard."
+      $ref: kvstore/neuroglancer_uint64_sharded/ShardingSpec
+    index_codecs:
+      title: "Codec chain for encoding/decoding the shard index."
+      $ref: driver/zarr3/CodecChain
+    index_location:
+      title: "Location of the shard index within the shard."
+      oneOf:
+      - const: "start"
+      - const: "end"
+      default: "end"
+    cache_pool:
+      $ref: ContextResource
+      description: |
+        Specifies or references a previously defined `Context.cache_pool`.  It
+        is normally more convenient to specify a default `~Context.cache_pool`
+        in the `.context`.
+
+        .. important::
+
+           It is very helpful to specify a cache pool with a non-zero
+           `~Context.cache_pool.total_bytes_limit` value.  Otherwise, every read
+           operation will require an additional read to obtain the shard index.
+      default: cache_pool
+    data_copy_concurrency:
+      $ref: ContextResource
+      description: |-
+        Specifies or references a previously defined `Context.data_copy_concurrency`.
+        It is normally more convenient to specify a default `~Context.data_copy_concurrency` in
+        the `.context`.
+      default: data_copy_concurrency
+  required:
+  - base
+  - grid_shape
+  - index_codecs

@@ -62,11 +62,11 @@ absl::Status CopyTransformedArrayImpl(TransformedArrayView<const void> source,
                                            source.dtype(), dest.dtype()));
   absl::Status status;
   using TA = TransformedArrayView<const void>;
-  TENSORSTORE_ASSIGN_OR_RETURN(auto iterate_result,
+  TENSORSTORE_ASSIGN_OR_RETURN(auto success,
                                internal::IterateOverTransformedArrays<2>(
                                    r.closure, &status, skip_repeated_elements,
                                    span<const TA, 2>({source, TA(dest)})));
-  if (!iterate_result.success) {
+  if (!success) {
     return internal::GetElementCopyErrorStatus(std::move(status));
   }
   return status;
@@ -111,11 +111,11 @@ StridedLayoutView<dynamic_rank, offset_origin> GetUnboundedLayout(
 namespace internal {
 
 template <std::size_t Arity>
-Result<ArrayIterateResult> IterateOverTransformedArrays(
+Result<bool> IterateOverTransformedArrays(
     ElementwiseClosure<Arity, void*> closure, void* arg,
     IterationConstraints constraints,
     span<const TransformedArrayView<const void>, Arity> transformed_arrays) {
-  if (Arity == 0) return ArrayIterateResult{/*.success=*/true, /*.count=*/0};
+  if (Arity == 0) return true;
 
   const DimensionIndex input_rank = transformed_arrays[0].rank();
 
@@ -160,7 +160,7 @@ Result<ArrayIterateResult> IterateOverTransformedArrays(
   // handle this case correctly.
   for (DimensionIndex i = 0; i < input_rank; ++i) {
     if (input_bounds.shape()[i] == 0) {
-      return ArrayIterateResult{/*.success=*/true, /*.count=*/0};
+      return true;
     }
   }
 
@@ -211,7 +211,7 @@ Result<ArrayIterateResult> IterateOverTransformedArrays(
 }
 
 #define TENSORSTORE_DO_INSTANTIATE_ITERATE_OVER_TRANSFORMED_ARRAYS(Arity)      \
-  template Result<ArrayIterateResult> IterateOverTransformedArrays<Arity>(     \
+  template Result<bool> IterateOverTransformedArrays<Arity>(                   \
       ElementwiseClosure<Arity, void*> closure, void* arg,                     \
       IterationConstraints constraints,                                        \
       span<const TransformedArrayView<const void>, Arity> transformed_arrays); \

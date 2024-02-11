@@ -14,8 +14,20 @@
 
 #include "tensorstore/internal/metrics/collect.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
+#include <algorithm>
+#include <cassert>
+#include <string>
+#include <utility>
+#include <variant>
+#include <vector>
+
+#include "absl/functional/function_ref.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include <nlohmann/json.hpp>
 
 namespace tensorstore {
 namespace internal_metrics {
@@ -58,7 +70,8 @@ bool IsCollectedMetricNonZero(const CollectedMetric& metric) {
       if (std::visit(IsNonZero{}, v.value)) return true;
       if (std::visit(IsNonZero{}, v.max_value)) return true;
     }
-  } else if (!metric.histograms.empty()) {
+  }
+  if (!metric.histograms.empty()) {
     for (const auto& v : metric.histograms) {
       if (v.count != 0) return true;
     }
@@ -160,7 +173,8 @@ void FormatCollectedMetric(
       std::visit(VisitJsonDictify{tmp, "max_value"}, v.max_value);
       values.push_back(std::move(tmp));
     }
-  } else if (!metric.histograms.empty()) {
+  }
+  if (!metric.histograms.empty()) {
     for (const auto& v : metric.histograms) {
       ::nlohmann::json::object_t tmp{};
       set_field_keys(v, tmp);

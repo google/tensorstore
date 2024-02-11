@@ -15,9 +15,10 @@
 #ifndef TENSORSTORE_KVSTORE_BYTE_RANGE_REQUEST_H_
 #define TENSORSTORE_KVSTORE_BYTE_RANGE_REQUEST_H_
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <cassert>
-#include <cstdint>
-#include <optional>
 #include <ostream>
 
 #include "absl/strings/cord.h"

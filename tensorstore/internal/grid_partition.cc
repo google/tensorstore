@@ -15,9 +15,9 @@
 #include "tensorstore/internal/grid_partition.h"
 
 #include <algorithm>
+#include <array>
 #include <cassert>
-#include <memory>
-#include <optional>
+#include <cstddef>
 #include <utility>
 #include <vector>
 
@@ -25,15 +25,18 @@
 #include "absl/container/inlined_vector.h"
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
-#include "tensorstore/array.h"
+#include "tensorstore/box.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
+#include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/internal/transform_rep.h"
+#include "tensorstore/index_space/output_index_map.h"
+#include "tensorstore/index_space/output_index_method.h"
 #include "tensorstore/internal/grid_partition_impl.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/memory.h"
-#include "tensorstore/util/byte_strided_pointer.h"
-#include "tensorstore/util/division.h"
-#include "tensorstore/util/element_pointer.h"
+#include "tensorstore/internal/regular_grid.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
@@ -60,106 +63,6 @@ struct ConnectedSetIterateParameters {
                                  IndexTransformView<> cell_transform)>
       func;
 };
-
-/// Allocates the `cell_transform` and initializes the portions that are the
-/// same for all grid cells.
-///
-/// \param info The preprocessed partitioning data.
-/// \param full_input_rank The rank of the "full" input space to be partitioned.
-/// \returns A non-null pointer to a partially-initialized transform from the
-///     synthetic "cell" index space, of rank `cell_input_rank`, to the "full"
-///     index space, of rank `full_input_rank`.
-internal_index_space::TransformRep::Ptr<> InitializeCellTransform(
-    const IndexTransformGridPartition& info, TransformRep* full_transform) {
-  const DimensionIndex full_input_rank = full_transform->input_rank;
-  DimensionIndex num_index_array_dims = 0;
-  for (const IndexArraySet& index_array_set : info.index_array_sets()) {
-    num_index_array_dims += index_array_set.input_dimensions.size();
-  }
-  const DimensionIndex cell_input_rank =
-      full_input_rank - num_index_array_dims + info.index_array_sets().size();
-
-  internal_index_space::TransformRep::Ptr<> cell_transform =
-      TransformRep::Allocate(cell_input_rank, full_input_rank);
-  cell_transform->input_rank = cell_input_rank;
-  cell_transform->output_rank = full_input_rank;
-  cell_transform->implicit_lower_bounds = false;
-  cell_transform->implicit_upper_bounds = false;
-
-  const span<Index> input_origin =
-      cell_transform->input_origin().first(cell_input_rank);
-  const span<OutputIndexMap> output_maps =
-      cell_transform->output_index_maps().first(full_input_rank);
-
-  // Initialize the `cell_transform` output index maps for all input
-  // dimensions of the original input space that do affect grid cell indices
-  // (i.e. contained in a connected set).
-  {
-    // Next synthetic input dimension index, corresponding to a connected set.
-    // The synthetic input dimensions for index array connected sets come before
-    // those for strided connected sets, to match the order of the recursive
-    // iteration.
-    DimensionIndex cell_input_dim = 0;
-    for (const IndexArraySet& index_array_set : info.index_array_sets()) {
-      // The `input_origin` is always 0 for the synthetic input dimension
-      // corresponding to an index array connected set (in fact the origin is
-      // arbitrary and any origin could be used).  While iterating, the
-      // `input_shape[cell_input_dim]` will be set appropriately for each
-      // partition.
-      input_origin[cell_input_dim] = 0;
-      for (const DimensionIndex full_input_dim :
-           index_array_set.input_dimensions) {
-        auto& map = output_maps[full_input_dim];
-        // Use an `offset` of `0` and stride of `1`, since the precomputed index
-        // arrays correspond directly to the input domains.
-        map.offset() = 0;
-        map.stride() = 1;
-        auto& index_array_data = map.SetArrayIndexing(cell_input_rank);
-        std::fill_n(index_array_data.byte_strides, cell_input_rank, 0);
-        // Initialize the index array `byte_strides`, which are the same for
-        // all partitions.
-        index_array_data.byte_strides[cell_input_dim] =
-            index_array_set.partitioned_input_indices.byte_strides()[0];
-      }
-      ++cell_input_dim;
-    }
-
-    // The output index maps corresponding to the original input dimensions in
-    // strided connected sets do not depend on the partition.
-    for (const auto& strided_set : info.strided_sets()) {
-      auto& map = output_maps[strided_set.input_dimension];
-      map.SetSingleInputDimension(cell_input_dim);
-      // Use an `offset` of `0`.  The actual starting index into the original
-      // input dimension will be set as `input_origin[cell_input_dim]`.
-      map.offset() = 0;
-      // Use a `stride` of `1`, to not skip any part of the original input
-      // domain.
-      map.stride() = 1;
-      ++cell_input_dim;
-    }
-  }
-
-  // Set up the `cell_transform` output index maps corresponding to all input
-  // dimensions of the original input space that do not affect grid cell
-  // indices (i.e. not contained in a connected set).  These output index maps
-  // will not be modified.
-  for (DimensionIndex cell_input_dim = info.index_array_sets().size() +
-                                       info.strided_sets().size(),
-                      full_input_dim = 0;
-       full_input_dim < full_input_rank; ++full_input_dim) {
-    auto& map = output_maps[full_input_dim];
-    if (map.method() != OutputIndexMethod::constant) continue;
-    map.SetSingleInputDimension(cell_input_dim);
-    map.offset() = 0;
-    map.stride() = 1;
-    cell_transform->input_dimension(cell_input_dim) =
-        full_transform->input_dimension(full_input_dim);
-    ++cell_input_dim;
-  }
-
-  // Invariants checked in InvokeCallback
-  return cell_transform;
-}
 
 /// Sets the fixed grid cell indices for all grid dimensions that do not
 /// depend on any input dimensions (i.e. not contained in a connected set).
@@ -213,7 +116,8 @@ class StridedSetGridCellIterator {
     // For each grid dimension in the connected set, compute the grid cell
     // index corresponding to `input_index`, and constrain `restricted_domain`
     // to the range of this grid cell.
-    for (const DimensionIndex grid_dim : strided_set_.grid_dimensions) {
+    for (const DimensionIndex grid_dim :
+         strided_set_.grid_dimensions.index_view()) {
       const DimensionIndex output_dim = grid_output_dimensions_[grid_dim];
       const OutputIndexMapRef<> map = transform_.output_index_map(output_dim);
       IndexInterval cell_range;
@@ -248,9 +152,8 @@ class ConnectedSetIterateHelper {
   explicit ConnectedSetIterateHelper(ConnectedSetIterateParameters params)
       : params_(std::move(params)),
         grid_cell_indices_(params_.grid_output_dimensions.size()),
-        cell_transform_(InitializeCellTransform(
-            params_.info,
-            internal_index_space::TransformAccess::rep(params_.transform))) {
+        cell_transform_(internal_grid_partition::InitializeCellTransform(
+            params_.info, params_.transform)) {
     InitializeConstantGridCellIndices(
         params_.transform, params_.grid_output_dimensions,
         params_.output_to_grid_cell, grid_cell_indices_);
@@ -285,44 +188,24 @@ class ConnectedSetIterateHelper {
     }
     const IndexArraySet& index_array_set =
         params_.info.index_array_sets()[set_i];
-    const span<const DimensionIndex> grid_dimensions =
-        index_array_set.grid_dimensions;
+    const auto grid_dimensions = index_array_set.grid_dimensions;
+    const DimensionIndex num_grid_dimensions = grid_dimensions.count();
     // Iterate over the precomputed partitions.
     for (Index partition_i = 0,
                num_partitions = index_array_set.num_partitions();
          partition_i < num_partitions; ++partition_i) {
       // Assign the grid_cell_indices to the precomputed grid cell indices for
       // this partition.
-      const Index grid_cell_indices_offset =
-          partition_i * grid_dimensions.size();
-      for (DimensionIndex grid_i = 0; grid_i < grid_dimensions.size();
-           ++grid_i) {
-        const DimensionIndex grid_dim = grid_dimensions[grid_i];
+      const Index grid_cell_indices_offset = partition_i * num_grid_dimensions;
+      DimensionIndex grid_i = 0;
+      for (DimensionIndex grid_dim : grid_dimensions.index_view()) {
         grid_cell_indices_[grid_dim] =
             index_array_set
-                .grid_cell_indices[grid_cell_indices_offset + grid_i];
+                .grid_cell_indices[grid_cell_indices_offset + grid_i++];
       }
 
-      // Update the output index maps for the original input dimensions in this
-      // connected set to reference the precomputed index array of input indices
-      // corresponding to this partition.
-      const SharedArray<const Index, 2> partition_input_indices =
-          index_array_set.partition_input_indices(partition_i);
-      cell_transform_->input_shape()[set_i] =
-          partition_input_indices.shape()[0];
-      ByteStridedPointer<const Index> partition_input_indices_ptr =
-          partition_input_indices.byte_strided_pointer();
-      const Index vector_dimension_byte_stride =
-          partition_input_indices.byte_strides()[1];
-      const span<OutputIndexMap> output_maps =
-          cell_transform_->output_index_maps();
-      for (DimensionIndex full_input_dim : index_array_set.input_dimensions) {
-        internal_index_space::IndexArrayData& index_array_data =
-            output_maps[full_input_dim].index_array_data();
-        index_array_data.element_pointer = std::shared_ptr<const Index>(
-            partition_input_indices.pointer(), partition_input_indices_ptr);
-        partition_input_indices_ptr += vector_dimension_byte_stride;
-      }
+      UpdateCellTransformForIndexArraySetPartition(
+          index_array_set, set_i, partition_i, cell_transform_.get());
       TENSORSTORE_RETURN_IF_ERROR(IterateOverIndexArraySets(set_i + 1));
     }
     return absl::OkStatus();
@@ -454,11 +337,12 @@ struct GetGridCellRangesIterateParameters {
   span<const DimensionIndex> grid_output_dimensions;
   OutputToGridCellFn output_to_grid_cell;
   IndexTransformView<> transform;
-  absl::FunctionRef<absl::Status(span<const Index> outer_prefix,
-                                 IndexInterval inner_interval)>
-      func;
+  absl::FunctionRef<absl::Status(BoxView<> bounds)> func;
   DimensionIndex outer_prefix_rank;
+  BoxView<> grid_bounds;
   span<const IndexInterval> inner_intervals;
+  span<const StridedSet*> strided_sets_in_prefix;
+  span<const IndexArraySet*> index_array_sets_in_prefix;
 };
 
 class GetGridCellRangesIterateHelper {
@@ -469,7 +353,22 @@ class GetGridCellRangesIterateHelper {
     InitializeConstantGridCellIndices(
         params_.transform, params_.grid_output_dimensions,
         params_.output_to_grid_cell,
-        span(outer_prefix_).first(params_.transform.output_rank()));
+        span<Index>(&grid_bounds_origin_[0], params_.transform.output_rank()));
+    for (DimensionIndex i = 0; i < params.outer_prefix_rank; ++i) {
+      grid_bounds_shape_[i] = 1;
+    }
+    for (DimensionIndex i = params.outer_prefix_rank + 1,
+                        rank = params.grid_bounds.rank();
+         i < rank; ++i) {
+      grid_bounds_origin_[i] = params.grid_bounds.origin()[i];
+      grid_bounds_shape_[i] = params.grid_bounds.shape()[i];
+    }
+    if (params.inner_intervals.size() == 1) {
+      const auto& inner_interval = params.inner_intervals[0];
+      grid_bounds_origin_[params.outer_prefix_rank] =
+          inner_interval.inclusive_min();
+      grid_bounds_shape_[params.outer_prefix_rank] = inner_interval.size();
+    }
   }
 
   /// Iterates over all grid cells and invokes the iteration callback function.
@@ -480,7 +379,8 @@ class GetGridCellRangesIterateHelper {
 
  private:
   GetGridCellRangesIterateParameters params_;
-  Index outer_prefix_[kMaxRank];
+  Index grid_bounds_origin_[kMaxRank];
+  Index grid_bounds_shape_[kMaxRank];
 
   /// Recursively iterates over the partial grid cells corresponding to the
   /// index array connected sets, starting with `set_i`.
@@ -499,27 +399,25 @@ class GetGridCellRangesIterateHelper {
   ///     the range `[0, info.index_array_sets().size()]`.
   /// \returns The return value of the last recursively call.
   absl::Status IterateOverIndexArraySets(DimensionIndex set_i) {
-    if (set_i == params_.info.index_array_sets().size()) {
+    if (set_i == params_.index_array_sets_in_prefix.size()) {
       return IterateOverStridedSets(0);
     }
     const IndexArraySet& index_array_set =
-        params_.info.index_array_sets()[set_i];
-    const span<const DimensionIndex> grid_dimensions =
-        index_array_set.grid_dimensions;
+        *params_.index_array_sets_in_prefix[set_i];
+    const auto grid_dimensions = index_array_set.grid_dimensions;
+    const DimensionIndex num_grid_dimensions = grid_dimensions.count();
     // Iterate over the precomputed partitions.
     for (Index partition_i = 0,
                num_partitions = index_array_set.num_partitions();
          partition_i < num_partitions; ++partition_i) {
       // Assign the grid_cell_indices to the precomputed grid cell indices for
       // this partition.
-      const Index grid_cell_indices_offset =
-          partition_i * grid_dimensions.size();
-      for (DimensionIndex grid_i = 0; grid_i < grid_dimensions.size();
-           ++grid_i) {
-        const DimensionIndex grid_dim = grid_dimensions[grid_i];
-        outer_prefix_[grid_dim] =
+      const Index grid_cell_indices_offset = partition_i * num_grid_dimensions;
+      DimensionIndex grid_i = 0;
+      for (DimensionIndex grid_dim : grid_dimensions.index_view()) {
+        grid_bounds_origin_[grid_dim] =
             index_array_set
-                .grid_cell_indices[grid_cell_indices_offset + grid_i];
+                .grid_cell_indices[grid_cell_indices_offset + grid_i++];
       }
 
       TENSORSTORE_RETURN_IF_ERROR(IterateOverIndexArraySets(set_i + 1));
@@ -545,12 +443,12 @@ class GetGridCellRangesIterateHelper {
   /// \returns The return value of the last recursive call, or the last call to
   ///     `InvokeCallback`.
   absl::Status IterateOverStridedSets(DimensionIndex set_i) {
-    if (set_i == params_.info.strided_sets().size()) return InvokeCallback();
+    if (set_i == params_.strided_sets_in_prefix.size()) return InvokeCallback();
     StridedSetGridCellIterator iterator(
         params_.transform, params_.grid_output_dimensions,
-        params_.output_to_grid_cell, params_.info.strided_sets()[set_i]);
+        params_.output_to_grid_cell, *params_.strided_sets_in_prefix[set_i]);
     while (!iterator.AtEnd()) {
-      iterator.Next(outer_prefix_);
+      iterator.Next(grid_bounds_origin_);
       // Recursively iterate over the next strided connected set.
       TENSORSTORE_RETURN_IF_ERROR(IterateOverStridedSets(set_i + 1));
     }
@@ -563,10 +461,15 @@ class GetGridCellRangesIterateHelper {
   ///
   /// \error Any error returned by the iteration callback function.
   absl::Status InvokeCallback() {
-    const span<const Index> outer_prefix =
-        span<const Index>(outer_prefix_).first(params_.outer_prefix_rank);
+    MutableBoxView<> bounds(params_.grid_bounds.rank(), grid_bounds_origin_,
+                            grid_bounds_shape_);
+    if (params_.inner_intervals.size() == 1) {
+      return params_.func(bounds);
+    }
+    DimensionIndex outer_prefix_rank = params_.outer_prefix_rank;
     for (const auto& inner_interval : params_.inner_intervals) {
-      TENSORSTORE_RETURN_IF_ERROR(params_.func(outer_prefix, inner_interval));
+      bounds[outer_prefix_rank] = inner_interval;
+      TENSORSTORE_RETURN_IF_ERROR(params_.func(bounds));
     }
     return absl::OkStatus();
   }
@@ -584,14 +487,13 @@ absl::Status PartitionIndexTransformOverGrid(
     absl::FunctionRef<absl::Status(span<const Index> grid_cell_indices,
                                    IndexTransformView<> cell_transform)>
         func) {
-  std::optional<internal_grid_partition::IndexTransformGridPartition>
-      partition_info;
+  internal_grid_partition::IndexTransformGridPartition partition_info;
   auto status = internal_grid_partition::PrePartitionIndexTransformOverGrid(
-      transform, grid_output_dimensions, output_to_grid_cell, &partition_info);
+      transform, grid_output_dimensions, output_to_grid_cell, partition_info);
 
   if (!status.ok()) return status;
   return internal_grid_partition::ConnectedSetIterateHelper(
-             {/*.info=*/*partition_info,
+             {/*.info=*/partition_info,
               /*.grid_output_dimensions=*/grid_output_dimensions,
               /*.output_to_grid_cell=*/output_to_grid_cell,
               /*.transform=*/transform,
@@ -611,15 +513,14 @@ absl::Status PartitionIndexTransformOverRegularGrid(
                                          transform, std::move(func));
 }
 
-absl::Status GetGridCellRanges(
-    span<const DimensionIndex> grid_output_dimensions, BoxView<> grid_bounds,
-    internal_grid_partition::OutputToGridCellFn output_to_grid_cell,
-    IndexTransformView<> transform,
-    absl::FunctionRef<absl::Status(span<const Index> outer_prefix,
-                                   IndexInterval inner_interval)>
-        callback) {
-  using internal_grid_partition::StridedSet;
+}  // namespace internal
 
+namespace internal_grid_partition {
+absl::Status GetGridCellRanges(
+    const IndexTransformGridPartition& grid_partition,
+    span<const DimensionIndex> grid_output_dimensions, BoxView<> grid_bounds,
+    OutputToGridCellFn output_to_grid_cell, IndexTransformView<> transform,
+    absl::FunctionRef<absl::Status(BoxView<> bounds)> callback) {
   assert(grid_output_dimensions.size() == grid_bounds.rank());
 
   if (transform.domain().box().is_empty()) {
@@ -628,18 +529,9 @@ absl::Status GetGridCellRanges(
   }
 
   if (grid_output_dimensions.empty()) {
-    // Only a single grid cell, return zero-length `outer_prefix` and dummy
-    // `inner_interval`.
-    return callback(/*outer_prefix=*/{}, /*inner_interval=*/{});
+    // Only a single grid cell.
+    return callback({});
   }
-
-  std::optional<internal_grid_partition::IndexTransformGridPartition>
-      grid_partition_opt;
-  TENSORSTORE_RETURN_IF_ERROR(
-      internal_grid_partition::PrePartitionIndexTransformOverGrid(
-          transform, grid_output_dimensions, output_to_grid_cell,
-          &grid_partition_opt));
-  auto& grid_partition = *grid_partition_opt;
 
   std::array<DimensionIndex, kMaxRank> dim_to_indexed_set;
   dim_to_indexed_set.fill(-1);
@@ -648,19 +540,20 @@ absl::Status GetGridCellRanges(
   // dimension.
   DimensionSet one_to_one_grid_dims;
   for (const auto& strided_set : grid_partition.strided_sets()) {
-    if (strided_set.grid_dimensions.size() != 1) {
+    if (strided_set.grid_dimensions.count() != 1) {
       continue;
     }
-    const DimensionIndex grid_dim = strided_set.grid_dimensions[0];
+    const DimensionIndex grid_dim =
+        strided_set.grid_dimensions.index_view().front();
     one_to_one_grid_dims[grid_dim] = true;
   }
 
   for (size_t i = 0; i < grid_partition.index_array_sets().size(); ++i) {
     const auto& set = grid_partition.index_array_sets()[i];
-    if (set.grid_dimensions.size() != 1) {
+    if (set.grid_dimensions.count() != 1) {
       continue;
     }
-    const DimensionIndex grid_dim = set.grid_dimensions[0];
+    const DimensionIndex grid_dim = set.grid_dimensions.index_view().front();
     one_to_one_grid_dims[grid_dim] = true;
     dim_to_indexed_set[grid_dim] = i;
   }
@@ -684,7 +577,7 @@ absl::Status GetGridCellRanges(
     if (grid_interval.size() == 1) {
       // Only a single grid cell, therefore always unconstrained.
       inner_intervals.clear();
-      inner_intervals.push_back(IndexInterval());
+      inner_intervals.push_back(grid_interval);
       continue;
     }
 
@@ -727,7 +620,7 @@ absl::Status GetGridCellRanges(
         tensorstore::Contains(inner_intervals[0], grid_interval)) {
       // Dimension is unconstrained.
       inner_intervals.clear();
-      inner_intervals.push_back(IndexInterval());
+      inner_intervals.push_back(grid_interval);
       continue;
     }
 
@@ -736,28 +629,69 @@ absl::Status GetGridCellRanges(
     break;
   }
 
-  // Remove sets that are not part of the outer prefix.
-  const auto remove_sets_not_in_prefix = [&](auto& sets) {
-    sets.erase(
-        std::remove_if(
-            sets.begin(), sets.end(),
-            [&](const auto& set) -> bool {
-              return grid_dimensions_outside_prefix[set.grid_dimensions[0]];
-            }),
-        sets.end());
+  const StridedSet* strided_sets_in_prefix_storage[kMaxRank];
+  const IndexArraySet* index_array_sets_in_prefix_storage[kMaxRank];
+
+  // Get the reduced list of sets that are part of the outer prefix.
+  const auto get_sets_in_prefix = [&](auto sets, auto* buffer) {
+    ptrdiff_t i = 0;
+    for (const auto& set : sets) {
+      if (grid_dimensions_outside_prefix[set.grid_dimensions.index_view()
+                                             .front()]) {
+        continue;
+      }
+      buffer[i++] = &set;
+    }
+    return span(buffer, i);
   };
-  remove_sets_not_in_prefix(grid_partition.strided_sets());
-  remove_sets_not_in_prefix(grid_partition.index_array_sets());
+
+  auto strided_sets_in_prefix = get_sets_in_prefix(
+      grid_partition.strided_sets(), strided_sets_in_prefix_storage);
+  auto index_array_sets_in_prefix = get_sets_in_prefix(
+      grid_partition.index_array_sets(), index_array_sets_in_prefix_storage);
 
   if (range_queryable_grid_dim == grid_output_dimensions.size() - 1) {
-    inner_intervals.push_back(IndexInterval());
+    inner_intervals.push_back(grid_bounds[range_queryable_grid_dim]);
   }
 
   internal_grid_partition::GetGridCellRangesIterateHelper iterate_helper(
       internal_grid_partition::GetGridCellRangesIterateParameters{
           grid_partition, grid_output_dimensions, output_to_grid_cell,
-          transform, callback, range_queryable_grid_dim + 1, inner_intervals});
+          transform, callback, range_queryable_grid_dim + 1, grid_bounds,
+          inner_intervals, strided_sets_in_prefix, index_array_sets_in_prefix});
   return iterate_helper.Iterate();
+}
+}  // namespace internal_grid_partition
+
+namespace internal {
+
+absl::Status GetGridCellRanges(
+    span<const DimensionIndex> grid_output_dimensions, BoxView<> grid_bounds,
+    internal_grid_partition::OutputToGridCellFn output_to_grid_cell,
+    IndexTransformView<> transform,
+    absl::FunctionRef<absl::Status(BoxView<> bounds)> callback) {
+  using internal_grid_partition::StridedSet;
+
+  assert(grid_output_dimensions.size() == grid_bounds.rank());
+
+  if (transform.domain().box().is_empty()) {
+    // Domain is empty, maps to no grid cells.
+    return absl::OkStatus();
+  }
+
+  if (grid_output_dimensions.empty()) {
+    // Only a single grid cell.
+    return callback({});
+  }
+
+  internal_grid_partition::IndexTransformGridPartition grid_partition;
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal_grid_partition::PrePartitionIndexTransformOverGrid(
+          transform, grid_output_dimensions, output_to_grid_cell,
+          grid_partition));
+  return internal_grid_partition::GetGridCellRanges(
+      grid_partition, grid_output_dimensions, grid_bounds, output_to_grid_cell,
+      transform, callback);
 }
 
 }  // namespace internal

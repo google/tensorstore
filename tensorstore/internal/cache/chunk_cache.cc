@@ -226,6 +226,11 @@ struct ReadChunkTransactionImpl {
       read_array =
           ChunkCache::GetReadComponent(read_lock.data(), component_index);
       read_generation = read_lock.stamp().generation;
+      if (!node->IsUnconditional() &&
+          (node->transaction()->mode() & repeatable_read)) {
+        TENSORSTORE_RETURN_IF_ERROR(
+            node->RequireRepeatableRead(read_generation));
+      }
     }
     return component.GetReadNDIterable(component_spec, origin_span,
                                        std::move(read_array), read_generation,
@@ -337,26 +342,20 @@ struct WriteChunkImpl {
 
   WriteChunk::EndWriteResult operator()(WriteChunk::EndWrite,
                                         IndexTransformView<> chunk_transform,
-                                        NDIterable::IterationLayoutView layout,
-                                        span<const Index> write_end_position,
-                                        Arena* arena) const {
+                                        bool success, Arena* arena) const {
     auto& entry = GetOwningEntry(*node);
     const auto& component_spec = entry.component_specs()[component_index];
     Index origin[kMaxRank];
     const span<Index> origin_span(origin, component_spec.rank());
     GetOwningCache(entry).grid().GetComponentOrigin(
         component_index, entry.cell_indices(), origin_span);
-    const bool modified = node->components()[component_index].EndWrite(
-        component_spec, origin_span, chunk_transform, layout,
-        write_end_position, arena);
-    if (modified) node->is_modified = modified;
-    if (modified && IsFullyOverwritten(*node)) {
+    node->components()[component_index].EndWrite(
+        component_spec, origin_span, chunk_transform, success, arena);
+    node->is_modified = true;
+    if (IsFullyOverwritten(*node)) {
       node->SetUnconditional();
     }
-    if (modified) {
-      return {node->OnModified(), node->transaction()->future()};
-    }
-    return {};
+    return {node->OnModified(), node->transaction()->future()};
   }
 };
 
@@ -557,33 +556,29 @@ absl::Status ChunkCache::TransactionNode::OnModified() {
   return absl::OkStatus();
 }
 
-namespace {
-bool IsCommitUnconditional(ChunkCache::TransactionNode& node) {
-  return node.IsUnconditional() || !node.is_modified;
-}
-}  // namespace
-
 void ChunkCache::TransactionNode::DoApply(ApplyOptions options,
                                           ApplyReceiver receiver) {
-  if (options.validate_only) {
+  if (options.apply_mode == ApplyOptions::kValidateOnly) {
     execution::set_value(
         receiver, ReadState{{}, TimestampedStorageGeneration::Unconditional()});
     return;
   }
   auto continuation = WithExecutor(
       GetOwningCache(*this).executor(),
-      [this, receiver = std::move(receiver)](
+      [this, receiver = std::move(receiver),
+       specify_unchanged =
+           options.apply_mode == ApplyOptions::kSpecifyUnchanged](
           tensorstore::ReadyFuture<const void> future) mutable {
         if (!future.result().ok()) {
           return execution::set_error(receiver, future.result().status());
         }
         AsyncCache::ReadState read_state;
-        if (!IsCommitUnconditional(*this)) {
-          read_state = AsyncCache::ReadLock<void>(*this).read_state();
-        } else {
+        if (this->IsUnconditional() ||
+            (!this->is_modified && !specify_unchanged)) {
           read_state.stamp = TimestampedStorageGeneration::Unconditional();
+        } else {
+          read_state = AsyncCache::ReadLock<void>(*this).read_state();
         }
-        std::shared_ptr<const void> new_data;
         if (is_modified) {
           // Protect against concurrent calls to `DoApply`, since this may
           // modify the write arrays to incorporate the read state.
@@ -595,7 +590,9 @@ void ChunkCache::TransactionNode::DoApply(ApplyOptions options,
         }
         execution::set_value(receiver, std::move(read_state));
       });
-  if (IsCommitUnconditional(*this)) {
+  if (this->IsUnconditional() ||
+      (!this->is_modified &&
+       options.apply_mode != ApplyOptions::kSpecifyUnchanged)) {
     continuation(MakeReadyFuture());
   } else {
     this->Read(options.staleness_bound)

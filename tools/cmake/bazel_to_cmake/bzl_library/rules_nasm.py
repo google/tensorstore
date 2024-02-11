@@ -121,13 +121,13 @@ def _nasm_library_impl(
   # On Windows, CMake does not correctly handle linking of libraries containing
   # only nasm sources.  Also, when not using the builtin rule, CMake does not
   # handle a library containing only object file as sources.  As a workaround,
-  # add a dummy C file.
-  dummy_source: Optional[str] = None
+  # add a placeholder C file.
+  placeholder_source: Optional[str] = None
   if (
       workspace.cmake_vars["CMAKE_CXX_COMPILER_ID"] == "MSVC"
       or not use_builtin_rule
   ):
-    dummy_source = state.get_dummy_source()
+    placeholder_source = state.get_placeholder_source()
   _emit_nasm_library(
       _context.access(CMakeBuilder),
       target_name=cmake_target_pair.target,
@@ -137,7 +137,7 @@ def _nasm_library_impl(
       flags=resolved_flags,
       includes=all_includes,
       alwayslink=alwayslink,
-      dummy_source=dummy_source,
+      placeholder_source=placeholder_source,
       use_builtin_rule=use_builtin_rule,
   )
   _context.add_analyzed_target(
@@ -163,18 +163,20 @@ def _emit_nasm_library(
     srcs: Set[str],
     includes: Set[str],
     flags: List[str],
-    dummy_source: Optional[str],
+    placeholder_source: Optional[str],
     alwayslink: bool,
     use_builtin_rule: bool,
 ):
   """Generates an NASM library target."""
   all_srcs = sorted(srcs)
-  dummy_sources = [dummy_source] if dummy_source is not None else []
+  placeholder_sources = (
+      [placeholder_source] if placeholder_source is not None else []
+  )
   _builder.addtext(f"add_library({target_name})\n")
   if use_builtin_rule:
     _builder.addtext(_EMIT_YASM_CHECK, unique=True)
     _builder.addtext(
-        f"""target_sources({target_name} PRIVATE {quote_list(all_srcs + dummy_sources)})
+        f"""target_sources({target_name} PRIVATE {quote_list(all_srcs + placeholder_sources)})
 target_include_directories({target_name} PRIVATE {quote_list(sorted(includes))})
 set_source_files_properties(
     {quote_list(all_srcs)}
@@ -213,7 +215,7 @@ add_custom_command(
 """)
 
     _builder.addtext(
-        f"""target_sources({target_name} PRIVATE {quote_list(all_src_obj_exprs + dummy_sources)})\n"""
+        f"""target_sources({target_name} PRIVATE {quote_list(all_src_obj_exprs + placeholder_sources)})\n"""
     )
   if alias_name:
     _builder.add_library_alias(

@@ -1,13 +1,26 @@
-load("//bazel:tensorstore.bzl", "tensorstore_cc_binary", "tensorstore_cc_library", "tensorstore_cc_test")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+load("//bazel:tensorstore.bzl", "tensorstore_cc_binary", "tensorstore_cc_library", "tensorstore_cc_test")
 
 package(default_visibility = ["//tensorstore:internal_packages"])
 
 licenses(["notice"])
 
 bool_flag(
+    name = "refcount_debug",
+    build_setting_default = False,
+)
+
+bool_flag(
     name = "async_cache_debug",
     build_setting_default = False,
+)
+
+config_setting(
+    name = "refcount_debug_setting",
+    flag_values = {
+        ":refcount_debug": "True",
+    },
+    visibility = ["//visibility:private"],
 )
 
 config_setting(
@@ -31,22 +44,23 @@ tensorstore_cc_library(
     deps = [
         ":cache",
         "//tensorstore:transaction",
-        "//tensorstore/internal:intrusive_linked_list",
         "//tensorstore/internal:intrusive_ptr",
-        "//tensorstore/internal:intrusive_red_black_tree",
         "//tensorstore/internal:mutex",
         "//tensorstore/internal:no_destructor",
         "//tensorstore/internal:tagged_ptr",
         "//tensorstore/internal:type_traits",
+        "//tensorstore/internal/container:intrusive_linked_list",
+        "//tensorstore/internal/container:intrusive_red_black_tree",
         "//tensorstore/kvstore:generation",
         "//tensorstore/util:future",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "//tensorstore/util/execution:any_receiver",
-        "//tensorstore/util/execution:sender",
+        "@com_google_absl//absl/base",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/log:absl_log",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/time",
@@ -90,14 +104,19 @@ tensorstore_cc_library(
     name = "kvs_backed_cache",
     srcs = ["kvs_backed_cache.cc"],
     hdrs = ["kvs_backed_cache.h"],
+    defines = select({
+        ":async_cache_debug_setting": ["TENSORSTORE_ASYNC_CACHE_DEBUG"],
+        "//conditions:default": [],
+    }),
     deps = [
         ":async_cache",
+        "//tensorstore:transaction",
         "//tensorstore/internal/metrics",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:generation",
-        "//tensorstore/util:future",
         "//tensorstore/util:status",
         "//tensorstore/util/execution",
+        "//tensorstore/util/execution:any_receiver",
         "//tensorstore/util/execution:future_sender",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/log:absl_log",
@@ -120,6 +139,7 @@ tensorstore_cc_test(
         "//tensorstore/internal:global_initializer",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:mock_kvstore",
+        "//tensorstore/kvstore:read_result_testutil",
         "//tensorstore/kvstore:test_util",
         "//tensorstore/kvstore/memory",
         "//tensorstore/util:status_testutil",
@@ -144,6 +164,7 @@ tensorstore_cc_library(
         "//tensorstore/kvstore:generation",
         "//tensorstore/kvstore:generation_testutil",
         "//tensorstore/kvstore:key_range",
+        "//tensorstore/kvstore:read_result_testutil",
         "//tensorstore/kvstore:test_util",
         "//tensorstore/util:future",
         "//tensorstore/util:quote_string",
@@ -161,6 +182,7 @@ tensorstore_cc_library(
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest",
+        "@com_google_re2//:re2",
     ],
 )
 
@@ -200,18 +222,24 @@ tensorstore_cc_library(
         "cache.h",
         "cache_pool_limits.h",
     ],
+    defines = select({
+        ":refcount_debug_setting": ["TENSORSTORE_CACHE_REFCOUNT_DEBUG"],
+        "//conditions:default": [],
+    }),
     deps = [
-        "//tensorstore/internal:heterogeneous_container",
-        "//tensorstore/internal:integer_overflow",
-        "//tensorstore/internal:intrusive_linked_list",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:mutex",
+        "//tensorstore/internal:type_traits",
+        "//tensorstore/internal/container:heterogeneous_container",
+        "//tensorstore/internal/container:intrusive_linked_list",
         "//tensorstore/internal/metrics",
         "//tensorstore/internal/poly",
         "@com_google_absl//absl/base",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/functional:function_ref",
+        "@com_google_absl//absl/hash",
+        "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/synchronization",
     ],
 )
@@ -260,8 +288,8 @@ tensorstore_cc_test(
         ":cache",
         "//tensorstore/internal:concurrent_testutil",
         "//tensorstore/internal:intrusive_ptr",
-        "//tensorstore/internal:memory",
-        "//tensorstore/util:str_cat",
+        "//tensorstore/internal:mutex",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/synchronization",
         "@com_google_googletest//:gtest_main",
@@ -337,7 +365,7 @@ tensorstore_cc_binary(
         "//tensorstore/index_space:transformed_array",
         "//tensorstore/internal:element_copy_function",
         "//tensorstore/internal:intrusive_ptr",
-        "//tensorstore/internal:thread_pool",
+        "//tensorstore/internal/thread:thread_pool",
         "//tensorstore/kvstore:generation",
         "//tensorstore/util:executor",
         "//tensorstore/util:future",
@@ -347,8 +375,7 @@ tensorstore_cc_binary(
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:inlined_vector",
         "@com_google_absl//absl/time",
-        "@com_google_benchmark//:benchmark",
-        "@com_google_benchmark//:benchmark_main",  # build_cleaner: keep
+        "@com_google_benchmark//:benchmark_main",
     ],
 )
 
@@ -364,25 +391,29 @@ tensorstore_cc_test(
         "//tensorstore",
         "//tensorstore:array",
         "//tensorstore:box",
+        "//tensorstore:context",
         "//tensorstore:data_type",
         "//tensorstore:index",
         "//tensorstore:progress",
         "//tensorstore:rank",
         "//tensorstore:staleness_bound",
+        "//tensorstore:transaction",
         "//tensorstore/driver",
         "//tensorstore/driver:chunk",
         "//tensorstore/driver:chunk_cache_driver",
+        "//tensorstore/driver:driver_testutil",
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/index_space:transformed_array",
         "//tensorstore/internal:element_copy_function",
         "//tensorstore/internal:elementwise_function",
+        "//tensorstore/internal:global_initializer",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:masked_array",
         "//tensorstore/internal:memory",
         "//tensorstore/internal:meta",
         "//tensorstore/internal:queue_testutil",
-        "//tensorstore/internal:thread_pool",
+        "//tensorstore/internal/thread:thread_pool",
         "//tensorstore/kvstore:generation",
         "//tensorstore/kvstore:mock_kvstore",
         "//tensorstore/kvstore:test_util",
@@ -399,6 +430,7 @@ tensorstore_cc_test(
         "@com_google_absl//absl/container:inlined_vector",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest_main",
     ],

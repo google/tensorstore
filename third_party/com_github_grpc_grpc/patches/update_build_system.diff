@@ -15,70 +15,10 @@
 # NOTE: The second patch to includes has no change, but is intended to signal
 # whether we still need a workaround in bazel_to_cmake/emit_cc.py
 #
-diff -u -ur a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
---- a/bazel/grpc_build_system.bzl	2023-05-18 23:47:46.000000000 +0000
-+++ b/bazel/grpc_build_system.bzl	2023-05-24 03:12:30.791821657 +0000
-@@ -31,8 +31,14 @@
- load("//bazel:copts.bzl", "GRPC_DEFAULT_COPTS")
- load("//bazel:experiments.bzl", "EXPERIMENTS")
- load("@upb//bazel:upb_proto_library.bzl", "upb_proto_library", "upb_proto_reflection_library")
--load("@build_bazel_rules_apple//apple:ios.bzl", "ios_unit_test")
--load("@build_bazel_rules_apple//apple/testing/default_runner:ios_test_runner.bzl", "ios_test_runner")
-+# load("@build_bazel_rules_apple//apple:ios.bzl", "ios_unit_test")
-+# load("@build_bazel_rules_apple//apple/testing/default_runner:ios_test_runner.bzl", "ios_test_runner")
-+
-+def ios_unit_test(**kwargs):
-+    pass
-+
-+def ios_test_runner(**kwargs):
-+    pass
- 
- # The set of pollers to test against if a test exercises polling
- POLLERS = ["epoll1", "poll"]
-@@ -54,6 +60,12 @@
-         "//conditions:default": [],
-     })
- 
-+def if_mingw(a):
-+    return select({
-+        "//:mingw-gcc": a,
-+        "//conditions:default": [],
-+    })
-+
- def _get_external_deps(external_deps):
-     ret = []
-     for dep in external_deps:
-@@ -99,7 +111,7 @@
-         "grpc_opencensus_plugin": PUBLIC,
-         "grpcpp_gcp_observability": PUBLIC,
-         "grpc_resolver_fake": PRIVATE,
--        "grpc++_test": PRIVATE,
-+        "grpc++_test": PUBLIC,
-         "http": PRIVATE,
-         "httpcli": PRIVATE,
-         "iomgr_timer": PRIVATE,
-@@ -166,7 +178,7 @@
-     copts = []
-     if language.upper() == "C":
-         copts = copts + if_not_windows(["-std=c11"])
--    linkopts = linkopts + if_not_windows(["-pthread"]) + if_windows(["-defaultlib:ws2_32.lib"])
-+    linkopts = linkopts + if_not_windows(["-pthread"]) + if_windows(["-defaultlib:ws2_32.lib"]) +  if_mingw(["-lws2_32"])
-     if select_deps:
-         for select_deps_entry in select_deps:
-             deps += select(select_deps_entry)
-@@ -452,7 +464,7 @@
-     test_args = {
-         "data": data,
-         "copts": GRPC_DEFAULT_COPTS + copts,
--        "linkopts": if_not_windows(["-pthread"]) + if_windows(["-defaultlib:ws2_32.lib"]),
-+        "linkopts": if_not_windows(["-pthread"]) + if_windows(["-defaultlib:ws2_32.lib"]) + if_mingw(["-lws2_32"]),
-         "size": size,
-         "timeout": timeout,
-         "exec_compatible_with": exec_compatible_with,
-diff -u -ur a/BUILD b/BUILD
---- a/BUILD	2023-05-18 23:47:46.000000000 +0000
-+++ b/BUILD	2023-05-24 03:08:22.441078815 +0000
-@@ -162,6 +162,13 @@
+diff -Nur a/BUILD b/BUILD
+--- a/BUILD	2023-11-27 16:12:30
++++ b/BUILD	2023-12-07 11:01:08
+@@ -194,6 +194,13 @@
  )
 
  config_setting(
@@ -90,9 +30,9 @@ diff -u -ur a/BUILD b/BUILD
 +
 +config_setting(
      name = "mac_x86_64",
-     values = {"cpu": "darwin"},
+     values = {"cpu": "darwin_x86_64"},
  )
-@@ -1994,6 +2001,7 @@
+@@ -2088,6 +2095,7 @@
      external_deps = [
          "protobuf_headers",
          "protobuf",
@@ -100,3 +40,83 @@ diff -u -ur a/BUILD b/BUILD
      ],
      language = "c++",
      public_hdrs = [
+@@ -2730,6 +2738,7 @@
+     external_deps = [
+         "absl/strings",
+         "absl/strings:str_format",
++        "absl/types:optional",
+     ],
+     tags = ["nofixdeps"],
+     visibility = ["@grpc:iomgr_timer"],
+@@ -3713,6 +3722,7 @@
+         "protobuf_struct_upb",
+         "protobuf_timestamp_upb",
+         "ref_counted_ptr",
++        "server_address",
+         "uri_parser",
+         "work_serializer",
+         "//src/core:default_event_engine",
+diff -Nur a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
+--- a/bazel/grpc_build_system.bzl	2023-11-27 16:12:30
++++ b/bazel/grpc_build_system.bzl	2023-12-07 10:41:53
+@@ -31,10 +31,18 @@
+ load("//bazel:copts.bzl", "GRPC_DEFAULT_COPTS")
+ load("//bazel:experiments.bzl", "EXPERIMENTS")
+ load("//bazel:test_experiments.bzl", "TEST_EXPERIMENTS")
+-load("@build_bazel_rules_apple//apple:ios.bzl", "ios_unit_test")
+-load("@build_bazel_rules_apple//apple/testing/default_runner:ios_test_runner.bzl", "ios_test_runner")
++# load("@build_bazel_rules_apple//apple:ios.bzl", "ios_unit_test")
++# load("@build_bazel_rules_apple//apple/testing/default_runner:ios_test_runner.bzl", "ios_test_runner")
+ load("@com_google_protobuf//bazel:upb_proto_library.bzl", "upb_proto_library", "upb_proto_reflection_library")
+
++
++def ios_unit_test(**kwargs):
++    pass
++
++def ios_test_runner(**kwargs):
++    pass
++
++
+ # The set of pollers to test against if a test exercises polling
+ POLLERS = ["epoll1", "poll"]
+
+@@ -55,6 +63,12 @@
+         "//conditions:default": [],
+     })
+
++def if_mingw(a):
++    return select({
++        "//:mingw-gcc": a,
++        "//conditions:default": [],
++    })
++
+ def _get_external_deps(external_deps):
+     ret = []
+     for dep in external_deps:
+@@ -105,7 +119,7 @@
+         "grpc_opencensus_plugin": PUBLIC,
+         "grpcpp_gcp_observability": PUBLIC,
+         "grpc_resolver_fake": PRIVATE,
+-        "grpc++_test": PRIVATE,
++        "grpc++_test": PUBLIC,
+         "http": PRIVATE,
+         "httpcli": PRIVATE,
+         "iomgr_timer": PRIVATE,
+@@ -174,7 +188,7 @@
+     copts = []
+     if language.upper() == "C":
+         copts = copts + if_not_windows(["-std=c11"])
+-    linkopts = linkopts + if_not_windows(["-pthread"]) + if_windows(["-defaultlib:ws2_32.lib"])
++    linkopts = linkopts + if_not_windows(["-pthread"]) + if_windows(["-defaultlib:ws2_32.lib"]) +  if_mingw(["-lws2_32"])
+     if select_deps:
+         for select_deps_entry in select_deps:
+             deps += select(select_deps_entry)
+@@ -489,7 +503,7 @@
+     test_args = {
+         "data": data,
+         "copts": GRPC_DEFAULT_COPTS + copts,
+-        "linkopts": if_not_windows(["-pthread"]) + if_windows(["-defaultlib:ws2_32.lib"]),
++        "linkopts": if_not_windows(["-pthread"]) + if_windows(["-defaultlib:ws2_32.lib"]) + if_mingw(["-lws2_32"]),
+         "size": size,
+         "timeout": timeout,
+         "exec_compatible_with": exec_compatible_with,

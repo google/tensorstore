@@ -38,6 +38,7 @@
 #include "tensorstore/internal/estimate_heap_usage/estimate_heap_usage.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
@@ -287,6 +288,41 @@ struct ComparePrefixedKeyToUnprefixedKey {
     return prefixed.compare(unprefixed.substr(prefix.size()));
   }
 };
+
+/// Returns the entry with key equal to `key`, or `nullptr` if there is no such
+/// entry.
+const LeafNodeEntry* FindBtreeEntry(span<const LeafNodeEntry> entries,
+                                    std::string_view key);
+
+/// Returns a pointer to the first entry with a key not less than
+/// `inclusive_min`, or a pointer one past the end of `entries` if there is no
+/// such entry.
+const LeafNodeEntry* FindBtreeEntryLowerBound(span<const LeafNodeEntry> entries,
+                                              std::string_view inclusive_min);
+
+/// Returns the sub-span of entries with keys greater or equal to
+/// `inclusive_min` and less than `exclusive_max` (where, as for `KeyRange`, an
+/// empty string for `exclusive_max` indicates no upper bound).
+span<const LeafNodeEntry> FindBtreeEntryRange(span<const LeafNodeEntry> entries,
+                                              std::string_view inclusive_min,
+                                              std::string_view exclusive_max);
+
+/// Returns a pointer to the entry whose subtree may contain `key`, or `nullptr`
+/// if no entry has a subtree that may contain `key`.
+const InteriorNodeEntry* FindBtreeEntry(span<const InteriorNodeEntry> entries,
+                                        std::string_view key);
+
+/// Returns a pointer to the first entry whose key range intersects the set of
+/// keys that are not less than `inclusive_min`.
+const InteriorNodeEntry* FindBtreeEntryLowerBound(
+    span<const InteriorNodeEntry> entries, std::string_view inclusive_min);
+
+/// Returns the sub-span of entries whose subtrees intersect the key range
+/// `[inclusive_min, exclusive_max)` (where, as for `KeyRange`, an empty string
+/// for `exclusive_max` indicates no upper bound).
+span<const InteriorNodeEntry> FindBtreeEntryRange(
+    span<const InteriorNodeEntry> entries, std::string_view inclusive_min,
+    std::string_view exclusive_max);
 
 #ifndef NDEBUG
 /// Checks invariants.

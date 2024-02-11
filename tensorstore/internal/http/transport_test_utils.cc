@@ -38,14 +38,16 @@
 #endif  // _WIN32
 
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <cassert>
 #include <cstring>
+#include <optional>
+#include <string>
 #include <string_view>
 
-#include "absl/base/call_once.h"
-#include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"

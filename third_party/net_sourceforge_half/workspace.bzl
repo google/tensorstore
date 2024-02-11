@@ -27,7 +27,7 @@ def repo():
             "https://sourceforge.net/projects/half/files/half/2.1.0/half-2.1.0.zip",
         ],
         sha256 = "ad1788afe0300fa2b02b0d1df128d857f021f92ccf7c8bddd07812685fa07a25",
-        build_file = Label("//third_party:net_sourceforge_half/bundled.BUILD.bazel"),
+        build_file = Label("//third_party:net_sourceforge_half/half.BUILD.bazel"),
         patches = [
             # https://sourceforge.net/p/half/discussion/general/thread/86298c105c/
             Label("//third_party:net_sourceforge_half/patches/detail_raise.patch"),

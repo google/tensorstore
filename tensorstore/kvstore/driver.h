@@ -171,6 +171,13 @@ class Driver {
     return Write(key, std::nullopt, std::move(options));
   }
 
+  /// Copies a range of keys from `source`.
+  ///
+  /// This API is experimental and subject to change.
+  virtual Future<const void> ExperimentalCopyRangeFrom(
+      const internal::OpenTransactionPtr& transaction, const KvStore& source,
+      Key target_prefix, CopyRangeOptions options);
+
   /// Registers a transactional read-modify-write operation.
   ///
   /// Any actual reading will be deferred until requested by `source`, and any
@@ -193,12 +200,6 @@ class Driver {
   virtual absl::Status ReadModifyWrite(
       internal::OpenTransactionPtr& transaction, size_t& phase, Key key,
       ReadModifyWriteSource& source);
-
-  /// Returns an implicit transaction for the specified key.
-  ///
-  /// This may return either an existing or new implicit transaction.
-  virtual Result<internal::OpenTransactionPtr> GetImplicitTransaction(
-      const Key& key);
 
   /// Registers a transactional delete range operation.
   ///

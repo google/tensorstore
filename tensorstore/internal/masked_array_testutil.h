@@ -27,14 +27,6 @@
 namespace tensorstore {
 namespace internal {
 
-/// Return type of WriteToMaskedArray.  This is used in place of `Result<bool>`
-/// because the array may have been modified even in the case of an error, or
-/// may have not been modified even in the case of success.
-struct MaskedArrayWriteResult {
-  absl::Status status;
-  bool modified;
-};
-
 /// Copies the contents of `source` to an "output" array, and updates `*mask` to
 /// include all positions that were modified.
 ///
@@ -47,8 +39,6 @@ struct MaskedArrayWriteResult {
 /// \param copy_function Element-wise function to use for copying.
 /// \param copy_context_ptr Context pointer to pass to `copy_function`.
 /// \pre The range of `input_to_output` must be a subset of `output_box`.
-/// \returns A MaskedArrayWriteResult with `status` indicating if an error
-///     occurred, and `modified` indicating if the "output" array was modified.
 /// \error `absl::StatusCode::kInvalidArgument` if the transformed arrays do not
 ///     all have the same rank.
 /// \error `absl::StatusCode::kInvalidArgument` if the transformed arrays do not
@@ -57,10 +47,11 @@ struct MaskedArrayWriteResult {
 ///     out-of-bounds index.
 /// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs
 ///     computing output indices.
-MaskedArrayWriteResult WriteToMaskedArray(
-    ElementPointer<void> output_ptr, MaskData* mask, BoxView<> output_box,
-    IndexTransformView<> input_to_output, TransformedArray<const void> source,
-    ElementCopyFunction::Closure copy_function);
+absl::Status WriteToMaskedArray(ElementPointer<void> output_ptr, MaskData* mask,
+                                BoxView<> output_box,
+                                IndexTransformView<> input_to_output,
+                                TransformedArray<const void> source,
+                                ElementCopyFunction::Closure copy_function);
 
 }  // namespace internal
 }  // namespace tensorstore

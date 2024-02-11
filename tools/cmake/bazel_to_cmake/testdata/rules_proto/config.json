@@ -1,5 +1,33 @@
 {
-  "modules": [
-      ".bzl_library.rules_proto"
+  "modules": [".bzl_library.rules_proto"],
+  "targets": [
+    "//:a_proto",
+    "//:a_proto__cpp_library",
+    "//:a_proto__minitable_library",
+    "//:a_proto__upb_library",
+    "//:a_proto__upbdefs_library",
+    "//:ab_proto",
+    "//:ab_proto__cpp_library",
+    "//:ab_proto__minitable_library",
+    "//:ab_proto__upb_library",
+    "//:ab_proto__upbdefs_library",
+    "//:ab_protos_cc",
+    "//:abc_proto",
+    "//:abc_proto__cpp_library",
+    "//:abc_proto__minitable_library",
+    "//:abc_proto__upb_library",
+    "//:abc_proto__upbdefs_library",
+    "//:abc_protos_cc",
+    "//:b_proto",
+    "//:b_proto__cpp_library",
+    "//:b_proto__minitable_library",
+    "//:b_proto__upb_library",
+    "//:b_proto__upbdefs_library",
+    "//:x_proto",
+    "//:x_proto__cpp_library",
+    "//:x_proto__minitable_library",
+    "//:x_proto__upb_library",
+    "//:x_proto__upbdefs_library",
+    "//:x_proto_cc"
   ]
 }

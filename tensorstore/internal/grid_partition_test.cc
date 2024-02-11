@@ -19,19 +19,19 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
+#include "tensorstore/internal/grid_partition_impl.h"
 #include "tensorstore/internal/irregular_grid.h"
-#include "tensorstore/internal/memory.h"
 #include "tensorstore/internal/regular_grid.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/status_testutil.h"
 
 namespace {
 using ::tensorstore::Box;
@@ -47,7 +47,10 @@ using ::tensorstore::Result;
 using ::tensorstore::span;
 using ::tensorstore::internal::GetGridCellRanges;
 using ::tensorstore::internal::IrregularGrid;
+using ::tensorstore::internal_grid_partition::IndexTransformGridPartition;
 using ::tensorstore::internal_grid_partition::OutputToGridCellFn;
+using ::tensorstore::internal_grid_partition::
+    PrePartitionIndexTransformOverGrid;
 using ::tensorstore::internal_grid_partition::RegularGridRef;
 using ::testing::ElementsAre;
 
@@ -75,11 +78,22 @@ std::vector<R> GetPartitions(
     const std::vector<DimensionIndex>& grid_output_dimensions,
     const std::vector<Index>& grid_cell_shape, IndexTransformView<> transform) {
   std::vector<R> results;
+
+  IndexTransformGridPartition info;
+  RegularGridRef grid{grid_cell_shape};
+  TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverGrid(
+      transform, grid_output_dimensions, grid, info));
   TENSORSTORE_CHECK_OK(
       tensorstore::internal::PartitionIndexTransformOverRegularGrid(
           grid_output_dimensions, grid_cell_shape, transform,
           [&](span<const Index> grid_cell_indices,
               IndexTransformView<> cell_transform) {
+            auto cell_transform_direct = info.GetCellTransform(
+                transform, grid_cell_indices, grid_output_dimensions,
+                [&](DimensionIndex dim, Index cell_index) {
+                  return grid.GetCellOutputInterval(dim, cell_index);
+                });
+            EXPECT_EQ(cell_transform_direct, cell_transform);
             results.emplace_back(std::vector<Index>(grid_cell_indices.begin(),
                                                     grid_cell_indices.end()),
                                  IndexTransform<>(cell_transform));
@@ -747,18 +761,18 @@ TEST(PartitionIndexTransformOverIrregularGrid, IndexArrayAndStridedDimensions) {
 
 namespace get_grid_cell_ranges_tests {
 
-using R = std::pair<std::vector<Index>, IndexInterval>;
+using R = Box<>;
 Result<std::vector<R>> GetRanges(
     span<const DimensionIndex> grid_output_dimensions, BoxView<> grid_bounds,
     OutputToGridCellFn output_to_grid_cell, IndexTransformView<> transform) {
   std::vector<R> results;
+  IndexTransformGridPartition grid_partition;
+  TENSORSTORE_RETURN_IF_ERROR(PrePartitionIndexTransformOverGrid(
+      transform, grid_output_dimensions, output_to_grid_cell, grid_partition));
   TENSORSTORE_RETURN_IF_ERROR(GetGridCellRanges(
       grid_output_dimensions, grid_bounds, output_to_grid_cell, transform,
-      [&](span<const Index> outer_prefix,
-          IndexInterval inner_interval) -> absl::Status {
-        results.emplace_back(
-            std::vector<Index>(outer_prefix.begin(), outer_prefix.end()),
-            inner_interval);
+      [&](BoxView<> bounds) -> absl::Status {
+        results.emplace_back(bounds);
         return absl::OkStatus();
       }));
   return results;
@@ -780,7 +794,7 @@ TEST(GetGridCellRangesTest, Rank1Unconstrained) {
                             .output_identity_transform()
                             .Finalize()
                             .value()),
-              ::testing::Optional(ElementsAre(R{})));
+              ::testing::Optional(ElementsAre(R{{0}, {10}})));
 }
 
 TEST(GetGridCellRangesTest, Rank1Constrained) {
@@ -796,8 +810,7 @@ TEST(GetGridCellRangesTest, Rank1Constrained) {
                             .output_identity_transform()
                             .Finalize()
                             .value()),
-              ::testing::Optional(
-                  ElementsAre(R{{}, IndexInterval::UncheckedHalfOpen(1, 8)})));
+              ::testing::Optional(ElementsAre(R({1}, {7}))));
 }
 
 TEST(GetGridCellRangesTest, Rank2ConstrainedBothDims) {
@@ -816,9 +829,10 @@ TEST(GetGridCellRangesTest, Rank2ConstrainedBothDims) {
                             .output_identity_transform()
                             .Finalize()
                             .value()),
-              ::testing::Optional(
-                  ElementsAre(R{{1}, IndexInterval::UncheckedClosed(0, 3)},
-                              R{{2}, IndexInterval::UncheckedClosed(0, 3)})));
+              ::testing::Optional(ElementsAre(  //
+                  R{{1, 0}, {1, 4}},            //
+                  R{{2, 0}, {1, 4}}             //
+                  )));
 }
 
 TEST(GetGridCellRangesTest, Rank2ConstrainedFirstDimOnly) {
@@ -837,8 +851,7 @@ TEST(GetGridCellRangesTest, Rank2ConstrainedFirstDimOnly) {
                             .output_identity_transform()
                             .Finalize()
                             .value()),
-              ::testing::Optional(
-                  ElementsAre(R{{}, IndexInterval::UncheckedHalfOpen(1, 3)})));
+              ::testing::Optional(ElementsAre(R{{1, 0}, {2, 10}})));
 }
 
 TEST(GetGridCellRangesTest, Rank2ConstrainedSecondDimOnly) {
@@ -857,12 +870,13 @@ TEST(GetGridCellRangesTest, Rank2ConstrainedSecondDimOnly) {
                             .output_identity_transform()
                             .Finalize()
                             .value()),
-              ::testing::Optional(
-                  ElementsAre(R{{0}, IndexInterval::UncheckedHalfOpen(1, 8)},
-                              R{{1}, IndexInterval::UncheckedHalfOpen(1, 8)},
-                              R{{2}, IndexInterval::UncheckedHalfOpen(1, 8)},
-                              R{{3}, IndexInterval::UncheckedHalfOpen(1, 8)},
-                              R{{4}, IndexInterval::UncheckedHalfOpen(1, 8)})));
+              ::testing::Optional(ElementsAre(  //
+                  R{{0, 1}, {1, 7}},            //
+                  R{{1, 1}, {1, 7}},            //
+                  R{{2, 1}, {1, 7}},            //
+                  R{{3, 1}, {1, 7}},            //
+                  R{{4, 1}, {1, 7}}             //
+                  )));
 }
 
 TEST(GetGridCellRangesTest, Rank2IndexArrayFirstDimUnconstrainedSecondDim) {
@@ -884,9 +898,10 @@ TEST(GetGridCellRangesTest, Rank2IndexArrayFirstDimUnconstrainedSecondDim) {
               .output_single_input_dimension(1, 1)
               .Finalize()
               .value()),
-      ::testing::Optional(
-          ElementsAre(R{{}, IndexInterval::UncheckedClosed(1, 1)},  //
-                      R{{}, IndexInterval::UncheckedClosed(3, 4)})));
+      ::testing::Optional(ElementsAre(  //
+          R{{1, 0}, {1, 10}},           //
+          R{{3, 0}, {2, 10}}            //
+          )));
 }
 
 TEST(GetGridCellRangesTest, Rank2IndexArrayFirstDimConstrainedSecondDim) {
@@ -910,10 +925,11 @@ TEST(GetGridCellRangesTest, Rank2IndexArrayFirstDimConstrainedSecondDim) {
               .value()),
       // Since grid dimension 1 is constrained, a separate range is required for
       // each grid dimension 0 index.
-      ::testing::Optional(
-          ElementsAre(R{{1}, IndexInterval::UncheckedClosed(1, 7)},
-                      R{{3}, IndexInterval::UncheckedClosed(1, 7)},
-                      R{{4}, IndexInterval::UncheckedClosed(1, 7)})));
+      ::testing::Optional(ElementsAre(  //
+          R{{1, 1}, {1, 7}},            //
+          R{{3, 1}, {1, 7}},            //
+          R{{4, 1}, {1, 7}}             //
+          )));
 }
 
 TEST(GetGridCellRangesTest, Rank2Diagonal) {
@@ -933,8 +949,10 @@ TEST(GetGridCellRangesTest, Rank2Diagonal) {
                             .output_single_input_dimension(1, 0)
                             .Finalize()
                             .value()),
-              ::testing::Optional(ElementsAre(R{{1, 0}, IndexInterval()},
-                                              R{{2, 1}, IndexInterval()})));
+              ::testing::Optional(ElementsAre(  //
+                  R{{1, 0}, {1, 1}},            //
+                  R{{2, 1}, {1, 1}}             //
+                  )));
 }
 
 }  // namespace get_grid_cell_ranges_tests

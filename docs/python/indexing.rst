@@ -366,7 +366,7 @@ Adding singleton dimensions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Specifying a value of :py:obj:`tensorstore.newaxis` (equal to `None`) adds a
-new dummy/singleton dimension with `implicit bounds<implicit-bounds>`
+new inert/singleton dimension with `implicit bounds<implicit-bounds>`
 :math:`[0, 1)`:
 
 .. doctest::

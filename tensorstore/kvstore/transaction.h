@@ -87,10 +87,11 @@
 #include <atomic>
 #include <string>
 
+#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
-#include "tensorstore/internal/intrusive_red_black_tree.h"
+#include "tensorstore/internal/container/intrusive_red_black_tree.h"
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/tagged_ptr.h"
 #include "tensorstore/kvstore/read_modify_write.h"
@@ -308,6 +309,10 @@ class ReadModifyWriteEntry : public MutationEntry,
   /// We don't set `next_` prior to commit because we may have to modify it
   /// repeatedly due to splits and merges.
   constexpr static Flags kDeleted = 32;
+
+  /// Only meaningful if `kWritebackProvided` is also set.  Indicates that the
+  /// writeback completed with a state not equal to `ReadResult::kUnspecified`.
+  constexpr static Flags kTransitivelyDirty = 64;
 
   // Implementation of `ReadModifyWriteTarget` interface:
 
@@ -709,7 +714,7 @@ void KvstoreDebugLog(tensorstore::SourceLocation loc, MutationEntry& entry,
     tensorstore::StrAppend(&message, ", seq=", seq);
   }
   tensorstore::StrAppend(&message, "] ", arg...);
-  tensorstore::internal::LogMessage(message.c_str(), loc);
+  ABSL_LOG(INFO).AtLocation(loc.file_name(), loc.line()) << message;
 }
 #else
 #define TENSORSTORE_KVSTORE_DEBUG_LOG(...) while (false)

@@ -15,6 +15,8 @@
 #ifndef TENSORSTORE_INTERNAL_METRICS_COUNTER_H_
 #define TENSORSTORE_INTERNAL_METRICS_COUNTER_H_
 
+#include <stdint.h>
+
 #include <atomic>
 #include <memory>
 #include <string>
@@ -36,6 +38,8 @@
 
 namespace tensorstore {
 namespace internal_metrics {
+
+#ifndef TENSORSTORE_METRICS_DISABLED
 
 /// CounterCell holds an individual "counter" metric value.
 template <typename T>
@@ -63,7 +67,7 @@ class ABSL_CACHELINE_ALIGNED Counter {
   static_assert(std::is_same_v<T, int64_t> || std::is_same_v<T, double>);
   using Cell = std::conditional_t<std::is_same_v<T, int64_t>,
                                   CounterCell<int64_t>, CounterCell<double>>;
-  using Impl = AbstractMetric<Cell, Fields...>;
+  using Impl = AbstractMetric<Cell, true, Fields...>;
 
  public:
   using value_type = T;
@@ -176,6 +180,11 @@ class ABSL_CACHELINE_ALIGNED CounterCell<double> : public CounterTag {
 
   void Reset() { value_ = 0.0; }
 
+  void Combine(CounterCell& other) const {
+    other.value_.store(other.value_.load(std::memory_order_relaxed) +
+                       value_.load(std::memory_order_relaxed));
+  }
+
  private:
   std::atomic<double> value_{0.0};
 };
@@ -198,9 +207,43 @@ class ABSL_CACHELINE_ALIGNED CounterCell<int64_t> : public CounterTag {
 
   void Reset() { value_ = 0; }
 
+  void Combine(CounterCell& other) const {
+    other.value_.fetch_add(value_.load(std::memory_order_relaxed),
+                           std::memory_order_relaxed);
+  }
+
  private:
   std::atomic<int64_t> value_{0};
 };
+
+#else
+template <typename T>
+struct CounterCell {
+  static void IncrementBy(T value) {}
+  static void Increment() { IncrementBy(1); }
+};
+template <typename T, typename... Fields>
+class Counter {
+ public:
+  using value_type = T;
+  using Cell = CounterCell<T>;
+
+  static Counter& New(
+      std::string_view metric_name,
+      typename internal::FirstType<std::string_view, Fields>... field_names,
+      MetricMetadata metadata) {
+    static constexpr Counter metric;
+    return const_cast<Counter&>(metric);
+  }
+  static void Increment(typename FieldTraits<Fields>::param_type... labels) {}
+  static void IncrementBy(value_type value,
+                          typename FieldTraits<Fields>::param_type... labels) {}
+  static Cell& GetCell(typename FieldTraits<Fields>::param_type... labels) {
+    static constexpr Cell cell;
+    return const_cast<Cell&>(cell);
+  }
+};
+#endif  // TENSORSTORE_METRICS_DISABLED
 
 }  // namespace internal_metrics
 }  // namespace tensorstore

@@ -294,10 +294,9 @@ void ArrayDriver::Write(
       return GetTransformedArrayNDIterable(self->data_, chunk_transform, arena);
     }
 
-    WriteChunk::EndWriteResult operator()(
-        WriteChunk::EndWrite, IndexTransformView<> chunk_transform,
-        internal::NDIterable::IterationLayoutView layout,
-        span<const Index> write_end_position, Arena* arena) {
+    WriteChunk::EndWriteResult operator()(WriteChunk::EndWrite,
+                                          IndexTransformView<> chunk_transform,
+                                          bool success, Arena* arena) {
       return {};
     }
   };

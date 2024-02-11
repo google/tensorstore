@@ -14,16 +14,25 @@
 
 /// Tests for iteration over transformed arrays.
 
+#include "tensorstore/util/iterate.h"
+
+#include <vector>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include "tensorstore/array.h"
+#include "tensorstore/contiguous_layout.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/internal/iterate_impl.h"
+#include "tensorstore/index_space/internal/transform_rep.h"
 #include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -207,7 +216,7 @@ TEST(IterateOverTransformedArraysTest, StridedOnly) {
   auto source_array = MakeArray<const float>({{1, 2, 3, 4}, {5, 6, 7, 8}});
   auto dest_array = tensorstore::AllocateArray<float>(
       {2, 4, 2}, tensorstore::c_order, tensorstore::value_init);
-  TENSORSTORE_CHECK_OK(IterateOverTransformedArrays(
+  TENSORSTORE_ASSERT_OK(IterateOverTransformedArrays(
       [&](const float* source_ptr, float* dest_ptr) {
         *dest_ptr = *source_ptr;
       },
@@ -235,18 +244,16 @@ TEST(IterateOverTransformedArraysTest, ErrorHandling) {
 TEST(IterateOverTransformedArrayTest, EarlyStoppingWithoutStatus) {
   auto array_a = MakeArray<float>({5, 6, 7, 9});
   auto array_b = MakeArray<float>({5, 6, 8, 9});
-  auto result = IterateOverTransformedArrays(
-      [&](const float* a_ptr, float* b_ptr) {
-        if (*a_ptr != *b_ptr) {
-          return false;
-        }
-        *b_ptr = 0;
-        return true;
-      },
-      /*constraints=*/{}, array_a, array_b);
-  TENSORSTORE_ASSERT_OK(result);
-  EXPECT_FALSE(result->success);
-  EXPECT_EQ(2, result->count);
+  ASSERT_THAT(IterateOverTransformedArrays(
+                  [&](const float* a_ptr, float* b_ptr) {
+                    if (*a_ptr != *b_ptr) {
+                      return false;
+                    }
+                    *b_ptr = 0;
+                    return true;
+                  },
+                  /*constraints=*/{}, array_a, array_b),
+              ::testing::Optional(false));
   EXPECT_EQ(MakeArray<float>({5, 6, 7, 9}), array_a);
   EXPECT_EQ(MakeArray<float>({0, 0, 8, 9}), array_b);
 }
@@ -255,20 +262,19 @@ TEST(IterateOverTransformedArrayTest, EarlyStoppingWithStatus) {
   auto array_a = MakeArray<float>({5, 6, 7, 9});
   auto array_b = MakeArray<float>({5, 6, 8, 9});
   absl::Status status;
-  auto result = IterateOverTransformedArrays(
-      [&](const float* a_ptr, float* b_ptr) {
-        if (*a_ptr != *b_ptr) {
-          status = absl::UnknownError(tensorstore::StrCat(*a_ptr, " ", *b_ptr));
-          return false;
-        }
-        *b_ptr = 0;
-        return true;
-      },
-      /*constraints=*/{}, array_a, array_b);
-  TENSORSTORE_ASSERT_OK(result);
+  ASSERT_THAT(IterateOverTransformedArrays(
+                  [&](const float* a_ptr, float* b_ptr) {
+                    if (*a_ptr != *b_ptr) {
+                      status = absl::UnknownError(
+                          tensorstore::StrCat(*a_ptr, " ", *b_ptr));
+                      return false;
+                    }
+                    *b_ptr = 0;
+                    return true;
+                  },
+                  /*constraints=*/{}, array_a, array_b),
+              ::testing::Optional(false));
   EXPECT_THAT(status, MatchesStatus(absl::StatusCode::kUnknown, "7 8"));
-  EXPECT_FALSE(result->success);
-  EXPECT_EQ(2, result->count);
   EXPECT_EQ(MakeArray<float>({5, 6, 7, 9}), array_a);
   EXPECT_EQ(MakeArray<float>({0, 0, 8, 9}), array_b);
 }
@@ -277,7 +283,7 @@ TEST(IterateOverTransformedArraysTest, IndexArrays) {
   auto source_array = MakeArray<const float>({{1, 2, 3, 4}, {5, 6, 7, 8}});
   auto dest_array = tensorstore::AllocateArray<float>(
       {2, 4, 2}, tensorstore::c_order, tensorstore::value_init);
-  TENSORSTORE_CHECK_OK(IterateOverTransformedArrays(
+  TENSORSTORE_ASSERT_OK(IterateOverTransformedArrays(
       [&](const float* source_ptr, float* dest_ptr) {
         *dest_ptr = *source_ptr;
       },

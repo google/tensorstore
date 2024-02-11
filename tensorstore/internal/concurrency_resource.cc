@@ -26,7 +26,7 @@
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/std_optional.h"
-#include "tensorstore/internal/thread_pool.h"
+#include "tensorstore/internal/thread/thread_pool.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/result.h"

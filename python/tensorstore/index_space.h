@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef THIRD_PARTY_PY_TENSORSTORE_INDEX_SPACE_H_
-#define THIRD_PARTY_PY_TENSORSTORE_INDEX_SPACE_H_
+#ifndef PYTHON_TENSORSTORE_INDEX_SPACE_H_
+#define PYTHON_TENSORSTORE_INDEX_SPACE_H_
 
 /// \file
 ///
@@ -506,4 +506,4 @@ Group:
 }  // namespace internal_python
 }  // namespace tensorstore
 
-#endif  // THIRD_PARTY_PY_TENSORSTORE_INDEX_SPACE_H_
+#endif  // PYTHON_TENSORSTORE_INDEX_SPACE_H_

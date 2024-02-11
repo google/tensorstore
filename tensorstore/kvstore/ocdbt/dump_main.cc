@@ -81,7 +81,7 @@ absl::Status RunDumpCommand() {
 
     auto io_handle = internal_ocdbt::MakeIoHandle(
         context.GetResource<internal::DataCopyConcurrencyResource>().value(),
-        **context.GetResource<internal::CachePoolResource>().value(), kvs,
+        context.GetResource<internal::CachePoolResource>().value()->get(), kvs,
         /*config_state=*/
         internal::MakeIntrusivePtr<ConfigState>());
 

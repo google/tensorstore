@@ -72,24 +72,16 @@ struct MaskData {
   Box<> region;
 };
 
-/// Updates `*mask` to include all positions within `layout` up to (but not
-/// including) `write_end_position`.
+/// Updates `*mask` to include all positions within the range of
+/// `input_to_output`.
 ///
 /// \param mask[in,out] Non-null pointer to mask with domain `output_box`.
 /// \param output_box Domain of the `mask`.
-/// \param input_to_output Transform that specifies the mapping from `layout` to
-///     `output_box`.  Must be valid.
-/// \param layout Iteration layout for the input space of `input_to_output`.
-///     Must be valid for `input_to_output` applied to a contiguous C-order
-///     array with domain `output_box`.
-/// \param write_end_position One past the last position within `layout` to
-///     include in the mask.
+/// \param input_to_output Transform that specifies the mapping to `output_box`.
+///     Must be valid.
 /// \param arena Allocation arena that may be used.
-/// \returns `true` if the specified mask update region is non-empty.
-bool WriteToMask(MaskData* mask, BoxView<> output_box,
-                 IndexTransformView<> input_to_output,
-                 NDIterable::IterationLayoutView layout,
-                 span<const Index> write_end_position, Arena* arena);
+void WriteToMask(MaskData* mask, BoxView<> output_box,
+                 IndexTransformView<> input_to_output, Arena* arena);
 
 /// Copies unmasked elements from `source_data` to `data_ptr`.
 ///

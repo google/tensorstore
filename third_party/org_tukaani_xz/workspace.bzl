@@ -25,7 +25,7 @@ def repo():
             "https://tukaani.org/xz/xz-5.3.3alpha.tar.gz",
         ],
         sha256 = "c6d4789a79bab565440784db2e132d6bf03b2e75dd6d66a8102cf002d8dfe926",
-        build_file = Label("//third_party:org_tukaani_xz/bundled.BUILD.bazel"),
+        build_file = Label("//third_party:org_tukaani_xz/xz.BUILD.bazel"),
         system_build_file = Label("//third_party:org_tukaani_xz/system.BUILD.bazel"),
         doc_homepage = "https://tukaani.org/xz/",
         cmake_name = "LibLZMA",

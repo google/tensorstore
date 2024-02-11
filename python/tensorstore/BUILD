@@ -50,6 +50,7 @@ pybind11_py_extension(
         ":python_imports",
         ":serialization",
         ":spec",
+        ":stack",
         ":tensorstore_class",
         ":tensorstore_module_components",
         ":transaction",
@@ -90,6 +91,7 @@ py_library(
     visibility = ["//visibility:public"],
     deps = [
         ":_tensorstore",
+        "@pypa_ml_dtypes//:ml_dtypes",  # build_cleaner: keep
         "@pypa_numpy//:numpy",
     ],
 )
@@ -175,6 +177,16 @@ tensorstore_pytest_test(
     name = "downsample_test",
     size = "small",
     srcs = ["tests/downsample_test.py"],
+    deps = [
+        ":tensorstore",
+        "@pypa_numpy//:numpy",
+    ],
+)
+
+tensorstore_pytest_test(
+    name = "stack_test",
+    size = "small",
+    srcs = ["tests/stack_test.py"],
     deps = [
         ":tensorstore",
         "@pypa_numpy//:numpy",
@@ -321,10 +333,12 @@ pybind11_cc_library(
         ":subscript_method",
         ":tensorstore_module_components",
         "//tensorstore:array",
+        "//tensorstore:container_kind",
         "//tensorstore:index",
         "//tensorstore:index_interval",
         "//tensorstore:rank",
         "//tensorstore:strided_layout",
+        "//tensorstore/index_space:dim_expression",
         "//tensorstore/index_space:dimension_identifier",
         "//tensorstore/index_space:dimension_index_buffer",
         "//tensorstore/index_space:index_transform",
@@ -332,8 +346,11 @@ pybind11_cc_library(
         "//tensorstore/internal:global_initializer",
         "//tensorstore/internal/json_binding",
         "//tensorstore/util:bit_span",
+        "//tensorstore/util:dimension_set",
         "//tensorstore/util:element_pointer",
+        "//tensorstore/util:executor",
         "//tensorstore/util:quote_string",
+        "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:str_cat",
         "@com_github_nlohmann_json//:nlohmann_json",
@@ -433,14 +450,10 @@ pybind11_cc_library(
 pybind11_cc_library(
     name = "data_type",
     srcs = [
-        "bfloat16.cc",
         "data_type.cc",
-        "int4.cc",
     ],
     hdrs = [
-        "bfloat16.h",
         "data_type.h",
-        "int4.h",
     ],
     deps = [
         ":json_type_caster",
@@ -449,17 +462,13 @@ pybind11_cc_library(
         ":tensorstore_module_components",
         "//tensorstore:data_type",
         "//tensorstore/internal:global_initializer",
-        "//tensorstore/internal:type_traits",
-        "//tensorstore/util:bfloat16",
+        "//tensorstore/internal:no_destructor",
         "//tensorstore/util:executor",
-        "//tensorstore/util:int4",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:str_cat",
-        "@com_github_nlohmann_json//:nlohmann_json",
         "@com_github_pybind_pybind11//:pybind11",
-        "@com_google_absl//absl/base",
+        "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/hash",
-        "@local_config_python//:python_headers",
     ],
     alwayslink = True,
 )
@@ -596,7 +605,7 @@ pybind11_cc_library(
         ":tensorstore_module_components",
         ":type_name_override",
         "//tensorstore/internal:global_initializer",
-        "//tensorstore/internal:intrusive_linked_list",
+        "//tensorstore/internal/container:intrusive_linked_list",
         "//tensorstore/serialization",
         "//tensorstore/util:executor",
         "//tensorstore/util:future",
@@ -825,6 +834,29 @@ pybind11_cc_library(
         "//tensorstore:index",
         "//tensorstore:spec",
         "//tensorstore/driver/downsample:downsample_method_json_binder",
+        "//tensorstore/internal:global_initializer",
+        "//tensorstore/util:executor",
+        "@com_github_pybind_pybind11//:pybind11",
+    ],
+    alwayslink = True,
+)
+
+pybind11_cc_library(
+    name = "stack",
+    srcs = ["stack.cc"],
+    deps = [
+        ":dim_expression",
+        ":index",
+        ":keyword_arguments",
+        ":result_type_caster",
+        ":sequence_parameter",
+        ":spec",
+        ":tensorstore_class",
+        ":tensorstore_module_components",
+        "//tensorstore",
+        "//tensorstore:index",
+        "//tensorstore:spec",
+        "//tensorstore:stack",
         "//tensorstore/internal:global_initializer",
         "//tensorstore/util:executor",
         "@com_github_pybind_pybind11//:pybind11",
@@ -1078,12 +1110,21 @@ pybind11_cc_library(
     name = "metrics",
     srcs = ["metrics.cc"],
     deps = [
+        ":future",
         ":json_type_caster",
         ":tensorstore_module_components",
         "//tensorstore/internal:global_initializer",
+        "//tensorstore/internal/http",
+        "//tensorstore/internal/http:curl_transport",
         "//tensorstore/internal/metrics:collect",
+        "//tensorstore/internal/metrics:prometheus",
         "//tensorstore/internal/metrics:registry",
+        "//tensorstore/util:executor",
+        "//tensorstore/util:future",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
         "@com_github_pybind_pybind11//:pybind11",
+        "@com_google_absl//absl/strings:cord",
     ],
     alwayslink = True,
 )
@@ -1094,5 +1135,15 @@ tensorstore_pytest_test(
     srcs = ["tests/metrics_test.py"],
     deps = [
         ":tensorstore",
+    ],
+)
+
+tensorstore_pytest_test(
+    name = "tests/custom_dtypes_test",
+    srcs = ["tests/custom_dtypes_test.py"],
+    deps = [
+        ":tensorstore",
+        "@pypa_ml_dtypes//:ml_dtypes",
+        "@pypa_numpy//:numpy",
     ],
 )

@@ -14,37 +14,69 @@
 
 #include "tensorstore/kvstore/neuroglancer_uint64_sharded/neuroglancer_uint64_sharded.h"
 
-#include <cstdint>
+#include <stddef.h>
+#include <stdint.h>
+
+#include <cassert>
+#include <cstring>
+#include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 
-#include "absl/algorithm/container.h"
 #include "absl/base/internal/endian.h"
 #include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include "absl/synchronization/mutex.h"
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
+#include <nlohmann/json.hpp>
+#include "tensorstore/context.h"
 #include "tensorstore/internal/cache/async_cache.h"
+#include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/cache/cache_pool_resource.h"
 #include "tensorstore/internal/cache/kvs_backed_cache.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/estimate_heap_usage/estimate_heap_usage.h"
-#include "tensorstore/internal/estimate_heap_usage/std_vector.h"  // iwyu: keep
+#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/mutex.h"
+#include "tensorstore/internal/path.h"
 #include "tensorstore/json_serialization_options_base.h"
+#include "tensorstore/kvstore/byte_range.h"
+#include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
+#include "tensorstore/kvstore/key_range.h"
+#include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/neuroglancer_uint64_sharded/uint64_sharded.h"
 #include "tensorstore/kvstore/neuroglancer_uint64_sharded/uint64_sharded_decoder.h"
 #include "tensorstore/kvstore/neuroglancer_uint64_sharded/uint64_sharded_encoder.h"
+#include "tensorstore/kvstore/operations.h"
+#include "tensorstore/kvstore/read_modify_write.h"
+#include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/registry.h"
+#include "tensorstore/kvstore/spec.h"
+#include "tensorstore/kvstore/supported_features.h"
 #include "tensorstore/kvstore/transaction.h"
+#include "tensorstore/transaction.h"
 #include "tensorstore/util/execution/any_receiver.h"
-#include "tensorstore/util/execution/result_sender.h"
+#include "tensorstore/util/execution/execution.h"
+#include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/garbage_collection/fwd.h"
+#include "tensorstore/util/garbage_collection/garbage_collection.h"
 #include "tensorstore/util/quote_string.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
+
+// specializations
+#include "tensorstore/internal/estimate_heap_usage/std_vector.h"  // IWYU pragma: keep
+#include "tensorstore/util/execution/result_sender.h"  // IWYU pragma: keep
 
 namespace tensorstore {
 namespace neuroglancer_uint64_sharded {
@@ -281,7 +313,7 @@ class MinishardIndexCache
                                combined_info);
     }
 
-    std::size_t ComputeReadDataSizeInBytes(const void* read_data) override {
+    size_t ComputeReadDataSizeInBytes(const void* read_data) override {
       return internal::EstimateHeapUsage(
           *static_cast<const ReadData*>(read_data));
     }
@@ -310,7 +342,7 @@ class MinishardIndexCache
   };
 
   Entry* DoAllocateEntry() final { return new Entry; }
-  std::size_t DoGetSizeofEntry() final { return sizeof(Entry); }
+  size_t DoGetSizeofEntry() final { return sizeof(Entry); }
   TransactionNode* DoAllocateTransactionNode(AsyncCache::Entry& entry) final {
     return new TransactionNode(static_cast<Entry&>(entry));
   }
@@ -376,10 +408,10 @@ class ShardedKeyValueStoreWriteCache
    public:
     using OwningCache = ShardedKeyValueStoreWriteCache;
 
-    std::uint64_t shard() { return KeyToShard(key()); }
+    uint64_t shard() { return KeyToShard(key()); }
 
     size_t ComputeReadDataSizeInBytes(const void* data) override {
-      return internal::EstimateHeapUsage(*static_cast<const absl::Cord*>(data));
+      return internal::EstimateHeapUsage(*static_cast<const ReadData*>(data));
     }
 
     void DoDecode(std::optional<absl::Cord> value,
@@ -504,43 +536,41 @@ class ShardedKeyValueStoreWriteCache
         internal_kvstore::ReadModifyWriteEntry& entry,
         const StorageGeneration& if_not_equal) {
       auto& self = static_cast<TransactionNode&>(entry.multi_phase());
-      kvstore::ReadResult read_result;
+      TimestampedStorageGeneration stamp;
       std::shared_ptr<const EncodedChunks> encoded_chunks;
       {
         AsyncCache::ReadLock<EncodedChunks> lock{self};
-        read_result.stamp = lock.stamp();
+        stamp = lock.stamp();
         encoded_chunks = lock.shared_data();
       }
-      if (!StorageGeneration::IsUnknown(read_result.stamp.generation) &&
-          read_result.stamp.generation == if_not_equal) {
-        read_result.state = kvstore::ReadResult::kUnspecified;
-      } else {
-        auto* chunk =
-            FindChunk(*encoded_chunks, GetMinishardAndChunkId(entry.key_));
-        if (!chunk) {
-          read_result.state = kvstore::ReadResult::kMissing;
-        } else {
-          read_result.state = kvstore::ReadResult::kValue;
-          TENSORSTORE_ASSIGN_OR_RETURN(
-              read_result.value,
-              DecodeData(chunk->encoded_data,
-                         GetOwningCache(self).sharding_spec().data_encoding));
-        }
-        if (StorageGeneration::IsDirty(read_result.stamp.generation)) {
-          // Add layer to generation in order to make it possible to
-          // distinguish:
-          //
-          // 1. the shard being modified by a predecessor
-          //    `ReadModifyWrite` operation on the underlying
-          //    KeyValueStore.
-          //
-          // 2. the chunk being modified by a `ReadModifyWrite`
-          //    operation attached to this transaction node.
-          read_result.stamp.generation = StorageGeneration::AddLayer(
-              std::move(read_result.stamp.generation));
-        }
+      if (!StorageGeneration::IsUnknown(stamp.generation) &&
+          stamp.generation == if_not_equal) {
+        return kvstore::ReadResult::Unspecified(std::move(stamp));
       }
-      return read_result;
+      if (StorageGeneration::IsDirty(stamp.generation)) {
+        // Add layer to generation in order to make it possible to
+        // distinguish:
+        //
+        // 1. the shard being modified by a predecessor
+        //    `ReadModifyWrite` operation on the underlying
+        //    KeyValueStore.
+        //
+        // 2. the chunk being modified by a `ReadModifyWrite`
+        //    operation attached to this transaction node.
+        stamp.generation =
+            StorageGeneration::AddLayer(std::move(stamp.generation));
+      }
+      auto* chunk =
+          FindChunk(*encoded_chunks, GetMinishardAndChunkId(entry.key_));
+      if (!chunk) {
+        return kvstore::ReadResult::Missing(std::move(stamp));
+      } else {
+        TENSORSTORE_ASSIGN_OR_RETURN(
+            absl::Cord value,
+            DecodeData(chunk->encoded_data,
+                       GetOwningCache(self).sharding_spec().data_encoding));
+        return kvstore::ReadResult::Value(std::move(value), std::move(stamp));
+      }
     }
 
     void Writeback(internal_kvstore::ReadModifyWriteEntry& entry,
@@ -554,13 +584,13 @@ class ShardedKeyValueStoreWriteCache
           entry, std::move(read_result));
     }
 
-    absl::Time apply_staleness_bound_;
     ApplyReceiver apply_receiver_;
+    ApplyOptions apply_options_;
     absl::Status apply_status_;
   };
 
   Entry* DoAllocateEntry() final { return new Entry; }
-  std::size_t DoGetSizeofEntry() final { return sizeof(Entry); }
+  size_t DoGetSizeofEntry() final { return sizeof(Entry); }
   TransactionNode* DoAllocateTransactionNode(AsyncCache::Entry& entry) final {
     return new TransactionNode(static_cast<Entry&>(entry));
   }
@@ -615,7 +645,7 @@ void ShardedKeyValueStoreWriteCache::TransactionNode::WritebackError() {
 
 namespace {
 void StartApply(ShardedKeyValueStoreWriteCache::TransactionNode& node) {
-  RetryAtomicWriteback(node.phases_, node.apply_staleness_bound_);
+  RetryAtomicWriteback(node.phases_, node.apply_options_.staleness_bound);
 }
 
 /// Attempts to compute the new encoded shard state that merges any mutations
@@ -717,7 +747,7 @@ void MergeForWriteback(ShardedKeyValueStoreWriteCache::TransactionNode& node,
     // However, even in that case, the extra retries aren't really an added
     // cost, because those retries would still be needed anyway due to the
     // concurrent modifications.
-    node.apply_staleness_bound_ = absl::Now();
+    node.apply_options_.staleness_bound = absl::Now();
     StartApply(node);
     return;
   }
@@ -739,7 +769,7 @@ void MergeForWriteback(ShardedKeyValueStoreWriteCache::TransactionNode& node,
 void ShardedKeyValueStoreWriteCache::TransactionNode::DoApply(
     ApplyOptions options, ApplyReceiver receiver) {
   apply_receiver_ = std::move(receiver);
-  apply_staleness_bound_ = options.staleness_bound;
+  apply_options_ = options;
   apply_status_ = absl::Status();
 
   GetOwningCache(*this).executor()([this] { StartApply(*this); });
@@ -756,6 +786,7 @@ void ShardedKeyValueStoreWriteCache::TransactionNode::AllEntriesDone(
   GetOwningCache(*this).executor()([&self] {
     TimestampedStorageGeneration stamp;
     bool mismatch = false;
+    bool modified = false;
 
     size_t num_chunks = 0;
 
@@ -765,8 +796,12 @@ void ShardedKeyValueStoreWriteCache::TransactionNode::AllEntriesDone(
       auto& buffered_entry =
           static_cast<AtomicMultiPhaseMutation::BufferedReadModifyWriteEntry&>(
               entry);
+      if (buffered_entry.read_result_.state !=
+          kvstore::ReadResult::kUnspecified) {
+        modified = true;
+        ++num_chunks;
+      }
       auto& entry_stamp = buffered_entry.read_result_.stamp;
-      ++num_chunks;
       if (StorageGeneration::IsConditional(entry_stamp.generation)) {
         if (!StorageGeneration::IsUnknown(stamp.generation) &&
             StorageGeneration::Clean(stamp.generation) !=
@@ -780,17 +815,26 @@ void ShardedKeyValueStoreWriteCache::TransactionNode::AllEntriesDone(
     }
 
     if (mismatch) {
-      self.apply_staleness_bound_ = absl::Now();
+      self.apply_options_.staleness_bound = absl::Now();
       StartApply(self);
       return;
     }
     auto& cache = GetOwningCache(self);
+    if (!modified && StorageGeneration::IsUnknown(stamp.generation) &&
+        self.apply_options_.apply_mode !=
+            ApplyOptions::ApplyMode::kSpecifyUnchanged) {
+      internal::AsyncCache::ReadState update;
+      update.stamp = TimestampedStorageGeneration::Unconditional();
+      execution::set_value(std::exchange(self.apply_receiver_, {}),
+                           std::move(update));
+      return;
+    }
     if (!StorageGeneration::IsUnknown(stamp.generation) ||
         !cache.get_max_chunks_per_shard_ ||
         cache.get_max_chunks_per_shard_(GetOwningEntry(self).shard()) !=
             num_chunks) {
       self.internal::AsyncCache::TransactionNode::Read(
-              self.apply_staleness_bound_)
+              self.apply_options_.staleness_bound)
           .ExecuteWhenReady([&self](ReadyFuture<const void> future) {
             if (!future.result().ok()) {
               execution::set_error(std::exchange(self.apply_receiver_, {}),
@@ -825,32 +869,31 @@ struct MinishardIndexCacheEntryReadyCallback {
   ReadOptions options_;
   void operator()(Promise<ReadResult> promise, ReadyFuture<const void>) {
     std::optional<ByteRange> byte_range;
-    TimestampedStorageGeneration stamp;
-    kvstore::ReadResult::State state;
+    ReadResult read_result;
     {
       auto lock = internal::AsyncCache::ReadLock<MinishardIndexCache::ReadData>(
           *entry_);
-      stamp = lock.stamp();
-      if (!StorageGeneration::IsNoValue(stamp.generation) &&
-          (options_.if_not_equal == stamp.generation ||
+      read_result.stamp = lock.stamp();
+      if (!StorageGeneration::IsNoValue(read_result.stamp.generation) &&
+          (options_.if_not_equal == read_result.stamp.generation ||
            (!StorageGeneration::IsUnknown(options_.if_equal) &&
-            options_.if_equal != stamp.generation))) {
-        state = kvstore::ReadResult::kUnspecified;
+            options_.if_equal != read_result.stamp.generation))) {
+        read_result.state = kvstore::ReadResult::kUnspecified;
       } else {
         span<const MinishardIndexEntry> minishard_index;
         if (lock.data()) minishard_index = *lock.data();
         byte_range = FindChunkInMinishard(minishard_index, chunk_id_);
-        state = kvstore::ReadResult::kMissing;
+        read_result.state = kvstore::ReadResult::kMissing;
       }
     }
     if (!byte_range) {
-      promise.SetResult(ReadResult{state, {}, std::move(stamp)});
+      promise.SetResult(std::move(read_result));
       return;
     }
-    assert(!StorageGeneration::IsUnknown(stamp.generation));
+    assert(!StorageGeneration::IsUnknown(read_result.stamp.generation));
     auto& cache = GetOwningCache(*entry_);
     ReadOptions kvs_read_options;
-    kvs_read_options.if_equal = stamp.generation;
+    kvs_read_options.if_equal = read_result.stamp.generation;
     kvs_read_options.staleness_bound = options_.staleness_bound;
     assert(options_.byte_range.SatisfiesInvariants());
     OptionalByteRangeRequest post_decode_byte_range;
@@ -981,11 +1024,11 @@ class ShardedKeyValueStore
       std::string key_prefix, const ShardingSpec& sharding_spec,
       internal::CachePool::WeakPtr cache_pool,
       GetMaxChunksPerShardFunction get_max_chunks_per_shard = {})
-      : write_cache_(
-            cache_pool->GetCache<ShardedKeyValueStoreWriteCache>("", [&] {
+      : write_cache_(internal::GetCache<ShardedKeyValueStoreWriteCache>(
+            cache_pool.get(), "", [&] {
               return std::make_unique<ShardedKeyValueStoreWriteCache>(
-                  cache_pool->GetCache<MinishardIndexCache>(
-                      "",
+                  internal::GetCache<MinishardIndexCache>(
+                      cache_pool.get(), "",
                       [&] {
                         return std::make_unique<MinishardIndexCache>(
                             std::move(base_kvstore), std::move(executor),
@@ -1045,7 +1088,7 @@ class ShardedKeyValueStore
     auto state =
         std::make_shared<State>(std::move(receiver), std::move(options));
     // Inefficient, but only used for testing.
-    uint64_t num_shards = uint64_t(1) << sharding_spec().shard_bits;
+    uint64_t num_shards = uint64_t{1} << sharding_spec().shard_bits;
     for (uint64_t shard = 0; shard < num_shards; ++shard) {
       auto entry = GetCacheEntry(
           write_cache_, ShardedKeyValueStoreWriteCache::ShardToKey(shard));
@@ -1080,7 +1123,7 @@ class ShardedKeyValueStore
     const auto& sharding_spec = this->sharding_spec();
     const auto shard_info = GetSplitShardInfo(
         sharding_spec, GetChunkShardInfo(sharding_spec, chunk_id));
-    const std::uint64_t shard = shard_info.shard;
+    const uint64_t shard = shard_info.shard;
     auto entry = GetCacheEntry(
         write_cache_, ShardedKeyValueStoreWriteCache::ShardToKey(shard));
     std::string key_within_shard;
@@ -1094,21 +1137,6 @@ class ShardedKeyValueStore
       transaction.reset(node.unlock()->transaction());
     }
     return absl::OkStatus();
-  }
-
-  Result<internal::OpenTransactionPtr> GetImplicitTransaction(
-      const Key& key) override {
-    TENSORSTORE_ASSIGN_OR_RETURN(ChunkId chunk_id, KeyToChunkIdOrError(key));
-    const auto& sharding_spec = this->sharding_spec();
-    const auto shard_info = GetSplitShardInfo(
-        sharding_spec, GetChunkShardInfo(sharding_spec, chunk_id));
-    const std::uint64_t shard = shard_info.shard;
-    auto entry = GetCacheEntry(
-        write_cache_, ShardedKeyValueStoreWriteCache::ShardToKey(shard));
-    internal::OpenTransactionPtr transaction;
-    TENSORSTORE_ASSIGN_OR_RETURN(auto node,
-                                 GetTransactionNode(*entry, transaction));
-    return transaction;
   }
 
   absl::Status TransactionalDeleteRange(

@@ -133,9 +133,8 @@ def label_to_generated_cmake_target(
     m.update(bytes(target_id.target_name, "utf-8"))
     target_name = "_".join([
         parts[0],
-        m.hexdigest().lower()[:10],
-        "".join([x[0] for x in parts[1:-1]]),
-        parts[-1],
+        m.hexdigest().lower()[:8],
+        "".join([x[0] for x in parts[1:]]),
     ])
   else:
     target_name = "_".join(parts)

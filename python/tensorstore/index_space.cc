@@ -23,9 +23,7 @@
 #include "python/tensorstore/index_space.h"
 
 // Other headers
-#include <algorithm>
-#include <memory>
-#include <new>
+#include <cassert>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -36,7 +34,9 @@
 #include <nlohmann/json.hpp>
 #include "python/tensorstore/array_type_caster.h"
 #include "python/tensorstore/dim_expression.h"
+#include "python/tensorstore/gil_safe.h"
 #include "python/tensorstore/homogeneous_tuple.h"
+#include "python/tensorstore/index.h"
 #include "python/tensorstore/json_type_caster.h"
 #include "python/tensorstore/numpy_indexing_spec.h"
 #include "python/tensorstore/python_imports.h"
@@ -46,12 +46,16 @@
 #include "python/tensorstore/status.h"
 #include "python/tensorstore/tensorstore_module_components.h"
 #include "tensorstore/array.h"
+#include "tensorstore/container_kind.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
+#include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/dimension_identifier.h"
 #include "tensorstore/index_space/dimension_index_buffer.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
+#include "tensorstore/index_space/internal/transform_rep.h"
 #include "tensorstore/index_space/json.h"
 #include "tensorstore/index_space/output_index_map.h"
 #include "tensorstore/index_space/output_index_method.h"
@@ -59,8 +63,11 @@
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/strided_layout.h"
+#include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/element_pointer.h"
+#include "tensorstore/util/executor.h"
 #include "tensorstore/util/quote_string.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -252,7 +259,7 @@ IndexTransformBuilder<> InitializeIndexTransformBuilder(
   }
   if (implicit_lower_bounds) {
     builder.implicit_lower_bounds(
-        DimensionSet::FromRange(*implicit_lower_bounds));
+        DimensionSet::FromBoolRange(*implicit_lower_bounds));
   }
   if (input_exclusive_max) {
     builder.input_exclusive_max(*input_exclusive_max);
@@ -265,7 +272,7 @@ IndexTransformBuilder<> InitializeIndexTransformBuilder(
   }
   if (implicit_upper_bounds) {
     builder.implicit_upper_bounds(
-        DimensionSet::FromRange(*implicit_upper_bounds));
+        DimensionSet::FromBoolRange(*implicit_upper_bounds));
   }
   if (input_labels) {
     auto builder_input_labels = builder.input_labels();

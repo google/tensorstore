@@ -15,8 +15,10 @@
 #include "tensorstore/kvstore/ocdbt/distributed/cooperator.h"
 // Part of the Cooperator interface
 
+#include "absl/base/attributes.h"
+#include "absl/log/absl_log.h"
 #include "tensorstore/internal/grpc/utils.h"
-#include "tensorstore/kvstore/ocdbt/debug_log.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/kvstore/ocdbt/distributed/cooperator_impl.h"
 #include "tensorstore/kvstore/ocdbt/non_distributed/create_new_manifest.h"
 #include "tensorstore/kvstore/ocdbt/non_distributed/storage_generation.h"
@@ -25,6 +27,9 @@
 
 namespace tensorstore {
 namespace internal_ocdbt_cooperator {
+namespace {
+ABSL_CONST_INIT internal_log::VerboseFlag ocdbt_logging("ocdbt");
+}
 
 using NodeMutationRequests = Cooperator::NodeMutationRequests;
 
@@ -224,7 +229,7 @@ struct NodeCommitOperation
 
 void NodeCommitOperation::StartCommit(NodeCommitOperation::Ptr commit_op,
                                       absl::Time manifest_staleness_bound) {
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+  ABSL_LOG_IF(INFO, ocdbt_logging)
       << "[Port=" << commit_op->server->listening_port_ << "] StartCommit";
   auto manifest_future =
       GetManifestForWriting(*commit_op->server, manifest_staleness_bound);
@@ -244,7 +249,7 @@ void NodeCommitOperation::StartCommit(NodeCommitOperation::Ptr commit_op,
 void NodeCommitOperation::ExistingManifestReady(
     NodeCommitOperation::Ptr commit_op) {
   auto& latest_version = commit_op->existing_manifest->latest_version();
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+  ABSL_LOG_IF(INFO, ocdbt_logging)
       << "[Port=" << commit_op->server->listening_port_
       << "] ExistingManifestReady: root=" << latest_version.root
       << ", root_height=" << static_cast<int>(latest_version.root_height);
@@ -290,7 +295,7 @@ void NodeCommitOperation::VisitNode(NodeCommitOperation::Ptr commit_op,
                                     const BtreeNode& node) {
   commit_op->key_prefix += node.key_prefix;
   auto& node_identifier = commit_op->mutation_requests->node_identifier;
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+  ABSL_LOG_IF(INFO, ocdbt_logging)
       << "[Port=" << commit_op->server->listening_port_
       << "] VisitNode: node_identifier=" << node_identifier
       << ", key_range=" << commit_op->key_range
@@ -328,7 +333,7 @@ void NodeCommitOperation::VisitNode(NodeCommitOperation::Ptr commit_op,
       // Current inclusive_min bound is already more constrained than the target
       // node.  It is therefore impossible for a child node to have a range of
       // `node_identifier.range`.
-      ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+      ABSL_LOG_IF(INFO, ocdbt_logging)
           << "[Port=" << commit_op->server->listening_port_
           << "] VisitNode: node_identifier=" << node_identifier
           << ", child_key_range.inclusive_min="
@@ -348,7 +353,7 @@ void NodeCommitOperation::VisitNode(NodeCommitOperation::Ptr commit_op,
         0) {
       // Current exclusive_max bound is already more constrained than the
       // target node.
-      ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+      ABSL_LOG_IF(INFO, ocdbt_logging)
           << "[Port=" << commit_op->server->listening_port_
           << "] VisitNode: node_identifier=" << node_identifier
           << ", child_key_range.exclusive_max="
@@ -360,7 +365,7 @@ void NodeCommitOperation::VisitNode(NodeCommitOperation::Ptr commit_op,
 
   if (commit_op->height == node_identifier.height + 1 &&
       node_identifier.range != child_key_range) {
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+    ABSL_LOG_IF(INFO, ocdbt_logging)
         << "[Port=" << commit_op->server->listening_port_
         << "] VisitNode: node_identifier=" << node_identifier
         << ", child_key_range=" << child_key_range
@@ -416,19 +421,19 @@ void NodeCommitOperation::Done() {
 
 void NodeCommitOperation::StagePending() {
   absl::MutexLock lock(&mutation_requests->mutex);
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+  ABSL_LOG_IF(INFO, ocdbt_logging)
       << "[Port=" << server->listening_port_
       << "] StagePending: initial staged=" << staged.requests.size()
       << ", pending=" << mutation_requests->pending.requests.size();
   staged.Append(std::move(mutation_requests->pending));
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+  ABSL_LOG_IF(INFO, ocdbt_logging)
       << "[Port=" << server->listening_port_
       << "] StagePending: final staged=" << staged.requests.size()
       << ", pending=" << mutation_requests->pending.requests.size();
 }
 
 void NodeCommitOperation::SetError(const absl::Status& status) {
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+  ABSL_LOG_IF(INFO, ocdbt_logging)
       << "[Port=" << server->listening_port_ << "] SetError: " << status;
   if (staged.requests.empty()) {
     // Stage all pending requests to avoid an infinite retry loop.
@@ -443,7 +448,7 @@ void NodeCommitOperation::SetError(const absl::Status& status) {
 
 void NodeCommitOperation::SetSuccess(GenerationNumber root_generation,
                                      absl::Time time) {
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+  ABSL_LOG_IF(INFO, ocdbt_logging)
       << "[Port=" << server->listening_port_
       << "] SetSuccess: root_generation=" << root_generation
       << ", time=" << time;
@@ -458,7 +463,7 @@ void NodeCommitOperation::SetSuccess(GenerationNumber root_generation,
 }
 
 void NodeCommitOperation::LeasedNodeGone() {
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+  ABSL_LOG_IF(INFO, ocdbt_logging)
       << "[Port=" << server->listening_port_
       << "] LeasedNodeGone: node_identifier="
       << mutation_requests->node_identifier
@@ -690,12 +695,12 @@ void NodeCommitOperation::UpdateParent(
         if (!r.ok() || !r->conditions_matched[0]) {
           if (r.ok() || absl::IsAborted(r.status())) {
             if (r.ok()) {
-              ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+              ABSL_LOG_IF(INFO, ocdbt_logging)
                   << "[Port=" << commit_op->server->listening_port_
                   << "] Retrying commit because conditions_matched="
                   << static_cast<bool>(r->conditions_matched[0]);
             } else {
-              ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+              ABSL_LOG_IF(INFO, ocdbt_logging)
                   << "[Port=" << commit_op->server->listening_port_
                   << "] Retrying commit because: " << r.status();
             }
@@ -731,7 +736,7 @@ void NodeCommitOperation::UpdateRoot(
 void NodeCommitOperation::CreateNewManifest(
     NodeCommitOperation::Ptr commit_op,
     std::optional<BtreeGenerationReference> new_generation) {
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+  ABSL_LOG_IF(INFO, ocdbt_logging)
       << "[Port=" << commit_op->server->listening_port_
       << "] WriteNewManifest: Initiate";
 
@@ -751,7 +756,7 @@ void NodeCommitOperation::CreateNewManifest(
           ReadyFuture<std::pair<std::shared_ptr<Manifest>, Future<const void>>>
               future) mutable {
         auto [manifest, manifest_flush_future] = future.value();
-        ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+        ABSL_LOG_IF(INFO, ocdbt_logging)
             << "[Port=" << commit_op->server->listening_port_
             << "] WriteNewManifest: New manifest generated.  root="
             << manifest->latest_version().root << ", root_height="
@@ -768,7 +773,7 @@ void NodeCommitOperation::CreateNewManifest(
         flush_future.ExecuteWhenReady(
             [commit_op =
                  std::move(commit_op)](ReadyFuture<const void> future) mutable {
-              ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+              ABSL_LOG_IF(INFO, ocdbt_logging)
                   << "WriteNewManifest: Flushed indirect writes";
               WriteNewManifest(std::move(commit_op));
             });
@@ -784,7 +789,7 @@ void NodeCommitOperation::WriteNewManifest(NodeCommitOperation::Ptr commit_op) {
       [commit_op =
            std::move(commit_op)](ReadyFuture<TryUpdateManifestResult> future) {
         auto& r = future.result();
-        ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+        ABSL_LOG_IF(INFO, ocdbt_logging)
             << "[Port=" << commit_op->server->listening_port_
             << "] WriteNewManifest: New manifest flushed: " << r.status()
             << ", success=" << (r.ok() ? r->success : false);
@@ -811,7 +816,7 @@ void NodeCommitOperation::RetryCommit(NodeCommitOperation::Ptr commit_op) {
 void MaybeCommit(Cooperator& server,
                  internal::IntrusivePtr<NodeMutationRequests> mutation_requests,
                  UniqueWriterLock<absl::Mutex>&& lock) {
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+  ABSL_LOG_IF(INFO, ocdbt_logging)
       << "[Port=" << server.listening_port_ << "] MaybeCommit: node_identifier="
       << mutation_requests->lease_node->node_identifier
       << ", pending_requests=" << mutation_requests->pending.requests.size();

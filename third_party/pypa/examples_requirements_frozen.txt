@@ -1,3 +1,2 @@
-# DO NOT EDIT: Generated from examples_requirements.txt by generate_workspace.py
-apache-beam==2.47.0
-gin-config==0.5.0
+# DO NOT EDIT: Generated from examples_requirements.txt by pypi_solver
+numpy==1.26.1

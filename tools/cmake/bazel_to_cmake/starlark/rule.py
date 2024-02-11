@@ -112,6 +112,47 @@ class AttrModule:
     return Attr(handle)
 
   @staticmethod
+  def string_list(
+      mandatory: bool = False,
+      allow_empty: bool = True,
+      *,
+      default: Optional[List[str]] = None,
+      doc: str = "",
+  ):
+    """https://bazel.build/rules/lib/attr#string_list"""
+    del doc
+
+    if default is None:
+      default = []
+
+    def handle(
+        context: InvocationContext,
+        name: str,
+        value: Optional[List[str]],
+        outs: List[TargetId],
+    ):
+      if mandatory and value is None:
+        raise ValueError(f"Attribute {name} not specified")
+      if value is None:
+        value = default
+      if not value and not allow_empty:
+        raise ValueError(f"Attribute {name} is empty")
+
+      del outs
+      del context
+
+      def impl(ctx: RuleCtx):
+        setattr(
+            ctx.attr,
+            name,
+            ctx._context.evaluate_configurable_list(value),
+        )
+
+      return impl
+
+    return Attr(handle)
+
+  @staticmethod
   def label(
       default: Optional[Configurable[RelativeLabel]] = None,
       doc: str = "",

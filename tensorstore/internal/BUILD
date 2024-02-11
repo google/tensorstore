@@ -1,5 +1,5 @@
-load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
 
 package(default_visibility = ["//tensorstore:internal_packages"])
 
@@ -124,21 +124,6 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
-    name = "compressed_pair",
-    hdrs = ["compressed_pair.h"],
-)
-
-tensorstore_cc_test(
-    name = "compressed_pair_test",
-    size = "small",
-    srcs = ["compressed_pair_test.cc"],
-    deps = [
-        ":compressed_pair",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
     name = "concurrency_resource",
     srcs = ["concurrency_resource.cc"],
     hdrs = [
@@ -146,12 +131,12 @@ tensorstore_cc_library(
         "concurrency_resource_provider.h",
     ],
     deps = [
-        ":thread_pool",
         ":type_traits",
         "//tensorstore:context",
         "//tensorstore/internal/cache_key",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
+        "//tensorstore/internal/thread:thread_pool",
         "//tensorstore/util:executor",
         "//tensorstore/util:result",
         "@com_github_nlohmann_json//:nlohmann_json",
@@ -166,7 +151,7 @@ tensorstore_cc_library(
     hdrs = ["concurrent_testutil.h"],
     deps = [
         ":multi_barrier",
-        ":thread",
+        "//tensorstore/internal/thread",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/log:absl_log",
     ],
@@ -263,6 +248,8 @@ tensorstore_cc_test(
         ":flat_cord_builder",
         "//tensorstore:array",
         "//tensorstore:contiguous_layout",
+        "//tensorstore:data_type",
+        "//tensorstore:index",
         "//tensorstore:strided_layout",
         "//tensorstore/util:endian",
         "//tensorstore/util:str_cat",
@@ -283,6 +270,8 @@ tensorstore_cc_library(
         "//tensorstore:box",
         "//tensorstore:contiguous_layout",
         "//tensorstore:data_type",
+        "//tensorstore:index",
+        "//tensorstore/util:span",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/random",
@@ -300,10 +289,8 @@ tensorstore_cc_library(
         "//tensorstore:data_type",
         "//tensorstore:index",
         "//tensorstore/serialization",
-        "//tensorstore/util:endian",
         "//tensorstore/util:status",
-        "//tensorstore/util:utf8_string",
-        "@com_github_nlohmann_json//:nlohmann_json",
+        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/status",
     ],
 )
@@ -399,6 +386,7 @@ tensorstore_cc_library(
     srcs = ["env.cc"],
     hdrs = ["env.h"],
     deps = [
+        "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/strings",
     ],
@@ -456,12 +444,17 @@ tensorstore_cc_library(
     hdrs = ["grid_chunk_key_ranges.h"],
     deps = [
         ":grid_partition",
+        ":grid_partition_impl",
+        ":lexicographical_grid_index_key",
         ":regular_grid",
         "//tensorstore:box",
+        "//tensorstore:index",
         "//tensorstore:index_interval",
+        "//tensorstore:rank",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/kvstore:key_range",
         "//tensorstore/util:span",
+        "//tensorstore/util:status",
         "@com_google_absl//absl/functional:function_ref",
         "@com_google_absl//absl/status",
     ],
@@ -473,16 +466,33 @@ tensorstore_cc_test(
     srcs = ["grid_chunk_key_ranges_test.cc"],
     deps = [
         ":grid_chunk_key_ranges",
-        ":grid_storage_statistics",
+        ":grid_chunk_key_ranges_base10",
+        ":grid_partition",
+        ":grid_partition_impl",
+        ":regular_grid",
         "//tensorstore:box",
+        "//tensorstore:index",
         "//tensorstore:index_interval",
+        "//tensorstore:rank",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/kvstore:key_range",
         "//tensorstore/util:division",
         "//tensorstore/util:span",
-        "//tensorstore/util:status_testutil",
+        "//tensorstore/util:status",
+        "@com_google_absl//absl/functional:function_ref",
         "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "grid_chunk_key_ranges_base10_test",
+    size = "small",
+    srcs = ["grid_chunk_key_ranges_base10_test.cc"],
+    deps = [
+        ":grid_chunk_key_ranges_base10",
+        "//tensorstore:index",
+        "//tensorstore:index_interval",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -496,14 +506,14 @@ tensorstore_cc_library(
     deps = [
         ":grid_partition_impl",
         ":intrusive_ptr",
-        ":memory",
-        "//tensorstore:array",
+        ":regular_grid",
+        "//tensorstore:box",
         "//tensorstore:index",
         "//tensorstore:index_interval",
+        "//tensorstore:rank",
         "//tensorstore/index_space:index_transform",
-        "//tensorstore/util:byte_strided_pointer",
-        "//tensorstore/util:division",
-        "//tensorstore/util:element_pointer",
+        "//tensorstore/index_space:output_index_method",
+        "//tensorstore/util:dimension_set",
         "//tensorstore/util:iterate",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
@@ -531,18 +541,18 @@ tensorstore_cc_library(
         "//tensorstore:rank",
         "//tensorstore:strided_layout",
         "//tensorstore/index_space:index_transform",
+        "//tensorstore/index_space:output_index_method",
         "//tensorstore/util:byte_strided_pointer",
-        "//tensorstore/util:division",
+        "//tensorstore/util:dimension_set",
         "//tensorstore/util:iterate",
         "//tensorstore/util:iterate_over_index_range",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/container:fixed_array",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:inlined_vector",
+        "@com_google_absl//absl/functional:function_ref",
         "@com_google_absl//absl/hash",
         "@com_google_absl//absl/status",
     ],
@@ -560,11 +570,13 @@ tensorstore_cc_test(
         "//tensorstore:index",
         "//tensorstore:index_interval",
         "//tensorstore/index_space:index_transform",
+        "//tensorstore/util:dimension_set",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -575,8 +587,8 @@ tensorstore_cc_test(
     srcs = ["grid_partition_test.cc"],
     deps = [
         ":grid_partition",
+        ":grid_partition_impl",
         ":irregular_grid",
-        ":memory",
         ":regular_grid",
         "//tensorstore:array",
         "//tensorstore:box",
@@ -586,40 +598,70 @@ tensorstore_cc_test(
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
-        "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
     ],
 )
 
 tensorstore_cc_library(
+    name = "storage_statistics",
+    srcs = ["storage_statistics.cc"],
+    hdrs = ["storage_statistics.h"],
+    deps = [
+        ":intrusive_ptr",
+        "//tensorstore:array_storage_statistics",
+        "//tensorstore/util:future",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "grid_chunk_key_ranges_base10",
+    srcs = ["grid_chunk_key_ranges_base10.cc"],
+    hdrs = ["grid_chunk_key_ranges_base10.h"],
+    deps = [
+        ":lexicographical_grid_index_key",
+        "//tensorstore:index",
+        "//tensorstore:index_interval",
+        "//tensorstore/util:span",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+tensorstore_cc_library(
     name = "grid_storage_statistics",
-    srcs = [
-        "grid_chunk_key_ranges_base10.cc",
-        "grid_storage_statistics.cc",
-    ],
-    hdrs = [
-        "grid_chunk_key_ranges_base10.h",
-        "grid_storage_statistics.h",
-    ],
+    srcs = ["grid_storage_statistics.cc"],
+    hdrs = ["grid_storage_statistics.h"],
     local_defines = select({
         ":grid_storage_statistics_debug_setting": ["TENSORSTORE_INTERNAL_GRID_STORAGE_STATISTICS_DEBUG"],
         "//conditions:default": [],
     }),
     deps = [
         ":grid_chunk_key_ranges",
+        ":grid_chunk_key_ranges_base10",
+        ":grid_partition_impl",
+        ":integer_overflow",
+        ":intrusive_ptr",
+        ":lexicographical_grid_index_key",
+        ":regular_grid",
+        ":storage_statistics",
         "//tensorstore:array_storage_statistics",
         "//tensorstore:box",
         "//tensorstore:index",
+        "//tensorstore:index_interval",
+        "//tensorstore:rank",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/kvstore",
+        "//tensorstore/kvstore:byte_range",
         "//tensorstore/kvstore:key_range",
         "//tensorstore/util:division",
         "//tensorstore/util:future",
         "//tensorstore/util:quote_string",
-        "//tensorstore/util:result",
         "//tensorstore/util:span",
-        "@com_google_absl//absl/functional:any_invocable",
-        "@com_google_absl//absl/strings",
+        "//tensorstore/util:status",
+        "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/log:absl_log",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/time",
     ],
 )
 
@@ -628,22 +670,6 @@ tensorstore_cc_library(
     testonly = 1,
     hdrs = ["half_gtest.h"],
     deps = ["@net_sourceforge_half//:half"],
-)
-
-tensorstore_cc_library(
-    name = "heterogeneous_container",
-    hdrs = ["heterogeneous_container.h"],
-    deps = ["@com_google_absl//absl/container:flat_hash_set"],
-)
-
-tensorstore_cc_test(
-    name = "heterogeneous_container_test",
-    size = "small",
-    srcs = ["heterogeneous_container_test.cc"],
-    deps = [
-        ":heterogeneous_container",
-        "@com_google_googletest//:gtest_main",
-    ],
 )
 
 tensorstore_cc_library(
@@ -669,21 +695,6 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
-    name = "intrusive_linked_list",
-    hdrs = ["intrusive_linked_list.h"],
-)
-
-tensorstore_cc_test(
-    name = "intrusive_linked_list_test",
-    size = "small",
-    srcs = ["intrusive_linked_list_test.cc"],
-    deps = [
-        ":intrusive_linked_list",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
     name = "intrusive_ptr",
     hdrs = ["intrusive_ptr.h"],
     deps = [
@@ -699,24 +710,6 @@ tensorstore_cc_test(
     deps = [
         ":intrusive_ptr",
         ":memory",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
-    name = "intrusive_red_black_tree",
-    srcs = ["intrusive_red_black_tree.cc"],
-    hdrs = ["intrusive_red_black_tree.h"],
-    deps = [":tagged_ptr"],
-)
-
-tensorstore_cc_test(
-    name = "intrusive_red_black_tree_test",
-    size = "small",
-    srcs = ["intrusive_red_black_tree_test.cc"],
-    deps = [
-        ":intrusive_red_black_tree",
-        "@com_google_absl//absl/random",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -753,6 +746,7 @@ tensorstore_cc_test(
 tensorstore_cc_library(
     name = "json_fwd",
     hdrs = ["json_fwd.h"],
+    deps = ["@com_github_nlohmann_json//:nlohmann_json"],
 )
 
 tensorstore_cc_library(
@@ -761,10 +755,22 @@ tensorstore_cc_library(
     srcs = ["json_gtest.cc"],
     hdrs = ["json_gtest.h"],
     deps = [
+        ":json_pointer",
         "//tensorstore/internal/json:same",
-        "//tensorstore/util:status_testutil",
+        "//tensorstore/util:quote_string",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_googletest//:gtest",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "json_gtest_test",
+    size = "small",
+    srcs = ["json_gtest_test.cc"],
+    deps = [
+        ":json_gtest",
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -809,10 +815,10 @@ tensorstore_cc_library(
         "json_registry_fwd.h",
     ],
     deps = [
-        ":heterogeneous_container",
         ":intrusive_ptr",
         ":json_fwd",
         "//tensorstore:json_serialization_options",
+        "//tensorstore/internal/container:heterogeneous_container",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/poly",
         "//tensorstore/util:quote_string",
@@ -905,6 +911,7 @@ tensorstore_cc_library(
         ":integer_overflow",
         ":memory",
         ":nditerable",
+        ":nditerable_buffer_management",
         ":nditerable_transformed_array",
         ":nditerable_util",
         ":unowned_to_shared",
@@ -938,8 +945,6 @@ tensorstore_cc_test(
         ":elementwise_function",
         ":masked_array",
         ":masked_array_testutil",
-        ":memory",
-        ":meta",
         "//tensorstore:array",
         "//tensorstore:box",
         "//tensorstore:contiguous_layout",
@@ -950,11 +955,10 @@ tensorstore_cc_test(
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/index_space:transformed_array",
-        "//tensorstore/util:byte_strided_pointer",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
-        "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -964,16 +968,24 @@ tensorstore_cc_library(
     srcs = ["async_write_array.cc"],
     hdrs = ["async_write_array.h"],
     deps = [
+        ":arena",
+        ":elementwise_function",
         ":masked_array",
         ":nditerable",
         ":nditerable_transformed_array",
-        ":unowned_to_shared",
         "//tensorstore:array",
+        "//tensorstore:box",
         "//tensorstore:contiguous_layout",
+        "//tensorstore:data_type",
         "//tensorstore:index",
+        "//tensorstore:index_interval",
+        "//tensorstore:rank",
         "//tensorstore:strided_layout",
+        "//tensorstore/index_space:index_transform",
+        "//tensorstore/index_space:transformed_array",
         "//tensorstore/kvstore:generation",
         "//tensorstore/util:element_pointer",
+        "//tensorstore/util:extents",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
     ],
@@ -1000,6 +1012,16 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
+    name = "lexicographical_grid_index_key",
+    hdrs = ["lexicographical_grid_index_key.h"],
+    deps = [
+        "//tensorstore:index",
+        "//tensorstore:index_interval",
+        "//tensorstore/util:span",
+    ],
+)
+
+tensorstore_cc_library(
     name = "masked_array_testutil",
     testonly = 1,
     srcs = ["masked_array_testutil.cc"],
@@ -1008,13 +1030,10 @@ tensorstore_cc_library(
         ":arena",
         ":element_copy_function",
         ":masked_array",
-        ":memory",
         ":nditerable",
         ":nditerable_copy",
         ":nditerable_elementwise_input_transform",
         ":nditerable_transformed_array",
-        ":nditerable_util",
-        ":unowned_to_shared",
         "//tensorstore:array",
         "//tensorstore:box",
         "//tensorstore:contiguous_layout",
@@ -1025,10 +1044,9 @@ tensorstore_cc_library(
         "//tensorstore/index_space:index_transform",
         "//tensorstore/index_space:transformed_array",
         "//tensorstore/util:element_pointer",
-        "//tensorstore/util:iterate",
         "//tensorstore/util:result",
+        "//tensorstore/util:span",
         "//tensorstore/util:status",
-        "@com_google_absl//absl/container:fixed_array",
         "@com_google_absl//absl/status",
     ],
 )
@@ -1175,6 +1193,7 @@ tensorstore_cc_test(
         "//tensorstore/util:iterate",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
+        "//tensorstore/util:status_testutil",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -1195,11 +1214,13 @@ tensorstore_cc_library(
     hdrs = ["nditerable_buffer_management.h"],
     deps = [
         ":arena",
+        ":element_copy_function",
         ":elementwise_function",
         ":nditerable",
         ":nditerable_util",
         "//tensorstore:data_type",
         "//tensorstore:index",
+        "//tensorstore:rank",
         "//tensorstore/util:division",
         "//tensorstore/util:iterate",
         "//tensorstore/util:span",
@@ -1221,6 +1242,7 @@ tensorstore_cc_library(
         ":nditerable_util",
         "//tensorstore:data_type",
         "//tensorstore:index",
+        "//tensorstore:rank",
         "//tensorstore/util:iterate",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
@@ -1258,6 +1280,28 @@ tensorstore_cc_test(
         "//tensorstore/util:status_testutil",
         "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "nditerable_copy_benchmark_test",
+    size = "small",
+    srcs = ["nditerable_copy_benchmark_test.cc"],
+    deps = [
+        ":arena",
+        ":elementwise_function",
+        ":nditerable_array",
+        ":nditerable_copy",
+        ":nditerable_transformed_array",
+        "//tensorstore:array",
+        "//tensorstore:contiguous_layout",
+        "//tensorstore:data_type",
+        "//tensorstore/index_space:dim_expression",
+        "//tensorstore/index_space:transformed_array",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_benchmark//:benchmark_main",
     ],
 )
 
@@ -1342,6 +1386,8 @@ tensorstore_cc_test(
         "//tensorstore/util:iterate",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
+        "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -1383,6 +1429,7 @@ tensorstore_cc_test(
         "//tensorstore/util:iterate",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
+        "//tensorstore/util:status_testutil",
         "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
     ],
@@ -1412,7 +1459,6 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
-        "@com_google_absl//absl/container:fixed_array",
         "@com_google_absl//absl/status",
     ],
 )
@@ -1424,23 +1470,22 @@ tensorstore_cc_test(
     deps = [
         ":arena",
         ":elementwise_function",
-        ":memory",
-        ":meta",
         ":nditerable",
         ":nditerable_buffer_management",
         ":nditerable_transformed_array",
-        ":nditerable_util",
         "//tensorstore:array",
+        "//tensorstore:data_type",
         "//tensorstore:index",
-        "//tensorstore:rank",
         "//tensorstore:strided_layout",
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/index_space:transformed_array",
+        "//tensorstore/util:element_pointer",
         "//tensorstore/util:iterate",
         "//tensorstore/util:result",
-        "//tensorstore/util:status",
+        "//tensorstore/util:span",
         "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -1457,11 +1502,14 @@ tensorstore_cc_library(
         ":nditerable",
         "//tensorstore:contiguous_layout",
         "//tensorstore:index",
+        "//tensorstore:rank",
         "//tensorstore/util:byte_strided_pointer",
         "//tensorstore/util:iterate",
         "//tensorstore/util:span",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:fixed_array",
         "@com_google_absl//absl/container:inlined_vector",
+        "@com_google_absl//absl/status",
     ],
 )
 
@@ -1497,17 +1545,6 @@ tensorstore_cc_library(
     name = "non_compile_bypass",
     testonly = True,
     hdrs = ["non_compile_bypass.h"],
-)
-
-tensorstore_cc_library(
-    name = "os_error_code",
-    srcs = ["os_error_code.cc"],
-    hdrs = ["os_error_code.h"],
-    tags = ["msvc"],
-    deps = [
-        "//tensorstore/util:str_cat",
-        "@com_google_absl//absl/status",
-    ],
 )
 
 tensorstore_cc_library(
@@ -1658,38 +1695,6 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
-    name = "subprocess",
-    testonly = True,
-    srcs = ["subprocess.cc"],
-    hdrs = ["subprocess.h"],
-    tags = ["msvc"],
-    deps = [
-        ":os_error_code",
-        "//tensorstore/util:result",
-        "//tensorstore/util:status",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/log:absl_log",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "subprocess_test",
-    srcs = ["subprocess_test.cc"],
-    tags = ["msvc"],
-    deps = [
-        ":subprocess",
-        "//tensorstore/util:result",
-        "//tensorstore/util:status_testutil",
-        "@com_google_absl//absl/log:absl_log",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/time",
-        "@com_google_googletest//:gtest",
-    ],
-)
-
-tensorstore_cc_library(
     name = "tagged_ptr",
     hdrs = ["tagged_ptr.h"],
 )
@@ -1717,79 +1722,17 @@ tensorstore_cc_library(
     ],
     deps = [
         ":env",
-        ":os_error_code",
         ":path",
         ":source_location",
+        "//tensorstore/internal/os:filesystem",
         "//tensorstore/kvstore/file:file_util",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
-        "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/random",
-        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest",
-    ],
-)
-
-tensorstore_cc_library(
-    name = "thread",
-    srcs = ["thread.cc"],
-    hdrs = ["thread.h"],
-    deps = [
-        "@com_google_absl//absl/functional:any_invocable",
-        "@com_google_absl//absl/log:absl_check",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "thread_test",
-    srcs = ["thread_test.cc"],
-    deps = [
-        ":thread",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
-    name = "thread_pool",
-    srcs = ["thread_pool.cc"],
-    hdrs = ["thread_pool.h"],
-    deps = [
-        ":intrusive_ptr",
-        ":mutex",
-        ":no_destructor",
-        ":thread",
-        "//tensorstore/internal/metrics",
-        "//tensorstore/internal/tracing",
-        "//tensorstore/util:executor",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/functional:any_invocable",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/synchronization",
-        "@com_google_absl//absl/time",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "thread_pool_test",
-    size = "small",
-    deps = [
-        ":thread_pool",
-        ":thread_pool_test_lib",
-    ],
-)
-
-tensorstore_cc_library(
-    name = "thread_pool_test_lib",
-    testonly = True,
-    srcs = ["thread_pool_test.cc"],
-    deps = [
-        "//tensorstore/util:executor",
-        "@com_google_absl//absl/synchronization",
-        "@com_google_absl//absl/time",
-        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -1882,7 +1825,6 @@ tensorstore_cc_library(
     hdrs = ["dimension_labels.h"],
     deps = [
         "//tensorstore:rank",
-        "//tensorstore/util:iterate",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:span",
         "//tensorstore/util:str_cat",
@@ -1922,38 +1864,6 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
-    name = "schedule_at",
-    srcs = ["schedule_at.cc"],
-    hdrs = ["schedule_at.h"],
-    deps = [
-        ":intrusive_red_black_tree",
-        ":no_destructor",
-        ":tagged_ptr",
-        ":thread",
-        "//tensorstore/internal/metrics",
-        "//tensorstore/internal/tracing",
-        "//tensorstore/util:stop_token",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/functional:any_invocable",
-        "@com_google_absl//absl/synchronization",
-        "@com_google_absl//absl/time",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "schedule_at_test",
-    size = "small",
-    srcs = ["schedule_at_test.cc"],
-    deps = [
-        ":schedule_at",
-        "//tensorstore/util:executor",
-        "//tensorstore/util:stop_token",
-        "@com_google_absl//absl/synchronization",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
     name = "multi_barrier",
     srcs = ["multi_barrier.cc"],
     hdrs = ["multi_barrier.h"],
@@ -1968,7 +1878,7 @@ tensorstore_cc_test(
     srcs = ["multi_barrier_test.cc"],
     deps = [
         ":multi_barrier",
-        ":thread",
+        "//tensorstore/internal/thread",
         "@com_google_googletest//:gtest_main",
     ],
 )

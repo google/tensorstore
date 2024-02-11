@@ -1,7 +1,7 @@
 # Optionally-cooperative Distributed B+tree driver
 
-load("//bazel:tensorstore.bzl", "tensorstore_cc_binary", "tensorstore_cc_library", "tensorstore_cc_test")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+load("//bazel:tensorstore.bzl", "tensorstore_cc_binary", "tensorstore_cc_library", "tensorstore_cc_test")
 
 package(default_visibility = ["//tensorstore:internal_packages"])
 
@@ -51,8 +51,8 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
-    name = "debug_log",
-    hdrs = ["debug_log.h"],
+    name = "debug_defines",
+    hdrs = ["debug_defines.h"],
     defines = select({
         ":debug_setting": ["TENSORSTORE_INTERNAL_OCDBT_DEBUG"],
         "//conditions:default": [],
@@ -71,11 +71,13 @@ tensorstore_cc_library(
         "//tensorstore:context",
         "//tensorstore:json_serialization_options_base",
         "//tensorstore:open_mode",
+        "//tensorstore:transaction",
         "//tensorstore/internal:concurrency_resource",
         "//tensorstore/internal:data_copy_concurrency_resource",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:json_fwd",
         "//tensorstore/internal:path",
+        "//tensorstore/internal:ref_counted_string",
         "//tensorstore/internal/cache:cache_pool_resource",
         "//tensorstore/internal/cache_key",
         "//tensorstore/internal/json_binding",
@@ -87,6 +89,7 @@ tensorstore_cc_library(
         "//tensorstore/kvstore:key_range",
         "//tensorstore/kvstore/ocdbt/distributed:btree_writer",
         "//tensorstore/kvstore/ocdbt/distributed:rpc_security",
+        "//tensorstore/kvstore/ocdbt/format",
         "//tensorstore/kvstore/ocdbt/io:io_handle_impl",
         "//tensorstore/kvstore/ocdbt/non_distributed:btree_writer",
         "//tensorstore/kvstore/ocdbt/non_distributed:list",
@@ -100,6 +103,7 @@ tensorstore_cc_library(
         "//tensorstore/util:str_cat",
         "//tensorstore/util/execution:any_receiver",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
     ],
     alwayslink = True,
@@ -143,6 +147,7 @@ tensorstore_cc_library(
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:generation",
         "//tensorstore/kvstore:key_range",
+        "//tensorstore/kvstore/ocdbt/format",
         "//tensorstore/util:future",
         "@com_google_absl//absl/strings:cord",
     ],
@@ -156,24 +161,27 @@ tensorstore_cc_test(
         ":config",
         ":ocdbt",
         ":test_util",
+        "//tensorstore:context",
         "//tensorstore:json_serialization_options_base",
+        "//tensorstore:transaction",
         "//tensorstore/internal:global_initializer",
         "//tensorstore/internal:json_fwd",
         "//tensorstore/internal:json_gtest",
-        "//tensorstore/internal:source_location",
         "//tensorstore/internal:test_util",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:key_range",
         "//tensorstore/kvstore:mock_kvstore",
+        "//tensorstore/kvstore:read_result_testutil",
         "//tensorstore/kvstore:test_util",
+        "//tensorstore/kvstore/file",
         "//tensorstore/kvstore/memory",
         "//tensorstore/kvstore/ocdbt/format",
-        "//tensorstore/kvstore/ocdbt/non_distributed:list_versions",
         "//tensorstore/util:future",
         "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
-        "//tensorstore/util:str_cat",
+        "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/strings:str_format",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -186,13 +194,17 @@ tensorstore_cc_library(
     deps = [
         ":io_handle",
         ":ocdbt",
+        "//tensorstore:context",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/kvstore",
+        "//tensorstore/kvstore:generation",
+        "//tensorstore/kvstore:generation_testutil",
         "//tensorstore/kvstore:test_util",
         "//tensorstore/kvstore/ocdbt/format",
         "//tensorstore/util:future",
         "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest",
     ],

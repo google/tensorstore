@@ -14,25 +14,30 @@
 
 #include "tensorstore/driver/zarr/dtype.h"
 
+#include <stdint.h>
+
+#include <cstddef>
+#include <cstdint>
+#include <string>
+#include <vector>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include <nlohmann/json.hpp>
+#include "tensorstore/data_type.h"
 #include "tensorstore/driver/zarr/metadata_testutil.h"
+#include "tensorstore/index.h"
 #include "tensorstore/internal/json_gtest.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/util/endian.h"
 #include "tensorstore/util/status_testutil.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace {
 
-using ::tensorstore::bfloat16_t;
-using ::tensorstore::complex128_t;
-using ::tensorstore::complex64_t;
 using ::tensorstore::DataType;
 using ::tensorstore::dtype_v;
 using ::tensorstore::endian;
-using ::tensorstore::float16_t;
-using ::tensorstore::float32_t;
-using ::tensorstore::float64_t;
 using ::tensorstore::Index;
 using ::tensorstore::kInfIndex;
 using ::tensorstore::MatchesStatus;
@@ -80,18 +85,42 @@ TEST(ParseBaseDType, Success) {
   CheckBaseDType(">u4", dtype_v<std::uint32_t>, endian::big, {});
   CheckBaseDType(">u8", dtype_v<std::uint64_t>, endian::big, {});
 
-  CheckBaseDType("<f2", dtype_v<float16_t>, endian::little, {});
-  CheckBaseDType("bfloat16", dtype_v<bfloat16_t>, endian::little, {});
-  CheckBaseDType("<f4", dtype_v<float32_t>, endian::little, {});
-  CheckBaseDType("<f8", dtype_v<float64_t>, endian::little, {});
-  CheckBaseDType(">f2", dtype_v<float16_t>, endian::big, {});
-  CheckBaseDType(">f4", dtype_v<float32_t>, endian::big, {});
-  CheckBaseDType(">f8", dtype_v<float64_t>, endian::big, {});
+  CheckBaseDType("float8_e4m3fn", dtype_v<tensorstore::dtypes::float8_e4m3fn_t>,
+                 endian::little, {});
+  CheckBaseDType("float8_e4m3fnuz",
+                 dtype_v<tensorstore::dtypes::float8_e4m3fnuz_t>,
+                 endian::little, {});
+  CheckBaseDType("float8_e4m3b11fnuz",
+                 dtype_v<tensorstore::dtypes::float8_e4m3b11fnuz_t>,
+                 endian::little, {});
+  CheckBaseDType("float8_e5m2", dtype_v<tensorstore::dtypes::float8_e5m2_t>,
+                 endian::little, {});
+  CheckBaseDType("float8_e5m2fnuz",
+                 dtype_v<tensorstore::dtypes::float8_e5m2fnuz_t>,
+                 endian::little, {});
+  CheckBaseDType("<f2", dtype_v<tensorstore::dtypes::float16_t>, endian::little,
+                 {});
+  CheckBaseDType("bfloat16", dtype_v<tensorstore::dtypes::bfloat16_t>,
+                 endian::little, {});
+  CheckBaseDType("<f4", dtype_v<tensorstore::dtypes::float32_t>, endian::little,
+                 {});
+  CheckBaseDType("<f8", dtype_v<tensorstore::dtypes::float64_t>, endian::little,
+                 {});
+  CheckBaseDType(">f2", dtype_v<tensorstore::dtypes::float16_t>, endian::big,
+                 {});
+  CheckBaseDType(">f4", dtype_v<tensorstore::dtypes::float32_t>, endian::big,
+                 {});
+  CheckBaseDType(">f8", dtype_v<tensorstore::dtypes::float64_t>, endian::big,
+                 {});
 
-  CheckBaseDType("<c8", dtype_v<complex64_t>, endian::little, {});
-  CheckBaseDType("<c16", dtype_v<complex128_t>, endian::little, {});
-  CheckBaseDType(">c8", dtype_v<complex64_t>, endian::big, {});
-  CheckBaseDType(">c16", dtype_v<complex128_t>, endian::big, {});
+  CheckBaseDType("<c8", dtype_v<tensorstore::dtypes::complex64_t>,
+                 endian::little, {});
+  CheckBaseDType("<c16", dtype_v<tensorstore::dtypes::complex128_t>,
+                 endian::little, {});
+  CheckBaseDType(">c8", dtype_v<tensorstore::dtypes::complex64_t>, endian::big,
+                 {});
+  CheckBaseDType(">c16", dtype_v<tensorstore::dtypes::complex128_t>,
+                 endian::big, {});
 }
 
 TEST(ParseBaseDType, Failure) {
@@ -313,12 +342,17 @@ TEST(ChooseBaseDTypeTest, RoundTrip) {
       dtype_v<int16_t>,
       dtype_v<int32_t>,
       dtype_v<int64_t>,
-      dtype_v<tensorstore::float16_t>,
-      dtype_v<tensorstore::bfloat16_t>,
-      dtype_v<tensorstore::float32_t>,
-      dtype_v<tensorstore::float64_t>,
-      dtype_v<tensorstore::complex64_t>,
-      dtype_v<tensorstore::complex128_t>,
+      dtype_v<::tensorstore::dtypes::float8_e4m3fn_t>,
+      dtype_v<::tensorstore::dtypes::float8_e4m3fnuz_t>,
+      dtype_v<::tensorstore::dtypes::float8_e4m3b11fnuz_t>,
+      dtype_v<::tensorstore::dtypes::float8_e5m2_t>,
+      dtype_v<::tensorstore::dtypes::float8_e5m2fnuz_t>,
+      dtype_v<::tensorstore::dtypes::float16_t>,
+      dtype_v<::tensorstore::dtypes::bfloat16_t>,
+      dtype_v<::tensorstore::dtypes::float32_t>,
+      dtype_v<::tensorstore::dtypes::float64_t>,
+      dtype_v<::tensorstore::dtypes::complex64_t>,
+      dtype_v<::tensorstore::dtypes::complex128_t>,
   };
   for (auto dtype : kSupportedDataTypes) {
     SCOPED_TRACE(tensorstore::StrCat("dtype=", dtype));
@@ -339,7 +373,7 @@ TEST(ChooseBaseDTypeTest, Invalid) {
   EXPECT_THAT(ChooseBaseDType(dtype_v<X>),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Data type not supported: .*"));
-  EXPECT_THAT(ChooseBaseDType(dtype_v<tensorstore::string_t>),
+  EXPECT_THAT(ChooseBaseDType(dtype_v<::tensorstore::dtypes::string_t>),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Data type not supported: string"));
 }

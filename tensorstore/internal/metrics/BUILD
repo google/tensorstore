@@ -1,8 +1,29 @@
-load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_proto_library", "tensorstore_cc_test", "tensorstore_proto_library")
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+load(
+    "//bazel:tensorstore.bzl",
+    "tensorstore_cc_binary",
+    "tensorstore_cc_library",
+    "tensorstore_cc_proto_library",
+    "tensorstore_cc_test",
+    "tensorstore_proto_library",
+)
 
 package(default_visibility = ["//tensorstore:internal_packages"])
 
 licenses(["notice"])
+
+bool_flag(
+    name = "enable",
+    build_setting_default = True,
+)
+
+config_setting(
+    name = "enable_setting",
+    flag_values = {
+        ":enable": "True",
+    },
+    visibility = ["//visibility:private"],
+)
 
 tensorstore_proto_library(
     name = "metrics_proto",
@@ -26,6 +47,17 @@ tensorstore_cc_library(
     ],
 )
 
+tensorstore_cc_test(
+    name = "collect_test",
+    srcs = ["collect_test.cc"],
+    deps = [
+        ":collect",
+        "//tensorstore/internal:json_gtest",
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
 tensorstore_cc_library(
     name = "metadata",
     srcs = ["metadata.cc"],
@@ -44,7 +76,7 @@ tensorstore_cc_test(
     ],
 )
 
-cc_library(
+tensorstore_cc_library(
     name = "metric_hook",
     hdrs = ["metric_hook.h"],
     deps = ["//tensorstore/internal:type_traits"],
@@ -52,11 +84,11 @@ cc_library(
 
 tensorstore_cc_library(
     name = "metric_impl",
+    srcs = ["metric_impl.cc"],
     hdrs = ["metric_impl.h"],
     deps = [
-        ":collect",
         ":metadata",
-        "//tensorstore/internal:type_traits",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:node_hash_map",
         "@com_google_absl//absl/functional:function_ref",
         "@com_google_absl//absl/hash",
@@ -73,6 +105,10 @@ tensorstore_cc_library(
         "histogram.h",
         "value.h",
     ],
+    defines = select({
+        ":enable_setting": [],
+        "//conditions:default": ["TENSORSTORE_METRICS_DISABLED"],
+    }),
     deps = [
         ":collect",
         ":metadata",
@@ -99,7 +135,21 @@ tensorstore_cc_test(
     ],
 )
 
-cc_library(
+tensorstore_cc_binary(
+    name = "metrics_benchmark_test",
+    testonly = 1,
+    srcs = ["metrics_benchmark_test.cc"],
+    deps = [
+        ":metrics",
+        ":registry",
+        "//tensorstore/internal/thread:thread_pool",
+        "//tensorstore/util:executor",
+        "@com_google_absl//absl/synchronization",
+        "@com_google_benchmark//:benchmark_main",
+    ],
+)
+
+tensorstore_cc_library(
     name = "protobuf",
     srcs = ["protobuf.cc"],
     hdrs = ["protobuf.h"],
@@ -108,6 +158,32 @@ cc_library(
         ":metrics_cc_proto",
         "//tensorstore/util:span",
         "@com_google_absl//absl/log:absl_log",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "prometheus",
+    srcs = ["prometheus.cc"],
+    hdrs = ["prometheus.h"],
+    deps = [
+        ":collect",
+        "//tensorstore/internal:uri_utils",
+        "//tensorstore/internal/http",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "@com_google_absl//absl/functional:function_ref",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_test(
+    name = "prometheus_test",
+    srcs = ["prometheus_test.cc"],
+    deps = [
+        ":collect",
+        ":prometheus",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 

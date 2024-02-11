@@ -16,7 +16,7 @@
 # build.
 
 cmake_minimum_required(VERSION 3.24)
-project(tensorstore LANGUAGES CXX)
+project(tensorstore LANGUAGES C CXX)
 
 # Enable CMP0077 (option honors variables) for subprojects.
 set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
@@ -92,6 +92,7 @@ bazel_to_cmake(
   --ignore-library "//docs:doctest.bzl"
   --ignore-library "//bazel:non_compile.bzl"
   --ignore-library "@com_google_protobuf//:protobuf.bzl"
+  --ignore-library "@rules_python//python:packaging.bzl"
   --bazelrc .bazelrc
   --module bazel_to_cmake.bzl_library.grpc_generate_cc
   --module bazel_to_cmake.bzl_library.local_mirror

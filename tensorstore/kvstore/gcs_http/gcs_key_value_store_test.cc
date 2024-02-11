@@ -12,8 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <stddef.h>
+
 #include <algorithm>
-#include <cstddef>
+#include <atomic>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <tuple>
@@ -25,6 +28,7 @@
 #include <gtest/gtest.h>
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/match.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/synchronization/notification.h"
@@ -35,16 +39,22 @@
 #include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
+#include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/oauth2/google_auth_provider.h"
 #include "tensorstore/internal/oauth2/google_auth_test_utils.h"
-#include "tensorstore/internal/schedule_at.h"
+#include "tensorstore/internal/thread/schedule_at.h"
 #include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/gcs_http/gcs_mock.h"
 #include "tensorstore/kvstore/generation.h"
+#include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
+#include "tensorstore/kvstore/read_result.h"
+#include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/test_util.h"
+#include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender_testutil.h"
 #include "tensorstore/util/future.h"
@@ -232,7 +242,7 @@ TEST(GcsKeyValueStoreTest, Basic) {
   EXPECT_THAT(spec.ToJson(tensorstore::IncludeDefaults{false}),
               ::testing::Optional(
                   MatchesJson({{"driver", kDriver}, {"bucket", "my-bucket"}})));
-  tensorstore::internal::TestKeyValueStoreBasicFunctionality(store);
+  tensorstore::internal::TestKeyValueReadWriteOps(store);
 }
 
 TEST(GcsKeyValueStoreTest, Retry) {
@@ -573,7 +583,7 @@ class MyDeleteRangeCancellationMockTransport : public MyMockTransport {
                                          connect_timeout);
   }
 
-  std::atomic<std::size_t> total_delete_requests_{0};
+  std::atomic<size_t> total_delete_requests_{0};
   absl::Notification cancellation_notification_;
 };
 
@@ -619,7 +629,7 @@ TEST(GcsKeyValueStoreTest, DeleteRangeCancellation) {
 
 class MyConcurrentMockTransport : public MyMockTransport {
  public:
-  std::size_t reset() {
+  size_t reset() {
     absl::MutexLock lock(&concurrent_request_mutex_);
     cur_concurrent_requests_ = 0;
     return std::exchange(max_concurrent_requests_, 0);
@@ -660,8 +670,8 @@ class MyConcurrentMockTransport : public MyMockTransport {
     return std::move(op.future);
   }
 
-  std::size_t cur_concurrent_requests_ = 0;
-  std::size_t max_concurrent_requests_ = 0;
+  size_t cur_concurrent_requests_ = 0;
+  size_t max_concurrent_requests_ = 0;
   absl::Mutex concurrent_request_mutex_;
 };
 
@@ -707,7 +717,7 @@ TEST(GcsKeyValueStoreTest, Concurrency) {
 
 class MyRateLimitedMockTransport : public MyMockTransport {
  public:
-  std::tuple<absl::Time, absl::Time, std::size_t> reset() {
+  std::tuple<absl::Time, absl::Time, size_t> reset() {
     absl::MutexLock l(&request_timing_mutex_);
     return {min_time_, max_time_, std::exchange(count_, 0)};
   }
@@ -738,7 +748,7 @@ class MyRateLimitedMockTransport : public MyMockTransport {
 
   absl::Time min_time_;
   absl::Time max_time_;
-  std::size_t count_;
+  size_t count_;
   absl::Mutex request_timing_mutex_;
 };
 

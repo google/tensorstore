@@ -1,0 +1,581 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: driver/zarr3
+allOf:
+- $ref: KeyValueStoreBackedChunkDriver
+- type: object
+  properties:
+    driver:
+      const: "zarr3"
+    metadata:
+      title: Zarr v3 array metadata.
+      description: |
+        Specifies constraints on the metadata, as in the `zarr.json metadata
+        file
+        <https://zarr-specs.readthedocs.io/en/latest/v3/core/v3.0.html#array-metadata>`__,
+        except that all members are optional and codecs may be left
+        partially-specified, in which case default options are chosen
+        automatically.  When creating a new array, the new metadata is obtained
+        by combining these metadata constraints with any `Schema` constraints.
+      $ref: driver/zarr3/Metadata
+examples:
+- driver: zarr3
+  kvstore:
+    driver: gcs
+    bucket: my-bucket
+    path: path/to/array/
+  metadata:
+    shape:
+    - 1000
+    - 1000
+    chunk_grid:
+      name: regular
+      configuration:
+        chunk_shape:
+        - 100
+        - 100
+    chunk_key_encoding:
+      name: default
+    codecs:
+    - {"name": "blosc", "configuration": {"cname": "lz4", "clevel": 5}}
+    data_type: int4
+definitions:
+  metadata:
+    $id: 'driver/zarr3/Metadata'
+    type: object
+    properties:
+      zarr_format:
+        const: 3
+        title: "Identifies the zarr specification version."
+      node_type:
+        const: "array"
+        title: "Identifies the zarr node type."
+      shape:
+        type: array
+        items:
+          type: integer
+          minimum: 0
+        title: Dimensions of the array.
+        description: |
+          Required when creating a new array if the `Schema.domain` is not
+          otherwise specified.
+        examples:
+        - [300, 400, 500]
+      data_type:
+        type: string
+        title: "Data type of the array."
+        $ref: driver/zarr3/DataType
+      chunk_grid:
+        type: object
+        properties:
+          name:
+            const: "regular"
+          configuration:
+            type: object
+            properties:
+              chunk_shape:
+                type: array
+                items:
+                  type: integer
+                  minimum: 1
+                title: Chunk dimensions.
+                description: |
+                  Specifies the chunk size for each dimension.  Must have the
+                  same length as `.shape`.  If not specified when creating a new
+                  array, the chunk dimensions are chosen automatically according
+                  to the `Schema.chunk_layout`.
+                examples:
+                - [64, 64, 64]
+      chunk_key_encoding:
+        $ref: driver/zarr3/ChunkKeyEncoding
+      fill_value:
+        title: Specifies the fill value.
+        description: |
+          When creating a new array, defaults to ``0`` for numeric data types
+          and ``false`` for `~dtype.bool`.
+      codecs:
+        $ref: driver/zarr3/CodecChain
+        title: Specifies the chunk encoding.
+      attributes:
+        type: object
+        title: |
+          Specifies user-defined attributes.
+        description: |
+          Certain attributes are interpreted specially by TensorStore.
+        properties:
+          dimension_units:
+            type: array
+            title: |
+              Physical units corresponding to each dimension of the array.
+            description: |
+              Optional.  If specified, the length must match the rank of the
+              array.  A value of ``null`` indicates an unspecified unit, while a
+              value of ``""`` indicates a unitless quantity.  If omitted,
+              equivalent to specify an array of all ``null`` values.
+
+              .. example::
+
+                 For a 3-dimensional array where each voxel has a physical size
+                 of 2nm by 3nm by 50nm, the `.dimension_units` should be
+                 specified as ``["2 nm", "3 nm", "50 nm"]``.
+            items:
+              oneOf:
+              - type: null
+              - type: string
+      dimension_names:
+        type: array
+        items:
+          oneOf:
+          - type: "string"
+          - type: "null"
+        title: Specifies an optional name for each dimension.
+        description: |
+          Optional.  If not specified when creating a new array (and also
+          unspecified by the `Schema.domain`), all dimensions are unlabeled
+          (equivalent to specifying an empty string for each dimension).  Labels
+          are specified in the same order as the `.shape` property.  Note that
+          this specifies the *stored* dimension labels.  As with any TensorStore
+          driver, dimension labels may also be overridden by specifying a
+          `~driver/zarr3.transform`.
+        examples:
+        - ["x", "y", "z"]
+  data_type:
+    $id: driver/zarr3/DataType
+    title: "Specifies the zarr data type."
+    description: |
+      Refer to the :ref:`zarr v3 spec<zarr-specs:data type>` for details.
+    oneOf:
+    - const: "bool"
+      title: |
+        Boolean value.
+    - const: "int4"
+      title: |
+        4-bit signed `two's-complement <https://en.wikipedia.org/wiki/Two%27s_complement>`__ integer.
+      description: |
+        .. warning::
+
+           Supported as a non-standard extension.
+    - const: "int8"
+      title: |
+        8-bit signed `two's-complement <https://en.wikipedia.org/wiki/Two%27s_complement>`__ integer.
+    - const: "uint8"
+      title: |
+        8-bit unsigned integer.
+    - const: "int16"
+      title: |
+        16-bit signed `two's-complement <https://en.wikipedia.org/wiki/Two%27s_complement>`__ integer.
+    - const: "uint16"
+      title: |
+        16-bit unsigned integer.
+    - const: "int32"
+      title: |
+        32-bit signed `two's-complement <https://en.wikipedia.org/wiki/Two%27s_complement>`__ integer.
+    - const: "uint32"
+      title: |
+        32-bit unsigned integer.
+    - const: "int64"
+      title: |
+        64-bit signed `two's-complement <https://en.wikipedia.org/wiki/Two%27s_complement>`__ integer.
+    - const: "uint64"
+      title: |
+        64-bit unsigned integer.
+    - const: "float16"
+      title: |
+         `IEEE 754 binary16
+         <https://en.wikipedia.org/wiki/Half-precision_floating-point_format>`__
+         half-precision floating-point number.
+    - const: "bfloat16"
+      title: |
+        `bfloat16 floating-point format <https://en.wikipedia.org/wiki/Bfloat16_floating-point_format>`__ number.
+      description: |
+        .. warning::
+
+           Supported as a non-standard extension.
+    - const: "float32"
+      title: |
+         `IEEE 754 binary32
+         <https://en.wikipedia.org/wiki/Single-precision_floating-point_format>`__
+         single-precision floating-point number.
+    - const: "float64"
+      title: |
+         `IEEE 754 binary64
+         <https://en.wikipedia.org/wiki/Double-precision_floating-point_format>`__
+         double-precision floating-point number.
+    - const: "complex64"
+      title: |
+        Complex number, where the real and imaginary components are each
+        represented by a `.float32`.
+    - const: "complex128"
+      title: |
+        Complex number, where the real and imaginary components are each
+        represented by a `.float64`.
+  chunk_key_encoding:
+    $id: driver/zarr3/ChunkKeyEncoding
+    type: object
+    title: |
+      Specifies the encoding of chunk grid positions as keys in the underlying
+      :json:schema:`~driver/zarr3.kvstore`.
+    description: |
+      If not specified when creating a new array, the
+      `~driver/zarr3/ChunkKeyEncoding.default` chunk key encoding is used.
+    properties:
+      name:
+        type: string
+        title: Identifies the chunk key encoding.
+      configuration:
+        type: object
+        title: Configuration options.
+        description: |
+          Specifies configuration options specific to the particular chunk key
+          encoding.
+  chunk_key_encoding_default:
+    $id: driver/zarr3/ChunkKeyEncoding.default
+    title: Default chunk key encoding.
+    description: |
+      Refer to `the zarr v3 spec
+      <https://zarr-specs.readthedocs.io/en/latest/v3/core/v3.0.html#chunk-key-encoding>`__
+      for details.
+    allOf:
+    - $ref: driver/zarr3/ChunkKeyEncoding
+    - type: object
+      properties:
+        name:
+          const: "default"
+        configuration:
+          type: object
+          properties:
+            separator:
+              type: string
+              oneOf:
+              - const: "/"
+              - const: "."
+              default: "/"
+              title: "Separator character between dimensions"
+  chunk_key_encoding_v2:
+    $id: driver/zarr3/ChunkKeyEncoding.v2
+    title: Zarr v2-compatible chunk key encoding.
+    description: |
+      Refer to `the zarr v3 spec
+      <https://zarr-specs.readthedocs.io/en/latest/v3/core/v3.0.html#chunk-key-encoding>`__
+      for details.
+    allOf:
+    - $ref: driver/zarr3/ChunkKeyEncoding
+    - type: object
+      properties:
+        name:
+          const: "v2"
+        configuration:
+          type: object
+          properties:
+            separator:
+              type: string
+              oneOf:
+              - const: "/"
+              - const: "."
+              default: "."
+              title: "Separator character between dimensions"
+  codec_chain:
+    $id: driver/zarr3/CodecChain
+    title: Specifies a chain of codecs.
+    description: |
+      Each chunk of the array is converted to its stored representation by a
+      sequence of zero or more :literal:`array -> array` codecs, a single
+      :literal:`array -> bytes` codec, and a sequence of zero or more
+      :literal:`bytes -> bytes` codecs.  While required in the actual
+      :file:`zarr.json` metadata, in the TensorStore spec it is permitted to
+      omit the :literal:`array -> bytes` codec, in which case the
+      :literal:`array -> bytes` codec is unconstrained when opening an existing
+      array, and chosen automatically when creating a new array.
+
+      Each codec is specified either by an object, or as a string.  A plain
+      string is equivalent to an object with the string as its
+      `~driver/zarr3/SingleCodec.name`.  For example, ``"crc32c"`` is equivalent
+      to ``{"name": "crc32c"}``.
+    type: array
+    items:
+      oneOf:
+      - type: string
+      - $ref: driver/zarr3/SingleCodec
+  single_codec:
+    $id: driver/zarr3/SingleCodec
+    title: Specifies a single codec.
+    type: object
+    properties:
+      name:
+        type: string
+        title: Identifies the codec.
+      configuration:
+        type: object
+        title: Specifies codec-specific configuration options.
+    required:
+    - name
+  codec:
+    $id: 'driver/zarr3/Codec'
+    allOf:
+    - $ref: Codec
+    - type: object
+      properties:
+        driver:
+          const: "zarr3"
+        codecs:
+          $ref: driver/zarr3/CodecChain
+  codec-bytes:
+    $id: 'driver/zarr3/Codec/bytes'
+    title: |
+      Fixed-size encoding for numeric types.
+    description: |
+      .. seealso::
+
+         `Bytes codec specification <https://zarr-specs.readthedocs.io/en/latest/v3/codecs/endian/v1.0.html>`__
+    allOf:
+    - $ref: 'driver/zarr3/SingleCodec'
+    - type: object
+      properties:
+        name:
+          const: bytes
+        configuration:
+          type: object
+          properties:
+            endian:
+              oneOf:
+              - const: "little"
+              - const: "big"
+    examples:
+    - name: bytes
+      configuration:
+        endian: "little"
+  codec-sharding-indexed:
+    $id: 'driver/zarr3/Codec/sharding_indexed'
+    title: |
+      Sharding codec that enables hierarchical chunking.
+    description: |
+      .. seealso::
+
+         `Sharding codec specification <https://zarr-specs.readthedocs.io/en/latest/v3/codecs/sharding-indexed/v1.0.html>`__
+    allOf:
+    - $ref: 'driver/zarr3/SingleCodec'
+    - type: object
+      properties:
+        name:
+          const: sharding_indexed
+        configuration:
+          type: object
+          properties:
+            chunk_shape:
+              type: array
+              title: Shape of each sub-chunk.
+              items:
+                type: integer
+                minimum: 1
+            codecs:
+              $ref: driver/zarr3/CodecChain
+              title: Sub-chunk codec chain
+              description: |
+                Codec chain used to encode/decode each individual sub-chunk.
+            index_codecs:
+              $ref: driver/zarr3/CodecChain
+              title: Shard index codec chain
+              description: |
+                Codec chain used to encode/decode the shard index.
+            index_location:
+              title: "Location of the shard index within the shard."
+              oneOf:
+              - const: "start"
+              - const: "end"
+              default: "end"
+    examples:
+    - name: sharding_indexed
+      configuration:
+        chunk_shape: [64, 64, 64]
+        codecs:
+        - {"name": "bytes", "configuration": {"endian": "little"}}
+        - {"name": "gzip", "configuration": {"level": "5"}}
+        index_codecs:
+        - {"name": "bytes", "configuration": {"endian": "little"}}
+        - {"name": "crc32c"}
+        index_location: "end"
+  codec-transpose:
+    $id: 'driver/zarr3/Codec/transpose'
+    title: |
+      Transposes the dimensions of an array.
+    description: |
+      .. seealso::
+
+         `Transpose codec specification <https://zarr-specs.readthedocs.io/en/latest/v3/codecs/transpose/v1.0.html>`__
+    allOf:
+    - $ref: 'driver/zarr3/SingleCodec'
+    - type: object
+      properties:
+        name:
+          const: transpose
+        configuration:
+          type: object
+          properties:
+            order:
+              oneOf:
+              - type: array
+                items:
+                  type: integer
+              - const: "C"
+              - const: "F"
+              title: Permutation of the dimensions.
+              description: |
+                When an array is specified, the :literal:`i`th dimension of the
+                encoded representation corresponds to dimension
+                :literal:`order[i]` of the decoded (original) representation.
+
+                The special value of ``"C"`` indicates the identity permutation
+                :python:`[0, 1, ..., n-1]` of unspecified length (equivalent to
+                not specifying the `~driver/zarr3/Codec/transpose` codec at
+                all), and the special value of ``"F"`` indicates the dimension
+                reversal permutation :python:`[n-1, ..., 1, 0]` of unspecified
+                length.
+
+                If combined with the `~driver/zarr3/Codec/bytes` codec and no
+                other transformations are applied, specifying ``"C"`` results in
+                chunks stored in C (i.e. lexicographic or row-major) order, and
+                specifying ``"F"`` results in chunks stored in Fortran order
+                (i.e. colexicographic or column-major) order.  However, given
+                the possible presence of other transformations, it is
+                recommended to instead just specify a permutation explicitly.
+    examples:
+    - name: transpose
+      configuration:
+        order: [2, 0, 1]
+  codec-crc32c:
+    $id: 'driver/zarr3/Codec/crc32c'
+    title: |
+      Appends a CRC-32C checksum to detect data corruption.
+    description: |
+      .. seealso::
+
+         `CRC-32C codec specification <https://zarr-specs.readthedocs.io/en/latest/v3/codecs/crc32c/v1.0.html>`__
+    allOf:
+    - $ref: 'driver/zarr3/SingleCodec'
+    - type: object
+      properties:
+        name:
+          const: crc32c
+        configuration:
+          type: object
+          title: No configuration options are supported.
+    examples:
+    - name: crc32c
+  codec-gzip:
+    $id: 'driver/zarr3/Codec/gzip'
+    title: |
+      Specifies `gzip <https://zlib.net>`__ compression.
+    description: |
+      .. seealso::
+
+         `Gzip codec specification <https://zarr-specs.readthedocs.io/en/latest/v3/codecs/gzip/v1.0.html>`__
+    allOf:
+    - $ref: 'driver/zarr3/SingleCodec'
+    - type: object
+      properties:
+        name:
+          const: gzip
+        configuration:
+          type: object
+          level:
+            type: integer
+            minimum: 0
+            maximum: 9
+            default: 6
+            title: Specifies the zlib compression level to use.
+            description: |
+              Level 0 indicates no compression (fastest), while level 9 indicates
+              the best compression ratio (slowest).
+    examples:
+    - name: gzip
+      configuration:
+        level: 9
+  codec-blosc:
+    $id: 'driver/zarr3/Codec/blosc'
+    title: |
+      Specifies `Blosc <https://github.com/Blosc/c-blosc>`__ compression.
+    description: |
+      .. seealso::
+
+         `Blosc codec specification <https://zarr-specs.readthedocs.io/en/latest/v3/codecs/blosc/v1.0.html>`__
+    allOf:
+    - $ref: 'driver/zarr3/SingleCodec'
+    - type: object
+      properties:
+        name:
+          const: blosc
+        configuration:
+          type: object
+          properties:
+            cname:
+              enum:
+              - blosclz
+              - lz4
+              - lz4hc
+              - snappy
+              - zlib
+              - zstd
+              default: lz4
+              description: Specifies the compression method used by Blosc.
+            clevel:
+              type: integer
+              minimum: 0
+              maximum: 9
+              default: 5
+              title: Specifies the Blosc compression level to use.
+              description: Higher values are slower but achieve a higher compression ratio.
+            shuffle:
+              oneOf:
+              - const: "noshuffle"
+                title: No shuffling.
+              - const: "shuffle"
+                title: Byte-wise shuffle
+              - const: "bitshuffle"
+                title: Bit-wise shuffle
+            typesize:
+              type: integer
+              minimum: 1
+              maximum: 255
+              title: Specifies the stride in bytes for shuffling.
+              description: |
+                If not specified when creating an array, it is chosen
+                automatically based on the data type.
+            blocksize:
+              type: integer
+              minimum: 0
+              title: Specifies the Blosc blocksize.
+              description: |
+                The default value of 0 causes the block size to be chosen
+                automatically.
+    examples:
+    - name: blosc
+      configuration:
+        cname: blosclz
+        clevel: 9
+        typesize: 2
+        shuffle: "bitshuffle"
+  compressor-zstd:
+    $id: 'driver/zarr3/Codec/zstd'
+    title: |
+      Specifies `Zstd <https://facebook.github.io/zstd>`__ compression.
+    allOf:
+    - $ref: 'driver/zarr3/SingleCodec'
+    - type: object
+      properties:
+        name:
+          const: zstd
+        configuration:
+          type: object
+          properties:
+            level:
+              type: integer
+              minimum: -131072
+              maximum: 22
+              default: 1
+              title: Specifies the compression level to use.
+              description: |
+                A higher compression level provides improved density but reduced
+                compression speed.
+    examples:
+    - name: zstd
+      configuration:
+        level: 6

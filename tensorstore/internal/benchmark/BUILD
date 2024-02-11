@@ -49,7 +49,6 @@ tensorstore_cc_binary(
     deps = [
         ":metric_utils",
         "//tensorstore:context",
-        "//tensorstore:data_type",
         "//tensorstore/internal:path",
         "//tensorstore/internal/metrics",
         "//tensorstore/internal/metrics:registry",

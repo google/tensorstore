@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <stddef.h>
+#include <stdint.h>
+
+#include <algorithm>
 #include <atomic>
 #include <cassert>
 #include <memory>
@@ -21,10 +25,13 @@
 #include <utility>
 #include <vector>
 
+#include "absl/base/attributes.h"
+#include "absl/base/thread_annotations.h"
 #include "absl/log/absl_log.h"
 #include "absl/random/random.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
@@ -38,8 +45,10 @@
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/json/json.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/histogram.h"
 #include "tensorstore/internal/oauth2/auth_provider.h"
@@ -47,8 +56,8 @@
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/retries_context_resource.h"
 #include "tensorstore/internal/retry.h"
-#include "tensorstore/internal/schedule_at.h"
 #include "tensorstore/internal/source_location.h"
+#include "tensorstore/internal/thread/schedule_at.h"
 #include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
@@ -58,8 +67,12 @@
 #include "tensorstore/kvstore/gcs_http/object_metadata.h"
 #include "tensorstore/kvstore/gcs_http/rate_limiter.h"
 #include "tensorstore/kvstore/generation.h"
+#include "tensorstore/kvstore/key_range.h"
+#include "tensorstore/kvstore/operations.h"
+#include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/registry.h"
 #include "tensorstore/kvstore/spec.h"
+#include "tensorstore/kvstore/supported_features.h"
 #include "tensorstore/kvstore/url_registry.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
@@ -72,12 +85,12 @@
 #include "tensorstore/util/str_cat.h"
 
 /// specializations
-#include "tensorstore/internal/cache_key/std_optional.h"
-#include "tensorstore/internal/json_binding/std_array.h"
-#include "tensorstore/internal/json_binding/std_optional.h"
-#include "tensorstore/serialization/fwd.h"
-#include "tensorstore/serialization/std_optional.h"
-#include "tensorstore/util/garbage_collection/std_optional.h"
+#include "tensorstore/internal/cache_key/std_optional.h"  // IWYU pragma: keep
+#include "tensorstore/internal/json_binding/std_array.h"  // IWYU pragma: keep
+#include "tensorstore/internal/json_binding/std_optional.h"  // IWYU pragma: keep
+#include "tensorstore/serialization/fwd.h"  // IWYU pragma: keep
+#include "tensorstore/serialization/std_optional.h"  // IWYU pragma: keep
+#include "tensorstore/util/garbage_collection/std_optional.h"  // IWYU pragma: keep
 
 // GCS reference links are:
 //
@@ -108,14 +121,6 @@ using ::tensorstore::internal_storage_gcs::IsValidStorageGeneration;
 using ::tensorstore::kvstore::Key;
 using ::tensorstore::kvstore::ListOptions;
 using ::tensorstore::kvstore::SupportedFeatures;
-
-#ifndef TENSORSTORE_INTERNAL_GCS_LOG_REQUESTS
-#define TENSORSTORE_INTERNAL_GCS_LOG_REQUESTS 0
-#endif
-
-#ifndef TENSORSTORE_INTERNAL_GCS_LOG_RESPONSES
-#define TENSORSTORE_INTERNAL_GCS_LOG_RESPONSES 0
-#endif
 
 namespace {
 static constexpr char kUriScheme[] = "gs";
@@ -159,6 +164,8 @@ auto& gcs_delete_range = internal_metrics::Counter<int64_t>::New(
 
 auto& gcs_list = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/gcs/list", "GCS driver kvstore::List calls");
+
+ABSL_CONST_INIT internal_log::VerboseFlag gcs_http_logging("gcs_http");
 
 std::string_view GetGcsBaseUrl() {
   static std::string url = []() -> std::string {
@@ -384,10 +391,10 @@ class GcsKeyValueStore
     }
 
     // https://cloud.google.com/storage/docs/retry-strategy#exponential-backoff
-    gcs_retries.Increment();
     auto delay = internal::BackoffForAttempt(
         attempt, spec_.retries->initial_delay, spec_.retries->max_delay,
         /*jitter=*/std::min(absl::Seconds(1), spec_.retries->initial_delay));
+    gcs_retries.Increment();
     ScheduleAt(absl::Now() + delay,
                WithExecutor(executor(), [task = IntrusivePtr<Task>(task)] {
                  task->Retry();
@@ -497,7 +504,8 @@ struct ReadTask : public RateLimiterNode,
       return;
     }
     /// Reads contents of a GCS object.
-    std::string media_url = tensorstore::StrCat(resource, "?alt=media");
+    std::string media_url = tensorstore::StrCat(
+        resource, options.byte_range.size() == 0 ? "?alt=json" : "?alt=media");
 
     // Add the ifGenerationNotMatch condition.
     AddGenerationParam(&media_url, true, "ifGenerationNotMatch",
@@ -521,14 +529,14 @@ struct ReadTask : public RateLimiterNode,
     if (maybe_auth_header.value().has_value()) {
       request_builder.AddHeader(*maybe_auth_header.value());
     }
+    if (options.byte_range.size() != 0) {
+      request_builder.MaybeAddRangeHeader(options.byte_range);
+    }
 
-    auto request = request_builder.MaybeAddRangeHeader(options.byte_range)
-                       .EnableAcceptEncoding()
-                       .BuildRequest();
+    auto request = request_builder.EnableAcceptEncoding().BuildRequest();
     start_time_ = absl::Now();
 
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_GCS_LOG_REQUESTS)
-        << "ReadTask: " << request;
+    ABSL_LOG_IF(INFO, gcs_http_logging) << "ReadTask: " << request;
     auto future = owner->transport_->IssueRequest(request, {});
     future.ExecuteWhenReady([self = IntrusivePtr<ReadTask>(this)](
                                 ReadyFuture<HttpResponse> response) {
@@ -540,7 +548,7 @@ struct ReadTask : public RateLimiterNode,
     if (!promise.result_needed()) {
       return;
     }
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_GCS_LOG_RESPONSES && response.ok())
+    ABSL_LOG_IF(INFO, gcs_http_logging.Level(1) && response.ok())
         << "ReadTask " << *response;
 
     absl::Status status = [&]() -> absl::Status {
@@ -575,66 +583,69 @@ struct ReadTask : public RateLimiterNode,
 
     // Parse `Date` header from response to correctly handle cached responses.
     // The GCS servers always send a `date` header.
-    kvstore::ReadResult read_result;
-    read_result.stamp.time = start_time_;
-
     switch (httpresponse.status_code) {
       case 204:
       case 404:
         // Object not found.
-        read_result.stamp.generation = StorageGeneration::NoValue();
-        read_result.state = kvstore::ReadResult::kMissing;
-        return read_result;
+        return kvstore::ReadResult::Missing(start_time_);
       case 412:
         // "Failed precondition": indicates the ifGenerationMatch condition
         // did not hold.
         // NOTE: This is returned even when the object does not exist.
-        read_result.stamp.generation = StorageGeneration::Unknown();
-        return read_result;
+        return kvstore::ReadResult::Unspecified(TimestampedStorageGeneration{
+            StorageGeneration::Unknown(), start_time_});
       case 304:
         // "Not modified": indicates that the ifGenerationNotMatch condition
         // did not hold.
-        read_result.stamp.generation = options.if_not_equal;
-        return read_result;
+        return kvstore::ReadResult::Unspecified(
+            TimestampedStorageGeneration{options.if_not_equal, start_time_});
     }
 
-    size_t payload_size = httpresponse.payload.size();
-    if (httpresponse.status_code != 206) {
-      // This may or may not have been a range request; attempt to validate.
-      TENSORSTORE_ASSIGN_OR_RETURN(auto byte_range,
-                                   options.byte_range.Validate(payload_size));
-      read_result.state = kvstore::ReadResult::kValue;
-      read_result.value =
-          internal::GetSubCord(httpresponse.payload, byte_range);
-    } else {
-      // Server should return a parseable content-range header.
-      TENSORSTORE_ASSIGN_OR_RETURN(auto content_range_tuple,
-                                   ParseContentRangeHeader(httpresponse));
-
-      if (auto request_size = options.byte_range.size();
-          (options.byte_range.inclusive_min != -1 &&
-           options.byte_range.inclusive_min !=
-               std::get<0>(content_range_tuple)) ||
-          (request_size != -1 && request_size != payload_size)) {
-        // Return an error when the response does not start at the requested
-        // offset of when the response is smaller than the desired size.
-        return absl::OutOfRangeError(tensorstore::StrCat(
-            "Requested byte range ", options.byte_range,
-            " was not satisfied by GCS response of size ", payload_size));
-      }
-      // assert(payload_size == std::get<2>(content_range_tuple));
-      read_result.state = kvstore::ReadResult::kValue;
-      read_result.value = httpresponse.payload;
-    }
-
-    // TODO: Avoid parsing the entire metadata & only extract the
-    // generation field.
+    absl::Cord value;
     ObjectMetadata metadata;
-    SetObjectMetadataFromHeaders(httpresponse.headers, &metadata);
+    if (options.byte_range.size() != 0) {
+      if (httpresponse.status_code != 206) {
+        // This may or may not have been a range request; attempt to validate.
+        TENSORSTORE_ASSIGN_OR_RETURN(
+            auto byte_range,
+            options.byte_range.Validate(httpresponse.payload.size()));
 
-    read_result.stamp.generation =
-        StorageGeneration::FromUint64(metadata.generation);
-    return read_result;
+        value = internal::GetSubCord(httpresponse.payload, byte_range);
+      } else {
+        value = httpresponse.payload;
+
+        // Server should return a parseable content-range header.
+        TENSORSTORE_ASSIGN_OR_RETURN(auto content_range_tuple,
+                                     ParseContentRangeHeader(httpresponse));
+
+        if (auto request_size = options.byte_range.size();
+            (options.byte_range.inclusive_min != -1 &&
+             options.byte_range.inclusive_min !=
+                 std::get<0>(content_range_tuple)) ||
+            (request_size >= 0 && request_size != value.size())) {
+          // Return an error when the response does not start at the requested
+          // offset of when the response is smaller than the desired size.
+          return absl::OutOfRangeError(
+              tensorstore::StrCat("Requested byte range ", options.byte_range,
+                                  " was not satisfied by GCS response of size ",
+                                  httpresponse.payload.size()));
+        }
+      }
+      // TODO: Avoid parsing the entire metadata & only extract the
+      // generation field.
+      SetObjectMetadataFromHeaders(httpresponse.headers, &metadata);
+    } else {
+      // 0-range reads issue metadata requests; parse the metadata for
+      // the storage generation.
+      absl::Cord cord = httpresponse.payload;
+      TENSORSTORE_ASSIGN_OR_RETURN(metadata,
+                                   ParseObjectMetadata(cord.Flatten()));
+    }
+
+    auto generation = StorageGeneration::FromUint64(metadata.generation);
+    return kvstore::ReadResult::Value(
+        std::move(value),
+        TimestampedStorageGeneration{std::move(generation), start_time_});
   }
 };
 
@@ -735,7 +746,7 @@ struct WriteTask : public RateLimiterNode,
             .BuildRequest();
     start_time_ = absl::Now();
 
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_GCS_LOG_REQUESTS)
+    ABSL_LOG_IF(INFO, gcs_http_logging)
         << "WriteTask: " << request << " size=" << value.size();
 
     auto future = owner->transport_->IssueRequest(request, value);
@@ -749,7 +760,7 @@ struct WriteTask : public RateLimiterNode,
     if (!promise.result_needed()) {
       return;
     }
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_GCS_LOG_RESPONSES && response.ok())
+    ABSL_LOG_IF(INFO, gcs_http_logging.Level(1) && response.ok())
         << "WriteTask " << *response;
 
     absl::Status status = [&]() -> absl::Status {
@@ -885,8 +896,7 @@ struct DeleteTask : public RateLimiterNode,
     auto request = request_builder.BuildRequest();
     start_time_ = absl::Now();
 
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_GCS_LOG_REQUESTS)
-        << "DeleteTask: " << request;
+    ABSL_LOG_IF(INFO, gcs_http_logging) << "DeleteTask: " << request;
 
     auto future = owner->transport_->IssueRequest(request, {});
     future.ExecuteWhenReady([self = IntrusivePtr<DeleteTask>(this)](
@@ -899,7 +909,7 @@ struct DeleteTask : public RateLimiterNode,
     if (!promise.result_needed()) {
       return;
     }
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_GCS_LOG_RESPONSES && response.ok())
+    ABSL_LOG_IF(INFO, gcs_http_logging.Level(1) && response.ok())
         << "DeleteTask " << *response;
 
     absl::Status status = [&]() -> absl::Status {
@@ -1089,8 +1099,7 @@ struct ListTask : public RateLimiterNode,
     }
 
     auto request = request_builder.BuildRequest();
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_GCS_LOG_REQUESTS)
-        << "List: " << request;
+    ABSL_LOG_IF(INFO, gcs_http_logging) << "List: " << request;
 
     auto future = owner_->transport_->IssueRequest(request, {});
     future.ExecuteWhenReady(WithExecutor(
@@ -1119,7 +1128,7 @@ struct ListTask : public RateLimiterNode,
     if (is_cancelled()) {
       return absl::CancelledError();
     }
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_GCS_LOG_RESPONSES && response.ok())
+    ABSL_LOG_IF(INFO, gcs_http_logging.Level(1) && response.ok())
         << "List " << *response;
 
     absl::Status status =

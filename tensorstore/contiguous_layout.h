@@ -15,7 +15,9 @@
 #ifndef TENSORSTORE_CONTIGUOUS_LAYOUT_H_
 #define TENSORSTORE_CONTIGUOUS_LAYOUT_H_
 
-#include <cstddef>
+#include <stddef.h>
+
+#include <cassert>
 #include <iosfwd>
 
 #include "tensorstore/index.h"
@@ -61,7 +63,7 @@ constexpr ContiguousLayoutOrder column_major_order =
 ///     ContiguousLayoutOrder::right, strides[shape.size()-1] = element_stride
 ///     and strides[i] = strides[i+1] * shape[i+1].
 /// \relates ContiguousLayoutOrder
-void ComputeStrides(ContiguousLayoutOrder order, std::ptrdiff_t element_stride,
+void ComputeStrides(ContiguousLayoutOrder order, ptrdiff_t element_stride,
                     span<const Index> shape, span<Index> strides);
 
 /// Computes the offset of a given index vector in C or Fortran order.

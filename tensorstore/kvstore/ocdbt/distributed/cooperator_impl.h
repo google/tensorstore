@@ -29,7 +29,7 @@
 #include "grpcpp/server.h"  // third_party
 #include "grpcpp/server_context.h"  // third_party
 #include "grpcpp/support/server_callback.h"  // third_party
-#include "tensorstore/internal/heterogeneous_container.h"
+#include "tensorstore/internal/container/heterogeneous_container.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/kvstore/generation.h"

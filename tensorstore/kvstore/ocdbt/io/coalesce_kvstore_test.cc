@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include "absl/strings/cord.h"
 #include "absl/time/time.h"
-#include "tensorstore/internal/thread_pool.h"
+#include "tensorstore/internal/thread/thread_pool.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/mock_kvstore.h"
 #include "tensorstore/kvstore/operations.h"

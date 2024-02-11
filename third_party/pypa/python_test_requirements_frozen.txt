@@ -1,0 +1,6 @@
+# DO NOT EDIT: Generated from python_test_requirements.txt by pypi_solver
+numpy==1.26.1
+pytest==7.4.3
+pytest-asyncio==0.22.0
+cloudpickle==3.0.0
+ml_dtypes==0.3.1

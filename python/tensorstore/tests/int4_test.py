@@ -97,7 +97,8 @@ def test_repr(v):
 
 @pytest.mark.parametrize("v", INT4_VALUES)
 def test_hash(v):
-  np.testing.assert_equal(v + 9, hash(int4(v)))
+  """make sure the hash matches that of int."""
+  assert hash(int4(v)) == hash(v)
 
 
 # Tests for Python operations
@@ -249,47 +250,6 @@ def test_equal2():
   a = np.array([-8], int4)
   b = np.array([7], int4)
   assert not a.__eq__(b)
-
-
-def test_can_cast():
-  allowed_casts = [
-      (np.bool_, int4),
-      (int4, np.int8),
-      (int4, np.int16),
-      (int4, np.int32),
-      (int4, np.int64),
-      (int4, np.uint8),
-      (int4, np.uint16),
-      (int4, np.uint32),
-      (int4, np.uint64),
-      (int4, np.float32),
-      (int4, np.float64),
-      (int4, np.complex64),
-      (int4, np.complex128),
-  ]
-  all_dtypes = [
-      np.float16,
-      np.float32,
-      np.float64,
-      np.int8,
-      np.int16,
-      np.int32,
-      np.int64,
-      np.complex64,
-      np.complex128,
-      np.uint8,
-      np.uint16,
-      np.uint32,
-      np.uint64,
-      np.intc,
-      np.int_,
-      np.longlong,
-      np.uintc,
-      np.ulonglong,
-  ]
-  for d in all_dtypes:
-    assert ((int4, d) in allowed_casts) == np.can_cast(int4, d)
-    assert ((d, int4) in allowed_casts) == np.can_cast(d, int4)
 
 
 @pytest.mark.parametrize(

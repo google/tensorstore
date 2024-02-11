@@ -1,0 +1,179 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: kvstore/s3
+title: Read/write access to Amazon S3-compatible object stores.
+description: JSON specification of the key-value store.
+allOf:
+- $ref: KvStore
+- type: object
+  properties:
+    driver:
+      const: s3
+    bucket:
+      type: string
+      title: AWS S3 Storage bucket.
+    requester_pays:
+      type: boolean
+      title: Permit requester-pays requests.
+      description: |-
+        This option must be enabled in order for any operations to succeed if the bucket has
+        Requester Pays enabled and the supplied credentials are not for an owner of the bucket.
+      default: false
+    aws_region:
+      type: string
+      title: AWS region identifier to use in signatures.
+      description: |-
+        If :json:schema:`.endpoint` is not specified, the region of the :json:schema:`.bucket` is
+        determined automatically.
+    endpoint:
+      type: string
+      title: S3 server endpoint to use in place of the public Amazon S3 endpoints.
+      description: |-
+        Must be an http or https URL.
+      examples:
+      - "http://localhost:1234"
+    host_header:
+      type: string
+      title: Override HTTP host header to send in requests.
+      description: |-
+        May only be specified in conjunction with :json:schema:`.endpoint`, to send a different host
+        than specified in :json:schema:`.endpoint`.  This may be useful for testing with
+        `localstack <https://localstack.cloud/>`__."
+      examples:
+      - "mybucket.s3.af-south-1.localstack.localhost.com"
+    aws_credentials:
+      $ref: ContextResource
+      description: |-
+        Specifies or references a previously defined `Context.aws_credentials`.
+    s3_request_concurrency:
+      $ref: ContextResource
+      description: |-
+        Specifies or references a previously defined `Context.s3_request_concurrency`.
+    s3_request_retries:
+      $ref: ContextResource
+      description: |-
+        Specifies or references a previously defined `Context.s3_request_retries`.
+    experimental_s3_rate_limiter:
+      $ref: ContextResource
+      description: |-
+        Specifies or references a previously defined `Context.experimental_s3_rate_limiter`.
+    data_copy_concurrency:
+      $ref: ContextResource
+      description: |-
+        Specifies or references a previously defined `Context.data_copy_concurrency`.
+      default: data_copy_concurrency
+  required:
+  - bucket
+definitions:
+  s3_request_concurrency:
+    $id: Context.s3_request_concurrency
+    description: |-
+      Specifies a limit on the number of concurrent requests to S3.
+    type: object
+    properties:
+      limit:
+        oneOf:
+        - type: integer
+          minimum: 1
+        - const: "shared"
+        description: |-
+          The maximum number of concurrent requests.  If the special value of
+          :json:"shared" is specified, a shared global limit specified by
+          environment variable :envvar:`TENSORSTORE_S3_REQUEST_CONCURRENCY`,
+          which defaults to 32.
+        default: "shared"
+  s3_request_retries:
+    $id: Context.s3_request_retries
+    description: |-
+      Specifies retry parameters for handling transient network errors.
+      An exponential delay is added between consecutive retry attempts. The
+      default values are appropriate for S3.
+    type: object
+    properties:
+      max_retries:
+        type: integer
+        minimum: 1
+        description: |-
+          Maximum number of attempts in the case of transient errors.
+        default: 32
+      initial_delay:
+        type: string
+        description: |-
+          Initial backoff delay for transient errors.
+        default: "1s"
+      max_delay:
+        type: string
+        description: |-
+          Maximum backoff delay for transient errors.
+        default: "32s"
+  aws_credentials:
+    $id: Context.aws_credentials
+    description: |-
+      Specifies parameters to provide AWS credentials.
+    type: object
+    properties:
+      profile:
+        type: string
+        description: |-
+          The profile name in the :file:`~/.aws/credentials` file, when used.
+          Overrides the :envvar:`AWS_PROFILE` environment variables.
+      filename:
+        type: string
+        description: |-
+          The filename containing credentials.
+          Overrides the :envvar:`AWS_SHARED_CREDENTIALS_FILE` environment variable.
+      metadata_endpoint:
+        type: string
+        description: |-
+          The endpoint of the metadata server.
+          Overrides the :envvar:`AWS_EC2_METADATA_SERVICE_ENDPOINT` environment variable.
+  experimental_s3_rate_limiter:
+    $id: Context.experimental_s3_rate_limiter
+    description: |-
+      Experimental rate limiter configuration for S3 reads and writes.
+    type: object
+    properties:
+      read_rate:
+        type: number
+        description: |-
+          The maximum rate or read and/or list calls issued per second.
+      write_rate:
+        type: number
+        description: |-
+          The maximum rate of write and/or delete calls issued per second.
+      doubling_time:
+        type: string
+        description: |-
+          The time interval over which the initial rates scale to 2x. The cases
+          where this setting is useful depend on details to the storage buckets.
+        default: "0"
+  url:
+    $id: KvStoreUrl/s3
+    allOf:
+    - $ref: KvStoreUrl
+    - type: string
+    title: :literal:`s3://` KvStore URL scheme
+    description: |
+      AWS S3 key-value stores may be specified using the
+      :file:`s3://{bucket}/{path}` URL syntax, as supported by
+      `aws s3 <https://docs.aws.amazon.com/cli/latest/reference/s3/>`__.
+
+      .. admonition:: Examples
+         :class: example
+
+         .. list-table::
+            :header-rows: 1
+            :widths: auto
+
+            * - URL representation
+              - JSON representation
+            * - ``"s3://my-bucket"``
+              - .. code-block:: json
+
+                   {"driver": "s3",
+                    "bucket": "my-bucket"}
+            * - ``"s3://bucket/path/to/dataset"``
+              - .. code-block:: json
+
+                   {"driver": "s3",
+                    "bucket": "my-bucket",
+                    "path": "path/to/dataset"}

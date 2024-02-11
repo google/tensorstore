@@ -14,19 +14,36 @@
 
 #include "tensorstore/cast.h"
 
+#include <cstddef>
+#include <cstdint>
+#include <string>
+#include <utility>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include "tensorstore/array.h"
+#include "tensorstore/box.h"
+#include "tensorstore/chunk_layout.h"
+#include "tensorstore/codec_spec.h"
 #include "tensorstore/context.h"
+#include "tensorstore/data_type.h"
 #include "tensorstore/driver/cast/cast.h"
 #include "tensorstore/driver/driver_testutil.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/json.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/json_gtest.h"
+#include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/open.h"
+#include "tensorstore/open_mode.h"
+#include "tensorstore/schema.h"
 #include "tensorstore/spec.h"
+#include "tensorstore/strided_layout.h"
+#include "tensorstore/tensorstore.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -41,8 +58,8 @@ using ::tensorstore::MakeArray;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::ReadWriteMode;
 using ::tensorstore::Result;
-using ::tensorstore::string_t;
 using ::tensorstore::zero_origin;
+using ::tensorstore::dtypes::string_t;
 using ::tensorstore::internal::CastDataTypeConversions;
 using ::tensorstore::internal::GetCastDataTypeConversions;
 using ::tensorstore::internal::GetCastMode;

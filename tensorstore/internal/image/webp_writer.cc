@@ -68,7 +68,9 @@ absl::Status EncodeWebP(riegeli::Writer* writer,
   ABSL_CHECK(WebPValidateConfig(&config));
 
   WebPPicture pic;
-  WebPPictureInit(&pic);
+  if (!WebPPictureInit(&pic)) {
+    return absl::InternalError("WEBP picture init failed");
+  }
   pic.width = info.width;
   pic.height = info.height;
   pic.writer = WebPWriterWrite;

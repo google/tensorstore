@@ -1,5 +1,7 @@
 $schema: http://json-schema.org/draft-07/schema#
 $id: kvstore/file
+title: Read/write access to the local filesystem.
+description: JSON specification of the key-value store.
 allOf:
 - $ref: KvStore
 - type: object
@@ -12,16 +14,13 @@ allOf:
     file_io_concurrency:
       $ref: ContextResource
       description: |-
-        Specifies or references a previously defined
-        `Context.file_io_concurrency`.
+        Specifies or references a previously defined `Context.file_io_concurrency`.
     file_io_sync:
       $ref: ContextResource
       description: |-
-        Specifies or references a previously defined
-        `Context.file_io_sync`.
+        Specifies or references a previously defined `Context.file_io_sync`.
   required:
   - path
-title: JSON specification of file-backed key-value store.
 definitions:
   url:
     $id: KvStoreUrl/file

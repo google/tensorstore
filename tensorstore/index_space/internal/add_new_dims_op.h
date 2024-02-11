@@ -31,7 +31,7 @@ namespace tensorstore {
 namespace internal_index_space {
 
 /// Returns a new index transform with the dimensions specified by `*dimensions`
-/// added as new dummy dimensions with domains of [-kInfIndex, kInfIndex].
+/// added as new inert dimensions with domains of [-kInfIndex, kInfIndex].
 ///
 /// \param transform Existing transform.
 /// \param dimensions[in] Non-null pointer to the list of indices of the new
@@ -49,7 +49,7 @@ Result<IndexTransform<>> ApplyAddNewDims(IndexTransform<> transform,
                                          DimensionIndexBuffer* dimensions,
                                          bool domain_only);
 
-/// Empty type representing an AddDims operation.  The new dummy dimensions to
+/// Empty type representing an AddDims operation.  The new inert dimensions to
 /// add are specified by the dimension selection.
 struct AddNewDimsOp {
   static constexpr bool selected_dimensions_are_new = true;

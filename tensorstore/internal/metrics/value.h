@@ -16,8 +16,6 @@
 #define TENSORSTORE_INTERNAL_METRICS_VALUE_H_
 
 #include <atomic>
-#include <cstdint>
-#include <limits>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -39,6 +37,8 @@
 
 namespace tensorstore {
 namespace internal_metrics {
+
+#ifndef TENSORSTORE_METRICS_DISABLED
 
 /// ValueCell holds an individual "value" metric value.
 template <typename T>
@@ -65,7 +65,7 @@ template <typename T, typename... Fields>
 class ABSL_CACHELINE_ALIGNED Value {
   using Cell = std::conditional_t<std::is_arithmetic_v<T>, AtomicValueCell<T>,
                                   MutexValueCell<T>>;
-  using Impl = AbstractMetric<Cell, Fields...>;
+  using Impl = AbstractMetric<Cell, false, Fields...>;
 
  public:
   using value_type = T;
@@ -200,6 +200,24 @@ class ABSL_CACHELINE_ALIGNED MutexValueCell : public ValueTag {
   mutable absl::Mutex m_;
   T value_;
 };
+
+#else
+template <typename T, typename... Fields>
+class Value {
+ public:
+  using value_type = T;
+
+  static Value& New(
+      std::string_view metric_name,
+      typename internal::FirstType<std::string_view, Fields>... field_names,
+      MetricMetadata metadata) {
+    static Value metric;
+    return metric;
+  }
+  static void Set(value_type value,
+                  typename FieldTraits<Fields>::param_type... labels) {}
+};
+#endif  // TENSORSTORE_METRICS_DISABLED
 
 }  // namespace internal_metrics
 }  // namespace tensorstore

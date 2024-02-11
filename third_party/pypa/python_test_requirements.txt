@@ -1,0 +1,6 @@
+# Packages required to run the Python tests.
+numpy
+pytest
+pytest-asyncio
+cloudpickle
+ml_dtypes

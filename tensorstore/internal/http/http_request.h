@@ -18,9 +18,11 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "absl/functional/function_ref.h"
+#include "absl/strings/str_format.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/byte_range.h"
@@ -38,13 +40,15 @@ struct HttpRequest {
 
   template <typename Sink>
   friend void AbslStringify(Sink& sink, const HttpRequest& request) {
-    absl::Format(&sink, "HttpRequest{%s %s user_agent=%s", request.method,
-                 request.url, request.user_agent);
+    absl::Format(&sink, "HttpRequest{%s %s user_agent=%s, headers=<",
+                 request.method, request.url, request.user_agent);
+    const char* sep = "";
     for (const auto& v : request.headers) {
-      sink.Append(", ");
+      sink.Append(sep);
       sink.Append(v);
+      sep = ", ";
     }
-    sink.Append("}");
+    sink.Append(">}");
   }
 };
 
@@ -60,13 +64,6 @@ std::optional<std::string> FormatCacheControlMaxAgeHeader(
 /// Formats a `cache-control` header consistent with `staleness_bound`.
 std::optional<std::string> FormatStalenessBoundCacheControlHeader(
     absl::Time staleness_bound);
-
-/// `strptime`-compatible format string for the HTTP date header.
-///
-/// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Date
-///
-/// Note that the time zone is always UTC and is specified as "GMT".
-constexpr const char kHttpTimeFormat[] = "%a, %d %b %E4Y %H:%M:%S GMT";
 
 /// Implements the builder pattern for HttpRequest.
 class HttpRequestBuilder {

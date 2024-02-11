@@ -23,9 +23,10 @@
 
 // IWYU pragma: private, include "third_party/tensorstore/transaction.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <atomic>
-#include <cstddef>
-#include <cstdint>
 #include <string>
 #include <string_view>
 
@@ -33,8 +34,8 @@
 #include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
+#include "tensorstore/internal/container/intrusive_red_black_tree.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/intrusive_red_black_tree.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
@@ -42,7 +43,7 @@
 
 namespace tensorstore {
 
-enum TransactionMode : std::uint8_t;
+enum TransactionMode : uint8_t;
 class Transaction;
 
 namespace internal {
@@ -272,7 +273,7 @@ class TransactionState {
   constexpr static size_t kFutureReferenceIncrement = 1;
 
   /// IntrusivePtr traits used by `CommitPtr`.
-  template <std::size_t IncrementAmount = kCommitReferenceIncrement>
+  template <size_t IncrementAmount = kCommitReferenceIncrement>
   struct CommitPtrTraits {
     template <typename>
     using pointer = TransactionState*;
@@ -586,7 +587,7 @@ class TransactionState {
   /// Returns the sum of the memory occupied by the transaction nodes.  In the
   /// event of concurrent modifications, this should be treated as an
   /// approximation.
-  std::size_t total_bytes() const {
+  size_t total_bytes() const {
     return total_bytes_.load(std::memory_order_relaxed);
   }
 
@@ -781,7 +782,7 @@ class TransactionState {
     /// particular phase.  When the transaction is being committed, a node at a
     /// given phase is not committed until all prior phase nodes are
     /// successfully committed.
-    std::size_t phase_;
+    size_t phase_;
 
     /// Indicates whether there is already a terminal node in an atomic
     /// transaction.  Only valid when `commit_state_ <= kCommitStarted` and

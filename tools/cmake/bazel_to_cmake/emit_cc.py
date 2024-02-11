@@ -84,15 +84,27 @@ def _emit_cc_common_options(
     _builder.addtext(
         f"target_compile_options({target_name} PRIVATE {quote_list(copts)})\n"
     )
+
   if deps or linkopts:
     link_libs: List[str] = []
     if deps:
       link_libs.extend(sorted(deps))
-    if linkopts:
-      link_libs.extend(linkopts)
-    _builder.addtext(
-        f"target_link_libraries({target_name} {public_context}{_SEP}{quote_list(link_libs, separator=_SEP)})\n"
-    )
+
+    link_options: List[str] = []
+    for x in (linkopts or []):
+      if x.startswith("-l") or x.startswith("-framework"):
+        link_libs.append(x)
+      else:
+        link_options.append(x)
+    if link_libs:
+      _builder.addtext(
+          f"target_link_libraries({target_name} {public_context}{_SEP}{quote_list(link_libs, separator=_SEP)})\n"
+      )
+    if link_options:
+      _builder.addtext(
+          f"target_link_options({target_name} {public_context}{_SEP}{quote_list(link_options, separator=_SEP)})\n"
+      )
+
   if include_dirs:
     _builder.addtext(
         f"target_include_directories({target_name} {public_context}{_SEP}{quote_path_list(include_dirs, separator=_SEP)})\n"
@@ -293,7 +305,7 @@ def handle_cc_common_options(
   )
 
   if src_required and not srcs_file_paths:
-    srcs_file_paths = [state.get_dummy_source()]
+    srcs_file_paths = [state.get_placeholder_source()]
 
   cmake_deps = set(state.get_deps(resolved_deps))
 

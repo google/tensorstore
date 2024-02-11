@@ -1,5 +1,7 @@
 $schema: http://json-schema.org/draft-07/schema#
 $id: kvstore/memory
+title: Read/write, non-persistent in-memory storage.
+description: JSON specification of the key-value store.
 allOf:
 - $ref: KvStore
 - type: object

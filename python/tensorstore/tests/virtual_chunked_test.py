@@ -35,15 +35,16 @@ def test_read_pickle():
   t = ts.virtual_chunked(do_read, dtype=np.int32, shape=[2, 3])
 
   np.testing.assert_array_equal(
-      t.read().result(), np.array([[42, 42, 42], [42, 42, 42]], dtype=np.int32))
+      t.read().result(), np.array([[42, 42, 42], [42, 42, 42]], dtype=np.int32)
+  )
 
   t2 = cloudpickle.loads(cloudpickle.dumps(t))
 
   assert t2.schema == t.schema
 
   np.testing.assert_array_equal(
-      t2.read().result(), np.array([[42, 42, 42], [42, 42, 42]],
-                                   dtype=np.int32))
+      t2.read().result(), np.array([[42, 42, 42], [42, 42, 42]], dtype=np.int32)
+  )
 
 
 def test_read_write_pickle():
@@ -58,57 +59,79 @@ def test_read_write_pickle():
     del write_params
     array[domain.index_exp] = chunk
 
-  t = ts.virtual_chunked(do_read, do_write, dtype=array.dtype,
-                         shape=array.shape,
-                         chunk_layout=ts.ChunkLayout(read_chunk_shape=(2, 3)))
+  t = ts.virtual_chunked(
+      do_read,
+      do_write,
+      dtype=array.dtype,
+      shape=array.shape,
+      chunk_layout=ts.ChunkLayout(read_chunk_shape=(2, 3)),
+  )
 
   t[1:3, 1:3] = 42
 
-  np.testing.assert_array_equal(array, [
-      [0, 0, 0, 0, 0],
-      [0, 42, 42, 0, 0],
-      [0, 42, 42, 0, 0],
-      [0, 0, 0, 0, 0],
-  ])
+  np.testing.assert_array_equal(
+      array,
+      [
+          [0, 0, 0, 0, 0],
+          [0, 42, 42, 0, 0],
+          [0, 42, 42, 0, 0],
+          [0, 0, 0, 0, 0],
+      ],
+  )
 
-  np.testing.assert_array_equal(t, [
-      [0, 0, 0, 0, 0],
-      [0, 42, 42, 0, 0],
-      [0, 42, 42, 0, 0],
-      [0, 0, 0, 0, 0],
-  ])
+  np.testing.assert_array_equal(
+      t,
+      [
+          [0, 0, 0, 0, 0],
+          [0, 42, 42, 0, 0],
+          [0, 42, 42, 0, 0],
+          [0, 0, 0, 0, 0],
+      ],
+  )
 
   array2, t2 = cloudpickle.loads(cloudpickle.dumps((array, t)))
 
   t2[1:3, 1:3] = 43
 
-  np.testing.assert_array_equal(array2, [
-      [0, 0, 0, 0, 0],
-      [0, 43, 43, 0, 0],
-      [0, 43, 43, 0, 0],
-      [0, 0, 0, 0, 0],
-  ])
+  np.testing.assert_array_equal(
+      array2,
+      [
+          [0, 0, 0, 0, 0],
+          [0, 43, 43, 0, 0],
+          [0, 43, 43, 0, 0],
+          [0, 0, 0, 0, 0],
+      ],
+  )
 
-  np.testing.assert_array_equal(t2, [
-      [0, 0, 0, 0, 0],
-      [0, 43, 43, 0, 0],
-      [0, 43, 43, 0, 0],
-      [0, 0, 0, 0, 0],
-  ])
+  np.testing.assert_array_equal(
+      t2,
+      [
+          [0, 0, 0, 0, 0],
+          [0, 43, 43, 0, 0],
+          [0, 43, 43, 0, 0],
+          [0, 0, 0, 0, 0],
+      ],
+  )
 
-  np.testing.assert_array_equal(array, [
-      [0, 0, 0, 0, 0],
-      [0, 42, 42, 0, 0],
-      [0, 42, 42, 0, 0],
-      [0, 0, 0, 0, 0],
-  ])
+  np.testing.assert_array_equal(
+      array,
+      [
+          [0, 0, 0, 0, 0],
+          [0, 42, 42, 0, 0],
+          [0, 42, 42, 0, 0],
+          [0, 0, 0, 0, 0],
+      ],
+  )
 
-  np.testing.assert_array_equal(t, [
-      [0, 0, 0, 0, 0],
-      [0, 42, 42, 0, 0],
-      [0, 42, 42, 0, 0],
-      [0, 0, 0, 0, 0],
-  ])
+  np.testing.assert_array_equal(
+      t,
+      [
+          [0, 0, 0, 0, 0],
+          [0, 42, 42, 0, 0],
+          [0, 42, 42, 0, 0],
+          [0, 0, 0, 0, 0],
+      ],
+  )
 
 
 async def test_read_adapt():
@@ -123,7 +146,8 @@ async def test_read_adapt():
 
   np.testing.assert_array_equal(
       await t.read(),
-      np.array([[101, 102, 103], [104, 105, 106]], dtype=np.int32))
+      np.array([[101, 102, 103], [104, 105, 106]], dtype=np.int32),
+  )
 
 
 async def test_string_read():
@@ -139,15 +163,23 @@ async def test_string_read():
       for j, y in enumerate(domain[1]):
         array[i, j] = '%d,%d' % (x, y)
 
-  t = ts.virtual_chunked(do_read, dtype=ts.ustring, shape=[3, 4],
-                         chunk_layout=ts.ChunkLayout(read_chunk_shape=[2, 3]))
+  t = ts.virtual_chunked(
+      do_read,
+      dtype=ts.ustring,
+      shape=[3, 4],
+      chunk_layout=ts.ChunkLayout(read_chunk_shape=[2, 3]),
+  )
   np.testing.assert_array_equal(
       await t.read(),
-      np.array([
-          ['0,0', '0,1', '0,2', '0,3'],
-          ['1,0', '1,1', '1,2', '1,3'],
-          ['2,0', '2,1', '2,2', '2,3'],
-      ], dtype=object))
+      np.array(
+          [
+              ['0,0', '0,1', '0,2', '0,3'],
+              ['1,0', '1,1', '1,2', '1,3'],
+              ['2,0', '2,1', '2,2', '2,3'],
+          ],
+          dtype=object,
+      ),
+  )
 
 
 async def test_string_write():
@@ -163,8 +195,9 @@ async def test_string_write():
     del write_params
     arr[domain.index_exp] = array
 
-  t = ts.virtual_chunked(write_function=do_write, dtype=ts.ustring,
-                         shape=arr.shape)
+  t = ts.virtual_chunked(
+      write_function=do_write, dtype=ts.ustring, shape=arr.shape
+  )
   await t.write(['a', 'b'])
   np.testing.assert_array_equal(arr, ['a', 'b'])
 
@@ -200,7 +233,6 @@ def test_spec_gc(gc_tester):
 
 
 def test_spec_keep_alive():
-
   def do_read(domain, array, read_params):
     del domain
     del read_params
@@ -217,3 +249,22 @@ def test_spec_keep_alive():
   # Verify that `spec` holds a strong reference to `do_read`.
 
   assert ref() is not None
+
+
+def test_gc_future(gc_tester):
+  """Tests that a cyclic reference involving a Future is collected."""
+
+  def do_read(domain, array, read_params):
+    del domain
+    del array
+    del read_params
+    promise, future = ts.Promise.new()
+    do_read.promise = promise
+    return future
+
+  t = ts.virtual_chunked(do_read, dtype=np.int32, shape=[2, 3])
+
+  future = t.read()
+  do_read.future = future
+
+  gc_tester(t)

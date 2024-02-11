@@ -14,31 +14,49 @@
 
 #include "tensorstore/chunk_layout.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <algorithm>
 #include <atomic>
+#include <cassert>
+#include <cstdlib>
+#include <cstring>
+#include <limits>
+#include <memory>
 #include <ostream>
 #include <string_view>
+#include <type_traits>
 #include <utility>
-#include <vector>
 
+#include "absl/base/optimization.h"
+#include "absl/functional/function_ref.h"
+#include "absl/status/status.h"
 #include "tensorstore/box.h"
-#include "tensorstore/chunk_layout.h"
-#include "tensorstore/contiguous_layout.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dimension_permutation.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/json.h"
+#include "tensorstore/index_space/output_index_method.h"
+#include "tensorstore/internal/integer_overflow.h"
+#include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/dimension_indexed.h"
 #include "tensorstore/internal/json_binding/enum.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/json_serialization_options_base.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/serialization/fwd.h"
 #include "tensorstore/serialization/json_bindable.h"
-#include "tensorstore/serialization/serialization.h"
-#include "tensorstore/util/constant_vector.h"
 #include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/division.h"
+#include "tensorstore/util/maybe_hard_constraint.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/small_bit_set.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
 
 // Uncomment the line below to debug `ChooseChunkSizeFromAspectRatio`.
 //
@@ -161,7 +179,7 @@ struct ChunkLayoutData {
   Index chunk_elements_[kNumUsages] = {kImplicit, kImplicit, kImplicit};
 };
 
-bool IsHardConstraint(ChunkLayoutData& impl, HardConstraintBit bit) {
+bool IsHardConstraint(const ChunkLayoutData& impl, HardConstraintBit bit) {
   return impl.hard_constraint_[static_cast<int>(bit)];
 }
 
@@ -295,12 +313,21 @@ void intrusive_ptr_decrement(Storage* p) {
 namespace {
 
 void ClearHardConstraintBits(Storage& impl) {
-  impl.hard_constraint_ = 0;
+  impl.hard_constraint_ = false;
   impl.grid_origin_hard_constraint_ = false;
   for (int i = 0; i < kNumUsages; ++i) {
     impl.chunk_shape_hard_constraint_[i] = false;
     impl.chunk_aspect_ratio_hard_constraint_[i] = false;
   }
+}
+
+bool HasAnyHardConstraints(const Storage& impl) {
+  if (IsHardConstraint(impl, HardConstraintBit::inner_order)) return true;
+  if (impl.grid_origin_hard_constraint_) return true;
+  for (int i = 0; i < kNumUsages; ++i) {
+    if (impl.chunk_shape_hard_constraint_[i]) return true;
+  }
+  return false;
 }
 
 absl::Status RankMismatchError(DimensionIndex new_rank,
@@ -678,6 +705,11 @@ absl::Status SetChunkLayout(ChunkLayout& self, ChunkLayout other,
 DimensionIndex ChunkLayout::rank() const {
   if (storage_) return storage_->rank_;
   return dynamic_rank;
+}
+
+bool ChunkLayout::HasHardConstraints() const {
+  if (!storage_) return false;
+  return HasAnyHardConstraints(*storage_);
 }
 
 absl::Status ChunkLayout::Set(RankConstraint value) {

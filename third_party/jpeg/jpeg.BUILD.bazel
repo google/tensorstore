@@ -1,0 +1,571 @@
+load("@tensorstore//bazel:rules_nasm.bzl", "nasm_library")
+load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
+
+package(default_visibility = ["//visibility:private"])
+
+licenses(["notice"])
+
+exports_files(["LICENSE.md"])
+
+WITH_SIMD_COPTS = ["-DWITH_SIMD"]
+
+LIBJPEGTURBO_COPTS = select({
+    ":compiler_msvc": [
+        "-wd4996",
+    ],
+    ":armeabi-v7a": [
+        "-D__ARM_NEON__",
+        "-DNEON_INTRINSICS",
+        "-march=armv7-a",
+        "-mfpu=neon",
+        "-mfloat-abi=softfp",
+        "-fprefetch-loop-arrays",
+        "-w",
+    ],
+    "@platforms//cpu:arm64": [
+        "-DNEON_INTRINSICS",
+        "-w",
+    ],
+    "@platforms//cpu:ppc": [
+        "-mcpu=power8",
+        "-mtune=power8",
+        "-w",
+    ],
+    "//conditions:default": [
+        "-w",
+    ],
+}) + select({
+    "@platforms//cpu:x86_64": WITH_SIMD_COPTS,
+    "@platforms//cpu:arm64": WITH_SIMD_COPTS,
+    "@platforms//cpu:ppc": WITH_SIMD_COPTS,
+    ":armeabi-v7a": WITH_SIMD_COPTS,
+    "//conditions:default": [],
+})
+
+cc_library(
+    name = "jpeg",
+    srcs = [
+        "jaricom.c",
+        "jcapimin.c",
+        "jcapistd.c",
+        "jcarith.c",
+        "jccoefct.c",
+        "jccolor.c",
+        "jcdctmgr.c",
+        "jchuff.c",
+        "jchuff.h",
+        "jcinit.c",
+        "jcmainct.c",
+        "jcmarker.c",
+        "jcmaster.c",
+        "jcomapi.c",
+        "jconfig.h",
+        "jconfigint.h",
+        "jcparam.c",
+        "jcphuff.c",
+        "jcprepct.c",
+        "jcsample.c",
+        "jctrans.c",
+        "jdapimin.c",
+        "jdapistd.c",
+        "jdarith.c",
+        "jdatadst.c",
+        "jdatasrc.c",
+        "jdcoefct.c",
+        "jdcoefct.h",
+        "jdcolor.c",
+        "jdct.h",
+        "jddctmgr.c",
+        "jdhuff.c",
+        "jdhuff.h",
+        "jdinput.c",
+        "jdmainct.c",
+        "jdmainct.h",
+        "jdmarker.c",
+        "jdmaster.c",
+        "jdmaster.h",
+        "jdmerge.c",
+        "jdmerge.h",
+        "jdphuff.c",
+        "jdpostct.c",
+        "jdsample.c",
+        "jdsample.h",
+        "jdtrans.c",
+        "jerror.c",
+        "jfdctflt.c",
+        "jfdctfst.c",
+        "jfdctint.c",
+        "jidctflt.c",
+        "jidctfst.c",
+        "jidctint.c",
+        "jidctred.c",
+        "jinclude.h",
+        "jmemmgr.c",
+        "jmemnobs.c",
+        "jmemsys.h",
+        "jpeg_nbits_table.h",
+        "jpegcomp.h",
+        "jquant1.c",
+        "jquant2.c",
+        "jutils.c",
+    ],
+    hdrs = [
+        "jccolext.c",  # should have been named .inc
+        "jdcol565.c",  # should have been named .inc
+        "jdcolext.c",  # should have been named .inc
+        "jdmrg565.c",  # should have been named .inc
+        "jdmrgext.c",  # should have been named .inc
+        "jerror.h",
+        "jmorecfg.h",
+        "jpegint.h",
+        "jpeglib.h",
+        "jstdhuff.c",  # should have been named .inc
+    ],
+    copts = LIBJPEGTURBO_COPTS,
+    strip_include_prefix = ".",
+    visibility = ["//visibility:public"],
+    deps = select({
+        "@platforms//cpu:x86_64": [":simd_x86_64"],
+        ":armeabi-v7a": [":simd_armv7a"],
+        "@platforms//cpu:arm64": [":simd_armv8a"],
+        "@platforms//cpu:ppc": [":simd_altivec"],
+        "//conditions:default": [":simd_none"],
+    }),
+)
+
+# SIMD support
+cc_library(
+    name = "simd_common",
+    hdrs = [
+        "jchuff.h",
+        "jconfig.h",
+        "jconfigint.h",
+        "jdct.h",
+        "jerror.h",
+        "jinclude.h",
+        "jmorecfg.h",
+        "jpegint.h",
+        "jpeglib.h",
+        "jsimd.h",
+        "jsimddct.h",
+        "jversion.h",
+    ],
+    copts = LIBJPEGTURBO_COPTS,
+)
+
+cc_library(
+    name = "simd_none",
+    srcs = [
+        "jsimd_none.c",
+    ],
+    copts = LIBJPEGTURBO_COPTS,
+    deps = [":simd_common"],
+)
+
+cc_library(
+    name = "simd_altivec",
+    srcs = [
+        "simd/jsimd.h",
+        "simd/powerpc/jccolor-altivec.c",
+        "simd/powerpc/jcgray-altivec.c",
+        "simd/powerpc/jcsample-altivec.c",
+        "simd/powerpc/jdcolor-altivec.c",
+        "simd/powerpc/jdmerge-altivec.c",
+        "simd/powerpc/jdsample-altivec.c",
+        "simd/powerpc/jfdctfst-altivec.c",
+        "simd/powerpc/jfdctint-altivec.c",
+        "simd/powerpc/jidctfst-altivec.c",
+        "simd/powerpc/jidctint-altivec.c",
+        "simd/powerpc/jquanti-altivec.c",
+        "simd/powerpc/jsimd.c",
+    ],
+    hdrs = [
+        "simd/powerpc/jccolext-altivec.c",
+        "simd/powerpc/jcgryext-altivec.c",
+        "simd/powerpc/jcsample.h",
+        "simd/powerpc/jdcolext-altivec.c",
+        "simd/powerpc/jdmrgext-altivec.c",
+        "simd/powerpc/jsimd_altivec.h",
+    ],
+    copts = LIBJPEGTURBO_COPTS,
+    target_compatible_with = ["@platforms//cpu:ppc"],
+    deps = [":simd_common"],
+)
+
+cc_library(
+    name = "simd_x86_64",
+    srcs = [
+        "simd/jsimd.h",
+        "simd/x86_64/jsimd.c",
+    ],
+    copts = LIBJPEGTURBO_COPTS,
+    linkstatic = 1,
+    target_compatible_with = ["@platforms//cpu:x86_64"],
+    deps = [
+        ":simd_common",
+        ":simd_x86_64_asm",
+    ],
+)
+
+NASM_FLAGS = [
+    "-w+all",
+    "-D__x86_64__",
+] + select({
+    "@platforms//os:windows": [
+        "-fwin64",
+        "-DWIN64",
+    ],
+    "@platforms//os:macos": [
+        "-fmacho64",
+        "-DMACHO",
+        "-DPIC",
+    ],
+    "//conditions:default": [
+        "-felf64",
+        "-DELF",
+        "-DPIC",
+    ],
+})
+
+nasm_library(
+    name = "simd_x86_64_asm",
+    srcs = [
+        "simd/x86_64/jccolor-avx2.asm",
+        "simd/x86_64/jccolor-sse2.asm",
+        "simd/x86_64/jcgray-avx2.asm",
+        "simd/x86_64/jcgray-sse2.asm",
+        "simd/x86_64/jchuff-sse2.asm",
+        "simd/x86_64/jcphuff-sse2.asm",
+        "simd/x86_64/jcsample-avx2.asm",
+        "simd/x86_64/jcsample-sse2.asm",
+        "simd/x86_64/jdcolor-avx2.asm",
+        "simd/x86_64/jdcolor-sse2.asm",
+        "simd/x86_64/jdmerge-avx2.asm",
+        "simd/x86_64/jdmerge-sse2.asm",
+        "simd/x86_64/jdsample-avx2.asm",
+        "simd/x86_64/jdsample-sse2.asm",
+        "simd/x86_64/jfdctflt-sse.asm",
+        "simd/x86_64/jfdctfst-sse2.asm",
+        "simd/x86_64/jfdctint-avx2.asm",
+        "simd/x86_64/jfdctint-sse2.asm",
+        "simd/x86_64/jidctflt-sse2.asm",
+        "simd/x86_64/jidctfst-sse2.asm",
+        "simd/x86_64/jidctint-avx2.asm",
+        "simd/x86_64/jidctint-sse2.asm",
+        "simd/x86_64/jidctred-sse2.asm",
+        "simd/x86_64/jquantf-sse2.asm",
+        "simd/x86_64/jquanti-avx2.asm",
+        "simd/x86_64/jquanti-sse2.asm",
+        "simd/x86_64/jsimdcpu.asm",
+    ],
+    flags = NASM_FLAGS,
+    includes = [
+        "simd/nasm/jcolsamp.inc",
+        "simd/nasm/jdct.inc",
+        "simd/nasm/jsimdcfg.inc",
+        "simd/nasm/jsimdcfg.inc.h",
+        "simd/nasm/jsimdext.inc",
+        # The non-ext .asm files with the similar name %include these
+        "simd/x86_64/jccolext-avx2.asm",
+        "simd/x86_64/jccolext-sse2.asm",
+        "simd/x86_64/jcgryext-avx2.asm",
+        "simd/x86_64/jcgryext-sse2.asm",
+        "simd/x86_64/jdcolext-avx2.asm",
+        "simd/x86_64/jdcolext-sse2.asm",
+        "simd/x86_64/jdmrgext-avx2.asm",
+        "simd/x86_64/jdmrgext-sse2.asm",
+    ],
+    deps = [":simd_common"],
+)
+
+expand_template(
+    name = "neon-compat_gen",
+    out = "simd/arm/neon-compat.h",
+    substitutions = {
+        "#cmakedefine HAVE_VLD1_S16_X3": "#define HAVE_VLD1_S16_X3",
+        "#cmakedefine HAVE_VLD1_U16_X2": "#define HAVE_VLD1_U16_X2",
+        "#cmakedefine HAVE_VLD1Q_U8_X4": "#define HAVE_VLD1Q_U8_X4",
+    },
+    template = "simd/arm/neon-compat.h.in",
+)
+
+copy_file(
+    name = "neon-compat_hdr_src",
+    src = "simd/arm/neon-compat.h",
+    out = "neon-compat.h",
+    allow_symlink = True,
+)
+
+cc_library(
+    name = "neon-compat_hdr",
+    hdrs = ["neon-compat.h"],
+    copts = LIBJPEGTURBO_COPTS,
+)
+
+SRCS_SIMD_ARM = [
+    "simd/arm/jccolor-neon.c",
+    "simd/arm/jcgray-neon.c",
+    "simd/arm/jcphuff-neon.c",
+    "simd/arm/jcsample-neon.c",
+    "simd/arm/jdcolor-neon.c",
+    "simd/arm/jdmerge-neon.c",
+    "simd/arm/jdsample-neon.c",
+    "simd/arm/jfdctfst-neon.c",
+    "simd/arm/jfdctint-neon.c",
+    "simd/arm/jidctfst-neon.c",
+    "simd/arm/jidctint-neon.c",
+    "simd/arm/jidctred-neon.c",
+    "simd/arm/jquanti-neon.c",
+]
+
+# .c files in the following list are used like .h files in that they are
+# "#include"-ed in the actual .c files. So, treat them like normal headers, and
+# they *should not* be compiled into individual objects.
+HDRS_SIMD_ARM = [
+    "simd/arm/align.h",
+    "simd/arm/jchuff.h",
+    "simd/arm/jcgryext-neon.c",
+    "simd/arm/jdcolext-neon.c",
+    "simd/arm/jdmrgext-neon.c",
+]
+
+cc_library(
+    name = "simd_armv7a",
+    srcs = [
+        "simd/arm/aarch32/jsimd.c",
+        "simd/arm/aarch32/jchuff-neon.c",
+        "simd/jsimd.h",
+    ] + SRCS_SIMD_ARM,
+    hdrs = [
+        "simd/arm/aarch32/jccolext-neon.c",
+    ] + HDRS_SIMD_ARM,
+    copts = LIBJPEGTURBO_COPTS,
+    deps = [
+        ":neon-compat_hdr",
+        ":simd_common",
+    ],
+)
+
+cc_library(
+    name = "simd_armv8a",
+    srcs = [
+        "simd/arm/aarch64/jsimd.c",
+        "simd/arm/aarch64/jchuff-neon.c",
+        "simd/jsimd.h",
+    ] + SRCS_SIMD_ARM,
+    hdrs = [
+        "simd/arm/aarch64/jccolext-neon.c",
+    ] + HDRS_SIMD_ARM,
+    copts = LIBJPEGTURBO_COPTS,
+    target_compatible_with = ["@platforms//cpu:arm64"],
+    deps = [
+        ":neon-compat_hdr",
+        ":simd_common",
+    ],
+)
+
+# libjpeg-turbo configure rules
+expand_template(
+    name = "jversion_config",
+    out = "jversion.h",
+    substitutions = {
+        "@COPYRIGHT_YEAR@": "1991-2022",
+    },
+    template = "jversion.h.in",
+)
+
+# Substitutions used on all platforms for both `jconfig.h.in` and
+# `jconfigint.h.in`.
+COMMON_SUBSTITUTIONS = {
+    "@BUILD@": "20210424",
+    "@CMAKE_PROJECT_NAME@": "libjpeg-turbo",
+    "@JPEG_LIB_VERSION@": "62",
+    "@LIBJPEG_TURBO_VERSION_NUMBER@": "2001004",
+    "@VERSION@": "2.1.4",
+}
+
+# jconfig.h is generated by two different files, often with distinct content:
+# jconfig.h.in and win/jconfig.h.in; to avoid confusion, the substitutions are
+# distinct.
+JCONFIG_SUBSTITUTIONS = {
+    "@BITS_IN_JSAMPLE@": "8",
+    "#cmakedefine C_ARITH_CODING_SUPPORTED 1": "#define C_ARITH_CODING_SUPPORTED 1",
+    "#cmakedefine D_ARITH_CODING_SUPPORTED 1": "#define D_ARITH_CODING_SUPPORTED 1",
+    "#cmakedefine MEM_SRCDST_SUPPORTED 1": "#define MEM_SRCDST_SUPPORTED 1",
+    "#cmakedefine WITH_SIMD 1": "",  # Use `local_define` instead to enable SIMD
+    "#cmakedefine HAVE_LOCALE_H 1": "#define HAVE_LOCALE_H 1",
+    "#cmakedefine HAVE_STDDEF_H 1": "#define HAVE_STDDEF_H 1",
+    "#cmakedefine HAVE_STDLIB_H 1": "#define HAVE_STDLIB_H 1",
+    "#cmakedefine NEED_SYS_TYPES_H 1": "#define NEED_SYS_TYPES_H 1",
+    "#cmakedefine NEED_BSD_STRINGS 1": "",
+    "#cmakedefine HAVE_UNSIGNED_CHAR 1": "#define HAVE_UNSIGNED_CHAR 1",
+    "#cmakedefine HAVE_UNSIGNED_SHORT 1": "#define HAVE_UNSIGNED_SHORT 1",
+    "#cmakedefine INCOMPLETE_TYPES_BROKEN 1": "",
+    "#cmakedefine RIGHT_SHIFT_IS_UNSIGNED 1": "",
+    "#cmakedefine __CHAR_UNSIGNED__ 1": "",
+    "#undef const": "",
+    "#undef size_t": "",
+}
+
+JCONFIG_SUBSTITUTIONS.update(COMMON_SUBSTITUTIONS)
+
+JCONFIG_SUBSTITUTIONS_WIN = {
+    "@BITS_IN_JSAMPLE@": "8",
+    "#cmakedefine C_ARITH_CODING_SUPPORTED": "#define C_ARITH_CODING_SUPPORTED 1",
+    "#cmakedefine D_ARITH_CODING_SUPPORTED": "#define D_ARITH_CODING_SUPPORTED 1",
+    "#cmakedefine MEM_SRCDST_SUPPORTED": "#define MEM_SRCDST_SUPPORTED 1",
+    "#cmakedefine WITH_SIMD": "",  # Use `local_define` instead to enable SIMD
+}
+
+JCONFIG_SUBSTITUTIONS_WIN.update(COMMON_SUBSTITUTIONS)
+
+expand_template(
+    name = "configure",
+    out = "jconfig.h",
+    substitutions = select({
+        "@platforms//os:windows": JCONFIG_SUBSTITUTIONS_WIN,
+        "//conditions:default": JCONFIG_SUBSTITUTIONS,
+    }),
+    template = select({
+        "@platforms//os:windows": "win/jconfig.h.in",
+        "//conditions:default": "jconfig.h.in",
+    }),
+)
+
+# Substitutions used on all platforms for `jconfigint.h.in`.
+JCONFIGINT_SUBSTITUTIONS = {
+    "#undef inline": "",
+    "#define INLINE  @INLINE@": "\n".join([
+        "#ifndef INLINE",
+        "#if defined(__GNUC__)",
+        "#define INLINE  inline __attribute__((always_inline))",
+        "#elif defined(_MSC_VER)",
+        "#define INLINE  __forceinline",
+        "#else",
+        "#define INLINE",
+        "#endif",
+        "#endif",
+    ]),
+    "#define THREAD_LOCAL  @THREAD_LOCAL@": "\n".join([
+        "#if defined(_MSC_VER) && (defined(_WIN32) || defined(_WIN64))",
+        "#define THREAD_LOCAL  __declspec(thread)",
+        "#else",
+        "#define THREAD_LOCAL  __thread",
+        "#endif",
+    ]),
+    "#define SIZEOF_SIZE_T  @SIZE_T@": "\n".join([
+        "#if !defined(__native_client__) && (__WORDSIZE==64 || defined(_WIN64))",
+        "#define SIZEOF_SIZE_T  8",
+        "#else",
+        "#define SIZEOF_SIZE_T  4",
+        "#endif",
+    ]),
+    "#cmakedefine HAVE_BUILTIN_CTZL": "\n".join([
+        "#if defined(__GNUC__)",
+        "#define HAVE_BUILTIN_CTZL 1",
+        "#endif",
+    ]),
+    "#cmakedefine HAVE_INTRIN_H": "\n".join([
+        "#if defined(_MSC_VER)",
+        "#define HAVE_INTRIN_H  1",
+        "#endif",
+    ]),
+}
+
+JCONFIGINT_SUBSTITUTIONS.update(COMMON_SUBSTITUTIONS)
+
+expand_template(
+    name = "configure_internal",
+    out = "jconfigint.h",
+    substitutions = JCONFIGINT_SUBSTITUTIONS,
+    template = "jconfigint.h.in",
+)
+
+write_file(
+    name = "configure_simd",
+    out = "simd/jsimdcfg.inc",
+    content = [
+        "%define DCTSIZE 8",
+        "%define DCTSIZE2 64",
+        "%define RGB_RED 0",
+        "%define RGB_GREEN 1",
+        "%define RGB_BLUE 2",
+        "%define RGB_PIXELSIZE 3",
+        "%define EXT_RGB_RED 0",
+        "%define EXT_RGB_GREEN 1",
+        "%define EXT_RGB_BLUE 2",
+        "%define EXT_RGB_PIXELSIZE 3",
+        "%define EXT_RGBX_RED 0",
+        "%define EXT_RGBX_GREEN 1",
+        "%define EXT_RGBX_BLUE 2",
+        "%define EXT_RGBX_PIXELSIZE 4",
+        "%define EXT_BGR_RED 2",
+        "%define EXT_BGR_GREEN 1",
+        "%define EXT_BGR_BLUE 0",
+        "%define EXT_BGR_PIXELSIZE 3",
+        "%define EXT_BGRX_RED 2",
+        "%define EXT_BGRX_GREEN 1",
+        "%define EXT_BGRX_BLUE 0",
+        "%define EXT_BGRX_PIXELSIZE 4",
+        "%define EXT_XBGR_RED 3",
+        "%define EXT_XBGR_GREEN 2",
+        "%define EXT_XBGR_BLUE 1",
+        "%define EXT_XBGR_PIXELSIZE 4",
+        "%define EXT_XRGB_RED 1",
+        "%define EXT_XRGB_GREEN 2",
+        "%define EXT_XRGB_BLUE 3",
+        "%define EXT_XRGB_PIXELSIZE 4",
+        "%define RGBX_FILLER_0XFF 1",
+        "%define JSAMPLE byte ; unsigned char",
+        "%define SIZEOF_JSAMPLE SIZEOF_BYTE ; sizeof(JSAMPLE)",
+        "%define CENTERJSAMPLE 128",
+        "%define JCOEF word ; short",
+        "%define SIZEOF_JCOEF SIZEOF_WORD ; sizeof(JCOEF)",
+        "%define JDIMENSION dword ; unsigned int",
+        "%define SIZEOF_JDIMENSION SIZEOF_DWORD ; sizeof(JDIMENSION)",
+        "%define JSAMPROW POINTER ; JSAMPLE * (jpeglib.h)",
+        "%define JSAMPARRAY POINTER ; JSAMPROW * (jpeglib.h)",
+        "%define JSAMPIMAGE POINTER ; JSAMPARRAY * (jpeglib.h)",
+        "%define JCOEFPTR POINTER ; JCOEF * (jpeglib.h)",
+        "%define SIZEOF_JSAMPROW SIZEOF_POINTER ; sizeof(JSAMPROW)",
+        "%define SIZEOF_JSAMPARRAY SIZEOF_POINTER ; sizeof(JSAMPARRAY)",
+        "%define SIZEOF_JSAMPIMAGE SIZEOF_POINTER ; sizeof(JSAMPIMAGE)",
+        "%define SIZEOF_JCOEFPTR SIZEOF_POINTER ; sizeof(JCOEFPTR)",
+        "%define DCTELEM word ; short",
+        "%define SIZEOF_DCTELEM SIZEOF_WORD ; sizeof(DCTELEM)",
+        "%define float FP32 ; float",
+        "%define SIZEOF_FAST_FLOAT SIZEOF_FP32 ; sizeof(float)",
+        "%define ISLOW_MULT_TYPE word ; must be short",
+        "%define SIZEOF_ISLOW_MULT_TYPE SIZEOF_WORD ; sizeof(ISLOW_MULT_TYPE)",
+        "%define IFAST_MULT_TYPE word ; must be short",
+        "%define SIZEOF_IFAST_MULT_TYPE SIZEOF_WORD ; sizeof(IFAST_MULT_TYPE)",
+        "%define IFAST_SCALE_BITS 2 ; fractional bits in scale factors",
+        "%define FLOAT_MULT_TYPE FP32 ; must be float",
+        "%define SIZEOF_FLOAT_MULT_TYPE SIZEOF_FP32 ; sizeof(FLOAT_MULT_TYPE)",
+        "%define JSIMD_NONE 0x00",
+        "%define JSIMD_MMX 0x01",
+        "%define JSIMD_3DNOW 0x02",
+        "%define JSIMD_SSE 0x04",
+        "%define JSIMD_SSE2 0x08",
+    ],
+    newline = "unix",
+)
+
+# Config settings.
+# TODO(jbms): replace with suitable @platforms constraint.
+config_setting(
+    name = "armeabi-v7a",
+    values = {"cpu": "armeabi-v7a"},
+)
+
+[
+    alias(
+        name = name,
+        actual = "@tensorstore//:{target}".format(target = name),
+    )
+    for name in [
+        "compiler_msvc",
+    ]
+]

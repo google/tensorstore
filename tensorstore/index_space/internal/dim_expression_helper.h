@@ -19,13 +19,16 @@
 /// Implementation details for DimExpression.
 
 #include <type_traits>
+#include <utility>
 
 #include "absl/status/status.h"
+#include "tensorstore/index.h"
 #include "tensorstore/index_space/dimension_index_buffer.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_vector_or_scalar.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
 #include "tensorstore/internal/meta.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
@@ -86,8 +89,8 @@ class DimExpressionHelper {
 #ifndef _MSC_VER
     // The folding expression below evaluates terms in reverse order due to
     // right-to-left evaluation order of `operator=`.
-    [[maybe_unused]] int dummy = 0;
-    (dummy = ... =
+    [[maybe_unused]] int unused = 0;
+    (unused = ... =
          (selection_rank = Op::GetStaticSelectionRank(selection_rank), 0));
     return selection_rank;
 #else
@@ -122,8 +125,8 @@ class DimExpressionHelper {
 #ifndef _MSC_VER
     // The folding expression below evaluates terms in reverse order due to
     // right-to-left evaluation order of `operator=`.
-    [[maybe_unused]] int dummy = 0;
-    (dummy = ... =
+    [[maybe_unused]] int unused = 0;
+    (unused = ... =
          (input_rank = Op::GetNewStaticInputRank(input_rank, selection_rank),
           selection_rank = Op::GetStaticSelectionRank(selection_rank), 0));
     return input_rank;

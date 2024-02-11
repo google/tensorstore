@@ -1,0 +1,70 @@
+# Sphinx inventory version 2
+# Project: Zarr specs
+# Version: 
+# The remainder of this file is compressed using zlib.
+abstract-store-interface std:label -1 v3/core/v3.0.html#$ Abstract store interface
+array std:label -1 v3/core/v3.0.html#$ -
+array-metadata std:label -1 v3/core/v3.0.html#$ Array metadata
+arrays std:label -1 v3/core/v3.0.html#$ -
+blosc std:label -1 v3/codecs/blosc/v1.0.html#$ -
+chunk std:label -1 v3/core/v3.0.html#$ -
+chunks std:label -1 v3/core/v3.0.html#$ -
+codec std:label -1 v3/core/v3.0.html#$ -
+codecs std:label -1 v3/core/v3.0.html#$ -
+crc32c-codec-v1 std:label -1 v3/codecs/crc32c/v1.0.html#$ CRC32C checksum codec (version 1.0)
+data type std:label -1 v3/core/v3.0.html#data-type -
+decoding_procedure std:label -1 v3/core/v3.0.html#decoding-procedure Decoding procedure
+dimension std:label -1 v3/core/v3.0.html#$ -
+dimensions std:label -1 v3/core/v3.0.html#$ -
+element std:label -1 v3/core/v3.0.html#$ -
+elements std:label -1 v3/core/v3.0.html#$ -
+encoding_procedure std:label -1 v3/core/v3.0.html#encoding-procedure Encoding procedure
+endian-codec-v1 std:label -1 v3/codecs/endian/v1.0.html#$ Endian codec (version 1.0)
+extensions_section std:label -1 v3/core/v3.0.html#extensions-section Extension points
+file-system-store-v1 std:label -1 v3/stores/filesystem/v1.0.html#$ File system store (version 1.0)
+genindex std:label -1 genindex.html Index
+grid std:label -1 v3/core/v3.0.html#$ -
+grids std:label -1 v3/core/v3.0.html#$ -
+group std:label -1 v3/core/v3.0.html#$ -
+group-metadata std:label -1 v3/core/v3.0.html#$ Group metadata
+groups std:label -1 v3/core/v3.0.html#$ -
+hierarchy std:label -1 v3/core/v3.0.html#$ -
+index std:doc -1 index.html Specs
+metadata std:label -1 v3/core/v3.0.html#$ Metadata
+metadata document std:label -1 v3/core/v3.0.html#metadata-document -
+metadata documents std:label -1 v3/core/v3.0.html#metadata-documents -
+modindex std:label -1 py-modindex.html Module Index
+name std:label -1 v3/core/v3.0.html#$ -
+names std:label -1 v3/core/v3.0.html#$ -
+path std:label -1 v3/core/v3.0.html#$ -
+paths std:label -1 v3/core/v3.0.html#$ -
+py-modindex std:label -1 py-modindex.html Python Module Index
+rfc1951 std:label -1 v3/codecs/gzip/v1.0.html#$ -
+rfc1952 std:label -1 v3/codecs/gzip/v1.0.html#$ -
+rfc2119 std:label -1 v3/stores/filesystem/v1.0.html#$ -
+rfc3720 std:label -1 v3/codecs/crc32c/v1.0.html#$ -
+rfc8089 std:label -1 v3/stores/filesystem/v1.0.html#$ -
+rfc8259 std:label -1 v3/core/v3.0.html#$ -
+search std:label -1 search.html Search Page
+shape std:label -1 v3/core/v3.0.html#$ -
+sharding-indexed-codec-v1 std:label -1 v3/codecs/sharding-indexed/v1.0.html#$ Sharding codec (version 1.0)
+specs std:doc -1 specs.html Specifications
+storage transformer std:label -1 v3/core/v3.0.html#storage-transformer -
+storage transformers std:label -1 v3/core/v3.0.html#storage-transformers -
+store std:label -1 v3/core/v3.0.html#$ -
+stored-representation std:label -1 v3/core/v3.0.html#$ Stored representation
+stores std:label -1 v3/core/v3.0.html#$ -
+transpose-codec-v1 std:label -1 v3/codecs/transpose/v1.0.html#$ Transpose codec (version 1.0)
+v3/array-storage-transformers std:doc -1 v3/array-storage-transformers.html Array Storage Transformers
+v3/codecs std:doc -1 v3/codecs.html Codecs
+v3/codecs/blosc/v1.0 std:doc -1 v3/codecs/blosc/v1.0.html Blosc codec (version 1.0)
+v3/codecs/crc32c/v1.0 std:doc -1 v3/codecs/crc32c/v1.0.html CRC32C checksum codec (version 1.0)
+v3/codecs/endian/v1.0 std:doc -1 v3/codecs/endian/v1.0.html Endian codec (version 1.0)
+v3/codecs/gzip/v1.0 std:doc -1 v3/codecs/gzip/v1.0.html Gzip codec (version 1.0)
+v3/codecs/sharding-indexed/v1.0 std:doc -1 v3/codecs/sharding-indexed/v1.0.html Sharding codec (version 1.0)
+v3/codecs/transpose/v1.0 std:doc -1 v3/codecs/transpose/v1.0.html Transpose codec (version 1.0)
+v3/core/v3.0 std:doc -1 v3/core/v3.0.html Zarr core specification (version 3.0)
+v3/data-types std:doc -1 v3/data-types.html Data Types
+v3/stores std:doc -1 v3/stores.html Stores
+v3/stores/filesystem/v1.0 std:doc -1 v3/stores/filesystem/v1.0.html File system store (version 1.0)
+zarr-core-specification-v3.0 std:label -1 v3/core/v3.0.html#zarr-core-specification-v3-0 Zarr core specification (version 3.0)

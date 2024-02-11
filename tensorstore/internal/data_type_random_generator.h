@@ -22,7 +22,9 @@
 #include "tensorstore/box.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
+#include "tensorstore/index.h"
 #include "tensorstore/internal/elementwise_function.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 namespace internal {
@@ -39,7 +41,9 @@ extern const std::array<ElementwiseFunction<1, absl::BitGenRef>,
 SharedOffsetArray<const void> MakeRandomArray(
     absl::BitGenRef gen, BoxView<> domain, DataType dtype,
     ContiguousLayoutOrder order = c_order);
-
+SharedArray<const void> MakeRandomArray(absl::BitGenRef gen,
+                                        span<const Index> shape, DataType dtype,
+                                        ContiguousLayoutOrder order);
 }  // namespace internal
 }  // namespace tensorstore
 

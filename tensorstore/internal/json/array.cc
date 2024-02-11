@@ -238,7 +238,8 @@ Result<SharedArray<void>> JsonParseNestedArrayImpl(
 }
 
 Result<::nlohmann::json> JsonEncodeNestedArray(ArrayView<const void> array) {
-  auto convert = internal::GetDataTypeConverter(array.dtype(), dtype_v<json_t>);
+  auto convert = internal::GetDataTypeConverter(
+      array.dtype(), dtype_v<::tensorstore::dtypes::json_t>);
   if (!(convert.flags & DataTypeConversionFlags::kSupported)) {
     return absl::InvalidArgumentError(tensorstore::StrCat(
         "Conversion from ", array.dtype(), " to JSON is not implemented"));
@@ -249,15 +250,15 @@ Result<::nlohmann::json> JsonEncodeNestedArray(ArrayView<const void> array) {
       array, [&](const void* ptr) -> ::nlohmann::json {
         if ((convert.flags & DataTypeConversionFlags::kCanReinterpretCast) ==
             DataTypeConversionFlags::kCanReinterpretCast) {
-          return *reinterpret_cast<const json_t*>(ptr);
+          return *reinterpret_cast<const ::tensorstore::dtypes::json_t*>(ptr);
         }
         ::nlohmann::json value;
         if ((*convert.closure
                   .function)[internal::IterationBufferKind::kContiguous](
-                convert.closure.context, 1,
+                convert.closure.context, {1, 1},
                 internal::IterationBufferPointer(const_cast<void*>(ptr),
-                                                 Index(0)),
-                internal::IterationBufferPointer(&value, Index(0)),
+                                                 Index(0), Index(0)),
+                internal::IterationBufferPointer(&value, Index(0), Index(0)),
                 &status) != 1) {
           error = true;
           return nullptr;
@@ -271,7 +272,8 @@ Result<::nlohmann::json> JsonEncodeNestedArray(ArrayView<const void> array) {
 Result<SharedArray<void>> JsonParseNestedArray(const ::nlohmann::json& j,
                                                DataType dtype,
                                                DimensionIndex rank_constraint) {
-  auto convert = internal::GetDataTypeConverter(dtype_v<json_t>, dtype);
+  auto convert = internal::GetDataTypeConverter(
+      dtype_v<::tensorstore::dtypes::json_t>, dtype);
   if (!(convert.flags & DataTypeConversionFlags::kSupported)) {
     return absl::InvalidArgumentError(tensorstore::StrCat(
         "Conversion from JSON to ", dtype, " is not implemented"));
@@ -283,16 +285,17 @@ Result<SharedArray<void>> JsonParseNestedArray(const ::nlohmann::json& j,
             if ((convert.flags &
                  DataTypeConversionFlags::kCanReinterpretCast) ==
                 DataTypeConversionFlags::kCanReinterpretCast) {
-              *reinterpret_cast<json_t*>(out) = v;
+              *reinterpret_cast<::tensorstore::dtypes::json_t*>(out) = v;
               return absl::OkStatus();
             } else {
               absl::Status status;
               if ((*convert.closure
                         .function)[internal::IterationBufferKind::kContiguous](
-                      convert.closure.context, 1,
+                      convert.closure.context, {1, 1},
                       internal::IterationBufferPointer(
-                          const_cast<::nlohmann::json*>(&v), Index(0)),
-                      internal::IterationBufferPointer(out, Index(0)),
+                          const_cast<::nlohmann::json*>(&v), Index(0),
+                          Index(0)),
+                      internal::IterationBufferPointer(out, Index(0), Index(0)),
                       &status) != 1) {
                 return internal::GetElementCopyErrorStatus(std::move(status));
               }

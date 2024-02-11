@@ -1,5 +1,5 @@
-load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
 load("//bazel:non_compile.bzl", "cc_with_non_compile_test")
+load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -160,6 +160,7 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore/internal:attributes",
         "//tensorstore/internal:integer_types",
+        "@com_google_absl//absl/numeric:bits",
     ],
 )
 
@@ -215,10 +216,10 @@ tensorstore_cc_library(
         "//tensorstore:data_type",
         "//tensorstore:index",
         "//tensorstore:static_cast",
-        "//tensorstore/internal:compressed_pair",
         "//tensorstore/internal:memory",
         "//tensorstore/internal:type_traits",
         "//tensorstore/internal:unowned_to_shared",
+        "//tensorstore/internal/container:compressed_pair",
     ],
 )
 
@@ -321,11 +322,11 @@ tensorstore_cc_library(
         ":result",
         ":span",
         "//tensorstore/internal:attributes",
-        "//tensorstore/internal:intrusive_linked_list",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:no_destructor",
         "//tensorstore/internal:tagged_ptr",
         "//tensorstore/internal:type_traits",
+        "//tensorstore/internal/container:intrusive_linked_list",
         "//tensorstore/internal/metrics",
         "//tensorstore/internal/tracing",
         "@com_google_absl//absl/base:core_headers",
@@ -525,6 +526,9 @@ tensorstore_cc_test(
         ":result",
         ":status",
         ":status_testutil",
+        "//tensorstore/internal:type_traits",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -705,6 +709,7 @@ tensorstore_cc_test(
         "//tensorstore/internal/json_binding:unit",
         "//tensorstore/serialization",
         "//tensorstore/serialization:test_util",
+        "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -740,8 +745,8 @@ tensorstore_cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//tensorstore/internal:attributes",
-        "//tensorstore/internal:intrusive_linked_list",
         "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/internal/container:intrusive_linked_list",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/synchronization",
     ],
@@ -754,5 +759,30 @@ tensorstore_cc_test(
         ":stop_token",
         "//tensorstore/internal:concurrent_testutil",
         "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "float8",
+    hdrs = ["float8.h"],
+    deps = [
+        ":bfloat16",
+        "//tensorstore/internal:json_fwd",
+        "@com_google_absl//absl/base",
+        "@net_sourceforge_half//:half",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "float8_test",
+    size = "small",
+    srcs = ["float8_test.cc"],
+    deps = [
+        ":bfloat16",
+        ":float8",
+        "@com_google_absl//absl/base",
+        "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
+        "@net_sourceforge_half//:half",
     ],
 )

@@ -18,9 +18,9 @@
 #include <optional>
 
 #include "absl/status/status.h"
+#include <nlohmann/json.hpp>
 #include "tensorstore/internal/json/same.h"
 #include "tensorstore/internal/json_binding/bindable.h"
-#include "tensorstore/internal/json_fwd.h"
 
 namespace tensorstore {
 namespace internal_json_binding {
@@ -63,13 +63,20 @@ constexpr auto Optional(ValueBinder value_binder,
   };
 }
 
-/// Same as above, but converts `std::optional` to
+/// Same as above, but converts `std::nullopt` to
 /// ::nlohmann::json::value_t::discarded` (for use with `Member`).
 template <typename ValueBinder = decltype(DefaultBinder<>)>
 constexpr auto Optional(ValueBinder value_binder = DefaultBinder<>) {
   return Optional(value_binder, [] {
     return ::nlohmann::json(::nlohmann::json::value_t::discarded);
   });
+}
+
+/// Same as above, but converts `std::nullopt` to
+/// `nullptr`.
+template <typename ValueBinder = decltype(DefaultBinder<>)>
+constexpr auto OptionalWithNull(ValueBinder value_binder = DefaultBinder<>) {
+  return Optional(value_binder, [] { return ::nlohmann::json(nullptr); });
 }
 
 // Defined in separate namespace to work around clang-cl bug

@@ -45,6 +45,7 @@
 #include "tensorstore/internal/json/pprint_python.h"
 #include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/json_serialization_options.h"
+#include "tensorstore/open_mode.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/spec.h"
 #include "tensorstore/util/executor.h"
@@ -79,8 +80,9 @@ constexpr auto WithSpecKeywordArguments = [](auto callback,
       callback, other_param..., spec_setters::SetOpenMode{},
       spec_setters::SetOpen{}, spec_setters::SetCreate{},
       spec_setters::SetDeleteExisting{}, spec_setters::SetAssumeMetadata{},
-      spec_setters::SetUnbindContext{}, spec_setters::SetStripContext{},
-      spec_setters::SetContext{}, spec_setters::SetKvstore{});
+      spec_setters::SetAssumeCachedMetadata{}, spec_setters::SetUnbindContext{},
+      spec_setters::SetStripContext{}, spec_setters::SetContext{},
+      spec_setters::SetKvstore{});
 };
 
 using SpecCls = py::class_<PythonSpecObject>;
@@ -1915,7 +1917,15 @@ struct OpenModeValueAssumeMetadata {
   static constexpr OpenMode mode = OpenMode::assume_metadata;
   static constexpr const char* name = "assume_metadata";
   static constexpr const char* doc = R"(
-Skip reading the metadata if possible.
+Don't access the stored metadata.
+)";
+};
+
+struct OpenModeValueAssumeCachedMetadata {
+  static constexpr OpenMode mode = OpenMode::assume_cached_metadata;
+  static constexpr const char* name = "assume_cached_metadata";
+  static constexpr const char* doc = R"(
+Skip reading the metadata when opening.
 )";
 };
 
@@ -1941,7 +1951,8 @@ Group:
 constexpr auto WithOpenModes = [](auto callback, auto... other_params) {
   callback(other_params...,  //
            OpenModeValueOpen{}, OpenModeValueCreate{},
-           OpenModeValueDeleteExisting{}, OpenModeValueAssumeMetadata{});
+           OpenModeValueDeleteExisting{}, OpenModeValueAssumeMetadata{},
+           OpenModeValueAssumeCachedMetadata{});
 };
 
 void DefineOpenModeAttributes(ClsOpenMode& cls) {

@@ -14,14 +14,14 @@
 
 #include "tensorstore/driver/driver.h"
 
-#include <assert.h>
-
+#include <cassert>
 #include <string_view>
 #include <utility>
 
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "tensorstore/array.h"
+#include "tensorstore/array_storage_statistics.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/codec_spec.h"
 #include "tensorstore/context.h"
@@ -273,6 +273,16 @@ Result<TransformedDriverSpec> GetTransformedDriverSpec(
   return transformed_driver_spec;
 }
 
+absl::Status SetReadWriteMode(DriverHandle& handle, ReadWriteMode new_mode) {
+  if (new_mode != ReadWriteMode::dynamic) {
+    auto existing_mode = handle.driver.read_write_mode();
+    TENSORSTORE_RETURN_IF_ERROR(
+        internal::ValidateSupportsModes(existing_mode, new_mode));
+    handle.driver.set_read_write_mode(new_mode);
+  }
+  return absl::OkStatus();
+}
+
 bool DriverHandleNonNullSerializer::Encode(serialization::EncodeSink& sink,
                                            const DriverHandle& value) {
   assert(value.driver);
@@ -308,6 +318,8 @@ bool DriverHandleNonNullSerializer::Decode(serialization::DecodeSource& source,
   }
   TransactionalOpenOptions options;
   options.read_write_mode = static_cast<ReadWriteMode>(read_write_mode);
+  options.open_mode =
+      internal::GetOpenMode(spec) | OpenMode::assume_cached_metadata;
   TENSORSTORE_ASSIGN_OR_RETURN(
       value, internal::OpenDriver(std::move(spec), std::move(options)).result(),
       (source.Fail(_), false));

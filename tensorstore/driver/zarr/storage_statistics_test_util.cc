@@ -134,8 +134,9 @@ TEST_P(ZarrLikeStorageStatisticsTest, FullyLexicographicOrder) {
                         ArrayStorageStatistics::query_fully_stored,
                     /*.not_stored=*/false, /*.fully_stored=*/false}));
     EXPECT_THAT(mock_kvstore->request_log.pop_all(),
-                ::testing::ElementsAre(
-                    MatchesJson({{"type", "list"}, {"range", {"1", "2"}}})));
+                ::testing::ElementsAre(MatchesJson(
+                    {{"type", "list"},
+                     {"range", {StrCat("1", sep), StrCat("1", sep_next)}}})));
   }
 
   // Test listing with a single (not present) chunk.
@@ -195,12 +196,11 @@ TEST_P(ZarrLikeStorageStatisticsTest, SemiLexicographicOrder) {
       mock_kvstore->request_log.pop_all(),
       ::testing::UnorderedElementsAreArray({
           MatchesJson({{"type", "list"},
-                       {"range", {StrCat("8", sep), StrCat("8", sep_next)}},
-                       {"strip_prefix_length", 2}}),
+                       {"range", {StrCat("8", sep), StrCat("8", sep_next)}}}),
           MatchesJson({{"type", "list"},
-                       {"range", {StrCat("9", sep), StrCat("9", sep_next)}},
-                       {"strip_prefix_length", 2}}),
-          MatchesJson({{"type", "list"}, {"range", {"10", "15"}}}),
+                       {"range", {StrCat("9", sep), StrCat("9", sep_next)}}}),
+          MatchesJson({{"type", "list"},
+                       {"range", {StrCat("10", sep), StrCat("14", sep_next)}}}),
       }));
 
   EXPECT_THAT(
@@ -222,8 +222,7 @@ TEST_P(ZarrLikeStorageStatisticsTest, SemiLexicographicOrder) {
                        {"byte_range_exclusive_max", 0}}),
           MatchesJson(
               {{"type", "list"},
-               {"range", {StrCat("3", sep, "10"), StrCat("3", sep, "15")}},
-               {"strip_prefix_length", 2}}),
+               {"range", {StrCat("3", sep, "10"), StrCat("3", sep, "15")}}}),
       }));
 }
 

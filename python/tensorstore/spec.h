@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef THIRD_PARTY_PY_TENSORSTORE_SPEC_H_
-#define THIRD_PARTY_PY_TENSORSTORE_SPEC_H_
+#ifndef PYTHON_TENSORSTORE_SPEC_H_
+#define PYTHON_TENSORSTORE_SPEC_H_
 
 /// \file
 ///
@@ -296,11 +296,39 @@ struct SetAssumeMetadata : public SetModeBase<OpenMode::assume_metadata> {
   static constexpr const char* name = "assume_metadata";
   static constexpr const char* doc = R"(
 
-Skip reading the metadata if possible.  Instead, just assume any necessary
+Neither read nor write stored metadata.  Instead, just assume any necessary
 metadata based on constraints in the spec, using the same defaults for any
-unspecified metadata as when creating a new TensorStore.  Overrides the existing
-open mode.  Requires that :py:param:`.open` is `True` and
-:py:param:`.delete_existing` is `False`.
+unspecified metadata as when creating a new TensorStore.  The stored metadata
+need not even exist.  Operations such as resizing that modify the stored
+metadata are not supported.  Overrides the existing open mode.  Requires that
+:py:param:`.open` is `True` and :py:param:`.delete_existing` is `False`.  This
+option takes precedence over `.assume_cached_metadata` if that option is also
+specified.
+
+.. warning::
+
+   This option can lead to data corruption if the assumed metadata does
+   not match the stored metadata, or multiple concurrent writers use
+   different assumed metadata.
+
+.. seealso:
+
+   - :ref:`python-open-assume-metadata`
+)";
+};
+
+struct SetAssumeCachedMetadata
+    : public SetModeBase<OpenMode::assume_cached_metadata> {
+  static constexpr const char* name = "assume_cached_metadata";
+  static constexpr const char* doc = R"(
+
+Skip reading the metadata when opening.  Instead, just assume any necessary
+metadata based on constraints in the spec, using the same defaults for any
+unspecified metadata as when creating a new TensorStore.  The stored metadata
+may still be accessed by subsequent operations that need to re-validate or
+modify the metadata.  Requires that :py:param:`.open` is `True` and
+:py:param:`.delete_existing` is `False`.  The :py:param:`.assume_metadata`
+option takes precedence if also specified.
 
 .. warning::
 
@@ -490,4 +518,4 @@ struct type_caster<tensorstore::OpenMode> {
 }  // namespace detail
 }  // namespace pybind11
 
-#endif  // THIRD_PARTY_PY_TENSORSTORE_SPEC_H_
+#endif  // PYTHON_TENSORSTORE_SPEC_H_

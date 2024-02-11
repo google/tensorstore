@@ -35,6 +35,11 @@ MAP = {
         'uint64_t',
     ],
     'FLOAT': [
+        'float8_e4m3fn_t',
+        'float8_e4m3fnuz_t',
+        'float8_e4m3b11fnuz_t',
+        'float8_e5m2_t',
+        'float8_e5m2fnuz_t',
         'float16_t',
         'bfloat16_t',
         'float32_t',
@@ -124,7 +129,8 @@ def data_type_conversion_h(out):
         for t in ts:
           for t0 in MAP.get(t, [t]):
             out.write(
-                f'TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(//\n{f0}, {t0},'
+                'TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(//\n'
+                f'::tensorstore::dtypes::{f0}, ::tensorstore::dtypes::{t0},'
                 f' {args})\n'
             )
 
@@ -133,7 +139,9 @@ def data_type_conversion_h(out):
     for f0 in MAP.get(f, [f]):
       for t0 in MAP.get(t, [t]):
         out.write(
-            f'TENSORSTORE_INTERNAL_INHERITED_CONVERT(//\n{f0}, {t0}, {args})\n'
+            'TENSORSTORE_INTERNAL_INHERITED_CONVERT(//\n'
+            f'::tensorstore::dtypes::{f0}, ::tensorstore::dtypes::{t0},'
+            f' {args})\n'
         )
 
   out.write('\n')
@@ -163,7 +171,8 @@ def data_type_cc(out):
     for f0 in MAP.get(f, [f]):
       for t0 in MAP.get(t, [t]):
         out.write(
-            f'TENSORSTORE_INTERNAL_INHERITED_CONVERT(//\n{f0}, {t0},'
+            'TENSORSTORE_INTERNAL_INHERITED_CONVERT(//\n'
+            f'::tensorstore::dtypes::{f0}, ::tensorstore::dtypes::{t0},'
             f' {parent})\n'
         )
   out.write('\n')

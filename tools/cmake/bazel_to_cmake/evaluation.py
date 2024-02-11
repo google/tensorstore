@@ -118,7 +118,8 @@ RuleImpl = Callable[[], None]
 
 
 class RuleInfo(NamedTuple):
-  mnemonic: Optional[str]  # Only used for debugging currently.
+  mnemonic: str  # Only used for debugging currently.
+  callers: List[str]
   outs: List[TargetId]
   impl: RuleImpl
 
@@ -127,18 +128,6 @@ class Phase(enum.Enum):
   LOADING_WORKSPACE = 1
   LOADING_BUILD = 2
   ANALYZE = 3
-
-
-def _get_mnemonic(currentframe) -> Optional[str]:
-  """Returns a mnemonic from currentframe."""
-  if not currentframe:
-    return None
-  # pytype: disable=attribute-error
-  kind = currentframe.f_back.f_back.f_code.co_name
-  # pytype: enable=attribute-error
-  if kind.startswith("bazel_"):
-    kind = kind[len("bazel_") :]
-  return kind
 
 
 class EvaluationState:
@@ -156,7 +145,7 @@ class EvaluationState:
     )
     self.loaded_files: Set[str] = set()
     self._loaded_libraries: Dict[Tuple[TargetId, bool], Dict[str, Any]] = dict()
-    self._wrote_dummy_source = False
+    self._wrote_placeholder_source = False
     self.errors: List[str] = []
     # Track CMakePackage dependencies.
     self._required_dep_packages: Set[CMakePackage] = set()
@@ -218,8 +207,11 @@ class EvaluationState:
       callback = self._call_after_analysis.pop()
       callback()
 
-  def add_rule(
+  def add_rule_impl(
       self,
+      _mnemonic: str,
+      _callers: List[str],
+      *,
       rule_id: TargetId,
       impl: RuleImpl,
       outs: Optional[List[TargetId]] = None,
@@ -239,11 +231,8 @@ class EvaluationState:
       raise ValueError(f"Duplicate rule: {rule_id.as_label()}")
     if outs is None:
       outs = []
-
     # kind is assigned from caller function name
-    currentframe = inspect.currentframe()
-    r = RuleInfo(mnemonic=_get_mnemonic(currentframe), outs=outs, impl=impl)
-    del currentframe
+    r = RuleInfo(_mnemonic, _callers, outs=outs, impl=impl)
     self._all_rules[rule_id] = r
     self._unanalyzed_rules.add(rule_id)
     self._unanalyzed_targets[rule_id] = rule_id
@@ -343,6 +332,8 @@ class EvaluationState:
     self._unanalyzed_targets.pop(rule_id, None)
 
     self._stack.append((target_id, rule_info))
+    if self.verbose > 2:
+      print(f"Invoking {target_id.as_label()}: {repr(rule_info)}")
     rule_info.impl()
     self._stack.pop()
 
@@ -475,7 +466,7 @@ class EvaluationState:
         for package in info[CMakePackageDepsProvider].packages:
           self.add_required_dep_package(package)
       if info.get(CMakeDepsProvider):
-        return info[CMakeDepsProvider].targets
+        return info[CMakeDepsProvider].targets.copy()
 
     # If this package is already a required dependency, return that.
     cmake_target = self._required_dep_targets.get(target_id)
@@ -493,21 +484,21 @@ class EvaluationState:
       deps.extend(self.get_dep(target))
     return deps
 
-  def get_dummy_source(self):
-    """Returns the path to a dummy source file.
+  def get_placeholder_source(self):
+    """Returns the path to a placeholder source file.
 
     This is used in cases where at least one source file must be specified for a
     CMake target but there are none in the corresponding Bazel target.
     """
-    dummy_source_relative_path = "bazel_to_cmake_empty_source.cc"
-    dummy_source_path = self.active_repo.cmake_binary_dir.joinpath(
-        dummy_source_relative_path
+    placeholder_source_relative_path = "bazel_to_cmake_empty_source.cc"
+    placeholder_source_path = self.active_repo.cmake_binary_dir.joinpath(
+        placeholder_source_relative_path
     )
-    if not self._wrote_dummy_source and not os.path.exists(
-        dummy_source_path.as_posix()
+    if not self._wrote_placeholder_source and not os.path.exists(
+        placeholder_source_path.as_posix()
     ):
-      pathlib.Path(dummy_source_path).write_bytes(b"")
-    return dummy_source_path.as_posix()
+      pathlib.Path(placeholder_source_path).write_bytes(b"")
+    return placeholder_source_path.as_posix()
 
   def load_library(self, target_id: TargetId) -> Dict[str, Any]:
     """Returns the global scope for the given bzl library target.
@@ -708,7 +699,12 @@ def trace_exception(f):
 class EvaluationContext(InvocationContext):
   """Implements InvocationContext interface for EvaluationState."""
 
-  __slots__ = ("_state", "_caller_package_id", "_caller_package")
+  __slots__ = (
+      "_state",
+      "_caller_package_id",
+      "_caller_package",
+      "_rule_location",
+  )
 
   def __init__(
       self,
@@ -720,6 +716,7 @@ class EvaluationContext(InvocationContext):
     self._state = state
     self._caller_package_id = package_id
     self._caller_package = package
+    self._rule_location = ("<unknown>", list())
     assert self._caller_package_id
 
   def __repr__(self):
@@ -731,6 +728,16 @@ class EvaluationContext(InvocationContext):
         f"  _state: {repr(self._state)},\n"
         "}\n"
     )
+
+  def record_rule_location(self, mnemonic):
+    # Record the path of non-python callers.
+    s = inspect.stack()
+    callers = []
+    for i in range(2, min(6, len(s))):
+      c = inspect.getframeinfo(s[i][0])
+      if not c.filename.endswith(".py"):
+        callers.append(f"{c.filename}:{c.lineno}")
+    self._rule_location = (mnemonic, callers)
 
   def update_current_package(
       self,
@@ -829,7 +836,15 @@ class EvaluationContext(InvocationContext):
         kwargs["analyze_by_default"] = Visibility(
             self._caller_package
         ).analyze_by_default(self.resolve_target_or_label_list(visibility))
-    self._state.add_rule(rule_id, impl, outs, **kwargs)
+
+    self._state.add_rule_impl(
+        self._rule_location[0],
+        self._rule_location[1],
+        rule_id=rule_id,
+        impl=impl,
+        outs=outs,
+        **kwargs,
+    )
 
   @trace_exception
   def add_analyzed_target(self, target_id: TargetId, info: TargetInfo) -> None:

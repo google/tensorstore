@@ -1700,7 +1700,7 @@ class DimExpression {
   ///     `MoveToFront().Label("")`.
   DiagonalOpExpr Diagonal() const { return {{}, *this}; }
 
-  /// Adds new dummy input dimensions that have no effect on the output indices.
+  /// Adds new inert input dimensions that have no effect on the output indices.
   ///
   /// The added dimensions have a domain of ``(-kInfIndex, kInfIndex)``,
   /// which can be reduced by chaining a call to `ClosedInterval`,

@@ -22,13 +22,33 @@ pytestmark = pytest.mark.asyncio
 async def test_collect_matching_metrics():
   # Open a tensorstore and read to ensure that some metric is populated.
   t = await ts.open({
-      "driver": "array",
-      "dtype": "string",
-      "array": ["abc", "x", "y"],
-      "rank": 1,
+      'driver': 'array',
+      'dtype': 'string',
+      'array': ['abc', 'x', 'y'],
+      'rank': 1,
   })
-  assert await t[0].read() == b"abc"
-  metric_dict = ts.experimental_collect_matching_metrics("/tensorstore")
+  assert await t[0].read() == b'abc'
+  metric_dict = ts.experimental_collect_matching_metrics('/tensorstore/')
   assert metric_dict
   for m in metric_dict:
-    assert m["name"].startswith("/tensorstore")
+    assert m['name'].startswith('/tensorstore/')
+
+
+async def test_collect_prometheus_format_metrics():
+  # Open a tensorstore and read to ensure that some metric is populated.
+  t = await ts.open({
+      'driver': 'array',
+      'dtype': 'string',
+      'array': ['abc', 'x', 'y'],
+      'rank': 1,
+  })
+  assert await t[0].read() == b'abc'
+  metric_list = ts.experimental_collect_prometheus_format_metrics(
+      '/tensorstore/'
+  )
+  for m in metric_list:
+    assert m.startswith('tensorstore_')
+
+  # There are a lot of metrics, including these which should be 0.
+  assert 'tensorstore_cache_chunk_cache_reads 0' in metric_list
+  assert 'tensorstore_cache_chunk_cache_writes 0' in metric_list

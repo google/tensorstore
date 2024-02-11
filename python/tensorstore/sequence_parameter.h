@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef THIRD_PARTY_PY_TENSORSTORE_SEQUENCE_PARAMETER_H_
-#define THIRD_PARTY_PY_TENSORSTORE_SEQUENCE_PARAMETER_H_
+#ifndef PYTHON_TENSORSTORE_SEQUENCE_PARAMETER_H_
+#define PYTHON_TENSORSTORE_SEQUENCE_PARAMETER_H_
 
 #include <pybind11/pybind11.h>
 // Other headers must be included after pybind11 to ensure header-order
@@ -58,4 +58,4 @@ struct SequenceParameter {
 }  // namespace internal_python
 }  // namespace tensorstore
 
-#endif  // THIRD_PARTY_PY_TENSORSTORE_SEQUENCE_PARAMETER_H_
+#endif  // PYTHON_TENSORSTORE_SEQUENCE_PARAMETER_H_

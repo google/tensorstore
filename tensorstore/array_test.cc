@@ -14,23 +14,38 @@
 
 #include "tensorstore/array.h"
 
+#include <stdint.h>
+
+#include <algorithm>
+#include <complex>
+#include <limits>
+#include <memory>
 #include <random>
+#include <type_traits>
+#include <utility>
+#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/random/bit_gen_ref.h"
 #include "absl/random/random.h"
+#include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/box.h"
+#include "tensorstore/container_kind.h"
+#include "tensorstore/contiguous_layout.h"
+#include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform_testutil.h"
 #include "tensorstore/internal/data_type_random_generator.h"
 #include "tensorstore/internal/test_util.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/serialization/batch.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/serialization/test_util.h"
+#include "tensorstore/strided_layout.h"
+#include "tensorstore/util/iterate.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -51,7 +66,6 @@
 namespace {
 
 using ::tensorstore::Array;
-using ::tensorstore::ArrayIterateResult;
 using ::tensorstore::ArrayOriginKind;
 using ::tensorstore::ArrayView;
 using ::tensorstore::BoxView;
@@ -420,19 +434,19 @@ TEST(ArrayViewTest, StaticCast) {
                     "to array with dynamic data type and rank of 3"));
 
   EXPECT_THAT(
-      (StaticCast<ArrayView<std::int32_t, 2>>(a2)),
+      (StaticCast<ArrayView<int32_t, 2>>(a2)),
       MatchesStatus(absl::StatusCode::kInvalidArgument,
                     "Cannot cast array with data type of float32 and rank of 2 "
                     "to array with data type of int32 and rank of 2"));
 
   EXPECT_THAT(
-      (StaticCast<ArrayView<std::int32_t>>(a2)),
+      (StaticCast<ArrayView<int32_t>>(a2)),
       MatchesStatus(absl::StatusCode::kInvalidArgument,
                     "Cannot cast array with data type of float32 and rank of 2 "
                     "to array with data type of int32 and dynamic rank"));
 
   EXPECT_THAT(
-      (StaticCast<ArrayView<std::int32_t>>(a3)),
+      (StaticCast<ArrayView<int32_t>>(a3)),
       MatchesStatus(absl::StatusCode::kInvalidArgument,
                     "Cannot cast array with data type of float32 and rank of 2 "
                     "to array with data type of int32 and dynamic rank"));
@@ -1049,23 +1063,27 @@ TEST(CopyArrayTest, OffsetOrigin) {
 }
 
 TEST(CopyConvertedArrayTest, Int32ToFloat32) {
-  auto a = MakeArray<tensorstore::int32_t>({{1, 2, 3}, {4, 5, 6}});
-  auto b = tensorstore::AllocateArray<tensorstore::float32_t>({2, 3});
+  using ::tensorstore::dtypes::float32_t;
+  using ::tensorstore::dtypes::int32_t;
+  auto a = MakeArray<int32_t>({{1, 2, 3}, {4, 5, 6}});
+  auto b = tensorstore::AllocateArray<float32_t>({2, 3});
   EXPECT_EQ(absl::OkStatus(), CopyConvertedArray(a, b));
-  EXPECT_EQ(
-      b, MakeArray<tensorstore::float32_t>({{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}}));
+  EXPECT_EQ(b, MakeArray<float32_t>({{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}}));
 }
 
 TEST(CopyConvertedArrayTest, Int32ToUint32) {
-  auto a = MakeArray<tensorstore::int32_t>({{1, 2, 3}, {4, 5, 6}});
-  auto b = tensorstore::AllocateArray<tensorstore::uint32_t>({2, 3});
+  auto a = MakeArray<int32_t>({{1, 2, 3}, {4, 5, 6}});
+  auto b = tensorstore::AllocateArray<uint32_t>({2, 3});
   EXPECT_EQ(absl::OkStatus(), CopyConvertedArray(a, b));
-  EXPECT_EQ(b, MakeArray<tensorstore::uint32_t>({{1, 2, 3}, {4, 5, 6}}));
+  EXPECT_EQ(b, MakeArray<uint32_t>({{1, 2, 3}, {4, 5, 6}}));
 }
 
 TEST(CopyConvertedArrayTest, CopyError) {
-  auto a = MakeArray<tensorstore::json_t>({3.0, "x"});
-  auto b = tensorstore::AllocateArray<tensorstore::float32_t>({2});
+  using ::tensorstore::dtypes::float32_t;
+  using ::tensorstore::dtypes::json_t;
+
+  auto a = MakeArray<json_t>({3.0, "x"});
+  auto b = tensorstore::AllocateArray<float32_t>({2});
   EXPECT_THAT(
       CopyConvertedArray(a, b),
       MatchesStatus(
@@ -1074,19 +1092,22 @@ TEST(CopyConvertedArrayTest, CopyError) {
 }
 
 TEST(CopyConvertedArrayTest, InvalidDataType) {
-  auto a = MakeArray<tensorstore::string_t>({"x", "y"});
-  auto b = tensorstore::AllocateArray<tensorstore::float32_t>({2});
+  using ::tensorstore::dtypes::float32_t;
+  using ::tensorstore::dtypes::string_t;
+
+  auto a = MakeArray<string_t>({"x", "y"});
+  auto b = tensorstore::AllocateArray<float32_t>({2});
   EXPECT_THAT(CopyConvertedArray(a, b),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Cannot convert string -> float32"));
 }
 
 TEST(MakeCopyTest, NoConversion) {
-  const std::int32_t data[] = {1, 2, 3, 0, 4, 5, 6, 0};
-  tensorstore::Array<const std::int32_t, 3> array(
+  const int32_t data[] = {1, 2, 3, 0, 4, 5, 6, 0};
+  tensorstore::Array<const int32_t, 3> array(
       data, tensorstore::StridedLayout<3>({2, 2, 3}, {0, 4 * 4, 4}));
 
-  auto expected = MakeArray<const std::int32_t>(
+  auto expected = MakeArray<const int32_t>(
       {{{1, 2, 3}, {4, 5, 6}}, {{1, 2, 3}, {4, 5, 6}}});
 
   {
@@ -1108,10 +1129,9 @@ TEST(MakeCopyTest, NoConversion) {
                                  tensorstore::include_repeated_elements});
     EXPECT_EQ(expected, copy);
     // Shape of allocated array is {2, 2, 3}
-    EXPECT_THAT(
-        copy.byte_strides(),
-        ::testing::ElementsAre(sizeof(std::int32_t), sizeof(std::int32_t) * 2,
-                               sizeof(std::int32_t) * 2 * 2));
+    EXPECT_THAT(copy.byte_strides(),
+                ::testing::ElementsAre(sizeof(int32_t), sizeof(int32_t) * 2,
+                                       sizeof(int32_t) * 2 * 2));
   }
 
   {
@@ -1119,9 +1139,9 @@ TEST(MakeCopyTest, NoConversion) {
         array, {tensorstore::c_order, tensorstore::skip_repeated_elements});
     EXPECT_EQ(expected, copy);
     // Shape of allocated array is {1, 2, 3}
-    EXPECT_THAT(copy.byte_strides(),
-                ::testing::ElementsAre(0, 3 * sizeof(std::int32_t),
-                                       sizeof(std::int32_t)));
+    EXPECT_THAT(
+        copy.byte_strides(),
+        ::testing::ElementsAre(0, 3 * sizeof(int32_t), sizeof(int32_t)));
   }
 
   {
@@ -1129,9 +1149,9 @@ TEST(MakeCopyTest, NoConversion) {
                                  tensorstore::skip_repeated_elements});
     EXPECT_EQ(expected, copy);
     // Shape of allocated array is {1, 2, 3}
-    EXPECT_THAT(copy.byte_strides(),
-                ::testing::ElementsAre(0, sizeof(std::int32_t),
-                                       sizeof(std::int32_t) * 2));
+    EXPECT_THAT(
+        copy.byte_strides(),
+        ::testing::ElementsAre(0, sizeof(int32_t), sizeof(int32_t) * 2));
   }
 
   {
@@ -1151,8 +1171,8 @@ TEST(MakeCopyTest, NoConversion) {
 }
 
 TEST(MakeCopyTest, Conversion) {
-  const std::int32_t data[] = {1, 2, 3, 0, 4, 5, 6, 0};
-  tensorstore::Array<const std::int32_t, 3> array(
+  const int32_t data[] = {1, 2, 3, 0, 4, 5, 6, 0};
+  tensorstore::Array<const int32_t, 3> array(
       data, tensorstore::StridedLayout<3>({2, 2, 3}, {0, 4 * 4, 4}));
 
   auto expected =
@@ -1332,12 +1352,10 @@ TEST(AllocateArrayElementsLikeTest, OffsetOriginSkipRepeatedElements) {
 
 TEST(IterateOverArrays, VoidReturn) {
   std::vector<std::pair<int, int>> values;
-  EXPECT_EQ(
-      (ArrayIterateResult{true, 4}),
-      IterateOverArrays(
-          [&](const int* a, const int* b) { values.emplace_back(*a, *b); },
-          /*constraints=*/ContiguousLayoutOrder::c,
-          MakeArrayView({{1, 2}, {3, 4}}), MakeArrayView({{5, 6}, {7, 8}})));
+  EXPECT_TRUE(IterateOverArrays(
+      [&](const int* a, const int* b) { values.emplace_back(*a, *b); },
+      /*constraints=*/ContiguousLayoutOrder::c, MakeArrayView({{1, 2}, {3, 4}}),
+      MakeArrayView({{5, 6}, {7, 8}})));
 
   const std::vector<std::pair<int, int>> expected_values{
       {1, 5}, {2, 6}, {3, 7}, {4, 8}};
@@ -1345,23 +1363,20 @@ TEST(IterateOverArrays, VoidReturn) {
 }
 
 TEST(IterateOverArrays, BoolReturnZeroElements) {
-  EXPECT_EQ((ArrayIterateResult{true, 0}),
-            IterateOverArrays([&](const int* a) -> bool { return false; },
-                              /*constraints=*/{},
-                              tensorstore::AllocateArray<int>({0})));
+  EXPECT_TRUE(IterateOverArrays([&](const int* a) -> bool { return false; },
+                                /*constraints=*/{},
+                                tensorstore::AllocateArray<int>({0})));
 }
 
 TEST(IterateOverArrays, BoolTrueReturn) {
   std::vector<std::pair<int, int>> values;
-  EXPECT_EQ(
-      (ArrayIterateResult{true, 4}),
-      IterateOverArrays(
-          [&](const int* a, const int* b) -> bool {
-            values.emplace_back(*a, *b);
-            return true;
-          },
-          /*constraints=*/ContiguousLayoutOrder::c,
-          MakeArrayView({{1, 2}, {3, 4}}), MakeArrayView({{5, 6}, {7, 8}})));
+  EXPECT_TRUE(IterateOverArrays(
+      [&](const int* a, const int* b) -> bool {
+        values.emplace_back(*a, *b);
+        return true;
+      },
+      /*constraints=*/ContiguousLayoutOrder::c, MakeArrayView({{1, 2}, {3, 4}}),
+      MakeArrayView({{5, 6}, {7, 8}})));
 
   const std::vector<std::pair<int, int>> expected_values{
       {1, 5}, {2, 6}, {3, 7}, {4, 8}};
@@ -1370,15 +1385,13 @@ TEST(IterateOverArrays, BoolTrueReturn) {
 
 TEST(IterateOverArrays, BoolFalseReturn) {
   std::vector<std::pair<int, int>> values;
-  EXPECT_EQ(
-      (ArrayIterateResult{false, 1}),
-      IterateOverArrays(
-          [&](const int* a, const int* b) {
-            values.emplace_back(*a, *b);
-            return (*a != 2);
-          },
-          /*constraints=*/ContiguousLayoutOrder::c,
-          MakeArrayView({{1, 2}, {3, 4}}), MakeArrayView({{5, 6}, {7, 8}})));
+  EXPECT_FALSE(IterateOverArrays(
+      [&](const int* a, const int* b) {
+        values.emplace_back(*a, *b);
+        return (*a != 2);
+      },
+      /*constraints=*/ContiguousLayoutOrder::c, MakeArrayView({{1, 2}, {3, 4}}),
+      MakeArrayView({{5, 6}, {7, 8}})));
 
   const std::vector<std::pair<int, int>> expected_values{{1, 5}, {2, 6}};
   EXPECT_EQ(expected_values, values);
@@ -1917,11 +1930,14 @@ class RandomDataSerializationTest
     : public ::testing::TestWithParam<tensorstore::DataType> {};
 
 INSTANTIATE_TEST_SUITE_P(DataTypes, RandomDataSerializationTest,
-                         ::testing::ValuesIn(tensorstore::kDataTypes));
+                         ::testing::ValuesIn(tensorstore::kDataTypes),
+                         ::testing::PrintToStringParamName());
+
+static constexpr int kNumIterations = 10;
 
 TEST_P(RandomDataSerializationTest, COrder) {
   auto dtype = GetParam();
-  for (int iteration = 0; iteration < 100; ++iteration) {
+  for (int iteration = 0; iteration < kNumIterations; ++iteration) {
     std::minstd_rand gen{tensorstore::internal::GetRandomSeedForTest(
         "TENSORSTORE_ARRAY_SERIALIZATION_TEST_SEED")};
     auto box = tensorstore::internal::MakeRandomBox(gen);
@@ -1934,7 +1950,7 @@ TEST_P(RandomDataSerializationTest, COrder) {
 
 TEST_P(RandomDataSerializationTest, FOrder) {
   auto dtype = GetParam();
-  for (int iteration = 0; iteration < 100; ++iteration) {
+  for (int iteration = 0; iteration < kNumIterations; ++iteration) {
     std::minstd_rand gen{tensorstore::internal::GetRandomSeedForTest(
         "TENSORSTORE_ARRAY_SERIALIZATION_TEST_SEED")};
     auto box = tensorstore::internal::MakeRandomBox(gen);
@@ -1942,6 +1958,16 @@ TEST_P(RandomDataSerializationTest, FOrder) {
         tensorstore::internal::MakeRandomArray(gen, box, dtype, fortran_order);
     TestSerializationRoundTrip(array);
   }
+}
+
+TEST(ArrayTest, GetByteExtent) {
+  EXPECT_THAT(GetByteExtent(tensorstore::AllocateArray<int32_t>({2, 3, 4})),
+              2 * 3 * 4 * sizeof(int32_t));
+  EXPECT_THAT(GetByteExtent(tensorstore::AllocateArray<int32_t>(
+                  {2, 3, 4}, tensorstore::fortran_order)),
+              2 * 3 * 4 * sizeof(int32_t));
+  EXPECT_THAT(GetByteExtent(tensorstore::MakeScalarArray<int32_t>(1)),
+              sizeof(int32_t));
 }
 
 }  // namespace

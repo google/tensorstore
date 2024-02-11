@@ -44,31 +44,15 @@
 ///           Cache::Entry::DoGetSizeInBytes(entry);
 ///     }
 ///
-///     void DoRequestWriteback(PinnedCacheEntry<Cache> base_entry) override {
-///       PinnedCacheEntry<MyCache> entry =
-///           static_pointer_cast<Entry>(std::move(base_entry));
-///       // Initiate writeback asynchronously.
-///       // When completed, arranges for `MyWritebackCompleted` to be called.
-///     }
-///
-///     void MyWritebackCompleted(PinnedCacheEntry<MyCache> entry) {
-///       std::unique_lock<Mutex> lock(entry->data_mutex);
-///       // Adjust entry->data to account for writeback completed.
-///       // ...
-///       entry->UpdateState(std::move(lock),
-///                          CacheEntryQueueState::clean_and_in_use,
-///                          DoGetSizeInBytes(entry.get()));
-///     }
-///
 ///     // Implement required virtual interfaces:
 ///     Entry* DoAllocateEntry() final { return new Entry; }
 ///     std::size_t DoGetSizeofEntry() final { return sizeof(Entry); }
 ///   };
 ///
-///   // Create a pool with a 2MiB size limit, 1MiB limit for pending writes.
-///   auto pool = CachePool::Make(CachePool::Limits{2000000, 1000000});
+///   // Create a pool with a 2MiB size limit.
+///   auto pool = CachePool::Make(CachePool::Limits{2000000});
 ///
-///   auto cache = pool->GetCache<MyCache>("cache_key", [&] {
+///   auto cache = GetCache<MyCache>(pool.get(), "cache_key", [&] {
 ///     return std::make_unique<MyCache>();
 ///   });
 ///
@@ -86,6 +70,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/base/thread_annotations.h"
 #include "absl/functional/function_ref.h"
 #include "tensorstore/internal/cache/cache_impl.h"
 #include "tensorstore/internal/cache/cache_pool_limits.h"
@@ -111,63 +96,17 @@ using CachePtr = internal_cache::CachePtr<CacheType>;
 /// It is associated with a collection of `Cache` objects, each of which contain
 /// a collection of entries.  Each entry has an associated size in bytes, and is
 /// in one of several states, as defined by the `CacheEntryQueueState` enum. The
-/// cache pool maintains least-recently-used eviction and writeback queues of
-/// the entries; once the user-specified `CachePool:Limits` are reached, entries
-/// are evicted and/or writeback is requested in order to attempt to free
-/// memory.  The limits apply to the aggregate memory usage of all caches
-/// managed by the pool, and a single LRU eviction queue and a single LRU
-/// writeback queue is used for all managed caches.
+/// cache pool maintains a least-recently-used eviction queue of the entries;
+/// once the user-specified `CachePool:Limits` are reached, entries are evicted
+/// in order to attempt to free memory.  The limits apply to the aggregate
+/// memory usage of all caches managed by the pool, and a single LRU eviction
+/// queue is used for all managed caches.
 class CachePool : private internal_cache::CachePoolImpl {
  public:
   using Limits = CachePoolLimits;
 
   /// Returns the limits of this cache pool.
   const Limits& limits() const { return limits_; }
-
-  /// Returns a cache of type `CacheType` for the specified `cache_key`.
-  ///
-  /// If such a cache does not already exist, or `cache_key` is empty,
-  /// `make_cache()` is called to obtain a new such cache.
-  ///
-  /// \tparam CacheType Must be a class that inherits from `Cache`, or defines a
-  ///     `Cache& cache()` method.
-  /// \param cache_key Specifies the cache key.
-  /// \param make_cache Nullary function that returns an
-  ///     `std::unique_ptr<CacheType>`, where `CacheType` as a type that
-  ///     inherits from `Cache` or defines a `Cache& cache()` method.  A
-  ///     `nullptr` may be returned to indicate an error creating the cache (any
-  ///     additional error information must be communicated via some separate
-  ///     out-of-band channel).
-  template <typename CacheType, typename MakeCache>
-  CachePtr<CacheType> GetCache(std::string_view cache_key,
-                               MakeCache&& make_cache) {
-    return GetCache<CacheType>(typeid(CacheType), cache_key,
-                               std::forward<MakeCache>(make_cache));
-  }
-  template <typename CacheType, typename MakeCache>
-  CachePtr<CacheType> GetCache(const std::type_info& type_info,
-                               std::string_view cache_key,
-                               MakeCache&& make_cache) {
-    auto cache = internal_cache::GetCacheInternal(
-        this, type_info, cache_key, [&]() -> std::unique_ptr<internal::Cache> {
-          std::unique_ptr<CacheType> cache = make_cache();
-          if (!cache) return nullptr;
-          void* user_ptr = cache.get();
-          auto base_ptr = std::unique_ptr<internal::Cache>(
-              &internal_cache::GetCacheObject(cache.release()));
-          internal_cache::Access::StaticCast<internal_cache::CacheImpl>(
-              base_ptr.get())
-              ->user_ptr_ = user_ptr;
-          return base_ptr;
-        });
-    if (!cache) return nullptr;
-    return CachePtr<CacheType>(
-        static_cast<CacheType*>(
-            internal_cache::Access::StaticCast<internal_cache::CacheImpl>(
-                cache.release())
-                ->user_ptr_),
-        internal::adopt_object_ref);
-  }
 
   class WeakPtr;
 
@@ -221,28 +160,67 @@ class CachePool : private internal_cache::CachePoolImpl {
   friend class internal_cache::Access;
 };
 
-/// Represents the queue state of a Cache::Entry object.
-enum class CacheEntryQueueState : int {
-  /// Clean and has a reference count == 0.  Queued for eviction.
-  clean_and_not_in_use,
+/// Returns a cache of type `CacheType` for the specified `cache_key`.
+///
+/// If such a cache does not already exist, or `cache_key` is empty,
+/// `make_cache()` is called to obtain a new such cache.
+///
+/// \tparam CacheType Must be a class that inherits from `Cache`, or defines a
+///     `Cache& cache()` method.
+/// \param pool Cache pool, may be `nullptr` to indicate that caching is
+///     disabled.
+/// \param type_info Additional key used in looking up the cache.  Has no effect
+///     if `cache_key` is the empty string or `pool` is `nullptr`.  Set to
+///     `typeid(CacheType)` when calling `GetCache`, but can be any arbitrary
+///     `std::type_info` object.
+/// \param cache_key Specifies the cache key.
+/// \param make_cache Nullary function that returns an
+///     `std::unique_ptr<CacheType>`, where `CacheType` as a type that inherits
+///     from `Cache` or defines a `Cache& cache()` method.  A `nullptr` may be
+///     returned to indicate an error creating the cache (any additional error
+///     information must be communicated via some separate out-of-band channel).
+template <typename CacheType, typename MakeCache>
+CachePtr<CacheType> GetCacheWithExplicitTypeInfo(
+    CachePool* pool, const std::type_info& type_info,
+    std::string_view cache_key, MakeCache&& make_cache) {
+  auto cache = internal_cache::GetCacheInternal(
+      internal_cache::Access::StaticCast<internal_cache::CachePoolImpl>(pool),
+      type_info, cache_key, [&]() -> std::unique_ptr<internal::Cache> {
+        std::unique_ptr<CacheType> cache = make_cache();
+        if (!cache) return nullptr;
+        void* user_ptr = cache.get();
+        auto base_ptr = std::unique_ptr<internal::Cache>(
+            &internal_cache::GetCacheObject(cache.release()));
+        internal_cache::Access::StaticCast<internal_cache::CacheImpl>(
+            base_ptr.get())
+            ->user_ptr_ = user_ptr;
+        return base_ptr;
+      });
+  if (!cache) return nullptr;
+  return CachePtr<CacheType>(
+      static_cast<CacheType*>(
+          internal_cache::Access::StaticCast<internal_cache::CacheImpl>(
+              cache.release())
+              ->user_ptr_),
+      internal::adopt_object_ref);
+}
+template <typename CacheType, typename MakeCache>
+CachePtr<CacheType> GetCache(CachePool* pool, std::string_view cache_key,
+                             MakeCache&& make_cache) {
+  return GetCacheWithExplicitTypeInfo<CacheType>(
+      pool, typeid(CacheType), cache_key, std::forward<MakeCache>(make_cache));
+}
 
-  /// Clean, but has a reference count > 0.  Not queued for eviction.
-  clean_and_in_use,
-
-  /// Has local modifications for which writeback has not yet been requested.
-  /// Writeback of some, but not all, local modifications may be in progress.
-  dirty,
-
-  /// Writeback of all local modifications has been requested.  If another
-  /// local
-  /// write happens before writeback completes, the state becomes `dirty`.
-  writeback_requested,
-};
-
-std::ostream& operator<<(std::ostream& os, CacheEntryQueueState state);
+/// Pointer to a cache entry that prevents it from being evicted due to memory
+/// pressure, but still permits it to be destroyed if its parent cache is
+/// destroyed.
+using WeakPinnedCacheEntry = internal_cache::WeakPinnedCacheEntry;
 
 /// Base class for cache entries.
-class CacheEntry : private internal_cache::CacheEntryImpl {
+///
+/// This class can be used with `tensorstore::UniqueWriterLock`.  Refer to
+/// `WriterLock` and `WriterUnlock` for details.
+class ABSL_LOCKABLE CacheEntry : private internal_cache::CacheEntryImpl {
  public:
   /// Alias required by the `GetOwningCache` function.  Derived `Entry` classes
   /// must redefine `OwningCache` to be the derived cache type.
@@ -255,68 +233,54 @@ class CacheEntry : private internal_cache::CacheEntryImpl {
   ///
   /// This is intended for testing and debugging.
   std::uint32_t use_count() const {
-    return reference_count_.load(std::memory_order_acquire);
+    return reference_count_.load(std::memory_order_acquire) / 2;
   }
 
-  /// Returns the current queue state.
-  ///
-  /// This is intended for testing and debugging, and should not be called
-  /// while there may be other concurrent accesses to the same cache pool.
-  CacheEntryQueueState queue_state() { return queue_state_; }
+  /// Derived classes may use this to protect changes to the "cached data",
+  /// whatever that may be, and may also use it to protect any other related
+  /// data.  This must be held when the size in bytes of the cached data
+  /// changes.
+  absl::Mutex& mutex() { return mutex_; }
 
-  /// Sets whether this entry should be evicted as soon as it is not in use,
-  /// regardless of when it was last used or the available memory in the cache
-  /// pool.
-  ///
-  /// This must only be called while the entry is in use, and must not be called
-  /// by multiple threads concurrently for the same entry.
-  void SetEvictWhenNotInUse(bool value = true) {
-    evict_when_not_in_use_ = value;
+  /// Acquires a lock on `mutex()`.
+  void WriterLock() ABSL_EXCLUSIVE_LOCK_FUNCTION();
+
+  /// Releases a previously-acquired lock on `mutex()`, and updates the size in
+  /// the cache pool, if the size is being tracked and `NotifySizeChanged()` was
+  /// called.
+  void WriterUnlock() ABSL_UNLOCK_FUNCTION();
+
+  void DebugAssertMutexHeld() {
+#ifndef NDEBUG
+    mutex_.AssertHeld();
+#endif
   }
 
-  /// Specifies an optional size update to be done with an optional lock
-  /// hand-off.
-  struct SizeUpdate {
-    using Lock = poly::Poly<0, /*Copyable=*/false>;
-
-    /// Object whose destructor releases the lock that protects the entry state
-    /// "S" corresponding to `new_size`.
-    ///
-    /// This lock is released after acquiring an exclusive lock on the cache
-    /// pool state, in order to ensure that the order in which size updates take
-    /// effect is the same order in which modifications to "S" occur.
-    Lock lock;
-
-    /// If not `std::nullopt`, the entry size will be changed to the specified
-    /// value.
-    std::optional<std::size_t> new_size;
-  };
-
-  /// Extends `SizeUpdate` with an optional state update.
-  struct StateUpdate : public SizeUpdate {
-    /// If not `std::nullopt`, the queue state will be changed to the specified
-    /// value.  If `new_state` is `clean_and_not_in_use` or `dirty`, the entry
-    /// will be moved to the back (most recently used) position of the eviction
-    /// or writeback queue, respectively, even if `queue_state` is the same as
-    /// the existing queue state.
-    std::optional<CacheEntryQueueState> new_state;
-  };
-
-  /// Optionally modifies the entry queue state and/or the entry size.
-  ///
-  /// This may trigger writeback and/or eviction of entries in any cache that
-  /// shares the same cache pool.
-  ///
-  /// This must be called to mark an entry as dirty before releasing the last
-  /// reference to it, and after writeback completes to mark an entry as clean.
-  /// It must also be called when the size changes (e.g. due to allocating or
-  /// freeing additional heap memory referenced by the entry).
-  void UpdateState(StateUpdate update);
+  /// May be called while holding a lock on `mutex()` to indicate that the
+  /// result of `GetOwningCache(*this).DoGetSizeInBytes(this)` has changed.
+  void NotifySizeChanged() {
+    this->DebugAssertMutexHeld();
+    flags_ |= kSizeChanged;
+  }
 
   /// Initializes an entry after it is allocated.
   ///
   /// Derived classes may override this method if initialization is required.
   virtual void DoInitialize();
+
+  /// Returns a new weak reference to this entry.
+  ///
+  /// The caller must hold a strong reference.
+  ///
+  /// Like a strong reference, a weak reference prevents the entry from being
+  /// evicted due to memory pressure.  However, if there are no strong
+  /// references to the entry, no strong references to the cache, and no strong
+  /// references to the pool (if the cache has a non-empty identifier), then the
+  /// cache and all of its entries will be destroyed despite the existence of
+  /// weak references to entries.
+  WeakPinnedCacheEntry AcquireWeakReference() {
+    return internal_cache::AcquireWeakCacheEntryReference(this);
+  }
 
   virtual ~CacheEntry();
 
@@ -324,7 +288,9 @@ class CacheEntry : private internal_cache::CacheEntryImpl {
   friend class internal_cache::Access;
 };
 
-/// Pointer to a cache entry that prevents it from being evicted.
+/// Pointer to a cache entry that prevents it from being evicted due to memory
+/// pressure, and also ensures that the entry and its parent cache are not
+/// destroyed.
 template <typename CacheType>
 using PinnedCacheEntry =
     internal_cache::CacheEntryStrongPtr<typename CacheType::Entry>;
@@ -346,9 +312,10 @@ class Cache : private internal_cache::CacheImpl {
   Cache();
   virtual ~Cache();
 
-  /// Returns the associated cache pool.
-  CachePool& pool() const {
-    return *internal_cache::Access::StaticCast<CachePool>(pool_);
+  /// Returns the associated cache pool, or `nullptr` if using a disabled cache
+  /// pool.
+  CachePool* pool() const {
+    return internal_cache::Access::StaticCast<CachePool>(pool_);
   }
 
   /// Returns the strong reference count for testing/debugging.
@@ -395,22 +362,6 @@ class Cache : private internal_cache::CacheImpl {
   ///
   /// std::size_t DoGetSizeofEntry() final { return sizeof(Entry); }
   virtual std::size_t DoGetSizeofEntry() = 0;
-
-  /// Initiates writeback of `entry`.
-  ///
-  /// Derived classes must define this method, which is called by the cache pool
-  /// when the total number of bytes occupied by entries in the `dirty` state
-  /// exceeds the `queued_for_writeback_bytes_limit` and `entry` is the least
-  /// recently used entry in the `dirty` state.
-  ///
-  /// Implementations of this method should hold the `PinnedCacheEntry` pointer
-  /// while writeback is in progress.  Once writeback completes,
-  /// `CacheEntry::UpdateState` should be called with a `queue_state` of
-  /// `clean_and_in_use`.
-  ///
-  /// \param entry Non-null pointer to the entry contained in this cache for
-  ///     which writeback is requested.
-  virtual void DoRequestWriteback(PinnedEntry entry) = 0;
 
  private:
   friend class internal_cache::Access;

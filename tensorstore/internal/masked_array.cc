@@ -36,6 +36,7 @@
 #include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/internal/memory.h"
 #include "tensorstore/internal/nditerable.h"
+#include "tensorstore/internal/nditerable_buffer_management.h"
 #include "tensorstore/internal/nditerable_transformed_array.h"
 #include "tensorstore/internal/nditerable_util.h"
 #include "tensorstore/internal/unowned_to_shared.h"
@@ -230,11 +231,11 @@ void RebaseMaskedArray(BoxView<> box, ArrayView<const void> source,
   ArrayView<void> dest_array(
       dest_ptr, StridedLayoutView<>(box.shape(), dest_byte_strides));
   if (mask.num_masked_elements == 0) {
-    [[maybe_unused]] const auto iterate_result = internal::IterateOverArrays(
+    [[maybe_unused]] const auto success = internal::IterateOverArrays(
         {&r->copy_assign,
          /*context=*/nullptr},
         /*status=*/nullptr, skip_repeated_elements, source, dest_array);
-    assert(iterate_result.success);
+    assert(success);
     return;
   }
   Index mask_byte_strides_storage[kMaxRank];
@@ -252,31 +253,19 @@ void RebaseMaskedArray(BoxView<> box, ArrayView<const void> source,
   }
   ArrayView<const bool> mask_array(
       mask_array_ptr, StridedLayoutView<>(box.shape(), mask_byte_strides));
-  [[maybe_unused]] const auto iterate_result = internal::IterateOverArrays(
+  [[maybe_unused]] const auto success = internal::IterateOverArrays(
       {&r->copy_assign_unmasked, /*context=*/nullptr}, /*status=*/nullptr,
       skip_repeated_elements, source, dest_array, mask_array);
-  assert(iterate_result.success);
+  assert(success);
 }
 
-bool WriteToMask(MaskData* mask, BoxView<> output_box,
-                 IndexTransformView<> input_to_output,
-                 NDIterable::IterationLayoutView layout,
-                 span<const Index> write_end_position, Arena* arena) {
-  assert(write_end_position.size() == layout.iteration_rank());
-  assert(layout.full_rank() == input_to_output.input_rank());
-  assert(layout.iteration_rank() > 0);
+void WriteToMask(MaskData* mask, BoxView<> output_box,
+                 IndexTransformView<> input_to_output, Arena* arena) {
+  assert(input_to_output.output_rank() == output_box.rank());
 
-  if (std::all_of(write_end_position.begin(), write_end_position.end(),
-                  [](Index x) { return x == 0; })) {
-    // No elements were written, therefore the mask does not need to be updated.
-    return false;
+  if (input_to_output.domain().box().is_empty()) {
+    return;
   }
-
-  const bool partial_copy =
-      write_end_position.front() != layout.iteration_shape.front();
-  assert(partial_copy ||
-         std::all_of(write_end_position.begin() + 1, write_end_position.end(),
-                     [](Index x) { return x == 0; }));
 
   const DimensionIndex output_rank = output_box.rank();
   Box<dynamic_rank(kNumInlinedDims)> output_range(output_rank);
@@ -296,7 +285,7 @@ bool WriteToMask(MaskData* mask, BoxView<> output_box,
   const bool use_mask_array =
       output_box.rank() != 0 &&
       mask->num_masked_elements != output_box.num_elements() &&
-      (static_cast<bool>(mask->mask_array) || partial_copy ||
+      (static_cast<bool>(mask->mask_array) ||
        (!Contains(mask->region, output_range) &&
         (!range_is_exact || !IsHullEqualToUnion(mask->region, output_range))));
   if (use_mask_array && !mask->mask_array) {
@@ -316,36 +305,16 @@ bool WriteToMask(MaskData* mask, BoxView<> output_box,
                 mask_layout),
             input_to_output, arena)
             .value();
-    const auto mask_buffer_kind =
-        mask_iterable->GetIterationBufferConstraint(layout).min_buffer_kind;
-    const Index mask_block_size =
-        GetNDIterationBlockSize(*mask_iterable, layout, mask_buffer_kind);
-    auto mask_iterator = mask_iterable->GetIterator(
-        {{layout, mask_block_size}, mask_buffer_kind});
-
-    NDIterationPositionStepper stepper(layout.iteration_shape, mask_block_size);
-
-    absl::Status mask_copy_status;
-
     SetMaskAndCountChanged set_mask_context;
     constexpr ElementwiseFunction<1> set_mask_func =
         internal::SimpleElementwiseFunction<SetMaskAndCountChanged(bool)>();
 
-    // Update the mask using a backward iteration order, starting from the
-    // `write_end_position`.  This ensures that we update the mask at exactly
-    // the positions that were written.
-    std::copy(write_end_position.begin(), write_end_position.end(),
-              stepper.position().begin());
-    while (Index block_size = stepper.StepBackward()) {
-      IterationBufferPointer mask_pointer;
-      const bool get_block_ok = mask_iterator->GetBlock(
-          stepper.position(), block_size, &mask_pointer, &mask_copy_status);
-      static_cast<void>(get_block_ok);
-      assert(get_block_ok);
-      set_mask_func[mask_buffer_kind](&set_mask_context, block_size,
-                                      mask_pointer);
-    }
+    auto status = internal::IterateOverNDIterables<1, /*Update=*/true>(
+        input_to_output.input_shape(), skip_repeated_elements,
+        {{mask_iterable.get()}}, arena, {&set_mask_func, &set_mask_context});
     mask->num_masked_elements += set_mask_context.num_changed;
+    status.IgnoreError();
+    assert(status.ok());
     // We could call RemoveMaskArrayIfNotNeeded here.  However, that would
     // introduce the potential to repeatedly allocate and free the mask array
     // under certain write patterns.  Therefore, we don't remove the mask array
@@ -355,7 +324,6 @@ bool WriteToMask(MaskData* mask, BoxView<> output_box,
     // masked.
     mask->num_masked_elements = mask->region.num_elements();
   }
-  return true;
 }
 
 }  // namespace internal

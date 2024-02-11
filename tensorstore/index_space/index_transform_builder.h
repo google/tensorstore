@@ -15,16 +15,37 @@
 #ifndef TENSORSTORE_INDEX_SPACE_INDEX_TRANSFORM_BUILDER_H_
 #define TENSORSTORE_INDEX_SPACE_INDEX_TRANSFORM_BUILDER_H_
 
+#include <stddef.h>
+
+#include <algorithm>
+#include <optional>
+#include <string>
+#include <string_view>
 #include <type_traits>
+#include <utility>
 
 #include "absl/container/inlined_vector.h"
 #include "absl/log/absl_check.h"
 #include "absl/status/status.h"
+#include "tensorstore/array.h"
+#include "tensorstore/box.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/internal/deep_copy_transform_rep_ptr.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
+#include "tensorstore/index_space/output_index_map.h"
+#include "tensorstore/index_space/output_index_method.h"
+#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/rank.h"
+#include "tensorstore/static_cast.h"
+#include "tensorstore/strided_layout.h"
+#include "tensorstore/util/dimension_set.h"
+#include "tensorstore/util/iterate.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 
@@ -340,7 +361,7 @@ class IndexTransformBuilder {
   ///
   /// \schecks `N` is compatible with `InputRank`.
   /// \pre `valid() == true`
-  template <std::size_t N>
+  template <size_t N>
   IndexTransformBuilder& input_origin(const Index (&indices)[N]) {
     static_assert(InputRank == dynamic_rank || InputRank == N, "");
     return input_origin(span(indices));
@@ -378,7 +399,7 @@ class IndexTransformBuilder {
   /// `input_shape({1, 2})`.
   ///
   /// \pre `valid() == true`
-  template <std::size_t N>
+  template <size_t N>
   IndexTransformBuilder& input_shape(const Index (&indices)[N]) {
     static_assert(InputRank == dynamic_rank || InputRank == N, "");
     return input_shape(span(indices));
@@ -418,7 +439,7 @@ class IndexTransformBuilder {
   ///
   /// \schecks `N` is compatible with `InputRank`.
   /// \pre `valid() == true`
-  template <std::size_t N>
+  template <size_t N>
   IndexTransformBuilder& input_exclusive_max(const Index (&indices)[N]) {
     static_assert(InputRank == dynamic_rank || InputRank == N, "");
     return input_exclusive_max(span(indices));
@@ -458,7 +479,7 @@ class IndexTransformBuilder {
   ///
   /// \schecks `N` is compatible with `InputRank`.
   /// \pre `valid() == true`
-  template <std::size_t N>
+  template <size_t N>
   IndexTransformBuilder& input_inclusive_max(const Index (&indices)[N]) {
     static_assert(InputRank == dynamic_rank || InputRank == N, "");
     return input_inclusive_max(span(indices));
@@ -540,7 +561,7 @@ class IndexTransformBuilder {
   /// `input_labels({"a", "b"})`.
   ///
   /// \pre `valid() == true`
-  template <std::size_t N>
+  template <size_t N>
   IndexTransformBuilder& input_labels(const std::string_view (&labels)[N]) {
     static_assert(InputRank == dynamic_rank || InputRank == N, "");
     return input_labels(span(labels));
@@ -569,11 +590,11 @@ class IndexTransformBuilder {
   /// `implicit_lower_bounds({1, 0})`.
   ///
   /// \pre `valid() == true`
-  template <std::size_t N>
+  template <size_t N>
   IndexTransformBuilder& implicit_lower_bounds(const bool (&x)[N]) {
     static_assert(InputRank == dynamic_rank || InputRank == N);
     ABSL_CHECK_EQ(N, input_rank()) << "range size mismatch";
-    return implicit_lower_bounds(DimensionSet(x));
+    return implicit_lower_bounds(DimensionSet::FromBools(x));
   }
 
   /// Returns the mutable `implicit_upper_bounds` bit vector, and marks it as
@@ -599,11 +620,11 @@ class IndexTransformBuilder {
   /// `implicit_upper_bounds({1, 0})`.
   ///
   /// \pre `valid() == true`
-  template <std::size_t N>
+  template <size_t N>
   IndexTransformBuilder& implicit_upper_bounds(const bool (&x)[N]) {
     static_assert(InputRank == dynamic_rank || InputRank == N);
     ABSL_CHECK_EQ(N, input_rank()) << "range size mismatch";
-    return implicit_upper_bounds(DimensionSet(x));
+    return implicit_upper_bounds(DimensionSet::FromBools(x));
   }
 
   /// Sets the output index map for output dimension `output_dim` to a copy of
@@ -814,7 +835,7 @@ class IndexTransformBuilder {
   }
 };
 
-IndexTransformBuilder()->IndexTransformBuilder<>;
+IndexTransformBuilder() -> IndexTransformBuilder<>;
 
 namespace internal_index_space {
 

@@ -36,7 +36,7 @@ namespace {
 struct X {};
 
 TEST(DataTypeJsonBinderTest, ToJson) {
-  EXPECT_THAT(jb::ToJson(DataType(dtype_v<tensorstore::int32_t>)),
+  EXPECT_THAT(jb::ToJson(DataType(dtype_v<std::int32_t>)),
               ::testing::Optional(::nlohmann::json("int32")));
   EXPECT_THAT(jb::ToJson(DataType(dtype_v<bool>)),
               ::testing::Optional(::nlohmann::json("bool")));

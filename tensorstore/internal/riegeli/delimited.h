@@ -15,6 +15,13 @@
 #ifndef TENSORSTORE_INTERNAL_RIEGELI_DELIMITED_H_
 #define TENSORSTORE_INTERNAL_RIEGELI_DELIMITED_H_
 
+#include <stddef.h>
+#include <stdint.h>
+
+#include <string>
+#include <string_view>
+
+#include "absl/strings/cord.h"
 #include "riegeli/bytes/reader.h"
 #include "riegeli/bytes/writer.h"
 #include "riegeli/varint/varint_reading.h"

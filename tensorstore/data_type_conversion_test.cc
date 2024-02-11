@@ -14,8 +14,12 @@
 
 #include "tensorstore/data_type_conversion.h"
 
+#include <type_traits>
+#include <utility>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
@@ -23,39 +27,31 @@
 #include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/internal/half_gtest.h"
 #include "tensorstore/internal/json_gtest.h"
-#include "tensorstore/util/bfloat16.h"
-#include "tensorstore/util/int4.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace {
 
-using ::tensorstore::bfloat16_t;
-using ::tensorstore::bool_t;
-using ::tensorstore::complex128_t;
-using ::tensorstore::complex64_t;
 using ::tensorstore::DataTypeConversionFlags;
 using ::tensorstore::DataTypeConversionTraits;
 using ::tensorstore::dtype_v;
-using ::tensorstore::float16_t;
-using ::tensorstore::float32_t;
-using ::tensorstore::float64_t;
 using ::tensorstore::Index;
-using ::tensorstore::int4_t;
 using ::tensorstore::IsDataTypeConversionSupported;
-using ::tensorstore::json_t;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
 using ::tensorstore::StrCat;
-using ::tensorstore::string_t;
-using ::tensorstore::ustring_t;
 using ::tensorstore::internal::GetDataTypeConverter;
 using ::tensorstore::internal::GetDataTypeConverterOrError;
 using ::tensorstore::internal::GetElementCopyErrorStatus;
 using ::tensorstore::internal::IterationBufferKind;
 using ::tensorstore::internal::IterationBufferPointer;
+
+#define X(T, ...)                 \
+  using ::tensorstore::dtypes::T; \
+  /**/
+TENSORSTORE_FOR_EACH_DATA_TYPE(X)
+#undef X
 
 constexpr DataTypeConversionFlags kSupported =
     DataTypeConversionFlags::kSupported;
@@ -93,8 +89,9 @@ Result<To> TestConversion(
   To value;
   absl::Status status;
   if ((*r.closure.function)[IterationBufferKind::kContiguous](
-          r.closure.context, 1, IterationBufferPointer(&from, Index(0)),
-          IterationBufferPointer(&value, Index(0)), &status) != 1) {
+          r.closure.context, {1, 1},
+          IterationBufferPointer(&from, Index(0), Index(0)),
+          IterationBufferPointer(&value, Index(0), Index(0)), &status) != 1) {
     return GetElementCopyErrorStatus(std::move(status));
   }
   return value;
@@ -507,22 +504,24 @@ TEST(DataTypeConversionTest, Float16) {
   const T pos(42.5);
   EXPECT_EQ(false, TestConversion<bool_t>(T(0)));
   EXPECT_EQ(true, TestConversion<bool_t>(pos));
-  EXPECT_EQ(int4_t(pos), TestConversion<int4_t>(pos));
-  EXPECT_EQ(int8_t(pos), TestConversion<int8_t>(pos));
-  EXPECT_EQ(int16_t(pos), TestConversion<int16_t>(pos));
-  EXPECT_EQ(int32_t(pos), TestConversion<int32_t>(pos));
-  EXPECT_EQ(int64_t(pos), TestConversion<int64_t>(pos));
+  EXPECT_EQ(static_cast<int4_t>(pos), TestConversion<int4_t>(pos));
+  EXPECT_EQ(static_cast<int8_t>(pos), TestConversion<int8_t>(pos));
+  EXPECT_EQ(static_cast<int16_t>(pos), TestConversion<int16_t>(pos));
+  EXPECT_EQ(static_cast<int32_t>(pos), TestConversion<int32_t>(pos));
+  EXPECT_EQ(static_cast<int64_t>(pos), TestConversion<int64_t>(pos));
   // TODO(summivox): b/295577703 uint4_t
-  EXPECT_EQ(uint8_t(pos), TestConversion<uint8_t>(pos));
-  EXPECT_EQ(uint16_t(pos), TestConversion<uint16_t>(pos));
-  EXPECT_EQ(uint32_t(pos), TestConversion<uint32_t>(pos));
-  EXPECT_EQ(uint64_t(pos), TestConversion<uint64_t>(pos));
-  EXPECT_EQ(float16_t(pos),
+  EXPECT_EQ(static_cast<uint8_t>(pos), TestConversion<uint8_t>(pos));
+  EXPECT_EQ(static_cast<uint16_t>(pos), TestConversion<uint16_t>(pos));
+  EXPECT_EQ(static_cast<uint32_t>(pos), TestConversion<uint32_t>(pos));
+  EXPECT_EQ(static_cast<uint64_t>(pos), TestConversion<uint64_t>(pos));
+  EXPECT_EQ(static_cast<float16_t>(pos),
             TestConversion<float16_t>(
                 pos, kSafeAndImplicit | kIdentity | kCanReinterpretCast));
-  EXPECT_EQ(bfloat16_t(pos), TestConversion<bfloat16_t>(pos));
-  EXPECT_EQ(float32_t(pos), TestConversion<float32_t>(pos, kSafeAndImplicit));
-  EXPECT_EQ(float64_t(pos), TestConversion<float64_t>(pos, kSafeAndImplicit));
+  EXPECT_EQ(static_cast<bfloat16_t>(pos), TestConversion<bfloat16_t>(pos));
+  EXPECT_EQ(static_cast<float32_t>(pos),
+            TestConversion<float32_t>(pos, kSafeAndImplicit));
+  EXPECT_EQ(static_cast<float64_t>(pos),
+            TestConversion<float64_t>(pos, kSafeAndImplicit));
   EXPECT_EQ(complex64_t(float32_t(pos)),
             TestConversion<complex64_t>(pos, kSafeAndImplicit));
   EXPECT_EQ(complex128_t(float64_t(pos)),
@@ -530,6 +529,69 @@ TEST(DataTypeConversionTest, Float16) {
   EXPECT_EQ("42.5", TestConversion<string_t>(pos));
   EXPECT_EQ(ustring_t{"42.5"}, TestConversion<ustring_t>(pos));
   EXPECT_EQ(json_t(42.5), TestConversion<json_t>(pos, kSafeAndImplicit));
+}
+
+template <typename InternalFloat>
+class InternalFloat8Test : public ::testing::Test {};
+
+using InternalFloat8Types =
+    ::testing::Types<float8_e4m3fn_t, float8_e4m3fnuz_t, float8_e4m3b11fnuz_t,
+                     float8_e5m2_t, float8_e5m2fnuz_t>;
+
+TYPED_TEST_SUITE(InternalFloat8Test, InternalFloat8Types);
+
+TYPED_TEST(InternalFloat8Test, DataTypeConversionTest_InternalFloat8Types) {
+  using T = TypeParam;
+  const T pos(3.5);
+  EXPECT_EQ(false, TestConversion<bool_t>(T(0)));
+  EXPECT_EQ(true, TestConversion<bool_t>(pos));
+  EXPECT_EQ(int4_t(pos), TestConversion<int4_t>(pos));
+  EXPECT_EQ(int8_t(pos), TestConversion<int8_t>(pos));
+  EXPECT_EQ(int16_t(pos), TestConversion<int16_t>(pos));
+  EXPECT_EQ(int32_t(pos), TestConversion<int32_t>(pos));
+  EXPECT_EQ(int64_t(pos), TestConversion<int64_t>(pos));
+  EXPECT_EQ(uint8_t(pos), TestConversion<uint8_t>(pos));
+  EXPECT_EQ(uint16_t(pos), TestConversion<uint16_t>(pos));
+  EXPECT_EQ(uint32_t(pos), TestConversion<uint32_t>(pos));
+  EXPECT_EQ(uint64_t(pos), TestConversion<uint64_t>(pos));
+  EXPECT_EQ(T(pos), TestConversion<T>(pos, kSafeAndImplicit | kIdentity |
+                                               kCanReinterpretCast));
+  if (!std::is_same_v<T, float8_e4m3fn_t>) {
+    EXPECT_EQ(float8_e4m3fn_t(pos), TestConversion<float8_e4m3fn_t>(pos));
+  }
+  if (!std::is_same_v<T, float8_e4m3fnuz_t>) {
+    EXPECT_EQ(float8_e4m3fnuz_t(pos), TestConversion<float8_e4m3fnuz_t>(pos));
+  }
+  if (!std::is_same_v<T, float8_e4m3b11fnuz_t>) {
+    EXPECT_EQ(float8_e4m3b11fnuz_t(pos),
+              TestConversion<float8_e4m3b11fnuz_t>(pos));
+  }
+  if (!std::is_same_v<T, float8_e5m2fnuz_t>) {
+    if (std::is_same_v<T, float8_e5m2_t>) {
+      EXPECT_EQ(float8_e5m2fnuz_t(pos),
+                TestConversion<float8_e5m2fnuz_t>(pos, kSafeAndImplicit));
+    } else {
+      EXPECT_EQ(float8_e5m2fnuz_t(pos), TestConversion<float8_e5m2fnuz_t>(pos));
+    }
+  }
+  if (!std::is_same_v<T, float8_e5m2_t>) {
+    EXPECT_EQ(float8_e5m2_t(pos), TestConversion<float8_e5m2_t>(pos));
+  }
+  if (std::is_same_v<T, float8_e5m2fnuz_t>) {
+    EXPECT_EQ(float16_t(pos), TestConversion<float16_t>(pos));
+  } else {
+    EXPECT_EQ(float16_t(pos), TestConversion<float16_t>(pos, kSafeAndImplicit));
+  }
+  EXPECT_EQ(bfloat16_t(pos), TestConversion<bfloat16_t>(pos, kSafeAndImplicit));
+  EXPECT_EQ(float32_t(pos), TestConversion<float32_t>(pos, kSafeAndImplicit));
+  EXPECT_EQ(float64_t(pos), TestConversion<float64_t>(pos, kSafeAndImplicit));
+  EXPECT_EQ(complex64_t(float32_t(pos)),
+            TestConversion<complex64_t>(pos, kSafeAndImplicit));
+  EXPECT_EQ(complex128_t(float64_t(pos)),
+            TestConversion<complex128_t>(pos, kSafeAndImplicit));
+  EXPECT_EQ("3.5", TestConversion<string_t>(pos));
+  EXPECT_EQ(ustring_t{"3.5"}, TestConversion<ustring_t>(pos));
+  EXPECT_EQ(json_t(3.5), TestConversion<json_t>(pos, kSafeAndImplicit));
 }
 
 TEST(DataTypeConversionTest, Bfloat16) {
@@ -830,8 +892,8 @@ TEST(DataTypeConversionTest, Json) {
 }
 
 TEST(GetDataTypeConverterOrErrorTest, Basic) {
-  TENSORSTORE_EXPECT_OK(GetDataTypeConverterOrError(dtype_v<std::int32_t>,
-                                                    dtype_v<std::int32_t>));
+  TENSORSTORE_EXPECT_OK(
+      GetDataTypeConverterOrError(dtype_v<int32_t>, dtype_v<int32_t>));
   TENSORSTORE_EXPECT_OK(GetDataTypeConverterOrError(
       dtype_v<int32_t>, dtype_v<int32_t>, kIdentity));
   TENSORSTORE_EXPECT_OK(GetDataTypeConverterOrError(

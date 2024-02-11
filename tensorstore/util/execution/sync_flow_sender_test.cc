@@ -14,26 +14,27 @@
 
 #include "tensorstore/util/execution/sync_flow_sender.h"
 
+#include <stddef.h>
+
 #include <string>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "tensorstore/internal/mutex.h"
-#include "tensorstore/internal/thread.h"
+#include "tensorstore/internal/thread/thread.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender_testutil.h"
 
 namespace {
 
 struct ConcurrentSender {
-  std::size_t num_threads;
+  size_t num_threads;
   bool error;
   template <typename Receiver>
   void submit(Receiver receiver) {
     tensorstore::execution::set_starting(receiver, [] {});
     std::vector<tensorstore::internal::Thread> threads;
-    for (std::size_t i = 0; i < num_threads; ++i) {
+    for (size_t i = 0; i < num_threads; ++i) {
       threads.emplace_back(tensorstore::internal::Thread(
           {"sender"},
           [i, &receiver] { tensorstore::execution::set_value(receiver, i); }));
@@ -50,7 +51,7 @@ struct ConcurrentSender {
 
 TEST(SyncFlowSender, Values) {
   std::vector<std::string> log;
-  const std::size_t num_threads = 10;
+  const size_t num_threads = 10;
   tensorstore::execution::submit(
       tensorstore::MakeSyncFlowSender(
           ConcurrentSender{num_threads, /*.error=*/false}),
@@ -69,7 +70,7 @@ TEST(SyncFlowSender, Values) {
 
 TEST(SyncFlowSender, Error) {
   std::vector<std::string> log;
-  const std::size_t num_threads = 10;
+  const size_t num_threads = 10;
   tensorstore::execution::submit(
       tensorstore::MakeSyncFlowSender(
           ConcurrentSender{num_threads, /*.error=*/true}),

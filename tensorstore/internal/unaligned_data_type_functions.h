@@ -103,6 +103,12 @@ inline constexpr bool IsTrivialDataType(DataType dtype) {
              nullptr;
 }
 
+inline constexpr bool IsEndianInvariantDataType(DataType dtype) {
+  return dtype.id() != DataTypeId::custom &&
+         kUnalignedDataTypeFunctions[static_cast<size_t>(dtype.id())]
+                 .swap_endian_inplace == nullptr;
+}
+
 }  // namespace internal
 }  // namespace tensorstore
 

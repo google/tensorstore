@@ -2,17 +2,17 @@
 # See: https://github.com/googleapis/googleapis/blob/master/repository_rules.bzl
 
 load(
-    "@tensorstore//bazel:tensorstore.bzl",
-    _tensorstore_cc_proto_library = "tensorstore_cc_proto_library",
+    "@com_google_protobuf//bazel:upb_proto_library.bzl",
+    _upb_proto_library = "upb_proto_library",
+    _upb_proto_reflection_library = "upb_proto_reflection_library",
 )
 load(
     "@tensorstore//bazel:cc_grpc_library.bzl",
     _cc_grpc_library = "cc_grpc_library",
 )
 load(
-    "@com_google_protobuf_upb//bazel:upb_proto_library.bzl",
-    _upb_proto_library = "upb_proto_library",
-    _upb_proto_reflection_library = "upb_proto_reflection_library",
+    "@tensorstore//bazel:tensorstore.bzl",
+    _tensorstore_cc_proto_library = "tensorstore_cc_proto_library",
 )
 
 #

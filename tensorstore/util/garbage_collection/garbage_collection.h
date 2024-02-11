@@ -56,7 +56,7 @@
 #include "absl/time/time.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/util/apply_members/apply_members.h"
-#include "tensorstore/util/garbage_collection/fwd.h"
+#include "tensorstore/util/garbage_collection/fwd.h"  // IWYU pragma: export
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {

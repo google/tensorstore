@@ -151,12 +151,25 @@ Operations
 }
 
 void DefineTransactionAttributes(TransactionCls& cls) {
-  cls.def(py::init([](bool atomic) {
-            return TransactionState::ToCommitPtr(Transaction(
-                atomic ? tensorstore::atomic_isolated : tensorstore::isolated));
+  cls.def(py::init([](bool atomic, bool repeatable_read) {
+            TransactionMode mode = tensorstore::isolated;
+            if (atomic) {
+              mode |= tensorstore::atomic_isolated;
+            }
+            if (repeatable_read) {
+              mode |= tensorstore::repeatable_read;
+            }
+            return TransactionState::ToCommitPtr(Transaction(mode));
           }),
-          py::arg("atomic") = false, R"(
+          py::arg("atomic") = false, py::arg("repeatable_read") = false, R"(
 Creates a new transaction.
+
+Write isolation is currently always implied.
+
+Args:
+  atomic: Requires atomicity when committing.
+  repeatable_read: Requires that repeated reads return the same result.
+
 )");
   cls.def(
       "commit_async",

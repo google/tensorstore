@@ -23,6 +23,7 @@
 #include "tensorstore/driver/registry.h"
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform_builder.h"
+#include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/cache/cache_pool_resource.h"
 #include "tensorstore/internal/cache/chunk_cache.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
@@ -360,7 +361,7 @@ class VirtualChunkedDriverSpec
              x.data_staleness);
   };
 
-  OpenMode open_mode() const {
+  OpenMode open_mode() const override {
     // Since opening has no side effects, we return `open` even though `create`
     // might also be considered correct.
     return OpenMode::open;
@@ -419,7 +420,7 @@ class VirtualChunkedDriver : public VirtualChunkedDriverBase {
     return {std::in_place};
   }
 
-  Result<ChunkLayout> GetChunkLayout(IndexTransformView<> transform) {
+  Result<ChunkLayout> GetChunkLayout(IndexTransformView<> transform) override {
     return internal::GetChunkLayoutFromGrid(cache()->grid().components[0]) |
            transform;
   }
@@ -586,7 +587,8 @@ Result<internal::Driver::Handle> VirtualChunkedDriver::OpenFromSpecData(
   }
 
   // Cache key of "" means a distinct cache on each call to `GetCache`.
-  auto cache = (*spec.cache_pool)->GetCache<VirtualChunkedCache>("", [&] {
+  auto cache = internal::GetCache<
+      VirtualChunkedCache>(spec.cache_pool->get(), "", [&] {
     // Create the fill value array, which is just a single value-initialized
     // element broadcast to have a shape equal to the component chunk shape.
     // The fill value is not user-configurable and doesn't have any user-visible

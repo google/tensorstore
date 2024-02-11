@@ -88,6 +88,26 @@ definitions:
       - const: "uint64"
         title: |
           64-bit unsigned integer.
+      - const: "float8_e4m3fn"
+        title: |
+           `8-bit floating point - Exponent: 4, Mantissa: 3, bias: 7, with NaN,  without infinities
+           <https://github.com/jax-ml/ml_dtypes#float8_e4m3fn>`__ .
+      - const: "float8_e4m3fnuz"
+        title: |
+           `8-bit floating point - Exponent: 4, Mantissa: 3, bias: 8, with NaN,  without infinities
+           <https://github.com/jax-ml/ml_dtypes#float8_e4m3fnuz>`__ .
+      - const: "float8_e4m3b11fnuz"
+        title: |
+           `8-bit floating point - Exponent: 4, Mantissa: 3, bias: 11, with NaN,  without infinities
+           <https://github.com/jax-ml/ml_dtypes#float8_e4m3b11fnuz>`__ .
+      - const: "float8_e5m2"
+        title: |
+           `8-bit floating point - Exponent: 5, Mantissa: 2, bias: 15, IEEE 754, with NaN and infinities.
+           <https://github.com/jax-ml/ml_dtypes#float8_e5m2>`__ .
+      - const: "float8_e5m2fnuz"
+        title: |
+           `8-bit floating point - Exponent: 5, Mantissa: 2, bias: 16, with NaN, without infinities.
+           <https://github.com/jax-ml/ml_dtypes#float8_e5m2fnuz>`__ .
       - const: "float16"
         title: |
            `IEEE 754 binary16

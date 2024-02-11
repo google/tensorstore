@@ -15,8 +15,9 @@ cc_library(
         ],
         # Exclude codecs that have not been configured/linked.
         exclude = [
-            "src/codec_rav1e.c",
+            "src/codec_avm.c",
             "src/codec_libgav1.c",
+            "src/codec_rav1e.c",
             "src/codec_svt.c",
         ],
     ),
@@ -24,7 +25,7 @@ cc_library(
         "include/avif/*.h",
     ]),
     copts = select({
-        "@tensorstore//:compiler_msvc": [],
+        ":compiler_msvc": [],
         "//conditions:default": [
             "-Wno-incompatible-pointer-types",
         ],
@@ -47,3 +48,13 @@ cc_library(
         "@org_videolan_dav1d//:dav1d",
     ],
 )
+
+[
+    alias(
+        name = name,
+        actual = "@tensorstore//:{target}".format(target = name),
+    )
+    for name in [
+        "compiler_msvc",
+    ]
+]

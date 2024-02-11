@@ -195,6 +195,10 @@ struct EncodedChunk {
   MinishardAndChunkId minishard_and_chunk_id;
   /// Chunk data, compressed according to the `DataEncoding` value.
   absl::Cord encoded_data;
+
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.minishard_and_chunk_id, x.encoded_data);
+  };
 };
 
 using EncodedChunks = std::vector<EncodedChunk>;

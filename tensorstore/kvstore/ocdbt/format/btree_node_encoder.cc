@@ -14,25 +14,32 @@
 
 #include "tensorstore/kvstore/ocdbt/format/btree_node_encoder.h"
 
+#include <stddef.h>
+
 #include <algorithm>
 #include <cassert>
 #include <limits>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 #include <variant>
 #include <vector>
 
+#include "absl/base/attributes.h"
+#include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/strings/cord.h"
 #include "riegeli/bytes/writer.h"
 #include "riegeli/varint/varint_writing.h"
 #include "tensorstore/internal/integer_overflow.h"
-#include "tensorstore/kvstore/ocdbt/debug_log.h"
+#include "tensorstore/internal/log/verbose_flag.h"
+#include "tensorstore/kvstore/ocdbt/debug_defines.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
 #include "tensorstore/kvstore/ocdbt/format/btree_codec.h"
 #include "tensorstore/kvstore/ocdbt/format/codec_util.h"
 #include "tensorstore/kvstore/ocdbt/format/config.h"
+#include "tensorstore/kvstore/ocdbt/format/data_file_id_codec.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
 #include "tensorstore/util/division.h"
 #include "tensorstore/util/quote_string.h"
@@ -44,6 +51,9 @@
 namespace tensorstore {
 namespace internal_ocdbt {
 namespace {
+
+ABSL_CONST_INIT internal_log::VerboseFlag ocdbt_logging("ocdbt");
+
 size_t FindExistingNotExistingCommonPrefixLength(
     std::string_view existing_prefix, std::string_view existing_key,
     std::string_view new_key) {
@@ -241,20 +251,21 @@ bool EncodeEntriesInner(
   entries.front().common_prefix_with_next_entry_length =
       info.excluded_prefix_length;
 
-#if TENSORSTORE_INTERNAL_OCDBT_DEBUG
-  ABSL_LOG(INFO) << "Encoding node: height=" << static_cast<int>(height)
-                 << ", inclusive_min_key="
-                 << tensorstore::QuoteString(info.inclusive_min_key)
-                 << ", excluded_prefix_length=" << info.excluded_prefix_length;
+  ABSL_LOG_IF(INFO, ocdbt_logging)
+      << "Encoding node: height=" << static_cast<int>(height)
+      << ", inclusive_min_key="
+      << tensorstore::QuoteString(info.inclusive_min_key)
+      << ", excluded_prefix_length=" << info.excluded_prefix_length;
 
-  for (auto& entry : entries) {
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
-        << "  Entry: key="
-        << tensorstore::QuoteString(tensorstore::StrCat(
-               entry.existing ? existing_prefix : std::string_view(),
-               entry.entry.key));
+  if (ocdbt_logging.Level(1)) {
+    for (auto& entry : entries) {
+      ABSL_LOG(INFO) << "  Entry: key="
+                     << tensorstore::QuoteString(tensorstore::StrCat(
+                            entry.existing ? existing_prefix
+                                           : std::string_view(),
+                            entry.entry.key));
+    }
   }
-#endif  // TENSORSTORE_INTERNAL_OCDBT_DEBUG
 
   // Keys
   if (!WriteKeys<Entry>(writer, info.excluded_prefix_length, entries,
@@ -320,13 +331,15 @@ Result<std::vector<EncodedNode>> BtreeNodeEncoder<Entry>::Finalize(
     auto& a = buffered_entries_[i - 1];
     auto& b = buffered_entries_[i];
     if (a.existing == b.existing) {
-      assert(a.entry.key < b.entry.key);
+      ABSL_DCHECK_LT(a.entry.key, b.entry.key);
     } else if (a.existing) {
-      assert(ComparePrefixedKeyToUnprefixedKey{existing_prefix_}(
-                 a.entry.key, b.entry.key) < 0);
+      ABSL_DCHECK_LT(ComparePrefixedKeyToUnprefixedKey{existing_prefix_}(
+                         a.entry.key, b.entry.key),
+                     0);
     } else {
-      assert(ComparePrefixedKeyToUnprefixedKey{existing_prefix_}(
-                 b.entry.key, a.entry.key) > 0);
+      ABSL_DCHECK_GT(ComparePrefixedKeyToUnprefixedKey{existing_prefix_}(
+                         b.entry.key, a.entry.key),
+                     0);
     }
   }
 #endif  //  TENSORSTORE_INTERNAL_OCDBT_DEBUG
@@ -345,15 +358,16 @@ Result<std::vector<EncodedNode>> BtreeNodeEncoder<Entry>::Finalize(
   while (start_i < buffered_entries_.size()) {
     size_t size_upper_bound = get_range_size(buffered_entries_.size());
     size_t num_nodes = tensorstore::CeilOfRatio<size_t>(
-        buffered_entries_.size() - start_i, kMinArity);
+        buffered_entries_.size() - start_i, kMaxNodeArity);
     if (config_.max_decoded_node_bytes != 0) {
-      num_nodes = std::min(
+      num_nodes = std::max(
           num_nodes, tensorstore::CeilOfRatio<size_t>(
                          size_upper_bound, config_.max_decoded_node_bytes));
     }
     size_t target_size = tensorstore::CeilOfRatio(size_upper_bound, num_nodes);
     size_t end_i;
     for (end_i = start_i + 1; end_i < buffered_entries_.size(); ++end_i) {
+      if (end_i - start_i >= kMaxNodeArity) break;
       size_t size = get_range_size(end_i);
       if (size >= target_size && end_i >= start_i + kMinArity) {
         if (size > config_.max_decoded_node_bytes &&
@@ -364,6 +378,7 @@ Result<std::vector<EncodedNode>> BtreeNodeEncoder<Entry>::Finalize(
       }
     }
     assert(end_i > start_i);
+    assert(end_i - start_i <= kMaxNodeArity);
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto encoded_node,
         EncodeEntries<Entry>(

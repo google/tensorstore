@@ -12,16 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <vector>
-
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
 #include "tensorstore/util/dimension_set.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -58,8 +59,8 @@ TEST(PropagateBoundsTest, IdentityTransform) {
   auto b = Box({2, 3}, {4, 5});
   Box<2> a;
   DimensionSet a_implicit_lower_bounds, a_implicit_upper_bounds;
-  auto b_implicit_lower_bounds = DimensionSet({0, 1});
-  auto b_implicit_upper_bounds = DimensionSet({1, 0});
+  auto b_implicit_lower_bounds = DimensionSet::FromBools({0, 1});
+  auto b_implicit_upper_bounds = DimensionSet::FromBools({1, 0});
   TENSORSTORE_ASSERT_OK(
       PropagateBounds(b, b_implicit_lower_bounds, b_implicit_upper_bounds,
                       IndexTransform<2, 2>(), a, a_implicit_lower_bounds,
@@ -80,8 +81,8 @@ TEST(PropagateBoundsTest, ValidateOnly) {
                        .value();
   const Box<3> b({2, 3, 4}, {50, 66, 100});
   Box<2> a;
-  DimensionSet b_implicit_lower_bounds({0, 1, 0});
-  DimensionSet b_implicit_upper_bounds({1, 0, 0});
+  DimensionSet b_implicit_lower_bounds = DimensionSet::FromBools({0, 1, 0});
+  DimensionSet b_implicit_upper_bounds = DimensionSet::FromBools({1, 0, 0});
   DimensionSet a_implicit_lower_bounds, a_implicit_upper_bounds;
 
   TENSORSTORE_ASSERT_OK(PropagateBounds(
@@ -89,8 +90,8 @@ TEST(PropagateBoundsTest, ValidateOnly) {
       a_implicit_lower_bounds, a_implicit_upper_bounds));
   // Check that the propagated bounds match the transform input domain.
   EXPECT_EQ(BoxView({2, 3}, {5, 10}), a);
-  EXPECT_THAT(a_implicit_lower_bounds, DimensionSet({0, 0}));
-  EXPECT_THAT(a_implicit_upper_bounds, DimensionSet({0, 0}));
+  EXPECT_THAT(a_implicit_lower_bounds, DimensionSet());
+  EXPECT_THAT(a_implicit_upper_bounds, DimensionSet());
 }
 
 TEST(PropagateBoundsTest, Constant) {
@@ -102,8 +103,9 @@ TEST(PropagateBoundsTest, Constant) {
   Box<0> a;
   TENSORSTORE_ASSERT_OK(PropagateBounds(
       /*b_domain=*/Box({2, 1}, {2, 3}),
-      /*b_implicit_lower_bounds=*/DimensionSet({1, 0}),
-      /*b_implicit_upper_bounds=*/DimensionSet({0, 0}), transform, a));
+      /*b_implicit_lower_bounds=*/DimensionSet::FromBools({1, 0}),
+      /*b_implicit_upper_bounds=*/DimensionSet::FromBools({0, 0}), transform,
+      a));
 }
 
 TEST(PropagateBoundsTest, ConstantError) {
@@ -113,10 +115,11 @@ TEST(PropagateBoundsTest, ConstantError) {
                        .Finalize()
                        .value();
   Box<0> a;
-  EXPECT_THAT(PropagateBounds(/*b_domain=*/Box({2, 1}, {2, 3}),
-                              /*b_implicit_lower_bounds=*/DimensionSet({0, 1}),
-                              /*b_implicit_upper_bounds=*/DimensionSet({0, 0}),
-                              transform, a),
+  EXPECT_THAT(PropagateBounds(
+                  /*b_domain=*/Box({2, 1}, {2, 3}),
+                  /*b_implicit_lower_bounds=*/DimensionSet::FromBools({0, 1}),
+                  /*b_implicit_upper_bounds=*/DimensionSet::FromBools({0, 0}),
+                  transform, a),
               MatchesStatus(absl::StatusCode::kOutOfRange,
                             "Checking bounds of constant output index map for "
                             "dimension 0: Index 1 is outside valid range .*"));
@@ -131,8 +134,8 @@ TEST(PropagateBoundsTest, ConstantEmptyDomain) {
   Box<2> a;
   TENSORSTORE_EXPECT_OK(PropagateBounds(
       /*b_domain=*/Box<1>({5}),
-      /*b_implicit_lower_bounds=*/DimensionSet({0}),
-      /*b_implicit_upper_bounds=*/DimensionSet({0}), transform, a));
+      /*b_implicit_lower_bounds=*/DimensionSet(),
+      /*b_implicit_upper_bounds=*/DimensionSet(), transform, a));
   EXPECT_EQ(a, BoxView({0, 2}));
 }
 
@@ -151,9 +154,9 @@ TEST(PropagateBoundsTest, Propagate0Upper1Lower) {
   DimensionSet a_implicit_lower_bounds, a_implicit_upper_bounds;
   TENSORSTORE_ASSERT_OK(PropagateBounds(
       /*b_domain=*/Box({2, 3, 4}, {50, 66, 100}),
-      /*b_implicit_lower_bounds=*/DimensionSet({0, 1, 1}),
-      /*b_implicit_upper_bounds=*/DimensionSet({1, 0, 1}), transform, a,
-      a_implicit_lower_bounds, a_implicit_upper_bounds));
+      /*b_implicit_lower_bounds=*/DimensionSet::FromBools({0, 1, 1}),
+      /*b_implicit_upper_bounds=*/DimensionSet::FromBools({1, 0, 1}), transform,
+      a, a_implicit_lower_bounds, a_implicit_upper_bounds));
 
   // a dim 0:
   //   Initial bounds:     [2, 7*)
@@ -169,8 +172,8 @@ TEST(PropagateBoundsTest, Propagate0Upper1Lower) {
 
   // Check that the propagated implicit bits are equal to:
   // `initial && any(dependencies)`.
-  EXPECT_THAT(a_implicit_lower_bounds, DimensionSet({0, 1}));
-  EXPECT_THAT(a_implicit_upper_bounds, DimensionSet({1, 0}));
+  EXPECT_THAT(a_implicit_lower_bounds, DimensionSet::FromBools({0, 1}));
+  EXPECT_THAT(a_implicit_upper_bounds, DimensionSet::FromBools({1, 0}));
 }
 
 // Tests that implicit bounds from a single dimension of `b` don't constrain the
@@ -187,9 +190,9 @@ TEST(PropagateBoundsTest, PropagateImplicitConstraints1) {
   DimensionSet a_implicit_lower_bounds, a_implicit_upper_bounds;
   TENSORSTORE_ASSERT_OK(
       PropagateBounds(/*b_domain=*/Box({0}, {4}),
-                      /*b_implicit_lower_bounds=*/DimensionSet({1}),
-                      /*b_implicit_upper_bounds=*/DimensionSet({0}), transform,
-                      a, a_implicit_lower_bounds, a_implicit_upper_bounds));
+                      /*b_implicit_lower_bounds=*/DimensionSet::FromBools({1}),
+                      /*b_implicit_upper_bounds=*/DimensionSet(), transform, a,
+                      a_implicit_lower_bounds, a_implicit_upper_bounds));
 
   // a dim 0:
   //   Initial bounds:     [-1, 2*)
@@ -200,8 +203,8 @@ TEST(PropagateBoundsTest, PropagateImplicitConstraints1) {
 
   // Check that the propagated implicit bits are equal to:
   // `initial && any(dependencies)`.
-  EXPECT_THAT(a_implicit_lower_bounds, DimensionSet({0}));
-  EXPECT_THAT(a_implicit_upper_bounds, DimensionSet({0}));
+  EXPECT_THAT(a_implicit_lower_bounds, DimensionSet());
+  EXPECT_THAT(a_implicit_upper_bounds, DimensionSet());
 }
 
 // Tests that implicit bounds from two dimensions of `b` don't constrain the
@@ -219,8 +222,8 @@ TEST(PropagateBoundsTest, PropagateImplicitConstraints2) {
   DimensionSet a_implicit_lower_bounds, a_implicit_upper_bounds;
   TENSORSTORE_ASSERT_OK(PropagateBounds(
       /*b_domain=*/Box({-1, 0}, {3, 4}),
-      /*b_implicit_lower_bounds=*/DimensionSet({1, 1}),
-      /*b_implicit_upper_bounds=*/DimensionSet({1, 0}), transform, a,
+      /*b_implicit_lower_bounds=*/DimensionSet::FromBools({1, 1}),
+      /*b_implicit_upper_bounds=*/DimensionSet::FromBools({1, 0}), transform, a,
       a_implicit_lower_bounds, a_implicit_upper_bounds));
 
   // a dim 0:
@@ -233,8 +236,8 @@ TEST(PropagateBoundsTest, PropagateImplicitConstraints2) {
 
   // Check that the propagated implicit bits are equal to:
   // `initial && any(dependencies)`.
-  EXPECT_THAT(a_implicit_lower_bounds, DimensionSet({0}));
-  EXPECT_THAT(a_implicit_upper_bounds, DimensionSet({0}));
+  EXPECT_THAT(a_implicit_lower_bounds, DimensionSet());
+  EXPECT_THAT(a_implicit_upper_bounds, DimensionSet());
 }
 
 TEST(PropagateBoundsTest, PropagateNegativeStride) {
@@ -248,7 +251,8 @@ TEST(PropagateBoundsTest, PropagateNegativeStride) {
                        .value();
   const Box<1> b({2}, {50});
   Box<2> a;
-  DimensionSet b_implicit_lower_bounds({0}), b_implicit_upper_bounds({1});
+  DimensionSet b_implicit_lower_bounds;
+  DimensionSet b_implicit_upper_bounds = DimensionSet::FromBools({1});
   DimensionSet a_implicit_lower_bounds, a_implicit_upper_bounds;
 
   TENSORSTORE_ASSERT_OK(PropagateBounds(
@@ -267,8 +271,8 @@ TEST(PropagateBoundsTest, PropagateNegativeStride) {
 
   // Check that the propagated implicit bits are equal to:
   // `initial && any(dependencies)`.
-  EXPECT_THAT(a_implicit_lower_bounds, DimensionSet({0, 1}));
-  EXPECT_THAT(a_implicit_upper_bounds, DimensionSet({0, 0}));
+  EXPECT_THAT(a_implicit_lower_bounds, DimensionSet::FromBools({0, 1}));
+  EXPECT_THAT(a_implicit_upper_bounds, DimensionSet::FromBools({0, 0}));
 }
 
 TEST(PropagateExplicitBoundsTest, Propagate0Upper1Upper) {
@@ -493,9 +497,10 @@ TEST(PropagateBoundsToTransformTest,
           .implicit_upper_bounds({0, 1})
           .output_identity_transform()
           .Finalize());
-  EXPECT_THAT(PropagateBoundsToTransform(output_domain, DimensionSet({1, 0}),
-                                         DimensionSet({0, 1}), t),
-              ::testing::Optional(t_expected));
+  EXPECT_THAT(
+      PropagateBoundsToTransform(output_domain, DimensionSet::FromBools({1, 0}),
+                                 DimensionSet::FromBools({0, 1}), t),
+      ::testing::Optional(t_expected));
 }
 
 // Tests that calling PropagateExplicitBoundsToTransform with an index transform
@@ -593,26 +598,26 @@ TEST(PropagateBoundsToTransformTest, PropagateToIndexRange) {
             .value();
       };
   EXPECT_THAT(  //
-      PropagateBoundsToTransform(output_domain, DimensionSet({0}),
-                                 DimensionSet({0}),
+      PropagateBoundsToTransform(output_domain, DimensionSet::FromBools({0}),
+                                 DimensionSet::FromBools({0}),
                                  get_transform(IndexInterval())),
       ::testing::Optional(get_transform(IndexInterval::Closed(0, 2))));
 
   EXPECT_THAT(  //
-      PropagateBoundsToTransform(output_domain, DimensionSet({1}),
-                                 DimensionSet({0}),
+      PropagateBoundsToTransform(output_domain, DimensionSet::FromBools({1}),
+                                 DimensionSet::FromBools({0}),
                                  get_transform(IndexInterval())),
       ::testing::Optional(get_transform(IndexInterval::Closed(-kInfIndex, 2))));
 
   EXPECT_THAT(  //
-      PropagateBoundsToTransform(output_domain, DimensionSet({0}),
-                                 DimensionSet({1}),
+      PropagateBoundsToTransform(output_domain, DimensionSet::FromBools({0}),
+                                 DimensionSet::FromBools({1}),
                                  get_transform(IndexInterval())),
       ::testing::Optional(get_transform(IndexInterval::Closed(0, kInfIndex))));
 
   EXPECT_THAT(  //
-      PropagateBoundsToTransform(output_domain, DimensionSet({1}),
-                                 DimensionSet({1}),
+      PropagateBoundsToTransform(output_domain, DimensionSet::FromBools({1}),
+                                 DimensionSet::FromBools({1}),
                                  get_transform(IndexInterval())),
       ::testing::Optional(get_transform(IndexInterval())));
 }
@@ -627,8 +632,8 @@ TEST(PropagateBoundsToTransformTest, PropagateToInputDomain) {
                .value();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto propagated_transform,
-      PropagateBoundsToTransform(output_bounds, DimensionSet({1}),
-                                 DimensionSet({0}), t));
+      PropagateBoundsToTransform(output_bounds, DimensionSet::FromBools({1}),
+                                 DimensionSet::FromBools({0}), t));
   // Since `t` has an implicit input domain, the new input domain is computed
   // from the `output_bounds` using GetAffineTransformDomain:
   // `{x : 1 <= (x * 3 - 32) <= 10} = {11, 12, 13, 14}`

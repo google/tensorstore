@@ -17,14 +17,26 @@
 #include "tensorstore/index_space/index_transform.h"
 
 #include <array>
+#include <string_view>
+#include <type_traits>
+#include <utility>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "tensorstore/array.h"
+#include "tensorstore/container_kind.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform_builder.h"
+#include "tensorstore/index_space/internal/transform_rep.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/serialization/test_util.h"
+#include "tensorstore/static_cast.h"
+#include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
@@ -59,6 +71,7 @@ using ::tensorstore::StrCat;
 using ::tensorstore::unchecked;
 using ::tensorstore::view;
 using ::tensorstore::internal::ComputeInputDimensionReferenceCounts;
+using ::tensorstore::internal::GetInputDimensionsForOutputDimension;
 using ::tensorstore::internal_index_space::TransformAccess;
 using ::tensorstore::serialization::TestSerializationRoundTrip;
 
@@ -491,8 +504,8 @@ TEST(IndexDomainTest, ConstructFromTransform) {
   EXPECT_EQ(2, d.rank());
   EXPECT_THAT(d.origin(), ::testing::ElementsAre(1, 2));
   EXPECT_THAT(d.shape(), ::testing::ElementsAre(3, 4));
-  EXPECT_THAT(d.implicit_lower_bounds(), DimensionSet({1, 0}));
-  EXPECT_THAT(d.implicit_upper_bounds(), DimensionSet({0, 1}));
+  EXPECT_THAT(d.implicit_lower_bounds(), DimensionSet::FromBools({1, 0}));
+  EXPECT_THAT(d.implicit_upper_bounds(), DimensionSet::FromBools({0, 1}));
   EXPECT_THAT(d.labels(), ::testing::ElementsAre("x", "y"));
   EXPECT_EQ(IndexDomainDimension<view>(
                 {IndexInterval::UncheckedSized(1, 3), true, false}, "x"),
@@ -1009,10 +1022,10 @@ TEST(IndexTransformTest, WithImplicitDimensions) {
                                        .implicit_upper_bounds({1, 0, 1})
                                        .output_identity_transform()
                                        .Finalize());
-  EXPECT_EQ(
-      expected_transform,
-      WithImplicitDimensions(IdentityTransform(3), DimensionSet({0, 1, 1}),
-                             DimensionSet({1, 0, 1})));
+  EXPECT_EQ(expected_transform,
+            WithImplicitDimensions(IdentityTransform(3),
+                                   DimensionSet::FromBools({0, 1, 1}),
+                                   DimensionSet::FromBools({1, 0, 1})));
 }
 
 // Tests that input dimensions used by index array output index maps remain
@@ -1024,9 +1037,10 @@ TEST(IndexTransformTest, WithImplicitDimensionsIndexArray) {
           .input_shape({3})
           .output_index_array(0, 0, 1, MakeArray<Index>({0, 1, 2}))
           .Finalize());
-  EXPECT_EQ(expected_transform,
-            WithImplicitDimensions(expected_transform, DimensionSet({1}),
-                                   DimensionSet({1})));
+  EXPECT_EQ(
+      expected_transform,
+      WithImplicitDimensions(expected_transform, DimensionSet::FromBools({1}),
+                             DimensionSet::FromBools({1})));
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto expected_domain,
                                    IndexDomainBuilder(1)
@@ -1037,7 +1051,8 @@ TEST(IndexTransformTest, WithImplicitDimensionsIndexArray) {
   // Verify that bounds are marked implicit when applied to just the domain.
   EXPECT_EQ(expected_domain,
             WithImplicitDimensions(expected_transform.domain(),
-                                   DimensionSet({1}), DimensionSet({1})));
+                                   DimensionSet::FromBools({1}),
+                                   DimensionSet::FromBools({1})));
 }
 
 TEST(IndexTransformTest, WithImplicitDimensionsStaticRank) {
@@ -1047,10 +1062,10 @@ TEST(IndexTransformTest, WithImplicitDimensionsStaticRank) {
                                         .implicit_upper_bounds({1, 0, 1})
                                         .output_identity_transform()
                                         .Finalize()));
-  EXPECT_EQ(
-      expected_transform,
-      WithImplicitDimensions(IdentityTransform<3>(), DimensionSet({0, 1, 1}),
-                             DimensionSet({1, 0, 1})));
+  EXPECT_EQ(expected_transform,
+            WithImplicitDimensions(IdentityTransform<3>(),
+                                   DimensionSet::FromBools({0, 1, 1}),
+                                   DimensionSet::FromBools({1, 0, 1})));
 }
 
 TEST(IndexDomainTest, WithImplicitDimensions) {
@@ -1059,9 +1074,10 @@ TEST(IndexDomainTest, WithImplicitDimensions) {
                                        .implicit_lower_bounds({0, 1, 1})
                                        .implicit_upper_bounds({1, 0, 1})
                                        .Finalize());
-  EXPECT_EQ(expected_domain,
-            WithImplicitDimensions(IndexDomain(3), DimensionSet({0, 1, 1}),
-                                   DimensionSet({1, 0, 1})));
+  EXPECT_EQ(
+      expected_domain,
+      WithImplicitDimensions(IndexDomain(3), DimensionSet::FromBools({0, 1, 1}),
+                             DimensionSet::FromBools({1, 0, 1})));
 }
 
 TEST(IndexDomainTest, WithImplicitDimensionsStaticRank) {
@@ -1070,10 +1086,10 @@ TEST(IndexDomainTest, WithImplicitDimensionsStaticRank) {
                                        .implicit_lower_bounds({0, 1, 1})
                                        .implicit_upper_bounds({1, 0, 1})
                                        .Finalize());
-  EXPECT_EQ(
-      expected_domain,
-      WithImplicitDimensions(IndexDomain<3>(tensorstore::StaticRank<3>{}),
-                             DimensionSet({0, 1, 1}), DimensionSet({1, 0, 1})));
+  EXPECT_EQ(expected_domain,
+            WithImplicitDimensions(IndexDomain<3>(tensorstore::StaticRank<3>{}),
+                                   DimensionSet::FromBools({0, 1, 1}),
+                                   DimensionSet::FromBools({1, 0, 1})));
 }
 
 TEST(IndexDomainTest, ApplyIndexTransform) {
@@ -1124,6 +1140,23 @@ TEST(ComputeInputDimensionReferenceCountsTest, IndexArray) {
           .Finalize());
   ComputeInputDimensionReferenceCounts(transform, reference_counts);
   EXPECT_THAT(reference_counts, ::testing::ElementsAre(0, 1, 1));
+}
+
+TEST(GetInputDimensionsForOutputDimensionTest, Basic) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto transform,
+      IndexTransformBuilder(3, 3)
+          .input_shape({2, 2, 2})
+          .output_constant(0, 42)
+          .output_single_input_dimension(1, 0, 1, 1)
+          .output_index_array(2, 0, 1, MakeArray<Index>({{{1, 2}, {3, 4}}}))
+          .Finalize());
+  EXPECT_THAT(GetInputDimensionsForOutputDimension(transform, 0),
+              ::testing::Pair(DimensionSet(), false));
+  EXPECT_THAT(GetInputDimensionsForOutputDimension(transform, 1),
+              ::testing::Pair(DimensionSet::FromBools({0, 1, 0}), false));
+  EXPECT_THAT(GetInputDimensionsForOutputDimension(transform, 2),
+              ::testing::Pair(DimensionSet::FromBools({0, 1, 1}), true));
 }
 
 TEST(TranslateOutputDimensionsByTest, Basic) {

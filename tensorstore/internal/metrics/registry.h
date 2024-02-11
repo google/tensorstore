@@ -19,6 +19,7 @@
 #include <memory>
 #include <optional>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
@@ -57,7 +58,7 @@ class MetricRegistry {
   /// Add a generic metric to be collected. Metric name must be a path-style
   /// string, must be unique, and must ultimately be a string literal.  This
   /// metric doesn't support reset.
-  /// TODO(ChromeHearts) - add suppport for custom Reset()
+  /// TODO(ChromeHearts) - add support for custom Reset()
   void AddGeneric(std::string_view metric_name,
                   std::function<std::optional<CollectedMetric>()>&& collect,
                   std::shared_ptr<void> hook = nullptr) {

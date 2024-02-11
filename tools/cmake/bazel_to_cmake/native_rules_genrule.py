@@ -23,7 +23,6 @@ https://github.com/bazelbuild/bazel/tree/master/src/main/starlark/builtins_bzl/c
 # pylint: disable=relative-beyond-top-level,invalid-name,missing-function-docstring,g-long-lambda
 
 import io
-import os
 import pathlib
 import re
 from typing import List, Optional, cast, Set
@@ -46,6 +45,7 @@ from .starlark.provider import TargetInfo
 from .starlark.select import Configurable
 from .util import is_relative_to
 from .variable_substitution import apply_location_and_make_variable_substitutions
+from .variable_substitution import do_bash_command_replacement
 from .variable_substitution import generate_substitutions
 
 
@@ -144,6 +144,10 @@ def _genrule_impl(
     if x in kwargs:
       raise ValueError(f"genrule cannot handle {kwargs}")
 
+  # In Bazel, `genrule` always invokes bash, even on Windows, unless one of
+  # `cmd_{bat,ps}` is specified.  However, as we wish to avoid the Windows CMake
+  # build depending on Bash, instead just let CMake use the default shell.
+
   del kwargs
   state = _context.access(EvaluationState)
 
@@ -199,16 +203,23 @@ def _genrule_impl(
       toolchains=resolved_toolchains,
   )
 
-  # HACK(upb): The com_google_protobuf_upb bootstrap genrule adds this import,
-  # which needs to be rewritten to a local package reference:
-  if _target.repository_name == "com_google_protobuf_upb":
-    cmd_text = cmd_text.replace(
-        "-Iexternal/com_google_protobuf/src",
-        "-I${PROJECT_SOURCE_DIR}/bootstrap",
-    )
-
   out = io.StringIO()
   out.write(f"\n# genrule({_target.as_label()})\n")
+
+  if cmd_text.find("$(") != -1:
+    cmd_text = do_bash_command_replacement(cmd_text)
+
+  if cmd_text.find("$(") != -1:
+    # This custom command still has shell processing. Try wrapping it in bash.
+    escaped = cmd_text.translate(
+        str.maketrans({
+            '"': r"\"",
+            "\\": r"\\",
+            "\n": " ",
+        })
+    )
+    cmd_text = f'bash -c "{escaped}"'
+
   _emit_genrule(
       out,
       "genrule__" + cmake_target_pair.target,
@@ -293,16 +304,6 @@ def _emit_genrule(
     optional_message_text = f"COMMENT {quote_string(message)}\n  "
   else:
     optional_message_text = ""
-
-  # In bazel, genrules run under bash shell, however in CMake it's more
-  # complicated. Assume that if the command starts with a quoted CMake
-  # variable that it's not necessary.
-  if not _QUOTED_VAR.match(cmd_text):
-    bash = os.getenv("BAZEL_SH")
-    if bash is not None:
-      cmd_text = f"$ENV{{BAZEL_SH}} -c {quote_string(cmd_text)}"
-    else:
-      cmd_text = f"bash -c {quote_string(cmd_text)}"
 
   sep = "\n    "
   quoted_outputs = quote_list(generated_files, sep)

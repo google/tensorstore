@@ -15,6 +15,9 @@
 #ifndef TENSORSTORE_INTERNAL_ENDIAN_ELEMENTWISE_CONVERSION_H_
 #define TENSORSTORE_INTERNAL_ENDIAN_ELEMENTWISE_CONVERSION_H_
 
+#include <stddef.h>
+
+#include <algorithm>
 #include <array>
 #include <string_view>
 
@@ -32,6 +35,37 @@
 namespace tensorstore {
 namespace internal {
 
+template <size_t SubElementSize, size_t NumSubElements>
+struct SwapEndianUnalignedLoopImpl {
+  // Type used as a placeholder for a value of size
+  // `SubElementSize*NumElements` without an alignment requirement.  To avoid
+  // running afoul of C++ strict aliasing rules, this type should not actually
+  // be used to read or write data.
+  using UnalignedValue =
+      std::array<unsigned char, SubElementSize * NumSubElements>;
+  static_assert(sizeof(UnalignedValue) == SubElementSize * NumSubElements);
+  static_assert(alignof(UnalignedValue) == 1);
+
+  void operator()(UnalignedValue* value, void* arg) const {
+    SwapEndianUnalignedInplace<SubElementSize, NumSubElements>(value);
+  }
+
+  void operator()(const UnalignedValue* source, UnalignedValue* target,
+                  void* arg) const {
+    SwapEndianUnaligned<SubElementSize, NumSubElements>(source, target);
+  }
+
+  using InplaceLoopImpl = internal_elementwise_function::SimpleLoopTemplate<
+      SwapEndianUnalignedLoopImpl<SubElementSize, NumSubElements>(
+          UnalignedValue),
+      void*>;
+
+  using LoopImpl = internal_elementwise_function::SimpleLoopTemplate<
+      SwapEndianUnalignedLoopImpl<SubElementSize, NumSubElements>(
+          UnalignedValue, UnalignedValue),
+      void*>;
+};
+
 /// Swaps endianness of elements of an array in place.
 ///
 /// Each element of the array has a total size of
@@ -41,29 +75,9 @@ namespace internal {
 /// \param SubElementSize Size in bytes of each sub-element.
 /// \param NumSubElements Number of sub-elements in each element.
 template <size_t SubElementSize, size_t NumSubElements = 1>
-struct SwapEndianUnalignedInplaceLoopTemplate {
-  using ElementwiseFunctionType = ElementwiseFunction<1, void*>;
-  template <typename ArrayAccessor>
-  static Index Loop(void* context, Index count, IterationBufferPointer pointer,
-                    void* /*arg*/) {
-    // Type used as a placeholder for a value of size
-    // `SubElementSize*NumElements` without an alignment requirement.  To avoid
-    // running afoul of C++ strict aliasing rules, this type should not actually
-    // be used to read or write data.
-    using UnalignedValue =
-        std::array<unsigned char, SubElementSize * NumSubElements>;
-    static_assert(sizeof(UnalignedValue) == SubElementSize * NumSubElements);
-    static_assert(alignof(UnalignedValue) == 1);
-    // TODO(jbms): check if this loop gets auto-vectorized properly, and if not,
-    // consider manually creating a vectorized implementation.
-    for (Index i = 0; i < count; ++i) {
-      SwapEndianUnalignedInplace<SubElementSize, NumSubElements>(
-          ArrayAccessor::template GetPointerAtOffset<UnalignedValue>(pointer,
-                                                                     i));
-    }
-    return count;
-  }
-};
+using SwapEndianUnalignedInplaceLoopTemplate =
+    typename SwapEndianUnalignedLoopImpl<SubElementSize,
+                                         NumSubElements>::InplaceLoopImpl;
 
 /// Copies unaligned elements from one array to another, optionally swapping
 /// endianness.
@@ -88,29 +102,9 @@ struct SwapEndianUnalignedInplaceLoopTemplate {
 /// \param SubElementSize Size in bytes of each sub-element.
 /// \param NumSubElements Number of sub-elements in each element.
 template <size_t SubElementSize, size_t NumSubElements = 1>
-struct SwapEndianUnalignedLoopTemplate {
-  using ElementwiseFunctionType = ElementwiseFunction<2, void*>;
-  template <typename ArrayAccessor>
-  static Index Loop(void* context, Index count, IterationBufferPointer source,
-                    IterationBufferPointer dest, void* /*arg*/) {
-    // Type used as a placeholder for a value of size
-    // `SubElementSize*NumSubElements` without an alignment requirement.  To
-    // avoid running afoul of C++ strict aliasing rules, this type should not
-    // actually be used to read or write data.
-    using UnalignedValue =
-        std::array<unsigned char, SubElementSize * NumSubElements>;
-    static_assert(sizeof(UnalignedValue) == SubElementSize * NumSubElements);
-    static_assert(alignof(UnalignedValue) == 1);
-    // TODO(jbms): check if this loop gets auto-vectorized properly, and if not,
-    // consider manually creating a vectorized implementation.
-    for (Index i = 0; i < count; ++i) {
-      SwapEndianUnaligned<SubElementSize, NumSubElements>(
-          ArrayAccessor::template GetPointerAtOffset<UnalignedValue>(source, i),
-          ArrayAccessor::template GetPointerAtOffset<UnalignedValue>(dest, i));
-    }
-    return count;
-  }
-};
+using SwapEndianUnalignedLoopTemplate =
+    typename SwapEndianUnalignedLoopImpl<SubElementSize,
+                                         NumSubElements>::LoopImpl;
 
 /// Specialized Serializer used to read/write non-trivial data types from/to
 /// `riegeli::Reader` and `riegeli::Writer`, respectively.
@@ -161,44 +155,35 @@ struct NonTrivialDataTypeSerializer<::nlohmann::json> {
 };
 
 /// Writes an array of non-trivial elements to a `riegeli::Writer`, using
-/// `NonTrivialDataTypeSerializer<Element>::Read`.
-template <typename Element>
-struct WriteNonTrivialLoopTemplate {
-  using ElementwiseFunctionType = ElementwiseFunction<1, void*>;
-  template <typename ArrayAccessor>
-  static Index Loop(void* context, Index count, IterationBufferPointer source,
-                    void* /*arg*/) {
-    auto& writer = *reinterpret_cast<riegeli::Writer*>(context);
-    for (Index i = 0; i < count; ++i) {
-      if (!NonTrivialDataTypeSerializer<Element>::Write(
-              writer, *ArrayAccessor::template GetPointerAtOffset<Element>(
-                          source, i))) {
-        return i;
-      }
-    }
-    return count;
-  }
-};
-
-/// Reads an array of non-trivial elements from a `riegeli::Reader`, using
 /// `NonTrivialDataTypeSerializer<Element>::Write`.
 template <typename Element>
-struct ReadNonTrivialLoopTemplate {
-  using ElementwiseFunctionType = ElementwiseFunction<1, void*>;
-  template <typename ArrayAccessor>
-  static Index Loop(void* context, Index count, IterationBufferPointer source,
-                    void* /*status*/) {
-    auto& reader = *reinterpret_cast<riegeli::Reader*>(context);
-    for (Index i = 0; i < count; ++i) {
-      if (!NonTrivialDataTypeSerializer<Element>::Read(
-              reader, *ArrayAccessor::template GetPointerAtOffset<Element>(
-                          source, i))) {
-        return i;
-      }
-    }
-    return count;
+struct WriteNonTrivialLoopImpl {
+  bool operator()(riegeli::Writer& writer, const Element* element,
+                  void*) const {
+    return NonTrivialDataTypeSerializer<Element>::Write(writer, *element);
   }
 };
+template <typename Element>
+using WriteNonTrivialLoopTemplate =
+    internal_elementwise_function::SimpleLoopTemplate<
+        internal_elementwise_function::Stateless<
+            riegeli::Writer, WriteNonTrivialLoopImpl<Element>>(const Element),
+        void*>;
+
+/// Reads an array of non-trivial elements from a `riegeli::Reader`, using
+/// `NonTrivialDataTypeSerializer<Element>::Read`.
+template <typename Element>
+struct ReadNonTrivialLoopImpl {
+  bool operator()(riegeli::Reader& reader, Element* element, void*) const {
+    return NonTrivialDataTypeSerializer<Element>::Read(reader, *element);
+  }
+};
+template <typename Element>
+using ReadNonTrivialLoopTemplate =
+    internal_elementwise_function::SimpleLoopTemplate<
+        internal_elementwise_function::Stateless<
+            riegeli::Reader, ReadNonTrivialLoopImpl<Element>>(Element),
+        void*>;
 
 /// Writes an array of trivial elements to a `riegeli::Writer`, optionally
 /// swapping byte order.
@@ -219,43 +204,48 @@ struct WriteSwapEndianLoopTemplate {
 
   using ElementwiseFunctionType = ElementwiseFunction<1, void*>;
   template <typename ArrayAccessor>
-  static Index Loop(void* context, Index count, IterationBufferPointer source,
-                    void* /*arg*/) {
+  static bool Loop(void* context, internal::IterationBufferShape shape,
+                   IterationBufferPointer source, void* /*arg*/) {
     auto& writer = *reinterpret_cast<riegeli::Writer*>(context);
-    if constexpr (SubElementSize == 1 &&
-                  ArrayAccessor::buffer_kind ==
-                      internal::IterationBufferKind::kContiguous) {
-      // Fast path: source array is contiguous and byte swapping is not
-      // required.
-      if (!writer.Write(std::string_view(
-              reinterpret_cast<const char*>(source.pointer.get()),
-              count * sizeof(Element)))) {
-        return 0;
-      }
-    } else {
-      Index element_i = 0;
-      while (element_i < count) {
-        const size_t remaining_bytes = (count - element_i) * sizeof(Element);
-        if (!writer.Push(/*min_length=*/sizeof(Element),
-                         /*recommended_length=*/remaining_bytes)) {
-          return element_i;
+    for (Index outer_i = 0; outer_i < shape[0]; ++outer_i) {
+      if constexpr (SubElementSize == 1 &&
+                    ArrayAccessor::buffer_kind ==
+                        internal::IterationBufferKind::kContiguous) {
+        // Fast path: source array is contiguous and byte swapping is not
+        // required.
+        if (!writer.Write(std::string_view(
+                reinterpret_cast<const char*>(
+                    ArrayAccessor::template GetPointerAtPosition<Element>(
+                        source, outer_i, 0)),
+                shape[1] * sizeof(Element)))) {
+          return false;
         }
-        const Index end_element_i = std::min(
-            count, static_cast<Index>(element_i +
-                                      (writer.available() / sizeof(Element))));
-        char* cursor = writer.cursor();
-        for (; element_i < end_element_i; ++element_i) {
-          SwapEndianUnaligned<SubElementSize, NumSubElements>(
-              ArrayAccessor::template GetPointerAtOffset<Element>(source,
-                                                                  element_i),
-              cursor);
-          cursor += sizeof(Element);
+      } else {
+        Index element_i = 0;
+        while (element_i < shape[1]) {
+          const size_t remaining_bytes =
+              (shape[1] - element_i) * sizeof(Element);
+          if (!writer.Push(/*min_length=*/sizeof(Element),
+                           /*recommended_length=*/remaining_bytes)) {
+            return false;
+          }
+          const Index end_element_i = std::min(
+              shape[1], static_cast<Index>(element_i + (writer.available() /
+                                                        sizeof(Element))));
+          char* cursor = writer.cursor();
+          for (; element_i < end_element_i; ++element_i) {
+            SwapEndianUnaligned<SubElementSize, NumSubElements>(
+                ArrayAccessor::template GetPointerAtPosition<Element>(
+                    source, outer_i, element_i),
+                cursor);
+            cursor += sizeof(Element);
+          }
+          element_i = end_element_i;
+          writer.set_cursor(cursor);
         }
-        element_i = end_element_i;
-        writer.set_cursor(cursor);
       }
     }
-    return count;
+    return true;
   }
 };
 
@@ -281,54 +271,61 @@ struct ReadSwapEndianLoopTemplate {
 
   using ElementwiseFunctionType = ElementwiseFunction<1, void*>;
   template <typename ArrayAccessor>
-  static Index Loop(void* context, Index count, IterationBufferPointer source,
-                    void* /*arg*/) {
+  static bool Loop(void* context, internal::IterationBufferShape shape,
+                   IterationBufferPointer source, void* /*arg*/) {
     auto& reader = *reinterpret_cast<riegeli::Reader*>(context);
-    if constexpr (SubElementSize == 1 &&
-                  ArrayAccessor::buffer_kind ==
-                      internal::IterationBufferKind::kContiguous &&
-                  !IsBool) {
-      // Fast path: destination array is contiguous and byte swapping is not
-      // required.
-      if (!reader.Read(count * sizeof(Element),
-                       reinterpret_cast<char*>(source.pointer.get()))) {
-        return 0;
-      }
-    } else {
-      Index element_i = 0;
-      while (element_i < count) {
-        const size_t remaining_bytes = (count - element_i) * sizeof(Element);
-        if (!reader.Pull(/*min_length=*/sizeof(Element),
-                         /*recommended_length=*/remaining_bytes)) {
-          return element_i;
+    for (Index outer_i = 0; outer_i < shape[0]; ++outer_i) {
+      if constexpr (SubElementSize == 1 &&
+                    ArrayAccessor::buffer_kind ==
+                        internal::IterationBufferKind::kContiguous &&
+                    !IsBool) {
+        // Fast path: destination array is contiguous and byte swapping is not
+        // required.
+        if (!reader.Read(
+                shape[1] * sizeof(Element),
+                reinterpret_cast<char*>(
+                    ArrayAccessor::template GetPointerAtPosition<Element>(
+                        source, outer_i, 0)))) {
+          return false;
         }
-        const Index end_element_i = std::min(
-            count, static_cast<Index>(element_i +
-                                      (reader.available() / sizeof(Element))));
-        const char* cursor = reader.cursor();
-        for (; element_i < end_element_i; ++element_i) {
-          if constexpr (IsBool) {
-            unsigned char val = static_cast<unsigned char>(*cursor);
-            if (val & ~static_cast<unsigned char>(1)) {
-              reader.set_cursor(cursor);
-              reader.Fail(absl::InvalidArgumentError(tensorstore::StrCat(
-                  "Invalid bool value: ", static_cast<unsigned int>(*cursor))));
-              return element_i;
-            }
-            *ArrayAccessor::template GetPointerAtOffset<bool>(
-                source, element_i) = static_cast<bool>(val);
-          } else {
-            SwapEndianUnaligned<SubElementSize, NumSubElements>(
-                cursor, ArrayAccessor::template GetPointerAtOffset<Element>(
-                            source, element_i));
+      } else {
+        Index element_i = 0;
+        while (element_i < shape[1]) {
+          const size_t remaining_bytes =
+              (shape[1] - element_i) * sizeof(Element);
+          if (!reader.Pull(/*min_length=*/sizeof(Element),
+                           /*recommended_length=*/remaining_bytes)) {
+            return false;
           }
-          cursor += sizeof(Element);
+          const Index end_element_i = std::min(
+              shape[1], static_cast<Index>(element_i + (reader.available() /
+                                                        sizeof(Element))));
+          const char* cursor = reader.cursor();
+          for (; element_i < end_element_i; ++element_i) {
+            if constexpr (IsBool) {
+              unsigned char val = static_cast<unsigned char>(*cursor);
+              if (val & ~static_cast<unsigned char>(1)) {
+                reader.set_cursor(cursor);
+                reader.Fail(absl::InvalidArgumentError(
+                    tensorstore::StrCat("Invalid bool value: ",
+                                        static_cast<unsigned int>(*cursor))));
+                return false;
+              }
+              *ArrayAccessor::template GetPointerAtPosition<bool>(
+                  source, outer_i, element_i) = static_cast<bool>(val);
+            } else {
+              SwapEndianUnaligned<SubElementSize, NumSubElements>(
+                  cursor, ArrayAccessor::template GetPointerAtPosition<Element>(
+                              source, outer_i, element_i));
+            }
+            cursor += sizeof(Element);
+          }
+          element_i = end_element_i;
+          reader.set_cursor(cursor);
         }
-        element_i = end_element_i;
-        reader.set_cursor(cursor);
       }
     }
-    return count;
+    return true;
   }
 };
 

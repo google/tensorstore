@@ -15,6 +15,8 @@
 #ifndef TENSORSTORE_INTERNAL_METRICS_GAUGE_H_
 #define TENSORSTORE_INTERNAL_METRICS_GAUGE_H_
 
+#include <stdint.h>
+
 #include <atomic>
 #include <memory>
 #include <string>
@@ -36,6 +38,8 @@
 
 namespace tensorstore {
 namespace internal_metrics {
+
+#ifndef TENSORSTORE_METRICS_DISABLED
 
 template <typename T>
 class GaugeCell;
@@ -63,9 +67,8 @@ class MaxCell;
 template <typename T, typename... Fields>
 class ABSL_CACHELINE_ALIGNED Gauge {
   static_assert(std::is_same_v<T, int64_t> || std::is_same_v<T, double>);
-  using Cell = std::conditional_t<std::is_same_v<T, int64_t>,
-                                  GaugeCell<int64_t>, GaugeCell<double>>;
-  using Impl = AbstractMetric<Cell, Fields...>;
+  using Cell = GaugeCell<T>;
+  using Impl = AbstractMetric<Cell, false, Fields...>;
 
  public:
   using value_type = T;
@@ -194,7 +197,7 @@ template <typename T, typename... Fields>
 class ABSL_CACHELINE_ALIGNED MaxGauge {
   static_assert(std::is_same_v<T, int64_t> || std::is_same_v<T, double>);
   using Cell = MaxCell<T>;
-  using Impl = AbstractMetric<Cell, Fields...>;
+  using Impl = AbstractMetric<Cell, true, Fields...>;
 
  public:
   using value_type = T;
@@ -387,9 +390,73 @@ class ABSL_CACHELINE_ALIGNED MaxCell {
 
   void Reset() { max_ = 0; }
 
+  void Combine(MaxCell& other) const {
+    auto m = max_.load(std::memory_order_relaxed);
+    if (other.max_.load(std::memory_order_relaxed) < m) {
+      other.max_.store(m, std::memory_order_relaxed);
+    }
+  }
+
  private:
   std::atomic<T> max_{0};
 };
+
+#else
+template <typename T>
+struct GaugeCell {
+  static void IncrementBy(T value) {}
+
+  static void DecrementBy(T value) {}
+  static void Set(T value) {}
+
+  static void Increment() { IncrementBy(1); }
+  static void Decrement() { DecrementBy(1); }
+
+  static T Get() { return {}; }
+  static T GetMax() { return {}; }
+
+  static void Reset() {}
+};
+template <typename T, typename... Fields>
+class Gauge {
+ public:
+  using value_type = T;
+  using Cell = GaugeCell<T>;
+
+  static Gauge& New(
+      std::string_view metric_name,
+      typename internal::FirstType<std::string_view, Fields>... field_names,
+      MetricMetadata metadata) {
+    static constexpr Gauge metric;
+    return const_cast<Gauge&>(metric);
+  }
+  static void Increment(typename FieldTraits<Fields>::param_type... labels) {}
+  static void IncrementBy(value_type value,
+                          typename FieldTraits<Fields>::param_type... labels) {}
+  static void Decrement(typename FieldTraits<Fields>::param_type... labels) {}
+  static void DecrementBy(value_type value,
+                          typename FieldTraits<Fields>::param_type... labels) {}
+  static void Set(value_type value,
+                  typename FieldTraits<Fields>::param_type... labels) {}
+  static Cell& GetCell(typename FieldTraits<Fields>::param_type... labels) {
+    static constexpr Cell cell;
+    return const_cast<Cell&>(cell);
+  }
+};
+template <typename T, typename... Fields>
+class MaxGauge : public Gauge<T, Fields...> {
+ public:
+  using value_type = T;
+
+  static MaxGauge& New(
+      std::string_view metric_name,
+      typename internal::FirstType<std::string_view, Fields>... field_names,
+      MetricMetadata metadata) {
+    static constexpr MaxGauge metric;
+    return const_cast<MaxGauge&>(metric);
+  }
+};
+#endif  // TENSORSTORE_METRICS_DISABLED
 
 }  // namespace internal_metrics
 }  // namespace tensorstore

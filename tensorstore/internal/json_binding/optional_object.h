@@ -18,6 +18,7 @@
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/json/value_as.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
 
 namespace tensorstore {
 namespace internal_json_binding {
@@ -42,7 +43,8 @@ constexpr auto OptionalObject(ObjectBinder binder) {
         }
       }
     }
-    if (auto status = binder(is_loading, options, obj, &json_obj);
+    if (auto status = internal_json_binding::Object(binder)(is_loading, options,
+                                                            obj, &json_obj);
         !status.ok()) {
       return status;
     }

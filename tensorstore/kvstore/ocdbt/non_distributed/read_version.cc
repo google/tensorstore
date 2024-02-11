@@ -14,20 +14,31 @@
 
 #include "tensorstore/kvstore/ocdbt/non_distributed/read_version.h"
 
+#include <cassert>
+#include <memory>
+#include <utility>
 #include <variant>
 
+#include "absl/base/attributes.h"
 #include "absl/log/absl_log.h"
-#include "tensorstore/kvstore/ocdbt/debug_log.h"
+#include "absl/status/status.h"
+#include "absl/strings/str_format.h"
+#include "absl/time/time.h"
+#include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
 #include "tensorstore/kvstore/ocdbt/format/manifest.h"
 #include "tensorstore/kvstore/ocdbt/format/version_tree.h"
 #include "tensorstore/kvstore/ocdbt/io_handle.h"
+#include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
-
 namespace {
+
+ABSL_CONST_INIT internal_log::VerboseFlag ocdbt_logging("ocdbt");
 
 // Asynchronous operation state used to implement `internal_ocdbt::ReadVersion`.
 //
@@ -155,7 +166,7 @@ struct ReadVersionOperation
   static void LookupNodeReference(ReadVersionOperation::Ptr op,
                                   PromiseType promise,
                                   const VersionNodeReference& node_ref) {
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+    ABSL_LOG_IF(INFO, ocdbt_logging)
         << "ReadVersion: " << FormatVersionSpec(op->version_spec)
         << ", node_ref=" << node_ref;
 

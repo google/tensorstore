@@ -14,26 +14,49 @@
 
 #include "tensorstore/kvstore/neuroglancer_uint64_sharded/neuroglancer_uint64_sharded.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <functional>
+#include <initializer_list>
+#include <map>
+#include <memory>
+#include <string>
+#include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/container/flat_hash_map.h"
 #include "absl/random/random.h"
+#include "absl/status/status.h"
+#include "absl/strings/cord.h"
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
+#include <nlohmann/json.hpp>
+#include "tensorstore/context.h"
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/cache/kvs_backed_cache_testutil.h"
 #include "tensorstore/internal/compression/zlib.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/thread_pool.h"
+#include "tensorstore/internal/test_util.h"
+#include "tensorstore/internal/thread/thread_pool.h"
+#include "tensorstore/kvstore/byte_range.h"
+#include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/generation_testutil.h"
+#include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/memory/memory_key_value_store.h"
 #include "tensorstore/kvstore/mock_kvstore.h"
+#include "tensorstore/kvstore/neuroglancer_uint64_sharded/uint64_sharded.h"
+#include "tensorstore/kvstore/operations.h"
+#include "tensorstore/kvstore/read_result.h"
+#include "tensorstore/kvstore/read_result_testutil.h"
+#include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/test_util.h"
+#include "tensorstore/transaction.h"
 #include "tensorstore/util/executor.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -43,6 +66,7 @@ namespace zlib = ::tensorstore::zlib;
 namespace kvstore = ::tensorstore::kvstore;
 
 using ::tensorstore::Future;
+using ::tensorstore::KvStore;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::OptionalByteRangeRequest;
 using ::tensorstore::Result;
@@ -50,6 +74,7 @@ using ::tensorstore::StorageGeneration;
 using ::tensorstore::TimestampedStorageGeneration;
 using ::tensorstore::Transaction;
 using ::tensorstore::internal::CachePool;
+using ::tensorstore::internal::GetCache;
 using ::tensorstore::internal::KvsBackedTestCache;
 using ::tensorstore::internal::MatchesKvsReadResult;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
@@ -61,15 +86,13 @@ using ::tensorstore::neuroglancer_uint64_sharded::ChunkIdToKey;
 using ::tensorstore::neuroglancer_uint64_sharded::GetShardedKeyValueStore;
 using ::tensorstore::neuroglancer_uint64_sharded::ShardingSpec;
 
-constexpr CachePool::Limits kSmallCacheLimits{10000000, 5000000};
+constexpr CachePool::Limits kSmallCacheLimits{10000000};
 
 absl::Cord Bytes(std::initializer_list<unsigned char> x) {
   return absl::Cord(std::string(x.begin(), x.end()));
 }
 
-std::string GetChunkKey(std::uint64_t chunk_id) {
-  return ChunkIdToKey({chunk_id});
-}
+std::string GetChunkKey(uint64_t chunk_id) { return ChunkIdToKey({chunk_id}); }
 
 class GetUint64Key {
  public:
@@ -81,8 +104,7 @@ class GetUint64Key {
     auto it = key_to_uint64_.find(key);
     if (it == key_to_uint64_.end()) {
       while (true) {
-        auto x =
-            sequential_ ? next_chunk_id_++ : absl::Uniform<std::uint64_t>(gen_);
+        auto x = sequential_ ? next_chunk_id_++ : absl::Uniform<uint64_t>(gen_);
         if (uint64_to_key_.emplace(x, key).second) {
           it = key_to_uint64_.emplace(key, x).first;
           break;
@@ -94,10 +116,10 @@ class GetUint64Key {
 
  private:
   bool sequential_;
-  mutable std::uint64_t next_chunk_id_ = 0;
+  mutable uint64_t next_chunk_id_ = 0;
   mutable absl::BitGen gen_;
-  mutable absl::flat_hash_map<std::string, std::uint64_t> key_to_uint64_;
-  mutable absl::flat_hash_map<std::uint64_t, std::string> uint64_to_key_;
+  mutable absl::flat_hash_map<std::string, uint64_t> key_to_uint64_;
+  mutable absl::flat_hash_map<uint64_t, std::string> uint64_to_key_;
 };
 
 TEST(Uint64ShardedKeyValueStoreTest, BasicFunctionality) {
@@ -136,8 +158,9 @@ TEST(Uint64ShardedKeyValueStoreTest, BasicFunctionality) {
                   base_kv_store, executor, "prefix", sharding_spec,
                   CachePool::WeakPtr(cache_pool));
               GetUint64Key get_key_fn(sequential_ids);
-              tensorstore::internal::TestKeyValueStoreBasicFunctionality(
-                  store, get_key_fn);
+
+              tensorstore::internal::TestKeyValueReadWriteOps(store,
+                                                              get_key_fn);
             }
           }
         }
@@ -163,7 +186,7 @@ TEST(Uint64ShardedKeyValueStoreTest, DescribeKey) {
       base_kv_store, tensorstore::InlineExecutor{}, "prefix", sharding_spec,
       CachePool::WeakPtr(cache_pool));
   for (const auto& [key, description] :
-       std::vector<std::pair<std::uint64_t, std::string>>{
+       std::vector<std::pair<uint64_t, std::string>>{
            {0, "chunk 0 in minishard 0 in \"prefix/0.shard\""},
            {1, "chunk 1 in minishard 1 in \"prefix/0.shard\""},
            {2, "chunk 2 in minishard 0 in \"prefix/1.shard\""},
@@ -197,12 +220,11 @@ TEST_F(RawEncodingTest, MultipleUnconditionalWrites) {
                                  absl::Cord("efgh")};
   std::vector<Future<TimestampedStorageGeneration>> futures;
   auto key = GetChunkKey(10);
+  tensorstore::Transaction txn(tensorstore::isolated);
   for (auto value : values) {
-    futures.push_back(store->Write(key, value));
+    futures.push_back(kvstore::WriteCommitted(KvStore{store, txn}, key, value));
   }
-  // Nothing is written until `Force`/`result` is called.
-  EXPECT_THAT(GetMap(base_kv_store),
-              ::testing::Optional(::testing::ElementsAre()));
+  txn.CommitAsync().IgnoreFuture();
   std::vector<Result<TimestampedStorageGeneration>> results;
   for (const auto& future : futures) {
     results.push_back(future.result());
@@ -241,27 +263,45 @@ TEST_F(RawEncodingTest, List) {
 }
 
 TEST_F(RawEncodingTest, WritesAndDeletes) {
-  auto init_future1 = store->Write(GetChunkKey(1), absl::Cord("a"));
-  auto init_future2 = store->Write(GetChunkKey(2), absl::Cord("bc"));
-  auto init_future3 = store->Write(GetChunkKey(3), absl::Cord("def"));
+  StorageGeneration gen1, gen2, gen3;
 
-  auto gen1 = init_future1.value().generation;
-  auto gen2 = init_future2.value().generation;
-  auto gen3 = init_future3.value().generation;
+  {
+    tensorstore::Transaction txn(tensorstore::isolated);
+    auto init_future1 = kvstore::WriteCommitted(
+        KvStore{store, txn}, GetChunkKey(1), absl::Cord("a"));
+    auto init_future2 = kvstore::WriteCommitted(
+        KvStore{store, txn}, GetChunkKey(2), absl::Cord("bc"));
+    auto init_future3 = kvstore::WriteCommitted(
+        KvStore{store, txn}, GetChunkKey(3), absl::Cord("def"));
+    txn.CommitAsync().IgnoreFuture();
+
+    gen1 = init_future1.value().generation;
+    gen2 = init_future2.value().generation;
+    gen3 = init_future3.value().generation;
+  }
+
+  tensorstore::Transaction txn(tensorstore::isolated);
 
   // Conditional delete with mismatched generation.
-  auto future1 = store->Delete(GetChunkKey(1), {StorageGeneration::NoValue()});
+  auto future1 = kvstore::DeleteCommitted(KvStore{store, txn}, GetChunkKey(1),
+                                          {StorageGeneration::NoValue()});
 
   // Conditional write with matching generation.
-  auto future2 = store->Write(GetChunkKey(2), absl::Cord("ww"), {gen2});
-  auto future3 = store->Write(GetChunkKey(2), absl::Cord("xx"), {gen2});
+  auto future2 = kvstore::WriteCommitted(KvStore{store, txn}, GetChunkKey(2),
+                                         absl::Cord("ww"), {gen2});
+  auto future3 = kvstore::WriteCommitted(KvStore{store, txn}, GetChunkKey(2),
+                                         absl::Cord("xx"), {gen2});
 
   // Conditional write with matching generation
-  auto future4 = store->Write(GetChunkKey(4), absl::Cord("zz"),
-                              {StorageGeneration::NoValue()});
+  auto future4 =
+      kvstore::WriteCommitted(KvStore{store, txn}, GetChunkKey(4),
+                              absl::Cord("zz"), {StorageGeneration::NoValue()});
 
   // Conditional delete with matching generation.
-  auto future5 = store->Delete(GetChunkKey(3), {gen3});
+  auto future5 =
+      kvstore::DeleteCommitted(KvStore{store, txn}, GetChunkKey(3), {gen3});
+
+  txn.CommitAsync().IgnoreFuture();
 
   EXPECT_THAT(future1.result(), MatchesTimestampedStorageGeneration(
                                     StorageGeneration::Unknown()));
@@ -298,7 +338,8 @@ std::vector<std::vector<Result<TimestampedStorageGeneration>>>
 TestOrderDependentWrites(
     std::function<void()> init,
     std::function<Future<TimestampedStorageGeneration>()> op0,
-    std::function<Future<TimestampedStorageGeneration>()> op1) {
+    std::function<Future<TimestampedStorageGeneration>()> op1,
+    std::function<void()> finalize) {
   std::vector<std::vector<Result<TimestampedStorageGeneration>>> all_results;
   for (int i = 0; i < 2; ++i) {
     std::vector<Future<TimestampedStorageGeneration>> futures(2);
@@ -310,6 +351,7 @@ TestOrderDependentWrites(
       futures[1] = op1();
       futures[0] = op0();
     }
+    finalize();
     all_results.push_back({futures[0].result(), futures[1].result()});
   }
   return all_results;
@@ -326,6 +368,7 @@ TEST_F(RawEncodingTest, WriteThenDelete) {
 
 TEST_F(RawEncodingTest, MultipleDeleteExisting) {
   StorageGeneration gen;
+  tensorstore::Transaction txn{tensorstore::no_transaction};
   EXPECT_THAT(
       TestOrderDependentWrites(
           /*init=*/
@@ -333,19 +376,23 @@ TEST_F(RawEncodingTest, MultipleDeleteExisting) {
             gen = store->Write(GetChunkKey(1), absl::Cord("a"))
                       .value()
                       .generation;
+            txn = tensorstore::Transaction(tensorstore::isolated);
           },
           /*op0=*/
           [&] {
             // Delete conditioned on `gen` is guaranteed to succeed.
-            return store->Delete(GetChunkKey(1), {/*.if_equal=*/gen});
+            return kvstore::DeleteCommitted(KvStore{store, txn}, GetChunkKey(1),
+                                            {/*.if_equal=*/gen});
           },
           /*op1=*/
           [&] {
             // Delete conditioned on `StorageGeneration::NoValue()` succeeds if
             // it is attempted after the other delete, otherwise it fails.
-            return store->Delete(GetChunkKey(1),
-                                 {/*.if_equal=*/StorageGeneration::NoValue()});
-          }),
+            return kvstore::DeleteCommitted(
+                KvStore{store, txn}, GetChunkKey(1),
+                {/*.if_equal=*/StorageGeneration::NoValue()});
+          },
+          /*finalize=*/[&] { txn.CommitAsync().IgnoreFuture(); }),
       // Test we covered each of the two cases (corresponding to different sort
       // orders) exactly once.
       ::testing::UnorderedElementsAre(
@@ -362,22 +409,28 @@ TEST_F(RawEncodingTest, MultipleDeleteExisting) {
 // Tests that a conditional `Write` performed in the same commit after another
 // `Write` fails.
 TEST_F(RawEncodingTest, WriteWithUnmatchedConditionAfterDelete) {
+  tensorstore::Transaction txn{tensorstore::no_transaction};
   EXPECT_THAT(
       TestOrderDependentWrites(
           /*init=*/
-          [&] { store->Delete(GetChunkKey(0)).value(); },
+          [&] {
+            store->Delete(GetChunkKey(0)).value();
+            txn = tensorstore::Transaction(tensorstore::isolated);
+          },
           /*op0=*/
           [&] {
             // Write should succeed.
-            return store->Write(GetChunkKey(0), absl::Cord("a"));
+            return kvstore::WriteCommitted(KvStore{store, txn}, GetChunkKey(0),
+                                           absl::Cord("a"));
           },
           /*op1=*/
           [&] {
             // Write should fail due to prior write.
-            return store->Write(
-                GetChunkKey(0), absl::Cord("b"),
+            return kvstore::WriteCommitted(
+                KvStore{store, txn}, GetChunkKey(0), absl::Cord("b"),
                 {/*.if_equal=*/StorageGeneration::FromString("g")});
-          }),
+          },
+          /*finalize=*/[&] { txn.CommitAsync().IgnoreFuture(); }),
       // Regardless of order of operations, the result is the same.
       ::testing::Each(::testing::ElementsAre(
           MatchesTimestampedStorageGeneration(
@@ -387,9 +440,13 @@ TEST_F(RawEncodingTest, WriteWithUnmatchedConditionAfterDelete) {
 }
 
 TEST_F(RawEncodingTest, MultipleDeleteNonExisting) {
+  tensorstore::Transaction txn(tensorstore::isolated);
   std::vector futures{
-      store->Delete(GetChunkKey(1), {StorageGeneration::NoValue()}),
-      store->Delete(GetChunkKey(1), {StorageGeneration::NoValue()})};
+      kvstore::DeleteCommitted(KvStore{store, txn}, GetChunkKey(1),
+                               {StorageGeneration::NoValue()}),
+      kvstore::DeleteCommitted(KvStore{store, txn}, GetChunkKey(1),
+                               {StorageGeneration::NoValue()})};
+  txn.CommitAsync().IgnoreFuture();
   std::vector results{futures[0].result(), futures[1].result()};
   EXPECT_THAT(
       results,
@@ -655,13 +712,12 @@ TEST_F(UnderlyingKeyValueStoreTest, Read) {
       EXPECT_EQ(StorageGeneration::Unknown(), req.options.if_equal);
       EXPECT_EQ(OptionalByteRangeRequest(0, 16), req.options.byte_range);
       EXPECT_THAT(req.options.staleness_bound, ::testing::Gt(init_time));
-      req.promise.SetResult(
-          ReadResult{ReadResult::kValue,
-                     Bytes({
-                         5, 0, 0, 0, 0, 0, 0, 0,   //
-                         31, 0, 0, 0, 0, 0, 0, 0,  //
-                     }),
-                     {StorageGeneration::FromString("g0"), absl::Now()}});
+      req.promise.SetResult(ReadResult::Value(
+          Bytes({
+              5, 0, 0, 0, 0, 0, 0, 0,   //
+              31, 0, 0, 0, 0, 0, 0, 0,  //
+          }),
+          {StorageGeneration::FromString("g0"), absl::Now()}));
     }
     {
       auto req = mock_store->read_requests.pop_nonblock().value();
@@ -671,14 +727,13 @@ TEST_F(UnderlyingKeyValueStoreTest, Read) {
       EXPECT_EQ(StorageGeneration::FromString("g0"), req.options.if_equal);
       EXPECT_EQ(OptionalByteRangeRequest(37, 63), req.options.byte_range);
       minishard_index_time = absl::Now();
-      req.promise.SetResult(ReadResult{
-          ReadResult::kValue,
+      req.promise.SetResult(ReadResult::Value(
           Bytes({
               0x50, 0, 0, 0, 0, 0, 0, 0,  //
               0,    0, 0, 0, 0, 0, 0, 0,  //
               5,    0, 0, 0, 0, 0, 0, 0,  //
           }),
-          {StorageGeneration::FromString("g0"), minishard_index_time}});
+          {StorageGeneration::FromString("g0"), minishard_index_time}));
     }
     absl::Time read_time;
     {
@@ -690,9 +745,8 @@ TEST_F(UnderlyingKeyValueStoreTest, Read) {
       EXPECT_EQ(OptionalByteRangeRequest(32, 37), req.options.byte_range);
       read_time = absl::Now();
       req.promise.SetResult(
-          ReadResult{ReadResult::kValue,
-                     Bytes({5, 6, 7, 8, 9}),
-                     {StorageGeneration::FromString("g0"), read_time}});
+          ReadResult::Value(Bytes({5, 6, 7, 8, 9}),
+                            {StorageGeneration::FromString("g0"), read_time}));
     }
     ASSERT_EQ(0, mock_store->read_requests.size());
     ASSERT_TRUE(future.ready());
@@ -727,8 +781,8 @@ TEST_F(UnderlyingKeyValueStoreTest, Read) {
       EXPECT_EQ(OptionalByteRangeRequest(0, 16), req.options.byte_range);
       EXPECT_THAT(req.options.staleness_bound, ::testing::Gt(req_time));
       minishard_index_time = absl::Now();
-      req.promise.SetResult(ReadResult{
-          {StorageGeneration::FromString("g0"), minishard_index_time}});
+      req.promise.SetResult(ReadResult::Unspecified(
+          {StorageGeneration::FromString("g0"), minishard_index_time}));
     }
     ASSERT_TRUE(future.ready());
     EXPECT_THAT(future.result(),
@@ -752,9 +806,8 @@ TEST_F(UnderlyingKeyValueStoreTest, Read) {
       EXPECT_EQ(init_time, req.options.staleness_bound);
       read_time = absl::Now();
       req.promise.SetResult(
-          ReadResult{ReadResult::kValue,
-                     Bytes({5, 6, 7, 8, 9}),
-                     {StorageGeneration::FromString("g0"), read_time}});
+          ReadResult::Value(Bytes({5, 6, 7, 8, 9}),
+                            {StorageGeneration::FromString("g0"), read_time}));
     }
     ASSERT_EQ(0, mock_store->read_requests.size());
     ASSERT_TRUE(future.ready());
@@ -780,8 +833,8 @@ TEST_F(UnderlyingKeyValueStoreTest, Read) {
       EXPECT_EQ(StorageGeneration::FromString("g0"), req.options.if_equal);
       EXPECT_EQ(OptionalByteRangeRequest(32, 37), req.options.byte_range);
       abort_time = absl::Now();
-      req.promise.SetResult(
-          ReadResult{{StorageGeneration::FromString("g0"), abort_time}});
+      req.promise.SetResult(ReadResult::Unspecified(
+          {StorageGeneration::FromString("g0"), abort_time}));
     }
     // Request for updated shard index.
     {
@@ -792,13 +845,12 @@ TEST_F(UnderlyingKeyValueStoreTest, Read) {
       EXPECT_EQ(StorageGeneration::Unknown(), req.options.if_equal);
       EXPECT_EQ(OptionalByteRangeRequest(0, 16), req.options.byte_range);
       EXPECT_THAT(req.options.staleness_bound, ::testing::Ge(abort_time));
-      req.promise.SetResult(
-          ReadResult{ReadResult::kValue,
-                     Bytes({
-                         6, 0, 0, 0, 0, 0, 0, 0,   //
-                         32, 0, 0, 0, 0, 0, 0, 0,  //
-                     }),
-                     {StorageGeneration::FromString("g1"), absl::Now()}});
+      req.promise.SetResult(ReadResult::Value(
+          Bytes({
+              6, 0, 0, 0, 0, 0, 0, 0,   //
+              32, 0, 0, 0, 0, 0, 0, 0,  //
+          }),
+          {StorageGeneration::FromString("g1"), absl::Now()}));
     }
     // Request for updated minishard index.
     {
@@ -809,14 +861,13 @@ TEST_F(UnderlyingKeyValueStoreTest, Read) {
       EXPECT_EQ(StorageGeneration::FromString("g1"), req.options.if_equal);
       EXPECT_EQ(OptionalByteRangeRequest(38, 64), req.options.byte_range);
       minishard_index_time = absl::Now();
-      req.promise.SetResult(ReadResult{
-          ReadResult::kValue,
+      req.promise.SetResult(ReadResult::Value(
           Bytes({
               0x50, 0, 0, 0, 0, 0, 0, 0,  //
               0,    0, 0, 0, 0, 0, 0, 0,  //
               6,    0, 0, 0, 0, 0, 0, 0,  //
           }),
-          {StorageGeneration::FromString("g1"), minishard_index_time}});
+          {StorageGeneration::FromString("g1"), minishard_index_time}));
     }
     // Request for value.
     absl::Time read_time;
@@ -829,9 +880,8 @@ TEST_F(UnderlyingKeyValueStoreTest, Read) {
       EXPECT_EQ(OptionalByteRangeRequest(32, 38), req.options.byte_range);
       read_time = absl::Now();
       req.promise.SetResult(
-          ReadResult{ReadResult::kValue,
-                     Bytes({4, 5, 6, 7, 8, 9}),
-                     {StorageGeneration::FromString("g1"), read_time}});
+          ReadResult::Value(Bytes({4, 5, 6, 7, 8, 9}),
+                            {StorageGeneration::FromString("g1"), read_time}));
     }
     ASSERT_EQ(0, mock_store->read_requests.size());
     ASSERT_TRUE(future.ready());
@@ -840,6 +890,25 @@ TEST_F(UnderlyingKeyValueStoreTest, Read) {
         MatchesKvsReadResult(Bytes({4, 5, 6, 7, 8, 9}),
                              StorageGeneration::FromString("g1"), read_time));
   }
+}
+
+// Verify that a read-only transaction does not do any I/O on commit.
+TEST_F(UnderlyingKeyValueStoreTest, TransactionReadThenCommit) {
+  tensorstore::Transaction txn(tensorstore::isolated);
+  auto memory_store = tensorstore::GetMemoryKeyValueStore();
+  {
+    auto future = kvstore::Read(KvStore{store, txn}, GetChunkKey(0x50), {});
+    {
+      auto req = mock_store->read_requests.pop();
+      req(memory_store);
+      ASSERT_EQ(0, mock_store->read_requests.size());
+    }
+    EXPECT_THAT(future.result(),
+                ::testing::Optional(MatchesKvsReadResultNotFound()));
+  }
+
+  auto commit_future = txn.CommitAsync();
+  TENSORSTORE_ASSERT_OK(commit_future.result());
 }
 
 // Tests issuing read for chunk in uncached minishard index while there is a
@@ -861,12 +930,11 @@ TEST_F(UnderlyingKeyValueStoreTest,
     EXPECT_EQ(init_time, req.options.staleness_bound);
     EXPECT_EQ(OptionalByteRangeRequest(16, 32), req.options.byte_range);
     req.promise.SetResult(
-        ReadResult{ReadResult::kValue,
-                   Bytes({
-                       6, 0, 0, 0, 0, 0, 0, 0,   //
-                       32, 0, 0, 0, 0, 0, 0, 0,  //
-                   }),
-                   {StorageGeneration::FromString("g2"), absl::Now()}});
+        ReadResult::Value(Bytes({
+                              6, 0, 0, 0, 0, 0, 0, 0,   //
+                              32, 0, 0, 0, 0, 0, 0, 0,  //
+                          }),
+                          {StorageGeneration::FromString("g2"), absl::Now()}));
   }
   // Request for minishard index.
   {
@@ -877,8 +945,8 @@ TEST_F(UnderlyingKeyValueStoreTest,
     EXPECT_EQ(StorageGeneration::FromString("g2"), req.options.if_equal);
     EXPECT_EQ(OptionalByteRangeRequest(38, 64), req.options.byte_range);
     abort_time = absl::Now();
-    req.promise.SetResult(
-        ReadResult{{StorageGeneration::FromString("g2"), abort_time}});
+    req.promise.SetResult(ReadResult::Unspecified(
+        {StorageGeneration::FromString("g2"), abort_time}));
   }
   // Request for updated shard index.
   {
@@ -890,12 +958,11 @@ TEST_F(UnderlyingKeyValueStoreTest,
     EXPECT_THAT(req.options.staleness_bound, ::testing::Ge(abort_time));
     EXPECT_EQ(OptionalByteRangeRequest(16, 32), req.options.byte_range);
     req.promise.SetResult(
-        ReadResult{ReadResult::kValue,
-                   Bytes({
-                       7, 0, 0, 0, 0, 0, 0, 0,   //
-                       33, 0, 0, 0, 0, 0, 0, 0,  //
-                   }),
-                   {StorageGeneration::FromString("g3"), absl::Now()}});
+        ReadResult::Value(Bytes({
+                              7, 0, 0, 0, 0, 0, 0, 0,   //
+                              33, 0, 0, 0, 0, 0, 0, 0,  //
+                          }),
+                          {StorageGeneration::FromString("g3"), absl::Now()}));
   }
   // Request for updated minishard index.
   {
@@ -906,13 +973,12 @@ TEST_F(UnderlyingKeyValueStoreTest,
     EXPECT_EQ(StorageGeneration::FromString("g3"), req.options.if_equal);
     EXPECT_EQ(OptionalByteRangeRequest(39, 65), req.options.byte_range);
     req.promise.SetResult(
-        ReadResult{ReadResult::kValue,
-                   Bytes({
-                       0x1, 0, 0, 0, 0, 0, 0, 0,  //
-                       0,   0, 0, 0, 0, 0, 0, 0,  //
-                       4,   0, 0, 0, 0, 0, 0, 0,  //
-                   }),
-                   {StorageGeneration::FromString("g3"), absl::Now()}});
+        ReadResult::Value(Bytes({
+                              0x1, 0, 0, 0, 0, 0, 0, 0,  //
+                              0,   0, 0, 0, 0, 0, 0, 0,  //
+                              4,   0, 0, 0, 0, 0, 0, 0,  //
+                          }),
+                          {StorageGeneration::FromString("g3"), absl::Now()}));
   }
   // Request for value.
   absl::Time read_time;
@@ -924,10 +990,8 @@ TEST_F(UnderlyingKeyValueStoreTest,
     EXPECT_EQ(StorageGeneration::FromString("g3"), req.options.if_equal);
     EXPECT_EQ(OptionalByteRangeRequest(32, 36), req.options.byte_range);
     read_time = absl::Now();
-    req.promise.SetResult(
-        ReadResult{ReadResult::kValue,
-                   Bytes({4, 5, 6, 7}),
-                   {StorageGeneration::FromString("g3"), read_time}});
+    req.promise.SetResult(ReadResult::Value(
+        Bytes({4, 5, 6, 7}), {StorageGeneration::FromString("g3"), read_time}));
   }
   ASSERT_EQ(0, mock_store->read_requests.size());
   ASSERT_TRUE(future.ready());
@@ -953,12 +1017,11 @@ TEST_F(UnderlyingKeyValueStoreTest,
     EXPECT_THAT(req.options.staleness_bound, ::testing::Gt(req_time));
     EXPECT_EQ(OptionalByteRangeRequest(16, 32), req.options.byte_range);
     req.promise.SetResult(
-        ReadResult{ReadResult::kValue,
-                   Bytes({
-                       6, 0, 0, 0, 0, 0, 0, 0,   //
-                       32, 0, 0, 0, 0, 0, 0, 0,  //
-                   }),
-                   {StorageGeneration::FromString("g4"), absl::Now()}});
+        ReadResult::Value(Bytes({
+                              6, 0, 0, 0, 0, 0, 0, 0,   //
+                              32, 0, 0, 0, 0, 0, 0, 0,  //
+                          }),
+                          {StorageGeneration::FromString("g4"), absl::Now()}));
   }
   // Request for minishard index.
   absl::Time read_time;
@@ -970,8 +1033,7 @@ TEST_F(UnderlyingKeyValueStoreTest,
     EXPECT_EQ(StorageGeneration::FromString("g4"), req.options.if_equal);
     EXPECT_EQ(OptionalByteRangeRequest(38, 64), req.options.byte_range);
     read_time = absl::Now();
-    req.promise.SetResult(ReadResult{
-        ReadResult::kMissing, {}, {StorageGeneration::NoValue(), read_time}});
+    req.promise.SetResult(ReadResult::Missing(read_time));
   }
   ASSERT_EQ(0, mock_store->read_requests.size());
   ASSERT_TRUE(future.ready());
@@ -994,12 +1056,11 @@ TEST_F(UnderlyingKeyValueStoreTest,
     EXPECT_THAT(req.options.staleness_bound, ::testing::Gt(req_time));
     EXPECT_EQ(OptionalByteRangeRequest(16, 32), req.options.byte_range);
     req.promise.SetResult(
-        ReadResult{ReadResult::kValue,
-                   Bytes({
-                       6, 0, 0, 0, 0, 0, 0, 0,   //
-                       32, 0, 0, 0, 0, 0, 0, 0,  //
-                   }),
-                   {StorageGeneration::FromString("g0"), absl::Now()}});
+        ReadResult::Value(Bytes({
+                              6, 0, 0, 0, 0, 0, 0, 0,   //
+                              32, 0, 0, 0, 0, 0, 0, 0,  //
+                          }),
+                          {StorageGeneration::FromString("g0"), absl::Now()}));
   }
   // Request for minishard index.
   {
@@ -1010,13 +1071,12 @@ TEST_F(UnderlyingKeyValueStoreTest,
     EXPECT_EQ(StorageGeneration::FromString("g0"), req.options.if_equal);
     EXPECT_EQ(OptionalByteRangeRequest(38, 64), req.options.byte_range);
     req.promise.SetResult(
-        ReadResult{ReadResult::kValue,
-                   Bytes({
-                       0x1, 0, 0, 0, 0, 0, 0, 0,  //
-                       0,   0, 0, 0, 0, 0, 0, 0,  //
-                       4,   0, 0, 0, 0, 0, 0, 0,  //
-                   }),
-                   {StorageGeneration::FromString("g0"), absl::Now()}});
+        ReadResult::Value(Bytes({
+                              0x1, 0, 0, 0, 0, 0, 0, 0,  //
+                              0,   0, 0, 0, 0, 0, 0, 0,  //
+                              4,   0, 0, 0, 0, 0, 0, 0,  //
+                          }),
+                          {StorageGeneration::FromString("g0"), absl::Now()}));
   }
   // Request for value.
   absl::Time read_time;
@@ -1028,8 +1088,7 @@ TEST_F(UnderlyingKeyValueStoreTest,
     EXPECT_EQ(StorageGeneration::FromString("g0"), req.options.if_equal);
     EXPECT_EQ(OptionalByteRangeRequest(32, 36), req.options.byte_range);
     read_time = absl::Now();
-    req.promise.SetResult(ReadResult{
-        ReadResult::kMissing, {}, {StorageGeneration::NoValue(), read_time}});
+    req.promise.SetResult(ReadResult::Missing(read_time));
   }
   ASSERT_EQ(0, mock_store->read_requests.size());
   ASSERT_TRUE(future.ready());
@@ -1063,12 +1122,11 @@ TEST_F(UnderlyingKeyValueStoreTest, ReadErrorReadingMinishardShardIndex) {
     EXPECT_EQ("prefix/0.shard", req.key);
     EXPECT_EQ(OptionalByteRangeRequest(16, 32), req.options.byte_range);
     req.promise.SetResult(
-        ReadResult{ReadResult::kValue,
-                   Bytes({
-                       6, 0, 0, 0, 0, 0, 0, 0,   //
-                       32, 0, 0, 0, 0, 0, 0, 0,  //
-                   }),
-                   {StorageGeneration::FromString("g0"), absl::Now()}});
+        ReadResult::Value(Bytes({
+                              6, 0, 0, 0, 0, 0, 0, 0,   //
+                              32, 0, 0, 0, 0, 0, 0, 0,  //
+                          }),
+                          {StorageGeneration::FromString("g0"), absl::Now()}));
   }
   // Request for minishard index.
   {
@@ -1095,12 +1153,11 @@ TEST_F(UnderlyingKeyValueStoreTest, ReadErrorReadingData) {
     EXPECT_EQ("prefix/0.shard", req.key);
     EXPECT_EQ(OptionalByteRangeRequest(16, 32), req.options.byte_range);
     req.promise.SetResult(
-        ReadResult{ReadResult::kValue,
-                   Bytes({
-                       6, 0, 0, 0, 0, 0, 0, 0,   //
-                       32, 0, 0, 0, 0, 0, 0, 0,  //
-                   }),
-                   {StorageGeneration::FromString("g0"), absl::Now()}});
+        ReadResult::Value(Bytes({
+                              6, 0, 0, 0, 0, 0, 0, 0,   //
+                              32, 0, 0, 0, 0, 0, 0, 0,  //
+                          }),
+                          {StorageGeneration::FromString("g0"), absl::Now()}));
   }
   // Request for minishard index.
   {
@@ -1109,13 +1166,12 @@ TEST_F(UnderlyingKeyValueStoreTest, ReadErrorReadingData) {
     EXPECT_EQ("prefix/0.shard", req.key);
     EXPECT_EQ(OptionalByteRangeRequest(38, 64), req.options.byte_range);
     req.promise.SetResult(
-        ReadResult{ReadResult::kValue,
-                   Bytes({
-                       0x1, 0, 0, 0, 0, 0, 0, 0,  //
-                       0,   0, 0, 0, 0, 0, 0, 0,  //
-                       4,   0, 0, 0, 0, 0, 0, 0,  //
-                   }),
-                   {StorageGeneration::FromString("g0"), absl::Now()}});
+        ReadResult::Value(Bytes({
+                              0x1, 0, 0, 0, 0, 0, 0, 0,  //
+                              0,   0, 0, 0, 0, 0, 0, 0,  //
+                              4,   0, 0, 0, 0, 0, 0, 0,  //
+                          }),
+                          {StorageGeneration::FromString("g0"), absl::Now()}));
   }
   // Request for value.
   {
@@ -1158,23 +1214,18 @@ TEST_F(UnderlyingKeyValueStoreTest, WriteWithNoExistingShard) {
     // we only write 1 chunk, which is not equal to the maximum of 2.
     if (with_max_chunks) {
       store = GetStore(
-          /*get_max_chunks_per_shard=*/[](std::uint64_t shard)
-                                           -> std::uint64_t { return 2; });
+          /*get_max_chunks_per_shard=*/[](uint64_t shard) -> uint64_t {
+            return 2;
+          });
     } else {
       store = GetStore();
     }
     auto future = store->Write(GetChunkKey(0x50), Bytes({1, 2, 3}));
-    ASSERT_EQ(0, mock_store->read_requests.size());
-    ASSERT_EQ(0, mock_store->write_requests.size());
-    future.Force();
     {
       auto req = mock_store->read_requests.pop_nonblock().value();
       ASSERT_EQ(0, mock_store->read_requests.size());
       EXPECT_EQ("prefix/0.shard", req.key);
-      req.promise.SetResult(
-          ReadResult{ReadResult::kMissing,
-                     {},
-                     {StorageGeneration::NoValue(), absl::Now()}});
+      req.promise.SetResult(ReadResult::Missing(absl::Now()));
     }
     absl::Time write_time;
     {
@@ -1205,15 +1256,17 @@ TEST_F(UnderlyingKeyValueStoreTest, WriteWithNoExistingShard) {
 
 TEST_F(UnderlyingKeyValueStoreTest, UnconditionalWrite) {
   store = GetStore(
-      /*get_max_chunks_per_shard=*/[](std::uint64_t shard) -> std::uint64_t {
+      /*get_max_chunks_per_shard=*/[](uint64_t shard) -> uint64_t {
         return 2;
       });
-  auto future1 = store->Write(GetChunkKey(0x50), Bytes({1, 2, 3}));
-  auto future2 = store->Write(GetChunkKey(0x54), Bytes({4, 5, 6}));
+  auto txn = Transaction(tensorstore::isolated);
+  auto future1 = kvstore::WriteCommitted(KvStore{store, txn}, GetChunkKey(0x50),
+                                         Bytes({1, 2, 3}));
+  auto future2 = kvstore::WriteCommitted(KvStore{store, txn}, GetChunkKey(0x54),
+                                         Bytes({4, 5, 6}));
   ASSERT_EQ(0, mock_store->read_requests.size());
   ASSERT_EQ(0, mock_store->write_requests.size());
-  future1.Force();
-  future2.Force();
+  txn.CommitAsync().IgnoreFuture();
   ASSERT_EQ(0, mock_store->read_requests.size());
   absl::Time write_time;
   {
@@ -1253,20 +1306,16 @@ TEST_F(UnderlyingKeyValueStoreTest, UnconditionalWrite) {
 
 TEST_F(UnderlyingKeyValueStoreTest, ConditionalWriteDespiteMaxChunks) {
   store = GetStore(
-      /*get_max_chunks_per_shard=*/[](std::uint64_t shard) -> std::uint64_t {
+      /*get_max_chunks_per_shard=*/[](uint64_t shard) -> uint64_t {
         return 1;
       });
   auto future = store->Write(GetChunkKey(0x50), Bytes({1, 2, 3}),
                              {/*.if_equal=*/StorageGeneration::NoValue()});
-  ASSERT_EQ(0, mock_store->read_requests.size());
-  ASSERT_EQ(0, mock_store->write_requests.size());
-  future.Force();
   {
     auto req = mock_store->read_requests.pop_nonblock().value();
     ASSERT_EQ(0, mock_store->read_requests.size());
     EXPECT_EQ("prefix/0.shard", req.key);
-    req.promise.SetResult(ReadResult{
-        ReadResult::kMissing, {}, {StorageGeneration::NoValue(), absl::Now()}});
+    req.promise.SetResult(ReadResult::Missing(absl::Now()));
   }
   {
     auto req = mock_store->write_requests.pop_nonblock().value();
@@ -1280,13 +1329,11 @@ TEST_F(UnderlyingKeyValueStoreTest, ConditionalWriteDespiteMaxChunks) {
 
 TEST_F(UnderlyingKeyValueStoreTest, WriteWithNoExistingShardError) {
   auto future = store->Write(GetChunkKey(0x50), Bytes({1, 2, 3}));
-  future.Force();
   {
     auto req = mock_store->read_requests.pop_nonblock().value();
     ASSERT_EQ(0, mock_store->read_requests.size());
     EXPECT_EQ("prefix/0.shard", req.key);
-    req.promise.SetResult(ReadResult{
-        ReadResult::kMissing, {}, {StorageGeneration::NoValue(), absl::Now()}});
+    req.promise.SetResult(ReadResult::Missing(absl::Now()));
   }
   {
     auto req = mock_store->write_requests.pop_nonblock().value();
@@ -1301,10 +1348,6 @@ TEST_F(UnderlyingKeyValueStoreTest, WriteWithNoExistingShardError) {
 
 TEST_F(UnderlyingKeyValueStoreTest, WriteWithExistingShard) {
   auto future = store->Write(GetChunkKey(0x50), Bytes({1, 2, 3}));
-
-  ASSERT_EQ(0, mock_store->read_requests.size());
-  ASSERT_EQ(0, mock_store->write_requests.size());
-  future.Force();
   {
     auto req = mock_store->read_requests.pop_nonblock().value();
     ASSERT_EQ(0, mock_store->read_requests.size());
@@ -1312,18 +1355,17 @@ TEST_F(UnderlyingKeyValueStoreTest, WriteWithExistingShard) {
     EXPECT_EQ(StorageGeneration::Unknown(), req.options.if_equal);
     EXPECT_EQ(StorageGeneration::Unknown(), req.options.if_not_equal);
     req.promise.SetResult(
-        ReadResult{ReadResult::kValue,
-                   Bytes({
-                       3,    0, 0, 0, 0, 0, 0, 0,  //
-                       27,   0, 0, 0, 0, 0, 0, 0,  //
-                       0,    0, 0, 0, 0, 0, 0, 0,  //
-                       0,    0, 0, 0, 0, 0, 0, 0,  //
-                       4,    5, 6,                 //
-                       0x70, 0, 0, 0, 0, 0, 0, 0,  //
-                       0,    0, 0, 0, 0, 0, 0, 0,  //
-                       3,    0, 0, 0, 0, 0, 0, 0,  //
-                   }),
-                   {StorageGeneration::FromString("g0"), absl::Now()}});
+        ReadResult::Value(Bytes({
+                              3,    0, 0, 0, 0, 0, 0, 0,  //
+                              27,   0, 0, 0, 0, 0, 0, 0,  //
+                              0,    0, 0, 0, 0, 0, 0, 0,  //
+                              0,    0, 0, 0, 0, 0, 0, 0,  //
+                              4,    5, 6,                 //
+                              0x70, 0, 0, 0, 0, 0, 0, 0,  //
+                              0,    0, 0, 0, 0, 0, 0, 0,  //
+                              3,    0, 0, 0, 0, 0, 0, 0,  //
+                          }),
+                          {StorageGeneration::FromString("g0"), absl::Now()}));
   }
   absl::Time write_time;
   {
@@ -1360,22 +1402,16 @@ TEST_F(UnderlyingKeyValueStoreTest, WriteMaxChunksWithExistingShard) {
   for (const bool specify_max_chunks : {false, true}) {
     if (specify_max_chunks) {
       store = GetStore(
-          /*get_max_chunks_per_shard=*/[](std::uint64_t shard)
-                                           -> std::uint64_t { return 1; });
+          /*get_max_chunks_per_shard=*/[](uint64_t shard) -> uint64_t {
+            return 1;
+          });
     }
     auto future = store->Write(GetChunkKey(0x50), Bytes({1, 2, 3}));
-
-    ASSERT_EQ(0, mock_store->read_requests.size());
-    ASSERT_EQ(0, mock_store->write_requests.size());
-    future.Force();
     if (!specify_max_chunks) {
       auto req = mock_store->read_requests.pop_nonblock().value();
       ASSERT_EQ(0, mock_store->read_requests.size());
       EXPECT_EQ("prefix/0.shard", req.key);
-      req.promise.SetResult(
-          ReadResult{ReadResult::kMissing,
-                     {},
-                     {StorageGeneration::NoValue(), absl::Now()}});
+      req.promise.SetResult(ReadResult::Missing(absl::Now()));
     }
     absl::Time write_time;
     {
@@ -1408,10 +1444,6 @@ TEST_F(UnderlyingKeyValueStoreTest, WriteMaxChunksWithExistingShard) {
 
 TEST_F(UnderlyingKeyValueStoreTest, WriteWithExistingShardReadError) {
   auto future = store->Write(GetChunkKey(0x50), Bytes({1, 2, 3}));
-
-  ASSERT_EQ(0, mock_store->read_requests.size());
-  ASSERT_EQ(0, mock_store->write_requests.size());
-  future.Force();
   {
     auto req = mock_store->read_requests.pop_nonblock().value();
     ASSERT_EQ(0, mock_store->read_requests.size());
@@ -1471,9 +1503,9 @@ class ReadModifyWriteTest : public ::testing::Test {
   /// `KeyValueStore`; if none is specified, calls `GetStore()`.
   auto GetKvsBackedCache(kvstore::DriverPtr store = {}) {
     if (!store) store = GetStore();
-    return CachePool::Make(CachePool::Limits{})
-        ->GetCache<KvsBackedTestCache>(
-            "", [&] { return std::make_unique<KvsBackedTestCache>(store); });
+    return GetCache<KvsBackedTestCache>(
+        CachePool::Make(CachePool::Limits{}).get(), "",
+        [&] { return std::make_unique<KvsBackedTestCache>(store); });
   }
 };
 
@@ -1593,10 +1625,30 @@ TEST(ShardedKeyValueStoreTest, SpecRoundtrip) {
       {"minishard_index_encoding", "raw"}};
   tensorstore::internal::KeyValueStoreSpecRoundtripOptions options;
   options.roundtrip_key = std::string(8, '\0');
-  options.full_spec = {{"driver", "neuroglancer_uint64_sharded"},
-                       {"base", {{"driver", "memory"}, {"path", "abc/"}}},
-                       {"metadata", sharding_spec_json}};
   options.full_base_spec = {{"driver", "memory"}, {"path", "abc/"}};
+  options.full_spec = {{"driver", "neuroglancer_uint64_sharded"},
+                       {"base", options.full_base_spec},
+                       {"metadata", sharding_spec_json}};
+  options.check_data_after_serialization = false;
+  tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
+}
+
+TEST(ShardedKeyValueStoreTest, SpecRoundtripFile) {
+  tensorstore::internal::ScopedTemporaryDirectory tempdir;
+  ::nlohmann::json sharding_spec_json{
+      {"@type", "neuroglancer_uint64_sharded_v1"},
+      {"hash", "identity"},
+      {"preshift_bits", 0},
+      {"minishard_bits", 1},
+      {"shard_bits", 1},
+      {"data_encoding", "raw"},
+      {"minishard_index_encoding", "raw"}};
+  tensorstore::internal::KeyValueStoreSpecRoundtripOptions options;
+  options.roundtrip_key = std::string(8, '\0');
+  options.full_base_spec = {{"driver", "file"}, {"path", tempdir.path() + "/"}};
+  options.full_spec = {{"driver", "neuroglancer_uint64_sharded"},
+                       {"base", options.full_base_spec},
+                       {"metadata", sharding_spec_json}};
   tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
 }
 

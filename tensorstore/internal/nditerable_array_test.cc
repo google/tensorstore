@@ -32,6 +32,7 @@
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/status_testutil.h"
 
 namespace {
 
@@ -173,14 +174,14 @@ TEST(NDIterableArrayTest, Direct) {
            /*.directions=*/span<const int>({-1, -1, 0, 1}),
            /*.iteration_dimensions=*/span<const DimensionIndex>({1, 3, 0}),
            /*.iteration_shape=*/span<const Index>({3, 5, 6})},
-          /*.block_size=*/3},
+          /*.block_shape=*/{1, 3}},
          /*.buffer_kind=*/IterationBufferKind::kContiguous});
     IterationBufferPointer pointer;
     absl::Status status;
-    EXPECT_EQ(3, iterator->GetBlock(span<const Index>({2, 3, 1}), 3, &pointer,
-                                    &status));
+    EXPECT_TRUE(iterator->GetBlock(span<const Index>({2, 3, 1}), {1, 3},
+                                   &pointer, &status));
     EXPECT_EQ(&array((6 - 1) - 1, (3 - 1) - 2, 0, 3), pointer.pointer.get());
-    EXPECT_EQ(1, pointer.byte_stride);
+    EXPECT_EQ(1, pointer.inner_byte_stride);
     EXPECT_EQ(absl::OkStatus(), status);
   }
 
@@ -190,12 +191,12 @@ TEST(NDIterableArrayTest, Direct) {
            /*.directions=*/span<const int>({-1, -1, 0, 1}),
            /*.iteration_dimensions=*/span<const DimensionIndex>({1, 3, 0}),
            /*.iteration_shape=*/span<const Index>({3, 5, 6})},
-          /*.block_size=*/3},
+          /*.block_shape=*/{1, 3}},
          /*.buffer_kind=*/IterationBufferKind::kIndexed});
     IterationBufferPointer pointer;
     absl::Status status;
-    EXPECT_EQ(3, iterator->GetBlock(span<const Index>({2, 3, 1}), 3, &pointer,
-                                    &status));
+    EXPECT_TRUE(iterator->GetBlock(span<const Index>({2, 3, 1}), {1, 3},
+                                   &pointer, &status));
     EXPECT_EQ(&array((6 - 1) - 1, (3 - 1) - 2, 0, 3), pointer.pointer.get());
     EXPECT_THAT(span<const Index>(pointer.byte_offsets, 3),
                 ::testing::ElementsAre(0, 1, 2));
@@ -211,25 +212,26 @@ TEST(NDIterableArrayTest, RankZero) {
   MultiNDIterator<1, /*Full=*/true> multi_iterator(span<const Index>{}, {},
                                                    {{iterable.get()}}, &arena);
 
-  EXPECT_THAT(multi_iterator.iteration_dimensions, ::testing::ElementsAre(-1));
+  EXPECT_THAT(multi_iterator.iteration_dimensions,
+              ::testing::ElementsAre(-1, -1));
   EXPECT_THAT(multi_iterator.directions, ::testing::ElementsAre());
   EXPECT_THAT(multi_iterator.shape, ::testing::ElementsAre());
-  EXPECT_THAT(multi_iterator.iteration_shape, ::testing::ElementsAre(1));
+  EXPECT_THAT(multi_iterator.iteration_shape, ::testing::ElementsAre(1, 1));
   EXPECT_THAT(multi_iterator.full_iteration_dimensions,
               ::testing::ElementsAre());
   EXPECT_EQ(IterationBufferKind::kContiguous, multi_iterator.buffer_kind);
   EXPECT_EQ(false, multi_iterator.empty);
-  EXPECT_EQ(1, multi_iterator.block_size);
+  EXPECT_THAT(multi_iterator.block_shape, ::testing::ElementsAre(1, 1));
 
-  EXPECT_EQ(1, multi_iterator.ResetAtBeginning());
+  EXPECT_THAT(multi_iterator.ResetAtBeginning(), ::testing::ElementsAre(1, 1));
   absl::Status status;
-  EXPECT_TRUE(multi_iterator.GetBlock(1, &status));
-  EXPECT_THAT(multi_iterator.position(), ::testing::ElementsAre(0));
-  EXPECT_EQ(absl::OkStatus(), status);
+  EXPECT_TRUE(multi_iterator.GetBlock({1, 1}, &status));
+  EXPECT_THAT(multi_iterator.position(), ::testing::ElementsAre(0, 0));
+  TENSORSTORE_EXPECT_OK(status);
   EXPECT_EQ(array.data(), multi_iterator.block_pointers()[0].pointer);
-  EXPECT_EQ(0, multi_iterator.block_pointers()[0].byte_stride);
-  EXPECT_EQ(0, multi_iterator.StepForward(1));
-  EXPECT_THAT(multi_iterator.position(), ::testing::ElementsAre(1));
+  EXPECT_EQ(0, multi_iterator.block_pointers()[0].inner_byte_stride);
+  EXPECT_THAT(multi_iterator.StepForward({1, 1}), ::testing::ElementsAre(0, 1));
+  EXPECT_THAT(multi_iterator.position(), ::testing::ElementsAre(1, 0));
 }
 
 #ifndef TENSORSTORE_INTERNAL_NDITERABLE_TEST_UNIT_BLOCK_SIZE
@@ -247,24 +249,27 @@ TEST(NDIterableArrayTest, RankOne) {
                                                    {{iterable.get()}}, &arena);
 
   EXPECT_THAT(multi_iterator.shape, ::testing::ElementsAre(5));
-  EXPECT_THAT(multi_iterator.iteration_dimensions, ::testing::ElementsAre(0));
+  EXPECT_THAT(multi_iterator.iteration_dimensions,
+              ::testing::ElementsAre(-1, 0));
   EXPECT_THAT(multi_iterator.directions, ::testing::ElementsAre(1));
-  EXPECT_THAT(multi_iterator.iteration_shape, ::testing::ElementsAre(5));
+  EXPECT_THAT(multi_iterator.iteration_shape, ::testing::ElementsAre(1, 5));
   EXPECT_THAT(multi_iterator.full_iteration_dimensions,
               ::testing::ElementsAre(0));
   EXPECT_EQ(IterationBufferKind::kContiguous, multi_iterator.buffer_kind);
   EXPECT_EQ(false, multi_iterator.empty);
-  EXPECT_EQ(ExpectedBlockSize(5), multi_iterator.block_size);
+  EXPECT_THAT(multi_iterator.block_shape,
+              ::testing::ElementsAre(1, ExpectedBlockSize(5)));
 
-  EXPECT_EQ(ExpectedBlockSize(5), multi_iterator.ResetAtBeginning());
+  EXPECT_THAT(multi_iterator.ResetAtBeginning(),
+              ::testing::ElementsAre(1, ExpectedBlockSize(5)));
   absl::Status status;
-  EXPECT_TRUE(multi_iterator.GetBlock(ExpectedBlockSize(5), &status));
-  EXPECT_THAT(multi_iterator.position(), ::testing::ElementsAre(0));
+  EXPECT_TRUE(multi_iterator.GetBlock({1, ExpectedBlockSize(5)}, &status));
+  EXPECT_THAT(multi_iterator.position(), ::testing::ElementsAre(0, 0));
   EXPECT_EQ(absl::OkStatus(), status);
   EXPECT_EQ(array.data(), multi_iterator.block_pointers()[0].pointer);
-  EXPECT_EQ(sizeof(int), multi_iterator.block_pointers()[0].byte_stride);
-  EXPECT_EQ(0, multi_iterator.StepForward(5));
-  EXPECT_THAT(multi_iterator.position(), ::testing::ElementsAre(5));
+  EXPECT_EQ(sizeof(int), multi_iterator.block_pointers()[0].inner_byte_stride);
+  EXPECT_THAT(multi_iterator.StepForward({1, 5}), ::testing::ElementsAre(0, 5));
+  EXPECT_THAT(multi_iterator.position(), ::testing::ElementsAre(1, 0));
 }
 
 TEST(NDIterableArrayTest, RankTwoContiguous) {
@@ -276,24 +281,27 @@ TEST(NDIterableArrayTest, RankTwoContiguous) {
                                                    {{iterable.get()}}, &arena);
 
   EXPECT_THAT(multi_iterator.shape, ::testing::ElementsAre(2, 3));
-  EXPECT_THAT(multi_iterator.iteration_dimensions, ::testing::ElementsAre(1));
+  EXPECT_THAT(multi_iterator.iteration_dimensions,
+              ::testing::ElementsAre(-1, 1));
   EXPECT_THAT(multi_iterator.directions, ::testing::ElementsAre(1, 1));
-  EXPECT_THAT(multi_iterator.iteration_shape, ::testing::ElementsAre(6));
+  EXPECT_THAT(multi_iterator.iteration_shape, ::testing::ElementsAre(1, 6));
   EXPECT_THAT(multi_iterator.full_iteration_dimensions,
               ::testing::ElementsAre(0, 1));
   EXPECT_EQ(IterationBufferKind::kContiguous, multi_iterator.buffer_kind);
   EXPECT_EQ(false, multi_iterator.empty);
-  EXPECT_EQ(ExpectedBlockSize(6), multi_iterator.block_size);
+  EXPECT_THAT(multi_iterator.block_shape,
+              ::testing::ElementsAre(1, ExpectedBlockSize(6)));
 
-  EXPECT_EQ(ExpectedBlockSize(6), multi_iterator.ResetAtBeginning());
+  EXPECT_THAT(multi_iterator.ResetAtBeginning(),
+              ::testing::ElementsAre(1, ExpectedBlockSize(6)));
   absl::Status status;
-  EXPECT_TRUE(multi_iterator.GetBlock(ExpectedBlockSize(6), &status));
-  EXPECT_THAT(multi_iterator.position(), ::testing::ElementsAre(0));
+  EXPECT_TRUE(multi_iterator.GetBlock({1, ExpectedBlockSize(6)}, &status));
+  EXPECT_THAT(multi_iterator.position(), ::testing::ElementsAre(0, 0));
   EXPECT_EQ(absl::OkStatus(), status);
   EXPECT_EQ(array.data(), multi_iterator.block_pointers()[0].pointer);
-  EXPECT_EQ(sizeof(int), multi_iterator.block_pointers()[0].byte_stride);
-  EXPECT_EQ(0, multi_iterator.StepForward(6));
-  EXPECT_THAT(multi_iterator.position(), ::testing::ElementsAre(6));
+  EXPECT_EQ(sizeof(int), multi_iterator.block_pointers()[0].inner_byte_stride);
+  EXPECT_THAT(multi_iterator.StepForward({1, 6}), ::testing::ElementsAre(0, 6));
+  EXPECT_THAT(multi_iterator.position(), ::testing::ElementsAre(1, 0));
 }
 
 TEST(NDIterableArrayTest, RankTwoTranspose) {
@@ -313,32 +321,25 @@ TEST(NDIterableArrayTest, RankTwoTranspose) {
               ::testing::ElementsAre(1, 0));
   EXPECT_EQ(IterationBufferKind::kStrided, multi_iterator.buffer_kind);
   EXPECT_EQ(false, multi_iterator.empty);
-  EXPECT_EQ(ExpectedBlockSize(2), multi_iterator.block_size);
+  EXPECT_THAT(
+      multi_iterator.block_shape,
+      ::testing::ElementsAre(ExpectedBlockSize(3), ExpectedBlockSize(2)));
 
-  EXPECT_EQ(ExpectedBlockSize(2), multi_iterator.ResetAtBeginning());
+  EXPECT_THAT(
+      multi_iterator.ResetAtBeginning(),
+      ::testing::ElementsAre(ExpectedBlockSize(3), ExpectedBlockSize(2)));
   absl::Status status;
   EXPECT_THAT(multi_iterator.position(), ::testing::ElementsAre(0, 0));
 #ifdef TENSORSTORE_INTERNAL_NDITERABLE_TEST_UNIT_BLOCK_SIZE
   GTEST_SKIP();
 #endif
 
-  EXPECT_TRUE(multi_iterator.GetBlock(2, &status));
+  EXPECT_TRUE(multi_iterator.GetBlock({3, 2}, &status));
   EXPECT_EQ(absl::OkStatus(), status);
   EXPECT_EQ(&array(0, 0), multi_iterator.block_pointers()[0].pointer);
-  EXPECT_EQ(sizeof(int) * 3, multi_iterator.block_pointers()[0].byte_stride);
-  EXPECT_EQ(2, multi_iterator.StepForward(2));
-  EXPECT_THAT(multi_iterator.position(), ::testing::ElementsAre(1, 0));
-  EXPECT_TRUE(multi_iterator.GetBlock(2, &status));
-  EXPECT_EQ(absl::OkStatus(), status);
-  EXPECT_EQ(&array(0, 1), multi_iterator.block_pointers()[0].pointer);
-  EXPECT_EQ(sizeof(int) * 3, multi_iterator.block_pointers()[0].byte_stride);
-  EXPECT_EQ(2, multi_iterator.StepForward(2));
-  EXPECT_THAT(multi_iterator.position(), ::testing::ElementsAre(2, 0));
-  EXPECT_TRUE(multi_iterator.GetBlock(2, &status));
-  EXPECT_EQ(absl::OkStatus(), status);
-  EXPECT_EQ(&array(0, 2), multi_iterator.block_pointers()[0].pointer);
-  EXPECT_EQ(sizeof(int) * 3, multi_iterator.block_pointers()[0].byte_stride);
-  EXPECT_EQ(0, multi_iterator.StepForward(2));
+  EXPECT_EQ(sizeof(int) * 3,
+            multi_iterator.block_pointers()[0].inner_byte_stride);
+  EXPECT_THAT(multi_iterator.StepForward({3, 2}), ::testing::ElementsAre(0, 2));
   EXPECT_THAT(multi_iterator.position(), ::testing::ElementsAre(3, 0));
 }
 
@@ -376,9 +377,10 @@ TEST(NDIterableArrayTest, SkipZeroByteStride) {
       array.shape(), tensorstore::skip_repeated_elements, {{iterable.get()}},
       &arena);
   EXPECT_THAT(multi_iterator.shape, ::testing::ElementsAre(2, 3));
-  EXPECT_THAT(multi_iterator.iteration_dimensions, ::testing::ElementsAre(0));
+  EXPECT_THAT(multi_iterator.iteration_dimensions,
+              ::testing::ElementsAre(-1, 0));
   EXPECT_THAT(multi_iterator.directions, ::testing::ElementsAre(1, 0));
-  EXPECT_THAT(multi_iterator.iteration_shape, ::testing::ElementsAre(2));
+  EXPECT_THAT(multi_iterator.iteration_shape, ::testing::ElementsAre(1, 2));
   EXPECT_THAT(multi_iterator.full_iteration_dimensions,
               ::testing::ElementsAre(1, 0));
 }
@@ -393,9 +395,10 @@ TEST(NDIterableArrayTest, FortranOrderArray) {
       array.shape(), tensorstore::skip_repeated_elements, {{iterable.get()}},
       &arena);
   EXPECT_THAT(multi_iterator.shape, ::testing::ElementsAre(2, 3));
-  EXPECT_THAT(multi_iterator.iteration_dimensions, ::testing::ElementsAre(0));
+  EXPECT_THAT(multi_iterator.iteration_dimensions,
+              ::testing::ElementsAre(-1, 0));
   EXPECT_THAT(multi_iterator.directions, ::testing::ElementsAre(1, 1));
-  EXPECT_THAT(multi_iterator.iteration_shape, ::testing::ElementsAre(6));
+  EXPECT_THAT(multi_iterator.iteration_shape, ::testing::ElementsAre(1, 6));
   EXPECT_THAT(multi_iterator.full_iteration_dimensions,
               ::testing::ElementsAre(1, 0));
 }
@@ -415,24 +418,28 @@ TEST(NDIterableArrayTest, ReversedDimensions) {
       &arena);
 
   EXPECT_THAT(multi_iterator.shape, ::testing::ElementsAre(5, 3, 4));
-  EXPECT_THAT(multi_iterator.iteration_dimensions, ::testing::ElementsAre(0));
+  EXPECT_THAT(multi_iterator.iteration_dimensions,
+              ::testing::ElementsAre(-1, 0));
   EXPECT_THAT(multi_iterator.directions, ::testing::ElementsAre(-1, 1, -1));
   EXPECT_THAT(multi_iterator.iteration_shape,
-              ::testing::ElementsAre(3 * 4 * 5));
+              ::testing::ElementsAre(1, 3 * 4 * 5));
   EXPECT_THAT(multi_iterator.full_iteration_dimensions,
               ::testing::ElementsAre(1, 2, 0));
   EXPECT_EQ(IterationBufferKind::kContiguous, multi_iterator.buffer_kind);
   EXPECT_EQ(false, multi_iterator.empty);
-  EXPECT_EQ(ExpectedBlockSize(3 * 4 * 5), multi_iterator.block_size);
+  EXPECT_THAT(multi_iterator.block_shape,
+              ::testing::ElementsAre(1, ExpectedBlockSize(3 * 4 * 5)));
 
-  EXPECT_EQ(ExpectedBlockSize(3 * 4 * 5), multi_iterator.ResetAtBeginning());
+  EXPECT_THAT(multi_iterator.ResetAtBeginning(),
+              ::testing::ElementsAre(1, ExpectedBlockSize(3 * 4 * 5)));
   absl::Status status;
-  EXPECT_THAT(multi_iterator.position(), ::testing::ElementsAre(0));
-  EXPECT_TRUE(multi_iterator.GetBlock(ExpectedBlockSize(3 * 4 * 5), &status));
+  EXPECT_THAT(multi_iterator.position(), ::testing::ElementsAre(0, 0));
+  EXPECT_TRUE(
+      multi_iterator.GetBlock({1, ExpectedBlockSize(3 * 4 * 5)}, &status));
   EXPECT_EQ(absl::OkStatus(), status);
   EXPECT_EQ(orig_array.byte_strided_pointer(),
             multi_iterator.block_pointers()[0].pointer);
-  EXPECT_EQ(sizeof(int), multi_iterator.block_pointers()[0].byte_stride);
+  EXPECT_EQ(sizeof(int), multi_iterator.block_pointers()[0].inner_byte_stride);
 }
 
 TEST(NDIterableArrayTest, MultipleArrays) {
@@ -455,29 +462,28 @@ TEST(NDIterableArrayTest, MultipleArrays) {
               ::testing::ElementsAre(0, 1));
   EXPECT_EQ(IterationBufferKind::kStrided, multi_iterator.buffer_kind);
   EXPECT_EQ(false, multi_iterator.empty);
-  EXPECT_EQ(ExpectedBlockSize(3), multi_iterator.block_size);
+  EXPECT_THAT(
+      multi_iterator.block_shape,
+      ::testing::ElementsAre(ExpectedBlockSize(2), ExpectedBlockSize(3)));
 
-  EXPECT_EQ(ExpectedBlockSize(3), multi_iterator.ResetAtBeginning());
+  EXPECT_THAT(
+      multi_iterator.ResetAtBeginning(),
+      ::testing::ElementsAre(ExpectedBlockSize(2), ExpectedBlockSize(3)));
   absl::Status status;
   EXPECT_THAT(multi_iterator.position(), ::testing::ElementsAre(0, 0));
 #ifdef TENSORSTORE_INTERNAL_NDITERABLE_TEST_UNIT_BLOCK_SIZE
   GTEST_SKIP();
 #endif
-  EXPECT_TRUE(multi_iterator.GetBlock(3, &status));
+  EXPECT_TRUE(multi_iterator.GetBlock({2, 3}, &status));
   EXPECT_EQ(absl::OkStatus(), status);
   EXPECT_EQ(&array_a(0, 0), multi_iterator.block_pointers()[0].pointer);
   EXPECT_EQ(&array_b(0, 0), multi_iterator.block_pointers()[1].pointer);
-  EXPECT_EQ(sizeof(int), multi_iterator.block_pointers()[0].byte_stride);
-  EXPECT_EQ(sizeof(int) * 2, multi_iterator.block_pointers()[1].byte_stride);
+  EXPECT_EQ(sizeof(int), multi_iterator.block_pointers()[0].inner_byte_stride);
+  EXPECT_EQ(sizeof(int) * 2,
+            multi_iterator.block_pointers()[1].inner_byte_stride);
 
-  EXPECT_EQ(3, multi_iterator.StepForward(3));
-  EXPECT_THAT(multi_iterator.position(), ::testing::ElementsAre(1, 0));
-  EXPECT_TRUE(multi_iterator.GetBlock(3, &status));
-  EXPECT_EQ(absl::OkStatus(), status);
-  EXPECT_EQ(&array_a(1, 0), multi_iterator.block_pointers()[0].pointer);
-  EXPECT_EQ(&array_b(1, 0), multi_iterator.block_pointers()[1].pointer);
-  EXPECT_EQ(sizeof(int), multi_iterator.block_pointers()[0].byte_stride);
-  EXPECT_EQ(sizeof(int) * 2, multi_iterator.block_pointers()[1].byte_stride);
+  EXPECT_THAT(multi_iterator.StepForward({2, 3}), ::testing::ElementsAre(0, 3));
+  EXPECT_THAT(multi_iterator.position(), ::testing::ElementsAre(2, 0));
 }
 
 }  // namespace

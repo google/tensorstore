@@ -20,6 +20,7 @@
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/util/execution/any_receiver.h"
+#include "tensorstore/util/execution/flow_sender_operation_state.h"
 #include "tensorstore/util/future.h"
 
 namespace tensorstore {
@@ -27,53 +28,11 @@ namespace internal {
 
 template <typename ChunkT>
 struct ChunkOperationState
-    : public AtomicReferenceCount<ChunkOperationState<ChunkT>> {
+    : public FlowSenderOperationState<ChunkT, IndexTransform<>> {
   using ChunkType = ChunkT;
-  using BaseReceiver =
-      AnyFlowReceiver<absl::Status, ChunkType, IndexTransform<>>;
+  using Base = FlowSenderOperationState<ChunkT, IndexTransform<>>;
 
-  struct SharedReceiver : public AtomicReferenceCount<SharedReceiver> {
-    BaseReceiver receiver;
-  };
-
-  ChunkOperationState(BaseReceiver&& receiver)
-      : shared_receiver(new SharedReceiver) {
-    // The receiver is stored in a separate reference-counted object, so that it
-    // can outlive `ChunkOperationState`.  `ChunkOperationState` is destroyed
-    // when the last chunk is ready (successfully or with an error), but the
-    // `receiver` needs to remain until `promise` is ready, which does not
-    // necessarily happen until after the last `ChunkOperationState` reference
-    // is destroyed.
-    shared_receiver->receiver = std::move(receiver);
-    auto [promise, future] = PromiseFuturePair<void>::Make(MakeResult());
-    this->promise = std::move(promise);
-    execution::set_starting(
-        this->shared_receiver->receiver, [promise = this->promise] {
-          SetDeferredResult(promise, absl::CancelledError(""));
-        });
-    std::move(future).ExecuteWhenReady(
-        [shared_receiver = this->shared_receiver](ReadyFuture<void> future) {
-          auto& result = future.result();
-          if (result) {
-            execution::set_done(shared_receiver->receiver);
-          } else {
-            execution::set_error(shared_receiver->receiver, result.status());
-          }
-          execution::set_stopping(shared_receiver->receiver);
-        });
-  }
-  virtual ~ChunkOperationState() { promise.SetReady(); }
-
-  void SetError(absl::Status&& status) {
-    SetDeferredResult(promise, std::move(status));
-  }
-
-  bool cancelled() const { return !promise.result_needed(); }
-
-  IntrusivePtr<SharedReceiver> shared_receiver;
-
-  /// Tracks errors, cancellation, and completion.
-  Promise<void> promise;
+  using Base::Base;
 };
 
 // Forwarding receiver which satisfies `ReadChunkReceiver` or

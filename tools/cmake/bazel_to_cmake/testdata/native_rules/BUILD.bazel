@@ -1,3 +1,5 @@
+package(default_visibility = ["//visibility:public"])
+
 # NOTE: ":h_file" should work as well as "s.h", right?
 cc_library(
     name = "a",
@@ -19,7 +21,9 @@ genrule(
         "//:other": ["y.h"],
     }),
     outs = ["a.h"],
-    cmd = "$(location :bb) $$(dirname $$(dirname $< )) $$(dirname $< ) $< $@ ",
+    cmd = ("$(location :bb) $$(dirname $$(dirname $<)/a/b) $$(dirname $< ) " +
+           " -I$(GENDIR)/foo -I$$(dirname $(location :subdir_z))/../.. " +
+           " $< $@ "),
     tools = [":bb"],
     visibility = ["//visibility:public"],
 )

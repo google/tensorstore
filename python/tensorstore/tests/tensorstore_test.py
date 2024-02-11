@@ -13,6 +13,7 @@
 # limitations under the License.
 """Tests for tensorstore.TensorStore."""
 
+import copy
 import pickle
 import re
 import tempfile
@@ -54,7 +55,8 @@ async def test_open_array_driver():
   assert (await t.read(order="F")).flags.fortran
 
   with pytest.raises(
-      TypeError, match=re.escape("`order` must be specified as 'C' or 'F'")):
+      TypeError, match=re.escape("`order` must be specified as 'C' or 'F'")
+  ):
     await t.read(order="X")
 
 
@@ -68,8 +70,11 @@ async def test_resize():
               "shape": arr.shape,
               "chunks": (1, 1),
               "dtype": arr.dtype.str,
-          }
-      }, open=True, create=True)
+          },
+      },
+      open=True,
+      create=True,
+  )
   await t.write(arr)
   await t.resize(exclusive_max=(3, 2))
   a = await t.read()
@@ -87,7 +92,7 @@ async def test_array():
       "dtype": "int64",
       "transform": {
           "input_inclusive_min": [0, 0],
-          "input_exclusive_max": [2, 3]
+          "input_exclusive_max": [2, 3],
       },
   }
 
@@ -107,7 +112,7 @@ async def test_array():
       "dtype": "int64",
       "transform": {
           "input_inclusive_min": [0],
-          "input_exclusive_max": [3]
+          "input_exclusive_max": [3],
       },
   }
 
@@ -123,7 +128,8 @@ async def test_open_ustring_dtype():
   a = await t.read()
   assert a.dtype == object
   np.testing.assert_equal(
-      a, np.array(["this", "is", "a", "string", "array"], dtype=object))
+      a, np.array(["this", "is", "a", "string", "array"], dtype=object)
+  )
 
 
 async def test_cast():
@@ -143,9 +149,7 @@ async def test_local_n5():
             "path": dir_path,
         },
         "metadata": {
-            "compression": {
-                "type": "gzip"
-            },
+            "compression": {"type": "gzip"},
             "dataType": "uint32",
             "dimensions": [1000, 20000],
             "blockSize": [10, 10],
@@ -154,25 +158,21 @@ async def test_local_n5():
         "delete_existing": True,
     }).result()
     dataset[80:82, 99:102] = [[1, 2, 3], [4, 5, 6]]
-    np.testing.assert_equal([[1, 2, 3], [4, 5, 6], [0, 0, 0]],
-                            dataset[80:83, 99:102].read().result())
+    np.testing.assert_equal(
+        [[1, 2, 3], [4, 5, 6], [0, 0, 0]],
+        dataset[80:83, 99:102].read().result(),
+    )
 
 
 async def test_memory_n5_cache_open():
   ts.open({
-      "context": {
-          "cache_pool": {
-              "total_bytes_limit": 1000000
-          }
-      },
+      "context": {"cache_pool": {"total_bytes_limit": 1000000}},
       "driver": "n5",
       "kvstore": {
           "driver": "memory",
       },
       "metadata": {
-          "compression": {
-              "type": "gzip"
-          },
+          "compression": {"type": "gzip"},
           "dataType": "uint32",
           "dimensions": [1000, 20000],
           "blockSize": [10, 10],
@@ -183,8 +183,9 @@ async def test_memory_n5_cache_open():
 
 
 async def test_open_error_message():
-  with pytest.raises(ValueError,
-                     match=".*Error parsing object member \"driver\": .*"):
+  with pytest.raises(
+      ValueError, match='.*Error parsing object member "driver": .*'
+  ):
     await ts.open({"invalid": "key"})
 
   with pytest.raises(ValueError, match="Expected object, but received: 3"):
@@ -267,44 +268,64 @@ async def test_pickle_read_write_mode():
     assert new_t1.writable
 
 
+async def test_copy():
+  with tempfile.TemporaryDirectory() as dir_path:
+    context = ts.Context({"cache_pool": {"total_bytes_limit": 1000000}})
+    spec = {
+        "driver": "zarr",
+        "kvstore": {
+            "driver": "file",
+            "path": dir_path,
+        },
+        "recheck_cached_data": False,
+        "recheck_cached_metadata": False,
+        "create": True,
+        "open": True,
+    }
+    t1 = await ts.open(spec, dtype=ts.uint16, shape=[100, 100], context=context)
+
+    t2 = copy.copy(t1)
+    assert t1 is t2
+
+    t3 = copy.deepcopy(t1)
+
+    t1[0, 0] = 42
+
+    assert t1[0, 0].read().result() == 42
+
+    # t3 can read data written with t1
+    assert t3[0, 0].read().result() == 42
+
+    t1[0, 0] = 43
+    assert t1[0, 0].read().result() == 43
+
+    # t3 sees stale data because it doesn't share a cache with t1
+    assert t3[0, 0].read().result() == 42
+
+
 async def test_write_json():
-  t = await ts.open({
-      "driver": "array",
-      "dtype": "json",
-      "array": [1, {
-          "a": 2
-      }, 3],
-      "rank": 1
-  })
+  t = await ts.open(
+      {"driver": "array", "dtype": "json", "array": [1, {"a": 2}, 3], "rank": 1}
+  )
   assert await t[1].read() == {"a": 2}
   assert await t[0].read() == 1
   assert await t[2].read() == 3
-  np.testing.assert_equal(await t.read(),
-                          np.array([1, {
-                              "a": 2
-                          }, 3], dtype=object))
+  np.testing.assert_equal(
+      await t.read(), np.array([1, {"a": 2}, 3], dtype=object)
+  )
   t[0] = {"x": 3}
-  np.testing.assert_equal(await t.read(),
-                          np.array([{
-                              "x": 3
-                          }, {
-                              "a": 2
-                          }, 3], dtype=object))
+  np.testing.assert_equal(
+      await t.read(), np.array([{"x": 3}, {"a": 2}, 3], dtype=object)
+  )
   with pytest.raises(TypeError):
     t[1] = object()
-  np.testing.assert_equal(await t.read(),
-                          np.array([{
-                              "x": 3
-                          }, {
-                              "a": 2
-                          }, 3], dtype=object))
+  np.testing.assert_equal(
+      await t.read(), np.array([{"x": 3}, {"a": 2}, 3], dtype=object)
+  )
   t[2] = [1, 2, 3]
   np.testing.assert_equal(
-      await t.read(), np.array([{
-          "x": 3
-      }, {
-          "a": 2
-      }, [1, 2, 3]], dtype=object))
+      await t.read(), np.array([{"x": 3}, {"a": 2}, [1, 2, 3]], dtype=object)
+  )
   await t.write([1, 2, "abc"])
   np.testing.assert_equal(await t.read(), np.array([1, 2, "abc"], dtype=object))
 
@@ -314,14 +335,16 @@ async def test_write_ustring():
       "driver": "array",
       "dtype": "ustring",
       "array": ["abc", "x", "y"],
-      "rank": 1
+      "rank": 1,
   })
   assert await t[0].read() == "abc"
-  np.testing.assert_equal(await t.read(),
-                          np.array(["abc", "x", "y"], dtype=object))
+  np.testing.assert_equal(
+      await t.read(), np.array(["abc", "x", "y"], dtype=object)
+  )
   t[0] = "foo"
-  np.testing.assert_equal(await t.read(),
-                          np.array(["foo", "x", "y"], dtype=object))
+  np.testing.assert_equal(
+      await t.read(), np.array(["foo", "x", "y"], dtype=object)
+  )
   with pytest.raises(TypeError):
     t[1] = 3
   with pytest.raises(TypeError):
@@ -333,14 +356,16 @@ async def test_write_string():
       "driver": "array",
       "dtype": "string",
       "array": ["abc", "x", "y"],
-      "rank": 1
+      "rank": 1,
   })
   assert await t[0].read() == b"abc"
-  np.testing.assert_equal(await t.read(),
-                          np.array([b"abc", b"x", b"y"], dtype=object))
+  np.testing.assert_equal(
+      await t.read(), np.array([b"abc", b"x", b"y"], dtype=object)
+  )
   t[0] = b"foo"
-  np.testing.assert_equal(await t.read(),
-                          np.array([b"foo", b"x", b"y"], dtype=object))
+  np.testing.assert_equal(
+      await t.read(), np.array([b"foo", b"x", b"y"], dtype=object)
+  )
   with pytest.raises(TypeError):
     t[1] = "abc"
 
@@ -351,20 +376,30 @@ def test_instantiation():
 
 
 async def test_assume_metadata():
-  t = await ts.open({
-      "driver": "zarr",
-      "kvstore": "memory://",
-  }, dtype=ts.uint32, shape=[2, 3, 4], open=True, assume_metadata=True)
+  t = await ts.open(
+      {
+          "driver": "zarr",
+          "kvstore": "memory://",
+      },
+      dtype=ts.uint32,
+      shape=[2, 3, 4],
+      open=True,
+      assume_metadata=True,
+  )
   assert await t.kvstore.list() == []
 
 
 async def test_storage_statistics():
-  t = await ts.open({
-      "driver": "zarr",
-      "kvstore": "memory://",
-  }, dtype=ts.uint8, shape=[100, 200, 300],
-                    chunk_layout=ts.ChunkLayout(read_chunk_shape=[10, 20, 30]),
-                    create=True)
+  t = await ts.open(
+      {
+          "driver": "zarr",
+          "kvstore": "memory://",
+      },
+      dtype=ts.uint8,
+      shape=[100, 200, 300],
+      chunk_layout=ts.ChunkLayout(read_chunk_shape=[10, 20, 30]),
+      create=True,
+  )
 
   transformed = t[(1, 1, 1):(20, 5, 5)]
   assert await transformed.storage_statistics(
@@ -375,9 +410,8 @@ async def test_storage_statistics():
       query_not_stored=True
   ) == ts.TensorStore.StorageStatistics(not_stored=False)
   assert await transformed.storage_statistics(
-      query_not_stored=True,
-      query_fully_stored=True) == ts.TensorStore.StorageStatistics(
-          not_stored=False, fully_stored=True)
+      query_not_stored=True, query_fully_stored=True
+  ) == ts.TensorStore.StorageStatistics(not_stored=False, fully_stored=True)
 
 
 async def test_storage_statistics_pickle():
@@ -392,8 +426,50 @@ async def test_tensorstore_ocdbt_zarr_repr():
           "kvstore": {
               "driver": "ocdbt",
               "base": "memory://",
-              "path": "my_array/"
-          }
-      }, shape=[1000, 2000, 3000], dtype=ts.float32, open=True,
-      create=True).result()
+              "path": "my_array/",
+          },
+      },
+      shape=[1000, 2000, 3000],
+      dtype=ts.float32,
+      open=True,
+      create=True,
+  ).result()
   repr(arr)
+
+
+async def test_spec_open_mode():
+  spec = ts.Spec({
+      "driver": "zarr",
+      "kvstore": "memory://",
+      "schema": {"dtype": "uint32", "domain": {"shape": [100, 200]}},
+  })
+
+  for open_mode_kwargs in [
+      {"create": True},
+      {"delete_existing": True, "create": True},
+      {"open": True},
+      {"open": True, "create": True},
+      {"open": True, "assume_metadata": True},
+      {"open": True, "assume_cached_metadata": True},
+  ]:
+    spec_copy = spec.copy()
+    open_mode = ts.OpenMode(**open_mode_kwargs)
+    spec_copy.update(**open_mode_kwargs)
+    assert spec_copy.open_mode == open_mode
+
+    spec_copy = spec.copy()
+    spec_copy.update(open_mode=open_mode)
+    assert spec_copy.open_mode == open_mode
+
+    context = None
+    if open_mode == ts.OpenMode(open=True):
+      context = ts.Context()
+      await ts.open(spec, create=True, context=context)
+    store = await ts.open(spec, context=context, **open_mode_kwargs)
+
+    requested_spec = store.spec(**open_mode_kwargs)
+    assert requested_spec.open_mode == open_mode
+
+    store = await ts.open(spec, context=context, open_mode=open_mode)
+    requested_spec = store.spec(**open_mode_kwargs)
+    assert requested_spec.open_mode == open_mode

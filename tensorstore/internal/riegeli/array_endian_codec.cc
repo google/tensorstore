@@ -14,13 +14,47 @@
 
 #include "tensorstore/internal/riegeli/array_endian_codec.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
+#include <cassert>
+#include <memory>
+#include <string_view>
+#include <utility>
+
+#include "absl/status/status.h"
+#include "absl/strings/cord.h"
+#include "riegeli/base/chain.h"
 #include "riegeli/bytes/copy_all.h"
 #include "riegeli/bytes/limiting_reader.h"
 #include "riegeli/bytes/writer.h"
+#include "tensorstore/array.h"
+#include "tensorstore/contiguous_layout.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/index.h"
+#include "tensorstore/internal/elementwise_function.h"
+#include "tensorstore/internal/metrics/counter.h"
+#include "tensorstore/internal/type_traits.h"
 #include "tensorstore/internal/unaligned_data_type_functions.h"
+#include "tensorstore/util/element_pointer.h"
+#include "tensorstore/util/endian.h"
+#include "tensorstore/util/extents.h"
+#include "tensorstore/util/iterate.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal {
+namespace {
+
+auto& contiguous_bytes = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/internal/riegeli/contiguous_bytes", "");
+
+auto& noncontiguous_bytes = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/internal/riegeli/noncontiguous_bytes", "");
+
+}  // namespace
 
 [[nodiscard]] bool EncodeArrayEndian(SharedArrayView<const void> decoded,
                                      endian encoded_endian,
@@ -47,9 +81,8 @@ namespace internal {
       encoded_endian == endian::native ? &functions.write_native_endian
                                        : &functions.write_swapped_endian;
   return internal::IterateOverArrays(
-             {write_func, &writer},
-             /*arg=*/nullptr, {order, include_repeated_elements}, decoded)
-      .success;
+      {write_func, &writer},
+      /*arg=*/nullptr, {order, include_repeated_elements}, decoded);
 }
 
 namespace {
@@ -151,15 +184,16 @@ Result<SharedArray<const void>> DecodeArrayEndian(
     if (riegeli::CopyAll(reader, buffer_sink_writer, expected_length).ok()) {
       absl::Status status;
       if (functions.validate) {
-        if ((*functions.validate)[IterationBufferKind::kContiguous](
-                /*context=*/nullptr, expected_length,
+        if (!(*functions.validate)[IterationBufferKind::kContiguous](
+                /*context=*/nullptr, {1, static_cast<Index>(expected_length)},
                 IterationBufferPointer(
-                    const_cast<void*>(buffer_sink_writer.data.get()),
+                    const_cast<void*>(buffer_sink_writer.data.get()), 0,
                     dtype.size()),
-                &status) != expected_length) {
+                &status)) {
           return status;
         }
       }
+      contiguous_bytes.IncrementBy(expected_length);
       return tensorstore::SharedArray<const void>(
           SharedElementPointer<const void>(std::move(buffer_sink_writer.data),
                                            dtype),
@@ -181,6 +215,7 @@ Result<SharedArray<const void>> DecodeArrayEndian(
   if (!reader.ok()) {
     return reader.status();
   }
+  noncontiguous_bytes.IncrementBy(expected_length);
   return decoded;
 }
 

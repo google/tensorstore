@@ -13,11 +13,22 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore:array",
         "//tensorstore:contiguous_layout",
+        "//tensorstore:data_type",
         "//tensorstore:index",
+        "//tensorstore/internal:elementwise_function",
+        "//tensorstore/internal:type_traits",
         "//tensorstore/internal:unaligned_data_type_functions",
+        "//tensorstore/internal/metrics",
+        "//tensorstore/util:element_pointer",
         "//tensorstore/util:endian",
+        "//tensorstore/util:extents",
+        "//tensorstore/util:iterate",
+        "//tensorstore/util:result",
         "//tensorstore/util:span",
+        "//tensorstore/util:status",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:cord",
+        "@com_google_riegeli//riegeli/base:chain",
         "@com_google_riegeli//riegeli/bytes:copy_all",
         "@com_google_riegeli//riegeli/bytes:limiting_reader",
         "@com_google_riegeli//riegeli/bytes:reader",
@@ -58,6 +69,7 @@ tensorstore_cc_library(
         "//tensorstore/util:quote_string",
         "//tensorstore/util:str_cat",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:cord",
         "@com_google_riegeli//riegeli/bytes:reader",
         "@com_google_riegeli//riegeli/bytes:writer",
         "@com_google_riegeli//riegeli/varint:varint_reading",
@@ -72,6 +84,10 @@ tensorstore_cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/strings:str_format",
+        "@com_google_absl//absl/types:optional",
+        "@com_google_riegeli//riegeli/base:arithmetic",
+        "@com_google_riegeli//riegeli/base:object",
+        "@com_google_riegeli//riegeli/base:types",
         "@com_google_riegeli//riegeli/bytes:cord_reader",
         "@com_google_riegeli//riegeli/bytes:limiting_reader",
         "@com_google_riegeli//riegeli/bytes:read_all",
@@ -105,6 +121,23 @@ tensorstore_cc_test(
         "@com_google_riegeli//riegeli/digests:crc32c_digester",
         "@com_google_riegeli//riegeli/zlib:zlib_reader",
         "@com_google_riegeli//riegeli/zlib:zlib_writer",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "find",
+    srcs = ["find.cc"],
+    hdrs = ["find.h"],
+    deps = ["@com_google_riegeli//riegeli/bytes:reader"],
+)
+
+tensorstore_cc_test(
+    name = "find_test",
+    srcs = ["find_test.cc"],
+    deps = [
+        ":find",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_riegeli//riegeli/bytes:string_reader",
     ],
 )
 

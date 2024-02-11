@@ -43,7 +43,7 @@ TEST(CurlFactoryTest, CurlCodeToStatus) {
       {CURLE_HTTP2, absl::StatusCode::kUnavailable},
       {CURLE_BAD_DOWNLOAD_RESUME, absl::StatusCode::kInternal},
       {CURLE_RANGE_ERROR, absl::StatusCode::kInternal},
-      {CURLE_UNSUPPORTED_PROTOCOL, absl::StatusCode::kInternal},
+      {CURLE_UNSUPPORTED_PROTOCOL, absl::StatusCode::kUnavailable},
   };
 
   for (auto const& t : expected_codes) {

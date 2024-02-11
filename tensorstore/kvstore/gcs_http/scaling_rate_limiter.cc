@@ -21,7 +21,7 @@
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "tensorstore/data_type.h"
-#include "tensorstore/internal/schedule_at.h"
+#include "tensorstore/internal/thread/schedule_at.h"
 #include "tensorstore/kvstore/gcs_http/rate_limiter.h"
 
 namespace tensorstore {

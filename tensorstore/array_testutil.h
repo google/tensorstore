@@ -18,20 +18,28 @@
 /// \file
 /// Define a GMock matcher for `tensorstore::Array`.
 
+#include <cstddef>
+#include <ostream>
 #include <string>
+#include <vector>
 
 #include <gmock/gmock.h>
+#include <gtest/gtest.h>
 #include "tensorstore/array.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/index.h"
+#include "tensorstore/static_cast.h"
 #include "tensorstore/util/iterate_over_index_range.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 
 namespace internal_array {
 template <typename Element>
-class ArrayMatcherImpl
+class ArrayElementMatcherImpl
     : public ::testing::MatcherInterface<OffsetArrayView<const void>> {
  public:
-  ArrayMatcherImpl(
+  ArrayElementMatcherImpl(
       SharedOffsetArray<const ::testing::Matcher<Element>> element_matchers)
       : element_matchers_(std::move(element_matchers)) {}
 
@@ -130,9 +138,20 @@ class ArrayMatcherImpl
  private:
   SharedOffsetArray<const ::testing::Matcher<Element>> element_matchers_;
 };
+
 }  // namespace internal_array
 
 using ArrayMatcher = ::testing::Matcher<OffsetArrayView<const void>>;
+
+/// Returns a GMock matcher that matches `expected` according to
+/// `comparison_kind`.
+ArrayMatcher MatchesArray(
+    SharedOffsetArray<const void> expected,
+    EqualityComparisonKind comparison_kind = EqualityComparisonKind::equal);
+inline ArrayMatcher MatchesArrayIdentically(
+    SharedOffsetArray<const void> expected) {
+  return MatchesArray(std::move(expected), EqualityComparisonKind::identical);
+}
 
 /// Returns a GMock matcher that matches arrays with a domain of
 /// `matcher_array.domain()` and where each element matches the corresponding
@@ -141,7 +160,8 @@ template <typename Element>
 ArrayMatcher MatchesArray(
     SharedOffsetArray<const ::testing::Matcher<Element>> matcher_array) {
   return ::testing::MakeMatcher(
-      new internal_array::ArrayMatcherImpl<Element>(std::move(matcher_array)));
+      new internal_array::ArrayElementMatcherImpl<Element>(
+          std::move(matcher_array)));
 }
 
 /// Returns a GMock matcher that matches a rank-0 array whose single element

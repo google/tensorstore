@@ -102,25 +102,25 @@ absl::Status ApplyOptions(DriverSpec::Ptr& spec, SpecOptions&& options) {
 }
 
 namespace {
-absl::Status MaybeDeriveTransform(TransformedDriverSpec& spec) {
-  TENSORSTORE_ASSIGN_OR_RETURN(auto domain, spec.driver_spec->GetDomain());
+absl::Status MaybeDeriveTransform(DriverSpec::Ptr& driver_spec,
+                                  IndexTransform<>& transform) {
+  TENSORSTORE_ASSIGN_OR_RETURN(auto domain, driver_spec->GetDomain());
   if (domain.valid()) {
-    spec.transform = IdentityTransform(domain);
+    transform = IdentityTransform(domain);
   }
   return absl::OkStatus();
 }
 }  // namespace
 
-absl::Status TransformAndApplyOptions(TransformedDriverSpec& spec,
+absl::Status TransformAndApplyOptions(DriverSpec::Ptr& driver_spec,
+                                      IndexTransform<>& transform,
                                       SpecOptions&& options) {
   const bool should_get_transform =
-      !spec.transform.valid() && options.domain().valid();
-  TENSORSTORE_RETURN_IF_ERROR(
-      options.TransformInputSpaceSchema(spec.transform));
-  TENSORSTORE_RETURN_IF_ERROR(
-      ApplyOptions(spec.driver_spec, std::move(options)));
+      !transform.valid() && options.domain().valid();
+  TENSORSTORE_RETURN_IF_ERROR(options.TransformInputSpaceSchema(transform));
+  TENSORSTORE_RETURN_IF_ERROR(ApplyOptions(driver_spec, std::move(options)));
   if (should_get_transform) {
-    TENSORSTORE_RETURN_IF_ERROR(MaybeDeriveTransform(spec));
+    TENSORSTORE_RETURN_IF_ERROR(MaybeDeriveTransform(driver_spec, transform));
   }
   return absl::OkStatus();
 }
@@ -307,7 +307,7 @@ TENSORSTORE_DEFINE_JSON_BINDER(
                          registry.RegisteredObjectBinder()),
           jb::Initialize([](auto* obj) {
             if (obj->transform.valid()) return absl::OkStatus();
-            return MaybeDeriveTransform(*obj);
+            return MaybeDeriveTransform(obj->driver_spec, obj->transform);
           })))(is_loading, options, obj, j);
     })
 

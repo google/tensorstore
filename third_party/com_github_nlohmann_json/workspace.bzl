@@ -23,7 +23,7 @@ def repo():
             "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/nlohmann/json/releases/download/v3.10.5/include.zip",
         ],
         sha256 = "b94997df68856753b72f0d7a3703b7d484d4745c567f3584ef97c96c25a5798e",
-        build_file = Label("//third_party:com_github_nlohmann_json/bundled.BUILD.bazel"),
+        build_file = Label("//third_party:com_github_nlohmann_json/nlohmann_json.BUILD.bazel"),
         system_build_file = Label("//third_party:com_github_nlohmann_json/system.BUILD.bazel"),
         # documentation-only
         doc_name = "nlohmann/json",

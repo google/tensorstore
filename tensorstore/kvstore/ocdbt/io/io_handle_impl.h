@@ -31,7 +31,7 @@ namespace internal_ocdbt {
 IoHandle::Ptr MakeIoHandle(
     const Context::Resource<tensorstore::internal::DataCopyConcurrencyResource>&
         data_copy_concurrency,
-    internal::CachePool& cache_pool, const KvStore& base_kvstore,
+    internal::CachePool* cache_pool, const KvStore& base_kvstore,
     ConfigStatePtr config_state,
     std::optional<int64_t> max_read_coalescing_overhead_bytes_per_request =
         std::nullopt,

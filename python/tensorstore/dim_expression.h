@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef THIRD_PARTY_PY_TENSORSTORE_DIM_EXPRESSION_H_
-#define THIRD_PARTY_PY_TENSORSTORE_DIM_EXPRESSION_H_
+#ifndef PYTHON_TENSORSTORE_DIM_EXPRESSION_H_
+#define PYTHON_TENSORSTORE_DIM_EXPRESSION_H_
 
 /// \file Defines the `tensorstore.d` object which supports the
 /// `tensorstore.d[...].op0...opN` syntax for specifying a Python "dimension
@@ -581,4 +581,4 @@ struct type_caster<tensorstore::DimRangeSpec> {
 }  // namespace detail
 }  // namespace pybind11
 
-#endif  // THIRD_PARTY_PY_TENSORSTORE_DIM_EXPRESSION_H_
+#endif  // PYTHON_TENSORSTORE_DIM_EXPRESSION_H_

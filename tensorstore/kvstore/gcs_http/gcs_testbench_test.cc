@@ -14,15 +14,21 @@
 
 #include "tensorstore/kvstore/gcs/gcs_testbench.h"
 
-#include <optional>
+#include <stddef.h>
+
+#include <cstring>
 #include <string>
+#include <vector>
 
 #include <gtest/gtest.h>
+#include "absl/base/call_once.h"
+#include "absl/log/absl_check.h"
+#include "absl/log/absl_log.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "tensorstore/internal/env.h"
-#include "tensorstore/internal/http/transport_test_utils.h"
 #include "tensorstore/internal/no_destructor.h"
-#include "tensorstore/internal/thread.h"
+#include "tensorstore/internal/thread/thread.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
@@ -32,6 +38,7 @@
 #include "tensorstore/util/status_testutil.h"
 
 namespace kvstore = ::tensorstore::kvstore;
+
 using ::gcs_testbench::StorageTestbench;
 using ::tensorstore::KvStore;
 using ::tensorstore::StorageGeneration;
@@ -43,21 +50,28 @@ namespace {
 
 StorageTestbench& GetTestBench() {
   static NoDestructor<StorageTestbench> testbench;
-  testbench->SpawnProcess();
-  static std::string http_address = testbench->http_address();
-  ::tensorstore::internal::SetEnv("TENSORSTORE_GCS_HTTP_URL",
-                                  http_address.c_str());
-  ::tensorstore::internal::SetEnv("GOOGLE_AUTH_TOKEN_FOR_TESTING", "abc");
 
-  ABSL_LOG(INFO) << "Using " << http_address;
+  static absl::once_flag init_once;
+  absl::call_once(init_once, [&]() {
+    testbench->SpawnProcess();
+    static std::string http_address = testbench->http_address();
+    ::tensorstore::internal::SetEnv("TENSORSTORE_GCS_HTTP_URL",
+                                    http_address.c_str());
+    ::tensorstore::internal::SetEnv("GOOGLE_AUTH_TOKEN_FOR_TESTING", "abc");
+
+    ABSL_LOG(INFO) << "Using " << http_address;
+    ABSL_LOG(INFO) << "Creating bucket: "
+                   << StorageTestbench::CreateBucket(testbench->grpc_address(),
+                                                     "test_bucket");
+  });
+
   return *testbench;
 }
 
 class GcsTestbenchTest : public testing::Test {
  public:
   tensorstore::KvStore OpenStore(std::string path = "") {
-    auto& testbench = GetTestBench();
-    testbench.CreateBucket("test_bucket");
+    GetTestBench();
     return kvstore::Open(
                {{"driver", "gcs"}, {"bucket", "test_bucket"}, {"path", path}})
         .value();
@@ -66,7 +80,7 @@ class GcsTestbenchTest : public testing::Test {
 
 TEST_F(GcsTestbenchTest, Basic) {
   auto store = OpenStore();
-  tensorstore::internal::TestKeyValueStoreBasicFunctionality(store);
+  tensorstore::internal::TestKeyValueReadWriteOps(store);
 }
 
 TEST_F(GcsTestbenchTest, DeletePrefix) {
@@ -128,66 +142,86 @@ TEST_F(GcsTestbenchTest, CancellationDoesNotCrash) {
   }
 }
 
+struct ConcurrentWriteFn {
+  static constexpr char kKey[] = "test";
+  static constexpr size_t kNumIterations = 0x3f;
+
+  const size_t offset;
+  mutable std::string value;
+  mutable StorageGeneration generation;
+  tensorstore::KvStore store;
+
+  void operator()() const {
+    bool read = false;
+    for (size_t i = 0; i < kNumIterations; /**/) {
+      if (read) {
+        auto read_result = kvstore::Read(store, kKey).result();
+        ABSL_CHECK_OK(read_result.status());
+        ABSL_CHECK(!read_result->aborted());
+        ABSL_CHECK(!read_result->not_found());
+        ABSL_CHECK_EQ(read_result->value.size(), value.size());
+        value = std::string(read_result->value);
+        generation = read_result->stamp.generation;
+      }
+
+      size_t x;
+      std::memcpy(&x, &value[offset], sizeof(size_t));
+      ABSL_CHECK_EQ(i, x);
+      std::string new_value = value;
+      x = i + 1;
+      std::memcpy(&new_value[offset], &x, sizeof(size_t));
+      TENSORSTORE_CHECK_OK_AND_ASSIGN(
+          auto write_result,
+          kvstore::Write(store, kKey, absl::Cord(new_value), {generation})
+              .result());
+      if (!StorageGeneration::IsUnknown(write_result.generation)) {
+        generation = write_result.generation;
+        value = new_value;
+        i = x;
+        read = false;
+      } else {
+        read = true;
+      }
+    }
+  }
+};
+
 // On windows, this concurrent test is flaky when used against the gcs
 // storage-testbench.
 TEST_F(GcsTestbenchTest, ConcurrentWrites) {
-  constexpr std::size_t num_threads = 4;
+  static constexpr size_t kNumThreads = 4;
+
   std::vector<tensorstore::internal::Thread> threads;
-  threads.reserve(num_threads);
+  threads.reserve(kNumThreads);
 
   auto store = OpenStore("concurrent_writes/");
-  std::string key = "test";
   std::string initial_value;
-  initial_value.resize(sizeof(std::size_t) * num_threads);
-  auto initial_generation =
-      kvstore::Write(store, key, absl::Cord(initial_value)).value().generation;
-  constexpr std::size_t num_iterations = 100;
-  for (std::size_t thread_i = 0; thread_i < num_threads; ++thread_i) {
-    threads.emplace_back(
-        tensorstore::internal::Thread({"concurrent_write"}, [&, thread_i] {
-          StorageGeneration generation = initial_generation;
-          std::string value = initial_value;
-          for (std::size_t i = 0; i < num_iterations; ++i) {
-            const std::size_t value_offset = sizeof(std::size_t) * thread_i;
-            while (true) {
-              std::size_t x;
-              std::memcpy(&x, &value[value_offset], sizeof(std::size_t));
-              ASSERT_EQ(i, x);
-              std::string new_value = value;
-              x = i + 1;
-              std::memcpy(&new_value[value_offset], &x, sizeof(std::size_t));
-              TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-                  auto write_result,
-                  kvstore::Write(store, key, absl::Cord(new_value),
-                                 {generation})
-                      .result());
-              if (!StorageGeneration::IsUnknown(write_result.generation)) {
-                generation = write_result.generation;
-                value = new_value;
-                break;
-              }
-              TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-                  auto read_result, kvstore::Read(store, key).result());
-              ASSERT_FALSE(read_result.aborted() || read_result.not_found());
-              value = std::string(read_result.value);
-              ASSERT_EQ(sizeof(std::size_t) * num_threads, value.size());
-              generation = read_result.stamp.generation;
-            }
-          }
-        }));
+  initial_value.resize(sizeof(size_t) * kNumThreads);
+  StorageGeneration initial_generation =
+      kvstore::Write(store, ConcurrentWriteFn::kKey, absl::Cord(initial_value))
+          .value()
+          .generation;
+
+  for (size_t thread_i = 0; thread_i < kNumThreads; ++thread_i) {
+    threads.emplace_back(tensorstore::internal::Thread(
+        {"concurrent_write"},
+        ConcurrentWriteFn{thread_i * sizeof(size_t), initial_value,
+                          initial_generation, store}));
   }
   for (auto& t : threads) t.Join();
+
+  // Verify the output.
   {
-    auto read_result = kvstore::Read(store, key).result();
-    ASSERT_TRUE(read_result);
-    std::string expected_value;
-    expected_value.resize(sizeof(std::size_t) * num_threads);
-    {
-      std::vector<std::size_t> expected_nums(num_threads, num_iterations);
-      std::memcpy(const_cast<char*>(expected_value.data()),
-                  expected_nums.data(), expected_value.size());
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto read_result,
+        kvstore::Read(store, ConcurrentWriteFn::kKey).result());
+    ASSERT_FALSE(read_result.aborted() || read_result.not_found());
+    auto value = std::string(read_result.value);
+    for (size_t thread_i = 0; thread_i < kNumThreads; ++thread_i) {
+      size_t x = 0;
+      std::memcpy(&x, &value[thread_i * sizeof(size_t)], sizeof(size_t));
+      EXPECT_EQ(x, ConcurrentWriteFn::kNumIterations) << thread_i;
     }
-    EXPECT_EQ(expected_value, read_result->value);
   }
 }
 

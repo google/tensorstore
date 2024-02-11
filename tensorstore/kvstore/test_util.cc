@@ -14,29 +14,34 @@
 
 #include "tensorstore/kvstore/test_util.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
+#include <array>
 #include <cassert>
 #include <map>
 #include <optional>
 #include <string>
 #include <string_view>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/functional/function_ref.h"
+#include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/match.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/synchronization/notification.h"
+#include "absl/time/clock.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
-#include "tensorstore/data_type.h"
 #include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/internal/json_gtest.h"
-#include "tensorstore/json_serialization_options.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
@@ -45,12 +50,19 @@
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
+#include "tensorstore/kvstore/read_result_testutil.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/transaction.h"
+#include "tensorstore/open_mode.h"
+#include "tensorstore/serialization/test_util.h"
+#include "tensorstore/transaction.h"
+#include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender_testutil.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -61,18 +73,21 @@ namespace {
 using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
 
+static const char kSep[] = "----------------------------------------------\n";
+
 class Cleanup {
  public:
-  Cleanup(KvStore store, std::vector<std::string> objects)
-      : store_(std::move(store)), objects_(std::move(objects)) {
+  Cleanup(KvStore store, std::vector<std::string> keys)
+      : store_(std::move(store)), keys_(std::move(keys)) {
     DoCleanup();
   }
+
   void DoCleanup() {
     // Delete everything that we're going to use before starting.
     // This is helpful if, for instance, we run against a persistent
     // service and the test crashed half-way through last time.
     ABSL_LOG(INFO) << "Cleanup";
-    for (const auto& to_remove : objects_) {
+    for (const auto& to_remove : keys_) {
       TENSORSTORE_CHECK_OK(kvstore::Delete(store_, to_remove).result());
     }
   }
@@ -81,7 +96,7 @@ class Cleanup {
 
  private:
   KvStore store_;
-  std::vector<std::string> objects_;
+  std::vector<std::string> keys_;
 };
 
 StorageGeneration GetStorageGeneration(const KvStore& store, std::string key) {
@@ -95,135 +110,438 @@ StorageGeneration GetStorageGeneration(const KvStore& store, std::string key) {
 
 // Return a highly-improbable storage generation
 StorageGeneration GetMismatchStorageGeneration(const KvStore& store) {
+  const auto& url_result = store.ToUrl();
+
+  if (url_result.ok() && absl::StrContains(url_result.value(), "s3://")) {
+    return StorageGeneration::FromString("\"abcdef1234567890\"");
+  }
+
   // Use a single uint64_t storage generation here for GCS compatibility.
   // Also, the generation looks like a nanosecond timestamp.
   return StorageGeneration::FromValues(uint64_t{/*3.*/ 1415926535897932});
 }
 
-void TestKeyValueStoreUnconditionalOps(
-    const KvStore& store,
-    absl::FunctionRef<std::string(std::string key)> get_key) {
-  const auto key = get_key("test");
-  Cleanup cleanup(store, {key});
-  const absl::Cord value("1234");
+void TestKeyValueStoreWriteOps(const KvStore& store,
+                               std::array<std::string, 3> key,
+                               absl::Cord expected_value,
+                               absl::Cord other_value) {
+  SCOPED_TRACE("TestKeyValueStoreWriteOps");
+  ABSL_CHECK(expected_value.size() > 3);
 
-  // Test unconditional read of missing key.
-  ABSL_LOG(INFO) << "Test unconditional read of missing key";
-  EXPECT_THAT(kvstore::Read(store, key).result(),
+  Cleanup cleanup(store, {key.begin(), key.end()});
+
+  const StorageGeneration mismatch = GetMismatchStorageGeneration(store);
+
+  // The key should not be found.
+  ASSERT_THAT(kvstore::Read(store, key[0]).result(),
               MatchesKvsReadResultNotFound());
 
   // Test unconditional write of empty value.
   {
-    ABSL_LOG(INFO) << "Test unconditional write of empty value";
-    auto write_result = kvstore::Write(store, key, absl::Cord()).result();
+    ABSL_LOG(INFO) << kSep << "Test unconditional write of empty value";
+    auto write_result = kvstore::Write(store, key[0], absl::Cord()).result();
     ASSERT_THAT(write_result, MatchesRegularTimestampedStorageGeneration());
 
     // Test unconditional read.
-    ABSL_LOG(INFO) << "Test unconditional read of empty value";
-    EXPECT_THAT(kvstore::Read(store, key).result(),
+    ABSL_LOG(INFO) << kSep << "Test unconditional read of empty value";
+    EXPECT_THAT(kvstore::Read(store, key[0]).result(),
                 MatchesKvsReadResult(absl::Cord(), write_result->generation));
   }
 
   // Test unconditional write.
-  ABSL_LOG(INFO) << "Test unconditional write of non-empty value";
-  auto write_result = kvstore::Write(store, key, value).result();
-  ASSERT_THAT(write_result, MatchesRegularTimestampedStorageGeneration());
+  {
+    ABSL_LOG(INFO) << kSep << "Test unconditional write";
+    auto write_result = kvstore::Write(store, key[0], expected_value).result();
+    ASSERT_THAT(write_result, MatchesRegularTimestampedStorageGeneration());
 
-  // Test unconditional read.
-  ABSL_LOG(INFO) << "Test unconditional read of non-empty value";
+    // Verify unconditional read.
+    ABSL_LOG(INFO) << kSep << "Test unconditional read";
+    EXPECT_THAT(kvstore::Read(store, key[0]).result(),
+                MatchesKvsReadResult(expected_value, write_result->generation));
+
+    // Verify unconditional byte range read.
+    kvstore::ReadOptions options;
+    options.byte_range.inclusive_min = 1;
+    options.byte_range.exclusive_max = 3;
+    EXPECT_THAT(kvstore::Read(store, key[0], options).result(),
+                MatchesKvsReadResult(expected_value.Subcord(1, 2),
+                                     write_result->generation));
+  }
+
+  // Test unconditional delete.
+  ABSL_LOG(INFO) << kSep << "Test unconditional delete";
+  EXPECT_THAT(kvstore::Delete(store, key[0]).result(),
+              MatchesKnownTimestampedStorageGeneration());
+
+  // Verify that read reflects deletion.
+  EXPECT_THAT(kvstore::Read(store, key[0]).result(),
+              MatchesKvsReadResultNotFound());
+
+  ABSL_LOG(INFO) << kSep << "Test conditional write, non-existent key";
+  EXPECT_THAT(
+      kvstore::Write(store, key[1], expected_value, {mismatch}).result(),
+      MatchesTimestampedStorageGeneration(StorageGeneration::Unknown()));
+
+  ABSL_LOG(INFO) << kSep << "Test conditional write, mismatched generation";
+  auto write2 = kvstore::Write(store, key[1], other_value).result();
+  ASSERT_THAT(write2,
+              ::testing::AllOf(MatchesRegularTimestampedStorageGeneration(),
+                               MatchesTimestampedStorageGeneration(
+                                   ::testing::Not(mismatch))));
+
+  EXPECT_THAT(
+      kvstore::Write(store, key[1], expected_value, {mismatch}).result(),
+      MatchesTimestampedStorageGeneration(StorageGeneration::Unknown()));
+
+  ABSL_LOG(INFO) << kSep << "Test conditional write, matching generation "
+                 << write2->generation;
+  {
+    auto write_conditional =
+        kvstore::Write(store, key[1], expected_value, {write2->generation})
+            .result();
+    ASSERT_THAT(write_conditional,
+                MatchesRegularTimestampedStorageGeneration());
+
+    // Read has the correct data.
+    EXPECT_THAT(
+        kvstore::Read(store, key[1]).result(),
+        MatchesKvsReadResult(expected_value, write_conditional->generation));
+  }
+
+  ABSL_LOG(INFO)
+      << kSep
+      << "Test conditional write, existing key, StorageGeneration::NoValue";
+  EXPECT_THAT(
+      kvstore::Write(store, key[1], expected_value,
+                     {StorageGeneration::NoValue()})
+          .result(),
+      MatchesTimestampedStorageGeneration(StorageGeneration::Unknown()));
+
+  ABSL_LOG(INFO)
+      << kSep
+      << "Test conditional write, non-existent key StorageGeneration::NoValue";
+  {
+    auto write_conditional = kvstore::Write(store, key[2], expected_value,
+                                            {StorageGeneration::NoValue()})
+                                 .result();
+
+    ASSERT_THAT(write_conditional,
+                MatchesRegularTimestampedStorageGeneration());
+
+    // Read has the correct data.
+    EXPECT_THAT(
+        kvstore::Read(store, key[2]).result(),
+        MatchesKvsReadResult(expected_value, write_conditional->generation));
+  }
+}
+
+void TestKeyValueStoreDeleteOps(const KvStore& store,
+                                std::array<std::string, 4> key,
+                                absl::Cord expected_value) {
+  SCOPED_TRACE("TestKeyValueStoreDeleteOps");
+  Cleanup cleanup(store, {key.begin(), key.end()});
+
+  // Mismatch should not match any other generation.
+  const StorageGeneration mismatch = GetMismatchStorageGeneration(store);
+
+  // Create an existing key.
+  StorageGeneration last_generation;
+  for (const auto& name : {key[3], key[1]}) {
+    auto write_result = kvstore::Write(store, name, expected_value).result();
+    ASSERT_THAT(write_result, MatchesRegularTimestampedStorageGeneration());
+    last_generation = std::move(write_result->generation);
+  }
+
+  ASSERT_NE(last_generation, mismatch);
+  EXPECT_THAT(kvstore::Read(store, key[1]).result(),
+              MatchesKvsReadResult(expected_value));
+  EXPECT_THAT(kvstore::Read(store, key[3]).result(),
+              MatchesKvsReadResult(expected_value));
+
+  ABSL_LOG(INFO) << kSep << "Test conditional delete, non-existent key";
+  EXPECT_THAT(
+      kvstore::Delete(store, key[0], {mismatch}).result(),
+      MatchesTimestampedStorageGeneration(StorageGeneration::Unknown()));
+  EXPECT_THAT(kvstore::Read(store, key[1]).result(),
+              MatchesKvsReadResult(expected_value));
+  EXPECT_THAT(kvstore::Read(store, key[3]).result(),
+              MatchesKvsReadResult(expected_value));
+
+  ABSL_LOG(INFO) << kSep << "Test conditional delete, mismatched generation";
+  EXPECT_THAT(
+      kvstore::Delete(store, key[1], {mismatch}).result(),
+      MatchesTimestampedStorageGeneration(StorageGeneration::Unknown()));
+  EXPECT_THAT(kvstore::Read(store, key[1]).result(),
+              MatchesKvsReadResult(expected_value));
+  EXPECT_THAT(kvstore::Read(store, key[3]).result(),
+              MatchesKvsReadResult(expected_value));
+
+  ABSL_LOG(INFO) << kSep << "Test conditional delete, matching generation";
+  ASSERT_THAT(kvstore::Delete(store, key[1], {last_generation}).result(),
+              MatchesKnownTimestampedStorageGeneration());
+
+  // Verify that read reflects deletion.
+  EXPECT_THAT(kvstore::Read(store, key[1]).result(),
+              MatchesKvsReadResultNotFound());
+  EXPECT_THAT(kvstore::Read(store, key[3]).result(),
+              MatchesKvsReadResult(expected_value));
+
+  ABSL_LOG(INFO)
+      << kSep
+      << "Test conditional delete, non-existent key StorageGeneration::NoValue";
+  EXPECT_THAT(
+      kvstore::Delete(store, key[2], {StorageGeneration::NoValue()}).result(),
+      MatchesKnownTimestampedStorageGeneration());
+
+  ABSL_LOG(INFO)
+      << kSep
+      << "Test conditional delete, existing key, StorageGeneration::NoValue";
+  EXPECT_THAT(kvstore::Read(store, key[1]).result(),
+              MatchesKvsReadResultNotFound());
+  EXPECT_THAT(kvstore::Read(store, key[3]).result(),
+              MatchesKvsReadResult(expected_value));
+  EXPECT_THAT(
+      kvstore::Delete(store, key[3], {StorageGeneration::NoValue()}).result(),
+      MatchesTimestampedStorageGeneration(StorageGeneration::Unknown()));
+
+  ABSL_LOG(INFO) << kSep << "Test conditional delete, matching generation";
+  {
+    auto gen = GetStorageGeneration(store, key[3]);
+    EXPECT_THAT(kvstore::Delete(store, key[3], {gen}).result(),
+                MatchesKnownTimestampedStorageGeneration());
+
+    // Verify that read reflects deletion.
+    EXPECT_THAT(kvstore::Read(store, key[3]).result(),
+                MatchesKvsReadResultNotFound());
+  }
+}
+
+void TestKeyValueStoreStalenessBoundOps(const KvStore& store, std::string key,
+                                        absl::Cord value1, absl::Cord value2) {
+  SCOPED_TRACE("TestKeyValueStoreStalenessBoundOps");
+  Cleanup cleanup(store, {key});
+
+  kvstore::ReadOptions read_options;
+  read_options.staleness_bound = absl::Now();
+
+  // Test read of missing key
+  ABSL_LOG(INFO) << kSep << "Test staleness_bound read of missing key";
+  EXPECT_THAT(kvstore::Read(store, key, read_options).result(),
+              MatchesKvsReadResultNotFound());
+
+  auto write_result1 = kvstore::Write(store, key, value1).result();
+  ASSERT_THAT(write_result1, MatchesRegularTimestampedStorageGeneration());
+
+  // kvstore currently are not expected to cache missing values, even with
+  // staleness_bound, however neuroglancer_uint64_sharded_test does.
+  ABSL_LOG(INFO) << kSep << "Test staleness_bound read: value1";
+  EXPECT_THAT(
+      kvstore::Read(store, key, read_options).result(),
+      testing::AnyOf(MatchesKvsReadResultNotFound(),
+                     MatchesKvsReadResult(value1, write_result1->generation)));
+
+  // Updating staleness_bound should guarantee a read.
+  read_options.staleness_bound = absl::Now();
+
+  ABSL_LOG(INFO) << kSep << "Test unconditional read: value1";
   EXPECT_THAT(kvstore::Read(store, key).result(),
-              MatchesKvsReadResult(value, write_result->generation));
+              MatchesKvsReadResult(value1, write_result1->generation));
 
-  // Test unconditional byte range read.
-  ABSL_LOG(INFO) << "Test unconditional byte range read";
+  // Generally same-host writes should invalidate staleness_bound in a kvstore.
+  auto write_result2 = kvstore::Write(store, key, value2).result();
+  ASSERT_THAT(write_result2, MatchesRegularTimestampedStorageGeneration());
+
+  // However allow either version to satisfy this test.
+  ABSL_LOG(INFO) << kSep << "Test staleness_bound read: value2";
+  EXPECT_THAT(kvstore::Read(store, key, read_options).result(),
+              ::testing::AnyOf(
+                  MatchesKvsReadResult(value1, write_result1->generation),
+                  MatchesKvsReadResult(value2, write_result2->generation)));
+}
+
+}  // namespace
+
+void TestKeyValueStoreReadOps(const KvStore& store, std::string key,
+                              absl::Cord expected_value,
+                              std::string missing_key) {
+  SCOPED_TRACE("TestKeyValueStoreReadOps");
+  ABSL_CHECK(expected_value.size() > 3);
+  ABSL_CHECK(!key.empty());
+  ABSL_CHECK(!missing_key.empty());
+  ABSL_CHECK(key != missing_key);
+
+  StorageGeneration mismatch_generation = GetMismatchStorageGeneration(store);
+
+  ABSL_LOG(INFO) << kSep << "Test unconditional read of key";
+  auto read_result = kvstore::Read(store, key).result();
+  EXPECT_THAT(read_result, MatchesKvsReadResult(expected_value, testing::_));
+
+  ABSL_LOG(INFO) << kSep << "Test unconditional suffix read [1 ..]";
   {
     kvstore::ReadOptions options;
     options.byte_range.inclusive_min = 1;
-    EXPECT_THAT(
-        kvstore::Read(store, key, options).result(),
-        MatchesKvsReadResult(absl::Cord("234"), write_result->generation));
+    EXPECT_THAT(kvstore::Read(store, key, options).result(),
+                MatchesKvsReadResult(
+                    expected_value.Subcord(1, expected_value.size() - 1),
+                    read_result->stamp.generation));
   }
 
-  // Test unconditional byte range read with suffix length.
-  ABSL_LOG(INFO) << "Test unconditional byte range read with suffix length";
+  ABSL_LOG(INFO) << kSep << "Test unconditional suffix length read [.. -1]";
   {
     kvstore::ReadOptions options;
     options.byte_range.inclusive_min = -1;
-    EXPECT_THAT(
-        kvstore::Read(store, key, options).result(),
-        MatchesKvsReadResult(absl::Cord("4"), write_result->generation));
+    EXPECT_THAT(kvstore::Read(store, key, options).result(),
+                MatchesKvsReadResult(
+                    expected_value.Subcord(expected_value.size() - 1, 1),
+                    read_result->stamp.generation));
   }
 
-  // Test unconditional byte range read.
-  ABSL_LOG(INFO) << "Test unconditional byte range read with exclusive_max";
+  ABSL_LOG(INFO) << kSep << "Test unconditional range read [1 .. 3]";
   {
     kvstore::ReadOptions options;
     options.byte_range.inclusive_min = 1;
     options.byte_range.exclusive_max = 3;
-    EXPECT_THAT(
-        kvstore::Read(store, key, options).result(),
-        MatchesKvsReadResult(absl::Cord("23"), write_result->generation));
+    EXPECT_THAT(kvstore::Read(store, key, options).result(),
+                MatchesKvsReadResult(expected_value.Subcord(1, 2),
+                                     read_result->stamp.generation));
   }
 
-  // Test unconditional byte range read.
-  ABSL_LOG(INFO) << "Test unconditional byte range read with size 0";
+  ABSL_LOG(INFO) << kSep << "Test unconditional range read [1 .. 1], size 0";
   {
     kvstore::ReadOptions options;
     options.byte_range.inclusive_min = 1;
     options.byte_range.exclusive_max = 1;
-    EXPECT_THAT(kvstore::Read(store, key, options).result(),
-                MatchesKvsReadResult(absl::Cord(""), write_result->generation));
+    EXPECT_THAT(
+        kvstore::Read(store, key, options).result(),
+        MatchesKvsReadResult(absl::Cord(), read_result->stamp.generation));
   }
 
-  ABSL_LOG(INFO) << "Test unconditional byte range read, min too large";
+  ABSL_LOG(INFO) << kSep << "Test unconditional suffix read, min too large";
   {
     kvstore::ReadOptions options;
-    options.byte_range.inclusive_min = 10;
-    options.byte_range.exclusive_max = 11;
+    options.byte_range.inclusive_min = expected_value.size() + 1;
     EXPECT_THAT(kvstore::Read(store, key, options).result(),
                 testing::AnyOf(MatchesStatus(absl::StatusCode::kOutOfRange)));
   }
 
-  ABSL_LOG(INFO)
-      << "Test unconditional byte range read, max exceeds value size";
+  ABSL_LOG(INFO) << kSep
+                 << "Test unconditional range read, max exceeds value size";
   {
     kvstore::ReadOptions options;
     options.byte_range.inclusive_min = 1;
-    options.byte_range.exclusive_max = 10;
+    options.byte_range.exclusive_max = expected_value.size() + 1;
     EXPECT_THAT(kvstore::Read(store, key, options).result(),
                 MatchesStatus(absl::StatusCode::kOutOfRange));
   }
 
-  // Test unconditional delete.
-  ABSL_LOG(INFO) << "Test unconditional delete";
-  EXPECT_THAT(kvstore::Delete(store, key).result(),
-              MatchesKnownTimestampedStorageGeneration());
+  // --------------------------------------------------------------------
+  ABSL_LOG(INFO) << kSep << "... Conditional read of existing values.";
 
-  // Verify that read reflects deletion.
-  EXPECT_THAT(kvstore::Read(store, key).result(),
-              MatchesKvsReadResultNotFound());
-}
+  // if_not_equal tests
+  ABSL_LOG(INFO) << kSep << "Test conditional read, if_not_equal matching "
+                 << read_result->stamp.generation;
+  {
+    kvstore::ReadOptions options;
+    options.if_not_equal = read_result->stamp.generation;
+    EXPECT_THAT(kvstore::Read(store, key, options).result(),
+                MatchesKvsReadResultAborted());
+  }
 
-void TestKeyValueStoreConditionalReadOps(
-    const KvStore& store,
-    absl::FunctionRef<std::string(std::string key)> get_key) {
-  const auto missing_key = get_key("test1a");
-  const StorageGeneration mismatch = GetMismatchStorageGeneration(store);
-  ABSL_LOG(INFO) << "... Conditional read of missing values.";
+  ABSL_LOG(INFO) << kSep << "Test conditional read, if_not_equal mismatched";
+  {
+    kvstore::ReadOptions options;
+    options.if_not_equal = mismatch_generation;
+    EXPECT_THAT(
+        kvstore::Read(store, key, options).result(),
+        MatchesKvsReadResult(expected_value, read_result->stamp.generation));
+  }
 
   ABSL_LOG(INFO)
-      << "Test conditional read, matching if_equal=StorageGeneration::NoValue";
+      << kSep
+      << "Test conditional read, if_not_equal=StorageGeneration::NoValue";
+  {
+    kvstore::ReadOptions options;
+    options.if_not_equal = StorageGeneration::NoValue();
+    EXPECT_THAT(
+        kvstore::Read(store, key, options).result(),
+        MatchesKvsReadResult(expected_value, read_result->stamp.generation));
+  }
+
+  /// if_equal tests
+  ABSL_LOG(INFO) << kSep << "Test conditional read, if_equal matching "
+                 << read_result->stamp.generation;
+  {
+    kvstore::ReadOptions options;
+    options.if_equal = read_result->stamp.generation;
+    EXPECT_THAT(
+        kvstore::Read(store, key, options).result(),
+        MatchesKvsReadResult(expected_value, read_result->stamp.generation));
+  }
+
+  ABSL_LOG(INFO) << kSep << "Test conditional read, if_equal mismatched";
+  {
+    kvstore::ReadOptions options;
+    options.if_equal = mismatch_generation;
+    EXPECT_THAT(kvstore::Read(store, key, options).result(),
+                MatchesKvsReadResultAborted());
+  }
+
+  ABSL_LOG(INFO) << kSep
+                 << "Test conditional read, mismatched "
+                    "if_equal=StorageGeneration::NoValue";
   {
     kvstore::ReadOptions options;
     options.if_equal = StorageGeneration::NoValue();
+    EXPECT_THAT(kvstore::Read(store, key, options).result(),
+                MatchesKvsReadResultAborted());
+  }
+
+  ABSL_LOG(INFO) << kSep << "Test staleness_bound read of key";
+  {
+    // This should force a re-read.
+    kvstore::ReadOptions read_options;
+    read_options.staleness_bound = absl::Now();
+
+    auto result = kvstore::Read(store, key, read_options).result();
+    EXPECT_THAT(result, MatchesKvsReadResult(expected_value,
+                                             read_result->stamp.generation));
+    EXPECT_THAT(result->stamp.time, testing::Gt(read_result->stamp.time));
+  }
+
+  // NOTE: Add tests for both if_equal and if_not_equal set.
+
+  // --------------------------------------------------------------------
+  // Now test similar ops for missing keys.
+  ABSL_LOG(INFO) << kSep << "Test unconditional read of missing key";
+  EXPECT_THAT(kvstore::Read(store, missing_key).result(),
+              MatchesKvsReadResultNotFound());
+
+  ABSL_LOG(INFO) << kSep << "Test staleness_bound read of missing key";
+  {
+    kvstore::ReadOptions read_options;
+    read_options.staleness_bound = absl::Now();
+
+    // Test read of missing key
+    EXPECT_THAT(kvstore::Read(store, missing_key, read_options).result(),
+                MatchesKvsReadResultNotFound());
+  }
+
+  if (/* DISABLE*/ (false)) {
+    // neuroglancer_uint64_sharded_test caches missing results.
+    ABSL_LOG(INFO) << kSep
+                   << "Test conditional read, matching "
+                      "if_equal=StorageGeneration::NoValue";
+    kvstore::ReadOptions options;
+    options.if_equal = StorageGeneration::NoValue();
+    options.staleness_bound = absl::Now();
     EXPECT_THAT(kvstore::Read(store, missing_key, options).result(),
                 MatchesKvsReadResultNotFound());
   }
 
-  ABSL_LOG(INFO) << "Test conditional read, if_equal mismatch";
+  ABSL_LOG(INFO) << kSep << "Test conditional read, if_equal mismatch";
   {
     kvstore::ReadOptions options;
-    options.if_equal = mismatch;
+    options.if_equal = mismatch_generation;
     EXPECT_THAT(
         kvstore::Read(store, missing_key, options).result(),
         testing::AnyOf(MatchesKvsReadResultNotFound(),   /// Common result
@@ -234,7 +552,8 @@ void TestKeyValueStoreConditionalReadOps(
   // `if_not_equal=StorageGeneration::NoValue()`, which should return
   // `StorageGeneration::NoValue()` even though the `if_not_equal` condition
   // does not hold.
-  ABSL_LOG(INFO) << "Test conditional read, matching "
+  ABSL_LOG(INFO) << kSep
+                 << "Test conditional read, matching "
                     "if_not_equal=StorageGeneration::NoValue";
   {
     kvstore::ReadOptions options;
@@ -243,329 +562,53 @@ void TestKeyValueStoreConditionalReadOps(
                 MatchesKvsReadResultNotFound());
   }
 
-  ABSL_LOG(INFO) << "Test conditional read, if_not_equal mismatch";
+  ABSL_LOG(INFO) << kSep << "Test conditional read, if_not_equal mismatch";
   {
     kvstore::ReadOptions options;
-    options.if_not_equal = mismatch;
+    options.if_not_equal = mismatch_generation;
     EXPECT_THAT(kvstore::Read(store, missing_key, options).result(),
                 MatchesKvsReadResultNotFound());
   }
-
-  ABSL_LOG(INFO) << "... Conditional read of existing values.";
-
-  // Write a value.
-  const absl::Cord value("five by five");
-  const auto key = get_key("test1b");
-  Cleanup cleanup(store, {key});
-
-  // Preconditions for the rest of the function.
-  auto write_result = kvstore::Write(store, key, value).result();
-  ASSERT_THAT(write_result,
-              ::testing::AllOf(MatchesRegularTimestampedStorageGeneration(),
-                               MatchesTimestampedStorageGeneration(
-                                   ::testing::Not(mismatch))));
-
-  // if_not_equal tests
-  ABSL_LOG(INFO) << "Test conditional read, if_not_equal matching "
-                 << write_result->generation;
-  {
-    kvstore::ReadOptions options;
-    options.if_not_equal = write_result->generation;
-    EXPECT_THAT(kvstore::Read(store, key, options).result(),
-                MatchesKvsReadResultAborted());
-  }
-
-  ABSL_LOG(INFO) << "Test conditional read, if_not_equal mismatched";
-  {
-    kvstore::ReadOptions options;
-    options.if_not_equal = mismatch;
-    EXPECT_THAT(kvstore::Read(store, key, options).result(),
-                MatchesKvsReadResult(value, write_result->generation));
-  }
-
-  ABSL_LOG(INFO)
-      << "Test conditional read, if_not_equal=StorageGeneration::NoValue";
-  {
-    kvstore::ReadOptions options;
-    options.if_not_equal = StorageGeneration::NoValue();
-    EXPECT_THAT(kvstore::Read(store, key, options).result(),
-                MatchesKvsReadResult(value, write_result->generation));
-  }
-
-  /// if_equal tests
-  ABSL_LOG(INFO) << "Test conditional read, if_equal matching "
-                 << write_result->generation;
-  {
-    kvstore::ReadOptions options;
-    options.if_equal = write_result->generation;
-    EXPECT_THAT(kvstore::Read(store, key, options).result(),
-                MatchesKvsReadResult(value, write_result->generation));
-  }
-
-  ABSL_LOG(INFO) << "Test conditional read, if_equal mismatched";
-  {
-    kvstore::ReadOptions options;
-    options.if_equal = mismatch;
-    EXPECT_THAT(kvstore::Read(store, key, options).result(),
-                MatchesKvsReadResultAborted());
-  }
-
-  ABSL_LOG(INFO) << "Test conditional read, mismatched "
-                    "if_equal=StorageGeneration::NoValue";
-  {
-    kvstore::ReadOptions options;
-    options.if_equal = StorageGeneration::NoValue();
-    EXPECT_THAT(kvstore::Read(store, key, options).result(),
-                MatchesKvsReadResultAborted());
-  }
-
-  // NOTE: Add tests for both if_equal and if_not_equal set.
 }
 
-void TestKeyValueStoreConditionalWriteOps(
-    const KvStore& store,
-    absl::FunctionRef<std::string(std::string key)> get_key) {
-  const auto key1 = get_key("test2a");
-  const auto key2 = get_key("test2b");
-  const auto key3 = get_key("test2c");
-  Cleanup cleanup(store, {key1, key2, key3});
-
-  // Mismatch should not match any other generation.
-  const StorageGeneration mismatch = GetMismatchStorageGeneration(store);
-  const absl::Cord value("007");
-
-  // Create an existing key.
-  auto write_result = kvstore::Write(store, key2, absl::Cord(".-=-.")).result();
-  ASSERT_THAT(write_result,
-              ::testing::AllOf(MatchesRegularTimestampedStorageGeneration(),
-                               MatchesTimestampedStorageGeneration(
-                                   ::testing::Not(mismatch))));
-
-  ABSL_LOG(INFO) << "Test conditional write, non-existent key";
-  EXPECT_THAT(
-      kvstore::Write(store, key1, value, {mismatch}).result(),
-      MatchesTimestampedStorageGeneration(StorageGeneration::Unknown()));
-
-  ABSL_LOG(INFO) << "Test conditional write, mismatched generation";
-  EXPECT_THAT(
-      kvstore::Write(store, key2, value, {mismatch}).result(),
-      MatchesTimestampedStorageGeneration(StorageGeneration::Unknown()));
-
-  ABSL_LOG(INFO) << "Test conditional write, matching generation "
-                 << write_result->generation;
-  {
-    auto write_conditional =
-        kvstore::Write(store, key2, value, {write_result->generation}).result();
-    ASSERT_THAT(write_conditional,
-                MatchesRegularTimestampedStorageGeneration());
-
-    // Read has the correct data.
-    EXPECT_THAT(kvstore::Read(store, key2).result(),
-                MatchesKvsReadResult(value, write_conditional->generation));
-  }
-
-  ABSL_LOG(INFO)
-      << "Test conditional write, existing key, StorageGeneration::NoValue";
-  EXPECT_THAT(
-      kvstore::Write(store, key2, value, {StorageGeneration::NoValue()})
-          .result(),
-      MatchesTimestampedStorageGeneration(StorageGeneration::Unknown()));
-
-  ABSL_LOG(INFO)
-      << "Test conditional write, non-existent key StorageGeneration::NoValue";
-  {
-    auto write_conditional =
-        kvstore::Write(store, key3, value, {StorageGeneration::NoValue()})
-            .result();
-
-    ASSERT_THAT(write_conditional,
-                MatchesRegularTimestampedStorageGeneration());
-
-    // Read has the correct data.
-    EXPECT_THAT(kvstore::Read(store, key3).result(),
-                MatchesKvsReadResult(value, write_conditional->generation));
-  }
+void TestKeyValueReadWriteOps(const KvStore& store) {
+  return TestKeyValueReadWriteOps(
+      store, [](std::string key) { return absl::StrCat("key_", key); });
 }
 
-void TestKeyValueStoreConditionalDeleteOps(
+void TestKeyValueReadWriteOps(
     const KvStore& store,
     absl::FunctionRef<std::string(std::string key)> get_key) {
-  const auto key1 = get_key("test3a");
-  const auto key2 = get_key("test3b");
-  const auto key3 = get_key("test3c");
-  const auto key4 = get_key("test3d");
-  Cleanup cleanup(store, {key1, key2, key3, key4});
+  absl::Cord expected_value("_kvstore_value_");
+  absl::Cord other_value("._-=+=-_.");
 
-  // Mismatch should not match any other generation.
-  const StorageGeneration mismatch = GetMismatchStorageGeneration(store);
+  // Test read operations.
+  {
+    std::string missing_key = get_key("missing");
+    kvstore::Delete(store, missing_key).result().status().IgnoreError();
 
-  // Create an existing key.
-  StorageGeneration last_generation;
-  absl::Cord existing_value(".-=-.");
-  for (const auto& name : {key4, key2}) {
-    auto write_result = kvstore::Write(store, name, existing_value).result();
+    std::string key = get_key("read");
+    auto write_result = kvstore::Write(store, key, expected_value).result();
     ASSERT_THAT(write_result, MatchesRegularTimestampedStorageGeneration());
-    last_generation = std::move(write_result->generation);
-  }
-  ASSERT_NE(last_generation, mismatch);
-  EXPECT_THAT(kvstore::Read(store, key2).result(),
-              MatchesKvsReadResult(existing_value));
-  EXPECT_THAT(kvstore::Read(store, key4).result(),
-              MatchesKvsReadResult(existing_value));
 
-  ABSL_LOG(INFO) << "Test conditional delete, non-existent key";
-  EXPECT_THAT(
-      kvstore::Delete(store, key1, {mismatch}).result(),
-      MatchesTimestampedStorageGeneration(StorageGeneration::Unknown()));
-  EXPECT_THAT(kvstore::Read(store, key2).result(),
-              MatchesKvsReadResult(existing_value));
-  EXPECT_THAT(kvstore::Read(store, key4).result(),
-              MatchesKvsReadResult(existing_value));
+    tensorstore::internal::TestKeyValueStoreReadOps(store, key, expected_value,
+                                                    missing_key);
 
-  ABSL_LOG(INFO) << "Test conditional delete, mismatched generation";
-  EXPECT_THAT(
-      kvstore::Delete(store, key2, {mismatch}).result(),
-      MatchesTimestampedStorageGeneration(StorageGeneration::Unknown()));
-  EXPECT_THAT(kvstore::Read(store, key2).result(),
-              MatchesKvsReadResult(existing_value));
-  EXPECT_THAT(kvstore::Read(store, key4).result(),
-              MatchesKvsReadResult(existing_value));
-
-  ABSL_LOG(INFO) << "Test conditional delete, matching generation";
-  ASSERT_THAT(kvstore::Delete(store, key2, {last_generation}).result(),
-              MatchesKnownTimestampedStorageGeneration());
-
-  // Verify that read reflects deletion.
-  EXPECT_THAT(kvstore::Read(store, key2).result(),
-              MatchesKvsReadResultNotFound());
-  EXPECT_THAT(kvstore::Read(store, key4).result(),
-              MatchesKvsReadResult(existing_value));
-
-  ABSL_LOG(INFO)
-      << "Test conditional delete, non-existent key StorageGeneration::NoValue";
-  EXPECT_THAT(
-      kvstore::Delete(store, key3, {StorageGeneration::NoValue()}).result(),
-      MatchesKnownTimestampedStorageGeneration());
-
-  ABSL_LOG(INFO)
-      << "Test conditional delete, existing key, StorageGeneration::NoValue";
-  EXPECT_THAT(kvstore::Read(store, key2).result(),
-              MatchesKvsReadResultNotFound());
-  EXPECT_THAT(kvstore::Read(store, key4).result(),
-              MatchesKvsReadResult(existing_value));
-  EXPECT_THAT(
-      kvstore::Delete(store, key4, {StorageGeneration::NoValue()}).result(),
-      MatchesTimestampedStorageGeneration(StorageGeneration::Unknown()));
-
-  ABSL_LOG(INFO) << "Test conditional delete, matching generation";
-  {
-    auto gen = GetStorageGeneration(store, key4);
-    EXPECT_THAT(kvstore::Delete(store, key4, {gen}).result(),
-                MatchesKnownTimestampedStorageGeneration());
-
-    // Verify that read reflects deletion.
-    EXPECT_THAT(kvstore::Read(store, key4).result(),
-                MatchesKvsReadResultNotFound());
-  }
-}
-
-void TestKeyValueStoreStalenessBoundOps(
-    const KvStore& store,
-    absl::FunctionRef<std::string(std::string key)> get_key) {
-  const auto key = get_key("stale");
-  Cleanup cleanup(store, {key});
-  const absl::Cord value1("1234");
-  const absl::Cord value2("abcd");
-
-  kvstore::ReadOptions read_options;
-  read_options.staleness_bound = absl::Now();
-
-  // Test read of missing key
-  ABSL_LOG(INFO) << "Test staleness_bound read of missing key";
-  EXPECT_THAT(kvstore::Read(store, key, read_options).result(),
-              MatchesKvsReadResultNotFound());
-
-  auto write_result1 = kvstore::Write(store, key, value1).result();
-  ASSERT_THAT(write_result1, MatchesRegularTimestampedStorageGeneration());
-
-  // kvstore currently are not expected to cache missing values, even with
-  // staleness_bound, however neuroglancer_uint64_sharded_test does.
-  ABSL_LOG(INFO) << "Test staleness_bound read: value1";
-  EXPECT_THAT(
-      kvstore::Read(store, key, read_options).result(),
-      testing::AnyOf(MatchesKvsReadResultNotFound(),
-                     MatchesKvsReadResult(value1, write_result1->generation)));
-
-  // Updating staleness_bound should guarantee a read.
-  read_options.staleness_bound = absl::Now();
-
-  ABSL_LOG(INFO) << "Test unconditional read: value1";
-  EXPECT_THAT(kvstore::Read(store, key).result(),
-              MatchesKvsReadResult(value1, write_result1->generation));
-
-  // Generally same-host writes should invalidate staleness_bound in a kvstore.
-  auto write_result2 = kvstore::Write(store, key, value2).result();
-  ASSERT_THAT(write_result2, MatchesRegularTimestampedStorageGeneration());
-
-  // However allow either version to satisfy this test.
-  ABSL_LOG(INFO) << "Test staleness_bound read: value2";
-  EXPECT_THAT(kvstore::Read(store, key, read_options).result(),
-              ::testing::AnyOf(
-                  MatchesKvsReadResult(value1, write_result1->generation),
-                  MatchesKvsReadResult(value2, write_result2->generation)));
-}
-
-void TestKeyValueStoreGetImplicitTransaction(
-    const KvStore& store,
-    absl::FunctionRef<std::string(std::string key)> get_key) {
-  std::vector<std::string> keys;
-  constexpr size_t kNumKeys = 4;
-  for (size_t i = 0; i < kNumKeys; ++i) {
-    keys.push_back(get_key(absl::StrFormat("testImplicit%d", i)));
-  }
-  Cleanup cleanup(store, keys);
-
-  std::vector<internal::OpenTransactionPtr> implicit_txns_direct;
-  std::vector<internal::OpenTransactionPtr>
-      implicit_txns_from_read_modify_write;
-  for (const auto& key : keys) {
-    auto full_key = store.path + key;
-    {
-      TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-          auto txn, store.driver->GetImplicitTransaction(full_key));
-      implicit_txns_direct.push_back(std::move(txn));
-    }
-    {
-      internal::OpenTransactionPtr txn;
-      size_t phase;
-      auto future = internal_kvstore::WriteViaExistingTransaction(
-          store.driver.get(), txn, phase, full_key, std::nullopt,
-          kvstore::WriteOptions{});
-      ASSERT_TRUE(txn);
-      implicit_txns_from_read_modify_write.push_back(std::move(txn));
-    }
+    kvstore::Delete(store, key).result().status().IgnoreError();
   }
 
-  for (size_t i = 0; i < kNumKeys; ++i) {
-    for (size_t j = i + 1; j < kNumKeys; ++j) {
-      EXPECT_EQ((implicit_txns_direct[i] == implicit_txns_direct[j]),
-                (implicit_txns_from_read_modify_write[i] ==
-                 implicit_txns_from_read_modify_write[j]));
-    }
-  }
-}
+  // Test write operations.
+  TestKeyValueStoreWriteOps(
+      store, {get_key("write1"), get_key("write2"), get_key("write3")},
+      expected_value, other_value);
 
-}  // namespace
+  TestKeyValueStoreDeleteOps(
+      store,
+      {get_key("del1"), get_key("del2"), get_key("del3"), get_key("del4")},
+      expected_value);
 
-void TestKeyValueStoreBasicFunctionality(
-    const KvStore& store,
-    absl::FunctionRef<std::string(std::string key)> get_key) {
-  TestKeyValueStoreUnconditionalOps(store, get_key);
-  TestKeyValueStoreConditionalReadOps(store, get_key);
-  TestKeyValueStoreConditionalWriteOps(store, get_key);
-  TestKeyValueStoreConditionalDeleteOps(store, get_key);
-  TestKeyValueStoreStalenessBoundOps(store, get_key);
-  TestKeyValueStoreGetImplicitTransaction(store, get_key);
+  TestKeyValueStoreStalenessBoundOps(store, get_key("stale"), expected_value,
+                                     other_value);
 }
 
 /// Tests List on `store`, which should be empty.
@@ -644,11 +687,18 @@ void TestKeyValueStoreList(const KvStore& store) {
         CompletionNotifyingReceiver{&notification, CancelOnStarting{{&log}}});
     notification.WaitForNotification();
 
-    EXPECT_THAT(log, ::testing::ElementsAre("set_starting", "set_done",
-                                            "set_stopping"));
+    ASSERT_THAT(log, ::testing::SizeIs(::testing::Ge(3)));
+
+    EXPECT_EQ("set_starting", log[0]);
+    EXPECT_EQ("set_done", log[log.size() - 2]);
+    EXPECT_EQ("set_stopping", log[log.size() - 1]);
+    EXPECT_THAT(span<const std::string>(&log[1], log.size() - 3),
+                ::testing::IsSubsetOf({"set_value: a/d", "set_value: a/c/z/f",
+                                       "set_value: a/c/y", "set_value: a/c/z/e",
+                                       "set_value: a/c/x", "set_value: a/b"}));
   }
 
-  // Cancellation in the middle of the stream stops the stream.
+  // Cancellation in the middle of the stream may stop the stream.
   struct CancelAfter2 : public tensorstore::LoggingReceiver {
     using Key = kvstore::Key;
     tensorstore::AnyCancelReceiver cancel;
@@ -675,13 +725,15 @@ void TestKeyValueStoreList(const KvStore& store) {
         CompletionNotifyingReceiver{&notification, CancelAfter2{{&log}}});
     notification.WaitForNotification();
 
-    EXPECT_THAT(log,
-                ::testing::ElementsAre(
-                    "set_starting",
-                    ::testing::AnyOf("set_value: a/d", "set_value: a/c/z/f",
-                                     "set_value: a/c/y", "set_value: a/c/z/e",
-                                     "set_value: a/c/x", "set_value: a/b"),
-                    "set_done", "set_stopping"));
+    ASSERT_THAT(log, ::testing::SizeIs(::testing::Gt(3)));
+
+    EXPECT_EQ("set_starting", log[0]);
+    EXPECT_EQ("set_done", log[log.size() - 2]);
+    EXPECT_EQ("set_stopping", log[log.size() - 1]);
+    EXPECT_THAT(span<const std::string>(&log[1], log.size() - 3),
+                ::testing::IsSubsetOf({"set_value: a/d", "set_value: a/c/z/f",
+                                       "set_value: a/c/y", "set_value: a/c/z/e",
+                                       "set_value: a/c/x", "set_value: a/b"}));
   }
 
   ABSL_LOG(INFO) << "Test list: ... delete elements ...";
@@ -773,6 +825,23 @@ void TestKeyValueStoreDeleteRangeFromBeginning(const KvStore& store) {
                   ::testing::UnorderedElementsAre("a/c/b", "b/a", "b/b")));
 }
 
+void TestKeyValueStoreCopyRange(const KvStore& store) {
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "w/a", absl::Cord("w_a")));
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "x/a", absl::Cord("value_a")));
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "x/b", absl::Cord("value_b")));
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "z/a", absl::Cord("z_a")));
+  TENSORSTORE_ASSERT_OK(kvstore::ExperimentalCopyRange(
+      store.WithPathSuffix("x/"), store.WithPathSuffix("y/")));
+  EXPECT_THAT(GetMap(store), ::testing::Optional(::testing::ElementsAreArray({
+                                 ::testing::Pair("w/a", absl::Cord("w_a")),
+                                 ::testing::Pair("x/a", absl::Cord("value_a")),
+                                 ::testing::Pair("x/b", absl::Cord("value_b")),
+                                 ::testing::Pair("y/a", absl::Cord("value_a")),
+                                 ::testing::Pair("y/b", absl::Cord("value_b")),
+                                 ::testing::Pair("z/a", absl::Cord("z_a")),
+                             })));
+}
+
 void TestKeyValueStoreSpecRoundtrip(
     const KeyValueStoreSpecRoundtripOptions& options) {
   const auto& expected_minimal_spec = options.minimal_spec.is_discarded()
@@ -786,6 +855,16 @@ void TestKeyValueStoreSpecRoundtrip(
   SCOPED_TRACE(
       tensorstore::StrCat("minimal_spec=", expected_minimal_spec.dump()));
   auto context = Context::Default();
+
+  ASSERT_TRUE(options.check_write_read || !options.check_data_persists);
+  ASSERT_TRUE(options.check_write_read ||
+              !options.check_data_after_serialization);
+
+  KvStore serialized_store;
+  kvstore::Spec serialized_spec;
+
+  ASSERT_TRUE(options.check_store_serialization ||
+              !options.check_data_after_serialization);
 
   // Open and populate roundtrip_key.
   {
@@ -801,10 +880,53 @@ void TestKeyValueStoreSpecRoundtrip(
                   MatchesKvsReadResult(options.roundtrip_value));
     }
 
+    if (options.check_store_serialization) {
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+          serialized_store, serialization::SerializationRoundTrip(store));
+      {
+        TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+            auto serialized_store_spec,
+            serialized_store.spec(
+                kvstore::SpecRequestOptions{options.spec_request_options}));
+        EXPECT_THAT(
+            serialized_store_spec.ToJson(options.json_serialization_options),
+            ::testing::Optional(MatchesJson(options.full_spec)));
+      }
+    }
+
+    if (options.check_data_after_serialization) {
+      EXPECT_THAT(
+          kvstore::Read(serialized_store, options.roundtrip_key).result(),
+          MatchesKvsReadResult(options.roundtrip_value));
+      TENSORSTORE_ASSERT_OK(
+          kvstore::Delete(serialized_store, options.roundtrip_key).result());
+      EXPECT_THAT(kvstore::Read(store, options.roundtrip_key).result(),
+                  MatchesKvsReadResultNotFound());
+      EXPECT_THAT(
+          kvstore::Read(serialized_store, options.roundtrip_key).result(),
+          MatchesKvsReadResultNotFound());
+      ASSERT_THAT(kvstore::Write(serialized_store, options.roundtrip_key,
+                                 options.roundtrip_value)
+                      .result(),
+                  MatchesRegularTimestampedStorageGeneration());
+      EXPECT_THAT(kvstore::Read(store, options.roundtrip_key).result(),
+                  MatchesKvsReadResult(options.roundtrip_value));
+      EXPECT_THAT(
+          kvstore::Read(serialized_store, options.roundtrip_key).result(),
+          MatchesKvsReadResult(options.roundtrip_value));
+    }
+
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto spec,
         store.spec(kvstore::SpecRequestOptions{options.spec_request_options}));
     EXPECT_THAT(spec.ToJson(options.json_serialization_options),
+                ::testing::Optional(MatchesJson(options.full_spec)));
+
+    // Test serialization of spec.
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        serialized_spec, serialization::SerializationRoundTrip(spec));
+
+    EXPECT_THAT(serialized_spec.ToJson(options.json_serialization_options),
                 ::testing::Optional(MatchesJson(options.full_spec)));
 
     auto minimal_spec_obj = spec;
@@ -833,8 +955,6 @@ void TestKeyValueStoreSpecRoundtrip(
     }
   }
 
-  ASSERT_TRUE(options.check_write_read || !options.check_data_persists);
-
   // Reopen and verify contents.
   if (options.check_data_persists) {
     // Reopen with full_spec
@@ -848,6 +968,15 @@ void TestKeyValueStoreSpecRoundtrip(
     if (!options.minimal_spec.is_discarded()) {
       TENSORSTORE_ASSERT_OK_AND_ASSIGN(
           auto store, kvstore::Open(expected_minimal_spec, context).result());
+      TENSORSTORE_ASSERT_OK(store.spec());
+      EXPECT_THAT(kvstore::Read(store, options.roundtrip_key).result(),
+                  MatchesKvsReadResult(options.roundtrip_value));
+    }
+
+    // Reopen with serialized spec.
+    {
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+          auto store, kvstore::Open(serialized_spec, context).result());
       TENSORSTORE_ASSERT_OK(store.spec());
       EXPECT_THAT(kvstore::Read(store, options.roundtrip_key).result(),
                   MatchesKvsReadResult(options.roundtrip_value));

@@ -136,8 +136,7 @@ tensorstore_cc_test(
         ":execution",
         ":sender_testutil",
         ":sync_flow_sender",
-        "//tensorstore/internal:mutex",
-        "//tensorstore/internal:thread",
+        "//tensorstore/internal/thread",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -232,5 +231,21 @@ tensorstore_cc_test(
         "//tensorstore/util:status_testutil",
         "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "flow_sender_operation_state",
+    hdrs = ["flow_sender_operation_state.h"],
+    visibility = [
+        "//tensorstore:internal_packages",
+    ],
+    deps = [
+        ":any_receiver",
+        ":execution",
+        "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/util:future",
+        "//tensorstore/util:result",
+        "@com_google_absl//absl/status",
     ],
 )

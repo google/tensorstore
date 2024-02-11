@@ -30,7 +30,9 @@
 #include "tensorstore/box.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
+#include "tensorstore/index.h"
 #include "tensorstore/internal/elementwise_function.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 namespace internal {
@@ -76,8 +78,7 @@ template <>
 struct SampleRandomValue<std::string> {
   std::string operator()(absl::BitGenRef gen) const {
     std::string out;
-    out.resize(
-        absl::Uniform<std::size_t>(absl::IntervalClosedClosed, gen, 0, 50));
+    out.resize(absl::Uniform<size_t>(absl::IntervalClosedClosed, gen, 0, 50));
     for (auto& x : out) {
       x = static_cast<char>(absl::Uniform<unsigned char>(
           absl::IntervalClosedClosed, gen, static_cast<unsigned char>('a'),
@@ -88,15 +89,15 @@ struct SampleRandomValue<std::string> {
 };
 
 template <>
-struct SampleRandomValue<ustring_t> {
-  ustring_t operator()(absl::BitGenRef gen) const {
+struct SampleRandomValue<::tensorstore::dtypes::ustring_t> {
+  ::tensorstore::dtypes::ustring_t operator()(absl::BitGenRef gen) const {
     return {SampleRandomValue<std::string>()(gen)};
   }
 };
 
 template <>
-struct SampleRandomValue<json_t> {
-  json_t operator()(absl::BitGenRef gen) const {
+struct SampleRandomValue<::tensorstore::dtypes::json_t> {
+  ::tensorstore::dtypes::json_t operator()(absl::BitGenRef gen) const {
     switch (absl::Uniform(absl::IntervalClosedClosed, gen, 0, 7)) {
       case 0:
         return nullptr;
@@ -111,21 +112,21 @@ struct SampleRandomValue<json_t> {
       case 5:
         return SampleRandomValue<std::string>()(gen);
       case 6: {
-        json_t::array_t out;
+        ::tensorstore::dtypes::json_t::array_t out;
         out.resize(
-            absl::Uniform<std::size_t>(absl::IntervalClosedClosed, gen, 0, 3));
+            absl::Uniform<size_t>(absl::IntervalClosedClosed, gen, 0, 3));
         for (auto& x : out) {
           x = (*this)(gen);
         }
         return out;
       }
       case 7: {
-        json_t::object_t out;
+        ::tensorstore::dtypes::json_t::object_t out;
         const auto n =
-            absl::Uniform<std::size_t>(absl::IntervalClosedClosed, gen, 0, 3);
+            absl::Uniform<size_t>(absl::IntervalClosedClosed, gen, 0, 3);
         for (size_t i = 0; i < n; ++i) {
           out.emplace(SampleRandomValue<std::string>()(gen),
-                      SampleRandomValue<json_t>()(gen));
+                      SampleRandomValue<::tensorstore::dtypes::json_t>()(gen));
         }
         return out;
       }
@@ -153,10 +154,25 @@ SharedOffsetArray<const void> MakeRandomArray(absl::BitGenRef gen,
                                               ContiguousLayoutOrder order) {
   assert(dtype.id() != DataTypeId::custom);
   auto array = AllocateArray(domain, order, default_init, dtype);
-  kDataTypeRandomGenerationFunctions[static_cast<std::size_t>(
+  kDataTypeRandomGenerationFunctions[static_cast<size_t>(
       dtype.id())][IterationBufferKind::kContiguous](
-      nullptr, array.num_elements(),
-      IterationBufferPointer{array.byte_strided_origin_pointer(), dtype.size()},
+      nullptr, {1, array.num_elements()},
+      IterationBufferPointer{array.byte_strided_origin_pointer(), 0,
+                             dtype.size()},
+      gen);
+  return array;
+}
+
+SharedArray<const void> MakeRandomArray(absl::BitGenRef gen,
+                                        span<const Index> shape, DataType dtype,
+                                        ContiguousLayoutOrder order) {
+  assert(dtype.id() != DataTypeId::custom);
+  auto array = AllocateArray(shape, order, default_init, dtype);
+  kDataTypeRandomGenerationFunctions[static_cast<size_t>(
+      dtype.id())][IterationBufferKind::kContiguous](
+      nullptr, {1, array.num_elements()},
+      IterationBufferPointer{array.byte_strided_origin_pointer(), 0,
+                             dtype.size()},
       gen);
   return array;
 }

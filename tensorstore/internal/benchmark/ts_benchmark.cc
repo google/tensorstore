@@ -16,7 +16,8 @@
 
 # Sequential reads, 1G tensorstore, in-memory, n5, 256k chunks, 2G total reads
 
-bazel run -c opt //tensorstore/internal/benchmark:ts_benchmark -- \
+bazel run -c opt \
+  //tensorstore/internal/benchmark:ts_benchmark -- \
   --alsologtostderr       \
   --strategy=sequential   \
   --total_read_bytes=-10  \
@@ -28,7 +29,8 @@ bazel run -c opt //tensorstore/internal/benchmark:ts_benchmark -- \
 
 # Random reads, 1G tensorstore, in-memory, n5, 256k chunks, 2G total reads
 
-bazel run -c opt //tensorstore/internal/benchmark:ts_benchmark -- \
+bazel run -c opt \
+  //tensorstore/internal/benchmark:ts_benchmark -- \
   --alsologtostderr       \
   --strategy=random       \
   --total_read_bytes=-10  \
@@ -40,7 +42,8 @@ bazel run -c opt //tensorstore/internal/benchmark:ts_benchmark -- \
 
 # As above, with context specified:
 
-bazel run -c opt //tensorstore/internal/benchmark:ts_benchmark -- \
+bazel run -c opt \
+  //tensorstore/internal/benchmark:ts_benchmark -- \
   --alsologtostderr       \
   --strategy=random       \
   --total_read_bytes=-10  \
@@ -64,7 +67,8 @@ bazel run -c opt //tensorstore/internal/benchmark:ts_benchmark -- \
 
 # Using a file driver and mis-aligned chunks
 
-bazel run -c opt //tensorstore/internal/benchmark:ts_benchmark -- \
+bazel run -c opt \
+  /third_party/tensorstore/internal/benchmark:ts_benchmark -- \
   --alsologtostderr              \
   --strategy=random              \
   --total_read_bytes=-10         \

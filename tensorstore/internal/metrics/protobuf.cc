@@ -14,7 +14,8 @@
 
 #include "tensorstore/internal/metrics/protobuf.h"
 
-#include <cstdint>
+#include <stdint.h>
+
 #include <string>
 #include <variant>
 

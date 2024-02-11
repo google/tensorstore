@@ -87,35 +87,7 @@ def get_bindings_from_args(
   return bindings
 
 
-def main():
-  ap = argparse.ArgumentParser()
-  # Used for top-level project and dependencies.
-  ap.add_argument("--bazel-repo-name", required=True)
-  ap.add_argument("--cmake-project-name", required=True)
-  ap.add_argument("--build-rules-output")
-  ap.add_argument("--cmake-binary-dir")
-  ap.add_argument("--include-package", action="append", default=[])
-  ap.add_argument("--exclude-package", action="append", default=[])
-  ap.add_argument("--repo-mapping", nargs=2, action="append", default=[])
-  ap.add_argument("--extra-build", action="append", default=[])
-  ap.add_argument("--exclude-target", action="append", default=[])
-  ap.add_argument("--bind", action="append", default=[])
-
-  # Used for sub-projects only.
-  ap.add_argument("--load-workspace")
-  ap.add_argument("--target", action="append", default=[])
-
-  # Used for the top-level project only.
-  ap.add_argument("--save-workspace")
-  ap.add_argument("--define", action="append", default=[])
-  ap.add_argument("--ignore-library", action="append", default=[])
-  ap.add_argument("--cmake-vars")
-  ap.add_argument("--bazelrc", action="append", default=[])
-  ap.add_argument("--module", action="append", default=[])
-  ap.add_argument("--verbose", type=int, default=0)
-
-  args = ap.parse_args()
-
+def run_main(args: argparse.Namespace):
   assert args.bazel_repo_name
   repository_id: RepositoryId = RepositoryId(args.bazel_repo_name)
   current_repository: CMakeRepository = CMakeRepository(
@@ -327,3 +299,34 @@ bazel_to_cmake.py encountered errors
       pickle.dump(workspace, f)
 
   return 0
+
+
+def main():
+  ap = argparse.ArgumentParser()
+  # Used for top-level project and dependencies.
+  ap.add_argument("--bazel-repo-name", required=True)
+  ap.add_argument("--cmake-project-name", required=True)
+  ap.add_argument("--build-rules-output")
+  ap.add_argument("--cmake-binary-dir")
+  ap.add_argument("--include-package", action="append", default=[])
+  ap.add_argument("--exclude-package", action="append", default=[])
+  ap.add_argument("--repo-mapping", nargs=2, action="append", default=[])
+  ap.add_argument("--extra-build", action="append", default=[])
+  ap.add_argument("--exclude-target", action="append", default=[])
+  ap.add_argument("--bind", action="append", default=[])
+
+  # Used for sub-projects only.
+  ap.add_argument("--load-workspace")
+  ap.add_argument("--target", action="append", default=[])
+
+  # Used for the top-level project only.
+  ap.add_argument("--save-workspace")
+  ap.add_argument("--define", action="append", default=[])
+  ap.add_argument("--ignore-library", action="append", default=[])
+  ap.add_argument("--cmake-vars")
+  ap.add_argument("--bazelrc", action="append", default=[])
+  ap.add_argument("--module", action="append", default=[])
+  ap.add_argument("--verbose", type=int, default=0)
+
+  args = ap.parse_args()
+  return run_main(args)

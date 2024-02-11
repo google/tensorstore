@@ -1,5 +1,5 @@
-load("//bazel:tensorstore.bzl", "tensorstore_cc_binary", "tensorstore_cc_library", "tensorstore_cc_test")
 load("//bazel:non_compile.bzl", "cc_with_non_compile_test")
+load("//bazel:tensorstore.bzl", "tensorstore_cc_binary", "tensorstore_cc_library", "tensorstore_cc_test")
 
 package(default_visibility = ["//tensorstore:internal_packages"])
 
@@ -12,11 +12,15 @@ tensorstore_cc_library(
     deps = [
         ":dimension_index_buffer",
         ":index_transform",
+        ":output_index_method",
+        "//tensorstore:index",
+        "//tensorstore:index_interval",
         "//tensorstore:rank",
         "//tensorstore/internal:string_like",
         "//tensorstore/util:dimension_set",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
+        "//tensorstore/util:status",
     ],
 )
 
@@ -131,6 +135,7 @@ tensorstore_cc_library(
         ":transpose_op",
         "//tensorstore:array",
         "//tensorstore:index",
+        "//tensorstore:rank",
         "//tensorstore/internal:meta",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
@@ -193,6 +198,7 @@ tensorstore_cc_library(
         "//tensorstore/util:division",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
+        "//tensorstore/util:span",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "@com_google_absl//absl/status",
@@ -390,7 +396,6 @@ tensorstore_cc_library(
         "//tensorstore/internal/json_binding:dimension_indexed",
         "//tensorstore/serialization",
         "//tensorstore/serialization:json",
-        "//tensorstore/util:constant_vector",
         "//tensorstore/util:dimension_set",
         "//tensorstore/util:division",
         "//tensorstore/util:element_pointer",
@@ -425,7 +430,6 @@ tensorstore_cc_test(
         "//tensorstore:box",
         "//tensorstore/util:dimension_set",
         "//tensorstore/util:span",
-        "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
         "@com_google_googletest//:gtest_main",
     ],
@@ -438,10 +442,17 @@ tensorstore_cc_test(
     deps = [
         ":index_transform",
         "//tensorstore:array",
+        "//tensorstore:container_kind",
+        "//tensorstore:index",
+        "//tensorstore:index_interval",
+        "//tensorstore:rank",
+        "//tensorstore:static_cast",
         "//tensorstore/serialization",
         "//tensorstore/serialization:test_util",
+        "//tensorstore/util:dimension_set",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -454,6 +465,10 @@ tensorstore_cc_library(
     deps = [
         ":dim_expression",
         ":index_transform",
+        "//tensorstore:box",
+        "//tensorstore:index",
+        "//tensorstore:index_interval",
+        "//tensorstore/util:span",
         "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/random",
@@ -549,7 +564,6 @@ tensorstore_cc_binary(
         "//tensorstore/util:span",
         "//tensorstore/util:str_cat",
         "@com_google_absl//absl/log:absl_check",
-        "@com_google_benchmark//:benchmark",
         "@com_google_benchmark//:benchmark_main",
     ],
 )
@@ -572,11 +586,16 @@ tensorstore_cc_test(
         ":dim_expression",
         ":index_transform",
         ":transformed_array",
+        "//tensorstore:array",
+        "//tensorstore:contiguous_layout",
+        "//tensorstore:data_type",
+        "//tensorstore:index",
         "//tensorstore:index_interval",
+        "//tensorstore/util:iterate",
         "//tensorstore/util:span",
-        "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -680,13 +699,20 @@ tensorstore_cc_library(
         ":index_transform",
         ":index_vector_or_scalar",
         "//tensorstore:array",
+        "//tensorstore:container_kind",
+        "//tensorstore:contiguous_layout",
         "//tensorstore:index",
         "//tensorstore:index_interval",
+        "//tensorstore:rank",
+        "//tensorstore:strided_layout",
         "//tensorstore/internal:container_to_shared",
         "//tensorstore/util:constant_vector",
         "//tensorstore/util:iterate",
+        "//tensorstore/util:result",
         "//tensorstore/util:span",
+        "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/status",
     ],
 )
 
@@ -717,9 +743,12 @@ tensorstore_cc_test(
     srcs = ["propagate_bounds_test.cc"],
     deps = [
         ":index_transform",
+        "//tensorstore:index",
+        "//tensorstore:index_interval",
         "//tensorstore/util:dimension_set",
-        "//tensorstore/util:status",
+        "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -873,6 +902,7 @@ tensorstore_cc_test(
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
     ],
 )

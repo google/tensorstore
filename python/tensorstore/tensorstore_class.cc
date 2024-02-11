@@ -104,85 +104,24 @@ WriteFutures IssueCopyOrWrite(
   }
 }
 
-namespace open_setters {
-
-struct SetRead : public spec_setters::SetModeBase<ReadWriteMode::read> {
-  static constexpr const char* name = "read";
-  static constexpr const char* doc = R"(
-Allow read access.  Defaults to `True` if neither ``read`` nor ``write`` is specified.
-)";
-};
-
-struct SetWrite : public spec_setters::SetModeBase<ReadWriteMode::write> {
-  static constexpr const char* name = "write";
-  static constexpr const char* doc = R"(
-Allow write access.  Defaults to `True` if neither ``read`` nor ``write`` is specified.
-)";
-};
-
-using spec_setters::SetAssumeMetadata;
-using spec_setters::SetCreate;
-using spec_setters::SetDeleteExisting;
-using spec_setters::SetOpen;
-using spec_setters::SetOpenMode;
-
-struct SetContext {
-  using type = internal_context::ContextImplPtr;
-  static constexpr const char* name = "context";
-  static constexpr const char* doc = R"(
-
-Shared resource context.  Defaults to a new (unshared) context with default
-options, as returned by :py:meth:`tensorstore.Context`.  To share resources,
-such as cache pools, between multiple open TensorStores, you must specify a
-context.
-
-)";
-  template <typename Self>
-  static absl::Status Apply(Self& self, type value) {
-    return self.Set(WrapImpl(std::move(value)));
-  }
-};
-
-struct SetTransaction {
-  using type = internal::TransactionState::CommitPtr;
-  static constexpr const char* name = "transaction";
-  static constexpr const char* doc = R"(
-
-Transaction to use for opening/creating, and for subsequent operations.  By
-default, the open is non-transactional.
-
-.. note::
-
-   To perform transactional operations using a :py:obj:`TensorStore` that was
-   previously opened without a transaction, use
-   :py:obj:`TensorStore.with_transaction`.
-
-)";
-  template <typename Self>
-  static absl::Status Apply(Self& self, type value) {
-    return self.Set(
-        internal::TransactionState::ToTransaction(std::move(value)));
-  }
-};
-
-}  // namespace open_setters
-
 constexpr auto ForwardOpenSetters = [](auto callback, auto... other_param) {
   WithSchemaKeywordArguments(
       callback, other_param..., open_setters::SetRead{},
       open_setters::SetWrite{}, open_setters::SetOpenMode{},
       open_setters::SetOpen{}, open_setters::SetCreate{},
       open_setters::SetDeleteExisting{}, open_setters::SetAssumeMetadata{},
-      open_setters::SetContext{}, open_setters::SetTransaction{},
-      spec_setters::SetKvstore{});
+      open_setters::SetAssumeCachedMetadata{}, open_setters::SetContext{},
+      open_setters::SetTransaction{}, spec_setters::SetKvstore{});
 };
 
 constexpr auto ForwardSpecRequestSetters = [](auto callback,
                                               auto... other_param) {
   callback(other_param..., spec_setters::SetOpenMode{}, spec_setters::SetOpen{},
            spec_setters::SetCreate{}, spec_setters::SetDeleteExisting{},
-           spec_setters::SetAssumeMetadata{}, spec_setters::SetMinimalSpec{},
-           spec_setters::SetRetainContext{}, spec_setters::SetUnbindContext{});
+           spec_setters::SetAssumeMetadata{},
+           spec_setters::SetAssumeCachedMetadata{},
+           spec_setters::SetMinimalSpec{}, spec_setters::SetRetainContext{},
+           spec_setters::SetUnbindContext{});
 };
 
 using TensorStoreCls = py::class_<PythonTensorStoreObject>;
@@ -2250,6 +2189,12 @@ Group:
 )",
       py::kw_only(), py::arg("query_not_stored") = false,
       py::arg("query_fully_stored") = false);
+
+  // TensorStore<> objects are immutable, therefore copying serves no purpose.
+  cls.def("__copy__", [](py::object self) { return self; });
+
+  // Note: deepcopy relies on the default implementation defined in terms of
+  // pickling.
 }
 
 void DefineTensorStoreFunctions(py::module m) {

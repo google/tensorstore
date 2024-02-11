@@ -14,24 +14,25 @@
 
 #include "tensorstore/kvstore/ocdbt/non_distributed/read.h"
 
-#include <algorithm>
+#include <stddef.h>
+
 #include <memory>
 #include <string>
 #include <string_view>
 #include <type_traits>
 #include <utility>
 #include <variant>
-#include <vector>
 
+#include "absl/base/attributes.h"
 #include "absl/log/absl_log.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/match.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/generation.h"
-#include "tensorstore/kvstore/ocdbt/debug_log.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
 #include "tensorstore/kvstore/ocdbt/format/manifest.h"
@@ -48,8 +49,9 @@
 
 namespace tensorstore {
 namespace internal_ocdbt {
-
 namespace {
+
+ABSL_CONST_INIT internal_log::VerboseFlag ocdbt_logging("ocdbt");
 
 // Asynchronous operation state used to implement
 // `internal_ocdbt::NonDistributedRead`.
@@ -134,9 +136,7 @@ struct ReadOperation : public internal::AtomicReferenceCount<ReadOperation> {
 
   // Completes the read request, indicating that the key is missing.
   void KeyNotPresent(const Promise<kvstore::ReadResult>& promise) {
-    promise.SetResult(
-        std::in_place, kvstore::ReadResult::kMissing, absl::Cord(),
-        TimestampedStorageGeneration{StorageGeneration::NoValue(), time});
+    promise.SetResult(kvstore::ReadResult::Missing(time));
   }
 
   // Recursively descends the B+tree.
@@ -153,7 +153,7 @@ struct ReadOperation : public internal::AtomicReferenceCount<ReadOperation> {
                                   const BtreeNodeReference& node_ref,
                                   BtreeNodeHeight node_height,
                                   std::string_view inclusive_min_key) {
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+    ABSL_LOG_IF(INFO, ocdbt_logging)
         << "Read: key=" << tensorstore::QuoteString(op->key)
         << ", matched_length=" << op->matched_length
         << ", node_height=" << static_cast<int>(node_height)
@@ -202,96 +202,88 @@ struct ReadOperation : public internal::AtomicReferenceCount<ReadOperation> {
   static void VisitInteriorNode(ReadOperation::Ptr op, const BtreeNode& node,
                                 Promise<kvstore::ReadResult> promise,
                                 std::string_view unmatched_key_suffix) {
-    auto& entries = std::get<BtreeNode::InteriorNodeEntries>(node.entries);
-    auto it =
-        std::upper_bound(entries.begin(), entries.end(), unmatched_key_suffix,
-                         [](std::string_view unmatched_key_suffix,
-                            const InteriorNodeEntry& entry) {
-                           return unmatched_key_suffix < entry.key;
-                         });
-    if (it == entries.begin()) {
-      // Less than first key in node, which indicates key is not present.
+    auto* entry =
+        FindBtreeEntry(std::get<BtreeNode::InteriorNodeEntries>(node.entries),
+                       unmatched_key_suffix);
+    if (!entry) {
       op->KeyNotPresent(promise);
       return;
     }
-    --it;
     std::string_view subtree_common_prefix =
-        std::string_view(it->key).substr(0, it->subtree_common_prefix_length);
+        std::string_view(entry->key)
+            .substr(0, entry->subtree_common_prefix_length);
     if (!absl::StartsWith(unmatched_key_suffix, subtree_common_prefix)) {
       // Remaining unmatched portion of key does not match subtree common prefix
       // of the child that must contain it.  Therefore, the key is not present.
       op->KeyNotPresent(promise);
       return;
     }
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+    ABSL_LOG_IF(INFO, ocdbt_logging)
         << "Read: key=" << tensorstore::QuoteString(op->key)
         << ", matched_length=" << op->matched_length
         << ", node.height=" << static_cast<int>(node.height)
         << ", node.key_prefix=" << tensorstore::QuoteString(node.key_prefix)
-        << ", key=" << tensorstore::QuoteString(it->key)
+        << ", key=" << tensorstore::QuoteString(entry->key)
         << ", subtree_common_prefix_length="
-        << it->subtree_common_prefix_length;
+        << entry->subtree_common_prefix_length;
 
-    op->matched_length += it->subtree_common_prefix_length;
-    LookupNodeReference(std::move(op), std::move(promise), it->node,
-                        node.height - 1, it->key_suffix());
+    op->matched_length += entry->subtree_common_prefix_length;
+    LookupNodeReference(std::move(op), std::move(promise), entry->node,
+                        node.height - 1, entry->key_suffix());
   }
 
   static void VisitLeafNode(ReadOperation::Ptr op, const BtreeNode& node,
                             Promise<kvstore::ReadResult> promise,
                             std::string_view unmatched_key_suffix) {
-    auto& entries = std::get<BtreeNode::LeafNodeEntries>(node.entries);
-    auto it = std::lower_bound(
-        entries.begin(), entries.end(), unmatched_key_suffix,
-        [](const LeafNodeEntry& entry, std::string_view unmatched_key_suffix) {
-          return entry.key < unmatched_key_suffix;
-        });
-    if (it == entries.end() || it->key != unmatched_key_suffix) {
-      // Key not present.
+    auto* entry =
+        FindBtreeEntry(std::get<BtreeNode::LeafNodeEntries>(node.entries),
+                       unmatched_key_suffix);
+    if (!entry) {
       op->KeyNotPresent(promise);
       return;
     }
 
     auto generation =
-        internal_ocdbt::ComputeStorageGeneration(it->value_reference);
+        internal_ocdbt::ComputeStorageGeneration(entry->value_reference);
 
     // Check if_equal and if_not_equal conditions.
     if (!StorageGeneration::EqualOrUnspecified(generation, op->if_equal) ||
         !StorageGeneration::NotEqualOrUnspecified(generation,
                                                   op->if_not_equal)) {
-      promise.SetResult(std::in_place, TimestampedStorageGeneration{
-                                           std::move(generation), op->time});
+      promise.SetResult(kvstore::ReadResult::Unspecified(
+          TimestampedStorageGeneration{std::move(generation), op->time}));
       return;
     }
 
-    if (auto* direct_value = std::get_if<absl::Cord>(&it->value_reference)) {
+    if (auto* direct_value = std::get_if<absl::Cord>(&entry->value_reference)) {
       // Value stored directly in btree node.
       TENSORSTORE_ASSIGN_OR_RETURN(
           auto byte_range, op->byte_range.Validate(direct_value->size()),
           static_cast<void>(promise.SetResult(_)));
-      promise.SetResult(
-          std::in_place, kvstore::ReadResult::kValue,
+      promise.SetResult(kvstore::ReadResult::Value(
           internal::GetSubCord(*direct_value, byte_range),
-          TimestampedStorageGeneration{std::move(generation), op->time});
+          TimestampedStorageGeneration{std::move(generation), op->time}));
       return;
     }
 
     // Value stored indirectly.
-    auto& indirect_ref = std::get<IndirectDataReference>(it->value_reference);
+    auto& indirect_ref =
+        std::get<IndirectDataReference>(entry->value_reference);
     kvstore::ReadOptions read_options;
     read_options.byte_range = op->byte_range;
     op->generation = std::move(generation);
     auto read_future =
         op->io_handle->ReadIndirectData(indirect_ref, std::move(read_options));
+    ABSL_LOG_IF(INFO, ocdbt_logging)
+        << "Reading " << tensorstore::QuoteString(op->key) << " from "
+        << indirect_ref;
     LinkValue(
         [op = std::move(op)](Promise<kvstore::ReadResult> promise,
                              ReadyFuture<kvstore::ReadResult> read_future) {
-          kvstore::ReadResult read_result;
-          read_result.state = kvstore::ReadResult::kValue;
-          read_result.value = std::move(read_future.result()->value);
-          read_result.stamp.time = op->time;
-          read_result.stamp.generation = std::move(op->generation);
-          promise.SetResult(std::move(read_result));
+          promise.SetResult(kvstore::ReadResult::Value(
+              std::move(read_future.result()->value),
+              TimestampedStorageGeneration{std::move(op->generation),
+                                           op->time}));
         },
         std::move(promise), std::move(read_future));
   }

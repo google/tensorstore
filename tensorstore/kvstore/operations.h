@@ -15,7 +15,8 @@
 #ifndef TENSORSTORE_KVSTORE_OPERATIONS_H_
 #define TENSORSTORE_KVSTORE_OPERATIONS_H_
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <optional>
 #include <string_view>
 
@@ -125,6 +126,17 @@ struct ListOptions {
   absl::Time staleness_bound = absl::InfiniteFuture();
 };
 
+/// Options for `CopyRange`.
+///
+/// \relates KvStore
+struct CopyRangeOptions {
+  /// Only keys in this range are copied.
+  KeyRange source_range;
+
+  /// Staleness bound for reading from source.
+  absl::Time source_staleness_bound = absl::InfiniteFuture();
+};
+
 /// Attempts to read the value for the key `store.path + key`.
 ///
 /// .. note::
@@ -146,30 +158,48 @@ Future<ReadResult> Read(const KvStore& store, std::string_view key,
 /// Atomically updates or deletes the value stored for `store.path + key`
 /// subject to the conditions specified in `options`.
 ///
+/// `WriteCommitted` behaves the same as `Write` for non-transactional writes.
+/// For transactional writes, the future returned by `WriteCommitted` becomes
+/// ready only once the transaction is committed or aborted, and if the write is
+/// successful, contains the actual `TimestampedStorageGeneration`; in contrast,
+/// the future returned by `Write` becomes ready immediately to reflect the fact
+/// that the value can immediately be read back in the context of the
+/// transaction.
+///
 /// \param store `KvStore` into which to perform the write operation.
 /// \param key The key to write or delete, interpreted as a suffix to be
 ///     appended to `store.path`.
 /// \param value The value to write, or `std::nullopt` to delete.
+/// \param options Specifies options for writing.
 /// \returns A Future that resolves to the generation corresponding to the new
-///     value on success, or to `StorageGeneration::Unknown()` if the
-///     conditions in `options` are not satisfied.
+///     value on success, or to `StorageGeneration::Unknown()` if the conditions
+///     in `options` are not satisfied.
 /// \relates KvStore
 Future<TimestampedStorageGeneration> Write(const KvStore& store,
                                            std::string_view key,
                                            std::optional<Value> value,
                                            WriteOptions options = {});
+Future<TimestampedStorageGeneration> WriteCommitted(const KvStore& store,
+                                                    std::string_view key,
+                                                    std::optional<Value> value,
+                                                    WriteOptions options = {});
 
 /// Performs an optionally-conditional delete.
 ///
-/// Equivalent to `Write(store, key, std::nullopt, options)`.
+/// Equivalent to `Write(store, key, std::nullopt, options)` or
+/// `WriteCommitted(store, key, std::nullopt, options)`.
 ///
 /// \param store `KvStore` from which to delete the key.
 /// \param key Key to delete, interpreted as a suffix to be appended to
 ///     `store.path`.
+/// \param options Specifies options for deleting.
 /// \relates KvStore
 Future<TimestampedStorageGeneration> Delete(const KvStore& store,
                                             std::string_view key,
                                             WriteOptions options = {});
+Future<TimestampedStorageGeneration> DeleteCommitted(const KvStore& store,
+                                                     std::string_view key,
+                                                     WriteOptions options = {});
 
 /// Deletes all keys in the specified range.
 ///
@@ -184,6 +214,20 @@ Future<TimestampedStorageGeneration> Delete(const KvStore& store,
 ///     either successfully or with an error.
 /// \relates KvStore
 Future<const void> DeleteRange(const KvStore& store, KeyRange range);
+
+Future<const void> DeleteRange(Driver* driver,
+                               const internal::OpenTransactionPtr& transaction,
+                               KeyRange range);
+
+/// Copies a range from `source` to `target`.
+///
+/// \param source Source store.
+/// \param target Target store.
+/// \param options Specifies options for copying.
+/// \relates KvStore
+Future<const void> ExperimentalCopyRange(const KvStore& source,
+                                         const KvStore& target,
+                                         CopyRangeOptions options = {});
 
 // Lists keys relative to `path`.
 void List(const KvStore& store, ListOptions options,

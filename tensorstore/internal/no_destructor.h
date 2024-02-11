@@ -26,6 +26,8 @@ namespace internal {
 ///
 /// The primary use case is to avoid destruction order problems for objects with
 /// static storage duration.
+///
+/// NOTE: Migrate to absl/no_destructor.h
 template <typename T>
 class NoDestructor {
  public:

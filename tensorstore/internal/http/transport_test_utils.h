@@ -26,8 +26,11 @@
 #include <errno.h>
 #endif
 
+#include <stdint.h>
+
 #include <optional>
 #include <string>
+#include <string_view>
 
 namespace tensorstore {
 namespace transport_test_utils {

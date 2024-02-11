@@ -14,28 +14,47 @@
 
 #include "tensorstore/driver/zarr/metadata.h"
 
+#include <stdint.h>
+
+#include <cmath>
+#include <complex>
+#include <limits>
+#include <string>
+#include <string_view>
 #include <type_traits>
+#include <utility>
+#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "absl/strings/escaping.h"
+#include "absl/status/status.h"
 #include <nlohmann/json.hpp>
+#include "tensorstore/array.h"
 #include "tensorstore/array_testutil.h"
-#include "tensorstore/driver/zarr/metadata_testutil.h"
-#include "tensorstore/index.h"
+#include "tensorstore/contiguous_layout.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/driver/zarr/dtype.h"
+#include "tensorstore/driver/zarr3/default_nan.h"
 #include "tensorstore/internal/json_binding/gtest.h"
-#include "tensorstore/internal/json_gtest.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/strided_layout.h"
+#include "tensorstore/util/endian.h"
 #include "tensorstore/util/status_testutil.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace {
-using ::tensorstore::bfloat16_t;
 using ::tensorstore::ContiguousLayoutOrder;
 using ::tensorstore::dtype_v;
-using ::tensorstore::float16_t;
 using ::tensorstore::MakeArray;
 using ::tensorstore::MakeScalarArray;
 using ::tensorstore::MatchesStatus;
+using ::tensorstore::dtypes::bfloat16_t;
+using ::tensorstore::dtypes::float16_t;
+using ::tensorstore::dtypes::float8_e4m3b11fnuz_t;
+using ::tensorstore::dtypes::float8_e4m3fn_t;
+using ::tensorstore::dtypes::float8_e4m3fnuz_t;
+using ::tensorstore::dtypes::float8_e5m2_t;
+using ::tensorstore::dtypes::float8_e5m2fnuz_t;
+using ::tensorstore::dtypes::int4_t;
 using ::tensorstore::internal_zarr::DimensionSeparator;
 using ::tensorstore::internal_zarr::DimensionSeparatorJsonBinder;
 using ::tensorstore::internal_zarr::EncodeFillValue;
@@ -43,6 +62,7 @@ using ::tensorstore::internal_zarr::OrderJsonBinder;
 using ::tensorstore::internal_zarr::ParseDType;
 using ::tensorstore::internal_zarr::ParseFillValue;
 using ::tensorstore::internal_zarr::ZarrMetadata;
+using ::tensorstore::internal_zarr3::GetDefaultNaN;
 using ::testing::ElementsAre;
 
 TEST(OrderJsonBinderTest, Success) {
@@ -65,10 +85,14 @@ TEST(ParseOrderTest, Failure) {
 
 void TestFillValueRoundTrip(
     const ::nlohmann::json& dtype, const ::nlohmann::json& encoded_fill_value,
-    std::vector<tensorstore::SharedArray<const void>> fill_values,
-    std::vector<tensorstore::ArrayMatcher> fill_values_matcher) {
+    std::vector<tensorstore::SharedArray<const void>> fill_values) {
   SCOPED_TRACE(tensorstore::StrCat("dtype=", dtype.dump()));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto parsed_dtype, ParseDType(dtype));
+  std::vector<tensorstore::ArrayMatcher> fill_values_matcher;
+  for (const auto& fill_value : fill_values) {
+    fill_values_matcher.push_back(
+        tensorstore::MatchesArrayIdentically(fill_value));
+  }
   EXPECT_THAT(
       ParseFillValue(encoded_fill_value, parsed_dtype),
       ::testing::Optional(::testing::ElementsAreArray(fill_values_matcher)))
@@ -79,34 +103,32 @@ void TestFillValueRoundTrip(
       << ", fill_values=" << ::testing::PrintToString(fill_values);
 }
 
-void TestFillValueRoundTrip(
-    const ::nlohmann::json& dtype, const ::nlohmann::json& encoded_fill_value,
-    std::vector<tensorstore::SharedArray<const void>> fill_values) {
-  std::vector<tensorstore::ArrayMatcher> fill_values_matcher(
-      fill_values.begin(), fill_values.end());
-  return TestFillValueRoundTrip(dtype, encoded_fill_value, fill_values,
-                                fill_values_matcher);
-}
-
 template <typename FloatType>
 void TestFillValueRoundTripFloat(const ::nlohmann::json& dtype) {
   TestFillValueRoundTrip(
       dtype, 3.5, {MakeScalarArray<FloatType>(static_cast<FloatType>(3.5))});
-  TestFillValueRoundTrip(
-      dtype, "Infinity",
-      {MakeScalarArray<FloatType>(static_cast<FloatType>(INFINITY))});
-  TestFillValueRoundTrip(
-      dtype, "-Infinity",
-      {MakeScalarArray<FloatType>(static_cast<FloatType>(-INFINITY))});
-  if constexpr (std::is_same_v<FloatType, float> ||
-                std::is_same_v<FloatType, double>) {
-    // `testing::internal::FloatingEqMatcher` only supports the builtin floating
-    // point types.
+  if constexpr (std::numeric_limits<FloatType>::has_infinity) {
     TestFillValueRoundTrip(
-        dtype, "NaN", {MakeScalarArray<FloatType>(static_cast<FloatType>(NAN))},
-        {tensorstore::MatchesScalarArray<FloatType>(
-            ::testing::internal::FloatingEqMatcher<FloatType>(
-                static_cast<FloatType>(NAN), /*nan_eq_nan=*/true))});
+        dtype, "Infinity",
+        {MakeScalarArray<FloatType>(static_cast<FloatType>(INFINITY))});
+    TestFillValueRoundTrip(
+        dtype, "-Infinity",
+        {MakeScalarArray<FloatType>(static_cast<FloatType>(-INFINITY))});
+  }
+  TestFillValueRoundTrip(
+      dtype, "NaN", {MakeScalarArray<FloatType>(GetDefaultNaN<FloatType>())});
+
+  // Also test non-strict float values.
+  {
+    SCOPED_TRACE(tensorstore::StrCat("dtype=", dtype.dump()));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto parsed_dtype, ParseDType(dtype));
+    std::vector<tensorstore::SharedArray<const void>> fill_values{
+        MakeScalarArray<FloatType>(static_cast<FloatType>(1.0))};
+    EXPECT_THAT(ParseFillValue("1.0", parsed_dtype),
+                ::testing::Optional(::testing::ElementsAre(
+                    tensorstore::MatchesArrayIdentically(fill_values[0]))))
+        << "encoded_fill_value=\"1.0\", fill_values="
+        << ::testing::PrintToString(fill_values);
   }
 }
 
@@ -116,10 +138,19 @@ void TestFillValueRoundTripComplex(const ::nlohmann::json& dtype) {
   TestFillValueRoundTrip(dtype, {3.5, 4.5},
                          {MakeScalarArray<Complex>({3.5, 4.5})});
   TestFillValueRoundTrip(dtype, {"Infinity", 4.5},
-                         {MakeScalarArray<Complex>(Complex{INFINITY, 4.5})});
+                         {MakeScalarArray<Complex>(
+                             Complex{static_cast<FloatType>(INFINITY), 4.5})});
+  TestFillValueRoundTrip(
+      dtype, {"NaN", 4.5},
+      {MakeScalarArray<Complex>(Complex{GetDefaultNaN<FloatType>(), 4.5})});
 }
 
 TEST(ParseFillValueTest, FloatingPointSuccess) {
+  TestFillValueRoundTripFloat<float8_e4m3fn_t>("float8_e4m3fn");
+  TestFillValueRoundTripFloat<float8_e4m3fnuz_t>("float8_e4m3fnuz");
+  TestFillValueRoundTripFloat<float8_e4m3b11fnuz_t>("float8_e4m3b11fnuz");
+  TestFillValueRoundTripFloat<float8_e5m2_t>("float8_e5m2");
+  TestFillValueRoundTripFloat<float8_e5m2fnuz_t>("float8_e5m2fnuz");
   TestFillValueRoundTripFloat<float16_t>("<f2");
   TestFillValueRoundTripFloat<float16_t>(">f2");
   TestFillValueRoundTripFloat<bfloat16_t>("bfloat16");
@@ -172,6 +203,11 @@ TEST(ParseFillValueTest, BoolFailure) {
 }
 
 TEST(ParseFillValueTest, IntegerSuccess) {
+  TestFillValueRoundTrip("int4", -1,
+                         {MakeScalarArray<int4_t>(static_cast<int4_t>(-1))});
+  TestFillValueRoundTrip("int4", 1,
+                         {MakeScalarArray<int4_t>(static_cast<int4_t>(1))});
+
   TestFillValueRoundTrip("|i1", -124, {MakeScalarArray<std::int8_t>(-124)});
   TestFillValueRoundTrip("|i1", 124, {MakeScalarArray<std::int8_t>(124)});
   TestFillValueRoundTrip("<i2", -31000,
@@ -550,12 +586,9 @@ TEST(EncodeDecodeMetadataTest, FillValuesNan) {
     EXPECT_EQ(dtype_v<double>, metadata.dtype.fields[0].dtype);
     EXPECT_TRUE(metadata.fill_value[0].valid());
     EXPECT_THAT(metadata.fill_value[0].shape(), ElementsAre());
-    if (std::isnan(pair.first)) {
-      EXPECT_TRUE(std::isnan(
-          *static_cast<const double*>(metadata.fill_value[0].data())));
-    } else {
-      EXPECT_EQ(MakeScalarArray<double>(pair.first), metadata.fill_value[0]);
-    }
+    EXPECT_THAT(metadata.fill_value,
+                ::testing::ElementsAre(tensorstore::MatchesArrayIdentically(
+                    MakeScalarArray<double>(pair.first))));
     EXPECT_EQ(tensorstore::endian::little, metadata.dtype.fields[0].endian);
     EXPECT_THAT(metadata.dtype.fields[0].field_shape, ElementsAre());
     EXPECT_EQ(0, metadata.dtype.fields[0].byte_offset);
@@ -623,12 +656,13 @@ void EncodeDecodeMetadataTestArrayComplex(std::string zarr_dtype) {
 
 // Corresponds to the zarr test_encode_decode_array_complex test case.
 TEST(EncodeDecodeMetadataTest, ArrayComplex8) {
-  EncodeDecodeMetadataTestArrayComplex<tensorstore::complex64_t>("<c8");
+  EncodeDecodeMetadataTestArrayComplex<tensorstore::dtypes::complex64_t>("<c8");
 }
 
 // Corresponds to the zarr test_encode_decode_array_complex test case.
 TEST(EncodeDecodeMetadataTest, ArrayComplex16) {
-  EncodeDecodeMetadataTestArrayComplex<tensorstore::complex128_t>("<c16");
+  EncodeDecodeMetadataTestArrayComplex<tensorstore::dtypes::complex128_t>(
+      "<c16");
 }
 
 TEST(ParseMetadataTest, Simple) {

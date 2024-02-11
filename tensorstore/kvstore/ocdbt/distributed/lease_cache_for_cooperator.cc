@@ -21,6 +21,7 @@
 #include <string_view>
 #include <utility>
 
+#include "absl/base/attributes.h"
 #include "absl/base/thread_annotations.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/log/absl_check.h"
@@ -36,8 +37,8 @@
 #include "grpcpp/support/status.h"  // third_party
 #include "tensorstore/internal/grpc/utils.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/kvstore/key_range.h"
-#include "tensorstore/kvstore/ocdbt/debug_log.h"
 #include "tensorstore/kvstore/ocdbt/distributed/btree_node_identifier.h"
 #include "tensorstore/kvstore/ocdbt/distributed/cooperator.grpc.pb.h"
 #include "tensorstore/kvstore/ocdbt/distributed/coordinator.grpc.pb.h"
@@ -50,6 +51,9 @@
 
 namespace tensorstore {
 namespace internal_ocdbt_cooperator {
+namespace {
+ABSL_CONST_INIT internal_log::VerboseFlag ocdbt_logging("ocdbt");
+}
 
 class LeaseCacheForCooperator::Impl
     : public internal::AtomicReferenceCount<LeaseCacheForCooperator::Impl> {
@@ -120,7 +124,7 @@ Future<const LeaseCacheForCooperator::LeaseNode::Ptr>
 LeaseCacheForCooperator::GetLease(std::string_view key,
                                   const BtreeNodeIdentifier& node_identifier,
                                   const LeaseNode* uncooperative_lease) const {
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+  ABSL_LOG_IF(INFO, ocdbt_logging)
       << "GetLease: " << node_identifier
       << (uncooperative_lease
               ? tensorstore::StrCat(", uncooperative_lease_id=",
@@ -145,7 +149,7 @@ LeaseCacheForCooperator::GetLease(std::string_view key,
         if ((!uncooperative_lease ||
              uncooperative_lease->lease_id != node.lease_id) &&
             node.expiration_time >= impl_->clock_()) {
-          ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+          ABSL_LOG_IF(INFO, ocdbt_logging)
               << "GetLease: " << node_identifier
               << ": returning existing lease future";
           return future;
@@ -181,13 +185,13 @@ LeaseCacheForCooperator::GetLease(std::string_view key,
   state->promise = std::move(promise_future.promise);
   state->owner = impl_;
   auto* state_ptr = state.get();
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+  ABSL_LOG_IF(INFO, ocdbt_logging)
       << "GetLease: " << node_identifier << ": requesting lease";
   impl_->coordinator_stub_->async()->RequestLease(
       &state_ptr->client_context, &state_ptr->request, &state_ptr->response,
       [state = std::move(state)](::grpc::Status s) {
         auto status = internal::GrpcStatusToAbslStatus(std::move(s));
-        ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+        ABSL_LOG_IF(INFO, ocdbt_logging)
             << "GetLease: " << state->node_identifier
             << ": got lease: " << status;
         absl::Time expiration_time;
@@ -222,11 +226,11 @@ LeaseCacheForCooperator::GetLease(std::string_view key,
           lease_node->peer_stub =
               state->owner->GetCooperatorStub(state->response.owner());
           ABSL_CHECK(lease_node->peer_stub);
-          ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+          ABSL_LOG_IF(INFO, ocdbt_logging)
               << "GetLease: " << state->node_identifier << ": owner is "
               << state->response.owner();
         } else {
-          ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+          ABSL_LOG_IF(INFO, ocdbt_logging)
               << "GetLease: " << state->node_identifier
               << ": current cooperator is owner";
         }

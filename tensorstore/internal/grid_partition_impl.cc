@@ -16,28 +16,30 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstddef>
 #include <memory>
-#include <numeric>
-#include <optional>
 #include <utility>
 #include <vector>
 
-#include "absl/base/optimization.h"
-#include "absl/container/fixed_array.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/inlined_vector.h"
+#include "absl/functional/function_ref.h"
 #include "absl/hash/hash.h"
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
+#include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/internal/transform_rep.h"
+#include "tensorstore/index_space/output_index_map.h"
+#include "tensorstore/index_space/output_index_method.h"
 #include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/internal/regular_grid.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/byte_strided_pointer.h"
-#include "tensorstore/util/division.h"
+#include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/iterate_over_index_range.h"
 #include "tensorstore/util/result.h"
@@ -48,9 +50,11 @@
 namespace tensorstore {
 namespace internal_grid_partition {
 
-IndexTransformGridPartition::IndexTransformGridPartition(
-    DimensionIndex input_rank, DimensionIndex grid_rank)
-    : temp_buffer_(input_rank + grid_rank) {}
+using ::tensorstore::internal_index_space::OutputIndexMap;
+using ::tensorstore::internal_index_space::TransformRep;
+
+using IndexArraySet = IndexTransformGridPartition::IndexArraySet;
+using StridedSet = IndexTransformGridPartition::StridedSet;
 
 SharedArray<const Index, 2>
 IndexTransformGridPartition::IndexArraySet::partition_input_indices(
@@ -77,9 +81,115 @@ IndexTransformGridPartition::IndexArraySet::partition_grid_cell_indices(
     Index partition_i) const {
   assert(partition_i >= 0 && partition_i < num_partitions());
   assert(grid_cell_indices.size() ==
-         static_cast<size_t>(num_partitions() * grid_dimensions.size()));
-  return span(&grid_cell_indices[partition_i * grid_dimensions.size()],
-              grid_dimensions.size());
+         static_cast<size_t>(num_partitions() * grid_dimensions.count()));
+  return span(&grid_cell_indices[partition_i * grid_dimensions.count()],
+              grid_dimensions.count());
+}
+
+namespace {
+struct GridCellIndicesIndirectPartialCompare {
+  DimensionSet grid_dimensions;
+  const Index* grid_cell_indices_for_partitions;
+
+  Index operator()(Index partition_i, const Index* full_indices) const {
+    const Index* other_grid_cell_indices =
+        grid_cell_indices_for_partitions +
+        partition_i * grid_dimensions.count();
+    DimensionIndex j = 0;
+    for (DimensionIndex grid_dim : grid_dimensions.index_view()) {
+      Index diff = other_grid_cell_indices[j] - full_indices[grid_dim];
+      if (diff != 0) {
+        return diff;
+      }
+      ++j;
+    }
+    return 0;
+  }
+};
+}  // namespace
+
+Index IndexTransformGridPartition::IndexArraySet::FindPartition(
+    span<const Index> grid_cell_indices) const {
+  Index lower = 0, upper = num_partitions();
+  GridCellIndicesIndirectPartialCompare compare{grid_dimensions,
+                                                this->grid_cell_indices.data()};
+  while (lower != upper) {
+    Index mid = (lower + upper) / 2;
+    Index c = compare(mid, grid_cell_indices.data());
+    if (c == 0) return mid;
+    if (c > 0) {
+      upper = mid;
+    } else {
+      lower = mid + 1;
+    }
+  }
+  return -1;
+}
+
+void UpdateCellTransformForIndexArraySetPartition(
+    const IndexArraySet& index_array_set, DimensionIndex set_i,
+    Index partition_i, internal_index_space::TransformRep* cell_transform) {
+  // Update the output index maps for the original input dimensions in this
+  // connected set to reference the precomputed index array of input indices
+  // corresponding to this partition.
+  const SharedArray<const Index, 2> partition_input_indices =
+      index_array_set.partition_input_indices(partition_i);
+  cell_transform->input_shape()[set_i] = partition_input_indices.shape()[0];
+  ByteStridedPointer<const Index> partition_input_indices_ptr =
+      partition_input_indices.byte_strided_pointer();
+  const Index vector_dimension_byte_stride =
+      partition_input_indices.byte_strides()[1];
+  const span<OutputIndexMap> output_maps = cell_transform->output_index_maps();
+  for (DimensionIndex full_input_dim :
+       index_array_set.input_dimensions.index_view()) {
+    internal_index_space::IndexArrayData& index_array_data =
+        output_maps[full_input_dim].index_array_data();
+    index_array_data.element_pointer = std::shared_ptr<const Index>(
+        partition_input_indices.pointer(), partition_input_indices_ptr);
+    partition_input_indices_ptr += vector_dimension_byte_stride;
+  }
+}
+
+IndexTransform<> IndexTransformGridPartition::GetCellTransform(
+    IndexTransformView<> full_transform, span<const Index> grid_cell_indices,
+    span<const DimensionIndex> grid_output_dimensions,
+    absl::FunctionRef<IndexInterval(DimensionIndex grid_dim,
+                                    Index grid_cell_index)>
+        get_grid_cell_output_interval) const {
+  auto cell_transform = InitializeCellTransform(*this, full_transform);
+  for (DimensionIndex set_i = 0, num_sets = index_array_sets().size();
+       set_i < num_sets; ++set_i) {
+    const IndexArraySet& index_array_set = index_array_sets()[set_i];
+    const Index partition_i = index_array_set.FindPartition(grid_cell_indices);
+    assert(partition_i != -1);
+    UpdateCellTransformForIndexArraySetPartition(
+        index_array_set, set_i, partition_i, cell_transform.get());
+  }
+  for (DimensionIndex set_i = 0, num_sets = strided_sets().size();
+       set_i < num_sets; ++set_i) {
+    const StridedSet& strided_set = strided_sets()[set_i];
+    const DimensionIndex cell_input_dim = set_i + index_array_sets().size();
+    IndexInterval restricted_domain =
+        full_transform.input_domain()[strided_set.input_dimension];
+    for (const DimensionIndex grid_dim :
+         strided_set.grid_dimensions.index_view()) {
+      const DimensionIndex output_dim = grid_output_dimensions[grid_dim];
+      IndexInterval cell_range =
+          get_grid_cell_output_interval(grid_dim, grid_cell_indices[grid_dim]);
+      const OutputIndexMapRef<> map =
+          full_transform.output_index_map(output_dim);
+      const IndexInterval cell_domain =
+          GetAffineTransformDomain(cell_range, map.offset(), map.stride())
+              .value();
+      restricted_domain = Intersect(restricted_domain, cell_domain);
+    }
+    assert(!restricted_domain.empty());
+    cell_transform->input_origin()[cell_input_dim] =
+        restricted_domain.inclusive_min();
+    cell_transform->input_shape()[cell_input_dim] = restricted_domain.size();
+  }
+  return internal_index_space::TransformAccess::Make<IndexTransform<>>(
+      std::move(cell_transform));
 }
 
 namespace {
@@ -89,52 +199,39 @@ namespace {
 ///
 /// \param grid_output_dimensions Array that maps grid dimension indices to
 ///     output dimension indices of the index transform.
-/// \param output_index_maps The output index maps of the index transform.
-/// \param temp_buffer[out] Array of size
-///     `>= output_index_maps.input_rank() + grid_output_dimensions` to be used
-///     as a temporary buffer.  The spans passed to `set_callback` will refer to
-///     memory in this buffer.
+/// \param transform The index transform.
 /// \param set_callback Function with a signature compatible with:
-///     `absl::Status (span<const DimensionIndex> input_dims,
-///              span<const DimensionIndex> grid_dims,
-///              bool has_array)`.  This function is called for each connected.
-///     Any error returned causes iteration to stop.
-/// \return The error value returned by the last call to `set_callback`, or
-///     `absl::Status()` on success.
+///     `void (DimensionSet input_dims,
+///            DimensionSet grid_dims,
+///            bool has_array)`.  This function is called for each
+///     connected set.
 template <typename SetCallbackFn>
-absl::Status ForEachConnectedSet(
-    span<const DimensionIndex> grid_output_dimensions,
-    OutputIndexMapRange<> output_index_maps, span<DimensionIndex> temp_buffer,
-    SetCallbackFn set_callback) {
-  const DimensionIndex input_rank = output_index_maps.input_rank();
-  assert(temp_buffer.size() >= input_rank + grid_output_dimensions.size());
-  const span<DimensionIndex> input_dims = temp_buffer.first(input_rank);
-  const span<DimensionIndex> grid_dims =
-      temp_buffer.subspan(input_rank, grid_output_dimensions.size());
+void ForEachConnectedSet(span<const DimensionIndex> grid_output_dimensions,
+                         IndexTransformView<> transform,
+                         SetCallbackFn set_callback) {
+  // Set of input dimensions on which each grid dimension depends.
+  DimensionSet input_dims_for_grid_dims[kMaxRank];
+  // Indicates for each grid dimension whether it has an index array output
+  // index map with at least one non-zero byte stride.
+  DimensionSet grid_dims_with_array_dependence;
+  for (DimensionIndex grid_dim = 0; grid_dim < grid_output_dimensions.size();
+       ++grid_dim) {
+    auto [input_dims, array_dependence] =
+        internal::GetInputDimensionsForOutputDimension(
+            transform, grid_output_dimensions[grid_dim]);
+    input_dims_for_grid_dims[grid_dim] = input_dims;
+    grid_dims_with_array_dependence[grid_dim] = array_dependence;
+  }
 
-  std::iota(input_dims.begin(), input_dims.end(), DimensionIndex(0));
-  std::iota(grid_dims.begin(), grid_dims.end(), DimensionIndex(0));
-
-  DimensionIndex num_dependent_grid_dims = grid_output_dimensions.size();
-
-  // Keep track of a current set of grid dimension indices
-  // `(grid_dims[grid_dim_set_begin:grid_dim_set_end])` and input dimension
-  // indices `(input_dims[input_dim_set_begin:input_dim_set_end])`.
-  //
-  // Any of the grid dimensions in `grid_dims[:grid_dim_set_begin]` and the
-  // input dimensions in `input_dims[:input_dim_set_begin]` are already part of
-  // a different connected set and will never be added to the current set.
-  //
-  // Grid dimensions in `grid_dims[grid_dim_set_end:]` and input dimensions in
-  // `input_dims[input_dim_set_end:]` may be added to the current set by
-  // swapping them with `grid_dims[grid_dim_set_end++]` or
-  // `input_dims[input_dim_set_end++]`, respectively.
-  DimensionIndex input_dim_set_end = 0;
-  DimensionIndex input_dim_set_begin;
+  // State variables captured by `add_grid_dim_to_current_set` and
+  // `is_grid_dim_in_set`.
+  DimensionSet current_input_dims, current_grid_dims;
+  DimensionSet remaining_grid_dims{
+      DimensionSet::UpTo(grid_output_dimensions.size())};
   bool current_set_has_array;
 
   /// Adds the input dimensions on which the output dimension
-  /// `grid_output_dimensions[grid_dims[grid_i]]` depends to the current set.
+  /// `grid_output_dimensions[grid_dim]` depends to the current set.
   ///
   /// Each output dimension `grid_output_dimensions[grid_dim]` depends on zero
   /// or more input dimensions due to a `single_input_dimension` or `array`
@@ -144,122 +241,55 @@ absl::Status ForEachConnectedSet(
   /// If the dependencies are via an `array` output index map, sets
   /// `current_set_has_array = true`.
   ///
-  /// \returns `true` if, and only if, any additional input dimensions were
-  ///     added to the current set.
-  const auto add_grid_dim_to_current_set = [&](DimensionIndex grid_i) -> bool {
-    assert(grid_i >= 0 && grid_i < num_dependent_grid_dims);
-    const DimensionIndex grid_dim = grid_dims[grid_i];
+  /// \returns The set of associated input dimensions.
+  const auto add_grid_dim_to_current_set =
+      [&](DimensionIndex grid_dim) -> DimensionSet {
+    assert(remaining_grid_dims.test(grid_dim));
     assert(grid_dim >= 0 && grid_dim < grid_output_dimensions.size());
-    const DimensionIndex output_dim = grid_output_dimensions[grid_dim];
-    const OutputIndexMapRef<> map = output_index_maps[output_dim];
-    switch (map.method()) {
-      case OutputIndexMethod::constant:
-        return false;
-      case OutputIndexMethod::single_input_dimension: {
-        const auto it = std::find(input_dims.begin() + input_dim_set_end,
-                                  input_dims.end(), map.input_dimension());
-        if (it != input_dims.end()) {
-          using std::swap;
-          std::swap(*it, input_dims[input_dim_set_end++]);
-          return true;
-        }
-        return false;
-      }
-      case OutputIndexMethod::array: {
-        const OutputIndexMapRef<>::IndexArrayView index_array =
-            map.index_array();
-        bool has_edge = false;
-        for (DimensionIndex input_i = input_dim_set_end; input_i < input_rank;
-             ++input_i) {
-          if (index_array.byte_strides()[input_dims[input_i]] != 0) {
-            using std::swap;
-            std::swap(input_dims[input_i], input_dims[input_dim_set_end++]);
-            has_edge = true;
-            current_set_has_array = true;
-          }
-        }
-        return has_edge;
-      }
-    }
-    ABSL_UNREACHABLE();  // COV_NF_LINE
+    remaining_grid_dims.reset(grid_dim);
+    current_grid_dims.set(grid_dim);
+
+    auto input_dims = input_dims_for_grid_dims[grid_dim];
+    current_set_has_array |= grid_dims_with_array_dependence[grid_dim];
+    current_input_dims |= input_dims;
+    return input_dims;
   };
 
   /// Returns `true` if, and only if, the output dimension
-  /// `grid_output_dimensions[grid_dims[grid_i]]` depends on any of the input
-  /// dimensions in the current set.
+  /// `grid_output_dimensions[grid_dim]` depends on any of the input dimensions
+  /// in the current set.
   ///
   /// If the dependency is due to an `array` output index map, also sets
   /// `current_set_has_array` to `true`.
-  const auto is_grid_dim_in_set = [&](DimensionIndex grid_i) -> DimensionIndex {
-    assert(grid_i >= 0 && grid_i < num_dependent_grid_dims);
-    const DimensionIndex grid_dim = grid_dims[grid_i];
+  const auto is_grid_dim_in_set =
+      [&](DimensionIndex grid_dim) -> DimensionIndex {
+    assert(remaining_grid_dims.test(grid_dim));
     assert(grid_dim >= 0 && grid_dim < grid_output_dimensions.size());
-    const DimensionIndex output_dim = grid_output_dimensions[grid_dim];
-    const OutputIndexMapRef<> map = output_index_maps[output_dim];
-    switch (map.method()) {
-      case OutputIndexMethod::constant:
-        return false;
-      case OutputIndexMethod::single_input_dimension:
-        return std::find(input_dims.begin() + input_dim_set_begin,
-                         input_dims.begin() + input_dim_set_end,
-                         map.input_dimension()) !=
-               input_dims.begin() + input_dim_set_end;
-      case OutputIndexMethod::array: {
-        const OutputIndexMapRef<>::IndexArrayView index_array =
-            map.index_array();
-        if (std::any_of(input_dims.begin() + input_dim_set_begin,
-                        input_dims.begin() + input_dim_set_end,
-                        [&](DimensionIndex input_dim) {
-                          return index_array.byte_strides()[input_dim] != 0;
-                        })) {
-          current_set_has_array = true;
-          return true;
-        }
-        return false;
-      }
-    }
-    ABSL_UNREACHABLE();  // COV_NF_LINE
+    return !(input_dims_for_grid_dims[grid_dim] & current_input_dims).none();
   };
 
   // Loop until all grid dimensions are part of a connected set.
-  DimensionIndex grid_dim_set_begin, grid_dim_set_end = 0;
-  while (grid_dim_set_end < num_dependent_grid_dims) {
+  while (!remaining_grid_dims.none()) {
     // Create a new set.
-    input_dim_set_begin = input_dim_set_end;
-    grid_dim_set_begin = grid_dim_set_end;
+    current_input_dims = {};
+    current_grid_dims = {};
     current_set_has_array = false;
 
-    if (!add_grid_dim_to_current_set(grid_dim_set_end)) {
-      // Grid dimension has no input dimension dependencies, exclude it from all
-      // connected sets.
-      using std::swap;
-      std::swap(grid_dims[grid_dim_set_end],
-                grid_dims[--num_dependent_grid_dims]);
+    if (add_grid_dim_to_current_set(remaining_grid_dims.index_view().front())
+            .none()) {
+      // Grid dimension has no input dimension dependencies.
       continue;
     }
-    ++grid_dim_set_end;
 
     // Successively add any remaining grid dimensions that depend on any of the
     // input dimensions in the current set.
-    for (DimensionIndex grid_i = grid_dim_set_end;
-         grid_i < num_dependent_grid_dims;) {
-      if (is_grid_dim_in_set(grid_i)) {
-        add_grid_dim_to_current_set(grid_i);
-        using std::swap;
-        std::swap(grid_dims[grid_i], grid_dims[grid_dim_set_end++]);
-        grid_i = grid_dim_set_end;
-      } else {
-        ++grid_i;
+    for (DimensionIndex grid_dim : remaining_grid_dims.index_view()) {
+      if (is_grid_dim_in_set(grid_dim)) {
+        add_grid_dim_to_current_set(grid_dim);
       }
     }
-    TENSORSTORE_RETURN_IF_ERROR(set_callback(
-        input_dims.subspan(input_dim_set_begin,
-                           input_dim_set_end - input_dim_set_begin),
-        grid_dims.subspan(grid_dim_set_begin,
-                          grid_dim_set_end - grid_dim_set_begin),
-        current_set_has_array));
+    set_callback(current_input_dims, current_grid_dims, current_set_has_array);
   }
-  return absl::OkStatus();
 }
 
 /// Copies a tiled strided ranged of integers to a strided output iterator.
@@ -316,7 +346,7 @@ OutputIt FillWithTiledStridedRange(T start, T size, Stride stride,
 /// \error `absl::StatusCode::kOutOfRange` if `map` has an invalid `offset`.
 /// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs.
 absl::Status GenerateSingleInputDimensionOutputIndices(
-    OutputIndexMapRef<> map, span<const DimensionIndex> input_dims,
+    OutputIndexMapRef<> map, DimensionSet input_dims,
     IndexTransformView<> index_transform, Index* output_indices,
     Index output_stride) {
   assert(map.method() == OutputIndexMethod::single_input_dimension);
@@ -331,22 +361,17 @@ absl::Status GenerateSingleInputDimensionOutputIndices(
   // a step of `stride`, and this range is simply tiled over all of the other
   // dimensions.
   span<const Index> input_shape = index_transform.input_shape();
-  DimensionIndex input_i;
   // Compute the product of the sizes of the dimensions of the index array
-  // before the one corresponding to `single_input_dim`.
-  Index outer_count = 1;
-  for (input_i = 0; input_i < input_dims.size(); ++input_i) {
-    const DimensionIndex cur_input_dim = input_dims[input_i];
-    if (cur_input_dim == single_input_dim) break;
-    outer_count *= input_shape[cur_input_dim];
-  }
-  ++input_i;
-  // Compute the product of the sizes of the dimensions of the index array after
-  // the one corresponding to `single_input_dim`.
+  // before and after the one corresponding to `single_input_dim`.
   Index inner_count = 1;
-  for (; input_i < input_dims.size(); ++input_i) {
-    const DimensionIndex cur_input_dim = input_dims[input_i];
-    inner_count *= input_shape[cur_input_dim];
+  Index outer_count = 1;
+  for (DimensionIndex input_dim : input_dims.index_view()) {
+    if (input_dim == single_input_dim) {
+      outer_count = inner_count;
+      inner_count = 1;
+    } else {
+      inner_count *= input_shape[input_dim];
+    }
   }
 
   FillWithTiledStridedRange(start, domain.size(), stride, outer_count,
@@ -373,7 +398,7 @@ absl::Status GenerateSingleInputDimensionOutputIndices(
 /// \error `absl::StatusCode::kOutOfRange` if `map` contains an invalid index.
 /// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs.
 absl::Status GenerateIndexArrayOutputIndices(
-    OutputIndexMapRef<> map, span<const DimensionIndex> input_dims,
+    OutputIndexMapRef<> map, DimensionSet input_dims,
     IndexTransformView<> index_transform, Index* output_indices,
     Index output_stride) {
   assert(map.method() == OutputIndexMethod::array);
@@ -381,8 +406,16 @@ absl::Status GenerateIndexArrayOutputIndices(
   Index output_byte_strides[kMaxRank];
   std::fill_n(&output_byte_strides[0], input_rank, static_cast<Index>(0));
   DimensionIndex byte_stride = sizeof(Index) * output_stride;
-  for (DimensionIndex i = input_dims.size() - 1; i >= 0; --i) {
-    const DimensionIndex input_dim = input_dims[i];
+
+  // Copy `input_dims` in order to iterate in reverse order.
+  Index input_dims_copy[kMaxRank];
+  DimensionIndex num_input_dims = 0;
+  for (DimensionIndex input_dim : input_dims.index_view()) {
+    input_dims_copy[num_input_dims++] = input_dim;
+  }
+
+  for (DimensionIndex i = num_input_dims - 1; i >= 0; --i) {
+    const DimensionIndex input_dim = input_dims_copy[i];
     output_byte_strides[input_dim] = byte_stride;
     byte_stride *= index_transform.input_shape()[input_dim];
   }
@@ -415,9 +448,9 @@ absl::Status GenerateIndexArrayOutputIndices(
 ///
 /// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs.
 Result<Index> ProductOfIndirectExtents(span<const Index> input_shape,
-                                       span<const DimensionIndex> dims) {
+                                       DimensionSet dims) {
   Index num_positions = 1;
-  for (const DimensionIndex dim : dims) {
+  for (const DimensionIndex dim : dims.index_view()) {
     if (internal::MulOverflow(num_positions, input_shape[dim],
                               &num_positions)) {
       return absl::InvalidArgumentError(
@@ -445,21 +478,22 @@ Result<Index> ProductOfIndirectExtents(span<const Index> input_shape,
 /// \param num_positions The product of `index_transform.input_size(d)` for `d`
 ///     in `input_dims`.
 /// \returns A vector representing a row-major array of shape
-///     `{num_positions, grid_dims.size()}` containing the partial grid cell
+///     `{num_positions, grid_dims.count()}` containing the partial grid cell
 ///     index vectors for each input position.
 Result<std::vector<Index>> GenerateIndexArraySetGridCellIndices(
-    span<const DimensionIndex> grid_dims, span<const DimensionIndex> input_dims,
+    DimensionSet grid_dims, DimensionSet input_dims,
     span<const DimensionIndex> grid_output_dimensions,
     OutputToGridCellFn output_to_grid_cell,
     IndexTransformView<> index_transform, Index num_positions) {
-  // Logically represents a row-major array of shape `{num_positions,
-  // grid_dims.size()}` containing the partial grid cell index vectors for each
-  // position.
-  std::vector<Index> temp_cell_indices(grid_dims.size() * num_positions);
+  const DimensionIndex num_grid_dims = grid_dims.count();
+  // Logically represents a row-major array of shape
+  // `{num_positions, num_grid_dims}` containing the partial grid cell index
+  // vectors for each position.
+  std::vector<Index> temp_cell_indices(num_grid_dims * num_positions);
   // Loop over the grid dimensions and fill in `temp_celll_indices` with the
   // grid cell index vectors for each position.
-  for (DimensionIndex grid_i = 0; grid_i < grid_dims.size(); ++grid_i) {
-    const DimensionIndex grid_dim = grid_dims[grid_i];
+  DimensionIndex grid_i = 0;
+  for (DimensionIndex grid_dim : grid_dims.index_view()) {
     const DimensionIndex output_dim = grid_output_dimensions[grid_dim];
     const OutputIndexMapRef<> map =
         index_transform.output_index_map(output_dim);
@@ -468,21 +502,20 @@ Result<std::vector<Index>> GenerateIndexArraySetGridCellIndices(
     // indices will then be transformed to grid indices.
     if (map.method() == OutputIndexMethod::single_input_dimension) {
       TENSORSTORE_RETURN_IF_ERROR(GenerateSingleInputDimensionOutputIndices(
-          map, input_dims, index_transform, cur_cell_indices,
-          grid_dims.size()));
+          map, input_dims, index_transform, cur_cell_indices, num_grid_dims));
     } else {
       assert(map.method() == OutputIndexMethod::array);
-      TENSORSTORE_RETURN_IF_ERROR(
-          GenerateIndexArrayOutputIndices(map, input_dims, index_transform,
-                                          cur_cell_indices, grid_dims.size()));
+      TENSORSTORE_RETURN_IF_ERROR(GenerateIndexArrayOutputIndices(
+          map, input_dims, index_transform, cur_cell_indices, num_grid_dims));
     }
 
     // Convert the output indices to grid cell indices
-    for (Index* end = cur_cell_indices + num_positions * grid_dims.size();
-         cur_cell_indices != end; cur_cell_indices += grid_dims.size()) {
+    for (Index* end = cur_cell_indices + num_positions * num_grid_dims;
+         cur_cell_indices != end; cur_cell_indices += num_grid_dims) {
       *cur_cell_indices =
           output_to_grid_cell(grid_dim, *cur_cell_indices, nullptr);
     }
+    ++grid_i;
   }
   return temp_cell_indices;
 }
@@ -669,17 +702,22 @@ IndirectVectorMap PartitionIndexArraySetGridCellIndexVectors(
 /// \param num_positions The product of `input_shape[d]` for `d` in
 ///     `input_dims`.
 /// \returns A newly allocated array of shape
-///     `{num_positions, input_dims.size()}` containing the
+///     `{num_positions, input_dims.count()}` containing the
 SharedArray<Index, 2> GenerateIndexArraySetPartitionedInputIndices(
-    span<const DimensionIndex> input_dims, BoxView<> full_input_domain,
+    DimensionSet input_dims, BoxView<> full_input_domain,
     IndirectVectorMap cells, Index num_positions) {
+  const DimensionIndex num_input_dims = input_dims.count();
   Box<dynamic_rank(internal::kNumInlinedDims)> partial_input_domain(
-      input_dims.size());
-  for (DimensionIndex i = 0; i < input_dims.size(); ++i) {
-    partial_input_domain[i] = full_input_domain[input_dims[i]];
+      num_input_dims);
+  {
+    DimensionIndex i = 0;
+    for (DimensionIndex input_dim : input_dims.index_view()) {
+      partial_input_domain[i] = full_input_domain[input_dim];
+      ++i;
+    }
   }
   SharedArray<Index, 2> partitioned_input_indices =
-      AllocateArray<Index>({num_positions, input_dims.size()});
+      AllocateArray<Index>({num_positions, num_input_dims});
   // Flat position index.
   Index position_i = 0;
   IterateOverIndexRange(partial_input_domain, [&](span<const Index> indices) {
@@ -687,7 +725,7 @@ SharedArray<Index, 2> GenerateIndexArraySetPartitionedInputIndices(
     assert(it != cells.end());
     auto& offset = it->second;
     std::copy(indices.begin(), indices.end(),
-              partitioned_input_indices.data() + offset * input_dims.size());
+              partitioned_input_indices.data() + offset * num_input_dims);
     ++offset;
     ++position_i;
   });
@@ -711,10 +749,10 @@ SharedArray<Index, 2> GenerateIndexArraySetPartitionedInputIndices(
 /// vector" means an input index is specified only for each input dimension in
 /// the connected set.
 ///
-/// \params index_array_set[in,out] Non-null pointer to IndexArraySet structure.
-///     On invocation, `only `index_array_set->input_dimensions` and
-///     `index_array_set->grid_dimensions` must be valid.  On return, all other
-///     fields have been set.
+/// \params index_array_set[in,out] On invocation,
+///     `only `index_array_set.input_dimensions`
+///     and `index_array_set.grid_dimensions`
+///     must be valid.  On return, all other fields have been set.
 /// \param grid_output_dimensions Maps grid dimension indices to output
 ///     dimension indices.
 /// \param grid_cell_shape Array of size `grid_output_dimensions.size()`
@@ -724,7 +762,7 @@ SharedArray<Index, 2> GenerateIndexArraySetPartitionedInputIndices(
 /// \error `absl::StatusCode::kOutOfRange` if an index array contains an
 ///     out-of-bounds index.
 absl::Status FillIndexArraySetData(
-    IndexTransformGridPartition::IndexArraySet* index_array_set,
+    IndexTransformGridPartition::IndexArraySet& index_array_set,
     span<const DimensionIndex> grid_output_dimensions,
     OutputToGridCellFn output_to_grid_cell,
     IndexTransformView<> index_transform) {
@@ -735,24 +773,24 @@ absl::Status FillIndexArraySetData(
   TENSORSTORE_ASSIGN_OR_RETURN(
       Index num_positions,
       ProductOfIndirectExtents(index_transform.input_shape(),
-                               index_array_set->input_dimensions));
+                               index_array_set.input_dimensions));
   if (num_positions == 0) {
     return absl::OkStatus();
   }
 
-  // Logically represents a row-major array of shape `{num_positions,
-  // grid_dims.size()}` containing the partial grid cell index vectors for each
-  // position in the input domain subset.
+  // Logically represents a row-major array of shape
+  // `{num_positions, grid_dims.count()}` containing the partial grid cell index
+  // vectors for each position in the input domain subset.
   TENSORSTORE_ASSIGN_OR_RETURN(
       std::vector<Index> temp_cell_indices,
       GenerateIndexArraySetGridCellIndices(
-          index_array_set->grid_dimensions, index_array_set->input_dimensions,
+          index_array_set.grid_dimensions, index_array_set.input_dimensions,
           grid_output_dimensions, output_to_grid_cell, index_transform,
           num_positions));
 
-  // Compute `index_array_set->grid_cell_indices`, the sorted array of the
+  // Compute `index_array_set.grid_cell_indices`, the sorted array of the
   // distinct index vectors in `temp_cell_indices`, and
-  // `index_array_set->grid_cell_partition_offsets`, which specifies the
+  // `index_array_set.grid_cell_partition_offsets`, which specifies the
   // corresponding offsets, for each of those distinct index vectors, into the
   // `partitioned_input_indices` array that will be generated.  Also compute a
   // map `cells` that is used to partition the partial input index vectors
@@ -760,16 +798,16 @@ absl::Status FillIndexArraySetData(
   // `temp_cell_indices`.
   IndirectVectorMap cells = PartitionIndexArraySetGridCellIndexVectors(
       temp_cell_indices.data(), num_positions,
-      index_array_set->grid_dimensions.size(),
-      &index_array_set->grid_cell_indices,
-      &index_array_set->grid_cell_partition_offsets);
+      index_array_set.grid_dimensions.count(),
+      &index_array_set.grid_cell_indices,
+      &index_array_set.grid_cell_partition_offsets);
 
   // Compute the partial input index vectors corresponding to each partial grid
   // cell index vector in `temp_cell_indices`, and directly write them
   // partitioned by grid cell using the `cells` map.
-  index_array_set->partitioned_input_indices =
+  index_array_set.partitioned_input_indices =
       GenerateIndexArraySetPartitionedInputIndices(
-          index_array_set->input_dimensions, index_transform.domain().box(),
+          index_array_set.input_dimensions, index_transform.domain().box(),
           std::move(cells), num_positions);
   return absl::OkStatus();
 }
@@ -783,45 +821,153 @@ absl::Status FillIndexArraySetData(
 /// \param grid_cell_shape The shape of a grid cell.
 /// \param index_transform The original index transform to be partitioned.  Must
 ///     be valid.
-/// \param output[out] Non-null pointer to IndexTransformGridPartition object to
-///     be initialized.
+/// \param grid_partition[out] `IndexTransformGridPartition` object to be
+///     initialized.
 /// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs.
 /// \error `absl::StatusCode::kOutOfRange` if an index array contains an
 ///     out-of-bounds index.
 absl::Status GenerateIndexTransformGridPartitionData(
     span<const DimensionIndex> grid_output_dimensions,
     OutputToGridCellFn output_to_grid_cell,
-    IndexTransformView<> index_transform, IndexTransformGridPartition* output) {
-  return ForEachConnectedSet(
-      grid_output_dimensions, index_transform.output_index_maps(),
-      output->temp_buffer_,
-      [&](span<const DimensionIndex> input_dims,
-          span<const DimensionIndex> grid_dims,
-          bool has_array) -> absl::Status {
+    IndexTransformView<> index_transform,
+    IndexTransformGridPartition& grid_partition) {
+  IndexTransformGridPartition::StridedSet strided_sets[kMaxRank];
+  DimensionIndex num_strided_sets = 0;
+
+  // List of [grid_dims, input_dims] for each index array set.
+  std::pair<DimensionSet, DimensionSet> index_array_sets[kMaxRank];
+  DimensionIndex num_index_array_sets = 0;
+
+  ForEachConnectedSet(
+      grid_output_dimensions, index_transform,
+      [&](DimensionSet input_dims, DimensionSet grid_dims, bool has_array) {
         if (!has_array) {
-          // The connected set contains only `single_input_dimension`
-          // dependencies.
-          assert(input_dims.size() == 1);
-          output->strided_sets_.push_back({grid_dims, input_dims[0]});
-          return absl::OkStatus();
+          // The connected set contains only
+          // `single_input_dimension` dependencies.
+          assert(input_dims.count() == 1);
+          strided_sets[num_strided_sets++] = {grid_dims,
+                                              input_dims.index_view().front()};
+        } else {
+          index_array_sets[num_index_array_sets++] = {grid_dims, input_dims};
         }
-        // Otherwise the connected set contains at least one `array` dependency.
-        output->index_array_sets_.emplace_back();
-        auto* set = &output->index_array_sets_.back();
-        set->input_dimensions = input_dims;
-        set->grid_dimensions = grid_dims;
-        return FillIndexArraySetData(set, grid_output_dimensions,
-                                     output_to_grid_cell, index_transform);
       });
+
+  grid_partition.strided_sets_.assign(&strided_sets[0],
+                                      &strided_sets[num_strided_sets]);
+
+  grid_partition.index_array_sets_.resize(num_index_array_sets);
+  for (DimensionIndex i = 0; i < num_index_array_sets; ++i) {
+    auto& set = grid_partition.index_array_sets_[i];
+    auto [grid_dims, input_dims] = index_array_sets[i];
+    set.input_dimensions = input_dims;
+    set.grid_dimensions = grid_dims;
+    TENSORSTORE_RETURN_IF_ERROR(FillIndexArraySetData(
+        set, grid_output_dimensions, output_to_grid_cell, index_transform));
+  }
+
+  return absl::OkStatus();
 }
 }  // namespace
+
+internal_index_space::TransformRep::Ptr<> InitializeCellTransform(
+    const IndexTransformGridPartition& info,
+    IndexTransformView<> full_transform) {
+  const DimensionIndex full_input_rank = full_transform.input_rank();
+  DimensionIndex num_index_array_dims = 0;
+  for (const IndexArraySet& index_array_set : info.index_array_sets()) {
+    num_index_array_dims += index_array_set.input_dimensions.count();
+  }
+  const DimensionIndex cell_input_rank =
+      full_input_rank - num_index_array_dims + info.index_array_sets().size();
+
+  internal_index_space::TransformRep::Ptr<> cell_transform =
+      TransformRep::Allocate(cell_input_rank, full_input_rank);
+  cell_transform->input_rank = cell_input_rank;
+  cell_transform->output_rank = full_input_rank;
+  cell_transform->implicit_lower_bounds = false;
+  cell_transform->implicit_upper_bounds = false;
+
+  const span<Index> input_origin =
+      cell_transform->input_origin().first(cell_input_rank);
+  const span<OutputIndexMap> output_maps =
+      cell_transform->output_index_maps().first(full_input_rank);
+
+  // Initialize the `cell_transform` output index maps for all input
+  // dimensions of the original input space that do affect grid cell indices
+  // (i.e. contained in a connected set).
+  {
+    // Next synthetic input dimension index, corresponding to a connected set.
+    // The synthetic input dimensions for index array connected sets come before
+    // those for strided connected sets, to match the order of the recursive
+    // iteration.
+    DimensionIndex cell_input_dim = 0;
+    for (const IndexArraySet& index_array_set : info.index_array_sets()) {
+      // The `input_origin` is always 0 for the synthetic input dimension
+      // corresponding to an index array connected set (in fact the origin is
+      // arbitrary and any origin could be used).  While iterating, the
+      // `input_shape[cell_input_dim]` will be set appropriately for each
+      // partition.
+      input_origin[cell_input_dim] = 0;
+      for (const DimensionIndex full_input_dim :
+           index_array_set.input_dimensions.index_view()) {
+        auto& map = output_maps[full_input_dim];
+        // Use an `offset` of `0` and stride of `1`, since the precomputed index
+        // arrays correspond directly to the input domains.
+        map.offset() = 0;
+        map.stride() = 1;
+        auto& index_array_data = map.SetArrayIndexing(cell_input_rank);
+        std::fill_n(index_array_data.byte_strides, cell_input_rank, 0);
+        // Initialize the index array `byte_strides`, which are the same for
+        // all partitions.
+        index_array_data.byte_strides[cell_input_dim] =
+            index_array_set.partitioned_input_indices.byte_strides()[0];
+      }
+      ++cell_input_dim;
+    }
+
+    // The output index maps corresponding to the original input dimensions in
+    // strided connected sets do not depend on the partition.
+    for (const auto& strided_set : info.strided_sets()) {
+      auto& map = output_maps[strided_set.input_dimension];
+      map.SetSingleInputDimension(cell_input_dim);
+      // Use an `offset` of `0`.  The actual starting index into the original
+      // input dimension will be set as `input_origin[cell_input_dim]`.
+      map.offset() = 0;
+      // Use a `stride` of `1`, to not skip any part of the original input
+      // domain.
+      map.stride() = 1;
+      ++cell_input_dim;
+    }
+  }
+
+  // Set up the `cell_transform` output index maps corresponding to all input
+  // dimensions of the original input space that do not affect grid cell
+  // indices (i.e. not contained in a connected set).  These output index maps
+  // will not be modified.
+  for (DimensionIndex cell_input_dim = info.index_array_sets().size() +
+                                       info.strided_sets().size(),
+                      full_input_dim = 0;
+       full_input_dim < full_input_rank; ++full_input_dim) {
+    auto& map = output_maps[full_input_dim];
+    if (map.method() != OutputIndexMethod::constant) continue;
+    map.SetSingleInputDimension(cell_input_dim);
+    map.offset() = 0;
+    map.stride() = 1;
+    cell_transform->input_dimension(cell_input_dim) =
+        internal_index_space::TransformAccess::rep(full_transform)
+            ->input_dimension(full_input_dim);
+    ++cell_input_dim;
+  }
+
+  // Invariants checked in InvokeCallback
+  return cell_transform;
+}
 
 absl::Status PrePartitionIndexTransformOverGrid(
     IndexTransformView<> index_transform,
     span<const DimensionIndex> grid_output_dimensions,
     OutputToGridCellFn output_to_grid_cell,
-    std::optional<IndexTransformGridPartition>* result) {
-  assert(result != nullptr);
+    IndexTransformGridPartition& grid_partition) {
   const DimensionIndex input_rank = index_transform.input_rank();
 
   // Check that the input domains are all bounded.
@@ -853,10 +999,9 @@ absl::Status PrePartitionIndexTransformOverGrid(
   }
 
   // Compute the IndexTransformGridPartition structure.
-  result->emplace(index_transform.input_rank(), grid_output_dimensions.size());
   return internal_grid_partition::GenerateIndexTransformGridPartitionData(
       grid_output_dimensions, output_to_grid_cell, index_transform,
-      &result->value());
+      grid_partition);
 }
 
 }  // namespace internal_grid_partition

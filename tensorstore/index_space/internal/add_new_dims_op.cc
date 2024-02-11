@@ -14,19 +14,32 @@
 
 #include "tensorstore/index_space/internal/add_new_dims_op.h"
 
+#include <cassert>
+#include <utility>
+
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
+#include "tensorstore/index_space/dimension_index_buffer.h"
+#include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/internal/transform_rep.h"
+#include "tensorstore/index_space/output_index_method.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/util/dimension_set.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal_index_space {
 
 namespace {
-/// Sets `result` to the result of adding the specified new dummy dimensions to
+/// Sets `result` to the result of adding the specified new inert dimensions to
 /// `original`.
 ///
 /// \params original[in] Non-null pointer to existing transform.
 /// \params result[out] Non-null pointer to new transform.  May alias
 ///     `original`.
-/// \params dimensions[in] Must be non-null, specifies the new, dummy
+/// \params dimensions[in] Must be non-null, specifies the new, inert
 ///     dimensions.
 /// \pre All values in `*dimensions` must be in `[0, new_input_rank)`, where
 ///     `new_input_rank = original->input_rank + dimensions->size()`.
@@ -111,7 +124,7 @@ void AddNewDims(TransformRep* original, TransformRep* result,
     result->input_dimension(new_input_dim) =
         original->input_dimension(orig_input_dim);
   }
-  // Sets the input dimension fields for the new dummy input dimensions of the
+  // Sets the input dimension fields for the new inert input dimensions of the
   // new transform.
   for (DimensionIndex new_input_dim : *dimensions) {
     const auto d = result->input_dimension(new_input_dim);

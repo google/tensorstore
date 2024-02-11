@@ -17,10 +17,10 @@
 
 /// \file Interfaces for creating and using context resources.
 
-#include <assert.h>
+#include <stddef.h>
+#include <stdint.h>
 
-#include <cstddef>
-#include <cstdint>
+#include <cassert>
 #include <string>
 #include <utility>
 
@@ -304,7 +304,7 @@ class Context {
     return GetResource(spec);
   }
   template <typename Provider>
-  Result<Resource<Provider>> GetResource() {
+  Result<Resource<Provider>> GetResource() const {
     return GetResource<Provider>(Provider::id);
   }
 
@@ -729,7 +729,7 @@ template <typename Provider>
 struct pointer_traits<tensorstore::Context::Resource<Provider>> {
   using pointer = tensorstore::Context::Resource<Provider>;
   using element_type = typename Provider::Resource;
-  using difference_type = std::ptrdiff_t;
+  using difference_type = ptrdiff_t;
 };
 }  // namespace std
 

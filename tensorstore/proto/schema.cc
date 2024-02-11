@@ -14,20 +14,22 @@
 
 #include "tensorstore/proto/schema.h"
 
-#include <algorithm>
-#include <optional>
+#include <stddef.h>
 
-#include "absl/container/fixed_array.h"
-#include "absl/container/flat_hash_set.h"
-#include "absl/container/inlined_vector.h"
+#include <optional>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/chunk_layout.h"
+#include "tensorstore/codec_spec.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dimension_units.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/json.h"
-#include "tensorstore/internal/type_traits.h"
 #include "tensorstore/proto/array.h"
 #include "tensorstore/proto/index_transform.h"
 #include "tensorstore/proto/schema.pb.h"
@@ -36,9 +38,11 @@
 #include "tensorstore/serialization/batch.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/strided_layout.h"
-#include "tensorstore/util/quote_string.h"
+#include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/str_cat.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
+#include "tensorstore/util/unit.h"
 
 namespace tensorstore {
 namespace {
@@ -69,7 +73,7 @@ void EncodeToProto(::tensorstore::proto::ChunkLayout& proto,  // NOLINT
             soft_constraints[i] = !shape.hard_constraint[i];
           }
           if (soft_constraints) {
-            proto.set_shape_soft_constraint_bitset(soft_constraints.bits());
+            proto.set_shape_soft_constraint_bitset(soft_constraints.to_uint());
           }
         }
 
@@ -82,7 +86,7 @@ void EncodeToProto(::tensorstore::proto::ChunkLayout& proto,  // NOLINT
           }
           if (soft_constraints) {
             proto.set_aspect_ratio_soft_constraint_bitset(
-                soft_constraints.bits());
+                soft_constraints.to_uint());
           }
         }
 
@@ -103,7 +107,7 @@ void EncodeToProto(::tensorstore::proto::ChunkLayout& proto,  // NOLINT
     }
     if (grid_origin_soft_constraint_bitset) {
       proto.set_grid_origin_soft_constraint_bitset(
-          grid_origin_soft_constraint_bitset.bits());
+          grid_origin_soft_constraint_bitset.to_uint());
     }
   }
 
@@ -136,14 +140,14 @@ Result<ChunkLayout> ParseChunkLayoutFromProto(
 
     if (proto.shape_size() > 0) {
       DimensionSet soft_constraints =
-          DimensionSet::FromBits(proto.shape_soft_constraint_bitset());
+          DimensionSet::FromUint(proto.shape_soft_constraint_bitset());
 
       TENSORSTORE_RETURN_IF_ERROR(grid.Set(ChunkLayout::Grid::Shape(
           tensorstore::span(proto.shape()), ~soft_constraints)));
     }
     if (proto.aspect_ratio_size() > 0) {
       DimensionSet soft_constraints =
-          DimensionSet::FromBits(proto.aspect_ratio_soft_constraint_bitset());
+          DimensionSet::FromUint(proto.aspect_ratio_soft_constraint_bitset());
 
       TENSORSTORE_RETURN_IF_ERROR(grid.Set(ChunkLayout::Grid::AspectRatio(
           tensorstore::span(proto.aspect_ratio()), ~soft_constraints)));
@@ -160,7 +164,7 @@ Result<ChunkLayout> ParseChunkLayoutFromProto(
 
   if (proto.grid_origin_size() > 0) {
     DimensionSet soft_constraints =
-        DimensionSet::FromBits(proto.grid_origin_soft_constraint_bitset());
+        DimensionSet::FromUint(proto.grid_origin_soft_constraint_bitset());
     TENSORSTORE_RETURN_IF_ERROR(chunk_layout.Set(ChunkLayout::GridOrigin(
         tensorstore::span(proto.grid_origin()), ~soft_constraints)));
   }

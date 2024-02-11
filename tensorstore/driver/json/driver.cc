@@ -14,23 +14,67 @@
 
 #include "tensorstore/driver/driver.h"
 
+#include <stddef.h>
+
+#include <cassert>
+#include <memory>
+#include <optional>
+#include <string>
+#include <utility>
+
 #include "absl/status/status.h"
+#include "absl/strings/cord.h"
+#include "absl/time/clock.h"
+#include <nlohmann/json.hpp>
+#include "tensorstore/chunk_layout.h"
+#include "tensorstore/context.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/driver/chunk.h"
 #include "tensorstore/driver/driver_handle.h"
+#include "tensorstore/driver/driver_spec.h"
 #include "tensorstore/driver/json/json_change_map.h"
 #include "tensorstore/driver/registry.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_space/index_domain.h"
+#include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/internal/arena.h"
 #include "tensorstore/internal/cache/async_cache.h"
 #include "tensorstore/internal/cache/async_initialized_cache_mixin.h"
+#include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/cache/cache_pool_resource.h"
 #include "tensorstore/internal/cache/kvs_backed_cache.h"
+#include "tensorstore/internal/cache_key/cache_key.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
+#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json/same.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/staleness_bound.h"
 #include "tensorstore/internal/json_pointer.h"
+#include "tensorstore/internal/lock_collection.h"
+#include "tensorstore/internal/mutex.h"
+#include "tensorstore/internal/nditerable.h"
 #include "tensorstore/internal/nditerable_transformed_array.h"
+#include "tensorstore/internal/unowned_to_shared.h"
+#include "tensorstore/kvstore/driver.h"
+#include "tensorstore/kvstore/generation.h"
+#include "tensorstore/kvstore/kvstore.h"
+#include "tensorstore/kvstore/spec.h"
+#include "tensorstore/open_mode.h"
+#include "tensorstore/open_options.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/schema.h"
 #include "tensorstore/serialization/absl_time.h"  // IWYU pragma: keep
+#include "tensorstore/staleness_bound.h"
+#include "tensorstore/transaction.h"
 #include "tensorstore/util/execution/any_receiver.h"
+#include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender_util.h"
+#include "tensorstore/util/executor.h"
+#include "tensorstore/util/future.h"
+#include "tensorstore/util/garbage_collection/fwd.h"
+#include "tensorstore/util/garbage_collection/garbage_collection.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal {
@@ -95,67 +139,72 @@ class JsonCache
     void DoApply(ApplyOptions options, ApplyReceiver receiver) override {
       // Determine whether a read is required to compute the updated state
       // (i.e. whether this transaction node completely overwrites the state).
-      const bool unconditional = [&] {
-        UniqueWriterLock<AsyncCache::TransactionNode> lock(*this);
-        return changes_.CanApplyUnconditionally({});
-      }();
+      const bool unconditional = changes_.CanApplyUnconditionally({});
+      const bool unmodified = changes_.underlying_map().empty();
+
       // Asynchronous continuation run once the read of the existing state, if
       // needed, has completed.
-      auto continuation = [this, receiver = std::move(receiver), unconditional](
-                              ReadyFuture<const void> future) mutable {
-        if (!future.result().ok()) {
-          // Propagate read error.
-          execution::set_error(receiver, future.result().status());
-          return;
-        }
-        AsyncCache::ReadState read_state;
-        if (!unconditional) {
-          read_state =
-              AsyncCache::ReadLock<::nlohmann::json>(*this).read_state();
-        } else {
-          read_state.stamp = TimestampedStorageGeneration::Unconditional();
-        }
-        auto* existing_json =
-            static_cast<const ::nlohmann::json*>(read_state.data.get());
-        ::nlohmann::json new_json;
-        {
-          auto result = [&] {
-            UniqueWriterLock<AsyncCache::TransactionNode> lock(*this);
-            // Apply changes.  If `existing_state` is non-null (equivalent to
-            // `unconditional == false`), provide it to `Apply`.  Otherwise,
-            // pass in a dummy value (which won't be used).
-            return changes_.Apply(
-                existing_json
-                    ? *existing_json
-                    : ::nlohmann::json(::nlohmann::json::value_t::discarded));
-          }();
-          if (result.ok()) {
-            new_json = std::move(*result);
-          } else {
-            execution::set_error(receiver, std::move(result).status());
-            return;
-          }
-        }
-        // For conditional states, only mark dirty if it differs from the
-        // existing state, since otherwise the writeback can be skipped (and
-        // instead the state can just be verified).
-        if (!existing_json ||
-            !internal_json::JsonSame(new_json, *existing_json)) {
-          read_state.stamp.generation.MarkDirty();
-          read_state.data =
-              std::make_shared<::nlohmann::json>(std::move(new_json));
-        }
-        execution::set_value(receiver, std::move(read_state));
-      };
-      (unconditional ? MakeReadyFuture() : this->Read(options.staleness_bound))
-          .ExecuteWhenReady(WithExecutor(GetOwningCache(*this).executor(),
-                                         std::move(continuation)));
+      auto continuation =
+          [this, receiver = std::move(receiver), unconditional, unmodified,
+           specify_unchanged =
+               (options.apply_mode == ApplyOptions::kSpecifyUnchanged)](
+              ReadyFuture<const void> future) mutable {
+            if (!future.result().ok()) {
+              // Propagate read error.
+              execution::set_error(receiver, future.result().status());
+              return;
+            }
+
+            AsyncCache::ReadState read_state;
+            if (unconditional || (unmodified && !specify_unchanged)) {
+              read_state.stamp = TimestampedStorageGeneration::Unconditional();
+            } else {
+              read_state = AsyncCache::ReadLock<void>(*this).read_state();
+            }
+
+            if (!unmodified) {
+              auto* existing_json =
+                  static_cast<const ::nlohmann::json*>(read_state.data.get());
+              ::nlohmann::json new_json;
+              // Apply changes.  If `existing_state` is non-null (equivalent to
+              // `unconditional == false`), provide it to `Apply`.  Otherwise,
+              // pass in a placeholder value (which won't be used).
+              auto result = changes_.Apply(
+                  existing_json
+                      ? *existing_json
+                      : ::nlohmann::json(::nlohmann::json::value_t::discarded));
+              if (result.ok()) {
+                new_json = std::move(*result);
+              } else {
+                execution::set_error(receiver, std::move(result).status());
+                return;
+              }
+              // For conditional states, only mark dirty if it differs from the
+              // existing state, since otherwise the writeback can be skipped
+              // (and instead the state can just be verified).
+              if (!existing_json ||
+                  !internal_json::JsonSame(new_json, *existing_json)) {
+                read_state.stamp.generation.MarkDirty();
+                read_state.data =
+                    std::make_shared<::nlohmann::json>(std::move(new_json));
+              }
+            }
+            execution::set_value(receiver, std::move(read_state));
+          };
+      auto future = ((unconditional ||
+                      (unmodified &&
+                       options.apply_mode != ApplyOptions::kSpecifyUnchanged))
+                         ? MakeReadyFuture()
+                         : this->Read(options.staleness_bound));
+      future.Force();
+      std::move(future).ExecuteWhenReady(WithExecutor(
+          GetOwningCache(*this).executor(), std::move(continuation)));
     }
     internal_json_driver::JsonChangeMap changes_;
   };
 
   Entry* DoAllocateEntry() final { return new Entry; }
-  std::size_t DoGetSizeofEntry() final { return sizeof(Entry); }
+  size_t DoGetSizeofEntry() final { return sizeof(Entry); }
   TransactionNode* DoAllocateTransactionNode(AsyncCache::Entry& entry) final {
     return new TransactionNode(static_cast<Entry&>(entry));
   }
@@ -186,7 +235,8 @@ class JsonDriverSpec
   };
 
   static absl::Status ValidateSchema(Schema& schema) {
-    TENSORSTORE_RETURN_IF_ERROR(schema.Set(dtype_v<json_t>));
+    TENSORSTORE_RETURN_IF_ERROR(
+        schema.Set(dtype_v<::tensorstore::dtypes::json_t>));
     TENSORSTORE_RETURN_IF_ERROR(schema.Set(RankConstraint{0}));
     if (schema.codec().valid()) {
       return absl::InvalidArgumentError("codec not supported by json driver");
@@ -276,7 +326,7 @@ class JsonDriver : public RegisteredDriver<JsonDriver,
       internal::OpenTransactionPtr transaction,
       IndexTransformView<> transform) override;
 
-  DataType dtype() override { return dtype_v<json_t>; }
+  DataType dtype() override { return dtype_v<::tensorstore::dtypes::json_t>; }
   DimensionIndex rank() override { return 0; }  // COV_NF_LINE
 
   Executor data_copy_executor() override {
@@ -311,7 +361,7 @@ Future<internal::Driver::Handle> JsonDriverSpec::Open(
   internal::EncodeCacheKey(&cache_identifier, store.driver,
                            data_copy_concurrency);
   auto cache = internal::GetOrCreateAsyncInitializedCache<JsonCache>(
-      **cache_pool, cache_identifier,
+      cache_pool->get(), cache_identifier,
       [&] {
         auto cache = std::make_unique<JsonCache>();
         cache->data_copy_concurrency_ = data_copy_concurrency;
@@ -352,7 +402,7 @@ Result<TransformedDriverSpec> JsonDriver::GetBoundSpec(
   driver_spec->data_staleness = data_staleness_;
   driver_spec->json_pointer = json_pointer_;
   driver_spec->schema.Set(RankConstraint{0}).IgnoreError();
-  driver_spec->schema.Set(dtype_v<json_t>).IgnoreError();
+  driver_spec->schema.Set(dtype_v<::tensorstore::dtypes::json_t>).IgnoreError();
   TransformedDriverSpec spec;
   spec.driver_spec = std::move(driver_spec);
   spec.transform = std::move(transform);
@@ -368,7 +418,8 @@ KvStore JsonDriver::GetKvstore(const Transaction& transaction) {
 /// TensorStore Driver ReadChunk implementation for the case of a
 /// non-transactional read.
 ///
-/// This implements the `tensorstore::internal::ReadChunk::Impl` Poly interface.
+/// This implements the `tensorstore::internal::ReadChunk::Impl` Poly
+/// interface.
 struct ReadChunkImpl {
   PinnedCacheEntry<JsonCache> entry;
   IntrusivePtr<JsonDriver> driver;
@@ -402,7 +453,8 @@ struct ReadChunkImpl {
 /// TensorStore Driver ReadChunk implementation for the case of a transactional
 /// read.
 ///
-/// This implements the `tensorstore::internal::ReadChunk::Impl` Poly interface.
+/// This implements the `tensorstore::internal::ReadChunk::Impl` Poly
+/// interface.
 struct ReadChunkTransactionImpl {
   OpenTransactionNodePtr<JsonCache::TransactionNode> node;
   IntrusivePtr<JsonDriver> driver;
@@ -416,14 +468,31 @@ struct ReadChunkTransactionImpl {
   Result<NDIterable::Ptr> operator()(ReadChunk::BeginRead,
                                      IndexTransform<> chunk_transform,
                                      Arena* arena) {
-    auto existing_value =
-        AsyncCache::ReadLock<JsonCache::ReadData>(*node).shared_data();
+    std::shared_ptr<const ::nlohmann::json> existing_value;
+    StorageGeneration read_generation;
+    {
+      AsyncCache::ReadLock<JsonCache::ReadData> lock(*node);
+      existing_value = lock.shared_data();
+      read_generation = lock.stamp().generation;
+    }
     auto value = std::allocate_shared<::nlohmann::json>(
         ArenaAllocator<::nlohmann::json>(arena));
     {
       UniqueWriterLock lock(*node);
+      if ((node->transaction()->mode() & repeatable_read) &&
+          !node->changes_.CanApplyUnconditionally(driver->json_pointer_)) {
+        TENSORSTORE_RETURN_IF_ERROR(
+            node->RequireRepeatableRead(read_generation));
+      }
+      assert(existing_value ||
+             node->changes_.CanApplyUnconditionally(driver->json_pointer_));
       TENSORSTORE_ASSIGN_OR_RETURN(
-          *value, node->changes_.Apply(*existing_value, driver->json_pointer_),
+          *value,
+          node->changes_.Apply(
+              existing_value
+                  ? *existing_value
+                  : ::nlohmann::json(::nlohmann::json::value_t::discarded),
+              driver->json_pointer_),
           GetOwningEntry(*node).AnnotateError(_, /*reading=*/true));
     }
     return GetTransformedArrayNDIterable(std::move(value), chunk_transform,
@@ -440,9 +509,12 @@ void JsonDriver::Read(
     if (transaction) {
       TENSORSTORE_ASSIGN_OR_RETURN(
           auto node, GetTransactionNode(*cache_entry_, transaction));
-      auto read_future = node->changes_.CanApplyUnconditionally(json_pointer_)
-                             ? MakeReadyFuture()
-                             : node->Read(data_staleness_.time);
+      const bool unconditional = [&] {
+        UniqueWriterLock<AsyncCache::TransactionNode> lock(*node);
+        return node->changes_.CanApplyUnconditionally(json_pointer_);
+      }();
+      auto read_future =
+          unconditional ? MakeReadyFuture() : node->Read(data_staleness_.time);
       chunk.impl = ReadChunkTransactionImpl{std::move(node),
                                             IntrusivePtr<JsonDriver>(this)};
       return read_future;
@@ -494,15 +566,11 @@ struct WriteChunkImpl {
 
   WriteChunk::EndWriteResult operator()(WriteChunk::EndWrite,
                                         IndexTransformView<> chunk_transform,
-                                        NDIterable::IterationLayoutView layout,
-                                        span<const Index> write_end_position,
-                                        Arena* arena) {
-    // There is only 1 element, so any non-zero index in write_end_position
-    // means it was written.
-    const bool modified =
-        std::any_of(write_end_position.begin(), write_end_position.end(),
-                    [](Index x) { return x != 0; });
-    if (!modified) return {};
+                                        bool success, Arena* arena) {
+    if (chunk_transform.domain().box().is_empty()) {
+      return {};
+    }
+    if (!success) return {};
     const auto convert_error = [&](const absl::Status& error) {
       return WriteChunk::EndWriteResult{
           /*.copy_status=*/entry->AnnotateError(error, /*reading=*/false),

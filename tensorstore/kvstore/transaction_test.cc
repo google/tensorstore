@@ -14,10 +14,21 @@
 
 #include "tensorstore/transaction.h"
 
+#include <utility>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include "absl/strings/cord.h"
+#include "absl/time/clock.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/kvstore/byte_range.h"
+#include "tensorstore/kvstore/generation.h"
+#include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/mock_kvstore.h"
+#include "tensorstore/kvstore/operations.h"
+#include "tensorstore/kvstore/read_result.h"
+#include "tensorstore/kvstore/read_result_testutil.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/util/status_testutil.h"
 
@@ -33,6 +44,7 @@ using ::tensorstore::Transaction;
 using ::tensorstore::internal::MatchesKvsReadResult;
 using ::tensorstore::internal::MockKeyValueStore;
 using ::tensorstore::kvstore::KvStore;
+using ::tensorstore::kvstore::ReadResult;
 
 TEST(KvStoreTest, WriteThenRead) {
   auto mock_driver = MockKeyValueStore::Make();
@@ -60,7 +72,7 @@ TEST(KvStoreTest, WriteThenRead) {
   TENSORSTORE_ASSERT_OK(future);
 }
 
-TEST(KvStoreTest, Read) {
+TEST(KvStoreTest, ReadWithoutRepeatableReadIsolation) {
   auto mock_driver = MockKeyValueStore::Make();
 
   Transaction txn(tensorstore::isolated);
@@ -73,10 +85,36 @@ TEST(KvStoreTest, Read) {
     {
       auto req = mock_driver->read_requests.pop();
       EXPECT_THAT(req.key, "a");
-      req.promise.SetResult(
-          std::in_place, kvstore::ReadResult::kValue, absl::Cord("value"),
+      req.promise.SetResult(ReadResult::Value(
+          absl::Cord("value"),
           TimestampedStorageGeneration(StorageGeneration::FromString("abc"),
-                                       absl::Now()));
+                                       absl::Now())));
+    }
+
+    EXPECT_THAT(read_future.result(),
+                ::testing::Optional(MatchesKvsReadResult(absl::Cord("value"))));
+  }
+
+  TENSORSTORE_ASSERT_OK(txn.CommitAsync().result());
+}
+
+TEST(KvStoreTest, ReadWithRepeatableReadIsolation) {
+  auto mock_driver = MockKeyValueStore::Make();
+
+  Transaction txn(tensorstore::isolated | tensorstore::repeatable_read);
+
+  KvStore store(mock_driver, "", txn);
+
+  {
+    auto read_future = kvstore::Read(store, "a");
+
+    {
+      auto req = mock_driver->read_requests.pop();
+      EXPECT_THAT(req.key, "a");
+      req.promise.SetResult(ReadResult::Value(
+          absl::Cord("value"),
+          TimestampedStorageGeneration(StorageGeneration::FromString("abc"),
+                                       absl::Now())));
     }
 
     EXPECT_THAT(read_future.result(),
@@ -90,9 +128,8 @@ TEST(KvStoreTest, Read) {
     EXPECT_THAT(req.key, "a");
     EXPECT_THAT(req.options.byte_range, OptionalByteRangeRequest(0, 0));
     EXPECT_THAT(req.options.if_not_equal, StorageGeneration::FromString("abc"));
-    req.promise.SetResult(
-        std::in_place, TimestampedStorageGeneration(
-                           StorageGeneration::FromString("abc"), absl::Now()));
+    req.promise.SetResult(ReadResult::Unspecified(TimestampedStorageGeneration(
+        StorageGeneration::FromString("abc"), absl::Now())));
   }
 
   TENSORSTORE_ASSERT_OK(future);
@@ -127,7 +164,7 @@ TEST(KvStoreTest, ReadInvalidOptionByteRange) {
 TEST(KvStoreTest, ReadMismatch) {
   auto mock_driver = MockKeyValueStore::Make();
 
-  Transaction txn(tensorstore::isolated);
+  Transaction txn(tensorstore::isolated | tensorstore::repeatable_read);
 
   KvStore store(mock_driver, "", txn);
 
@@ -137,10 +174,10 @@ TEST(KvStoreTest, ReadMismatch) {
     {
       auto req = mock_driver->read_requests.pop();
       EXPECT_THAT(req.key, "a");
-      req.promise.SetResult(
-          std::in_place, kvstore::ReadResult::kValue, absl::Cord("value"),
+      req.promise.SetResult(ReadResult::Value(
+          absl::Cord("value"),
           TimestampedStorageGeneration(StorageGeneration::FromString("abc"),
-                                       absl::Now()));
+                                       absl::Now())));
     }
 
     EXPECT_THAT(read_future.result(),
@@ -155,10 +192,8 @@ TEST(KvStoreTest, ReadMismatch) {
     EXPECT_THAT(req.key, "a");
     EXPECT_THAT(req.options.byte_range, OptionalByteRangeRequest(0, 0));
     EXPECT_THAT(req.options.if_not_equal, StorageGeneration::FromString("abc"));
-    req.promise.SetResult(
-        std::in_place, kvstore::ReadResult::kMissing, absl::Cord(),
-        TimestampedStorageGeneration(StorageGeneration::FromString("def"),
-                                     absl::Now()));
+    req.promise.SetResult(ReadResult::Missing(TimestampedStorageGeneration(
+        StorageGeneration::FromString("def"), absl::Now())));
   }
 
   // Re-read by `ReadViaExistingTransaction`.  This read is actually redundant,
@@ -168,10 +203,8 @@ TEST(KvStoreTest, ReadMismatch) {
   {
     auto req = mock_driver->read_requests.pop();
     EXPECT_THAT(req.key, "a");
-    req.promise.SetResult(
-        std::in_place, kvstore::ReadResult::kMissing, absl::Cord(),
-        TimestampedStorageGeneration(StorageGeneration::FromString("def"),
-                                     absl::Now()));
+    req.promise.SetResult(ReadResult::Missing(TimestampedStorageGeneration(
+        StorageGeneration::FromString("def"), absl::Now())));
   }
 
   EXPECT_THAT(future.result(),

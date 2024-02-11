@@ -14,27 +14,37 @@
 
 #include "tensorstore/driver/driver_testutil.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <algorithm>
 #include <atomic>
 #include <cassert>
-#include <cstddef>
+#include <map>
 #include <memory>
+#include <optional>
 #include <random>
+#include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/algorithm/container.h"
+#include "absl/functional/function_ref.h"
+#include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/random/bit_gen_ref.h"
 #include "absl/random/random.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/str_replace.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
+#include "tensorstore/array_testutil.h"
 #include "tensorstore/box.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/context.h"
@@ -43,6 +53,7 @@
 #include "tensorstore/driver/chunk.h"
 #include "tensorstore/driver/driver.h"
 #include "tensorstore/driver/driver_handle.h"
+#include "tensorstore/driver/read.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dim_expression.h"
@@ -59,12 +70,17 @@
 #include "tensorstore/internal/nditerable_transformed_array.h"
 #include "tensorstore/internal/test_util.h"
 #include "tensorstore/json_serialization_options_base.h"
+#include "tensorstore/kvstore/generation.h"
+#include "tensorstore/kvstore/memory/memory_key_value_store.h"
+#include "tensorstore/kvstore/mock_kvstore.h"
+#include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/open_options.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/resize_options.h"
 #include "tensorstore/schema.h"
+#include "tensorstore/serialization/test_util.h"
 #include "tensorstore/spec.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/tensorstore.h"
@@ -111,9 +127,42 @@ void TestMinimalSpecRoundTrips(
               ::testing::Optional(MatchesJson(options.minimal_spec)));
 }
 
+void ReplaceStringInJson(::nlohmann::json& json, std::string_view source,
+                         std::string_view target) {
+  if (json.is_string()) {
+    auto& s = json.get_ref<std::string&>();
+    s = absl::StrReplaceAll(s, {{source, target}});
+    return;
+  }
+  if (json.is_array()) {
+    auto& a = json.get_ref<::nlohmann::json::array_t&>();
+    for (auto& e : a) {
+      ReplaceStringInJson(e, source, target);
+    }
+    return;
+  }
+  if (json.is_object()) {
+    auto& a = json.get_ref<::nlohmann::json::object_t&>();
+    for (auto& e : a) {
+      ReplaceStringInJson(e.second, source, target);
+    }
+  }
+}
+
 // Tests that the full Spec round trips for creating a new TensorStore.
 void TestTensorStoreDriverSpecRoundtrip(
     TestTensorStoreDriverSpecRoundtripOptions options, TransactionMode mode) {
+  std::optional<tensorstore::internal::ScopedTemporaryDirectory> tempdir;
+  const std::string_view tempdir_key = "${TEMPDIR}";
+  if (options.full_spec.dump().find(tempdir_key) != std::string::npos) {
+    // In practice, if tempdir is present in any of the specs, it must be
+    // present in the full spec.
+    tempdir.emplace();
+    ReplaceStringInJson(options.full_spec, tempdir_key, tempdir->path());
+    ReplaceStringInJson(options.create_spec, tempdir_key, tempdir->path());
+    ReplaceStringInJson(options.minimal_spec, tempdir_key, tempdir->path());
+    ReplaceStringInJson(options.full_base_spec, tempdir_key, tempdir->path());
+  }
   Transaction transaction(mode);
   auto context = Context::Default();
   if (options.check_not_found_before_create) {
@@ -162,15 +211,44 @@ void TestTensorStoreDriverSpecRoundtrip(
                   MatchesJson(::nlohmann::json::value_t::discarded));
     }
 
-    if (options.write_value_to_create) {
+    SharedArray<const void> value_to_create;
+    if (options.write_value_to_create ||
+        (mode == no_transaction && options.check_serialization)) {
+      absl::BitGen gen;
+      value_to_create = internal::MakeRandomArray(
+          gen, span<const Index>(), store.dtype(), tensorstore::c_order);
       // Write a single value to `store` to ensure it is created.
       TENSORSTORE_ASSERT_OK(
-          tensorstore::Write(tensorstore::AllocateArray(
-                                 span<const Index>(), tensorstore::c_order,
-                                 tensorstore::value_init, store.dtype()),
+          tensorstore::Write(value_to_create,
                              store | tensorstore::AllDims().IndexSlice(
                                          store.domain().origin()))
-              .result());
+              .status());
+    }
+
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto serialized_spec,
+        serialization::SerializationRoundTrip(full_spec_obj));
+
+    EXPECT_THAT(serialized_spec.ToJson(options.to_json_options),
+                ::testing::Optional(MatchesJson(options.full_spec)));
+
+    if (mode == no_transaction) {
+      if (options.check_serialization) {
+        TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+            auto serialized_store,
+            serialization::SerializationRoundTrip(store));
+        TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+            auto serialized_store_spec,
+            serialized_store.spec(
+                SpecRequestOptions(options.spec_request_options)));
+        EXPECT_THAT(serialized_store_spec.ToJson(options.to_json_options),
+                    ::testing::Optional(MatchesJson(options.full_spec)));
+        EXPECT_THAT(tensorstore::Read(serialized_store |
+                                      tensorstore::AllDims().IndexSlice(
+                                          store.domain().origin()))
+                        .result(),
+                    ::testing::Optional(value_to_create));
+      }
     }
   }
   if (mode != no_transaction) {
@@ -281,6 +359,18 @@ void DriverRandomOperationTester::TestBasicFunctionality(
       auto store, tensorstore::Open(options.create_spec, context, transaction,
                                     tensorstore::OpenMode::create)
                       .result());
+
+  if (transaction == no_transaction) {
+    // Test that creating again fails.
+    //
+    // Don't do this if a transaction is used, since that would cause the
+    // transaction to fail.
+    EXPECT_THAT(tensorstore::Open(options.create_spec, context, transaction,
+                                  tensorstore::OpenMode::create)
+                    .result(),
+                MatchesStatus(absl::StatusCode::kAlreadyExists));
+  }
+
   ASSERT_EQ(options.expected_domain, store.domain());
   ASSERT_EQ(options.initial_value.dtype(), store.dtype());
   {
@@ -832,19 +922,156 @@ void TestMetadataOnlyResize(const TestTensorStoreDriverResizeOptions& options,
     EXPECT_EQ(expected_domain, resolved_non_transactional.domain());
   }
 }
+
+void PickRandomSmallerChunkAlignedBounds(absl::BitGenRef gen,
+                                         IndexDomainView<> orig_bounds,
+                                         BoxView<> chunk_template,
+                                         MutableBoxView<> new_bounds) {
+  const DimensionIndex rank = orig_bounds.rank();
+  assert(rank == chunk_template.rank());
+  assert(rank == new_bounds.rank());
+  new_bounds.DeepAssign(orig_bounds.box());
+  for (DimensionIndex i = 0; i < rank; ++i) {
+    const bool resize_lower = orig_bounds.implicit_lower_bounds()[i];
+    const bool resize_upper = orig_bounds.implicit_upper_bounds()[i];
+    if (!resize_lower && !resize_upper) {
+      // Not resizable
+      continue;
+    }
+    const Index orig_lower = orig_bounds.origin()[i];
+    const Index orig_size = orig_bounds.shape()[i];
+    [[maybe_unused]] const Index chunk_offset = chunk_template.origin()[i];
+    const Index chunk_size = chunk_template.shape()[i];
+    assert((orig_lower - chunk_offset) % chunk_size == 0);
+    assert((orig_size % chunk_size) == 0);
+    const Index orig_size_multiple = orig_size / chunk_size;
+    if (orig_size_multiple < (1 + resize_lower + resize_upper)) {
+      // Not large enough to resize both lower and upper bounds.
+      continue;
+    }
+    Index new_lower_multiple;
+    Index new_upper_multiple;
+    if (resize_lower) {
+      new_lower_multiple = absl::Uniform<Index>(
+          absl::IntervalOpenOpen, gen, 0, orig_size_multiple - resize_upper);
+    } else {
+      new_lower_multiple = 0;
+    }
+    if (resize_upper) {
+      new_upper_multiple = absl::Uniform<Index>(
+          absl::IntervalOpenOpen, gen, new_lower_multiple, orig_size_multiple);
+    } else {
+      new_upper_multiple = orig_size_multiple;
+    }
+    new_bounds[i] = IndexInterval::UncheckedHalfOpen(
+        orig_lower + chunk_size * new_lower_multiple,
+        orig_lower + chunk_size * new_upper_multiple);
+  }
+}
+
+void TestResize(const TestTensorStoreDriverResizeOptions& options) {
+  Box<> orig_bounds(options.initial_bounds);
+  const DimensionIndex rank = orig_bounds.rank();
+  Box<> write_chunk_template(rank);
+  DataType dtype;
+  IndexDomain<> orig_domain;
+
+  {
+    auto context = Context::Default();
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store, tensorstore::Open(options.get_create_spec(orig_bounds),
+                                      context, tensorstore::OpenMode::create)
+                        .result());
+    orig_domain = store.domain();
+    dtype = store.dtype();
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto chunk_layout, store.chunk_layout());
+    TENSORSTORE_ASSERT_OK(
+        chunk_layout.GetWriteChunkTemplate(write_chunk_template));
+  }
+
+  std::minstd_rand gen{internal::GetRandomSeedForTest(
+      "TENSORSTORE_INTERNAL_DRIVER_BASIC_FUNCTIONALITY")};
+  auto array = MakeRandomArray(gen, orig_bounds, dtype);
+
+  for (int i = 0; i < 5; ++i) {
+    Box<> new_bounds(rank);
+    PickRandomSmallerChunkAlignedBounds(gen, orig_domain, write_chunk_template,
+                                        new_bounds);
+    ABSL_CHECK_NE(orig_bounds, new_bounds);
+    SCOPED_TRACE(tensorstore::StrCat("new_bounds=", new_bounds));
+
+    std::map<std::string, absl::Cord> resized_map;
+    std::map<std::string, absl::Cord> direct_map;
+    {
+      // Create full size store with original bounds.
+      auto context = Context::Default();
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+          auto store, tensorstore::Open(options.get_create_spec(orig_bounds),
+                                        context, tensorstore::OpenMode::create)
+                          .result());
+      // Write full array.
+      TENSORSTORE_ASSERT_OK(tensorstore::Write(array, store).result());
+
+      // Resize (shrink) to new bounds.
+      Index inclusive_min[kMaxRank];
+      Index exclusive_max[kMaxRank];
+      for (DimensionIndex i = 0; i < rank; ++i) {
+        IndexInterval new_interval = new_bounds[i];
+        IndexInterval orig_interval = orig_bounds[i];
+        inclusive_min[i] =
+            new_interval.inclusive_min() != orig_interval.inclusive_min()
+                ? new_interval.inclusive_min()
+                : kImplicit;
+        exclusive_max[i] =
+            new_interval.exclusive_max() != orig_interval.exclusive_max()
+                ? new_interval.exclusive_max()
+                : kImplicit;
+      }
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+          auto resized_store,
+          tensorstore::Resize(store, span<const Index>(&inclusive_min[0], rank),
+                              span<const Index>(&exclusive_max[0], rank))
+              .result());
+      auto kvs = resized_store.kvstore();
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(resized_map, internal::GetMap(kvs));
+    }
+
+    // Create store with new bounds directly.
+    {
+      auto context = Context::Default();
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+          auto store, tensorstore::Open(options.get_create_spec(new_bounds),
+                                        context, tensorstore::OpenMode::create)
+                          .result());
+      // Write portion of array.
+      TENSORSTORE_ASSERT_OK(
+          tensorstore::Write(array | new_bounds, store).result());
+      auto kvs = store.kvstore();
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(direct_map, internal::GetMap(kvs));
+    }
+    EXPECT_THAT(resized_map, ::testing::ElementsAreArray(direct_map));
+  }
+}
 }  // namespace
 
 void RegisterTensorStoreDriverResizeTest(
     TestTensorStoreDriverResizeOptions options) {
   const auto RegisterVariant = [&](TransactionMode mode) {
     internal::RegisterGoogleTestCaseDynamically(
-        "TensorStoreDriverResizeTest",
+        "TensorStoreDriverMetadataResizeTest",
         tensorstore::StrCat(options.test_name, "/transaction_mode=", mode),
         [=] { TestMetadataOnlyResize(options, mode); });
   };
-  RegisterVariant(no_transaction);
-  for (auto transaction_mode : options.supported_transaction_modes) {
-    RegisterVariant(transaction_mode);
+  if (options.test_metadata) {
+    RegisterVariant(no_transaction);
+    for (auto transaction_mode : options.supported_transaction_modes) {
+      RegisterVariant(transaction_mode);
+    }
+  }
+  if (options.test_data) {
+    internal::RegisterGoogleTestCaseDynamically(
+        "TensorStoreDriverDataResizeTest", options.test_name,
+        [=] { TestResize(options); });
   }
 }
 
@@ -1010,6 +1237,214 @@ void TestSpecSchemaImpl(::nlohmann::json json_spec, const Schema& schema) {
 void TestSpecSchema(::nlohmann::json json_spec, ::nlohmann::json json_schema) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto schema, Schema::FromJson(json_schema));
   TestSpecSchemaImpl(std::move(json_spec), schema);
+}
+
+namespace {
+struct RepeatableReadParams {
+  bool has_initial_value;
+  bool value_changes;
+  bool repeatable;
+  enum FullyOverwritten {
+    kInitially,
+    kAfterRead,
+    kNever,
+  };
+  FullyOverwritten fully_overwritten;
+  bool read_before_commit;
+
+  std::string GetIdentifier() const {
+    return absl::StrFormat(
+        "has_initial_value_%d__value_changes_%d__repeatable_read_%d__"
+        "fully_overwritten_%s__read_before_commit_%d",
+        has_initial_value, value_changes, repeatable,
+        fully_overwritten == kInitially
+            ? "initially"
+            : (fully_overwritten == kAfterRead ? "after_read" : "never"),
+        read_before_commit);
+  }
+
+  template <typename Callback>
+  static void ForEach(Callback callback) {
+    for (auto has_initial_value : {false, true}) {
+      for (auto value_changes : {false, true}) {
+        for (auto repeatable : {false, true}) {
+          for (auto fully_overwritten : {kInitially, kAfterRead, kNever}) {
+            for (auto read_before_commit : {false, true}) {
+              callback(RepeatableReadParams{has_initial_value, value_changes,
+                                            repeatable, fully_overwritten,
+                                            read_before_commit});
+            }
+          }
+        }
+      }
+    }
+  }
+};
+
+void TestTensorStoreRepeatableRead(
+    const TensorStoreRepeatableReadTestOptions& options,
+    const RepeatableReadParams& params) {
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto mock_key_value_store_resource,
+      context.GetResource<tensorstore::internal::MockKeyValueStoreResource>());
+  auto mock_store = *mock_key_value_store_resource;
+  auto memory_store = tensorstore::GetMemoryKeyValueStore();
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
+                                   options.make_tensorstore(context));
+
+  auto set_chunk = [&](SharedArray<const void> value) -> absl::Status {
+    TENSORSTORE_ASSIGN_OR_RETURN(auto encoded, options.encode_value(value));
+    return memory_store->Write(options.key, encoded).status();
+  };
+
+  auto transaction = Transaction(
+      params.repeatable ? (tensorstore::isolated | tensorstore::repeatable_read)
+                        : tensorstore::isolated);
+
+  SharedArray<const void> expected_value = options.fill_value;
+
+  if (params.has_initial_value) {
+    TENSORSTORE_ASSERT_OK(set_chunk(options.value1));
+    expected_value = options.value1;
+  }
+
+  if (params.fully_overwritten == RepeatableReadParams::kInitially) {
+    // Because the value gets fully overwritten in the transaction node before
+    // the first read request, the existing value is never observed and the
+    // repeatable_read requirement has no effect.
+    TENSORSTORE_ASSERT_OK(
+        tensorstore::Write(options.value3, store | transaction).status());
+    expected_value = options.value3;
+  }
+
+  {
+    auto read_future = tensorstore::Read(store | transaction);
+    // If already fully overwritten, read request is satisfied by cached
+    // value.
+
+    if (params.fully_overwritten != RepeatableReadParams::kInitially) {
+      auto r = mock_store->read_requests.pop();
+      EXPECT_THAT(r.key, options.key);
+      EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_not_equal);
+      r(memory_store);
+    }
+    EXPECT_THAT(read_future.result(),
+                ::testing::Optional(MatchesArrayIdentically(expected_value)));
+  }
+
+  // Re-read before value changes.
+  {
+    auto read_future = tensorstore::Read(store | transaction);
+    // If already fully overwritten, read request is satisfied by cached
+    // value.
+    if (params.fully_overwritten != RepeatableReadParams::kInitially) {
+      auto r = mock_store->read_requests.pop();
+      EXPECT_THAT(r.key, options.key);
+      r(memory_store);
+    }
+    EXPECT_THAT(read_future.result(),
+                ::testing::Optional(MatchesArrayIdentically(expected_value)));
+  }
+
+  if (params.fully_overwritten == RepeatableReadParams::kAfterRead) {
+    TENSORSTORE_ASSERT_OK(
+        tensorstore::Write(options.value3, store | transaction).status());
+    expected_value = options.value3;
+
+    auto read_future = tensorstore::Read(store | transaction);
+    EXPECT_THAT(read_future.result(),
+                ::testing::Optional(MatchesArrayIdentically(expected_value)));
+  }
+
+  if (params.value_changes) {
+    TENSORSTORE_ASSERT_OK(set_chunk(options.value2));
+    if (params.fully_overwritten == RepeatableReadParams::kNever) {
+      // Subsequent reads will observe the new value.
+      expected_value = options.value2;
+    }
+  }
+
+  // Re-read possibly after changing value.
+  if (params.read_before_commit) {
+    auto read_future = tensorstore::Read(store | transaction);
+    // If fully overwritten, read request is satisfied by cached value.
+    if (params.fully_overwritten == RepeatableReadParams::kNever) {
+      auto r = mock_store->read_requests.pop();
+      EXPECT_THAT(r.key, options.key);
+      r(memory_store);
+    }
+    auto read_result = read_future.result();
+    if (params.repeatable && params.value_changes &&
+        params.fully_overwritten == RepeatableReadParams::kNever) {
+      EXPECT_THAT(read_result, MatchesStatus(absl::StatusCode::kAborted,
+                                             ".*: Generation mismatch"));
+    } else {
+      EXPECT_THAT(read_result,
+                  ::testing::Optional(MatchesArrayIdentically(expected_value)));
+    }
+  }
+
+  auto commit_future = transaction.CommitAsync();
+
+  if (params.fully_overwritten != RepeatableReadParams::kNever) {
+    {
+      auto r = mock_store->write_requests.pop();
+      EXPECT_THAT(r.key, options.key);
+      if (params.repeatable &&
+          params.fully_overwritten != RepeatableReadParams::kInitially) {
+        EXPECT_NE(StorageGeneration::Unknown(), r.options.if_equal);
+      } else {
+        EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_equal);
+      }
+      r(memory_store);
+    }
+
+    if (params.repeatable &&
+        params.fully_overwritten != RepeatableReadParams::kInitially &&
+        params.value_changes) {
+      auto r = mock_store->read_requests.pop();
+      EXPECT_THAT(r.key, options.key);
+      r(memory_store);
+    }
+  } else if (params.repeatable) {
+    // If `value_changes && read_before_commit`, commit fails immediately based
+    // on cached read state.
+    if (!params.value_changes || !params.read_before_commit) {
+      auto r = mock_store->read_requests.pop();
+      EXPECT_THAT(r.key, options.key);
+      r(memory_store);
+
+      if (params.value_changes) {
+        // Currently an additional unnecessary read is performed in the failure
+        // case, because we retry in the case of a generation mismatch.
+        auto r = mock_store->read_requests.pop();
+        EXPECT_THAT(r.key, options.key);
+        r(memory_store);
+      }
+    }
+  }
+
+  if (!params.repeatable || !params.value_changes ||
+      params.fully_overwritten == RepeatableReadParams::kInitially) {
+    TENSORSTORE_EXPECT_OK(commit_future);
+  } else {
+    EXPECT_THAT(
+        commit_future.result(),
+        MatchesStatus(absl::StatusCode::kAborted, ".*: Generation mismatch"));
+  }
+}
+
+}  // namespace
+
+void RegisterTensorStoreRepeatableReadTest(
+    const TensorStoreRepeatableReadTestOptions& options) {
+  RepeatableReadParams::ForEach([&](const auto& params) {
+    internal::RegisterGoogleTestCaseDynamically(
+        options.test_suite_name, params.GetIdentifier(),
+        [=] { TestTensorStoreRepeatableRead(options, params); });
+  });
 }
 
 }  // namespace internal

@@ -23,7 +23,6 @@
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -61,8 +60,8 @@ TEST(IndexTransformTest, BuilderValid) {
   EXPECT_THAT(t.input_origin(), ::testing::ElementsAre(1, 2, 3));
   EXPECT_THAT(t.input_shape(), ::testing::ElementsAre(2, 2, 4));
   EXPECT_THAT(t.input_labels(), ::testing::ElementsAre("x", "y", "z"));
-  EXPECT_THAT(t.implicit_lower_bounds(), DimensionSet({0, 1, 0}));
-  EXPECT_THAT(t.implicit_upper_bounds(), DimensionSet({1, 0, 0}));
+  EXPECT_THAT(t.implicit_lower_bounds(), DimensionSet::FromBools({0, 1, 0}));
+  EXPECT_THAT(t.implicit_upper_bounds(), DimensionSet::FromBools({1, 0, 0}));
   EXPECT_EQ(IndexInterval::UncheckedSized(1, 2),
             t.input_domain()[0].interval());
   EXPECT_EQ(IndexInterval::UncheckedSized(2, 2),
@@ -175,8 +174,8 @@ TEST(IndexTransformBuilderTest, Default) {
   auto t = IndexTransformBuilder<>(2, 1).Finalize().value();
   EXPECT_THAT(t.input_origin(), ::testing::ElementsAre(-kInfIndex, -kInfIndex));
   EXPECT_THAT(t.input_shape(), ::testing::ElementsAre(kInfSize, kInfSize));
-  EXPECT_THAT(t.implicit_lower_bounds(), DimensionSet({1, 1}));
-  EXPECT_THAT(t.implicit_upper_bounds(), DimensionSet({1, 1}));
+  EXPECT_THAT(t.implicit_lower_bounds(), DimensionSet::FromBools({1, 1}));
+  EXPECT_THAT(t.implicit_upper_bounds(), DimensionSet::FromBools({1, 1}));
   EXPECT_THAT(t.input_labels(), ::testing::ElementsAre("", ""));
   auto map = t.output_index_map(0);
   EXPECT_EQ(0, map.offset());
@@ -192,8 +191,8 @@ TEST(IndexTransformBuilderTest, InputOriginSpecified) {
             IndexInterval::UncheckedClosed(1, kInfIndex));
   EXPECT_EQ(t.domain()[1].interval(),
             IndexInterval::UncheckedClosed(2, kInfIndex));
-  EXPECT_THAT(t.implicit_lower_bounds(), DimensionSet({0, 0}));
-  EXPECT_THAT(t.implicit_upper_bounds(), DimensionSet({1, 1}));
+  EXPECT_THAT(t.implicit_lower_bounds(), DimensionSet::FromBools({0, 0}));
+  EXPECT_THAT(t.implicit_upper_bounds(), DimensionSet::FromBools({1, 1}));
   EXPECT_THAT(t.input_labels(), ::testing::ElementsAre("", ""));
 }
 
@@ -208,8 +207,8 @@ TEST(IndexTransformBuilderTest, ImplicitLowerBoundsSpecified) {
             IndexInterval::UncheckedClosed(-kInfIndex, kInfIndex));
   EXPECT_EQ(t.domain()[1].interval(),
             IndexInterval::UncheckedClosed(-kInfIndex, kInfIndex));
-  EXPECT_THAT(t.implicit_lower_bounds(), DimensionSet({1, 0}));
-  EXPECT_THAT(t.implicit_upper_bounds(), DimensionSet({1, 1}));
+  EXPECT_THAT(t.implicit_lower_bounds(), DimensionSet::FromBools({1, 0}));
+  EXPECT_THAT(t.implicit_upper_bounds(), DimensionSet::FromBools({1, 1}));
   EXPECT_THAT(t.input_labels(), ::testing::ElementsAre("", ""));
 }
 
@@ -219,8 +218,8 @@ TEST(IndexTransformBuilderTest, InputShapeSpecified) {
       IndexTransformBuilder<>(2, 0).input_shape({5, 10}).Finalize().value();
   EXPECT_EQ(t.domain()[0].interval(), IndexInterval::UncheckedSized(0, 5));
   EXPECT_EQ(t.domain()[1].interval(), IndexInterval::UncheckedSized(0, 10));
-  EXPECT_THAT(t.implicit_lower_bounds(), DimensionSet({0, 0}));
-  EXPECT_THAT(t.implicit_upper_bounds(), DimensionSet({0, 0}));
+  EXPECT_THAT(t.implicit_lower_bounds(), DimensionSet::FromBools({0, 0}));
+  EXPECT_THAT(t.implicit_upper_bounds(), DimensionSet::FromBools({0, 0}));
   EXPECT_THAT(t.input_labels(), ::testing::ElementsAre("", ""));
 }
 
@@ -235,8 +234,8 @@ TEST(IndexTransformBuilderTest, InputInclusiveMaxSpecified) {
             IndexInterval::UncheckedClosed(-kInfIndex, 5));
   EXPECT_EQ(t.domain()[1].interval(),
             IndexInterval::UncheckedClosed(-kInfIndex, 10));
-  EXPECT_THAT(t.implicit_lower_bounds(), DimensionSet({1, 1}));
-  EXPECT_THAT(t.implicit_upper_bounds(), DimensionSet({0, 0}));
+  EXPECT_THAT(t.implicit_lower_bounds(), DimensionSet::FromBools({1, 1}));
+  EXPECT_THAT(t.implicit_upper_bounds(), DimensionSet::FromBools({0, 0}));
   EXPECT_THAT(t.input_labels(), ::testing::ElementsAre("", ""));
 }
 
@@ -251,8 +250,8 @@ TEST(IndexTransformBuilderTest, InputExclusiveMaxSpecified) {
             IndexInterval::UncheckedHalfOpen(-kInfIndex, 5));
   EXPECT_EQ(t.domain()[1].interval(),
             IndexInterval::UncheckedHalfOpen(-kInfIndex, 10));
-  EXPECT_THAT(t.implicit_lower_bounds(), DimensionSet({1, 1}));
-  EXPECT_THAT(t.implicit_upper_bounds(), DimensionSet({0, 0}));
+  EXPECT_THAT(t.implicit_lower_bounds(), DimensionSet::FromBools({1, 1}));
+  EXPECT_THAT(t.implicit_upper_bounds(), DimensionSet::FromBools({0, 0}));
   EXPECT_THAT(t.input_labels(), ::testing::ElementsAre("", ""));
 }
 
@@ -268,8 +267,8 @@ TEST(IndexTransformBuilderTest, ImplicitUpperBoundsSpecified) {
             IndexInterval::UncheckedClosed(-kInfIndex, kInfIndex));
   EXPECT_EQ(t.domain()[1].interval(),
             IndexInterval::UncheckedClosed(-kInfIndex, kInfIndex));
-  EXPECT_THAT(t.implicit_lower_bounds(), DimensionSet({1, 1}));
-  EXPECT_THAT(t.implicit_upper_bounds(), DimensionSet({1, 0}));
+  EXPECT_THAT(t.implicit_lower_bounds(), DimensionSet::FromBools({1, 1}));
+  EXPECT_THAT(t.implicit_upper_bounds(), DimensionSet::FromBools({1, 0}));
   EXPECT_THAT(t.input_labels(), ::testing::ElementsAre("", ""));
 }
 
@@ -606,8 +605,10 @@ TEST(IndexDomainBuilderTest, Basic) {
   EXPECT_THAT(builder.inclusive_max(), ::testing::ElementsAre(4, 5, 6));
   builder.implicit_lower_bounds({0, 1, 1});
   builder.implicit_upper_bounds({1, 0, 1});
-  EXPECT_THAT(builder.implicit_lower_bounds(), DimensionSet({0, 1, 1}));
-  EXPECT_THAT(builder.implicit_upper_bounds(), DimensionSet({1, 0, 1}));
+  EXPECT_THAT(builder.implicit_lower_bounds(),
+              DimensionSet::FromBools({0, 1, 1}));
+  EXPECT_THAT(builder.implicit_upper_bounds(),
+              DimensionSet::FromBools({1, 0, 1}));
   builder.labels(std::vector<std::string>{"x", "y", "z"});
   EXPECT_THAT(builder.labels(), ::testing::ElementsAre("x", "y", "z"));
 }

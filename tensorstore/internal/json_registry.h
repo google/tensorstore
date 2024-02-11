@@ -79,7 +79,7 @@ class JsonRegistry {
   ///     jb::Object(jb::Member("id", GetRegistry().KeyBinder()),
   ///                Registry::RegisteredObjectBinder())
   ///
-  auto KeyBinder() { return KeyBinderImpl{impl_}; }
+  auto KeyBinder() const { return KeyBinderImpl{impl_}; }
 
   /// Forwards to the registered type-specific object binder.
   ///
@@ -90,11 +90,12 @@ class JsonRegistry {
   /// binder specified within an outer `internal_json_binding::Object`.  That
   /// ensures that all other members are already handled when parsing from JSON,
   /// and that no existing members will be cleared when converting to JSON.
-  constexpr auto RegisteredObjectBinder() {
+  constexpr auto RegisteredObjectBinder() const {
     return RegisteredObjectBinderImpl{impl_};
   }
 
-  /// Convenience wrapper that combines `Member` with `Binder()`.
+  /// Convenience wrapper that combines `Member` with `KeyBinder()` and
+  /// `RegisteredObjectBinder()`.
   ///
   /// This returns a JSON object binder where a member with the specified
   /// `member_name` indicates the string identifier within the registry and the
@@ -112,7 +113,7 @@ class JsonRegistry {
   /// loading, and the remaining object members are set using the binder used
   /// when loading.
   template <typename MemberName>
-  auto MemberBinder(MemberName member_name) {
+  auto MemberBinder(MemberName member_name) const {
     namespace jb = tensorstore::internal_json_binding;
     return jb::Sequence(jb::Member(member_name, this->KeyBinder()),
                         RegisteredObjectBinder());
@@ -136,14 +137,14 @@ class JsonRegistry {
     entry->allocate =
         +[](void* obj) { static_cast<BasePtr*>(obj)->reset(new T); };
     entry->binder = [binder](
-                        auto is_loading, const void* options, auto* obj,
+                        auto is_loading, const void* options, const void* obj,
                         ::nlohmann::json::object_t* j_obj) -> absl::Status {
       using Options = std::conditional_t<decltype(is_loading)::value,
                                          LoadOptions, SaveOptions>;
       using Obj = std::conditional_t<decltype(is_loading)::value, T, const T>;
       return binder(is_loading, *static_cast<const Options*>(options),
-                    const_cast<Obj*>(static_cast<const Obj*>(
-                        static_cast<const BasePtr*>(obj)->get())),
+                    const_cast<Obj*>(
+                        static_cast<const Obj*>(static_cast<const Base*>(obj))),
                     j_obj);
     };
     impl_.Register(std::move(entry));
@@ -159,10 +160,11 @@ class JsonRegistry {
                             BasePtr* obj, ::nlohmann::json* j) const {
       return impl.LoadKey(obj, j);
     }
-    template <typename Options>
+    template <typename Ptr, typename Options>
     absl::Status operator()(std::false_type is_loading, const Options& options,
-                            const BasePtr* obj, ::nlohmann::json* j) const {
-      return impl.SaveKey(typeid(*obj->get()), obj, j);
+                            const Ptr* obj, ::nlohmann::json* j) const {
+      static_assert(std::is_convertible_v<decltype(&**obj), const Base*>);
+      return impl.SaveKey(typeid(**obj), j);
     }
   };
 
@@ -172,16 +174,18 @@ class JsonRegistry {
                             const LoadOptions& options, BasePtr* obj,
                             ::nlohmann::json::object_t* j_obj) const {
       if (!*obj) return absl::OkStatus();
-      return impl.LoadRegisteredObject(typeid(*obj->get()), &options, obj,
-                                       j_obj);
+      return impl.LoadRegisteredObject(typeid(*obj->get()), &options,
+                                       static_cast<const Base*>(&**obj), j_obj);
     }
 
+    template <typename Ptr>
     absl::Status operator()(std::false_type is_loading,
-                            const SaveOptions& options, const BasePtr* obj,
+                            const SaveOptions& options, const Ptr* obj,
                             ::nlohmann::json::object_t* j_obj) const {
+      static_assert(std::is_convertible_v<decltype(&**obj), const Base*>);
       if (!*obj) return absl::OkStatus();
-      return impl.SaveRegisteredObject(typeid(*obj->get()), &options, obj,
-                                       j_obj);
+      return impl.SaveRegisteredObject(typeid(**obj), &options,
+                                       static_cast<const Base*>(&**obj), j_obj);
     }
   };
 

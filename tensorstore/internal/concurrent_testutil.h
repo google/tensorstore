@@ -22,7 +22,7 @@
 #include <thread>  // NOLINT
 
 #include "tensorstore/internal/multi_barrier.h"
-#include "tensorstore/internal/thread.h"
+#include "tensorstore/internal/thread/thread.h"
 
 namespace tensorstore {
 namespace internal {

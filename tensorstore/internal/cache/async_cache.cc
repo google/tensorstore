@@ -26,7 +26,8 @@
 #include "absl/time/time.h"
 #include "absl/utility/utility.h"
 #include "tensorstore/internal/cache/cache.h"
-#include "tensorstore/internal/intrusive_linked_list.h"
+#include "tensorstore/internal/container/intrusive_linked_list.h"
+#include "tensorstore/internal/container/intrusive_red_black_tree.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/no_destructor.h"
@@ -49,6 +50,10 @@ using PendingWritebackQueueAccessor =
     TransactionNode::PendingWritebackQueueAccessor;
 using PrepareForCommitState = TransactionNode::PrepareForCommitState;
 
+// While the real epsilon is `absl::Nanoseconds(1) / 4`, `operator/` is not
+// constexpr, and this value is sufficient for use here.
+constexpr absl::Duration kEpsilonDuration = absl::Nanoseconds(1);
+
 void AcquireReadRequestReference(Entry& entry) {
   // Prevent the entry from being destroyed while the read is in progress.
   internal::PinnedCacheEntry<AsyncCache>(&entry).release();
@@ -70,6 +75,8 @@ void AcquireReadRequestReference(TransactionNode& node) {
 
 void ReleaseReadRequestReference(TransactionNode& node) {
   if (!node.transaction()->commit_started()) {
+    ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+        << node << "Releasing commit block";
     node.transaction()->ReleaseCommitBlock();
   }
   intrusive_ptr_decrement(&node);
@@ -226,6 +233,7 @@ void SetReadState(EntryOrNode& entry_or_node, ReadState&& read_state,
       return;
     }
   }
+  entry_or_node.read_request_state_.known_to_be_stale = false;
   entry_or_node.read_request_state_.read_state = std::move(read_state);
   size_t change =
       read_state_size -
@@ -233,35 +241,36 @@ void SetReadState(EntryOrNode& entry_or_node, ReadState&& read_state,
                     read_state_size);
   if (change != 0) {
     if constexpr (std::is_same_v<EntryOrNode, TransactionNode>) {
-      auto& entry = GetOwningEntry(entry_or_node);
       entry_or_node.UpdateSizeInBytes(change);
-      if (entry_or_node.transaction()->implicit_transaction()) {
-        entry.write_state_size_ += change;
-        entry.flags_ |= Entry::kSizeChanged;
-      }
     } else {
-      entry_or_node.flags_ |= Entry::kSizeChanged;
+      entry_or_node.NotifySizeChanged();
     }
   }
 }
 
 template <typename EntryOrNode>
 Future<const void> RequestRead(EntryOrNode& entry_or_node,
-                               absl::Time staleness_bound) {
+                               absl::Time staleness_bound,
+                               bool must_not_be_known_to_be_stale) {
   static_assert(std::is_same_v<EntryOrNode, Entry> ||
                 std::is_same_v<EntryOrNode, TransactionNode>);
   auto& entry = GetOwningEntry(entry_or_node);
   UniqueWriterLock lock(entry);
 
-  auto& request_state = entry_or_node.read_request_state_;
-  const auto existing_time =
-      GetEffectiveReadRequestState(entry_or_node).read_state.stamp.time;
+  auto& effective_request_state = GetEffectiveReadRequestState(entry_or_node);
+  const auto existing_time = effective_request_state.read_state.stamp.time;
   if (existing_time != absl::InfinitePast() &&
       existing_time >= staleness_bound) {
-    // `staleness_bound` satisfied by current data.
-    return MakeReadyFuture();
+    if (must_not_be_known_to_be_stale &&
+        effective_request_state.known_to_be_stale) {
+      staleness_bound = existing_time + kEpsilonDuration;
+    } else {
+      // `staleness_bound` satisfied by current data.
+      return MakeReadyFuture();
+    }
   }
 
+  auto& request_state = entry_or_node.read_request_state_;
   // `staleness_bound` not satisfied by current data.
   request_state.queued_time = std::max(request_state.queued_time,
                                        std::min(staleness_bound, absl::Now()));
@@ -283,11 +292,6 @@ Future<const void> RequestRead(EntryOrNode& entry_or_node,
   }
   MaybeIssueRead(entry_or_node, std::move(lock));
   return future;
-}
-
-std::size_t GetTotalSize(Entry& entry) {
-  return GetOwningCache(entry).DoGetFixedSizeInBytes(&entry) +
-         entry.read_request_state_.read_state_size + entry.write_state_size_;
 }
 
 /// Completes a queued read in the destructor if already satisfied by the read
@@ -374,43 +378,6 @@ void RemoveTransactionFromMap(TransactionNode& node) {
   GetOwningEntry(node).transactions_.Remove(node);
 }
 
-class TransactionNodeDestroyer {
- public:
-  explicit TransactionNodeDestroyer(TransactionNode& node) {
-    auto& entry = GetOwningEntry(node);
-    if (node.transaction()->implicit_transaction()) {
-      entry.flags_ |= Entry::kSizeChanged;
-      entry.write_state_size_ -=
-          (node.write_state_size_ + node.read_request_state_.read_state_size);
-      if (entry.implicit_transaction_node_
-              .tag<AsyncCache::Entry::kImplicitTransactionCommitBlock>()) {
-        commit_block_to_release_.reset(
-            entry.implicit_transaction_node_->transaction());
-        entry.implicit_transaction_node_
-            .set_tag<AsyncCache::Entry::kImplicitTransactionCommitBlock>(0);
-        assert(entry.num_implicit_transactions_ <= 2);
-      }
-      if (entry.implicit_transaction_node_.get() == &node) {
-        entry.implicit_transaction_node_ = nullptr;
-      }
-      if (--entry.num_implicit_transactions_ == 0) {
-        entry.flags_ |= Entry::kStateChanged;
-      }
-    } else {
-      RemoveTransactionFromMap(node);
-    }
-  }
-
-  ~TransactionNodeDestroyer() {
-    if (commit_block_to_release_) {
-      commit_block_to_release_->ReleaseCommitBlock();
-    }
-  }
-
- private:
-  internal::TransactionState::WeakPtr commit_block_to_release_;
-};
-
 void ResolveIssuedWriteback(AsyncCache::TransactionNode& node,
                             UniqueWriterLock<Entry> lock) {
   auto& entry = GetOwningEntry(node);
@@ -440,7 +407,7 @@ void ResolveIssuedWriteback(AsyncCache::TransactionNode& node,
       entry.committing_transaction_node_ = nullptr;
     }
   }
-  TransactionNodeDestroyer destroyer(node);
+  RemoveTransactionFromMap(node);
   MaybeStartReadOrWriteback(entry, std::move(lock));
   ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG) << node << "CommitDone";
   node.CommitDone();
@@ -453,31 +420,6 @@ const ReadState& AsyncCache::ReadState::Unknown() {
   return *read_state;
 }
 
-void AsyncCache::Entry::WriterLock() { mutex_.WriterLock(); }
-
-void AsyncCache::Entry::WriterUnlock() {
-  UniqueWriterLock lock(mutex_, std::adopt_lock);
-  auto flags = std::exchange(flags_, 0);
-  if (!flags) return;
-  CacheEntry::StateUpdate update;
-  update.lock = std::move(lock);
-  if (flags & kSizeChanged) {
-    update.new_size = GetTotalSize(*this);
-    ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
-        << *this << "Entry::WriterUnlock: new_size=" << *update.new_size;
-  }
-  if (flags & (kStateChanged | kMarkWritebackRequested)) {
-    if (num_implicit_transactions_ == 0) {
-      update.new_state = CacheEntryQueueState::clean_and_in_use;
-    } else if (flags & kMarkWritebackRequested) {
-      update.new_state = CacheEntryQueueState::writeback_requested;
-    } else {
-      update.new_state = CacheEntryQueueState::dirty;
-    }
-  }
-  this->UpdateState(std::move(update));
-}
-
 size_t AsyncCache::Entry::ComputeReadDataSizeInBytes(const void* data) {
   return 0;
 }
@@ -488,13 +430,16 @@ size_t AsyncCache::DoGetFixedSizeInBytes(Cache::Entry* entry) {
 
 size_t AsyncCache::DoGetSizeInBytes(Cache::Entry* base_entry) {
   auto* entry = static_cast<Entry*>(base_entry);
-  return this->DoGetFixedSizeInBytes(entry);
+  return this->DoGetFixedSizeInBytes(entry) +
+         entry->read_request_state_.read_state_size;
 }
 
-Future<const void> AsyncCache::Entry::Read(absl::Time staleness_bound) {
+Future<const void> AsyncCache::Entry::Read(absl::Time staleness_bound,
+                                           bool must_not_be_known_to_be_stale) {
   ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
-      << *this << "Read: staleness_bound=" << staleness_bound;
-  return RequestRead(*this, staleness_bound);
+      << *this << "Read: staleness_bound=" << staleness_bound
+      << ", must_not_be_known_to_be_stale=" << must_not_be_known_to_be_stale;
+  return RequestRead(*this, staleness_bound, must_not_be_known_to_be_stale);
 }
 
 void AsyncCache::Entry::ReadSuccess(ReadState&& read_state) {
@@ -510,38 +455,23 @@ void AsyncCache::Entry::ReadError(absl::Status error) {
   internal::EntryOrNodeReadError(*this, std::move(error));
 }
 
-void AsyncCache::DoRequestWriteback(PinnedEntry base_entry) {
-  auto& entry = static_cast<Entry&>(*base_entry);
-  ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
-      << entry << "DoRequestWriteack";
-  WeakTransactionNodePtr<TransactionNode> implicit_transaction_node;
-  {
-    UniqueWriterLock lock(entry);
-    if (entry.implicit_transaction_node_
-            .tag<Entry::kImplicitTransactionInitialized>()) {
-      implicit_transaction_node.reset(entry.implicit_transaction_node_.get());
-    } else {
-      return;
-    }
-  }
-  implicit_transaction_node->transaction()->RequestCommit();
-}
-
 AsyncCache::TransactionNode::TransactionNode(Entry& entry)
     : internal::TransactionState::Node(Cache::PinnedEntry(&entry).release()),
       reads_committed_(false),
       size_updated_(false) {}
 
 Future<const void> AsyncCache::TransactionNode::Read(
-    absl::Time staleness_bound) {
+    absl::Time staleness_bound, bool must_not_be_known_to_be_stale) {
   ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
-      << *this << "Read: staleness_bound=" << staleness_bound;
+      << *this << "Read: staleness_bound=" << staleness_bound
+      << ", must_not_be_known_to_be_stale=" << must_not_be_known_to_be_stale;
   if (reads_committed_ &&
       (prepare_for_commit_state_.load(std::memory_order_acquire) !=
        PrepareForCommitState::kReadyForCommitCalled)) {
-    return RequestRead(GetOwningEntry(*this), staleness_bound);
+    return RequestRead(GetOwningEntry(*this), staleness_bound,
+                       must_not_be_known_to_be_stale);
   }
-  return RequestRead(*this, staleness_bound);
+  return RequestRead(*this, staleness_bound, must_not_be_known_to_be_stale);
 }
 
 void AsyncCache::TransactionNode::ReadSuccess(ReadState&& read_state) {
@@ -564,16 +494,7 @@ void AsyncCache::TransactionNode::PrepareForCommit() {
   intrusive_ptr_increment(this);
   auto& entry = GetOwningEntry(*this);
   UniqueWriterLock lock(entry);
-  if (!this->transaction()->implicit_transaction()) {
-    RemoveTransactionFromMap(*this);
-  }
-  if (this == entry.implicit_transaction_node_.get()) {
-    // Commit block must have been released.
-    assert(entry.implicit_transaction_node_
-               .tag<Entry::kImplicitTransactionCommitBlock>() == 0);
-    entry.implicit_transaction_node_ = nullptr;
-    entry.flags_ |= Entry::kMarkWritebackRequested;
-  }
+  RemoveTransactionFromMap(*this);
   if (entry.committing_transaction_node_) {
     // Another node is already being committed.  Add this node to the end of the
     // queue.
@@ -605,7 +526,7 @@ void AsyncCache::TransactionNode::Abort() {
   ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG) << *this << "Abort";
   auto& entry = GetOwningEntry(*this);
   UniqueWriterLock lock(entry);
-  TransactionNodeDestroyer destroyer(*this);
+  RemoveTransactionFromMap(*this);
   lock.unlock();
   AbortDone();
 }
@@ -625,8 +546,7 @@ void AsyncCache::TransactionNode::WritebackSuccess(ReadState&& read_state) {
     assert(read_state_time >= request_state.read_state.stamp.time);
     SetReadState(entry, std::move(read_state), read_state_size);
   } else if (read_state_time > request_state.read_state.stamp.time) {
-    read_state_time = request_state.read_state.stamp.time =
-        absl::InfinitePast();
+    request_state.known_to_be_stale = true;
   }
 
   QueuedReadHandler queued_read_handler(request_state, read_state_time);
@@ -649,46 +569,29 @@ AsyncCache::Entry::GetTransactionNodeImpl(OpenTransactionPtr& transaction) {
     // Ensure transaction node is initialized.
     bool initialized = false;
     absl::call_once(node.initialized_, [&] {
-      const bool implicit_transaction = !transaction;
+      const bool new_implicit_transaction = !transaction;
       node.initialized_status_ = node.DoInitialize(transaction);
       if (node.initialized_status_.ok()) {
-        if (implicit_transaction) {
+        if (new_implicit_transaction) {
           node.SetTransaction(GetOrCreateOpenTransaction(transaction));
+          UniqueWriterLock lock(entry);
+          entry.transactions_.FindOrInsert(
+              [&](TransactionNode& existing_node) {
+                return internal::intrusive_red_black_tree::
+                    ThreeWayFromLessThan<>()(transaction.get(),
+                                             existing_node.transaction());
+              },
+              [&] { return &node; });
         }
         assert(node.transaction() == transaction.get());
         ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
-            << node << "New node, implicit=" << implicit_transaction
+            << node << "New node, new implicit=" << new_implicit_transaction
             << ", transaction=" << transaction.get();
         node.initialized_status_ = node.Register();
-      }
-      if (!node.initialized_status_.ok()) {
+      } else if (!new_implicit_transaction) {
         // If initialization failed, remove reference in cache entry to node.
         UniqueWriterLock lock(entry);
-        if (implicit_transaction) {
-          assert(!entry.ShareImplicitTransactionNodes() ||
-                 entry.implicit_transaction_node_.get() == &node);
-          entry.implicit_transaction_node_ = nullptr;
-        } else {
-          RemoveTransactionFromMap(node);
-        }
-      } else if (implicit_transaction) {
-        UniqueWriterLock lock(entry);
-        if (entry.ShareImplicitTransactionNodes()) {
-          assert(entry.implicit_transaction_node_.get() == &node);
-          entry.implicit_transaction_node_
-              .set_tag<kImplicitTransactionInitialized>(1);
-          if (++entry.num_implicit_transactions_ != 1) {
-            // Prevent this new implicit transaction from being committed until
-            // the existing implicit transaction has been committed, in order to
-            // avoid a build-up of implicit transactions, which would waste
-            // memory.
-            node.transaction()->AcquireCommitBlock();
-            entry.implicit_transaction_node_
-                .set_tag<kImplicitTransactionCommitBlock>(1);
-            assert(entry.num_implicit_transactions_ == 2);
-          }
-          entry.flags_ |= Entry::kStateChanged;
-        }
+        RemoveTransactionFromMap(node);
       }
       initialized = true;
     });
@@ -698,56 +601,24 @@ AsyncCache::Entry::GetTransactionNodeImpl(OpenTransactionPtr& transaction) {
   WeakTransactionNodePtr<TransactionNode> node;
   if (!transaction) {
     // Create new implicit transaction.
-    const bool share_implicit_transaction_nodes =
-        this->ShareImplicitTransactionNodes();
     WeakTransactionNodePtr<TransactionNode> stale_node;
     while (true) {
-      if (share_implicit_transaction_nodes) {
-        bool release_commit_block = false;
-        {
-          UniqueWriterLock lock(*this);
-          // Allocate new implicit transaction node if there is not already one.
-          if (!implicit_transaction_node_ ||
-              implicit_transaction_node_.get() == stale_node.get()) {
-            if (implicit_transaction_node_
-                    .tag<kImplicitTransactionCommitBlock>()) {
-              release_commit_block = true;
-            }
-            implicit_transaction_node_ =
-                GetOwningCache(*this).DoAllocateTransactionNode(*this);
-          }
-          node.reset(implicit_transaction_node_.get());
-        }
-        if (release_commit_block) {
-          stale_node->transaction()->ReleaseCommitBlock();
-        }
-        stale_node.reset();
-      } else {
-        node.reset(GetOwningCache(*this).DoAllocateTransactionNode(*this));
-      }
-      bool initialized = EnsureTransactionNodeInitialized(*node, transaction);
+      node.reset(GetOwningCache(*this).DoAllocateTransactionNode(*this));
+      [[maybe_unused]] bool initialized =
+          EnsureTransactionNodeInitialized(*node, transaction);
       TENSORSTORE_RETURN_IF_ERROR(node->initialized_status_);
+      assert(initialized);
       if (node->IsRevoked()) {
+        ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+            << *node << "Node is revoked";
         std::swap(stale_node, node);
         continue;
       }
-      if (!initialized) {
-        assert(share_implicit_transaction_nodes);
-        // We didn't just initialize the node, so we still need to set
-        // `*transaction`.
-        auto implicit_handle = node->transaction()->AcquireImplicitOpenPtr();
-        if (!implicit_handle) {
-          // Transaction was committed or aborted concurrently.  Retry.
-          std::swap(stale_node, node);
-          continue;
-        }
-        transaction = std::move(implicit_handle);
-      }
+      node->transaction()->RequestCommit();
       break;
     }
   } else {
     // Handle explicit transaction case.
-    assert(!transaction->implicit_transaction());
     size_t min_phase = transaction->phase();
     WeakTransactionNodePtr<TransactionNode> stale_node;
     while (true) {
@@ -814,12 +685,6 @@ void AsyncCache::TransactionNode::WriterUnlock() {
   const size_t change = new_size - std::exchange(write_state_size_, new_size);
   if (change == 0) return;
   this->UpdateSizeInBytes(change);
-  if (!this->transaction()->implicit_transaction()) return;
-  auto& entry = GetOwningEntry(*this);
-  UniqueWriterLock entry_lock(entry);
-  lock.unlock();
-  entry.write_state_size_ += change;
-  entry.flags_ |= Entry::kSizeChanged;
 }
 
 bool AsyncCache::TransactionNode::try_lock() {

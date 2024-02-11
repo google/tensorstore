@@ -95,7 +95,7 @@ class ChunkCache : public AsyncCache {
     /// Returns the grid cell index vector corresponding to this cache entry.
     span<const Index> cell_indices() {
       return {reinterpret_cast<const Index*>(key().data()),
-              static_cast<std::ptrdiff_t>(key().size() / sizeof(Index))};
+              static_cast<ptrdiff_t>(key().size() / sizeof(Index))};
     }
 
     span<const ChunkGridSpecification::Component> component_specs() {
@@ -104,7 +104,7 @@ class ChunkCache : public AsyncCache {
 
     Future<const void> Delete(internal::OpenTransactionPtr transaction);
 
-    std::size_t ComputeReadDataSizeInBytes(const void* read_data) override;
+    size_t ComputeReadDataSizeInBytes(const void* read_data) override;
   };
 
   class TransactionNode : public AsyncCache::TransactionNode {
@@ -120,7 +120,7 @@ class ChunkCache : public AsyncCache {
     /// Overwrites all components with the fill value.
     absl::Status Delete();
 
-    std::size_t ComputeWriteStateSizeInBytes() override;
+    size_t ComputeWriteStateSizeInBytes() override;
 
     span<const ChunkGridSpecification::Component> component_specs() {
       return GetOwningCache(*this).grid().components;
@@ -142,6 +142,17 @@ class ChunkCache : public AsyncCache {
     void DoApply(ApplyOptions options, ApplyReceiver receiver) override;
 
     void InvalidateReadState() override;
+
+    // Require that the existing generation match `generation` when this
+    // transaction is committed.
+    //
+    // This is overridden by KvsBackedCache.
+    //
+    // Must be called with `mutex()` locked.
+    virtual absl::Status RequireRepeatableRead(
+        const StorageGeneration& generation) {
+      return absl::OkStatus();
+    }
 
    private:
     friend class ChunkCache;
@@ -206,8 +217,8 @@ class ChunkCache : public AsyncCache {
   /// \param staleness Cached data older than `staleness` will not be returned
   ///     without being rechecked.
   /// \param receiver Receiver for the chunks.
-  void Read(
-      internal::OpenTransactionPtr transaction, std::size_t component_index,
+  virtual void Read(
+      internal::OpenTransactionPtr transaction, size_t component_index,
       IndexTransform<> transform, absl::Time staleness,
       AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver);
 
@@ -223,8 +234,8 @@ class ChunkCache : public AsyncCache {
   ///     `[0, grid().components.size())`.
   /// \param transform The transform to apply.
   /// \param receiver Receiver for the chunks.
-  void Write(
-      internal::OpenTransactionPtr transaction, std::size_t component_index,
+  virtual void Write(
+      internal::OpenTransactionPtr transaction, size_t component_index,
       IndexTransform<> transform,
       AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>> receiver);
 

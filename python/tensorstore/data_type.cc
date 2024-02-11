@@ -24,18 +24,19 @@
 
 // Other headers
 #include <array>
-#include <new>
+#include <cassert>
 #include <string>
 #include <string_view>
 #include <utility>
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/hash/hash.h"
-#include <nlohmann/json.hpp>
 #include "python/tensorstore/json_type_caster.h"
 #include "python/tensorstore/serialization.h"
 #include "python/tensorstore/tensorstore_module_components.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/global_initializer.h"
+#include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/str_cat.h"
@@ -44,6 +45,69 @@ namespace tensorstore {
 namespace internal_python {
 
 namespace py = ::pybind11;
+
+namespace {
+
+class CustomDTypes {
+ public:
+  CustomDTypes() = delete;
+
+  static void Initialize() {
+    // this function should be called from the global initialization
+    py::module ml_dtypes = py::module::import("ml_dtypes");
+
+    *datatype_to_numpy_map_ = {
+        {DataTypeId::bfloat16_t,
+         py::dtype::from_args(ml_dtypes.attr("bfloat16")).num()},
+        {DataTypeId::float8_e4m3fn_t,
+         py::dtype::from_args(ml_dtypes.attr("float8_e4m3fn")).num()},
+        {DataTypeId::float8_e4m3fnuz_t,
+         py::dtype::from_args(ml_dtypes.attr("float8_e4m3fnuz")).num()},
+        {DataTypeId::float8_e4m3b11fnuz_t,
+         py::dtype::from_args(ml_dtypes.attr("float8_e4m3b11fnuz")).num()},
+        {DataTypeId::float8_e5m2_t,
+         py::dtype::from_args(ml_dtypes.attr("float8_e5m2")).num()},
+        {DataTypeId::float8_e5m2fnuz_t,
+         py::dtype::from_args(ml_dtypes.attr("float8_e5m2fnuz")).num()},
+        {DataTypeId::int4_t,
+         py::dtype::from_args(ml_dtypes.attr("int4")).num()},
+        // TODO(ChromeHearts) implement uint4
+        // {DataTypeId::uint4_t, py::dtype::from_args(ml_dtypes.attr("uint4"))},
+    };
+
+    for (auto [k, v] : *datatype_to_numpy_map_) {
+      numpy_to_datatype_map_->emplace(v, k);
+    }
+  }
+
+  static int GetNumpyTypeNum(DataTypeId id) {
+    auto it = datatype_to_numpy_map_->find(id);
+    assert(it != datatype_to_numpy_map_->end());
+    return it->second;
+  }
+
+  static DataTypeId GetDataTypeId(int num) {
+    if (auto it = numpy_to_datatype_map_->find(num);
+        it != numpy_to_datatype_map_->end()) {
+      return it->second;
+    } else {
+      return DataTypeId::num_ids;
+    }
+  }
+
+ private:
+  static internal::NoDestructor<absl::flat_hash_map<DataTypeId, int>>
+      datatype_to_numpy_map_;
+  static internal::NoDestructor<absl::flat_hash_map<int, DataTypeId>>
+      numpy_to_datatype_map_;
+};
+
+internal::NoDestructor<absl::flat_hash_map<DataTypeId, int>>
+    CustomDTypes::datatype_to_numpy_map_;
+internal::NoDestructor<absl::flat_hash_map<int, DataTypeId>>
+    CustomDTypes::numpy_to_datatype_map_;
+
+};  // namespace
 
 pybind11::dtype GetNumpyDtype(int type_num) {
   if (auto* obj = PyArray_DescrFromType(type_num)) {
@@ -66,10 +130,15 @@ int GetNumpyTypeNum(DataType dtype) {
   switch (id) {
     case DataTypeId::custom:
       return -1;
-    case DataTypeId::int4_t:
-      return Int4NumpyTypeNum();
     case DataTypeId::bfloat16_t:
-      return Bfloat16NumpyTypeNum();
+    case DataTypeId::float8_e4m3fn_t:
+    case DataTypeId::float8_e4m3fnuz_t:
+    case DataTypeId::float8_e4m3b11fnuz_t:
+    case DataTypeId::float8_e5m2_t:
+    case DataTypeId::float8_e5m2fnuz_t:
+    case DataTypeId::int4_t:
+      // case DataTypeId::uint4_t: // TODO (ChromeHearts) implement uint4
+      return CustomDTypes::GetNumpyTypeNum(id);
     default:
       return kNumpyTypeNumForDataTypeId[static_cast<size_t>(id)];
   }
@@ -87,12 +156,12 @@ py::dtype GetNumpyDtypeOrThrow(DataType dtype) {
 
 DataType GetDataType(pybind11::dtype dt) {
   const int type_num = py::detail::array_descriptor_proxy(dt.ptr())->type_num;
-  if (type_num == Int4NumpyTypeNum()) {
-    return dtype_v<int4_t>;
+
+  if (DataTypeId type_id = CustomDTypes::GetDataTypeId(type_num);
+      type_id != DataTypeId::num_ids) {
+    return kDataTypes[static_cast<size_t>(type_id)];
   }
-  if (type_num == Bfloat16NumpyTypeNum()) {
-    return dtype_v<bfloat16_t>;
-  }
+
   if (type_num < 0 || type_num > NPY_NTYPES) {
     return DataType();
   }
@@ -196,12 +265,7 @@ Overload:
 }
 
 void RegisterDataTypeBindings(pybind11::module m, Executor defer) {
-  if (!internal_python::RegisterNumpyInt4()) {
-    throw py::error_already_set();
-  }
-  if (!internal_python::RegisterNumpyBfloat16()) {
-    throw py::error_already_set();
-  }
+  CustomDTypes::Initialize();
 
   defer([cls = MakeDataTypeClass(m)]() mutable {
     DefineDataTypeAttributes(cls);
@@ -237,11 +301,11 @@ bool type_caster<tensorstore::internal_python::DataTypeLike>::load(
   if (src.is_none()) return false;
   if (!convert) return false;
   if (src.ptr() == reinterpret_cast<PyObject*>(&PyUnicode_Type)) {
-    value.value = dtype_v<tensorstore::ustring_t>;
+    value.value = dtype_v<tensorstore::dtypes::ustring_t>;
     return true;
   }
   if (src.ptr() == reinterpret_cast<PyObject*>(&PyBytes_Type)) {
-    value.value = dtype_v<tensorstore::string_t>;
+    value.value = dtype_v<tensorstore::dtypes::string_t>;
     return true;
   }
   PyArray_Descr* ptr = nullptr;

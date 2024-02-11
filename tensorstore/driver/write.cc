@@ -104,14 +104,14 @@ struct WriteState : public internal::AtomicReferenceCount<WriteState> {
     std::atomic<Index> committed_elements{0};
 
     void UpdateCopyProgress(Index num_elements) {
-      if (!write_progress_function) return;
-      write_progress_function(WriteProgress{
+      if (!write_progress_function.value) return;
+      write_progress_function.value(WriteProgress{
           total_elements, copied_elements += num_elements, committed_elements});
     }
 
     void UpdateCommitProgress(Index num_elements) {
-      if (!write_progress_function) return;
-      write_progress_function(WriteProgress{
+      if (!write_progress_function.value) return;
+      write_progress_function.value(WriteProgress{
           total_elements, copied_elements, committed_elements += num_elements});
     }
   };
@@ -170,13 +170,12 @@ struct WriteChunkOp {
           std::move(source_iterable), target_iterable->dtype(),
           state->data_type_conversion);
 
-      NDIterableCopier copier(*source_iterable, *target_iterable,
-                              chunk.transform.input_shape(), arena);
-      copy_status = copier.Copy();
-      auto end_write_result =
-          chunk.impl(WriteChunk::EndWrite{}, chunk.transform,
-                     copier.layout_info().layout_view(),
-                     copier.stepper().position(), arena);
+      copy_status = NDIterableCopier(*source_iterable, *target_iterable,
+                                     chunk.transform.input_shape(), arena)
+                        .Copy();
+
+      auto end_write_result = chunk.impl(
+          WriteChunk::EndWrite{}, chunk.transform, copy_status.ok(), arena);
       commit_future = std::move(end_write_result.commit_future);
       if (copy_status.ok()) {
         copy_status = std::move(end_write_result.copy_status);

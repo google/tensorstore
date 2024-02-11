@@ -15,7 +15,9 @@
 #ifndef TENSORSTORE_DRIVER_DRIVER_TESTUTIL_H_
 #define TENSORSTORE_DRIVER_DRIVER_TESTUTIL_H_
 
-#include <cstddef>
+#include <stddef.h>
+#include <stdint.h>
+
 #include <functional>
 #include <optional>
 #include <string>
@@ -57,6 +59,11 @@ namespace internal {
 
 struct TestTensorStoreDriverSpecRoundtripOptions {
   std::string test_name;
+
+  // Note: Any occurrences of "${TEMPDIR}" in
+  // `full_spec, `create_spec`, `minimal_spec`, and `full_base_spec`
+  // are replaced with the path to a unique temporary directory created for the
+  // test.
   ::nlohmann::json full_spec;
   ::nlohmann::json create_spec = ::nlohmann::json::value_t::discarded;
   ::nlohmann::json minimal_spec;
@@ -73,6 +80,7 @@ struct TestTensorStoreDriverSpecRoundtripOptions {
   bool check_not_found_before_commit = true;
   bool check_transactional_open_before_commit = true;
   bool write_value_to_create = false;
+  bool check_serialization = false;
 };
 
 /// Tests that a TensorStore can be successfully created from `full_spec`, that
@@ -139,6 +147,8 @@ struct TestTensorStoreDriverResizeOptions {
   std::function<::nlohmann::json(BoxView<> bounds)> get_create_spec;
   std::vector<TransactionMode> supported_transaction_modes = {
       tensorstore::isolated};
+  bool test_metadata = true;
+  bool test_data = false;
 };
 
 /// Tests metadata-only resize functionality.
@@ -344,6 +354,34 @@ TestSpecSchema(::nlohmann::json json_spec, Option&&... option) {
 }
 
 void TestSpecSchema(::nlohmann::json json_spec, ::nlohmann::json json_schema);
+
+// Tests repeatable read operations using a TensorStore that reads/writes a
+// single key in a kvstore.
+struct TensorStoreRepeatableReadTestOptions {
+  std::string test_suite_name;
+
+  // Function that returns a TensorStore that uses the
+  // `MockKeyValueStoreResource` from `context`.
+  std::function<Result<TensorStore<void>>(const Context& context)>
+      make_tensorstore;
+
+  // Initial read value of the `TensorStore` returned from `make_tensorstore`.
+  SharedArray<const void> fill_value;
+
+  // Distinct arrays of the same shape and data type as `fill_value`.
+  SharedArray<const void> value1, value2, value3;
+
+  // KvStore key representing the value.
+  std::string key;
+
+  // Encodes an array to the KvStore representation.
+  std::function<Result<std::optional<absl::Cord>>(SharedArray<const void>)>
+      encode_value;
+};
+
+// Registers the test suite specified by `options`.
+void RegisterTensorStoreRepeatableReadTest(
+    const TensorStoreRepeatableReadTestOptions& options);
 
 }  // namespace internal
 }  // namespace tensorstore

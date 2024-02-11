@@ -32,10 +32,10 @@ struct DataTypeInvokerFn {
 
   template <typename... Args>
   inline absl::Status operator()(tensorstore::DataTypeId id, Args&&... args) {
-#define INVOKE_WITH_TYPE(T, ...)                               \
-  case tensorstore::DataTypeId::T: {                           \
-    return tensorstore::internal::InvokeForStatus(             \
-        fn, tensorstore::T{}, std::forward<Args...>(args)...); \
+#define INVOKE_WITH_TYPE(T, ...)                                       \
+  case tensorstore::DataTypeId::T: {                                   \
+    return tensorstore::internal::InvokeForStatus(                     \
+        fn, tensorstore::dtypes::T{}, std::forward<Args...>(args)...); \
   }
 
     switch (id) {
@@ -85,7 +85,7 @@ DataTypeIdOf(const T& t) {
 }
 
 /// MakeDataTypeInvoker returns a function object which wraps a function
-/// where the first paramter is the array datatype.
+/// where the first parameter is the array datatype.
 ///
 /// Example:
 ///   auto fn = MakeDataTypeInvoker([](auto t, const auto& a) {

@@ -23,9 +23,10 @@
 /// specified either at compile-time or at run-time.  For simplicity,
 /// compile-time specification of extents and/or strides is not supported.
 
+#include <stddef.h>
+
 #include <algorithm>
 #include <array>
-#include <cstddef>
 #include <iosfwd>
 #include <memory>
 #include <string>
@@ -356,7 +357,7 @@ SharedSubArray(const SharedArray<Element, Rank, OriginKind, SourceCKind>& array,
 
 template <ContainerKind LayoutCKind = view, typename ElementTag,
           DimensionIndex Rank, ArrayOriginKind OriginKind,
-          ContainerKind SourceCKind, std::size_t N>
+          ContainerKind SourceCKind, size_t N>
 Array<typename ElementTagTraits<ElementTag>::Element,
       SubArrayStaticRank<RankConstraint::FromInlineRank(Rank),
                          span<const Index, N>>,
@@ -368,7 +369,7 @@ SubArray(const Array<ElementTag, Rank, OriginKind, SourceCKind>& array,
 
 template <ContainerKind LayoutCKind = view, typename Element,
           DimensionIndex Rank, ArrayOriginKind OriginKind,
-          ContainerKind SourceCKind, std::size_t N>
+          ContainerKind SourceCKind, size_t N>
 SharedArray<Element,
             SubArrayStaticRank<RankConstraint::FromInlineRank(Rank),
                                span<const Index, N>>,
@@ -800,7 +801,7 @@ class Array {
     return byte_strided_pointer()[this->layout()(indices)];
   }
 
-  template <std::size_t N,
+  template <size_t N,
             // Note: Use extra template parameter to make condition dependent.
             bool SfinaeNotVoid = !std::is_void_v<Element>>
   std::enable_if_t<(SfinaeNotVoid &&
@@ -827,7 +828,7 @@ class Array {
     if constexpr (sizeof...(IndexType) == 0) {
       return byte_strided_pointer()[this->layout()()];
     } else {
-      constexpr std::size_t N = sizeof...(IndexType);
+      constexpr size_t N = sizeof...(IndexType);
       const Index indices[N] = {index...};
       return byte_strided_pointer()[this->layout()(indices)];
     }
@@ -874,7 +875,7 @@ class Array {
     return SubArray(*this, indices);
   }
 
-  template <std::size_t N>
+  template <size_t N>
   ArrayView<Element, SubArrayStaticRank<static_rank, const Index (&)[N]>,
             array_origin_kind>
   operator[](const Index (&indices)[N]) const {
@@ -1462,7 +1463,7 @@ namespace internal {
 ///     does not track the size.
 template <typename Element = void>
 SharedElementPointer<Element> AllocateAndConstructSharedElements(
-    std::ptrdiff_t n, ElementInitialization initialization = default_init,
+    ptrdiff_t n, ElementInitialization initialization = default_init,
     dtype_t<Element> representation = dtype_v<Element>) {
   return {
       AllocateAndConstructShared<Element>(n, initialization, representation),
@@ -1633,11 +1634,11 @@ namespace internal {
 
 /// Internal untyped interface for iterating over arrays.
 template <typename... Array>
-ArrayIterateResult IterateOverArrays(
-    ElementwiseClosure<sizeof...(Array), void*> closure, void* arg,
-    IterationConstraints constraints, const Array&... array) {
+bool IterateOverArrays(ElementwiseClosure<sizeof...(Array), void*> closure,
+                       void* arg, IterationConstraints constraints,
+                       const Array&... array) {
   ABSL_CHECK(ArraysHaveSameShapes(array...));
-  const std::array<std::ptrdiff_t, sizeof...(Array)> element_sizes{
+  const std::array<ptrdiff_t, sizeof...(Array)> element_sizes{
       {array.dtype().size()...}};
   return IterateOverStridedLayouts(
       closure, arg, internal::GetFirstArgument(array...).shape(),
@@ -1669,8 +1670,7 @@ ArrayIterateResult IterateOverArrays(
 ///     iteration order is determined automatically.
 /// \param array The arrays over which to iterate, which must all have the same
 ///     shape.
-/// \returns An `ArrayIterateResult` that indicates whether iteration completed
-///     and the number of elements processed.
+/// \returns `true` on success, `false` on failure.
 /// \checks `ArraysHaveSameShapes(array...)`
 /// \relates Array
 template <typename Func, typename... Array>
@@ -1678,7 +1678,7 @@ std::enable_if_t<((IsArray<Array> && ...) &&
                   std::is_constructible_v<
                       bool, internal::Void::WrappedType<std::invoke_result_t<
                                 Func&, typename Array::Element*...>>>),
-                 ArrayIterateResult>
+                 bool>
 IterateOverArrays(Func&& func, IterationConstraints constraints,
                   const Array&... array) {
   const auto func_wrapper = [&func](typename Array::Element*... ptr, void*) {
@@ -2071,6 +2071,14 @@ template <typename ElementTag, DimensionIndex Rank, ArrayOriginKind OriginKind,
 bool IsBroadcastScalar(
     const Array<ElementTag, Rank, OriginKind, LayoutCKind>& array) {
   return tensorstore::IsBroadcastScalar(array.layout());
+}
+
+/// Returns minimum number of contiguous bytes into which the array fits.
+template <typename ElementTag, DimensionIndex Rank, ArrayOriginKind OriginKind,
+          ContainerKind LayoutCKind>
+Index GetByteExtent(
+    const Array<ElementTag, Rank, OriginKind, LayoutCKind>& array) {
+  return tensorstore::GetByteExtent(array.layout(), array.dtype().size());
 }
 
 namespace internal_array {

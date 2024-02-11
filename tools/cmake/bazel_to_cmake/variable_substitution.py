@@ -15,11 +15,13 @@
 
 # pylint: disable=relative-beyond-top-level,invalid-name
 
+from collections.abc import Callable
 import io
 import json
 import os
 import pathlib
 import re
+import shlex
 from typing import Dict, List, Match, Optional
 
 from .cmake_target import CMakeExecutableTargetProvider
@@ -39,6 +41,60 @@ _LOCATION_RE = re.compile(
 _LOCATION_SUB_RE = re.compile(
     r"\$\((location|locations|execpath|execpaths|rootpath|rootpaths)\s+([^)]+)\)"
 )
+
+
+def _do_variable_replacement(
+    cmd: str, get_replacement: Callable[[str, str], str]
+) -> str:
+  """Applies variable replacement to a string."""
+
+  # NOTE: location and make variable substitutions do not compose well since
+  # for location substitutions to work correctly CMake generator expressions
+  # are needed.
+  def _do_replace_impl(_cmd):
+    i = _cmd.find("$")
+    if i == -1:
+      return _cmd, None
+
+    j = i + 1
+    if _cmd[j] == "$":
+      return _cmd[:j], _cmd[j + 1 :]
+
+    if _cmd[j] == "(":
+      closeparen = ")"
+    elif _cmd[j] == "{":
+      closeparen = "}"
+    else:
+      # Single character literal.
+      r = get_replacement("", _cmd[j])
+      return f"{_cmd[:i]}{r}", _cmd[j + 1 :]
+
+    # Find matching close, counting the nesting parens.
+    k = j + 1
+    count = 1
+    while k < len(_cmd):
+      if _cmd[k] == _cmd[j]:
+        count += 1
+      elif _cmd[k] == closeparen:
+        count -= 1
+        if count == 0:
+          break
+      k += 1
+
+    # Do replacements on the sub-string.
+    a, b = _do_replace_impl(_cmd[j + 1 : k])
+    if b is None:
+      b = ""
+
+    r = get_replacement(_cmd[j], a + b)
+    return f"{_cmd[:i]}{r}", _cmd[k + 1 :]
+
+  out = io.StringIO()
+  b = cmd
+  while b:
+    a, b = _do_replace_impl(b)
+    out.write(a)
+  return out.getvalue()
 
 
 def _get_location_replacement(
@@ -78,7 +134,7 @@ def _get_location_replacement(
     rel_paths = [_get_relpath(path) for path in files_provider.paths]
     if not key.endswith("s"):
       if len(rel_paths) != 1:
-        raise ValueError("Expected single file but received: {rel_paths}")
+        raise ValueError(f"Expected single file but received: {rel_paths}")
       return rel_paths[0]
     return " ".join(rel_paths)
 
@@ -112,7 +168,25 @@ def _apply_location_and_make_variable_substitutions(
       _context, toolchains, substitutions
   )
 
-  def _get_replacement(name):
+  # NOTE: location and make variable substitutions do not compose well since
+  # for location substitutions to work correctly CMake generator expressions
+  # are needed.
+  def _get_replacement(paren: str, name: str):
+    if paren == "{":
+      return ""  # Not really supported.
+
+    if paren == "(" and enable_location:
+      m = _LOCATION_RE.fullmatch(name)
+      if m:
+        return _get_location_replacement(
+            _context,
+            cmd,
+            relative_to,
+            custom_target_deps,
+            m.group(1),
+            m.group(2),
+        )
+
     replacement = substitutions.get(name)
     if replacement is None:
       raise ValueError(
@@ -121,48 +195,7 @@ def _apply_location_and_make_variable_substitutions(
       )
     return replacement
 
-  # NOTE: location and make variable substitutions do not compose well since
-  # for location substitutions to work correctly CMake generator expressions
-  # are needed.
-  def _do_replacements(_cmd):
-    out = io.StringIO()
-    while True:
-      i = _cmd.find("$")
-      if i == -1:
-        out.write(_cmd)
-        return out.getvalue()
-      out.write(_cmd[:i])
-      j = i + 1
-      if _cmd[j] == "(":
-        # Multi character literal.
-        j = _cmd.find(")", i + 2)
-        assert j > (i + 2)
-        name = _cmd[i + 2 : j]
-        m = None
-        if enable_location:
-          m = _LOCATION_RE.fullmatch(_cmd[i + 2 : j])
-        if m:
-          out.write(
-              _get_location_replacement(
-                  _context,
-                  cmd,
-                  relative_to,
-                  custom_target_deps,
-                  m.group(1),
-                  m.group(2),
-              )
-          )
-        else:
-          out.write(_get_replacement(name))
-      elif _cmd[j] == "$":
-        # Escaped $
-        out.write("$")
-      else:
-        # Single letter literal.
-        out.write(_get_replacement(_cmd[j]))
-      _cmd = _cmd[j + 1 :]
-
-  return _do_replacements(cmd)
+  return _do_variable_replacement(cmd, _get_replacement)
 
 
 def apply_make_variable_substitutions(
@@ -305,3 +338,34 @@ def generate_substitutions(
     substitutions["@D"] = json.dumps(os.path.dirname(out_files[0]))
 
   return substitutions
+
+
+def do_bash_command_replacement(cmd: str) -> str:
+  """Tries to apply some bash-equivalent commands to a string."""
+
+  # mimic shell $(dirname x)
+  def _dirname(args: List[str]) -> str:
+    if not args:
+      raise ValueError(f"cannot apply `dirname` in {cmd}")
+    dirnames = [os.path.dirname(x) for x in args]
+    return "\n".join([x if x else "." for x in dirnames])
+
+  # NOTE: location and make variable substitutions do not compose well since
+  # for location substitutions to work correctly CMake generator expressions
+  # are needed.
+  def _get_replacement(paren: str, name: str):
+
+    if not paren:
+      return "$" + name
+
+    if paren == "{":
+      return "${" + name + "}"
+
+    bash_command = shlex.split(name.strip())
+
+    if bash_command[0].lower() == "dirname":
+      return _dirname(bash_command[1:])
+
+    return "$(" + name + ")"
+
+  return _do_variable_replacement(cmd, _get_replacement)

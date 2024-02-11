@@ -16,8 +16,8 @@
 ///
 /// Defines `tensorstore.Transaction`.
 
-#ifndef THIRD_PARTY_PY_TENSORSTORE_TRANSACTION_H_
-#define THIRD_PARTY_PY_TENSORSTORE_TRANSACTION_H_
+#ifndef PYTHON_TENSORSTORE_TRANSACTION_H_
+#define PYTHON_TENSORSTORE_TRANSACTION_H_
 
 #include <pybind11/pybind11.h>
 // Other headers must be included after pybind11 to ensure header-order
@@ -50,4 +50,4 @@ PYBIND11_DECLARE_HOLDER_TYPE(
     T, ::tensorstore::internal_python::TransactionCommitPtrWorkaround<T>,
     /*always_construct_holder=*/true)
 
-#endif  // THIRD_PARTY_PY_TENSORSTORE_TRANSACTION_H_
+#endif  // PYTHON_TENSORSTORE_TRANSACTION_H_

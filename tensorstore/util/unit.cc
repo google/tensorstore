@@ -18,6 +18,7 @@
 #include <string>
 
 #include "absl/strings/ascii.h"
+#include "absl/strings/str_cat.h"
 #include "re2/re2.h"
 
 namespace tensorstore {
@@ -48,6 +49,16 @@ Unit::Unit(std::string_view unit) {
   }
   RE2::Consume(&unit, *kNumberPattern, &multiplier);
   base_unit = unit;
+}
+
+std::string Unit::to_string() const {
+  if (base_unit.empty()) {
+    return absl::StrCat(multiplier);
+  }
+  if (multiplier != 1) {
+    return absl::StrCat(multiplier, " ", base_unit);
+  }
+  return base_unit;
 }
 
 }  // namespace tensorstore

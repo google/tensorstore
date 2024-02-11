@@ -110,7 +110,7 @@ NDIteratorCopyManager::NDIteratorCopyManager(
               ->copy_assign[buffer_parameters.input_buffer_kind];
       break;
     case NDIterableCopyManager::BufferSource::kExternal:
-      buffer_manager_.Initialize(layout.block_size,
+      buffer_manager_.Initialize(layout.block_shape,
                                  {{iterable.input()->dtype()}},
                                  {{{{buffer_parameters.input_buffer_kind,
                                      buffer_parameters.output_buffer_kind}}}});
@@ -132,49 +132,50 @@ NDIteratorCopyManager::NDIteratorCopyManager(
   constexpr static CopyImpl kCopyImpls[] = {
       // kBoth
       [](NDIteratorCopyManager* self, span<const Index> indices,
-         Index block_size, absl::Status* status) -> Index {
+         IterationBufferShape block_shape, absl::Status* status) -> bool {
         IterationBufferPointer input_pointer, output_pointer;
-        block_size =
-            self->input_->GetBlock(indices, block_size, &input_pointer, status);
-        block_size = self->output_->GetBlock(indices, block_size,
-                                             &output_pointer, status);
-        block_size = self->copy_elements_function_(
-            nullptr, block_size, input_pointer, output_pointer, status);
-        return self->output_->UpdateBlock(indices, block_size, output_pointer,
+        return self->input_->GetBlock(indices, block_shape, &input_pointer,
+                                      status) &&
+               self->output_->GetBlock(indices, block_shape, &output_pointer,
+                                       status) &&
+               self->copy_elements_function_(nullptr, block_shape,
+                                             input_pointer, output_pointer,
+                                             status) &&
+               self->output_->UpdateBlock(indices, block_shape, output_pointer,
                                           status);
       },
       // kInput
       [](NDIteratorCopyManager* self, span<const Index> indices,
-         Index block_size, absl::Status* status) -> Index {
+         IterationBufferShape block_shape, absl::Status* status) -> bool {
         IterationBufferPointer pointer;
-        block_size =
-            self->input_->GetBlock(indices, block_size, &pointer, status);
-        block_size =
-            self->output_->GetBlock(indices, block_size, &pointer, status);
-        return self->output_->UpdateBlock(indices, block_size, pointer, status);
+        return self->input_->GetBlock(indices, block_shape, &pointer, status) &&
+               self->output_->GetBlock(indices, block_shape, &pointer,
+                                       status) &&
+               self->output_->UpdateBlock(indices, block_shape, pointer,
+                                          status);
       },
       // kOutput
       [](NDIteratorCopyManager* self, span<const Index> indices,
-         Index block_size, absl::Status* status) -> Index {
+         IterationBufferShape block_shape, absl::Status* status) -> bool {
         IterationBufferPointer pointer;
-        block_size =
-            self->output_->GetBlock(indices, block_size, &pointer, status);
-        block_size =
-            self->input_->GetBlock(indices, block_size, &pointer, status);
-        return self->output_->UpdateBlock(indices, block_size, pointer, status);
+        return self->output_->GetBlock(indices, block_shape, &pointer,
+                                       status) &&
+               self->input_->GetBlock(indices, block_shape, &pointer, status) &&
+               self->output_->UpdateBlock(indices, block_shape, pointer,
+                                          status);
       },
       // kExternal
       [](NDIteratorCopyManager* self, span<const Index> indices,
-         Index block_size, absl::Status* status) -> Index {
-        block_size = self->input_->GetBlock(
-            indices, block_size, &self->buffer_manager_.buffer_pointers()[0][0],
-            status);
-        block_size = self->output_->GetBlock(
-            indices, block_size, &self->buffer_manager_.buffer_pointers()[1][0],
-            status);
-        return self->output_->UpdateBlock(
-            indices, block_size, self->buffer_manager_.buffer_pointers()[1][0],
-            status);
+         IterationBufferShape block_shape, absl::Status* status) -> bool {
+        return self->input_->GetBlock(
+                   indices, block_shape,
+                   &self->buffer_manager_.buffer_pointers()[0][0], status) &&
+               self->output_->GetBlock(
+                   indices, block_shape,
+                   &self->buffer_manager_.buffer_pointers()[1][0], status) &&
+               self->output_->UpdateBlock(
+                   indices, block_shape,
+                   self->buffer_manager_.buffer_pointers()[1][0], status);
       },
   };
   copy_impl_ = kCopyImpls[static_cast<int>(buffer_parameters.buffer_source)];
@@ -192,29 +193,48 @@ NDIterableCopier::NDIterableCopier(
     const NDIterableCopyManager& iterable_copy_manager, span<const Index> shape,
     IterationConstraints constraints, Arena* arena)
     : layout_info_(iterable_copy_manager, shape, constraints),
-      stepper_(layout_info_.iteration_shape,
-               GetNDIterationBlockSize(
-                   iterable_copy_manager.GetWorkingMemoryBytesPerElement(
-                       layout_info_.layout_view()),
-                   layout_info_.iteration_shape)),
-      iterator_copy_manager_(
-          iterable_copy_manager,
-          {layout_info_.layout_view(), stepper_.block_size()}, arena) {}
+      block_shape_(GetNDIterationBlockShape(
+          iterable_copy_manager.GetWorkingMemoryBytesPerElement(
+              layout_info_.layout_view()),
+          layout_info_.iteration_shape)),
+      iterator_copy_manager_(iterable_copy_manager,
+                             {layout_info_.layout_view(), block_shape_},
+                             arena) {}
 
 absl::Status NDIterableCopier::Copy() {
+  span<const Index> iteration_shape = layout_info_.iteration_shape;
+  std::fill_n(position_, iteration_shape.size(), static_cast<Index>(0));
   if (layout_info_.empty) {
-    std::fill(stepper_.position().begin(), stepper_.position().end(), 0);
     return absl::OkStatus();
   }
   absl::Status copy_status;
-  for (Index block_size = stepper_.ResetAtBeginning(); block_size;) {
-    const Index n = iterator_copy_manager_.Copy(stepper_.position(), block_size,
-                                                &copy_status);
-    const Index next_block_size = stepper_.StepForward(n);
-    if (n != block_size) {
-      return GetElementCopyErrorStatus(std::move(copy_status));
+  if (Index inner_block_size = block_shape_[1];
+      inner_block_size != iteration_shape.back()) {
+    // Block shape is 1d, need to iterate over all dimensions including
+    // innermost dimension.
+    assert(block_shape_[0] == 1);
+    for (Index block_size = inner_block_size; block_size;) {
+      if (!iterator_copy_manager_.Copy(
+              span<const Index>(position_, iteration_shape.size()),
+              {1, block_size}, &copy_status)) {
+        return GetElementCopyErrorStatus(std::move(copy_status));
+      }
+      block_size = StepBufferPositionForward(iteration_shape, block_size,
+                                             inner_block_size, position_);
     }
-    block_size = next_block_size;
+  } else {
+    // Block shape is 2d, exclude innermost dimension from iteration.
+    const Index outer_block_size = block_shape_[0];
+    for (Index block_size = outer_block_size; block_size;) {
+      if (!iterator_copy_manager_.Copy(
+              span<const Index>(position_, iteration_shape.size()),
+              {block_size, inner_block_size}, &copy_status)) {
+        return GetElementCopyErrorStatus(std::move(copy_status));
+      }
+      block_size = StepBufferPositionForward(
+          iteration_shape.first(iteration_shape.size() - 1), block_size,
+          outer_block_size, position_);
+    }
   }
   return absl::OkStatus();
 }

@@ -70,7 +70,6 @@
 #include "tensorstore/util/garbage_collection/garbage_collection.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal {
@@ -302,6 +301,12 @@ Future<ArrayStorageStatistics> GetStorageStatistics(
 
 Result<TransformedDriverSpec> GetTransformedDriverSpec(
     const DriverHandle& handle, SpecRequestOptions&& options);
+
+// Updates the read-write mode, or returns an error if incompatible with the
+// existing mode.
+//
+// If `new_mode == ReadWriteMode::dynamic`, the existing mode is unchanged.
+absl::Status SetReadWriteMode(DriverHandle& handle, ReadWriteMode new_mode);
 
 struct DriverHandleNonNullSerializer {
   [[nodiscard]] static bool Encode(serialization::EncodeSink& sink,

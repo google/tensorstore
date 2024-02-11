@@ -13,15 +13,20 @@
 // limitations under the License.
 
 #include <assert.h>
+#include <stdint.h>
 
 #include <string>
 #include <type_traits>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/string_view.h"
 #include <nlohmann/json.hpp>
+#include "tensorstore/array.h"
 #include "tensorstore/array_testutil.h"
+#include "tensorstore/box.h"
 #include "tensorstore/context.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
@@ -29,9 +34,9 @@
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/open.h"
+#include "tensorstore/open_mode.h"
 #include "tensorstore/progress.h"
 #include "tensorstore/tensorstore.h"
-#include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
@@ -366,9 +371,8 @@ TEST(IntegrationTest, NeuroglancerPrecomputed) {
         },
     };
     EXPECT_THAT(tensorstore::Open(spec, context).result(),
-                tensorstore::MatchesStatus(
-                    absl::StatusCode::kInvalidArgument,
-                    ".*Unable to infer \"dtype\" in \"stack\" driver.*"));
+                tensorstore::MatchesStatus(absl::StatusCode::kInvalidArgument,
+                                           ".*dtype must be specified.*"));
   }
 
   // Missing transform results in an unbounded domain, which may be opened,

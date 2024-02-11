@@ -1,5 +1,7 @@
 $schema: http://json-schema.org/draft-07/schema#
 $id: kvstore/ocdbt
+title: Read/write adapter for the OCDBT format.
+description: JSON specification of the key-value store.
 allOf:
 - $ref: KvStore
 - type: object
@@ -79,20 +81,19 @@ allOf:
       $ref: ContextResource
       description: |-
         Specifies or references a previously defined `Context.cache_pool`.  It
-        is normally more convenient to specify a default `~Context.cache_pool`
+        is typically more convenient to specify a default `~Context.cache_pool`
         in the `.context`.
       default: cache_pool
     data_copy_concurrency:
       $ref: ContextResource
       description: |-
         Specifies or references a previously defined
-        `Context.data_copy_concurrency`.  It is normally more
+        `Context.data_copy_concurrency`.  It is typically more
         convenient to specify a default `~Context.data_copy_concurrency` in
         the `.context`.
       default: data_copy_concurrency
   required:
   - base
-title: JSON specification of OCDBT key-value store.
 definitions:
   zstd_compression:
     $id: kvstore/ocdbt/Compression/zstd

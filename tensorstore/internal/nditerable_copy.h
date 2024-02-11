@@ -32,6 +32,7 @@
 #include "tensorstore/internal/nditerable.h"
 #include "tensorstore/internal/nditerable_buffer_management.h"
 #include "tensorstore/internal/nditerable_util.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
@@ -113,25 +114,25 @@ struct NDIteratorCopyManager {
   ///
   /// \param indices Position vector of length `layout.rank()`, where `layout`
   ///     is the constructor argument.
-  /// \param block_size Size of block to copy starting at `indices`.  Must be
-  ///     `<= layout.block_size`, where `layout` is the constructor argument.
+  /// \param block_shape Shape of block to copy starting at `indices`.  Must be
+  ///     `<= layout.block_shape`, where `layout` is the constructor argument.
   /// \param status[out] Non-null pointer to location where error status may be
   ///     set if the return value is less than `block_size`.
-  /// \returns The number of elements successfully copied (equal to `block_size`
-  ///     on success).  If less than `block_size`, `*status` may be set to an
-  ///     error, or may be left unchanged to indicate a default/unspecified
-  ///     error.
-  Index Copy(span<const Index> indices, Index block_size,
-             absl::Status* status) {
-    return copy_impl_(this, indices, block_size, status);
+  /// \returns `true` on success.  If an error occurs, returns `false` and
+  ///     `*status` may be set to an error, or may be left unchanged to indicate
+  ///     a default/unspecified error.
+  bool Copy(span<const Index> indices, IterationBufferShape block_shape,
+            absl::Status* status) {
+    return copy_impl_(this, indices, block_shape, status);
   }
 
  private:
   NDIterator::Ptr input_;
   NDIterator::Ptr output_;
-  using CopyImpl = Index (*)(NDIteratorCopyManager* self,
-                             span<const Index> indices, Index block_size,
-                             absl::Status* status);
+  using CopyImpl = bool (*)(NDIteratorCopyManager* self,
+                            span<const Index> indices,
+                            IterationBufferShape block_shape,
+                            absl::Status* status);
   CopyImpl copy_impl_;
   SpecializedElementwiseFunctionPointer<2, void*> copy_elements_function_;
   NDIteratorExternalBufferManager<1, 2> buffer_manager_;
@@ -169,15 +170,16 @@ struct NDIterableCopier {
 
   /// Attempts to copy from `source` to `dest`.
   ///
-  /// Leaves `stepper()` at one past the last position copied.
+  /// Leaves `position()` at one past the last position copied.
   absl::Status Copy();
 
   /// Returns the layout used for copying.
   const NDIterationLayoutInfo<>& layout_info() const { return layout_info_; }
 
-  /// Returns the stepper used for copying.  Set to one past the last position
-  /// successfully copied.
-  const NDIterationPositionStepper& stepper() const { return stepper_; }
+  /// Returns the final position after `Copy` is called.
+  span<const Index> position() const {
+    return span<const Index>(position_, layout_info_.iteration_shape.size());
+  }
 
   /// Provides access to the iterators obtained from the `input` and `output`
   /// iterables.
@@ -191,7 +193,8 @@ struct NDIterableCopier {
                    Arena* arena);
 
   NDIterationLayoutInfo<> layout_info_;
-  NDIterationPositionStepper stepper_;
+  IterationBufferShape block_shape_;
+  Index position_[kMaxRank];
   NDIteratorCopyManager iterator_copy_manager_;
 };
 

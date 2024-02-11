@@ -18,9 +18,9 @@
 #include <string>
 #include <string_view>
 
-#include "tensorstore/box.h"
 #include "tensorstore/index.h"
-#include "tensorstore/internal/grid_storage_statistics.h"
+#include "tensorstore/index_interval.h"
+#include "tensorstore/internal/lexicographical_grid_index_key.h"
 #include "tensorstore/util/span.h"
 
 namespace tensorstore {
@@ -32,14 +32,19 @@ namespace internal {
 class Base10LexicographicalGridIndexKeyParser
     : public LexicographicalGridIndexKeyParser {
  public:
-  void FormatGridIndex(std::string& out, DimensionIndex dim,
-                       Index grid_index) const final;
+  explicit Base10LexicographicalGridIndexKeyParser(DimensionIndex rank,
+                                                   char dimension_separator)
+      : rank(rank), dimension_separator(dimension_separator) {}
 
-  bool ParseGridIndex(std::string_view key, DimensionIndex dim,
-                      Index& grid_index) const final;
+  std::string FormatKey(span<const Index> grid_indices) const final;
+
+  bool ParseKey(std::string_view key, span<Index> grid_indices) const final;
 
   Index MinGridIndexForLexicographicalOrder(
       DimensionIndex dim, IndexInterval grid_interval) const final;
+
+  DimensionIndex rank;
+  char dimension_separator;
 };
 
 // Returns the smallest non-negative value less than `exclusive_max` with the

@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef THIRD_PARTY_PY_TENSORSTORE_DATA_TYPE_H_
-#define THIRD_PARTY_PY_TENSORSTORE_DATA_TYPE_H_
+#ifndef PYTHON_TENSORSTORE_DATA_TYPE_H_
+#define PYTHON_TENSORSTORE_DATA_TYPE_H_
 
 /// \file Defines the `tensorstore.dtype` class (corresponding to
 /// `tensorstore::DataType`), the `tensorstore.<dtype>` constants, and automatic
@@ -32,8 +32,6 @@
 #include <complex>
 #include <string_view>
 
-#include "python/tensorstore/bfloat16.h"
-#include "python/tensorstore/int4.h"
 #include "tensorstore/data_type.h"
 
 namespace tensorstore {
@@ -135,16 +133,6 @@ constexpr int GetNumpyTypeNum() {
   return type_num;
 }
 
-template <>
-inline int GetNumpyTypeNum<int4_t>() {
-  return Int4NumpyTypeNum();
-}
-
-template <>
-inline int GetNumpyTypeNum<bfloat16_t>() {
-  return Bfloat16NumpyTypeNum();
-}
-
 template <typename T>
 inline pybind11::dtype GetNumpyDtype() {
   return GetNumpyDtype(GetNumpyTypeNum<T>());
@@ -173,8 +161,8 @@ namespace pybind11 {
 namespace detail {
 
 /// Defines automatic conversion from compatible Python objects to
-/// `tensorstore::internal_python::DataTypeLike` parameters of pybind11-exposed
-/// functions.
+/// `tensorstore::internal_python::DataTypeLike` parameters of
+/// pybind11-exposed functions.
 ///
 /// The `str` and `bytes` Python type constructors map to the `ustring` and
 /// `string` types, respectively.
@@ -195,4 +183,4 @@ struct type_caster<tensorstore::internal_python::DataTypeLike> {
 }  // namespace detail
 }  // namespace pybind11
 
-#endif  // THIRD_PARTY_PY_TENSORSTORE_DATA_TYPE_H_
+#endif  // PYTHON_TENSORSTORE_DATA_TYPE_H_

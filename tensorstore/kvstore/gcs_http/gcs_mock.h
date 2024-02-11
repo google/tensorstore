@@ -17,6 +17,7 @@
 
 #include <cassert>
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <optional>
 #include <random>
@@ -28,6 +29,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/synchronization/mutex.h"
+#include "absl/time/time.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
@@ -119,7 +121,6 @@ class GCSMockStorageBucket {
   const std::optional<std::string> requestor_pays_project_id_;
   absl::Mutex mutex_;
   int64_t next_generation_ = 123;
-  int64_t request_count_ = 0;
 
   int64_t next_error_count_ ABSL_GUARDED_BY(mutex_) = 0;
   double p_error_ ABSL_GUARDED_BY(mutex_) = 0.05;

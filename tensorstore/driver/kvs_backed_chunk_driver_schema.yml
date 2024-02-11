@@ -48,14 +48,40 @@ allOf:
     assume_metadata:
       type: boolean
       description: |-
-        Skip reading the metadata if possible.  Instead, just assume any
+        Neither read nor write stored metadata.  Instead, just assume any
         necessary metadata based on constraints in the spec, using the same
         defaults for any unspecified metadata as when creating a new
-        TensorStore.  Requires that `.open` is ``true`` and that
-        `.delete_existing` is ``false``.
-        
+        TensorStore.  The stored metadata need not even exist.  Operations such
+        as resizing that modify the stored metadata are not supported.  Requires
+        that `.open` is ``true`` and `.delete_existing` is ``false``.  This
+        option takes precedence over `.assume_cached_metadata` if that option is
+        also specified.
+
         .. warning::
-        
+
+           This option can lead to data corruption if the assumed metadata does
+           not match the stored metadata, or multiple concurrent writers use
+           different assumed metadata.
+      default: false
+    assume_cached_metadata:
+      type: boolean
+      description: |-
+        Skip reading the metadata when opening.  Instead, just assume any
+        necessary metadata based on constraints in the spec, using the same
+        defaults for any unspecified metadata as when creating a new
+        TensorStore.  The stored metadata may still be accessed by subsequent
+        operations that need to re-validate or modify the metadata.  Requires
+        that `.open` is ``true`` and `.delete_existing` is ``false``.  The
+        `.assume_metadata` option takes precedence if also specified.
+
+        .. note::
+
+           Unlike the `.assume_metadata` option, operations such as resizing
+           that modify the stored metadata are supported (and access the stored
+           metadata).
+
+        .. warning::
+
            This option can lead to data corruption if the assumed metadata does
            not match the stored metadata, or multiple concurrent writers use
            different assumed metadata.
@@ -122,4 +148,3 @@ definitions:
       description: |-
         Revalidate cached data older than the specified time in seconds since
         the unix epoch.
-

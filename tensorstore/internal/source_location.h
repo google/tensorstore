@@ -46,7 +46,7 @@ class SourceLocation {
   };
 
  public:
-  // Avoid this constructor; it populates the object with dummy values.
+  // Avoid this constructor; it populates the object with filler values.
   // Instead, use `SourceLocation::current()` to construct SourceLocation.
   constexpr SourceLocation() : line_(1), file_name_("") {}
 
@@ -69,7 +69,7 @@ class SourceLocation {
     return SourceLocation(line, file_name);
   }
 #else
-  // Creates a dummy `SourceLocation` of "<source_location>" at line number 1,
+  // Creates a fake `SourceLocation` of "<source_location>" at line number 1,
   // if no `SourceLocation::current()` implementation is available.
   static constexpr SourceLocation current() {
     return SourceLocation(1, "<source_location>");

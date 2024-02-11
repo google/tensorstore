@@ -85,6 +85,15 @@ struct Unit {
   /// Prints a string representation to an `std::ostream`.
   friend std::ostream& operator<<(std::ostream& os, const Unit& unit);
 
+  /// Converts to the string representation.
+  std::string to_string() const;
+
+  /// Abseil formatting support.
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const Unit& self) {
+    sink.Append(self.to_string());
+  }
+
   /// Compares two units for equality.
   friend bool operator==(const Unit& a, const Unit& b);
   friend bool operator!=(const Unit& a, const Unit& b) { return !(a == b); }

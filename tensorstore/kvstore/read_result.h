@@ -17,8 +17,11 @@
 
 #include <iosfwd>
 #include <optional>
+#include <string>
+#include <utility>
 
 #include "absl/strings/cord.h"
+#include "absl/time/time.h"
 #include "tensorstore/kvstore/generation.h"
 
 namespace tensorstore {
@@ -56,34 +59,36 @@ struct ReadResult {
   constexpr static State kMissing = State::kMissing;
   constexpr static State kValue = State::kValue;
 
-  /// Prints a debugging string representation to an `std::ostream`.
-  ///
-  /// \relates State
-  /// \id State
-  friend std::ostream& operator<<(std::ostream& os, State state);
-
   /// Constructs a read result with unspecified value and generation.
   ///
   /// \id default
-  ReadResult() = default;
+  static ReadResult Unspecified(TimestampedStorageGeneration stamp) {
+    return ReadResult{State::kUnspecified, {}, std::move(stamp)};
+  }
 
-  /// Constructs a `ReadResult` with the value unspecified.
+  /// Constructs a read result for a missing value.
   ///
   /// \id stamp
-  ReadResult(TimestampedStorageGeneration stamp) : stamp(std::move(stamp)) {}
+  static ReadResult Missing(TimestampedStorageGeneration stamp) {
+    return ReadResult{State::kMissing, {}, std::move(stamp)};
+  }
+  static ReadResult Missing(absl::Time time) {
+    return Missing({StorageGeneration::NoValue(), std::move(time)});
+  }
 
-  /// Constructs a `ReadResult` from the specified `state`, `value`, and
-  /// `stamp`.
+  /// Constructs a read result for a value.
   ///
-  /// \id state, value, stamp
-  ReadResult(State state, Value value, TimestampedStorageGeneration stamp)
-      : state(state), value(std::move(value)), stamp(std::move(stamp)) {}
+  /// \id value, stamp
+  static ReadResult Value(absl::Cord value,
+                          TimestampedStorageGeneration stamp) {
+    return ReadResult{State::kValue, std::move(value), std::move(stamp)};
+  }
 
   /// Indicates the interpretation of `value`.
   State state = kUnspecified;
 
   /// Specifies the value if `state == kValue`.  Otherwise must be empty.
-  Value value;
+  absl::Cord value;
 
   /// Generation and timestamp associated with `value` and `state`.
   ///
@@ -103,14 +108,19 @@ struct ReadResult {
   bool has_value() const { return state == kValue; }
 
   /// Returns the `value`, or `std::nullopt` if not available.
-  std::optional<Value> optional_value() const& {
+  std::optional<absl::Cord> optional_value() const& {
     if (state == kValue) return value;
     return std::nullopt;
   }
-  std::optional<Value> optional_value() && {
+  std::optional<absl::Cord> optional_value() && {
     if (state == kValue) return std::move(value);
     return std::nullopt;
   }
+
+  // Reflection support.
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.state, x.value, x.stamp);
+  };
 
   /// Compares two read results for equality.
   friend bool operator==(const ReadResult& a, const ReadResult& b) {
@@ -125,10 +135,11 @@ struct ReadResult {
   /// \id ReadResult
   friend std::ostream& operator<<(std::ostream& os, const ReadResult& x);
 
-  // Reflection support.
-  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
-    return f(x.state, x.value, x.stamp);
-  };
+  /// Prints a debugging string representation to an `std::ostream`.
+  ///
+  /// \relates State
+  /// \id State
+  friend std::ostream& operator<<(std::ostream& os, State state);
 };
 
 }  // namespace kvstore

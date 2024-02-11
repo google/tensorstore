@@ -15,7 +15,8 @@
 #ifndef TENSORSTORE_INTERNAL_ARENA_H_
 #define TENSORSTORE_INTERNAL_ARENA_H_
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <memory>
 #include <new>
 #include <utility>
@@ -53,8 +54,8 @@ class Arena {
   /// \param alignment Optional.  Specifies an alignment to use other than the
   ///     default of `alignof(T)`.
   template <typename T = unsigned char>
-  T* allocate(std::size_t n, std::size_t alignment = alignof(T)) {
-    std::size_t num_bytes;
+  T* allocate(size_t n, size_t alignment = alignof(T)) {
+    size_t num_bytes;
     if (MulOverflow(n, sizeof(T), &num_bytes)) {
       TENSORSTORE_THROW_BAD_ALLOC;
     }
@@ -76,7 +77,7 @@ class Arena {
   /// \remark For memory allocated within the fixed-size buffer, the memory is
   ///     not actually reclaimed until the `Arena` is destroyed.
   template <typename T>
-  void deallocate(T* p, std::size_t n, std::size_t alignment = alignof(T)) {
+  void deallocate(T* p, size_t n, size_t alignment = alignof(T)) {
     if (static_cast<void*>(p) >= static_cast<void*>(initial_buffer_.data()) &&
         static_cast<void*>(p + n) <=
             static_cast<void*>(initial_buffer_.data() +
@@ -112,8 +113,8 @@ class ArenaAllocator {
   using reference = T&;
   using const_pointer = const T*;
   using const_reference = const T&;
-  using size_type = std::size_t;
-  using difference_type = std::ptrdiff_t;
+  using size_type = size_t;
+  using difference_type = ptrdiff_t;
   template <typename U>
   struct rebind {
     using other = ArenaAllocator<U>;
@@ -127,9 +128,9 @@ class ArenaAllocator {
   template <typename U>
   ArenaAllocator(ArenaAllocator<U> other) : arena_(other.arena()) {}
 
-  T* allocate(std::size_t n) const { return arena_->allocate<T>(n); }
+  T* allocate(size_t n) const { return arena_->allocate<T>(n); }
 
-  void deallocate(T* p, std::size_t n) const { arena_->deallocate(p, n); }
+  void deallocate(T* p, size_t n) const { arena_->deallocate(p, n); }
 
   template <typename... Arg>
   void construct(T* p, Arg&&... arg) {

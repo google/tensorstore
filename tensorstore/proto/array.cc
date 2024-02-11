@@ -14,21 +14,30 @@
 
 #include "tensorstore/proto/array.h"
 
+#include <algorithm>
+#include <array>
+#include <cstddef>
 #include <limits>
+#include <string>
 #include <type_traits>
 
 #include "absl/status/status.h"
 #include "riegeli/bytes/string_reader.h"
 #include "riegeli/bytes/string_writer.h"
 #include "tensorstore/array.h"
+#include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/internal/elementwise_function.h"
+#include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/internal/unaligned_data_type_functions.h"
+#include "tensorstore/proto/array.pb.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/dimension_set.h"
+#include "tensorstore/util/iterate.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -141,7 +150,7 @@ void EncodeToProtoImpl(::tensorstore::proto::Array& proto,
           (array.byte_strides()[i] == 0 && array.shape()[i] != 1);
     }
     if (zero_byte_strides) {
-      proto.set_zero_byte_strides_bitset(zero_byte_strides.bits());
+      proto.set_zero_byte_strides_bitset(zero_byte_strides.to_uint());
     }
   }
 
@@ -222,7 +231,7 @@ Result<SharedArray<void, dynamic_rank, offset_origin>> ParseArrayFromProto(
   {
     DimensionSet zero_byte_strides =
         (proto.has_zero_byte_strides_bitset())
-            ? DimensionSet::FromBits(proto.zero_byte_strides_bitset())
+            ? DimensionSet::FromUint(proto.zero_byte_strides_bitset())
             : DimensionSet(false);
 
     for (DimensionIndex i = rank - 1; i >= 0; --i) {

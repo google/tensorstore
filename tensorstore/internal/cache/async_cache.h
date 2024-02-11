@@ -18,21 +18,29 @@
 /// \file Defines the abstract `AsyncCache` base class that extends the basic
 /// `Cache` class with asynchronous read and read-modify-write functionality.
 
-#include <atomic>
-#include <cstddef>
+#include <stddef.h>
+#include <stdint.h>
 
+#include <atomic>
+#include <memory>
+#include <mutex>
+#include <type_traits>
+#include <utility>
+
+#include "absl/base/call_once.h"
 #include "absl/base/thread_annotations.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_format.h"
+#include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/cache/cache.h"
+#include "tensorstore/internal/container/intrusive_red_black_tree.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/intrusive_red_black_tree.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/tagged_ptr.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/execution/any_receiver.h"
-#include "tensorstore/util/execution/sender.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
@@ -63,17 +71,6 @@ namespace internal {
 /// Transaction nodes are used to represent both *transactional* modifications
 /// made using an explicit transaction, as well as *non-transactional*
 /// modifications, which are automatically assigned to an implicit transaction.
-///
-///  - The memory required by a explicit transaction node is accounted for in
-///    the `total_bytes` of the transaction, but is not accounted for by the
-///    `CachePool`, and can neither cause, nor be affected by, automatic
-///    writeback triggered by the `queued_for_writeback_bytes_limit` of the
-///    `CachePool`.
-///
-///  - The memory required by an implicit transaction node is accounted for by
-///    the `CachePool`, and implicit transactions associated with the
-///    least-recently-used entries are committed automatically when the
-///    `queued_for_writeback_bytes_limit` is reached.
 ///
 /// A final, concrete `Derived` cache class should be defined as follows:
 ///
@@ -124,17 +121,15 @@ namespace internal {
 /// `KvsBackedCache` mixin defines the read and writeback behavior in terms of
 /// "decode" and "encode" operations.
 ///
-/// For each entry, the `AsyncCache` implementation keeps track of
-/// read requests (made by calls to `Entry::Read`) and writeback requests (due
-/// to either explicitly committing a transaction or for an implicit transaction
-/// node, due to memory pressure in the `CachePool`), and calls `Entry::DoRead`
-/// and `TransactionNode::DoWriteback` as needed to satisfy the requests.
-/// Regardless of how many transactions are associated with an entry, at most a
-/// single read operation or a single writeback operation may be in flight at
-/// any given time.  Writeback operations are performed in the order in which
-/// the transaction commit started, and take precedence over read requests (but
-/// the read request will normally be satisfied by the completion of the
-/// writeback operation).
+/// For each entry, the `AsyncCache` implementation keeps track of read requests
+/// (made by calls to `Entry::Read`) and writeback requests and calls
+/// `Entry::DoRead` and `TransactionNode::Commit` as needed to satisfy the
+/// requests.  Regardless of how many transactions are associated with an entry,
+/// at most a single read operation or a single writeback operation may be in
+/// flight at any given time.  Writeback operations are performed in the order
+/// in which the transaction commit started, and take precedence over read
+/// requests (but the read request will normally be satisfied by the completion
+/// of the writeback operation).
 ///
 /// `ChunkCache` extends `AsyncCache` to provide caching of chunked
 /// array data.
@@ -200,6 +195,10 @@ class AsyncCache : public Cache {
     /// The most recently-cached read state.
     ReadState read_state;
 
+    /// `read_state` is known to be out-of-date, due to a local modification not
+    /// reflected in the cache.
+    bool known_to_be_stale = false;
+
     /// The size in bytes consumed by `read_state.read_data`.  This is the
     /// cached result of calling
     /// `Entry::ComputeReadDataSizeInBytes(read_state.read_data.get())`.
@@ -257,7 +256,7 @@ class AsyncCache : public Cache {
                   std::is_base_of_v<TransactionNode, DerivedEntryOrNode>>>
     explicit ReadLock(DerivedEntryOrNode& entry_or_node)
         : ReadView<ReadData>(entry_or_node.LockReadState()),
-          lock_(GetOwningEntry(entry_or_node).mutex_, std::adopt_lock) {
+          lock_(GetOwningEntry(entry_or_node).mutex(), std::adopt_lock) {
       static_assert(std::is_convertible_v<
                     const typename DerivedEntryOrNode::OwningCache::ReadData*,
                     const ReadData*>);
@@ -348,16 +347,18 @@ class AsyncCache : public Cache {
       return entry;
     }
 
-    void WriterLock() ABSL_EXCLUSIVE_LOCK_FUNCTION();
-    void WriterUnlock() ABSL_UNLOCK_FUNCTION();
-
     /// Requests data no older than `staleness_bound`.
     ///
     /// \param staleness_bound Limit on data staleness.
+    /// \param must_not_be_known_to_be_stale Requests newer data if the existing
+    ///     data is known to be out-of-date (e.g. due to a local write not
+    ///     reflected in the cache), even if the existing data satisfies
+    ///     `staleness_bound`.
     /// \returns A future that resolves to a success state once data no older
     ///     than `staleness_bound` is available, or to an error state if the
     ///     request failed.
-    Future<const void> Read(absl::Time staleness_bound);
+    Future<const void> Read(absl::Time staleness_bound,
+                            bool must_not_be_known_to_be_stale = true);
 
     /// Obtains an existing or new transaction node for the specified entry and
     /// transaction.  May also be used to obtain an implicit transaction node.
@@ -368,12 +369,10 @@ class AsyncCache : public Cache {
     ///     non-null, must specify an explicit transaction, and an associated
     ///     transaction node will be created if one does not already exist.  In
     ///     this case, the `tranaction` pointer itself will not be modified.  An
-    ///     implicit transaction node is requested by specifying `transaction`
-    ///     initially equally to `nullptr`.  If there is an existing implicit
-    ///     transaction node that is still open, it will be returned.
-    ///     Otherwise, a new implicit transaction node will be created.  Upon
-    ///     return, `transaction` will hold an open transaction reference to the
-    ///     associated implicit transaction.
+    ///     implicit transaction node associated with a new implicit transaction
+    ///     is requested by specifying `transaction` initially equally to
+    ///     `nullptr`.  Upon return, `transaction` will hold an open transaction
+    ///     reference to the associated implicit transaction.
     template <typename DerivedEntry>
     friend std::enable_if_t<
         std::is_base_of_v<Entry, DerivedEntry>,
@@ -443,15 +442,10 @@ class AsyncCache : public Cache {
     /// state".
     virtual size_t ComputeReadDataSizeInBytes(const void* data);
 
-    /// Returns `true` if implicit transaction nodes may be shared.  If `false`,
-    /// a separate implicit transaction node will be created each time one is
-    /// requested.
-    virtual bool ShareImplicitTransactionNodes() { return true; }
-
     // Below members should be treated as private:
 
     ReadState& LockReadState() ABSL_NO_THREAD_SAFETY_ANALYSIS {
-      mutex_.WriterLock();
+      mutex().WriterLock();
       return read_request_state_.read_state;
     }
 
@@ -462,66 +456,19 @@ class AsyncCache : public Cache {
     ~Entry();
 #endif
 
-    /// Protects access to all other members.  Also protects access to the
-    /// `read_request_state_` of all associated `TransactionNode` objects.
-    absl::Mutex mutex_;
-
     ReadRequestState read_request_state_;
-
-    /// Sum of the size of all implicit transaction nodes associated with this
-    /// entry.
-    size_t write_state_size_ = 0;
-
-    /// The current implicit transaction node used for non-transactional writes.
-    /// There may be additional implicit transactions in flight.
-    ///
-    /// See `kImplicitTransactionCommitBlock` and
-    /// `kImplicitTransactionInitialized` for the meaning of the tag bits.
-    internal::TaggedPtr<TransactionNode, 2> implicit_transaction_node_;
-
-    /// Specifies the bit of `implicit_transaction_node_.tag()` that indicates
-    /// whether this entry has acquired a commit block on
-    /// `implicit_transaction_node_->transaction()`.
-    constexpr static size_t kImplicitTransactionCommitBlock = 0;
-
-    /// Specifies the bit of `implicit_transaction_node_.tag()` that indicates
-    /// whether `implicit_transaction_node_->SetTransaction` has been called.
-    constexpr static size_t kImplicitTransactionInitialized = 1;
 
     using TransactionTree =
         internal::intrusive_red_black_tree::Tree<TransactionNode,
                                                  TransactionNode>;
 
-    /// Associated transactions, ordered by `TransactionState` pointer. Implicit
-    /// transactions are not included.
+    /// Associated transactions, ordered by `TransactionState` pointer.
     TransactionTree transactions_;
 
     /// Pointer to transaction node for which writeback is currently being
     /// performed.  If not `nullptr`,
     /// committing_transaction_node_->pending_queue_`
     TransactionNode* committing_transaction_node_{nullptr};
-
-    /// Number of implicit transaction nodes associated with this entry.  The
-    /// entry is considered "clean" when this is 0.
-    size_t num_implicit_transactions_ = 0;
-
-    using Flags = uint8_t;
-
-    /// Bit vector of flags, see below.
-    Flags flags_ = 0;
-
-    /// Set if `write_state_size_` or `read_request_state_.read_state_size` has
-    /// been updated while `mutex_` is locked, and the cache should be notified
-    /// the next time `mutex_` is unlocked.
-    constexpr static Flags kSizeChanged = 1;
-
-    /// Set if the entry state should be changed to `dirty` when `mutex_` is
-    /// next unlocked.
-    constexpr static Flags kStateChanged = 2;
-
-    /// Set if the entry state should be changed to `writeback_requested` when
-    /// `mutex_` is next unlocked.
-    constexpr static Flags kMarkWritebackRequested = 4;
 
     // AbslStringify is used to dump the Entry to the ABSL_LOG sink.
     // Example:
@@ -566,6 +513,12 @@ class AsyncCache : public Cache {
     /// `ComputeSizeInBytes()`, and then releases the lock acquired by
     /// `WriterLock()`.
     void WriterUnlock() ABSL_UNLOCK_FUNCTION();
+
+    void DebugAssertMutexHeld() {
+#ifndef NDEBUG
+      mutex_.AssertHeld();
+#endif
+    }
 
     /// Attempts to acquire an exclusive lock while `IsRevoked() == false`.  If
     /// successful, returns `true` with a write lock held.  If `IsRevoked()` is
@@ -672,7 +625,8 @@ class AsyncCache : public Cache {
 
     /// Requests a read state for this transaction node that is current as of
     /// the specified `staleness_bound`.
-    Future<const void> Read(absl::Time staleness_bound);
+    Future<const void> Read(absl::Time staleness_bound,
+                            bool must_not_be_known_to_be_stale = true);
 
     /// Requests initial or updated data from persistent storage for a single
     /// `Entry`.
@@ -745,16 +699,34 @@ class AsyncCache : public Cache {
     using ApplyReceiver = AnyReceiver<absl::Status, ReadState>;
 
     struct ApplyOptions {
-      /// Returned `ReadStateUpdate` must reflect an existing read state that is
-      /// current as of `staleness_bound`.
+      // Returned `ReadStateUpdate` must reflect an existing read state that is
+      // current as of `staleness_bound`.
       absl::Time staleness_bound;
 
-      /// If `true`, the `data` returned in the `ReadState` will be ignored.
-      /// This option is used if `DoApply` is called solely to validate the read
-      /// state.  If no validation is necessary, the `stamp` field of the
-      /// `ReadState` may be set to
-      /// `TimestampedStorageGeneration::Unconditional()`.
-      bool validate_only = false;
+      enum ApplyMode {
+        // The `stamp` field of the `ReadState` may be set to
+        // `TimestampedStorageGeneration::Unconditional()` to indicate that this
+        // transaction node does nothing (e.g. read-only and does not
+        // validation).  In this case the `data` returned in the `ReadState`
+        // will be ignored.  Otherwise, the `stamp` must not be
+        // `StorageGeneration::Unknown()`, and should be marked "dirty" if the
+        // data has been modified by this transaction node.
+        kNormal,
+
+        // The `data` returned in the `ReadState` must be valid even if this
+        // transaction node does not modify it.  The `stamp` field of the
+        // `ReadState` must not be
+        // `TimestampedStorageGeneration::Unconditional()`.
+        kSpecifyUnchanged,
+
+        // The `data` returned in the `ReadState` will be ignored.  This option
+        // is used if `DoApply` is called solely to validate the read state.  If
+        // no validation is necessary, the `stamp` field of the `ReadState` may
+        // be set to `TimestampedStorageGeneration::Unconditional()`.
+        kValidateOnly,
+      };
+
+      ApplyMode apply_mode = kNormal;
     };
 
     /// Requests an updated read state that reflects the modifications made by
@@ -770,6 +742,8 @@ class AsyncCache : public Cache {
     /// This is not invoked directly by `AsyncCache` (and therefore does not
     /// necessarily need to be implemented), but is required by
     /// `KvsBackedCache`.
+    ///
+    /// Must not call `set_cancel`.
     virtual void DoApply(ApplyOptions option, ApplyReceiver receiver);
 
     /// Invoked by the `TransactionState` implementation to commit this node.
@@ -791,7 +765,7 @@ class AsyncCache : public Cache {
 
     ReadState& LockReadState() ABSL_NO_THREAD_SAFETY_ANALYSIS {
       auto& entry = GetOwningEntry(*this);
-      entry.mutex_.WriterLock();
+      entry.mutex().WriterLock();
       if (reads_committed_) {
         return entry.read_request_state_.read_state;
       } else {
@@ -855,6 +829,8 @@ class AsyncCache : public Cache {
 
     /// Mutex that must be locked while operating on the "modification state".
     absl::Mutex mutex_;
+
+    absl::Mutex& mutex() { return mutex_; }
 
     ReadRequestState read_request_state_;
 
@@ -953,10 +929,6 @@ class AsyncCache : public Cache {
   ///     entry->ComputeReadStateSizeInBytes() +
   ///     entry->entry_data_.write_state_size
   size_t DoGetSizeInBytes(Cache::Entry* entry) final;
-
-  /// Handles writeback requests triggered by memory pressure in the containing
-  /// `CachePool`.
-  void DoRequestWriteback(PinnedEntry base_entry) final;
 
   /// Allocates a new `TransactionNode`.
   ///

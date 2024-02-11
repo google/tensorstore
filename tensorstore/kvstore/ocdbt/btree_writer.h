@@ -15,6 +15,8 @@
 #ifndef TENSORSTORE_KVSTORE_OCDBT_BTREE_WRITER_H_
 #define TENSORSTORE_KVSTORE_OCDBT_BTREE_WRITER_H_
 
+#include <stddef.h>
+
 #include <optional>
 #include <string>
 
@@ -22,6 +24,7 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
+#include "tensorstore/kvstore/ocdbt/format/btree.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/util/future.h"
 
@@ -37,6 +40,15 @@ class BtreeWriter : public internal::AtomicReferenceCount<BtreeWriter> {
   virtual Future<TimestampedStorageGeneration> Write(
       std::string key, std::optional<absl::Cord> value,
       kvstore::WriteOptions options) = 0;
+  struct CopySubtreeOptions {
+    BtreeNodeReference node;
+    BtreeNodeHeight node_height;
+    std::string subtree_key_prefix;
+    KeyRange range;
+    size_t strip_prefix_length = 0;
+    std::string add_prefix;
+  };
+  virtual Future<const void> CopySubtree(CopySubtreeOptions&& options) = 0;
   virtual Future<const void> DeleteRange(KeyRange range) = 0;
 
   virtual ~BtreeWriter() = default;

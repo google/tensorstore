@@ -68,6 +68,7 @@ from .cmake_builder import quote_path_list
 from .cmake_target import CMakeTarget
 from .emit_cc import construct_cc_includes
 from .evaluation import EvaluationState
+from .native_aspect_proto import invoke_proto_aspects
 from .starlark.bazel_globals import register_native_build_rule
 from .starlark.bazel_target import RepositoryId
 from .starlark.bazel_target import TargetId
@@ -95,13 +96,14 @@ def proto_library(
       lambda: _proto_library_impl(context, target, **kwargs),
       visibility=visibility,
   )
+  invoke_proto_aspects(context, target, visibility)
 
 
 def _proto_library_impl(
     _context: InvocationContext,
     _target: TargetId,
-    srcs: Optional[List[RelativeLabel]] = None,
-    deps: Optional[List[RelativeLabel]] = None,
+    srcs: Optional[List[RelativeLabel]] = None,  # .proto sources
+    deps: Optional[List[RelativeLabel]] = None,  # proto_libraries
     strip_import_prefix: Optional[str] = None,
     import_prefix: Optional[str] = None,
     **kwargs,
@@ -217,3 +219,15 @@ add_library({cmake_target_pair.target} INTERFACE)
           ),
       ),
   )
+
+
+@register_native_build_rule
+def proto_lang_toolchain(
+    self: InvocationContext,
+    name: str,
+    command_line: str,
+    runtime: str,
+    visibility: Optional[List[RelativeLabel]] = None,
+    **kwargs,
+):
+  pass

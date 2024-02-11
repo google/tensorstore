@@ -18,22 +18,23 @@
 #include <map>
 #include <string>
 #include <string_view>
-#include <type_traits>
 
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
 #include "absl/functional/function_ref.h"
 #include "absl/strings/cord.h"
-#include "absl/time/time.h"
 #include "tensorstore/internal/json_fwd.h"
-#include "tensorstore/kvstore/generation.h"
-#include "tensorstore/kvstore/generation_testutil.h"
+#include "tensorstore/json_serialization_options.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace internal {
+
+/// Test read operations on `store`, where `key` is `expected_value`, and
+/// `missing_key` does not exist.
+void TestKeyValueStoreReadOps(const KvStore& store, std::string key,
+                              absl::Cord expected_value,
+                              std::string missing_key);
 
 /// Tests all operations on `store`, which should be empty.
 ///
@@ -43,14 +44,11 @@ namespace internal {
 ///     function.  This function must ensure that a given input key always maps
 ///     to the same output key, and distinct input keys always map to distinct
 ///     output keys.
-void TestKeyValueStoreBasicFunctionality(
+void TestKeyValueReadWriteOps(
     const KvStore& store,
     absl::FunctionRef<std::string(std::string key)> get_key);
 
-inline void TestKeyValueStoreBasicFunctionality(const KvStore& store) {
-  return TestKeyValueStoreBasicFunctionality(
-      store, [](std::string key) { return key; });
-}
+void TestKeyValueReadWriteOps(const KvStore& store);
 
 /// Tests DeleteRange on `store`, which should be empty.
 void TestKeyValueStoreDeleteRange(const KvStore& store);
@@ -63,6 +61,9 @@ void TestKeyValueStoreDeleteRangeToEnd(const KvStore& store);
 
 /// Tests DeleteRange on `store`, which should be empty.
 void TestKeyValueStoreDeleteRangeFromBeginning(const KvStore& store);
+
+/// Tests CopyRange on `store`, which should be empty.
+void TestKeyValueStoreCopyRange(const KvStore& store);
 
 /// Tests List on `store`, which should be empty.
 void TestKeyValueStoreList(const KvStore& store);
@@ -84,12 +85,23 @@ struct KeyValueStoreSpecRoundtripOptions {
   ::nlohmann::json minimal_spec = ::nlohmann::json::value_t::discarded;
   kvstore::SpecRequestOptions spec_request_options;
   JsonSerializationOptions json_serialization_options;
+
   // Checks reading and writing.
   bool check_write_read = true;
 
   // Checks that data persists after re-opening from the returned spec.
   // Requires `check_write_read == true`.
   bool check_data_persists = true;
+
+  // Check that the store can be round-tripped through its serialized
+  // representation.
+  bool check_store_serialization = true;
+
+  // Checks that data can be read/written after round-tripping through
+  // serialization.
+  //
+  // Doesn't work for "memory://".
+  bool check_data_after_serialization = true;
 
   std::string roundtrip_key = "mykey";
   absl::Cord roundtrip_value = absl::Cord("myvalue");
@@ -122,58 +134,6 @@ void TestKeyValueStoreSpecRoundtripNormalize(
 
 /// Returns the contents of `kv_store` as an `std::map`.
 Result<std::map<kvstore::Key, kvstore::Value>> GetMap(const KvStore& store);
-
-/// Returns a GMock matcher for a `kvstore::ReadResult` or
-/// `Result<kvstore::ReadResult>`.
-template <typename ValueMatcher>
-::testing::Matcher<Result<kvstore::ReadResult>> MatchesKvsReadResult(
-    ValueMatcher value,
-    ::testing::Matcher<StorageGeneration> generation = ::testing::_,
-    ::testing::Matcher<absl::Time> time = ::testing::_) {
-  using ReadResult = kvstore::ReadResult;
-  ::testing::Matcher<kvstore::ReadResult::State> state_matcher;
-  ::testing::Matcher<kvstore::Value> value_matcher;
-  if constexpr (std::is_convertible_v<ValueMatcher,
-                                      ::testing::Matcher<kvstore::Value>>) {
-    value_matcher = ::testing::Matcher<kvstore::Value>(value);
-    state_matcher = kvstore::ReadResult::kValue;
-  } else {
-    static_assert(
-        std::is_convertible_v<ValueMatcher,
-                              ::testing::Matcher<kvstore::ReadResult::State>>);
-    value_matcher = absl::Cord();
-    state_matcher = ::testing::Matcher<kvstore::ReadResult::State>(value);
-  }
-  return ::testing::Optional(::testing::AllOf(
-      ::testing::Field("state", &ReadResult::state, state_matcher),
-      ::testing::Field("value", &ReadResult::value, value_matcher),
-      ::testing::Field("stamp", &ReadResult::stamp,
-                       MatchesTimestampedStorageGeneration(generation, time))));
-}
-
-/// Overload that permits an `absl::Cord` matcher to be specified for the
-/// `value`.
-::testing::Matcher<Result<kvstore::ReadResult>> MatchesKvsReadResult(
-    ::testing::Matcher<kvstore::Value> value,
-    ::testing::Matcher<StorageGeneration> generation = ::testing::_,
-    ::testing::Matcher<absl::Time> time = ::testing::_);
-
-/// Returns a GMock matcher for a "not found" `kvstore::ReadResult`.
-inline ::testing::Matcher<Result<kvstore::ReadResult>>
-MatchesKvsReadResultNotFound(
-    ::testing::Matcher<absl::Time> time = ::testing::_) {
-  return MatchesKvsReadResult(kvstore::ReadResult::kMissing,
-                              ::testing::Not(StorageGeneration::Unknown()),
-                              time);
-}
-
-/// Returns a GMock matcher for an "aborted" `kvstore::ReadResult`.
-inline ::testing::Matcher<Result<kvstore::ReadResult>>
-MatchesKvsReadResultAborted(
-    ::testing::Matcher<absl::Time> time = ::testing::_) {
-  return MatchesKvsReadResult(kvstore::ReadResult::kUnspecified, ::testing::_,
-                              time);
-}
 
 }  // namespace internal
 }  // namespace tensorstore

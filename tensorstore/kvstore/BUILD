@@ -1,5 +1,5 @@
-load("//bazel:tensorstore.bzl", "tensorstore_cc_binary", "tensorstore_cc_library", "tensorstore_cc_test")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+load("//bazel:tensorstore.bzl", "tensorstore_cc_binary", "tensorstore_cc_library", "tensorstore_cc_test")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -12,6 +12,9 @@ DRIVER_DOCS = [
     "memory",
     "neuroglancer_uint64_sharded",
     "ocdbt",
+    "s3",
+    "zarr3_sharding_indexed",
+    "zip",
 ]
 
 filegroup(
@@ -141,21 +144,6 @@ config_setting(
     visibility = ["//visibility:private"],
 )
 
-# To enable debug logging for the open KeyValueStore cache, specify:
-# bazel build --//tensorstore/kvstore:open_debug
-bool_flag(
-    name = "open_cache_debug",
-    build_setting_default = False,
-)
-
-config_setting(
-    name = "open_cache_debug_setting",
-    flag_values = {
-        ":open_cache_debug": "True",
-    },
-    visibility = ["//visibility:private"],
-)
-
 tensorstore_cc_library(
     name = "kvstore",
     srcs = [
@@ -181,9 +169,6 @@ tensorstore_cc_library(
     local_defines = select({
         ":transaction_debug_setting": ["TENSORSTORE_INTERNAL_KVSTORE_TRANSACTION_DEBUG"],
         "//conditions:default": [],
-    }) + select({
-        ":open_cache_debug_setting": ["TENSORSTORE_KVSTORE_OPEN_CACHE_DEBUG"],
-        "//conditions:default": [],
     }),
     deps = [
         ":byte_range",
@@ -195,15 +180,17 @@ tensorstore_cc_library(
         "//tensorstore:transaction",
         "//tensorstore/internal:context_binding",
         "//tensorstore/internal:intrusive_ptr",
-        "//tensorstore/internal:intrusive_red_black_tree",
         "//tensorstore/internal:json_fwd",
         "//tensorstore/internal:json_registry",
         "//tensorstore/internal:no_destructor",
         "//tensorstore/internal:path",
         "//tensorstore/internal:source_location",
         "//tensorstore/internal:tagged_ptr",
+        "//tensorstore/internal/cache_key",
+        "//tensorstore/internal/container:intrusive_red_black_tree",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
+        "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/internal/metrics",
         "//tensorstore/serialization",
         "//tensorstore/serialization:registry",
@@ -214,9 +201,9 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
+        "//tensorstore/util/execution",
         "//tensorstore/util/execution:any_receiver",
         "//tensorstore/util/execution:any_sender",
-        "//tensorstore/util/execution:collecting_sender",
         "//tensorstore/util/execution:future_collecting_receiver",
         "//tensorstore/util/execution:future_sender",
         "//tensorstore/util/execution:sender",
@@ -255,6 +242,21 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
+    name = "read_result_testutil",
+    testonly = 1,
+    hdrs = ["read_result_testutil.h"],
+    deps = [
+        ":generation",
+        ":generation_testutil",
+        ":kvstore",
+        "//tensorstore/util:result",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/time",
+        "@com_google_googletest//:gtest",
+    ],
+)
+
+tensorstore_cc_library(
     name = "test_util",
     testonly = 1,
     srcs = ["test_util.cc"],
@@ -265,21 +267,29 @@ tensorstore_cc_library(
         ":generation_testutil",
         ":key_range",
         ":kvstore",
+        ":read_result_testutil",
         "//tensorstore:context",
-        "//tensorstore:data_type",
         "//tensorstore:json_serialization_options",
+        "//tensorstore:open_mode",
+        "//tensorstore:transaction",
         "//tensorstore/internal:json_fwd",
         "//tensorstore/internal:json_gtest",
+        "//tensorstore/serialization:test_util",
         "//tensorstore/util:future",
         "//tensorstore/util:result",
+        "//tensorstore/util:span",
+        "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",
         "//tensorstore/util/execution",
+        "//tensorstore/util/execution:any_receiver",
         "//tensorstore/util/execution:sender_testutil",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/functional:function_ref",
+        "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/synchronization",
@@ -321,12 +331,19 @@ tensorstore_cc_test(
     size = "small",
     srcs = ["transaction_test.cc"],
     deps = [
+        ":byte_range",
+        ":generation",
+        ":kvstore",
         ":mock_kvstore",
+        ":read_result_testutil",
         ":test_util",
         "//tensorstore:transaction",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/kvstore/memory",
         "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest_main",
     ],
 )

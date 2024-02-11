@@ -15,19 +15,20 @@
 #include "tensorstore/kvstore/ocdbt/io/indirect_data_writer.h"
 
 #include <cassert>
-#include <string>
 #include <utility>
 
+#include "absl/base/attributes.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/histogram.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/kvstore.h"
-#include "tensorstore/kvstore/ocdbt/debug_log.h"
+#include "tensorstore/kvstore/ocdbt/format/data_file_id.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/util/future.h"
@@ -40,6 +41,8 @@ auto& indirect_data_writer_histogram =
     internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
         "/tensorstore/kvstore/ocdbt/indirect_data_write_size",
         "Histogram of OCDBT buffered write sizes.");
+
+ABSL_CONST_INIT internal_log::VerboseFlag ocdbt_logging("ocdbt");
 }
 
 class IndirectDataWriter
@@ -84,7 +87,7 @@ void intrusive_ptr_decrement(IndirectDataWriter* p) {
 
 namespace {
 void MaybeFlush(IndirectDataWriter& self, UniqueWriterLock<absl::Mutex> lock) {
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+  ABSL_LOG_IF(INFO, ocdbt_logging)
       << "MaybeFlush: flush_in_progress=" << self.flush_in_progress_
       << ", flush_requested=" << self.flush_requested_;
   if (self.flush_in_progress_ || !self.flush_requested_) return;
@@ -99,7 +102,7 @@ void MaybeFlush(IndirectDataWriter& self, UniqueWriterLock<absl::Mutex> lock) {
   lock.unlock();
 
   indirect_data_writer_histogram.Observe(buffer.size());
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+  ABSL_LOG_IF(INFO, ocdbt_logging)
       << "Flushing " << buffer.size() << " bytes to " << data_file_id;
 
   auto write_future =
@@ -110,7 +113,7 @@ void MaybeFlush(IndirectDataWriter& self, UniqueWriterLock<absl::Mutex> lock) {
        self = internal::IntrusivePtr<IndirectDataWriter>(&self)](
           ReadyFuture<TimestampedStorageGeneration> future) {
         auto& r = future.result();
-        ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+        ABSL_LOG_IF(INFO, ocdbt_logging)
             << "Done flushing data to " << self->data_file_id_ << ": "
             << r.status();
         if (!r.ok()) {
@@ -137,7 +140,7 @@ void MaybeFlush(IndirectDataWriter& self, UniqueWriterLock<absl::Mutex> lock) {
 
 Future<const void> Write(IndirectDataWriter& self, absl::Cord data,
                          IndirectDataReference& ref) {
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+  ABSL_LOG_IF(INFO, ocdbt_logging)
       << "Write indirect data: size=" << data.size();
   if (data.empty()) {
     ref.file_id = DataFileId{};
@@ -156,7 +159,7 @@ Future<const void> Write(IndirectDataWriter& self, absl::Cord data,
     self.promise_.ExecuteWhenForced(
         [self = internal::IntrusivePtr<IndirectDataWriter>(&self)](
             Promise<void> promise) {
-          ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG) << "Force called";
+          ABSL_LOG_IF(INFO, ocdbt_logging) << "Force called";
           UniqueWriterLock lock{self->mutex_};
           if (!HaveSameSharedState(promise, self->promise_)) return;
           self->flush_requested_ = true;

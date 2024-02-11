@@ -27,7 +27,6 @@
 #include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/json_fwd.h"
-#include "tensorstore/internal/type_traits.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/static_cast.h"
 #include "tensorstore/strided_layout.h"
@@ -36,12 +35,12 @@
 namespace tensorstore {
 namespace internal_json {
 
-// Type-erased implmentation of JsonEncodeNestedArray.
+// Type-erased implementation of JsonEncodeNestedArray.
 ::nlohmann::json JsonEncodeNestedArrayImpl(
     ArrayView<const void, dynamic_rank, offset_origin> array,
     absl::FunctionRef<::nlohmann::json(const void*)> encode_element);
 
-// Type-erased implmentation of JsonParseNestedArray.
+// Type-erased implementation of JsonParseNestedArray.
 Result<SharedArray<void>> JsonParseNestedArrayImpl(
     const ::nlohmann::json& j_root, DataType dtype,
     absl::FunctionRef<absl::Status(const ::nlohmann::json& v, void* out)>

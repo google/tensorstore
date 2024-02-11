@@ -14,17 +14,32 @@
 
 #include "tensorstore/index_space/index_transform.h"
 
+#include <algorithm>
+#include <cassert>
+#include <cstdlib>
+#include <limits>
 #include <numeric>
+#include <string>
+#include <string_view>
+#include <utility>
 
 #include "absl/status/status.h"
 #include "tensorstore/box.h"
+#include "tensorstore/container_kind.h"
+#include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dimension_identifier.h"
+#include "tensorstore/index_space/index_domain.h"
+#include "tensorstore/index_space/internal/transform_rep.h"
 #include "tensorstore/index_space/json.h"
+#include "tensorstore/index_space/output_index_method.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/serialization/json.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -597,6 +612,33 @@ void ComputeInputDimensionReferenceCounts(
       }
     }
   }
+}
+
+std::pair<DimensionSet, bool> GetInputDimensionsForOutputDimension(
+    IndexTransformView<> transform, DimensionIndex output_dim) {
+  DimensionSet input_dims;
+  bool has_array_dependence = false;
+  const auto map = transform.output_index_maps()[output_dim];
+  switch (map.method()) {
+    case OutputIndexMethod::constant:
+      break;
+    case OutputIndexMethod::single_input_dimension: {
+      input_dims[map.input_dimension()] = true;
+      break;
+    }
+    case OutputIndexMethod::array: {
+      const auto index_array = map.index_array();
+      const DimensionIndex input_rank = transform.input_rank();
+      for (DimensionIndex input_dim = 0; input_dim < input_rank; ++input_dim) {
+        if (index_array.byte_strides()[input_dim] != 0) {
+          input_dims[input_dim] = true;
+          has_array_dependence = true;
+        }
+      }
+      break;
+    }
+  }
+  return {input_dims, has_array_dependence};
 }
 
 }  // namespace internal

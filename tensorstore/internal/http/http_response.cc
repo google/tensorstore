@@ -14,17 +14,24 @@
 
 #include "tensorstore/internal/http/http_response.h"
 
+#include <stddef.h>
+
 #include <algorithm>
 #include <iterator>
+#include <map>
+#include <optional>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <utility>
 
 #include "absl/status/status.h"
 #include "absl/strings/ascii.h"
+#include "absl/strings/numbers.h"
 #include "re2/re2.h"
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/util/quote_string.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -136,9 +143,9 @@ absl::StatusCode HttpResponseCodeToStatusCode(const HttpResponse& response) {
 
 }  // namespace
 
-std::size_t AppendHeaderData(std::multimap<std::string, std::string>& headers,
-                             std::string_view data) {
-  std::size_t size = data.size();
+size_t AppendHeaderData(std::multimap<std::string, std::string>& headers,
+                        std::string_view data) {
+  size_t size = data.size();
   if (size <= 2) {
     // Invalid header (too short), ignore.
     return size;
@@ -162,10 +169,8 @@ std::size_t AppendHeaderData(std::multimap<std::string, std::string>& headers,
     // Invalid header: empty token, not split by :, or no :
     return size;
   }
-  std::string field_name(
+  std::string field_name = absl::AsciiStrToLower(
       std::string_view(data.data(), std::distance(data.begin(), it)));
-  std::transform(field_name.begin(), field_name.end(), field_name.begin(),
-                 [](char x) { return std::tolower(x); });
 
   // Transform the value by dropping OWS in the field value.
   data.remove_prefix(field_name.size() + 1);
@@ -220,6 +225,17 @@ Result<std::tuple<size_t, size_t, size_t>> ParseContentRangeHeader(
         "Unexpected Content-Range header received: ", QuoteString(it->second)));
   }
   return result;
+}
+
+std::optional<bool> TryParseBoolHeader(
+    const std::multimap<std::string, std::string>& headers,
+    const std::string& header) {
+  auto it = headers.find(header);
+  bool result;
+  if (it != headers.end() && absl::SimpleAtob(it->second, &result)) {
+    return result;
+  }
+  return std::nullopt;
 }
 
 }  // namespace internal_http

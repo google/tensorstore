@@ -28,6 +28,7 @@ from .provider import provider
 from .select import Select
 from .struct import Struct
 
+
 T = TypeVar("T")
 
 
@@ -158,12 +159,10 @@ class BuildFileLibraryGlobals(BazelGlobals):
     return BazelNativeBuildRules(self._context)
 
   def bazel_select(self, conditions: Dict[RelativeLabel, T]) -> Select[T]:
-    return Select(
-        {
-            self._context.resolve_target_or_label(condition): value
-            for condition, value in conditions.items()
-        }
-    )
+    return Select({
+        self._context.resolve_target_or_label(condition): value
+        for condition, value in conditions.items()
+    })
 
   bazel_provider = staticmethod(provider)
 
@@ -208,6 +207,7 @@ def register_native_build_rule(impl):
   name = impl.__name__
 
   def wrapper(self, *args, **kwargs):
+    self._context.record_rule_location(name)  # pylint: disable=protected-access
     return impl(self._context, *args, **kwargs)  # pylint: disable=protected-access
 
   setattr(BazelNativeBuildRules, name, wrapper)
@@ -219,6 +219,7 @@ def register_native_workspace_rule(impl):
   name = impl.__name__
 
   def wrapper(self, *args, **kwargs):
+    self._context.record_rule_location(name)  # pylint: disable=protected-access
     return impl(self._context, *args, **kwargs)  # pylint: disable=protected-access
 
   setattr(BazelNativeWorkspaceRules, name, wrapper)

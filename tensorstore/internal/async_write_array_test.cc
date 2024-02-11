@@ -60,8 +60,7 @@ tensorstore::SharedArray<void> CopyNDIterable(
 
 template <typename Target>
 void TestWrite(Target* target, const Spec& spec, span<const Index> origin,
-               tensorstore::SharedOffsetArrayView<const void> source_array,
-               bool expected_modified) {
+               tensorstore::SharedOffsetArrayView<const void> source_array) {
   Arena arena;
   auto transform = tensorstore::IdentityTransform(source_array.domain());
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -71,10 +70,11 @@ void TestWrite(Target* target, const Spec& spec, span<const Index> origin,
   tensorstore::internal::NDIterableCopier copier(
       *source_iterable, *dest_iterable, source_array.shape(), &arena);
   TENSORSTORE_EXPECT_OK(copier.Copy());
-  EXPECT_EQ(expected_modified,
-            target->EndWrite(spec, origin, transform,
-                             copier.layout_info().layout_view(),
-                             copier.stepper().position(), &arena));
+  if constexpr (std::is_same_v<Target, AsyncWriteArray>) {
+    target->EndWrite(spec, origin, transform, true, &arena);
+  } else {
+    target->EndWrite(spec, origin, transform, &arena);
+  }
 }
 
 TEST(SpecTest, Basic) {
@@ -160,8 +160,7 @@ TEST(MaskedArrayTest, Basic) {
   // the array.
   TestWrite(&write_state, spec, origin,
             tensorstore::AllocateArray<int32_t>(
-                tensorstore::BoxView<>({1, 1}, {0, 0})),
-            /*expected_modified=*/false);
+                tensorstore::BoxView<>({1, 1}, {0, 0})));
   EXPECT_TRUE(write_state.data);
   EXPECT_TRUE(write_state.IsUnmodified());
   EXPECT_FALSE(write_state.IsFullyOverwritten(spec, origin));
@@ -171,8 +170,7 @@ TEST(MaskedArrayTest, Basic) {
   std::fill_n(static_cast<int32_t*>(write_state.data.get()),
               spec.num_elements(), 0);
   TestWrite(&write_state, spec, origin,
-            tensorstore::MakeOffsetArray<int32_t>({1, 1}, {{7, 8}}),
-            /*expected_modified=*/true);
+            tensorstore::MakeOffsetArray<int32_t>({1, 1}, {{7, 8}}));
   EXPECT_EQ(MakeArray<int32_t>({{0, 0, 0}, {0, 7, 8}}),
             write_state.shared_array_view(spec));
   EXPECT_FALSE(write_state.IsUnmodified());
@@ -180,8 +178,7 @@ TEST(MaskedArrayTest, Basic) {
 
   // Make write region non-rectangular to force mask allocation.
   TestWrite(&write_state, spec, origin,
-            tensorstore::MakeOffsetArray<int32_t>({0, 0}, {{9}}),
-            /*expected_modified=*/true);
+            tensorstore::MakeOffsetArray<int32_t>({0, 0}, {{9}}));
   EXPECT_EQ(MakeArray<int32_t>({{9, 0, 0}, {0, 7, 8}}),
             write_state.shared_array_view(spec));
   EXPECT_EQ(MakeArray<bool>({{1, 0, 0}, {0, 1, 1}}),
@@ -220,11 +217,9 @@ TEST(MaskedArrayTest, Basic) {
 
   // Overwrite fully.
   TestWrite(&write_state, spec, origin,
-            tensorstore::MakeOffsetArray<int32_t>({0, 0}, {{9}, {9}}),
-            /*expected_modified=*/true);
+            tensorstore::MakeOffsetArray<int32_t>({0, 0}, {{9}, {9}}));
   TestWrite(&write_state, spec, origin,
-            tensorstore::MakeOffsetArray<int32_t>({0, 0}, {{10, 10, 10}}),
-            /*expected_modified=*/true);
+            tensorstore::MakeOffsetArray<int32_t>({0, 0}, {{10, 10, 10}}));
   EXPECT_FALSE(write_state.IsUnmodified());
   EXPECT_TRUE(write_state.IsFullyOverwritten(spec, origin));
 
@@ -238,8 +233,7 @@ TEST(MaskedArrayTest, Basic) {
   }
 
   // Overwrite with the fill value via writing.
-  TestWrite(&write_state, spec, origin, fill_value_copy,
-            /*expected_modified=*/true);
+  TestWrite(&write_state, spec, origin, fill_value_copy);
   // Data array is still allocated.
   EXPECT_TRUE(write_state.data);
   {
@@ -258,8 +252,7 @@ TEST(MaskedArrayTest, Basic) {
 
   // Partially overwrite then call `WriteFillValue`.
   TestWrite(&write_state, spec, origin,
-            tensorstore::MakeOffsetArray<int32_t>({1, 1}, {{7, 8}}),
-            /*expected_modified=*/true);
+            tensorstore::MakeOffsetArray<int32_t>({1, 1}, {{7, 8}}));
   write_state.WriteFillValue(spec, origin);
   EXPECT_FALSE(write_state.IsUnmodified());
   EXPECT_FALSE(write_state.data);
@@ -278,8 +271,7 @@ TEST(MaskedArrayTest, Basic) {
 
   // Partially overwrite.
   TestWrite(&write_state, spec, origin,
-            tensorstore::MakeOffsetArray<int32_t>({1, 1}, {{7, 8}}),
-            /*expected_modified=*/true);
+            tensorstore::MakeOffsetArray<int32_t>({1, 1}, {{7, 8}}));
   EXPECT_EQ(MakeArray<int32_t>({{1, 2, 3}, {4, 7, 8}}),
             write_state.shared_array_view(spec));
 }
@@ -294,8 +286,7 @@ TEST(MaskedArrayTest, PartialChunk) {
   MaskedArray write_state(2);
   // Fully overwrite the portion within `component_bounds`.
   TestWrite(&write_state, spec, origin,
-            tensorstore::MakeOffsetArray<int32_t>({-1, 0}, {{7, 8, 9}}),
-            /*expected_modified=*/true);
+            tensorstore::MakeOffsetArray<int32_t>({-1, 0}, {{7, 8, 9}}));
   EXPECT_TRUE(write_state.IsFullyOverwritten(spec, origin));
 }
 
@@ -307,8 +298,7 @@ TEST(MaskedArrayTest, StoreIfEqualToFillValue) {
   spec.store_if_equal_to_fill_value = true;
   MaskedArray write_state(0);
   // Fully overwrite the portion within `component_bounds`.
-  TestWrite(&write_state, spec, {}, tensorstore::MakeScalarArray<int32_t>(42),
-            /*expected_modified=*/true);
+  TestWrite(&write_state, spec, {}, tensorstore::MakeScalarArray<int32_t>(42));
   {
     auto writeback_data = write_state.GetArrayForWriteback(
         spec, /*origin=*/{}, /*read_array=*/{},
@@ -340,8 +330,7 @@ TEST(MaskedArrayTest, CompareFillValueIdenticallyEqual) {
   // Fully overwrite the portion within `component_bounds`.
   TestWrite(&write_state, spec, {},
             tensorstore::MakeScalarArray<float>(
-                std::numeric_limits<float>::signaling_NaN()),
-            /*expected_modified=*/true);
+                std::numeric_limits<float>::signaling_NaN()));
   {
     auto writeback_data = write_state.GetArrayForWriteback(
         spec, /*origin=*/{}, /*read_array=*/{},
@@ -355,8 +344,7 @@ TEST(MaskedArrayTest, CompareFillValueIdenticallyEqual) {
 
   TestWrite(&write_state, spec, {},
             tensorstore::MakeScalarArray<float>(
-                std::numeric_limits<float>::quiet_NaN()),
-            /*expected_modified=*/true);
+                std::numeric_limits<float>::quiet_NaN()));
   {
     auto writeback_data = write_state.GetArrayForWriteback(
         spec, /*origin=*/{}, /*read_array=*/{},
@@ -408,15 +396,13 @@ TEST(AsyncWriteArrayTest, Basic) {
   // Test that `GetReadNDIterable` correctly handles the case of a
   // partially-modified write state.
   TestWrite(&async_write_array, spec, origin,
-            tensorstore::MakeOffsetArray<int32_t>({0, 0}, {{8}}),
-            /*expected_modified=*/true);
+            tensorstore::MakeOffsetArray<int32_t>({0, 0}, {{8}}));
 
   // Test that writing does not normally copy the data array.
   {
     auto* data_ptr = async_write_array.write_state.data.get();
     TestWrite(&async_write_array, spec, origin,
-              tensorstore::MakeOffsetArray<int32_t>({0, 0}, {{7}}),
-              /*expected_modified=*/true);
+              tensorstore::MakeOffsetArray<int32_t>({0, 0}, {{7}}));
     EXPECT_EQ(data_ptr, async_write_array.write_state.data.get());
   }
 
@@ -514,8 +500,7 @@ TEST(AsyncWriteArrayTest, Basic) {
   // Test that `GetReadNDIterable` handles a write state fully-overwritten not
   // with the fill value.
   TestWrite(&async_write_array, spec, origin,
-            tensorstore::MakeOffsetArray<int32_t>({0, 0}, {{9}}),
-            /*expected_modified=*/true);
+            tensorstore::MakeOffsetArray<int32_t>({0, 0}, {{9}}));
   {
     auto read_array = MakeArray<int32_t>({{11, 12, 13}, {14, 15, 16}});
     Arena arena;

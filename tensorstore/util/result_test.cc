@@ -14,15 +14,21 @@
 
 #include "tensorstore/util/result.h"
 
-#include <cstdint>
+#include <stdint.h>
+
+#include <functional>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
+#include "tensorstore/internal/type_traits.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
@@ -580,23 +586,23 @@ TEST(ResultTest, ConvertAssignmentWithCopy) {
 
   // Constructor
   {
-    Result<std::int64_t> c(a);
+    Result<int64_t> c(a);
     EXPECT_TRUE(c.has_value());
     EXPECT_EQ(123, c.value());
   }
   {
-    Result<std::int64_t> c(err);
+    Result<int64_t> c(err);
     EXPECT_FALSE(c.has_value());
   }
 
   // Assignment
   {
-    Result<std::int64_t> b = a;
+    Result<int64_t> b = a;
     EXPECT_TRUE(b.has_value());
     EXPECT_EQ(123, b.value());
   }
   {
-    Result<std::int64_t> b = err;
+    Result<int64_t> b = err;
     EXPECT_FALSE(b.has_value());
   }
 }
@@ -604,12 +610,12 @@ TEST(ResultTest, ConvertAssignmentWithCopy) {
 TEST(ResultTest, ConvertAssignmentWithMove) {
   {
     Result<int> a{absl::UnknownError("")};
-    Result<std::int64_t> b = std::move(a);
+    Result<int64_t> b = std::move(a);
     EXPECT_FALSE(b.has_value());
   }
   {
     Result<int> a{absl::UnknownError("")};
-    Result<std::int64_t> c(std::move(a));
+    Result<int64_t> c(std::move(a));
     EXPECT_FALSE(c.has_value());
   }
 }

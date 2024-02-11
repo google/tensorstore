@@ -14,33 +14,34 @@
 
 #include "tensorstore/internal/cache/cache.h"
 
+#include <stddef.h>
+
 #include <atomic>
 #include <deque>
 #include <memory>
-#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/base/thread_annotations.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/concurrent_testutil.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/memory.h"
-#include "tensorstore/util/str_cat.h"
+#include "tensorstore/internal/mutex.h"
 
 namespace {
 
-using ::tensorstore::StrCat;
+using ::tensorstore::UniqueWriterLock;
 using ::tensorstore::internal::Cache;
-using ::tensorstore::internal::CacheEntryQueueState;
 using ::tensorstore::internal::CachePool;
 using ::tensorstore::internal::CachePtr;
+using ::tensorstore::internal::GetCache;
 using ::tensorstore::internal::PinnedCacheEntry;
-using ::tensorstore::internal::static_pointer_cast;
 using ::tensorstore::internal::TestConcurrent;
+using ::tensorstore::internal::WeakPinnedCacheEntry;
 using ::tensorstore::internal_cache::Access;
 using ::tensorstore::internal_cache::CacheEntryImpl;
 using ::tensorstore::internal_cache::CacheImpl;
@@ -50,9 +51,7 @@ using ::testing::ElementsAre;
 using ::testing::Pair;
 using ::testing::UnorderedElementsAre;
 
-using QueueState = tensorstore::internal::CacheEntryQueueState;
-
-constexpr CachePool::Limits kSmallCacheLimits{10000000, 5000000};
+constexpr CachePool::Limits kSmallCacheLimits{10000000};
 
 CachePoolImpl* GetPoolImpl(const CachePool::StrongPtr& ptr) {
   return Access::StaticCast<CachePoolImpl>(ptr.get());
@@ -69,21 +68,22 @@ class TestCache : public Cache {
     using OwningCache = TestCache;
 
     std::string data;
-    std::size_t size = 1;
+    size_t size = 1;
+
+    void ChangeSize(size_t new_size) {
+      UniqueWriterLock<Cache::Entry> lock(*this);
+      size = new_size;
+      NotifySizeChanged();
+    }
+
+    // Set by some tests.
+    WeakPinnedCacheEntry weak_ref;
 
     ~Entry() override { GetOwningCache(*this).OnDelete(this); }
-
-    /// Overrides `Cache::Entry::UpdateState` in order to track `size`.
-    void UpdateState(StateUpdate update) {
-      if (update.new_size) size = *update.new_size;
-      Cache::Entry::UpdateState(std::move(update));
-    }
   };
 
   struct RequestLog {
     absl::Mutex mutex;
-    // Log of calls to DoRequestWriteback.
-    std::deque<PinnedCacheEntry<TestCache>> writeback_requests;
     // Log of calls to DoAllocateEntry.  Only contains the cache key, not the
     // entry key.
     std::deque<std::string> entry_allocate_log;
@@ -122,17 +122,9 @@ class TestCache : public Cache {
     }
   }
 
-  std::size_t DoGetSizeInBytes(Cache::Entry* base_entry) override {
+  size_t DoGetSizeInBytes(Cache::Entry* base_entry) override {
     auto* entry = static_cast<Entry*>(base_entry);
     return entry->size;
-  }
-
-  void DoRequestWriteback(PinnedCacheEntry<Cache> base_entry) override {
-    auto entry = static_pointer_cast<Entry>(std::move(base_entry));
-    if (log_) {
-      absl::MutexLock lock(&log_->mutex);
-      log_->writeback_requests.emplace_back(static_pointer_cast<Entry>(entry));
-    }
   }
 
   std::shared_ptr<RequestLog> log_;
@@ -162,15 +154,14 @@ absl::flat_hash_set<EntryIdentifier> GetEntrySet(LruListNode* head) {
 
 // Check the invariants of pool, which should contain the specified caches.
 void AssertInvariants(const CachePool::StrongPtr& pool,
-                      absl::flat_hash_set<Cache*> expected_caches) {
+                      absl::flat_hash_set<Cache*> expected_caches)
+    ABSL_NO_THREAD_SAFETY_ANALYSIS {
   auto* pool_impl = GetPoolImpl(pool);
   auto eviction_queue_entries = GetEntrySet(&pool_impl->eviction_queue_);
-  auto writeback_queue_entries = GetEntrySet(&pool_impl->writeback_queue_);
 
-  absl::flat_hash_set<EntryIdentifier> expected_eviction_queue_entries,
-      expected_writeback_queue_entries;
+  absl::flat_hash_set<EntryIdentifier> expected_eviction_queue_entries;
 
-  size_t expected_total_bytes = 0, expected_pending_writeback_bytes = 0;
+  size_t expected_total_bytes = 0;
 
   // Verify that every cache owned by the pool is in `expected_caches`.
   for (auto* cache : pool_impl->caches_) {
@@ -189,31 +180,26 @@ void AssertInvariants(const CachePool::StrongPtr& pool,
       EXPECT_EQ(cache_impl, *it);
     }
 
-    for (CacheEntryImpl* entry : cache_impl->entries_) {
-      EXPECT_EQ(
-          entry->num_bytes_,
-          cache->DoGetSizeInBytes(Access::StaticCast<Cache::Entry>(entry)));
-      expected_total_bytes += entry->num_bytes_;
-      switch (entry->queue_state_) {
-        case QueueState::clean_and_not_in_use:
-          expected_eviction_queue_entries.emplace(GetEntryIdentifier(entry));
-          break;
-        case QueueState::dirty:
-          expected_writeback_queue_entries.emplace(GetEntryIdentifier(entry));
-          expected_pending_writeback_bytes += entry->num_bytes_;
-          break;
-        default:
-          break;
+    if (pool_impl->limits_.total_bytes_limit != 0) {
+      for (auto& shard : cache_impl->shards_) {
+        // absl::MutexLock lock(&shard.mutex);
+        for (CacheEntryImpl* entry : shard.entries) {
+          EXPECT_EQ(
+              entry->num_bytes_,
+              cache->DoGetSizeInBytes(Access::StaticCast<Cache::Entry>(entry)));
+          expected_total_bytes += entry->num_bytes_;
+          if (entry->reference_count_.load() == 0) {
+            expected_eviction_queue_entries.emplace(GetEntryIdentifier(entry));
+          }
+        }
       }
     }
   }
 
   EXPECT_EQ(expected_total_bytes, pool_impl->total_bytes_);
-  EXPECT_EQ(expected_pending_writeback_bytes,
-            pool_impl->queued_for_writeback_bytes_);
 
-  EXPECT_EQ(expected_eviction_queue_entries, eviction_queue_entries);
-  EXPECT_EQ(expected_writeback_queue_entries, writeback_queue_entries);
+  EXPECT_THAT(expected_eviction_queue_entries,
+              ::testing::IsSubsetOf(eviction_queue_entries));
 }
 
 /// Wrapper around `AssertInvariants` that adds a SCOPED_TRACE to improve error
@@ -228,7 +214,7 @@ template <typename CacheType = TestCache>
 CachePtr<CacheType> GetTestCache(
     CachePool* pool, std::string cache_identifier,
     std::shared_ptr<TestCache::RequestLog> log = {}) {
-  return pool->GetCache<CacheType>(cache_identifier, [&] {
+  return GetCache<CacheType>(pool, cache_identifier, [&] {
     if (log) {
       absl::MutexLock lock(&log->mutex);
       log->cache_allocate_log.emplace_back(cache_identifier);
@@ -255,6 +241,21 @@ TEST(CachePoolTest, GetCacheEmptyKey) {
   EXPECT_THAT(log->cache_destroy_log, ElementsAre("", ""));
 }
 
+TEST(CachePoolTest, GetCacheEmptyKeyCacheDisabled) {
+  auto log = std::make_shared<TestCache::RequestLog>();
+  {
+    auto test_cache1 = GetTestCache(nullptr, "", log);
+    EXPECT_THAT(log->cache_allocate_log, ElementsAre(""));
+    EXPECT_THAT(log->cache_destroy_log, ElementsAre());
+    auto test_cache2 = GetTestCache(nullptr, "", log);
+    EXPECT_THAT(log->cache_allocate_log, ElementsAre("", ""));
+    EXPECT_THAT(log->cache_destroy_log, ElementsAre());
+    EXPECT_NE(test_cache1, test_cache2);
+  }
+  EXPECT_THAT(log->cache_allocate_log, ElementsAre("", ""));  // No change
+  EXPECT_THAT(log->cache_destroy_log, ElementsAre("", ""));
+}
+
 // Tests that specifying a non-empty `cache_key` leads to a cache included in
 // the cache pool's table of caches.
 TEST(CachePoolTest, GetCacheNonEmptyKey) {
@@ -270,6 +271,19 @@ TEST(CachePoolTest, GetCacheNonEmptyKey) {
   EXPECT_THAT(log->cache_destroy_log, ElementsAre("x"));
 }
 
+// Tests that getting a cache when using a null pool returns a unique cache.
+TEST(CachePoolTest, GetCacheNonEmptyKeyCacheDisabled) {
+  auto log = std::make_shared<TestCache::RequestLog>();
+  {
+    auto test_cache1 = GetTestCache(nullptr, "x", log);
+    EXPECT_THAT(log->cache_allocate_log, ElementsAre("x"));
+    auto test_cache2 = GetTestCache(nullptr, "x", log);
+    EXPECT_THAT(log->cache_allocate_log, ElementsAre("x", "x"));
+    EXPECT_NE(test_cache1, test_cache2);
+  }
+  EXPECT_THAT(log->cache_destroy_log, ElementsAre("", ""));
+}
+
 // Tests that if `make_cache` returns `nullptr`, the cache is not retained.
 TEST(CachePoolTest, GetCacheNullptr) {
   auto pool = CachePool::Make(CachePool::Limits{10000});
@@ -279,12 +293,12 @@ TEST(CachePoolTest, GetCacheNullptr) {
     return nullptr;
   };
   {
-    auto cache = pool->GetCache<TestCache>("x", make_cache);
+    auto cache = GetCache<TestCache>(pool.get(), "x", make_cache);
     EXPECT_EQ(nullptr, cache);
     EXPECT_EQ(1, make_cache_calls);
   }
   {
-    auto cache = pool->GetCache<TestCache>("x", make_cache);
+    auto cache = GetCache<TestCache>(pool.get(), "x", make_cache);
     EXPECT_EQ(nullptr, cache);
     EXPECT_EQ(2, make_cache_calls);
   }
@@ -321,7 +335,6 @@ TEST(CachePoolTest, StrongToWeakToStrong) {
   CachePool::StrongPtr strong_ptr = CachePool::Make({});
   CachePool::WeakPtr weak_ptr(strong_ptr);
   strong_ptr = CachePool::StrongPtr();
-  weak_ptr = CachePool::WeakPtr(strong_ptr);
   strong_ptr = CachePool::StrongPtr(weak_ptr);
   weak_ptr = CachePool::WeakPtr();
 }
@@ -518,7 +531,7 @@ TEST_P(NamedOrAnonymousCacheTest, UpdateSizeThenEvict) {
     auto entry = GetCacheEntry(test_cache, "a");
     EXPECT_THAT(log->entry_allocate_log, ElementsAre(cache_key));  // No change
     entry->data = "a";
-    entry->UpdateState({{/*.lock=*/{}, /*.new_size=*/5000}});
+    entry->ChangeSize(5000);
     TENSORSTORE_INTERNAL_ASSERT_CACHE_INVARIANTS(pool, {test_cache.get()});
     EXPECT_THAT(log->entry_destroy_log, ElementsAre());  // No change
   }
@@ -538,22 +551,21 @@ TEST_P(NamedOrAnonymousCacheTest, UpdateSizeNoEvict) {
     auto entry = GetCacheEntry(test_cache, "a");
     entry->data = "a";
     // No-op update
-    entry->UpdateState({});
+    entry->ChangeSize(1);
     // Update size
-    entry->UpdateState({{/*.lock=*/{}, /*new_size=*/5000}});
+    entry->ChangeSize(5000);
     // Update size again with same size (no-op).
-    entry->UpdateState({{/*.lock=*/{}, /*.new_size=*/5000}});
+    entry->ChangeSize(5000);
 
     // Update size again with same state and size (no-op).
-    entry->UpdateState({{/*.lock=*/{}, /*.new_size=*/5000},
-                        /*.new_state=*/CacheEntryQueueState::clean_and_in_use});
+    entry->ChangeSize(5000);
   }
   EXPECT_THAT(log->entry_destroy_log, ElementsAre());  // No change
   TENSORSTORE_INTERNAL_ASSERT_CACHE_INVARIANTS(pool, {test_cache.get()});
   {
     auto entry = GetCacheEntry(test_cache, "b");
     entry->data = "b";
-    entry->UpdateState({{/*.lock=*/{}, /*.new_size=*/5000}});
+    entry->ChangeSize(5000);
   }
 
   // Check that no entries were evicted.
@@ -579,115 +591,6 @@ TEST_P(NamedOrAnonymousCacheTest, UpdateSizeNoEvict) {
               UnorderedElementsAre(Pair(cache_key, "a")));  // No change
 }
 
-// Tests that marking an entry dirty leads to an immediate writeback request
-// when using `CachePool::Limits{}`.
-TEST_P(NamedOrAnonymousCacheTest, ImmediateWritebackRequested) {
-  auto pool = CachePool::Make(CachePool::Limits{});
-  auto test_cache = GetCache(pool);
-  {
-    auto entry = GetCacheEntry(test_cache, "a");
-    entry->data = "x";
-    entry->UpdateState({/*.SizeUpdate=*/{},
-                        /*.new_state=*/CacheEntryQueueState::dirty});
-    TENSORSTORE_INTERNAL_ASSERT_CACHE_INVARIANTS(pool, {test_cache.get()});
-    EXPECT_EQ(1, log->writeback_requests.size());
-  }
-  TENSORSTORE_INTERNAL_ASSERT_CACHE_INVARIANTS(pool, {test_cache.get()});
-  {
-    auto entry = log->writeback_requests.front();
-    EXPECT_EQ("x", entry->data);
-    log->writeback_requests.pop_front();
-    // Simulate writeback.
-    entry->UpdateState({/*.SizeUpdate=*/{},
-                        /*.new_state=*/CacheEntryQueueState::clean_and_in_use});
-  }
-  TENSORSTORE_INTERNAL_ASSERT_CACHE_INVARIANTS(pool, {test_cache.get()});
-
-  // Entry "a" should have been evicted.
-  EXPECT_THAT(log->entry_destroy_log, ElementsAre(Pair(cache_key, "a")));
-  EXPECT_EQ("", GetCacheEntry(test_cache, "a")->data);
-  TENSORSTORE_INTERNAL_ASSERT_CACHE_INVARIANTS(pool, {test_cache.get()});
-}
-
-// Tests that increasing the size of a dirty entry such that it exceeds
-// `queued_for_writeback_bytes_limit` leads to a writeback request.
-TEST_P(NamedOrAnonymousCacheTest, DelayedWritebackRequested) {
-  CachePool::Limits limits;
-  limits.queued_for_writeback_bytes_limit = 500;
-  limits.total_bytes_limit = 500;
-  auto pool = CachePool::Make(limits);
-  auto test_cache = GetCache(pool);
-  {
-    auto entry = GetCacheEntry(test_cache, "a");
-    entry->data = "x";
-    entry->UpdateState(
-        {/*.SizeUpdate=*/{}, /*.new_state=*/CacheEntryQueueState::dirty});
-    TENSORSTORE_INTERNAL_ASSERT_CACHE_INVARIANTS(pool, {test_cache.get()});
-    EXPECT_EQ(0, log->writeback_requests.size());
-
-    // Increase size while in dirty state (still below writeback limit).
-    entry->UpdateState({{/*.lock=*/{}, /*.new_size=*/500}});
-    TENSORSTORE_INTERNAL_ASSERT_CACHE_INVARIANTS(pool, {test_cache.get()});
-    EXPECT_EQ(0, log->writeback_requests.size());
-
-    // Decrease size while in dirty state.
-    entry->UpdateState({{/*.lock=*/{}, /*.new_size=*/450}});
-    TENSORSTORE_INTERNAL_ASSERT_CACHE_INVARIANTS(pool, {test_cache.get()});
-    EXPECT_EQ(0, log->writeback_requests.size());
-
-    // Increase size again while in dirty state (above writeback limit).
-    entry->UpdateState({{/*.lock=*/{}, /*.new_size=*/501}});
-    TENSORSTORE_INTERNAL_ASSERT_CACHE_INVARIANTS(pool, {test_cache.get()});
-    EXPECT_EQ(1, log->writeback_requests.size());
-
-    // Decrease size while in writeback state.
-    entry->UpdateState({{/*.lock=*/{}, /*.new_size=*/400}});
-    TENSORSTORE_INTERNAL_ASSERT_CACHE_INVARIANTS(pool, {test_cache.get()});
-  }
-  EXPECT_THAT(log->entry_destroy_log, ElementsAre());  // No change
-  TENSORSTORE_INTERNAL_ASSERT_CACHE_INVARIANTS(pool, {test_cache.get()});
-  {
-    auto entry = log->writeback_requests.front();
-    EXPECT_EQ("x", entry->data);
-    log->writeback_requests.pop_front();
-    // Simulate writeback
-    entry->UpdateState({{/*.lock=*/{}, /*.new_size=*/501},
-                        /*.new_state=*/CacheEntryQueueState::clean_and_in_use});
-  }
-  TENSORSTORE_INTERNAL_ASSERT_CACHE_INVARIANTS(pool, {test_cache.get()});
-
-  // Entry "a" should have been evicted.
-  EXPECT_THAT(log->entry_destroy_log, ElementsAre(Pair(cache_key, "a")));
-  EXPECT_EQ("", GetCacheEntry(test_cache, "a")->data);
-  TENSORSTORE_INTERNAL_ASSERT_CACHE_INVARIANTS(pool, {test_cache.get()});
-}
-
-// Tests that an entry can be destroyed while dirty.
-TEST(CacheTest, DestroyWhileDirty) {
-  auto log = std::make_shared<TestCache::RequestLog>();
-  auto pool = CachePool::Make(kSmallCacheLimits);
-  {
-    auto test_cache = GetTestCache(pool.get(), "", log);
-    {
-      auto entry = GetCacheEntry(test_cache, "a");
-      entry->data = "x";
-      entry->UpdateState({{/*.lock=*/{}, /*.new_size=*/{}},
-                          /*.new_state=*/CacheEntryQueueState::dirty});
-      TENSORSTORE_INTERNAL_ASSERT_CACHE_INVARIANTS(pool, {test_cache.get()});
-    }
-
-    // Test getting entry while it is dirty.
-    {
-      auto entry = GetCacheEntry(test_cache, "a");
-      EXPECT_EQ(CacheEntryQueueState::dirty, entry->queue_state());
-      EXPECT_EQ("x", entry->data);
-    }
-    EXPECT_THAT(log->entry_destroy_log, ElementsAre());  // No change
-    TENSORSTORE_INTERNAL_ASSERT_CACHE_INVARIANTS(pool, {test_cache.get()});
-  }
-  EXPECT_THAT(log->entry_destroy_log, ElementsAre(Pair("", "a")));
-}
-
 // Tests that having one cache hold a strong pointer to another cache does not
 // lead to a circular reference and memory leak (the actual test is done by the
 // heap leak checker or sanitizer).
@@ -700,9 +603,7 @@ TEST(CacheTest, CacheDependsOnOtherCache) {
     using Base::Base;
 
     Entry* DoAllocateEntry() final { return new Entry; }
-    std::size_t DoGetSizeofEntry() final { return sizeof(Entry); }
-
-    void DoRequestWriteback(PinnedCacheEntry<Cache> base_entry) override {}
+    size_t DoGetSizeofEntry() final { return sizeof(Entry); }
   };
 
   class CacheB : public tensorstore::internal::Cache {
@@ -713,24 +614,23 @@ TEST(CacheTest, CacheDependsOnOtherCache) {
     using Base::Base;
 
     Entry* DoAllocateEntry() final { return new Entry; }
-    std::size_t DoGetSizeofEntry() final { return sizeof(Entry); }
+    size_t DoGetSizeofEntry() final { return sizeof(Entry); }
 
-    void DoRequestWriteback(PinnedCacheEntry<Cache> base_entry) override {}
     CachePtr<CacheA> cache_a;
   };
 
   auto pool = CachePool::Make(kSmallCacheLimits);
-  auto cache_a =
-      pool->GetCache<CacheA>("x", [&] { return std::make_unique<CacheA>(); });
-  auto cache_b =
-      pool->GetCache<CacheB>("x", [&] { return std::make_unique<CacheB>(); });
+  auto cache_a = GetCache<CacheA>(pool.get(), "x",
+                                  [&] { return std::make_unique<CacheA>(); });
+  auto cache_b = GetCache<CacheB>(pool.get(), "x",
+                                  [&] { return std::make_unique<CacheB>(); });
   GetCacheEntry(cache_b, "key");
   cache_b->cache_a = cache_a;
   TENSORSTORE_INTERNAL_ASSERT_CACHE_INVARIANTS(pool,
                                                {cache_a.get(), cache_b.get()});
 }
 
-constexpr static int kDefaultIterations = 500;
+constexpr static int kDefaultIterations = 100;
 
 TEST(CacheTest, ConcurrentGetCacheEntry) {
   auto pool = CachePool::Make(kSmallCacheLimits);
@@ -759,6 +659,37 @@ TEST(CacheTest, ConcurrentGetCacheEntry) {
       [&] { pinned_entries[2] = GetCacheEntry(cache, "a"); });
 }
 
+TEST(CacheTest, ConcurrentGetCacheEntryWeakReferenceCacheDisabled) {
+  auto cache = GetTestCache(nullptr, "cache");
+  PinnedCacheEntry<TestCache> entry;
+  TestConcurrent(
+      kDefaultIterations,
+      /*initialize=*/[&] { entry = GetCacheEntry(cache, "a"); },
+      /*finalize=*/
+      [&] {},
+      // Concurrent operations:
+      [&] { entry->AcquireWeakReference(); },
+      [&] { entry->AcquireWeakReference(); });
+}
+
+TEST(CacheTest,
+     ConcurrentDestroyStrongAndWeakCacheEntryReferenceCacheDisabled) {
+  auto cache = GetTestCache(nullptr, "cache");
+  PinnedCacheEntry<TestCache> entry;
+  WeakPinnedCacheEntry weak_ref;
+  TestConcurrent(
+      kDefaultIterations,
+      /*initialize=*/
+      [&] {
+        entry = GetCacheEntry(cache, "a");
+        weak_ref = entry->AcquireWeakReference();
+      },
+      /*finalize=*/
+      [&] {},
+      // Concurrent operations:
+      [&] { entry = {}; }, [&] { weak_ref = {}; });
+}
+
 TEST(CacheTest, ConcurrentGetCache) {
   auto pool = CachePool::Make(kSmallCacheLimits);
   CachePtr<TestCache> caches[3];
@@ -771,7 +702,7 @@ TEST(CacheTest, ConcurrentGetCache) {
         EXPECT_EQ(2, GetPoolImpl(pool)->weak_references_.load());
         TENSORSTORE_INTERNAL_ASSERT_CACHE_INVARIANTS(
             pool, {caches[0].get(), caches[1].get(), caches[2].get()});
-        std::size_t use_count = 3;
+        size_t use_count = 3;
         for (auto& cache : caches) {
           EXPECT_EQ(use_count, cache->use_count());
           cache.reset();
@@ -883,7 +814,6 @@ TEST(CacheTest, ConcurrentGetReleaseCacheEntry) {
 TEST(CacheTest, EvictEntryDestroyCache) {
   auto log = std::make_shared<TestCache::RequestLog>();
   CachePool::Limits limits;
-  limits.queued_for_writeback_bytes_limit = 0;
   limits.total_bytes_limit = 1;
   auto pool = CachePool::Make(limits);
   auto cache_b = GetTestCache(pool.get(), "cache_b", log);
@@ -1040,43 +970,136 @@ TEST(CacheTest, TestCacheWithCachePool) {
   }
 }
 
-TEST(CacheQueueStateTest, PrintToOstream) {
-  EXPECT_EQ("clean_and_not_in_use",
-            StrCat(CacheEntryQueueState::clean_and_not_in_use));
-  EXPECT_EQ("clean_and_in_use", StrCat(CacheEntryQueueState::clean_and_in_use));
-  EXPECT_EQ("dirty", StrCat(CacheEntryQueueState::dirty));
-  EXPECT_EQ("writeback_requested",
-            StrCat(CacheEntryQueueState::writeback_requested));
-  EXPECT_EQ("<unknown>", StrCat(static_cast<CacheEntryQueueState>(1000)));
+TEST(CacheTest, EntryWeakReference) {
+  auto log = std::make_shared<TestCache::RequestLog>();
+  auto pool = CachePool::Make(CachePool::Limits{});
+  auto cache = GetTestCache(pool.get(), "cache", log);
+  auto entry_a = GetCacheEntry(cache, "a");
+  auto weak_ref = entry_a->AcquireWeakReference();
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre());
+  pool = {};
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre());
+  entry_a = {};
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre());
+  weak_ref = {};
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre(Pair("cache", "a")));
 }
 
-TEST(CacheTest, SetEvictWhenNotInUse) {
+TEST(CacheTest, EntryWeakReferenceCacheDisabled) {
+  auto log = std::make_shared<TestCache::RequestLog>();
+  auto cache = GetTestCache(nullptr, "cache", log);
+  auto entry_a = GetCacheEntry(cache, "a");
+  auto weak_ref = entry_a->AcquireWeakReference();
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre());
+  entry_a = {};
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre(Pair("", "a")));
+  weak_ref = {};
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre(Pair("", "a")));
+}
+
+TEST(CacheTest, EntryWeakReferencesCacheDisabled) {
+  auto log = std::make_shared<TestCache::RequestLog>();
+  auto cache = GetTestCache(nullptr, "cache", log);
+  auto entry_a = GetCacheEntry(cache, "a");
+  auto weak_ref = entry_a->AcquireWeakReference();
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre());
+  weak_ref = {};
+  weak_ref = entry_a->AcquireWeakReference();
+  entry_a = {};
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre(Pair("", "a")));
+  weak_ref = {};
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre(Pair("", "a")));
+}
+
+TEST(CacheTest, EntryWeakReferences) {
+  auto log = std::make_shared<TestCache::RequestLog>();
+  auto pool = CachePool::Make(CachePool::Limits{});
+  auto cache = GetTestCache(pool.get(), "cache", log);
+  auto entry_a = GetCacheEntry(cache, "a");
+  auto weak_ref = entry_a->AcquireWeakReference();
+  auto weak_ref2 = entry_a->AcquireWeakReference();
+  auto entry_a2 = GetCacheEntry(cache, "a");
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre());
+  pool = {};
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre());
+  entry_a = {};
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre());
+  weak_ref = {};
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre());
+  weak_ref2 = {};
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre());
+  entry_a2 = {};
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre(Pair("cache", "a")));
+}
+
+TEST(CacheTest, GetStrongEntryReferenceWhileHoldingOnlyWeakReference) {
+  auto log = std::make_shared<TestCache::RequestLog>();
+  auto pool = CachePool::Make(CachePool::Limits{});
+  auto cache = GetTestCache(pool.get(), "cache", log);
+  auto entry_a = GetCacheEntry(cache, "a");
+  auto weak_ref = entry_a->AcquireWeakReference();
+  entry_a = {};
+  entry_a = GetCacheEntry(cache, "a");
+  entry_a = {};
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre());
+  weak_ref = {};
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre(Pair("cache", "a")));
+}
+
+TEST(CacheTest,
+     GetStrongEntryReferenceWhileHoldingOnlyWeakReferenceCacheDisabled) {
+  auto log = std::make_shared<TestCache::RequestLog>();
+  auto cache = GetTestCache(nullptr, "cache", log);
+  auto entry_a = GetCacheEntry(cache, "a");
+  auto weak_ref = entry_a->AcquireWeakReference();
+  entry_a = {};
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre(Pair("", "a")));
+  entry_a = GetCacheEntry(cache, "a");
+  entry_a = {};
+  EXPECT_THAT(log->entry_destroy_log,
+              ElementsAre(Pair("", "a"), Pair("", "a")));
+  weak_ref = {};
+  EXPECT_THAT(log->entry_destroy_log,
+              ElementsAre(Pair("", "a"), Pair("", "a")));  // Unchanged
+}
+
+TEST(CacheTest, PoolWithNonZeroBytesLimit) {
   auto log = std::make_shared<TestCache::RequestLog>();
   auto pool = CachePool::Make(kSmallCacheLimits);
-
-  auto cache_a = GetTestCache(pool.get(), "cache_a", log);
-  EXPECT_THAT(log->cache_allocate_log, ElementsAre("cache_a"));
-
+  auto cache = GetTestCache(pool.get(), "cache", log);
   {
-    auto entry_a = GetCacheEntry(cache_a, "entry_a");
-    EXPECT_THAT(log->entry_allocate_log, ElementsAre("cache_a"));
-    entry_a->data = "entry_a";
+    auto entry_a = GetCacheEntry(cache, "a");
+    auto weak_ref = entry_a->AcquireWeakReference();
   }
-
-  // entry is not evicted
   EXPECT_THAT(log->entry_destroy_log, ElementsAre());
+  pool = {};
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre());
+  cache = {};
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre(Pair("cache", "a")));
+}
 
+TEST(CacheTest, WeakRefOwnedByEntry) {
+  auto log = std::make_shared<TestCache::RequestLog>();
+  auto pool = CachePool::Make(kSmallCacheLimits);
+  auto cache1 = GetTestCache(pool.get(), "cache1", log);
+  auto cache2 = GetTestCache(pool.get(), "cache2", log);
   {
-    auto entry_a = GetCacheEntry(cache_a, "entry_a");
-    EXPECT_EQ("entry_a", entry_a->data);
-    entry_a->data = "entry_a";
-    entry_a->SetEvictWhenNotInUse();
-    // entry is not yet evicted since it is still in use.
-    EXPECT_THAT(log->entry_destroy_log, ElementsAre());
+    auto entry_a = GetCacheEntry(cache1, "a");
+    auto entry_b = GetCacheEntry(cache1, "b");
+    entry_a->weak_ref = entry_b->AcquireWeakReference();
   }
+  { auto entry_c = GetCacheEntry(cache2, "c"); }
 
-  // entry is evicted.
-  EXPECT_THAT(log->entry_destroy_log, ElementsAre(Pair("cache_a", "entry_a")));
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre());
+  pool = {};
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre());
+  cache1 = {};
+  EXPECT_THAT(log->entry_destroy_log,
+              UnorderedElementsAre(Pair("cache1", "a"), Pair("cache1", "b")));
+  cache2 = {};
+  EXPECT_THAT(log->entry_destroy_log,
+              UnorderedElementsAre(Pair("cache1", "a"), Pair("cache1", "b"),
+                                   Pair("cache2", "c")));
 }
 
 }  // namespace

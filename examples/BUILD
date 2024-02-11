@@ -98,16 +98,6 @@ tensorstore_cc_binary(
 )
 
 tensorstore_cc_binary(
-    name = "status_result",
-    srcs = ["status_result.cc"],
-    deps = [
-        "//tensorstore/util:result",
-        "//tensorstore/util:status",
-        "@com_google_absl//absl/status",
-    ],
-)
-
-tensorstore_cc_binary(
     name = "extract_slice",
     srcs = ["extract_slice.cc"],
     deps = [

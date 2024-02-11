@@ -12,6 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <algorithm>
+#include <iostream>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include <gtest/gtest.h>
 #include "absl/flags/flag.h"
 #include "absl/strings/string_view.h"
@@ -83,7 +89,8 @@ tensorstore::kvstore::Spec LiveKvStoreTest::GetSpec() {
 TEST_F(LiveKvStoreTest, Basic) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store, tensorstore::kvstore::Open(GetSpec(), GetContext()).result());
-  tensorstore::internal::TestKeyValueStoreBasicFunctionality(store);
+
+  tensorstore::internal::TestKeyValueReadWriteOps(store);
 }
 
 TEST_F(LiveKvStoreTest, DeleteRange) {

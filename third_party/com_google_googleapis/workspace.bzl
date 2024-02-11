@@ -12,23 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load(
-    "//third_party:repo.bzl",
-    "third_party_http_archive",
-)
+load("//third_party:repo.bzl", "third_party_http_archive")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 
 def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_googleapis",
-        strip_prefix = "googleapis-61220850831d674c6a025e5e315f18f0922a352e",
+        strip_prefix = "googleapis-aa829ea9860cdc474fccdf8f181f13d2a0eb2718",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/googleapis/googleapis/archive/61220850831d674c6a025e5e315f18f0922a352e.tar.gz",  # master(2023-02-28)
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/googleapis/googleapis/archive/aa829ea9860cdc474fccdf8f181f13d2a0eb2718.tar.gz",  # master(2023-10-04)
         ],
-        sha256 = "870ae54700826bb9d7ef4a5c6696dc0feb032f7a50842961ed77ff5034d0d2b2",
+        sha256 = "93d98f5dcd22289e2bf0126b2f598b940c27a2e7ca74038930b0e273fba0632c",
         repo_mapping = {
             "@com_google_googleapis_imports": "@local_proto_mirror",
+            "@com_google_protobuf_upb": "@com_google_protobuf",
         },
         cmake_name = "Googleapis",
         bazel_to_cmake = {

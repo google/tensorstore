@@ -95,8 +95,8 @@ TEST_F(GoogleAuthProviderTest, Invalid) {
   // All environment variables are unset by default; this will look for
   // GCE, which will fail, and will return an error status.
   //
-  // Set GCE_METADATA_ROOT to dummy value to ensure GCE detection fails even if
-  // the test is really being run on GCE.
+  // Set GCE_METADATA_ROOT to placeholder value to ensure GCE detection fails
+  // even if the test is really being run on GCE.
   SetEnv("GCE_METADATA_ROOT", "invalidmetadata.google.internal");
   auto auth_provider = GetGoogleAuthProvider();
   EXPECT_FALSE(auth_provider.ok());

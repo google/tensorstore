@@ -28,7 +28,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/match.h"
-#include "tensorstore/internal/os_error_code.h"
+#include "tensorstore/internal/os/error_code.h"
 #include "tensorstore/kvstore/file/unique_handle.h"
 #include "tensorstore/util/result.h"
 

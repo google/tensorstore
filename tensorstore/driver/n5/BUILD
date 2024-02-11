@@ -30,6 +30,7 @@ tensorstore_cc_library(
         ":driver",
         ":gzip_compressor",
         ":xz_compressor",
+        ":zstd_compressor",
     ],
 )
 
@@ -115,18 +116,39 @@ tensorstore_cc_test(
     srcs = ["driver_test.cc"],
     deps = [
         ":driver",
+        "//tensorstore",
+        "//tensorstore:array",
+        "//tensorstore:box",
+        "//tensorstore:chunk_layout",
+        "//tensorstore:codec_spec",
+        "//tensorstore:context",
+        "//tensorstore:contiguous_layout",
+        "//tensorstore:data_type",
+        "//tensorstore:index",
+        "//tensorstore:json_serialization_options_base",
         "//tensorstore:open",
+        "//tensorstore:open_mode",
+        "//tensorstore:rank",
+        "//tensorstore:resize_options",
+        "//tensorstore:schema",
+        "//tensorstore:spec",
+        "//tensorstore:strided_layout",
         "//tensorstore/driver:driver_testutil",
         "//tensorstore/driver/zarr",
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/internal:global_initializer",
+        "//tensorstore/internal:json_gtest",
         "//tensorstore/internal:parse_json_matches",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:test_util",
+        "//tensorstore/kvstore/file",
         "//tensorstore/kvstore/memory",
+        "//tensorstore/util:dimension_set",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:cord",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -312,6 +334,18 @@ tensorstore_cc_test(
         "//tensorstore/util:status_testutil",
         "@com_google_googletest//:gtest_main",
     ],
+)
+
+tensorstore_cc_library(
+    name = "zstd_compressor",
+    srcs = ["zstd_compressor.cc"],
+    deps = [
+        ":compressor",
+        "//tensorstore/internal/compression:zstd_compressor",
+        "//tensorstore/internal/json_binding",
+        "@com_google_riegeli//riegeli/zstd:zstd_writer",
+    ],
+    alwayslink = 1,
 )
 
 tensorstore_cc_test(

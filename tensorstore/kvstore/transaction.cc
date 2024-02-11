@@ -14,12 +14,38 @@
 
 #include "tensorstore/kvstore/transaction.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
+#include <cassert>
+#include <iterator>
+#include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <utility>
+
 #include "absl/base/optimization.h"
 #include "absl/container/btree_map.h"
 #include "absl/functional/function_ref.h"
+#include "absl/status/status.h"
+#include "absl/synchronization/mutex.h"
+#include "absl/time/time.h"
+#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/metrics/counter.h"
+#include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
+#include "tensorstore/kvstore/generation.h"
+#include "tensorstore/kvstore/key_range.h"
+#include "tensorstore/kvstore/operations.h"
+#include "tensorstore/kvstore/read_modify_write.h"
+#include "tensorstore/transaction.h"
+#include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/future_sender.h"  // IWYU pragma: keep
+#include "tensorstore/util/future.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_kvstore {
@@ -54,17 +80,19 @@ void PerformWriteback(Driver* driver, Controller controller,
     // This is a conditional read or stale read; but not a dirty read, so
     // reissue the read.
     ReadOptions read_options;
-    read_options.if_not_equal =
+    auto if_not_equal =
         StorageGeneration::Clean(std::move(read_result.stamp.generation));
+    read_options.if_not_equal = if_not_equal;
     read_options.byte_range = OptionalByteRangeRequest{0, 0};
     auto future = driver->Read(controller.GetKey(), std::move(read_options));
     future.Force();
     std::move(future).ExecuteWhenReady(
-        [controller](ReadyFuture<ReadResult> future) mutable {
+        [controller, if_not_equal = std::move(if_not_equal)](
+            ReadyFuture<ReadResult> future) mutable {
           auto& r = future.result();
           if (!r.ok()) {
             ReportWritebackError(controller, "reading", r.status());
-          } else if (r->aborted()) {
+          } else if (r->aborted() || r->stamp.generation == if_not_equal) {
             controller.Success(std::move(r->stamp));
           } else {
             controller.Retry(r->stamp.time);
@@ -368,19 +396,24 @@ struct Controller {
 };
 
 void ReceiveWritebackCommon(ReadModifyWriteEntry& entry,
-                            StorageGeneration& generation) {
+                            ReadResult& read_result) {
   TENSORSTORE_KVSTORE_DEBUG_LOG(
-      entry, "ReceiveWritebackCommon: generation=", generation);
-  // Set `kTransitivelyUnconditional` and `kDirty` bits from `generation`.
+      entry, "ReceiveWritebackCommon: state=", read_result.state,
+      ", stamp=", read_result.stamp);
+  // Update the flags based on the `ReadResult` provided for writeback.
   auto flags =
       (entry.flags_ & ~(ReadModifyWriteEntry::kTransitivelyUnconditional |
-                        ReadModifyWriteEntry::kDirty)) |
+                        ReadModifyWriteEntry::kDirty |
+                        ReadModifyWriteEntry::kTransitivelyDirty)) |
       ReadModifyWriteEntry::kWritebackProvided;
-  if (!StorageGeneration::IsConditional(generation)) {
+  if (!StorageGeneration::IsConditional(read_result.stamp.generation)) {
     flags |= ReadModifyWriteEntry::kTransitivelyUnconditional;
   }
-  if (generation.ClearNewlyDirty()) {
+  if (read_result.stamp.generation.ClearNewlyDirty()) {
     flags |= ReadModifyWriteEntry::kDirty;
+  }
+  if (read_result.state != ReadResult::kUnspecified) {
+    flags |= ReadModifyWriteEntry::kTransitivelyDirty;
   }
   entry.flags_ = flags;
 }
@@ -391,7 +424,8 @@ void StartWriteback(ReadModifyWriteEntry& entry, absl::Time staleness_bound) {
   // First mark all previous entries as not having yet provided a writeback
   // during the current writeback sequence.
   for (auto* e = &entry;;) {
-    e->flags_ &= ~ReadModifyWriteEntry::kWritebackProvided;
+    e->flags_ &= ~(ReadModifyWriteEntry::kWritebackProvided |
+                   ReadModifyWriteEntry::kTransitivelyDirty);
     e = e->prev_;
     if (!e) break;
   }
@@ -416,7 +450,7 @@ void StartWriteback(ReadModifyWriteEntry& entry, absl::Time staleness_bound) {
       }
       void set_cancel() { ABSL_UNREACHABLE(); }  // COV_NF_LINE
       void set_value(ReadResult read_result) {
-        ReceiveWritebackCommon(*entry_, read_result.stamp.generation);
+        ReceiveWritebackCommon(*entry_, read_result);
         entry_->multi_phase().Writeback(*entry_, std::move(read_result));
       }
     };
@@ -432,7 +466,7 @@ void StartWriteback(ReadModifyWriteEntry& entry, absl::Time staleness_bound) {
   // writeback requests on all prior entries in the sequence.  Note that this
   // code path also works for the "fast path" above.
   //
-  // However, if a read-modify-write operations in the sequence is
+  // However, if a read-modify-write operation in the sequence is
   // unconditional, then requesting its writeback value will not lead to a read
   // request, and therefore will not lead to a writeback request on the prior
   // entry.  We may need to issue additional writeback requests on those
@@ -480,7 +514,7 @@ void StartWriteback(ReadModifyWriteEntry& entry, absl::Time staleness_bound) {
     void set_cancel() { ABSL_UNREACHABLE(); }  // COV_NF_LINE
     void set_value(ReadResult read_result) {
       auto& entry = *state_->entry;
-      ReceiveWritebackCommon(entry, read_result.stamp.generation);
+      ReceiveWritebackCommon(entry, read_result);
       if (!state_->entry->next_ &&
           !(state_->entry->flags_ & ReadModifyWriteEntry::kDeleted)) {
         // `state_->entry` is the last entry in the sequence and not superseded
@@ -508,17 +542,32 @@ void StartWriteback(ReadModifyWriteEntry& entry, absl::Time staleness_bound) {
         //    actually perform a writeback for a deleted key.
         assert(!StorageGeneration::IsConditional(
             state_->read_result.stamp.generation));
-        state_->read_result.stamp.time = read_result.stamp.time;
-        TENSORSTORE_KVSTORE_DEBUG_LOG(entry, "Conditioning: existing_stamp=",
-                                      state_->read_result.stamp.generation,
-                                      ", new_stamp=", read_result.stamp);
-        state_->read_result.stamp.generation = StorageGeneration::Condition(
-            state_->read_result.stamp.generation,
-            std::move(read_result.stamp.generation));
+        if (state_->read_result.state == ReadResult::kUnspecified) {
+          TENSORSTORE_KVSTORE_DEBUG_LOG(
+              entry,
+              "Replacing: existing_result state=", state_->read_result.state,
+              ", stamp=", state_->read_result.stamp,
+              ", new_result state=", read_result.state,
+              ", stamp=", read_result.stamp);
+          state_->read_result = std::move(read_result);
+        } else {
+          state_->read_result.stamp.time = read_result.stamp.time;
+          TENSORSTORE_KVSTORE_DEBUG_LOG(entry, "Conditioning: existing_stamp=",
+                                        state_->read_result.stamp.generation,
+                                        ", new_stamp=", read_result.stamp);
+          state_->read_result.stamp.generation = StorageGeneration::Condition(
+              state_->read_result.stamp.generation,
+              std::move(read_result.stamp.generation));
+        }
       }
       if (entry.flags_ & ReadModifyWriteEntry::kTransitivelyUnconditional) {
         // The writeback is still unconditional.  There may still be "skipped"
         // entries that need a writeback request.
+
+        // If the writeback result is "unmodified", the real writeback result,
+        // if any, will come from a "skipped" entry.
+        const bool unmodified =
+            state_->read_result.state == ReadResult::kUnspecified;
 
         // Finds the first prior superseded entry for which writeback must
         // still be requested as part of the current writeback sequence.
@@ -527,28 +576,37 @@ void StartWriteback(ReadModifyWriteEntry& entry, absl::Time staleness_bound) {
         // still given a chance to validate any constraints on the existing
         // read value and return an error if constraints are violated, even
         // though they do not affect the value that will be written back.
-        constexpr auto GetPrevSupersededEntryToWriteback =
-            [](ReadModifyWriteEntry* entry) -> ReadModifyWriteEntry* {
+        auto GetPrevSupersededEntryToWriteback =
+            [&](ReadModifyWriteEntry* entry) -> ReadModifyWriteEntry* {
           while (true) {
             entry = entry->prev_;
             if (!entry) return nullptr;
-            // We don't need to request writeback of `entry` if it is known that
-            // its constraints are not violated.  There are two cases in which
-            // this is known:
-            //
-            // 1. `entry` already provided a writeback in the current writeback
-            // sequence
-            //    (e.g. because the `ReadModifyWriteSource` of `entry->next_`
-            //    requested a read).
-            //
-            // 2. `entry` provided a writeback in the current or a prior
-            // writeback
-            //    sequence, and is known to be unconditional.  In this case, it
-            //    is not affected by an updated read result.
-            if (!(entry->flags_ &
-                  (ReadModifyWriteEntry::kWritebackProvided |
-                   ReadModifyWriteEntry::kTransitivelyUnconditional))) {
-              return entry;
+
+            if (unmodified) {
+              // Entry needs to be validated, or has already been validated but
+              // may provide a modified writeback result.
+              if (!(entry->flags_ & ReadModifyWriteEntry::kWritebackProvided) ||
+                  (entry->flags_ & ReadModifyWriteEntry::kTransitivelyDirty)) {
+                return entry;
+              }
+            } else {
+              // We don't need to request writeback of `entry` if it is known
+              // that its constraints are not violated.  There are two cases in
+              // which this is known:
+              //
+              // 1. `entry` already provided a writeback in the current
+              // writeback
+              //    sequence (e.g. because the `ReadModifyWriteSource` of
+              //    `entry->next_` requested a read).
+              //
+              // 2. `entry` provided a writeback in the current or a prior
+              //    writeback sequence, and is known to be unconditional.  In
+              //    this case, it is not affected by an updated read result.
+              if (!(entry->flags_ &
+                    (ReadModifyWriteEntry::kWritebackProvided |
+                     ReadModifyWriteEntry::kTransitivelyUnconditional))) {
+                return entry;
+              }
             }
           }
         };
@@ -562,7 +620,8 @@ void StartWriteback(ReadModifyWriteEntry& entry, absl::Time staleness_bound) {
           ReadModifyWriteSource::WritebackOptions writeback_options;
           writeback_options.staleness_bound = state_->staleness_bound;
           writeback_options.writeback_mode =
-              ReadModifyWriteSource::kValidateOnly;
+              unmodified ? ReadModifyWriteSource::kNormalWriteback
+                         : ReadModifyWriteSource::kValidateOnly;
           prev->source_->KvsWriteback(std::move(writeback_options),
                                       std::move(*this));
           return;
@@ -571,16 +630,30 @@ void StartWriteback(ReadModifyWriteEntry& entry, absl::Time staleness_bound) {
       // No remaining "skipped" entries.  Forward the combined writeback result
       // to `MultiPhaseMutation::Writeback`.
       auto* last_entry = state_->GetLastReadModifyWriteEntry();
+      if (last_entry->next_) {
+        // This entry is superseded by a `DeleteRangeEntry`.  Ensure that no
+        // value is actually written back.
+        state_->read_result.state = ReadResult::kUnspecified;
+      }
+      TENSORSTORE_KVSTORE_DEBUG_LOG(*last_entry,
+                                    "No remaining skipped entries, forwarding "
+                                    "to MultiPhaseMutation::Writeback: ",
+                                    state_->read_result.stamp);
       last_entry->multi_phase().Writeback(*last_entry,
                                           std::move(state_->read_result));
     }
   };
-  entry.source_->KvsWriteback(
-      std::move(writeback_options),
-      SequenceWritebackReceiverImpl{
-          std::unique_ptr<SequenceWritebackReceiverImpl::State>(
-              new SequenceWritebackReceiverImpl::State{&entry,
-                                                       staleness_bound})});
+  auto state = std::unique_ptr<SequenceWritebackReceiverImpl::State>(
+      new SequenceWritebackReceiverImpl::State{&entry, staleness_bound});
+  if (entry.flags_ & ReadModifyWriteEntry::kDeleted) {
+    // Mark the value as deleted, to avoid the `unmodified` condition above
+    // resulting in unnecessary reads.  This will be overwritten back to
+    // `ReadResult::kUnspecified` before calling
+    // `MultiPhaseMutation::Writeback`.
+    state->read_result.state = ReadResult::kMissing;
+  }
+  entry.source_->KvsWriteback(std::move(writeback_options),
+                              SequenceWritebackReceiverImpl{std::move(state)});
 }
 
 void HandleDeleteRangeDone(DeleteRangeEntry& dr_entry) {
@@ -633,7 +706,7 @@ void ReadModifyWriteEntry::KvsRead(
       {
         assert(!StorageGeneration::IsUnknown(read_result.stamp.generation));
         absl::MutexLock lock(&entry_->mutex());
-        ReceiveWritebackCommon(*entry_->prev_, read_result.stamp.generation);
+        ReceiveWritebackCommon(*entry_->prev_, read_result);
         entry_->flags_ |= (entry_->prev_->flags_ &
                            ReadModifyWriteEntry::kTransitivelyUnconditional);
       }
@@ -645,11 +718,9 @@ void ReadModifyWriteEntry::KvsRead(
   };
   if (flags_ & ReadModifyWriteEntry::kPrevDeleted) {
     execution::set_value(
-        receiver,
-        ReadResult{ReadResult::kMissing,
-                   {},
-                   {StorageGeneration::Dirty(StorageGeneration::Unknown()),
-                    absl::InfiniteFuture()}});
+        receiver, ReadResult::Missing(
+                      {StorageGeneration::Dirty(StorageGeneration::Unknown()),
+                       absl::InfiniteFuture()}));
   } else if (prev_) {
     TENSORSTORE_KVSTORE_DEBUG_LOG(*prev_, "Requesting writeback for read");
     ReadModifyWriteSource::WritebackOptions writeback_options;
@@ -1329,12 +1400,18 @@ class ReadViaExistingTransactionNode : public internal::TransactionState::Node,
         absl::MutexLock lock(&mutex_);
         expected_stamp = expected_stamp_;
       }
+      if (StorageGeneration::IsUnknown(expected_stamp.generation)) {
+        // No repeatable_read validation required.
+        execution::set_value(
+            receiver, ReadResult::Unspecified(
+                          TimestampedStorageGeneration::Unconditional()));
+        return;
+      }
       if (StorageGeneration::IsClean(expected_stamp.generation) &&
           expected_stamp.time >= read_options.staleness_bound) {
         // Nothing to write back, just need to verify generation.
-        execution::set_value(receiver, ReadResult{ReadResult::kUnspecified,
-                                                  {},
-                                                  std::move(expected_stamp)});
+        execution::set_value(
+            receiver, ReadResult::Unspecified(std::move(expected_stamp)));
         return;
       }
     }
@@ -1403,7 +1480,7 @@ Future<ReadResult> ReadViaExistingTransaction(
     Promise<ReadResult> promise_;
 
     void set_value(ReadResult read_result) {
-      {
+      if (node_->transaction()->mode() & repeatable_read) {
         absl::MutexLock lock(&node_->mutex_);
         node_->expected_stamp_ = read_result.stamp;
       }
@@ -1546,29 +1623,27 @@ class WriteViaExistingTransactionNode : public internal::TransactionState::Node,
 Future<TimestampedStorageGeneration> WriteViaExistingTransaction(
     Driver* driver, internal::OpenTransactionPtr& transaction, size_t& phase,
     Key key, std::optional<Value> value, WriteOptions options) {
-  ReadResult read_result;
-  if (value) {
-    read_result.state = ReadResult::kValue;
-    read_result.value = std::move(*value);
-  } else {
-    read_result.state = ReadResult::kMissing;
-  }
+  TimestampedStorageGeneration stamp;
   if (StorageGeneration::IsUnknown(options.if_equal)) {
-    read_result.stamp.time = absl::InfiniteFuture();
+    stamp.time = absl::InfiniteFuture();
   } else {
     assert(StorageGeneration::IsClean(options.if_equal));
-    read_result.stamp.time = absl::Time();
+    stamp.time = absl::Time();
   }
   bool if_equal_no_value = StorageGeneration::IsNoValue(options.if_equal);
-  read_result.stamp.generation = std::move(options.if_equal);
-  read_result.stamp.generation.MarkDirty();
+  stamp.generation = std::move(options.if_equal);
+  stamp.generation.MarkDirty();
+
   auto [promise, future] =
       PromiseFuturePair<TimestampedStorageGeneration>::Make();
   using Node = WriteViaExistingTransactionNode;
   internal::WeakTransactionNodePtr<Node> node;
   node.reset(new Node);
   node->promise_ = promise;
-  node->read_result_ = std::move(read_result);
+  node->read_result_ =
+      value ? ReadResult::Value(std::move(*value), std::move(stamp))
+            : ReadResult::Missing(std::move(stamp));
+
   node->if_equal_no_value_ = if_equal_no_value;
   TENSORSTORE_RETURN_IF_ERROR(
       driver->ReadModifyWrite(transaction, phase, std::move(key), *node));
@@ -1604,11 +1679,6 @@ absl::Status Driver::ReadModifyWrite(internal::OpenTransactionPtr& transaction,
     rmw_status = node->ReadModifyWrite(phase, std::move(key), source);
   }
   return internal_kvstore::GetNonAtomicReadModifyWriteError(*node, rmw_status);
-}
-
-Result<internal::OpenTransactionPtr> Driver::GetImplicitTransaction(
-    const Key& key) {
-  return internal::TransactionState::MakeImplicit();
 }
 
 absl::Status Driver::TransactionalDeleteRange(

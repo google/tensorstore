@@ -12,9 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#ifndef TENSORSTORE_METRICS_DISABLED
+
+#include <stddef.h>
+#include <stdint.h>
+
 #include <algorithm>
 #include <string>
-#include <utility>
 #include <variant>
 #include <vector>
 
@@ -303,3 +307,5 @@ TEST(MetricTest, ValueString) {
 }
 
 }  // namespace
+
+#endif  // !defined(TENSORSTORE_METRICS_DISABLED)

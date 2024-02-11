@@ -36,15 +36,15 @@ namespace tensorstore {
 /// Indicates that the extent is specified at run time.
 ///
 /// \relates span
-constexpr std::ptrdiff_t dynamic_extent = -1;
+constexpr ptrdiff_t dynamic_extent = -1;
 
-template <typename T, std::ptrdiff_t Extent = dynamic_extent>
+template <typename T, ptrdiff_t Extent = dynamic_extent>
 class span;
 
 namespace internal_span {
 
-template <typename SourceElement, std::ptrdiff_t SourceExtent,
-          typename DestElement, std::ptrdiff_t DestExtent>
+template <typename SourceElement, ptrdiff_t SourceExtent, typename DestElement,
+          ptrdiff_t DestExtent>
 constexpr inline bool IsSpanImplicitlyConvertible =
     std::is_convertible_v<SourceElement (*)[], DestElement (*)[]> &&
     (SourceExtent == DestExtent || DestExtent == dynamic_extent);
@@ -52,10 +52,10 @@ constexpr inline bool IsSpanImplicitlyConvertible =
 template <typename Container>
 constexpr inline bool IsArrayOrSpan = false;
 
-template <typename T, std::size_t N>
+template <typename T, size_t N>
 constexpr inline bool IsArrayOrSpan<std::array<T, N>> = true;
 
-template <typename T, std::ptrdiff_t Extent>
+template <typename T, ptrdiff_t Extent>
 constexpr inline bool IsArrayOrSpan<span<T, Extent>> = true;
 
 template <typename T, typename Container,
@@ -75,40 +75,40 @@ using ContainerElementType =
 template <typename T, typename SFINAE = void>
 struct SpanTypeHelper {};
 
-template <typename T, std::ptrdiff_t Extent>
+template <typename T, ptrdiff_t Extent>
 struct SpanTypeHelper<span<T, Extent>> {
   using element_type = T;
-  constexpr static std::ptrdiff_t extent = Extent;
+  constexpr static ptrdiff_t extent = Extent;
 };
 
-template <typename T, std::ptrdiff_t Extent>
+template <typename T, ptrdiff_t Extent>
 struct SpanTypeHelper<const span<T, Extent>> {
   using element_type = T;
-  constexpr static std::ptrdiff_t extent = Extent;
+  constexpr static ptrdiff_t extent = Extent;
 };
 
-template <typename T, std::size_t Extent>
+template <typename T, size_t Extent>
 struct SpanTypeHelper<T[Extent]> {
   using element_type = T;
-  constexpr static std::ptrdiff_t extent = Extent;
+  constexpr static ptrdiff_t extent = Extent;
 };
 
-template <typename T, std::size_t Extent>
+template <typename T, size_t Extent>
 struct SpanTypeHelper<std::array<T, Extent>> {
   using element_type = T;
-  constexpr static std::ptrdiff_t extent = Extent;
+  constexpr static ptrdiff_t extent = Extent;
 };
 
-template <typename T, std::size_t Extent>
+template <typename T, size_t Extent>
 struct SpanTypeHelper<const std::array<T, Extent>> {
   using element_type = const T;
-  constexpr static std::ptrdiff_t extent = Extent;
+  constexpr static ptrdiff_t extent = Extent;
 };
 
 template <typename T>
 struct SpanTypeHelper<T, std::void_t<internal_span::ContainerElementType<T>>> {
   using element_type = internal_span::ContainerElementType<T>;
-  constexpr static std::ptrdiff_t extent = dynamic_extent;
+  constexpr static ptrdiff_t extent = dynamic_extent;
 };
 
 constexpr inline ptrdiff_t SubspanExtent(ptrdiff_t extent, ptrdiff_t offset,
@@ -134,7 +134,7 @@ constexpr inline ptrdiff_t SubspanExtent(ptrdiff_t extent, ptrdiff_t offset,
 /// \tparam Extent Static extent of the array, or `dynamic_extent` to indicate
 ///     that the extent is specified at run time.
 /// \ingroup utilities
-template <typename T, std::ptrdiff_t Extent>
+template <typename T, ptrdiff_t Extent>
 class span {
   static_assert(Extent == dynamic_extent || Extent >= 0,
                 "Extent must be non-negative or -1.");
@@ -147,10 +147,10 @@ class span {
   using value_type = std::remove_cv_t<T>;
 
   /// Type used for indexing.
-  using index_type = std::ptrdiff_t;
+  using index_type = ptrdiff_t;
 
   /// Type used for indexing.
-  using difference_type = std::ptrdiff_t;
+  using difference_type = ptrdiff_t;
 
   /// Pointer to an element.
   using pointer = T*;
@@ -177,7 +177,7 @@ class span {
   using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
   /// Static extent.
-  static constexpr std::ptrdiff_t extent = Extent;
+  static constexpr ptrdiff_t extent = Extent;
 
   /// Constructs an empty/invalid array.
   ///
@@ -210,7 +210,7 @@ class span {
   /// \dchecks `Extent == dynamic_extent || Extent == (end - begin)`
   /// \id begin, end
   template <
-      // Add an extra dummy template parameter to ensure this overload ranks
+      // Add a placeholder template parameter to ensure this overload ranks
       // lower than the (pointer, index_type) overload in the case of a call of
       // the form (pointer, 0).
       //
@@ -223,17 +223,17 @@ class span {
   /// Constructs from an array or `std::array`.
   ///
   /// \id array
-  template <std::size_t N, typename = std::enable_if_t<
-                               (Extent == dynamic_extent || Extent == N)>>
+  template <size_t N, typename = std::enable_if_t<(Extent == dynamic_extent ||
+                                                   Extent == N)>>
   constexpr span(T (&arr TENSORSTORE_LIFETIME_BOUND)[N]) noexcept
       : span(arr, N) {}
-  template <std::size_t N, typename = std::enable_if_t<
-                               (Extent == dynamic_extent || Extent == N)>>
+  template <size_t N, typename = std::enable_if_t<(Extent == dynamic_extent ||
+                                                   Extent == N)>>
   constexpr span(
       std::array<value_type, N>& arr TENSORSTORE_LIFETIME_BOUND) noexcept
       : span(arr.data(), N) {}
   template <
-      std::size_t N, typename U = T,
+      size_t N, typename U = T,
       typename = std::enable_if_t<std::is_const_v<U> &&
                                   (Extent == dynamic_extent || Extent == N)>>
   constexpr span(
@@ -256,7 +256,7 @@ class span {
   /// Converts from a compatible span type.
   ///
   /// \id convert
-  template <typename U, std::ptrdiff_t N,
+  template <typename U, ptrdiff_t N,
             typename = std::enable_if_t<
                 internal_span::IsSpanImplicitlyConvertible<U, N, T, Extent>>>
   constexpr span(const span<U, N>& other) noexcept
@@ -296,7 +296,7 @@ class span {
   ///
   /// \dchecks `size() >= Count`
   /// \id static
-  template <std::ptrdiff_t Count>
+  template <ptrdiff_t Count>
   constexpr span<element_type, Count> first() const {
     static_assert(Count >= 0 && (Extent == dynamic_extent || Extent >= Count),
                   "Invalid Count");
@@ -307,8 +307,7 @@ class span {
   ///
   /// \dchecks `size() >= count`
   /// \id dynamic
-  constexpr span<element_type, dynamic_extent> first(
-      std::ptrdiff_t count) const {
+  constexpr span<element_type, dynamic_extent> first(ptrdiff_t count) const {
     assert(count <= size());
     return {data(), count};
   }
@@ -317,7 +316,7 @@ class span {
   ///
   /// \dchecks `size() >= Count`
   /// \id static
-  template <std::ptrdiff_t Count>
+  template <ptrdiff_t Count>
   constexpr span<element_type, Count> last() const {
     static_assert(Count >= 0 && (Extent == dynamic_extent || Extent >= Count),
                   "Invalid Count");
@@ -328,8 +327,7 @@ class span {
   ///
   /// \dchecks `size() >= count`
   /// \id dynamic
-  constexpr span<element_type, dynamic_extent> last(
-      std::ptrdiff_t count) const {
+  constexpr span<element_type, dynamic_extent> last(ptrdiff_t count) const {
     assert(count <= size());
     return {end() - count, count};
   }
@@ -338,7 +336,7 @@ class span {
   /// `Count`.
   ///
   /// \id static
-  template <std::ptrdiff_t Offset, std::ptrdiff_t Count = dynamic_extent>
+  template <ptrdiff_t Offset, ptrdiff_t Count = dynamic_extent>
   constexpr span<element_type,
                  internal_span::SubspanExtent(Extent, Offset, Count)>
   subspan() const {
@@ -357,7 +355,7 @@ class span {
   ///
   /// \id dynamic
   constexpr span<element_type, dynamic_extent> subspan(
-      std::ptrdiff_t offset, std::ptrdiff_t count = dynamic_extent) const {
+      ptrdiff_t offset, ptrdiff_t count = dynamic_extent) const {
     assert(offset >= 0 && (count == dynamic_extent ||
                            (count >= 0 && offset + count <= size())));
     return {begin() + offset,
@@ -423,21 +421,21 @@ class span {
 };
 
 template <typename T>
-span(T* ptr, std::ptrdiff_t count) -> span<T>;
+span(T* ptr, ptrdiff_t count) -> span<T>;
 
 template <typename T>
 span(T* begin, T* end) -> span<T>;
 
-template <typename T, std::size_t N>
+template <typename T, size_t N>
 span(T (&arr)[N]) -> span<T, N>;
 
-template <typename T, std::size_t N>
+template <typename T, size_t N>
 span(const T (&arr)[N]) -> span<const T, N>;
 
-template <typename T, std::size_t N>
+template <typename T, size_t N>
 span(std::array<T, N>& arr) -> span<T, N>;
 
-template <typename T, std::size_t N>
+template <typename T, size_t N>
 span(const std::array<T, N>& arr) -> span<const T, N>;
 
 template <typename Container>
@@ -454,7 +452,7 @@ span(const Container& cont)
 /// and std::tuple_element defined below) makes fixed-size spans compatible with
 /// C++17 structured bindings.
 
-template <std::size_t I, typename T, std::ptrdiff_t Extent>
+template <size_t I, typename T, ptrdiff_t Extent>
 T& get(const ::tensorstore::span<T, Extent>& s) {
   static_assert(
       I >= 0 && (Extent == ::tensorstore::dynamic_extent || I < Extent),
@@ -479,7 +477,7 @@ using ConstSpanType =
          internal_span::SpanTypeHelper<std::remove_reference_t<X>>::extent>;
 
 /// RangesEqual returns whether the size and each value is equal
-template <typename T, std::ptrdiff_t X, typename U, std::ptrdiff_t Y>
+template <typename T, ptrdiff_t X, typename U, ptrdiff_t Y>
 constexpr bool RangesEqual(span<T, X> l, span<U, Y> r) {
   return l.size() == r.size() &&
          (l.data() == r.data() || std::equal(l.begin(), l.end(), r.begin()));
@@ -493,12 +491,12 @@ constexpr bool RangesEqual(span<T, X> l, span<U, Y> r) {
 /// The result is a valid `StaticOrDynamicRank` value.
 ///
 /// \relates span
-template <typename X, std::ptrdiff_t N>
-std::integral_constant<std::ptrdiff_t, N> GetStaticOrDynamicExtent(span<X, N>) {
+template <typename X, ptrdiff_t N>
+std::integral_constant<ptrdiff_t, N> GetStaticOrDynamicExtent(span<X, N>) {
   return {};
 }
 template <typename X>
-std::ptrdiff_t GetStaticOrDynamicExtent(span<X> s) {
+ptrdiff_t GetStaticOrDynamicExtent(span<X> s) {
   return s.size();
 }
 
@@ -506,32 +504,32 @@ std::ptrdiff_t GetStaticOrDynamicExtent(span<X> s) {
 
 namespace std {
 
-template <typename T, std::ptrdiff_t X>
+template <typename T, ptrdiff_t X>
 struct tuple_size<::tensorstore::span<T, X>>
-    : public std::integral_constant<std::size_t, X> {};
+    : public std::integral_constant<size_t, X> {};
 
 template <typename T>
 struct tuple_size<::tensorstore::span<T, ::tensorstore::dynamic_extent>>;
 
-template <std::size_t I, typename T, std::ptrdiff_t X>
+template <size_t I, typename T, ptrdiff_t X>
 struct tuple_element<I, ::tensorstore::span<T, X>> {
  public:
   using type = T;
 };
 
-template <std::size_t I, typename T, std::ptrdiff_t X>
+template <size_t I, typename T, ptrdiff_t X>
 struct tuple_element<I, const ::tensorstore::span<T, X>> {
  public:
   using type = T;
 };
 
-template <std::size_t I, typename T, std::ptrdiff_t X>
+template <size_t I, typename T, ptrdiff_t X>
 struct tuple_element<I, volatile ::tensorstore::span<T, X>> {
  public:
   using type = T;
 };
 
-template <std::size_t I, typename T, std::ptrdiff_t X>
+template <size_t I, typename T, ptrdiff_t X>
 struct tuple_element<I, const volatile ::tensorstore::span<T, X>> {
  public:
   using type = T;

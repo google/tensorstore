@@ -17,35 +17,6 @@
 
 /// \file
 /// Forward declaration of ::nlohmann::json type.
-
-#include <cstdint>
-#include <map>
-#include <string>
-#include <vector>
-
-namespace nlohmann {
-
-template <typename T, typename SFINAE>
-struct adl_serializer;
-
-template <template <typename U, typename V, typename... Args>
-          class ObjectType /* = std::map*/,
-          template <typename U, typename... Args>
-          class ArrayType /* = std::vector*/,
-          class StringType /*= std::string*/, class BooleanType /* = bool*/,
-          class NumberIntegerType /* = std::int64_t*/,
-          class NumberUnsignedType /* = std::uint64_t*/,
-          class NumberFloatType /* = double*/,
-          template <typename U> class AllocatorType /* = std::allocator*/,
-          template <typename T, typename SFINAE = void>
-          class JSONSerializer /* = adl_serializer*/,
-          class BinaryType /* = std::vector<std::uint8_t>*/>
-class basic_json;
-
-using json = basic_json<std::map, std::vector, std::string, bool, std::int64_t,
-                        std::uint64_t, double, std::allocator, adl_serializer,
-                        std::vector<std::uint8_t>>;
-
-}  // namespace nlohmann
+#include <nlohmann/json_fwd.hpp>  // IWYU pragma: export
 
 #endif  // TENSORSTORE_INTERNAL_JSON_FWD_H_

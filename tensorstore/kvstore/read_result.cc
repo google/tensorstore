@@ -15,7 +15,6 @@
 #include "tensorstore/kvstore/read_result.h"
 
 #include <ostream>
-#include <string>
 
 #include "absl/strings/cord.h"
 #include "tensorstore/util/quote_string.h"
@@ -39,19 +38,13 @@ std::ostream& operator<<(std::ostream& os, ReadResult::State state) {
 }
 
 std::ostream& operator<<(std::ostream& os, const ReadResult& x) {
-  std::string value;
-  switch (x.state) {
-    case ReadResult::kUnspecified:
-      value = "<unspecified>";
-      break;
-    case ReadResult::kMissing:
-      value = "<missing>";
-      break;
-    case ReadResult::kValue:
-      value = tensorstore::QuoteString(absl::Cord(x.value).Flatten());
-      break;
+  os << "{value=";
+  if (x.state == ReadResult::kValue) {
+    os << tensorstore::QuoteString(absl::Cord(x.value).Flatten());
+  } else {
+    os << x.state;
   }
-  return os << "{value=" << value << ", stamp=" << x.stamp << "}";
+  return os << ", stamp=" << x.stamp << "}";
 }
 }  // namespace kvstore
 }  // namespace tensorstore

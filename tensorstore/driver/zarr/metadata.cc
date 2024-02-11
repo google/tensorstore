@@ -14,29 +14,64 @@
 
 #include "tensorstore/driver/zarr/metadata.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
+#include <algorithm>
 #include <cassert>
+#include <cmath>
+#include <cstddef>
+#include <limits>
 #include <memory>
 #include <string>
+#include <string_view>
+#include <type_traits>
+#include <utility>
+#include <vector>
 
 #include "absl/base/optimization.h"
 #include "absl/container/inlined_vector.h"
+#include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/escaping.h"
+#include "absl/strings/match.h"
+#include "absl/strings/numbers.h"
 #include "riegeli/bytes/cord_reader.h"
 #include "riegeli/bytes/cord_writer.h"
 #include "riegeli/bytes/read_all.h"
 #include "riegeli/bytes/reader.h"
 #include "riegeli/bytes/write.h"
 #include "riegeli/bytes/writer.h"
-#include "tensorstore/driver/zarr/compressor.h"
+#include "tensorstore/array.h"
+#include "tensorstore/contiguous_layout.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/driver/zarr/dtype.h"
+#include "tensorstore/driver/zarr3/default_nan.h"
+#include "tensorstore/index.h"
 #include "tensorstore/internal/data_type_endian_conversion.h"
 #include "tensorstore/internal/flat_cord_builder.h"
+#include "tensorstore/internal/integer_overflow.h"
+#include "tensorstore/internal/json/json.h"
+#include "tensorstore/internal/json/value_as.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/dimension_indexed.h"
 #include "tensorstore/internal/json_binding/enum.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/std_optional.h"
 #include "tensorstore/internal/riegeli/array_endian_codec.h"
+#include "tensorstore/internal/type_traits.h"
+#include "tensorstore/json_serialization_options_base.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/serialization/json_bindable.h"
+#include "tensorstore/strided_layout.h"
+#include "tensorstore/util/byte_strided_pointer.h"
+#include "tensorstore/util/element_pointer.h"
+#include "tensorstore/util/endian.h"
+#include "tensorstore/util/extents.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -63,21 +98,29 @@ void to_json(::nlohmann::json& out, DimensionSeparator value) {
 
 namespace {
 
-Result<double> DecodeFloat(const nlohmann::json& j) {
-  double value;
-  if (j == "NaN") {
-    value = std::numeric_limits<double>::quiet_NaN();
-  } else if (j == "Infinity") {
-    value = std::numeric_limits<double>::infinity();
-  } else if (j == "-Infinity") {
-    value = -std::numeric_limits<double>::infinity();
+template <typename T>
+Result<T> DecodeFloat(const nlohmann::json& j) {
+  if (j.is_string()) {
+    const auto& j_str = j.get_ref<std::string const&>();
+    if (j_str == "NaN") {
+      return internal_zarr3::GetDefaultNaN<T>();
+    } else if (j_str == "Infinity") {
+      return std::numeric_limits<T>::infinity();
+    } else if (j_str == "-Infinity") {
+      return -std::numeric_limits<T>::infinity();
+    } else {
+      // SimpleAtod also parses nan, inf, which are excluded below.
+      double value = 0;
+      if (absl::SimpleAtod(j_str, &value) && !std::isnan(value) &&
+          !std::isinf(value)) {
+        return static_cast<T>(value);
+      }
+    }
   } else if (j.is_number()) {
-    value = j.get<double>();
-  } else {
-    return absl::InvalidArgumentError(
-        tensorstore::StrCat("Invalid floating-point value: ", j.dump()));
+    return static_cast<T>(j.get<double>());
   }
-  return value;
+  return absl::InvalidArgumentError(
+      tensorstore::StrCat("Invalid floating-point value: ", j.dump()));
 }
 
 ::nlohmann::json EncodeFloat(double value) {
@@ -85,6 +128,19 @@ Result<double> DecodeFloat(const nlohmann::json& j) {
   if (value == std::numeric_limits<double>::infinity()) return "Infinity";
   if (value == -std::numeric_limits<double>::infinity()) return "-Infinity";
   return value;
+}
+
+char GetTypeIndicator(const std::string& encoded_dtype) {
+  if (absl::StartsWith(encoded_dtype, "float8") ||
+      encoded_dtype == "bfloat16") {
+    return 'f';
+  } else if (encoded_dtype == "int4") {
+    return 'i';
+  } else if (encoded_dtype == "uint4") {
+    return 'u';
+  }
+
+  return encoded_dtype[1];
 }
 
 }  // namespace
@@ -97,21 +153,33 @@ Result<std::vector<SharedArray<const void>>> ParseFillValue(
   if (!dtype.has_fields) {
     assert(dtype.fields.size() == 1);
     auto& field = dtype.fields[0];
-    const char type_indicator = field.encoded_dtype[1];
+    char type_indicator = GetTypeIndicator(field.encoded_dtype);
     switch (type_indicator) {
       case 'f': {
-        TENSORSTORE_ASSIGN_OR_RETURN(double value, DecodeFloat(j));
-        fill_values[0] =
-            MakeCopy(MakeScalarArrayView(value), c_order, field.dtype).value();
+        switch (field.dtype.id()) {
+#define TENSORSTORE_INTERNAL_DO_HANDLE_FLOAT(T, ...)              \
+  case DataTypeId::T:                                             \
+    if (auto result = DecodeFloat<::tensorstore::dtypes::T>(j)) { \
+      fill_values[0] = MakeScalarArray(*result);                  \
+    } else {                                                      \
+      return result.status();                                     \
+    }                                                             \
+    break;                                                        \
+    /**/
+          TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(
+              TENSORSTORE_INTERNAL_DO_HANDLE_FLOAT)
+#undef TENSORSTORE_INTERNAL_DO_HANDLE_FLOAT
+          default:
+            ABSL_UNREACHABLE();
+        }
         return fill_values;
       }
       case 'i': {
-        std::int64_t value;
-        const std::size_t num_bits = 8 * field.dtype->size - 1;
-        const std::uint64_t max_value = static_cast<std::int64_t>(
-            (static_cast<std::uint64_t>(1) << num_bits) - 1);
-        const std::int64_t min_value = static_cast<std::int64_t>(-1)
-                                       << num_bits;
+        int64_t value;
+        const size_t num_bits = 8 * field.dtype->size - 1;
+        const uint64_t max_value =
+            static_cast<int64_t>((static_cast<uint64_t>(1) << num_bits) - 1);
+        const int64_t min_value = static_cast<int64_t>(-1) << num_bits;
         TENSORSTORE_RETURN_IF_ERROR(internal_json::JsonRequireInteger(
             j, &value, /*strict=*/true, min_value, max_value));
         fill_values[0] =
@@ -119,10 +187,10 @@ Result<std::vector<SharedArray<const void>>> ParseFillValue(
         return fill_values;
       }
       case 'u': {
-        std::uint64_t value;
-        const std::size_t num_bits = 8 * field.dtype->size;
-        const std::uint64_t max_value =
-            (static_cast<std::uint64_t>(2) << (num_bits - 1)) - 1;
+        uint64_t value;
+        const size_t num_bits = 8 * field.dtype->size;
+        const uint64_t max_value =
+            (static_cast<uint64_t>(2) << (num_bits - 1)) - 1;
         TENSORSTORE_RETURN_IF_ERROR(internal_json::JsonRequireInteger(
             j, &value, /*strict=*/true, 0, max_value));
         fill_values[0] =
@@ -137,24 +205,39 @@ Result<std::vector<SharedArray<const void>>> ParseFillValue(
         return fill_values;
       }
       case 'c': {
-        double values[2];
         if (!j.is_array()) {
           // Fallthrough to allow base64 encoding.
           break;
         }
-        TENSORSTORE_RETURN_IF_ERROR(internal_json::JsonParseArray(
-            j,
-            [](std::ptrdiff_t size) {
-              return internal_json::JsonValidateArrayLength(size, 2);
-            },
-            [&](const ::nlohmann::json& v, std::ptrdiff_t i) {
-              TENSORSTORE_ASSIGN_OR_RETURN(values[i], DecodeFloat(v));
-              return absl::OkStatus();
-            }));
-        fill_values[0] =
-            MakeCopy(MakeScalarArrayView(complex128_t(values[0], values[1])),
-                     c_order, field.dtype)
-                .value();
+        switch (field.dtype.id()) {
+#define TENSORSTORE_INTERNAL_DO_HANDLE_COMPLEX(T, ...)                        \
+  case DataTypeId::T: {                                                       \
+    using Float = ::tensorstore::dtypes::T::value_type;                       \
+    Float values[2];                                                          \
+    if (auto status = internal_json::JsonParseArray(                          \
+            j,                                                                \
+            [](ptrdiff_t size) {                                              \
+              return internal_json::JsonValidateArrayLength(size, 2);         \
+            },                                                                \
+            [&](const ::nlohmann::json& v, ptrdiff_t i) {                     \
+              TENSORSTORE_ASSIGN_OR_RETURN(values[i], DecodeFloat<Float>(v)); \
+              return absl::OkStatus();                                        \
+            });                                                               \
+        status.ok()) {                                                        \
+      fill_values[0] =                                                        \
+          MakeScalarArray(::tensorstore::dtypes::T(values[0], values[1]));    \
+    } else {                                                                  \
+      return status;                                                          \
+    }                                                                         \
+    break;                                                                    \
+  }                                                                           \
+    /**/
+          TENSORSTORE_FOR_EACH_COMPLEX_DATA_TYPE(
+              TENSORSTORE_INTERNAL_DO_HANDLE_COMPLEX)
+#undef TENSORSTORE_INTERNAL_DO_HANDLE_COMPLEX
+          default:
+            ABSL_UNREACHABLE();
+        }
         return fill_values;
       }
     }
@@ -192,7 +275,7 @@ Result<std::vector<SharedArray<const void>>> ParseFillValue(
     const auto& field = dtype.fields[0];
     const auto& fill_value = fill_values[0];
     if (!fill_value.valid()) return nullptr;
-    const char type_indicator = field.encoded_dtype[1];
+    char type_indicator = GetTypeIndicator(field.encoded_dtype);
     switch (type_indicator) {
       case 'f': {
         double value;
@@ -201,7 +284,7 @@ Result<std::vector<SharedArray<const void>>> ParseFillValue(
         return EncodeFloat(value);
       }
       case 'c': {
-        complex128_t value;
+        ::tensorstore::dtypes::complex128_t value;
         TENSORSTORE_CHECK_OK(
             CopyConvertedArray(fill_value, MakeScalarArrayView(value)));
         return ::nlohmann::json::array_t{EncodeFloat(value.real()),
@@ -254,7 +337,7 @@ Result<ZarrChunkLayout> ComputeChunkLayout(const ZarrDType& dtype,
         tensorstore::StrCat("Total number of bytes per chunk is too large"));
   }
 
-  for (std::size_t field_i = 0; field_i < dtype.fields.size(); ++field_i) {
+  for (size_t field_i = 0; field_i < dtype.fields.size(); ++field_i) {
     auto& field = dtype.fields[field_i];
     auto& field_layout = layout.fields[field_i];
     const DimensionIndex inner_rank = field.field_shape.size();
