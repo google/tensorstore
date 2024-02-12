@@ -1,3 +1,4 @@
+load("//bazel:cc_grpc_library.bzl", "cc_grpc_library")
 load(
     "//bazel:tensorstore.bzl",
     "tensorstore_cc_binary",
@@ -6,7 +7,6 @@ load(
     "tensorstore_cc_test",
     "tensorstore_proto_library",
 )
-load("//bazel:cc_grpc_library.bzl", "cc_grpc_library")
 
 package(default_visibility = ["//visibility:public"])
 

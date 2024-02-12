@@ -15,6 +15,8 @@
 /// \file
 /// Key-value store proxied over grpc.
 
+#include <stdint.h>
+
 #include <atomic>
 #include <memory>
 #include <optional>
@@ -33,16 +35,12 @@
 #include "grpcpp/support/sync_stream.h"  // third_party
 #include "grpcpp/support/time.h"  // third_party
 #include "tensorstore/context.h"
-#include "tensorstore/internal/cache_key/absl_time.h"  // IWYU pragma: keep
-#include "tensorstore/internal/cache_key/std_optional.h"  // IWYU pragma: keep
 #include "tensorstore/internal/concurrency_resource.h"
-#include "tensorstore/internal/concurrency_resource_provider.h"
 #include "tensorstore/internal/context_binding.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/grpc/client_credentials.h"
 #include "tensorstore/internal/grpc/utils.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/json_binding/absl_time.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/metrics/counter.h"
@@ -51,11 +49,11 @@
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/grpc/common.h"
 #include "tensorstore/kvstore/key_range.h"
+#include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/registry.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/proto/encode_time.h"
-#include "tensorstore/serialization/absl_time.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/executor.h"
@@ -63,6 +61,12 @@
 #include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
+
+// specializations
+#include "tensorstore/internal/cache_key/absl_time.h"  // IWYU pragma: keep
+#include "tensorstore/internal/cache_key/std_optional.h"  // IWYU pragma: keep
+#include "tensorstore/internal/json_binding/absl_time.h"  // IWYU pragma: keep
+#include "tensorstore/serialization/absl_time.h"  // IWYU pragma: keep
 
 // protos
 #include "tensorstore/kvstore/grpc/common.pb.h"
@@ -185,14 +189,6 @@ class GrpcKeyValueStore
 
 ////////////////////////////////////////////////////
 
-[[maybe_unused]] inline void MyCopyTo(const absl::Cord& src, std::string* dst) {
-  absl::CopyCordToString(src, dst);
-}
-
-[[maybe_unused]] inline void MyCopyTo(const absl::Cord& src, absl::Cord* dst) {
-  *dst = src;
-}
-
 /// Implements `GrpcKeyValueStore::Read`.
 struct ReadTask : public internal::AtomicReferenceCount<ReadTask> {
   internal::IntrusivePtr<GrpcKeyValueStore> driver;
@@ -258,7 +254,7 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask> {
       kvstore::Key key, const absl::Cord value,
       const kvstore::WriteOptions& options) {
     request.set_key(std::move(key));
-    MyCopyTo(value, request.mutable_value());
+    request.set_value(value);
     request.set_generation_if_equal(options.if_equal.value);
 
     context.set_deadline(absl::ToChronoTime(driver->GetTimeout()));

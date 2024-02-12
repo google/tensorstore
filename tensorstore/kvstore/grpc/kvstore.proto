@@ -94,7 +94,7 @@ message ReadResponse {
   }
   State state = 3;
 
-  bytes value = 4 ; // [ctype = CORD]
+  bytes value = 4 [ctype = CORD];
 }
 
 /// See tensorstore/kvstore/operations.h
@@ -112,7 +112,7 @@ message WriteRequest {
   ///   condition that the `key` does not have an existing value.
   bytes generation_if_equal = 2;
 
-  bytes value = 3 ; // [ctype = CORD]
+  bytes value = 3 [ctype = CORD];
 }
 
 message WriteResponse {

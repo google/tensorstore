@@ -89,12 +89,6 @@ auto& delete_metric = internal_metrics::Counter<int64_t>::New(
 auto& list_metric = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/grpc_server/list", "KvStoreService::List calls");
 
-[[maybe_unused]] inline void MyCopyTo(const absl::Cord& src, std::string* dst) {
-  absl::CopyCordToString(src, dst);
-}
-[[maybe_unused]] inline void MyCopyTo(const absl::Cord& src, absl::Cord* dst) {
-  *dst = src;
-}
 
 class ReadHandler final : public Handler<ReadRequest, ReadResponse> {
   using Base = Handler<ReadRequest, ReadResponse>;
@@ -150,7 +144,7 @@ class ReadHandler final : public Handler<ReadRequest, ReadResponse> {
       response()->set_state(static_cast<ReadResponse::State>(r.state));
       EncodeGenerationAndTimestamp(r.stamp, response());
       if (r.has_value()) {
-        MyCopyTo(r.value, response()->mutable_value());
+        response()->set_value(r.value);
       }
     }
     Finish(status);
