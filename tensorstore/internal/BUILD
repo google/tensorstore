@@ -1599,11 +1599,7 @@ tensorstore_cc_library(
         "retry.h",
     ],
     deps = [
-        "//tensorstore/util:status",
-        "//tensorstore/util:str_cat",
-        "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/random",
-        "@com_google_absl//absl/status",
         "@com_google_absl//absl/time",
     ],
 )
@@ -1614,7 +1610,6 @@ tensorstore_cc_test(
     srcs = ["retry_test.cc"],
     deps = [
         ":retry",
-        "//tensorstore/util:status",
         "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest_main",
     ],

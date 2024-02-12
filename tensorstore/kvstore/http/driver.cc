@@ -15,7 +15,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <functional>
+#include <algorithm>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -27,6 +27,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/match.h"
+#include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/context.h"
@@ -225,14 +226,7 @@ class HttpKeyValueStore
     return spec_.GetUrl(key);
   }
 
-  absl::Status RetryRequestWithBackoff(std::function<absl::Status()> function) {
-    return internal::RetryWithBackoff(
-        std::move(function), spec_.retries->max_retries,
-        spec_.retries->initial_delay, spec_.retries->max_delay,
-        spec_.retries->initial_delay, IsRetriable);
-  }
-
-  SpecData spec_;
+  HttpKeyValueStoreSpecData spec_;
 
   std::shared_ptr<HttpTransport> transport_;
 };
@@ -251,82 +245,77 @@ struct ReadTask {
   std::string url;
   kvstore::ReadOptions options;
 
-  Result<kvstore::ReadResult> operator()() {
-    absl::Time start_time;
-    HttpResponse httpresponse;
-    auto retry_status = owner->RetryRequestWithBackoff([&] {
-      HttpRequestBuilder request_builder(
-          options.byte_range.size() == 0 ? "HEAD" : "GET", url);
-      for (const auto& header : owner->spec_.headers) {
-        request_builder.AddHeader(header);
-      }
-      if (options.byte_range.size() != 0) {
-        request_builder.MaybeAddRangeHeader(options.byte_range);
-      }
+  HttpResponse httpresponse;
 
-      request_builder
-          .MaybeAddStalenessBoundCacheControlHeader(options.staleness_bound)
-          .EnableAcceptEncoding();
+  absl::Status DoRead() {
+    HttpRequestBuilder request_builder(
+        options.byte_range.size() == 0 ? "HEAD" : "GET", url);
+    for (const auto& header : owner->spec_.headers) {
+      request_builder.AddHeader(header);
+    }
+    if (options.byte_range.size() != 0) {
+      request_builder.MaybeAddRangeHeader(options.byte_range);
+    }
 
-      if (StorageGeneration::IsCleanValidValue(options.if_equal)) {
-        request_builder.AddHeader(tensorstore::StrCat(
-            "if-match: \"", StorageGeneration::DecodeString(options.if_equal),
-            "\""));
-      }
-      if (StorageGeneration::IsCleanValidValue(options.if_not_equal)) {
-        request_builder.AddHeader(tensorstore::StrCat(
-            "if-none-match: \"",
-            StorageGeneration::DecodeString(options.if_not_equal), "\""));
-      }
+    request_builder
+        .MaybeAddStalenessBoundCacheControlHeader(options.staleness_bound)
+        .EnableAcceptEncoding();
 
-      auto request = request_builder.BuildRequest();
+    if (StorageGeneration::IsCleanValidValue(options.if_equal)) {
+      request_builder.AddHeader(
+          absl::StrFormat("if-match: \"%s\"",
+                          StorageGeneration::DecodeString(options.if_equal)));
+    }
+    if (StorageGeneration::IsCleanValidValue(options.if_not_equal)) {
+      request_builder.AddHeader(absl::StrFormat(
+          "if-none-match: \"%s\"",
+          StorageGeneration::DecodeString(options.if_not_equal)));
+    }
 
-      start_time = absl::Now();
-      ABSL_LOG_IF(INFO, http_logging) << "[http] Read: " << request;
+    auto request = request_builder.BuildRequest();
 
-      auto response = owner->transport_->IssueRequest(request, {}).result();
-      if (!response.ok()) return response.status();
-      httpresponse = std::move(*response);
-      switch (httpresponse.status_code) {
-        // Special status codes handled outside the retry loop.
-        case 412:
-        case 404:
-        case 304:
-          return absl::OkStatus();
-      }
-      return HttpResponseCodeToStatus(httpresponse);
-    });
+    ABSL_LOG_IF(INFO, http_logging) << "[http] Read: " << request;
 
-    TENSORSTORE_RETURN_IF_ERROR(retry_status);
-
+    auto response = owner->transport_->IssueRequest(request, {}).result();
+    if (!response.ok()) return response.status();
+    httpresponse = std::move(*response);
     http_bytes_read.IncrementBy(httpresponse.payload.size());
     ABSL_LOG_IF(INFO, http_logging.Level(1))
         << "[http] Read response: " << httpresponse;
 
+    switch (httpresponse.status_code) {
+      // Special status codes handled outside the retry loop.
+      case 412:
+      case 404:
+      case 304:
+        return absl::OkStatus();
+    }
+    return HttpResponseCodeToStatus(httpresponse);
+  }
+
+  Result<kvstore::ReadResult> HandleResult(absl::Time start_time) {
     // Parse `Date` header from response to correctly handle cached responses.
-    {
-      absl::Time response_date;
-      auto date_it = httpresponse.headers.find("date");
-      if (date_it != httpresponse.headers.end()) {
-        if (!absl::ParseTime(internal_http::kHttpTimeFormat, date_it->second,
-                             &response_date, /*err=*/nullptr) ||
-            response_date == absl::InfiniteFuture() ||
-            response_date == absl::InfinitePast()) {
-          return absl::InvalidArgumentError(
-              tensorstore::StrCat("Invalid \"date\" response header: ",
-                                  tensorstore::QuoteString(date_it->second)));
-        }
-        if (response_date < start_time) {
-          if (options.staleness_bound < start_time &&
-              response_date < options.staleness_bound) {
-            // `response_date` does not satisfy the `staleness_bound`
-            // requirement, possibly due to time skew.  Due to the way we
-            // compute `max-age` in the request header, in the case of time skew
-            // it is correct to just use `staleness_bound` instead.
-            start_time = options.staleness_bound;
-          } else {
-            start_time = response_date;
-          }
+    absl::Time response_date;
+    if (auto date_it = httpresponse.headers.find("date");
+        date_it != httpresponse.headers.end()) {
+      if (!absl::ParseTime(internal_http::kHttpTimeFormat, date_it->second,
+                           &response_date, /*err=*/nullptr) ||
+          response_date == absl::InfiniteFuture() ||
+          response_date == absl::InfinitePast()) {
+        return absl::InvalidArgumentError(
+            tensorstore::StrCat("Invalid \"date\" response header: ",
+                                tensorstore::QuoteString(date_it->second)));
+      }
+      if (response_date < start_time) {
+        if (options.staleness_bound < start_time &&
+            response_date < options.staleness_bound) {
+          // `response_date` does not satisfy the `staleness_bound`
+          // requirement, possibly due to time skew.  Due to the way we
+          // compute `max-age` in the request header, in the case of time skew
+          // it is correct to just use `staleness_bound` instead.
+          start_time = options.staleness_bound;
+        } else {
+          start_time = response_date;
         }
       }
     }
@@ -394,6 +383,45 @@ struct ReadTask {
     return kvstore::ReadResult::Value(
         std::move(value),
         TimestampedStorageGeneration{std::move(generation), start_time});
+  }
+
+  Result<kvstore::ReadResult> operator()() {
+    absl::Time start_time;
+    absl::Status status;
+    const int max_retries = owner->spec_.retries->max_retries;
+    int attempt = 0;
+    for (; attempt < max_retries; attempt++) {
+      start_time = absl::Now();
+      status = DoRead();
+      if (status.ok() || !IsRetriable(status)) break;
+
+      auto delay = internal::BackoffForAttempt(
+          attempt, owner->spec_.retries->initial_delay,
+          owner->spec_.retries->max_delay,
+          std::min(absl::Seconds(1), owner->spec_.retries->initial_delay));
+
+      ABSL_LOG_IF(INFO, http_logging)
+          << "The operation failed and will be automatically retried in "
+          << delay << " seconds (attempt " << attempt + 1 << " out of "
+          << max_retries << "), caused by: " << status;
+
+      // NOTE: At some point migrate from a sleep-based retry to an operation
+      // queue.
+      absl::SleepFor(delay);
+    }
+    if (!status.ok()) {
+      // Return AbortedError, so that it doesn't get retried again somewhere
+      // at a higher level.
+      if (IsRetriable(status)) {
+        return MaybeAnnotateStatus(
+            std::move(status),
+            absl::StrFormat("All %d retry attempts failed", attempt),
+            absl::StatusCode::kAborted);
+      }
+      return status;
+    }
+
+    return HandleResult(start_time);
   }
 };
 

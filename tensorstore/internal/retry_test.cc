@@ -14,90 +14,38 @@
 
 #include "tensorstore/internal/retry.h"
 
-#include <deque>
-#include <functional>
-#include <string>
-#include <string_view>
-#include <utility>
-
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "absl/time/clock.h"
 #include "absl/time/time.h"
-#include "tensorstore/util/status.h"
 
 namespace {
 
-using ::tensorstore::internal::RetryWithBackoff;
+using ::tensorstore::internal::BackoffForAttempt;
 
-TEST(RetryTest, ImmediateSuccess) {
-  std::deque<absl::Status> results({absl::OkStatus()});
+TEST(RetryTest, BackoffForAttempt) {
+  // first attempt ==
+  EXPECT_EQ(absl::Microseconds(1),
+            BackoffForAttempt(0, absl::Microseconds(1), absl::Microseconds(100),
+                              /*jitter=*/absl::ZeroDuration()));
 
-  std::function<absl::Status()> f = [&results]() {
-    auto result = results[0];
-    results.erase(results.begin());
-    return result;
-  };
+  EXPECT_EQ(absl::Microseconds(2),
+            BackoffForAttempt(1, absl::Microseconds(1), absl::Microseconds(100),
+                              /*jitter=*/absl::ZeroDuration()));
 
-  auto status =
-      RetryWithBackoff(f, 1, absl::Microseconds(1), absl::Microseconds(1),
-                       /*jitter=*/absl::ZeroDuration());
-  EXPECT_TRUE(status.ok());
-  EXPECT_TRUE(results.empty());
-}
+  EXPECT_EQ(absl::Microseconds(4),
+            BackoffForAttempt(2, absl::Microseconds(1), absl::Microseconds(100),
+                              /*jitter=*/absl::ZeroDuration()));
 
-TEST(RetryTest, NeverSuccess) {
-  int calls = 0;
-  std::function<absl::Status()> f = [&calls]() {
-    calls++;
-    return absl::UnavailableError("Not available.");
-  };
+  // Some long attempt later.
+  EXPECT_EQ(
+      absl::Microseconds(100),
+      BackoffForAttempt(66, absl::Microseconds(1), absl::Microseconds(100),
+                        /*jitter=*/absl::ZeroDuration()));
 
-  auto status =
-      RetryWithBackoff(f, 100, absl::Microseconds(1), absl::Microseconds(1),
-                       /*jitter=*/absl::ZeroDuration());
-  EXPECT_FALSE(status.ok());
-  EXPECT_EQ(100, calls);
-}
-
-TEST(RetryTest, EventualSuccess_NoSleep) {
-  std::deque<absl::Status> results({absl::UnavailableError("Failed."),
-                                    absl::UnavailableError("Failed again."),
-                                    absl::OkStatus()});
-
-  std::function<absl::Status()> f = [&results]() {
-    auto result = std::move(results[0]);
-    results.erase(results.begin());
-    return result;
-  };
-
-  auto status =
-      RetryWithBackoff(f, 10, absl::Microseconds(1), absl::Microseconds(1),
-                       /*jitter=*/absl::ZeroDuration());
-  EXPECT_TRUE(status.ok());
-  EXPECT_TRUE(results.empty());
-}
-
-TEST(RetryTest, EventualSuccess_Sleep) {
-  std::deque<absl::Status> results({absl::UnavailableError("Failed."),
-                                    absl::UnavailableError("Failed again."),
-                                    absl::OkStatus()});
-
-  std::function<absl::Status()> f = [&results]() {
-    auto result = std::move(results[0]);
-    results.erase(results.begin());
-    return result;
-  };
-  auto before = absl::Now();
-  auto status =
-      RetryWithBackoff(f, 10, absl::Microseconds(10), absl::Microseconds(100),
-                       /*jitter=*/absl::Microseconds(1));
-  auto after = absl::Now();
-
-  EXPECT_TRUE(status.ok());
-  EXPECT_TRUE(results.empty());
-
-  // We should have waited several us...
-  EXPECT_LT(absl::Microseconds(10), after - before);
+  EXPECT_THAT(absl::ToInt64Microseconds(BackoffForAttempt(
+                  2, absl::Microseconds(1), absl::Microseconds(200),
+                  /*jitter=*/absl::Microseconds(100))),
+              ::testing::AllOf(::testing::Ge(2), testing::Lt(103)));
 }
 
 }  // namespace
