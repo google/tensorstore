@@ -15,20 +15,24 @@
 #ifndef TENSORSTORE_INTERNAL_GRPC_GRPC_MOCK_H_
 #define TENSORSTORE_INTERNAL_GRPC_GRPC_MOCK_H_
 
+#include <cassert>
 #include <memory>
 #include <string>
 
 #include <gmock/gmock.h>
 #include "absl/log/absl_check.h"
 #include "absl/strings/str_format.h"
+#include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "grpc/support/log.h"
 #include "grpcpp/completion_queue.h"  // third_party
 #include "grpcpp/create_channel.h"  // third_party
 #include "grpcpp/grpcpp.h"  // third_party
+#include "grpcpp/security/credentials.h"  // third_party
 #include "grpcpp/security/server_credentials.h"  // third_party
 #include "grpcpp/server.h"  // third_party
 #include "grpcpp/server_builder.h"  // third_party
+#include "grpcpp/server_context.h"  // third_party
 
 namespace tensorstore {
 namespace grpc_mocker {
@@ -71,7 +75,7 @@ class MockGrpcServer {
   using ServiceStub = typename ServiceType::Stub;
 
   // Initializes the gRPC server with local credentials.
-  MockGrpcServer() {
+  explicit MockGrpcServer() {
     BuildServer();
     ABSL_CHECK(server_);
     stub_ = NewStub();
@@ -115,10 +119,10 @@ class MockGrpcServer {
 
     ::grpc::ServerBuilder builder;
 
-    // Use a single server-side thread and completion queue.
-    builder.SetSyncServerOption(::grpc::ServerBuilder::NUM_CQS, 1)
+    builder.SetSyncServerOption(::grpc::ServerBuilder::NUM_CQS, 2)
         .SetSyncServerOption(::grpc::ServerBuilder::MIN_POLLERS, 1)
-        .SetSyncServerOption(::grpc::ServerBuilder::MAX_POLLERS, 1);
+        .SetSyncServerOption(::grpc::ServerBuilder::MAX_POLLERS, 2)
+        .SetSyncServerOption(::grpc::ServerBuilder::CQ_TIMEOUT_MSEC, 10000);
 
     builder.AddListeningPort(
         "localhost:0", grpc::experimental::LocalServerCredentials(LOCAL_TCP),
@@ -129,7 +133,7 @@ class MockGrpcServer {
 
   ServiceImpl service_;
 
-  // Local server addrress.
+  // Local server address.
   int port_ = 0;
   std::unique_ptr<::grpc::Server> server_;
   std::shared_ptr<ServiceStub> stub_;
