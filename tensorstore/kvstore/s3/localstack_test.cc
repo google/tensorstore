@@ -19,7 +19,6 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "absl/container/flat_hash_map.h"
 #include "absl/flags/flag.h"
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
@@ -69,6 +68,16 @@ ABSL_FLAG(std::string, binary_mode, "",
           "Selects options for starting --localstack_binary. Valid values are "
           "[moto]. Assumes localstack otherwise.");
 
+// AWS bucket, region, and path.
+ABSL_FLAG(std::string, aws_bucket, "testbucket",
+          "The S3 bucket used for the test.");
+
+ABSL_FLAG(std::string, aws_region, "af-south-1",
+          "The S3 region used for the test.");
+
+ABSL_FLAG(std::string, aws_path, "tensorstore/test/",
+          "The S3 path used for the test.");
+
 namespace kvstore = ::tensorstore::kvstore;
 
 using ::tensorstore::Context;
@@ -89,11 +98,14 @@ namespace {
 
 static constexpr char kAwsAccessKeyId[] = "LSIAQAAAAAAVNCBMPNSG";
 static constexpr char kAwsSecretKeyId[] = "localstackdontcare";
-static constexpr char kBucket[] = "testbucket";
-static constexpr char kAwsRegion[] = "af-south-1";
+
 /// sha256 hash of an empty string
 static constexpr char kEmptySha256[] =
     "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+
+std::string Bucket() { return absl::GetFlag(FLAGS_aws_bucket); }
+std::string Region() { return absl::GetFlag(FLAGS_aws_region); }
+std::string Path() { return absl::GetFlag(FLAGS_aws_path); }
 
 SubprocessOptions SetupLocalstackOptions(int http_port) {
   // See https://docs.localstack.cloud/references/configuration/
@@ -116,7 +128,8 @@ SubprocessOptions SetupMotoOptions(int http_port) {
                             {absl::StrFormat("-p%d", http_port)}};
   options.env.emplace(GetEnvironmentMap());
   auto &env = *options.env;
-  env["AWS_DEFAULT_REGION"] = kAwsRegion;
+  ABSL_CHECK(!Region().empty());
+  env["AWS_DEFAULT_REGION"] = Region();
   return options;
 }
 
@@ -202,17 +215,22 @@ class LocalStackFixture : public ::testing::Test {
       SetEnv("AWS_SECRET_KEY_ID", kAwsSecretKeyId);
     }
 
+    ABSL_CHECK(!Bucket().empty());
+
     if (absl::GetFlag(FLAGS_localstack_endpoint).empty()) {
       ABSL_CHECK(!absl::GetFlag(FLAGS_localstack_binary).empty());
-
       process.SpawnProcess();
-    } else {
-      // Don't connect to Amazon; the test uses fixed buckets, etc.
-      ABSL_CHECK(!absl::StrContains(absl::GetFlag(FLAGS_localstack_endpoint),
-                                    "amazonaws.com"));
     }
 
-    MaybeCreateBucket();
+    if (!absl::StrContains(absl::GetFlag(FLAGS_localstack_endpoint),
+                           "amazonaws.com")) {
+      // Only try to create the bucket when not connecting to aws.
+      ABSL_CHECK(!Region().empty());
+      MaybeCreateBucket();
+    } else {
+      ABSL_LOG(INFO) << "localstack_test connecting to Amazon using bucket:"
+                     << Bucket();
+    }
   }
 
   static void TearDownTestSuite() { process.StopProcess(); }
@@ -231,19 +249,20 @@ class LocalStackFixture : public ::testing::Test {
         R"(<CreateBucketConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/">)"
         R"(<LocationConstraint>%s</LocationConstraint>)"
         R"(</CreateBucketConfiguration>)",
-        kAwsRegion)};
+        Region())};
 
     // localstack or other test service should accept s3.<region>.amazonaws.com
     // as a signing string.
     std::string my_host_header = absl::GetFlag(FLAGS_host_header);
     if (my_host_header.empty()) {
-      my_host_header = absl::StrFormat("s3.%s.amazonaws.com", kAwsRegion);
+      my_host_header = absl::StrFormat("s3.%s.amazonaws.com", Region());
     }
 
-    auto request = S3RequestBuilder(
-                       "PUT", absl::StrFormat("%s/%s", endpoint_url(), kBucket))
-                       .BuildRequest(my_host_header, AwsCredentials{},
-                                     kAwsRegion, kEmptySha256, absl::Now());
+    auto request =
+        S3RequestBuilder("PUT",
+                         absl::StrFormat("%s/%s", endpoint_url(), Bucket()))
+            .BuildRequest(my_host_header, AwsCredentials{}, Region(),
+                          kEmptySha256, absl::Now());
 
     ::tensorstore::Future<HttpResponse> response;
     // Repeat  until available, up to `--localstack_timeout` seconds (about 15).
@@ -263,7 +282,7 @@ class LocalStackFixture : public ::testing::Test {
     if (!response.status().ok()) {
       ABSL_LOG(INFO) << "Create bucket error: " << response.status();
     } else {
-      ABSL_LOG(INFO) << "Create bucket response: " << kBucket << "  "
+      ABSL_LOG(INFO) << "Create bucket response: " << Bucket() << "  "
                      << response.value();
     }
   }
@@ -283,13 +302,15 @@ Context DefaultTestContext() {
 TEST_F(LocalStackFixture, Basic) {
   auto context = DefaultTestContext();
   ::nlohmann::json json_spec{
-      {"aws_region", kAwsRegion},     //
-      {"driver", "s3"},               //
-      {"bucket", kBucket},            //
-      {"endpoint", endpoint_url()},   //
-      {"path", "tensorstore/test/"},  //
+      {"driver", "s3"},              //
+      {"bucket", Bucket()},          //
+      {"endpoint", endpoint_url()},  //
+      {"path", Path()},              //
   };
 
+  if (!Region().empty()) {
+    json_spec["aws_region"] = Region();
+  }
   if (!absl::GetFlag(FLAGS_host_header).empty()) {
     json_spec["host_header"] = absl::GetFlag(FLAGS_host_header);
   }
