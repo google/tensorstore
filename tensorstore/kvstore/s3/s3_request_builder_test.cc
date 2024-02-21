@@ -38,40 +38,78 @@ static constexpr char aws_region[] = "us-east-1";
 static constexpr char bucket[] = "examplebucket";
 
 TEST(S3RequestBuilderTest, SignatureMethods) {
-  // Compare against aws cli debug output:
-  // `aws s3 cp file.txt s3://bucket/tensorstore/file.txt --debug`
+  // https://github.com/aws/aws-sdk-cpp/blob/7be84d4a8d211dde517b9d9d9a1eca629072cce2/src/aws-cpp-sdk-core/source/http/URI.cpp#L30
+  // The characters "$&,:=@" are legacy un-encoded characters and should be
+  // encoded.
+  // $ export AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
+  // $ export AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+  // $ aws s3 cp file.txt "s3://bucket/tensorstore/a-_.~$&,:=@z/b/file.txt"
+
+  // NOTE: To get aws cli debug output for botocore & auth requires
+  // intrusive changes to auth.py to enable DEBUG logging and avoid CRT auth, as
+  // well as passing the flag --debug.
+
+  /* CanonicalRequest:
+PUT
+/bucket/tensorstore/a-_.~%24%26%2C%3A%3D%40z/b/file.txt
+
+content-md5:1B2M2Y8AsgTpgAmY7PhCfg==
+content-type:text/plain
+host:localhost:6678
+x-amz-content-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+x-amz-date:20240221T030205Z
+
+content-md5;content-type;host;x-amz-content-sha256;x-amz-date
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+*/
+
+  /* StringToSign:
+  AWS4-HMAC-SHA256
+  20240221T030205Z
+  20240221/us-west-2/s3/aws4_request
+  e92fa24d7a44cb271a8ec0cbebcd09419ee64ab0c76c6f3563ab103298a44ac4
+  */
+
+  /* Signature:
+  965b152573a180873c98bb6678ab50047fc24a06039de0874583298c7202bf0e
+  */
+
   const auto now =
-      absl::FromCivil(absl::CivilSecond(2023, 9, 6, 0, 4, 03), utc);
+      absl::FromCivil(absl::CivilSecond(2024, 2, 21, 03, 02, 05), utc);
 
-  auto builder = S3RequestBuilder("PUT", "https://host/tensorstore/file.txt")
-                     .AddHeader("content-md5: yE+KBwooshwdhPbd7X6xAw==")
-                     .AddHeader("content-type: text/plain");
+  auto builder =
+      S3RequestBuilder(
+          "PUT", "https://host/bucket/tensorstore/a-_.~$&,:=@z/b/file.txt")
+          .AddHeader("content-md5: 1B2M2Y8AsgTpgAmY7PhCfg==")
+          .AddHeader("content-type: text/plain");
 
-  auto request =
-      builder.BuildRequest("bucket.s3.us-west-2.amazonaws.com", credentials,
-                           "us-west-2", "UNSIGNED-PAYLOAD", now);
+  // NOTE: In a proper vhost request, `bucket/` would be omitted from the path.
+  auto request = builder.BuildRequest(
+      "bucket.s3.us-west-2.amazonaws.com", credentials, "us-west-2",
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", now);
 
   auto expected_canonical_request =
       "PUT\n"
-      "/tensorstore/file.txt\n"
+      "/bucket/tensorstore/a-_.~%24%26%2C%3A%3D%40z/b/file.txt\n"
       "\n"
-      "content-md5:yE+KBwooshwdhPbd7X6xAw==\n"
+      "content-md5:1B2M2Y8AsgTpgAmY7PhCfg==\n"
       "content-type:text/plain\n"
       "host:bucket.s3.us-west-2.amazonaws.com\n"
-      "x-amz-content-sha256:UNSIGNED-PAYLOAD\n"
-      "x-amz-date:20230906T000403Z\n"
+      "x-amz-content-sha256:"
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\n"
+      "x-amz-date:20240221T030205Z\n"
       "\n"
       "content-md5;content-type;host;x-amz-content-sha256;x-amz-date\n"
-      "UNSIGNED-PAYLOAD";
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
   auto expected_signing_string =
       "AWS4-HMAC-SHA256\n"
-      "20230906T000403Z\n"
-      "20230906/us-west-2/s3/aws4_request\n"
-      "454820fd18cfe460ae1f9206145914190453096d0613eaa33205b4a36773e884";
+      "20240221T030205Z\n"
+      "20240221/us-west-2/s3/aws4_request\n"
+      "28c393b04c83956e1d4056351030e34bffa3dd877cf6cf2d0c83d2114bef7940";
 
   auto expected_signature =
-      "75a4f646dec96dd9ec3cf085ac00cb4ba9c9b2ae89e9bb9d86da0fa6bebfbf67";
+      "c3bf762eae82b8a87dc5f7af8c2ad8973d4a0132c49bd8c46d025d4a1aa175fb";
 
   EXPECT_EQ(builder.GetCanonicalRequest(), expected_canonical_request);
   EXPECT_EQ(builder.GetSigningString(), expected_signing_string);

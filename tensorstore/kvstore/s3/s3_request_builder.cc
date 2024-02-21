@@ -253,9 +253,9 @@ HttpRequest S3RequestBuilder::BuildRequest(std::string_view host_header,
   ABSL_LOG_IF(INFO, s3_logging.Level(1))  //
       << "Canonical Request\n"
       << canonical_request_  //
-      << "Signing String\n"
+      << "\n\nSigning String\n"
       << signing_string_  //
-      << "Authorization Header\n"
+      << "\n\nAuthorization Header\n"
       << auth_header;
 
   request.headers.emplace_back(std::move(auth_header));

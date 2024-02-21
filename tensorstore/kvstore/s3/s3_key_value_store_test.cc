@@ -158,12 +158,12 @@ TEST(S3KeyValueStoreTest, SimpleMock_VirtualHost) {
       {"HEAD https://my-bucket.s3.amazonaws.com",
        HttpResponse{200, absl::Cord(), {{"x-amz-bucket-region", "us-east-1"}}}},
 
-      {"GET https://my-bucket.s3.us-east-1.amazonaws.com/key_read",
+      {"GET https://my-bucket.s3.us-east-1.amazonaws.com/tmp:1/key_read",
        HttpResponse{200,
                     absl::Cord("abcd"),
                     {{"etag", "900150983cd24fb0d6963f7d28e17f72"}}}},
 
-      {"PUT https://my-bucket.s3.us-east-1.amazonaws.com/key_write",
+      {"PUT https://my-bucket.s3.us-east-1.amazonaws.com/tmp:1/key_write",
        HttpResponse{
            200, absl::Cord(), {{"etag", "900150983cd24fb0d6963f7d28e17f72"}}}},
 
@@ -178,7 +178,9 @@ TEST(S3KeyValueStoreTest, SimpleMock_VirtualHost) {
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
-      kvstore::Open({{"driver", "s3"}, {"bucket", "my-bucket"}}, context)
+      kvstore::Open(
+          {{"driver", "s3"}, {"bucket", "my-bucket"}, {"path", "tmp:1/"}},
+          context)
           .result());
 
   auto read_result = kvstore::Read(store, "key_read").result();

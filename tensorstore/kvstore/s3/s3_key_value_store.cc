@@ -428,7 +428,7 @@ class S3KeyValueStore
 struct ReadTask : public RateLimiterNode,
                   public internal::AtomicReferenceCount<ReadTask> {
   IntrusivePtr<S3KeyValueStore> owner;
-  std::string encoded_object_name;
+  std::string object_name;
   kvstore::ReadOptions options;
   Promise<kvstore::ReadResult> promise;
 
@@ -438,10 +438,10 @@ struct ReadTask : public RateLimiterNode,
   int attempt_ = 0;
   absl::Time start_time_;
 
-  ReadTask(IntrusivePtr<S3KeyValueStore> owner, std::string encoded_object_name,
+  ReadTask(IntrusivePtr<S3KeyValueStore> owner, std::string object_name,
            kvstore::ReadOptions options, Promise<kvstore::ReadResult> promise)
       : owner(std::move(owner)),
-        encoded_object_name(std::move(encoded_object_name)),
+        object_name(std::move(object_name)),
         options(std::move(options)),
         promise(std::move(promise)) {}
 
@@ -606,8 +606,8 @@ Future<kvstore::ReadResult> S3KeyValueStore::Read(Key key,
 
   auto op = PromiseFuturePair<ReadResult>::Make();
   auto state = internal::MakeIntrusivePtr<ReadTask>(
-      internal::IntrusivePtr<S3KeyValueStore>(this), S3UriObjectKeyEncode(key),
-      std::move(options), std::move(op.promise));
+      internal::IntrusivePtr<S3KeyValueStore>(this), key, std::move(options),
+      std::move(op.promise));
   MaybeResolveRegion().ExecuteWhenReady(
       [state =
            std::move(state)](ReadyFuture<const S3EndpointHostRegion> ready) {
@@ -616,7 +616,7 @@ Future<kvstore::ReadResult> S3KeyValueStore::Read(Key key,
           return;
         }
         state->read_url_ = tensorstore::StrCat(ready.value().endpoint, "/",
-                                               state->encoded_object_name);
+                                               state->object_name);
         state->endpoint_host_region_ = std::move(ready);
         intrusive_ptr_increment(state.get());  // adopted by ReadTask::Start.
         state->owner->read_rate_limiter().Admit(state.get(), &ReadTask::Start);
@@ -629,7 +629,7 @@ Future<kvstore::ReadResult> S3KeyValueStore::Read(Key key,
 struct WriteTask : public RateLimiterNode,
                    public internal::AtomicReferenceCount<WriteTask> {
   IntrusivePtr<S3KeyValueStore> owner;
-  std::string encoded_object_name;
+  std::string object_name;
   absl::Cord value;
   kvstore::WriteOptions options;
   Promise<TimestampedStorageGeneration> promise;
@@ -641,12 +641,11 @@ struct WriteTask : public RateLimiterNode,
   int attempt_ = 0;
   absl::Time start_time_;
 
-  WriteTask(IntrusivePtr<S3KeyValueStore> owner,
-            std::string encoded_object_name, absl::Cord value,
-            kvstore::WriteOptions options,
+  WriteTask(IntrusivePtr<S3KeyValueStore> owner, std::string object_name,
+            absl::Cord value, kvstore::WriteOptions options,
             Promise<TimestampedStorageGeneration> promise)
       : owner(std::move(owner)),
-        encoded_object_name(std::move(encoded_object_name)),
+        object_name(std::move(object_name)),
         value(std::move(value)),
         options(std::move(options)),
         promise(std::move(promise)) {}
@@ -818,7 +817,7 @@ struct WriteTask : public RateLimiterNode,
 struct DeleteTask : public RateLimiterNode,
                     public internal::AtomicReferenceCount<DeleteTask> {
   IntrusivePtr<S3KeyValueStore> owner;
-  std::string encoded_object_name;
+  std::string object_name;
   kvstore::WriteOptions options;
   Promise<TimestampedStorageGeneration> promise;
 
@@ -829,11 +828,11 @@ struct DeleteTask : public RateLimiterNode,
   absl::Time start_time_;
   AwsCredentials credentials_;
 
-  DeleteTask(IntrusivePtr<S3KeyValueStore> owner,
-             std::string encoded_object_name, kvstore::WriteOptions options,
+  DeleteTask(IntrusivePtr<S3KeyValueStore> owner, std::string object_name,
+             kvstore::WriteOptions options,
              Promise<TimestampedStorageGeneration> promise)
       : owner(std::move(owner)),
-        encoded_object_name(std::move(encoded_object_name)),
+        object_name(std::move(object_name)),
         options(std::move(options)),
         promise(std::move(promise)) {}
 
@@ -1009,8 +1008,8 @@ Future<TimestampedStorageGeneration> S3KeyValueStore::Write(
 
   if (value) {
     auto state = internal::MakeIntrusivePtr<WriteTask>(
-        IntrusivePtr<S3KeyValueStore>(this), S3UriObjectKeyEncode(key),
-        std::move(*value), std::move(options), std::move(op.promise));
+        IntrusivePtr<S3KeyValueStore>(this), key, std::move(*value),
+        std::move(options), std::move(op.promise));
     MaybeResolveRegion().ExecuteWhenReady(
         [state =
              std::move(state)](ReadyFuture<const S3EndpointHostRegion> ready) {
@@ -1019,7 +1018,7 @@ Future<TimestampedStorageGeneration> S3KeyValueStore::Write(
             return;
           }
           state->upload_url_ = tensorstore::StrCat(ready.value().endpoint, "/",
-                                                   state->encoded_object_name);
+                                                   state->object_name);
           state->endpoint_host_region_ = std::move(ready);
           intrusive_ptr_increment(state.get());  // adopted by WriteTask::Start.
           state->owner->write_rate_limiter().Admit(state.get(),
@@ -1027,8 +1026,8 @@ Future<TimestampedStorageGeneration> S3KeyValueStore::Write(
         });
   } else {
     auto state = internal::MakeIntrusivePtr<DeleteTask>(
-        IntrusivePtr<S3KeyValueStore>(this), S3UriObjectKeyEncode(key),
-        std::move(options), std::move(op.promise));
+        IntrusivePtr<S3KeyValueStore>(this), key, std::move(options),
+        std::move(op.promise));
 
     MaybeResolveRegion().ExecuteWhenReady(
         [state =
@@ -1038,7 +1037,7 @@ Future<TimestampedStorageGeneration> S3KeyValueStore::Write(
             return;
           }
           state->delete_url_ = tensorstore::StrCat(ready.value().endpoint, "/",
-                                                   state->encoded_object_name);
+                                                   state->object_name);
           state->endpoint_host_region_ = std::move(ready);
 
           intrusive_ptr_increment(
@@ -1321,10 +1320,10 @@ Future<const S3EndpointHostRegion> S3KeyValueStore::MaybeResolveRegion() {
   resolve_ehr_.ExecuteWhenReady(
       [](ReadyFuture<const S3EndpointHostRegion> ready) {
         if (!ready.status().ok()) {
-          ABSL_LOG_IF(INFO, (s3_logging || s3_logging.Level(1)))
+          ABSL_LOG_IF(INFO, s3_logging)
               << "S3 driver failed to resolve endpoint: " << ready.status();
         } else {
-          ABSL_LOG_IF(INFO, (s3_logging || s3_logging.Level(1)))
+          ABSL_LOG_IF(INFO, s3_logging)
               << "S3 driver using endpoint [" << ready.value() << "]";
         }
       });
@@ -1350,7 +1349,7 @@ Future<kvstore::DriverPtr> S3KeyValueStoreSpec::DoOpen() const {
     return std::move(*status);
   }
   if (auto* ehr = std::get_if<S3EndpointHostRegion>(&result); ehr != nullptr) {
-    ABSL_LOG_IF(INFO, (s3_logging || s3_logging.Level(1)))
+    ABSL_LOG_IF(INFO, s3_logging)
         << "S3 driver using endpoint [" << *ehr << "]";
     driver->resolve_ehr_ =
         MakeReadyFuture<S3EndpointHostRegion>(std::move(*ehr));
