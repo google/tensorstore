@@ -1619,11 +1619,14 @@ tensorstore_cc_library(
     name = "retries_context_resource",
     hdrs = ["retries_context_resource.h"],
     deps = [
+        ":retry",
         "//tensorstore:context",
         "//tensorstore/internal/cache_key",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:absl_time",
         "//tensorstore/internal/json_binding:bindable",
+        "//tensorstore/util:result",
+        "@com_google_absl//absl/time",
     ],
 )
 

@@ -53,7 +53,7 @@
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/histogram.h"
-#include "tensorstore/internal/retry.h"
+#include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/thread/schedule_at.h"
 #include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/byte_range.h"
@@ -78,6 +78,7 @@
 #include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 /// specializations
@@ -300,18 +301,23 @@ class GcsGrpcKeyValueStore
   // been met or exceeded.  On true, `task->Retry()` will be scheduled to run
   // after a suitable backoff period.
   template <typename Task>
-  bool BackoffForAttemptAsync(int attempt, Task* task) {
+  absl::Status BackoffForAttemptAsync(
+      absl::Status status, int attempt, Task* task,
+      SourceLocation loc = ::tensorstore::SourceLocation::current()) {
     assert(task != nullptr);
-    if (attempt >= spec_.retries->max_retries) return false;
-    // https://cloud.google.com/storage/docs/retry-strategy#exponential-backoff
+    auto delay = spec_.retries->BackoffForAttempt(attempt);
+    if (!delay) {
+      return MaybeAnnotateStatus(std::move(status),
+                                 absl::StrFormat("All %d retry attempts failed",
+                                                 spec_.retries->max_retries),
+                                 absl::StatusCode::kAborted, loc);
+    }
     gcs_grpc_retries.Increment();
-    auto delay = internal::BackoffForAttempt(
-        attempt, spec_.retries->initial_delay, spec_.retries->max_delay,
-        /*jitter=*/std::min(absl::Seconds(1), spec_.retries->initial_delay));
-    ScheduleAt(absl::Now() + delay,
+    ScheduleAt(absl::Now() + *delay,
                WithExecutor(executor(), [task = internal::IntrusivePtr<Task>(
                                              task)] { task->Retry(); }));
-    return true;
+
+    return absl::OkStatus();
   }
 
   SpecData spec_;
@@ -512,11 +518,11 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
       return;
     }
     if (!status.ok() && IsRetriable(status)) {
-      if (driver_->BackoffForAttemptAsync(attempt_++, this)) {
+      status =
+          driver_->BackoffForAttemptAsync(std::move(status), attempt_++, this);
+      if (status.ok()) {
         return;
       }
-      status = absl::AbortedError(
-          tensorstore::StrCat("All retry attempts failed: ", status));
     }
 
     auto latency = absl::Now() - storage_generation_.time;
@@ -724,11 +730,11 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
     }
 
     if (!status.ok() && IsRetriable(status)) {
-      if (driver_->BackoffForAttemptAsync(attempt_++, this)) {
+      status =
+          driver_->BackoffForAttemptAsync(std::move(status), attempt_++, this);
+      if (status.ok()) {
         return;
       }
-      status = absl::AbortedError(
-          tensorstore::StrCat("All retry attempts failed: ", status));
     }
 
     if (response_.has_resource()) {
@@ -832,11 +838,11 @@ struct DeleteTask : public internal::AtomicReferenceCount<DeleteTask> {
       return;
     }
     if (!status.ok() && IsRetriable(status)) {
-      if (driver_->BackoffForAttemptAsync(attempt_++, this)) {
+      status =
+          driver_->BackoffForAttemptAsync(std::move(status), attempt_++, this);
+      if (status.ok()) {
         return;
       }
-      status = absl::AbortedError(
-          tensorstore::StrCat("All retry attempts failed: ", status));
     }
 
     TimestampedStorageGeneration r;
@@ -953,11 +959,11 @@ struct ListTask : public internal::AtomicReferenceCount<ListTask> {
         << ConciseDebugString(response);
 
     if (!status.ok() && IsRetriable(status)) {
-      if (driver_->BackoffForAttemptAsync(attempt_++, this)) {
+      status =
+          driver_->BackoffForAttemptAsync(std::move(status), attempt_++, this);
+      if (status.ok()) {
         return;
       }
-      status = absl::AbortedError(
-          tensorstore::StrCat("All retry attempts failed: ", status));
     }
 
     if (!status.ok()) {

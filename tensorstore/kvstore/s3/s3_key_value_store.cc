@@ -15,7 +15,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <algorithm>
 #include <atomic>
 #include <cassert>
 #include <memory>
@@ -32,6 +31,7 @@
 #include "absl/strings/escaping.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
@@ -48,7 +48,6 @@
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/histogram.h"
-#include "tensorstore/internal/retry.h"
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/thread/schedule_at.h"
 #include "tensorstore/internal/uri_utils.h"
@@ -395,19 +394,16 @@ class S3KeyValueStore
   absl::Status BackoffForAttemptAsync(
       absl::Status status, int attempt, Task* task,
       SourceLocation loc = ::tensorstore::SourceLocation::current()) {
-    if (attempt >= spec_.retries->max_retries) {
-      return MaybeAnnotateStatus(
-          status,
-          tensorstore::StrCat("All ", attempt, " retry attempts failed"),
-          absl::StatusCode::kAborted, loc);
+    assert(task != nullptr);
+    auto delay = spec_.retries->BackoffForAttempt(attempt);
+    if (!delay) {
+      return MaybeAnnotateStatus(std::move(status),
+                                 absl::StrFormat("All %d retry attempts failed",
+                                                 spec_.retries->max_retries),
+                                 absl::StatusCode::kAborted, loc);
     }
-
-    // https://cloud.google.com/storage/docs/retry-strategy#exponential-backoff
     s3_retries.Increment();
-    auto delay = internal::BackoffForAttempt(
-        attempt, spec_.retries->initial_delay, spec_.retries->max_delay,
-        /*jitter=*/std::min(absl::Seconds(1), spec_.retries->initial_delay));
-    ScheduleAt(absl::Now() + delay,
+    ScheduleAt(absl::Now() + *delay,
                WithExecutor(executor(), [task = IntrusivePtr<Task>(task)] {
                  task->Retry();
                }));
@@ -521,7 +517,8 @@ struct ReadTask : public RateLimiterNode,
     }();
 
     if (!status.ok() && IsRetriable(status)) {
-      status = owner->BackoffForAttemptAsync(status, attempt_++, this);
+      status =
+          owner->BackoffForAttemptAsync(std::move(status), attempt_++, this);
       if (status.ok()) {
         return;
       }
@@ -778,7 +775,8 @@ struct WriteTask : public RateLimiterNode,
                               : HttpResponseCodeToStatus(response.value());
 
     if (!status.ok() && IsRetriable(status)) {
-      status = owner->BackoffForAttemptAsync(status, attempt_++, this);
+      status =
+          owner->BackoffForAttemptAsync(std::move(status), attempt_++, this);
       if (status.ok()) {
         return;
       }
@@ -965,7 +963,8 @@ struct DeleteTask : public RateLimiterNode,
     }();
 
     if (!status.ok() && IsRetriable(status)) {
-      status = owner->BackoffForAttemptAsync(status, attempt_++, this);
+      status =
+          owner->BackoffForAttemptAsync(std::move(status), attempt_++, this);
       if (status.ok()) {
         return;
       }
@@ -1167,7 +1166,8 @@ struct ListTask : public RateLimiterNode,
     absl::Status status =
         response.ok() ? HttpResponseCodeToStatus(*response) : response.status();
     if (!status.ok() && IsRetriable(status)) {
-      return owner_->BackoffForAttemptAsync(status, attempt_++, this);
+      return owner_->BackoffForAttemptAsync(std::move(status), attempt_++,
+                                            this);
     }
 
     TagAndPosition tag_and_pos;
