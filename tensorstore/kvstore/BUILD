@@ -271,7 +271,6 @@ tensorstore_cc_library(
         "//tensorstore:context",
         "//tensorstore:json_serialization_options",
         "//tensorstore:open_mode",
-        "//tensorstore:transaction",
         "//tensorstore/internal:json_fwd",
         "//tensorstore/internal:json_gtest",
         "//tensorstore/serialization:test_util",

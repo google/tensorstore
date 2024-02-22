@@ -55,7 +55,6 @@
 #include "tensorstore/kvstore/transaction.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/serialization/test_util.h"
-#include "tensorstore/transaction.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender_testutil.h"
@@ -595,6 +594,23 @@ void TestKeyValueReadWriteOps(
                                                     missing_key);
 
     kvstore::Delete(store, key).result().status().IgnoreError();
+  }
+
+  // Validate write/read of special characters.
+  {
+    ABSL_LOG(INFO) << kSep << "Test read/write of non-alphanumeric key.";
+
+    std::string special_key = get_key("subdir/a!b@c$d");
+    kvstore::Delete(store, special_key).result().status().IgnoreError();
+
+    auto write_result =
+        kvstore::Write(store, special_key, expected_value).result();
+    ASSERT_THAT(write_result, MatchesRegularTimestampedStorageGeneration());
+
+    auto read_result = kvstore::Read(store, special_key).result();
+    EXPECT_THAT(read_result, MatchesKvsReadResult(expected_value, testing::_));
+
+    kvstore::Delete(store, special_key).result().status().IgnoreError();
   }
 
   // Test write operations.
