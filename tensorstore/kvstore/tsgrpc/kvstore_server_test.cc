@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/kvstore/grpc/kvstore_server.h"
+#include "tensorstore/kvstore/tsgrpc/kvstore_server.h"
 
 #include <string>
 #include <type_traits>
@@ -67,7 +67,7 @@ class KvStoreTest : public testing::Test {
   tensorstore::KvStore OpenStore() {
     auto address = tensorstore::StrCat("localhost:", server_.port());
     return tensorstore::kvstore::Open(
-               {{"driver", "grpc_kvstore"}, {"address", address}}, ctx_)
+               {{"driver", "tsgrpc_kvstore"}, {"address", address}}, ctx_)
         .value();
   }
 

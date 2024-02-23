@@ -224,7 +224,7 @@ class GcsGrpcKeyValueStoreSpec
   }
 };
 
-/// Defines the "grpc_kvstore" KeyValueStore driver.
+/// Defines the "gcs_grpc" KeyValueStore driver.
 class GcsGrpcKeyValueStore
     : public internal_kvstore::RegisteredDriver<GcsGrpcKeyValueStore,
                                                 GcsGrpcKeyValueStoreSpec> {

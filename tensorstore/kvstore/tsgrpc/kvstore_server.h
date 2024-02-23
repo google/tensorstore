@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_KVSTORE_GRPC_KVSTORE_SERVER_H_
-#define TENSORSTORE_KVSTORE_GRPC_KVSTORE_SERVER_H_
+#ifndef TENSORSTORE_KVSTORE_TSGRPC_KVSTORE_SERVER_H_
+#define TENSORSTORE_KVSTORE_TSGRPC_KVSTORE_SERVER_H_
 
 #include <functional>
 #include <memory>
@@ -94,4 +94,4 @@ class KvStoreServer {
 }  // namespace grpc_kvstore
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_KVSTORE_GRPC_KVSTORE_SERVER_H_
+#endif  // TENSORSTORE_KVSTORE_TSGRPC_KVSTORE_SERVER_H_

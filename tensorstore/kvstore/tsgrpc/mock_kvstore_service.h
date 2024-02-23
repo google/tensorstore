@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_KVSTORE_GRPC_MOCK_SERVICE_H_
-#define TENSORSTORE_KVSTORE_GRPC_MOCK_SERVICE_H_
+#ifndef TENSORSTORE_KVSTORE_TSGRPC_MOCK_SERVICE_H_
+#define TENSORSTORE_KVSTORE_TSGRPC_MOCK_SERVICE_H_
 
 #include "grpcpp/support/status.h"  // third_party
 #include "tensorstore/internal/grpc/grpc_mock.h"
-#include "tensorstore/kvstore/grpc/kvstore.grpc.pb.h"
-#include "tensorstore/kvstore/grpc/kvstore.pb.h"
+#include "tensorstore/kvstore/tsgrpc/kvstore.grpc.pb.h"
+#include "tensorstore/kvstore/tsgrpc/kvstore.pb.h"
 
 namespace tensorstore_grpc {
 
@@ -47,4 +47,4 @@ class MockKvStoreService : public kvstore::grpc_gen::KvStoreService::Service {
 
 }  // namespace tensorstore_grpc
 
-#endif  // TENSORSTORE_KVSTORE_GRPC_MOCK_SERVICE_H_
+#endif  // TENSORSTORE_KVSTORE_TSGRPC_MOCK_SERVICE_H_

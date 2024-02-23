@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_KVSTORE_GRPC_HANDLER_TEMPLATE_H_
-#define TENSORSTORE_KVSTORE_GRPC_HANDLER_TEMPLATE_H_
+#ifndef TENSORSTORE_KVSTORE_TSGRPC_HANDLER_TEMPLATE_H_
+#define TENSORSTORE_KVSTORE_TSGRPC_HANDLER_TEMPLATE_H_
 
 #include <assert.h>
 
@@ -105,4 +105,5 @@ class StreamHandler : public HandlerBase,
 };
 
 }  // namespace tensorstore_grpc
-#endif
+
+#endif  // TENSORSTORE_KVSTORE_TSGRPC_HANDLER_TEMPLATE_H_

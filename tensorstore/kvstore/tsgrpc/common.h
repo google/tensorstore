@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_KVSTORE_GRPC_COMMON_H_
-#define TENSORSTORE_KVSTORE_GRPC_COMMON_H_
+#ifndef TENSORSTORE_KVSTORE_TSGRPC_COMMON_H_
+#define TENSORSTORE_KVSTORE_TSGRPC_COMMON_H_
 
 #include "absl/status/status.h"
 #include "absl/time/time.h"
 #include "tensorstore/kvstore/generation.h"
-#include "tensorstore/kvstore/grpc/common.pb.h"
+#include "tensorstore/kvstore/tsgrpc/common.pb.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore_grpc {
@@ -55,4 +55,4 @@ absl::Status GetMessageStatus(const T& t) {
 
 }  // namespace tensorstore_grpc
 
-#endif  // TENSORSTORE_KVSTORE_GRPC_COMMON_H_
+#endif  // TENSORSTORE_KVSTORE_TSGRPC_COMMON_H_

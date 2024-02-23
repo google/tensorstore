@@ -12,17 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/kvstore/grpc/kvstore_server.h"
+#include "tensorstore/kvstore/tsgrpc/kvstore_server.h"
 
 #include <stddef.h>
 
 #include <atomic>
+#include <cassert>
 #include <cstdint>
 #include <memory>
 #include <optional>
 #include <string>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 #include "absl/base/thread_annotations.h"
 #include "absl/status/status.h"
@@ -34,20 +36,23 @@
 #include "grpcpp/support/server_callback.h"  // third_party
 #include "grpcpp/support/status.h"  // third_party
 #include <nlohmann/json.hpp>
+#include "tensorstore/context.h"
 #include "tensorstore/internal/grpc/server_credentials.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/std_array.h"
 #include "tensorstore/internal/metrics/counter.h"
+#include "tensorstore/internal/path.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/generation.h"
-#include "tensorstore/kvstore/grpc/common.h"
-#include "tensorstore/kvstore/grpc/common.pb.h"
-#include "tensorstore/kvstore/grpc/handler_template.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
+#include "tensorstore/kvstore/tsgrpc/common.h"
+#include "tensorstore/kvstore/tsgrpc/common.pb.h"
+#include "tensorstore/kvstore/tsgrpc/handler_template.h"
 #include "tensorstore/proto/encode_time.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
@@ -55,8 +60,9 @@
 #include "tensorstore/util/result.h"
 
 // grpc/proto
-#include "tensorstore/kvstore/grpc/kvstore.grpc.pb.h"
-#include "tensorstore/kvstore/grpc/kvstore.pb.h"
+#include "tensorstore/kvstore/tsgrpc/kvstore.grpc.pb.h"
+#include "tensorstore/kvstore/tsgrpc/kvstore.pb.h"
+#include "tensorstore/util/span.h"
 
 using ::grpc::CallbackServerContext;
 using ::tensorstore_grpc::EncodeGenerationAndTimestamp;

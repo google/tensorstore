@@ -12,6 +12,14 @@ package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 
+filegroup(
+    name = "doc_sources",
+    srcs = glob([
+        "**/*.rst",
+        "**/*.yml",
+    ]),
+)
+
 tensorstore_proto_library(
     name = "common_proto",
     srcs = ["common.proto"],
@@ -70,8 +78,8 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
-    name = "grpc_kvstore",
-    srcs = ["grpc_kvstore.cc"],
+    name = "tsgrpc",
+    srcs = ["tsgrpc.cc"],
     deps = [
         ":common",
         ":common_cc_proto",
@@ -113,13 +121,13 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_test(
-    name = "grpc_kvstore_test",
-    srcs = ["grpc_kvstore_test.cc"],
+    name = "tsgrpc_test",
+    srcs = ["tsgrpc_test.cc"],
     deps = [
-        ":grpc_kvstore",  # build_cleaner: keep
         ":kvstore_cc_grpc",
         ":kvstore_cc_proto",
         ":mock_kvstore_service",
+        ":tsgrpc",
         "//tensorstore/internal/grpc:grpc_mock",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:byte_range",
@@ -132,7 +140,6 @@ tensorstore_cc_test(
         "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util/execution",
-        "//tensorstore/util/execution:any_sender",
         "//tensorstore/util/execution:sender_testutil",
         "@com_github_grpc_grpc//:grpc++_public_hdrs",
         "@com_google_absl//absl/strings:cord",
@@ -151,8 +158,10 @@ tensorstore_cc_library(
         ":common_cc_proto",
         ":kvstore_cc_grpc",
         ":kvstore_cc_proto",
+        "//tensorstore:context",
         "//tensorstore:json_serialization_options",
         "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/internal:path",
         "//tensorstore/internal/grpc:server_credentials",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
@@ -180,8 +189,8 @@ tensorstore_cc_test(
     name = "kvstore_server_test",
     srcs = ["kvstore_server_test.cc"],
     deps = [
-        ":grpc_kvstore",
         ":kvstore_server",
+        ":tsgrpc",
         "//tensorstore:context",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:key_range",
@@ -225,6 +234,7 @@ tensorstore_cc_binary(
     srcs = ["kvstore_server_main.cc"],
     deps = [
         ":kvstore_server",
+        "//tensorstore:context",
         "//tensorstore/internal/grpc:client_credentials",
         "//tensorstore/internal/grpc:server_credentials",
         "//tensorstore/kvstore:all_drivers",  # build_cleaner: keep

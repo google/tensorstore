@@ -30,7 +30,6 @@ tensorstore_cc_binary(
         "//tensorstore:spec",
         "//tensorstore/driver:driver_testutil",
         "//tensorstore/kvstore:all_drivers",
-        "//tensorstore/kvstore/grpc:grpc_kvstore",  # Experimental
         "//tensorstore/util:json_absl_flag",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
@@ -55,7 +54,6 @@ tensorstore_cc_binary(
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:all_drivers",
         "//tensorstore/kvstore:generation",
-        "//tensorstore/kvstore/grpc:grpc_kvstore",  # Experimental
         "//tensorstore/util:division",
         "//tensorstore/util:future",
         "//tensorstore/util:json_absl_flag",
@@ -86,7 +84,6 @@ tensorstore_cc_binary(
         "//tensorstore/internal/metrics",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:all_drivers",
-        "//tensorstore/kvstore/grpc:grpc_kvstore",  # Experimental
         "//tensorstore/util:future",
         "//tensorstore/util:json_absl_flag",
         "//tensorstore/util:result",

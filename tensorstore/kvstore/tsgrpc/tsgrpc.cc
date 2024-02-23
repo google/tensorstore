@@ -47,12 +47,12 @@
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
-#include "tensorstore/kvstore/grpc/common.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/registry.h"
 #include "tensorstore/kvstore/spec.h"
+#include "tensorstore/kvstore/tsgrpc/common.h"
 #include "tensorstore/proto/encode_time.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
@@ -69,9 +69,9 @@
 #include "tensorstore/serialization/absl_time.h"  // IWYU pragma: keep
 
 // protos
-#include "tensorstore/kvstore/grpc/common.pb.h"
-#include "tensorstore/kvstore/grpc/kvstore.grpc.pb.h"
-#include "tensorstore/kvstore/grpc/kvstore.pb.h"
+#include "tensorstore/kvstore/tsgrpc/common.pb.h"
+#include "tensorstore/kvstore/tsgrpc/kvstore.grpc.pb.h"
+#include "tensorstore/kvstore/tsgrpc/kvstore.pb.h"
 
 using ::tensorstore::GrpcClientCredentials;
 using ::tensorstore::internal::AbslTimeToProto;
@@ -93,28 +93,24 @@ namespace tensorstore {
 namespace {
 
 auto& grpc_read = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/grpc_kvstore/read",
-    "grpc driver kvstore::Read calls");
+    "/tensorstore/kvstore/tsgrpc/read", "grpc driver kvstore::Read calls");
 
 auto& grpc_write = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/grpc_kvstore/write",
-    "grpc driver kvstore::Write calls");
+    "/tensorstore/kvstore/tsgrpc/write", "grpc driver kvstore::Write calls");
 
 auto& grpc_delete = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/grpc_kvstore/delete",
-    "grpc driver kvstore::Write calls");
+    "/tensorstore/kvstore/tsgrpc/delete", "grpc driver kvstore::Write calls");
 
 auto& grpc_delete_range = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/grpc_kvstore/delete_range",
+    "/tensorstore/kvstore/tsgrpc/delete_range",
     "grpc driver kvstore::DeleteRange calls");
 
 auto& grpc_list = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/grpc_kvstore/list",
-    "grpc driver kvstore::List calls");
+    "/tensorstore/kvstore/tsgrpc/list", "grpc driver kvstore::List calls");
 
 namespace jb = tensorstore::internal_json_binding;
 
-struct GrpcKeyValueStoreSpecData {
+struct TsGrpcKeyValueStoreSpecData {
   std::string address;
   absl::Duration timeout;
   Context::Resource<GrpcClientCredentials> credentials;
@@ -126,31 +122,32 @@ struct GrpcKeyValueStoreSpecData {
 
   constexpr static auto default_json_binder = jb::Object(
       jb::Member(GrpcClientCredentials::id,
-                 jb::Projection<&GrpcKeyValueStoreSpecData::credentials>()),
+                 jb::Projection<&TsGrpcKeyValueStoreSpecData::credentials>()),
       jb::Member("address",
-                 jb::Projection<&GrpcKeyValueStoreSpecData::address>()),
+                 jb::Projection<&TsGrpcKeyValueStoreSpecData::address>()),
       jb::Member("timeout",
-                 jb::Projection<&GrpcKeyValueStoreSpecData::timeout>(
+                 jb::Projection<&TsGrpcKeyValueStoreSpecData::timeout>(
                      jb::DefaultValue<jb::kNeverIncludeDefaults>(
                          [](auto* x) { *x = absl::ZeroDuration(); }))),
-      jb::Member(DataCopyConcurrencyResource::id,
-                 jb::Projection<
-                     &GrpcKeyValueStoreSpecData::data_copy_concurrency>()) /**/
+      jb::Member(
+          DataCopyConcurrencyResource::id,
+          jb::Projection<
+              &TsGrpcKeyValueStoreSpecData::data_copy_concurrency>()) /**/
   );
 };
 
-class GrpcKeyValueStoreSpec
-    : public internal_kvstore::RegisteredDriverSpec<GrpcKeyValueStoreSpec,
-                                                    GrpcKeyValueStoreSpecData> {
+class TsGrpcKeyValueStoreSpec
+    : public internal_kvstore::RegisteredDriverSpec<
+          TsGrpcKeyValueStoreSpec, TsGrpcKeyValueStoreSpecData> {
  public:
-  static constexpr char id[] = "grpc_kvstore";
+  static constexpr char id[] = "tsgrpc_kvstore";
   Future<kvstore::DriverPtr> DoOpen() const override;
 };
 
-/// Defines the "grpc_kvstore" KeyValueStore driver.
-class GrpcKeyValueStore
-    : public internal_kvstore::RegisteredDriver<GrpcKeyValueStore,
-                                                GrpcKeyValueStoreSpec> {
+/// Defines the "tsgrpc_kvstore" KeyValueStore driver.
+class TsGrpcKeyValueStore
+    : public internal_kvstore::RegisteredDriver<TsGrpcKeyValueStore,
+                                                TsGrpcKeyValueStoreSpec> {
  public:
   absl::Time GetTimeout() {
     if (spec_.timeout == absl::ZeroDuration()) {
@@ -189,9 +186,9 @@ class GrpcKeyValueStore
 
 ////////////////////////////////////////////////////
 
-/// Implements `GrpcKeyValueStore::Read`.
+/// Implements `TsGrpcKeyValueStore::Read`.
 struct ReadTask : public internal::AtomicReferenceCount<ReadTask> {
-  internal::IntrusivePtr<GrpcKeyValueStore> driver;
+  internal::IntrusivePtr<TsGrpcKeyValueStore> driver;
   grpc::ClientContext context;
   ReadRequest request;
   ReadResponse response;
@@ -243,9 +240,9 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask> {
   }
 };
 
-/// Implements `GrpcKeyValueStore::Write`.
+/// Implements `TsGrpcKeyValueStore::Write`.
 struct WriteTask : public internal::AtomicReferenceCount<WriteTask> {
-  internal::IntrusivePtr<GrpcKeyValueStore> driver;
+  internal::IntrusivePtr<TsGrpcKeyValueStore> driver;
   grpc::ClientContext context;
   WriteRequest request;
   WriteResponse response;
@@ -282,9 +279,9 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask> {
   }
 };
 
-/// Implements `GrpcKeyValueStore::Delete`.
+/// Implements `TsGrpcKeyValueStore::Delete`.
 struct DeleteTask : public internal::AtomicReferenceCount<DeleteTask> {
-  internal::IntrusivePtr<GrpcKeyValueStore> driver;
+  internal::IntrusivePtr<TsGrpcKeyValueStore> driver;
   grpc::ClientContext context;
   DeleteRequest request;
   DeleteResponse response;
@@ -328,10 +325,10 @@ struct DeleteTask : public internal::AtomicReferenceCount<DeleteTask> {
   }
 };
 
-// Implements GrpcKeyValueStore::List
+// Implements TsGrpcKeyValueStore::List
 // NOTE: Convert to async().
 struct ListTask {
-  internal::IntrusivePtr<GrpcKeyValueStore> driver;
+  internal::IntrusivePtr<TsGrpcKeyValueStore> driver;
   grpc::ClientContext context;
   std::atomic<bool> cancelled = false;
   AnyFlowReceiver<absl::Status, kvstore::Key> receiver;
@@ -381,35 +378,35 @@ struct ListTask {
 };
 
 /// Key value store operations.
-Future<kvstore::ReadResult> GrpcKeyValueStore::Read(Key key,
-                                                    ReadOptions options) {
+Future<kvstore::ReadResult> TsGrpcKeyValueStore::Read(Key key,
+                                                      ReadOptions options) {
   grpc_read.Increment();
   auto task = internal::MakeIntrusivePtr<ReadTask>();
-  task->driver = internal::IntrusivePtr<GrpcKeyValueStore>(this);
+  task->driver = internal::IntrusivePtr<TsGrpcKeyValueStore>(this);
   return task->Start(std::move(key), options);
 }
 
-Future<TimestampedStorageGeneration> GrpcKeyValueStore::Write(
+Future<TimestampedStorageGeneration> TsGrpcKeyValueStore::Write(
     Key key, std::optional<Value> value, WriteOptions options) {
   if (value) {
     grpc_write.Increment();
     auto task = internal::MakeIntrusivePtr<WriteTask>();
-    task->driver = internal::IntrusivePtr<GrpcKeyValueStore>(this);
+    task->driver = internal::IntrusivePtr<TsGrpcKeyValueStore>(this);
     return task->Start(std::move(key), value.value(), options);
   } else {
     // empty value is delete.
     grpc_delete.Increment();
     auto task = internal::MakeIntrusivePtr<DeleteTask>();
-    task->driver = internal::IntrusivePtr<GrpcKeyValueStore>(this);
+    task->driver = internal::IntrusivePtr<TsGrpcKeyValueStore>(this);
     return task->Start(std::move(key), options);
   }
 }
 
-Future<const void> GrpcKeyValueStore::DeleteRange(KeyRange range) {
+Future<const void> TsGrpcKeyValueStore::DeleteRange(KeyRange range) {
   if (range.empty()) return absl::OkStatus();
   grpc_delete_range.Increment();
   auto task = internal::MakeIntrusivePtr<DeleteTask>();
-  task->driver = internal::IntrusivePtr<GrpcKeyValueStore>(this);
+  task->driver = internal::IntrusivePtr<TsGrpcKeyValueStore>(this);
 
   // Convert Future<TimestampedStorageGeneration> to Future<void>
   return MapFuture(
@@ -420,8 +417,8 @@ Future<const void> GrpcKeyValueStore::DeleteRange(KeyRange range) {
       task->StartRange(std::move(range)));
 }
 
-void GrpcKeyValueStore::ListImpl(ListOptions options,
-                                 AnyFlowReceiver<absl::Status, Key> receiver) {
+void TsGrpcKeyValueStore::ListImpl(
+    ListOptions options, AnyFlowReceiver<absl::Status, Key> receiver) {
   if (options.range.empty()) {
     execution::set_starting(receiver, [] {});
     execution::set_done(receiver);
@@ -430,7 +427,7 @@ void GrpcKeyValueStore::ListImpl(ListOptions options,
   }
   grpc_list.Increment();
   auto task = std::make_unique<ListTask>();
-  task->driver = internal::IntrusivePtr<GrpcKeyValueStore>(this);
+  task->driver = internal::IntrusivePtr<TsGrpcKeyValueStore>(this);
   task->receiver = std::move(receiver);
   task->request.mutable_range()->set_inclusive_min(options.range.inclusive_min);
   task->request.mutable_range()->set_exclusive_max(options.range.exclusive_max);
@@ -438,8 +435,8 @@ void GrpcKeyValueStore::ListImpl(ListOptions options,
   executor()([task = std::move(task)] { task->Run(); });
 }
 
-Future<kvstore::DriverPtr> GrpcKeyValueStoreSpec::DoOpen() const {
-  auto driver = internal::MakeIntrusivePtr<GrpcKeyValueStore>();
+Future<kvstore::DriverPtr> TsGrpcKeyValueStoreSpec::DoOpen() const {
+  auto driver = internal::MakeIntrusivePtr<TsGrpcKeyValueStore>();
   driver->spec_ = data_;
 
   // Create a communication channel with credentials, then use that
@@ -448,7 +445,7 @@ Future<kvstore::DriverPtr> GrpcKeyValueStoreSpec::DoOpen() const {
   // TODO: Determine a better mapping to a grpc credentials for this.
   // grpc::Credentials ties the authentication to the communication channel
   // See: <grpcpp/security/credentials.h>, https://grpc.io/docs/guides/auth/
-  ABSL_LOG(INFO) << "grpc_kvstore address=" << data_.address;
+  ABSL_LOG(INFO) << "tsgrpc_kvstore address=" << data_.address;
   driver->channel_ =
       grpc::CreateChannel(data_.address, data_.credentials->GetCredentials());
   driver->stub_ = KvStoreService::NewStub(driver->channel_);
@@ -459,11 +456,11 @@ Future<kvstore::DriverPtr> GrpcKeyValueStoreSpec::DoOpen() const {
 }  // namespace tensorstore
 
 TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(
-    tensorstore::GrpcKeyValueStore)
+    tensorstore::TsGrpcKeyValueStore)
 
 // Registers the driver.
 namespace {
 const tensorstore::internal_kvstore::DriverRegistration<
-    tensorstore::GrpcKeyValueStoreSpec>
+    tensorstore::TsGrpcKeyValueStoreSpec>
     registration;
 }

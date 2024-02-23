@@ -17,7 +17,7 @@ syntax = "proto3";
 package tensorstore_grpc.kvstore;
 
 import "google/protobuf/timestamp.proto";
-import "tensorstore/kvstore/grpc/common.proto";
+import "tensorstore/kvstore/tsgrpc/common.proto";
 
 // option cc_api_version = 2;
 

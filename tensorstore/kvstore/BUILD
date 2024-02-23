@@ -13,6 +13,7 @@ DRIVER_DOCS = [
     "neuroglancer_uint64_sharded",
     "ocdbt",
     "s3",
+    "tsgrpc",
     "zarr3_sharding_indexed",
     "zip",
 ]
@@ -374,7 +375,7 @@ tensorstore_cc_binary(
         "//tensorstore:context",
         "//tensorstore/internal/metrics:collect",
         "//tensorstore/internal/metrics:registry",
-        "//tensorstore/kvstore/grpc:grpc_kvstore",  # Experimental
+        "//tensorstore/kvstore/tsgrpc",  # Experimental
         "//tensorstore/util:json_absl_flag",
         "//tensorstore/util:status_testutil",
         "@com_google_absl//absl/flags:flag",

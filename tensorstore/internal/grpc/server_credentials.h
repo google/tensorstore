@@ -29,8 +29,9 @@ namespace tensorstore {
 /// Context resource for a `grpc::ServerCredentials`.
 ///
 /// This allows setting non-default credentials for use by grpc servers, such
-/// as the grpc_kvstore driver, however since credentials may contain sensitive
-/// information such as keys, this must be done outside of the context.
+/// as the gcs_grpc kvstore driver, however since credentials may contain
+/// sensitive information such as keys, this must be done outside of the
+/// context.
 ///
 /// For example:
 ///

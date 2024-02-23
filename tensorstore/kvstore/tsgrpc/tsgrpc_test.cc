@@ -12,11 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <functional>
-#include <memory>
 #include <optional>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
@@ -30,14 +27,13 @@
 #include "tensorstore/internal/grpc/grpc_mock.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/generation.h"
-#include "tensorstore/kvstore/grpc/mock_kvstore_service.h"
 #include "tensorstore/kvstore/key_range.h"
+#include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
-#include "tensorstore/kvstore/spec.h"
+#include "tensorstore/kvstore/tsgrpc/mock_kvstore_service.h"
 #include "tensorstore/proto/parse_text_proto_or_die.h"
 #include "tensorstore/proto/protobuf_matchers.h"
-#include "tensorstore/util/execution/any_sender.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender_testutil.h"
 #include "tensorstore/util/future.h"
@@ -45,8 +41,8 @@
 #include "tensorstore/util/status_testutil.h"
 
 // protos
-#include "tensorstore/kvstore/grpc/kvstore.grpc.pb.h"
-#include "tensorstore/kvstore/grpc/kvstore.pb.h"
+#include "tensorstore/kvstore/tsgrpc/kvstore.grpc.pb.h"
+#include "tensorstore/kvstore/tsgrpc/kvstore.pb.h"
 
 namespace {
 
@@ -72,10 +68,10 @@ using ::tensorstore_grpc::kvstore::ReadResponse;
 using ::tensorstore_grpc::kvstore::WriteRequest;
 using ::tensorstore_grpc::kvstore::WriteResponse;
 
-class KvStoreMockTest : public testing::Test {
+class TsGrpcMockTest : public testing::Test {
  public:
-  ~KvStoreMockTest() override { mock_service_.Shutdown(); }
-  KvStoreMockTest() {
+  ~TsGrpcMockTest() override { mock_service_.Shutdown(); }
+  TsGrpcMockTest() {
     /// Unmatched calls all return CANCELLED.
     ON_CALL(mock(), Read).WillByDefault(Return(grpc::Status::CANCELLED));
     ON_CALL(mock(), Write).WillByDefault(Return(grpc::Status::CANCELLED));
@@ -84,7 +80,7 @@ class KvStoreMockTest : public testing::Test {
   }
 
   tensorstore::KvStore OpenStore() {
-    return kvstore::Open({{"driver", "grpc_kvstore"},
+    return kvstore::Open({{"driver", "tsgrpc_kvstore"},
                           {"address", mock_service_.server_address()},
                           {"timeout", "500ms"}})
         .value();
@@ -95,7 +91,7 @@ class KvStoreMockTest : public testing::Test {
   tensorstore::grpc_mocker::MockGrpcServer<MockKvStoreService> mock_service_;
 };
 
-TEST_F(KvStoreMockTest, Read) {
+TEST_F(TsGrpcMockTest, Read) {
   ReadRequest expected_request = ParseTextProtoOrDie(R"pb(
     key: 'abc'
   )pb");
@@ -127,7 +123,7 @@ TEST_F(KvStoreMockTest, Read) {
   EXPECT_EQ(result.stamp.generation, StorageGeneration::FromString("1"));
 }
 
-TEST_F(KvStoreMockTest, ReadWithOptions) {
+TEST_F(TsGrpcMockTest, ReadWithOptions) {
   ReadRequest expected_request = ParseTextProtoOrDie(R"pb(
     key: "abc"
     generation_if_not_equal: "abc\001"
@@ -153,7 +149,7 @@ TEST_F(KvStoreMockTest, ReadWithOptions) {
   EXPECT_EQ(result.stamp.generation, StorageGeneration::Unknown());
 }
 
-TEST_F(KvStoreMockTest, Write) {
+TEST_F(TsGrpcMockTest, Write) {
   WriteRequest expected_request = ParseTextProtoOrDie(R"pb(
     key: 'abc'
     value: '1234'
@@ -180,7 +176,7 @@ TEST_F(KvStoreMockTest, Write) {
   EXPECT_EQ(result.generation, StorageGeneration::FromString("1"));
 }
 
-TEST_F(KvStoreMockTest, WriteEmpty) {
+TEST_F(TsGrpcMockTest, WriteEmpty) {
   WriteRequest expected_request = ParseTextProtoOrDie(R"pb(
     key: 'abc'
     generation_if_equal: '\005'
@@ -207,7 +203,7 @@ TEST_F(KvStoreMockTest, WriteEmpty) {
   EXPECT_EQ(result.generation, StorageGeneration::FromString("1"));
 }
 
-TEST_F(KvStoreMockTest, WriteWithOptions) {
+TEST_F(TsGrpcMockTest, WriteWithOptions) {
   WriteRequest expected_request = ParseTextProtoOrDie(R"pb(
     key: 'abc'
     value: '1234'
@@ -236,7 +232,7 @@ TEST_F(KvStoreMockTest, WriteWithOptions) {
   EXPECT_EQ(result.generation, StorageGeneration::FromString("1"));
 }
 
-TEST_F(KvStoreMockTest, WriteNullopt) {
+TEST_F(TsGrpcMockTest, WriteNullopt) {
   DeleteRequest expected_request = ParseTextProtoOrDie(R"pb(
     key: 'abc'
     generation_if_equal: '\005'
@@ -263,7 +259,7 @@ TEST_F(KvStoreMockTest, WriteNullopt) {
   EXPECT_EQ(result.generation, StorageGeneration::FromString("1"));
 }
 
-TEST_F(KvStoreMockTest, Delete) {
+TEST_F(TsGrpcMockTest, Delete) {
   DeleteRequest expected_request = ParseTextProtoOrDie(R"pb(
     key: 'abc'
   )pb");
@@ -287,7 +283,7 @@ TEST_F(KvStoreMockTest, Delete) {
   EXPECT_EQ(result.generation, StorageGeneration::FromString("1"));
 }
 
-TEST_F(KvStoreMockTest, DeleteWithOptions) {
+TEST_F(TsGrpcMockTest, DeleteWithOptions) {
   DeleteRequest expected_request = ParseTextProtoOrDie(R"pb(
     key: 'abc'
     generation_if_equal: "abc\001"
@@ -314,7 +310,7 @@ TEST_F(KvStoreMockTest, DeleteWithOptions) {
   EXPECT_EQ(result.generation, StorageGeneration::FromString("1"));
 }
 
-TEST_F(KvStoreMockTest, DeleteRange) {
+TEST_F(TsGrpcMockTest, DeleteRange) {
   DeleteRequest expected_request = ParseTextProtoOrDie(R"pb(
     range { inclusive_min: 'a/c' exclusive_max: 'a/d' }
   )pb");
@@ -331,7 +327,7 @@ TEST_F(KvStoreMockTest, DeleteRange) {
 
 // List is special; it doesn't use the async() callback interface because
 // it needs to run in a thread for each of the tensorstore::execution calls.
-TEST_F(KvStoreMockTest, List) {
+TEST_F(TsGrpcMockTest, List) {
   ListRequest expected_request = ParseTextProtoOrDie(R"pb(
     range: {}
   )pb");

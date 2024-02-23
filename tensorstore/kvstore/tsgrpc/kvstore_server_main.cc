@@ -17,10 +17,11 @@
 #include "absl/strings/string_view.h"
 #include "grpcpp/security/credentials.h"  // third_party
 #include "grpcpp/security/server_credentials.h"  // third_party
+#include "tensorstore/context.h"
 #include "absl/flags/parse.h"
 #include "tensorstore/internal/grpc/client_credentials.h"
 #include "tensorstore/internal/grpc/server_credentials.h"
-#include "tensorstore/kvstore/grpc/kvstore_server.h"
+#include "tensorstore/kvstore/tsgrpc/kvstore_server.h"
 #include "tensorstore/util/json_absl_flag.h"
 #include "tensorstore/util/result.h"
 
@@ -30,7 +31,7 @@
 
 bazel run //tensorstore/kvstore/grpc:kvstore_server_main &
 bazel run //tensorstore/kvstore:live_kvstore_test \
- -- --kvstore_spec='{ "driver": "grpc_kvstore", "address": "localhost:9833" }'
+ -- --kvstore_spec='{ "driver": "tsgrpc_kvstore", "address": "localhost:9833" }'
 
 */
 using ::tensorstore::grpc_kvstore::KvStoreServer;

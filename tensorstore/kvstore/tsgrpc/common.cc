@@ -12,13 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/kvstore/grpc/common.h"
-
-#include <string>
+#include "tensorstore/kvstore/tsgrpc/common.h"
 
 #include "absl/status/status.h"
 #include "tensorstore/kvstore/generation.h"
-#include "tensorstore/kvstore/grpc/common.pb.h"
+#include "tensorstore/kvstore/tsgrpc/common.pb.h"
 #include "tensorstore/proto/encode_time.h"
 #include "tensorstore/util/result.h"
 
