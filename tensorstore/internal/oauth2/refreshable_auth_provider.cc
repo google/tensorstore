@@ -14,10 +14,14 @@
 
 #include "tensorstore/internal/oauth2/refreshable_auth_provider.h"
 
+#include <functional>
+#include <utility>
+
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
+#include "absl/time/time.h"
+#include "tensorstore/internal/oauth2/auth_provider.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal_oauth2 {
@@ -29,11 +33,15 @@ RefreshableAuthProvider::RefreshableAuthProvider(
 Result<AuthProvider::BearerTokenWithExpiration>
 RefreshableAuthProvider::GetToken() {
   absl::MutexLock lock(&mutex_);
-  if (!IsValidInternal()) {
-    auto status = Refresh();
-    TENSORSTORE_RETURN_IF_ERROR(status);
+  if (IsValidInternal()) {
+    return token_;
   }
-  return BearerTokenWithExpiration{access_token_, expiration_};
+
+  auto token_result = Refresh();
+  if (token_result.ok()) {
+    token_ = token_result.value();
+  }
+  return token_result;
 }
 
 }  // namespace internal_oauth2

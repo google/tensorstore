@@ -14,19 +14,28 @@
 
 #include "tensorstore/internal/oauth2/gce_auth_provider.h"
 
+#include <functional>
+#include <memory>
 #include <optional>
 #include <set>
+#include <string>
 #include <string_view>
 #include <utility>
 
 #include "absl/status/status.h"
+#include "absl/time/time.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
+#include "tensorstore/internal/http/http_transport.h"
+#include "tensorstore/internal/json/json.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/std_array.h"
+#include "tensorstore/internal/oauth2/auth_provider.h"
 #include "tensorstore/internal/oauth2/oauth_utils.h"
+#include "tensorstore/internal/oauth2/refreshable_auth_provider.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
@@ -40,6 +49,8 @@ namespace jb = tensorstore::internal_json_binding;
 
 using ::tensorstore::internal_http::HttpRequestBuilder;
 using ::tensorstore::internal_http::HttpResponse;
+using BearerTokenWithExpiration =
+    ::tensorstore::internal_oauth2::AuthProvider::BearerTokenWithExpiration;
 
 // Using GCE-based credentials
 // 1. Run the process on GCE.
@@ -120,8 +131,8 @@ GceAuthProvider::GetDefaultServiceAccountInfoIfRunningOnGce(
                                           ServiceAccountInfoBinder);
 }
 
-absl::Status GceAuthProvider::Refresh() {
-  const auto now = clock_();
+Result<BearerTokenWithExpiration> GceAuthProvider::Refresh() {
+  const auto now = GetCurrentTime();
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto response,
       IssueRequest(
@@ -131,9 +142,8 @@ absl::Status GceAuthProvider::Refresh() {
   TENSORSTORE_RETURN_IF_ERROR(HttpResponseCodeToStatus(response));
   TENSORSTORE_ASSIGN_OR_RETURN(auto result, internal_oauth2::ParseOAuthResponse(
                                                 response.payload.Flatten()));
-  expiration_ = now + absl::Seconds(result.expires_in);
-  access_token_ = std::move(result.access_token);
-  return absl::OkStatus();
+  return BearerTokenWithExpiration{std::move(result.access_token),
+                                   now + absl::Seconds(result.expires_in)};
 }
 
 }  // namespace internal_oauth2

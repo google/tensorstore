@@ -18,7 +18,6 @@
 #include <functional>
 
 #include "absl/base/thread_annotations.h"
-#include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/oauth2/auth_provider.h"
@@ -35,7 +34,8 @@ class RefreshableAuthProvider : public AuthProvider {
   /// Returns the short-term authentication bearer token.
   ///
   /// Safe for concurrent use by multiple threads.
-  Result<BearerTokenWithExpiration> GetToken() override;
+  Result<BearerTokenWithExpiration> GetToken()
+      ABSL_LOCKS_EXCLUDED(mutex_) override;
 
   /// Checks if the token is valid.
   bool IsValid() ABSL_LOCKS_EXCLUDED(mutex_) {
@@ -50,21 +50,27 @@ class RefreshableAuthProvider : public AuthProvider {
   }
 
  protected:
-  virtual absl::Status Refresh() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) = 0;
+  // Generate a new BearerTokenWithExpiration.
+  // Guaranteed to be called under lock.
+  virtual Result<BearerTokenWithExpiration> Refresh()
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) = 0;
 
   bool IsExpiredInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
-    return clock_() > (expiration_ - kExpirationMargin);
+    return clock_() > (token_.expiration - kExpirationMargin);
   }
 
   bool IsValidInternal() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
-    return !access_token_.empty() && !IsExpiredInternal();
+    return !token_.token.empty() && !IsExpiredInternal();
   }
 
- protected:
-  absl::Mutex mutex_;
-  std::string access_token_ ABSL_GUARDED_BY(mutex_);
-  absl::Time expiration_ ABSL_GUARDED_BY(mutex_) = absl::InfinitePast();
+  absl::Time GetCurrentTime() { return clock_(); }
+
+ private:
   std::function<absl::Time()> clock_;  // mock time.
+
+  absl::Mutex mutex_;
+  BearerTokenWithExpiration token_ ABSL_GUARDED_BY(mutex_) = {
+      {}, absl::InfinitePast()};
 };
 
 }  // namespace internal_oauth2

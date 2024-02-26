@@ -14,15 +14,20 @@
 
 #include "tensorstore/internal/oauth2/oauth2_auth_provider.h"
 
-#include <cstdint>
+#include <functional>
 #include <memory>
+#include <string>
+#include <string_view>
 #include <utility>
 
-#include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
-#include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/internal/http/http_transport.h"
+#include "tensorstore/internal/oauth2/auth_provider.h"
+#include "tensorstore/internal/oauth2/oauth_utils.h"
+#include "tensorstore/internal/oauth2/refreshable_auth_provider.h"
 #include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
@@ -35,6 +40,8 @@ namespace {
 using ::tensorstore::Result;
 using ::tensorstore::internal_http::HttpRequestBuilder;
 using ::tensorstore::internal_http::HttpResponse;
+using BearerTokenWithExpiration =
+    ::tensorstore::internal_oauth2::AuthProvider::BearerTokenWithExpiration;
 
 // Construct the refresh token payload once when the OAuth2AuthProvider
 // is created & cache the value.
@@ -68,17 +75,16 @@ Result<HttpResponse> OAuth2AuthProvider::IssueRequest(std::string_view method,
       .result();
 }
 
-absl::Status OAuth2AuthProvider::Refresh() {
-  const auto now = clock_();
+Result<BearerTokenWithExpiration> OAuth2AuthProvider::Refresh() {
+  const auto now = GetCurrentTime();
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto response, IssueRequest("POST", uri_, absl::Cord(refresh_payload_)));
   TENSORSTORE_RETURN_IF_ERROR(HttpResponseCodeToStatus(response));
 
   TENSORSTORE_ASSIGN_OR_RETURN(auto result, internal_oauth2::ParseOAuthResponse(
                                                 response.payload.Flatten()));
-  expiration_ = now + absl::Seconds(result.expires_in);
-  access_token_ = std::move(result.access_token);
-  return absl::OkStatus();
+  return BearerTokenWithExpiration{std::move(result.access_token),
+                                   now + absl::Seconds(result.expires_in)};
 }
 
 }  // namespace internal_oauth2

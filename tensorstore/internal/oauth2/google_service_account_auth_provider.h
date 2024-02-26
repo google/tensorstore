@@ -16,11 +16,11 @@
 #define TENSORSTORE_INTERNAL_OAUTH2_GOOGLE_SERVICE_ACCOUNT_AUTH_PROVIDER_H_
 
 #include <functional>
+#include <memory>
 #include <string>
 #include <string_view>
 
-#include "absl/base/thread_annotations.h"
-#include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
@@ -28,7 +28,6 @@
 #include "tensorstore/internal/oauth2/oauth_utils.h"
 #include "tensorstore/internal/oauth2/refreshable_auth_provider.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal_oauth2 {
@@ -52,7 +51,7 @@ class GoogleServiceAccountAuthProvider : public RefreshableAuthProvider {
 
  private:
   /// Refresh the OAuth2 token for the service account.
-  absl::Status Refresh() override ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+  Result<BearerTokenWithExpiration> Refresh() override;
 
   const AccountCredentials creds_;
   std::string uri_;

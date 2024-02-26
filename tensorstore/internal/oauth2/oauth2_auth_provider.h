@@ -16,11 +16,12 @@
 #define TENSORSTORE_INTERNAL_OAUTH2_OAUTH2_AUTH_PROVIDER_H_
 
 #include <functional>
+#include <memory>
 #include <string>
 #include <string_view>
 
 #include "absl/base/thread_annotations.h"
-#include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
@@ -28,7 +29,6 @@
 #include "tensorstore/internal/oauth2/oauth_utils.h"
 #include "tensorstore/internal/oauth2/refreshable_auth_provider.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal_oauth2 {
@@ -50,7 +50,7 @@ class OAuth2AuthProvider : public RefreshableAuthProvider {
       std::string_view method, std::string_view uri, absl::Cord payload);
 
  private:
-  absl::Status Refresh() override ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+  Result<BearerTokenWithExpiration> Refresh() override;
 
   std::string refresh_payload_;
   std::string uri_;

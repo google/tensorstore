@@ -16,8 +16,10 @@
 #define TENSORSTORE_INTERNAL_OAUTH2_GCE_AUTH_PROVIDER_H_
 
 #include <functional>
+#include <memory>
 #include <set>
 #include <string>
+#include <vector>
 
 #include "absl/base/thread_annotations.h"
 #include "absl/status/status.h"
@@ -66,13 +68,12 @@ class GceAuthProvider : public RefreshableAuthProvider {
 
  private:
   // Refresh the token from the GCE Metadata service.
-  absl::Status Refresh() override ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+  Result<BearerTokenWithExpiration> Refresh() override;
 
-  absl::Status RetrieveServiceAccountInfo()
-      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+  absl::Status RetrieveServiceAccountInfo();
 
-  std::string service_account_email_ ABSL_GUARDED_BY(mutex_);
-  std::set<std::string> scopes_ ABSL_GUARDED_BY(mutex_);
+  std::string service_account_email_;
+  std::set<std::string> scopes_;
 
   std::shared_ptr<internal_http::HttpTransport> transport_;
 };
