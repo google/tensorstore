@@ -34,6 +34,7 @@
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/std_array.h"
 #include "tensorstore/internal/oauth2/auth_provider.h"
+#include "tensorstore/internal/oauth2/bearer_token.h"
 #include "tensorstore/internal/oauth2/oauth_utils.h"
 #include "tensorstore/internal/oauth2/refreshable_auth_provider.h"
 #include "tensorstore/internal/path.h"
@@ -49,8 +50,6 @@ namespace jb = tensorstore::internal_json_binding;
 
 using ::tensorstore::internal_http::HttpRequestBuilder;
 using ::tensorstore::internal_http::HttpResponse;
-using BearerTokenWithExpiration =
-    ::tensorstore::internal_oauth2::AuthProvider::BearerTokenWithExpiration;
 
 // Using GCE-based credentials
 // 1. Run the process on GCE.

@@ -24,7 +24,7 @@
 #include "absl/time/time.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
-#include "tensorstore/internal/oauth2/auth_provider.h"
+#include "tensorstore/internal/oauth2/bearer_token.h"
 #include "tensorstore/internal/oauth2/oauth_utils.h"
 #include "tensorstore/internal/oauth2/refreshable_auth_provider.h"
 #include "tensorstore/util/result.h"
@@ -42,8 +42,6 @@ class GoogleServiceAccountAuthProvider : public RefreshableAuthProvider {
       const AccountCredentials& creds,
       std::shared_ptr<internal_http::HttpTransport> transport,
       std::function<absl::Time()> clock = {});
-
-  using AuthProvider::BearerTokenWithExpiration;
 
  protected:
   virtual Result<internal_http::HttpResponse> IssueRequest(

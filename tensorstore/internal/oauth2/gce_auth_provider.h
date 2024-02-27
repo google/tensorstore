@@ -21,16 +21,13 @@
 #include <string>
 #include <vector>
 
-#include "absl/base/thread_annotations.h"
 #include "absl/status/status.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
-#include "tensorstore/internal/oauth2/auth_provider.h"
-#include "tensorstore/internal/oauth2/oauth_utils.h"
+#include "tensorstore/internal/oauth2/bearer_token.h"
 #include "tensorstore/internal/oauth2/refreshable_auth_provider.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal_oauth2 {
@@ -50,8 +47,6 @@ class GceAuthProvider : public RefreshableAuthProvider {
   GceAuthProvider(std::shared_ptr<internal_http::HttpTransport> transport,
                   const ServiceAccountInfo& service_account_info,
                   std::function<absl::Time()> clock = {});
-
-  using AuthProvider::BearerTokenWithExpiration;
 
   /// Returns the default GCE service account info if available.  If not running
   /// on GCE, or there is no default service account, returns `NOT_FOUND`.

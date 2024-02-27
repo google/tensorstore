@@ -12,34 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_OAUTH2_AUTH_PROVIDER_H_
-#define TENSORSTORE_INTERNAL_OAUTH2_AUTH_PROVIDER_H_
+#ifndef TENSORSTORE_INTERNAL_OAUTH2_BEARER_TOKEN_H_
+#define TENSORSTORE_INTERNAL_OAUTH2_BEARER_TOKEN_H_
 
 #include <string>
 
 #include "absl/time/time.h"
-#include "tensorstore/internal/oauth2/bearer_token.h"
-#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace internal_oauth2 {
 
-class AuthProvider {
- public:
-  virtual ~AuthProvider();
-
-  /// \brief Returns the short-term authentication bearer token.
-  ///
-  /// Safe for concurrent use by multiple threads.
-  virtual Result<BearerTokenWithExpiration> GetToken() = 0;
-
-  /// \brief Returns the header for the Token
-  Result<std::string> GetAuthHeader();
-
-  static constexpr absl::Duration kExpirationMargin = absl::Seconds(60);
+// Bundles an OAuth bearer token along with an expiration timestamp.
+struct BearerTokenWithExpiration {
+  std::string token;
+  absl::Time expiration;
 };
 
 }  // namespace internal_oauth2
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_OAUTH2_AUTH_PROVIDER_H_
+#endif  // TENSORSTORE_INTERNAL_OAUTH2_BEARER_TOKEN_H_

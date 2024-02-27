@@ -144,6 +144,7 @@ tensorstore_cc_library(
     ],
     hdrs = [
         "auth_provider.h",
+        "bearer_token.h",
         "fixed_token_auth_provider.h",
         "gce_auth_provider.h",
         "refreshable_auth_provider.h",
@@ -179,7 +180,6 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
-        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/time",
     ],

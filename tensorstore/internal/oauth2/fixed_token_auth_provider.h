@@ -18,6 +18,7 @@
 #include <string>
 
 #include "tensorstore/internal/oauth2/auth_provider.h"
+#include "tensorstore/internal/oauth2/bearer_token.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {

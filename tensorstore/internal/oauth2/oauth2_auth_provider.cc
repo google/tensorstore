@@ -26,6 +26,7 @@
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/oauth2/auth_provider.h"
+#include "tensorstore/internal/oauth2/bearer_token.h"
 #include "tensorstore/internal/oauth2/oauth_utils.h"
 #include "tensorstore/internal/oauth2/refreshable_auth_provider.h"
 #include "tensorstore/internal/uri_utils.h"
@@ -40,8 +41,6 @@ namespace {
 using ::tensorstore::Result;
 using ::tensorstore::internal_http::HttpRequestBuilder;
 using ::tensorstore::internal_http::HttpResponse;
-using BearerTokenWithExpiration =
-    ::tensorstore::internal_oauth2::AuthProvider::BearerTokenWithExpiration;
 
 // Construct the refresh token payload once when the OAuth2AuthProvider
 // is created & cache the value.

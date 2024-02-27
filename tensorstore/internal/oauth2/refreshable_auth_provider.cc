@@ -20,7 +20,7 @@
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
-#include "tensorstore/internal/oauth2/auth_provider.h"
+#include "tensorstore/internal/oauth2/bearer_token.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
@@ -30,8 +30,7 @@ RefreshableAuthProvider::RefreshableAuthProvider(
     std::function<absl::Time()> clock)
     : clock_(clock ? std::move(clock) : &absl::Now) {}
 
-Result<AuthProvider::BearerTokenWithExpiration>
-RefreshableAuthProvider::GetToken() {
+Result<BearerTokenWithExpiration> RefreshableAuthProvider::GetToken() {
   absl::MutexLock lock(&mutex_);
   if (IsValidInternal()) {
     return token_;
