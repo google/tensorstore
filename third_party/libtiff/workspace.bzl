@@ -25,10 +25,10 @@ def repo():
         third_party_http_archive,
         name = "libtiff",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/download.osgeo.org/libtiff/tiff-4.4.0.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/download.osgeo.org/libtiff/tiff-4.6.0.tar.gz",
         ],
-        sha256 = "917223b37538959aca3b790d2d73aa6e626b688e02dcda272aec24c2f498abed",
-        strip_prefix = "tiff-4.4.0",
+        sha256 = "88b3979e6d5c7e32b50d7ec72fb15af724f6ab2cbf7e10880c360a77e4b5d99a",
+        strip_prefix = "tiff-4.6.0",
         build_file = Label("//third_party:libtiff/libtiff.BUILD.bazel"),
         system_build_file = Label("//third_party:libtiff/system.BUILD.bazel"),
         remove_paths = ["VERSION"],

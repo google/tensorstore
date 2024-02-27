@@ -25,11 +25,11 @@ def repo():
         # "org_libjpeg_turbo" because this repository may actually refer to the
         # system jpeg.
         name = "jpeg",
-        strip_prefix = "libjpeg-turbo-2.1.4",
+        strip_prefix = "libjpeg-turbo-2.1.5.1",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/libjpeg-turbo/libjpeg-turbo/archive/2.1.4.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/libjpeg-turbo/libjpeg-turbo/archive/2.1.5.1.tar.gz",
         ],
-        sha256 = "a78b05c0d8427a90eb5b4eb08af25309770c8379592bb0b8a863373128e6143f",
+        sha256 = "61846251941e5791005fb7face196eec24541fce04f12570c308557529e92c75",
         build_file = Label("//third_party:jpeg/jpeg.BUILD.bazel"),
         system_build_file = Label("//third_party:jpeg/system.BUILD.bazel"),
         cmake_name = "JPEG",

@@ -28,10 +28,10 @@ def repo():
         # system png.
         name = "png",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/glennrp/libpng/archive/v1.6.37.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/glennrp/libpng/archive/v1.6.42.tar.gz",
         ],
-        sha256 = "ca74a0dace179a8422187671aee97dd3892b53e168627145271cad5b5ac81307",
-        strip_prefix = "libpng-1.6.37",
+        sha256 = "fe89de292e223829859d21990d9c4d6b7e30e295a268f6a53a022611aa98bd67",
+        strip_prefix = "libpng-1.6.42",
         build_file = Label("//third_party:png/png.BUILD.bazel"),
         system_build_file = Label("//third_party:png/system.BUILD.bazel"),
         cmake_name = "PNG",
