@@ -56,8 +56,6 @@ _write_wrapper = rule(
         "use_absl": attr.bool(default = False),
         "out": attr.output(mandatory = True),
     },
-    # output_to_genfiles is required for header files.
-    output_to_genfiles = True,
     implementation = _write_wrapper_impl,
 )
 

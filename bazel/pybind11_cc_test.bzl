@@ -44,8 +44,6 @@ _write_template = rule(
         "substitutions": attr.string_dict(mandatory = True),
         "out": attr.output(mandatory = True),
     },
-    # output_to_genfiles is required for header files.
-    output_to_genfiles = True,
     implementation = _write_template_impl,
 )
 
