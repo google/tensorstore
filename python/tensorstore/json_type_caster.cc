@@ -68,6 +68,11 @@ py::object JsonToPyObject(const ::nlohmann::json& value) noexcept {
       return py::reinterpret_steal<py::object>(
           PyUnicode_FromStringAndSize(s.data(), s.size()));
     }
+    case value_t::binary: {
+      const auto& s = value.get_ref<const ::nlohmann::json::binary_t&>();
+      return py::reinterpret_steal<py::object>(PyBytes_FromStringAndSize(
+          reinterpret_cast<const char*>(s.data()), s.size()));
+    }
     case value_t::boolean:
       return py::reinterpret_borrow<py::object>(value.get<bool>() ? Py_True
                                                                   : Py_False);

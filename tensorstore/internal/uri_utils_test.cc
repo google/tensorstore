@@ -22,16 +22,11 @@
 using ::tensorstore::internal::AsciiSet;
 using ::tensorstore::internal::ParseGenericUri;
 using ::tensorstore::internal::PercentDecode;
+using ::tensorstore::internal::PercentEncodeReserved;
 using ::tensorstore::internal::PercentEncodeUriComponent;
 using ::tensorstore::internal::PercentEncodeUriPath;
 
 namespace {
-
-std::string PercentEncodeReserved(std::string_view src, AsciiSet unreserved) {
-  std::string out;
-  ::tensorstore::internal::PercentEncodeReserved(src, out, unreserved);
-  return out;
-}
 
 TEST(PercentDecodeTest, NoOp) {
   std::string_view s = "abcd %zz %%";

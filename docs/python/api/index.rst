@@ -38,6 +38,11 @@ Asynchronous support
 
 .. python-apigen-group:: asynchronous-support
 
+OCDBT
+-----
+
+.. python-apigen-group:: ocdbt
+
 
 Experimental
 ---------------------

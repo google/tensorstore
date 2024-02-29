@@ -68,6 +68,12 @@ static inline constexpr AsciiSet kUriPathUnreservedChars{
 /// Percent encodes any characters in `src` that are not in `unreserved`.
 void PercentEncodeReserved(std::string_view src, std::string& dest,
                            AsciiSet unreserved);
+inline std::string PercentEncodeReserved(std::string_view src,
+                                         AsciiSet unreserved) {
+  std::string dest;
+  PercentEncodeReserved(src, dest, unreserved);
+  return dest;
+}
 
 /// Percent-encodes characters not allowed in the URI path component, as defined
 /// by RFC2396:
@@ -92,9 +98,7 @@ void PercentEncodeReserved(std::string_view src, std::string& dest,
 ///   https://datatracker.ietf.org/doc/html/rfc2396#section-3.3
 ///   "/"
 inline std::string PercentEncodeUriPath(std::string_view src) {
-  std::string dest;
-  PercentEncodeReserved(src, dest, kUriPathUnreservedChars);
-  return dest;
+  return PercentEncodeReserved(src, kUriPathUnreservedChars);
 }
 
 /// Percent-encodes characters not in the unreserved set, as defined by RFC2396:
@@ -108,9 +112,7 @@ inline std::string PercentEncodeUriPath(std::string_view src) {
 /// This is equivalent to the ECMAScript `encodeURIComponent` function:
 /// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent
 inline std::string PercentEncodeUriComponent(std::string_view src) {
-  std::string dest;
-  PercentEncodeReserved(src, dest, kUriUnreservedChars);
-  return dest;
+  return PercentEncodeReserved(src, kUriUnreservedChars);
 }
 
 /// Decodes "%XY" sequences in `src`, where `X` and `Y` are hex digits, to the

@@ -81,6 +81,13 @@ constexpr auto ConfigBinder = jb::Compose<ConfigConstraints>(
       return absl::OkStatus();
     });
 
+static inline constexpr internal::AsciiSet
+    kLabeledIndirectDataReferenceUnreservedChars{
+        "abcdefghijklmnopqrstuvwxyz"
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "0123456789"
+        "-_./"};
+
 constexpr auto LabeledIndirectDataReferenceBinder = [](auto is_loading,
                                                        const auto& options,
                                                        auto* obj, auto* j) {
@@ -97,10 +104,13 @@ constexpr auto LabeledIndirectDataReferenceBinder = [](auto is_loading,
     } else {
       *j = tensorstore::StrCat(
           obj->label, ":",
-          internal::PercentEncodeUriComponent(obj->location.file_id.base_path),
+          internal::PercentEncodeReserved(
+              obj->location.file_id.base_path,
+              kLabeledIndirectDataReferenceUnreservedChars),
           ":",
-          internal::PercentEncodeUriComponent(
-              obj->location.file_id.relative_path),
+          internal::PercentEncodeReserved(
+              obj->location.file_id.relative_path,
+              kLabeledIndirectDataReferenceUnreservedChars),
           ":", obj->location.offset, ":", obj->location.length);
     }
   }

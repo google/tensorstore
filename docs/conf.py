@@ -199,7 +199,10 @@ json_schema_rst_prolog = """
 .. highlight:: json
 """
 
-python_apigen_modules = {'tensorstore': 'python/api/tensorstore.'}
+python_apigen_modules = {
+    'tensorstore': 'python/api/tensorstore.',
+    'tensorstore.ocdbt': 'python/api/tensorstore.ocdbt.',
+}
 
 python_apigen_default_groups = [
     ('class:.*', 'Classes'),
