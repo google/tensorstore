@@ -24,6 +24,7 @@
 #include <nlohmann/json.hpp>
 #include "absl/flags/parse.h"
 #include "tensorstore/internal/json/pprint_python.h"
+#include "tensorstore/internal/json_binding/std_optional.h"  // IWYU pragma: keep
 #include "tensorstore/internal/path.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/ocdbt/dump_util.h"

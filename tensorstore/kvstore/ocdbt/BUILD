@@ -216,11 +216,13 @@ tensorstore_cc_binary(
     deps = [
         ":dump_util",
         "//tensorstore/internal:data_copy_concurrency_resource",
+        "//tensorstore/internal:path",
         "//tensorstore/internal/cache:cache_pool_resource",
         "//tensorstore/internal/json:pprint_python",
         "//tensorstore/internal/json_binding",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:all_drivers",
+        "//tensorstore/kvstore/ocdbt/format:dump",
         "//tensorstore/util:json_absl_flag",
         "//tensorstore/util:result",
         "@com_github_nlohmann_json//:nlohmann_json",
