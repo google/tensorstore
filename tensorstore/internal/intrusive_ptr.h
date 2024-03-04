@@ -112,9 +112,11 @@
 ///     IntrusivePtr<Y, XTraits> y3 = dynamic_pointer_cast<Y>(y2);
 ///
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <atomic>
 #include <cassert>
-#include <cstddef>
 #include <memory>
 #include <type_traits>
 #include <utility>
@@ -144,7 +146,7 @@ class AtomicReferenceCount {
   AtomicReferenceCount& operator=(const AtomicReferenceCount&) noexcept {
     return *this;
   }
-  std::uint32_t use_count() const noexcept {
+  uint32_t use_count() const noexcept {
     return ref_count_.load(std::memory_order_acquire);
   }
 
@@ -172,7 +174,7 @@ class AtomicReferenceCount {
   }
 
  private:
-  mutable std::atomic<std::uint32_t> ref_count_{0};
+  mutable std::atomic<uint32_t> ref_count_{0};
 };
 
 template <typename Derived>
@@ -322,7 +324,7 @@ class IntrusivePtr {
 
   /// Constructs a null pointer.
   constexpr IntrusivePtr() noexcept : ptr_(nullptr) {}
-  constexpr IntrusivePtr(std::nullptr_t) noexcept : ptr_(nullptr) {}
+  constexpr IntrusivePtr(nullptr_t) noexcept : ptr_(nullptr) {}
 
   /// Constructs from a given pointer.  If `p` is not null, acquires a new
   /// reference to `p` by calling `R::increment(p)`.
@@ -390,7 +392,7 @@ class IntrusivePtr {
   /// Assigns the stored pointer to null.  If the prior stored pointer was
   /// non-null, calls `R::decrement` on it.
   void reset() noexcept { IntrusivePtr().swap(*this); }
-  void reset(std::nullptr_t) noexcept { IntrusivePtr().swap(*this); }
+  void reset(nullptr_t) noexcept { IntrusivePtr().swap(*this); }
 
   /// Assigns the stored pointer to `rhs`, and calls `R::increment` on `rhs` if
   /// non-null.  If the prior stored pointer was non-null, calls `R::decrement`
@@ -444,13 +446,13 @@ class IntrusivePtr {
     return H::combine(std::move(h), x.get());
   }
 
-  friend bool operator==(const IntrusivePtr& p, std::nullptr_t) { return !p; }
-  friend bool operator!=(const IntrusivePtr& p, std::nullptr_t) {
+  friend bool operator==(const IntrusivePtr& p, nullptr_t) { return !p; }
+  friend bool operator!=(const IntrusivePtr& p, nullptr_t) {
     return static_cast<bool>(p);
   }
 
-  friend bool operator==(std::nullptr_t, const IntrusivePtr& p) { return !p; }
-  friend bool operator!=(std::nullptr_t, const IntrusivePtr& p) {
+  friend bool operator==(nullptr_t, const IntrusivePtr& p) { return !p; }
+  friend bool operator!=(nullptr_t, const IntrusivePtr& p) {
     return static_cast<bool>(p);
   }
 

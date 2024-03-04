@@ -28,9 +28,9 @@
 #include "tensorstore/context.h"
 #include "tensorstore/context_resource_provider.h"
 #include "tensorstore/internal/env.h"
-#include "tensorstore/kvstore/gcs_http/admission_queue.h"
-#include "tensorstore/kvstore/gcs_http/rate_limiter.h"
-#include "tensorstore/kvstore/gcs_http/scaling_rate_limiter.h"
+#include "tensorstore/internal/rate_limiter/admission_queue.h"
+#include "tensorstore/internal/rate_limiter/rate_limiter.h"
+#include "tensorstore/internal/rate_limiter/scaling_rate_limiter.h"
 #include "tensorstore/util/result.h"
 
 /// specializations
@@ -52,11 +52,12 @@ ABSL_FLAG(std::optional<absl::Duration>,
           "S3 Rate Limiter Doubling Time. "
           "Overrides TENSORSTORE_S3_RATE_LIMITER_DOUBLING_TIME");
 
+using ::tensorstore::internal::AdmissionQueue;
 using ::tensorstore::internal::AnyContextResourceJsonBinder;
+using ::tensorstore::internal::ConstantRateLimiter;
 using ::tensorstore::internal::ContextResourceCreationContext;
-using ::tensorstore::internal_kvstore_gcs_http::AdmissionQueue;
-using ::tensorstore::internal_kvstore_gcs_http::NoRateLimiter;
-using ::tensorstore::internal_kvstore_gcs_http::ScalingRateLimiter;
+using ::tensorstore::internal::DoublingRateLimiter;
+using ::tensorstore::internal::NoRateLimiter;
 
 namespace tensorstore {
 namespace internal_kvstore_s3 {
@@ -129,17 +130,29 @@ Result<S3RateLimiterResource::Resource> S3RateLimiterResource::Create(
     const Spec& spec, ContextResourceCreationContext context) const {
   Resource value;
   value.spec = spec;
+  auto doubling_time =
+      spec.doubling_time.value_or(GetEnvS3RateLimiterDoublingTime());
+
   if (spec.read_rate) {
-    value.read_limiter = std::make_shared<ScalingRateLimiter>(
-        *spec.read_rate, *spec.read_rate * 2,
-        spec.doubling_time.value_or(GetEnvS3RateLimiterDoublingTime()));
+    if (doubling_time > absl::ZeroDuration()) {
+      value.read_limiter =
+          std::make_shared<DoublingRateLimiter>(*spec.read_rate, doubling_time);
+    } else {
+      value.read_limiter =
+          std::make_shared<ConstantRateLimiter>(*spec.read_rate);
+    }
   } else {
     value.read_limiter = std::make_shared<NoRateLimiter>();
   }
+
   if (spec.write_rate) {
-    value.write_limiter = std::make_shared<ScalingRateLimiter>(
-        *spec.write_rate, *spec.read_rate * 2,
-        spec.doubling_time.value_or(GetEnvS3RateLimiterDoublingTime()));
+    if (doubling_time > absl::ZeroDuration()) {
+      value.write_limiter = std::make_shared<DoublingRateLimiter>(
+          *spec.write_rate, doubling_time);
+    } else {
+      value.write_limiter =
+          std::make_shared<ConstantRateLimiter>(*spec.write_rate);
+    }
   } else {
     value.write_limiter = std::make_shared<NoRateLimiter>();
   }

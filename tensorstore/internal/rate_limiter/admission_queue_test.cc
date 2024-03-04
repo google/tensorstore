@@ -12,23 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/kvstore/gcs_http/admission_queue.h"
+#include "tensorstore/internal/rate_limiter/admission_queue.h"
+
+#include <stddef.h>
+
+#include <atomic>
+#include <utility>
 
 #include <gtest/gtest.h>
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/kvstore/gcs_http/rate_limiter.h"
+#include "tensorstore/internal/rate_limiter/rate_limiter.h"
 #include "tensorstore/util/executor.h"
 
 namespace {
 
 using ::tensorstore::Executor;
 using ::tensorstore::ExecutorTask;
+using ::tensorstore::internal::AdmissionQueue;
 using ::tensorstore::internal::adopt_object_ref;
 using ::tensorstore::internal::AtomicReferenceCount;
 using ::tensorstore::internal::IntrusivePtr;
 using ::tensorstore::internal::MakeIntrusivePtr;
-using ::tensorstore::internal_kvstore_gcs_http::AdmissionQueue;
-using ::tensorstore::internal_kvstore_gcs_http::RateLimiterNode;
+using ::tensorstore::internal::RateLimiterNode;
 
 struct Node : public RateLimiterNode, public AtomicReferenceCount<Node> {
   AdmissionQueue* queue_;

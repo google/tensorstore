@@ -14,29 +14,39 @@
 
 #include "tensorstore/kvstore/gcs_http/gcs_resource.h"
 
+#include <stddef.h>
+
 #include <memory>
 #include <optional>
+#include <string>
 
 #include "absl/base/call_once.h"
 #include "absl/flags/marshalling.h"
 #include "absl/log/absl_log.h"
 #include "absl/time/time.h"
+#include "tensorstore/context.h"
 #include "tensorstore/context_resource_provider.h"
-#include "tensorstore/internal/cache_key/absl_time.h"
-#include "tensorstore/internal/cache_key/std_optional.h"
 #include "tensorstore/internal/env.h"
-#include "tensorstore/kvstore/gcs_http/admission_queue.h"
-#include "tensorstore/kvstore/gcs_http/scaling_rate_limiter.h"
+#include "tensorstore/internal/rate_limiter/admission_queue.h"
+#include "tensorstore/internal/rate_limiter/rate_limiter.h"
+#include "tensorstore/internal/rate_limiter/scaling_rate_limiter.h"
+#include "tensorstore/util/result.h"
 
 /// specializations
+#include "tensorstore/internal/cache_key/absl_time.h"
+#include "tensorstore/internal/cache_key/std_optional.h"
 #include "tensorstore/internal/json_binding/absl_time.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/std_array.h"
 #include "tensorstore/internal/json_binding/std_optional.h"
 
+using ::tensorstore::internal::AdmissionQueue;
 using ::tensorstore::internal::AnyContextResourceJsonBinder;
+using ::tensorstore::internal::ConstantRateLimiter;
 using ::tensorstore::internal::ContextResourceCreationContext;
+using ::tensorstore::internal::DoublingRateLimiter;
+using ::tensorstore::internal::NoRateLimiter;
 
 namespace tensorstore {
 namespace internal_kvstore_gcs_http {
@@ -107,19 +117,28 @@ Result<GcsRateLimiterResource::Resource> GcsRateLimiterResource::Create(
     const Spec& spec, ContextResourceCreationContext context) const {
   Resource value;
   value.spec = spec;
+  auto doubling_time = spec.doubling_time.value_or(
+      GetEnvGcsRateLimiterDoublingTime().value_or(absl::ZeroDuration()));
+
   if (spec.read_rate) {
-    value.read_limiter = std::make_shared<ScalingRateLimiter>(
-        *spec.read_rate, *spec.read_rate * 2,
-        spec.doubling_time.value_or(
-            GetEnvGcsRateLimiterDoublingTime().value_or(absl::ZeroDuration())));
+    if (doubling_time > absl::ZeroDuration()) {
+      value.read_limiter =
+          std::make_shared<DoublingRateLimiter>(*spec.read_rate, doubling_time);
+    } else {
+      value.read_limiter =
+          std::make_shared<ConstantRateLimiter>(*spec.read_rate);
+    }
   } else {
     value.read_limiter = std::make_shared<NoRateLimiter>();
   }
   if (spec.write_rate) {
-    value.write_limiter = std::make_shared<ScalingRateLimiter>(
-        *spec.write_rate, *spec.read_rate * 2,
-        spec.doubling_time.value_or(
-            GetEnvGcsRateLimiterDoublingTime().value_or(absl::ZeroDuration())));
+    if (doubling_time > absl::ZeroDuration()) {
+      value.write_limiter = std::make_shared<DoublingRateLimiter>(
+          *spec.write_rate, doubling_time);
+    } else {
+      value.write_limiter =
+          std::make_shared<ConstantRateLimiter>(*spec.write_rate);
+    }
   } else {
     value.write_limiter = std::make_shared<NoRateLimiter>();
   }

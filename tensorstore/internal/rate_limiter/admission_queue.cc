@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/kvstore/gcs_http/admission_queue.h"
+#include "tensorstore/internal/rate_limiter/admission_queue.h"
 
 #include <stddef.h>
 
@@ -21,10 +21,10 @@
 
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/container/intrusive_linked_list.h"
-#include "tensorstore/kvstore/gcs_http/rate_limiter.h"
+#include "tensorstore/internal/rate_limiter/rate_limiter.h"
 
 namespace tensorstore {
-namespace internal_kvstore_gcs_http {
+namespace internal {
 
 AdmissionQueue::AdmissionQueue(size_t limit)
     : limit_(limit == 0 ? std::numeric_limits<size_t>::max() : limit) {}
@@ -64,5 +64,5 @@ void AdmissionQueue::Finish(RateLimiterNode* node) {
   RunStartFunction(next_node);
 }
 
-}  // namespace internal_kvstore_gcs_http
+}  // namespace internal
 }  // namespace tensorstore

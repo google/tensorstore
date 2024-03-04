@@ -26,9 +26,9 @@
 #include "tensorstore/context_resource_provider.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/std_optional.h"
+#include "tensorstore/internal/rate_limiter/admission_queue.h"
+#include "tensorstore/internal/rate_limiter/rate_limiter.h"
 #include "tensorstore/internal/retries_context_resource.h"
-#include "tensorstore/kvstore/gcs_http/admission_queue.h"
-#include "tensorstore/kvstore/gcs_http/rate_limiter.h"
 #include "tensorstore/util/result.h"
 
 /// specializations
@@ -66,7 +66,7 @@ struct S3ConcurrencyResource
   };
   struct Resource {
     Spec spec;
-    std::shared_ptr<internal_kvstore_gcs_http::AdmissionQueue> queue;
+    std::shared_ptr<internal::AdmissionQueue> queue;
   };
 
   static Spec Default() { return Spec{std::nullopt}; }
@@ -119,8 +119,8 @@ struct S3RateLimiterResource
   };
   struct Resource {
     Spec spec;
-    std::shared_ptr<internal_kvstore_gcs_http::RateLimiter> read_limiter;
-    std::shared_ptr<internal_kvstore_gcs_http::RateLimiter> write_limiter;
+    std::shared_ptr<internal::RateLimiter> read_limiter;
+    std::shared_ptr<internal::RateLimiter> write_limiter;
   };
 
   static Spec Default() {

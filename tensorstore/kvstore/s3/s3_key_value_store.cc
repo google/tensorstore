@@ -48,12 +48,12 @@
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/histogram.h"
+#include "tensorstore/internal/rate_limiter/rate_limiter.h"
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/thread/schedule_at.h"
 #include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/gcs/validate.h"
-#include "tensorstore/kvstore/gcs_http/rate_limiter.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/operations.h"
@@ -89,13 +89,13 @@
 
 using ::tensorstore::internal::DataCopyConcurrencyResource;
 using ::tensorstore::internal::IntrusivePtr;
+using ::tensorstore::internal::RateLimiter;
+using ::tensorstore::internal::RateLimiterNode;
 using ::tensorstore::internal::ScheduleAt;
 using ::tensorstore::internal::SHA256Digester;
 using ::tensorstore::internal_http::HttpRequest;
 using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_http::HttpTransport;
-using ::tensorstore::internal_kvstore_gcs_http::RateLimiter;
-using ::tensorstore::internal_kvstore_gcs_http::RateLimiterNode;
 using ::tensorstore::internal_kvstore_s3::AwsCredentialProvider;
 using ::tensorstore::internal_kvstore_s3::AwsCredentials;
 using ::tensorstore::internal_kvstore_s3::FindTag;
@@ -411,7 +411,7 @@ class S3KeyValueStore
     return absl::OkStatus();
   }
 
-  internal_kvstore_gcs_http::NoRateLimiter no_rate_limiter_;
+  internal::NoRateLimiter no_rate_limiter_;
   std::shared_ptr<HttpTransport> transport_;
   SpecData spec_;
 

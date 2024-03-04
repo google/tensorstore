@@ -54,6 +54,7 @@
 #include "tensorstore/internal/oauth2/auth_provider.h"
 #include "tensorstore/internal/oauth2/google_auth_provider.h"
 #include "tensorstore/internal/path.h"
+#include "tensorstore/internal/rate_limiter/rate_limiter.h"
 #include "tensorstore/internal/retries_context_resource.h"
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/thread/schedule_at.h"
@@ -64,7 +65,6 @@
 #include "tensorstore/kvstore/gcs/validate.h"
 #include "tensorstore/kvstore/gcs_http/gcs_resource.h"
 #include "tensorstore/kvstore/gcs_http/object_metadata.h"
-#include "tensorstore/kvstore/gcs_http/rate_limiter.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/operations.h"
@@ -99,6 +99,9 @@
 
 using ::tensorstore::internal::DataCopyConcurrencyResource;
 using ::tensorstore::internal::IntrusivePtr;
+using ::tensorstore::internal::NoRateLimiter;
+using ::tensorstore::internal::RateLimiter;
+using ::tensorstore::internal::RateLimiterNode;
 using ::tensorstore::internal::ScheduleAt;
 using ::tensorstore::internal_http::HttpRequest;
 using ::tensorstore::internal_http::HttpRequestBuilder;
@@ -106,11 +109,8 @@ using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_http::HttpTransport;
 using ::tensorstore::internal_kvstore_gcs_http::GcsConcurrencyResource;
 using ::tensorstore::internal_kvstore_gcs_http::GcsRateLimiterResource;
-using ::tensorstore::internal_kvstore_gcs_http::NoRateLimiter;
 using ::tensorstore::internal_kvstore_gcs_http::ObjectMetadata;
 using ::tensorstore::internal_kvstore_gcs_http::ParseObjectMetadata;
-using ::tensorstore::internal_kvstore_gcs_http::RateLimiter;
-using ::tensorstore::internal_kvstore_gcs_http::RateLimiterNode;
 using ::tensorstore::internal_storage_gcs::GcsRequestRetries;
 using ::tensorstore::internal_storage_gcs::GcsUserProjectResource;
 using ::tensorstore::internal_storage_gcs::IsRetriable;
