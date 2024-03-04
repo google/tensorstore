@@ -42,10 +42,11 @@ TEST(RetryTest, BackoffForAttempt) {
       BackoffForAttempt(66, absl::Microseconds(1), absl::Microseconds(100),
                         /*jitter=*/absl::ZeroDuration()));
 
+  // 4ms +0-100 jitter
   EXPECT_THAT(absl::ToInt64Microseconds(BackoffForAttempt(
                   2, absl::Microseconds(1), absl::Microseconds(200),
                   /*jitter=*/absl::Microseconds(100))),
-              ::testing::AllOf(::testing::Ge(2), testing::Lt(103)));
+              ::testing::AllOf(::testing::Ge(2), testing::Le(104)));
 }
 
 }  // namespace

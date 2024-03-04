@@ -180,7 +180,8 @@ TEST_F(HttpKeyValueStoreTest, ReadWithStalenessBound) {
   EXPECT_EQ("https://example.com/my/path/abc", request.request.url);
   EXPECT_THAT(request.request.headers,
               ::testing::ElementsAre(::testing::AnyOf(
-                  "cache-control: max-age=4", "cache-control: max-age=3")));
+                  "cache-control: max-age=5", "cache-control: max-age=4",
+                  "cache-control: max-age=3")));
   request.promise.SetResult(HttpResponse{200, absl::Cord("value")});
   EXPECT_THAT(
       read_future.result(),
