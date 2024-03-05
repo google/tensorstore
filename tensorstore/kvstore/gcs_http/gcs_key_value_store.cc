@@ -119,6 +119,7 @@ using ::tensorstore::internal_storage_gcs::IsValidObjectName;
 using ::tensorstore::internal_storage_gcs::IsValidStorageGeneration;
 using ::tensorstore::kvstore::Key;
 using ::tensorstore::kvstore::ListOptions;
+using ::tensorstore::kvstore::ListReceiver;
 using ::tensorstore::kvstore::SupportedFeatures;
 
 namespace {
@@ -314,8 +315,7 @@ class GcsKeyValueStore
                                              std::optional<Value> value,
                                              WriteOptions options) override;
 
-  void ListImpl(ListOptions options,
-                AnyFlowReceiver<absl::Status, Key> receiver) override;
+  void ListImpl(ListOptions options, ListReceiver receiver) override;
 
   Future<const void> DeleteRange(KeyRange range) override;
 
@@ -1013,7 +1013,7 @@ struct ListTask : public RateLimiterNode,
                   public internal::AtomicReferenceCount<ListTask> {
   internal::IntrusivePtr<GcsKeyValueStore> owner_;
   ListOptions options_;
-  AnyFlowReceiver<absl::Status, Key> receiver_;
+  ListReceiver receiver_;
   std::string resource_;
 
   std::string base_list_url_;
@@ -1022,8 +1022,9 @@ struct ListTask : public RateLimiterNode,
   bool has_query_parameters_;
   std::atomic<bool> cancelled_{false};
 
-  ListTask(internal::IntrusivePtr<GcsKeyValueStore> owner, ListOptions options,
-           AnyFlowReceiver<absl::Status, Key> receiver, std::string resource)
+  ListTask(internal::IntrusivePtr<GcsKeyValueStore>&& owner,
+           ListOptions&& options, ListReceiver&& receiver,
+           std::string&& resource)
       : owner_(std::move(owner)),
         options_(std::move(options)),
         receiver_(std::move(receiver)),
@@ -1170,8 +1171,7 @@ struct ListTask : public RateLimiterNode,
   }
 };
 
-void GcsKeyValueStore::ListImpl(ListOptions options,
-                                AnyFlowReceiver<absl::Status, Key> receiver) {
+void GcsKeyValueStore::ListImpl(ListOptions options, ListReceiver receiver) {
   gcs_list.Increment();
   if (options.range.empty()) {
     execution::set_starting(receiver, [] {});

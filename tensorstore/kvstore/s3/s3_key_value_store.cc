@@ -116,6 +116,7 @@ using ::tensorstore::internal_kvstore_s3::TagAndPosition;
 using ::tensorstore::internal_storage_gcs::IsRetriable;
 using ::tensorstore::kvstore::Key;
 using ::tensorstore::kvstore::ListOptions;
+using ::tensorstore::kvstore::ListReceiver;
 
 namespace tensorstore {
 namespace {
@@ -350,8 +351,7 @@ class S3KeyValueStore
                                              std::optional<Value> value,
                                              WriteOptions options) override;
 
-  void ListImpl(ListOptions options,
-                AnyFlowReceiver<absl::Status, Key> receiver) override;
+  void ListImpl(ListOptions options, ListReceiver receiver) override;
 
   Future<const void> DeleteRange(KeyRange range) override;
 
@@ -1053,7 +1053,7 @@ struct ListTask : public RateLimiterNode,
                   public internal::AtomicReferenceCount<ListTask> {
   internal::IntrusivePtr<S3KeyValueStore> owner_;
   ListOptions options_;
-  AnyFlowReceiver<absl::Status, Key> receiver_;
+  ListReceiver receiver_;
 
   std::string resource_;
   ReadyFuture<const S3EndpointHostRegion> endpoint_host_region_;
@@ -1064,8 +1064,8 @@ struct ListTask : public RateLimiterNode,
   bool has_query_parameters_;
   std::atomic<bool> cancelled_{false};
 
-  ListTask(internal::IntrusivePtr<S3KeyValueStore> owner, ListOptions options,
-           AnyFlowReceiver<absl::Status, Key> receiver)
+  ListTask(internal::IntrusivePtr<S3KeyValueStore>&& owner,
+           ListOptions&& options, ListReceiver&& receiver)
       : owner_(std::move(owner)),
         options_(std::move(options)),
         receiver_(std::move(receiver)) {
@@ -1235,8 +1235,7 @@ struct ListTask : public RateLimiterNode,
   }
 };
 
-void S3KeyValueStore::ListImpl(ListOptions options,
-                               AnyFlowReceiver<absl::Status, Key> receiver) {
+void S3KeyValueStore::ListImpl(ListOptions options, ListReceiver receiver) {
   s3_list.Increment();
   if (options.range.empty()) {
     execution::set_starting(receiver, [] {});

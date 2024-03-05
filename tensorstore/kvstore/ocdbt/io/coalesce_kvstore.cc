@@ -172,8 +172,7 @@ class CoalesceKvStoreDriver final : public kvstore::Driver {
     return base_->DeleteRange(std::move(range));
   }
 
-  void ListImpl(ListOptions options,
-                AnyFlowReceiver<absl::Status, Key> receiver) override {
+  void ListImpl(ListOptions options, ListReceiver receiver) override {
     return base_->ListImpl(std::move(options), std::move(receiver));
   }
 

@@ -15,6 +15,8 @@
 #ifndef TENSORSTORE_KVSTORE_READ_RESULT_H_
 #define TENSORSTORE_KVSTORE_READ_RESULT_H_
 
+#include <stddef.h>
+
 #include <iosfwd>
 #include <optional>
 #include <string>

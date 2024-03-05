@@ -28,12 +28,10 @@
 #include "absl/base/attributes.h"
 #include "absl/base/thread_annotations.h"
 #include "absl/container/flat_hash_map.h"
-#include "absl/log/absl_log.h"
+#include "absl/log/absl_log.h"  // IWYU pragma: keep
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
-#include "absl/strings/str_cat.h"
 #include "absl/synchronization/mutex.h"
-#include "absl/time/time.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/internal/cache_key/cache_key.h"
@@ -52,8 +50,6 @@
 #include "tensorstore/serialization/registry.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/transaction.h"
-#include "tensorstore/util/execution/any_receiver.h"
-#include "tensorstore/util/execution/any_sender.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/future_sender.h"  // IWYU pragma: keep
 #include "tensorstore/util/execution/sender.h"
@@ -123,7 +119,7 @@ SupportedFeatures Driver::GetSupportedFeatures(
 }
 
 void Driver::EncodeCacheKey(std::string* out) const {
-  internal::EncodeCacheKey(out, reinterpret_cast<std::uintptr_t>(this));
+  internal::EncodeCacheKey(out, reinterpret_cast<uintptr_t>(this));
 }
 
 Result<KvStore> Driver::GetBase(std::string_view path,
@@ -340,18 +336,17 @@ Future<const void> Driver::DeleteRange(KeyRange range) {
       "KeyValueStore does not support deleting by range");
 }
 
-void Driver::ListImpl(ListOptions options,
-                      AnyFlowReceiver<absl::Status, Key> receiver) {
+void Driver::ListImpl(ListOptions options, ListReceiver receiver) {
   execution::submit(FlowSingleSender{ErrorSender{absl::UnimplementedError(
                         "KeyValueStore does not support listing")}},
                     std::move(receiver));
 }
 
-AnyFlowSender<absl::Status, Key> Driver::List(ListOptions options) {
+ListSender Driver::List(ListOptions options) {
   struct ListSender {
     IntrusivePtr<Driver> self;
     ListOptions options;
-    void submit(AnyFlowReceiver<absl::Status, Key> receiver) {
+    void submit(ListReceiver receiver) {
       self->ListImpl(options, std::move(receiver));
     }
   };

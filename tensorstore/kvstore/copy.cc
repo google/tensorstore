@@ -13,16 +13,25 @@
 // limitations under the License.
 
 #include <iostream>
+#include <optional>
+#include <vector>
 
 #include "absl/flags/flag.h"
+#include "absl/status/status.h"
+#include "absl/synchronization/mutex.h"
 #include "absl/flags/parse.h"
 #include "tensorstore/internal/json_binding/std_optional.h"
 #include "tensorstore/internal/path.h"
+#include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
+#include "tensorstore/kvstore/read_result.h"
+#include "tensorstore/kvstore/spec.h"
+#include "tensorstore/util/executor.h"
+#include "tensorstore/util/future.h"
 #include "tensorstore/util/json_absl_flag.h"
 #include "tensorstore/util/quote_string.h"
-#include "tensorstore/util/str_cat.h"
+#include "tensorstore/util/result.h"
 
 ABSL_FLAG(tensorstore::JsonAbslFlag<std::optional<tensorstore::kvstore::Spec>>,
           source, std::nullopt, "Source kvstore");
@@ -50,11 +59,12 @@ Result<int> RunCopy() {
   TENSORSTORE_ASSIGN_OR_RETURN(auto target,
                                kvstore::Open(*target_spec).result());
 
-  TENSORSTORE_ASSIGN_OR_RETURN(auto keys, kvstore::ListFuture(source).result());
+  TENSORSTORE_ASSIGN_OR_RETURN(auto list_entries,
+                               kvstore::ListFuture(source).result());
 
   std::vector<Future<const void>> write_futures;
 
-  for (const auto& key : keys) {
+  for (const auto& key : list_entries) {
     write_futures.push_back(MapFutureValue(
         InlineExecutor{},
         [&](const Result<kvstore::ReadResult>& read_result) -> Future<void> {

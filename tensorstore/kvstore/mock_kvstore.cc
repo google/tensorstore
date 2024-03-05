@@ -15,11 +15,15 @@
 #include "tensorstore/kvstore/mock_kvstore.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <optional>
+#include <string>
 #include <utility>
+#include <vector>
 
 #include "absl/status/status.h"
+#include "absl/time/time.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/context_resource_provider.h"
@@ -27,16 +31,14 @@
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/queue_testutil.h"
 #include "tensorstore/internal/utf8.h"
-#include "tensorstore/json_serialization_options.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/registry.h"
 #include "tensorstore/kvstore/spec.h"
+#include "tensorstore/kvstore/supported_features.h"
 #include "tensorstore/transaction.h"
-#include "tensorstore/util/execution/any_receiver.h"
-#include "tensorstore/util/execution/sender.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/garbage_collection/garbage_collection.h"
@@ -112,8 +114,7 @@ Future<TimestampedStorageGeneration> MockKeyValueStore::Write(
   return future;
 }
 
-void MockKeyValueStore::ListImpl(ListOptions options,
-                                 AnyFlowReceiver<absl::Status, Key> receiver) {
+void MockKeyValueStore::ListImpl(ListOptions options, ListReceiver receiver) {
   if (log_requests) {
     ::nlohmann::json::object_t log_entry;
     log_entry.emplace("type", "list");
@@ -232,8 +233,7 @@ class RegisteredMockKeyValueStore
     return base()->Write(std::move(key), std::move(value), std::move(options));
   }
 
-  void ListImpl(ListOptions options,
-                AnyFlowReceiver<absl::Status, Key> receiver) override {
+  void ListImpl(ListOptions options, ListReceiver receiver) override {
     base()->ListImpl(std::move(options), std::move(receiver));
   }
 

@@ -108,7 +108,6 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "//tensorstore/util/execution",
-        "//tensorstore/util/execution:any_receiver",
         "//tensorstore/util/garbage_collection",
         "@com_github_grpc_grpc//:grpc++",
         "@com_github_grpc_grpc//:grpc++_public_hdrs",

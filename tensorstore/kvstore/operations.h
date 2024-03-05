@@ -19,6 +19,7 @@
 
 #include <optional>
 #include <string_view>
+#include <vector>
 
 #include "absl/status/status.h"
 #include "absl/time/time.h"
@@ -27,9 +28,9 @@
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/read_result.h"
+#include "tensorstore/kvstore/spec.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/any_sender.h"
-#include "tensorstore/util/execution/sender.h"
 #include "tensorstore/util/future.h"
 
 namespace tensorstore {
@@ -125,6 +126,9 @@ struct ListOptions {
   /// Staleness bound on list results.
   absl::Time staleness_bound = absl::InfiniteFuture();
 };
+
+using ListReceiver = AnyFlowReceiver<absl::Status, Key>;
+using ListSender = AnyFlowSender<absl::Status, Key>;
 
 /// Options for `CopyRange`.
 ///
@@ -230,11 +234,9 @@ Future<const void> ExperimentalCopyRange(const KvStore& source,
                                          CopyRangeOptions options = {});
 
 // Lists keys relative to `path`.
-void List(const KvStore& store, ListOptions options,
-          AnyFlowReceiver<absl::Status, Key> receiver);
+void List(const KvStore& store, ListOptions options, ListReceiver receiver);
 
-AnyFlowSender<absl::Status, Key> List(const KvStore& store,
-                                      ListOptions options);
+ListSender List(const KvStore& store, ListOptions options);
 
 /// Lists the keys in a kvstore.
 ///

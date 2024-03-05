@@ -62,7 +62,6 @@
 #include "tensorstore/kvstore/supported_features.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/transaction.h"
-#include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/quote_string.h"
@@ -72,6 +71,8 @@
 namespace tensorstore {
 namespace internal_ocdbt {
 namespace {
+
+using ::tensorstore::kvstore::ListReceiver;
 
 constexpr absl::Duration kDefaultLeaseDuration = absl::Seconds(10);
 
@@ -249,9 +250,8 @@ Future<kvstore::ReadResult> OcdbtDriver::Read(kvstore::Key key,
                                             std::move(options));
 }
 
-void OcdbtDriver::ListImpl(
-    kvstore::ListOptions options,
-    AnyFlowReceiver<absl::Status, kvstore::Key> receiver) {
+void OcdbtDriver::ListImpl(kvstore::ListOptions options,
+                           ListReceiver receiver) {
   ocdbt_list.Increment();
   return internal_ocdbt::NonDistributedList(io_handle_, std::move(options),
                                             std::move(receiver));

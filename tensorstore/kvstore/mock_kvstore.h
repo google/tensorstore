@@ -16,18 +16,16 @@
 #define TENSORSTORE_KVSTORE_MOCK_KVSTORE_H_
 
 #include <optional>
+#include <utility>
 
-#include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/queue_testutil.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
-#include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/spec.h"
-#include "tensorstore/util/execution/any_receiver.h"
-#include "tensorstore/util/execution/sender.h"
+#include "tensorstore/kvstore/supported_features.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/garbage_collection/garbage_collection.h"
 
@@ -76,7 +74,7 @@ class MockKeyValueStore : public kvstore::Driver {
 
   struct ListRequest {
     ListOptions options;
-    AnyFlowReceiver<absl::Status, Key> receiver;
+    ListReceiver receiver;
 
     void operator()(kvstore::DriverPtr target) {
       target->ListImpl(options, std::move(receiver));
@@ -89,8 +87,7 @@ class MockKeyValueStore : public kvstore::Driver {
                                              std::optional<Value> value,
                                              WriteOptions options) override;
 
-  void ListImpl(ListOptions options,
-                AnyFlowReceiver<absl::Status, Key> receiver) override;
+  void ListImpl(ListOptions options, ListReceiver receiver) override;
 
   Future<const void> DeleteRange(KeyRange range) override;
 

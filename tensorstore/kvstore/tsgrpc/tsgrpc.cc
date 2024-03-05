@@ -54,7 +54,6 @@
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/tsgrpc/common.h"
 #include "tensorstore/proto/encode_time.h"
-#include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
@@ -77,6 +76,7 @@ using ::tensorstore::GrpcClientCredentials;
 using ::tensorstore::internal::AbslTimeToProto;
 using ::tensorstore::internal::DataCopyConcurrencyResource;
 using ::tensorstore::internal::GrpcStatusToAbslStatus;
+using ::tensorstore::kvstore::ListReceiver;
 using ::tensorstore_grpc::DecodeGenerationAndTimestamp;
 using ::tensorstore_grpc::GetMessageStatus;
 using ::tensorstore_grpc::kvstore::DeleteRequest;
@@ -176,8 +176,7 @@ class TsGrpcKeyValueStore
 
   Future<const void> DeleteRange(KeyRange range) override;
 
-  void ListImpl(ListOptions options,
-                AnyFlowReceiver<absl::Status, Key> receiver) override;
+  void ListImpl(ListOptions options, ListReceiver receiver) override;
 
   SpecData spec_;
   std::shared_ptr<grpc::Channel> channel_;
@@ -329,10 +328,15 @@ struct DeleteTask : public internal::AtomicReferenceCount<DeleteTask> {
 // NOTE: Convert to async().
 struct ListTask {
   internal::IntrusivePtr<TsGrpcKeyValueStore> driver;
+  ListReceiver receiver;
+
   grpc::ClientContext context;
   std::atomic<bool> cancelled = false;
-  AnyFlowReceiver<absl::Status, kvstore::Key> receiver;
   ListRequest request;
+
+  ListTask(internal::IntrusivePtr<TsGrpcKeyValueStore>&& driver,
+           ListReceiver&& receiver)
+      : driver(std::move(driver)), receiver(std::move(receiver)) {}
 
   bool is_cancelled() { return cancelled.load(std::memory_order_relaxed); }
 
@@ -417,8 +421,7 @@ Future<const void> TsGrpcKeyValueStore::DeleteRange(KeyRange range) {
       task->StartRange(std::move(range)));
 }
 
-void TsGrpcKeyValueStore::ListImpl(
-    ListOptions options, AnyFlowReceiver<absl::Status, Key> receiver) {
+void TsGrpcKeyValueStore::ListImpl(ListOptions options, ListReceiver receiver) {
   if (options.range.empty()) {
     execution::set_starting(receiver, [] {});
     execution::set_done(receiver);
@@ -426,9 +429,8 @@ void TsGrpcKeyValueStore::ListImpl(
     return;
   }
   grpc_list.Increment();
-  auto task = std::make_unique<ListTask>();
-  task->driver = internal::IntrusivePtr<TsGrpcKeyValueStore>(this);
-  task->receiver = std::move(receiver);
+  auto task = std::make_unique<ListTask>(
+      internal::IntrusivePtr<TsGrpcKeyValueStore>(this), std::move(receiver));
   task->request.mutable_range()->set_inclusive_min(options.range.inclusive_min);
   task->request.mutable_range()->set_exclusive_max(options.range.exclusive_max);
 

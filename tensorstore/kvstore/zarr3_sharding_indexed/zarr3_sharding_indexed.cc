@@ -90,6 +90,7 @@ namespace zarr3_sharding_indexed {
 namespace {
 using ::tensorstore::internal_kvstore::DeleteRangeEntry;
 using ::tensorstore::internal_kvstore::kReadModifyWrite;
+using ::tensorstore::kvstore::ListReceiver;
 
 // Read-only KvStore adapter that maps read requests to suffix-length byte range
 // requests in order to retrieve just the shard index.
@@ -797,8 +798,7 @@ class ShardedKeyValueStore
 
   Future<ReadResult> Read(Key key, ReadOptions options) override;
 
-  void ListImpl(ListOptions options,
-                AnyFlowReceiver<absl::Status, Key> receiver) override;
+  void ListImpl(ListOptions options, ListReceiver receiver) override;
 
   Future<TimestampedStorageGeneration> Write(Key key,
                                              std::optional<Value> value,
@@ -997,7 +997,7 @@ struct ListOperationState
   kvstore::ListOptions options_;
 
   static void Start(ShardedKeyValueStore& store, kvstore::ListOptions&& options,
-                    AnyFlowReceiver<absl::Status, kvstore::Key>&& receiver) {
+                    ListReceiver&& receiver) {
     options.range = KeyRangeToInternalKeyRange(
         options.range, store.shard_index_params().grid_shape());
     auto self =
@@ -1042,8 +1042,8 @@ struct ListOperationState
   }
 };
 
-void ShardedKeyValueStore::ListImpl(
-    ListOptions options, AnyFlowReceiver<absl::Status, Key> receiver) {
+void ShardedKeyValueStore::ListImpl(ListOptions options,
+                                    ListReceiver receiver) {
   ListOperationState::Start(*this, std::move(options), std::move(receiver));
 }
 

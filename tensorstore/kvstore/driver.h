@@ -15,19 +15,30 @@
 #ifndef TENSORSTORE_KVSTORE_DRIVER_H_
 #define TENSORSTORE_KVSTORE_DRIVER_H_
 
+#include <atomic>
+#include <cstddef>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <type_traits>
+#include <utility>
+
 #include "absl/status/status.h"
-#include "tensorstore/internal/context_binding.h"
+#include "tensorstore/context.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/kvstore/generation.h"
+#include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_modify_write.h"
+#include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/supported_features.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/transaction.h"
-#include "tensorstore/util/execution/any_receiver.h"
-#include "tensorstore/util/execution/any_sender.h"
+#include "tensorstore/util/future.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace kvstore {
@@ -138,6 +149,9 @@ class Driver {
   using Key = kvstore::Key;
   using Value = kvstore::Value;
   using ListOptions = kvstore::ListOptions;
+  using ListReceiver = kvstore::ListReceiver;
+  using ListSender = kvstore::ListSender;
+
   using ReadModifyWriteSource = kvstore::ReadModifyWriteSource;
   using ReadModifyWriteTarget = kvstore::ReadModifyWriteTarget;
 
@@ -227,15 +241,14 @@ class Driver {
   virtual Future<const void> DeleteRange(KeyRange range);
 
   /// Implementation of `List` that driver implementations must define.
-  virtual void ListImpl(ListOptions options,
-                        AnyFlowReceiver<absl::Status, Key> receiver);
+  virtual void ListImpl(ListOptions options, ListReceiver receiver);
 
   /// List keys in the key-value store.
   ///
   /// The keys are emitted in arbitrary order.
   ///
   /// This simply forwards to `ListImpl`.
-  AnyFlowSender<absl::Status, Key> List(ListOptions options);
+  ListSender List(ListOptions options);
 
   /// Returns a Spec that can be used to re-open this key-value store.
   ///

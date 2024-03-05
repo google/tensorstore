@@ -15,18 +15,23 @@
 #ifndef TENSORSTORE_KVSTORE_OCDBT_NON_DISTRIBUTED_LIST_H_
 #define TENSORSTORE_KVSTORE_OCDBT_NON_DISTRIBUTED_LIST_H_
 
+#include <string>
+#include <string_view>
+
 #include "absl/status/status.h"
+#include "tensorstore/kvstore/key_range.h"
+#include "tensorstore/kvstore/ocdbt/format/btree.h"
 #include "tensorstore/kvstore/ocdbt/io_handle.h"
 #include "tensorstore/kvstore/operations.h"
-#include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/util/execution/any_receiver.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
 
 void NonDistributedList(ReadonlyIoHandle::Ptr io_handle,
                         kvstore::ListOptions options,
-                        AnyFlowReceiver<absl::Status, kvstore::Key>&& receiver);
+                        kvstore::ListReceiver&& receiver);
 
 void NonDistributedListSubtree(
     ReadonlyIoHandle::Ptr io_handle, const BtreeNodeReference& node_ref,

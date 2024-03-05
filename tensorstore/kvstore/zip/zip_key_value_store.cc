@@ -49,7 +49,6 @@
 #include "tensorstore/kvstore/supported_features.h"
 #include "tensorstore/kvstore/zip/zip_dir_cache.h"
 #include "tensorstore/transaction.h"
-#include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
@@ -69,6 +68,7 @@
 
 using ::tensorstore::internal_zip_kvstore::Directory;
 using ::tensorstore::internal_zip_kvstore::ZipDirectoryCache;
+using ::tensorstore::kvstore::ListReceiver;
 
 namespace tensorstore {
 namespace {
@@ -127,8 +127,7 @@ class ZipKvStore
                                base_.driver->DescribeKey(base_.path));
   }
 
-  void ListImpl(ListOptions options,
-                AnyFlowReceiver<absl::Status, Key> receiver) override;
+  void ListImpl(ListOptions options, ListReceiver receiver) override;
 
   absl::Status GetBoundSpecData(ZipKvStoreSpecData& spec) const {
     spec = spec_data_;
@@ -326,17 +325,16 @@ Future<kvstore::ReadResult> ZipKvStore::Read(Key key, ReadOptions options) {
 // Implements ZipKvStore::List
 struct ListState : public internal::AtomicReferenceCount<ListState> {
   internal::IntrusivePtr<ZipKvStore> owner_;
-  AnyFlowReceiver<absl::Status, kvstore::Key> receiver_;
   kvstore::ListOptions options_;
+  ListReceiver receiver_;
   Promise<void> promise_;
   Future<void> future_;
 
-  ListState(internal::IntrusivePtr<ZipKvStore> owner,
-            AnyFlowReceiver<absl::Status, kvstore::Key>&& receiver,
-            kvstore::ListOptions options)
+  ListState(internal::IntrusivePtr<ZipKvStore>&& owner,
+            kvstore::ListOptions&& options, ListReceiver&& receiver)
       : owner_(std::move(owner)),
-        receiver_(std::move(receiver)),
-        options_(std::move(options)) {
+        options_(std::move(options)),
+        receiver_(std::move(receiver)) {
     auto [promise, future] = PromiseFuturePair<void>::Make(MakeResult());
     this->promise_ = std::move(promise);
     this->future_ = std::move(future);
@@ -379,17 +377,18 @@ struct ListState : public internal::AtomicReferenceCount<ListState> {
   }
 };
 
-void ZipKvStore::ListImpl(ListOptions options,
-                          AnyFlowReceiver<absl::Status, Key> receiver) {
+void ZipKvStore::ListImpl(ListOptions options, ListReceiver receiver) {
   auto state = internal::MakeIntrusivePtr<ListState>(
-      internal::IntrusivePtr<ZipKvStore>(this), std::move(receiver), options);
+      internal::IntrusivePtr<ZipKvStore>(this), std::move(options),
+      std::move(receiver));
   auto* state_ptr = state.get();
   LinkValue(WithExecutor(executor(),
                          [state = std::move(state)](Promise<void> promise,
                                                     ReadyFuture<const void>) {
                            state->OnDirectoryReady();
                          }),
-            state_ptr->promise_, cache_entry_->Read(options.staleness_bound));
+            state_ptr->promise_,
+            cache_entry_->Read(state_ptr->options_.staleness_bound));
 }
 
 }  // namespace

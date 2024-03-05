@@ -123,9 +123,7 @@
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/supported_features.h"
 #include "tensorstore/kvstore/url_registry.h"
-#include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
-#include "tensorstore/util/execution/sender.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
@@ -174,6 +172,7 @@ using ::tensorstore::internal_file_util::IsKeyValid;
 using ::tensorstore::internal_file_util::kLockSuffix;
 using ::tensorstore::internal_file_util::LongestDirectoryPrefix;
 using ::tensorstore::internal_file_util::UniqueFileDescriptor;
+using ::tensorstore::kvstore::ListReceiver;
 using ::tensorstore::kvstore::ReadResult;
 using ::tensorstore::kvstore::SupportedFeatures;
 
@@ -277,8 +276,7 @@ class FileKeyValueStore
 
   Future<const void> DeleteRange(KeyRange range) override;
 
-  void ListImpl(ListOptions options,
-                AnyFlowReceiver<absl::Status, Key> receiver) override;
+  void ListImpl(ListOptions options, ListReceiver receiver) override;
 
   const Executor& executor() { return spec_.file_io_concurrency->executor; }
 
@@ -367,7 +365,7 @@ Result<UniqueFileDescriptor> OpenParentDirectory(std::string path) {
     } else if (separator_pos == 0) {
       dir_path = "/";
     } else {
-      // Temporarily modify path to make `path.c_str()` a NUL-terminated string
+      // Temporarily modify path to make `path.c_str()` a NULL-terminated string
       // containing the current ancestor directory path.
       path[separator_pos] = '\0';
       dir_path = path.c_str();
@@ -701,8 +699,7 @@ struct WriteTask {
       }
       absl::Cord value_for_write = value;
       for (; !value_for_write.empty();) {
-        std::ptrdiff_t n =
-            internal_file_util::WriteCordToFile(fd, value_for_write);
+        ptrdiff_t n = internal_file_util::WriteCordToFile(fd, value_for_write);
         if (n <= 0) {
           return StatusFromErrno("Error writing to file: ", lock_path);
         }
@@ -865,12 +862,11 @@ Future<const void> FileKeyValueStore::DeleteRange(KeyRange range) {
 
 /// Implements `FileKeyValueStore:::List`.
 struct ListTask {
-  KeyRange range;
-  size_t strip_prefix_length;
-  AnyFlowReceiver<absl::Status, kvstore::Key> receiver;
+  kvstore::ListOptions options;
+  ListReceiver receiver;
 
   void operator()() {
-    PathRangeVisitor visitor(range);
+    PathRangeVisitor visitor(options.range);
 
     std::atomic<bool> cancelled = false;
     execution::set_starting(receiver, [&cancelled] {
@@ -882,7 +878,7 @@ struct ListTask {
     auto handle_file_at = [this, &visitor] {
       std::string path = visitor.GetFullPath();
       if (!absl::EndsWith(path, kLockSuffix)) {
-        path.erase(0, strip_prefix_length);
+        path.erase(0, options.strip_prefix_length);
         execution::set_value(receiver, std::move(path));
       }
       return absl::OkStatus();
@@ -900,8 +896,7 @@ struct ListTask {
   }
 };
 
-void FileKeyValueStore::ListImpl(ListOptions options,
-                                 AnyFlowReceiver<absl::Status, Key> receiver) {
+void FileKeyValueStore::ListImpl(ListOptions options, ListReceiver receiver) {
   file_list.Increment();
   if (options.range.empty()) {
     execution::set_starting(receiver, [] {});
@@ -915,8 +910,7 @@ void FileKeyValueStore::ListImpl(ListOptions options,
     execution::set_stopping(receiver);
     return;
   }
-  executor()(ListTask{std::move(options.range), options.strip_prefix_length,
-                      std::move(receiver)});
+  executor()(ListTask{std::move(options), std::move(receiver)});
 }
 
 Future<kvstore::DriverPtr> FileKeyValueStoreSpec::DoOpen() const {

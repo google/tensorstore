@@ -52,7 +52,6 @@
 #include "tensorstore/kvstore/transaction.h"
 #include "tensorstore/kvstore/url_registry.h"
 #include "tensorstore/transaction.h"
-#include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
@@ -189,8 +188,7 @@ class MemoryDriver
 
   Future<const void> DeleteRange(KeyRange range) override;
 
-  void ListImpl(ListOptions options,
-                AnyFlowReceiver<absl::Status, Key> receiver) override;
+  void ListImpl(ListOptions options, ListReceiver receiver) override;
 
   absl::Status ReadModifyWrite(internal::OpenTransactionPtr& transaction,
                                size_t& phase, Key key,
@@ -456,8 +454,7 @@ Future<const void> MemoryDriver::DeleteRange(KeyRange range) {
   return absl::OkStatus();  // Converted to a ReadyFuture.
 }
 
-void MemoryDriver::ListImpl(ListOptions options,
-                            AnyFlowReceiver<absl::Status, Key> receiver) {
+void MemoryDriver::ListImpl(ListOptions options, ListReceiver receiver) {
   auto& data = this->data();
   std::atomic<bool> cancelled{false};
   execution::set_starting(receiver, [&cancelled] {

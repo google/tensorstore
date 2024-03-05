@@ -81,15 +81,15 @@
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
-/// specializations
-#include "tensorstore/internal/cache_key/absl_time.h"
-#include "tensorstore/internal/cache_key/std_optional.h"
-#include "tensorstore/internal/context_binding.h"
-#include "tensorstore/internal/json_binding/absl_time.h"
-#include "tensorstore/internal/json_binding/bindable.h"
-#include "tensorstore/internal/json_binding/enum.h"
-#include "tensorstore/serialization/absl_time.h"
-#include "tensorstore/serialization/fwd.h"
+// specializations
+#include "tensorstore/internal/cache_key/absl_time.h"  // IWYU pragma: keep
+#include "tensorstore/internal/cache_key/std_optional.h"  // IWYU pragma: keep
+#include "tensorstore/internal/context_binding.h"  // IWYU pragma: keep
+#include "tensorstore/internal/json_binding/absl_time.h"  // IWYU pragma: keep
+#include "tensorstore/internal/json_binding/bindable.h"  // IWYU pragma: keep
+#include "tensorstore/internal/json_binding/enum.h"  // IWYU pragma: keep
+#include "tensorstore/serialization/absl_time.h"  // IWYU pragma: keep
+#include "tensorstore/serialization/fwd.h"  // IWYU pragma: keep
 
 // protos
 #include "google/protobuf/empty.pb.h"
@@ -107,6 +107,7 @@ using ::tensorstore::internal_storage_gcs::IsRetriable;
 using ::tensorstore::internal_storage_gcs::IsValidBucketName;
 using ::tensorstore::internal_storage_gcs::IsValidObjectName;
 using ::tensorstore::internal_storage_gcs::IsValidStorageGeneration;
+using ::tensorstore::kvstore::ListReceiver;
 using ::tensorstore::kvstore::SupportedFeatures;
 
 using ::google::storage::v2::DeleteObjectRequest;
@@ -236,8 +237,7 @@ class GcsGrpcKeyValueStore
                                              std::optional<Value> value,
                                              WriteOptions options) override;
 
-  void ListImpl(ListOptions options,
-                AnyFlowReceiver<absl::Status, Key> receiver) override;
+  void ListImpl(ListOptions options, ListReceiver receiver) override;
 
   Future<const void> DeleteRange(KeyRange range) override;
 
@@ -869,8 +869,8 @@ struct DeleteTask : public internal::AtomicReferenceCount<DeleteTask> {
 // rpc ListObjects(ListObjectsRequest) returns (ListObjectsResponse) {}
 struct ListTask : public internal::AtomicReferenceCount<ListTask> {
   internal::IntrusivePtr<GcsGrpcKeyValueStore> driver_;
-  AnyFlowReceiver<absl::Status, kvstore::Key> receiver_;
   kvstore::ListOptions options_;
+  ListReceiver receiver_;
 
   // working state.
   Storage::StubInterface* stub_ = nullptr;
@@ -882,12 +882,11 @@ struct ListTask : public internal::AtomicReferenceCount<ListTask> {
   std::unique_ptr<grpc::ClientContext> context_ ABSL_GUARDED_BY(mutex_);
   bool cancelled_ ABSL_GUARDED_BY(mutex_) = false;
 
-  ListTask(internal::IntrusivePtr<GcsGrpcKeyValueStore> driver,
-           AnyFlowReceiver<absl::Status, kvstore::Key> receiver,
-           kvstore::ListOptions options)
+  ListTask(internal::IntrusivePtr<GcsGrpcKeyValueStore>&& driver,
+           kvstore::ListOptions&& options, ListReceiver&& receiver)
       : driver_(std::move(driver)),
-        receiver_(std::move(receiver)),
-        options_(std::move(options)) {
+        options_(std::move(options)),
+        receiver_(std::move(receiver)) {
     // Start a call.
     execution::set_starting(receiver_, [this] { TryCancel(); });
   }
@@ -1084,8 +1083,8 @@ Future<TimestampedStorageGeneration> GcsGrpcKeyValueStore::Write(
   return std::move(op.future);
 }
 
-void GcsGrpcKeyValueStore::ListImpl(
-    ListOptions options, AnyFlowReceiver<absl::Status, Key> receiver) {
+void GcsGrpcKeyValueStore::ListImpl(ListOptions options,
+                                    ListReceiver receiver) {
   gcs_grpc_list.Increment();
   if (options.range.empty()) {
     execution::set_starting(receiver, [] {});
@@ -1095,8 +1094,8 @@ void GcsGrpcKeyValueStore::ListImpl(
   }
 
   auto task = internal::MakeIntrusivePtr<ListTask>(
-      internal::IntrusivePtr<GcsGrpcKeyValueStore>(this), std::move(receiver),
-      std::move(options));
+      internal::IntrusivePtr<GcsGrpcKeyValueStore>(this), std::move(options),
+      std::move(receiver));
   task->Start();
 }
 

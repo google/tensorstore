@@ -84,6 +84,7 @@ namespace {
 
 using ::tensorstore::internal::ConvertInvalidArgumentToFailedPrecondition;
 using ::tensorstore::internal::IntrusivePtr;
+using ::tensorstore::kvstore::ListReceiver;
 using ::tensorstore::kvstore::SupportedFeatures;
 
 /// Read-only KeyValueStore for retrieving a minishard index
@@ -1057,11 +1058,14 @@ class ShardedKeyValueStore
         .future;
   }
 
-  void ListImpl(ListOptions options,
-                AnyFlowReceiver<absl::Status, Key> receiver) override {
+  void ListImpl(ListOptions options, ListReceiver receiver) override {
     struct State {
-      explicit State(AnyFlowReceiver<absl::Status, Key>&& receiver,
-                     ListOptions options)
+      ListReceiver receiver_;
+      Promise<void> promise_;
+      Future<void> future_;
+      ListOptions options_;
+
+      explicit State(ListReceiver&& receiver, ListOptions&& options)
           : receiver_(std::move(receiver)), options_(std::move(options)) {
         auto [promise, future] = PromiseFuturePair<void>::Make(MakeResult());
         this->promise_ = std::move(promise);
@@ -1080,10 +1084,6 @@ class ShardedKeyValueStore
         }
         execution::set_stopping(receiver_);
       }
-      AnyFlowReceiver<absl::Status, Key> receiver_;
-      Promise<void> promise_;
-      Future<void> future_;
-      ListOptions options_;
     };
     auto state =
         std::make_shared<State>(std::move(receiver), std::move(options));

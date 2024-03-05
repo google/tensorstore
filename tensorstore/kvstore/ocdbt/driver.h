@@ -24,7 +24,6 @@
 #include "tensorstore/context.h"
 #include "tensorstore/context_resource_provider.h"
 #include "tensorstore/internal/cache/cache_pool_resource.h"
-#include "tensorstore/internal/cache_key/absl_time.h"  // IWYU pragma: keep
 #include "tensorstore/internal/cache_key/cache_key.h"
 #include "tensorstore/internal/concurrency_resource.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
@@ -46,6 +45,7 @@
 #include "tensorstore/util/future.h"
 
 // specializations
+#include "tensorstore/internal/cache_key/absl_time.h"  // IWYU pragma: keep
 #include "tensorstore/internal/cache_key/std_optional.h"  // IWYU pragma: keep
 #include "tensorstore/internal/cache_key/std_variant.h"  // IWYU pragma: keep
 #include "tensorstore/serialization/absl_time.h"  // IWYU pragma: keep
@@ -123,8 +123,7 @@ class OcdbtDriver
 
   std::string DescribeKey(std::string_view key) override;
 
-  void ListImpl(ListOptions options,
-                AnyFlowReceiver<absl::Status, Key> receiver) override;
+  void ListImpl(ListOptions options, ListReceiver receiver) override;
 
   absl::Status GetBoundSpecData(OcdbtDriverSpecData& spec) const;
 

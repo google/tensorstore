@@ -53,6 +53,8 @@ namespace {
 
 ABSL_CONST_INIT internal_log::VerboseFlag ocdbt_logging("ocdbt");
 
+using ::tensorstore::kvstore::ListReceiver;
+
 // Asynchronous operation state used to implement `internal_ocdbt::List`.
 //
 // The list operation is implemented as follows:
@@ -265,9 +267,8 @@ struct KeyReceiverAdapter {
 
 }  // namespace
 
-void NonDistributedList(
-    ReadonlyIoHandle::Ptr io_handle, kvstore::ListOptions options,
-    AnyFlowReceiver<absl::Status, kvstore::Key>&& receiver) {
+void NonDistributedList(ReadonlyIoHandle::Ptr io_handle,
+                        kvstore::ListOptions options, ListReceiver&& receiver) {
   auto op = ListOperation::Initialize(
       std::move(io_handle), std::move(options.range),
       KeyReceiverAdapter{std::move(receiver), options.strip_prefix_length});

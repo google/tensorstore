@@ -31,8 +31,6 @@
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/transaction.h"
 #include "tensorstore/transaction.h"
-#include "tensorstore/util/execution/any_receiver.h"
-#include "tensorstore/util/execution/any_sender.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/future_collecting_receiver.h"
 #include "tensorstore/util/execution/sender.h"
@@ -186,8 +184,7 @@ void AddListOptionsPrefix(ListOptions& options, std::string_view path) {
 }
 }  // namespace
 
-void List(const KvStore& store, ListOptions options,
-          AnyFlowReceiver<absl::Status, Key> receiver) {
+void List(const KvStore& store, ListOptions options, ListReceiver receiver) {
   if (store.transaction != no_transaction) {
     execution::submit(ErrorSender{absl::UnimplementedError(
                           "transactional list not supported")},
@@ -198,8 +195,7 @@ void List(const KvStore& store, ListOptions options,
   store.driver->ListImpl(std::move(options), std::move(receiver));
 }
 
-AnyFlowSender<absl::Status, Key> List(const KvStore& store,
-                                      ListOptions options) {
+ListSender List(const KvStore& store, ListOptions options) {
   if (store.transaction != no_transaction) {
     return ErrorSender{
         absl::UnimplementedError("transactional list not supported")};
