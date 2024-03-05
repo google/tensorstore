@@ -14,7 +14,7 @@
 
 #include <memory>
 #include <string>
-#include <utility>
+#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -22,6 +22,8 @@
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/match.h"
+#include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "tensorstore/context.h"
 #include "tensorstore/internal/http/curl_transport.h"
@@ -36,7 +38,6 @@
 #include "tensorstore/kvstore/read_result_testutil.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/util/future.h"
-#include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -132,6 +133,10 @@ class MyMockTransport : public HttpTransport {
                                     absl::Duration request_timeout,
                                     absl::Duration connect_timeout) override {
     ABSL_LOG(INFO) << request;
+    {
+      absl::MutexLock lock(&mutex_);
+      requests_.push_back(request);
+    }
     auto it = url_to_response_.find(
         tensorstore::StrCat(request.method, " ", request.url));
     if (it != url_to_response_.end()) {
@@ -141,6 +146,9 @@ class MyMockTransport : public HttpTransport {
   }
 
   const absl::flat_hash_map<std::string, HttpResponse>& url_to_response_;
+
+  absl::Mutex mutex_;
+  std::vector<HttpRequest> requests_;
 };
 
 struct DefaultHttpTransportSetter {
@@ -194,6 +202,18 @@ TEST(S3KeyValueStoreTest, SimpleMock_VirtualHost) {
                   "900150983cd24fb0d6963f7d28e17f72")));
 
   TENSORSTORE_EXPECT_OK(kvstore::Delete(store, "key_delete"));
+
+  int host_header_validated = 0;
+  for (const auto& request : mock_transport->requests_) {
+    if (absl::StartsWith(request.url,
+                         "https://my-bucket.s3.us-east-1.amazonaws.com/")) {
+      host_header_validated++;
+      EXPECT_THAT(
+          request.headers,
+          testing::Contains("host: my-bucket.s3.us-east-1.amazonaws.com"));
+    }
+  }
+  EXPECT_THAT(host_header_validated, testing::Ge(2));
 }
 
 TEST(S3KeyValueStoreTest, SimpleMock_NoVirtualHost) {
@@ -238,6 +258,72 @@ TEST(S3KeyValueStoreTest, SimpleMock_NoVirtualHost) {
                   "900150983cd24fb0d6963f7d28e17f72")));
 
   TENSORSTORE_EXPECT_OK(kvstore::Delete(store, "key_delete"));
+
+  int host_header_validated = 0;
+  for (const auto& request : mock_transport->requests_) {
+    if (absl::StartsWith(request.url, "https://s3.us-east-1.amazonaws.com/")) {
+      host_header_validated++;
+      EXPECT_THAT(request.headers,
+                  testing::Contains("host: s3.us-east-1.amazonaws.com"));
+    }
+  }
+  EXPECT_THAT(host_header_validated, testing::Ge(2));
+}
+
+// TODO: Add tests for various responses
+TEST(S3KeyValueStoreTest, SimpleMock_Endpoint) {
+  // Mocks for s3
+  absl::flat_hash_map<std::string, HttpResponse> url_to_response{
+      // initial HEAD request responds with an x-amz-bucket-region header.
+      {"HEAD https://localhost:1234/base/my-bucket",
+       HttpResponse{200, absl::Cord(), {{"x-amz-bucket-region", "us-east-1"}}}},
+
+      {"GET https://localhost:1234/base/my-bucket/tmp:1/key_read",
+       HttpResponse{200,
+                    absl::Cord("abcd"),
+                    {{"etag", "900150983cd24fb0d6963f7d28e17f72"}}}},
+
+      {"PUT https://localhost:1234/base/my-bucket/tmp:1/key_write",
+       HttpResponse{
+           200, absl::Cord(), {{"etag", "900150983cd24fb0d6963f7d28e17f72"}}}},
+
+      // DELETE 404 => absl::OkStatus()
+  };
+
+  auto mock_transport = std::make_shared<MyMockTransport>(url_to_response);
+  DefaultHttpTransportSetter mock_transport_setter{mock_transport};
+
+  // Opens the s3 driver with small exponential backoff values.
+  auto context = DefaultTestContext();
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, kvstore::Open({{"driver", "s3"},
+                                 {"bucket", "my-bucket"},
+                                 {"endpoint", "https://localhost:1234/base"},
+                                 {"path", "tmp:1/"}},
+                                context)
+                      .result());
+
+  auto read_result = kvstore::Read(store, "key_read").result();
+  EXPECT_THAT(read_result,
+              MatchesKvsReadResult(absl::Cord("abcd"),
+                                   StorageGeneration::FromString(
+                                       "900150983cd24fb0d6963f7d28e17f72")));
+
+  EXPECT_THAT(kvstore::Write(store, "key_write", absl::Cord("xyz")).result(),
+              MatchesTimestampedStorageGeneration(StorageGeneration::FromString(
+                  "900150983cd24fb0d6963f7d28e17f72")));
+
+  TENSORSTORE_EXPECT_OK(kvstore::Delete(store, "key_delete"));
+
+  int host_header_validated = 0;
+  for (const auto& request : mock_transport->requests_) {
+    if (absl::StartsWith(request.url, "https://localhost:1234/")) {
+      host_header_validated++;
+      EXPECT_THAT(request.headers, testing::Contains("host: localhost"));
+    }
+  }
+  EXPECT_THAT(host_header_validated, testing::Ge(2));
 }
 
 TEST(S3KeyValueStoreTest, SimpleMock_List) {

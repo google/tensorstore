@@ -32,21 +32,17 @@
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
 
-namespace {
-
 using ::tensorstore::Future;
 using ::tensorstore::internal_http::HttpRequest;
 using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_http::HttpTransport;
 using ::tensorstore::internal_kvstore_s3::ResolveEndpointRegion;
-using ::tensorstore::internal_kvstore_s3::S3EndpointHostRegion;
+using ::tensorstore::internal_kvstore_s3::S3EndpointRegion;
 using ::tensorstore::internal_kvstore_s3::ValidateEndpoint;
 
-TEST(ValidateEndpointTest, Basic) {
-  // error: host header with empty endpoint
-  EXPECT_THAT(ValidateEndpoint("testbucket", {}, {}, "my.host.header"),
-              ::testing::VariantWith<absl::Status>(testing::_));
+namespace {
 
+TEST(ValidateEndpointTest, Basic) {
   // {bucket} => Ok (must be resolved later)
   EXPECT_THAT(ValidateEndpoint("testbucket", {}, {}, {}),
               ::testing::VariantWith<absl::Status>(absl::OkStatus()));
@@ -56,18 +52,33 @@ TEST(ValidateEndpointTest, Basic) {
 
   // {bucket, region} => Immediately resolved.
   EXPECT_THAT(ValidateEndpoint("testbucket", "us-east-1", {}, {}),
-              ::testing::VariantWith<S3EndpointHostRegion>(testing::_));
+              ::testing::VariantWith<S3EndpointRegion>(testing::_));
 
   // kOldUSEast1 bucket
   EXPECT_THAT(ValidateEndpoint("OldBucket", "us-east-1", {}, {}),
-              ::testing::VariantWith<S3EndpointHostRegion>(testing::_));
+              ::testing::VariantWith<S3EndpointRegion>(testing::_));
 
   EXPECT_THAT(ValidateEndpoint("OldBucket", {}, {}, {}),
-              ::testing::VariantWith<S3EndpointHostRegion>(testing::_));
+              ::testing::VariantWith<S3EndpointRegion>(testing::_));
 
   // error: kOldUSEast1 bucket not in us-east-1
   EXPECT_THAT(ValidateEndpoint("OldBucket", "us-west-1", {}, {}),
-              ::testing::VariantWith<absl::Status>(testing::_));
+              ::testing::VariantWith<absl::Status>(
+                  tensorstore::StatusIs(absl::StatusCode::kInvalidArgument)));
+
+  EXPECT_THAT(ValidateEndpoint("testbucket", "region", "http://my.host", {}),
+              ::testing::VariantWith<S3EndpointRegion>(
+                  S3EndpointRegion{"http://my.host/testbucket", "region"}));
+
+  EXPECT_THAT(
+      ValidateEndpoint("testbucket", "region", "http://my.host", "my.header"),
+      ::testing::VariantWith<S3EndpointRegion>(
+          S3EndpointRegion{"http://my.host/testbucket", "region"}));
+
+  // error: host header with empty endpoint
+  EXPECT_THAT(ValidateEndpoint("testbucket", {}, {}, "my.header"),
+              ::testing::VariantWith<absl::Status>(
+                  tensorstore::StatusIs(absl::StatusCode::kInvalidArgument)));
 }
 
 // Mock-based tests for s3.
@@ -110,13 +121,12 @@ TEST(ResolveEndpointRegion, Basic) {
   };
 
   auto mock_transport = std::make_shared<MyMockTransport>(url_to_response);
-  S3EndpointHostRegion ehr;
+  S3EndpointRegion ehr;
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       ehr,
       ResolveEndpointRegion("testbucket", {}, {}, mock_transport).result());
 
   EXPECT_THAT(ehr.endpoint, "https://testbucket.s3.us-east-1.amazonaws.com");
-  EXPECT_THAT(ehr.host_header, "testbucket.s3.us-east-1.amazonaws.com");
   EXPECT_THAT(ehr.aws_region, "us-east-1");
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -124,16 +134,24 @@ TEST(ResolveEndpointRegion, Basic) {
       ResolveEndpointRegion("test.bucket", {}, {}, mock_transport).result());
 
   EXPECT_THAT(ehr.endpoint, "https://s3.us-east-1.amazonaws.com/test.bucket");
-  EXPECT_THAT(ehr.host_header, "s3.us-east-1.amazonaws.com");
   EXPECT_THAT(ehr.aws_region, "us-east-1");
 
+  // With endpoint
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      ehr, ResolveEndpointRegion("test.bucket", "http://localhost:1234", {},
+                                 mock_transport)
+               .result());
+
+  EXPECT_THAT(ehr.endpoint, "http://localhost:1234/test.bucket");
+  EXPECT_THAT(ehr.aws_region, "us-east-1");
+
+  // With endpoint & host_header
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       ehr, ResolveEndpointRegion("test.bucket", "http://localhost:1234",
                                  "s3.localhost.com", mock_transport)
                .result());
 
   EXPECT_THAT(ehr.endpoint, "http://localhost:1234/test.bucket");
-  EXPECT_THAT(ehr.host_header, "s3.localhost.com");
   EXPECT_THAT(ehr.aws_region, "us-east-1");
 }
 

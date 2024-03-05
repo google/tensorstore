@@ -171,7 +171,6 @@ std::string AuthorizationHeader(
       signature);
 }
 
-static constexpr char kHostHeader[] = "host: ";
 static constexpr char kAmzContentSha256Header[] = "x-amz-content-sha256: ";
 static constexpr char kAmzSecurityTokenHeader[] = "x-amz-security-token: ";
 /// https://docs.aws.amazon.com/AmazonS3/latest/userguide/ObjectsinRequesterPaysBuckets.html
@@ -195,7 +194,7 @@ HttpRequest S3RequestBuilder::BuildRequest(std::string_view host_header,
                                            std::string_view aws_region,
                                            std::string_view payload_sha256_hash,
                                            const absl::Time& time) {
-  builder_.AddHeader(absl::StrCat(kHostHeader, host_header));
+  builder_.AddHostHeader(host_header);
   builder_.AddHeader(
       absl::StrCat(kAmzContentSha256Header, payload_sha256_hash));
   builder_.AddHeader(absl::FormatTime("x-amz-date: %Y%m%dT%H%M%SZ", time,

@@ -14,13 +14,15 @@
 
 #include "tensorstore/internal/uri_utils.h"
 
-#include <string>
+#include <string_view>
+#include <utility>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 using ::tensorstore::internal::AsciiSet;
 using ::tensorstore::internal::ParseGenericUri;
+using ::tensorstore::internal::ParseHostname;
 using ::tensorstore::internal::PercentDecode;
 using ::tensorstore::internal::PercentEncodeReserved;
 using ::tensorstore::internal::PercentEncodeUriComponent;
@@ -153,6 +155,20 @@ TEST(ParseGenericUriTest, S3Scheme) {
   EXPECT_EQ("bucket/path", parsed.authority_and_path);
   EXPECT_EQ("", parsed.query);
   EXPECT_EQ("", parsed.fragment);
+}
+
+TEST(ParseHostname, Basic) {
+  static constexpr std::pair<std::string_view, std::string_view> kCases[] = {
+      {"host.without.port", "host.without.port"},
+      {"host.with.port:1234", "host.with.port"},
+      {"localhost:1234/foo/bar", "localhost"},
+      {"localhost/foo/bar", "localhost"},
+      {"[::1]:0/foo/bar", "::1"},
+  };
+  for (const auto& [authority_and_path, hostname] : kCases) {
+    EXPECT_THAT(ParseHostname(authority_and_path), ::testing::Eq(hostname))
+        << authority_and_path;
+  }
 }
 
 }  // namespace

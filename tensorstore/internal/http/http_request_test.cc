@@ -122,4 +122,23 @@ TEST(HttpRequestBuilder, MaybeAddRangeHeader) {
   }
 }
 
+TEST(HttpRequestBuilder, AddHostHeader) {
+  {
+    HttpRequestBuilder builder("GET", "http://127.0.0.1/");
+    builder.AddHostHeader({});
+    EXPECT_THAT(builder.BuildRequest().headers, ElementsAre("host: 127.0.0.1"));
+  }
+  {
+    HttpRequestBuilder builder("GET", "http://127.0.0.1/");
+    builder.AddHostHeader("host.header");
+    EXPECT_THAT(builder.BuildRequest().headers,
+                ElementsAre("host: host.header"));
+  }
+  {
+    HttpRequestBuilder builder("GET", "http://localhost:1234/path?x=1");
+    builder.AddHostHeader({});
+    EXPECT_THAT(builder.BuildRequest().headers, ElementsAre("host: localhost"));
+  }
+}
+
 }  // namespace

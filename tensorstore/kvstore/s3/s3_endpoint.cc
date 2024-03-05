@@ -62,10 +62,6 @@ static constexpr char kAmzBucketRegionHeader[] = "x-amz-bucket-region";
 //
 // https://aws.amazon.com/blogs/aws/amazon-s3-path-deprecation-plan-the-rest-of-the-story/
 struct S3VirtualHostFormatter {
-  std::string GetHostHeader(std::string_view bucket,
-                            std::string_view aws_region) const {
-    return absl::StrFormat("%s.s3.%s.amazonaws.com", bucket, aws_region);
-  }
   std::string GetEndpoint(std::string_view bucket,
                           std::string_view aws_region) const {
     // It's unclear whether there is any actual advantage in preferring the
@@ -78,10 +74,6 @@ struct S3VirtualHostFormatter {
 
 // Construct a path-style hostname and host header.
 struct S3PathFormatter {
-  std::string GetHostHeader(std::string_view bucket,
-                            std::string_view aws_region) const {
-    return absl::StrFormat("s3.%s.amazonaws.com", aws_region);
-  }
   std::string GetEndpoint(std::string_view bucket,
                           std::string_view aws_region) const {
     return absl::StrFormat("https://s3.%s.amazonaws.com/%s", aws_region,
@@ -91,17 +83,10 @@ struct S3PathFormatter {
 
 struct S3CustomFormatter {
   std::string endpoint;
-  std::string host_header;
 
-  std::string GetHostHeader(std::string_view bucket,
-                            std::string_view aws_region) const {
-    return host_header.empty()
-               ? absl::StrFormat("s3.%s.amazonaws.com", aws_region)
-               : host_header;
-  }
   std::string GetEndpoint(std::string_view bucket,
                           std::string_view aws_region) const {
-    return endpoint;
+    return absl::StrFormat("%s/%s", endpoint, bucket);
   }
 };
 
@@ -110,15 +95,14 @@ struct ResolveHost {
   std::string bucket;
   Formatter formatter;
 
-  void operator()(Promise<S3EndpointHostRegion> promise,
+  void operator()(Promise<S3EndpointRegion> promise,
                   ReadyFuture<HttpResponse> ready) {
     if (!promise.result_needed()) return;
 
     auto& headers = ready.value().headers;
     if (auto it = headers.find(kAmzBucketRegionHeader); it != headers.end()) {
-      promise.SetResult(S3EndpointHostRegion{
+      promise.SetResult(S3EndpointRegion{
           formatter.GetEndpoint(bucket, it->second),
-          formatter.GetHostHeader(bucket, it->second),
           it->second,
       });
     } else {
@@ -130,7 +114,7 @@ struct ResolveHost {
 
 }  // namespace
 
-std::variant<absl::Status, S3EndpointHostRegion> ValidateEndpoint(
+std::variant<absl::Status, S3EndpointRegion> ValidateEndpoint(
     std::string_view bucket, std::string aws_region, std::string_view endpoint,
     std::string host_header) {
   ABSL_CHECK(!bucket.empty());
@@ -156,18 +140,16 @@ std::variant<absl::Status, S3EndpointHostRegion> ValidateEndpoint(
       if (!absl::StrContains(bucket, ".")) {
         // Use virtual host addressing.
         S3VirtualHostFormatter formatter;
-        return S3EndpointHostRegion{
+        return S3EndpointRegion{
             formatter.GetEndpoint(bucket, aws_region),
-            formatter.GetHostHeader(bucket, aws_region),
             aws_region,
         };
       }
 
       // https://aws.amazon.com/blogs/aws/amazon-s3-path-deprecation-plan-the-rest-of-the-story/
       S3PathFormatter formatter;
-      return S3EndpointHostRegion{
+      return S3EndpointRegion{
           formatter.GetEndpoint(bucket, aws_region),
-          formatter.GetHostHeader(bucket, aws_region),
           aws_region,
       };
     }
@@ -194,13 +176,9 @@ std::variant<absl::Status, S3EndpointHostRegion> ValidateEndpoint(
   if (!aws_region.empty()) {
     // Endpoint and aws_region are specified; assume a non-virtual signing
     // header is allowed.
-    S3CustomFormatter formatter{
-        absl::StrFormat("%s/%s", endpoint, bucket),
-        std::move(host_header),
-    };
-    return S3EndpointHostRegion{
+    S3CustomFormatter formatter{std::string(endpoint)};
+    return S3EndpointRegion{
         formatter.GetEndpoint(bucket, aws_region),
-        formatter.GetHostHeader(bucket, aws_region),
         aws_region,
     };
   }
@@ -208,7 +186,7 @@ std::variant<absl::Status, S3EndpointHostRegion> ValidateEndpoint(
   return absl::OkStatus();
 }
 
-Future<S3EndpointHostRegion> ResolveEndpointRegion(
+Future<S3EndpointRegion> ResolveEndpointRegion(
     std::string bucket, std::string_view endpoint, std::string host_header,
     std::shared_ptr<internal_http::HttpTransport> transport) {
   assert(!bucket.empty());
@@ -221,11 +199,13 @@ Future<S3EndpointHostRegion> ResolveEndpointRegion(
     // aws_region to be set.
     if (!absl::StrContains(bucket, ".")) {
       std::string url = absl::StrFormat("https://%s.s3.amazonaws.com", bucket);
-      return PromiseFuturePair<S3EndpointHostRegion>::Link(
+      return PromiseFuturePair<S3EndpointRegion>::Link(
                  ResolveHost<S3VirtualHostFormatter>{std::move(bucket),
                                                      S3VirtualHostFormatter{}},
                  transport->IssueRequest(
-                     HttpRequestBuilder("HEAD", std::move(url)).BuildRequest(),
+                     HttpRequestBuilder("HEAD", std::move(url))
+                         .AddHostHeader(host_header)
+                         .BuildRequest(),
                      {}))
           .future;
     }
@@ -237,11 +217,13 @@ Future<S3EndpointHostRegion> ResolveEndpointRegion(
     // possibly non-existent file... But try this later.
     std::string url =
         absl::StrFormat("https://s3.us-east-1.amazonaws.com/%s", bucket);
-    return PromiseFuturePair<S3EndpointHostRegion>::Link(
+    return PromiseFuturePair<S3EndpointRegion>::Link(
                ResolveHost<S3PathFormatter>{std::move(bucket),
                                             S3PathFormatter{}},
                transport->IssueRequest(
-                   HttpRequestBuilder("HEAD", std ::move(url)).BuildRequest(),
+                   HttpRequestBuilder("HEAD", std ::move(url))
+                       .AddHostHeader(host_header)
+                       .BuildRequest(),
                    {}))
         .future;
   }
@@ -249,12 +231,13 @@ Future<S3EndpointHostRegion> ResolveEndpointRegion(
   // Issue a HEAD request against the endpoint+bucket, which should work for
   // mock S3 backends like localstack or minio.
   std::string url = absl::StrFormat("%s/%s", endpoint, bucket);
-  return PromiseFuturePair<S3EndpointHostRegion>::Link(
+  return PromiseFuturePair<S3EndpointRegion>::Link(
              ResolveHost<S3CustomFormatter>{
-                 std::move(bucket),
-                 S3CustomFormatter{url, std::move(host_header)}},
-             transport->IssueRequest(
-                 HttpRequestBuilder("HEAD", url).BuildRequest(), {}))
+                 std::move(bucket), S3CustomFormatter{std::string(endpoint)}},
+             transport->IssueRequest(HttpRequestBuilder("HEAD", std::move(url))
+                                         .AddHostHeader(host_header)
+                                         .BuildRequest(),
+                                     {}))
       .future;
 }
 

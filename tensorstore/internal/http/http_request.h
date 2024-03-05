@@ -124,6 +124,9 @@ class HttpRequestBuilder {
     return AddHeader(FormatStalenessBoundCacheControlHeader(staleness_bound));
   }
 
+  /// Adds a 'host' header for the request url.
+  HttpRequestBuilder& AddHostHeader(std::string_view host);
+
  private:
   absl::FunctionRef<std::string(std::string_view)> uri_encoder_;
   HttpRequest request_;

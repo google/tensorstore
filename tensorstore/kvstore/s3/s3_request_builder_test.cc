@@ -119,10 +119,10 @@ e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
 TEST(S3RequestBuilderTest, AWS4SignatureGetExample) {
   // https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
   // These values from worked exapmle in "Example: GET Object" Section
-  auto url = absl::StrFormat("https://%s/test.txt", bucket);
+  auto url = absl::StrFormat("https://%s.s3.amazonaws.com/test.txt", bucket);
   auto builder = S3RequestBuilder("GET", url).AddHeader("range: bytes=0-9");
   auto request = builder.BuildRequest(
-      absl::StrFormat("%s.s3.amazonaws.com", bucket), credentials, aws_region,
+      "", credentials, aws_region,
       "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       absl::FromCivil(absl::CivilSecond(2013, 5, 24, 0, 0, 0), utc));
 
@@ -230,7 +230,7 @@ TEST(S3RequestBuilderTest, AWS4SignaturePutExample) {
 TEST(S3RequestBuilderTest, AWS4SignatureListObjectsExample) {
   // https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
   // These values from worked example in "Example: GET Object" Section
-  auto url = absl::StrFormat("https://%s/", bucket);
+  auto url = absl::StrFormat("https://%s.s3.amazonaws.com/", bucket);
   auto builder = S3RequestBuilder("GET", url)
                      .AddQueryParameter("prefix", "J")
                      .AddQueryParameter("max-keys", "2");

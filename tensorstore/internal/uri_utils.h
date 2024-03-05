@@ -146,6 +146,9 @@ struct ParsedGenericUri {
 /// and `#<fragment>` portions are optional.
 ParsedGenericUri ParseGenericUri(std::string_view uri);
 
+/// Parses the hostname from "authority_and_path".
+std::string_view ParseHostname(std::string_view authority_and_path);
+
 }  // namespace internal
 }  // namespace tensorstore
 

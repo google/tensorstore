@@ -27,6 +27,7 @@
 #include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/byte_range.h"
 
 namespace tensorstore {
@@ -127,6 +128,15 @@ HttpRequestBuilder& HttpRequestBuilder::AddQueryParameter(
 HttpRequestBuilder& HttpRequestBuilder::EnableAcceptEncoding() {
   request_.accept_encoding = true;
   return *this;
+}
+
+HttpRequestBuilder& HttpRequestBuilder::AddHostHeader(std::string_view host) {
+  return AddHeader(absl::StrFormat(
+      "host: %s",
+      host.empty()
+          ? internal::ParseHostname(
+                internal::ParseGenericUri(request_.url).authority_and_path)
+          : host));
 }
 
 }  // namespace internal_http

@@ -14,6 +14,9 @@
 
 #include "tensorstore/internal/uri_utils.h"
 
+#include <stddef.h>
+
+#include <algorithm>
 #include <cassert>
 #include <string>
 #include <string_view>
@@ -83,7 +86,7 @@ void PercentDecodeAppend(std::string_view src, std::string& dest) {
 ParsedGenericUri ParseGenericUri(std::string_view uri) {
   static constexpr std::string_view kSchemeSep("://");
   ParsedGenericUri result;
-  const size_t scheme_start = uri.find(kSchemeSep);
+  const auto scheme_start = uri.find(kSchemeSep);
   std::string_view uri_suffix;
   if (scheme_start == std::string_view::npos) {
     // No scheme
@@ -92,9 +95,9 @@ ParsedGenericUri ParseGenericUri(std::string_view uri) {
     result.scheme = uri.substr(0, scheme_start);
     uri_suffix = uri.substr(scheme_start + kSchemeSep.size());
   }
-  const size_t fragment_start = uri_suffix.find('#');
-  const size_t query_start = uri_suffix.substr(0, fragment_start).find('?');
-  const size_t path_end = std::min(query_start, fragment_start);
+  const auto fragment_start = uri_suffix.find('#');
+  const auto query_start = uri_suffix.substr(0, fragment_start).find('?');
+  const auto path_end = std::min(query_start, fragment_start);
   // Note: Since substr clips out-of-range count, this works even if
   // `path_end == npos`.
   result.authority_and_path = uri_suffix.substr(0, path_end);
@@ -106,6 +109,30 @@ ParsedGenericUri ParseGenericUri(std::string_view uri) {
     result.fragment = uri_suffix.substr(fragment_start + 1);
   }
   return result;
+}
+
+/// Parses the hostname from "authority_and_path".
+std::string_view ParseHostname(std::string_view authority_and_path) {
+  // Does not include authority.
+  const auto path_start = authority_and_path.find('/');
+  if (path_start == 0 || authority_and_path.empty()) {
+    return {};
+  }
+  std::string_view authority = authority_and_path.substr(0, path_start);
+  if (authority[0] == '[') {
+    // IPv6 literal host.
+    auto close = authority.rfind(']');
+    if (close == std::string_view::npos) {
+      return {};
+    }
+    return authority.substr(1, close - 1);
+  }
+
+  const auto colon = authority.rfind(':');
+  if (colon != std::string_view::npos) {
+    return authority.substr(0, colon);
+  }
+  return authority;
 }
 
 }  // namespace internal

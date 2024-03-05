@@ -60,7 +60,7 @@ class S3RequestBuilder {
   /// Constructs an S3RequestBuilder with the HTTP Method (e.g. GET, PUT,
   /// DELETE, HEAD) and the S3 endpoint
   S3RequestBuilder(std::string_view method, std::string endpoint_url)
-      : builder_(method, endpoint_url, S3UriEncode) {}
+      : builder_(method, std::move(endpoint_url), S3UriEncode) {}
 
   /// Adds request headers.
   S3RequestBuilder& AddHeader(std::string_view header) {
