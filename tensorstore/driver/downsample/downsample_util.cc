@@ -15,21 +15,35 @@
 #include "tensorstore/driver/downsample/downsample_util.h"
 
 #include <algorithm>
-#include <vector>
+#include <cassert>
+#include <cstdlib>
+#include <limits>
+#include <ostream>
+#include <utility>
 
 #include "absl/base/optimization.h"
 #include "absl/container/inlined_vector.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_join.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
+#include "tensorstore/downsample_method.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/internal/identity_transform.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
+#include "tensorstore/index_space/output_index_method.h"
+#include "tensorstore/internal/integer_overflow.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/util/byte_strided_pointer.h"
+#include "tensorstore/util/division.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_downsample {

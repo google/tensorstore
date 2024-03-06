@@ -14,10 +14,28 @@
 
 #include "tensorstore/driver/downsample/downsample.h"
 
+#include <stddef.h>
+
+#include <algorithm>
+#include <cassert>
 #include <mutex>
+#include <utility>
+#include <vector>
 
 #include "absl/base/thread_annotations.h"
+#include "absl/container/inlined_vector.h"
 #include "absl/status/status.h"
+#include "absl/synchronization/mutex.h"
+#include "tensorstore/array.h"
+#include "tensorstore/array_storage_statistics.h"
+#include "tensorstore/box.h"
+#include "tensorstore/chunk_layout.h"
+#include "tensorstore/codec_spec.h"
+#include "tensorstore/context.h"
+#include "tensorstore/contiguous_layout.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/downsample_method.h"
+#include "tensorstore/driver/chunk.h"
 #include "tensorstore/driver/downsample/downsample_array.h"
 #include "tensorstore/driver/downsample/downsample_method_json_binder.h"
 #include "tensorstore/driver/downsample/downsample_nditerable.h"
@@ -25,20 +43,45 @@
 #include "tensorstore/driver/downsample/grid_occupancy_map.h"
 #include "tensorstore/driver/driver.h"
 #include "tensorstore/driver/driver_handle.h"
+#include "tensorstore/driver/driver_spec.h"
 #include "tensorstore/driver/read.h"
 #include "tensorstore/driver/registry.h"
+#include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
+#include "tensorstore/index_space/dimension_units.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_domain_builder.h"
+#include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
+#include "tensorstore/index_space/transformed_array.h"
+#include "tensorstore/internal/arena.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/std_array.h"
+#include "tensorstore/internal/lock_collection.h"
 #include "tensorstore/internal/nditerable_transformed_array.h"
+#include "tensorstore/json_serialization_options.h"
+#include "tensorstore/kvstore/kvstore.h"
+#include "tensorstore/kvstore/spec.h"
+#include "tensorstore/open_mode.h"
+#include "tensorstore/open_options.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/resize_options.h"
+#include "tensorstore/schema.h"
 #include "tensorstore/serialization/std_vector.h"  // IWYU pragma: keep
 #include "tensorstore/spec.h"
+#include "tensorstore/transaction.h"
 #include "tensorstore/util/execution/any_receiver.h"
+#include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender_util.h"
 #include "tensorstore/util/executor.h"
+#include "tensorstore/util/future.h"
 #include "tensorstore/util/garbage_collection/std_vector.h"  // IWYU pragma: keep
+#include "tensorstore/util/iterate.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_downsample {

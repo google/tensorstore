@@ -98,6 +98,7 @@ tensorstore_cc_binary(
         "//tensorstore:open",
         "//tensorstore:open_mode",
         "//tensorstore:spec",
+        "//tensorstore:strided_layout",
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/internal/image",
@@ -106,6 +107,7 @@ tensorstore_cc_binary(
         "//tensorstore/internal/image:png",
         "//tensorstore/internal/image:webp",
         "//tensorstore/util:json_absl_flag",
+        "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
@@ -116,5 +118,6 @@ tensorstore_cc_binary(
         "@com_google_absl//absl/strings",
         "@com_google_riegeli//riegeli/bytes:fd_writer",
         "@com_google_riegeli//riegeli/bytes:std_io",
+        "@com_google_riegeli//riegeli/bytes:writer",
     ],
 )

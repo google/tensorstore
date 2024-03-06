@@ -14,15 +14,18 @@
 
 #include "tensorstore/driver/downsample/downsample_array.h"
 
+#include <stdint.h>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/downsample_method.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/status_testutil.h"
 
 namespace {
 

@@ -14,19 +14,41 @@
 
 #include "tensorstore/downsample.h"
 
+#include <stdint.h>
+
+#include <memory>
+#include <string>
+#include <utility>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include <nlohmann/json.hpp>
+#include "tensorstore/array.h"
+#include "tensorstore/chunk_layout.h"
 #include "tensorstore/context.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/downsample_method.h"
 #include "tensorstore/driver/array/array.h"
-#include "tensorstore/driver/driver.h"
 #include "tensorstore/driver/driver_testutil.h"
+#include "tensorstore/driver/read.h"
+#include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
+#include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/open.h"
+#include "tensorstore/open_mode.h"
+#include "tensorstore/schema.h"
 #include "tensorstore/spec.h"
+#include "tensorstore/static_cast.h"
+#include "tensorstore/tensorstore.h"
+#include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender_util.h"
 #include "tensorstore/util/status_testutil.h"
+#include "tensorstore/util/str_cat.h"
+#include "tensorstore/util/unit.h"
 
 namespace {
 

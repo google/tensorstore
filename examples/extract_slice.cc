@@ -12,15 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Extracts a slice of a volumetric dataset, outputtting it as a 2d jpeg image.
+// Extracts a slice of a volumetric dataset, outputting it as a 2d image.
 //
 // extract_slice --output_file=/tmp/foo.jpg --input_spec=...
 
-#include <cstdint>
-#include <fstream>
+#include <stdint.h>
+
 #include <iostream>
+#include <memory>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "absl/flags/flag.h"
@@ -30,6 +32,7 @@
 #include <nlohmann/json.hpp>
 #include "riegeli/bytes/fd_writer.h"
 #include "riegeli/bytes/std_io.h"
+#include "riegeli/bytes/writer.h"
 #include "tensorstore/array.h"
 #include "tensorstore/context.h"
 #include "tensorstore/data_type.h"
@@ -46,8 +49,10 @@
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/spec.h"
+#include "tensorstore/strided_layout.h"
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/util/json_absl_flag.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
@@ -56,7 +61,6 @@ namespace {
 
 using ::tensorstore::Context;
 using ::tensorstore::Index;
-using ::tensorstore::StrCat;
 using ::tensorstore::internal_image::AvifWriter;
 using ::tensorstore::internal_image::ImageInfo;
 using ::tensorstore::internal_image::ImageWriter;
@@ -115,6 +119,10 @@ absl::Status Run(tensorstore::Spec input_spec, std::string output_filename) {
 
   std::cerr << std::endl << "Before: " << *transform << std::endl;
 
+  // DimRange(...).IndexSlice(0) transform below assumes that extra dimensions
+  // are 0-based; so make all dimensions 0-based here.
+  transform = transform | tensorstore::AllDims().TranslateTo(0);
+
   // By convention, assume that the first dimension is Y, and the second is X,
   // and the third is C. The C++ api could use some help with labelling missing
   // dimensions, actually...
@@ -126,6 +134,7 @@ absl::Status Run(tensorstore::Spec input_spec, std::string output_filename) {
     has_y = has_y || l == "y";
     has_c = has_c || l == "c";
   }
+
   if (has_y) {
     transform = transform | tensorstore::Dims("y").MoveTo(0);
   }
@@ -138,6 +147,8 @@ absl::Status Run(tensorstore::Spec input_spec, std::string output_filename) {
   if (input.rank() > 2) {
     transform = transform | tensorstore::DimRange(2, -1).IndexSlice(0);
   }
+
+  std::cerr << std::endl << "After: " << *transform << std::endl;
 
   auto constrained_input = input | *transform;
   TENSORSTORE_RETURN_IF_ERROR(constrained_input);

@@ -14,11 +14,18 @@
 
 #include "tensorstore/driver/downsample/downsample_nditerable.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <complex>
+#include <functional>
+#include <limits>
 #include <numeric>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "absl/log/absl_log.h"
@@ -33,8 +40,8 @@
 #include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/internal/nditerable.h"
 #include "tensorstore/internal/nditerable_buffer_management.h"
-#include "tensorstore/internal/nditerable_util.h"
 #include "tensorstore/internal/unique_with_intrusive_allocator.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/util/extents.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/span.h"
@@ -49,7 +56,6 @@
 
 namespace tensorstore {
 namespace internal_downsample {
-
 namespace {
 
 using ::tensorstore::internal::ArenaAllocator;
@@ -1005,7 +1011,7 @@ class DownsampledNDIterator : public NDIterator::Base<DownsampledNDIterator> {
       Index base_inclusive_min =
           initial_base_index * downsample_factor - downsample_dim_origin[i];
       if (base_dim >= base_iteration_rank - 2) {
-        // This downsampling factor applies to one of the 2 inner-most
+        // This downsampling factor applies to one of the 2 innermost
         // dimensions.
         const DimensionIndex inner_dim_i = base_dim - (base_iteration_rank - 2);
         --num_outer_downsample_dims;
@@ -1238,7 +1244,7 @@ class DownsampledNDIterable : public NDIterable::Base<DownsampledNDIterable> {
     DimensionIndex base_iteration_dimensions_[kMaxRank];
   };
 
-  std::ptrdiff_t GetWorkingMemoryBytesPerElement(
+  ptrdiff_t GetWorkingMemoryBytesPerElement(
       NDIterable::IterationLayoutView layout,
       IterationBufferKind buffer_kind) const override {
     NDIterable::IterationLayoutView base_layout;
