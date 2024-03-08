@@ -16,6 +16,7 @@
 #define TENSORSTORE_KVSTORE_OPERATIONS_H_
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <optional>
 #include <string_view>
@@ -127,8 +128,18 @@ struct ListOptions {
   absl::Time staleness_bound = absl::InfiniteFuture();
 };
 
-using ListReceiver = AnyFlowReceiver<absl::Status, Key>;
-using ListSender = AnyFlowSender<absl::Status, Key>;
+/// Return value for List operations
+struct ListEntry {
+  Key key;
+
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const ListEntry& entry) {
+    absl::Format(&sink, "%s", entry.key);
+  }
+};
+
+using ListReceiver = AnyFlowReceiver<absl::Status, ListEntry>;
+using ListSender = AnyFlowSender<absl::Status, ListEntry>;
 
 /// Options for `CopyRange`.
 ///
@@ -244,14 +255,15 @@ ListSender List(const KvStore& store, ListOptions options);
 /// \param options List options.  The `options.range` is interpreted relative to
 ///     `store.path`.
 /// \relates KvStore
-Future<std::vector<Key>> ListFuture(const KvStore& store,
-                                    ListOptions options = {});
+Future<std::vector<ListEntry>> ListFuture(const KvStore& store,
+                                          ListOptions options = {});
 
 // Calls `List` and collects the results in an `std::vector`.
-Future<std::vector<Key>> ListFuture(Driver* driver, ListOptions options = {});
+Future<std::vector<ListEntry>> ListFuture(Driver* driver,
+                                          ListOptions options = {});
 
-inline Future<std::vector<Key>> ListFuture(const DriverPtr& driver,
-                                           ListOptions options = {}) {
+inline Future<std::vector<ListEntry>> ListFuture(const DriverPtr& driver,
+                                                 ListOptions options = {}) {
   return ListFuture(driver.get(), options);
 }
 

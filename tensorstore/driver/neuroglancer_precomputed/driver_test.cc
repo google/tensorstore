@@ -52,6 +52,7 @@
 #include "tensorstore/kvstore/mock_kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
+#include "tensorstore/kvstore/test_matchers.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
@@ -86,6 +87,7 @@ using ::tensorstore::StrCat;
 using ::tensorstore::TimestampedStorageGeneration;
 using ::tensorstore::Unit;
 using ::tensorstore::internal::GetMap;
+using ::tensorstore::internal::MatchesListEntry;
 using ::tensorstore::internal::ParseJsonMatches;
 using ::tensorstore::internal::ScopedTemporaryDirectory;
 using ::tensorstore::internal::TestSpecSchema;
@@ -409,9 +411,9 @@ TEST(DriverTest, Create) {
                   .value());
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto kvs, kvstore::Open({{"driver", "memory"}}, context).result());
-    EXPECT_THAT(
-        ListFuture(kvs).result(),
-        ::testing::Optional(::testing::UnorderedElementsAre("prefix/info")));
+    EXPECT_THAT(ListFuture(kvs).result(),
+                ::testing::Optional(::testing::UnorderedElementsAre(
+                    MatchesListEntry("prefix/info"))));
   }
 }
 

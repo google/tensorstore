@@ -58,6 +58,7 @@
 #include "tensorstore/kvstore/mock_kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/spec.h"
+#include "tensorstore/kvstore/test_matchers.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
@@ -93,6 +94,7 @@ using ::tensorstore::StrCat;
 using ::tensorstore::dtypes::complex64_t;
 using ::tensorstore::internal::DecodedMatches;
 using ::tensorstore::internal::GetMap;
+using ::tensorstore::internal::MatchesListEntry;
 using ::tensorstore::internal::ParseJsonMatches;
 using ::tensorstore::internal::TestSpecSchema;
 using ::tensorstore::internal::TestTensorStoreCreateCheckSchema;
@@ -346,8 +348,9 @@ TEST(ZarrDriverTest, Create) {
     TENSORSTORE_ASSERT_OK(transaction.CommitAsync());
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto kvs, kvstore::Open({{"driver", "memory"}}, context).result());
-    EXPECT_THAT(ListFuture(kvs).value(),
-                ::testing::UnorderedElementsAre("prefix/.zarray"));
+    EXPECT_THAT(
+        ListFuture(kvs).value(),
+        ::testing::UnorderedElementsAre(MatchesListEntry("prefix/.zarray")));
   }
 }
 

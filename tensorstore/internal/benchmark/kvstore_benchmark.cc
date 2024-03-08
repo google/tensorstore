@@ -312,8 +312,15 @@ void DoReadBenchmark(Context context, kvstore::Spec kvstore_spec,
   if (input.keys.empty()) {
     TENSORSTORE_CHECK_OK_AND_ASSIGN(
         auto kvstore, kvstore::Open(kvstore_spec, context).result());
-    input.keys = kvstore::ListFuture(kvstore).result().value();
-    ABSL_LOG(INFO) << "Read " << input.keys.size() << " keys from kvstore";
+
+    TENSORSTORE_CHECK_OK_AND_ASSIGN(auto entries,
+                                    kvstore::ListFuture(kvstore).result());
+    ABSL_LOG(INFO) << "Read " << entries.size() << " keys from kvstore";
+
+    input.keys.reserve(entries.size());
+    for (auto& entry : entries) {
+      input.keys.push_back(std::move(entry.key));
+    }
   }
   absl::InsecureBitGen gen;
 

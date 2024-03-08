@@ -107,6 +107,7 @@ using ::tensorstore::internal_storage_gcs::IsRetriable;
 using ::tensorstore::internal_storage_gcs::IsValidBucketName;
 using ::tensorstore::internal_storage_gcs::IsValidObjectName;
 using ::tensorstore::internal_storage_gcs::IsValidStorageGeneration;
+using ::tensorstore::kvstore::ListEntry;
 using ::tensorstore::kvstore::ListReceiver;
 using ::tensorstore::kvstore::SupportedFeatures;
 
@@ -988,7 +989,7 @@ struct ListTask : public internal::AtomicReferenceCount<ListTask> {
       if (options_.strip_prefix_length) {
         name = name.substr(options_.strip_prefix_length);
       }
-      execution::set_value(receiver_, std::string(name));
+      execution::set_value(receiver_, ListEntry{std::string(name)});
     }
     if (!done && !response.next_page_token().empty()) {
       // If there is a continuation token, issue the next request.
@@ -1013,10 +1014,10 @@ struct DeleteRangeListReceiver {
     cancel_registration_ = promise_.ExecuteWhenNotNeeded(std::move(cancel));
   }
 
-  void set_value(std::string key) {
-    assert(!key.empty());
-    if (!key.empty()) {
-      LinkError(promise_, driver_->Delete(std::move(key)));
+  void set_value(ListEntry entry) {
+    assert(!entry.key.empty());
+    if (!entry.key.empty()) {
+      LinkError(promise_, driver_->Delete(std::move(entry.key)));
     }
   }
 

@@ -45,13 +45,12 @@
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
-#include "tensorstore/kvstore/generation_testutil.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
-#include "tensorstore/kvstore/read_result_testutil.h"
 #include "tensorstore/kvstore/spec.h"
+#include "tensorstore/kvstore/test_matchers.h"
 #include "tensorstore/kvstore/transaction.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/serialization/test_util.h"
@@ -686,21 +685,15 @@ void TestKeyValueStoreList(const KvStore& store) {
                          "set_value: a/c/x", "set_done", "set_stopping"));
   }
 
-  // Cancellation immediately after starting yields nothing..
-  struct CancelOnStarting : public tensorstore::LoggingReceiver {
-    void set_starting(tensorstore::AnyCancelReceiver do_cancel) {
-      this->tensorstore::LoggingReceiver::set_starting({});
-      do_cancel();
-    }
-  };
-
+  // Cancellation immediately after starting yields nothing.
   ABSL_LOG(INFO) << "Test list, cancel on start";
   {
     absl::Notification notification;
     std::vector<std::string> log;
     tensorstore::execution::submit(
         kvstore::List(store, {}),
-        CompletionNotifyingReceiver{&notification, CancelOnStarting{{&log}}});
+        CompletionNotifyingReceiver{&notification,
+                                    CancelOnStartingReceiver{{&log}}});
     notification.WaitForNotification();
 
     ASSERT_THAT(log, ::testing::SizeIs(::testing::Ge(3)));
@@ -715,30 +708,14 @@ void TestKeyValueStoreList(const KvStore& store) {
   }
 
   // Cancellation in the middle of the stream may stop the stream.
-  struct CancelAfter2 : public tensorstore::LoggingReceiver {
-    using Key = kvstore::Key;
-    tensorstore::AnyCancelReceiver cancel;
-
-    void set_starting(tensorstore::AnyCancelReceiver do_cancel) {
-      this->cancel = std::move(do_cancel);
-      this->tensorstore::LoggingReceiver::set_starting({});
-    }
-
-    void set_value(Key k) {
-      this->tensorstore::LoggingReceiver::set_value(std::move(k));
-      if (this->log->size() == 2) {
-        this->cancel();
-      }
-    }
-  };
-
   ABSL_LOG(INFO) << "Test list, cancel after 2";
   {
     absl::Notification notification;
     std::vector<std::string> log;
     tensorstore::execution::submit(
         kvstore::List(store, {}),
-        CompletionNotifyingReceiver{&notification, CancelAfter2{{&log}}});
+        CompletionNotifyingReceiver{&notification,
+                                    CancelAfterNReceiver<2>{{&log}}});
     notification.WaitForNotification();
 
     ASSERT_THAT(log, ::testing::SizeIs(::testing::Gt(3)));
@@ -772,9 +749,9 @@ void TestKeyValueStoreDeleteRange(const KvStore& store) {
   futures.clear();
 
   TENSORSTORE_EXPECT_OK(kvstore::DeleteRange(store, KeyRange("a/b", "b/aa")));
-  EXPECT_THAT(
-      kvstore::ListFuture(store).result(),
-      ::testing::Optional(::testing::UnorderedElementsAre("a/a", "b/b")));
+  EXPECT_THAT(kvstore::ListFuture(store).result(),
+              ::testing::Optional(::testing::UnorderedElementsAre(
+                  MatchesListEntry("a/a"), MatchesListEntry("b/b"))));
 
   // Construct a lot of nested values.
   for (auto a : {"m", "n", "o", "p"}) {
@@ -790,9 +767,9 @@ void TestKeyValueStoreDeleteRange(const KvStore& store) {
     TENSORSTORE_EXPECT_OK(f.status());
   }
   TENSORSTORE_EXPECT_OK(kvstore::DeleteRange(store, KeyRange("l", "z")));
-  EXPECT_THAT(
-      kvstore::ListFuture(store).result(),
-      ::testing::Optional(::testing::UnorderedElementsAre("a/a", "b/b")));
+  EXPECT_THAT(kvstore::ListFuture(store).result(),
+              ::testing::Optional(::testing::UnorderedElementsAre(
+                  MatchesListEntry("a/a"), MatchesListEntry("b/b"))));
 }
 
 void TestKeyValueStoreDeletePrefix(const KvStore& store) {
@@ -828,7 +805,8 @@ void TestKeyValueStoreDeleteRangeToEnd(const KvStore& store) {
   }
   TENSORSTORE_EXPECT_OK(kvstore::DeleteRange(store, KeyRange("a/b", "")));
   EXPECT_THAT(ListFuture(store).result(),
-              ::testing::Optional(::testing::UnorderedElementsAre("a/a")));
+              ::testing::Optional(
+                  ::testing::UnorderedElementsAre(MatchesListEntry("a/a"))));
 }
 
 void TestKeyValueStoreDeleteRangeFromBeginning(const KvStore& store) {
@@ -837,8 +815,9 @@ void TestKeyValueStoreDeleteRangeFromBeginning(const KvStore& store) {
   }
   TENSORSTORE_EXPECT_OK(kvstore::DeleteRange(store, KeyRange("", "a/c/aa")));
   EXPECT_THAT(ListFuture(store).result(),
-              ::testing::Optional(
-                  ::testing::UnorderedElementsAre("a/c/b", "b/a", "b/b")));
+              ::testing::Optional(::testing::UnorderedElementsAre(
+                  MatchesListEntry("a/c/b"), MatchesListEntry("b/a"),
+                  MatchesListEntry("b/b"))));
 }
 
 void TestKeyValueStoreCopyRange(const KvStore& store) {
@@ -1024,14 +1003,14 @@ void TestKeyValueStoreUrlRoundtrip(::nlohmann::json json_spec,
 }
 
 Result<std::map<kvstore::Key, kvstore::Value>> GetMap(const KvStore& store) {
-  TENSORSTORE_ASSIGN_OR_RETURN(auto keys, ListFuture(store).result());
+  TENSORSTORE_ASSIGN_OR_RETURN(auto entries, ListFuture(store).result());
   std::map<kvstore::Key, kvstore::Value> result;
-  for (const auto& key : keys) {
+  for (const auto& entry : entries) {
     TENSORSTORE_ASSIGN_OR_RETURN(auto read_result,
-                                 kvstore::Read(store, key).result());
+                                 kvstore::Read(store, entry.key).result());
     assert(!read_result.aborted());
     assert(!read_result.not_found());
-    result.emplace(key, std::move(read_result.value));
+    result.emplace(entry.key, std::move(read_result.value));
   }
   return result;
 }

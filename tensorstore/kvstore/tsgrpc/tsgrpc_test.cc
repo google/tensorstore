@@ -333,7 +333,9 @@ TEST_F(TsGrpcMockTest, List) {
   )pb");
 
   ListResponse response = ParseTextProtoOrDie(R"pb(
-    key: 'a' key: 'b' key: 'c'
+    entry { key: 'a' }
+    entry { key: 'b' }
+    entry { key: 'c' }
   )pb");
 
   // Set expectation and action on the mock stub.

@@ -172,6 +172,7 @@ using ::tensorstore::internal_file_util::IsKeyValid;
 using ::tensorstore::internal_file_util::kLockSuffix;
 using ::tensorstore::internal_file_util::LongestDirectoryPrefix;
 using ::tensorstore::internal_file_util::UniqueFileDescriptor;
+using ::tensorstore::kvstore::ListEntry;
 using ::tensorstore::kvstore::ListReceiver;
 using ::tensorstore::kvstore::ReadResult;
 using ::tensorstore::kvstore::SupportedFeatures;
@@ -879,7 +880,7 @@ struct ListTask {
       std::string path = visitor.GetFullPath();
       if (!absl::EndsWith(path, kLockSuffix)) {
         path.erase(0, options.strip_prefix_length);
-        execution::set_value(receiver, std::move(path));
+        execution::set_value(receiver, ListEntry{std::move(path)});
       }
       return absl::OkStatus();
     };

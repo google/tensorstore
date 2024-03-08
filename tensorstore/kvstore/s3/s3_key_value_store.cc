@@ -115,6 +115,7 @@ using ::tensorstore::internal_kvstore_s3::StorageGenerationFromHeaders;
 using ::tensorstore::internal_kvstore_s3::TagAndPosition;
 using ::tensorstore::internal_storage_gcs::IsRetriable;
 using ::tensorstore::kvstore::Key;
+using ::tensorstore::kvstore::ListEntry;
 using ::tensorstore::kvstore::ListOptions;
 using ::tensorstore::kvstore::ListReceiver;
 
@@ -1211,8 +1212,8 @@ struct ListTask : public RateLimiterNode,
         return absl::OkStatus();
       }
       if (key.size() >= options_.strip_prefix_length) {
-        execution::set_value(receiver_,
-                             key.substr(options_.strip_prefix_length));
+        execution::set_value(
+            receiver_, ListEntry{key.substr(options_.strip_prefix_length)});
       }
     }
 
@@ -1271,10 +1272,10 @@ struct DeleteRangeListReceiver {
     cancel_registration_ = promise_.ExecuteWhenNotNeeded(std::move(cancel));
   }
 
-  void set_value(std::string key) {
-    assert(!key.empty());
-    if (!key.empty()) {
-      LinkError(promise_, owner_->Delete(std::move(key)));
+  void set_value(ListEntry entry) {
+    assert(!entry.key.empty());
+    if (!entry.key.empty()) {
+      LinkError(promise_, owner_->Delete(std::move(entry.key)));
     }
   }
 

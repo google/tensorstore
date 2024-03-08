@@ -14,6 +14,7 @@
 
 #include <iostream>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include "absl/flags/flag.h"
@@ -64,7 +65,8 @@ Result<int> RunCopy() {
 
   std::vector<Future<const void>> write_futures;
 
-  for (const auto& key : list_entries) {
+  for (const auto& entry : list_entries) {
+    std::string key = entry.key;
     write_futures.push_back(MapFutureValue(
         InlineExecutor{},
         [&](const Result<kvstore::ReadResult>& read_result) -> Future<void> {

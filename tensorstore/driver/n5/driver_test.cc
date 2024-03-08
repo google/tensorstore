@@ -26,6 +26,7 @@
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/chunk_layout.h"
@@ -43,6 +44,7 @@
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
+#include "tensorstore/kvstore/test_matchers.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
@@ -70,6 +72,7 @@ using ::tensorstore::MatchesStatus;
 using ::tensorstore::Schema;
 using ::tensorstore::span;
 using ::tensorstore::internal::GetMap;
+using ::tensorstore::internal::MatchesListEntry;
 using ::tensorstore::internal::ParseJsonMatches;
 using ::tensorstore::internal::TestSpecSchema;
 using ::tensorstore::internal::TestTensorStoreCreateCheckSchema;
@@ -324,8 +327,8 @@ TEST(N5DriverTest, Create) {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto kvs, kvstore::Open({{"driver", "memory"}}, context).result());
     EXPECT_THAT(ListFuture(kvs).result(),
-                ::testing::Optional(
-                    ::testing::UnorderedElementsAre("prefix/attributes.json")));
+                ::testing::Optional(::testing::UnorderedElementsAre(
+                    MatchesListEntry("prefix/attributes.json"))));
   }
 }
 

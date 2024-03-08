@@ -21,7 +21,9 @@
 #include <charconv>
 #include <memory>
 #include <optional>
+#include <ostream>
 #include <string_view>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -185,6 +187,20 @@ void SetWritebackError(ManifestCache::TransactionNode* node,
       GetManifestPath(entry.key()), action, error));
   node->WritebackError();
 }
+
+struct DumpListEntries {
+  ::tensorstore::span<kvstore::ListEntry> entries;
+
+  [[maybe_unused]] friend std::ostream& operator<<(std::ostream& os,
+                                                   DumpListEntries s) {
+    os << "{";
+    for (ptrdiff_t i = 0; i < s.entries.size(); ++i) {
+      if (i != 0) os << ", ";
+      os << s.entries[i].key;
+    }
+    return os << "}";
+  }
+};
 
 }  // namespace
 
@@ -371,7 +387,7 @@ void ListNumberedManifests(NumberedManifestCache::Entry* entry,
   future.ExecuteWhenReady(WithExecutor(
       cache.executor(),
       [entry, time, receiver = std::move(receiver)](
-          ReadyFuture<std::vector<kvstore::Key>> future) mutable {
+          ReadyFuture<std::vector<kvstore::ListEntry>> future) mutable {
         auto& r = future.result();
         auto& cache = GetOwningCache(*entry);
         if (!r.ok()) {
@@ -382,10 +398,13 @@ void ListNumberedManifests(NumberedManifestCache::Entry* entry,
         }
         std::vector<GenerationNumber> versions_present;
         ABSL_LOG_IF(INFO, ocdbt_logging)
-            << "Manifest files present: " << tensorstore::span(*r);
-        for (std::string_view key : *r) {
+            << "Manifest files present: "
+            << DumpListEntries{tensorstore::span(*r)};
+
+        for (const auto& entry : *r) {
           GenerationNumber generation_number;
-          if (!ParseNumberedManifestGenerationNumber(key, generation_number)) {
+          if (!ParseNumberedManifestGenerationNumber(entry.key,
+                                                     generation_number)) {
             continue;
           }
           versions_present.push_back(generation_number);

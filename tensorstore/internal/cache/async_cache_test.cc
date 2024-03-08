@@ -29,7 +29,7 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/queue_testutil.h"
 #include "tensorstore/kvstore/generation.h"
-#include "tensorstore/kvstore/generation_testutil.h"
+#include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/status.h"

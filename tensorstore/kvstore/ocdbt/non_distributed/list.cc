@@ -53,6 +53,7 @@ namespace {
 
 ABSL_CONST_INIT internal_log::VerboseFlag ocdbt_logging("ocdbt");
 
+using ::tensorstore::kvstore::ListEntry;
 using ::tensorstore::kvstore::ListReceiver;
 
 // Asynchronous operation state used to implement `internal_ocdbt::List`.
@@ -129,8 +130,7 @@ struct ListOperation
                            std::string inclusive_min_key,
                            KeyLength subtree_common_prefix_length) {
     ABSL_LOG_IF(INFO, ocdbt_logging)
-        << "List: "
-        << "node=" << node_ref
+        << "List: " << "node=" << node_ref
         << ", node_height=" << static_cast<int>(node_height)
         << ", subtree_common_prefix_length=" << subtree_common_prefix_length
         << ", inclusive_min_key=" << tensorstore::QuoteString(inclusive_min_key)
@@ -190,8 +190,8 @@ struct ListOperation
     auto entries = FindBtreeEntryRange(all_entries, key_range.inclusive_min,
                                        key_range.exclusive_max);
     ABSL_LOG_IF(INFO, ocdbt_logging)
-        << "VisitInteriorNode: "
-        << "subtree_key_prefix=" << tensorstore::QuoteString(subtree_key_prefix)
+        << "VisitInteriorNode: " << "subtree_key_prefix="
+        << tensorstore::QuoteString(subtree_key_prefix)
         << ", key_range=" << key_range << ", first node key="
         << tensorstore::QuoteString(all_entries.front().key)
         << ", last node key="
@@ -216,8 +216,8 @@ struct ListOperation
     auto entries = FindBtreeEntryRange(all_entries, key_range.inclusive_min,
                                        key_range.exclusive_max);
     ABSL_LOG_IF(INFO, ocdbt_logging)
-        << "VisitLeafNode: "
-        << "subtree_key_prefix=" << tensorstore::QuoteString(subtree_key_prefix)
+        << "VisitLeafNode: " << "subtree_key_prefix="
+        << tensorstore::QuoteString(subtree_key_prefix)
         << ", key_range=" << key_range << ", first node key="
         << tensorstore::QuoteString(all_entries.front().key)
         << ", last node key="
@@ -234,7 +234,7 @@ struct ListOperation
 // Adapts a kvstore List receiver into the receiver type expected by
 // `ListOperation`.
 struct KeyReceiverAdapter {
-  AnyFlowReceiver<absl::Status, kvstore::Key> receiver;
+  ListReceiver receiver;
   size_t strip_prefix_length = 0;
 
   void set_done() { execution::set_done(receiver); }
@@ -253,7 +253,7 @@ struct KeyReceiverAdapter {
               std::min(entry.key.size(),
                        strip_prefix_length -
                            std::min(strip_prefix_length, key_prefix.size()))));
-      execution::set_value(receiver, std::move(key));
+      execution::set_value(receiver, ListEntry{std::move(key)});
     }
   }
 

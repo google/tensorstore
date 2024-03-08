@@ -983,9 +983,16 @@ Result<std::vector<std::string>> GetKeysForChunkKeyEncoding(
   TENSORSTORE_RETURN_IF_ERROR(
       tensorstore::Write(tensorstore::MakeScalarArray<uint8_t>(42), store));
   TENSORSTORE_ASSIGN_OR_RETURN(
-      auto keys, tensorstore::kvstore::ListFuture(store.kvstore()).result());
-  keys.erase(std::remove(keys.begin(), keys.end(), "zarr.json"), keys.end());
-  return keys;
+      auto entries, tensorstore::kvstore::ListFuture(store.kvstore()).result());
+
+  std::vector<std::string> keys_without_zarr_json;
+  keys_without_zarr_json.reserve(entries.size());
+  for (const auto& e : entries) {
+    if (e.key != "zarr.json") {
+      keys_without_zarr_json.push_back(std::move(e.key));
+    }
+  }
+  return keys_without_zarr_json;
 }
 
 TEST(ChunkKeyEncodingTest, DefaultRank0) {

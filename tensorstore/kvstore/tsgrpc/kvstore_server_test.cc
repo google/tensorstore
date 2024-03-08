@@ -16,7 +16,6 @@
 
 #include <string>
 #include <type_traits>
-#include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
@@ -30,10 +29,9 @@
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
-#include "tensorstore/kvstore/read_result_testutil.h"
 #include "tensorstore/kvstore/spec.h"
+#include "tensorstore/kvstore/test_matchers.h"
 #include "tensorstore/kvstore/test_util.h"
-#include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender_testutil.h"
 #include "tensorstore/util/future.h"
@@ -162,19 +160,13 @@ TEST_F(KvStoreTest, List) {
   }
 
   // Cancellation immediately after starting yields nothing..
-  struct CancelOnStarting : public tensorstore::LoggingReceiver {
-    void set_starting(tensorstore::AnyCancelReceiver do_cancel) {
-      this->tensorstore::LoggingReceiver::set_starting({});
-      do_cancel();
-    }
-  };
-
   {
     std::vector<std::string> log;
     absl::Notification notification;
     tensorstore::execution::submit(
-        store.driver->List({}), tensorstore::CompletionNotifyingReceiver{
-                                    &notification, CancelOnStarting{{&log}}});
+        store.driver->List({}),
+        tensorstore::CompletionNotifyingReceiver{
+            &notification, tensorstore::CancelOnStartingReceiver{{&log}}});
 
     notification.WaitForNotification();
     EXPECT_THAT(log, ::testing::ElementsAre("set_starting", "set_done",
@@ -182,29 +174,13 @@ TEST_F(KvStoreTest, List) {
   }
 
   // Cancellation in the middle of the stream stops the stream.
-  struct CancelAfter2 : public tensorstore::LoggingReceiver {
-    using Key = tensorstore::kvstore::Key;
-    tensorstore::AnyCancelReceiver cancel;
-
-    void set_starting(tensorstore::AnyCancelReceiver do_cancel) {
-      this->cancel = std::move(do_cancel);
-      this->tensorstore::LoggingReceiver::set_starting({});
-    }
-
-    void set_value(Key k) {
-      this->tensorstore::LoggingReceiver::set_value(std::move(k));
-      if (this->log->size() == 2) {
-        this->cancel();
-      }
-    }
-  };
-
   {
     std::vector<std::string> log;
     absl::Notification notification;
-    tensorstore::execution::submit(store.driver->List({}),
-                                   tensorstore::CompletionNotifyingReceiver{
-                                       &notification, CancelAfter2{{&log}}});
+    tensorstore::execution::submit(
+        store.driver->List({}),
+        tensorstore::CompletionNotifyingReceiver{
+            &notification, tensorstore::CancelAfterNReceiver<2>{{&log}}});
 
     notification.WaitForNotification();
     EXPECT_THAT(log,

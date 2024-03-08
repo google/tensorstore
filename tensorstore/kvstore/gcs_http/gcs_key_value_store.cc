@@ -118,6 +118,7 @@ using ::tensorstore::internal_storage_gcs::IsValidBucketName;
 using ::tensorstore::internal_storage_gcs::IsValidObjectName;
 using ::tensorstore::internal_storage_gcs::IsValidStorageGeneration;
 using ::tensorstore::kvstore::Key;
+using ::tensorstore::kvstore::ListEntry;
 using ::tensorstore::kvstore::ListOptions;
 using ::tensorstore::kvstore::ListReceiver;
 using ::tensorstore::kvstore::SupportedFeatures;
@@ -1155,7 +1156,7 @@ struct ListTask : public RateLimiterNode,
       if (options_.strip_prefix_length) {
         name = name.substr(options_.strip_prefix_length);
       }
-      execution::set_value(receiver_, std::string(name));
+      execution::set_value(receiver_, ListEntry{std::string(name)});
     }
 
     // Successful request, so clear the retry_attempt for the next request.
@@ -1199,10 +1200,10 @@ struct DeleteRangeListReceiver {
     cancel_registration_ = promise_.ExecuteWhenNotNeeded(std::move(cancel));
   }
 
-  void set_value(std::string key) {
-    assert(!key.empty());
-    if (!key.empty()) {
-      LinkError(promise_, owner_->Delete(std::move(key)));
+  void set_value(ListEntry entry) {
+    assert(!entry.key.empty());
+    if (!entry.key.empty()) {
+      LinkError(promise_, owner_->Delete(std::move(entry.key)));
     }
   }
 

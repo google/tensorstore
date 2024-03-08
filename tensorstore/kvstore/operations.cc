@@ -43,13 +43,14 @@
 namespace tensorstore {
 namespace kvstore {
 
-Future<std::vector<Key>> ListFuture(Driver* driver, ListOptions options) {
-  return tensorstore::CollectFlowSenderIntoFuture<std::vector<Key>>(
+Future<std::vector<ListEntry>> ListFuture(Driver* driver, ListOptions options) {
+  return tensorstore::CollectFlowSenderIntoFuture<std::vector<ListEntry>>(
       tensorstore::MakeSyncFlowSender(driver->List(options)));
 }
 
-Future<std::vector<Key>> ListFuture(const KvStore& store, ListOptions options) {
-  return tensorstore::CollectFlowSenderIntoFuture<std::vector<Key>>(
+Future<std::vector<ListEntry>> ListFuture(const KvStore& store,
+                                          ListOptions options) {
+  return tensorstore::CollectFlowSenderIntoFuture<std::vector<ListEntry>>(
       tensorstore::MakeSyncFlowSender(
           kvstore::List(store, std::move(options))));
 }

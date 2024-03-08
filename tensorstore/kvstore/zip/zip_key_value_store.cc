@@ -68,6 +68,7 @@
 
 using ::tensorstore::internal_zip_kvstore::Directory;
 using ::tensorstore::internal_zip_kvstore::ZipDirectoryCache;
+using ::tensorstore::kvstore::ListEntry;
 using ::tensorstore::kvstore::ListReceiver;
 
 namespace tensorstore {
@@ -370,8 +371,9 @@ struct ListState : public internal::AtomicReferenceCount<ListState> {
         break;
       }
       if (it->filename.size() >= options_.strip_prefix_length) {
-        execution::set_value(receiver_,
-                             it->filename.substr(options_.strip_prefix_length));
+        execution::set_value(
+            receiver_,
+            ListEntry{it->filename.substr(options_.strip_prefix_length)});
       }
     }
   }

@@ -157,9 +157,15 @@ void DoDurationBenchmark(Context context, kvstore::Spec kvstore_spec) {
   TENSORSTORE_CHECK_OK_AND_ASSIGN(
       read_state->kvstore, kvstore::Open(kvstore_spec, context).result());
 
-  read_state->keys = kvstore::ListFuture(read_state->kvstore).result().value();
-  ABSL_LOG(INFO) << "Read " << read_state->keys.size() << " keys from kvstore";
-  ABSL_CHECK(!read_state->keys.empty());
+  TENSORSTORE_CHECK_OK_AND_ASSIGN(
+      auto entries, kvstore::ListFuture(read_state->kvstore).result());
+  ABSL_LOG(INFO) << "Read " << entries.size() << " keys from kvstore";
+  ABSL_CHECK(!entries.empty());
+
+  read_state->keys.reserve(entries.size());
+  for (auto& entry : entries) {
+    read_state->keys.push_back(std::move(entry.key));
+  }
 
   auto pair = PromiseFuturePair<void>::Make(absl::OkStatus());
   read_state->start_time = absl::Now();

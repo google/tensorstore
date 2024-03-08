@@ -41,9 +41,9 @@
 #include "tensorstore/kvstore/ocdbt/test_util.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
-#include "tensorstore/kvstore/read_result_testutil.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/supported_features.h"
+#include "tensorstore/kvstore/test_matchers.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/future.h"
@@ -57,6 +57,7 @@ using ::tensorstore::Context;
 using ::tensorstore::KeyRange;
 using ::tensorstore::internal::GetMap;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
+using ::tensorstore::internal::MatchesListEntry;
 using ::tensorstore::internal::MockKeyValueStore;
 using ::tensorstore::internal_ocdbt::Config;
 using ::tensorstore::internal_ocdbt::ConfigConstraints;
@@ -434,8 +435,10 @@ TEST(OcdbtTest, NumberedManifest) {
   TENSORSTORE_ASSERT_OK(kvstore::Write(ocdbt_store, "a", absl::Cord("b")));
   EXPECT_THAT(kvstore::ListFuture(base_store).result(),
               ::testing::Optional(::testing::UnorderedElementsAre(
-                  "manifest.ocdbt", "manifest.0000000000000001",
-                  "manifest.0000000000000002", ::testing::StartsWith("d/"))));
+                  MatchesListEntry("manifest.ocdbt"),
+                  MatchesListEntry("manifest.0000000000000001"),
+                  MatchesListEntry("manifest.0000000000000002"),
+                  MatchesListEntry(::testing::StartsWith("d/")))));
 }
 
 TEST(OcdbtTest, CopyRange) {

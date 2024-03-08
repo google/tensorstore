@@ -177,6 +177,7 @@ tensorstore_cc_test(
         "//tensorstore/internal/json_binding:gtest",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:mock_kvstore",
+        "//tensorstore/kvstore:test_matchers",
         "//tensorstore/kvstore:test_util",
         "//tensorstore/kvstore/file",
         "//tensorstore/kvstore/memory",

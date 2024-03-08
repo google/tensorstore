@@ -20,7 +20,6 @@
 #include <gtest/gtest.h>
 #include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
-#include "tensorstore/kvstore/generation_testutil.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/ocdbt/driver.h"
 #include "tensorstore/kvstore/ocdbt/format/version_tree.h"
@@ -28,6 +27,7 @@
 #include "tensorstore/kvstore/ocdbt/non_distributed/list_versions.h"
 #include "tensorstore/kvstore/ocdbt/test_util.h"
 #include "tensorstore/kvstore/operations.h"
+#include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
 

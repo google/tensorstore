@@ -98,18 +98,6 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
-    name = "generation_testutil",
-    testonly = 1,
-    hdrs = ["generation_testutil.h"],
-    deps = [
-        ":generation",
-        "//tensorstore/util:result",
-        "@com_google_absl//absl/time",
-        "@com_google_googletest//:gtest",
-    ],
-)
-
-tensorstore_cc_library(
     name = "key_range",
     srcs = ["key_range.cc"],
     hdrs = ["key_range.h"],
@@ -243,12 +231,11 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
-    name = "read_result_testutil",
+    name = "test_matchers",
     testonly = 1,
-    hdrs = ["read_result_testutil.h"],
+    hdrs = ["test_matchers.h"],
     deps = [
         ":generation",
-        ":generation_testutil",
         ":kvstore",
         "//tensorstore/util:result",
         "@com_google_absl//absl/strings:cord",
@@ -265,10 +252,9 @@ tensorstore_cc_library(
     deps = [
         ":byte_range",
         ":generation",
-        ":generation_testutil",
         ":key_range",
         ":kvstore",
-        ":read_result_testutil",
+        ":test_matchers",
         "//tensorstore:context",
         "//tensorstore:json_serialization_options",
         "//tensorstore:open_mode",
@@ -333,7 +319,7 @@ tensorstore_cc_test(
         ":generation",
         ":kvstore",
         ":mock_kvstore",
-        ":read_result_testutil",
+        ":test_matchers",
         ":test_util",
         "//tensorstore:transaction",
         "//tensorstore/internal:intrusive_ptr",

@@ -84,6 +84,7 @@ namespace {
 
 using ::tensorstore::internal::ConvertInvalidArgumentToFailedPrecondition;
 using ::tensorstore::internal::IntrusivePtr;
+using ::tensorstore::kvstore::ListEntry;
 using ::tensorstore::kvstore::ListReceiver;
 using ::tensorstore::kvstore::SupportedFeatures;
 
@@ -1102,7 +1103,7 @@ class ShardedKeyValueStore
               auto key = ChunkIdToKey(chunk.minishard_and_chunk_id.chunk_id);
               if (!Contains(state->options_.range, key)) continue;
               key.erase(0, state->options_.strip_prefix_length);
-              execution::set_value(state->receiver_, std::move(key));
+              execution::set_value(state->receiver_, ListEntry{std::move(key)});
             }
           },
           state->promise_, entry->Read(absl::InfiniteFuture()));

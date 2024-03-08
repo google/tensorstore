@@ -15,6 +15,8 @@
 #ifndef TENSORSTORE_UTIL_SENDER_TESTUTIL_H_
 #define TENSORSTORE_UTIL_SENDER_TESTUTIL_H_
 
+#include <stddef.h>
+
 #include <string>
 #include <tuple>
 #include <utility>
@@ -22,6 +24,7 @@
 
 #include "absl/strings/str_join.h"
 #include "absl/synchronization/notification.h"
+#include "tensorstore/internal/type_traits.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sync_flow_sender.h"
@@ -29,18 +32,25 @@
 
 namespace tensorstore {
 
+// Logs the calls to set_value/set_error/etc.
 struct LoggingReceiver {
   std::vector<std::string>* log;
 
-  void set_starting(tensorstore::AnyCancelReceiver cancel) {
+  void set_starting(AnyCancelReceiver cancel) {
     log->push_back("set_starting");
   }
 
   template <typename... V>
   void set_value(V&&... v) {
-    log->push_back(tensorstore::StrCat(
-        "set_value: ", absl::StrJoin(std::make_tuple(std::forward<V>(v)...),
-                                     ", ", absl::StreamFormatter())));
+    if constexpr ((... && internal::IsOstreamable<V>)) {
+      log->push_back(tensorstore::StrCat(
+          "set_value: ", absl::StrJoin(std::make_tuple(std::forward<V>(v)...),
+                                       ", ", absl::StreamFormatter())));
+    } else {
+      log->push_back(tensorstore::StrCat(
+          "set_value: ",
+          absl::StrJoin(std::make_tuple(std::forward<V>(v)...), ", ")));
+    }
   }
 
   void set_done() { log->push_back("set_done"); }
@@ -74,6 +84,33 @@ struct CompletionNotifyingReceiver
 template <typename Receiver>
 CompletionNotifyingReceiver(absl::Notification*, Receiver receiver)
     -> CompletionNotifyingReceiver<Receiver>;
+
+// Cancellation on the first call to set_starting() stops the stream.
+struct CancelOnStartingReceiver : public LoggingReceiver {
+  void set_starting(AnyCancelReceiver do_cancel) {
+    this->LoggingReceiver::set_starting({});
+    do_cancel();
+  }
+};
+
+// Cancellation in the middle of the stream stops the stream.
+template <size_t N>
+struct CancelAfterNReceiver : public LoggingReceiver {
+  AnyCancelReceiver cancel;
+
+  void set_starting(AnyCancelReceiver do_cancel) {
+    this->cancel = std::move(do_cancel);
+    this->LoggingReceiver::set_starting({});
+  }
+
+  template <typename... V>
+  void set_value(V&&... v) {
+    this->LoggingReceiver::set_value(std::forward<V>(v)...);
+    if (this->log->size() == N) {
+      this->cancel();
+    }
+  }
+};
 
 }  // namespace tensorstore
 

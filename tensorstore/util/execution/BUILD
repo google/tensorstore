@@ -91,6 +91,7 @@ tensorstore_cc_library(
         ":any_receiver",
         ":execution",
         ":sync_flow_sender",
+        "//tensorstore/internal:type_traits",
         "//tensorstore/util:str_cat",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/synchronization",
@@ -112,9 +113,11 @@ tensorstore_cc_test(
     deps = [
         ":collecting_sender",
         ":execution",
+        ":sender",
         ":sender_testutil",
         ":sender_util",
         "//tensorstore/util:span",
+        "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",
     ],
 )

@@ -76,6 +76,7 @@ using ::tensorstore::GrpcClientCredentials;
 using ::tensorstore::internal::AbslTimeToProto;
 using ::tensorstore::internal::DataCopyConcurrencyResource;
 using ::tensorstore::internal::GrpcStatusToAbslStatus;
+using ::tensorstore::kvstore::ListEntry;
 using ::tensorstore::kvstore::ListReceiver;
 using ::tensorstore_grpc::DecodeGenerationAndTimestamp;
 using ::tensorstore_grpc::GetMessageStatus;
@@ -362,8 +363,8 @@ struct ListTask {
         try_cancel();
         break;
       }
-      for (const auto& k : response.key()) {
-        execution::set_value(receiver, k);
+      for (const auto& entry : response.entry()) {
+        execution::set_value(receiver, ListEntry{entry.key()});
         if (is_cancelled()) break;
       }
       if (is_cancelled()) break;

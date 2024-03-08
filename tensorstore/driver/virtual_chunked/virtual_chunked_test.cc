@@ -14,15 +14,36 @@
 
 #include "tensorstore/virtual_chunked.h"
 
+#include <memory>
+#include <utility>
+#include <vector>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
+#include "tensorstore/array.h"
+#include "tensorstore/chunk_layout.h"
+#include "tensorstore/context.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/internal/queue_testutil.h"
 #include "tensorstore/kvstore/generation.h"
-#include "tensorstore/kvstore/generation_testutil.h"
+#include "tensorstore/kvstore/test_util.h"
+#include "tensorstore/open_mode.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/schema.h"
+#include "tensorstore/serialization/function.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/serialization/test_util.h"
+#include "tensorstore/staleness_bound.h"
+#include "tensorstore/strided_layout.h"
+#include "tensorstore/tensorstore.h"
+#include "tensorstore/transaction.h"
+#include "tensorstore/util/future.h"
 #include "tensorstore/util/iterate_over_index_range.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"

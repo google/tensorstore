@@ -27,6 +27,7 @@
 #include <string_view>
 #include <utility>
 #include <variant>
+#include <vector>
 
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
@@ -463,7 +464,15 @@ Group:
         options.strip_prefix_length = strip_prefix_length;
         return MapFutureValue(
             InlineExecutor{},
-            [](auto items) { return BytesVector{std::move(items)}; },
+            [](auto items) {
+              // TODO: Convert to ListEntry.
+              std::vector<std::string> keys;
+              keys.reserve(items.size());
+              for (auto& item : items) {
+                keys.push_back(std::move(item.key));
+              }
+              return BytesVector{std::move(keys)};
+            },
             kvstore::ListFuture(self.value, std::move(options)));
       },
       py::arg("range") = std::nullopt, py::arg("strip_prefix_length") = 0,
@@ -1082,8 +1091,7 @@ Example:
 
 )");
 
-  cls.def(
-      "copy", [](Self& self) { return self.value; }, R"(
+  cls.def("copy", [](Self& self) { return self.value; }, R"(
 Returns a copy of the key-value store.
 
 Example:
@@ -1346,8 +1354,7 @@ Group:
   Accessors
 )");
 
-  cls.def(
-      "copy", [](Self& self) { return self.value; }, R"(
+  cls.def("copy", [](Self& self) { return self.value; }, R"(
 Returns a copy of the key-value store spec.
 
 Example:
@@ -1464,8 +1471,7 @@ Group:
   Accessors
 )");
 
-  cls.def(
-      "copy", [](const Self& self) { return self; }, R"(
+  cls.def("copy", [](const Self& self) { return self; }, R"(
 Returns a copy of the range.
 
 Group:

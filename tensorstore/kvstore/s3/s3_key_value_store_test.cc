@@ -31,11 +31,10 @@
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/kvstore/generation.h"
-#include "tensorstore/kvstore/generation_testutil.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
-#include "tensorstore/kvstore/read_result_testutil.h"
+#include "tensorstore/kvstore/test_matchers.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/status_testutil.h"
@@ -48,6 +47,7 @@ using ::tensorstore::Future;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::internal::MatchesKvsReadResult;
+using ::tensorstore::internal::MatchesListEntry;
 using ::tensorstore::internal::MatchesTimestampedStorageGeneration;
 using ::tensorstore::internal_http::HttpRequest;
 using ::tensorstore::internal_http::HttpResponse;
@@ -396,7 +396,10 @@ TEST(S3KeyValueStoreTest, SimpleMock_List) {
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto list_result,
                                    kvstore::ListFuture(store, {}).result());
-  EXPECT_THAT(list_result, ::testing::ElementsAre("a", "b", "b/a", "b/b", "c"));
+  EXPECT_THAT(list_result, ::testing::ElementsAre(
+                               MatchesListEntry("a"), MatchesListEntry("b"),
+                               MatchesListEntry("b/a"), MatchesListEntry("b/b"),
+                               MatchesListEntry("c")));
 }
 
 TEST(S3KeyValueStoreTest, SimpleMock_ListPrefix) {
@@ -455,7 +458,9 @@ TEST(S3KeyValueStoreTest, SimpleMock_ListPrefix) {
       auto list_result,
       kvstore::ListFuture(store, {::tensorstore::KeyRange::Prefix("b")})
           .result());
-  EXPECT_THAT(list_result, ::testing::ElementsAre("b", "b/a", "b/b"));
+  EXPECT_THAT(list_result, ::testing::ElementsAre(MatchesListEntry("b"),
+                                                  MatchesListEntry("b/a"),
+                                                  MatchesListEntry("b/b")));
 }
 
 // TODO: Add mocking to satisfy kvstore testing methods, such as:

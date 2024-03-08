@@ -59,8 +59,10 @@
 
 namespace tensorstore {
 namespace internal {
-
 namespace {
+
+using ::tensorstore::kvstore::ListEntry;
+
 template <typename T>
 struct MovableAtomic : public std::atomic<T> {
   using std::atomic<T>::atomic;
@@ -91,11 +93,11 @@ struct ListReceiver {
     }
   }
 
-  void set_value(std::string key) {
+  void set_value(ListEntry entry) {
     Index grid_indices[kMaxRank];
     const DimensionIndex rank = handler->grid_output_dimensions.size();
     span<Index> grid_indices_span(&grid_indices[0], rank);
-    if (!handler->key_formatter->ParseKey(key, grid_indices_span) ||
+    if (!handler->key_formatter->ParseKey(entry.key, grid_indices_span) ||
         !Contains(grid_bounds, span<const Index>(grid_indices_span))) {
       return;
     }

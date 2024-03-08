@@ -90,6 +90,7 @@ namespace zarr3_sharding_indexed {
 namespace {
 using ::tensorstore::internal_kvstore::DeleteRangeEntry;
 using ::tensorstore::internal_kvstore::kReadModifyWrite;
+using ::tensorstore::kvstore::ListEntry;
 using ::tensorstore::kvstore::ListReceiver;
 
 // Read-only KvStore adapter that maps read requests to suffix-length byte range
@@ -988,8 +989,8 @@ Future<kvstore::ReadResult> ShardedKeyValueStore::Read(Key key,
 
 // Asynchronous operation state for `ShardedKeyValueStore::ListImpl`.
 struct ListOperationState
-    : public internal::FlowSenderOperationState<kvstore::Key> {
-  using Base = internal::FlowSenderOperationState<kvstore::Key>;
+    : public internal::FlowSenderOperationState<kvstore::ListEntry> {
+  using Base = internal::FlowSenderOperationState<kvstore::ListEntry>;
 
   using Base::Base;
 
@@ -1037,7 +1038,7 @@ struct ListOperationState
       if (index_entry.IsMissing()) continue;
       auto key = EntryIdToKey(i, grid_shape);
       key.erase(0, options_.strip_prefix_length);
-      execution::set_value(receiver, std::move(key));
+      execution::set_value(receiver, ListEntry{std::move(key)});
     }
   }
 };

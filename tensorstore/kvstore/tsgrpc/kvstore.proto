@@ -151,5 +151,8 @@ message ListResponse {
   StatusMessage status = 1;
 
   /// Generation and timestamp are returned.
-  repeated bytes key = 2;
+  message Entry {
+    bytes key = 1;
+  }
+  repeated Entry entry = 2;
 }

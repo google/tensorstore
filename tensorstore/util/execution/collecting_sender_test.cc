@@ -20,7 +20,9 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/strings/str_join.h"
 #include "tensorstore/util/execution/execution.h"
+#include "tensorstore/util/execution/sender.h"
 #include "tensorstore/util/execution/sender_testutil.h"
 #include "tensorstore/util/execution/sender_util.h"
 #include "tensorstore/util/span.h"
@@ -40,7 +42,7 @@ struct X {
   }
 };
 
-TEST(CollectingSenderTest, Success) {
+TEST(CollectingSenderTest, SuccessX) {
   std::vector<std::string> log;
   std::vector<int> input{1, 2, 3, 4};
 
@@ -49,6 +51,33 @@ TEST(CollectingSenderTest, Success) {
           tensorstore::RangeFlowSender<tensorstore::span<int>>{input}),
       tensorstore::LoggingReceiver{&log});
   EXPECT_THAT(log, ::testing::ElementsAre("set_value: 1 2 3 4 "));
+}
+
+struct Y {
+  explicit Y(int value) : value(value) {}
+
+  int value;
+
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const Y& x) {
+    absl::Format(&sink, "%d", x.value);
+  }
+
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const std::vector<Y>& vec) {
+    sink.Append(absl::StrJoin(vec, " "));
+  }
+};
+
+TEST(CollectingSenderTest, SuccessY) {
+  std::vector<std::string> log;
+  std::vector<int> input{1, 2, 3, 4};
+
+  tensorstore::execution::submit(
+      tensorstore::internal::MakeCollectingSender<std::vector<Y>>(
+          tensorstore::RangeFlowSender<tensorstore::span<int>>{input}),
+      tensorstore::LoggingReceiver{&log});
+  EXPECT_THAT(log, ::testing::ElementsAre("set_value: 1 2 3 4"));
 }
 
 TEST(CollectingSenderTest, Error) {

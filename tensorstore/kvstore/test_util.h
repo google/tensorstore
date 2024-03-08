@@ -21,6 +21,8 @@
 
 #include "absl/functional/function_ref.h"
 #include "absl/strings/cord.h"
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
 #include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -29,6 +31,18 @@
 
 namespace tensorstore {
 namespace internal {
+
+/// Returns the current time as of the start of the call, and waits until that
+/// time is no longer the current time.
+///
+/// This is used to ensure consistent testing.
+inline absl::Time UniqueNow(absl::Duration epsilon = absl::Nanoseconds(1)) {
+  absl::Time t = absl::Now();
+  do {
+    absl::SleepFor(absl::Milliseconds(1));
+  } while (absl::Now() < t + epsilon);
+  return t;
+}
 
 /// Test read operations on `store`, where `key` is `expected_value`, and
 /// `missing_key` does not exist.

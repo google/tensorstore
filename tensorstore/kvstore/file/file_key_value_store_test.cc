@@ -32,11 +32,10 @@
 #include "tensorstore/internal/test_util.h"
 #include "tensorstore/internal/thread/thread.h"
 #include "tensorstore/kvstore/generation.h"
-#include "tensorstore/kvstore/generation_testutil.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
-#include "tensorstore/kvstore/read_result_testutil.h"
+#include "tensorstore/kvstore/test_matchers.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender_testutil.h"
@@ -60,6 +59,7 @@ using ::tensorstore::KvStore;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
+using ::tensorstore::internal::MatchesListEntry;
 using ::tensorstore::internal::MatchesTimestampedStorageGeneration;
 using ::testing::HasSubstr;
 
@@ -163,7 +163,8 @@ TEST(FileKeyValueStoreTest, LockFiles) {
 
   // Test that the lock file is not included in the `List` result.
   EXPECT_THAT(ListFuture(store).result(),
-              ::testing::Optional(::testing::UnorderedElementsAre("a/foo")));
+              ::testing::Optional(
+                  ::testing::UnorderedElementsAre(MatchesListEntry("a/foo"))));
 
   // Test that a stale lock file does not interfere with writing.
   TENSORSTORE_ASSERT_OK(

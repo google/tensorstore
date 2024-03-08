@@ -53,8 +53,8 @@
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/spec.h"
+#include "tensorstore/kvstore/test_matchers.h"
 #include "tensorstore/kvstore/test_util.h"
-#include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender_testutil.h"
 #include "tensorstore/util/future.h"
@@ -74,6 +74,7 @@ using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::StrCat;
+using ::tensorstore::internal::MatchesListEntry;
 using ::tensorstore::internal::ScheduleAt;
 using ::tensorstore::internal_http::HttpRequest;
 using ::tensorstore::internal_http::HttpResponse;
@@ -341,7 +342,9 @@ TEST(GcsKeyValueStoreTest, List) {
   // Listing the entire stream via `ListFuture` works.
   EXPECT_THAT(ListFuture(store, {}).result(),
               ::testing::Optional(::testing::UnorderedElementsAre(
-                  "a/d", "a/c/z/f", "a/c/y", "a/c/z/e", "a/c/x", "a/b")));
+                  MatchesListEntry("a/d"), MatchesListEntry("a/c/z/f"),
+                  MatchesListEntry("a/c/y"), MatchesListEntry("a/c/z/e"),
+                  MatchesListEntry("a/c/x"), MatchesListEntry("a/b"))));
 
   // Listing a subset of the stream via `List` works.
   {
@@ -359,19 +362,13 @@ TEST(GcsKeyValueStoreTest, List) {
   }
 
   // Cancellation immediately after starting yields nothing..
-  struct CancelOnStarting : public tensorstore::LoggingReceiver {
-    void set_starting(tensorstore::AnyCancelReceiver do_cancel) {
-      this->tensorstore::LoggingReceiver::set_starting({});
-      do_cancel();
-    }
-  };
-
   {
     absl::Notification notification;
     std::vector<std::string> log;
     tensorstore::execution::submit(
         kvstore::List(store, {}),
-        CompletionNotifyingReceiver{&notification, CancelOnStarting{{&log}}});
+        CompletionNotifyingReceiver{
+            &notification, tensorstore::CancelOnStartingReceiver{{&log}}});
     notification.WaitForNotification();
     EXPECT_THAT(log, ::testing::ElementsAre("set_starting", "set_done",
                                             "set_stopping"));
@@ -379,29 +376,13 @@ TEST(GcsKeyValueStoreTest, List) {
 
   // Cancellation in the middle of the stream stops the stream.
   // However it may not do it immediately.
-  struct CancelAfter2 : public tensorstore::LoggingReceiver {
-    using Key = kvstore::Key;
-    tensorstore::AnyCancelReceiver cancel;
-
-    void set_starting(tensorstore::AnyCancelReceiver do_cancel) {
-      this->cancel = std::move(do_cancel);
-      this->tensorstore::LoggingReceiver::set_starting({});
-    }
-
-    void set_value(Key k) {
-      this->tensorstore::LoggingReceiver::set_value(std::move(k));
-      if (this->log->size() == 2) {
-        this->cancel();
-      }
-    }
-  };
-
   {
     absl::Notification notification;
     std::vector<std::string> log;
     tensorstore::execution::submit(
         kvstore::List(store, {}),
-        CompletionNotifyingReceiver{&notification, CancelAfter2{{&log}}});
+        CompletionNotifyingReceiver{
+            &notification, tensorstore::CancelAfterNReceiver<2>{{&log}}});
     notification.WaitForNotification();
     EXPECT_THAT(log, ::testing::Contains("set_starting"));
     EXPECT_THAT(log, ::testing::Contains("set_done"));
@@ -418,7 +399,8 @@ TEST(GcsKeyValueStoreTest, List) {
   // Listing a subset of the stream via `ListFuture` works.
   EXPECT_THAT(ListFuture(store, {KeyRange::Prefix("a/c/")}).result(),
               ::testing::Optional(::testing::UnorderedElementsAre(
-                  "a/c/z/f", "a/c/y", "a/c/z/e", "a/c/x")));
+                  MatchesListEntry("a/c/z/f"), MatchesListEntry("a/c/y"),
+                  MatchesListEntry("a/c/z/e"), MatchesListEntry("a/c/x"))));
 }
 
 TEST(GcsKeyValueStoreTest, SpecRoundtrip) {

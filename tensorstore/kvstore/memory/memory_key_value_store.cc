@@ -45,6 +45,7 @@
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
+#include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/registry.h"
 #include "tensorstore/kvstore/spec.h"
@@ -65,6 +66,7 @@ namespace jb = tensorstore::internal_json_binding;
 
 using ::tensorstore::internal_kvstore::DeleteRangeEntry;
 using ::tensorstore::internal_kvstore::kReadModifyWrite;
+using ::tensorstore::kvstore::ListEntry;
 using ::tensorstore::kvstore::ReadResult;
 using ::tensorstore::kvstore::SupportedFeatures;
 
@@ -462,22 +464,22 @@ void MemoryDriver::ListImpl(ListOptions options, ListReceiver receiver) {
   });
 
   // Collect the keys.
-  std::vector<Key> keys;
+  std::vector<ListEntry> entries;
   {
     absl::ReaderMutexLock lock(&data.mutex);
     auto it_range = data.Find(options.range);
     for (auto it = it_range.first; it != it_range.second; ++it) {
       if (cancelled.load(std::memory_order_relaxed)) break;
       std::string_view key = it->first;
-      keys.emplace_back(
-          key.substr(std::min(options.strip_prefix_length, key.size())));
+      entries.push_back(ListEntry{std::string(
+          key.substr(std::min(options.strip_prefix_length, key.size())))});
     }
   }
 
   // Send the keys.
-  for (auto& key : keys) {
+  for (auto& entry : entries) {
     if (cancelled.load(std::memory_order_relaxed)) break;
-    execution::set_value(receiver, std::move(key));
+    execution::set_value(receiver, std::move(entry));
   }
   execution::set_done(receiver);
   execution::set_stopping(receiver);

@@ -65,6 +65,7 @@
 #include "tensorstore/util/span.h"
 
 using ::grpc::CallbackServerContext;
+using ::tensorstore::kvstore::ListEntry;
 using ::tensorstore_grpc::EncodeGenerationAndTimestamp;
 using ::tensorstore_grpc::Handler;
 using ::tensorstore_grpc::StreamHandler;
@@ -94,7 +95,6 @@ auto& delete_metric = internal_metrics::Counter<int64_t>::New(
 
 auto& list_metric = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/grpc_server/list", "KvStoreService::List calls");
-
 
 class ReadHandler final : public Handler<ReadRequest, ReadResponse> {
   using Base = Handler<ReadRequest, ReadResponse>;
@@ -311,7 +311,7 @@ class ListHandler final : public StreamHandler<ListRequest, ListResponse> {
         // List failed, return status.
         current_ = nullptr;
         Finish(status_);
-      } else if (current_->key().empty()) {
+      } else if (current_->entry().empty()) {
         // List succeeded, however the message is empty.
         current_ = nullptr;
         Finish(grpc::Status::OK);
@@ -355,10 +355,11 @@ class ListHandler final : public StreamHandler<ListRequest, ListResponse> {
   }
 
   [[maybe_unused]] friend void set_value(
-      internal::IntrusivePtr<ListHandler>& self, kvstore::Key key) {
+      internal::IntrusivePtr<ListHandler>& self, ListEntry entry) {
     absl::MutexLock l(&self->mu_);
-    self->current_->add_key(key);
-    self->estimated_size_ += key.size();
+    auto* e = self->current_->add_entry();
+    e->set_key(entry.key);
+    self->estimated_size_ += entry.key.size();
     self->MaybeWrite();
   }
 

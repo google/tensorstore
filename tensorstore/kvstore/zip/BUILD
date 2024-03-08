@@ -73,7 +73,7 @@ tensorstore_cc_test(
         "//tensorstore:context",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:generation",
-        "//tensorstore/kvstore:read_result_testutil",
+        "//tensorstore/kvstore:test_matchers",
         "//tensorstore/kvstore:test_util",
         "//tensorstore/kvstore/memory",
         "//tensorstore/util:status",
