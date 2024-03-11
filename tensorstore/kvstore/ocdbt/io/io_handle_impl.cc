@@ -14,7 +14,7 @@
 
 #include "tensorstore/kvstore/ocdbt/io/io_handle_impl.h"
 
-#include <stdint.h>
+#include <stddef.h>
 
 #include <memory>
 #include <optional>
@@ -64,6 +64,7 @@ namespace internal_ocdbt {
 
 namespace {
 ABSL_CONST_INIT internal_log::VerboseFlag ocdbt_logging("ocdbt");
+
 }  // namespace
 
 class IoHandleImpl : public IoHandle {
@@ -363,18 +364,16 @@ IoHandle::Ptr MakeIoHandle(
     const Context::Resource<tensorstore::internal::DataCopyConcurrencyResource>&
         data_copy_concurrency,
     internal::CachePool* cache_pool, const KvStore& base_kvstore,
-    ConfigStatePtr config_state,
-    std::optional<int64_t> max_read_coalescing_overhead_bytes_per_request,
-    std::optional<int64_t> max_read_coalescing_merged_bytes_per_request,
-    std::optional<absl::Duration> read_coalescing_interval) {
+    ConfigStatePtr config_state, size_t write_target_size,
+    std::optional<ReadCoalesceOptions> read_coalesce_options) {
   // Maybe wrap the base driver in CoalesceKvStoreDriver.
   kvstore::DriverPtr driver_with_optional_coalescing =
-      max_read_coalescing_overhead_bytes_per_request.has_value()
+      read_coalesce_options.has_value()
           ? MakeCoalesceKvStoreDriver(
                 base_kvstore.driver,
-                *max_read_coalescing_overhead_bytes_per_request,
-                max_read_coalescing_merged_bytes_per_request.value_or(0),
-                read_coalescing_interval.value_or(absl::ZeroDuration()),
+                read_coalesce_options->max_overhead_bytes_per_request,
+                read_coalesce_options->max_merged_bytes_per_request,
+                read_coalesce_options->max_interval,
                 data_copy_concurrency->executor)
           : base_kvstore.driver;
   auto impl = internal::MakeIntrusivePtr<IoHandleImpl>();
@@ -384,7 +383,7 @@ IoHandle::Ptr MakeIoHandle(
   auto data_kvstore =
       kvstore::KvStore(driver_with_optional_coalescing, base_kvstore.path);
   impl->indirect_data_writer_ =
-      internal_ocdbt::MakeIndirectDataWriter(data_kvstore);
+      internal_ocdbt::MakeIndirectDataWriter(data_kvstore, write_target_size);
   impl->indirect_data_kvstore_driver_ =
       internal_ocdbt::MakeIndirectDataKvStoreDriver(data_kvstore);
   impl->btree_node_cache_ =
@@ -397,9 +396,13 @@ IoHandle::Ptr MakeIoHandle(
           cache_pool, impl->indirect_data_kvstore_driver_,
           data_copy_concurrency);
   std::string manifest_cache_identifier;
+
+  std::optional<size_t> bytes_for_cache_key;
+  if (read_coalesce_options.has_value()) {
+    bytes_for_cache_key = read_coalesce_options->max_overhead_bytes_per_request;
+  }
   internal::EncodeCacheKey(&manifest_cache_identifier, data_copy_concurrency,
-                           base_kvstore.driver,
-                           max_read_coalescing_overhead_bytes_per_request);
+                           base_kvstore.driver, bytes_for_cache_key);
   {
     auto manifest_cache =
         internal::GetCache<tensorstore::internal_ocdbt::ManifestCache>(

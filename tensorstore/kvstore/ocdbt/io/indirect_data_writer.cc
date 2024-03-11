@@ -14,6 +14,8 @@
 
 #include "tensorstore/kvstore/ocdbt/io/indirect_data_writer.h"
 
+#include <stddef.h>
+
 #include <cassert>
 #include <utility>
 
@@ -43,21 +45,22 @@ auto& indirect_data_writer_histogram =
         "Histogram of OCDBT buffered write sizes.");
 
 ABSL_CONST_INIT internal_log::VerboseFlag ocdbt_logging("ocdbt");
-}
+
+}  // namespace
 
 class IndirectDataWriter
     : public internal::AtomicReferenceCount<IndirectDataWriter> {
  public:
-  explicit IndirectDataWriter(kvstore::KvStore kvstore)
-      : kvstore_(std::move(kvstore)) {}
+  explicit IndirectDataWriter(kvstore::KvStore kvstore, size_t target_size)
+      : kvstore_(std::move(kvstore)), target_size_(target_size) {}
 
   // Treat as private:
   kvstore::KvStore kvstore_;
-
+  size_t target_size_;
   absl::Mutex mutex_;
 
-  // Indicates that a flush is currently in progress.
-  bool flush_in_progress_ = false;
+  // Count of in-flight flush operations.
+  size_t in_flight_ = 0;
 
   // Indicates that a flush was requested by a call to `Future::Force` on the
   // future corresponding to `promise_` after the last flush started.  Note that
@@ -87,18 +90,26 @@ void intrusive_ptr_decrement(IndirectDataWriter* p) {
 
 namespace {
 void MaybeFlush(IndirectDataWriter& self, UniqueWriterLock<absl::Mutex> lock) {
+  bool buffer_at_target =
+      self.target_size_ > 0 && self.buffer_.size() >= self.target_size_;
+
   ABSL_LOG_IF(INFO, ocdbt_logging)
-      << "MaybeFlush: flush_in_progress=" << self.flush_in_progress_
-      << ", flush_requested=" << self.flush_requested_;
-  if (self.flush_in_progress_ || !self.flush_requested_) return;
-  Promise<void> promise;
-  absl::Cord buffer;
-  DataFileId data_file_id;
-  self.flush_in_progress_ = true;
+      << "MaybeFlush: flush_requested=" << self.flush_requested_
+      << ", in_flight=" << self.in_flight_
+      << ", buffer_at_target=" << buffer_at_target;
+  if (buffer_at_target) {
+    // Write a new buffer
+  } else if (!self.flush_requested_ || self.in_flight_ > 0) {
+    return;
+  }
+
+  self.in_flight_++;
+
+  // Clear the state
   self.flush_requested_ = false;
-  promise = std::exchange(self.promise_, {});
-  buffer = std::exchange(self.buffer_, {});
-  data_file_id = self.data_file_id_;
+  Promise<void> promise = std::exchange(self.promise_, {});
+  absl::Cord buffer = std::exchange(self.buffer_, {});
+  DataFileId data_file_id = self.data_file_id_;
   lock.unlock();
 
   indirect_data_writer_histogram.Observe(buffer.size());
@@ -109,13 +120,12 @@ void MaybeFlush(IndirectDataWriter& self, UniqueWriterLock<absl::Mutex> lock) {
       kvstore::Write(self.kvstore_, data_file_id.FullPath(), std::move(buffer));
   write_future.Force();
   write_future.ExecuteWhenReady(
-      [promise = std::move(promise),
+      [promise = std::move(promise), data_file_id = std::move(data_file_id),
        self = internal::IntrusivePtr<IndirectDataWriter>(&self)](
           ReadyFuture<TimestampedStorageGeneration> future) {
         auto& r = future.result();
         ABSL_LOG_IF(INFO, ocdbt_logging)
-            << "Done flushing data to " << self->data_file_id_ << ": "
-            << r.status();
+            << "Done flushing data to " << data_file_id << ": " << r.status();
         if (!r.ok()) {
           promise.SetResult(r.status());
         } else if (StorageGeneration::IsUnknown(r->generation)) {
@@ -125,9 +135,8 @@ void MaybeFlush(IndirectDataWriter& self, UniqueWriterLock<absl::Mutex> lock) {
           promise.SetResult(absl::OkStatus());
         }
         UniqueWriterLock lock{self->mutex_};
-        assert(self->flush_in_progress_);
-        self->flush_in_progress_ = false;
-
+        assert(self->in_flight_ > 0);
+        self->in_flight_--;
         // Another flush may have been requested even while this flush was in
         // progress (for additional writes that were not included in the
         // just-completed flush).  Call `MaybeFlush` to see if another flush
@@ -170,11 +179,17 @@ Future<const void> Write(IndirectDataWriter& self, absl::Cord data,
   ref.offset = self.buffer_.size();
   ref.length = data.size();
   self.buffer_.Append(std::move(data));
+
+  if (self.target_size_ > 0 && self.buffer_.size() >= self.target_size_) {
+    MaybeFlush(self, std::move(lock));
+  }
   return future;
 }
 
-IndirectDataWriterPtr MakeIndirectDataWriter(kvstore::KvStore kvstore) {
-  return internal::MakeIntrusivePtr<IndirectDataWriter>(std::move(kvstore));
+IndirectDataWriterPtr MakeIndirectDataWriter(kvstore::KvStore kvstore,
+                                             size_t target_size) {
+  return internal::MakeIntrusivePtr<IndirectDataWriter>(std::move(kvstore),
+                                                        target_size);
 }
 
 }  // namespace internal_ocdbt

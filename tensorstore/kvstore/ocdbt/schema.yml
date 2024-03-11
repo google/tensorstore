@@ -77,6 +77,13 @@ allOf:
           - const: null
           default: {"id": "zstd", "level": 0}
           title: "Compression method used to encode the manifest and B+Tree nodes."
+    target_data_file_size:
+          type: integer
+          default: 2147483648
+          title: "Target size of each ocdbt data file."
+          description: |
+            OCDBT will flush data files to the base key-value store once they reach the target size.
+            When set to 0, data flles may be an arbitrary size.
     cache_pool:
       $ref: ContextResource
       description: |-

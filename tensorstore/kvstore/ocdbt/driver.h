@@ -15,6 +15,8 @@
 #ifndef TENSORSTORE_KVSTORE_OCDBT_DRIVER_H_
 #define TENSORSTORE_KVSTORE_OCDBT_DRIVER_H_
 
+#include <stddef.h>
+
 #include <optional>
 #include <string>
 #include <string_view>
@@ -38,11 +40,15 @@
 #include "tensorstore/kvstore/ocdbt/config.h"
 #include "tensorstore/kvstore/ocdbt/distributed/rpc_security.h"
 #include "tensorstore/kvstore/ocdbt/io_handle.h"
+#include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/registry.h"
 #include "tensorstore/kvstore/spec.h"
-#include "tensorstore/util/execution/any_receiver.h"
+#include "tensorstore/kvstore/supported_features.h"
+#include "tensorstore/transaction.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/garbage_collection/garbage_collection.h"
+#include "tensorstore/util/result.h"
 
 // specializations
 #include "tensorstore/internal/cache_key/absl_time.h"  // IWYU pragma: keep
@@ -78,6 +84,7 @@ struct OcdbtDriverSpecData {
   std::optional<size_t> experimental_read_coalescing_threshold_bytes;
   std::optional<size_t> experimental_read_coalescing_merged_bytes;
   std::optional<absl::Duration> experimental_read_coalescing_interval;
+  std::optional<size_t> target_data_file_size;
   Context::Resource<OcdbtCoordinatorResource> coordinator;
 
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(OcdbtDriverSpecData,
@@ -89,7 +96,8 @@ struct OcdbtDriverSpecData {
     return f(x.base, x.config, x.cache_pool, x.data_copy_concurrency,
              x.experimental_read_coalescing_threshold_bytes,
              x.experimental_read_coalescing_merged_bytes,
-             x.experimental_read_coalescing_interval, x.coordinator);
+             x.experimental_read_coalescing_interval, x.target_data_file_size,
+             x.coordinator);
   };
 };
 
@@ -144,6 +152,7 @@ class OcdbtDriver
   std::optional<size_t> experimental_read_coalescing_threshold_bytes_;
   std::optional<size_t> experimental_read_coalescing_merged_bytes_;
   std::optional<absl::Duration> experimental_read_coalescing_interval_;
+  std::optional<size_t> target_data_file_size_;
   Context::Resource<OcdbtCoordinatorResource> coordinator_;
 };
 

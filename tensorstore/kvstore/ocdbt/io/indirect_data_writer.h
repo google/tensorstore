@@ -15,6 +15,8 @@
 #ifndef TENSORSTORE_KVSTORE_OCDBT_IO_INDIRECT_DATA_WRITER_H_
 #define TENSORSTORE_KVSTORE_OCDBT_IO_INDIRECT_DATA_WRITER_H_
 
+#include <stddef.h>
+
 #include "absl/strings/cord.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -48,7 +50,8 @@ using IndirectDataWriterPtr = internal::IntrusivePtr<IndirectDataWriter>;
 void intrusive_ptr_increment(IndirectDataWriter* p);
 void intrusive_ptr_decrement(IndirectDataWriter* p);
 
-IndirectDataWriterPtr MakeIndirectDataWriter(kvstore::KvStore kvstore);
+IndirectDataWriterPtr MakeIndirectDataWriter(kvstore::KvStore kvstore,
+                                             size_t target_size);
 
 Future<const void> Write(IndirectDataWriter& self, absl::Cord data,
                          IndirectDataReference& ref);

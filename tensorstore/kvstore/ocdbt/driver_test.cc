@@ -180,11 +180,14 @@ TEST(OcdbtTest, WithExperimentalSpec) {
       {"experimental_read_coalescing_threshold_bytes", 1024},
       {"experimental_read_coalescing_merged_bytes", 2048},
       {"experimental_read_coalescing_interval", "10ms"},
+      {"target_data_file_size", 1024},
   };
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store, tensorstore::kvstore::Open(json_spec).result());
   EXPECT_THAT(store.spec().value().ToJson(tensorstore::IncludeDefaults{false}),
               ::testing::Optional(tensorstore::MatchesJson(json_spec)));
+
+  tensorstore::internal::TestKeyValueReadWriteOps(store);
 }
 
 TEST(OcdbtTest, SpecRoundtrip) {

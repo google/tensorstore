@@ -15,8 +15,12 @@
 #ifndef TENSORSTORE_KVSTORE_OCDBT_IO_IO_HANDLE_IMPL_H_
 #define TENSORSTORE_KVSTORE_OCDBT_IO_IO_HANDLE_IMPL_H_
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <optional>
 
+#include "absl/time/time.h"
 #include "tensorstore/context.h"
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
@@ -27,17 +31,19 @@
 namespace tensorstore {
 namespace internal_ocdbt {
 
+struct ReadCoalesceOptions {
+  int64_t max_overhead_bytes_per_request;
+  int64_t max_merged_bytes_per_request;
+  absl::Duration max_interval;
+};
+
 /// Returns an `IoHandle` handle based on the specified arguments.
 IoHandle::Ptr MakeIoHandle(
     const Context::Resource<tensorstore::internal::DataCopyConcurrencyResource>&
         data_copy_concurrency,
     internal::CachePool* cache_pool, const KvStore& base_kvstore,
-    ConfigStatePtr config_state,
-    std::optional<int64_t> max_read_coalescing_overhead_bytes_per_request =
-        std::nullopt,
-    std::optional<int64_t> max_read_coalescing_merged_bytes_per_request =
-        std::nullopt,
-    std::optional<absl::Duration> max_read_coalescing_interval = std::nullopt);
+    ConfigStatePtr config_state, size_t write_target_size = 0,
+    std::optional<ReadCoalesceOptions> read_coalesce_options = std::nullopt);
 
 }  // namespace internal_ocdbt
 }  // namespace tensorstore

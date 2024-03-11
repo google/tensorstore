@@ -173,6 +173,23 @@ tensorstore_cc_library(
     ],
 )
 
+tensorstore_cc_test(
+    name = "indirect_data_writer_test",
+    srcs = ["indirect_data_writer_test.cc"],
+    deps = [
+        ":indirect_data_writer",
+        "//tensorstore/internal:flat_cord_builder",
+        "//tensorstore/kvstore",
+        "//tensorstore/kvstore:mock_kvstore",
+        "//tensorstore/kvstore/memory",
+        "//tensorstore/kvstore/ocdbt/format",
+        "//tensorstore/util:future",
+        "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
 tensorstore_cc_library(
     name = "indirect_data_kvstore_driver",
     srcs = ["indirect_data_kvstore_driver.cc"],

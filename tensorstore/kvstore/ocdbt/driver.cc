@@ -16,7 +16,9 @@
 
 #include "tensorstore/kvstore/ocdbt/driver.h"
 
-#include <cstdint>
+#include <stddef.h>
+#include <stdint.h>
+
 #include <cstring>
 #include <optional>
 #include <string>
@@ -29,14 +31,10 @@
 #include "tensorstore/context.h"
 #include "tensorstore/context_resource_provider.h"
 #include "tensorstore/internal/cache/cache_pool_resource.h"
-#include "tensorstore/internal/cache_key/absl_time.h"
-#include "tensorstore/internal/cache_key/std_optional.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/json_binding/absl_time.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/json_binding/std_optional.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/ref_counted_string.h"
@@ -68,6 +66,12 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/str_cat.h"
 
+// specializations
+#include "tensorstore/internal/cache_key/absl_time.h"  // IWYU pragma: keep
+#include "tensorstore/internal/cache_key/std_optional.h"  // IWYU pragma: keep
+#include "tensorstore/internal/json_binding/absl_time.h"  // IWYU pragma: keep
+#include "tensorstore/internal/json_binding/std_optional.h"  // IWYU pragma: keep
+
 namespace tensorstore {
 namespace internal_ocdbt {
 namespace {
@@ -75,6 +79,8 @@ namespace {
 using ::tensorstore::kvstore::ListReceiver;
 
 constexpr absl::Duration kDefaultLeaseDuration = absl::Seconds(10);
+
+constexpr size_t kDefaultTargetBufferSize = 2u << 30;  // 2GB
 
 struct OcdbtCoordinatorResourceTraits
     : public internal::ContextResourceTraits<OcdbtCoordinatorResource> {
@@ -141,6 +147,9 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
             "experimental_read_coalescing_interval",
             jb::Projection<
                 &OcdbtDriverSpecData::experimental_read_coalescing_interval>()),
+        jb::Member(
+            "target_data_file_size",
+            jb::Projection<&OcdbtDriverSpecData::target_data_file_size>()),
         jb::Member("coordinator",
                    jb::Projection<&OcdbtDriverSpecData::coordinator>()),
         jb::Member(internal::CachePoolResource::id,
@@ -173,14 +182,33 @@ Future<kvstore::DriverPtr> OcdbtDriverSpec::DoOpen() const {
             spec->data_.experimental_read_coalescing_merged_bytes;
         driver->experimental_read_coalescing_interval_ =
             spec->data_.experimental_read_coalescing_interval;
+        driver->target_data_file_size_ = spec->data_.target_data_file_size;
+
+        std::optional<ReadCoalesceOptions> read_coalesce_options;
+        if (driver->experimental_read_coalescing_threshold_bytes_ ||
+            driver->experimental_read_coalescing_merged_bytes_ ||
+            driver->experimental_read_coalescing_interval_) {
+          read_coalesce_options.emplace();
+          read_coalesce_options->max_overhead_bytes_per_request =
+              static_cast<int64_t>(
+                  driver->experimental_read_coalescing_threshold_bytes_
+                      .value_or(0));
+          read_coalesce_options->max_merged_bytes_per_request =
+              static_cast<int64_t>(
+                  driver->experimental_read_coalescing_merged_bytes_.value_or(
+                      0));
+          read_coalesce_options->max_interval =
+              driver->experimental_read_coalescing_interval_.value_or(
+                  absl::ZeroDuration());
+        }
+
         driver->io_handle_ = internal_ocdbt::MakeIoHandle(
             driver->data_copy_concurrency_, driver->cache_pool_->get(),
             driver->base_,
             internal::MakeIntrusivePtr<ConfigState>(
                 spec->data_.config, supported_manifest_features),
-            driver->experimental_read_coalescing_threshold_bytes_,
-            driver->experimental_read_coalescing_merged_bytes_,
-            driver->experimental_read_coalescing_interval_);
+            driver->target_data_file_size_.value_or(kDefaultTargetBufferSize),
+            std::move(read_coalesce_options));
         driver->btree_writer_ =
             MakeNonDistributedBtreeWriter(driver->io_handle_);
         driver->coordinator_ = spec->data_.coordinator;
@@ -233,6 +261,7 @@ absl::Status OcdbtDriver::GetBoundSpecData(OcdbtDriverSpecData& spec) const {
       experimental_read_coalescing_merged_bytes_;
   spec.experimental_read_coalescing_interval =
       experimental_read_coalescing_interval_;
+  spec.target_data_file_size = target_data_file_size_;
   spec.coordinator = coordinator_;
   return absl::Status();
 }
