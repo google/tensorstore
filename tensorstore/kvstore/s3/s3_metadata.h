@@ -23,37 +23,19 @@
 
 #include <map>
 #include <string>
-#include <string_view>
 
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/util/result.h"
+#include "tinyxml2.h"
 
 namespace tensorstore {
 namespace internal_kvstore_s3 {
 
-/// Find the starting position of the `tag` or the position immediately after
-/// the tag within the supplied XML `data`
-///
-/// `pos` is the position within the data to start the search.
-/// `start` indicates whether the starting position of the tag should be
-/// returned. If false, the position immediately after the tag is returned
-Result<size_t> FindTag(std::string_view data, std::string_view tag,
-                       size_t pos = 0, bool start = true);
-
-struct TagAndPosition {
-  std::string tag;
-  size_t pos = 0;
-};
-
-/// Get tag contents within the supplied XML `data`
-///
-/// This should primarily be used for obtaining the contents of inner tags.
-/// Use FindTag to set the initial search position by traversing XML outer tags.
-///
-/// `pos` is the initial search position within `data`. On success,
-/// this is updated with the position immediately after the closing tag.
-Result<TagAndPosition> GetTag(std::string_view data, std::string_view open_tag,
-                              std::string_view close_tag, size_t pos = 0);
+/// Returns the text within an html node.
+/// For example, if the node is <Key> as in:
+///   <Key>Foo/bar</Key>
+/// The result is 'Foo/bar'
+std::string GetNodeText(tinyxml2::XMLNode* node);
 
 /// Creates a storage generation from the etag header in the
 /// HTTP response `headers`.

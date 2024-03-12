@@ -14,23 +14,16 @@
 
 #include "tensorstore/kvstore/s3/s3_metadata.h"
 
-#include <cstring>
-#include <string>
-#include <vector>
-
-#include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "tensorstore/util/status_testutil.h"
-
-using ::tensorstore::internal_kvstore_s3::FindTag;
-using ::tensorstore::internal_kvstore_s3::GetTag;
-using ::tensorstore::internal_kvstore_s3::TagAndPosition;
+#include "tinyxml2.h"
 
 namespace {
 
+using ::tensorstore::internal_kvstore_s3::GetNodeText;
+
 /// Exemplar ListObjects v2 Response
 /// https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjectsV2.html#API_ListObjectsV2_ResponseSyntax
-static constexpr char list_xml[] =
+static constexpr char kListXml[] =
     R"(<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">)"
     R"(<Name>i-dont-exist</Name>)"
     R"(<Prefix>tensorstore/test/</Prefix>)"
@@ -63,65 +56,19 @@ static constexpr char list_xml[] =
     R"(</Contents>)"
     R"(</ListBucketResult>)";
 
-static constexpr char list_bucket_tag[] =
-    R"(<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">)";
+TEST(XmlSearchTest, GetNodeText) {
+  tinyxml2::XMLDocument xmlDocument;
+  ASSERT_EQ(xmlDocument.Parse(kListXml), tinyxml2::XML_SUCCESS);
 
-TEST(XmlSearchTest, TagSearch) {
-  TagAndPosition tag_and_pos;
+  auto* root = xmlDocument.FirstChildElement("ListBucketResult");
+  ASSERT_NE(root, nullptr);
 
-  // We can find the initial tag
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto start_pos,
-                                   FindTag(list_xml, list_bucket_tag));
-  EXPECT_EQ(start_pos, 0);
+  EXPECT_EQ("i-dont-exist", GetNodeText(root->FirstChildElement("Name")));
+  auto* contents = root->FirstChildElement("Contents");
+  ASSERT_NE(contents, nullptr);
 
-  // Get the position after the initial tag
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      start_pos, FindTag(list_xml, list_bucket_tag, 0, false));
-  EXPECT_EQ(start_pos, strlen(list_bucket_tag));
-
-  // Searching for the initial tag at position 1 fails
-  EXPECT_FALSE(FindTag(list_xml, list_bucket_tag, 1).ok());
-
-  // We can find and parse the number of keys
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      tag_and_pos, GetTag(list_xml, "<KeyCount>", "</KeyCount>", start_pos));
-  auto key_count = std::stol(tag_and_pos.tag);
-  EXPECT_EQ(key_count, 3);
-
-  std::vector<std::string> keys;
-
-  for (size_t i = 0; i < key_count; ++i) {
-    // Find the next Contents section and Object Key within
-    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        auto contents_pos,
-        FindTag(list_xml, "<Contents>", tag_and_pos.pos, false));
-    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        tag_and_pos, GetTag(list_xml, "<Key>", "</Key>", contents_pos));
-    keys.push_back(tag_and_pos.tag);
-  }
-
-  EXPECT_THAT(keys, ::testing::ElementsAre("tensorstore/test/abc",
-                                           "tensorstore/test/ab>cd",
-                                           "tensorstore/test/abcde"));
-}
-
-TEST(XmlSearchTest, GetTagWithXmlSequences) {
-  TagAndPosition tag_and_pos;
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(tag_and_pos,
-                                   GetTag("<K></K>", "<K>", "</K"));
-  EXPECT_EQ(tag_and_pos.tag, "");
-  EXPECT_EQ(tag_and_pos.pos, 7);
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(tag_and_pos,
-                                   GetTag("<K>abcd</K>", "<K>", "</K"));
-  EXPECT_EQ(tag_and_pos.tag, "abcd");
-  EXPECT_EQ(tag_and_pos.pos, 11);
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(tag_and_pos,
-                                   GetTag("<K>ab&amp;cd</K>", "<K>", "</K"));
-  EXPECT_EQ(tag_and_pos.tag, "ab&cd");
-  EXPECT_EQ(tag_and_pos.pos, 16);
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      tag_and_pos, GetTag("<K>&lt;&amp;&apos;&gt;&quot;</K>", "<K>", "</K"));
-  EXPECT_EQ(tag_and_pos.pos, 32);
+  EXPECT_EQ(R"("900150983cd24fb0d6963f7d28e17f72")",
+            GetNodeText(contents->FirstChildElement("ETag")));
 }
 
 }  // namespace

@@ -66,6 +66,7 @@ tensorstore_cc_library(
         "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/time",
         "@com_google_re2//:re2",
+        "@tinyxml2",
     ],
     alwayslink = 1,
 )
@@ -109,8 +110,8 @@ tensorstore_cc_test(
     ],
     deps = [
         ":s3",
-        "//tensorstore/util:status_testutil",
         "@com_google_googletest//:gtest_main",
+        "@tinyxml2",
     ],
 )
 

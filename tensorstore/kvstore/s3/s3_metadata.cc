@@ -23,10 +23,10 @@
 #include <utility>
 
 #include "absl/status/status.h"
-#include "absl/strings/str_cat.h"
 #include "re2/re2.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/util/result.h"
+#include "tinyxml2.h"
 
 namespace tensorstore {
 namespace internal_kvstore_s3 {
@@ -99,31 +99,25 @@ std::string UnescapeXml(std::string_view data) {
 
 }  // namespace
 
+std::string GetNodeText(tinyxml2::XMLNode* node) {
+  if (!node) {
+    return "";
+  }
+
+  tinyxml2::XMLPrinter printer;
+  for (auto* child = node->FirstChild(); child != nullptr;
+       child = child->NextSibling()) {
+    child->Accept(&printer);
+  }
+  return UnescapeXml(printer.CStr());
+}
+
 Result<StorageGeneration> StorageGenerationFromHeaders(
     const std::multimap<std::string, std::string>& headers) {
   if (auto it = headers.find(kEtag); it != headers.end()) {
     return StorageGeneration::FromString(it->second);
   }
   return absl::NotFoundError("etag not found in response headers");
-}
-
-Result<size_t> FindTag(std::string_view data, std::string_view tag, size_t pos,
-                       bool start) {
-  if (pos = data.find(tag, pos); pos != std::string_view::npos) {
-    return start ? pos : pos + tag.length();
-  }
-  return absl::NotFoundError(absl::StrCat(
-      "Malformed List Response XML: can't find ", tag, " in ", data));
-}
-
-Result<TagAndPosition> GetTag(std::string_view data, std::string_view open_tag,
-                              std::string_view close_tag, size_t pos) {
-  TENSORSTORE_ASSIGN_OR_RETURN(auto tagstart,
-                               FindTag(data, open_tag, pos, false));
-  TENSORSTORE_ASSIGN_OR_RETURN(auto tagend,
-                               FindTag(data, close_tag, tagstart, true));
-  return TagAndPosition{UnescapeXml(data.substr(tagstart, tagend - tagstart)),
-                        tagend + close_tag.size() + 1};
 }
 
 }  // namespace internal_kvstore_s3

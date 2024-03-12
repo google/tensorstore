@@ -29,7 +29,6 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/escaping.h"
-#include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/synchronization/mutex.h"
@@ -78,6 +77,7 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
+#include "tinyxml2.h"
 
 // specializations
 #include "tensorstore/internal/cache_key/std_optional.h"  // IWYU pragma: keep
@@ -98,9 +98,8 @@ using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_http::HttpTransport;
 using ::tensorstore::internal_kvstore_s3::AwsCredentialProvider;
 using ::tensorstore::internal_kvstore_s3::AwsCredentials;
-using ::tensorstore::internal_kvstore_s3::FindTag;
 using ::tensorstore::internal_kvstore_s3::GetAwsCredentialProvider;
-using ::tensorstore::internal_kvstore_s3::GetTag;
+using ::tensorstore::internal_kvstore_s3::GetNodeText;
 using ::tensorstore::internal_kvstore_s3::IsValidBucketName;
 using ::tensorstore::internal_kvstore_s3::IsValidObjectName;
 using ::tensorstore::internal_kvstore_s3::IsValidStorageGeneration;
@@ -112,8 +111,8 @@ using ::tensorstore::internal_kvstore_s3::S3RequestRetries;
 using ::tensorstore::internal_kvstore_s3::S3UriEncode;
 using ::tensorstore::internal_kvstore_s3::S3UriObjectKeyEncode;
 using ::tensorstore::internal_kvstore_s3::StorageGenerationFromHeaders;
-using ::tensorstore::internal_kvstore_s3::TagAndPosition;
 using ::tensorstore::internal_storage_gcs::IsRetriable;
+
 using ::tensorstore::kvstore::Key;
 using ::tensorstore::kvstore::ListEntry;
 using ::tensorstore::kvstore::ListOptions;
@@ -1171,37 +1170,37 @@ struct ListTask : public RateLimiterNode,
                                             this);
     }
 
-    TagAndPosition tag_and_pos;
     auto cord = response->payload;
     auto payload = cord.Flatten();
-    // TODO: Use an xml parser, such as tinyxml2.
-    // Then this would could just iterate over the path elements:
-    //    /ListBucketResult/KeyCount
-    //    /ListBucketResult/NextContinuationToken
-    //    /ListBucketResult/Contents/Key
-    auto kListBucketOpenTag =
-        "<ListBucketResult xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">";
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto start_pos, FindTag(payload, kListBucketOpenTag, 0, false));
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        tag_and_pos, GetTag(payload, "<KeyCount>", "</KeyCount>", start_pos));
-    size_t keycount = 0;
-    if (!absl::SimpleAtoi(tag_and_pos.tag, &keycount)) {
+
+    tinyxml2::XMLDocument xmlDocument;
+    if (int xmlcode = xmlDocument.Parse(payload.data(), payload.size());
+        xmlcode != tinyxml2::XML_SUCCESS) {
       return absl::InvalidArgumentError(
-          absl::StrCat("Malformed KeyCount ", tag_and_pos.tag));
+          absl::StrCat("Malformed List response: ", xmlcode));
+    }
+    auto* root = xmlDocument.FirstChildElement("ListBucketResult");
+    if (root == nullptr) {
+      return absl::InvalidArgumentError(
+          "Malformed List response: missing <ListBucketResult>");
     }
 
-    for (size_t k = 0; k < keycount; ++k) {
+    // TODO: Visit /ListBucketResult/KeyCount?
+    // Visit /ListBucketResult/Contents
+    for (auto* contents = root->FirstChildElement("Contents");
+         contents != nullptr;
+         contents = contents->NextSiblingElement("Contents")) {
       if (is_cancelled()) {
         return absl::CancelledError();
       }
-      TENSORSTORE_ASSIGN_OR_RETURN(
-          auto contents_pos,
-          FindTag(payload, "<Contents>", tag_and_pos.pos, false));
-      TENSORSTORE_ASSIGN_OR_RETURN(
-          tag_and_pos, GetTag(payload, "<Key>", "</Key>", contents_pos));
 
-      const auto& key = tag_and_pos.tag;
+      // Visit  /ListBucketResult/Contents/Key
+      auto* key_node = contents->FirstChildElement("Key");
+      if (key_node == nullptr) {
+        return absl::InvalidArgumentError(
+            "Malformed List response: missing <Key> in <Contents>");
+      }
+      std::string key = GetNodeText(key_node);
       if (key < options_.range.inclusive_min) continue;
       if (KeyRange::CompareKeyAndExclusiveMax(
               key, options_.range.exclusive_max) >= 0) {
@@ -1211,6 +1210,9 @@ struct ListTask : public RateLimiterNode,
         execution::set_done(receiver_);
         return absl::OkStatus();
       }
+
+      // TODO: Visit /ListBucketResult/Contents/Size?
+      // TODO: Visit /ListBucketResult/Contents/LastModified?
       if (key.size() >= options_.strip_prefix_length) {
         execution::set_value(
             receiver_, ListEntry{key.substr(options_.strip_prefix_length)});
@@ -1218,16 +1220,17 @@ struct ListTask : public RateLimiterNode,
     }
 
     // Successful request, so clear the retry_attempt for the next request.
+    // Visit /ListBucketResult/IsTruncated
+    // Visit /ListBucketResult/NextContinuationToken
     attempt_ = 0;
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        tag_and_pos,
-        GetTag(payload, "<IsTruncated>", "</IsTruncated>", start_pos));
-
-    if (tag_and_pos.tag == "true") {
-      TENSORSTORE_ASSIGN_OR_RETURN(
-          tag_and_pos, GetTag(payload, "<NextContinuationToken>",
-                              "</NextContinuationToken>", start_pos));
-      continuation_token_ = tag_and_pos.tag;
+    if (GetNodeText(root->FirstChildElement("IsTruncated")) == "true") {
+      auto* next_continuation_token =
+          root->FirstChildElement("NextContinuationToken");
+      if (next_continuation_token == nullptr) {
+        return absl::InvalidArgumentError(
+            "Malformed List response: missing <NextContinuationToken>");
+      }
+      continuation_token_ = GetNodeText(next_continuation_token);
       IssueRequest();
     } else {
       execution::set_done(receiver_);

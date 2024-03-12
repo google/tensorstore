@@ -15,14 +15,23 @@
 #ifndef TENSORSTORE_KVSTORE_KVSTORE_H_
 #define TENSORSTORE_KVSTORE_KVSTORE_H_
 
+#include <string>
+#include <string_view>
+#include <type_traits>
+#include <utility>
+
 #include "tensorstore/context.h"
 #include "tensorstore/internal/json_fwd.h"
+#include "tensorstore/internal/path.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/transaction.h"
+#include "tensorstore/util/future.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/option.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace kvstore {

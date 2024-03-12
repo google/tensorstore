@@ -1,0 +1,10 @@
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])  # BSD/MIT-like license (for zlib)
+
+cc_library(
+    name = "tinyxml2",
+    srcs = ["tinyxml2.cpp"],
+    hdrs = ["tinyxml2.h"],
+    strip_include_prefix = ".",
+)
