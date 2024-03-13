@@ -1,2 +1,2 @@
 # DO NOT EDIT: Generated from cibuildwheel_requirements.txt by pypi_solver
-cibuildwheel==2.16.2
+cibuildwheel==2.17.0

@@ -1,2 +1,2 @@
 # DO NOT EDIT: Generated from examples_requirements.txt by pypi_solver
-numpy==1.26.1
+numpy==1.26.4
