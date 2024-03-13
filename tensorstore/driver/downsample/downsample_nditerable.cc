@@ -1010,6 +1010,9 @@ class DownsampledNDIterator : public NDIterator::Base<DownsampledNDIterator> {
       Index& initial_base_index = initial_base_indices[base_dim];
       Index base_inclusive_min =
           initial_base_index * downsample_factor - downsample_dim_origin[i];
+      const Index clamped_base_inclusive_min =
+          std::max(Index(0), base_inclusive_min);
+      initial_base_index = clamped_base_inclusive_min;
       if (base_dim >= base_iteration_rank - 2) {
         // This downsampling factor applies to one of the 2 innermost
         // dimensions.
@@ -1019,22 +1022,18 @@ class DownsampledNDIterator : public NDIterator::Base<DownsampledNDIterator> {
         const Index base_exclusive_max = std::min(
             base_inclusive_min + block_shape[inner_dim_i] * downsample_factor,
             downsample_dim_iteration_shape[i]);
-        const Index adjusted_base_inclusive_min =
-            std::max(Index(0), base_inclusive_min);
         inner_downsample_factor[inner_dim_i] = downsample_factor;
         base_block_offset[inner_dim_i] =
-            adjusted_base_inclusive_min - base_inclusive_min;
+            clamped_base_inclusive_min - base_inclusive_min;
         base_block_shape[inner_dim_i] =
-            base_exclusive_max - adjusted_base_inclusive_min;
+            base_exclusive_max - clamped_base_inclusive_min;
       } else {
         // This downsampling factor applies to an outer dimension.
         Index base_exclusive_max =
             std::min(base_inclusive_min + downsample_factor,
                      downsample_dim_iteration_shape[i]);
-        initial_base_index = base_inclusive_min =
-            std::max(Index(0), base_inclusive_min);
         const Index bound = base_downsample_dim_offsets_bounds[i] =
-            base_exclusive_max - base_inclusive_min;
+            base_exclusive_max - clamped_base_inclusive_min;
         outer_divisor *= bound;
       }
     }

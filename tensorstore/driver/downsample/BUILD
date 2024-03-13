@@ -111,6 +111,7 @@ tensorstore_cc_test(
     deps = [
         ":downsample_array",
         "//tensorstore:array",
+        "//tensorstore:array_testutil",
         "//tensorstore:data_type",
         "//tensorstore:downsample_method",
         "//tensorstore:index",

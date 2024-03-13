@@ -20,6 +20,7 @@
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
+#include "tensorstore/array_testutil.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/downsample_method.h"
 #include "tensorstore/index.h"
@@ -383,6 +384,27 @@ TEST(DownsampleArrayTest, ModeJson) {
   EXPECT_THAT(DownsampleArray(MakeArray<json_t>({"a", "a", 3.0, 3, 3u}),
                               span<const Index>({5}), DownsampleMethod::kMode),
               Optional(MakeArray<::nlohmann::json>({json_t(3)})));
+}
+
+// Tests the downsampling behaves correctly when multiple blocks along
+// downsampled dimensions are needed.
+TEST(DownsampleArrayTest, MultipleBlocks) {
+  auto source_array = tensorstore::AllocateArray<uint8_t>({128, 128});
+  // For uint8_t, accumulation is done using uint16_t.  64 * 64 * 8 == 32 *
+  // 1024, which exceeds the buffer size limit of `24 * 1024`.
+  auto expected_downsampled = tensorstore::AllocateArray<uint8_t>({64, 64});
+  for (int i = 0; i < 128; ++i) {
+    for (int j = 0; j < 128; ++j) {
+      source_array(i, j) = static_cast<uint8_t>(i);
+    }
+  }
+  for (int i = 0; i < 64; ++i) {
+    for (int j = 0; j < 64; ++j) {
+      expected_downsampled(i, j) = static_cast<uint8_t>(i * 2);
+    }
+  }
+  EXPECT_THAT(DownsampleArray(source_array, {{2, 2}}, DownsampleMethod::kMean),
+              Optional(tensorstore::MatchesArray(expected_downsampled)));
 }
 
 }  // namespace
