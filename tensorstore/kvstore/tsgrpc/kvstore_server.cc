@@ -359,6 +359,7 @@ class ListHandler final : public StreamHandler<ListRequest, ListResponse> {
     absl::MutexLock l(&self->mu_);
     auto* e = self->current_->add_entry();
     e->set_key(entry.key);
+    e->set_size(entry.size);
     self->estimated_size_ += entry.key.size();
     self->MaybeWrite();
   }

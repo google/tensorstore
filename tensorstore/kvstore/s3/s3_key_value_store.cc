@@ -1210,12 +1210,17 @@ struct ListTask : public RateLimiterNode,
         execution::set_done(receiver_);
         return absl::OkStatus();
       }
-
-      // TODO: Visit /ListBucketResult/Contents/Size?
+      // Visit /ListBucketResult/Contents/Size
+      int64_t size = -1;
+      if (!absl::SimpleAtoi(GetNodeText(contents->FirstChildElement("Size")),
+                            &size)) {
+        size = -1;
+      }
       // TODO: Visit /ListBucketResult/Contents/LastModified?
-      if (key.size() >= options_.strip_prefix_length) {
+      if (key.size() > options_.strip_prefix_length) {
         execution::set_value(
-            receiver_, ListEntry{key.substr(options_.strip_prefix_length)});
+            receiver_,
+            ListEntry{key.substr(options_.strip_prefix_length), size});
       }
     }
 

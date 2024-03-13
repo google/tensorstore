@@ -80,7 +80,7 @@ void TokenBucketRateLimiter::Admit(RateLimiterNode* node,
 
 void TokenBucketRateLimiter::Finish(RateLimiterNode* node) {
   assert(node->next_ == nullptr);
-  PerformWork();
+  assert(node->prev_ == nullptr);
 }
 
 absl::Duration TokenBucketRateLimiter::GetSchedulerDelay() const {
@@ -153,11 +153,11 @@ void TokenBucketRateLimiter::PerformWorkLocked() {
   // Run all nodes without locks.
   mutex_.Unlock();
   ABSL_LOG_IF(INFO, rate_limiter_logging.Level(1)) << "Starting " << count;
-  do {
+  for (int i = 0; i < count; ++i) {
     auto* n = accessor.GetNext(&local);
     internal::intrusive_linked_list::Remove(accessor, n);
     RunStartFunction(n);
-  } while (!OnlyContainsNode(accessor, &local));
+  }
   mutex_.Lock();
 }
 

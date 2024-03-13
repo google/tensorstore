@@ -91,6 +91,7 @@ tensorstore_cc_test(
         "//tensorstore/kvstore:test_matchers",
         "//tensorstore/kvstore:test_util",
         "//tensorstore/util:future",
+        "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",
         "//tensorstore/util/execution",

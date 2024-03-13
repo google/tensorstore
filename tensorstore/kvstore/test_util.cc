@@ -627,7 +627,7 @@ void TestKeyValueReadWriteOps(
 }
 
 /// Tests List on `store`, which should be empty.
-void TestKeyValueStoreList(const KvStore& store) {
+void TestKeyValueStoreList(const KvStore& store, bool match_size) {
   ABSL_LOG(INFO) << "Test list, empty";
   {
     absl::Notification notification;
@@ -641,48 +641,45 @@ void TestKeyValueStoreList(const KvStore& store) {
                                             "set_stopping"));
   }
 
-  ABSL_LOG(INFO) << "Test list: ... write elements ...";
+  const absl::Cord value("xyz");
 
-  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "a/b", absl::Cord("xyz")));
-  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "a/d", absl::Cord("xyz")));
-  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "a/c/x", absl::Cord("xyz")));
-  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "a/c/y", absl::Cord("xyz")));
-  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "a/c/z/e", absl::Cord("xyz")));
-  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "a/c/z/f", absl::Cord("xyz")));
+  ABSL_LOG(INFO) << "Test list: ... write elements ...";
+  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "a/b", value));
+  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "a/d", value));
+  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "a/c/x", value));
+  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "a/c/y", value));
+  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "a/c/z/e", value));
+  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "a/c/z/f", value));
+
+  ::testing::Matcher<int64_t> size_matcher = ::testing::_;
+  if (match_size) {
+    size_matcher = ::testing::Eq(value.size());
+  }
 
   // Listing the entire stream works.
   ABSL_LOG(INFO) << "Test list, entire stream";
   {
-    absl::Notification notification;
-    std::vector<std::string> log;
-    tensorstore::execution::submit(
-        kvstore::List(store, {}),
-        CompletionNotifyingReceiver{&notification,
-                                    tensorstore::LoggingReceiver{&log}});
-    notification.WaitForNotification();
-
-    EXPECT_THAT(
-        log, ::testing::UnorderedElementsAre(
-                 "set_starting", "set_value: a/d", "set_value: a/c/z/f",
-                 "set_value: a/c/y", "set_value: a/c/z/e", "set_value: a/c/x",
-                 "set_value: a/b", "set_done", "set_stopping"));
+    EXPECT_THAT(tensorstore::kvstore::ListFuture(store).value(),
+                ::testing::UnorderedElementsAre(
+                    MatchesListEntry("a/d", size_matcher),
+                    MatchesListEntry("a/c/z/f", size_matcher),
+                    MatchesListEntry("a/c/y", size_matcher),
+                    MatchesListEntry("a/c/z/e", size_matcher),
+                    MatchesListEntry("a/c/x", size_matcher),
+                    MatchesListEntry("a/b", size_matcher)));
   }
 
   // Listing a subset of the stream works.
   ABSL_LOG(INFO) << "Test list, prefix range";
   {
-    absl::Notification notification;
-    std::vector<std::string> log;
-    tensorstore::execution::submit(
-        kvstore::List(store, {KeyRange::Prefix("a/c/")}),
-        CompletionNotifyingReceiver{&notification,
-                                    tensorstore::LoggingReceiver{&log}});
-    notification.WaitForNotification();
-
-    EXPECT_THAT(log, ::testing::UnorderedElementsAre(
-                         "set_starting", "set_value: a/c/z/f",
-                         "set_value: a/c/y", "set_value: a/c/z/e",
-                         "set_value: a/c/x", "set_done", "set_stopping"));
+    EXPECT_THAT(
+        tensorstore::kvstore::ListFuture(store, {KeyRange::Prefix("a/c/")})
+            .value(),
+        ::testing::UnorderedElementsAre(
+            MatchesListEntry("a/c/z/f", size_matcher),
+            MatchesListEntry("a/c/y", size_matcher),
+            MatchesListEntry("a/c/z/e", size_matcher),
+            MatchesListEntry("a/c/x", size_matcher)));
   }
 
   // Cancellation immediately after starting yields nothing.

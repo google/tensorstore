@@ -153,6 +153,7 @@ message ListResponse {
   /// Generation and timestamp are returned.
   message Entry {
     bytes key = 1;
+    int64 size = 2;
   }
   repeated Entry entry = 2;
 }

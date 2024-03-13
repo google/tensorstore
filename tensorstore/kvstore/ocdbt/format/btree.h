@@ -24,8 +24,10 @@
 /// - other b+tree nodes (represented by `BtreeNode`), and
 /// - raw values.
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <algorithm>
-#include <cstdint>
 #include <iosfwd>
 #include <memory>
 #include <string>
@@ -120,6 +122,19 @@ struct LeafNodeEntry {
 
   /// Either the value associated with this entry, or a reference to the value.
   LeafNodeValueReference value_reference;
+
+  /// The size of the stored value.
+  uint64_t value_size() const {
+    struct LeafNodeSizeVisitor {
+      uint64_t operator()(const absl::Cord& direct) const {
+        return direct.size();
+      }
+      uint64_t operator()(const IndirectDataReference& ref) const {
+        return ref.length;
+      }
+    };
+    return std::visit(LeafNodeSizeVisitor{}, value_reference);
+  }
 
   friend bool operator==(const LeafNodeEntry& a, const LeafNodeEntry& b);
   friend bool operator!=(const LeafNodeEntry& a, const LeafNodeEntry& b) {

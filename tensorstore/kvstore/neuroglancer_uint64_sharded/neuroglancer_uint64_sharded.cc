@@ -19,6 +19,7 @@
 
 #include <cassert>
 #include <cstring>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -1027,7 +1028,8 @@ class ShardedKeyValueStore
       internal::CachePool::WeakPtr cache_pool,
       GetMaxChunksPerShardFunction get_max_chunks_per_shard = {})
       : write_cache_(internal::GetCache<ShardedKeyValueStoreWriteCache>(
-            cache_pool.get(), "", [&] {
+            cache_pool.get(), "",
+            [&] {
               return std::make_unique<ShardedKeyValueStoreWriteCache>(
                   internal::GetCache<MinishardIndexCache>(
                       cache_pool.get(), "",
@@ -1037,7 +1039,9 @@ class ShardedKeyValueStore
                             std::move(key_prefix), sharding_spec);
                       }),
                   std::move(get_max_chunks_per_shard));
-            })) {}
+            })),
+        is_raw_encoding_(sharding_spec.data_encoding ==
+                         ShardingSpec::DataEncoding::raw) {}
 
   Future<ReadResult> Read(Key key, ReadOptions options) override {
     TENSORSTORE_ASSIGN_OR_RETURN(ChunkId chunk_id, KeyToChunkIdOrError(key));
@@ -1094,8 +1098,8 @@ class ShardedKeyValueStore
       auto entry = GetCacheEntry(
           write_cache_, ShardedKeyValueStoreWriteCache::ShardToKey(shard));
       LinkValue(
-          [state, entry](Promise<void> promise,
-                         ReadyFuture<const void> future) {
+          [state, entry, is_raw_encoding = is_raw_encoding_](
+              Promise<void> promise, ReadyFuture<const void> future) {
             auto chunks = internal::AsyncCache::ReadLock<EncodedChunks>(*entry)
                               .shared_data();
             if (!chunks) return;
@@ -1103,7 +1107,15 @@ class ShardedKeyValueStore
               auto key = ChunkIdToKey(chunk.minishard_and_chunk_id.chunk_id);
               if (!Contains(state->options_.range, key)) continue;
               key.erase(0, state->options_.strip_prefix_length);
-              execution::set_value(state->receiver_, ListEntry{std::move(key)});
+              std::numeric_limits<uint64_t>::max();
+              execution::set_value(
+                  state->receiver_,
+                  ListEntry{
+                      std::move(key),
+                      is_raw_encoding
+                          ? ListEntry::checked_size(chunk.encoded_data.size())
+                          : -1,
+                  });
             }
           },
           state->promise_, entry->Read(absl::InfiniteFuture()));
@@ -1196,6 +1208,7 @@ class ShardedKeyValueStore
   Context::Resource<internal::CachePoolResource> cache_pool_resource_;
   Context::Resource<internal::DataCopyConcurrencyResource>
       data_copy_concurrency_resource_;
+  bool is_raw_encoding_ = false;
 };
 }  // namespace neuroglancer_uint64_sharded
 

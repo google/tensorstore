@@ -1038,7 +1038,11 @@ struct ListOperationState
       if (index_entry.IsMissing()) continue;
       auto key = EntryIdToKey(i, grid_shape);
       key.erase(0, options_.strip_prefix_length);
-      execution::set_value(receiver, ListEntry{std::move(key)});
+      execution::set_value(receiver,
+                           ListEntry{
+                               std::move(key),
+                               ListEntry::checked_size(index_entry.length),
+                           });
     }
   }
 };

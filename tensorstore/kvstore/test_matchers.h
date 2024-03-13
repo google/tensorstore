@@ -133,8 +133,11 @@ MatchesKvsReadResultAborted(
 
 /// Returns a GMock matcher for a `ListEntry`.
 inline ::testing::Matcher<kvstore::ListEntry> MatchesListEntry(
-    ::testing::Matcher<std::string> key_matcher) {
-  return ::testing::Field("key", &kvstore::ListEntry::key, key_matcher);
+    ::testing::Matcher<std::string> key_matcher,
+    ::testing::Matcher<int64_t> size_matcher = ::testing::_) {
+  return ::testing::AllOf(
+      ::testing::Field("key", &kvstore::ListEntry::key, key_matcher),
+      ::testing::Field("size", &kvstore::ListEntry::size, size_matcher));
 }
 
 }  // namespace internal

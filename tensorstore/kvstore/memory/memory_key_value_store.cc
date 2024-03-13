@@ -471,8 +471,11 @@ void MemoryDriver::ListImpl(ListOptions options, ListReceiver receiver) {
     for (auto it = it_range.first; it != it_range.second; ++it) {
       if (cancelled.load(std::memory_order_relaxed)) break;
       std::string_view key = it->first;
-      entries.push_back(ListEntry{std::string(
-          key.substr(std::min(options.strip_prefix_length, key.size())))});
+      entries.push_back(ListEntry{
+          std::string(
+              key.substr(std::min(options.strip_prefix_length, key.size()))),
+          ListEntry::checked_size(it->second.value.size()),
+      });
     }
   }
 

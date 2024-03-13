@@ -80,7 +80,7 @@ void TestKeyValueStoreDeleteRangeFromBeginning(const KvStore& store);
 void TestKeyValueStoreCopyRange(const KvStore& store);
 
 /// Tests List on `store`, which should be empty.
-void TestKeyValueStoreList(const KvStore& store);
+void TestKeyValueStoreList(const KvStore& store, bool match_size = true);
 
 struct KeyValueStoreSpecRoundtripOptions {
   // Spec that round trips with default options.

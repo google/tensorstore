@@ -880,7 +880,8 @@ struct ListTask {
       std::string path = visitor.GetFullPath();
       if (!absl::EndsWith(path, kLockSuffix)) {
         path.erase(0, options.strip_prefix_length);
-        execution::set_value(receiver, ListEntry{std::move(path)});
+        // TODO: If the file was stat'd, include length.
+        execution::set_value(receiver, ListEntry{std::move(path), -1});
       }
       return absl::OkStatus();
     };

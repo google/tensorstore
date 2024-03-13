@@ -1156,7 +1156,11 @@ struct ListTask : public RateLimiterNode,
       if (options_.strip_prefix_length) {
         name = name.substr(options_.strip_prefix_length);
       }
-      execution::set_value(receiver_, ListEntry{std::string(name)});
+      execution::set_value(receiver_,
+                           ListEntry{
+                               std::string(name),
+                               ListEntry::checked_size(metadata.size),
+                           });
     }
 
     // Successful request, so clear the retry_attempt for the next request.

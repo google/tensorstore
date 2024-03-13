@@ -20,15 +20,23 @@
 #include <sys/uio.h>
 #include <unistd.h>
 
+#include <cerrno>
+#include <cstddef>
+#include <cstdio>
+#include <cstring>
+#include <memory>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include "absl/container/inlined_vector.h"
+#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "tensorstore/internal/os/error_code.h"
 #include "tensorstore/kvstore/file/file_util.h"
 #include "tensorstore/kvstore/file/potentially_blocking_region.h"
 #include "tensorstore/util/quote_string.h"
+#include "tensorstore/util/result.h"
 
 // Most modern unix allow 1024 iovs.
 #if defined(UIO_MAXIOV)
@@ -141,7 +149,7 @@ bool DirectoryIterator::Next() {
   return e != nullptr;
 }
 
-/// IsDirectoryAt returns whethere the `name` at the given directory fd is a
+/// IsDirectoryAt returns whether the `name` at the given directory fd is a
 /// directory or not by using fstatat.
 bool IsDirectoryAt(int dir_fd, const char* name) {
   PotentiallyBlockingRegion region;
@@ -183,10 +191,10 @@ bool DirectoryIterator::Make(Entry entry,
   if (!dir) {
     return false;
   }
-  auto* it = new DirectoryIterator;
+  auto it = std::make_unique<DirectoryIterator>();
   it->dir = std::move(dir);
   it->e = nullptr;
-  new_iterator->reset(it);
+  *new_iterator = std::move(it);
   return true;
 }
 

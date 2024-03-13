@@ -18,6 +18,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <limits>
 #include <optional>
 #include <string_view>
 #include <vector>
@@ -33,6 +34,7 @@
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/any_sender.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/quote_string.h"
 
 namespace tensorstore {
 namespace kvstore {
@@ -131,6 +133,18 @@ struct ListOptions {
 /// Return value for List operations
 struct ListEntry {
   Key key;
+
+  int64_t size;
+
+  bool has_size() const { return size >= 0; }
+
+  template <typename T>
+  static int64_t checked_size(T checked_size) {
+    return (checked_size >= 0 &&
+            checked_size < std::numeric_limits<int64_t>::max())
+               ? static_cast<int64_t>(checked_size)
+               : -1;
+  }
 
   template <typename Sink>
   friend void AbslStringify(Sink& sink, const ListEntry& entry) {

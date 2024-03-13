@@ -18,6 +18,7 @@
 #include <stdint.h>
 
 #include <atomic>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -364,7 +365,7 @@ struct ListTask {
         break;
       }
       for (const auto& entry : response.entry()) {
-        execution::set_value(receiver, ListEntry{entry.key()});
+        execution::set_value(receiver, ListEntry{entry.key(), entry.size()});
         if (is_cancelled()) break;
       }
       if (is_cancelled()) break;

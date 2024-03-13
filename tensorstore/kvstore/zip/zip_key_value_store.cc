@@ -373,7 +373,8 @@ struct ListState : public internal::AtomicReferenceCount<ListState> {
       if (it->filename.size() >= options_.strip_prefix_length) {
         execution::set_value(
             receiver_,
-            ListEntry{it->filename.substr(options_.strip_prefix_length)});
+            ListEntry{it->filename.substr(options_.strip_prefix_length),
+                      ListEntry::checked_size(it->uncompressed_size)});
       }
     }
   }

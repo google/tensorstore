@@ -383,7 +383,7 @@ TEST(FileKeyValueStoreTest, List) {
   tensorstore::internal::ScopedTemporaryDirectory tempdir;
   std::string root = tempdir.path() + "/root";
   auto store = GetStore(root);
-  tensorstore::internal::TestKeyValueStoreList(store);
+  tensorstore::internal::TestKeyValueStoreList(store, /*match_size=*/false);
 }
 
 TEST(FileKeyValueStoreTest, SpecRoundtrip) {

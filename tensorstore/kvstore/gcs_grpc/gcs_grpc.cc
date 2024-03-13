@@ -989,7 +989,10 @@ struct ListTask : public internal::AtomicReferenceCount<ListTask> {
       if (options_.strip_prefix_length) {
         name = name.substr(options_.strip_prefix_length);
       }
-      execution::set_value(receiver_, ListEntry{std::string(name)});
+      execution::set_value(receiver_, ListEntry{
+                                          std::string(name),
+                                          ListEntry::checked_size(o.size()),
+                                      });
     }
     if (!done && !response.next_page_token().empty()) {
       // If there is a continuation token, issue the next request.
