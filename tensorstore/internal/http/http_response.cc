@@ -30,6 +30,7 @@
 #include "absl/strings/numbers.h"
 #include "re2/re2.h"
 #include "tensorstore/internal/source_location.h"
+#include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
@@ -53,23 +54,13 @@ namespace {
 //                   DIGIT / ALPHA
 //  token          = 1*tchar
 //
-inline bool IsTchar(char ch) {
-  switch (ch) {
-    case '!':
-    case '#':
-    case '$':
-    case '%':
-    case '&':
-    case '\'':
-    case '*':
-    case '+':
-    case '-':
-    case '.':
-      return true;
-    default:
-      return absl::ascii_isdigit(ch) || absl::ascii_isalpha(ch);
-  }
-}
+static inline constexpr internal::AsciiSet kTChar{
+    "abcdefghijklmnopqrstuvwxyz"
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    "0123456789"
+    R"(!#$%&'*+-.)"};
+
+inline bool IsTchar(char ch) { return kTChar.Test(ch); }
 
 inline bool IsOWS(char ch) { return ch == ' ' || ch == '\t'; }
 
@@ -84,12 +75,14 @@ absl::StatusCode HttpResponseCodeToStatusCode(const HttpResponse& response) {
     case 206:  // Partial Content
       return absl::StatusCode::kOk;
 
-    // INVALID_ARGUMENT indicates a problem with how the request is constructed.
+    // INVALID_ARGUMENT indicates a problem with how the request is
+    // constructed.
     case 400:  // Bad Request
     case 411:  // Length Required
       return absl::StatusCode::kInvalidArgument;
 
-    // PERMISSION_DENIED indicates an authentication or an authorization issue.
+    // PERMISSION_DENIED indicates an authentication or an authorization
+    // issue.
     case 401:  // Unauthorized
     case 403:  // Forbidden
       return absl::StatusCode::kPermissionDenied;
@@ -112,8 +105,9 @@ absl::StatusCode HttpResponseCodeToStatusCode(const HttpResponse& response) {
 
     case 416:  // Requested Range Not Satisfiable
       // The requested range had no overlap with the available range.
-      // This doesn't indicate an error, but we should produce an empty response
-      // body. (Not all servers do; GCS returns a short error message body.)
+      // This doesn't indicate an error, but we should produce an empty
+      // response body. (Not all servers do; GCS returns a short error message
+      // body.)
       return absl::StatusCode::kOutOfRange;
 
     // UNAVAILABLE indicates a problem that can go away if the request

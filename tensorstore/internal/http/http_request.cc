@@ -33,6 +33,8 @@
 namespace tensorstore {
 namespace internal_http {
 
+/// Formats a `range` header to the http request if the byte_range
+/// is specified.
 std::optional<std::string> FormatRangeHeader(
     OptionalByteRangeRequest byte_range) {
   // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Range
@@ -52,6 +54,7 @@ std::optional<std::string> FormatRangeHeader(
   return std::nullopt;
 }
 
+/// Formats a `cache-control` header specifying `max-age` or `no-cache`.
 std::optional<std::string> FormatCacheControlMaxAgeHeader(
     absl::Duration max_age) {
   // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cache-Control
@@ -69,6 +72,7 @@ std::optional<std::string> FormatCacheControlMaxAgeHeader(
   }
 }
 
+/// Formats a `cache-control` header consistent with `staleness_bound`.
 std::optional<std::string> FormatStalenessBoundCacheControlHeader(
     absl::Time staleness_bound) {
   // `absl::InfiniteFuture()`  indicates that the result must be current.
@@ -128,6 +132,22 @@ HttpRequestBuilder& HttpRequestBuilder::AddQueryParameter(
 HttpRequestBuilder& HttpRequestBuilder::EnableAcceptEncoding() {
   request_.accept_encoding = true;
   return *this;
+}
+
+HttpRequestBuilder& HttpRequestBuilder::MaybeAddRangeHeader(
+    OptionalByteRangeRequest byte_range) {
+  return AddHeader(FormatRangeHeader(std::move(byte_range)));
+}
+
+HttpRequestBuilder& HttpRequestBuilder::MaybeAddCacheControlMaxAgeHeader(
+    absl::Duration max_age) {
+  return AddHeader(FormatCacheControlMaxAgeHeader(max_age));
+}
+
+HttpRequestBuilder&
+HttpRequestBuilder::MaybeAddStalenessBoundCacheControlHeader(
+    absl::Time staleness_bound) {
+  return AddHeader(FormatStalenessBoundCacheControlHeader(staleness_bound));
 }
 
 HttpRequestBuilder& HttpRequestBuilder::AddHostHeader(std::string_view host) {

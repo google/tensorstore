@@ -14,23 +14,25 @@
 
 #include "tensorstore/internal/oauth2/google_auth_provider.h"
 
+#include <algorithm>
 #include <fstream>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "absl/base/thread_annotations.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
-#include "absl/time/time.h"
+#include <nlohmann/json.hpp>
 #include "tensorstore/internal/env.h"
-#include "tensorstore/internal/http/curl_handle.h"
-#include "tensorstore/internal/http/curl_transport.h"
-#include "tensorstore/internal/http/http_request.h"
+#include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/no_destructor.h"
+#include "tensorstore/internal/oauth2/auth_provider.h"
 #include "tensorstore/internal/oauth2/fixed_token_auth_provider.h"
 #include "tensorstore/internal/oauth2/gce_auth_provider.h"
 #include "tensorstore/internal/oauth2/google_service_account_auth_provider.h"
@@ -47,7 +49,6 @@ namespace {
 
 using ::tensorstore::internal::GetEnv;
 using ::tensorstore::internal::JoinPath;
-using ::tensorstore::internal_http::HttpRequestBuilder;
 
 // The environment variable to override token generation for testing.
 constexpr char kGoogleAuthTokenForTesting[] = "GOOGLE_AUTH_TOKEN_FOR_TESTING";

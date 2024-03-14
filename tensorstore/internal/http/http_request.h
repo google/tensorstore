@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "absl/functional/function_ref.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_format.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/uri_utils.h"
@@ -45,8 +46,17 @@ struct HttpRequest {
     const char* sep = "";
     for (const auto& v : request.headers) {
       sink.Append(sep);
-      sink.Append(v);
-      sep = ", ";
+#ifndef NDEBUG
+      // Redact authorization token in request logging.
+      if (absl::StartsWithIgnoreCase(v, "authorization:")) {
+        sink.Append(std::string_view(v).substr(0, 25));
+        sink.Append("#####");
+      } else
+#endif
+      {
+        sink.Append(v);
+      }
+      sep = "  ";
     }
     sink.Append(">}");
   }
@@ -109,20 +119,14 @@ class HttpRequestBuilder {
 
   /// Adds a `range` header to the http request if the byte_range
   /// is specified.
-  HttpRequestBuilder& MaybeAddRangeHeader(OptionalByteRangeRequest byte_range) {
-    return AddHeader(FormatRangeHeader(std::move(byte_range)));
-  }
+  HttpRequestBuilder& MaybeAddRangeHeader(OptionalByteRangeRequest byte_range);
 
   /// Adds a `cache-control` header specifying `max-age` or `no-cache`.
-  HttpRequestBuilder& MaybeAddCacheControlMaxAgeHeader(absl::Duration max_age) {
-    return AddHeader(FormatCacheControlMaxAgeHeader(max_age));
-  }
+  HttpRequestBuilder& MaybeAddCacheControlMaxAgeHeader(absl::Duration max_age);
 
   /// Adds a `cache-control` header consistent with `staleness_bound`.
   HttpRequestBuilder& MaybeAddStalenessBoundCacheControlHeader(
-      absl::Time staleness_bound) {
-    return AddHeader(FormatStalenessBoundCacheControlHeader(staleness_bound));
-  }
+      absl::Time staleness_bound);
 
   /// Adds a 'host' header for the request url.
   HttpRequestBuilder& AddHostHeader(std::string_view host);

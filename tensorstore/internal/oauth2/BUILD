@@ -56,16 +56,16 @@ tensorstore_cc_library(
         "//tensorstore/internal:no_destructor",
         "//tensorstore/internal:path",
         "//tensorstore/internal/http",
-        "//tensorstore/internal/http:curl_handle",
         "//tensorstore/internal/http:curl_transport",
         "//tensorstore/internal/json_binding",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/synchronization",
-        "@com_google_absl//absl/time",
     ],
 )
 

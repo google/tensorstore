@@ -26,6 +26,7 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_format.h"
 #include "tensorstore/internal/source_location.h"
@@ -53,11 +54,23 @@ struct HttpResponse {
     for (const auto& kv : response.headers) {
       sink.Append(sep);
       sink.Append(kv.first);
-      sink.Append("=");
-      sink.Append(kv.second);
+      sink.Append(": ");
+#ifndef NDEBUG
+      // Redact auth_token in response logging.
+      if (absl::StrContainsIgnoreCase(kv.first, "auth_token")) {
+        sink.Append("#####");
+      } else
+#endif
+      {
+        sink.Append(kv.second);
+      }
       sep = ", ";
     }
-    absl::Format(&sink, ">, body=%v}", response.payload);
+    if (response.status_code >= 300 && response.payload.size() <= 64) {
+      absl::Format(&sink, ">, payload=%v}", response.payload);
+    } else {
+      absl::Format(&sink, ">, payload.size=%d}", response.payload.size());
+    }
   }
 };
 
