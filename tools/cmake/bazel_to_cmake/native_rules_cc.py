@@ -166,6 +166,9 @@ def cc_test(
 ):
   if "skip-cmake" in kwargs.get("tags", []):
     return
+  # CMake does not run tests multiple times, so skip the flaky tests.
+  if kwargs.get("flaky", False):
+    return
   context = self.snapshot()
   target = context.parse_rule_target(name)
 
