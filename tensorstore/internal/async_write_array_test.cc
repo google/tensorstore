@@ -354,6 +354,7 @@ TEST(MaskedArrayTest, CompareFillValueIdenticallyEqual) {
                                       std::numeric_limits<float>::quiet_NaN()),
                                   writeback_data.array));
     EXPECT_FALSE(writeback_data.must_store);
+    EXPECT_EQ(spec.fill_value.data(), writeback_data.array.data());
   }
 }
 
@@ -438,6 +439,7 @@ TEST(AsyncWriteArrayTest, Basic) {
   }
 
   // Test that `GetArrayForWriteback` handles a non-updated read array.
+  tensorstore::SharedArray<const void> prev_writeback_array;
   {
     auto read_array = MakeArray<int32_t>({{11, 12, 13}, {14, 15, 16}});
     Arena arena;
@@ -445,6 +447,7 @@ TEST(AsyncWriteArrayTest, Basic) {
         spec, origin, read_array,
         /*read_generation=*/StorageGeneration::FromString("a"));
     EXPECT_TRUE(writeback_data.must_store);
+    prev_writeback_array = writeback_data.array;
     // Writeback does not reflect updated `read_array`.
     EXPECT_EQ(MakeArray<int32_t>({{7, 2, 3}, {4, 5, 6}}), writeback_data.array);
   }
@@ -478,6 +481,10 @@ TEST(AsyncWriteArrayTest, Basic) {
               writeback_data.array);
     EXPECT_EQ(StorageGeneration::FromString("c"),
               async_write_array.read_generation);
+
+    // Check that previous writeback array (which is supposed to be immutable)
+    // remains unmodified.
+    EXPECT_NE(prev_writeback_array, writeback_data.array);
   }
 
   // Test that `GetReadNDIterable` handles a write state fully-overwritten with
@@ -514,6 +521,69 @@ TEST(AsyncWriteArrayTest, Basic) {
     EXPECT_EQ(
         MakeArray<int32_t>({{9, 2, 3}, {4, 5, 6}}),
         CopyNDIterable(std::move(iterable), span<const Index>({2, 3}), &arena));
+  }
+}
+
+// https://github.com/google/tensorstore/issues/144
+TEST(AsyncWriteArrayTest, Issue144) {
+  AsyncWriteArray async_write_array(1);
+  auto fill_value = MakeArray<int32_t>({0, 0});
+  auto fill_value_copy = MakeCopy(fill_value);
+  tensorstore::Box<> component_bounds(1);
+  Spec spec(fill_value, component_bounds);
+  std::vector<Index> origin{0};
+  // Overwrite position 1 with the fill value.
+  TestWrite(&async_write_array, spec, origin,
+            tensorstore::MakeOffsetArray<int32_t>({1}, {0}));
+
+  // Get writeback data, assuming no existing `read_array`.
+  {
+    auto writeback_data = async_write_array.GetArrayForWriteback(
+        spec, origin, /*read_array=*/{},
+        /*read_generation=*/StorageGeneration::FromString("c"));
+    EXPECT_EQ(spec.fill_value, writeback_data.array);
+    EXPECT_FALSE(writeback_data.must_store);
+  }
+
+  //  `GetArrayForWriteback` causes the data array to be destroyed.
+  EXPECT_EQ(1, async_write_array.write_state.mask.num_masked_elements);
+  EXPECT_FALSE(async_write_array.write_state.data);
+
+  // Get writeback data again, assuming no existing `read_array`, to confirm
+  // that the case of a partially-filled mask with no data array is handled
+  // correctly.
+  for (int i = 0; i < 2; ++i) {
+    auto writeback_data = async_write_array.GetArrayForWriteback(
+        spec, origin, /*read_array=*/{},
+        /*read_generation=*/StorageGeneration::FromString("d"));
+    EXPECT_EQ(spec.fill_value, writeback_data.array);
+    EXPECT_FALSE(writeback_data.must_store);
+    EXPECT_EQ(1, async_write_array.write_state.mask.num_masked_elements);
+    EXPECT_FALSE(async_write_array.write_state.data);
+  }
+
+  // Get writeback data with a new read array that is not equal to the fill
+  // value.
+  {
+    auto writeback_data = async_write_array.GetArrayForWriteback(
+        spec, origin, /*read_array=*/MakeArray<int32_t>({2, 2}),
+        /*read_generation=*/StorageGeneration::FromString("e"));
+    EXPECT_EQ(MakeArray<int32_t>({2, 0}), writeback_data.array);
+    EXPECT_TRUE(writeback_data.must_store);
+    EXPECT_EQ(1, async_write_array.write_state.mask.num_masked_elements);
+    EXPECT_TRUE(async_write_array.write_state.data);
+  }
+
+  // Get writeback data with a new read array where the resultant array is equal
+  // to the fill value.
+  {
+    auto writeback_data = async_write_array.GetArrayForWriteback(
+        spec, origin, /*read_array=*/MakeArray<int32_t>({0, 2}),
+        /*read_generation=*/StorageGeneration::FromString("f"));
+    EXPECT_EQ(spec.fill_value, writeback_data.array);
+    EXPECT_FALSE(writeback_data.must_store);
+    EXPECT_EQ(1, async_write_array.write_state.mask.num_masked_elements);
+    EXPECT_FALSE(async_write_array.write_state.data);
   }
 }
 

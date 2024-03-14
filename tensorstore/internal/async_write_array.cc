@@ -39,6 +39,7 @@
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/element_pointer.h"
 #include "tensorstore/util/extents.h"
+#include "tensorstore/util/iterate.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 
@@ -108,7 +109,6 @@ AsyncWriteArray::MaskedArray::GetArrayForWriteback(
     const SharedArrayView<const void>& read_array,
     bool read_state_already_integrated) {
   assert(origin.size() == spec.rank());
-  WritebackData writeback;
 
   const auto must_store = [&](ArrayView<const void> array) {
     if (spec.store_if_equal_to_fill_value) return true;
@@ -116,48 +116,8 @@ AsyncWriteArray::MaskedArray::GetArrayForWriteback(
                            spec.fill_value_comparison_kind);
   };
 
-  if (!data) {
-    // No data has been allocated for the write array.  This is only possible in
-    // two cases:
-    if (IsFullyOverwritten(spec, origin)) {
-      // Case 1: array was fully overwritten by the fill value using
-      // `WriteFillValue`.
-      writeback.array = spec.fill_value;
-      writeback.must_store = false;
-    } else {
-      // Case 2: array is unmodified.
-      assert(IsUnmodified());
-      if (read_array.data()) {
-        writeback.must_store = must_store(read_array);
-        if (!writeback.must_store) {
-          writeback.array = spec.fill_value;
-        } else {
-          writeback.array = read_array;
-        }
-      } else {
-        writeback.array = spec.fill_value;
-        writeback.must_store = false;
-      }
-    }
-  } else {
-    if (!read_state_already_integrated &&
-        // If any elements in the array haven't been written, fill them from
-        // `read_array` or `spec.fill_value`.  Compare
-        // `mask.num_masked_elements` to `spec.num_elements()` rather than
-        // `spec.chunk_num_elements(origin)`, because even if the only positions
-        // not written are outside `spec.component_bounds`, we still need to
-        // ensure we don't leak the contents of uninitialized memory, in case
-        // the consumer of the `WritebackData` stores out-of-bounds data as
-        // well.
-        mask.num_masked_elements != spec.num_elements()) {
-      EnsureWritable(spec);
-      // Array was only partially written.
-      RebaseMaskedArray(BoxView<>(origin, spec.shape()),
-                        read_array.data()
-                            ? ArrayView<const void>(read_array)
-                            : ArrayView<const void>(spec.fill_value),
-                        {data, spec.dtype()}, mask);
-    }
+  const auto get_writeback_from_array = [&] {
+    WritebackData writeback;
     writeback.array = SharedArrayView<void>(
         SharedElementPointer<void>(data, spec.dtype()), spec.write_layout());
     writeback.must_store = must_store(writeback.array);
@@ -165,8 +125,79 @@ AsyncWriteArray::MaskedArray::GetArrayForWriteback(
       data = nullptr;
       writeback.array = spec.fill_value;
     }
+    return writeback;
+  };
+
+  if (!data) {
+    // No data has been allocated for the write array.  There are 3 possible
+    // cases:
+
+    // Case 1: array was fully overwritten by the fill value using
+    // `WriteFillValue`.
+    if (IsFullyOverwritten(spec, origin)) {
+      WritebackData writeback;
+      writeback.array = spec.fill_value;
+      writeback.must_store = false;
+      return writeback;
+    }
+
+    // Case 2: array is unmodified.
+    if (IsUnmodified()) {
+      WritebackData writeback;
+      writeback.must_store = read_array.valid() && must_store(read_array);
+      if (writeback.must_store) {
+        writeback.array = read_array;
+      } else {
+        writeback.array = spec.fill_value;
+      }
+      return writeback;
+    }
+
+    // Case 3: Array was only partially written, but a previous call to
+    // `GetArrayForWriteback` determined that all values that were written, and
+    // all values in `read_array` that were unmodified, were equal the fill
+
+    // Case 3a: New `read_array` is specified.  It is possible that in the new
+    // `read_array`, some of elements at unmodified positions are no longer
+    // equal to the fill value.
+    if (!read_state_already_integrated && read_array.valid()) {
+      data = tensorstore::MakeCopy(spec.fill_value,
+                                   {c_order, include_repeated_elements})
+                 .pointer();
+      RebaseMaskedArray(BoxView<>(origin, spec.shape()),
+                        ArrayView<const void>(read_array), {data, spec.dtype()},
+                        mask);
+      return get_writeback_from_array();
+    }
+
+    // Case 3b: No new read array since the previous call to
+    // `GetArrayForWriteback`.  The writeback array must, therefore, still be
+    // equal to the fill value.
+    WritebackData writeback;
+    writeback.array = spec.fill_value;
+    writeback.must_store = false;
+    return writeback;
   }
-  return writeback;
+
+  if (!read_state_already_integrated &&
+      // If any elements in the array haven't been written, fill them from
+      // `read_array` or `spec.fill_value`.  Compare
+      // `mask.num_masked_elements` to `spec.num_elements()` rather than
+      // `spec.chunk_num_elements(origin)`, because even if the only positions
+      // not written are outside `spec.component_bounds`, we still need to
+      // ensure we don't leak the contents of uninitialized memory, in case
+      // the consumer of the `WritebackData` stores out-of-bounds data as
+      // well.
+      mask.num_masked_elements != spec.num_elements()) {
+    EnsureWritable(spec);
+    // Array was only partially written.
+    RebaseMaskedArray(BoxView<>(origin, spec.shape()),
+                      read_array.data()
+                          ? ArrayView<const void>(read_array)
+                          : ArrayView<const void>(spec.fill_value),
+                      {data, spec.dtype()}, mask);
+  }
+  return get_writeback_from_array();
 }
 
 size_t AsyncWriteArray::MaskedArray::EstimateSizeInBytes(

@@ -959,6 +959,7 @@ tensorstore_cc_library(
         "//tensorstore/kvstore:generation",
         "//tensorstore/util:element_pointer",
         "//tensorstore/util:extents",
+        "//tensorstore/util:iterate",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
     ],
