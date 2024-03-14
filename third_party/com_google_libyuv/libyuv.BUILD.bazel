@@ -8,12 +8,20 @@ licenses(["notice"])
 
 exports_files(["LICENSE"])
 
+# See
+# https://chromium.googlesource.com/libyuv/libyuv/+/refs/heads/main/BUILD.gn
+
 cc_library(
     name = "libyuv",
     srcs = glob(
-        [
+        include = [
             "source/*.cc",
             "include/libyuv/*.h",
+        ],
+        exclude = [
+            "source/*_msa.cc",  # mips
+            "source/*_lsx.cc",  # loong64
+            "source/*_lasx.cc",  # loong64
         ],
     ),
     hdrs = ["include/libyuv.h"] + glob([
