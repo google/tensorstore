@@ -119,6 +119,15 @@ TEST(MemoryKeyValueStoreTest, Open) {
   }
 }
 
+TEST(MemoryKeyValueStoreTest, ListWithPath) {
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      kvstore::Open({{"driver", "memory"}, {"path", "p/"}}, context).result());
+
+  tensorstore::internal::TestKeyValueStoreList(store);
+}
+
 TEST(MemoryKeyValueStoreTest, SpecRoundtrip) {
   tensorstore::internal::KeyValueStoreSpecRoundtripOptions options;
   options.full_spec = {

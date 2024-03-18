@@ -21,10 +21,10 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/strings/cord.h"
+#include "absl/strings/str_format.h"
 #include "absl/synchronization/notification.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
-#include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
@@ -37,7 +37,6 @@
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -46,41 +45,60 @@ using ::tensorstore::KeyRange;
 using ::tensorstore::grpc_kvstore::KvStoreServer;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
 
-// This test uses the memory kvstore driver over grpc, so the test
-// assertions should closely mimic those in the memory kvstore driver.
-class KvStoreTest : public testing::Test {
+class KvStoreSingleton {
  public:
-  KvStoreTest()
-      : ctx_(tensorstore::Context::Default()),
-        server_(
-            KvStoreServer::Start(KvStoreServer::Spec::FromJson(  //
-                                     {
-                                         {"bind_addresses", {"localhost:0"}},
-                                         {"base", "memory://prefix"},
-                                     })
-                                     .value(),
-                                 ctx_)
-                .value()) {}
-
-  tensorstore::KvStore OpenStore() {
-    auto address = tensorstore::StrCat("localhost:", server_.port());
-    return tensorstore::kvstore::Open(
-               {{"driver", "tsgrpc_kvstore"}, {"address", address}}, ctx_)
-        .value();
+  KvStoreSingleton() : ctx_(tensorstore::Context::Default()) {
+    server_ = KvStoreServer::Start(KvStoreServer::Spec::FromJson(  //
+                                       {
+                                           {"bind_addresses", {"localhost:0"}},
+                                           {"base", "memory://x"},
+                                       })
+                                       .value(),
+                                   ctx_)
+                  .value();
+    address_ = absl::StrFormat("localhost:%d", server_.port());
   }
+
+  const std::string& address() const { return address_; }
 
  private:
   tensorstore::Context ctx_;
   KvStoreServer server_;
+  std::string address_;
+};
+
+const KvStoreSingleton& GetSingleton() {
+  static const KvStoreSingleton* const kSingleton = new KvStoreSingleton();
+  return *kSingleton;
+}
+
+// This test uses the memory kvstore driver over grpc, so the test
+// assertions should closely mimic those in the memory kvstore driver.
+class KvStoreTest : public testing::Test {
+ public:
+  const std::string& address() const { return GetSingleton().address(); }
 };
 
 TEST_F(KvStoreTest, Basic) {
-  auto store = OpenStore();
+  auto context = tensorstore::Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::kvstore::Open({{"driver", "tsgrpc_kvstore"},
+                                              {"address", address()},
+                                              {"path", "basic/"}},
+                                             context)
+                      .result());
+
   tensorstore::internal::TestKeyValueReadWriteOps(store);
 }
 
 TEST_F(KvStoreTest, DeleteRange) {
-  auto store = OpenStore();
+  auto context = tensorstore::Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::kvstore::Open({{"driver", "tsgrpc_kvstore"},
+                                              {"address", address()},
+                                              {"path", "delete_range/"}},
+                                             context)
+                      .result());
 
   TENSORSTORE_EXPECT_OK(kvstore::Write(store, "a/b", absl::Cord("xyz")));
   TENSORSTORE_EXPECT_OK(kvstore::Write(store, "a/d", absl::Cord("xyz")));
@@ -105,13 +123,19 @@ TEST_F(KvStoreTest, DeleteRange) {
 }
 
 TEST_F(KvStoreTest, List) {
-  auto store = OpenStore();
+  auto context = tensorstore::Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::kvstore::Open({{"driver", "tsgrpc_kvstore"},
+                                              {"address", address()},
+                                              {"path", "list/"}},
+                                             context)
+                      .result());
 
   {
     std::vector<std::string> log;
     absl::Notification notification;
     tensorstore::execution::submit(
-        store.driver->List({}),
+        kvstore::List(store, {}),
         tensorstore::CompletionNotifyingReceiver{
             &notification, tensorstore::LoggingReceiver{&log}});
     notification.WaitForNotification();
@@ -131,7 +155,7 @@ TEST_F(KvStoreTest, List) {
     std::vector<std::string> log;
     absl::Notification notification;
     tensorstore::execution::submit(
-        store.driver->List({}),
+        kvstore::List(store, {}),
         tensorstore::CompletionNotifyingReceiver{
             &notification, tensorstore::LoggingReceiver{&log}});
 
@@ -148,7 +172,7 @@ TEST_F(KvStoreTest, List) {
     std::vector<std::string> log;
     absl::Notification notification;
     tensorstore::execution::submit(
-        store.driver->List({KeyRange::Prefix("a/c/")}),
+        kvstore::List(store, {KeyRange::Prefix("a/c/")}),
         tensorstore::CompletionNotifyingReceiver{
             &notification, tensorstore::LoggingReceiver{&log}});
 
@@ -164,7 +188,7 @@ TEST_F(KvStoreTest, List) {
     std::vector<std::string> log;
     absl::Notification notification;
     tensorstore::execution::submit(
-        store.driver->List({}),
+        kvstore::List(store, {}),
         tensorstore::CompletionNotifyingReceiver{
             &notification, tensorstore::CancelOnStartingReceiver{{&log}}});
 
@@ -178,7 +202,7 @@ TEST_F(KvStoreTest, List) {
     std::vector<std::string> log;
     absl::Notification notification;
     tensorstore::execution::submit(
-        store.driver->List({}),
+        kvstore::List(store, {}),
         tensorstore::CompletionNotifyingReceiver{
             &notification, tensorstore::CancelAfterNReceiver<2>{{&log}}});
 

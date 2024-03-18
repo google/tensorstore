@@ -36,8 +36,6 @@
 #include "tensorstore/proto/protobuf_matchers.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender_testutil.h"
-#include "tensorstore/util/future.h"
-#include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
 
 // protos
@@ -80,9 +78,10 @@ class TsGrpcMockTest : public testing::Test {
   }
 
   tensorstore::KvStore OpenStore() {
-    return kvstore::Open({{"driver", "tsgrpc_kvstore"},
-                          {"address", mock_service_.server_address()},
-                          {"timeout", "500ms"}})
+    return kvstore::Open({
+                             {"driver", "tsgrpc_kvstore"},
+                             {"address", mock_service_.server_address()},
+                         })
         .value();
   }
 

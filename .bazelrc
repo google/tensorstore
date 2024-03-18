@@ -88,7 +88,7 @@ startup --windows_enable_symlinks
 # Windows has path-length limits of 260 characters leading to errors which
 # may require a shorter filenames. If encountered, uncomment and adjust:
 #
-# startup --output_base=C:\Out
+# startup --output_base=C:\\Out
 
 # By default assume MSVC on Windows.
 build:windows --config=msvc

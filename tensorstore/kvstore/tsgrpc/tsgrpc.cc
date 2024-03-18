@@ -18,12 +18,12 @@
 #include <stdint.h>
 
 #include <atomic>
-#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
 #include <utility>
 
+#include "absl/base/attributes.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
@@ -34,7 +34,6 @@
 #include "grpcpp/create_channel.h"  // third_party
 #include "grpcpp/support/status.h"  // third_party
 #include "grpcpp/support/sync_stream.h"  // third_party
-#include "grpcpp/support/time.h"  // third_party
 #include "tensorstore/context.h"
 #include "tensorstore/internal/concurrency_resource.h"
 #include "tensorstore/internal/context_binding.h"
@@ -44,6 +43,7 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
@@ -55,6 +55,7 @@
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/tsgrpc/common.h"
 #include "tensorstore/proto/encode_time.h"
+#include "tensorstore/proto/proto_util.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
@@ -110,6 +111,8 @@ auto& grpc_delete_range = internal_metrics::Counter<int64_t>::New(
 auto& grpc_list = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/tsgrpc/list", "grpc driver kvstore::List calls");
 
+ABSL_CONST_INIT internal_log::VerboseFlag verbose_logging("tsgrpc_kvstore");
+
 namespace jb = tensorstore::internal_json_binding;
 
 struct TsGrpcKeyValueStoreSpecData {
@@ -130,7 +133,7 @@ struct TsGrpcKeyValueStoreSpecData {
       jb::Member("timeout",
                  jb::Projection<&TsGrpcKeyValueStoreSpecData::timeout>(
                      jb::DefaultValue<jb::kNeverIncludeDefaults>(
-                         [](auto* x) { *x = absl::ZeroDuration(); }))),
+                         [](auto* x) { *x = absl::Seconds(60); }))),
       jb::Member(
           DataCopyConcurrencyResource::id,
           jb::Projection<
@@ -151,11 +154,11 @@ class TsGrpcKeyValueStore
     : public internal_kvstore::RegisteredDriver<TsGrpcKeyValueStore,
                                                 TsGrpcKeyValueStoreSpec> {
  public:
-  absl::Time GetTimeout() {
-    if (spec_.timeout == absl::ZeroDuration()) {
-      return absl::Now() + absl::Seconds(60);
+  void MaybeSetDeadline(grpc::ClientContext& context) {
+    if (spec_.timeout > absl::ZeroDuration() &&
+        spec_.timeout != absl::InfiniteDuration()) {
+      context.set_deadline(absl::ToChronoTime(absl::Now() + spec_.timeout));
     }
-    return absl::Now() + spec_.timeout;
   }
 
   const Executor& executor() const {
@@ -210,7 +213,7 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask> {
                       request.mutable_staleness_bound());
     }
 
-    context.set_deadline(absl::ToChronoTime(driver->GetTimeout()));
+    driver->MaybeSetDeadline(context);
 
     internal::IntrusivePtr<ReadTask> self(this);
     auto pair = tensorstore::PromiseFuturePair<kvstore::ReadResult>::Make();
@@ -229,6 +232,9 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask> {
   }
 
   Result<kvstore::ReadResult> Ready(absl::Status status) {
+    ABSL_LOG_IF(INFO, verbose_logging)
+        << "ReadTask::Ready " << ConciseDebugString(response) << " " << status;
+
     TENSORSTORE_RETURN_IF_ERROR(status);
     TENSORSTORE_RETURN_IF_ERROR(GetMessageStatus(response));
     TENSORSTORE_ASSIGN_OR_RETURN(auto stamp,
@@ -255,7 +261,7 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask> {
     request.set_value(value);
     request.set_generation_if_equal(options.if_equal.value);
 
-    context.set_deadline(absl::ToChronoTime(driver->GetTimeout()));
+    driver->MaybeSetDeadline(context);
 
     internal::IntrusivePtr<WriteTask> self(this);
     auto pair =
@@ -274,6 +280,8 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask> {
   }
 
   Result<TimestampedStorageGeneration> Ready(absl::Status status) {
+    ABSL_LOG_IF(INFO, verbose_logging)
+        << "WriteTask::Ready " << ConciseDebugString(response) << " " << status;
     TENSORSTORE_RETURN_IF_ERROR(status);
     TENSORSTORE_RETURN_IF_ERROR(GetMessageStatus(response));
     return DecodeGenerationAndTimestamp(response);
@@ -301,7 +309,7 @@ struct DeleteTask : public internal::AtomicReferenceCount<DeleteTask> {
   }
 
   Future<TimestampedStorageGeneration> StartImpl() {
-    context.set_deadline(absl::ToChronoTime(driver->GetTimeout()));
+    driver->MaybeSetDeadline(context);
 
     internal::IntrusivePtr<DeleteTask> self(this);
     auto pair =
@@ -320,6 +328,9 @@ struct DeleteTask : public internal::AtomicReferenceCount<DeleteTask> {
   }
 
   Result<TimestampedStorageGeneration> Ready(absl::Status status) {
+    ABSL_LOG_IF(INFO, verbose_logging)
+        << "DeleteTask::Ready " << ConciseDebugString(response) << " "
+        << status;
     TENSORSTORE_RETURN_IF_ERROR(status);
     TENSORSTORE_RETURN_IF_ERROR(GetMessageStatus(response));
     return DecodeGenerationAndTimestamp(response);
@@ -350,7 +361,9 @@ struct ListTask {
   }
 
   void Run() {
-    context.set_deadline(absl::ToChronoTime(driver->GetTimeout()));
+    // NOTE: Revisit deadline on list vs. read, etc.
+    driver->MaybeSetDeadline(context);
+
     // Start a call.
     auto reader = driver->stub()->List(&context, request);
 
@@ -435,6 +448,11 @@ void TsGrpcKeyValueStore::ListImpl(ListOptions options, ListReceiver receiver) {
       internal::IntrusivePtr<TsGrpcKeyValueStore>(this), std::move(receiver));
   task->request.mutable_range()->set_inclusive_min(options.range.inclusive_min);
   task->request.mutable_range()->set_exclusive_max(options.range.exclusive_max);
+  task->request.set_strip_prefix_length(options.strip_prefix_length);
+  if (options.staleness_bound != absl::InfiniteFuture()) {
+    AbslTimeToProto(options.staleness_bound,
+                    task->request.mutable_staleness_bound());
+  }
 
   executor()([task = std::move(task)] { task->Run(); });
 }
@@ -450,8 +468,10 @@ Future<kvstore::DriverPtr> TsGrpcKeyValueStoreSpec::DoOpen() const {
   // grpc::Credentials ties the authentication to the communication channel
   // See: <grpcpp/security/credentials.h>, https://grpc.io/docs/guides/auth/
   ABSL_LOG(INFO) << "tsgrpc_kvstore address=" << data_.address;
+
   driver->channel_ =
       grpc::CreateChannel(data_.address, data_.credentials->GetCredentials());
+
   driver->stub_ = KvStoreService::NewStub(driver->channel_);
   return driver;
 }

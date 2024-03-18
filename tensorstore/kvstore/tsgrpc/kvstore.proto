@@ -143,7 +143,12 @@ message DeleteResponse {
 ///   kvstore::ListOptions
 message ListRequest {
   KeyRange range = 1;
+
+  /// Length of prefix to strip from keys.
   uint64 strip_prefix_length = 2;
+
+  /// Staleness bound on list results.
+  google.protobuf.Timestamp staleness_bound = 3;
 }
 
 message ListResponse {

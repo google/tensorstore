@@ -26,7 +26,9 @@
 #include <utility>
 #include <vector>
 
+#include "absl/base/attributes.h"
 #include "absl/base/thread_annotations.h"
+#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/synchronization/mutex.h"
@@ -42,6 +44,7 @@
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/std_array.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/kvstore/byte_range.h"
@@ -54,6 +57,7 @@
 #include "tensorstore/kvstore/tsgrpc/common.pb.h"
 #include "tensorstore/kvstore/tsgrpc/handler_template.h"
 #include "tensorstore/proto/encode_time.h"
+#include "tensorstore/proto/proto_util.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/future.h"
@@ -96,6 +100,8 @@ auto& delete_metric = internal_metrics::Counter<int64_t>::New(
 auto& list_metric = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/grpc_server/list", "KvStoreService::List calls");
 
+ABSL_CONST_INIT internal_log::VerboseFlag verbose_logging("tsgrpc_kvstore");
+
 class ReadHandler final : public Handler<ReadRequest, ReadResponse> {
   using Base = Handler<ReadRequest, ReadResponse>;
 
@@ -105,6 +111,8 @@ class ReadHandler final : public Handler<ReadRequest, ReadResponse> {
       : Base(grpc_context, request, response), kvstore_(std::move(kvstore)) {}
 
   void Run() {
+    ABSL_LOG_IF(INFO, verbose_logging)
+        << "ReadHandler " << ConciseDebugString(*request());
     kvstore::ReadOptions options{};
     options.if_equal.value = request()->generation_if_equal();
     options.if_not_equal.value = request()->generation_if_not_equal();
@@ -171,6 +179,8 @@ class WriteHandler final : public Handler<WriteRequest, WriteResponse> {
       : Base(grpc_context, request, response), kvstore_(std::move(kvstore)) {}
 
   void Run() {
+    ABSL_LOG_IF(INFO, verbose_logging)
+        << "WriteHandler " << ConciseDebugString(*request());
     tensorstore::kvstore::WriteOptions options{};
     options.if_equal.value = request()->generation_if_equal();
 
@@ -216,6 +226,8 @@ class DeleteHandler final : public Handler<DeleteRequest, DeleteResponse> {
       : Base(grpc_context, request, response), kvstore_(std::move(kvstore)) {}
 
   void Run() {
+    ABSL_LOG_IF(INFO, verbose_logging)
+        << "DeleteHandler " << ConciseDebugString(*request());
     internal::IntrusivePtr<DeleteHandler> self{this};
     auto callback = [self = std::move(self)](Promise<void> promise,
                                              auto del_result) {
@@ -396,10 +408,18 @@ class ListHandler final : public StreamHandler<ListRequest, ListResponse> {
 };
 
 void ListHandler::Run() {
+  ABSL_LOG_IF(INFO, verbose_logging)
+      << "ListHandler " << ConciseDebugString(*request());
+
   tensorstore::kvstore::ListOptions options;
   options.range = tensorstore::KeyRange(request()->range().inclusive_min(),
                                         request()->range().exclusive_max());
   options.strip_prefix_length = request()->strip_prefix_length();
+  if (request()->has_staleness_bound()) {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        options.staleness_bound,
+        internal::ProtoToAbslTime(request()->staleness_bound()), Finish(_));
+  }
 
   internal::IntrusivePtr<ListHandler> self{this};
   tensorstore::execution::submit(
