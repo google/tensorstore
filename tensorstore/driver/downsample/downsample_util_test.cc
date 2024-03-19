@@ -39,7 +39,7 @@
 #include "tensorstore/index_space/index_transform_testutil.h"
 #include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/internal/data_type_random_generator.h"
-#include "tensorstore/internal/test_util.h"
+#include "tensorstore/internal/testing/random_seed.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
@@ -468,7 +468,7 @@ TEST(CanDownsampleIndexTransformTest, IndexArray) {
 }
 
 void TestPropagateIndexTransformDownsamplingInvariance(DimensionIndex rank) {
-  std::minstd_rand gen{tensorstore::internal::GetRandomSeedForTest(
+  std::minstd_rand gen{tensorstore::internal_testing::GetRandomSeedForTest(
       "TENSORSTORE_DOWNSAMPLE_PROPAGATE_INVARIANCE_SEED")};
   tensorstore::internal::MakeRandomBoxParameters box_p;
   box_p.min_rank = box_p.max_rank = rank;

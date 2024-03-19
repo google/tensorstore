@@ -12,16 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <cstddef>
+#include <limits>
 #include <random>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include "tensorstore/index.h"
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/index_transform_testutil.h"
-#include "tensorstore/internal/test_util.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/internal/testing/random_seed.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -350,7 +353,7 @@ TEST(InverseTransformTest, OffsetOverflow) {
 TEST(InverseTransformTest, RandomFromOutputSpace) {
   constexpr size_t kNumIterations = 100;
   for (size_t i = 0; i < kNumIterations; ++i) {
-    std::minstd_rand gen{tensorstore::internal::GetRandomSeedForTest(
+    std::minstd_rand gen{tensorstore::internal_testing::GetRandomSeedForTest(
         "TENSORSTORE_INTERNAL_INVERSE_TRANSFORM_TEST_SEED")};
     auto box = tensorstore::internal::MakeRandomBox(gen);
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -369,7 +372,7 @@ TEST(InverseTransformTest, RandomFromOutputSpace) {
 TEST(InverseTransformTest, RandomFromInputSpace) {
   constexpr size_t kNumIterations = 100;
   for (size_t i = 0; i < kNumIterations; ++i) {
-    std::minstd_rand gen{tensorstore::internal::GetRandomSeedForTest(
+    std::minstd_rand gen{tensorstore::internal_testing::GetRandomSeedForTest(
         "TENSORSTORE_INTERNAL_INVERSE_TRANSFORM_TEST_SEED")};
     auto box = tensorstore::internal::MakeRandomBox(gen);
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(

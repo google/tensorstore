@@ -25,9 +25,9 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/cache/cache.h"
-#include "tensorstore/internal/concurrent_testutil.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/queue_testutil.h"
+#include "tensorstore/internal/testing/concurrent.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/transaction.h"
@@ -50,6 +50,7 @@ using ::tensorstore::internal::PinnedCacheEntry;
 using ::tensorstore::internal::TransactionState;
 using ::tensorstore::internal::UniqueNow;
 using ::tensorstore::internal::WeakTransactionNodePtr;
+using ::tensorstore::internal_testing::TestConcurrent;
 
 constexpr CachePool::Limits kSmallCacheLimits{10000000};
 
@@ -835,8 +836,9 @@ TEST(AsyncCacheTest, ConcurrentTransactionCommit) {
   }
   static constexpr size_t kNumTransactions = 3;
   std::vector<Transaction> transactions(kNumTransactions, no_transaction);
-  tensorstore::internal::TestConcurrent<kNumTransactions>(
-      /*num_iterations=*/100,
+  TestConcurrent<kNumTransactions>(
+      /*num_iterations=*/
+      100,
       /*initialize=*/
       [&] {
         for (size_t i = 0; i < kNumTransactions; ++i) {
@@ -931,8 +933,9 @@ TEST(AsyncCacheTest, ConcurrentInitializeExplicitTransaction) {
       pool.get(), "", [&] { return std::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
   OpenTransactionPtr open_transaction;
-  tensorstore::internal::TestConcurrent<2>(
-      /*num_iterations=*/100,
+  TestConcurrent<2>(
+      /*num_iterations=*/
+      100,
       /*initialize=*/
       [&] {
         TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -958,8 +961,9 @@ TEST(AsyncCacheTest, ConcurrentInitializeImplicitTransaction) {
   auto cache = GetCache<TestCache>(
       pool.get(), "", [&] { return std::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
-  tensorstore::internal::TestConcurrent<2>(
-      /*num_iterations=*/100,
+  TestConcurrent<2>(
+      /*num_iterations=*/
+      100,
       /*initialize=*/
       [] {},
       /*finalize=*/

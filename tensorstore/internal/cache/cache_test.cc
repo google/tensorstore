@@ -28,9 +28,9 @@
 #include "absl/base/thread_annotations.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/synchronization/mutex.h"
-#include "tensorstore/internal/concurrent_testutil.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/mutex.h"
+#include "tensorstore/internal/testing/concurrent.h"
 
 namespace {
 
@@ -40,13 +40,13 @@ using ::tensorstore::internal::CachePool;
 using ::tensorstore::internal::CachePtr;
 using ::tensorstore::internal::GetCache;
 using ::tensorstore::internal::PinnedCacheEntry;
-using ::tensorstore::internal::TestConcurrent;
 using ::tensorstore::internal::WeakPinnedCacheEntry;
 using ::tensorstore::internal_cache::Access;
 using ::tensorstore::internal_cache::CacheEntryImpl;
 using ::tensorstore::internal_cache::CacheImpl;
 using ::tensorstore::internal_cache::CachePoolImpl;
 using ::tensorstore::internal_cache::LruListNode;
+using ::tensorstore::internal_testing::TestConcurrent;
 using ::testing::ElementsAre;
 using ::testing::Pair;
 using ::testing::UnorderedElementsAre;

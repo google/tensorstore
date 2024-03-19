@@ -14,14 +14,25 @@
 
 #include "tensorstore/index_space/internal/transform_rep.h"
 
-#include <vector>
+#include <cstddef>
+#include <limits>
+#include <memory>
+#include <utility>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/base/macros.h"
+#include "absl/status/status.h"
+#include "tensorstore/array.h"
+#include "tensorstore/container_kind.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
+#include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/internal/transform_rep_impl.h"
-#include "tensorstore/internal/concurrent_testutil.h"
+#include "tensorstore/index_space/output_index_method.h"
+#include "tensorstore/internal/testing/concurrent.h"
+#include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
@@ -44,7 +55,6 @@ using ::tensorstore::kMaxFiniteIndex;
 using ::tensorstore::kMinFiniteIndex;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::OutputIndexMethod;
-using ::tensorstore::internal::TestConcurrent;
 using ::tensorstore::internal_index_space::CopyTransformRep;
 using ::tensorstore::internal_index_space::MoveTransformRep;
 using ::tensorstore::internal_index_space::MutableRep;
@@ -54,6 +64,7 @@ using ::tensorstore::internal_index_space::ReplaceZeroRankIndexArrayIndexMap;
 using ::tensorstore::internal_index_space::TransformAccess;
 using ::tensorstore::internal_index_space::TransformRep;
 using ::tensorstore::internal_index_space::ValidateAndIntersectBounds;
+using ::tensorstore::internal_testing::TestConcurrent;
 
 TEST(OutputIndexMapTest, Basic) {
   OutputIndexMap map;

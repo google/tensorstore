@@ -14,18 +14,25 @@
 
 #include "tensorstore/index_space/dimension_units.h"
 
+#include <stddef.h>
+
+#include <iterator>
 #include <optional>
 #include <random>
+#include <string>
+#include <string_view>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/random/bit_gen_ref.h"
 #include "absl/random/random.h"
+#include "absl/status/status.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/index_transform_testutil.h"
-#include "tensorstore/internal/test_util.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/internal/testing/random_seed.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/unit.h"
 
@@ -106,7 +113,7 @@ DimensionUnitsVector MakeRandomDimensionUnits(DimensionIndex rank,
 TEST(TransformOutputDimensionUnitsTest, InvertibleRoundTrip) {
   constexpr size_t kNumIterations = 100;
   for (size_t i = 0; i < kNumIterations; ++i) {
-    std::minstd_rand gen{tensorstore::internal::GetRandomSeedForTest(
+    std::minstd_rand gen{tensorstore::internal_testing::GetRandomSeedForTest(
         "TENSORSTORE_INTERNAL_TRANSFORM_DIMENSION_UNITS_TEST_SEED")};
     auto box = tensorstore::internal::MakeRandomBox(gen);
     auto domain = tensorstore::IndexDomain(box);
@@ -127,7 +134,7 @@ TEST(TransformOutputDimensionUnitsTest, InvertibleRoundTrip) {
 TEST(TransformOutputDimensionUnitsTest, StridedNonInvertibleRoundTrip) {
   constexpr size_t kNumIterations = 100;
   for (size_t i = 0; i < kNumIterations; ++i) {
-    std::minstd_rand gen{tensorstore::internal::GetRandomSeedForTest(
+    std::minstd_rand gen{tensorstore::internal_testing::GetRandomSeedForTest(
         "TENSORSTORE_INTERNAL_TRANSFORM_DIMENSION_UNITS_TEST_SEED")};
     auto box = tensorstore::internal::MakeRandomBox(gen);
     auto domain = tensorstore::IndexDomain(box);

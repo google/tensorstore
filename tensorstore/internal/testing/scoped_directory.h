@@ -12,16 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_TEST_UTIL_H_
-#define TENSORSTORE_INTERNAL_TEST_UTIL_H_
+#ifndef TENSORSTORE_INTERNAL_TESTING_SCOPED_DIRECTORY_H_
+#define TENSORSTORE_INTERNAL_TESTING_SCOPED_DIRECTORY_H_
 
-#include <functional>
 #include <string>
 
-#include "tensorstore/internal/source_location.h"
-
 namespace tensorstore {
-namespace internal {
+namespace internal_testing {
 
 // Create a temporary scoped directory.  When the object
 // goes out of scope, the directory and all files within are deleted.
@@ -52,16 +49,7 @@ class ScopedCurrentWorkingDirectory {
   std::string old_cwd_;
 };
 
-/// Registers a GoogleTest case dynamically.
-void RegisterGoogleTestCaseDynamically(
-    std::string test_suite_name, std::string test_name,
-    std::function<void()> test_func,
-    SourceLocation loc = tensorstore::SourceLocation::current());
-
-/// Returns a seed for a random number generator, which will either be obtained
-/// from `env_var` if specified, or randomly generated and logged.
-unsigned int GetRandomSeedForTest(const char* env_var);
-
-}  // namespace internal
+}  // namespace internal_testing
 }  // namespace tensorstore
-#endif  // TENSORSTORE_INTERNAL_TEST_UTIL_H_
+
+#endif  // TENSORSTORE_INTERNAL_TESTING_SCOPED_DIRECTORY_H_

@@ -16,6 +16,7 @@
 
 #include <stdint.h>
 
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -36,12 +37,13 @@
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/internal/global_initializer.h"
-#include "tensorstore/internal/test_util.h"
+#include "tensorstore/internal/testing/scoped_directory.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/schema.h"
+#include "tensorstore/staleness_bound.h"
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
@@ -1163,7 +1165,7 @@ TEST(ZarrDriverTest, DeleteExisting) {
 }
 
 TEST(ZarrDriverTest, CodecLifetime) {
-  tensorstore::internal::ScopedTemporaryDirectory tempdir;
+  tensorstore::internal_testing::ScopedTemporaryDirectory tempdir;
   tensorstore::Future<const void> future;
   {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(

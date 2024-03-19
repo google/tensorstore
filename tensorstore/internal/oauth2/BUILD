@@ -83,13 +83,16 @@ tensorstore_cc_test(
         ":oauth_utils",
         "//tensorstore/internal:env",
         "//tensorstore/internal:path",
-        "//tensorstore/internal:test_util",
         "//tensorstore/internal:uri_utils",
         "//tensorstore/internal/http",
         "//tensorstore/internal/http:curl_transport",
+        "//tensorstore/internal/testing:scoped_directory",
         "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -101,7 +104,7 @@ tensorstore_cc_library(
     hdrs = ["google_auth_test_utils.h"],
     deps = [
         "//tensorstore/internal:env",
-        "//tensorstore/internal:test_util",
+        "//tensorstore/internal/testing:scoped_directory",
     ],
 )
 

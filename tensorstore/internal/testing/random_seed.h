@@ -12,27 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_OAUTH2_GOOGLE_AUTH_TEST_UTILS_H_
-#define TENSORSTORE_INTERNAL_OAUTH2_GOOGLE_AUTH_TEST_UTILS_H_
-
-#include "tensorstore/internal/testing/scoped_directory.h"
+#ifndef TENSORSTORE_INTERNAL_TESTING_RANDOM_SEED_H_
+#define TENSORSTORE_INTERNAL_TESTING_RANDOM_SEED_H_
 
 namespace tensorstore {
-namespace internal_oauth2 {
+namespace internal_testing {
 
-/// Sets Google Oauth2-related environment variables to ensure that any Google
-/// application default credentials configured by the user are not
-/// unintentionally used by a test.
-class GoogleAuthTestScope {
- public:
-  GoogleAuthTestScope();
-  ~GoogleAuthTestScope();
+/// Returns a seed for a random number generator, which will either be obtained
+/// from `env_var` if specified, or randomly generated and logged.
+unsigned int GetRandomSeedForTest(const char* env_var);
 
- private:
-  internal_testing::ScopedTemporaryDirectory temp_dir_;
-};
-
-}  // namespace internal_oauth2
+}  // namespace internal_testing
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_OAUTH2_GOOGLE_AUTH_TEST_UTILS_H_
+#endif  // TENSORSTORE_INTERNAL_TESTING_RANDOM_SEED_H_

@@ -16,6 +16,8 @@
 
 #include "tensorstore/util/future.h"
 
+#include <stddef.h>
+
 #include <atomic>
 #include <chrono>  // NOLINT
 #include <functional>
@@ -30,9 +32,8 @@
 #include "absl/status/status.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
-#include "tensorstore/internal/concurrent_testutil.h"
-#include "tensorstore/internal/metrics/collect.h"
 #include "tensorstore/internal/metrics/registry.h"
+#include "tensorstore/internal/testing/concurrent.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future_impl.h"
 #include "tensorstore/util/result.h"
@@ -53,8 +54,8 @@ using ::tensorstore::Promise;
 using ::tensorstore::PromiseFuturePair;
 using ::tensorstore::ReadyFuture;
 using ::tensorstore::Result;
-using ::tensorstore::internal::TestConcurrent;
 using ::tensorstore::internal_future::FutureAccess;
+using ::tensorstore::internal_testing::TestConcurrent;
 
 static_assert(IsFutureConvertible<int, const int>);
 static_assert(!IsFutureConvertible<const int, int>);

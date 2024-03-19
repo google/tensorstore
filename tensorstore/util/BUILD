@@ -352,9 +352,8 @@ tensorstore_cc_test(
         ":status",
         ":status_testutil",
         ":str_cat",
-        "//tensorstore/internal:concurrent_testutil",
-        "//tensorstore/internal/metrics:collect",
         "//tensorstore/internal/metrics:registry",
+        "//tensorstore/internal/testing:concurrent",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/time",
         "@com_google_benchmark//:benchmark",
@@ -757,7 +756,7 @@ tensorstore_cc_test(
     srcs = ["stop_token_test.cc"],
     deps = [
         ":stop_token",
-        "//tensorstore/internal:concurrent_testutil",
+        "//tensorstore/internal/testing:concurrent",
         "@com_google_googletest//:gtest_main",
     ],
 )

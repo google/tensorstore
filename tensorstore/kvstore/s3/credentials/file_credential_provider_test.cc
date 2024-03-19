@@ -22,7 +22,7 @@
 #include "absl/time/time.h"
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/path.h"
-#include "tensorstore/internal/test_util.h"
+#include "tensorstore/internal/testing/scoped_directory.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -32,7 +32,8 @@ using ::tensorstore::internal::SetEnv;
 using ::tensorstore::internal::UnsetEnv;
 using ::tensorstore::internal_kvstore_s3::FileCredentialProvider;
 
-class TestData : public tensorstore::internal::ScopedTemporaryDirectory {
+class TestData
+    : public tensorstore::internal_testing::ScopedTemporaryDirectory {
  public:
   std::string WriteCredentialsFile() {
     auto p = JoinPath(path(), "aws_config");

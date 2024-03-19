@@ -48,7 +48,7 @@ tensorstore_cc_test(
         ":subprocess",
         "//tensorstore/internal:env",
         "//tensorstore/internal:path",
-        "//tensorstore/internal:test_util",
+        "//tensorstore/internal/testing:scoped_directory",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",

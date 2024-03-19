@@ -14,19 +14,28 @@
 
 #include "tensorstore/context.h"
 
+#include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
+#include <tuple>
+#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include <nlohmann/json.hpp>
 #include "tensorstore/context_impl.h"
 #include "tensorstore/context_resource_provider.h"
+#include "tensorstore/internal/cache_key/cache_key.h"
 #include "tensorstore/internal/cache_key/std_optional.h"
-#include "tensorstore/internal/concurrent_testutil.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/std_optional.h"
 #include "tensorstore/internal/json_gtest.h"
+#include "tensorstore/internal/testing/concurrent.h"
 #include "tensorstore/json_serialization_options.h"
+#include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/serialization/std_tuple.h"
 #include "tensorstore/serialization/test_util.h"
@@ -58,7 +67,7 @@ using ::tensorstore::internal::ContextResourceCreationContext;
 using ::tensorstore::internal::ContextResourceRegistration;
 using ::tensorstore::internal::ContextResourceTraits;
 using ::tensorstore::internal::ContextSpecBuilder;
-using ::tensorstore::internal::TestConcurrent;
+using ::tensorstore::internal_testing::TestConcurrent;
 using ::tensorstore::serialization::SerializationRoundTrip;
 
 struct IntResource : public ContextResourceTraits<IntResource> {

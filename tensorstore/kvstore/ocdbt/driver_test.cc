@@ -28,7 +28,8 @@
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/internal/json_gtest.h"
-#include "tensorstore/internal/test_util.h"
+#include "tensorstore/internal/testing/dynamic.h"
+#include "tensorstore/internal/testing/scoped_directory.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -64,6 +65,7 @@ using ::tensorstore::internal_ocdbt::ConfigConstraints;
 using ::tensorstore::internal_ocdbt::ManifestKind;
 using ::tensorstore::internal_ocdbt::OcdbtDriver;
 using ::tensorstore::internal_ocdbt::ReadManifest;
+using ::tensorstore::internal_testing::RegisterGoogleTestCaseDynamically;
 using ::tensorstore::kvstore::SupportedFeatures;
 
 TEST(OcdbtTest, WriteSingleKey) {
@@ -221,7 +223,7 @@ TEST(OcdbtTest, SpecRoundtrip) {
 }
 
 TEST(OcdbtTest, SpecRoundtripFile) {
-  tensorstore::internal::ScopedTemporaryDirectory tempdir;
+  tensorstore::internal_testing::ScopedTemporaryDirectory tempdir;
   tensorstore::internal::KeyValueStoreSpecRoundtripOptions options;
   options.full_base_spec = {{"driver", "file"}, {"path", tempdir.path() + "/"}};
   options.create_spec = {
@@ -254,7 +256,7 @@ TEST(OcdbtTest, SpecRoundtripFile) {
 TENSORSTORE_GLOBAL_INITIALIZER {
   const auto register_test_suite = [](ConfigConstraints config) {
     const auto register_test_case = [&](std::string case_name, auto op) {
-      tensorstore::internal::RegisterGoogleTestCaseDynamically(
+      RegisterGoogleTestCaseDynamically(
           "OcdbtBasicFunctionalityTest." + case_name,
           config.ToJson().value().dump(), [config, op] {
             TENSORSTORE_ASSERT_OK_AND_ASSIGN(

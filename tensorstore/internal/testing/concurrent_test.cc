@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/concurrent_testutil.h"
+#include "tensorstore/internal/testing/concurrent.h"
 
 #include <atomic>
 #include <type_traits>
@@ -23,7 +23,7 @@
 
 namespace {
 
-using ::tensorstore::internal::TestConcurrent;
+using ::tensorstore::internal_testing::TestConcurrent;
 
 TEST(TestConcurrent, EnsureContentionHappens) {
   // This test attempts to measure contention. Note, however, contention is

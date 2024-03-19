@@ -14,22 +14,41 @@
 
 #include "tensorstore/schema.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
+#include <optional>
 #include <random>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/random/bit_gen_ref.h"
 #include "absl/random/random.h"
+#include "absl/status/status.h"
+#include <nlohmann/json.hpp>
+#include "tensorstore/array.h"
+#include "tensorstore/box.h"
+#include "tensorstore/codec_spec.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_domain_builder.h"
+#include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_testutil.h"
 #include "tensorstore/index_space/json.h"
 #include "tensorstore/internal/json_binding/gtest.h"
 #include "tensorstore/internal/json_gtest.h"
-#include "tensorstore/internal/test_util.h"
+#include "tensorstore/internal/testing/random_seed.h"
+#include "tensorstore/json_serialization_options_base.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/serialization/test_util.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
+#include "tensorstore/util/str_cat.h"
+#include "tensorstore/util/unit.h"
 
 namespace {
 
@@ -215,7 +234,7 @@ void TestApplyIndexTransformRandomInvertible(bool allow_new_dims) {
           {"dimension_units", {{4, "nm"}, {5, "nm"}, {30, "nm"}}},
       }));
   for (size_t iteration = 0; iteration < kNumIterations; ++iteration) {
-    std::minstd_rand gen{tensorstore::internal::GetRandomSeedForTest(
+    std::minstd_rand gen{tensorstore::internal_testing::GetRandomSeedForTest(
         "TENSORSTORE_INTERNAL_SCHEMA_TEST_SEED")};
     tensorstore::internal::MakeStridedIndexTransformForOutputSpaceParameters
         transform_p;

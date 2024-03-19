@@ -34,7 +34,8 @@
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/test_util.h"
+#include "tensorstore/internal/testing/random_seed.h"
+#include "tensorstore/internal/testing/scoped_directory.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/ocdbt/distributed/coordinator_server.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
@@ -155,7 +156,7 @@ TEST_F(DistributedTest, BasicFunctionalityMinArityNoInline) {
 }
 
 TEST_F(DistributedTest, TwoCooperators) {
-  tensorstore::internal::ScopedTemporaryDirectory tempdir;
+  tensorstore::internal_testing::ScopedTemporaryDirectory tempdir;
   ::nlohmann::json base_kvs_store_spec{{"driver", "file"},
                                        {"path", tempdir.path() + "/"}};
   ::nlohmann::json kvs_spec{
@@ -175,7 +176,7 @@ TEST_F(DistributedTest, TwoCooperators) {
 }
 
 TEST_F(DistributedTest, MultipleCooperatorsManyWrites) {
-  tensorstore::internal::ScopedTemporaryDirectory tempdir;
+  tensorstore::internal_testing::ScopedTemporaryDirectory tempdir;
   ::nlohmann::json base_kvs_store_spec{{"driver", "file"},
                                        {"path", tempdir.path() + "/"}};
   ::nlohmann::json kvs_spec{
@@ -192,7 +193,7 @@ TEST_F(DistributedTest, MultipleCooperatorsManyWrites) {
         auto store, kvstore::Open(kvs_spec, Context(context_spec)).result());
     stores.push_back(store);
   }
-  std::minstd_rand gen{tensorstore::internal::GetRandomSeedForTest(
+  std::minstd_rand gen{tensorstore::internal_testing::GetRandomSeedForTest(
       "TENSORSTORE_OCDBT_DRIVER_TEST_SEED")};
   for (size_t iter = 0; iter < kIterations; ++iter) {
     std::vector<tensorstore::AnyFuture> write_futures;

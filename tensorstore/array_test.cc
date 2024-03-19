@@ -38,7 +38,7 @@
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform_testutil.h"
 #include "tensorstore/internal/data_type_random_generator.h"
-#include "tensorstore/internal/test_util.h"
+#include "tensorstore/internal/testing/random_seed.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/serialization/batch.h"
 #include "tensorstore/serialization/serialization.h"
@@ -1938,7 +1938,7 @@ static constexpr int kNumIterations = 10;
 TEST_P(RandomDataSerializationTest, COrder) {
   auto dtype = GetParam();
   for (int iteration = 0; iteration < kNumIterations; ++iteration) {
-    std::minstd_rand gen{tensorstore::internal::GetRandomSeedForTest(
+    std::minstd_rand gen{tensorstore::internal_testing::GetRandomSeedForTest(
         "TENSORSTORE_ARRAY_SERIALIZATION_TEST_SEED")};
     auto box = tensorstore::internal::MakeRandomBox(gen);
     auto array =
@@ -1951,7 +1951,7 @@ TEST_P(RandomDataSerializationTest, COrder) {
 TEST_P(RandomDataSerializationTest, FOrder) {
   auto dtype = GetParam();
   for (int iteration = 0; iteration < kNumIterations; ++iteration) {
-    std::minstd_rand gen{tensorstore::internal::GetRandomSeedForTest(
+    std::minstd_rand gen{tensorstore::internal_testing::GetRandomSeedForTest(
         "TENSORSTORE_ARRAY_SERIALIZATION_TEST_SEED")};
     auto box = tensorstore::internal::MakeRandomBox(gen);
     auto array =

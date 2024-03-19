@@ -26,7 +26,7 @@
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/path.h"
-#include "tensorstore/internal/test_util.h"
+#include "tensorstore/internal/testing/scoped_directory.h"
 #include "tensorstore/kvstore/s3/credentials/test_utils.h"
 #include "tensorstore/util/status_testutil.h"
 
@@ -45,7 +45,7 @@ using Options =
 static constexpr char kEndpoint[] = "http://endpoint";
 
 class CredentialFileFactory
-    : public tensorstore::internal::ScopedTemporaryDirectory {
+    : public tensorstore::internal_testing::ScopedTemporaryDirectory {
  public:
   std::string WriteCredentialsFile() {
     auto p = JoinPath(path(), "aws_config");

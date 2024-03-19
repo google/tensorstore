@@ -31,7 +31,7 @@
 #include "riegeli/bytes/read_all.h"
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/path.h"
-#include "tensorstore/internal/test_util.h"
+#include "tensorstore/internal/testing/scoped_directory.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
@@ -93,7 +93,7 @@ TEST(SubprocessTest, DontInherit) {
 }
 
 TEST(SubprocessTest, Redirects) {
-  ::tensorstore::internal::ScopedTemporaryDirectory temp_dir;
+  ::tensorstore::internal_testing::ScopedTemporaryDirectory temp_dir;
   std::string out_file = JoinPath(temp_dir.path(), "stdout");
 
   /// Should be able to spawn and just discard the process.

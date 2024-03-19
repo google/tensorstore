@@ -14,16 +14,21 @@
 
 #include "tensorstore/internal/lock_collection.h"
 
+#include <array>
+#include <cstddef>
 #include <mutex>
+#include <utility>
+#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/algorithm/container.h"
 #include "absl/synchronization/mutex.h"
-#include "tensorstore/internal/concurrent_testutil.h"
+#include "tensorstore/internal/testing/concurrent.h"
 
 namespace {
 using ::tensorstore::internal::LockCollection;
+using ::tensorstore::internal_testing::TestConcurrent;
 
 TEST(LockCollectionTest, Empty) {
   LockCollection c;
@@ -155,8 +160,9 @@ TEST(LockCollectionTest, MultipleConcurrentExclusive) {
   while (absl::c_next_permutation(mutex_indices)) {
     c[2] = LockCollection();
     RegisterFromPermutation(c[2]);
-    tensorstore::internal::TestConcurrent<kNumCollections>(
-        /*num_iterations=*/100,
+    TestConcurrent<kNumCollections>(
+        /*num_iterations=*/
+        100,
         /*initialize=*/[] {},
         /*finalize=*/[] {},
         /*concurrent_op=*/
@@ -200,8 +206,9 @@ TEST(LockCollectionTest, MultipleConcurrentExclusiveShared) {
          shared_bit_vector < kNumSharedCombinations; ++shared_bit_vector) {
       c[2] = LockCollection();
       RegisterFromPermutation(c[2], shared_bit_vector);
-      tensorstore::internal::TestConcurrent<kNumCollections>(
-          /*num_iterations=*/20,
+      TestConcurrent<kNumCollections>(
+          /*num_iterations=*/
+          20,
           /*initialize=*/[] {},
           /*finalize=*/[] {},
           /*concurrent_op=*/

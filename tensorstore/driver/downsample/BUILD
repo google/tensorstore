@@ -259,7 +259,7 @@ tensorstore_cc_test(
         "//tensorstore/index_space:index_transform_testutil",
         "//tensorstore/index_space:transformed_array",
         "//tensorstore/internal:data_type_random_generator",
-        "//tensorstore/internal:test_util",
+        "//tensorstore/internal/testing:random_seed",
         "//tensorstore/util:span",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",

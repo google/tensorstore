@@ -40,7 +40,7 @@
 #include "tensorstore/internal/compression/zlib.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/test_util.h"
+#include "tensorstore/internal/testing/scoped_directory.h"
 #include "tensorstore/internal/thread/thread_pool.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/generation.h"
@@ -1633,7 +1633,7 @@ TEST(ShardedKeyValueStoreTest, SpecRoundtrip) {
 }
 
 TEST(ShardedKeyValueStoreTest, SpecRoundtripFile) {
-  tensorstore::internal::ScopedTemporaryDirectory tempdir;
+  tensorstore::internal_testing::ScopedTemporaryDirectory tempdir;
   ::nlohmann::json sharding_spec_json{
       {"@type", "neuroglancer_uint64_sharded_v1"},
       {"hash", "identity"},

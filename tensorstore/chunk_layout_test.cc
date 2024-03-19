@@ -40,7 +40,7 @@
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/gtest.h"
 #include "tensorstore/internal/json_gtest.h"
-#include "tensorstore/internal/test_util.h"
+#include "tensorstore/internal/testing/random_seed.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/serialization/serialization.h"
@@ -498,7 +498,7 @@ TEST(ApplyIndexTransformTest, RandomInvertible) {
   constexpr size_t kNumIterations = 10;
 
   for (size_t iteration = 0; iteration < kNumIterations; ++iteration) {
-    std::minstd_rand gen{tensorstore::internal::GetRandomSeedForTest(
+    std::minstd_rand gen{tensorstore::internal_testing::GetRandomSeedForTest(
         "TENSORSTORE_INTERNAL_LAYOUT_TEST_SEED")};
     MakeRandomChunkLayoutParameters layout_p;
     auto output_layout = MakeRandomChunkLayout(gen, layout_p);
@@ -525,7 +525,7 @@ TEST(ApplyIndexTransformTest, RandomNonInvertibleUnaligned) {
   constexpr size_t kNumIterations = 10;
 
   for (size_t iteration = 0; iteration < kNumIterations; ++iteration) {
-    std::minstd_rand gen{tensorstore::internal::GetRandomSeedForTest(
+    std::minstd_rand gen{tensorstore::internal_testing::GetRandomSeedForTest(
         "TENSORSTORE_INTERNAL_LAYOUT_TEST_SEED")};
     MakeRandomChunkLayoutParameters layout_p;
     auto output_layout = MakeRandomChunkLayout(gen, layout_p);
@@ -548,7 +548,7 @@ TEST(ApplyIndexTransformTest, RandomNonInvertibleAligned) {
   constexpr size_t kNumIterations = 10;
 
   for (size_t iteration = 0; iteration < kNumIterations; ++iteration) {
-    std::minstd_rand gen{tensorstore::internal::GetRandomSeedForTest(
+    std::minstd_rand gen{tensorstore::internal_testing::GetRandomSeedForTest(
         "TENSORSTORE_INTERNAL_LAYOUT_TEST_SEED")};
     MakeRandomChunkLayoutParameters layout_p;
     auto input_layout = MakeRandomChunkLayout(gen, layout_p);
@@ -819,7 +819,7 @@ TEST(ChunkLayoutConstraintsTest, ApplyIndexTransformRandomInvertible) {
           {"inner_order_soft_constraint", {2, 0, 1}},
       }));
   for (size_t iteration = 0; iteration < kNumIterations; ++iteration) {
-    std::minstd_rand gen{tensorstore::internal::GetRandomSeedForTest(
+    std::minstd_rand gen{tensorstore::internal_testing::GetRandomSeedForTest(
         "TENSORSTORE_INTERNAL_LAYOUT_CONSTRAINTS_TEST_SEED")};
     tensorstore::internal::MakeStridedIndexTransformForOutputSpaceParameters
         transform_p;

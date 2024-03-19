@@ -15,16 +15,23 @@
 #include "tensorstore/internal/oauth2/google_auth_provider.h"
 
 #include <fstream>
+#include <memory>
+#include <string>
 #include <utility>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/match.h"
+#include "absl/time/time.h"
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
+#include "tensorstore/internal/http/http_transport.h"
+#include "tensorstore/internal/oauth2/auth_provider.h"
 #include "tensorstore/internal/oauth2/fake_private_key.h"
 #include "tensorstore/internal/oauth2/fixed_token_auth_provider.h"
 #include "tensorstore/internal/oauth2/gce_auth_provider.h"
@@ -33,7 +40,7 @@
 #include "tensorstore/internal/oauth2/oauth2_auth_provider.h"
 #include "tensorstore/internal/oauth2/oauth_utils.h"
 #include "tensorstore/internal/path.h"
-#include "tensorstore/internal/test_util.h"
+#include "tensorstore/internal/testing/scoped_directory.h"
 #include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
@@ -53,7 +60,8 @@ using ::tensorstore::internal_oauth2::GetFakePrivateKey;
 using ::tensorstore::internal_oauth2::GetGoogleAuthProvider;
 using ::tensorstore::internal_oauth2::GoogleAuthTestScope;
 
-class TestData : public tensorstore::internal::ScopedTemporaryDirectory {
+class TestData
+    : public tensorstore::internal_testing::ScopedTemporaryDirectory {
  public:
   std::string WriteApplicationDefaultCredentials() {
     auto p = JoinPath(path(), "application_default_credentials.json");

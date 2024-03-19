@@ -30,6 +30,7 @@
 #include <gtest/gtest.h>
 #include "absl/base/optimization.h"
 #include "absl/log/absl_log.h"
+#include "absl/random/bit_gen_ref.h"
 #include "absl/random/random.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
@@ -41,10 +42,12 @@
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/cache/kvs_backed_cache.h"
 #include "tensorstore/internal/mutex.h"
-#include "tensorstore/internal/test_util.h"
+#include "tensorstore/internal/testing/dynamic.h"
+#include "tensorstore/internal/testing/random_seed.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
+#include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/test_matchers.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/transaction.h"
@@ -59,6 +62,8 @@
 
 namespace tensorstore {
 namespace internal {
+
+using ::tensorstore::internal_testing::RegisterGoogleTestCaseDynamically;
 
 void KvsBackedTestCache::Entry::DoDecode(std::optional<absl::Cord> value,
                                          DecodeReceiver receiver) {
@@ -694,7 +699,7 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
 
   RegisterGoogleTestCaseDynamically(
       suite_name, "RandomOperationTest/SinglePhase", [=] {
-        std::minstd_rand gen{internal::GetRandomSeedForTest(
+        std::minstd_rand gen{internal_testing::GetRandomSeedForTest(
             "TENSORSTORE_INTERNAL_KVS_TESTUTIL_SINGLEPHASE")};
 
         KvsRandomOperationTester tester(gen, options.get_store(),
@@ -708,7 +713,7 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
 
   RegisterGoogleTestCaseDynamically(
       suite_name, "RandomOperationTest/MultiPhase", [=] {
-        std::minstd_rand gen{internal::GetRandomSeedForTest(
+        std::minstd_rand gen{internal_testing::GetRandomSeedForTest(
             "TENSORSTORE_INTERNAL_KVS_TESTUTIL_MULTIPHASE")};
 
         KvsRandomOperationTester tester(gen, options.get_store(),

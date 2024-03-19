@@ -16,10 +16,11 @@
 
 #include <functional>
 #include <optional>
+#include <utility>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "tensorstore/internal/concurrent_testutil.h"
+#include "tensorstore/internal/testing/concurrent.h"
 
 namespace {
 
@@ -193,8 +194,9 @@ TEST(StopTokenTest, Concurrent) {
 
   std::optional<tensorstore::StopCallback<std::function<void()>>> callback;
 
-  tensorstore::internal::TestConcurrent(
-      /*num_iterations=*/100,
+  ::tensorstore::internal_testing::TestConcurrent(
+      /*num_iterations=*/
+      100,
       /*initialize=*/
       [&] {
         tensorstore::StopSource new_source;

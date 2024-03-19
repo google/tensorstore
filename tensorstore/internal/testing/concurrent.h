@@ -12,29 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_CONCURRENT_TESTUTIL_H_
-#define TENSORSTORE_INTERNAL_CONCURRENT_TESTUTIL_H_
+#ifndef TENSORSTORE_INTERNAL_TESTING_CONCURRENT_H_
+#define TENSORSTORE_INTERNAL_TESTING_CONCURRENT_H_
+
+#include <stddef.h>
 
 #include <algorithm>
 #include <atomic>
-#include <cstddef>
 #include <ctime>
 #include <thread>  // NOLINT
+#include <type_traits>
+#include <utility>
 
 #include "tensorstore/internal/multi_barrier.h"
 #include "tensorstore/internal/thread/thread.h"
 
 namespace tensorstore {
-namespace internal {
+namespace internal_testing {
 
-#ifndef _WIN32
-// On non-WIN32 does nothing.
-inline void MaybeYield() {}
-
-#else
-// On WIN32, Calls ::Sleep(0) which gives another thread a chance to run.
-void MaybeYield();
-
+#ifdef _WIN32
 /// On Windows, prevents concurrent invocations of `TestConcurrent` (including
 /// across multiple processes) to avoid test timeouts.
 class TestConcurrentLock {
@@ -42,8 +38,13 @@ class TestConcurrentLock {
   TestConcurrentLock();
   ~TestConcurrentLock();
 
+  TestConcurrentLock(TestConcurrentLock&& other) noexcept = delete;
+  TestConcurrentLock& operator=(TestConcurrentLock&& other) = delete;
+  TestConcurrentLock(const TestConcurrentLock& other) = delete;
+  TestConcurrentLock& operator=(const TestConcurrentLock& other) = delete;
+
  private:
-  void* mutex_;
+  void* handle_;
 };
 #endif
 
@@ -66,13 +67,13 @@ class TestConcurrentLock {
 ///      [&]() { sum += 3; });
 ///
 template <typename Initialize, typename Finalize, typename... ConcurrentOps>
-void TestConcurrent(std::size_t num_iterations, Initialize initialize,
+void TestConcurrent(size_t num_iterations, Initialize initialize,
                     Finalize finalize, ConcurrentOps... concurrent_ops) {
 #ifdef _WIN32
   TestConcurrentLock lock;
 #endif
-  std::atomic<std::size_t> counter(0);
-  constexpr std::size_t concurrent_op_size = sizeof...(ConcurrentOps);
+  std::atomic<size_t> counter(0);
+  constexpr size_t concurrent_op_size = sizeof...(ConcurrentOps);
 
   // The synchronization strategy used here is to introduce sync points
   // between the {initialize, op, finalize} functions using a barrier that
@@ -87,20 +88,22 @@ void TestConcurrent(std::size_t num_iterations, Initialize initialize,
   // concurrent_op contends a mutex in fewer than 1 in 200 iterations without
   // this busy-wait. With this busy-wait contention increases to approximately 1
   // in 10 iterations.
-  std::size_t sync_mask = std::min(4u, std::thread::hardware_concurrency()) - 1;
+  size_t sync_mask = std::min(4u, std::thread::hardware_concurrency()) - 1;
   if (sync_mask == 2) sync_mask--;
 
   // Start one thread for each concurrent operation.
   internal::Thread threads[]{internal::Thread({"concurrent"}, [&] {
-    for (std::size_t iteration = 0; iteration < num_iterations; ++iteration) {
+    for (size_t iteration = 0; iteration < num_iterations; ++iteration) {
       // Wait until `initialize` has run for this iteration.
       sync_point.Block();
 
       // See above: busy-wait to increase contention.
-      std::size_t current = counter.fetch_add(1, std::memory_order_acq_rel) + 1;
-      std::size_t target = std::min(current | sync_mask, concurrent_op_size);
-      while (counter.load() < target) MaybeYield();
-
+      size_t current = counter.fetch_add(1, std::memory_order_acq_rel) + 1;
+      size_t target = std::min(current | sync_mask, concurrent_op_size);
+      while (counter.load() < target) {
+        // Allow another thread a chance to run.
+        std::this_thread::yield();
+      }
       concurrent_ops();
 
       // Signal that the op() has completed.
@@ -108,7 +111,7 @@ void TestConcurrent(std::size_t num_iterations, Initialize initialize,
     }
   })...};
 
-  for (std::size_t iteration = 0; iteration < num_iterations; ++iteration) {
+  for (size_t iteration = 0; iteration < num_iterations; ++iteration) {
     initialize();
     counter = 0;
 
@@ -131,7 +134,7 @@ void TestConcurrent(std::size_t num_iterations, Initialize initialize,
 /// This is repeated `num_iterations` times.
 template <typename Initialize, typename Finalize, typename ConcurrentOp,
           size_t... Is>
-void TestConcurrent(std::index_sequence<Is...>, std::size_t num_iterations,
+void TestConcurrent(std::index_sequence<Is...>, size_t num_iterations,
                     Initialize initialize, Finalize finalize,
                     ConcurrentOp concurrent_op) {
   TestConcurrent(
@@ -156,14 +159,14 @@ void TestConcurrent(std::index_sequence<Is...>, std::size_t num_iterations,
 ///
 template <size_t NumConcurrentOps, typename Initialize, typename Finalize,
           typename ConcurrentOp>
-void TestConcurrent(std::size_t num_iterations, Initialize initialize,
+void TestConcurrent(size_t num_iterations, Initialize initialize,
                     Finalize finalize, ConcurrentOp concurrent_op) {
   return TestConcurrent(std::make_index_sequence<NumConcurrentOps>{},
                         num_iterations, std::move(initialize),
                         std::move(finalize), std::move(concurrent_op));
 }
 
-}  // namespace internal
+}  // namespace internal_testing
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_CONCURRENT_TESTUTIL_H_
+#endif  // TENSORSTORE_INTERNAL_TESTING_CONCURRENT_H_

@@ -46,7 +46,7 @@
 #include "tensorstore/internal/image/jpeg_writer.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/parse_json_matches.h"
-#include "tensorstore/internal/test_util.h"
+#include "tensorstore/internal/testing/scoped_directory.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/mock_kvstore.h"
@@ -89,12 +89,12 @@ using ::tensorstore::Unit;
 using ::tensorstore::internal::GetMap;
 using ::tensorstore::internal::MatchesListEntry;
 using ::tensorstore::internal::ParseJsonMatches;
-using ::tensorstore::internal::ScopedTemporaryDirectory;
 using ::tensorstore::internal::TestSpecSchema;
 using ::tensorstore::internal::TestTensorStoreCreateCheckSchema;
 using ::tensorstore::internal::TestTensorStoreCreateWithSchema;
 using ::tensorstore::internal_image::ImageInfo;
 using ::tensorstore::internal_image::JpegWriter;
+using ::tensorstore::internal_testing::ScopedTemporaryDirectory;
 using ::tensorstore::serialization::SerializationRoundTrip;
 using ::testing::Pair;
 using ::testing::UnorderedElementsAreArray;

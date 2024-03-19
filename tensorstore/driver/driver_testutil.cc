@@ -68,7 +68,9 @@
 #include "tensorstore/internal/lock_collection.h"
 #include "tensorstore/internal/nditerable.h"
 #include "tensorstore/internal/nditerable_transformed_array.h"
-#include "tensorstore/internal/test_util.h"
+#include "tensorstore/internal/testing/dynamic.h"
+#include "tensorstore/internal/testing/random_seed.h"
+#include "tensorstore/internal/testing/scoped_directory.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/memory/memory_key_value_store.h"
@@ -102,8 +104,10 @@
 
 namespace tensorstore {
 namespace internal {
-
 namespace {
+
+using ::tensorstore::internal_testing::RegisterGoogleTestCaseDynamically;
+
 void TestMinimalSpecRoundTrips(
     Context context, const TestTensorStoreDriverSpecRoundtripOptions& options,
     Transaction transaction) {
@@ -152,7 +156,8 @@ void ReplaceStringInJson(::nlohmann::json& json, std::string_view source,
 // Tests that the full Spec round trips for creating a new TensorStore.
 void TestTensorStoreDriverSpecRoundtrip(
     TestTensorStoreDriverSpecRoundtripOptions options, TransactionMode mode) {
-  std::optional<tensorstore::internal::ScopedTemporaryDirectory> tempdir;
+  std::optional<tensorstore::internal_testing::ScopedTemporaryDirectory>
+      tempdir;
   const std::string_view tempdir_key = "${TEMPDIR}";
   if (options.full_spec.dump().find(tempdir_key) != std::string::npos) {
     // In practice, if tempdir is present in any of the specs, it must be
@@ -278,7 +283,7 @@ void RegisterTensorStoreDriverSpecRoundtripTest(
     options.create_spec = options.full_spec;
   }
   const auto RegisterVariant = [&](TransactionMode mode) {
-    internal::RegisterGoogleTestCaseDynamically(
+    RegisterGoogleTestCaseDynamically(
         "TensorStoreDriverSpecRoundtripTest",
         tensorstore::StrCat(options.test_name, "/transaction_mode=", mode),
         [=] { TestTensorStoreDriverSpecRoundtrip(options, mode); });
@@ -763,13 +768,13 @@ void RegisterTensorStoreDriverBasicFunctionalityTest(
 
   const auto RegisterVariant = [&](TransactionMode mode,
                                    size_t num_iterations) {
-    internal::RegisterGoogleTestCaseDynamically(
+    RegisterGoogleTestCaseDynamically(
         "TensorStoreDriverBasicFunctionalityTest",
         tensorstore::StrCat(options.test_name, "/basic_functionality",
                             "/transaction_mode=", mode,
                             "/num_iterations=", num_iterations),
         [=] {
-          std::minstd_rand gen{internal::GetRandomSeedForTest(
+          std::minstd_rand gen{internal_testing::GetRandomSeedForTest(
               "TENSORSTORE_INTERNAL_DRIVER_BASIC_FUNCTIONALITY")};
           DriverRandomOperationTester tester(gen, std::move(options));
           tester.TestBasicFunctionality(mode, num_iterations);
@@ -781,7 +786,7 @@ void RegisterTensorStoreDriverBasicFunctionalityTest(
     const auto RegisterMultiTransaction = [&](size_t num_transactions,
                                               size_t num_iterations,
                                               bool use_random_values) {
-      internal::RegisterGoogleTestCaseDynamically(
+      RegisterGoogleTestCaseDynamically(
           "TensorStoreDriverBasicFunctionalityTest",
           tensorstore::StrCat(options.test_name, "/multi_transaction_write",
                               "/transaction_mode=", transaction_mode,
@@ -789,7 +794,7 @@ void RegisterTensorStoreDriverBasicFunctionalityTest(
                               "/num_iterations=", num_iterations,
                               "/use_random_values=", use_random_values),
           [=] {
-            std::minstd_rand gen{internal::GetRandomSeedForTest(
+            std::minstd_rand gen{internal_testing::GetRandomSeedForTest(
                 "TENSORSTORE_INTERNAL_DRIVER_MULTI_TRANSACTION")};
             DriverRandomOperationTester tester(gen, std::move(options));
             tester.TestMultiTransactionWrite(transaction_mode, num_transactions,
@@ -989,7 +994,7 @@ void TestResize(const TestTensorStoreDriverResizeOptions& options) {
         chunk_layout.GetWriteChunkTemplate(write_chunk_template));
   }
 
-  std::minstd_rand gen{internal::GetRandomSeedForTest(
+  std::minstd_rand gen{internal_testing::GetRandomSeedForTest(
       "TENSORSTORE_INTERNAL_DRIVER_BASIC_FUNCTIONALITY")};
   auto array = MakeRandomArray(gen, orig_bounds, dtype);
 
@@ -1057,7 +1062,7 @@ void TestResize(const TestTensorStoreDriverResizeOptions& options) {
 void RegisterTensorStoreDriverResizeTest(
     TestTensorStoreDriverResizeOptions options) {
   const auto RegisterVariant = [&](TransactionMode mode) {
-    internal::RegisterGoogleTestCaseDynamically(
+    RegisterGoogleTestCaseDynamically(
         "TensorStoreDriverMetadataResizeTest",
         tensorstore::StrCat(options.test_name, "/transaction_mode=", mode),
         [=] { TestMetadataOnlyResize(options, mode); });
@@ -1069,9 +1074,9 @@ void RegisterTensorStoreDriverResizeTest(
     }
   }
   if (options.test_data) {
-    internal::RegisterGoogleTestCaseDynamically(
-        "TensorStoreDriverDataResizeTest", options.test_name,
-        [=] { TestResize(options); });
+    RegisterGoogleTestCaseDynamically("TensorStoreDriverDataResizeTest",
+                                      options.test_name,
+                                      [=] { TestResize(options); });
   }
 }
 
@@ -1441,7 +1446,7 @@ void TestTensorStoreRepeatableRead(
 void RegisterTensorStoreRepeatableReadTest(
     const TensorStoreRepeatableReadTestOptions& options) {
   RepeatableReadParams::ForEach([&](const auto& params) {
-    internal::RegisterGoogleTestCaseDynamically(
+    RegisterGoogleTestCaseDynamically(
         options.test_suite_name, params.GetIdentifier(),
         [=] { TestTensorStoreRepeatableRead(options, params); });
   });

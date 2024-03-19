@@ -12,27 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_OAUTH2_GOOGLE_AUTH_TEST_UTILS_H_
-#define TENSORSTORE_INTERNAL_OAUTH2_GOOGLE_AUTH_TEST_UTILS_H_
+#ifndef TENSORSTORE_INTERNAL_TESTING_DYNAMIC_H_
+#define TENSORSTORE_INTERNAL_TESTING_DYNAMIC_H_
 
-#include "tensorstore/internal/testing/scoped_directory.h"
+#include <functional>
+#include <string>
+
+#include "tensorstore/internal/source_location.h"
 
 namespace tensorstore {
-namespace internal_oauth2 {
+namespace internal_testing {
 
-/// Sets Google Oauth2-related environment variables to ensure that any Google
-/// application default credentials configured by the user are not
-/// unintentionally used by a test.
-class GoogleAuthTestScope {
- public:
-  GoogleAuthTestScope();
-  ~GoogleAuthTestScope();
+/// Registers a GoogleTest case dynamically.
+void RegisterGoogleTestCaseDynamically(
+    std::string test_suite_name, std::string test_name,
+    std::function<void()> test_func,
+    SourceLocation loc = tensorstore::SourceLocation::current());
 
- private:
-  internal_testing::ScopedTemporaryDirectory temp_dir_;
-};
-
-}  // namespace internal_oauth2
+}  // namespace internal_testing
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_OAUTH2_GOOGLE_AUTH_TEST_UTILS_H_
+#endif  // TENSORSTORE_INTERNAL_TESTING_DYNAMIC_H_

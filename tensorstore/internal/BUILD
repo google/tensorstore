@@ -145,30 +145,6 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
-    name = "concurrent_testutil",
-    testonly = 1,
-    srcs = ["concurrent_testutil.cc"],
-    hdrs = ["concurrent_testutil.h"],
-    deps = [
-        ":multi_barrier",
-        "//tensorstore/internal/thread",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/log:absl_log",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "concurrent_testutil_test",
-    srcs = ["concurrent_testutil_test.cc"],
-    deps = [
-        ":concurrent_testutil",
-        "@com_google_absl//absl/log:absl_log",
-        "@com_google_absl//absl/synchronization",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
     name = "container_to_shared",
     hdrs = ["container_to_shared.h"],
 )
@@ -866,8 +842,8 @@ tensorstore_cc_test(
     size = "small",
     srcs = ["lock_collection_test.cc"],
     deps = [
-        ":concurrent_testutil",
         ":lock_collection",
+        "//tensorstore/internal/testing:concurrent",
         "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/synchronization",
         "@com_google_googletest//:gtest_main",
@@ -1680,31 +1656,6 @@ tensorstore_cc_test(
         ":memory",
         ":tagged_ptr",
         "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
-    name = "test_util",
-    testonly = True,
-    srcs = [
-        "test_util.cc",
-    ],
-    hdrs = [
-        "test_util.h",
-    ],
-    deps = [
-        ":env",
-        ":path",
-        ":source_location",
-        "//tensorstore/internal/os:filesystem",
-        "//tensorstore/kvstore/file:file_util",
-        "//tensorstore/util:result",
-        "//tensorstore/util:status",
-        "//tensorstore/util:str_cat",
-        "@com_google_absl//absl/log:absl_log",
-        "@com_google_absl//absl/random",
-        "@com_google_absl//absl/strings",
-        "@com_google_googletest//:gtest",
     ],
 )
 

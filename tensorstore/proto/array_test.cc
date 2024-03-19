@@ -27,11 +27,10 @@
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform_testutil.h"
 #include "tensorstore/internal/data_type_random_generator.h"
-#include "tensorstore/internal/test_util.h"
+#include "tensorstore/internal/testing/random_seed.h"
 #include "tensorstore/proto/array.pb.h"
 #include "tensorstore/proto/protobuf_matchers.h"
 #include "tensorstore/strided_layout.h"
-#include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -236,7 +235,7 @@ INSTANTIATE_TEST_SUITE_P(DataTypes, RandomArrayProtoTest,
 TEST_P(RandomArrayProtoTest, COrder) {
   auto dtype = GetParam();
   for (int iteration = 0; iteration < 100; ++iteration) {
-    std::minstd_rand gen{tensorstore::internal::GetRandomSeedForTest(
+    std::minstd_rand gen{tensorstore::internal_testing::GetRandomSeedForTest(
         "TENSORSTORE_PROTO_ARRAY_TEST_SEED")};
     auto box = tensorstore::internal::MakeRandomBox(gen);
     auto array = tensorstore::internal::MakeRandomArray(gen, box, dtype,
@@ -254,7 +253,7 @@ TEST_P(RandomArrayProtoTest, COrder) {
 TEST_P(RandomArrayProtoTest, FOrder) {
   auto dtype = GetParam();
   for (int iteration = 0; iteration < 100; ++iteration) {
-    std::minstd_rand gen{tensorstore::internal::GetRandomSeedForTest(
+    std::minstd_rand gen{tensorstore::internal_testing::GetRandomSeedForTest(
         "TENSORSTORE_PROTO_ARRAY_TEST_SEED")};
     auto box = tensorstore::internal::MakeRandomBox(gen);
     auto array = tensorstore::internal::MakeRandomArray(

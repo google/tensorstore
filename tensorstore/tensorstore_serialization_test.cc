@@ -11,11 +11,15 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#include <stdint.h>
+
+#include <tuple>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "tensorstore/array.h"
 #include "tensorstore/context.h"
-#include "tensorstore/internal/test_util.h"
+#include "tensorstore/internal/testing/scoped_directory.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/serialization/serialization.h"
@@ -23,7 +27,6 @@
 #include "tensorstore/serialization/test_util.h"
 #include "tensorstore/spec.h"
 #include "tensorstore/tensorstore.h"
-#include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -52,7 +55,7 @@ TEST(TensorStoreSerializationTest, Simple) {
 }
 
 TEST(TensorStoreSerializationTest, SharedContext) {
-  tensorstore::internal::ScopedTemporaryDirectory temp_dir;
+  tensorstore::internal_testing::ScopedTemporaryDirectory temp_dir;
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto spec,
       tensorstore::Spec::FromJson({

@@ -14,16 +14,21 @@
 
 #include "tensorstore/index_space/transform_broadcastable_array.h"
 
+#include <stddef.h>
+
 #include <random>
+#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/index_transform_testutil.h"
-#include "tensorstore/internal/test_util.h"
+#include "tensorstore/internal/testing/random_seed.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
@@ -113,7 +118,7 @@ TEST(RoundTripTest, IdentityTransform) {
 TEST(RoundTripTest, RandomInvertibleTransform) {
   constexpr size_t kNumIterations = 100;
   for (size_t i = 0; i < kNumIterations; ++i) {
-    std::minstd_rand gen{tensorstore::internal::GetRandomSeedForTest(
+    std::minstd_rand gen{tensorstore::internal_testing::GetRandomSeedForTest(
         "TENSORSTORE_INTERNAL_TRANSFORM_BROADCASTABLE_ARRAY_TEST_SEED")};
     auto box = tensorstore::internal::MakeRandomBox(gen);
     auto array = tensorstore::UnbroadcastArray(MakeTestArray(box.shape()));
@@ -129,7 +134,7 @@ TEST(RoundTripTest, RandomInvertibleTransform) {
 TEST(RoundTripTest, RandomInvertibleTransformNoNewDims) {
   constexpr size_t kNumIterations = 100;
   for (size_t i = 0; i < kNumIterations; ++i) {
-    std::minstd_rand gen{tensorstore::internal::GetRandomSeedForTest(
+    std::minstd_rand gen{tensorstore::internal_testing::GetRandomSeedForTest(
         "TENSORSTORE_INTERNAL_TRANSFORM_BROADCASTABLE_ARRAY_TEST_SEED")};
     auto box = tensorstore::internal::MakeRandomBox(gen);
     auto array = tensorstore::UnbroadcastArray(MakeTestArray(box.shape()));
