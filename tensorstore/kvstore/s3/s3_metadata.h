@@ -21,13 +21,12 @@
 
 #include <stddef.h>
 
-#include <map>
 #include <string>
 
+#include "absl/container/btree_map.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/util/result.h"
 #include "tinyxml2.h"
-
 namespace tensorstore {
 namespace internal_kvstore_s3 {
 
@@ -46,7 +45,7 @@ std::string GetNodeText(tinyxml2::XMLNode* node);
 /// This may or may not be an MD5 digest of the data
 /// https://docs.aws.amazon.com/AmazonS3/latest/API/API_Object.html
 Result<StorageGeneration> StorageGenerationFromHeaders(
-    const std::multimap<std::string, std::string>& headers);
+    const absl::btree_multimap<std::string, std::string>& headers);
 
 }  // namespace internal_kvstore_s3
 }  // namespace tensorstore

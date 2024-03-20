@@ -18,33 +18,11 @@
 #include <string>
 
 #include "absl/container/flat_hash_map.h"
-#include "absl/strings/cord.h"
 #include "absl/time/time.h"
-#include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
-#include "tensorstore/internal/http/http_transport.h"
-#include "tensorstore/util/future.h"
 
 namespace tensorstore {
 namespace internal_kvstore_s3 {
-
-/// Mocks an HttpTransport by overriding the IssueRequest method to
-/// respond with a predefined set of request-response pairs supplied
-/// to the constructor
-class EC2MetadataMockTransport : public internal_http::HttpTransport {
- public:
-  EC2MetadataMockTransport(
-      const absl::flat_hash_map<std::string, internal_http::HttpResponse>&
-          url_to_response)
-      : url_to_response_(url_to_response) {}
-
-  Future<internal_http::HttpResponse> IssueRequest(
-      const internal_http::HttpRequest& request, absl::Cord payload,
-      absl::Duration request_timeout, absl::Duration connect_timeout) override;
-
-  const absl::flat_hash_map<std::string, internal_http::HttpResponse>&
-      url_to_response_;
-};
 
 /// Return a Default EC2 Metadata Credential Retrieval Flow, suitable
 /// for passing to EC2MetadataMockTransport

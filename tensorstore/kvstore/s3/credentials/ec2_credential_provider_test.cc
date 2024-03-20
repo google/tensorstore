@@ -16,6 +16,7 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -26,6 +27,7 @@
 #include "absl/time/time.h"
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/http/http_response.h"
+#include "tensorstore/internal/http/mock_http_transport.h"
 #include "tensorstore/kvstore/s3/credentials/test_utils.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
@@ -36,10 +38,10 @@ using ::tensorstore::internal::UnsetEnv;
 namespace {
 
 using ::tensorstore::MatchesStatus;
+using ::tensorstore::internal_http::DefaultMockHttpTransport;
 using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_kvstore_s3::DefaultEC2MetadataFlow;
 using ::tensorstore::internal_kvstore_s3::EC2MetadataCredentialProvider;
-using ::tensorstore::internal_kvstore_s3::EC2MetadataMockTransport;
 
 static constexpr char kDefaultEndpoint[] = "http://169.254.169.254";
 static constexpr char kCustomEndpoint[] = "http://custom.endpoint";
@@ -55,12 +57,10 @@ class EC2MetadataCredentialProviderTest : public ::testing::Test {
 
 TEST_F(EC2MetadataCredentialProviderTest, CredentialRetrievalFlow) {
   auto expiry = absl::Now() + absl::Seconds(200);
-  auto url_to_response =
-      DefaultEC2MetadataFlow(kDefaultEndpoint, kApiToken, kAccessKey,
-                             kSecretKey, kSessionToken, expiry);
 
-  auto mock_transport =
-      std::make_shared<EC2MetadataMockTransport>(url_to_response);
+  auto mock_transport = std::make_shared<DefaultMockHttpTransport>(
+      DefaultEC2MetadataFlow(kDefaultEndpoint, kApiToken, kAccessKey,
+                             kSecretKey, kSessionToken, expiry));
   auto provider =
       std::make_shared<EC2MetadataCredentialProvider>("", mock_transport);
   TENSORSTORE_CHECK_OK_AND_ASSIGN(auto credentials, provider->GetCredentials());
@@ -75,12 +75,10 @@ TEST_F(EC2MetadataCredentialProviderTest, CredentialRetrievalFlow) {
 TEST_F(EC2MetadataCredentialProviderTest, EnvironmentVariableMetadataServer) {
   SetEnv("AWS_EC2_METADATA_SERVICE_ENDPOINT", kCustomEndpoint);
   auto expiry = absl::Now() + absl::Seconds(200);
-  auto url_to_response =
-      DefaultEC2MetadataFlow(kCustomEndpoint, kApiToken, kAccessKey, kSecretKey,
-                             kSessionToken, expiry);
 
-  auto mock_transport =
-      std::make_shared<EC2MetadataMockTransport>(url_to_response);
+  auto mock_transport = std::make_shared<DefaultMockHttpTransport>(
+      DefaultEC2MetadataFlow(kCustomEndpoint, kApiToken, kAccessKey, kSecretKey,
+                             kSessionToken, expiry));
   auto provider =
       std::make_shared<EC2MetadataCredentialProvider>("", mock_transport);
   TENSORSTORE_CHECK_OK_AND_ASSIGN(auto credentials, provider->GetCredentials());
@@ -94,12 +92,10 @@ TEST_F(EC2MetadataCredentialProviderTest, EnvironmentVariableMetadataServer) {
 
 TEST_F(EC2MetadataCredentialProviderTest, InjectedMetadataServer) {
   auto expiry = absl::Now() + absl::Seconds(200);
-  auto url_to_response =
-      DefaultEC2MetadataFlow(kCustomEndpoint, kApiToken, kAccessKey, kSecretKey,
-                             kSessionToken, expiry);
 
-  auto mock_transport =
-      std::make_shared<EC2MetadataMockTransport>(url_to_response);
+  auto mock_transport = std::make_shared<DefaultMockHttpTransport>(
+      DefaultEC2MetadataFlow(kCustomEndpoint, kApiToken, kAccessKey, kSecretKey,
+                             kSessionToken, expiry));
   auto provider = std::make_shared<EC2MetadataCredentialProvider>(
       kCustomEndpoint, mock_transport);
   TENSORSTORE_CHECK_OK_AND_ASSIGN(auto credentials, provider->GetCredentials());
@@ -121,7 +117,7 @@ TEST_F(EC2MetadataCredentialProviderTest, NoIamRolesInSecurityCredentials) {
   };
 
   auto mock_transport =
-      std::make_shared<EC2MetadataMockTransport>(url_to_response);
+      std::make_shared<DefaultMockHttpTransport>(std::move(url_to_response));
   auto provider =
       std::make_shared<EC2MetadataCredentialProvider>("", mock_transport);
   ASSERT_FALSE(provider->GetCredentials());
@@ -150,7 +146,7 @@ TEST_F(EC2MetadataCredentialProviderTest, UnsuccessfulJsonResponse) {
                     {{"x-aws-ec2-metadata-token", kApiToken}}}}};
 
   auto mock_transport =
-      std::make_shared<EC2MetadataMockTransport>(url_to_response);
+      std::make_shared<DefaultMockHttpTransport>(std::move(url_to_response));
   auto provider =
       std::make_shared<EC2MetadataCredentialProvider>("", mock_transport);
   auto credentials = provider->GetCredentials();

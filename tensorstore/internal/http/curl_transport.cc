@@ -42,6 +42,7 @@
 #include "tensorstore/internal/http/curl_factory.h"
 #include "tensorstore/internal/http/curl_handle.h"
 #include "tensorstore/internal/http/curl_wrappers.h"
+#include "tensorstore/internal/http/http_header.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"

@@ -45,6 +45,7 @@ tensorstore_cc_library(
         ":curl_handle",
         ":curl_wrappers",
         ":http",
+        ":http_header",
         "//tensorstore/internal:cord_util",
         "//tensorstore/internal:env",
         "//tensorstore/internal:no_destructor",
@@ -102,8 +103,8 @@ tensorstore_cc_library(
         "//tensorstore/util:future",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
-        "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/container:btree",
         "@com_google_absl//absl/functional:function_ref",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
@@ -181,9 +182,12 @@ tensorstore_cc_library(
     srcs = ["http_header.cc"],
     hdrs = ["http_header.h"],
     deps = [
+        "//tensorstore/internal:uri_utils",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/container:btree",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
         "@com_google_re2//:re2",
     ],
 )
@@ -195,6 +199,7 @@ tensorstore_cc_test(
     deps = [
         ":http_header",
         "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/container:btree",
         "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
     ],
@@ -217,4 +222,20 @@ tensorstore_cc_library(
         "@com_google_absl//absl/random:distributions",
     ],
     alwayslink = 1,
+)
+
+tensorstore_cc_library(
+    name = "mock_http_transport",
+    testonly = True,
+    srcs = ["mock_http_transport.cc"],
+    hdrs = ["mock_http_transport.h"],
+    deps = [
+        ":http",
+        "//tensorstore/util:future",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/synchronization",
+        "@com_google_absl//absl/time",
+    ],
 )

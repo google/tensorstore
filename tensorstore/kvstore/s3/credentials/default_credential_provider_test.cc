@@ -25,6 +25,7 @@
 #include "absl/time/time.h"
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/http/http_response.h"
+#include "tensorstore/internal/http/mock_http_transport.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
 #include "tensorstore/kvstore/s3/credentials/test_utils.h"
@@ -35,10 +36,10 @@ namespace {
 using ::tensorstore::internal::JoinPath;
 using ::tensorstore::internal::SetEnv;
 using ::tensorstore::internal::UnsetEnv;
+using ::tensorstore::internal_http::DefaultMockHttpTransport;
 using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_kvstore_s3::DefaultAwsCredentialsProvider;
 using ::tensorstore::internal_kvstore_s3::DefaultEC2MetadataFlow;
-using ::tensorstore::internal_kvstore_s3::EC2MetadataMockTransport;
 using Options =
     ::tensorstore::internal_kvstore_s3::DefaultAwsCredentialsProvider::Options;
 
@@ -71,9 +72,8 @@ class DefaultCredentialProviderTest : public ::testing::Test {
 };
 
 TEST_F(DefaultCredentialProviderTest, AnonymousCredentials) {
-  auto url_to_response = absl::flat_hash_map<std::string, HttpResponse>();
-  auto mock_transport =
-      std::make_shared<EC2MetadataMockTransport>(url_to_response);
+  auto mock_transport = std::make_shared<DefaultMockHttpTransport>(
+      absl::flat_hash_map<std::string, HttpResponse>());
   auto provider = std::make_unique<DefaultAwsCredentialsProvider>(
       Options{{}, {}, {}, mock_transport});
 
@@ -141,11 +141,10 @@ TEST_F(DefaultCredentialProviderTest, ConfigureEC2ProviderFromOptions) {
   auto now = absl::Now();
   auto stuck_clock = [&]() -> absl::Time { return now; };
   auto expiry = now + absl::Seconds(200);
-  auto url_to_response = DefaultEC2MetadataFlow(
-      kEndpoint, "1234", "ASIA1234567890", "1234567890abcdef", "token", expiry);
 
-  auto mock_transport =
-      std::make_shared<EC2MetadataMockTransport>(url_to_response);
+  auto mock_transport = std::make_shared<DefaultMockHttpTransport>(
+      DefaultEC2MetadataFlow(kEndpoint, "1234", "ASIA1234567890",
+                             "1234567890abcdef", "token", expiry));
 
   auto provider = std::make_unique<DefaultAwsCredentialsProvider>(
       Options{{}, {}, kEndpoint, mock_transport}, stuck_clock);
@@ -157,10 +156,10 @@ TEST_F(DefaultCredentialProviderTest, ConfigureEC2ProviderFromOptions) {
   EXPECT_EQ(credentials.expires_at, expiry - absl::Seconds(60));
 
   /// Force failure on credential retrieval
-  url_to_response = absl::flat_hash_map<std::string, HttpResponse>{
+  mock_transport->Reset(absl::flat_hash_map<std::string, HttpResponse>{
       {"POST http://endpoint/latest/api/token",
        HttpResponse{404, absl::Cord{""}}},
-  };
+  });
 
   // But we're not expired, so we get the original credentials
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(credentials, provider->GetCredentials());
@@ -171,8 +170,9 @@ TEST_F(DefaultCredentialProviderTest, ConfigureEC2ProviderFromOptions) {
 
   // Force expiry and retrieve new credentials
   now += absl::Seconds(300);
-  url_to_response = DefaultEC2MetadataFlow(kEndpoint, "1234", "ASIA1234567890",
-                                           "1234567890abcdef", "TOKEN", expiry);
+  mock_transport->Reset(
+      DefaultEC2MetadataFlow(kEndpoint, "1234", "ASIA1234567890",
+                             "1234567890abcdef", "TOKEN", expiry));
 
   // A new set of credentials is returned
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(credentials, provider->GetCredentials());
@@ -182,10 +182,10 @@ TEST_F(DefaultCredentialProviderTest, ConfigureEC2ProviderFromOptions) {
   EXPECT_EQ(credentials.expires_at, expiry - absl::Seconds(60));
 
   /// Force failure on credential retrieval
-  url_to_response = absl::flat_hash_map<std::string, HttpResponse>{
+  mock_transport->Reset(absl::flat_hash_map<std::string, HttpResponse>{
       {"POST http://endpoint/latest/api/token",
        HttpResponse{404, absl::Cord{""}}},
-  };
+  });
 
   // Anonymous credentials
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(credentials, provider->GetCredentials());

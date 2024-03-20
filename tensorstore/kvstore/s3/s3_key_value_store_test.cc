@@ -14,22 +14,19 @@
 
 #include <memory>
 #include <string>
-#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/container/flat_hash_map.h"
-#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/match.h"
-#include "absl/synchronization/mutex.h"
-#include "absl/time/time.h"
 #include "tensorstore/context.h"
 #include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
+#include "tensorstore/internal/http/mock_http_transport.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -38,18 +35,16 @@
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace kvstore = ::tensorstore::kvstore;
 
 using ::tensorstore::Context;
-using ::tensorstore::Future;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::internal::MatchesKvsReadResult;
 using ::tensorstore::internal::MatchesListEntry;
 using ::tensorstore::internal::MatchesTimestampedStorageGeneration;
-using ::tensorstore::internal_http::HttpRequest;
+using ::tensorstore::internal_http::DefaultMockHttpTransport;
 using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_http::HttpTransport;
 using ::tensorstore::internal_http::SetDefaultHttpTransport;
@@ -121,35 +116,6 @@ TEST(S3KeyValueStoreTest, InvalidSpec) {
 }
 
 // Mock-based tests for s3.
-// TODO: Add a more sophisticated s3 mock transport.
-class MyMockTransport : public HttpTransport {
- public:
-  MyMockTransport(
-      const absl::flat_hash_map<std::string, HttpResponse>& url_to_response)
-      : url_to_response_(url_to_response) {}
-
-  Future<HttpResponse> IssueRequest(const HttpRequest& request,
-                                    absl::Cord payload,
-                                    absl::Duration request_timeout,
-                                    absl::Duration connect_timeout) override {
-    ABSL_LOG(INFO) << request;
-    {
-      absl::MutexLock lock(&mutex_);
-      requests_.push_back(request);
-    }
-    auto it = url_to_response_.find(
-        tensorstore::StrCat(request.method, " ", request.url));
-    if (it != url_to_response_.end()) {
-      return it->second;
-    }
-    return HttpResponse{404, absl::Cord(), {}};
-  }
-
-  const absl::flat_hash_map<std::string, HttpResponse>& url_to_response_;
-
-  absl::Mutex mutex_;
-  std::vector<HttpRequest> requests_;
-};
 
 struct DefaultHttpTransportSetter {
   DefaultHttpTransportSetter(std::shared_ptr<HttpTransport> transport) {
@@ -178,7 +144,8 @@ TEST(S3KeyValueStoreTest, SimpleMock_VirtualHost) {
       // DELETE 404 => absl::OkStatus()
   };
 
-  auto mock_transport = std::make_shared<MyMockTransport>(url_to_response);
+  auto mock_transport =
+      std::make_shared<DefaultMockHttpTransport>(url_to_response);
   DefaultHttpTransportSetter mock_transport_setter{mock_transport};
 
   // Opens the s3 driver with small exponential backoff values.
@@ -204,7 +171,7 @@ TEST(S3KeyValueStoreTest, SimpleMock_VirtualHost) {
   TENSORSTORE_EXPECT_OK(kvstore::Delete(store, "key_delete"));
 
   int host_header_validated = 0;
-  for (const auto& request : mock_transport->requests_) {
+  for (const auto& request : mock_transport->requests()) {
     if (absl::StartsWith(request.url,
                          "https://my-bucket.s3.us-east-1.amazonaws.com/")) {
       host_header_validated++;
@@ -234,7 +201,8 @@ TEST(S3KeyValueStoreTest, SimpleMock_NoVirtualHost) {
       // DELETE 404 => absl::OkStatus()
   };
 
-  auto mock_transport = std::make_shared<MyMockTransport>(url_to_response);
+  auto mock_transport =
+      std::make_shared<DefaultMockHttpTransport>(url_to_response);
   DefaultHttpTransportSetter mock_transport_setter{mock_transport};
 
   // Opens the s3 driver with small exponential backoff values.
@@ -260,7 +228,7 @@ TEST(S3KeyValueStoreTest, SimpleMock_NoVirtualHost) {
   TENSORSTORE_EXPECT_OK(kvstore::Delete(store, "key_delete"));
 
   int host_header_validated = 0;
-  for (const auto& request : mock_transport->requests_) {
+  for (const auto& request : mock_transport->requests()) {
     if (absl::StartsWith(request.url, "https://s3.us-east-1.amazonaws.com/")) {
       host_header_validated++;
       EXPECT_THAT(request.headers,
@@ -290,7 +258,8 @@ TEST(S3KeyValueStoreTest, SimpleMock_Endpoint) {
       // DELETE 404 => absl::OkStatus()
   };
 
-  auto mock_transport = std::make_shared<MyMockTransport>(url_to_response);
+  auto mock_transport =
+      std::make_shared<DefaultMockHttpTransport>(url_to_response);
   DefaultHttpTransportSetter mock_transport_setter{mock_transport};
 
   // Opens the s3 driver with small exponential backoff values.
@@ -317,7 +286,7 @@ TEST(S3KeyValueStoreTest, SimpleMock_Endpoint) {
   TENSORSTORE_EXPECT_OK(kvstore::Delete(store, "key_delete"));
 
   int host_header_validated = 0;
-  for (const auto& request : mock_transport->requests_) {
+  for (const auto& request : mock_transport->requests()) {
     if (absl::StartsWith(request.url, "https://localhost:1234/")) {
       host_header_validated++;
       EXPECT_THAT(request.headers, testing::Contains("host: localhost"));
@@ -383,7 +352,8 @@ TEST(S3KeyValueStoreTest, SimpleMock_List) {
        HttpResponse{200, absl::Cord(kListResultB), {}}},
   };
 
-  auto mock_transport = std::make_shared<MyMockTransport>(url_to_response);
+  auto mock_transport =
+      std::make_shared<DefaultMockHttpTransport>(url_to_response);
   DefaultHttpTransportSetter mock_transport_setter{mock_transport};
 
   // Opens the s3 driver with small exponential backoff values.
@@ -443,7 +413,8 @@ TEST(S3KeyValueStoreTest, SimpleMock_ListPrefix) {
                     {{"etag", "900150983cd24fb0d6963f7d28e17f72"}}}},
   };
 
-  auto mock_transport = std::make_shared<MyMockTransport>(url_to_response);
+  auto mock_transport =
+      std::make_shared<DefaultMockHttpTransport>(url_to_response);
   DefaultHttpTransportSetter mock_transport_setter{mock_transport};
 
   // Opens the s3 driver with small exponential backoff values.

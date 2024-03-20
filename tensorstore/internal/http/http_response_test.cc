@@ -26,67 +26,8 @@
 namespace {
 
 using ::tensorstore::IsOkAndHolds;
-using ::tensorstore::internal_http::AppendHeaderData;
 using ::tensorstore::internal_http::HttpResponse;
 
-TEST(AppendHeaderData, BadHeaders) {
-  std::multimap<std::string, std::string> headers;
-
-  EXPECT_EQ(0, AppendHeaderData(headers, ""));           // empty
-  EXPECT_EQ(2, AppendHeaderData(headers, "\r\n"));       // empty
-  EXPECT_EQ(8, AppendHeaderData(headers, "foo: bar"));   // no CRLF
-  EXPECT_EQ(5, AppendHeaderData(headers, "foo\r\n"));    // no :
-  EXPECT_EQ(7, AppendHeaderData(headers, "fo@: \r\n"));  // invalid token
-
-  EXPECT_TRUE(headers.empty());
-}
-
-TEST(AppendHeaderData, GoodHeaders) {
-  // Default
-  {
-    std::multimap<std::string, std::string> headers;
-    EXPECT_EQ(10, AppendHeaderData(headers, "bar: baz\r\n"));
-    EXPECT_FALSE(headers.empty());
-    ASSERT_EQ(1, headers.count("bar"));
-
-    auto range = headers.equal_range("bar");
-    EXPECT_EQ("baz", range.first->second);
-  }
-
-  // No value is fine, too.
-  {
-    std::multimap<std::string, std::string> headers;
-    EXPECT_EQ(6, AppendHeaderData(headers, "foo:\r\n"));
-    ASSERT_EQ(1, headers.count("foo"));
-
-    auto range = headers.equal_range("foo");
-    EXPECT_EQ("", range.first->second);
-  }
-
-  // Remove OWS in field-value.
-  {
-    std::multimap<std::string, std::string> headers;
-    EXPECT_EQ(16, AppendHeaderData(headers, "bAr: \t  baz  \t\r\n"));
-    ASSERT_EQ(1, headers.count("bar"));
-
-    auto range = headers.equal_range("bar");
-    EXPECT_EQ("baz", range.first->second);
-  }
-
-  // Order is preserved.
-  {
-    std::multimap<std::string, std::string> headers;
-    EXPECT_EQ(16, AppendHeaderData(headers, "bAr: \t  one  \t\r\n"));
-    EXPECT_EQ(10, AppendHeaderData(headers, "bar: two\r\n"));
-
-    ASSERT_EQ(2, headers.count("bar"));
-
-    auto range = headers.equal_range("bar");
-    EXPECT_EQ("one", range.first->second);
-    ++range.first;
-    EXPECT_EQ("two", range.first->second);
-  }
-}
 
 TEST(HttpResponseCodeToStatusTest, AllCodes) {
   using ::tensorstore::internal_http::HttpResponseCodeToStatus;
@@ -143,27 +84,5 @@ TEST(HttpResponseCodeToStatusTest, AllCodes) {
   }
 }
 
-TEST(HttpResponse, ParseContentRangeHeader) {
-  {
-    HttpResponse response;
-    response.status_code = 206;
-    response.headers.emplace(std::string("content-range"),
-                             std::string("bytes 10-20/100"));
-
-    EXPECT_THAT(ParseContentRangeHeader(response),
-                IsOkAndHolds(testing::Eq(
-                    std::tuple<size_t, size_t, size_t>(10, 20, 100))));
-  }
-
-  {
-    HttpResponse response;
-    response.status_code = 206;
-    response.headers.emplace(std::string("content-range"),
-                             std::string("bytes 1-abc/100"));
-
-    EXPECT_THAT(ParseContentRangeHeader(response),
-                tensorstore::MatchesStatus(absl::StatusCode::kUnknown));
-  }
-}
 
 }  // namespace

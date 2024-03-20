@@ -19,14 +19,16 @@
 /// Key-value store where each key corresponds to a GCS object and the value is
 /// stored as the file content.
 
-#include <cstdint>
-#include <map>
+#include <stdint.h>
+
 #include <string>
 #include <string_view>
 
+#include "absl/container/btree_map.h"
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/json_binding/bindable.h"
+#include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
@@ -68,7 +70,7 @@ struct ObjectMetadata {
 Result<ObjectMetadata> ParseObjectMetadata(std::string_view source);
 
 void SetObjectMetadataFromHeaders(
-    const std::multimap<std::string, std::string>& headers,
+    const absl::btree_multimap<std::string, std::string>& headers,
     ObjectMetadata* result);
 
 }  // namespace internal_kvstore_gcs_http

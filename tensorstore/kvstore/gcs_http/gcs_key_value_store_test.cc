@@ -74,7 +74,6 @@ using ::tensorstore::KeyRange;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::StorageGeneration;
-using ::tensorstore::StrCat;
 using ::tensorstore::internal::MatchesListEntry;
 using ::tensorstore::internal::ScheduleAt;
 using ::tensorstore::internal_http::HttpRequest;
@@ -139,13 +138,12 @@ class MyMockTransport : public HttpTransport {
     if (future.result().ok()) return future;
 
     // Next, try each bucket until there is a success.
+    tensorstore::Result<HttpResponse> result;
     for (auto* bucket : buckets_) {
-      future = bucket->IssueRequest(request, payload, request_timeout,
-                                    connect_timeout);
-      if (future.result().ok()) return future;
+      result = bucket->IssueRequest(request, payload);
+      if (result.ok()) break;
     }
-
-    return future;
+    return result;
   }
 
   MetadataMockTransport metadata_mock_;
@@ -790,20 +788,23 @@ TEST(GcsKeyValueStoreTest, RateLimited) {
 TEST(GcsKeyValueStoreTest, UrlRoundtrip) {
   tensorstore::internal::TestKeyValueStoreUrlRoundtrip(
       {{"driver", kDriver}, {"bucket", "my-bucket"}, {"path", "abc"}},
-      StrCat(kUriScheme, "://my-bucket/abc"));
+      tensorstore::StrCat(kUriScheme, "://my-bucket/abc"));
   tensorstore::internal::TestKeyValueStoreUrlRoundtrip(
       {{"driver", kDriver}, {"bucket", "my-bucket"}, {"path", "abc def"}},
-      StrCat(kUriScheme, "://my-bucket/abc%20def"));
+      tensorstore::StrCat(kUriScheme, "://my-bucket/abc%20def"));
 }
 
 TEST(GcsKeyValueStoreTest, InvalidUri) {
-  EXPECT_THAT(kvstore::Spec::FromUrl(StrCat(kUriScheme, "://bucket:xyz")),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*: Invalid GCS bucket name: \"bucket:xyz\""));
-  EXPECT_THAT(kvstore::Spec::FromUrl(StrCat(kUriScheme, "://bucket?query")),
+  EXPECT_THAT(
+      kvstore::Spec::FromUrl(tensorstore::StrCat(kUriScheme, "://bucket:xyz")),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    ".*: Invalid GCS bucket name: \"bucket:xyz\""));
+  EXPECT_THAT(kvstore::Spec::FromUrl(
+                  tensorstore::StrCat(kUriScheme, "://bucket?query")),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             ".*: Query string not supported"));
-  EXPECT_THAT(kvstore::Spec::FromUrl(StrCat(kUriScheme, "://bucket#fragment")),
+  EXPECT_THAT(kvstore::Spec::FromUrl(
+                  tensorstore::StrCat(kUriScheme, "://bucket#fragment")),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             ".*: Fragment identifier not supported"));
 }

@@ -14,19 +14,23 @@
 
 #include "tensorstore/kvstore/gcs_http/object_metadata.h"
 
-#include <map>
+#include <stdint.h>
+
 #include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
 
+#include "absl/container/btree_map.h"
 #include "absl/status/status.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_split.h"
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
-#include "tensorstore/internal/http/http_response.h"
+#include "tensorstore/internal/http/http_header.h"
+#include "tensorstore/internal/json/json.h"
 #include "tensorstore/internal/json_binding/absl_time.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/str_cat.h"
@@ -78,7 +82,7 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(ObjectMetadata,
                                        })
 
 void SetObjectMetadataFromHeaders(
-    const std::multimap<std::string, std::string>& headers,
+    const absl::btree_multimap<std::string, std::string>& headers,
     ObjectMetadata* result) {
   result->size =
       TryParseIntHeader<uint64_t>(headers, "content-length").value_or(0);

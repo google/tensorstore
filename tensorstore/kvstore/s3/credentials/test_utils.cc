@@ -15,32 +15,15 @@
 #include "tensorstore/kvstore/s3/credentials/test_utils.h"
 
 #include <string>
-#include <utility>
 
 #include "absl/container/flat_hash_map.h"
-#include "absl/log/absl_log.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_format.h"
 #include "absl/time/time.h"
-#include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
-#include "tensorstore/util/future.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_kvstore_s3 {
-
-Future<internal_http::HttpResponse> EC2MetadataMockTransport::IssueRequest(
-    const internal_http::HttpRequest& request, absl::Cord payload,
-    absl::Duration request_timeout, absl::Duration connect_timeout) {
-  ABSL_LOG(INFO) << request;
-  if (auto it = url_to_response_.find(StrCat(request.method, " ", request.url));
-      it != url_to_response_.end()) {
-    return it->second;
-  }
-
-  return internal_http::HttpResponse{404, absl::Cord(), {}};
-}
 
 absl::flat_hash_map<std::string, internal_http::HttpResponse>
 DefaultEC2MetadataFlow(const std::string& endpoint,

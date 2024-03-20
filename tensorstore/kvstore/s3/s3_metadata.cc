@@ -17,11 +17,11 @@
 #include <stddef.h>
 
 #include <cassert>
-#include <map>
 #include <string>
 #include <string_view>
 #include <utility>
 
+#include "absl/container/btree_map.h"
 #include "absl/status/status.h"
 #include "re2/re2.h"
 #include "tensorstore/kvstore/generation.h"
@@ -113,7 +113,7 @@ std::string GetNodeText(tinyxml2::XMLNode* node) {
 }
 
 Result<StorageGeneration> StorageGenerationFromHeaders(
-    const std::multimap<std::string, std::string>& headers) {
+    const absl::btree_multimap<std::string, std::string>& headers) {
   if (auto it = headers.find(kEtag); it != headers.end()) {
     return StorageGeneration::FromString(it->second);
   }

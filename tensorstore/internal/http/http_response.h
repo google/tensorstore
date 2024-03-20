@@ -18,16 +18,13 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <map>
-#include <optional>
 #include <string>
-#include <string_view>
 #include <tuple>
 
+#include "absl/container/btree_map.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/match.h"
-#include "absl/strings/numbers.h"
 #include "absl/strings/str_format.h"
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/util/result.h"
@@ -35,16 +32,11 @@
 namespace tensorstore {
 namespace internal_http {
 
-/// AppendHeaderData parses `data` as a header and append to the set of
-/// `headers`.
-size_t AppendHeaderData(std::multimap<std::string, std::string>& headers,
-                        std::string_view data);
-
 /// HttpResponse contains the results of an HTTP request.
 struct HttpResponse {
   int32_t status_code;
   absl::Cord payload;
-  std::multimap<std::string, std::string> headers;
+  absl::btree_multimap<std::string, std::string> headers;
 
   template <typename Sink>
   friend void AbslStringify(Sink& sink, const HttpResponse& response) {
@@ -64,9 +56,9 @@ struct HttpResponse {
       {
         sink.Append(kv.second);
       }
-      sep = ", ";
+      sep = "  ";
     }
-    if (response.status_code >= 300 && response.payload.size() <= 64) {
+    if (response.payload.size() <= 64) {
       absl::Format(&sink, ">, payload=%v}", response.payload);
     } else {
       absl::Format(&sink, ">, payload.size=%d}", response.payload.size());
@@ -85,31 +77,6 @@ absl::Status HttpResponseCodeToStatus(
 /// Returned tuple fields are {start, end, total_length}
 Result<std::tuple<size_t, size_t, size_t>> ParseContentRangeHeader(
     const HttpResponse& response);
-
-/// `strptime`-compatible format string for the HTTP date header.
-///
-/// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Date
-///
-/// Note that the time zone is always UTC and is specified as "GMT".
-constexpr const char kHttpTimeFormat[] = "%a, %d %b %E4Y %H:%M:%S GMT";
-
-/// Attempts to parse a header using SimpleAtoi.
-template <typename T>
-std::optional<T> TryParseIntHeader(
-    const std::multimap<std::string, std::string>& headers,
-    const std::string& header) {
-  auto it = headers.find(header);
-  T result;
-  if (it != headers.end() && absl::SimpleAtoi(it->second, &result)) {
-    return result;
-  }
-  return std::nullopt;
-}
-
-/// Attempts to parse a header using SimpleAtob.
-std::optional<bool> TryParseBoolHeader(
-    const std::multimap<std::string, std::string>& headers,
-    const std::string& header);
 
 }  // namespace internal_http
 }  // namespace tensorstore

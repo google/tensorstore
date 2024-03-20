@@ -29,11 +29,10 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/synchronization/mutex.h"
-#include "absl/time/time.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
-#include "tensorstore/util/future.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 
@@ -64,11 +63,9 @@ class GCSMockStorageBucket {
       std::string_view bucket,
       std::optional<std::string> requestor_pays_project_id = std::nullopt);
 
-  // Implement the HttpTransport::IssueRequest interface.
   // Responds to a "www.google.apis/storage/v1/b/bucket" request.
-  Future<internal_http::HttpResponse> IssueRequest(
-      const internal_http::HttpRequest& request, absl::Cord payload,
-      absl::Duration request_timeout, absl::Duration connect_timeout);
+  Result<internal_http::HttpResponse> IssueRequest(
+      const internal_http::HttpRequest& request, absl::Cord payload);
 
   // Main entry-point for matching requests.
   std::variant<std::monostate, internal_http::HttpResponse, absl::Status> Match(

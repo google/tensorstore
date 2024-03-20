@@ -14,6 +14,7 @@ tensorstore_cc_library(
     deps = [
         ":gcs_resource",
         "//tensorstore:context",
+        "//tensorstore:json_serialization_options_base",
         "//tensorstore/internal:concurrency_resource",
         "//tensorstore/internal:data_copy_concurrency_resource",
         "//tensorstore/internal:env",
@@ -25,6 +26,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/cache_key",
         "//tensorstore/internal/http",
         "//tensorstore/internal/http:curl_transport",
+        "//tensorstore/internal/http:http_header",
         "//tensorstore/internal/json",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:absl_time",
@@ -53,6 +55,7 @@ tensorstore_cc_library(
         "//tensorstore/util/garbage_collection",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/container:btree",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/random",
         "@com_google_absl//absl/status",

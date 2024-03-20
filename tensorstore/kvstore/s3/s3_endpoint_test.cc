@@ -16,26 +16,19 @@
 
 #include <memory>
 #include <string>
-#include <utility>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/container/flat_hash_map.h"
-#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
-#include "absl/time/time.h"
-#include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
-#include "tensorstore/internal/http/http_transport.h"
+#include "tensorstore/internal/http/mock_http_transport.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
-using ::tensorstore::Future;
-using ::tensorstore::internal_http::HttpRequest;
+using ::tensorstore::internal_http::DefaultMockHttpTransport;
 using ::tensorstore::internal_http::HttpResponse;
-using ::tensorstore::internal_http::HttpTransport;
 using ::tensorstore::internal_kvstore_s3::ResolveEndpointRegion;
 using ::tensorstore::internal_kvstore_s3::S3EndpointRegion;
 using ::tensorstore::internal_kvstore_s3::ValidateEndpoint;
@@ -82,28 +75,6 @@ TEST(ValidateEndpointTest, Basic) {
 }
 
 // Mock-based tests for s3.
-// TODO: Add a more sophisticated s3 mock transport.
-class MyMockTransport : public HttpTransport {
- public:
-  MyMockTransport(
-      const absl::flat_hash_map<std::string, HttpResponse>& url_to_response)
-      : url_to_response_(url_to_response) {}
-
-  Future<HttpResponse> IssueRequest(const HttpRequest& request,
-                                    absl::Cord payload,
-                                    absl::Duration request_timeout,
-                                    absl::Duration connect_timeout) override {
-    ABSL_LOG(INFO) << request;
-    auto it = url_to_response_.find(
-        tensorstore::StrCat(request.method, " ", request.url));
-    if (it != url_to_response_.end()) {
-      return it->second;
-    }
-    return HttpResponse{404, absl::Cord(), {}};
-  }
-
-  const absl::flat_hash_map<std::string, HttpResponse>& url_to_response_;
-};
 
 TEST(ResolveEndpointRegion, Basic) {
   absl::flat_hash_map<std::string, HttpResponse> url_to_response{
@@ -120,7 +91,8 @@ TEST(ResolveEndpointRegion, Basic) {
       // DELETE 404 => absl::OkStatus()
   };
 
-  auto mock_transport = std::make_shared<MyMockTransport>(url_to_response);
+  auto mock_transport =
+      std::make_shared<DefaultMockHttpTransport>(url_to_response);
   S3EndpointRegion ehr;
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       ehr,

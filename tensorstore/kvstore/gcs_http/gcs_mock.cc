@@ -34,11 +34,10 @@
 #include "absl/strings/str_split.h"
 #include "absl/strings/substitute.h"
 #include "absl/synchronization/mutex.h"
-#include "absl/time/time.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/uri_utils.h"
-#include "tensorstore/util/future.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -99,9 +98,8 @@ GCSMockStorageBucket::GCSMockStorageBucket(
       urbg_(absl::Hash<std::string_view>{}(bucket)) {}
 
 // Responds to a "www.google.apis/storage/v1/b/bucket" request.
-Future<HttpResponse> GCSMockStorageBucket::IssueRequest(
-    const HttpRequest& request, absl::Cord payload,
-    absl::Duration request_timeout, absl::Duration connect_timeout) {
+Result<HttpResponse> GCSMockStorageBucket::IssueRequest(
+    const HttpRequest& request, absl::Cord payload) {
   // When using a mock context, we assume that the mock is
   // thread safe and not uninstalled when it might introduce
   // race conditions.
