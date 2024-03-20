@@ -43,6 +43,7 @@ def write_variant(name, substitutions, flags, tempdir, output_dir):
 
   substitutions.setdefault("${ARM64}", "0")
   substitutions.setdefault("${X86_64}", "0")
+  substitutions.setdefault("${PPC}", "0")
   substitutions.setdefault("${HAVE_AVX2}", "0")
   substitutions.setdefault("${PTHREAD}", "0")
 
@@ -80,6 +81,13 @@ def generate_configs():
         "arm64",
         substitutions={"${ARM64}": "1"},
         flags=["--arch=arm64"],
+        tempdir=tempdir,
+        output_dir=output_dir,
+    )
+    write_variant(
+        "ppc",
+        substitutions={"${PPC}": "1"},
+        flags=["--arch=ppc"],
         tempdir=tempdir,
         output_dir=output_dir,
     )

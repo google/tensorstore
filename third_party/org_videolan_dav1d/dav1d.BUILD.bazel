@@ -26,6 +26,7 @@ cc_library(
         ":headers",
     ] + select({
         "@platforms//cpu:arm64": [],
+	    "@platforms//cpu:ppc": [],
         "@platforms//cpu:x86_64": [":dav1d_asm_x86"],
     }),
 )
@@ -50,9 +51,19 @@ ARM_ASM_SRCS = glob(
     ],
 )
 
+PPC_ASM_SRCS = glob(
+    [
+        "src/ppc/*.c",
+    ],
+    exclude = [
+	    "src/ppc/*_tmpl.c",
+    ],
+)
+
 # TMPL_SRCS are compiled for BITDEPTH=8 and BITDEPTH=16
 TMPL_SRCS = glob(["src/*_tmpl.c"]) + select({
     "@platforms//cpu:arm64": glob(["src/arm/*_tmpl.c"]),
+    "@platforms//cpu:ppc": glob(["src/ppc/*_tmpl.c"]),
     "@platforms//cpu:x86_64": glob(["src/x86/*_tmpl.c"]),
 })
 
@@ -64,6 +75,7 @@ DAV1D_SRCS = glob(
     "//conditions:default": [],
 }) + select({
     "@platforms//cpu:arm64": ARM_ASM_SRCS,
+    "@platforms//cpu:ppc": PPC_ASM_SRCS,
     "@platforms//cpu:x86_64": glob(
         ["src/x86/*.c"],
         exclude = ["src/x86/*_tmpl.c"],
@@ -77,6 +89,10 @@ TEXTUAL_HDRS = select({
         "src/arm/asm.S",
         "src/arm/64/*_tmpl.S",
         "src/arm/64/util.S",
+    ]),
+    "@platforms//cpu:ppc": glob([
+	    "src/*.h",
+	    "src/ppc/*.h",
     ]),
     "@platforms//cpu:x86_64": glob([
         "src/*.h",
@@ -313,6 +329,19 @@ ARM64_CONFIG_H = [
     "",
 ]
 
+PPC_CONFIG_H = [
+    "#define ARCH_AARCH64 0",
+    "#define ARCH_ARM 0",
+    "#define ARCH_X86 0",
+    "#define ARCH_X86_32 0",
+    "#define ARCH_X86_64 0",
+    "#define ARCH_PPC64LE 1",
+    "",
+    "#define HAVE_ASM 1",
+    "#define HAVE_AS_FUNC 0",
+    "",
+]
+
 CONFIG_END_H = [
     "",
     "#define CONFIG_16BPC 1",
@@ -344,6 +373,7 @@ CONFIG_END_H = [
 CONFIG_H = CONFIG_START_H + select({
     "@platforms//cpu:x86_64": X86_64_CONFIG_H,
     "@platforms//cpu:arm64": ARM64_CONFIG_H,
+    "@platforms//cpu:ppc": PPC_CONFIG_H,
 }) + select({
     "@platforms//os:macos": DARWIN_CONFIG_H,
     "//conditions:default": [],
