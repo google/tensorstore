@@ -35,29 +35,14 @@ namespace tensorstore {
 namespace internal {
 
 /// Options for DriverRead.
-struct DriverReadOptions {
-  /// Callback to be invoked after each chunk is completed.  Must remain valid
-  /// until the returned future becomes ready.  May be `nullptr` to indicate
-  /// that progress information is not needed.  The callback may be invoked
-  /// concurrently from multiple threads.  All ReadProgress values are
-  /// monotonically increasing.  The `total_elements` value does not change
-  /// after the first call.
-  ReadProgressFunction progress_function;
-
-  DomainAlignmentOptions alignment_options = DomainAlignmentOptions::all;
-
+struct DriverReadOptions : public ReadOptions {
   DataTypeConversionFlags data_type_conversion_flags =
       DataTypeConversionFlags::kSafeAndImplicit;
 };
 
-struct DriverReadIntoNewOptions {
-  /// Callback to be invoked after each chunk is completed.  Must remain valid
-  /// until the returned future becomes ready.  May be `nullptr` to indicate
-  /// that progress information is not needed.  The callback may be invoked
-  /// concurrently from multiple threads.  All ReadProgress values are
-  /// monotonically increasing.  The `total_elements` value does not change
-  /// after the first call.
-  ReadProgressFunction progress_function;
+struct DriverReadIntoNewOptions : public ReadIntoNewArrayOptions {
+  /// Data type of newly-allocated destination array.
+  DataType target_dtype;
 };
 
 /// Copies data from a TensorStore driver to an array.
@@ -89,18 +74,13 @@ Future<void> DriverRead(DriverHandle source,
 ///
 /// \param executor Executor to use for copying data.
 /// \param source Read source.
-/// \param target_dtype Data type of newly-allocated destination array.
-/// \param target_layout_order ChunkLayout order of newly-allocated destination
-///     array.
-/// \param options Specifies optional progress function.
+/// \param options Specifies options.
 /// \returns A future that becomes ready when the data has been copied or an
 ///     error occurs.
 /// \error `absl::StatusCode::kInvalidArgument` if `source.driver->dtype()`
-///     cannot be converted to `target_dtype`.
+///     cannot be converted to `options.target_dtype`.
 Future<SharedOffsetArray<void>> DriverReadIntoNewArray(
-    Executor executor, DriverHandle source, DataType target_dtype,
-    ContiguousLayoutOrder target_layout_order,
-    DriverReadIntoNewOptions options);
+    Executor executor, DriverHandle source, DriverReadIntoNewOptions options);
 
 Future<SharedOffsetArray<void>> DriverReadIntoNewArray(
     DriverHandle source, ReadIntoNewArrayOptions options);

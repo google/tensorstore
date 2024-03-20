@@ -247,9 +247,10 @@ struct DriverWriteInitiateOp {
 
     // Initiate the write on the driver.
     auto target_driver = std::move(state->target_driver);
-    auto target_transaction = std::move(state->target_transaction);
-    target_driver->Write(std::move(target_transaction),
-                         std::move(target_transform),
+    Driver::WriteRequest request;
+    request.transaction = std::move(state->target_transaction);
+    request.transform = std::move(target_transform);
+    target_driver->Write(std::move(request),
                          WriteChunkReceiver{std::move(state)});
   }
 };
@@ -286,9 +287,12 @@ WriteFutures DriverWrite(Executor executor,
   }
 
   // Resolve the bounds for `target.transform`.
-  auto transform_future = state->target_driver->ResolveBounds(
-      state->target_transaction, std::move(target.transform),
-      fix_resizable_bounds);
+  Driver::ResolveBoundsRequest request;
+  request.transaction = state->target_transaction;
+  request.transform = std::move(target.transform);
+  request.options = fix_resizable_bounds;
+  auto transform_future =
+      state->target_driver->ResolveBounds(std::move(request));
 
   // Initiate the write once the bounds have been resolved.
   LinkValue(WithExecutor(std::move(executor),
@@ -300,11 +304,8 @@ WriteFutures DriverWrite(Executor executor,
 WriteFutures DriverWrite(TransformedSharedArray<const void> source,
                          DriverHandle target, WriteOptions options) {
   auto executor = target.driver->data_copy_executor();
-  return internal::DriverWrite(
-      std::move(executor), std::move(source), std::move(target),
-      /*options=*/
-      {/*.progress_function=*/std::move(options.progress_function),
-       /*.alignment_options=*/options.alignment_options});
+  return internal::DriverWrite(std::move(executor), std::move(source),
+                               std::move(target), {std::move(options)});
 }
 
 }  // namespace internal

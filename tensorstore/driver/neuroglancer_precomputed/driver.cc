@@ -47,6 +47,7 @@
 #include "tensorstore/driver/chunk.h"
 #include "tensorstore/driver/chunk_cache_driver.h"
 #include "tensorstore/driver/chunk_receiver_utils.h"
+#include "tensorstore/driver/driver_spec.h"
 #include "tensorstore/driver/kvs_backed_chunk_driver.h"
 #include "tensorstore/driver/neuroglancer_precomputed/chunk_encoding.h"
 #include "tensorstore/driver/neuroglancer_precomputed/metadata.h"
@@ -166,8 +167,7 @@ class NeuroglancerPrecomputedDriverSpec
   }
 
   Future<internal::Driver::Handle> Open(
-      internal::OpenTransactionPtr transaction,
-      ReadWriteMode read_write_mode) const override;
+      internal::DriverOpenRequest request) const override;
 };
 
 Result<std::shared_ptr<const MultiscaleMetadata>> ParseEncodedMetadata(
@@ -407,8 +407,8 @@ class DataCacheBase : public internal_kvs_backed_chunk_driver::DataCache {
   std::string GetBaseKvstorePath() override { return key_prefix_; }
 
   virtual Future<ArrayStorageStatistics> GetStorageStatistics(
-      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
-      absl::Time staleness_bound, GetArrayStorageStatisticsOptions options) = 0;
+      internal::Driver::GetStorageStatisticsRequest request,
+      absl::Time staleness_bound) = 0;
 
   std::string key_prefix_;
   size_t scale_index_;
@@ -536,9 +536,8 @@ class UnshardedDataCache : public DataCacheBase {
   }
 
   virtual Future<ArrayStorageStatistics> GetStorageStatistics(
-      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
-      absl::Time staleness_bound,
-      GetArrayStorageStatisticsOptions options) override {
+      internal::Driver::GetStorageStatisticsRequest request,
+      absl::Time staleness_bound) override {
     const auto& metadata =
         *static_cast<const MultiscaleMetadata*>(this->initial_metadata_.get());
     const auto& scale = metadata.scales[scale_index_];
@@ -559,11 +558,12 @@ class UnshardedDataCache : public DataCacheBase {
         GetStorageStatisticsForRegularGridWithSemiLexicographicalKeys(
             KvStore{kvstore::DriverPtr(this->kvstore_driver()), std::move(path),
                     internal::TransactionState::ToTransaction(
-                        std::move(transaction))},
-            transform, /*grid_output_dimensions=*/
+                        std::move(request.transaction))},
+            request.transform, /*grid_output_dimensions=*/
             component.chunked_to_cell_dimensions,
             /*chunk_shape=*/grid.chunk_shape, grid_bounds,
-            std::make_unique<KeyFormatter>(*this), staleness_bound, options);
+            std::make_unique<KeyFormatter>(*this), staleness_bound,
+            request.options);
   }
 
  private:
@@ -613,9 +613,8 @@ class ShardedDataCache : public DataCacheBase {
   }
 
   virtual Future<ArrayStorageStatistics> GetStorageStatistics(
-      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
-      absl::Time staleness_bound,
-      GetArrayStorageStatisticsOptions options) override {
+      internal::Driver::GetStorageStatisticsRequest request,
+      absl::Time staleness_bound) override {
     // Not yet implemented for sharded format.
     return absl::UnimplementedError("");
   }
@@ -660,44 +659,48 @@ class RegularlyShardedDataCache : public ShardedDataCache {
     return layout;
   }
 
-  void Read(internal::OpenTransactionPtr transaction, size_t component_index,
-            IndexTransform<> transform, absl::Time staleness,
+  void Read(ReadRequest request,
             AnyFlowReceiver<absl::Status, internal::ReadChunk, IndexTransform<>>
                 receiver) override {
     return ShardedReadOrWrite(
-        std::move(transaction), std::move(transform), std::move(receiver),
-        [&](internal::OpenTransactionPtr transaction,
-            IndexTransform<> transform,
+        std::move(request.transform), std::move(receiver),
+        [&](IndexTransform<> transform,
             AnyFlowReceiver<absl::Status, internal::ReadChunk, IndexTransform<>>
                 receiver) {
-          return ShardedDataCache::Read(std::move(transaction), component_index,
-                                        std::move(transform), staleness,
-                                        std::move(receiver));
+          return ShardedDataCache::Read(
+              {{request.transaction, std::move(transform)},
+               request.component_index,
+               request.staleness_bound},
+              std::move(receiver));
         });
   }
 
   void Write(
-      internal::OpenTransactionPtr transaction, size_t component_index,
-      IndexTransform<> transform,
+      WriteRequest request,
       AnyFlowReceiver<absl::Status, internal::WriteChunk, IndexTransform<>>
           receiver) override {
     return ShardedReadOrWrite(
-        std::move(transaction), std::move(transform), std::move(receiver),
-        [&](internal::OpenTransactionPtr transaction,
-            IndexTransform<> transform,
+        std::move(request.transform), std::move(receiver),
+        [&](IndexTransform<> transform,
             AnyFlowReceiver<absl::Status, internal::WriteChunk,
                             IndexTransform<>>
                 receiver) {
-          return ShardedDataCache::Write(std::move(transaction),
-                                         component_index, std::move(transform),
-                                         std::move(receiver));
+          internal::OpenTransactionPtr shard_transaction = request.transaction;
+          if (!shard_transaction) {
+            shard_transaction = internal::TransactionState::MakeImplicit();
+            shard_transaction->RequestCommit();
+          }
+          return ShardedDataCache::Write(
+              {{std::move(shard_transaction), std::move(transform)},
+               request.component_index},
+              std::move(receiver));
         });
   }
 
  private:
   template <typename ChunkType, typename Callback>
   void ShardedReadOrWrite(
-      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
+      IndexTransform<> transform,
       AnyFlowReceiver<absl::Status, ChunkType, IndexTransform<>> receiver,
       Callback callback) {
     const auto& metadata = this->metadata();
@@ -722,14 +725,7 @@ class RegularlyShardedDataCache : public ShardedDataCache {
           TENSORSTORE_ASSIGN_OR_RETURN(
               auto cell_to_source,
               ComposeTransforms(transform, cell_transform));
-          internal::OpenTransactionPtr shard_transaction = transaction;
-          if constexpr (std::is_same_v<ChunkType, internal::WriteChunk>) {
-            if (!shard_transaction) {
-              shard_transaction = internal::TransactionState::MakeImplicit();
-              shard_transaction->RequestCommit();
-            }
-          }
-          callback(std::move(shard_transaction), std::move(cell_to_source),
+          callback(std::move(cell_to_source),
                    ForwardingReceiver{state, cell_transform});
           return absl::OkStatus();
         });
@@ -777,12 +773,10 @@ class NeuroglancerPrecomputedDriver : public NeuroglancerPrecomputedDriverBase {
   }
 
   Future<ArrayStorageStatistics> GetStorageStatistics(
-      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
-      GetArrayStorageStatisticsOptions options) override {
+      GetStorageStatisticsRequest request) override {
     auto* cache = static_cast<DataCacheBase*>(this->cache());
-    return cache->GetStorageStatistics(
-        std::move(transaction), std::move(transform),
-        this->data_staleness_bound().time, std::move(options));
+    return cache->GetStorageStatistics(std::move(request),
+                                       this->data_staleness_bound().time);
   }
 };
 
@@ -925,10 +919,8 @@ class NeuroglancerPrecomputedDriver::OpenState
 };
 
 Future<internal::Driver::Handle> NeuroglancerPrecomputedDriverSpec::Open(
-    internal::OpenTransactionPtr transaction,
-    ReadWriteMode read_write_mode) const {
-  return NeuroglancerPrecomputedDriver::Open(std::move(transaction), this,
-                                             read_write_mode);
+    internal::DriverOpenRequest request) const {
+  return NeuroglancerPrecomputedDriver::Open(this, std::move(request));
 }
 
 #ifndef _MSC_VER

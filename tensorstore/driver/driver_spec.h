@@ -51,6 +51,15 @@ struct TransformedDriverSpec;
 
 using DriverSpecPtr = IntrusivePtr<const DriverSpec>;
 
+struct DriverOpenRequest {
+  /// transaction to use for opening, or `nullptr` to not use a transaction.  If
+  /// specified, the same transaction should be returned in the `DriverHandle`.
+  OpenTransactionPtr transaction;
+
+  /// Required mode, or `ReadWriteMode::dynamic` to determine the allowed modes.
+  ReadWriteMode read_write_mode;
+};
+
 /// Abstract base class representing a TensorStore driver specification, for
 /// creating a `Driver` from a JSON representation.
 ///
@@ -129,21 +138,14 @@ class DriverSpec : public internal::AtomicReferenceCount<DriverSpec> {
   ///     the returned `DriverSpec`.
   virtual void StripContext() = 0;
 
+  using DriverOpenRequest = internal::DriverOpenRequest;
+
   /// Opens the driver.
   ///
   /// In the resultant `DriverHandle`, the `transform` specifies any "intrinsic"
   /// transform implicit in the specification.  It will be composed with the
   /// `IndexTransform` specified in the `TransformedDriverSpec`.
-  ///
-  /// If this is a multiscale spec, this opens the base resolution.
-  ///
-  /// \param transaction The transaction to use for opening, or `nullptr` to not
-  ///     use a transaction.  If specified, the same transaction should be
-  ///     returned in the `DriverHandle`.
-  /// \param read_write_mode Required mode, or `ReadWriteMode::dynamic` to
-  ///     determine the allowed modes.
-  virtual Future<DriverHandle> Open(OpenTransactionPtr transaction,
-                                    ReadWriteMode read_write_mode) const = 0;
+  virtual Future<DriverHandle> Open(DriverOpenRequest request) const = 0;
 
   /// Returns the effective domain, or a null domain if unknown.
   ///

@@ -57,6 +57,8 @@
 #include "tensorstore/array.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/chunk.h"
+#include "tensorstore/driver/read_request.h"
+#include "tensorstore/driver/write_request.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/async_write_array.h"
@@ -203,40 +205,36 @@ class ChunkCache : public AsyncCache {
   /// Returns the data copy executor.
   virtual const Executor& executor() const = 0;
 
+  struct ReadRequest : public internal::DriverReadRequest {
+    /// Component array index in the range `[0, grid().components.size())`.
+    size_t component_index;
+
+    /// Cached data older than `staleness_bound` will not be returned without
+    /// being rechecked.
+    absl::Time staleness_bound;
+  };
+
   /// Implements the behavior of `Driver::Read` for a given component array.
   ///
   /// Each chunk sent to `receiver` corresponds to a single grid cell.
   ///
-  /// \param transaction If not null, the read will reflect the uncommitted
-  ///     modifications made in `transaction`.  Otherwise, the read will only
-  ///     reflect the committed state.  (The read will never reflect uncommitted
-  ///     non-transactional modifications.)
-  /// \param component_index Component array index in the range
-  ///     `[0, grid().components.size())`.
-  /// \param transform The transform to apply.
-  /// \param staleness Cached data older than `staleness` will not be returned
-  ///     without being rechecked.
   /// \param receiver Receiver for the chunks.
   virtual void Read(
-      internal::OpenTransactionPtr transaction, size_t component_index,
-      IndexTransform<> transform, absl::Time staleness,
+      ReadRequest request,
       AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver);
+
+  struct WriteRequest : public internal::DriverWriteRequest {
+    /// Component array index in the range `[0, grid().components.size())`.
+    size_t component_index;
+  };
 
   /// Implements the behavior of `Driver::Write` for a given component array.
   ///
   /// Each chunk sent to `receiver` corresponds to a single grid cell.
   ///
-  /// \param transaction If not null, the modifications will be recorded for
-  ///     `transaction`.  If null, fine-grained implicit transactions will be
-  ///     used (typically one per chunk, not a single implicit transaction for
-  ///     the entire write).
-  /// \param component_index Component array index in the range
-  ///     `[0, grid().components.size())`.
-  /// \param transform The transform to apply.
   /// \param receiver Receiver for the chunks.
   virtual void Write(
-      internal::OpenTransactionPtr transaction, size_t component_index,
-      IndexTransform<> transform,
+      WriteRequest request,
       AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>> receiver);
 
   Future<const void> DeleteCell(span<const Index> grid_cell_indices,

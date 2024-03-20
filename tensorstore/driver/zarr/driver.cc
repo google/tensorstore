@@ -14,6 +14,7 @@
 
 #include "tensorstore/driver/driver.h"
 
+#include <utility>
 #include <vector>
 
 #include "absl/status/status.h"
@@ -374,28 +375,25 @@ Result<SharedArray<const void>> ZarrDriver::GetFillValue(
 }
 
 Future<internal::Driver::Handle> ZarrDriverSpec::Open(
-    internal::OpenTransactionPtr transaction,
-    ReadWriteMode read_write_mode) const {
-  return ZarrDriver::Open(std::move(transaction), this, read_write_mode);
+    DriverOpenRequest request) const {
+  return ZarrDriver::Open(this, std::move(request));
 }
 
 Future<ArrayStorageStatistics> ZarrDriver::GetStorageStatistics(
-    internal::OpenTransactionPtr transaction, IndexTransform<> transform,
-    GetArrayStorageStatisticsOptions options) {
+    GetStorageStatisticsRequest request) {
   auto* cache = static_cast<DataCache*>(this->cache());
   auto [promise, future] = PromiseFuturePair<ArrayStorageStatistics>::Make();
   auto metadata_future =
-      ResolveMetadata(transaction, metadata_staleness_bound_.time);
+      ResolveMetadata(request.transaction, metadata_staleness_bound_.time);
   LinkValue(
       WithExecutor(
           cache->executor(),
           [cache = internal::CachePtr<DataCache>(cache),
-           transform = std::move(transform),
+           request = std::move(request),
            component_index = this->component_index(),
-           transaction = std::move(transaction),
-           staleness_bound = this->data_staleness_bound().time,
-           options](Promise<ArrayStorageStatistics> promise,
-                    ReadyFuture<MetadataCache::MetadataPtr> future) {
+           staleness_bound = this->data_staleness_bound().time](
+              Promise<ArrayStorageStatistics> promise,
+              ReadyFuture<MetadataCache::MetadataPtr> future) mutable {
             auto* metadata =
                 static_cast<const ZarrMetadata*>(future.value().get());
             auto& grid = cache->grid();
@@ -406,14 +404,14 @@ Future<ArrayStorageStatistics> ZarrDriver::GetStorageStatistics(
                     KvStore{kvstore::DriverPtr(cache->kvstore_driver()),
                             cache->GetBaseKvstorePath(),
                             internal::TransactionState::ToTransaction(
-                                std::move(transaction))},
-                    transform, /*grid_output_dimensions=*/
+                                std::move(request.transaction))},
+                    request.transform, /*grid_output_dimensions=*/
                     component.chunked_to_cell_dimensions,
                     /*chunk_shape=*/grid.chunk_shape,
                     /*shape=*/metadata->shape,
                     /*dimension_separator=*/
                     GetDimensionSeparatorChar(cache->dimension_separator_),
-                    staleness_bound, options));
+                    staleness_bound, request.options));
           }),
       std::move(promise), std::move(metadata_future));
   return std::move(future);

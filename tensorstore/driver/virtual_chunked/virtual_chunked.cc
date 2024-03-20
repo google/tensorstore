@@ -14,25 +14,66 @@
 
 #include "tensorstore/virtual_chunked.h"
 
+#include <stddef.h>
+
+#include <algorithm>
+#include <atomic>
+#include <memory>
+#include <numeric>
+#include <optional>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "absl/base/optimization.h"
 #include "absl/status/status.h"
+#include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "tensorstore/array.h"
 #include "tensorstore/box.h"
+#include "tensorstore/chunk_layout.h"
+#include "tensorstore/codec_spec.h"
+#include "tensorstore/context.h"
+#include "tensorstore/contiguous_layout.h"
+#include "tensorstore/data_type.h"
 #include "tensorstore/driver/chunk_cache_driver.h"
 #include "tensorstore/driver/driver.h"
+#include "tensorstore/driver/driver_handle.h"
+#include "tensorstore/driver/driver_spec.h"
 #include "tensorstore/driver/registry.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
+#include "tensorstore/index_space/dimension_units.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_domain_builder.h"
+#include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
+#include "tensorstore/internal/cache/async_cache.h"
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/cache/cache_pool_resource.h"
 #include "tensorstore/internal/cache/chunk_cache.h"
+#include "tensorstore/internal/chunk_grid_specification.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
-#include "tensorstore/serialization/absl_time.h"
-#include "tensorstore/serialization/std_optional.h"
-#include "tensorstore/tensorstore.h"
+#include "tensorstore/internal/integer_overflow.h"
+#include "tensorstore/internal/memory.h"
+#include "tensorstore/kvstore/generation.h"
+#include "tensorstore/open_mode.h"
+#include "tensorstore/open_options.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/serialization/absl_time.h"  // IWYU pragma: keep
+#include "tensorstore/serialization/std_optional.h"  // IWYU pragma: keep
+#include "tensorstore/staleness_bound.h"
+#include "tensorstore/strided_layout.h"
 #include "tensorstore/transaction.h"
+#include "tensorstore/util/byte_strided_pointer.h"
+#include "tensorstore/util/element_pointer.h"
+#include "tensorstore/util/future.h"
 #include "tensorstore/util/garbage_collection/garbage_collection.h"
-#include "tensorstore/util/garbage_collection/std_optional.h"
+#include "tensorstore/util/garbage_collection/std_optional.h"  // IWYU pragma: keep
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace virtual_chunked {
@@ -368,8 +409,7 @@ class VirtualChunkedDriverSpec
   }
 
   Future<internal::Driver::Handle> Open(
-      internal::OpenTransactionPtr transaction,
-      ReadWriteMode read_write_mode) const override;
+      internal::DriverOpenRequest request) const override;
 
   absl::Status ApplyOptions(SpecOptions&& options) override {
     if (options.kvstore.valid()) {
@@ -407,7 +447,8 @@ class VirtualChunkedDriver : public VirtualChunkedDriverBase {
       IndexTransformView<> transform) override;
 
   static Result<internal::Driver::Handle> OpenFromSpecData(
-      Transaction transaction, const VirtualChunkedDriverSpec& spec);
+      Transaction transaction, const VirtualChunkedDriverSpec& spec,
+      ReadWriteMode read_write_mode = ReadWriteMode::dynamic);
 
   Result<CodecSpec> GetCodec() override { return CodecSpec{}; }
 
@@ -502,7 +543,22 @@ Result<internal::TransformedDriverSpec> VirtualChunkedDriver::GetBoundSpec(
 }
 
 Result<internal::Driver::Handle> VirtualChunkedDriver::OpenFromSpecData(
-    Transaction transaction, const VirtualChunkedDriverSpec& spec) {
+    Transaction transaction, const VirtualChunkedDriverSpec& spec,
+    ReadWriteMode read_write_mode) {
+  if ((read_write_mode & ReadWriteMode::read) == ReadWriteMode::read &&
+      !spec.read_function) {
+    return absl::InvalidArgumentError("Reading not supported");
+  }
+  if ((read_write_mode & ReadWriteMode::write) == ReadWriteMode::write &&
+      !spec.write_function) {
+    return absl::InvalidArgumentError("Writing not supported");
+  }
+  if (read_write_mode == ReadWriteMode::dynamic) {
+    read_write_mode =
+        (spec.read_function ? ReadWriteMode::read : ReadWriteMode{}) |
+        (spec.write_function ? ReadWriteMode::write : ReadWriteMode{});
+  }
+
   const DimensionIndex rank = spec.schema.rank();
   if (rank == dynamic_rank) {
     return absl::InvalidArgumentError("rank must be specified");
@@ -587,45 +643,45 @@ Result<internal::Driver::Handle> VirtualChunkedDriver::OpenFromSpecData(
   }
 
   // Cache key of "" means a distinct cache on each call to `GetCache`.
-  auto cache = internal::GetCache<
-      VirtualChunkedCache>(spec.cache_pool->get(), "", [&] {
-    // Create the fill value array, which is just a single value-initialized
-    // element broadcast to have a shape equal to the component chunk shape.
-    // The fill value is not user-configurable and doesn't have any user-visible
-    // effect for this driver, but the chunk cache requires one.
-    SharedArray<const void> fill_value;
-    fill_value.layout().set_rank(rank);
-    std::fill_n(fill_value.byte_strides().begin(), rank, 0);
-    for (DimensionIndex component_dim = 0; component_dim < rank;
-         ++component_dim) {
-      const DimensionIndex external_dim = inner_order[component_dim];
-      fill_value.shape()[component_dim] = chunk_template.shape()[external_dim];
-    }
-    fill_value.element_pointer() = internal::AllocateAndConstructSharedElements(
-        1, value_init, spec.schema.dtype());
-    internal::ChunkGridSpecification::ComponentList components;
-    components.emplace_back(std::move(fill_value),
-                            std::move(adjusted_component_domain));
-    auto cache = std::make_unique<VirtualChunkedCache>(
-        internal::ChunkGridSpecification(std::move(components)),
-        spec.data_copy_concurrency->executor);
-    cache->dimension_units_ = std::move(component_units);
-    if (spec.read_function) {
-      cache->read_function_ = *spec.read_function;
-    }
-    if (spec.write_function) {
-      cache->write_function_ = *spec.write_function;
-    }
-    cache->inner_order_ = std::move(inner_order);
-    cache->grid_origin_for_read_function_.assign(
-        chunk_template.origin().begin(), chunk_template.origin().end());
-    cache->cache_pool_ = spec.cache_pool;
-    cache->data_copy_concurrency_ = spec.data_copy_concurrency;
-    return cache;
-  });
-  ReadWriteMode read_write_mode =
-      (cache->read_function_ ? ReadWriteMode::read : ReadWriteMode{}) |
-      (cache->write_function_ ? ReadWriteMode::write : ReadWriteMode{});
+  auto cache =
+      internal::GetCache<VirtualChunkedCache>(spec.cache_pool->get(), "", [&] {
+        // Create the fill value array, which is just a single value-initialized
+        // element broadcast to have a shape equal to the component chunk shape.
+        // The fill value is not user-configurable and doesn't have any
+        // user-visible effect for this driver, but the chunk cache requires
+        // one.
+        SharedArray<const void> fill_value;
+        fill_value.layout().set_rank(rank);
+        std::fill_n(fill_value.byte_strides().begin(), rank, 0);
+        for (DimensionIndex component_dim = 0; component_dim < rank;
+             ++component_dim) {
+          const DimensionIndex external_dim = inner_order[component_dim];
+          fill_value.shape()[component_dim] =
+              chunk_template.shape()[external_dim];
+        }
+        fill_value.element_pointer() =
+            internal::AllocateAndConstructSharedElements(1, value_init,
+                                                         spec.schema.dtype());
+        internal::ChunkGridSpecification::ComponentList components;
+        components.emplace_back(std::move(fill_value),
+                                std::move(adjusted_component_domain));
+        auto cache = std::make_unique<VirtualChunkedCache>(
+            internal::ChunkGridSpecification(std::move(components)),
+            spec.data_copy_concurrency->executor);
+        cache->dimension_units_ = std::move(component_units);
+        if (spec.read_function) {
+          cache->read_function_ = *spec.read_function;
+        }
+        if (spec.write_function) {
+          cache->write_function_ = *spec.write_function;
+        }
+        cache->inner_order_ = std::move(inner_order);
+        cache->grid_origin_for_read_function_.assign(
+            chunk_template.origin().begin(), chunk_template.origin().end());
+        cache->cache_pool_ = spec.cache_pool;
+        cache->data_copy_concurrency_ = spec.data_copy_concurrency;
+        return cache;
+      });
   handle.driver = internal::MakeReadWritePtr<VirtualChunkedDriver>(
       read_write_mode, VirtualChunkedDriver::Initializer{
                            std::move(cache), /*component_index=*/0,
@@ -635,22 +691,10 @@ Result<internal::Driver::Handle> VirtualChunkedDriver::OpenFromSpecData(
 }
 
 Future<internal::Driver::Handle> VirtualChunkedDriverSpec::Open(
-    internal::OpenTransactionPtr transaction,
-    ReadWriteMode read_write_mode) const {
-  if ((read_write_mode & ReadWriteMode::read) == ReadWriteMode::read &&
-      !read_function) {
-    return absl::InvalidArgumentError("Reading not supported");
-  }
-  if ((read_write_mode & ReadWriteMode::write) == ReadWriteMode::write &&
-      !write_function) {
-    return absl::InvalidArgumentError("Writing not supported");
-  }
-  if (read_write_mode == ReadWriteMode::dynamic) {
-    read_write_mode = (read_function ? ReadWriteMode::read : ReadWriteMode{}) |
-                      (write_function ? ReadWriteMode::write : ReadWriteMode{});
-  }
+    internal::DriverOpenRequest request) const {
   return VirtualChunkedDriver::OpenFromSpecData(
-      internal::TransactionState::ToTransaction(std::move(transaction)), *this);
+      internal::TransactionState::ToTransaction(std::move(request.transaction)),
+      *this, request.read_write_mode);
 }
 
 }  // namespace

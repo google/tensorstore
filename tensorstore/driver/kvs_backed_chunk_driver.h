@@ -512,13 +512,10 @@ class KvsMetadataDriverBase : public internal::Driver {
  public:
   /// Forwards to `ResolveBound` overload below with
   /// `metadata_staleness_bound_`.
-  Future<IndexTransform<>> ResolveBounds(
-      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
-      ResolveBoundsOptions options) override;
+  Future<IndexTransform<>> ResolveBounds(ResolveBoundsRequest request) override;
 
   Future<IndexTransform<>> ResolveBounds(
-      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
-      StalenessBound metadata_staleness_bound, ResolveBoundsOptions options);
+      ResolveBoundsRequest request, StalenessBound metadata_staleness_bound);
 
   /// Queries the current metadata, as of `metadata_staleness_bound`.
   Future<MetadataCache::MetadataPtr> ResolveMetadata(
@@ -586,11 +583,8 @@ class KvsChunkedDriverBase : public KvsMetadataDriverBase {
   /// Returns a chunk layout derived from the metadata.
   Result<ChunkLayout> GetChunkLayout(IndexTransformView<> transform) override;
 
-  Future<IndexTransform<>> Resize(internal::OpenTransactionPtr transaction,
-                                  IndexTransform<> transform,
-                                  span<const Index> inclusive_min,
-                                  span<const Index> exclusive_max,
-                                  ResizeOptions options) override;
+  Future<IndexTransform<>> Resize(
+      internal::Driver::ResizeRequest request) override;
 };
 
 using DriverInitializer = internal::ChunkCacheDriverInitializer<DataCacheBase>;
@@ -616,9 +610,8 @@ class MetadataOpenState
   using Ptr = internal::IntrusivePtr<MetadataOpenState>;
 
   struct Initializer {
-    internal::OpenTransactionPtr transaction;
     internal::DriverSpec::PtrT<const KvsDriverSpec> spec;
-    ReadWriteMode read_write_mode;
+    internal::DriverOpenRequest request;
   };
 
   explicit MetadataOpenState(Initializer initializer);
@@ -885,16 +878,14 @@ class RegisteredKvsDriver
   /// Implements the `Open` method required by `internal::RegisteredDriver` in
   /// terms of `internal_kvs_backed_chunk_driver::OpenDriver`.
   static Future<internal::Driver::Handle> Open(
-      internal::OpenTransactionPtr transaction, const DerivedSpec* spec,
-      ReadWriteMode read_write_mode) {
+      const DerivedSpec* spec, internal::DriverOpenRequest request) {
     return internal_kvs_backed_chunk_driver::OpenDriver(
         internal_kvs_backed_chunk_driver::MetadataOpenState::Ptr(
             new typename Derived::OpenState(
                 internal_kvs_backed_chunk_driver::MetadataOpenState::
                     Initializer{
-                        std::move(transaction),
                         internal::DriverSpec::PtrT<const DerivedSpec>(spec),
-                        read_write_mode})));
+                        std::move(request)})));
   }
 };
 

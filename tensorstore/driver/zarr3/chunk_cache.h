@@ -29,6 +29,8 @@
 #include "absl/time/time.h"
 #include "tensorstore/array.h"
 #include "tensorstore/driver/chunk.h"
+#include "tensorstore/driver/read_request.h"
+#include "tensorstore/driver/write_request.h"
 #include "tensorstore/driver/zarr3/codec/codec.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
@@ -64,21 +66,31 @@ class ZarrChunkCache {
   virtual const internal::ChunkGridSpecification& grid() const = 0;
   virtual const Executor& executor() const = 0;
 
-  virtual void Read(internal::OpenTransactionPtr transaction,
-                    IndexTransform<> transform, absl::Time staleness,
+  struct ReadRequest : internal::DriverReadRequest {
+    absl::Time staleness_bound;
+  };
+
+  virtual void Read(ReadRequest request,
                     AnyFlowReceiver<absl::Status, internal::ReadChunk,
                                     IndexTransform<>>&& receiver) = 0;
 
-  virtual void Write(internal::OpenTransactionPtr transaction,
-                     IndexTransform<> transform,
+  using WriteRequest = internal::DriverWriteRequest;
+
+  virtual void Write(WriteRequest request,
                      AnyFlowReceiver<absl::Status, internal::WriteChunk,
                                      IndexTransform<>>&& receiver) = 0;
+
+  struct GetStorageStatisticsRequest {
+    internal::OpenTransactionPtr transaction;
+    span<const Index> shape;
+    IndexTransform<> transform;
+    absl::Time staleness_bound;
+  };
 
   virtual void GetStorageStatistics(
       internal::IntrusivePtr<internal::GetStorageStatisticsAsyncOperationState>
           state,
-      internal::OpenTransactionPtr transaction, span<const Index> shape,
-      IndexTransform<> transform, absl::Time staleness_bound) = 0;
+      GetStorageStatisticsRequest request) = 0;
 
   virtual const internal::LexicographicalGridIndexKeyParser&
   GetChunkStorageKeyParser() = 0;
@@ -135,21 +147,18 @@ class ZarrLeafChunkCache : public internal::KvsBackedChunkCache,
   explicit ZarrLeafChunkCache(kvstore::DriverPtr store,
                               ZarrCodecChain::PreparedState::Ptr codec_state);
 
-  void Read(internal::OpenTransactionPtr transaction,
-            IndexTransform<> transform, absl::Time staleness,
+  void Read(ZarrChunkCache::ReadRequest request,
             AnyFlowReceiver<absl::Status, internal::ReadChunk,
                             IndexTransform<>>&& receiver) override;
 
-  void Write(internal::OpenTransactionPtr transaction,
-             IndexTransform<> transform,
+  void Write(ZarrChunkCache::WriteRequest request,
              AnyFlowReceiver<absl::Status, internal::WriteChunk,
                              IndexTransform<>>&& receiver) override;
 
   void GetStorageStatistics(
       internal::IntrusivePtr<internal::GetStorageStatisticsAsyncOperationState>
           state,
-      internal::OpenTransactionPtr transaction, span<const Index> shape,
-      IndexTransform<> transform, absl::Time staleness_bound) override;
+      ZarrChunkCache::GetStorageStatisticsRequest request) override;
 
   std::string GetChunkStorageKey(span<const Index> cell_indices) final;
 
@@ -178,21 +187,18 @@ class ZarrShardedChunkCache : public internal::Cache, public ZarrChunkCache {
         *codec_state_->array_to_bytes);
   }
 
-  void Read(internal::OpenTransactionPtr transaction,
-            IndexTransform<> transform, absl::Time staleness,
+  void Read(ZarrChunkCache::ReadRequest request,
             AnyFlowReceiver<absl::Status, internal::ReadChunk,
                             IndexTransform<>>&& receiver) override;
 
-  void Write(internal::OpenTransactionPtr transaction,
-             IndexTransform<> transform,
+  void Write(ZarrChunkCache::WriteRequest request,
              AnyFlowReceiver<absl::Status, internal::WriteChunk,
                              IndexTransform<>>&& receiver) override;
 
   void GetStorageStatistics(
       internal::IntrusivePtr<internal::GetStorageStatisticsAsyncOperationState>
           state,
-      internal::OpenTransactionPtr transaction, span<const Index> shape,
-      IndexTransform<> transform, absl::Time staleness_bound) override;
+      ZarrChunkCache::GetStorageStatisticsRequest request) override;
 
   Future<const void> DeleteCell(span<const Index> grid_cell_indices,
                                 internal::OpenTransactionPtr transaction);

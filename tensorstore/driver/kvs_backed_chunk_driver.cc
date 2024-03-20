@@ -94,9 +94,9 @@ Result<IndexTransform<>> DataCacheBase::GetExternalToInternalTransform(
 }
 
 MetadataOpenState::MetadataOpenState(Initializer initializer)
-    : PrivateOpenState{std::move(initializer.transaction),
+    : PrivateOpenState{std::move(initializer.request.transaction),
                        std::move(initializer.spec),
-                       initializer.read_write_mode} {
+                       initializer.request.read_write_mode} {
   request_time_ = absl::Now();
 }
 
@@ -412,10 +412,8 @@ Result<ChunkLayout> ChunkedDataCacheBase::GetChunkLayout(
 }
 
 Future<IndexTransform<>> KvsMetadataDriverBase::ResolveBounds(
-    internal::OpenTransactionPtr transaction, IndexTransform<> transform,
-    ResolveBoundsOptions options) {
-  return ResolveBounds(std::move(transaction), std::move(transform),
-                       metadata_staleness_bound_, options);
+    ResolveBoundsRequest request) {
+  return ResolveBounds(std::move(request), metadata_staleness_bound_);
 }
 
 Future<MetadataPtr> KvsMetadataDriverBase::ResolveMetadata(
@@ -459,19 +457,20 @@ Future<MetadataPtr> KvsMetadataDriverBase::ResolveMetadata(
 }
 
 Future<IndexTransform<>> KvsMetadataDriverBase::ResolveBounds(
-    internal::OpenTransactionPtr transaction, IndexTransform<> transform,
-    StalenessBound metadata_staleness_bound, ResolveBoundsOptions options) {
+    ResolveBoundsRequest request, StalenessBound metadata_staleness_bound) {
   auto* cache = this->cache();
   return MapFutureValue(
       cache->executor(),
       [cache = DataCacheBase::Ptr(cache), component_index = component_index(),
-       options = std::move(options), transform = std::move(transform)](
+       options = std::move(request.options),
+       transform = std::move(request.transform)](
           const MetadataPtr& new_metadata) mutable {
         return ResolveBoundsFromMetadata(cache.get(), new_metadata.get(),
                                          component_index, std::move(transform),
                                          options);
       },
-      ResolveMetadata(std::move(transaction), metadata_staleness_bound.time));
+      ResolveMetadata(std::move(request.transaction),
+                      metadata_staleness_bound.time));
 }
 
 namespace {
@@ -660,26 +659,26 @@ Result<ChunkLayout> KvsChunkedDriverBase::GetChunkLayout(
 }
 
 Future<IndexTransform<>> KvsChunkedDriverBase::Resize(
-    internal::OpenTransactionPtr transaction, IndexTransform<> transform,
-    span<const Index> inclusive_min, span<const Index> exclusive_max,
-    ResizeOptions options) {
+    internal::Driver::ResizeRequest request) {
   if (assumed_metadata_time_ == absl::InfiniteFuture()) {
     return absl::InvalidArgumentError(
         "Resize not supported because assume_metadata was specified");
   }
   auto* cache = this->cache();
   auto resize_parameters = GetResizeParameters(
-      cache, cache->initial_metadata_.get(), component_index(), transform,
-      inclusive_min, exclusive_max, options,
-      transaction ? transaction->mode() : TransactionMode::no_transaction_mode);
+      cache, cache->initial_metadata_.get(), component_index(),
+      request.transform, request.inclusive_min, request.exclusive_max,
+      request.options,
+      request.transaction ? request.transaction->mode()
+                          : TransactionMode::no_transaction_mode);
   if (!resize_parameters) {
     if (resize_parameters.status().code() == absl::StatusCode::kAborted) {
       // Requested resize is a no-op.  Currently there is no resize option
       // corresponding to the `fix_resizable_bounds` resolve option, so we
       // don't specify it.
-      return ResolveBounds(std::move(transaction), std::move(transform),
-                           /*metadata_staleness_bound=*/{},
-                           /*options=*/{});
+      return ResolveBounds(
+          {std::move(request.transaction), std::move(request.transform)},
+          /*metadata_staleness_bound=*/{});
     }
     return resize_parameters.status();
   }
@@ -688,13 +687,13 @@ Future<IndexTransform<>> KvsChunkedDriverBase::Resize(
   ResizeState resize_state{
       /*.driver=*/internal::IntrusivePtr<KvsChunkedDriverBase>(this),
       /*.cache=*/ChunkedDataCacheBase::Ptr(cache),
-      /*.transaction=*/std::move(transaction),
+      /*.transaction=*/std::move(request.transaction),
       /*.component_index=*/component_index(),
-      /*.transform=*/std::move(transform),
+      /*.transform=*/std::move(request.transform),
       /*.resize_parameters=*/std::move(*resize_parameters),
   };
-  if ((options.mode & resize_metadata_only) == resize_metadata_only ||
-      (options.mode & expand_only) == expand_only) {
+  if ((request.options.mode & resize_metadata_only) == resize_metadata_only ||
+      (request.options.mode & expand_only) == expand_only) {
     // No existing data chunks need to be deleted.  Just update the metadata.
     SubmitResizeRequest(std::move(pair.promise), std::move(resize_state));
   } else {

@@ -1111,11 +1111,13 @@ ReadAsIndividualChunks(TensorStore<> store) {
   };
   auto [promise, future] = PromiseFuturePair<ChunkVec>::Make(std::in_place);
   auto transformed_driver = TensorStoreAccess::handle(store);
-  TENSORSTORE_ASSIGN_OR_RETURN(auto transaction,
+  internal::Driver::ReadRequest request;
+  TENSORSTORE_ASSIGN_OR_RETURN(request.transaction,
                                internal::AcquireOpenTransactionPtrOrError(
                                    transformed_driver.transaction));
+  request.transform = transformed_driver.transform;
   transformed_driver.driver->Read(
-      transaction, transformed_driver.transform,
+      std::move(request),
       SyncFlowReceiver<ReceiverImpl>{ReceiverImpl{
           std::move(promise), transformed_driver.driver->dtype()}});
   return future;
@@ -1145,26 +1147,23 @@ Future<std::vector<std::pair<ReadChunk, IndexTransform<>>>> CollectReadChunks(
   };
   auto [promise, future] = PromiseFuturePair<ChunkVec>::Make(std::in_place);
   auto transformed_driver = TensorStoreAccess::handle(store);
-  TENSORSTORE_ASSIGN_OR_RETURN(auto transaction,
+  internal::Driver::ReadRequest request;
+  TENSORSTORE_ASSIGN_OR_RETURN(request.transaction,
                                internal::AcquireOpenTransactionPtrOrError(
                                    transformed_driver.transaction));
+  request.transform = transformed_driver.transform;
   transformed_driver.driver->Read(
-      transaction, transformed_driver.transform,
+      std::move(request),
       SyncFlowReceiver<ReceiverImpl>{ReceiverImpl{std::move(promise)}});
   return future;
 }
 
-void MockDriver::Read(internal::OpenTransactionPtr transaction,
-                      IndexTransform<> transform, ReadChunkReceiver receiver) {
-  read_requests.push(ReadRequest{std::move(transaction), std::move(transform),
-                                 std::move(receiver)});
+void MockDriver::Read(ReadRequest request, ReadChunkReceiver receiver) {
+  read_requests.push({std::move(request), std::move(receiver)});
 }
 
-void MockDriver::Write(internal::OpenTransactionPtr transaction,
-                       IndexTransform<> transform,
-                       WriteChunkReceiver receiver) {
-  write_requests.push(WriteRequest{std::move(transaction), std::move(transform),
-                                   std::move(receiver)});
+void MockDriver::Write(WriteRequest request, WriteChunkReceiver receiver) {
+  write_requests.push({std::move(request), std::move(receiver)});
 }
 
 void MockDriver::GarbageCollectionVisit(

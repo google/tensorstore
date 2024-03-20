@@ -182,26 +182,20 @@ class MockDriver : public Driver {
                       Executor data_copy_executor = InlineExecutor{})
       : dtype_(dtype), rank_(rank), executor_(std::move(data_copy_executor)) {}
 
-  struct ReadRequest {
-    internal::OpenTransactionPtr transaction;
-    IndexTransform<> transform;
+  struct ReadRequestWithReceiver : public Driver::ReadRequest {
     ReadChunkReceiver receiver;
   };
 
-  struct WriteRequest {
-    internal::OpenTransactionPtr transaction;
-    IndexTransform<> transform;
+  struct WriteRequestWithReceiver : public Driver::WriteRequest {
     WriteChunkReceiver receiver;
   };
 
   DataType dtype() override { return dtype_; }
   DimensionIndex rank() override { return rank_; }
 
-  void Read(internal::OpenTransactionPtr transaction,
-            IndexTransform<> transform, ReadChunkReceiver receiver) override;
+  void Read(ReadRequest request, ReadChunkReceiver receiver) override;
 
-  void Write(internal::OpenTransactionPtr transaction,
-             IndexTransform<> transform, WriteChunkReceiver receiver) override;
+  void Write(WriteRequest request, WriteChunkReceiver receiver) override;
 
   void GarbageCollectionVisit(
       garbage_collection::GarbageCollectionVisitor& visitor) const override;
@@ -214,8 +208,8 @@ class MockDriver : public Driver {
   DimensionIndex rank_;
   Executor executor_;
 
-  ConcurrentQueue<ReadRequest> read_requests;
-  ConcurrentQueue<WriteRequest> write_requests;
+  ConcurrentQueue<ReadRequestWithReceiver> read_requests;
+  ConcurrentQueue<WriteRequestWithReceiver> write_requests;
 };
 
 /// Returns a `ReadChunk` that simply reads from the specified array.

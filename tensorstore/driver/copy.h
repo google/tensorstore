@@ -26,17 +26,7 @@ namespace tensorstore {
 namespace internal {
 
 /// Options for DriverCopy.
-struct DriverCopyOptions {
-  /// Callback to be invoked after each chunk is copied or committed.  Must
-  /// remain valid until the returned `commit_future` becomes ready.  May be
-  /// `nullptr` to indicate that progress information is not needed.  The
-  /// callback may be invoked concurrently from multiple threads.  All
-  /// CopyProgress values are monotonically increasing.  The `total_elements`
-  /// value does not change after the first call.
-  CopyProgressFunction progress_function;
-
-  DomainAlignmentOptions alignment_options = DomainAlignmentOptions::all;
-
+struct DriverCopyOptions : public CopyOptions {
   DataTypeConversionFlags data_type_conversion_flags =
       DataTypeConversionFlags::kSafeAndImplicit;
 };

@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <numeric>
 #include <optional>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -60,11 +61,9 @@
 #include "tensorstore/open_mode.h"
 #include "tensorstore/open_options.h"
 #include "tensorstore/rank.h"
-#include "tensorstore/resize_options.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/execution/any_receiver.h"
-#include "tensorstore/util/execution/flow_sender_operation_state.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/iterate_over_index_range.h"
@@ -463,8 +462,7 @@ class StackDriverSpec
   }
 
   Future<internal::Driver::Handle> Open(
-      internal::OpenTransactionPtr transaction,
-      ReadWriteMode read_write_mode) const override;
+      internal::DriverOpenRequest request) const override;
 };
 
 class StackDriver
@@ -486,16 +484,13 @@ class StackDriver
       internal::OpenTransactionPtr transaction,
       IndexTransformView<> transform) override;
 
-  Future<IndexTransform<>> ResolveBounds(OpenTransactionPtr transaction,
-                                         IndexTransform<> transform,
-                                         ResolveBoundsOptions options) override;
+  Future<IndexTransform<>> ResolveBounds(ResolveBoundsRequest request) override;
 
-  void Read(OpenTransactionPtr transaction, IndexTransform<> transform,
+  void Read(ReadRequest request,
             AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver)
       override;
 
-  void Write(OpenTransactionPtr transaction, IndexTransform<> transform,
-             WriteChunkReceiver receiver) override;
+  void Write(WriteRequest request, WriteChunkReceiver receiver) override;
 
   absl::Status InitializeGridIndices(span<const IndexDomain<>> domains);
 
@@ -533,15 +528,15 @@ Result<internal::Driver::Handle> MakeStackDriverHandle(
 }
 
 Future<internal::Driver::Handle> StackDriverSpec::Open(
-    internal::OpenTransactionPtr transaction,
-    ReadWriteMode read_write_mode) const {
+    internal::DriverOpenRequest request) const {
   if (!schema.dtype().valid()) {
     return absl::InvalidArgumentError("dtype must be specified");
   }
-  if (read_write_mode == ReadWriteMode::dynamic) {
-    read_write_mode = ReadWriteMode::read_write;
+  if (request.read_write_mode == ReadWriteMode::dynamic) {
+    request.read_write_mode = ReadWriteMode::read_write;
   }
-  auto driver = internal::MakeReadWritePtr<StackDriver>(read_write_mode);
+  auto driver =
+      internal::MakeReadWritePtr<StackDriver>(request.read_write_mode);
   driver->data_copy_concurrency_ = data_copy_concurrency;
   const size_t num_layers = layers.size();
   driver->layers_.resize(num_layers);
@@ -557,7 +552,7 @@ Future<internal::Driver::Handle> StackDriverSpec::Open(
           driver->layers_));
   return internal_stack::MakeStackDriverHandle(
       std::move(driver), layer_domains,
-      internal::TransactionState::ToTransaction(std::move(transaction)),
+      internal::TransactionState::ToTransaction(std::move(request.transaction)),
       schema);
 }
 
@@ -641,8 +636,7 @@ Result<TransformedDriverSpec> StackDriver::GetBoundSpec(
 }
 
 Future<IndexTransform<>> StackDriver::ResolveBounds(
-    OpenTransactionPtr transaction, IndexTransform<> transform,
-    ResolveBoundsOptions options) {
+    ResolveBoundsRequest request) {
   // All layer bounds are required to be specified in the spec, and
   // may not be modified later, so here we propagate the composed bounds
   // to the index transform.
@@ -651,7 +645,8 @@ Future<IndexTransform<>> StackDriver::ResolveBounds(
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto transform_ptr,
       PropagateExplicitBoundsToTransform(
-          layer_domain_.box(), TransformAccess::rep_ptr(std::move(transform))));
+          layer_domain_.box(),
+          TransformAccess::rep_ptr(std::move(request.transform))));
   return TransformAccess::Make<IndexTransform<>>(std::move(transform_ptr));
 }
 
@@ -665,7 +660,7 @@ absl::Status ComposeAndDispatchOperation(
   //    `Compose(outer_request, Compose(driver, cell))`
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto a_transform,
-      ComposeTransforms(state.orig_transform, cell_transform));
+      ComposeTransforms(state.request.transform, cell_transform));
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto b_transform,
       ComposeTransforms(driver_handle.transform, std::move(a_transform)));
@@ -724,7 +719,7 @@ struct OpenLayerOp {
     UnmappedOpType unmapped{self};
     absl::flat_hash_map<size_t, std::vector<IndexTransform<>>> layers_to_load;
     auto status = tensorstore::internal::PartitionIndexTransformOverGrid(
-        dimension_order, self->grid_, state->orig_transform,
+        dimension_order, self->grid_, state->request.transform,
         [&](span<const Index> grid_cell_indices,
             IndexTransformView<> cell_transform) {
           auto it = self->grid_to_layer_.find(grid_cell_indices);
@@ -735,7 +730,7 @@ struct OpenLayerOp {
               // Layer is already open, dispatch operation directly.
               TENSORSTORE_RETURN_IF_ERROR(
                   ComposeAndDispatchOperation(
-                      *state, layer.GetDriverHandle(state->transaction),
+                      *state, layer.GetDriverHandle(state->request.transaction),
                       std::move(cell_transform)),
                   tensorstore::MaybeAnnotateStatus(
                       _, absl::StrFormat("Layer %d", layer_i)));
@@ -760,107 +755,90 @@ struct OpenLayerOp {
     for (auto& kv : layers_to_load) {
       const size_t layer_i = kv.first;
       const auto& layer = self->layers_[layer_i];
+      internal::DriverOpenRequest request;
+      request.transaction = state->request.transaction;
+      request.read_write_mode = StateType::kMode;
       Link(WithExecutor(
                self->data_copy_executor(),
                AfterOpenOp<StateType>{state, layer_i, std::move(kv.second)}),
            state->promise,
-           internal::OpenDriver(state->transaction,
-                                layer.GetTransformedDriverSpec(),
-                                StateType::kMode));
+           internal::OpenDriver(layer.GetTransformedDriverSpec(),
+                                std::move(request)));
     }
   }
 };
 
-// Asynchronous state for StackDriver::Read maintains reference
-// counts while the read operation is in progress.
-struct ReadState : public internal::ChunkOperationState<ReadChunk> {
-  using Base = internal::ChunkOperationState<ReadChunk>;
-  static constexpr ReadWriteMode kMode = ReadWriteMode::read;
-  using ForwardingReceiver =
-      internal::ForwardingChunkOperationReceiver<ReadState>;
+struct UnmappedOp {
+  StackDriver* self;
+  absl::Status operator()(span<const Index> grid_cell_indices,
+                          IndexTransformView<> cell_transform) {
+    auto origin = self->grid_.cell_origin(grid_cell_indices);
+    return absl::InvalidArgumentError(
+        tensorstore::StrCat("Cell with origin=", span(origin),
+                            " missing layer mapping in \"stack\" driver"));
+  }
+};
+
+// Asynchronous state for StackDriver::{Read,Write} that maintains reference
+// counts while the read/write operation is in progress.
+template <typename ChunkType>
+struct ReadOrWriteState : public internal::ChunkOperationState<ChunkType> {
+  static constexpr ReadWriteMode kMode = std::is_same_v<ChunkType, ReadChunk>
+                                             ? ReadWriteMode::read
+                                             : ReadWriteMode::write;
+  using RequestType = std::conditional_t<std::is_same_v<ChunkType, ReadChunk>,
+                                         internal::Driver::ReadRequest,
+                                         internal::Driver::WriteRequest>;
+  using Base = internal::ChunkOperationState<ChunkType>;
+  using State = ReadOrWriteState<ChunkType>;
+  using ForwardingReceiver = internal::ForwardingChunkOperationReceiver<State>;
 
   using Base::Base;
 
   IntrusivePtr<StackDriver> self;
-  OpenTransactionPtr transaction;
-  IndexTransform<> orig_transform;
+  RequestType request;
 
   // Initiate the read of an individual transform; dispatched by AfterOpenOp
   void Dispatch(const internal::Driver::Handle& h,
                 IndexTransform<> composed_transform,
                 IndexTransform<> cell_transform) {
-    h.driver->Read(transaction, std::move(composed_transform),
-                   ForwardingReceiver{IntrusivePtr<ReadState>(this),
-                                      std::move(cell_transform)});
-  }
-};
+    auto sub_request = this->request;
+    sub_request.transform = std::move(composed_transform);
 
-struct UnmappedReadOp {
-  StackDriver* self;
-  absl::Status operator()(span<const Index> grid_cell_indices,
-                          IndexTransformView<> cell_transform) {
-    auto origin = self->grid_.cell_origin(grid_cell_indices);
-    return absl::InvalidArgumentError(
-        tensorstore::StrCat("Read cell origin=", span(origin),
-                            " missing layer mapping in \"stack\" driver"));
+    constexpr auto method = [] {
+      if constexpr (std::is_same_v<ChunkType, ReadChunk>) {
+        return &internal::Driver::Read;
+      } else {
+        return &internal::Driver::Write;
+      }
+    }();
+
+    (h.driver.get()->*method)(std::move(sub_request),
+                              ForwardingReceiver{IntrusivePtr<State>(this),
+                                                 std::move(cell_transform)});
+  }
+
+  static void Start(
+      StackDriver& driver, RequestType&& request,
+      AnyFlowReceiver<absl::Status, ChunkType, IndexTransform<>>&& receiver) {
+    auto state = MakeIntrusivePtr<State>(std::move(receiver));
+    const auto& executor = driver.data_copy_executor();
+    state->self = IntrusivePtr<StackDriver>(&driver);
+    state->request = std::move(request);
+    executor(OpenLayerOp<State, UnmappedOp>{std::move(state)});
   }
 };
 
 void StackDriver::Read(
-    OpenTransactionPtr transaction, IndexTransform<> transform,
+    ReadRequest request,
     AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver) {
-  auto state = MakeIntrusivePtr<ReadState>(std::move(receiver));
-  state->self = IntrusivePtr<StackDriver>(this);
-  state->transaction = std::move(transaction);
-  state->orig_transform = std::move(transform);
-  data_copy_executor()(
-      OpenLayerOp<ReadState, UnmappedReadOp>{std::move(state)});
+  ReadOrWriteState<ReadChunk>::Start(*this, std::move(request),
+                                     std::move(receiver));
 }
 
-// Asynchronous state for StackDriver::Write maintains reference
-// counts while the read operation is in progress.
-struct WriteState : public internal::ChunkOperationState<WriteChunk> {
-  static constexpr ReadWriteMode kMode = ReadWriteMode::write;
-  using ForwardingReceiver =
-      internal::ForwardingChunkOperationReceiver<WriteState>;
-  using Base = internal::ChunkOperationState<WriteChunk>;
-
-  using Base::Base;
-
-  IntrusivePtr<StackDriver> self;
-  OpenTransactionPtr transaction;
-  IndexTransform<> orig_transform;
-
-  // Initiate the write of an individual transform; dispatched by AfterOpenOp
-  void Dispatch(const internal::Driver::Handle& h,
-                IndexTransform<> composed_transform,
-                IndexTransform<> cell_transform) {
-    h.driver->Write(transaction, std::move(composed_transform),
-                    ForwardingReceiver{internal::IntrusivePtr<WriteState>(this),
-                                       std::move(cell_transform)});
-  }
-};
-
-struct UnmappedWriteOp {
-  StackDriver* self;
-  absl::Status operator()(span<const Index> grid_cell_indices,
-                          IndexTransformView<> cell_transform) {
-    auto origin = self->grid_.cell_origin(grid_cell_indices);
-    return absl::InvalidArgumentError(
-        tensorstore::StrCat("Write cell origin=", span(origin),
-                            " missing layer mapping in \"stack\" driver"));
-  }
-};
-
-void StackDriver::Write(OpenTransactionPtr transaction,
-                        IndexTransform<> transform,
-                        WriteChunkReceiver receiver) {
-  auto state = MakeIntrusivePtr<WriteState>(std::move(receiver));
-  state->self = IntrusivePtr<StackDriver>(this);
-  state->transaction = std::move(transaction);
-  state->orig_transform = std::move(transform);
-  data_copy_executor()(
-      OpenLayerOp<WriteState, UnmappedWriteOp>{std::move(state)});
+void StackDriver::Write(WriteRequest request, WriteChunkReceiver receiver) {
+  ReadOrWriteState<WriteChunk>::Start(*this, std::move(request),
+                                      std::move(receiver));
 }
 
 Result<internal::ReadWritePtr<StackDriver>> MakeDriverFromLayerSpecs(

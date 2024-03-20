@@ -59,7 +59,7 @@ Result<tensorstore::IndexTransform<>> ResolveBoundsFromMetadata(
                         })
           .result());
   return tensorstore::internal::TensorStoreAccess::handle(store)
-      .driver->ResolveBounds(/*transaction=*/{}, transform, options)
+      .driver->ResolveBounds({/*transaction=*/{}, transform, options})
       .result();
 }
 

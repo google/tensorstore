@@ -27,17 +27,7 @@ namespace tensorstore {
 namespace internal {
 
 /// Options for DriverWrite.
-struct DriverWriteOptions {
-  /// Callback to be invoked after each chunk is copied or committed.  Must
-  /// remain valid until the returned `commit_future` becomes ready.  May be
-  /// `nullptr` to indicate that progress information is not needed.  The
-  /// callback may be invoked concurrently from multiple threads.  All
-  /// WriteProgress values are monotonically increasing.  The `total_elements`
-  /// value does not change after the first call.
-  WriteProgressFunction progress_function;
-
-  DomainAlignmentOptions alignment_options = DomainAlignmentOptions::all;
-
+struct DriverWriteOptions : public WriteOptions {
   DataTypeConversionFlags data_type_conversion_flags =
       DataTypeConversionFlags::kSafeAndImplicit;
 };

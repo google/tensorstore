@@ -48,23 +48,22 @@ template <typename Derived, typename Parent>
 class ChunkCacheReadWriteDriverMixin : public Parent {
  public:
   /// Simply forwards to `ChunkCache::Read`.
-  void Read(OpenTransactionPtr transaction, IndexTransform<> transform,
+  void Read(Driver::ReadRequest request,
             AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver)
       override {
     static_cast<Derived*>(this)->cache()->Read(
-        std::move(transaction), static_cast<Derived*>(this)->component_index(),
-        std::move(transform),
-        static_cast<Derived*>(this)->data_staleness_bound().time,
+        {std::move(request), static_cast<Derived*>(this)->component_index(),
+         static_cast<Derived*>(this)->data_staleness_bound().time},
         std::move(receiver));
   }
 
   /// Simply forwards to `ChunkCache::Write`.
-  void Write(OpenTransactionPtr transaction, IndexTransform<> transform,
+  void Write(Driver::WriteRequest request,
              AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>>
                  receiver) override {
     static_cast<Derived*>(this)->cache()->Write(
-        std::move(transaction), static_cast<Derived*>(this)->component_index(),
-        std::move(transform), std::move(receiver));
+        {std::move(request), static_cast<Derived*>(this)->component_index()},
+        std::move(receiver));
   }
 };
 

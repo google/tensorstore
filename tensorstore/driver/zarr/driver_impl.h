@@ -85,8 +85,7 @@ class ZarrDriverSpec
       IndexTransformView<> transform) const override;
 
   Future<internal::Driver::Handle> Open(
-      internal::OpenTransactionPtr transaction,
-      ReadWriteMode read_write_mode) const override;
+      DriverOpenRequest request) const override;
 };
 
 class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
@@ -164,8 +163,7 @@ class ZarrDriver : public ZarrDriverBase {
       IndexTransformView<> transform) override;
 
   Future<ArrayStorageStatistics> GetStorageStatistics(
-      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
-      GetArrayStorageStatisticsOptions options) override;
+      GetStorageStatisticsRequest request) override;
 };
 
 }  // namespace internal_zarr

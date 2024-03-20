@@ -38,6 +38,7 @@
 #include "tensorstore/codec_spec.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/chunk.h"
+#include "tensorstore/driver/driver_spec.h"
 #include "tensorstore/driver/kvs_backed_chunk_driver.h"
 #include "tensorstore/driver/registry.h"
 #include "tensorstore/driver/zarr3/chunk_cache.h"
@@ -163,8 +164,7 @@ class ZarrDriverSpec
   }
 
   Future<internal::Driver::Handle> Open(
-      internal::OpenTransactionPtr transaction,
-      ReadWriteMode read_write_mode) const override;
+      internal::DriverOpenRequest request) const override;
 };
 
 Result<std::shared_ptr<const ZarrMetadata>> ParseEncodedMetadata(
@@ -458,8 +458,7 @@ class ZarrDriver : public ZarrDriverBase {
   }
 
   Future<ArrayStorageStatistics> GetStorageStatistics(
-      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
-      GetArrayStorageStatisticsOptions options) override;
+      GetStorageStatisticsRequest request) override;
 
   Result<CodecSpec> GetCodec() override {
     return GetCodecFromMetadata(metadata());
@@ -471,21 +470,20 @@ class ZarrDriver : public ZarrDriverBase {
                                              metadata.dimension_units);
   }
 
-  void Read(internal::OpenTransactionPtr transaction,
-            IndexTransform<> transform,
+  void Read(ReadRequest request,
             AnyFlowReceiver<absl::Status, internal::ReadChunk, IndexTransform<>>
                 receiver) override {
     return cache()->zarr_chunk_cache().Read(
-        std::move(transaction), std::move(transform),
-        GetCurrentDataStalenessBound(), std::move(receiver));
+        {std::move(request), GetCurrentDataStalenessBound()},
+        std::move(receiver));
   }
 
   void Write(
-      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
+      WriteRequest request,
       AnyFlowReceiver<absl::Status, internal::WriteChunk, IndexTransform<>>
           receiver) override {
-    return cache()->zarr_chunk_cache().Write(
-        std::move(transaction), std::move(transform), std::move(receiver));
+    return cache()->zarr_chunk_cache().Write(std::move(request),
+                                             std::move(receiver));
   }
 
   absl::Time GetCurrentDataStalenessBound() {
@@ -500,30 +498,33 @@ class ZarrDriver : public ZarrDriverBase {
 };
 
 Future<ArrayStorageStatistics> ZarrDriver::GetStorageStatistics(
-    internal::OpenTransactionPtr transaction, IndexTransform<> transform,
-    GetArrayStorageStatisticsOptions options) {
+    GetStorageStatisticsRequest request) {
   Future<ArrayStorageStatistics> future;
   // Note: `future` is an output parameter.
   auto state = internal::MakeIntrusivePtr<
-      internal::GetStorageStatisticsAsyncOperationState>(future, options);
+      internal::GetStorageStatisticsAsyncOperationState>(future,
+                                                         request.options);
   auto* state_ptr = state.get();
   auto* cache = this->cache();
-  LinkValue(WithExecutor(
-                cache->executor(),
-                [state = std::move(state),
-                 cache = internal::CachePtr<DataCacheBase>(cache),
-                 transform = std::move(transform), transaction,
-                 staleness_bound = this->GetCurrentDataStalenessBound()](
-                    Promise<ArrayStorageStatistics> promise,
-                    ReadyFuture<MetadataCache::MetadataPtr> future) mutable {
-                  auto* metadata =
-                      static_cast<const ZarrMetadata*>(future.value().get());
-                  cache->zarr_chunk_cache().GetStorageStatistics(
-                      std::move(state), std::move(transaction), metadata->shape,
-                      std::move(transform), staleness_bound);
-                }),
-            state_ptr->promise,
-            ResolveMetadata(transaction, metadata_staleness_bound_.time));
+  auto transaction = request.transaction;
+  LinkValue(
+      WithExecutor(cache->executor(),
+                   [state = std::move(state),
+                    cache = internal::CachePtr<DataCacheBase>(cache),
+                    transform = std::move(request.transform),
+                    transaction = std::move(request.transaction),
+                    staleness_bound = this->GetCurrentDataStalenessBound()](
+                       Promise<ArrayStorageStatistics> promise,
+                       ReadyFuture<MetadataCache::MetadataPtr> future) mutable {
+                     auto* metadata =
+                         static_cast<const ZarrMetadata*>(future.value().get());
+                     cache->zarr_chunk_cache().GetStorageStatistics(
+                         std::move(state),
+                         {std::move(transaction), metadata->shape,
+                          std::move(transform), staleness_bound});
+                   }),
+      state_ptr->promise,
+      ResolveMetadata(std::move(transaction), metadata_staleness_bound_.time));
   return future;
 }
 
@@ -588,9 +589,8 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
 };
 
 Future<internal::Driver::Handle> ZarrDriverSpec::Open(
-    internal::OpenTransactionPtr transaction,
-    ReadWriteMode read_write_mode) const {
-  return ZarrDriver::Open(std::move(transaction), this, read_write_mode);
+    internal::DriverOpenRequest request) const {
+  return ZarrDriver::Open(this, std::move(request));
 }
 
 #ifndef _MSC_VER

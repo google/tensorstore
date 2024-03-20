@@ -14,20 +14,55 @@
 
 #include "tensorstore/driver/driver.h"
 
+#include <algorithm>
+#include <cassert>
+#include <cstddef>
+#include <memory>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
+#include "absl/container/inlined_vector.h"
 #include "absl/status/status.h"
-#include "tensorstore/context.h"
+#include "absl/strings/cord.h"
+#include <nlohmann/json.hpp>
+#include "tensorstore/array.h"
+#include "tensorstore/array_storage_statistics.h"
+#include "tensorstore/box.h"
+#include "tensorstore/chunk_layout.h"
+#include "tensorstore/codec_spec.h"
 #include "tensorstore/data_type.h"
+#include "tensorstore/driver/chunk_cache_driver.h"
+#include "tensorstore/driver/driver_spec.h"
 #include "tensorstore/driver/kvs_backed_chunk_driver.h"
 #include "tensorstore/driver/n5/metadata.h"
 #include "tensorstore/driver/registry.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
+#include "tensorstore/index_space/dimension_units.h"
+#include "tensorstore/index_space/index_domain.h"
+#include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
-#include "tensorstore/internal/cache/chunk_cache.h"
+#include "tensorstore/internal/cache/cache.h"
+#include "tensorstore/internal/cache_key/cache_key.h"
+#include "tensorstore/internal/chunk_grid_specification.h"
 #include "tensorstore/internal/grid_storage_statistics.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/tensorstore.h"
+#include "tensorstore/kvstore/spec.h"
+#include "tensorstore/open_mode.h"
+#include "tensorstore/open_options.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/strided_layout.h"
+#include "tensorstore/transaction.h"
 #include "tensorstore/util/constant_vector.h"
+#include "tensorstore/util/dimension_set.h"
+#include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/garbage_collection/fwd.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -116,8 +151,7 @@ class N5DriverSpec
   }
 
   Future<internal::Driver::Handle> Open(
-      internal::OpenTransactionPtr transaction,
-      ReadWriteMode read_write_mode) const override;
+      internal::DriverOpenRequest request) const override;
 };
 
 Result<std::shared_ptr<const N5Metadata>> ParseEncodedMetadata(
@@ -333,18 +367,18 @@ class N5Driver : public N5DriverBase {
   }
 
   Future<ArrayStorageStatistics> GetStorageStatistics(
-      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
-      GetArrayStorageStatisticsOptions options) override {
+      GetStorageStatisticsRequest request) override {
     auto* cache = static_cast<DataCache*>(this->cache());
     auto [promise, future] = PromiseFuturePair<ArrayStorageStatistics>::Make();
+    auto transaction = request.transaction;
     LinkValue(
         WithExecutor(
             cache->executor(),
             [cache = internal::CachePtr<DataCache>(cache),
-             transform = std::move(transform), transaction,
-             staleness_bound = this->data_staleness_bound().time,
-             options](Promise<ArrayStorageStatistics> promise,
-                      ReadyFuture<MetadataCache::MetadataPtr> future) {
+             request = std::move(request),
+             staleness_bound = this->data_staleness_bound().time](
+                Promise<ArrayStorageStatistics> promise,
+                ReadyFuture<MetadataCache::MetadataPtr> future) {
               auto* metadata =
                   static_cast<const N5Metadata*>(future.value().get());
               auto& grid = cache->grid();
@@ -355,15 +389,17 @@ class N5Driver : public N5DriverBase {
                       KvStore{kvstore::DriverPtr(cache->kvstore_driver()),
                               cache->GetBaseKvstorePath(),
                               internal::TransactionState::ToTransaction(
-                                  std::move(transaction))},
-                      transform, /*grid_output_dimensions=*/
+                                  std::move(request.transaction))},
+                      request.transform, /*grid_output_dimensions=*/
                       component.chunked_to_cell_dimensions,
                       /*chunk_shape=*/grid.chunk_shape,
                       /*shape=*/metadata->shape,
-                      /*dimension_separator=*/'/', staleness_bound, options));
+                      /*dimension_separator=*/'/', staleness_bound,
+                      request.options));
             }),
         std::move(promise),
-        ResolveMetadata(transaction, metadata_staleness_bound_.time));
+        ResolveMetadata(std::move(transaction),
+                        metadata_staleness_bound_.time));
     return std::move(future);
   }
 };
@@ -425,9 +461,8 @@ class N5Driver::OpenState : public N5Driver::OpenStateBase {
 };
 
 Future<internal::Driver::Handle> N5DriverSpec::Open(
-    internal::OpenTransactionPtr transaction,
-    ReadWriteMode read_write_mode) const {
-  return N5Driver::Open(std::move(transaction), this, read_write_mode);
+    internal::DriverOpenRequest request) const {
+  return N5Driver::Open(this, std::move(request));
 }
 
 #ifndef _MSC_VER

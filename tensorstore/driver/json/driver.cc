@@ -307,8 +307,7 @@ class JsonDriverSpec
   kvstore::Spec GetKvstore() const override { return store; }
 
   Future<internal::Driver::Handle> Open(
-      internal::OpenTransactionPtr transaction,
-      ReadWriteMode read_write_mode) const override;
+      internal::DriverOpenRequest request) const override;
 };
 
 class JsonDriver : public RegisteredDriver<JsonDriver,
@@ -333,12 +332,10 @@ class JsonDriver : public RegisteredDriver<JsonDriver,
     return GetOwningCache(*cache_entry_).executor();
   }
 
-  void Read(internal::OpenTransactionPtr transaction,
-            IndexTransform<> transform,
+  void Read(ReadRequest request,
             AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver)
       override;
-  void Write(internal::OpenTransactionPtr transaction,
-             IndexTransform<> transform,
+  void Write(WriteRequest request,
              AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>>
                  receiver) override;
 
@@ -348,10 +345,9 @@ class JsonDriver : public RegisteredDriver<JsonDriver,
 };
 
 Future<internal::Driver::Handle> JsonDriverSpec::Open(
-    internal::OpenTransactionPtr transaction,
-    ReadWriteMode read_write_mode) const {
-  if (read_write_mode == ReadWriteMode::dynamic) {
-    read_write_mode = ReadWriteMode::read_write;
+    internal::DriverOpenRequest request) const {
+  if (request.read_write_mode == ReadWriteMode::dynamic) {
+    request.read_write_mode = ReadWriteMode::read_write;
   }
   if (!store.valid()) {
     return absl::InvalidArgumentError("\"kvstore\" must be specified");
@@ -377,14 +373,14 @@ Future<internal::Driver::Handle> JsonDriverSpec::Open(
             },
             initialize_promise, kvstore::Open(store.driver));
       });
-  auto driver = internal::MakeReadWritePtr<JsonDriver>(read_write_mode);
+  auto driver = internal::MakeReadWritePtr<JsonDriver>(request.read_write_mode);
   driver->cache_entry_ = GetCacheEntry(cache, store.path);
   driver->json_pointer_ = json_pointer;
   driver->data_staleness_ = data_staleness.BoundAtOpen(request_time);
   return PromiseFuturePair<internal::Driver::Handle>::LinkError(
              internal::Driver::Handle{std::move(driver), IdentityTransform(0),
                                       internal::TransactionState::ToTransaction(
-                                          std::move(transaction))},
+                                          std::move(request.transaction))},
              cache->initialized_)
       .future;
 }
@@ -501,14 +497,14 @@ struct ReadChunkTransactionImpl {
 };
 
 void JsonDriver::Read(
-    internal::OpenTransactionPtr transaction, IndexTransform<> transform,
+    ReadRequest request,
     AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver) {
   ReadChunk chunk;
-  chunk.transform = std::move(transform);
+  chunk.transform = std::move(request.transform);
   auto read_future = [&]() -> Future<const void> {
-    if (transaction) {
+    if (request.transaction) {
       TENSORSTORE_ASSIGN_OR_RETURN(
-          auto node, GetTransactionNode(*cache_entry_, transaction));
+          auto node, GetTransactionNode(*cache_entry_, request.transaction));
       const bool unconditional = [&] {
         UniqueWriterLock<AsyncCache::TransactionNode> lock(*node);
         return node->changes_.CanApplyUnconditionally(json_pointer_);
@@ -588,14 +584,14 @@ struct WriteChunkImpl {
 };
 
 void JsonDriver::Write(
-    internal::OpenTransactionPtr transaction, IndexTransform<> transform,
+    WriteRequest request,
     AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>> receiver) {
-  auto cell_transform = IdentityTransform(transform.domain());
+  auto cell_transform = IdentityTransform(request.transform.domain());
   execution::set_value(
       FlowSingleReceiver{std::move(receiver)},
-      WriteChunk{WriteChunkImpl{cache_entry_, std::move(transaction),
+      WriteChunk{WriteChunkImpl{cache_entry_, std::move(request.transaction),
                                 IntrusivePtr<JsonDriver>(this)},
-                 std::move(transform)},
+                 std::move(request.transform)},
       std::move(cell_transform));
 }
 

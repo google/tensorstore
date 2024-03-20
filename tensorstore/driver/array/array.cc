@@ -194,9 +194,7 @@ class ArrayDriverSpec
     return {std::in_place};
   }
 
-  Future<internal::DriverHandle> Open(
-      internal::OpenTransactionPtr transaction,
-      ReadWriteMode read_write_mode) const override;
+  Future<internal::DriverHandle> Open(DriverOpenRequest request) const override;
 };
 
 /// Defines the "array" TensorStore driver.
@@ -214,17 +212,13 @@ class ArrayDriver
     assert(data_copy_concurrency_.has_resource());
   }
 
-  Future<IndexTransform<>> ResolveBounds(
-      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
-      ResolveBoundsOptions options) override;
+  Future<IndexTransform<>> ResolveBounds(ResolveBoundsRequest request) override;
 
-  void Read(internal::OpenTransactionPtr transaction,
-            IndexTransform<> transform,
+  void Read(ReadRequest request,
             AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver)
       override;
 
-  void Write(internal::OpenTransactionPtr transaction,
-             IndexTransform<> transform,
+  void Write(WriteRequest request,
              AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>>
                  receiver) override;
 
@@ -245,8 +239,7 @@ class ArrayDriver
   Result<DimensionUnitsVector> GetDimensionUnits() override;
 
   Future<ArrayStorageStatistics> GetStorageStatistics(
-      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
-      GetArrayStorageStatisticsOptions options) override;
+      GetStorageStatisticsRequest request) override;
 
  private:
   Context::Resource<DataCopyConcurrencyResource> data_copy_concurrency_;
@@ -266,15 +259,14 @@ absl::Status TransactionError() {
 }
 
 Future<IndexTransform<>> ArrayDriver::ResolveBounds(
-    internal::OpenTransactionPtr transaction, IndexTransform<> transform,
-    ResolveBoundsOptions options) {
-  if (transaction) return TransactionError();
+    ResolveBoundsRequest request) {
+  if (request.transaction) return TransactionError();
   return PropagateExplicitBoundsToTransform(data_.domain(),
-                                            std::move(transform));
+                                            std::move(request.transform));
 }
 
 void ArrayDriver::Read(
-    internal::OpenTransactionPtr transaction, IndexTransform<> transform,
+    ReadRequest request,
     AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver) {
   // Implementation of `tensorstore::ReadChunk::Impl` Poly interface.
   struct ChunkImpl {
@@ -294,13 +286,13 @@ void ArrayDriver::Read(
   // Cancellation does not make sense since there is only a single call to
   // `set_value` which occurs immediately after `set_starting`.
   execution::set_starting(receiver, [] {});
-  if (transaction) {
+  if (request.transaction) {
     execution::set_error(receiver, TransactionError());
   } else {
-    auto cell_transform = IdentityTransform(transform.input_domain());
+    auto cell_transform = IdentityTransform(request.transform.input_domain());
     execution::set_value(receiver,
                          ReadChunk{ChunkImpl{IntrusivePtr<ArrayDriver>(this)},
-                                   std::move(transform)},
+                                   std::move(request.transform)},
                          std::move(cell_transform));
     execution::set_done(receiver);
   }
@@ -308,7 +300,7 @@ void ArrayDriver::Read(
 }
 
 void ArrayDriver::Write(
-    internal::OpenTransactionPtr transaction, IndexTransform<> transform,
+    WriteRequest request,
     AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>> receiver) {
   // Implementation of `tensorstore::internal::WriteChunk::Impl` Poly interface.
   struct ChunkImpl {
@@ -334,13 +326,13 @@ void ArrayDriver::Write(
   // Cancellation does not make sense since there is only a single call to
   // `set_value` which occurs immediately after `set_starting`.
   execution::set_starting(receiver, [] {});
-  auto cell_transform = IdentityTransform(transform.input_domain());
-  if (transaction) {
+  auto cell_transform = IdentityTransform(request.transform.input_domain());
+  if (request.transaction) {
     execution::set_error(receiver, TransactionError());
   } else {
     execution::set_value(receiver,
                          WriteChunk{ChunkImpl{IntrusivePtr<ArrayDriver>(this)},
-                                    std::move(transform)},
+                                    std::move(request.transform)},
                          std::move(cell_transform));
     execution::set_done(receiver);
   }
@@ -404,11 +396,10 @@ Result<DimensionUnitsVector> ArrayDriver::GetDimensionUnits() {
 }
 
 Future<ArrayStorageStatistics> ArrayDriver::GetStorageStatistics(
-    internal::OpenTransactionPtr transaction, IndexTransform<> transform,
-    GetArrayStorageStatisticsOptions options) {
+    GetStorageStatisticsRequest request) {
   // This driver always fully stores the data.
   ArrayStorageStatistics statistics;
-  statistics.mask = options.mask;
+  statistics.mask = request.options.mask;
   if (statistics.mask & ArrayStorageStatistics::query_not_stored) {
     statistics.not_stored = false;
   }
@@ -419,11 +410,10 @@ Future<ArrayStorageStatistics> ArrayDriver::GetStorageStatistics(
 }
 
 Future<internal::Driver::Handle> ArrayDriverSpec::Open(
-    internal::OpenTransactionPtr transaction,
-    ReadWriteMode read_write_mode) const {
-  if (transaction) return TransactionError();
-  if (read_write_mode == ReadWriteMode::dynamic) {
-    read_write_mode = ReadWriteMode::read_write;
+    DriverOpenRequest request) const {
+  if (request.transaction) return TransactionError();
+  if (request.read_write_mode == ReadWriteMode::dynamic) {
+    request.read_write_mode = ReadWriteMode::read_write;
   }
   if (schema.fill_value().valid()) {
     return absl::InvalidArgumentError("fill_value not supported");
@@ -455,8 +445,8 @@ Future<internal::Driver::Handle> ArrayDriverSpec::Open(
   }
   return internal::Driver::Handle{
       internal::MakeReadWritePtr<ArrayDriver>(
-          read_write_mode, data_copy_concurrency, tensorstore::MakeCopy(array),
-          std::move(dimension_units)),
+          request.read_write_mode, data_copy_concurrency,
+          tensorstore::MakeCopy(array), std::move(dimension_units)),
       tensorstore::IdentityTransform(array.shape())};
 }
 

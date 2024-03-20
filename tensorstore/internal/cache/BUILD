@@ -314,6 +314,8 @@ tensorstore_cc_library(
         "//tensorstore:transaction",
         "//tensorstore/driver:chunk",
         "//tensorstore/driver:chunk_receiver_utils",
+        "//tensorstore/driver:read_request",
+        "//tensorstore/driver:write_request",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/index_space:transformed_array",
         "//tensorstore/internal:arena",

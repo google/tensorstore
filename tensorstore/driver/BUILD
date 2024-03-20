@@ -111,6 +111,8 @@ tensorstore_cc_library(
     ],
     deps = [
         ":chunk",
+        ":read_request",
+        ":write_request",
         "//tensorstore:array",
         "//tensorstore:array_storage_statistics",
         "//tensorstore:box",
@@ -386,5 +388,23 @@ tensorstore_cc_library(
         "//tensorstore/util/execution:any_receiver",
         "//tensorstore/util/execution:flow_sender_operation_state",
         "@com_google_absl//absl/status",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "read_request",
+    hdrs = ["read_request.h"],
+    deps = [
+        "//tensorstore:transaction",
+        "//tensorstore/index_space:index_transform",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "write_request",
+    hdrs = ["write_request.h"],
+    deps = [
+        "//tensorstore:transaction",
+        "//tensorstore/index_space:index_transform",
     ],
 )

@@ -500,9 +500,9 @@ ResolveBounds(StoreResult store, ResolveBoundsOptions options) {
                 typename Store::Element, Store::static_rank,
                 Store::static_mode>{std::move(handle.driver),
                                     std::move(handle.transaction)},
-            driver->ResolveBounds(std::move(open_transaction),
-                                  IndexTransform<>(std::move(handle.transform)),
-                                  options));
+            driver->ResolveBounds(
+                {std::move(open_transaction),
+                 IndexTransform<>(std::move(handle.transform)), options}));
       },
       std::move(store));
 }
@@ -585,9 +585,9 @@ Resize(
                 typename Store::Element, Store::static_rank,
                 Store::static_mode>{std::move(handle.driver),
                                     std::move(handle.transaction)},
-            driver->Resize(std::move(open_transaction),
-                           IndexTransform<>(std::move(handle.transform)),
-                           inclusive_min, exclusive_max, options));
+            driver->Resize({std::move(open_transaction),
+                            IndexTransform<>(std::move(handle.transform)),
+                            inclusive_min, exclusive_max, options}));
       },
       std::move(store));
 }

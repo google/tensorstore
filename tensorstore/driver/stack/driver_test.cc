@@ -252,7 +252,7 @@ TEST(StackDriverTest, ReadSparse) {
   // Cannot read everything
   EXPECT_THAT(tensorstore::Read<tensorstore::zero_origin>(store).result(),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Read cell origin=.1. missing layer mapping.*"));
+                            "Cell with origin=.1. missing layer mapping.*"));
 
   // Can read the backed data.
   {
@@ -342,7 +342,7 @@ TEST(StackDriverTest, WriteSparse) {
                                  store)
                   .result(),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Write cell origin=.1. missing layer mapping.*"));
+                            "Cell with origin=.1. missing layer mapping.*"));
 
   // Can write the backed data.
   TENSORSTORE_ASSERT_OK(

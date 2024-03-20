@@ -26,13 +26,14 @@
 #include "absl/container/inlined_vector.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
-#include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "tensorstore/array.h"
 #include "tensorstore/array_storage_statistics.h"
 #include "tensorstore/box.h"
 #include "tensorstore/driver/chunk.h"
 #include "tensorstore/driver/chunk_receiver_utils.h"
+#include "tensorstore/driver/read_request.h"
+#include "tensorstore/driver/write_request.h"
 #include "tensorstore/driver/zarr3/codec/codec.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
@@ -60,7 +61,6 @@
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal_zarr3 {
@@ -71,22 +71,23 @@ ZarrLeafChunkCache::ZarrLeafChunkCache(
     kvstore::DriverPtr store, ZarrCodecChain::PreparedState::Ptr codec_state)
     : Base(std::move(store)), codec_state_(std::move(codec_state)) {}
 
-void ZarrLeafChunkCache::Read(internal::OpenTransactionPtr transaction,
-                              IndexTransform<> transform, absl::Time staleness,
+void ZarrLeafChunkCache::Read(ZarrChunkCache::ReadRequest request,
                               AnyFlowReceiver<absl::Status, internal::ReadChunk,
                                               IndexTransform<>>&& receiver) {
-  return internal::ChunkCache::Read(std::move(transaction),
-                                    /*component_index=*/0, std::move(transform),
-                                    staleness, std::move(receiver));
+  return internal::ChunkCache::Read(
+      {static_cast<internal::DriverReadRequest&&>(request),
+       /*component_index=*/0, request.staleness_bound},
+      std::move(receiver));
 }
 
 void ZarrLeafChunkCache::Write(
-    internal::OpenTransactionPtr transaction, IndexTransform<> transform,
+    ZarrChunkCache::WriteRequest request,
     AnyFlowReceiver<absl::Status, internal::WriteChunk, IndexTransform<>>&&
         receiver) {
-  return internal::ChunkCache::Write(std::move(transaction),
-                                     /*component_index=*/0,
-                                     std::move(transform), std::move(receiver));
+  return internal::ChunkCache::Write(
+      {static_cast<internal::DriverWriteRequest&&>(request),
+       /*component_index=*/0},
+      std::move(receiver));
 }
 
 struct GridStorageStatisticsChunkHandlerBase
@@ -98,8 +99,7 @@ struct GridStorageStatisticsChunkHandlerBase
       ZarrChunkCache& cache,
       internal::IntrusivePtr<internal::GetStorageStatisticsAsyncOperationState>
           state,
-      internal::OpenTransactionPtr transaction, span<const Index> shape,
-      IndexTransform<> transform, absl::Time staleness_bound) {
+      ZarrChunkCache::GetStorageStatisticsRequest request) {
     handler->state = std::move(state);
     handler->cache.reset(&cache);
     const auto& grid = cache.grid();
@@ -107,34 +107,32 @@ struct GridStorageStatisticsChunkHandlerBase
     handler->grid_output_dimensions = component.chunked_to_cell_dimensions;
     handler->key_formatter = &cache.GetChunkStorageKeyParser();
     const DimensionIndex rank = component.rank();
-    assert(rank == shape.size());
+    assert(rank == request.shape.size());
     span<const Index> chunk_shape = grid.chunk_shape;
     Box<dynamic_rank(kMaxRank)> grid_bounds(rank);
     for (DimensionIndex i = 0; i < rank; ++i) {
-      const Index grid_size = CeilOfRatio(shape[i], chunk_shape[i]);
+      const Index grid_size = CeilOfRatio(request.shape[i], chunk_shape[i]);
       grid_bounds[i] = IndexInterval::UncheckedSized(0, grid_size);
     }
     handler->chunk_shape = chunk_shape;
-    handler->full_transform = std::move(transform);
+    handler->full_transform = std::move(request.transform);
     internal::GetStorageStatisticsForRegularGridWithSemiLexicographicalKeys(
         std::move(handler),
-        kvstore::KvStore{
-            kvstore::DriverPtr(cache.GetKvStoreDriver()),
-            internal::TransactionState::ToTransaction(std::move(transaction))},
-        grid_bounds, staleness_bound);
+        kvstore::KvStore{kvstore::DriverPtr(cache.GetKvStoreDriver()),
+                         internal::TransactionState::ToTransaction(
+                             std::move(request.transaction))},
+        grid_bounds, request.staleness_bound);
   }
 };
 
 void ZarrLeafChunkCache::GetStorageStatistics(
     internal::IntrusivePtr<internal::GetStorageStatisticsAsyncOperationState>
         state,
-    internal::OpenTransactionPtr transaction, span<const Index> shape,
-    IndexTransform<> transform, absl::Time staleness_bound) {
+    ZarrChunkCache::GetStorageStatisticsRequest request) {
   auto handler =
       internal::MakeIntrusivePtr<GridStorageStatisticsChunkHandlerBase>();
   GridStorageStatisticsChunkHandlerBase::Start(
-      std::move(handler), *this, std::move(state), std::move(transaction),
-      shape, std::move(transform), staleness_bound);
+      std::move(handler), *this, std::move(state), std::move(request));
 }
 
 std::string ZarrLeafChunkCache::GetChunkStorageKey(
@@ -247,13 +245,11 @@ void ShardedInvokeWithArrayToArrayCodecs(
   next(std::move(transform), std::move(receiver));
 }
 
-template <typename ChunkType, auto Method, auto CodecMethod,
-          typename... ExtraArgs>
+template <typename ChunkType, auto CodecMethod, typename GetBaseFunc>
 void ShardedReadOrWrite(
-    ZarrShardedChunkCache& self, internal::OpenTransactionPtr transaction,
-    IndexTransform<> transform,
+    ZarrShardedChunkCache& self, IndexTransform<> transform,
     AnyFlowReceiver<absl::Status, ChunkType, IndexTransform<>> receiver,
-    ExtraArgs... args) {
+    GetBaseFunc get_base_func) {
   const auto& grid = self.grid();
   const auto& component_spec = grid.components[0];
 
@@ -280,26 +276,11 @@ void ShardedReadOrWrite(
         if (!entry->sharding_error.ok()) {
           return entry->sharding_error;
         }
-        internal::OpenTransactionPtr shard_transaction = transaction;
-        if constexpr (std::is_same_v<ChunkType, internal::WriteChunk>) {
-          if (!shard_transaction) {
-            shard_transaction = internal::TransactionState::MakeImplicit();
-            shard_transaction->RequestCommit();
-          }
-        }
         using Receiver =
             AnyFlowReceiver<absl::Status, ChunkType, IndexTransform<>>;
         ShardedInvokeWithArrayToArrayCodecs<Receiver&&>(
             self,
-            /*base_func=*/
-            [=, entry = std::move(entry),
-             shard_transaction = std::move(shard_transaction)](
-                span<const Index> decoded_shape, IndexTransform<> transform,
-                Receiver&& receiver) {
-              (entry->sub_chunk_cache.get()->*Method)(
-                  std::move(shard_transaction), std::move(transform), args...,
-                  std::move(receiver));
-            },
+            /*base_func=*/get_base_func(std::move(entry)),
             /*codec_func=*/
             [](const ZarrArrayToArrayCodec::PreparedState& codec_state,
                const std::function<void(IndexTransform<>, Receiver&&)>& next,
@@ -319,23 +300,46 @@ void ShardedReadOrWrite(
 }
 
 void ZarrShardedChunkCache::Read(
-    internal::OpenTransactionPtr transaction, IndexTransform<> transform,
-    absl::Time staleness,
+    ZarrChunkCache::ReadRequest request,
     AnyFlowReceiver<absl::Status, internal::ReadChunk, IndexTransform<>>&&
         receiver) {
-  ShardedReadOrWrite<internal::ReadChunk, &ZarrChunkCache::Read,
+  ShardedReadOrWrite<internal::ReadChunk,
                      &ZarrArrayToArrayCodec::PreparedState::Read>(
-      *this, std::move(transaction), std::move(transform), std::move(receiver),
-      staleness);
+      *this, std::move(request.transform), std::move(receiver),
+      [transaction = std::move(request.transaction),
+       staleness_bound = request.staleness_bound](auto entry) {
+        return [=, entry = std::move(entry)](
+                   span<const Index> decoded_shape, IndexTransform<> transform,
+                   AnyFlowReceiver<absl::Status, internal::ReadChunk,
+                                   IndexTransform<>>&& receiver) {
+          entry->sub_chunk_cache.get()->Read(
+              {{transaction, std::move(transform)}, staleness_bound},
+              std::move(receiver));
+        };
+      });
 }
 
 void ZarrShardedChunkCache::Write(
-    internal::OpenTransactionPtr transaction, IndexTransform<> transform,
+    ZarrChunkCache::WriteRequest request,
     AnyFlowReceiver<absl::Status, internal::WriteChunk, IndexTransform<>>&&
         receiver) {
-  ShardedReadOrWrite<internal::WriteChunk, &ZarrChunkCache::Write,
+  ShardedReadOrWrite<internal::WriteChunk,
                      &ZarrArrayToArrayCodec::PreparedState::Write>(
-      *this, std::move(transaction), std::move(transform), std::move(receiver));
+      *this, std::move(request.transform), std::move(receiver),
+      [transaction = std::move(request.transaction)](auto entry) {
+        internal::OpenTransactionPtr shard_transaction = transaction;
+        if (!shard_transaction) {
+          shard_transaction = internal::TransactionState::MakeImplicit();
+          shard_transaction->RequestCommit();
+        }
+        return [=, entry = std::move(entry)](
+                   span<const Index> decoded_shape, IndexTransform<> transform,
+                   AnyFlowReceiver<absl::Status, internal::WriteChunk,
+                                   IndexTransform<>>&& receiver) {
+          entry->sub_chunk_cache.get()->Write(
+              {transaction, std::move(transform)}, std::move(receiver));
+        };
+      });
 }
 
 struct ShardedGridStorageStatisticsChunkHandler
@@ -388,8 +392,8 @@ struct ShardedGridStorageStatisticsChunkHandler
                                       IndexTransform<> transform,
                                       StatePtr state) {
           entry->sub_chunk_cache->GetStorageStatistics(
-              std::move(state), transaction, decoded_shape,
-              std::move(transform), staleness_bound);
+              std::move(state), {transaction, decoded_shape,
+                                 std::move(transform), staleness_bound});
         },
         /*codec_func=*/
         [](const ZarrArrayToArrayCodec::PreparedState& codec_state,
@@ -408,15 +412,13 @@ struct ShardedGridStorageStatisticsChunkHandler
 void ZarrShardedChunkCache::GetStorageStatistics(
     internal::IntrusivePtr<internal::GetStorageStatisticsAsyncOperationState>
         state,
-    internal::OpenTransactionPtr transaction, span<const Index> shape,
-    IndexTransform<> transform, absl::Time staleness_bound) {
+    ZarrChunkCache::GetStorageStatisticsRequest request) {
   auto handler =
       internal::MakeIntrusivePtr<ShardedGridStorageStatisticsChunkHandler>();
-  handler->transaction = transaction;
-  handler->staleness_bound = staleness_bound;
+  handler->transaction = request.transaction;
+  handler->staleness_bound = request.staleness_bound;
   GridStorageStatisticsChunkHandlerBase::Start(
-      std::move(handler), *this, std::move(state), std::move(transaction),
-      shape, std::move(transform), staleness_bound);
+      std::move(handler), *this, std::move(state), std::move(request));
 }
 
 void ZarrShardedChunkCache::Entry::DoInitialize() {

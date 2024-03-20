@@ -501,11 +501,14 @@ TEST_F(ChunkCacheTest, CancelWrite) {
 
   CancelWriteReceiver receiver;
   auto cache = MakeChunkCache();
-  cache->Write(/*transaction=*/{}, 0,
-               ChainResult(tensorstore::IdentityTransform(1),
-                           tensorstore::Dims(0).TranslateSizedInterval(3, 3))
-                   .value(),
-               std::ref(receiver));
+  cache->Write(
+      ChunkCache::WriteRequest{
+          {/*transaction=*/{},
+           (tensorstore::IdentityTransform(1) |
+            tensorstore::Dims(0).TranslateSizedInterval(3, 3))
+               .value()},
+          /*.component_index=*/0},
+      std::ref(receiver));
   EXPECT_TRUE(receiver.set_value_called);
 }
 

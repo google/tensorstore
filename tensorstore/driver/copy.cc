@@ -271,9 +271,11 @@ struct CopyInitiateWriteOp {
 
     // Initiate a write for the portion of the target TensorStore
     // corresponding to this source `chunk`.
+    Driver::WriteRequest request;
+    request.transaction = state->target_transaction;
+    request.transform = std::move(write_transform);
     state->target_driver->Write(
-        state->target_transaction, std::move(write_transform),
-        CopyWriteChunkReceiver{state, std::move(chunk)});
+        std::move(request), CopyWriteChunkReceiver{state, std::move(chunk)});
   }
 };
 
@@ -324,9 +326,10 @@ struct DriverCopyInitiateOp {
 
     // Initiate the read operation on the source driver.
     auto source_driver = std::move(state->source_driver);
-    auto source_transaction = std::move(state->source_transaction);
-    source_driver->Read(std::move(source_transaction),
-                        std::move(source_transform),
+    Driver::ReadRequest request;
+    request.transaction = std::move(state->source_transaction);
+    request.transform = std::move(source_transform);
+    source_driver->Read(std::move(request),
                         CopyReadChunkReceiver{std::move(state)});
   }
 };
@@ -368,11 +371,11 @@ WriteFutures DriverCopy(Executor executor, DriverHandle source,
 
   // Resolve the source and target bounds.
   auto source_transform_future = state->source_driver->ResolveBounds(
-      state->source_transaction, std::move(source.transform),
-      fix_resizable_bounds);
+      {state->source_transaction, std::move(source.transform),
+       fix_resizable_bounds});
   auto target_transform_future = state->target_driver->ResolveBounds(
-      state->target_transaction, std::move(target.transform),
-      fix_resizable_bounds);
+      {state->target_transaction, std::move(target.transform),
+       fix_resizable_bounds});
 
   // Initiate the copy once the bounds have been resolved.
   LinkValue(
@@ -385,11 +388,8 @@ WriteFutures DriverCopy(Executor executor, DriverHandle source,
 WriteFutures DriverCopy(DriverHandle source, DriverHandle target,
                         CopyOptions options) {
   auto executor = source.driver->data_copy_executor();
-  return internal::DriverCopy(
-      std::move(executor), std::move(source), std::move(target),
-      /*options=*/
-      {/*.progress_function=*/std::move(options.progress_function),
-       /*.alignment_options=*/options.alignment_options});
+  return internal::DriverCopy(std::move(executor), std::move(source),
+                              std::move(target), {std::move(options)});
 }
 
 }  // namespace internal

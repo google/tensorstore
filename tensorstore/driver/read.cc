@@ -184,9 +184,10 @@ struct DriverReadIntoExistingInitiateOp {
 
     // Initiate the read on the driver.
     auto source_driver = std::move(state->source_driver);
-    auto source_transaction = std::move(state->source_transaction);
-    source_driver->Read(std::move(source_transaction),
-                        std::move(source_transform),
+    Driver::ReadRequest request;
+    request.transaction = std::move(state->source_transaction);
+    request.transform = std::move(source_transform);
+    source_driver->Read(std::move(request),
                         ReadChunkReceiver<void>{std::move(state)});
   }
 };
@@ -218,9 +219,11 @@ struct DriverReadIntoNewInitiateOp {
 
     // Initiate the read on the driver.
     auto source_driver = std::move(state->source_driver);
-    auto source_transaction = std::move(state->source_transaction);
+    Driver::ReadRequest request;
+    request.transaction = std::move(state->source_transaction);
+    request.transform = std::move(source_transform);
     source_driver->Read(
-        std::move(source_transaction), std::move(source_transform),
+        std::move(request),
         ReadChunkReceiver<SharedOffsetArray<void>>{std::move(state)});
   }
 };
@@ -249,9 +252,12 @@ Future<void> DriverRead(Executor executor, DriverHandle source,
   auto pair = PromiseFuturePair<void>::Make(MakeResult());
 
   // Resolve the bounds for `source.transform`.
-  auto transform_future = state->source_driver->ResolveBounds(
-      state->source_transaction, std::move(source.transform),
-      fix_resizable_bounds);
+  Driver::ResolveBoundsRequest request;
+  request.transaction = state->source_transaction;
+  request.transform = std::move(source.transform);
+  request.options = fix_resizable_bounds;
+  auto transform_future =
+      state->source_driver->ResolveBounds(std::move(request));
 
   // Initiate the read once the bounds have been resolved.
   LinkValue(WithExecutor(std::move(executor),
@@ -264,23 +270,20 @@ Future<void> DriverRead(DriverHandle source,
                         TransformedSharedArray<void> target,
                         ReadOptions options) {
   auto executor = source.driver->data_copy_executor();
-  return internal::DriverRead(
-      std::move(executor), std::move(source), std::move(target), /*options=*/
-      {/*.progress_function=*/std::move(options.progress_function),
-       /*.alignment_options=*/options.alignment_options});
+  return internal::DriverRead(std::move(executor), std::move(source),
+                              std::move(target), {std::move(options)});
 }
 
 Future<SharedOffsetArray<void>> DriverReadIntoNewArray(
-    Executor executor, DriverHandle source, DataType target_dtype,
-    ContiguousLayoutOrder target_layout_order,
-    DriverReadIntoNewOptions options) {
+    Executor executor, DriverHandle source, DriverReadIntoNewOptions options) {
   TENSORSTORE_RETURN_IF_ERROR(
       internal::ValidateSupportsRead(source.driver.read_write_mode()));
   using State = ReadState<SharedOffsetArray<void>>;
   IntrusivePtr<State> state(new State);
   TENSORSTORE_ASSIGN_OR_RETURN(
       state->data_type_conversion,
-      GetDataTypeConverterOrError(source.driver->dtype(), target_dtype));
+      GetDataTypeConverterOrError(source.driver->dtype(),
+                                  options.target_dtype));
   state->executor = executor;
   state->source_driver = std::move(source.driver);
   TENSORSTORE_ASSIGN_OR_RETURN(
@@ -290,16 +293,20 @@ Future<SharedOffsetArray<void>> DriverReadIntoNewArray(
   auto pair = PromiseFuturePair<SharedOffsetArray<void>>::Make();
 
   // Resolve the bounds for `source.transform`.
-  auto transform_future = state->source_driver->ResolveBounds(
-      state->source_transaction, std::move(source.transform),
-      fix_resizable_bounds);
+  Driver::ResolveBoundsRequest request;
+  request.transaction = state->source_transaction;
+  request.transform = std::move(source.transform);
+  request.options = fix_resizable_bounds;
+
+  auto transform_future =
+      state->source_driver->ResolveBounds(std::move(request));
 
   // Initiate the read once the bounds have been resolved.
-  LinkValue(
-      WithExecutor(std::move(executor),
-                   DriverReadIntoNewInitiateOp{std::move(state), target_dtype,
-                                               target_layout_order}),
-      std::move(pair.promise), std::move(transform_future));
+  LinkValue(WithExecutor(std::move(executor),
+                         DriverReadIntoNewInitiateOp{std::move(state),
+                                                     options.target_dtype,
+                                                     options.layout_order}),
+            std::move(pair.promise), std::move(transform_future));
   return std::move(pair.future);
 }
 
@@ -308,9 +315,7 @@ Future<SharedOffsetArray<void>> DriverReadIntoNewArray(
   auto dtype = source.driver->dtype();
   auto executor = source.driver->data_copy_executor();
   return internal::DriverReadIntoNewArray(
-      std::move(executor), std::move(source), dtype, options.layout_order,
-      /*options=*/
-      {/*.progress_function=*/std::move(options.progress_function)});
+      std::move(executor), std::move(source), {std::move(options), dtype});
 }
 
 absl::Status CopyReadChunk(

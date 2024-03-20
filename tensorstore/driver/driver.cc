@@ -78,13 +78,13 @@ Future<Driver::Handle> OpenDriver(OpenTransactionPtr transaction,
       static_cast<SpecOptions&&>(options)));
   TENSORSTORE_RETURN_IF_ERROR(
       DriverSpecBindContext(spec.driver_spec, options.context));
-  return internal::OpenDriver(std::move(transaction), std::move(spec),
-                              options.read_write_mode);
+  return internal::OpenDriver(
+      std::move(spec),
+      DriverOpenRequest{std::move(transaction), options.read_write_mode});
 }
 
-Future<Driver::Handle> OpenDriver(OpenTransactionPtr transaction,
-                                  TransformedDriverSpec bound_spec,
-                                  ReadWriteMode read_write_mode) {
+Future<Driver::Handle> OpenDriver(TransformedDriverSpec bound_spec,
+                                  DriverOpenRequest request) {
   DriverSpecPtr ptr = bound_spec.driver_spec;
 
   return MapFuture(
@@ -123,7 +123,7 @@ Future<Driver::Handle> OpenDriver(OpenTransactionPtr transaction,
         // Move handle out of the `Future`.
         return std::move(handle);
       },
-      ptr->Open(std::move(transaction), read_write_mode));
+      ptr->Open(std::move(request)));
 }
 
 Driver::~Driver() = default;
@@ -149,11 +149,13 @@ Result<DriverHandle> Driver::GetBase(ReadWriteMode read_write_mode,
 
 Future<ArrayStorageStatistics> GetStorageStatistics(
     const DriverHandle& handle, GetArrayStorageStatisticsOptions options) {
+  Driver::GetStorageStatisticsRequest request;
   TENSORSTORE_ASSIGN_OR_RETURN(
-      auto open_transaction,
+      request.transaction,
       internal::AcquireOpenTransactionPtrOrError(handle.transaction));
-  return handle.driver->GetStorageStatistics(std::move(open_transaction),
-                                             handle.transform, options);
+  request.transform = handle.transform;
+  request.options = std::move(options);
+  return handle.driver->GetStorageStatistics(std::move(request));
 }
 
 Result<SharedArray<const void>> Driver::GetFillValue(
@@ -165,36 +167,28 @@ Result<DimensionUnitsVector> Driver::GetDimensionUnits() {
   return {std::in_place, this->rank()};
 }
 
-Future<IndexTransform<>> Driver::ResolveBounds(OpenTransactionPtr transaction,
-                                               IndexTransform<> transform,
-                                               ResolveBoundsOptions options) {
-  assert(transform.output_rank() == rank());
-  return std::move(transform);
+Future<IndexTransform<>> Driver::ResolveBounds(ResolveBoundsRequest request) {
+  assert(request.transform.output_rank() == rank());
+  return std::move(request.transform);
 }
 
-void Driver::Read(internal::OpenTransactionPtr transaction,
-                  IndexTransform<> transform, ReadChunkReceiver receiver) {
+void Driver::Read(ReadRequest request, ReadChunkReceiver receiver) {
   execution::set_error(FlowSingleReceiver{std::move(receiver)},
+
                        absl::UnimplementedError("Reading not supported"));
 }
 
-void Driver::Write(internal::OpenTransactionPtr transaction,
-                   IndexTransform<> transform, WriteChunkReceiver receiver) {
+void Driver::Write(WriteRequest request, WriteChunkReceiver receiver) {
   execution::set_error(FlowSingleReceiver{std::move(receiver)},
                        absl::UnimplementedError("Writing not supported"));
 }
 
-Future<IndexTransform<>> Driver::Resize(OpenTransactionPtr transaction,
-                                        IndexTransform<> transform,
-                                        span<const Index> inclusive_min,
-                                        span<const Index> exclusive_max,
-                                        ResizeOptions options) {
+Future<IndexTransform<>> Driver::Resize(ResizeRequest request) {
   return absl::UnimplementedError("Resize not supported");
 }
 
 Future<ArrayStorageStatistics> Driver::GetStorageStatistics(
-    OpenTransactionPtr transaction, IndexTransform<> transform,
-    GetArrayStorageStatisticsOptions options) {
+    GetStorageStatisticsRequest request) {
   return absl::UnimplementedError("Storage statistics not supported");
 }
 

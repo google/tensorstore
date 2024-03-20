@@ -51,6 +51,8 @@
 #include "tensorstore/driver/chunk.h"
 #include "tensorstore/driver/driver_handle.h"
 #include "tensorstore/driver/driver_spec.h"
+#include "tensorstore/driver/read_request.h"
+#include "tensorstore/driver/write_request.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dimension_units.h"
 #include "tensorstore/index_space/index_transform.h"
@@ -166,8 +168,10 @@ class Driver : public AtomicReferenceCount<Driver> {
   using ReadChunkReceiver =
       AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>>;
 
-  /// Requests a partition of the output range of `transform` into chunks that
-  /// may each be read synchronously and atomically.
+  using ReadRequest = DriverReadRequest;
+
+  /// Requests a partition of the output range of `request.transform` into
+  /// chunks that may each be read synchronously and atomically.
   ///
   /// The chunks are returned as an asynchronous stream, which may be cancelled
   /// by the receiver submitted to the returned FlowSender.
@@ -175,21 +179,23 @@ class Driver : public AtomicReferenceCount<Driver> {
   /// The stream consists of
   /// `(ReadChunk chunk, IndexTransform<> cell_transform)` tuples, where
   /// `cell_transform` is an index transform from the input domain of
-  /// `transform` to the index space used by `chunk`.  The `cell_transform`
-  /// specifies the portion of the input domain of `transform` that corresponds
-  /// to the chunk.
+  /// `request.transform` to the index space used by `chunk`.  The
+  /// `cell_transform` specifies the portion of the input domain of `transform`
+  /// that corresponds to the chunk.
   ///
-  /// \pre The output range of `transform` must be a subset of the output range
-  ///     of a transform returned from a prior call to `ResolveBounds`,
-  ///     `Resize`, or the transform returned when the driver was opened.
-  virtual void Read(internal::OpenTransactionPtr transaction,
-                    IndexTransform<> transform, ReadChunkReceiver receiver);
+  /// \pre The output range of `request.transform` must be a subset of the
+  ///     output range of a transform returned from a prior call to
+  ///     `ResolveBounds`, `Resize`, or the transform returned when the driver
+  ///     was opened.
+  virtual void Read(ReadRequest request, ReadChunkReceiver receiver);
 
   using WriteChunkReceiver =
       AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>>;
 
-  /// Requests a partition of the output range of `transform` into chunks that
-  /// may each be written synchronously and atomically.
+  using WriteRequest = internal::DriverWriteRequest;
+
+  /// Requests a partition of the output range of `request.transform` into
+  /// chunks that may each be written synchronously and atomically.
   ///
   /// The chunks are returned as an asynchronous stream, which may be cancelled
   /// by the receiver submitted to the returned FlowSender.
@@ -197,15 +203,21 @@ class Driver : public AtomicReferenceCount<Driver> {
   /// As with `Read`, the stream consists of
   /// `(WriteChunk chunk, IndexTransform<> cell_transform)` tuples, where
   /// `cell_transform` is an index transform from the input domain of
-  /// `transform` to the index space used by `chunk`.  The `cell_transform`
-  /// specifies the portion of the input domain of `transform` that corresponds
-  /// to the chunk.
+  /// `request.transform` to the index space used by `chunk`.  The
+  /// `cell_transform` specifies the portion of the input domain of
+  /// `request.transform` that corresponds to the chunk.
   ///
-  /// \pre The output range of `transform` must be a subset of the output range
-  ///     of a transform returned from a prior call to `ResolveBounds`,
-  ///     `Resize`, or the transform returned when the driver was opened.
-  virtual void Write(internal::OpenTransactionPtr transaction,
-                     IndexTransform<> transform, WriteChunkReceiver receiver);
+  /// \pre The output range of `request.transform` must be a subset of the
+  ///     output range of a transform returned from a prior call to
+  ///     `ResolveBounds`, `Resize`, or the transform returned when the driver
+  ///     was opened.
+  virtual void Write(WriteRequest request, WriteChunkReceiver receiver);
+
+  struct ResolveBoundsRequest {
+    OpenTransactionPtr transaction;
+    IndexTransform<> transform;
+    ResolveBoundsOptions options;
+  };
 
   /// Resolves implicit bounds of `transform`.
   ///
@@ -219,38 +231,49 @@ class Driver : public AtomicReferenceCount<Driver> {
   /// \returns A copy of `transform` with implicit bounds possibly updated.
   /// \error If explicit bounds of `transform` are incompatible with the
   ///     existing transform.
-  virtual Future<IndexTransform<>> ResolveBounds(OpenTransactionPtr transaction,
-                                                 IndexTransform<> transform,
-                                                 ResolveBoundsOptions options);
+  virtual Future<IndexTransform<>> ResolveBounds(ResolveBoundsRequest request);
+
+  struct ResizeRequest {
+    OpenTransactionPtr transaction;
+
+    IndexTransform<> transform;
+
+    /// Specifies the new inclusive lower bound for each input dimension of
+    /// `transform`.  A value of `kImplicit` indicates that the bound should not
+    /// be changed.
+    span<const Index> inclusive_min;
+
+    /// Specifies the new exclusive upper bound for each input dimension of
+    /// `transform`.  A value of `kImplicit` indicates that the bound should not
+    /// be changed.
+    span<const Index> exclusive_max;
+
+    ResizeOptions options;
+  };
 
   /// Resizes the TensorStore.
   ///
   /// Default implementation fails with `kUnimplemented`.
   ///
-  /// \param inclusive_min Specifies the new inclusive lower bound for each
-  ///     input dimension of `transform`.  A value of `kImplicit` indicates that
-  ///     the bound should not be changed.
-  /// \param exclusive_max Specifies the new exclusive upper bound for each
-  ///     input dimension of `transform`.  A value of `kImplicit` indicates that
-  ///     the bound should not be changed.
-  /// \dchecks `transform.output_rank() == rank()`.
-  /// \dchecks `inclusive_min.size() == transform.input_rank()`.
-  /// \dchecks `inclusive_max.size() == transform.input_rank()`.
+  /// \dchecks `request.transform.output_rank() == rank()`.
+  /// \dchecks `request.inclusive_min.size() == request.transform.input_rank()`.
+  /// \dchecks `request.inclusive_max.size() == request.transform.input_rank()`.
   /// \error `absl::StatusCode::kInvalidArgument` if
-  ///     `transform.implicit_lower_bound()[i] == false`.
-  virtual Future<IndexTransform<>> Resize(OpenTransactionPtr transaction,
-                                          IndexTransform<> transform,
-                                          span<const Index> inclusive_min,
-                                          span<const Index> exclusive_max,
-                                          ResizeOptions options);
+  ///     `request.transform.implicit_lower_bound()[i] == false`.
+  virtual Future<IndexTransform<>> Resize(ResizeRequest request);
+
+  struct GetStorageStatisticsRequest {
+    OpenTransactionPtr transaction;
+    IndexTransform<> transform;
+    GetArrayStorageStatisticsOptions options;
+  };
 
   /// Computes statistics of the data stored over the output range of
   /// `transform`
   ///
   /// Default implementation fails with `kUnimplemented`.
   virtual Future<ArrayStorageStatistics> GetStorageStatistics(
-      OpenTransactionPtr transaction, IndexTransform<> transform,
-      GetArrayStorageStatisticsOptions options);
+      GetStorageStatisticsRequest request);
 
   virtual ~Driver();
 };
@@ -270,9 +293,8 @@ Future<DriverHandle> OpenDriver(TransformedDriverSpec spec,
 ///
 /// This simply calls `DriverSpec::Open` and then composes the `transform` of
 /// the returned `Driver::Handle` with `bound_spec.transform`.
-Future<DriverHandle> OpenDriver(OpenTransactionPtr transaction,
-                                TransformedDriverSpec bound_spec,
-                                ReadWriteMode read_write_mode);
+Future<DriverHandle> OpenDriver(TransformedDriverSpec bound_spec,
+                                DriverOpenRequest request);
 
 Result<ChunkLayout> GetChunkLayout(const Driver::Handle& handle);
 

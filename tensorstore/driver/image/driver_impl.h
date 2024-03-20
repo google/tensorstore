@@ -187,8 +187,7 @@ class ImageDriverSpec
   OpenMode open_mode() const override { return OpenMode::open; }
 
   Future<internal::Driver::Handle> Open(
-      internal::OpenTransactionPtr transaction,
-      ReadWriteMode read_write_mode) const override;
+      internal::DriverOpenRequest request) const override;
 };
 
 template <typename Specialization>
@@ -283,6 +282,10 @@ class ImageDriver
   using DriverType = ImageDriver<Specialization>;
   using CacheType = ImageCache<Specialization>;
   using LockType = internal::AsyncCache::ReadLock<typename CacheType::ReadData>;
+  using ReadRequest = internal::Driver::ReadRequest;
+  using ResolveBoundsRequest = internal::Driver::ResolveBoundsRequest;
+  using GetStorageStatisticsRequest =
+      internal::Driver::GetStorageStatisticsRequest;
 
   KvStore GetKvstore(const Transaction& transaction) override {
     auto& cache = GetOwningCache(*cache_entry_);
@@ -310,16 +313,12 @@ class ImageDriver
       internal::OpenTransactionPtr transaction,
       IndexTransformView<> transform) override;
 
-  Future<IndexTransform<>> ResolveBounds(
-      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
-      ResolveBoundsOptions options) override;
+  Future<IndexTransform<>> ResolveBounds(ResolveBoundsRequest request) override;
 
   Future<ArrayStorageStatistics> GetStorageStatistics(
-      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
-      GetArrayStorageStatisticsOptions options) override;
+      GetStorageStatisticsRequest request) override;
 
-  void Read(internal::OpenTransactionPtr transaction,
-            IndexTransform<> transform,
+  void Read(ReadRequest request,
             AnyFlowReceiver<absl::Status, internal::ReadChunk, IndexTransform<>>
                 receiver) override;
 
@@ -329,16 +328,16 @@ class ImageDriver
 
 template <typename Specialization>
 Future<internal::DriverHandle> ImageDriverSpec<Specialization>::Open(
-    internal::OpenTransactionPtr transaction,
-    ReadWriteMode read_write_mode) const {
+    internal::DriverOpenRequest request) const {
   using DriverType = ImageDriver<Specialization>;
   using CacheType = ImageCache<Specialization>;
   using LockType = internal::AsyncCache::ReadLock<typename CacheType::ReadData>;
 
-  if ((read_write_mode & ReadWriteMode::write) == ReadWriteMode::write) {
+  if ((request.read_write_mode & ReadWriteMode::write) ==
+      ReadWriteMode::write) {
     return absl::InvalidArgumentError("only reading is supported");
   }
-  read_write_mode = ReadWriteMode::read;
+  request.read_write_mode = ReadWriteMode::read;
   if (!store.valid()) {
     return absl::InvalidArgumentError("\"kvstore\" must be specified");
   }
@@ -369,7 +368,8 @@ Future<internal::DriverHandle> ImageDriverSpec<Specialization>::Open(
 
   // Once the cache is initialized, pin the entry for the image path.
   return PromiseFuturePair<internal::DriverHandle>::LinkValue(
-             [this, cache, request_time, transaction = std::move(transaction)](
+             [this, cache, request_time,
+              transaction = std::move(request.transaction)](
                  Promise<internal::DriverHandle> p, AnyFuture f) {
                internal::ReadWritePtr<DriverType> driver =
                    internal::MakeReadWritePtr<DriverType>(ReadWriteMode::read);
@@ -438,16 +438,15 @@ ImageDriver<Specialization>::GetBoundSpec(
 
 template <typename Specialization>
 Future<IndexTransform<>> ImageDriver<Specialization>::ResolveBounds(
-    internal::OpenTransactionPtr transaction, IndexTransform<> transform,
-    ResolveBoundsOptions /*options*/) {
-  if (transaction) {
+    ResolveBoundsRequest request) {
+  if (request.transaction) {
     return absl::UnimplementedError(Specialization::kTransactionError);
   }
   return MapFuture(
       data_copy_executor(),
       [self = internal::IntrusivePtr<DriverType>(this),
-       transform = std::move(transform)](
-          const Result<void>& result) -> Result<IndexTransform<>> {
+       transform = std::move(request.transform)](
+          const Result<void>& result) mutable -> Result<IndexTransform<>> {
         if (!result.ok()) {
           return result.status();
         }
@@ -462,8 +461,7 @@ Future<IndexTransform<>> ImageDriver<Specialization>::ResolveBounds(
 template <typename Specialization>
 Future<ArrayStorageStatistics>
 ImageDriver<Specialization>::GetStorageStatistics(
-    internal::OpenTransactionPtr transaction, IndexTransform<> transform,
-    GetArrayStorageStatisticsOptions options) {
+    GetStorageStatisticsRequest request) {
   // TODO(jbms): integrate this with the cache
   auto& cache = GetOwningCache(*cache_entry_);
   kvstore::ReadOptions read_options;
@@ -471,7 +469,7 @@ ImageDriver<Specialization>::GetStorageStatistics(
   read_options.staleness_bound = data_staleness_.time;
   return MapFutureValue(
       InlineExecutor{},
-      [options](
+      [options = std::move(request.options)](
           const kvstore::ReadResult& read_result) -> ArrayStorageStatistics {
         ArrayStorageStatistics statistics;
         statistics.mask = options.mask;
@@ -486,7 +484,7 @@ ImageDriver<Specialization>::GetStorageStatistics(
       kvstore::Read(KvStore{kvstore::DriverPtr(cache.kvstore_driver()),
                             std::string(cache_entry_->key()),
                             internal::TransactionState::ToTransaction(
-                                std::move(transaction))},
+                                std::move(request.transaction))},
                     "", std::move(read_options)));
 }
 
@@ -527,10 +525,10 @@ struct ReadChunkImpl {
 
 template <typename Specialization>
 void ImageDriver<Specialization>::Read(
-    internal::OpenTransactionPtr transaction, IndexTransform<> transform,
+    ReadRequest request,
     AnyFlowReceiver<absl::Status, internal::ReadChunk, IndexTransform<>>
         receiver) {
-  if (transaction) {
+  if (request.transaction) {
     execution::set_starting(receiver, [] {});
     execution::set_error(
         receiver, absl::UnimplementedError(Specialization::kTransactionError));
@@ -541,7 +539,7 @@ void ImageDriver<Specialization>::Read(
   internal::ReadChunk chunk;
   chunk.impl = ReadChunkImpl<Specialization>{
       internal::IntrusivePtr<ImageDriver>(this), cache_entry_};
-  chunk.transform = std::move(transform);
+  chunk.transform = std::move(request.transform);
 
   // TODO: Wire in execution::set_cancel correctly.
   execution::set_starting(receiver, [] {});

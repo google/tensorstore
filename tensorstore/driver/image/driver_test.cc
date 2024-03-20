@@ -119,34 +119,6 @@ INSTANTIATE_TEST_SUITE_P(ReadTests, ImageDriverReadTest,
                                          ParamTiff(), ParamWebP(), ParamBmp()),
                          testing::PrintToStringParamName());
 
-TEST_P(ImageDriverReadTest, Handle_OpenResolveBounds) {
-  auto json_spec = GetSpec();
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto context, PrepareTest(json_spec));
-
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
-                                   tensorstore::Spec::FromJson(json_spec));
-
-  tensorstore::TransactionalOpenOptions options;
-  TENSORSTORE_ASSERT_OK(options.Set(context));
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto handle,
-      tensorstore::internal::OpenDriver(
-          std::move(tensorstore::internal_spec::SpecAccess::impl(spec)),
-          std::move(options))
-          .result());
-
-  auto transform_result =
-      handle.driver
-          ->ResolveBounds(
-              {}, tensorstore::IdentityTransform(handle.driver->rank()), {})
-          .result();
-
-  EXPECT_THAT(transform_result->input_origin(),
-              ::testing::ElementsAre(0, 0, 0));
-  EXPECT_THAT(transform_result->input_shape(),
-              ::testing::ElementsAre(256, 256, 3));
-}
-
 TEST_P(ImageDriverReadTest, OpenAndResolveBounds) {
   auto spec = GetSpec();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto context, PrepareTest(spec));

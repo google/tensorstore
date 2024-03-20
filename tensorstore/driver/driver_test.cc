@@ -41,12 +41,10 @@ class ChunkErrorDriver : public tensorstore::internal::Driver {
  public:
   tensorstore::DataType dtype() override { return tensorstore::dtype_v<int>; }
   tensorstore::DimensionIndex rank() override { return 0; }
-  void Read(tensorstore::internal::OpenTransactionPtr transaction,
-            IndexTransform<> transform,
+  void Read(ReadRequest request,
             AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver)
       override {}
-  void Write(tensorstore::internal::OpenTransactionPtr transaction,
-             IndexTransform<> transform,
+  void Write(WriteRequest request,
              AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>>
                  receiver) override {
     tensorstore::execution::set_starting(receiver, [] {});

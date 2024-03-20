@@ -362,17 +362,18 @@ struct WriteChunkImpl {
 }  // namespace
 
 void ChunkCache::Read(
-    OpenTransactionPtr transaction, std::size_t component_index,
-    IndexTransform<> transform, absl::Time staleness,
+    ReadRequest request,
     AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver) {
-  assert(component_index >= 0 && component_index < grid().components.size());
-  const auto& component_spec = grid().components[component_index];
+  assert(request.component_index >= 0 &&
+         request.component_index < grid().components.size());
+  const auto& component_spec = grid().components[request.component_index];
   // Shared state used while `Read` is in progress.
   using ReadOperationState = ChunkOperationState<ReadChunk>;
 
   auto state = MakeIntrusivePtr<ReadOperationState>(std::move(receiver));
   auto status = PartitionIndexTransformOverRegularGrid(
-      component_spec.chunked_to_cell_dimensions, grid().chunk_shape, transform,
+      component_spec.chunked_to_cell_dimensions, grid().chunk_shape,
+      request.transform,
       [&](span<const Index> grid_cell_indices,
           IndexTransformView<> cell_transform) {
         if (state->cancelled()) {
@@ -380,7 +381,8 @@ void ChunkCache::Read(
         }
         num_reads.Increment();
         TENSORSTORE_ASSIGN_OR_RETURN(
-            auto cell_to_source, ComposeTransforms(transform, cell_transform));
+            auto cell_to_source,
+            ComposeTransforms(request.transform, cell_transform));
         auto entry = GetEntryForGridCell(*this, grid_cell_indices);
         // Arrange to call `set_value` on the receiver with a `ReadChunk`
         // corresponding to this grid cell once the read request completes
@@ -388,16 +390,17 @@ void ChunkCache::Read(
         ReadChunk chunk;
         chunk.transform = std::move(cell_to_source);
         Future<const void> read_future;
-        if (transaction) {
-          TENSORSTORE_ASSIGN_OR_RETURN(auto node,
-                                       GetTransactionNode(*entry, transaction));
-          read_future = node->IsUnconditional() ? MakeReadyFuture()
-                                                : node->Read(staleness);
-          chunk.impl =
-              ReadChunkTransactionImpl{component_index, std::move(node)};
+        if (request.transaction) {
+          TENSORSTORE_ASSIGN_OR_RETURN(
+              auto node, GetTransactionNode(*entry, request.transaction));
+          read_future = node->IsUnconditional()
+                            ? MakeReadyFuture()
+                            : node->Read(request.staleness_bound);
+          chunk.impl = ReadChunkTransactionImpl{request.component_index,
+                                                std::move(node)};
         } else {
-          read_future = entry->Read(staleness);
-          chunk.impl = ReadChunkImpl{component_index, std::move(entry)};
+          read_future = entry->Read(request.staleness_bound);
+          chunk.impl = ReadChunkImpl{request.component_index, std::move(entry)};
         }
         LinkValue(
             [state, chunk = std::move(chunk),
@@ -415,31 +418,33 @@ void ChunkCache::Read(
 }
 
 void ChunkCache::Write(
-    OpenTransactionPtr transaction, std::size_t component_index,
-    IndexTransform<> transform,
+    WriteRequest request,
     AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>> receiver) {
-  assert(component_index >= 0 && component_index < grid().components.size());
+  assert(request.component_index >= 0 &&
+         request.component_index < grid().components.size());
   // In this implementation, chunks are always available for writing
   // immediately.  The entire stream of chunks is sent to the receiver before
   // this function returns.
-  const auto& component_spec = grid().components[component_index];
+  const auto& component_spec = grid().components[request.component_index];
   std::atomic<bool> cancelled{false};
   execution::set_starting(receiver, [&cancelled] { cancelled = true; });
   absl::Status status = PartitionIndexTransformOverRegularGrid(
-      component_spec.chunked_to_cell_dimensions, grid().chunk_shape, transform,
+      component_spec.chunked_to_cell_dimensions, grid().chunk_shape,
+      request.transform,
       [&](span<const Index> grid_cell_indices,
           IndexTransformView<> cell_transform) {
         if (cancelled) return absl::CancelledError("");
         num_writes.Increment();
         TENSORSTORE_ASSIGN_OR_RETURN(
-            auto cell_to_dest, ComposeTransforms(transform, cell_transform));
+            auto cell_to_dest,
+            ComposeTransforms(request.transform, cell_transform));
         auto entry = GetEntryForGridCell(*this, grid_cell_indices);
-        auto transaction_copy = transaction;
+        auto transaction_copy = request.transaction;
         TENSORSTORE_ASSIGN_OR_RETURN(
             auto node, GetTransactionNode(*entry, transaction_copy));
         execution::set_value(
             receiver,
-            WriteChunk{WriteChunkImpl{component_index, std::move(node)},
+            WriteChunk{WriteChunkImpl{request.component_index, std::move(node)},
                        std::move(cell_to_dest)},
             IndexTransform<>(cell_transform));
         return absl::OkStatus();

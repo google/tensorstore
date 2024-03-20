@@ -607,14 +607,13 @@ TEST(ArrayDriverHandle, OpenResolveBounds) {
           .result());
 
   // Validates that an identity transform of rank returns the array bounds.
-  auto transform_result =
-      handle.driver
-          ->ResolveBounds(
-              {}, tensorstore::IdentityTransform(handle.driver->rank()), {})
-          .result();
+  tensorstore::internal::Driver::ResolveBoundsRequest request;
+  request.transform = tensorstore::IdentityTransform(handle.driver->rank());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto resolved, handle.driver->ResolveBounds(std::move(request)).result());
 
-  EXPECT_THAT(transform_result->input_origin(), ::testing::ElementsAre(0, 0));
-  EXPECT_THAT(transform_result->input_shape(), ::testing::ElementsAre(2, 3));
+  EXPECT_THAT(resolved.input_origin(), ::testing::ElementsAre(0, 0));
+  EXPECT_THAT(resolved.input_shape(), ::testing::ElementsAre(2, 3));
 }
 
 TEST(ArrayTest, SpecFromArray) {

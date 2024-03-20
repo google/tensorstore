@@ -167,12 +167,12 @@ class CastDriverSpec
   }
 
   Future<internal::Driver::Handle> Open(
-      internal::OpenTransactionPtr transaction,
-      ReadWriteMode read_write_mode) const override {
+      internal::DriverOpenRequest request) const override {
     DataType target_dtype = schema.dtype();
     if (!target_dtype.valid()) {
       return absl::InvalidArgumentError("dtype must be specified");
     }
+    auto read_write_mode = request.read_write_mode;
     return MapFutureValue(
         InlineExecutor{},
         [target_dtype, read_write_mode](internal::Driver::Handle handle)
@@ -180,7 +180,7 @@ class CastDriverSpec
           return MakeCastDriver(std::move(handle), target_dtype,
                                 read_write_mode);
         },
-        internal::OpenDriver(std::move(transaction), base, read_write_mode));
+        internal::OpenDriver(base, std::move(request)));
   }
 };
 
@@ -250,10 +250,8 @@ class CastDriver
   }
 
   Future<ArrayStorageStatistics> GetStorageStatistics(
-      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
-      GetArrayStorageStatisticsOptions options) override {
-    return base_driver_->GetStorageStatistics(
-        std::move(transaction), std::move(transform), std::move(options));
+      GetStorageStatisticsRequest request) override {
+    return base_driver_->GetStorageStatistics(std::move(request));
   }
 
   explicit CastDriver(internal::DriverPtr base, DataType target_dtype,
@@ -271,29 +269,21 @@ class CastDriver
     return base_driver_->data_copy_executor();
   }
 
-  void Read(OpenTransactionPtr transaction, IndexTransform<> transform,
+  void Read(ReadRequest request,
             AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver)
       override;
 
-  void Write(OpenTransactionPtr transaction, IndexTransform<> transform,
+  void Write(WriteRequest request,
              AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>>
                  receiver) override;
 
   Future<IndexTransform<>> ResolveBounds(
-      OpenTransactionPtr transaction, IndexTransform<> transform,
-      ResolveBoundsOptions options) override {
-    return base_driver_->ResolveBounds(
-        std::move(transaction), std::move(transform), std::move(options));
+      ResolveBoundsRequest request) override {
+    return base_driver_->ResolveBounds(std::move(request));
   }
 
-  Future<IndexTransform<>> Resize(OpenTransactionPtr transaction,
-                                  IndexTransform<> transform,
-                                  span<const Index> inclusive_min,
-                                  span<const Index> exclusive_max,
-                                  ResizeOptions options) override {
-    return base_driver_->Resize(std::move(transaction), std::move(transform),
-                                inclusive_min, exclusive_max,
-                                std::move(options));
+  Future<IndexTransform<>> Resize(ResizeRequest request) override {
+    return base_driver_->Resize(std::move(request));
   }
 
   constexpr static auto ApplyMembers = [](auto&& x, auto f) {
@@ -382,17 +372,17 @@ struct ChunkReceiverAdapter {
 };
 
 void CastDriver::Read(
-    OpenTransactionPtr transaction, IndexTransform<> transform,
+    ReadRequest request,
     AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver) {
-  base_driver_->Read(std::move(transaction), std::move(transform),
+  base_driver_->Read(std::move(request),
                      ChunkReceiverAdapter<ReadChunk, ReadChunkImpl>{
                          IntrusivePtr<CastDriver>(this), std::move(receiver)});
 }
 
 void CastDriver::Write(
-    OpenTransactionPtr transaction, IndexTransform<> transform,
+    WriteRequest request,
     AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>> receiver) {
-  base_driver_->Write(std::move(transaction), std::move(transform),
+  base_driver_->Write(std::move(request),
                       ChunkReceiverAdapter<WriteChunk, WriteChunkImpl>{
                           IntrusivePtr<CastDriver>(this), std::move(receiver)});
 }
