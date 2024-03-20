@@ -2215,8 +2215,8 @@ void DefineTensorStoreFunctions(py::module m) {
                          /*NoThrow=*/false, /*AllowCopy=*/false>(
               array.value, &converted_array);
         }
-        return ValueOrThrow(FromArray(WrapImpl(std::move(context)),
-                                      std::move(converted_array)));
+        return ValueOrThrow(FromArray(std::move(converted_array),
+                                      WrapImpl(std::move(context))));
       },
       R"(
 Returns a TensorStore that reads/writes from an in-memory array.

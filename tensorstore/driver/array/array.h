@@ -26,13 +26,6 @@
 
 namespace tensorstore {
 
-namespace internal {
-template <ArrayOriginKind OriginKind>
-Result<internal::Driver::Handle> MakeArrayDriver(
-    Context context, SharedArray<void, dynamic_rank, OriginKind> array,
-    DimensionUnitsVector dimension_units = {});
-}  // namespace internal
-
 /// Alias that evaluates to the TensorStore type corresponding to `Array`.
 ///
 /// \tparam Array The `Array` or `TransformedArray` type.
@@ -43,24 +36,64 @@ using TensorStoreFromArrayType = TensorStore<
     (std::is_const_v<typename Array::Element> ? ReadWriteMode::read
                                               : ReadWriteMode::read_write)>;
 
+struct FromArrayOptions {
+  Context context;
+  DimensionUnitsVector dimension_units;
+
+  template <typename T>
+  constexpr static inline bool IsOption = false;
+
+  /// Combines any number of supported options.
+  template <typename... T, typename = std::enable_if_t<
+                               (IsOption<absl::remove_cvref_t<T>> && ...)>>
+  FromArrayOptions(T&&... option) {
+    (Set(std::forward<T>(option)), ...);
+  }
+
+  void Set(Context value) { context = std::move(value); }
+
+  void Set(DimensionUnitsVector value) { dimension_units = std::move(value); }
+};
+
+template <>
+constexpr inline bool FromArrayOptions::IsOption<Context> = true;
+
+template <>
+constexpr inline bool FromArrayOptions::IsOption<DimensionUnitsVector> = true;
+
+namespace internal {
+template <ArrayOriginKind OriginKind>
+Result<internal::Driver::Handle> MakeArrayDriver(
+    SharedArray<void, dynamic_rank, OriginKind> array,
+    FromArrayOptions options = {});
+}  // namespace internal
+
 /// Returns a `TensorStore` that holds a given `array`.
 ///
-/// \param context The context object held by the `TensorStore`.
 /// \param array The array held by the `TensorStore`.
-/// \param dimension_units Optional dimension units.  If specified, the length
-///     must equal `array.rank()`.
+/// \param options Options compatible with `FromArrayOptions`.
 /// \requires `IsArray<Array>`.
 template <typename Array>
 std::enable_if_t<(IsArray<Array> && IsShared<typename Array::ElementTag>),
                  Result<TensorStoreFromArrayType<Array>>>
-FromArray(Context context, const Array& array,
-          DimensionUnitsVector dimension_units = {}) {
+FromArray(const Array& array, FromArrayOptions options) {
   using Store = TensorStoreFromArrayType<Array>;
   TENSORSTORE_ASSIGN_OR_RETURN(
-      auto handle,
-      internal::MakeArrayDriver<Array::array_origin_kind>(
-          std::move(context), ConstDataTypeCast<typename Store::Element>(array),
-          std::move(dimension_units)));
+      auto handle, internal::MakeArrayDriver<Array::array_origin_kind>(
+                       ConstDataTypeCast<typename Store::Element>(array),
+                       std::move(options)));
+  return internal::TensorStoreAccess::Construct<Store>(std::move(handle));
+}
+template <typename Array, typename... Options>
+std::enable_if_t<(IsArray<Array> && IsShared<typename Array::ElementTag> &&
+                  IsCompatibleOptionSequence<FromArrayOptions, Options...>),
+                 Result<TensorStoreFromArrayType<Array>>>
+FromArray(const Array& array, Options&&... options) {
+  using Store = TensorStoreFromArrayType<Array>;
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto handle, internal::MakeArrayDriver<Array::array_origin_kind>(
+                       ConstDataTypeCast<typename Store::Element>(array),
+                       FromArrayOptions(std::forward<Options>(options)...)));
   return internal::TensorStoreAccess::Construct<Store>(std::move(handle));
 }
 

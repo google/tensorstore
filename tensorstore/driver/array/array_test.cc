@@ -14,25 +14,42 @@
 
 #include "tensorstore/driver/array/array.h"
 
+#include <stdint.h>
+
 #include <type_traits>
+#include <utility>
+#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include <nlohmann/json.hpp>
+#include "tensorstore/array.h"
+#include "tensorstore/box.h"
+#include "tensorstore/chunk_layout.h"
 #include "tensorstore/context.h"
+#include "tensorstore/contiguous_layout.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/driver/driver.h"
 #include "tensorstore/driver/driver_testutil.h"
+#include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
-#include "tensorstore/internal/elementwise_function.h"
+#include "tensorstore/index_space/dimension_units.h"
+#include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/json_binding/gtest.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
-#include "tensorstore/serialization/serialization.h"
+#include "tensorstore/open_options.h"
+#include "tensorstore/progress.h"
 #include "tensorstore/serialization/test_util.h"
 #include "tensorstore/spec.h"
+#include "tensorstore/strided_layout.h"
 #include "tensorstore/tensorstore.h"
-#include "tensorstore/util/executor.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/util/future.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
+#include "tensorstore/util/unit.h"
 
 namespace {
 
@@ -41,6 +58,7 @@ using ::tensorstore::Context;
 using ::tensorstore::CopyProgress;
 using ::tensorstore::CopyProgressFunction;
 using ::tensorstore::DimensionIndex;
+using ::tensorstore::DimensionUnitsVector;
 using ::tensorstore::Index;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
@@ -59,230 +77,12 @@ using ::tensorstore::internal::TestTensorStoreCreateCheckSchema;
 constexpr const char kMismatchRE[] = ".* mismatch with target dimension .*";
 constexpr const char kOutsideValidRangeRE[] = ".* is outside valid range .*";
 
-namespace driver_tests {
-
-TEST(ArrayDriverTest, Read) {
-  auto array =
-      tensorstore::MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {4, 5, 6}});
-  auto context = Context::Default();
-  auto transformed_driver =
-      tensorstore::internal::MakeArrayDriver<offset_origin>(context, array)
-          .value();
-  std::vector<ReadProgress> read_progress;
-  auto dest_array = tensorstore::AllocateArray<int>(array.domain());
-  TENSORSTORE_ASSERT_OK(tensorstore::internal::DriverRead(
-      /*executor=*/tensorstore::InlineExecutor{},
-      /*source=*/transformed_driver,
-      /*target=*/dest_array,
-      {/*.progress_function=*/tensorstore::ReadProgressFunction{
-          [&read_progress](ReadProgress progress) {
-            read_progress.push_back(progress);
-          }}}));
-  EXPECT_EQ(array, dest_array);
-  EXPECT_THAT(read_progress, ::testing::ElementsAre(ReadProgress{6, 6}));
-}
-
-TEST(ArrayDriverTest, ReadIntoNewArray) {
-  auto array =
-      tensorstore::MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {4, 5, 6}});
-  auto context = Context::Default();
-  auto transformed_driver =
-      tensorstore::internal::MakeArrayDriver<offset_origin>(context, array)
-          .value();
-  std::vector<ReadProgress> read_progress;
-  EXPECT_THAT(
-      tensorstore::internal::DriverReadIntoNewArray(
-          /*executor=*/tensorstore::InlineExecutor{},
-          /*source=*/transformed_driver,
-          /*target_dtype=*/array.dtype(),
-          /*target_layout_order=*/tensorstore::c_order,
-          {/*.progress_function=*/[&read_progress](ReadProgress progress) {
-            read_progress.push_back(progress);
-          }})
-          .result(),
-      ::testing::Optional(array));
-  EXPECT_THAT(read_progress, ::testing::ElementsAre(ReadProgress{6, 6}));
-}
-
-/// Tests calling Read with a source domain that does not match the destination
-/// domain.
-TEST(ArrayDriverTest, ReadDomainMismatch) {
-  auto array =
-      tensorstore::MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {4, 5, 6}});
-  auto context = Context::Default();
-  auto transformed_driver =
-      tensorstore::internal::MakeArrayDriver<offset_origin>(context, array)
-          .value();
-  std::vector<ReadProgress> read_progress;
-  auto dest_array =
-      tensorstore::AllocateArray<int>(tensorstore::BoxView({1, 2}, {3, 3}));
-  auto future = tensorstore::internal::DriverRead(
-      /*executor=*/tensorstore::InlineExecutor{},
-      /*source=*/transformed_driver,
-      /*target=*/dest_array,
-      {/*.progress_function=*/tensorstore::ReadProgressFunction{
-          [&read_progress](ReadProgress progress) {
-            read_progress.push_back(progress);
-          }}});
-  EXPECT_THAT(future.result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument, kMismatchRE));
-  EXPECT_THAT(read_progress, ::testing::ElementsAre());
-}
-
-/// Tests calling Read with an index array containing out-of-bounds indices.
-TEST(ArrayDriverTest, ReadCopyTransformError) {
-  auto array = tensorstore::MakeArray<int>({1, 2, 3, 4});
-  auto context = Context::Default();
-  auto transformed_driver =
-      tensorstore::internal::MakeArrayDriver<zero_origin>(context, array)
-          .value();
-  std::vector<ReadProgress> read_progress;
-  auto dest_array =
-      ChainResult(tensorstore::AllocateArray<int>({1}),
-                  tensorstore::Dims(0).IndexArraySlice(
-                      tensorstore::MakeArray<Index>({0, 1, 2, 3})))
-          .value();
-
-  auto future = tensorstore::internal::DriverRead(
-      /*executor=*/tensorstore::InlineExecutor{},
-      /*source=*/transformed_driver,
-      /*target=*/dest_array,
-      {/*.progress_function=*/tensorstore::ReadProgressFunction{
-          [&read_progress](ReadProgress progress) {
-            read_progress.push_back(progress);
-          }}});
-  // Error occurs due to the invalid index of 1 in the index array, which is
-  // validated when copying from the ReadChunk to the target array.
-  EXPECT_THAT(future.result(), MatchesStatus(absl::StatusCode::kOutOfRange,
-                                             ".* is outside valid range .*"));
-  EXPECT_THAT(read_progress, ::testing::ElementsAre());
-}
-
-TEST(ArrayDriverTest, Write) {
-  auto array =
-      tensorstore::MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {4, 5, 6}});
-  auto context = Context::Default();
-  auto [driver, transform, transaction] =
-      tensorstore::internal::MakeArrayDriver<offset_origin>(context, array)
-          .value();
-  std::vector<WriteProgress> write_progress;
-  auto write_result = tensorstore::internal::DriverWrite(
-      /*executor=*/tensorstore::InlineExecutor{},
-      /*source=*/tensorstore::MakeOffsetArray<int>({2, 3}, {{7, 8}}),
-      /*target=*/
-      {driver, ChainResult(transform, tensorstore::Dims(0, 1).SizedInterval(
-                                          {2, 3}, {1, 2}))
-                   .value()},
-      {/*.progress_function=*/tensorstore::WriteProgressFunction{
-          [&write_progress](WriteProgress progress) {
-            write_progress.push_back(progress);
-          }}});
-  TENSORSTORE_EXPECT_OK(write_result.copy_future);
-  TENSORSTORE_EXPECT_OK(write_result.commit_future);
-  EXPECT_EQ(tensorstore::MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {4, 7, 8}}),
-            array);
-  EXPECT_THAT(write_progress, ::testing::ElementsAre(WriteProgress{2, 2, 0},
-                                                     WriteProgress{2, 2, 2}));
-}
-
-/// Tests calling Write with a source domain that does not match the destination
-/// domain.
-TEST(ArrayDriverTest, WriteDomainMismatch) {
-  auto array =
-      tensorstore::MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {4, 5, 6}});
-  auto context = Context::Default();
-  auto [driver, transform, transaction] =
-      tensorstore::internal::MakeArrayDriver<offset_origin>(context, array)
-          .value();
-  std::vector<WriteProgress> write_progress;
-  auto write_result = tensorstore::internal::DriverWrite(
-      /*executor=*/tensorstore::InlineExecutor{},
-      /*source=*/tensorstore::MakeArray<int>({{7, 8, 9, 10, 11}}),
-      /*target=*/
-      {driver, ChainResult(transform, tensorstore::Dims(0, 1).SizedInterval(
-                                          {2, 3}, {1, 2}))
-                   .value()},
-      {/*.progress_function=*/tensorstore::WriteProgressFunction{
-          [&write_progress](WriteProgress progress) {
-            write_progress.push_back(progress);
-          }}});
-  EXPECT_THAT(write_result.copy_future.result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument, kMismatchRE));
-  EXPECT_THAT(write_result.commit_future.result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument, kMismatchRE));
-  EXPECT_THAT(write_progress, ::testing::ElementsAre());
-}
-
-TEST(ArrayDriverTest, Copy) {
-  auto context = Context::Default();
-  auto array_a =
-      tensorstore::MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {4, 5, 6}});
-  auto [driver_a, transform_a, transaction_a] =
-      tensorstore::internal::MakeArrayDriver<offset_origin>(context, array_a)
-          .value();
-  auto array_b =
-      tensorstore::MakeOffsetArray<int>({1, 4}, {{7, 7, 7}, {7, 7, 7}});
-  auto [driver_b, transform_b, transaction_b] =
-      tensorstore::internal::MakeArrayDriver<offset_origin>(context, array_b)
-          .value();
-  std::vector<CopyProgress> progress;
-  auto write_result = tensorstore::internal::DriverCopy(
-      /*executor=*/tensorstore::InlineExecutor{}, /*source=*/
-      {driver_a,
-       ChainResult(transform_a, tensorstore::Dims(0, 1).TranslateSizedInterval(
-                                    {1, 2}, {2, 2}, {1, 2}))
-           .value()},
-      /*target=*/
-      {driver_b,
-       ChainResult(transform_b, tensorstore::Dims(0, 1).TranslateSizedInterval(
-                                    {1, 5}, {2, 2}))
-           .value()},
-      {/*.progress_function=*/tensorstore::CopyProgressFunction{
-          [&progress](CopyProgress p) { progress.push_back(p); }}});
-  TENSORSTORE_EXPECT_OK(write_result.copy_future);
-  TENSORSTORE_EXPECT_OK(write_result.commit_future);
-  EXPECT_EQ(tensorstore::MakeOffsetArray<int>({1, 4}, {{7, 1, 3}, {7, 4, 6}}),
-            array_b);
-  EXPECT_THAT(progress, ::testing::ElementsAre(CopyProgress{4, 4, 0, 0},
-                                               CopyProgress{4, 4, 4, 0},
-                                               CopyProgress{4, 4, 4, 4}));
-}
-
-TEST(ArrayDriverTest, CopyDomainMismatch) {
-  auto context = Context::Default();
-  auto array_a =
-      tensorstore::MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {4, 5, 6}});
-  auto transformed_driver_a =
-      tensorstore::internal::MakeArrayDriver<offset_origin>(context, array_a)
-          .value();
-  auto array_b =
-      tensorstore::MakeOffsetArray<int>({1, 4}, {{7, 7, 7, 7}, {7, 7, 7, 7}});
-  auto transformed_driver_b =
-      tensorstore::internal::MakeArrayDriver<offset_origin>(context, array_b)
-          .value();
-  std::vector<CopyProgress> progress;
-  auto write_result = tensorstore::internal::DriverCopy(
-      /*executor=*/tensorstore::InlineExecutor{},
-      /*source=*/transformed_driver_a,
-      /*target=*/transformed_driver_b,
-      {/*.progress_function=*/tensorstore::CopyProgressFunction{
-          [&progress](CopyProgress p) { progress.push_back(p); }}});
-  EXPECT_THAT(write_result.copy_future,
-              MatchesStatus(absl::StatusCode::kInvalidArgument, kMismatchRE));
-  EXPECT_EQ(write_result.copy_future.status(),
-            write_result.commit_future.status());
-  EXPECT_THAT(progress, ::testing::ElementsAre());
-}
-
-}  // namespace driver_tests
-
 namespace frontend_tests {
 
 TEST(ApplyIndexTransformTest, Basic) {
   auto array =
       tensorstore::MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {4, 5, 6}});
-  auto context = Context::Default();
-  auto store = tensorstore::FromArray(context, array).value();
+  auto store = tensorstore::FromArray(array).value();
   auto store2 =
       ApplyIndexTransform(tensorstore::Dims(0, 1).SizedInterval({1, 2}, {2, 2}),
                           store)
@@ -293,8 +93,7 @@ TEST(ApplyIndexTransformTest, Basic) {
 TEST(FromArrayTest, ResolveBounds) {
   auto array =
       tensorstore::MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {4, 5, 6}});
-  auto context = Context::Default();
-  auto store = tensorstore::FromArray(context, array).value();
+  auto store = tensorstore::FromArray(array).value();
 
   auto store2 = ResolveBounds(store).value();
   EXPECT_EQ(array.domain(), store2.domain().box());
@@ -305,8 +104,7 @@ TEST(FromArrayTest, ResolveBounds) {
 TEST(FromArrayTest, Read) {
   auto array =
       tensorstore::MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {4, 5, 6}});
-  auto context = Context::Default();
-  auto store = tensorstore::FromArray(context, array).value();
+  auto store = tensorstore::FromArray(array).value();
   static_assert(std::is_same_v<TensorStore<int, 2, ReadWriteMode::read_write>,
                                decltype(store)>);
   std::vector<ReadProgress> read_progress;
@@ -323,8 +121,7 @@ TEST(FromArrayTest, Read) {
 TEST(FromArrayTest, ReadBroadcast) {
   auto array =
       tensorstore::MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {4, 5, 6}});
-  auto context = Context::Default();
-  auto store = tensorstore::FromArray(context, array).value();
+  auto store = tensorstore::FromArray(array).value();
   auto dest_array = tensorstore::AllocateArray<int>({2, 2, 3});
   auto future = Read(store, dest_array);
   TENSORSTORE_EXPECT_OK(future);
@@ -339,8 +136,7 @@ TEST(FromArrayTest, ReadAlignByLabel) {
   // y=3 |  4  |  5  |  6
   auto array =
       tensorstore::MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {4, 5, 6}});
-  auto context = Context::Default();
-  auto store = tensorstore::FromArray(context, array).value();
+  auto store = tensorstore::FromArray(array).value();
   auto dest_array = tensorstore::AllocateArray<int>({3, 2});
   tensorstore::Future<void> future =
       Read(ChainResult(store, tensorstore::AllDims().Label("x", "y")),
@@ -352,15 +148,13 @@ TEST(FromArrayTest, ReadAlignByLabel) {
 TEST(FromArrayTest, ReadIntoNewArray) {
   auto array =
       tensorstore::MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {4, 5, 6}});
-  auto context = Context::Default();
-  auto store = tensorstore::FromArray(context, array);
+  auto store = tensorstore::FromArray(array);
   std::vector<ReadProgress> read_progress;
   auto future = tensorstore::Read(
-      store, /*options=*/{
-          tensorstore::c_order,
-          ReadProgressFunction{[&read_progress](ReadProgress progress) {
-            read_progress.push_back(progress);
-          }}});
+      store, tensorstore::c_order,
+      ReadProgressFunction{[&read_progress](ReadProgress progress) {
+        read_progress.push_back(progress);
+      }});
   TENSORSTORE_EXPECT_OK(future);
   auto read_array = future.value();
   EXPECT_EQ(array, read_array);
@@ -372,8 +166,7 @@ TEST(FromArrayTest, ReadIntoNewArray) {
 TEST(FromArrayTest, ReadDomainMismatch) {
   auto array =
       tensorstore::MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {4, 5, 6}});
-  auto context = Context::Default();
-  auto store = tensorstore::FromArray(context, array);
+  auto store = tensorstore::FromArray(array);
   std::vector<ReadProgress> read_progress;
   auto dest_array =
       tensorstore::AllocateArray<int>(tensorstore::BoxView({1, 2}, {3, 3}));
@@ -390,17 +183,18 @@ TEST(FromArrayTest, ReadDomainMismatch) {
 /// Tests calling Read with an index array containing out-of-bounds indices.
 TEST(FromArrayTest, ReadCopyTransformError) {
   auto array = tensorstore::MakeArray<int>({1, 2, 3, 4});
-  auto context = Context::Default();
-  auto store = tensorstore::FromArray(context, array);
+  auto store = tensorstore::FromArray(array);
   std::vector<ReadProgress> read_progress;
   auto future = tensorstore::Read(
       store,
-      ChainResult(tensorstore::AllocateArray<int>({1}),
-                  tensorstore::Dims(0).IndexArraySlice(
-                      tensorstore::MakeArray<Index>({0, 1, 2, 3}))),
+      tensorstore::AllocateArray<int>({1}) |
+          tensorstore::Dims(0).IndexArraySlice(
+              tensorstore::MakeArray<Index>({0, 1, 2, 3})),
       ReadProgressFunction{[&read_progress](ReadProgress progress) {
         read_progress.push_back(progress);
       }});
+  // Error occurs due to the invalid index of 1 in the index array, which is
+  // validated when copying from the ReadChunk to the target array.
   EXPECT_THAT(future.result(), MatchesStatus(absl::StatusCode::kOutOfRange,
                                              kOutsideValidRangeRE));
   EXPECT_THAT(read_progress, ::testing::ElementsAre());
@@ -409,12 +203,11 @@ TEST(FromArrayTest, ReadCopyTransformError) {
 TEST(FromArrayTest, Write) {
   auto array =
       tensorstore::MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {4, 5, 6}});
-  auto context = Context::Default();
-  auto store = tensorstore::FromArray(context, array);
+  auto store = tensorstore::FromArray(array);
   std::vector<WriteProgress> write_progress;
   auto write_result = tensorstore::Write(
       tensorstore::MakeOffsetArray<int>({2, 3}, {{7, 8}}),
-      ChainResult(store, tensorstore::Dims(0, 1).SizedInterval({2, 3}, {1, 2})),
+      store | tensorstore::Dims(0, 1).SizedInterval({2, 3}, {1, 2}),
       WriteProgressFunction{[&write_progress](WriteProgress progress) {
         write_progress.push_back(progress);
       }});
@@ -429,12 +222,10 @@ TEST(FromArrayTest, Write) {
 TEST(FromArrayTest, WriteBroadcast) {
   auto array =
       tensorstore::MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {4, 5, 6}});
-  auto context = Context::Default();
-  auto store = tensorstore::FromArray(context, array);
+  auto store = tensorstore::FromArray(array);
   auto write_result = tensorstore::Write(
       tensorstore::MakeScalarArray<int>(42),
-      ChainResult(store,
-                  tensorstore::Dims(0, 1).SizedInterval({2, 3}, {1, 2})));
+      store | tensorstore::Dims(0, 1).SizedInterval({2, 3}, {1, 2}));
   TENSORSTORE_EXPECT_OK(write_result.copy_future);
   TENSORSTORE_EXPECT_OK(write_result.commit_future);
   EXPECT_EQ(tensorstore::MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {4, 42, 42}}),
@@ -446,12 +237,11 @@ TEST(FromArrayTest, WriteBroadcast) {
 TEST(FromArrayTest, WriteDomainMismatch) {
   auto array =
       tensorstore::MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {4, 5, 6}});
-  auto context = Context::Default();
-  auto store = tensorstore::FromArray(context, array);
+  auto store = tensorstore::FromArray(array);
   std::vector<WriteProgress> write_progress;
   auto write_result = tensorstore::Write(
       tensorstore::MakeOffsetArray<int>({1, 3}, {{7, 8, 9, 10}}),
-      ChainResult(store, tensorstore::Dims(0, 1).SizedInterval({2, 3}, {1, 2})),
+      store | tensorstore::Dims(0, 1).SizedInterval({2, 3}, {1, 2}),
       WriteProgressFunction{[&write_progress](WriteProgress progress) {
         write_progress.push_back(progress);
       }});
@@ -463,19 +253,17 @@ TEST(FromArrayTest, WriteDomainMismatch) {
 }
 
 TEST(FromArrayTest, Copy) {
-  auto context = Context::Default();
   auto array_a =
       tensorstore::MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {4, 5, 6}});
-  auto store_a = tensorstore::FromArray(context, array_a);
+  auto store_a = tensorstore::FromArray(array_a);
   auto array_b =
       tensorstore::MakeOffsetArray<int>({1, 4}, {{7, 7, 7}, {7, 7, 7}});
-  auto store_b = tensorstore::FromArray(context, array_b);
+  auto store_b = tensorstore::FromArray(array_b);
   std::vector<CopyProgress> progress;
   auto write_result = tensorstore::Copy(
-      ChainResult(store_a, tensorstore::Dims(0, 1).TranslateSizedInterval(
-                               {1, 2}, {2, 2}, {1, 2})),
-      ChainResult(store_b, tensorstore::Dims(0, 1).TranslateSizedInterval(
-                               {1, 5}, {2, 2})),
+      store_a | tensorstore::Dims(0, 1).TranslateSizedInterval({1, 2}, {2, 2},
+                                                               {1, 2}),
+      store_b | tensorstore::Dims(0, 1).TranslateSizedInterval({1, 5}, {2, 2}),
       CopyProgressFunction{
           [&progress](CopyProgress p) { progress.push_back(p); }});
   TENSORSTORE_EXPECT_OK(write_result.copy_future);
@@ -488,18 +276,16 @@ TEST(FromArrayTest, Copy) {
 }
 
 TEST(FromArrayTest, CopyBroadcast) {
-  auto context = Context::Default();
   auto array_a =
       tensorstore::MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {4, 5, 6}});
-  auto store_a = tensorstore::FromArray(context, array_a);
+  auto store_a = tensorstore::FromArray(array_a);
   auto array_b =
       tensorstore::MakeOffsetArray<int>({1, 4}, {{7, 7, 7}, {7, 7, 7}});
-  auto store_b = tensorstore::FromArray(context, array_b);
+  auto store_b = tensorstore::FromArray(array_b);
   auto write_result = tensorstore::Copy(
-      ChainResult(store_a, tensorstore::Dims(1).SizedInterval(2, 2, 2),
-                  tensorstore::Dims(0).IndexSlice(1)),
-      ChainResult(store_b,
-                  tensorstore::Dims(0, 1).SizedInterval({1, 5}, {2, 2})));
+      store_a | tensorstore::Dims(1).SizedInterval(2, 2, 2) |
+          tensorstore::Dims(0).IndexSlice(1),
+      store_b | tensorstore::Dims(0, 1).SizedInterval({1, 5}, {2, 2}));
   TENSORSTORE_EXPECT_OK(write_result.copy_future);
   TENSORSTORE_EXPECT_OK(write_result.commit_future);
   EXPECT_EQ(tensorstore::MakeOffsetArray<int>({1, 4}, {{7, 1, 3}, {7, 1, 3}}),
@@ -507,13 +293,12 @@ TEST(FromArrayTest, CopyBroadcast) {
 }
 
 TEST(FromArrayTest, CopyDomainMismatch) {
-  auto context = Context::Default();
   auto array_a =
       tensorstore::MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {4, 5, 6}});
-  auto store_a = tensorstore::FromArray(context, array_a);
+  auto store_a = tensorstore::FromArray(array_a);
   auto array_b = tensorstore::MakeOffsetArray<int>(
       {1, 4}, {{7, 7, 7, 7, 7}, {7, 7, 7, 7, 7}});
-  auto store_b = tensorstore::FromArray(context, array_b);
+  auto store_b = tensorstore::FromArray(array_b);
   std::vector<CopyProgress> progress;
   auto write_result = tensorstore::Copy(
       store_a, store_b, CopyProgressFunction{[&progress](CopyProgress p) {
@@ -527,44 +312,40 @@ TEST(FromArrayTest, CopyDomainMismatch) {
 }
 
 TEST(FromArrayTest, ReadDataTypeConversion) {
-  auto context = Context::Default();
-  auto source = tensorstore::MakeArray<std::int32_t>({1, 2, 3});
-  auto dest = tensorstore::AllocateArray<std::int64_t>({3});
+  auto source = tensorstore::MakeArray<int32_t>({1, 2, 3});
+  auto dest = tensorstore::AllocateArray<int64_t>({3});
   TENSORSTORE_EXPECT_OK(
-      tensorstore::Read(tensorstore::FromArray(context, source), dest));
-  EXPECT_EQ(dest, tensorstore::MakeArray<std::int64_t>({1, 2, 3}));
+      tensorstore::Read(tensorstore::FromArray(source), dest));
+  EXPECT_EQ(dest, tensorstore::MakeArray<int64_t>({1, 2, 3}));
 }
 
 TEST(FromArrayTest, ReadInvalidDataTypeConversion) {
-  auto context = Context::Default();
   tensorstore::SharedArray<void> source =
-      tensorstore::MakeArray<std::int32_t>({1, 2, 3});
+      tensorstore::MakeArray<int32_t>({1, 2, 3});
   tensorstore::SharedArray<void> dest =
-      tensorstore::AllocateArray<std::int16_t>({3});
+      tensorstore::AllocateArray<int16_t>({3});
   EXPECT_THAT(
-      tensorstore::Read(tensorstore::FromArray(context, source), dest).result(),
+      tensorstore::Read(tensorstore::FromArray(source), dest).result(),
       MatchesStatus(
           absl::StatusCode::kInvalidArgument,
           "Explicit data type conversion required to convert int32 -> int16"));
 }
 
 TEST(FromArrayTest, WriteDataTypeConversion) {
-  auto context = Context::Default();
-  auto source = tensorstore::MakeArray<std::int32_t>({1, 2, 3});
-  auto dest = tensorstore::AllocateArray<std::int64_t>({3});
+  auto source = tensorstore::MakeArray<int32_t>({1, 2, 3});
+  auto dest = tensorstore::AllocateArray<int64_t>({3});
   TENSORSTORE_EXPECT_OK(
-      tensorstore::Write(source, tensorstore::FromArray(context, dest)));
-  EXPECT_EQ(dest, tensorstore::MakeArray<std::int64_t>({1, 2, 3}));
+      tensorstore::Write(source, tensorstore::FromArray(dest)));
+  EXPECT_EQ(dest, tensorstore::MakeArray<int64_t>({1, 2, 3}));
 }
 
 TEST(FromArrayTest, WriteInvalidDataTypeConversion) {
-  auto context = Context::Default();
   tensorstore::SharedArray<void> source =
-      tensorstore::MakeArray<std::int32_t>({1, 2, 3});
+      tensorstore::MakeArray<int32_t>({1, 2, 3});
   tensorstore::SharedArray<void> dest =
-      tensorstore::AllocateArray<std::int16_t>({3});
+      tensorstore::AllocateArray<int16_t>({3});
   EXPECT_THAT(
-      tensorstore::Write(source, tensorstore::FromArray(context, dest))
+      tensorstore::Write(source, tensorstore::FromArray(dest))
           .commit_future.result(),
       MatchesStatus(
           absl::StatusCode::kInvalidArgument,
@@ -572,24 +353,21 @@ TEST(FromArrayTest, WriteInvalidDataTypeConversion) {
 }
 
 TEST(FromArrayTest, CopyDataTypeConversion) {
-  auto context = Context::Default();
-  auto source = tensorstore::MakeArray<std::int32_t>({1, 2, 3});
-  auto dest = tensorstore::AllocateArray<std::int64_t>({3});
-  TENSORSTORE_EXPECT_OK(
-      tensorstore::Copy(tensorstore::FromArray(context, source),
-                        tensorstore::FromArray(context, dest)));
-  EXPECT_EQ(dest, tensorstore::MakeArray<std::int64_t>({1, 2, 3}));
+  auto source = tensorstore::MakeArray<int32_t>({1, 2, 3});
+  auto dest = tensorstore::AllocateArray<int64_t>({3});
+  TENSORSTORE_EXPECT_OK(tensorstore::Copy(tensorstore::FromArray(source),
+                                          tensorstore::FromArray(dest)));
+  EXPECT_EQ(dest, tensorstore::MakeArray<int64_t>({1, 2, 3}));
 }
 
 TEST(FromArrayTest, CopyInvalidDataTypeConversion) {
-  auto context = Context::Default();
   tensorstore::SharedArray<void> source =
-      tensorstore::MakeArray<std::int32_t>({1, 2, 3});
+      tensorstore::MakeArray<int32_t>({1, 2, 3});
   tensorstore::SharedArray<void> dest =
-      tensorstore::AllocateArray<std::int16_t>({3});
+      tensorstore::AllocateArray<int16_t>({3});
   EXPECT_THAT(
-      tensorstore::Copy(tensorstore::FromArray(context, source),
-                        tensorstore::FromArray(context, dest))
+      tensorstore::Copy(tensorstore::FromArray(source),
+                        tensorstore::FromArray(dest))
           .commit_future.result(),
       MatchesStatus(
           absl::StatusCode::kInvalidArgument,
@@ -599,8 +377,7 @@ TEST(FromArrayTest, CopyInvalidDataTypeConversion) {
 TEST(FromArrayTest, ChunkLayoutCOrder) {
   auto array =
       tensorstore::AllocateArray<float>({2, 3, 4}, tensorstore::c_order);
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store, tensorstore::FromArray(Context::Default(), array));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store, tensorstore::FromArray(array));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto expected_layout,
                                    ChunkLayout::FromJson({
                                        {"grid_origin", {0, 0, 0}},
@@ -612,8 +389,7 @@ TEST(FromArrayTest, ChunkLayoutCOrder) {
 TEST(FromArrayTest, ChunkLayoutFortranOrder) {
   auto array =
       tensorstore::AllocateArray<float>({2, 3, 4}, tensorstore::fortran_order);
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store, tensorstore::FromArray(Context::Default(), array));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store, tensorstore::FromArray(array));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto expected_layout,
                                    ChunkLayout::FromJson({
                                        {"grid_origin", {0, 0, 0}},
@@ -625,9 +401,9 @@ TEST(FromArrayTest, ChunkLayoutFortranOrder) {
 TEST(FromArrayTest, DimensionUnits) {
   auto array =
       tensorstore::MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {4, 5, 6}});
-  auto context = Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store, tensorstore::FromArray(context, array, {"4nm", "5nm"}));
+      auto store,
+      tensorstore::FromArray(array, DimensionUnitsVector{"4nm", "5nm"}));
   EXPECT_THAT(store.dimension_units(),
               ::testing::Optional(::testing::ElementsAre(
                   tensorstore::Unit("4nm"), tensorstore::Unit("5nm"))));
@@ -644,9 +420,8 @@ template <typename T>
 class OpenNumericTest : public ::testing::Test {};
 
 using OpenNumericTestTypes =
-    ::testing::Types<std::int8_t, std::uint8_t, std::int16_t, std::uint16_t,
-                     std::int32_t, std::uint32_t, std::int64_t, std::uint64_t,
-                     float, double>;
+    ::testing::Types<int8_t, uint8_t, int16_t, uint16_t, int32_t, uint32_t,
+                     int64_t, uint64_t, float, double>;
 
 TYPED_TEST_SUITE(OpenNumericTest, OpenNumericTestTypes);
 
@@ -724,15 +499,14 @@ TEST(OpenTest, InvalidConversion) {
 // Tests that ArrayBackend::spec handles complicated index transforms properly.
 TEST(FromArrayTest, Spec) {
   auto context = Context::Default();
-  auto store =
-      ChainResult(tensorstore::FromArray(
-                      context, tensorstore::MakeOffsetArray<std::int32_t>(
-                                   {1, 2}, {{1, 2, 3}, {4, 5, 6}})),
-                  tensorstore::Dims(1)
-                      .IndexArraySlice(tensorstore::MakeArray<Index>({2, 4, 4}))
-                      .MoveToBack(),
-                  tensorstore::Dims(1).AddNew().ClosedInterval(3, 5))
-          .value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::FromArray(tensorstore::MakeOffsetArray<int32_t>(
+          {1, 2}, {{1, 2, 3}, {4, 5, 6}})) |
+          tensorstore::Dims(1)
+              .IndexArraySlice(tensorstore::MakeArray<Index>({2, 4, 4}))
+              .MoveToBack() |
+          tensorstore::Dims(1).AddNew().ClosedInterval(3, 5));
   ::nlohmann::json json_spec{
       {"driver", "array"},
       {"array", {{1, 3, 3}, {4, 6, 6}}},
@@ -798,8 +572,7 @@ TEST(OpenTest, InvalidRank) {
 TEST(CopyTest, SelfCopy) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
-      tensorstore::FromArray(Context::Default(),
-                             tensorstore::MakeArray<int>({1, 2, 3, 4})));
+      tensorstore::FromArray(tensorstore::MakeArray<int>({1, 2, 3, 4})));
   TENSORSTORE_EXPECT_OK(
       tensorstore::Copy(store | tensorstore::Dims(0).SizedInterval(0, 2),
                         store | tensorstore::Dims(0).SizedInterval(2, 2)));

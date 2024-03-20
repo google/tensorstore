@@ -76,8 +76,7 @@ using ::testing::Pair;
 
 TEST(DownsampleTest, Rank1Mean) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store, tensorstore::FromArray(Context::Default(),
-                                         MakeArray<float>({1, 2, 5, 7})));
+      auto store, tensorstore::FromArray(MakeArray<float>({1, 2, 5, 7})));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto downsampled_store,
       tensorstore::Downsample(store, {2}, DownsampleMethod::kMean));
@@ -87,8 +86,7 @@ TEST(DownsampleTest, Rank1Mean) {
 
 TEST(DownsampleTest, Rank1Median) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store, tensorstore::FromArray(Context::Default(),
-                                         MakeArray<float>({1, 2, 5, 7})));
+      auto store, tensorstore::FromArray(MakeArray<float>({1, 2, 5, 7})));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto downsampled_store,
       tensorstore::Downsample(store, {2}, DownsampleMethod::kMin));
@@ -99,8 +97,7 @@ TEST(DownsampleTest, Rank1Median) {
 TEST(DownsampleTest, Rank1Empty) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
-      tensorstore::FromArray(Context::Default(),
-                             tensorstore::AllocateArray<float>({2, 0, 3})));
+      tensorstore::FromArray(tensorstore::AllocateArray<float>({2, 0, 3})));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto downsampled_store,
       tensorstore::Downsample(store, {2, 3, 2}, DownsampleMethod::kMean));
@@ -111,8 +108,7 @@ TEST(DownsampleTest, Rank1Empty) {
 TEST(DownsampleTest, Rank1MeanTranslated) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
-      tensorstore::FromArray(Context::Default(),
-                             MakeOffsetArray<float>({1}, {1, 2, 5, 7})));
+      tensorstore::FromArray(MakeOffsetArray<float>({1}, {1, 2, 5, 7})));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto downsampled_store,
       tensorstore::Downsample(store, {2}, DownsampleMethod::kMean));
@@ -122,8 +118,7 @@ TEST(DownsampleTest, Rank1MeanTranslated) {
 
 TEST(DownsampleTest, Rank1Stride) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store, tensorstore::FromArray(Context::Default(),
-                                         MakeArray<float>({1, 2, 5, 7})));
+      auto store, tensorstore::FromArray(MakeArray<float>({1, 2, 5, 7})));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto downsampled_store,
       tensorstore::Downsample(store, {2}, DownsampleMethod::kStride));
@@ -399,8 +394,7 @@ TEST(DownsampleTest, ErrorOpenWriteOnly) {
 
 TEST(DownsampleTest, AdapterErrorNegativeDownsampleFactor) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store, tensorstore::FromArray(Context::Default(),
-                                         MakeArray<float>({1, 2, 5, 7})));
+      auto store, tensorstore::FromArray(MakeArray<float>({1, 2, 5, 7})));
   EXPECT_THAT(
       tensorstore::Downsample(store, {-2}, DownsampleMethod::kMean),
       MatchesStatus(absl::StatusCode::kInvalidArgument,
@@ -409,8 +403,7 @@ TEST(DownsampleTest, AdapterErrorNegativeDownsampleFactor) {
 
 TEST(DownsampleTest, AdapterErrorZeroDownsampleFactor) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store, tensorstore::FromArray(Context::Default(),
-                                         MakeArray<float>({1, 2, 5, 7})));
+      auto store, tensorstore::FromArray(MakeArray<float>({1, 2, 5, 7})));
   EXPECT_THAT(tensorstore::Downsample(store, {0}, DownsampleMethod::kMean),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Downsample factors \\{0\\} are not all positive"));
@@ -419,8 +412,7 @@ TEST(DownsampleTest, AdapterErrorZeroDownsampleFactor) {
 TEST(DownsampleTest, AdapterErrorDownsampleFactorsRankMismatch) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       TensorStore<float> store,
-      tensorstore::FromArray(Context::Default(),
-                             MakeArray<float>({1, 2, 5, 7})));
+      tensorstore::FromArray(MakeArray<float>({1, 2, 5, 7})));
   EXPECT_THAT(
       tensorstore::Downsample(store, {2, 2}, DownsampleMethod::kMean),
       MatchesStatus(absl::StatusCode::kInvalidArgument,
@@ -431,8 +423,7 @@ TEST(DownsampleTest, AdapterErrorDownsampleFactorsRankMismatch) {
 TEST(DownsampleTest, AdapterErrorDataType) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
-      tensorstore::FromArray(Context::Default(),
-                             MakeArray<std::string>({"a", "b", "c"})));
+      tensorstore::FromArray(MakeArray<std::string>({"a", "b", "c"})));
   TENSORSTORE_EXPECT_OK(
       tensorstore::Downsample(store, {2}, DownsampleMethod::kStride));
   EXPECT_THAT(tensorstore::Downsample(store, {2}, DownsampleMethod::kMean),
@@ -444,8 +435,7 @@ TEST(DownsampleTest, AdapterErrorDataType) {
 TEST(DownsampleTest, AdapterErrorWriteOnly) {
   tensorstore::TensorStore<float, 1> store;
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      store,
-      tensorstore::FromArray(Context::Default(), MakeArray<float>({1, 2, 3})));
+      store, tensorstore::FromArray(MakeArray<float>({1, 2, 3})));
   store = tensorstore::ModeCast<ReadWriteMode::write, tensorstore::unchecked>(
       std::move(store));
   EXPECT_THAT(tensorstore::Downsample(store, {2}, DownsampleMethod::kMean),
@@ -550,13 +540,12 @@ TEST(DownsampleTest, EmptyChunk) {
 // `PropagateIndexTransformDownsampling` that have to be handled by
 // `DownsampledNDIterator`.
 TEST(DownsampleTest, ReadChunkWithIndexTransform) {
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store,
-      tensorstore::FromArray(Context::Default(), MakeArray<float>({
-                                                     {1, 2, 3, 4, 5},
-                                                     {6, 7, 8, 9, 10},
-                                                     {11, 12, 13, 14, 15},
-                                                 })));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
+                                   tensorstore::FromArray(MakeArray<float>({
+                                       {1, 2, 3, 4, 5},
+                                       {6, 7, 8, 9, 10},
+                                       {11, 12, 13, 14, 15},
+                                   })));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto downsampled_store,
       tensorstore::Downsample(store, {2, 3}, DownsampleMethod::kMean));
@@ -888,10 +877,9 @@ TEST(DownsampleTest, FillValueSpecified) {
 
 TEST(DownsampleTest, DimensionUnits) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto base_store,
-      tensorstore::FromArray(
-          tensorstore::Context::Default(),
-          tensorstore::MakeArray<int>({{1, 2, 3}, {4, 5, 6}}), {"4nm", "5nm"}));
+      auto base_store, tensorstore::FromArray(
+                           tensorstore::MakeArray<int>({{1, 2, 3}, {4, 5, 6}}),
+                           tensorstore::DimensionUnitsVector{"4nm", "5nm"}));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
       tensorstore::Downsample(base_store, {1, 2},

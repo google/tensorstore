@@ -14,25 +14,56 @@
 
 #include "tensorstore/driver/array/array.h"
 
+#include <cassert>
+#include <utility>
+
 #include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/array.h"
-#include "tensorstore/data_type_conversion.h"
+#include "tensorstore/array_storage_statistics.h"
+#include "tensorstore/chunk_layout.h"
+#include "tensorstore/codec_spec.h"
+#include "tensorstore/container_kind.h"
+#include "tensorstore/context.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/driver/chunk.h"
 #include "tensorstore/driver/driver.h"
 #include "tensorstore/driver/driver_handle.h"
+#include "tensorstore/driver/driver_spec.h"
 #include "tensorstore/driver/registry.h"
+#include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/dimension_permutation.h"
+#include "tensorstore/index_space/dimension_units.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
-#include "tensorstore/index_space/transformed_array.h"
+#include "tensorstore/index_space/transform_array_constraints.h"
+#include "tensorstore/internal/arena.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
-#include "tensorstore/internal/json/array.h"
 #include "tensorstore/internal/json_binding/array.h"  // IWYU pragma: keep
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/std_array.h"  // IWYU pragma: keep
+#include "tensorstore/internal/lock_collection.h"
+#include "tensorstore/internal/nditerable_transformed_array.h"
 #include "tensorstore/internal/type_traits.h"
+#include "tensorstore/open_mode.h"
+#include "tensorstore/open_options.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/spec.h"
+#include "tensorstore/strided_layout.h"
+#include "tensorstore/transaction.h"
+#include "tensorstore/util/constant_vector.h"
 #include "tensorstore/util/execution/any_receiver.h"
+#include "tensorstore/util/execution/execution.h"
+#include "tensorstore/util/executor.h"
+#include "tensorstore/util/future.h"
+#include "tensorstore/util/garbage_collection/fwd.h"
+#include "tensorstore/util/iterate.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
 
 // TODO(jbms): Encoding/decoding from JSON does not support string values that
 // are not valid UTF-8.  Furthermore, `::nlohmann::json::dump` throws an
@@ -437,16 +468,14 @@ namespace internal {
 
 template <ArrayOriginKind OriginKind>
 Result<internal::Driver::Handle> MakeArrayDriver(
-    Context context, SharedArray<void, dynamic_rank, OriginKind> array,
-    DimensionUnitsVector dimension_units) {
-  if (dimension_units.empty()) {
-    dimension_units.resize(array.rank());
-  } else {
-    if (dimension_units.size() != array.rank()) {
-      return absl::InvalidArgumentError(tensorstore::StrCat(
-          "Dimension units ", DimensionUnitsToString(dimension_units),
-          " not valid for array of rank ", array.rank()));
-    }
+    SharedArray<void, dynamic_rank, OriginKind> array,
+    FromArrayOptions options) {
+  if (options.dimension_units.empty()) {
+    options.dimension_units.resize(array.rank());
+  } else if (options.dimension_units.size() != array.rank()) {
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "Dimension units ", DimensionUnitsToString(options.dimension_units),
+        " not valid for array of rank ", array.rank()));
   }
   auto transform = tensorstore::IdentityTransform(array.shape());
   SharedArray<void, dynamic_rank, zero_origin> zero_origin_array;
@@ -461,18 +490,19 @@ Result<internal::Driver::Handle> MakeArrayDriver(
         (tensorstore::ArrayOriginCast<zero_origin, container>(
             std::move(array))));
   }
+  if (!options.context) options.context = Context::Default();
   return internal::Driver::Handle{
       internal::MakeReadWritePtr<internal_array_driver::ArrayDriver>(
           ReadWriteMode::read_write,
-          context.GetResource<DataCopyConcurrencyResource>().value(),
-          std::move(zero_origin_array), std::move(dimension_units)),
+          options.context.GetResource<DataCopyConcurrencyResource>().value(),
+          std::move(zero_origin_array), std::move(options.dimension_units)),
       std::move(transform)};
 }
 
-#define TENSORSTORE_INTERNAL_DO_INSTANTIATE(OriginKind)                   \
-  template Result<internal::Driver::Handle> MakeArrayDriver<OriginKind>(  \
-      Context context, SharedArray<void, dynamic_rank, OriginKind> array, \
-      DimensionUnitsVector dimension_units);                              \
+#define TENSORSTORE_INTERNAL_DO_INSTANTIATE(OriginKind)                  \
+  template Result<internal::Driver::Handle> MakeArrayDriver<OriginKind>( \
+      SharedArray<void, dynamic_rank, OriginKind> array,                 \
+      FromArrayOptions options);                                         \
   /**/
 TENSORSTORE_INTERNAL_DO_INSTANTIATE(zero_origin)
 TENSORSTORE_INTERNAL_DO_INSTANTIATE(offset_origin)
