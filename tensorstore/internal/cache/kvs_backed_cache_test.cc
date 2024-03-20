@@ -16,20 +16,26 @@
 ///
 /// Tests for `kvs_backed_cache` and for `internal_kvstore::MultiPhaseMutation`.
 
-#include "tensorstore/internal/cache/kvs_backed_cache.h"
+#include <stddef.h>
 
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "tensorstore/internal/cache/async_cache.h"
+#include "absl/status/status.h"
+#include "absl/strings/cord.h"
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/cache/kvs_backed_cache_testutil.h"
 #include "tensorstore/internal/global_initializer.h"
-#include "tensorstore/kvstore/kvstore.h"
+#include "tensorstore/kvstore/generation.h"
+#include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/memory/memory_key_value_store.h"
 #include "tensorstore/kvstore/mock_kvstore.h"
 #include "tensorstore/kvstore/test_matchers.h"
@@ -95,7 +101,7 @@ class MockStoreTest : public ::testing::Test {
 TEST_F(MockStoreTest, ReadSuccess) {
   auto entry = GetCacheEntry(cache, "a");
   auto read_time = absl::Now();
-  auto read_future = entry->Read(read_time);
+  auto read_future = entry->Read({read_time});
   auto read_req = mock_store->read_requests.pop();
   EXPECT_EQ("a", read_req.key);
   EXPECT_EQ(StorageGeneration::Unknown(), read_req.options.if_equal);
@@ -108,7 +114,7 @@ TEST_F(MockStoreTest, ReadSuccess) {
 
 TEST_F(MockStoreTest, ReadError) {
   auto entry = GetCacheEntry(cache, "a");
-  auto read_future = entry->Read(absl::Now());
+  auto read_future = entry->Read({absl::Now()});
   auto read_req = mock_store->read_requests.pop();
   read_req.promise.SetResult(absl::FailedPreconditionError("read error"));
   EXPECT_THAT(read_future.result(),
@@ -178,7 +184,7 @@ TEST_F(MockStoreTest, ReadErrorDueToValidateDuringWriteback) {
 
 TEST_F(MockStoreTest, WriteDuringRead) {
   auto entry = GetCacheEntry(cache, "a");
-  auto read_future = entry->Read(absl::InfinitePast());
+  auto read_future = entry->Read({absl::InfinitePast()});
 
   auto transaction = Transaction(tensorstore::atomic_isolated);
   {
@@ -195,7 +201,7 @@ TEST_F(MockStoreTest, WriteDuringRead) {
 
   // Issue another read request, which triggers another call to
   // `MaybeStartReadOrWriteback` (which will not do anything).
-  auto read_future2 = entry->Read(absl::InfinitePast());
+  auto read_future2 = entry->Read({absl::InfinitePast()});
 
   {
     auto read_req = mock_store->read_requests.pop();

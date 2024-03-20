@@ -427,7 +427,7 @@ Future<MetadataPtr> KvsMetadataDriverBase::ResolveMetadata(
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto node,
         GetTransactionNode(*cache->metadata_cache_entry_, transaction));
-    auto read_future = node->Read(metadata_staleness_bound);
+    auto read_future = node->Read({metadata_staleness_bound});
     return MapFuture(
         cache->executor(),
         [cache = DataCacheBase::Ptr(cache), node = std::move(node)](
@@ -453,7 +453,7 @@ Future<MetadataPtr> KvsMetadataDriverBase::ResolveMetadata(
             ValidateNewMetadata(cache.get(), new_metadata.get()));
         return new_metadata;
       },
-      cache->metadata_cache_entry_->Read(metadata_staleness_bound));
+      cache->metadata_cache_entry_->Read({metadata_staleness_bound}));
 }
 
 Future<IndexTransform<>> KvsMetadataDriverBase::ResolveBounds(
@@ -703,7 +703,7 @@ Future<IndexTransform<>> KvsChunkedDriverBase::Resize(
                   ResolveBoundsForDeleteAndResizeContinuation{
                       std::make_unique<ResizeState>(std::move(resize_state))}),
               std::move(pair.promise),
-              cache->metadata_cache_entry_->Read(absl::Now()));
+              cache->metadata_cache_entry_->Read({absl::Now()}));
   }
   return std::move(pair.future);
 }
@@ -992,8 +992,8 @@ struct GetMetadataForOpen {
                        HandleReadMetadata{std::move(state)}),
           std::move(promise),
           base.metadata_cache_entry_->Read(
-              base.spec_->staleness.metadata.BoundAtOpen(base.request_time_)
-                  .time));
+              {base.spec_->staleness.metadata.BoundAtOpen(base.request_time_)
+                   .time}));
       return;
     }
     // `tensorstore::Open` ensures that at least one of `OpenMode::create` and
@@ -1059,7 +1059,7 @@ Future<const void> MetadataCache::Entry::RequestAtomicUpdate(
   }
   node->AddPendingWrite(PendingWrite{std::move(update), update_constraint});
   if (read_time) {
-    return node->Read(*read_time);
+    return node->Read({*read_time});
   }
   return MakeReadyFuture();
 }
@@ -1169,7 +1169,7 @@ void MetadataCache::TransactionNode::DoApply(ApplyOptions options,
     }
     execution::set_value(receiver, std::move(read_state));
   };
-  this->Read(options.staleness_bound)
+  this->Read({options.staleness_bound})
       .ExecuteWhenReady(WithExecutor(GetOwningCache(*this).executor(),
                                      std::move(continuation)));
 }

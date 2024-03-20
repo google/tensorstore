@@ -89,14 +89,14 @@ class VirtualChunkedCache : public internal::ConcreteChunkCache {
   /// Common implementation used by `Entry::DoRead` and
   /// `TransactionNode::DoRead`.
   template <typename EntryOrNode>
-  void DoRead(EntryOrNode& node, absl::Time staleness_bound);
+  void DoRead(EntryOrNode& node, AsyncCacheReadRequest request);
 
   class Entry : public internal::ChunkCache::Entry {
    public:
     using OwningCache = VirtualChunkedCache;
     using internal::ChunkCache::Entry::Entry;
-    void DoRead(absl::Time staleness_bound) override {
-      GetOwningCache(*this).DoRead(*this, staleness_bound);
+    void DoRead(AsyncCacheReadRequest request) override {
+      GetOwningCache(*this).DoRead(*this, std::move(request));
     }
   };
   class TransactionNode : public internal::ChunkCache::TransactionNode {
@@ -123,8 +123,8 @@ class VirtualChunkedCache : public internal::ConcreteChunkCache {
 
     std::string Describe() override;
 
-    void DoRead(absl::Time staleness_bound) override {
-      GetOwningCache(*this).DoRead(*this, staleness_bound);
+    void DoRead(AsyncCacheReadRequest request) override {
+      GetOwningCache(*this).DoRead(*this, std::move(request));
     }
 
     void Commit() override;
@@ -225,7 +225,7 @@ bool GetPermutedPartialArray(
 
 template <typename EntryOrNode>
 void VirtualChunkedCache::DoRead(EntryOrNode& node,
-                                 absl::Time staleness_bound) {
+                                 AsyncCacheReadRequest request) {
   auto& cache = GetOwningCache(node);
   if (!cache.read_function_) {
     // Normally happens only in the case of a partial chunk write.
@@ -236,7 +236,7 @@ void VirtualChunkedCache::DoRead(EntryOrNode& node,
   auto& executor = cache.executor();
   // `node` is guaranteed to remain valid until `ReadSuccess` or `ReadError`
   // is called.  Therefore we don't need to separately hold a reference.
-  executor([&node, staleness_bound] {
+  executor([&node, staleness_bound = request.staleness_bound] {
     auto& entry = GetOwningEntry(node);
     auto& cache = GetOwningCache(entry);
     const auto& component_spec = cache.grid().components.front();

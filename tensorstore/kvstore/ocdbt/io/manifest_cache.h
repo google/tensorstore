@@ -50,7 +50,7 @@ class ManifestCache : public internal::AsyncCache {
 
     std::size_t ComputeReadDataSizeInBytes(const void* read_data) final;
 
-    void DoRead(absl::Time staleness_bound) final;
+    void DoRead(AsyncCacheReadRequest request) final;
 
     // Performs an atomic read-modify-write operation on the manifest.
     //
@@ -73,7 +73,7 @@ class ManifestCache : public internal::AsyncCache {
     using Base::TransactionNode::TransactionNode;
 
     absl::Status DoInitialize(internal::OpenTransactionPtr& transaction) final;
-    void DoRead(absl::Time staleness_bound) final;
+    void DoRead(AsyncCacheReadRequest request) final;
     void Commit() final;
 
     void WritebackSuccess(ReadState&& read_state) final;
@@ -121,7 +121,7 @@ class NumberedManifestCache : public internal::AsyncCache {
 
     std::size_t ComputeReadDataSizeInBytes(const void* read_data) final;
 
-    void DoRead(absl::Time staleness_bound) final;
+    void DoRead(AsyncCacheReadRequest request) final;
 
     // Attempts to write a new manifest.
     //
@@ -144,7 +144,7 @@ class NumberedManifestCache : public internal::AsyncCache {
     using Base::TransactionNode::TransactionNode;
 
     absl::Status DoInitialize(internal::OpenTransactionPtr& transaction) final;
-    void DoRead(absl::Time staleness_bound) final;
+    void DoRead(AsyncCacheReadRequest request) final;
     void Commit() final;
 
     std::shared_ptr<const Manifest> new_manifest;

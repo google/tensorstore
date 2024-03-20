@@ -413,7 +413,7 @@ class ShardedKeyValueStoreWriteCache
         internal_kvstore::ReadModifyWriteEntry& entry,
         kvstore::ReadModifyWriteTarget::TransactionalReadOptions&& options,
         kvstore::ReadModifyWriteTarget::ReadReceiver&& receiver) override {
-      this->AsyncCache::TransactionNode::Read(options.staleness_bound)
+      this->AsyncCache::TransactionNode::Read({options.staleness_bound})
           .ExecuteWhenReady(WithExecutor(
               GetOwningCache(*this).executor(),
               [&entry, if_not_equal = std::move(options.if_not_equal),
@@ -589,7 +589,7 @@ void ShardedKeyValueStoreWriteCache::TransactionNode::AllEntriesDone(
     if (!StorageGeneration::IsUnknown(stamp.generation) ||
         num_entries != num_entries_per_shard) {
       self.internal::AsyncCache::TransactionNode::Read(
-              self.apply_options_.staleness_bound)
+              {self.apply_options_.staleness_bound})
           .ExecuteWhenReady([&self](ReadyFuture<const void> future) {
             if (!future.result().ok()) {
               execution::set_error(std::exchange(self.apply_receiver_, {}),
@@ -892,7 +892,7 @@ struct ReadOperationState {
     auto shard_index_cache_entry =
         GetCacheEntry(store.shard_index_cache(), std::string_view{});
     auto shard_index_read_future =
-        shard_index_cache_entry->Read(options.staleness_bound);
+        shard_index_cache_entry->Read({options.staleness_bound});
     return PromiseFuturePair<kvstore::ReadResult>::LinkValue(
                OnShardIndexReadyCallback(std::unique_ptr<ReadOperationState>(
                    new ReadOperationState{std::move(shard_index_cache_entry),
@@ -973,7 +973,7 @@ struct ReadOperationState {
     if (value.aborted()) {
       // Concurrent modification.  Retry.
       auto shard_index_read_future =
-          self->entry_->Read(/*staleness_bound=*/value.stamp.time);
+          self->entry_->Read({/*.staleness_bound=*/value.stamp.time});
       LinkValue(OnShardIndexReadyCallback(std::move(self)), std::move(promise),
                 std::move(shard_index_read_future));
       return;
@@ -1007,7 +1007,7 @@ struct ListOperationState
     self->shard_index_cache_entry_ =
         GetCacheEntry(store.shard_index_cache(), std::string_view{});
     auto shard_index_read_future =
-        self->shard_index_cache_entry_->Read(self->options_.staleness_bound);
+        self->shard_index_cache_entry_->Read({self->options_.staleness_bound});
     auto* self_ptr = self.get();
     LinkValue(
         WithExecutor(store.executor(),

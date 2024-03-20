@@ -390,16 +390,21 @@ void ChunkCache::Read(
         ReadChunk chunk;
         chunk.transform = std::move(cell_to_source);
         Future<const void> read_future;
+        const auto get_cache_read_request = [&] {
+          AsyncCache::AsyncCacheReadRequest cache_request;
+          cache_request.staleness_bound = request.staleness_bound;
+          return cache_request;
+        };
         if (request.transaction) {
           TENSORSTORE_ASSIGN_OR_RETURN(
               auto node, GetTransactionNode(*entry, request.transaction));
           read_future = node->IsUnconditional()
                             ? MakeReadyFuture()
-                            : node->Read(request.staleness_bound);
+                            : node->Read(get_cache_read_request());
           chunk.impl = ReadChunkTransactionImpl{request.component_index,
                                                 std::move(node)};
         } else {
-          read_future = entry->Read(request.staleness_bound);
+          read_future = entry->Read(get_cache_read_request());
           chunk.impl = ReadChunkImpl{request.component_index, std::move(entry)};
         }
         LinkValue(
@@ -600,7 +605,7 @@ void ChunkCache::TransactionNode::DoApply(ApplyOptions options,
        options.apply_mode != ApplyOptions::kSpecifyUnchanged)) {
     continuation(MakeReadyFuture());
   } else {
-    this->Read(options.staleness_bound)
+    this->Read({options.staleness_bound})
         .ExecuteWhenReady(std::move(continuation));
   }
 }

@@ -137,7 +137,7 @@ class BenchmarkCache : public ConcreteChunkCache {
   class Entry : public Base::Entry {
    public:
     using OwningCache = BenchmarkCache;
-    void DoRead(absl::Time staleness_bound) override {
+    void DoRead(AsyncCacheReadRequest request) override {
       GetOwningCache(*this).executor()([this] {
         const auto component_specs = this->component_specs();
         auto read_data = tensorstore::internal::make_shared_for_overwrite<
@@ -165,7 +165,7 @@ class BenchmarkCache : public ConcreteChunkCache {
       this->SetReadsCommitted();
       return Base::TransactionNode::DoInitialize(transaction);
     }
-    void DoRead(absl::Time staleness_bound) override {
+    void DoRead(AsyncCacheReadRequest request) override {
       ABSL_UNREACHABLE();  // COV_NF_LINE
     }
     void Commit() override {
@@ -187,7 +187,7 @@ class BenchmarkCache : public ConcreteChunkCache {
         }
         void set_error(absl::Status error) {
           ABSL_UNREACHABLE();
-        }                                          // COV_NF_LINE
+        }  // COV_NF_LINE
         void set_cancel() { ABSL_UNREACHABLE(); }  // COV_NF_LINE
       };
       AsyncCache::TransactionNode::ApplyOptions apply_options;

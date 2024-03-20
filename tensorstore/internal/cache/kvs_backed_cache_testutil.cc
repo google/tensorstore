@@ -178,7 +178,7 @@ void KvsBackedTestCache::TransactionNode::DoApply(ApplyOptions options,
         UniqueWriterLock lock(*this);
         return !IsUnconditional();
       }()) {
-    this->Read(options.staleness_bound)
+    this->Read({options.staleness_bound})
         .ExecuteWhenReady(std::move(continuation));
     return;
   }
@@ -303,19 +303,19 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
     auto entry = GetCacheEntry(cache, a_key);
 
     // Read missing value.
-    TENSORSTORE_EXPECT_OK(entry->Read(absl::InfinitePast()));
+    TENSORSTORE_EXPECT_OK(entry->Read({absl::InfinitePast()}));
     EXPECT_THAT(AsyncCache::ReadLock<absl::Cord>(*entry).data(),
                 Pointee(absl::Cord("")));
 
     TENSORSTORE_EXPECT_OK(kvstore->Write(a_key, absl::Cord("abc")));
 
     // Read stale value from cache.
-    TENSORSTORE_EXPECT_OK(entry->Read(absl::InfinitePast()));
+    TENSORSTORE_EXPECT_OK(entry->Read({absl::InfinitePast()}));
     EXPECT_THAT(AsyncCache::ReadLock<absl::Cord>(*entry).data(),
                 Pointee(absl::Cord("")));
 
     // Read when there is new data.
-    TENSORSTORE_EXPECT_OK(entry->Read(absl::Now()).result());
+    TENSORSTORE_EXPECT_OK(entry->Read({absl::Now()}).result());
     EXPECT_THAT(AsyncCache::ReadLock<absl::Cord>(*entry).data(),
                 Pointee(absl::Cord("abc")));
 
@@ -323,7 +323,7 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
     auto read_time = absl::Now();
     auto read_generation =
         AsyncCache::ReadLock<absl::Cord>(*entry).stamp().generation;
-    TENSORSTORE_EXPECT_OK(entry->Read(absl::Now()).result());
+    TENSORSTORE_EXPECT_OK(entry->Read({absl::Now()}).result());
     EXPECT_THAT(AsyncCache::ReadLock<absl::Cord>(*entry).data(),
                 Pointee(absl::Cord("abc")));
     EXPECT_THAT(AsyncCache::ReadLock<absl::Cord>(*entry).stamp(),
@@ -338,7 +338,7 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
     auto a_key = get_key("a");
     TENSORSTORE_EXPECT_OK(kvstore->Write(a_key, absl::Cord("abc")));
     auto entry = GetCacheEntry(cache, a_key);
-    TENSORSTORE_EXPECT_OK(entry->Read(absl::InfinitePast()).result());
+    TENSORSTORE_EXPECT_OK(entry->Read({absl::InfinitePast()}).result());
 
     {
       auto transaction = Transaction(tensorstore::atomic_isolated);
@@ -407,14 +407,14 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
     auto a_key = get_key("a");
     TENSORSTORE_EXPECT_OK(kvstore->Write(a_key, absl::Cord("ghi")));
     auto entry = GetCacheEntry(cache, a_key);
-    TENSORSTORE_EXPECT_OK(entry->Read(absl::InfinitePast()).result());
+    TENSORSTORE_EXPECT_OK(entry->Read({absl::InfinitePast()}).result());
 
     {
       auto old_read_generation =
           AsyncCache::ReadLock<absl::Cord>(*entry).stamp();
       TENSORSTORE_EXPECT_OK(kvstore->Write(a_key, absl::Cord("Z")));
       EXPECT_THAT(
-          entry->Read(absl::Now()).result(),
+          entry->Read({absl::Now()}).result(),
           MatchesStatus(absl::StatusCode::kFailedPrecondition,
                         RE2::QuoteMeta(tensorstore::StrCat(
                             "Error reading ", kvstore->DescribeKey(a_key),
@@ -426,7 +426,7 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
                 AsyncCache::ReadLock<absl::Cord>(*entry).stamp());
 
       TENSORSTORE_EXPECT_OK(kvstore->Write(a_key, absl::Cord("ccc")));
-      TENSORSTORE_EXPECT_OK(entry->Read(absl::Now()));
+      TENSORSTORE_EXPECT_OK(entry->Read({absl::Now()}));
       EXPECT_THAT(AsyncCache::ReadLock<absl::Cord>(*entry).data(),
                   Pointee(absl::Cord("ccc")));
     }
@@ -466,7 +466,7 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
     auto a_key = get_key("a");
     TENSORSTORE_EXPECT_OK(kvstore->Write(a_key, absl::Cord("ghi")));
     auto entry = GetCacheEntry(cache, a_key);
-    TENSORSTORE_EXPECT_OK(entry->Read(absl::InfinitePast()).result());
+    TENSORSTORE_EXPECT_OK(entry->Read({absl::InfinitePast()}).result());
 
     {
       auto transaction = Transaction(tensorstore::atomic_isolated);
@@ -497,7 +497,7 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
         auto a_key = get_key("a");
         TENSORSTORE_EXPECT_OK(kvstore->Write(a_key, absl::Cord("ghi")));
         auto entry = GetCacheEntry(cache, a_key);
-        TENSORSTORE_EXPECT_OK(entry->Read(absl::InfinitePast()).result());
+        TENSORSTORE_EXPECT_OK(entry->Read({absl::InfinitePast()}).result());
 
         {
           auto transaction = Transaction(tensorstore::isolated);
@@ -528,7 +528,7 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
     auto a_key = get_key("a");
     auto entry = GetCacheEntry(cache, a_key);
     TENSORSTORE_EXPECT_OK(kvstore->Write(a_key, absl::Cord("abc")));
-    TENSORSTORE_EXPECT_OK(entry->Read(absl::InfinitePast()).result());
+    TENSORSTORE_EXPECT_OK(entry->Read({absl::InfinitePast()}).result());
 
     {
       auto transaction = Transaction(tensorstore::atomic_isolated);

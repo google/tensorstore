@@ -122,7 +122,7 @@ class TestCache : public tensorstore::internal::AsyncCache {
           ->future();
     }
 
-    void DoRead(absl::Time staleness_bound) override {
+    void DoRead(AsyncCacheReadRequest request) override {
       GetOwningCache(*this).log_->reads.push(RequestLog::ReadRequest{this});
     }
 
@@ -147,7 +147,7 @@ class TestCache : public tensorstore::internal::AsyncCache {
       SetReadsCommitted();
       return entry.do_initialize_transaction_error;
     }
-    void DoRead(absl::Time staleness_bound) override {
+    void DoRead(AsyncCacheReadRequest request) override {
       GetOwningCache(*this).log_->transaction_reads.push(
           RequestLog::TransactionReadRequest{this});
     }
@@ -186,13 +186,13 @@ TEST(AsyncCacheTest, ReadBasic) {
   absl::Time read_time1, read_time2;
   {
     auto init_time = absl::Now();
-    auto read_future = entry->Read(init_time);
+    auto read_future = entry->Read({init_time});
     ASSERT_FALSE(read_future.ready());
 
     // Tests that calling Read again with a time prior to the first Read returns
     // the same Future.
     {
-      auto read_future2 = entry->Read(init_time);
+      auto read_future2 = entry->Read({init_time});
       EXPECT_TRUE(HaveSameSharedState(read_future, read_future2));
     }
     ASSERT_EQ(1u, log.reads.size());
@@ -210,7 +210,7 @@ TEST(AsyncCacheTest, ReadBasic) {
     // Tests that calling Read again with an old time doesn't issue any more
     // read requests.
     {
-      auto read_future3 = entry->Read(read_time1);
+      auto read_future3 = entry->Read({read_time1});
       ASSERT_TRUE(read_future3.ready());
       TENSORSTORE_EXPECT_OK(read_future3);
       ASSERT_TRUE(log.reads.empty());
@@ -220,7 +220,7 @@ TEST(AsyncCacheTest, ReadBasic) {
 
   // Tests that calling Read with a newer time issues another read request.
   {
-    auto read_future = entry->Read(absl::InfiniteFuture());
+    auto read_future = entry->Read({absl::InfiniteFuture()});
     ASSERT_FALSE(read_future.ready());
     ASSERT_EQ(1u, log.reads.size());
     ASSERT_TRUE(log.writebacks.empty());
@@ -238,14 +238,14 @@ TEST(AsyncCacheTest, ReadBasic) {
   // Tests that calling Read before another Read completes queues the second
   // read.
   {
-    auto read_future = entry->Read(absl::InfiniteFuture());
+    auto read_future = entry->Read({absl::InfiniteFuture()});
     ASSERT_FALSE(read_future.ready());
     auto read_time = UniqueNow();
-    auto read_future1 = entry->Read(absl::InfiniteFuture());
+    auto read_future1 = entry->Read({absl::InfiniteFuture()});
     ASSERT_FALSE(read_future1.ready());
     EXPECT_FALSE(HaveSameSharedState(read_future, read_future1));
     {
-      auto read_future2 = entry->Read(absl::InfiniteFuture());
+      auto read_future2 = entry->Read({absl::InfiniteFuture()});
       EXPECT_TRUE(HaveSameSharedState(read_future1, read_future2));
     }
     ASSERT_EQ(1, log.reads.size());
@@ -276,8 +276,8 @@ TEST(AsyncCacheTest, ReadBasic) {
   // Tests that a queued read can be resolved by the completion of the issued
   // read if the time is newer.
   {
-    auto read_future = entry->Read(absl::InfiniteFuture());
-    auto read_future1 = entry->Read(absl::InfiniteFuture());
+    auto read_future = entry->Read({absl::InfiniteFuture()});
+    auto read_future1 = entry->Read({absl::InfiniteFuture()});
     auto read_time = absl::Now();
     ASSERT_FALSE(read_future.ready());
     ASSERT_FALSE(read_future1.ready());
@@ -299,11 +299,11 @@ TEST(AsyncCacheTest, ReadBasic) {
   // Tests that a queued read that is cancelled doesn't result in another read
   // request.
   {
-    auto read_future = entry->Read(absl::InfiniteFuture());
+    auto read_future = entry->Read({absl::InfiniteFuture()});
     ASSERT_FALSE(read_future.ready());
     auto read_time = absl::Now();
     {
-      auto read_future1 = entry->Read(absl::InfiniteFuture());
+      auto read_future1 = entry->Read({absl::InfiniteFuture()});
       ASSERT_FALSE(read_future1.ready());
     }
     ASSERT_EQ(1, log.reads.size());
@@ -321,13 +321,13 @@ TEST(AsyncCacheTest, ReadBasic) {
   // Tests that a queued read that is cancelled and then requested again leads
   // to a new Future.
   {
-    auto read_future = entry->Read(absl::InfiniteFuture());
+    auto read_future = entry->Read({absl::InfiniteFuture()});
     ASSERT_FALSE(read_future.ready());
     {
-      auto read_future1 = entry->Read(absl::InfiniteFuture());
+      auto read_future1 = entry->Read({absl::InfiniteFuture()});
       ASSERT_FALSE(read_future1.ready());
     }
-    auto read_future1 = entry->Read(absl::InfiniteFuture());
+    auto read_future1 = entry->Read({absl::InfiniteFuture()});
     auto read_time = absl::Now();
     ASSERT_FALSE(read_future1.ready());
     ASSERT_EQ(1, log.reads.size());
@@ -354,7 +354,7 @@ TEST(AsyncCacheTest, ReadFailed) {
 
   const auto read_status = absl::UnknownError("read failed");
   {
-    auto read_future = entry->Read(absl::InfiniteFuture());
+    auto read_future = entry->Read({absl::InfiniteFuture()});
     ASSERT_FALSE(read_future.ready());
     ASSERT_EQ(1, log.reads.size());
     ASSERT_EQ(0, log.writebacks.size());
@@ -370,7 +370,7 @@ TEST(AsyncCacheTest, ReadFailed) {
 
   // Check that a new read can be issued.
   {
-    auto read_future = entry->Read(absl::InfiniteFuture());
+    auto read_future = entry->Read({absl::InfiniteFuture()});
     ASSERT_FALSE(read_future.ready());
     ASSERT_EQ(1, log.reads.size());
     ASSERT_EQ(0, log.writebacks.size());
@@ -394,7 +394,7 @@ TEST(AsyncCacheTest, ReadFailedAfterSuccessfulRead) {
 
   // First initialize the entry with a successful read.
   {
-    auto read_future = entry->Read(absl::InfiniteFuture());
+    auto read_future = entry->Read({absl::InfiniteFuture()});
     ASSERT_FALSE(read_future.ready());
     ASSERT_EQ(1, log.reads.size());
     ASSERT_EQ(0, log.writebacks.size());
@@ -410,7 +410,7 @@ TEST(AsyncCacheTest, ReadFailedAfterSuccessfulRead) {
 
   const auto read_status = absl::UnknownError("read failed");
   {
-    auto read_future = entry->Read(absl::InfiniteFuture());
+    auto read_future = entry->Read({absl::InfiniteFuture()});
     ASSERT_FALSE(read_future.ready());
     ASSERT_EQ(1, log.reads.size());
     ASSERT_EQ(0, log.writebacks.size());
@@ -426,7 +426,7 @@ TEST(AsyncCacheTest, ReadFailedAfterSuccessfulRead) {
 
   // Check that a new read can be issued.
   {
-    auto read_future = entry->Read(absl::InfiniteFuture());
+    auto read_future = entry->Read({absl::InfiniteFuture()});
     ASSERT_FALSE(read_future.ready());
     ASSERT_EQ(1, log.reads.size());
     ASSERT_EQ(0, log.writebacks.size());
@@ -496,7 +496,7 @@ TEST(AsyncCacheTest, NonTransactionalWriteback) {
   // Reading after writeback with an old time doesn't require a new read
   // request.
   {
-    auto read_future = entry->Read(write_time);
+    auto read_future = entry->Read({write_time});
     ASSERT_EQ(0, log.reads.size());
     ASSERT_EQ(0, log.writebacks.size());
     ASSERT_TRUE(read_future.ready());
@@ -505,7 +505,7 @@ TEST(AsyncCacheTest, NonTransactionalWriteback) {
 
   // Reading after writeback with a new time does require a new read request.
   {
-    auto read_future = entry->Read(absl::InfiniteFuture());
+    auto read_future = entry->Read({absl::InfiniteFuture()});
     ASSERT_EQ(1, log.reads.size());
     ASSERT_EQ(0, log.writebacks.size());
     EXPECT_FALSE(read_future.ready());
@@ -522,7 +522,7 @@ TEST(AsyncCacheTest, WritebackRequestedWithReadIssued) {
       pool.get(), "", [&] { return std::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
-  auto read_future = entry->Read(absl::InfiniteFuture());
+  auto read_future = entry->Read({absl::InfiniteFuture()});
   ASSERT_FALSE(read_future.ready());
   ASSERT_EQ(1, log.reads.size());
   ASSERT_EQ(0, log.writebacks.size());
@@ -603,13 +603,13 @@ TEST(AsyncCacheTest, TransactionalReadBasic) {
 
   {
     auto init_time = absl::Now();
-    auto read_future = weak_node->Read(init_time);
+    auto read_future = weak_node->Read({init_time});
     ASSERT_FALSE(read_future.ready());
 
     // Tests that calling Read again with a time prior to the first Read returns
     // the same Future.
     {
-      auto read_future2 = weak_node->Read(init_time);
+      auto read_future2 = weak_node->Read({init_time});
       EXPECT_TRUE(HaveSameSharedState(read_future, read_future2));
     }
     ASSERT_EQ(1u, log.transaction_reads.size());
@@ -626,7 +626,7 @@ TEST(AsyncCacheTest, TransactionalReadBasic) {
     // Tests that calling Read again with an old time doesn't issue any more
     // read requests.
     {
-      auto read_future3 = weak_node->Read(read_time1);
+      auto read_future3 = weak_node->Read({read_time1});
       ASSERT_TRUE(read_future3.ready());
       TENSORSTORE_EXPECT_OK(read_future3);
       ASSERT_TRUE(log.transaction_reads.empty());
@@ -636,7 +636,7 @@ TEST(AsyncCacheTest, TransactionalReadBasic) {
 
   // Tests that calling Read with a newer time issues another read request.
   {
-    auto read_future = weak_node->Read(absl::InfiniteFuture());
+    auto read_future = weak_node->Read({absl::InfiniteFuture()});
     ASSERT_FALSE(read_future.ready());
     ASSERT_EQ(1u, log.transaction_reads.size());
     ASSERT_TRUE(log.writebacks.empty());
@@ -654,14 +654,14 @@ TEST(AsyncCacheTest, TransactionalReadBasic) {
   // Tests that calling Read before another Read completes queues the second
   // read.
   {
-    auto read_future = weak_node->Read(absl::InfiniteFuture());
+    auto read_future = weak_node->Read({absl::InfiniteFuture()});
     ASSERT_FALSE(read_future.ready());
     auto read_time = UniqueNow();
-    auto read_future1 = weak_node->Read(absl::InfiniteFuture());
+    auto read_future1 = weak_node->Read({absl::InfiniteFuture()});
     ASSERT_FALSE(read_future1.ready());
     EXPECT_FALSE(HaveSameSharedState(read_future, read_future1));
     {
-      auto read_future2 = weak_node->Read(absl::InfiniteFuture());
+      auto read_future2 = weak_node->Read({absl::InfiniteFuture()});
       EXPECT_TRUE(HaveSameSharedState(read_future1, read_future2));
     }
     ASSERT_EQ(1, log.transaction_reads.size());
@@ -692,8 +692,8 @@ TEST(AsyncCacheTest, TransactionalReadBasic) {
   // Tests that a queued read can be resolved by the completion of the issued
   // read if the time is newer.
   {
-    auto read_future = weak_node->Read(absl::InfiniteFuture());
-    auto read_future1 = weak_node->Read(absl::InfiniteFuture());
+    auto read_future = weak_node->Read({absl::InfiniteFuture()});
+    auto read_future1 = weak_node->Read({absl::InfiniteFuture()});
     auto read_time = absl::Now();
     ASSERT_FALSE(read_future.ready());
     ASSERT_FALSE(read_future1.ready());
@@ -715,11 +715,11 @@ TEST(AsyncCacheTest, TransactionalReadBasic) {
   // Tests that a queued read that is cancelled doesn't result in another read
   // request.
   {
-    auto read_future = weak_node->Read(absl::InfiniteFuture());
+    auto read_future = weak_node->Read({absl::InfiniteFuture()});
     ASSERT_FALSE(read_future.ready());
     auto read_time = absl::Now();
     {
-      auto read_future1 = weak_node->Read(absl::InfiniteFuture());
+      auto read_future1 = weak_node->Read({absl::InfiniteFuture()});
       ASSERT_FALSE(read_future1.ready());
     }
     ASSERT_EQ(1, log.transaction_reads.size());
@@ -737,13 +737,13 @@ TEST(AsyncCacheTest, TransactionalReadBasic) {
   // Tests that a queued read that is cancelled and then requested again leads
   // to a new Future.
   {
-    auto read_future = weak_node->Read(absl::InfiniteFuture());
+    auto read_future = weak_node->Read({absl::InfiniteFuture()});
     ASSERT_FALSE(read_future.ready());
     {
-      auto read_future1 = weak_node->Read(absl::InfiniteFuture());
+      auto read_future1 = weak_node->Read({absl::InfiniteFuture()});
       ASSERT_FALSE(read_future1.ready());
     }
-    auto read_future1 = weak_node->Read(absl::InfiniteFuture());
+    auto read_future1 = weak_node->Read({absl::InfiniteFuture()});
     auto read_time = absl::Now();
     ASSERT_FALSE(read_future1.ready());
     ASSERT_EQ(1, log.transaction_reads.size());
@@ -1001,7 +1001,7 @@ TEST(AsyncCacheTest, ReadSizeInBytes) {
 
   {
     auto entry = GetCacheEntry(cache, "a");
-    auto read_future = entry->Read(absl::Now());
+    auto read_future = entry->Read({absl::Now()});
     log.reads.pop().Success(absl::Now(), std::make_shared<size_t>(19000));
   }
 
@@ -1012,7 +1012,7 @@ TEST(AsyncCacheTest, ReadSizeInBytes) {
     EXPECT_THAT(AsyncCache::ReadLock<size_t>(*entry).data(),
                 ::testing::Pointee(19000));
 
-    auto read_future = entry->Read(absl::InfiniteFuture());
+    auto read_future = entry->Read({absl::InfiniteFuture()});
     log.reads.pop().Success(absl::Now(), std::make_shared<size_t>(21000));
     ASSERT_TRUE(read_future.ready());
   }
@@ -1025,7 +1025,7 @@ TEST(AsyncCacheTest, ReadSizeInBytes) {
                 ::testing::IsNull());
 
     // Increase entry size back to 1000.
-    auto read_future = entry->Read(absl::InfiniteFuture());
+    auto read_future = entry->Read({absl::InfiniteFuture()});
     log.reads.pop().Success(absl::Now(), std::make_shared<size_t>(1000));
     ASSERT_TRUE(read_future.ready());
   }
@@ -1060,7 +1060,7 @@ TEST(AsyncCacheTest, ExplicitTransactionSize) {
   // Create canary entry to detect eviction.
   {
     auto entry_b = GetCacheEntry(cache, "b");
-    auto read_future = entry_b->Read(absl::Now());
+    auto read_future = entry_b->Read({absl::Now()});
     log.reads.pop().Success(absl::Now(), std::make_shared<size_t>(1000));
   }
 

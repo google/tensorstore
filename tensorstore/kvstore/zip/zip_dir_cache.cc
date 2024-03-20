@@ -257,7 +257,7 @@ size_t ZipDirectoryCache::Entry::ComputeReadDataSizeInBytes(
   return internal::EstimateHeapUsage(*static_cast<const ReadData*>(read_data));
 }
 
-void ZipDirectoryCache::Entry::DoRead(absl::Time staleness_bound) {
+void ZipDirectoryCache::Entry::DoRead(AsyncCacheReadRequest request) {
   auto state = internal::MakeIntrusivePtr<ReadDirectoryOp>();
   state->entry_ = this;
   {
@@ -267,7 +267,7 @@ void ZipDirectoryCache::Entry::DoRead(absl::Time staleness_bound) {
   }
 
   // Setup options.
-  state->options_.staleness_bound = staleness_bound;
+  state->options_.staleness_bound = request.staleness_bound;
   if (state->existing_read_data_ && state->existing_read_data_->full_read) {
     state->options_.byte_range = OptionalByteRangeRequest{};
   } else {

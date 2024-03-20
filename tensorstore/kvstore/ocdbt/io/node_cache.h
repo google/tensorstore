@@ -116,7 +116,7 @@ class DecodedIndirectDataCache
                  promise.SetResult(
                      internal::AsyncCache::ReadLock<T>(*entry).shared_data());
                },
-               entry_ptr->Read(staleness_bound))
+               entry_ptr->Read({staleness_bound}))
         .future;
   }
 

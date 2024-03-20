@@ -519,7 +519,7 @@ class ShardedKeyValueStoreWriteCache
         internal_kvstore::ReadModifyWriteEntry& entry,
         kvstore::ReadModifyWriteTarget::TransactionalReadOptions&& options,
         kvstore::ReadModifyWriteTarget::ReadReceiver&& receiver) override {
-      this->AsyncCache::TransactionNode::Read(options.staleness_bound)
+      this->AsyncCache::TransactionNode::Read({options.staleness_bound})
           .ExecuteWhenReady(WithExecutor(
               GetOwningCache(*this).executor(),
               [&entry, if_not_equal = std::move(options.if_not_equal),
@@ -837,7 +837,7 @@ void ShardedKeyValueStoreWriteCache::TransactionNode::AllEntriesDone(
         cache.get_max_chunks_per_shard_(GetOwningEntry(self).shard()) !=
             num_chunks) {
       self.internal::AsyncCache::TransactionNode::Read(
-              self.apply_options_.staleness_bound)
+              {self.apply_options_.staleness_bound})
           .ExecuteWhenReady([&self](ReadyFuture<const void> future) {
             if (!future.result().ok()) {
               execution::set_error(std::exchange(self.apply_receiver_, {}),
@@ -926,7 +926,7 @@ struct MinishardIndexCacheEntryReadyCallback {
             // Concurrent modification.  Retry.
             auto& cache = GetOwningCache(*entry);
             auto minishard_index_read_future =
-                entry->Read(/*staleness_bound=*/absl::InfiniteFuture());
+                entry->Read({/*.staleness_bound=*/absl::InfiniteFuture()});
             LinkValue(WithExecutor(
                           cache.executor(),
                           MinishardIndexCacheEntryReadyCallback{
@@ -1053,7 +1053,7 @@ class ShardedKeyValueStore
                          sizeof(shard_info)));
 
     auto minishard_index_read_future =
-        minishard_index_cache_entry->Read(options.staleness_bound);
+        minishard_index_cache_entry->Read({options.staleness_bound});
     return PromiseFuturePair<ReadResult>::LinkValue(
                WithExecutor(executor(),
                             MinishardIndexCacheEntryReadyCallback{
@@ -1118,7 +1118,7 @@ class ShardedKeyValueStore
                   });
             }
           },
-          state->promise_, entry->Read(absl::InfiniteFuture()));
+          state->promise_, entry->Read({absl::InfiniteFuture()}));
     }
   }
 

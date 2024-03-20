@@ -164,17 +164,18 @@ void IssueRead(EntryOrNode* entry_or_node, kvstore::ReadOptions&& options,
 }
 
 template <typename EntryOrNode>
-void DoReadImpl(EntryOrNode* entry_or_node, absl::Time staleness_bound) {
-  kvstore::ReadOptions options;
-  options.staleness_bound = staleness_bound;
+void DoReadImpl(EntryOrNode* entry_or_node,
+                internal::AsyncCache::AsyncCacheReadRequest request) {
+  kvstore::ReadOptions kvstore_options;
+  kvstore_options.staleness_bound = request.staleness_bound;
   auto read_state =
       internal::AsyncCache::ReadLock<void>(*entry_or_node).read_state();
-  options.if_not_equal = std::move(read_state.stamp.generation);
+  kvstore_options.if_not_equal = std::move(read_state.stamp.generation);
 
   using ReadReceiver = UseExistingIfUnchangedReadReceiver<
       ManifestCache::ReadReceiver<EntryOrNode>>;
   IssueRead(
-      entry_or_node, std::move(options),
+      entry_or_node, std::move(kvstore_options),
       ReadReceiver{std::move(read_state.data),
                    ManifestCache::ReadReceiver<EntryOrNode>{entry_or_node}});
 }
@@ -214,12 +215,12 @@ absl::Status ManifestCache::TransactionNode::DoInitialize(
   return Base::TransactionNode::DoInitialize(transaction);
 }
 
-void ManifestCache::Entry::DoRead(absl::Time staleness_bound) {
-  DoReadImpl(this, staleness_bound);
+void ManifestCache::Entry::DoRead(AsyncCacheReadRequest request) {
+  DoReadImpl(this, std::move(request));
 }
 
-void ManifestCache::TransactionNode::DoRead(absl::Time staleness_bound) {
-  DoReadImpl(this, staleness_bound);
+void ManifestCache::TransactionNode::DoRead(AsyncCacheReadRequest request) {
+  DoReadImpl(this, std::move(request));
 }
 
 void ManifestCache::TransactionNode::Commit() {
@@ -562,7 +563,7 @@ ReadState GetReadState(
 
 template <typename EntryOrNode>
 void DoNumberedReadImpl(EntryOrNode* entry_or_node,
-                        absl::Time staleness_bound) {
+                        internal::AsyncCache::AsyncCacheReadRequest request) {
   struct Receiver {
     EntryOrNode* entry_or_node;
     void set_value(std::shared_ptr<NumberedManifest> numbered_manifest,
@@ -586,12 +587,13 @@ void DoNumberedReadImpl(EntryOrNode* entry_or_node,
     }
   }
   ListAndReadNumberedManifests(&entry, std::move(cached_manifest),
-                               staleness_bound, Receiver{entry_or_node});
+                               request.staleness_bound,
+                               Receiver{entry_or_node});
 }
 }  // namespace
 
-void NumberedManifestCache::Entry::DoRead(absl::Time staleness_bound) {
-  return DoNumberedReadImpl(this, staleness_bound);
+void NumberedManifestCache::Entry::DoRead(AsyncCacheReadRequest request) {
+  return DoNumberedReadImpl(this, std::move(request));
 }
 
 Future<TryUpdateManifestResult> NumberedManifestCache::Entry::TryUpdate(
@@ -624,8 +626,8 @@ Future<TryUpdateManifestResult> NumberedManifestCache::Entry::TryUpdate(
 }
 
 void NumberedManifestCache::TransactionNode::DoRead(
-    absl::Time staleness_bound) {
-  return DoNumberedReadImpl(this, staleness_bound);
+    AsyncCacheReadRequest request) {
+  return DoNumberedReadImpl(this, std::move(request));
 }
 
 namespace {

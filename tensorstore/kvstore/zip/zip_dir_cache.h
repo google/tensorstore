@@ -98,7 +98,7 @@ class ZipDirectoryCache : public internal::AsyncCache {
 
     size_t ComputeReadDataSizeInBytes(const void* read_data) final;
 
-    void DoRead(absl::Time staleness_bound) final;
+    void DoRead(AsyncCacheReadRequest request) final;
   };
 
   Entry* DoAllocateEntry() final;

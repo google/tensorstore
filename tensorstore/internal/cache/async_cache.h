@@ -85,7 +85,7 @@ namespace internal {
 ///        public:
 ///         using OwningCache = Derived;
 ///
-///         void DoRead(absl::Time staleness_bound) override;
+///         void DoRead(AsyncCacheReadRequest request) override;
 ///         size_t ComputeReadDataSizeInBytes(const void *read_data) override;
 ///       };
 ///
@@ -94,9 +94,8 @@ namespace internal {
 ///         using OwningCache = Derived;
 ///         using Base::TransactionNode::TransactionNode;
 ///
-///         void DoRead(absl::Time staleness_bound);
-///         void DoWriteback() override;
-///         void DoApply(absl::Time staleness_bound,
+///         void DoRead(AsyncCacheReadRequest request) override;
+///         void DoApply(ApplyOptions options,
 ///                      ApplyReceiver receiver) override;
 ///         size_t ComputeWriteStateSizeInBytes() override;
 ///
@@ -320,6 +319,12 @@ class AsyncCache : public Cache {
     internal::OpenTransactionNodePtr<DerivedNode> node_;
   };
 
+  /// Specifies options for read operations.
+  struct AsyncCacheReadRequest {
+    /// Data that is read must not be older than `staleness_bound`.
+    absl::Time staleness_bound = absl::InfiniteFuture();
+  };
+
   /// Base Entry class.  `Derived` classes must define a nested `Derived::Entry`
   /// class that extends this `Entry` class.
   ///
@@ -347,17 +352,13 @@ class AsyncCache : public Cache {
       return entry;
     }
 
-    /// Requests data no older than `staleness_bound`.
+    /// Requests data according to constraints specified by `request`.
     ///
-    /// \param staleness_bound Limit on data staleness.
     /// \param must_not_be_known_to_be_stale Requests newer data if the existing
     ///     data is known to be out-of-date (e.g. due to a local write not
     ///     reflected in the cache), even if the existing data satisfies
-    ///     `staleness_bound`.
-    /// \returns A future that resolves to a success state once data no older
-    ///     than `staleness_bound` is available, or to an error state if the
-    ///     request failed.
-    Future<const void> Read(absl::Time staleness_bound,
+    ///     `options.staleness_bound`.
+    Future<const void> Read(AsyncCacheReadRequest request,
                             bool must_not_be_known_to_be_stale = true);
 
     /// Obtains an existing or new transaction node for the specified entry and
@@ -419,7 +420,7 @@ class AsyncCache : public Cache {
     /// Derived classes must implement this method, and implementations must
     /// call (either immediately or asynchronously) `ReadSuccess` or `ReadError`
     /// to signal completion.
-    virtual void DoRead(absl::Time staleness_bound) = 0;
+    virtual void DoRead(AsyncCacheReadRequest request) = 0;
 
     /// Signals that the read request initiated by the most recent call to
     /// `DoRead` succeeded.
@@ -623,9 +624,9 @@ class AsyncCache : public Cache {
     /// actually be required.
     virtual void InvalidateReadState();
 
-    /// Requests a read state for this transaction node that is current as of
-    /// the specified `staleness_bound`.
-    Future<const void> Read(absl::Time staleness_bound,
+    /// Requests a read state for this transaction node with the constraints
+    /// specified by `request`.
+    Future<const void> Read(AsyncCacheReadRequest request,
                             bool must_not_be_known_to_be_stale = true);
 
     /// Requests initial or updated data from persistent storage for a single
@@ -638,7 +639,7 @@ class AsyncCache : public Cache {
     /// Derived classes must implement this method, and implementations must
     /// call (either immediately or asynchronously) `ReadSuccess` or `ReadError`
     /// to signal completion.
-    virtual void DoRead(absl::Time staleness_bound) = 0;
+    virtual void DoRead(AsyncCacheReadRequest request) = 0;
 
     /// Signals that the read request initiated by the most recent call to
     /// `DoRead` succeeded.
@@ -940,6 +941,8 @@ class AsyncCache : public Cache {
   /// }
   virtual TransactionNode* DoAllocateTransactionNode(Entry& entry) = 0;
 };
+
+using AsyncCacheReadRequest = AsyncCache::AsyncCacheReadRequest;
 
 }  // namespace internal
 }  // namespace tensorstore

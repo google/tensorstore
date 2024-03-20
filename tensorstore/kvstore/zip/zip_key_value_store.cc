@@ -319,7 +319,7 @@ Future<kvstore::ReadResult> ZipKvStore::Read(Key key, ReadOptions options) {
                    if (!promise.result_needed()) return;
                    state->OnDirectoryReady(std::move(promise));
                  }),
-             cache_entry_->Read(options.staleness_bound))
+             cache_entry_->Read({options.staleness_bound}))
       .future;
 }
 
@@ -391,7 +391,7 @@ void ZipKvStore::ListImpl(ListOptions options, ListReceiver receiver) {
                            state->OnDirectoryReady();
                          }),
             state_ptr->promise_,
-            cache_entry_->Read(state_ptr->options_.staleness_bound));
+            cache_entry_->Read({state_ptr->options_.staleness_bound}));
 }
 
 }  // namespace

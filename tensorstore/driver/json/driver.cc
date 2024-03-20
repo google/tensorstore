@@ -195,7 +195,7 @@ class JsonCache
                       (unmodified &&
                        options.apply_mode != ApplyOptions::kSpecifyUnchanged))
                          ? MakeReadyFuture()
-                         : this->Read(options.staleness_bound));
+                         : this->Read({options.staleness_bound}));
       future.Force();
       std::move(future).ExecuteWhenReady(WithExecutor(
           GetOwningCache(*this).executor(), std::move(continuation)));
@@ -502,6 +502,11 @@ void JsonDriver::Read(
   ReadChunk chunk;
   chunk.transform = std::move(request.transform);
   auto read_future = [&]() -> Future<const void> {
+    const auto get_cache_read_request = [&] {
+      AsyncCache::AsyncCacheReadRequest cache_read_request;
+      cache_read_request.staleness_bound = data_staleness_.time;
+      return cache_read_request;
+    };
     if (request.transaction) {
       TENSORSTORE_ASSIGN_OR_RETURN(
           auto node, GetTransactionNode(*cache_entry_, request.transaction));
@@ -509,14 +514,14 @@ void JsonDriver::Read(
         UniqueWriterLock<AsyncCache::TransactionNode> lock(*node);
         return node->changes_.CanApplyUnconditionally(json_pointer_);
       }();
-      auto read_future =
-          unconditional ? MakeReadyFuture() : node->Read(data_staleness_.time);
+      auto read_future = unconditional ? MakeReadyFuture()
+                                       : node->Read(get_cache_read_request());
       chunk.impl = ReadChunkTransactionImpl{std::move(node),
                                             IntrusivePtr<JsonDriver>(this)};
       return read_future;
     } else {
       chunk.impl = ReadChunkImpl{cache_entry_, IntrusivePtr<JsonDriver>(this)};
-      return cache_entry_->Read(data_staleness_.time);
+      return cache_entry_->Read(get_cache_read_request());
     }
   }();
   read_future.ExecuteWhenReady(

@@ -380,6 +380,8 @@ Future<internal::DriverHandle> ImageDriverSpec<Specialization>::Open(
                IndexDomain<> schema_domain = this->schema.domain();
                // Since writing is not allowed, resolve the cache entry
                // upon opening.
+               internal::AsyncCache::AsyncCacheReadRequest read_request;
+               read_request.staleness_bound = driver->data_staleness_.time;
                LinkValue(
                    [driver, transaction = std::move(transaction),
                     schema_domain = std::move(schema_domain)](
@@ -405,7 +407,7 @@ Future<internal::DriverHandle> ImageDriverSpec<Specialization>::Open(
                              std::move(transaction))});
                    },
                    std::move(p),
-                   driver->cache_entry_->Read(driver->data_staleness_.time));
+                   driver->cache_entry_->Read(std::move(read_request)));
              },
              cache->initialized_)
       .future;
@@ -442,6 +444,8 @@ Future<IndexTransform<>> ImageDriver<Specialization>::ResolveBounds(
   if (request.transaction) {
     return absl::UnimplementedError(Specialization::kTransactionError);
   }
+  internal::AsyncCache::AsyncCacheReadRequest read_request;
+  read_request.staleness_bound = data_staleness_.time;
   return MapFuture(
       data_copy_executor(),
       [self = internal::IntrusivePtr<DriverType>(this),
@@ -455,7 +459,7 @@ Future<IndexTransform<>> ImageDriver<Specialization>::ResolveBounds(
         return PropagateExplicitBoundsToTransform(lock.data()->domain(),
                                                   std::move(transform));
       },
-      cache_entry_->Read(data_staleness_.time));
+      cache_entry_->Read(std::move(read_request)));
 }
 
 template <typename Specialization>
@@ -543,7 +547,9 @@ void ImageDriver<Specialization>::Read(
 
   // TODO: Wire in execution::set_cancel correctly.
   execution::set_starting(receiver, [] {});
-  auto read_future = cache_entry_->Read(data_staleness_.time);
+  internal::AsyncCache::AsyncCacheReadRequest read_request;
+  read_request.staleness_bound = data_staleness_.time;
+  auto read_future = cache_entry_->Read(std::move(read_request));
   read_future.ExecuteWhenReady([chunk = std::move(chunk),
                                 receiver = std::move(receiver)](
                                    ReadyFuture<const void> future) mutable {

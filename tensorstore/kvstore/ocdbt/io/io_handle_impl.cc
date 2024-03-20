@@ -130,7 +130,7 @@ class IoHandleImpl : public IoHandle {
         return;
       }
 
-      auto read_future = self->manifest_cache_entry_->Read(staleness_bound);
+      auto read_future = self->manifest_cache_entry_->Read({staleness_bound});
       LinkValue(
           [self = IoHandleImpl::Ptr(self), staleness_bound](
               Promise<ManifestWithTime> promise,
@@ -156,7 +156,7 @@ class IoHandleImpl : public IoHandle {
                                         Promise<ManifestWithTime> promise,
                                         absl::Time staleness_bound) {
       auto read_future =
-          self->numbered_manifest_cache_entry_->Read(staleness_bound);
+          self->numbered_manifest_cache_entry_->Read({staleness_bound});
       LinkValue(
           [self = std::move(self)](Promise<ManifestWithTime> promise,
                                    ReadyFuture<const void> future) {

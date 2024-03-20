@@ -79,7 +79,7 @@ TEST(ZipDirectoryKvsTest, Basic) {
   });
 
   auto entry = GetCacheEntry(cache, "data.zip");
-  auto status = entry->Read(absl::InfinitePast()).status();
+  auto status = entry->Read({absl::InfinitePast()}).status();
   ASSERT_THAT(status, ::tensorstore::IsOk());
 
   ZipDirectoryCache::ReadLock<ZipDirectoryCache::ReadData> lock(*entry);
@@ -107,7 +107,7 @@ TEST(ZipDirectoryKvsTest, MissingEntry) {
   });
 
   auto entry = GetCacheEntry(cache, "data.zip");
-  auto status = entry->Read(absl::InfinitePast()).status();
+  auto status = entry->Read({absl::InfinitePast()}).status();
   EXPECT_THAT(status, ::tensorstore::StatusIs(absl::StatusCode::kNotFound));
 }
 
@@ -182,7 +182,7 @@ TEST(ZipDirectoryKvsTest, MinimalZip) {
   });
 
   auto entry = GetCacheEntry(cache, "data.zip");
-  auto status = entry->Read(absl::InfinitePast()).status();
+  auto status = entry->Read({absl::InfinitePast()}).status();
   ASSERT_THAT(status, ::tensorstore::IsOk());
 
   ZipDirectoryCache::ReadLock<ZipDirectoryCache::ReadData> lock(*entry);

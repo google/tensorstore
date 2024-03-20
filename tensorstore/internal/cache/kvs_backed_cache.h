@@ -163,14 +163,14 @@ class KvsBackedCache : public Parent {
     ///
     /// If an error occurs, calls `ReadError` directly without invoking
     /// `DoDecode`.
-    void DoRead(absl::Time staleness_bound) final {
-      kvstore::ReadOptions options;
-      options.staleness_bound = staleness_bound;
+    void DoRead(AsyncCache::AsyncCacheReadRequest request) final {
+      kvstore::ReadOptions kvstore_options;
+      kvstore_options.staleness_bound = request.staleness_bound;
       auto read_state = AsyncCache::ReadLock<void>(*this).read_state();
-      options.if_not_equal = std::move(read_state.stamp.generation);
+      kvstore_options.if_not_equal = std::move(read_state.stamp.generation);
       auto& cache = GetOwningCache(*this);
       auto future = cache.kvstore_driver_->Read(this->GetKeyValueStoreKey(),
-                                                std::move(options));
+                                                std::move(kvstore_options));
       execution::submit(
           std::move(future),
           ReadReceiverImpl<Entry>{this, std::move(read_state.data)});
@@ -229,10 +229,13 @@ class KvsBackedCache : public Parent {
       return absl::OkStatus();
     }
 
-    void DoRead(absl::Time staleness_bound) final {
+    void DoRead(AsyncCache::AsyncCacheReadRequest request) final {
       auto read_state = AsyncCache::ReadLock<void>(*this).read_state();
+      kvstore::TransactionalReadOptions kvstore_options;
+      kvstore_options.if_not_equal = std::move(read_state.stamp.generation);
+      kvstore_options.staleness_bound = request.staleness_bound;
       target_->KvsRead(
-          {std::move(read_state.stamp.generation), staleness_bound},
+          std::move(kvstore_options),
           typename Entry::template ReadReceiverImpl<TransactionNode>{
               this, std::move(read_state.data)});
     }
@@ -272,7 +275,7 @@ class KvsBackedCache : public Parent {
       if (!StorageGeneration::IsUnknown(require_repeatable_read_) &&
           read_state.stamp.time < options.staleness_bound) {
         // Read required to validate repeatable read.
-        auto read_future = this->Read(options.staleness_bound);
+        auto read_future = this->Read({options.staleness_bound});
         read_future.Force();
         read_future.ExecuteWhenReady(
             [this, options = std::move(options),
