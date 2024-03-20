@@ -45,6 +45,11 @@ class KvsBackedChunkCache
 
   virtual std::string GetChunkStorageKey(span<const Index> cell_indices) = 0;
 
+  virtual OptionalByteRangeRequest GetChunkByteRange(
+      span<const Index> cell_indices) {
+    return OptionalByteRangeRequest();
+  }
+
   /// Decodes a data chunk.
   ///
   /// \param data The encoded chunk data.
@@ -75,6 +80,7 @@ class KvsBackedChunkCache
     void DoEncode(std::shared_ptr<const ReadData> data,
                   EncodeReceiver receiver) override;
     std::string GetKeyValueStoreKey() override;
+    OptionalByteRangeRequest GetByteRange() override;
   };
 
   Entry* DoAllocateEntry() override { return new Entry; }

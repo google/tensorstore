@@ -167,6 +167,10 @@ class MetadataCache
   virtual Result<absl::Cord> EncodeMetadata(std::string_view entry_key,
                                             const void* metadata) = 0;
 
+  virtual OptionalByteRangeRequest GetByteRange() {
+    return OptionalByteRangeRequest();
+  }
+
   // The members below are implementation details not relevant to derived class
   // driver implementations.
 
@@ -204,6 +208,11 @@ class MetadataCache
     void DoEncode(std::shared_ptr<const void> data,
                   EncodeReceiver receiver) override;
     std::string GetKeyValueStoreKey() override;
+
+    OptionalByteRangeRequest GetByteRange() override {
+      auto& cache = GetOwningCache(*this);
+      return cache.GetByteRange();
+    }
 
     /// Requests an atomic metadata update.
     ///

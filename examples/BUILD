@@ -5,6 +5,18 @@ package(default_visibility = ["//visibility:public"])
 licenses(["notice"])
 
 tensorstore_cc_binary(
+    name = "test_chunked",
+    srcs = ["test-chunked.cc"],
+    linkopts = ["-undefined error"],
+    deps = [
+        "//tensorstore",
+        "//tensorstore:all_drivers",
+        "//tensorstore:index",
+        "//tensorstore/util:span",
+    ],
+)
+
+tensorstore_cc_binary(
     name = "compute_percentiles",
     srcs = [
         "compute_percentiles.cc",

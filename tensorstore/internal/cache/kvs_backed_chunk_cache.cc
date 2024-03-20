@@ -35,6 +35,11 @@ std::string KvsBackedChunkCache::Entry::GetKeyValueStoreKey() {
   return cache.GetChunkStorageKey(this->cell_indices());
 }
 
+OptionalByteRangeRequest KvsBackedChunkCache::Entry::GetByteRange() {
+  auto& cache = GetOwningCache(*this);
+  return cache.GetChunkByteRange(this->cell_indices());
+}
+
 void KvsBackedChunkCache::Entry::DoDecode(std::optional<absl::Cord> value,
                                           DecodeReceiver receiver) {
   GetOwningCache(*this).executor()([this, value = std::move(value),
