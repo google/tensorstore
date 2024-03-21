@@ -447,6 +447,50 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(ZarrPartialMetadata,
 Result<absl::InlinedVector<SharedArray<const void>, 1>> DecodeChunk(
     const ZarrMetadata& metadata, absl::Cord buffer) {
   const size_t num_fields = metadata.dtype.fields.size();
+  absl::InlinedVector<SharedArray<const void>, 1> field_arrays(num_fields);
+  if (num_fields == 1) {
+    // Optimized code path, decompress directly into output array.
+    const auto& dtype_field = metadata.dtype.fields[0];
+    const auto& chunk_layout_field = metadata.chunk_layout.fields[0];
+    assert(chunk_layout_field.encoded_chunk_layout ==
+           chunk_layout_field.decoded_chunk_layout);
+    // `DecodeArrayEndian` only supports c_order or fortran_order, but a
+    // Fortran-order zarr array with an array field has a chunk layout that is
+    // neither c_order nor fortran_order. As a workaround, we decode using a
+    // fake shape with the same number of elements, and then adjust the shape
+    // and byte_strides of the resultant array afterwards.
+    span<const Index> c_order_shape_span;
+    Index c_order_shape[kMaxRank];
+    if (metadata.order == c_order) {
+      c_order_shape_span = chunk_layout_field.full_chunk_shape();
+    } else {
+      auto full_chunk_shape = chunk_layout_field.full_chunk_shape();
+      std::copy(full_chunk_shape.begin(), full_chunk_shape.end(),
+                c_order_shape);
+      // Reverse the order of the outer dimensions to obtain the equivalent
+      // c_order shape.
+      std::reverse(c_order_shape, c_order_shape + metadata.rank);
+      c_order_shape_span = span(&c_order_shape[0], full_chunk_shape.size());
+    }
+    std::unique_ptr<riegeli::Reader> reader =
+        std::make_unique<riegeli::CordReader<absl::Cord>>(std::move(buffer));
+    if (metadata.compressor) {
+      reader = metadata.compressor->GetReader(
+          std::move(reader), metadata.dtype.bytes_per_outer_element);
+    }
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto array, internal::DecodeArrayEndian(*reader, dtype_field.dtype,
+                                                c_order_shape_span,
+                                                dtype_field.endian, c_order));
+    if (metadata.order == fortran_order) {
+      std::reverse(array.shape().begin(),
+                   array.shape().begin() + metadata.rank);
+      std::reverse(array.byte_strides().begin(),
+                   array.byte_strides().begin() + metadata.rank);
+    }
+    field_arrays[0] = std::move(array);
+    return field_arrays;
+  }
   if (metadata.compressor) {
     std::unique_ptr<riegeli::Reader> reader =
         std::make_unique<riegeli::CordReader<absl::Cord>>(std::move(buffer));
@@ -460,7 +504,6 @@ Result<absl::InlinedVector<SharedArray<const void>, 1>> DecodeChunk(
         "Uncompressed chunk is ", buffer.size(), " bytes, but should be ",
         metadata.chunk_layout.bytes_per_chunk, " bytes"));
   }
-  absl::InlinedVector<SharedArray<const void>, 1> field_arrays(num_fields);
 
   bool must_copy = false;
   // First, attempt to create arrays that reference the cord without copying.
