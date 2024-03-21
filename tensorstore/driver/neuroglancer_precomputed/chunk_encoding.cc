@@ -14,17 +14,37 @@
 
 #include "tensorstore/driver/neuroglancer_precomputed/chunk_encoding.h"
 
+#include <algorithm>
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <limits>
+#include <string>
+#include <utility>
+
 #include "absl/algorithm/container.h"
 #include "absl/base/optimization.h"
+#include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include "riegeli/bytes/cord_reader.h"
 #include "riegeli/bytes/cord_writer.h"
+#include "tensorstore/array.h"
+#include "tensorstore/contiguous_layout.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/driver/neuroglancer_precomputed/metadata.h"
+#include "tensorstore/index.h"
 #include "tensorstore/internal/compression/neuroglancer_compressed_segmentation.h"
 #include "tensorstore/internal/data_type_endian_conversion.h"
 #include "tensorstore/internal/flat_cord_builder.h"
 #include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/internal/image/jpeg_reader.h"
 #include "tensorstore/internal/image/jpeg_writer.h"
+#include "tensorstore/internal/integer_overflow.h"
+#include "tensorstore/strided_layout.h"
 #include "tensorstore/util/endian.h"
+#include "tensorstore/util/extents.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
