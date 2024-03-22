@@ -43,7 +43,10 @@ tensorstore_cc_library(
 tensorstore_cc_test(
     name = "subprocess_test",
     srcs = ["subprocess_test.cc"],
-    tags = ["msvc"],
+    tags = [
+        "cpu:2",
+        "msvc",
+    ],
     deps = [
         ":subprocess",
         "//tensorstore/internal:env",

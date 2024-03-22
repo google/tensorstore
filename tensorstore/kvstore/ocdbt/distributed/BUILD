@@ -1,7 +1,13 @@
 # Distributed write support for Optionally-cooperative Distributed B+tree driver
 
 load("//bazel:cc_grpc_library.bzl", "cc_grpc_library")
-load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_proto_library", "tensorstore_cc_test", "tensorstore_proto_library")
+load(
+    "//bazel:tensorstore.bzl",
+    "tensorstore_cc_library",
+    "tensorstore_cc_proto_library",
+    "tensorstore_cc_test",
+    "tensorstore_proto_library",
+)
 
 package(default_visibility = ["//tensorstore:internal_packages"])
 
@@ -43,6 +49,7 @@ tensorstore_cc_test(
     name = "coordinator_server_test",
     size = "small",
     srcs = ["coordinator_server_test.cc"],
+    tags = ["cpu:2"],
     deps = [
         ":btree_node_identifier",
         ":coordinator_cc_grpc",
@@ -216,6 +223,7 @@ tensorstore_cc_test(
     name = "cooperator_server_test",
     size = "small",
     srcs = ["cooperator_server_test.cc"],
+    tags = ["cpu:2"],
     deps = [
         ":cooperator",
         ":coordinator_server",
@@ -279,6 +287,7 @@ tensorstore_cc_test(
     name = "driver_test",
     size = "small",
     srcs = ["driver_test.cc"],
+    tags = ["cpu:2"],
     deps = [
         ":coordinator_server",
         "//tensorstore:context",

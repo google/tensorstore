@@ -219,6 +219,7 @@ tensorstore_cc_test(
     data = [":moto_server"],
     flaky = 1,  # Spawning the test process can be flaky.
     tags = [
+        "cpu:2",
         "requires-net:loopback",
         "skip-cmake",
     ],

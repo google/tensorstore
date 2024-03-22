@@ -125,6 +125,7 @@ tensorstore_cc_library(
 tensorstore_cc_test(
     name = "tsgrpc_test",
     srcs = ["tsgrpc_test.cc"],
+    tags = ["cpu:2"],
     deps = [
         ":kvstore_cc_grpc",
         ":kvstore_cc_proto",
@@ -191,6 +192,7 @@ tensorstore_cc_library(
 tensorstore_cc_test(
     name = "kvstore_server_test",
     srcs = ["kvstore_server_test.cc"],
+    tags = ["cpu:2"],
     deps = [
         ":kvstore_server",
         ":tsgrpc",

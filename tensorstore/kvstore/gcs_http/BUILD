@@ -161,6 +161,7 @@ tensorstore_cc_test(
     data = ["@com_google_storagetestbench//:rest_server"],
     flaky = 1,
     tags = [
+        "cpu:2",
         "requires-net:loopback",
         "skip-cmake",  # storage_testbench is python, which doesn't work in bazel_to_cmake yet.
         "skip-darwin",  # the python binary doesn't find dependencies on darwin.
