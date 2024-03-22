@@ -1107,7 +1107,6 @@ class ShardedKeyValueStore
               auto key = ChunkIdToKey(chunk.minishard_and_chunk_id.chunk_id);
               if (!Contains(state->options_.range, key)) continue;
               key.erase(0, state->options_.strip_prefix_length);
-              std::numeric_limits<uint64_t>::max();
               execution::set_value(
                   state->receiver_,
                   ListEntry{
