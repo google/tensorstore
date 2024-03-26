@@ -362,7 +362,10 @@ tensorstore_cc_library(
     srcs = ["env.cc"],
     hdrs = ["env.h"],
     deps = [
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/flags:marshalling",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/strings",
     ],

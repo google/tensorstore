@@ -17,8 +17,12 @@
 
 #include <optional>
 #include <string>
+#include <type_traits>
 
+#include "absl/base/attributes.h"
 #include "absl/container/flat_hash_map.h"
+#include "absl/flags/flag.h"
+#include "absl/flags/marshalling.h"
 #include "absl/log/absl_log.h"
 #include "absl/strings/numbers.h"
 
@@ -42,7 +46,9 @@ template <typename T>
 std::optional<T> GetEnvValue(const char* variable) {
   auto env = internal::GetEnv(variable);
   if (!env) return std::nullopt;
-  if constexpr (std::is_same_v<bool, T>) {
+  if constexpr (std::is_same_v<std::string, T>) {
+    return env;
+  } else if constexpr (std::is_same_v<bool, T>) {
     T n;
     if (absl::SimpleAtob(*env, &n)) return n;
   } else if constexpr (std::is_same_v<float, T>) {
@@ -51,11 +57,32 @@ std::optional<T> GetEnvValue(const char* variable) {
   } else if constexpr (std::is_same_v<double, T>) {
     T n;
     if (absl::SimpleAtod(*env, &n)) return n;
-  } else {
+  } else if constexpr (std::is_integral_v<T>) {
     T n;
     if (absl::SimpleAtoi(*env, &n)) return n;
+  } else {
+    std::string err;
+    T value;
+    if (absl::ParseFlag(*env, &value, &err)) {
+      return value;
+    }
+    ABSL_LOG(INFO) << "Failed to parse " << variable << "=" << *env
+                   << " as a value: " << err;
+    return std::nullopt;
   }
+
   ABSL_LOG(INFO) << "Failed to parse" << variable << " as a value: " << *env;
+  return std::nullopt;
+}
+
+// Returns the parsed value of an environment variable or empty.
+template <typename T>
+ABSL_MUST_USE_RESULT std::optional<T> GetFlagOrEnvValue(
+    absl::Flag<std::optional<T>>& flag, const char* variable) {
+  if (auto val = absl::GetFlag(flag); val.has_value()) return val;
+  if (auto env = internal::GetEnvValue<T>(variable); env.has_value()) {
+    return env;
+  }
   return std::nullopt;
 }
 

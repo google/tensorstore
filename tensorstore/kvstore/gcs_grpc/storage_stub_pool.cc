@@ -55,6 +55,8 @@ ABSL_FLAG(std::optional<uint32_t>, tensorstore_gcs_grpc_channels, std::nullopt,
           "Default (and maximum) channels to use in gcs_grpc driver. "
           "Overrides TENSORSTORE_GCS_GRPC_CHANNELS.");
 
+using ::tensorstore::internal::GetFlagOrEnvValue;
+
 namespace tensorstore {
 namespace internal_gcs_grpc {
 namespace {
@@ -62,18 +64,6 @@ namespace {
 ABSL_CONST_INIT absl::Mutex global_mu(absl::kConstInit);
 
 ABSL_CONST_INIT internal_log::VerboseFlag gcs_grpc_logging("gcs_grpc");
-
-/// Returns whether to use a local subchannel pool.
-bool GetUseLocalSubchannelPool() {
-  if (auto var =
-          absl::GetFlag(FLAGS_tensorstore_gcs_grpc_use_local_subchannel_pool);
-      var) {
-    return *var;
-  }
-  return internal::GetEnvValue<bool>(
-             "TENSORSTORE_GCS_GRPC_USE_LOCAL_SUBCHANNEL_POOL")
-      .value_or(false);
-}
 
 /// Returns the number of channels to use.
 /// See also the channel construction in googleapis/google-cloud-cpp repository:
@@ -83,18 +73,12 @@ uint32_t ChannelsForAddress(std::string_view address, uint32_t num_channels) {
   if (num_channels != 0) {
     return num_channels;
   }
-
   // Use the flag --tensorstore_gcs_grpc_channels if present.
-  if (auto opt = absl::GetFlag(FLAGS_tensorstore_gcs_grpc_channels);
-      opt && *opt > 0) {
-    return *opt;
-  }
-
   // Use the environment variable TENSORSTORE_GCS_GRPC_CHANNELS if present.
-  if (auto opt =
-          internal::GetEnvValue<uint32_t>("TENSORSTORE_GCS_GRPC_CHANNELS");
-      opt && *opt > 0) {
-    return static_cast<uint32_t>(opt.value());
+  auto opt = GetFlagOrEnvValue(FLAGS_tensorstore_gcs_grpc_channels,
+                               "TENSORSTORE_GCS_GRPC_CHANNELS");
+  if (opt && *opt > 0) {
+    return *opt;
   }
 
   if (absl::StartsWith(address, "google-c2p:///") ||
@@ -122,11 +106,15 @@ StorageStubPool::StorageStubPool(
   ABSL_LOG_IF(INFO, gcs_grpc_logging)
       << "Connecting to " << address_ << " with " << size << " channels";
 
+  bool use_subchannel_pool =
+      GetFlagOrEnvValue(FLAGS_tensorstore_gcs_grpc_use_local_subchannel_pool,
+                        "TENSORSTORE_GCS_GRPC_USE_LOCAL_SUBCHANNEL_POOL")
+          .value_or(false);
   for (int id = 0; id < channels_.size(); id++) {
     // See google cloud storage client in:
     // https://github.com/googleapis/google-cloud-cpp/blob/main/google/cloud/storage/internal/storage_stub_factory.cc
     auto args = grpc::ChannelArguments();
-    if (size > 1 && GetUseLocalSubchannelPool()) {
+    if (size > 1 && use_subchannel_pool) {
       args.SetInt(GRPC_ARG_USE_LOCAL_SUBCHANNEL_POOL, 1);
       args.SetInt(GRPC_ARG_CHANNEL_ID, id);
       args.SetInt(GRPC_ARG_DNS_ENABLE_SRV_QUERIES, 0);

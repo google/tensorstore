@@ -22,6 +22,7 @@
 #include <string_view>
 #include <utility>
 
+#include "absl/flags/flag.h"
 #include "absl/status/status.h"
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
@@ -42,12 +43,18 @@
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
+ABSL_FLAG(std::optional<std::string>, tensorstore_gce_metadata_root,
+          std::nullopt,
+          "Url to used for http access metadata.google.internal. "
+          "Overrides GCE_METADATA_ROOT.");
+
 namespace tensorstore {
 namespace internal_oauth2 {
 namespace {
 
 namespace jb = tensorstore::internal_json_binding;
 
+using ::tensorstore::internal::GetFlagOrEnvValue;
 using ::tensorstore::internal_http::HttpRequestBuilder;
 using ::tensorstore::internal_http::HttpResponse;
 
@@ -74,11 +81,9 @@ constexpr static auto ServiceAccountInfoBinder = jb::Object(
 }  // namespace
 
 std::string GceMetadataHostname() {
-  auto maybe_hostname = internal::GetEnv("GCE_METADATA_ROOT");
-  if (maybe_hostname.has_value()) {
-    return std::move(*maybe_hostname);
-  }
-  return "metadata.google.internal";
+  return GetFlagOrEnvValue(FLAGS_tensorstore_gce_metadata_root,
+                           "GCE_METADATA_ROOT")
+      .value_or("metadata.google.internal");
 }
 
 GceAuthProvider::GceAuthProvider(

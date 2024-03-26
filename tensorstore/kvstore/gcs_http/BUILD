@@ -56,6 +56,7 @@ tensorstore_cc_library(
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:btree",
+        "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/random",
         "@com_google_absl//absl/status",

@@ -20,6 +20,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/flags/flag.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
@@ -43,7 +44,13 @@
 #include "tensorstore/internal/json_binding/absl_time.h"
 #include "tensorstore/internal/json_binding/std_optional.h"
 
+ABSL_FLAG(std::optional<std::string>,
+          tensorstore_aws_ec2_metadata_service_endpoint, std::nullopt,
+          "Endpoint to used for http access AWS metadata service. "
+          "Overrides AWS_EC2_METADATA_SERVICE_ENDPOINT.");
+
 using ::tensorstore::Result;
+using ::tensorstore::internal::GetFlagOrEnvValue;
 using ::tensorstore::internal::ParseJson;
 using ::tensorstore::internal_http::HttpRequestBuilder;
 using ::tensorstore::internal_http::HttpResponseCodeToStatus;
@@ -76,11 +83,9 @@ static constexpr char kSuccess[] = "Success";
 //
 // https://docs.aws.amazon.com/sdk-for-go/api/aws/ec2metadata/
 std::string GetEC2MetadataServiceEndpoint() {
-  auto env = internal::GetEnv("AWS_EC2_METADATA_SERVICE_ENDPOINT");
-  if (env && !env->empty()) {
-    return *env;
-  }
-  return "http://169.254.169.254";
+  return GetFlagOrEnvValue(FLAGS_tensorstore_aws_ec2_metadata_service_endpoint,
+                           "AWS_EC2_METADATA_SERVICE_ENDPOINT")
+      .value_or("http://169.254.169.254");
 }
 
 /// Represents JSON returned from

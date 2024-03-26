@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cassert>
+#include <cerrno>
 #include <cstdio>
 #include <cstdlib>
 #include <limits>
@@ -32,6 +33,7 @@
 
 #include "absl/base/attributes.h"
 #include "absl/base/const_init.h"
+#include "absl/flags/flag.h"
 #include "absl/log/absl_log.h"
 #include "absl/strings/cord.h"
 #include "absl/synchronization/mutex.h"
@@ -51,6 +53,40 @@
 #include "tensorstore/internal/metrics/histogram.h"
 #include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/internal/thread/thread.h"
+
+ABSL_FLAG(std::optional<uint32_t>, tensorstore_http2_max_concurrent_streams,
+          std::nullopt,
+          "Maximum concurrent streams for http2 connections. "
+          "Overrides TENSORSTORE_HTTP2_MAX_CONCURRENT_STREAMS.");
+
+ABSL_FLAG(std::optional<bool>, tensorstore_curl_verbose, std::nullopt,
+          "Enable curl verbose logging. "
+          "Overrides TENSORSTORE_CURL_VERBOSE.");
+
+ABSL_FLAG(std::optional<uint32_t>, tensorstore_curl_low_speed_time_seconds,
+          std::nullopt,
+          "Timeout threshold for low speed transfer detection. "
+          "Overrides TENSORSTORE_CURL_LOW_SPEED_TIME_SECONDS.");
+
+ABSL_FLAG(std::optional<uint32_t>, tensorstore_curl_low_speed_limit_bytes,
+          std::nullopt,
+          "Bytes threshold for low speed transfer detection. "
+          "Overrides TENSORSTORE_CURL_LOW_SPEED_LIMIT_BYTES.");
+
+ABSL_FLAG(std::optional<std::string>, tensorstore_ca_path, std::nullopt,
+          "CA path used with http connections. "
+          "Overrides TENSORSTORE_CA_PATH.");
+
+ABSL_FLAG(std::optional<std::string>, tensorstore_ca_bundle, std::nullopt,
+          "CA Bundle used with http connections. "
+          "Overrides TENSORSTORE_CA_BUNDLE.");
+
+ABSL_FLAG(std::optional<std::string>, tensorstore_curl_http_version,
+          std::nullopt,
+          "HTTP version used by curl on connections."
+          "Overrides TENSORSTORE_CA_BUNDLE.");
+
+using ::tensorstore::internal::GetFlagOrEnvValue;
 
 namespace tensorstore {
 namespace internal_http {
@@ -100,8 +136,8 @@ ABSL_CONST_INIT internal_log::VerboseFlag curl_logging("curl");
 
 // Concurrent CURL HTTP/2 streams.
 int32_t GetMaxHttp2ConcurrentStreams() {
-  auto limit = internal::GetEnvValue<int32_t>(
-      "TENSORSTORE_HTTP2_MAX_CONCURRENT_STREAMS");
+  auto limit = GetFlagOrEnvValue(FLAGS_tensorstore_http2_max_concurrent_streams,
+                                 "TENSORSTORE_HTTP2_MAX_CONCURRENT_STREAMS");
   if (limit && (*limit <= 0 || *limit > 1000)) {
     ABSL_LOG(WARNING)
         << "Failed to parse TENSORSTORE_HTTP2_MAX_CONCURRENT_STREAMS: "
@@ -113,16 +149,20 @@ int32_t GetMaxHttp2ConcurrentStreams() {
 
 // Cached configuration from environment variables.
 struct CurlConfig {
-  bool verbose = internal::GetEnvValue<bool>("TENSORSTORE_CURL_VERBOSE")
+  bool verbose = GetFlagOrEnvValue(FLAGS_tensorstore_curl_verbose,
+                                   "TENSORSTORE_CURL_VERBOSE")
                      .value_or(curl_logging.Level(0));
-  std::optional<std::string> ca_path = internal::GetEnv("TENSORSTORE_CA_PATH");
+  std::optional<std::string> ca_path =
+      GetFlagOrEnvValue(FLAGS_tensorstore_ca_path, "TENSORSTORE_CA_PATH");
   std::optional<std::string> ca_bundle =
-      internal::GetEnv("TENSORSTORE_CA_BUNDLE");
+      GetFlagOrEnvValue(FLAGS_tensorstore_ca_bundle, "TENSORSTORE_CA_BUNDLE");
   int64_t low_speed_time_seconds =
-      internal::GetEnvValue<int64_t>("TENSORSTORE_CURL_LOW_SPEED_TIME_SECONDS")
+      GetFlagOrEnvValue(FLAGS_tensorstore_curl_low_speed_time_seconds,
+                        "TENSORSTORE_CURL_LOW_SPEED_TIME_SECONDS")
           .value_or(0);
   int64_t low_speed_limit_bytes =
-      internal::GetEnvValue<int64_t>("TENSORSTORE_CURL_LOW_SPEED_LIMIT_BYTES")
+      GetFlagOrEnvValue(FLAGS_tensorstore_curl_low_speed_limit_bytes,
+                        "TENSORSTORE_CURL_LOW_SPEED_LIMIT_BYTES")
           .value_or(0);
 };
 
@@ -252,8 +292,8 @@ struct CurlRequestState {
       handle_.SetOption(CURLOPT_READDATA, this);
       handle_.SetOption(CURLOPT_READFUNCTION,
                         &CurlRequestState::CurlReadCallback);
-      // Seek callback allows curl to re-read input, which it sometimes needs to
-      // do.
+      // Seek callback allows curl to re-read input, which it sometimes needs
+      // to do.
       //
       // https://curl.haxx.se/mail/lib-2010-01/0183.html
       //
@@ -385,11 +425,12 @@ class MultiTransportImpl {
   explicit MultiTransportImpl(std::shared_ptr<CurlHandleFactory> factory)
       : factory_(std::move(factory)), multi_(factory_->CreateMultiHandle()) {
     assert(factory_);
-    // Without any option, the CURL library multiplexes up to 100 http/2 streams
-    // over a single connection. In practice there's a tradeoff between
-    // concurrent streams and latency/throughput of requests. Empirical tests
-    // suggest that using a small number of streams per connection increases
-    // throughput of large transfers, which is common in tensorstore.
+    // Without any option, the CURL library multiplexes up to 100 http/2
+    // streams over a single connection. In practice there's a tradeoff
+    // between concurrent streams and latency/throughput of requests.
+    // Empirical tests suggest that using a small number of streams per
+    // connection increases throughput of large transfers, which is common in
+    // tensorstore.
     static int32_t max_concurrent_streams = GetMaxHttp2ConcurrentStreams();
     curl_multi_setopt(multi_.get(), CURLMOPT_MAX_CONCURRENT_STREAMS,
                       max_concurrent_streams);

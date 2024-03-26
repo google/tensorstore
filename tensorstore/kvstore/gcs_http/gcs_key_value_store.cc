@@ -26,6 +26,7 @@
 
 #include "absl/base/attributes.h"
 #include "absl/base/thread_annotations.h"
+#include "absl/flags/flag.h"
 #include "absl/log/absl_log.h"
 #include "absl/random/random.h"
 #include "absl/status/status.h"
@@ -97,7 +98,17 @@
 // https://cloud.google.com/storage/docs/json_api/v1/
 // https://cloud.google.com/storage/docs/retry-strategy#exponential-backoff
 
+ABSL_FLAG(std::optional<std::string>, tensorstore_gcs_http_url, std::nullopt,
+          "Url to used for http access to google cloud storage. "
+          "Overrides TENSORSTORE_GCS_HTTP_URL.");
+
+ABSL_FLAG(std::optional<std::string>, tensorstore_gcs_http_version,
+          std::nullopt,
+          "Url to used for http access to google cloud storage. "
+          "Overrides TENSORSTORE_GCS_HTTP_VERSION.");
+
 using ::tensorstore::internal::DataCopyConcurrencyResource;
+using ::tensorstore::internal::GetFlagOrEnvValue;
 using ::tensorstore::internal::IntrusivePtr;
 using ::tensorstore::internal::NoRateLimiter;
 using ::tensorstore::internal::RateLimiter;
@@ -107,6 +118,7 @@ using ::tensorstore::internal_http::HttpRequest;
 using ::tensorstore::internal_http::HttpRequestBuilder;
 using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_http::HttpTransport;
+using ::tensorstore::internal_http::IssueRequestOptions;
 using ::tensorstore::internal_kvstore_gcs_http::GcsConcurrencyResource;
 using ::tensorstore::internal_kvstore_gcs_http::GcsRateLimiterResource;
 using ::tensorstore::internal_kvstore_gcs_http::ObjectMetadata;
@@ -168,13 +180,29 @@ auto& gcs_list = internal_metrics::Counter<int64_t>::New(
 
 ABSL_CONST_INIT internal_log::VerboseFlag gcs_http_logging("gcs_http");
 
-std::string_view GetGcsBaseUrl() {
-  static std::string url = []() -> std::string {
-    auto maybe_url = internal::GetEnv("TENSORSTORE_GCS_HTTP_URL");
-    if (maybe_url) return std::move(*maybe_url);
-    return "https://storage.googleapis.com";
+std::string GetGcsBaseUrl() {
+  return GetFlagOrEnvValue(FLAGS_tensorstore_gcs_http_url,
+                           "TENSORSTORE_GCS_HTTP_URL")
+      .value_or("https://storage.googleapis.com");
+}
+
+IssueRequestOptions::HttpVersion GetHttpVersion() {
+  using HttpVersion = IssueRequestOptions::HttpVersion;
+  static auto http_version = []() -> HttpVersion {
+    auto version = GetFlagOrEnvValue(FLAGS_tensorstore_gcs_http_version,
+                                     "TENSORSTORE_GCS_HTTP_VERSION");
+    if (!version) {
+      return HttpVersion::kDefault;
+    }
+    if (*version == "1" || *version == "1.1") {
+      return HttpVersion::kHttp1;
+    }
+    if (*version == "2" || *version == "2.0") {
+      return HttpVersion::kHttp2PriorKnowledge;
+    }
+    return HttpVersion::kHttp2TLS;
   }();
-  return url;
+  return http_version;
 }
 
 /// Adds the generation query parameter to the provided url.
@@ -437,8 +465,8 @@ Future<kvstore::DriverPtr> GcsKeyValueStoreSpec::DoOpen() const {
 // headers.
 //
 // Instead, if the object metadata does not disallow caching and the bucket is
-// public, a cached response may be returned even if `cache-control: max-age=0`
-// is specified.
+// public, a cached response may be returned even if `cache-control:
+// max-age=0` is specified.
 //
 // b/243544317
 //
@@ -749,7 +777,7 @@ struct WriteTask : public RateLimiterNode,
         << "WriteTask: " << request << " size=" << value.size();
 
     auto future = owner->transport_->IssueRequest(
-        request, internal_http::IssueRequestOptions(value));
+        request, IssueRequestOptions(value).SetHttpVersion(GetHttpVersion()));
     future.ExecuteWhenReady([self = IntrusivePtr<WriteTask>(this)](
                                 ReadyFuture<HttpResponse> response) {
       self->OnResponse(response.result());

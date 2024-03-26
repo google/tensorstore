@@ -57,6 +57,7 @@ using ::tensorstore::internal::AnyContextResourceJsonBinder;
 using ::tensorstore::internal::ConstantRateLimiter;
 using ::tensorstore::internal::ContextResourceCreationContext;
 using ::tensorstore::internal::DoublingRateLimiter;
+using ::tensorstore::internal::GetFlagOrEnvValue;
 using ::tensorstore::internal::NoRateLimiter;
 
 namespace tensorstore {
@@ -75,30 +76,15 @@ const internal::ContextResourceRegistration<S3RateLimiterResource>
 constexpr size_t kDefaultRequestConcurrency = 32;
 
 size_t GetEnvS3RequestConcurrency() {
-  if (auto var = absl::GetFlag(FLAGS_tensorstore_s3_request_concurrency); var) {
-    return *var;
-  }
-
-  return internal::GetEnvValue<size_t>("TENSORSTORE_S3_REQUEST_CONCURRENCY")
+  return GetFlagOrEnvValue(FLAGS_tensorstore_s3_request_concurrency,
+                           "TENSORSTORE_S3_REQUEST_CONCURRENCY")
       .value_or(kDefaultRequestConcurrency);
 }
 
 absl::Duration GetEnvS3RateLimiterDoublingTime() {
-  if (auto var = absl::GetFlag(FLAGS_tensorstore_s3_rate_limiter_doubling_time);
-      var) {
-    return *var;
-  }
-
-  if (auto env = internal::GetEnv("TENSORSTORE_S3_RATE_LIMITER_DOUBLING_TIME");
-      env) {
-    absl::Duration doubling;
-    std::string error;
-    if (absl::ParseFlag(*env, &doubling, &error)) {
-      return doubling;
-    }
-  }
-
-  return absl::ZeroDuration();
+  return GetFlagOrEnvValue(FLAGS_tensorstore_s3_rate_limiter_doubling_time,
+                           "TENSORSTORE_S3_RATE_LIMITER_DOUBLING_TIME")
+      .value_or(absl::ZeroDuration());
 }
 
 }  // namespace
