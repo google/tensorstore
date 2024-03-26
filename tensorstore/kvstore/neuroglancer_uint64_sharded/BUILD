@@ -109,8 +109,10 @@ tensorstore_cc_library(
         "//tensorstore/util:span",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/base:endian",
         "@com_google_absl//absl/functional:function_ref",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:cord",
     ],
 )
 

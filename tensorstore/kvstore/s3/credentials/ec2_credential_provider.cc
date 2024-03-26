@@ -124,8 +124,10 @@ Result<absl::Cord> GetEC2ApiToken(std::string_view endpoint,
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto token_response,
       transport
-          .IssueRequest(token_request, {}, absl::InfiniteDuration(),
-                        kConnectTimeout)
+          .IssueRequest(token_request,
+                        internal_http::IssueRequestOptions()
+                            .SetRequestTimeout(absl::InfiniteDuration())
+                            .SetConnectTimeout(kConnectTimeout))
           .result());
 
   TENSORSTORE_RETURN_IF_ERROR(HttpResponseCodeToStatus(token_response));

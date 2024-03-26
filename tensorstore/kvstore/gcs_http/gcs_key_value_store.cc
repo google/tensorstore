@@ -748,7 +748,8 @@ struct WriteTask : public RateLimiterNode,
     ABSL_LOG_IF(INFO, gcs_http_logging)
         << "WriteTask: " << request << " size=" << value.size();
 
-    auto future = owner->transport_->IssueRequest(request, value);
+    auto future = owner->transport_->IssueRequest(
+        request, internal_http::IssueRequestOptions(value));
     future.ExecuteWhenReady([self = IntrusivePtr<WriteTask>(this)](
                                 ReadyFuture<HttpResponse> response) {
       self->OnResponse(response.result());

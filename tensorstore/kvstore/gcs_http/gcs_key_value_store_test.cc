@@ -40,6 +40,7 @@
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
+#include "tensorstore/internal/http/mock_http_transport.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/oauth2/google_auth_provider.h"
 #include "tensorstore/internal/oauth2/google_auth_test_utils.h"
@@ -73,12 +74,16 @@ using ::tensorstore::GCSMockStorageBucket;
 using ::tensorstore::KeyRange;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
+using ::tensorstore::Result;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::internal::MatchesListEntry;
 using ::tensorstore::internal::ScheduleAt;
+using ::tensorstore::internal_http::ApplyResponseToHandler;
 using ::tensorstore::internal_http::HttpRequest;
 using ::tensorstore::internal_http::HttpResponse;
+using ::tensorstore::internal_http::HttpResponseHandler;
 using ::tensorstore::internal_http::HttpTransport;
+using ::tensorstore::internal_http::IssueRequestOptions;
 using ::tensorstore::internal_http::SetDefaultHttpTransport;
 using ::tensorstore::internal_oauth2::GoogleAuthTestScope;
 
@@ -86,16 +91,13 @@ static constexpr char kUriScheme[] = "gs";
 static constexpr char kDriver[] = "gcs";
 
 // Responds to a "metadata.google.internal" request.
-class MetadataMockTransport : public HttpTransport {
+class MetadataMockHelper {
  public:
-  Future<HttpResponse> IssueRequest(const HttpRequest& request,
-                                    absl::Cord payload,
-                                    absl::Duration request_timeout,
-                                    absl::Duration connect_timeout) override {
+  tensorstore::Result<HttpResponse> GetResponse(const HttpRequest& request) {
     auto parsed = tensorstore::internal::ParseGenericUri(request.url);
 
     if (!absl::StartsWith(parsed.authority_and_path,
-                          "metadata.google.internal")) {
+                          "metadata.google.internal/")) {
       return absl::UnimplementedError("Mock cannot satisfy the request.");
     }
 
@@ -129,24 +131,25 @@ class MetadataMockTransport : public HttpTransport {
 
 class MyMockTransport : public HttpTransport {
  public:
-  Future<HttpResponse> IssueRequest(const HttpRequest& request,
-                                    absl::Cord payload,
-                                    absl::Duration request_timeout,
-                                    absl::Duration connect_timeout) override {
-    auto future = metadata_mock_.IssueRequest(request, payload, request_timeout,
-                                              connect_timeout);
-    if (future.result().ok()) return future;
+  void IssueRequestWithHandler(const HttpRequest& request,
+                               IssueRequestOptions options,
+                               HttpResponseHandler* response_handler) override {
+    ApplyResponseToHandler(
+        [&]() -> Result<HttpResponse> {
+          auto result = metadata_mock_.GetResponse(request);
+          if (result.ok()) return result;
 
-    // Next, try each bucket until there is a success.
-    tensorstore::Result<HttpResponse> result;
-    for (auto* bucket : buckets_) {
-      result = bucket->IssueRequest(request, payload);
-      if (result.ok()) break;
-    }
-    return result;
+          // Next, try each bucket until there is a success.
+          for (auto* bucket : buckets_) {
+            result = bucket->IssueRequest(request, options.payload);
+            if (result.ok()) break;
+          }
+          return result;
+        }(),
+        response_handler);
   }
 
-  MetadataMockTransport metadata_mock_;
+  MetadataMockHelper metadata_mock_;
   std::vector<GCSMockStorageBucket*> buckets_;
 };
 
@@ -552,16 +555,15 @@ TEST(GcsKeyValueStoreTest, DeleteRangeFromBeginning) {
 
 class MyDeleteRangeCancellationMockTransport : public MyMockTransport {
  public:
-  Future<HttpResponse> IssueRequest(const HttpRequest& request,
-                                    absl::Cord payload,
-                                    absl::Duration request_timeout,
-                                    absl::Duration connect_timeout) override {
+  void IssueRequestWithHandler(const HttpRequest& request,
+                               IssueRequestOptions options,
+                               HttpResponseHandler* response_handler) final {
     if (request.method == "DELETE") {
       cancellation_notification_.WaitForNotification();
       ++total_delete_requests_;
     }
-    return MyMockTransport::IssueRequest(request, payload, request_timeout,
-                                         connect_timeout);
+    MyMockTransport::IssueRequestWithHandler(request, std::move(options),
+                                             response_handler);
   }
 
   std::atomic<size_t> total_delete_requests_{0};
@@ -616,18 +618,18 @@ class MyConcurrentMockTransport : public MyMockTransport {
     return std::exchange(max_concurrent_requests_, 0);
   }
 
-  Future<HttpResponse> IssueRequest(const HttpRequest& request,
-                                    absl::Cord payload,
-                                    absl::Duration request_timeout,
-                                    absl::Duration connect_timeout) override {
+  void IssueRequestWithHandler(const HttpRequest& request,
+                               IssueRequestOptions options,
+                               HttpResponseHandler* response_handler) final {
     auto parsed = tensorstore::internal::ParseGenericUri(request.url);
 
     // Don't do concurrency test on auth requests, as those don't happen
     // concurrently.
     if (absl::StartsWith(parsed.authority_and_path,
                          "metadata.google.internal/")) {
-      return MyMockTransport::IssueRequest(request, payload, request_timeout,
-                                           connect_timeout);
+      MyMockTransport::IssueRequestWithHandler(request, std::move(options),
+                                               response_handler);
+      return;
     }
 
     {
@@ -640,15 +642,12 @@ class MyConcurrentMockTransport : public MyMockTransport {
     /// Schedule the completion 5ms in the future.
     auto op = tensorstore::PromiseFuturePair<HttpResponse>::Make();
     ScheduleAt(absl::Now() + absl::Milliseconds(5),
-               [=, p = std::move(op.promise), r = request] {
+               [this, r = request, o = std::move(options), response_handler] {
                  absl::MutexLock lock(&concurrent_request_mutex_);
                  --cur_concurrent_requests_;
-                 p.SetResult(MyMockTransport::IssueRequest(
-                                 r, payload, request_timeout, connect_timeout)
-                                 .result());
+                 MyMockTransport::IssueRequestWithHandler(r, std::move(o),
+                                                          response_handler);
                });
-
-    return std::move(op.future);
   }
 
   size_t cur_concurrent_requests_ = 0;
@@ -703,15 +702,15 @@ class MyRateLimitedMockTransport : public MyMockTransport {
     return {min_time_, max_time_, std::exchange(count_, 0)};
   }
 
-  Future<HttpResponse> IssueRequest(const HttpRequest& request,
-                                    absl::Cord payload,
-                                    absl::Duration request_timeout,
-                                    absl::Duration connect_timeout) override {
+  void IssueRequestWithHandler(const HttpRequest& request,
+                               IssueRequestOptions options,
+                               HttpResponseHandler* response_handler) final {
     auto parsed = tensorstore::internal::ParseGenericUri(request.url);
     if (absl::StartsWith(parsed.authority_and_path,
                          "metadata.google.internal/")) {
-      return MyMockTransport::IssueRequest(request, payload, request_timeout,
-                                           connect_timeout);
+      MyMockTransport::IssueRequestWithHandler(request, std::move(options),
+                                               response_handler);
+      return;
     }
 
     // Measure the inter-request interval on non-auth requests.
@@ -722,9 +721,8 @@ class MyRateLimitedMockTransport : public MyMockTransport {
         min_time_ = max_time_;
       }
     }
-
-    return MyMockTransport::IssueRequest(request, payload, request_timeout,
-                                         connect_timeout);
+    MyMockTransport::IssueRequestWithHandler(request, std::move(options),
+                                             response_handler);
   }
 
   absl::Time min_time_;

@@ -33,6 +33,7 @@
 #include "tensorstore/internal/grpc/utils.h"
 #include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/internal/http/http_request.h"
+#include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/http/transport_test_utils.h"
 #include "tensorstore/internal/os/subprocess.h"
 #include "tensorstore/proto/parse_text_proto_or_die.h"
@@ -55,6 +56,7 @@ using ::tensorstore::internal::Subprocess;
 using ::tensorstore::internal::SubprocessOptions;
 using ::tensorstore::internal_http::GetDefaultHttpTransport;
 using ::tensorstore::internal_http::HttpRequestBuilder;
+using ::tensorstore::internal_http::IssueRequestOptions;
 using ::tensorstore::transport_test_utils::TryPickUnusedPort;
 
 StorageTestbench::StorageTestbench() = default;
@@ -104,7 +106,9 @@ void StorageTestbench::SpawnProcess() {
                     "GET", absl::StrFormat("http://localhost:%d/start_grpc",
                                            http_port))
                     .BuildRequest(),
-                absl::Cord(), absl::Seconds(15), absl::Seconds(15))
+                IssueRequestOptions()
+                    .SetRequestTimeout(absl::Seconds(15))
+                    .SetConnectTimeout(absl::Seconds(15)))
             .result();
 
     if (result.ok()) {

@@ -33,6 +33,7 @@
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/internal/http/http_response.h"
+#include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/http/transport_test_utils.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/os/subprocess.h"
@@ -90,6 +91,7 @@ using ::tensorstore::internal::Subprocess;
 using ::tensorstore::internal::SubprocessOptions;
 using ::tensorstore::internal_http::GetDefaultHttpTransport;
 using ::tensorstore::internal_http::HttpResponse;
+using ::tensorstore::internal_http::IssueRequestOptions;
 using ::tensorstore::internal_kvstore_s3::AwsCredentials;
 using ::tensorstore::internal_kvstore_s3::S3RequestBuilder;
 using ::tensorstore::transport_test_utils::TryPickUnusedPort;
@@ -270,7 +272,9 @@ class LocalStackFixture : public ::testing::Test {
          absl::Now() < deadline;) {
       absl::SleepFor(absl::Milliseconds(250));
       response = GetDefaultHttpTransport()->IssueRequest(
-          request, value, absl::Seconds(15), absl::Seconds(15));
+          request, IssueRequestOptions(value)
+                       .SetRequestTimeout(absl::Seconds(15))
+                       .SetConnectTimeout(absl::Seconds(15)));
 
       // Failed to make the request; retry.
       if (response.status().ok() || !absl::IsUnavailable(response.status())) {

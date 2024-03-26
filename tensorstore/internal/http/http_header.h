@@ -85,6 +85,10 @@ std::optional<bool> TryParseBoolHeader(
     const absl::btree_multimap<std::string, std::string>& headers,
     std::string_view header);
 
+/// Try to get the content length from the headers.
+std::optional<size_t> TryGetContentLength(
+    const absl::btree_multimap<std::string, std::string>& headers);
+
 }  // namespace internal_http
 }  // namespace tensorstore
 

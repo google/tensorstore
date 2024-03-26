@@ -29,6 +29,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/escaping.h"
+#include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/synchronization/mutex.h"
@@ -758,7 +759,8 @@ struct WriteTask : public RateLimiterNode,
     ABSL_LOG_IF(INFO, s3_logging)
         << "WriteTask: " << request << " size=" << value.size();
 
-    auto future = owner->transport_->IssueRequest(request, value);
+    auto future = owner->transport_->IssueRequest(
+        request, internal_http::IssueRequestOptions(value));
     future.ExecuteWhenReady([self = IntrusivePtr<WriteTask>(this)](
                                 ReadyFuture<HttpResponse> response) {
       self->OnResponse(response.result());

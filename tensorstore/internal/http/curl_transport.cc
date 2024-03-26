@@ -35,6 +35,7 @@
 #include "absl/log/absl_log.h"
 #include "absl/strings/cord.h"
 #include "absl/synchronization/mutex.h"
+#include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include <curl/curl.h>
 #include "tensorstore/internal/cord_util.h"
@@ -42,9 +43,7 @@
 #include "tensorstore/internal/http/curl_factory.h"
 #include "tensorstore/internal/http/curl_handle.h"
 #include "tensorstore/internal/http/curl_wrappers.h"
-#include "tensorstore/internal/http/http_header.h"
 #include "tensorstore/internal/http/http_request.h"
-#include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/counter.h"
@@ -52,7 +51,6 @@
 #include "tensorstore/internal/metrics/histogram.h"
 #include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/internal/thread/thread.h"
-#include "tensorstore/util/future.h"
 
 namespace tensorstore {
 namespace internal_http {
@@ -92,6 +90,11 @@ auto& http_first_byte_latency_us =
     internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
         "/tensorstore/http/first_byte_latency_us",
         "HTTP first byte received latency (us)");
+
+auto& http_poll_time_ns =
+    internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
+        "/tensorstore/http/http_poll_time_ns",
+        "HTTP time spent in curl_multi_poll (ns)");
 
 ABSL_CONST_INIT internal_log::VerboseFlag curl_logging("curl");
 
@@ -135,9 +138,10 @@ struct CurlRequestState {
   absl::Cord payload_;
   absl::Cord::CharIterator payload_it_;
   size_t payload_remaining_;
-  HttpResponse response_;
-  Promise<HttpResponse> promise_;
-  char error_buffer_[CURL_ERROR_SIZE] = {0};
+  HttpResponseHandler* response_handler_ = nullptr;
+  size_t response_payload_size_ = 0;
+  bool status_set = false;
+  char error_buffer_[CURL_ERROR_SIZE];
 
   CurlRequestState(std::shared_ptr<CurlHandleFactory> factory)
       : factory_(std::move(factory)), handle_(CurlHandle::Create(*factory_)) {
@@ -145,6 +149,7 @@ struct CurlRequestState {
     if (config.verbose) {
       handle_.SetOption(CURLOPT_VERBOSE, 1L);
     }
+    error_buffer_[0] = 0;
     handle_.SetOption(CURLOPT_ERRORBUFFER, error_buffer_);
 
     // For thread safety, don't use signals to time out name resolves (when
@@ -166,12 +171,17 @@ struct CurlRequestState {
       handle_.SetOption(CURLOPT_LOW_SPEED_LIMIT, bytes);
     }
 
-    if (const auto& x = config.ca_path) {
-      handle_.SetOption(CURLOPT_CAPATH, x->c_str());
+    // Set ca_path or ca_bundle, if provided.
+    if (config.ca_path || config.ca_bundle) {
+      handle_.SetOption(CURLOPT_SSL_CTX_FUNCTION, nullptr);
+      if (const auto& x = config.ca_path) {
+        handle_.SetOption(CURLOPT_CAPATH, x->c_str());
+      }
+      if (const auto& x = config.ca_bundle) {
+        handle_.SetOption(CURLOPT_CAINFO, x->c_str());
+      }
     }
-    if (const auto& x = config.ca_bundle) {
-      handle_.SetOption(CURLOPT_CAINFO, x->c_str());
-    }
+
     // NOTE: When there are no ca certs, we may want to set:
     // CURLOPT_SSL_VERIFYPEER CURLOPT_SSL_VERIFYHOST
 
@@ -206,8 +216,7 @@ struct CurlRequestState {
     CurlHandle::Cleanup(*factory_, std::move(handle_));
   }
 
-  void Prepare(const HttpRequest& request, absl::Cord payload,
-               absl::Duration request_timeout, absl::Duration connect_timeout) {
+  void Prepare(const HttpRequest& request, IssueRequestOptions options) {
     handle_.SetOption(CURLOPT_URL, request.url.c_str());
 
     std::string user_agent = request.user_agent + GetCurlUserAgentSuffix();
@@ -226,18 +235,16 @@ struct CurlRequestState {
       handle_.SetOption(CURLOPT_ACCEPT_ENCODING, "");
     }
 
-    if (request_timeout > absl::ZeroDuration()) {
-      auto ms = absl::ToInt64Milliseconds(request_timeout);
-
+    if (options.request_timeout > absl::ZeroDuration()) {
+      auto ms = absl::ToInt64Milliseconds(options.request_timeout);
       handle_.SetOption(CURLOPT_TIMEOUT_MS, ms > 0 ? ms : 1);
     }
-    if (connect_timeout > absl::ZeroDuration()) {
-      auto ms = absl::ToInt64Milliseconds(connect_timeout);
-
+    if (options.connect_timeout > absl::ZeroDuration()) {
+      auto ms = absl::ToInt64Milliseconds(options.connect_timeout);
       handle_.SetOption(CURLOPT_CONNECTTIMEOUT_MS, ms > 0 ? ms : 1);
     }
 
-    payload_ = std::move(payload);
+    payload_ = std::move(options.payload);
     payload_remaining_ = payload_.size();
     if (payload_remaining_ > 0) {
       payload_it_ = payload_.char_begin();
@@ -280,14 +287,29 @@ struct CurlRequestState {
       handle_.SetOption(CURLOPT_CUSTOMREQUEST, request.method.c_str());
     }
 
+    // Maybe set HTTP version on the request.
+    switch (options.http_version) {
+      case IssueRequestOptions::HttpVersion::kHttp1:
+        handle_.SetOption(CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+        break;
+      case IssueRequestOptions::HttpVersion::kHttp2:
+        handle_.SetOption(CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2_0);
+        break;
+      case IssueRequestOptions::HttpVersion::kHttp2TLS:
+        handle_.SetOption(CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2TLS);
+        break;
+      case IssueRequestOptions::HttpVersion::kHttp2PriorKnowledge:
+        handle_.SetOption(CURLOPT_HTTP_VERSION,
+                          CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE);
+        break;
+      default:
+        break;
+    }
+
     // Record metrics.
     http_request_started.Increment();
     http_request_bytes.Observe(payload_remaining_);
     http_request_header_bytes.Observe(header_bytes_);
-  }
-
-  void SetHTTP2() {
-    handle_.SetOption(CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2_0);
   }
 
   void SetForbidReuse() {
@@ -295,12 +317,36 @@ struct CurlRequestState {
     handle_.SetOption(CURLOPT_FORBID_REUSE, 1);
   }
 
+  bool MaybeSetStatusAndProcess() {
+    if (status_set) return true;
+    auto status_code = handle_.GetResponseCode();
+    // Status < 200 are intermediate and handled by libcurl.
+    if (status_code < 200) return false;
+    response_handler_->OnStatus(status_code);
+    status_set = true;
+    return true;
+  }
+
+  static size_t CurlHeaderCallback(void* contents, size_t size, size_t nmemb,
+                                   void* userdata) {
+    auto* self = static_cast<CurlRequestState*>(userdata);
+    auto data =
+        std::string_view(static_cast<char const*>(contents), size * nmemb);
+    if (self->MaybeSetStatusAndProcess()) {
+      self->response_handler_->OnResponseHeader(data);
+    }
+    return data.size();
+  }
+
   static size_t CurlWriteCallback(void* contents, size_t size, size_t nmemb,
                                   void* userdata) {
     auto* self = static_cast<CurlRequestState*>(userdata);
     auto data =
         std::string_view(static_cast<char const*>(contents), size * nmemb);
-    self->response_.payload.Append(data);
+    if (self->MaybeSetStatusAndProcess()) {
+      self->response_payload_size_ += data.size();
+      self->response_handler_->OnResponseBody(data);
+    }
     return data.size();
   }
 
@@ -332,14 +378,6 @@ struct CurlRequestState {
         self->payload_.size() - static_cast<size_t>(offset);
     return CURL_SEEKFUNC_OK;
   }
-
-  static size_t CurlHeaderCallback(void* contents, size_t size, size_t nmemb,
-                                   void* userdata) {
-    auto* self = static_cast<CurlRequestState*>(userdata);
-    auto data =
-        std::string_view(static_cast<char const*>(contents), size * nmemb);
-    return AppendHeaderData(self->response_.headers, data);
-  }
 };
 
 class MultiTransportImpl {
@@ -366,10 +404,8 @@ class MultiTransportImpl {
     factory_->CleanupMultiHandle(std::move(multi_));
   }
 
-  Future<HttpResponse> StartRequest(const HttpRequest& request,
-                                    absl::Cord payload,
-                                    absl::Duration request_timeout,
-                                    absl::Duration connect_timeout);
+  void StartRequest(const HttpRequest& request, IssueRequestOptions options,
+                    HttpResponseHandler* response_handler);
 
   void FinishRequest(std::unique_ptr<CurlRequestState> state, CURLcode code);
 
@@ -389,16 +425,13 @@ class MultiTransportImpl {
   internal::Thread thread_;
 };
 
-Future<HttpResponse> MultiTransportImpl::StartRequest(
-    const HttpRequest& request, absl::Cord payload,
-    absl::Duration request_timeout, absl::Duration connect_timeout) {
+void MultiTransportImpl::StartRequest(const HttpRequest& request,
+                                      IssueRequestOptions options,
+                                      HttpResponseHandler* response_handler) {
   assert(factory_);
   auto state = std::make_unique<CurlRequestState>(factory_);
-  state->Prepare(request, std::move(payload), request_timeout, connect_timeout);
-  state->SetHTTP2();
-
-  auto pair = PromiseFuturePair<HttpResponse>::Make();
-  state->promise_ = std::move(pair.promise);
+  state->response_handler_ = response_handler;
+  state->Prepare(request, std::move(options));
 
   // Add the handle to the curl_multi state.
   // TODO: Add an ExecuteWhenNotNeeded callback which removes
@@ -408,8 +441,6 @@ Future<HttpResponse> MultiTransportImpl::StartRequest(
     pending_requests_.push_back(std::move(state));
   }
   curl_multi_wakeup(multi_.get());
-
-  return std::move(pair.future);
 }
 
 void MultiTransportImpl::FinishRequest(std::unique_ptr<CurlRequestState> state,
@@ -425,7 +456,7 @@ void MultiTransportImpl::FinishRequest(std::unique_ptr<CurlRequestState> state,
   // NOTE: Consider recording curl getinfo options:
   // https://curl.se/libcurl/c/easy_getinfo_options.html
   http_request_completed.Increment();
-  http_response_bytes.Observe(state->response_.payload.size());
+  http_response_bytes.Observe(state->response_payload_size_);
 
   // Record the first byte latency.
   {
@@ -433,6 +464,7 @@ void MultiTransportImpl::FinishRequest(std::unique_ptr<CurlRequestState> state,
     state->handle_.GetInfo(CURLINFO_STARTTRANSFER_TIME_T, &first_byte_us);
     http_first_byte_latency_us.Observe(first_byte_us);
   }
+
   // Record the total time.
   {
     curl_off_t total_time_us = 0;
@@ -445,13 +477,15 @@ void MultiTransportImpl::FinishRequest(std::unique_ptr<CurlRequestState> state,
     ABSL_LOG(WARNING) << "Error [" << code << "]=" << curl_easy_strerror(code)
                       << " in curl operation\n"
                       << state->error_buffer_;
-    state->promise_.SetResult(CurlCodeToStatus(code, state->error_buffer_));
+    state->response_handler_->OnFailure(
+        CurlCodeToStatus(code, state->error_buffer_));
     return;
   }
+  ABSL_LOG(INFO) << "DONE " << state->handle_.GetResponseCode();
 
-  state->response_.status_code = state->handle_.GetResponseCode();
-  http_response_codes.Increment(state->response_.status_code);
-  state->promise_.SetResult(std::move(state->response_));
+  http_response_codes.Increment(state->handle_.GetResponseCode());
+  assert(state->status_set);
+  state->response_handler_->OnComplete();
 }
 
 void MultiTransportImpl::Run() {
@@ -491,11 +525,14 @@ void MultiTransportImpl::Run() {
       const int timeout_ms = std::numeric_limits<int>::max();  // infinite
       int numfds = 0;
       errno = 0;
+      auto start_poll = absl::Now();
       CURLMcode mcode =
           curl_multi_poll(multi_.get(), nullptr, 0, timeout_ms, &numfds);
       if (mcode != CURLM_OK) {
         ABSL_LOG(WARNING) << CurlMCodeToStatus(mcode, "in curl_multi_poll");
       }
+      http_poll_time_ns.Observe(
+          absl::ToInt64Nanoseconds(absl::Now() - start_poll));
     }
   }
 }
@@ -506,9 +543,6 @@ int64_t MultiTransportImpl::AddPendingTransfers() {
 
   // Add any pending requests.
   for (auto& state : pending_requests_) {
-    // This future has been cancelled before we even begin.
-    if (!state->promise_.result_needed()) continue;
-
     // Set the CURLINFO_PRIVATE data to take pointer ownership.
     state->handle_.SetOption(CURLOPT_PRIVATE, state.get());
 
@@ -520,7 +554,7 @@ int64_t MultiTransportImpl::AddPendingTransfers() {
       active_count++;
     } else {
       // This shouldn't happen unless things have really gone pear-shaped.
-      state->promise_.SetResult(
+      state->response_handler_->OnFailure(
           CurlMCodeToStatus(mcode, "in curl_multi_add_handle"));
     }
   }
@@ -570,12 +604,11 @@ CurlTransport::CurlTransport(std::shared_ptr<CurlHandleFactory> factory)
 
 CurlTransport::~CurlTransport() = default;
 
-Future<HttpResponse> CurlTransport::IssueRequest(
-    const HttpRequest& request, absl::Cord payload,
-    absl::Duration request_timeout, absl::Duration connect_timeout) {
+void CurlTransport::IssueRequestWithHandler(
+    const HttpRequest& request, IssueRequestOptions options,
+    HttpResponseHandler* response_handler) {
   assert(impl_);
-  return impl_->StartRequest(request, std::move(payload), request_timeout,
-                             connect_timeout);
+  impl_->StartRequest(request, std::move(options), response_handler);
 }
 
 namespace {

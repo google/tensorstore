@@ -45,14 +45,12 @@ tensorstore_cc_library(
         ":curl_handle",
         ":curl_wrappers",
         ":http",
-        ":http_header",
         "//tensorstore/internal:cord_util",
         "//tensorstore/internal:env",
         "//tensorstore/internal:no_destructor",
         "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/internal/metrics",
         "//tensorstore/internal/thread",
-        "//tensorstore/util:future",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/strings:cord",
@@ -90,6 +88,7 @@ tensorstore_cc_library(
     srcs = [
         "http_request.cc",
         "http_response.cc",
+        "http_transport.cc",
     ],
     hdrs = [
         "http_request.h",
@@ -97,6 +96,7 @@ tensorstore_cc_library(
         "http_transport.h",
     ],
     deps = [
+        ":http_header",
         "//tensorstore/internal:source_location",
         "//tensorstore/internal:uri_utils",
         "//tensorstore/kvstore:byte_range",
@@ -112,6 +112,7 @@ tensorstore_cc_library(
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/time",
         "@com_google_re2//:re2",
+        "@com_google_riegeli//riegeli/bytes:cord_writer",
     ],
 )
 
@@ -150,11 +151,13 @@ tensorstore_cc_test(
     linkopts = _WS2_32_LINKOPTS,
     deps = [
         ":curl_transport",
+        ":http",
         ":transport_test_utils",
         "//tensorstore/internal/thread",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -168,10 +171,12 @@ tensorstore_cc_test(
         ":http",
         ":transport_test_utils",
         "//tensorstore/internal/thread",
+        "//tensorstore/util:future",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
         "@com_google_googletest//:gtest_main",
         "@org_nghttp2//:nghttp2",
     ],
@@ -231,8 +236,9 @@ tensorstore_cc_library(
     hdrs = ["mock_http_transport.h"],
     deps = [
         ":http",
-        "//tensorstore/util:future",
+        "//tensorstore/util:result",
         "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/synchronization",

@@ -70,7 +70,7 @@ Result<HttpResponse> OAuth2AuthProvider::IssueRequest(std::string_view method,
   return transport_
       ->IssueRequest(
           HttpRequestBuilder(method, std::string{uri}).BuildRequest(),
-          std::move(payload))
+          internal_http::IssueRequestOptions(std::move(payload)))
       .result();
 }
 

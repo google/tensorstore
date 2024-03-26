@@ -48,6 +48,7 @@
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/spec.h"
+#include "tensorstore/kvstore/supported_features.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/executor.h"
@@ -67,11 +68,9 @@ absl::Cord DeepCopyCord(const absl::Cord& cord) {
       flat.has_value()) {
     return absl::Cord(*flat);
   }
-  internal::FlatCordBuilder builder(cord.size());
-  size_t offset = 0;
+  internal::FlatCordBuilder builder(cord.size(), false);
   for (absl::string_view s : cord.Chunks()) {
-    std::memcpy(builder.data() + offset, s.data(), s.size());
-    offset += s.size();
+    builder.Append(s);
   }
   return std::move(builder).Build();
 }

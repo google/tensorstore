@@ -12,15 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "absl/strings/cord.h"
 #ifdef _WIN32
 #undef UNICODE
 #define WIN32_LEAN_AND_MEAN
 #pragma comment(lib, "ws2_32.lib")
 #endif
 
-#include "tensorstore/internal/http/curl_transport.h"
-
 #include <optional>
+#include <string>
 #include <string_view>
 
 #include <gmock/gmock.h>
@@ -28,10 +28,13 @@
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/strings/str_cat.h"
+#include "tensorstore/internal/http/curl_transport.h"
+#include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/http/transport_test_utils.h"
 #include "tensorstore/internal/thread/thread.h"
 
 using ::tensorstore::internal_http::HttpRequestBuilder;
+using ::tensorstore::internal_http::IssueRequestOptions;
 using ::tensorstore::transport_test_utils::AcceptNonBlocking;
 using ::tensorstore::transport_test_utils::AssertSend;
 using ::tensorstore::transport_test_utils::CloseSocket;
@@ -84,7 +87,7 @@ TEST_F(CurlTransportTest, Http1) {
           .AddQueryParameter("age", "1234")
           .EnableAcceptEncoding()
           .BuildRequest(),
-      absl::Cord("Hello"));
+      IssueRequestOptions(absl::Cord("Hello")));
 
   ABSL_LOG(INFO) << response.status();
 
@@ -177,7 +180,7 @@ TEST_F(CurlTransportTest, Http1Resend) {
             .AddQueryParameter("age", "1234")
             .EnableAcceptEncoding()
             .BuildRequest(),
-        absl::Cord("Hello"));
+        IssueRequestOptions(absl::Cord("Hello")));
 
     ABSL_LOG(INFO) << "C: " << i << " " << future.status();
 

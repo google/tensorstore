@@ -15,11 +15,23 @@
 #include "tensorstore/kvstore/neuroglancer_uint64_sharded/uint64_sharded_encoder.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
+#include <optional>
+#include <string>
+#include <utility>
+
+#include "absl/base/internal/endian.h"
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include "tensorstore/internal/compression/zlib.h"
 #include "tensorstore/internal/flat_cord_builder.h"
+#include "tensorstore/kvstore/byte_range.h"
+#include "tensorstore/kvstore/neuroglancer_uint64_sharded/uint64_sharded.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {

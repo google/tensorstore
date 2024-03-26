@@ -17,12 +17,10 @@
 
 #include <memory>
 
-#include "absl/time/time.h"
+#include "tensorstore/internal/http/curl_factory.h"
 #include "tensorstore/internal/http/curl_handle.h"
 #include "tensorstore/internal/http/http_request.h"
-#include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
-#include "tensorstore/util/future.h"
 
 namespace tensorstore {
 namespace internal_http {
@@ -41,10 +39,9 @@ class CurlTransport : public HttpTransport {
 
   /// IssueRequest issues the request with the provided body `payload`,
   /// returning the HttpResponse.
-  Future<HttpResponse> IssueRequest(const HttpRequest& request,
-                                    absl::Cord payload,
-                                    absl::Duration request_timeout,
-                                    absl::Duration connect_timeout) override;
+  void IssueRequestWithHandler(const HttpRequest& request,
+                               IssueRequestOptions options,
+                               HttpResponseHandler* response_handler) override;
 
  private:
   class Impl;

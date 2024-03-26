@@ -20,19 +20,28 @@
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
-#include "tensorstore/util/future.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace internal_http {
 
 /// Adds default headers for the HttpResponse.
 void AddDefaultHeaders(internal_http::HttpResponse& response);
+
+/// Applies the response to the HttpResponseHandler.
+void ApplyResponseToHandler(const HttpResponse& response,
+                            HttpResponseHandler* handler);
+void ApplyResponseToHandler(const absl::Status& response,
+                            HttpResponseHandler* handler);
+void ApplyResponseToHandler(const Result<HttpResponse>& response,
+                            HttpResponseHandler* handler);
 
 /// Mocks an HttpTransport by overriding the IssueRequest method to
 /// respond with a predefined set of request-response pairs supplied
@@ -53,9 +62,9 @@ class DefaultMockHttpTransport : public internal_http::HttpTransport {
 
   const std::vector<HttpRequest>& requests() const { return requests_; }
 
-  Future<internal_http::HttpResponse> IssueRequest(
-      const internal_http::HttpRequest& request, absl::Cord payload,
-      absl::Duration request_timeout, absl::Duration connect_timeout) override;
+  void IssueRequestWithHandler(const HttpRequest& request,
+                               IssueRequestOptions options,
+                               HttpResponseHandler* response_handler) override;
 
  private:
   absl::Mutex mutex_;

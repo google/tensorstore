@@ -25,12 +25,12 @@
 #include "absl/strings/cord.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/match.h"
-#include "absl/time/time.h"
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
+#include "tensorstore/internal/http/mock_http_transport.h"
 #include "tensorstore/internal/oauth2/auth_provider.h"
 #include "tensorstore/internal/oauth2/fake_private_key.h"
 #include "tensorstore/internal/oauth2/fixed_token_auth_provider.h"
@@ -47,13 +47,15 @@
 
 namespace {
 
-using ::tensorstore::Future;
 using ::tensorstore::internal::JoinPath;
 using ::tensorstore::internal::SetEnv;
 using ::tensorstore::internal::UnsetEnv;
+using ::tensorstore::internal_http::ApplyResponseToHandler;
 using ::tensorstore::internal_http::HttpRequest;
 using ::tensorstore::internal_http::HttpResponse;
+using ::tensorstore::internal_http::HttpResponseHandler;
 using ::tensorstore::internal_http::HttpTransport;
+using ::tensorstore::internal_http::IssueRequestOptions;
 using ::tensorstore::internal_http::SetDefaultHttpTransport;
 using ::tensorstore::internal_oauth2::AuthProvider;
 using ::tensorstore::internal_oauth2::GetFakePrivateKey;
@@ -200,48 +202,53 @@ class MetadataMockTransport : public HttpTransport {
  public:
   explicit MetadataMockTransport(bool has_service_account)
       : has_service_account_(has_service_account) {}
-  Future<HttpResponse> IssueRequest(const HttpRequest& request,
-                                    absl::Cord payload,
-                                    absl::Duration request_timeout,
-                                    absl::Duration connect_timeout) override {
-    auto parsed = tensorstore::internal::ParseGenericUri(request.url);
 
-    if (!absl::StartsWith(parsed.authority_and_path,
-                          "metadata.google.internal")) {
-      return absl::UnimplementedError("Mock cannot satisfy the request.");
-    }
+  void IssueRequestWithHandler(const HttpRequest& request,
+                               IssueRequestOptions options,
+                               HttpResponseHandler* response_handler) override {
+    ApplyResponseToHandler(
+        [&]() -> tensorstore::Result<HttpResponse> {
+          auto parsed = tensorstore::internal::ParseGenericUri(request.url);
+          if (!absl::StartsWith(parsed.authority_and_path,
+                                "metadata.google.internal")) {
+            return absl::UnimplementedError("Mock cannot satisfy the request.");
+          }
 
-    // Respond with the GCE OAuth2 token
-    constexpr char kOAuthPath[] =
-        "metadata.google.internal/computeMetadata/v1/"
-        "instance/service-accounts/user@nowhere.com/token";
-    if (absl::StartsWith(parsed.authority_and_path, kOAuthPath)) {
-      if (!has_service_account_) {
-        return HttpResponse{404, absl::Cord()};
-      }
+          // Respond with the GCE OAuth2 token
+          constexpr char kOAuthPath[] =
+              "metadata.google.internal/computeMetadata/v1/"
+              "instance/service-accounts/user@nowhere.com/token";
+          if (absl::StartsWith(parsed.authority_and_path, kOAuthPath)) {
+            if (!has_service_account_) {
+              return HttpResponse{404, absl::Cord()};
+            }
 
-      return HttpResponse{
-          200,
-          absl::Cord(
-              R"({ "token_type" : "refresh", "access_token": "abc", "expires_in": 3600 })")};
-    }
+            return HttpResponse{
+                200,
+                absl::Cord(
+                    R"({ "token_type" : "refresh", "access_token": "abc", "expires_in": 3600 })")};
+          }
 
-    // Respond with the GCE context metadata.
-    constexpr char kServiceAccountPath[] =
-        "metadata.google.internal/computeMetadata/v1/"
-        "instance/service-accounts/default/";
-    if (absl::StartsWith(parsed.authority_and_path, kServiceAccountPath)) {
-      if (!has_service_account_) {
-        return HttpResponse{404, absl::Cord()};
-      }
+          // Respond with the GCE context metadata.
+          constexpr char kServiceAccountPath[] =
+              "metadata.google.internal/computeMetadata/v1/"
+              "instance/service-accounts/default/";
+          if (absl::StartsWith(parsed.authority_and_path,
+                               kServiceAccountPath)) {
+            if (!has_service_account_) {
+              return HttpResponse{404, absl::Cord()};
+            }
 
-      return HttpResponse{
-          200, absl::Cord(
-                   R"({ "email": "user@nowhere.com", "scopes": [ "test" ] })")};
-    }
+            return HttpResponse{
+                200,
+                absl::Cord(
+                    R"({ "email": "user@nowhere.com", "scopes": [ "test" ] })")};
+          }
 
-    // Pretend to run on GCE.
-    return HttpResponse{200, absl::Cord()};
+          // Pretend to run on GCE.
+          return HttpResponse{200, absl::Cord()};
+        }(),
+        response_handler);
   }
 
   bool has_service_account_;

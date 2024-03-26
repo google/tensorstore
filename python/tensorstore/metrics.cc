@@ -31,6 +31,7 @@
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/internal/http/http_response.h"
+#include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/metrics/collect.h"
 #include "tensorstore/internal/metrics/prometheus.h"
 #include "tensorstore/internal/metrics/registry.h"
@@ -95,7 +96,8 @@ Future<uint32_t> PushMetricsToPrometheus(std::string pushgateway,
         TENSORSTORE_RETURN_IF_ERROR(result.status());
         return result->status_code;
       },
-      internal_http::GetDefaultHttpTransport()->IssueRequest(request, payload));
+      internal_http::GetDefaultHttpTransport()->IssueRequest(
+          request, internal_http::IssueRequestOptions(std::move(payload))));
 }
 
 }  // namespace

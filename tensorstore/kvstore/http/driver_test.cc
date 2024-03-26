@@ -16,7 +16,6 @@
 
 #include <functional>
 #include <memory>
-#include <utility>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -29,6 +28,7 @@
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
+#include "tensorstore/internal/http/mock_http_transport.h"
 #include "tensorstore/internal/queue_testutil.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -44,29 +44,27 @@
 namespace {
 namespace kvstore = ::tensorstore::kvstore;
 
-using ::tensorstore::Future;
 using ::tensorstore::MatchesStatus;
-using ::tensorstore::PromiseFuturePair;
+using ::tensorstore::Result;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::internal::MatchesKvsReadResult;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
+using ::tensorstore::internal_http::ApplyResponseToHandler;
 using ::tensorstore::internal_http::HttpRequest;
 using ::tensorstore::internal_http::HttpResponse;
+using ::tensorstore::internal_http::HttpResponseHandler;
 using ::tensorstore::internal_http::HttpTransport;
+using ::tensorstore::internal_http::IssueRequestOptions;
 using ::tensorstore::internal_http::SetDefaultHttpTransport;
 
 class MyMockTransport : public HttpTransport {
  public:
-  Future<HttpResponse> IssueRequest(const HttpRequest& request,
-                                    absl::Cord payload,
-                                    absl::Duration request_timeout,
-                                    absl::Duration connect_timeout) override {
-    auto [promise, future] = PromiseFuturePair<HttpResponse>::Make();
-    requests_.push({request, [p = std::move(promise)](
-                                 tensorstore::Result<HttpResponse> r) {
-                      p.SetResult(std::move(r));
+  void IssueRequestWithHandler(const HttpRequest& request,
+                               IssueRequestOptions options,
+                               HttpResponseHandler* response_handler) override {
+    requests_.push({request, [response_handler](Result<HttpResponse> response) {
+                      ApplyResponseToHandler(response, response_handler);
                     }});
-    return future;
   }
 
   struct Request {

@@ -27,6 +27,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/numbers.h"
+#include "absl/strings/str_split.h"
 #include "re2/re2.h"
 #include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/util/quote_string.h"
@@ -80,41 +81,36 @@ absl::Status ValidateHttpHeader(std::string_view header) {
 
 size_t AppendHeaderData(absl::btree_multimap<std::string, std::string>& headers,
                         std::string_view data) {
-  size_t size = data.size();
-  if (size <= 2) {
-    // Invalid header (too short), ignore.
-    return size;
-  }
-  if ('\r' != data[size - 2] || '\n' != data[size - 1]) {
-    // Invalid header (should end in CRLF), ignore.
-    return size;
-  }
-  data.remove_suffix(2);
-  if (data.empty()) {
-    // Empty header, ignore.
-    return size;
-  }
+  // Header fields must be separated in CRLF; thus data must end in LF,
+  // and the individual fields are split on LF.
+  if (data.empty() || *data.rbegin() != '\n') return data.size();
+  for (std::string_view field : absl::StrSplit(data, '\n', absl::SkipEmpty())) {
+    // Ensure the header field ends in CRLF by testing the CR part.
+    if (field.empty() || *field.rbegin() != '\r') break;
+    field.remove_suffix(1);
+    // Also remove OWS.
+    while (!field.empty() && IsOWS(*field.rbegin())) field.remove_suffix(1);
+    if (field.empty()) continue;
 
-  // Parse field-name.
-  auto it = data.begin();
-  for (; it != data.end() && IsTchar(*it); ++it) {
-    /**/
-  }
-  if (it == data.begin() || it == data.end() || *it != ':') {
-    // Invalid header: empty token, not split by :, or no :
-    return size;
-  }
-  std::string field_name = absl::AsciiStrToLower(
-      std::string_view(data.data(), std::distance(data.begin(), it)));
+    // Parse field-name.
+    auto it = field.begin();
+    for (; it != field.end() && IsTchar(*it); ++it) {
+      /**/
+    }
+    if (it == field.begin() || it == field.end() || *it != ':') {
+      // Invalid header: empty token, not split by :, or no :
+      continue;
+    }
 
-  // Transform the value by dropping OWS in the field value.
-  data.remove_prefix(field_name.size() + 1);
-  while (!data.empty() && IsOWS(*data.begin())) data.remove_prefix(1);
-  while (!data.empty() && IsOWS(*data.rbegin())) data.remove_suffix(1);
+    std::string field_name = absl::AsciiStrToLower(
+        std::string_view(field.data(), std::distance(field.begin(), it)));
 
-  std::string value(data);
-  headers.emplace(std::move(field_name), std::move(value));
-  return size;
+    // Transform the value by dropping OWS in the field value prefix.
+    field.remove_prefix(field_name.size() + 1);
+    while (!field.empty() && IsOWS(*field.begin())) field.remove_prefix(1);
+    headers.emplace(std::move(field_name), std::string(field));
+  }
+  return data.size();
 }
 
 std::optional<std::tuple<size_t, size_t, size_t>> TryParseContentRangeHeader(
@@ -150,6 +146,24 @@ std::optional<bool> TryParseBoolHeader(
     return result;
   }
   return std::nullopt;
+}
+
+std::optional<size_t> TryGetContentLength(
+    const absl::btree_multimap<std::string, std::string>& headers) {
+  std::optional<size_t> content_length;
+  // Extract the size of the returned content.
+  if (headers.find("transfer-encoding") == headers.end() &&
+      headers.find("content-encoding") == headers.end()) {
+    content_length = TryParseIntHeader<size_t>(headers, "content-length");
+  }
+  if (!content_length) {
+    auto content_range = TryParseContentRangeHeader(headers);
+    if (content_range) {
+      content_length =
+          1 + std::get<1>(*content_range) - std::get<0>(*content_range);
+    }
+  }
+  return content_length;
 }
 
 }  // namespace internal_http

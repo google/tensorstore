@@ -634,7 +634,7 @@ struct ReadTask {
     }
     TENSORSTORE_ASSIGN_OR_RETURN(auto byte_range,
                                  options.byte_range.Validate(size));
-    internal::FlatCordBuilder buffer(byte_range.size());
+    internal::FlatCordBuilder buffer(byte_range.size(), false);
     size_t offset = 0;
     while (offset < buffer.size()) {
       ptrdiff_t n = internal_file_util::ReadFromFile(
@@ -643,6 +643,7 @@ struct ReadTask {
       if (n > 0) {
         file_bytes_read.IncrementBy(n);
         offset += n;
+        buffer.set_inuse(offset);
         continue;
       }
       if (n == 0) {

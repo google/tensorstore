@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "absl/strings/match.h"
 #ifdef _WIN32
 #undef UNICODE
 #define WIN32_LEAN_AND_MEAN
@@ -19,26 +20,36 @@
 #endif
 
 #include <stddef.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <stdint.h>
 
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <optional>
+#include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/container/flat_hash_map.h"
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/str_cat.h"
 #include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/internal/http/http_request.h"
+#include "tensorstore/internal/http/http_response.h"
+#include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/http/transport_test_utils.h"
 #include "tensorstore/internal/thread/thread.h"
+#include "tensorstore/util/future.h"
 
 using ::tensorstore::internal_http::HttpRequestBuilder;
+using ::tensorstore::internal_http::IssueRequestOptions;
 using ::tensorstore::transport_test_utils::AcceptNonBlocking;
 using ::tensorstore::transport_test_utils::AssertSend;
 using ::tensorstore::transport_test_utils::CloseSocket;
@@ -77,6 +88,16 @@ static constexpr const char* kFrameName[] = {
     "",                       // 0x0b
     "NGHTTP2_ORIGIN",         // 0x0c
 };
+
+static constexpr char kSwitchProtocols[] =  // 69
+    "HTTP/1.1 101 Switching Protocols\r\n"  // 35
+    "Connection: Upgrade\r\n"               //
+    "Upgrade: h2c\r\n"                      //
+    "\r\n";
+
+static constexpr char kHttp2ConnectionPreface[24] = {
+    0x50, 0x52, 0x49, 0x20, 0x2a, 0x20, 0x48, 0x54, 0x54, 0x50, 0x2f, 0x32,
+    0x2e, 0x30, 0x0d, 0x0a, 0x0d, 0x0a, 0x53, 0x4d, 0x0d, 0x0a, 0x0d, 0x0a};
 
 class Http2Session {
   socket_t client_fd_;
@@ -213,8 +234,7 @@ class Http2Session {
     return length;
   }
 
-  Http2Session(socket_t client, std::string_view settings)
-      : client_fd_(client) {
+  Http2Session(socket_t client) : client_fd_(client) {
     nghttp2_session_callbacks* callbacks;
     ABSL_CHECK_EQ(0, nghttp2_session_callbacks_new(&callbacks));
     nghttp2_session_callbacks_set_send_callback(callbacks, &Http2Session::Send);
@@ -233,19 +253,27 @@ class Http2Session {
 
     nghttp2_session_server_new2(&session_, callbacks, this, nullptr);
     nghttp2_session_callbacks_del(callbacks);
-
-    // The initial stream id is 1.
-    auto result = nghttp2_session_upgrade2(
-        session_, reinterpret_cast<const uint8_t*>(settings.data()),
-        settings.size(), false, nullptr);
-    ABSL_CHECK_EQ(0, result);
-
-    // Queue a settings
-    result = nghttp2_submit_settings(session_, NGHTTP2_FLAG_NONE, nullptr, 0);
-    ABSL_CHECK_EQ(0, result);
   }
 
   ~Http2Session() { nghttp2_session_del(session_); }
+
+  void StartHttp(std::string_view data, std::string_view settings) {
+    if (absl::StartsWith(data, kHttp2ConnectionPreface)) {
+      auto result = nghttp2_session_mem_recv(
+          session_, reinterpret_cast<const uint8_t*>(data.data()), data.size());
+      ABSL_CHECK_GE(result, 0) << nghttp2_strerror(result);
+    } else {
+      // The initial stream id is 1.
+      auto result = nghttp2_session_upgrade2(
+          session_, reinterpret_cast<const uint8_t*>(settings.data()),
+          settings.size(), false, nullptr);
+      ABSL_CHECK_EQ(0, result) << nghttp2_strerror(result);
+    }
+    // Queue a settings
+    auto result =
+        nghttp2_submit_settings(session_, NGHTTP2_FLAG_NONE, nullptr, 0);
+    ABSL_CHECK_EQ(0, result) << nghttp2_strerror(result);
+  }
 
   void GoAway() { nghttp2_session_terminate_session(session_, 0); }
 
@@ -305,7 +333,7 @@ class Http2Session {
     auto result =
         nghttp2_submit_response(session_, stream_id, nvs.get(), num_headers,
                                 data.empty() ? nullptr : &data_provider);
-    ABSL_CHECK_EQ(0, result);
+    ABSL_CHECK_EQ(0, result) << nghttp2_strerror(result);
   }
 };
 
@@ -324,12 +352,6 @@ TEST_F(CurlTransportTest, Http2) {
   auto hostport = FormatSocketAddress(*socket);
   ABSL_CHECK(!hostport.empty());
 
-  static constexpr char kSwitchProtocols[] =  // 69
-      "HTTP/1.1 101 Switching Protocols\r\n"  // 35
-      "Connection: Upgrade\r\n"               //
-      "Upgrade: h2c\r\n"                      //
-      "\r\n";
-
   // AAMAAABkAAQCAAAAAAIAAAAA
   static constexpr char kSettings[] = "\0\3\0\0\0\x64\0\4\2\0\0\0\0\2\0\0\0\0";
 
@@ -341,17 +363,21 @@ TEST_F(CurlTransportTest, Http2) {
     ABSL_CHECK(client_fd.has_value());
     initial_request = ReceiveAvailable(*client_fd);
 
-    // Manually upgrade the h2c to HTTP/2
-    AssertSend(*client_fd, kSwitchProtocols);
+    // Check whether the connection preface was sent. If not, manually upgrade
+    // the h2c to HTTP/2.
+    if (!absl::StartsWith(initial_request, kHttp2ConnectionPreface)) {
+      AssertSend(*client_fd, kSwitchProtocols);
+    }
 
-    Http2Session session(*client_fd, std::string_view(kSettings, 18));
+    Http2Session session(*client_fd);
+    session.StartHttp(initial_request, std::string_view(kSettings, 18));
     session.SendResponse(
         1, {{":status", "200"}, {"content-type", "text/html"}},
         "<html>\n<body>\n<h1>Hello, World!</h1>\n</body>\n</html>\n");
     session.TrySendReceive();
 
     // After that has been sent, we have an additional request to
-    // handle,, but it is sent asynchronously on another thread,
+    // handle, but it is sent asynchronously on another thread,
     // so loop here. 10 is somewhat arbitrary, though several send/recv
     // calls are required to transmit various frames, since each stream
     // likely needs to send/recv HEADER, DATA, & WINDOW, and then the
@@ -380,6 +406,7 @@ TEST_F(CurlTransportTest, Http2) {
   });
 
   // Issue request 1.
+  // Using SetHttpVersion adds the HTTP1.1 to HTTP2 upgrade headers.
   {
     auto response = transport->IssueRequest(
         HttpRequestBuilder("POST", absl::StrCat("http://", hostport, "/"))
@@ -388,7 +415,8 @@ TEST_F(CurlTransportTest, Http2) {
             .AddQueryParameter("age", "1234")
             .EnableAcceptEncoding()
             .BuildRequest(),
-        absl::Cord("Hello"));
+        IssueRequestOptions(absl::Cord("Hello"))
+            .SetHttpVersion(IssueRequestOptions::HttpVersion::kHttp2));
 
     // Waits for the response.
     ABSL_LOG(INFO) << response.status();
@@ -416,7 +444,7 @@ TEST_F(CurlTransportTest, Http2) {
     auto response = transport->IssueRequest(
         HttpRequestBuilder("GET", absl::StrCat("http://", hostport, "/boo"))
             .BuildRequest(),
-        absl::Cord());
+        IssueRequestOptions());
 
     // Waits for the response.
     ABSL_LOG(INFO) << response.status();

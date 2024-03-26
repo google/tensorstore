@@ -64,6 +64,7 @@ tensorstore_cc_test(
         "//tensorstore/internal/http",
         "//tensorstore/internal/http:curl_transport",
         "//tensorstore/internal/http:http_header",
+        "//tensorstore/internal/http:mock_http_transport",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:generation",
         "//tensorstore/kvstore:test_matchers",
