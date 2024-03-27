@@ -22,7 +22,7 @@
 /// arbitrary keys with only 3 reads.
 ///
 /// See description of format here:
-/// https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed#sharded-format
+/// https://github.com/google/neuroglancer/tree/master/src/datasource/precomputed#sharded-format
 
 #include <stdint.h>
 
@@ -42,14 +42,14 @@ namespace neuroglancer_uint64_sharded {
 /// Encodes a minishard index.
 ///
 /// The format is described here:
-/// https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed#minishard-index-format
+/// https://github.com/google/neuroglancer/tree/master/src/datasource/precomputed#minishard-index-format
 absl::Cord EncodeMinishardIndex(
     span<const MinishardIndexEntry> minishard_index);
 
 /// Encodes a shard index.
 ///
 /// The format is described here:
-/// https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed#shardindex-index-file-format
+/// https://github.com/google/neuroglancer/tree/master/src/datasource/precomputed#shardindex-index-file-format
 absl::Cord EncodeShardIndex(span<const ShardIndexEntry> shard_index);
 
 /// Class that may be used to sequentially encode a single shard.

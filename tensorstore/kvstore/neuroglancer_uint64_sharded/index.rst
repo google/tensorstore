@@ -5,7 +5,7 @@
 
 The ``neuroglancer_uint64_sharded`` driver implements support for the
 `Neuroglancer Precomputed sharded format
-<https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed/sharded.md>`_
+<https://github.com/google/neuroglancer/tree/master/src/datasource/precomputed/sharded.md>`_
 on top of a base key-value store.
 
 Within the key-value store interface, which uses strings as keys, the uint64
