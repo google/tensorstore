@@ -12,7 +12,7 @@
 #define AOM_CONFIG_H_
 #define ARCH_ARM ${ARM64}
 #define ARCH_MIPS 0
-#define ARCH_PPC 0
+#define ARCH_PPC ${PPC}
 #define ARCH_X86 0
 #define ARCH_X86_64 ${X86_64}
 #define CONFIG_ACCOUNTING 0

@@ -59,6 +59,22 @@ LIBAOM_HEADERS = select({
             "**/*arm.h",
         ],
     ),
+    "@platforms//cpu:ppc": glob(
+        LIBAOM_HEADERS_PATTERN + [
+            "aom_ports/ppc.h",
+            "av1/common/ppc/*.h",
+        ],
+        exclude = [
+            "**/*arm.h",
+            "**/mips/**",
+            "**/*x86.h",
+            "**/*avx2.h",
+            "**/*sse2.h",
+            "**/*sse4.h",
+            "**/*sse4_1.h",
+            "**/*ssse3.h",
+        ],
+    ),
 })
 
 LIBAOM_COPTS = select({
@@ -162,6 +178,11 @@ AV1_SRCS = glob(
             "av1/encoder/arm/neon/av1_temporal_denoiser_neon.c",
         ],
     ),
+    "@platforms//cpu:ppc": glob(
+        include = [
+            "av1/common/ppc/*.c",
+        ],
+    ),
     "//conditions:default": [],
 })
 
@@ -209,6 +230,7 @@ cc_library(
         ":args_helper",
     ] + select({
         "@platforms//cpu:arm64": [],
+	    "@platforms//cpu:ppc": [],
         "@platforms//cpu:x86_64": [
             ":av1_x86_asm",
             ":av1_x86_sse42",
@@ -258,7 +280,8 @@ DSP_SRCS = glob(
     ],
 ) + select({
     "@platforms//cpu:arm64": glob(["aom_dsp/arm/*_neon.c"]),
-    "//conditions:default": ["aom_dsp/x86/aom_asm_stubs.c"],
+    "@platforms//cpu:x86_64": ["aom_dsp/x86/aom_asm_stubs.c"],
+    "//conditions:default": [],
 })
 
 DSP_ASM = glob(["aom_dsp/x86/*.asm"])
@@ -284,6 +307,7 @@ cc_library(
         ":vector",
     ] + select({
         "@platforms//cpu:arm64": [],
+	    "@platforms//cpu:ppc": [],
         "@platforms//cpu:x86_64": [
             ":dsp_x86_asm",
         ] + [":dsp_x86_{x}".format(x = x) for x in DSP_SRC_PATTERNS.keys()],
@@ -341,6 +365,9 @@ CODEC_SRCS = glob(["aom/src/*.c"]) + [
     "@platforms//cpu:arm64": [
         "aom_ports/arm_cpudetect.c",
     ],
+    "@platforms//cpu:ppc": [
+	    "aom_ports/ppc_cpudetect.c",
+    ],
     "//conditions:default": [],
 })
 
@@ -353,6 +380,9 @@ CODEC_HDRS = glob([
 ] + select({
     "@platforms//cpu:arm64": [
         "aom_ports/arm.h",
+    ],
+    "@platforms//cpu:ppc": [
+	    "aom_ports/ppc.h",
     ],
     "//conditions:default": [],
 })
@@ -370,6 +400,7 @@ cc_library(
         ":args_helper",
     ] + select({
         "@platforms//cpu:arm64": [],
+	    "@platforms//cpu:ppc": [],
         "//conditions:default": [
             ":codec_x86_asm",
         ],
@@ -459,6 +490,9 @@ CONFIG_SUBSTITUTIONS = select({
     "@platforms//cpu:arm64": {"${ARM64}": "1"},
     "//conditions:default": {"${ARM64}": "0"},
 }) | select({
+    "@platforms//cpu:ppc": {"${PPC}": "1"},
+    "//conditions:default": {"${PPC}": "0"},
+}) | select({
     "@platforms//cpu:x86_64": {"${X86_64}": "1"},
     "//conditions:default": {"${X86_64}": "0"},
 }) | select({
@@ -514,6 +548,7 @@ write_file(
 
 GENERATED_CONFIGS = [
     ("@platforms//cpu:arm64", "arm64"),
+    ("@platforms//cpu:ppc", "ppc"),
     (":have_avx2_intrinsics", "x86_64_avx2"),
     ("//conditions:default", "x86_64"),
 ]
