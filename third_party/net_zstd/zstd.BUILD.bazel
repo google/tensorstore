@@ -1,5 +1,5 @@
-load("@tensorstore//bazel:utils.bzl", "package_relative_path")
 load("@bazel_skylib//lib:selects.bzl", "selects")
+load("@tensorstore//bazel:utils.bzl", "package_relative_path")
 
 package(default_visibility = ["//visibility:public"])
 

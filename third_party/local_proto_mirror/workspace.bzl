@@ -36,8 +36,8 @@ From: https://github.com/census-instrumentation/opencensus-proto
 
 """
 
-load("//bazel:local_mirror.bzl", "local_mirror")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
+load("//bazel:local_mirror.bzl", "local_mirror")
 
 def repo():
     maybe(

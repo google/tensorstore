@@ -522,7 +522,6 @@ void MultiTransportImpl::FinishRequest(std::unique_ptr<CurlRequestState> state,
         CurlCodeToStatus(code, state->error_buffer_));
     return;
   }
-  ABSL_LOG(INFO) << "DONE " << state->handle_.GetResponseCode();
 
   http_response_codes.Increment(state->handle_.GetResponseCode());
   assert(state->status_set);

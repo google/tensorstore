@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load(
     "//third_party:repo.bzl",
     "third_party_http_archive",
 )
-load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 
 # Using chromium-zlib, source from: https://chromium.googlesource.com/chromium/src/third_party/zlib/
 

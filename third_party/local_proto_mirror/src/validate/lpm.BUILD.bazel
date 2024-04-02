@@ -1,3 +1,9 @@
+load(
+    "@com_google_protobuf//bazel:upb_proto_library.bzl",
+    "upb_proto_library",
+    "upb_proto_reflection_library",
+)
+
 package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
@@ -10,12 +16,6 @@ proto_library(
         "@com_google_protobuf//:duration_proto",
         "@com_google_protobuf//:timestamp_proto",
     ],
-)
-
-load(
-    "@com_google_protobuf//bazel:upb_proto_library.bzl",
-    "upb_proto_library",
-    "upb_proto_reflection_library",
 )
 
 cc_proto_library(
