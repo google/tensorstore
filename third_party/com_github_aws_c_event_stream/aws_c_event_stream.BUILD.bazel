@@ -10,25 +10,10 @@ exports_files(["LICENSE"])
 cc_library(
     name = "aws-c-event-stream",
     srcs = glob([
-        "include/aws/**/*.h",
-        #"source/arch/*.c",
-        "source/*.c",
-    ]) + select({
-        "@bazel_tools//src/conditions:windows": glob([
-            "source/windows/*.c",
-        ]),
-        "//conditions:default": glob([
-            "source/posix/*.c",
-        ]),
-    }),
-
-
-    # srcs = glob([
-    #     "include/**/*.h",
-    #     "source/**/*.c",
-    # ]),
-    hdrs = [
-    ],
+        "include/**/*.h",
+        "source/**/*.c",
+    ]),
+    hdrs = [],
     defines = [],
     includes = [
         "include",
