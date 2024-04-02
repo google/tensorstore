@@ -1,0 +1,46 @@
+# Description:
+#   AWS C Common
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])  # Apache 2.0
+
+exports_files(["LICENSE"])
+
+cc_library(
+    name = "aws-c-common",
+    srcs = glob([
+        "include/aws/common/*.h",
+        "include/aws/common/private/*.h",
+        "source/*.c",
+    ]) + select({
+        "@bazel_tools//src/conditions:windows": glob([
+            "source/windows/*.c",
+        ]),
+        "//conditions:default": glob([
+            "source/posix/*.c",
+        ]),
+    }),
+    hdrs = [
+        "include/aws/common/config.h",
+    ],
+    defines = [],
+    includes = [
+        "include",
+    ],
+    textual_hdrs = glob([
+        "include/**/*.inl",
+    ]),
+    deps = [],
+)
+
+genrule(
+    name = "config_h",
+    srcs = [
+        "include/aws/common/config.h.in",
+    ],
+    outs = [
+        "include/aws/common/config.h",
+    ],
+    cmd = "sed 's/cmakedefine/undef/g' $< > $@",
+)

@@ -1,0 +1,40 @@
+# Description:
+#   AWS C Event Stream
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])  # Apache 2.0
+
+exports_files(["LICENSE"])
+
+cc_library(
+    name = "aws-c-event-stream",
+    srcs = glob([
+        "include/aws/**/*.h",
+        #"source/arch/*.c",
+        "source/*.c",
+    ]) + select({
+        "@bazel_tools//src/conditions:windows": glob([
+            "source/windows/*.c",
+        ]),
+        "//conditions:default": glob([
+            "source/posix/*.c",
+        ]),
+    }),
+
+
+    # srcs = glob([
+    #     "include/**/*.h",
+    #     "source/**/*.c",
+    # ]),
+    hdrs = [
+    ],
+    defines = [],
+    includes = [
+        "include",
+    ],
+    deps = [
+        "@com_github_aws_c_common//:aws-c-common",
+        "@com_github_aws_checksums//:aws-checksums",
+    ],
+)

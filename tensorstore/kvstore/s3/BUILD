@@ -157,6 +157,8 @@ tensorstore_cc_library(
         "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/kvstore:byte_range",
         "//tensorstore/kvstore/s3/credentials:aws_credentials",
+        # TODO: substitute this with just the auth components of the aws sdk
+        "@com_github_aws_cpp_sdk//:s3",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/log:absl_log",

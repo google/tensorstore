@@ -1,0 +1,4 @@
+cc_library(
+    name = "aws_checksums",
+    visibility = ["//visibility:public"],
+)

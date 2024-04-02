@@ -1,0 +1,4 @@
+cc_library(
+    name = "aws_c_event_stream",
+    visibility = ["//visibility:public"],
+)
