@@ -1,4 +1,0 @@
-cc_library(
-    name = "aws_cpp_sdk",
-    visibility = ["//visibility:public"],
-)

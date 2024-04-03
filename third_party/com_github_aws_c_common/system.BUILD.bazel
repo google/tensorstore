@@ -1,4 +1,0 @@
-cc_library(
-    name = "aws_c_common",
-    visibility = ["//visibility:public"],
-)
