@@ -24,7 +24,8 @@ def repo():
         urls = [
             "https://storage.googleapis.com/mirror.tensorflow.org/github.com/awslabs/aws-c-common/archive/v0.4.29.tar.gz",
             "https://github.com/awslabs/aws-c-common/archive/v0.4.29.tar.gz",
-        ],        build_file = Label("//third_party:com_github_aws_c_common/aws_c_common.BUILD.bazel"),
+        ],
+        build_file = Label("//third_party:com_github_aws_c_common/aws_c_common.BUILD.bazel"),
         system_build_file = Label("//third_party:com_github_aws_c_common/system.BUILD.bazel"),
         cmake_name = "aws_c_common",
         cmake_target_mapping = {
