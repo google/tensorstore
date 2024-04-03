@@ -19,7 +19,7 @@ cc_library(
         "include",
     ],
     deps = [
-        "@com_github_aws_c_common//:aws-c-common",
-        "@com_github_aws_checksums//:aws-checksums",
+        "@com_github_aws_c_common//:aws_c_common",
+        "@com_github_aws_checksums//:aws_checksums",
     ],
 )

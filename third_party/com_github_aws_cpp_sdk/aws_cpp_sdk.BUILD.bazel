@@ -103,7 +103,7 @@ cc_library(
         "//conditions:default": [],
     }),
     deps = [
-        "@com_github_aws_c_event_stream//:aws-c-event-stream",
+        "@com_github_aws_c_event_stream//:aws_c_event_stream",
         "@com_google_boringssl//:crypto",
         "@com_google_boringssl//:ssl",
         "@se_curl//:curl",
