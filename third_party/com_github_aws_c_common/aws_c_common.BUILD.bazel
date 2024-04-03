@@ -8,7 +8,7 @@ licenses(["notice"])  # Apache 2.0
 exports_files(["LICENSE"])
 
 cc_library(
-    name = "aws-c-common",
+    name = "aws_c_common",
     srcs = glob([
         "include/aws/common/*.h",
         "include/aws/common/private/*.h",

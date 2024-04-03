@@ -8,7 +8,7 @@ licenses(["notice"])  # Apache 2.0
 exports_files(["LICENSE"])
 
 cc_library(
-    name = "aws-checksums",
+    name = "aws_checksums",
     srcs = glob([
         "include/aws/checksums/*.h",
         "include/aws/checksums/private/*.h",
