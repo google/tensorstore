@@ -61,6 +61,9 @@ class KvStoreServer {
 
     /// Underlying kvstore used by the server.
     kvstore::Spec base;
+
+    /// Maximum number of bytes that can be sent in a single value part of a read response.
+    uint32_t max_sent_part_bytes;
   };
 
   /// Starts the kvstore server server.

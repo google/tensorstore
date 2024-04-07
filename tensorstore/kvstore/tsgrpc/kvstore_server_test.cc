@@ -45,6 +45,8 @@ using ::tensorstore::KeyRange;
 using ::tensorstore::grpc_kvstore::KvStoreServer;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
 
+const int kMaxSentPartBytes = 4;
+
 class KvStoreSingleton {
  public:
   KvStoreSingleton() : ctx_(tensorstore::Context::Default()) {
@@ -52,6 +54,7 @@ class KvStoreSingleton {
                                        {
                                            {"bind_addresses", {"localhost:0"}},
                                            {"base", "memory://x"},
+                                           {"max_sent_part_bytes", kMaxSentPartBytes},
                                        })
                                        .value(),
                                    ctx_)
@@ -89,6 +92,20 @@ TEST_F(KvStoreTest, Basic) {
                       .result());
 
   tensorstore::internal::TestKeyValueReadWriteOps(store);
+}
+
+TEST_F(KvStoreTest, Multipart) {
+  auto context = tensorstore::Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::kvstore::Open({{"driver", "tsgrpc_kvstore"},
+                                              {"address", address()},
+                                              {"path", "multipart/"},
+                                              {"max_sent_part_bytes", kMaxSentPartBytes}},
+                                             context)
+                      .result());
+
+  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "a/b", absl::Cord("0123456789")));
+  EXPECT_EQ("0123456789", kvstore::Read(store, "a/b").value().value);
 }
 
 TEST_F(KvStoreTest, DeleteRange) {
