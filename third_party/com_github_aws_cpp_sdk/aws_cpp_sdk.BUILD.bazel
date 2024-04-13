@@ -36,7 +36,7 @@ cc_library(
         "aws-cpp-sdk-core/source/http/curl/*.cpp",  # HTTP_CURL_CLIENT_SOURCE
         "aws-cpp-sdk-core/source/utils/crypto/openssl/*.cpp",  # UTILS_CRYPTO_OPENSSL_SOURCE
     ]) + select({
-        "@bazel_tools//src/conditions:windows": glob([
+        "@platforms//os:windows": glob([
             "aws-cpp-sdk-core/source/net/windows/*.cpp",  # NET_SOURCE
             "aws-cpp-sdk-core/source/platform/windows/*.cpp",  # PLATFORM_WINDOWS_SOURCE
         ]),
@@ -84,7 +84,7 @@ cc_library(
         "ENABLE_CURL_CLIENT=1",
         "OPENSSL_IS_BORINGSSL=1",
     ] + select({
-        "@bazel_tools//src/conditions:windows": [
+        "@platforms//os:windows": [
             "PLATFORM_WINDOWS",
             "WIN32_LEAN_AND_MEAN",
         ],
@@ -96,7 +96,7 @@ cc_library(
         "aws-cpp-sdk-core/include",
     ],
     linkopts = select({
-        "@bazel_tools//src/conditions:windows": [
+        "@platforms//os:windows": [
             "-DEFAULTLIB:userenv.lib",
             "-DEFAULTLIB:version.lib",
         ],
