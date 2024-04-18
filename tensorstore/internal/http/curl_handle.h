@@ -15,9 +15,14 @@
 #ifndef TENSORSTORE_INTERNAL_HTTP_CURL_HANDLE_H_
 #define TENSORSTORE_INTERNAL_HTTP_CURL_HANDLE_H_
 
+#include <stdint.h>
+
+#include <cstddef>
+
 #include "absl/log/absl_check.h"
 #include "tensorstore/internal/http/curl_factory.h"
 #include "tensorstore/internal/http/curl_wrappers.h"
+#include "tensorstore/internal/source_location.h"
 
 namespace tensorstore {
 namespace internal_http {

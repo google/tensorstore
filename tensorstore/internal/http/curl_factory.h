@@ -41,6 +41,9 @@ class CurlHandleFactory {
 /// Returns the default CurlHandleFactory.
 std::shared_ptr<CurlHandleFactory> GetDefaultCurlHandleFactory();
 
+/// Extensibility hooks for libcurl handles.
+void CurlPtrHook(CurlPtr& handle);
+
 }  // namespace internal_http
 }  // namespace tensorstore
 
