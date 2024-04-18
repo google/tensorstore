@@ -467,7 +467,6 @@ Future<kvstore::DriverPtr> TsGrpcKeyValueStoreSpec::DoOpen() const {
   // TODO: Determine a better mapping to a grpc credentials for this.
   // grpc::Credentials ties the authentication to the communication channel
   // See: <grpcpp/security/credentials.h>, https://grpc.io/docs/guides/auth/
-  ABSL_LOG(INFO) << "tsgrpc_kvstore address=" << data_.address;
 
   driver->channel_ =
       grpc::CreateChannel(data_.address, data_.credentials->GetCredentials());
