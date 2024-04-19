@@ -77,15 +77,27 @@ class TsGrpcMockTest : public testing::Test {
     ON_CALL(mock(), List).WillByDefault(Return(grpc::Status::CANCELLED));
   }
 
-  tensorstore::KvStore OpenStore() {
+  tensorstore::KvStore OpenStore(uint32_t max_sent_part_bytes = 2 * 1024 * 1024) {
     return kvstore::Open({
                              {"driver", "tsgrpc_kvstore"},
                              {"address", mock_service_.server_address()},
+                             {"max_sent_part_bytes", max_sent_part_bytes},
                          })
         .value();
   }
 
   MockKvStoreService& mock() { return *mock_service_.service(); }
+
+  void ExpectWriteRequestsAre(grpc::ServerReader<WriteRequest>* req,
+                              const std::vector<WriteRequest>& expected_requests) {
+    for (const auto& expected_request : expected_requests) {
+      WriteRequest actual_request;
+      ASSERT_TRUE(req->Read(&actual_request));
+      EXPECT_THAT(actual_request, EqualsProto(expected_request));
+    }
+    WriteRequest dummy_request;
+    EXPECT_FALSE(req->Read(&dummy_request));
+  }
 
   tensorstore::grpc_mocker::MockGrpcServer<MockKvStoreService> mock_service_;
 };
@@ -97,7 +109,7 @@ TEST_F(TsGrpcMockTest, Read) {
 
   ReadResponse response = ParseTextProtoOrDie(R"pb(
     state: 2
-    value: '1234'
+    value_part: '1234'
     generation_and_timestamp {
       generation: '1\001'
       timestamp { seconds: 1634327736 nanos: 123456 }
@@ -105,7 +117,12 @@ TEST_F(TsGrpcMockTest, Read) {
   )pb");
 
   EXPECT_CALL(mock(), Read(_, EqualsProto(expected_request), _))
-      .WillOnce(DoAll(SetArgPointee<2>(response), Return(grpc::Status::OK)));
+      .WillOnce(testing::Invoke(
+            [=](auto*, auto*,
+                grpc::ServerWriter<ReadResponse>* resp) -> ::grpc::Status {
+              resp->Write(response);
+              return grpc::Status::OK;
+            }));
 
   kvstore::ReadResult result;
   {
@@ -117,6 +134,53 @@ TEST_F(TsGrpcMockTest, Read) {
   // Individual result field verification.
   EXPECT_TRUE(result.has_value());
   EXPECT_EQ(result.value, "1234");
+  EXPECT_EQ(result.stamp.time,
+            absl::FromUnixSeconds(1634327736) + absl::Nanoseconds(123456));
+  EXPECT_EQ(result.stamp.generation, StorageGeneration::FromString("1"));
+}
+
+TEST_F(TsGrpcMockTest, ReadMultipart) {
+  ReadRequest expected_request = ParseTextProtoOrDie(R"pb(
+    key: 'abc'
+  )pb");
+
+  std::vector<ReadResponse> responses{
+    ParseTextProtoOrDie(R"pb(
+      state: 2
+      value_part: '1234'
+      generation_and_timestamp {
+        generation: '1\001'
+        timestamp { seconds: 1634327736 nanos: 123456 }
+      }
+    )pb"),
+    ParseTextProtoOrDie(R"pb(
+      value_part: '5678'
+    )pb"),
+    ParseTextProtoOrDie(R"pb(
+      value_part: '9012'
+    )pb"),
+  };
+
+  EXPECT_CALL(mock(), Read(_, EqualsProto(expected_request), _))
+      .WillOnce(testing::Invoke(
+            [=](auto*, auto*,
+                grpc::ServerWriter<ReadResponse>* resp) -> ::grpc::Status {
+              for (const auto& response : responses) {
+                resp->Write(response);
+              }
+              return grpc::Status::OK;
+            }));
+
+  kvstore::ReadResult result;
+  {
+    auto store = OpenStore();
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        result, kvstore::Read(store, expected_request.key()).result());
+  }
+
+  // Individual result field verification.
+  EXPECT_TRUE(result.has_value());
+  EXPECT_EQ(result.value, "123456789012");
   EXPECT_EQ(result.stamp.time,
             absl::FromUnixSeconds(1634327736) + absl::Nanoseconds(123456));
   EXPECT_EQ(result.stamp.generation, StorageGeneration::FromString("1"));
@@ -151,7 +215,7 @@ TEST_F(TsGrpcMockTest, ReadWithOptions) {
 TEST_F(TsGrpcMockTest, Write) {
   WriteRequest expected_request = ParseTextProtoOrDie(R"pb(
     key: 'abc'
-    value: '1234'
+    value_part: '1234'
   )pb");
 
   WriteResponse response = ParseTextProtoOrDie(R"pb(
@@ -161,19 +225,73 @@ TEST_F(TsGrpcMockTest, Write) {
     }
   )pb");
 
-  EXPECT_CALL(mock(), Write(_, EqualsProto(expected_request), _))
-      .WillOnce(DoAll(SetArgPointee<2>(response), Return(grpc::Status::OK)));
+  EXPECT_CALL(mock(), Write(_, _, _))
+      .WillOnce(testing::Invoke(
+              [=](auto*, grpc::ServerReader<WriteRequest>* req,
+                  WriteResponse* resp) -> ::grpc::Status {
+                ExpectWriteRequestsAre(req, {expected_request});
+                *resp = response;
+                return grpc::Status::OK;
+              }));
+
 
   tensorstore::TimestampedStorageGeneration result;
   {
     auto store = OpenStore();
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         result, kvstore::Write(store, expected_request.key(),
-                               absl::Cord(expected_request.value()))
+                               absl::Cord(expected_request.value_part()))
                     .result());
   }
   EXPECT_EQ(result.generation, StorageGeneration::FromString("1"));
 }
+
+TEST_F(TsGrpcMockTest, WriteMultipart) {
+  const uint32_t max_sent_part_bytes = 4;
+
+  std::vector<WriteRequest> expected_requests{
+    ParseTextProtoOrDie(R"pb(
+      key: 'abc'
+      value_part: '1234'
+    )pb"),
+    ParseTextProtoOrDie(R"pb(
+      key: 'abc'
+      value_part: '5678'
+    )pb"),
+    ParseTextProtoOrDie(R"pb(
+      key: 'abc'
+      value_part: '9012'
+    )pb"),
+  };
+
+  WriteResponse response = ParseTextProtoOrDie(R"pb(
+    generation_and_timestamp {
+      generation: '1\001'
+      timestamp { seconds: 1634327736 nanos: 123456 }
+    }
+  )pb");
+
+  EXPECT_CALL(mock(), Write(_, _, _))
+      .WillOnce(testing::Invoke(
+              [=](auto*, grpc::ServerReader<WriteRequest>* req,
+                  WriteResponse* resp) -> ::grpc::Status {
+                ExpectWriteRequestsAre(req, expected_requests);
+                *resp = response;
+                return grpc::Status::OK;
+              }));
+
+
+  tensorstore::TimestampedStorageGeneration result;
+  {
+    auto store = OpenStore(max_sent_part_bytes);
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        result, kvstore::Write(store, expected_requests[0].key(),
+                               absl::Cord("123456789012"))
+                    .result());
+  }
+  EXPECT_EQ(result.generation, StorageGeneration::FromString("1"));
+}
+
 
 TEST_F(TsGrpcMockTest, WriteEmpty) {
   WriteRequest expected_request = ParseTextProtoOrDie(R"pb(
@@ -188,8 +306,14 @@ TEST_F(TsGrpcMockTest, WriteEmpty) {
     }
   )pb");
 
-  EXPECT_CALL(mock(), Write(_, EqualsProto(expected_request), _))
-      .WillOnce(DoAll(SetArgPointee<2>(response), Return(grpc::Status::OK)));
+  EXPECT_CALL(mock(), Write(_, _, _))
+      .WillOnce(testing::Invoke(
+              [=](auto*, grpc::ServerReader<WriteRequest>* req,
+                  WriteResponse* resp) -> ::grpc::Status {
+                ExpectWriteRequestsAre(req, {expected_request});
+                *resp = response;
+                return grpc::Status::OK;
+              }));
 
   tensorstore::TimestampedStorageGeneration result;
   {
@@ -205,7 +329,7 @@ TEST_F(TsGrpcMockTest, WriteEmpty) {
 TEST_F(TsGrpcMockTest, WriteWithOptions) {
   WriteRequest expected_request = ParseTextProtoOrDie(R"pb(
     key: 'abc'
-    value: '1234'
+    value_part: '1234'
     generation_if_equal: "abc\001"
   )pb");
 
@@ -216,15 +340,21 @@ TEST_F(TsGrpcMockTest, WriteWithOptions) {
     }
   )pb");
 
-  EXPECT_CALL(mock(), Write(_, EqualsProto(expected_request), _))
-      .WillOnce(DoAll(SetArgPointee<2>(response), Return(grpc::Status::OK)));
+  EXPECT_CALL(mock(), Write(_, _, _))
+      .WillOnce(testing::Invoke(
+              [=](auto*, grpc::ServerReader<WriteRequest>* req,
+                  WriteResponse* resp) -> ::grpc::Status {
+                ExpectWriteRequestsAre(req, {expected_request});
+                *resp = response;
+                return grpc::Status::OK;
+              }));
 
   tensorstore::TimestampedStorageGeneration result;
   {
     auto store = OpenStore();
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         result, kvstore::Write(store, expected_request.key(),
-                               absl::Cord(expected_request.value()),
+                               absl::Cord(expected_request.value_part()),
                                {StorageGeneration::FromString("abc")})
                     .result());
   }

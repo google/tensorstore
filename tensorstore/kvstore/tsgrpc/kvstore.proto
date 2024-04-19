@@ -24,10 +24,10 @@ import "tensorstore/kvstore/tsgrpc/common.proto";
 // Proto-api for a remote key-value store
 service KvStoreService {
   /// Attempts to read the specified key.
-  rpc Read(ReadRequest) returns (ReadResponse);
+  rpc Read(ReadRequest) returns (stream ReadResponse);
 
   /// Performs an optionally-conditional write.
-  rpc Write(WriteRequest) returns (WriteResponse);
+  rpc Write(stream WriteRequest) returns (WriteResponse);
 
   /// Performs an optionally-conditional delete.
   rpc Delete(DeleteRequest) returns (DeleteResponse);
@@ -41,6 +41,8 @@ service KvStoreService {
 /// See tensorstore/kvstore/operations.h
 ///   kvstore::ReadOptions
 message ReadRequest {
+  // All fields except `value` are meaningful only for the first response message in the stream.
+
   bytes key = 1;
 
   /// The read is aborted if the generation associated with the stored `key`
@@ -94,7 +96,9 @@ message ReadResponse {
   }
   State state = 3;
 
-  bytes value = 4 [ctype = CORD];
+  /// Next part of the value. The actual value in the remote storage is the concatenation
+  /// of all parts in the response stream.
+  bytes value_part = 4 [ctype = CORD];
 }
 
 /// See tensorstore/kvstore/operations.h
@@ -112,7 +116,9 @@ message WriteRequest {
   ///   condition that the `key` does not have an existing value.
   bytes generation_if_equal = 2;
 
-  bytes value = 3 [ctype = CORD];
+  /// Next part of the value. The actual value to be written is the concatenation
+  /// of all parts in the response stream.
+  bytes value_part = 3 [ctype = CORD];
 }
 
 message WriteResponse {

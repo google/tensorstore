@@ -78,17 +78,17 @@ class Handler : public HandlerBase, public grpc::ServerUnaryReactor {
   Response* response_;
 };
 
-// Handler base class for a stream request.
+// Handler base class for a server stream request.
 template <typename RequestProto, typename ResponseProto>
-class StreamHandler : public HandlerBase,
+class ServerStreamHandler : public HandlerBase,
                       public grpc::ServerWriteReactor<ResponseProto> {
  public:
   using Request = RequestProto;
   using Response = ResponseProto;
   using Reactor = typename grpc::ServerWriteReactor<ResponseProto>;
 
-  StreamHandler(::grpc::CallbackServerContext* grpc_context,
-                const Request* request)
+  ServerStreamHandler(::grpc::CallbackServerContext* grpc_context,
+                      const Request* request)
       : HandlerBase(grpc_context), request_(request) {}
 
   using Reactor::Finish;
@@ -102,6 +102,32 @@ class StreamHandler : public HandlerBase,
   void OnDone() final { auto adopted = Adopt(); }
 
   const Request* request_;
+};
+
+// Handler base class for a client stream request.
+template <typename RequestProto, typename ResponseProto>
+class ClientStreamHandler : public HandlerBase,
+                            public grpc::ServerReadReactor<RequestProto> {
+ public:
+  using Request = RequestProto;
+  using Response = ResponseProto;
+  using Reactor = typename grpc::ServerReadReactor<RequestProto>;
+
+  ClientStreamHandler(::grpc::CallbackServerContext* grpc_context,
+                      Response* response)
+      : HandlerBase(grpc_context), response_(response) {}
+
+  using Reactor::Finish;
+  void Finish(absl::Status status) {
+    Finish(tensorstore::internal::AbslStatusToGrpcStatus(status));
+  }
+
+  Response* response() { return response_; }
+
+ protected:
+  void OnDone() final { auto adopted = Adopt(); }
+
+  Response* response_;
 };
 
 }  // namespace tensorstore_grpc

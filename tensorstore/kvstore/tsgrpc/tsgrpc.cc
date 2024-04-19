@@ -120,6 +120,7 @@ struct TsGrpcKeyValueStoreSpecData {
   absl::Duration timeout;
   Context::Resource<GrpcClientCredentials> credentials;
   Context::Resource<DataCopyConcurrencyResource> data_copy_concurrency;
+  uint32_t max_sent_part_bytes;
 
   constexpr static auto ApplyMembers = [](auto&& x, auto f) {
     return f(x.address, x.timeout, x.credentials, x.data_copy_concurrency);
@@ -137,7 +138,11 @@ struct TsGrpcKeyValueStoreSpecData {
       jb::Member(
           DataCopyConcurrencyResource::id,
           jb::Projection<
-              &TsGrpcKeyValueStoreSpecData::data_copy_concurrency>()) /**/
+              &TsGrpcKeyValueStoreSpecData::data_copy_concurrency>()),
+      jb::Member("max_sent_part_bytes",
+                 jb::Projection<&TsGrpcKeyValueStoreSpecData::max_sent_part_bytes>(
+                        jb::DefaultValue<jb::kNeverIncludeDefaults>(
+                            [](auto* x) { *x = 2 * 1024 * 1024; }))) /**/
   );
 };
 
@@ -159,6 +164,10 @@ class TsGrpcKeyValueStore
         spec_.timeout != absl::InfiniteDuration()) {
       context.set_deadline(absl::ToChronoTime(absl::Now() + spec_.timeout));
     }
+  }
+
+  uint32_t GetMaxSentPartBytes() const {
+    return spec_.max_sent_part_bytes;
   }
 
   const Executor& executor() const {
@@ -191,11 +200,16 @@ class TsGrpcKeyValueStore
 ////////////////////////////////////////////////////
 
 /// Implements `TsGrpcKeyValueStore::Read`.
-struct ReadTask : public internal::AtomicReferenceCount<ReadTask> {
+struct ReadTask : public internal::AtomicReferenceCount<ReadTask>, public grpc::ClientReadReactor<ReadResponse> {
   internal::IntrusivePtr<TsGrpcKeyValueStore> driver;
   grpc::ClientContext context;
   ReadRequest request;
   ReadResponse response;
+  Promise<kvstore::ReadResult> promise;
+  kvstore::ReadResult result;
+  bool first_response_received = false;
+  /// Actually controls the lifetime of this object.
+  internal::IntrusivePtr<ReadTask> self;
 
   Future<kvstore::ReadResult> Start(kvstore::Key key,
                                     const kvstore::ReadOptions& options) {
@@ -215,68 +229,154 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask> {
 
     driver->MaybeSetDeadline(context);
 
-    internal::IntrusivePtr<ReadTask> self(this);
+    self.reset(this);
     auto pair = tensorstore::PromiseFuturePair<kvstore::ReadResult>::Make();
-    pair.promise.ExecuteWhenNotNeeded([self] { self->context.TryCancel(); });
-
-    driver->stub()->async()->Read(
-        &context, &request, &response,
-        WithExecutor(driver->executor(), [self = std::move(self),
-                                          promise = std::move(pair.promise)](
-                                             ::grpc::Status s) {
-          if (!promise.result_needed()) return;
-          promise.SetResult(self->Ready(GrpcStatusToAbslStatus(s)));
-        }));
+    promise = std::move(pair.promise);
+    // Extra reference to self is caught here to ensure context lifetime,
+    // but it will successfully be released when promise is moved out and set in PostResult.
+    promise.ExecuteWhenNotNeeded([self = self] {
+        self->context.TryCancel();
+    });
+    driver->stub()->async()->Read(&context, &request, this);
+    StartRead(&response);
+    StartCall();
 
     return std::move(pair.future);
   }
 
-  Result<kvstore::ReadResult> Ready(absl::Status status) {
-    ABSL_LOG_IF(INFO, verbose_logging)
-        << "ReadTask::Ready " << ConciseDebugString(response) << " " << status;
+  // grpc::ClientReadReactor overrides.
 
-    TENSORSTORE_RETURN_IF_ERROR(status);
+  void OnReadDone(bool ok) override {
+    if (!promise.result_needed() || !ok) {
+      // In both cases this OnReadDone invocation is final, and OnDone is going to be called after we return from it.
+      return;
+    }
+    // According to protocol, state, generation and timestamp must be taken from the first message in the stream.
+    if (!first_response_received) {
+      first_response_received = true;
+      auto init_result = InitFromFirstResponse();
+      if (!init_result.ok()) {
+        PostResult(std::move(init_result.status()));
+        return;
+      }
+    }
+    result.value.Append(response.value_part());
+    StartRead(&response);
+  }
+
+  void OnDone(const ::grpc::Status& s) override {
+    auto status = GrpcStatusToAbslStatus(s);
+    auto result = Ready(status);
+    PostResult(std::move(result));
+  }
+
+  // Passes the promise setting action to the driver's executor and
+  // also transfers the ownership of the whole task.
+  // NB: after the end of PostResult, object is not guaranteed to be alive,
+  // therefore all enclosing methods must immediately return.
+  void PostResult(Result<kvstore::ReadResult> result)
+  {
+    driver->executor()([self = std::move(self),
+                        promise = std::move(promise),
+                        result = std::move(result)] {
+      if (!promise.result_needed()) return;
+      promise.SetResult(std::move(result));
+    });
+  }
+
+  Result<void> InitFromFirstResponse() {
+    result.state = static_cast<kvstore::ReadResult::State>(response.state());
     TENSORSTORE_RETURN_IF_ERROR(GetMessageStatus(response));
     TENSORSTORE_ASSIGN_OR_RETURN(auto stamp,
                                  DecodeGenerationAndTimestamp(response));
-    return kvstore::ReadResult{
-        static_cast<kvstore::ReadResult::State>(response.state()),
-        absl::Cord(response.value()),
-        std::move(stamp),
-    };
+    result.stamp = std::move(stamp);
+    return Result<void>(absl::OkStatus());
+  }
+
+  Result<kvstore::ReadResult> Ready(absl::Status status) {
+    TENSORSTORE_RETURN_IF_ERROR(status);
+    return std::move(result);
   }
 };
 
 /// Implements `TsGrpcKeyValueStore::Write`.
-struct WriteTask : public internal::AtomicReferenceCount<WriteTask> {
+struct WriteTask : public internal::AtomicReferenceCount<WriteTask>, public grpc::ClientWriteReactor<WriteRequest> {
   internal::IntrusivePtr<TsGrpcKeyValueStore> driver;
   grpc::ClientContext context;
   WriteRequest request;
   WriteResponse response;
 
+  absl::Cord value;
+  size_t value_offset = 0;
+
+  Promise<TimestampedStorageGeneration> promise;
+  /// Actually controls the lifetime of this object.
+  internal::IntrusivePtr<WriteTask> self;
+
   Future<TimestampedStorageGeneration> Start(
       kvstore::Key key, const absl::Cord value,
       const kvstore::WriteOptions& options) {
+    this->value = std::move(value);
+
     request.set_key(std::move(key));
-    request.set_value(value);
     request.set_generation_if_equal(options.if_equal.value);
+    SetNextPart();
 
     driver->MaybeSetDeadline(context);
 
-    internal::IntrusivePtr<WriteTask> self(this);
-    auto pair =
-        tensorstore::PromiseFuturePair<TimestampedStorageGeneration>::Make();
-    pair.promise.ExecuteWhenNotNeeded([self] { self->context.TryCancel(); });
+    self.reset(this);
 
-    driver->stub()->async()->Write(
-        &context, &request, &response,
-        WithExecutor(driver->executor(), [self = std::move(self),
-                                          promise = std::move(pair.promise)](
-                                             ::grpc::Status s) {
-          if (!promise.result_needed()) return;
-          promise.SetResult(self->Ready(GrpcStatusToAbslStatus(s)));
-        }));
+    auto pair = tensorstore::PromiseFuturePair<TimestampedStorageGeneration>::Make();
+    promise = std::move(pair.promise);
+    // Extra reference to self is caught here to ensure context lifetime,
+    // but it will successfully be released when promise is moved out and set in PostResult.
+    promise.ExecuteWhenNotNeeded([self = self] {
+        self->context.TryCancel();
+    });
+
+    driver->stub()->async()->Write(&context, &response, this);
+    StartWrite(&request);
+    StartCall();
     return std::move(pair.future);
+  }
+
+  // grpc::ClientWriteReactor overrides.
+
+  void OnWriteDone(bool ok) override
+  {
+    if (!promise.result_needed() || !ok) {
+      // In both cases this OnWriteDone invocation is final, and OnDone is going to be called after we return from it.
+      return;
+    }
+    if (value_offset < value.size()) {
+      // We could reset fields other than value here, since they are not used by server for the subsequent
+      // received messages; but let's keep them as they introduce little overhead, while simplifying
+      // the server-side debugging.
+      SetNextPart();
+      StartWrite(&request);
+    } else {
+      StartWritesDone();
+    }
+  }
+
+  void OnDone(const ::grpc::Status& s) override {
+    auto status = GrpcStatusToAbslStatus(s);
+    auto result = Ready(status);
+    PostResult(std::move(result));
+  }
+
+  // Passes the promise setting action to the driver's executor and
+  // also transfers the ownership of the whole task.
+  // NB: after the end of PostResult, object is not guaranteed to be alive,
+  // therefore all enclosing methods must immediately return.
+  void PostResult(Result<TimestampedStorageGeneration> result)
+  {
+    driver->executor()([self = std::move(self),
+                        promise = std::move(promise),
+                        result = std::move(result)] {
+      if (!promise.result_needed()) return;
+      promise.SetResult(std::move(result));
+    });
   }
 
   Result<TimestampedStorageGeneration> Ready(absl::Status status) {
@@ -285,6 +385,12 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask> {
     TENSORSTORE_RETURN_IF_ERROR(status);
     TENSORSTORE_RETURN_IF_ERROR(GetMessageStatus(response));
     return DecodeGenerationAndTimestamp(response);
+  }
+
+  void SetNextPart() {
+    auto next_part = value.Subcord(value_offset, driver->GetMaxSentPartBytes());
+    request.set_value_part(std::move(next_part));
+    value_offset = std::min(value.size(), value_offset + next_part.size());
   }
 };
 
