@@ -207,7 +207,7 @@ class DefaultCurlHandleFactory : public CurlHandleFactory {
     // connection increases throughput of large transfers, which is common in
     // tensorstore.
     auto& config = CurlEnvConfig();
-    ABSL_CHECK_EQ(CURLE_OK, curl_multi_setopt(
+    ABSL_CHECK_EQ(CURLM_OK, curl_multi_setopt(
                                 handle.get(), CURLMOPT_MAX_CONCURRENT_STREAMS,
                                 config.max_http2_concurrent_streams));
     return handle;
