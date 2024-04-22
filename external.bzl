@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("//third_party:third_party.bzl", "third_party_dependencies")
 load("//third_party:python/python_configure.bzl", "python_configure")
+load("//third_party:third_party.bzl", "third_party_dependencies")
 
 def tensorstore_dependencies():
     python_configure(name = "local_config_python")

@@ -1,10 +1,11 @@
+load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
+
 # Bazel BUILD file for dav1d.
 #
 # Canonical location for dav1d codec is https://code.videolan.org/videolan/dav1d
 #
 load("@tensorstore//bazel:rules_nasm.bzl", "nasm_library")
-load("@bazel_skylib//rules:write_file.bzl", "write_file")
-load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
 
 package(default_visibility = ["//visibility:private"])
 

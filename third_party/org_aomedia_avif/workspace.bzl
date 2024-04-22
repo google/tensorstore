@@ -15,11 +15,11 @@
 # Examples of building libavif using bazel are hard to find.
 # https://github.com/tensorflow/io
 
+load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load(
     "//third_party:repo.bzl",
     "third_party_http_archive",
 )
-load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 
 def repo():
     maybe(

@@ -1,9 +1,10 @@
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+
 # Description:
 #   The libaom package is the reference codec for AV1 and AVIF.
 #
 load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
-load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@tensorstore//bazel:rules_nasm.bzl", "nasm_library")
 
 package(default_visibility = ["//visibility:private"])

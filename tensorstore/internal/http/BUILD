@@ -14,13 +14,22 @@ _WS2_32_LINKOPTS = select({
 
 tensorstore_cc_library(
     name = "curl_factory",
-    srcs = ["curl_factory.cc"],
+    srcs = [
+        "curl_factory.cc",
+        "curl_factory_hook.cc",
+    ],
     hdrs = ["curl_factory.h"],
     deps = [
         ":curl_wrappers",
+        "//tensorstore/internal:env",
+        "//tensorstore/internal:no_destructor",
+        "//tensorstore/internal/log:verbose_flag",
         "@com_google_absl//absl/base",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/log:absl_log",
+        "@se_curl//:curl",
     ],
 )
 
@@ -31,6 +40,7 @@ tensorstore_cc_library(
     deps = [
         ":curl_factory",
         ":curl_wrappers",
+        "//tensorstore/internal:source_location",
         "@com_google_absl//absl/log:absl_check",
         "@se_curl//:curl",
     ],
@@ -46,13 +56,9 @@ tensorstore_cc_library(
         ":curl_wrappers",
         ":http",
         "//tensorstore/internal:cord_util",
-        "//tensorstore/internal:env",
-        "//tensorstore/internal:no_destructor",
-        "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/internal/metrics",
         "//tensorstore/internal/thread",
         "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/synchronization",
