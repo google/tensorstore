@@ -369,7 +369,8 @@ Future<internal::DriverHandle> ImageDriverSpec<Specialization>::Open(
   // Once the cache is initialized, pin the entry for the image path.
   return PromiseFuturePair<internal::DriverHandle>::LinkValue(
              [this, cache, request_time,
-              transaction = std::move(request.transaction)](
+              transaction = std::move(request.transaction),
+              batch = std::move(request.batch)](
                  Promise<internal::DriverHandle> p, AnyFuture f) {
                internal::ReadWritePtr<DriverType> driver =
                    internal::MakeReadWritePtr<DriverType>(ReadWriteMode::read);
@@ -382,6 +383,7 @@ Future<internal::DriverHandle> ImageDriverSpec<Specialization>::Open(
                // upon opening.
                internal::AsyncCache::AsyncCacheReadRequest read_request;
                read_request.staleness_bound = driver->data_staleness_.time;
+               read_request.batch = batch;
                LinkValue(
                    [driver, transaction = std::move(transaction),
                     schema_domain = std::move(schema_domain)](
@@ -446,6 +448,7 @@ Future<IndexTransform<>> ImageDriver<Specialization>::ResolveBounds(
   }
   internal::AsyncCache::AsyncCacheReadRequest read_request;
   read_request.staleness_bound = data_staleness_.time;
+  read_request.batch = request.options.batch;
   return MapFuture(
       data_copy_executor(),
       [self = internal::IntrusivePtr<DriverType>(this),
@@ -471,6 +474,7 @@ ImageDriver<Specialization>::GetStorageStatistics(
   kvstore::ReadOptions read_options;
   read_options.byte_range = OptionalByteRangeRequest(0, 0);
   read_options.staleness_bound = data_staleness_.time;
+  read_options.batch = std::move(request.options.batch);
   return MapFutureValue(
       InlineExecutor{},
       [options = std::move(request.options)](
@@ -549,6 +553,7 @@ void ImageDriver<Specialization>::Read(
   execution::set_starting(receiver, [] {});
   internal::AsyncCache::AsyncCacheReadRequest read_request;
   read_request.staleness_bound = data_staleness_.time;
+  read_request.batch = request.batch;
   auto read_future = cache_entry_->Read(std::move(read_request));
   read_future.ExecuteWhenReady([chunk = std::move(chunk),
                                 receiver = std::move(receiver)](
