@@ -14,23 +14,42 @@
 
 #include "tensorstore/context.h"
 
-#include <cstdint>
+#include <stddef.h>
 
+#include <algorithm>
+#include <cassert>
+#include <memory>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
+#include "absl/base/thread_annotations.h"
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_join.h"
 #include "absl/synchronization/mutex.h"
+#include "absl/time/time.h"
+#include <nlohmann/json.hpp>
 #include "tensorstore/context_impl.h"
 #include "tensorstore/context_resource_provider.h"
+#include "tensorstore/internal/cache_key/cache_key.h"
 #include "tensorstore/internal/container/heterogeneous_container.h"
+#include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/json/value_as.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/no_destructor.h"
+#include "tensorstore/internal/riegeli/delimited.h"
+#include "tensorstore/json_serialization_options.h"
+#include "tensorstore/serialization/fwd.h"
 #include "tensorstore/serialization/json.h"
 #include "tensorstore/serialization/json_bindable.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/quote_string.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -135,8 +154,8 @@ static ContextProviderRegistry& GetRegistry() {
 // Must be called with root context mutex held.
 ResourceContainer* FindCycle(ResourceContainer* container) {
   // Brent's algorithm for cycle detection.
-  std::size_t power = 1;
-  std::size_t lambda = 1;
+  size_t power = 1;
+  size_t lambda = 1;
   auto* tortoise = container;
   auto* hare = container->creation_blocked_on_;
   while (true) {
