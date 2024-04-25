@@ -38,6 +38,7 @@
 #include "absl/time/time.h"
 #include "tensorstore/array.h"
 #include "tensorstore/array_storage_statistics.h"
+#include "tensorstore/batch.h"
 #include "tensorstore/box.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/codec_spec.h"
@@ -667,8 +668,11 @@ class RegularlyShardedDataCache : public ShardedDataCache {
         [&](IndexTransform<> transform,
             AnyFlowReceiver<absl::Status, internal::ReadChunk, IndexTransform<>>
                 receiver) {
+          Batch shard_batch = request.batch;
+          if (!shard_batch) shard_batch = Batch::New();
           return ShardedDataCache::Read(
-              {{request.transaction, std::move(transform)},
+              {{request.transaction, std::move(transform),
+                std::move(shard_batch)},
                request.component_index,
                request.staleness_bound},
               std::move(receiver));

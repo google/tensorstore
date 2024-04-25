@@ -49,6 +49,7 @@
 #include "tensorstore/internal/testing/scoped_directory.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/kvstore.h"
+#include "tensorstore/kvstore/memory/memory_key_value_store.h"
 #include "tensorstore/kvstore/mock_kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
@@ -2872,6 +2873,33 @@ TEST(DriverTest, SerializationRoundTrip) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store_copy_spec_json,
                                    store_copy_spec.ToJson());
   EXPECT_THAT(store_copy_spec_json, MatchesJson(store_spec_json));
+}
+
+TEST(DriverTest, ShardingBatchRead) {
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto mock_kvstore_resource,
+      context.GetResource<tensorstore::internal::MockKeyValueStoreResource>());
+  auto mock_kvstore = *mock_kvstore_resource;
+  mock_kvstore->forward_to = tensorstore::GetMemoryKeyValueStore();
+  mock_kvstore->log_requests = true;
+  mock_kvstore->handle_batch_requests = true;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open({{"driver", "neuroglancer_precomputed"},
+                         {"kvstore", {{"driver", "mock_key_value_store"}}}},
+                        tensorstore::OpenMode::create, context,
+                        dtype_v<uint16_t>, Schema::Shape({8, 8, 1, 1}),
+                        ChunkLayout::ReadChunkShape({2, 2, 1, 1}),
+                        ChunkLayout::WriteChunkShape({4, 4, 1, 1}))
+          .result());
+  TENSORSTORE_ASSERT_OK(
+      tensorstore::Write(tensorstore::MakeScalarArray<uint16_t>(42), store));
+  mock_kvstore->request_log.pop_all();
+
+  TENSORSTORE_ASSERT_OK(tensorstore::Read(store));
+
+  EXPECT_THAT(mock_kvstore->request_log.pop_all(), ::testing::SizeIs(4));
 }
 
 }  // namespace

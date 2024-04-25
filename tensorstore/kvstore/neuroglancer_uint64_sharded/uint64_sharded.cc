@@ -171,6 +171,17 @@ ChunkSplitShardInfo GetSplitShardInfo(const ShardingSpec& sharding_spec,
   return result;
 }
 
+ChunkCombinedShardInfo GetCombinedShardInfo(const ShardingSpec& sharding_spec,
+                                            ChunkSplitShardInfo split_info) {
+  ChunkCombinedShardInfo result;
+  result.shard_and_minishard = split_info.minishard;
+  if (sharding_spec.minishard_bits != 64) {
+    result.shard_and_minishard |=
+        (split_info.shard << sharding_spec.minishard_bits);
+  }
+  return result;
+}
+
 int64_t ShardIndexSize(const ShardingSpec& sharding_spec) {
   return static_cast<int64_t>(16) << sharding_spec.minishard_bits;
 }

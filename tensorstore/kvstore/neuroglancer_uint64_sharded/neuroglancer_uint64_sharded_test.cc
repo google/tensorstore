@@ -34,6 +34,7 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
+#include "tensorstore/batch.h"
 #include "tensorstore/context.h"
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/cache/kvs_backed_cache_testutil.h"
@@ -64,6 +65,7 @@ namespace {
 namespace zlib = ::tensorstore::zlib;
 namespace kvstore = ::tensorstore::kvstore;
 
+using ::tensorstore::Batch;
 using ::tensorstore::Future;
 using ::tensorstore::KvStore;
 using ::tensorstore::MatchesStatus;
@@ -76,6 +78,7 @@ using ::tensorstore::internal::CachePool;
 using ::tensorstore::internal::GetCache;
 using ::tensorstore::internal::KvsBackedTestCache;
 using ::tensorstore::internal::MatchesKvsReadResult;
+using ::tensorstore::internal::MatchesKvsReadResultAborted;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
 using ::tensorstore::internal::MatchesTimestampedStorageGeneration;
 using ::tensorstore::internal::MockKeyValueStore;
@@ -1513,6 +1516,148 @@ TEST_F(UnderlyingKeyValueStoreTest, TransactionalDeleteRangeUnimplemented) {
   EXPECT_THAT(
       store->TransactionalDeleteRange({}, tensorstore::KeyRange::Prefix("abc")),
       MatchesStatus(absl::StatusCode::kUnimplemented));
+}
+
+TEST_F(UnderlyingKeyValueStoreTest, BatchRead) {
+  cache_pool = CachePool::Make({});
+  auto memory_store = tensorstore::GetMemoryKeyValueStore();
+  mock_store->forward_to = memory_store;
+  mock_store->log_requests = true;
+  mock_store->handle_batch_requests = true;
+
+  auto store = GetStore(
+      /*get_max_chunks_per_shard=*/[](uint64_t shard) -> uint64_t {
+        return 6;
+      });
+
+  auto key0 = GetChunkKey(0x50);  // shard=0, minishard=0
+  auto key1 = GetChunkKey(0x54);  // shard=0, minishard=0
+  auto key2 = GetChunkKey(0x58);  // shard=0, minishard=0
+
+  auto key3 = GetChunkKey(0x51);  // shard=0, minishard=1
+  auto key4 = GetChunkKey(0x55);  // shard=0, minishard=1
+  auto key5 = GetChunkKey(0x59);  // shard=0, minishard=1
+
+  auto key6 = GetChunkKey(0x52);  // shard=1, minishard=0
+  auto key7 = GetChunkKey(0x56);  // shard=1, minishard=0
+  auto key8 = GetChunkKey(0x5a);  // shard=1, minishard=0
+
+  TENSORSTORE_ASSERT_OK(store->Write(key0, absl::Cord("abc")).result());
+  TENSORSTORE_ASSERT_OK(store->Write(key1, absl::Cord("def")).result());
+  TENSORSTORE_ASSERT_OK(store->Write(key3, absl::Cord("key3-")).result());
+  TENSORSTORE_ASSERT_OK(store->Write(key4, absl::Cord("key4--")).result());
+  TENSORSTORE_ASSERT_OK(store->Write(key5, absl::Cord("key5---")).result());
+  TENSORSTORE_ASSERT_OK(store->Write(key6, absl::Cord("key6----")).result());
+  TENSORSTORE_ASSERT_OK(store->Write(key7, absl::Cord("key6-----")).result());
+  TENSORSTORE_ASSERT_OK(store->Write(key8, absl::Cord("key6------")).result());
+  mock_store->request_log.pop_all();
+
+  {
+    SCOPED_TRACE(
+        "Read 2/6 chunks from the same shard (same minibatch) in a single "
+        "batch");
+    std::vector<Future<kvstore::ReadResult>> futures;
+    {
+      kvstore::ReadOptions options;
+      options.batch = Batch::New();
+      futures = {
+          store->Read(key0, options),
+          store->Read(key1, options),
+      };
+    }
+    EXPECT_THAT(futures[0].result(), MatchesKvsReadResult(absl::Cord("abc")));
+    EXPECT_THAT(futures[1].result(), MatchesKvsReadResult(absl::Cord("def")));
+    // Expected to result in a single request for the shard index, followed by a
+    // single request for the minishard index, followed by a batch request for
+    // the two entries.
+    EXPECT_THAT(mock_store->request_log.pop_all(), ::testing::SizeIs(3));
+  }
+
+  {
+    SCOPED_TRACE("Read 6/6 entries from the same shard in a single batch");
+    std::vector<Future<kvstore::ReadResult>> futures;
+    {
+      kvstore::ReadOptions options;
+      options.batch = Batch::New();
+      futures = {
+          store->Read(key0, options),  //
+          store->Read(key1, options),  //
+          store->Read(key2, options),  //
+          store->Read(key3, options),  //
+          store->Read(key4, options),  //
+          store->Read(key5, options),  //
+      };
+    }
+    EXPECT_THAT(futures[0].result(), MatchesKvsReadResult(absl::Cord("abc")));
+    EXPECT_THAT(futures[1].result(), MatchesKvsReadResult(absl::Cord("def")));
+    EXPECT_THAT(futures[2].result(), MatchesKvsReadResultNotFound());
+    EXPECT_THAT(futures[3].result(), MatchesKvsReadResult(absl::Cord("key3-")));
+    EXPECT_THAT(futures[4].result(),
+                MatchesKvsReadResult(absl::Cord("key4--")));
+    EXPECT_THAT(futures[5].result(),
+                MatchesKvsReadResult(absl::Cord("key5---")));
+
+    // Expected to result in a single request for the entire shard.
+    EXPECT_THAT(mock_store->request_log.pop_all(), ::testing::SizeIs(1));
+  }
+
+  {
+    SCOPED_TRACE(
+        "Read 6/6 entries from the same shard with inconsistent generation "
+        "constraints");
+    std::vector<Future<kvstore::ReadResult>> futures;
+    {
+      kvstore::ReadOptions options1;
+      options1.batch = Batch::New();
+      kvstore::ReadOptions options2;
+      options2.batch = options1.batch;
+      options2.generation_conditions.if_not_equal =
+          StorageGeneration::Invalid();
+      kvstore::ReadOptions options3;
+      options3.batch = options1.batch;
+      options3.generation_conditions.if_equal = StorageGeneration::Invalid();
+      futures = {
+          store->Read(key0, options1),  //
+          store->Read(key1, options1),  //
+          store->Read(key2, options2),  //
+          store->Read(key3, options1),  //
+          store->Read(key4, options3),  //
+          store->Read(key5, options1),  //
+      };
+    }
+    EXPECT_THAT(futures[0].result(), MatchesKvsReadResult(absl::Cord("abc")));
+    EXPECT_THAT(futures[1].result(), MatchesKvsReadResult(absl::Cord("def")));
+    EXPECT_THAT(futures[2].result(), MatchesKvsReadResultNotFound());
+    EXPECT_THAT(futures[3].result(), MatchesKvsReadResult(absl::Cord("key3-")));
+    EXPECT_THAT(futures[4].result(), MatchesKvsReadResultAborted());
+    EXPECT_THAT(futures[5].result(),
+                MatchesKvsReadResult(absl::Cord("key5---")));
+    // Expected to result in a single request for the shard index, followed by a
+    // batch request for the minibatch index, followed by a batch request for
+    // the two present entries.
+    EXPECT_THAT(mock_store->request_log.pop_all(), ::testing::SizeIs(3));
+  }
+
+  {
+    SCOPED_TRACE("Read 1 entry from each of two shards in a single batch");
+    std::vector<Future<kvstore::ReadResult>> futures;
+    {
+      kvstore::ReadOptions options;
+      options.batch = Batch::New();
+      futures = {
+          store->Read(key0, options),  //
+          store->Read(key6, options),  //
+      };
+    }
+    EXPECT_THAT(futures[0].result(), MatchesKvsReadResult(absl::Cord("abc")));
+    EXPECT_THAT(futures[1].result(),
+                MatchesKvsReadResult(absl::Cord("key6----")));
+
+    // For each shard, expected to result in a single request for the shard
+    // index, followed by a single request for the minibatch index, followed by
+    // a single request for the one present entry.
+    EXPECT_THAT(mock_store->request_log.pop_all(), ::testing::SizeIs(6));
+  }
 }
 
 // Tests of ReadModifyWrite operations, using `KvsBackedTestCache` ->
