@@ -30,6 +30,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
 #include "python/tensorstore/array_type_caster.h"
+#include "python/tensorstore/batch.h"
 #include "python/tensorstore/context.h"
 #include "python/tensorstore/data_type.h"
 #include "python/tensorstore/define_heap_type.h"
@@ -47,6 +48,7 @@
 #include "python/tensorstore/transaction.h"
 #include "python/tensorstore/write_futures.h"
 #include "tensorstore/array.h"
+#include "tensorstore/batch.h"
 #include "tensorstore/cast.h"
 #include "tensorstore/context.h"
 #include "tensorstore/contiguous_layout.h"
@@ -111,7 +113,8 @@ constexpr auto ForwardOpenSetters = [](auto callback, auto... other_param) {
       open_setters::SetOpen{}, open_setters::SetCreate{},
       open_setters::SetDeleteExisting{}, open_setters::SetAssumeMetadata{},
       open_setters::SetAssumeCachedMetadata{}, open_setters::SetContext{},
-      open_setters::SetTransaction{}, spec_setters::SetKvstore{});
+      open_setters::SetTransaction{}, open_setters::SetBatch{},
+      spec_setters::SetKvstore{});
 };
 
 constexpr auto ForwardSpecRequestSetters = [](auto callback,
@@ -443,10 +446,12 @@ Group:
 
   cls.def(
       "read",
-      [](Self& self, ContiguousLayoutOrder order)
-          -> PythonFutureWrapper<SharedArray<void>> {
+      [](Self& self, ContiguousLayoutOrder order,
+         std::optional<Batch> batch) -> PythonFutureWrapper<SharedArray<void>> {
         return PythonFutureWrapper<SharedArray<void>>(
-            tensorstore::Read<zero_origin>(self.value, {order}),
+            tensorstore::Read<zero_origin>(
+                self.value, order,
+                internal_python::ValidateOptionalBatch(std::move(batch))),
             self.reference_manager());
       },
       R"(
@@ -492,6 +497,14 @@ Args:
     :python:`'F'`
       Specifies Fortran order, i.e. colexicographic/column-major order.
 
+  batch: Batch to use for the read operation.
+
+    .. warning::
+
+       If specified, the returned :py:obj:`Future` will not, in general, become
+       ready until the batch is submitted.  Therefore, immediately awaiting the
+       returned future will lead to deadlock.
+
 Returns:
   A future representing the asynchronous read result.
 
@@ -515,7 +528,7 @@ Group:
   I/O
 
 )",
-      py::arg("order") = "C");
+      py::kw_only(), py::arg("order") = "C", py::arg("batch") = std::nullopt);
 
   cls.def(
       "write",
@@ -866,23 +879,37 @@ Group:
 
   cls.def(
       "resolve",
-      [](Self& self,
-         bool fix_resizable_bounds) -> PythonFutureWrapper<TensorStore<>> {
+      [](Self& self, bool fix_resizable_bounds,
+         std::optional<Batch> batch) -> PythonFutureWrapper<TensorStore<>> {
         ResolveBoundsOptions options = {};
         if (fix_resizable_bounds) {
           options.mode = options.mode | tensorstore::fix_resizable_bounds;
         }
+        options.batch =
+            internal_python::ValidateOptionalBatch(std::move(batch));
         return PythonFutureWrapper<TensorStore<>>(
-            tensorstore::ResolveBounds(self.value, options),
+            tensorstore::ResolveBounds(self.value, std::move(options)),
             self.reference_manager());
       },
       R"(
 Obtains updated bounds, subject to the cache policy.
 
+Args:
+
+  fix_resizable_bounds: Mark all resizable bounds as explicit.
+
+  batch: Batch to use for resolving the bounds.
+
+    .. warning::
+
+       If specified, the returned :py:obj:`Future` will not, in general, become
+       ready until the batch is submitted.  Therefore, immediately awaiting the
+       returned future will lead to deadlock.
+
 Group:
   I/O
 )",
-      py::arg("fix_resizable_bounds") = false);
+      py::arg("fix_resizable_bounds") = false, py::arg("batch") = std::nullopt);
 
   cls.def(
       "astype",

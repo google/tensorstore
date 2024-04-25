@@ -34,6 +34,7 @@ pybind11_py_extension(
     srcs = ["tensorstore_module.cc"],
     imports = [".."],
     deps = [
+        ":batch",
         ":cast",
         ":chunk_layout",
         ":context",
@@ -479,6 +480,7 @@ pybind11_cc_library(
     hdrs = ["tensorstore_class.h"],
     deps = [
         ":array_type_caster",
+        ":batch",
         ":context",
         ":data_type",
         ":define_heap_type",
@@ -501,6 +503,7 @@ pybind11_cc_library(
         ":write_futures",
         "//tensorstore",
         "//tensorstore:array",
+        "//tensorstore:batch",
         "//tensorstore:cast",
         "//tensorstore:context",
         "//tensorstore:contiguous_layout",
@@ -818,6 +821,20 @@ pybind11_cc_library(
 )
 
 pybind11_cc_library(
+    name = "batch",
+    srcs = ["batch.cc"],
+    hdrs = ["batch.h"],
+    deps = [
+        ":tensorstore_module_components",
+        "//tensorstore:batch",
+        "//tensorstore/internal:global_initializer",
+        "//tensorstore/util:executor",
+        "@com_github_pybind_pybind11//:pybind11",
+    ],
+    alwayslink = True,
+)
+
+pybind11_cc_library(
     name = "downsample",
     srcs = ["downsample.cc"],
     hdrs = ["downsample.h"],
@@ -1008,6 +1025,7 @@ pybind11_cc_library(
     srcs = ["kvstore.cc"],
     hdrs = ["kvstore.h"],
     deps = [
+        ":batch",
         ":context",
         ":future",
         ":garbage_collection",
@@ -1019,6 +1037,7 @@ pybind11_cc_library(
         ":tensorstore_module_components",
         ":time",
         ":transaction",
+        "//tensorstore:batch",
         "//tensorstore:context",
         "//tensorstore:transaction",
         "//tensorstore/internal:global_initializer",
