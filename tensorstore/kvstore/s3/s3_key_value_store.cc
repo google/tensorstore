@@ -479,8 +479,9 @@ struct ReadTask : public RateLimiterNode,
         options.byte_range.size() == 0 ? "HEAD" : "GET", read_url_);
 
     AddGenerationHeader(&request_builder, "if-none-match",
-                        options.if_not_equal);
-    AddGenerationHeader(&request_builder, "if-match", options.if_equal);
+                        options.generation_conditions.if_not_equal);
+    AddGenerationHeader(&request_builder, "if-match",
+                        options.generation_conditions.if_equal);
 
     if (options.byte_range.size() != 0) {
       request_builder.MaybeAddRangeHeader(options.byte_range);
@@ -553,8 +554,8 @@ struct ReadTask : public RateLimiterNode,
       case 304:
         // "Not modified": indicates that the ifGenerationNotMatch condition
         // did not hold.
-        return kvstore::ReadResult::Unspecified(
-            TimestampedStorageGeneration{options.if_not_equal, start_time_});
+        return kvstore::ReadResult::Unspecified(TimestampedStorageGeneration{
+            options.generation_conditions.if_not_equal, start_time_});
     }
 
     absl::Cord value;
@@ -600,8 +601,8 @@ Future<kvstore::ReadResult> S3KeyValueStore::Read(Key key,
   if (!IsValidObjectName(key)) {
     return absl::InvalidArgumentError("Invalid S3 object name");
   }
-  if (!IsValidStorageGeneration(options.if_equal) ||
-      !IsValidStorageGeneration(options.if_not_equal)) {
+  if (!IsValidStorageGeneration(options.generation_conditions.if_equal) ||
+      !IsValidStorageGeneration(options.generation_conditions.if_not_equal)) {
     return absl::InvalidArgumentError("Malformed StorageGeneration");
   }
 
@@ -679,7 +680,7 @@ struct WriteTask : public RateLimiterNode,
       credentials_ = std::move(*maybe_credentials.value());
     }
 
-    if (StorageGeneration::IsUnknown(options.if_equal)) {
+    if (StorageGeneration::IsUnknown(options.generation_conditions.if_equal)) {
       DoPut();
       return;
     }
@@ -687,7 +688,8 @@ struct WriteTask : public RateLimiterNode,
     // S3 doesn't support conditional PUT, so we use a HEAD call
     // to test the if-match condition
     auto builder = S3RequestBuilder("HEAD", upload_url_);
-    AddGenerationHeader(&builder, "if-match", options.if_equal);
+    AddGenerationHeader(&builder, "if-match",
+                        options.generation_conditions.if_equal);
 
     auto now = absl::Now();
     const auto& ehr = endpoint_region_.value();
@@ -725,8 +727,7 @@ struct WriteTask : public RateLimiterNode,
         promise.SetResult(r);
         return;
       case 404:
-        if (!StorageGeneration::IsUnknown(options.if_equal) &&
-            !StorageGeneration::IsNoValue(options.if_equal)) {
+        if (!options.generation_conditions.MatchesNoValue()) {
           r.generation = StorageGeneration::Unknown();
           promise.SetResult(r);
           return;
@@ -799,7 +800,8 @@ struct WriteTask : public RateLimiterNode,
     r.time = start_time_;
     switch (response.status_code) {
       case 404:
-        if (!StorageGeneration::IsUnknown(options.if_equal)) {
+        if (!StorageGeneration::IsUnknown(
+                options.generation_conditions.if_equal)) {
           r.generation = StorageGeneration::Unknown();
           return r;
         }
@@ -859,7 +861,7 @@ struct DeleteTask : public RateLimiterNode,
     if (!promise.result_needed()) {
       return;
     }
-    if (!IsValidStorageGeneration(options.if_equal)) {
+    if (!IsValidStorageGeneration(options.generation_conditions.if_equal)) {
       promise.SetResult(
           absl::InvalidArgumentError("Malformed StorageGeneration"));
       return;
@@ -873,7 +875,7 @@ struct DeleteTask : public RateLimiterNode,
       credentials_ = std::move(*maybe_credentials.value());
     }
 
-    if (StorageGeneration::IsUnknown(options.if_equal)) {
+    if (StorageGeneration::IsUnknown(options.generation_conditions.if_equal)) {
       DoDelete();
       return;
     }
@@ -881,7 +883,8 @@ struct DeleteTask : public RateLimiterNode,
     // S3 doesn't support conditional DELETE,
     // use a HEAD call to test the if-match condition
     auto builder = S3RequestBuilder("HEAD", delete_url_);
-    AddGenerationHeader(&builder, "if-match", options.if_equal);
+    AddGenerationHeader(&builder, "if-match",
+                        options.generation_conditions.if_equal);
 
     auto now = absl::Now();
     const auto& ehr = endpoint_region_.value();
@@ -916,8 +919,7 @@ struct DeleteTask : public RateLimiterNode,
         promise.SetResult(std::move(r));
         return;
       case 404:
-        if (!StorageGeneration::IsUnknown(options.if_equal) &&
-            !StorageGeneration::IsNoValue(options.if_equal)) {
+        if (!options.generation_conditions.MatchesNoValue()) {
           r.generation = StorageGeneration::Unknown();
           promise.SetResult(std::move(r));
           return;
@@ -983,8 +985,10 @@ struct DeleteTask : public RateLimiterNode,
     switch (response.value().status_code) {
       case 404:
         // 404 Not Found means aborted when a StorageGeneration was specified.
-        if (!StorageGeneration::IsNoValue(options.if_equal) &&
-            !StorageGeneration::IsUnknown(options.if_equal)) {
+        if (!StorageGeneration::IsNoValue(
+                options.generation_conditions.if_equal) &&
+            !StorageGeneration::IsUnknown(
+                options.generation_conditions.if_equal)) {
           r.generation = StorageGeneration::Unknown();
           break;
         }
@@ -1003,7 +1007,7 @@ Future<TimestampedStorageGeneration> S3KeyValueStore::Write(
   if (!IsValidObjectName(key)) {
     return absl::InvalidArgumentError("Invalid S3 object name");
   }
-  if (!IsValidStorageGeneration(options.if_equal)) {
+  if (!IsValidStorageGeneration(options.generation_conditions.if_equal)) {
     return absl::InvalidArgumentError("Malformed StorageGeneration");
   }
 

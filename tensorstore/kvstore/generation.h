@@ -94,6 +94,9 @@ struct StorageGeneration {
   ///     gen_id + (kBaseGeneration|kNoValue|kDirty)
   std::string value;
 
+  /// Indicates whether a generation is specified.
+  explicit operator bool() const { return !value.empty(); }
+
   // In the case of multiple layers of modifications, e.g. the
   // neuroglancer_precomputed uint64_sharded_key_value_store, where we need to
   // separately track whether an individual chunk within a shard is dirty, but
@@ -266,11 +269,17 @@ struct StorageGeneration {
 
   /// Checks if `if_equal` is unspecified, or equal to `generation`.
   static bool EqualOrUnspecified(const StorageGeneration& generation,
-                                 const StorageGeneration& if_equal);
+                                 const StorageGeneration& if_equal) {
+    return StorageGeneration::IsUnknown(if_equal) ||
+           generation.value == if_equal.value;
+  }
 
   /// Checks if `if_not_equal` is unspecified, or not equal to `generation`.
   static bool NotEqualOrUnspecified(const StorageGeneration& generation,
-                                    const StorageGeneration& if_not_equal);
+                                    const StorageGeneration& if_not_equal) {
+    return StorageGeneration::IsUnknown(if_not_equal) ||
+           generation.value != if_not_equal.value;
+  }
 
   /// Returns `true` if `generation` is equal to the special
   /// `StorageGeneration::Unknown()` value, i.e. an empty string.

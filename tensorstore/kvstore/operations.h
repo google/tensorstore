@@ -39,29 +39,19 @@
 namespace tensorstore {
 namespace kvstore {
 
-/// Read options for non-transactional reads.
-///
-/// See also `TransactionalReadOptions`.
+/// Specifies constraints on the generation for read operations.
 ///
 /// \relates KvStore
-struct ReadOptions {
-  /// The read is aborted if the generation associated with the stored ``key``
+struct ReadGenerationConditions {
+  /// The read is aborted if the generation associated with the stored key
   /// matches `if_not_equal`.  The special values of
   /// `StorageGeneration::Unknown()` (the default) or
   /// `StorageGeneration::NoValue()` disable this condition.
   StorageGeneration if_not_equal;
 
-  /// Cached data may be used without validation if not older than
-  /// `staleness_bound`.  Cached data older than `staleness_bound` must be
-  /// validated before being returned.  A value of `absl::InfiniteFuture()` (the
-  /// default) indicates that the result must be current as of the time the
-  /// `Read` request was made, i.e. it is equivalent to specifying the value of
-  /// `absl::Now()` just before invoking `Read`.
-  absl::Time staleness_bound{absl::InfiniteFuture()};
-
-  /// The read is aborted if the generation associated with ``key`` does not
-  /// match `if_equal`.  This is primarily useful in conjunction with a
-  /// `byte_range` request to ensure consistency.
+  /// The read is aborted if the generation associated with the stored key does
+  /// not match `if_equal`.  This is primarily useful in conjunction with a
+  /// `ReadOptions::byte_range` request to ensure consistency.
   ///
   /// - The special value of `StorageGeneration::Unknown()` (the default)
   ///   disables this condition.
@@ -72,8 +62,64 @@ struct ReadOptions {
   ///   "aborted".
   StorageGeneration if_equal;
 
+  /// Returns `true` if `generation` satisfies the constraints.
+  bool Matches(const StorageGeneration& generation) const {
+    assert(!StorageGeneration::IsUnknown(generation));
+    return generation != if_not_equal &&
+           (StorageGeneration::IsUnknown(if_equal) || generation == if_equal);
+  }
+
+  /// Indicates if any constraints are specified.
+  explicit operator bool() const {
+    return static_cast<bool>(if_not_equal) || static_cast<bool>(if_equal);
+  }
+
+  friend bool operator==(const ReadGenerationConditions& a,
+                         const ReadGenerationConditions& b) {
+    return a.if_not_equal == b.if_not_equal && a.if_equal == b.if_equal;
+  }
+
+  friend bool operator!=(const ReadGenerationConditions& a,
+                         const ReadGenerationConditions& b) {
+    return !(a == b);
+  }
+
+  template <typename H>
+  friend H AbslHashValue(H h, const ReadGenerationConditions& x) {
+    return H::combine(std::move(h), x.if_not_equal, x.if_equal);
+  }
+
+  friend std::ostream& operator<<(std::ostream& os,
+                                  const ReadGenerationConditions& x);
+};
+
+/// Read options for non-transactional reads.
+///
+/// See also `TransactionalReadOptions`.
+///
+/// \relates KvStore
+struct ReadOptions {
+  /// Specifies conditions for the read.
+  ReadGenerationConditions generation_conditions;
+
+  /// Cached data may be used without validation if not older than
+  /// `staleness_bound`.  Cached data older than `staleness_bound` must be
+  /// validated before being returned.  A value of `absl::InfiniteFuture()` (the
+  /// default) indicates that the result must be current as of the time the
+  /// `Read` request was made, i.e. it is equivalent to specifying the value of
+  /// `absl::Now()` just before invoking `Read`.
+  absl::Time staleness_bound{absl::InfiniteFuture()};
+
   /// Specifies the byte range.
   OptionalByteRangeRequest byte_range;
+};
+
+struct TransactionalReadGenerationConditions {
+  /// The read is aborted if the generation associated with the stored ``key``
+  /// matches `if_not_equal`.  The special values of
+  /// `StorageGeneration::Unknown()` (the default) or
+  /// `StorageGeneration::NoValue()` disable this condition.
+  StorageGeneration if_not_equal;
 };
 
 /// Read options for transactional reads.
@@ -82,11 +128,8 @@ struct ReadOptions {
 ///
 /// \relates KvStore
 struct TransactionalReadOptions {
-  /// The read is aborted if the generation associated with the stored ``key``
-  /// matches `if_not_equal`.  The special values of
-  /// `StorageGeneration::Unknown()` (the default) or
-  /// `StorageGeneration::NoValue()` disable this condition.
-  StorageGeneration if_not_equal;
+  /// Specifies conditions for the read.
+  TransactionalReadGenerationConditions generation_conditions;
 
   /// Cached data may be used without validation if not older than
   /// `staleness_bound`.  Cached data older than `staleness_bound` must be
@@ -97,10 +140,7 @@ struct TransactionalReadOptions {
   absl::Time staleness_bound{absl::InfiniteFuture()};
 };
 
-/// Options for `Write`.
-///
-/// \relates KvStore
-struct WriteOptions {
+struct WriteGenerationConditions {
   // Note: While it would be nice to use default member initializers to be
   // more explicit about what the default values are, doing so would trigger
   // Clang bug https://bugs.llvm.org/show_bug.cgi?id=36684.
@@ -114,6 +154,26 @@ struct WriteOptions {
   /// - The special value of `StorageGeneration::NoValue()` specifies a
   ///   condition that the ``key`` does not have an existing value.
   StorageGeneration if_equal;
+
+  /// Returns `true` if `generation` matches the constraint.
+  bool Matches(const StorageGeneration& generation) const {
+    assert(!StorageGeneration::IsUnknown(generation));
+    return StorageGeneration::IsUnknown(if_equal) || generation == if_equal;
+  }
+
+  /// Equivalent to `Matches(StorageGeneration::NoValue())`.
+  bool MatchesNoValue() const {
+    return StorageGeneration::IsUnknown(if_equal) ||
+           StorageGeneration::IsNoValue(if_equal);
+  }
+};
+
+/// Options for `Write`.
+///
+/// \relates KvStore
+struct WriteOptions {
+  /// Specifies conditions for the write.
+  WriteGenerationConditions generation_conditions;
 };
 
 /// Options for `ListFuture`.

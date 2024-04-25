@@ -82,7 +82,7 @@ void PerformWriteback(Driver* driver, Controller controller,
     ReadOptions read_options;
     auto if_not_equal =
         StorageGeneration::Clean(std::move(read_result.stamp.generation));
-    read_options.if_not_equal = if_not_equal;
+    read_options.generation_conditions.if_not_equal = if_not_equal;
     read_options.byte_range = OptionalByteRangeRequest{0, 0};
     auto future = driver->Read(controller.GetKey(), std::move(read_options));
     future.Force();
@@ -105,7 +105,7 @@ void PerformWriteback(Driver* driver, Controller controller,
   // matches.
   WriteOptions write_options;
   assert(!read_result.aborted());
-  write_options.if_equal =
+  write_options.generation_conditions.if_equal =
       StorageGeneration::Clean(std::move(read_result.stamp.generation));
   auto future = driver->Write(controller.GetKey(),
                               std::move(read_result).optional_value(),
@@ -724,7 +724,8 @@ void ReadModifyWriteEntry::KvsRead(
   } else if (prev_) {
     TENSORSTORE_KVSTORE_DEBUG_LOG(*prev_, "Requesting writeback for read");
     ReadModifyWriteSource::WritebackOptions writeback_options;
-    writeback_options.if_not_equal = std::move(options.if_not_equal);
+    writeback_options.generation_conditions.if_not_equal =
+        std::move(options.generation_conditions.if_not_equal);
     writeback_options.staleness_bound = options.staleness_bound;
     writeback_options.writeback_mode =
         ReadModifyWriteSource::kSpecifyUnchangedWriteback;
@@ -1226,7 +1227,8 @@ void ReadDirectly(Driver* driver, ReadModifyWriteEntry& entry,
                   ReadModifyWriteTarget::ReadReceiver&& receiver) {
   ReadOptions kvstore_options;
   kvstore_options.staleness_bound = options.staleness_bound;
-  kvstore_options.if_not_equal = std::move(options.if_not_equal);
+  kvstore_options.generation_conditions.if_not_equal =
+      std::move(options.generation_conditions.if_not_equal);
   execution::submit(driver->Read(entry.key_, std::move(kvstore_options)),
                     std::move(receiver));
 }
@@ -1540,7 +1542,7 @@ class WriteViaExistingTransactionNode : public internal::TransactionState::Node,
     // determine an up-to-date writeback value (which may be required by a
     // subsequent read-modify-write operation layered on top of this operation).
     ReadModifyWriteTarget::TransactionalReadOptions read_options;
-    read_options.if_not_equal =
+    read_options.generation_conditions.if_not_equal =
         StorageGeneration::Clean(read_result_.stamp.generation);
     read_options.staleness_bound = options.staleness_bound;
     struct ReadReceiverImpl {
@@ -1624,14 +1626,15 @@ Future<TimestampedStorageGeneration> WriteViaExistingTransaction(
     Driver* driver, internal::OpenTransactionPtr& transaction, size_t& phase,
     Key key, std::optional<Value> value, WriteOptions options) {
   TimestampedStorageGeneration stamp;
-  if (StorageGeneration::IsUnknown(options.if_equal)) {
+  if (StorageGeneration::IsUnknown(options.generation_conditions.if_equal)) {
     stamp.time = absl::InfiniteFuture();
   } else {
-    assert(StorageGeneration::IsClean(options.if_equal));
+    assert(StorageGeneration::IsClean(options.generation_conditions.if_equal));
     stamp.time = absl::Time();
   }
-  bool if_equal_no_value = StorageGeneration::IsNoValue(options.if_equal);
-  stamp.generation = std::move(options.if_equal);
+  bool if_equal_no_value =
+      StorageGeneration::IsNoValue(options.generation_conditions.if_equal);
+  stamp.generation = std::move(options.generation_conditions.if_equal);
   stamp.generation.MarkDirty();
 
   auto [promise, future] =

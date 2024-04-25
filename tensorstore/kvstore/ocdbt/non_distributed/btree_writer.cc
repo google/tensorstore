@@ -1069,7 +1069,7 @@ Future<TimestampedStorageGeneration> NonDistributedBtreeWriter::Write(
   auto request = std::make_unique<WriteEntry>();
   request->key = std::move(key);
   request->kind = MutationEntry::kWrite;
-  request->if_equal = std::move(options.if_equal);
+  request->if_equal = std::move(options.generation_conditions.if_equal);
   auto [promise, future] =
       PromiseFuturePair<TimestampedStorageGeneration>::Make(std::in_place);
   request->promise = std::move(promise);

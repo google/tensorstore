@@ -31,9 +31,11 @@
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/queue_testutil.h"
 #include "tensorstore/internal/utf8.h"
+#include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
+#include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/registry.h"
 #include "tensorstore/kvstore/spec.h"
@@ -49,30 +51,43 @@ namespace internal {
 
 namespace jb = tensorstore::internal_json_binding;
 
+void AddGenerationConditionsToLogEntry(
+    ::nlohmann::json::object_t& log_entry,
+    const kvstore::ReadGenerationConditions& generation_conditions) {
+  if (!StorageGeneration::IsUnknown(generation_conditions.if_equal)) {
+    log_entry.emplace("if_equal", generation_conditions.if_equal.value);
+  }
+  if (!StorageGeneration::IsUnknown(generation_conditions.if_not_equal)) {
+    log_entry.emplace("if_not_equal", generation_conditions.if_not_equal.value);
+  }
+}
+
+void AddByteRangeToLogEntry(::nlohmann::json::object_t& log_entry,
+                            const OptionalByteRangeRequest& byte_range) {
+  if (byte_range.inclusive_min != 0) {
+    log_entry.emplace("byte_range_inclusive_min", byte_range.inclusive_min);
+  }
+  if (byte_range.exclusive_max != -1) {
+    log_entry.emplace("byte_range_exclusive_max", byte_range.exclusive_max);
+  }
+}
+
+void AddStalenessBoundToLogEntry(::nlohmann::json::object_t& log_entry,
+                                 const absl::Time& staleness_bound) {
+  if (staleness_bound != absl::InfiniteFuture()) {
+    log_entry.emplace("staleness_bound", absl::FormatTime(staleness_bound));
+  }
+}
+
 Future<kvstore::ReadResult> MockKeyValueStore::Read(Key key,
                                                     ReadOptions options) {
   if (log_requests) {
     ::nlohmann::json::object_t log_entry;
     log_entry.emplace("type", "read");
     log_entry.emplace("key", key);
-    if (!StorageGeneration::IsUnknown(options.if_equal)) {
-      log_entry.emplace("if_equal", options.if_equal.value);
-    }
-    if (!StorageGeneration::IsUnknown(options.if_not_equal)) {
-      log_entry.emplace("if_not_equal", options.if_not_equal.value);
-    }
-    if (options.staleness_bound != absl::InfiniteFuture()) {
-      log_entry.emplace("staleness_bound",
-                        absl::FormatTime(options.staleness_bound));
-    }
-    if (options.byte_range.inclusive_min != 0) {
-      log_entry.emplace("byte_range_inclusive_min",
-                        options.byte_range.inclusive_min);
-    }
-    if (options.byte_range.exclusive_max != -1) {
-      log_entry.emplace("byte_range_exclusive_max",
-                        options.byte_range.exclusive_max);
-    }
+    AddGenerationConditionsToLogEntry(log_entry, options.generation_conditions);
+    AddStalenessBoundToLogEntry(log_entry, options.staleness_bound);
+    AddByteRangeToLogEntry(log_entry, options.byte_range);
     request_log.push(std::move(log_entry));
   }
   if (forward_to) {
@@ -98,8 +113,9 @@ Future<TimestampedStorageGeneration> MockKeyValueStore::Write(
             "value", std::vector<uint8_t>(value_str.begin(), value_str.end()));
       }
     }
-    if (!StorageGeneration::IsUnknown(options.if_equal)) {
-      log_entry.emplace("if_equal", options.if_equal.value);
+    if (!StorageGeneration::IsUnknown(options.generation_conditions.if_equal)) {
+      log_entry.emplace("if_equal",
+                        options.generation_conditions.if_equal.value);
     }
     request_log.push(std::move(log_entry));
   }

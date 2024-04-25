@@ -440,7 +440,7 @@ void TestKeyValueStoreReadOps(const KvStore& store, std::string key,
                  << read_result->stamp.generation;
   {
     kvstore::ReadOptions options;
-    options.if_not_equal = read_result->stamp.generation;
+    options.generation_conditions.if_not_equal = read_result->stamp.generation;
     EXPECT_THAT(kvstore::Read(store, key, options).result(),
                 MatchesKvsReadResultAborted());
   }
@@ -448,7 +448,7 @@ void TestKeyValueStoreReadOps(const KvStore& store, std::string key,
   ABSL_LOG(INFO) << kSep << "Test conditional read, if_not_equal mismatched";
   {
     kvstore::ReadOptions options;
-    options.if_not_equal = mismatch_generation;
+    options.generation_conditions.if_not_equal = mismatch_generation;
     EXPECT_THAT(
         kvstore::Read(store, key, options).result(),
         MatchesKvsReadResult(expected_value, read_result->stamp.generation));
@@ -459,7 +459,7 @@ void TestKeyValueStoreReadOps(const KvStore& store, std::string key,
       << "Test conditional read, if_not_equal=StorageGeneration::NoValue";
   {
     kvstore::ReadOptions options;
-    options.if_not_equal = StorageGeneration::NoValue();
+    options.generation_conditions.if_not_equal = StorageGeneration::NoValue();
     EXPECT_THAT(
         kvstore::Read(store, key, options).result(),
         MatchesKvsReadResult(expected_value, read_result->stamp.generation));
@@ -470,7 +470,7 @@ void TestKeyValueStoreReadOps(const KvStore& store, std::string key,
                  << read_result->stamp.generation;
   {
     kvstore::ReadOptions options;
-    options.if_equal = read_result->stamp.generation;
+    options.generation_conditions.if_equal = read_result->stamp.generation;
     EXPECT_THAT(
         kvstore::Read(store, key, options).result(),
         MatchesKvsReadResult(expected_value, read_result->stamp.generation));
@@ -479,7 +479,7 @@ void TestKeyValueStoreReadOps(const KvStore& store, std::string key,
   ABSL_LOG(INFO) << kSep << "Test conditional read, if_equal mismatched";
   {
     kvstore::ReadOptions options;
-    options.if_equal = mismatch_generation;
+    options.generation_conditions.if_equal = mismatch_generation;
     EXPECT_THAT(kvstore::Read(store, key, options).result(),
                 MatchesKvsReadResultAborted());
   }
@@ -489,7 +489,7 @@ void TestKeyValueStoreReadOps(const KvStore& store, std::string key,
                     "if_equal=StorageGeneration::NoValue";
   {
     kvstore::ReadOptions options;
-    options.if_equal = StorageGeneration::NoValue();
+    options.generation_conditions.if_equal = StorageGeneration::NoValue();
     EXPECT_THAT(kvstore::Read(store, key, options).result(),
                 MatchesKvsReadResultAborted());
   }
@@ -530,7 +530,7 @@ void TestKeyValueStoreReadOps(const KvStore& store, std::string key,
                    << "Test conditional read, matching "
                       "if_equal=StorageGeneration::NoValue";
     kvstore::ReadOptions options;
-    options.if_equal = StorageGeneration::NoValue();
+    options.generation_conditions.if_equal = StorageGeneration::NoValue();
     options.staleness_bound = absl::Now();
     EXPECT_THAT(kvstore::Read(store, missing_key, options).result(),
                 MatchesKvsReadResultNotFound());
@@ -539,7 +539,7 @@ void TestKeyValueStoreReadOps(const KvStore& store, std::string key,
   ABSL_LOG(INFO) << kSep << "Test conditional read, if_equal mismatch";
   {
     kvstore::ReadOptions options;
-    options.if_equal = mismatch_generation;
+    options.generation_conditions.if_equal = mismatch_generation;
     EXPECT_THAT(
         kvstore::Read(store, missing_key, options).result(),
         testing::AnyOf(MatchesKvsReadResultNotFound(),   /// Common result
@@ -555,7 +555,7 @@ void TestKeyValueStoreReadOps(const KvStore& store, std::string key,
                     "if_not_equal=StorageGeneration::NoValue";
   {
     kvstore::ReadOptions options;
-    options.if_not_equal = StorageGeneration::NoValue();
+    options.generation_conditions.if_not_equal = StorageGeneration::NoValue();
     EXPECT_THAT(kvstore::Read(store, missing_key, options).result(),
                 MatchesKvsReadResultNotFound());
   }
@@ -563,7 +563,7 @@ void TestKeyValueStoreReadOps(const KvStore& store, std::string key,
   ABSL_LOG(INFO) << kSep << "Test conditional read, if_not_equal mismatch";
   {
     kvstore::ReadOptions options;
-    options.if_not_equal = mismatch_generation;
+    options.generation_conditions.if_not_equal = mismatch_generation;
     EXPECT_THAT(kvstore::Read(store, missing_key, options).result(),
                 MatchesKvsReadResultNotFound());
   }

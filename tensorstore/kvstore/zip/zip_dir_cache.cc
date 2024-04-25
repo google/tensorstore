@@ -150,7 +150,8 @@ struct ReadDirectoryOp
 
     // Issue a read of the directory.
     kvstore::ReadOptions other_options = options_;
-    other_options.if_equal = ready.value().stamp.generation;
+    other_options.generation_conditions.if_equal =
+        ready.value().stamp.generation;
     other_options.byte_range = OptionalByteRangeRequest::Range(
         eocd_.cd_offset, eocd_.cd_offset + eocd_.cd_size);
 
@@ -263,7 +264,8 @@ void ZipDirectoryCache::Entry::DoRead(AsyncCacheReadRequest request) {
   {
     ZipDirectoryCache::ReadLock<ZipDirectoryCache::ReadData> lock(*this);
     state->existing_read_data_ = lock.shared_data();
-    state->options_.if_not_equal = lock.read_state().stamp.generation;
+    state->options_.generation_conditions.if_not_equal =
+        lock.read_state().stamp.generation;
   }
 
   // Setup options.

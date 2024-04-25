@@ -291,6 +291,7 @@ tensorstore_cc_library(
     srcs = ["mock_kvstore.cc"],
     hdrs = ["mock_kvstore.h"],
     deps = [
+        ":byte_range",
         ":generation",
         ":key_range",
         ":kvstore",

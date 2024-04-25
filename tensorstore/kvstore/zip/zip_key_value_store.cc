@@ -221,9 +221,7 @@ struct ReadState : public internal::AtomicReferenceCount<ReadState> {
       // Check if_equal and if_not_equal conditions.
       // This happens after searching the directory in order to correctly handle
       // IsNoValue matches, above.
-      if (options_.if_not_equal == stamp.generation ||
-          (!StorageGeneration::IsUnknown(options_.if_equal) &&
-           options_.if_equal != stamp.generation)) {
+      if (!options_.generation_conditions.Matches(stamp.generation)) {
         promise.SetResult(kvstore::ReadResult::Unspecified(std::move(stamp)));
         return;
       }
@@ -239,7 +237,7 @@ struct ReadState : public internal::AtomicReferenceCount<ReadState> {
       }
     }
 
-    options.if_equal = stamp.generation;
+    options.generation_conditions.if_equal = stamp.generation;
     Link(WithExecutor(owner_->executor(),
                       [self = internal::IntrusivePtr<ReadState>(this),
                        seek_pos](Promise<kvstore::ReadResult> promise,

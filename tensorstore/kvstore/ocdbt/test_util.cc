@@ -65,7 +65,7 @@ void TestUnmodifiedNode(const Context& context) {
 
   {
     kvstore::WriteOptions options;
-    options.if_equal = StorageGeneration::NoValue();
+    options.generation_conditions.if_equal = StorageGeneration::NoValue();
     EXPECT_THAT(
         kvstore::Write(store, "testa", absl::Cord("a"), options).result(),
         internal::MatchesTimestampedStorageGeneration(

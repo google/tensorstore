@@ -261,15 +261,18 @@ struct ReadTask {
         .MaybeAddStalenessBoundCacheControlHeader(options.staleness_bound)
         .EnableAcceptEncoding();
 
-    if (StorageGeneration::IsCleanValidValue(options.if_equal)) {
-      request_builder.AddHeader(
-          absl::StrFormat("if-match: \"%s\"",
-                          StorageGeneration::DecodeString(options.if_equal)));
-    }
-    if (StorageGeneration::IsCleanValidValue(options.if_not_equal)) {
+    if (StorageGeneration::IsCleanValidValue(
+            options.generation_conditions.if_equal)) {
       request_builder.AddHeader(absl::StrFormat(
-          "if-none-match: \"%s\"",
-          StorageGeneration::DecodeString(options.if_not_equal)));
+          "if-match: \"%s\"", StorageGeneration::DecodeString(
+                                  options.generation_conditions.if_equal)));
+    }
+    if (StorageGeneration::IsCleanValidValue(
+            options.generation_conditions.if_not_equal)) {
+      request_builder.AddHeader(
+          absl::StrFormat("if-none-match: \"%s\"",
+                          StorageGeneration::DecodeString(
+                              options.generation_conditions.if_not_equal)));
     }
 
     auto request = request_builder.BuildRequest();
@@ -333,8 +336,8 @@ struct ReadTask {
       case 304:
         // "Not modified": indicates that the If-None-Match condition did
         // not hold.
-        return kvstore::ReadResult::Unspecified(
-            TimestampedStorageGeneration{options.if_not_equal, start_time});
+        return kvstore::ReadResult::Unspecified(TimestampedStorageGeneration{
+            options.generation_conditions.if_not_equal, start_time});
     }
 
     absl::Cord value;

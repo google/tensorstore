@@ -139,19 +139,6 @@ bool StorageGeneration::IsConditionalOn(const StorageGeneration& generation,
              (condition.value[size] | kDirty | kNewlyDirty);
 }
 
-bool StorageGeneration::EqualOrUnspecified(const StorageGeneration& generation,
-                                           const StorageGeneration& if_equal) {
-  return StorageGeneration::IsUnknown(if_equal) ||
-         generation.value == if_equal.value;
-}
-
-bool StorageGeneration::NotEqualOrUnspecified(
-    const StorageGeneration& generation,
-    const StorageGeneration& if_not_equal) {
-  return StorageGeneration::IsUnknown(if_not_equal) ||
-         generation.value != if_not_equal.value;
-}
-
 std::string_view StorageGeneration::DecodeString(
     const StorageGeneration& generation) {
   std::string_view s = generation.value;

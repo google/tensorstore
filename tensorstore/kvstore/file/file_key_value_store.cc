@@ -627,9 +627,10 @@ struct ReadTask {
     if (!fd.valid()) {
       return kvstore::ReadResult::Missing(stamp.time);
     }
-    if (stamp.generation == options.if_not_equal ||
-        (!StorageGeneration::IsUnknown(options.if_equal) &&
-         stamp.generation != options.if_equal)) {
+    if (stamp.generation == options.generation_conditions.if_not_equal ||
+        (!StorageGeneration::IsUnknown(
+             options.generation_conditions.if_equal) &&
+         stamp.generation != options.generation_conditions.if_equal)) {
       return kvstore::ReadResult::Unspecified(std::move(stamp));
     }
     TENSORSTORE_ASSIGN_OR_RETURN(auto byte_range,
@@ -683,12 +684,13 @@ struct WriteTask {
       FileDescriptor fd = lock_helper.lock_fd.get();
       const std::string& lock_path = lock_helper.lock_path;
       // Check condition.
-      if (!StorageGeneration::IsUnknown(options.if_equal)) {
+      if (!StorageGeneration::IsUnknown(
+              options.generation_conditions.if_equal)) {
         StorageGeneration generation;
         TENSORSTORE_ASSIGN_OR_RETURN(
             UniqueFileDescriptor value_fd,
             OpenValueFile(full_path.c_str(), &generation));
-        if (generation != options.if_equal) {
+        if (generation != options.generation_conditions.if_equal) {
           return StorageGeneration::Unknown();
         }
       }
@@ -766,12 +768,13 @@ struct DeleteTask {
     bool fsync_directory = false;
     auto generation_result = [&]() -> Result<StorageGeneration> {
       // Check condition.
-      if (!StorageGeneration::IsUnknown(options.if_equal)) {
+      if (!StorageGeneration::IsUnknown(
+              options.generation_conditions.if_equal)) {
         StorageGeneration generation;
         TENSORSTORE_ASSIGN_OR_RETURN(
             UniqueFileDescriptor value_fd,
             OpenValueFile(full_path.c_str(), &generation));
-        if (generation != options.if_equal) {
+        if (generation != options.generation_conditions.if_equal) {
           return StorageGeneration::Unknown();
         }
       }

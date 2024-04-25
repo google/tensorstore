@@ -321,7 +321,7 @@ TEST(JsonDriverTest, UnconditionalWriteback) {
   {
     auto write_req = mock_key_value_store->write_requests.pop();
     EXPECT_EQ(tensorstore::StorageGeneration::Unknown(),
-              write_req.options.if_equal);
+              write_req.options.generation_conditions.if_equal);
     write_req(memory_store);
   }
   TENSORSTORE_EXPECT_OK(write_future);

@@ -590,8 +590,10 @@ TEST_F(UnderlyingKeyValueStoreTest, Read) {
       auto req = mock_store->read_requests.pop_nonblock().value();
       ASSERT_EQ(0, mock_store->read_requests.size());
       EXPECT_EQ("shard_path", req.key);
-      EXPECT_EQ(StorageGeneration::Unknown(), req.options.if_not_equal);
-      EXPECT_EQ(StorageGeneration::Unknown(), req.options.if_equal);
+      EXPECT_EQ(StorageGeneration::Unknown(),
+                req.options.generation_conditions.if_not_equal);
+      EXPECT_EQ(StorageGeneration::Unknown(),
+                req.options.generation_conditions.if_equal);
       EXPECT_EQ(OptionalByteRangeRequest::SuffixLength(5 * 16 + 4),
                 req.options.byte_range);
       EXPECT_THAT(req.options.staleness_bound, ::testing::Gt(init_time));
@@ -628,8 +630,10 @@ TEST_F(UnderlyingKeyValueStoreTest, Read) {
       auto req = mock_store->read_requests.pop_nonblock().value();
       ASSERT_EQ(0, mock_store->read_requests.size());
       EXPECT_EQ("shard_path", req.key);
-      EXPECT_EQ(StorageGeneration::Unknown(), req.options.if_not_equal);
-      EXPECT_EQ(StorageGeneration::FromString("g0"), req.options.if_equal);
+      EXPECT_EQ(StorageGeneration::Unknown(),
+                req.options.generation_conditions.if_not_equal);
+      EXPECT_EQ(StorageGeneration::FromString("g0"),
+                req.options.generation_conditions.if_equal);
       EXPECT_EQ(OptionalByteRangeRequest(10, 15), req.options.byte_range);
       read_time = absl::Now();
       req.promise.SetResult(
@@ -665,8 +669,10 @@ TEST_F(UnderlyingKeyValueStoreTest, Read) {
       auto req = mock_store->read_requests.pop_nonblock().value();
       ASSERT_EQ(0, mock_store->read_requests.size());
       EXPECT_EQ("shard_path", req.key);
-      EXPECT_EQ(StorageGeneration::FromString("g0"), req.options.if_not_equal);
-      EXPECT_EQ(StorageGeneration::Unknown(), req.options.if_equal);
+      EXPECT_EQ(StorageGeneration::FromString("g0"),
+                req.options.generation_conditions.if_not_equal);
+      EXPECT_EQ(StorageGeneration::Unknown(),
+                req.options.generation_conditions.if_equal);
       EXPECT_EQ(OptionalByteRangeRequest::SuffixLength(5 * 16 + 4),
                 req.options.byte_range);
       EXPECT_THAT(req.options.staleness_bound, ::testing::Gt(req_time));
@@ -690,8 +696,10 @@ TEST_F(UnderlyingKeyValueStoreTest, Read) {
       auto req = mock_store->read_requests.pop_nonblock().value();
       ASSERT_EQ(0, mock_store->read_requests.size());
       EXPECT_EQ("shard_path", req.key);
-      EXPECT_EQ(StorageGeneration::Unknown(), req.options.if_not_equal);
-      EXPECT_EQ(StorageGeneration::FromString("g0"), req.options.if_equal);
+      EXPECT_EQ(StorageGeneration::Unknown(),
+                req.options.generation_conditions.if_not_equal);
+      EXPECT_EQ(StorageGeneration::FromString("g0"),
+                req.options.generation_conditions.if_equal);
       EXPECT_EQ(OptionalByteRangeRequest(10, 15), req.options.byte_range);
       EXPECT_EQ(init_time, req.options.staleness_bound);
       read_time = absl::Now();
@@ -719,9 +727,11 @@ TEST_F(UnderlyingKeyValueStoreTest, Read) {
       auto req = mock_store->read_requests.pop_nonblock().value();
       ASSERT_EQ(0, mock_store->read_requests.size());
       EXPECT_EQ("shard_path", req.key);
-      EXPECT_EQ(StorageGeneration::Unknown(), req.options.if_not_equal);
+      EXPECT_EQ(StorageGeneration::Unknown(),
+                req.options.generation_conditions.if_not_equal);
       EXPECT_EQ(init_time, req.options.staleness_bound);
-      EXPECT_EQ(StorageGeneration::FromString("g0"), req.options.if_equal);
+      EXPECT_EQ(StorageGeneration::FromString("g0"),
+                req.options.generation_conditions.if_equal);
       EXPECT_EQ(OptionalByteRangeRequest(10, 15), req.options.byte_range);
       abort_time = absl::Now();
       req.promise.SetResult(ReadResult::Unspecified(
@@ -732,8 +742,10 @@ TEST_F(UnderlyingKeyValueStoreTest, Read) {
       auto req = mock_store->read_requests.pop_nonblock().value();
       ASSERT_EQ(0, mock_store->read_requests.size());
       EXPECT_EQ("shard_path", req.key);
-      EXPECT_EQ(StorageGeneration::FromString("g0"), req.options.if_not_equal);
-      EXPECT_EQ(StorageGeneration::Unknown(), req.options.if_equal);
+      EXPECT_EQ(StorageGeneration::FromString("g0"),
+                req.options.generation_conditions.if_not_equal);
+      EXPECT_EQ(StorageGeneration::Unknown(),
+                req.options.generation_conditions.if_equal);
       EXPECT_EQ(OptionalByteRangeRequest::SuffixLength(5 * 16 + 4),
                 req.options.byte_range);
       EXPECT_THAT(req.options.staleness_bound, ::testing::Ge(abort_time));
@@ -770,8 +782,10 @@ TEST_F(UnderlyingKeyValueStoreTest, Read) {
       auto req = mock_store->read_requests.pop_nonblock().value();
       ASSERT_EQ(0, mock_store->read_requests.size());
       EXPECT_EQ("shard_path", req.key);
-      EXPECT_EQ(StorageGeneration::Unknown(), req.options.if_not_equal);
-      EXPECT_EQ(StorageGeneration::FromString("g1"), req.options.if_equal);
+      EXPECT_EQ(StorageGeneration::Unknown(),
+                req.options.generation_conditions.if_not_equal);
+      EXPECT_EQ(StorageGeneration::FromString("g1"),
+                req.options.generation_conditions.if_equal);
       EXPECT_EQ(OptionalByteRangeRequest(10, 16), req.options.byte_range);
       read_time = absl::Now();
       req.promise.SetResult(
@@ -820,8 +834,10 @@ TEST_F(UnderlyingKeyValueStoreTest,
     auto req = mock_store->read_requests.pop_nonblock().value();
     ASSERT_EQ(0, mock_store->read_requests.size());
     EXPECT_EQ("shard_path", req.key);
-    EXPECT_EQ(StorageGeneration::Unknown(), req.options.if_not_equal);
-    EXPECT_EQ(StorageGeneration::Unknown(), req.options.if_equal);
+    EXPECT_EQ(StorageGeneration::Unknown(),
+              req.options.generation_conditions.if_not_equal);
+    EXPECT_EQ(StorageGeneration::Unknown(),
+              req.options.generation_conditions.if_equal);
     EXPECT_THAT(req.options.staleness_bound, ::testing::Gt(req_time));
     EXPECT_EQ(OptionalByteRangeRequest::SuffixLength(5 * 16 + 4),
               req.options.byte_range);
@@ -857,8 +873,10 @@ TEST_F(UnderlyingKeyValueStoreTest,
     auto req = mock_store->read_requests.pop_nonblock().value();
     ASSERT_EQ(0, mock_store->read_requests.size());
     EXPECT_EQ("shard_path", req.key);
-    EXPECT_EQ(StorageGeneration::Unknown(), req.options.if_not_equal);
-    EXPECT_EQ(StorageGeneration::FromString("g0"), req.options.if_equal);
+    EXPECT_EQ(StorageGeneration::Unknown(),
+              req.options.generation_conditions.if_not_equal);
+    EXPECT_EQ(StorageGeneration::FromString("g0"),
+              req.options.generation_conditions.if_equal);
     EXPECT_EQ(OptionalByteRangeRequest(10, 15), req.options.byte_range);
     read_time = absl::Now();
     req.promise.SetResult(ReadResult{
@@ -972,7 +990,8 @@ TEST_F(UnderlyingKeyValueStoreTest, WriteWithNoExistingShard) {
     auto req = mock_store->write_requests.pop_nonblock().value();
     ASSERT_EQ(0, mock_store->write_requests.size());
     EXPECT_EQ("shard_path", req.key);
-    EXPECT_EQ(StorageGeneration::NoValue(), req.options.if_equal);
+    EXPECT_EQ(StorageGeneration::NoValue(),
+              req.options.generation_conditions.if_equal);
     auto expected = Bytes({
         1, 2, 3,  //
     });
@@ -1016,7 +1035,8 @@ TEST_F(UnderlyingKeyValueStoreTest, UnconditionalWrite) {
     EXPECT_EQ("shard_path", req.key);
     // Since we wrote the maximum number of chunks to shard 0, the write is
     // unconditional.
-    EXPECT_EQ(StorageGeneration::Unknown(), req.options.if_equal);
+    EXPECT_EQ(StorageGeneration::Unknown(),
+              req.options.generation_conditions.if_equal);
     auto expected = Bytes({
         1, 2, 3,  //
         4, 5, 6,  //
@@ -1064,7 +1084,8 @@ TEST_F(UnderlyingKeyValueStoreTest, ConditionalWriteDespiteMaxChunks) {
     EXPECT_EQ("shard_path", req.key);
     // Write is conditional because original write was conditional, despite
     // reaching the maximum number of chunks per shard.
-    EXPECT_EQ(StorageGeneration::NoValue(), req.options.if_equal);
+    EXPECT_EQ(StorageGeneration::NoValue(),
+              req.options.generation_conditions.if_equal);
   }
 }
 
@@ -1097,8 +1118,10 @@ TEST_F(UnderlyingKeyValueStoreTest, WriteWithExistingShard) {
     auto req = mock_store->read_requests.pop_nonblock().value();
     ASSERT_EQ(0, mock_store->read_requests.size());
     EXPECT_EQ("shard_path", req.key);
-    EXPECT_EQ(StorageGeneration::Unknown(), req.options.if_equal);
-    EXPECT_EQ(StorageGeneration::Unknown(), req.options.if_not_equal);
+    EXPECT_EQ(StorageGeneration::Unknown(),
+              req.options.generation_conditions.if_equal);
+    EXPECT_EQ(StorageGeneration::Unknown(),
+              req.options.generation_conditions.if_not_equal);
 
     auto content = Bytes({
         4, 5, 6,  //
@@ -1125,7 +1148,8 @@ TEST_F(UnderlyingKeyValueStoreTest, WriteWithExistingShard) {
     ASSERT_EQ(0, mock_store->write_requests.size());
     ASSERT_EQ(0, mock_store->read_requests.size());
     EXPECT_EQ("shard_path", req.key);
-    EXPECT_EQ(StorageGeneration::FromString("g0"), req.options.if_equal);
+    EXPECT_EQ(StorageGeneration::FromString("g0"),
+              req.options.generation_conditions.if_equal);
     auto content = Bytes({
         1, 2, 3,  //
         4, 5, 6,  //
@@ -1157,8 +1181,10 @@ TEST_F(UnderlyingKeyValueStoreTest, WriteWithExistingShardReadError) {
     auto req = mock_store->read_requests.pop_nonblock().value();
     ASSERT_EQ(0, mock_store->read_requests.size());
     EXPECT_EQ("shard_path", req.key);
-    EXPECT_EQ(StorageGeneration::Unknown(), req.options.if_equal);
-    EXPECT_EQ(StorageGeneration::Unknown(), req.options.if_not_equal);
+    EXPECT_EQ(StorageGeneration::Unknown(),
+              req.options.generation_conditions.if_equal);
+    EXPECT_EQ(StorageGeneration::Unknown(),
+              req.options.generation_conditions.if_not_equal);
     req.promise.SetResult(absl::UnknownError("Read error"));
   }
   ASSERT_TRUE(future.ready());
@@ -1177,7 +1203,8 @@ TEST_F(UnderlyingKeyValueStoreTest, DeleteRangeWhenEmpty) {
     ASSERT_EQ(0, mock_store->write_requests.size());
     ASSERT_EQ(0, mock_store->read_requests.size());
     EXPECT_EQ("shard_path", req.key);
-    EXPECT_TRUE(StorageGeneration::IsUnknown(req.options.if_equal));
+    EXPECT_TRUE(StorageGeneration::IsUnknown(
+        req.options.generation_conditions.if_equal));
     EXPECT_EQ(std::nullopt, req.value);
     req.promise.SetResult(std::in_place, StorageGeneration::FromString("g1"),
                           absl::Now());

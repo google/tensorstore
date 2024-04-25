@@ -136,8 +136,10 @@ TEST_F(TsGrpcMockTest, ReadWithOptions) {
   kvstore::ReadResult result;
   {
     kvstore::ReadOptions options;
-    options.if_not_equal = StorageGeneration::FromString("abc");
-    options.if_equal = StorageGeneration::FromString("xyz");
+    options.generation_conditions.if_not_equal =
+        StorageGeneration::FromString("abc");
+    options.generation_conditions.if_equal =
+        StorageGeneration::FromString("xyz");
     options.staleness_bound = absl::InfiniteFuture();
     options.byte_range = OptionalByteRangeRequest{1, 10};
 

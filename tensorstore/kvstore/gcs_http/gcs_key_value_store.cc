@@ -535,8 +535,9 @@ struct ReadTask : public RateLimiterNode,
 
     // Add the ifGenerationNotMatch condition.
     AddGenerationParam(&media_url, true, "ifGenerationNotMatch",
-                       options.if_not_equal);
-    AddGenerationParam(&media_url, true, "ifGenerationMatch", options.if_equal);
+                       options.generation_conditions.if_not_equal);
+    AddGenerationParam(&media_url, true, "ifGenerationMatch",
+                       options.generation_conditions.if_equal);
 
     // Assume that if the user_project field is set, that we want to provide
     // it on the uri for a requestor pays bucket.
@@ -624,8 +625,8 @@ struct ReadTask : public RateLimiterNode,
       case 304:
         // "Not modified": indicates that the ifGenerationNotMatch condition
         // did not hold.
-        return kvstore::ReadResult::Unspecified(
-            TimestampedStorageGeneration{options.if_not_equal, start_time_});
+        return kvstore::ReadResult::Unspecified(TimestampedStorageGeneration{
+            options.generation_conditions.if_not_equal, start_time_});
     }
 
     absl::Cord value;
@@ -682,8 +683,8 @@ Future<kvstore::ReadResult> GcsKeyValueStore::Read(Key key,
   if (!IsValidObjectName(key)) {
     return absl::InvalidArgumentError("Invalid GCS object name");
   }
-  if (!IsValidStorageGeneration(options.if_equal) ||
-      !IsValidStorageGeneration(options.if_not_equal)) {
+  if (!IsValidStorageGeneration(options.generation_conditions.if_equal) ||
+      !IsValidStorageGeneration(options.generation_conditions.if_not_equal)) {
     return absl::InvalidArgumentError("Malformed StorageGeneration");
   }
 
@@ -752,7 +753,7 @@ struct WriteTask : public RateLimiterNode,
 
     // Add the ifGenerationNotMatch condition.
     AddGenerationParam(&upload_url, true, "ifGenerationMatch",
-                       options.if_equal);
+                       options.generation_conditions.if_equal);
 
     // Assume that if the user_project field is set, that we want to provide
     // it on the uri for a requestor pays bucket.
@@ -801,8 +802,7 @@ struct WriteTask : public RateLimiterNode,
           // Failed precondition implies the generation did not match.
           return absl::OkStatus();
         case 404:
-          if (!StorageGeneration::IsUnknown(options.if_equal) &&
-              !StorageGeneration::IsNoValue(options.if_equal)) {
+          if (!options.generation_conditions.MatchesNoValue()) {
             return absl::OkStatus();
           }
           break;
@@ -839,7 +839,8 @@ struct WriteTask : public RateLimiterNode,
         r.generation = StorageGeneration::Unknown();
         return r;
       case 404:
-        if (!StorageGeneration::IsUnknown(options.if_equal)) {
+        if (!StorageGeneration::IsUnknown(
+                options.generation_conditions.if_equal)) {
           r.generation = StorageGeneration::Unknown();
           return r;
         }
@@ -906,7 +907,7 @@ struct DeleteTask : public RateLimiterNode,
 
     // Add the ifGenerationNotMatch condition.
     bool has_query = AddGenerationParam(&delete_url, false, "ifGenerationMatch",
-                                        options.if_equal);
+                                        options.generation_conditions.if_equal);
 
     // Assume that if the user_project field is set, that we want to provide
     // it on the uri for a requestor pays bucket.
@@ -976,8 +977,7 @@ struct DeleteTask : public RateLimiterNode,
         break;
       case 404:
         // 404 Not Found means aborted when a StorageGeneration was specified.
-        if (!StorageGeneration::IsNoValue(options.if_equal) &&
-            !StorageGeneration::IsUnknown(options.if_equal)) {
+        if (!options.generation_conditions.MatchesNoValue()) {
           r.generation = StorageGeneration::Unknown();
           break;
         }
@@ -996,7 +996,7 @@ Future<TimestampedStorageGeneration> GcsKeyValueStore::Write(
   if (!IsValidObjectName(key)) {
     return absl::InvalidArgumentError("Invalid GCS object name");
   }
-  if (!IsValidStorageGeneration(options.if_equal)) {
+  if (!IsValidStorageGeneration(options.generation_conditions.if_equal)) {
     return absl::InvalidArgumentError("Malformed StorageGeneration");
   }
 

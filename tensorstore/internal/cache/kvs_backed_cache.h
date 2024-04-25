@@ -167,7 +167,8 @@ class KvsBackedCache : public Parent {
       kvstore::ReadOptions kvstore_options;
       kvstore_options.staleness_bound = request.staleness_bound;
       auto read_state = AsyncCache::ReadLock<void>(*this).read_state();
-      kvstore_options.if_not_equal = std::move(read_state.stamp.generation);
+      kvstore_options.generation_conditions.if_not_equal =
+          std::move(read_state.stamp.generation);
       auto& cache = GetOwningCache(*this);
       auto future = cache.kvstore_driver_->Read(this->GetKeyValueStoreKey(),
                                                 std::move(kvstore_options));
@@ -232,7 +233,8 @@ class KvsBackedCache : public Parent {
     void DoRead(AsyncCache::AsyncCacheReadRequest request) final {
       auto read_state = AsyncCache::ReadLock<void>(*this).read_state();
       kvstore::TransactionalReadOptions kvstore_options;
-      kvstore_options.if_not_equal = std::move(read_state.stamp.generation);
+      kvstore_options.generation_conditions.if_not_equal =
+          std::move(read_state.stamp.generation);
       kvstore_options.staleness_bound = request.staleness_bound;
       target_->KvsRead(
           std::move(kvstore_options),
@@ -260,12 +262,15 @@ class KvsBackedCache : public Parent {
         ReadModifyWriteSource::WritebackOptions options,
         ReadModifyWriteSource::WritebackReceiver receiver) override {
       ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
-          << *this << "KvsWriteback: if_not_equal=" << options.if_not_equal
+          << *this << "KvsWriteback: if_not_equal="
+          << options.generation_conditions.if_not_equal
           << ", staleness_bound=" << options.staleness_bound
           << ", mode=" << options.writeback_mode;
       auto read_state = AsyncCache::ReadLock<void>(*this).read_state();
-      if (!StorageGeneration::IsUnknown(options.if_not_equal) &&
-          options.if_not_equal == read_state.stamp.generation &&
+      if (!StorageGeneration::IsUnknown(
+              options.generation_conditions.if_not_equal) &&
+          options.generation_conditions.if_not_equal ==
+              read_state.stamp.generation &&
           read_state.stamp.time >= options.staleness_bound) {
         ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
             << *this << "KvsWriteback: skipping because condition is satisfied";
@@ -387,8 +392,9 @@ class KvsBackedCache : public Parent {
       }
       this->DoApply(
           std::move(apply_options),
-          ApplyReceiverImpl{this, std::move(options.if_not_equal),
-                            options.writeback_mode, std::move(receiver)});
+          ApplyReceiverImpl{
+              this, std::move(options.generation_conditions.if_not_equal),
+              options.writeback_mode, std::move(receiver)});
     }
 
     void KvsWritebackSuccess(TimestampedStorageGeneration new_stamp) override {

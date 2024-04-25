@@ -522,7 +522,8 @@ Group:
          std::optional<double> staleness_bound) {
         kvstore::ReadOptions options;
         if (if_not_equal) {
-          options.if_not_equal.value = std::move(*if_not_equal);
+          options.generation_conditions.if_not_equal.value =
+              std::move(*if_not_equal);
         }
         if (staleness_bound) {
           options.staleness_bound = FromPythonTimestamp(*staleness_bound);
@@ -665,7 +666,8 @@ Group:
          std::optional<std::string> if_equal) {
         kvstore::WriteOptions options;
         if (if_equal) {
-          options.if_equal = StorageGeneration{std::move(*if_equal)};
+          options.generation_conditions.if_equal =
+              StorageGeneration{std::move(*if_equal)};
         }
         return kvstore::Write(self.value, key, OptionalCordFromPython(value),
                               std::move(options));

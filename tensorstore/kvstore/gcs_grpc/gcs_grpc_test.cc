@@ -204,8 +204,8 @@ TEST_F(GcsGrpcTest, ReadWithOptions) {
           }));
 
   kvstore::ReadOptions options;
-  options.if_not_equal = StorageGeneration::FromUint64(3);
-  options.if_equal = StorageGeneration::FromUint64(1);
+  options.generation_conditions.if_not_equal = StorageGeneration::FromUint64(3);
+  options.generation_conditions.if_equal = StorageGeneration::FromUint64(1);
   options.staleness_bound = absl::InfiniteFuture();
   options.byte_range = OptionalByteRangeRequest{1, 10};
 

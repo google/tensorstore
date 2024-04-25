@@ -170,7 +170,8 @@ void DoReadImpl(EntryOrNode* entry_or_node,
   kvstore_options.staleness_bound = request.staleness_bound;
   auto read_state =
       internal::AsyncCache::ReadLock<void>(*entry_or_node).read_state();
-  kvstore_options.if_not_equal = std::move(read_state.stamp.generation);
+  kvstore_options.generation_conditions.if_not_equal =
+      std::move(read_state.stamp.generation);
 
   using ReadReceiver = UseExistingIfUnchangedReadReceiver<
       ManifestCache::ReadReceiver<EntryOrNode>>;
@@ -245,7 +246,8 @@ void ManifestCache::TransactionNode::Commit() {
   if (this->old_manifest == this->new_manifest) {
     // Verify that it is unchanged.
     kvstore::ReadOptions read_options;
-    read_options.if_not_equal = std::move(existing_stamp.generation);
+    read_options.generation_conditions.if_not_equal =
+        std::move(existing_stamp.generation);
     read_options.staleness_bound =
         this->transaction()->commit_start_time() + absl::Nanoseconds(1);
 
@@ -284,7 +286,8 @@ void ManifestCache::TransactionNode::Commit() {
   }
 
   kvstore::WriteOptions write_options;
-  write_options.if_equal = std::move(existing_stamp.generation);
+  write_options.generation_conditions.if_equal =
+      std::move(existing_stamp.generation);
   auto& entry = GetOwningEntry(*this);
   auto& cache = GetOwningCache(entry);
   auto future = cache.kvstore_driver_->Write(GetManifestPath(entry.key()),
@@ -720,7 +723,7 @@ void NumberedManifestCache::TransactionNode::Commit() {
       SetWritebackError(this, new_generation_number, "encoding", _));
 
   kvstore::WriteOptions write_options;
-  write_options.if_equal = StorageGeneration::NoValue();
+  write_options.generation_conditions.if_equal = StorageGeneration::NoValue();
   Link(
       [node = this, new_generation_number](
           Promise<TryUpdateManifestResult> promise,

@@ -197,7 +197,7 @@ TEST_F(HttpKeyValueStoreTest, IfEqualSatisfied) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store, kvstore::Open("https://example.com/my/path/").result());
   kvstore::ReadOptions options;
-  options.if_equal = StorageGeneration::FromString("xyz");
+  options.generation_conditions.if_equal = StorageGeneration::FromString("xyz");
   auto read_future = kvstore::Read(store, "abc", options);
   auto request = mock_transport->requests_.pop();
   EXPECT_EQ("https://example.com/my/path/abc", request.request.url);
@@ -212,7 +212,7 @@ TEST_F(HttpKeyValueStoreTest, IfEqualNotSatisfied) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store, kvstore::Open("https://example.com/my/path/").result());
   kvstore::ReadOptions options;
-  options.if_equal = StorageGeneration::FromString("xyz");
+  options.generation_conditions.if_equal = StorageGeneration::FromString("xyz");
   auto read_future = kvstore::Read(store, "abc", options);
   auto request = mock_transport->requests_.pop();
   EXPECT_EQ("https://example.com/my/path/abc", request.request.url);
@@ -229,7 +229,8 @@ TEST_F(HttpKeyValueStoreTest, IfNotEqualSatisfied) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store, kvstore::Open("https://example.com/my/path/").result());
   kvstore::ReadOptions options;
-  options.if_not_equal = StorageGeneration::FromString("xyz");
+  options.generation_conditions.if_not_equal =
+      StorageGeneration::FromString("xyz");
   auto read_future = kvstore::Read(store, "abc", options);
   auto request = mock_transport->requests_.pop();
   EXPECT_EQ("https://example.com/my/path/abc", request.request.url);
@@ -246,7 +247,8 @@ TEST_F(HttpKeyValueStoreTest, IfNotEqualNotSatisfied) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store, kvstore::Open("https://example.com/my/path/").result());
   kvstore::ReadOptions options;
-  options.if_not_equal = StorageGeneration::FromString("xyz");
+  options.generation_conditions.if_not_equal =
+      StorageGeneration::FromString("xyz");
   auto read_future = kvstore::Read(store, "abc", options);
   auto request = mock_transport->requests_.pop();
   EXPECT_EQ("https://example.com/my/path/abc", request.request.url);

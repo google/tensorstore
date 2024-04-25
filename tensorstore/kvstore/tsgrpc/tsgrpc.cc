@@ -200,8 +200,10 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask> {
   Future<kvstore::ReadResult> Start(kvstore::Key key,
                                     const kvstore::ReadOptions& options) {
     request.set_key(std::move(key));
-    request.set_generation_if_equal(options.if_equal.value);
-    request.set_generation_if_not_equal(options.if_not_equal.value);
+    request.set_generation_if_equal(
+        options.generation_conditions.if_equal.value);
+    request.set_generation_if_not_equal(
+        options.generation_conditions.if_not_equal.value);
     if (!options.byte_range.IsFull()) {
       request.mutable_byte_range()->set_inclusive_min(
           options.byte_range.inclusive_min);
@@ -259,7 +261,8 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask> {
       const kvstore::WriteOptions& options) {
     request.set_key(std::move(key));
     request.set_value(value);
-    request.set_generation_if_equal(options.if_equal.value);
+    request.set_generation_if_equal(
+        options.generation_conditions.if_equal.value);
 
     driver->MaybeSetDeadline(context);
 
@@ -298,7 +301,8 @@ struct DeleteTask : public internal::AtomicReferenceCount<DeleteTask> {
   Future<TimestampedStorageGeneration> Start(
       kvstore::Key key, const kvstore::WriteOptions options) {
     request.set_key(std::move(key));
-    request.set_generation_if_equal(options.if_equal.value);
+    request.set_generation_if_equal(
+        options.generation_conditions.if_equal.value);
     return StartImpl();
   }
 

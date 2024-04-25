@@ -221,7 +221,8 @@ TEST(GcsKeyValueStoreTest, BadObjectNames) {
 
   {
     kvstore::ReadOptions options;
-    options.if_not_equal = StorageGeneration::FromString("abc123");
+    options.generation_conditions.if_not_equal =
+        StorageGeneration::FromString("abc123");
     EXPECT_THAT(kvstore::Read(store, "abc", options).result(),
                 MatchesStatus(absl::StatusCode::kInvalidArgument));
   }

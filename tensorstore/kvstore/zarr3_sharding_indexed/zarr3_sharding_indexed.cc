@@ -416,7 +416,9 @@ class ShardedKeyValueStoreWriteCache
       this->AsyncCache::TransactionNode::Read({options.staleness_bound})
           .ExecuteWhenReady(WithExecutor(
               GetOwningCache(*this).executor(),
-              [&entry, if_not_equal = std::move(options.if_not_equal),
+              [&entry,
+               if_not_equal =
+                   std::move(options.generation_conditions.if_not_equal),
                receiver = std::move(receiver)](
                   ReadyFuture<const void> future) mutable {
                 if (!future.result().ok()) {
@@ -911,9 +913,12 @@ struct ReadOperationState {
           *self->entry_);
       stamp = lock.stamp();
       if (!StorageGeneration::IsNoValue(stamp.generation) &&
-          (self->options_.if_not_equal == stamp.generation ||
-           (!StorageGeneration::IsUnknown(self->options_.if_equal) &&
-            self->options_.if_equal != stamp.generation))) {
+          (self->options_.generation_conditions.if_not_equal ==
+               stamp.generation ||
+           (!StorageGeneration::IsUnknown(
+                self->options_.generation_conditions.if_equal) &&
+            self->options_.generation_conditions.if_equal !=
+                stamp.generation))) {
         state = kvstore::ReadResult::kUnspecified;
       } else {
         if (lock.data()) {
@@ -947,7 +952,7 @@ struct ReadOperationState {
       return;
     }
     kvstore::ReadOptions kvs_read_options;
-    kvs_read_options.if_equal = stamp.generation;
+    kvs_read_options.generation_conditions.if_equal = stamp.generation;
     kvs_read_options.staleness_bound = self->options_.staleness_bound;
     kvs_read_options.byte_range =
         ByteRange{static_cast<int64_t>(index_entry.offset +

@@ -257,7 +257,8 @@ class MinishardIndexKeyValueStore : public kvstore::Driver {
         kvstore::ReadOptions kvs_read_options;
         // The `if_equal` condition ensure that an "aborted" `ReadResult` is
         // returned in the case of a concurrent modification (case 2a above).
-        kvs_read_options.if_equal = std::move(r->stamp.generation);
+        kvs_read_options.generation_conditions.if_equal =
+            std::move(r->stamp.generation);
         kvs_read_options.staleness_bound = staleness_bound;
         kvs_read_options.byte_range = byte_range;
         auto read_future =
@@ -522,7 +523,9 @@ class ShardedKeyValueStoreWriteCache
       this->AsyncCache::TransactionNode::Read({options.staleness_bound})
           .ExecuteWhenReady(WithExecutor(
               GetOwningCache(*this).executor(),
-              [&entry, if_not_equal = std::move(options.if_not_equal),
+              [&entry,
+               if_not_equal =
+                   std::move(options.generation_conditions.if_not_equal),
                receiver = std::move(receiver)](
                   ReadyFuture<const void> future) mutable {
                 if (!future.result().ok()) {
@@ -878,9 +881,12 @@ struct MinishardIndexCacheEntryReadyCallback {
           *entry_);
       read_result.stamp = lock.stamp();
       if (!StorageGeneration::IsNoValue(read_result.stamp.generation) &&
-          (options_.if_not_equal == read_result.stamp.generation ||
-           (!StorageGeneration::IsUnknown(options_.if_equal) &&
-            options_.if_equal != read_result.stamp.generation))) {
+          (options_.generation_conditions.if_not_equal ==
+               read_result.stamp.generation ||
+           (!StorageGeneration::IsUnknown(
+                options_.generation_conditions.if_equal) &&
+            options_.generation_conditions.if_equal !=
+                read_result.stamp.generation))) {
         read_result.state = kvstore::ReadResult::kUnspecified;
       } else {
         span<const MinishardIndexEntry> minishard_index;
@@ -896,7 +902,8 @@ struct MinishardIndexCacheEntryReadyCallback {
     assert(!StorageGeneration::IsUnknown(read_result.stamp.generation));
     auto& cache = GetOwningCache(*entry_);
     ReadOptions kvs_read_options;
-    kvs_read_options.if_equal = read_result.stamp.generation;
+    kvs_read_options.generation_conditions.if_equal =
+        read_result.stamp.generation;
     kvs_read_options.staleness_bound = options_.staleness_bound;
     assert(options_.byte_range.SatisfiesInvariants());
     OptionalByteRangeRequest post_decode_byte_range;

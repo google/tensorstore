@@ -383,13 +383,15 @@ TEST_F(ChunkCacheTest, ReadSingleComponentOneDimensionalFill) {
     {
       auto r = mock_store->read_requests.pop();
       EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
-      EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_not_equal);
+      EXPECT_EQ(StorageGeneration::Unknown(),
+                r.options.generation_conditions.if_not_equal);
       r(memory_store);
     }
     {
       auto r = mock_store->read_requests.pop();
       EXPECT_THAT(ParseKey(r.key), ElementsAre(2));
-      EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_not_equal);
+      EXPECT_EQ(StorageGeneration::Unknown(),
+                r.options.generation_conditions.if_not_equal);
       r(memory_store);
     }
     // Index:         0 1 2 3 4 5 ...
@@ -419,13 +421,15 @@ TEST_F(ChunkCacheTest, ReadSingleComponentOneDimensionalFill) {
     {
       auto r = mock_store->read_requests.pop();
       EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
-      EXPECT_EQ(StorageGeneration::NoValue(), r.options.if_not_equal);
+      EXPECT_EQ(StorageGeneration::NoValue(),
+                r.options.generation_conditions.if_not_equal);
       r(memory_store);
     }
     {
       auto r = mock_store->read_requests.pop();
       EXPECT_THAT(ParseKey(r.key), ElementsAre(2));
-      EXPECT_EQ(StorageGeneration::NoValue(), r.options.if_not_equal);
+      EXPECT_EQ(StorageGeneration::NoValue(),
+                r.options.generation_conditions.if_not_equal);
       r(memory_store);
     }
     // Verify that result matches fill value after the new read response.
@@ -740,13 +744,15 @@ TEST_F(ChunkCacheTest, WriteSingleComponentOneDimensional) {
   {
     auto r = mock_store->read_requests.pop();
     EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
-    EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_equal);
+    EXPECT_EQ(StorageGeneration::Unknown(),
+              r.options.generation_conditions.if_equal);
     r(memory_store);
   }
   std::vector<std::pair<std::vector<Index>, StorageGeneration>> write_requests;
   for (size_t i = 0; i < 3; ++i) {
     auto r = mock_store->write_requests.pop();
-    write_requests.emplace_back(ParseKey(r.key), r.options.if_equal);
+    write_requests.emplace_back(ParseKey(r.key),
+                                r.options.generation_conditions.if_equal);
     r(memory_store);
   }
   EXPECT_THAT(
@@ -797,7 +803,8 @@ TEST_F(ChunkCacheTest, WriteSingleComponentOneDimensionalCacheDisabled) {
     for (size_t i = 0; i < 2; ++i) {
       auto r = mock_store->read_requests.pop();
       read_requests.emplace_back(ParseKey(r.key));
-      EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_equal);
+      EXPECT_EQ(StorageGeneration::Unknown(),
+                r.options.generation_conditions.if_equal);
       r(memory_store);
     }
     EXPECT_THAT(read_requests, ::testing::UnorderedElementsAre(ElementsAre(1),
@@ -808,7 +815,8 @@ TEST_F(ChunkCacheTest, WriteSingleComponentOneDimensionalCacheDisabled) {
         write_requests;
     for (size_t i = 0; i < 3; ++i) {
       auto r = mock_store->write_requests.pop();
-      write_requests.emplace_back(ParseKey(r.key), r.options.if_equal);
+      write_requests.emplace_back(ParseKey(r.key),
+                                  r.options.generation_conditions.if_equal);
       r(memory_store);
     }
     EXPECT_THAT(
@@ -867,7 +875,8 @@ TEST_F(ChunkCacheTest,
     for (size_t i = 0; i < 1; ++i) {
       auto r = mock_store->read_requests.pop();
       read_requests.emplace_back(ParseKey(r.key));
-      EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_equal);
+      EXPECT_EQ(StorageGeneration::Unknown(),
+                r.options.generation_conditions.if_equal);
       r(memory_store);
     }
     EXPECT_THAT(read_requests, ::testing::UnorderedElementsAre(ElementsAre(1)));
@@ -877,7 +886,8 @@ TEST_F(ChunkCacheTest,
         write_requests;
     for (size_t i = 0; i < 3; ++i) {
       auto r = mock_store->write_requests.pop();
-      write_requests.emplace_back(ParseKey(r.key), r.options.if_equal);
+      write_requests.emplace_back(ParseKey(r.key),
+                                  r.options.generation_conditions.if_equal);
       r(memory_store);
     }
     EXPECT_THAT(
@@ -931,7 +941,8 @@ TEST_F(ChunkCacheTest, WriteAfterReadWithTransactionCacheDisabled) {
         write_requests;
     for (size_t i = 0; i < 1; ++i) {
       auto r = mock_store->write_requests.pop();
-      write_requests.emplace_back(ParseKey(r.key), r.options.if_equal);
+      write_requests.emplace_back(ParseKey(r.key),
+                                  r.options.generation_conditions.if_equal);
       r(memory_store);
     }
     EXPECT_THAT(write_requests,
@@ -959,7 +970,8 @@ TEST_F(ChunkCacheTest, OverwriteMissingWithFillValue) {
   {
     auto r = mock_store->write_requests.pop();
     EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
-    EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_equal);
+    EXPECT_EQ(StorageGeneration::Unknown(),
+              r.options.generation_conditions.if_equal);
     r(memory_store);
   }
   EXPECT_FALSE(HasChunk({1}));
@@ -984,7 +996,8 @@ TEST_F(ChunkCacheTest, OverwriteExistingWithFillValue) {
     {
       auto r = mock_store->write_requests.pop();
       EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
-      EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_equal);
+      EXPECT_EQ(StorageGeneration::Unknown(),
+                r.options.generation_conditions.if_equal);
       r(memory_store);
     }
     TENSORSTORE_EXPECT_OK(write_future);
@@ -1001,7 +1014,8 @@ TEST_F(ChunkCacheTest, OverwriteExistingWithFillValue) {
     {
       auto r = mock_store->write_requests.pop();
       EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
-      EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_equal);
+      EXPECT_EQ(StorageGeneration::Unknown(),
+                r.options.generation_conditions.if_equal);
       r(memory_store);
     }
     EXPECT_FALSE(HasChunk({1}));
@@ -1026,7 +1040,8 @@ TEST_F(ChunkCacheTest, FillValueIdenticallyEqual) {
     {
       auto r = mock_store->write_requests.pop();
       EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
-      EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_equal);
+      EXPECT_EQ(StorageGeneration::Unknown(),
+                r.options.generation_conditions.if_equal);
       r(memory_store);
     }
     TENSORSTORE_EXPECT_OK(write_future);
@@ -1043,7 +1058,8 @@ TEST_F(ChunkCacheTest, FillValueIdenticallyEqual) {
     {
       auto r = mock_store->write_requests.pop();
       EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
-      EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_equal);
+      EXPECT_EQ(StorageGeneration::Unknown(),
+                r.options.generation_conditions.if_equal);
       r(memory_store);
     }
     EXPECT_FALSE(HasChunk({1}));
@@ -1069,7 +1085,8 @@ TEST_F(ChunkCacheTest, DeleteAfterNormalWriteback) {
     {
       auto r = mock_store->write_requests.pop();
       EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
-      EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_equal);
+      EXPECT_EQ(StorageGeneration::Unknown(),
+                r.options.generation_conditions.if_equal);
       r(memory_store);
     }
     TENSORSTORE_EXPECT_OK(write_future);
@@ -1082,7 +1099,8 @@ TEST_F(ChunkCacheTest, DeleteAfterNormalWriteback) {
   {
     auto r = mock_store->write_requests.pop();
     EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
-    EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_equal);
+    EXPECT_EQ(StorageGeneration::Unknown(),
+              r.options.generation_conditions.if_equal);
     r(memory_store);
   }
   EXPECT_FALSE(HasChunk({1}));
@@ -1108,7 +1126,8 @@ TEST_F(ChunkCacheTest, PartialWriteAfterWrittenBackDelete) {
   {
     auto r = mock_store->write_requests.pop();
     EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
-    EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_equal);
+    EXPECT_EQ(StorageGeneration::Unknown(),
+              r.options.generation_conditions.if_equal);
     r(memory_store);
   }
   EXPECT_FALSE(HasChunk({1}));
@@ -1124,7 +1143,8 @@ TEST_F(ChunkCacheTest, PartialWriteAfterWrittenBackDelete) {
     {
       auto r = mock_store->write_requests.pop();
       EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
-      EXPECT_EQ(StorageGeneration::NoValue(), r.options.if_equal);
+      EXPECT_EQ(StorageGeneration::NoValue(),
+                r.options.generation_conditions.if_equal);
       // WritebackSnapshot fills in the unmasked data values with the fill
       // value.
       r(memory_store);
@@ -1165,7 +1185,8 @@ TEST_F(ChunkCacheTest, DeleteWithPendingRead) {
 
   // Complete the read request.
   EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
-  EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_not_equal);
+  EXPECT_EQ(StorageGeneration::Unknown(),
+            r.options.generation_conditions.if_not_equal);
   r(memory_store);
 
   // Verify that read result matches fill value.
@@ -1211,7 +1232,8 @@ TEST_F(ChunkCacheTest, WriteToMaskedArrayError) {
   {
     auto r = mock_store->read_requests.pop();
     EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
-    EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_not_equal);
+    EXPECT_EQ(StorageGeneration::Unknown(),
+              r.options.generation_conditions.if_not_equal);
     r(memory_store);
   }
   EXPECT_THAT(read_future.result(),
@@ -1241,7 +1263,8 @@ TEST_F(ChunkCacheTest, WriteGenerationMismatch) {
   {
     auto r = mock_store->read_requests.pop();
     EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
-    EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_not_equal);
+    EXPECT_EQ(StorageGeneration::Unknown(),
+              r.options.generation_conditions.if_not_equal);
     r(memory_store);
   }
 
@@ -1253,7 +1276,8 @@ TEST_F(ChunkCacheTest, WriteGenerationMismatch) {
   {
     auto r = mock_store->write_requests.pop();
     EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
-    EXPECT_NE(StorageGeneration::Unknown(), r.options.if_equal);
+    EXPECT_NE(StorageGeneration::Unknown(),
+              r.options.generation_conditions.if_equal);
     r(memory_store);
   }
   // Handle the re-issued read request for chunk 1.
@@ -1266,7 +1290,8 @@ TEST_F(ChunkCacheTest, WriteGenerationMismatch) {
   {
     auto r = mock_store->write_requests.pop();
     EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
-    EXPECT_NE(StorageGeneration::Unknown(), r.options.if_equal);
+    EXPECT_NE(StorageGeneration::Unknown(),
+              r.options.generation_conditions.if_equal);
     r(memory_store);
   }
   TENSORSTORE_EXPECT_OK(write_future);
@@ -1290,7 +1315,8 @@ TEST_F(ChunkCacheTest, ModifyDuringWriteback) {
   {
     auto r = mock_store->read_requests.pop();
     EXPECT_THAT(ParseKey(r.key), ElementsAre(0));
-    EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_not_equal);
+    EXPECT_EQ(StorageGeneration::Unknown(),
+              r.options.generation_conditions.if_not_equal);
     r(memory_store);
   }
 
@@ -1299,7 +1325,8 @@ TEST_F(ChunkCacheTest, ModifyDuringWriteback) {
   {
     auto r = mock_store->write_requests.pop();
     EXPECT_THAT(ParseKey(r.key), ElementsAre(0));
-    EXPECT_EQ(StorageGeneration::NoValue(), r.options.if_equal);
+    EXPECT_EQ(StorageGeneration::NoValue(),
+              r.options.generation_conditions.if_equal);
     // While the writeback is in progress, write to chunk 0 again: [2]=7
     write_future2 =
         tensorstore::Write(
@@ -1324,7 +1351,8 @@ TEST_F(ChunkCacheTest, ModifyDuringWriteback) {
   {
     auto r = mock_store->write_requests.pop();
     EXPECT_THAT(ParseKey(r.key), ElementsAre(0));
-    EXPECT_NE(StorageGeneration::Unknown(), r.options.if_equal);
+    EXPECT_NE(StorageGeneration::Unknown(),
+              r.options.generation_conditions.if_equal);
     r(memory_store);
   }
   // Handle the re-issued read request due to the generation mismatch.
@@ -1337,7 +1365,8 @@ TEST_F(ChunkCacheTest, ModifyDuringWriteback) {
   {
     auto r = mock_store->write_requests.pop();
     EXPECT_THAT(ParseKey(r.key), ElementsAre(0));
-    EXPECT_NE(StorageGeneration::Unknown(), r.options.if_equal);
+    EXPECT_NE(StorageGeneration::Unknown(),
+              r.options.generation_conditions.if_equal);
     r(memory_store);
   }
   TENSORSTORE_EXPECT_OK(write_future2);
@@ -1366,7 +1395,8 @@ TEST_F(ChunkCacheTest, FullyOverwritePartialChunk) {
     {
       auto r = mock_store->write_requests.pop();
       EXPECT_THAT(ParseKey(r.key), ElementsAre(0));
-      EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_equal);
+      EXPECT_EQ(StorageGeneration::Unknown(),
+                r.options.generation_conditions.if_equal);
       r(memory_store);
       EXPECT_THAT(GetChunk({0}), ElementsAre(MakeArray({1, 1, 2, 3})));
     }
@@ -1382,7 +1412,8 @@ TEST_F(ChunkCacheTest, FullyOverwritePartialChunk) {
     {
       auto r = mock_store->write_requests.pop();
       EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
-      EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_equal);
+      EXPECT_EQ(StorageGeneration::Unknown(),
+                r.options.generation_conditions.if_equal);
       r(memory_store);
       EXPECT_THAT(GetChunk({1}), ElementsAre(MakeArray({4, 5, 3, 4})));
     }
@@ -1406,7 +1437,8 @@ TEST_F(ChunkCacheTest, WritebackError) {
   {
     auto r = mock_store->write_requests.pop();
     EXPECT_THAT(ParseKey(r.key), ElementsAre(0));
-    EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_equal);
+    EXPECT_EQ(StorageGeneration::Unknown(),
+              r.options.generation_conditions.if_equal);
     r.promise.SetResult(absl::UnknownError("Writeback error"));
   }
 
@@ -1806,7 +1838,8 @@ TEST_F(ChunkCacheTest, SeparateCachesReadIfNotEqualAbort) {
     {
       auto r = mock_store->read_requests.pop();
       EXPECT_THAT(ParseKey(r.key), ElementsAre(0));
-      EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_not_equal);
+      EXPECT_EQ(StorageGeneration::Unknown(),
+                r.options.generation_conditions.if_not_equal);
       r(memory_store);
     }
     EXPECT_THAT(read_future.result(),
@@ -1821,7 +1854,8 @@ TEST_F(ChunkCacheTest, SeparateCachesReadIfNotEqualAbort) {
     {
       auto r = mock_store->read_requests.pop();
       EXPECT_THAT(ParseKey(r.key), ElementsAre(0));
-      EXPECT_EQ(StorageGeneration::NoValue(), r.options.if_not_equal);
+      EXPECT_EQ(StorageGeneration::NoValue(),
+                r.options.generation_conditions.if_not_equal);
       r(memory_store);
     }
     EXPECT_THAT(read_future.result(),
@@ -1836,7 +1870,8 @@ TEST_F(ChunkCacheTest, SeparateCachesReadIfNotEqualAbort) {
     {
       auto r = mock_store->read_requests.pop();
       EXPECT_THAT(ParseKey(r.key), ElementsAre(0));
-      EXPECT_EQ(StorageGeneration::NoValue(), r.options.if_not_equal);
+      EXPECT_EQ(StorageGeneration::NoValue(),
+                r.options.generation_conditions.if_not_equal);
       r(memory_store);
     }
     EXPECT_THAT(read_future.result(),

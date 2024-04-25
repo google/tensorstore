@@ -104,8 +104,10 @@ TEST_F(MockStoreTest, ReadSuccess) {
   auto read_future = entry->Read({read_time});
   auto read_req = mock_store->read_requests.pop();
   EXPECT_EQ("a", read_req.key);
-  EXPECT_EQ(StorageGeneration::Unknown(), read_req.options.if_equal);
-  EXPECT_EQ(StorageGeneration::Unknown(), read_req.options.if_not_equal);
+  EXPECT_EQ(StorageGeneration::Unknown(),
+            read_req.options.generation_conditions.if_equal);
+  EXPECT_EQ(StorageGeneration::Unknown(),
+            read_req.options.generation_conditions.if_not_equal);
   EXPECT_EQ(tensorstore::OptionalByteRangeRequest{},
             read_req.options.byte_range);
   EXPECT_EQ(read_time, read_req.options.staleness_bound);
@@ -217,7 +219,8 @@ TEST_F(MockStoreTest, WriteDuringRead) {
     EXPECT_TRUE(mock_store->read_requests.empty());
     EXPECT_TRUE(mock_store->write_requests.empty());
     EXPECT_EQ("a", write_req.key);
-    EXPECT_EQ(StorageGeneration::Unknown(), write_req.options.if_equal);
+    EXPECT_EQ(StorageGeneration::Unknown(),
+              write_req.options.generation_conditions.if_equal);
     EXPECT_EQ("abc", write_req.value);
     write_req(memory_store);
     TENSORSTORE_ASSERT_OK(transaction.future());
@@ -245,7 +248,8 @@ TEST_F(MockStoreTest, MultiPhaseSeparateKeys) {
     EXPECT_TRUE(mock_store->read_requests.empty());
     EXPECT_TRUE(mock_store->write_requests.empty());
     EXPECT_EQ("a", read_req.key);
-    EXPECT_EQ(StorageGeneration::Unknown(), read_req.options.if_not_equal);
+    EXPECT_EQ(StorageGeneration::Unknown(),
+              read_req.options.generation_conditions.if_not_equal);
     read_req(memory_store);
   }
   {
@@ -253,7 +257,8 @@ TEST_F(MockStoreTest, MultiPhaseSeparateKeys) {
     EXPECT_TRUE(mock_store->read_requests.empty());
     EXPECT_TRUE(mock_store->write_requests.empty());
     EXPECT_EQ("a", write_req.key);
-    EXPECT_EQ(StorageGeneration::NoValue(), write_req.options.if_equal);
+    EXPECT_EQ(StorageGeneration::NoValue(),
+              write_req.options.generation_conditions.if_equal);
     EXPECT_EQ("abc", write_req.value);
     write_req(memory_store);
   }
@@ -264,7 +269,8 @@ TEST_F(MockStoreTest, MultiPhaseSeparateKeys) {
     EXPECT_TRUE(mock_store->read_requests.empty());
     EXPECT_TRUE(mock_store->write_requests.empty());
     EXPECT_EQ("b", read_req.key);
-    EXPECT_EQ(StorageGeneration::Unknown(), read_req.options.if_not_equal);
+    EXPECT_EQ(StorageGeneration::Unknown(),
+              read_req.options.generation_conditions.if_not_equal);
     read_req(memory_store);
   }
   {
@@ -272,7 +278,8 @@ TEST_F(MockStoreTest, MultiPhaseSeparateKeys) {
     EXPECT_TRUE(mock_store->read_requests.empty());
     EXPECT_TRUE(mock_store->write_requests.empty());
     EXPECT_EQ("b", write_req.key);
-    EXPECT_EQ(StorageGeneration::NoValue(), write_req.options.if_equal);
+    EXPECT_EQ(StorageGeneration::NoValue(),
+              write_req.options.generation_conditions.if_equal);
     EXPECT_EQ("def", write_req.value);
     write_req(memory_store);
   }
@@ -299,7 +306,8 @@ TEST_F(MockStoreTest, MultiPhaseSameKey) {
     EXPECT_TRUE(mock_store->read_requests.empty());
     EXPECT_TRUE(mock_store->write_requests.empty());
     EXPECT_EQ("a", read_req.key);
-    EXPECT_EQ(StorageGeneration::Unknown(), read_req.options.if_not_equal);
+    EXPECT_EQ(StorageGeneration::Unknown(),
+              read_req.options.generation_conditions.if_not_equal);
     read_req(memory_store);
   }
   {
@@ -307,7 +315,8 @@ TEST_F(MockStoreTest, MultiPhaseSameKey) {
     EXPECT_TRUE(mock_store->read_requests.empty());
     EXPECT_TRUE(mock_store->write_requests.empty());
     EXPECT_EQ("a", write_req.key);
-    EXPECT_EQ(StorageGeneration::NoValue(), write_req.options.if_equal);
+    EXPECT_EQ(StorageGeneration::NoValue(),
+              write_req.options.generation_conditions.if_equal);
     EXPECT_EQ("abc", write_req.value);
     write_req(memory_store);
   }
@@ -321,7 +330,8 @@ TEST_F(MockStoreTest, MultiPhaseSameKey) {
     EXPECT_TRUE(mock_store->read_requests.empty());
     EXPECT_TRUE(mock_store->write_requests.empty());
     EXPECT_EQ("a", write_req.key);
-    EXPECT_EQ(read_result.stamp.generation, write_req.options.if_equal);
+    EXPECT_EQ(read_result.stamp.generation,
+              write_req.options.generation_conditions.if_equal);
     EXPECT_EQ("abcdef", write_req.value);
     write_req(memory_store);
   }
@@ -330,7 +340,8 @@ TEST_F(MockStoreTest, MultiPhaseSameKey) {
     EXPECT_TRUE(mock_store->read_requests.empty());
     EXPECT_TRUE(mock_store->write_requests.empty());
     EXPECT_EQ("a", read_req.key);
-    EXPECT_EQ(read_result.stamp.generation, read_req.options.if_not_equal);
+    EXPECT_EQ(read_result.stamp.generation,
+              read_req.options.generation_conditions.if_not_equal);
     read_req(memory_store);
   }
   {
@@ -338,7 +349,8 @@ TEST_F(MockStoreTest, MultiPhaseSameKey) {
     EXPECT_TRUE(mock_store->read_requests.empty());
     EXPECT_TRUE(mock_store->write_requests.empty());
     EXPECT_EQ("a", write_req.key);
-    EXPECT_EQ(write_stamp.generation, write_req.options.if_equal);
+    EXPECT_EQ(write_stamp.generation,
+              write_req.options.generation_conditions.if_equal);
     EXPECT_EQ("xyzdef", write_req.value);
     write_req(memory_store);
   }
@@ -498,7 +510,8 @@ TEST_F(MockStoreTest, DeleteRangeBeforeWrite) {
     EXPECT_TRUE(mock_store->read_requests.empty());
     EXPECT_TRUE(mock_store->write_requests.empty());
     EXPECT_EQ("b", write_req.key);
-    EXPECT_EQ(StorageGeneration::Unknown(), write_req.options.if_equal);
+    EXPECT_EQ(StorageGeneration::Unknown(),
+              write_req.options.generation_conditions.if_equal);
     EXPECT_THAT(write_req.value, ::testing::Optional(std::string("abc")));
     write_req(memory_store);
   }
@@ -530,7 +543,8 @@ TEST_F(MockStoreTest, DeleteRangeBeforeWriteJustBeforeExclusiveMax) {
     EXPECT_TRUE(mock_store->read_requests.empty());
     EXPECT_TRUE(mock_store->write_requests.empty());
     EXPECT_EQ("b", write_req.key);
-    EXPECT_EQ(StorageGeneration::Unknown(), write_req.options.if_equal);
+    EXPECT_EQ(StorageGeneration::Unknown(),
+              write_req.options.generation_conditions.if_equal);
     EXPECT_EQ("abc", write_req.value);
     write_req(memory_store);
   }
@@ -612,7 +626,8 @@ TEST_F(MockStoreTest, DeleteRangeAfterValidateAndModify) {
     EXPECT_TRUE(mock_store->write_requests.empty());
     EXPECT_TRUE(mock_store->delete_range_requests.empty());
     EXPECT_EQ("b", read_req.key);
-    EXPECT_EQ(StorageGeneration::Unknown(), read_req.options.if_not_equal);
+    EXPECT_EQ(StorageGeneration::Unknown(),
+              read_req.options.generation_conditions.if_not_equal);
     read_req(memory_store);
   }
   {
@@ -646,7 +661,8 @@ TEST_F(MockStoreTest, MultiPhaseValidateError) {
   {
     auto write_req = mock_store->write_requests.pop();
     EXPECT_EQ("a", write_req.key);
-    EXPECT_EQ(StorageGeneration::Unknown(), write_req.options.if_equal);
+    EXPECT_EQ(StorageGeneration::Unknown(),
+              write_req.options.generation_conditions.if_equal);
     write_req(memory_store);
   }
   TENSORSTORE_ASSERT_OK(memory_store->Write("a", absl::Cord("def")));
@@ -698,7 +714,8 @@ TEST_F(MockStoreTest, MultiPhaseValidateErrorAfterReadValue) {
   {
     auto write_req = mock_store->write_requests.pop();
     EXPECT_EQ("a", write_req.key);
-    EXPECT_EQ(StorageGeneration::Unknown(), write_req.options.if_equal);
+    EXPECT_EQ(StorageGeneration::Unknown(),
+              write_req.options.generation_conditions.if_equal);
     write_req(memory_store);
   }
   TENSORSTORE_ASSERT_OK(memory_store->Write("a", absl::Cord("def")));

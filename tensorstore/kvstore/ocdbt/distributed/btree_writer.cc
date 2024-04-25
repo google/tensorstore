@@ -716,7 +716,8 @@ Future<TimestampedStorageGeneration> DistributedBtreeWriter::Write(
   PendingDistributedRequests::WriteRequest request;
   request.mutation = internal::MakeIntrusivePtr<BtreeLeafNodeWriteMutation>();
   request.mutation->key = std::move(key);
-  request.mutation->existing_generation = std::move(options.if_equal);
+  request.mutation->existing_generation =
+      std::move(options.generation_conditions.if_equal);
   auto [promise, future] =
       PromiseFuturePair<TimestampedStorageGeneration>::Make(std::in_place);
   request.promise = std::move(promise);
