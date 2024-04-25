@@ -46,6 +46,7 @@ tensorstore_cc_library(
         "//tensorstore/kvstore:generation",
         "//tensorstore/kvstore:key_range",
         "//tensorstore/kvstore/gcs:validate",
+        "//tensorstore/kvstore/http:byte_range_util",
         "//tensorstore/kvstore/s3/credentials:aws_credentials",
         "//tensorstore/kvstore/s3/credentials:default_credential_provider",
         "//tensorstore/serialization",

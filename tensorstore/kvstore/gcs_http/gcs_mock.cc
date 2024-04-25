@@ -16,6 +16,7 @@
 
 #include <stdint.h>
 
+#include <algorithm>
 #include <limits>
 #include <map>
 #include <optional>
@@ -35,9 +36,11 @@
 #include "absl/strings/str_split.h"
 #include "absl/strings/substitute.h"
 #include "absl/synchronization/mutex.h"
+#include "re2/re2.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -186,7 +189,7 @@ GCSMockStorageBucket::Match(const HttpRequest& request, absl::Cord payload) {
     return HandleInsertRequest(path, params, payload);
   } else if (absl::StartsWith(path, "/o/") && request.method == "GET") {
     // GET request on an object.
-    return HandleGetRequest(path, params);
+    return HandleGetRequest(request, path, params);
   } else if (absl::StartsWith(path, "/o/") && request.method == "DELETE") {
     // DELETE request on an object.
     return HandleDeleteRequest(path, params);
@@ -315,9 +318,38 @@ GCSMockStorageBucket::HandleInsertRequest(std::string_view path,
   return HttpResponse{404, absl::Cord()};
 }
 
+std::optional<OptionalByteRangeRequest> ParseRangeHeader(
+    std::string_view header) {
+  static LazyRE2 kRange = {R"((?i)range: bytes=(\d+)?-(\d+)?)"};
+  std::optional<int64_t> a, b;
+  if (!RE2::FullMatch(header, *kRange, &a, &b)) return std::nullopt;
+  if (!a && !b) {
+    // Invalid header.
+    return std::nullopt;
+  }
+  if (!a) {
+    return OptionalByteRangeRequest::SuffixLength(*b);
+  }
+  if (!b) {
+    return OptionalByteRangeRequest::Suffix(*a);
+  }
+  return OptionalByteRangeRequest::Range(*a, *b + 1);
+}
+
+std::optional<OptionalByteRangeRequest> ParseRangeHeader(
+    const std::vector<std::string>& headers) {
+  for (const auto& header : headers) {
+    if (auto byte_range = ParseRangeHeader(header)) {
+      return byte_range;
+    }
+  }
+  return std::nullopt;
+}
+
 std::variant<std::monostate, HttpResponse, absl::Status>
-GCSMockStorageBucket::HandleGetRequest(std::string_view path,
-                                       const ParamMap& params) {
+GCSMockStorageBucket::HandleGetRequest(
+    const internal_http::HttpRequest& request, std::string_view path,
+    const ParamMap& params) {
   // https://cloud.google.com/storage/docs/json_api/v1/objects/get
   path.remove_prefix(3);  // remove /o/
   std::string name = internal::PercentDecode(path);
@@ -362,7 +394,7 @@ GCSMockStorageBucket::HandleGetRequest(std::string_view path,
     if (params.empty() || alt == params.end() || alt->second != "media") {
       return ObjectMetadataResponse(it->second);
     }
-    return ObjectMediaResponse(it->second);
+    return ObjectMediaResponse(it->second, ParseRangeHeader(request.headers));
   } while (false);
 
   return HttpResponse{404};
@@ -444,8 +476,43 @@ HttpResponse GCSMockStorageBucket::ObjectMetadataResponse(
   };
 }
 
-HttpResponse GCSMockStorageBucket::ObjectMediaResponse(const Object& object) {
-  HttpResponse response{200, object.data};
+HttpResponse GCSMockStorageBucket::ObjectMediaResponse(
+    const Object& object, std::optional<OptionalByteRangeRequest> byte_range) {
+  HttpResponse response;
+  auto value = object.data;
+  int64_t inclusive_min = 0;
+  if (byte_range) {
+    if (byte_range->inclusive_min >= 0 &&
+        (byte_range->inclusive_min >= object.data.size() ||
+         (byte_range->exclusive_max != -1 &&
+          byte_range->exclusive_max < byte_range->inclusive_min))) {
+      return HttpResponse{
+          416,
+          absl::Cord(
+              R"({ "error": { "code": 416, "message": "The requested range cannot be satisfied." } })")};
+    }
+    if (byte_range->IsSuffixLength()) {
+      inclusive_min =
+          value.size() + std::max(-static_cast<int64_t>(value.size()),
+                                  byte_range->inclusive_min);
+      value = value.Subcord(inclusive_min, value.size() - inclusive_min);
+    } else if (byte_range->IsRange() || byte_range->IsSuffix()) {
+      inclusive_min = byte_range->inclusive_min;
+      int64_t exclusive_max =
+          byte_range->IsSuffix() ? value.size() : byte_range->exclusive_max;
+      exclusive_max =
+          std::min(exclusive_max, static_cast<int64_t>(value.size()));
+      value = value.Subcord(inclusive_min, exclusive_max - inclusive_min);
+    }
+  }
+  response.status_code = value.size() < object.data.size() ? 206 : 200;
+  response.payload = value;
+  if (response.status_code == 206) {
+    response.headers.insert(
+        {"content-range", tensorstore::StrCat("bytes ", inclusive_min, "-",
+                                              inclusive_min + value.size() - 1,
+                                              "/", object.data.size())});
+  }
   response.headers.insert(
       {"content-length", tensorstore::StrCat(response.payload.size())});
   response.headers.insert({"content-type", "application/octet-stream"});

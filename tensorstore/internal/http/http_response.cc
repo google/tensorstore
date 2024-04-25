@@ -15,15 +15,20 @@
 #include "tensorstore/internal/http/http_response.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
-#include <map>
-#include <tuple>
+#include <algorithm>
+#include <limits>
+#include <optional>
+#include <string>
 #include <utility>
 
 #include "absl/status/status.h"
 #include "re2/re2.h"
+#include "tensorstore/internal/source_location.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -103,7 +108,6 @@ absl::StatusCode HttpResponseCodeToStatusCode(const HttpResponse& response) {
 
 }  // namespace
 
-
 absl::Status HttpResponseCodeToStatus(const HttpResponse& response,
                                       SourceLocation loc) {
   auto code = HttpResponseCodeToStatusCode(response);
@@ -124,29 +128,31 @@ absl::Status HttpResponseCodeToStatus(const HttpResponse& response,
   return status;
 }
 
-Result<std::tuple<size_t, size_t, size_t>> ParseContentRangeHeader(
+Result<ParsedContentRange> ParseContentRangeHeader(
     const HttpResponse& response) {
   auto it = response.headers.find("content-range");
   if (it == response.headers.end()) {
     if (response.status_code != 206) {
       // A content range header is not expected.
-      return absl::UnknownError(
+      return absl::FailedPreconditionError(
           tensorstore::StrCat("No Content-Range header expected with HTTP ",
                               response.status_code, " response"));
     }
-    return absl::UnknownError(
+    return absl::FailedPreconditionError(
         "Expected Content-Range header with HTTP 206 response");
   }
   // Expected header format:
   // "bytes <inclusive_start>-<inclusive_end>/<total_size>"
-  static const RE2 kContentRangeRegex(R"(^bytes (\d+)-(\d+)(?:/(\d+))?)");
-  std::tuple<size_t, size_t, size_t> result(0, 0, 0);
-  if (!RE2::FullMatch(it->second, kContentRangeRegex, &std::get<0>(result),
-                      &std::get<1>(result), &std::get<2>(result))) {
-    return absl::UnknownError(tensorstore::StrCat(
+  static const RE2 kContentRangeRegex(R"(^bytes (\d+)-(\d+)/(?:(\d+)|\*))");
+  int64_t a, b;
+  std::optional<int64_t> total_size;
+  if (!RE2::FullMatch(it->second, kContentRangeRegex, &a, &b, &total_size) ||
+      a > b || (total_size && b >= *total_size) ||
+      b == std::numeric_limits<int64_t>::max()) {
+    return absl::FailedPreconditionError(tensorstore::StrCat(
         "Unexpected Content-Range header received: ", QuoteString(it->second)));
   }
-  return result;
+  return ParsedContentRange{a, b + 1, total_size.value_or(-1)};
 }
 
 }  // namespace internal_http

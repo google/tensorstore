@@ -51,6 +51,7 @@
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/generic_coalescing_batch_util.h"
+#include "tensorstore/kvstore/http/byte_range_util.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/registry.h"
@@ -356,31 +357,12 @@ struct ReadTask {
 
     absl::Cord value;
     if (options.byte_range.size() != 0) {
-      if (httpresponse.status_code != 206) {
-        // This may or may not have been a range request; attempt to validate.
-        TENSORSTORE_ASSIGN_OR_RETURN(
-            auto byte_range,
-            options.byte_range.Validate(httpresponse.payload.size()));
-        value = internal::GetSubCord(httpresponse.payload, byte_range);
-      } else {
-        value = httpresponse.payload;
-        // Server should return a parseable content-range header.
-        TENSORSTORE_ASSIGN_OR_RETURN(auto content_range_tuple,
-                                     ParseContentRangeHeader(httpresponse));
+      // Currently unused
+      ByteRange byte_range;
+      int64_t total_size;
 
-        if (auto request_size = options.byte_range.size();
-            (options.byte_range.inclusive_min != -1 &&
-             options.byte_range.inclusive_min !=
-                 std::get<0>(content_range_tuple)) ||
-            (request_size >= 0 && request_size != value.size())) {
-          // Return an error when the response does not start at the requested
-          // offset of when the response is smaller than the desired size.
-          return absl::OutOfRangeError(tensorstore::StrCat(
-              "Requested byte range ", options.byte_range,
-              " was not satisfied by HTTP response of size ",
-              httpresponse.payload.size()));
-        }
-      }
+      TENSORSTORE_RETURN_IF_ERROR(internal_http::ValidateResponseByteRange(
+          httpresponse, options.byte_range, value, byte_range, total_size));
     }
 
     // Parse `ETag` header from response.

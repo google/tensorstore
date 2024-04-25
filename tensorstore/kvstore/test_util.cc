@@ -431,7 +431,13 @@ void TestKeyValueStoreReadOps(const KvStore& store, std::string key,
 
   ABSL_LOG(INFO) << kSep
                  << "Test unconditional range read, max exceeds value size";
-  {
+  if (testing::UnitTest::GetInstance()
+          ->current_test_info()
+          ->test_suite_name() == std::string_view("GcsTestbenchTest")) {
+    ABSL_LOG(INFO)
+        << "Skipping due to "
+           "https://github.com/googleapis/storage-testbench/pull/622";
+  } else {
     kvstore::ReadOptions options;
     options.byte_range.inclusive_min = 1;
     options.byte_range.exclusive_max = expected_value.size() + 1;

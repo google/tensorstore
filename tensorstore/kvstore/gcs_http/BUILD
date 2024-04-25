@@ -44,6 +44,7 @@ tensorstore_cc_library(
         "//tensorstore/kvstore:key_range",
         "//tensorstore/kvstore/gcs:gcs_resource",
         "//tensorstore/kvstore/gcs:validate",
+        "//tensorstore/kvstore/http:byte_range_util",
         "//tensorstore/serialization",
         "//tensorstore/util:executor",
         "//tensorstore/util:future",
@@ -93,6 +94,7 @@ tensorstore_cc_test(
         "//tensorstore/internal/thread:schedule_at",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:batch_util",
+        "//tensorstore/kvstore:byte_range",
         "//tensorstore/kvstore:generation",
         "//tensorstore/kvstore:key_range",
         "//tensorstore/kvstore:test_matchers",
@@ -114,6 +116,7 @@ tensorstore_cc_test(
         "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest_main",
+        "@com_google_re2//:re2",
     ],
 )
 
