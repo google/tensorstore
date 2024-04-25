@@ -38,6 +38,7 @@
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/os/subprocess.h"
 #include "tensorstore/json_serialization_options_base.h"
+#include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/s3/credentials/aws_credentials.h"
 #include "tensorstore/kvstore/s3/s3_request_builder.h"
@@ -115,7 +116,7 @@ SubprocessOptions SetupLocalstackOptions(int http_port) {
   SubprocessOptions options{absl::GetFlag(FLAGS_localstack_binary),
                             {"start", "--host"}};
   options.env.emplace(GetEnvironmentMap());
-  auto &env = *options.env;
+  auto& env = *options.env;
   env["GATEWAY_LISTEN"] = absl::StrFormat("localhost:%d", http_port);
   env["LOCALSTACK_HOST"] =
       absl::StrFormat("localhost.localstack.cloud:%d", http_port);
@@ -129,7 +130,7 @@ SubprocessOptions SetupMotoOptions(int http_port) {
   SubprocessOptions options{absl::GetFlag(FLAGS_localstack_binary),
                             {absl::StrFormat("-p%d", http_port)}};
   options.env.emplace(GetEnvironmentMap());
-  auto &env = *options.env;
+  auto& env = *options.env;
   ABSL_CHECK(!Region().empty());
   env["AWS_DEFAULT_REGION"] = Region();
   return options;
@@ -206,6 +207,15 @@ class LocalStackProcess {
   int http_port = 0;
   std::optional<Subprocess> child_;
 };
+
+Context DefaultTestContext() {
+  // Opens the s3 driver with small exponential backoff values.
+  return Context{Context::Spec::FromJson({{"s3_request_retries",
+                                           {{"max_retries", 3},
+                                            {"initial_delay", "1ms"},
+                                            {"max_delay", "10ms"}}}})
+                     .value()};
+}
 
 class LocalStackFixture : public ::testing::Test {
  protected:
@@ -294,15 +304,6 @@ class LocalStackFixture : public ::testing::Test {
 
 LocalStackProcess LocalStackFixture::process;
 
-Context DefaultTestContext() {
-  // Opens the s3 driver with small exponential backoff values.
-  return Context{Context::Spec::FromJson({{"s3_request_retries",
-                                           {{"max_retries", 3},
-                                            {"initial_delay", "1ms"},
-                                            {"max_delay", "10ms"}}}})
-                     .value()};
-}
-
 TEST_F(LocalStackFixture, Basic) {
   auto context = DefaultTestContext();
   ::nlohmann::json json_spec{
@@ -327,6 +328,32 @@ TEST_F(LocalStackFixture, Basic) {
               ::testing::Optional(MatchesJson(json_spec)));
 
   tensorstore::internal::TestKeyValueReadWriteOps(store);
+}
+
+TEST_F(LocalStackFixture, BatchRead) {
+  auto context = DefaultTestContext();
+  ::nlohmann::json json_spec{
+      {"driver", "s3"},              //
+      {"bucket", Bucket()},          //
+      {"endpoint", endpoint_url()},  //
+      {"path", Path()},              //
+  };
+
+  if (!Region().empty()) {
+    json_spec["aws_region"] = Region();
+  }
+  if (!absl::GetFlag(FLAGS_host_header).empty()) {
+    json_spec["host_header"] = absl::GetFlag(FLAGS_host_header);
+  }
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
+                                   kvstore::Open(json_spec, context).result());
+
+  tensorstore::internal::BatchReadGenericCoalescingTestOptions options;
+  options.coalescing_options = tensorstore::internal_kvstore_batch::
+      kDefaultRemoteStorageCoalescingOptions;
+  options.metric_prefix = "/tensorstore/kvstore/s3/";
+  tensorstore::internal::TestBatchReadGenericCoalescing(store, options);
 }
 
 }  // namespace

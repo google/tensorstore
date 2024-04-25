@@ -385,7 +385,10 @@ tensorstore_cc_binary(
 
 tensorstore_cc_library(
     name = "batch_util",
-    hdrs = ["batch_util.h"],
+    hdrs = [
+        "batch_util.h",
+        "generic_coalescing_batch_util.h",
+    ],
     deps = [
         ":byte_range",
         ":generation",

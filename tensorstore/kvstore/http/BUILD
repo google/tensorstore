@@ -33,6 +33,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/internal/metrics",
         "//tensorstore/kvstore",
+        "//tensorstore/kvstore:batch_util",
         "//tensorstore/kvstore:byte_range",
         "//tensorstore/kvstore:generation",
         "//tensorstore/serialization",
@@ -60,6 +61,7 @@ tensorstore_cc_test(
     srcs = ["driver_test.cc"],
     deps = [
         ":http",
+        "//tensorstore:batch",
         "//tensorstore/internal:queue_testutil",
         "//tensorstore/internal/http",
         "//tensorstore/internal/http:curl_transport",

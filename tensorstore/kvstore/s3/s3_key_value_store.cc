@@ -52,9 +52,11 @@
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/thread/schedule_at.h"
 #include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/gcs/validate.h"
 #include "tensorstore/kvstore/generation.h"
+#include "tensorstore/kvstore/generic_coalescing_batch_util.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
@@ -138,6 +140,9 @@ auto& s3_retries = internal_metrics::Counter<int64_t>::New(
 
 auto& s3_read = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/s3/read", "S3 driver kvstore::Read calls");
+
+auto& s3_batch_read = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/s3/batch_read", "S3 driver reads after batching");
 
 auto& s3_read_latency_ms =
     internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
@@ -348,7 +353,17 @@ class S3KeyValueStore
         spec_(std::move(spec)),
         host_header_(spec_.host_header.value_or(std::string())) {}
 
+  internal_kvstore_batch::CoalescingOptions GetBatchReadCoalescingOptions()
+      const {
+    internal_kvstore_batch::CoalescingOptions options;
+    options.max_extra_read_bytes = 4095;
+    options.target_coalesced_size = 128 * 1024 * 1024;
+    return options;
+  }
+
   Future<ReadResult> Read(Key key, ReadOptions options) override;
+
+  Future<ReadResult> ReadImpl(Key&& key, ReadOptions&& options);
 
   Future<TimestampedStorageGeneration> Write(Key key,
                                              std::optional<Value> value,
@@ -605,7 +620,13 @@ Future<kvstore::ReadResult> S3KeyValueStore::Read(Key key,
       !IsValidStorageGeneration(options.generation_conditions.if_not_equal)) {
     return absl::InvalidArgumentError("Malformed StorageGeneration");
   }
+  return internal_kvstore_batch::HandleBatchRequestByGenericByteRangeCoalescing(
+      *this, std::move(key), std::move(options));
+}
 
+Future<kvstore::ReadResult> S3KeyValueStore::ReadImpl(Key&& key,
+                                                      ReadOptions&& options) {
+  s3_batch_read.Increment();
   auto op = PromiseFuturePair<ReadResult>::Make();
   auto state = internal::MakeIntrusivePtr<ReadTask>(
       internal::IntrusivePtr<S3KeyValueStore>(this), key, std::move(options),

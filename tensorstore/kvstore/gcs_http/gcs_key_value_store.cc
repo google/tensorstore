@@ -60,6 +60,7 @@
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/thread/schedule_at.h"
 #include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/gcs/gcs_resource.h"
@@ -67,6 +68,7 @@
 #include "tensorstore/kvstore/gcs_http/gcs_resource.h"
 #include "tensorstore/kvstore/gcs_http/object_metadata.h"
 #include "tensorstore/kvstore/generation.h"
+#include "tensorstore/kvstore/generic_coalescing_batch_util.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
@@ -157,6 +159,9 @@ auto& gcs_retries = internal_metrics::Counter<int64_t>::New(
 
 auto& gcs_read = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/gcs/read", "GCS driver kvstore::Read calls");
+
+auto& gcs_batch_read = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/gcs/batch_read", "gcs driver reads after batching");
 
 auto& gcs_read_latency_ms =
     internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
@@ -338,7 +343,14 @@ class GcsKeyValueStore
     return encoded_user_project_;
   }
 
+  internal_kvstore_batch::CoalescingOptions GetBatchReadCoalescingOptions()
+      const {
+    return internal_kvstore_batch::kDefaultRemoteStorageCoalescingOptions;
+  }
+
   Future<ReadResult> Read(Key key, ReadOptions options) override;
+
+  Future<ReadResult> ReadImpl(Key&& key, ReadOptions&& options);
 
   Future<TimestampedStorageGeneration> Write(Key key,
                                              std::optional<Value> value,
@@ -687,7 +699,13 @@ Future<kvstore::ReadResult> GcsKeyValueStore::Read(Key key,
       !IsValidStorageGeneration(options.generation_conditions.if_not_equal)) {
     return absl::InvalidArgumentError("Malformed StorageGeneration");
   }
+  return internal_kvstore_batch::HandleBatchRequestByGenericByteRangeCoalescing(
+      *this, std::move(key), std::move(options));
+}
 
+Future<kvstore::ReadResult> GcsKeyValueStore::ReadImpl(Key&& key,
+                                                       ReadOptions&& options) {
+  gcs_batch_read.Increment();
   auto encoded_object_name = internal::PercentEncodeUriComponent(key);
   std::string resource = tensorstore::internal::JoinPath(resource_root_, "/o/",
                                                          encoded_object_name);

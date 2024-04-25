@@ -47,8 +47,10 @@
 #include "tensorstore/internal/retries_context_resource.h"
 #include "tensorstore/internal/retry.h"
 #include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/generation.h"
+#include "tensorstore/kvstore/generic_coalescing_batch_util.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/registry.h"
@@ -76,6 +78,12 @@ namespace tensorstore {
 namespace {
 
 namespace jb = tensorstore::internal_json_binding;
+
+auto& http_read = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/http/read", "http driver kvstore::Read calls");
+
+auto& http_batch_read = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/http/batch_read", "http driver reads after batching");
 
 auto& http_bytes_read = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/http/bytes_read",
@@ -211,7 +219,13 @@ class HttpKeyValueStore
     : public internal_kvstore::RegisteredDriver<HttpKeyValueStore,
                                                 HttpKeyValueStoreSpec> {
  public:
+  internal_kvstore_batch::CoalescingOptions GetBatchReadCoalescingOptions()
+      const {
+    return internal_kvstore_batch::kDefaultRemoteStorageCoalescingOptions;
+  }
+
   Future<ReadResult> Read(Key key, ReadOptions options) override;
+  Future<ReadResult> ReadImpl(Key&& key, ReadOptions&& options);
 
   const Executor& executor() const {
     return spec_.request_concurrency->executor;
@@ -430,6 +444,14 @@ struct ReadTask {
 
 Future<kvstore::ReadResult> HttpKeyValueStore::Read(Key key,
                                                     ReadOptions options) {
+  http_read.Increment();
+  return internal_kvstore_batch::HandleBatchRequestByGenericByteRangeCoalescing(
+      *this, std::move(key), std::move(options));
+}
+
+Future<kvstore::ReadResult> HttpKeyValueStore::ReadImpl(Key&& key,
+                                                        ReadOptions&& options) {
+  http_batch_read.Increment();
   std::string url = spec_.GetUrl(key);
   return MapFuture(executor(), ReadTask{IntrusivePtr<HttpKeyValueStore>(this),
                                         std::move(url), std::move(options)});

@@ -56,6 +56,7 @@
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/thread/schedule_at.h"
 #include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/gcs/gcs_resource.h"
@@ -63,6 +64,7 @@
 #include "tensorstore/kvstore/gcs_grpc/get_credentials.h"
 #include "tensorstore/kvstore/gcs_grpc/storage_stub_pool.h"
 #include "tensorstore/kvstore/generation.h"
+#include "tensorstore/kvstore/generic_coalescing_batch_util.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
@@ -132,8 +134,16 @@ namespace {
 
 namespace jb = tensorstore::internal_json_binding;
 
+auto& gcs_grpc_bytes_read = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/gcs_grpc/bytes_read",
+    "Bytes read by the gcs_grpc kvstore driver");
+
 auto& gcs_grpc_read = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/gcs_grpc/read", "GCS driver kvstore::Read calls");
+
+auto& gcs_grpc_batch_read = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/gcs_grpc/batch_read",
+    "GCS driver reads after batching");
 
 auto& gcs_grpc_read_latency_ms =
     internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
@@ -231,8 +241,14 @@ class GcsGrpcKeyValueStore
     : public internal_kvstore::RegisteredDriver<GcsGrpcKeyValueStore,
                                                 GcsGrpcKeyValueStoreSpec> {
  public:
+  internal_kvstore_batch::CoalescingOptions GetBatchReadCoalescingOptions()
+      const {
+    return internal_kvstore_batch::kDefaultRemoteStorageCoalescingOptions;
+  }
+
   /// Key value store operations.
   Future<ReadResult> Read(Key key, ReadOptions options) override;
+  Future<ReadResult> ReadImpl(Key&& key, ReadOptions&& options);
 
   Future<TimestampedStorageGeneration> Write(Key key,
                                              std::optional<Value> value,
@@ -488,6 +504,8 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
       }
     }
     if (response_.has_checksummed_data()) {
+      gcs_grpc_bytes_read.IncrementBy(
+          response_.checksummed_data().content().size());
       value_.Append(response_.checksummed_data().content());
     }
 
@@ -1062,6 +1080,13 @@ Future<kvstore::ReadResult> GcsGrpcKeyValueStore::Read(Key key,
       !IsValidStorageGeneration(options.generation_conditions.if_not_equal)) {
     return absl::InvalidArgumentError("Malformed StorageGeneration");
   }
+  return internal_kvstore_batch::HandleBatchRequestByGenericByteRangeCoalescing(
+      *this, std::move(key), std::move(options));
+}
+
+Future<kvstore::ReadResult> GcsGrpcKeyValueStore::ReadImpl(
+    Key&& key, ReadOptions&& options) {
+  gcs_grpc_batch_read.Increment();
   auto op = PromiseFuturePair<ReadResult>::Make();
 
   auto task = internal::MakeIntrusivePtr<ReadTask>();

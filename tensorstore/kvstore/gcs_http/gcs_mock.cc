@@ -23,6 +23,7 @@
 #include <string_view>
 #include <utility>
 #include <variant>
+#include <vector>
 
 #include "absl/hash/hash.h"
 #include "absl/log/absl_log.h"
