@@ -33,6 +33,7 @@
 #include "absl/strings/str_format.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
+#include "tensorstore/batch.h"
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/container/intrusive_red_black_tree.h"
 #include "tensorstore/internal/intrusive_ptr.h"
@@ -198,6 +199,12 @@ class AsyncCache : public Cache {
     /// reflected in the cache.
     bool known_to_be_stale = false;
 
+    /// Indicates that the read request corresponding to `queued` should not be
+    /// issued yet, because it was requested as part of a not-yet-submitted
+    /// batch.  If a non-batch or submitted-batch request is subsequently made,
+    /// it will be issued.
+    bool queued_request_is_deferred = true;
+
     /// The size in bytes consumed by `read_state.read_data`.  This is the
     /// cached result of calling
     /// `Entry::ComputeReadDataSizeInBytes(read_state.read_data.get())`.
@@ -323,6 +330,9 @@ class AsyncCache : public Cache {
   struct AsyncCacheReadRequest {
     /// Data that is read must not be older than `staleness_bound`.
     absl::Time staleness_bound = absl::InfiniteFuture();
+
+    /// Batch to use.
+    Batch::View batch;
   };
 
   /// Base Entry class.  `Derived` classes must define a nested `Derived::Entry`
@@ -931,6 +941,9 @@ class AsyncCache : public Cache {
   ///     entry->entry_data_.write_state_size
   size_t DoGetSizeInBytes(Cache::Entry* entry) final;
 
+  size_t BatchNestingDepth() const { return batch_nesting_depth_; }
+  void SetBatchNestingDepth(size_t value) { batch_nesting_depth_ = value; }
+
   /// Allocates a new `TransactionNode`.
   ///
   /// Usually this method can be defined as:
@@ -940,6 +953,9 @@ class AsyncCache : public Cache {
   ///   return new TransactionNode(static_cast<Entry&>(entry));
   /// }
   virtual TransactionNode* DoAllocateTransactionNode(Entry& entry) = 0;
+
+ private:
+  size_t batch_nesting_depth_ = 0;
 };
 
 using AsyncCacheReadRequest = AsyncCache::AsyncCacheReadRequest;

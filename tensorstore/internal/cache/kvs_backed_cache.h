@@ -91,8 +91,9 @@ class KvsBackedCache : public Parent {
   /// \param args Arguments to forward to the `Parent` constructor.
   template <typename... U>
   explicit KvsBackedCache(kvstore::DriverPtr kvstore_driver, U&&... args)
-      : Parent(std::forward<U>(args)...),
-        kvstore_driver_(std::move(kvstore_driver)) {}
+      : Parent(std::forward<U>(args)...) {
+    SetKvStoreDriver(std::move(kvstore_driver));
+  }
 
   class TransactionNode;
 
@@ -169,6 +170,7 @@ class KvsBackedCache : public Parent {
       auto read_state = AsyncCache::ReadLock<void>(*this).read_state();
       kvstore_options.generation_conditions.if_not_equal =
           std::move(read_state.stamp.generation);
+      kvstore_options.batch = request.batch;
       auto& cache = GetOwningCache(*this);
       auto future = cache.kvstore_driver_->Read(this->GetKeyValueStoreKey(),
                                                 std::move(kvstore_options));
@@ -236,6 +238,7 @@ class KvsBackedCache : public Parent {
       kvstore_options.generation_conditions.if_not_equal =
           std::move(read_state.stamp.generation);
       kvstore_options.staleness_bound = request.staleness_bound;
+      kvstore_options.batch = request.batch;
       target_->KvsRead(
           std::move(kvstore_options),
           typename Entry::template ReadReceiverImpl<TransactionNode>{
@@ -450,6 +453,9 @@ class KvsBackedCache : public Parent {
   /// Sets the `kvstore::Driver`.  The caller is responsible for ensuring there
   /// are no concurrent read or write operations.
   void SetKvStoreDriver(kvstore::DriverPtr driver) {
+    if (driver) {
+      this->SetBatchNestingDepth(driver->BatchNestingDepth() + 1);
+    }
     kvstore_driver_ = std::move(driver);
   }
 

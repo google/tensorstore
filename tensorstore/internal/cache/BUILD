@@ -43,6 +43,7 @@ tensorstore_cc_library(
     }),
     deps = [
         ":cache",
+        "//tensorstore:batch",
         "//tensorstore:transaction",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:mutex",
@@ -75,6 +76,7 @@ tensorstore_cc_test(
     deps = [
         ":async_cache",
         ":cache",
+        "//tensorstore:batch",
         "//tensorstore:transaction",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:queue_testutil",
