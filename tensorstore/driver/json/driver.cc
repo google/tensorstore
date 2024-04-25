@@ -505,6 +505,7 @@ void JsonDriver::Read(
     const auto get_cache_read_request = [&] {
       AsyncCache::AsyncCacheReadRequest cache_read_request;
       cache_read_request.staleness_bound = data_staleness_.time;
+      cache_read_request.batch = request.batch;
       return cache_read_request;
     };
     if (request.transaction) {
