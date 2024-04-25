@@ -2875,6 +2875,49 @@ TEST(DriverTest, SerializationRoundTrip) {
   EXPECT_THAT(store_copy_spec_json, MatchesJson(store_spec_json));
 }
 
+TEST(DriverTest, SerializationRoundTripMultiScale) {
+  ScopedTemporaryDirectory temp_dir;
+  ::nlohmann::json json_spec;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto scale0,
+      tensorstore::Open(
+          {{"driver", "neuroglancer_precomputed"},
+           {"kvstore", {{"driver", "file"}, {"path", temp_dir.path()}}},
+           {"scale_metadata", {{"key", "scale0"}}}},
+          tensorstore::OpenMode::create, tensorstore::dtype_v<uint8_t>,
+          tensorstore::Schema::Shape({100, 200, 300, 1}),
+          tensorstore::ReadWriteMode::read_write)
+          .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto scale1,
+      tensorstore::Open(
+          {{"driver", "neuroglancer_precomputed"},
+           {"kvstore", {{"driver", "file"}, {"path", temp_dir.path()}}},
+           {"scale_index", 1},
+           {"scale_metadata", {{"key", "scale1"}}}},
+          tensorstore::OpenMode::create, tensorstore::dtype_v<uint8_t>,
+          tensorstore::Schema::Shape({100, 200, 300, 1}),
+          tensorstore::ReadWriteMode::read_write)
+          .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto scale0_spec, scale0.spec());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto scale0_spec_json, scale0_spec.ToJson());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto scale0_copy,
+                                   SerializationRoundTrip(scale0));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto scale0_copy_spec, scale0_copy.spec());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto scale0_copy_spec_json,
+                                   scale0_copy_spec.ToJson());
+  EXPECT_THAT(scale0_copy_spec_json, MatchesJson(scale0_spec_json));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto scale1_spec, scale1.spec());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto scale1_spec_json, scale1_spec.ToJson());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto scale1_copy,
+                                   SerializationRoundTrip(scale1));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto scale1_copy_spec, scale1_copy.spec());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto scale1_copy_spec_json,
+                                   scale1_copy_spec.ToJson());
+  EXPECT_THAT(scale1_copy_spec_json, MatchesJson(scale1_spec_json));
+}
+
 TEST(DriverTest, ShardingBatchRead) {
   auto context = Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(

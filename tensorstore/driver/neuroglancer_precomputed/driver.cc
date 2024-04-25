@@ -821,12 +821,12 @@ class NeuroglancerPrecomputedDriver::OpenState
     return internal_kvs_backed_chunk_driver::AtomicUpdateConstraint::kNone;
   }
 
-  Result<std::shared_ptr<const void>> Create(
-      const void* existing_metadata) override {
+  Result<std::shared_ptr<const void>> Create(const void* existing_metadata,
+                                             CreateOptions options) override {
     const auto* metadata =
         static_cast<const MultiscaleMetadata*>(existing_metadata);
-    if (auto result =
-            CreateScale(metadata, spec().open_constraints, spec().schema)) {
+    if (auto result = CreateScale(metadata, spec().open_constraints,
+                                  spec().schema, options.assume_metadata)) {
       scale_index_ = result->second;
       return result->first;
     } else {

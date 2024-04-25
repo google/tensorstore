@@ -938,7 +938,7 @@ void CreateMetadata(MetadataOpenState::Ptr state,
            [state = std::move(state_copy)](
                const MetadataCache::MetadataPtr& existing_metadata)
                -> Result<MetadataCache::MetadataPtr> {
-             return state->Create(existing_metadata.get());
+             return state->Create(existing_metadata.get(), {});
            },
            state_ptr->GetCreateConstraint(), base.request_time_));
 }
@@ -984,8 +984,9 @@ struct GetMetadataForOpen {
     auto batch = std::move(base.batch_);
     if (base.spec_->open) {
       if (base.spec_->assume_metadata || base.spec_->assume_cached_metadata) {
-        TENSORSTORE_ASSIGN_OR_RETURN(auto metadata, state->Create(nullptr),
-                                     static_cast<void>(promise.SetResult(_)));
+        TENSORSTORE_ASSIGN_OR_RETURN(
+            auto metadata, state->Create(nullptr, {/*.assume_metadata=*/true}),
+            static_cast<void>(promise.SetResult(_)));
         promise.SetResult(
             state->CreateDriverHandleFromMetadata(std::move(metadata)));
         return;

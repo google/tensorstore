@@ -240,6 +240,9 @@ absl::Status ValidateMetadataCompatibility(
 
 /// Attempts to create a new scale.
 ///
+/// If `assume_metadata` is specified, `existing_metadata` must be `nullptr` and
+/// `scale_index` can be non-zero.
+///
 /// \returns The new metadata and the new scale index.
 /// \error `absl::StatusCode::kAlreadyExists` if the scale already exists.
 /// \error `absl::StatusCode::kFailedPrecondition` if `constraints` are not
@@ -248,7 +251,8 @@ absl::Status ValidateMetadataCompatibility(
 ///     for creating a new scale.
 Result<std::pair<std::shared_ptr<MultiscaleMetadata>, size_t>> CreateScale(
     const MultiscaleMetadata* existing_metadata,
-    const OpenConstraints& constraints, const Schema& schema);
+    const OpenConstraints& constraints, const Schema& schema,
+    bool assume_metadata = false);
 
 /// Validates that the specified scale is compatible with `schema`.
 absl::Status ValidateMetadataSchema(const MultiscaleMetadata& metadata,

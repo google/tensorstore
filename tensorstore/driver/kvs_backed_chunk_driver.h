@@ -634,6 +634,13 @@ class MetadataOpenState
   /// By default, returns `kRequireMissing`.
   virtual AtomicUpdateConstraint GetCreateConstraint();
 
+  struct CreateOptions {
+    /// Indicates if `assume_metadata` or `assume_cached_metadata` was
+    /// specified. It is guaranteed that `existing_metadata == nullptr` in this
+    /// case.
+    bool assume_metadata = false;
+  };
+
   /// Returns the metadata with a new array created.
   ///
   /// The behavior must be consistent with the constraint returned by
@@ -641,10 +648,11 @@ class MetadataOpenState
   ///
   /// \param existing_metadata Pointer to the existing metadata of type
   ///     `Metadata`, or `nullptr` if there is no existing metadata.
+  /// \param options Additional options.
   /// \error `absl::StatusCode::kAlreadyExists` if create failed because the
   ///     array may already exist.
   virtual Result<std::shared_ptr<const void>> Create(
-      const void* existing_metadata) = 0;
+      const void* existing_metadata, CreateOptions options) = 0;
 
   /// Returns a unique identifier (for a given value of `typeid(*this)`) of the
   /// state returned by `GetMetadataCache`.
