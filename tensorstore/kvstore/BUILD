@@ -298,10 +298,12 @@ tensorstore_cc_library(
     srcs = ["mock_kvstore.cc"],
     hdrs = ["mock_kvstore.h"],
     deps = [
+        ":batch_util",
         ":byte_range",
         ":generation",
         ":key_range",
         ":kvstore",
+        "//tensorstore:batch",
         "//tensorstore:context",
         "//tensorstore:transaction",
         "//tensorstore/internal:intrusive_ptr",

@@ -33,6 +33,7 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
+#include "tensorstore/batch.h"
 #include "tensorstore/context.h"
 #include "tensorstore/driver/zarr3/codec/codec_chain_spec.h"
 #include "tensorstore/index.h"
@@ -49,6 +50,7 @@
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/json_serialization_options_base.h"
+#include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
@@ -64,6 +66,7 @@
 #include "tensorstore/kvstore/zarr3_sharding_indexed/key.h"
 #include "tensorstore/kvstore/zarr3_sharding_indexed/shard_format.h"
 #include "tensorstore/transaction.h"
+#include "tensorstore/util/bit_vec.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/flow_sender_operation_state.h"
@@ -869,127 +872,298 @@ ShardedKeyValueStore::ShardedKeyValueStore(
       });
 }
 
-/// Asynchronous state and associated methods for  `ShardedKeyValueStore::Read`.
-struct ReadOperationState {
-  internal::PinnedCacheEntry<ShardIndexCache> entry_;
-  EntryId entry_id_;
-  kvstore::ReadOptions options_;
+/// Asynchronous state and associated methods for `ShardedKeyValueStore::Read`.
+class ReadOperationState;
+using ReadOperationStateBase = internal_kvstore_batch::BatchReadEntry<
+    ShardedKeyValueStore, internal_kvstore_batch::ReadRequest<
+                              EntryId, kvstore::ReadGenerationConditions>>;
+class ReadOperationState
+    : public ReadOperationStateBase,
+      public internal::AtomicReferenceCount<ReadOperationState> {
+ public:
+  explicit ReadOperationState(BatchEntryKey&& batch_entry_key_)
+      : ReadOperationStateBase(std::move(batch_entry_key_)),
+        // Initial reference to be transferred to `Submit`.
+        internal::AtomicReferenceCount<ReadOperationState>(
+            /*initial_ref_count=*/1) {}
 
-  static auto OnShardIndexReadyCallback(
-      std::unique_ptr<ReadOperationState> self) {
-    auto& executor = GetOwningCache(*self->entry_).executor();
-    return WithExecutor(executor, [self = std::move(self)](
-                                      Promise<kvstore::ReadResult> promise,
-                                      ReadyFuture<const void> future) mutable {
-      OnShardIndexReady(std::move(self), std::move(promise));
-    });
+ private:
+  internal::PinnedCacheEntry<ShardIndexCache> shard_index_cache_entry_;
+  Batch successor_batch_{no_batch};
+
+  void Submit(Batch::View batch) override {
+    const auto& executor = driver().executor();
+    executor(
+        [this, batch = Batch(batch)] { this->ProcessBatch(std::move(batch)); });
   }
 
-  static Future<kvstore::ReadResult> Start(ShardedKeyValueStore& store,
-                                           kvstore::Key&& key,
-                                           kvstore::ReadOptions&& options) {
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        EntryId entry_id,
-        KeyToEntryIdOrError(key, store.shard_index_params().grid_shape()));
-    auto shard_index_cache_entry =
-        GetCacheEntry(store.shard_index_cache(), std::string_view{});
-    auto shard_index_read_future =
-        shard_index_cache_entry->Read({options.staleness_bound});
-    return PromiseFuturePair<kvstore::ReadResult>::LinkValue(
-               OnShardIndexReadyCallback(std::unique_ptr<ReadOperationState>(
-                   new ReadOperationState{std::move(shard_index_cache_entry),
-                                          entry_id, std::move(options)})),
-               std::move(shard_index_read_future))
-        .future;
-  }
+  void ProcessBatch(Batch batch) {
+    // Take ownership of initial reference.
+    internal::IntrusivePtr<ReadOperationState> self(this,
+                                                    internal::adopt_object_ref);
+    if (ShouldReadEntireShard()) {
+      ReadEntireShard(std::move(self), std::move(batch));
+      return;
+    }
 
-  static void OnShardIndexReady(std::unique_ptr<ReadOperationState> self,
-                                Promise<kvstore::ReadResult> promise) {
-    ShardIndexEntry index_entry = ShardIndexEntry::Missing();
-    TimestampedStorageGeneration stamp;
-    kvstore::ReadResult::State state;
-    {
-      auto lock = internal::AsyncCache::ReadLock<ShardIndexCache::ReadData>(
-          *self->entry_);
-      stamp = lock.stamp();
-      if (!StorageGeneration::IsNoValue(stamp.generation) &&
-          (self->options_.generation_conditions.if_not_equal ==
-               stamp.generation ||
-           (!StorageGeneration::IsUnknown(
-                self->options_.generation_conditions.if_equal) &&
-            self->options_.generation_conditions.if_equal !=
-                stamp.generation))) {
-        state = kvstore::ReadResult::kUnspecified;
+    shard_index_cache_entry_ =
+        GetCacheEntry(driver().shard_index_cache(), std::string_view{});
+
+    auto shard_index_read_future = shard_index_cache_entry_->Read(
+        {this->request_batch.staleness_bound, batch});
+
+    if (batch) {
+      if (!shard_index_read_future.ready()) {
+        // Shard index will be read using this batch.  The actual entries will
+        // be read using the successor batch.
+        successor_batch_ = Batch::New();
       } else {
-        if (lock.data()) {
-          const auto& shard_index = *lock.data();
-          index_entry = shard_index[self->entry_id_];
-        }
-        state = kvstore::ReadResult::kMissing;
+        successor_batch_ = std::move(batch);
       }
     }
-    if (index_entry.IsMissing()) {
-      promise.SetResult(kvstore::ReadResult{state, {}, std::move(stamp)});
-      return;
-    }
-    assert(!StorageGeneration::IsUnknown(stamp.generation));
-    auto& cache = GetOwningCache(*self->entry_);
-    assert(self->options_.byte_range.SatisfiesInvariants());
-    TENSORSTORE_RETURN_IF_ERROR(
-        index_entry.Validate(self->entry_id_),
-        static_cast<void>(
-            promise.SetResult(self->entry_->AnnotateError(_,
-                                                          /*reading=*/true))));
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto validated_byte_range,
-        self->options_.byte_range.Validate(index_entry.length),
-        static_cast<void>(promise.SetResult(_)));
-    if (validated_byte_range.inclusive_min ==
-        validated_byte_range.exclusive_max) {
-      // Zero-length read request, no need to issue actual read.
-      promise.SetResult(kvstore::ReadResult{kvstore::ReadResult::kValue,
-                                            absl::Cord(), std::move(stamp)});
-      return;
-    }
-    kvstore::ReadOptions kvs_read_options;
-    kvs_read_options.generation_conditions.if_equal = stamp.generation;
-    kvs_read_options.staleness_bound = self->options_.staleness_bound;
-    kvs_read_options.byte_range =
-        ByteRange{static_cast<int64_t>(index_entry.offset +
-                                       validated_byte_range.inclusive_min),
-                  static_cast<int64_t>(index_entry.offset +
-                                       validated_byte_range.exclusive_max)};
-    LinkValue(
-        [self = std::move(self)](
-            Promise<kvstore::ReadResult> promise,
-            ReadyFuture<kvstore::ReadResult> future) mutable {
-          OnValueReady(std::move(self), std::move(promise),
-                       std::move(future.value()));
-        },
-        std::move(promise),
-        cache.base_kvstore_driver()->Read(
-            std::string(cache.base_kvstore_path()),
-            std::move(kvs_read_options)));
+
+    std::move(shard_index_read_future)
+        .ExecuteWhenReady(
+            [self = std::move(self)](ReadyFuture<const void> future) mutable {
+              const auto& executor = self->driver().executor();
+              executor([self = std::move(self), status = future.status()] {
+                if (!status.ok()) {
+                  internal_kvstore_batch::SetCommonResult<Request>(
+                      self->request_batch.requests, {status});
+                  return;
+                }
+                OnShardIndexReady(std::move(self));
+              });
+            });
   }
 
-  static void OnValueReady(std::unique_ptr<ReadOperationState> self,
-                           Promise<kvstore::ReadResult> promise,
-                           kvstore::ReadResult&& value) {
-    if (value.aborted()) {
-      // Concurrent modification.  Retry.
-      auto shard_index_read_future =
-          self->entry_->Read({/*.staleness_bound=*/value.stamp.time});
-      LinkValue(OnShardIndexReadyCallback(std::move(self)), std::move(promise),
-                std::move(shard_index_read_future));
+  bool ShouldReadEntireShard() {
+    const int64_t num_entries_per_shard =
+        driver().shard_index_params().num_entries;
+    if (request_batch.requests.size() < num_entries_per_shard) {
+      // The requests can't possibly cover all of the entries.
+      return false;
+    }
+
+    const auto& first_request = request_batch.requests[0];
+
+    BitVec<> covered_entries(num_entries_per_shard);
+
+    int64_t num_covered = 0;
+
+    for (const auto& request : request_batch.requests) {
+      if (std::get<kvstore::ReadGenerationConditions>(request) !=
+          std::get<kvstore::ReadGenerationConditions>(first_request)) {
+        // Generation constraints are not all the same.
+        return false;
+      }
+      if (std::get<internal_kvstore_batch::ByteRangeReadRequest>(request)
+              .byte_range.IsFull()) {
+        auto ref = covered_entries[std::get<EntryId>(request)];
+        if (!ref) ++num_covered;
+        ref = true;
+      }
+    }
+
+    if (num_covered != num_entries_per_shard) {
+      return false;
+    }
+
+    return true;
+  }
+
+  static void ReadEntireShard(internal::IntrusivePtr<ReadOperationState> self,
+                              Batch batch) {
+    auto& first_request = self->request_batch.requests[0];
+    kvstore::ReadOptions read_options;
+    read_options.batch = std::move(batch);
+    read_options.generation_conditions =
+        std::move(std::get<kvstore::ReadGenerationConditions>(first_request));
+    read_options.staleness_bound = self->request_batch.staleness_bound;
+    auto& driver = self->driver();
+    driver.base_kvstore_driver()
+        ->Read(driver.base_kvstore_path(), std::move(read_options))
+        .ExecuteWhenReady([self = std::move(self)](
+                              ReadyFuture<kvstore::ReadResult> future) mutable {
+          const auto& executor = self->driver().executor();
+          executor([self = std::move(self), future = std::move(future)] {
+            OnFullShardReady(std::move(self), std::move(future.result()));
+          });
+        });
+  }
+
+  static void OnFullShardReady(internal::IntrusivePtr<ReadOperationState> self,
+                               Result<kvstore::ReadResult>&& result) {
+    if (!result.ok() || !result->has_value()) {
+      internal_kvstore_batch::SetCommonResult(self->request_batch.requests,
+                                              std::move(result));
       return;
     }
-    promise.SetResult(std::move(value));
+    auto& read_result = *result;
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto shard_index,
+        DecodeShardIndexFromFullShard(read_result.value,
+                                      self->driver().shard_index_params()),
+        internal_kvstore_batch::SetCommonResult(self->request_batch.requests,
+                                                _));
+    const auto complete_request = [&](Request& request) {
+      auto& byte_range_request =
+          std::get<internal_kvstore_batch::ByteRangeReadRequest>(request);
+      const auto index_entry = shard_index[std::get<EntryId>(request)];
+      if (index_entry.IsMissing()) {
+        byte_range_request.promise.SetResult(
+            kvstore::ReadResult::Missing(read_result.stamp));
+        return;
+      }
+      TENSORSTORE_RETURN_IF_ERROR(
+          index_entry.Validate(std::get<EntryId>(request),
+                               read_result.value.size()),
+          static_cast<void>(byte_range_request.promise.SetResult(_)));
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          auto validated_byte_range,
+          byte_range_request.byte_range.Validate(index_entry.length),
+          static_cast<void>(byte_range_request.promise.SetResult(_)));
+      validated_byte_range.inclusive_min += index_entry.offset;
+      validated_byte_range.exclusive_max += index_entry.offset;
+      kvstore::ReadResult request_read_result;
+      request_read_result.stamp = read_result.stamp;
+      request_read_result.state = kvstore::ReadResult::kValue;
+      request_read_result.value =
+          internal::GetSubCord(read_result.value, validated_byte_range);
+      byte_range_request.promise.SetResult(std::move(request_read_result));
+    };
+    for (auto& request : self->request_batch.requests) {
+      complete_request(request);
+    }
+  }
+
+  static void OnShardIndexReady(
+      internal::IntrusivePtr<ReadOperationState> self) {
+    std::shared_ptr<const ShardIndex> shard_index;
+    TimestampedStorageGeneration stamp;
+    {
+      auto lock = internal::AsyncCache::ReadLock<ShardIndexCache::ReadData>(
+          *self->shard_index_cache_entry_);
+      stamp = lock.stamp();
+      shard_index = lock.shared_data();
+    }
+
+    assert(!StorageGeneration::IsUnknown(stamp.generation));
+
+    if (!shard_index) {
+      internal_kvstore_batch::SetCommonResult(
+          self->request_batch.requests,
+          kvstore::ReadResult::Missing(std::move(stamp)));
+      return;
+    }
+
+    auto successor_batch = std::move(self->successor_batch_);
+    if (successor_batch) {
+      // Store successor of successor batch to use for retries due to generation
+      // mismatch.
+      self->successor_batch_ = Batch::New();
+    }
+
+    const auto process_request = [&](Request& request) {
+      ShardIndexEntry index_entry = ShardIndexEntry::Missing();
+      kvstore::ReadResult::State state;
+      if (!std::get<kvstore::ReadGenerationConditions>(request).Matches(
+              stamp.generation)) {
+        state = kvstore::ReadResult::kUnspecified;
+      } else {
+        index_entry = (*shard_index)[std::get<EntryId>(request)];
+        state = kvstore::ReadResult::kMissing;
+      }
+
+      auto& byte_range_request =
+          std::get<internal_kvstore_batch::ByteRangeReadRequest>(request);
+
+      if (index_entry.IsMissing()) {
+        // Either missing or generation mismatch.
+        byte_range_request.promise.SetResult(
+            kvstore::ReadResult{state, {}, stamp});
+        return;
+      }
+
+      TENSORSTORE_RETURN_IF_ERROR(
+          index_entry.Validate(std::get<EntryId>(request)),
+          static_cast<void>(byte_range_request.promise.SetResult(
+              self->shard_index_cache_entry_->AnnotateError(
+                  _,
+                  /*reading=*/true))));
+
+      assert(byte_range_request.byte_range.SatisfiesInvariants());
+
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          auto validated_byte_range,
+          byte_range_request.byte_range.Validate(index_entry.length),
+          static_cast<void>(byte_range_request.promise.SetResult(_)));
+      if (validated_byte_range.inclusive_min ==
+          validated_byte_range.exclusive_max) {
+        // Zero-length read request, no need to issue actual read.
+        byte_range_request.promise.SetResult(kvstore::ReadResult{
+            kvstore::ReadResult::kValue, absl::Cord(), stamp});
+        return;
+      }
+      kvstore::ReadOptions kvs_read_options;
+      kvs_read_options.generation_conditions.if_equal = stamp.generation;
+      kvs_read_options.staleness_bound = self->request_batch.staleness_bound;
+      kvs_read_options.batch = successor_batch;
+      kvs_read_options.byte_range =
+          ByteRange{static_cast<int64_t>(index_entry.offset +
+                                         validated_byte_range.inclusive_min),
+                    static_cast<int64_t>(index_entry.offset +
+                                         validated_byte_range.exclusive_max)};
+      self->driver()
+          .base_kvstore_driver()
+          ->Read(std::string(self->driver().base_kvstore_path()),
+                 std::move(kvs_read_options))
+          .ExecuteWhenReady([self, &request](ReadyFuture<kvstore::ReadResult>
+                                                 future) mutable {
+            const auto& status = future.status();
+            if (!status.ok()) {
+              std::get<internal_kvstore_batch::ByteRangeReadRequest>(request)
+                  .promise.SetResult(status);
+              return;
+            }
+            const auto& executor = self->driver().executor();
+            executor([self = std::move(self), &request,
+                      future = std::move(future)] {
+              OnValueReady(std::move(self), request, std::move(future.value()));
+            });
+          });
+    };
+
+    for (auto& request : self->request_batch.requests) {
+      process_request(request);
+    }
+  }
+
+  static void OnValueReady(internal::IntrusivePtr<ReadOperationState> self,
+                           Request& request, kvstore::ReadResult&& value) {
+    if (value.aborted()) {
+      // Concurrent modification.  Retry.
+      MakeRequest<ReadOperationState>(self->driver(), self->successor_batch_,
+                                      value.stamp.time, std::move(request));
+      return;
+    }
+    std::get<internal_kvstore_batch::ByteRangeReadRequest>(request)
+        .promise.SetResult(std::move(value));
   }
 };
 
 Future<kvstore::ReadResult> ShardedKeyValueStore::Read(Key key,
                                                        ReadOptions options) {
-  return ReadOperationState::Start(*this, std::move(key), std::move(options));
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      EntryId entry_id,
+      KeyToEntryIdOrError(key, shard_index_params().grid_shape()));
+  auto [promise, future] = PromiseFuturePair<kvstore::ReadResult>::Make();
+  ReadOperationState::MakeRequest<ReadOperationState>(
+      *this, options.batch, options.staleness_bound,
+      ReadOperationState::Request{{std::move(promise), options.byte_range},
+                                  {entry_id},
+                                  std::move(options.generation_conditions)});
+  return std::move(future);
 }
 
 // Asynchronous operation state for `ShardedKeyValueStore::ListImpl`.
@@ -1186,6 +1360,11 @@ Future<kvstore::DriverPtr> ShardedKeyValueStoreSpec::DoOpen() const {
             spec->data_.data_copy_concurrency,
             spec->data_.index_codecs,
         });
+        driver->SetBatchNestingDepth(
+            driver->base_kvstore_driver()->BatchNestingDepth() +
+            1 +  // for queuing entry requests
+            1    // for AsyncCache queuing the index request when needed
+        );
         return driver;
       },
       kvstore::Open(data_.base));

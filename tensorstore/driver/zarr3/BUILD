@@ -165,8 +165,10 @@ tensorstore_cc_test(
         "//tensorstore/driver/zarr3/codec:codec_test_util",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/internal:global_initializer",
+        "//tensorstore/internal:json_gtest",
         "//tensorstore/internal/testing:scoped_directory",
         "//tensorstore/kvstore",
+        "//tensorstore/kvstore:mock_kvstore",
         "//tensorstore/kvstore/file",
         "//tensorstore/kvstore/memory",
         "//tensorstore/util:future",
@@ -187,6 +189,7 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore:array",
         "//tensorstore:array_storage_statistics",
+        "//tensorstore:batch",
         "//tensorstore:box",
         "//tensorstore:index",
         "//tensorstore:index_interval",

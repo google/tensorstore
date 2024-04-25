@@ -75,6 +75,18 @@ absl::Status ShardIndexEntry::Validate(EntryId entry_id) const {
   return absl::OkStatus();
 }
 
+absl::Status ShardIndexEntry::Validate(EntryId entry_id,
+                                       int64_t total_size) const {
+  if (auto status = Validate(entry_id); !status.ok()) return status;
+  auto byte_range = AsByteRange();
+  if (byte_range.exclusive_max > total_size) {
+    return absl::DataLossError(tensorstore::StrCat(
+        "Shard index entry ", entry_id, " with byte range ", byte_range,
+        " is invalid for shard of size ", total_size));
+  }
+  return absl::OkStatus();
+}
+
 Result<ShardIndex> DecodeShardIndex(const absl::Cord& input,
                                     const ShardIndexParameters& parameters) {
   assert(parameters.index_shape.back() == 2);
@@ -87,6 +99,33 @@ Result<ShardIndex> DecodeShardIndex(const absl::Cord& input,
   }
   return ShardIndex{
       StaticDataTypeCast<const uint64_t, unchecked>(std::move(entries))};
+}
+
+Result<ShardIndex> DecodeShardIndexFromFullShard(
+    const absl::Cord& shard_data,
+    const ShardIndexParameters& shard_index_parameters) {
+  int64_t shard_index_size =
+      shard_index_parameters.index_codec_state->encoded_size();
+  if (shard_index_size > shard_data.size()) {
+    return absl::DataLossError(absl::StrFormat(
+        "Existing shard has size of %d bytes, but expected at least %d bytes",
+        shard_data.size(), shard_index_size));
+  }
+  absl::Cord encoded_shard_index;
+  switch (shard_index_parameters.index_location) {
+    case ShardIndexLocation::kStart:
+      encoded_shard_index = shard_data.Subcord(0, shard_index_size);
+      break;
+    case ShardIndexLocation::kEnd:
+      encoded_shard_index = shard_data.Subcord(
+          shard_data.size() - shard_index_size, shard_index_size);
+      break;
+  }
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto shard_index,
+      DecodeShardIndex(encoded_shard_index, shard_index_parameters),
+      tensorstore::MaybeAnnotateStatus(_, "Error decoding shard index"));
+  return shard_index;
 }
 
 absl::Status EncodeShardIndex(riegeli::Writer& writer,
@@ -176,40 +215,15 @@ Result<ShardEntries> DecodeShard(
   const int64_t num_entries = shard_index_parameters.num_entries;
   ShardEntries entries;
   entries.entries.resize(num_entries);
-  int64_t shard_index_size =
-      shard_index_parameters.index_codec_state->encoded_size();
-  if (shard_index_size > shard_data.size()) {
-    return absl::DataLossError(absl::StrFormat(
-        "Existing shard has size of %d bytes, but expected at least %d bytes",
-        shard_data.size(), shard_index_size));
-  }
-  absl::Cord encoded_shard_index;
-  switch (shard_index_parameters.index_location) {
-    case ShardIndexLocation::kStart:
-      encoded_shard_index = shard_data.Subcord(0, shard_index_size);
-      break;
-    case ShardIndexLocation::kEnd:
-      encoded_shard_index = shard_data.Subcord(
-          shard_data.size() - shard_index_size, shard_index_size);
-      break;
-  }
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto shard_index,
-      DecodeShardIndex(encoded_shard_index, shard_index_parameters),
-      tensorstore::MaybeAnnotateStatus(_, "Error decoding shard index"));
+      DecodeShardIndexFromFullShard(shard_data, shard_index_parameters));
   for (int64_t i = 0; i < num_entries; ++i) {
     const auto entry_index = shard_index[i];
     if (entry_index.IsMissing()) continue;
-    TENSORSTORE_RETURN_IF_ERROR(entry_index.Validate(i));
-    ByteRange byte_range{
-        static_cast<int64_t>(entry_index.offset),
-        static_cast<int64_t>(entry_index.offset + entry_index.length)};
-    if (byte_range.exclusive_max > shard_data.size()) {
-      return absl::DataLossError(tensorstore::StrCat(
-          "Shard index entry ", i, " with byte range ", byte_range,
-          " is invalid for shard of size ", shard_data.size()));
-    }
-    entries.entries[i] = internal::GetSubCord(shard_data, byte_range);
+    TENSORSTORE_RETURN_IF_ERROR(entry_index.Validate(i, shard_data.size()));
+    entries.entries[i] =
+        internal::GetSubCord(shard_data, entry_index.AsByteRange());
   }
   return entries;
 }

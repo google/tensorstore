@@ -37,8 +37,11 @@
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/internal/global_initializer.h"
+#include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
 #include "tensorstore/kvstore/kvstore.h"
+#include "tensorstore/kvstore/memory/memory_key_value_store.h"
+#include "tensorstore/kvstore/mock_kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
@@ -1162,6 +1165,33 @@ TEST(ZarrDriverTest, DeleteExisting) {
       tensorstore::Open(GetJsonSpec(), tensorstore::OpenMode::open, context)
           .result(),
       MatchesStatus(absl::StatusCode::kDataLoss, ".*: Invalid JSON"));
+}
+
+TEST(ZarrDriverTest, ShardingBatchRead) {
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto mock_kvstore_resource,
+      context.GetResource<tensorstore::internal::MockKeyValueStoreResource>());
+  auto mock_kvstore = *mock_kvstore_resource;
+  mock_kvstore->forward_to = tensorstore::GetMemoryKeyValueStore();
+  mock_kvstore->log_requests = true;
+  mock_kvstore->handle_batch_requests = true;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open({{"driver", "zarr3"},
+                         {"kvstore", {{"driver", "mock_key_value_store"}}}},
+                        tensorstore::OpenMode::create, context,
+                        dtype_v<uint16_t>, Schema::Shape({8, 8}),
+                        ChunkLayout::ReadChunkShape({2, 2}),
+                        ChunkLayout::WriteChunkShape({4, 4}))
+          .result());
+  TENSORSTORE_ASSERT_OK(
+      tensorstore::Write(tensorstore::MakeScalarArray<uint16_t>(42), store));
+  mock_kvstore->request_log.pop_all();
+
+  TENSORSTORE_ASSERT_OK(tensorstore::Read(store));
+
+  EXPECT_THAT(mock_kvstore->request_log.pop_all(), ::testing::SizeIs(4));
 }
 
 TEST(ZarrDriverTest, CodecLifetime) {

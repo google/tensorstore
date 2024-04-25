@@ -17,6 +17,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <memory>
 #include <optional>
 #include <string>
 #include <utility>
@@ -25,12 +26,14 @@
 #include "absl/status/status.h"
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
+#include "tensorstore/batch.h"
 #include "tensorstore/context.h"
 #include "tensorstore/context_resource_provider.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/queue_testutil.h"
 #include "tensorstore/internal/utf8.h"
+#include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
@@ -79,8 +82,73 @@ void AddStalenessBoundToLogEntry(::nlohmann::json::object_t& log_entry,
   }
 }
 
+void MockKeyValueStore::BatchReadRequest::operator()(
+    kvstore::DriverPtr target) const {
+  auto batch = Batch::New();
+  for (auto& request : request_batch.requests) {
+    kvstore::ReadOptions options;
+    options.staleness_bound = request_batch.staleness_bound;
+    options.batch = batch;
+    options.generation_conditions =
+        std::get<kvstore::ReadGenerationConditions>(request);
+    auto& byte_range_request =
+        std::get<internal_kvstore_batch::ByteRangeReadRequest>(request);
+    options.byte_range = byte_range_request.byte_range;
+    LinkResult(byte_range_request.promise,
+               target->Read(key, std::move(options)));
+  }
+}
+
 Future<kvstore::ReadResult> MockKeyValueStore::Read(Key key,
                                                     ReadOptions options) {
+  if (handle_batch_requests && options.batch) {
+    class BatchEntry;
+    using BatchEntryBase = internal_kvstore_batch::BatchReadEntry<
+        MockKeyValueStore, BatchReadRequest::Request, kvstore::Key>;
+    class BatchEntry : public BatchEntryBase {
+     public:
+      using BatchEntryBase::BatchEntryBase;
+
+      void Submit(Batch::View batch) override {
+        std::unique_ptr<BatchEntry> self{this};
+        auto& driver = this->driver();
+        if (driver.log_requests) {
+          ::nlohmann::json::object_t log_entry;
+          log_entry.emplace("type", "batch_read");
+          log_entry.emplace("key", std::get<kvstore::Key>(batch_entry_key));
+          AddStalenessBoundToLogEntry(log_entry, request_batch.staleness_bound);
+          ::nlohmann::json::array_t requests_log;
+          for (const auto& request : request_batch.requests) {
+            ::nlohmann::json::object_t request_log;
+            AddByteRangeToLogEntry(
+                request_log,
+                std::get<internal_kvstore_batch::ByteRangeReadRequest>(request)
+                    .byte_range);
+            AddGenerationConditionsToLogEntry(
+                request_log,
+                std::get<kvstore::ReadGenerationConditions>(request));
+            requests_log.push_back(std::move(request_log));
+          }
+          log_entry.emplace("requests", std::move(requests_log));
+          driver.request_log.push(std::move(log_entry));
+        }
+        MockKeyValueStore::BatchReadRequest batch_request{
+            std::move(std::get<kvstore::Key>(batch_entry_key)),
+            std::move(request_batch)};
+        if (driver.forward_to) {
+          batch_request(driver.forward_to);
+        } else {
+          driver.batch_read_requests.push(std::move(batch_request));
+        }
+      }
+    };
+    auto [promise, future] = PromiseFuturePair<kvstore::ReadResult>::Make();
+    BatchEntry::MakeRequest<BatchEntry>(
+        *this, std::move(key), options.batch, options.staleness_bound,
+        BatchEntry::Request{{std::move(promise), options.byte_range},
+                            std::move(options.generation_conditions)});
+    return std::move(future);
+  }
   if (log_requests) {
     ::nlohmann::json::object_t log_entry;
     log_entry.emplace("type", "read");
