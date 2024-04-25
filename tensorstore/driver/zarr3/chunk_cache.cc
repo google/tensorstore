@@ -29,6 +29,7 @@
 #include "absl/time/time.h"
 #include "tensorstore/array.h"
 #include "tensorstore/array_storage_statistics.h"
+#include "tensorstore/batch.h"
 #include "tensorstore/box.h"
 #include "tensorstore/driver/chunk.h"
 #include "tensorstore/driver/chunk_receiver_utils.h"
@@ -307,15 +308,22 @@ void ZarrShardedChunkCache::Read(
                      &ZarrArrayToArrayCodec::PreparedState::Read>(
       *this, std::move(request.transform), std::move(receiver),
       [transaction = std::move(request.transaction),
+       batch = std::move(request.batch),
        staleness_bound = request.staleness_bound](auto entry) {
-        return [=, entry = std::move(entry)](
-                   span<const Index> decoded_shape, IndexTransform<> transform,
-                   AnyFlowReceiver<absl::Status, internal::ReadChunk,
-                                   IndexTransform<>>&& receiver) {
-          entry->sub_chunk_cache.get()->Read(
-              {{transaction, std::move(transform)}, staleness_bound},
-              std::move(receiver));
-        };
+        Batch shard_batch = batch;
+        if (!shard_batch) {
+          shard_batch = Batch::New();
+        }
+        return
+            [=, shard_batch = std::move(shard_batch), entry = std::move(entry)](
+                span<const Index> decoded_shape, IndexTransform<> transform,
+                AnyFlowReceiver<absl::Status, internal::ReadChunk,
+                                IndexTransform<>>&& receiver) {
+              entry->sub_chunk_cache.get()->Read(
+                  {{transaction, std::move(transform), shard_batch},
+                   staleness_bound},
+                  std::move(receiver));
+            };
       });
 }
 

@@ -25,12 +25,9 @@
 
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/transaction.h"
-#include "tensorstore/util/executor.h"
 
 namespace tensorstore {
 namespace internal_python {
-
-void RegisterTransactionBindings(pybind11::module m, Executor defer);
 
 template <typename T = internal::TransactionState>
 using TransactionCommitPtrWorkaround =

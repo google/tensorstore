@@ -38,6 +38,7 @@
 #include "absl/time/time.h"
 #include "tensorstore/array.h"
 #include "tensorstore/array_storage_statistics.h"
+#include "tensorstore/batch.h"
 #include "tensorstore/box.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/codec_spec.h"
@@ -667,8 +668,11 @@ class RegularlyShardedDataCache : public ShardedDataCache {
         [&](IndexTransform<> transform,
             AnyFlowReceiver<absl::Status, internal::ReadChunk, IndexTransform<>>
                 receiver) {
+          Batch shard_batch = request.batch;
+          if (!shard_batch) shard_batch = Batch::New();
           return ShardedDataCache::Read(
-              {{request.transaction, std::move(transform)},
+              {{request.transaction, std::move(transform),
+                std::move(shard_batch)},
                request.component_index,
                request.staleness_bound},
               std::move(receiver));
@@ -817,12 +821,12 @@ class NeuroglancerPrecomputedDriver::OpenState
     return internal_kvs_backed_chunk_driver::AtomicUpdateConstraint::kNone;
   }
 
-  Result<std::shared_ptr<const void>> Create(
-      const void* existing_metadata) override {
+  Result<std::shared_ptr<const void>> Create(const void* existing_metadata,
+                                             CreateOptions options) override {
     const auto* metadata =
         static_cast<const MultiscaleMetadata*>(existing_metadata);
-    if (auto result =
-            CreateScale(metadata, spec().open_constraints, spec().schema)) {
+    if (auto result = CreateScale(metadata, spec().open_constraints,
+                                  spec().schema, options.assume_metadata)) {
       scale_index_ = result->second;
       return result->first;
     } else {

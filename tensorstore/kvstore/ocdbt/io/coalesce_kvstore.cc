@@ -339,10 +339,12 @@ void CoalesceKvStoreDriver::StartNextRead(
   // Order the pending reads by the kvstore::ReadOption fields such that the
   // byte_ranges of compatible option sequences are seen in order.
   std::sort(pending.begin(), pending.end(), [](const auto& a, const auto& b) {
-    return std::tie(a.options.if_equal.value, a.options.if_not_equal.value,
+    return std::tie(a.options.generation_conditions.if_equal.value,
+                    a.options.generation_conditions.if_not_equal.value,
                     a.options.byte_range.inclusive_min,
                     a.options.byte_range.exclusive_max) <
-           std::tie(b.options.if_equal.value, b.options.if_not_equal.value,
+           std::tie(b.options.generation_conditions.if_equal.value,
+                    b.options.generation_conditions.if_not_equal.value,
                     b.options.byte_range.inclusive_min,
                     b.options.byte_range.exclusive_max);
   });
@@ -359,8 +361,10 @@ void CoalesceKvStoreDriver::StartNextRead(
 
   for (size_t i = 1; i < pending.size(); ++i) {
     auto& e = pending[i];
-    if (e.options.if_equal != merged.options.if_equal ||
-        e.options.if_not_equal != merged.options.if_not_equal ||
+    if (e.options.generation_conditions.if_equal !=
+            merged.options.generation_conditions.if_equal ||
+        e.options.generation_conditions.if_not_equal !=
+            merged.options.generation_conditions.if_not_equal ||
         // Don't merge suffix length byte requests with non-suffix-length byte
         // requests.
         (e.options.byte_range.inclusive_min < 0) !=

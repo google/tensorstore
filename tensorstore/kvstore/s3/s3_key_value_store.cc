@@ -52,9 +52,12 @@
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/thread/schedule_at.h"
 #include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/gcs/validate.h"
 #include "tensorstore/kvstore/generation.h"
+#include "tensorstore/kvstore/generic_coalescing_batch_util.h"
+#include "tensorstore/kvstore/http/byte_range_util.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
@@ -138,6 +141,9 @@ auto& s3_retries = internal_metrics::Counter<int64_t>::New(
 
 auto& s3_read = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/s3/read", "S3 driver kvstore::Read calls");
+
+auto& s3_batch_read = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/s3/batch_read", "S3 driver reads after batching");
 
 auto& s3_read_latency_ms =
     internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
@@ -348,7 +354,17 @@ class S3KeyValueStore
         spec_(std::move(spec)),
         host_header_(spec_.host_header.value_or(std::string())) {}
 
+  internal_kvstore_batch::CoalescingOptions GetBatchReadCoalescingOptions()
+      const {
+    internal_kvstore_batch::CoalescingOptions options;
+    options.max_extra_read_bytes = 4095;
+    options.target_coalesced_size = 128 * 1024 * 1024;
+    return options;
+  }
+
   Future<ReadResult> Read(Key key, ReadOptions options) override;
+
+  Future<ReadResult> ReadImpl(Key&& key, ReadOptions&& options);
 
   Future<TimestampedStorageGeneration> Write(Key key,
                                              std::optional<Value> value,
@@ -479,8 +495,9 @@ struct ReadTask : public RateLimiterNode,
         options.byte_range.size() == 0 ? "HEAD" : "GET", read_url_);
 
     AddGenerationHeader(&request_builder, "if-none-match",
-                        options.if_not_equal);
-    AddGenerationHeader(&request_builder, "if-match", options.if_equal);
+                        options.generation_conditions.if_not_equal);
+    AddGenerationHeader(&request_builder, "if-match",
+                        options.generation_conditions.if_equal);
 
     if (options.byte_range.size() != 0) {
       request_builder.MaybeAddRangeHeader(options.byte_range);
@@ -553,36 +570,18 @@ struct ReadTask : public RateLimiterNode,
       case 304:
         // "Not modified": indicates that the ifGenerationNotMatch condition
         // did not hold.
-        return kvstore::ReadResult::Unspecified(
-            TimestampedStorageGeneration{options.if_not_equal, start_time_});
+        return kvstore::ReadResult::Unspecified(TimestampedStorageGeneration{
+            options.generation_conditions.if_not_equal, start_time_});
     }
 
     absl::Cord value;
     if (options.byte_range.size() != 0) {
-      if (httpresponse.status_code != 206) {
-        // This may or may not have been a range request; attempt to validate.
-        TENSORSTORE_ASSIGN_OR_RETURN(
-            auto byte_range,
-            options.byte_range.Validate(httpresponse.payload.size()));
-        value = internal::GetSubCord(httpresponse.payload, byte_range);
-      } else {
-        value = httpresponse.payload;
-        // Server should return a parseable content-range header.
-        TENSORSTORE_ASSIGN_OR_RETURN(auto content_range_tuple,
-                                     ParseContentRangeHeader(httpresponse));
-        if (auto request_size = options.byte_range.size();
-            (options.byte_range.inclusive_min != -1 &&
-             options.byte_range.inclusive_min !=
-                 std::get<0>(content_range_tuple)) ||
-            (request_size >= 0 && request_size != value.size())) {
-          // Return an error when the response does not start at the requested
-          // offset of when the response is smaller than the desired size.
-          return absl::OutOfRangeError(
-              tensorstore::StrCat("Requested byte range ", options.byte_range,
-                                  " was not satisfied by S3 response of size ",
-                                  httpresponse.payload.size()));
-        }
-      }
+      // Currently unused
+      ByteRange byte_range;
+      int64_t total_size;
+
+      TENSORSTORE_RETURN_IF_ERROR(internal_http::ValidateResponseByteRange(
+          httpresponse, options.byte_range, value, byte_range, total_size));
     }
 
     TENSORSTORE_ASSIGN_OR_RETURN(
@@ -600,11 +599,17 @@ Future<kvstore::ReadResult> S3KeyValueStore::Read(Key key,
   if (!IsValidObjectName(key)) {
     return absl::InvalidArgumentError("Invalid S3 object name");
   }
-  if (!IsValidStorageGeneration(options.if_equal) ||
-      !IsValidStorageGeneration(options.if_not_equal)) {
+  if (!IsValidStorageGeneration(options.generation_conditions.if_equal) ||
+      !IsValidStorageGeneration(options.generation_conditions.if_not_equal)) {
     return absl::InvalidArgumentError("Malformed StorageGeneration");
   }
+  return internal_kvstore_batch::HandleBatchRequestByGenericByteRangeCoalescing(
+      *this, std::move(key), std::move(options));
+}
 
+Future<kvstore::ReadResult> S3KeyValueStore::ReadImpl(Key&& key,
+                                                      ReadOptions&& options) {
+  s3_batch_read.Increment();
   auto op = PromiseFuturePair<ReadResult>::Make();
   auto state = internal::MakeIntrusivePtr<ReadTask>(
       internal::IntrusivePtr<S3KeyValueStore>(this), key, std::move(options),
@@ -679,7 +684,7 @@ struct WriteTask : public RateLimiterNode,
       credentials_ = std::move(*maybe_credentials.value());
     }
 
-    if (StorageGeneration::IsUnknown(options.if_equal)) {
+    if (StorageGeneration::IsUnknown(options.generation_conditions.if_equal)) {
       DoPut();
       return;
     }
@@ -687,7 +692,8 @@ struct WriteTask : public RateLimiterNode,
     // S3 doesn't support conditional PUT, so we use a HEAD call
     // to test the if-match condition
     auto builder = S3RequestBuilder("HEAD", upload_url_);
-    AddGenerationHeader(&builder, "if-match", options.if_equal);
+    AddGenerationHeader(&builder, "if-match",
+                        options.generation_conditions.if_equal);
 
     auto now = absl::Now();
     const auto& ehr = endpoint_region_.value();
@@ -725,8 +731,7 @@ struct WriteTask : public RateLimiterNode,
         promise.SetResult(r);
         return;
       case 404:
-        if (!StorageGeneration::IsUnknown(options.if_equal) &&
-            !StorageGeneration::IsNoValue(options.if_equal)) {
+        if (!options.generation_conditions.MatchesNoValue()) {
           r.generation = StorageGeneration::Unknown();
           promise.SetResult(r);
           return;
@@ -799,7 +804,8 @@ struct WriteTask : public RateLimiterNode,
     r.time = start_time_;
     switch (response.status_code) {
       case 404:
-        if (!StorageGeneration::IsUnknown(options.if_equal)) {
+        if (!StorageGeneration::IsUnknown(
+                options.generation_conditions.if_equal)) {
           r.generation = StorageGeneration::Unknown();
           return r;
         }
@@ -859,7 +865,7 @@ struct DeleteTask : public RateLimiterNode,
     if (!promise.result_needed()) {
       return;
     }
-    if (!IsValidStorageGeneration(options.if_equal)) {
+    if (!IsValidStorageGeneration(options.generation_conditions.if_equal)) {
       promise.SetResult(
           absl::InvalidArgumentError("Malformed StorageGeneration"));
       return;
@@ -873,7 +879,7 @@ struct DeleteTask : public RateLimiterNode,
       credentials_ = std::move(*maybe_credentials.value());
     }
 
-    if (StorageGeneration::IsUnknown(options.if_equal)) {
+    if (StorageGeneration::IsUnknown(options.generation_conditions.if_equal)) {
       DoDelete();
       return;
     }
@@ -881,7 +887,8 @@ struct DeleteTask : public RateLimiterNode,
     // S3 doesn't support conditional DELETE,
     // use a HEAD call to test the if-match condition
     auto builder = S3RequestBuilder("HEAD", delete_url_);
-    AddGenerationHeader(&builder, "if-match", options.if_equal);
+    AddGenerationHeader(&builder, "if-match",
+                        options.generation_conditions.if_equal);
 
     auto now = absl::Now();
     const auto& ehr = endpoint_region_.value();
@@ -916,8 +923,7 @@ struct DeleteTask : public RateLimiterNode,
         promise.SetResult(std::move(r));
         return;
       case 404:
-        if (!StorageGeneration::IsUnknown(options.if_equal) &&
-            !StorageGeneration::IsNoValue(options.if_equal)) {
+        if (!options.generation_conditions.MatchesNoValue()) {
           r.generation = StorageGeneration::Unknown();
           promise.SetResult(std::move(r));
           return;
@@ -983,8 +989,10 @@ struct DeleteTask : public RateLimiterNode,
     switch (response.value().status_code) {
       case 404:
         // 404 Not Found means aborted when a StorageGeneration was specified.
-        if (!StorageGeneration::IsNoValue(options.if_equal) &&
-            !StorageGeneration::IsUnknown(options.if_equal)) {
+        if (!StorageGeneration::IsNoValue(
+                options.generation_conditions.if_equal) &&
+            !StorageGeneration::IsUnknown(
+                options.generation_conditions.if_equal)) {
           r.generation = StorageGeneration::Unknown();
           break;
         }
@@ -1003,7 +1011,7 @@ Future<TimestampedStorageGeneration> S3KeyValueStore::Write(
   if (!IsValidObjectName(key)) {
     return absl::InvalidArgumentError("Invalid S3 object name");
   }
-  if (!IsValidStorageGeneration(options.if_equal)) {
+  if (!IsValidStorageGeneration(options.generation_conditions.if_equal)) {
     return absl::InvalidArgumentError("Malformed StorageGeneration");
   }
 

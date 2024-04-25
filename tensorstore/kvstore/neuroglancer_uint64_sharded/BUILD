@@ -138,6 +138,7 @@ tensorstore_cc_library(
         ":uint64_sharded",
         ":uint64_sharded_decoder",
         ":uint64_sharded_encoder",
+        "//tensorstore:batch",
         "//tensorstore:context",
         "//tensorstore:json_serialization_options_base",
         "//tensorstore:transaction",
@@ -153,6 +154,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/kvstore",
+        "//tensorstore/kvstore:batch_util",
         "//tensorstore/kvstore:byte_range",
         "//tensorstore/kvstore:generation",
         "//tensorstore/kvstore:key_range",
@@ -184,6 +186,7 @@ tensorstore_cc_test(
     deps = [
         ":neuroglancer_uint64_sharded",
         ":uint64_sharded",
+        "//tensorstore:batch",
         "//tensorstore:context",
         "//tensorstore:transaction",
         "//tensorstore/internal:global_initializer",

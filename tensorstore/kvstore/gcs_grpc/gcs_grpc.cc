@@ -56,6 +56,7 @@
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/thread/schedule_at.h"
 #include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/gcs/gcs_resource.h"
@@ -63,6 +64,7 @@
 #include "tensorstore/kvstore/gcs_grpc/get_credentials.h"
 #include "tensorstore/kvstore/gcs_grpc/storage_stub_pool.h"
 #include "tensorstore/kvstore/generation.h"
+#include "tensorstore/kvstore/generic_coalescing_batch_util.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
@@ -132,8 +134,16 @@ namespace {
 
 namespace jb = tensorstore::internal_json_binding;
 
+auto& gcs_grpc_bytes_read = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/gcs_grpc/bytes_read",
+    "Bytes read by the gcs_grpc kvstore driver");
+
 auto& gcs_grpc_read = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/gcs_grpc/read", "GCS driver kvstore::Read calls");
+
+auto& gcs_grpc_batch_read = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/gcs_grpc/batch_read",
+    "GCS driver reads after batching");
 
 auto& gcs_grpc_read_latency_ms =
     internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
@@ -231,8 +241,14 @@ class GcsGrpcKeyValueStore
     : public internal_kvstore::RegisteredDriver<GcsGrpcKeyValueStore,
                                                 GcsGrpcKeyValueStoreSpec> {
  public:
+  internal_kvstore_batch::CoalescingOptions GetBatchReadCoalescingOptions()
+      const {
+    return internal_kvstore_batch::kDefaultRemoteStorageCoalescingOptions;
+  }
+
   /// Key value store operations.
   Future<ReadResult> Read(Key key, ReadOptions options) override;
+  Future<ReadResult> ReadImpl(Key&& key, ReadOptions&& options);
 
   Future<TimestampedStorageGeneration> Write(Key key,
                                              std::optional<Value> value,
@@ -373,16 +389,22 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
     request_.set_bucket(driver_->bucket_name());
     request_.set_object(object_name);
 
-    if (!StorageGeneration::IsUnknown(options_.if_equal)) {
-      uint64_t gen = StorageGeneration::IsNoValue(options_.if_equal)
-                         ? 0
-                         : StorageGeneration::ToUint64(options_.if_equal);
+    if (!StorageGeneration::IsUnknown(
+            options_.generation_conditions.if_equal)) {
+      uint64_t gen =
+          StorageGeneration::IsNoValue(options_.generation_conditions.if_equal)
+              ? 0
+              : StorageGeneration::ToUint64(
+                    options_.generation_conditions.if_equal);
       request_.set_if_generation_match(gen);
     }
-    if (!StorageGeneration::IsUnknown(options_.if_not_equal)) {
-      uint64_t gen = StorageGeneration::IsNoValue(options_.if_not_equal)
+    if (!StorageGeneration::IsUnknown(
+            options_.generation_conditions.if_not_equal)) {
+      uint64_t gen = StorageGeneration::IsNoValue(
+                         options_.generation_conditions.if_not_equal)
                          ? 0
-                         : StorageGeneration::ToUint64(options_.if_not_equal);
+                         : StorageGeneration::ToUint64(
+                               options_.generation_conditions.if_not_equal);
       request_.set_if_generation_not_match(gen);
     }
     if (options_.byte_range.inclusive_min != 0) {
@@ -482,6 +504,8 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
       }
     }
     if (response_.has_checksummed_data()) {
+      gcs_grpc_bytes_read.IncrementBy(
+          response_.checksummed_data().content().size());
       value_.Append(response_.checksummed_data().content());
     }
 
@@ -533,10 +557,12 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
       if (absl::IsFailedPrecondition(status) || absl::IsAborted(status)) {
         // Failed precondition is set when either the if_generation_match or
         // the if_generation_not_match fails.
-        if (!StorageGeneration::IsUnknown(options_.if_equal)) {
+        if (!StorageGeneration::IsUnknown(
+                options_.generation_conditions.if_equal)) {
           storage_generation_.generation = StorageGeneration::Unknown();
         } else {
-          storage_generation_.generation = options_.if_not_equal;
+          storage_generation_.generation =
+              options_.generation_conditions.if_not_equal;
         }
         promise_.SetResult(
             kvstore::ReadResult::Unspecified(std::move(storage_generation_)));
@@ -608,8 +634,10 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
       resource.set_bucket(driver_->bucket_name());
       resource.set_name(object_name_);
       request_.mutable_write_object_spec()->set_object_size(value_.size());
-      if (!StorageGeneration::IsUnknown(options_.if_equal)) {
-        auto gen = StorageGeneration::ToUint64(options_.if_equal);
+      if (!StorageGeneration::IsUnknown(
+              options_.generation_conditions.if_equal)) {
+        auto gen = StorageGeneration::ToUint64(
+            options_.generation_conditions.if_equal);
         request_.mutable_write_object_spec()->set_if_generation_match(gen);
       }
     } else {
@@ -747,7 +775,8 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
       write_result_.generation = StorageGeneration::Unknown();
       promise_.SetResult(std::move(write_result_));
     } else if (absl::IsNotFound(status) &&
-               !StorageGeneration::IsUnknown(options_.if_equal)) {
+               !StorageGeneration::IsUnknown(
+                   options_.generation_conditions.if_equal)) {
       // precondition did not match.
       write_result_.generation = StorageGeneration::Unknown();
       promise_.SetResult(std::move(write_result_));
@@ -787,8 +816,10 @@ struct DeleteTask : public internal::AtomicReferenceCount<DeleteTask> {
 
     request_.set_bucket(driver_->bucket_name());
     request_.set_object(object_name);
-    if (!StorageGeneration::IsUnknown(options_.if_equal)) {
-      auto gen = StorageGeneration::ToUint64(options_.if_equal);
+    if (!StorageGeneration::IsUnknown(
+            options_.generation_conditions.if_equal)) {
+      auto gen =
+          StorageGeneration::ToUint64(options_.generation_conditions.if_equal);
       request_.set_if_generation_match(gen);
     }
     Retry();
@@ -854,8 +885,7 @@ struct DeleteTask : public internal::AtomicReferenceCount<DeleteTask> {
       r.generation = StorageGeneration::Unknown();
     } else if (absl::IsNotFound(status)) {
       // object missing; that's probably ok.
-      if (!StorageGeneration::IsNoValue(options_.if_equal) &&
-          !StorageGeneration::IsUnknown(options_.if_equal)) {
+      if (!options_.generation_conditions.MatchesNoValue()) {
         r.generation = StorageGeneration::Unknown();
       }
     } else if (!status.ok()) {
@@ -1046,10 +1076,17 @@ Future<kvstore::ReadResult> GcsGrpcKeyValueStore::Read(Key key,
   if (!IsValidObjectName(key)) {
     return absl::InvalidArgumentError("Invalid blob object name");
   }
-  if (!IsValidStorageGeneration(options.if_equal) ||
-      !IsValidStorageGeneration(options.if_not_equal)) {
+  if (!IsValidStorageGeneration(options.generation_conditions.if_equal) ||
+      !IsValidStorageGeneration(options.generation_conditions.if_not_equal)) {
     return absl::InvalidArgumentError("Malformed StorageGeneration");
   }
+  return internal_kvstore_batch::HandleBatchRequestByGenericByteRangeCoalescing(
+      *this, std::move(key), std::move(options));
+}
+
+Future<kvstore::ReadResult> GcsGrpcKeyValueStore::ReadImpl(
+    Key&& key, ReadOptions&& options) {
+  gcs_grpc_batch_read.Increment();
   auto op = PromiseFuturePair<ReadResult>::Make();
 
   auto task = internal::MakeIntrusivePtr<ReadTask>();
@@ -1066,7 +1103,7 @@ Future<TimestampedStorageGeneration> GcsGrpcKeyValueStore::Write(
   if (!IsValidObjectName(key)) {
     return absl::InvalidArgumentError("Invalid blob object name");
   }
-  if (!IsValidStorageGeneration(options.if_equal)) {
+  if (!IsValidStorageGeneration(options.generation_conditions.if_equal)) {
     return absl::InvalidArgumentError("Malformed StorageGeneration");
   }
 

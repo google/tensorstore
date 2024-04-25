@@ -13,8 +13,10 @@
 // limitations under the License.
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <cstring>
+#include <limits>
 #include <optional>
 #include <string>
 #include <vector>
@@ -27,6 +29,7 @@
 #include "absl/strings/str_cat.h"
 #include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/internal/thread/thread.h"
+#include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/gcs/gcs_testbench.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -232,6 +235,21 @@ TEST_F(GcsGrpcTestbenchTest, ConcurrentWrites) {
       EXPECT_EQ(x, ConcurrentWriteFn::kNumIterations) << thread_i;
     }
   }
+}
+
+TEST_F(GcsGrpcTestbenchTest, BatchRead) {
+  auto store = OpenStore("batch_read/");
+  tensorstore::internal::BatchReadGenericCoalescingTestOptions options;
+  options.coalescing_options = tensorstore::internal_kvstore_batch::
+      kDefaultRemoteStorageCoalescingOptions;
+
+  // Don't test `target_coalesced_size` because writing a large file is too slow
+  // with the fake gcs stubby implementation.
+  options.coalescing_options.target_coalesced_size =
+      std::numeric_limits<int64_t>::max();
+
+  options.metric_prefix = "/tensorstore/kvstore/gcs_grpc/";
+  tensorstore::internal::TestBatchReadGenericCoalescing(store, options);
 }
 
 }  // namespace

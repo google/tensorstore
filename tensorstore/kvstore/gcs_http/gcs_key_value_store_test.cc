@@ -47,6 +47,7 @@
 #include "tensorstore/internal/thread/schedule_at.h"
 #include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/json_serialization_options_base.h"
+#include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/gcs_http/gcs_mock.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
@@ -221,7 +222,8 @@ TEST(GcsKeyValueStoreTest, BadObjectNames) {
 
   {
     kvstore::ReadOptions options;
-    options.if_not_equal = StorageGeneration::FromString("abc123");
+    options.generation_conditions.if_not_equal =
+        StorageGeneration::FromString("abc123");
     EXPECT_THAT(kvstore::Read(store, "abc", options).result(),
                 MatchesStatus(absl::StatusCode::kInvalidArgument));
   }
@@ -805,6 +807,27 @@ TEST(GcsKeyValueStoreTest, InvalidUri) {
                   tensorstore::StrCat(kUriScheme, "://bucket#fragment")),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             ".*: Fragment identifier not supported"));
+}
+
+TEST(GcsKeyValueStoreTest, BatchRead) {
+  auto mock_transport = std::make_shared<MyMockTransport>();
+  DefaultHttpTransportSetter mock_transport_setter{mock_transport};
+
+  GCSMockStorageBucket bucket("my-bucket");
+  mock_transport->buckets_.push_back(&bucket);
+
+  auto context = DefaultTestContext();
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      kvstore::Open({{"driver", kDriver}, {"bucket", "my-bucket"}}, context)
+          .result());
+
+  tensorstore::internal::BatchReadGenericCoalescingTestOptions options;
+  options.coalescing_options = tensorstore::internal_kvstore_batch::
+      kDefaultRemoteStorageCoalescingOptions;
+  options.metric_prefix = "/tensorstore/kvstore/gcs/";
+  tensorstore::internal::TestBatchReadGenericCoalescing(store, options);
 }
 
 }  // namespace

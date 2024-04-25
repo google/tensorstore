@@ -396,9 +396,6 @@ struct GarbageCollectedObjectCaster {
   }
 };
 
-/// Must be called exactly once during tensorstore module initialization.
-void RegisterGarbageCollectionBindings();
-
 }  // namespace internal_python
 }  // namespace tensorstore
 

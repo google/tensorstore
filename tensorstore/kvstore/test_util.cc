@@ -17,10 +17,13 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <algorithm>
 #include <array>
 #include <cassert>
+#include <limits>
 #include <map>
 #include <optional>
+#include <random>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -31,6 +34,7 @@
 #include "absl/functional/function_ref.h"
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
+#include "absl/random/random.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/match.h"
@@ -39,11 +43,14 @@
 #include "absl/synchronization/notification.h"
 #include "absl/time/clock.h"
 #include <nlohmann/json.hpp>
+#include "tensorstore/batch.h"
 #include "tensorstore/context.h"
 #include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/internal/json_gtest.h"
+#include "tensorstore/internal/metrics/collect.h"
+#include "tensorstore/internal/metrics/registry.h"
+#include "tensorstore/internal/testing/random_seed.h"
 #include "tensorstore/kvstore/byte_range.h"
-#include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -424,7 +431,13 @@ void TestKeyValueStoreReadOps(const KvStore& store, std::string key,
 
   ABSL_LOG(INFO) << kSep
                  << "Test unconditional range read, max exceeds value size";
-  {
+  if (testing::UnitTest::GetInstance()
+          ->current_test_info()
+          ->test_suite_name() == std::string_view("GcsTestbenchTest")) {
+    ABSL_LOG(INFO)
+        << "Skipping due to "
+           "https://github.com/googleapis/storage-testbench/pull/622";
+  } else {
     kvstore::ReadOptions options;
     options.byte_range.inclusive_min = 1;
     options.byte_range.exclusive_max = expected_value.size() + 1;
@@ -440,7 +453,7 @@ void TestKeyValueStoreReadOps(const KvStore& store, std::string key,
                  << read_result->stamp.generation;
   {
     kvstore::ReadOptions options;
-    options.if_not_equal = read_result->stamp.generation;
+    options.generation_conditions.if_not_equal = read_result->stamp.generation;
     EXPECT_THAT(kvstore::Read(store, key, options).result(),
                 MatchesKvsReadResultAborted());
   }
@@ -448,7 +461,7 @@ void TestKeyValueStoreReadOps(const KvStore& store, std::string key,
   ABSL_LOG(INFO) << kSep << "Test conditional read, if_not_equal mismatched";
   {
     kvstore::ReadOptions options;
-    options.if_not_equal = mismatch_generation;
+    options.generation_conditions.if_not_equal = mismatch_generation;
     EXPECT_THAT(
         kvstore::Read(store, key, options).result(),
         MatchesKvsReadResult(expected_value, read_result->stamp.generation));
@@ -459,7 +472,7 @@ void TestKeyValueStoreReadOps(const KvStore& store, std::string key,
       << "Test conditional read, if_not_equal=StorageGeneration::NoValue";
   {
     kvstore::ReadOptions options;
-    options.if_not_equal = StorageGeneration::NoValue();
+    options.generation_conditions.if_not_equal = StorageGeneration::NoValue();
     EXPECT_THAT(
         kvstore::Read(store, key, options).result(),
         MatchesKvsReadResult(expected_value, read_result->stamp.generation));
@@ -470,7 +483,7 @@ void TestKeyValueStoreReadOps(const KvStore& store, std::string key,
                  << read_result->stamp.generation;
   {
     kvstore::ReadOptions options;
-    options.if_equal = read_result->stamp.generation;
+    options.generation_conditions.if_equal = read_result->stamp.generation;
     EXPECT_THAT(
         kvstore::Read(store, key, options).result(),
         MatchesKvsReadResult(expected_value, read_result->stamp.generation));
@@ -479,7 +492,7 @@ void TestKeyValueStoreReadOps(const KvStore& store, std::string key,
   ABSL_LOG(INFO) << kSep << "Test conditional read, if_equal mismatched";
   {
     kvstore::ReadOptions options;
-    options.if_equal = mismatch_generation;
+    options.generation_conditions.if_equal = mismatch_generation;
     EXPECT_THAT(kvstore::Read(store, key, options).result(),
                 MatchesKvsReadResultAborted());
   }
@@ -489,7 +502,7 @@ void TestKeyValueStoreReadOps(const KvStore& store, std::string key,
                     "if_equal=StorageGeneration::NoValue";
   {
     kvstore::ReadOptions options;
-    options.if_equal = StorageGeneration::NoValue();
+    options.generation_conditions.if_equal = StorageGeneration::NoValue();
     EXPECT_THAT(kvstore::Read(store, key, options).result(),
                 MatchesKvsReadResultAborted());
   }
@@ -530,7 +543,7 @@ void TestKeyValueStoreReadOps(const KvStore& store, std::string key,
                    << "Test conditional read, matching "
                       "if_equal=StorageGeneration::NoValue";
     kvstore::ReadOptions options;
-    options.if_equal = StorageGeneration::NoValue();
+    options.generation_conditions.if_equal = StorageGeneration::NoValue();
     options.staleness_bound = absl::Now();
     EXPECT_THAT(kvstore::Read(store, missing_key, options).result(),
                 MatchesKvsReadResultNotFound());
@@ -539,7 +552,7 @@ void TestKeyValueStoreReadOps(const KvStore& store, std::string key,
   ABSL_LOG(INFO) << kSep << "Test conditional read, if_equal mismatch";
   {
     kvstore::ReadOptions options;
-    options.if_equal = mismatch_generation;
+    options.generation_conditions.if_equal = mismatch_generation;
     EXPECT_THAT(
         kvstore::Read(store, missing_key, options).result(),
         testing::AnyOf(MatchesKvsReadResultNotFound(),   /// Common result
@@ -555,7 +568,7 @@ void TestKeyValueStoreReadOps(const KvStore& store, std::string key,
                     "if_not_equal=StorageGeneration::NoValue";
   {
     kvstore::ReadOptions options;
-    options.if_not_equal = StorageGeneration::NoValue();
+    options.generation_conditions.if_not_equal = StorageGeneration::NoValue();
     EXPECT_THAT(kvstore::Read(store, missing_key, options).result(),
                 MatchesKvsReadResultNotFound());
   }
@@ -563,9 +576,66 @@ void TestKeyValueStoreReadOps(const KvStore& store, std::string key,
   ABSL_LOG(INFO) << kSep << "Test conditional read, if_not_equal mismatch";
   {
     kvstore::ReadOptions options;
-    options.if_not_equal = mismatch_generation;
+    options.generation_conditions.if_not_equal = mismatch_generation;
     EXPECT_THAT(kvstore::Read(store, missing_key, options).result(),
                 MatchesKvsReadResultNotFound());
+  }
+}
+
+void TestKeyValueStoreBatchReadOps(const KvStore& store, std::string key,
+                                   absl::Cord expected_value) {
+  auto correct_generation = GetStorageGeneration(store, key);
+  auto mismatch_generation = GetMismatchStorageGeneration(store);
+
+  constexpr size_t kNumIterations = 100;
+  constexpr size_t kMaxReadsPerBatch = 10;
+
+  std::minstd_rand gen{internal_testing::GetRandomSeedForTest(
+      "TENSORSTORE_INTERNAL_KVSTORE_BATCH_READ")};
+  for (size_t iter_i = 0; iter_i < kNumIterations; ++iter_i) {
+    auto batch = tensorstore::Batch::New();
+
+    auto reads_per_batch = absl::Uniform<size_t>(absl::IntervalClosedClosed,
+                                                 gen, 1, kMaxReadsPerBatch);
+    std::vector<::testing::Matcher<Result<kvstore::ReadResult>>> matchers;
+    std::vector<Future<kvstore::ReadResult>> futures;
+    for (size_t read_i = 0; read_i < reads_per_batch; ++read_i) {
+      kvstore::ReadOptions options;
+      options.batch = batch;
+      options.byte_range.inclusive_min = absl::Uniform<int64_t>(
+          absl::IntervalClosedClosed, gen, 0, expected_value.size());
+      options.byte_range.exclusive_max = absl::Uniform<int64_t>(
+          absl::IntervalClosedClosed, gen, options.byte_range.inclusive_min,
+          expected_value.size());
+      bool mismatch = false;
+      if (absl::Bernoulli(gen, 0.5)) {
+        options.generation_conditions.if_equal =
+            absl::Bernoulli(gen, 0.5)
+                ? correct_generation
+                : ((mismatch = true), mismatch_generation);
+      }
+      if (absl::Bernoulli(gen, 0.5)) {
+        options.generation_conditions.if_not_equal =
+            absl::Bernoulli(gen, 0.5) ? ((mismatch = true), correct_generation)
+                                      : mismatch_generation;
+      }
+      futures.push_back(kvstore::Read(store, key, options));
+      if (mismatch) {
+        matchers.push_back(MatchesKvsReadResultAborted());
+      } else {
+        matchers.push_back(MatchesKvsReadResult(
+            expected_value.Subcord(options.byte_range.inclusive_min,
+                                   options.byte_range.exclusive_max -
+                                       options.byte_range.inclusive_min),
+            correct_generation));
+      }
+    }
+
+    batch.Release();
+
+    for (size_t read_i = 0; read_i < reads_per_batch; ++read_i) {
+      EXPECT_THAT(futures[read_i].result(), matchers[read_i]);
+    }
   }
 }
 
@@ -591,6 +661,18 @@ void TestKeyValueReadWriteOps(
 
     tensorstore::internal::TestKeyValueStoreReadOps(store, key, expected_value,
                                                     missing_key);
+
+    absl::Cord longer_expected_value;
+    for (size_t i = 0; i < 4096; ++i) {
+      char x = static_cast<char>(i);
+      longer_expected_value.Append(std::string_view(&x, 1));
+    }
+
+    ASSERT_THAT(kvstore::Write(store, key, longer_expected_value).result(),
+                MatchesRegularTimestampedStorageGeneration());
+
+    tensorstore::internal::TestKeyValueStoreBatchReadOps(store, key,
+                                                         longer_expected_value);
 
     kvstore::Delete(store, key).result().status().IgnoreError();
   }
@@ -1010,6 +1092,319 @@ Result<std::map<kvstore::Key, kvstore::Value>> GetMap(const KvStore& store) {
     result.emplace(entry.key, std::move(read_result.value));
   }
   return result;
+}
+
+namespace {
+std::vector<::nlohmann::json> CollectMatchingMetricsAsJson(
+    std::string_view metric_prefix, bool include_zero_metrics = true) {
+  std::vector<::nlohmann::json> lines;
+
+  auto collected_metrics =
+      internal_metrics::GetMetricRegistry().CollectWithPrefix(metric_prefix);
+  std::sort(collected_metrics.begin(), collected_metrics.end(),
+            [](const auto& a, const auto& b) {
+              return a.metric_name < b.metric_name;
+            });
+
+  for (const auto& collected_metric : collected_metrics) {
+    if (include_zero_metrics ||
+        internal_metrics::IsCollectedMetricNonZero(collected_metric)) {
+      lines.push_back(
+          internal_metrics::CollectedMetricToJson(collected_metric));
+    }
+  }
+
+  return lines;
+}
+
+struct BatchReadExample {
+  std::string key;
+  OptionalByteRangeRequest byte_range;
+  StorageGeneration if_equal;
+  StorageGeneration if_not_equal;
+};
+
+absl::Status ExecuteReadBatch(const KvStore& kvs,
+                              span<const BatchReadExample> requests,
+                              bool use_batch) {
+  Batch batch{no_batch};
+  if (use_batch) {
+    batch = Batch::New();
+  }
+
+  std::vector<Future<kvstore::ReadResult>> futures;
+  for (const auto& request : requests) {
+    kvstore::ReadOptions options;
+    options.batch = batch;
+    options.byte_range = request.byte_range;
+    options.generation_conditions.if_equal = request.if_equal;
+    options.generation_conditions.if_not_equal = request.if_not_equal;
+    futures.push_back(kvstore::Read(kvs, request.key, std::move(options)));
+  }
+
+  batch.Release();
+
+  for (const auto& future : futures) {
+    TENSORSTORE_RETURN_IF_ERROR(future.status());
+  }
+
+  return absl::OkStatus();
+}
+
+::nlohmann::json ExpectedCounterMetric(std::string name, int64_t value) {
+  return {{"name", name}, {"values", {{{"value", value}}}}};
+}
+
+std::vector<::nlohmann::json> ExpectedCounterMetrics(
+    std::string_view metric_prefix,
+    std::vector<std::pair<std::string, int64_t>> counters) {
+  std::vector<::nlohmann::json> metrics;
+  metrics.reserve(counters.size());
+  for (const auto& [name, value] : counters) {
+    metrics.push_back(
+        ExpectedCounterMetric(absl::StrCat(metric_prefix, name), value));
+  }
+  return metrics;
+}
+
+void TestBatchRead(const KvStore& kvs,
+                   const std::vector<BatchReadExample>& requests,
+                   std::string_view metric_prefix,
+                   const std::vector<std::pair<std::string, int64_t>>&
+                       expected_counters_for_non_batch_read,
+                   const std::vector<std::pair<std::string, int64_t>>&
+                       expected_counters_for_batch_read) {
+  internal_metrics::GetMetricRegistry().Reset();
+  TENSORSTORE_ASSERT_OK(ExecuteReadBatch(kvs, requests, /*use_batch=*/false));
+  EXPECT_THAT(CollectMatchingMetricsAsJson(metric_prefix),
+              ::testing::IsSupersetOf(ExpectedCounterMetrics(
+                  metric_prefix, expected_counters_for_non_batch_read)));
+
+  internal_metrics::GetMetricRegistry().Reset();
+  TENSORSTORE_ASSERT_OK(ExecuteReadBatch(kvs, requests, /*use_batch=*/true));
+  EXPECT_THAT(CollectMatchingMetricsAsJson(metric_prefix),
+              ::testing::IsSupersetOf(ExpectedCounterMetrics(
+                  metric_prefix, expected_counters_for_batch_read)));
+}
+
+void TestBatchRead(
+    const KvStore& kvs, const std::vector<BatchReadExample>& requests,
+    std::string_view metric_prefix,
+    const std::vector<std::pair<std::string, int64_t>>& expected_counters) {
+  return TestBatchRead(kvs, requests, metric_prefix, expected_counters,
+                       expected_counters);
+}
+
+}  // namespace
+
+void TestBatchReadGenericCoalescing(
+    const KvStore& store,
+    const BatchReadGenericCoalescingTestOptions& options) {
+  const auto& coalescing_options = options.coalescing_options;
+
+  const bool has_target_coalesced_size =
+      coalescing_options.target_coalesced_size !=
+      std::numeric_limits<int64_t>::max();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto x_stamp,
+      kvstore::Write(
+          store, "x",
+          absl::Cord(std::string(
+              std::max(static_cast<int64_t>(8192),
+                       (has_target_coalesced_size
+                            ? coalescing_options.target_coalesced_size
+                            : coalescing_options.max_extra_read_bytes) +
+                           1),
+              '\0')))
+          .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto y_stamp,
+      kvstore::Write(
+          store, "y",
+          absl::Cord(std::string(
+              2 * (1 + coalescing_options.max_extra_read_bytes), '\0')))
+          .result());
+
+  const auto get_metrics =
+      [&](std::vector<std::pair<std::string, int64_t>> common_metrics,
+          std::vector<std::pair<std::string, int64_t>> open_file_metrics) {
+        if (options.has_file_open_metric) {
+          common_metrics.insert(common_metrics.end(), open_file_metrics.begin(),
+                                open_file_metrics.end());
+        }
+        return common_metrics;
+      };
+
+  {
+    SCOPED_TRACE("Single key, single read");
+    TestBatchRead(store,
+                  {
+                      {"x", OptionalByteRangeRequest::Range(1, 100)},
+                  },
+                  options.metric_prefix,
+                  get_metrics(
+                      {
+                          {"batch_read", 1},
+                          {"read", 1},
+                          {"bytes_read", 99},
+                      },
+                      {
+                          {"open_read", 1},
+                      }));
+  }
+
+  {
+    SCOPED_TRACE("Two keys, single read each");
+    TestBatchRead(store,
+                  {
+                      {"x", OptionalByteRangeRequest::Range(1, 100)},
+                      {"y", OptionalByteRangeRequest::Range(100, 200)},
+                  },
+                  options.metric_prefix,
+                  get_metrics(
+                      {
+                          {"batch_read", 2},
+                          {"read", 2},
+                          {"bytes_read", 199},
+                      },
+                      {
+                          {"open_read", 2},
+                      }));
+  }
+
+  {
+    SCOPED_TRACE("Single key, two reads that are coalesced with no gap");
+    TestBatchRead(store,
+                  {
+                      {"x", OptionalByteRangeRequest::Range(1, 100)},
+                      {"x", OptionalByteRangeRequest::Range(100, 200)},
+                  },
+                  options.metric_prefix,
+                  get_metrics(
+                      {
+                          {"batch_read", 2},
+
+                          {"read", 2},
+                          {"bytes_read", 199},
+                      },
+                      {
+                          {"open_read", 2},
+                      }),
+                  get_metrics(
+                      {
+                          {"batch_read", 1},
+
+                          {"read", 2},
+                          {"bytes_read", 199},
+                      },
+                      {
+                          {"open_read", 1},
+                      }));
+  }
+
+  {
+    SCOPED_TRACE(absl::StrFormat(
+        "Single key, two reads that are coalesced with gap of %d bytes",
+        coalescing_options.max_extra_read_bytes));
+    TestBatchRead(
+        store,
+        {
+            {"x", OptionalByteRangeRequest::Range(1, 100)},
+            {"x", OptionalByteRangeRequest::Range(
+                      100 + coalescing_options.max_extra_read_bytes,
+                      100 + coalescing_options.max_extra_read_bytes + 100)},
+        },
+        options.metric_prefix,
+        get_metrics(
+            {
+                {"batch_read", 2},
+
+                {"read", 2},
+                {"bytes_read", 99 + 100},
+            },
+            {
+                {"open_read", 2},
+            }),
+        get_metrics(
+            {
+                {"batch_read", 1},
+
+                {"read", 2},
+                {"bytes_read",
+                 100 + coalescing_options.max_extra_read_bytes + 100 - 1},
+            },
+            {
+                {"open_read", 1},
+            }));
+  }
+
+  {
+    SCOPED_TRACE(absl::StrFormat(
+        "Single key, two reads that are not coalesced with gap of %d "
+        "bytes",
+        coalescing_options.max_extra_read_bytes + 1));
+    TestBatchRead(
+        store,
+        {
+            {"x", OptionalByteRangeRequest::Range(1, 100)},
+            {"x", OptionalByteRangeRequest::Range(
+                      100 + coalescing_options.max_extra_read_bytes + 1,
+                      100 + coalescing_options.max_extra_read_bytes + 1 + 100)},
+        },
+        options.metric_prefix,
+        get_metrics(
+            {
+                {"batch_read", 2},
+                {"read", 2},
+                {"bytes_read", 99 + 100},
+            },
+            {
+                {"open_read", 2},
+            }),
+        get_metrics(
+            {
+                {"batch_read", 2},
+                {"read", 2},
+                {"bytes_read", 99 + 100},
+            },
+            {
+                {"open_read", 1},
+            }));
+  }
+
+  if (coalescing_options.target_coalesced_size !=
+      std::numeric_limits<int64_t>::max()) {
+    SCOPED_TRACE(
+        "Single key, two reads that are not coalesced due to size limit");
+    TestBatchRead(
+        store,
+        {
+            {"x", OptionalByteRangeRequest::Range(
+                      0, coalescing_options.target_coalesced_size)},
+            {"x", OptionalByteRangeRequest::Range(
+                      coalescing_options.target_coalesced_size,
+                      coalescing_options.target_coalesced_size + 1)},
+        },
+        options.metric_prefix,
+        get_metrics(
+            {
+                {"batch_read", 2},
+                {"read", 2},
+                {"bytes_read", coalescing_options.target_coalesced_size + 1},
+            },
+            {
+                {"open_read", 2},
+            }),
+        get_metrics(
+            {
+                {"batch_read", 2},
+                {"read", 2},
+                {"bytes_read", coalescing_options.target_coalesced_size + 1},
+            },
+            {
+                {"open_read", 1},
+            }));
+  }
 }
 
 }  // namespace internal

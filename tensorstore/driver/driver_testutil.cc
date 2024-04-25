@@ -1331,7 +1331,8 @@ void TestTensorStoreRepeatableRead(
     if (params.fully_overwritten != RepeatableReadParams::kInitially) {
       auto r = mock_store->read_requests.pop();
       EXPECT_THAT(r.key, options.key);
-      EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_not_equal);
+      EXPECT_EQ(StorageGeneration::Unknown(),
+                r.options.generation_conditions.if_not_equal);
       r(memory_store);
     }
     EXPECT_THAT(read_future.result(),
@@ -1398,9 +1399,11 @@ void TestTensorStoreRepeatableRead(
       EXPECT_THAT(r.key, options.key);
       if (params.repeatable &&
           params.fully_overwritten != RepeatableReadParams::kInitially) {
-        EXPECT_NE(StorageGeneration::Unknown(), r.options.if_equal);
+        EXPECT_NE(StorageGeneration::Unknown(),
+                  r.options.generation_conditions.if_equal);
       } else {
-        EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_equal);
+        EXPECT_EQ(StorageGeneration::Unknown(),
+                  r.options.generation_conditions.if_equal);
       }
       r(memory_store);
     }

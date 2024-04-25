@@ -386,10 +386,7 @@ Future<ReadResult> MemoryDriver::Read(Key key, ReadOptions options) {
   }
   // Key found.
   auto stamp = GenerationNow(it->second.generation());
-  if (options.if_not_equal == it->second.generation() ||
-      (!StorageGeneration::IsUnknown(options.if_equal) &&
-       options.if_equal != it->second.generation())) {
-    // Generation associated with `key` matches `if_not_equal`.  Abort.
+  if (!options.generation_conditions.Matches(it->second.generation())) {
     return ReadResult::Unspecified(std::move(stamp));
   }
   TENSORSTORE_ASSIGN_OR_RETURN(
@@ -408,8 +405,7 @@ Future<TimestampedStorageGeneration> MemoryDriver::Write(
   auto it = values.find(key);
   if (it == values.end()) {
     // Key does not already exist.
-    if (!StorageGeneration::IsUnknown(options.if_equal) &&
-        !StorageGeneration::IsNoValue(options.if_equal)) {
+    if (!options.generation_conditions.MatchesNoValue()) {
       // Write is conditioned on there being an existing key with a
       // generation of `if_equal`.  Abort.
       return GenerationNow(StorageGeneration::Unknown());
@@ -428,8 +424,7 @@ Future<TimestampedStorageGeneration> MemoryDriver::Write(
     return GenerationNow(it->second.generation());
   }
   // Key already exists.
-  if (!StorageGeneration::IsUnknown(options.if_equal) &&
-      options.if_equal != it->second.generation()) {
+  if (!options.generation_conditions.Matches(it->second.generation())) {
     // Write is conditioned on an existing generation of `if_equal`,
     // which does not match the current generation.  Abort.
     return GenerationNow(StorageGeneration::Unknown());

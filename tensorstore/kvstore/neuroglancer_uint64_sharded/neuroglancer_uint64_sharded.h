@@ -15,7 +15,8 @@
 #ifndef TENSORSTORE_KVSTORE_NEUROGLANCER_UINT64_SHARDED_NEUROGLANCER_UINT64_SHARDED_H_
 #define TENSORSTORE_KVSTORE_NEUROGLANCER_UINT64_SHARDED_NEUROGLANCER_UINT64_SHARDED_H_
 
-#include <cstdint>
+#include <stdint.h>
+
 #include <functional>
 #include <optional>
 #include <string>
@@ -28,8 +29,7 @@
 namespace tensorstore {
 namespace neuroglancer_uint64_sharded {
 
-using GetMaxChunksPerShardFunction =
-    std::function<std::uint64_t(std::uint64_t)>;
+using GetMaxChunksPerShardFunction = std::function<uint64_t(uint64_t)>;
 
 /// Provides read/write access to the Neuroglancer precomputed sharded format on
 /// top of a base `KeyValueStore` that supports byte range reads.

@@ -114,8 +114,10 @@ class ReadHandler final : public Handler<ReadRequest, ReadResponse> {
     ABSL_LOG_IF(INFO, verbose_logging)
         << "ReadHandler " << ConciseDebugString(*request());
     kvstore::ReadOptions options{};
-    options.if_equal.value = request()->generation_if_equal();
-    options.if_not_equal.value = request()->generation_if_not_equal();
+    options.generation_conditions.if_equal.value =
+        request()->generation_if_equal();
+    options.generation_conditions.if_not_equal.value =
+        request()->generation_if_not_equal();
 
     if (request()->has_byte_range()) {
       options.byte_range.inclusive_min =
@@ -182,7 +184,8 @@ class WriteHandler final : public Handler<WriteRequest, WriteResponse> {
     ABSL_LOG_IF(INFO, verbose_logging)
         << "WriteHandler " << ConciseDebugString(*request());
     tensorstore::kvstore::WriteOptions options{};
-    options.if_equal.value = request()->generation_if_equal();
+    options.generation_conditions.if_equal.value =
+        request()->generation_if_equal();
 
     internal::IntrusivePtr<WriteHandler> self{this};
     future_ =
@@ -244,7 +247,8 @@ class DeleteHandler final : public Handler<DeleteRequest, DeleteResponse> {
                     .future;
     } else if (!request()->key().empty()) {
       kvstore::WriteOptions options{};
-      options.if_equal.value = request()->generation_if_equal();
+      options.generation_conditions.if_equal.value =
+          request()->generation_if_equal();
 
       future_ =
           PromiseFuturePair<void>::Link(

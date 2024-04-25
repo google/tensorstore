@@ -24,9 +24,11 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
+#include "python/tensorstore/batch.h"
 #include "python/tensorstore/garbage_collection.h"
 #include "python/tensorstore/spec.h"
 #include "python/tensorstore/transaction.h"
+#include "tensorstore/batch.h"
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/util/executor.h"
 
@@ -101,6 +103,25 @@ default, the open is non-transactional.
   static absl::Status Apply(Self& self, type value) {
     return self.Set(
         internal::TransactionState::ToTransaction(std::move(value)));
+  }
+};
+
+struct SetBatch {
+  using type = Batch;
+  static constexpr const char* name = "batch";
+  static constexpr const char* doc = R"(
+Batch to use for reading any metadata required for opening.
+
+.. warning::
+
+   If specified, the returned :py:obj:`Future` will not, in general, become
+   ready until the batch is submitted.  Therefore, immediately awaiting the
+   returned future will lead to deadlock.
+
+)";
+  template <typename Self>
+  static absl::Status Apply(Self& self, type value) {
+    return self.Set(std::move(value));
   }
 };
 

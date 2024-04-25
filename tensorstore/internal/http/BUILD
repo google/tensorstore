@@ -110,6 +110,7 @@ tensorstore_cc_library(
         "//tensorstore/util:future",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
+        "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "@com_google_absl//absl/container:btree",
         "@com_google_absl//absl/functional:function_ref",

@@ -60,6 +60,7 @@
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/thread/schedule_at.h"
 #include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/gcs/gcs_resource.h"
@@ -67,6 +68,8 @@
 #include "tensorstore/kvstore/gcs_http/gcs_resource.h"
 #include "tensorstore/kvstore/gcs_http/object_metadata.h"
 #include "tensorstore/kvstore/generation.h"
+#include "tensorstore/kvstore/generic_coalescing_batch_util.h"
+#include "tensorstore/kvstore/http/byte_range_util.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
@@ -157,6 +160,9 @@ auto& gcs_retries = internal_metrics::Counter<int64_t>::New(
 
 auto& gcs_read = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/gcs/read", "GCS driver kvstore::Read calls");
+
+auto& gcs_batch_read = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/gcs/batch_read", "gcs driver reads after batching");
 
 auto& gcs_read_latency_ms =
     internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
@@ -338,7 +344,14 @@ class GcsKeyValueStore
     return encoded_user_project_;
   }
 
+  internal_kvstore_batch::CoalescingOptions GetBatchReadCoalescingOptions()
+      const {
+    return internal_kvstore_batch::kDefaultRemoteStorageCoalescingOptions;
+  }
+
   Future<ReadResult> Read(Key key, ReadOptions options) override;
+
+  Future<ReadResult> ReadImpl(Key&& key, ReadOptions&& options);
 
   Future<TimestampedStorageGeneration> Write(Key key,
                                              std::optional<Value> value,
@@ -535,8 +548,9 @@ struct ReadTask : public RateLimiterNode,
 
     // Add the ifGenerationNotMatch condition.
     AddGenerationParam(&media_url, true, "ifGenerationNotMatch",
-                       options.if_not_equal);
-    AddGenerationParam(&media_url, true, "ifGenerationMatch", options.if_equal);
+                       options.generation_conditions.if_not_equal);
+    AddGenerationParam(&media_url, true, "ifGenerationMatch",
+                       options.generation_conditions.if_equal);
 
     // Assume that if the user_project field is set, that we want to provide
     // it on the uri for a requestor pays bucket.
@@ -624,40 +638,19 @@ struct ReadTask : public RateLimiterNode,
       case 304:
         // "Not modified": indicates that the ifGenerationNotMatch condition
         // did not hold.
-        return kvstore::ReadResult::Unspecified(
-            TimestampedStorageGeneration{options.if_not_equal, start_time_});
+        return kvstore::ReadResult::Unspecified(TimestampedStorageGeneration{
+            options.generation_conditions.if_not_equal, start_time_});
     }
 
     absl::Cord value;
     ObjectMetadata metadata;
     if (options.byte_range.size() != 0) {
-      if (httpresponse.status_code != 206) {
-        // This may or may not have been a range request; attempt to validate.
-        TENSORSTORE_ASSIGN_OR_RETURN(
-            auto byte_range,
-            options.byte_range.Validate(httpresponse.payload.size()));
+      // Currently unused
+      ByteRange byte_range;
+      int64_t total_size;
 
-        value = internal::GetSubCord(httpresponse.payload, byte_range);
-      } else {
-        value = httpresponse.payload;
-
-        // Server should return a parseable content-range header.
-        TENSORSTORE_ASSIGN_OR_RETURN(auto content_range_tuple,
-                                     ParseContentRangeHeader(httpresponse));
-
-        if (auto request_size = options.byte_range.size();
-            (options.byte_range.inclusive_min != -1 &&
-             options.byte_range.inclusive_min !=
-                 std::get<0>(content_range_tuple)) ||
-            (request_size >= 0 && request_size != value.size())) {
-          // Return an error when the response does not start at the requested
-          // offset of when the response is smaller than the desired size.
-          return absl::OutOfRangeError(
-              tensorstore::StrCat("Requested byte range ", options.byte_range,
-                                  " was not satisfied by GCS response of size ",
-                                  httpresponse.payload.size()));
-        }
-      }
+      TENSORSTORE_RETURN_IF_ERROR(internal_http::ValidateResponseByteRange(
+          httpresponse, options.byte_range, value, byte_range, total_size));
       // TODO: Avoid parsing the entire metadata & only extract the
       // generation field.
       SetObjectMetadataFromHeaders(httpresponse.headers, &metadata);
@@ -682,11 +675,17 @@ Future<kvstore::ReadResult> GcsKeyValueStore::Read(Key key,
   if (!IsValidObjectName(key)) {
     return absl::InvalidArgumentError("Invalid GCS object name");
   }
-  if (!IsValidStorageGeneration(options.if_equal) ||
-      !IsValidStorageGeneration(options.if_not_equal)) {
+  if (!IsValidStorageGeneration(options.generation_conditions.if_equal) ||
+      !IsValidStorageGeneration(options.generation_conditions.if_not_equal)) {
     return absl::InvalidArgumentError("Malformed StorageGeneration");
   }
+  return internal_kvstore_batch::HandleBatchRequestByGenericByteRangeCoalescing(
+      *this, std::move(key), std::move(options));
+}
 
+Future<kvstore::ReadResult> GcsKeyValueStore::ReadImpl(Key&& key,
+                                                       ReadOptions&& options) {
+  gcs_batch_read.Increment();
   auto encoded_object_name = internal::PercentEncodeUriComponent(key);
   std::string resource = tensorstore::internal::JoinPath(resource_root_, "/o/",
                                                          encoded_object_name);
@@ -752,7 +751,7 @@ struct WriteTask : public RateLimiterNode,
 
     // Add the ifGenerationNotMatch condition.
     AddGenerationParam(&upload_url, true, "ifGenerationMatch",
-                       options.if_equal);
+                       options.generation_conditions.if_equal);
 
     // Assume that if the user_project field is set, that we want to provide
     // it on the uri for a requestor pays bucket.
@@ -801,8 +800,7 @@ struct WriteTask : public RateLimiterNode,
           // Failed precondition implies the generation did not match.
           return absl::OkStatus();
         case 404:
-          if (!StorageGeneration::IsUnknown(options.if_equal) &&
-              !StorageGeneration::IsNoValue(options.if_equal)) {
+          if (!options.generation_conditions.MatchesNoValue()) {
             return absl::OkStatus();
           }
           break;
@@ -839,7 +837,8 @@ struct WriteTask : public RateLimiterNode,
         r.generation = StorageGeneration::Unknown();
         return r;
       case 404:
-        if (!StorageGeneration::IsUnknown(options.if_equal)) {
+        if (!StorageGeneration::IsUnknown(
+                options.generation_conditions.if_equal)) {
           r.generation = StorageGeneration::Unknown();
           return r;
         }
@@ -906,7 +905,7 @@ struct DeleteTask : public RateLimiterNode,
 
     // Add the ifGenerationNotMatch condition.
     bool has_query = AddGenerationParam(&delete_url, false, "ifGenerationMatch",
-                                        options.if_equal);
+                                        options.generation_conditions.if_equal);
 
     // Assume that if the user_project field is set, that we want to provide
     // it on the uri for a requestor pays bucket.
@@ -976,8 +975,7 @@ struct DeleteTask : public RateLimiterNode,
         break;
       case 404:
         // 404 Not Found means aborted when a StorageGeneration was specified.
-        if (!StorageGeneration::IsNoValue(options.if_equal) &&
-            !StorageGeneration::IsUnknown(options.if_equal)) {
+        if (!options.generation_conditions.MatchesNoValue()) {
           r.generation = StorageGeneration::Unknown();
           break;
         }
@@ -996,7 +994,7 @@ Future<TimestampedStorageGeneration> GcsKeyValueStore::Write(
   if (!IsValidObjectName(key)) {
     return absl::InvalidArgumentError("Invalid GCS object name");
   }
-  if (!IsValidStorageGeneration(options.if_equal)) {
+  if (!IsValidStorageGeneration(options.generation_conditions.if_equal)) {
     return absl::InvalidArgumentError("Malformed StorageGeneration");
   }
 

@@ -19,6 +19,7 @@
 #include <utility>
 
 #include "absl/meta/type_traits.h"
+#include "tensorstore/batch.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/index_space/alignment.h"
 #include "tensorstore/progress.h"
@@ -45,11 +46,16 @@ struct ReadOptions {
     this->progress_function = std::move(value);
   }
 
+  void Set(Batch value) { this->batch = std::move(value); }
+
   /// Constrains how the source TensorStore may be aligned to the target array.
   DomainAlignmentOptions alignment_options = DomainAlignmentOptions::all;
 
   /// Optional progress callback.
   ReadProgressFunction progress_function;
+
+  /// Optional batch.
+  Batch batch{no_batch};
 };
 
 template <>
@@ -57,6 +63,12 @@ constexpr inline bool ReadOptions::IsOption<DomainAlignmentOptions> = true;
 
 template <>
 constexpr inline bool ReadOptions::IsOption<ReadProgressFunction> = true;
+
+template <>
+constexpr inline bool ReadOptions::IsOption<Batch> = true;
+
+template <>
+constexpr inline bool ReadOptions::IsOption<Batch::View> = true;
 
 /// Options for `tensorstore::Read` into new array.
 ///
@@ -78,12 +90,17 @@ struct ReadIntoNewArrayOptions {
     this->progress_function = std::move(value);
   }
 
+  void Set(Batch value) { this->batch = std::move(value); }
+
   /// Specifies the layout order of the newly-allocated array.  Defaults to
   /// `c_order`.
   ContiguousLayoutOrder layout_order = c_order;
 
   /// Optional progress callback.
   ReadProgressFunction progress_function;
+
+  /// Optional batch.
+  Batch batch{no_batch};
 };
 
 template <>
@@ -93,6 +110,12 @@ constexpr inline bool ReadIntoNewArrayOptions::IsOption<ContiguousLayoutOrder> =
 template <>
 constexpr inline bool ReadIntoNewArrayOptions::IsOption<ReadProgressFunction> =
     true;
+
+template <>
+constexpr inline bool ReadIntoNewArrayOptions::IsOption<Batch> = true;
+
+template <>
+constexpr inline bool ReadIntoNewArrayOptions::IsOption<Batch::View> = true;
 
 /// Options for `tensorstore::Write`.
 ///
@@ -147,12 +170,17 @@ struct CopyOptions {
     this->progress_function = std::move(value);
   }
 
+  void Set(Batch value) { this->batch = std::move(value); }
+
   /// Constrains how the source TensorStore may be aligned to the target
   /// TensorStore.
   DomainAlignmentOptions alignment_options = DomainAlignmentOptions::all;
 
   /// Optional progress callback.
   CopyProgressFunction progress_function;
+
+  /// Optional batch for reading.
+  Batch batch{no_batch};
 };
 
 template <>
@@ -160,6 +188,12 @@ constexpr inline bool CopyOptions::IsOption<DomainAlignmentOptions> = true;
 
 template <>
 constexpr inline bool CopyOptions::IsOption<CopyProgressFunction> = true;
+
+template <>
+constexpr inline bool CopyOptions::IsOption<Batch> = true;
+
+template <>
+constexpr inline bool CopyOptions::IsOption<Batch::View> = true;
 
 }  // namespace tensorstore
 

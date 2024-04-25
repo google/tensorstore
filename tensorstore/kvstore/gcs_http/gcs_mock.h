@@ -32,6 +32,7 @@
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
+#include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
@@ -82,7 +83,8 @@ class GCSMockStorageBucket {
 
   // Get an object, which might be the data or the metadata.
   std::variant<std::monostate, internal_http::HttpResponse, absl::Status>
-  HandleGetRequest(std::string_view path, const ParamMap& params);
+  HandleGetRequest(const internal_http::HttpRequest& request,
+                   std::string_view path, const ParamMap& params);
 
   // Delete an object.
   std::variant<std::monostate, internal_http::HttpResponse, absl::Status>
@@ -92,7 +94,8 @@ class GCSMockStorageBucket {
   internal_http::HttpResponse ObjectMetadataResponse(const Object& object);
 
   // Construct an object media response.
-  internal_http::HttpResponse ObjectMediaResponse(const Object& object);
+  internal_http::HttpResponse ObjectMediaResponse(
+      const Object& object, std::optional<OptionalByteRangeRequest> byte_range);
 
   ::nlohmann::json ObjectMetadata(const Object& object);
 

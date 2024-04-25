@@ -15,8 +15,9 @@
 #ifndef TENSORSTORE_KVSTORE_DRIVER_H_
 #define TENSORSTORE_KVSTORE_DRIVER_H_
 
+#include <stddef.h>
+
 #include <atomic>
-#include <cstddef>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -329,6 +330,10 @@ class Driver {
   virtual Result<KvStore> GetBase(std::string_view path,
                                   const Transaction& transaction) const;
 
+  size_t BatchNestingDepth() const { return batch_nesting_depth_; }
+
+  void SetBatchNestingDepth(size_t depth) { batch_nesting_depth_ = depth; }
+
   virtual ~Driver();
 
   // Treat as private: Identifier in the open kvstore cache.
@@ -341,6 +346,7 @@ class Driver {
   friend void intrusive_ptr_decrement(Driver* p);
 
   std::atomic<size_t> reference_count_{0};
+  size_t batch_nesting_depth_{0};
 };
 
 /// Opens a `Driver` based on an already-parsed `DriverSpec`.

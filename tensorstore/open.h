@@ -45,6 +45,9 @@ namespace tensorstore {
 /// - Transaction: Transaction to use for opening.  Defaults to
 ///   `no_transaction`.
 ///
+/// - Batch: Batch to use for read operations performed when opening.  Defaults
+///   to no/implicit batching.
+///
 /// - ReadWriteMode: specifies whether reading and/or writing is supported.
 ///   Defaults to `Mode`.  Specifying multiple modes as separate options is
 ///   equivalent to ORing them together.

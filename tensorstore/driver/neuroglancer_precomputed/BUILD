@@ -193,6 +193,7 @@ tensorstore_cc_library(
         ":metadata",
         "//tensorstore:array",
         "//tensorstore:array_storage_statistics",
+        "//tensorstore:batch",
         "//tensorstore:box",
         "//tensorstore:chunk_layout",
         "//tensorstore:codec_spec",

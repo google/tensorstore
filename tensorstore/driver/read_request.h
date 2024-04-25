@@ -15,6 +15,7 @@
 #ifndef TENSORSTORE_DRIVER_READ_REQUEST_H_
 #define TENSORSTORE_DRIVER_READ_REQUEST_H_
 
+#include "tensorstore/batch.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/transaction.h"
 
@@ -25,6 +26,7 @@ namespace internal {
 struct DriverReadRequest {
   internal::OpenTransactionPtr transaction;
   IndexTransform<> transform;
+  Batch batch{no_batch};
 };
 
 }  // namespace internal

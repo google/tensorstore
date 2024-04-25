@@ -137,7 +137,9 @@ namespace internal {
 template <typename Derived>
 class AtomicReferenceCount {
  public:
-  AtomicReferenceCount() noexcept = default;
+  AtomicReferenceCount() = default;
+  AtomicReferenceCount(size_t initial_ref_count)
+      : ref_count_(initial_ref_count) {}
   // Defining the copy constructor below disables generation of the default move
   // constructor and move assignment operator, which means that the copy
   // constructor and copy assignment operator will be used for rvalues as well.

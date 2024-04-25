@@ -115,6 +115,13 @@ std::string GetShardKey(const ShardingSpec& sharding_spec,
 
 struct ChunkId {
   uint64_t value;
+  friend bool operator==(ChunkId a, ChunkId b) { return a.value == b.value; }
+  friend bool operator!=(ChunkId a, ChunkId b) { return !(a == b); }
+  friend bool operator<(ChunkId a, ChunkId b) { return a.value < b.value; }
+  template <typename H>
+  friend H AbslHashValue(H h, ChunkId x) {
+    return H::combine(std::move(h), x.value);
+  }
 };
 
 /// Hashes a pre-shifted 64-bit key with the specified hash function.
@@ -134,6 +141,9 @@ ChunkCombinedShardInfo GetChunkShardInfo(const ShardingSpec& sharding_spec,
 
 ChunkSplitShardInfo GetSplitShardInfo(const ShardingSpec& sharding_spec,
                                       ChunkCombinedShardInfo combined_info);
+
+ChunkCombinedShardInfo GetCombinedShardInfo(const ShardingSpec& sharding_spec,
+                                            ChunkSplitShardInfo split_info);
 
 /// In-memory representation of a minishard index entry.
 ///

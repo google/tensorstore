@@ -31,6 +31,7 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "python/tensorstore/batch.h"
 #include "python/tensorstore/context.h"
 #include "python/tensorstore/future.h"
 #include "python/tensorstore/garbage_collection.h"
@@ -42,6 +43,7 @@
 #include "python/tensorstore/tensorstore_module_components.h"
 #include "python/tensorstore/time.h"
 #include "python/tensorstore/transaction.h"
+#include "tensorstore/batch.h"
 #include "tensorstore/context.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/json/pprint_python.h"
@@ -519,18 +521,22 @@ Group:
       "read",
       [](Self& self, std::string_view key,
          std::optional<std::string> if_not_equal,
-         std::optional<double> staleness_bound) {
+         std::optional<double> staleness_bound, std::optional<Batch> batch) {
         kvstore::ReadOptions options;
         if (if_not_equal) {
-          options.if_not_equal.value = std::move(*if_not_equal);
+          options.generation_conditions.if_not_equal.value =
+              std::move(*if_not_equal);
         }
         if (staleness_bound) {
           options.staleness_bound = FromPythonTimestamp(*staleness_bound);
         }
+        options.batch =
+            internal_python::ValidateOptionalBatch(std::move(batch));
         return kvstore::Read(self.value, key, std::move(options));
       },
       py::arg("key"), py::kw_only(), py::arg("if_not_equal") = std::nullopt,
-      py::arg("staleness_bound") = std::nullopt, R"(
+      py::arg("staleness_bound") = std::nullopt,
+      py::arg("batch") = std::nullopt, R"(
 Reads the value of a single key.
 
 A missing key is not treated as an error; instead, a :py:obj:`.ReadResult` with
@@ -588,6 +594,14 @@ Args:
     specifying a value of :python:`time.time()`.  A value of
     :python:`float('-inf')` indicates that cached data may be returned without
     validation irrespective of its age.
+
+  batch: Batch to use for the read operation.
+
+    .. warning::
+
+       If specified, the returned :py:obj:`Future` will not, in general, become
+       ready until the batch is submitted.  Therefore, immediately awaiting the
+       returned future will lead to deadlock.
 
 Returns:
   Future that resolves when the read operation completes.
@@ -665,7 +679,8 @@ Group:
          std::optional<std::string> if_equal) {
         kvstore::WriteOptions options;
         if (if_equal) {
-          options.if_equal = StorageGeneration{std::move(*if_equal)};
+          options.generation_conditions.if_equal =
+              StorageGeneration{std::move(*if_equal)};
         }
         return kvstore::Write(self.value, key, OptionalCordFromPython(value),
                               std::move(options));

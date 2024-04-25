@@ -64,7 +64,8 @@ TEST(KvStoreTest, WriteThenRead) {
     auto req = mock_driver->write_requests.pop();
     EXPECT_THAT(req.key, "a");
     EXPECT_THAT(req.value, ::testing::Optional(absl::Cord("value")));
-    EXPECT_THAT(req.options.if_equal, StorageGeneration::Unknown());
+    EXPECT_THAT(req.options.generation_conditions.if_equal,
+                StorageGeneration::Unknown());
     req.promise.SetResult(TimestampedStorageGeneration(
         StorageGeneration::FromString("abc"), absl::Now()));
   }
@@ -127,7 +128,8 @@ TEST(KvStoreTest, ReadWithRepeatableReadIsolation) {
     auto req = mock_driver->read_requests.pop();
     EXPECT_THAT(req.key, "a");
     EXPECT_THAT(req.options.byte_range, OptionalByteRangeRequest(0, 0));
-    EXPECT_THAT(req.options.if_not_equal, StorageGeneration::FromString("abc"));
+    EXPECT_THAT(req.options.generation_conditions.if_not_equal,
+                StorageGeneration::FromString("abc"));
     req.promise.SetResult(ReadResult::Unspecified(TimestampedStorageGeneration(
         StorageGeneration::FromString("abc"), absl::Now())));
   }
@@ -142,7 +144,7 @@ TEST(KvStoreTest, ReadInvalidOptionIfEqual) {
 
   KvStore store(mock_driver, "", txn);
   kvstore::ReadOptions options;
-  options.if_equal = StorageGeneration::FromString("abc");
+  options.generation_conditions.if_equal = StorageGeneration::FromString("abc");
 
   EXPECT_THAT(kvstore::Read(store, "a", std::move(options)).result(),
               MatchesStatus(absl::StatusCode::kUnimplemented));
@@ -191,7 +193,8 @@ TEST(KvStoreTest, ReadMismatch) {
     auto req = mock_driver->read_requests.pop();
     EXPECT_THAT(req.key, "a");
     EXPECT_THAT(req.options.byte_range, OptionalByteRangeRequest(0, 0));
-    EXPECT_THAT(req.options.if_not_equal, StorageGeneration::FromString("abc"));
+    EXPECT_THAT(req.options.generation_conditions.if_not_equal,
+                StorageGeneration::FromString("abc"));
     req.promise.SetResult(ReadResult::Missing(TimestampedStorageGeneration(
         StorageGeneration::FromString("def"), absl::Now())));
   }

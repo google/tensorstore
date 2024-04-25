@@ -72,10 +72,17 @@ absl::Status HttpResponseCodeToStatus(
     const HttpResponse& response,
     SourceLocation loc = ::tensorstore::SourceLocation::current());
 
+struct ParsedContentRange {
+  // Inclusive min byte, always >= `0`.
+  int64_t inclusive_min;
+  // Exclusive max byte, always > `inclusive_min`.
+  int64_t exclusive_max;
+  int64_t total_size;  // (equal to -1 if unknown)
+};
+
 /// Parses the "content-range" header, which can be used to determine the
 /// portion of an object returned by an HTTP request (with status code 206).
-/// Returned tuple fields are {start, end, total_length}
-Result<std::tuple<size_t, size_t, size_t>> ParseContentRangeHeader(
+Result<ParsedContentRange> ParseContentRangeHeader(
     const HttpResponse& response);
 
 }  // namespace internal_http

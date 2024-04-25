@@ -127,3 +127,18 @@ tensorstore_cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+tensorstore_cc_library(
+    name = "hash_set_of_any",
+    hdrs = ["hash_set_of_any.h"],
+    deps = ["@com_google_absl//absl/container:flat_hash_set"],
+)
+
+tensorstore_cc_test(
+    name = "hash_set_of_any_test",
+    srcs = ["hash_set_of_any_test.cc"],
+    deps = [
+        ":hash_set_of_any",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

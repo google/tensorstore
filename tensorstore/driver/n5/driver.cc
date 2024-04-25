@@ -430,8 +430,8 @@ class N5Driver::OpenState : public N5Driver::OpenStateBase {
     return result;
   }
 
-  Result<std::shared_ptr<const void>> Create(
-      const void* existing_metadata) override {
+  Result<std::shared_ptr<const void>> Create(const void* existing_metadata,
+                                             CreateOptions options) override {
     if (existing_metadata) {
       return absl::AlreadyExistsError("");
     }

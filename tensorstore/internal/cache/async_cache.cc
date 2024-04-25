@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <cassert>
 #include <mutex>  // NOLINT
+#include <type_traits>
 #include <utility>
 
 #include "absl/base/optimization.h"
@@ -25,6 +26,8 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "absl/utility/utility.h"
+#include "tensorstore/batch.h"
+#include "tensorstore/batch_impl.h"
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/container/intrusive_linked_list.h"
 #include "tensorstore/internal/container/intrusive_red_black_tree.h"
@@ -104,11 +107,11 @@ const AsyncCache::ReadRequestState& GetEffectiveReadRequestState(
 
 template <typename EntryOrNode>
 void EntryOrNodeStartRead(EntryOrNode& entry_or_node,
-                          UniqueWriterLock<Entry> lock) {
+                          UniqueWriterLock<Entry> lock, Batch::View batch) {
   static_assert(std::is_same_v<EntryOrNode, Entry> ||
                 std::is_same_v<EntryOrNode, TransactionNode>);
   auto& request_state = entry_or_node.read_request_state_;
-  if (request_state.queued.null()) {
+  if (request_state.queued_request_is_deferred) {
     ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
         << entry_or_node << "EntryOrNodeStartRead: no pending read request";
     return;
@@ -118,6 +121,7 @@ void EntryOrNodeStartRead(EntryOrNode& entry_or_node,
         << entry_or_node
         << "EntryOrNodeStartRead: pending read request was cancelled";
     request_state.queued = Promise<void>();
+    request_state.queued_request_is_deferred = true;
     request_state.queued_time = absl::InfinitePast();
     return;
   }
@@ -125,12 +129,14 @@ void EntryOrNodeStartRead(EntryOrNode& entry_or_node,
   auto staleness_bound = request_state.issued_time =
       std::exchange(request_state.queued_time, absl::InfinitePast());
   request_state.issued = std::move(request_state.queued);
+  request_state.queued_request_is_deferred = true;
   lock.unlock();
   AcquireReadRequestReference(entry_or_node);
   ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
       << entry_or_node << "EntryOrNodeStartRead: calling DoRead";
   AsyncCache::AsyncCacheReadRequest read_request;
   read_request.staleness_bound = staleness_bound;
+  read_request.batch = batch;
   entry_or_node.DoRead(std::move(read_request));
 }
 
@@ -138,7 +144,8 @@ void EntryOrNodeStartRead(EntryOrNode& entry_or_node,
 ///
 /// This function is called when a read or writeback operation completes, or a
 /// new writeback is requested.
-void MaybeStartReadOrWriteback(Entry& entry, UniqueWriterLock<Entry> lock) {
+void MaybeStartReadOrWriteback(Entry& entry, UniqueWriterLock<Entry> lock,
+                               Batch::View read_batch) {
   auto& read_request_state = entry.read_request_state_;
 
   if (TransactionNode* committing_transaction_node =
@@ -207,17 +214,19 @@ void MaybeStartReadOrWriteback(Entry& entry, UniqueWriterLock<Entry> lock) {
 
   if (read_request_state.issued.null()) {
     // Issue a read if requested.
-    EntryOrNodeStartRead(entry, std::move(lock));
+    EntryOrNodeStartRead(entry, std::move(lock), read_batch);
   }
 }
 
-void MaybeIssueRead(Entry& entry, UniqueWriterLock<Entry> lock) {
-  MaybeStartReadOrWriteback(entry, std::move(lock));
+void MaybeIssueRead(Entry& entry, UniqueWriterLock<Entry> lock,
+                    Batch::View batch) {
+  MaybeStartReadOrWriteback(entry, std::move(lock), batch);
 }
 
-void MaybeIssueRead(TransactionNode& node, UniqueWriterLock<Entry> lock) {
+void MaybeIssueRead(TransactionNode& node, UniqueWriterLock<Entry> lock,
+                    Batch::View batch) {
   if (!node.read_request_state_.issued.null()) return;
-  EntryOrNodeStartRead(node, std::move(lock));
+  EntryOrNodeStartRead(node, std::move(lock), batch);
 }
 
 template <typename EntryOrNode>
@@ -251,6 +260,43 @@ void SetReadState(EntryOrNode& entry_or_node, ReadState&& read_state,
 }
 
 template <typename EntryOrNode>
+class AsyncCacheBatchEntry : public Batch::Impl::Entry {
+ public:
+  using EntryOrNodePtr =
+      std::conditional_t<std::is_same_v<EntryOrNode, AsyncCache::Entry>,
+                         PinnedCacheEntry<AsyncCache>,
+                         OpenTransactionNodePtr<AsyncCache::TransactionNode>>;
+
+  using KeyParam = internal_future::FutureStateBase*;
+  explicit AsyncCacheBatchEntry(size_t nesting_depth,
+                                EntryOrNode& entry_or_node,
+                                Promise<void> promise)
+      : Batch::Impl::Entry(nesting_depth),
+        entry_or_node_(&entry_or_node),
+        promise_(std::move(promise)) {}
+  KeyParam key() const { return &internal_future::FutureAccess::rep(promise_); }
+
+ private:
+  void Submit(Batch::View batch) override {
+    ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+        << *entry_or_node_ << "Submitting batch read";
+    auto& entry = GetOwningEntry(*entry_or_node_);
+    UniqueWriterLock lock(entry);
+    auto& read_request_state = entry_or_node_->read_request_state_;
+    if (!HaveSameSharedState(read_request_state.queued, promise_)) {
+      // Read was cancelled or already issued, nothing to do.
+      return;
+    }
+    read_request_state.queued_request_is_deferred = false;
+    MaybeIssueRead(*entry_or_node_, std::move(lock), batch);
+    delete this;
+  }
+
+  EntryOrNodePtr entry_or_node_;
+  Promise<void> promise_;
+};
+
+template <typename EntryOrNode>
 Future<const void> RequestRead(EntryOrNode& entry_or_node,
                                AsyncCache::AsyncCacheReadRequest options,
                                bool must_not_be_known_to_be_stale) {
@@ -277,23 +323,31 @@ Future<const void> RequestRead(EntryOrNode& entry_or_node,
   request_state.queued_time =
       std::max(request_state.queued_time,
                std::min(options.staleness_bound, absl::Now()));
-  Future<const void> future;
-  if (!request_state.issued.null()) {
-    // Another read operation is in progress.
-    if (!request_state.issued.null() &&
-        request_state.issued_time >= options.staleness_bound) {
-      // Another read is in progress, and `staleness_bound` will be satisfied by
-      // it when it completes.
-      future = GetFuture(request_state.issued);
-    } else {
-      // A read is in progress.  We will wait until it completes, and then may
-      // need to issue another read operation to satisfy `staleness_bound`.
-      future = GetFuture(request_state.queued);
-    }
-  } else {
-    future = GetFuture(request_state.queued);
+  if (!request_state.issued.null() &&
+      request_state.issued_time >= options.staleness_bound) {
+    // Another read is in progress, and `staleness_bound` will be satisfied by
+    // it when it completes.
+    return GetFuture(request_state.issued);
   }
-  MaybeIssueRead(entry_or_node, std::move(lock));
+
+  auto future = GetFuture(request_state.queued);
+
+  if (options.batch.deferred() && request_state.queued_request_is_deferred) {
+    // Don't actually issue request, just ensure there is a batch node for
+    // it.  The actual request will be issued when the batch is submitted.
+    using BatchE = AsyncCacheBatchEntry<EntryOrNode>;
+    auto& promise = request_state.queued;
+    Batch::Impl::From(options.batch)
+        ->GetEntry<BatchE>(&internal_future::FutureAccess::rep(promise), [&] {
+          return std::make_unique<BatchE>(
+              GetOwningCache(entry).BatchNestingDepth(), entry_or_node,
+              promise);
+        });
+  } else {
+    request_state.queued_request_is_deferred = false;
+  }
+
+  MaybeIssueRead(entry_or_node, std::move(lock), options.batch);
   return future;
 }
 
@@ -308,6 +362,7 @@ class QueuedReadHandler {
       // Queued read is also satisfied.
       queued_ = std::move(request_state.queued);
       request_state.queued_time = absl::InfinitePast();
+      request_state.queued_request_is_deferred = true;
     }
   }
 
@@ -334,7 +389,7 @@ void ResolveIssuedRead(EntryOrNode& entry_or_node, absl::Status status,
   assert(!status.ok() || time >= request_state.issued_time);
   {
     QueuedReadHandler queued_read_handler(request_state, time);
-    MaybeIssueRead(entry_or_node, std::move(lock));
+    MaybeIssueRead(entry_or_node, std::move(lock), /*batch=*/{});
     // Resolve promises after locks are released, to avoid running Future
     // callbacks with locks held.  It is possible that `issued` was already
     // resolved by a prior `ReadUpdate` call, in which case the call to
@@ -411,7 +466,7 @@ void ResolveIssuedWriteback(AsyncCache::TransactionNode& node,
     }
   }
   RemoveTransactionFromMap(node);
-  MaybeStartReadOrWriteback(entry, std::move(lock));
+  MaybeStartReadOrWriteback(entry, std::move(lock), /*read_batch=*/{});
   ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG) << node << "CommitDone";
   node.CommitDone();
 }
@@ -522,7 +577,7 @@ void AsyncCache::TransactionNode::PrepareForCommit() {
   // Can request writeback immediately (but it will still wait until any
   // previously issued read request completes).
   entry.committing_transaction_node_ = this;
-  MaybeStartReadOrWriteback(entry, std::move(lock));
+  MaybeStartReadOrWriteback(entry, std::move(lock), /*read_batch=*/{});
 }
 
 void AsyncCache::TransactionNode::Abort() {

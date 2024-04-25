@@ -47,8 +47,11 @@
 #include "tensorstore/internal/retries_context_resource.h"
 #include "tensorstore/internal/retry.h"
 #include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/generation.h"
+#include "tensorstore/kvstore/generic_coalescing_batch_util.h"
+#include "tensorstore/kvstore/http/byte_range_util.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/registry.h"
@@ -76,6 +79,12 @@ namespace tensorstore {
 namespace {
 
 namespace jb = tensorstore::internal_json_binding;
+
+auto& http_read = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/http/read", "http driver kvstore::Read calls");
+
+auto& http_batch_read = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/http/batch_read", "http driver reads after batching");
 
 auto& http_bytes_read = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/http/bytes_read",
@@ -211,7 +220,13 @@ class HttpKeyValueStore
     : public internal_kvstore::RegisteredDriver<HttpKeyValueStore,
                                                 HttpKeyValueStoreSpec> {
  public:
+  internal_kvstore_batch::CoalescingOptions GetBatchReadCoalescingOptions()
+      const {
+    return internal_kvstore_batch::kDefaultRemoteStorageCoalescingOptions;
+  }
+
   Future<ReadResult> Read(Key key, ReadOptions options) override;
+  Future<ReadResult> ReadImpl(Key&& key, ReadOptions&& options);
 
   const Executor& executor() const {
     return spec_.request_concurrency->executor;
@@ -261,15 +276,18 @@ struct ReadTask {
         .MaybeAddStalenessBoundCacheControlHeader(options.staleness_bound)
         .EnableAcceptEncoding();
 
-    if (StorageGeneration::IsCleanValidValue(options.if_equal)) {
-      request_builder.AddHeader(
-          absl::StrFormat("if-match: \"%s\"",
-                          StorageGeneration::DecodeString(options.if_equal)));
-    }
-    if (StorageGeneration::IsCleanValidValue(options.if_not_equal)) {
+    if (StorageGeneration::IsCleanValidValue(
+            options.generation_conditions.if_equal)) {
       request_builder.AddHeader(absl::StrFormat(
-          "if-none-match: \"%s\"",
-          StorageGeneration::DecodeString(options.if_not_equal)));
+          "if-match: \"%s\"", StorageGeneration::DecodeString(
+                                  options.generation_conditions.if_equal)));
+    }
+    if (StorageGeneration::IsCleanValidValue(
+            options.generation_conditions.if_not_equal)) {
+      request_builder.AddHeader(
+          absl::StrFormat("if-none-match: \"%s\"",
+                          StorageGeneration::DecodeString(
+                              options.generation_conditions.if_not_equal)));
     }
 
     auto request = request_builder.BuildRequest();
@@ -333,37 +351,18 @@ struct ReadTask {
       case 304:
         // "Not modified": indicates that the If-None-Match condition did
         // not hold.
-        return kvstore::ReadResult::Unspecified(
-            TimestampedStorageGeneration{options.if_not_equal, start_time});
+        return kvstore::ReadResult::Unspecified(TimestampedStorageGeneration{
+            options.generation_conditions.if_not_equal, start_time});
     }
 
     absl::Cord value;
     if (options.byte_range.size() != 0) {
-      if (httpresponse.status_code != 206) {
-        // This may or may not have been a range request; attempt to validate.
-        TENSORSTORE_ASSIGN_OR_RETURN(
-            auto byte_range,
-            options.byte_range.Validate(httpresponse.payload.size()));
-        value = internal::GetSubCord(httpresponse.payload, byte_range);
-      } else {
-        value = httpresponse.payload;
-        // Server should return a parseable content-range header.
-        TENSORSTORE_ASSIGN_OR_RETURN(auto content_range_tuple,
-                                     ParseContentRangeHeader(httpresponse));
+      // Currently unused
+      ByteRange byte_range;
+      int64_t total_size;
 
-        if (auto request_size = options.byte_range.size();
-            (options.byte_range.inclusive_min != -1 &&
-             options.byte_range.inclusive_min !=
-                 std::get<0>(content_range_tuple)) ||
-            (request_size >= 0 && request_size != value.size())) {
-          // Return an error when the response does not start at the requested
-          // offset of when the response is smaller than the desired size.
-          return absl::OutOfRangeError(tensorstore::StrCat(
-              "Requested byte range ", options.byte_range,
-              " was not satisfied by HTTP response of size ",
-              httpresponse.payload.size()));
-        }
-      }
+      TENSORSTORE_RETURN_IF_ERROR(internal_http::ValidateResponseByteRange(
+          httpresponse, options.byte_range, value, byte_range, total_size));
     }
 
     // Parse `ETag` header from response.
@@ -427,6 +426,14 @@ struct ReadTask {
 
 Future<kvstore::ReadResult> HttpKeyValueStore::Read(Key key,
                                                     ReadOptions options) {
+  http_read.Increment();
+  return internal_kvstore_batch::HandleBatchRequestByGenericByteRangeCoalescing(
+      *this, std::move(key), std::move(options));
+}
+
+Future<kvstore::ReadResult> HttpKeyValueStore::ReadImpl(Key&& key,
+                                                        ReadOptions&& options) {
+  http_batch_read.Increment();
   std::string url = spec_.GetUrl(key);
   return MapFuture(executor(), ReadTask{IntrusivePtr<HttpKeyValueStore>(this),
                                         std::move(url), std::move(options)});

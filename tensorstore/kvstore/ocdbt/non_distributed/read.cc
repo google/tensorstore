@@ -71,8 +71,7 @@ ABSL_CONST_INIT internal_log::VerboseFlag ocdbt_logging("ocdbt");
 struct ReadOperation : public internal::AtomicReferenceCount<ReadOperation> {
   using Ptr = internal::IntrusivePtr<ReadOperation>;
   ReadonlyIoHandle::Ptr io_handle;
-  StorageGeneration if_not_equal;
-  StorageGeneration if_equal;
+  kvstore::ReadGenerationConditions generation_conditions;
   OptionalByteRangeRequest byte_range;
   absl::Time time;
   // Full key being read.
@@ -99,8 +98,7 @@ struct ReadOperation : public internal::AtomicReferenceCount<ReadOperation> {
                                            kvstore::ReadOptions&& options) {
     auto op = internal::MakeIntrusivePtr<ReadOperation>();
     op->io_handle = std::move(io_handle);
-    op->if_not_equal = std::move(options.if_not_equal);
-    op->if_equal = std::move(options.if_equal);
+    op->generation_conditions = std::move(options.generation_conditions);
     op->byte_range = options.byte_range;
     op->key = std::move(key);
     auto* op_ptr = op.get();
@@ -246,10 +244,7 @@ struct ReadOperation : public internal::AtomicReferenceCount<ReadOperation> {
     auto generation =
         internal_ocdbt::ComputeStorageGeneration(entry->value_reference);
 
-    // Check if_equal and if_not_equal conditions.
-    if (!StorageGeneration::EqualOrUnspecified(generation, op->if_equal) ||
-        !StorageGeneration::NotEqualOrUnspecified(generation,
-                                                  op->if_not_equal)) {
+    if (!op->generation_conditions.Matches(generation)) {
       promise.SetResult(kvstore::ReadResult::Unspecified(
           TimestampedStorageGeneration{std::move(generation), op->time}));
       return;

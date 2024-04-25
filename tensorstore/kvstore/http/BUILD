@@ -18,6 +18,7 @@ tensorstore_cc_library(
         "driver.cc",
     ],
     deps = [
+        ":byte_range_util",
         "//tensorstore:context",
         "//tensorstore/internal:concurrency_resource",
         "//tensorstore/internal:intrusive_ptr",
@@ -33,6 +34,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/internal/metrics",
         "//tensorstore/kvstore",
+        "//tensorstore/kvstore:batch_util",
         "//tensorstore/kvstore:byte_range",
         "//tensorstore/kvstore:generation",
         "//tensorstore/serialization",
@@ -60,6 +62,7 @@ tensorstore_cc_test(
     srcs = ["driver_test.cc"],
     deps = [
         ":http",
+        "//tensorstore:batch",
         "//tensorstore/internal:queue_testutil",
         "//tensorstore/internal/http",
         "//tensorstore/internal/http:curl_transport",
@@ -76,5 +79,19 @@ tensorstore_cc_test(
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "byte_range_util",
+    srcs = ["byte_range_util.cc"],
+    hdrs = ["byte_range_util.h"],
+    deps = [
+        "//tensorstore/internal/http",
+        "//tensorstore/kvstore:byte_range",
+        "//tensorstore/util:result",
+        "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:cord",
     ],
 )

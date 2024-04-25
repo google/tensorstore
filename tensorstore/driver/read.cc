@@ -21,6 +21,7 @@
 
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
+#include "tensorstore/batch.h"
 #include "tensorstore/box.h"
 #include "tensorstore/container_kind.h"
 #include "tensorstore/contiguous_layout.h"
@@ -99,6 +100,7 @@ struct ReadState
   Executor executor;
   DriverPtr source_driver;
   internal::OpenTransactionPtr source_transaction;
+  Batch source_batch{no_batch};
   DataTypeConversionLookupResult data_type_conversion;
   TransformedArray<Shared<void>> target;
   DomainAlignmentOptions alignment_options;
@@ -186,6 +188,7 @@ struct DriverReadIntoExistingInitiateOp {
     auto source_driver = std::move(state->source_driver);
     Driver::ReadRequest request;
     request.transaction = std::move(state->source_transaction);
+    request.batch = std::move(state->source_batch);
     request.transform = std::move(source_transform);
     source_driver->Read(std::move(request),
                         ReadChunkReceiver<void>{std::move(state)});
@@ -221,6 +224,7 @@ struct DriverReadIntoNewInitiateOp {
     auto source_driver = std::move(state->source_driver);
     Driver::ReadRequest request;
     request.transaction = std::move(state->source_transaction);
+    request.batch = std::move(state->source_batch);
     request.transform = std::move(source_transform);
     source_driver->Read(
         std::move(request),
@@ -246,6 +250,7 @@ Future<void> DriverRead(Executor executor, DriverHandle source,
   TENSORSTORE_ASSIGN_OR_RETURN(
       state->source_transaction,
       internal::AcquireOpenTransactionPtrOrError(source.transaction));
+  state->source_batch = std::move(options.batch);
   state->target = std::move(target);
   state->alignment_options = options.alignment_options;
   state->read_progress_function = std::move(options.progress_function);
@@ -289,6 +294,7 @@ Future<SharedOffsetArray<void>> DriverReadIntoNewArray(
   TENSORSTORE_ASSIGN_OR_RETURN(
       state->source_transaction,
       internal::AcquireOpenTransactionPtrOrError(source.transaction));
+  state->source_batch = std::move(options.batch);
   state->read_progress_function = std::move(options.progress_function);
   auto pair = PromiseFuturePair<SharedOffsetArray<void>>::Make();
 

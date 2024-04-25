@@ -30,6 +30,7 @@
 #include "tensorstore/driver/zarr3/codec/codec_chain_spec.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/json_binding/bindable.h"
+#include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/zarr3_sharding_indexed/key.h"
 #include "tensorstore/util/extents.h"
 #include "tensorstore/util/result.h"
@@ -69,6 +70,12 @@ struct ShardIndexEntry {
   ///
   /// The specified `entry_id` is used only for the error message.
   absl::Status Validate(EntryId entry_id) const;
+  absl::Status Validate(EntryId entry_id, int64_t total_size) const;
+
+  ByteRange AsByteRange() const {
+    return ByteRange{static_cast<int64_t>(offset),
+                     static_cast<int64_t>(offset + length)};
+  }
 };
 
 /// Representation of decoded shard index.
@@ -135,6 +142,14 @@ struct ShardIndexParameters {
 /// use by calling `ShardIndexEntry::Validate`.
 Result<ShardIndex> DecodeShardIndex(const absl::Cord& input,
                                     const ShardIndexParameters& parameters);
+
+/// Decodes the shard index given the full shard.
+///
+/// This does *not* validate the byte ranges.  Those must be validated before
+/// use by calling `ShardIndexEntry::Validate`.
+Result<ShardIndex> DecodeShardIndexFromFullShard(
+    const absl::Cord& shard_data,
+    const ShardIndexParameters& shard_index_parameters);
 
 /// Decoded representation of a single entry within a shard.
 ///

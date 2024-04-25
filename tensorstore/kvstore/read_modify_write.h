@@ -143,8 +143,9 @@ class ReadModifyWriteSource {
   /// in response to a read request by a subsequent read-modify-write
   /// operation layered on top of this operation.
   ///
-  /// If `options.if_not_equal` is not satisfied, invokes `set_value` on
-  /// `receiver` with a `ReadResult` with a state of `ReadResult::kUnspecified`.
+  /// If `options.generation_conditions.if_not_equal` is not satisfied, invokes
+  /// `set_value` on `receiver` with a `ReadResult` with a state of
+  /// `ReadResult::kUnspecified`.
   ///
   /// Must not invoke `set_cancel` on `receiver`.
   virtual void KvsWriteback(WritebackOptions options,

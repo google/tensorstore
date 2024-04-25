@@ -49,6 +49,7 @@
 #include "tensorstore/internal/testing/scoped_directory.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/kvstore.h"
+#include "tensorstore/kvstore/memory/memory_key_value_store.h"
 #include "tensorstore/kvstore/mock_kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
@@ -1568,7 +1569,8 @@ TEST(FullShardWriteTest, WithTransaction) {
   {
     auto req = mock_key_value_store->write_requests.pop();
     EXPECT_EQ("prefix/info", req.key);
-    EXPECT_EQ(StorageGeneration::NoValue(), req.options.if_equal);
+    EXPECT_EQ(StorageGeneration::NoValue(),
+              req.options.generation_conditions.if_equal);
     req.promise.SetResult(TimestampedStorageGeneration{
         StorageGeneration::FromString("g0"), absl::Now()});
   }
@@ -1589,7 +1591,8 @@ TEST(FullShardWriteTest, WithTransaction) {
     auto req = mock_key_value_store->write_requests.pop();
     ASSERT_EQ("prefix/1_1_1/5.shard", req.key);
     // Writeback is unconditional because the entire shard is being written.
-    ASSERT_EQ(StorageGeneration::Unknown(), req.options.if_equal);
+    ASSERT_EQ(StorageGeneration::Unknown(),
+              req.options.generation_conditions.if_equal);
     req.promise.SetResult(TimestampedStorageGeneration{
         StorageGeneration::FromString("g0"), absl::Now()});
   }
@@ -1660,7 +1663,8 @@ TEST(FullShardWriteTest, WithoutTransaction) {
   {
     auto req = mock_key_value_store->write_requests.pop();
     EXPECT_EQ("prefix/info", req.key);
-    EXPECT_EQ(StorageGeneration::NoValue(), req.options.if_equal);
+    EXPECT_EQ(StorageGeneration::NoValue(),
+              req.options.generation_conditions.if_equal);
     req.promise.SetResult(TimestampedStorageGeneration{
         StorageGeneration::FromString("g0"), absl::Now()});
   }
@@ -1677,7 +1681,8 @@ TEST(FullShardWriteTest, WithoutTransaction) {
     auto req = mock_key_value_store->write_requests.pop();
     ASSERT_EQ("prefix/1_1_1/5.shard", req.key);
     // Writeback is unconditional because the entire shard is being written.
-    ASSERT_EQ(StorageGeneration::Unknown(), req.options.if_equal);
+    ASSERT_EQ(StorageGeneration::Unknown(),
+              req.options.generation_conditions.if_equal);
     req.promise.SetResult(TimestampedStorageGeneration{
         StorageGeneration::FromString("g0"), absl::Now()});
   }
@@ -2868,6 +2873,76 @@ TEST(DriverTest, SerializationRoundTrip) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store_copy_spec_json,
                                    store_copy_spec.ToJson());
   EXPECT_THAT(store_copy_spec_json, MatchesJson(store_spec_json));
+}
+
+TEST(DriverTest, SerializationRoundTripMultiScale) {
+  ScopedTemporaryDirectory temp_dir;
+  ::nlohmann::json json_spec;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto scale0,
+      tensorstore::Open(
+          {{"driver", "neuroglancer_precomputed"},
+           {"kvstore", {{"driver", "file"}, {"path", temp_dir.path()}}},
+           {"scale_metadata", {{"key", "scale0"}}}},
+          tensorstore::OpenMode::create, tensorstore::dtype_v<uint8_t>,
+          tensorstore::Schema::Shape({100, 200, 300, 1}),
+          tensorstore::ReadWriteMode::read_write)
+          .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto scale1,
+      tensorstore::Open(
+          {{"driver", "neuroglancer_precomputed"},
+           {"kvstore", {{"driver", "file"}, {"path", temp_dir.path()}}},
+           {"scale_index", 1},
+           {"scale_metadata", {{"key", "scale1"}}}},
+          tensorstore::OpenMode::create, tensorstore::dtype_v<uint8_t>,
+          tensorstore::Schema::Shape({100, 200, 300, 1}),
+          tensorstore::ReadWriteMode::read_write)
+          .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto scale0_spec, scale0.spec());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto scale0_spec_json, scale0_spec.ToJson());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto scale0_copy,
+                                   SerializationRoundTrip(scale0));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto scale0_copy_spec, scale0_copy.spec());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto scale0_copy_spec_json,
+                                   scale0_copy_spec.ToJson());
+  EXPECT_THAT(scale0_copy_spec_json, MatchesJson(scale0_spec_json));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto scale1_spec, scale1.spec());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto scale1_spec_json, scale1_spec.ToJson());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto scale1_copy,
+                                   SerializationRoundTrip(scale1));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto scale1_copy_spec, scale1_copy.spec());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto scale1_copy_spec_json,
+                                   scale1_copy_spec.ToJson());
+  EXPECT_THAT(scale1_copy_spec_json, MatchesJson(scale1_spec_json));
+}
+
+TEST(DriverTest, ShardingBatchRead) {
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto mock_kvstore_resource,
+      context.GetResource<tensorstore::internal::MockKeyValueStoreResource>());
+  auto mock_kvstore = *mock_kvstore_resource;
+  mock_kvstore->forward_to = tensorstore::GetMemoryKeyValueStore();
+  mock_kvstore->log_requests = true;
+  mock_kvstore->handle_batch_requests = true;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open({{"driver", "neuroglancer_precomputed"},
+                         {"kvstore", {{"driver", "mock_key_value_store"}}}},
+                        tensorstore::OpenMode::create, context,
+                        dtype_v<uint16_t>, Schema::Shape({8, 8, 1, 1}),
+                        ChunkLayout::ReadChunkShape({2, 2, 1, 1}),
+                        ChunkLayout::WriteChunkShape({4, 4, 1, 1}))
+          .result());
+  TENSORSTORE_ASSERT_OK(
+      tensorstore::Write(tensorstore::MakeScalarArray<uint16_t>(42), store));
+  mock_kvstore->request_log.pop_all();
+
+  TENSORSTORE_ASSERT_OK(tensorstore::Read(store));
+
+  EXPECT_THAT(mock_kvstore->request_log.pop_all(), ::testing::SizeIs(4));
 }
 
 }  // namespace

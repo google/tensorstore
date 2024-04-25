@@ -983,7 +983,8 @@ Result<DimensionUnitsVector> GetEffectiveDimensionUnits(
 
 Result<std::pair<std::shared_ptr<MultiscaleMetadata>, std::size_t>> CreateScale(
     const MultiscaleMetadata* existing_metadata,
-    const OpenConstraints& orig_constraints, const Schema& orig_schema) {
+    const OpenConstraints& orig_constraints, const Schema& orig_schema,
+    bool assume_metadata) {
   auto schema = orig_schema;
   auto constraints = orig_constraints;
   TENSORSTORE_ASSIGN_OR_RETURN(
@@ -1103,7 +1104,8 @@ Result<std::pair<std::shared_ptr<MultiscaleMetadata>, std::size_t>> CreateScale(
           : GetScaleKeyFromResolution(*constraints.scale.resolution);
   std::shared_ptr<MultiscaleMetadata> new_metadata;
   if (!existing_metadata) {
-    if (constraints.scale_index && *constraints.scale_index != 0) {
+    if (constraints.scale_index && *constraints.scale_index != 0 &&
+        !assume_metadata) {
       return absl::FailedPreconditionError(
           tensorstore::StrCat("Cannot create scale ", *constraints.scale_index,
                               " in new multiscale volume"));
@@ -1113,6 +1115,10 @@ Result<std::pair<std::shared_ptr<MultiscaleMetadata>, std::size_t>> CreateScale(
     new_metadata->num_channels = *constraints.multiscale.num_channels;
     new_metadata->dtype = constraints.multiscale.dtype;
     new_metadata->extra_attributes = constraints.multiscale.extra_attributes;
+    if (constraints.scale_index && *constraints.scale_index != 0) {
+      assert(assume_metadata);
+      new_metadata->scales.resize(*constraints.scale_index);
+    }
   } else {
     TENSORSTORE_RETURN_IF_ERROR(ValidateMultiscaleConstraintsForOpen(
         constraints.multiscale, *existing_metadata));

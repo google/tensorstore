@@ -22,6 +22,7 @@
 #include "absl/strings/cord.h"
 #include "tensorstore/array.h"
 #include "tensorstore/array_storage_statistics.h"
+#include "tensorstore/batch.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/codec_spec.h"
 #include "tensorstore/context.h"
@@ -63,11 +64,12 @@ Future<Driver::Handle> OpenDriver(TransformedDriverSpec spec,
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto open_transaction,
       internal::AcquireOpenTransactionPtrOrError(options.transaction));
-  return internal::OpenDriver(std::move(open_transaction), std::move(spec),
+  return internal::OpenDriver(std::move(open_transaction),
+                              std::move(options.batch), std::move(spec),
                               std::move(options));
 }
 
-Future<Driver::Handle> OpenDriver(OpenTransactionPtr transaction,
+Future<Driver::Handle> OpenDriver(OpenTransactionPtr transaction, Batch batch,
                                   TransformedDriverSpec spec,
                                   OpenOptions&& options) {
   TENSORSTORE_RETURN_IF_ERROR(internal::TransformAndApplyOptions(
@@ -80,7 +82,8 @@ Future<Driver::Handle> OpenDriver(OpenTransactionPtr transaction,
       DriverSpecBindContext(spec.driver_spec, options.context));
   return internal::OpenDriver(
       std::move(spec),
-      DriverOpenRequest{std::move(transaction), options.read_write_mode});
+      DriverOpenRequest{std::move(transaction), std::move(batch),
+                        options.read_write_mode});
 }
 
 Future<Driver::Handle> OpenDriver(TransformedDriverSpec bound_spec,

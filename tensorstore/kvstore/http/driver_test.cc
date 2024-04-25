@@ -16,6 +16,7 @@
 
 #include <functional>
 #include <memory>
+#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -23,6 +24,7 @@
 #include "absl/strings/cord.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "tensorstore/batch.h"
 #include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/internal/http/http_header.h"
 #include "tensorstore/internal/http/http_request.h"
@@ -44,6 +46,8 @@
 namespace {
 namespace kvstore = ::tensorstore::kvstore;
 
+using ::tensorstore::Batch;
+using ::tensorstore::Future;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
 using ::tensorstore::StorageGeneration;
@@ -159,6 +163,44 @@ TEST_F(HttpKeyValueStoreTest, ReadByteRange) {
                                    StorageGeneration::Invalid()));
 }
 
+TEST_F(HttpKeyValueStoreTest, ReadBatch) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, kvstore::Open("https://example.com/my/path/").result());
+  std::vector<Future<kvstore::ReadResult>> futures;
+  {
+    auto batch = Batch::New();
+    {
+      kvstore::ReadOptions options;
+      options.byte_range.inclusive_min = 10;
+      options.byte_range.exclusive_max = 20;
+      options.batch = batch;
+      futures.push_back(kvstore::Read(store, "abc", options));
+    }
+    {
+      kvstore::ReadOptions options;
+      options.byte_range.inclusive_min = 20;
+      options.byte_range.exclusive_max = 25;
+      options.batch = batch;
+      futures.push_back(kvstore::Read(store, "abc", options));
+    }
+  }
+  auto request = mock_transport->requests_.pop();
+  EXPECT_EQ("https://example.com/my/path/abc", request.request.url);
+  EXPECT_THAT(request.request.method, "GET");
+  EXPECT_THAT(request.request.headers,
+              ::testing::UnorderedElementsAre("cache-control: no-cache",
+                                              "Range: bytes=10-24"));
+  request.set_result(HttpResponse{206,
+                                  absl::Cord("valueabcde01234"),
+                                  {{"content-range", "bytes 10-24/50"}}});
+  EXPECT_THAT(futures[0].result(),
+              MatchesKvsReadResult(absl::Cord("valueabcde"),
+                                   StorageGeneration::Invalid()));
+  EXPECT_THAT(
+      futures[1].result(),
+      MatchesKvsReadResult(absl::Cord("01234"), StorageGeneration::Invalid()));
+}
+
 TEST_F(HttpKeyValueStoreTest, ReadZeroByteRange) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store, kvstore::Open("https://example.com/my/path/").result());
@@ -197,7 +239,7 @@ TEST_F(HttpKeyValueStoreTest, IfEqualSatisfied) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store, kvstore::Open("https://example.com/my/path/").result());
   kvstore::ReadOptions options;
-  options.if_equal = StorageGeneration::FromString("xyz");
+  options.generation_conditions.if_equal = StorageGeneration::FromString("xyz");
   auto read_future = kvstore::Read(store, "abc", options);
   auto request = mock_transport->requests_.pop();
   EXPECT_EQ("https://example.com/my/path/abc", request.request.url);
@@ -212,7 +254,7 @@ TEST_F(HttpKeyValueStoreTest, IfEqualNotSatisfied) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store, kvstore::Open("https://example.com/my/path/").result());
   kvstore::ReadOptions options;
-  options.if_equal = StorageGeneration::FromString("xyz");
+  options.generation_conditions.if_equal = StorageGeneration::FromString("xyz");
   auto read_future = kvstore::Read(store, "abc", options);
   auto request = mock_transport->requests_.pop();
   EXPECT_EQ("https://example.com/my/path/abc", request.request.url);
@@ -229,7 +271,8 @@ TEST_F(HttpKeyValueStoreTest, IfNotEqualSatisfied) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store, kvstore::Open("https://example.com/my/path/").result());
   kvstore::ReadOptions options;
-  options.if_not_equal = StorageGeneration::FromString("xyz");
+  options.generation_conditions.if_not_equal =
+      StorageGeneration::FromString("xyz");
   auto read_future = kvstore::Read(store, "abc", options);
   auto request = mock_transport->requests_.pop();
   EXPECT_EQ("https://example.com/my/path/abc", request.request.url);
@@ -246,7 +289,8 @@ TEST_F(HttpKeyValueStoreTest, IfNotEqualNotSatisfied) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store, kvstore::Open("https://example.com/my/path/").result());
   kvstore::ReadOptions options;
-  options.if_not_equal = StorageGeneration::FromString("xyz");
+  options.generation_conditions.if_not_equal =
+      StorageGeneration::FromString("xyz");
   auto read_future = kvstore::Read(store, "abc", options);
   auto request = mock_transport->requests_.pop();
   EXPECT_EQ("https://example.com/my/path/abc", request.request.url);

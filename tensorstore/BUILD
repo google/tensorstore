@@ -124,7 +124,37 @@ tensorstore_cc_library(
     name = "array_storage_statistics",
     srcs = ["array_storage_statistics.cc"],
     hdrs = ["array_storage_statistics.h"],
-    deps = ["@com_google_absl//absl/time"],
+    deps = [
+        ":batch",
+        "@com_google_absl//absl/time",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "batch",
+    srcs = ["batch.cc"],
+    hdrs = [
+        "batch.h",
+        "batch_impl.h",
+    ],
+    deps = [
+        "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/internal/container:hash_set_of_any",
+        "//tensorstore/internal/container:intrusive_red_black_tree",
+        "@com_google_absl//absl/synchronization",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "batch_test",
+    size = "small",
+    srcs = ["batch_test.cc"],
+    deps = [
+        ":batch",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
+        "@com_google_googletest//:gtest_main",
+    ],
 )
 
 tensorstore_cc_library(
@@ -287,8 +317,10 @@ tensorstore_cc_library(
         "//tensorstore/internal/cache_key",
         "//tensorstore/internal/container:heterogeneous_container",
         "//tensorstore/internal/json:same",
+        "//tensorstore/internal/json:value_as",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
+        "//tensorstore/internal/riegeli:delimited",
         "//tensorstore/serialization",
         "//tensorstore/serialization:json",
         "//tensorstore/util:quote_string",
@@ -297,12 +329,14 @@ tensorstore_cc_library(
         "//tensorstore/util:str_cat",
         "//tensorstore/util/garbage_collection",
         "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/synchronization",
+        "@com_google_absl//absl/time",
     ],
 )
 
@@ -536,6 +570,7 @@ tensorstore_cc_library(
     name = "open_options",
     hdrs = ["open_options.h"],
     deps = [
+        ":batch",
         ":context",
         ":open_mode",
         ":schema",
@@ -600,6 +635,7 @@ tensorstore_cc_library(
     name = "read_write_options",
     hdrs = ["read_write_options.h"],
     deps = [
+        ":batch",
         ":contiguous_layout",
         ":progress",
         "//tensorstore/index_space:alignment",
@@ -612,6 +648,7 @@ tensorstore_cc_library(
     srcs = ["resize_options.cc"],
     hdrs = ["resize_options.h"],
     deps = [
+        ":batch",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/meta:type_traits",
     ],

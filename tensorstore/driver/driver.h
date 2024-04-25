@@ -45,6 +45,7 @@
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/array_storage_statistics.h"
+#include "tensorstore/batch.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/codec_spec.h"
 #include "tensorstore/data_type.h"
@@ -282,7 +283,7 @@ class Driver : public AtomicReferenceCount<Driver> {
 ///
 /// This simply chains `DriverSpec::Convert`, `DriverSpec::Bind`, and the
 /// `OpenDriver` overload defined below.
-Future<DriverHandle> OpenDriver(OpenTransactionPtr transaction,
+Future<DriverHandle> OpenDriver(OpenTransactionPtr transaction, Batch batch,
                                 TransformedDriverSpec spec,
                                 OpenOptions&& options);
 

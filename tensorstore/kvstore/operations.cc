@@ -18,6 +18,7 @@
 
 #include <cassert>
 #include <optional>
+#include <ostream>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -43,6 +44,19 @@
 namespace tensorstore {
 namespace kvstore {
 
+std::ostream& operator<<(std::ostream& os, const ReadGenerationConditions& x) {
+  os << "{";
+  std::string_view sep = "";
+  if (x.if_not_equal) {
+    os << "if_not_equal=" << x.if_not_equal;
+    sep = ", ";
+  }
+  if (x.if_equal) {
+    os << sep << "if_equal=" << x.if_equal;
+  }
+  return os << "}";
+}
+
 Future<std::vector<ListEntry>> ListFuture(Driver* driver, ListOptions options) {
   return tensorstore::CollectFlowSenderIntoFuture<std::vector<ListEntry>>(
       tensorstore::MakeSyncFlowSender(driver->List(options)));
@@ -62,7 +76,7 @@ Future<ReadResult> Read(const KvStore& store, std::string_view key,
     // Regular non-transactional read.
     return store.driver->Read(std::move(full_key), std::move(options));
   }
-  if (!StorageGeneration::IsUnknown(options.if_equal)) {
+  if (!StorageGeneration::IsUnknown(options.generation_conditions.if_equal)) {
     return absl::UnimplementedError(
         "if_equal condition not supported for transactional reads");
   }
@@ -71,7 +85,8 @@ Future<ReadResult> Read(const KvStore& store, std::string_view key,
         "byte_range restriction not supported for transactional reads");
   }
   TransactionalReadOptions transactional_read_options;
-  transactional_read_options.if_not_equal = std::move(options.if_not_equal);
+  transactional_read_options.generation_conditions.if_not_equal =
+      std::move(options.generation_conditions.if_not_equal);
   transactional_read_options.staleness_bound = options.staleness_bound;
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto open_transaction,

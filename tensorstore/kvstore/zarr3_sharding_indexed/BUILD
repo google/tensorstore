@@ -29,6 +29,7 @@ tensorstore_cc_library(
     deps = [
         ":key",
         ":shard_format",
+        "//tensorstore:batch",
         "//tensorstore:context",
         "//tensorstore:index",
         "//tensorstore:json_serialization_options_base",
@@ -47,10 +48,12 @@ tensorstore_cc_library(
         "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/internal/json_binding:dimension_indexed",
         "//tensorstore/kvstore",
+        "//tensorstore/kvstore:batch_util",
         "//tensorstore/kvstore:byte_range",
         "//tensorstore/kvstore:generation",
         "//tensorstore/kvstore:key_range",
         "//tensorstore/serialization",
+        "//tensorstore/util:bit_vec",
         "//tensorstore/util:executor",
         "//tensorstore/util:future",
         "//tensorstore/util:result",
@@ -79,6 +82,7 @@ tensorstore_cc_test(
     deps = [
         ":key",
         ":zarr3_sharding_indexed",
+        "//tensorstore:batch",
         "//tensorstore:context",
         "//tensorstore:index",
         "//tensorstore:transaction",

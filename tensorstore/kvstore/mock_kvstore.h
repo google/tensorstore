@@ -21,6 +21,7 @@
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/queue_testutil.h"
+#include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
@@ -52,6 +53,15 @@ class MockKeyValueStore : public kvstore::Driver {
     void operator()(kvstore::DriverPtr target) const {
       LinkResult(promise, target->Read(key, options));
     }
+  };
+
+  struct BatchReadRequest {
+    Key key;
+    using Request =
+        internal_kvstore_batch::ReadRequest<kvstore::ReadGenerationConditions>;
+    using RequestBatch = internal_kvstore_batch::RequestBatch<Request>;
+    RequestBatch request_batch;
+    void operator()(kvstore::DriverPtr target) const;
   };
 
   struct WriteRequest {
@@ -98,6 +108,7 @@ class MockKeyValueStore : public kvstore::Driver {
       garbage_collection::GarbageCollectionVisitor& visitor) const final;
 
   ConcurrentQueue<ReadRequest> read_requests;
+  ConcurrentQueue<BatchReadRequest> batch_read_requests;
   ConcurrentQueue<WriteRequest> write_requests;
   ConcurrentQueue<ListRequest> list_requests;
   ConcurrentQueue<DeleteRangeRequest> delete_range_requests;
@@ -106,6 +117,11 @@ class MockKeyValueStore : public kvstore::Driver {
   // with `forward_to`, tests can set this option and then validate that
   // `request_log.pop_all()` contains the expected sequence of operations.
   bool log_requests = false;
+
+  // If set to `true`, read requests with a batch will be handled internally and
+  // converted to one `BatchReadRequest` per key once the batch is submitted.
+  bool handle_batch_requests = false;
+
   mutable ConcurrentQueue<::nlohmann::json> request_log;
 
   // If set, all requests are forwarded immediately rather than added to the

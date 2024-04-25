@@ -138,7 +138,6 @@ class ArrayElementMatcherImpl
  private:
   SharedOffsetArray<const ::testing::Matcher<Element>> element_matchers_;
 };
-
 }  // namespace internal_array
 
 using ArrayMatcher = ::testing::Matcher<OffsetArrayView<const void>>;
@@ -217,6 +216,80 @@ ArrayMatcher MatchesArray(
 // Defines MatchesArray overloads for multi-dimensional arrays of rank 2 to 6.
 #include "tensorstore/array_testutil_matches_array.inc"
 // [END GENERATED: generate_matches_array_overloads.py]
+
+namespace internal_array {
+inline StridedLayout<dynamic_rank, offset_origin>
+NormalizeStridedLayoutForComparison(
+    StridedLayoutView<dynamic_rank, offset_origin> layout) {
+  StridedLayout<dynamic_rank, offset_origin> normalized(layout);
+  for (DimensionIndex i = 0; i < normalized.rank(); ++i) {
+    if (normalized.shape()[i] <= 1 && normalized.origin()[i] == 0) {
+      normalized.byte_strides()[i] = 0;
+    }
+  }
+  return normalized;
+}
+template <typename ElementTag, DimensionIndex Rank, ArrayOriginKind OriginKind,
+          ContainerKind LayoutCKind>
+Array<ElementTag, Rank, OriginKind> NormalizeArrayForComparison(
+    const Array<ElementTag, Rank, OriginKind, LayoutCKind>& array) {
+  Array<ElementTag, Rank, OriginKind> normalized(array);
+  Index offset = 0;
+  for (DimensionIndex i = 0; i < normalized.rank(); ++i) {
+    if (normalized.shape()[i] <= 1) {
+      auto& byte_stride = normalized.layout().byte_strides()[i];
+      const Index origin_value = normalized.origin()[i];
+      if (origin_value != 0) {
+        normalized.element_pointer() = AddByteOffset(
+            std::move(normalized.element_pointer()),
+            internal::wrap_on_overflow::Multiply(byte_stride, origin_value));
+      }
+      byte_stride = 0;
+    }
+  }
+  return normalized;
+}
+}  // namespace internal_array
+
+/// Returns a GMock matcher that matches arrays with the same dtype and shape
+/// and where the address of every element is the same.
+///
+/// Note: The actual `Array::byte_strides()` and `Array::data()` values may
+///   differ, because for dimensions of size 1 the byte stride is arbitrary but
+///   affects the data pointer.
+template <typename ElementTag, DimensionIndex Rank, ArrayOriginKind OriginKind,
+          ContainerKind LayoutCKind>
+inline ArrayMatcher ReferencesSameDataAs(
+    const Array<ElementTag, Rank, OriginKind, LayoutCKind>& array) {
+  if (array.num_elements() == 0) {
+    // Array contains no elements. Element pointer and byte strides are
+    // irrelevant.
+    return ::testing::AllOf(
+        ::testing::ResultOf(
+            "dtype", [](const auto& a) { return a.dtype(); },
+            ::testing::Eq(array.dtype())),
+        ::testing::ResultOf(
+            "domain", [](const auto& a) { return a.domain(); },
+            ::testing::Eq(array.domain())));
+  }
+  // Compare the equivalent "normalized" arrays, where the byte stride is 0 for
+  // dimensions of size 1.
+  auto normalized_array = internal_array::NormalizeArrayForComparison(array);
+  return ::testing::ResultOf(
+      "normalized array",
+      [](const auto& a) {
+        return internal_array::NormalizeArrayForComparison(a);
+      },
+      ::testing::AllOf(::testing::ResultOf(
+                           "dtype", [](const auto& a) { return a.dtype(); },
+                           ::testing::Eq(normalized_array.dtype())),
+                       ::testing::ResultOf(
+                           "data", [](const auto& a) { return a.data(); },
+                           ::testing::Eq(normalized_array.data())),
+                       ::testing::ResultOf(
+                           "layout", [](const auto& a) { return a.layout(); },
+                           ::testing::Eq(normalized_array.layout()))));
+}
 
 }  // namespace tensorstore
 
