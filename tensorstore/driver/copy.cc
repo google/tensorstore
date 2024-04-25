@@ -19,6 +19,7 @@
 #include <utility>
 
 #include "absl/status/status.h"
+#include "tensorstore/batch.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/data_type_conversion.h"
 #include "tensorstore/driver/chunk.h"
@@ -131,6 +132,7 @@ struct CopyState : public internal::AtomicReferenceCount<CopyState> {
   Executor executor;
   DriverPtr source_driver;
   internal::OpenTransactionPtr source_transaction;
+  Batch source_batch{no_batch};
   DataTypeConversionLookupResult data_type_conversion;
   DriverPtr target_driver;
   internal::OpenTransactionPtr target_transaction;
@@ -328,6 +330,7 @@ struct DriverCopyInitiateOp {
     auto source_driver = std::move(state->source_driver);
     Driver::ReadRequest request;
     request.transaction = std::move(state->source_transaction);
+    request.batch = std::move(state->source_batch);
     request.transform = std::move(source_transform);
     source_driver->Read(std::move(request),
                         CopyReadChunkReceiver{std::move(state)});
@@ -353,6 +356,7 @@ WriteFutures DriverCopy(Executor executor, DriverHandle source,
   TENSORSTORE_ASSIGN_OR_RETURN(
       state->source_transaction,
       internal::AcquireOpenTransactionPtrOrError(source.transaction));
+  state->source_batch = std::move(options.batch);
   state->target_driver = std::move(target.driver);
   TENSORSTORE_ASSIGN_OR_RETURN(
       state->target_transaction,

@@ -56,6 +56,9 @@ struct DriverOpenRequest {
   /// specified, the same transaction should be returned in the `DriverHandle`.
   OpenTransactionPtr transaction;
 
+  /// Batch to use for reads performed as part of the open operation.
+  Batch batch{no_batch};
+
   /// Required mode, or `ReadWriteMode::dynamic` to determine the allowed modes.
   ReadWriteMode read_write_mode;
 };

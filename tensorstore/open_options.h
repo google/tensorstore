@@ -18,6 +18,7 @@
 #include <utility>
 
 #include "absl/status/status.h"
+#include "tensorstore/batch.h"
 #include "tensorstore/context.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/open_mode.h"
@@ -186,11 +187,12 @@ constexpr inline bool OpenOptions::IsOption<Context> = true;
 template <>
 constexpr inline bool OpenOptions::IsOption<kvstore::Spec> = true;
 
-/// Options for opening a `Spec` with optional transaction.
+/// Options for opening a `Spec` with optional transaction and optional batch.
 ///
 /// \relates Spec
 struct TransactionalOpenOptions : public OpenOptions {
   Transaction transaction{no_transaction};
+  Batch batch{no_batch};
 
   // Supports all options of `OpenOptions`.
   template <typename T>
@@ -202,10 +204,22 @@ struct TransactionalOpenOptions : public OpenOptions {
     transaction = std::move(value);
     return absl::OkStatus();
   }
+
+  // Additionally supports `Batch`.
+  absl::Status Set(Batch value) {
+    batch = std::move(value);
+    return absl::OkStatus();
+  }
 };
 
 template <>
 constexpr inline bool TransactionalOpenOptions::IsOption<Transaction> = true;
+
+template <>
+constexpr inline bool TransactionalOpenOptions::IsOption<Batch> = true;
+
+template <>
+constexpr inline bool TransactionalOpenOptions::IsOption<Batch::View> = true;
 
 }  // namespace tensorstore
 

@@ -393,6 +393,7 @@ void ChunkCache::Read(
         const auto get_cache_read_request = [&] {
           AsyncCache::AsyncCacheReadRequest cache_request;
           cache_request.staleness_bound = request.staleness_bound;
+          cache_request.batch = request.batch;
           return cache_request;
         };
         if (request.transaction) {

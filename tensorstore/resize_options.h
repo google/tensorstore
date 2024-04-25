@@ -19,6 +19,7 @@
 #include <type_traits>
 
 #include "absl/meta/type_traits.h"
+#include "tensorstore/batch.h"
 
 namespace tensorstore {
 
@@ -91,11 +92,22 @@ struct ResolveBoundsOptions {
 
   void Set(ResolveBoundsMode value) { this->mode = value; }
 
+  void Set(Batch value) { this->batch = std::move(value); }
+
   ResolveBoundsMode mode = ResolveBoundsMode{};
+
+  /// Optional batch.
+  Batch batch{no_batch};
 };
 
 template <>
 constexpr inline bool ResolveBoundsOptions::IsOption<ResolveBoundsMode> = true;
+
+template <>
+constexpr inline bool ResolveBoundsOptions::IsOption<Batch> = true;
+
+template <>
+constexpr inline bool ResolveBoundsOptions::IsOption<Batch::View> = true;
 
 /// Bitvector specifying resize options.
 ///

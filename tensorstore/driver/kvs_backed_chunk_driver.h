@@ -496,6 +496,7 @@ class DataCache : public internal::KvsBackedChunkCache,
 /// Private data members of `OpenState`.
 struct PrivateOpenState {
   internal::OpenTransactionPtr transaction_;
+  Batch batch_{no_batch};
   internal::DriverSpec::PtrT<const KvsDriverSpec> spec_;
   ReadWriteMode read_write_mode_;
   std::string metadata_cache_key_;

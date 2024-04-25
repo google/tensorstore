@@ -115,6 +115,7 @@ tensorstore_cc_library(
         ":write_request",
         "//tensorstore:array",
         "//tensorstore:array_storage_statistics",
+        "//tensorstore:batch",
         "//tensorstore:box",
         "//tensorstore:chunk_layout",
         "//tensorstore:codec_spec",
@@ -307,6 +308,7 @@ tensorstore_cc_library(
     deps = [
         ":chunk_cache_driver",
         ":driver",
+        "//tensorstore:batch",
         "//tensorstore:box",
         "//tensorstore:chunk_layout",
         "//tensorstore:index",
@@ -395,6 +397,7 @@ tensorstore_cc_library(
     name = "read_request",
     hdrs = ["read_request.h"],
     deps = [
+        "//tensorstore:batch",
         "//tensorstore:transaction",
         "//tensorstore/index_space:index_transform",
     ],

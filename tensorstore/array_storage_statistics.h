@@ -20,6 +20,7 @@
 #include <type_traits>
 
 #include "absl/time/time.h"
+#include "tensorstore/batch.h"
 
 namespace tensorstore {
 
@@ -97,7 +98,11 @@ struct ArrayStorageStatistics {
 struct GetArrayStorageStatisticsOptions {
   ArrayStorageStatistics::Mask mask = {};
 
+  Batch batch{no_batch};
+
   void Set(ArrayStorageStatistics::Mask value) { mask |= value; }
+
+  void Set(Batch value) { this->batch = std::move(value); }
 
   template <typename T>
   constexpr static inline bool IsOption = false;
@@ -107,6 +112,13 @@ template <>
 constexpr inline bool
     GetArrayStorageStatisticsOptions::IsOption<ArrayStorageStatistics::Mask> =
         true;
+
+template <>
+constexpr inline bool GetArrayStorageStatisticsOptions::IsOption<Batch> = true;
+
+template <>
+constexpr inline bool GetArrayStorageStatisticsOptions::IsOption<Batch::View> =
+    true;
 
 }  // namespace tensorstore
 

@@ -473,6 +473,8 @@ using TensorWriter = TensorStore<Element, Rank, ReadWriteMode::write>;
 ///
 /// - `ResolveBoundsMode`
 ///
+/// - `Batch`
+///
 /// Example::
 ///
 ///     TensorStore<std::int32_t, 3> store = ...;
@@ -621,6 +623,8 @@ Resize(
 ///
 /// - `ReadProgressFunction`
 ///
+/// - `Batch`
+///
 /// Example::
 ///
 ///     TensorReader<std::int32_t, 3> store = ...;
@@ -741,6 +745,8 @@ Read(Source&& source, Option&&... options) {
 ///
 /// - `WriteProgressFunction`
 ///
+/// - `Batch`
+///
 /// Example::
 ///
 ///     TensorWriter<std::int32_t, 3> store = ...;
@@ -802,6 +808,8 @@ Write(SourceArray&& source, Target&& target, Option&&... options) {
 /// - `DomainAlignmentOptions`
 ///
 /// - `CopyProgressFunction`
+///
+/// - `Batch`
 ///
 /// Example::
 ///

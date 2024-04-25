@@ -29,6 +29,7 @@
 #include "absl/strings/cord.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "tensorstore/batch.h"
 #include "tensorstore/box.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/driver/driver.h"
@@ -95,6 +96,7 @@ Result<IndexTransform<>> DataCacheBase::GetExternalToInternalTransform(
 
 MetadataOpenState::MetadataOpenState(Initializer initializer)
     : PrivateOpenState{std::move(initializer.request.transaction),
+                       std::move(initializer.request.batch),
                        std::move(initializer.spec),
                        initializer.request.read_write_mode} {
   request_time_ = absl::Now();
@@ -979,6 +981,7 @@ struct GetMetadataForOpen {
         << "GetMetadataForOpen: state=" << state.get();
     auto& base = *(PrivateOpenState*)state.get();  // Cast to private base
     auto state_ptr = state.get();
+    auto batch = std::move(base.batch_);
     if (base.spec_->open) {
       if (base.spec_->assume_metadata || base.spec_->assume_cached_metadata) {
         TENSORSTORE_ASSIGN_OR_RETURN(auto metadata, state->Create(nullptr),
@@ -993,7 +996,8 @@ struct GetMetadataForOpen {
           std::move(promise),
           base.metadata_cache_entry_->Read(
               {base.spec_->staleness.metadata.BoundAtOpen(base.request_time_)
-                   .time}));
+                   .time,
+               batch}));
       return;
     }
     // `tensorstore::Open` ensures that at least one of `OpenMode::create` and
