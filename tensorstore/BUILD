@@ -128,6 +128,33 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
+    name = "batch",
+    srcs = ["batch.cc"],
+    hdrs = [
+        "batch.h",
+        "batch_impl.h",
+    ],
+    deps = [
+        "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/internal/container:hash_set_of_any",
+        "//tensorstore/internal/container:intrusive_red_black_tree",
+        "@com_google_absl//absl/synchronization",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "batch_test",
+    size = "small",
+    srcs = ["batch_test.cc"],
+    deps = [
+        ":batch",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
     name = "box",
     srcs = ["box.cc"],
     hdrs = ["box.h"],
