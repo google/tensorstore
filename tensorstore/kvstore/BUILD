@@ -251,6 +251,7 @@ tensorstore_cc_library(
     srcs = ["test_util.cc"],
     hdrs = ["test_util.h"],
     deps = [
+        ":batch_util",
         ":byte_range",
         ":generation",
         ":key_range",
@@ -262,6 +263,8 @@ tensorstore_cc_library(
         "//tensorstore:open_mode",
         "//tensorstore/internal:json_fwd",
         "//tensorstore/internal:json_gtest",
+        "//tensorstore/internal/metrics:collect",
+        "//tensorstore/internal/metrics:registry",
         "//tensorstore/internal/testing:random_seed",
         "//tensorstore/serialization:test_util",
         "//tensorstore/util:future",
@@ -375,5 +378,23 @@ tensorstore_cc_binary(
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "batch_util",
+    hdrs = ["batch_util.h"],
+    deps = [
+        ":byte_range",
+        ":generation",
+        ":kvstore",
+        "//tensorstore:batch",
+        "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/util:future",
+        "//tensorstore/util:result",
+        "//tensorstore/util:span",
+        "@com_google_absl//absl/container:inlined_vector",
+        "@com_google_absl//absl/synchronization",
+        "@com_google_absl//absl/time",
     ],
 )

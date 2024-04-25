@@ -20,6 +20,7 @@ tensorstore_cc_library(
     deps = [
         ":file_util",
         ":util",
+        "//tensorstore:batch",
         "//tensorstore:context",
         "//tensorstore/internal:context_binding",
         "//tensorstore/internal:file_io_concurrency_resource",
@@ -32,6 +33,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/metrics",
         "//tensorstore/internal/os:error_code",
         "//tensorstore/kvstore",
+        "//tensorstore/kvstore:batch_util",
         "//tensorstore/kvstore:byte_range",
         "//tensorstore/kvstore:generation",
         "//tensorstore/kvstore:key_range",
@@ -39,6 +41,7 @@ tensorstore_cc_library(
         "//tensorstore/util:future",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
+        "//tensorstore/util:span",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "//tensorstore/util/execution",

@@ -17,8 +17,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <algorithm>
 #include <array>
 #include <cassert>
+#include <limits>
 #include <map>
 #include <optional>
 #include <random>
@@ -45,9 +47,10 @@
 #include "tensorstore/context.h"
 #include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/internal/json_gtest.h"
+#include "tensorstore/internal/metrics/collect.h"
+#include "tensorstore/internal/metrics/registry.h"
 #include "tensorstore/internal/testing/random_seed.h"
 #include "tensorstore/kvstore/byte_range.h"
-#include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -1083,6 +1086,319 @@ Result<std::map<kvstore::Key, kvstore::Value>> GetMap(const KvStore& store) {
     result.emplace(entry.key, std::move(read_result.value));
   }
   return result;
+}
+
+namespace {
+std::vector<::nlohmann::json> CollectMatchingMetricsAsJson(
+    std::string_view metric_prefix, bool include_zero_metrics = true) {
+  std::vector<::nlohmann::json> lines;
+
+  auto collected_metrics =
+      internal_metrics::GetMetricRegistry().CollectWithPrefix(metric_prefix);
+  std::sort(collected_metrics.begin(), collected_metrics.end(),
+            [](const auto& a, const auto& b) {
+              return a.metric_name < b.metric_name;
+            });
+
+  for (const auto& collected_metric : collected_metrics) {
+    if (include_zero_metrics ||
+        internal_metrics::IsCollectedMetricNonZero(collected_metric)) {
+      lines.push_back(
+          internal_metrics::CollectedMetricToJson(collected_metric));
+    }
+  }
+
+  return lines;
+}
+
+struct BatchReadExample {
+  std::string key;
+  OptionalByteRangeRequest byte_range;
+  StorageGeneration if_equal;
+  StorageGeneration if_not_equal;
+};
+
+absl::Status ExecuteReadBatch(const KvStore& kvs,
+                              span<const BatchReadExample> requests,
+                              bool use_batch) {
+  Batch batch{no_batch};
+  if (use_batch) {
+    batch = Batch::New();
+  }
+
+  std::vector<Future<kvstore::ReadResult>> futures;
+  for (const auto& request : requests) {
+    kvstore::ReadOptions options;
+    options.batch = batch;
+    options.byte_range = request.byte_range;
+    options.generation_conditions.if_equal = request.if_equal;
+    options.generation_conditions.if_not_equal = request.if_not_equal;
+    futures.push_back(kvstore::Read(kvs, request.key, std::move(options)));
+  }
+
+  batch.Release();
+
+  for (const auto& future : futures) {
+    TENSORSTORE_RETURN_IF_ERROR(future.status());
+  }
+
+  return absl::OkStatus();
+}
+
+::nlohmann::json ExpectedCounterMetric(std::string name, int64_t value) {
+  return {{"name", name}, {"values", {{{"value", value}}}}};
+}
+
+std::vector<::nlohmann::json> ExpectedCounterMetrics(
+    std::string_view metric_prefix,
+    std::vector<std::pair<std::string, int64_t>> counters) {
+  std::vector<::nlohmann::json> metrics;
+  metrics.reserve(counters.size());
+  for (const auto& [name, value] : counters) {
+    metrics.push_back(
+        ExpectedCounterMetric(absl::StrCat(metric_prefix, name), value));
+  }
+  return metrics;
+}
+
+void TestBatchRead(const KvStore& kvs,
+                   const std::vector<BatchReadExample>& requests,
+                   std::string_view metric_prefix,
+                   const std::vector<std::pair<std::string, int64_t>>&
+                       expected_counters_for_non_batch_read,
+                   const std::vector<std::pair<std::string, int64_t>>&
+                       expected_counters_for_batch_read) {
+  internal_metrics::GetMetricRegistry().Reset();
+  TENSORSTORE_ASSERT_OK(ExecuteReadBatch(kvs, requests, /*use_batch=*/false));
+  EXPECT_THAT(CollectMatchingMetricsAsJson(metric_prefix),
+              ::testing::IsSupersetOf(ExpectedCounterMetrics(
+                  metric_prefix, expected_counters_for_non_batch_read)));
+
+  internal_metrics::GetMetricRegistry().Reset();
+  TENSORSTORE_ASSERT_OK(ExecuteReadBatch(kvs, requests, /*use_batch=*/true));
+  EXPECT_THAT(CollectMatchingMetricsAsJson(metric_prefix),
+              ::testing::IsSupersetOf(ExpectedCounterMetrics(
+                  metric_prefix, expected_counters_for_batch_read)));
+}
+
+void TestBatchRead(
+    const KvStore& kvs, const std::vector<BatchReadExample>& requests,
+    std::string_view metric_prefix,
+    const std::vector<std::pair<std::string, int64_t>>& expected_counters) {
+  return TestBatchRead(kvs, requests, metric_prefix, expected_counters,
+                       expected_counters);
+}
+
+}  // namespace
+
+void TestBatchReadGenericCoalescing(
+    const KvStore& store,
+    const BatchReadGenericCoalescingTestOptions& options) {
+  const auto& coalescing_options = options.coalescing_options;
+
+  const bool has_target_coalesced_size =
+      coalescing_options.target_coalesced_size !=
+      std::numeric_limits<int64_t>::max();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto x_stamp,
+      kvstore::Write(
+          store, "x",
+          absl::Cord(std::string(
+              std::max(static_cast<int64_t>(8192),
+                       (has_target_coalesced_size
+                            ? coalescing_options.target_coalesced_size
+                            : coalescing_options.max_extra_read_bytes) +
+                           1),
+              '\0')))
+          .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto y_stamp,
+      kvstore::Write(
+          store, "y",
+          absl::Cord(std::string(
+              2 * (1 + coalescing_options.max_extra_read_bytes), '\0')))
+          .result());
+
+  const auto get_metrics =
+      [&](std::vector<std::pair<std::string, int64_t>> common_metrics,
+          std::vector<std::pair<std::string, int64_t>> open_file_metrics) {
+        if (options.has_file_open_metric) {
+          common_metrics.insert(common_metrics.end(), open_file_metrics.begin(),
+                                open_file_metrics.end());
+        }
+        return common_metrics;
+      };
+
+  {
+    SCOPED_TRACE("Single key, single read");
+    TestBatchRead(store,
+                  {
+                      {"x", OptionalByteRangeRequest::Range(1, 100)},
+                  },
+                  options.metric_prefix,
+                  get_metrics(
+                      {
+                          {"batch_read", 1},
+                          {"read", 1},
+                          {"bytes_read", 99},
+                      },
+                      {
+                          {"open_read", 1},
+                      }));
+  }
+
+  {
+    SCOPED_TRACE("Two keys, single read each");
+    TestBatchRead(store,
+                  {
+                      {"x", OptionalByteRangeRequest::Range(1, 100)},
+                      {"y", OptionalByteRangeRequest::Range(100, 200)},
+                  },
+                  options.metric_prefix,
+                  get_metrics(
+                      {
+                          {"batch_read", 2},
+                          {"read", 2},
+                          {"bytes_read", 199},
+                      },
+                      {
+                          {"open_read", 2},
+                      }));
+  }
+
+  {
+    SCOPED_TRACE("Single key, two reads that are coalesced with no gap");
+    TestBatchRead(store,
+                  {
+                      {"x", OptionalByteRangeRequest::Range(1, 100)},
+                      {"x", OptionalByteRangeRequest::Range(100, 200)},
+                  },
+                  options.metric_prefix,
+                  get_metrics(
+                      {
+                          {"batch_read", 2},
+
+                          {"read", 2},
+                          {"bytes_read", 199},
+                      },
+                      {
+                          {"open_read", 2},
+                      }),
+                  get_metrics(
+                      {
+                          {"batch_read", 1},
+
+                          {"read", 2},
+                          {"bytes_read", 199},
+                      },
+                      {
+                          {"open_read", 1},
+                      }));
+  }
+
+  {
+    SCOPED_TRACE(absl::StrFormat(
+        "Single key, two reads that are coalesced with gap of %d bytes",
+        coalescing_options.max_extra_read_bytes));
+    TestBatchRead(
+        store,
+        {
+            {"x", OptionalByteRangeRequest::Range(1, 100)},
+            {"x", OptionalByteRangeRequest::Range(
+                      100 + coalescing_options.max_extra_read_bytes,
+                      100 + coalescing_options.max_extra_read_bytes + 100)},
+        },
+        options.metric_prefix,
+        get_metrics(
+            {
+                {"batch_read", 2},
+
+                {"read", 2},
+                {"bytes_read", 99 + 100},
+            },
+            {
+                {"open_read", 2},
+            }),
+        get_metrics(
+            {
+                {"batch_read", 1},
+
+                {"read", 2},
+                {"bytes_read",
+                 100 + coalescing_options.max_extra_read_bytes + 100 - 1},
+            },
+            {
+                {"open_read", 1},
+            }));
+  }
+
+  {
+    SCOPED_TRACE(absl::StrFormat(
+        "Single key, two reads that are not coalesced with gap of %d "
+        "bytes",
+        coalescing_options.max_extra_read_bytes + 1));
+    TestBatchRead(
+        store,
+        {
+            {"x", OptionalByteRangeRequest::Range(1, 100)},
+            {"x", OptionalByteRangeRequest::Range(
+                      100 + coalescing_options.max_extra_read_bytes + 1,
+                      100 + coalescing_options.max_extra_read_bytes + 1 + 100)},
+        },
+        options.metric_prefix,
+        get_metrics(
+            {
+                {"batch_read", 2},
+                {"read", 2},
+                {"bytes_read", 99 + 100},
+            },
+            {
+                {"open_read", 2},
+            }),
+        get_metrics(
+            {
+                {"batch_read", 2},
+                {"read", 2},
+                {"bytes_read", 99 + 100},
+            },
+            {
+                {"open_read", 1},
+            }));
+  }
+
+  if (coalescing_options.target_coalesced_size !=
+      std::numeric_limits<int64_t>::max()) {
+    SCOPED_TRACE(
+        "Single key, two reads that are not coalesced due to size limit");
+    TestBatchRead(
+        store,
+        {
+            {"x", OptionalByteRangeRequest::Range(
+                      0, coalescing_options.target_coalesced_size)},
+            {"x", OptionalByteRangeRequest::Range(
+                      coalescing_options.target_coalesced_size,
+                      coalescing_options.target_coalesced_size + 1)},
+        },
+        options.metric_prefix,
+        get_metrics(
+            {
+                {"batch_read", 2},
+                {"read", 2},
+                {"bytes_read", coalescing_options.target_coalesced_size + 1},
+            },
+            {
+                {"open_read", 2},
+            }),
+        get_metrics(
+            {
+                {"batch_read", 2},
+                {"read", 2},
+                {"bytes_read", coalescing_options.target_coalesced_size + 1},
+            },
+            {
+                {"open_read", 1},
+            }));
+  }
 }
 
 }  // namespace internal

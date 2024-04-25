@@ -465,4 +465,15 @@ TEST(FileKeyValueStoreTest, RelativePath) {
   TENSORSTORE_EXPECT_OK(kvstore::Write(store, "abc", {}).result());
 }
 
+TEST(FileKeyValueStoreTest, BatchRead) {
+  ScopedTemporaryDirectory tempdir;
+  auto store = GetStore(tempdir.path());
+
+  tensorstore::internal::BatchReadGenericCoalescingTestOptions options;
+  options.coalescing_options.max_extra_read_bytes = 255;
+  options.metric_prefix = "/tensorstore/kvstore/file/";
+  options.has_file_open_metric = true;
+  tensorstore::internal::TestBatchReadGenericCoalescing(store, options);
+}
+
 }  // namespace

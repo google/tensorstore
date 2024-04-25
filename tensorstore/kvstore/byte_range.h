@@ -159,6 +159,14 @@ struct OptionalByteRangeRequest {
     return !(a == b);
   }
 
+  /// Converts to a `ByteRange`.
+  ///
+  /// \pre `IsRange()`
+  ByteRange AsByteRange() const {
+    assert(IsRange());
+    return {inclusive_min, exclusive_max};
+  }
+
   /// Prints a debugging string representation to an `std::ostream`.
   friend std::ostream& operator<<(std::ostream& os,
                                   const OptionalByteRangeRequest& r);

@@ -100,6 +100,7 @@
 #include "absl/strings/match.h"
 #include "absl/time/clock.h"
 #include <nlohmann/json.hpp>
+#include "tensorstore/batch.h"
 #include "tensorstore/context.h"
 #include "tensorstore/context_resource_provider.h"
 #include "tensorstore/internal/cache_key/cache_key.h"
@@ -112,6 +113,7 @@
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/os/error_code.h"
 #include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/file/unique_handle.h"
 #include "tensorstore/kvstore/file/util.h"
@@ -129,6 +131,7 @@
 #include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -187,6 +190,13 @@ auto& file_bytes_written = internal_metrics::Counter<int64_t>::New(
 
 auto& file_read = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/file/read", "file driver kvstore::Read calls");
+
+auto& file_open_read = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/file/open_read",
+    "Number of times a file is opened for reading");
+
+auto& file_batch_read = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/file/batch_read", "file driver reads after batching");
 
 auto& file_write = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/file/write", "file driver kvstore::Write calls");
@@ -613,55 +623,133 @@ struct PathRangeVisitor {
   }
 };
 
-/// Implements `FileKeyValueStore::Read`.
-struct ReadTask {
-  std::string full_path;
-  kvstore::ReadOptions options;
+Result<absl::Cord> ReadFromFileDescriptor(FileDescriptor fd,
+                                          ByteRange byte_range) {
+  file_batch_read.Increment();
+  internal::FlatCordBuilder buffer(byte_range.size(), false);
+  size_t offset = 0;
+  while (offset < buffer.size()) {
+    ptrdiff_t n = internal_file_util::ReadFromFile(
+        fd, buffer.data() + offset, buffer.size() - offset,
+        byte_range.inclusive_min + offset);
+    if (n > 0) {
+      file_bytes_read.IncrementBy(n);
+      offset += n;
+      buffer.set_inuse(offset);
+      continue;
+    }
+    if (n == 0) {
+      return absl::UnavailableError(
+          tensorstore::StrCat("Length changed while reading"));
+    }
+    return StatusFromErrno("Error reading file");
+  }
+  return std::move(buffer).Build();
+}
 
-  Result<ReadResult> operator()() const {
-    TimestampedStorageGeneration stamp;
-    stamp.time = absl::Now();
-    int64_t size;
+class BatchReadTask;
+using BatchReadTaskBase = internal_kvstore_batch::BatchReadEntry<
+    FileKeyValueStore,
+    internal_kvstore_batch::ReadRequest<kvstore::ReadGenerationConditions>,
+    // BatchEntryKey members:
+    std::string /* file_path*/>;
+
+class BatchReadTask final
+    : public BatchReadTaskBase,
+      public internal::AtomicReferenceCount<BatchReadTask> {
+ private:
+  // Working state.
+  TimestampedStorageGeneration stamp_;
+  UniqueFileDescriptor fd_;
+  int64_t size_;
+
+ public:
+  BatchReadTask(BatchEntryKey&& batch_entry_key_)
+      : BatchReadTaskBase(std::move(batch_entry_key_)),
+        // Create initial reference count that will be transferred to `Submit`.
+        internal::AtomicReferenceCount<BatchReadTask>(/*initial_ref_count=*/1) {
+  }
+
+  void Submit(Batch::View batch) final {
+    if (request_batch.requests.empty()) return;
+    driver().executor()(
+        [self = internal::IntrusivePtr<BatchReadTask>(
+             // Acquire initial reference count.
+             this, internal::adopt_object_ref)] { self->ProcessBatch(); });
+  }
+
+  Result<kvstore::ReadResult> DoByteRangeRead(ByteRange byte_range) {
+    absl::Cord value;
     TENSORSTORE_ASSIGN_OR_RETURN(
-        auto fd, OpenValueFile(full_path.c_str(), &stamp.generation, &size));
-    if (!fd.valid()) {
-      return kvstore::ReadResult::Missing(stamp.time);
+        value, ReadFromFileDescriptor(fd_.get(), byte_range),
+        tensorstore::MaybeAnnotateStatus(_, "Error reading from open file"));
+    return kvstore::ReadResult::Value(std::move(value), stamp_);
+  }
+
+  void ProcessBatch() {
+    stamp_.time = absl::Now();
+    file_open_read.Increment();
+    auto& requests = request_batch.requests;
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        fd_,
+        OpenValueFile(std::get<std::string>(batch_entry_key).c_str(),
+                      &stamp_.generation, &size_),
+        internal_kvstore_batch::SetCommonResult(requests, std::move(_)));
+    if (!fd_.valid()) {
+      internal_kvstore_batch::SetCommonResult(
+          requests, kvstore::ReadResult::Missing(stamp_.time));
+      return;
     }
-    if (stamp.generation == options.generation_conditions.if_not_equal ||
-        (!StorageGeneration::IsUnknown(
-             options.generation_conditions.if_equal) &&
-         stamp.generation != options.generation_conditions.if_equal)) {
-      return kvstore::ReadResult::Unspecified(std::move(stamp));
+
+    internal_kvstore_batch::ValidateGenerationsAndByteRanges(requests, stamp_,
+                                                             size_);
+
+    if (requests.empty()) return;
+    if (requests.size() == 1) {
+      auto& byte_range_request =
+          std::get<internal_kvstore_batch::ByteRangeReadRequest>(requests[0]);
+      // Perform single read immediately.
+      byte_range_request.promise.SetResult(
+          DoByteRangeRead(byte_range_request.byte_range.AsByteRange()));
+      return;
     }
-    TENSORSTORE_ASSIGN_OR_RETURN(auto byte_range,
-                                 options.byte_range.Validate(size));
-    internal::FlatCordBuilder buffer(byte_range.size(), false);
-    size_t offset = 0;
-    while (offset < buffer.size()) {
-      ptrdiff_t n = internal_file_util::ReadFromFile(
-          fd.get(), buffer.data() + offset, buffer.size() - offset,
-          byte_range.inclusive_min + offset);
-      if (n > 0) {
-        file_bytes_read.IncrementBy(n);
-        offset += n;
-        buffer.set_inuse(offset);
-        continue;
-      }
-      if (n == 0) {
-        return absl::UnavailableError(
-            tensorstore::StrCat("Length changed while reading: ", full_path));
-      }
-      return StatusFromErrno("Error reading file: ", full_path);
-    }
-    return kvstore::ReadResult::Value(std::move(buffer).Build(),
-                                      std::move(stamp));
+
+    const auto& executor = driver().executor();
+
+    internal_kvstore_batch::CoalescingOptions coalescing_options;
+    coalescing_options.max_extra_read_bytes = 255;
+    internal_kvstore_batch::ForEachCoalescedRequest<Request>(
+        requests, coalescing_options,
+        [&](ByteRange coalesced_byte_range, span<Request> coalesced_requests) {
+          auto self = internal::IntrusivePtr<BatchReadTask>(this);
+          executor([self = std::move(self), coalesced_byte_range,
+                    coalesced_requests] {
+            self->ProcessCoalescedRead(coalesced_byte_range,
+                                       coalesced_requests);
+          });
+        });
+  }
+
+  void ProcessCoalescedRead(ByteRange coalesced_byte_range,
+                            span<Request> coalesced_requests) {
+    TENSORSTORE_ASSIGN_OR_RETURN(auto read_result,
+                                 DoByteRangeRead(coalesced_byte_range),
+                                 internal_kvstore_batch::SetCommonResult(
+                                     coalesced_requests, std::move(_)));
+    internal_kvstore_batch::ResolveCoalescedRequests(
+        coalesced_byte_range, coalesced_requests, std::move(read_result));
   }
 };
 
 Future<ReadResult> FileKeyValueStore::Read(Key key, ReadOptions options) {
   file_read.Increment();
   TENSORSTORE_RETURN_IF_ERROR(ValidateKey(key));
-  return MapFuture(executor(), ReadTask{std::move(key), std::move(options)});
+  auto [promise, future] = PromiseFuturePair<kvstore::ReadResult>::Make();
+  BatchReadTask::MakeRequest<BatchReadTask>(
+      *this, {std::move(key)}, options.batch, options.staleness_bound,
+      BatchReadTask::Request{{std::move(promise), options.byte_range},
+                             std::move(options.generation_conditions)});
+  return std::move(future);
 }
 
 /// Implements `FileKeyValueStore::Write`.
