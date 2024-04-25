@@ -14,14 +14,40 @@
 
 #include "tensorstore/index_space/transformed_array.h"
 
+#include <stddef.h>
+
+#include <algorithm>
+#include <array>
+#include <cassert>
+#include <string>
+#include <utility>
+
 #include "absl/status/status.h"
+#include "tensorstore/box.h"
+#include "tensorstore/data_type.h"
 #include "tensorstore/data_type_conversion.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
+#include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/internal/identity_transform.h"
 #include "tensorstore/index_space/internal/iterate_impl.h"
+#include "tensorstore/index_space/internal/propagate_bounds.h"
+#include "tensorstore/index_space/internal/transform_rep.h"
 #include "tensorstore/index_space/internal/transform_rep_impl.h"
+#include "tensorstore/index_space/output_index_method.h"
 #include "tensorstore/internal/element_copy_function.h"
 #include "tensorstore/internal/elementwise_function.h"
+#include "tensorstore/internal/integer_overflow.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/strided_layout.h"
+#include "tensorstore/util/byte_strided_pointer.h"
+#include "tensorstore/util/constant_vector.h"
+#include "tensorstore/util/element_pointer.h"
 #include "tensorstore/util/internal/iterate_impl.h"
 #include "tensorstore/util/iterate.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -219,6 +245,49 @@ Result<bool> IterateOverTransformedArrays(
 TENSORSTORE_INTERNAL_FOR_EACH_ARITY(
     TENSORSTORE_DO_INSTANTIATE_ITERATE_OVER_TRANSFORMED_ARRAYS)
 #undef TENSORSTORE_DO_INSTANTIATE_ITERATE_OVER_TRANSFORMED_ARRAYS
+
+Result<ElementPointer<Shared<const void>>> TryConvertToArrayImpl(
+    ElementPointer<Shared<const void>> element_pointer,
+    IndexTransformView<> transform, Index* output_origin, Index* output_shape,
+    Index* output_byte_strides) {
+  const DimensionIndex input_rank = transform.input_rank();
+  const DimensionIndex output_rank = transform.output_rank();
+  if (output_origin) {
+    std::copy_n(transform.input_origin().begin(), input_rank, output_origin);
+  }
+  std::copy_n(transform.input_shape().begin(), input_rank, output_shape);
+  Index offset = 0;
+  std::fill_n(output_byte_strides, input_rank, Index(0));
+
+  for (DimensionIndex output_dim = 0; output_dim < output_rank; ++output_dim) {
+    auto map = transform.output_index_map(output_dim);
+    offset = internal::wrap_on_overflow::Add(offset, map.offset());
+    switch (map.method()) {
+      case OutputIndexMethod::constant:
+        break;
+      case OutputIndexMethod::single_input_dimension: {
+        const DimensionIndex input_dim = map.input_dimension();
+
+        output_byte_strides[input_dim] = internal::wrap_on_overflow::Add(
+            output_byte_strides[input_dim], map.stride());
+        break;
+      }
+      case OutputIndexMethod::array:
+        return absl::InvalidArgumentError(
+            "Cannot view transformed array with index arrays as a strided "
+            "array");
+    }
+  }
+
+  if (!output_origin) {
+    // Transform back to zero origin.
+    offset = internal::wrap_on_overflow::Add(
+        offset, IndexInnerProduct(input_rank, transform.input_origin().data(),
+                                  output_byte_strides));
+  }
+
+  return AddByteOffset(std::move(element_pointer), offset);
+}
 
 }  // namespace internal
 }  // namespace tensorstore

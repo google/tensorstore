@@ -14,19 +14,37 @@
 
 #include "tensorstore/index_space/transformed_array.h"
 
+#include <stddef.h>
 #include <stdint.h>
 
+#include <random>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
+#include "tensorstore/array_testutil.h"
+#include "tensorstore/box.h"
+#include "tensorstore/container_kind.h"
+#include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dim_expression.h"
+#include "tensorstore/index_space/index_domain.h"
+#include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/index_space/index_transform_testutil.h"
+#include "tensorstore/index_space/transform_array_constraints.h"
+#include "tensorstore/internal/testing/random_seed.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/static_cast.h"
+#include "tensorstore/strided_layout.h"
+#include "tensorstore/util/iterate.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -497,9 +515,9 @@ TEST(GetUnboundedLayoutTest, Basic) {
 }
 
 TEST(TransformedArrayTest, StaticDataTypeCast) {
-  TransformedArray<std::int32_t, 1> ta_orig = MakeArray<std::int32_t>({3, 4});
+  TransformedArray<int32_t, 1> ta_orig = MakeArray<int32_t>({3, 4});
   TransformedArray<void, 1> ta = ta_orig;
-  auto ta_int = StaticDataTypeCast<std::int32_t>(ta);
+  auto ta_int = StaticDataTypeCast<int32_t>(ta);
   static_assert(
       std::is_same_v<decltype(ta_int), Result<TransformedArray<int, 1>>>);
   ASSERT_TRUE(ta_int);
@@ -509,32 +527,30 @@ TEST(TransformedArrayTest, StaticDataTypeCast) {
 
 // Tests cast from Array of dynamic rank to TransformedArray of static rank.
 TEST(TransformedArrayTest, CastArrayToTransformedArray) {
-  tensorstore::SharedArray<std::int32_t> a = MakeArray<std::int32_t>({1, 2});
-  auto ta_result = tensorstore::StaticCast<
-      tensorstore::TransformedArrayView<std::int32_t, 1>>(a);
+  tensorstore::SharedArray<int32_t> a = MakeArray<int32_t>({1, 2});
+  auto ta_result =
+      tensorstore::StaticCast<tensorstore::TransformedArrayView<int32_t, 1>>(a);
   TENSORSTORE_ASSERT_OK(ta_result);
   EXPECT_THAT(GetPointers(*ta_result), ::testing::ElementsAre(&a(0), &a(1)));
 }
 
 TEST(TransformedArrayTest, StaticDataTypeCastShared) {
-  auto ta_orig = tensorstore::TransformedArray(MakeArray<std::int32_t>({3, 4}));
+  auto ta_orig = tensorstore::TransformedArray(MakeArray<int32_t>({3, 4}));
   TransformedArray<Shared<void>, 1> ta = ta_orig;
-  auto ta_int = StaticDataTypeCast<std::int32_t>(ta);
-  static_assert(
-      std::is_same_v<decltype(ta_int),
-                     Result<TransformedArray<Shared<std::int32_t>, 1>>>);
+  auto ta_int = StaticDataTypeCast<int32_t>(ta);
+  static_assert(std::is_same_v<decltype(ta_int),
+                               Result<TransformedArray<Shared<int32_t>, 1>>>);
   ASSERT_TRUE(ta_int);
   EXPECT_THAT(GetPointers(*ta_int),
               ::testing::ElementsAreArray(GetPointers(ta_orig)));
 }
 
 TEST(TransformedArrayTest, StaticRankCast) {
-  TransformedArray<Shared<std::int32_t>, dynamic_rank> ta =
-      MakeArray<std::int32_t>({3, 4});
+  TransformedArray<Shared<int32_t>, dynamic_rank> ta =
+      MakeArray<int32_t>({3, 4});
   auto ta1 = StaticRankCast<1>(ta);
-  static_assert(
-      std::is_same_v<decltype(ta1),
-                     Result<TransformedArray<Shared<std::int32_t>, 1>>>);
+  static_assert(std::is_same_v<decltype(ta1),
+                               Result<TransformedArray<Shared<int32_t>, 1>>>);
   ASSERT_TRUE(ta1);
   EXPECT_THAT(GetPointers(*ta1), ::testing::ElementsAreArray(GetPointers(ta)));
   EXPECT_THAT(
@@ -610,6 +626,51 @@ TEST(TransformedArrayTest, UnownedToSharedAliasing) {
     EXPECT_EQ(3, a.pointer().use_count());
   }
   EXPECT_EQ(1, a.pointer().use_count());
+}
+
+TEST(TryConvertToArrayTest, Basic) {
+  auto array = tensorstore::AllocateArray<int32_t>({2, 3});
+  EXPECT_THAT(array | tensorstore::IdentityTransform<2>() |
+                  tensorstore::TryConvertToArray(),
+              ::testing::Optional(tensorstore::ReferencesSameDataAs(array)));
+  EXPECT_THAT(array | tensorstore::Dims(0).IndexSlice(1) |
+                  tensorstore::TryConvertToArray(),
+              ::testing::Optional(tensorstore::ReferencesSameDataAs(array[1])));
+  EXPECT_THAT(array | tensorstore::Dims(0).TranslateTo(1) |
+                  tensorstore::TryConvertToArray<tensorstore::zero_origin>(),
+              ::testing::Optional(tensorstore::ReferencesSameDataAs(array)));
+  EXPECT_THAT(array |
+                  tensorstore::Dims(0).OuterIndexArraySlice(
+                      tensorstore::MakeArray<Index>({0, 1, 1})) |
+                  tensorstore::TryConvertToArray(),
+              MatchesStatus(absl::StatusCode::kInvalidArgument));
+}
+
+TEST(TryConvertToArrayTest, Random) {
+  tensorstore::SharedArray<const void> array =
+      tensorstore::AllocateArray<int32_t>({2, 3});
+  std::minstd_rand gen{tensorstore::internal_testing::GetRandomSeedForTest(
+      "TENSORSTORE_INTERNAL_VIEW_AS_ARRAY")};
+  constexpr size_t kNumIterations = 10;
+  for (size_t iter_i = 0; iter_i < kNumIterations; ++iter_i) {
+    tensorstore::internal::MakeStridedIndexTransformForOutputSpaceParameters p;
+    p.max_stride = 2;
+    auto transform =
+        tensorstore::internal::MakeRandomStridedIndexTransformForOutputSpace(
+            gen, tensorstore::IndexDomain<>(array.domain()), p);
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto materialized_zero_origin,
+        array | transform |
+            tensorstore::Materialize<tensorstore::zero_origin>());
+    EXPECT_THAT(array | transform |
+                    tensorstore::TryConvertToArray<tensorstore::zero_origin>(),
+                ::testing::Optional(materialized_zero_origin));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto materialized_offset_origin,
+        array | transform | tensorstore::Materialize());
+    EXPECT_THAT(array | transform | tensorstore::TryConvertToArray(),
+                ::testing::Optional(materialized_offset_origin));
+  }
 }
 
 }  // namespace

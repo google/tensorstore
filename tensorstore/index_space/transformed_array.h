@@ -764,7 +764,7 @@ struct MaterializeFn {
 
   template <typename A>
   inline std::enable_if_t<
-      (IsTransformedArray<A> || IsTransformedArray<A>),
+      IsTransformedArray<A>,
       decltype(std::declval<A>().template Materialize<OriginKind>())>
   operator()(const A& array) const {
     return array.template Materialize<OriginKind>(constraints);
@@ -793,6 +793,96 @@ template <ArrayOriginKind OriginKind = offset_origin>
 inline internal::MaterializeFn<OriginKind> Materialize(
     TransformArrayConstraints constraints = skip_repeated_elements) {
   return internal::MaterializeFn<OriginKind>{constraints};
+}
+
+namespace internal {
+Result<ElementPointer<Shared<const void>>> TryConvertToArrayImpl(
+    ElementPointer<Shared<const void>> element_pointer,
+    IndexTransformView<> transform, Index* output_origin, Index* output_shape,
+    Index* output_byte_strides);
+
+template <ArrayOriginKind OriginKind, typename ElementTag, DimensionIndex Rank>
+inline Result<Array<ElementTag, Rank, OriginKind>> TryConvertToArrayImpl(
+    ElementPointer<ElementTag> element_pointer,
+    IndexTransformView<Rank> transform) {
+  Array<ElementTag, Rank, OriginKind> array;
+  array.layout().set_rank(transform.input_rank());
+  Index* origin = nullptr;
+  if constexpr (OriginKind == offset_origin) {
+    origin = array.origin().data();
+  }
+  ElementPointer<Shared<const void>> shared_element_pointer;
+  if constexpr (IsShared<ElementTag>) {
+    shared_element_pointer = std::move(element_pointer);
+  } else {
+    shared_element_pointer = UnownedToShared(element_pointer);
+  }
+  auto element_pointer_result = internal::TryConvertToArrayImpl(
+      std::move(shared_element_pointer), transform, origin,
+      array.shape().data(), array.byte_strides().data());
+  if (!element_pointer_result.ok()) {
+    return std::move(element_pointer_result.status());
+  }
+  array.element_pointer() = ElementPointer<ElementTag>(
+      StaticDataTypeCast<typename ElementTagTraits<ElementTag>::Element,
+                         unchecked>(
+          ConstDataTypeCast<void>(std::move(*element_pointer_result))));
+  return array;
+}
+
+/// Function object implementation of ``TryConvertToArray``
+template <ArrayOriginKind OriginKind>
+struct TryConvertToArrayFn {
+  template <typename ElementTag, DimensionIndex Rank, ContainerKind LayoutCKind>
+  inline Result<Array<ElementTag, Rank, OriginKind>> operator()(
+      const TransformedArray<ElementTag, Rank, LayoutCKind>& transformed_array)
+      const {
+    return internal::TryConvertToArrayImpl<OriginKind, ElementTag, Rank>(
+        transformed_array.element_pointer(), transformed_array.transform());
+  }
+  template <typename ElementTag, DimensionIndex Rank, ContainerKind LayoutCKind>
+  inline Result<Array<ElementTag, Rank, OriginKind>> operator()(
+      TransformedArray<ElementTag, Rank, LayoutCKind>&& transformed_array)
+      const {
+    return internal::TryConvertToArrayImpl<OriginKind, ElementTag, Rank>(
+        std::move(transformed_array.element_pointer()),
+        transformed_array.transform());
+  }
+};
+
+}  // namespace internal
+
+/// Returns a view of the array as a regular strided `Array`.
+///
+/// This never copies the data; the address of every element in the returned
+/// array is the same as in `transformed_array`.
+///
+/// When this function succeeds, the result is always the same as `Materialize`
+/// when called without `must_allocate`.
+///
+/// \tparam OriginKind Specifies whether to retain the origin offset.
+/// \error `absl::StatusCode::kInvalidArgument` if the array cannot be viewed as
+///     a strided array, i.e. `transformed_array.transform()` contains an index
+///     array map.
+/// \relates TransformedArray
+template <ArrayOriginKind OriginKind = offset_origin, typename ElementTag,
+          DimensionIndex Rank, ContainerKind LayoutCKind>
+inline Result<Array<ElementTag, Rank, OriginKind>> TryConvertToArray(
+    const TransformedArray<ElementTag, Rank, LayoutCKind>& transformed_array) {
+  return internal::TryConvertToArrayImpl<OriginKind, ElementTag, Rank>(
+      transformed_array.element_pointer(), transformed_array.transform());
+}
+template <ArrayOriginKind OriginKind = offset_origin, typename ElementTag,
+          DimensionIndex Rank, ContainerKind LayoutCKind>
+inline Result<Array<ElementTag, Rank, OriginKind>> TryConvertToArray(
+    TransformedArray<ElementTag, Rank, LayoutCKind>&& transformed_array) {
+  return internal::TryConvertToArrayImpl<OriginKind, ElementTag, Rank>(
+      std::move(transformed_array.element_pointer()),
+      transformed_array.transform());
+}
+template <ArrayOriginKind OriginKind = offset_origin>
+internal::TryConvertToArrayFn<OriginKind> TryConvertToArray() {
+  return {};
 }
 
 namespace internal {
