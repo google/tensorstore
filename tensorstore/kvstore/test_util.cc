@@ -21,6 +21,7 @@
 #include <cassert>
 #include <map>
 #include <optional>
+#include <random>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -31,6 +32,7 @@
 #include "absl/functional/function_ref.h"
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
+#include "absl/random/random.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/match.h"
@@ -39,9 +41,11 @@
 #include "absl/synchronization/notification.h"
 #include "absl/time/clock.h"
 #include <nlohmann/json.hpp>
+#include "tensorstore/batch.h"
 #include "tensorstore/context.h"
 #include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/internal/json_gtest.h"
+#include "tensorstore/internal/testing/random_seed.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
@@ -569,6 +573,63 @@ void TestKeyValueStoreReadOps(const KvStore& store, std::string key,
   }
 }
 
+void TestKeyValueStoreBatchReadOps(const KvStore& store, std::string key,
+                                   absl::Cord expected_value) {
+  auto correct_generation = GetStorageGeneration(store, key);
+  auto mismatch_generation = GetMismatchStorageGeneration(store);
+
+  constexpr size_t kNumIterations = 100;
+  constexpr size_t kMaxReadsPerBatch = 10;
+
+  std::minstd_rand gen{internal_testing::GetRandomSeedForTest(
+      "TENSORSTORE_INTERNAL_KVSTORE_BATCH_READ")};
+  for (size_t iter_i = 0; iter_i < kNumIterations; ++iter_i) {
+    auto batch = tensorstore::Batch::New();
+
+    auto reads_per_batch = absl::Uniform<size_t>(absl::IntervalClosedClosed,
+                                                 gen, 1, kMaxReadsPerBatch);
+    std::vector<::testing::Matcher<Result<kvstore::ReadResult>>> matchers;
+    std::vector<Future<kvstore::ReadResult>> futures;
+    for (size_t read_i = 0; read_i < reads_per_batch; ++read_i) {
+      kvstore::ReadOptions options;
+      options.batch = batch;
+      options.byte_range.inclusive_min = absl::Uniform<int64_t>(
+          absl::IntervalClosedClosed, gen, 0, expected_value.size());
+      options.byte_range.exclusive_max = absl::Uniform<int64_t>(
+          absl::IntervalClosedClosed, gen, options.byte_range.inclusive_min,
+          expected_value.size());
+      bool mismatch = false;
+      if (absl::Bernoulli(gen, 0.5)) {
+        options.generation_conditions.if_equal =
+            absl::Bernoulli(gen, 0.5)
+                ? correct_generation
+                : ((mismatch = true), mismatch_generation);
+      }
+      if (absl::Bernoulli(gen, 0.5)) {
+        options.generation_conditions.if_not_equal =
+            absl::Bernoulli(gen, 0.5) ? ((mismatch = true), correct_generation)
+                                      : mismatch_generation;
+      }
+      futures.push_back(kvstore::Read(store, key, options));
+      if (mismatch) {
+        matchers.push_back(MatchesKvsReadResultAborted());
+      } else {
+        matchers.push_back(MatchesKvsReadResult(
+            expected_value.Subcord(options.byte_range.inclusive_min,
+                                   options.byte_range.exclusive_max -
+                                       options.byte_range.inclusive_min),
+            correct_generation));
+      }
+    }
+
+    batch.Release();
+
+    for (size_t read_i = 0; read_i < reads_per_batch; ++read_i) {
+      EXPECT_THAT(futures[read_i].result(), matchers[read_i]);
+    }
+  }
+}
+
 void TestKeyValueReadWriteOps(const KvStore& store) {
   return TestKeyValueReadWriteOps(
       store, [](std::string key) { return absl::StrCat("key_", key); });
@@ -591,6 +652,18 @@ void TestKeyValueReadWriteOps(
 
     tensorstore::internal::TestKeyValueStoreReadOps(store, key, expected_value,
                                                     missing_key);
+
+    absl::Cord longer_expected_value;
+    for (size_t i = 0; i < 4096; ++i) {
+      char x = static_cast<char>(i);
+      longer_expected_value.Append(std::string_view(&x, 1));
+    }
+
+    ASSERT_THAT(kvstore::Write(store, key, longer_expected_value).result(),
+                MatchesRegularTimestampedStorageGeneration());
+
+    tensorstore::internal::TestKeyValueStoreBatchReadOps(store, key,
+                                                         longer_expected_value);
 
     kvstore::Delete(store, key).result().status().IgnoreError();
   }

@@ -25,6 +25,7 @@
 
 #include "absl/status/status.h"
 #include "absl/time/time.h"
+#include "tensorstore/batch.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
@@ -112,6 +113,9 @@ struct ReadOptions {
 
   /// Specifies the byte range.
   OptionalByteRangeRequest byte_range;
+
+  /// Optional batch to use.
+  Batch batch{no_batch};
 };
 
 struct TransactionalReadGenerationConditions {
@@ -138,6 +142,9 @@ struct TransactionalReadOptions {
   /// `Read` request was made, i.e. it is equivalent to specifying the value of
   /// `absl::Now()` just before invoking `Read`.
   absl::Time staleness_bound{absl::InfiniteFuture()};
+
+  /// Optional batch to use.
+  Batch batch{no_batch};
 };
 
 struct WriteGenerationConditions {

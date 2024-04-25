@@ -1229,6 +1229,7 @@ void ReadDirectly(Driver* driver, ReadModifyWriteEntry& entry,
   kvstore_options.staleness_bound = options.staleness_bound;
   kvstore_options.generation_conditions.if_not_equal =
       std::move(options.generation_conditions.if_not_equal);
+  kvstore_options.batch = std::move(options.batch);
   execution::submit(driver->Read(entry.key_, std::move(kvstore_options)),
                     std::move(receiver));
 }
