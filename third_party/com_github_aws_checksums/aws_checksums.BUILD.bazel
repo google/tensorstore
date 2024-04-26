@@ -1,6 +1,8 @@
 # Description:
 #   AWS CheckSums
 
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
+
 package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])  # Apache 2.0
@@ -18,17 +20,16 @@ cc_library(
     ],
     hdrs = [],
     defines = [],
-    includes = [
-        "include",
-    ],
+    includes = ["include"],
     deps = [],
 )
 
-genrule(
+write_file(
     name = "crc_hw_c",
-    outs = ["crc_hw.c"],
-    cmd = "\n".join([
-        "cat <<'EOF' >$@",
+    out = "crc_hw.c",
+    newline = "auto",
+
+    content = [
         "#include <aws/checksums/private/cpuid.h>",
         "#include <aws/checksums/private/crc_priv.h>",
         "int aws_checksums_do_cpu_id(int32_t *cpuid) {",
@@ -37,6 +38,5 @@ genrule(
         "uint32_t aws_checksums_crc32c_hw(const uint8_t *input, int length, uint32_t previousCrc32) {",
         "  return aws_checksums_crc32c_sw(input, length, previousCrc32);",
         "}",
-        "EOF",
-    ]),
+    ],
 )
