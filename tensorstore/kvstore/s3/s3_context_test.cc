@@ -2,9 +2,7 @@
 #include <memory>
 
 #include <aws/core/Aws.h>
-#include <aws/core/auth/AWSAuthSigner.h>
 #include <aws/core/client/ClientConfiguration.h>
-#include <aws/core/http/HttpRequest.h>
 #include <aws/core/utils/threading/Executor.h>
 
 #include <aws/s3/S3Endpoint.h>
@@ -44,11 +42,6 @@ TEST(S3ContextTest, Basic) {
   ctx = GetAwsContext();
 }
 
-TEST(S3ContextTest, AWS4Signing) {
-  auto ctx = GetAwsContext();
-  auto signer = Aws::Client::AWSAuthV4Signer(ctx->cred_provider_, "s3", "us-east-2");
-  //auto req = Aws::Http::HttpRequest();
-}
 
 TEST(S3ContextTest, Endpoint) {
   EXPECT_EQ(Aws::S3::S3Endpoint::ForRegion("us-east-2", false, false), "s3.us-east-2.amazonaws.com");
