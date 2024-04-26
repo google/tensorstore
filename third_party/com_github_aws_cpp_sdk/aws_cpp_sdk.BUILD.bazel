@@ -1,6 +1,8 @@
 # Description:
 #   AWS C++ SDK
 
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
+
 package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])  # Apache 2.0
@@ -75,23 +77,7 @@ cc_library(
         "aws-cpp-sdk-core/include/aws/core/http/curl/*.h",  # HTTP_CURL_CLIENT_HEADERS
         "aws-cpp-sdk-core/include/aws/core/utils/crypto/openssl/*.h",  # UTILS_CRYPTO_OPENSSL_HEADERS
     ]),
-    defines = [
-        'AWS_SDK_VERSION_STRING=\\"1.7.366\\"',
-        "AWS_SDK_VERSION_MAJOR=1",
-        "AWS_SDK_VERSION_MINOR=7",
-        "AWS_SDK_VERSION_PATCH=366",
-        "ENABLE_OPENSSL_ENCRYPTION=1",
-        "ENABLE_CURL_CLIENT=1",
-        "OPENSSL_IS_BORINGSSL=1",
-    ] + select({
-        "@platforms//os:windows": [
-            "PLATFORM_WINDOWS",
-            "WIN32_LEAN_AND_MEAN",
-        ],
-        "//conditions:default": [
-            "PLATFORM_LINUX",
-        ],
-    }),
+    defines = [],
     includes = [
         "aws-cpp-sdk-core/include",
     ],
@@ -163,21 +149,32 @@ cc_library(
     ],
 )
 
-genrule(
+write_file(
     name = "SDKConfig_h",
-    outs = [
-        "aws-cpp-sdk-core/include/aws/core/SDKConfig.h",
-    ],
-    cmd = "\n".join([
-        "cat <<'EOF' >$@",
+    out = "aws-cpp-sdk-core/include/aws/core/SDKConfig.h",
+    newline = "auto",
+
+    content = [
         "#define USE_AWS_MEMORY_MANAGEMENT",
-        "#if defined(_MSC_VER)",
-        "#ifndef WIN32_LEAN_AND_MEAN",
-        "#define WIN32_LEAN_AND_MEAN",
-        "#endif",
-        "#include <Windows.h>",
-        "#undef IGNORE",
-        "#endif",
-        "EOF",
-    ]),
+        "#define AWS_SDK_VERSION_STRING=\\"1.8.187\\"",
+        "#define AWS_SDK_VERSION_MAJOR=1",
+        "#define AWS_SDK_VERSION_MINOR=8",
+        "#define AWS_SDK_VERSION_PATCH=187",
+        "#define ENABLE_OPENSSL_ENCRYPTION=1",
+        "#define ENABLE_CURL_CLIENT=0",
+        "#define OPENSSL_IS_BORINGSSL=1",
+    ] +  select({
+        "@platforms//os:windows": [
+            "#define WIN32_LEAN_AND_MEAN",
+            "#include <Windows.h>",
+            "#define PLATFORM_WINDOWS",
+            "#undef IGNORE",
+        ],
+        "@platforms//os:macos": [
+            "#define PLATFORM_MACOS"
+        ],
+        "//conditions:default": [
+            "PLATFORM_LINUX",
+        ],
+    }),
 )
