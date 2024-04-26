@@ -115,6 +115,29 @@ cc_library(
 )
 
 cc_library(
+    name = "s3_encryption",
+    srcs = glob([
+        "aws-cpp-sdk-s3-encryption/source/*.cpp",
+        "aws-cpp-sdk-s3-encryption/source/handlers/*.cpp",
+        "aws-cpp-sdk-s3-encryption/source/materials/*.cpp",
+        "aws-cpp-sdk-s3-encryption/source/modules/*.cpp",
+    ]),
+    hdrs = glob([
+        "aws-cpp-sdk-s3-encryption/include/aws/s3/*.h",
+        "aws-cpp-sdk-s3-encryption/include/handlers/*.h",
+        "aws-cpp-sdk-s3-encryption/include/materials/*.h",
+        "aws-cpp-sdk-s3-encryption/include/modules/*.h",
+    ]),
+    includes = [
+        "aws-cpp-sdk-s3-encryption/include",
+    ],
+    deps = [
+        ":core",
+    ],
+)
+
+
+cc_library(
     name = "transfer",
     srcs = glob([
         "aws-cpp-sdk-transfer/source/transfer/*.cpp",  # TRANSFER_SOURCE
