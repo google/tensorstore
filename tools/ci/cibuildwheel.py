@@ -114,6 +114,14 @@ def run(args, extra_args):
       "--show_timestamps",
       "--keep_going",
       "--color=yes",
+      # Exclude essentially all environment variables (including PATH and
+      # LD_LIBRARY_PATH) from the action env and corresponding cache keys. This
+      # allows most of the build to be cached across Python versions, which is
+      # important for speeding up the build. However, note that this would break
+      # toolchains (such as "hermetic" MingW or MSVC) that rely on PATH or
+      # LD_LIBRARY_PATH being set. Fortunately we don't use such toolchains for
+      # building the PyPI packages.
+      "--incompatible_strict_action_env",
   ]
   cibw_environment = {}
   # Disable build isolation, since tensorstore doesn"t have any build
