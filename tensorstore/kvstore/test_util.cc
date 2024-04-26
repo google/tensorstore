@@ -401,6 +401,16 @@ void TestKeyValueStoreReadOps(const KvStore& store, std::string key,
                     read_result->stamp.generation));
   }
 
+  ABSL_LOG(INFO) << kSep << "Test unconditional suffix length read [.. -2]";
+  {
+    kvstore::ReadOptions options;
+    options.byte_range.inclusive_min = -2;
+    EXPECT_THAT(kvstore::Read(store, key, options).result(),
+                MatchesKvsReadResult(
+                    expected_value.Subcord(expected_value.size() - 2, 2),
+                    read_result->stamp.generation));
+  }
+
   ABSL_LOG(INFO) << kSep << "Test unconditional range read [1 .. 3]";
   {
     kvstore::ReadOptions options;
