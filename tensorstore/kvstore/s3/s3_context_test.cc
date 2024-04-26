@@ -32,6 +32,9 @@ TEST(S3ContextTest, Basic) {
   EXPECT_EQ(ctx, ctx2);
   EXPECT_EQ(wp.use_count(), 2);
 
+  // sanity check basic credential retrieval
+  auto creds = ctx->cred_provider_->GetAWSCredentials();
+
   ctx.reset();
   ctx2.reset();
 
