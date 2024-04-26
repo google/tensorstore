@@ -629,7 +629,8 @@ TEST(TransformedArrayTest, UnownedToSharedAliasing) {
 }
 
 TEST(TryConvertToArrayTest, Basic) {
-  auto array = tensorstore::AllocateArray<int32_t>({2, 3});
+  auto array = tensorstore::AllocateArray<int32_t>({2, 3}, tensorstore::c_order,
+                                                   tensorstore::value_init);
   EXPECT_THAT(array | tensorstore::IdentityTransform<2>() |
                   tensorstore::TryConvertToArray(),
               ::testing::Optional(tensorstore::ReferencesSameDataAs(array)));
@@ -648,7 +649,8 @@ TEST(TryConvertToArrayTest, Basic) {
 
 TEST(TryConvertToArrayTest, Random) {
   tensorstore::SharedArray<const void> array =
-      tensorstore::AllocateArray<int32_t>({2, 3});
+      tensorstore::AllocateArray<int32_t>({2, 3}, tensorstore::c_order,
+                                          tensorstore::value_init);
   std::minstd_rand gen{tensorstore::internal_testing::GetRandomSeedForTest(
       "TENSORSTORE_INTERNAL_VIEW_AS_ARRAY")};
   constexpr size_t kNumIterations = 10;
