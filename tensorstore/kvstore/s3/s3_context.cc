@@ -21,6 +21,7 @@
 #include <aws/core/utils/logging/AWSLogging.h>
 #include <aws/core/utils/logging/LogSystemInterface.h>
 #include <aws/core/auth/AWSCredentialsProviderChain.h>
+#include <aws/core/utils/memory/stl/AWSStringStream.h>
 
 #include "absl/log/absl_log.h"
 #include "absl/synchronization/mutex.h"
@@ -33,7 +34,7 @@ namespace {
 absl::Mutex context_mu_;
 std::weak_ptr<AwsContext> context_;
 
-}
+}  // namespace
 
 AWSLogSystem::AWSLogSystem(Aws::Utils::Logging::LogLevel log_level)
   : log_level_(log_level) {}

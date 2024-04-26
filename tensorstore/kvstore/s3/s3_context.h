@@ -19,8 +19,9 @@
 #include <string>
 
 #include <aws/core/Aws.h>
-#include <aws/core/utils/logging/AWSLogging.h>
+#include <aws/core/auth/AWSCredentialsProvider.h>
 #include <aws/core/utils/logging/LogSystemInterface.h>
+#include <aws/core/utils/memory/stl/AWSStringStream.h>
 
 
 namespace tensorstore {
@@ -41,6 +42,7 @@ public:
   // Flushes the buffered messages if the logger supports buffering
   void Flush() override { return; };
 
+  // Overridden, but prefer the safer LogStream
   void Log(Aws::Utils::Logging::LogLevel log_level, const char* tag,
            const char* format, ...) override;
 
