@@ -159,8 +159,6 @@ tensorstore_cc_library(
         "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/kvstore:byte_range",
         "//tensorstore/kvstore/s3/credentials:aws_credentials",
-        # TODO: substitute this with just the auth components of the aws sdk
-        "@com_github_aws_cpp_sdk//:s3",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/log:absl_log",
@@ -184,6 +182,33 @@ tensorstore_cc_test(
         "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest_main",
     ],
+)
+
+tensorstore_cc_library(
+    name = "new_s3_request_builder",
+    srcs = [
+        "new_s3_request_builder.cc",
+    ],
+    hdrs = [
+        "new_s3_request_builder.h"
+    ],
+    deps = [
+        ":s3_context",
+        "//tensorstore/internal/http",
+        "@com_github_aws_cpp_sdk//:core",
+        "@com_google_absl//absl/strings:cord",
+    ]
+)
+
+tensorstore_cc_test(
+    name = "new_s3_request_builder_test",
+    srcs = [
+        "new_s3_request_builder_test.cc",
+    ],
+    deps = [
+        ":new_s3_request_builder",
+        "@com_google_googletest//:gtest_main",
+    ]
 )
 
 tensorstore_cc_library(
@@ -275,6 +300,29 @@ tensorstore_cc_library(
         "@com_google_absl//absl/strings:str_format",
     ],
 )
+
+tensorstore_cc_library(
+    name = "s3_context",
+    srcs = ["s3_context.cc"],
+    hdrs = ["s3_context.h"],
+    deps = [
+        "@com_google_absl//absl/log:absl_log",
+        "@com_google_absl//absl/synchronization",
+        "@com_github_aws_cpp_sdk//:core",
+    ]
+)
+
+tensorstore_cc_test(
+    name = "s3_context_test",
+    size = "small",
+    srcs = ["s3_context_test.cc"],
+    deps = [
+        ":s3_context",
+        "@com_github_aws_cpp_sdk//:s3",
+        "@com_google_googletest//:gtest_main",
+    ]
+)
+
 
 tensorstore_cc_test(
     name = "s3_endpoint_test",
