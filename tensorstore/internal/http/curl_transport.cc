@@ -25,6 +25,7 @@
 #include <cstdlib>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -32,13 +33,17 @@
 
 #include "absl/base/attributes.h"
 #include "absl/base/const_init.h"
+#include "absl/flags/flag.h"
 #include "absl/log/absl_log.h"
+#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include <curl/curl.h>
+#include "tensorstore/internal/container/circular_queue.h"
 #include "tensorstore/internal/cord_util.h"
+#include "tensorstore/internal/env.h"
 #include "tensorstore/internal/http/curl_factory.h"
 #include "tensorstore/internal/http/curl_handle.h"
 #include "tensorstore/internal/http/curl_wrappers.h"
@@ -49,9 +54,16 @@
 #include "tensorstore/internal/metrics/histogram.h"
 #include "tensorstore/internal/thread/thread.h"
 
+ABSL_FLAG(std::optional<uint32_t>, tensorstore_http_threads, std::nullopt,
+          "Threads to use for http requests. "
+          "Overrides TENSORSTORE_HTTP_THREADS.");
+
 namespace tensorstore {
 namespace internal_http {
 namespace {
+
+using ::tensorstore::internal::GetFlagOrEnvValue;
+using ::tensorstore::internal_container::CircularQueue;
 
 auto& http_request_started = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/http/request_started", "HTTP requests started");
@@ -92,6 +104,12 @@ auto& http_poll_time_ns =
     internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
         "/tensorstore/http/http_poll_time_ns",
         "HTTP time spent in curl_multi_poll (ns)");
+
+uint32_t GetHttpThreads() {
+  return std::max(1u, GetFlagOrEnvValue(FLAGS_tensorstore_http_threads,
+                                        "TENSORSTORE_HTTP_THREADS")
+                          .value_or(4u));
+}
 
 struct CurlRequestState {
   std::shared_ptr<CurlHandleFactory> factory_;
@@ -307,57 +325,93 @@ struct CurlRequestState {
 
 class MultiTransportImpl {
  public:
-  explicit MultiTransportImpl(std::shared_ptr<CurlHandleFactory> factory)
-      : factory_(std::move(factory)), multi_(factory_->CreateMultiHandle()) {
-    assert(factory_);
-    thread_ = internal::Thread({"curl_handler"}, [this] { Run(); });
-  }
+  MultiTransportImpl(std::shared_ptr<CurlHandleFactory> factory,
+                     size_t nthreads);
 
-  ~MultiTransportImpl() {
-    done_ = true;
-    curl_multi_wakeup(multi_.get());
+  ~MultiTransportImpl();
 
-    thread_.Join();
-    factory_->CleanupMultiHandle(std::move(multi_));
-  }
-
-  void StartRequest(const HttpRequest& request, IssueRequestOptions options,
-                    HttpResponseHandler* response_handler);
+  void EnqueueRequest(const HttpRequest& request, IssueRequestOptions options,
+                      HttpResponseHandler* response_handler);
 
   void FinishRequest(std::unique_ptr<CurlRequestState> state, CURLcode code);
 
-  // Runs the thread loop.
-  void Run();
+ private:
+  struct ThreadData {
+    std::atomic<int64_t> count = 0;
+    CurlMulti multi;
+    absl::Mutex mutex;
+    CircularQueue<std::unique_ptr<CurlRequestState>> pending{16};
+  };
 
-  int64_t AddPendingTransfers();
-  int64_t RemoveCompletedTransfers();
+  // Runs the thread loop.
+  void Run(ThreadData& thread_data);
+
+  void MaybeAddPendingTransfers(ThreadData& thread_data);
+  void RemoveCompletedTransfers(ThreadData& thread_data);
 
   std::shared_ptr<CurlHandleFactory> factory_;
-  CurlMulti multi_;
-
-  absl::Mutex mutex_;
-  std::vector<std::unique_ptr<CurlRequestState>> pending_requests_;
   std::atomic<bool> done_{false};
 
-  internal::Thread thread_;
+  std::unique_ptr<ThreadData[]> thread_data_;
+  std::vector<internal::Thread> threads_;
 };
 
-void MultiTransportImpl::StartRequest(const HttpRequest& request,
-                                      IssueRequestOptions options,
-                                      HttpResponseHandler* response_handler) {
+MultiTransportImpl::MultiTransportImpl(
+    std::shared_ptr<CurlHandleFactory> factory, size_t nthreads)
+    : factory_(std::move(factory)) {
   assert(factory_);
+  threads_.reserve(nthreads);
+  thread_data_ = std::make_unique<ThreadData[]>(nthreads);
+  for (size_t i = 0; i < nthreads; ++i) {
+    thread_data_[i].multi = factory_->CreateMultiHandle();
+    threads_.push_back(
+        internal::Thread({"curl_multi_thread"},
+                         [this, index = i] { Run(thread_data_[index]); }));
+  }
+}
+
+MultiTransportImpl::~MultiTransportImpl() {
+  done_ = true;
+
+  // Wake everything...
+  for (size_t i = 0; i < threads_.size(); ++i) {
+    curl_multi_wakeup(thread_data_[i].multi.get());
+  }
+  for (auto& thread : threads_) {
+    thread.Join();
+  }
+  for (size_t i = 0; i < threads_.size(); ++i) {
+    factory_->CleanupMultiHandle(std::move(thread_data_[i].multi));
+  }
+}
+
+void MultiTransportImpl::EnqueueRequest(const HttpRequest& request,
+                                        IssueRequestOptions options,
+                                        HttpResponseHandler* response_handler) {
+  if (done_.load()) {
+    response_handler->OnFailure(
+        absl::InternalError("MultiTransportImpl is shutting down"));
+    return;
+  }
+
   auto state = std::make_unique<CurlRequestState>(factory_);
   state->response_handler_ = response_handler;
   state->Prepare(request, std::move(options));
 
-  // Add the handle to the curl_multi state.
-  // TODO: Add an ExecuteWhenNotNeeded callback which removes
-  // the handle from the pending / active requests set.
-  {
-    absl::MutexLock l(&mutex_);
-    pending_requests_.push_back(std::move(state));
+  // Select the thread with the fewest active connections, and then enqueue
+  // the request on that thread.
+  size_t selected_index = 0;
+  for (size_t i = 1; i < threads_.size(); ++i) {
+    if (thread_data_[i].count < thread_data_[selected_index].count) {
+      selected_index = i;
+    }
   }
-  curl_multi_wakeup(multi_.get());
+
+  auto& selected = thread_data_[selected_index];
+  absl::MutexLock l(&selected.mutex);
+  selected.pending.push_back(std::move(state));
+  selected.count++;
+  curl_multi_wakeup(selected.multi.get());
 }
 
 void MultiTransportImpl::FinishRequest(std::unique_ptr<CurlRequestState> state,
@@ -404,20 +458,47 @@ void MultiTransportImpl::FinishRequest(std::unique_ptr<CurlRequestState> state,
   state->response_handler_->OnComplete();
 }
 
-void MultiTransportImpl::Run() {
-  // track active count separate from the curl_multi so it's available without
-  // calling curl_multi_perform or similar.
-  int64_t active_count = 0;
+void MultiTransportImpl::Run(ThreadData& thread_data) {
   for (;;) {
     // Add any pending transfers.
-    active_count += AddPendingTransfers();
+    MaybeAddPendingTransfers(thread_data);
+
+    // Stop if there are no active requests and shutdown has been requested.
+    if (thread_data.count == 0) {
+      if (done_.load()) break;
+
+      // Wait until a node can be awakened.
+      absl::MutexLock l(&thread_data.mutex);
+      thread_data.mutex.Await(absl::Condition(
+          // Block until the task we're waiting on complete.
+          +[](ThreadData* td) { return !td->pending.empty(); }, &thread_data));
+
+      if (done_.load()) break;
+      continue;
+    }
+
+    // Wait for more transfers to complete.  Rely on curl_multi_wakeup to
+    // notify that non-transfer work is ready, otherwise wake up once per
+    // timeout interval.
+    // Allow spurious EINTR to wake the loop; it does no harm here.
+    const int timeout_ms = std::numeric_limits<int>::max();  // infinite
+    int numfds = 0;
+    errno = 0;
+    auto start_poll = absl::Now();
+    CURLMcode mcode = curl_multi_poll(thread_data.multi.get(), nullptr, 0,
+                                      timeout_ms, &numfds);
+    if (mcode != CURLM_OK) {
+      ABSL_LOG(WARNING) << CurlMCodeToStatus(mcode, "in curl_multi_poll");
+    }
+    http_poll_time_ns.Observe(
+        absl::ToInt64Nanoseconds(absl::Now() - start_poll));
 
     // Perform work.
     {
       int running_handles = 0;
       CURLMcode mcode;
       do {
-        mcode = curl_multi_perform(multi_.get(), &running_handles);
+        mcode = curl_multi_perform(thread_data.multi.get(), &running_handles);
         http_active.Set(running_handles);
       } while (mcode == CURLM_CALL_MULTI_PERFORM);
 
@@ -426,86 +507,61 @@ void MultiTransportImpl::Run() {
       }
     }
 
-    active_count -= RemoveCompletedTransfers();
-
-    // Stop if there are no active requests and shutdown has been requested.
-    if (active_count == 0) {
-      if (done_.load()) break;
-    }
-
-    // Wait for more transfers to complete.  Rely on curl_multi_wakeup to
-    // notify that non-transfer work is ready, otherwise wake up once per
-    // timeout interval.
-    // Allow spurious EINTR to wake the loop; it does no harm here.
-    {
-      const int timeout_ms = std::numeric_limits<int>::max();  // infinite
-      int numfds = 0;
-      errno = 0;
-      auto start_poll = absl::Now();
-      CURLMcode mcode =
-          curl_multi_poll(multi_.get(), nullptr, 0, timeout_ms, &numfds);
-      if (mcode != CURLM_OK) {
-        ABSL_LOG(WARNING) << CurlMCodeToStatus(mcode, "in curl_multi_poll");
-      }
-      http_poll_time_ns.Observe(
-          absl::ToInt64Nanoseconds(absl::Now() - start_poll));
-    }
+    RemoveCompletedTransfers(thread_data);
   }
+
+  // Remove the handle
+  assert(thread_data.count == 0);
 }
 
-int64_t MultiTransportImpl::AddPendingTransfers() {
-  int64_t active_count = 0;
-  absl::MutexLock l(&mutex_);
+void MultiTransportImpl::MaybeAddPendingTransfers(ThreadData& thread_data) {
+  absl::MutexLock l(&thread_data.mutex);
+  while (!thread_data.pending.empty()) {
+    std::unique_ptr<CurlRequestState> state =
+        std::move(thread_data.pending.front());
+    thread_data.pending.pop_front();
 
-  // Add any pending requests.
-  for (auto& state : pending_requests_) {
+    assert(state != nullptr);
+    // Add state to multi handle.
     // Set the CURLINFO_PRIVATE data to take pointer ownership.
     state->handle_.SetOption(CURLOPT_PRIVATE, state.get());
 
     CURL* e = state->handle_.get();
-    CURLMcode mcode = curl_multi_add_handle(multi_.get(), e);
+    CURLMcode mcode = curl_multi_add_handle(thread_data.multi.get(), e);
     if (mcode == CURLM_OK) {
       // ownership successfully transferred.
       state.release();
-      active_count++;
     } else {
       // This shouldn't happen unless things have really gone pear-shaped.
+      thread_data.count--;
+      state->handle_.SetOption(CURLOPT_PRIVATE, nullptr);
       state->response_handler_->OnFailure(
           CurlMCodeToStatus(mcode, "in curl_multi_add_handle"));
     }
-  }
-
-  pending_requests_.clear();
-  return active_count;
+  };
 }
 
-int64_t MultiTransportImpl::RemoveCompletedTransfers() {
+void MultiTransportImpl::RemoveCompletedTransfers(ThreadData& thread_data) {
   // Pull pending CURLMSG_DONE events off the multi handle.
-  int64_t completed = 0;
   CURLMsg* m = nullptr;
   do {
     int messages_in_queue;
-    m = curl_multi_info_read(multi_.get(), &messages_in_queue);
+    m = curl_multi_info_read(thread_data.multi.get(), &messages_in_queue);
 
     // Remove completed message from curl multi handle.
     if (m && m->msg == CURLMSG_DONE) {
       CURLcode result = m->data.result;
       CURL* e = m->easy_handle;
-
-      completed++;
-      curl_multi_remove_handle(multi_.get(), e);
-
+      curl_multi_remove_handle(thread_data.multi.get(), e);
+      thread_data.count--;
       CurlRequestState* pvt = nullptr;
       curl_easy_getinfo(e, CURLINFO_PRIVATE, &pvt);
       assert(pvt);
       std::unique_ptr<CurlRequestState> state(pvt);
       state->handle_.SetOption(CURLOPT_PRIVATE, nullptr);
-
       FinishRequest(std::move(state), result);
     }
   } while (m != nullptr);
-
-  return completed;
 }
 
 }  // namespace
@@ -516,7 +572,8 @@ class CurlTransport::Impl : public MultiTransportImpl {
 };
 
 CurlTransport::CurlTransport(std::shared_ptr<CurlHandleFactory> factory)
-    : impl_(std::make_unique<Impl>(std::move(factory))) {}
+    : impl_(std::make_unique<Impl>(std::move(factory),
+                                   /*nthreads=*/GetHttpThreads())) {}
 
 CurlTransport::~CurlTransport() = default;
 
@@ -524,7 +581,8 @@ void CurlTransport::IssueRequestWithHandler(
     const HttpRequest& request, IssueRequestOptions options,
     HttpResponseHandler* response_handler) {
   assert(impl_);
-  impl_->StartRequest(request, std::move(options), response_handler);
+
+  impl_->EnqueueRequest(request, std::move(options), response_handler);
 }
 
 namespace {
