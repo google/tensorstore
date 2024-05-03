@@ -1,0 +1,22 @@
+diff -u a/src/core/lib/gprpp/windows/directory_reader.cc b/src/core/lib/gprpp/windows/directory_reader.cc
+--- a/src/core/lib/gprpp/windows/directory_reader.cc	2024-05-02 23:03:15.409181208 +0000
++++ b/src/core/lib/gprpp/windows/directory_reader.cc	2024-05-02 23:03:34.645142558 +0000
+@@ -28,6 +28,7 @@
+ 
+ #include "absl/status/statusor.h"
+ #include "absl/strings/string_view.h"
++#include "absl/strings/str_cat.h"
+ 
+ #include <grpc/support/log.h>
+ 
+diff -u a/src/core/lib/event_engine/cf_engine/cfstream_endpoint.cc b/src/core/lib/event_engine/cf_engine/cfstream_endpoint.cc
+--- a/src/core/lib/event_engine/cf_engine/cfstream_endpoint.cc	2024-05-03 02:28:01.487313005 +0000
++++ b/src/core/lib/event_engine/cf_engine/cfstream_endpoint.cc	2024-05-03 02:28:41.735226860 +0000
+@@ -21,6 +21,7 @@
+ #include "src/core/lib/event_engine/cf_engine/cfstream_endpoint.h"
+ #include "src/core/lib/event_engine/trace.h"
+ #include "src/core/lib/gprpp/strerror.h"
++#include "absl/strings/str_cat.h"
+ 
+ namespace grpc_event_engine {
+ namespace experimental {

@@ -570,12 +570,17 @@ def update_workspace(
     return
   url = workspace.url
 
-  if url.startswith('https://github.com/') or url.startswith(
-      'https://api.github.com/'
-  ):
-    new = update_github_workspace(workspace, github_release)
-  else:
-    new = update_non_github_workspace(workspace)
+  try:
+    if url.startswith('https://github.com/') or url.startswith(
+        'https://api.github.com/'
+    ):
+      new = update_github_workspace(workspace, github_release)
+    else:
+      new = update_non_github_workspace(workspace)
+  except Exception as e:
+    print(e)
+    print('Failed to update: %r' % (identifier,))
+    return
 
   new_url, new_version, new_date = new if new else (None, None, None)
 

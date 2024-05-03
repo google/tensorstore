@@ -21,16 +21,11 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_absl",
-        strip_prefix = "abseil-cpp-fb3621f4f897824c0dbe0615fa94543df6192f30",
+        strip_prefix = "abseil-cpp-20240116.2",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/abseil/abseil-cpp/archive/fb3621f4f897824c0dbe0615fa94543df6192f30.tar.gz",  # lts_2023_08_02(2023-09-19)
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/abseil/abseil-cpp/archive/20240116.2.tar.gz",  # lts_2024_01_16(2023-09-19)
         ],
-        sha256 = "0320586856674d16b0b7a4d4afb22151bdc798490bb7f295eddd8f6a62b46fea",
-        patches = [
-            # mingw build fix; https://github.com/abseil/abseil-cpp/commit/2f77684e8dc473a48dbc19167ffe69c40ce8ada4
-            Label("//third_party:com_google_absl/patches/mingw.diff"),
-        ],
-        patch_args = ["-p1"],
+        sha256 = "733726b8c3a6d39a4120d7e45ea8b41a434cdacde401cba500f14236c49b39dc",
         cmake_name = "absl",
         cmake_target_mapping = ABSL_CMAKE_MAPPING,
         cmake_settings = {
