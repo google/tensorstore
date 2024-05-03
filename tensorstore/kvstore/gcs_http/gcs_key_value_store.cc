@@ -198,8 +198,12 @@ IssueRequestOptions::HttpVersion GetHttpVersion() {
     auto version = GetFlagOrEnvValue(FLAGS_tensorstore_gcs_http_version,
                                      "TENSORSTORE_GCS_HTTP_VERSION");
     if (!version) {
+      ABSL_LOG_IF(INFO, gcs_http_logging)
+          << "--tensorstore_gcs_http_version unset";
       return HttpVersion::kDefault;
     }
+    ABSL_LOG_IF(INFO, gcs_http_logging)
+        << "--tensorstore_gcs_http_version=" << *version;
     if (*version == "1" || *version == "1.1") {
       return HttpVersion::kHttp1;
     }
@@ -577,7 +581,8 @@ struct ReadTask : public RateLimiterNode,
     start_time_ = absl::Now();
 
     ABSL_LOG_IF(INFO, gcs_http_logging) << "ReadTask: " << request;
-    auto future = owner->transport_->IssueRequest(request, {});
+    auto future = owner->transport_->IssueRequest(
+        request, IssueRequestOptions().SetHttpVersion(GetHttpVersion()));
     future.ExecuteWhenReady([self = IntrusivePtr<ReadTask>(this)](
                                 ReadyFuture<HttpResponse> response) {
       self->OnResponse(response.result());
@@ -926,7 +931,8 @@ struct DeleteTask : public RateLimiterNode,
 
     ABSL_LOG_IF(INFO, gcs_http_logging) << "DeleteTask: " << request;
 
-    auto future = owner->transport_->IssueRequest(request, {});
+    auto future = owner->transport_->IssueRequest(
+        request, IssueRequestOptions().SetHttpVersion(GetHttpVersion()));
     future.ExecuteWhenReady([self = IntrusivePtr<DeleteTask>(this)](
                                 ReadyFuture<HttpResponse> response) {
       self->OnResponse(response.result());
@@ -1130,7 +1136,8 @@ struct ListTask : public RateLimiterNode,
     auto request = request_builder.BuildRequest();
     ABSL_LOG_IF(INFO, gcs_http_logging) << "List: " << request;
 
-    auto future = owner_->transport_->IssueRequest(request, {});
+    auto future = owner_->transport_->IssueRequest(
+        request, IssueRequestOptions().SetHttpVersion(GetHttpVersion()));
     future.ExecuteWhenReady(WithExecutor(
         owner_->executor(), [self = IntrusivePtr<ListTask>(this)](
                                 ReadyFuture<HttpResponse> response) {
