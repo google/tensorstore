@@ -653,6 +653,11 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
+    name = "integer_sequence",
+    hdrs = ["integer_sequence.h"],
+)
+
+tensorstore_cc_library(
     name = "integer_overflow",
     hdrs = ["integer_overflow.h"],
     deps = ["@com_google_absl//absl/base:core_headers"],

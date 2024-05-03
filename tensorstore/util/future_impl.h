@@ -17,6 +17,8 @@
 
 // IWYU pragma: private, include "third_party/tensorstore/util/future.h"
 
+#include <stdint.h>
+
 #include <algorithm>
 #include <atomic>
 #include <cassert>
@@ -27,9 +29,11 @@
 
 #include "absl/base/attributes.h"
 #include "absl/base/optimization.h"
+#include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
-#include "absl/utility/utility.h"
+#include "tensorstore/internal/attributes.h"
+#include "tensorstore/internal/integer_sequence.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/tagged_ptr.h"
 #include "tensorstore/internal/tracing/tracing.h"
@@ -370,7 +374,7 @@ class FutureStateBase {
 
   /// State bitvector representation.  State bits (corresponding to the
   /// following constants) are added to but never removed from the state.
-  using StateValue = std::uint32_t;
+  using StateValue = uint32_t;
 
   /// Initial state, neither LockResult nor Force have been called.
   constexpr static StateValue kInitial = 0;
@@ -508,7 +512,7 @@ class CallbackBase : public CallbackListNode {
   using SharedStatePointer = internal::TaggedPtr<FutureStateBase, 2>;
 
   /// Callback type indicators, stored in the tag bits of `SharedStatePointer`.
-  constexpr static std::uintptr_t
+  constexpr static uintptr_t
       /// Inherits from `ReadyCallbackBase`.
       kReadyCallback = 0,
       /// Inherits from `ForceCallbackBase`.  When the promise is forced,
@@ -564,7 +568,7 @@ class CallbackBase : public CallbackListNode {
   ///
   /// This pointer is only valid if `this->next != this`.
   FutureStateBase* shared_state() { return shared_state_.get(); }
-  std::uintptr_t callback_type() { return shared_state_.tag(); }
+  uintptr_t callback_type() { return shared_state_.tag(); }
 
   SharedStatePointer shared_state_;
 
@@ -840,7 +844,7 @@ class FutureLinkBase {
  public:
   /// LinkState is a bit vector type for the atomic `link_state_` field that
   /// packs together several different values, described below:
-  using LinkState = std::uint32_t;
+  using LinkState = uint32_t;
 
   /// Maximum number of futures (number of futures in the FutureLink parameter
   /// pack) supported, due to the use of a 14-bit reference count within
@@ -873,8 +877,8 @@ class FutureLinkBase {
       kLiveForceCallbackMultiplier;
 
   /// Bits [17, 30]: Number of futures that are not ready.
-  constexpr static std::uint32_t kNotReadyFutureMultiplier = 1 << 17;
-  constexpr static std::uint32_t kNotReadyFutureMask =
+  constexpr static uint32_t kNotReadyFutureMultiplier = 1 << 17;
+  constexpr static uint32_t kNotReadyFutureMask =
       (kMaxNumFutures - 1) * kNotReadyFutureMultiplier;
 
   explicit constexpr FutureLinkBase(std::size_t num_futures)
@@ -996,16 +1000,13 @@ using CallbackHolder =
     std::conditional_t<std::is_empty<T>::value, EmptyCallbackHolder<T>,
                        NonEmptyCallbackHolder<T>>;
 
-/// Alias that supplies the absl::index_sequence corresponding to the
+/// Alias that supplies the internal::index_sequence corresponding to the
 /// `Futures...` pack.
 template <typename Policy, typename Deleter, typename Callback,
           typename PromiseValue, typename... Futures>
 using FutureLinkType =
     FutureLink<Policy, Deleter, Callback, PromiseValue,
-               // Note: We use `absl::index_sequence` rather than
-               // `std::index_sequence` to work around Clang bug
-               // https://bugs.llvm.org/show_bug.cgi?id=42757.
-               absl::make_index_sequence<sizeof...(Futures)>, Futures...>;
+               internal::make_index_sequence<sizeof...(Futures)>, Futures...>;
 
 /// A FutureLink ties a `Promise<PromiseValue>` to one or more
 /// `Futures...` objects and a `Callback`.
@@ -1046,7 +1047,7 @@ using FutureLinkType =
 template <typename Policy, typename Deleter, typename Callback,
           typename PromiseValue, typename... Futures, std::size_t... Is>
 class FutureLink<Policy, Deleter, Callback, PromiseValue,
-                 absl::index_sequence<Is...>, Futures...>
+                 internal::index_sequence<Is...>, Futures...>
     : public FutureLinkBase,
       /// Inherit from the CallbackHolder, which holds the callback (if
       /// non-empty), in order to take advantage of empty base optimization,

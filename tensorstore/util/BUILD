@@ -322,6 +322,7 @@ tensorstore_cc_library(
         ":result",
         ":span",
         "//tensorstore/internal:attributes",
+        "//tensorstore/internal:integer_sequence",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:no_destructor",
         "//tensorstore/internal:tagged_ptr",
@@ -334,7 +335,6 @@ tensorstore_cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/time",
-        "@com_google_absl//absl/utility",
     ],
 )
 
