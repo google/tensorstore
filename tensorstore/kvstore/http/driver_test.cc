@@ -76,22 +76,23 @@ class MyMockTransport : public HttpTransport {
     std::function<void(tensorstore::Result<HttpResponse>)> set_result;
   };
 
-  tensorstore::internal::ConcurrentQueue<Request> requests_;
-};
+  void Reset() { requests_.pop_all(); }
 
-struct DefaultHttpTransportSetter {
-  DefaultHttpTransportSetter(std::shared_ptr<HttpTransport> transport) {
-    SetDefaultHttpTransport(transport);
-  }
-  ~DefaultHttpTransportSetter() { SetDefaultHttpTransport(nullptr); }
+  tensorstore::internal::ConcurrentQueue<Request> requests_;
 };
 
 class HttpKeyValueStoreTest : public ::testing::Test {
  public:
-  std::shared_ptr<MyMockTransport> mock_transport =
-      std::make_shared<MyMockTransport>();
-  DefaultHttpTransportSetter mock_transport_setter{mock_transport};
+  ~HttpKeyValueStoreTest() { mock_transport->Reset(); }
+
+  static void SetUpTestSuite() { SetDefaultHttpTransport(mock_transport); }
+  static void TearDownTestSuite() { SetDefaultHttpTransport(nullptr); }
+
+  static std::shared_ptr<MyMockTransport> mock_transport;
 };
+
+std::shared_ptr<MyMockTransport> HttpKeyValueStoreTest::mock_transport =
+    std::make_shared<MyMockTransport>();
 
 TEST(DescribeKeyTest, Basic) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(

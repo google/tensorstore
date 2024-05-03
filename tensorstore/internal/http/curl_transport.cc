@@ -341,6 +341,7 @@ class MultiTransportImpl {
     CurlMulti multi;
     absl::Mutex mutex;
     CircularQueue<std::unique_ptr<CurlRequestState>> pending{16};
+    bool done = false;
   };
 
   // Runs the thread loop.
@@ -375,7 +376,10 @@ MultiTransportImpl::~MultiTransportImpl() {
 
   // Wake everything...
   for (size_t i = 0; i < threads_.size(); ++i) {
-    curl_multi_wakeup(thread_data_[i].multi.get());
+    auto& thread_data = thread_data_[i];
+    absl::MutexLock l(&thread_data.mutex);
+    thread_data.done = true;
+    curl_multi_wakeup(thread_data.multi.get());
   }
   for (auto& thread : threads_) {
     thread.Join();
@@ -463,17 +467,14 @@ void MultiTransportImpl::Run(ThreadData& thread_data) {
     // Add any pending transfers.
     MaybeAddPendingTransfers(thread_data);
 
-    // Stop if there are no active requests and shutdown has been requested.
     if (thread_data.count == 0) {
-      if (done_.load()) break;
-
-      // Wait until a node can be awakened.
+      // There are no active requests; wait for active requests or shutdown.
       absl::MutexLock l(&thread_data.mutex);
+      if (thread_data.done) break;
       thread_data.mutex.Await(absl::Condition(
-          // Block until the task we're waiting on complete.
-          +[](ThreadData* td) { return !td->pending.empty(); }, &thread_data));
-
-      if (done_.load()) break;
+          +[](ThreadData* td) { return !td->pending.empty() || td->done; },
+          &thread_data));
+      if (thread_data.done) break;
       continue;
     }
 
