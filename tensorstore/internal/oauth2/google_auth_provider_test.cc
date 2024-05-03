@@ -97,9 +97,83 @@ class TestData
   }
 };
 
-class GoogleAuthProviderTest : public ::testing::Test {
-  GoogleAuthTestScope google_auth_test_scope;
+// Responds to a "metadata.google.internal" request.
+class MetadataMockTransport : public HttpTransport {
+ public:
+  void IssueRequestWithHandler(const HttpRequest& request,
+                               IssueRequestOptions options,
+                               HttpResponseHandler* response_handler) override {
+    ApplyResponseToHandler(
+        [&]() -> tensorstore::Result<HttpResponse> {
+          auto parsed = tensorstore::internal::ParseGenericUri(request.url);
+          if (!absl::StartsWith(parsed.authority_and_path,
+                                "metadata.google.internal")) {
+            return absl::UnimplementedError("Mock cannot satisfy the request.");
+          }
+
+          // Respond with the GCE OAuth2 token
+          constexpr char kOAuthPath[] =
+              "metadata.google.internal/computeMetadata/v1/"
+              "instance/service-accounts/user@nowhere.com/token";
+          if (absl::StartsWith(parsed.authority_and_path, kOAuthPath)) {
+            if (!has_service_account_) {
+              return HttpResponse{404, absl::Cord()};
+            }
+
+            return HttpResponse{
+                200,
+                absl::Cord(
+                    R"({ "token_type" : "refresh", "access_token": "abc", "expires_in": 3600 })")};
+          }
+
+          // Respond with the GCE context metadata.
+          constexpr char kServiceAccountPath[] =
+              "metadata.google.internal/computeMetadata/v1/"
+              "instance/service-accounts/default/";
+          if (absl::StartsWith(parsed.authority_and_path,
+                               kServiceAccountPath)) {
+            if (!has_service_account_) {
+              return HttpResponse{404, absl::Cord()};
+            }
+
+            return HttpResponse{
+                200,
+                absl::Cord(
+                    R"({ "email": "user@nowhere.com", "scopes": [ "test" ] })")};
+          }
+
+          // Pretend to run on GCE.
+          return HttpResponse{200, absl::Cord()};
+        }(),
+        response_handler);
+  }
+
+  void set_has_service_account(bool has_service_account) {
+    has_service_account_ = has_service_account;
+  }
+
+  bool has_service_account_ = false;
 };
+
+class GoogleAuthProviderTest : public ::testing::Test {
+ public:
+  GoogleAuthTestScope google_auth_test_scope;
+
+  static void SetUpTestSuite() {
+    SetDefaultHttpTransport(mock_transport);
+    tensorstore::internal_oauth2::ResetSharedGoogleAuthProvider();
+  }
+
+  static void TearDownTestSuite() {
+    tensorstore::internal_oauth2::ResetSharedGoogleAuthProvider();
+    SetDefaultHttpTransport(nullptr);
+  }
+
+  static std::shared_ptr<MetadataMockTransport> mock_transport;
+};
+
+std::shared_ptr<MetadataMockTransport> GoogleAuthProviderTest::mock_transport =
+    std::make_shared<MetadataMockTransport>();
 
 TEST_F(GoogleAuthProviderTest, Invalid) {
   // All environment variables are unset by default; this will look for
@@ -197,77 +271,8 @@ TEST_F(GoogleAuthProviderTest, GoogleServiceAccountCredentials) {
   }
 }
 
-// Responds to a "metadata.google.internal" request.
-class MetadataMockTransport : public HttpTransport {
- public:
-  explicit MetadataMockTransport(bool has_service_account)
-      : has_service_account_(has_service_account) {}
-
-  void IssueRequestWithHandler(const HttpRequest& request,
-                               IssueRequestOptions options,
-                               HttpResponseHandler* response_handler) override {
-    ApplyResponseToHandler(
-        [&]() -> tensorstore::Result<HttpResponse> {
-          auto parsed = tensorstore::internal::ParseGenericUri(request.url);
-          if (!absl::StartsWith(parsed.authority_and_path,
-                                "metadata.google.internal")) {
-            return absl::UnimplementedError("Mock cannot satisfy the request.");
-          }
-
-          // Respond with the GCE OAuth2 token
-          constexpr char kOAuthPath[] =
-              "metadata.google.internal/computeMetadata/v1/"
-              "instance/service-accounts/user@nowhere.com/token";
-          if (absl::StartsWith(parsed.authority_and_path, kOAuthPath)) {
-            if (!has_service_account_) {
-              return HttpResponse{404, absl::Cord()};
-            }
-
-            return HttpResponse{
-                200,
-                absl::Cord(
-                    R"({ "token_type" : "refresh", "access_token": "abc", "expires_in": 3600 })")};
-          }
-
-          // Respond with the GCE context metadata.
-          constexpr char kServiceAccountPath[] =
-              "metadata.google.internal/computeMetadata/v1/"
-              "instance/service-accounts/default/";
-          if (absl::StartsWith(parsed.authority_and_path,
-                               kServiceAccountPath)) {
-            if (!has_service_account_) {
-              return HttpResponse{404, absl::Cord()};
-            }
-
-            return HttpResponse{
-                200,
-                absl::Cord(
-                    R"({ "email": "user@nowhere.com", "scopes": [ "test" ] })")};
-          }
-
-          // Pretend to run on GCE.
-          return HttpResponse{200, absl::Cord()};
-        }(),
-        response_handler);
-  }
-
-  bool has_service_account_;
-};
-
-struct DefaultHttpTransportSetter {
-  DefaultHttpTransportSetter(std::shared_ptr<HttpTransport> transport) {
-    SetDefaultHttpTransport(transport);
-    tensorstore::internal_oauth2::ResetSharedGoogleAuthProvider();
-  }
-  ~DefaultHttpTransportSetter() {
-    tensorstore::internal_oauth2::ResetSharedGoogleAuthProvider();
-    SetDefaultHttpTransport(nullptr);
-  }
-};
-
 TEST_F(GoogleAuthProviderTest, GceWithServiceAccount) {
-  auto mock_transport = std::make_shared<MetadataMockTransport>(true);
-  DefaultHttpTransportSetter mock_transport_setter{mock_transport};
+  mock_transport->set_has_service_account(true);
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto auth_provider, GetGoogleAuthProvider());
 
@@ -284,8 +289,7 @@ TEST_F(GoogleAuthProviderTest, GceWithServiceAccount) {
 }
 
 TEST_F(GoogleAuthProviderTest, GceWithoutServiceAccount) {
-  auto mock_transport = std::make_shared<MetadataMockTransport>(false);
-  DefaultHttpTransportSetter mock_transport_setter{mock_transport};
+  mock_transport->set_has_service_account(false);
 
   EXPECT_THAT(GetGoogleAuthProvider(),
               tensorstore::MatchesStatus(absl::StatusCode::kNotFound));

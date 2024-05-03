@@ -14,6 +14,11 @@
 
 #include "tensorstore/internal/container/intrusive_red_black_tree.h"
 
+#include <stddef.h>
+
+#include <array>
+#include <cassert>
+
 namespace tensorstore {
 namespace internal {
 namespace intrusive_red_black_tree {

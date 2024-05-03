@@ -15,7 +15,12 @@
 #include "tensorstore/internal/container/intrusive_red_black_tree.h"
 
 #include <algorithm>
+#include <cassert>
+#include <iterator>
 #include <set>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>

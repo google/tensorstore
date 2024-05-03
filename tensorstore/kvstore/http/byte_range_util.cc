@@ -56,7 +56,7 @@ absl::Status ValidateResponseByteRange(
                   content_range_info.exclusive_max};
     total_size = content_range_info.total_size;
     if (auto request_size = byte_range_request.size();
-        (byte_range_request.inclusive_min != -1 &&
+        (byte_range_request.inclusive_min >= 0 &&
          byte_range_request.inclusive_min != byte_range.inclusive_min) ||
         (byte_range_request.exclusive_max != -1 &&
          byte_range_request.exclusive_max != byte_range.exclusive_max) ||
