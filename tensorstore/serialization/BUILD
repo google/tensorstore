@@ -90,7 +90,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/riegeli:json_output",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
-        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/status",
     ],
 )
@@ -106,7 +106,7 @@ tensorstore_cc_test(
         "//tensorstore/internal:json_gtest",
         "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
-        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_github_nlohmann_json//:json",
         "@com_google_googletest//:gtest_main",
     ],
 )
