@@ -47,7 +47,7 @@ btc_protobuf(
     DEPENDENCIES "protobuf::protoc" "protobuf::protoc_gen_upb"
 )
 
-# upb_proto_library(@upb_proto_library_test_repo//:c_upb_proto)
+# upb_c_proto_library(@upb_proto_library_test_repo//:c_upb_proto)
 add_library(CMakeProject_c_upb_proto INTERFACE)
 target_link_libraries(CMakeProject_c_upb_proto INTERFACE
         "CMakeProject::c_proto__upb_library")
@@ -207,7 +207,7 @@ target_link_libraries(CMakeProject_abc_protos__upb_library INTERFACE
 target_compile_features(CMakeProject_abc_protos__upb_library INTERFACE cxx_std_17)
 add_library(CMakeProject::abc_protos__upb_library ALIAS CMakeProject_abc_protos__upb_library)
 
-# upb_proto_library(@upb_proto_library_test_repo//:abc_protos_upb)
+# upb_c_proto_library(@upb_proto_library_test_repo//:abc_protos_upb)
 add_library(CMakeProject_abc_protos_upb INTERFACE)
 target_link_libraries(CMakeProject_abc_protos_upb INTERFACE
         "CMakeProject::abc_protos__upb_library")

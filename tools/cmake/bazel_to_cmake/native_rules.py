@@ -159,6 +159,63 @@ def _config_setting_impl(
   )
 
 
+# https://bazel.build/reference/be/platforms-and-toolchains#platform
+@register_native_build_rule
+def platform(
+    self: InvocationContext,
+    name: str,
+    constraint_values: Optional[List[RelativeLabel]] = None,
+    exec_properties: Optional[Dict[str, str]] = None,
+    flags: Optional[List[str]] = None,
+    parents: Optional[List[RelativeLabel]] = None,
+    visibility: Optional[List[RelativeLabel]] = None,
+    **kwargs,
+):
+  del kwargs
+  del visibility
+  del flags
+  del exec_properties
+  context = self.snapshot()
+  target = context.resolve_target(name)
+  context.add_rule(
+      target,
+      lambda: _platform_impl(
+          context,
+          target,
+          constraint_values=constraint_values,
+          parents=parents,
+      ),
+      analyze_by_default=True,
+  )
+
+
+def _platform_impl(
+    _context: InvocationContext,
+    _target: TargetId,
+    constraint_values: Optional[List[RelativeLabel]] = None,
+    parents: Optional[List[RelativeLabel]] = None,
+):
+  def evaluate() -> bool:
+    if constraint_values:
+      for constraint in _context.resolve_target_or_label_list(
+          constraint_values
+      ):
+        if not _context.evaluate_condition(constraint):
+          return False
+    if parents:
+      p = _context.resolve_target_or_label_list(
+          _context.evaluate_configurable_list(parents)
+      )[0]
+      if not _context.evaluate_condition(p):
+        return False
+    return True
+
+  evaluated_condition = evaluate()
+  _context.add_analyzed_target(
+      _target, TargetInfo(ConditionProvider(evaluated_condition))
+  )
+
+
 @register_native_build_rule
 def exports_files(self: InvocationContext, *args, **kwargs):
   del self
