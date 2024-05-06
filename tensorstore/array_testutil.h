@@ -26,9 +26,12 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "tensorstore/array.h"
+#include "tensorstore/container_kind.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/static_cast.h"
+#include "tensorstore/strided_layout.h"
 #include "tensorstore/util/iterate_over_index_range.h"
 #include "tensorstore/util/span.h"
 
@@ -234,7 +237,6 @@ template <typename ElementTag, DimensionIndex Rank, ArrayOriginKind OriginKind,
 Array<ElementTag, Rank, OriginKind> NormalizeArrayForComparison(
     const Array<ElementTag, Rank, OriginKind, LayoutCKind>& array) {
   Array<ElementTag, Rank, OriginKind> normalized(array);
-  Index offset = 0;
   for (DimensionIndex i = 0; i < normalized.rank(); ++i) {
     if (normalized.shape()[i] <= 1) {
       auto& byte_stride = normalized.layout().byte_strides()[i];

@@ -101,9 +101,12 @@ tensorstore_cc_library(
     hdrs = ["array_testutil.h"],
     deps = [
         ":array",
+        ":container_kind",
         ":data_type",
         ":index",
+        ":rank",
         ":static_cast",
+        ":strided_layout",
         "//tensorstore/util:iterate_over_index_range",
         "//tensorstore/util:span",
         "@com_google_googletest//:gtest",
