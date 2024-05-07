@@ -16,11 +16,20 @@
 # whether we still need a workaround in bazel_to_cmake/emit_cc.py
 #
 diff -Nur a/BUILD b/BUILD
---- a/BUILD	2023-11-27 16:12:30
-+++ b/BUILD	2023-12-07 11:01:08
-@@ -194,6 +194,13 @@
+--- a/BUILD	2024-04-25 23:05:05
++++ b/BUILD	2024-05-02 10:49:18
+@@ -23,6 +23,8 @@
+     "grpc_upb_proto_library",
+     "grpc_upb_proto_reflection_library",
+     "python_config_settings",
++    "if_windows",
++    "if_mingw",
  )
-
+ 
+ licenses(["reciprocal"])
+@@ -220,6 +222,13 @@
+ )
+ 
  config_setting(
 +    name = "mingw-gcc",
 +    flag_values = {
@@ -32,7 +41,7 @@ diff -Nur a/BUILD b/BUILD
      name = "mac_x86_64",
      values = {"cpu": "darwin_x86_64"},
  )
-@@ -2088,6 +2095,7 @@
+@@ -2575,6 +2584,7 @@
      external_deps = [
          "protobuf_headers",
          "protobuf",
@@ -40,15 +49,23 @@ diff -Nur a/BUILD b/BUILD
      ],
      language = "c++",
      public_hdrs = [
-@@ -2730,6 +2738,7 @@
+@@ -3215,6 +3225,7 @@
      external_deps = [
          "absl/strings",
          "absl/strings:str_format",
 +        "absl/types:optional",
      ],
      tags = ["nofixdeps"],
-     visibility = ["@grpc:iomgr_timer"],
-@@ -3713,6 +3722,7 @@
+     deps = [
+@@ -3972,6 +3983,7 @@
+         "//src/core:lib/security/security_connector/load_system_roots_supported.h",
+         "//src/core:lib/security/util/json_util.h",
+     ],
++    linkopts = if_windows(["-defaultlib:crypt32.lib"]) + if_mingw(["-lcrypt32"]),
+     external_deps = ["absl/strings"],
+     language = "c++",
+     visibility = ["@grpc:public"],
+@@ -4291,6 +4303,7 @@
          "protobuf_struct_upb",
          "protobuf_timestamp_upb",
          "ref_counted_ptr",
@@ -57,18 +74,23 @@ diff -Nur a/BUILD b/BUILD
          "work_serializer",
          "//src/core:default_event_engine",
 diff -Nur a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
---- a/bazel/grpc_build_system.bzl	2023-11-27 16:12:30
-+++ b/bazel/grpc_build_system.bzl	2023-12-07 10:41:53
-@@ -31,10 +31,18 @@
- load("//bazel:copts.bzl", "GRPC_DEFAULT_COPTS")
- load("//bazel:experiments.bzl", "EXPERIMENTS")
- load("//bazel:test_experiments.bzl", "TEST_EXPERIMENTS")
+--- a/bazel/grpc_build_system.bzl	2024-04-25 23:05:05
++++ b/bazel/grpc_build_system.bzl	2024-05-02 10:50:24
+@@ -27,8 +27,8 @@
+ Contains macros used throughout the repo.
+ """
+ 
 -load("@build_bazel_rules_apple//apple:ios.bzl", "ios_unit_test")
 -load("@build_bazel_rules_apple//apple/testing/default_runner:ios_test_runner.bzl", "ios_test_runner")
 +# load("@build_bazel_rules_apple//apple:ios.bzl", "ios_unit_test")
 +# load("@build_bazel_rules_apple//apple/testing/default_runner:ios_test_runner.bzl", "ios_test_runner")
  load("@com_google_protobuf//bazel:upb_proto_library.bzl", "upb_proto_library", "upb_proto_reflection_library")
-
+ load("//bazel:cc_grpc_library.bzl", "cc_grpc_library")
+ load("//bazel:copts.bzl", "GRPC_DEFAULT_COPTS")
+@@ -41,6 +41,14 @@
+ # The set of known EventEngines to test
+ EVENT_ENGINES = {"default": {"tags": []}}
+ 
 +
 +def ios_unit_test(**kwargs):
 +    pass
@@ -77,13 +99,13 @@ diff -Nur a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
 +    pass
 +
 +
- # The set of pollers to test against if a test exercises polling
- POLLERS = ["epoll1", "poll"]
-
+ def if_not_windows(a):
+     return select({
+         "//:windows": [],
 @@ -55,6 +63,12 @@
          "//conditions:default": [],
      })
-
+ 
 +def if_mingw(a):
 +    return select({
 +        "//:mingw-gcc": a,
@@ -93,7 +115,7 @@ diff -Nur a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
  def _get_external_deps(external_deps):
      ret = []
      for dep in external_deps:
-@@ -105,7 +119,7 @@
+@@ -108,7 +122,7 @@
          "grpc_opencensus_plugin": PUBLIC,
          "grpcpp_gcp_observability": PUBLIC,
          "grpc_resolver_fake": PRIVATE,
@@ -101,8 +123,8 @@ diff -Nur a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
 +        "grpc++_test": PUBLIC,
          "http": PRIVATE,
          "httpcli": PRIVATE,
-         "iomgr_timer": PRIVATE,
-@@ -174,7 +188,7 @@
+         "iomgr_internal_errqueue": PRIVATE,
+@@ -179,7 +193,7 @@
      copts = []
      if language.upper() == "C":
          copts = copts + if_not_windows(["-std=c11"])
@@ -111,7 +133,7 @@ diff -Nur a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
      if select_deps:
          for select_deps_entry in select_deps:
              deps += select(select_deps_entry)
-@@ -489,7 +503,7 @@
+@@ -538,7 +552,7 @@
      test_args = {
          "data": data,
          "copts": GRPC_DEFAULT_COPTS + copts,

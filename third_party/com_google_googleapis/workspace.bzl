@@ -19,11 +19,11 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_googleapis",
-        strip_prefix = "googleapis-aa829ea9860cdc474fccdf8f181f13d2a0eb2718",
+        strip_prefix = "googleapis-7ea9f2c99529458ca1a5c70f28608490bdafd3a9",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/googleapis/googleapis/archive/aa829ea9860cdc474fccdf8f181f13d2a0eb2718.tar.gz",  # master(2023-10-04)
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/googleapis/googleapis/archive/7ea9f2c99529458ca1a5c70f28608490bdafd3a9.tar.gz",  # master(2024-05-02)
         ],
-        sha256 = "93d98f5dcd22289e2bf0126b2f598b940c27a2e7ca74038930b0e273fba0632c",
+        sha256 = "772ed3a6483883db8e9e6314d0e8d982762125c64ec8d443733363195abae0eb",
         repo_mapping = {
             "@com_google_googleapis_imports": "@local_proto_mirror",
             "@com_google_protobuf_upb": "@com_google_protobuf",

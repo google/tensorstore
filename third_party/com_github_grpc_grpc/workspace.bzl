@@ -22,15 +22,14 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_github_grpc_grpc",
-        sha256 = "437068b8b777d3b339da94d3498f1dc20642ac9bfa76db43abdd522186b1542b",
-        strip_prefix = "grpc-1.60.0",
+        sha256 = "493d9905aa09124c2f44268b66205dd013f3925a7e82995f36745974e97af609",
+        strip_prefix = "grpc-1.63.0",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/grpc/grpc/archive/v1.60.0.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/grpc/grpc/archive/v1.63.0.tar.gz",
         ],
         patches = [
             # Fixes, including https://github.com/grpc/grpc/issues/34482
             Label("//third_party:com_github_grpc_grpc/patches/update_build_system.diff"),
-            Label("//third_party:com_github_grpc_grpc/patches/update_include.diff"),
         ],
         patch_args = ["-p1"],
         repo_mapping = {
@@ -38,6 +37,7 @@ def repo():
             "@com_googlesource_code_re2": "@com_google_re2",
             "@com_github_google_benchmark": "@com_google_benchmark",
             "@io_bazel_rules_go": "@local_proto_mirror",
+            "@com_github_cncf_xds": "@com_github_cncf_udpa",
         },
         cmake_name = "gRPC",
         # We currently use grpc++_test, which is not public. Fix that, test, and enable.
@@ -48,6 +48,7 @@ def repo():
                 "--ignore-library=//bazel:cython_library.bzl",
                 "--ignore-library=//bazel:python_rules.bzl",
                 "--ignore-library=//bazel:generate_objc.bzl",
+                "--ignore-library=//bazel:python_rules.bzl",
                 "--exclude-target=//:grpc_cel_engine",
                 "--target=//:grpc",
                 "--target=//:grpc++",
@@ -71,6 +72,9 @@ def repo():
                 "third_party/toolchains/**",
                 "third_party/upb/**",
                 "tools/**",
+                "examples/**",
+                "fuzztest/**",
+                "src/core/ext/transport/binder/java/**",
             ],
         },
         cmake_target_mapping = {
@@ -103,6 +107,7 @@ GRPC_NATIVE_BINDINGS = {
     "upb_collections_lib": "@com_google_protobuf//upb:collections",
     "upb_base_lib": "@com_google_protobuf//upb:base",
     "upb_mem_lib": "@com_google_protobuf//upb:mem",
+    "upb_message_lib": "@com_google_protobuf//upb:message",
 
     # These exist to be used by grpc_build_system.bzl
     "benchmark": "@com_google_benchmark//:benchmark",

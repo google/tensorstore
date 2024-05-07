@@ -23,10 +23,10 @@ def repo():
         third_party_http_archive,
         name = "com_google_brotli",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/google/brotli/archive/6d03dfbedda1615c4cba1211f8d81735575209c8.zip",  # master(2022-11-08)
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/google/brotli/archive/d01a4caaa80c0072fe1b6bf073814b9400667fcc.zip",  # master(2024-05-02)
         ],
-        sha256 = "73a89a4a5ad295eed881795f2767ee9f7542946011f4b30385bcf2caef899df3",
-        strip_prefix = "brotli-6d03dfbedda1615c4cba1211f8d81735575209c8",
+        sha256 = "45b86686a273c5f2a5fd14419be60d50a3ea86e98243d28faba2c74b7b2f01f9",
+        strip_prefix = "brotli-d01a4caaa80c0072fe1b6bf073814b9400667fcc",
         system_build_file = Label("//third_party:com_google_brotli/system.BUILD.bazel"),
         cmake_name = "Brotli",
         bazel_to_cmake = {},

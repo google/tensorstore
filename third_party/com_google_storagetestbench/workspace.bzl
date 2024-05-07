@@ -24,10 +24,10 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_storagetestbench",
-        strip_prefix = "storage-testbench-f197d6560cd325880888017c1c8d15cb923460bd",
+        strip_prefix = "storage-testbench-12a316005c188d77ecbb6df521afe264433f2c08",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/googleapis/storage-testbench/archive/f197d6560cd325880888017c1c8d15cb923460bd.tar.gz",  # main(2023-11-08)
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/googleapis/storage-testbench/archive/12a316005c188d77ecbb6df521afe264433f2c08.tar.gz",  # main(2024-05-02)
         ],
-        sha256 = "52be6755152d228a5a0a6dbabc4784ef7ad299dec3be7631ce6fe2f73bf191bb",
+        sha256 = "f8df4cdfa5606a677aeb9103e3068994a457c87fb94dc2976aa08513d01590cc",
         build_file = Label("//third_party:com_google_storagetestbench/storagetestbench.BUILD.bazel"),
     )

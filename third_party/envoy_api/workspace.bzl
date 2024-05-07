@@ -20,26 +20,26 @@ def repo():
         third_party_http_archive,
         name = "envoy_api",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/envoyproxy/data-plane-api/archive/d525ab36724d6a94477f7642e02418b50a8c4043.tar.gz",  # main(2023-10-03)
-            "https://github.com/envoyproxy/data-plane-api/archive/d525ab36724d6a94477f7642e02418b50a8c4043.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/envoyproxy/data-plane-api/archive/4bcd3855e69a88190c8a88cd6d71538b461dacb8.tar.gz",  # main(2024-05-03)
+            "https://github.com/envoyproxy/data-plane-api/archive/4bcd3855e69a88190c8a88cd6d71538b461dacb8.tar.gz",
         ],
-        sha256 = "6026a4c4d9f01d1887ede73c95a6e3981c66ec0780e934b7442888f5f296d76a",
-        strip_prefix = "data-plane-api-d525ab36724d6a94477f7642e02418b50a8c4043",
-        patches = [
-            Label("//third_party:envoy_api/patches/remove_descriptor_library.diff"),
-        ],
-        patch_args = ["-p1"],
+        sha256 = "ff9bb431d8a7ed2899e31240a7ef72495904c65606fbe3acfe3d9506e7f7b091",
+        strip_prefix = "data-plane-api-4bcd3855e69a88190c8a88cd6d71538b461dacb8",
         repo_mapping = {
             "@com_envoyproxy_protoc_gen_validate": "@local_proto_mirror",
             "@io_bazel_rules_go": "@local_proto_mirror",
             "@opencensus_proto": "@local_proto_mirror",
+            "@com_github_cncf_xds": "@com_github_cncf_udpa",
         },
 
         # CMake options
         cmake_name = "envoy",
         cmake_extra_build_file = Label("//third_party:envoy_api/cmake_extra.BUILD.bazel"),
         bazel_to_cmake = {
-            "args": ["--target=" + p + ":all" for p in _PACKAGES],
+            "args": [
+                "--ignore-library=//bazel/cc_proto_descriptor_library:builddefs.bzl",
+                "--ignore-library=@com_github_grpc_grpc//bazel:python_rules.bzl",
+            ] + ["--target=" + p + ":all" for p in _PACKAGES],
         },
     )
 
@@ -52,6 +52,8 @@ _PACKAGES = [
     "//envoy/config/rbac/v3",
     "//envoy/config/route/v3",
     "//envoy/extensions/clusters/aggregate/v3",
+    "//envoy/extensions/upstreams/tcp/v3",
+    "//envoy/extensions/upstreams/http/v3",
     "//envoy/extensions/filters/common/fault/v3",
     "//envoy/extensions/filters/http/fault/v3",
     "//envoy/extensions/filters/http/rbac/v3",

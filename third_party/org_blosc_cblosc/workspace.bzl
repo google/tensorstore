@@ -22,18 +22,13 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "org_blosc_cblosc",
-        strip_prefix = "c-blosc-1.21.1",
+        strip_prefix = "c-blosc-1.21.5",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/Blosc/c-blosc/archive/v1.21.1.zip",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/Blosc/c-blosc/archive/v1.21.5.zip",
         ],
-        sha256 = "abdf8ad8e5f8a876d67b38d16ff0c40c0456cdce1dcbafe58b589671ff55d31a",
+        sha256 = "bc022fd194e40421531d2ef69831f2793d405d98f60e759c697ccc02dad765ec",
         build_file = Label("//third_party:org_blosc_cblosc/cblosc.BUILD.bazel"),
         system_build_file = Label("//third_party:org_blosc_cblosc/system.BUILD.bazel"),
-        patches = [
-            # https://github.com/Blosc/c-blosc/pull/362
-            Label("//third_party:org_blosc_cblosc/patches/fix-mingw64.diff"),
-        ],
-        patch_args = ["-p1"],
         cmake_name = "Blosc",
         bazel_to_cmake = {},
         cmake_target_mapping = {

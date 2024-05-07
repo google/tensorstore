@@ -19,11 +19,11 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_protobuf_utf8_range",
-        strip_prefix = "utf8_range-cd1507d1479815fbcd8ff24dc05a978a62098bae",
+        strip_prefix = "utf8_range-1d1ea7e3fedf482d4a12b473c1ed25fe0f371a45",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/protocolbuffers/utf8_range/archive/cd1507d1479815fbcd8ff24dc05a978a62098bae.zip",  # main(2023-05-24)
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/protocolbuffers/utf8_range/archive/1d1ea7e3fedf482d4a12b473c1ed25fe0f371a45.zip",  # main(2024-05-03)
         ],
-        sha256 = "707b7278bb002ac1901f4afb13b51333b3a3aefd880616aa2587eda10a8a0824",
+        sha256 = "bf4798b9635a3b34e40a30cb54b5bc185807945da8839e041ab8d91f268d26b1",
         cmake_name = "utf8_range",
         cmake_target_mapping = {
             "//:utf8_range": "utf8_range::utf8_range",
