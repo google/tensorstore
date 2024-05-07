@@ -19,6 +19,7 @@
 
 #include <array>
 #include <atomic>
+#include <bitset>
 #include <cassert>
 #include <memory>
 #include <mutex>  // NOLINT
@@ -42,11 +43,11 @@
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/type_traits.h"
 
-// A CacheEntry owns a strong reference to the Cache that contains it only if
-// its reference count is > 0.
+// A CacheEntry owns a strong reference to the Cache that contains it only
+// if its reference count is > 0.
 //
-// A Cache owns a weak reference to the CachePool that contains it only if its
-// reference count is > 0.
+// A Cache owns a weak reference to the CachePool that contains it only if
+// its reference count is > 0.
 
 namespace tensorstore {
 namespace internal_cache {
@@ -93,22 +94,27 @@ void ReleaseWeakReference(CachePoolImpl* p) {
   }
 }
 
-inline CachePtr<Cache> AcquireCacheStrongPtr(CacheImpl* cache_impl) {
-  auto old_count =
-      cache_impl->reference_count_.fetch_add(1, std::memory_order_acq_rel);
-  TENSORSTORE_INTERNAL_CACHE_DEBUG_REFCOUNT("Cache:increment", cache_impl,
-                                            old_count + 1);
-  if (old_count == 0 && cache_impl->pool_) {
-    // When the first reference to the cache is acquired (either when the cache
-    // is created, or when it is retrieved from the caches_ table of the pool
-    // after all prior references have been removed), also acquire a weak
-    // reference to the pool to ensure the CachePoolImpl object is not destroyed
-    // while a cache still references it.
-    AcquireWeakReference(cache_impl->pool_);
+struct DecrementCacheReferenceCount {
+  explicit DecrementCacheReferenceCount(CacheImpl* cache_impl, size_t amount) {
+    old_count = cache_impl->reference_count_.fetch_sub(
+        amount, std::memory_order_acq_rel);
+    new_count = old_count - amount;
+    TENSORSTORE_INTERNAL_CACHE_DEBUG_REFCOUNT("Cache:decrement", cache_impl,
+                                              new_count);
   }
-  return CachePtr<Cache>(Access::StaticCast<Cache>(cache_impl),
-                         internal::adopt_object_ref);
-}
+
+  bool should_delete() const {
+    return !CacheImpl::ShouldDelete(old_count) &&
+           CacheImpl::ShouldDelete(new_count);
+  }
+
+  bool should_release_cache_pool_weak_reference() const {
+    assert(old_count - new_count == CacheImpl::kStrongReferenceIncrement);
+    return !CacheImpl::ShouldHoldPoolWeakReference(new_count);
+  }
+
+  size_t old_count, new_count;
+};
 
 void UnlinkListNode(LruListNode* node) noexcept {
   Remove(LruListAccessor{}, node);
@@ -131,25 +137,28 @@ void AddToEvictionQueue(CachePoolImpl* pool, CacheEntryImpl* entry) noexcept {
   InsertBefore(LruListAccessor{}, eviction_queue, entry);
 }
 
+void DestroyCache(CachePoolImpl* pool, CacheImpl* cache);
+
 void MaybeEvictEntries(CachePoolImpl* pool) noexcept {
   DebugAssertMutexHeld(&pool->lru_mutex_);
 
-  std::array<CacheEntryImpl*, 64> entries_to_delete;
+  constexpr size_t kBufferSize = 64;
+  std::array<CacheEntryImpl*, kBufferSize> entries_to_delete;
+  // Indicates for each entry in `entries_to_delete` whether its cache should
+  // also be deleted.
+  std::bitset<kBufferSize> should_delete_cache_for_entry;
   size_t num_entries_to_delete = 0;
 
   const auto destroy_entries = [&] {
     internal::ScopedWriterUnlock unlock(pool->lru_mutex_);
     for (size_t i = 0; i < num_entries_to_delete; ++i) {
       auto* entry = entries_to_delete[i];
-      // Hold a reference to `cache` before releasing the lru_mutex to ensure
-      // `cache` is not destroyed.
-      //
-      // FIXME(jbms): Determine why this is necessary.
-      CachePtr<Cache> cache = AcquireCacheStrongPtr(entry->cache_);
+      if (should_delete_cache_for_entry[i]) {
+        DestroyCache(entry->cache_->pool_, entry->cache_);
+      }
+      // Note: The cache that owns entry may have already been destroyed.
+      entry->cache_ = nullptr;
       delete Access::StaticCast<CacheEntry>(entry);
-      // Remove reference to cache while lru_mutex is unlocked.  This may cause
-      // the cache to be destroyed.
-      cache.reset();
     }
   };
 
@@ -163,11 +172,19 @@ void MaybeEvictEntries(CachePoolImpl* pool) noexcept {
     auto* entry = static_cast<CacheEntryImpl*>(queue->next);
     auto* cache = entry->cache_;
     bool evict = false;
+    bool should_delete_cache = false;
     auto& shard = cache->ShardForKey(entry->key_);
     if (absl::MutexLock lock(&shard.mutex);
         entry->reference_count_.load(std::memory_order_acquire) == 0) {
       [[maybe_unused]] size_t erase_count = shard.entries.erase(entry);
       assert(erase_count == 1);
+      if (shard.entries.empty()) {
+        if (DecrementCacheReferenceCount(cache,
+                                         CacheImpl::kNonEmptyShardIncrement)
+                .should_delete()) {
+          should_delete_cache = true;
+        }
+      }
       evict = true;
     }
     if (!evict) {
@@ -186,6 +203,7 @@ void MaybeEvictEntries(CachePoolImpl* pool) noexcept {
     UnregisterEntryFromPool(entry, pool);
     evict_count.Increment();
     // Enqueue entry to be destroyed with `pool->lru_mutex_` released.
+    should_delete_cache_for_entry[num_entries_to_delete] = should_delete_cache;
     entries_to_delete[num_entries_to_delete++] = entry;
     if (num_entries_to_delete == entries_to_delete.size()) {
       destroy_entries();
@@ -203,8 +221,19 @@ void InitializeNewEntry(CacheEntryImpl* entry, CacheImpl* cache) noexcept {
 }
 
 void DestroyCache(CachePoolImpl* pool,
-                  CacheImpl* cache) noexcept ABSL_NO_THREAD_SAFETY_ANALYSIS {
+                  CacheImpl* cache) ABSL_NO_THREAD_SAFETY_ANALYSIS {
   if (pool) {
+    if (!cache->cache_identifier_.empty()) {
+      // Remove from caches array. It is possible, given that this cache has
+      // been marked `ShouldDelete == true`, that the pool already contains a
+      // replacement cache with the same key; the replacement cache should be
+      // ignored.
+      absl::MutexLock lock(&pool->caches_mutex_);
+      auto it = pool->caches_.find(cache);
+      if (it != pool->caches_.end() && *it == cache) {
+        pool->caches_.erase(it);
+      }
+    }
     if (HasLruCache(pool)) {
       absl::MutexLock lru_lock(&pool->lru_mutex_);
       for (auto& shard : cache->shards_) {
@@ -240,6 +269,7 @@ void DestroyCache(CachePoolImpl* pool,
       }
     }
   }
+
   delete Access::StaticCast<Cache>(cache);
 }
 
@@ -247,8 +277,8 @@ void DestroyCache(CachePoolImpl* pool,
 // while `mutex` is held.
 //
 // If `reference_count` was decreased to a value less than or equal to
-// `lock_threshold`, returns a lock on `mutex`.  Otherwise, returns an unlocked
-// `UniqueWriterLock`.
+// `lock_threshold`, returns a lock on `mutex`.  Otherwise, returns an
+// unlocked `UniqueWriterLock`.
 //
 // Args:
 //   reference_count: Reference count to adjust.
@@ -282,8 +312,8 @@ inline UniqueWriterLock<absl::Mutex> DecrementReferenceCountWithLock(
     }
   }
 
-  // Handle the case of the reference_count possibly becoming less than or equal
-  // to lock_threshold.
+  // Handle the case of the reference_count possibly becoming less than or
+  // equal to lock_threshold.
   UniqueWriterLock lock(mutex_fn());
   // Reference count may have changed between the time at which we last
   // checked it and the time at which we acquired the mutex.
@@ -322,6 +352,13 @@ void StrongPtrTraitsCacheEntry::decrement(CacheEntry* p) noexcept
       if (!lock) return;
       if (new_count == 0) {
         shard->entries.erase(entry);
+        if (shard->entries.empty()) {
+          // Note: There is no need to check `ShouldDelete` conditions here
+          // because we still hold a strong reference to the cache (released
+          // below), which guarantees that `ShouldDelete == false`.
+          cache->reference_count_.fetch_sub(CacheImpl::kNonEmptyShardIncrement,
+                                            std::memory_order_relaxed);
+        }
         delete p;
       }
     } else {
@@ -351,6 +388,33 @@ void StrongPtrTraitsCacheEntry::decrement(CacheEntry* p) noexcept
   StrongPtrTraitsCache::decrement(Access::StaticCast<Cache>(cache));
 }
 
+inline bool TryToAcquireCacheStrongReference(CachePoolImpl* pool,
+                                             CacheImpl* cache_impl) {
+  auto old_count = cache_impl->reference_count_.load(std::memory_order_relaxed);
+  while (true) {
+    if (CacheImpl::ShouldDelete(old_count)) {
+      return false;
+    }
+    if (cache_impl->reference_count_.compare_exchange_weak(
+            old_count, old_count + CacheImpl::kStrongReferenceIncrement,
+            std::memory_order_acq_rel)) {
+      TENSORSTORE_INTERNAL_CACHE_DEBUG_REFCOUNT(
+          "Cache:increment", cache_impl,
+          old_count + CacheImpl::kStrongReferenceIncrement);
+      if (!CacheImpl::ShouldHoldPoolWeakReference(old_count)) {
+        // When the first strong reference to the cache is acquired (either
+        // when the cache is created, or when it is retrieved from the
+        // caches_ table of the pool after all prior references have been
+        // removed), also acquire a weak reference to the pool to ensure the
+        // CachePoolImpl object is not destroyed while a cache still
+        // references it.
+        AcquireWeakReference(pool);
+      }
+      return true;
+    }
+  }
+}
+
 CachePtr<Cache> GetCacheInternal(
     CachePoolImpl* pool, const std::type_info& cache_type,
     std::string_view cache_key,
@@ -361,7 +425,13 @@ CachePtr<Cache> GetCacheInternal(
     absl::MutexLock lock(&pool->caches_mutex_);
     auto it = pool->caches_.find(key);
     if (it != pool->caches_.end()) {
-      return AcquireCacheStrongPtr(*it);
+      auto* cache = *it;
+      if (!TryToAcquireCacheStrongReference(pool, cache)) {
+        pool->caches_.erase(it);
+      } else {
+        return CachePtr<Cache>(Access::StaticCast<Cache>(cache),
+                               internal::adopt_object_ref);
+      }
     }
   }
   // No existing cache, create a new one with the pool mutex unlocked.
@@ -371,18 +441,39 @@ CachePtr<Cache> GetCacheInternal(
   cache_impl->pool_ = pool;
   // An empty key indicates not to store the Cache in the map.
   if (!pool || cache_key.empty()) {
+    if (pool) {
+      AcquireWeakReference(pool);
+    }
     new_cache.release();
-    return AcquireCacheStrongPtr(cache_impl);
+    TENSORSTORE_INTERNAL_CACHE_DEBUG_REFCOUNT(
+        "Cache:increment", cache_impl, CacheImpl::kStrongReferenceIncrement);
+    cache_impl->reference_count_.store(CacheImpl::kStrongReferenceIncrement,
+                                       std::memory_order_relaxed);
+    return CachePtr<Cache>(Access::StaticCast<Cache>(cache_impl),
+                           internal::adopt_object_ref);
   }
   cache_impl->cache_type_ = &cache_type;
   cache_impl->cache_identifier_ = std::string(cache_key);
   absl::MutexLock lock(&pool->caches_mutex_);
   auto insert_result = pool->caches_.insert(cache_impl);
-  if (insert_result.second) {
+  if (insert_result.second ||
+      !TryToAcquireCacheStrongReference(pool, *insert_result.first)) {
+    if (!insert_result.second) {
+      const_cast<CacheImpl*&>(*insert_result.first) = cache_impl;
+    }
     new_cache.release();
+    size_t initial_count = CacheImpl::kStrongReferenceIncrement;
+    if (pool->strong_references_.load(std::memory_order_relaxed) != 0) {
+      initial_count += CacheImpl::kCachePoolStrongReferenceIncrement;
+    }
+    cache_impl->reference_count_.store(initial_count,
+                                       std::memory_order_relaxed);
+    TENSORSTORE_INTERNAL_CACHE_DEBUG_REFCOUNT("Cache:increment", cache_impl,
+                                              initial_count);
+    AcquireWeakReference(pool);
   }
-  return AcquireCacheStrongPtr(
-      Access::StaticCast<CacheImpl>(*insert_result.first));
+  return CachePtr<Cache>(Access::StaticCast<Cache>(*insert_result.first),
+                         internal::adopt_object_ref);
 }
 
 PinnedCacheEntry<Cache> GetCacheEntryInternal(internal::Cache* cache,
@@ -405,12 +496,15 @@ PinnedCacheEntry<Cache> GetCacheEntryInternal(internal::Cache* cache,
     if (it != shard.entries.end()) {
       hit_count.Increment();
       auto* entry_impl = *it;
-      if (entry_impl->reference_count_.fetch_add(
-              2, std::memory_order_acq_rel) <= 1) {
-        // When the first strong reference to an entry is acquired, also acquire
-        // a strong reference to the cache to be held by the entry.  This
-        // ensures the Cache object is not destroyed while any of its entries
-        // are referenced.
+      auto old_count =
+          entry_impl->reference_count_.fetch_add(2, std::memory_order_acq_rel);
+      TENSORSTORE_INTERNAL_CACHE_DEBUG_REFCOUNT("CacheEntry:increment",
+                                                entry_impl, old_count + 2);
+      if (old_count <= 1) {
+        // When the first strong reference to an entry is acquired, also
+        // acquire a strong reference to the cache to be held by the entry.
+        // This ensures the Cache object is not destroyed while any of its
+        // entries are referenced.
         StrongPtrTraitsCache::increment(cache);
       }
       // Adopt reference added via `fetch_add` above.
@@ -426,10 +520,18 @@ PinnedCacheEntry<Cache> GetCacheEntryInternal(internal::Cache* cache,
       InitializeNewEntry(entry_impl, cache_impl);  // noexcept
       std::unique_ptr<CacheEntry> entry(
           Access::StaticCast<CacheEntry>(entry_impl));
-      // Add to entries table.  This may throw, in which case the entry will be
+      // Add to entries table. This may throw, in which case the entry will be
       // deleted during unwind.
+      //
+      // Warning: This, like all other aspects of exception safety and
+      // `std::bad_alloc`-safety in particular, have not been tested in
+      // tensorstore and probably don't work.
       [[maybe_unused]] auto inserted = shard.entries.insert(entry_impl).second;
       assert(inserted);
+      if (shard.entries.size() == 1) {
+        cache_impl->reference_count_.fetch_add(
+            CacheImpl::kNonEmptyShardIncrement, std::memory_order_relaxed);
+      }
       StrongPtrTraitsCache::increment(cache);
       returned_entry =
           PinnedCacheEntry<Cache>(entry.release(), internal::adopt_object_ref);
@@ -449,57 +551,18 @@ PinnedCacheEntry<Cache> GetCacheEntryInternal(internal::Cache* cache,
 
 void StrongPtrTraitsCache::decrement(Cache* p) noexcept {
   auto* cache = Access::StaticCast<CacheImpl>(p);
-  auto* pool = cache->pool_;
-  uint32_t new_count;
-  if (!pool || cache->cache_identifier_.empty()) {
-    // It is not possible to obtain new references to this cache without an
-    // existing reference.
-    new_count =
-        cache->reference_count_.fetch_sub(1, std::memory_order_acq_rel) - 1;
-    TENSORSTORE_INTERNAL_CACHE_DEBUG_REFCOUNT("Cache:decrement", p, new_count);
-    if (new_count == 0) {
-      // Destroy the cache since no references to it can be created.
-      DestroyCache(pool, cache);
-      if (pool) ReleaseWeakReference(pool);
-    }
-    return;
+  auto decrement_result =
+      DecrementCacheReferenceCount(cache, CacheImpl::kStrongReferenceIncrement);
+  CachePoolImpl* pool = nullptr;
+  if (decrement_result.should_release_cache_pool_weak_reference()) {
+    pool = cache->pool_;
   }
-  auto lock = DecrementReferenceCountWithLock(
-      cache->reference_count_,
-      [cache]() -> absl::Mutex& { return cache->pool_->caches_mutex_; },
-      new_count,
-      /*decrease_amount=*/1, /*lock_threshold=*/0);
-  TENSORSTORE_INTERNAL_CACHE_DEBUG_REFCOUNT("Cache:decrement", p, new_count);
-  if (!lock) return;
-
-  if (pool->strong_references_.load(std::memory_order_acquire) == 0) {
-    // The CachePool has no strong references currently.  Destroy the cache and
-    // all of its entries.
-    pool->caches_.erase(cache);
-    lock.unlock();
-    DestroyCache(pool, cache);
+  if (decrement_result.should_delete()) {
+    DestroyCache(cache->pool_, cache);
+  }
+  if (pool) {
     ReleaseWeakReference(pool);
-    return;
   }
-
-  bool all_empty = true;
-  for (auto& shard : cache->shards_) {
-    absl::MutexLock lock(&shard.mutex);
-    all_empty &= shard.entries.empty();
-  }
-  if (all_empty) {
-    // The cache contains no entries.  Remove it from the pool's table of
-    // caches, and destroy it.
-    pool->caches_.erase(cache);
-  } else {
-    // The cache still contains entries.  We keep it alive until those entries
-    // are evicted (at which point this function will be called again when
-    // MaybeEvictEntries removes the temporary cache reference that it holds).
-    cache = nullptr;
-  }
-  lock.unlock();
-  if (cache) delete cache;
-  ReleaseWeakReference(pool);
 }
 
 CacheImpl::CacheImpl() : pool_(nullptr), reference_count_(0) {}
@@ -522,16 +585,19 @@ void StrongPtrTraitsCachePool::decrement(CachePool* p) noexcept {
   TENSORSTORE_INTERNAL_CACHE_DEBUG_REFCOUNT("CachePool:decrement", p,
                                             new_count);
   if (!lock) return;
-  std::vector<CachePtr<Cache>> caches;
+  std::vector<CacheImpl*> caches;
   caches.reserve(pool->caches_.size());
   for (auto* cache : pool->caches_) {
-    // Acquire a reference to ensure reference count is non-zero when
-    // `strong_references_` becomes zero, since once `strong_references_` is
-    // zero a cache reference count of 0 implies the cache should already have
-    // been destroyed.
-    caches.push_back(AcquireCacheStrongPtr(cache));
+    if (DecrementCacheReferenceCount(
+            cache, CacheImpl::kCachePoolStrongReferenceIncrement)
+            .should_delete()) {
+      caches.push_back(cache);
+    }
   }
   lock.unlock();
+  for (auto* cache : caches) {
+    DestroyCache(pool, cache);
+  }
   ReleaseWeakReference(pool);
 }
 
@@ -583,9 +649,21 @@ void intrusive_ptr_decrement(CacheEntryWeakState* p)
                                               new_count);
     weak_lock = {};
     if (!entries_lock) return;
-    shard->entries.erase(entry);
+    [[maybe_unused]] size_t erase_count = shard->entries.erase(entry);
+    assert(erase_count == 1);
+    bool should_delete_cache = false;
+    if (shard->entries.empty()) {
+      if (DecrementCacheReferenceCount(cache,
+                                       CacheImpl::kNonEmptyShardIncrement)
+              .should_delete()) {
+        should_delete_cache = true;
+      }
+    }
     entries_lock = {};
     delete Access::StaticCast<CacheEntry>(entry);
+    if (should_delete_cache) {
+      DestroyCache(pool, cache);
+    }
     return;
   }
   auto pool_lock = DecrementReferenceCountWithLock(
@@ -611,8 +689,8 @@ internal::IntrusivePtr<CacheEntryWeakState> AcquireWeakCacheEntryReference(
       entry_impl->weak_state_.load(std::memory_order_acquire);
   if (!weak_state) {
     if (!entry_impl->cache_->pool_) {
-      // Weak references aren't supported if cache pool is disabled, since they
-      // would serve no purpose.
+      // Weak references aren't supported if cache pool is disabled, since
+      // they would serve no purpose.
       return {};
     }
     // Must allocate new weak reference state, since there have been no prior
@@ -672,8 +750,8 @@ CacheEntry::~CacheEntry() {
     weak_state->entry = nullptr;
     if (weak_state->weak_references.load(std::memory_order_acquire) != 0) {
       // Don't destroy the weak reference state, since there are still weak
-      // references.  It will be destroyed instead when the last weak reference
-      // is released.
+      // references.  It will be destroyed instead when the last weak
+      // reference is released.
       return;
     }
   }
@@ -721,6 +799,11 @@ CachePool::StrongPtr::StrongPtr(const CachePool::WeakPtr& ptr)
   absl::MutexLock lock(&pool->caches_mutex_);
   if (pool->strong_references_.fetch_add(1, std::memory_order_acq_rel) == 0) {
     internal_cache::AcquireWeakReference(pool);
+    for (auto* cache : pool->caches_) {
+      cache->reference_count_.fetch_add(
+          internal_cache::CacheImpl::kCachePoolStrongReferenceIncrement,
+          std::memory_order_acq_rel);
+    }
   }
 }
 

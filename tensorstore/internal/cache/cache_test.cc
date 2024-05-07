@@ -63,6 +63,19 @@ CachePoolImpl* GetPoolImpl(const CachePool::WeakPtr& ptr) {
 
 class TestCache : public Cache {
  public:
+  struct RequestLog {
+    absl::Mutex mutex;
+    // Log of calls to DoAllocateEntry.  Only contains the cache key, not the
+    // entry key.
+    std::deque<std::string> entry_allocate_log;
+    // Log of calls to DoDeleteEntry.  Contains the cache key and entry key.
+    std::deque<std::pair<std::string, std::string>> entry_destroy_log;
+    // Log of calls to GetTestCache (defined below).  ontains the cache key.
+    std::deque<std::string> cache_allocate_log;
+    // Log of calls to TestCache destructor.  Contains the cache key.
+    std::deque<std::string> cache_destroy_log;
+  };
+
   class Entry : public Cache::Entry {
    public:
     using OwningCache = TestCache;
@@ -76,23 +89,19 @@ class TestCache : public Cache {
       NotifySizeChanged();
     }
 
+    ~Entry() override {
+      if (log_) {
+        absl::MutexLock lock(&log_->mutex);
+        log_->entry_destroy_log.emplace_back(cache_identifier_,
+                                             std::string(this->key()));
+      }
+    }
+
     // Set by some tests.
     WeakPinnedCacheEntry weak_ref;
 
-    ~Entry() override { GetOwningCache(*this).OnDelete(this); }
-  };
-
-  struct RequestLog {
-    absl::Mutex mutex;
-    // Log of calls to DoAllocateEntry.  Only contains the cache key, not the
-    // entry key.
-    std::deque<std::string> entry_allocate_log;
-    // Log of calls to DoDeleteEntry.  Contains the cache key and entry key.
-    std::deque<std::pair<std::string, std::string>> entry_destroy_log;
-    // Log of calls to GetTestCache (defined below).  ontains the cache key.
-    std::deque<std::string> cache_allocate_log;
-    // Log of calls to TestCache destructor.  Contains the cache key.
-    std::deque<std::string> cache_destroy_log;
+    std::shared_ptr<RequestLog> log_;
+    std::string cache_identifier_;
   };
 
   explicit TestCache(std::shared_ptr<RequestLog> log = {}) : log_(log) {}
@@ -111,16 +120,13 @@ class TestCache : public Cache {
       absl::MutexLock lock(&log_->mutex);
       log_->entry_allocate_log.emplace_back(cache_identifier());
     }
-    return new Entry;
+    auto* entry = new Entry;
+    entry->cache_identifier_ = cache_identifier();
+    entry->log_ = log_;
+    return entry;
   }
 
-  void OnDelete(Entry* entry) {
-    if (log_) {
-      absl::MutexLock lock(&log_->mutex);
-      log_->entry_destroy_log.emplace_back(std::string(cache_identifier()),
-                                           std::string(entry->key()));
-    }
-  }
+  void OnDelete(Entry* entry) {}
 
   size_t DoGetSizeInBytes(Cache::Entry* base_entry) override {
     auto* entry = static_cast<Entry*>(base_entry);
@@ -807,6 +813,25 @@ TEST(CacheTest, ConcurrentGetReleaseCacheEntry) {
         EXPECT_EQ(2, GetPoolImpl(pool)->weak_references_.load());
         EXPECT_EQ(1, cache->use_count());
       },
+      // Concurrent operations:
+      concurrent_op, concurrent_op, concurrent_op);
+}
+
+TEST(CacheTest, ConcurrentDestroyCacheEvictEntries) {
+  CachePool::Limits limits = {};
+  limits.total_bytes_limit = 1;
+  auto pool = CachePool::Make(limits);
+  const auto concurrent_op = [&] {
+    // Get then release cache and cache entry.
+    auto cache = GetTestCache(pool.get(), "");
+    auto entry = GetCacheEntry(cache, "a");
+  };
+  TestConcurrent(
+      kDefaultIterations,
+      /*initialize=*/
+      [&] {},
+      /*finalize=*/
+      [&] {},
       // Concurrent operations:
       concurrent_op, concurrent_op, concurrent_op);
 }
