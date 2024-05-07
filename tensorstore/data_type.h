@@ -919,6 +919,7 @@ struct CopyAssignImpl {
   ABSL_ATTRIBUTE_ALWAYS_INLINE static std::enable_if_t<
       std::is_trivially_copyable_v<T>, Index>
   ApplyContiguous(Index count, const T* source, T* dest, void*) {
+#ifdef __clang__
     // Note: Using `memmove` actually results in ~20% worse performance with
     // Clang if `count` is small (e.g. 64).  Furthermore, marking `source` and
     // `dest` as `__restrict__` results in the loop getting converted into a
@@ -929,6 +930,11 @@ struct CopyAssignImpl {
     for (Index i = 0; i < count; ++i) {
       dest[i] = source[i];
     }
+#else
+    // On GCC (perhaps with manylinux2014 in particular), memmove is
+    // about 2x faster than the loop above.
+    std::memmove(dest, source, count * sizeof(T));
+#endif
     return count;
   }
 #endif  // TENSORSTORE_DATA_TYPE_DISABLE_MEMMOVE_OPTIMIZATION
