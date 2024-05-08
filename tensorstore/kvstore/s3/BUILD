@@ -196,6 +196,7 @@ tensorstore_cc_library(
         ":s3_context",
         "//tensorstore/internal/http",
         "@com_github_aws_cpp_sdk//:core",
+        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
     ]
 )
@@ -306,6 +307,10 @@ tensorstore_cc_library(
     srcs = ["s3_context.cc"],
     hdrs = ["s3_context.h"],
     deps = [
+        "//tensorstore/util:executor",
+        "//tensorstore/internal/http",
+        "//tensorstore/internal/http:curl_transport",
+        "//tensorstore/internal/thread:thread_pool",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/synchronization",
         "@com_github_aws_cpp_sdk//:core",

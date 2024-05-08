@@ -54,7 +54,6 @@ private:
 
 struct AwsContext {
   Aws::SDKOptions options;
-  std::shared_ptr<Aws::Utils::Logging::LogSystemInterface> log_system_;
   std::shared_ptr<Aws::Auth::AWSCredentialsProvider> cred_provider_;
 };
 

@@ -18,23 +18,191 @@
 #include <memory>
 
 #include <aws/core/Aws.h>
+#include <aws/core/http/HttpClient.h>
+#include <aws/core/http/standard/StandardHttpRequest.h>
+#include <aws/core/http/standard/StandardHttpResponse.h>
 #include <aws/core/utils/logging/AWSLogging.h>
 #include <aws/core/utils/logging/LogSystemInterface.h>
 #include <aws/core/auth/AWSCredentialsProviderChain.h>
 #include <aws/core/utils/memory/stl/AWSStringStream.h>
+#include <aws/core/utils/StringUtils.h>
 
 #include "absl/log/absl_log.h"
 #include "absl/synchronization/mutex.h"
+
+#include "tensorstore/internal/http/curl_transport.h"
+#include "tensorstore/internal/http/http_request.h"
+#include "tensorstore/internal/http/http_response.h"
 
 namespace tensorstore {
 namespace internal_kvstore_s3 {
 
 namespace {
 
+static constexpr char kAwsTag[] = "AWS";
+
 absl::Mutex context_mu_;
 std::weak_ptr<AwsContext> context_;
 
 }  // namespace
+
+/// Wraps a tensorstore HttpRequest in a Aws HttpRequest interface
+class HttpRequestAdapter : public Aws::Http::HttpRequest {
+public:
+  ::tensorstore::internal_http::HttpRequest request_;
+  Aws::Http::HeaderValueCollection headers_;
+  Aws::IOStreamFactory stream_factory_;
+  std::shared_ptr<Aws::IOStream> body_;
+
+  HttpRequestAdapter(const Aws::Http::URI & uri, Aws::Http::HttpMethod method) :
+    HttpRequest(uri, method),
+    headers_(),
+    stream_factory_(),
+    body_(nullptr) {};
+
+  virtual Aws::Http::HeaderValueCollection GetHeaders() const override {
+    return headers_;
+  }
+
+  virtual const Aws::String & GetHeaderValue(const char* headerName) const override {
+    auto it = headers_.find(headerName);
+    assert(it != headers_.end());
+    return it->second;
+  }
+
+  virtual bool HasHeader(const char* name) const override {
+    return headers_.find(name) != headers_.end();
+  }
+
+  virtual void SetHeaderValue(const Aws::String& headerName, const Aws::String& headerValue) override {
+    headers_.insert({headerName, headerValue});
+  }
+
+  virtual void SetHeaderValue(const char* headerName, const Aws::String& headerValue) override {
+    headers_.insert({
+      Aws::Utils::StringUtils::ToLower(headerName),
+      Aws::Utils::StringUtils::Trim(headerValue.c_str())});
+  }
+
+  virtual void DeleteHeader(const char* headerName) override {
+    headers_.erase(headers_.find(headerName));
+  }
+
+  virtual int64_t GetSize() const override {
+    return headers_.size();
+  }
+
+  virtual void AddContentBody(const std::shared_ptr<Aws::IOStream>& strContext) override {
+    body_ = strContext;
+  }
+
+  virtual const std::shared_ptr<Aws::IOStream>& GetContentBody() const override {
+    return body_;
+  }
+
+  virtual void SetResponseStreamFactory(const Aws::IOStreamFactory& streamFactory) override {
+    stream_factory_ = streamFactory;
+  }
+
+  virtual const Aws::IOStreamFactory& GetResponseStreamFactory() const override {
+    return stream_factory_;
+  }
+};
+
+/// Wraps a tensorstore HttpResponse in an Aws HttpResponse interface
+class HttpResponseAdapter: public Aws::Http::HttpResponse {
+public:
+  ::tensorstore::internal_http::HttpResponse response_;
+  ::Aws::Utils::Stream::ResponseStream body_stream_;
+
+  HttpResponseAdapter(
+        ::tensorstore::internal_http::HttpResponse response,
+        const std::shared_ptr<const Aws::Http::HttpRequest> & originatingRequest) :
+      ::Aws::Http::HttpResponse(originatingRequest),
+      response_(std::move(response)),
+      body_stream_(originatingRequest->GetResponseStreamFactory()()) {};
+
+  virtual Aws::Utils::Stream::ResponseStream && SwapResponseStreamOwnership() override {
+    return std::move(body_stream_);
+  }
+
+  virtual void AddHeader(const Aws::String& headerName, const Aws::String& headerValue) override {
+    response_.headers.insert({headerName, headerValue});
+  }
+
+  virtual bool HasHeader(const char* headerName) const override {
+    return response_.headers.find(Aws::Utils::StringUtils::ToLower(headerName)) != response_.headers.end();
+  }
+
+  virtual Aws::Http::HeaderValueCollection GetHeaders() const override {
+    Aws::Http::HeaderValueCollection headers;
+    for(const auto & header: response_.headers) {
+      headers.insert({header.first, header.second});
+    }
+    return headers;
+  }
+
+  virtual const Aws::String & GetHeader(const Aws::String& headerName) const override {
+    auto it = response_.headers.find(headerName);
+    assert(it != response_.headers.end());
+    return it->second;
+  }
+
+  virtual Aws::IOStream & GetResponseBody() const override {
+    return body_stream_.GetUnderlyingStream();
+  }
+};
+
+
+class CustomHttpClient : public Aws::Http::HttpClient {
+public:
+  std::shared_ptr<Aws::Http::HttpResponse> MakeRequest(
+    const std::shared_ptr<Aws::Http::HttpRequest> & request,
+    Aws::Utils::RateLimits::RateLimiterInterface* readLimiter = nullptr,
+    Aws::Utils::RateLimits::RateLimiterInterface* writeLimiter = nullptr) const override {
+      ABSL_LOG(INFO) << "Making a request " << std::endl;
+      if(auto req_adapter = std::dynamic_pointer_cast<HttpRequestAdapter>(request); req_adapter) {
+        auto transport = ::tensorstore::internal_http::GetDefaultHttpTransport();
+        auto future = transport->IssueRequest(req_adapter->request_, {});
+        // future.ExecuteWhenReady may be desirable
+        auto response = future.value();
+        return Aws::MakeShared<HttpResponseAdapter>(kAWSTag, response, request);
+      }
+
+      auto failed_response = Aws::MakeShared<Aws::Http::Standard::StandardHttpResponse>(kAwsTag, request);
+      failed_response->SetResponseCode(Aws::Http::HttpResponseCode::PRECONDITION_FAILED);
+      return failed_response;
+    };
+};
+
+
+/// Custom factory overriding Aws::Http::DefaultHttpFatory
+class CustomHttpFactory : public Aws::Http::HttpClientFactory {
+public:
+  std::shared_ptr<Aws::Http::HttpClient> CreateHttpClient(
+    const Aws::Client::ClientConfiguration & clientConfiguration) const override {
+      ABSL_LOG(INFO) << "Making a custom HTTP Client";
+      return Aws::MakeShared<CustomHttpClient>(kAWSTag);
+  };
+
+  std::shared_ptr<Aws::Http::HttpRequest> CreateHttpRequest(
+    const Aws::String &uri, Aws::Http::HttpMethod method,
+    const Aws::IOStreamFactory &streamFactory) const override {
+      return CreateHttpRequest(Aws::Http::URI(uri), method, streamFactory);
+  }
+
+  std::shared_ptr<Aws::Http::HttpRequest> CreateHttpRequest(
+    const Aws::Http::URI& uri, Aws::Http::HttpMethod method,
+    const Aws::IOStreamFactory& streamFactory) const override
+  {
+      ABSL_LOG(INFO) << "CreateHttpRequest "
+        << Aws::Http::HttpMethodMapper::GetNameForHttpMethod(method)
+        << " " << uri.GetURIString(true);
+      auto request = Aws::MakeShared<HttpRequestAdapter>(kAWSTag, uri, method);
+      request->SetResponseStreamFactory(streamFactory);
+      return request;
+  }
+};
 
 AWSLogSystem::AWSLogSystem(Aws::Utils::Logging::LogLevel log_level)
   : log_level_(log_level) {}
@@ -94,22 +262,36 @@ std::shared_ptr<AwsContext> GetAwsContext() {
     return context_.lock();
   }
 
-  ABSL_LOG(INFO) << "Initialising AWS API";
   auto options = Aws::SDKOptions{};
+  // Customise HttpClientFactory
+  // Disable curl init/cleanup
+  // Don't install the SIGPIPE handler
+  // options.httpOptions.httpClientFactory_create_fn = []() {
+  //   return Aws::MakeShared<CustomHttpFactory>(kAwsTag);
+  // };
+  options.httpOptions.initAndCleanupCurl = false;
+  options.httpOptions.installSigPipeHandler = false;
+
+  // Install AWS -> Abseil Logging Translator
+  auto level = Aws::Utils::Logging::LogLevel::Info;
+  options.loggingOptions.logLevel = level;
+  options.loggingOptions.logger_create_fn = [=]() {
+    return Aws::MakeShared<AWSLogSystem>(kAWSTag, level);
+  };
+
+  ABSL_LOG(INFO) << "Initialising AWS SDK API";
   Aws::InitAPI(options);
-  auto log = Aws::MakeShared<AWSLogSystem>(kAWSTag, Aws::Utils::Logging::LogLevel::Info);
-  Aws::Utils::Logging::InitializeAWSLogging(std::move(log));
+  ABSL_LOG(INFO) << "Done Initialising AWS SDK API";
+
   auto provider = Aws::MakeShared<Aws::Auth::DefaultAWSCredentialsProviderChain>(kAWSTag);
 
   auto ctx = std::shared_ptr<AwsContext>(
     new AwsContext{
         std::move(options),
-        std::move(log),
         std::move(provider)},
       [](AwsContext * ctx) {
         absl::MutexLock lock(&context_mu_);
-        ABSL_LOG(INFO) << "Shutting down AWS API";
-        Aws::Utils::Logging::ShutdownAWSLogging();
+        ABSL_LOG(INFO) << "Shutting down AWS SDK API";
         Aws::ShutdownAPI(ctx->options);
         delete ctx;
     });
