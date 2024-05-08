@@ -34,7 +34,7 @@ tensorstore::Result<std::string> Stride2Decoder(std::string_view input) {
     return absl::InvalidArgumentError("");
   }
   std::string output;
-  for (std::size_t i = 0; i < input.size(); i += 2) {
+  for (size_t i = 0; i < input.size(); i += 2) {
     output += input[i];
   }
   return output;

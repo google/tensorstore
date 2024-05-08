@@ -73,11 +73,16 @@ tensorstore_cc_library(
         ":uint64_sharded",
         "//tensorstore/internal:cord_util",
         "//tensorstore/internal/compression:zlib",
+        "//tensorstore/kvstore:byte_range",
         "//tensorstore/util:endian",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
+        "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "@com_google_absl//absl/algorithm:container",
+        "@com_google_absl//absl/base:endian",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:cord",
     ],
 )
 

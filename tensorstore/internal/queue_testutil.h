@@ -15,6 +15,7 @@
 #ifndef TENSORSTORE_INTERNAL_QUEUE_TESTUTIL_H_
 #define TENSORSTORE_INTERNAL_QUEUE_TESTUTIL_H_
 
+#include <cstddef>
 #include <deque>
 #include <optional>
 #include <utility>
@@ -61,7 +62,7 @@ class ConcurrentQueue {
   /// Returns the size.
   ///
   /// Requires external synchronization to ensure a meaningful result.
-  std::size_t size() {
+  size_t size() {
     absl::MutexLock lock(&mutex_);
     return queue_.size();
   }

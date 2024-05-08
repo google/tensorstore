@@ -63,10 +63,9 @@ void* AllocateAndConstruct(std::ptrdiff_t n,
                            ElementInitialization initialization, DataType r) {
   assert(n >= 0);
   assert(n < kInfSize);
-  std::size_t alignment =
-      RoundUpTo(static_cast<std::size_t>(r->alignment), sizeof(void*));
-  std::size_t total_size =
-      RoundUpTo(static_cast<std::size_t>(r->size * n), alignment);
+  size_t alignment =
+      RoundUpTo(static_cast<size_t>(r->alignment), sizeof(void*));
+  size_t total_size = RoundUpTo(static_cast<size_t>(r->size * n), alignment);
   struct AlignedDeleter {
     std::align_val_t alignment;
     void operator()(void* p) const { ::operator delete(p, alignment); }

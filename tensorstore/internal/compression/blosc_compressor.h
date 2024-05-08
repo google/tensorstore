@@ -60,7 +60,7 @@ class BloscCompressor : public JsonSpecifiedCompressor {
   std::string codec;
   int level;
   int shuffle;
-  std::size_t blocksize;
+  size_t blocksize;
 };
 
 }  // namespace internal

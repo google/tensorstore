@@ -35,25 +35,25 @@ namespace tensorstore {
 
 namespace internal_iterate {
 
-template <std::size_t N>
+template <size_t N>
 bool operator==(const DimensionSizeAndStrides<N>& a,
                 const DimensionSizeAndStrides<N>& b) {
   return a.size == b.size && a.strides == b.strides;
 }
 
-template <std::size_t N>
+template <size_t N>
 bool operator!=(const DimensionSizeAndStrides<N>& a,
                 const DimensionSizeAndStrides<N>& b) {
   return !(a == b);
 }
 
-template <std::size_t N, DimensionIndex InnerRank>
+template <size_t N, DimensionIndex InnerRank>
 bool operator==(const InnerShapeAndStrides<N, InnerRank>& a,
                 const InnerShapeAndStrides<N, InnerRank>& b) {
   return a.shape == b.shape && a.strides == b.strides;
 }
 
-template <std::size_t N, DimensionIndex InnerRank>
+template <size_t N, DimensionIndex InnerRank>
 bool operator!=(const InnerShapeAndStrides<N, InnerRank>& a,
                 const InnerShapeAndStrides<N, InnerRank>& b) {
   return !(a == b);
@@ -86,7 +86,7 @@ bool operator!=(const InnerShapeAndStrides<N, InnerRank>& a,
 /// \param strides Array of pointers to stride arrays of length `shape.size()`.
 ///
 /// \return The permuted and simplified shape and arrays of strides.
-template <std::size_t N>
+template <size_t N>
 StridedIterationLayout<N> PermuteAndSimplifyStridedIterationLayout(
     const Index* shape, span<const DimensionIndex> dimension_order,
     std::array<const Index*, N> strides) {
@@ -109,7 +109,7 @@ StridedIterationLayout<N> PermuteAndSimplifyStridedIterationLayout(
   const auto can_combine_dimensions =
       [&](const DimensionSizeAndStrides<N>& source,
           const std::array<Index, N>& prior_strides) {
-        for (std::size_t j = 0; j < N; ++j) {
+        for (size_t j = 0; j < N; ++j) {
           if (source.strides[j] * source.size != prior_strides[j]) return false;
         }
         return true;
@@ -167,7 +167,7 @@ ComputeStridedLayoutDimensionIterationOrder(IterationConstraints constraints,
 ///
 /// \returns The permuted and simplified shape and arrays of strides, intended
 ///     for iteration in C (right to left) order.
-template <std::size_t N>
+template <size_t N>
 StridedIterationLayout<N> SimplifyStridedIterationLayout(
     IterationConstraints constraints, span<const Index> shape,
     std::array<const Index*, N> strides) {
@@ -199,7 +199,7 @@ StridedIterationLayout<N> SimplifyStridedIterationLayout(
 ///     `0` otherwise.  `inner_layout.strides[j][i] =
 ///     padded_iteration_layout[padded_iteration_layout.size() - InnerRank +
 ///     i][j].
-template <DimensionIndex InnerRank, std::size_t N>
+template <DimensionIndex InnerRank, size_t N>
 InnerShapeAndStrides<N, InnerRank> ExtractInnerShapeAndStrides(
     StridedIterationLayout<N>* iteration_layout) {
   InnerShapeAndStrides<N, InnerRank> inner_shapes_and_strides;
@@ -230,7 +230,7 @@ InnerShapeAndStrides<N, InnerRank> ExtractInnerShapeAndStrides(
 template <typename Func, typename... Pointer>
 class IterateHelper {
  public:
-  constexpr static std::size_t arity = sizeof...(Pointer);
+  constexpr static size_t arity = sizeof...(Pointer);
   using Result = std::invoke_result_t<Func, Pointer...>;
 
   /// Calls `func` for each position within the multi-dimensional layout.
@@ -248,7 +248,7 @@ class IterateHelper {
   /// Loops over the next dimension, and either recurses or calls `func`.
   ///
   /// \pre layouts.size() >= 1
-  template <std::size_t... Is>
+  template <size_t... Is>
   static Result Loop(Func func,
                      span<const DimensionSizeAndStrides<arity>> layouts,
                      std::index_sequence<Is...> index_sequence,

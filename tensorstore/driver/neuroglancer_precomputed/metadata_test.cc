@@ -14,6 +14,8 @@
 
 #include "tensorstore/driver/neuroglancer_precomputed/metadata.h"
 
+#include <stddef.h>
+
 #include <vector>
 
 #include <gmock/gmock.h>
@@ -110,7 +112,7 @@ TEST(MetadataTest, ParseUnsharded) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto m,
                                    MultiscaleMetadata::FromJson(metadata_json));
   EXPECT_EQ("image", m.type);
-  EXPECT_EQ(dtype_v<std::uint8_t>, m.dtype);
+  EXPECT_EQ(dtype_v<uint8_t>, m.dtype);
   EXPECT_EQ(1, m.num_channels);
   EXPECT_EQ(::nlohmann::json::object_t{}, m.extra_attributes);
   ASSERT_EQ(2, m.scales.size());
@@ -168,7 +170,7 @@ TEST(MetadataTest, ParseSharded) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto m,
                                    MultiscaleMetadata::FromJson(metadata_json));
   EXPECT_EQ("segmentation", m.type);
-  EXPECT_EQ(dtype_v<std::uint64_t>, m.dtype);
+  EXPECT_EQ(dtype_v<uint64_t>, m.dtype);
   EXPECT_EQ(2, m.num_channels);
   EXPECT_THAT(m.extra_attributes,
               MatchesJson({{"extra_attribute", "attribute_value"}}));
@@ -530,7 +532,7 @@ TEST(MultiscaleMetadataConstraintsTest, ParseValid) {
       MultiscaleMetadataConstraints::FromJson(
           {{"data_type", "uint8"}, {"num_channels", 3}, {"type", "image"}}));
   EXPECT_EQ("image", m.type.value());
-  EXPECT_EQ(dtype_v<std::uint8_t>, m.dtype);
+  EXPECT_EQ(dtype_v<uint8_t>, m.dtype);
   EXPECT_EQ(3, m.num_channels.value());
 }
 
@@ -755,9 +757,9 @@ TEST(OpenConstraintsTest, ParseEmptyObject) {
 TEST(OpenConstraintsTest, ParseEmptyObjectDataTypeConstraint) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto m, OpenConstraints::FromJson(::nlohmann::json::object_t{},
-                                        dtype_v<std::uint8_t>));
+                                        dtype_v<uint8_t>));
   EXPECT_FALSE(m.scale_index);
-  EXPECT_EQ(dtype_v<std::uint8_t>, m.multiscale.dtype);
+  EXPECT_EQ(dtype_v<uint8_t>, m.multiscale.dtype);
 }
 
 TEST(OpenConstraintsTest, ParseEmptyObjectInvalidDataTypeConstraint) {
@@ -775,7 +777,7 @@ TEST(OpenConstraintsTest, ParseValid) {
                    {"scale_metadata", {{"encoding", "jpeg"}}},
                    {"scale_index", 2}}));
   EXPECT_THAT(m.scale_index, ::testing::Optional(2));
-  EXPECT_EQ(dtype_v<std::uint8_t>, m.multiscale.dtype);
+  EXPECT_EQ(dtype_v<uint8_t>, m.multiscale.dtype);
   EXPECT_EQ(ScaleMetadata::Encoding::jpeg, m.scale.encoding);
 }
 
@@ -783,15 +785,15 @@ TEST(OpenConstraintsTest, ParseDataTypeConstraint) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto m, OpenConstraints::FromJson(
                   {{"multiscale_metadata", {{"data_type", "uint8"}}}},
-                  dtype_v<std::uint8_t>));
-  EXPECT_EQ(dtype_v<std::uint8_t>, m.multiscale.dtype);
+                  dtype_v<uint8_t>));
+  EXPECT_EQ(dtype_v<uint8_t>, m.multiscale.dtype);
 }
 
 TEST(OpenConstraintsTest, ParseDataTypeConstraintMismatch) {
   EXPECT_THAT(
       OpenConstraints::FromJson(
           {{"multiscale_metadata", {{"data_type", "uint8"}}}},
-          dtype_v<std::uint16_t>),
+          dtype_v<uint16_t>),
       MatchesStatus(absl::StatusCode::kInvalidArgument,
                     ".*: Expected data type of uint16 but received: uint8"));
 }
@@ -878,7 +880,7 @@ TEST(ValidateMetadataCompatibilityTest, Basic) {
                                    MultiscaleMetadata::FromJson(metadata_json));
 
   const auto Validate = [](const MultiscaleMetadata& a,
-                           const MultiscaleMetadata& b, std::size_t scale_index,
+                           const MultiscaleMetadata& b, size_t scale_index,
                            std::array<Index, 3> chunk_size) -> absl::Status {
     SCOPED_TRACE(StrCat("a=", ::nlohmann::json(a).dump()));
     SCOPED_TRACE(StrCat("b=", ::nlohmann::json(b).dump()));
@@ -1067,7 +1069,7 @@ TEST(CreateScaleTest, NoExistingMetadata) {
                                {"data_type", "uint8"},
                                {"num_channels", 2},
                                {"scales", {scale_attributes}}})));
-  EXPECT_EQ(dtype_v<std::uint8_t>, metadata->dtype);
+  EXPECT_EQ(dtype_v<uint8_t>, metadata->dtype);
   EXPECT_EQ(2, metadata->num_channels);
   EXPECT_EQ("image", metadata->type);
   ASSERT_EQ(1, metadata->scales.size());
@@ -1162,7 +1164,7 @@ TEST(CreateScaleTest, NoExistingMetadataCompressedSegmentation) {
                                {"data_type", "uint32"},
                                {"num_channels", 2},
                                {"scales", {scale_attributes}}})));
-  EXPECT_EQ(dtype_v<std::uint32_t>, metadata->dtype);
+  EXPECT_EQ(dtype_v<uint32_t>, metadata->dtype);
   EXPECT_EQ(2, metadata->num_channels);
   EXPECT_EQ("image", metadata->type);
   ASSERT_EQ(1, metadata->scales.size());
@@ -1328,7 +1330,7 @@ TEST(CreateScaleTest, ExistingMetadata) {
     EXPECT_EQ(2, scale_index);
     EXPECT_THAT(metadata->ToJson(),
                 ::testing::Optional(MatchesJson(expected_metadata)));
-    EXPECT_EQ(dtype_v<std::uint64_t>, metadata->dtype);
+    EXPECT_EQ(dtype_v<uint64_t>, metadata->dtype);
     EXPECT_EQ(1, metadata->num_channels);
     EXPECT_EQ("segmentation", metadata->type);
     ASSERT_EQ(3, metadata->scales.size());
@@ -1794,7 +1796,7 @@ TEST(GetChunksPerVolumeShardFunctionTest, AllShardsFull) {
       GetChunksPerVolumeShardFunction(sharding_spec, volume_shape, chunk_shape);
 
   // Shard shape in chunks: {2, 2, 2}
-  for (std::uint64_t shard = 0; shard < 8; ++shard) {
+  for (uint64_t shard = 0; shard < 8; ++shard) {
     EXPECT_EQ(8, f(shard)) << "shard=" << shard;
   }
 

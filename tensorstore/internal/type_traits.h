@@ -210,10 +210,10 @@ constexpr inline bool IsConstConvertibleOrVoid =
      std::is_void_v<Dest>);
 
 #ifdef TENSORSTORE_HAS_TYPE_PACK_ELEMENT
-template <std::size_t I, typename... Ts>
+template <size_t I, typename... Ts>
 using TypePackElement = __type_pack_element<I, Ts...>;
 #else
-template <std::size_t I, typename... Ts>
+template <size_t I, typename... Ts>
 using TypePackElement = typename std::tuple_element<I, std::tuple<Ts...>>::type;
 #endif
 

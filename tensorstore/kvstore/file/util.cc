@@ -16,7 +16,6 @@
 
 #include <stddef.h>
 
-#include <string>
 #include <string_view>
 
 #include "absl/strings/match.h"
@@ -34,7 +33,7 @@ bool IsKeyValid(std::string_view key, std::string_view lock_suffix) {
   if (key.empty()) return false;
   if (key.back() == '/') return false;
   while (true) {
-    std::size_t next_delimiter = key.find('/');
+    size_t next_delimiter = key.find('/');
     std::string_view component = next_delimiter == std::string_view::npos
                                      ? key
                                      : key.substr(0, next_delimiter);

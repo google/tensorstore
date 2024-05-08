@@ -49,6 +49,7 @@
 #include "tensorstore/internal/chunk_grid_specification.h"
 #include "tensorstore/internal/grid_storage_statistics.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/open_options.h"
@@ -289,7 +290,7 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
   }
 
   Result<IndexTransform<>> GetExternalToInternalTransform(
-      const void* metadata_ptr, std::size_t component_index) override {
+      const void* metadata_ptr, size_t component_index) override {
     assert(component_index == 0);
     const auto& metadata = *static_cast<const N5Metadata*>(metadata_ptr);
     const auto& axes = metadata.axes;
@@ -306,7 +307,7 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
 
   absl::Status GetBoundSpecData(KvsDriverSpec& spec_base,
                                 const void* metadata_ptr,
-                                std::size_t component_index) override {
+                                size_t component_index) override {
     assert(component_index == 0);
     auto& spec = static_cast<N5DriverSpec&>(spec_base);
     const auto& metadata = *static_cast<const N5Metadata*>(metadata_ptr);
@@ -324,7 +325,7 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
   }
 
   Result<ChunkLayout> GetChunkLayoutFromMetadata(
-      const void* metadata_ptr, std::size_t component_index) override {
+      const void* metadata_ptr, size_t component_index) override {
     const auto& metadata = *static_cast<const N5Metadata*>(metadata_ptr);
     ChunkLayout chunk_layout;
     TENSORSTORE_RETURN_IF_ERROR(SetChunkLayoutFromMetadata(
@@ -449,8 +450,8 @@ class N5Driver::OpenState : public N5Driver::OpenStateBase {
                                        spec().store.path);
   }
 
-  Result<std::size_t> GetComponentIndex(const void* metadata_ptr,
-                                        OpenMode open_mode) override {
+  Result<size_t> GetComponentIndex(const void* metadata_ptr,
+                                   OpenMode open_mode) override {
     const auto& metadata = *static_cast<const N5Metadata*>(metadata_ptr);
     TENSORSTORE_RETURN_IF_ERROR(
         ValidateMetadata(metadata, spec().metadata_constraints));

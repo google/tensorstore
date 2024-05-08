@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -29,17 +30,17 @@ namespace {
 using ::tensorstore::BitSpan;
 using ::tensorstore::BitVec;
 
-static_assert(!std::is_convertible_v<BitSpan<std::uint64_t, 3>, BitVec<>>);
+static_assert(!std::is_convertible_v<BitSpan<uint64_t, 3>, BitVec<>>);
 
-static_assert(std::is_constructible_v<BitVec<3>, BitSpan<std::uint32_t, 3>>);
+static_assert(std::is_constructible_v<BitVec<3>, BitSpan<uint32_t, 3>>);
 
-static_assert(std::is_constructible_v<BitVec<>, BitSpan<std::uint32_t, 3>>);
+static_assert(std::is_constructible_v<BitVec<>, BitSpan<uint32_t, 3>>);
 
 static_assert(!std::is_constructible_v<BitVec<3>, BitVec<>>);
 
-static_assert(!std::is_constructible_v<BitVec<3>, BitSpan<std::uint32_t>>);
+static_assert(!std::is_constructible_v<BitVec<3>, BitSpan<uint32_t>>);
 
-static_assert(!std::is_constructible_v<BitVec<3>, BitSpan<std::uint32_t, 4>>);
+static_assert(!std::is_constructible_v<BitVec<3>, BitSpan<uint32_t, 4>>);
 
 static_assert(!std::is_constructible_v<BitVec<3>, BitVec<4>>);
 
@@ -307,11 +308,11 @@ TEST(BitVecTest, BlocksInline) {
   for (int i : {0, 5, 17, 62}) {
     a[i] = true;
   }
-  EXPECT_THAT(a.blocks(), ::testing::ElementsAre(          //
-                              (std::uint64_t(1) << 0) |    //
-                              (std::uint64_t(1) << 5) |    //
-                              (std::uint64_t(1) << 17) |   //
-                              (std::uint64_t(1) << 62)));  //
+  EXPECT_THAT(a.blocks(), ::testing::ElementsAre(     //
+                              (uint64_t(1) << 0) |    //
+                              (uint64_t(1) << 5) |    //
+                              (uint64_t(1) << 17) |   //
+                              (uint64_t(1) << 62)));  //
 }
 
 TEST(BitVecTest, BlocksLarge) {
@@ -320,13 +321,13 @@ TEST(BitVecTest, BlocksLarge) {
     a[i] = true;
   }
   EXPECT_THAT(a.blocks(),
-              ::testing::ElementsAre(                //
-                  (std::uint64_t(1) << 0) |          //
-                      (std::uint64_t(1) << 5) |      //
-                      (std::uint64_t(1) << 17) |     //
-                      (std::uint64_t(1) << 62),      //
-                  (std::uint64_t(1) << (90 - 64)) |  //
-                      (std::uint64_t(1) << (127 - 64))));
+              ::testing::ElementsAre(           //
+                  (uint64_t(1) << 0) |          //
+                      (uint64_t(1) << 5) |      //
+                      (uint64_t(1) << 17) |     //
+                      (uint64_t(1) << 62),      //
+                  (uint64_t(1) << (90 - 64)) |  //
+                      (uint64_t(1) << (127 - 64))));
 }
 
 TEST(BitVecTest, ResizeStatic) {

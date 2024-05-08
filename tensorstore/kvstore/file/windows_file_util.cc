@@ -58,6 +58,7 @@
 
 #include "tensorstore/kvstore/file/windows_file_util.h"
 
+#include <stddef.h>
 #include <stdio.h>
 
 #include "absl/log/absl_check.h"
@@ -69,16 +70,16 @@
 namespace tensorstore {
 namespace internal_file_util {
 
-inline ::OVERLAPPED GetOverlappedWithOffset(std::uint64_t offset) {
+inline ::OVERLAPPED GetOverlappedWithOffset(uint64_t offset) {
   ::OVERLAPPED overlapped = {};
   overlapped.Offset = static_cast<DWORD>(offset & 0xffffffff);
   overlapped.OffsetHigh = static_cast<DWORD>(offset >> 32);
   return overlapped;
 }
 
-std::ptrdiff_t ReadFromFile(FileDescriptor fd, void* buf, std::size_t count,
+std::ptrdiff_t ReadFromFile(FileDescriptor fd, void* buf, size_t count,
                             std::int64_t offset) {
-  auto overlapped = GetOverlappedWithOffset(static_cast<std::uint64_t>(offset));
+  auto overlapped = GetOverlappedWithOffset(static_cast<uint64_t>(offset));
   if (count > std::numeric_limits<DWORD>::max()) {
     count = std::numeric_limits<DWORD>::max();
   }
@@ -87,8 +88,7 @@ std::ptrdiff_t ReadFromFile(FileDescriptor fd, void* buf, std::size_t count,
     return -1;
   return static_cast<std::ptrdiff_t>(bytes_read);
 }
-std::ptrdiff_t WriteToFile(FileDescriptor fd, const void* buf,
-                           std::size_t count) {
+std::ptrdiff_t WriteToFile(FileDescriptor fd, const void* buf, size_t count) {
   if (count > std::numeric_limits<DWORD>::max()) {
     count = std::numeric_limits<DWORD>::max();
   }
@@ -97,7 +97,7 @@ std::ptrdiff_t WriteToFile(FileDescriptor fd, const void* buf,
                    /*lpOverlapped=*/nullptr)) {
     return -1;
   }
-  return static_cast<std::size_t>(num_written);
+  return static_cast<size_t>(num_written);
 }
 
 std::ptrdiff_t WriteCordToFile(FileDescriptor fd, absl::Cord value) {

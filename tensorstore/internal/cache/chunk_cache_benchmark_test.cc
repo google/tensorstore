@@ -197,7 +197,7 @@ class BenchmarkCache : public ConcreteChunkCache {
   };
 
   Entry* DoAllocateEntry() final { return new Entry; }
-  std::size_t DoGetSizeofEntry() final { return sizeof(Entry); }
+  size_t DoGetSizeofEntry() final { return sizeof(Entry); }
   TransactionNode* DoAllocateTransactionNode(AsyncCache::Entry& entry) final {
     return new TransactionNode(static_cast<Entry&>(entry));
   }

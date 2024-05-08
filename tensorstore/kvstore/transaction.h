@@ -84,8 +84,14 @@
 /// operations.  This makes it possible for subsequent `ReadModifyWrite`
 /// operations to efficiently take into account the current modified state.
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <atomic>
+#include <optional>
 #include <string>
+#include <string_view>
+#include <utility>
 
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
@@ -95,11 +101,16 @@
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/tagged_ptr.h"
 #include "tensorstore/kvstore/driver.h"
+#include "tensorstore/kvstore/generation.h"
+#include "tensorstore/kvstore/key_range.h"
+#include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_modify_write.h"
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/transaction.h"
+#include "tensorstore/util/future.h"
 #include "tensorstore/util/quote_string.h"  // IWYU pragma: keep
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace internal_kvstore {
@@ -269,7 +280,7 @@ class ReadModifyWriteEntry : public MutationEntry,
   }
 
   // Bit vector of flags, see flag definitions below.
-  using Flags = std::uint8_t;
+  using Flags = uint8_t;
 
   Flags flags_ = 0;
 

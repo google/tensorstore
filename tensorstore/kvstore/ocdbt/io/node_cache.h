@@ -15,16 +15,19 @@
 #ifndef TENSORSTORE_KVSTORE_OCDBT_IO_NODE_CACHE_H_
 #define TENSORSTORE_KVSTORE_OCDBT_IO_NODE_CACHE_H_
 
+#include <stddef.h>
+
 #include <memory>
 #include <optional>
 #include <string>
-#include <string_view>
 #include <utility>
 
+#include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/time/time.h"
 #include "tensorstore/context.h"
+#include "tensorstore/internal/cache/async_cache.h"
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/cache/kvs_backed_cache.h"
 #include "tensorstore/internal/cache_key/cache_key.h"
@@ -34,6 +37,7 @@
 #include "tensorstore/internal/estimate_heap_usage/std_variant.h"
 #include "tensorstore/internal/estimate_heap_usage/std_vector.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
+#include "tensorstore/kvstore/ocdbt/format/data_file_id.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
 #include "tensorstore/kvstore/ocdbt/format/version_tree.h"
 #include "tensorstore/kvstore/spec.h"
@@ -64,7 +68,7 @@ class DecodedIndirectDataCache
     using OwningCache = Derived;
     using typename Base::Entry::DecodeReceiver;
 
-    std::size_t ComputeReadDataSizeInBytes(const void* read_data) override {
+    size_t ComputeReadDataSizeInBytes(const void* read_data) override {
       return internal::EstimateHeapUsage(
           *static_cast<const ReadData*>(read_data));
     }
@@ -93,7 +97,7 @@ class DecodedIndirectDataCache
   using typename Base::TransactionNode;
 
   Entry* DoAllocateEntry() final { return new Entry; }
-  std::size_t DoGetSizeofEntry() final { return sizeof(Entry); }
+  size_t DoGetSizeofEntry() final { return sizeof(Entry); }
   typename Base::TransactionNode* DoAllocateTransactionNode(
       internal::AsyncCache::Entry& entry) final {
     return new TransactionNode(static_cast<Entry&>(entry));

@@ -53,7 +53,7 @@ namespace tensorstore {
 namespace internal_python {
 
 /// Converts `v` to a homogeneous tuple of bool.
-HomogeneousTuple<bool> GetBitVector(BitSpan<const std::uint64_t> v);
+HomogeneousTuple<bool> GetBitVector(BitSpan<const uint64_t> v);
 
 /// Represents a standalone `OutputIndexMap`, for use in initializing an
 /// `IndexTransform`.

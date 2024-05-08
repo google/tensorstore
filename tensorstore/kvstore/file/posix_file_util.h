@@ -23,6 +23,8 @@
 
 #ifndef _WIN32
 
+#include <ctime>
+#include <memory>
 #include <string>
 #include <string_view>
 
@@ -89,7 +91,7 @@ inline bool IsRegularFile(const FileInfo& info) {
 }
 
 /// Returns the size in bytes.
-inline std::uint64_t GetSize(const FileInfo& info) { return info.st_size; }
+inline uint64_t GetSize(const FileInfo& info) { return info.st_size; }
 
 /// Returns a unique identifier of the device/filesystem.
 inline const auto GetDeviceId(const FileInfo& info) { return info.st_dev; }

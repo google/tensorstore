@@ -351,8 +351,8 @@ TEST(MutableRepTest, Concurrent) {
   write_ptr->output_rank = 0;
   TransformRep::Ptr<> read_ptr;
 
-  [[maybe_unused]] std::size_t num_reads_before_write = 0;
-  const std::size_t num_iterations = 1000;
+  [[maybe_unused]] size_t num_reads_before_write = 0;
+  const size_t num_iterations = 1000;
   TestConcurrent(
       /*num_iterations=*/num_iterations,
       /*initialize=*/

@@ -53,7 +53,7 @@ namespace internal_json_binding {
 /// `std::string_view`,
 ///     `int`, or another type convertible to `::nlohmann::json`.
 /// \param values Array of `EnumValue`/`JsonValue` pairs.
-template <typename EnumValue, typename JsonValue, std::size_t N>
+template <typename EnumValue, typename JsonValue, size_t N>
 constexpr auto Enum(const std::pair<EnumValue, JsonValue> (&values)[N]) {
   return [=](auto is_loading, const auto& options, auto* obj,
              auto* j) -> absl::Status {

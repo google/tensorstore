@@ -14,7 +14,23 @@
 
 #include "tensorstore/index_space/internal/label_op.h"
 
+#include <stddef.h>
+
+#include <string>
+#include <string_view>
+#include <utility>
+
+#include "absl/status/status.h"
+#include "tensorstore/container_kind.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_space/dimension_index_buffer.h"
+#include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/internal/transform_rep.h"
 #include "tensorstore/internal/dimension_labels.h"
+#include "tensorstore/internal/string_like.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -24,7 +40,7 @@ Result<IndexTransform<>> ApplyLabel(IndexTransform<> transform,
                                     DimensionIndexBuffer* dimensions,
                                     internal::StringLikeSpan labels,
                                     bool domain_only) {
-  if (dimensions->size() != static_cast<std::size_t>(labels.size())) {
+  if (dimensions->size() != static_cast<size_t>(labels.size())) {
     return absl::InvalidArgumentError(tensorstore::StrCat(
         "Number of dimensions (", dimensions->size(),
         ") does not match number of labels (", labels.size(), ")."));

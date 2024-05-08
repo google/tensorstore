@@ -14,6 +14,8 @@
 
 #include "tensorstore/driver/zarr/dtype.h"
 
+#include <stddef.h>
+
 #include "absl/base/optimization.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
@@ -284,7 +286,7 @@ Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value) {
 
 absl::Status ValidateDType(ZarrDType& dtype) {
   dtype.bytes_per_outer_element = 0;
-  for (std::size_t field_i = 0; field_i < dtype.fields.size(); ++field_i) {
+  for (size_t field_i = 0; field_i < dtype.fields.size(); ++field_i) {
     auto& field = dtype.fields[field_i];
     if (std::any_of(
             dtype.fields.begin(), dtype.fields.begin() + field_i,

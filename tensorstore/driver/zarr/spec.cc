@@ -14,12 +14,44 @@
 
 #include "tensorstore/driver/zarr/spec.h"
 
+#include <stddef.h>
+
+#include <algorithm>
+#include <cassert>
+#include <memory>
+#include <numeric>
+#include <optional>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "absl/status/status.h"
+#include "tensorstore/array.h"
+#include "tensorstore/box.h"
+#include "tensorstore/chunk_layout.h"
+#include "tensorstore/codec_spec.h"
 #include "tensorstore/codec_spec_registry.h"
+#include "tensorstore/contiguous_layout.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/driver/zarr/compressor.h"
+#include "tensorstore/driver/zarr/dtype.h"
+#include "tensorstore/driver/zarr/metadata.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_domain_builder.h"
+#include "tensorstore/internal/json/same.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_metadata_matching.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/schema.h"
+#include "tensorstore/util/constant_vector.h"
+#include "tensorstore/util/dimension_set.h"
+#include "tensorstore/util/iterate.h"
 #include "tensorstore/util/quote_string.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -490,8 +522,8 @@ std::string GetFieldNames(const ZarrDType& dtype) {
 }
 }  // namespace
 
-Result<std::size_t> GetFieldIndex(const ZarrDType& dtype,
-                                  const SelectedField& selected_field) {
+Result<size_t> GetFieldIndex(const ZarrDType& dtype,
+                             const SelectedField& selected_field) {
   if (selected_field.empty()) {
     if (dtype.fields.size() != 1) {
       return absl::FailedPreconditionError(tensorstore::StrCat(
@@ -504,7 +536,7 @@ Result<std::size_t> GetFieldIndex(const ZarrDType& dtype,
         tensorstore::StrCat("Requested field ", QuoteString(selected_field),
                             " but dtype does not have named fields"));
   }
-  for (std::size_t field_index = 0; field_index < dtype.fields.size();
+  for (size_t field_index = 0; field_index < dtype.fields.size();
        ++field_index) {
     if (dtype.fields[field_index].name == selected_field) return field_index;
   }
@@ -523,8 +555,7 @@ Result<SelectedField> ParseSelectedField(const ::nlohmann::json& value) {
                           ::nlohmann::json(value).dump()));
 }
 
-SelectedField EncodeSelectedField(std::size_t field_index,
-                                  const ZarrDType& dtype) {
+SelectedField EncodeSelectedField(size_t field_index, const ZarrDType& dtype) {
   assert(field_index >= 0 && field_index < dtype.fields.size());
   const auto& field = dtype.fields[field_index];
   return field.name;

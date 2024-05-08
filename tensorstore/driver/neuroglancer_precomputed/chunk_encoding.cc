@@ -176,13 +176,13 @@ Result<SharedArray<const void>> DecodeCompressedSegmentationChunk(
       success = neuroglancer_compressed_segmentation::DecodeChannels(
           flat_buffer, block_shape_ptrdiff_t, output_shape_ptrdiff_t,
           output_byte_strides,
-          static_cast<std::uint32_t*>(full_decoded_array.data()));
+          static_cast<uint32_t*>(full_decoded_array.data()));
       break;
     case DataTypeId::uint64_t:
       success = neuroglancer_compressed_segmentation::DecodeChannels(
           flat_buffer, block_shape_ptrdiff_t, output_shape_ptrdiff_t,
           output_byte_strides,
-          static_cast<std::uint64_t*>(full_decoded_array.data()));
+          static_cast<uint64_t*>(full_decoded_array.data()));
       break;
     default:
       ABSL_UNREACHABLE();  // COV_NF_LINE
@@ -203,7 +203,7 @@ Result<SharedArray<const void>> DecodeCompressedSegmentationChunk(
 /// \param full_chunk_shape The full chunk shape in `cxyx` order.
 /// \param partial_chunk_shape[out] The partial chunk shape in `cxyx` order.
 void GetChunkShape(span<const Index> chunk_indices,
-                   const MultiscaleMetadata& metadata, std::size_t scale_index,
+                   const MultiscaleMetadata& metadata, size_t scale_index,
                    span<const Index, 4> full_chunk_shape,
                    span<Index, 4> partial_chunk_shape) {
   const auto& scale = metadata.scales[scale_index];
@@ -217,7 +217,7 @@ void GetChunkShape(span<const Index> chunk_indices,
 
 Result<SharedArray<const void>> DecodeChunk(span<const Index> chunk_indices,
                                             const MultiscaleMetadata& metadata,
-                                            std::size_t scale_index,
+                                            size_t scale_index,
                                             StridedLayoutView<4> chunk_layout,
                                             absl::Cord buffer) {
   const auto& scale_metadata = metadata.scales[scale_index];
@@ -295,15 +295,13 @@ Result<absl::Cord> EncodeCompressedSegmentationChunk(
   switch (dtype.id()) {
     case DataTypeId::uint32_t:
       neuroglancer_compressed_segmentation::EncodeChannels(
-          static_cast<const std::uint32_t*>(array.data()),
-          input_shape_ptrdiff_t, input_byte_strides, block_shape_ptrdiff_t,
-          &out);
+          static_cast<const uint32_t*>(array.data()), input_shape_ptrdiff_t,
+          input_byte_strides, block_shape_ptrdiff_t, &out);
       break;
     case DataTypeId::uint64_t:
       neuroglancer_compressed_segmentation::EncodeChannels(
-          static_cast<const std::uint64_t*>(array.data()),
-          input_shape_ptrdiff_t, input_byte_strides, block_shape_ptrdiff_t,
-          &out);
+          static_cast<const uint64_t*>(array.data()), input_shape_ptrdiff_t,
+          input_byte_strides, block_shape_ptrdiff_t, &out);
       break;
     default:
       ABSL_UNREACHABLE();  // COV_NF_LINE
@@ -313,7 +311,7 @@ Result<absl::Cord> EncodeCompressedSegmentationChunk(
 
 Result<absl::Cord> EncodeChunk(span<const Index> chunk_indices,
                                const MultiscaleMetadata& metadata,
-                               std::size_t scale_index,
+                               size_t scale_index,
                                const SharedArrayView<const void>& array) {
   const auto& scale_metadata = metadata.scales[scale_index];
   std::array<Index, 4> partial_chunk_shape;

@@ -176,7 +176,7 @@ constexpr inline auto DefaultBinder<std::int64_t> = ValueAsBinder;
 template <>
 constexpr inline auto DefaultBinder<std::string> = ValueAsBinder;
 template <>
-constexpr inline auto DefaultBinder<std::uint64_t> = ValueAsBinder;
+constexpr inline auto DefaultBinder<uint64_t> = ValueAsBinder;
 template <>
 constexpr inline auto DefaultBinder<double> = ValueAsBinder;
 template <>

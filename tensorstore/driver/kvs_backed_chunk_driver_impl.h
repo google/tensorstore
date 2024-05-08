@@ -17,16 +17,19 @@
 
 /// \file
 /// Implementation details of `kvs_backed_chunk_driver.h`.
+#include <stddef.h>
 
-#include <memory>
-#include <string>
+#include <vector>
 
 #include "absl/status/status.h"
 #include "tensorstore/box.h"
 #include "tensorstore/driver/kvs_backed_chunk_driver.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/resize_options.h"
+#include "tensorstore/transaction.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 namespace internal_kvs_backed_chunk_driver {
@@ -96,9 +99,8 @@ struct ResizeParameters {
 /// \param transform The existing transform.
 /// \param options Resolve options.
 Result<IndexTransform<>> ResolveBoundsFromMetadata(
-    DataCacheBase* data_cache, const void* new_metadata,
-    std::size_t component_index, IndexTransform<> transform,
-    ResolveBoundsOptions options);
+    DataCacheBase* data_cache, const void* new_metadata, size_t component_index,
+    IndexTransform<> transform, ResolveBoundsOptions options);
 
 /// Validates a resize request for consistency with `transform` and `metadata`.
 ///

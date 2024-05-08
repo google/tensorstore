@@ -15,6 +15,8 @@
 #ifndef TENSORSTORE_DRIVER_ZARR_DRIVER_IMPL_H_
 #define TENSORSTORE_DRIVER_ZARR_DRIVER_IMPL_H_
 
+#include <stddef.h>
+
 #include <string>
 #include <string_view>
 
@@ -126,7 +128,7 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
 
   absl::Status GetBoundSpecData(
       internal_kvs_backed_chunk_driver::KvsDriverSpec& spec_base,
-      const void* metadata_ptr, std::size_t component_index) override;
+      const void* metadata_ptr, size_t component_index) override;
 
   Result<ChunkLayout> GetChunkLayoutFromMetadata(
       const void* metadata_ptr, size_t component_index) override;

@@ -15,6 +15,8 @@
 #ifndef TENSORSTORE_INDEX_SPACE_INTERNAL_ITERATE_IMPL_H_
 #define TENSORSTORE_INDEX_SPACE_INTERNAL_ITERATE_IMPL_H_
 
+#include <stddef.h>
+
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/index.h"
@@ -29,7 +31,7 @@ namespace input_dimension_iteration_flags {
 /// Bitmask that specifies what types of dependencies, if any, there are on a
 /// given input dimension by any output dimension.  This is used to optimize
 /// iteration.
-using Bitmask = std::uint8_t;
+using Bitmask = uint8_t;
 
 /// Indicates that no output dimension depends on this input dimension.
 constexpr Bitmask can_skip = 0;
@@ -163,13 +165,13 @@ struct SimplifiedDimensionIterationOrder : public DimensionIterationOrder {
   Index simplified_shape[kMaxRank];
 };
 
-template <std::size_t Arity>
+template <size_t Arity>
 struct OrderTransformedArrayDimensionsByStrides {
   span<const SingleArrayIterationState, Arity> single_array_states;
 
   bool operator()(DimensionIndex input_dim_a,
                   DimensionIndex input_dim_b) const {
-    for (std::size_t i = 0; i < Arity; ++i) {
+    for (size_t i = 0; i < Arity; ++i) {
       const auto& single_array_state = single_array_states[i];
       // Compare index array byte strides
       for (const Index* cur_byte_strides :
@@ -273,7 +275,7 @@ DimensionIterationOrder ComputeDimensionIterationOrder(
   return result;
 }
 
-template <std::size_t Arity>
+template <size_t Arity>
 DimensionIterationOrder ComputeDimensionIterationOrder(
     span<const SingleArrayIterationState, Arity> single_array_states,
     span<const input_dimension_iteration_flags::Bitmask> input_dimension_flags,
@@ -324,13 +326,13 @@ SimplifiedDimensionIterationOrder SimplifyDimensionIterationOrder(
 }
 
 /// Predicate for use with SimplifyDimensionIterationOrder.
-template <std::size_t Arity>
+template <size_t Arity>
 struct CanCombineTransformedArrayDimensions {
   span<const SingleArrayIterationState, Arity> single_array_states;
 
   bool operator()(DimensionIndex prev_input_dim, DimensionIndex input_dim,
                   Index size) const {
-    for (std::size_t i = 0; i < Arity; ++i) {
+    for (size_t i = 0; i < Arity; ++i) {
       // Compare direct byte strides
       {
         const auto* cur_byte_strides =
@@ -352,7 +354,7 @@ struct CanCombineTransformedArrayDimensions {
   }
 };
 
-template <std::size_t Arity>
+template <size_t Arity>
 SimplifiedDimensionIterationOrder SimplifyDimensionIterationOrder(
     const DimensionIterationOrder& original_layout,
     span<const Index> input_shape,
@@ -362,7 +364,7 @@ SimplifiedDimensionIterationOrder SimplifyDimensionIterationOrder(
       CanCombineTransformedArrayDimensions<Arity>{single_array_states});
 }
 
-template <std::size_t Arity>
+template <size_t Arity>
 bool IterateUsingSimplifiedLayout(
     const SimplifiedDimensionIterationOrder& layout,
     span<const Index> input_shape,

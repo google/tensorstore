@@ -43,6 +43,8 @@
 
 // IWYU pragma: private, include "third_party/tensorstore/internal/multi_vector.h"
 
+#include <stddef.h>
+
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -80,7 +82,7 @@ inline constexpr std::ptrdiff_t GetAlignedOffset(
 ///     to the total storage required by the multi vector.
 inline constexpr std::ptrdiff_t GetVectorOffset(
     const std::ptrdiff_t sizes[], const std::ptrdiff_t alignments[],
-    std::ptrdiff_t extent, std::size_t array_i) {
+    std::ptrdiff_t extent, size_t array_i) {
   if (array_i == 0) return 0;
   return GetAlignedOffset(
       GetVectorOffset(sizes, alignments, extent, array_i - 1) +
@@ -102,12 +104,12 @@ struct PackStorageOffsets {
 
   /// Alignment required for the multi vector, equal to the maximum alignment of
   /// the element types `Ts...`.
-  constexpr static std::size_t kAlignment =
+  constexpr static size_t kAlignment =
       *std::max_element(std::begin(kAlignments), std::end(kAlignments));
 
   /// Returns the byte offset of vector `array_i`.
   static constexpr std::ptrdiff_t GetVectorOffset(std::ptrdiff_t extent,
-                                                  std::size_t array_i) {
+                                                  size_t array_i) {
     return internal_multi_vector::GetVectorOffset(kSizes, kAlignments, extent,
                                                   array_i);
   }

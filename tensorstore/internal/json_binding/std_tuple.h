@@ -41,8 +41,7 @@ namespace tensorstore {
 namespace internal_json_binding {
 
 inline absl::Status MaybeAnnotateTupleElementError(absl::Status status,
-                                                   std::size_t i,
-                                                   bool is_loading) {
+                                                   size_t i, bool is_loading) {
   return status.ok()
              ? status
              : MaybeAnnotateStatus(

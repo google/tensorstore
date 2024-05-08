@@ -14,20 +14,43 @@
 
 #include "tensorstore/driver/n5/metadata.h"
 
+#include <stddef.h>
+
+#include <algorithm>
+#include <array>
+#include <cassert>
+#include <cstdint>
+#include <memory>
 #include <optional>
+#include <string>
+#include <utility>
 
 #include "absl/algorithm/container.h"
 #include "absl/status/status.h"
+#include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include <nlohmann/json.hpp>
 #include "riegeli/bytes/cord_reader.h"
 #include "riegeli/bytes/cord_writer.h"
 #include "riegeli/bytes/reader.h"
 #include "riegeli/bytes/writer.h"
 #include "riegeli/endian/endian_reading.h"
 #include "riegeli/endian/endian_writing.h"
+#include "tensorstore/array.h"
+#include "tensorstore/box.h"
+#include "tensorstore/chunk_layout.h"
+#include "tensorstore/codec_spec.h"
 #include "tensorstore/codec_spec_registry.h"
+#include "tensorstore/contiguous_layout.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/driver/n5/compressor.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_space/dimension_units.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/internal/json/same.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/data_type.h"
 #include "tensorstore/internal/json_binding/dimension_indexed.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
@@ -35,9 +58,19 @@
 #include "tensorstore/internal/json_metadata_matching.h"
 #include "tensorstore/internal/riegeli/array_endian_codec.h"
 #include "tensorstore/internal/type_traits.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/schema.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/serialization/json_bindable.h"
+#include "tensorstore/strided_layout.h"
+#include "tensorstore/util/constant_vector.h"
+#include "tensorstore/util/endian.h"
+#include "tensorstore/util/extents.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
+#include "tensorstore/util/unit.h"
 
 namespace tensorstore {
 namespace internal_n5 {
@@ -98,7 +131,7 @@ absl::Status ValidateMetadata(N5Metadata& metadata) {
   // While this limit may apply to compressed data, we will also apply it
   // to the uncompressed data.
   const Index max_num_elements =
-      (static_cast<std::size_t>(1) << 31) / metadata.dtype.size();
+      (static_cast<size_t>(1) << 31) / metadata.dtype.size();
   if (ProductOfExtents(span(metadata.chunk_shape)) > max_num_elements) {
     return absl::InvalidArgumentError(tensorstore::StrCat(
         "\"blockSize\" of ", span(metadata.chunk_shape), " with data type of ",
@@ -169,7 +202,7 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(N5MetadataConstraints,
                                          return jb::Optional(binder);
                                        }))
 
-std::size_t GetChunkHeaderSize(const N5Metadata& metadata) {
+size_t GetChunkHeaderSize(const N5Metadata& metadata) {
   // Per the specification:
   // https://github.com/saalfeldlab/n5#file-system-specification-version-203-snapshot
   //
@@ -184,10 +217,10 @@ std::size_t GetChunkHeaderSize(const N5Metadata& metadata) {
   //    * [ mode == varlength ? number of elements (uint32 big endian) ]
   //
   //    * compressed data (big endian)
-  return                                      //
-      2 +                                     // mode
-      2 +                                     // number of dimensions
-      sizeof(std::uint32_t) * metadata.rank;  // dimensions
+  return                                 //
+      2 +                                // mode
+      2 +                                // number of dimensions
+      sizeof(uint32_t) * metadata.rank;  // dimensions
 }
 
 Result<SharedArray<const void>> DecodeChunk(const N5Metadata& metadata,
@@ -196,7 +229,7 @@ Result<SharedArray<const void>> DecodeChunk(const N5Metadata& metadata,
   // the 2GiB limit, although we do implicitly check that the decoded array data
   // within the chunk is within the 2GiB limit due to the checks on the block
   // size.  Determine if this is an important limit.
-  const std::size_t header_size = GetChunkHeaderSize(metadata);
+  const size_t header_size = GetChunkHeaderSize(metadata);
   if (buffer.size() < header_size) {
     return absl::InvalidArgumentError(
         tensorstore::StrCat("Expected header of length ", header_size,

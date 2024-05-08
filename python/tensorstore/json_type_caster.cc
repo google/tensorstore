@@ -20,6 +20,7 @@
 #include "python/tensorstore/json_type_caster.h"
 
 // Other headers
+#include <cstdint>
 #include <string>
 #include <utility>
 #include <vector>
@@ -78,10 +79,10 @@ py::object JsonToPyObject(const ::nlohmann::json& value) noexcept {
                                                                   : Py_False);
     case value_t::number_unsigned:
       return py::reinterpret_steal<py::object>(
-          PyLong_FromUnsignedLongLong(value.get<std::uint64_t>()));
+          PyLong_FromUnsignedLongLong(value.get<uint64_t>()));
     case value_t::number_integer:
       return py::reinterpret_steal<py::object>(
-          PyLong_FromLongLong(value.get<std::uint64_t>()));
+          PyLong_FromLongLong(value.get<uint64_t>()));
     case value_t::number_float:
       return py::reinterpret_steal<py::object>(
           PyFloat_FromDouble(value.get<double>()));
@@ -99,7 +100,7 @@ namespace {
   // good.
   if (auto v = PyLong_AsUnsignedLongLong(h.ptr());
       v != static_cast<decltype(v)>(-1) || !PyErr_Occurred()) {
-    return static_cast<std::uint64_t>(v);
+    return static_cast<uint64_t>(v);
   }
   PyErr_Clear();
   if (auto v = PyLong_AsLongLong(h.ptr());

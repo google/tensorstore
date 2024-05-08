@@ -18,16 +18,19 @@
 /// \file
 /// Facilities related to parsing a zarr array DriverSpec.
 
-#include <cstdint>
+#include <cstddef>
 #include <optional>
+#include <string>
 
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/codec_spec.h"
 #include "tensorstore/driver/zarr/compressor.h"
+#include "tensorstore/driver/zarr/dtype.h"
 #include "tensorstore/driver/zarr/metadata.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/json_binding/bindable.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/util/result.h"
 
@@ -132,8 +135,8 @@ Result<SelectedField> ParseSelectedField(const ::nlohmann::json& value);
 /// \returns The field index.
 /// \error `absl::StatusCode::kFailedPrecondition` if `selected_field` is not
 ///     valid.
-Result<std::size_t> GetFieldIndex(const ZarrDType& dtype,
-                                  const SelectedField& selected_field);
+Result<size_t> GetFieldIndex(const ZarrDType& dtype,
+                             const SelectedField& selected_field);
 
 /// Encodes a field index as a `SelectedField` JSON specification.
 ///
@@ -144,8 +147,7 @@ Result<std::size_t> GetFieldIndex(const ZarrDType& dtype,
 /// \dchecks `field_index >= 0 && field_index < dtype.fields.size()`
 /// \returns the field name associated with `field_index`, or the empty string
 ///     otherwise.
-SelectedField EncodeSelectedField(std::size_t field_index,
-                                  const ZarrDType& dtype);
+SelectedField EncodeSelectedField(size_t field_index, const ZarrDType& dtype);
 
 /// Determines the order permutation for the given contiguous layout order
 /// value.

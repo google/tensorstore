@@ -33,7 +33,7 @@
 namespace tensorstore {
 
 namespace internal_bitvec {
-using Block = std::uint64_t;
+using Block = uint64_t;
 
 template <std::ptrdiff_t Extent = dynamic_extent>
 class BitVecStorage {

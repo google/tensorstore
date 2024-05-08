@@ -526,7 +526,7 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(OpenConstraints, OpenConstraintsBinder)
 
 absl::Status ValidateMetadataCompatibility(
     const MultiscaleMetadata& existing_metadata,
-    const MultiscaleMetadata& new_metadata, std::size_t scale_index,
+    const MultiscaleMetadata& new_metadata, size_t scale_index,
     const std::array<Index, 3>& chunk_size) {
   if (new_metadata.num_channels != existing_metadata.num_channels) {
     return MetadataMismatchError(kNumChannelsId, existing_metadata.num_channels,
@@ -580,7 +580,7 @@ absl::Status ValidateMetadataCompatibility(
 }
 
 std::string GetMetadataCompatibilityKey(
-    const MultiscaleMetadata& metadata, std::size_t scale_index,
+    const MultiscaleMetadata& metadata, size_t scale_index,
     const std::array<Index, 3>& chunk_size) {
   const auto& scale_metadata = metadata.scales[scale_index];
   ::nlohmann::json obj;
@@ -981,7 +981,7 @@ Result<DimensionUnitsVector> GetEffectiveDimensionUnits(
   return units;
 }
 
-Result<std::pair<std::shared_ptr<MultiscaleMetadata>, std::size_t>> CreateScale(
+Result<std::pair<std::shared_ptr<MultiscaleMetadata>, size_t>> CreateScale(
     const MultiscaleMetadata* existing_metadata,
     const OpenConstraints& orig_constraints, const Schema& orig_schema,
     bool assume_metadata) {
@@ -1276,12 +1276,12 @@ absl::Status ValidateMetadataSchema(const MultiscaleMetadata& metadata,
   return absl::OkStatus();
 }
 
-Result<std::size_t> OpenScale(const MultiscaleMetadata& metadata,
-                              const OpenConstraints& constraints,
-                              const Schema& schema) {
+Result<size_t> OpenScale(const MultiscaleMetadata& metadata,
+                         const OpenConstraints& constraints,
+                         const Schema& schema) {
   TENSORSTORE_RETURN_IF_ERROR(
       ValidateMultiscaleConstraintsForOpen(constraints.multiscale, metadata));
-  std::size_t scale_index;
+  size_t scale_index;
   TENSORSTORE_ASSIGN_OR_RETURN(auto dimension_units,
                                GetEffectiveDimensionUnits(constraints, schema));
   if (constraints.scale_index) {
@@ -1368,16 +1368,15 @@ std::array<int, 3> GetCompressedZIndexBits(span<const Index, 3> shape,
   return bits;
 }
 
-std::uint64_t EncodeCompressedZIndex(span<const Index, 3> indices,
-                                     std::array<int, 3> bits) {
+uint64_t EncodeCompressedZIndex(span<const Index, 3> indices,
+                                std::array<int, 3> bits) {
   const int max_bit = std::max(bits[0], std::max(bits[1], bits[2]));
   int out_bit = 0;
-  std::uint64_t x = 0;
+  uint64_t x = 0;
   for (int bit = 0; bit < max_bit; ++bit) {
     for (int i = 0; i < 3; ++i) {
       if (bit < bits[i]) {
-        x |= ((static_cast<std::uint64_t>(indices[i]) >> bit) & 1)
-             << (out_bit++);
+        x |= ((static_cast<uint64_t>(indices[i]) >> bit) & 1) << (out_bit++);
       }
     }
   }
@@ -1479,16 +1478,15 @@ bool GetShardChunkHierarchy(const ShardingSpec& sharding_spec,
   return true;
 }
 
-std::function<std::uint64_t(std::uint64_t shard)>
-GetChunksPerVolumeShardFunction(const ShardingSpec& sharding_spec,
-                                span<const Index, 3> volume_shape,
-                                span<const Index, 3> chunk_shape) {
+std::function<uint64_t(uint64_t shard)> GetChunksPerVolumeShardFunction(
+    const ShardingSpec& sharding_spec, span<const Index, 3> volume_shape,
+    span<const Index, 3> chunk_shape) {
   ShardChunkHierarchy hierarchy;
   if (!GetShardChunkHierarchy(sharding_spec, volume_shape, chunk_shape,
                               hierarchy)) {
     return {};
   }
-  return [hierarchy](std::uint64_t shard) -> std::uint64_t {
+  return [hierarchy](uint64_t shard) -> uint64_t {
     if ((shard >> hierarchy.shard_bits) != 0) {
       // Invalid shard number.
       return 0;
@@ -1508,9 +1506,9 @@ GetChunksPerVolumeShardFunction(const ShardingSpec& sharding_spec,
       bit_it.Next();
     }
 
-    std::uint64_t num_chunks = 1;
+    uint64_t num_chunks = 1;
     for (int dim_i = 0; dim_i < 3; ++dim_i) {
-      num_chunks *= static_cast<std::uint64_t>(
+      num_chunks *= static_cast<uint64_t>(
           std::min(hierarchy.grid_shape_in_chunks[dim_i] - cell_origin[dim_i],
                    cell_shape[dim_i]));
     }

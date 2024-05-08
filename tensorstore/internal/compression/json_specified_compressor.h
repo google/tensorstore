@@ -62,7 +62,7 @@ class JsonSpecifiedCompressor
   ///     values.  Must be `> 0`.
   /// \returns `absl::Status()` on success, or an error if encoding fails.
   absl::Status Encode(const absl::Cord& input, absl::Cord* output,
-                      std::size_t element_bytes) const;
+                      size_t element_bytes) const;
 
   /// Decodes `input`.
   ///
@@ -75,7 +75,7 @@ class JsonSpecifiedCompressor
   /// \returns `absl::Status()` on success, or an error if decoding fails.
   /// \error `absl::StatusCode::kInvalidArgument` if `input` is invalid.
   absl::Status Decode(const absl::Cord& input, absl::Cord* output,
-                      std::size_t element_bytes) const;
+                      size_t element_bytes) const;
 
   using ToJsonOptions = JsonSerializationOptions;
   using FromJsonOptions = JsonSerializationOptions;

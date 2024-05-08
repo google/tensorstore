@@ -45,7 +45,7 @@ namespace internal {
 /// \param output_dtype The output data type expected by `closure`.
 /// \param closure The elementwise function.
 /// \param arena Arena that may be used for memory allocation.
-template <std::size_t Arity>
+template <size_t Arity>
 NDIterable::Ptr GetElementwiseInputTransformNDIterable(
     std::array<NDIterable::Ptr, Arity - 1> inputs, DataType output_dtype,
     ElementwiseClosure<Arity, void*> closure, Arena* arena);

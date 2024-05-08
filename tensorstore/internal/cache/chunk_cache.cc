@@ -14,6 +14,8 @@
 
 #include "tensorstore/internal/cache/chunk_cache.h"
 
+#include <stddef.h>
+
 #include <algorithm>
 #include <atomic>
 #include <cassert>
@@ -136,7 +138,7 @@ bool IsFullyOverwritten(ChunkCache::TransactionNode& node) {
 /// 6. Once the cell data has been updated (if necessary), the `ReadChunk`
 ///    constructed previously is sent to the user-specified `receiver`.
 struct ReadChunkImpl {
-  std::size_t component_index;
+  size_t component_index;
   PinnedCacheEntry<ChunkCache> entry;
 
   absl::Status operator()(internal::LockCollection& lock_collection) const {
@@ -181,7 +183,7 @@ struct ReadChunkImpl {
 /// Additionally, `Read` calls the `ChunkCache::TransactionNode::DoRead` method,
 /// rather than `ChunkCache::Entry::DoRead`.
 struct ReadChunkTransactionImpl {
-  std::size_t component_index;
+  size_t component_index;
   OpenTransactionNodePtr<ChunkCache::TransactionNode> node;
 
   absl::Status operator()(internal::LockCollection& lock_collection) const {
@@ -303,7 +305,7 @@ struct ReadChunkTransactionImpl {
 ///    arrays (or the fill value arrays if there is no existing data) with the
 ///    local modifications.
 struct WriteChunkImpl {
-  std::size_t component_index;
+  size_t component_index;
   OpenTransactionNodePtr<ChunkCache::TransactionNode> node;
 
   absl::Status operator()(internal::LockCollection& lock_collection) {
@@ -499,8 +501,8 @@ Future<const void> ChunkCache::Entry::Delete(OpenTransactionPtr transaction) {
   return node->transaction()->future();
 }
 
-std::size_t ChunkCache::TransactionNode::ComputeWriteStateSizeInBytes() {
-  std::size_t total = 0;
+size_t ChunkCache::TransactionNode::ComputeWriteStateSizeInBytes() {
+  size_t total = 0;
   const auto component_specs = this->component_specs();
   for (size_t component_index = 0;
        component_index < static_cast<size_t>(component_specs.size());
@@ -512,10 +514,9 @@ std::size_t ChunkCache::TransactionNode::ComputeWriteStateSizeInBytes() {
   return total;
 }
 
-std::size_t ChunkCache::Entry::ComputeReadDataSizeInBytes(
-    const void* read_data) {
+size_t ChunkCache::Entry::ComputeReadDataSizeInBytes(const void* read_data) {
   const ReadData* components = static_cast<const ReadData*>(read_data);
-  std::size_t total = 0;
+  size_t total = 0;
   auto component_specs = this->component_specs();
   for (size_t component_index = 0;
        component_index < static_cast<size_t>(component_specs.size());
@@ -532,7 +533,7 @@ ChunkCache::WritebackSnapshot::WritebackSnapshot(
   auto& cache = GetOwningCache(entry);
   const auto component_specs = node.component_specs();
   const span<const Index> cell_indices = entry.cell_indices();
-  for (std::size_t component_i = 0;
+  for (size_t component_i = 0;
        component_i < static_cast<size_t>(component_specs.size());
        ++component_i) {
     auto& component_spec = component_specs[component_i];

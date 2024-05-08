@@ -25,7 +25,7 @@ using ::tensorstore::neuroglancer_uint64_sharded::MurmurHash3_x86_128Hash64Bits;
 
 // Test against examples computed using pymmh3 library
 TEST(MurmurHash3Test, Basic) {
-  std::uint32_t h[4];
+  uint32_t h[4];
   h[0] = h[1] = h[2] = h[3] = 0;
   MurmurHash3_x86_128Hash64Bits(0, h);
   EXPECT_THAT(h,

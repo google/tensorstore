@@ -416,8 +416,8 @@ bool DecodeChannels(std::string_view input, const ptrdiff_t block_shape[3],
       const ptrdiff_t output_byte_strides[3 + 1], Label* output);              \
   /**/
 
-DO_INSTANTIATE(std::uint32_t)
-DO_INSTANTIATE(std::uint64_t)
+DO_INSTANTIATE(uint32_t)
+DO_INSTANTIATE(uint64_t)
 
 #undef DO_INSTANTIATE
 

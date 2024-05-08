@@ -44,7 +44,7 @@ static_assert(GetAlignedOffset(4, 4, 4) == 4);
 static_assert(GetAlignedOffset(4, 4, 8) == 8);
 static_assert(GetAlignedOffset(4, 4, 8) == 8);
 
-template <std::size_t Len, std::size_t Align>
+template <size_t Len, size_t Align>
 using Aligned = typename std::aligned_storage<Len, Align>::type;
 
 static_assert(PackStorageOffsets<Aligned<4, 4>>::GetVectorOffset(5, 0) == 0);

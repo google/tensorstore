@@ -578,7 +578,7 @@ class CallbackBase : public CallbackListNode {
   /// destroyed once the reference count reaches zero.  However, the callback
   /// function object itself (contained in a derived class) may be destroyed
   /// before this object itself is destroyed.
-  std::atomic<std::size_t> reference_count_;
+  std::atomic<size_t> reference_count_;
 
   /// Tracing context for the callback, initialized when the callback is
   /// created.
@@ -777,7 +777,7 @@ struct ResultNotNeededCallback final : public ResultNotNeededCallbackBase {
 /// \tparam SharedState The `FutureState<T>` or `FutureStateBase` of the Future
 ///     bound to the callback.
 /// \tparam I Unique identifier within the FutureLink.
-template <typename LinkType, typename SharedState, std::size_t I>
+template <typename LinkType, typename SharedState, size_t I>
 class FutureLinkReadyCallback : public ReadyCallbackBase {
  public:
   static_assert(std::is_base_of_v<FutureStateBase, SharedState>);
@@ -798,7 +798,7 @@ class FutureLinkReadyCallback : public ReadyCallbackBase {
   }
 };
 
-template <typename LinkType, typename F, std::size_t I>
+template <typename LinkType, typename F, size_t I>
 using FutureLinkReadyCallbackType =
     FutureLinkReadyCallback<LinkType, FutureAccess::SharedStateType<F>, I>;
 
@@ -881,7 +881,7 @@ class FutureLinkBase {
   constexpr static uint32_t kNotReadyFutureMask =
       (kMaxNumFutures - 1) * kNotReadyFutureMultiplier;
 
-  explicit constexpr FutureLinkBase(std::size_t num_futures)
+  explicit constexpr FutureLinkBase(size_t num_futures)
       : link_state_(
             // Initially, no DestroyCallback methods have been called, and no
             // futures are ready.
@@ -1045,7 +1045,7 @@ using FutureLinkType =
 /// \tparam Futures Future<T> or AnyFuture of each linked future.
 /// \tparam Is Must equal `0, ..., sizeof...(Futures)-1`.
 template <typename Policy, typename Deleter, typename Callback,
-          typename PromiseValue, typename... Futures, std::size_t... Is>
+          typename PromiseValue, typename... Futures, size_t... Is>
 class FutureLink<Policy, Deleter, Callback, PromiseValue,
                  internal::index_sequence<Is...>, Futures...>
     : public FutureLinkBase,
@@ -1226,7 +1226,7 @@ class FutureLink<Policy, Deleter, Callback, PromiseValue,
     return this;
   }
 
-  template <typename F, std::size_t I>
+  template <typename F, size_t I>
   FutureLinkReadyCallbackType<FutureLink, F, I>* ReadyCallback() {
     return this;
   }

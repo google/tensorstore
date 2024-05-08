@@ -16,6 +16,7 @@
 #define TENSORSTORE_INTERNAL_MULTI_VECTOR_VIEW_H_
 
 #include <cassert>
+#include <cstddef>
 #include <type_traits>
 
 #include "tensorstore/index.h"
@@ -89,12 +90,10 @@ class MultiVectorViewStorage {
   friend class MultiVectorAccess<MultiVectorViewStorage>;
   constexpr static StaticRank<Extent> InternalGetExtent() { return {}; }
   void InternalSetExtent(StaticRank<Extent>) {}
-  void* InternalGetDataPointer(std::size_t i) const {
+  void* InternalGetDataPointer(size_t i) const {
     return const_cast<void*>(data_[i]);
   }
-  void InternalSetDataPointer(std::size_t i, const void* ptr) {
-    data_[i] = ptr;
-  }
+  void InternalSetDataPointer(size_t i, const void* ptr) { data_[i] = ptr; }
 
   /// Stores the pointers to the arrays as a single array of `const void *`
   /// pointers to simplify the implementation.  `MultiVectorAccess` provides a
@@ -112,8 +111,8 @@ class MultiVectorViewStorage<0, Ts...> {
   friend class MultiVectorAccess<MultiVectorViewStorage>;
   constexpr static StaticRank<0> InternalGetExtent() { return {}; }
   void InternalSetExtent(StaticRank<0>) {}
-  void* InternalGetDataPointer(std::size_t i) const { return nullptr; }
-  void InternalSetDataPointer(std::size_t i, const void* ptr) {}
+  void* InternalGetDataPointer(size_t i) const { return nullptr; }
+  void InternalSetDataPointer(size_t i, const void* ptr) {}
 };
 
 /// Specialization of `MultiVectorViewStorage` for `Extent == dynamic_rank`.
@@ -125,12 +124,10 @@ class MultiVectorViewStorage<dynamic_rank, Ts...> {
   friend class MultiVectorAccess<MultiVectorViewStorage>;
   std::ptrdiff_t InternalGetExtent() const { return extent_; }
   void InternalSetExtent(std::ptrdiff_t extent) { extent_ = extent; }
-  void* InternalGetDataPointer(std::size_t i) const {
+  void* InternalGetDataPointer(size_t i) const {
     return const_cast<void*>(data_[i]);
   }
-  void InternalSetDataPointer(std::size_t i, const void* ptr) {
-    data_[i] = ptr;
-  }
+  void InternalSetDataPointer(size_t i, const void* ptr) { data_[i] = ptr; }
 
   /// Stores the pointers to the arrays as a single array of `const void *`
   /// pointers to simplify the implementation.  `MultiVectorAccess` provides a
@@ -155,11 +152,11 @@ class MultiVectorAccess<MultiVectorViewStorage<Extent, Ts...>> {
   using ExtentType = StaticOrDynamicRank<Extent>;
 
   constexpr static std::ptrdiff_t static_extent = Extent;
-  constexpr static std::size_t num_vectors = sizeof...(Ts);
+  constexpr static size_t num_vectors = sizeof...(Ts);
 
-  template <std::size_t I>
+  template <size_t I>
   using ElementType = TypePackElement<I, Ts...>;
-  template <std::size_t I>
+  template <size_t I>
   using ConstElementType = TypePackElement<I, Ts...>;
 
   /// Returns the extent of a MultiVectorViewStorage.
@@ -168,7 +165,7 @@ class MultiVectorAccess<MultiVectorViewStorage<Extent, Ts...>> {
   }
 
   /// Returns the `I`th vector as a `span`.
-  template <std::size_t I>
+  template <size_t I>
   static span<ElementType<I>, Extent> get(const StorageType* array) noexcept {
     return {static_cast<ElementType<I>*>(array->InternalGetDataPointer(I)),
             array->InternalGetExtent()};
@@ -178,7 +175,7 @@ class MultiVectorAccess<MultiVectorViewStorage<Extent, Ts...>> {
   /// indicated by `pointers...`.
   static void Assign(StorageType* array, ExtentType extent, Ts*... pointers) {
     array->InternalSetExtent(extent);
-    std::size_t i = 0;
+    size_t i = 0;
     (array->InternalSetDataPointer(i++, pointers), ...);
   }
 

@@ -12,10 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <stddef.h>
+
 #include <memory>
+#include <string>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include <blosc.h>
 #include <nlohmann/json.hpp>
 #include "tensorstore/driver/zarr/compressor.h"
@@ -96,7 +100,7 @@ TEST(BloscCompressorTest, EncodeDecode) {
   for (const auto& spec : GetTestCompressorSpecs()) {
     auto compressor = Compressor::FromJson(spec).value();
     for (const auto& array : GetTestArrays()) {
-      for (const std::size_t element_size : {1, 2, 10}) {
+      for (const size_t element_size : {1, 2, 10}) {
         absl::Cord encode_result, decode_result;
         TENSORSTORE_ASSERT_OK(
             compressor->Encode(array, &encode_result, element_size));
@@ -136,7 +140,7 @@ TEST(BloscCompressorTest, CheckShuffleAndElementSize) {
   for (int shuffle = -1; shuffle <= 2; ++shuffle) {
     auto compressor =
         Compressor::FromJson({{"id", "blosc"}, {"shuffle", shuffle}}).value();
-    for (const std::size_t element_size : {1, 2, 10}) {
+    for (const size_t element_size : {1, 2, 10}) {
       absl::Cord encoded;
       TENSORSTORE_ASSERT_OK(compressor->Encode(array, &encoded, element_size));
       ASSERT_GE(encoded.size(), BLOSC_MIN_HEADER_LENGTH);
@@ -159,7 +163,7 @@ TEST(BloscCompressorTest, CheckShuffleAndElementSize) {
 // Tests that the compressed data has the expected blosc blocksize.
 TEST(BloscCompressorTest, CheckBlocksize) {
   std::string array(100000, '\0');
-  for (std::size_t blocksize : {256, 512, 1024}) {
+  for (size_t blocksize : {256, 512, 1024}) {
     // Set clevel to 0 to ensure our blocksize choice will be respected.
     // Otherwise blosc may choose a different blocksize.
     auto compressor = Compressor::FromJson({{"id", "blosc"},

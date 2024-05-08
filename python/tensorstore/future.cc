@@ -20,6 +20,8 @@
 #include "python/tensorstore/future.h"
 
 // Other headers
+#include <stddef.h>
+
 #include <algorithm>
 #include <cassert>
 #include <cerrno>
@@ -28,11 +30,16 @@
 #include <utility>
 
 #include "absl/status/status.h"
+#include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "python/tensorstore/define_heap_type.h"
+#include "python/tensorstore/garbage_collection.h"
 #include "python/tensorstore/gil_safe.h"
 #include "python/tensorstore/python_imports.h"
+#include "python/tensorstore/python_value_or_exception.h"
 #include "python/tensorstore/tensorstore_module_components.h"
+#include "python/tensorstore/type_name_override.h"
+#include "tensorstore/internal/container/intrusive_linked_list.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/util/executor.h"
@@ -375,7 +382,7 @@ void PythonFutureObject::AddDoneCallback(pybind11::handle callback) {
   }
 }
 
-std::size_t PythonFutureObject::RemoveDoneCallback(pybind11::handle callback) {
+size_t PythonFutureObject::RemoveDoneCallback(pybind11::handle callback) {
   auto& callbacks = cpp_data.callbacks;
   // Since caller owns a reference to `callback`, we can be sure that removing
   // `callback` from `callbacks` does not result in any reference counts
