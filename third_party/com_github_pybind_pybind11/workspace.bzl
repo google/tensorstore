@@ -21,11 +21,11 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_github_pybind_pybind11",
-        strip_prefix = "pybind11-2.10.1",
+        strip_prefix = "pybind11-2.12.0",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/pybind/pybind11/archive/v2.10.1.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/pybind/pybind11/archive/v2.12.0.tar.gz",
         ],
-        sha256 = "111014b516b625083bef701df7880f78c2243835abdb263065b6b59b960b6bad",
+        sha256 = "bf8f242abd1abcd375d516a7067490fb71abd79519a282d22b6e4d19282185a7",
         build_file = Label("//third_party:com_github_pybind_pybind11/pybind11.BUILD.bazel"),
         system_build_file = Label("//third_party:com_github_pybind_pybind11/system.BUILD.bazel"),
         # documentation-only

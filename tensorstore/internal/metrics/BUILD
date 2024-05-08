@@ -41,7 +41,7 @@ tensorstore_cc_library(
     hdrs = ["collect.h"],
     deps = [
         ":metadata",
-        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/functional:function_ref",
         "@com_google_absl//absl/strings",
     ],
@@ -53,7 +53,7 @@ tensorstore_cc_test(
     deps = [
         ":collect",
         "//tensorstore/internal:json_gtest",
-        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_github_nlohmann_json//:json",
         "@com_google_googletest//:gtest_main",
     ],
 )

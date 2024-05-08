@@ -430,7 +430,7 @@ tensorstore_cc_library(
     hdrs = ["json_absl_flag.h"],
     deps = [
         "//tensorstore/internal/json_binding:bindable",
-        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/flags:marshalling",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:str_format",
@@ -548,7 +548,7 @@ tensorstore_cc_library(
     hdrs = ["span_json.h"],
     deps = [
         ":span",
-        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_github_nlohmann_json//:json",
     ],
 )
 
@@ -560,7 +560,7 @@ tensorstore_cc_test(
         ":span",
         ":span_json",
         "//tensorstore/internal:json_gtest",
-        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_github_nlohmann_json//:json",
         "@com_google_googletest//:gtest_main",
     ],
 )

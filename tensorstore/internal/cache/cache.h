@@ -38,7 +38,7 @@
 ///       }
 ///     };
 ///
-///     std::size_t DoGetSizeInBytes(Cache::Entry* base_entry) override {
+///     size_t DoGetSizeInBytes(Cache::Entry* base_entry) override {
 ///       auto* entry = static_cast<Entry*>(base_entry);
 ///       return sizeof(Entry) + entry->data.size() +
 ///           Cache::Entry::DoGetSizeInBytes(entry);
@@ -46,7 +46,7 @@
 ///
 ///     // Implement required virtual interfaces:
 ///     Entry* DoAllocateEntry() final { return new Entry; }
-///     std::size_t DoGetSizeofEntry() final { return sizeof(Entry); }
+///     size_t DoGetSizeofEntry() final { return sizeof(Entry); }
 ///   };
 ///
 ///   // Create a pool with a 2MiB size limit.
@@ -60,9 +60,10 @@
 ///   auto value = entry->Read();
 ///   entry->Write("value_to_append");
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <atomic>
-#include <cstddef>
-#include <cstdint>
 #include <iosfwd>
 #include <memory>
 #include <optional>
@@ -232,7 +233,7 @@ class ABSL_LOCKABLE CacheEntry : private internal_cache::CacheEntryImpl {
   /// Returns the number of references to this cache entry.
   ///
   /// This is intended for testing and debugging.
-  std::uint32_t use_count() const {
+  uint32_t use_count() const {
     return reference_count_.load(std::memory_order_acquire) / 2;
   }
 
@@ -282,6 +283,11 @@ class ABSL_LOCKABLE CacheEntry : private internal_cache::CacheEntryImpl {
     return internal_cache::AcquireWeakCacheEntryReference(this);
   }
 
+  /// Destroys the cache entry.
+  ///
+  /// Warning: The destructor must not call `GetOwningCache(*this)` to obtain a
+  /// reference to the cache, as the cache may have already been destroyed by
+  /// the time the destructor runs.
   virtual ~CacheEntry();
 
  private:
@@ -319,7 +325,10 @@ class Cache : private internal_cache::CacheImpl {
   }
 
   /// Returns the strong reference count for testing/debugging.
-  std::uint32_t use_count() const { return reference_count_.load(); }
+  size_t use_count() const {
+    return reference_count_.load() /
+           internal_cache::CacheImpl::kStrongReferenceIncrement;
+  }
 
   /// Returns the cache identifier.
   ///
@@ -353,15 +362,15 @@ class Cache : private internal_cache::CacheImpl {
   /// initialization without holding any locks.  Otherwise, it should only be
   /// called while holding necessary locks to protect the state required to
   /// calculate the size.
-  virtual std::size_t DoGetSizeInBytes(Entry* entry);
+  virtual size_t DoGetSizeInBytes(Entry* entry);
 
   /// Returns `sizeof Entry`, where `Entry` is the derived class `Entry` type
   /// allocated by `DoAllocateEntry`.
   ///
   /// Usually this method can be defined as:
   ///
-  /// std::size_t DoGetSizeofEntry() final { return sizeof(Entry); }
-  virtual std::size_t DoGetSizeofEntry() = 0;
+  /// size_t DoGetSizeofEntry() final { return sizeof(Entry); }
+  virtual size_t DoGetSizeofEntry() = 0;
 
  private:
   friend class internal_cache::Access;

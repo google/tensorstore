@@ -80,7 +80,7 @@ tensorstore_cc_test(
         "//tensorstore/util:status_testutil",
         "//tensorstore/util/execution",
         "//tensorstore/util/execution:sender_testutil",
-        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/status",

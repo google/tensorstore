@@ -1,0 +1,27 @@
+diff -Nur a/BUILD.bazel b/BUILD.bazel
+--- a/BUILD.bazel	2023-08-31 05:16:50
++++ b/BUILD.bazel	2024-05-07 00:24:32
+@@ -25,6 +25,13 @@
+ )
+ 
+ config_setting(
++    name = "mingw-gcc",
++    flag_values = {
++        "@bazel_tools//tools/cpp:compiler": "mingw-gcc",
++    },
++)
++
++config_setting(
+     name = "perfcounters",
+     define_values = {
+         "pfm": "1",
+@@ -48,6 +55,9 @@
+     linkopts = select({
+         ":windows": ["-DEFAULTLIB:shlwapi.lib"],
+         "//conditions:default": ["-pthread"],
++    }) + select({
++        ":mingw-gcc": ["-lshlwapi"],
++        "//conditions:default": [],
+     }),
+     copts = select({
+         ":windows": [],

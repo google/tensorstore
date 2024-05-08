@@ -259,7 +259,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/json:value_as",
         "//tensorstore/internal/json_binding",
         "//tensorstore/util:str_cat",
-        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/status",
         "@com_google_protobuf//:protobuf",
     ],

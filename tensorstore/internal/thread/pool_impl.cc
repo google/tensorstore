@@ -131,7 +131,7 @@ void SharedThreadPool::Overseer::OverseerBody() {
   while (true) {
     pool_->overseer_condvar_.WaitWithDeadline(&pool_->mutex_, deadline);
     now = absl::Now();
-    auto deadline = MaybeStartWorker(now);
+    deadline = MaybeStartWorker(now);
     if (deadline < now) break;
   }
   ABSL_LOG_IF(INFO, thread_pool_logging.Level(1)) << "~Overseer: " << this;

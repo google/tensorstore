@@ -187,7 +187,60 @@ class CacheImpl {
   /// pool, and is destroyed as soon as `reference_count_` becomes zero.
   std::string cache_identifier_;
 
-  std::atomic<uint32_t> reference_count_;
+  constexpr static size_t kNumShards = 8;
+
+  /// Reference count equal to:
+  ///     kStrongReferenceCount * strong_references_to_cache *  +
+  ///     kNonEmptyShardIncrement * non_empty_shards +
+  ///     kCachePoolStrongReferenceIncrement *
+  ///         (pool_ && pool_->strong_references_ != 0)
+  ///
+  /// These 3 components affect disjoint bits and therefore are effectively 3
+  /// independent counts.
+  ///
+  /// The `non_empty_shards` count must only be updated while holding the mutex
+  /// of the shard that has just become empty or non-empty.
+  ///
+  /// The `strong_references_to_cache` count must only change from zero to
+  /// non-zero while holding the `pool_->caches_mutex_`.
+  ///
+  /// The `kCachePoolStrongReferenceIncrement` component must only change while
+  /// holding the `caches_mutex_`.
+  std::atomic<size_t> reference_count_;
+
+  /// Checks if the reference count implies that the cache should be deleted.
+  ///
+  /// The cache should be deleted if `strong_references_to_cache == 0` and
+  /// either:
+  /// - `non_empty_shards == 0`, or
+  /// - `!pool_ || pool_->strong_references_ == 0`.
+  ///
+  /// If a thread causes the reference count to reach a ``ShouldDelete == true`
+  /// state from a `ShouldDelete == false` state, then the thread must destroy
+  /// the cache immediately. However, because of the use of multiple mutexes
+  /// (per shard mutexes on the cache entries hash table, `pool_->lru mutex_`,
+  /// `pool_->caches_mutex_`), it is possible for another thread that is
+  /// modifying `reference_count` to encounter a cache already in the
+  /// `ShouldDelete == true`. In this case, the other thread is NOT responsible
+  /// for destroying the cache, but can safely access it as long as it holds the
+  /// mutex.
+  constexpr static bool ShouldDelete(size_t reference_count) {
+    return (reference_count & ~kCachePoolStrongReferenceIncrement) == 0 ||
+           (reference_count & ~(kStrongReferenceIncrement - 1 -
+                                kCachePoolStrongReferenceIncrement)) == 0;
+  }
+
+  /// The cache holds a weak reference to the pool, if and only if,
+  /// `strong_references_to_cache > 0` (and `pool_ != nullptr`).
+  constexpr static bool ShouldHoldPoolWeakReference(size_t reference_count) {
+    return reference_count >= kStrongReferenceIncrement;
+  }
+
+  // Note: `2 * (kNumShards + 1)` would be sufficient to keep the 3 components
+  // unambiguous, but we use `4` to ensure it is a power of 2, for simplicity.
+  constexpr static size_t kStrongReferenceIncrement = kNumShards * 4;
+  constexpr static size_t kCachePoolStrongReferenceIncrement = 1;
+  constexpr static size_t kNonEmptyShardIncrement = 2;
 
   struct ABSL_CACHELINE_ALIGNED Shard {
     absl::Mutex mutex;
@@ -196,7 +249,7 @@ class CacheImpl {
         entries ABSL_GUARDED_BY(mutex);
   };
 
-  Shard shards_[8];
+  Shard shards_[kNumShards];
 
   Shard& ShardForKey(std::string_view key) {
     absl::Hash<std::string_view> h;
@@ -265,9 +318,10 @@ struct StrongPtrTraitsCache {
   static void increment(U* p) noexcept {
     [[maybe_unused]] auto old_count =
         Access::StaticCast<CacheImpl>(&GetCacheObject(p))
-            ->reference_count_.fetch_add(1, std::memory_order_relaxed);
-    TENSORSTORE_INTERNAL_CACHE_DEBUG_REFCOUNT("Cache:increment", p,
-                                              old_count + 1);
+            ->reference_count_.fetch_add(CacheImpl::kStrongReferenceIncrement,
+                                         std::memory_order_relaxed);
+    TENSORSTORE_INTERNAL_CACHE_DEBUG_REFCOUNT(
+        "Cache:increment", p, old_count + CacheImpl::kStrongReferenceIncrement);
   }
   static void decrement(internal::Cache* p) noexcept;
   template <typename U>

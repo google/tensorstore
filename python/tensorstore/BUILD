@@ -209,7 +209,7 @@ pybind11_cc_library(
     srcs = ["json_type_caster.cc"],
     hdrs = ["json_type_caster.h"],
     deps = [
-        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_github_nlohmann_json//:json",
         "@com_github_pybind_pybind11//:pybind11",
     ],
 )
@@ -354,7 +354,7 @@ pybind11_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:str_cat",
-        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_github_nlohmann_json//:json",
         "@com_github_pybind_pybind11//:pybind11",
         "@com_google_absl//absl/base:core_headers",
     ],

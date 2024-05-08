@@ -8,6 +8,10 @@ C89_FLAGS = select({
 }) + select({
     "@platforms//cpu:arm": ["-mfpu=neon"],
     "//conditions:default": [],
+}) + select({
+    ":windows_x86_64_mingw_gcc": ["-msse4.1"],
+    ":linux_x86_64": ["-msse4.1"],
+    "//conditions:default": [],
 })
 
 cc_library(
@@ -47,6 +51,7 @@ cc_library(
     srcs = glob(["src/utils/*.c"]) + [
         "src/dsp/cpu.h",
         "src/dsp/dsp.h",
+        "src/dsp/lossless_common.h",
         "src/webp/decode.h",
         "src/webp/encode.h",
         "src/webp/format_constants.h",
@@ -86,3 +91,14 @@ config_setting(
     name = "armeabi-v7a",
     values = {"cpu": "armeabi-v7a"},
 )
+
+[
+    alias(
+        name = name,
+        actual = "@tensorstore//:{target}".format(target = name),
+    )
+    for name in [
+        "linux_x86_64",
+        "windows_x86_64_mingw_gcc",
+    ]
+]

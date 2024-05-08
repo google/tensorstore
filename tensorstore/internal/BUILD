@@ -139,7 +139,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/thread:thread_pool",
         "//tensorstore/util:executor",
         "//tensorstore/util:result",
-        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/base",
     ],
 )
@@ -248,7 +248,7 @@ tensorstore_cc_library(
         "//tensorstore:data_type",
         "//tensorstore:index",
         "//tensorstore/util:span",
-        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/random",
         "@com_google_absl//absl/random:bit_gen_ref",
@@ -731,7 +731,7 @@ tensorstore_cc_test(
 tensorstore_cc_library(
     name = "json_fwd",
     hdrs = ["json_fwd.h"],
-    deps = ["@com_github_nlohmann_json//:nlohmann_json"],
+    deps = ["@com_github_nlohmann_json//:json"],
 )
 
 tensorstore_cc_library(
@@ -743,7 +743,7 @@ tensorstore_cc_library(
         ":json_pointer",
         "//tensorstore/internal/json:same",
         "//tensorstore/util:quote_string",
-        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_github_nlohmann_json//:json",
         "@com_google_googletest//:gtest",
     ],
 )
@@ -754,7 +754,7 @@ tensorstore_cc_test(
     srcs = ["json_gtest_test.cc"],
     deps = [
         ":json_gtest",
-        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_github_nlohmann_json//:json",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -767,7 +767,7 @@ tensorstore_cc_library(
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
         "//tensorstore/util:str_cat",
-        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
@@ -783,7 +783,7 @@ tensorstore_cc_test(
         ":json_pointer",
         "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
-        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
     ],
@@ -809,7 +809,7 @@ tensorstore_cc_library(
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
         "//tensorstore/util:str_cat",
-        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status",
@@ -1302,7 +1302,7 @@ tensorstore_cc_test(
         "//tensorstore/util:span",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
-        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
     ],
@@ -1514,7 +1514,7 @@ tensorstore_cc_library(
     deps = [
         ":json_gtest",
         "//tensorstore/internal/json_binding",
-        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_github_nlohmann_json//:json",
         "@com_google_googletest//:gtest",
     ],
 )
@@ -1525,7 +1525,7 @@ tensorstore_cc_test(
     srcs = ["parse_json_matches_test.cc"],
     deps = [
         ":parse_json_matches",
-        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_github_nlohmann_json//:json",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -1790,7 +1790,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/json:same",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:str_cat",
-        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/status",
     ],
 )

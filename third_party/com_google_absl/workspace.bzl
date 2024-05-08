@@ -47,6 +47,7 @@ ABSL_CMAKE_MAPPING = {
     "//absl/base:dynamic_annotations": "absl::dynamic_annotations",
     "//absl/base:log_severity": "absl::log_severity",
     "//absl/base:prefetch": "absl::prefetch",
+    "//absl/base:no_destructor": "absl::no_destructor",
     "//absl/cleanup:cleanup": "absl::cleanup",
     "//absl/container:btree": "absl::btree",
     "//absl/container:fixed_array": "absl::fixed_array",
@@ -113,6 +114,7 @@ ABSL_CMAKE_MAPPING = {
     "//absl/types:span": "absl::span",
     "//absl/types:variant": "absl::variant",
     "//absl/utility:utility": "absl::utility",
+    "//absl/utility:if_constexpr": "absl::if_constexpr",
     # Internal targets mapping
     "//absl/base:endian": "absl::endian",
     "//absl/base:config": "absl::config",

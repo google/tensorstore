@@ -343,6 +343,14 @@ class UpbProtoLibrary(BazelGlobals):
       visibility: Optional[List[RelativeLabel]] = None,
       **kwargs,
   ):
+    return self.bazel_upb_c_proto_library(name, visibility, **kwargs)
+
+  def bazel_upb_c_proto_library(
+      self,
+      name: str,
+      visibility: Optional[List[RelativeLabel]] = None,
+      **kwargs,
+  ):
     context = self._context.snapshot()
     target = context.resolve_target(name)
     context.add_rule(
@@ -351,7 +359,7 @@ class UpbProtoLibrary(BazelGlobals):
             context,
             target,
             _aspect_target=_upb_target,
-            _mnemonic="upb_proto_library",
+            _mnemonic="upb_c_proto_library",
             **kwargs,
         ),
         visibility=visibility,

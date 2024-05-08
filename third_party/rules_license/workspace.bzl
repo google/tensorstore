@@ -19,9 +19,9 @@ def repo():
     maybe(
         http_archive,
         name = "rules_license",
-        strip_prefix = "rules_license-0.0.7",
+        strip_prefix = "rules_license-0.0.8",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/bazelbuild/rules_license/archive/0.0.7.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/bazelbuild/rules_license/archive/0.0.8.tar.gz",
         ],
-        sha256 = "7626bea5473d3b11d44269c5b510a210f11a78bca1ed639b0f846af955b0fe31",
+        sha256 = "8c1155797cb5f5697ea8c6eac6c154cf51aa020e368813d9d9b949558c84f2da",
     )

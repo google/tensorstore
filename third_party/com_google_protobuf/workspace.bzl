@@ -19,11 +19,11 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_protobuf",
-        strip_prefix = "protobuf-25.1",
-        sha256 = "9bd87b8280ef720d3240514f884e56a712f2218f0d693b48050c836028940a42",
+        strip_prefix = "protobuf-26.1",
+        sha256 = "4fc5ff1b2c339fb86cd3a25f0b5311478ab081e65ad258c6789359cd84d421f8",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/protocolbuffers/protobuf/archive/v25.1.tar.gz",
-            "https://github.com/protocolbuffers/protobuf/archive/v25.1.tar.gz",  # 25.x(2023-06-13)
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/protocolbuffers/protobuf/archive/v26.1.tar.gz",
+            "https://github.com/protocolbuffers/protobuf/archive/v26.1.tar.gz",  # 26.x(2024-05-03)
         ],
         patches = [
             # protobuf uses rules_python, but we just use the native python rules.
@@ -55,6 +55,7 @@ def repo():
                 "--ignore-library=//python:py_extension.bzl",
                 "--ignore-library=//benchmarks:build_defs.bzl",
                 "--ignore-library=@rules_python//python:defs.bzl",
+                "--ignore-library=//src/google/protobuf/editions:defaults.bzl",
                 "--target=//:protobuf",
                 "--target=//:protobuf_lite",
                 "--target=//:protoc",
@@ -65,17 +66,18 @@ def repo():
                 "--target=//src/google/protobuf/compiler:code_generator",
                 "--target=//:descriptor_proto_srcs",
                 # upb
-                "--target=//upb:collections",
+                "--target=//upb:base",
                 "--target=//upb:descriptor_upb_proto_reflection",
                 "--target=//upb:descriptor_upb_proto",
                 "--target=//upb:json",
+                "--target=//upb:mem",
+                "--target=//upb:message_compare",
+                "--target=//upb:message_copy",
                 "--target=//upb:message",
                 "--target=//upb:port",
                 "--target=//upb:reflection",
                 "--target=//upb:text",
-                "--target=//upb:upb",
-                "--target=//upb:base",
-                "--target=//upb:mem",
+                "--target=//upb:wire",
                 # upb support libraries
                 "--target=//upb:generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me",
                 "--target=//upb:generated_reflection_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me",

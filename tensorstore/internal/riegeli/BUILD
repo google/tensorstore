@@ -146,7 +146,7 @@ tensorstore_cc_library(
     srcs = ["json_input.cc"],
     hdrs = ["json_input.h"],
     deps = [
-        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_github_nlohmann_json//:json",
         "@com_google_riegeli//riegeli/bytes:reader",
     ],
 )
@@ -157,7 +157,7 @@ tensorstore_cc_library(
     hdrs = ["json_output.h"],
     deps = [
         "//tensorstore/internal:unowned_to_shared",
-        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_github_nlohmann_json//:json",
         "@com_google_riegeli//riegeli/bytes:writer",
     ],
 )

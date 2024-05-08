@@ -23,10 +23,14 @@ def repo():
         third_party_http_archive,
         name = "com_google_benchmark",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/google/benchmark/archive/v1.7.0.zip",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/google/benchmark/archive/v1.8.3.zip",
         ],
-        sha256 = "e0e6a0f2a5e8971198e5d382507bfe8e4be504797d75bb7aec44b5ea368fa100",
-        strip_prefix = "benchmark-1.7.0",
+        sha256 = "abfc22e33e3594d0edf8eaddaf4d84a2ffc491ad74b6a7edc6e7a608f690e691",
+        strip_prefix = "benchmark-1.8.3",
+        patches = [
+            Label("//third_party:com_google_benchmark/patches/fix_mingw.diff"),
+        ],
+        patch_args = ["-p1"],
         cmake_name = "benchmark",
         bazel_to_cmake = {
             "include": [""],
