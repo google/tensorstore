@@ -26,8 +26,8 @@
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
+#include <nlohmann/json_fwd.hpp>
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/internal/json_registry.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/util/quote_string.h"

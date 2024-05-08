@@ -25,6 +25,7 @@
 #include <string>
 #include <utility>
 
+#include <nlohmann/json_fwd.hpp>
 #include "python/tensorstore/array_type_caster.h"
 #include "python/tensorstore/context.h"
 #include "python/tensorstore/data_type.h"
@@ -43,7 +44,6 @@
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/json/pprint_python.h"
-#include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/rank.h"

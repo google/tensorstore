@@ -24,15 +24,11 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
-#include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/kvstore/batch_util.h"
-#include "tensorstore/kvstore/byte_range.h"
-#include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 namespace internal {

@@ -19,10 +19,10 @@
 
 #include "absl/status/status.h"
 #include "absl/time/time.h"
+#include <nlohmann/json_fwd.hpp>
 #include "tensorstore/internal/json/json.h"
 #include "tensorstore/internal/json/value_as.h"
 #include "tensorstore/internal/json_binding/bindable.h"
-#include "tensorstore/internal/json_fwd.h"
 
 namespace tensorstore {
 namespace internal_json_binding {

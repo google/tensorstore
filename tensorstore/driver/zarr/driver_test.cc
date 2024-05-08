@@ -30,6 +30,7 @@
 #include "absl/strings/cord.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include <nlohmann/json_fwd.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/chunk_layout.h"
@@ -49,7 +50,6 @@
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/json/json.h"
 #include "tensorstore/internal/json_binding/gtest.h"
-#include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/parse_json_matches.h"
 #include "tensorstore/json_serialization_options_base.h"

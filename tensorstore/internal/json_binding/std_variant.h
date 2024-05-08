@@ -18,9 +18,9 @@
 #include <variant>
 
 #include "absl/status/status.h"
+#include <nlohmann/json_fwd.hpp>
 #include "tensorstore/internal/json/json.h"
 #include "tensorstore/internal/json_binding/bindable.h"
-#include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/util/span.h"
 
 namespace tensorstore {

@@ -16,7 +16,7 @@
 #define TENSORSTORE_SERIALIZATION_JSON_H_
 
 #include "absl/status/status.h"
-#include "tensorstore/internal/json_fwd.h"
+#include <nlohmann/json_fwd.hpp>
 #include "tensorstore/serialization/fwd.h"
 
 TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(::nlohmann::json)

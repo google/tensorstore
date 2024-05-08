@@ -24,11 +24,11 @@
 #include "absl/status/status.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_format.h"
+#include <nlohmann/json_fwd.hpp>
 #include "tensorstore/internal/json/value_as.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/std_array.h"
-#include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/util/rational.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"

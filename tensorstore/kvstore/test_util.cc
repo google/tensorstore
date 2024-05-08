@@ -42,10 +42,10 @@
 #include "absl/strings/str_format.h"
 #include "absl/synchronization/notification.h"
 #include "absl/time/clock.h"
+#include <nlohmann/json_fwd.hpp>
 #include <nlohmann/json.hpp>
 #include "tensorstore/batch.h"
 #include "tensorstore/context.h"
-#include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/metrics/collect.h"
 #include "tensorstore/internal/metrics/registry.h"

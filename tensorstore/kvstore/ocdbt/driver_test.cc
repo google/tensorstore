@@ -23,10 +23,10 @@
 #include <gtest/gtest.h>
 #include "absl/strings/cord.h"
 #include "absl/strings/str_format.h"
+#include <nlohmann/json_fwd.hpp>
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/internal/global_initializer.h"
-#include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/testing/dynamic.h"
 #include "tensorstore/internal/testing/scoped_directory.h"

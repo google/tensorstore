@@ -21,8 +21,8 @@
 
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
+#include <nlohmann/json_fwd.hpp>
 #include "tensorstore/internal/json/value_as.h"
-#include "tensorstore/internal/json_fwd.h"
 
 namespace tensorstore {
 namespace internal_json {

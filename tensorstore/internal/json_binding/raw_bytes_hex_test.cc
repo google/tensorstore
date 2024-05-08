@@ -20,9 +20,9 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <nlohmann/json_fwd.hpp>
 #include "tensorstore/internal/json_binding/gtest.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace jb = tensorstore::internal_json_binding;

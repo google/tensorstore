@@ -20,8 +20,8 @@
 #include <type_traits>
 #include <utility>
 
+#include <nlohmann/json_fwd.hpp>
 #include "tensorstore/context.h"
-#include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/kvstore/spec.h"

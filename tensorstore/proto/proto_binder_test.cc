@@ -19,7 +19,7 @@
 
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
-#include "tensorstore/internal/json_fwd.h"
+#include <nlohmann/json_fwd.hpp>
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/proto/array.pb.h"
 #include "tensorstore/proto/protobuf_matchers.h"

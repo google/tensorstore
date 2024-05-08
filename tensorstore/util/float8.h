@@ -26,7 +26,7 @@
 
 #include "absl/base/casts.h"
 #include <half.hpp>
-#include "tensorstore/internal/json_fwd.h"
+#include <nlohmann/json_fwd.hpp>
 #include "tensorstore/util/bfloat16.h"
 
 // The implementation below is derived from jax-ml/ml_dtypes:

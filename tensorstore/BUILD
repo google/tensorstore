@@ -403,7 +403,6 @@ tensorstore_cc_library(
         ":static_cast",
         "//tensorstore/internal:elementwise_function",
         "//tensorstore/internal:integer_types",
-        "//tensorstore/internal:json_fwd",
         "//tensorstore/internal:type_traits",
         "//tensorstore/internal:utf8",
         "//tensorstore/internal/json:same",

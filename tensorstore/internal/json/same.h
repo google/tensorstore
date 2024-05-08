@@ -15,7 +15,7 @@
 #ifndef TENSORSTORE_INTERNAL_JSON_SAME_H_
 #define TENSORSTORE_INTERNAL_JSON_SAME_H_
 
-#include "tensorstore/internal/json_fwd.h"
+#include <nlohmann/json_fwd.hpp>
 
 namespace tensorstore {
 namespace internal_json {

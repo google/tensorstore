@@ -20,7 +20,7 @@
 #include <limits>
 #include <type_traits>
 
-#include "tensorstore/internal/json_fwd.h"
+#include <nlohmann/json_fwd.hpp>
 
 namespace tensorstore {
 class Int4Padded;
