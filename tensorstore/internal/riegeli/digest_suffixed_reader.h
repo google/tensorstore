@@ -80,11 +80,8 @@ struct LittleEndianDigestVerifier {
 // has to first read the entire input into an `absl::Cord`.
 template <typename Digester, typename DigestVerifier>
 class DigestSuffixedReader
-    : public riegeli::DigestingReader<
-          Digester, riegeli::LimitingReader<riegeli::Reader*>> {
-  using Base =
-      riegeli::DigestingReader<Digester,
-                               riegeli::LimitingReader<riegeli::Reader*>>;
+    : public riegeli::DigestingReader<Digester, riegeli::LimitingReader<>> {
+  using Base = riegeli::DigestingReader<Digester, riegeli::LimitingReader<>>;
 
  public:
   using typename Base::DigestType;
@@ -124,8 +121,9 @@ class DigestSuffixedReader
       inner_limit = limit - digest_size;
     }
     Base::Reset(
-        std::tuple(src, riegeli::LimitingReaderBase::Options().set_exact_length(
-                            inner_limit)),
+        std::tuple
+        (src,
+         riegeli::LimitingReaderBase::Options().set_exact_length(inner_limit)),
         std::forward<DigesterArg>(digester_arg)...);
   }
 
@@ -138,21 +136,21 @@ class DigestSuffixedReader
 
   void SetReadAllHintImpl(bool read_all_hint) override {
     if (!Base::is_open()) return;
-    Base::src().SrcReader()->SetReadAllHint(read_all_hint);
+    Base::src().src()->SetReadAllHint(read_all_hint);
   }
 
  private:
   void Done() override {
-    riegeli::Reader* base_reader = Base::src().SrcReader();
     Base::Done();
     if (!this->ok()) return;
-    auto status = DigestVerifier::VerifyDigest(Base::Digest(), *base_reader);
+    auto status =
+        DigestVerifier::VerifyDigest(Base::Digest(), *Base::src().src());
     if (!status.ok()) {
       this->FailWithoutAnnotation(std::move(status));
     }
   }
 
-  riegeli::CordReader<absl::Cord> cord_reader_{riegeli::Closed{}};
+  riegeli::CordReader<absl::Cord> cord_reader_{riegeli::kClosed};
 };
 
 }  // namespace internal
