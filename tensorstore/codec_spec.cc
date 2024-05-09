@@ -16,11 +16,11 @@
 
 #include <ostream>
 
+#include "absl/base/no_destructor.h"
 #include "tensorstore/codec_spec_registry.h"
 #include "tensorstore/internal/json/same.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/serialization/json_bindable.h"
 #include "tensorstore/serialization/serialization.h"
 
@@ -28,7 +28,7 @@ namespace tensorstore {
 namespace internal {
 
 CodecSpecRegistry& GetCodecSpecRegistry() {
-  static internal::NoDestructor<CodecSpecRegistry> registry;
+  static absl::NoDestructor<CodecSpecRegistry> registry;
   return *registry;
 }
 

@@ -24,6 +24,7 @@
 
 #include "absl/base/attributes.h"
 #include "absl/base/call_once.h"
+#include "absl/base/no_destructor.h"
 #include "absl/flags/flag.h"
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
@@ -31,7 +32,6 @@
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/http/curl_wrappers.h"
 #include "tensorstore/internal/log/verbose_flag.h"
-#include "tensorstore/internal/no_destructor.h"
 
 ABSL_FLAG(std::optional<bool>, tensorstore_curl_verbose, std::nullopt,
           "Enable curl verbose logging. "
@@ -130,7 +130,7 @@ struct CurlConfig {
 };
 
 const CurlConfig& CurlEnvConfig() {
-  static const internal::NoDestructor<CurlConfig> curl_config{};
+  static const absl::NoDestructor<CurlConfig> curl_config{};
   return *curl_config;
 }
 

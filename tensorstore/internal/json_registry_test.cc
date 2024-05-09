@@ -16,13 +16,13 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/base/no_destructor.h"
+#include "absl/status/status.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_gtest.h"
-#include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/json_serialization_options.h"
-#include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -50,7 +50,7 @@ using Registry =
                  tensorstore::JsonSerializationOptions>;
 
 Registry& GetRegistry() {
-  static tensorstore::internal::NoDestructor<Registry> registry;
+  static absl::NoDestructor<Registry> registry;
   return *registry;
 }
 

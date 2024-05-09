@@ -26,6 +26,7 @@ cc_library(
         "@platforms//cpu:arm64": [
             "c/blake3_neon.c",
         ],
+        "@platforms//cpu:ppc": [],
         (":linux_x86_64", ":macos_x86_64"): [
             "c/blake3_avx2_x86-64_unix.S",
             "c/blake3_avx512_x86-64_unix.S",

@@ -24,6 +24,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/base/no_destructor.h"
 #include "absl/base/thread_annotations.h"
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
@@ -41,7 +42,6 @@
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/mutex.h"
-#include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/internal/riegeli/delimited.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/serialization/fwd.h"
@@ -143,7 +143,7 @@ struct ContextProviderRegistry {
 };
 
 static ContextProviderRegistry& GetRegistry() {
-  static internal::NoDestructor<ContextProviderRegistry> registrar;
+  static absl::NoDestructor<ContextProviderRegistry> registrar;
   return *registrar;
 }
 

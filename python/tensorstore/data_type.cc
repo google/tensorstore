@@ -25,10 +25,12 @@
 // Other headers
 #include <array>
 #include <cassert>
+#include <cstddef>
 #include <string>
 #include <string_view>
 #include <utility>
 
+#include "absl/base/no_destructor.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/hash/hash.h"
 #include "python/tensorstore/json_type_caster.h"
@@ -36,7 +38,6 @@
 #include "python/tensorstore/tensorstore_module_components.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/global_initializer.h"
-#include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/str_cat.h"
@@ -96,15 +97,15 @@ class CustomDTypes {
   }
 
  private:
-  static internal::NoDestructor<absl::flat_hash_map<DataTypeId, int>>
+  static absl::NoDestructor<absl::flat_hash_map<DataTypeId, int>>
       datatype_to_numpy_map_;
-  static internal::NoDestructor<absl::flat_hash_map<int, DataTypeId>>
+  static absl::NoDestructor<absl::flat_hash_map<int, DataTypeId>>
       numpy_to_datatype_map_;
 };
 
-internal::NoDestructor<absl::flat_hash_map<DataTypeId, int>>
+absl::NoDestructor<absl::flat_hash_map<DataTypeId, int>>
     CustomDTypes::datatype_to_numpy_map_;
-internal::NoDestructor<absl::flat_hash_map<int, DataTypeId>>
+absl::NoDestructor<absl::flat_hash_map<int, DataTypeId>>
     CustomDTypes::numpy_to_datatype_map_;
 
 };  // namespace

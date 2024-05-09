@@ -14,17 +14,21 @@
 
 #include "tensorstore/driver/n5/compressor.h"
 
+#include <utility>
+
+#include "absl/base/no_destructor.h"
 #include "tensorstore/driver/n5/compressor_registry.h"
+#include "tensorstore/internal/compression/json_specified_compressor.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/enum.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_registry.h"
-#include "tensorstore/internal/no_destructor.h"
 
 namespace tensorstore {
 namespace internal_n5 {
 using CompressorRegistry = internal::JsonSpecifiedCompressor::Registry;
 CompressorRegistry& GetCompressorRegistry() {
-  static internal::NoDestructor<CompressorRegistry> registry;
+  static absl::NoDestructor<CompressorRegistry> registry;
   return *registry;
 }
 

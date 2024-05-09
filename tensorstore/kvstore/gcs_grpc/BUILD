@@ -130,7 +130,6 @@ tensorstore_cc_test(
     ],
     deps = [
         ":gcs_grpc",
-        "//tensorstore/internal:no_destructor",
         "//tensorstore/internal/thread",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:batch_util",
@@ -140,6 +139,7 @@ tensorstore_cc_test(
         "//tensorstore/util:future",
         "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/base:no_destructor",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/log:absl_log",
@@ -168,11 +168,11 @@ tensorstore_cc_library(
     visibility = ["//visibility:private"],
     deps = [
         "//tensorstore/internal:env",
-        "//tensorstore/internal:no_destructor",
         "//tensorstore/internal/log:verbose_flag",
         "@com_github_grpc_grpc//:grpc++",
         "@com_github_grpc_grpc//:grpc_security_base",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/base:no_destructor",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/log:absl_log",

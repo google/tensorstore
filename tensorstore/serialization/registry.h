@@ -32,14 +32,14 @@
 /// This is used to implement serialization for TensorStore drivers and KvStore
 /// drivers.
 
+#include <memory>
 #include <string_view>
 #include <type_traits>
 #include <typeindex>
 #include <typeinfo>
 
-#include "absl/status/status.h"
+#include "absl/base/no_destructor.h"
 #include "tensorstore/internal/container/heterogeneous_container.h"
-#include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/serialization/serialization.h"
 
@@ -117,7 +117,7 @@ class Registry {
 ///     template Registry& GetRegistry<internal::IntrusivePtr<MyBase>>();
 template <typename Ptr>
 Registry& GetRegistry() {
-  static internal::NoDestructor<Registry> registry;
+  static absl::NoDestructor<Registry> registry;
   return *registry;
 }
 

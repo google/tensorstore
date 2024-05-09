@@ -22,12 +22,12 @@
 
 #include <gtest/gtest.h>
 #include "absl/base/call_once.h"
+#include "absl/base/no_destructor.h"
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "tensorstore/internal/env.h"
-#include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/internal/thread/thread.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -42,14 +42,13 @@ namespace kvstore = ::tensorstore::kvstore;
 using ::gcs_testbench::StorageTestbench;
 using ::tensorstore::KvStore;
 using ::tensorstore::StorageGeneration;
-using ::tensorstore::internal::NoDestructor;
 
 namespace {
 
 // TODO: Move this to a public location.
 
 StorageTestbench& GetTestBench() {
-  static NoDestructor<StorageTestbench> testbench;
+  static absl::NoDestructor<StorageTestbench> testbench;
 
   static absl::once_flag init_once;
   absl::call_once(init_once, [&]() {

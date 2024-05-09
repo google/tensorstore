@@ -22,10 +22,10 @@
 #include <thread>  // NOLINT
 #include <utility>
 
+#include "absl/base/no_destructor.h"
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/internal/thread/pool_impl.h"
 #include "tensorstore/internal/thread/task.h"
 #include "tensorstore/internal/thread/task_group_impl.h"
@@ -36,7 +36,7 @@ namespace internal {
 namespace {
 
 Executor DefaultThreadPool(size_t num_threads) {
-  static internal::NoDestructor<internal_thread_impl::SharedThreadPool> pool_;
+  static absl::NoDestructor<internal_thread_impl::SharedThreadPool> pool_;
   intrusive_ptr_increment(pool_.get());
   if (num_threads == 0 || num_threads == std::numeric_limits<size_t>::max()) {
     // Threads are "unbounded"; that doesn't work so well, so put a bound on it.

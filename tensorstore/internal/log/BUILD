@@ -10,8 +10,8 @@ tensorstore_cc_library(
     hdrs = ["verbose_flag.h"],
     deps = [
         "//tensorstore/internal:env",
-        "//tensorstore/internal:no_destructor",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/base:no_destructor",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/log:absl_log",

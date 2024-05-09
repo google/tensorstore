@@ -15,13 +15,14 @@
 #include "tensorstore/serialization/function.h"
 
 #include <string_view>
+#include <typeinfo>
 
+#include "absl/base/no_destructor.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "tensorstore/internal/container/heterogeneous_container.h"
-#include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/serialization/serialization.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/util/garbage_collection/garbage_collection.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -45,7 +46,7 @@ using SerializableFunctionRegistry =
                                    &RegisteredSerializableFunction::key>;
 
 SerializableFunctionRegistry& GetSerializableFunctionRegistry() {
-  static internal::NoDestructor<SerializableFunctionRegistry> registry;
+  static absl::NoDestructor<SerializableFunctionRegistry> registry;
   return *registry;
 }
 

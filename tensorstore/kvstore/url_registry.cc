@@ -14,14 +14,19 @@
 
 #include "tensorstore/kvstore/url_registry.h"
 
+#include <string>
 #include <string_view>
 
+#include "absl/base/no_destructor.h"
+#include "absl/base/thread_annotations.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
-#include "tensorstore/internal/no_destructor.h"
+#include "tensorstore/kvstore/spec.h"
 #include "tensorstore/util/quote_string.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -34,7 +39,7 @@ struct UrlSchemeRegistry {
 };
 
 UrlSchemeRegistry& GetUrlSchemeRegistry() {
-  static internal::NoDestructor<UrlSchemeRegistry> registry;
+  static absl::NoDestructor<UrlSchemeRegistry> registry;
   return *registry;
 }
 

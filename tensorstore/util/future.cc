@@ -25,6 +25,7 @@
 
 #include "absl/base/attributes.h"
 #include "absl/base/const_init.h"
+#include "absl/base/no_destructor.h"
 #include "absl/base/optimization.h"
 #include "absl/hash/hash.h"
 #include "absl/status/status.h"
@@ -34,7 +35,6 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/gauge.h"
-#include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/util/future_impl.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
@@ -516,7 +516,7 @@ FutureStateBase::~FutureStateBase() {
 }  // namespace internal_future
 
 ReadyFuture<const void> MakeReadyFuture() {
-  static internal::NoDestructor<ReadyFuture<const void>> future{
+  static absl::NoDestructor<ReadyFuture<const void>> future{
       MakeReadyFuture<void>(MakeResult())};
   return *future;
 }

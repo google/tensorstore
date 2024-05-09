@@ -14,17 +14,19 @@
 
 #include "tensorstore/internal/metrics/registry.h"
 
+#include <cassert>
 #include <memory>
+#include <optional>
 #include <string_view>
 #include <utility>
 #include <vector>
 
+#include "absl/base/no_destructor.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/log/absl_check.h"
 #include "absl/strings/match.h"
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/metrics/collect.h"
-#include "tensorstore/internal/no_destructor.h"
 
 namespace tensorstore {
 namespace internal_metrics {
@@ -71,7 +73,7 @@ std::optional<CollectedMetric> MetricRegistry::Collect(std::string_view name) {
 }
 
 MetricRegistry& GetMetricRegistry() {
-  static internal::NoDestructor<MetricRegistry> registry;
+  static absl::NoDestructor<MetricRegistry> registry;
   return *registry;
 }
 

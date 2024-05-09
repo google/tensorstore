@@ -19,6 +19,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/base/no_destructor.h"
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
@@ -38,7 +39,6 @@
 #include "tensorstore/internal/json_binding/data_type.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_registry.h"
-#include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/open_mode.h"
@@ -59,7 +59,7 @@ namespace internal {
 namespace jb = tensorstore::internal_json_binding;
 
 DriverRegistry& GetDriverRegistry() {
-  static internal::NoDestructor<DriverRegistry> registry;
+  static absl::NoDestructor<DriverRegistry> registry;
   return *registry;
 }
 

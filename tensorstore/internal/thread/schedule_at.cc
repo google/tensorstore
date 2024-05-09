@@ -22,6 +22,7 @@
 #include <memory>
 #include <utility>
 
+#include "absl/base/no_destructor.h"
 #include "absl/base/optimization.h"
 #include "absl/base/thread_annotations.h"
 #include "absl/functional/any_invocable.h"
@@ -33,7 +34,6 @@
 #include "tensorstore/internal/metrics/gauge.h"
 #include "tensorstore/internal/metrics/histogram.h"
 #include "tensorstore/internal/metrics/value.h"
-#include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/internal/tagged_ptr.h"
 #include "tensorstore/internal/thread/thread.h"
 #include "tensorstore/internal/tracing/tracing.h"
@@ -300,7 +300,7 @@ void DeadlineTaskQueue::TryRemove(DeadlineTaskNode& node) {
 
 void ScheduleAt(absl::Time target_time, ScheduleAtTask task,
                 const StopToken& stop_token) {
-  static internal::NoDestructor<DeadlineTaskQueue> g_queue;
+  static absl::NoDestructor<DeadlineTaskQueue> g_queue;
   g_queue->ScheduleAt(std::move(target_time), std::move(task), stop_token);
 }
 

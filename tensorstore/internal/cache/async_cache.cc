@@ -15,17 +15,21 @@
 #include "tensorstore/internal/cache/async_cache.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cassert>
+#include <cstddef>
 #include <mutex>  // NOLINT
 #include <type_traits>
 #include <utility>
 
+#include "absl/base/call_once.h"
+#include "absl/base/no_destructor.h"
 #include "absl/base/optimization.h"
 #include "absl/log/absl_log.h"
+#include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
-#include "absl/utility/utility.h"
 #include "tensorstore/batch.h"
 #include "tensorstore/batch_impl.h"
 #include "tensorstore/internal/cache/cache.h"
@@ -33,8 +37,6 @@
 #include "tensorstore/internal/container/intrusive_red_black_tree.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/mutex.h"
-#include "tensorstore/internal/no_destructor.h"
-#include "tensorstore/internal/type_traits.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/future.h"
@@ -474,7 +476,7 @@ void ResolveIssuedWriteback(AsyncCache::TransactionNode& node,
 }  // namespace
 
 const ReadState& AsyncCache::ReadState::Unknown() {
-  static const internal::NoDestructor<ReadState> read_state;
+  static const absl::NoDestructor<ReadState> read_state;
   return *read_state;
 }
 
