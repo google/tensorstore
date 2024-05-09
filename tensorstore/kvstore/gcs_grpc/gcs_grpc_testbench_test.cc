@@ -22,12 +22,12 @@
 #include <vector>
 
 #include <gtest/gtest.h>
+#include "absl/base/no_destructor.h"
 #include "absl/flags/flag.h"
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
-#include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/internal/thread/thread.h"
 #include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/gcs/gcs_testbench.h"
@@ -47,12 +47,11 @@ namespace kvstore = ::tensorstore::kvstore;
 using ::gcs_testbench::StorageTestbench;
 using ::tensorstore::KvStore;
 using ::tensorstore::StorageGeneration;
-using ::tensorstore::internal::NoDestructor;
 
 namespace {
 
 std::string GetTestBenchEndpoint() {
-  static NoDestructor<StorageTestbench> testbench;
+  static absl::NoDestructor<StorageTestbench> testbench;
   static std::string endpoint = [&] {
     std::string grpc_endpoint = absl::GetFlag(FLAGS_testbench_grpc_endpoint);
     if (grpc_endpoint.empty()) {

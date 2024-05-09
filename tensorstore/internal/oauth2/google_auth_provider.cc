@@ -23,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/base/no_destructor.h"
 #include "absl/base/thread_annotations.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
@@ -31,7 +32,6 @@
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/internal/oauth2/auth_provider.h"
 #include "tensorstore/internal/oauth2/fixed_token_auth_provider.h"
 #include "tensorstore/internal/oauth2/gce_auth_provider.h"
@@ -121,7 +121,7 @@ struct AuthProviderRegistry {
 };
 
 AuthProviderRegistry& GetGoogleAuthProviderRegistry() {
-  static internal::NoDestructor<AuthProviderRegistry> registry;
+  static absl::NoDestructor<AuthProviderRegistry> registry;
   return *registry;
 }
 
@@ -205,7 +205,7 @@ struct SharedGoogleAuthProviderState {
 };
 
 SharedGoogleAuthProviderState& GetSharedGoogleAuthProviderState() {
-  static internal::NoDestructor<SharedGoogleAuthProviderState> state;
+  static absl::NoDestructor<SharedGoogleAuthProviderState> state;
   return *state;
 }
 

@@ -14,16 +14,20 @@
 
 #include "tensorstore/driver/zarr/compressor.h"
 
+#include <utility>
+
+#include "absl/base/no_destructor.h"
 #include "tensorstore/driver/zarr/compressor_registry.h"
+#include "tensorstore/internal/compression/json_specified_compressor.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/enum.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_registry.h"
-#include "tensorstore/internal/no_destructor.h"
 
 namespace tensorstore {
 namespace internal_zarr {
 internal::JsonSpecifiedCompressor::Registry& GetCompressorRegistry() {
-  static internal::NoDestructor<internal::JsonSpecifiedCompressor::Registry>
+  static absl::NoDestructor<internal::JsonSpecifiedCompressor::Registry>
       registry;
   return *registry;
 }

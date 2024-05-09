@@ -17,7 +17,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <algorithm>
 #include <atomic>
 #include <cassert>
 #include <optional>
@@ -26,6 +25,7 @@
 #include <utility>
 
 #include "absl/base/attributes.h"
+#include "absl/base/no_destructor.h"
 #include "absl/base/thread_annotations.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/log/absl_log.h"  // IWYU pragma: keep
@@ -37,7 +37,6 @@
 #include "tensorstore/internal/cache_key/cache_key.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/log/verbose_flag.h"
-#include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
@@ -132,7 +131,7 @@ Result<KvStore> Driver::GetBase(std::string_view path,
 namespace internal_kvstore {
 
 DriverRegistry& GetDriverRegistry() {
-  static internal::NoDestructor<DriverRegistry> registry;
+  static absl::NoDestructor<DriverRegistry> registry;
   return *registry;
 }
 
@@ -173,7 +172,7 @@ struct OpenDriverCache {
 };
 
 OpenDriverCache& GetOpenDriverCache() {
-  static internal::NoDestructor<OpenDriverCache> cache_;
+  static absl::NoDestructor<OpenDriverCache> cache_;
   return *cache_;
 }
 }  // namespace

@@ -20,8 +20,8 @@
 #include <utility>
 #include <vector>
 
+#include "absl/base/no_destructor.h"
 #include "python/tensorstore/tensorstore_module_components.h"
-#include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/util/executor.h"
 
 namespace tensorstore {
@@ -32,7 +32,7 @@ using CallbackWithPriority =
     std::pair<PythonComponentRegistrationCallback, int>;
 
 std::vector<CallbackWithPriority>& GetRegisteredPythonComponents() {
-  static internal::NoDestructor<std::vector<CallbackWithPriority>> x;
+  static absl::NoDestructor<std::vector<CallbackWithPriority>> x;
   return *x;
 }
 }  // namespace

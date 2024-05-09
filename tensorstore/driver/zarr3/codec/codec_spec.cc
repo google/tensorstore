@@ -16,8 +16,8 @@
 
 #include <stddef.h>
 
+#include "absl/base/no_destructor.h"
 #include "tensorstore/driver/zarr3/codec/registry.h"
-#include "tensorstore/internal/no_destructor.h"
 
 namespace tensorstore {
 namespace internal_zarr3 {
@@ -37,7 +37,7 @@ ZarrCodecKind ZarrBytesToBytesCodecSpec::kind() const {
 }
 
 CodecRegistry& GetCodecRegistry() {
-  static internal::NoDestructor<CodecRegistry> registry;
+  static absl::NoDestructor<CodecRegistry> registry;
   return *registry;
 }
 

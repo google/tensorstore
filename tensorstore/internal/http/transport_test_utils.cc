@@ -48,13 +48,13 @@
 #include <string>
 #include <string_view>
 
+#include "absl/base/no_destructor.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/random/distributions.h"
 #include "absl/random/random.h"
 #include "tensorstore/internal/global_initializer.h"
-#include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -325,7 +325,7 @@ void CloseSocket(socket_t fd) {
 std::optional<uint16_t> TryPickUnusedPort() {
   // Used ports tracks the ports handed out by this process to avoid
   // returning duplicates as they may not be immediately opened on retrieval.
-  static internal::NoDestructor<absl::flat_hash_set<uint16_t>> used_ports;
+  static absl::NoDestructor<absl::flat_hash_set<uint16_t>> used_ports;
 
   static constexpr uint16_t kMin = 32768;
   static constexpr uint16_t kMax = 60999;

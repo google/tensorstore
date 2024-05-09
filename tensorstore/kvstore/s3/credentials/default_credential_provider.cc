@@ -22,13 +22,13 @@
 #include <vector>
 
 #include "absl/base/attributes.h"
+#include "absl/base/no_destructor.h"
 #include "absl/functional/function_ref.h"
 #include "absl/log/absl_log.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/log/verbose_flag.h"
-#include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/kvstore/s3/credentials/aws_credentials.h"
 #include "tensorstore/kvstore/s3/credentials/ec2_credential_provider.h"
 #include "tensorstore/kvstore/s3/credentials/environment_credential_provider.h"
@@ -47,7 +47,7 @@ struct AwsCredentialProviderRegistry {
 };
 
 AwsCredentialProviderRegistry& GetAwsProviderRegistry() {
-  static internal::NoDestructor<AwsCredentialProviderRegistry> registry;
+  static absl::NoDestructor<AwsCredentialProviderRegistry> registry;
   return *registry;
 }
 

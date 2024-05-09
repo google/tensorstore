@@ -25,6 +25,7 @@
 #include <typeinfo>
 #include <utility>
 
+#include "absl/base/no_destructor.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "python/tensorstore/garbage_collection.h"
@@ -36,7 +37,6 @@
 #include "riegeli/bytes/string_reader.h"
 #include "riegeli/bytes/writer.h"
 #include "tensorstore/internal/global_initializer.h"
-#include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/internal/unowned_to_shared.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/executor.h"
@@ -74,7 +74,7 @@ using PickleObjectRegistry = absl::flat_hash_map<void*, PyObject*>;
 /// destroyed, which typically happens at the end of the pickling operation.
 ///
 /// \threadsafety Must only be accessed while holding the GIL.
-internal::NoDestructor<PickleObjectRegistry> pickle_object_registry;
+absl::NoDestructor<PickleObjectRegistry> pickle_object_registry;
 
 /// Python object representation for `tensorstore._Encodable` wrapper objects.
 ///

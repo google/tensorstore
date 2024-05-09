@@ -27,6 +27,7 @@
 
 #include "absl/base/attributes.h"
 #include "absl/base/const_init.h"
+#include "absl/base/no_destructor.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/flags/flag.h"
 #include "absl/log/absl_log.h"
@@ -41,7 +42,6 @@
 #include "grpcpp/support/channel_arguments.h"  // third_party
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/log/verbose_flag.h"
-#include "tensorstore/internal/no_destructor.h"
 
 // protos
 #include "google/storage/v2/storage.grpc.pb.h"
@@ -142,7 +142,7 @@ void StorageStubPool::WaitForConnected(absl::Duration duration) {
 std::shared_ptr<StorageStubPool> GetSharedStorageStubPool(
     std::string address, uint32_t size,
     std::shared_ptr<::grpc::ChannelCredentials> creds) {
-  static internal::NoDestructor<
+  static absl::NoDestructor<
       absl::flat_hash_map<std::string, std::shared_ptr<StorageStubPool>>>
       shared_pool;
   size = ChannelsForAddress(address, size);

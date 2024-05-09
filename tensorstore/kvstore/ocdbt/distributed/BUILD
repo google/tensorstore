@@ -325,12 +325,12 @@ tensorstore_cc_library(
         "//tensorstore:json_serialization_options",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:json_registry",
-        "//tensorstore/internal:no_destructor",
         "//tensorstore/internal/cache_key",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
         "@com_github_grpc_grpc//:grpc++",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/base:no_destructor",
         "@com_google_absl//absl/status",
     ],
 )

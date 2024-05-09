@@ -25,6 +25,7 @@
 
 #include "absl/base/attributes.h"
 #include "absl/base/const_init.h"
+#include "absl/base/no_destructor.h"
 #include "absl/base/optimization.h"
 #include "absl/base/thread_annotations.h"
 #include "absl/container/flat_hash_map.h"
@@ -34,7 +35,6 @@
 #include "absl/strings/str_split.h"
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/env.h"
-#include "tensorstore/internal/no_destructor.h"
 
 ABSL_FLAG(std::string, tensorstore_verbose_logging, {},
           "comma-separated list of tensorstore verbose logging flags")
@@ -100,7 +100,7 @@ LoggingLevelConfig& GetLoggingLevelConfig()
     ABSL_EXCLUSIVE_LOCKS_REQUIRED(g_mutex) {
   // The initial use installs the environment variable. This may slow down
   // the first log statement.
-  static internal::NoDestructor<LoggingLevelConfig> flags{[] {
+  static absl::NoDestructor<LoggingLevelConfig> flags{[] {
     LoggingLevelConfig config;
     if (auto env = internal::GetEnv("TENSORSTORE_VERBOSE_LOGGING"); env) {
       UpdateLoggingLevelConfig(*env, config);

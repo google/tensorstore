@@ -176,7 +176,6 @@ tensorstore_cc_test(
     deps = [
         ":gcs_http",
         "//tensorstore/internal:env",
-        "//tensorstore/internal:no_destructor",
         "//tensorstore/internal/http:transport_test_utils",
         "//tensorstore/internal/thread",
         "//tensorstore/kvstore",
@@ -187,6 +186,7 @@ tensorstore_cc_test(
         "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
         "@com_google_absl//absl/base",
+        "@com_google_absl//absl/base:no_destructor",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/strings",

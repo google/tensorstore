@@ -95,10 +95,10 @@ tensorstore_cc_library(
     ],
     deps = [
         "//tensorstore/internal:json_registry",
-        "//tensorstore/internal:no_destructor",
         "//tensorstore/internal/compression:json_specified_compressor",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
+        "@com_google_absl//absl/base:no_destructor",
     ],
 )
 

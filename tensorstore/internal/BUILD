@@ -818,12 +818,12 @@ tensorstore_cc_test(
         ":intrusive_ptr",
         ":json_gtest",
         ":json_registry",
-        ":no_destructor",
         "//tensorstore:json_serialization_options",
         "//tensorstore/internal/json_binding",
-        "//tensorstore/util:result",
-        "//tensorstore/util:status",
+        "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/base:no_destructor",
+        "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -1474,21 +1474,6 @@ tensorstore_cc_test(
         ":nditerable_util",
         "//tensorstore:index",
         "//tensorstore/util:span",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
-    name = "no_destructor",
-    hdrs = ["no_destructor.h"],
-)
-
-tensorstore_cc_test(
-    name = "no_destructor_test",
-    size = "small",
-    srcs = ["no_destructor_test.cc"],
-    deps = [
-        ":no_destructor",
         "@com_google_googletest//:gtest_main",
     ],
 )

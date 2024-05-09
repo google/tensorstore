@@ -17,6 +17,7 @@
 #include <memory>
 #include <string>
 
+#include "absl/base/no_destructor.h"
 #include "absl/base/optimization.h"
 #include "absl/status/status.h"
 #include "grpcpp/security/credentials.h"  // third_party
@@ -26,14 +27,13 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/kvstore/ocdbt/distributed/rpc_security_registry.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
 
 RpcSecurityMethodRegistry& GetRpcSecurityMethodRegistry() {
-  static internal::NoDestructor<RpcSecurityMethodRegistry> registry;
+  static absl::NoDestructor<RpcSecurityMethodRegistry> registry;
   return *registry;
 }
 
@@ -64,7 +64,7 @@ class InsecureRpcSecurityMethod : public RpcSecurityMethod {
 };
 
 const RpcSecurityMethod& GetInsecureRpcSecurityMethodSingleton() {
-  static internal::NoDestructor<InsecureRpcSecurityMethod> method;
+  static absl::NoDestructor<InsecureRpcSecurityMethod> method;
   return *method;
 }
 

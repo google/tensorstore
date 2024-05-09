@@ -47,9 +47,7 @@ tensorstore_cc_library(
         "//tensorstore:transaction",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:mutex",
-        "//tensorstore/internal:no_destructor",
         "//tensorstore/internal:tagged_ptr",
-        "//tensorstore/internal:type_traits",
         "//tensorstore/internal/container:intrusive_linked_list",
         "//tensorstore/internal/container:intrusive_red_black_tree",
         "//tensorstore/kvstore:generation",
@@ -60,12 +58,12 @@ tensorstore_cc_library(
         "//tensorstore/util/execution:any_receiver",
         "@com_google_absl//absl/base",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/base:no_destructor",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/time",
-        "@com_google_absl//absl/utility",
     ],
 )
 

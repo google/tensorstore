@@ -50,12 +50,11 @@ tensorstore_cc_library(
     deps = [
         ":serialization",
         "//tensorstore/internal:intrusive_ptr",
-        "//tensorstore/internal:no_destructor",
         "//tensorstore/internal/container:heterogeneous_container",
         "//tensorstore/util:result",
-        "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "//tensorstore/util/garbage_collection",
+        "@com_google_absl//absl/base:no_destructor",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status",
     ],
@@ -129,11 +128,10 @@ tensorstore_cc_library(
     hdrs = ["registry.h"],
     deps = [
         ":serialization",
-        "//tensorstore/internal:no_destructor",
         "//tensorstore/internal/container:heterogeneous_container",
         "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/base:no_destructor",
         "@com_google_absl//absl/log:absl_log",
-        "@com_google_absl//absl/status",
     ],
 )
 
