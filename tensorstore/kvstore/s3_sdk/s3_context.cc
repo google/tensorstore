@@ -15,7 +15,6 @@
 #include "tensorstore/kvstore/s3_sdk/s3_context.h"
 
 #include <cstdarg>
-#include <ios>
 #include <memory>
 
 #include <aws/core/Aws.h>
@@ -36,6 +35,8 @@
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
 
+using ::tensorstore::internal_http::IssueRequestOptions;
+
 namespace tensorstore {
 namespace internal_kvstore_s3 {
 
@@ -53,12 +54,14 @@ public:
   Aws::Http::HeaderValueCollection headers_;
   Aws::IOStreamFactory stream_factory_;
   std::shared_ptr<Aws::IOStream> body_;
+  absl::Cord payload_;
 
   HttpRequestAdapter(const Aws::Http::URI & uri, Aws::Http::HttpMethod method) :
     HttpRequest(uri, method),
-    headers_(),
-    stream_factory_(),
-    body_(nullptr) {
+    headers_{},
+    stream_factory_{},
+    body_(nullptr),
+    payload_{} {
 
       request_.method = Aws::Http::HttpMethodMapper::GetNameForHttpMethod(method);
       request_.url = uri.GetURIString(true);
@@ -79,13 +82,15 @@ public:
   }
 
   virtual void SetHeaderValue(const Aws::String& headerName, const Aws::String& headerValue) override {
-    headers_.insert({headerName, headerValue});
+    // ABSL_LOG(INFO) << "Setting header " << headerName << " " << headerValue;
+    request_.headers.push_back(absl::StrCat(headerName, ": ", headerValue));
+    headers_.insert({std::move(headerName), std::move(headerValue)});
   }
 
   virtual void SetHeaderValue(const char* headerName, const Aws::String& headerValue) override {
-    headers_.insert({
-      Aws::Utils::StringUtils::ToLower(headerName),
-      Aws::Utils::StringUtils::Trim(headerValue.c_str())});
+    auto lower_name = Aws::Utils::StringUtils::ToLower(headerName);
+    auto trimmed_value = Aws::Utils::StringUtils::Trim(headerValue.c_str());
+    SetHeaderValue(lower_name, trimmed_value);
   }
 
   virtual void DeleteHeader(const char* headerName) override {
@@ -100,6 +105,20 @@ public:
 
   virtual void AddContentBody(const std::shared_ptr<Aws::IOStream>& strContext) override {
     body_ = strContext;
+
+    //ABSL_LOG(INFO) << "AddContentBody " << strContext << " " << body_;;
+
+    if(!body_) {
+      return;
+    }
+
+    const size_t bufferSize = 4096;
+    std::vector<char> buffer(bufferSize);
+
+    while (body_->read(buffer.data(), buffer.size()) || body_->gcount() > 0) {
+        payload_.Append(absl::Cord(absl::string_view(buffer.data(), body_->gcount())));
+    }
+    ABSL_LOG(INFO) << "AddContentBody " << payload_.size();
   }
 
   virtual const std::shared_ptr<Aws::IOStream>& GetContentBody() const override {
@@ -133,6 +152,13 @@ public:
       // but AWS probably? won't respond with
       // a response code it doesn't know about
       SetResponseCode(static_cast<Aws::Http::HttpResponseCode>(response_.status_code));
+
+      // Add the payload to the Response Body is present
+      // This incurs a copy, which should be avoided by subclassing
+      // Aws::IOStream
+      if(!response_.payload.empty()) {
+        GetResponseBody() << response_.payload;
+      }
   };
 
   virtual Aws::Utils::Stream::ResponseStream && SwapResponseStreamOwnership() override {
@@ -174,26 +200,16 @@ public:
     Aws::Utils::RateLimits::RateLimiterInterface* readLimiter = nullptr,
     Aws::Utils::RateLimits::RateLimiterInterface* writeLimiter = nullptr) const override {
       absl::Cord payload;
+      ABSL_LOG(INFO) << "Making a request ";
       if(auto req_adapter = std::dynamic_pointer_cast<HttpRequestAdapter>(request); req_adapter) {
-        if(auto iostream = req_adapter->GetContentBody(); iostream) {
-          // This is untested and probably broken
-          // Ideally, we'd want a streambuf wrapping an underlying Cord
-          // to avoid the copy here, especially for responses
-          auto rdbuf = iostream->rdbuf();
-          std::streamsize size = rdbuf->pubseekoff(0, iostream->end);
-          auto cord_buffer = absl::CordBuffer::CreateWithDefaultLimit(size);
-          absl::Span<char> data = cord_buffer.available_up_to(size);
-          rdbuf->sgetn(data.data(), data.size());
-          cord_buffer.IncreaseLengthBy(data.size());
-          payload.Append(std::move(cord_buffer));
-        }
-
         auto transport = ::tensorstore::internal_http::GetDefaultHttpTransport();
-        ABSL_LOG(INFO) << req_adapter->request_;
+        ABSL_LOG(INFO) << req_adapter->request_ << " " << req_adapter->payload_;
+        auto req_options = req_adapter->payload_.empty() ?
+          IssueRequestOptions{} :
+          IssueRequestOptions(std::move(req_adapter->payload_));
         auto future = transport->IssueRequest(
-          req_adapter->request_,
-          ::tensorstore::internal_http::IssueRequestOptions(payload));
-        // future.ExecuteWhenReady may be desirable
+          req_adapter->request_, std::move(req_options));
+        // future.ExecuteWhenReady is desirable
         auto response = future.value();
         ABSL_LOG(INFO) << response;
         return Aws::MakeShared<HttpResponseAdapter>(kAwsTag, response, request);
@@ -323,7 +339,8 @@ std::shared_ptr<AwsContext> GetAwsContext() {
   options.httpOptions.installSigPipeHandler = false;
 
   // Install AWS -> Abseil Logging Translator
-  auto level = Aws::Utils::Logging::LogLevel::Info;
+  auto level = Aws::Utils::Logging::LogLevel::Debug;
+  //auto level = Aws::Utils::Logging::LogLevel::Info;
   options.loggingOptions.logLevel = level;
   options.loggingOptions.logger_create_fn = [level=level]() {
     return Aws::MakeShared<AWSLogSystem>(kAwsTag, level);
