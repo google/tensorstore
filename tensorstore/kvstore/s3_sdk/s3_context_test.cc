@@ -13,7 +13,7 @@
 #include <aws/s3/S3Client.h>
 #include <aws/s3/model/HeadBucketRequest.h>
 
-#include "tensorstore/kvstore/s3/s3_context.h"
+#include "tensorstore/kvstore/s3_sdk/s3_context.h"
 #include "tensorstore/internal/thread/thread_pool.h"
 #include "tensorstore/util/executor.h"
 
@@ -54,12 +54,13 @@ TEST(S3ContextTest, Endpoint) {
 }
 
 TEST(S3ContextTest, Client) {
-  class AwsExecutorAdapter : public Aws::Utils::Threading::Executor {
+  // Offload AWS Client tasks onto a Tensorstore executor
+  class TensorStoreExecutor : public Aws::Utils::Threading::Executor {
   public:
-    AwsExecutorAdapter(): executor_(::tensorstore::internal::DetachedThreadPool(4)) {}
+    TensorStoreExecutor(): executor_(::tensorstore::internal::DetachedThreadPool(4)) {}
   protected:
     bool SubmitToThread(std::function<void()> && fn) override {
-      ::tensorstore::WithExecutor(executor_, std::move(fn));
+      ::tensorstore::WithExecutor(executor_, std::move(fn))();
       return true;
     }
 
@@ -69,8 +70,9 @@ TEST(S3ContextTest, Client) {
 
   auto ctx = GetAwsContext();
   auto cfg = Aws::Client::ClientConfiguration();
-  //cfg.executor = Aws::MakeShared<AwsExecutorAdapter>(kAWSTag);
-  cfg.executor->Submit([msg = "Submission Works"] { ABSL_LOG(INFO) << msg; });
+  // Override the default client executor
+  cfg.executor = Aws::MakeShared<TensorStoreExecutor>(kAWSTag);
+  cfg.executor->Submit([msg = "Submission seems to work"] { ABSL_LOG(INFO) << msg; });
   auto client = Aws::S3::S3Client(cfg);
   auto head_bucket = Aws::S3::Model::HeadBucketRequest().WithBucket("ratt-public-data");
   auto outcome = client.HeadBucket(head_bucket);

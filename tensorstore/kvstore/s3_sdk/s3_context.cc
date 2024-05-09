@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/kvstore/s3/s3_context.h"
+#include "tensorstore/kvstore/s3_sdk/s3_context.h"
 
 #include <cstdarg>
+#include <ios>
 #include <memory>
 
 #include <aws/core/Aws.h>
@@ -33,6 +34,7 @@
 #include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
+#include "tensorstore/internal/http/http_transport.h"
 
 namespace tensorstore {
 namespace internal_kvstore_s3 {
@@ -58,7 +60,11 @@ public:
     HttpRequest(uri, method),
     headers_(),
     stream_factory_(),
-    body_(nullptr) {};
+    body_(nullptr) {
+
+      request_.method = Aws::Http::HttpMethodMapper::GetNameForHttpMethod(method);
+      request_.url = uri.GetURIString(true);
+  };
 
   virtual Aws::Http::HeaderValueCollection GetHeaders() const override {
     return headers_;
@@ -85,7 +91,9 @@ public:
   }
 
   virtual void DeleteHeader(const char* headerName) override {
-    headers_.erase(headers_.find(headerName));
+    if(auto it = headers_.find(Aws::Utils::StringUtils::ToLower(headerName)); it != headers_.end()) {
+      headers_.erase(it);
+    }
   }
 
   virtual int64_t GetSize() const override {
@@ -120,7 +128,14 @@ public:
         const std::shared_ptr<const Aws::Http::HttpRequest> & originatingRequest) :
       ::Aws::Http::HttpResponse(originatingRequest),
       response_(std::move(response)),
-      body_stream_(originatingRequest->GetResponseStreamFactory()()) {};
+      body_stream_(originatingRequest->GetResponseStreamFactory()) {
+
+      // Cast int response code to an HttpResponseCode enum
+      // Potential for undefined behaviour here,
+      // but AWS probably? won't respond with
+      // a response code it doesn't know about
+      SetResponseCode(static_cast<Aws::Http::HttpResponseCode>(response_.status_code));
+  };
 
   virtual Aws::Utils::Stream::ResponseStream && SwapResponseStreamOwnership() override {
     return std::move(body_stream_);
@@ -160,18 +175,35 @@ public:
     const std::shared_ptr<Aws::Http::HttpRequest> & request,
     Aws::Utils::RateLimits::RateLimiterInterface* readLimiter = nullptr,
     Aws::Utils::RateLimits::RateLimiterInterface* writeLimiter = nullptr) const override {
-      ABSL_LOG(INFO) << "Making a request " << std::endl;
+      absl::Cord payload;
       if(auto req_adapter = std::dynamic_pointer_cast<HttpRequestAdapter>(request); req_adapter) {
+        if(auto iostream = req_adapter->GetContentBody(); iostream) {
+          // This is untested and probably broken
+          // Ideally, we'd want a streambuf wrapping an underlying Cord
+          // to avoid the copy here, especially for responses
+          auto rdbuf = iostream->rdbuf();
+          std::streamsize size = rdbuf->pubseekoff(0, iostream->end);
+          auto cord_buffer = absl::CordBuffer::CreateWithDefaultLimit(size);
+          absl::Span<char> data = cord_buffer.available_up_to(size);
+          rdbuf->sgetn(data.data(), data.size());
+          cord_buffer.IncreaseLengthBy(data.size());
+          payload.Append(std::move(cord_buffer));
+        }
+
         auto transport = ::tensorstore::internal_http::GetDefaultHttpTransport();
-        auto future = transport->IssueRequest(req_adapter->request_, {});
+        ABSL_LOG(INFO) << req_adapter->request_;
+        auto future = transport->IssueRequest(
+          req_adapter->request_,
+          ::tensorstore::internal_http::IssueRequestOptions(payload));
         // future.ExecuteWhenReady may be desirable
         auto response = future.value();
+        ABSL_LOG(INFO) << response;
         return Aws::MakeShared<HttpResponseAdapter>(kAWSTag, response, request);
       }
 
-      auto failed_response = Aws::MakeShared<Aws::Http::Standard::StandardHttpResponse>(kAwsTag, request);
-      failed_response->SetResponseCode(Aws::Http::HttpResponseCode::PRECONDITION_FAILED);
-      return failed_response;
+      auto fail = Aws::MakeShared<Aws::Http::Standard::StandardHttpResponse>(kAwsTag, request);
+      fail->SetResponseCode(Aws::Http::HttpResponseCode::PRECONDITION_FAILED);
+      return fail;
     };
 };
 
@@ -195,9 +227,6 @@ public:
     const Aws::Http::URI& uri, Aws::Http::HttpMethod method,
     const Aws::IOStreamFactory& streamFactory) const override
   {
-      ABSL_LOG(INFO) << "CreateHttpRequest "
-        << Aws::Http::HttpMethodMapper::GetNameForHttpMethod(method)
-        << " " << uri.GetURIString(true);
       auto request = Aws::MakeShared<HttpRequestAdapter>(kAWSTag, uri, method);
       request->SetResponseStreamFactory(streamFactory);
       return request;
@@ -264,18 +293,18 @@ std::shared_ptr<AwsContext> GetAwsContext() {
 
   auto options = Aws::SDKOptions{};
   // Customise HttpClientFactory
-  // Disable curl init/cleanup
+  // Disable curl init/cleanup, tensorstore should control this
   // Don't install the SIGPIPE handler
-  // options.httpOptions.httpClientFactory_create_fn = []() {
-  //   return Aws::MakeShared<CustomHttpFactory>(kAwsTag);
-  // };
+  options.httpOptions.httpClientFactory_create_fn = []() {
+    return Aws::MakeShared<CustomHttpFactory>(kAwsTag);
+  };
   options.httpOptions.initAndCleanupCurl = false;
   options.httpOptions.installSigPipeHandler = false;
 
   // Install AWS -> Abseil Logging Translator
   auto level = Aws::Utils::Logging::LogLevel::Info;
   options.loggingOptions.logLevel = level;
-  options.loggingOptions.logger_create_fn = [=]() {
+  options.loggingOptions.logger_create_fn = [level=level]() {
     return Aws::MakeShared<AWSLogSystem>(kAWSTag, level);
   };
 

@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "tensorstore/kvstore/s3/s3_context.h"
+#include "tensorstore/kvstore/s3_sdk/s3_context.h"
 #include "tensorstore/kvstore/s3/new_s3_request_builder.h"
 
 

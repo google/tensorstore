@@ -12,7 +12,7 @@
 #include "absl/strings/cord.h"
 
 #include "tensorstore/internal/http/http_request.h"
-#include "tensorstore/kvstore/s3/s3_context.h"
+#include "tensorstore/kvstore/s3_sdk/s3_context.h"
 
 namespace tensorstore {
 namespace internal_kvstore_s3 {

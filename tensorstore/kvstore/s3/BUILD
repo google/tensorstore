@@ -193,7 +193,7 @@ tensorstore_cc_library(
         "new_s3_request_builder.h"
     ],
     deps = [
-        ":s3_context",
+        "//tensorstore/kvstore/s3_sdk:s3_context",
         "//tensorstore/internal/http",
         "@com_github_aws_cpp_sdk//:core",
         "@com_google_absl//absl/strings",
@@ -301,33 +301,6 @@ tensorstore_cc_library(
         "@com_google_absl//absl/strings:str_format",
     ],
 )
-
-tensorstore_cc_library(
-    name = "s3_context",
-    srcs = ["s3_context.cc"],
-    hdrs = ["s3_context.h"],
-    deps = [
-        "//tensorstore/util:executor",
-        "//tensorstore/internal/http",
-        "//tensorstore/internal/http:curl_transport",
-        "//tensorstore/internal/thread:thread_pool",
-        "@com_google_absl//absl/log:absl_log",
-        "@com_google_absl//absl/synchronization",
-        "@com_github_aws_cpp_sdk//:core",
-    ]
-)
-
-tensorstore_cc_test(
-    name = "s3_context_test",
-    size = "small",
-    srcs = ["s3_context_test.cc"],
-    deps = [
-        ":s3_context",
-        "@com_github_aws_cpp_sdk//:s3",
-        "@com_google_googletest//:gtest_main",
-    ]
-)
-
 
 tensorstore_cc_test(
     name = "s3_endpoint_test",
