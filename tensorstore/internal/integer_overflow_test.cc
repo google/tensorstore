@@ -47,8 +47,8 @@ TEST(InnerProductTest, Basic) {
 }
 
 TEST(InnerProductTest, Convert) {
-  const std::uint32_t a[] = {0x80000000};
-  const std::uint32_t b[] = {2};
+  const uint32_t a[] = {0x80000000};
+  const uint32_t b[] = {2};
   EXPECT_EQ(Index{0x100000000}, InnerProduct<Index>(1, a, b));
 }
 
@@ -65,21 +65,21 @@ TEST(InnerProductTest, WrapOnOverflowAdd) {
 }
 
 TEST(MulOverflow, Uint32) {
-  std::uint32_t a, b, c;
+  uint32_t a, b, c;
 
   a = 0x7fffffff;
   b = 2;
   EXPECT_EQ(false, MulOverflow(a, b, &c));
-  EXPECT_EQ(std::uint32_t{0xfffffffe}, c);
+  EXPECT_EQ(uint32_t{0xfffffffe}, c);
   EXPECT_EQ(false, MulOverflow(b, a, &c));
-  EXPECT_EQ(std::uint32_t{0xfffffffe}, c);
+  EXPECT_EQ(uint32_t{0xfffffffe}, c);
 
   a = 0x80000000;
   c = 2;
   EXPECT_EQ(true, MulOverflow(a, b, &c));
-  EXPECT_EQ(std::uint32_t{0}, c);
+  EXPECT_EQ(uint32_t{0}, c);
   EXPECT_EQ(true, MulOverflow(b, a, &c));
-  EXPECT_EQ(std::uint32_t{0}, c);
+  EXPECT_EQ(uint32_t{0}, c);
 }
 
 TEST(MulOverflow, Int32) {
@@ -101,19 +101,19 @@ TEST(MulOverflow, Int32) {
 }
 
 TEST(AddOverflow, Uint32) {
-  std::uint32_t a, b, c;
+  uint32_t a, b, c;
 
   a = 0x7fffffff;
   b = 0x80000000;
   EXPECT_EQ(false, AddOverflow(a, b, &c));
-  EXPECT_EQ(std::uint32_t{0xffffffff}, c);
+  EXPECT_EQ(uint32_t{0xffffffff}, c);
   EXPECT_EQ(false, AddOverflow(b, a, &c));
-  EXPECT_EQ(std::uint32_t{0xffffffff}, c);
+  EXPECT_EQ(uint32_t{0xffffffff}, c);
 
   a = 0x80000000;
   c = 0x80000000;
   EXPECT_EQ(true, MulOverflow(a, b, &c));
-  EXPECT_EQ(std::uint32_t{0}, c);
+  EXPECT_EQ(uint32_t{0}, c);
 }
 
 TEST(AddOverflow, Int32) {
@@ -145,17 +145,17 @@ TEST(AddSaturate, Int32) {
 }
 
 TEST(SubOverflow, Uint32) {
-  std::uint32_t a, b, c;
+  uint32_t a, b, c;
 
   a = 0x80000000;
   b = 0x7fffffff;
   EXPECT_EQ(false, SubOverflow(a, b, &c));
-  EXPECT_EQ(std::uint32_t{1}, c);
+  EXPECT_EQ(uint32_t{1}, c);
 
   a = 0x7fffffff;
   b = 0x80000000;
   EXPECT_EQ(true, SubOverflow(a, b, &c));
-  EXPECT_EQ(std::uint32_t{0xffffffff}, c);
+  EXPECT_EQ(uint32_t{0xffffffff}, c);
 }
 
 TEST(SubOverflow, Int32) {

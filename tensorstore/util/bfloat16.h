@@ -23,7 +23,7 @@
 #include <type_traits>
 
 #include "absl/base/casts.h"
-#include "tensorstore/internal/json_fwd.h"
+#include <nlohmann/json_fwd.hpp>
 
 // The implementation below is derived from Tensorflow and Eigen:
 // https://gitlab.com/libeigen/eigen/-/blob/master/Eigen/src/Core/arch/Default/BFloat16.h

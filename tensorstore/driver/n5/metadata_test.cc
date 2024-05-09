@@ -14,12 +14,14 @@
 
 #include "tensorstore/driver/n5/metadata.h"
 
+#include <cstdint>
 #include <string_view>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "tensorstore/array.h"
 #include "tensorstore/codec_spec.h"
+#include "tensorstore/data_type.h"
 #include "tensorstore/internal/json_binding/gtest.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/util/result.h"
@@ -51,7 +53,7 @@ TEST(MetadataTest, ParseValid) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata,
                                    N5Metadata::FromJson(attributes));
   EXPECT_THAT(metadata.shape, ::testing::ElementsAre(10, 11, 12));
-  EXPECT_THAT(metadata.dtype, tensorstore::dtype_v<std::uint16_t>);
+  EXPECT_THAT(metadata.dtype, tensorstore::dtype_v<uint16_t>);
   EXPECT_THAT(metadata.axes, ::testing::ElementsAre("a", "", ""));
   EXPECT_THAT(metadata.extra_attributes, MatchesJson({{"extra", "value"}}));
   EXPECT_THAT(metadata.chunk_layout,
@@ -69,7 +71,7 @@ TEST(MetadataTest, ParseValidNoAxes) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata,
                                    N5Metadata::FromJson(attributes));
   EXPECT_THAT(metadata.shape, ::testing::ElementsAre(10, 11, 12));
-  EXPECT_THAT(metadata.dtype, tensorstore::dtype_v<std::uint16_t>);
+  EXPECT_THAT(metadata.dtype, tensorstore::dtype_v<uint16_t>);
   EXPECT_THAT(metadata.axes, ::testing::ElementsAre("", "", ""));
   EXPECT_THAT(metadata.extra_attributes,
               MatchesJson(::nlohmann::json::object_t()));
@@ -239,7 +241,7 @@ TEST(RawCompressionTest, Golden) {
                             {"blockSize", {1, 2, 3}},
                             {"dataType", "uint16"},
                             {"compression", {{"type", "raw"}}}}));
-  auto array = MakeArray<std::uint16_t>({{{1, 3, 5}, {2, 4, 6}}});
+  auto array = MakeArray<uint16_t>({{{1, 3, 5}, {2, 4, 6}}});
   EXPECT_EQ(array, DecodeChunk(metadata, absl::Cord(encoded_data)));
   {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto buffer, EncodeChunk(metadata, array));
@@ -307,7 +309,7 @@ TEST(RawCompressionTest, PartialChunk) {
                             {"blockSize", {1, 2, 3}},
                             {"dataType", "uint16"},
                             {"compression", {{"type", "raw"}}}}));
-  auto array = MakeArray<std::uint16_t>({{{1, 3, 0}, {2, 4, 0}}});
+  auto array = MakeArray<uint16_t>({{{1, 3, 0}, {2, 4, 0}}});
   EXPECT_EQ(array, DecodeChunk(metadata, absl::Cord(encoded_data)));
 }
 

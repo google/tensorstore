@@ -23,10 +23,10 @@
 
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
+#include <nlohmann/json_fwd.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
-#include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/static_cast.h"
 #include "tensorstore/strided_layout.h"

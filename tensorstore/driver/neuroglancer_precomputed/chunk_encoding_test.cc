@@ -83,7 +83,7 @@ TEST(ChunkEncodingTest, Roundtrip) {
         {"type", "image"}};
 
     // Test raw
-    TestRoundtrip<std::uint16_t>(metadata_json_raw, /*compare=*/true);
+    TestRoundtrip<uint16_t>(metadata_json_raw, /*compare=*/true);
 
     // Test jpeg
     {
@@ -91,7 +91,7 @@ TEST(ChunkEncodingTest, Roundtrip) {
       auto metadata_json_jpeg = metadata_json_raw;
       metadata_json_jpeg["scales"][0]["encoding"] = "jpeg";
       // JPEG is lossy, so we can't compare values.
-      TestRoundtrip<std::uint8_t>(metadata_json_jpeg, /*compare=*/false);
+      TestRoundtrip<uint8_t>(metadata_json_jpeg, /*compare=*/false);
     }
 
     // Test compressed segmentation
@@ -100,8 +100,8 @@ TEST(ChunkEncodingTest, Roundtrip) {
       metadata_json_cseg["scales"][0]["encoding"] = "compressed_segmentation";
       metadata_json_cseg["scales"][0]["compressed_segmentation_block_size"] = {
           2, 3, 4};
-      TestRoundtrip<std::uint32_t>(metadata_json_cseg, /*compare=*/true);
-      TestRoundtrip<std::uint64_t>(metadata_json_cseg, /*compare=*/true);
+      TestRoundtrip<uint32_t>(metadata_json_cseg, /*compare=*/true);
+      TestRoundtrip<uint64_t>(metadata_json_cseg, /*compare=*/true);
     }
   }
 }

@@ -22,6 +22,8 @@
 
 #ifdef _WIN32
 
+#include <stddef.h>
+
 #include <string>
 #include <string_view>
 
@@ -60,7 +62,7 @@ inline bool IsRegularFile(const FileInfo& info) {
   return !(info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY);
 }
 
-inline std::uint64_t GetSize(const FileInfo& info) {
+inline uint64_t GetSize(const FileInfo& info) {
   return (static_cast<std::int64_t>(info.nFileSizeHigh) << 32) +
          static_cast<std::int64_t>(info.nFileSizeLow);
 }
@@ -69,15 +71,15 @@ inline DWORD GetDeviceId(const FileInfo& info) {
   return info.dwVolumeSerialNumber;
 }
 
-inline std::uint64_t GetFileId(const FileInfo& info) {
-  return (static_cast<std::uint64_t>(info.nFileIndexHigh) << 32) |
-         static_cast<std::uint64_t>(info.nFileIndexLow);
+inline uint64_t GetFileId(const FileInfo& info) {
+  return (static_cast<uint64_t>(info.nFileIndexHigh) << 32) |
+         static_cast<uint64_t>(info.nFileIndexLow);
 }
 
-inline std::uint64_t GetMTime(const FileInfo& info) {
+inline uint64_t GetMTime(const FileInfo& info) {
   const ::FILETIME t = info.ftLastWriteTime;
-  return (static_cast<std::uint64_t>(t.dwHighDateTime) << 32) |
-         static_cast<std::uint64_t>(t.dwLowDateTime);
+  return (static_cast<uint64_t>(t.dwHighDateTime) << 32) |
+         static_cast<uint64_t>(t.dwLowDateTime);
 }
 
 struct FileLockTraits {
@@ -89,10 +91,9 @@ struct FileLockTraits {
 UniqueFileDescriptor OpenExistingFileForReading(std::string_view path);
 UniqueFileDescriptor OpenFileForWriting(std::string_view path);
 
-std::ptrdiff_t ReadFromFile(FileDescriptor fd, void* buf, std::size_t count,
+std::ptrdiff_t ReadFromFile(FileDescriptor fd, void* buf, size_t count,
                             std::int64_t offset);
-std::ptrdiff_t WriteToFile(FileDescriptor fd, const void* buf,
-                           std::size_t count);
+std::ptrdiff_t WriteToFile(FileDescriptor fd, const void* buf, size_t count);
 
 std::ptrdiff_t WriteCordToFile(FileDescriptor fd, absl::Cord value);
 

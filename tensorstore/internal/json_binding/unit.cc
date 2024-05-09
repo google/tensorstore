@@ -18,11 +18,11 @@
 #include <string>
 
 #include "absl/status/status.h"
+#include <nlohmann/json_fwd.hpp>
 #include "tensorstore/internal/json/value_as.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/std_tuple.h"
-#include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/util/unit.h"
 
 namespace tensorstore {

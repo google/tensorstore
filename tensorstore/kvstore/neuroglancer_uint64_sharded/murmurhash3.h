@@ -28,7 +28,7 @@ namespace neuroglancer_uint64_sharded {
 ///
 /// \param input The input value, treated as a 64-bit little endian value.
 /// \param h[in,out] On input, specifies the seed.  On output, equals the hash.
-void MurmurHash3_x86_128Hash64Bits(std::uint64_t input, std::uint32_t h[4]);
+void MurmurHash3_x86_128Hash64Bits(uint64_t input, uint32_t h[4]);
 
 }  // namespace neuroglancer_uint64_sharded
 }  // namespace tensorstore

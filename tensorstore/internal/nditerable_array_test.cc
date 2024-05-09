@@ -14,6 +14,7 @@
 
 #include "tensorstore/internal/nditerable_array.h"
 
+#include <cstdint>
 #include <memory>
 #include <vector>
 
@@ -53,11 +54,11 @@ using DirectionPref = NDIterable::DirectionPref;
 // Directly tests the `NDIterable` implementation returned by
 // `GetArrayNDIterable`.
 TEST(NDIterableArrayTest, Direct) {
-  std::uint8_t data[1000];
+  uint8_t data[1000];
   // Dimension 0 is contiguous, dimension 2 can be skipped, and dimensions 0 and
   // 1 are reversed.
-  Array<std::uint8_t> array(data + 500,
-                            StridedLayout<>({6, 3, 4, 5}, {-1, -6, 0, 3}));
+  Array<uint8_t> array(data + 500,
+                       StridedLayout<>({6, 3, 4, 5}, {-1, -6, 0, 3}));
   Arena arena;
   auto iterable = GetArrayNDIterable(UnownedToShared(array), &arena);
   {

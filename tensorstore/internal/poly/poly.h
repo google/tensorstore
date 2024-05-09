@@ -132,7 +132,7 @@ using SupportsPolySignatures =
     std::conjunction<typename internal_poly::SignatureTraits<
         Signature>::template IsSupportedBy<T>...>;
 
-template <std::size_t InlineSize, bool Copyable, typename... Signature>
+template <size_t InlineSize, bool Copyable, typename... Signature>
 class Poly;
 
 /// `bool`-valued metafunction that evaluates to `true` if `T` is an instance of
@@ -140,7 +140,7 @@ class Poly;
 template <typename T>
 struct IsPoly : public std::false_type {};
 
-template <std::size_t InlineSize, bool Copyable, typename... Signature>
+template <size_t InlineSize, bool Copyable, typename... Signature>
 struct IsPoly<Poly<InlineSize, Copyable, Signature...>>
     : public std::true_type {};
 
@@ -176,17 +176,17 @@ struct IsCompatibleWithPoly<T, true, Signature...>
 ///     qualification.  To obtain the equivalent behavior of a signature without
 ///     reference qualification, specify both an lvalue and rvalue-qualified
 ///     signature.
-template <std::size_t InlineSize_, bool Copyable, typename... Signature>
+template <size_t InlineSize_, bool Copyable, typename... Signature>
 class Poly
     : private internal_poly::PolyImpl<Poly<InlineSize_, Copyable, Signature...>,
                                       Signature...> {
   template <typename, typename...>
   friend class internal_poly::PolyImpl;
 
-  template <std::size_t, bool, typename...>
+  template <size_t, bool, typename...>
   friend class Poly;
 
-  static constexpr std::size_t InlineSize =
+  static constexpr size_t InlineSize =
       internal_poly_storage::ActualInlineSize(InlineSize_);
 
   using Storage = internal_poly_storage::Storage<InlineSize, Copyable>;
@@ -363,7 +363,7 @@ class Poly
   }
 
   /// Copy/move constructs from a Poly.
-  template <std::size_t ISize, bool C, typename... S, typename T>
+  template <size_t ISize, bool C, typename... S, typename T>
   void Construct(std::in_place_type_t<Poly<ISize, C, S...>>, T&& poly) {
     if constexpr (internal_poly_storage::ActualInlineSize(ISize) <=
                       InlineSize &&

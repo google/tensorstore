@@ -16,6 +16,7 @@
 
 #include "tensorstore/internal/intrusive_ptr.h"
 
+#include <cstdint>
 #include <memory>
 #include <utility>
 
@@ -349,7 +350,7 @@ class X {
       delete p;
     }
   }
-  std::uint32_t ref_count_{0};
+  uint32_t ref_count_{0};
   int v_{0};
 };
 
@@ -394,7 +395,7 @@ class X {
   X(int v) : v_(v) {}
   virtual ~X() = default;
 
-  std::uint32_t ref_count_{0};
+  uint32_t ref_count_{0};
   int v_{0};
 };
 

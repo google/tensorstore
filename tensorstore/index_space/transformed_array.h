@@ -19,17 +19,34 @@
 /// A transformed array is a view through an index transform of a strided
 /// in-memory array.
 
+#include <stddef.h>
+
 #include <memory>
 #include <string>
 #include <type_traits>
+#include <utility>
 
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
+#include "tensorstore/box.h"
+#include "tensorstore/container_kind.h"
+#include "tensorstore/contiguous_layout.h"
+#include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/internal/transform_rep.h"
+#include "tensorstore/index_space/transform_array_constraints.h"
+#include "tensorstore/internal/elementwise_function.h"
+#include "tensorstore/internal/type_traits.h"
+#include "tensorstore/internal/void_wrapper.h"
 #include "tensorstore/rank.h"
+#include "tensorstore/static_cast.h"
+#include "tensorstore/strided_layout.h"
+#include "tensorstore/util/element_pointer.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 
@@ -888,7 +905,7 @@ internal::TryConvertToArrayFn<OriginKind> TryConvertToArray() {
 namespace internal {
 
 /// Internal untyped interface to tensorstore::IterateOverTransformedArrays.
-template <std::size_t Arity>
+template <size_t Arity>
 Result<bool> IterateOverTransformedArrays(
     ElementwiseClosure<Arity, void*> closure, void* arg,
     IterationConstraints constraints,

@@ -15,7 +15,7 @@
 #ifndef TENSORSTORE_UTIL_GARBAGE_COLLECTION_JSON_H_
 #define TENSORSTORE_UTIL_GARBAGE_COLLECTION_JSON_H_
 
-#include "tensorstore/internal/json_fwd.h"
+#include <nlohmann/json_fwd.hpp>
 #include "tensorstore/util/garbage_collection/fwd.h"
 
 TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(::nlohmann::json)

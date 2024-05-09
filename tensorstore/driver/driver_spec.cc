@@ -16,7 +16,6 @@
 
 #include <assert.h>
 
-#include <optional>
 #include <utility>
 #include <vector>
 
@@ -30,6 +29,7 @@
 #include "tensorstore/driver/registry.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dimension_units.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/json.h"
 #include "tensorstore/index_space/transform_broadcastable_array.h"
@@ -37,12 +37,12 @@
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/data_type.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/internal/json_registry.h"
 #include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/open_mode.h"
+#include "tensorstore/open_options.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/serialization/fwd.h"
@@ -52,7 +52,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
-#include "tensorstore/util/unit.h"
 
 namespace tensorstore {
 namespace internal {

@@ -14,11 +14,25 @@
 
 #include "tensorstore/kvstore/neuroglancer_uint64_sharded/uint64_sharded_decoder.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
+#include <optional>
+#include <string_view>
+#include <utility>
 #include <vector>
 
 #include "absl/algorithm/container.h"
+#include "absl/base/internal/endian.h"
+#include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include "tensorstore/internal/compression/zlib.h"
 #include "tensorstore/internal/cord_util.h"
+#include "tensorstore/kvstore/byte_range.h"
+#include "tensorstore/kvstore/neuroglancer_uint64_sharded/uint64_sharded.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -40,7 +54,7 @@ Result<std::vector<MinishardIndexEntry>> DecodeMinishardIndex(
   static_assert(sizeof(MinishardIndexEntry) == 24);
   auto decoded_flat = decoded_input.Flatten();
   ChunkId chunk_id{0};
-  std::uint64_t byte_offset = 0;
+  uint64_t byte_offset = 0;
   for (size_t i = 0; i < result.size(); ++i) {
     auto& entry = result[i];
     chunk_id.value += absl::little_endian::Load64(decoded_flat.data() + i * 8);
@@ -161,7 +175,7 @@ Result<std::vector<EncodedChunk>> SplitShard(const ShardingSpec& sharding_spec,
                                              const absl::Cord& shard_data) {
   std::vector<EncodedChunk> chunks;
   if (shard_data.empty()) return chunks;
-  const std::uint64_t num_minishards = sharding_spec.num_minishards();
+  const uint64_t num_minishards = sharding_spec.num_minishards();
   if (shard_data.size() < num_minishards * 16) {
     return absl::FailedPreconditionError(
         tensorstore::StrCat("Existing shard has size ", shard_data.size(),

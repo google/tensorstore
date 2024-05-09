@@ -14,13 +14,15 @@
 
 #include "tensorstore/internal/source_location.h"
 
+#include <cstdint>
+
 #include <gtest/gtest.h>
 
 namespace {
 
 using ::tensorstore::SourceLocation;
 
-std::uint64_t TakesSourceLocation(
+uint64_t TakesSourceLocation(
     SourceLocation loc = tensorstore::SourceLocation::current()) {
   return loc.line();
 }

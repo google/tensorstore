@@ -14,6 +14,8 @@
 
 #include "tensorstore/resize_options.h"
 
+#include <stddef.h>
+
 #include <ostream>
 
 #include "absl/base/macros.h"
@@ -26,7 +28,7 @@ std::ostream& operator<<(std::ostream& os, ResolveBoundsMode mode) {
   };
   const char* sep = "";
   constexpr const char* kSep = "|";
-  for (std::size_t i = 0; i < ABSL_ARRAYSIZE(kModeNames); ++i) {
+  for (size_t i = 0; i < ABSL_ARRAYSIZE(kModeNames); ++i) {
     if (static_cast<int>(mode) & (1 << i)) {
       os << sep << kModeNames[i];
       sep = kSep;
@@ -44,7 +46,7 @@ std::ostream& operator<<(std::ostream& os, ResizeMode mode) {
   };
   const char* sep = "";
   constexpr const char* kSep = "|";
-  for (std::size_t i = 0; i < ABSL_ARRAYSIZE(kModeNames); ++i) {
+  for (size_t i = 0; i < ABSL_ARRAYSIZE(kModeNames); ++i) {
     if (static_cast<int>(mode) & (1 << i)) {
       os << sep << kModeNames[i];
       sep = kSep;

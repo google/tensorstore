@@ -14,6 +14,7 @@
 
 #include "tensorstore/internal/no_destructor.h"
 
+#include <cstddef>
 #include <string>
 #include <type_traits>
 
@@ -23,8 +24,7 @@ namespace {
 using ::tensorstore::internal::NoDestructor;
 
 static_assert(std::is_trivially_destructible_v<NoDestructor<std::string>>);
-static_assert(
-    std::is_constructible_v<NoDestructor<std::string>, std::size_t, char>);
+static_assert(std::is_constructible_v<NoDestructor<std::string>, size_t, char>);
 static_assert(std::is_constructible_v<NoDestructor<std::string>, std::string>);
 static_assert(std::is_constructible_v<NoDestructor<std::string>, const char*>);
 

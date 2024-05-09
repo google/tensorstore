@@ -537,7 +537,7 @@ TEST(JsonRequireIntegerTest, Success) {
     EXPECT_EQ(-3, result_int32);
   }
   {
-    std::uint32_t result_uint32 = 42;
+    uint32_t result_uint32 = 42;
     EXPECT_EQ(absl::OkStatus(),
               JsonRequireInteger(::nlohmann::json(5), &result_uint32,
                                  /*strict=*/true, 2, 7));
@@ -573,7 +573,7 @@ TEST(JsonRequireIntegerTest, Failure) {
     EXPECT_EQ(42, result_int32);
   }
   {
-    std::uint32_t result_uint32 = 42;
+    uint32_t result_uint32 = 42;
     EXPECT_THAT(
         JsonRequireInteger(::nlohmann::json(11), &result_uint32,
                            /*strict=*/true, 5, 10),

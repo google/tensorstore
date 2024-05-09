@@ -29,7 +29,7 @@
 namespace tensorstore {
 
 // Maximum arity supported by iteration functions.
-constexpr std::size_t kMaxSupportedIterationArity = 5;
+constexpr size_t kMaxSupportedIterationArity = 5;
 
 /// Specifies whether repeated elements may be skipped.
 ///
@@ -173,7 +173,7 @@ namespace internal {
 ///     documentation of IterationConstraints.
 /// \param element_sizes The element sizes (in bytes) corresponding to the
 ///     element types of the arrays.
-template <std::size_t Arity>
+template <size_t Arity>
 bool IterateOverStridedLayouts(
     ElementwiseClosure<Arity, void*> closure, void* arg,
     span<const Index> shape,

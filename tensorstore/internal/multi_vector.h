@@ -119,7 +119,7 @@ class MultiVectorStorageImpl {
   using Offsets = internal_multi_vector::PackStorageOffsets<Ts...>;
 
   friend class MultiVectorAccess<MultiVectorStorageImpl>;
-  void* InternalGetDataPointer(std::size_t array_i) {
+  void* InternalGetDataPointer(size_t array_i) {
     return data_ + Offsets::GetVectorOffset(Extent, array_i);
   }
   constexpr static StaticRank<Extent> InternalGetExtent() { return {}; }
@@ -139,7 +139,7 @@ class MultiVectorStorageImpl<0, InlineSize, Ts...> {
   static_assert(InlineSize == 0,
                 "InlineSize must be 0 if Extent != dynamic_extent.");
   friend class MultiVectorAccess<MultiVectorStorageImpl>;
-  void* InternalGetDataPointer(std::size_t array_i) { return nullptr; }
+  void* InternalGetDataPointer(size_t array_i) { return nullptr; }
   constexpr static StaticRank<0> InternalGetExtent() { return {}; }
 
   /// Resizes the vectors.  This is a no op.
@@ -229,18 +229,18 @@ class MultiVectorStorageImpl<dynamic_rank, InlineSize, Ts...> {
 ///   using ExtentType = ...;
 ///   constexpr static std::ptrdiff_t static_extent = ...;
 ///
-///   template <std::size_t I>
+///   template <size_t I>
 ///   using ElementType = ...;
 ///
-///   template <std::size_t I>
+///   template <size_t I>
 ///   using ConstElementType = ...;
 ///
 ///   static ExtentType GetExtent(const StorageType&);
 ///
-///   template <std::size_t I>
+///   template <size_t I>
 ///   static span<ElementType<I>, static_extent> get(StorageType*);
 ///
-///   template <std::size_t I>
+///   template <size_t I>
 ///   static span<ConstElementType<I>, static_extent> get(const StorageType*);
 ///
 ///   static void Assign(StorageType*, ExtentType extent, Ts*... pointers);
@@ -259,11 +259,11 @@ class MultiVectorAccess<MultiVectorStorageImpl<Extent, InlineSize, Ts...>> {
   using ExtentType = StaticOrDynamicRank<Extent>;
 
   constexpr static std::ptrdiff_t static_extent = Extent;
-  constexpr static std::size_t num_vectors = sizeof...(Ts);
+  constexpr static size_t num_vectors = sizeof...(Ts);
 
-  template <std::size_t I>
+  template <size_t I>
   using ElementType = TypePackElement<I, Ts...>;
-  template <std::size_t I>
+  template <size_t I>
   using ConstElementType = const TypePackElement<I, Ts...>;
 
   /// Returns the extent of a MultiVectorStorageImpl.
@@ -272,14 +272,14 @@ class MultiVectorAccess<MultiVectorStorageImpl<Extent, InlineSize, Ts...>> {
   }
 
   //// Returns the `I`th vector of a non-const `MultiVectorStorage` as a `span`.
-  template <std::size_t I>
+  template <size_t I>
   static span<ElementType<I>, Extent> get(StorageType* array) {
     return {static_cast<ElementType<I>*>(array->InternalGetDataPointer(I)),
             GetExtent(*array)};
   }
 
   /// Returns the `I`th vector of a const `MultiVectorStorage` as a `span`.
-  template <std::size_t I>
+  template <size_t I>
   static span<ConstElementType<I>, Extent> get(const StorageType* array) {
     return get<I>(const_cast<StorageType*>(array));
   }
@@ -293,7 +293,7 @@ class MultiVectorAccess<MultiVectorStorageImpl<Extent, InlineSize, Ts...>> {
   static void Assign(StorageType* array, ExtentType extent, Us*... pointers) {
     static_assert(sizeof...(Us) == sizeof...(Ts));
     array->InternalResize(extent);
-    std::size_t vector_i = 0;
+    size_t vector_i = 0;
     (std::copy_n(pointers, extent,
                  static_cast<Ts*>(array->InternalGetDataPointer(vector_i++))),
      ...);

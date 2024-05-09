@@ -136,7 +136,7 @@ StridedLayoutView<dynamic_rank, offset_origin> GetUnboundedLayout(
 
 namespace internal {
 
-template <std::size_t Arity>
+template <size_t Arity>
 Result<bool> IterateOverTransformedArrays(
     ElementwiseClosure<Arity, void*> closure, void* arg,
     IterationConstraints constraints,
@@ -157,14 +157,14 @@ Result<bool> IterateOverTransformedArrays(
 
   // Validate domain ranks
   bool failed = false;
-  for (std::size_t i = 0; i < Arity; ++i) {
+  for (size_t i = 0; i < Arity; ++i) {
     if (transformed_arrays[i].domain().rank() != input_rank) {
       failed = true;
     }
   }
   if (failed) {
     DimensionIndex transformed_ranks[Arity];
-    for (std::size_t i = 0; i < Arity; ++i) {
+    for (size_t i = 0; i < Arity; ++i) {
       transformed_ranks[i] = transformed_arrays[i].domain().rank();
     }
     return absl::InvalidArgumentError(
@@ -173,7 +173,7 @@ Result<bool> IterateOverTransformedArrays(
   }
 
   // Compute input_bounds.
-  for (std::size_t i = 0; i < Arity; ++i) {
+  for (size_t i = 0; i < Arity; ++i) {
     const BoxView<> domain = transformed_arrays[i].domain().box();
     TENSORSTORE_RETURN_IF_ERROR(
         internal_index_space::ValidateAndIntersectBounds(
@@ -207,14 +207,14 @@ Result<bool> IterateOverTransformedArrays(
   }
 
   std::array<std::ptrdiff_t, Arity> element_sizes;
-  for (std::size_t i = 0; i < Arity; ++i) {
+  for (size_t i = 0; i < Arity; ++i) {
     element_sizes[i] = transformed_arrays[i].dtype()->size;
   }
   if (!has_array_indexed_output_dimensions) {
     // This reduces to just a regular strided layout iteration.
     std::array<ByteStridedPointer<void>, Arity> pointers;
     std::array<const Index*, Arity> strides;
-    for (std::size_t i = 0; i < Arity; ++i) {
+    for (size_t i = 0; i < Arity; ++i) {
       pointers[i] = single_array_states[i].base_pointer;
       strides[i] = &single_array_states[i].input_byte_strides[0];
     }

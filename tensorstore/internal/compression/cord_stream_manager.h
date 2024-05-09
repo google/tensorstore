@@ -15,6 +15,10 @@
 #ifndef TENSORSTORE_INTERNAL_COMPRESSION_CORD_STREAM_MANAGER_H_
 #define TENSORSTORE_INTERNAL_COMPRESSION_CORD_STREAM_MANAGER_H_
 
+#include <stddef.h>
+
+#include <algorithm>
+#include <limits>
 #include <string_view>
 
 #include "absl/strings/cord.h"
@@ -49,7 +53,7 @@ class CordStreamManager {
           const_cast<char*>(chunk.data()));
       using Count = decltype(stream_.avail_in);
       stream_.avail_in = static_cast<Count>(
-          std::min(static_cast<std::size_t>(std::numeric_limits<Count>::max()),
+          std::min(static_cast<size_t>(std::numeric_limits<Count>::max()),
                    chunk.size()));
     } else {
       cur_chunk_ = nullptr;

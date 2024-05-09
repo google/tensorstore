@@ -14,6 +14,7 @@
 
 #include "tensorstore/internal/unique_with_intrusive_allocator.h"
 
+#include <cstddef>
 #include <memory>
 #include <vector>
 
@@ -54,7 +55,7 @@ class Foo {
  public:
   using allocator_type = ArenaAllocator<int>;
 
-  Foo(std::size_t n, ArenaAllocator<int> allocator) : vec_(n, allocator) {}
+  Foo(size_t n, ArenaAllocator<int> allocator) : vec_(n, allocator) {}
 
   allocator_type get_allocator() const { return vec_.get_allocator(); }
 

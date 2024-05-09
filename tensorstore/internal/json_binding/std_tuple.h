@@ -17,12 +17,9 @@
 
 #include <stddef.h>
 
-#include <array>
-#include <string>
 #include <tuple>
 #include <type_traits>
 #include <utility>
-#include <variant>
 #include <vector>
 
 #include "absl/status/status.h"
@@ -31,7 +28,6 @@
 #include "tensorstore/internal/json/value_as.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
@@ -41,8 +37,7 @@ namespace tensorstore {
 namespace internal_json_binding {
 
 inline absl::Status MaybeAnnotateTupleElementError(absl::Status status,
-                                                   std::size_t i,
-                                                   bool is_loading) {
+                                                   size_t i, bool is_loading) {
   return status.ok()
              ? status
              : MaybeAnnotateStatus(

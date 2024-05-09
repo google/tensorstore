@@ -24,11 +24,11 @@
 #include "absl/base/optimization.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_join.h"
+#include <nlohmann/json_fwd.hpp>
 #include "tensorstore/internal/json/same.h"
 #include "tensorstore/internal/json/value_as.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -53,7 +53,7 @@ namespace internal_json_binding {
 /// `std::string_view`,
 ///     `int`, or another type convertible to `::nlohmann::json`.
 /// \param values Array of `EnumValue`/`JsonValue` pairs.
-template <typename EnumValue, typename JsonValue, std::size_t N>
+template <typename EnumValue, typename JsonValue, size_t N>
 constexpr auto Enum(const std::pair<EnumValue, JsonValue> (&values)[N]) {
   return [=](auto is_loading, const auto& options, auto* obj,
              auto* j) -> absl::Status {

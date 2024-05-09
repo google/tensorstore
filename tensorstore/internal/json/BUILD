@@ -11,7 +11,6 @@ tensorstore_cc_library(
     deps = [
         ":value_as",
         "//tensorstore:index",
-        "//tensorstore/internal:json_fwd",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
@@ -40,7 +39,6 @@ tensorstore_cc_library(
     srcs = ["pprint_python.cc"],
     hdrs = ["pprint_python.h"],
     deps = [
-        "//tensorstore/internal:json_fwd",
         "//tensorstore/util:result",
         "//tensorstore/util:str_cat",
         "@com_github_nlohmann_json//:json",
@@ -62,7 +60,6 @@ tensorstore_cc_library(
         "//tensorstore:strided_layout",
         "//tensorstore/internal:element_copy_function",
         "//tensorstore/internal:elementwise_function",
-        "//tensorstore/internal:json_fwd",
         "//tensorstore/util:byte_strided_pointer",
         "//tensorstore/util:iterate",
         "//tensorstore/util:result",
@@ -97,7 +94,6 @@ tensorstore_cc_test(
         "//tensorstore:array",
         "//tensorstore:contiguous_layout",
         "//tensorstore:data_type",
-        "//tensorstore/internal:json_fwd",
         "//tensorstore/internal:json_gtest",
         "//tensorstore/util:element_pointer",
         "//tensorstore/util:result",
@@ -114,7 +110,6 @@ tensorstore_cc_test(
     srcs = ["json_test.cc"],
     deps = [
         ":json",
-        "//tensorstore/internal:json_fwd",
         "//tensorstore/internal:json_gtest",
         "//tensorstore/util:status_testutil",
         "@com_github_nlohmann_json//:json",
@@ -142,7 +137,6 @@ tensorstore_cc_library(
     srcs = ["same.cc"],
     hdrs = ["same.h"],
     deps = [
-        "//tensorstore/internal:json_fwd",
         "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/container:inlined_vector",
     ],

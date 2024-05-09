@@ -72,7 +72,7 @@ using EncodedValueCache = absl::flat_hash_map<std::vector<Label>, uint32_t>;
 
 /// Encodes a single block.
 ///
-/// \tparam Label Must be `std::uint32_t` or `std::uint64_t`.
+/// \tparam Label Must be `uint32_t` or `uint64_t`.
 /// \param input Pointer to input array.  If `input_shape` is smaller than
 ///     `block_shape`, the input block is effectively padded up to
 ///     `block_shape` with the lowest numerical label value contained within
@@ -100,7 +100,7 @@ void EncodeBlock(const Label* input, const std::ptrdiff_t input_shape[3],
 
 /// Encodes a single channel.
 ///
-/// \tparam Label Must be `std::uint32_t` or `std::uint64_t`.
+/// \tparam Label Must be `uint32_t` or `uint64_t`.
 /// \param input Pointer to input array.
 /// \param input_shape Dimensions of input array.
 /// \param input_byte_strides Stride in bytes between consecutive elements
@@ -120,7 +120,7 @@ void EncodeChannel(const Label* input, const std::ptrdiff_t input_shape[3],
 /// specifying the starting offset of the encoding of each channel in units of
 /// 4 bytes (the first offset will always equal `num_channels`).
 ///
-/// \tparam Label Must be `std::uint32_t` or `std::uint64_t`.
+/// \tparam Label Must be `uint32_t` or `uint64_t`.
 /// \param input Pointer to the input array.
 /// \param input_shape Dimensions of input array.  The first dimension
 ///     corresponds to the channel.
@@ -135,7 +135,7 @@ void EncodeChannels(const Label* input, const std::ptrdiff_t input_shape[3 + 1],
 
 /// Decodes a single block.
 ///
-/// \tparam Label Must be `std::uint32_t` or `std::uint64_t`.
+/// \tparam Label Must be `uint32_t` or `uint64_t`.
 /// \param encoded_bits Number of bits used to encode each label (i.e. to
 ///     encode index into the table of labels).
 /// \param encoded_input Pointer to encoded block values.
@@ -158,7 +158,7 @@ bool DecodeBlock(size_t encoded_bits, const char* encoded_input,
 
 /// Decodes a single channel.
 ///
-/// \tparam Label Must be `std::uint32_t` or `std::uint64_t`.
+/// \tparam Label Must be `uint32_t` or `uint64_t`.
 /// \param input Encoded input data.
 /// \param block_shape Block shape used for encoding.
 /// \param output_shape Shape of output array.
@@ -173,7 +173,7 @@ bool DecodeChannel(std::string_view input, const std::ptrdiff_t block_shape[3],
 
 /// Decodes multiple channel.
 ///
-/// \tparam Label Must be `std::uint32_t` or `std::uint64_t`.
+/// \tparam Label Must be `uint32_t` or `uint64_t`.
 /// \param input Encoded input data.
 /// \param block_shape Block shape used for encoding.
 /// \param output_shape Shape of output array.  The first dimension

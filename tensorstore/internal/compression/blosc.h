@@ -50,11 +50,11 @@ struct Options {
   /// Requested size of block into which to divide the input before passing to
   /// the underlying compressor.  The specified value is a hint and may be
   /// ignored.
-  std::size_t blocksize;
+  size_t blocksize;
 
   /// Specifies that `input` is a sequence of elements of `element_size` bytes.
   /// This only affects shuffling.
-  std::size_t element_size;
+  size_t element_size;
 };
 
 /// Compresses `input`.

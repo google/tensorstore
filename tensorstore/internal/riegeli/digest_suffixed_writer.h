@@ -17,6 +17,7 @@
 
 // Riegeli writer that appends a digest.
 
+#include "riegeli/bytes/writer.h"
 #include "riegeli/digests/digesting_writer.h"
 #include "riegeli/endian/endian_writing.h"
 
@@ -37,18 +38,16 @@ struct LittleEndianDigestWriter {
 // \tparam DigestWriter Traits type like `LittleEndianDigestWriter` that defines
 //     a static `WriteDigest` method.
 template <typename Digester, typename DigestWriter>
-class DigestSuffixedWriter
-    : public riegeli::DigestingWriter<Digester, riegeli::Writer*> {
-  using Base = riegeli::DigestingWriter<Digester, riegeli::Writer*>;
+class DigestSuffixedWriter : public riegeli::DigestingWriter<Digester> {
+  using Base = riegeli::DigestingWriter<Digester>;
 
  public:
   using Base::Base;
 
   void Done() override {
     if (!this->ok()) return;
-    auto* base_writer = this->DestWriter();
     Base::Done();
-    DigestWriter::WriteDigest(this->Digest(), *base_writer);
+    DigestWriter::WriteDigest(this->Digest(), *this->dest());
   }
 };
 

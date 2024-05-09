@@ -254,8 +254,6 @@ tensorstore_cc_library(
     deps = [
         ":proto_util",
         "//tensorstore:json_serialization_options_base",
-        "//tensorstore/internal:json_fwd",
-        "//tensorstore/internal:type_traits",
         "//tensorstore/internal/json:value_as",
         "//tensorstore/internal/json_binding",
         "//tensorstore/util:str_cat",
@@ -274,7 +272,7 @@ tensorstore_cc_test(
         ":proto_binder",
         ":protobuf_matchers",
         "//tensorstore:json_serialization_options",
-        "//tensorstore/internal:json_fwd",
+        "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
     ],

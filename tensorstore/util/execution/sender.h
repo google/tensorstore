@@ -116,6 +116,7 @@
 /// http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2022/p2300r4.html
 /// https://github.com/brycelelbach/wg21_p2300_std_execution
 
+#include <cstddef>
 #include <tuple>
 #include <utility>
 
@@ -189,7 +190,7 @@ struct ValueSender {
   }
 
  private:
-  template <typename Receiver, std::size_t... Is>
+  template <typename Receiver, size_t... Is>
   void SubmitHelper(Receiver&& receiver, std::index_sequence<Is...>) {
     execution::set_value(receiver, std::move(std::get<Is>(value))...);
   }

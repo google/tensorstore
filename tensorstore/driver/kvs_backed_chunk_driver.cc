@@ -548,7 +548,7 @@ struct ResizeState {
   internal::IntrusivePtr<KvsChunkedDriverBase> driver;
   ChunkedDataCacheBase::Ptr cache;
   internal::OpenTransactionPtr transaction;
-  std::size_t component_index;
+  size_t component_index;
   IndexTransform<> transform;
   ResizeParameters resize_parameters;
 };
@@ -788,8 +788,7 @@ KvStore KvsMetadataDriverBase::GetKvstore(const Transaction& transaction) {
 namespace {
 /// Validates that the open request specified by `state` can be applied to
 /// `metadata`.
-Result<std::size_t> ValidateOpenRequest(OpenState* state,
-                                        const void* metadata) {
+Result<size_t> ValidateOpenRequest(OpenState* state, const void* metadata) {
   auto& base = *(PrivateOpenState*)state;  // Cast to private base
   if (!metadata) {
     return absl::NotFoundError(
@@ -1259,7 +1258,7 @@ internal::CachePtr<MetadataCache> GetOrCreateMetadataCache(
 
 Result<internal::Driver::Handle> OpenState::CreateDriverHandleFromMetadata(
     std::shared_ptr<const void> metadata) {
-  TENSORSTORE_ASSIGN_OR_RETURN(std::size_t component_index,
+  TENSORSTORE_ASSIGN_OR_RETURN(size_t component_index,
                                ValidateOpenRequest(this, metadata.get()));
   return CreateTensorStoreFromMetadata(OpenState::Ptr(this),
                                        std::move(metadata), component_index);
@@ -1287,9 +1286,8 @@ Future<internal::Driver::Handle> OpenDriver(MetadataOpenState::Ptr state) {
 }
 
 Result<IndexTransform<>> ResolveBoundsFromMetadata(
-    DataCacheBase* data_cache, const void* new_metadata,
-    std::size_t component_index, IndexTransform<> transform,
-    ResolveBoundsOptions options) {
+    DataCacheBase* data_cache, const void* new_metadata, size_t component_index,
+    IndexTransform<> transform, ResolveBoundsOptions options) {
   DimensionSet base_implicit_lower_bounds;
   DimensionSet base_implicit_upper_bounds;
   Box<dynamic_rank(kMaxRank)> base_bounds;

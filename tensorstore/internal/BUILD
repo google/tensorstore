@@ -729,12 +729,6 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
-    name = "json_fwd",
-    hdrs = ["json_fwd.h"],
-    deps = ["@com_github_nlohmann_json//:json"],
-)
-
-tensorstore_cc_library(
     name = "json_gtest",
     testonly = 1,
     srcs = ["json_gtest.cc"],
@@ -801,7 +795,6 @@ tensorstore_cc_library(
     ],
     deps = [
         ":intrusive_ptr",
-        ":json_fwd",
         "//tensorstore:json_serialization_options",
         "//tensorstore/internal/container:heterogeneous_container",
         "//tensorstore/internal/json_binding",

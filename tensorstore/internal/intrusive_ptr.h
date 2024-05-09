@@ -59,7 +59,7 @@
 ///           delete p;
 ///         }
 ///       }
-///       std::uint32_t ref_count_{0};
+///       uint32_t ref_count_{0};
 ///     };
 ///
 ///     class Y : public X {
@@ -85,7 +85,7 @@
 ///      public:
 ///       // ...
 ///       virtual ~X() = default;
-///       std::uint32_t ref_count_{0};
+///       uint32_t ref_count_{0};
 ///     };
 ///
 ///     class Y : public X {

@@ -19,7 +19,6 @@
 /// `Cache` class with asynchronous read and read-modify-write functionality.
 
 #include <stddef.h>
-#include <stdint.h>
 
 #include <atomic>
 #include <memory>
@@ -106,7 +105,7 @@ namespace internal {
 ///     // Implement required virtual interfaces:
 ///
 ///     Entry* DoAllocateEntry() final { return new Entry; }
-///     std::size_t DoGetSizeofEntry() final { return sizeof(Entry); }
+///     size_t DoGetSizeofEntry() final { return sizeof(Entry); }
 ///     TransactionNode* DoAllocateTransactionNode(
 ///            AsyncCache::Entry& entry) final {
 ///       return new TransactionNode(static_cast<Entry&>(entry));

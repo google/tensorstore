@@ -14,6 +14,8 @@
 
 #include "tensorstore/internal/nditerable_elementwise_input_transform.h"
 
+#include <stddef.h>
+
 #include <array>
 
 #include "absl/status/status.h"
@@ -32,7 +34,7 @@ namespace tensorstore {
 namespace internal {
 
 namespace {
-template <std::size_t Arity>
+template <size_t Arity>
 class ElementwiseInputTransformNDIterator
     : public NDIterator::Base<ElementwiseInputTransformNDIterator<Arity>> {
  public:
@@ -64,7 +66,7 @@ class ElementwiseInputTransformNDIterator
   SpecializedElementwiseFunctionPointer<Arity + 1, void*> elementwise_function_;
 };
 
-template <std::size_t Arity>
+template <size_t Arity>
 class ElementwiseInputTransformNDIterable
     : public NDIterablesWithManagedBuffers<
           std::array<NDIterable::Ptr, Arity>,
@@ -101,7 +103,7 @@ class ElementwiseInputTransformNDIterable
 };
 }  // namespace
 
-template <std::size_t Arity>
+template <size_t Arity>
 NDIterable::Ptr GetElementwiseInputTransformNDIterable(
     std::array<NDIterable::Ptr, Arity - 1> inputs, DataType output_dtype,
     ElementwiseClosure<Arity, void*> closure, Arena* arena) {

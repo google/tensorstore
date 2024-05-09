@@ -14,6 +14,8 @@
 
 #include "tensorstore/internal/cache/chunk_cache.h"
 
+#include <stddef.h>
+
 #include <functional>
 #include <memory>
 #include <new>
@@ -210,7 +212,7 @@ class TestCache
   };
 
   Entry* DoAllocateEntry() final { return new Entry; }
-  std::size_t DoGetSizeofEntry() final { return sizeof(Entry); }
+  size_t DoGetSizeofEntry() final { return sizeof(Entry); }
   TransactionNode* DoAllocateTransactionNode(AsyncCache::Entry& entry) final {
     return new TransactionNode(static_cast<Entry&>(entry));
   }

@@ -84,7 +84,6 @@ tensorstore_cc_library(
     ],
     deps = [
         ":serialization",
-        "//tensorstore/internal:json_fwd",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/riegeli:json_input",
         "//tensorstore/internal/riegeli:json_output",

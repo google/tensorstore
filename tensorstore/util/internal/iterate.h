@@ -30,17 +30,17 @@
 namespace tensorstore {
 namespace internal_iterate {
 
-template <std::size_t N>
+template <size_t N>
 struct DimensionSizeAndStrides {
   Index size;
   std::array<Index, N> strides;
 };
 
-template <std::size_t N>
+template <size_t N>
 using StridedIterationLayout =
     absl::InlinedVector<DimensionSizeAndStrides<N>, internal::kNumInlinedDims>;
 
-template <std::size_t N, DimensionIndex InnerRank>
+template <size_t N, DimensionIndex InnerRank>
 struct InnerShapeAndStrides {
   std::array<Index, InnerRank> shape;
   std::array<std::array<Index, InnerRank>, N> strides;
@@ -67,7 +67,7 @@ namespace internal {
 /// avoided in the case that the same `shape`, `strides`, `constraints` and
 /// `callbacks` are used multiple times, such as when iterating using index
 /// space transforms.
-template <std::size_t Arity>
+template <size_t Arity>
 class StridedLayoutFunctionApplyer {
   static_assert(Arity > 0 && Arity <= kMaxSupportedIterationArity,
                 "Invalid arity.");

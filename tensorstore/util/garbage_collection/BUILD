@@ -32,7 +32,7 @@ tensorstore_cc_library(
     hdrs = ["json.h"],
     deps = [
         ":garbage_collection",
-        "//tensorstore/internal:json_fwd",
+        "@com_github_nlohmann_json//:json",
     ],
 )
 

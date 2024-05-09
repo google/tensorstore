@@ -111,7 +111,7 @@ class IndexDomainBuilder {
   ///
   /// \schecks `N` is compatible with `Rank`.
   /// \pre `valid() == true`
-  template <std::size_t N>
+  template <size_t N>
   IndexDomainBuilder& origin(const Index (&indices)[N]) {
     builder_.input_origin(indices);
     return *this;
@@ -144,7 +144,7 @@ class IndexDomainBuilder {
   /// Overload that can be called with a braced list, e.g.  `shape({1, 2})`.
   ///
   /// \pre `valid() == true`
-  template <std::size_t N>
+  template <size_t N>
   IndexDomainBuilder& shape(const Index (&indices)[N]) {
     builder_.input_shape(indices);
     return *this;
@@ -179,7 +179,7 @@ class IndexDomainBuilder {
   ///
   /// \schecks `N` is compatible with `Rank`.
   /// \pre `valid() == true`
-  template <std::size_t N>
+  template <size_t N>
   IndexDomainBuilder& exclusive_max(const Index (&indices)[N]) {
     builder_.input_exclusive_max(indices);
     return *this;
@@ -214,7 +214,7 @@ class IndexDomainBuilder {
   ///
   /// \schecks `N` is compatible with `Rank`.
   /// \pre `valid() == true`
-  template <std::size_t N>
+  template <size_t N>
   IndexDomainBuilder& inclusive_max(const Index (&indices)[N]) {
     builder_.input_inclusive_max(indices);
     return *this;
@@ -283,7 +283,7 @@ class IndexDomainBuilder {
   /// `labels({"a", "b"})`.
   ///
   /// \pre `valid() == true`
-  template <std::size_t N>
+  template <size_t N>
   IndexDomainBuilder& labels(const std::string_view (&labels)[N]) {
     builder_.input_labels(labels);
     return *this;
@@ -311,7 +311,7 @@ class IndexDomainBuilder {
   /// `implicit_lower_bounds({1, 0})`.
   ///
   /// \pre `valid() == true`
-  template <std::size_t N>
+  template <size_t N>
   IndexDomainBuilder& implicit_lower_bounds(const bool (&x)[N]) {
     builder_.implicit_lower_bounds(x);
     return *this;
@@ -339,7 +339,7 @@ class IndexDomainBuilder {
   /// `implicit_upper_bounds({1, 0})`.
   ///
   /// \pre `valid() == true`
-  template <std::size_t N>
+  template <size_t N>
   IndexDomainBuilder& implicit_upper_bounds(const bool (&x)[N]) {
     builder_.implicit_upper_bounds(x);
     return *this;

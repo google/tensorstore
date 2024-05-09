@@ -113,7 +113,7 @@ bool operator==(const ShardingSpec& a, const ShardingSpec& b) {
 }
 
 std::string GetShardKey(const ShardingSpec& sharding_spec,
-                        std::string_view prefix, std::uint64_t shard_number) {
+                        std::string_view prefix, uint64_t shard_number) {
   return internal::JoinPath(
       prefix,
       absl::StrFormat("%0*x.shard", CeilOfRatio(sharding_spec.shard_bits, 4),
@@ -122,26 +122,26 @@ std::string GetShardKey(const ShardingSpec& sharding_spec,
 
 namespace {
 
-constexpr std::uint64_t ShiftRightUpTo64(std::uint64_t x, int amount) {
+constexpr uint64_t ShiftRightUpTo64(uint64_t x, int amount) {
   if (amount == 64) return 0;
   return x >> amount;
 }
 
-std::uint64_t GetLowBitMask(int num_bits) {
-  if (num_bits == 64) return ~std::uint64_t(0);
-  return (std::uint64_t(1) << num_bits) - 1;
+uint64_t GetLowBitMask(int num_bits) {
+  if (num_bits == 64) return ~uint64_t(0);
+  return (uint64_t(1) << num_bits) - 1;
 }
 
 }  // namespace
 
-std::uint64_t HashChunkId(ShardingSpec::HashFunction h, std::uint64_t key) {
+uint64_t HashChunkId(ShardingSpec::HashFunction h, uint64_t key) {
   switch (h) {
     case ShardingSpec::HashFunction::identity:
       return key;
     case ShardingSpec::HashFunction::murmurhash3_x86_128: {
-      std::uint32_t out[4] = {0, 0, 0};
+      uint32_t out[4] = {0, 0, 0};
       MurmurHash3_x86_128Hash64Bits(key, out);
-      return (static_cast<std::uint64_t>(out[1]) << 32) | out[0];
+      return (static_cast<uint64_t>(out[1]) << 32) | out[0];
     }
   }
   ABSL_UNREACHABLE();  // COV_NF_LINE
@@ -150,9 +150,9 @@ std::uint64_t HashChunkId(ShardingSpec::HashFunction h, std::uint64_t key) {
 ChunkCombinedShardInfo GetChunkShardInfo(const ShardingSpec& sharding_spec,
                                          ChunkId chunk_id) {
   ChunkCombinedShardInfo result;
-  const std::uint64_t hash_input =
+  const uint64_t hash_input =
       ShiftRightUpTo64(chunk_id.value, sharding_spec.preshift_bits);
-  const std::uint64_t hash_output =
+  const uint64_t hash_output =
       HashChunkId(sharding_spec.hash_function, hash_input);
   result.shard_and_minishard =
       hash_output &

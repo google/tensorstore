@@ -14,11 +14,27 @@
 
 #include "tensorstore/driver/driver.h"
 
+#include <stddef.h>
+
+#include <algorithm>
+#include <cassert>
+#include <memory>
+#include <numeric>
+#include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
+#include "absl/container/inlined_vector.h"
 #include "absl/status/status.h"
+#include "absl/strings/cord.h"
+#include "tensorstore/array.h"
+#include "tensorstore/array_storage_statistics.h"
+#include "tensorstore/box.h"
+#include "tensorstore/chunk_layout.h"
+#include "tensorstore/codec_spec.h"
 #include "tensorstore/context.h"
+#include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/kvs_backed_chunk_driver.h"
 #include "tensorstore/driver/registry.h"
@@ -26,15 +42,33 @@
 #include "tensorstore/driver/zarr/metadata.h"
 #include "tensorstore/driver/zarr/spec.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_domain_builder.h"
+#include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/transform_broadcastable_array.h"
+#include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/cache/chunk_cache.h"
 #include "tensorstore/internal/cache_key/cache_key.h"
+#include "tensorstore/internal/chunk_grid_specification.h"
 #include "tensorstore/internal/grid_storage_statistics.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/type_traits.h"
+#include "tensorstore/kvstore/kvstore.h"
+#include "tensorstore/kvstore/spec.h"
+#include "tensorstore/open_mode.h"
+#include "tensorstore/open_options.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/tensorstore.h"
+#include "tensorstore/transaction.h"
+#include "tensorstore/util/dimension_set.h"
+#include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/garbage_collection/fwd.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -263,8 +297,7 @@ internal::ChunkGridSpecification DataCache::GetChunkGridSpecification(
       metadata.chunks.size());
   std::iota(chunked_to_cell_dimensions.begin(),
             chunked_to_cell_dimensions.end(), static_cast<DimensionIndex>(0));
-  for (std::size_t field_i = 0; field_i < metadata.dtype.fields.size();
-       ++field_i) {
+  for (size_t field_i = 0; field_i < metadata.dtype.fields.size(); ++field_i) {
     const auto& field = metadata.dtype.fields[field_i];
     const auto& field_layout = metadata.chunk_layout.fields[field_i];
     auto fill_value = metadata.fill_value[field_i];
@@ -323,7 +356,7 @@ std::string DataCache::GetChunkStorageKey(span<const Index> cell_indices) {
 
 absl::Status DataCache::GetBoundSpecData(
     internal_kvs_backed_chunk_driver::KvsDriverSpec& spec_base,
-    const void* metadata_ptr, std::size_t component_index) {
+    const void* metadata_ptr, size_t component_index) {
   auto& spec = static_cast<ZarrDriverSpec&>(spec_base);
   const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
   spec.selected_field = EncodeSelectedField(component_index, metadata.dtype);
@@ -469,8 +502,8 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
         spec().metadata_key);
   }
 
-  Result<std::size_t> GetComponentIndex(const void* metadata_ptr,
-                                        OpenMode open_mode) override {
+  Result<size_t> GetComponentIndex(const void* metadata_ptr,
+                                   OpenMode open_mode) override {
     const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
     TENSORSTORE_RETURN_IF_ERROR(
         ValidateMetadata(metadata, spec().partial_metadata));

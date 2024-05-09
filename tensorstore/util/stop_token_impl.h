@@ -58,7 +58,7 @@ struct StopState {
   absl::Mutex mutex_;
   StopCallbackBase* callbacks_ ABSL_GUARDED_BY(mutex_) = nullptr;
   bool stop_requested_ ABSL_GUARDED_BY(mutex_) = false;
-  mutable std::atomic<std::uint32_t> ref_count_{0};
+  mutable std::atomic<uint32_t> ref_count_{0};
 
   StopState() = default;
 

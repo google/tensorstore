@@ -56,7 +56,7 @@ tensorstore_cc_library(
     name = "bfloat16",
     hdrs = ["bfloat16.h"],
     deps = [
-        "//tensorstore/internal:json_fwd",
+        "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/base",
     ],
 )
@@ -64,7 +64,7 @@ tensorstore_cc_library(
 tensorstore_cc_library(
     name = "int4",
     hdrs = ["int4.h"],
-    deps = ["//tensorstore/internal:json_fwd"],
+    deps = ["@com_github_nlohmann_json//:json"],
 )
 
 tensorstore_cc_test(
@@ -73,8 +73,8 @@ tensorstore_cc_test(
     srcs = ["int4_test.cc"],
     deps = [
         ":int4",
-        "//tensorstore/internal:json_fwd",
         "//tensorstore/internal:json_gtest",
+        "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/base",
         "@com_google_googletest//:gtest_main",
     ],
@@ -766,7 +766,7 @@ tensorstore_cc_library(
     hdrs = ["float8.h"],
     deps = [
         ":bfloat16",
-        "//tensorstore/internal:json_fwd",
+        "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/base",
         "@net_sourceforge_half//:half",
     ],

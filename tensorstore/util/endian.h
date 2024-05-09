@@ -61,17 +61,17 @@ inline ABSL_ATTRIBUTE_ALWAYS_INLINE void SwapEndianUnaligned(const void* source,
   if constexpr (ElementSize == 1) {
     std::memcpy(dest, source, 1);
   } else if constexpr (ElementSize == 2) {
-    std::uint16_t temp;
+    uint16_t temp;
     std::memcpy(&temp, source, ElementSize);
     temp = absl::gbswap_16(temp);
     std::memcpy(dest, &temp, ElementSize);
   } else if constexpr (ElementSize == 4) {
-    std::uint32_t temp;
+    uint32_t temp;
     std::memcpy(&temp, source, ElementSize);
     temp = absl::gbswap_32(temp);
     std::memcpy(dest, &temp, ElementSize);
   } else if constexpr (ElementSize == 8) {
-    std::uint64_t temp;
+    uint64_t temp;
     std::memcpy(&temp, source, ElementSize);
     temp = absl::gbswap_64(temp);
     std::memcpy(dest, &temp, ElementSize);

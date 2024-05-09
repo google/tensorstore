@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <cstdint>
 #include <string_view>
 
 #include <gmock/gmock.h>
@@ -122,7 +123,7 @@ TEST(BloscCompressionTest, RoundTrip) {
                                              {"cname", "lz4"},
                                              {"clevel", 5},
                                              {"shuffle", 0}}}}));
-  auto array = MakeArray<std::uint16_t>({{{1, 2, 3}, {4, 5, 6}}});
+  auto array = MakeArray<uint16_t>({{{1, 2, 3}, {4, 5, 6}}});
 
   // Verify round trip.
   {
@@ -159,7 +160,7 @@ TEST(BloscCompressionTest, Golden) {
                                             {"shuffle", 2},
                                         }},
                                    }));
-  auto array = MakeArray<std::uint16_t>({{{1, 3, 5}, {2, 4, 6}}});
+  auto array = MakeArray<uint16_t>({{{1, 3, 5}, {2, 4, 6}}});
   EXPECT_EQ(array, DecodeChunk(metadata, absl::Cord(encoded_data)));
 
   // Verify round trip.

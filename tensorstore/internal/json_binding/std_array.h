@@ -28,7 +28,6 @@
 #include "tensorstore/internal/json/json.h"
 #include "tensorstore/internal/json/value_as.h"
 #include "tensorstore/internal/json_binding/bindable.h"
-#include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
@@ -87,14 +86,14 @@ struct ArrayBinderImpl {
 /// Bind a JSON array to a homogeneous array-like type `Container` with type
 /// `T`.
 ///
-/// \param get_size Function with signature `std::size_t (const Container&)`
+/// \param get_size Function with signature `size_t (const Container&)`
 ///     that returns the size of the container.
 /// \param set_size Function with signature
-///     `absl::Status (Container&, std::size_t size)` that resizes the
+///     `absl::Status (Container&, size_t size)` that resizes the
 ///     container to the specified size, or returns an error.
 /// \param get_element Function with overloaded signatures
-///     `T& (Container&, std::size_t i)` and
-///     `const T& (const Container&, std::size_t i)` that returns a reference
+///     `T& (Container&, size_t i)` and
+///     `const T& (const Container&, size_t i)` that returns a reference
 ///     to the `i`th element of the container.
 /// \param element_binder JSON binder for `T` to use for each element of the
 ///     array.
@@ -125,9 +124,8 @@ template <typename ElementBinder = decltype(DefaultBinder<>)>
 constexpr auto Array(ElementBinder element_binder = DefaultBinder<>) {
   return internal_json_binding::Array(
       [](auto& c) { return c.size(); },
-      [](auto& c, std::size_t size) { c.resize(size); },
-      [](auto& c, std::size_t i) -> decltype(auto) { return c[i]; },
-      element_binder);
+      [](auto& c, size_t size) { c.resize(size); },
+      [](auto& c, size_t i) -> decltype(auto) { return c[i]; }, element_binder);
 }
 
 /// Binds a JSON array like jb::Array, but when the array is size is zero,
@@ -136,9 +134,8 @@ template <typename ElementBinder = decltype(DefaultBinder<>)>
 constexpr auto OptionalArray(ElementBinder element_binder = DefaultBinder<>) {
   return internal_json_binding::OptionalArray(
       [](auto& c) { return c.size(); },
-      [](auto& c, std::size_t size) { c.resize(size); },
-      [](auto& c, std::size_t i) -> decltype(auto) { return c[i]; },
-      element_binder);
+      [](auto& c, size_t size) { c.resize(size); },
+      [](auto& c, size_t i) -> decltype(auto) { return c[i]; }, element_binder);
 }
 
 /// Binds a JSON array to a fixed-size array-like type (e.g. `std::array`)
@@ -147,11 +144,10 @@ template <typename ElementBinder = decltype(DefaultBinder<>)>
 constexpr auto FixedSizeArray(ElementBinder element_binder = DefaultBinder<>) {
   return internal_json_binding::Array(
       [](auto& c) { return std::size(c); },
-      [](auto& c, std::size_t new_size) {
+      [](auto& c, size_t new_size) {
         return internal_json::JsonValidateArrayLength(new_size, std::size(c));
       },
-      [](auto& c, std::size_t i) -> decltype(auto) { return c[i]; },
-      element_binder);
+      [](auto& c, size_t i) -> decltype(auto) { return c[i]; }, element_binder);
 }
 
 // Defined in separate namespace to work around clang-cl bug
@@ -178,7 +174,7 @@ using fixed_size_array_binder::FixedSizeArrayBinder;
 template <typename T, typename Allocator>
 constexpr inline auto DefaultBinder<std::vector<T, Allocator>> = ArrayBinder;
 
-template <typename T, std::size_t N>
+template <typename T, size_t N>
 constexpr inline auto DefaultBinder<std::array<T, N>> = FixedSizeArrayBinder;
 
 /// Use `FixedSizeArrayBinder` as default binder for `tensorstore::span`.

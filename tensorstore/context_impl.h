@@ -20,7 +20,10 @@
 /// Context implementation details not required by `context.h`, but required by
 /// `context.cc` and by the Python Context bindings.
 
+#include <stddef.h>
+
 #include <memory>
+#include <string>
 #include <string_view>
 
 #include "absl/container/flat_hash_map.h"
@@ -131,7 +134,7 @@ class BuilderImpl : public internal::AtomicReferenceCount<BuilderImpl> {
   /// Tracks the resource identifiers used by existing `Context::Spec` instances
   /// (passed to `ContextSpecBuilder::Make`) that are associated with this
   /// builder, in order to ensure they are not reused.
-  absl::flat_hash_map<std::string, std::size_t> ids_;
+  absl::flat_hash_map<std::string, size_t> ids_;
 };
 
 /// Returns the provider for a given registered provider `id`, or `nullptr` if

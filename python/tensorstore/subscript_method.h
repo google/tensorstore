@@ -25,7 +25,8 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
-#include <new>
+#include <stddef.h>
+
 #include <utility>
 
 #include "tensorstore/internal/type_traits.h"
@@ -40,10 +41,10 @@ struct GetItemHelper {
 };
 
 /// Metafunction for inferring the `N`th parameter type of a function type.
-template <std::size_t N, typename T>
+template <size_t N, typename T>
 struct FunctionArgType;
 
-template <std::size_t N, typename R, typename... Arg>
+template <size_t N, typename R, typename... Arg>
 struct FunctionArgType<N, R(Arg...)> {
   using type = internal::TypePackElement<N, Arg...>;
 };

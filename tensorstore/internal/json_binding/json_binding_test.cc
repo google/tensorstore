@@ -14,7 +14,7 @@
 
 #include "tensorstore/internal/json_binding/json_binding.h"
 
-#include <limits>
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <type_traits>
@@ -32,7 +32,6 @@
 #include "tensorstore/internal/json_binding/gtest.h"
 #include "tensorstore/internal/json_binding/std_array.h"
 #include "tensorstore/internal/json_binding/std_optional.h"
-#include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/util/result.h"
@@ -189,7 +188,7 @@ TEST(JsonBindingTest, ValueAsBinder) {
           {3, ::nlohmann::json(3)},
       },
       jb::ValueAsBinder);
-  tensorstore::TestJsonBinderRoundTrip<std::uint64_t>(
+  tensorstore::TestJsonBinderRoundTrip<uint64_t>(
       {
           {4, ::nlohmann::json(4)},
       },
@@ -224,7 +223,7 @@ TEST(JsonBindingTest, LooseValueAsBinder) {
           {::nlohmann::json("3"), Eq(3)},
       },
       jb::LooseValueAsBinder);
-  tensorstore::TestJsonBinderFromJson<std::uint64_t>(
+  tensorstore::TestJsonBinderFromJson<uint64_t>(
       {
           {::nlohmann::json(4), Eq(4)},
           {::nlohmann::json(4.0), Eq(4)},

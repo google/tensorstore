@@ -16,6 +16,7 @@
 ///
 /// Verifies compatibility with the zarr n5 library.
 
+#include <cstdint>
 #include <cstdlib>
 #include <string>
 #include <vector>
@@ -56,7 +57,7 @@ TEST_P(GoldenFileTest, Read) {
 
   auto context = tensorstore::Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
-                                   tensorstore::Open<std::uint16_t>(
+                                   tensorstore::Open<uint16_t>(
                                        {
                                            {"driver", "n5"},
                                            {
@@ -72,10 +73,10 @@ TEST_P(GoldenFileTest, Read) {
                                        .result());
 
   auto data = tensorstore::Read(store).value();
-  auto expected = tensorstore::AllocateArray<std::uint16_t>(shape);
+  auto expected = tensorstore::AllocateArray<uint16_t>(shape);
   const Index num_elements = expected.num_elements();
   for (Index i = 0; i < num_elements; ++i) {
-    expected.data()[i] = static_cast<std::uint16_t>(i);
+    expected.data()[i] = static_cast<uint16_t>(i);
   }
   EXPECT_EQ(expected, data);
 }

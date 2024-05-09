@@ -14,6 +14,12 @@
 
 #include "tensorstore/internal/compression/neuroglancer_compressed_segmentation.h"
 
+#include <cstddef>
+#include <cstdint>
+#include <string>
+#include <string_view>
+#include <vector>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/random/random.h"
@@ -28,16 +34,16 @@ using ::tensorstore::neuroglancer_compressed_segmentation::EncodeChannel;
 using ::tensorstore::neuroglancer_compressed_segmentation::EncodeChannels;
 using ::tensorstore::neuroglancer_compressed_segmentation::EncodedValueCache;
 
-std::vector<std::uint32_t> AsVec(std::string_view s) {
+std::vector<uint32_t> AsVec(std::string_view s) {
   EXPECT_EQ(0, s.size() % 4);
-  std::vector<std::uint32_t> out(s.size() / 4);
+  std::vector<uint32_t> out(s.size() / 4);
   for (size_t i = 0; i < out.size(); ++i) {
     out[i] = absl::little_endian::Load32(s.data() + i * 4);
   }
   return out;
 }
 
-std::string FromVec(std::vector<std::uint32_t> v) {
+std::string FromVec(std::vector<uint32_t> v) {
   std::string s;
   s.resize(v.size() * 4);
   for (size_t i = 0; i < v.size(); ++i) {
@@ -194,7 +200,7 @@ TEST(EncodeBlockTest, Basic2) {
 }
 
 TEST(EncodeChannelTest, Basic) {
-  TestSingleChannelRoundTrip<std::uint64_t>(
+  TestSingleChannelRoundTrip<uint64_t>(
       /*input=*/{4, 3, 5, 4, 1, 3, 3, 3},
       /*input_shape=*/{2, 2, 2},
       /*block_shape=*/{1, 2, 2},
@@ -204,7 +210,7 @@ TEST(EncodeChannelTest, Basic) {
 }
 
 TEST(EncodeChannelTest, BasicCached) {
-  TestSingleChannelRoundTrip<std::uint64_t>(
+  TestSingleChannelRoundTrip<uint64_t>(
       /*input=*/
       {
           4, 3, 5, 4,  //
@@ -242,7 +248,7 @@ TEST(EncodeChannelTest, BasicCached) {
 }
 
 TEST(EncodeChannelTest, BasicCachedZeroBitsAtEnd) {
-  TestSingleChannelRoundTrip<std::uint64_t>(
+  TestSingleChannelRoundTrip<uint64_t>(
       /*input=*/
       {
           3, 3, 3, 3,  //
@@ -268,7 +274,7 @@ TEST(EncodeChannelTest, BasicCachedZeroBitsAtEnd) {
 }
 
 TEST(EncodeChannelTest, BasicCached32) {
-  TestSingleChannelRoundTrip<std::uint32_t>(
+  TestSingleChannelRoundTrip<uint32_t>(
       /*input=*/
       {
           4, 3, 5, 4,  //
@@ -301,7 +307,7 @@ TEST(EncodeChannelTest, BasicCached32) {
 }
 
 TEST(EncodeChannelsTest, Basic1Channel1Block) {
-  TestMultipleChannelsRoundTripBytes<std::uint64_t>(
+  TestMultipleChannelsRoundTripBytes<uint64_t>(
       /*input=*/{4, 0, 4, 0},
       /*input_shape=*/{1, 1, 2, 2},
       /*block_shape=*/{1, 2, 2},
@@ -321,7 +327,7 @@ TEST(DecodeChannelTest, SizeNotMultipleOf4) {
   auto input = FromVec({5 | (2 << 24), 4, 12 | (1 << 24), 11, 0b01100001, 3, 0,
                         4, 0, 5, 0, 0b1110, 1, 0, 3, 0});
   input.resize(input.size() - 1);
-  TestDecodeChannelError<std::uint64_t>(
+  TestDecodeChannelError<uint64_t>(
       /*input=*/input,
       /*block_shape=*/{1, 2, 2},
       /*input_shape=*/{2, 2, 2});
@@ -331,7 +337,7 @@ TEST(DecodeChannelTest, Truncated) {
   auto input = FromVec({5 | (2 << 24), 4, 12 | (1 << 24), 11, 0b01100001, 3, 0,
                         4, 0, 5, 0, 0b1110, 1, 0, 3, 0});
   input.resize(input.size() - 4);
-  TestDecodeChannelError<std::uint64_t>(
+  TestDecodeChannelError<uint64_t>(
       /*input=*/input,
       /*block_shape=*/{1, 2, 2},
       /*input_shape=*/{2, 2, 2});
@@ -340,7 +346,7 @@ TEST(DecodeChannelTest, Truncated) {
 TEST(DecodeChannelTest, NonPowerOf2EncodedBits) {
   auto input = FromVec({5 | (3 << 24), 4, 12 | (1 << 24), 11, 0b01100001, 3, 0,
                         4, 0, 5, 0, 0b1110, 1, 0, 3, 0});
-  TestDecodeChannelError<std::uint64_t>(
+  TestDecodeChannelError<uint64_t>(
       /*input=*/input,
       /*block_shape=*/{1, 2, 2},
       /*input_shape=*/{2, 2, 2});
@@ -349,7 +355,7 @@ TEST(DecodeChannelTest, NonPowerOf2EncodedBits) {
 TEST(DecodeChannelTest, MoreThan32EncodedBits) {
   auto input = FromVec({5 | (33 << 24), 4, 12 | (1 << 24), 11, 0b01100001, 3, 0,
                         4, 0, 5, 0, 0b1110, 1, 0, 3, 0});
-  TestDecodeChannelError<std::uint64_t>(
+  TestDecodeChannelError<uint64_t>(
       /*input=*/input,
       /*block_shape=*/{1, 2, 2},
       /*input_shape=*/{2, 2, 2});
@@ -357,7 +363,7 @@ TEST(DecodeChannelTest, MoreThan32EncodedBits) {
 
 TEST(DecodeChannelTest, MissingBlockHeaders) {
   auto input = FromVec({5 | (3 << 24), 4, 12 | (1 << 24)});
-  TestDecodeChannelError<std::uint64_t>(
+  TestDecodeChannelError<uint64_t>(
       /*input=*/input,
       /*block_shape=*/{1, 2, 2},
       /*input_shape=*/{2, 2, 2});
@@ -366,7 +372,7 @@ TEST(DecodeChannelTest, MissingBlockHeaders) {
 TEST(DecodeChannelTest, InvalidEncodedValueOffset) {
   auto input = FromVec({5 | (2 << 24), 16, 12 | (1 << 24), 11, 0b01100001, 3, 0,
                         4, 0, 5, 0, 0b1110, 1, 0, 3, 0});
-  TestDecodeChannelError<std::uint64_t>(
+  TestDecodeChannelError<uint64_t>(
       /*input=*/input,
       /*block_shape=*/{1, 2, 2},
       /*input_shape=*/{2, 2, 2});
@@ -375,7 +381,7 @@ TEST(DecodeChannelTest, InvalidEncodedValueOffset) {
 TEST(DecodeChannelTest, InvalidTableOffset) {
   auto input = FromVec({16 | (2 << 24), 4, 12 | (1 << 24), 11, 0b01100001, 3, 0,
                         4, 0, 5, 0, 0b1110, 1, 0, 3, 0});
-  TestDecodeChannelError<std::uint64_t>(
+  TestDecodeChannelError<uint64_t>(
       /*input=*/input,
       /*block_shape=*/{1, 2, 2},
       /*input_shape=*/{2, 2, 2});
@@ -384,7 +390,7 @@ TEST(DecodeChannelTest, InvalidTableOffset) {
 TEST(DecodeChannelTest, MissingEncodedValues) {
   auto input = FromVec(
       {5 | (2 << 24), 4, 0 | (1 << 24), 11, 0b01100001, 3, 0, 4, 0, 5, 0});
-  TestDecodeChannelError<std::uint64_t>(
+  TestDecodeChannelError<uint64_t>(
       /*input=*/input,
       /*block_shape=*/{1, 2, 2},
       /*input_shape=*/{2, 2, 2});
@@ -429,10 +435,10 @@ void RandomRoundTrip(size_t max_block_size, size_t max_input_size,
 void RandomRoundTripBothDataTypes(size_t max_block_size, size_t max_input_size,
                                   size_t max_channels, size_t max_distinct_ids,
                                   size_t num_iterations) {
-  RandomRoundTrip<std::uint32_t>(max_block_size, max_input_size, max_channels,
-                                 max_distinct_ids, num_iterations);
-  RandomRoundTrip<std::uint64_t>(max_block_size, max_input_size, max_channels,
-                                 max_distinct_ids, num_iterations);
+  RandomRoundTrip<uint32_t>(max_block_size, max_input_size, max_channels,
+                            max_distinct_ids, num_iterations);
+  RandomRoundTrip<uint64_t>(max_block_size, max_input_size, max_channels,
+                            max_distinct_ids, num_iterations);
 }
 
 TEST(RoundTripTest, Random) {

@@ -259,7 +259,7 @@ class ImageCache : public internal::KvsBackedCache<ImageCache<Specialization>,
   };
 
   Entry* DoAllocateEntry() final { return new Entry; }
-  std::size_t DoGetSizeofEntry() final { return sizeof(Entry); }
+  size_t DoGetSizeofEntry() final { return sizeof(Entry); }
   TransactionNode* DoAllocateTransactionNode(
       internal::AsyncCache::Entry& entry) final {
     return new TransactionNode(static_cast<Entry&>(entry));

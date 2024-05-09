@@ -222,12 +222,12 @@ TEST(ParseFillValueTest, IntegerSuccess) {
   TestFillValueRoundTrip("<i8", 31000000000,
                          {MakeScalarArray<std::int64_t>(31000000000)});
 
-  TestFillValueRoundTrip("|u1", 124, {MakeScalarArray<std::uint8_t>(124)});
-  TestFillValueRoundTrip("<u2", 31000, {MakeScalarArray<std::uint16_t>(31000)});
+  TestFillValueRoundTrip("|u1", 124, {MakeScalarArray<uint8_t>(124)});
+  TestFillValueRoundTrip("<u2", 31000, {MakeScalarArray<uint16_t>(31000)});
   TestFillValueRoundTrip("<u4", 310000000,
-                         {MakeScalarArray<std::uint32_t>(310000000)});
+                         {MakeScalarArray<uint32_t>(310000000)});
   TestFillValueRoundTrip("<u8", 31000000000,
-                         {MakeScalarArray<std::uint64_t>(31000000000)});
+                         {MakeScalarArray<uint64_t>(31000000000)});
   EXPECT_THAT(ParseFillValue(5.0, ParseDType("|i1").value()),
               ::testing::Optional(::testing::ElementsAre(
                   tensorstore::MatchesScalarArray<int8_t>(5))));
@@ -291,7 +291,7 @@ TEST(ParseFillValueTest, Base64Success) {
       ::nlohmann::json::array_t{{"x", "<i2", {2}}, {"y", ">u4", {3}}},
       "x8/3X0mWAtIbOgwUzgpqFA==",
       {MakeArray<std::int16_t>({-12345, 24567}),
-       MakeArray<std::uint32_t>({1234567890, 456789012, 3456789012})});
+       MakeArray<uint32_t>({1234567890, 456789012, 3456789012})});
 }
 
 TEST(ParseFillValueTest, Base64Failure) {
@@ -532,7 +532,7 @@ TEST(EncodeDecodeMetadataTest, ArrayStructured) {
   EXPECT_EQ(tensorstore::StridedLayoutView<>({10, 10, 10}, {800, 80, 8}),
             metadata.chunk_layout.fields[1].decoded_chunk_layout);
 
-  EXPECT_EQ(dtype_v<std::uint8_t>, metadata.dtype.fields[2].dtype);
+  EXPECT_EQ(dtype_v<uint8_t>, metadata.dtype.fields[2].dtype);
   EXPECT_FALSE(metadata.fill_value[2].valid());
   EXPECT_EQ(tensorstore::endian::native, metadata.dtype.fields[2].endian);
   EXPECT_THAT(metadata.dtype.fields[2].field_shape, ElementsAre(5, 10, 15));

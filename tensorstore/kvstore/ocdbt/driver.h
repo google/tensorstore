@@ -23,6 +23,7 @@
 
 #include "absl/status/status.h"
 #include "absl/time/time.h"
+#include <nlohmann/json_fwd.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/context_resource_provider.h"
 #include "tensorstore/internal/cache/cache_pool_resource.h"
@@ -30,7 +31,6 @@
 #include "tensorstore/internal/concurrency_resource.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/json_binding/bindable.h"
-#include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"

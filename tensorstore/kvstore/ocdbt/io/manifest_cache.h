@@ -15,18 +15,21 @@
 #ifndef TENSORSTORE_KVSTORE_OCDBT_IO_MANIFEST_CACHE_H_
 #define TENSORSTORE_KVSTORE_OCDBT_IO_MANIFEST_CACHE_H_
 
-#include <functional>
-#include <memory>
-#include <optional>
-#include <utility>
+#include <stddef.h>
 
-#include "absl/strings/cord.h"
+#include <memory>
+#include <utility>
+#include <vector>
+
+#include "absl/status/status.h"
 #include "tensorstore/internal/cache/async_cache.h"
 #include "tensorstore/internal/estimate_heap_usage/estimate_heap_usage.h"
 #include "tensorstore/internal/estimate_heap_usage/std_vector.h"
 #include "tensorstore/kvstore/ocdbt/format/manifest.h"
+#include "tensorstore/kvstore/ocdbt/format/version_tree.h"
 #include "tensorstore/kvstore/ocdbt/io_handle.h"
 #include "tensorstore/kvstore/spec.h"
+#include "tensorstore/transaction.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 
@@ -48,7 +51,7 @@ class ManifestCache : public internal::AsyncCache {
    public:
     using OwningCache = ManifestCache;
 
-    std::size_t ComputeReadDataSizeInBytes(const void* read_data) final;
+    size_t ComputeReadDataSizeInBytes(const void* read_data) final;
 
     void DoRead(AsyncCacheReadRequest request) final;
 
@@ -83,7 +86,7 @@ class ManifestCache : public internal::AsyncCache {
   };
 
   Entry* DoAllocateEntry() final;
-  std::size_t DoGetSizeofEntry() final;
+  size_t DoGetSizeofEntry() final;
   TransactionNode* DoAllocateTransactionNode(AsyncCache::Entry& entry) final;
 
   kvstore::DriverPtr kvstore_driver_;
@@ -119,7 +122,7 @@ class NumberedManifestCache : public internal::AsyncCache {
    public:
     using OwningCache = NumberedManifestCache;
 
-    std::size_t ComputeReadDataSizeInBytes(const void* read_data) final;
+    size_t ComputeReadDataSizeInBytes(const void* read_data) final;
 
     void DoRead(AsyncCacheReadRequest request) final;
 
@@ -152,7 +155,7 @@ class NumberedManifestCache : public internal::AsyncCache {
   };
 
   Entry* DoAllocateEntry() final;
-  std::size_t DoGetSizeofEntry() final;
+  size_t DoGetSizeofEntry() final;
   TransactionNode* DoAllocateTransactionNode(AsyncCache::Entry& entry) final;
 
   kvstore::DriverPtr kvstore_driver_;

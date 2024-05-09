@@ -101,6 +101,7 @@ tensorstore_cc_library(
     name = "digest_suffixed_writer",
     hdrs = ["digest_suffixed_writer.h"],
     deps = [
+        "@com_google_riegeli//riegeli/bytes:writer",
         "@com_google_riegeli//riegeli/digests:digesting_writer",
         "@com_google_riegeli//riegeli/endian:endian_writing",
     ],

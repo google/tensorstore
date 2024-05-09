@@ -21,6 +21,8 @@
 /// which is used to test both `KvsBackedCache` itself as well as
 /// `KeyValueStore` implementations.
 
+#include <stddef.h>
+
 #include <functional>
 #include <map>
 #include <memory>
@@ -125,7 +127,7 @@ class KvsBackedTestCache
   };
 
   Entry* DoAllocateEntry() final { return new Entry; }
-  std::size_t DoGetSizeofEntry() final { return sizeof(Entry); }
+  size_t DoGetSizeofEntry() final { return sizeof(Entry); }
   TransactionNode* DoAllocateTransactionNode(AsyncCache::Entry& entry) final {
     return new TransactionNode(static_cast<Entry&>(entry));
   }

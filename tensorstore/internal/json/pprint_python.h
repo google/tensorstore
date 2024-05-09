@@ -28,7 +28,7 @@
 #include <string>
 #include <string_view>
 
-#include "tensorstore/internal/json_fwd.h"
+#include <nlohmann/json_fwd.hpp>
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {

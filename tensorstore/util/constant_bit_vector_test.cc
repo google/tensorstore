@@ -23,31 +23,33 @@
 #include "tensorstore/util/bit_span.h"
 
 namespace {
+
 using ::tensorstore::BitSpan;
 using ::tensorstore::GetConstantBitVector;
+
 TEST(GetConstantBitVectorTest, StaticExtentFalse) {
-  constexpr auto v = GetConstantBitVector<std::uint64_t, false, 113>();
+  constexpr auto v = GetConstantBitVector<uint64_t, false, 113>();
   static_assert(
-      std::is_same_v<decltype(v), const BitSpan<const std::uint64_t, 113>>);
+      std::is_same_v<decltype(v), const BitSpan<const uint64_t, 113>>);
   EXPECT_THAT(v, ::testing::ElementsAreArray(std::vector<bool>(113, false)));
 }
 
 TEST(GetConstantBitVectorTest, StaticExtentTrue) {
-  constexpr auto v = GetConstantBitVector<std::uint64_t, true, 113>();
+  constexpr auto v = GetConstantBitVector<uint64_t, true, 113>();
   static_assert(
-      std::is_same_v<decltype(v), const BitSpan<const std::uint64_t, 113>>);
+      std::is_same_v<decltype(v), const BitSpan<const uint64_t, 113>>);
   EXPECT_THAT(v, ::testing::ElementsAreArray(std::vector<bool>(113, true)));
 }
 
 TEST(GetConstantBitVectorTest, DynamicExtentFalse) {
-  auto v = GetConstantBitVector<std::uint64_t, false>(113);
-  static_assert(std::is_same_v<decltype(v), BitSpan<const std::uint64_t>>);
+  auto v = GetConstantBitVector<uint64_t, false>(113);
+  static_assert(std::is_same_v<decltype(v), BitSpan<const uint64_t>>);
   EXPECT_THAT(v, ::testing::ElementsAreArray(std::vector<bool>(113, false)));
 }
 
 TEST(GetConstantBitVectorTest, DynamicExtentTrue) {
-  auto v = GetConstantBitVector<std::uint64_t, true>(113);
-  static_assert(std::is_same_v<decltype(v), BitSpan<const std::uint64_t>>);
+  auto v = GetConstantBitVector<uint64_t, true>(113);
+  static_assert(std::is_same_v<decltype(v), BitSpan<const uint64_t>>);
   EXPECT_THAT(v, ::testing::ElementsAreArray(std::vector<bool>(113, true)));
 }
 

@@ -26,8 +26,6 @@
 #include "google/protobuf/util/json_util.h"
 #include "tensorstore/internal/json/value_as.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/json_fwd.h"
-#include "tensorstore/internal/type_traits.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/proto/proto_util.h"
 #include "tensorstore/util/str_cat.h"

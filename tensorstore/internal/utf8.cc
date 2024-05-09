@@ -29,7 +29,7 @@ namespace {
 /// Some minor modifications to coding style have been made.
 namespace utf8_decode {
 
-using State = std::uint32_t;
+using State = uint32_t;
 
 /// Accept state, serves as the initial state and indicates that a valid
 /// sequence of complete code points has been processed.
@@ -44,7 +44,7 @@ constexpr State kReject = 1;
 
 /// Decoding table.
 // clang-format off
-const std::uint8_t utf8d[400] = {
+const uint8_t utf8d[400] = {
   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, // 00..1f
   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, // 20..3f
   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, // 40..5f
@@ -76,7 +76,7 @@ const std::uint8_t utf8d[400] = {
 ///     or fully (if `*state` is set to `kAccept`) decoded next code point.
 /// \param byte The next code unit to process.
 /// \returns `*state`
-inline State Decode(State* state, char32_t* codep, std::uint8_t byte) {
+inline State Decode(State* state, char32_t* codep, uint8_t byte) {
   uint32_t type = utf8d[byte];
 
   *codep = (*state != kAccept) ? (byte & 0x3fu) | (*codep << 6)

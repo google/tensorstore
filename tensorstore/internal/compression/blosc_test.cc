@@ -76,7 +76,7 @@ std::vector<std::string> GetTestArrays() {
 TEST(BloscTest, EncodeDecode) {
   for (blosc::Options options : GetTestOptions()) {
     for (const auto& array : GetTestArrays()) {
-      for (const std::size_t element_size : {1, 2, 10}) {
+      for (const size_t element_size : {1, 2, 10}) {
         options.element_size = element_size;
         TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto encoded,
                                          blosc::Encode(array, options));
@@ -116,7 +116,7 @@ TEST(BloscTest, CheckShuffleAndElementSize) {
   const std::string_view array =
       "The quick brown fox jumped over the lazy dog.";
   for (int shuffle = -1; shuffle <= 2; ++shuffle) {
-    for (const std::size_t element_size : {1, 2, 10}) {
+    for (const size_t element_size : {1, 2, 10}) {
       blosc::Options options{/*.compressor==*/"lz4", /*.clevel=*/5,
                              /*.shuffle=*/shuffle, /*.blocksize=*/0,
                              /*.element_size=*/element_size};
@@ -142,7 +142,7 @@ TEST(BloscTest, CheckShuffleAndElementSize) {
 // Tests that the compressed data has the expected blosc blocksize.
 TEST(BloscTest, CheckBlocksize) {
   const std::string array(100000, '\0');
-  for (std::size_t blocksize : {256, 512, 1024}) {
+  for (size_t blocksize : {256, 512, 1024}) {
     // Set clevel to 0 to ensure our blocksize choice will be respected.
     // Otherwise blosc may choose a different blocksize.
     blosc::Options options{/*.compressor==*/"lz4", /*.clevel=*/0,

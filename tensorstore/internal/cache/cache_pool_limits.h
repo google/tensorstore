@@ -22,7 +22,7 @@ namespace internal {
 
 /// Memory limit parameters for a cache pool.
 struct CachePoolLimits {
-  std::size_t total_bytes_limit = 0;
+  size_t total_bytes_limit = 0;
 
   constexpr static auto ApplyMembers = [](auto&& x, auto f) {
     return f(x.total_bytes_limit);

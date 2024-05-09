@@ -69,10 +69,10 @@
 #include "absl/base/casts.h"
 #include "absl/status/status.h"
 #include <half.hpp>
+#include <nlohmann/json_fwd.hpp>
 #include "tensorstore/index.h"
 #include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/internal/integer_types.h"
-#include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/static_cast.h"

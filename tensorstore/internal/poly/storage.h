@@ -47,7 +47,7 @@
 namespace tensorstore {
 namespace internal_poly_storage {
 
-constexpr static inline std::size_t kAlignment = alignof(std::max_align_t);
+constexpr static inline size_t kAlignment = alignof(std::max_align_t);
 
 /// Indicates whether a type T is eligible to be stored inline based on
 /// alignment and other requirements.
@@ -59,7 +59,7 @@ static inline constexpr bool CanBeStoredInline =
 /// ActualInlineSize(InlineSize) returns the number of bytes needed by
 /// Storage. Within this file, references to InlineSize have had this function
 /// applied to the original input.
-static inline constexpr std::size_t ActualInlineSize(std::size_t InlineSize) {
+static inline constexpr size_t ActualInlineSize(size_t InlineSize) {
   return InlineSize <= sizeof(void*)
              ? sizeof(void*)
              : ((InlineSize + sizeof(void*) - 1) / sizeof(void*)) *

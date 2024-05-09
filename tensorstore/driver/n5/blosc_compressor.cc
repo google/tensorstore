@@ -18,6 +18,8 @@
 
 #include "tensorstore/internal/compression/blosc_compressor.h"
 
+#include <stddef.h>
+
 #include "tensorstore/driver/n5/compressor.h"
 #include "tensorstore/driver/n5/compressor_registry.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
@@ -41,10 +43,10 @@ struct Registration {
                                                  jb::Integer<int>(0, 2))),
             jb::Member(
                 "blocksize",
-                jb::Projection(&BloscCompressor::blocksize,
-                               jb::DefaultValue<jb::kAlwaysIncludeDefaults>(
-                                   [](std::size_t* v) { *v = 0; },
-                                   jb::Integer<std::size_t>())))));
+                jb::Projection(
+                    &BloscCompressor::blocksize,
+                    jb::DefaultValue<jb::kAlwaysIncludeDefaults>(
+                        [](size_t* v) { *v = 0; }, jb::Integer<size_t>())))));
   }
 } registration;
 

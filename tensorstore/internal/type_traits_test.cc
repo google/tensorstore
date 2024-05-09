@@ -14,6 +14,8 @@
 
 #include "tensorstore/internal/type_traits.h"
 
+#include <stddef.h>
+
 #include <tuple>
 #include <type_traits>
 
@@ -86,7 +88,7 @@ static_assert(!IsConstConvertibleOrVoid<int, const float>);
 static_assert(std::is_same_v<TypePackElement<0, int, float>, int>);
 static_assert(std::is_same_v<TypePackElement<1, int, float>, float>);
 
-template <std::size_t I, typename... Ts>
+template <size_t I, typename... Ts>
 using NonBuiltinTypePackElement =
     typename std::tuple_element<I, std::tuple<Ts...>>::type;
 

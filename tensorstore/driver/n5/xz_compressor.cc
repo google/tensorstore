@@ -18,6 +18,8 @@
 
 #include "tensorstore/internal/compression/xz_compressor.h"
 
+#include <cstdint>
+
 #include "tensorstore/driver/n5/compressor.h"
 #include "tensorstore/driver/n5/compressor_registry.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
@@ -36,7 +38,7 @@ struct Registration {
                   jb::Projection(&XzCompressor::level,
                                  jb::DefaultValue<jb::kAlwaysIncludeDefaults>(
                                      [](auto* v) { *v = 6; },
-                                     jb::Integer<std::uint32_t>(0, 9))))));
+                                     jb::Integer<uint32_t>(0, 9))))));
   }
 } registration;
 
