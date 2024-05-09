@@ -16,41 +16,13 @@
 #define TENSORSTORE_KVSTORE_S3_S3_CONTEXT_H_
 
 #include <memory>
-#include <string>
 
 #include <aws/core/Aws.h>
 #include <aws/core/auth/AWSCredentialsProvider.h>
-#include <aws/core/utils/logging/LogSystemInterface.h>
-#include <aws/core/utils/memory/stl/AWSStringStream.h>
 
 
 namespace tensorstore {
 namespace internal_kvstore_s3 {
-
-static constexpr char kAWSTag[] = "AWS";
-
-class AWSLogSystem : public Aws::Utils::Logging::LogSystemInterface {
-public:
-  AWSLogSystem(Aws::Utils::Logging::LogLevel log_level);
-  Aws::Utils::Logging::LogLevel GetLogLevel(void) const override;
-  void SetLogLevel(Aws::Utils::Logging::LogLevel log_level);
-
-  // Writes the stream to ProcessFormattedStatement.
-  void LogStream(Aws::Utils::Logging::LogLevel log_level, const char* tag,
-                 const Aws::OStringStream& messageStream) override;
-
-  // Flushes the buffered messages if the logger supports buffering
-  void Flush() override { return; };
-
-  // Overridden, but prefer the safer LogStream
-  void Log(Aws::Utils::Logging::LogLevel log_level, const char* tag,
-           const char* format, ...) override;
-
-private:
-  void LogMessage(Aws::Utils::Logging::LogLevel log_level, const std::string & message);
-  Aws::Utils::Logging::LogLevel log_level_;
-};
-
 
 struct AwsContext {
   Aws::SDKOptions options;

@@ -46,8 +46,6 @@ static constexpr char kAwsTag[] = "AWS";
 absl::Mutex context_mu_;
 std::weak_ptr<AwsContext> context_;
 
-}  // namespace
-
 /// Wraps a tensorstore HttpRequest in a Aws HttpRequest interface
 class HttpRequestAdapter : public Aws::Http::HttpRequest {
 public:
@@ -198,7 +196,7 @@ public:
         // future.ExecuteWhenReady may be desirable
         auto response = future.value();
         ABSL_LOG(INFO) << response;
-        return Aws::MakeShared<HttpResponseAdapter>(kAWSTag, response, request);
+        return Aws::MakeShared<HttpResponseAdapter>(kAwsTag, response, request);
       }
 
       auto fail = Aws::MakeShared<Aws::Http::Standard::StandardHttpResponse>(kAwsTag, request);
@@ -214,7 +212,7 @@ public:
   std::shared_ptr<Aws::Http::HttpClient> CreateHttpClient(
     const Aws::Client::ClientConfiguration & clientConfiguration) const override {
       ABSL_LOG(INFO) << "Making a custom HTTP Client";
-      return Aws::MakeShared<CustomHttpClient>(kAWSTag);
+      return Aws::MakeShared<CustomHttpClient>(kAwsTag);
   };
 
   std::shared_ptr<Aws::Http::HttpRequest> CreateHttpRequest(
@@ -227,14 +225,36 @@ public:
     const Aws::Http::URI& uri, Aws::Http::HttpMethod method,
     const Aws::IOStreamFactory& streamFactory) const override
   {
-      auto request = Aws::MakeShared<HttpRequestAdapter>(kAWSTag, uri, method);
+      auto request = Aws::MakeShared<HttpRequestAdapter>(kAwsTag, uri, method);
       request->SetResponseStreamFactory(streamFactory);
       return request;
   }
 };
 
-AWSLogSystem::AWSLogSystem(Aws::Utils::Logging::LogLevel log_level)
-  : log_level_(log_level) {}
+class AWSLogSystem : public Aws::Utils::Logging::LogSystemInterface {
+public:
+  AWSLogSystem(Aws::Utils::Logging::LogLevel log_level);
+  Aws::Utils::Logging::LogLevel GetLogLevel(void) const override;
+  void SetLogLevel(Aws::Utils::Logging::LogLevel log_level);
+
+  // Writes the stream to ProcessFormattedStatement.
+  void LogStream(Aws::Utils::Logging::LogLevel log_level, const char* tag,
+                 const Aws::OStringStream& messageStream) override;
+
+  // Flushes the buffered messages if the logger supports buffering
+  void Flush() override { return; };
+
+  // Overridden, but prefer the safer LogStream
+  void Log(Aws::Utils::Logging::LogLevel log_level, const char* tag,
+           const char* format, ...) override;
+
+private:
+  void LogMessage(Aws::Utils::Logging::LogLevel log_level, const std::string & message);
+  Aws::Utils::Logging::LogLevel log_level_;
+};
+
+
+AWSLogSystem::AWSLogSystem(Aws::Utils::Logging::LogLevel log_level) : log_level_(log_level) {};
 
 Aws::Utils::Logging::LogLevel AWSLogSystem::GetLogLevel(void) const {
   return log_level_;
@@ -282,6 +302,7 @@ void AWSLogSystem::LogMessage(Aws::Utils::Logging::LogLevel log_level, const std
   }
 }
 
+}  // namespace
 
 // Initialise AWS API and Logging
 std::shared_ptr<AwsContext> GetAwsContext() {
@@ -305,14 +326,14 @@ std::shared_ptr<AwsContext> GetAwsContext() {
   auto level = Aws::Utils::Logging::LogLevel::Info;
   options.loggingOptions.logLevel = level;
   options.loggingOptions.logger_create_fn = [level=level]() {
-    return Aws::MakeShared<AWSLogSystem>(kAWSTag, level);
+    return Aws::MakeShared<AWSLogSystem>(kAwsTag, level);
   };
 
   ABSL_LOG(INFO) << "Initialising AWS SDK API";
   Aws::InitAPI(options);
   ABSL_LOG(INFO) << "Done Initialising AWS SDK API";
 
-  auto provider = Aws::MakeShared<Aws::Auth::DefaultAWSCredentialsProviderChain>(kAWSTag);
+  auto provider = Aws::MakeShared<Aws::Auth::DefaultAWSCredentialsProviderChain>(kAwsTag);
 
   auto ctx = std::shared_ptr<AwsContext>(
     new AwsContext{
