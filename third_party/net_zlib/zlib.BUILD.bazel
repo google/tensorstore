@@ -55,7 +55,10 @@ cc_library(
         "uncompr.c",
         "zutil.c",
     ] + select({
-        "//conditions:default": ["inflate.c"],
+        "//conditions:default": [
+            "inflate.c",
+            "contrib/optimizations/insert_string.h",
+        ],
         ":zlib_optimizations": [
             "adler32_simd.c",
             "cpu_features.c",

@@ -244,13 +244,19 @@ def get_supported_machine_archs(version, operating_system):
             # Linux arm64 was supported since 3.4.0.
             # Darwin arm64 was supported since 4.1.0.
             supported_machines.append("arm64")
-    elif operating_system in ("darwin", "linux"):
-        # This is needed to run bazelisk_test.sh on Linux and Darwin arm64 machines, which are
-        # becoming more and more popular.
-        # It works because all recent commits of Bazel support arm64 on Darwin and Linux.
-        # However, this would add arm64 by mistake if the commit is too old, which should be
-        # a rare scenario.
+        if (operating_system == "linux"
+            and (major > 7 or major == 6 and minor >= 1)):
+            # Linux ppc64le was supported since 6.1.2.
+            supported_machines.append("ppc64le")
+    elif operating_system == "darwin":
+        # Fallback: allow running bazelisk_test.sh on Darwin arm64 machines by
+        # default.
         supported_machines.append("arm64")
+    elif operating_system == "linux":
+        # Fallback: allow running bazelisk_test.sh on Linux arm64 and ppc64le
+        # machines by default.
+        supported_machines.append("arm64")
+        supported_machines.append("ppc64le")
     return supported_machines
 
 
@@ -275,6 +281,14 @@ def determine_url(version, is_commit, bazel_filename):
     # Example: '0.19.1' -> ('0.19.1', None), '0.20.0rc1' -> ('0.20.0', 'rc1')
     (version, rc) = re.match(r"(\d*\.\d*(?:\.\d*)?)(rc\d+)?", version).groups()
 
+    if ("BAZELISK_BASE_URL" in os.environ
+        and normalized_machine_arch_name() == "ppc64le"):
+        bazel_info = bazel_filename.split("-")
+        opence_filename = "-".join(bazel_info[:2])
+        lsb_rs = os.popen("lsb_release -rs").read().strip()
+        return "{}/ubuntu_{}/{}".format(
+            os.environ["BAZELISK_BASE_URL"], lsb_rs, opence_filename
+        )
     if "BAZELISK_BASE_URL" in os.environ:
         return "{}/{}/{}".format(os.environ["BAZELISK_BASE_URL"], version, bazel_filename)
     else:
