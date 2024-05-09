@@ -1,4 +1,4 @@
-// Copyright 2023 The TensorStore Authors
+// Copyright 2024 The TensorStore Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,7 +14,6 @@
 
 #include <memory>
 #include <optional>
-#include <sstream>
 #include <string>
 #include <utility>
 
@@ -24,7 +23,6 @@
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
-#include "absl/strings/cord.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
@@ -49,14 +47,7 @@
 #include "tensorstore/internal/http/transport_test_utils.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/os/subprocess.h"
-#include "tensorstore/json_serialization_options_base.h"
-#include "tensorstore/kvstore/batch_util.h"
-#include "tensorstore/kvstore/kvstore.h"
-#include "tensorstore/kvstore/spec.h"
-#include "tensorstore/kvstore/test_util.h"
-#include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status_testutil.h"
 
 #include "tensorstore/kvstore/s3_sdk/s3_context.h"
 
@@ -92,7 +83,6 @@ ABSL_FLAG(std::string, aws_region, "af-south-1",
 ABSL_FLAG(std::string, aws_path, "tensorstore/test/",
           "The S3 path used for the test.");
 
-namespace kvstore = ::tensorstore::kvstore;
 
 using ::tensorstore::Context;
 using ::tensorstore::MatchesJson;
@@ -233,8 +223,6 @@ class LocalStackFixture : public ::testing::Test {
       SetEnv("AWS_SECRET_KEY_ID", kAwsSecretKeyId);
     }
 
-    context = tensorstore::internal_kvstore_s3::GetAwsContext();
-
     ABSL_CHECK(!Bucket().empty());
 
     if (absl::GetFlag(FLAGS_localstack_endpoint).empty()) {
@@ -251,6 +239,14 @@ class LocalStackFixture : public ::testing::Test {
       ABSL_LOG(INFO) << "localstack_test connecting to Amazon using bucket:"
                      << Bucket();
     }
+
+    auto cfg = Aws::Client::ClientConfiguration{};
+    cfg.endpointOverride = endpoint_url();
+    cfg.region = Region();
+    client = std::make_shared<Aws::S3::S3Client>(
+      cfg,
+      Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Always,
+      false);
   }
 
   static void TearDownTestSuite() {
@@ -268,11 +264,11 @@ class LocalStackFixture : public ::testing::Test {
 
   // Attempts to create the kBucket bucket on the localstack host.
   static void MaybeCreateBucket() {
-    // https://docs.aws.amazon.com/sdk-for-cpp/v1/developer-guide/examples-s3-buckets.html
     auto cfg = Aws::Client::ClientConfiguration{};
     cfg.endpointOverride = endpoint_url();
     cfg.region = Region();
-    client = std::make_shared<Aws::S3::S3Client>(cfg);
+    // Without Anonymous credentials bucket creation fails with 400 IllegalRegionConstraint
+    auto create_client = std::make_shared<Aws::S3::S3Client>(Aws::Auth::AWSCredentials(), cfg);
 
     auto create_request = Aws::S3::Model::CreateBucketRequest{};
     create_request.SetBucket(Bucket());
@@ -285,7 +281,7 @@ class LocalStackFixture : public ::testing::Test {
         create_request.SetCreateBucketConfiguration(bucket_cfg);
     }
 
-    auto outcome = client->CreateBucket(create_request);
+    auto outcome = create_client->CreateBucket(create_request);
     if (!outcome.IsSuccess()) {
         auto err = outcome.GetError();
         ABSL_LOG(INFO) << "Error: CreateBucket: " <<
@@ -300,27 +296,28 @@ class LocalStackFixture : public ::testing::Test {
 
 LocalStackProcess LocalStackFixture::process;
 std::shared_ptr<Aws::S3::S3Client> LocalStackFixture::client = nullptr;
-std::shared_ptr<AwsContext> LocalStackFixture::context = nullptr;
+std::shared_ptr<AwsContext> LocalStackFixture::context = tensorstore::internal_kvstore_s3::GetAwsContext();
 
 TEST_F(LocalStackFixture, Basic) {
-  // auto credentials = context->cred_provider_->GetAWSCredentials();
-  // ABSL_LOG(INFO) << credentials.GetAWSAccessKeyId() << " " << credentials.GetAWSSecretKey();
+  std::string payload = "this is a test";
 
+  // Put an object
   auto put_request = Aws::S3::Model::PutObjectRequest{};
   put_request.SetBucket(Bucket());
   put_request.SetKey("portunus");
-  put_request.SetBody(Aws::MakeShared<Aws::StringStream>("AWS", "this is a test"));
+  put_request.SetBody(Aws::MakeShared<Aws::StringStream>("AWS", payload));
   auto put_outcome = client->PutObject(put_request);
   EXPECT_TRUE(put_outcome.IsSuccess());
 
+  // Put the same object with a different key
   put_request = Aws::S3::Model::PutObjectRequest{};
   put_request.SetBucket(Bucket());
   put_request.SetKey("portunus0");
-  put_request.SetBody(Aws::MakeShared<Aws::StringStream>("AWS", "this is a test"));
+  put_request.SetBody(Aws::MakeShared<Aws::StringStream>("AWS", payload));
   put_outcome = client->PutObject(put_request);
   EXPECT_TRUE(put_outcome.IsSuccess());
 
-
+  // List the objects
   auto list_request = Aws::S3::Model::ListObjectsV2Request{};
   list_request.SetBucket(Bucket());
   auto continuation_token = Aws::String{};
@@ -339,17 +336,22 @@ TEST_F(LocalStackFixture, Basic) {
       continuation_token = outcome.GetResult().GetNextContinuationToken();
   } while (!continuation_token.empty());
 
-  ABSL_LOG(INFO) << "# Objects " << objects.size();
+
+  EXPECT_EQ(objects.size(), 2);
 
   for (const auto &object: objects) {
-      ABSL_LOG(INFO) << object.GetKey();
+      EXPECT_EQ(object.GetSize(), payload.size());
   }
 
-  // auto get_request = Aws::S3::Model::GetObjectRequest{};
-  // get_request.SetBucket(Bucket());
-  // get_request.SetKey("portunus");
-  // auto get_outcome = client->GetObject(get_request);
-  // EXPECT_TRUE(get_outcome.IsSuccess());
+  // Get the contents of the key
+  auto get_request = Aws::S3::Model::GetObjectRequest{};
+  get_request.SetBucket(Bucket());
+  get_request.SetKey("portunus");
+  auto get_outcome = client->GetObject(get_request);
+  EXPECT_TRUE(get_outcome.IsSuccess());
+  std::string result;
+  std::getline(get_outcome.GetResult().GetBody(), result);
+  EXPECT_EQ(result, payload);
 }
 
 }  // namespace

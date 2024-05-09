@@ -44,108 +44,70 @@ namespace {
 
 static constexpr char kAwsTag[] = "AWS";
 
+// Context guarded by mutex
 absl::Mutex context_mu_;
-std::weak_ptr<AwsContext> context_;
+std::weak_ptr<AwsContext> context_ ABSL_GUARDED_BY(context_mu_);
 
 /// Wraps a tensorstore HttpRequest in a Aws HttpRequest interface
-class HttpRequestAdapter : public Aws::Http::HttpRequest {
+class HttpRequestWrapper : public Aws::Http::Standard::StandardHttpRequest {
 public:
   ::tensorstore::internal_http::HttpRequest request_;
-  Aws::Http::HeaderValueCollection headers_;
-  Aws::IOStreamFactory stream_factory_;
-  std::shared_ptr<Aws::IOStream> body_;
   absl::Cord payload_;
 
-  HttpRequestAdapter(const Aws::Http::URI & uri, Aws::Http::HttpMethod method) :
-    HttpRequest(uri, method),
-    headers_{},
-    stream_factory_{},
-    body_(nullptr),
+  HttpRequestWrapper(const Aws::Http::URI & uri, Aws::Http::HttpMethod method) :
+    StandardHttpRequest(uri, method),
     payload_{} {
 
       request_.method = Aws::Http::HttpMethodMapper::GetNameForHttpMethod(method);
-      request_.url = uri.GetURIString(true);
+      request_.url = uri.GetURIString(true);  // include the query string
   };
 
-  virtual Aws::Http::HeaderValueCollection GetHeaders() const override {
-    return headers_;
-  }
-
-  virtual const Aws::String & GetHeaderValue(const char* headerName) const override {
-    auto it = headers_.find(headerName);
-    assert(it != headers_.end());
-    return it->second;
-  }
-
-  virtual bool HasHeader(const char* name) const override {
-    return headers_.find(name) != headers_.end();
-  }
-
   virtual void SetHeaderValue(const Aws::String& headerName, const Aws::String& headerValue) override {
-    // ABSL_LOG(INFO) << "Setting header " << headerName << " " << headerValue;
     request_.headers.push_back(absl::StrCat(headerName, ": ", headerValue));
-    headers_.insert({std::move(headerName), std::move(headerValue)});
+    StandardHttpRequest::SetHeaderValue(headerName, headerValue);
   }
 
   virtual void SetHeaderValue(const char* headerName, const Aws::String& headerValue) override {
-    auto lower_name = Aws::Utils::StringUtils::ToLower(headerName);
-    auto trimmed_value = Aws::Utils::StringUtils::Trim(headerValue.c_str());
-    SetHeaderValue(lower_name, trimmed_value);
-  }
-
-  virtual void DeleteHeader(const char* headerName) override {
-    if(auto it = headers_.find(Aws::Utils::StringUtils::ToLower(headerName)); it != headers_.end()) {
-      headers_.erase(it);
-    }
-  }
-
-  virtual int64_t GetSize() const override {
-    return headers_.size();
+    request_.headers.push_back(absl::StrCat(headerName, ": ", headerValue));
+    StandardHttpRequest::SetHeaderValue(headerName, headerValue);
   }
 
   virtual void AddContentBody(const std::shared_ptr<Aws::IOStream>& strContext) override {
-    body_ = strContext;
-
-    //ABSL_LOG(INFO) << "AddContentBody " << strContext << " " << body_;;
-
-    if(!body_) {
+    StandardHttpRequest::AddContentBody(strContext);
+    if(!strContext) {
       return;
     }
 
-    const size_t bufferSize = 4096;
+    // Copy characters off the stream into the Cord
+    // TODO: This is impractical for large data and
+    // should be mitigated by an iostream backed by a Cord
+
+    // Remember the current position in the stream
+    std::streampos original = strContext->tellg();
+    const size_t bufferSize = 1024*1024;
     std::vector<char> buffer(bufferSize);
 
-    while (body_->read(buffer.data(), buffer.size()) || body_->gcount() > 0) {
-        payload_.Append(absl::Cord(absl::string_view(buffer.data(), body_->gcount())));
+    while (strContext->read(buffer.data(), buffer.size()) || strContext->gcount() > 0) {
+        payload_.Append(absl::Cord(absl::string_view(buffer.data(), strContext->gcount())));
     }
+
+    strContext->clear();
+    strContext->seekg(original);
+
     ABSL_LOG(INFO) << "AddContentBody " << payload_.size();
-  }
-
-  virtual const std::shared_ptr<Aws::IOStream>& GetContentBody() const override {
-    return body_;
-  }
-
-  virtual void SetResponseStreamFactory(const Aws::IOStreamFactory& streamFactory) override {
-    stream_factory_ = streamFactory;
-  }
-
-  virtual const Aws::IOStreamFactory& GetResponseStreamFactory() const override {
-    return stream_factory_;
   }
 };
 
 /// Wraps a tensorstore HttpResponse in an Aws HttpResponse interface
-class HttpResponseAdapter: public Aws::Http::HttpResponse {
+class HttpResponseWrapper: public Aws::Http::Standard::StandardHttpResponse {
 public:
   ::tensorstore::internal_http::HttpResponse response_;
-  ::Aws::Utils::Stream::ResponseStream body_stream_;
 
-  HttpResponseAdapter(
+  HttpResponseWrapper(
         ::tensorstore::internal_http::HttpResponse response,
         const std::shared_ptr<const Aws::Http::HttpRequest> & originatingRequest) :
-      ::Aws::Http::HttpResponse(originatingRequest),
-      response_(std::move(response)),
-      body_stream_(originatingRequest->GetResponseStreamFactory()) {
+      ::Aws::Http::Standard::StandardHttpResponse(originatingRequest),
+      response_(std::move(response)) {
 
       // Cast int response code to an HttpResponseCode enum
       // Potential for undefined behaviour here,
@@ -153,7 +115,8 @@ public:
       // a response code it doesn't know about
       SetResponseCode(static_cast<Aws::Http::HttpResponseCode>(response_.status_code));
 
-      // Add the payload to the Response Body is present
+      // TODO
+      // Add the payload to the Response Body if present
       // This incurs a copy, which should be avoided by subclassing
       // Aws::IOStream
       if(!response_.payload.empty()) {
@@ -161,47 +124,25 @@ public:
       }
   };
 
-  virtual Aws::Utils::Stream::ResponseStream && SwapResponseStreamOwnership() override {
-    return std::move(body_stream_);
-  }
-
   virtual void AddHeader(const Aws::String& headerName, const Aws::String& headerValue) override {
+    StandardHttpResponse::AddHeader(headerName, headerValue);
     response_.headers.insert({headerName, headerValue});
-  }
-
-  virtual bool HasHeader(const char* headerName) const override {
-    return response_.headers.find(Aws::Utils::StringUtils::ToLower(headerName)) != response_.headers.end();
-  }
-
-  virtual Aws::Http::HeaderValueCollection GetHeaders() const override {
-    Aws::Http::HeaderValueCollection headers;
-    for(const auto & header: response_.headers) {
-      headers.insert({header.first, header.second});
-    }
-    return headers;
-  }
-
-  virtual const Aws::String & GetHeader(const Aws::String& headerName) const override {
-    auto it = response_.headers.find(headerName);
-    assert(it != response_.headers.end());
-    return it->second;
-  }
-
-  virtual Aws::IOStream & GetResponseBody() const override {
-    return body_stream_.GetUnderlyingStream();
   }
 };
 
 
+/// Provides a custom Aws HttpClient.
+/// Overrides the Aws::HttpClient::MakeRequest to accept HttpRequestWrappers
+/// (produce by CustomHttpFactory below), issue a tensorstore HttpRequest,
+/// receive a tensorstore HttpResponse to be wrapped in a HttpResponseWrapper
 class CustomHttpClient : public Aws::Http::HttpClient {
 public:
   std::shared_ptr<Aws::Http::HttpResponse> MakeRequest(
     const std::shared_ptr<Aws::Http::HttpRequest> & request,
     Aws::Utils::RateLimits::RateLimiterInterface* readLimiter = nullptr,
     Aws::Utils::RateLimits::RateLimiterInterface* writeLimiter = nullptr) const override {
-      absl::Cord payload;
-      ABSL_LOG(INFO) << "Making a request ";
-      if(auto req_adapter = std::dynamic_pointer_cast<HttpRequestAdapter>(request); req_adapter) {
+      if(auto req_adapter = std::dynamic_pointer_cast<HttpRequestWrapper>(request); req_adapter) {
+        // Issue the wrapped HttpRequest on a tensorstore executor
         auto transport = ::tensorstore::internal_http::GetDefaultHttpTransport();
         ABSL_LOG(INFO) << req_adapter->request_ << " " << req_adapter->payload_;
         auto req_options = req_adapter->payload_.empty() ?
@@ -209,10 +150,11 @@ public:
           IssueRequestOptions(std::move(req_adapter->payload_));
         auto future = transport->IssueRequest(
           req_adapter->request_, std::move(req_options));
-        // future.ExecuteWhenReady is desirable
+        // TODO
+        // Figure out how to use a continuation future.ExecuteWhenReady here
         auto response = future.value();
         ABSL_LOG(INFO) << response;
-        return Aws::MakeShared<HttpResponseAdapter>(kAwsTag, response, request);
+        return Aws::MakeShared<HttpResponseWrapper>(kAwsTag, response, request);
       }
 
       auto fail = Aws::MakeShared<Aws::Http::Standard::StandardHttpResponse>(kAwsTag, request);
@@ -223,6 +165,9 @@ public:
 
 
 /// Custom factory overriding Aws::Http::DefaultHttpFatory
+/// Generates a CustomHttpClient (which defers to tensorflow's curl library)
+/// as well as overriding Createhttp Request to return
+/// HttpRequestWrappers
 class CustomHttpFactory : public Aws::Http::HttpClientFactory {
 public:
   std::shared_ptr<Aws::Http::HttpClient> CreateHttpClient(
@@ -241,21 +186,26 @@ public:
     const Aws::Http::URI& uri, Aws::Http::HttpMethod method,
     const Aws::IOStreamFactory& streamFactory) const override
   {
-      auto request = Aws::MakeShared<HttpRequestAdapter>(kAwsTag, uri, method);
+      auto request = Aws::MakeShared<HttpRequestWrapper>(kAwsTag, uri, method);
       request->SetResponseStreamFactory(streamFactory);
       return request;
   }
 };
 
+
+/// Connect the AWS SDK's logging system to Abseil logging
 class AWSLogSystem : public Aws::Utils::Logging::LogSystemInterface {
 public:
-  AWSLogSystem(Aws::Utils::Logging::LogLevel log_level);
-  Aws::Utils::Logging::LogLevel GetLogLevel(void) const override;
-  void SetLogLevel(Aws::Utils::Logging::LogLevel log_level);
+  AWSLogSystem(Aws::Utils::Logging::LogLevel log_level) : log_level_(log_level) {};
+  Aws::Utils::Logging::LogLevel GetLogLevel(void) const override {
+    return log_level_;
+  };
 
   // Writes the stream to ProcessFormattedStatement.
   void LogStream(Aws::Utils::Logging::LogLevel log_level, const char* tag,
-                 const Aws::OStringStream& messageStream) override;
+                 const Aws::OStringStream& messageStream) override {
+    LogMessage(log_level, messageStream.rdbuf()->str().c_str());
+  }
 
   // Flushes the buffered messages if the logger supports buffering
   void Flush() override { return; };
@@ -269,22 +219,6 @@ private:
   Aws::Utils::Logging::LogLevel log_level_;
 };
 
-
-AWSLogSystem::AWSLogSystem(Aws::Utils::Logging::LogLevel log_level) : log_level_(log_level) {};
-
-Aws::Utils::Logging::LogLevel AWSLogSystem::GetLogLevel(void) const {
-  return log_level_;
-}
-
-void AWSLogSystem::SetLogLevel(Aws::Utils::Logging::LogLevel log_level) {
-  log_level_ = log_level;
-}
-
-  // Writes the stream to ProcessFormattedStatement.
-void AWSLogSystem::LogStream(Aws::Utils::Logging::LogLevel log_level, const char* tag,
-                 const Aws::OStringStream& messageStream) {
-  LogMessage(log_level, messageStream.rdbuf()->str().c_str());
-}
 
 void AWSLogSystem::Log(Aws::Utils::Logging::LogLevel log_level, const char* tag,
            const char* format, ...) {
@@ -339,8 +273,8 @@ std::shared_ptr<AwsContext> GetAwsContext() {
   options.httpOptions.installSigPipeHandler = false;
 
   // Install AWS -> Abseil Logging Translator
-  auto level = Aws::Utils::Logging::LogLevel::Debug;
-  //auto level = Aws::Utils::Logging::LogLevel::Info;
+  //auto level = Aws::Utils::Logging::LogLevel::Debug;
+  auto level = Aws::Utils::Logging::LogLevel::Info;
   options.loggingOptions.logLevel = level;
   options.loggingOptions.logger_create_fn = [level=level]() {
     return Aws::MakeShared<AWSLogSystem>(kAwsTag, level);

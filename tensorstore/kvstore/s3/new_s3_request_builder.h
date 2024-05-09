@@ -98,7 +98,7 @@ public:
     auto delim_pos = header.find(':');
     assert(delim_pos != std::string_view::npos);
     // NOTE: string copies
-    request_.SetHeaderValue(std::string(header.substr(0, delim_pos)).c_str(),
+    request_.SetHeaderValue(Aws::String(header.substr(0, delim_pos)),
                             Aws::String(header.substr(delim_pos + 1)));
     return *this;
   }

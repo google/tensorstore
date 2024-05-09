@@ -9,12 +9,11 @@ using ::tensorstore::internal_kvstore_s3::NewS3RequestBuilder;
 namespace {
 
 TEST(NewS3RequestBuilderTest, Basic) {
+  auto ctx = tensorstore::internal_kvstore_s3::GetAwsContext();
   auto builder = NewS3RequestBuilder("get", "http://bucket")
                   .AddBody(absl::Cord{"foobar"})
                   .AddHeader("foo: bar")
                   .AddQueryParameter("qux", "baz");
-
-  auto ctx = tensorstore::internal_kvstore_s3::GetAwsContext();
 
   auto req = builder.BuildRequest(*ctx);
   EXPECT_TRUE(builder.request_.HasAuthorization());
