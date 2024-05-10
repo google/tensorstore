@@ -22,6 +22,7 @@
 #include "absl/flags/flag.h"
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
+#include "absl/synchronization/notification.h"
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_format.h"
@@ -29,6 +30,7 @@
 #include "absl/time/time.h"
 
 #include <aws/core/Aws.h>
+#include <aws/core/utils/threading/Executor.h>
 #include <aws/core/client/ClientConfiguration.h>
 #include <aws/s3/S3Client.h>
 #include <aws/s3/model/CreateBucketConfiguration.h>
@@ -47,7 +49,10 @@
 #include "tensorstore/internal/http/transport_test_utils.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/os/subprocess.h"
+#include "tensorstore/internal/thread/thread_pool.h"
+#include "tensorstore/util/executor.h"
 #include "tensorstore/util/result.h"
+
 
 #include "tensorstore/kvstore/s3_sdk/s3_context.h"
 
@@ -101,6 +106,7 @@ using ::tensorstore::internal_kvstore_s3::AwsContext;
 
 namespace {
 
+static constexpr char kAwsTag[] = "AWS";
 static constexpr char kAwsAccessKeyId[] = "LSIAQAAAAAAVNCBMPNSG";
 static constexpr char kAwsSecretKeyId[] = "localstackdontcare";
 
@@ -240,11 +246,30 @@ class LocalStackFixture : public ::testing::Test {
                      << Bucket();
     }
 
-    auto cfg = Aws::Client::ClientConfiguration{};
-    cfg.endpointOverride = endpoint_url();
-    cfg.region = Region();
+    CreateClient();
+  }
+
+  // Create client for use by test cases
+  static void CreateClient() {
+      // Offload AWS Client tasks onto a Tensorstore executor
+    class TensorStoreExecutor : public Aws::Utils::Threading::Executor {
+      public:
+        TensorStoreExecutor(): executor_(::tensorstore::internal::DetachedThreadPool(4)) {}
+      protected:
+        bool SubmitToThread(std::function<void()> && fn) override {
+          ::tensorstore::WithExecutor(executor_, std::move(fn))();
+          return true;
+        }
+      private:
+        ::tensorstore::Executor executor_;
+    };
+
+    auto config = Aws::Client::ClientConfiguration{};
+    config.endpointOverride = endpoint_url();
+    config.region = Region();
+    config.executor = Aws::MakeShared<TensorStoreExecutor>(kAwsTag);
     client = std::make_shared<Aws::S3::S3Client>(
-      cfg,
+      config,
       Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Always,
       false);
   }
@@ -264,10 +289,11 @@ class LocalStackFixture : public ::testing::Test {
 
   // Attempts to create the kBucket bucket on the localstack host.
   static void MaybeCreateBucket() {
+    // Create a separate client for creating the bucket
+    // Without anonymous credentials bucket creation fails with 400 IllegalRegionConstraint
     auto cfg = Aws::Client::ClientConfiguration{};
     cfg.endpointOverride = endpoint_url();
     cfg.region = Region();
-    // Without Anonymous credentials bucket creation fails with 400 IllegalRegionConstraint
     auto create_client = std::make_shared<Aws::S3::S3Client>(Aws::Auth::AWSCredentials(), cfg);
 
     auto create_request = Aws::S3::Model::CreateBucketRequest{};
@@ -298,14 +324,14 @@ LocalStackProcess LocalStackFixture::process;
 std::shared_ptr<Aws::S3::S3Client> LocalStackFixture::client = nullptr;
 std::shared_ptr<AwsContext> LocalStackFixture::context = tensorstore::internal_kvstore_s3::GetAwsContext();
 
-TEST_F(LocalStackFixture, Basic) {
+TEST_F(LocalStackFixture, BasicSync) {
   std::string payload = "this is a test";
 
   // Put an object
   auto put_request = Aws::S3::Model::PutObjectRequest{};
   put_request.SetBucket(Bucket());
   put_request.SetKey("portunus");
-  put_request.SetBody(Aws::MakeShared<Aws::StringStream>("AWS", payload));
+  put_request.SetBody(Aws::MakeShared<Aws::StringStream>(kAwsTag, payload));
   auto put_outcome = client->PutObject(put_request);
   EXPECT_TRUE(put_outcome.IsSuccess());
 
@@ -313,13 +339,14 @@ TEST_F(LocalStackFixture, Basic) {
   put_request = Aws::S3::Model::PutObjectRequest{};
   put_request.SetBucket(Bucket());
   put_request.SetKey("portunus0");
-  put_request.SetBody(Aws::MakeShared<Aws::StringStream>("AWS", payload));
+  put_request.SetBody(Aws::MakeShared<Aws::StringStream>(kAwsTag, payload));
   put_outcome = client->PutObject(put_request);
   EXPECT_TRUE(put_outcome.IsSuccess());
 
   // List the objects
   auto list_request = Aws::S3::Model::ListObjectsV2Request{};
   list_request.SetBucket(Bucket());
+  list_request.SetMaxKeys(1);
   auto continuation_token = Aws::String{};
   Aws::Vector<Aws::S3::Model::Object> objects;
 
@@ -353,5 +380,67 @@ TEST_F(LocalStackFixture, Basic) {
   std::getline(get_outcome.GetResult().GetBody(), result);
   EXPECT_EQ(result, payload);
 }
+
+TEST_F(LocalStackFixture, BasicAsync) {
+  struct TestCallbacks {
+    // Data relevant to GET and PUT
+    std::string key;
+    std::string payload;
+
+    // Results and notifications
+    bool put_succeeded = false;
+    std::optional<std::string> get_result;
+    absl::Notification done;
+
+    void do_put() {
+      auto put_request = Aws::S3::Model::PutObjectRequest{};
+      put_request.SetBucket(Bucket());
+      put_request.SetKey(key);
+      put_request.SetBody(Aws::MakeShared<Aws::StringStream>(kAwsTag, payload));
+      client->PutObjectAsync(put_request, [this](
+        const auto *, const auto &, const auto & outcome, const auto &) {
+          this->on_put(outcome);
+      });
+    }
+
+    void on_put(const Aws::S3::Model::PutObjectOutcome & outcome) {
+      if(outcome.IsSuccess()) {
+        put_succeeded = true;
+        do_get();
+      } else {
+        done.Notify();
+      }
+    }
+
+    void do_get() {
+      auto get_request = Aws::S3::Model::GetObjectRequest{};
+      get_request.SetBucket(Bucket());
+      get_request.SetKey(key);
+      client->GetObjectAsync(get_request, [this](
+        const auto *, const auto &, auto outcome, const auto &) {
+          this->on_get(std::move(outcome));
+        });
+    }
+
+    void on_get(Aws::S3::Model::GetObjectOutcome outcome) {
+      if(outcome.IsSuccess()) {
+        std::string buffer;
+        std::getline(outcome.GetResult().GetBody(), buffer);
+        get_result = buffer;
+      }
+
+      done.Notify();
+    }
+  };
+
+  auto callbacks = TestCallbacks{"key", "value"};
+  callbacks.do_put();
+  EXPECT_TRUE(callbacks.done.WaitForNotificationWithTimeout(absl::Milliseconds(10)));
+  EXPECT_TRUE(callbacks.put_succeeded);
+  EXPECT_TRUE(callbacks.get_result.has_value());
+  EXPECT_EQ(callbacks.get_result.value(), callbacks.payload);
+}
+
+
 
 }  // namespace
