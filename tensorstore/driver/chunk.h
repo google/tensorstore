@@ -24,14 +24,18 @@
 /// provided along with the ReadChunk/WriteChunk object.
 
 #include <mutex>
+#include <utility>
 
+#include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/internal/arena.h"
 #include "tensorstore/internal/lock_collection.h"
 #include "tensorstore/internal/nditerable.h"
 #include "tensorstore/internal/poly/poly.h"
+#include "tensorstore/read_write_options.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
@@ -81,6 +85,7 @@ struct ReadChunk {
 struct WriteChunk {
   struct BeginWrite {};
   struct EndWrite {};
+  struct WriteArray {};
 
   struct [[nodiscard]] EndWriteResult {
     /// Indicates an error recording write operation in memory.  Errors
@@ -102,6 +107,13 @@ struct WriteChunk {
     /// equal the future associated with the transaction, and is ignored.
     Future<const void> commit_future;
   };
+
+  using TransformedArrayWithReferenceRestriction =
+      std::pair<TransformedSharedArray<const void>,
+                SourceDataReferenceRestriction>;
+
+  using GetWriteSourceArrayFunction =
+      absl::FunctionRef<Result<TransformedArrayWithReferenceRestriction>()>;
 
   using Impl = poly::Poly<
       sizeof(void*) * 2,
@@ -154,7 +166,22 @@ struct WriteChunk {
       /// \param arena Non-null pointer to allocation arena that may be
       ///     used for allocating memory.
       EndWriteResult(EndWrite, IndexTransformView<> chunk_transform,
-                     bool success, Arena* arena)>;
+                     bool success, Arena* arena),
+
+      /// Writes a transformed array directly, if supported.
+      ///
+      /// \param chunk_transform Transform with a range that is a subset of the
+      ///     associated `WriteChunk::transform`.
+      /// \param get_source_array Function that may be called to obtain the
+      ///     source array with the same input domain as `chunk_transform`.
+      /// \param arena Non-null pointer to allocation arena that may be
+      ///     used for allocating memory.
+      /// \param end_write_result[out] Set on success.
+      /// \returns `true` if `WriteArray` is supported and the result has been
+      ///     set in `end_write_result`, `false` otherwise.
+      bool(WriteArray, IndexTransformView<> chunk_transform,
+           GetWriteSourceArrayFunction get_source_array, Arena* arena,
+           EndWriteResult& end_write_result)>;
 
   /// Type-erased chunk implementation.  In the case of the chunks produced by
   /// `ChunkCache::Write`, for example, the contained object holds a

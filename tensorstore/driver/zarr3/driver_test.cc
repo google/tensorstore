@@ -16,6 +16,7 @@
 
 #include <stdint.h>
 
+#include <algorithm>
 #include <string>
 #include <utility>
 #include <vector>
@@ -24,9 +25,11 @@
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
+#include "tensorstore/cast.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/codec_spec.h"
 #include "tensorstore/context.h"
@@ -45,6 +48,7 @@
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
+#include "tensorstore/read_write_options.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/staleness_bound.h"
 #include "tensorstore/tensorstore.h"
@@ -57,6 +61,7 @@ namespace {
 
 using ::tensorstore::ChunkLayout;
 using ::tensorstore::Context;
+using ::tensorstore::DataType;
 using ::tensorstore::dtype_v;
 using ::tensorstore::Index;
 using ::tensorstore::MatchesStatus;
@@ -1219,6 +1224,66 @@ TEST(ZarrDriverTest, CodecLifetime) {
                  .commit_future;
   }
   TENSORSTORE_ASSERT_OK(future.status());
+}
+
+TEST(ZarrDriverTest, CanReferenceSourceDataIndefinitely) {
+  // Dimension 0 is chunked with a size of 64.  Need chunk to be at least 256
+  // bytes due to riegeli size limits for non copying cords.
+  for (bool reference_source_data : {false, true}) {
+    SCOPED_TRACE(
+        absl::StrFormat("reference_source_data=%d", reference_source_data));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open({{"driver", "zarr3"}, {"kvstore", "memory://"}},
+                          dtype_v<uint32_t>, Schema::Shape({64}),
+                          tensorstore::OpenMode::create)
+            .result());
+    auto array = tensorstore::AllocateArray<uint32_t>({64});
+    std::fill_n(array.data(), 64, 1);
+    TENSORSTORE_ASSERT_OK(tensorstore::Write(
+        array, store,
+        reference_source_data
+            ? tensorstore::can_reference_source_data_indefinitely
+            : tensorstore::cannot_reference_source_data));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto read_result,
+        tensorstore::kvstore::Read(store.kvstore(), "c/0").result());
+    EXPECT_EQ(reference_source_data,
+              read_result.value.Flatten().data() ==
+                  reinterpret_cast<const char*>(array.data()));
+  }
+}
+
+TEST(ZarrDriverTest, CanReferenceSourceDataIndefinitelyWithCast) {
+  // Dimension 0 is chunked with a size of 64.  Need chunk to be at least 256
+  // bytes due to riegeli size limits for non copying cords.
+  for (bool reference_source_data : {false, true}) {
+    for (bool can_reinterpret_cast : {false, true}) {
+      SCOPED_TRACE(
+          absl::StrFormat("reference_source_data=%d", reference_source_data));
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+          auto store,
+          tensorstore::Open({{"driver", "zarr3"}, {"kvstore", "memory://"}},
+                            can_reinterpret_cast ? DataType(dtype_v<int32_t>)
+                                                 : DataType(dtype_v<float>),
+                            Schema::Shape({64}), tensorstore::OpenMode::create)
+              .result());
+      auto cast_store = tensorstore::Cast(store, dtype_v<uint32_t>);
+      auto array = tensorstore::AllocateArray<uint32_t>({64});
+      std::fill_n(array.data(), 64, 1);
+      TENSORSTORE_ASSERT_OK(tensorstore::Write(
+          array, cast_store,
+          reference_source_data
+              ? tensorstore::can_reference_source_data_indefinitely
+              : tensorstore::cannot_reference_source_data));
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+          auto read_result,
+          tensorstore::kvstore::Read(store.kvstore(), "c/0").result());
+      EXPECT_EQ(reference_source_data && can_reinterpret_cast,
+                read_result.value.Flatten().data() ==
+                    reinterpret_cast<const char*>(array.data()));
+    }
+  }
 }
 
 }  // namespace

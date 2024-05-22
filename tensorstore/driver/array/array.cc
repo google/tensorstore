@@ -317,10 +317,20 @@ void ArrayDriver::Write(
       return GetTransformedArrayNDIterable(self->data_, chunk_transform, arena);
     }
 
-    WriteChunk::EndWriteResult operator()(WriteChunk::EndWrite,
-                                          IndexTransformView<> chunk_transform,
-                                          bool success, Arena* arena) {
+    WriteChunk::EndWriteResult operator()(
+        WriteChunk::EndWrite, IndexTransformView<> /*chunk_transform*/,
+        bool /*success*/, Arena* /*arena*/) {
       return {};
+    }
+
+    bool operator()(
+        WriteChunk::WriteArray, IndexTransformView<> /*chunk_transform*/,
+        WriteChunk::GetWriteSourceArrayFunction /*get_source_array*/,
+        Arena* /*arena*/, WriteChunk::EndWriteResult& /*end_write_result*/) {
+      // Note: Since the backing array for this driver must remain fixed, we
+      // can't support zero-copy writes, and therefore this method offers no
+      // advantage over the generic `NDIterable` code path.
+      return false;
     }
   };
   // Cancellation does not make sense since there is only a single call to

@@ -117,6 +117,7 @@ struct WriteState : public internal::AtomicReferenceCount<WriteState> {
   };
   Executor executor;
   TransformedArray<Shared<const void>> source;
+  SourceDataReferenceRestriction source_data_reference_restriction;
   DataTypeConversionLookupResult data_type_conversion;
   DriverPtr target_driver;
   internal::OpenTransactionPtr target_transaction;
@@ -146,11 +147,6 @@ struct WriteChunkOp {
 
     DefaultNDIterableArena arena;
 
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto source_iterable,
-        GetTransformedArrayNDIterable(std::move(source), arena),
-        state->SetError(_));
-
     LockCollection lock_collection;
 
     absl::Status copy_status;
@@ -160,25 +156,47 @@ struct WriteChunkOp {
       TENSORSTORE_ASSIGN_OR_RETURN(auto guard,
                                    LockChunks(lock_collection, chunk.impl),
                                    state->SetError(_));
+      WriteChunk::EndWriteResult write_array_result;
+      // Attempt to use (possibly) zero-copy `WriteArray` path.
+      if (((state->data_type_conversion.flags &
+            DataTypeConversionFlags::kCanReinterpretCast) !=
+           DataTypeConversionFlags{}) &&
+          chunk.impl(
+              WriteChunk::WriteArray{}, chunk.transform,
+              [&]() -> Result<
+                        WriteChunk::TransformedArrayWithReferenceRestriction> {
+                return {std::in_place, source,
+                        state->source_data_reference_restriction};
+              },
+              arena, write_array_result)) {
+        copy_status = std::move(write_array_result.copy_status);
+        commit_future = std::move(write_array_result.commit_future);
+      } else {
+        // Fallback to normal nditerable path.
+        TENSORSTORE_ASSIGN_OR_RETURN(
+            auto target_iterable,
+            chunk.impl(WriteChunk::BeginWrite{}, chunk.transform, arena),
+            state->SetError(_));
 
-      TENSORSTORE_ASSIGN_OR_RETURN(
-          auto target_iterable,
-          chunk.impl(WriteChunk::BeginWrite{}, chunk.transform, arena),
-          state->SetError(_));
+        TENSORSTORE_ASSIGN_OR_RETURN(
+            auto source_iterable,
+            GetTransformedArrayNDIterable(std::move(source), arena),
+            state->SetError(_));
 
-      source_iterable = GetConvertedInputNDIterable(
-          std::move(source_iterable), target_iterable->dtype(),
-          state->data_type_conversion);
+        source_iterable = GetConvertedInputNDIterable(
+            std::move(source_iterable), target_iterable->dtype(),
+            state->data_type_conversion);
 
-      copy_status = NDIterableCopier(*source_iterable, *target_iterable,
-                                     chunk.transform.input_shape(), arena)
-                        .Copy();
+        copy_status = NDIterableCopier(*source_iterable, *target_iterable,
+                                       chunk.transform.input_shape(), arena)
+                          .Copy();
 
-      auto end_write_result = chunk.impl(
-          WriteChunk::EndWrite{}, chunk.transform, copy_status.ok(), arena);
-      commit_future = std::move(end_write_result.commit_future);
-      if (copy_status.ok()) {
-        copy_status = std::move(end_write_result.copy_status);
+        auto end_write_result = chunk.impl(
+            WriteChunk::EndWrite{}, chunk.transform, copy_status.ok(), arena);
+        commit_future = std::move(end_write_result.commit_future);
+        if (copy_status.ok()) {
+          copy_status = std::move(end_write_result.copy_status);
+        }
       }
     }
 
@@ -273,6 +291,8 @@ WriteFutures DriverWrite(Executor executor,
       state->target_transaction,
       internal::AcquireOpenTransactionPtrOrError(target.transaction));
   state->source = std::move(source);
+  state->source_data_reference_restriction =
+      options.source_data_reference_restriction;
   state->alignment_options = options.alignment_options;
   state->commit_state->write_progress_function =
       std::move(options.progress_function);

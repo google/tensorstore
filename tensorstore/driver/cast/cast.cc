@@ -343,6 +343,17 @@ struct WriteChunkImpl {
                                         bool success, Arena* arena) {
     return base(WriteChunk::EndWrite{}, chunk_transform, success, arena);
   }
+
+  bool operator()(WriteChunk::WriteArray, IndexTransformView<> chunk_transform,
+                  WriteChunk::GetWriteSourceArrayFunction get_source_array,
+                  Arena* arena, WriteChunk::EndWriteResult& end_write_result) {
+    if (!(self->output_conversion_.flags &
+          DataTypeConversionFlags::kCanReinterpretCast)) {
+      return false;
+    }
+    return base(WriteChunk::WriteArray{}, chunk_transform, get_source_array,
+                arena, end_write_result);
+  }
 };
 
 template <typename Chunk, typename ChunkImpl>

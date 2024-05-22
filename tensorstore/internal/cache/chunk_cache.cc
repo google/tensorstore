@@ -49,6 +49,7 @@
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/nditerable.h"
 #include "tensorstore/rank.h"
+#include "tensorstore/read_write_options.h"
 #include "tensorstore/staleness_bound.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/transaction.h"
@@ -358,6 +359,50 @@ struct WriteChunkImpl {
       node->SetUnconditional();
     }
     return {node->OnModified(), node->transaction()->future()};
+  }
+
+  bool operator()(WriteChunk::WriteArray, IndexTransformView<> chunk_transform,
+                  WriteChunk::GetWriteSourceArrayFunction get_source_array,
+                  Arena* arena,
+                  WriteChunk::EndWriteResult& end_write_result) const {
+    auto& entry = GetOwningEntry(*node);
+    const auto& component_spec = entry.component_specs()[component_index];
+    Index origin[kMaxRank];
+    const span<Index> origin_span(origin, component_spec.rank());
+    GetOwningCache(entry).grid().GetComponentOrigin(
+        component_index, entry.cell_indices(), origin_span);
+    using WriteArraySourceCapabilities =
+        AsyncWriteArray::WriteArraySourceCapabilities;
+    auto status = node->components()[component_index].WriteArray(
+        component_spec, origin_span, chunk_transform,
+        [&]() -> Result<std::pair<TransformedSharedArray<const void>,
+                                  WriteArraySourceCapabilities>> {
+          // Translate source array and source restriction into write array and
+          // `WriteArraySourceCapabilities`.
+          TENSORSTORE_ASSIGN_OR_RETURN(auto info, get_source_array());
+          auto source_restriction = std::get<1>(info);
+          WriteArraySourceCapabilities source_capabilities;
+          switch (source_restriction) {
+            case cannot_reference_source_data:
+              source_capabilities = WriteArraySourceCapabilities::kCannotRetain;
+              break;
+            case can_reference_source_data_indefinitely:
+              source_capabilities = WriteArraySourceCapabilities::
+                  kImmutableAndCanRetainIndefinitely;
+              break;
+          }
+          return {std::in_place, std::move(std::get<0>(info)),
+                  source_capabilities};
+        });
+    if (!status.ok()) {
+      if (absl::IsCancelled(status)) return false;
+      end_write_result = {status};
+      return true;
+    }
+    node->is_modified = true;
+    node->SetUnconditional();
+    end_write_result = {node->OnModified(), node->transaction()->future()};
+    return true;
   }
 };
 

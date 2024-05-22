@@ -587,6 +587,12 @@ struct WriteChunkImpl {
     return {/*.copy_status=*/{},
             /*.commit_future=*/node->transaction()->future()};
   }
+
+  bool operator()(WriteChunk::WriteArray, IndexTransformView<> chunk_transform,
+                  WriteChunk::GetWriteSourceArrayFunction get_source_array,
+                  Arena* arena, WriteChunk::EndWriteResult& end_write_result) {
+    return false;
+  }
 };
 
 void JsonDriver::Write(

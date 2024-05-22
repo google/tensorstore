@@ -117,6 +117,28 @@ constexpr inline bool ReadIntoNewArrayOptions::IsOption<Batch> = true;
 template <>
 constexpr inline bool ReadIntoNewArrayOptions::IsOption<Batch::View> = true;
 
+/// Specifies restrictions on how references to the source array/source
+/// TensorStore may be used by write operations.
+enum SourceDataReferenceRestriction {
+  /// References to the source data must be released as soon as possible, which
+  /// may result in additional copies.
+  cannot_reference_source_data = 0,
+
+#if 0
+  // TODO(jbms): Add this option once it is supported.
+
+  /// References to the source data may be retained until the write is
+  /// committed.  The source data must not be modified until the write is
+  /// committed.
+  can_reference_source_data_until_commit = 1,
+#endif
+
+  /// References to the source data may be retained indefinitely, even after the
+  /// write is committed.  The source data must not be modified until all
+  /// references are released.
+  can_reference_source_data_indefinitely = 2,
+};
+
 /// Options for `tensorstore::Write`.
 ///
 /// \relates Write[Array, TensorStore]
@@ -137,11 +159,20 @@ struct WriteOptions {
     this->progress_function = std::move(value);
   }
 
+  void Set(SourceDataReferenceRestriction value) {
+    this->source_data_reference_restriction = value;
+  }
+
   /// Constrains how the source array may be aligned to the target TensorStore.
   DomainAlignmentOptions alignment_options = DomainAlignmentOptions::all;
 
   /// Optional progress callback.
   WriteProgressFunction progress_function;
+
+  /// Specifies restrictions on how the source data may be referenced (as
+  /// opposed to copied).
+  SourceDataReferenceRestriction source_data_reference_restriction =
+      cannot_reference_source_data;
 };
 
 template <>
@@ -149,6 +180,10 @@ constexpr inline bool WriteOptions::IsOption<DomainAlignmentOptions> = true;
 
 template <>
 constexpr inline bool WriteOptions::IsOption<WriteProgressFunction> = true;
+
+template <>
+constexpr inline bool WriteOptions::IsOption<SourceDataReferenceRestriction> =
+    true;
 
 /// Options for `tensorstore::Copy`.
 ///
@@ -170,6 +205,10 @@ struct CopyOptions {
     this->progress_function = std::move(value);
   }
 
+  void Set(SourceDataReferenceRestriction value) {
+    this->source_data_reference_restriction = value;
+  }
+
   void Set(Batch value) { this->batch = std::move(value); }
 
   /// Constrains how the source TensorStore may be aligned to the target
@@ -178,6 +217,11 @@ struct CopyOptions {
 
   /// Optional progress callback.
   CopyProgressFunction progress_function;
+
+  /// Specifies restrictions on how the source data may be referenced (as
+  /// opposed to copied).
+  SourceDataReferenceRestriction source_data_reference_restriction =
+      cannot_reference_source_data;
 
   /// Optional batch for reading.
   Batch batch{no_batch};
@@ -188,6 +232,10 @@ constexpr inline bool CopyOptions::IsOption<DomainAlignmentOptions> = true;
 
 template <>
 constexpr inline bool CopyOptions::IsOption<CopyProgressFunction> = true;
+
+template <>
+constexpr inline bool CopyOptions::IsOption<SourceDataReferenceRestriction> =
+    true;
 
 template <>
 constexpr inline bool CopyOptions::IsOption<Batch> = true;

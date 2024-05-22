@@ -15,10 +15,14 @@
 #include "tensorstore/internal/cache/chunk_cache.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
+#include <algorithm>
+#include <array>
+#include <cmath>
 #include <functional>
 #include <memory>
-#include <new>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -26,19 +30,20 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "absl/base/attributes.h"
-#include "absl/container/flat_hash_map.h"
 #include "absl/container/inlined_vector.h"
 #include "absl/log/absl_check.h"
+#include "absl/status/status.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_split.h"
-#include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "riegeli/bytes/cord_reader.h"
+#include "riegeli/bytes/cord_writer.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/context.h"
+#include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/chunk.h"
 #include "tensorstore/driver/chunk_cache_driver.h"
@@ -53,27 +58,33 @@
 #include "tensorstore/internal/cache/async_cache.h"
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/cache/kvs_backed_cache.h"
+#include "tensorstore/internal/chunk_grid_specification.h"
 #include "tensorstore/internal/element_copy_function.h"
 #include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/masked_array.h"
 #include "tensorstore/internal/memory.h"
-#include "tensorstore/internal/meta.h"
 #include "tensorstore/internal/queue_testutil.h"
+#include "tensorstore/internal/riegeli/array_endian_codec.h"
 #include "tensorstore/internal/thread/thread_pool.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/memory/memory_key_value_store.h"
 #include "tensorstore/kvstore/mock_kvstore.h"
-#include "tensorstore/kvstore/test_util.h"
+#include "tensorstore/kvstore/spec.h"
+#include "tensorstore/open_mode.h"
 #include "tensorstore/progress.h"
-#include "tensorstore/rank.h"
+#include "tensorstore/read_write_options.h"
 #include "tensorstore/staleness_bound.h"
+#include "tensorstore/strided_layout.h"
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/transaction.h"
-#include "tensorstore/util/execution/sender.h"
+#include "tensorstore/util/constant_vector.h"
+#include "tensorstore/util/endian.h"
+#include "tensorstore/util/execution/any_receiver.h"
+#include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/garbage_collection/garbage_collection.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
@@ -126,44 +137,39 @@ Result<std::shared_ptr<const ChunkCache::ReadData>> DecodeRaw(
   if (value) {
     read_data = tensorstore::internal::make_shared_for_overwrite<
         ChunkCache::ReadData[]>(component_specs.size());
-    size_t offset = 0;
-    absl::Cord temp_value = *value;
-    auto flat_value = temp_value.Flatten();
+    riegeli::CordReader<const absl::Cord*> reader{value};
     for (size_t component_i = 0; component_i < component_specs.size();
          ++component_i) {
       const auto& spec = component_specs[component_i];
-      tensorstore::SharedArrayView<void> array(
-          tensorstore::SharedElementPointer<void>(
-              spec.AllocateAndConstructBuffer(), spec.dtype()),
-          spec.write_layout());
-      read_data.get()[component_i] = array;
-      const size_t num_bytes = spec.num_elements() * spec.dtype().size();
-      if (num_bytes + offset < value->size()) {
-        return absl::UnknownError("Decode error");
-      }
-      std::memcpy(array.data(), flat_value.data() + offset, num_bytes);
-      offset += num_bytes;
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          read_data.get()[component_i],
+          tensorstore::internal::DecodeArrayEndian(
+              reader, spec.dtype(), spec.shape(), tensorstore::endian::native,
+              tensorstore::c_order));
     }
+    if (!reader.VerifyEndAndClose()) return reader.status();
   }
   return std::static_pointer_cast<ChunkCache::ReadData>(std::move(read_data));
 }
 
 /// Encodes component arrays as native-endian C order.
-template <typename ComponentArrays>
+template <typename ComponentArrays = std::vector<SharedArray<const void>>>
 absl::Cord EncodeRaw(const ChunkGridSpecification& grid,
                      const ComponentArrays& component_arrays) {
-  std::string value;
+  absl::Cord value;
+  riegeli::CordWriter<absl::Cord*> writer{&value};
   const auto& component_specs = grid.components;
   for (size_t component_i = 0; component_i < component_specs.size();
        ++component_i) {
     const auto& spec = component_specs[component_i];
-    auto array = MakeCopy(component_arrays[component_i]);
+    auto& array = component_arrays[component_i];
     ABSL_CHECK(tensorstore::internal::RangesEqual(array.shape(), spec.shape()));
     ABSL_CHECK(array.dtype() == spec.dtype());
-    const size_t num_bytes = spec.num_elements() * spec.dtype().size();
-    value.append(reinterpret_cast<const char*>(array.data()), num_bytes);
+    ABSL_CHECK(tensorstore::internal::EncodeArrayEndian(
+        array, tensorstore::endian::native, tensorstore::c_order, writer));
   }
-  return absl::Cord(value);
+  ABSL_CHECK(writer.Close());
+  return value;
 }
 
 std::string EncodeKey(span<const Index> indices) {
@@ -337,8 +343,9 @@ class ChunkCacheTest : public ::testing::Test {
     return read_result.has_value();
   }
 
-  void SetChunk(const std::vector<Index>& indices,
-                std::vector<ArrayView<const void>> components) {
+  void SetChunk(
+      const std::vector<Index>& indices,
+      std::vector<tensorstore::SharedArrayView<const void>> components) {
     TENSORSTORE_CHECK_OK(
         memory_store->Write(EncodeKey(indices), EncodeRaw(*grid, components)));
   }
@@ -1896,7 +1903,7 @@ TENSORSTORE_GLOBAL_INITIALIZER {
 
   options.encode_value =
       [=](SharedArray<const void> value) -> Result<std::optional<absl::Cord>> {
-    return EncodeRaw(*grid, std::vector<SharedArray<const void>>{value});
+    return EncodeRaw(*grid, {value});
   };
   options.make_tensorstore =
       [=](const tensorstore::Context& context) -> Result<TensorStore<>> {
@@ -1916,6 +1923,70 @@ TENSORSTORE_GLOBAL_INITIALIZER {
            tensorstore::Dims(0).TranslateSizedInterval(0, 2);
   };
   tensorstore::internal::RegisterTensorStoreRepeatableReadTest(options);
+}
+
+TEST_F(ChunkCacheTest, CanReferenceSourceDataIndefinitely) {
+  // Dimension 0 is chunked with a size of 64.  Need chunk to be at least 256
+  // bytes due to riegeli size limits for non copying cords.
+  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
+      SharedArray<const void>(tensorstore::AllocateArray<int32_t>({64})),
+      Box<>(1)}});
+  const Index size = 64;
+  auto index_array = tensorstore::AllocateArray<int64_t>({size});
+  for (Index i = 0; i < size; ++i) {
+    index_array(i) = i;
+  }
+  for (bool use_index_array_for_store : {false, true}) {
+    SCOPED_TRACE(absl::StrFormat("use_index_array_for_store=%d",
+                                 use_index_array_for_store));
+    for (bool use_index_array_for_source : {false, true}) {
+      SCOPED_TRACE(absl::StrFormat("use_index_array_for_source=%d",
+                                   use_index_array_for_source));
+      for (bool reference_source_data : {false, true}) {
+        SCOPED_TRACE(
+            absl::StrFormat("reference_source_data=%d", reference_source_data));
+        auto cache = MakeChunkCache();
+        auto store = GetTensorStore(cache);
+        auto full_chunk = tensorstore::AllocateArray<int32_t>({size});
+        std::fill_n(full_chunk.data(), 42, full_chunk.num_elements());
+        tensorstore::TransformedSharedArray<const void> source_array =
+            full_chunk;
+        if (use_index_array_for_source) {
+          TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+              source_array,
+              source_array |
+                  tensorstore::Dims(0).OuterIndexArraySlice(index_array));
+        }
+        TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+            store, store | tensorstore::Dims(0).SizedInterval(0, size));
+        if (use_index_array_for_store) {
+          TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+              store,
+              store | tensorstore::Dims(0).OuterIndexArraySlice(index_array));
+        }
+        auto write_future = tensorstore::Write(
+            source_array, store,
+            (reference_source_data
+                 ? tensorstore::can_reference_source_data_indefinitely
+                 : tensorstore::cannot_reference_source_data));
+        const bool zero_copy = reference_source_data &&
+                               !use_index_array_for_store &&
+                               !use_index_array_for_source;
+        {
+          auto r = mock_store->write_requests.pop();
+          EXPECT_THAT(ParseKey(r.key), ElementsAre(0));
+          ASSERT_TRUE(r.value);
+          EXPECT_EQ(*r.value, EncodeRaw(*grid, {full_chunk}));
+          auto flat = r.value->TryFlat();
+          ASSERT_TRUE(flat);
+          EXPECT_EQ(zero_copy, (flat->data() == reinterpret_cast<const char*>(
+                                                    full_chunk.data())));
+          r(memory_store);
+        }
+        TENSORSTORE_EXPECT_OK(write_future);
+      }
+    }
+  }
 }
 
 }  // namespace

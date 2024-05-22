@@ -473,3 +473,20 @@ async def test_spec_open_mode():
     store = await ts.open(spec, context=context, open_mode=open_mode)
     requested_spec = store.spec(**open_mode_kwargs)
     assert requested_spec.open_mode == open_mode
+
+
+async def test_zero_copy():
+  store = await ts.open(
+      {"driver": "zarr3", "kvstore": "memory://"},
+      dtype=ts.uint32,
+      shape=[64],
+      create=True,
+  )
+  arr = np.full(shape=[64], fill_value=42, dtype=np.uint32)
+  await store.write(arr, can_reference_source_data_indefinitely=True)
+  np.testing.assert_equal(42, await store.read())
+  # Modify arr.  This violates the guarantee indicated by
+  # `can_reference_source_data_indefinitely=True` but is done here for testing
+  # purposes.
+  arr[...] = 43
+  np.testing.assert_equal(43, await store.read())

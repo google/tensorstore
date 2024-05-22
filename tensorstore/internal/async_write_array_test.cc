@@ -14,20 +14,39 @@
 
 #include "tensorstore/internal/async_write_array.h"
 
-#include <cstddef>
+#include <stddef.h>
+#include <stdint.h>
+
+#include <algorithm>
+#include <limits>
+#include <random>
+#include <utility>
+#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "tensorstore/array.h"
+#include "tensorstore/array_testutil.h"
 #include "tensorstore/box.h"
+#include "tensorstore/contiguous_layout.h"
+#include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_space/dim_expression.h"
+#include "tensorstore/index_space/index_domain.h"
+#include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/index_transform_testutil.h"
+#include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/internal/arena.h"
+#include "tensorstore/internal/nditerable.h"
 #include "tensorstore/internal/nditerable_array.h"
 #include "tensorstore/internal/nditerable_copy.h"
+#include "tensorstore/internal/testing/random_seed.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -36,6 +55,7 @@ using ::tensorstore::kInfIndex;
 using ::tensorstore::kInfSize;
 using ::tensorstore::MakeArray;
 using ::tensorstore::MakeScalarArray;
+using ::tensorstore::ReferencesSameDataAs;
 using ::tensorstore::span;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::internal::Arena;
@@ -128,7 +148,7 @@ TEST(MaskedArrayTest, Basic) {
   std::vector<Index> origin{0, 0};
   EXPECT_EQ(0, write_state.EstimateSizeInBytes(spec));
   EXPECT_TRUE(write_state.IsUnmodified());
-  EXPECT_FALSE(write_state.data);
+  EXPECT_FALSE(write_state.array.valid());
 
   auto read_array = MakeArray<int32_t>({{11, 12, 13}, {14, 15, 16}});
 
@@ -161,13 +181,13 @@ TEST(MaskedArrayTest, Basic) {
   TestWrite(&write_state, spec, origin,
             tensorstore::AllocateArray<int32_t>(
                 tensorstore::BoxView<>({1, 1}, {0, 0})));
-  EXPECT_TRUE(write_state.data);
+  EXPECT_TRUE(write_state.array.valid());
   EXPECT_TRUE(write_state.IsUnmodified());
   EXPECT_FALSE(write_state.IsFullyOverwritten(spec, origin));
   // Data array has been allocated, but mask array has not.
   EXPECT_EQ(2 * 3 * sizeof(int32_t), write_state.EstimateSizeInBytes(spec));
-  // Zero initialize `write_state.data` to simplify testing.
-  std::fill_n(static_cast<int32_t*>(write_state.data.get()),
+  // Zero initialize `write_state.array` to simplify testing.
+  std::fill_n(static_cast<int32_t*>(write_state.array.data()),
               spec.num_elements(), 0);
   TestWrite(&write_state, spec, origin,
             tensorstore::MakeOffsetArray<int32_t>({1, 1}, {{7, 8}}));
@@ -235,7 +255,7 @@ TEST(MaskedArrayTest, Basic) {
   // Overwrite with the fill value via writing.
   TestWrite(&write_state, spec, origin, fill_value_copy);
   // Data array is still allocated.
-  EXPECT_TRUE(write_state.data);
+  EXPECT_TRUE(write_state.array.valid());
   {
     auto writeback_data = write_state.GetArrayForWriteback(
         spec, origin, read_array,
@@ -243,7 +263,7 @@ TEST(MaskedArrayTest, Basic) {
     EXPECT_FALSE(writeback_data.must_store);
     EXPECT_EQ(spec.fill_value, writeback_data.array);
     // Data array no longer allocated.
-    EXPECT_FALSE(write_state.data);
+    EXPECT_FALSE(write_state.array.valid());
   }
 
   // Reset.
@@ -255,7 +275,7 @@ TEST(MaskedArrayTest, Basic) {
             tensorstore::MakeOffsetArray<int32_t>({1, 1}, {{7, 8}}));
   write_state.WriteFillValue(spec, origin);
   EXPECT_FALSE(write_state.IsUnmodified());
-  EXPECT_FALSE(write_state.data);
+  EXPECT_FALSE(write_state.array.valid());
   EXPECT_EQ(0, write_state.EstimateSizeInBytes(spec));
   EXPECT_TRUE(write_state.IsFullyOverwritten(spec, origin));
 
@@ -266,7 +286,7 @@ TEST(MaskedArrayTest, Basic) {
     EXPECT_FALSE(writeback_data.must_store);
     EXPECT_EQ(spec.fill_value, writeback_data.array);
     // Data array still not allocated.
-    EXPECT_FALSE(write_state.data);
+    EXPECT_FALSE(write_state.array.valid());
   }
 
   // Partially overwrite.
@@ -401,10 +421,10 @@ TEST(AsyncWriteArrayTest, Basic) {
 
   // Test that writing does not normally copy the data array.
   {
-    auto* data_ptr = async_write_array.write_state.data.get();
+    auto* data_ptr = async_write_array.write_state.array.data();
     TestWrite(&async_write_array, spec, origin,
               tensorstore::MakeOffsetArray<int32_t>({0, 0}, {{7}}));
-    EXPECT_EQ(data_ptr, async_write_array.write_state.data.get());
+    EXPECT_EQ(data_ptr, async_write_array.write_state.array.data());
   }
 
   {
@@ -547,7 +567,7 @@ TEST(AsyncWriteArrayTest, Issue144) {
 
   //  `GetArrayForWriteback` causes the data array to be destroyed.
   EXPECT_EQ(1, async_write_array.write_state.mask.num_masked_elements);
-  EXPECT_FALSE(async_write_array.write_state.data);
+  EXPECT_FALSE(async_write_array.write_state.array.data());
 
   // Get writeback data again, assuming no existing `read_array`, to confirm
   // that the case of a partially-filled mask with no data array is handled
@@ -559,7 +579,7 @@ TEST(AsyncWriteArrayTest, Issue144) {
     EXPECT_EQ(spec.fill_value, writeback_data.array);
     EXPECT_FALSE(writeback_data.must_store);
     EXPECT_EQ(1, async_write_array.write_state.mask.num_masked_elements);
-    EXPECT_FALSE(async_write_array.write_state.data);
+    EXPECT_FALSE(async_write_array.write_state.array.data());
   }
 
   // Get writeback data with a new read array that is not equal to the fill
@@ -571,7 +591,7 @@ TEST(AsyncWriteArrayTest, Issue144) {
     EXPECT_EQ(MakeArray<int32_t>({2, 0}), writeback_data.array);
     EXPECT_TRUE(writeback_data.must_store);
     EXPECT_EQ(1, async_write_array.write_state.mask.num_masked_elements);
-    EXPECT_TRUE(async_write_array.write_state.data);
+    EXPECT_TRUE(async_write_array.write_state.array.data());
   }
 
   // Get writeback data with a new read array where the resultant array is equal
@@ -583,8 +603,199 @@ TEST(AsyncWriteArrayTest, Issue144) {
     EXPECT_EQ(spec.fill_value, writeback_data.array);
     EXPECT_FALSE(writeback_data.must_store);
     EXPECT_EQ(1, async_write_array.write_state.mask.num_masked_elements);
-    EXPECT_FALSE(async_write_array.write_state.data);
+    EXPECT_FALSE(async_write_array.write_state.array.data());
   }
+}
+
+using WriteArraySourceCapabilities =
+    AsyncWriteArray::WriteArraySourceCapabilities;
+using ArrayCapabilities = AsyncWriteArray::MaskedArray::ArrayCapabilities;
+
+void TestWriteArraySuccess(
+    WriteArraySourceCapabilities source_capabilities,
+    ArrayCapabilities expected_array_capabilities, bool may_retain_writeback,
+    bool zero_copy, tensorstore::IndexTransformView<> chunk_transform,
+    tensorstore::TransformedSharedArray<const void> source_array) {
+  SCOPED_TRACE(tensorstore::StrCat("chunk_transform=", chunk_transform));
+  AsyncWriteArray async_write_array(chunk_transform.output_rank());
+  tensorstore::Box<> output_range(chunk_transform.output_rank());
+  ASSERT_THAT(tensorstore::GetOutputRange(chunk_transform, output_range),
+              ::testing::Optional(true));
+  auto origin = output_range.origin();
+  SCOPED_TRACE(tensorstore::StrCat("origin=", origin));
+  auto fill_value =
+      tensorstore::AllocateArray(output_range.shape(), tensorstore::c_order,
+                                 tensorstore::value_init, source_array.dtype());
+  tensorstore::Box<> component_bounds(chunk_transform.output_rank());
+  Spec spec(fill_value, component_bounds);
+  size_t orig_use_count = source_array.element_pointer().pointer().use_count();
+
+  TENSORSTORE_ASSERT_OK(async_write_array.WriteArray(
+      spec, origin, chunk_transform,
+      [&] { return std::pair{source_array, source_capabilities}; }));
+
+  auto validate_zero_copy = [&](const auto& target_array,
+                                size_t orig_use_count) {
+    EXPECT_EQ((zero_copy ? orig_use_count + 1 : orig_use_count),
+              source_array.element_pointer().pointer().use_count());
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto materialized_target_array,
+        target_array | tensorstore::AllDims().TranslateTo(origin) |
+            chunk_transform | tensorstore::TryConvertToArray());
+
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto materialized_source_array,
+        source_array | tensorstore::TryConvertToArray());
+
+    EXPECT_THAT(
+        materialized_target_array,
+        ::testing::Conditional(
+            zero_copy, ReferencesSameDataAs(materialized_source_array),
+            ::testing::Not(ReferencesSameDataAs(materialized_source_array))));
+  };
+
+  {
+    SCOPED_TRACE(
+        "Checking async_write_array.write_state.array before calling "
+        "GetArrayForWriteback");
+    validate_zero_copy(async_write_array.write_state.array, orig_use_count);
+  }
+  EXPECT_EQ(expected_array_capabilities,
+            async_write_array.write_state.array_capabilities);
+
+  {
+    SCOPED_TRACE("Checking writeback_data");
+    orig_use_count = source_array.element_pointer().pointer().use_count();
+    auto writeback_data = async_write_array.GetArrayForWriteback(
+        spec, origin, /*read_array=*/{},
+        /*read_generation=*/StorageGeneration::Invalid());
+
+    validate_zero_copy(writeback_data.array, orig_use_count);
+
+    EXPECT_EQ(may_retain_writeback,
+              writeback_data.may_retain_reference_to_array_indefinitely);
+    EXPECT_EQ(expected_array_capabilities,
+              async_write_array.write_state.array_capabilities);
+  }
+}
+
+absl::Status TestWriteArrayError(
+    WriteArraySourceCapabilities source_capabilities, tensorstore::Box<> box,
+    tensorstore::IndexTransformView<> chunk_transform,
+    tensorstore::TransformedSharedArray<const void> source_array) {
+  AsyncWriteArray async_write_array(chunk_transform.output_rank());
+  auto fill_value =
+      tensorstore::AllocateArray(box.shape(), tensorstore::c_order,
+                                 tensorstore::value_init, source_array.dtype());
+  tensorstore::Box<> component_bounds(chunk_transform.output_rank());
+  Spec spec(fill_value, component_bounds);
+
+  return async_write_array.WriteArray(spec, box.origin(), chunk_transform, [&] {
+    return std::pair{source_array, source_capabilities};
+  });
+}
+
+void TestWriteArrayIdentityTransformSuccess(
+    WriteArraySourceCapabilities source_capabilities,
+    ArrayCapabilities expected_array_capabilities, bool may_retain_writeback,
+    bool zero_copy) {
+  auto source_array = MakeArray<int32_t>({{7, 8, 9}, {10, 11, 12}});
+  auto chunk_transform = tensorstore::IdentityTransform(source_array.shape());
+  TestWriteArraySuccess(source_capabilities, expected_array_capabilities,
+                        may_retain_writeback, zero_copy, chunk_transform,
+                        source_array);
+}
+
+TEST(WriteArrayIdentityTransformSuccessTest, kCannotRetain) {
+  TestWriteArrayIdentityTransformSuccess(
+      WriteArraySourceCapabilities::kCannotRetain,
+      AsyncWriteArray::MaskedArray::kMutableArray,
+      /*may_retain_writeback=*/true,
+      /*zero_copy=*/false);
+}
+TEST(WriteArrayIdentityTransformSuccessTest,
+     kImmutableAndCanRetainIndefinitely) {
+  TestWriteArrayIdentityTransformSuccess(
+      WriteArraySourceCapabilities::kImmutableAndCanRetainIndefinitely,
+      AsyncWriteArray::MaskedArray::kImmutableAndCanRetainIndefinitely,
+      /*may_retain_writeback=*/true,
+      /*zero_copy=*/true);
+}
+TEST(WriteArrayIdentityTransformSuccessTest,
+     kImmutableAndCanRetainUntilCommit) {
+  TestWriteArrayIdentityTransformSuccess(
+      WriteArraySourceCapabilities::kImmutableAndCanRetainUntilCommit,
+      AsyncWriteArray::MaskedArray::kImmutableAndCanRetainUntilCommit,
+      /*may_retain_writeback=*/false,
+      /*zero_copy=*/true);
+}
+
+TEST(WriteArrayIdentityTransformSuccessTest, kMutable) {
+  TestWriteArrayIdentityTransformSuccess(
+      WriteArraySourceCapabilities::kMutable,
+      AsyncWriteArray::MaskedArray::kMutableArray,
+      /*may_retain_writeback=*/true,
+      /*zero_copy=*/true);
+}
+
+TEST(WriteArrayNonIdentityTransformSuccess, kMutable) {
+  std::minstd_rand gen{tensorstore::internal_testing::GetRandomSeedForTest(
+      "TENSORSTORE_INTERNAL_ASYNC_WRITE_ARRAY")};
+  tensorstore::SharedArray<const void> base_source_array =
+      MakeArray<int32_t>({{7, 8, 9}, {10, 11, 12}});
+
+  constexpr size_t kNumIterations = 10;
+  for (size_t iter_i = 0; iter_i < kNumIterations; ++iter_i) {
+    tensorstore::IndexTransform<> source_transform;
+    {
+      tensorstore::internal::MakeStridedIndexTransformForOutputSpaceParameters
+          p;
+      p.max_stride = 2;
+      source_transform =
+          tensorstore::internal::MakeRandomStridedIndexTransformForOutputSpace(
+              gen, tensorstore::IndexDomain<>(base_source_array.domain()), p);
+    }
+    SCOPED_TRACE(tensorstore::StrCat("source_transform=", source_transform));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto source_array,
+                                     base_source_array | source_transform);
+    auto chunk_transform =
+        tensorstore::internal::MakeRandomStridedIndexTransformForInputSpace(
+            gen, source_array.domain());
+    TestWriteArraySuccess(WriteArraySourceCapabilities::kMutable,
+                          AsyncWriteArray::MaskedArray::kMutableArray,
+                          /*may_retain_writeback=*/true,
+                          /*zero_copy=*/true, chunk_transform, source_array);
+  }
+}
+
+TEST(WriteArrayErrorTest, SourceArrayIndexArrayMap) {
+  tensorstore::SharedArray<const void> base_source_array =
+      MakeArray<int32_t>({{7, 8, 9}, {10, 11, 12}});
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto source_array,
+      base_source_array | tensorstore::Dims(1).OuterIndexArraySlice(
+                              tensorstore::MakeArray<Index>({1, 0, 1, 1, 2})));
+  auto chunk_transform = tensorstore::IdentityTransform(source_array.domain());
+  EXPECT_THAT(TestWriteArrayError(WriteArraySourceCapabilities::kMutable,
+                                  tensorstore::Box<>({2, 5}), chunk_transform,
+                                  source_array),
+              tensorstore::MatchesStatus(absl::StatusCode::kCancelled));
+}
+
+TEST(WriteArrayErrorTest, ChunkTransformIndexArrayMap) {
+  tensorstore::SharedArray<const void> base_source_array =
+      MakeArray<int32_t>({{7, 8, 9}, {10, 11, 12}});
+  tensorstore::TransformedSharedArray<const void> source_array =
+      base_source_array;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto chunk_transform,
+      tensorstore::IdentityTransform(source_array.domain()) |
+          tensorstore::Dims(1).OuterIndexArraySlice(
+              tensorstore::MakeArray<Index>({0, 1, 2})));
+  EXPECT_THAT(TestWriteArrayError(WriteArraySourceCapabilities::kMutable,
+                                  tensorstore::Box<>({2, 3}), chunk_transform,
+                                  source_array),
+              tensorstore::MatchesStatus(absl::StatusCode::kCancelled));
 }
 
 }  // namespace

@@ -151,6 +151,7 @@ tensorstore_cc_test(
         "//tensorstore",
         "//tensorstore:array",
         "//tensorstore:box",
+        "//tensorstore:cast",
         "//tensorstore:chunk_layout",
         "//tensorstore:codec_spec",
         "//tensorstore:context",
@@ -159,6 +160,7 @@ tensorstore_cc_test(
         "//tensorstore:index",
         "//tensorstore:open",
         "//tensorstore:open_mode",
+        "//tensorstore:read_write_options",
         "//tensorstore:schema",
         "//tensorstore:staleness_bound",
         "//tensorstore/driver:driver_testutil",
@@ -178,6 +180,7 @@ tensorstore_cc_test(
         "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/strings:str_format",
         "@com_google_googletest//:gtest_main",
     ],
 )
