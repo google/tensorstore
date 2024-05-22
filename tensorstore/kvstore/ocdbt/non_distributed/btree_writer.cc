@@ -646,7 +646,7 @@ void CommitOperation::StagePending(CommitOperation& commit_op) {
       }
       auto value = std::move(std::get<absl::Cord>(*write_request.value));
       auto value_future = writer.io_handle_->WriteData(
-          std::move(value),
+          IndirectDataKind::kValue, std::move(value),
           write_request.value->emplace<IndirectDataReference>());
       pending.flush_promise.Link(std::move(value_future));
     }
@@ -1083,7 +1083,8 @@ Future<TimestampedStorageGeneration> NonDistributedBtreeWriter::Write(
       value_ref = std::move(*value);
     } else {
       value_future = writer.io_handle_->WriteData(
-          std::move(*value), value_ref.emplace<IndirectDataReference>());
+          IndirectDataKind::kValue, std::move(*value),
+          value_ref.emplace<IndirectDataReference>());
     }
   }
   UniqueWriterLock lock{writer.mutex_};

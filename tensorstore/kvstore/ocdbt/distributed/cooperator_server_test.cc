@@ -69,7 +69,8 @@ class CooperatorServerTest : public ::testing::Test {
         MakeIoHandle(data_copy_concurrency, cache_pool.get(), base_kvstore_,
                      MakeIntrusivePtr<ConfigState>(
                          ConfigConstraints{},
-                         base_kvstore_.driver->GetSupportedFeatures({})));
+                         base_kvstore_.driver->GetSupportedFeatures({})),
+                     /*data_file_prefixes=*/{});
 
     {
       CoordinatorServer::Options options;

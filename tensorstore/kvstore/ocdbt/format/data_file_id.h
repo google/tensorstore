@@ -75,8 +75,9 @@ struct DataFileId {
 };
 
 /// Generates a random data file id, where the `base_path` is "" and the
-/// `relative_path` is of the form "d/0123456789abcdef0123456789abcdef".
-DataFileId GenerateDataFileId();
+/// `relative_path` is of the form `prefix +
+/// "0123456789abcdef0123456789abcdef"`.
+DataFileId GenerateDataFileId(std::string_view prefix);
 
 using PathLength = uint16_t;
 

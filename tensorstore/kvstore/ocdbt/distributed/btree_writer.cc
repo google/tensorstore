@@ -471,7 +471,8 @@ void WriterCommitOperation::StagePending() {
         if (value->size() > max_inline_value_bytes) {
           auto v = std::move(*value);
           write_request.flush_future = writer_->io_handle_->WriteData(
-              std::move(v), value_ref.emplace<IndirectDataReference>());
+              IndirectDataKind::kValue, std::move(v),
+              value_ref.emplace<IndirectDataReference>());
         }
       }
     }
@@ -737,7 +738,8 @@ Future<TimestampedStorageGeneration> DistributedBtreeWriter::Write(
       value_ref = std::move(*value);
     } else {
       request.flush_future = writer.io_handle_->WriteData(
-          std::move(*value), value_ref.emplace<IndirectDataReference>());
+          IndirectDataKind::kValue, std::move(*value),
+          value_ref.emplace<IndirectDataReference>());
     }
   }
   UniqueWriterLock lock{writer.mutex_};

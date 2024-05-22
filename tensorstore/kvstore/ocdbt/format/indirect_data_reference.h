@@ -24,9 +24,27 @@
 #include "absl/status/status.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/kvstore/ocdbt/format/data_file_id.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
+
+/// Specifies the kind of data referenced by an `IndirectDataReference`.
+enum class IndirectDataKind {
+  /// Indirect value, i.e. value not stored inline a leaf B+tree node.
+  kValue,
+  /// Encoded B+tree node.
+  kBtreeNode,
+  /// Encoded version tree node.
+  kVersionNode,
+};
+
+constexpr size_t kNumIndirectDataKinds = 3;
+
+Result<IndirectDataKind> ParseIndirectDataKind(std::string_view label);
+std::string_view IndirectDataKindToString(IndirectDataKind kind);
+
+std::ostream& operator<<(std::ostream& os, IndirectDataKind kind);
 
 /// In-memory representation of a given byte range within a given data file.
 struct IndirectDataReference {

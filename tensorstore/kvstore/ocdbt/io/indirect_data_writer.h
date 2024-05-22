@@ -51,6 +51,7 @@ void intrusive_ptr_increment(IndirectDataWriter* p);
 void intrusive_ptr_decrement(IndirectDataWriter* p);
 
 IndirectDataWriterPtr MakeIndirectDataWriter(kvstore::KvStore kvstore,
+                                             std::string prefix,
                                              size_t target_size);
 
 Future<const void> Write(IndirectDataWriter& self, absl::Cord data,

@@ -109,7 +109,8 @@ struct ExistingVersionTreeNodeReady {
         static_cast<void>(SetDeferredResult(promise, _)));
     new_node_ref.commit_time = new_children.front().commit_time;
     op_->flush_promise.Link(
-        op_->io_handle->WriteData(std::move(encoded), new_node_ref.location));
+        op_->io_handle->WriteData(IndirectDataKind::kVersionNode,
+                                  std::move(encoded), new_node_ref.location));
   }
 };
 
@@ -217,7 +218,8 @@ CreateNewManifest(IoHandle::Ptr io_handle,
     new_height0_node_ref.commit_time = children.front().commit_time;
     new_height0_node_ref.height = 0;
     op->flush_promise.Link(op->io_handle->WriteData(
-        std::move(encoded), new_height0_node_ref.location));
+        IndirectDataKind::kVersionNode, std::move(encoded),
+        new_height0_node_ref.location));
   }
 
   // Determine which existing version tree nodes contribute to the new version
@@ -308,7 +310,8 @@ CreateNewManifest(IoHandle::Ptr io_handle,
       new_node_ref.num_generations = new_child_ref->num_generations;
       new_node_ref.height = new_node.height;
       op->flush_promise.Link(
-          op->io_handle->WriteData(std::move(encoded), new_node_ref.location));
+          op->io_handle->WriteData(IndirectDataKind::kVersionNode,
+                                   std::move(encoded), new_node_ref.location));
       continue;
     }
 

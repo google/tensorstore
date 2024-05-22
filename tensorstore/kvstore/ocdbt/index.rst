@@ -60,13 +60,12 @@ of an underlying key-value store:
   The :file:`{xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx}` portion of the filename is the
   lowercase hex representation of a 128-bit random identifier.
 
-  .. note::
-
-     The format allows the data files to actually have any arbitrary relative
-     path; the :file:`d/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx` naming scheme is used
-     when writing new data files, but other paths may be used in
-     specially-constructed OCDBT databases to refer to exsiting data (both in
-     OCDBT format and in other formats).
+  The :file:`d/` prefix is the default used when writing but can be overridden
+  by the :json:schema:`kvstore/ocdbt.value_data_prefix`,
+  :json:schema:`kvstore/ocdbt.btree_node_data_prefix`, and
+  :json:schema:`kvstore/ocdbt.version_tree_node_data_prefix` options. When
+  reading, the format allows the data files to have any arbitrary relative path
+  and these options have no effect.
 
 To read a key from the database, a client first reads the manifest file, then
 traverses the version tree to locate the root B+tree node of the desired

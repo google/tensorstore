@@ -17,6 +17,7 @@
 #include <stddef.h>
 
 #include <cassert>
+#include <string>
 #include <utility>
 
 #include "absl/base/attributes.h"
@@ -51,11 +52,15 @@ ABSL_CONST_INIT internal_log::VerboseFlag ocdbt_logging("ocdbt");
 class IndirectDataWriter
     : public internal::AtomicReferenceCount<IndirectDataWriter> {
  public:
-  explicit IndirectDataWriter(kvstore::KvStore kvstore, size_t target_size)
-      : kvstore_(std::move(kvstore)), target_size_(target_size) {}
+  explicit IndirectDataWriter(kvstore::KvStore kvstore, std::string prefix,
+                              size_t target_size)
+      : kvstore_(std::move(kvstore)),
+        prefix_(std::move(prefix)),
+        target_size_(target_size) {}
 
   // Treat as private:
   kvstore::KvStore kvstore_;
+  std::string prefix_;
   size_t target_size_;
   absl::Mutex mutex_;
 
@@ -161,7 +166,7 @@ Future<const void> Write(IndirectDataWriter& self, absl::Cord data,
   Future<const void> future;
   if (self.promise_.null() || (future = self.promise_.future()).null()) {
     // Create new data file.
-    self.data_file_id_ = GenerateDataFileId();
+    self.data_file_id_ = GenerateDataFileId(self.prefix_);
     auto p = PromiseFuturePair<void>::Make();
     self.promise_ = std::move(p.promise);
     future = std::move(p.future);
@@ -187,9 +192,10 @@ Future<const void> Write(IndirectDataWriter& self, absl::Cord data,
 }
 
 IndirectDataWriterPtr MakeIndirectDataWriter(kvstore::KvStore kvstore,
+                                             std::string prefix,
                                              size_t target_size) {
-  return internal::MakeIntrusivePtr<IndirectDataWriter>(std::move(kvstore),
-                                                        target_size);
+  return internal::MakeIntrusivePtr<IndirectDataWriter>(
+      std::move(kvstore), std::move(prefix), target_size);
 }
 
 }  // namespace internal_ocdbt

@@ -31,6 +31,16 @@
 namespace tensorstore {
 namespace internal_ocdbt {
 
+struct DataFilePrefixes {
+  std::string value;
+  std::string btree_node;
+  std::string version_tree_node;
+
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.value, x.btree_node, x.version_tree_node);
+  };
+};
+
 struct ReadCoalesceOptions {
   int64_t max_overhead_bytes_per_request;
   int64_t max_merged_bytes_per_request;
@@ -42,7 +52,8 @@ IoHandle::Ptr MakeIoHandle(
     const Context::Resource<tensorstore::internal::DataCopyConcurrencyResource>&
         data_copy_concurrency,
     internal::CachePool* cache_pool, const KvStore& base_kvstore,
-    ConfigStatePtr config_state, size_t write_target_size = 0,
+    ConfigStatePtr config_state, const DataFilePrefixes& data_file_prefixes,
+    size_t write_target_size = 0,
     std::optional<ReadCoalesceOptions> read_coalesce_options = std::nullopt);
 
 }  // namespace internal_ocdbt

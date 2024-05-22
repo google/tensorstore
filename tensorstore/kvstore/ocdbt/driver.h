@@ -39,6 +39,7 @@
 #include "tensorstore/kvstore/ocdbt/btree_writer.h"
 #include "tensorstore/kvstore/ocdbt/config.h"
 #include "tensorstore/kvstore/ocdbt/distributed/rpc_security.h"
+#include "tensorstore/kvstore/ocdbt/io/io_handle_impl.h"
 #include "tensorstore/kvstore/ocdbt/io_handle.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/registry.h"
@@ -81,6 +82,7 @@ struct OcdbtDriverSpecData {
       data_copy_concurrency;
   kvstore::Spec base;
   ConfigConstraints config;
+  DataFilePrefixes data_file_prefixes;
   std::optional<size_t> experimental_read_coalescing_threshold_bytes;
   std::optional<size_t> experimental_read_coalescing_merged_bytes;
   std::optional<absl::Duration> experimental_read_coalescing_interval;
@@ -93,7 +95,8 @@ struct OcdbtDriverSpecData {
                                           ::nlohmann::json::object_t)
 
   constexpr static auto ApplyMembers = [](auto&& x, auto f) {
-    return f(x.base, x.config, x.cache_pool, x.data_copy_concurrency,
+    return f(x.base, x.config, x.data_file_prefixes, x.cache_pool,
+             x.data_copy_concurrency,
              x.experimental_read_coalescing_threshold_bytes,
              x.experimental_read_coalescing_merged_bytes,
              x.experimental_read_coalescing_interval, x.target_data_file_size,
@@ -149,6 +152,7 @@ class OcdbtDriver
       data_copy_concurrency_;
   kvstore::KvStore base_;
   BtreeWriterPtr btree_writer_;
+  DataFilePrefixes data_file_prefixes_;
   std::optional<size_t> experimental_read_coalescing_threshold_bytes_;
   std::optional<size_t> experimental_read_coalescing_merged_bytes_;
   std::optional<absl::Duration> experimental_read_coalescing_interval_;

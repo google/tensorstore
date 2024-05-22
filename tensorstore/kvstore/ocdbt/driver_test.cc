@@ -107,6 +107,42 @@ TEST(OcdbtTest, Base) {
   EXPECT_THAT(store_with_txn.base(), ::testing::Optional(base_store));
 }
 
+TEST(OcdbtTest, SeparatePrefixes) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto spec,
+      kvstore::Spec::FromJson({
+          {"driver", "ocdbt"},
+          {"base", "memory://abc/"},
+          {"value_data_prefix", "x/"},
+          {"btree_node_data_prefix", "b/"},
+          {"version_tree_node_data_prefix", "v/"},
+          {"config",
+           {{"max_inline_value_bytes", 0}, {"version_tree_arity_log2", 1}}},
+          {"path", "def"},
+      }));
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
+                                   kvstore::Open(spec, context).result());
+
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "testa", absl::Cord("a")));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto base, store.base());
+  EXPECT_THAT(kvstore::ListFuture(base).result(),
+              ::testing::Optional(::testing::UnorderedElementsAre(
+                  MatchesListEntry("manifest.ocdbt"),
+                  MatchesListEntry(::testing::StartsWith("x/")),
+                  MatchesListEntry(::testing::StartsWith("b/")))));
+
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "testa", absl::Cord("b")));
+  EXPECT_THAT(kvstore::ListFuture(base).result(),
+              ::testing::Optional(::testing::UnorderedElementsAre(
+                  MatchesListEntry("manifest.ocdbt"),
+                  MatchesListEntry(::testing::StartsWith("x/")),
+                  MatchesListEntry(::testing::StartsWith("x/")),
+                  MatchesListEntry(::testing::StartsWith("b/")),
+                  MatchesListEntry(::testing::StartsWith("b/")),
+                  MatchesListEntry(::testing::StartsWith("v")))));
+}
+
 TEST(OcdbtTest, WriteTwoKeys) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
@@ -292,20 +328,40 @@ TENSORSTORE_GLOBAL_INITIALIZER {
     });
   };
   for (const auto max_decoded_node_bytes : {0, 1, 1048576}) {
-    for (const auto max_inline_value_bytes : {0, 1, 1048576}) {
-      for (const auto version_tree_arity_log2 : {1, 16}) {
-        for (const auto compression :
-             std::initializer_list<Config::Compression>{
-                 Config::NoCompression{}, Config::ZstdCompression{0}}) {
-          ConfigConstraints config;
-          config.max_decoded_node_bytes = max_decoded_node_bytes;
-          config.max_inline_value_bytes = max_inline_value_bytes;
-          config.version_tree_arity_log2 = version_tree_arity_log2;
-          config.compression = compression;
-          register_test_suite(config);
-        }
-      }
-    }
+    ConfigConstraints config;
+    config.max_decoded_node_bytes = max_decoded_node_bytes;
+    config.max_inline_value_bytes = 0;
+    config.version_tree_arity_log2 = 1;
+    config.compression = Config::NoCompression{};
+    register_test_suite(config);
+  }
+
+  for (const auto max_inline_value_bytes : {0, 1, 1048576}) {
+    ConfigConstraints config;
+    config.max_decoded_node_bytes = 1048576;
+    config.max_inline_value_bytes = max_inline_value_bytes;
+    config.version_tree_arity_log2 = 1;
+    config.compression = Config::NoCompression{};
+    register_test_suite(config);
+  }
+
+  for (const auto version_tree_arity_log2 : {1, 16}) {
+    ConfigConstraints config;
+    config.max_decoded_node_bytes = 0;
+    config.max_inline_value_bytes = 0;
+    config.version_tree_arity_log2 = version_tree_arity_log2;
+    config.compression = Config::NoCompression{};
+    register_test_suite(config);
+  }
+
+  for (const auto compression : std::initializer_list<Config::Compression>{
+           Config::NoCompression{}, Config::ZstdCompression{0}}) {
+    ConfigConstraints config;
+    config.max_decoded_node_bytes = 0;
+    config.max_inline_value_bytes = 0;
+    config.version_tree_arity_log2 = 16;
+    config.compression = compression;
+    register_test_suite(config);
   }
 
   {

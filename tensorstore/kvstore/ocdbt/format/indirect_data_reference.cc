@@ -14,18 +14,48 @@
 
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
 
+#include <stdint.h>
 #include <string.h>
 
+#include <limits>
 #include <ostream>
 #include <string>
 #include <string_view>
 
 #include "absl/status/status.h"
 #include "tensorstore/internal/integer_overflow.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
+
+Result<IndirectDataKind> ParseIndirectDataKind(std::string_view label) {
+  if (label == "value") {
+    return IndirectDataKind::kValue;
+  } else if (label == "btreenode") {
+    return IndirectDataKind::kBtreeNode;
+  } else if (label == "versionnode") {
+    return IndirectDataKind::kVersionNode;
+  }
+  return absl::InvalidArgumentError(
+      tensorstore::StrCat("Invalid indirect data kind: ", label));
+}
+
+std::string_view IndirectDataKindToString(IndirectDataKind kind) {
+  switch (kind) {
+    case IndirectDataKind::kValue:
+      return "value";
+    case IndirectDataKind::kBtreeNode:
+      return "btreenode";
+    case IndirectDataKind::kVersionNode:
+      return "versionnode";
+  }
+}
+
+std::ostream& operator<<(std::ostream& os, IndirectDataKind kind) {
+  return os << IndirectDataKindToString(kind);
+}
 
 void EncodeCacheKeyAdl(std::string* out, const IndirectDataReference& self) {
   const size_t total_size = sizeof(uint64_t) * 4 + self.file_id.size();

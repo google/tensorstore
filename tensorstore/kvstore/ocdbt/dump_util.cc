@@ -62,7 +62,7 @@ Future<std::variant<absl::Cord, ::nlohmann::json>> ReadAndDump(
     auto io_handle = internal_ocdbt::MakeIoHandle(
         data_copy_concurrency_resource, cache_pool_resource->get(), base,
         /*config_state=*/
-        internal::MakeIntrusivePtr<ConfigState>());
+        internal::MakeIntrusivePtr<ConfigState>(), /*data_file_prefixes=*/{});
 
     return MapFutureValue(
         data_copy_concurrency_resource->executor,
@@ -74,15 +74,6 @@ Future<std::variant<absl::Cord, ::nlohmann::json>> ReadAndDump(
           return Dump(*manifest_with_time.manifest);
         },
         io_handle->GetManifest(absl::Now()));
-  }
-
-  // Validate the node type.
-  if (node_identifier->label != "btreenode" &&
-      node_identifier->label != "versionnode" &&
-      node_identifier->label != "value") {
-    return absl::InvalidArgumentError(
-        tensorstore::StrCat("Invalid node type: ",
-                            tensorstore::QuoteString(node_identifier->label)));
   }
 
   auto indirect_kvs = MakeIndirectDataKvStoreDriver(base);
@@ -99,20 +90,23 @@ Future<std::variant<absl::Cord, ::nlohmann::json>> ReadAndDump(
                                              absl::NotFoundError(""));
         }
         auto& encoded = read_result.value;
-        if (node_identifier->label == "value") {
-          return encoded;
-        } else if (node_identifier->label == "btreenode") {
-          TENSORSTORE_ASSIGN_OR_RETURN(
-              auto node,
-              DecodeBtreeNode(encoded,
-                              node_identifier->location.file_id.base_path));
-          return Dump(node);
-        } else {
-          TENSORSTORE_ASSIGN_OR_RETURN(
-              auto node,
-              DecodeVersionTreeNode(
-                  encoded, node_identifier->location.file_id.base_path));
-          return Dump(node);
+        switch (node_identifier->kind) {
+          case IndirectDataKind::kValue:
+            return encoded;
+          case IndirectDataKind::kBtreeNode: {
+            TENSORSTORE_ASSIGN_OR_RETURN(
+                auto node,
+                DecodeBtreeNode(encoded,
+                                node_identifier->location.file_id.base_path));
+            return Dump(node);
+          }
+          case IndirectDataKind::kVersionNode: {
+            TENSORSTORE_ASSIGN_OR_RETURN(
+                auto node,
+                DecodeVersionTreeNode(
+                    encoded, node_identifier->location.file_id.base_path));
+            return Dump(node);
+          }
         }
       },
       kvstore::Read(indirect_kvs, node_identifier->location.EncodeCacheKey()));

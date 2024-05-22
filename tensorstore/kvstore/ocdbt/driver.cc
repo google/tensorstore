@@ -135,6 +135,16 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
         }),
         jb::Member("config", jb::Projection<&OcdbtDriverSpecData::config>(
                                  jb::DefaultInitializedValue())),
+        jb::Projection<&OcdbtDriverSpecData::data_file_prefixes>(jb::Sequence(
+            jb::Member("value_data_prefix",
+                       jb::Projection<&DataFilePrefixes::value>(
+                           jb::DefaultValue([](auto* v) { *v = "d/"; }))),
+            jb::Member("btree_node_data_prefix",
+                       jb::Projection<&DataFilePrefixes::btree_node>(
+                           jb::DefaultValue([](auto* v) { *v = "d/"; }))),
+            jb::Member("version_tree_node_data_prefix",
+                       jb::Projection<&DataFilePrefixes::version_tree_node>(
+                           jb::DefaultValue([](auto* v) { *v = "d/"; }))))),
         jb::Member(
             "experimental_read_coalescing_threshold_bytes",
             jb::Projection<&OcdbtDriverSpecData::
@@ -176,6 +186,7 @@ Future<kvstore::DriverPtr> OcdbtDriverSpec::DoOpen() const {
 
         driver->cache_pool_ = spec->data_.cache_pool;
         driver->data_copy_concurrency_ = spec->data_.data_copy_concurrency;
+        driver->data_file_prefixes_ = spec->data_.data_file_prefixes;
         driver->experimental_read_coalescing_threshold_bytes_ =
             spec->data_.experimental_read_coalescing_threshold_bytes;
         driver->experimental_read_coalescing_merged_bytes_ =
@@ -207,6 +218,7 @@ Future<kvstore::DriverPtr> OcdbtDriverSpec::DoOpen() const {
             driver->base_,
             internal::MakeIntrusivePtr<ConfigState>(
                 spec->data_.config, supported_manifest_features),
+            driver->data_file_prefixes_,
             driver->target_data_file_size_.value_or(kDefaultTargetBufferSize),
             std::move(read_coalesce_options));
         driver->btree_writer_ =
@@ -255,6 +267,7 @@ absl::Status OcdbtDriver::GetBoundSpecData(OcdbtDriverSpecData& spec) const {
   spec.data_copy_concurrency = data_copy_concurrency_;
   spec.cache_pool = cache_pool_;
   spec.config = io_handle_->config_state->GetConstraints();
+  spec.data_file_prefixes = data_file_prefixes_;
   spec.experimental_read_coalescing_threshold_bytes =
       experimental_read_coalescing_threshold_bytes_;
   spec.experimental_read_coalescing_merged_bytes =
