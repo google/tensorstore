@@ -31,6 +31,8 @@
 #include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
+#include "absl/types/compare.h"
+#include "tensorstore/internal/compare.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/kvstore/byte_range.h"
@@ -275,7 +277,9 @@ void DestroyReadModifyWriteSequence(ReadModifyWriteEntry* entry) {
 }
 
 auto CompareToEntry(MutationEntry& e) {
-  return [&e](MutationEntry& other) { return e.key_.compare(other.key_); };
+  return [&e](MutationEntry& other) {
+    return internal::CompareResultAsWeakOrdering(e.key_.compare(other.key_));
+  };
 }
 
 void InsertIntoPriorPhase(MutationEntry* entry) {
@@ -993,13 +997,15 @@ MultiPhaseMutation::ReadModifyWriteStatus MultiPhaseMutation::ReadModifyWrite(
   auto find_result = single_phase_mutation.entries_.Find(
       [key = std::string_view(entry->key_)](MutationEntry& existing_entry) {
         auto c = key.compare(existing_entry.key_);
-        if (c <= 0) return c;
-        if (existing_entry.entry_type() == kReadModifyWrite) return 1;
+        if (c <= 0) return internal::CompareResultAsWeakOrdering(c);
+        if (existing_entry.entry_type() == kReadModifyWrite) {
+          return absl::weak_ordering::greater;
+        }
         return KeyRange::CompareKeyAndExclusiveMax(
                    key, static_cast<DeleteRangeEntry&>(existing_entry)
                             .exclusive_max_) < 0
-                   ? 0
-                   : 1;
+                   ? absl::weak_ordering::equivalent
+                   : absl::weak_ordering::greater;
       });
   if (!find_result.found) {
     // No existing `ReadModifyWriteEntry` or `DeleteRangeEntry` covering `key`
@@ -1064,7 +1070,7 @@ MultiPhaseMutation::ReadModifyWriteStatus MultiPhaseMutation::ReadModifyWrite(
   // split its `superseded_` tree of `ReadModifyWriteEntry` nodes.
   auto split_result = existing_entry->superseded_.FindSplit(
       [key = std::string_view(entry->key_)](MutationEntry& e) {
-        return key.compare(e.key_);
+        return internal::CompareResultAsWeakOrdering(key.compare(e.key_));
       });
   if (split_result.center) {
     split_result.center->flags_ &= ~ReadModifyWriteEntry::kDeleted;

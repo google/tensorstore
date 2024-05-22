@@ -35,9 +35,11 @@
 
 #include <array>
 #include <cassert>
+#include <cstddef>
 #include <iterator>
-#include <type_traits>
+#include <utility>
 
+#include "absl/types/compare.h"
 #include "tensorstore/internal/tagged_ptr.h"
 
 namespace tensorstore {
@@ -85,7 +87,7 @@ struct NodeBase<void> {
 template <typename Tag>
 struct NodeBase : public NodeBase<void> {};
 
-/// intrusive_linked_list accessor that re-uses the storage of `NodeBase<>` for
+/// intrusive_linked_list accessor that reuses the storage of `NodeBase<>` for
 /// a linked list node.
 template <typename T, typename Tag = void>
 struct LinkedListAccessor {
@@ -107,15 +109,6 @@ struct LinkedListAccessor {
   }
   static Node GetNext(Node node) {
     return Downcast(Upcast(node)->rbtree_children_[1]);
-  }
-};
-
-template <typename LessThan = std::less<>>
-struct ThreeWayFromLessThan {
-  LessThan compare;
-  template <typename T>
-  constexpr int operator()(const T& a, const T& b) const {
-    return compare(a, b) ? -1 : (compare(b, a) ? 1 : 0);
   }
 };
 
@@ -306,9 +299,10 @@ class Tree {
   /// boolean "less than" operations for comparison, C++20 adds 3-way comparison
   /// (https://en.cppreference.com/w/cpp/utility/compare/compare_three_way).
   ///
-  /// \param compare Function with signature `int (Node&)` that returns a
-  ///     negative, zero, or positive value to indicate the target value is less
-  ///     than, equal to, or greater than, the specified node, respectively.
+  /// \param compare Function with signature `absl::weak_ordering (Node&)` that
+  ///     returns an absl::weak_ordering value to indicate the target value is
+  ///     less than, equal to, or greater than, the specified node,
+  ///     respectively.
   ///     Must be consistent with the existing order of nodes.
   template <typename Compare>
   FindResult Find(Compare compare);
@@ -553,7 +547,7 @@ typename Tree<Node, Tag>::FindResult Tree<Node, Tag>::Find(Compare compare) {
   ops::NodeData* result_node = nullptr;
   while (node) {
     result_node = node;
-    const auto c = compare(*Downcast(node));
+    const absl::weak_ordering c = compare(*Downcast(node));
     if (c < 0) {
       result.insert_direction = kLeft;
     } else if (c > 0) {

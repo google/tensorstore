@@ -18,25 +18,18 @@
 #include <cassert>
 #include <iterator>
 #include <memory>
-#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
 
-#include "absl/base/attributes.h"
-#include "absl/container/inlined_vector.h"
-#include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
 #include "absl/time/time.h"
+#include "absl/types/compare.h"
+#include "tensorstore/internal/compare.h"
 #include "tensorstore/internal/container/intrusive_red_black_tree.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
-#include "tensorstore/kvstore/ocdbt/format/btree.h"
-#include "tensorstore/kvstore/ocdbt/non_distributed/storage_generation.h"
 #include "tensorstore/util/future.h"
-#include "tensorstore/util/quote_string.h"
-#include "tensorstore/util/span.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
@@ -56,7 +49,9 @@ void AbortPendingRequestsWithError(const PendingRequests& pending,
 }
 
 auto CompareToEntry(MutationEntry& e) {
-  return [&e](MutationEntry& other) { return e.key_.compare(other.key_); };
+  return [&e](MutationEntry& other) {
+    return internal::CompareResultAsWeakOrdering(e.key_.compare(other.key_));
+  };
 }
 
 void InsertDeleteRangeEntry(StagedMutations& staged,
@@ -130,14 +125,16 @@ void InsertWriteEntry(StagedMutations& staged,
   auto find_result = staged.entries.Find([key = std::string_view(entry->key_)](
                                              MutationEntry& existing_entry) {
     auto c = key.compare(existing_entry.key_);
-    if (c <= 0) return c;
-    if (existing_entry.kind_ == MutationEntry::kWrite) return 1;
+    if (c <= 0) return internal::CompareResultAsWeakOrdering(c);
+    if (existing_entry.kind_ == MutationEntry::kWrite) {
+      return absl::weak_ordering::greater;
+    }
     return KeyRange::CompareKeyAndExclusiveMax(
                key,
                static_cast<DeleteRangeEntry&>(existing_entry).exclusive_max_) <
                    0
-               ? 0
-               : 1;
+               ? absl::weak_ordering::equivalent
+               : absl::weak_ordering::greater;
   });
 
   if (!find_result.found) {
@@ -164,7 +161,7 @@ void InsertWriteEntry(StagedMutations& staged,
   // We must split its `superseded_` tree of `WriteEntry` nodes.
   auto split_result = existing_entry->superseded_.FindSplit(
       [key = std::string_view(entry->key_)](MutationEntry& e) {
-        return key.compare(e.key_);
+        return internal::CompareResultAsWeakOrdering(key.compare(e.key_));
       });
   if (split_result.center) {
     entry->supersedes_ = WriteEntry::Supersedes(split_result.center, 1);

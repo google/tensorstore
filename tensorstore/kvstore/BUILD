@@ -102,8 +102,10 @@ tensorstore_cc_library(
     srcs = ["key_range.cc"],
     hdrs = ["key_range.h"],
     deps = [
+        "//tensorstore/internal:compare",
         "//tensorstore/util:quote_string",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:compare",
     ],
 )
 
@@ -114,6 +116,7 @@ tensorstore_cc_test(
     deps = [
         ":key_range",
         "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/types:compare",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -168,6 +171,7 @@ tensorstore_cc_library(
         "//tensorstore:json_serialization_options",
         "//tensorstore:open_mode",
         "//tensorstore:transaction",
+        "//tensorstore/internal:compare",
         "//tensorstore/internal:context_binding",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:json_registry",
@@ -210,6 +214,7 @@ tensorstore_cc_library(
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/time",
+        "@com_google_absl//absl/types:compare",
     ],
 )
 

@@ -14,10 +14,26 @@
 
 #include "tensorstore/transaction.h"
 
+#include <atomic>
+#include <cassert>
+#include <cstddef>
+#include <ostream>
+#include <string>
+#include <string_view>
+#include <utility>
+
 #include "absl/base/optimization.h"
 #include "absl/functional/function_ref.h"
+#include "absl/status/status.h"
+#include "absl/synchronization/mutex.h"
+#include "absl/time/clock.h"
+#include "absl/types/compare.h"
+#include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/mutex.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/transaction_impl.h"
+#include "tensorstore/util/future.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -418,8 +434,8 @@ absl::Status TransactionState::Node::Register() {
         // Never return 0, because we allow duplicates.
         return NodeTreeCompare(phase, associated_data, node.phase_,
                                node.associated_data_) < 0
-                   ? -1
-                   : 1;
+                   ? absl::weak_ordering::less
+                   : absl::weak_ordering::greater;
       },
       [&] { return this; });
   intrusive_ptr_increment(this);

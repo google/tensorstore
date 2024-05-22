@@ -14,8 +14,11 @@
 
 #include "tensorstore/kvstore/key_range.h"
 
+#include <string>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/types/compare.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace {
@@ -146,26 +149,42 @@ TEST(KeyRangeTest, Ostream) {
 }
 
 TEST(KeyRangeTest, CompareKeyAndExclusiveMax) {
-  EXPECT_THAT(KeyRange::CompareKeyAndExclusiveMax("a", "a"), ::testing::Eq(0));
-  EXPECT_THAT(KeyRange::CompareKeyAndExclusiveMax("a", "b"), ::testing::Lt(0));
-  EXPECT_THAT(KeyRange::CompareKeyAndExclusiveMax("b", "a"), ::testing::Gt(0));
-  EXPECT_THAT(KeyRange::CompareKeyAndExclusiveMax("", ""), ::testing::Lt(0));
-  EXPECT_THAT(KeyRange::CompareKeyAndExclusiveMax("a", ""), ::testing::Lt(0));
+  EXPECT_THAT(KeyRange::CompareKeyAndExclusiveMax("a", "a"),
+              ::testing::Eq(absl::weak_ordering::equivalent));
+  EXPECT_THAT(KeyRange::CompareKeyAndExclusiveMax("a", "b"),
+              ::testing::Eq(absl::weak_ordering::less));
+  EXPECT_THAT(KeyRange::CompareKeyAndExclusiveMax("b", "a"),
+              ::testing::Eq(absl::weak_ordering::greater));
+  EXPECT_THAT(KeyRange::CompareKeyAndExclusiveMax("", ""),
+              ::testing::Eq(absl::weak_ordering::less));
+  EXPECT_THAT(KeyRange::CompareKeyAndExclusiveMax("a", ""),
+              ::testing::Eq(absl::weak_ordering::less));
 
-  EXPECT_THAT(KeyRange::CompareExclusiveMaxAndKey("a", "a"), ::testing::Eq(0));
-  EXPECT_THAT(KeyRange::CompareExclusiveMaxAndKey("a", "b"), ::testing::Lt(0));
-  EXPECT_THAT(KeyRange::CompareExclusiveMaxAndKey("b", "a"), ::testing::Gt(0));
-  EXPECT_THAT(KeyRange::CompareExclusiveMaxAndKey("", ""), ::testing::Gt(0));
-  EXPECT_THAT(KeyRange::CompareExclusiveMaxAndKey("", "a"), ::testing::Gt(0));
+  EXPECT_THAT(KeyRange::CompareExclusiveMaxAndKey("a", "a"),
+              ::testing::Eq(absl::weak_ordering::equivalent));
+  EXPECT_THAT(KeyRange::CompareExclusiveMaxAndKey("a", "b"),
+              ::testing::Eq(absl::weak_ordering::less));
+  EXPECT_THAT(KeyRange::CompareExclusiveMaxAndKey("b", "a"),
+              ::testing::Eq(absl::weak_ordering::greater));
+  EXPECT_THAT(KeyRange::CompareExclusiveMaxAndKey("", ""),
+              ::testing::Eq(absl::weak_ordering::greater));
+  EXPECT_THAT(KeyRange::CompareExclusiveMaxAndKey("", "a"),
+              ::testing::Eq(absl::weak_ordering::greater));
 }
 
 TEST(KeyRangeTest, CompareExclusiveMax) {
-  EXPECT_THAT(KeyRange::CompareExclusiveMax("", ""), ::testing::Eq(0));
-  EXPECT_THAT(KeyRange::CompareExclusiveMax("a", "a"), ::testing::Eq(0));
-  EXPECT_THAT(KeyRange::CompareExclusiveMax("a", "b"), ::testing::Lt(0));
-  EXPECT_THAT(KeyRange::CompareExclusiveMax("b", "a"), ::testing::Gt(0));
-  EXPECT_THAT(KeyRange::CompareExclusiveMax("a", ""), ::testing::Lt(0));
-  EXPECT_THAT(KeyRange::CompareExclusiveMax("", "a"), ::testing::Gt(0));
+  EXPECT_THAT(KeyRange::CompareExclusiveMax("", ""),
+              ::testing::Eq(absl::weak_ordering::equivalent));
+  EXPECT_THAT(KeyRange::CompareExclusiveMax("a", "a"),
+              ::testing::Eq(absl::weak_ordering::equivalent));
+  EXPECT_THAT(KeyRange::CompareExclusiveMax("a", "b"),
+              ::testing::Eq(absl::weak_ordering::less));
+  EXPECT_THAT(KeyRange::CompareExclusiveMax("b", "a"),
+              ::testing::Eq(absl::weak_ordering::greater));
+  EXPECT_THAT(KeyRange::CompareExclusiveMax("a", ""),
+              ::testing::Eq(absl::weak_ordering::less));
+  EXPECT_THAT(KeyRange::CompareExclusiveMax("", "a"),
+              ::testing::Eq(absl::weak_ordering::greater));
 }
 
 TEST(KeyRangeTest, AddPrefix) {

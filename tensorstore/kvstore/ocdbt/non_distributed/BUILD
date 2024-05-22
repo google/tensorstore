@@ -165,6 +165,7 @@ tensorstore_cc_library(
     hdrs = ["staged_mutations.h"],
     deps = [
         ":storage_generation",
+        "//tensorstore/internal:compare",
         "//tensorstore/internal:tagged_ptr",
         "//tensorstore/internal/container:intrusive_red_black_tree",
         "//tensorstore/kvstore:generation",
@@ -180,6 +181,7 @@ tensorstore_cc_library(
         "@com_google_absl//absl/functional:function_ref",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/time",
+        "@com_google_absl//absl/types:compare",
     ],
 )
 

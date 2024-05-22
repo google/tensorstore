@@ -18,6 +18,7 @@
 
 #include <array>
 #include <cassert>
+#include <utility>
 
 namespace tensorstore {
 namespace internal {

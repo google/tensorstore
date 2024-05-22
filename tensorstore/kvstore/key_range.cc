@@ -18,8 +18,11 @@
 #include <ostream>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include "absl/strings/match.h"
+#include "absl/types/compare.h"
+#include "tensorstore/internal/compare.h"
 #include "tensorstore/util/quote_string.h"
 
 namespace tensorstore {
@@ -57,18 +60,24 @@ std::string KeyRange::PrefixExclusiveMax(std::string prefix) {
   return prefix;
 }
 
-int KeyRange::CompareKeyAndExclusiveMax(std::string_view key,
-                                        std::string_view bound) {
-  return bound.empty() ? -1 : key.compare(bound);
+absl::weak_ordering KeyRange::CompareKeyAndExclusiveMax(
+    std::string_view key, std::string_view bound) {
+  return bound.empty()
+             ? absl::weak_ordering::less
+             : internal::CompareResultAsWeakOrdering(key.compare(bound));
 }
 
-int KeyRange::CompareExclusiveMax(std::string_view a, std::string_view b) {
-  return a.empty() != b.empty() ? (a.empty() ? 1 : -1) : a.compare(b);
+absl::weak_ordering KeyRange::CompareExclusiveMax(std::string_view a,
+                                                  std::string_view b) {
+  return a.empty() != b.empty()
+             ? (a.empty() ? absl::weak_ordering::greater
+                          : absl::weak_ordering::less)
+             : internal::CompareResultAsWeakOrdering(a.compare(b));
 }
 
 std::string_view KeyRange::MinExclusiveMax(std::string_view a,
                                            std::string_view b) {
-  return CompareExclusiveMax(a, b) < 0 ? a : b;
+  return (CompareExclusiveMax(a, b) < 0) ? a : b;
 }
 
 bool Contains(const KeyRange& haystack, std::string_view needle) {
@@ -171,7 +180,7 @@ KeyRange KeyRange::RemovePrefix(std::string_view prefix, KeyRange range) {
     if (!absl::StartsWith(range.inclusive_min, prefix)) return EmptyRange();
     range.inclusive_min.erase(0, prefix.size());
   }
-  int c = CompareKeyAndExclusiveMax(prefix, range.exclusive_max);
+  const auto c = CompareKeyAndExclusiveMax(prefix, range.exclusive_max);
   if (c < 0) {
     if (absl::StartsWith(range.exclusive_max, prefix)) {
       range.exclusive_max.erase(0, prefix.size());

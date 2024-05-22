@@ -93,6 +93,7 @@ tensorstore_cc_library(
     hdrs = ["intrusive_red_black_tree.h"],
     deps = [
         "//tensorstore/internal:tagged_ptr",
+        "@com_google_absl//absl/types:compare",
     ],
 )
 
@@ -102,7 +103,9 @@ tensorstore_cc_test(
     srcs = ["intrusive_red_black_tree_test.cc"],
     deps = [
         ":intrusive_red_black_tree",
+        "//tensorstore/internal:compare",
         "@com_google_absl//absl/random",
+        "@com_google_absl//absl/types:compare",
         "@com_google_googletest//:gtest_main",
     ],
 )

@@ -45,6 +45,7 @@ tensorstore_cc_library(
         ":cache",
         "//tensorstore:batch",
         "//tensorstore:transaction",
+        "//tensorstore/internal:compare",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:mutex",
         "//tensorstore/internal:tagged_ptr",

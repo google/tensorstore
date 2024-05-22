@@ -1841,3 +1841,9 @@ tensorstore_cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+tensorstore_cc_library(
+    name = "compare",
+    hdrs = ["compare.h"],
+    deps = ["@com_google_absl//absl/types:compare"],
+)

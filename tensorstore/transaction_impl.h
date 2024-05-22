@@ -27,6 +27,7 @@
 #include <stdint.h>
 
 #include <atomic>
+#include <functional>
 #include <string>
 #include <string_view>
 
@@ -34,6 +35,8 @@
 #include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
+#include "absl/types/compare.h"
+#include "tensorstore/internal/compare.h"
 #include "tensorstore/internal/container/intrusive_red_black_tree.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/mutex.h"
@@ -751,11 +754,11 @@ class TransactionState {
   /// this aborts the transaction.
   void NoMoreCommitReferences();
 
-  static int NodeTreeCompare(size_t phase_a, void* data_a, size_t phase_b,
-                             void* data_b) {
-    if (phase_a < phase_b) return -1;
-    if (phase_a > phase_b) return 1;
-    return intrusive_red_black_tree::ThreeWayFromLessThan<>()(data_a, data_b);
+  static absl::weak_ordering NodeTreeCompare(size_t phase_a, void* data_a,
+                                             size_t phase_b, void* data_b) {
+    if (phase_a < phase_b) return absl::weak_ordering::less;
+    if (phase_a > phase_b) return absl::weak_ordering::greater;
+    return internal::DoThreeWayComparison(std::less<>{}, data_a, data_b);
   }
 
   ~TransactionState();

@@ -18,6 +18,7 @@
 #include <atomic>
 #include <cassert>
 #include <cstddef>
+#include <functional>
 #include <mutex>  // NOLINT
 #include <type_traits>
 #include <utility>
@@ -33,6 +34,7 @@
 #include "tensorstore/batch.h"
 #include "tensorstore/batch_impl.h"
 #include "tensorstore/internal/cache/cache.h"
+#include "tensorstore/internal/compare.h"
 #include "tensorstore/internal/container/intrusive_linked_list.h"
 #include "tensorstore/internal/container/intrusive_red_black_tree.h"
 #include "tensorstore/internal/intrusive_ptr.h"
@@ -637,9 +639,9 @@ AsyncCache::Entry::GetTransactionNodeImpl(OpenTransactionPtr& transaction) {
           UniqueWriterLock lock(entry);
           entry.transactions_.FindOrInsert(
               [&](TransactionNode& existing_node) {
-                return internal::intrusive_red_black_tree::
-                    ThreeWayFromLessThan<>()(transaction.get(),
-                                             existing_node.transaction());
+                return internal::DoThreeWayComparison(
+                    std::less<>{}, transaction.get(),
+                    existing_node.transaction());
               },
               [&] { return &node; });
         }
@@ -694,9 +696,8 @@ AsyncCache::Entry::GetTransactionNodeImpl(OpenTransactionPtr& transaction) {
           transactions_
               .FindOrInsert(
                   [transaction = transaction.get()](TransactionNode& node) {
-                    return internal::intrusive_red_black_tree::
-                        ThreeWayFromLessThan<>()(transaction,
-                                                 node.transaction());
+                    return internal::DoThreeWayComparison(
+                        std::less<>{}, transaction, node.transaction());
                   },
                   MakeNode)
               .first;
