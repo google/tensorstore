@@ -819,6 +819,27 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt.value_data_prefix" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.value_data_prefix (JSON member) — Prefix for writing data files containing indirect values." class="md-ellipsis">value_<wbr>data_<wbr>prefix</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt.btree_node_data_prefix" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.btree_node_data_prefix (JSON member) — Prefix for writing data files containing B+tree nodes." class="md-ellipsis">btree_<wbr>node_<wbr>data_<wbr>prefix</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt.version_tree_node_data_prefix" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.version_tree_node_data_prefix (JSON member) — Prefix for writing data files containing version tree nodes." class="md-ellipsis">version_<wbr>tree_<wbr>node_<wbr>data_<wbr>prefix</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#json-kvstore/ocdbt.target_data_file_size" class="md-nav__link">
     <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.target_data_file_size (JSON member) — Target size of each ocdbt data file." class="md-ellipsis">target_<wbr>data_<wbr>file_<wbr>size</span>
   </a>
@@ -1443,6 +1464,27 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt.value_data_prefix" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.value_data_prefix (JSON member) — Prefix for writing data files containing indirect values." class="md-ellipsis">value_<wbr>data_<wbr>prefix</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt.btree_node_data_prefix" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.btree_node_data_prefix (JSON member) — Prefix for writing data files containing B+tree nodes." class="md-ellipsis">btree_<wbr>node_<wbr>data_<wbr>prefix</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt.version_tree_node_data_prefix" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.version_tree_node_data_prefix (JSON member) — Prefix for writing data files containing version tree nodes." class="md-ellipsis">version_<wbr>tree_<wbr>node_<wbr>data_<wbr>prefix</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#json-kvstore/ocdbt.target_data_file_size" class="md-nav__link">
     <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.target_data_file_size (JSON member) — Target size of each ocdbt data file." class="md-ellipsis">target_<wbr>data_<wbr>file_<wbr>size</span>
   </a>
@@ -1922,6 +1964,30 @@ the specified arity.</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-kvstore/ocdbt.value_data_prefix">
+<span class="sig-name descname"><span class="pre">value_data_prefix</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;d/&quot;</span></code><a class="headerlink" href="#json-kvstore/ocdbt.value_data_prefix" title="Permalink to this definition">¶</a></dt>
+<dd><span><p>Prefix for writing data files containing indirect values.</p>
+  </span><p>Values that are not stored inline within B+tree nodes are written to
+data files under this prefix. This option has no effect when reading,
+and different (even concurrent) writers to the same OCDBT database can
+safely use different values of <a class="reference internal" href="#json-kvstore/ocdbt.value_data_prefix" title="kvstore/ocdbt.value_data_prefix (JSON member) — Prefix for writing data files containing indirect values."><code class="xref json json-schema docutils literal notranslate"><span class="pre">value_data_prefix</span></code></a>.</p>
+<p>Shared data files are used if <a class="reference internal" href="#json-kvstore/ocdbt.value_data_prefix" title="kvstore/ocdbt.value_data_prefix (JSON member) — Prefix for writing data files containing indirect values."><code class="xref json json-schema docutils literal notranslate"><span class="pre">value_data_prefix</span></code></a> is equal to
+<a class="reference internal" href="#json-kvstore/ocdbt.btree_node_data_prefix" title="kvstore/ocdbt.btree_node_data_prefix (JSON member) — Prefix for writing data files containing B+tree nodes."><code class="xref json json-schema docutils literal notranslate"><span class="pre">btree_node_data_prefix</span></code></a> or <a class="reference internal" href="#json-kvstore/ocdbt.version_tree_node_data_prefix" title="kvstore/ocdbt.version_tree_node_data_prefix (JSON member) — Prefix for writing data files containing version tree nodes."><code class="xref json json-schema docutils literal notranslate"><span class="pre">version_tree_node_data_prefix</span></code></a>.</p>
+</dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-kvstore/ocdbt.btree_node_data_prefix">
+<span class="sig-name descname"><span class="pre">btree_node_data_prefix</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;d/&quot;</span></code><a class="headerlink" href="#json-kvstore/ocdbt.btree_node_data_prefix" title="Permalink to this definition">¶</a></dt>
+<dd><span><p>Prefix for writing data files containing B+tree nodes.</p>
+  </span></dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-kvstore/ocdbt.version_tree_node_data_prefix">
+<span class="sig-name descname"><span class="pre">version_tree_node_data_prefix</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;d/&quot;</span></code><a class="headerlink" href="#json-kvstore/ocdbt.version_tree_node_data_prefix" title="Permalink to this definition">¶</a></dt>
+<dd><span><p>Prefix for writing data files containing version tree nodes.</p>
+  </span></dd></dl>
+
+<dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-kvstore/ocdbt.target_data_file_size">
 <span class="sig-name descname"><span class="pre">target_data_file_size</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="mi">2147483648</span></code><a class="headerlink" href="#json-kvstore/ocdbt.target_data_file_size" title="Permalink to this definition">¶</a></dt>
 <dd><span><p>Target size of each ocdbt data file.</p>
@@ -2037,14 +2103,12 @@ stored manifest, as a 16-digit (0-padded) lowercase hexadecimal number.</p>
 </ul>
 <p>The <code class="file docutils literal notranslate"><em><span class="pre">xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</span></em></code> portion of the filename is the
 lowercase hex representation of a 128-bit random identifier.</p>
-<div class="note admonition">
-<p class="admonition-title">Note</p>
-<p>The format allows the data files to actually have any arbitrary relative
-path; the <code class="file docutils literal notranslate"><span class="pre">d/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</span></code> naming scheme is used
-when writing new data files, but other paths may be used in
-specially-constructed OCDBT databases to refer to exsiting data (both in
-OCDBT format and in other formats).</p>
-</div>
+<p>The <code class="file docutils literal notranslate"><span class="pre">d/</span></code> prefix is the default used when writing but can be overridden
+by the <a class="reference internal" href="#json-kvstore/ocdbt.value_data_prefix" title="kvstore/ocdbt.value_data_prefix (JSON member) — Prefix for writing data files containing indirect values."><code class="xref json json-schema docutils literal notranslate"><span class="pre">kvstore/ocdbt.value_data_prefix</span></code></a>,
+<a class="reference internal" href="#json-kvstore/ocdbt.btree_node_data_prefix" title="kvstore/ocdbt.btree_node_data_prefix (JSON member) — Prefix for writing data files containing B+tree nodes."><code class="xref json json-schema docutils literal notranslate"><span class="pre">kvstore/ocdbt.btree_node_data_prefix</span></code></a>, and
+<a class="reference internal" href="#json-kvstore/ocdbt.version_tree_node_data_prefix" title="kvstore/ocdbt.version_tree_node_data_prefix (JSON member) — Prefix for writing data files containing version tree nodes."><code class="xref json json-schema docutils literal notranslate"><span class="pre">kvstore/ocdbt.version_tree_node_data_prefix</span></code></a> options. When
+reading, the format allows the data files to have any arbitrary relative path
+and these options have no effect.</p>
 </li>
 </ul>
 <p>To read a key from the database, a client first reads the manifest file, then
