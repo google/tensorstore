@@ -86,6 +86,7 @@ struct OcdbtDriverSpecData {
   std::optional<size_t> experimental_read_coalescing_merged_bytes;
   std::optional<absl::Duration> experimental_read_coalescing_interval;
   std::optional<size_t> target_data_file_size;
+  bool assume_config = false;
   Context::Resource<OcdbtCoordinatorResource> coordinator;
 
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(OcdbtDriverSpecData,

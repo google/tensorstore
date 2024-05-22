@@ -14,13 +14,17 @@
 
 #include "tensorstore/kvstore/ocdbt/config.h"
 
+#include <stdint.h>
+
 #include <atomic>
+#include <string_view>
 #include <type_traits>
-#include <variant>
 
 #include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
+#include <nlohmann/json.hpp>
 #include "riegeli/zstd/zstd_writer.h"
+#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/enum.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
@@ -30,6 +34,7 @@
 #include "tensorstore/kvstore/ocdbt/format/config.h"
 #include "tensorstore/kvstore/ocdbt/format/version_tree.h"
 #include "tensorstore/kvstore/supported_features.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -177,21 +182,35 @@ ConfigConstraints::ConfigConstraints(const Config& config)
       version_tree_arity_log2(config.version_tree_arity_log2),
       compression(config.compression) {}
 
-ConfigState::ConfigState()
-    : supported_features_for_manifest_{kvstore::SupportedFeatures::kNone} {}
-
-ConfigState::ConfigState(
+Result<ConfigStatePtr> ConfigState::Make(
     const ConfigConstraints& constraints,
-    kvstore::SupportedFeatures supported_features_for_manifest)
-    : constraints_(constraints),
-      supported_features_for_manifest_(supported_features_for_manifest) {}
+    kvstore::SupportedFeatures supported_features_for_manifest,
+    bool assume_config) {
+  auto self = internal::IntrusivePtr<ConfigState>(new ConfigState);
+  self->constraints_ = constraints;
+  self->supported_features_for_manifest_ = supported_features_for_manifest;
+  self->assume_config_ = assume_config;
+  if (assume_config) {
+    TENSORSTORE_ASSIGN_OR_RETURN(self->assumed_config_,
+                                 self->CreateNewConfig());
+  }
+  return self;
+}
 
 absl::Status ConfigState::ValidateNewConfig(const Config& config) {
   if (!config_set_.load(std::memory_order_acquire)) {
     absl::MutexLock lock(&mutex_);
     TENSORSTORE_RETURN_IF_ERROR(ValidateConfig(config, constraints_));
-    config_ = config;
+    if (assume_config_) {
+      ConfigConstraints assumed_constraints(assumed_config_);
+      assumed_constraints.uuid = config.uuid;
+      TENSORSTORE_RETURN_IF_ERROR(
+          ValidateConfig(config, assumed_constraints),
+          tensorstore::MaybeAnnotateStatus(
+              _, "Observed config does not match assumed config"));
+    }
     constraints_ = ConfigConstraints(config);
+    config_ = config;
     config_set_.store(true, std::memory_order_release);
     return absl::OkStatus();
   }
@@ -203,6 +222,13 @@ const Config* ConfigState::GetExistingConfig() const {
     return nullptr;
   }
   return &config_;
+}
+
+const Config* ConfigState::GetAssumedOrExistingConfig() const {
+  if (assume_config_) {
+    return &assumed_config_;
+  }
+  return GetExistingConfig();
 }
 
 Result<Config> ConfigState::CreateNewConfig() {

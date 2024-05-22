@@ -77,6 +77,37 @@ allOf:
               - const: null
             default: { "id": "zstd", "level": 0 }
             title: "Compression method used to encode the manifest and B+Tree nodes."
+      assume_config:
+        type: boolean
+        title: "Permits data files to be written before the initial manifest."
+        description: |
+          Normally, even when performing unconditional writes to an OCDBT
+          database, the existing manifest is first read before writing any data
+          files, in order to determine the configuration (as this affects how
+          data files are written).
+
+          If there is no existing manifest, an initial manifest containing the
+          configuration but no B+tree versions is written before any data files
+          are written. This ensures that, in the case of multiple concurrent
+          writers attempting to create the OCDBT database with inconsistent
+          configurations, the correct configuration is used to write any data
+          files.
+
+          For many applications, the additional one-time latency from reading or
+          writing the initial manifest is negligible, but for applications
+          sensitive to the latency of initially writing and/or creating an OCDBT
+          database, `.assume_config` may be specified.
+
+          In this case, data files may be written before confirming the
+          configuration in the manifest. Instead, an assumed configuration,
+          equal to the configuration that would be used for a new OCDBT database
+          according to the constraints specified in `.config`, is used.
+
+          If this option is specified and the assumed configuration does not
+          match the actual, existing configuration, reading and writing will
+          fail with an error. In the case of writes, the OCDBT database will
+          remain unmodified, but unreferenced garbage data files may be left
+          behind.
       value_data_prefix:
         type: string
         title: "Prefix for writing data files containing indirect values."

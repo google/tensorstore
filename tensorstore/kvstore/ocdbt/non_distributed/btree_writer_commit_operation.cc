@@ -46,16 +46,22 @@ namespace tensorstore {
 namespace internal_ocdbt {
 
 void BtreeWriterCommitOperationBase::ReadManifest() {
-  auto ensure_future = internal_ocdbt::EnsureExistingManifest(io_handle_);
-  auto read_future = PromiseFuturePair<ManifestWithTime>::LinkValue(
-                         [this](Promise<ManifestWithTime> promise,
-                                ReadyFuture<const absl::Time> time) {
-                           LinkResult(std::move(promise),
-                                      io_handle_->GetManifest(std::max(
-                                          staleness_bound_, time.value())));
-                         },
-                         std::move(ensure_future))
-                         .future;
+  Future<const ManifestWithTime> read_future;
+
+  if (io_handle_->config_state->GetAssumedOrExistingConfig()) {
+    read_future = io_handle_->GetManifest(staleness_bound_);
+  } else {
+    auto ensure_future = internal_ocdbt::EnsureExistingManifest(io_handle_);
+    read_future = PromiseFuturePair<ManifestWithTime>::LinkValue(
+                      [this](Promise<ManifestWithTime> promise,
+                             ReadyFuture<const absl::Time> time) {
+                        LinkResult(std::move(promise),
+                                   io_handle_->GetManifest(std::max(
+                                       staleness_bound_, time.value())));
+                      },
+                      std::move(ensure_future))
+                      .future;
+  }
   read_future.Force();
   read_future.ExecuteWhenReady(
       [this](ReadyFuture<const ManifestWithTime> future) mutable {

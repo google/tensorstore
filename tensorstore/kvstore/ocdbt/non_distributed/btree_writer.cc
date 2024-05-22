@@ -287,7 +287,8 @@ Future<TimestampedStorageGeneration> NonDistributedBtreeWriter::Write(
   Future<const void> value_future;
   if (value) {
     auto& value_ref = request->value_.emplace();
-    if (auto* config = writer.io_handle_->config_state->GetExistingConfig();
+    if (auto* config =
+            writer.io_handle_->config_state->GetAssumedOrExistingConfig();
         !config || value->size() <= config->max_inline_value_bytes) {
       // Config not yet known or value to be written inline.
       value_ref = std::move(*value);

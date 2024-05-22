@@ -62,7 +62,7 @@ Future<std::variant<absl::Cord, ::nlohmann::json>> ReadAndDump(
     auto io_handle = internal_ocdbt::MakeIoHandle(
         data_copy_concurrency_resource, cache_pool_resource->get(), base,
         /*config_state=*/
-        internal::MakeIntrusivePtr<ConfigState>(), /*data_file_prefixes=*/{});
+        ConfigState::Make().value(), /*data_file_prefixes=*/{});
 
     return MapFutureValue(
         data_copy_concurrency_resource->executor,

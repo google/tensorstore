@@ -345,7 +345,7 @@ class BtreeWriterCommitOperationBase {
   std::shared_ptr<const Manifest> new_manifest_;
 
   const Config& existing_config() {
-    auto* config = io_handle_->config_state->GetExistingConfig();
+    auto* config = io_handle_->config_state->GetAssumedOrExistingConfig();
     assert(config);
     return *config;
   }

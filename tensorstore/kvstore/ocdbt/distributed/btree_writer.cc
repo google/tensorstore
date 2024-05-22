@@ -729,7 +729,8 @@ Future<TimestampedStorageGeneration> DistributedBtreeWriter::Write(
   if (value) {
     auto& new_entry = request.mutation->new_entry;
     auto& value_ref = new_entry.value_reference;
-    if (auto* config = writer.io_handle_->config_state->GetExistingConfig();
+    if (auto* config =
+            writer.io_handle_->config_state->GetAssumedOrExistingConfig();
         !config || value->size() <= config->max_inline_value_bytes) {
       if (!config && !value->empty()) {
         needs_inline_value_pass = true;

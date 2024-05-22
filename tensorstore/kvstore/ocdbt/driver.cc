@@ -146,6 +146,9 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
             jb::Member("version_tree_node_data_prefix",
                        jb::Projection<&DataFilePrefixes::version_tree_node>(
                            jb::DefaultValue([](auto* v) { *v = "d/"; }))))),
+        jb::Member("assume_config",
+                   jb::Projection<&OcdbtDriverSpecData::assume_config>(
+                       jb::DefaultInitializedValue())),
         jb::Member(
             "experimental_read_coalescing_threshold_bytes",
             jb::Projection<&OcdbtDriverSpecData::
@@ -214,12 +217,14 @@ Future<kvstore::DriverPtr> OcdbtDriverSpec::DoOpen() const {
                   absl::ZeroDuration());
         }
 
+        TENSORSTORE_ASSIGN_OR_RETURN(
+            auto config_state,
+            ConfigState::Make(spec->data_.config, supported_manifest_features,
+                              spec->data_.assume_config));
+
         driver->io_handle_ = internal_ocdbt::MakeIoHandle(
             driver->data_copy_concurrency_, driver->cache_pool_->get(),
-            driver->base_,
-            internal::MakeIntrusivePtr<ConfigState>(
-                spec->data_.config, supported_manifest_features),
-            driver->data_file_prefixes_,
+            driver->base_, std::move(config_state), driver->data_file_prefixes_,
             driver->target_data_file_size_.value_or(kDefaultTargetBufferSize),
             std::move(read_coalesce_options));
         driver->btree_writer_ =
@@ -268,6 +273,7 @@ absl::Status OcdbtDriver::GetBoundSpecData(OcdbtDriverSpecData& spec) const {
   spec.data_copy_concurrency = data_copy_concurrency_;
   spec.cache_pool = cache_pool_;
   spec.config = io_handle_->config_state->GetConstraints();
+  spec.assume_config = io_handle_->config_state->assume_config();
   spec.data_file_prefixes = data_file_prefixes_;
   spec.experimental_read_coalescing_threshold_bytes =
       experimental_read_coalescing_threshold_bytes_;
