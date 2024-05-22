@@ -819,13 +819,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#json-kvstore/ocdbt.assume_config" class="md-nav__link">
-    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.assume_config (JSON member) — Permits data files to be written before the initial manifest." class="md-ellipsis">assume_<wbr>config</span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#json-kvstore/ocdbt.value_data_prefix" class="md-nav__link">
     <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.value_data_prefix (JSON member) — Prefix for writing data files containing indirect values." class="md-ellipsis">value_<wbr>data_<wbr>prefix</span>
   </a>
@@ -1471,13 +1464,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#json-kvstore/ocdbt.assume_config" class="md-nav__link">
-    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.assume_config (JSON member) — Permits data files to be written before the initial manifest." class="md-ellipsis">assume_<wbr>config</span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#json-kvstore/ocdbt.value_data_prefix" class="md-nav__link">
     <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.value_data_prefix (JSON member) — Prefix for writing data files containing indirect values." class="md-ellipsis">value_<wbr>data_<wbr>prefix</span>
   </a>
@@ -1975,35 +1961,6 @@ the specified arity.</p>
 
 </dd>
 </dl>
-</dd></dl>
-
-<dl class="json schema objdesc">
-<dt class="sig sig-object highlight json" id="json-kvstore/ocdbt.assume_config">
-<span class="sig-name descname"><span class="pre">assume_config</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">boolean</span></span><a class="headerlink" href="#json-kvstore/ocdbt.assume_config" title="Permalink to this definition">¶</a></dt>
-<dd><span><p>Permits data files to be written before the initial manifest.</p>
-  </span><p>Normally, even when performing unconditional writes to an OCDBT
-database, the existing manifest is first read before writing any data
-files, in order to determine the configuration (as this affects how
-data files are written).</p>
-<p>If there is no existing manifest, an initial manifest containing the
-configuration but no B+tree versions is written before any data files
-are written. This ensures that, in the case of multiple concurrent
-writers attempting to create the OCDBT database with inconsistent
-configurations, the correct configuration is used to write any data
-files.</p>
-<p>For many applications, the additional one-time latency from reading or
-writing the initial manifest is negligible, but for applications
-sensitive to the latency of initially writing and/or creating an OCDBT
-database, <a class="reference internal" href="#json-kvstore/ocdbt.assume_config" title="kvstore/ocdbt.assume_config (JSON member) — Permits data files to be written before the initial manifest."><code class="xref json json-schema docutils literal notranslate"><span class="pre">assume_config</span></code></a> may be specified.</p>
-<p>In this case, data files may be written before confirming the
-configuration in the manifest. Instead, an assumed configuration,
-equal to the configuration that would be used for a new OCDBT database
-according to the constraints specified in <a class="reference internal" href="#json-kvstore/ocdbt.config" title="kvstore/ocdbt.config (JSON member) — Constrains the database configuration."><code class="xref json json-schema docutils literal notranslate"><span class="pre">config</span></code></a>, is used.</p>
-<p>If this option is specified and the assumed configuration does not
-match the actual, existing configuration, reading and writing will
-fail with an error. In the case of writes, the OCDBT database will
-remain unmodified, but unreferenced garbage data files may be left
-behind.</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
