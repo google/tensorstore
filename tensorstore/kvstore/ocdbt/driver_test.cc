@@ -26,6 +26,7 @@
 #include <nlohmann/json_fwd.hpp>
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
+#include "tensorstore/internal/cache/kvs_backed_cache_testutil.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/testing/dynamic.h"
@@ -57,6 +58,7 @@ namespace kvstore = ::tensorstore::kvstore;
 using ::tensorstore::Context;
 using ::tensorstore::KeyRange;
 using ::tensorstore::internal::GetMap;
+using ::tensorstore::internal::MatchesKvsReadResult;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
 using ::tensorstore::internal::MatchesListEntry;
 using ::tensorstore::internal::MockKeyValueStore;
@@ -516,6 +518,56 @@ TEST(OcdbtTest, CopyRange) {
                                  ::testing::Pair("y/a", absl::Cord("value_a")),
                                  ::testing::Pair("y/b", absl::Cord("value_b")),
                              })));
+}
+
+TEST(OcdbtTest, TransactionalCopyRange) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, kvstore::Open({
+                                    {"driver", "ocdbt"},
+                                    {"base", "memory://"},
+                                    {"config", {{"max_inline_value_bytes", 0}}},
+                                })
+                      .result());
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "x/a", absl::Cord("value_a")));
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "x/b", absl::Cord("value_b")));
+  auto transaction = tensorstore::Transaction(tensorstore::atomic_isolated);
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto transactional_store,
+                                     store | transaction);
+
+    TENSORSTORE_ASSERT_OK(kvstore::ExperimentalCopyRange(
+        store.WithPathSuffix("x/"), transactional_store.WithPathSuffix("y/")));
+    TENSORSTORE_ASSERT_OK(kvstore::ExperimentalCopyRange(
+        store.WithPathSuffix("x/"), transactional_store.WithPathSuffix("z/")));
+    EXPECT_THAT(kvstore::Read(transactional_store, "y/a").result(),
+                MatchesKvsReadResult(absl::Cord("value_a")));
+    TENSORSTORE_ASSERT_OK(transaction.CommitAsync());
+  }
+  EXPECT_THAT(GetMap(store), ::testing::Optional(::testing::ElementsAreArray({
+                                 ::testing::Pair("x/a", absl::Cord("value_a")),
+                                 ::testing::Pair("x/b", absl::Cord("value_b")),
+                                 ::testing::Pair("y/a", absl::Cord("value_a")),
+                                 ::testing::Pair("y/b", absl::Cord("value_b")),
+                                 ::testing::Pair("z/a", absl::Cord("value_a")),
+                                 ::testing::Pair("z/b", absl::Cord("value_b")),
+                             })));
+}
+
+TENSORSTORE_GLOBAL_INITIALIZER {
+  using ::tensorstore::internal::KvsBackedCacheBasicTransactionalTestOptions;
+  using ::tensorstore::internal::RegisterKvsBackedCacheBasicTransactionalTest;
+
+  KvsBackedCacheBasicTransactionalTestOptions options;
+  options.test_name = "OcdbtDriverTransactional";
+  options.get_store = [] {
+    TENSORSTORE_CHECK_OK_AND_ASSIGN(
+        auto store,
+        kvstore::Open({{"driver", "ocdbt"}, {"base", "memory://"}}).result());
+    return store.driver;
+  };
+  options.delete_range_supported = true;
+  options.multi_key_atomic_supported = true;
+  RegisterKvsBackedCacheBasicTransactionalTest(options);
 }
 
 }  // namespace

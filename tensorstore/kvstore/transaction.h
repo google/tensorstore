@@ -187,6 +187,14 @@ class MutationEntry : public MutationEntryTree::NodeBase {
   /// Returns the mutex of the `MultiPhaseMutation` object.
   absl::Mutex& mutex() const;
 
+  using DeleteRangeEntry = internal_kvstore::DeleteRangeEntry;
+  using ReadModifyWriteEntry = internal_kvstore::ReadModifyWriteEntry;
+
+  constexpr static MutationEntryType kReadModifyWrite =
+      MutationEntryType::kReadModifyWrite;
+  constexpr static MutationEntryType kDeleteRange =
+      MutationEntryType::kDeleteRange;
+
  protected:
   ~MutationEntry() = default;
 };
@@ -419,6 +427,8 @@ class MultiPhaseMutation {
   virtual internal::TransactionState::Node& GetTransactionNode() = 0;
   virtual std::string DescribeKey(std::string_view key) = 0;
 
+  SinglePhaseMutation& GetCommittingPhase();
+
   /// Allocates a new `ReadModifyWriteEntry`.
   ///
   /// By default returns `new ReadModifyWriteEntry`, but if a derived
@@ -439,7 +449,16 @@ class MultiPhaseMutation {
                     ReadModifyWriteTarget::TransactionalReadOptions&& options,
                     ReadModifyWriteTarget::ReadReceiver&& receiver) = 0;
 
+  /// Called when the writeback result for a chain of entries for a given key is
+  /// ready.
+  ///
+  /// If some suffix of the chain produces a `ReadResult::kUnspecified` state
+  /// (meaning unmodified), then `read_result` may have come from an earlier
+  /// entry in the chain, indicated by `source_entry`, and should be interpreted
+  /// according to `source_entry.source_->IsSpecialSource()` rather than
+  /// `entry.source_->IsSpecialSource()`.
   virtual void Writeback(ReadModifyWriteEntry& entry,
+                         ReadModifyWriteEntry& source_entry,
                          ReadResult&& read_result) = 0;
 
   virtual void Writeback(DeleteRangeEntry& entry) = 0;
@@ -510,32 +529,47 @@ inline absl::Mutex& MutationEntry::mutex() const {
   return multi_phase().mutex();
 }
 
-class AtomicMultiPhaseMutation : public MultiPhaseMutation {
+class AtomicMultiPhaseMutationBase : public MultiPhaseMutation {
  public:
-  class BufferedReadModifyWriteEntry : public ReadModifyWriteEntry {
-   public:
-    ReadResult read_result_;
+  static void AtomicWritebackReady(ReadModifyWriteEntry& entry);
 
+  struct ReadModifyWriteEntryWithStamp
+      : public internal_kvstore::ReadModifyWriteEntry {
     bool IsOutOfDate(absl::Time staleness_bound) {
-      return read_result_.stamp.time == absl::InfinitePast() ||
-             read_result_.stamp.time < staleness_bound;
+      return stamp_.time == absl::InfinitePast() ||
+             stamp_.time < staleness_bound;
     }
+    TimestampedStorageGeneration& stamp() { return stamp_; }
+
+    TimestampedStorageGeneration stamp_;
+  };
+  void RetryAtomicWriteback(absl::Time staleness_bound);
+  void Writeback(DeleteRangeEntry& entry) override;
+  void AtomicCommitWritebackSuccess();
+  void RevokeAllEntries();
+
+ protected:
+  ~AtomicMultiPhaseMutationBase() = default;
+};
+
+class AtomicMultiPhaseMutation : public AtomicMultiPhaseMutationBase {
+ public:
+  class BufferedReadModifyWriteEntry
+      : public AtomicMultiPhaseMutationBase::ReadModifyWriteEntryWithStamp {
+   public:
+    ReadResult::State value_state_;
+    absl::Cord value_;
   };
 
   ReadModifyWriteEntry* AllocateReadModifyWriteEntry() override;
   void FreeReadModifyWriteEntry(ReadModifyWriteEntry* entry) override;
   void Writeback(ReadModifyWriteEntry& entry,
+                 ReadModifyWriteEntry& source_entry,
                  ReadResult&& read_result) override;
-  void Writeback(DeleteRangeEntry& entry) override;
-  void RevokeAllEntries();
 
  protected:
   ~AtomicMultiPhaseMutation() = default;
 };
-
-void RetryAtomicWriteback(SinglePhaseMutation& single_phase_mutation,
-                          absl::Time staleness_bound);
-void AtomicCommitWritebackSuccess(SinglePhaseMutation& single_phase_mutation);
 
 void ReadDirectly(Driver* driver, ReadModifyWriteEntry& entry,
                   ReadModifyWriteTarget::TransactionalReadOptions&& options,
@@ -606,6 +640,7 @@ class NonAtomicTransactionNode
   using TransactionNodeBase<MultiPhaseMutation>::TransactionNodeBase;
 
   void Writeback(ReadModifyWriteEntry& entry,
+                 ReadModifyWriteEntry& source_entry,
                  ReadResult&& read_result) override {
     internal_kvstore::WritebackDirectly(this->driver(), entry,
                                         std::move(read_result));
@@ -618,38 +653,39 @@ class NonAtomicTransactionNode
 
 using AtomicTransactionNode = TransactionNodeBase<AtomicMultiPhaseMutation>;
 
-template <typename TransactionNode>
+template <typename TransactionNode, typename... Arg>
 Result<internal::OpenTransactionNodePtr<TransactionNode>> GetTransactionNode(
-    Driver* driver, internal::OpenTransactionPtr& transaction) {
+    Driver* driver, internal::OpenTransactionPtr& transaction, Arg&&... arg) {
   TENSORSTORE_ASSIGN_OR_RETURN(auto node,
                                internal::GetOrCreateOpenTransaction(transaction)
-                                   .GetOrCreateMultiPhaseNode(driver, [driver] {
-                                     return new TransactionNode(driver);
+                                   .GetOrCreateMultiPhaseNode(driver, [&] {
+                                     return new TransactionNode(
+                                         driver, std::forward<Arg>(arg)...);
                                    }));
   return internal::static_pointer_cast<TransactionNode>(std::move(node));
 }
 
-template <typename TransactionNode>
+template <typename TransactionNode, typename... Arg>
 absl::Status AddReadModifyWrite(Driver* driver,
                                 internal::OpenTransactionPtr& transaction,
                                 size_t& phase, Key key,
-                                ReadModifyWriteSource& source) {
+                                ReadModifyWriteSource& source, Arg&&... arg) {
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto node, internal_kvstore::GetTransactionNode<TransactionNode>(
-                     driver, transaction));
+                     driver, transaction, std::forward<Arg>(arg)...));
   absl::MutexLock lock(&node->mutex_);
   node->ReadModifyWrite(phase, std::move(key), source);
   return absl::OkStatus();
 }
 
-template <typename TransactionNode>
+template <typename TransactionNode, typename... Arg>
 absl::Status AddDeleteRange(Driver* driver,
                             const internal::OpenTransactionPtr& transaction,
-                            KeyRange&& range) {
+                            KeyRange&& range, Arg&&... arg) {
   auto transaction_copy = transaction;
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto node, internal_kvstore::GetTransactionNode<TransactionNode>(
-                     driver, transaction_copy));
+                     driver, transaction_copy, std::forward<Arg>(arg)...));
   absl::MutexLock lock(&node->mutex_);
   node->DeleteRange(std::move(range));
   return absl::OkStatus();

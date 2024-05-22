@@ -181,6 +181,13 @@ class ReadModifyWriteSource {
   /// started.
   virtual void KvsRevoke() = 0;
 
+  /// A non-null value indicates that this is a "special" write source, for
+  /// internal use by a kvstore driver (e.g. in the OCDBT driver, to implement
+  /// copy by reference). It is up to the kvstore driver to call this method and
+  /// interpret the return value. A kvstore driver that supports special source
+  /// kinds can call this method during writeback.
+  virtual void* IsSpecialSource() { return 0; }
+
  protected:
   ~ReadModifyWriteSource() = default;
 };

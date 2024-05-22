@@ -27,7 +27,6 @@
 #include "tensorstore/context.h"
 #include "tensorstore/context_resource_provider.h"
 #include "tensorstore/internal/cache/cache_pool_resource.h"
-#include "tensorstore/internal/cache_key/cache_key.h"
 #include "tensorstore/internal/concurrency_resource.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/json_binding/bindable.h"
@@ -143,6 +142,13 @@ class OcdbtDriver
 
   Result<KvStore> GetBase(std::string_view path,
                           const Transaction& transaction) const override;
+
+  absl::Status ReadModifyWrite(internal::OpenTransactionPtr& transaction,
+                               size_t& phase, Key key,
+                               ReadModifyWriteSource& source) override;
+
+  absl::Status TransactionalDeleteRange(
+      const internal::OpenTransactionPtr& transaction, KeyRange range) override;
 
   const Executor& executor() { return data_copy_concurrency_->executor; }
 

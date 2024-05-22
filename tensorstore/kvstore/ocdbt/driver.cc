@@ -53,6 +53,7 @@
 #include "tensorstore/kvstore/ocdbt/non_distributed/btree_writer.h"
 #include "tensorstore/kvstore/ocdbt/non_distributed/list.h"
 #include "tensorstore/kvstore/ocdbt/non_distributed/read.h"
+#include "tensorstore/kvstore/ocdbt/non_distributed/transactional_btree_writer.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/registry.h"
@@ -316,8 +317,8 @@ Future<const void> OcdbtDriver::ExperimentalCopyRangeFrom(
     std::string target_prefix, kvstore::CopyRangeOptions options) {
   if (typeid(*source.driver) == typeid(OcdbtDriver)) {
     auto& source_driver = static_cast<OcdbtDriver&>(*source.driver);
-    if (source.transaction != no_transaction || transaction) {
-      return absl::UnimplementedError("Transactions not supported");
+    if (source.transaction != no_transaction) {
+      return absl::UnimplementedError("Source transactions not supported");
     }
     if (source_driver.base_.driver == base_.driver &&
         absl::StartsWith(source_driver.base_.path, base_.path)) {
@@ -331,7 +332,8 @@ Future<const void> OcdbtDriver::ExperimentalCopyRangeFrom(
                source_driver.base_.path.substr(base_.path.size()),
            source_range =
                KeyRange::AddPrefix(source.path, options.source_range),
-           source_prefix_length = source.path.size()](
+           source_prefix_length = source.path.size(),
+           transaction = std::move(transaction)](
               Promise<void> promise,
               ReadyFuture<const ManifestWithTime> future) mutable {
             auto& manifest_with_time = future.value();
@@ -364,8 +366,12 @@ Future<const void> OcdbtDriver::ExperimentalCopyRangeFrom(
             copy_node_options.range = std::move(source_range);
             copy_node_options.strip_prefix_length = source_prefix_length;
             copy_node_options.add_prefix = std::move(target_prefix);
-            LinkResult(std::move(promise), self->btree_writer_->CopySubtree(
-                                               std::move(copy_node_options)));
+            LinkResult(std::move(promise),
+                       transaction ? internal_ocdbt::AddCopySubtree(
+                                         &*self, *self->io_handle_, transaction,
+                                         std::move(copy_node_options))
+                                   : self->btree_writer_->CopySubtree(
+                                         std::move(copy_node_options)));
           },
           std::move(promise), std::move(manifest_future));
       return std::move(future);
@@ -384,6 +390,27 @@ std::string OcdbtDriver::DescribeKey(std::string_view key) {
 Result<KvStore> OcdbtDriver::GetBase(std::string_view path,
                                      const Transaction& transaction) const {
   return base_;
+}
+
+absl::Status OcdbtDriver::ReadModifyWrite(
+    internal::OpenTransactionPtr& transaction, size_t& phase, Key key,
+    ReadModifyWriteSource& source) {
+  if (!transaction || !transaction->atomic() || coordinator_->address) {
+    return kvstore::Driver::ReadModifyWrite(transaction, phase, std::move(key),
+                                            source);
+  }
+  return internal_ocdbt::AddReadModifyWrite(this, *io_handle_, transaction,
+                                            phase, std::move(key), source);
+}
+
+absl::Status OcdbtDriver::TransactionalDeleteRange(
+    const internal::OpenTransactionPtr& transaction, KeyRange range) {
+  if (!transaction->atomic() || coordinator_->address) {
+    return kvstore::Driver::TransactionalDeleteRange(transaction,
+                                                     std::move(range));
+  }
+  return internal_ocdbt::AddDeleteRange(this, *io_handle_, transaction,
+                                        std::move(range));
 }
 
 }  // namespace internal_ocdbt

@@ -12,6 +12,11 @@ The ``ocdbt`` driver implements an Optionally-Cooperative Distributed B+Tree
 
 .. json:schema:: Context.ocdbt_coordinator
 
+.. note::
+
+   Atomic multi-key transactions are supported when not using
+   :json:schema:`Context.ocdbt_coordinator`.
+
 Concepts
 --------
 
