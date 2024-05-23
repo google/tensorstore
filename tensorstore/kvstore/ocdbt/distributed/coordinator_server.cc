@@ -145,7 +145,7 @@ grpc::ServerUnaryReactor* CoordinatorServer::Impl::RequestLease(
     reactor->Finish(grpc::Status(grpc::StatusCode::INTERNAL,
                                  std::string(peer_address.status().message())));
     ABSL_LOG_IF(INFO, ocdbt_logging)
-        << "Coordinator: internal error: request=" << request->DebugString();
+        << "Coordinator: internal error: request=" << *request;
     return reactor;
   }
 
@@ -210,8 +210,7 @@ grpc::ServerUnaryReactor* CoordinatorServer::Impl::RequestLease(
     response->set_lease_id(node->lease_id);
   }
   ABSL_LOG_IF(INFO, ocdbt_logging)
-      << "Coordinator: request=" << request->DebugString()
-      << ", response=" << response->DebugString();
+      << "Coordinator: request=" << *request << ", response=" << *response;
   reactor->Finish(grpc::Status());
   return reactor;
 }
