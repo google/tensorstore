@@ -186,7 +186,7 @@ Future<const void> ExperimentalCopyRange(const KvStore& source,
   internal::OpenTransactionPtr target_transaction;
   if (target.transaction != no_transaction) {
     TENSORSTORE_ASSIGN_OR_RETURN(
-        auto target_transaction,
+        target_transaction,
         internal::AcquireOpenTransactionPtrOrError(target.transaction));
   }
   return target.driver->ExperimentalCopyRangeFrom(

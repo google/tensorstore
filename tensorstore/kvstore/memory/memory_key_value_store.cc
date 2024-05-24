@@ -267,13 +267,12 @@ class MemoryDriver::TransactionNode
       absl::Time commit_time = absl::Now();
       if (!ValidateEntryConditions(data, single_phase_mutation, commit_time)) {
         lock.unlock();
-        internal_kvstore::RetryAtomicWriteback(single_phase_mutation,
-                                               commit_time);
+        this->RetryAtomicWriteback(commit_time);
         return;
       }
       ApplyMutation(data, single_phase_mutation, commit_time);
       lock.unlock();
-      internal_kvstore::AtomicCommitWritebackSuccess(single_phase_mutation);
+      this->AtomicCommitWritebackSuccess();
     } else {
       internal_kvstore::WritebackError(single_phase_mutation);
     }
@@ -321,7 +320,7 @@ class MemoryDriver::TransactionNode
                                       BufferedReadModifyWriteEntry& entry,
                                       const absl::Time& commit_time)
       ABSL_SHARED_LOCKS_REQUIRED(data.mutex) {
-    auto& stamp = entry.read_result_.stamp;
+    auto& stamp = entry.stamp();
     auto if_equal = StorageGeneration::Clean(stamp.generation);
     if (StorageGeneration::IsUnknown(if_equal)) {
       assert(stamp.time == absl::InfiniteFuture());
@@ -330,11 +329,11 @@ class MemoryDriver::TransactionNode
     auto it = data.values.find(entry.key_);
     if (it == data.values.end()) {
       if (StorageGeneration::IsNoValue(if_equal)) {
-        entry.read_result_.stamp.time = commit_time;
+        stamp.time = commit_time;
         return true;
       }
     } else if (if_equal == it->second.generation()) {
-      entry.read_result_.stamp.time = commit_time;
+      stamp.time = commit_time;
       return true;
     }
     return false;
@@ -351,19 +350,19 @@ class MemoryDriver::TransactionNode
     for (auto& entry : single_phase_mutation.entries_) {
       if (entry.entry_type() == kReadModifyWrite) {
         auto& rmw_entry = static_cast<BufferedReadModifyWriteEntry&>(entry);
-        auto& stamp = rmw_entry.read_result_.stamp;
+        auto& stamp = rmw_entry.stamp();
         stamp.time = commit_time;
-        if (!StorageGeneration::IsDirty(
-                rmw_entry.read_result_.stamp.generation)) {
+        auto value_state = rmw_entry.value_state_;
+        if (!StorageGeneration::IsDirty(stamp.generation)) {
           // Do nothing
-        } else if (rmw_entry.read_result_.state == ReadResult::kMissing) {
+        } else if (value_state == ReadResult::kMissing) {
           data.values.erase(rmw_entry.key_);
           stamp.generation = StorageGeneration::NoValue();
         } else {
-          assert(rmw_entry.read_result_.state == ReadResult::kValue);
+          assert(value_state == ReadResult::kValue);
           auto& v = data.values[rmw_entry.key_];
           v.generation_number = data.next_generation_number++;
-          v.value = std::move(rmw_entry.read_result_.value);
+          v.value = std::move(rmw_entry.value_);
           stamp.generation = v.generation();
         }
       } else {

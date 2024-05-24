@@ -145,6 +145,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/container:hash_set_of_any",
         "//tensorstore/internal/container:intrusive_red_black_tree",
         "@com_google_absl//absl/synchronization",
+        "@com_google_absl//absl/types:compare",
     ],
 )
 
@@ -848,6 +849,7 @@ tensorstore_cc_library(
         "transaction_impl.h",
     ],
     deps = [
+        "//tensorstore/internal:compare",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:mutex",
         "//tensorstore/internal/container:intrusive_red_black_tree",
@@ -861,6 +863,7 @@ tensorstore_cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/time",
+        "@com_google_absl//absl/types:compare",
     ],
 )
 

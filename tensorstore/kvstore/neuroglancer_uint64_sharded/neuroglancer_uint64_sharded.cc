@@ -649,6 +649,7 @@ class ShardedKeyValueStoreWriteCache
     }
 
     void Writeback(internal_kvstore::ReadModifyWriteEntry& entry,
+                   internal_kvstore::ReadModifyWriteEntry& source_entry,
                    kvstore::ReadResult&& read_result) override {
       auto& value = read_result.value;
       if (read_result.state == kvstore::ReadResult::kValue) {
@@ -656,7 +657,7 @@ class ShardedKeyValueStoreWriteCache
                            GetOwningCache(*this).sharding_spec().data_encoding);
       }
       internal_kvstore::AtomicMultiPhaseMutation::Writeback(
-          entry, std::move(read_result));
+          entry, entry, std::move(read_result));
     }
 
     ApplyReceiver apply_receiver_;
@@ -720,7 +721,7 @@ void ShardedKeyValueStoreWriteCache::TransactionNode::WritebackError() {
 
 namespace {
 void StartApply(ShardedKeyValueStoreWriteCache::TransactionNode& node) {
-  RetryAtomicWriteback(node.phases_, node.apply_options_.staleness_bound);
+  node.RetryAtomicWriteback(node.apply_options_.staleness_bound);
 }
 
 /// Attempts to compute the new encoded shard state that merges any mutations
@@ -766,20 +767,17 @@ void MergeForWriteback(ShardedKeyValueStoreWriteCache::TransactionNode& node,
     auto& buffered_entry =
         static_cast<internal_kvstore::AtomicMultiPhaseMutation::
                         BufferedReadModifyWriteEntry&>(entry);
-    if (StorageGeneration::IsConditional(
-            buffered_entry.read_result_.stamp.generation) &&
-        StorageGeneration::Clean(
-            buffered_entry.read_result_.stamp.generation) !=
+    auto& entry_stamp = buffered_entry.stamp();
+    if (StorageGeneration::IsConditional(entry_stamp.generation) &&
+        StorageGeneration::Clean(entry_stamp.generation) !=
             StorageGeneration::Clean(stamp.generation)) {
       // This mutation is conditional, and is inconsistent with a prior
       // conditional mutation or with `existing_chunks`.
       mismatch = true;
       break;
     }
-    if (buffered_entry.read_result_.state ==
-            kvstore::ReadResult::kUnspecified ||
-        !StorageGeneration::IsInnerLayerDirty(
-            buffered_entry.read_result_.stamp.generation)) {
+    if (buffered_entry.value_state_ == kvstore::ReadResult::kUnspecified ||
+        !StorageGeneration::IsInnerLayerDirty(entry_stamp.generation)) {
       // This is a no-op mutation; ignore it, which has the effect of retaining
       // the existing chunk with this id, if present in `existing_chunks`.
       continue;
@@ -804,10 +802,10 @@ void MergeForWriteback(ShardedKeyValueStoreWriteCache::TransactionNode& node,
         break;
       }
     }
-    if (buffered_entry.read_result_.state == kvstore::ReadResult::kValue) {
+    if (buffered_entry.value_state_ == kvstore::ReadResult::kValue) {
       // The mutation specifies a new value (rather than a deletion).
-      chunks.push_back(EncodedChunk{minishard_and_chunk_id,
-                                    buffered_entry.read_result_.value});
+      chunks.push_back(
+          EncodedChunk{minishard_and_chunk_id, buffered_entry.value_});
       changed = true;
     }
   }
@@ -871,12 +869,11 @@ void ShardedKeyValueStoreWriteCache::TransactionNode::AllEntriesDone(
       auto& buffered_entry =
           static_cast<AtomicMultiPhaseMutation::BufferedReadModifyWriteEntry&>(
               entry);
-      if (buffered_entry.read_result_.state !=
-          kvstore::ReadResult::kUnspecified) {
+      if (buffered_entry.value_state_ != kvstore::ReadResult::kUnspecified) {
         modified = true;
         ++num_chunks;
       }
-      auto& entry_stamp = buffered_entry.read_result_.stamp;
+      auto& entry_stamp = buffered_entry.stamp();
       if (StorageGeneration::IsConditional(entry_stamp.generation)) {
         if (!StorageGeneration::IsUnknown(stamp.generation) &&
             StorageGeneration::Clean(stamp.generation) !=

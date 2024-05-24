@@ -53,6 +53,7 @@
 #include "tensorstore/kvstore/ocdbt/non_distributed/btree_writer.h"
 #include "tensorstore/kvstore/ocdbt/non_distributed/list.h"
 #include "tensorstore/kvstore/ocdbt/non_distributed/read.h"
+#include "tensorstore/kvstore/ocdbt/non_distributed/transactional_btree_writer.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/registry.h"
@@ -135,6 +136,19 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
         }),
         jb::Member("config", jb::Projection<&OcdbtDriverSpecData::config>(
                                  jb::DefaultInitializedValue())),
+        jb::Projection<&OcdbtDriverSpecData::data_file_prefixes>(jb::Sequence(
+            jb::Member("value_data_prefix",
+                       jb::Projection<&DataFilePrefixes::value>(
+                           jb::DefaultValue([](auto* v) { *v = "d/"; }))),
+            jb::Member("btree_node_data_prefix",
+                       jb::Projection<&DataFilePrefixes::btree_node>(
+                           jb::DefaultValue([](auto* v) { *v = "d/"; }))),
+            jb::Member("version_tree_node_data_prefix",
+                       jb::Projection<&DataFilePrefixes::version_tree_node>(
+                           jb::DefaultValue([](auto* v) { *v = "d/"; }))))),
+        jb::Member("assume_config",
+                   jb::Projection<&OcdbtDriverSpecData::assume_config>(
+                       jb::DefaultInitializedValue())),
         jb::Member(
             "experimental_read_coalescing_threshold_bytes",
             jb::Projection<&OcdbtDriverSpecData::
@@ -176,6 +190,7 @@ Future<kvstore::DriverPtr> OcdbtDriverSpec::DoOpen() const {
 
         driver->cache_pool_ = spec->data_.cache_pool;
         driver->data_copy_concurrency_ = spec->data_.data_copy_concurrency;
+        driver->data_file_prefixes_ = spec->data_.data_file_prefixes;
         driver->experimental_read_coalescing_threshold_bytes_ =
             spec->data_.experimental_read_coalescing_threshold_bytes;
         driver->experimental_read_coalescing_merged_bytes_ =
@@ -202,11 +217,14 @@ Future<kvstore::DriverPtr> OcdbtDriverSpec::DoOpen() const {
                   absl::ZeroDuration());
         }
 
+        TENSORSTORE_ASSIGN_OR_RETURN(
+            auto config_state,
+            ConfigState::Make(spec->data_.config, supported_manifest_features,
+                              spec->data_.assume_config));
+
         driver->io_handle_ = internal_ocdbt::MakeIoHandle(
             driver->data_copy_concurrency_, driver->cache_pool_->get(),
-            driver->base_,
-            internal::MakeIntrusivePtr<ConfigState>(
-                spec->data_.config, supported_manifest_features),
+            driver->base_, std::move(config_state), driver->data_file_prefixes_,
             driver->target_data_file_size_.value_or(kDefaultTargetBufferSize),
             std::move(read_coalesce_options));
         driver->btree_writer_ =
@@ -255,6 +273,8 @@ absl::Status OcdbtDriver::GetBoundSpecData(OcdbtDriverSpecData& spec) const {
   spec.data_copy_concurrency = data_copy_concurrency_;
   spec.cache_pool = cache_pool_;
   spec.config = io_handle_->config_state->GetConstraints();
+  spec.assume_config = io_handle_->config_state->assume_config();
+  spec.data_file_prefixes = data_file_prefixes_;
   spec.experimental_read_coalescing_threshold_bytes =
       experimental_read_coalescing_threshold_bytes_;
   spec.experimental_read_coalescing_merged_bytes =
@@ -303,8 +323,8 @@ Future<const void> OcdbtDriver::ExperimentalCopyRangeFrom(
     std::string target_prefix, kvstore::CopyRangeOptions options) {
   if (typeid(*source.driver) == typeid(OcdbtDriver)) {
     auto& source_driver = static_cast<OcdbtDriver&>(*source.driver);
-    if (source.transaction != no_transaction || transaction) {
-      return absl::UnimplementedError("Transactions not supported");
+    if (source.transaction != no_transaction) {
+      return absl::UnimplementedError("Source transactions not supported");
     }
     if (source_driver.base_.driver == base_.driver &&
         absl::StartsWith(source_driver.base_.path, base_.path)) {
@@ -318,7 +338,8 @@ Future<const void> OcdbtDriver::ExperimentalCopyRangeFrom(
                source_driver.base_.path.substr(base_.path.size()),
            source_range =
                KeyRange::AddPrefix(source.path, options.source_range),
-           source_prefix_length = source.path.size()](
+           source_prefix_length = source.path.size(),
+           transaction = std::move(transaction)](
               Promise<void> promise,
               ReadyFuture<const ManifestWithTime> future) mutable {
             auto& manifest_with_time = future.value();
@@ -351,8 +372,12 @@ Future<const void> OcdbtDriver::ExperimentalCopyRangeFrom(
             copy_node_options.range = std::move(source_range);
             copy_node_options.strip_prefix_length = source_prefix_length;
             copy_node_options.add_prefix = std::move(target_prefix);
-            LinkResult(std::move(promise), self->btree_writer_->CopySubtree(
-                                               std::move(copy_node_options)));
+            LinkResult(std::move(promise),
+                       transaction ? internal_ocdbt::AddCopySubtree(
+                                         &*self, *self->io_handle_, transaction,
+                                         std::move(copy_node_options))
+                                   : self->btree_writer_->CopySubtree(
+                                         std::move(copy_node_options)));
           },
           std::move(promise), std::move(manifest_future));
       return std::move(future);
@@ -371,6 +396,27 @@ std::string OcdbtDriver::DescribeKey(std::string_view key) {
 Result<KvStore> OcdbtDriver::GetBase(std::string_view path,
                                      const Transaction& transaction) const {
   return base_;
+}
+
+absl::Status OcdbtDriver::ReadModifyWrite(
+    internal::OpenTransactionPtr& transaction, size_t& phase, Key key,
+    ReadModifyWriteSource& source) {
+  if (!transaction || !transaction->atomic() || coordinator_->address) {
+    return kvstore::Driver::ReadModifyWrite(transaction, phase, std::move(key),
+                                            source);
+  }
+  return internal_ocdbt::AddReadModifyWrite(this, *io_handle_, transaction,
+                                            phase, std::move(key), source);
+}
+
+absl::Status OcdbtDriver::TransactionalDeleteRange(
+    const internal::OpenTransactionPtr& transaction, KeyRange range) {
+  if (!transaction->atomic() || coordinator_->address) {
+    return kvstore::Driver::TransactionalDeleteRange(transaction,
+                                                     std::move(range));
+  }
+  return internal_ocdbt::AddDeleteRange(this, *io_handle_, transaction,
+                                        std::move(range));
 }
 
 }  // namespace internal_ocdbt

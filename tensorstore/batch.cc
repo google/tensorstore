@@ -17,6 +17,7 @@
 #include <atomic>
 #include <cassert>
 
+#include "absl/types/compare.h"
 #include "tensorstore/batch_impl.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 
@@ -31,9 +32,9 @@ Batch Batch::New() {
 void Batch::Impl::InsertIntoDepthTree(Entry& entry) {
   auto [depth_node, inserted] = nesting_depths_.FindOrInsert(
       [depth = entry.nesting_depth_](Entry& e) {
-        if (depth > e.nesting_depth_) return -1;
-        if (depth == e.nesting_depth_) return 0;
-        return 1;
+        return depth > e.nesting_depth_    ? absl::weak_ordering::less
+               : depth == e.nesting_depth_ ? absl::weak_ordering::equivalent
+                                           : absl::weak_ordering::greater;
       },
       [&] { return &entry; });
   if (inserted) {

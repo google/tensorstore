@@ -27,7 +27,6 @@
 #include <variant>
 #include <vector>
 
-#include "absl/status/status.h"
 #include "absl/strings/str_format.h"
 #include "python/tensorstore/array_type_caster.h"
 #include "python/tensorstore/batch.h"
@@ -45,11 +44,12 @@
 #include "python/tensorstore/spec.h"
 #include "python/tensorstore/tensorstore_class.h"
 #include "python/tensorstore/tensorstore_module_components.h"
-#include "python/tensorstore/transaction.h"
 #include "python/tensorstore/write_futures.h"
 #include "tensorstore/array.h"
+#include "tensorstore/array_storage_statistics.h"
 #include "tensorstore/batch.h"
 #include "tensorstore/cast.h"
+#include "tensorstore/codec_spec.h"
 #include "tensorstore/context.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
@@ -58,6 +58,7 @@
 #include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/global_initializer.h"
+#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json/pprint_python.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/std_optional.h"
@@ -67,6 +68,7 @@
 #include "tensorstore/open_options.h"
 #include "tensorstore/progress.h"
 #include "tensorstore/rank.h"
+#include "tensorstore/read_write_options.h"
 #include "tensorstore/resize_options.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/serialization/std_optional.h"
@@ -92,17 +94,24 @@ namespace py = ::pybind11;
 
 namespace {
 
+template <typename... ParamDef>
 WriteFutures IssueCopyOrWrite(
     const TensorStore<>& self,
-    std::variant<PythonTensorStoreObject*, ArrayArgumentPlaceholder> source) {
+    std::variant<PythonTensorStoreObject*, ArrayArgumentPlaceholder> source,
+    KeywordArgument<ParamDef>&... arg) {
   if (auto* store = std::get_if<PythonTensorStoreObject*>(&source)) {
-    return tensorstore::Copy((**store).value, self);
+    CopyOptions options;
+    ApplyKeywordArguments<ParamDef...>(options, arg...);
+    return tensorstore::Copy((**store).value, self, std::move(options));
   } else {
+    WriteOptions options;
+    ApplyKeywordArguments<ParamDef...>(options, arg...);
     auto& source_obj = std::get_if<ArrayArgumentPlaceholder>(&source)->value;
     SharedArray<const void> source_array;
     ConvertToArray<const void, dynamic_rank, /*nothrow=*/false>(
         source_obj, &source_array, self.dtype(), 0, self.rank());
-    return tensorstore::Write(std::move(source_array), self);
+    return tensorstore::Write(std::move(source_array), self,
+                              std::move(options));
   }
 }
 
@@ -125,6 +134,15 @@ constexpr auto ForwardSpecRequestSetters = [](auto callback,
            spec_setters::SetAssumeCachedMetadata{},
            spec_setters::SetMinimalSpec{}, spec_setters::SetRetainContext{},
            spec_setters::SetUnbindContext{});
+};
+
+constexpr auto ForwardWriteSetters = [](auto callback, auto... other_param) {
+  callback(other_param...,
+  // TODO(jbms): Add this option once it is supported.
+#if 0
+           write_setters::SetCanReferenceSourceDataUntilCommit{},
+#endif
+           write_setters::SetCanReferenceSourceDataIndefinitely{});
 };
 
 using TensorStoreCls = py::class_<PythonTensorStoreObject>;
@@ -530,16 +548,8 @@ Group:
 )",
       py::kw_only(), py::arg("order") = "C", py::arg("batch") = std::nullopt);
 
-  cls.def(
-      "write",
-      [](Self& self,
-         std::variant<PythonTensorStoreObject*, ArrayArgumentPlaceholder>
-             source) {
-        return PythonWriteFutures(
-            IssueCopyOrWrite(self.value, std::move(source)),
-            self.reference_manager());
-      },
-      R"(
+  ForwardWriteSetters([&](auto... param_def) {
+    std::string doc = R"(
 Writes to the current domain.
 
 Example:
@@ -580,6 +590,10 @@ Args:
     :python:`self.domain` and with a data type convertible to
     :python:`self.dtype`.  May be an existing :py:obj:`TensorStore` or any
     :py:obj:`~numpy.typing.ArrayLike`, including a scalar.
+
+)";
+    AppendKeywordArgumentDocs(doc, param_def...);
+    doc += R"(
 
 Returns:
 
@@ -723,8 +737,21 @@ writes to be read:
    in any subsequent reads *using the same transaction*.  The write is only
    durably committed once the *transaction* is committed successfully.
 
-)",
-      py::arg("source"));
+)";
+    cls.def(
+        "write",
+        [](Self& self,
+           std::variant<PythonTensorStoreObject*, ArrayArgumentPlaceholder>
+               source,
+           KeywordArgument<decltype(param_def)>... kwarg) {
+          return PythonWriteFutures(
+              IssueCopyOrWrite<decltype(param_def)...>(
+                  self.value, std::move(source), kwarg...),
+              self.reference_manager());
+        },
+        doc.c_str(), py::arg("source"), py::kw_only(),
+        MakeKeywordArgumentPyArg(param_def)...);
+  });
 
   cls.def(
       "resize",

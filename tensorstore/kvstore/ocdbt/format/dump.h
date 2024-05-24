@@ -34,16 +34,17 @@ namespace internal_ocdbt {
 
 /// Combines an IndirectDataReference with a label indicating the value type.
 struct LabeledIndirectDataReference {
-  /// Indicates the type of the referenced value, must be one of:
+  IndirectDataKind kind;
+  IndirectDataReference location;
+
+  /// Parses from a string of the form `"<label>:<file_id>:<offset>:<length>"`.
+  ///
+  /// The `<label>` indicates the type of the referenced value, and must be one
+  /// of:
   ///
   /// - "value": raw value for a key stored indirectly
   /// - "btreenode": B+Tree node
   /// - "versionnode": Version tree node
-  std::string label;
-
-  IndirectDataReference location;
-
-  /// Parses from a string of the form `"<label>:<file_id>:<offset>:<length>"`.
   static Result<LabeledIndirectDataReference> Parse(std::string_view s);
 };
 

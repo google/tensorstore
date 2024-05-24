@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <functional>
 #include <iterator>
 #include <set>
 #include <string>
@@ -25,6 +26,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/random/random.h"
+#include "absl/types/compare.h"
+#include "tensorstore/internal/compare.h"
 
 namespace {
 
@@ -103,14 +106,16 @@ struct Set {
   }
 
   static auto CompareToKey(int key) {
-    return [key](Node& node) {
-      return rbtree::ThreeWayFromLessThan<>()(key, node.value);
+    return [key](Node& node) -> absl::weak_ordering {
+      return tensorstore::internal::DoThreeWayComparison(std::less<int>{}, key,
+                                                         node.value);
     };
   }
 
   static auto CompareNodes() {
-    return [](Node& a, Node& b) {
-      return rbtree::ThreeWayFromLessThan<>()(a.value, b.value);
+    return [](Node& a, Node& b) -> absl::weak_ordering {
+      return tensorstore::internal::CompareResultAsWeakOrdering(a.value -
+                                                                b.value);
     };
   }
 
@@ -177,8 +182,9 @@ struct Set {
 
   void CheckSplitJoin(int key) {
     auto orig_elements = Elements();
-    auto split_result = tree.FindSplit([&](Node& node) {
-      return rbtree::ThreeWayFromLessThan<>()(key, node.value);
+    auto split_result = tree.FindSplit([&](Node& node) -> absl::weak_ordering {
+      return tensorstore::internal::DoThreeWayComparison(std::less<>{}, key,
+                                                         node.value);
     });
     SCOPED_TRACE("Key=" + std::to_string(key) +  //
                  "\nLeft tree:\n" + FormatTree(split_result.trees[0]) +
@@ -340,7 +346,8 @@ struct MultiSet {
   std::multiset<Pair, Compare> golden_set;
 
   constexpr static auto ThreeWayCompare = [](Node& a, Node& b) {
-    return rbtree::ThreeWayFromLessThan<>()(a.value.first, b.value.first);
+    return tensorstore::internal::CompareResultAsWeakOrdering(a.value.first -
+                                                              b.value.first);
   };
 
   void CheckTreeInvariants() { CheckInvariants(tree, ThreeWayCompare); }
@@ -350,7 +357,8 @@ struct MultiSet {
         [&](Node& node) {
           // Ensure that if `value.first` is already present, `value` is added
           // at the right side of the existing values, to match `std::multiset`.
-          return value.first < node.value.first ? -1 : 1;
+          return value.first < node.value.first ? absl::weak_ordering::less
+                                                : absl::weak_ordering::greater;
         },
         [&] {
           auto* n = new Node;

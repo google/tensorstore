@@ -40,7 +40,8 @@ std::vector<InteriorNodeEntryData<std::string>> WriteNodes(
   for (size_t i = 0; i < encoded_nodes.size(); ++i) {
     auto& encoded_node = encoded_nodes[i];
     auto& new_entry = new_entries[i];
-    flush_promise.Link(io_handle.WriteData(std::move(encoded_node.encoded_node),
+    flush_promise.Link(io_handle.WriteData(IndirectDataKind::kBtreeNode,
+                                           std::move(encoded_node.encoded_node),
                                            new_entry.node.location));
     new_entry.key = std::move(encoded_node.info.inclusive_min_key);
     new_entry.node.statistics = encoded_node.info.statistics;

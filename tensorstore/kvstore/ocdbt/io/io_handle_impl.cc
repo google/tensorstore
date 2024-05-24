@@ -16,9 +16,11 @@
 
 #include <stddef.h>
 
+#include <algorithm>
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include "absl/base/attributes.h"
@@ -76,7 +78,7 @@ class IoHandleImpl : public IoHandle {
       numbered_manifest_cache_entry_;
   internal::CachePtr<BtreeNodeCache> btree_node_cache_;
   internal::CachePtr<VersionTreeNodeCache> version_tree_node_cache_;
-  IndirectDataWriterPtr indirect_data_writer_;
+  IndirectDataWriterPtr indirect_data_writer_[kNumIndirectDataKinds];
   kvstore::DriverPtr indirect_data_kvstore_driver_;
 
   Future<const std::shared_ptr<const BtreeNode>> GetBtreeNode(
@@ -350,9 +352,11 @@ class IoHandleImpl : public IoHandle {
                                       std::move(new_manifest), time);
   }
 
-  Future<const void> WriteData(absl::Cord data,
+  Future<const void> WriteData(IndirectDataKind kind, absl::Cord data,
                                IndirectDataReference& ref) const final {
-    return internal_ocdbt::Write(*indirect_data_writer_, std::move(data), ref);
+    return internal_ocdbt::Write(
+        *indirect_data_writer_[static_cast<size_t>(kind)], std::move(data),
+        ref);
   }
 
   std::string DescribeLocation() const final {
@@ -364,7 +368,8 @@ IoHandle::Ptr MakeIoHandle(
     const Context::Resource<tensorstore::internal::DataCopyConcurrencyResource>&
         data_copy_concurrency,
     internal::CachePool* cache_pool, const KvStore& base_kvstore,
-    ConfigStatePtr config_state, size_t write_target_size,
+    ConfigStatePtr config_state, const DataFilePrefixes& data_file_prefixes,
+    size_t write_target_size,
     std::optional<ReadCoalesceOptions> read_coalesce_options) {
   // Maybe wrap the base driver in CoalesceKvStoreDriver.
   kvstore::DriverPtr driver_with_optional_coalescing =
@@ -382,8 +387,26 @@ IoHandle::Ptr MakeIoHandle(
   impl->executor = data_copy_concurrency->executor;
   auto data_kvstore =
       kvstore::KvStore(driver_with_optional_coalescing, base_kvstore.path);
-  impl->indirect_data_writer_ =
-      internal_ocdbt::MakeIndirectDataWriter(data_kvstore, write_target_size);
+  {
+    std::string_view data_prefix_array[kNumIndirectDataKinds];
+    data_prefix_array[static_cast<size_t>(IndirectDataKind::kValue)] =
+        data_file_prefixes.value;
+    data_prefix_array[static_cast<size_t>(IndirectDataKind::kBtreeNode)] =
+        data_file_prefixes.btree_node;
+    data_prefix_array[static_cast<size_t>(IndirectDataKind::kVersionNode)] =
+        data_file_prefixes.version_tree_node;
+    for (size_t i = 0; i < kNumIndirectDataKinds; ++i) {
+      size_t match_i = std::find(&data_prefix_array[0], &data_prefix_array[i],
+                                 data_prefix_array[i]) -
+                       &data_prefix_array[0];
+      if (match_i == i) {
+        impl->indirect_data_writer_[i] = internal_ocdbt::MakeIndirectDataWriter(
+            data_kvstore, std::string(data_prefix_array[i]), write_target_size);
+      } else {
+        impl->indirect_data_writer_[i] = impl->indirect_data_writer_[match_i];
+      }
+    }
+  }
   impl->indirect_data_kvstore_driver_ =
       internal_ocdbt::MakeIndirectDataKvStoreDriver(data_kvstore);
   impl->btree_node_cache_ =

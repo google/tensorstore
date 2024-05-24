@@ -523,7 +523,7 @@ void ShardedKeyValueStoreWriteCache::TransactionNode::DoApply(
 }
 
 void ShardedKeyValueStoreWriteCache::TransactionNode::StartApply() {
-  RetryAtomicWriteback(phases_, apply_options_.staleness_bound);
+  RetryAtomicWriteback(apply_options_.staleness_bound);
 }
 
 void ShardedKeyValueStoreWriteCache::TransactionNode::AllEntriesDone(
@@ -557,12 +557,11 @@ void ShardedKeyValueStoreWriteCache::TransactionNode::AllEntriesDone(
       auto& buffered_entry =
           static_cast<AtomicMultiPhaseMutation::BufferedReadModifyWriteEntry&>(
               entry);
-      if (buffered_entry.read_result_.state !=
-          kvstore::ReadResult::kUnspecified) {
+      if (buffered_entry.value_state_ != kvstore::ReadResult::kUnspecified) {
         modified = true;
         ++num_entries;
       }
-      auto& entry_stamp = buffered_entry.read_result_.stamp;
+      auto& entry_stamp = buffered_entry.stamp();
       if (StorageGeneration::IsConditional(entry_stamp.generation)) {
         if (!StorageGeneration::IsUnknown(stamp.generation) &&
             StorageGeneration::Clean(stamp.generation) !=
@@ -653,28 +652,25 @@ void ShardedKeyValueStoreWriteCache::TransactionNode::MergeForWriteback(
     auto& buffered_entry =
         static_cast<internal_kvstore::AtomicMultiPhaseMutation::
                         BufferedReadModifyWriteEntry&>(entry);
-    if (StorageGeneration::IsConditional(
-            buffered_entry.read_result_.stamp.generation) &&
-        StorageGeneration::Clean(
-            buffered_entry.read_result_.stamp.generation) !=
+    auto& entry_stamp = buffered_entry.stamp();
+    if (StorageGeneration::IsConditional(entry_stamp.generation) &&
+        StorageGeneration::Clean(entry_stamp.generation) !=
             StorageGeneration::Clean(stamp.generation)) {
       // This mutation is conditional, and is inconsistent with a prior
       // conditional mutation or with `existing_chunks`.
       mismatch = true;
       break;
     }
-    if (buffered_entry.read_result_.state ==
-            kvstore::ReadResult::kUnspecified ||
-        !StorageGeneration::IsInnerLayerDirty(
-            buffered_entry.read_result_.stamp.generation)) {
+    if (buffered_entry.value_state_ == kvstore::ReadResult::kUnspecified ||
+        !StorageGeneration::IsInnerLayerDirty(entry_stamp.generation)) {
       // This is a no-op mutation; ignore it, which has the effect of retaining
       // the existing entry with this id, if present.
       continue;
     }
     auto entry_id = InternalKeyToEntryId(buffered_entry.key_);
     auto& new_entry = new_entries.entries[entry_id];
-    if (buffered_entry.read_result_.state == kvstore::ReadResult::kValue) {
-      new_entry = buffered_entry.read_result_.value;
+    if (buffered_entry.value_state_ == kvstore::ReadResult::kValue) {
+      new_entry = buffered_entry.value_;
       changed = true;
     } else if (new_entry) {
       new_entry = std::nullopt;

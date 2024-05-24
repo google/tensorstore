@@ -65,11 +65,12 @@ class CooperatorServerTest : public ::testing::Test {
             .GetResource<tensorstore::internal::DataCopyConcurrencyResource>()
             .value();
     base_kvstore_ = tensorstore::GetMemoryKeyValueStore();
-    io_handle_ =
-        MakeIoHandle(data_copy_concurrency, cache_pool.get(), base_kvstore_,
-                     MakeIntrusivePtr<ConfigState>(
-                         ConfigConstraints{},
-                         base_kvstore_.driver->GetSupportedFeatures({})));
+    io_handle_ = MakeIoHandle(
+        data_copy_concurrency, cache_pool.get(), base_kvstore_,
+        ConfigState::Make(ConfigConstraints{},
+                          base_kvstore_.driver->GetSupportedFeatures({}))
+            .value(),
+        /*data_file_prefixes=*/{});
 
     {
       CoordinatorServer::Options options;

@@ -31,6 +31,7 @@
 #include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/internal/arena.h"
 #include "tensorstore/internal/masked_array.h"
 #include "tensorstore/internal/nditerable.h"
@@ -123,10 +124,6 @@ struct AsyncWriteArray {
       return StridedLayoutView<>(fill_value.shape(), c_order_byte_strides);
     }
 
-    /// Allocates and constructs an array of `num_elements()` elements of type
-    /// `dtype()`.
-    std::shared_ptr<void> AllocateAndConstructBuffer() const;
-
     /// Returns an `NDIterable` for that may be used for reading the specified
     /// `array`, using the specified `chunk_transform`.
     ///
@@ -162,6 +159,11 @@ struct AsyncWriteArray {
     ///   an existing read value or any writes have been performed that were not
     ///   overwritten by an explicit call to `WriteFillValue`.
     bool must_store;
+
+    /// If `true`, a reference to `array` may be retained indefinitely.  If
+    /// `false`, a reference to `array` may not be retained after the
+    /// transaction is committed.
+    bool may_retain_reference_to_array_indefinitely;
   };
 
   /// Represents an array with an associated mask indicating the positions that
@@ -180,22 +182,39 @@ struct AsyncWriteArray {
     /// Returns an estimate of the memory required.
     size_t EstimateSizeInBytes(const Spec& spec) const;
 
-    /// Optional pointer to C-order multi-dimensional array of data type and
-    /// shape given by the `dtype` and `shape`, respectively, of the `Spec`.
-    /// If equal to `nullptr`, no data has been written yet, or the current
-    /// value is equal to the fill value.
-    std::shared_ptr<void> data;
+    /// Array with data type of `spec.dtype()` and shape equal to
+    /// `spec.shape()`.  If `array.data() == nullptr`, no data has been written
+    /// yet, or the current value is equal to the fill value.
+    SharedArray<void> array;
 
     /// If `mask` is all `true` (`num_masked_elements` is equal to the total
     /// number of elements in the `data` array), `data == nullptr` represents
     /// the same state as `data` containing the fill value.
     MaskData mask;
 
+    enum ArrayCapabilities {
+      kMutableArray,
+      kImmutableAndCanRetainIndefinitely,
+      kImmutableAndCanRetainUntilCommit,
+    };
+
+    /// Specifies how `array` may be used.  Only meaningful if
+    /// `array.data() != nullptr`.
+    ArrayCapabilities array_capabilities;
+
     SharedArrayView<const void> shared_array_view(const Spec& spec) {
-      return SharedArrayView<const void>(
-          SharedElementPointer<const void>(data, spec.dtype()),
-          spec.write_layout());
+      return array;
     }
+
+    /// Returns a writable transformed array corresponding to `chunk_transform`.
+    ///
+    /// \param spec The associated `Spec`.
+    /// \param origin The associated origin of the array.
+    /// \param chunk_transform Transform to use for writing, the output rank
+    ///     must equal `spec.rank()`.
+    Result<TransformedSharedArray<void>> GetWritableTransformedArray(
+        const Spec& spec, span<const Index> origin,
+        IndexTransform<> chunk_transform);
 
     /// Returns an `NDIterable` that may be used for writing to this array using
     /// the specified `chunk_transform`.
@@ -254,7 +273,9 @@ struct AsyncWriteArray {
         bool read_state_already_integrated = false);
 
    private:
-    /// Ensures that `data` can be written, copying it if necessary.
+    friend class AsyncWriteArray;
+
+    /// Copies `array`, which must already exist.
     void EnsureWritable(const Spec& spec);
   };
 
@@ -286,6 +307,29 @@ struct AsyncWriteArray {
       const StorageGeneration& read_generation,
       IndexTransform<> chunk_transform, Arena* arena);
 
+  enum class WriteArraySourceCapabilities {
+    // The `AsyncWriteArray` must not retain a reference to the source array
+    // after `WriteArray` returns.  The source data is guaranteed to remain
+    // valid and unchanged until `WriteArray` returns.
+    kCannotRetain,
+
+    // Unique (mutable) ownership of the array data is transferred to the
+    // `AsyncWriteArray` if `WriteArray` returns successfully.
+    kMutable,
+
+    // The `AsyncWriteArray` may retain a reference to the source array data
+    // indefinitely.  The source data is guaranteed to remain valid and
+    // unchanged until all references are released.
+    kImmutableAndCanRetainIndefinitely,
+
+    // The `AsyncWriteArray` may retain a reference to the source array data
+    // until the transaction with which this `AsyncWriteArray` is associated is
+    // fully committed or fully aborted, at which point all references must be
+    // released.  The source data is guaranteed to remain valid and unchanged
+    // until all references are released.
+    kImmutableAndCanRetainUntilCommit,
+  };
+
   /// Returns an `NDIterable` that may be used for writing to this array using
   /// the specified `chunk_transform`.
   ///
@@ -313,6 +357,28 @@ struct AsyncWriteArray {
   void EndWrite(const Spec& spec, span<const Index> origin,
                 IndexTransformView<> chunk_transform, bool success,
                 Arena* arena);
+
+  /// Assigns this array from an existing source array, potentially without
+  /// actually copying the data.
+  ///
+  /// \param spec The associated `Spec`.
+  /// \param origin The associated origin of the array.
+  /// \param chunk_transform Transform to use for writing, the output rank
+  ///     must equal `spec.rank()`.
+  /// \param get_source_array Returns the source array information.  Provided as
+  ///     a callback to avoid potentially expensive work in constructing the
+  ///     source array if it cannot be used anyway.
+  /// \error `absl::StatusCode::kCancelled` if the output range of
+  ///     `chunk_transform` is not exactly equal to the domain of this
+  ///     `AsyncWriteArray`, or the source array is not compatible.  In this
+  ///     case, callers should fall back to writing via `BeginWrite` and
+  ///     `EndWrite`.
+  absl::Status WriteArray(
+      const Spec& spec, span<const Index> origin,
+      IndexTransformView<> chunk_transform,
+      absl::FunctionRef<Result<std::pair<TransformedSharedArray<const void>,
+                                         WriteArraySourceCapabilities>>()>
+          get_source_array);
 
   /// Returns an array to write back the current modifications.
   ///

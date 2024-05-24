@@ -745,6 +745,8 @@ Read(Source&& source, Option&&... options) {
 ///
 /// - `WriteProgressFunction`
 ///
+/// - `SourceDataReferenceRestriction`
+///
 /// - `Batch`
 ///
 /// Example::
@@ -808,6 +810,8 @@ Write(SourceArray&& source, Target&& target, Option&&... options) {
 /// - `DomainAlignmentOptions`
 ///
 /// - `CopyProgressFunction`
+///
+/// - `SourceDataReferenceRestriction`
 ///
 /// - `Batch`
 ///

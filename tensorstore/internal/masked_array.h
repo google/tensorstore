@@ -87,14 +87,13 @@ void WriteToMask(MaskData* mask, BoxView<> output_box,
 ///
 /// \param box Domain over which the mask is defined.
 /// \param source[in] Source array with `source.shape() == box.shape()`.
-/// \param dest_ptr[in,out] Pointer to the C-order contiguous destination array
-///     of shape `source.shape()`.
+/// \param dest[in,out] Destination array with `dest.shape() == box.shape()`.
 /// \param mask[in] The mask specifying the positions of the destination array
 ///     not to modify.
-/// \dchecks `source.dtype() == dest_ptr.dtype()`.
+/// \dchecks `source.dtype() == dest.dtype()`.
 /// \dchecks `source.shape() == box.shape()`.
 void RebaseMaskedArray(BoxView<> box, ArrayView<const void> source,
-                       ElementPointer<void> dest_ptr, const MaskData& mask);
+                       ArrayView<void> dest, const MaskData& mask);
 
 /// Assigns `*mask_a` to represent the union of two masks.
 ///

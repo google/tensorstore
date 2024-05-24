@@ -31,6 +31,8 @@
 #include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
+#include "absl/types/compare.h"
+#include "tensorstore/internal/compare.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/kvstore/byte_range.h"
@@ -275,7 +277,9 @@ void DestroyReadModifyWriteSequence(ReadModifyWriteEntry* entry) {
 }
 
 auto CompareToEntry(MutationEntry& e) {
-  return [&e](MutationEntry& other) { return e.key_.compare(other.key_); };
+  return [&e](MutationEntry& other) {
+    return internal::CompareResultAsWeakOrdering(e.key_.compare(other.key_));
+  };
 }
 
 void InsertIntoPriorPhase(MutationEntry* entry) {
@@ -347,17 +351,6 @@ SinglePhaseMutation& GetCurrentSinglePhaseMutation(
       new_single_phase_mutation->multi_phase_ = &multi_phase;
       single_phase_mutation = new_single_phase_mutation;
     }
-  }
-  return *single_phase_mutation;
-}
-
-SinglePhaseMutation& GetCommittingPhase(MultiPhaseMutation& multi_phase) {
-  auto* single_phase_mutation = &multi_phase.phases_;
-  if (single_phase_mutation->phase_number_ !=
-      multi_phase.GetTransactionNode().phase()) {
-    single_phase_mutation = single_phase_mutation->next_;
-    assert(single_phase_mutation->phase_number_ ==
-           multi_phase.GetTransactionNode().phase());
   }
   return *single_phase_mutation;
 }
@@ -451,7 +444,8 @@ void StartWriteback(ReadModifyWriteEntry& entry, absl::Time staleness_bound) {
       void set_cancel() { ABSL_UNREACHABLE(); }  // COV_NF_LINE
       void set_value(ReadResult read_result) {
         ReceiveWritebackCommon(*entry_, read_result);
-        entry_->multi_phase().Writeback(*entry_, std::move(read_result));
+        entry_->multi_phase().Writeback(*entry_, *entry_,
+                                        std::move(read_result));
       }
     };
     entry.source_->KvsWriteback(std::move(writeback_options),
@@ -487,8 +481,8 @@ void StartWriteback(ReadModifyWriteEntry& entry, absl::Time staleness_bound) {
       // Staleness bound for the original `StartWriteback` request.  This is
       // used for all writeback requests to "skipped" entries as well.
       absl::Time staleness_bound;
-      // Current writeback value, as when the writeback request was *issued* to
-      // `entry`.  If `!entry->next_read_modify_write()`, then this is just
+      // Current writeback value, as of when the writeback request was *issued*
+      // to `entry`.  If `!entry->next_read_modify_write()`, then this is just
       // default constructed.
       //
       // Note that `read_result.state` and `read_result.value` are determined
@@ -496,6 +490,9 @@ void StartWriteback(ReadModifyWriteEntry& entry, absl::Time staleness_bound) {
       // `GetLastReadModifyWriteEntry()`.  However, `read_result.stamp` may be
       // affected by "skipped" entries.
       ReadResult read_result;
+
+      // Entry from which `read_result` was obtained.
+      ReadModifyWriteEntry* source_entry = nullptr;
 
       // Returns the last (i.e. most recent) entry in the sequence.  This is the
       // entry to which the initial writeback request is issued.
@@ -523,6 +520,7 @@ void StartWriteback(ReadModifyWriteEntry& entry, absl::Time staleness_bound) {
         // constructed) `state->read_result` with this initial writeback
         // request.
         state_->read_result = std::move(read_result);
+        state_->source_entry = &entry;
       } else {
         // This branch covers two possible cases in which we update only
         // `state_->read_result.stamp` but leave `state_->read_result.state` and
@@ -550,6 +548,7 @@ void StartWriteback(ReadModifyWriteEntry& entry, absl::Time staleness_bound) {
               ", new_result state=", read_result.state,
               ", stamp=", read_result.stamp);
           state_->read_result = std::move(read_result);
+          state_->source_entry = &entry;
         } else {
           state_->read_result.stamp.time = read_result.stamp.time;
           TENSORSTORE_KVSTORE_DEBUG_LOG(entry, "Conditioning: existing_stamp=",
@@ -639,8 +638,10 @@ void StartWriteback(ReadModifyWriteEntry& entry, absl::Time staleness_bound) {
                                     "No remaining skipped entries, forwarding "
                                     "to MultiPhaseMutation::Writeback: ",
                                     state_->read_result.stamp);
-      last_entry->multi_phase().Writeback(*last_entry,
-                                          std::move(state_->read_result));
+      last_entry->multi_phase().Writeback(
+          *last_entry,
+          state_->source_entry ? *state_->source_entry : *last_entry,
+          std::move(state_->read_result));
     }
   };
   auto state = std::unique_ptr<SequenceWritebackReceiverImpl::State>(
@@ -859,6 +860,17 @@ MultiPhaseMutation::MultiPhaseMutation() {
   phases_.multi_phase_ = this;
 }
 
+SinglePhaseMutation& MultiPhaseMutation::GetCommittingPhase() {
+  auto* single_phase_mutation = &phases_;
+  if (single_phase_mutation->phase_number_ !=
+      this->GetTransactionNode().phase()) {
+    single_phase_mutation = single_phase_mutation->next_;
+    assert(single_phase_mutation->phase_number_ ==
+           this->GetTransactionNode().phase());
+  }
+  return *single_phase_mutation;
+}
+
 void MultiPhaseMutation::AllEntriesDone(
     SinglePhaseMutation& single_phase_mutation) {
   size_t next_phase = 0;
@@ -949,7 +961,7 @@ void MultiPhaseMutation::CommitNextPhase() {
     }
   }
 
-  auto& single_phase_mutation = GetCommittingPhase(*this);
+  auto& single_phase_mutation = GetCommittingPhase();
   WritebackPhase(single_phase_mutation, absl::InfinitePast(),
                  [](ReadModifyWriteEntry& entry) { return true; });
 }
@@ -985,13 +997,15 @@ MultiPhaseMutation::ReadModifyWriteStatus MultiPhaseMutation::ReadModifyWrite(
   auto find_result = single_phase_mutation.entries_.Find(
       [key = std::string_view(entry->key_)](MutationEntry& existing_entry) {
         auto c = key.compare(existing_entry.key_);
-        if (c <= 0) return c;
-        if (existing_entry.entry_type() == kReadModifyWrite) return 1;
+        if (c <= 0) return internal::CompareResultAsWeakOrdering(c);
+        if (existing_entry.entry_type() == kReadModifyWrite) {
+          return absl::weak_ordering::greater;
+        }
         return KeyRange::CompareKeyAndExclusiveMax(
                    key, static_cast<DeleteRangeEntry&>(existing_entry)
                             .exclusive_max_) < 0
-                   ? 0
-                   : 1;
+                   ? absl::weak_ordering::equivalent
+                   : absl::weak_ordering::greater;
       });
   if (!find_result.found) {
     // No existing `ReadModifyWriteEntry` or `DeleteRangeEntry` covering `key`
@@ -1056,7 +1070,7 @@ MultiPhaseMutation::ReadModifyWriteStatus MultiPhaseMutation::ReadModifyWrite(
   // split its `superseded_` tree of `ReadModifyWriteEntry` nodes.
   auto split_result = existing_entry->superseded_.FindSplit(
       [key = std::string_view(entry->key_)](MutationEntry& e) {
-        return key.compare(e.key_);
+        return internal::CompareResultAsWeakOrdering(key.compare(e.key_));
       });
   if (split_result.center) {
     split_result.center->flags_ &= ~ReadModifyWriteEntry::kDeleted;
@@ -1259,6 +1273,16 @@ void MultiPhaseMutation::RecordEntryWritebackError(ReadModifyWriteEntry& entry,
   WritebackError(entry);
 }
 
+void AtomicMultiPhaseMutationBase::RetryAtomicWriteback(
+    absl::Time staleness_bound) {
+  auto& single_phase_mutation = GetCommittingPhase();
+  WritebackPhase(
+      single_phase_mutation, staleness_bound, [&](ReadModifyWriteEntry& entry) {
+        return static_cast<ReadModifyWriteEntryWithStamp&>(entry).IsOutOfDate(
+            staleness_bound);
+      });
+}
+
 ReadModifyWriteEntry* AtomicMultiPhaseMutation::AllocateReadModifyWriteEntry() {
   return new BufferedReadModifyWriteEntry;
 }
@@ -1267,10 +1291,8 @@ void AtomicMultiPhaseMutation::FreeReadModifyWriteEntry(
   delete static_cast<BufferedReadModifyWriteEntry*>(entry);
 }
 
-namespace {
-
-void AtomicWritebackReady(
-    AtomicMultiPhaseMutation::BufferedReadModifyWriteEntry& entry) {
+void AtomicMultiPhaseMutationBase::AtomicWritebackReady(
+    ReadModifyWriteEntry& entry) {
   if (auto* dr_entry = static_cast<DeleteRangeEntry*>(entry.next_)) {
     DeletedEntryDone(*dr_entry, /*error=*/false);
   } else {
@@ -1278,47 +1300,35 @@ void AtomicWritebackReady(
   }
 }
 
-}  // namespace
-
 void AtomicMultiPhaseMutation::Writeback(ReadModifyWriteEntry& entry,
+                                         ReadModifyWriteEntry& source_entry,
                                          ReadResult&& read_result) {
   assert(read_result.stamp.time != absl::InfinitePast());
   auto& buffered = static_cast<BufferedReadModifyWriteEntry&>(entry);
-  buffered.read_result_ = std::move(read_result);
-  AtomicWritebackReady(buffered);
+  buffered.stamp() = std::move(read_result.stamp);
+  buffered.value_state_ = read_result.state;
+  buffered.value_ = std::move(read_result.value);
+  AtomicWritebackReady(entry);
 }
 
-void AtomicMultiPhaseMutation::Writeback(DeleteRangeEntry& entry) {
+void AtomicMultiPhaseMutationBase::Writeback(DeleteRangeEntry& entry) {
   EntryDone(entry.single_phase_mutation(), /*error=*/false);
 }
 
-void RetryAtomicWriteback(SinglePhaseMutation& single_phase_mutation,
-                          absl::Time staleness_bound) {
-  using BufferedReadModifyWriteEntry =
-      AtomicMultiPhaseMutation::BufferedReadModifyWriteEntry;
-
-  WritebackPhase(
-      single_phase_mutation, staleness_bound, [&](ReadModifyWriteEntry& entry) {
-        return static_cast<BufferedReadModifyWriteEntry&>(entry).IsOutOfDate(
-            staleness_bound);
-      });
-}
-
-void AtomicCommitWritebackSuccess(SinglePhaseMutation& single_phase_mutation) {
-  using BufferedReadModifyWriteEntry =
-      AtomicMultiPhaseMutation::BufferedReadModifyWriteEntry;
-  for (auto& entry : single_phase_mutation.entries_) {
+void AtomicMultiPhaseMutationBase::AtomicCommitWritebackSuccess() {
+  for (auto& entry : GetCommittingPhase().entries_) {
     if (entry.entry_type() == kReadModifyWrite) {
-      auto& rmw_entry = static_cast<BufferedReadModifyWriteEntry&>(entry);
-      WritebackSuccess(rmw_entry, std::move(rmw_entry.read_result_.stamp));
+      auto& rmw_entry = static_cast<ReadModifyWriteEntryWithStamp&>(entry);
+      internal_kvstore::WritebackSuccess(rmw_entry,
+                                         std::move(rmw_entry.stamp_));
     } else {
       auto& dr_entry = static_cast<DeleteRangeEntry&>(entry);
-      WritebackSuccess(dr_entry);
+      internal_kvstore::WritebackSuccess(dr_entry);
     }
   }
 }
 
-void AtomicMultiPhaseMutation::RevokeAllEntries() {
+void AtomicMultiPhaseMutationBase::RevokeAllEntries() {
   assert(phases_.next_ == &phases_);
   for (auto& entry : phases_.entries_) {
     if (entry.entry_type() != kReadModifyWrite) continue;

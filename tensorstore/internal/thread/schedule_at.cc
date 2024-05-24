@@ -29,6 +29,7 @@
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "absl/types/compare.h"
 #include "tensorstore/internal/attributes.h"
 #include "tensorstore/internal/container/intrusive_red_black_tree.h"
 #include "tensorstore/internal/metrics/gauge.h"
@@ -191,7 +192,8 @@ void DeadlineTaskQueue::ScheduleAt(absl::Time target_time, ScheduleAtTask task,
   // Schedule to run normally.
   tree_.FindOrInsert(
       [&](DeadlineTaskNode& other) {
-        return target_time < other.deadline ? -1 : 1;
+        return target_time < other.deadline ? absl::weak_ordering::less
+                                            : absl::weak_ordering::greater;
       },
       [&] { return node.release(); });
   if (target_time < next_wakeup_) {
@@ -223,7 +225,8 @@ void DeadlineTaskQueue::Run() {
         auto woken_up = woken_up_ = std::max(woken_up_, absl::Now());
 
         auto split_result = tree_.FindSplit([&](DeadlineTaskNode& node) {
-          return node.deadline <= woken_up ? 1 : -1;
+          return node.deadline <= woken_up ? absl::weak_ordering::greater
+                                           : absl::weak_ordering::less;
         });
 
         runnable = std::move(split_result.trees[0]);

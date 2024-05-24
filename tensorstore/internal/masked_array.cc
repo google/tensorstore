@@ -217,24 +217,18 @@ void UnionMasks(BoxView<> box, MaskData* mask_a, MaskData* mask_b) {
 }
 
 void RebaseMaskedArray(BoxView<> box, ArrayView<const void> source,
-                       ElementPointer<void> dest_ptr, const MaskData& mask) {
-  assert(source.dtype() == dest_ptr.dtype());
+                       ArrayView<void> dest, const MaskData& mask) {
+  assert(source.dtype() == dest.dtype());
   assert(internal::RangesEqual(box.shape(), source.shape()));
+  assert(internal::RangesEqual(box.shape(), dest.shape()));
   const Index num_elements = box.num_elements();
   if (mask.num_masked_elements == num_elements) return;
-  DataType r = source.dtype();
-  Index dest_byte_strides_storage[kMaxRank];
-  const span<Index> dest_byte_strides(&dest_byte_strides_storage[0],
-                                      box.rank());
-  ComputeStrides(ContiguousLayoutOrder::c, r->size, box.shape(),
-                 dest_byte_strides);
-  ArrayView<void> dest_array(
-      dest_ptr, StridedLayoutView<>(box.shape(), dest_byte_strides));
+  DataType dtype = source.dtype();
   if (mask.num_masked_elements == 0) {
     [[maybe_unused]] const auto success = internal::IterateOverArrays(
-        {&r->copy_assign,
+        {&dtype->copy_assign,
          /*context=*/nullptr},
-        /*status=*/nullptr, skip_repeated_elements, source, dest_array);
+        /*status=*/nullptr, skip_repeated_elements, source, dest);
     assert(success);
     return;
   }
@@ -254,8 +248,8 @@ void RebaseMaskedArray(BoxView<> box, ArrayView<const void> source,
   ArrayView<const bool> mask_array(
       mask_array_ptr, StridedLayoutView<>(box.shape(), mask_byte_strides));
   [[maybe_unused]] const auto success = internal::IterateOverArrays(
-      {&r->copy_assign_unmasked, /*context=*/nullptr}, /*status=*/nullptr,
-      skip_repeated_elements, source, dest_array, mask_array);
+      {&dtype->copy_assign_unmasked, /*context=*/nullptr}, /*status=*/nullptr,
+      skip_repeated_elements, source, dest, mask_array);
   assert(success);
 }
 

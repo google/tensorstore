@@ -72,14 +72,24 @@ using MutationEntryTree =
 
 using WriteEntryTree = internal::intrusive_red_black_tree::Tree<WriteEntry>;
 
+struct DeleteRangeEntry;
+
 struct MutationEntry : public MutationEntryTree::NodeBase {
-  std::string key;
+  std::string key_;
 
   enum MutationKind {
-    kWrite,
-    kDeleteRange,
+    kWrite = 0,
+    // To match ``internal_kvstore::MutationEntry` API
+    kReadModifyWrite = 0,
+    kDeleteRange = 1,
   };
-  MutationKind kind;
+  MutationKind kind_;
+
+  // To match ``internal_kvstore::MutationEntry` API
+  MutationKind entry_type() { return kind_; }
+
+  using DeleteRangeEntry = internal_ocdbt::DeleteRangeEntry;
+  using ReadModifyWriteEntry = WriteEntry;
 
  protected:
   ~MutationEntry() = default;
@@ -89,24 +99,24 @@ struct WriteEntry : public MutationEntry {
   // TODO: Consider changing this to
   // `std::variant<std::monostate, IndirectValueReference, absl::Cord>` to save
   // 8 bytes of memory.
-  std::optional<LeafNodeValueReference> value;
-  StorageGeneration if_equal;
-  Promise<TimestampedStorageGeneration> promise;
+  std::optional<LeafNodeValueReference> value_;
+  StorageGeneration if_equal_;
+  Promise<TimestampedStorageGeneration> promise_;
 
   // Tag bit indicates that the indicated superseded entry was deleted by a
   // `DeleteRange` request before being superseded.
   using Supersedes = internal::TaggedPtr<WriteEntry, 1>;
-  Supersedes supersedes{nullptr};
+  Supersedes supersedes_{nullptr};
 };
 
 struct DeleteRangeEntry : public MutationEntry {
-  std::string exclusive_max;
-  WriteEntryTree superseded_writes;
+  std::string exclusive_max_;
+  WriteEntryTree superseded_;
 };
 
 struct MutationEntryDeleter {
   void operator()(MutationEntry* e) const {
-    if (e->kind == MutationEntry::kWrite) {
+    if (e->kind_ == MutationEntry::kWrite) {
       delete static_cast<WriteEntry*>(e);
     } else {
       delete static_cast<DeleteRangeEntry*>(e);
@@ -142,81 +152,6 @@ void CommitSuccessful(StagedMutations& staged, absl::Time time);
 
 // Sets the result of all staged mutations to `error`.
 void CommitFailed(StagedMutations& staged, absl::Status error);
-
-// Returns the interval of write entries within `tree` that intersect
-// `[inclusive_min, exclusive_max)`.
-WriteEntryTree::Range GetWriteEntryInterval(WriteEntryTree& tree,
-                                            std::string_view inclusive_min,
-                                            std::string_view exclusive_max);
-
-// Returns the interval of write entries within `tree` that intersect
-// `key_range`.
-WriteEntryTree::Range GetWriteEntryInterval(WriteEntryTree& tree,
-                                            const KeyRange& key_range);
-
-// Partitions a sub-range of a `MutationEntryTree` into the sub-ranges that
-// intersect the key range of each child of an interior B+tree node.
-//
-// Args:
-//   existing_entries: The children of the interior B+tree node.
-//   existing_key_prefix: Key prefix that applies to `existing_entries`.
-//   key_range: The full key range of the interior B+tree node.
-//   entry_range: The sub-range to partition.
-//   partition_callback: Callback invoked for each partition, where
-//     `child_key_range` specifies the full key range of the child referenced
-//     by `existing_child`, and `mutation_sub_range` is the corresponding
-//     non-empty range of intersecting mutations.  The callback is not invoked
-//     for existing entries with no intersecting mutations.  Note that the
-//     `mutation_sub_range` values are not necessarily disjoint; the
-//     intersecting mutation ranges for consecutive children may overlap by
-//     exactly one `DeleteRange` mutation.
-void PartitionInteriorNodeMutations(
-    span<const InteriorNodeEntry> existing_entries,
-    std::string_view existing_key_prefix, const KeyRange& key_range,
-    MutationEntryTree::Range entry_range,
-    absl::FunctionRef<void(const InteriorNodeEntry& existing_child,
-                           KeyRange child_key_range,
-                           MutationEntryTree::Range mutation_sub_range)>
-        partition_callback);
-
-// Determine the final result of a chain of write operations.
-//
-// Args:
-//   existing_generation: Generation of existing value.
-//   last_write_entry: The latest write entry in the chain.
-//
-// Returns:
-//
-//   - `std::nullopt`, if the existing value should be retained; or
-//
-//   - a pointer to the new value to write within the chain starting at
-//     `last_write_entry`.
-std::optional<const LeafNodeValueReference*> ApplyWriteEntryChain(
-    StorageGeneration existing_generation, const WriteEntry& last_write_entry);
-
-// Validate superseded writes against leaf node entries.
-//
-// Stores the result of validation in the `Result` saved in each
-// `WriteEntry::promise`.
-//
-// Args:
-//   superseded_writes: Range of superseded writes that correspond to
-//     `existing_entries`.
-//   existing_entries: Entries in existing leaf node.
-//   existing_prefix: Key prefix that applies to `existing_entries`.
-span<const LeafNodeEntry>::iterator ValidateSupersededWriteEntries(
-    WriteEntryTree::Range superseded_writes,
-    span<const LeafNodeEntry> existing_entries,
-    std::string_view existing_prefix);
-
-/// Checks if the root node of a subtree must be read in order to apply the
-/// mutations specified in `entry_range`.
-///
-/// Normally mutations require reading the root node of the subtree, but that
-/// can be skipped if the subtree is entirely deleted via a `DeleteRangeEntry`
-/// and there are no superseded writes to validate.
-bool MustReadNodeToApplyMutations(const KeyRange& key_range,
-                                  MutationEntryTree::Range entry_range);
 
 }  // namespace internal_ocdbt
 }  // namespace tensorstore

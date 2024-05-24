@@ -14,6 +14,7 @@
 
 #include "tensorstore/kvstore/ocdbt/distributed/coordinator_server.h"
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include <functional>
@@ -33,6 +34,7 @@
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "absl/types/compare.h"
 #include "grpcpp/security/server_credentials.h"  // third_party
 #include "grpcpp/server.h"  // third_party
 #include "grpcpp/server_builder.h"  // third_party
@@ -143,7 +145,7 @@ grpc::ServerUnaryReactor* CoordinatorServer::Impl::RequestLease(
     reactor->Finish(grpc::Status(grpc::StatusCode::INTERNAL,
                                  std::string(peer_address.status().message())));
     ABSL_LOG_IF(INFO, ocdbt_logging)
-        << "Coordinator: internal error: request=" << request->DebugString();
+        << "Coordinator: internal error: request=" << *request;
     return reactor;
   }
 
@@ -196,7 +198,9 @@ grpc::ServerUnaryReactor* CoordinatorServer::Impl::RequestLease(
       response->set_is_owner(true);
       leases_by_expiration_time_.FindOrInsert(
           [&](LeaseNode& other) {
-            return node->expiration_time > other.expiration_time ? 1 : -1;
+            return node->expiration_time > other.expiration_time
+                       ? absl::weak_ordering::greater
+                       : absl::weak_ordering::less;
           },
           [&] { return node; });
     }
@@ -206,8 +210,7 @@ grpc::ServerUnaryReactor* CoordinatorServer::Impl::RequestLease(
     response->set_lease_id(node->lease_id);
   }
   ABSL_LOG_IF(INFO, ocdbt_logging)
-      << "Coordinator: request=" << request->DebugString()
-      << ", response=" << response->DebugString();
+      << "Coordinator: request=" << *request << ", response=" << *response;
   reactor->Finish(grpc::Status());
   return reactor;
 }

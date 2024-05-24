@@ -14,12 +14,18 @@
 
 #include "tensorstore/kvstore/ocdbt/format/data_file_id.h"
 
+#include <stddef.h>
+
+#include <array>
+#include <cstring>
 #include <ostream>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include "absl/log/absl_check.h"
 #include <openssl/rand.h>
+#include "tensorstore/internal/ref_counted_string.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -31,22 +37,22 @@ std::string DataFileId::FullPath() const {
                              std::string_view(relative_path));
 }
 
-DataFileId GenerateDataFileId() {
+DataFileId GenerateDataFileId(std::string_view prefix) {
   constexpr size_t kIdBytes = 16;
   std::array<unsigned char, kIdBytes> id;
   ABSL_CHECK(
       RAND_bytes(reinterpret_cast<unsigned char*>(id.data()), id.size()));
-  char buffer[kIdBytes * 2 + 2];
-  buffer[0] = 'd';
-  buffer[1] = '/';
+  internal::RefCountedStringWriter writer(kIdBytes * 2 + prefix.size());
+  std::memcpy(writer.data(), prefix.data(), prefix.size());
+  char* buffer = writer.data() + prefix.size();
   constexpr char kHexDigits[] = {'0', '1', '2', '3', '4', '5', '6', '7',
                                  '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
   for (size_t i = 0; i < kIdBytes; ++i) {
-    buffer[2 * i + 2] = kHexDigits[id[i] / 16];
-    buffer[2 * i + 2 + 1] = kHexDigits[id[i] % 16];
+    buffer[2 * i] = kHexDigits[id[i] / 16];
+    buffer[2 * i + 1] = kHexDigits[id[i] % 16];
   }
   DataFileId data_file_id;
-  data_file_id.relative_path = std::string_view(buffer, sizeof(buffer));
+  data_file_id.relative_path = std::move(writer);
   return data_file_id;
 }
 

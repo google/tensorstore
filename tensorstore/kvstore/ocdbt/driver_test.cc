@@ -21,11 +21,13 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_format.h"
 #include <nlohmann/json_fwd.hpp>
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
+#include "tensorstore/internal/cache/kvs_backed_cache_testutil.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/testing/dynamic.h"
@@ -55,8 +57,11 @@ namespace {
 
 namespace kvstore = ::tensorstore::kvstore;
 using ::tensorstore::Context;
+using ::tensorstore::JsonSubValueMatches;
 using ::tensorstore::KeyRange;
+using ::tensorstore::MatchesStatus;
 using ::tensorstore::internal::GetMap;
+using ::tensorstore::internal::MatchesKvsReadResult;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
 using ::tensorstore::internal::MatchesListEntry;
 using ::tensorstore::internal::MockKeyValueStore;
@@ -105,6 +110,42 @@ TEST(OcdbtTest, Base) {
   auto transaction = tensorstore::Transaction(tensorstore::atomic_isolated);
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store_with_txn, store | transaction);
   EXPECT_THAT(store_with_txn.base(), ::testing::Optional(base_store));
+}
+
+TEST(OcdbtTest, SeparatePrefixes) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto spec,
+      kvstore::Spec::FromJson({
+          {"driver", "ocdbt"},
+          {"base", "memory://abc/"},
+          {"value_data_prefix", "x/"},
+          {"btree_node_data_prefix", "b/"},
+          {"version_tree_node_data_prefix", "v/"},
+          {"config",
+           {{"max_inline_value_bytes", 0}, {"version_tree_arity_log2", 1}}},
+          {"path", "def"},
+      }));
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
+                                   kvstore::Open(spec, context).result());
+
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "testa", absl::Cord("a")));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto base, store.base());
+  EXPECT_THAT(kvstore::ListFuture(base).result(),
+              ::testing::Optional(::testing::UnorderedElementsAre(
+                  MatchesListEntry("manifest.ocdbt"),
+                  MatchesListEntry(::testing::StartsWith("x/")),
+                  MatchesListEntry(::testing::StartsWith("b/")))));
+
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "testa", absl::Cord("b")));
+  EXPECT_THAT(kvstore::ListFuture(base).result(),
+              ::testing::Optional(::testing::UnorderedElementsAre(
+                  MatchesListEntry("manifest.ocdbt"),
+                  MatchesListEntry(::testing::StartsWith("x/")),
+                  MatchesListEntry(::testing::StartsWith("x/")),
+                  MatchesListEntry(::testing::StartsWith("b/")),
+                  MatchesListEntry(::testing::StartsWith("b/")),
+                  MatchesListEntry(::testing::StartsWith("v")))));
 }
 
 TEST(OcdbtTest, WriteTwoKeys) {
@@ -292,20 +333,40 @@ TENSORSTORE_GLOBAL_INITIALIZER {
     });
   };
   for (const auto max_decoded_node_bytes : {0, 1, 1048576}) {
-    for (const auto max_inline_value_bytes : {0, 1, 1048576}) {
-      for (const auto version_tree_arity_log2 : {1, 16}) {
-        for (const auto compression :
-             std::initializer_list<Config::Compression>{
-                 Config::NoCompression{}, Config::ZstdCompression{0}}) {
-          ConfigConstraints config;
-          config.max_decoded_node_bytes = max_decoded_node_bytes;
-          config.max_inline_value_bytes = max_inline_value_bytes;
-          config.version_tree_arity_log2 = version_tree_arity_log2;
-          config.compression = compression;
-          register_test_suite(config);
-        }
-      }
-    }
+    ConfigConstraints config;
+    config.max_decoded_node_bytes = max_decoded_node_bytes;
+    config.max_inline_value_bytes = 0;
+    config.version_tree_arity_log2 = 1;
+    config.compression = Config::NoCompression{};
+    register_test_suite(config);
+  }
+
+  for (const auto max_inline_value_bytes : {0, 1, 1048576}) {
+    ConfigConstraints config;
+    config.max_decoded_node_bytes = 1048576;
+    config.max_inline_value_bytes = max_inline_value_bytes;
+    config.version_tree_arity_log2 = 1;
+    config.compression = Config::NoCompression{};
+    register_test_suite(config);
+  }
+
+  for (const auto version_tree_arity_log2 : {1, 16}) {
+    ConfigConstraints config;
+    config.max_decoded_node_bytes = 0;
+    config.max_inline_value_bytes = 0;
+    config.version_tree_arity_log2 = version_tree_arity_log2;
+    config.compression = Config::NoCompression{};
+    register_test_suite(config);
+  }
+
+  for (const auto compression : std::initializer_list<Config::Compression>{
+           Config::NoCompression{}, Config::ZstdCompression{0}}) {
+    ConfigConstraints config;
+    config.max_decoded_node_bytes = 0;
+    config.max_inline_value_bytes = 0;
+    config.version_tree_arity_log2 = 16;
+    config.compression = compression;
+    register_test_suite(config);
   }
 
   {
@@ -460,6 +521,192 @@ TEST(OcdbtTest, CopyRange) {
                                  ::testing::Pair("y/a", absl::Cord("value_a")),
                                  ::testing::Pair("y/b", absl::Cord("value_b")),
                              })));
+}
+
+TEST(OcdbtTest, TransactionalCopyRange) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, kvstore::Open({
+                                    {"driver", "ocdbt"},
+                                    {"base", "memory://"},
+                                    {"config", {{"max_inline_value_bytes", 0}}},
+                                })
+                      .result());
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "x/a", absl::Cord("value_a")));
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "x/b", absl::Cord("value_b")));
+  auto transaction = tensorstore::Transaction(tensorstore::atomic_isolated);
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto transactional_store,
+                                     store | transaction);
+
+    TENSORSTORE_ASSERT_OK(kvstore::ExperimentalCopyRange(
+        store.WithPathSuffix("x/"), transactional_store.WithPathSuffix("y/")));
+    TENSORSTORE_ASSERT_OK(kvstore::ExperimentalCopyRange(
+        store.WithPathSuffix("x/"), transactional_store.WithPathSuffix("z/")));
+    EXPECT_THAT(kvstore::Read(transactional_store, "y/a").result(),
+                MatchesKvsReadResult(absl::Cord("value_a")));
+    TENSORSTORE_ASSERT_OK(transaction.CommitAsync());
+  }
+  EXPECT_THAT(GetMap(store), ::testing::Optional(::testing::ElementsAreArray({
+                                 ::testing::Pair("x/a", absl::Cord("value_a")),
+                                 ::testing::Pair("x/b", absl::Cord("value_b")),
+                                 ::testing::Pair("y/a", absl::Cord("value_a")),
+                                 ::testing::Pair("y/b", absl::Cord("value_b")),
+                                 ::testing::Pair("z/a", absl::Cord("value_a")),
+                                 ::testing::Pair("z/b", absl::Cord("value_b")),
+                             })));
+}
+
+TEST(OcdbtTest, AssumeConfig) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto base_store,
+                                   kvstore::Open("memory://").result());
+  auto context = Context::Default();
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto mock_key_value_store_resource,
+      context.GetResource<tensorstore::internal::MockKeyValueStoreResource>());
+  MockKeyValueStore* mock_key_value_store =
+      mock_key_value_store_resource->get();
+  mock_key_value_store->supported_features =
+      SupportedFeatures::kSingleKeyAtomicReadModifyWrite;
+  mock_key_value_store->forward_to = base_store.driver;
+  mock_key_value_store->log_requests = true;
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, kvstore::Open(
+                      {
+                          {"driver", "ocdbt"},
+                          {"base", {{"driver", "mock_key_value_store"}}},
+                          {"config", {{"max_inline_value_bytes", 0}}},
+                          {"assume_config", true},
+                      },
+                      context)
+                      .result());
+
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "x/a", absl::Cord("value_a")));
+
+  EXPECT_THAT(
+      mock_key_value_store->request_log.pop_all(),
+      ::testing::ElementsAre(
+          ::testing::AllOf(JsonSubValueMatches("/type", "supported_features")),
+          ::testing::AllOf(JsonSubValueMatches("/type", "read"),
+                           JsonSubValueMatches("/key", "manifest.ocdbt")),
+          ::testing::AllOf(
+              JsonSubValueMatches("/type", "write"),
+              JsonSubValueMatches("/key", ::testing::StartsWith("d/"))),
+          ::testing::AllOf(JsonSubValueMatches("/type", "write"),
+                           JsonSubValueMatches("/key", "manifest.ocdbt"))));
+}
+
+TEST(OcdbtTest, AssumeConfigMismatch) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto base_store,
+                                   kvstore::Open("memory://").result());
+  auto context = Context::Default();
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto mock_key_value_store_resource,
+      context.GetResource<tensorstore::internal::MockKeyValueStoreResource>());
+  MockKeyValueStore* mock_key_value_store =
+      mock_key_value_store_resource->get();
+  mock_key_value_store->supported_features =
+      SupportedFeatures::kSingleKeyAtomicReadModifyWrite;
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, kvstore::Open(
+                      {
+                          {"driver", "ocdbt"},
+                          {"base", {{"driver", "mock_key_value_store"}}},
+                          {"config", {{"version_tree_arity_log2", 2}}},
+                          // Specify separate cache pool to ensure that separate
+                          // driver instances are used.
+                          {"cache_pool", {{"total_bytes_limit", 0}}},
+                      },
+                      context)
+                      .result());
+
+  mock_key_value_store->forward_to = base_store.driver;
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "a", absl::Cord("value")));
+  mock_key_value_store->forward_to = {};
+
+  for (bool assume_config : {false, true}) {
+    SCOPED_TRACE(absl::StrFormat("assume_config=%d", assume_config));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store2, kvstore::Open(
+                         {
+                             {"driver", "ocdbt"},
+                             {"base", {{"driver", "mock_key_value_store"}}},
+                             // Specify separate cache pool to ensure that
+                             // separate driver instances are used.
+                             {"cache_pool", {{"total_bytes_limit", 0}}},
+                             {"config", {{"max_inline_value_bytes", 1}}},
+                             {"target_data_file_size", 1},
+                             {"assume_config", assume_config},
+                         },
+                         context)
+                         .result());
+    auto write_future =
+        kvstore::Write(store2, "b", absl::Cord(std::string(200, 0)));
+
+    if (assume_config) {
+      auto req = mock_key_value_store->write_requests.pop();
+      EXPECT_THAT(req.key, ::testing::StartsWith("d/"));
+      req(base_store.driver);
+    }
+
+    {
+      auto req = mock_key_value_store->read_requests.pop();
+      EXPECT_THAT(req.key, "manifest.ocdbt");
+      req(base_store.driver);
+    }
+
+    EXPECT_THAT(write_future.result(),
+                MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                              "Configuration mismatch .*"));
+  }
+
+  // Reading also fails.
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store2, kvstore::Open(
+                         {
+                             {"driver", "ocdbt"},
+                             {"base", {{"driver", "mock_key_value_store"}}},
+                             // Note: Even though no configuration constraints
+                             // are specified, the assumed config fixes all
+                             // configuration options to their defaults, and
+                             // therefore does not match the actual config with
+                             // a non-default version_tree_arity_log2.
+                             {"assume_config", true},
+                         },
+                         context)
+                         .result());
+    auto read_future = kvstore::Read(store2, "a");
+    {
+      auto req = mock_key_value_store->read_requests.pop();
+      EXPECT_THAT(req.key, "manifest.ocdbt");
+      req(base_store.driver);
+    }
+    EXPECT_THAT(read_future.result(),
+                MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                              "Observed config does not match assumed config: "
+                              "Configuration mismatch .*"));
+  }
+}
+
+TENSORSTORE_GLOBAL_INITIALIZER {
+  using ::tensorstore::internal::KvsBackedCacheBasicTransactionalTestOptions;
+  using ::tensorstore::internal::RegisterKvsBackedCacheBasicTransactionalTest;
+
+  KvsBackedCacheBasicTransactionalTestOptions options;
+  options.test_name = "OcdbtDriverTransactional";
+  options.get_store = [] {
+    TENSORSTORE_CHECK_OK_AND_ASSIGN(
+        auto store,
+        kvstore::Open({{"driver", "ocdbt"}, {"base", "memory://"}}).result());
+    return store.driver;
+  };
+  options.delete_range_supported = true;
+  options.multi_key_atomic_supported = true;
+  RegisterKvsBackedCacheBasicTransactionalTest(options);
 }
 
 }  // namespace

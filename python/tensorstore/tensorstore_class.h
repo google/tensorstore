@@ -127,6 +127,49 @@ Batch to use for reading any metadata required for opening.
 
 }  // namespace open_setters
 
+namespace write_setters {
+
+#if 0
+// TODO(jbms): Add this option once it is supported.
+struct SetCanReferenceSourceDataUntilCommit {
+  using type = bool;
+  static constexpr const char* name = "can_reference_source_data_until_commit";
+  template <typename Self>
+  static absl::Status Apply(Self& self, type value) {
+    if (value) {
+      self.Set(can_reference_source_data_until_commit);
+    }
+    return absl::OkStatus();
+  }
+  static constexpr const char* doc = R"(
+
+References to the source data may be retained until the write is committed.  The
+source data must not be modified until the write is committed.
+
+)";
+};
+#endif
+
+struct SetCanReferenceSourceDataIndefinitely {
+  using type = bool;
+  static constexpr const char* name = "can_reference_source_data_indefinitely";
+  template <typename Self>
+  static absl::Status Apply(Self& self, type value) {
+    if (value) {
+      self.Set(can_reference_source_data_indefinitely);
+    }
+    return absl::OkStatus();
+  }
+  static constexpr const char* doc = R"(
+
+References to the source data may be retained indefinitely, even after the write
+is committed.  The source data must not be modified until all references are
+released.
+
+)";
+};
+}  // namespace write_setters
+
 }  // namespace internal_python
 }  // namespace tensorstore
 

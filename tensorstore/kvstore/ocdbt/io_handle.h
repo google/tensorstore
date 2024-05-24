@@ -95,7 +95,7 @@ class IoHandle : public ReadonlyIoHandle {
   /// read methods) until the returned `Future` completes successfully, and
   /// writing may not start until `Future::Force` is called on the returned
   /// future.
-  virtual Future<const void> WriteData(absl::Cord data,
+  virtual Future<const void> WriteData(IndirectDataKind kind, absl::Cord data,
                                        IndirectDataReference& ref) const = 0;
 
   /// Returns a description of the storage location,

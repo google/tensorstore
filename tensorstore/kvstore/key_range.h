@@ -18,6 +18,10 @@
 #include <iosfwd>
 #include <string>
 #include <string_view>
+#include <utility>
+
+#include "absl/types/compare.h"
+#include "tensorstore/internal/compare.h"
 
 namespace tensorstore {
 
@@ -88,16 +92,17 @@ class KeyRange {
 
   /// Returns the three-way comparison result between a key and an exclusive max
   /// bound.
-  static int CompareKeyAndExclusiveMax(std::string_view key,
-                                       std::string_view bound);
-  static int CompareExclusiveMaxAndKey(std::string_view bound,
-                                       std::string_view key) {
-    return -CompareKeyAndExclusiveMax(key, bound);
+  static absl::weak_ordering CompareKeyAndExclusiveMax(std::string_view key,
+                                                       std::string_view bound);
+  static absl::weak_ordering CompareExclusiveMaxAndKey(std::string_view bound,
+                                                       std::string_view key) {
+    return internal::InvertWeakOrdering(CompareKeyAndExclusiveMax(key, bound));
   }
 
   /// Returns the three-way comparison result between two `exclusive_max`
   /// values.
-  static int CompareExclusiveMax(std::string_view a, std::string_view b);
+  static absl::weak_ordering CompareExclusiveMax(std::string_view a,
+                                                 std::string_view b);
 
   /// Returns the minimum of `a` and `b`, interpreting them as `exclusive_max`
   /// values.

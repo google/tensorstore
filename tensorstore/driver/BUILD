@@ -59,7 +59,9 @@ tensorstore_cc_library(
     hdrs = ["chunk.h"],
     deps = [
         "//tensorstore:index",
+        "//tensorstore:read_write_options",
         "//tensorstore/index_space:index_transform",
+        "//tensorstore/index_space:transformed_array",
         "//tensorstore/internal:arena",
         "//tensorstore/internal:lock_collection",
         "//tensorstore/internal:nditerable",
@@ -67,6 +69,7 @@ tensorstore_cc_library(
         "//tensorstore/util:future",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
+        "@com_google_absl//absl/functional:function_ref",
         "@com_google_absl//absl/status",
     ],
 )

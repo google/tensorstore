@@ -60,6 +60,9 @@ struct ConfigConstraints {
   };
 };
 
+class ConfigState;
+using ConfigStatePtr = internal::IntrusivePtr<ConfigState>;
+
 /// Tracks the configuration for an open database.
 ///
 /// Initially, when the database is opened, the manifest has not yet been read
@@ -70,6 +73,15 @@ struct ConfigConstraints {
 ///
 /// Once the configuration is known, it is an error for it to change.
 ///
+/// If `assume_config` is specified, the configuration that would be inferred
+/// from the constraints will be used to write data files even before the
+/// manifest has been written. This reduces the initial write latency, but will
+/// lead to a write error and possibly unreferenced garbage data files (but not
+/// data corruption) if another concurrent writer ultimately writes the manifest
+/// with an incompatible configuration (excluding UUID), as can occur if
+/// different configuration constraints are specified or a different library
+/// version is used by the concurrent writer.
+///
 /// FIXME(jbms): Because of the open kvstore cache, there is a potential for
 /// this caching of the configuration to cause problems in the case that the
 /// ocdbt kvstore is opened, then deleted from its underlying store, then
@@ -78,24 +90,31 @@ struct ConfigConstraints {
 /// option like `recheck_cached_metadata`.
 class ConfigState : public internal::AtomicReferenceCount<ConfigState> {
  public:
-  ConfigState();
-  explicit ConfigState(
-      const ConfigConstraints& constraints,
-      kvstore::SupportedFeatures supported_features_for_manifest);
+  static Result<ConfigStatePtr> Make(
+      const ConfigConstraints& constraints = {},
+      kvstore::SupportedFeatures supported_features_for_manifest =
+          kvstore::SupportedFeatures::kNone,
+      bool assume_config = false);
+
   absl::Status ValidateNewConfig(const Config& config);
   const Config* GetExistingConfig() const;
+  const Config* GetAssumedOrExistingConfig() const;
   Result<Config> CreateNewConfig();
   ConfigConstraints GetConstraints() const;
 
+  bool assume_config() const { return assume_config_; }
+
  private:
+  ConfigState() = default;
+
   mutable absl::Mutex mutex_;
   ConfigConstraints constraints_;
+  Config assumed_config_;
   Config config_;
   kvstore::SupportedFeatures supported_features_for_manifest_;
   std::atomic<bool> config_set_{false};
+  bool assume_config_{false};
 };
-
-using ConfigStatePtr = internal::IntrusivePtr<ConfigState>;
 
 absl::Status ValidateConfig(const Config& config,
                             const ConfigConstraints& constraints);

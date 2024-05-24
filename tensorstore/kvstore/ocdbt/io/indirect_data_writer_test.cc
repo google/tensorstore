@@ -64,7 +64,7 @@ TEST(IndirectDataWriter, UnlimitedSize) {
   auto memory_store = tensorstore::GetMemoryKeyValueStore();
   auto mock_key_value_store = MockKeyValueStore::Make();
   auto writer = MakeIndirectDataWriter(
-      tensorstore::kvstore::KvStore(mock_key_value_store), 0);
+      tensorstore::kvstore::KvStore(mock_key_value_store), "d/", 0);
 
   std::vector<Future<const void>> futures;
   std::vector<std::string> refs;
@@ -112,7 +112,7 @@ TEST(IndirectDataWriter, LimitedSize) {
   auto memory_store = tensorstore::GetMemoryKeyValueStore();
   auto mock_key_value_store = MockKeyValueStore::Make();
   auto writer = MakeIndirectDataWriter(
-      tensorstore::kvstore::KvStore(mock_key_value_store), kTargetSize);
+      tensorstore::kvstore::KvStore(mock_key_value_store), "d/", kTargetSize);
 
   std::vector<Future<const void>> futures;
   std::vector<std::string> refs;
