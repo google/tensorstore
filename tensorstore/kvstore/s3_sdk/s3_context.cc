@@ -291,4 +291,4 @@ std::shared_ptr<AwsContext> GetAwsContext() {
 }
 
 }  // namespace internal_kvstore_s3
-}  // neamespace tensorstore
+}  // namespace tensorstore
