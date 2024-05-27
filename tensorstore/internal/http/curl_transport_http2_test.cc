@@ -258,7 +258,7 @@ class Http2Session {
   ~Http2Session() { nghttp2_session_del(session_); }
 
   void StartHttp(std::string_view data, std::string_view settings) {
-    if (absl::StartsWith(data, kHttp2ConnectionPreface)) {
+    if (absl::StartsWith(data, std::string_view(kHttp2ConnectionPreface, 24))) {
       auto result = nghttp2_session_mem_recv(
           session_, reinterpret_cast<const uint8_t*>(data.data()), data.size());
       ABSL_CHECK_GE(result, 0) << nghttp2_strerror(result);
@@ -365,7 +365,8 @@ TEST_F(CurlTransportTest, Http2) {
 
     // Check whether the connection preface was sent. If not, manually upgrade
     // the h2c to HTTP/2.
-    if (!absl::StartsWith(initial_request, kHttp2ConnectionPreface)) {
+    if (!absl::StartsWith(initial_request,
+                          std::string_view(kHttp2ConnectionPreface, 24))) {
       AssertSend(*client_fd, kSwitchProtocols);
     }
 
