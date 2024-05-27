@@ -85,7 +85,7 @@ public:
       std::vector<char> buffer(bufferSize);
       std::streampos original = body->tellg();
       while (body->read(buffer.data(), buffer.size()) || body->gcount() > 0) {
-        payload.Append(absl::Cord(absl::string_view(buffer.data(), body->gcount())));
+        payload.Append(absl::string_view(buffer.data(), body->gcount()));
       }
       // Reset stream
       body->clear();
