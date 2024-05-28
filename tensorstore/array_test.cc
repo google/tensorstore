@@ -17,10 +17,13 @@
 #include <stdint.h>
 
 #include <algorithm>
+#include <cmath>
 #include <complex>
+#include <cstddef>
 #include <limits>
 #include <memory>
 #include <random>
+#include <sstream>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -43,7 +46,9 @@
 #include "tensorstore/serialization/batch.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/serialization/test_util.h"
+#include "tensorstore/static_cast.h"
 #include "tensorstore/strided_layout.h"
+#include "tensorstore/util/element_pointer.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
