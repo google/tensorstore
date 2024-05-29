@@ -17,6 +17,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <algorithm>  // IWYU pragma: keep
 #include <atomic>
 #include <cassert>
 #include <optional>
@@ -31,12 +32,15 @@
 #include "absl/log/absl_log.h"  // IWYU pragma: keep
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
+#include "absl/strings/str_cat.h"
 #include "absl/synchronization/mutex.h"
+#include "absl/time/time.h"  // IWYU pragma: keep
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/internal/cache_key/cache_key.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/log/verbose_flag.h"
+#include "tensorstore/internal/source_location.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
@@ -60,7 +64,6 @@
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 using ::tensorstore::internal::IntrusivePtr;
 
@@ -271,14 +274,15 @@ struct CopyRangeListReceiver
 
   friend void set_done(const Ptr& self) {}
 
-  friend void set_value(const Ptr& self, std::string&& key) {
+  friend void set_value(const Ptr& self, ListEntry&& entry) {
     ReadOptions options;
     options.staleness_bound = self->source_staleness_bound;
-    std::string target_key = absl::StrCat(
-        self->target_prefix, std::string_view(key).substr(std::min(
-                                 self->source_prefix_length, key.size())));
+    std::string target_key =
+        absl::StrCat(self->target_prefix,
+                     std::string_view(entry.key).substr(std::min(
+                         self->source_prefix_length, entry.key.size())));
     auto read_future =
-        self->source_driver->Read(std::move(key), std::move(options));
+        self->source_driver->Read(std::move(entry.key), std::move(options));
     Link(
         [self, target_key = std::move(target_key)](
             Promise<void> promise, ReadyFuture<ReadResult> future) {
@@ -358,18 +362,19 @@ std::string Driver::DescribeKey(std::string_view key) {
 
 absl::Status Driver::AnnotateError(std::string_view key,
                                    std::string_view action,
-                                   const absl::Status& error) {
-  return AnnotateErrorWithKeyDescription(DescribeKey(key), action, error);
+                                   const absl::Status& error,
+                                   SourceLocation loc) {
+  return AnnotateErrorWithKeyDescription(DescribeKey(key), action, error, loc);
 }
 
 absl::Status Driver::AnnotateErrorWithKeyDescription(
     std::string_view key_description, std::string_view action,
-    const absl::Status& error) {
+    const absl::Status& error, SourceLocation loc) {
   if (absl::StrContains(error.message(), key_description)) {
     return error;
   }
   return tensorstore::MaybeAnnotateStatus(
-      error, tensorstore::StrCat("Error ", action, " ", key_description));
+      error, absl::StrCat("Error ", action, " ", key_description), loc);
 }
 
 bool operator==(const KvStore& a, const KvStore& b) {

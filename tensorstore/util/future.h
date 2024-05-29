@@ -27,6 +27,7 @@
 #include <tuple>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 #include "absl/status/status.h"
 #include "absl/time/time.h"
@@ -1286,6 +1287,16 @@ WaitAllFuture(Futures&&... future) {
 /// \relates Future
 /// \id span
 Future<void> WaitAllFuture(tensorstore::span<const AnyFuture> futures);
+
+template <typename FutureT>
+std::enable_if_t<
+    std::is_base_of_v<AnyFuture, internal::remove_cvref_t<FutureT>> &&
+        !std::is_same_v<AnyFuture, internal::remove_cvref_t<FutureT>>,
+    Future<void>>
+WaitAllFuture(tensorstore::span<FutureT> futures) {
+  std::vector<AnyFuture> futures_vec(futures.begin(), futures.end());
+  return WaitAllFuture(tensorstore::span<const AnyFuture>(futures_vec));
+}
 
 /// Returns a `Future` that resolves to the result of calling
 /// `callback(future.result()...)` when all of the specified `future` objects

@@ -20,6 +20,7 @@
 #include <type_traits>
 #include <typeinfo>
 
+#include "absl/base/attributes.h"
 #include "tensorstore/internal/cache_key/fwd.h"
 #include "tensorstore/util/apply_members/apply_members.h"
 

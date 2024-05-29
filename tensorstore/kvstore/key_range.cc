@@ -15,6 +15,7 @@
 #include "tensorstore/kvstore/key_range.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <ostream>
 #include <string>
 #include <string_view>
@@ -26,6 +27,24 @@
 #include "tensorstore/util/quote_string.h"
 
 namespace tensorstore {
+namespace {
+
+// returns a part of the prefix; to construct a prefix the
+// std::string_view::back() should be incremented.
+std::string_view PartialPrefix(std::string_view prefix) {
+  while (!prefix.empty() && prefix.back() == '\xff') {
+    prefix.remove_suffix(1);
+  }
+  return prefix;
+}
+
+// Returns the minimum of `a` and `b`, interpreting them as `exclusive_max`
+// values.
+std::string_view MinExclusiveMax(std::string_view a, std::string_view b) {
+  return KeyRange::CompareExclusiveMax(a, b) < 0 ? a : b;
+}
+
+}  // namespace
 
 KeyRange KeyRange::Prefix(std::string prefix) {
   KeyRange range;
@@ -47,17 +66,29 @@ KeyRange KeyRange::Singleton(std::string key) {
   return KeyRange(std::move(key), std::move(exclusive_max));
 }
 
-std::string KeyRange::PrefixExclusiveMax(std::string prefix) {
-  while (!prefix.empty()) {
-    auto& last_byte = prefix.back();
-    if (last_byte == '\xff') {
-      prefix.resize(prefix.size() - 1);
-    } else {
-      last_byte = static_cast<unsigned char>(last_byte) + 1;
-      break;
-    }
+bool KeyRange::is_singleton() const {
+  return exclusive_max.size() == (inclusive_min.size() + 1) &&
+         exclusive_max.back() == '\x00' &&
+         std::string_view(exclusive_max).substr(0, inclusive_min.size()) ==
+             inclusive_min;
+}
+
+bool KeyRange::is_non_empty_prefix() const {
+  std::string_view prefix = PartialPrefix(inclusive_min);
+  return !full() && exclusive_max.size() == prefix.size() &&
+         (prefix.empty() ||
+          (exclusive_max.back() == (prefix.back() + 1) &&
+           std::string_view(exclusive_max).substr(0, prefix.size() - 1) ==
+               prefix.substr(0, prefix.size() - 1)));
+}
+
+std::string KeyRange::PrefixExclusiveMax(std::string_view prefix) {
+  std::string prefix_copy(PartialPrefix(prefix));
+  if (!prefix_copy.empty()) {
+    auto& last_byte = prefix_copy.back();
+    last_byte = static_cast<unsigned char>(last_byte) + 1;
   }
-  return prefix;
+  return prefix_copy;
 }
 
 absl::weak_ordering KeyRange::CompareKeyAndExclusiveMax(
@@ -75,11 +106,6 @@ absl::weak_ordering KeyRange::CompareExclusiveMax(std::string_view a,
              : internal::CompareResultAsWeakOrdering(a.compare(b));
 }
 
-std::string_view KeyRange::MinExclusiveMax(std::string_view a,
-                                           std::string_view b) {
-  return (CompareExclusiveMax(a, b) < 0) ? a : b;
-}
-
 bool Contains(const KeyRange& haystack, std::string_view needle) {
   return haystack.inclusive_min <= needle &&
          KeyRange::CompareKeyAndExclusiveMax(needle, haystack.exclusive_max) <
@@ -94,8 +120,8 @@ KeyRange Intersect(const KeyRange& a, const KeyRange& b) {
   }
   KeyRange result;
   result.inclusive_min = b_ptr->inclusive_min;
-  result.exclusive_max = std::string(
-      KeyRange::MinExclusiveMax(a_ptr->exclusive_max, b_ptr->exclusive_max));
+  result.exclusive_max =
+      std::string(MinExclusiveMax(a_ptr->exclusive_max, b_ptr->exclusive_max));
   if (result.empty()) {
     result.exclusive_max = result.inclusive_min;
   }
@@ -191,6 +217,22 @@ KeyRange KeyRange::RemovePrefix(std::string_view prefix, KeyRange range) {
     return EmptyRange();
   }
   return range;
+}
+
+KeyRange KeyRange::RemovePrefixLength(size_t n, const KeyRange& range) {
+  std::string_view inclusive_min(range.inclusive_min);
+  if (n < inclusive_min.size()) {
+    inclusive_min.remove_prefix(n);
+  } else {
+    inclusive_min = {};
+  }
+  std::string_view exclusive_max(range.exclusive_max);
+  if (n < exclusive_max.size()) {
+    exclusive_max.remove_prefix(n);
+  } else {
+    exclusive_max = {};
+  }
+  return KeyRange(std::string(inclusive_min), std::string(exclusive_max));
 }
 
 }  // namespace tensorstore

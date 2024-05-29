@@ -15,6 +15,8 @@
 #ifndef TENSORSTORE_KVSTORE_KEY_RANGE_H_
 #define TENSORSTORE_KVSTORE_KEY_RANGE_H_
 
+#include <stddef.h>
+
 #include <iosfwd>
 #include <string>
 #include <string_view>
@@ -78,6 +80,12 @@ class KeyRange {
   ///     RemovePrefix("a/bc", KeyRange("a/b", "a/bb")) == KeyRange("", "b")
   static KeyRange RemovePrefix(std::string_view prefix, KeyRange range);
 
+  /// Removes ``n`` characters from the prefix of range.
+  ///
+  /// For example::
+  ///     RemovePrefixLength(2, KeyRange("a/b", "a/d")) == KeyRange("b", "d")
+  static KeyRange RemovePrefixLength(size_t n, const KeyRange& range);
+
   /// Returns the key that occurs immediately after `key`.
   ///
   /// This is equal to `key` with a `0` (NUL) byte appended.
@@ -88,7 +96,7 @@ class KeyRange {
 
   /// Returns the `exclusive_max` value representing the upper bound for keys
   /// that start with `prefix`.
-  static std::string PrefixExclusiveMax(std::string prefix);
+  static std::string PrefixExclusiveMax(std::string_view prefix);
 
   /// Returns the three-way comparison result between a key and an exclusive max
   /// bound.
@@ -104,11 +112,6 @@ class KeyRange {
   static absl::weak_ordering CompareExclusiveMax(std::string_view a,
                                                  std::string_view b);
 
-  /// Returns the minimum of `a` and `b`, interpreting them as `exclusive_max`
-  /// values.
-  static std::string_view MinExclusiveMax(std::string_view a,
-                                          std::string_view b);
-
   /// Returns `true` if the range contains no keys.
   bool empty() const {
     return !exclusive_max.empty() && inclusive_min >= exclusive_max;
@@ -116,6 +119,12 @@ class KeyRange {
 
   /// Returns `true` if the range contains all keys.
   bool full() const { return exclusive_max.empty() && inclusive_min.empty(); }
+
+  /// Returns `true` if the key range is a singleton.
+  bool is_singleton() const;
+
+  /// Returns `true` if the key range is a non-empty prefix.
+  bool is_non_empty_prefix() const;
 
   /// Compares two ranges for equality.
   friend bool operator==(const KeyRange& a, const KeyRange& b) {

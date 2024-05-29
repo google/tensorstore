@@ -160,7 +160,6 @@ tensorstore_cc_library(
         ":cache",
         ":kvs_backed_cache",
         "//tensorstore:transaction",
-        "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:mutex",
         "//tensorstore/internal/testing:dynamic",
         "//tensorstore/internal/testing:random_seed",
