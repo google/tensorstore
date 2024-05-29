@@ -951,6 +951,13 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#json-driver/neuroglancer_precomputed.scale_metadata.png_level" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/neuroglancer_precomputed.scale_metadata.png_level (JSON member) — PNG compression level." class="md-ellipsis">png_<wbr>level</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#json-driver/neuroglancer_precomputed.scale_metadata.compressed_segmentation_block_size" class="md-nav__link">
     <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/neuroglancer_precomputed.scale_metadata.compressed_segmentation_block_size (JSON member) — Block size for compressed segmentation encoding." class="md-ellipsis">compressed_<wbr>segmentation_<wbr>block_<wbr>size</span>
   </a>
@@ -1094,6 +1101,13 @@
           <li class="md-nav__item">
   <a href="#json-driver/neuroglancer_precomputed/Codec.jpeg_quality" class="md-nav__link">
     <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/neuroglancer_precomputed/Codec.jpeg_quality (JSON member) — JPEG encoding quality." class="md-ellipsis">jpeg_<wbr>quality</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-driver/neuroglancer_precomputed/Codec.png_level" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/neuroglancer_precomputed/Codec.png_level (JSON member) — PNG compression level." class="md-ellipsis">png_<wbr>level</span>
   </a>
   
 </li>
@@ -1493,6 +1507,13 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#json-driver/neuroglancer_precomputed.scale_metadata.png_level" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/neuroglancer_precomputed.scale_metadata.png_level (JSON member) — PNG compression level." class="md-ellipsis">png_<wbr>level</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#json-driver/neuroglancer_precomputed.scale_metadata.compressed_segmentation_block_size" class="md-nav__link">
     <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/neuroglancer_precomputed.scale_metadata.compressed_segmentation_block_size (JSON member) — Block size for compressed segmentation encoding." class="md-ellipsis">compressed_<wbr>segmentation_<wbr>block_<wbr>size</span>
   </a>
@@ -1636,6 +1657,13 @@
           <li class="md-nav__item">
   <a href="#json-driver/neuroglancer_precomputed/Codec.jpeg_quality" class="md-nav__link">
     <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/neuroglancer_precomputed/Codec.jpeg_quality (JSON member) — JPEG encoding quality." class="md-ellipsis">jpeg_<wbr>quality</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-driver/neuroglancer_precomputed/Codec.png_level" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/neuroglancer_precomputed/Codec.png_level (JSON member) — PNG compression level." class="md-ellipsis">png_<wbr>level</span>
   </a>
   
 </li>
@@ -2018,7 +2046,7 @@ scale by <a class="reference internal" href="#json-driver/neuroglancer_precomput
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/neuroglancer_precomputed.scale_metadata.encoding">
-<span class="sig-name descname"><span class="pre">encoding</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;raw&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;jpeg&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;compressed_segmentation&quot;</span></code><a class="headerlink" href="#json-driver/neuroglancer_precomputed.scale_metadata.encoding" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">encoding</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;raw&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;jpeg&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;png&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;compressed_segmentation&quot;</span></code><a class="headerlink" href="#json-driver/neuroglancer_precomputed.scale_metadata.encoding" title="Permalink to this definition">¶</a></dt>
 <dd><span><p>Specifies the chunk encoding.</p>
   </span><p>Required when creating a new scale.</p>
 </dd></dl>
@@ -2029,8 +2057,18 @@ scale by <a class="reference internal" href="#json-driver/neuroglancer_precomput
 <dd><span><p>JPEG encoding quality.</p>
   </span><p>Only applies if <a class="reference internal" href="#json-driver/neuroglancer_precomputed.scale_metadata.encoding" title="driver/neuroglancer_precomputed.scale_metadata.encoding (JSON member) — Specifies the chunk encoding."><code class="xref json json-schema docutils literal notranslate"><span class="pre">encoding</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;jpeg&quot;</span></code>.  The
 quality is specified using the IJG (Independent JPEG Group) [0, 100]
-recommended scale, with 0 being the worst quality (smallest file
+recommended scale, with 0 having the worst quality (smallest file
 size) and 100 the best quality (largest file size).</p>
+</dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-driver/neuroglancer_precomputed.scale_metadata.png_level">
+<span class="sig-name descname"><span class="pre">png_level</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">0</span></code><span class="p"><span class="pre">,</span> </span><code class="code json docutils literal highlight highlight-json"><span class="mi">9</span></code><span class="p"><span class="pre">]</span></span></sub><a class="headerlink" href="#json-driver/neuroglancer_precomputed.scale_metadata.png_level" title="Permalink to this definition">¶</a></dt>
+<dd><span><p>PNG compression level.</p>
+  </span><p>Only applies if <a class="reference internal" href="#json-driver/neuroglancer_precomputed.scale_metadata.encoding" title="driver/neuroglancer_precomputed.scale_metadata.encoding (JSON member) — Specifies the chunk encoding."><code class="xref json json-schema docutils literal notranslate"><span class="pre">encoding</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;png&quot;</span></code>.  Specifies the zlib compression level
+between [0, 9], where 0 is uncompressed, with 1 having the fastest compression
+(largest file size), and 9 the slowest compression (smallest file size).
+When unset, the library default compression level is used.</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
@@ -2369,7 +2407,7 @@ shard corresponds to a rectangular region, then the
 shard.  Otherwise, the <a class="reference internal" href="../../schema.html#json-ChunkLayout.write_chunk" title="ChunkLayout.write_chunk (JSON member) — Constraints on the chunk grid over which writes may be efficiently partitioned."><code class="xref json json-schema docutils literal notranslate"><span class="pre">write_chunk</span></code></a> shape corresponds
 to the shape of the entire volume, rounded up to a multiple of the
 <a class="reference internal" href="../../schema.html#json-ChunkLayout.read_chunk" title="ChunkLayout.read_chunk (JSON member) — Constraints on the chunk grid over which reads may be efficiently partitioned."><code class="xref json json-schema docutils literal notranslate"><span class="pre">read_chunk</span></code></a> shape.</p>
-<p>When using the <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;raw&quot;</span></code> or <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;jpeg&quot;</span></code>
+<p>When using the <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;raw&quot;</span></code>, <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;png&quot;</span></code>, or <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;jpeg&quot;</span></code>
 <a class="reference internal" href="#json-driver/neuroglancer_precomputed/Codec.encoding" title="driver/neuroglancer_precomputed/Codec.encoding (JSON member) — Specifies the chunk encoding."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/neuroglancer_precomputed/Codec.encoding</span></code></a>, hard constraints
 on the <a class="reference internal" href="../../schema.html#json-ChunkLayout.codec_chunk" title="ChunkLayout.codec_chunk (JSON member) — Constraints on the chunk grid used by the codec, if applicable."><code class="xref json json-schema docutils literal notranslate"><span class="pre">ChunkLayout.codec_chunk</span></code></a> must not be specified.</p>
 <p>When using the <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;compressed_segmentation&quot;</span></code>
@@ -2543,7 +2581,7 @@ represented in the same way as in the
 <dt class="field-odd" id="optional-members-json-driver/neuroglancer_precomputed/Codec">Optional members<span class="colon">:</span><a class="headerlink" href="#optional-members-json-driver/neuroglancer_precomputed/Codec" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/neuroglancer_precomputed/Codec.encoding">
-<span class="sig-name descname"><span class="pre">encoding</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;raw&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;jpeg&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;compressed_segmentation&quot;</span></code><a class="headerlink" href="#json-driver/neuroglancer_precomputed/Codec.encoding" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">encoding</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;raw&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;jpeg&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;png&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;compressed_segmentation&quot;</span></code><a class="headerlink" href="#json-driver/neuroglancer_precomputed/Codec.encoding" title="Permalink to this definition">¶</a></dt>
 <dd><span><p>Specifies the chunk encoding.</p>
   </span><p>Required when creating a new scale.</p>
 </dd></dl>
@@ -2554,8 +2592,18 @@ represented in the same way as in the
 <dd><span><p>JPEG encoding quality.</p>
   </span><p>Only applies if <a class="reference internal" href="#json-driver/neuroglancer_precomputed/Codec.encoding" title="driver/neuroglancer_precomputed/Codec.encoding (JSON member) — Specifies the chunk encoding."><code class="xref json json-schema docutils literal notranslate"><span class="pre">encoding</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;jpeg&quot;</span></code>.  The
 quality is specified using the IJG (Independent JPEG Group) [0, 100]
-recommended scale, with 0 being the worst quality (smallest file
+recommended scale, with 0 having the worst quality (smallest file
 size) and 100 the best quality (largest file size).</p>
+</dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-driver/neuroglancer_precomputed/Codec.png_level">
+<span class="sig-name descname"><span class="pre">png_level</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">0</span></code><span class="p"><span class="pre">,</span> </span><code class="code json docutils literal highlight highlight-json"><span class="mi">9</span></code><span class="p"><span class="pre">]</span></span></sub><a class="headerlink" href="#json-driver/neuroglancer_precomputed/Codec.png_level" title="Permalink to this definition">¶</a></dt>
+<dd><span><p>PNG compression level.</p>
+  </span><p>Only applies if <a class="reference internal" href="#json-driver/neuroglancer_precomputed/Codec.encoding" title="driver/neuroglancer_precomputed/Codec.encoding (JSON member) — Specifies the chunk encoding."><code class="xref json json-schema docutils literal notranslate"><span class="pre">encoding</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;png&quot;</span></code>.  Specifies the zlib compression level
+between [0, 9], where 0 is uncompressed, with 1 having the fastest compression
+(largest file size), and 9 the slowest compression (smallest file size).
+When unset, the library default compression level is used.</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
