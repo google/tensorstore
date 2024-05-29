@@ -22,7 +22,7 @@
 #include <iosfwd>
 #include <type_traits>
 
-#ifdef __has_builtin
+#if defined(__has_builtin) && defined(__clang__)
 #if __has_builtin(__type_pack_element)
 #define TENSORSTORE_HAS_TYPE_PACK_ELEMENT
 #endif
