@@ -14,10 +14,12 @@
 
 #include "tensorstore/internal/image/tiff_writer.h"
 
-#include <assert.h>
-#include <errno.h>
-#include <stdio.h>
+#include <stdint.h>
 
+#include <cassert>
+#include <cerrno>
+#include <cstdio>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string_view>
@@ -26,6 +28,7 @@
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "riegeli/bytes/writer.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/image/image_info.h"
@@ -217,6 +220,16 @@ TiffWriter::~TiffWriter() = default;
 TiffWriter::TiffWriter(TiffWriter&& src) = default;
 TiffWriter& TiffWriter::operator=(TiffWriter&& src) = default;
 
+absl::Status TiffWriter::IsSupported(const ImageInfo& info) {
+  if (info.width > std::numeric_limits<int32_t>::max() ||
+      info.height > std::numeric_limits<int32_t>::max()) {
+    return absl::InvalidArgumentError(
+        absl::StrFormat("TIFF Image dimensions of (%d, %d) exceed maximum size",
+                        info.width, info.height));
+  }
+  return absl::OkStatus();
+}
+
 absl::Status TiffWriter::InitializeImpl(riegeli::Writer* writer,
                                         const TiffWriterOptions& options) {
   ABSL_CHECK(writer != nullptr);
@@ -237,6 +250,7 @@ absl::Status TiffWriter::Encode(const ImageInfo& info,
   if (!context_) {
     return absl::InternalError("TIFF writer not initialized");
   }
+  TENSORSTORE_RETURN_IF_ERROR(IsSupported(info));
   ABSL_CHECK_EQ(source.size(), ImageRequiredBytes(info));
   return context_->WriteImage(info, source);
 }

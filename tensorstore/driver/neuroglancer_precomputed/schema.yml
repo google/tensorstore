@@ -171,6 +171,7 @@ definitions:
         enum:
         - raw
         - jpeg
+        - png
         - compressed_segmentation
         title: |-
           Specifies the chunk encoding.
@@ -186,8 +187,19 @@ definitions:
         description: |-
           Only applies if `.encoding` is ``"jpeg"``.  The
           quality is specified using the IJG (Independent JPEG Group) [0, 100]
-          recommended scale, with 0 being the worst quality (smallest file
+          recommended scale, with 0 having the worst quality (smallest file
           size) and 100 the best quality (largest file size).
+      png_level:
+        type: integer
+        minimum: 0
+        maximum: 9
+        title: |-
+          PNG compression level.
+        description: |-
+          Only applies if `.encoding` is ``"png"``.  Specifies the zlib compression level
+          between [0, 9], where 0 is uncompressed, with 1 having the fastest compression
+          (largest file size), and 9 the slowest compression (smallest file size).
+          When unset, the library default compression level is used.
   codec:
     $id: "driver/neuroglancer_precomputed/Codec"
     title: Neuroglancer Precomputed Codec

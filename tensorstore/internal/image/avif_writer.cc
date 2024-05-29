@@ -14,18 +14,22 @@
 
 #include "tensorstore/internal/image/avif_writer.h"
 
+#include <stddef.h>
 #include <stdint.h>
 
+#include <array>
+#include <cassert>
 #include <memory>
 #include <string>
 #include <utility>
-#include <vector>
 
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
+#include "riegeli/base/buffering.h"
 #include "riegeli/bytes/writer.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/image/avif_common.h"
@@ -167,14 +171,6 @@ absl::Status AvifAddImage(avifEncoder* encoder,
                           const AvifWriterOptions& options,
                           const ImageInfo& info,
                           tensorstore::span<const unsigned char> source) {
-  if (info.dtype != dtype_v<uint8_t> && info.dtype != dtype_v<uint16_t>) {
-    return absl::InvalidArgumentError(
-        "AVIF encoding requires uint8_t or uint16_t");
-  }
-  if (info.num_components == 0 || info.num_components > 4) {
-    return absl::InvalidArgumentError("AVIF encoding invalid num_components");
-  }
-
   // NOTE: Maybe allow setting pixel format to something other than yuv444?
   std::unique_ptr<avifImage, AvifDeleter> image(avifImageCreateEmpty());
 
@@ -260,6 +256,23 @@ absl::Status AvifFinish(avifEncoder* encoder, riegeli::Writer* writer) {
 }
 
 }  // namespace
+
+absl::Status AvifWriter::IsSupported(const ImageInfo& info) {
+  // See avifDimensionsTooLarge for the equivalent avif internal function.
+  if (info.width > AVIF_DEFAULT_IMAGE_DIMENSION_LIMIT ||
+      info.height > AVIF_DEFAULT_IMAGE_DIMENSION_LIMIT ||
+      info.width > (AVIF_DEFAULT_IMAGE_SIZE_LIMIT / info.height)) {
+    return absl::InvalidArgumentError(
+        absl::StrFormat("AVIF image dimensions of (%d, %d) exceed maximum size",
+                        info.width, info.height));
+  }
+  if (info.num_components == 0 || info.num_components > 4) {
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "AVIF image expected 1 to 4 components, but received: %d",
+        info.num_components));
+  }
+  return absl::OkStatus();
+}
 
 absl::Status AvifWriter::InitializeImpl(riegeli::Writer* writer,
                                         const AvifWriterOptions& options) {
@@ -359,6 +372,7 @@ absl::Status AvifWriter::Encode(const ImageInfo& info,
   if (!encoder_) {
     return absl::InternalError("AVIF writer not initialized");
   }
+  TENSORSTORE_RETURN_IF_ERROR(IsSupported(info));
   ABSL_CHECK_EQ(source.size(), ImageRequiredBytes(info));
   return AvifAddImage(encoder_.get(), options_, info, source);
 }

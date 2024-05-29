@@ -16,18 +16,27 @@
 
 #include <stddef.h>
 
+#include <array>
+#include <cstdint>
+#include <string>
+#include <utility>
+#include <variant>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include <nlohmann/json_fwd.hpp>
 #include "tensorstore/box.h"
 #include "tensorstore/codec_spec.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/index.h"
+#include "tensorstore/internal/json/json.h"
 #include "tensorstore/internal/json_binding/gtest.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -78,6 +87,7 @@ TEST(NoShardingSpecTest, Basic) {
 TEST(EncodingTest, ToString) {
   EXPECT_EQ("raw", to_string(ScaleMetadata::Encoding::raw));
   EXPECT_EQ("jpeg", to_string(ScaleMetadata::Encoding::jpeg));
+  EXPECT_EQ("png", to_string(ScaleMetadata::Encoding::png));
   EXPECT_EQ("compressed_segmentation",
             to_string(ScaleMetadata::Encoding::compressed_segmentation));
 }
@@ -275,29 +285,33 @@ TEST(MetadataTest, ParseDefaultVoxelOffset) {
 }
 
 TEST(MetadataTest, ParseEncodingsAndDataTypes) {
-  const auto GetMetadata = [](::nlohmann::json dtype, ::nlohmann::json encoding,
-                              int num_channels = 1,
-                              ::nlohmann::json jpeg_quality =
-                                  ::nlohmann::json::value_t::discarded) {
-    ::nlohmann::json metadata_json{{"num_channels", num_channels},
-                                   {"scales",
-                                    {{{"chunk_sizes", {{64, 65, 66}}},
-                                      {"encoding", encoding},
-                                      {"key", "8_8_8"},
-                                      {"resolution", {5, 6, 7}},
-                                      {"size", {6446, 6643, 8090}},
-                                      {"voxel_offset", {2, 4, 6}}}}},
-                                   {"type", "segmentation"},
-                                   {"data_type", dtype}};
-    if (encoding == "compressed_segmentation") {
-      metadata_json["scales"][0]["compressed_segmentation_block_size"] =  //
-          {8, 8, 8};
-    }
-    if (!jpeg_quality.is_discarded()) {
-      metadata_json["scales"][0]["jpeg_quality"] = jpeg_quality;
-    }
-    return metadata_json;
-  };
+  const auto GetMetadata =
+      [](::nlohmann::json dtype, ::nlohmann::json encoding,
+         int num_channels = 1,
+         ::nlohmann::json jpeg_quality = ::nlohmann::json::value_t::discarded,
+         ::nlohmann::json png_level = ::nlohmann::json::value_t::discarded) {
+        ::nlohmann::json metadata_json{{"num_channels", num_channels},
+                                       {"scales",
+                                        {{{"chunk_sizes", {{64, 65, 66}}},
+                                          {"encoding", encoding},
+                                          {"key", "8_8_8"},
+                                          {"resolution", {5, 6, 7}},
+                                          {"size", {6446, 6643, 8090}},
+                                          {"voxel_offset", {2, 4, 6}}}}},
+                                       {"type", "segmentation"},
+                                       {"data_type", dtype}};
+        if (encoding == "compressed_segmentation") {
+          metadata_json["scales"][0]["compressed_segmentation_block_size"] =  //
+              {8, 8, 8};
+        }
+        if (!jpeg_quality.is_discarded()) {
+          metadata_json["scales"][0]["jpeg_quality"] = jpeg_quality;
+        }
+        if (!png_level.is_discarded()) {
+          metadata_json["scales"][0]["png_level"] = png_level;
+        }
+        return metadata_json;
+      };
 
   // Test number in place of string data type.
   EXPECT_THAT(MultiscaleMetadata::FromJson(
@@ -332,19 +346,6 @@ TEST(MetadataTest, ParseEncodingsAndDataTypes) {
     EXPECT_EQ(ScaleMetadata::Encoding::raw, m.scales[0].encoding);
   }
 
-  // Test that "jpeg_quality" is not valid for `raw` encoding.
-  EXPECT_THAT(
-      MultiscaleMetadata::FromJson(
-          GetMetadata("uint8", ScaleMetadata::Encoding::raw, 1, 75)),
-      MatchesStatus(absl::StatusCode::kInvalidArgument, ".*\"jpeg\".*"));
-
-  // Test that "jpeg_quality" is not valid for `compressed_segmentation`
-  // encoding.
-  EXPECT_THAT(
-      MultiscaleMetadata::FromJson(GetMetadata(
-          "uint32", ScaleMetadata::Encoding::compressed_segmentation, 1, 75)),
-      MatchesStatus(absl::StatusCode::kInvalidArgument, ".*\"jpeg\".*"));
-
   // Test invalid data types for `raw` encoding.
   for (auto data_type_id : {DataTypeId::string_t, DataTypeId::json_t,
                             DataTypeId::ustring_t, DataTypeId::bool_t}) {
@@ -354,20 +355,29 @@ TEST(MetadataTest, ParseEncodingsAndDataTypes) {
                 MatchesStatus(absl::StatusCode::kInvalidArgument));
   }
 
+  // --- jpeg ---
+
+  // Test that "jpeg_quality" is not valid for non-jpeg encoding.
+  for (ScaleMetadata::Encoding e :
+       {ScaleMetadata::Encoding::raw, ScaleMetadata::Encoding::png,
+        ScaleMetadata::Encoding::compressed_segmentation}) {
+    EXPECT_THAT(
+        MultiscaleMetadata::FromJson(GetMetadata("uint8", e, 1, 75)),
+        MatchesStatus(absl::StatusCode::kInvalidArgument, ".*\"jpeg\".*"));
+  }
+
   // Test valid data types and number of channels for `jpeg` encoding.
-  for (auto data_type_id : {DataTypeId::uint8_t}) {
-    for (int num_channels : {1, 3}) {
-      const auto dtype = kDataTypes[static_cast<int>(data_type_id)];
-      TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-          auto m,
-          MultiscaleMetadata::FromJson(GetMetadata(
-              dtype.name(), ScaleMetadata::Encoding::jpeg, num_channels)));
-      ASSERT_EQ(1, m.scales.size());
-      EXPECT_EQ(dtype, m.dtype);
-      EXPECT_EQ(num_channels, m.num_channels);
-      EXPECT_EQ(75, m.scales[0].jpeg_quality);
-      EXPECT_EQ(ScaleMetadata::Encoding::jpeg, m.scales[0].encoding);
-    }
+  for (int num_channels : {1, 3}) {
+    const auto dtype = ::tensorstore::dtype_v<uint8_t>;
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto m,
+        MultiscaleMetadata::FromJson(GetMetadata(
+            dtype.name(), ScaleMetadata::Encoding::jpeg, num_channels)));
+    ASSERT_EQ(1, m.scales.size());
+    EXPECT_EQ(dtype, m.dtype);
+    EXPECT_EQ(num_channels, m.num_channels);
+    EXPECT_EQ(75, m.scales[0].jpeg_quality);
+    EXPECT_EQ(ScaleMetadata::Encoding::jpeg, m.scales[0].encoding);
   }
 
   // Test invalid jpeg_quality values.
@@ -406,6 +416,85 @@ TEST(MetadataTest, ParseEncodingsAndDataTypes) {
                     GetMetadata(dtype.name(), ScaleMetadata::Encoding::jpeg)),
                 MatchesStatus(absl::StatusCode::kInvalidArgument));
   }
+
+  // --- png ---
+
+  // Test that "png_level" is not valid for non-png encoding.
+  for (ScaleMetadata::Encoding e :
+       {ScaleMetadata::Encoding::raw, ScaleMetadata::Encoding::jpeg,
+        ScaleMetadata::Encoding::compressed_segmentation}) {
+    EXPECT_THAT(
+        MultiscaleMetadata::FromJson(GetMetadata(
+            "uint8", e, 1, ::nlohmann::json::value_t::discarded, 6)),
+        MatchesStatus(absl::StatusCode::kInvalidArgument, ".*\"png\".*"));
+  }
+
+  // Test valid data types and number of channels for `png` encoding.
+  for (int num_channels : {1, 2, 3, 4}) {
+    const auto dtype = ::tensorstore::dtype_v<uint8_t>;
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto m, MultiscaleMetadata::FromJson(GetMetadata(
+                    dtype.name(), ScaleMetadata::Encoding::png, num_channels)));
+    ASSERT_EQ(1, m.scales.size());
+    EXPECT_EQ(dtype, m.dtype);
+    EXPECT_EQ(num_channels, m.num_channels);
+    EXPECT_EQ(-1, m.scales[0].png_level);
+    EXPECT_EQ(ScaleMetadata::Encoding::png, m.scales[0].encoding);
+  }
+
+  {
+    int num_channels = 1;
+    const auto dtype = ::tensorstore::dtype_v<uint16_t>;
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto m, MultiscaleMetadata::FromJson(GetMetadata(
+                    dtype.name(), ScaleMetadata::Encoding::png, num_channels)));
+    ASSERT_EQ(1, m.scales.size());
+    EXPECT_EQ(dtype, m.dtype);
+    EXPECT_EQ(num_channels, m.num_channels);
+    EXPECT_EQ(-1, m.scales[0].png_level);
+    EXPECT_EQ(ScaleMetadata::Encoding::png, m.scales[0].encoding);
+  }
+
+  // Test invalid png_level values.
+  EXPECT_THAT(MultiscaleMetadata::FromJson(
+                  GetMetadata("uint8", ScaleMetadata::Encoding::png, 1,
+                              ::nlohmann::json::value_t::discarded, -1)),
+              MatchesStatus(absl::StatusCode::kInvalidArgument, ".*-1.*"));
+  EXPECT_THAT(MultiscaleMetadata::FromJson(
+                  GetMetadata("uint8", ScaleMetadata::Encoding::png, 1,
+                              ::nlohmann::json::value_t::discarded, 10)),
+              MatchesStatus(absl::StatusCode::kInvalidArgument, ".*10.*"));
+
+  // Test that jpeg_quality is valid for `png` encoding.
+  for (int png_level : {0, 6, 9}) {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto m, MultiscaleMetadata::FromJson(GetMetadata(
+                    "uint8", ScaleMetadata::Encoding::png, 1,
+                    ::nlohmann::json::value_t::discarded, png_level)));
+    ASSERT_EQ(1, m.scales.size());
+    EXPECT_EQ(png_level, m.scales[0].png_level);
+  }
+
+  // Test invalid number of channels for `png` encoding.
+  for (int num_channels : {0, 5}) {
+    EXPECT_THAT(MultiscaleMetadata::FromJson(GetMetadata(
+                    "uint8", ScaleMetadata::Encoding::png, num_channels)),
+                MatchesStatus(absl::StatusCode::kInvalidArgument));
+  }
+
+  // Test invalid data types for `png` encoding.
+  for (auto data_type_id :
+       {DataTypeId::uint32_t, DataTypeId::uint64_t, DataTypeId::int8_t,
+        DataTypeId::int16_t, DataTypeId::int32_t, DataTypeId::int64_t,
+        DataTypeId::float16_t, DataTypeId::float32_t, DataTypeId::float64_t,
+        DataTypeId::complex64_t, DataTypeId::complex128_t}) {
+    const auto dtype = kDataTypes[static_cast<int>(data_type_id)];
+    EXPECT_THAT(MultiscaleMetadata::FromJson(
+                    GetMetadata(dtype.name(), ScaleMetadata::Encoding::png)),
+                MatchesStatus(absl::StatusCode::kInvalidArgument));
+  }
+
+  // --- compressed_segmentation ---
 
   // Test valid data types for `compressed_segmentation` encoding.
   for (auto data_type_id : {DataTypeId::uint32_t, DataTypeId::uint64_t}) {
@@ -2013,6 +2102,15 @@ TEST(NeuroglancerPrecomputedCodecSpecTest, RoundTrip) {
       ::nlohmann::json::value_t::discarded,
       {
           {"driver", "neuroglancer_precomputed"},
+      },
+      {
+          {"driver", "neuroglancer_precomputed"},
+          {"encoding", "png"},
+      },
+      {
+          {"driver", "neuroglancer_precomputed"},
+          {"encoding", "png"},
+          {"png_level", 6},
       },
       {
           {"driver", "neuroglancer_precomputed"},

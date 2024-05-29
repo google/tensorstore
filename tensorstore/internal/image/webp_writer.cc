@@ -14,24 +14,22 @@
 
 #include "tensorstore/internal/image/webp_writer.h"
 
+#include <stddef.h>
 #include <stdint.h>
 
-#include <memory>
-#include <string>
 #include <string_view>
-#include <utility>
-#include <vector>
 
 #include "absl/log/absl_check.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "riegeli/bytes/writer.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/image/image_info.h"
-#include "tensorstore/internal/image/image_view.h"
 #include "tensorstore/util/span.h"
 
 // Include libavif last
 #include <webp/encode.h>
+#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal_image {
@@ -50,13 +48,6 @@ static int WebPWriterWrite(const uint8_t* data, size_t data_size,
 absl::Status EncodeWebP(riegeli::Writer* writer,
                         const WebPWriterOptions& options, const ImageInfo& info,
                         tensorstore::span<const unsigned char> source) {
-  if (info.width > WEBP_MAX_DIMENSION || info.height > WEBP_MAX_DIMENSION) {
-    return absl::InvalidArgumentError("WEBP image too large");
-  }
-  if (info.num_components != 3 && info.num_components != 4) {
-    return absl::InvalidArgumentError("WEBP invalid num_components");
-  }
-
   WebPConfig config;
   if (!WebPConfigInit(&config)) {
     return absl::InternalError("WEBP encoder init failed");
@@ -102,6 +93,20 @@ absl::Status EncodeWebP(riegeli::Writer* writer,
 
 }  // namespace
 
+absl::Status WebPWriter::IsSupported(const ImageInfo& info) {
+  if (info.width > WEBP_MAX_DIMENSION || info.height > WEBP_MAX_DIMENSION) {
+    return absl::InvalidArgumentError(
+        absl::StrFormat("WEPB image dimensions of (%d, %d) exceed maximum size",
+                        info.width, info.height));
+  }
+  if (info.num_components != 3 && info.num_components != 4) {
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "WEBP image expected 3 or 4 components, but received: %d",
+        info.num_components));
+  }
+  return absl::OkStatus();
+}
+
 absl::Status WebPWriter::InitializeImpl(riegeli::Writer* writer,
                                         const WebPWriterOptions& options) {
   ABSL_CHECK(writer != nullptr);
@@ -122,6 +127,7 @@ absl::Status WebPWriter::Encode(const ImageInfo& info,
   if (!writer_) {
     return absl::InternalError("WEBP writer not initialized");
   }
+  TENSORSTORE_RETURN_IF_ERROR(IsSupported(info));
   ABSL_CHECK_EQ(source.size(), ImageRequiredBytes(info));
   return EncodeWebP(writer_, options_, info, source);
 }

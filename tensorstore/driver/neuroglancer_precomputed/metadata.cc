@@ -88,6 +88,8 @@ std::string_view to_string(ScaleMetadata::Encoding e) {
   switch (e) {
     case E::raw:
       return "raw";
+    case E::png:
+      return "png";
     case E::jpeg:
       return "jpeg";
     case E::compressed_segmentation:
@@ -119,14 +121,24 @@ absl::Status ValidateEncodingDataType(ScaleMetadata::Encoding encoding,
   switch (encoding) {
     case ScaleMetadata::Encoding::raw:
       break;
-    case ScaleMetadata::Encoding::compressed_segmentation:
-      if (!dtype.valid()) break;
-      if (dtype.id() != DataTypeId::uint32_t &&
-          dtype.id() != DataTypeId::uint64_t) {
+    case ScaleMetadata::Encoding::png:
+      if (dtype.valid() && dtype.id() != DataTypeId::uint8_t &&
+          dtype.id() != DataTypeId::uint16_t) {
         return absl::InvalidArgumentError(tensorstore::StrCat(
-            "compressed_segmentation encoding only supported for "
-            "uint32 and uint64, not for ",
+            "\"png\" encoding only supported for uint8 and uint16, not for ",
             dtype));
+      }
+      if (num_channels) {
+        if (dtype.valid() && dtype.id() == DataTypeId::uint16_t &&
+            *num_channels != 1) {
+          return absl::InvalidArgumentError(tensorstore::StrCat(
+              "\"png\" encoding for uint16 only supports 1 channel, not ",
+              *num_channels));
+        } else if (*num_channels == 0 || *num_channels > 4) {
+          return absl::InvalidArgumentError(tensorstore::StrCat(
+              "\"png\" encoding only supports 1 to 4 channels, not ",
+              *num_channels));
+        }
       }
       break;
     case ScaleMetadata::Encoding::jpeg:
@@ -138,6 +150,16 @@ absl::Status ValidateEncodingDataType(ScaleMetadata::Encoding encoding,
         return absl::InvalidArgumentError(tensorstore::StrCat(
             "\"jpeg\" encoding only supports 1 or 3 channels, not ",
             *num_channels));
+      }
+      break;
+    case ScaleMetadata::Encoding::compressed_segmentation:
+      if (!dtype.valid()) break;
+      if (dtype.id() != DataTypeId::uint32_t &&
+          dtype.id() != DataTypeId::uint64_t) {
+        return absl::InvalidArgumentError(tensorstore::StrCat(
+            "compressed_segmentation encoding only supported for "
+            "uint32 and uint64, not for ",
+            dtype));
       }
       break;
   }
@@ -199,6 +221,7 @@ constexpr static auto ShardingBinder = [](auto is_loading, const auto& options,
 constexpr static auto ScaleMetatadaEncodingBinder() {
   return jb::Enum<ScaleMetadata::Encoding, std::string_view>({
       {ScaleMetadata::Encoding::raw, "raw"},
+      {ScaleMetadata::Encoding::png, "png"},
       {ScaleMetadata::Encoding::jpeg, "jpeg"},
       {ScaleMetadata::Encoding::compressed_segmentation,
        "compressed_segmentation"},
@@ -233,7 +256,28 @@ constexpr static auto EncodingJsonBinder = [](auto maybe_optional) {
                      return jb::Projection(&T::jpeg_quality,
                                            maybe_optional(jb::Integer(0, 100)))(
                          is_loading, options, obj, j);
-                   }))(is_loading, options, obj, j);
+                   }),
+        jb::Member("png_level",
+                   [maybe_optional](auto is_loading, const auto& options,
+                                    auto* obj, auto* j) -> absl::Status {
+                     if constexpr (is_loading) {
+                       if (j->is_discarded()) return absl::OkStatus();
+                       if (obj->encoding != ScaleMetadata::Encoding::png) {
+                         return absl::InvalidArgumentError(
+                             "Only valid for \"png\" encoding");
+                       }
+                     } else {
+                       if (obj->encoding != ScaleMetadata::Encoding::png) {
+                         *j = ::nlohmann::json(
+                             ::nlohmann::json::value_t::discarded);
+                         return absl::OkStatus();
+                       }
+                     }
+                     return jb::Projection(&T::png_level,
+                                           maybe_optional(jb::Integer(0, 9)))(
+                         is_loading, options, obj, j);
+                   }) /**/
+        )(is_loading, options, obj, j);
   };
 };
 
@@ -447,6 +491,11 @@ absl::Status ValidateScaleConstraintsForOpen(
       *constraints.jpeg_quality != metadata.jpeg_quality) {
     return MetadataMismatchError(kJpegQualityId, *constraints.jpeg_quality,
                                  metadata.jpeg_quality);
+  }
+  if (metadata.encoding == ScaleMetadata::Encoding::png &&
+      constraints.png_level && *constraints.png_level != metadata.png_level) {
+    return MetadataMismatchError(kPngCompressionLevelId, *constraints.png_level,
+                                 metadata.png_level);
   }
   if (metadata.encoding == ScaleMetadata::Encoding::compressed_segmentation &&
       constraints.compressed_segmentation_block_size &&
@@ -908,6 +957,7 @@ GetEffectiveCodec(const OpenConstraints& constraints, const Schema& schema) {
       internal::CodecDriverSpec::Make<NeuroglancerPrecomputedCodecSpec>();
   codec_spec->encoding = constraints.scale.encoding;
   codec_spec->jpeg_quality = constraints.scale.jpeg_quality;
+  codec_spec->png_level = constraints.scale.png_level;
 
   if (constraints.scale.sharding) {
     if (auto* sharding =
@@ -1037,6 +1087,7 @@ Result<std::pair<std::shared_ptr<MultiscaleMetadata>, size_t>> CreateScale(
   constraints.scale.encoding =
       codec_spec->encoding.value_or(ScaleMetadata::Encoding::raw);
   constraints.scale.jpeg_quality = codec_spec->jpeg_quality;
+  constraints.scale.png_level = codec_spec->png_level;
 
   TENSORSTORE_RETURN_IF_ERROR(
       schema.Set(ChunkLayout::GridOrigin(domain.origin())));
@@ -1175,6 +1226,9 @@ Result<std::pair<std::shared_ptr<MultiscaleMetadata>, size_t>> CreateScale(
   if (constraints.scale.jpeg_quality) {
     scale.jpeg_quality = *constraints.scale.jpeg_quality;
   }
+  if (constraints.scale.png_level) {
+    scale.png_level = *constraints.scale.png_level;
+  }
   if (constraints.scale.compressed_segmentation_block_size) {
     scale.compressed_segmentation_block_size =
         *constraints.scale.compressed_segmentation_block_size;
@@ -1198,6 +1252,9 @@ CodecSpec GetCodecFromMetadata(const MultiscaleMetadata& metadata,
   codec->encoding = scale.encoding;
   if (scale.encoding == ScaleMetadata::Encoding::jpeg) {
     codec->jpeg_quality = scale.jpeg_quality;
+  }
+  if (scale.encoding == ScaleMetadata::Encoding::png) {
+    codec->png_level = scale.png_level;
   }
   if (auto* sharding = std::get_if<ShardingSpec>(&scale.sharding)) {
     codec->shard_data_encoding = sharding->data_encoding;
@@ -1544,6 +1601,14 @@ absl::Status NeuroglancerPrecomputedCodecSpec::DoMergeFrom(
       jpeg_quality = other.jpeg_quality;
     } else if (*jpeg_quality != *other.jpeg_quality) {
       return absl::InvalidArgumentError("\"jpeg_quality\" mismatch");
+    }
+  }
+
+  if (other.png_level) {
+    if (!png_level) {
+      png_level = other.png_level;
+    } else if (*png_level != *other.png_level) {
+      return absl::InvalidArgumentError("\"png_level\" mismatch");
     }
   }
 

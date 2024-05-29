@@ -436,7 +436,7 @@ shard.  Otherwise, the :json:schema:`~ChunkLayout.write_chunk` shape corresponds
 to the shape of the entire volume, rounded up to a multiple of the
 :json:schema:`~ChunkLayout.read_chunk` shape.
 
-When using the :json:`"raw"` or :json:`"jpeg"`
+When using the :json:`"raw"`, :json:`"png"`, or :json:`"jpeg"`
 :json:schema:`driver/neuroglancer_precomputed/Codec.encoding`, hard constraints
 on the :json:schema:`ChunkLayout.codec_chunk` must not be specified.
 

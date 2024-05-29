@@ -39,6 +39,8 @@
 #include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/internal/image/jpeg_reader.h"
 #include "tensorstore/internal/image/jpeg_writer.h"
+#include "tensorstore/internal/image/png_reader.h"
+#include "tensorstore/internal/image/png_writer.h"
 #include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/endian.h"
@@ -52,9 +54,8 @@ namespace tensorstore {
 namespace internal_neuroglancer_precomputed {
 
 using ::tensorstore::internal_image::ImageInfo;
-using ::tensorstore::internal_image::JpegReader;
-using ::tensorstore::internal_image::JpegWriter;
 using ::tensorstore::internal_image::JpegWriterOptions;
+using ::tensorstore::internal_image::PngWriterOptions;
 
 Result<SharedArray<const void>> DecodeRawChunk(
     DataType dtype, span<const Index, 4> shape,
@@ -89,7 +90,8 @@ Result<SharedArray<const void>> DecodeRawChunk(
   return full_decoded_array;
 }
 
-Result<SharedArray<const void>> DecodeJpegChunk(
+template <typename ImageReader>
+Result<SharedArray<const void>> DecodeImageChunk(
     DataType dtype, span<const Index, 4> partial_shape,
     StridedLayoutView<4> chunk_layout, absl::Cord encoded_input) {
   // `array` will contain decoded jpeg with C-order `(z, y, x, channel)` layout.
@@ -102,7 +104,7 @@ Result<SharedArray<const void>> DecodeJpegChunk(
 
   {
     riegeli::CordReader<> cord_reader(&encoded_input);
-    JpegReader reader;
+    ImageReader reader;
     TENSORSTORE_RETURN_IF_ERROR(reader.Initialize(&cord_reader));
     auto info = reader.GetImageInfo();
 
@@ -152,6 +154,20 @@ Result<SharedArray<const void>> DecodeJpegChunk(
            chunk_layout.byte_strides()[3], chunk_layout.byte_strides()[0]}));
   CopyArray(array, partial_decoded_array);
   return full_decoded_array;
+}
+
+Result<SharedArray<const void>> DecodeJpegChunk(
+    DataType dtype, span<const Index, 4> partial_shape,
+    StridedLayoutView<4> chunk_layout, absl::Cord encoded_input) {
+  return DecodeImageChunk<internal_image::JpegReader>(
+      dtype, partial_shape, chunk_layout, std::move(encoded_input));
+}
+
+Result<SharedArray<const void>> DecodePngChunk(
+    DataType dtype, span<const Index, 4> partial_shape,
+    StridedLayoutView<4> chunk_layout, absl::Cord encoded_input) {
+  return DecodeImageChunk<internal_image::PngReader>(
+      dtype, partial_shape, chunk_layout, std::move(encoded_input));
 }
 
 Result<SharedArray<const void>> DecodeCompressedSegmentationChunk(
@@ -228,6 +244,9 @@ Result<SharedArray<const void>> DecodeChunk(span<const Index> chunk_indices,
     case ScaleMetadata::Encoding::raw:
       return DecodeRawChunk(metadata.dtype, chunk_shape, chunk_layout,
                             std::move(buffer));
+    case ScaleMetadata::Encoding::png:
+      return DecodePngChunk(metadata.dtype, chunk_shape, chunk_layout,
+                            std::move(buffer));
     case ScaleMetadata::Encoding::jpeg:
       return DecodeJpegChunk(metadata.dtype, chunk_shape, chunk_layout,
                              std::move(buffer));
@@ -251,9 +270,10 @@ absl::Cord EncodeRawChunk(DataType dtype, span<const Index, 4> shape,
   return std::move(buffer).Build();
 }
 
-Result<absl::Cord> EncodeJpegChunk(DataType dtype, int quality,
-                                   span<const Index, 4> shape,
-                                   ArrayView<const void> array) {
+template <typename ImageWriter, typename Options>
+Result<absl::Cord> EncodeImageChunk(Options options, DataType dtype,
+                                    span<const Index, 4> shape,
+                                    ArrayView<const void> array) {
   Array<const void, 4> partial_source(
       array.element_pointer(),
       StridedLayout<4>({shape[1], shape[2], shape[3], shape[0]},
@@ -263,14 +283,13 @@ Result<absl::Cord> EncodeJpegChunk(DataType dtype, int quality,
 
   absl::Cord buffer;
   {
-    JpegWriterOptions options;
-    options.quality = quality;
-    JpegWriter writer;
+    ImageWriter writer;
     riegeli::CordWriter<> cord_writer(&buffer);
     TENSORSTORE_RETURN_IF_ERROR(writer.Initialize(&cord_writer, options));
     ImageInfo info{/*.height =*/static_cast<int32_t>(shape[3]),
                    /*.width =*/static_cast<int32_t>(shape[1] * shape[2]),
-                   /*.num_components =*/static_cast<int32_t>(shape[0])};
+                   /*.num_components =*/static_cast<int32_t>(shape[0]),
+                   /*.data_type =*/dtype};
     TENSORSTORE_RETURN_IF_ERROR(writer.Encode(
         info, tensorstore::span(reinterpret_cast<const unsigned char*>(
                                     contiguous_array.data()),
@@ -279,6 +298,24 @@ Result<absl::Cord> EncodeJpegChunk(DataType dtype, int quality,
     TENSORSTORE_RETURN_IF_ERROR(writer.Done());
   }
   return buffer;
+}
+
+Result<absl::Cord> EncodeJpegChunk(DataType dtype, int quality,
+                                   span<const Index, 4> shape,
+                                   ArrayView<const void> array) {
+  internal_image::JpegWriterOptions options;
+  options.quality = quality;
+  return EncodeImageChunk<internal_image::JpegWriter>(options, dtype, shape,
+                                                      array);
+}
+
+Result<absl::Cord> EncodePngChunk(DataType dtype, int compression_level,
+                                  span<const Index, 4> shape,
+                                  ArrayView<const void> array) {
+  internal_image::PngWriterOptions options;
+  options.compression_level = compression_level;
+  return EncodeImageChunk<internal_image::PngWriter>(options, dtype, shape,
+                                                     array);
 }
 
 Result<absl::Cord> EncodeCompressedSegmentationChunk(
@@ -324,6 +361,9 @@ Result<absl::Cord> EncodeChunk(span<const Index> chunk_indices,
     case ScaleMetadata::Encoding::jpeg:
       return EncodeJpegChunk(metadata.dtype, scale_metadata.jpeg_quality,
                              partial_chunk_shape, array);
+    case ScaleMetadata::Encoding::png:
+      return EncodePngChunk(metadata.dtype, scale_metadata.png_level,
+                            partial_chunk_shape, array);
     case ScaleMetadata::Encoding::compressed_segmentation:
       return EncodeCompressedSegmentationChunk(
           metadata.dtype, partial_chunk_shape, array,

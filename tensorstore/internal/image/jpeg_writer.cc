@@ -16,12 +16,15 @@
 
 #include <cassert>
 #include <csetjmp>
-#include <memory>
+#include <utility>
 
 #include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
+#include "riegeli/bytes/writer.h"
+#include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/internal/image/image_view.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 
 // Include libjpeg last
@@ -137,6 +140,20 @@ JpegWriter::JpegWriter() = default;
 
 JpegWriter::~JpegWriter() = default;
 
+absl::Status JpegWriter::IsSupported(const ImageInfo& info) {
+  if (info.width > JPEG_MAX_DIMENSION || info.height > JPEG_MAX_DIMENSION) {
+    return absl::InvalidArgumentError(
+        absl::StrFormat("JPEG image dimensions of (%d, %d) exceed maximum size",
+                        info.width, info.height));
+  }
+  if (info.num_components != 1 && info.num_components != 3) {
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "JPEG image expected 1 or 3 components, but received: %d",
+        info.num_components));
+  }
+  return absl::OkStatus();
+}
+
 absl::Status JpegWriter::InitializeImpl(riegeli::Writer* writer,
                                         const JpegWriterOptions& options) {
   ABSL_CHECK(writer != nullptr);
@@ -156,18 +173,8 @@ absl::Status JpegWriter::Encode(const ImageInfo& info,
   if (writer_ == nullptr) {
     return absl::InternalError("JPEG writer not initialized");
   }
+  TENSORSTORE_RETURN_IF_ERROR(IsSupported(info));
   ABSL_CHECK(source.size() == ImageRequiredBytes(info));
-
-  if (info.width > std::numeric_limits<JDIMENSION>::max() ||
-      info.height > std::numeric_limits<JDIMENSION>::max()) {
-    return absl::InvalidArgumentError(
-        absl::StrFormat("Image dimensions of (%d, %d) exceed maximum size",
-                        info.width, info.height));
-  }
-  if (info.num_components != 1 && info.num_components != 3) {
-    return absl::InvalidArgumentError(absl::StrFormat(
-        "Expected 1 or 3 components, but received: %d", info.num_components));
-  }
 
   EncodeState state(writer_);
   ImageView source_view = MakeWriteImageView(info, source);

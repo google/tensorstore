@@ -67,6 +67,7 @@ constexpr inline const char kDataTypeId[] = "data_type";
 constexpr inline const char kDriverId[] = "neuroglancer_precomputed";
 constexpr inline const char kEncodingId[] = "encoding";
 constexpr inline const char kJpegQualityId[] = "jpeg_quality";
+constexpr inline const char kPngCompressionLevelId[] = "png_level";
 constexpr inline const char kKeyId[] = "key";
 constexpr inline const char kMetadataKey[] = "info";
 constexpr inline const char kMultiscaleMetadataId[] = "multiscale_metadata";
@@ -108,6 +109,7 @@ struct NoShardingSpec {
 struct ScaleMetadata {
   enum class Encoding {
     raw,
+    png,
     jpeg,
     compressed_segmentation,
   };
@@ -129,6 +131,7 @@ struct ScaleMetadata {
   std::vector<std::array<Index, 3>> chunk_sizes;
   Encoding encoding;
   int jpeg_quality = kDefaultJpegQuality;
+  int png_level = -1;
   std::array<Index, 3> compressed_segmentation_block_size{};
   std::variant<NoShardingSpec, ShardingSpec> sharding;
   std::array<double, 3> resolution;
@@ -181,6 +184,7 @@ struct ScaleMetadataConstraints {
   std::optional<std::array<double, 3>> resolution;
   std::optional<ScaleMetadata::Encoding> encoding;
   std::optional<int> jpeg_quality;
+  std::optional<int> png_level;
   std::optional<std::array<Index, 3>> compressed_segmentation_block_size;
   std::optional<std::variant<NoShardingSpec, ShardingSpec>> sharding;
   /// Additional JSON members required in the scale metadata.
@@ -207,6 +211,7 @@ struct NeuroglancerPrecomputedCodecSpec
   constexpr static char id[] = "neuroglancer_precomputed";
   std::optional<ScaleMetadata::Encoding> encoding;
   std::optional<int> jpeg_quality;
+  std::optional<int> png_level;
   std::optional<ShardingSpec::DataEncoding> shard_data_encoding;
 
   CodecSpec Clone() const final;
