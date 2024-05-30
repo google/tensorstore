@@ -351,23 +351,23 @@ TEST_F(LocalStackFixture, BasicSync) {
   Aws::Vector<Aws::S3::Model::Object> objects;
 
   do {
-      if (!continuation_token.empty()) {
-          list_request.SetContinuationToken(continuation_token);
-      }
+    if (!continuation_token.empty()) {
+      list_request.SetContinuationToken(continuation_token);
+    }
 
-      auto outcome = client->ListObjectsV2(list_request);
-      EXPECT_TRUE(outcome.IsSuccess());
+    auto outcome = client->ListObjectsV2(list_request);
+    EXPECT_TRUE(outcome.IsSuccess());
 
-      auto page_objects = outcome.GetResult().GetContents();
-      objects.insert(objects.end(), page_objects.begin(), page_objects.end());
-      continuation_token = outcome.GetResult().GetNextContinuationToken();
+    auto page_objects = outcome.GetResult().GetContents();
+    objects.insert(objects.end(), page_objects.begin(), page_objects.end());
+    continuation_token = outcome.GetResult().GetNextContinuationToken();
   } while (!continuation_token.empty());
 
 
   EXPECT_EQ(objects.size(), 2);
 
   for (const auto &object: objects) {
-      EXPECT_EQ(object.GetSize(), payload.size());
+    EXPECT_EQ(object.GetSize(), payload.size());
   }
 
   // Get the contents of the key
