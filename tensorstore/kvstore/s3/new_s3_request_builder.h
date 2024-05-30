@@ -82,6 +82,8 @@ public:
     FromStringMethod(method)) {}
 };
 
+/// Similar interface to S3RequestBuilder,
+/// but builds an AwsHttpRequestAdapter internally
 class NewS3RequestBuilder {
 public:
   NewS3RequestBuilder(std::string_view method, std::string endpoint_url) :
