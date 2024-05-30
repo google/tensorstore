@@ -12,11 +12,24 @@ filegroup(
         "*.yml",
     ]),
 )
+
+
+tensorstore_cc_library(
+    name = "cord_streambuf",
+    srcs = ["cord_streambuf.cc"],
+    hdrs = ["cord_streambuf.h"],
+    deps = [
+        "@com_google_absl//absl/strings:cord",
+    ]
+)
+
+
 tensorstore_cc_library(
     name = "s3_context",
     srcs = ["s3_context.cc"],
     hdrs = ["s3_context.h"],
     deps = [
+        ":cord_streambuf",
         "//tensorstore/util:executor",
         "//tensorstore/internal/http",
         "//tensorstore/internal/http:curl_transport",
@@ -35,6 +48,17 @@ tensorstore_cc_test(
         ":s3_context",
         "@com_github_aws_cpp_sdk//:s3",
         "@com_google_googletest//:gtest_main",
+    ]
+)
+
+tensorstore_cc_test(
+    name = "cord_streambuf_test",
+    size = "small",
+    srcs = ["cord_streambuf_test.cc"],
+    deps = [
+        ":cord_streambuf",
+        "@com_google_googletest//:gtest_main",
+        "@com_github_aws_cpp_sdk//:core",
     ]
 )
 
