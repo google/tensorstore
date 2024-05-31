@@ -17,6 +17,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 
 #include "absl/flags/flag.h"
 #include "absl/log/absl_check.h"
@@ -29,6 +30,7 @@
 #include "grpcpp/channel.h"  // third_party
 #include "grpcpp/client_context.h"  // third_party
 #include "grpcpp/create_channel.h"  // third_party
+#include "grpcpp/security/credentials.h"  // third_party
 #include "grpcpp/support/status.h"  // third_party
 #include "tensorstore/internal/grpc/utils.h"
 #include "tensorstore/internal/http/curl_transport.h"
@@ -160,9 +162,12 @@ absl::Status StorageTestbench::CreateBucket(std::string grpc_endpoint,
 
   std::shared_ptr<grpc::Channel> channel = grpc::CreateChannel(
       grpc_endpoint, grpc::InsecureChannelCredentials());  // NOLINT
-
-  auto stub = Storage::NewStub(channel);
-
+  if (!channel->WaitForConnected(
+          absl::ToChronoTime(absl::Now() + absl::Milliseconds(100)))) {
+    ABSL_LOG(WARNING) << "Failed to connect to grpc endpoint after 100ms: "
+                      << grpc_endpoint;
+  }
+  auto stub = Storage::NewStub(std::move(channel));
   grpc::ClientContext client_context;
   grpc::Status status =
       stub->CreateBucket(&client_context, bucket_request, &bucket_response);

@@ -24,7 +24,9 @@
 #include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "grpc/grpc_security_constants.h"
 #include "grpc/support/log.h"
+#include "grpcpp/channel.h"  // third_party
 #include "grpcpp/completion_queue.h"  // third_party
 #include "grpcpp/create_channel.h"  // third_party
 #include "grpcpp/grpcpp.h"  // third_party
@@ -62,7 +64,7 @@ namespace grpc_mocker {
 //  EchoClient client(mock_service.stub());
 //
 // NOTE: Tests using the MockGrpcServer may expose a race condition in gRPC
-// which leads to a crash related to grpc_completion_queue_next, pthrea_join,
+// which leads to a crash related to grpc_completion_queue_next, pthread_join,
 // or CallbackAlternativeCQ.  This can happen when a callback handler releases
 // the last reference to a gRPC channel / stub, which may trigger gRPC to
 // shutdown an internal threadpool, which just happens to be the threadpool
@@ -78,7 +80,8 @@ class MockGrpcServer {
   explicit MockGrpcServer() {
     BuildServer();
     ABSL_CHECK(server_);
-    stub_ = NewStub();
+    channel_ = ::grpc::CreateChannel(
+        server_address(), ::grpc::experimental::LocalCredentials(LOCAL_TCP));
   }
 
   ~MockGrpcServer() {
@@ -94,16 +97,10 @@ class MockGrpcServer {
   // Service accessor; use to set EXPECT_CALL expectations.
   ServiceImpl* service() { return &service_; }
 
-  // Provides access to a stub which is connected to the mock server using local
-  // credentials. The pointer's lifetime is tied to this MockGrpcServer
-  // instance.
-  std::shared_ptr<ServiceStub> stub() { return stub_; }
-
   // Creates a stub that communicates with the mock server using local
   // credentials.
   std::unique_ptr<ServiceStub> NewStub() {
-    return ServiceType::NewStub(::grpc::CreateChannel(
-        server_address(), ::grpc::experimental::LocalCredentials(LOCAL_TCP)));
+    return ServiceType::NewStub(channel_);
   }
 
   void Shutdown(absl::Time deadline = absl::InfiniteFuture()) {
@@ -135,8 +132,8 @@ class MockGrpcServer {
 
   // Local server address.
   int port_ = 0;
-  std::unique_ptr<::grpc::Server> server_;
-  std::shared_ptr<ServiceStub> stub_;
+  std::unique_ptr<grpc::Server> server_;
+  std::shared_ptr<grpc::Channel> channel_;
 };
 
 #define TENSORSTORE_GRPC_MOCK(method, request, response) \

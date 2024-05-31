@@ -63,6 +63,7 @@ tensorstore_cc_test(
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",
         "@com_github_grpc_grpc//:grpc++",
+        "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest_main",
     ],

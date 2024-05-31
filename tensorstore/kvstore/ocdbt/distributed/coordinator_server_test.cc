@@ -21,9 +21,10 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/log/absl_log.h"
+#include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "grpcpp/create_channel.h"  // third_party
-#include "grpcpp/security/credentials.h"  // third_party
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/ocdbt/distributed/btree_node_identifier.h"
 #include "tensorstore/kvstore/ocdbt/distributed/coordinator.grpc.pb.h"
@@ -57,14 +58,21 @@ class CoordinatorServerTest : public ::testing::Test {
     TENSORSTORE_CHECK_OK_AND_ASSIGN(
         server_, CoordinatorServer::Start(std::move(options)));
 
+    std::string address = tensorstore::StrCat("localhost:", server_.port());
     auto channel =
-        grpc::CreateChannel(tensorstore::StrCat("localhost:", server_.port()),
-                            security->GetClientCredentials());
+        ::grpc::CreateChannel(address, security->GetClientCredentials());
+    if (!channel->WaitForConnected(
+            absl::ToChronoTime(absl::Now() + absl::Milliseconds(100)))) {
+      ABSL_LOG(WARNING) << "Failed to connect to coordinator after 100ms: "
+                        << address;
+    }
+
     LeaseCacheForCooperator::Options lease_cache_options;
     lease_cache_options.clock = {};
     lease_cache_options.cooperator_port = 42;
     lease_cache_options.coordinator_stub =
-        tensorstore::internal_ocdbt::grpc_gen::Coordinator::NewStub(channel);
+        tensorstore::internal_ocdbt::grpc_gen::Coordinator::NewStub(
+            std::move(channel));
     lease_cache_options.security = security;
 
     lease_cache = LeaseCacheForCooperator(std::move(lease_cache_options));
