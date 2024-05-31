@@ -38,15 +38,6 @@ CordStreamBuf & GetStreamBuf(DefaultUnderlyingStream & stream) {
   return *dynamic_cast<CordStreamBuf *>(stream.rdbuf());
 }
 
-// TEST(CordStreamBufTest, CordAdvanceTest) {
-//   auto cord = Cord{"This is a test"};
-//   auto it = cord.Chars().end();
-//   auto chunk = cord.ChunkRemaining(it);
-//   EXPECT_EQ(chunk.size(), 0);
-//   Cord::Advance(&it, cord.ChunkRemaining(it).size());
-//   EXPECT_EQ(it, cord.Chars().end());
-// }
-
 TEST(CordStreamBufTest, Basic) {
   auto os = DefaultUnderlyingStream(MakeUnique<CordStreamBuf>(kAwsTag));
   os << "Hello World";
