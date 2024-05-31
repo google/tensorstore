@@ -80,17 +80,6 @@ void ComputeHmac(unsigned char (&key)[kHmacSize], std::string_view message,
              md_len == kHmacSize);
 }
 
-std::pair<std::string_view, std::string_view> SplitAuthorityAndPath(
-    std::string_view authority_and_path) {
-  size_t end_of_authority = authority_and_path.find('/');
-  if (end_of_authority == std::string_view::npos) {
-    return {authority_and_path, {}};
-  }
-
-  return {authority_and_path.substr(0, end_of_authority),
-          authority_and_path.substr(end_of_authority)};
-}
-
 /// https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
 std::string CanonicalRequest(
     std::string_view method, std::string_view path, std::string_view query,
@@ -236,13 +225,11 @@ HttpRequest S3RequestBuilder::BuildRequest(std::string_view host_header,
   std::stable_sort(std::begin(signed_headers), std::end(signed_headers));
 
   auto parsed_uri = ParseGenericUri(request.url);
-  auto authority_and_path =
-      SplitAuthorityAndPath(parsed_uri.authority_and_path);
-  assert(!authority_and_path.second.empty());
+  assert(!parsed_uri.path.empty());
 
   canonical_request_ =
-      CanonicalRequest(request.method, authority_and_path.second,
-                       parsed_uri.query, payload_sha256_hash, signed_headers);
+      CanonicalRequest(request.method, parsed_uri.path, parsed_uri.query,
+                       payload_sha256_hash, signed_headers);
   signing_string_ = SigningString(canonical_request_, aws_region, time);
   signature_ =
       Signature(credentials.secret_key, aws_region, signing_string_, time);

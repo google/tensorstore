@@ -151,12 +151,10 @@ HttpRequestBuilder::MaybeAddStalenessBoundCacheControlHeader(
 }
 
 HttpRequestBuilder& HttpRequestBuilder::AddHostHeader(std::string_view host) {
-  return AddHeader(absl::StrFormat(
-      "host: %s",
-      host.empty()
-          ? internal::ParseHostname(
-                internal::ParseGenericUri(request_.url).authority_and_path)
-          : host));
+  if (host.empty()) {
+    host = internal::ParseGenericUri(request_.url).authority;
+  }
+  return AddHeader(absl::StrFormat("host: %s", host));
 }
 
 }  // namespace internal_http

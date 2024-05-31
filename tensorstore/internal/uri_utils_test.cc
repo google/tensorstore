@@ -22,7 +22,6 @@
 
 using ::tensorstore::internal::AsciiSet;
 using ::tensorstore::internal::ParseGenericUri;
-using ::tensorstore::internal::ParseHostname;
 using ::tensorstore::internal::PercentDecode;
 using ::tensorstore::internal::PercentEncodeReserved;
 using ::tensorstore::internal::PercentEncodeUriComponent;
@@ -104,6 +103,8 @@ TEST(ParseGenericUriTest, PathOnly) {
   auto parsed = ParseGenericUri("/abc/def");
   EXPECT_EQ("", parsed.scheme);
   EXPECT_EQ("/abc/def", parsed.authority_and_path);
+  EXPECT_EQ("", parsed.authority);
+  EXPECT_EQ("/abc/def", parsed.path);
   EXPECT_EQ("", parsed.query);
   EXPECT_EQ("", parsed.fragment);
 }
@@ -112,6 +113,28 @@ TEST(ParseGenericUriTest, GsScheme) {
   auto parsed = ParseGenericUri("gs://bucket/path");
   EXPECT_EQ("gs", parsed.scheme);
   EXPECT_EQ("bucket/path", parsed.authority_and_path);
+  EXPECT_EQ("bucket", parsed.authority);
+  EXPECT_EQ("/path", parsed.path);
+  EXPECT_EQ("", parsed.query);
+  EXPECT_EQ("", parsed.fragment);
+}
+
+TEST(ParseGenericUriTest, SchemeAuthorityNoPath) {
+  auto parsed = ParseGenericUri("http://host:port");
+  EXPECT_EQ("http", parsed.scheme);
+  EXPECT_EQ("host:port", parsed.authority_and_path);
+  EXPECT_EQ("host:port", parsed.authority);
+  EXPECT_EQ("", parsed.path);
+  EXPECT_EQ("", parsed.query);
+  EXPECT_EQ("", parsed.fragment);
+}
+
+TEST(ParseGenericUriTest, SchemeAuthorityRootPath) {
+  auto parsed = ParseGenericUri("http://host:port/");
+  EXPECT_EQ("http", parsed.scheme);
+  EXPECT_EQ("host:port/", parsed.authority_and_path);
+  EXPECT_EQ("host:port", parsed.authority);
+  EXPECT_EQ("/", parsed.path);
   EXPECT_EQ("", parsed.query);
   EXPECT_EQ("", parsed.fragment);
 }
@@ -120,6 +143,8 @@ TEST(ParseGenericUriTest, SchemeAuthorityPathQuery) {
   auto parsed = ParseGenericUri("http://host:port/path?query");
   EXPECT_EQ("http", parsed.scheme);
   EXPECT_EQ("host:port/path", parsed.authority_and_path);
+  EXPECT_EQ("host:port", parsed.authority);
+  EXPECT_EQ("/path", parsed.path);
   EXPECT_EQ("query", parsed.query);
   EXPECT_EQ("", parsed.fragment);
 }
@@ -128,6 +153,8 @@ TEST(ParseGenericUriTest, SchemeAuthorityPathFragment) {
   auto parsed = ParseGenericUri("http://host:port/path#fragment");
   EXPECT_EQ("http", parsed.scheme);
   EXPECT_EQ("host:port/path", parsed.authority_and_path);
+  EXPECT_EQ("host:port", parsed.authority);
+  EXPECT_EQ("/path", parsed.path);
   EXPECT_EQ("", parsed.query);
   EXPECT_EQ("fragment", parsed.fragment);
 }
@@ -136,6 +163,8 @@ TEST(ParseGenericUriTest, SchemeAuthorityPathQueryFragment) {
   auto parsed = ParseGenericUri("http://host:port/path?query#fragment");
   EXPECT_EQ("http", parsed.scheme);
   EXPECT_EQ("host:port/path", parsed.authority_and_path);
+  EXPECT_EQ("host:port", parsed.authority);
+  EXPECT_EQ("/path", parsed.path);
   EXPECT_EQ("query", parsed.query);
   EXPECT_EQ("fragment", parsed.fragment);
 }
@@ -145,6 +174,8 @@ TEST(ParseGenericUriTest, SchemeAuthorityPathFragmentQuery) {
   auto parsed = ParseGenericUri("http://host:port/path#fragment?query");
   EXPECT_EQ("http", parsed.scheme);
   EXPECT_EQ("host:port/path", parsed.authority_and_path);
+  EXPECT_EQ("host:port", parsed.authority);
+  EXPECT_EQ("/path", parsed.path);
   EXPECT_EQ("", parsed.query);
   EXPECT_EQ("fragment?query", parsed.fragment);
 }
@@ -153,21 +184,24 @@ TEST(ParseGenericUriTest, S3Scheme) {
   auto parsed = ParseGenericUri("s3://bucket/path");
   EXPECT_EQ("s3", parsed.scheme);
   EXPECT_EQ("bucket/path", parsed.authority_and_path);
+  EXPECT_EQ("bucket", parsed.authority);
+  EXPECT_EQ("/path", parsed.path);
   EXPECT_EQ("", parsed.query);
   EXPECT_EQ("", parsed.fragment);
 }
 
-TEST(ParseHostname, Basic) {
+TEST(ParseGenericUriTest, Basic) {
   static constexpr std::pair<std::string_view, std::string_view> kCases[] = {
-      {"host.without.port", "host.without.port"},
-      {"host.with.port:1234", "host.with.port"},
-      {"localhost:1234/foo/bar", "localhost"},
-      {"localhost/foo/bar", "localhost"},
-      {"[::1]:0/foo/bar", "::1"},
+      {"http://host.without.port", "host.without.port"},
+      {"http://host.with.port:1234", "host.with.port:1234"},
+      {"http://localhost:1234/foo/bar", "localhost:1234"},
+      {"http://localhost/foo/bar", "localhost"},
+      {"http://[::1]", "[::1]"},
+      {"http://[::1]:0", "[::1]:0"},
+      {"http://[::1]:0/foo/bar", "[::1]:0"},
   };
-  for (const auto& [authority_and_path, hostname] : kCases) {
-    EXPECT_THAT(ParseHostname(authority_and_path), ::testing::Eq(hostname))
-        << authority_and_path;
+  for (const auto [uri, authority] : kCases) {
+    EXPECT_THAT(ParseGenericUri(uri).authority, ::testing::Eq(authority));
   }
 }
 

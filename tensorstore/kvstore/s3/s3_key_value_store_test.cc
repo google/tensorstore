@@ -289,7 +289,7 @@ TEST(S3KeyValueStoreTest, SimpleMock_Endpoint) {
   for (const auto& request : mock_transport->requests()) {
     if (absl::StartsWith(request.url, "https://localhost:1234/")) {
       host_header_validated++;
-      EXPECT_THAT(request.headers, testing::Contains("host: localhost"));
+      EXPECT_THAT(request.headers, testing::Contains("host: localhost:1234"));
     }
   }
   EXPECT_THAT(host_header_validated, testing::Ge(2));

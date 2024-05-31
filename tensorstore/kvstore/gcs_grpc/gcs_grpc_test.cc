@@ -630,7 +630,7 @@ TEST(GcsGrpcUrlTest, UrlRoundtrip) {
 TEST(GcsGrpcUrlTest, InvalidUri) {
   EXPECT_THAT(kvstore::Spec::FromUrl("gcs_grpc://bucket:xyz"),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*: Invalid bucket name: \"bucket:xyz\""));
+                            ".*: Invalid GCS bucket name: \"bucket:xyz\""));
   EXPECT_THAT(kvstore::Spec::FromUrl("gcs_grpc://bucket?query"),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             ".*: Query string not supported"));

@@ -137,7 +137,8 @@ TEST(HttpRequestBuilder, AddHostHeader) {
   {
     HttpRequestBuilder builder("GET", "http://localhost:1234/path?x=1");
     builder.AddHostHeader({});
-    EXPECT_THAT(builder.BuildRequest().headers, ElementsAre("host: localhost"));
+    EXPECT_THAT(builder.BuildRequest().headers,
+                ElementsAre("host: localhost:1234"));
   }
 }
 

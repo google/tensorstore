@@ -134,8 +134,12 @@ struct ParsedGenericUri {
   /// Portion of URI after the initial "://" (or from the beginning if there is
   /// no "://") and before the first `?` or `#`.  Not percent decoded.
   std::string_view authority_and_path;
-  /// Portion of URI after the first `?` but before the first `#`.  Not percent
-  /// decoded.
+  /// Authority portion of authority_and_path.
+  std::string_view authority;
+  /// Path portion of authority_and_path; when non-empty, begins with "/".
+  std::string_view path;
+  /// Portion of URI after the first `?` but before the first `#`.
+  /// Not percent decoded.
   std::string_view query;
   /// Portion of URI after the first `#`.  Not percent decoded.
   std::string_view fragment;
@@ -145,9 +149,6 @@ struct ParsedGenericUri {
 /// `<scheme>://<authority-and-path>?<query>#<fragment>` where the `?<query>`
 /// and `#<fragment>` portions are optional.
 ParsedGenericUri ParseGenericUri(std::string_view uri);
-
-/// Parses the hostname from "authority_and_path".
-std::string_view ParseHostname(std::string_view authority_and_path);
 
 }  // namespace internal
 }  // namespace tensorstore

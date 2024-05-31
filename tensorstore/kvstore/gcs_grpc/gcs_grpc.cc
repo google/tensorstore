@@ -1190,25 +1190,23 @@ Result<kvstore::Spec> ParseGcsGrpcUrl(std::string_view url) {
   if (!parsed.fragment.empty()) {
     return absl::InvalidArgumentError("Fragment identifier not supported");
   }
-
-  std::pair<std::string_view, std::string_view> bucket_and_path =
-      absl::StrSplit(parsed.authority_and_path, absl::MaxSplits('/', 1));
-  if (!IsValidBucketName(bucket_and_path.first)) {
+  if (!IsValidBucketName(parsed.authority)) {
     return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Invalid bucket name: ", QuoteString(bucket_and_path.first)));
+        "Invalid GCS bucket name: ", QuoteString(parsed.authority)));
   }
+  auto decoded_path = parsed.path.empty()
+                          ? std::string()
+                          : internal::PercentDecode(parsed.path.substr(1));
 
   auto driver_spec = internal::MakeIntrusivePtr<GcsGrpcKeyValueStoreSpec>();
-  driver_spec->data_.bucket = bucket_and_path.first;
+  driver_spec->data_.bucket = std::string(parsed.authority);
   driver_spec->data_.user_project =
       Context::Resource<GcsUserProjectResource>::DefaultSpec();
   driver_spec->data_.retries =
       Context::Resource<internal_storage_gcs::GcsRequestRetries>::DefaultSpec();
   driver_spec->data_.data_copy_concurrency =
       Context::Resource<DataCopyConcurrencyResource>::DefaultSpec();
-
-  return {std::in_place, std::move(driver_spec),
-          internal::PercentDecode(bucket_and_path.second)};
+  return {std::in_place, std::move(driver_spec), std::move(decoded_path)};
 }
 
 }  // namespace
