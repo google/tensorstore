@@ -15,7 +15,6 @@
 #include "tensorstore/kvstore/s3_sdk/cord_streambuf.h"
 
 #include <iterator>
-#include <numeric>
 #include <string>
 
 #include "absl/strings/cord.h"
