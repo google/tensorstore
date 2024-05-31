@@ -27,6 +27,7 @@
 #include "absl/status/status.h"
 #include "tensorstore/context.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/source_location.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -295,7 +296,8 @@ class Driver {
   /// Equivalent to
   /// `AnnotateErrorWithKeyDescription(DescribeKey(key), action, error)`.
   absl::Status AnnotateError(std::string_view key, std::string_view action,
-                             const absl::Status& error);
+                             const absl::Status& error,
+                             SourceLocation loc = SourceLocation::current());
 
   /// Annotates `error` with a message including `key_description`, which should
   /// normally be the result of a call to `DescribeKey`.
@@ -308,7 +310,8 @@ class Driver {
   /// \param error The error to annotate.
   static absl::Status AnnotateErrorWithKeyDescription(
       std::string_view key_description, std::string_view action,
-      const absl::Status& error);
+      const absl::Status& error,
+      SourceLocation loc = SourceLocation::current());
 
   /// Returns a Spec that can be used to re-open this key-value store.
   ///

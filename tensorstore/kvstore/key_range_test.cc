@@ -73,6 +73,15 @@ TEST(KeyRangeTest, Prefix) {
             KeyRange::Prefix("ab\xff\xff\xff"));
   EXPECT_EQ(KeyRange("\xff", ""), KeyRange::Prefix("\xff"));
   EXPECT_EQ(KeyRange("\xff\xff\xff", ""), KeyRange::Prefix("\xff\xff\xff"));
+
+  EXPECT_FALSE(KeyRange::Prefix("").is_non_empty_prefix());
+  EXPECT_TRUE(KeyRange::Prefix("abc").is_non_empty_prefix());
+  EXPECT_TRUE(KeyRange::Prefix("ab\xff").is_non_empty_prefix());
+  EXPECT_TRUE(KeyRange::Prefix("ab\xff\xff\xff").is_non_empty_prefix());
+  EXPECT_TRUE(KeyRange::Prefix("\xff").is_non_empty_prefix());
+  EXPECT_TRUE(KeyRange::Prefix("\xff\xff\xff").is_non_empty_prefix());
+  EXPECT_FALSE(KeyRange::Prefix("ab\xff").full());
+  EXPECT_FALSE(KeyRange::Prefix("ab\xff").is_singleton());
 }
 
 TEST(KeyRangeTest, Successor) {
@@ -215,6 +224,27 @@ TEST(KeyRangeTest, RemovePrefix) {
               ::testing::Eq(KeyRange("", "b")));
   EXPECT_THAT(KeyRange::RemovePrefix("x", KeyRange("xa", "y")),
               ::testing::Eq(KeyRange("a", "")));
+  EXPECT_THAT(KeyRange::RemovePrefix("ab", KeyRange::Prefix("ab")),
+              ::testing::Eq(KeyRange()));
+  EXPECT_THAT(KeyRange::RemovePrefix("ab", KeyRange::Prefix("ab\xff")),
+              ::testing::Eq(KeyRange("\xff", "")));
+}
+
+TEST(KeyRangeTest, RemovePrefixLength) {
+  EXPECT_THAT(KeyRange::RemovePrefixLength(0, KeyRange("a", "b")),
+              ::testing::Eq(KeyRange("a", "b")));
+  EXPECT_THAT(KeyRange::RemovePrefixLength(2, KeyRange("a/b", "a/d")),
+              ::testing::Eq(KeyRange("b", "d")));
+  EXPECT_THAT(KeyRange::RemovePrefixLength(3, KeyRange("a/b", "a/d")),
+              ::testing::Eq(KeyRange()));
+  EXPECT_THAT(KeyRange::RemovePrefixLength(4, KeyRange("a/b", "a/bcb")),
+              ::testing::Eq(KeyRange("", "b")));
+  EXPECT_THAT(KeyRange::RemovePrefixLength(1, KeyRange("xa", "y")),
+              ::testing::Eq(KeyRange("a", "")));
+  EXPECT_THAT(KeyRange::RemovePrefixLength(2, KeyRange::Prefix("ab")),
+              ::testing::Eq(KeyRange()));
+  EXPECT_THAT(KeyRange::RemovePrefixLength(2, KeyRange::Prefix("ab\xff")),
+              ::testing::Eq(KeyRange("\xff", "")));
 }
 
 TEST(KeyRangeTest, Singleton) {
@@ -222,6 +252,10 @@ TEST(KeyRangeTest, Singleton) {
   EXPECT_TRUE(Contains(r, "x"));
   EXPECT_FALSE(Contains(r, KeyRange::Successor("x")));
   EXPECT_EQ(KeyRange("x", KeyRange::Successor("x")), r);
+
+  EXPECT_TRUE(KeyRange::Singleton("x").is_singleton());
+  EXPECT_FALSE(KeyRange::Singleton("y").full());
+  EXPECT_FALSE(KeyRange::Singleton("x").is_non_empty_prefix());
 }
 
 }  // namespace

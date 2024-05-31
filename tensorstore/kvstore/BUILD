@@ -9,6 +9,7 @@ DRIVER_DOCS = [
     "file",
     "gcs",
     "http",
+    "kvstack",
     "memory",
     "neuroglancer_uint64_sharded",
     "ocdbt",

@@ -15,6 +15,10 @@
 #ifndef TENSORSTORE_INTERNAL_IMAGE_JPEG_WRITER_H_
 #define TENSORSTORE_INTERNAL_IMAGE_JPEG_WRITER_H_
 
+#include <utility>
+
+#include "absl/status/status.h"
+#include "riegeli/bytes/writer.h"
 #include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/internal/image/image_writer.h"
 #include "tensorstore/util/span.h"
@@ -36,6 +40,9 @@ class JpegWriter : public ImageWriter {
 
   JpegWriter(JpegWriter&& src) = default;
   JpegWriter& operator=(JpegWriter&& src) = default;
+
+  /// Returns whether the imageinfo is supported by this writer.
+  static absl::Status IsSupported(const ImageInfo& info);
 
   // Initialize the codec. This is not done in the constructor in order
   // to allow returning errors to the caller.

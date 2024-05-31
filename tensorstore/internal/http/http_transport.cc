@@ -22,18 +22,24 @@
 #include <string_view>
 #include <utility>
 
+#include "absl/base/attributes.h"
 #include "absl/container/btree_map.h"
+#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "riegeli/bytes/cord_writer.h"
 #include "tensorstore/internal/http/http_header.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/util/future.h"
 
 namespace tensorstore {
 namespace internal_http {
 namespace {
+
+ABSL_CONST_INIT internal_log::VerboseFlag verbose("http_transport");
+
 // Adapts the IssueRequestWithHandler api to IssueRequest.
 class LegacyHttpResponseHandler : public HttpResponseHandler {
  public:
@@ -76,14 +82,16 @@ void LegacyHttpResponseHandler::OnResponseBody(std::string_view data) {
 }
 
 void LegacyHttpResponseHandler::OnFailure(absl::Status status) {
+  ABSL_LOG_IF(INFO, verbose.Level(1)) << status;
   promise_.SetResult(std::move(status));
   delete this;
 }
 
 void LegacyHttpResponseHandler::OnComplete() {
   writer_.Close();
-  promise_.SetResult(
-      HttpResponse{status_code_, std::move(data_), std::move(headers_)});
+  HttpResponse response{status_code_, std::move(data_), std::move(headers_)};
+  ABSL_LOG_IF(INFO, verbose.Level(1)) << response;
+  promise_.SetResult(std::move(response));
   delete this;
 }
 
@@ -92,6 +100,7 @@ void LegacyHttpResponseHandler::OnComplete() {
 Future<HttpResponse> HttpTransport::IssueRequest(const HttpRequest& request,
                                                  IssueRequestOptions options) {
   auto pair = PromiseFuturePair<HttpResponse>::Make();
+  ABSL_LOG_IF(INFO, verbose.Level(1)) << request;
   IssueRequestWithHandler(
       request, std::move(options),
       new LegacyHttpResponseHandler(std::move(pair.promise)));

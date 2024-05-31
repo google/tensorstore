@@ -14,6 +14,8 @@
 
 #include "tensorstore/transaction.h"
 
+#include <stddef.h>
+
 #include <atomic>
 #include <cassert>
 #include <cstddef>

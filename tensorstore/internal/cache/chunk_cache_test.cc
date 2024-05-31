@@ -1929,7 +1929,8 @@ TEST_F(ChunkCacheTest, CanReferenceSourceDataIndefinitely) {
   // Dimension 0 is chunked with a size of 64.  Need chunk to be at least 256
   // bytes due to riegeli size limits for non copying cords.
   grid = ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(tensorstore::AllocateArray<int32_t>({64})),
+      SharedArray<const void>(tensorstore::AllocateArray<int32_t>(
+          {64}, tensorstore::c_order, tensorstore::value_init)),
       Box<>(1)}});
   const Index size = 64;
   auto index_array = tensorstore::AllocateArray<int64_t>({size});
@@ -1948,7 +1949,7 @@ TEST_F(ChunkCacheTest, CanReferenceSourceDataIndefinitely) {
         auto cache = MakeChunkCache();
         auto store = GetTensorStore(cache);
         auto full_chunk = tensorstore::AllocateArray<int32_t>({size});
-        std::fill_n(full_chunk.data(), 42, full_chunk.num_elements());
+        std::fill_n(full_chunk.data(), full_chunk.num_elements(), 42);
         tensorstore::TransformedSharedArray<const void> source_array =
             full_chunk;
         if (use_index_array_for_source) {

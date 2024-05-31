@@ -35,6 +35,7 @@
 #include "tensorstore/internal/compare.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/metrics/counter.h"
+#include "tensorstore/internal/source_location.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
@@ -60,9 +61,10 @@ auto& kvstore_transaction_retries = internal_metrics::Counter<int64_t>::New(
 
 template <typename Controller>
 void ReportWritebackError(Controller controller, std::string_view action,
-                          const absl::Status& error) {
+                          const absl::Status& error,
+                          SourceLocation loc = SourceLocation::current()) {
   controller.Error(kvstore::Driver::AnnotateErrorWithKeyDescription(
-      controller.DescribeKey(controller.GetKey()), action, error));
+      controller.DescribeKey(controller.GetKey()), action, error, loc));
 }
 
 template <typename Controller>

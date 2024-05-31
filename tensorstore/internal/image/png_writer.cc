@@ -14,15 +14,18 @@
 
 #include "tensorstore/internal/image/png_writer.h"
 
+#include <stdint.h>
+
 #include <csetjmp>
+#include <limits>
 #include <memory>
-#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
 #include "absl/log/absl_check.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "riegeli/bytes/writer.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/image/image_info.h"
@@ -109,13 +112,6 @@ absl::Status PngWriter::Context::Encode(
   }
   std::vector<uint8_t*> row_ptrs;
 
-  if (info.dtype != dtype_v<uint8_t>) {
-    return absl::DataLossError("PNG encoding failed");
-  }
-  if (info.num_components == 0 || info.num_components > 4) {
-    return absl::DataLossError("PNG encoding failed");
-  }
-
   int png_color_type = PNG_COLOR_TYPE_GRAY;
   if (info.num_components == 2) {
     png_color_type = PNG_COLOR_TYPE_GRAY_ALPHA;
@@ -183,6 +179,31 @@ PngWriter::~PngWriter() = default;
 PngWriter::PngWriter(PngWriter&& src) = default;
 PngWriter& PngWriter::operator=(PngWriter&& src) = default;
 
+absl::Status PngWriter::IsSupported(const ImageInfo& info) {
+  if (info.width > std::numeric_limits<int32_t>::max() ||
+      info.height > std::numeric_limits<int32_t>::max()) {
+    return absl::InvalidArgumentError(
+        absl::StrFormat("PNG image dimensions of (%d, %d) exceed maximum size",
+                        info.width, info.height));
+  }
+  if (info.dtype != dtype_v<uint8_t> && info.dtype != dtype_v<uint16_t>) {
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "PNG image only supports uint8 and uint16 dtypes, but received: %s",
+        info.dtype.name()));
+  }
+  if (info.dtype == dtype_v<uint8_t> &&
+      (info.num_components == 0 || info.num_components > 4)) {
+    return absl::DataLossError(absl::StrFormat(
+        "PNG uint8 image expected 1 to 4 components, but received: %d",
+        info.num_components));
+  } else if (info.dtype == dtype_v<uint16_t> && info.num_components != 1) {
+    return absl::DataLossError(absl::StrFormat(
+        "PNG uint16 image expected 1 component, but received: %d",
+        info.num_components));
+  }
+  return absl::OkStatus();
+}
+
 absl::Status PngWriter::InitializeImpl(riegeli::Writer* writer,
                                        const PngWriterOptions& options) {
   ABSL_CHECK(writer != nullptr);
@@ -200,6 +221,7 @@ absl::Status PngWriter::Encode(const ImageInfo& info,
   if (!context_) {
     return absl::InternalError("AVIF reader not initialized");
   }
+  TENSORSTORE_RETURN_IF_ERROR(IsSupported(info));
   ABSL_CHECK_EQ(source.size(), ImageRequiredBytes(info));
   return context_->Encode(info, source);
 }

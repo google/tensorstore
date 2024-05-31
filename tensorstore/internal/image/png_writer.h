@@ -42,6 +42,9 @@ class PngWriter : public ImageWriter {
   PngWriter(PngWriter&& src);
   PngWriter& operator=(PngWriter&& src);
 
+  /// Returns whether the imageinfo is supported by this writer.
+  static absl::Status IsSupported(const ImageInfo& info);
+
   // Initialize the codec. This is not done in the constructor in order
   // to allow returning errors to the caller.
   absl::Status Initialize(riegeli::Writer* writer) override {
