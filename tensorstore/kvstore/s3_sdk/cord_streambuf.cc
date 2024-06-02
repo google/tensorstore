@@ -120,6 +120,7 @@ streampos CordStreamBuf::seekoff(streamoff off, ios_base::seekdir way, ios_base:
       auto chunk = cord_.ChunkRemaining(get_iterator_);
       char * data = const_cast<char *>(chunk.data());
       setg(data, data, data + chunk.size());
+      return off;
     } else if (way == ios_base::cur) {
       if(get_iterator_ == cord_.Chars().end()) return traits_type::eof();
       // Advance to next chunk if there isn't space in the current
@@ -131,20 +132,21 @@ streampos CordStreamBuf::seekoff(streamoff off, ios_base::seekdir way, ios_base:
         setg(data, data, data + chunk.size());
         off -= chunk.size();
       }
+      // Advance within the chunk
       if(off > 0) {
         Cord::Advance(&get_iterator_, off);
         setg(eback(), gptr() + off, egptr());
       }
+      return std::distance(cord_.Chars().begin(), get_iterator_);
     } else if (way == ios_base::end) {
       // Seeks past the stream end are unsupported
       return traits_type::eof();
     }
-    return std::distance(cord_.Chars().begin(), get_iterator_);
   } else if (which == ios_base::out) {
     // Only support appends
-    return traits_type::eof();;
+    return traits_type::eof();
   }
-  return traits_type::eof();;
+  return traits_type::eof();
 }
 
 
