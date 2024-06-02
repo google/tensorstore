@@ -200,7 +200,7 @@ TEST(ParseGenericUriTest, Basic) {
       {"http://[::1]:0", "[::1]:0"},
       {"http://[::1]:0/foo/bar", "[::1]:0"},
   };
-  for (const auto [uri, authority] : kCases) {
+  for (const auto& [uri, authority] : kCases) {
     EXPECT_THAT(ParseGenericUri(uri).authority, ::testing::Eq(authority));
   }
 }

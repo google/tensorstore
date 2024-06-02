@@ -38,6 +38,7 @@
 #include "tensorstore/util/execution/sender_util.h"
 #include "tensorstore/util/execution/sync_flow_sender.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -55,6 +56,15 @@ std::ostream& operator<<(std::ostream& os, const ReadGenerationConditions& x) {
     os << sep << "if_equal=" << x.if_equal;
   }
   return os << "}";
+}
+
+// gtest output formatting.
+void PrintTo(const std::vector<ListEntry>& v, ::std::ostream* os) {
+  *os << "{";
+  for (const ListEntry& e : v) {
+    *os << "ListEntry{" << QuoteString(e.key) << ", " << e.size << "},";
+  }
+  *os << "}";
 }
 
 Future<std::vector<ListEntry>> ListFuture(Driver* driver, ListOptions options) {
