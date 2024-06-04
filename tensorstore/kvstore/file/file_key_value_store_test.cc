@@ -41,7 +41,6 @@
 #include "tensorstore/util/execution/sender_testutil.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
 // Include system headers last to reduce impact of macros.
@@ -54,6 +53,7 @@ namespace {
 
 namespace kvstore = tensorstore::kvstore;
 using ::tensorstore::CompletionNotifyingReceiver;
+using ::tensorstore::IsOkAndHolds;
 using ::tensorstore::KeyRange;
 using ::tensorstore::KvStore;
 using ::tensorstore::MatchesStatus;
@@ -61,6 +61,7 @@ using ::tensorstore::StorageGeneration;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
 using ::tensorstore::internal::MatchesListEntry;
 using ::tensorstore::internal::MatchesTimestampedStorageGeneration;
+using ::tensorstore::internal_os::GetDirectoryContents;
 using ::tensorstore::internal_testing::ScopedCurrentWorkingDirectory;
 using ::tensorstore::internal_testing::ScopedTemporaryDirectory;
 using ::testing::HasSubstr;
@@ -121,22 +122,6 @@ TEST(FileKeyValueStoreTest, InvalidKey) {
       MatchesStatus(absl::StatusCode::kInvalidArgument, "Invalid key: .*"));
 }
 
-/// Returns the list of relative paths contained within the directory `root`.
-std::vector<std::string> GetDirectoryContents(const std::string& root) {
-  std::vector<std::string> paths;
-
-  auto status = tensorstore::internal_os::EnumeratePaths(
-      root, [&](const std::string& name, bool is_dir) {
-        if (name != root) {
-          paths.emplace_back(name.substr(root.size() + 1));
-        }
-        return absl::OkStatus();
-      });
-  TENSORSTORE_CHECK_OK(status);
-
-  return paths;
-}
-
 TEST(FileKeyValueStoreTest, LockFiles) {
   ScopedTemporaryDirectory tempdir;
   std::string root = tempdir.path() + "/root";
@@ -164,9 +149,9 @@ TEST(FileKeyValueStoreTest, LockFiles) {
               ::testing::UnorderedElementsAre("a", "a/foo", "a/foo.__lock"));
 
   // Test that the lock file is not included in the `List` result.
-  EXPECT_THAT(ListFuture(store).result(),
-              ::testing::Optional(
-                  ::testing::UnorderedElementsAre(MatchesListEntry("a/foo"))));
+  EXPECT_THAT(
+      ListFuture(store).result(),
+      IsOkAndHolds(::testing::UnorderedElementsAre(MatchesListEntry("a/foo"))));
 
   // Test that a stale lock file does not interfere with writing.
   TENSORSTORE_ASSERT_OK(

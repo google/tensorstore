@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/os/subprocess.h"
-
 #ifndef _WIN32
 #error "Use subprocess_posix.cc instead."
 #endif
@@ -22,10 +20,8 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 
-#include <windows.h>
-
-// keep below windows.h
-#include <processthreadsapi.h>
+#include "tensorstore/internal/os/subprocess.h"
+// Normal include order here.
 
 #include <atomic>
 #include <cassert>
@@ -47,6 +43,12 @@
 #include "tensorstore/internal/os/wstring.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
+
+// Include system headers last to reduce impact of macros.
+#include "tensorstore/internal/os/include_windows.h"
+
+// keep below windows.h
+#include <processthreadsapi.h>
 
 namespace tensorstore {
 namespace internal {

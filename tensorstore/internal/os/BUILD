@@ -5,11 +5,30 @@ package(default_visibility = ["//tensorstore:internal_packages"])
 licenses(["notice"])
 
 tensorstore_cc_library(
+    name = "cwd",
+    srcs = ["cwd.cc"],
+    hdrs = ["cwd.h"],
+    deps = [
+        ":error_code",
+        ":include_windows",
+        ":wstring",
+        "//tensorstore/util:quote_string",
+        "//tensorstore/util:result",
+        "@com_google_absl//absl/log:absl_check",
+        "@com_google_absl//absl/status",
+    ],
+)
+
+tensorstore_cc_library(
     name = "error_code",
-    srcs = ["error_code.cc"],
+    srcs = select({
+        "@platforms//os:windows": ["error_code_win.cc"],
+        "//conditions:default": ["error_code_posix.cc"],
+    }),
     hdrs = ["error_code.h"],
     tags = ["msvc"],
     deps = [
+        ":include_windows",
         "//tensorstore/internal:source_location",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
@@ -28,6 +47,7 @@ tensorstore_cc_library(
     tags = ["msvc"],
     deps = [
         ":error_code",
+        ":include_windows",
         ":wstring",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
@@ -66,7 +86,7 @@ tensorstore_cc_test(
     ],
 )
 
-cc_library(
+tensorstore_cc_library(
     name = "filesystem",
     testonly = True,
     srcs = ["filesystem.cc"],
@@ -75,9 +95,27 @@ cc_library(
         ":error_code",
         "//tensorstore/internal:env",
         "//tensorstore/internal:path",
+        "//tensorstore/util:status",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/status",
     ],
+)
+
+tensorstore_cc_library(
+    name = "potentially_blocking_region",
+    hdrs = [
+        "potentially_blocking_region.h",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "unique_handle",
+    hdrs = ["unique_handle.h"],
+)
+
+tensorstore_cc_library(
+    name = "include_windows",
+    hdrs = ["include_windows.h"],
 )
 
 tensorstore_cc_library(
@@ -87,6 +125,7 @@ tensorstore_cc_library(
     tags = ["msvc"],
     deps = [
         ":error_code",
+        ":include_windows",
         "@com_google_absl//absl/status",
     ],
 )

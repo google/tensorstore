@@ -112,10 +112,10 @@
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/os/error_code.h"
+#include "tensorstore/internal/os/unique_handle.h"
 #include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/byte_range.h"
-#include "tensorstore/kvstore/file/unique_handle.h"
 #include "tensorstore/kvstore/file/util.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
@@ -351,7 +351,7 @@ struct FileLock {
   }
 
  private:
-  internal::UniqueHandle<FileDescriptor, internal_file_util::FileLockTraits>
+  internal_os::UniqueHandle<FileDescriptor, internal_file_util::FileLockTraits>
       lock_;
 };
 

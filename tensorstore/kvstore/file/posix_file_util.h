@@ -30,7 +30,7 @@
 
 #include "absl/strings/cord.h"
 #include "tensorstore/internal/os/error_code.h"
-#include "tensorstore/kvstore/file/unique_handle.h"
+#include "tensorstore/internal/os/unique_handle.h"
 #include "tensorstore/util/result.h"
 
 // Include system headers last to reduce impact of macros.
@@ -56,7 +56,7 @@ inline constexpr std::string_view kLockSuffix = ".__lock";
 /// Representation of open file/directory.
 using FileDescriptor = int;
 
-/// File descriptor traits for use with `internal::UniqueHandle`.
+/// File descriptor traits for use with `internal_os::UniqueHandle`.
 struct FileDescriptorTraits {
   static const int Invalid() { return -1; }
   static void Close(int fd) { ::close(fd); }
@@ -66,7 +66,7 @@ struct FileDescriptorTraits {
 ///
 /// The file descriptor is closed automatically by the destructor.
 using UniqueFileDescriptor =
-    internal::UniqueHandle<FileDescriptor, FileDescriptorTraits>;
+    internal_os::UniqueHandle<FileDescriptor, FileDescriptorTraits>;
 
 /// Returns `true` if `c` is a directory separator character.
 constexpr inline bool IsDirSeparator(char c) { return c == '/'; }

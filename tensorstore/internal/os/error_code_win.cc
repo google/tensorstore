@@ -12,7 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#ifndef _WIN32
+#error "Use error_code_posix.cc instead."
+#endif
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+
 #include "tensorstore/internal/os/error_code.h"
+// Normal include order here
 
 #include <cerrno>
 #include <string>
@@ -23,10 +32,11 @@
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
+// Include system headers last to reduce impact of macros.
+#include "tensorstore/internal/os/include_windows.h"
+
 namespace tensorstore {
 namespace internal {
-
-#ifdef _WIN32
 
 absl::StatusCode GetOsErrorStatusCode(OsErrorCode error) {
   switch (error) {
@@ -38,10 +48,25 @@ absl::StatusCode GetOsErrorStatusCode(OsErrorCode error) {
       return absl::StatusCode::kAlreadyExists;
     case ERROR_FILE_NOT_FOUND:
     case ERROR_PATH_NOT_FOUND:
+    case ERROR_BAD_PATHNAME:
+    case ERROR_DIRECTORY:
+    case ERROR_NO_MORE_FILES:
       return absl::StatusCode::kNotFound;
     case ERROR_TOO_MANY_OPEN_FILES:
     case ERROR_NOT_ENOUGH_MEMORY:
+    case ERROR_HANDLE_DISK_FULL:
+    case ERROR_DISK_FULL:
+    case ERROR_DISK_TOO_FRAGMENTED:
+    case ERROR_OUTOFMEMORY:
       return absl::StatusCode::kResourceExhausted;
+    case ERROR_ACCESS_DENIED:
+    case ERROR_SHARING_VIOLATION:
+    case ERROR_INVALID_NAME:
+    case ERROR_DELETE_PENDING:
+      return absl::StatusCode::kPermissionDenied;
+    case ERROR_BUFFER_OVERFLOW:
+    case ERROR_FILENAME_EXCED_RANGE:
+      return absl::StatusCode::kInvalidArgument;
     default:
       return absl::StatusCode::kFailedPrecondition;
   }
@@ -60,69 +85,13 @@ std::string GetOsErrorMessage(OsErrorCode error) {
   return std::string(buf, size);
 }
 
-#else
-
-// There are two versions of the ::strerror_r function:
-//
-// XSI-compliant:
-//
-//     int strerror_r(int errnum, char* buf, size_t buflen);
-//
-//   Always writes message to supplied buffer.
-//
-// GNU-specific:
-//
-//     char *strerror_r(int errnum, char* buf, size_t buflen);
-//
-//   Either writes message to supplied buffer, or returns a static string.
-//
-// The following overloads are used to detect the return type and return the
-// appropriate result.
-
-namespace {
-// GNU version
-[[maybe_unused]] const char* GetStrerrorResult(const char* buf,
-                                               const char* result) {
-  return result;
-}
-// XSI-compliant version
-[[maybe_unused]] const char* GetStrerrorResult(const char* buf, int result) {
-  return buf;
-}
-}  // namespace
-
-std::string GetOsErrorMessage(OsErrorCode error) {
-  char buf[4096];
-  buf[0] = 0;
-  return GetStrerrorResult(buf, ::strerror_r(error, buf, std::size(buf)));
-}
-
-absl::StatusCode GetOsErrorStatusCode(OsErrorCode error) {
-  switch (error) {
-    case ENOENT:
-      return absl::StatusCode::kNotFound;
-    case EEXIST:
-    case ENOTEMPTY:
-      return absl::StatusCode::kAlreadyExists;
-    case ENOSPC:
-    case ENOMEM:
-      return absl::StatusCode::kResourceExhausted;
-    case EACCES:
-    case EPERM:
-      return absl::StatusCode::kPermissionDenied;
-    default:
-      return absl::StatusCode::kFailedPrecondition;
-  }
-}
-#endif
-
 absl::Status StatusFromOsError(OsErrorCode error_code, std::string_view a,
                                std::string_view b, std::string_view c,
                                std::string_view d, SourceLocation loc) {
-  absl::Status status(GetOsErrorStatusCode(error_code),
-                      tensorstore::StrCat(a, b, c, d, " [OS error: ",
-                                          GetOsErrorMessage(error_code), "]"));
-
+  absl::Status status(
+      GetOsErrorStatusCode(error_code),
+      tensorstore::StrCat(a, b, c, d, " [OS error ", error_code, ": ",
+                          GetOsErrorMessage(error_code), "]"));
   MaybeAddSourceLocation(status, loc);
   return status;
 }

@@ -12,25 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/os/filesystem.h"
-
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
 #endif
 
+#include "tensorstore/internal/os/filesystem.h"
+// Normal include order below
+
 #include <functional>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <system_error>  // IWYU pragma: keep
+#include <vector>
 
 #include "absl/log/absl_check.h"  // IWYU pragma: keep
 #include "absl/status/status.h"
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/os/error_code.h"
 #include "tensorstore/internal/path.h"
+#include "tensorstore/util/status.h"
 
 #if defined(_WIN32)
 #define TENSORSTORE_USE_STD_FILESYSTEM 1
@@ -185,6 +188,22 @@ absl::Status EnumeratePaths(
 #else
   return EnumeratePathsImpl(directory, on_directory_entry);
 #endif
+}
+
+/// Returns the list of relative paths contained within the directory `root`.
+std::vector<std::string> GetDirectoryContents(const std::string& root) {
+  std::vector<std::string> paths;
+
+  auto status = tensorstore::internal_os::EnumeratePaths(
+      root, [&](const std::string& name, bool is_dir) {
+        if (name != root) {
+          paths.emplace_back(name.substr(root.size() + 1));
+        }
+        return absl::OkStatus();
+      });
+  TENSORSTORE_CHECK_OK(status);
+
+  return paths;
 }
 
 }  // namespace internal_os

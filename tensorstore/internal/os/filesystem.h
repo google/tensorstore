@@ -17,6 +17,7 @@
 
 #include <functional>
 #include <string>
+#include <vector>
 
 #include "absl/status/status.h"
 
@@ -37,6 +38,9 @@ absl::Status EnumeratePaths(
     const std::string& directory,
     std::function<absl::Status(const std::string& /*name*/, bool /*is_dir*/)>
         on_directory_entry);
+
+/// Returns the list of relative paths contained within the directory `root`.
+std::vector<std::string> GetDirectoryContents(const std::string& root);
 
 }  // namespace internal_os
 }  // namespace tensorstore

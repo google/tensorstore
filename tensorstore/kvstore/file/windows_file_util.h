@@ -31,7 +31,7 @@
 #include "absl/strings/cord.h"
 #include "absl/strings/match.h"
 #include "tensorstore/internal/os/error_code.h"
-#include "tensorstore/kvstore/file/unique_handle.h"
+#include "tensorstore/internal/os/unique_handle.h"
 #include "tensorstore/util/result.h"
 
 #define WIN32_LEAN_AND_MEAN
@@ -49,7 +49,7 @@ struct FileDescriptorTraits {
 };
 
 using UniqueFileDescriptor =
-    internal::UniqueHandle<FileDescriptor, FileDescriptorTraits>;
+    internal_os::UniqueHandle<FileDescriptor, FileDescriptorTraits>;
 
 constexpr inline bool IsDirSeparator(char c) { return c == '\\' || c == '/'; }
 
@@ -142,7 +142,7 @@ struct DirectoryIterator {
                    std::unique_ptr<DirectoryIterator>* new_iterator);
 
  private:
-  internal::UniqueHandle<HANDLE, internal_file_util::FindHandleTraits>
+  internal_os::UniqueHandle<HANDLE, internal_file_util::FindHandleTraits>
       find_handle;
   std::string directory_path_;
   bool initial = true;

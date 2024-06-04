@@ -23,20 +23,18 @@
 #include <cerrno>
 #include <cstddef>
 #include <cstdio>
-#include <cstring>
 #include <memory>
 #include <string>
 #include <string_view>
 #include <utility>
 
 #include "absl/container/inlined_vector.h"
-#include "absl/status/status.h"
+#include "absl/log/absl_check.h"
 #include "absl/strings/cord.h"
 #include "tensorstore/internal/os/error_code.h"
-#include "tensorstore/kvstore/file/file_util.h"
-#include "tensorstore/kvstore/file/potentially_blocking_region.h"
+#include "tensorstore/internal/os/potentially_blocking_region.h"
 #include "tensorstore/util/quote_string.h"
-#include "tensorstore/util/result.h"
+#include "tensorstore/util/str_cat.h"
 
 // Most modern unix allow 1024 iovs.
 #if defined(UIO_MAXIOV)
@@ -196,32 +194,6 @@ bool DirectoryIterator::Make(Entry entry,
   it->e = nullptr;
   *new_iterator = std::move(it);
   return true;
-}
-
-Result<std::string> GetCwd() {
-  std::string buf;
-  buf.resize(256);
-  while (true) {
-    if (::getcwd(buf.data(), buf.size()) != nullptr) {
-      buf.resize(std::strlen(buf.data()));
-      return buf;
-    }
-    if (errno == ERANGE) {
-      buf.resize(buf.size() * 2);
-      continue;
-    }
-    return internal::StatusFromOsError(
-        errno, "Failed to determine current working directory");
-  }
-}
-
-absl::Status SetCwd(const std::string& path) {
-  if (::chdir(path.c_str()) != 0) {
-    return internal::StatusFromOsError(
-        errno, "Failed to set current working directory to: ",
-        tensorstore::QuoteString(path));
-  }
-  return absl::OkStatus();
 }
 
 }  // namespace internal_file_util

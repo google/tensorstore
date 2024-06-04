@@ -32,6 +32,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/internal/metrics",
         "//tensorstore/internal/os:error_code",
+        "//tensorstore/internal/os:unique_handle",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:batch_util",
         "//tensorstore/kvstore:byte_range",
@@ -74,7 +75,6 @@ tensorstore_cc_test(
         "//tensorstore/kvstore:test_util",
         "//tensorstore/util:future",
         "//tensorstore/util:result",
-        "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util/execution",
         "//tensorstore/util/execution:sender_testutil",
@@ -93,14 +93,13 @@ tensorstore_cc_library(
         "windows_file_util.cc",
     ],
     hdrs = [
-        "file_util.h",
         "posix_file_util.h",
         "windows_file_util.h",
     ],
     deps = [
-        ":potentially_blocking_region",
-        ":util",
         "//tensorstore/internal/os:error_code",
+        "//tensorstore/internal/os:potentially_blocking_region",
+        "//tensorstore/internal/os:unique_handle",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
         "//tensorstore/util:str_cat",
@@ -118,18 +117,12 @@ tensorstore_cc_library(
         "util.cc",
     ],
     hdrs = [
-        "unique_handle.h",
         "util.h",
     ],
     deps = [
         "//tensorstore/kvstore:key_range",
         "@com_google_absl//absl/strings",
     ],
-)
-
-tensorstore_cc_library(
-    name = "potentially_blocking_region",
-    hdrs = ["potentially_blocking_region.h"],
 )
 
 tensorstore_cc_test(

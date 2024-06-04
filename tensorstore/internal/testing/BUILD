@@ -62,8 +62,8 @@ tensorstore_cc_library(
     hdrs = ["scoped_directory.h"],
     deps = [
         "//tensorstore/internal:path",
+        "//tensorstore/internal/os:cwd",
         "//tensorstore/internal/os:filesystem",
-        "//tensorstore/kvstore/file:file_util",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",

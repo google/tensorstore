@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_KVSTORE_FILE_UNIQUE_HANDLE_H_
-#define TENSORSTORE_KVSTORE_FILE_UNIQUE_HANDLE_H_
+#ifndef TENSORSTORE_INTERNAL_OS_UNIQUE_HANDLE_H_
+#define TENSORSTORE_INTERNAL_OS_UNIQUE_HANDLE_H_
 
 #include <utility>
 
 namespace tensorstore {
-namespace internal {
+namespace internal_os {
 
 /// Unique handle class, used for file descriptors.
 ///
@@ -29,36 +29,40 @@ namespace internal {
 ///     static void Close(Handle handle) noexcept;
 ///
 /// \tparam Handle Handle type.
+
 /// \tparam Traits Specifies the behavior.
 template <typename Handle, typename Traits>
 class UniqueHandle {
  public:
   UniqueHandle() : fd_(Traits::Invalid()) {}
   explicit UniqueHandle(Handle fd) : fd_(fd) {}
-  bool valid() const { return fd_ != Traits::Invalid(); }
+
+  UniqueHandle(const UniqueHandle&) = delete;
+  UniqueHandle& operator=(const UniqueHandle&) = delete;
   UniqueHandle(UniqueHandle&& other)
       : fd_(std::exchange(other.fd_, Traits::Invalid())) {}
   UniqueHandle& operator=(UniqueHandle&& other) {
     reset(std::exchange(other.fd_, Traits::Invalid()));
     return *this;
   }
+
+  ~UniqueHandle() {
+    if (valid()) Traits::Close(fd_);
+  }
+
+  bool valid() const { return fd_ != Traits::Invalid(); }
   void reset(Handle fd = Traits::Invalid()) {
     if (valid()) Traits::Close(fd_);
     fd_ = fd;
   }
   Handle get() const { return fd_; }
   Handle release() { return std::exchange(fd_, Traits::Invalid()); }
-  UniqueHandle(const UniqueHandle&) = delete;
-  UniqueHandle& operator=(const UniqueHandle&) = delete;
-  ~UniqueHandle() {
-    if (valid()) Traits::Close(fd_);
-  }
 
  private:
   Handle fd_;
 };
 
-}  // namespace internal
+}  // namespace internal_os
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_KVSTORE_FILE_UNIQUE_HANDLE_H_
+#endif  // TENSORSTORE_INTERNAL_OS_UNIQUE_HANDLE_H_

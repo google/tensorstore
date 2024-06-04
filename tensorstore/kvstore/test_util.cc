@@ -61,7 +61,6 @@
 #include "tensorstore/kvstore/transaction.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/serialization/test_util.h"
-#include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender_testutil.h"
 #include "tensorstore/util/future.h"
@@ -75,6 +74,7 @@ namespace tensorstore {
 namespace internal {
 namespace {
 
+using ::tensorstore::IsOkAndHolds;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
 
@@ -90,6 +90,7 @@ class Cleanup {
   void DoCleanup() {
     // Delete everything that we're going to use before starting.
     // This is helpful if, for instance, we run against a persistent
+
     // service and the test crashed half-way through last time.
     ABSL_LOG(INFO) << "Cleanup";
     for (const auto& to_remove : keys_) {
@@ -839,7 +840,7 @@ void TestKeyValueStoreDeleteRange(const KvStore& store) {
 
   TENSORSTORE_EXPECT_OK(kvstore::DeleteRange(store, KeyRange("a/b", "b/aa")));
   EXPECT_THAT(kvstore::ListFuture(store).result(),
-              ::testing::Optional(::testing::UnorderedElementsAre(
+              IsOkAndHolds(::testing::UnorderedElementsAre(
                   MatchesListEntry("a/a"), MatchesListEntry("b/b"))));
 
   // Construct a lot of nested values.
@@ -857,7 +858,7 @@ void TestKeyValueStoreDeleteRange(const KvStore& store) {
   }
   TENSORSTORE_EXPECT_OK(kvstore::DeleteRange(store, KeyRange("l", "z")));
   EXPECT_THAT(kvstore::ListFuture(store).result(),
-              ::testing::Optional(::testing::UnorderedElementsAre(
+              IsOkAndHolds(::testing::UnorderedElementsAre(
                   MatchesListEntry("a/a"), MatchesListEntry("b/b"))));
 }
 
@@ -893,9 +894,9 @@ void TestKeyValueStoreDeleteRangeToEnd(const KvStore& store) {
     TENSORSTORE_EXPECT_OK(kvstore::Write(store, key, absl::Cord()).result());
   }
   TENSORSTORE_EXPECT_OK(kvstore::DeleteRange(store, KeyRange("a/b", "")));
-  EXPECT_THAT(ListFuture(store).result(),
-              ::testing::Optional(
-                  ::testing::UnorderedElementsAre(MatchesListEntry("a/a"))));
+  EXPECT_THAT(
+      ListFuture(store).result(),
+      IsOkAndHolds(::testing::UnorderedElementsAre(MatchesListEntry("a/a"))));
 }
 
 void TestKeyValueStoreDeleteRangeFromBeginning(const KvStore& store) {
@@ -904,7 +905,7 @@ void TestKeyValueStoreDeleteRangeFromBeginning(const KvStore& store) {
   }
   TENSORSTORE_EXPECT_OK(kvstore::DeleteRange(store, KeyRange("", "a/c/aa")));
   EXPECT_THAT(ListFuture(store).result(),
-              ::testing::Optional(::testing::UnorderedElementsAre(
+              IsOkAndHolds(::testing::UnorderedElementsAre(
                   MatchesListEntry("a/c/b"), MatchesListEntry("b/a"),
                   MatchesListEntry("b/b"))));
 }
@@ -916,7 +917,7 @@ void TestKeyValueStoreCopyRange(const KvStore& store) {
   TENSORSTORE_ASSERT_OK(kvstore::Write(store, "z/a", absl::Cord("z_a")));
   TENSORSTORE_ASSERT_OK(kvstore::ExperimentalCopyRange(
       store.WithPathSuffix("x/"), store.WithPathSuffix("y/")));
-  EXPECT_THAT(GetMap(store), ::testing::Optional(::testing::ElementsAreArray({
+  EXPECT_THAT(GetMap(store), IsOkAndHolds(::testing::ElementsAreArray({
                                  ::testing::Pair("w/a", absl::Cord("w_a")),
                                  ::testing::Pair("x/a", absl::Cord("value_a")),
                                  ::testing::Pair("x/b", absl::Cord("value_b")),
@@ -974,7 +975,7 @@ void TestKeyValueStoreSpecRoundtrip(
                 kvstore::SpecRequestOptions{options.spec_request_options}));
         EXPECT_THAT(
             serialized_store_spec.ToJson(options.json_serialization_options),
-            ::testing::Optional(MatchesJson(options.full_spec)));
+            IsOkAndHolds(MatchesJson(options.full_spec)));
       }
     }
 
@@ -1004,19 +1005,19 @@ void TestKeyValueStoreSpecRoundtrip(
         auto spec,
         store.spec(kvstore::SpecRequestOptions{options.spec_request_options}));
     EXPECT_THAT(spec.ToJson(options.json_serialization_options),
-                ::testing::Optional(MatchesJson(options.full_spec)));
+                IsOkAndHolds(MatchesJson(options.full_spec)));
 
     // Test serialization of spec.
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         serialized_spec, serialization::SerializationRoundTrip(spec));
 
     EXPECT_THAT(serialized_spec.ToJson(options.json_serialization_options),
-                ::testing::Optional(MatchesJson(options.full_spec)));
+                IsOkAndHolds(MatchesJson(options.full_spec)));
 
     auto minimal_spec_obj = spec;
     TENSORSTORE_ASSERT_OK(minimal_spec_obj.Set(tensorstore::MinimalSpec{true}));
     EXPECT_THAT(minimal_spec_obj.ToJson(options.json_serialization_options),
-                ::testing::Optional(MatchesJson(expected_minimal_spec)));
+                IsOkAndHolds(MatchesJson(expected_minimal_spec)));
 
     // Check base
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store_base, store.base());
@@ -1025,9 +1026,9 @@ void TestKeyValueStoreSpecRoundtrip(
     if (store_base.valid()) {
       TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store_base_spec, store_base.spec());
       EXPECT_THAT(spec_base.ToJson(),
-                  ::testing::Optional(MatchesJson(options.full_base_spec)));
+                  IsOkAndHolds(MatchesJson(options.full_base_spec)));
       EXPECT_THAT(store_base_spec.ToJson(),
-                  ::testing::Optional(MatchesJson(options.full_base_spec)));
+                  IsOkAndHolds(MatchesJson(options.full_base_spec)));
 
       // Check that base spec can be opened.
       TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -1076,8 +1077,7 @@ void TestKeyValueStoreSpecRoundtripNormalize(
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
                                    kvstore::Open(json_spec).result());
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec, store.spec());
-  EXPECT_THAT(spec.ToJson(),
-              ::testing::Optional(MatchesJson(normalized_json_spec)));
+  EXPECT_THAT(spec.ToJson(), IsOkAndHolds(MatchesJson(normalized_json_spec)));
 }
 
 void TestKeyValueStoreUrlRoundtrip(::nlohmann::json json_spec,
@@ -1086,9 +1086,8 @@ void TestKeyValueStoreUrlRoundtrip(::nlohmann::json json_spec,
                                    kvstore::Spec::FromJson(json_spec));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec_from_url,
                                    kvstore::Spec::FromUrl(url));
-  EXPECT_THAT(spec_from_json.ToUrl(), ::testing::Optional(url));
-  EXPECT_THAT(spec_from_url.ToJson(),
-              ::testing::Optional(MatchesJson(json_spec)));
+  EXPECT_THAT(spec_from_json.ToUrl(), IsOkAndHolds(url));
+  EXPECT_THAT(spec_from_url.ToJson(), IsOkAndHolds(MatchesJson(json_spec)));
 }
 
 Result<std::map<kvstore::Key, kvstore::Value>> GetMap(const KvStore& store) {
@@ -1220,7 +1219,7 @@ void TestBatchReadGenericCoalescing(
       kvstore::Write(
           store, "x",
           absl::Cord(std::string(
-              std::max(static_cast<int64_t>(8192),
+              std::max(int64_t{8192},
                        (has_target_coalesced_size
                             ? coalescing_options.target_coalesced_size
                             : coalescing_options.max_extra_read_bytes) +
