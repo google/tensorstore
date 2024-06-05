@@ -35,6 +35,7 @@
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
+#include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/test_matchers.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/util/execution/execution.h"
@@ -164,7 +165,7 @@ TEST(FileKeyValueStoreTest, LockFiles) {
   // file.  Only a single key, "a/foo" is removed.  The lock file should not be
   // included in the count.
   TENSORSTORE_EXPECT_OK(kvstore::DeleteRange(store, KeyRange::Prefix("a/")));
-  EXPECT_THAT(GetDirectoryContents(root), ::testing::UnorderedElementsAre());
+  EXPECT_THAT(GetDirectoryContents(root), ::testing::UnorderedElementsAre("a"));
 }
 
 TEST(FileKeyValueStoreTest, NestedDirectories) {

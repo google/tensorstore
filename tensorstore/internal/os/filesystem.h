@@ -27,20 +27,19 @@ namespace internal_os {
 // similar to std::filesystem::temp_directory_path
 std::string TemporaryDirectoryPath();
 
-// similar to std::filesystem::create_directory
-absl::Status MakeDirectory(const std::string& dirname);
-
 // similar to std::filesystem::remove_all
-absl::Status RemoveAll(const std::string& dirname);
+absl::Status RemoveAll(const std::string& root_directory);
 
 // Recursively enumerate all the paths starting at the given directory.
 absl::Status EnumeratePaths(
-    const std::string& directory,
+    const std::string& root_directory,
     std::function<absl::Status(const std::string& /*name*/, bool /*is_dir*/)>
         on_directory_entry);
 
-/// Returns the list of relative paths contained within the directory `root`.
-std::vector<std::string> GetDirectoryContents(const std::string& root);
+/// Returns the list of relative paths contained within the directory
+/// `root_directory`.
+std::vector<std::string> GetDirectoryContents(
+    const std::string& root_directory);
 
 }  // namespace internal_os
 }  // namespace tensorstore

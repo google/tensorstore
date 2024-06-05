@@ -16,9 +16,10 @@ filegroup(
 
 tensorstore_cc_library(
     name = "file",
-    srcs = ["file_key_value_store.cc"],
+    srcs = [
+        "file_key_value_store.cc",
+    ],
     deps = [
-        ":file_util",
         ":util",
         "//tensorstore:batch",
         "//tensorstore:context",
@@ -32,6 +33,8 @@ tensorstore_cc_library(
         "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/internal/metrics",
         "//tensorstore/internal/os:error_code",
+        "//tensorstore/internal/os:file_lister",
+        "//tensorstore/internal/os:file_util",
         "//tensorstore/internal/os:unique_handle",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:batch_util",
@@ -87,38 +90,9 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
-    name = "file_util",
-    srcs = [
-        "posix_file_util.cc",
-        "windows_file_util.cc",
-    ],
-    hdrs = [
-        "posix_file_util.h",
-        "windows_file_util.h",
-    ],
-    deps = [
-        "//tensorstore/internal/os:error_code",
-        "//tensorstore/internal/os:potentially_blocking_region",
-        "//tensorstore/internal/os:unique_handle",
-        "//tensorstore/util:quote_string",
-        "//tensorstore/util:result",
-        "//tensorstore/util:str_cat",
-        "@com_google_absl//absl/container:inlined_vector",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/strings:cord",
-    ],
-)
-
-tensorstore_cc_library(
     name = "util",
-    srcs = [
-        "util.cc",
-    ],
-    hdrs = [
-        "util.h",
-    ],
+    srcs = ["util.cc"],
+    hdrs = ["util.h"],
     deps = [
         "//tensorstore/kvstore:key_range",
         "@com_google_absl//absl/strings",

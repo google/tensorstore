@@ -63,10 +63,12 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore/internal:path",
         "//tensorstore/internal/os:cwd",
+        "//tensorstore/internal/os:file_util",
         "//tensorstore/internal/os:filesystem",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "@com_google_absl//absl/random",
+        "@com_google_absl//absl/status",
     ],
 )

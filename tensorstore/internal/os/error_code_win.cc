@@ -44,7 +44,6 @@ absl::StatusCode GetOsErrorStatusCode(OsErrorCode error) {
       return absl::StatusCode::kOk;
     case ERROR_FILE_EXISTS:
     case ERROR_ALREADY_EXISTS:
-    case ERROR_DIR_NOT_EMPTY:
       return absl::StatusCode::kAlreadyExists;
     case ERROR_FILE_NOT_FOUND:
     case ERROR_PATH_NOT_FOUND:
@@ -67,6 +66,7 @@ absl::StatusCode GetOsErrorStatusCode(OsErrorCode error) {
     case ERROR_BUFFER_OVERFLOW:
     case ERROR_FILENAME_EXCED_RANGE:
       return absl::StatusCode::kInvalidArgument;
+    case ERROR_DIR_NOT_EMPTY:
     default:
       return absl::StatusCode::kFailedPrecondition;
   }

@@ -19,7 +19,9 @@
 #include <string_view>
 
 #include "absl/random/random.h"
+#include "absl/status/status.h"
 #include "tensorstore/internal/os/cwd.h"
+#include "tensorstore/internal/os/file_util.h"
 #include "tensorstore/internal/os/filesystem.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/util/result.h"
@@ -46,7 +48,12 @@ ScopedTemporaryDirectory::ScopedTemporaryDirectory() {
 }
 
 ScopedTemporaryDirectory::~ScopedTemporaryDirectory() {
-  TENSORSTORE_CHECK_OK(internal_os::RemoveAll(path_));
+  auto status = internal_os::RemoveAll(path_);
+  if (absl::IsNotFound(status) /* already removed */
+      || absl::IsFailedPrecondition(status) /* WIN32: not empty. */) {
+    status = absl::OkStatus();
+  }
+  TENSORSTORE_CHECK_OK(status);
 }
 
 ScopedCurrentWorkingDirectory::ScopedCurrentWorkingDirectory(

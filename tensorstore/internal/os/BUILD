@@ -37,6 +37,106 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
+    name = "filesystem",
+    testonly = True,
+    srcs = ["filesystem.cc"],
+    hdrs = ["filesystem.h"],
+    deps = [
+        ":file_lister",
+        ":file_util",
+        "//tensorstore/internal:env",
+        "//tensorstore/util:status",
+        "@com_google_absl//absl/log:absl_check",
+        "@com_google_absl//absl/log:absl_log",
+        "@com_google_absl//absl/status",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "file_util",
+    srcs = select({
+        "@platforms//os:windows": [
+            "file_util_win.cc",
+        ],
+        "//conditions:default": [
+            "file_util_posix.cc",
+        ],
+    }),
+    hdrs = ["file_util.h"],
+    deps = [
+        ":error_code",
+        ":include_windows",
+        ":potentially_blocking_region",
+        ":unique_handle",
+        ":wstring",  # build_cleaner: keep
+        "//tensorstore/util:quote_string",
+        "//tensorstore/util:result",
+        "@com_google_absl//absl/container:inlined_vector",
+        "@com_google_absl//absl/log:absl_check",
+        "@com_google_absl//absl/log:absl_log",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/time",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "file_util_test",
+    srcs = ["file_util_test.cc"],
+    deps = [
+        ":file_util",
+        "//tensorstore/internal/testing:scoped_directory",
+        "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/time",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "file_lister",
+    srcs = select({
+        "@platforms//os:windows": [
+            "file_lister_win.cc",
+        ],
+        "//conditions:default": [
+            "file_lister_posix.cc",
+        ],
+    }),
+    hdrs = ["file_lister.h"],
+    deps = [
+        ":error_code",
+        ":include_windows",
+        ":potentially_blocking_region",
+        ":wstring",
+        "//tensorstore/util:quote_string",
+        "//tensorstore/util:status",
+        "@com_google_absl//absl/functional:function_ref",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "file_lister_test",
+    srcs = ["file_lister_test.cc"],
+    deps = [
+        ":file_lister",
+        ":file_util",
+        "//tensorstore/internal/testing:scoped_directory",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/log:absl_log",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
     name = "subprocess",
     testonly = True,
     srcs = select({
@@ -83,21 +183,6 @@ tensorstore_cc_test(
         "@com_google_googletest//:gtest",
         "@com_google_riegeli//riegeli/bytes:fd_reader",
         "@com_google_riegeli//riegeli/bytes:read_all",
-    ],
-)
-
-tensorstore_cc_library(
-    name = "filesystem",
-    testonly = True,
-    srcs = ["filesystem.cc"],
-    hdrs = ["filesystem.h"],
-    deps = [
-        ":error_code",
-        "//tensorstore/internal:env",
-        "//tensorstore/internal:path",
-        "//tensorstore/util:status",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/status",
     ],
 )
 
