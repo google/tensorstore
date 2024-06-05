@@ -128,8 +128,7 @@ TaskGroup::TaskGroup(private_t, internal::IntrusivePtr<SharedThreadPool> pool,
       thread_limit_(thread_limit),
       threads_blocked_(0),
       threads_in_use_(0),
-      steal_index_(0),
-      steal_count_(0) {}
+      steal_index_(0) {}
 
 TaskGroup::~TaskGroup() {
   assert(threads_in_use_.load(std::memory_order_relaxed) == 0);

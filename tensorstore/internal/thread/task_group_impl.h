@@ -95,7 +95,6 @@ class TaskGroup : public TaskProvider {
       ABSL_GUARDED_BY(mutex_);
   std::vector<PerThreadData*> thread_queues_ ABSL_GUARDED_BY(mutex_);
   size_t steal_index_ ABSL_GUARDED_BY(mutex_);
-  size_t steal_count_ ABSL_GUARDED_BY(mutex_);
 };
 
 }  // namespace internal_thread_impl
