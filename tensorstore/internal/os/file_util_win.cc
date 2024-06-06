@@ -340,7 +340,6 @@ absl::Status DeleteOpenFile(FileDescriptor fd, const std::string& path) {
 absl::Status DeleteFile(const std::string& path) {
   std::wstring wpath;
   TENSORSTORE_RETURN_IF_ERROR(ConvertUTF8ToWindowsWide(path, wpath));
-
   UniqueFileDescriptor delete_fd(::CreateFileW(
       wpath.c_str(),
       // Even though we only need write access, the `CreateFile`

@@ -43,6 +43,9 @@
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/status.h"
 
+// Include system headers last to reduce impact of macros.
+#include "tensorstore/internal/os/file_util.h"
+
 using ::tensorstore::internal::PotentiallyBlockingRegion;
 using ::tensorstore::internal::StatusFromOsError;
 

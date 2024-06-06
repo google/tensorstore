@@ -108,6 +108,7 @@ tensorstore_cc_library(
     hdrs = ["file_lister.h"],
     deps = [
         ":error_code",
+        ":file_util",
         ":include_windows",
         ":potentially_blocking_region",
         ":wstring",
@@ -129,6 +130,7 @@ tensorstore_cc_test(
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
