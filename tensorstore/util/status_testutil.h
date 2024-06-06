@@ -42,6 +42,7 @@
 #include <ostream>
 #include <string>
 #include <system_error>  // NOLINT
+#include <type_traits>
 #include <utility>
 
 #include <gmock/gmock.h>

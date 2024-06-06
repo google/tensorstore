@@ -1,4 +1,4 @@
-// Copyright 2022 The TensorStore Authors
+// Copyright 2020 The TensorStore Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,19 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_KVSTORE_FILE_POTENTIALLY_BLOCKING_REGION_H_
-#define TENSORSTORE_KVSTORE_FILE_POTENTIALLY_BLOCKING_REGION_H_
+#ifndef TENSORSTORE_INTERNAL_OS_CWD_H_
+#define TENSORSTORE_INTERNAL_OS_CWD_H_
+
+#include <string>
+
+#include "absl/status/status.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
-namespace internal {
+namespace internal_os {
 
-// Extension point used internally at Google to support lightweight fibers.
-class [[maybe_unused]] PotentiallyBlockingRegion {
- public:
-  ~PotentiallyBlockingRegion() {}
-};
+/// Returns the path to the current working directory.
+Result<std::string> GetCwd();
 
-}  // namespace internal
+/// Sets the current working directory.
+absl::Status SetCwd(const std::string& path);
+
+}  // namespace internal_os
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_KVSTORE_FILE_POTENTIALLY_BLOCKING_REGION_H_
+#endif  // TENSORSTORE_INTERNAL_OS_CWD_H_

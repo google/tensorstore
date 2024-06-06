@@ -61,7 +61,7 @@ ABSL_FLAG(absl::Duration, localstack_timeout, absl::Seconds(15),
           "Time to wait for localstack process to start serving requests");
 
 // --host_header can override the host: header used for signing.
-// It can be, for example, s3.af-south-1.localstack.localhost.com
+// It can be, for example, s3.us-east-1.localstack.localhost.com
 ABSL_FLAG(std::string, host_header, "", "Host header to use for signing");
 
 // --binary_mode selects whether the `--localstack_binary` is localstack
@@ -74,7 +74,7 @@ ABSL_FLAG(std::string, binary_mode, "",
 ABSL_FLAG(std::string, aws_bucket, "testbucket",
           "The S3 bucket used for the test.");
 
-ABSL_FLAG(std::string, aws_region, "af-south-1",
+ABSL_FLAG(std::string, aws_region, "us-east-1",
           "The S3 region used for the test.");
 
 ABSL_FLAG(std::string, aws_path, "tensorstore/test/",
@@ -121,6 +121,7 @@ SubprocessOptions SetupLocalstackOptions(int http_port) {
   env["LOCALSTACK_HOST"] =
       absl::StrFormat("localhost.localstack.cloud:%d", http_port);
   env["SERVICES"] = "s3";
+  env["AWS_DEFAULT_REGION"] = Region();
   return options;
 }
 
@@ -256,25 +257,24 @@ class LocalStackFixture : public ::testing::Test {
 
   // Attempts to create the kBucket bucket on the localstack host.
   static void MaybeCreateBucket() {
-    auto value = absl::Cord{absl::StrFormat(
-        R"(<?xml version="1.0" encoding="UTF-8"?>)"
-        R"(<CreateBucketConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/">)"
-        R"(<LocationConstraint>%s</LocationConstraint>)"
-        R"(</CreateBucketConfiguration>)",
-        Region())};
-
-    // localstack or other test service should accept s3.<region>.amazonaws.com
-    // as a signing string.
-    std::string my_host_header = absl::GetFlag(FLAGS_host_header);
-    if (my_host_header.empty()) {
-      my_host_header = absl::StrFormat("s3.%s.amazonaws.com", Region());
+    // Location constraints must not be provided for us-east-1
+    // https://docs.aws.amazon.com/AmazonS3/latest/API/API_CreateBucket.html
+    absl::Cord value;
+    if (Region() != "us-east-1") {
+      value = absl::Cord{absl::StrFormat(
+          R"(<?xml version="1.0" encoding="UTF-8"?>)"
+          R"(<CreateBucketConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/">)"
+          R"(<LocationConstraint>%s</LocationConstraint>)"
+          R"(</CreateBucketConfiguration>)",
+          Region())};
     }
 
     auto request =
         S3RequestBuilder("PUT",
                          absl::StrFormat("%s/%s", endpoint_url(), Bucket()))
-            .BuildRequest(my_host_header, AwsCredentials{}, Region(),
-                          kEmptySha256, absl::Now());
+            .BuildRequest(absl::GetFlag(FLAGS_host_header), AwsCredentials{},
+                          Region(), kEmptySha256, absl::Now());
+    ABSL_LOG(INFO) << "Create bucket request: " << request;
 
     ::tensorstore::Future<HttpResponse> response;
     // Repeat  until available, up to `--localstack_timeout` seconds (about 15).
@@ -297,7 +297,8 @@ class LocalStackFixture : public ::testing::Test {
       ABSL_LOG(INFO) << "Create bucket error: " << response.status();
     } else {
       ABSL_LOG(INFO) << "Create bucket response: " << Bucket() << "  "
-                     << response.value();
+                     << response.value() << "\n"
+                     << response.value().payload;
     }
   }
 };

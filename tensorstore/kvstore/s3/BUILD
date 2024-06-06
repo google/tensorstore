@@ -240,7 +240,7 @@ tensorstore_cc_test(
 
 tensorstore_cc_test(
     name = "localstack_test",
-    size = "small",
+    size = "medium",
     srcs = ["localstack_test.cc"],
     args = [
         "--localstack_binary=$(location :moto_server)",

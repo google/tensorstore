@@ -14,6 +14,10 @@
 
 #include "tensorstore/internal/os/error_code.h"
 
+#ifdef _WIN32
+#error "Use error_code_win.cc instead."
+#endif
+
 #include <cerrno>
 #include <string>
 #include <string_view>
@@ -25,42 +29,6 @@
 
 namespace tensorstore {
 namespace internal {
-
-#ifdef _WIN32
-
-absl::StatusCode GetOsErrorStatusCode(OsErrorCode error) {
-  switch (error) {
-    case ERROR_SUCCESS:
-      return absl::StatusCode::kOk;
-    case ERROR_FILE_EXISTS:
-    case ERROR_ALREADY_EXISTS:
-    case ERROR_DIR_NOT_EMPTY:
-      return absl::StatusCode::kAlreadyExists;
-    case ERROR_FILE_NOT_FOUND:
-    case ERROR_PATH_NOT_FOUND:
-      return absl::StatusCode::kNotFound;
-    case ERROR_TOO_MANY_OPEN_FILES:
-    case ERROR_NOT_ENOUGH_MEMORY:
-      return absl::StatusCode::kResourceExhausted;
-    default:
-      return absl::StatusCode::kFailedPrecondition;
-  }
-}
-
-std::string GetOsErrorMessage(OsErrorCode error) {
-  char buf[4096];
-  DWORD size = ::FormatMessageA(
-      /*dwFlags=*/FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-      /*lpSource=*/nullptr,
-      /*dwMessageId=*/error,
-      /*dwLanguageId=*/0,
-      /*lpBuffer=*/buf,
-      /*nSize=*/std::size(buf),
-      /*Arguments=*/nullptr);
-  return std::string(buf, size);
-}
-
-#else
 
 // There are two versions of the ::strerror_r function:
 //
@@ -98,31 +66,16 @@ std::string GetOsErrorMessage(OsErrorCode error) {
 }
 
 absl::StatusCode GetOsErrorStatusCode(OsErrorCode error) {
-  switch (error) {
-    case ENOENT:
-      return absl::StatusCode::kNotFound;
-    case EEXIST:
-    case ENOTEMPTY:
-      return absl::StatusCode::kAlreadyExists;
-    case ENOSPC:
-    case ENOMEM:
-      return absl::StatusCode::kResourceExhausted;
-    case EACCES:
-    case EPERM:
-      return absl::StatusCode::kPermissionDenied;
-    default:
-      return absl::StatusCode::kFailedPrecondition;
-  }
+  return absl::ErrnoToStatusCode(error);
 }
-#endif
 
 absl::Status StatusFromOsError(OsErrorCode error_code, std::string_view a,
                                std::string_view b, std::string_view c,
                                std::string_view d, SourceLocation loc) {
-  absl::Status status(GetOsErrorStatusCode(error_code),
-                      tensorstore::StrCat(a, b, c, d, " [OS error: ",
-                                          GetOsErrorMessage(error_code), "]"));
-
+  absl::Status status(
+      GetOsErrorStatusCode(error_code),
+      tensorstore::StrCat(a, b, c, d, " [OS error ", error_code, ": ",
+                          GetOsErrorMessage(error_code), "]"));
   MaybeAddSourceLocation(status, loc);
   return status;
 }

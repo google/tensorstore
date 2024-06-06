@@ -86,19 +86,18 @@
 
 #include <atomic>
 #include <cassert>
-#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <type_traits>
 #include <utility>
-#include <vector>
 
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/match.h"
 #include "absl/time/clock.h"
+#include "absl/time/time.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/batch.h"
 #include "tensorstore/context.h"
@@ -112,10 +111,10 @@
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/os/error_code.h"
+#include "tensorstore/internal/os/unique_handle.h"
 #include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/byte_range.h"
-#include "tensorstore/kvstore/file/unique_handle.h"
 #include "tensorstore/kvstore/file/util.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
@@ -136,8 +135,8 @@
 #include "tensorstore/util/str_cat.h"
 
 // Include these last to reduce impact of macros.
-#include "tensorstore/kvstore/file/posix_file_util.h"
-#include "tensorstore/kvstore/file/windows_file_util.h"
+#include "tensorstore/internal/os/file_lister.h"
+#include "tensorstore/internal/os/file_util.h"
 
 /// On FreeBSD and Mac OS X, `flock` can safely be used instead of open file
 /// descriptor locks.  `flock`/`fcntl`/`lockf` all use the same underlying lock
@@ -164,17 +163,13 @@ namespace internal_file_kvstore {
 namespace {
 namespace jb = tensorstore::internal_json_binding;
 
-using ::tensorstore::internal::GetLastErrorCode;
-using ::tensorstore::internal::GetOsErrorStatusCode;
 using ::tensorstore::internal::OsErrorCode;
-using ::tensorstore::internal::StatusFromOsError;
-using ::tensorstore::internal_file_util::FileDescriptor;
-using ::tensorstore::internal_file_util::FileInfo;
-using ::tensorstore::internal_file_util::GetFileInfo;
 using ::tensorstore::internal_file_util::IsKeyValid;
-using ::tensorstore::internal_file_util::kLockSuffix;
 using ::tensorstore::internal_file_util::LongestDirectoryPrefix;
-using ::tensorstore::internal_file_util::UniqueFileDescriptor;
+using ::tensorstore::internal_os::FileDescriptor;
+using ::tensorstore::internal_os::FileInfo;
+using ::tensorstore::internal_os::kLockSuffix;
+using ::tensorstore::internal_os::UniqueFileDescriptor;
 using ::tensorstore::kvstore::ListEntry;
 using ::tensorstore::kvstore::ListReceiver;
 using ::tensorstore::kvstore::ReadResult;
@@ -327,46 +322,38 @@ absl::Status ValidateKeyRange(const KeyRange& range) {
 
 // Encode in the generation fields that uniquely identify the file.
 StorageGeneration GetFileGeneration(const FileInfo& info) {
-  return StorageGeneration::FromValues(internal_file_util::GetDeviceId(info),
-                                       internal_file_util::GetFileId(info),
-                                       internal_file_util::GetMTime(info));
-}
-
-/// Returns a absl::Status for the current errno value. The message is composed
-/// by catenation of the provided string parts.
-absl::Status StatusFromErrno(std::string_view a = {}, std::string_view b = {},
-                             std::string_view c = {}, std::string_view d = {}) {
-  return StatusFromOsError(GetLastErrorCode(), a, b, c, d);
+  return StorageGeneration::FromValues(
+      internal_os::GetDeviceId(info), internal_os::GetFileId(info),
+      absl::ToUnixNanos(internal_os::GetMTime(info)));
 }
 
 /// RAII lock on an open file.
 struct FileLock {
  public:
-  bool Acquire(FileDescriptor fd) {
-    auto result = internal_file_util::FileLockTraits::Acquire(fd);
-    if (result) {
+  absl::Status Acquire(FileDescriptor fd) {
+    auto result = internal_os::FileLockTraits::Acquire(fd);
+    if (result.ok()) {
       lock_.reset(fd);
     }
     return result;
   }
 
  private:
-  internal::UniqueHandle<FileDescriptor, internal_file_util::FileLockTraits>
-      lock_;
+  internal_os::UniqueHandle<FileDescriptor, internal_os::FileLockTraits> lock_;
 };
 
 /// Creates any directory ancestors of `path` that do not exist, and returns an
 /// open file descriptor to the parent directory of `path`.
 Result<UniqueFileDescriptor> OpenParentDirectory(std::string path) {
   size_t end_pos = path.size();
-  UniqueFileDescriptor fd;
+  Result<UniqueFileDescriptor> fd;
   // Remove path components until we find a directory that exists.
   while (true) {
     // Loop backward until we reach a directory we can open (or .).
     // Loop forward, making directories, until we are done.
     size_t separator_pos = end_pos;
     while (separator_pos != 0 &&
-           !internal_file_util::IsDirSeparator(path[separator_pos - 1])) {
+           !internal_os::IsDirSeparator(path[separator_pos - 1])) {
       --separator_pos;
     }
     --separator_pos;
@@ -382,15 +369,14 @@ Result<UniqueFileDescriptor> OpenParentDirectory(std::string path) {
       dir_path = path.c_str();
       end_pos = separator_pos;
     }
-    fd.reset(internal_file_util::OpenDirectoryDescriptor(dir_path));
-    if (!fd.valid()) {
-      OsErrorCode error = GetLastErrorCode();
-      if (GetOsErrorStatusCode(error) == absl::StatusCode::kNotFound) {
+    fd = internal_os::OpenDirectoryDescriptor(dir_path);
+    if (!fd.ok()) {
+      if (absl::IsNotFound(fd.status())) {
         assert(separator_pos != 0 && separator_pos != std::string::npos);
         end_pos = separator_pos - 1;
         continue;
       }
-      return StatusFromOsError(error, "Failed to open directory: ", dir_path);
+      return fd.status();
     }
     // Revert the change to `path`.
     if (dir_path == path.c_str()) path[separator_pos] = '/';
@@ -405,13 +391,9 @@ Result<UniqueFileDescriptor> OpenParentDirectory(std::string path) {
       // No more ancestors remain.
       return fd;
     }
-    if (!internal_file_util::MakeDirectory(path.c_str())) {
-      return StatusFromErrno("Failed to make directory: ", path.c_str());
-    }
-    fd.reset(internal_file_util::OpenDirectoryDescriptor(path.c_str()));
-    if (!fd.valid()) {
-      return StatusFromErrno("Failed to open directory: ", path);
-    }
+    TENSORSTORE_RETURN_IF_ERROR(internal_os::MakeDirectory(path));
+    fd = internal_os::OpenDirectoryDescriptor(path);
+    TENSORSTORE_RETURN_IF_ERROR(fd.status());
     path[separator_pos] = '/';
     end_pos = separator_pos + 1;
   }
@@ -419,10 +401,8 @@ Result<UniqueFileDescriptor> OpenParentDirectory(std::string path) {
 
 absl::Status VerifyRegularFile(FileDescriptor fd, FileInfo* info,
                                const char* path) {
-  if (!internal_file_util::GetFileInfo(fd, info)) {
-    return StatusFromErrno("Error getting file information: ", path);
-  }
-  if (!internal_file_util::IsRegularFile(*info)) {
+  TENSORSTORE_RETURN_IF_ERROR(internal_os::GetFileInfo(fd, info));
+  if (!internal_os::IsRegularFile(*info)) {
     return absl::FailedPreconditionError(
         tensorstore::StrCat("Not a regular file: ", path));
   }
@@ -432,19 +412,18 @@ absl::Status VerifyRegularFile(FileDescriptor fd, FileInfo* info,
 Result<UniqueFileDescriptor> OpenValueFile(const char* path,
                                            StorageGeneration* generation,
                                            int64_t* size = nullptr) {
-  UniqueFileDescriptor fd =
-      internal_file_util::OpenExistingFileForReading(path);
-  if (!fd.valid()) {
-    auto error = GetLastErrorCode();
-    if (GetOsErrorStatusCode(error) == absl::StatusCode::kNotFound) {
+  auto fd = internal_os::OpenExistingFileForReading(path);
+  if (!fd.ok()) {
+    // Map not found to an empty file.
+    if (absl::IsNotFound(fd.status())) {
       *generation = StorageGeneration::NoValue();
-      return fd;
+      return UniqueFileDescriptor{};
     }
-    return StatusFromOsError(error, "Error opening file: ", path);
+    return fd;
   }
   FileInfo info;
-  TENSORSTORE_RETURN_IF_ERROR(VerifyRegularFile(fd.get(), &info, path));
-  if (size) *size = internal_file_util::GetSize(info);
+  TENSORSTORE_RETURN_IF_ERROR(VerifyRegularFile(fd->get(), &info, path));
+  if (size) *size = internal_os::GetSize(info);
   *generation = GetFileGeneration(info);
   return fd;
 }
@@ -464,12 +443,11 @@ struct WriteLockHelper {
 
   /// Opens or Creates the lock file.
   Result<UniqueFileDescriptor> OpenLockFile(FileInfo* info) {
-    UniqueFileDescriptor fd = internal_file_util::OpenFileForWriting(lock_path);
-    if (!fd.valid()) {
-      return StatusFromErrno("Failed to open lock file: ", lock_path);
+    auto fd = internal_os::OpenFileForWriting(lock_path);
+    if (fd.ok()) {
+      TENSORSTORE_RETURN_IF_ERROR(
+          VerifyRegularFile(fd->get(), info, lock_path.c_str()));
     }
-    TENSORSTORE_RETURN_IF_ERROR(
-        VerifyRegularFile(fd.get(), info, lock_path.c_str()));
     return fd;
   }
 
@@ -479,17 +457,19 @@ struct WriteLockHelper {
     // Loop until lock is acquired successfully.
     while (true) {
       // Acquire lock.
-      if (!lock.Acquire(lock_fd.get())) {
-        return StatusFromErrno("Failed to acquire lock on file: ", lock_path);
+      if (auto status = lock.Acquire(lock_fd.get()); !status.ok()) {
+        return MaybeAnnotateStatus(
+            std::move(status),
+            tensorstore::StrCat("Failed to acquire lock on file: ",
+                                QuoteString(lock_path)));
       }
       // Check if the lock file has been renamed.
       FileInfo other_info;
       TENSORSTORE_ASSIGN_OR_RETURN(UniqueFileDescriptor other_fd,
                                    OpenLockFile(&other_info));
-      if (internal_file_util::GetDeviceId(other_info) ==
-              internal_file_util::GetDeviceId(info) &&
-          internal_file_util::GetFileId(other_info) ==
-              internal_file_util::GetFileId(info)) {
+      if (internal_os::GetDeviceId(other_info) ==
+              internal_os::GetDeviceId(info) &&
+          internal_os::GetFileId(other_info) == internal_os::GetFileId(info)) {
         // Lock was acquired successfully.
         return absl::OkStatus();
       }
@@ -503,123 +483,11 @@ struct WriteLockHelper {
 
   // Deletes the lock file.
   absl::Status Delete() {
-    if (!internal_file_util::DeleteOpenFile(lock_fd.get(), lock_path)) {
-      return StatusFromErrno("Error deleting lock file: ", lock_path);
+    auto status = internal_os::DeleteOpenFile(lock_fd.get(), lock_path);
+    if (status.ok() || absl::IsNotFound(status)) {
+      return absl::OkStatus();
     }
-    return absl::OkStatus();
-  }
-};
-
-struct PathRangeVisitor {
-  KeyRange range;
-  std::string prefix;
-
-  PathRangeVisitor(KeyRange range)
-      : range(std::move(range)), prefix(LongestDirectoryPrefix(this->range)) {}
-
-  struct PendingDir {
-    std::unique_ptr<internal_file_util::DirectoryIterator> iterator;
-    /// Indicates whether this directory is fully (rather than partially)
-    /// contained in `range`.  If `true`, we can save the cost of checking
-    /// whether every (recursive) child entry is contained in `range`.
-    bool fully_contained;
-  };
-
-  std::vector<PendingDir> pending_dirs;
-
-  absl::Status Visit(
-      absl::FunctionRef<bool()> is_cancelled,
-      absl::FunctionRef<absl::Status()> handle_file_at,
-      absl::FunctionRef<absl::Status(bool fully_contained)> handle_dir_at) {
-    auto status = VisitImpl(is_cancelled, handle_file_at, handle_dir_at);
-    if (!status.ok()) {
-      return MaybeAnnotateStatus(
-          status, tensorstore::StrCat("While processing: ", GetFullPath()));
-    }
-    return absl::OkStatus();
-  }
-
-  absl::Status VisitImpl(
-      absl::FunctionRef<bool()> is_cancelled,
-      absl::FunctionRef<absl::Status()> handle_file_at,
-      absl::FunctionRef<absl::Status(bool fully_contained)> handle_dir_at) {
-    // First, try and open the prefix as a directory.
-    TENSORSTORE_RETURN_IF_ERROR(EnqueueDirectory());
-
-    // As long there are pending directories, look at the top of the stack.
-    for (; !pending_dirs.empty();) {
-      if (is_cancelled()) {
-        return absl::CancelledError("");
-      }
-      bool fully_contained = pending_dirs.back().fully_contained;
-      if (auto& iterator = *pending_dirs.back().iterator; iterator.Next()) {
-        const std::string_view name_view = iterator.path_component();
-        if (name_view != "." && name_view != "..") {
-          if (iterator.is_directory()) {
-            if (fully_contained ||
-                tensorstore::IntersectsPrefix(range, GetFullDirPath())) {
-              TENSORSTORE_RETURN_IF_ERROR(EnqueueDirectory());
-            }
-          } else {
-            // Treat the entry as a file; while this may not be strictly the
-            // case, it is a reasonable default.
-            if (fully_contained ||
-                tensorstore::Contains(range, GetFullPath())) {
-              TENSORSTORE_RETURN_IF_ERROR(handle_file_at());
-            }
-          }
-        }
-        continue;
-      }
-
-      // No more entries were encountered in the directory, so finish handling
-      // the current directory.
-      pending_dirs.pop_back();
-      TENSORSTORE_RETURN_IF_ERROR(handle_dir_at(fully_contained));
-    }
-
-    return absl::OkStatus();
-  }
-
-  internal_file_util::DirectoryIterator::Entry GetCurrentEntry() {
-    if (pending_dirs.empty()) {
-      return internal_file_util::DirectoryIterator::Entry::FromPath(prefix);
-    } else {
-      return pending_dirs.back().iterator->GetEntry();
-    }
-  }
-
-  absl::Status EnqueueDirectory() {
-    std::unique_ptr<internal_file_util::DirectoryIterator> iterator;
-    if (!internal_file_util::DirectoryIterator::Make(GetCurrentEntry(),
-                                                     &iterator)) {
-      return StatusFromErrno("Failed to open directory");
-    }
-    if (iterator) {
-      bool fully_contained =
-          (!pending_dirs.empty() && pending_dirs.back().fully_contained) ||
-          tensorstore::ContainsPrefix(range, GetFullDirPath());
-      pending_dirs.push_back({std::move(iterator), fully_contained});
-    }
-    return absl::OkStatus();
-  }
-
-  std::string GetFullPath() {
-    std::string path = prefix;
-    for (const auto& entry : pending_dirs) {
-      const char* slash =
-          (!path.empty() && path[path.size() - 1] != '/') ? "/" : "";
-      tensorstore::StrAppend(&path, slash, entry.iterator->path_component());
-    }
-    return path;
-  }
-
-  std::string GetFullDirPath() {
-    std::string path = GetFullPath();
-    if (!path.empty() && path.back() != '/') {
-      path += '/';
-    }
-    return path;
+    return MaybeAnnotateStatus(std::move(status), "Failed to clean lock file");
   }
 };
 
@@ -629,9 +497,10 @@ Result<absl::Cord> ReadFromFileDescriptor(FileDescriptor fd,
   internal::FlatCordBuilder buffer(byte_range.size(), false);
   size_t offset = 0;
   while (offset < buffer.size()) {
-    ptrdiff_t n = internal_file_util::ReadFromFile(
-        fd, buffer.data() + offset, buffer.size() - offset,
-        byte_range.inclusive_min + offset);
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto n, internal_os::ReadFromFile(fd, buffer.data() + offset,
+                                          buffer.size() - offset,
+                                          byte_range.inclusive_min + offset));
     if (n > 0) {
       file_bytes_read.IncrementBy(n);
       offset += n;
@@ -642,7 +511,6 @@ Result<absl::Cord> ReadFromFileDescriptor(FileDescriptor fd,
       return absl::UnavailableError(
           tensorstore::StrCat("Length changed while reading"));
     }
-    return StatusFromErrno("Error reading file");
   }
   return std::move(buffer).Build();
 }
@@ -782,49 +650,44 @@ struct WriteTask {
           return StorageGeneration::Unknown();
         }
       }
-      if (internal_file_util::GetSize(lock_helper.info) > value.size()) {
+      if (internal_os::GetSize(lock_helper.info) > value.size()) {
         // Only truncate when the file is larger. In the common path, the lock
         // file is newly created, so truncate is useless.
-        if (!internal_file_util::TruncateFile(fd)) {
-          return StatusFromErrno("Failed to truncate file: ", lock_path);
-        }
+        TENSORSTORE_RETURN_IF_ERROR(internal_os::TruncateFile(fd));
       }
       absl::Cord value_for_write = value;
       for (; !value_for_write.empty();) {
-        ptrdiff_t n = internal_file_util::WriteCordToFile(fd, value_for_write);
-        if (n <= 0) {
-          return StatusFromErrno("Error writing to file: ", lock_path);
-        }
+        TENSORSTORE_ASSIGN_OR_RETURN(
+            auto n, internal_os::WriteCordToFile(fd, value_for_write),
+            MaybeAnnotateStatus(_,
+                                tensorstore::StrCat("Failed writing: ",
+                                                    QuoteString(lock_path))));
         file_bytes_written.IncrementBy(n);
         if (n == value_for_write.size()) break;
         value_for_write.RemovePrefix(n);
       }
 
       if (this->sync) {
-        if (!internal_file_util::FsyncFile(fd)) {
-          return StatusFromErrno("Error calling fsync on file: ", lock_path);
-        }
+        TENSORSTORE_RETURN_IF_ERROR(internal_os::FsyncFile(fd));
       }
-      if (!internal_file_util::RenameOpenFile(fd, lock_path, full_path)) {
-        return StatusFromErrno("Error renaming: ", lock_path, " -> ",
-                               full_path);
-      }
+      TENSORSTORE_RETURN_IF_ERROR(
+          internal_os::RenameOpenFile(fd, lock_path, full_path));
       delete_lock_file = false;
       if (this->sync) {
         // fsync the parent directory to ensure the `rename` is durable.
-        if (!internal_file_util::FsyncDirectory(dir_fd.get())) {
-          return StatusFromErrno("Error calling fsync on parent directory of: ",
-                                 full_path);
-        }
+        TENSORSTORE_RETURN_IF_ERROR(
+            internal_os::FsyncDirectory(dir_fd.get()),
+            MaybeAnnotateStatus(
+                _, tensorstore::StrCat(
+                       "Error calling fsync on parent directory of: ",
+                       full_path)));
       }
       lock_helper.lock = FileLock{};
 
       // Retrieve `FileInfo` after the fsync and rename to ensure the
       // modification time doesn't change afterwards.
       FileInfo info;
-      if (!GetFileInfo(fd, &info) != 0) {
-        return StatusFromErrno("Error getting file info: ", lock_path);
-      }
+      TENSORSTORE_RETURN_IF_ERROR(internal_os::GetFileInfo(fd, &info));
       return GetFileGeneration(info);
     }();
 
@@ -866,10 +729,9 @@ struct DeleteTask {
           return StorageGeneration::Unknown();
         }
       }
-      if (!internal_file_util::DeleteFile(full_path) &&
-          GetOsErrorStatusCode(GetLastErrorCode()) !=
-              absl::StatusCode::kNotFound) {
-        return StatusFromErrno("Failed to remove file: ", full_path);
+      auto status = internal_os::DeleteFile(full_path);
+      if (!status.ok() && !absl::IsNotFound(status)) {
+        return status;
       }
       fsync_directory = this->sync;
       return StorageGeneration::NoValue();
@@ -879,9 +741,13 @@ struct DeleteTask {
     TENSORSTORE_RETURN_IF_ERROR(lock_helper.Delete());
 
     // fsync the parent directory to ensure the `rename` is durable.
-    if (fsync_directory && !internal_file_util::FsyncDirectory(dir_fd.get())) {
-      return StatusFromErrno("Error calling fsync on parent directory of: ",
-                             full_path);
+    if (fsync_directory) {
+      TENSORSTORE_RETURN_IF_ERROR(
+          internal_os::FsyncDirectory(dir_fd.get()),
+          MaybeAnnotateStatus(
+              _,
+              tensorstore::StrCat(
+                  "Error calling fsync on parent directory of: ", full_path)));
     }
     if (!generation_result) {
       return std::move(generation_result).status();
@@ -911,36 +777,32 @@ struct DeleteRangeTask {
   // TODO(jbms): Add fsync support
 
   void operator()(Promise<void> promise) {
-    PathRangeVisitor visitor(range);
-    auto is_cancelled = [&promise] { return !promise.result_needed(); };
-    auto remove_directory = [&](bool fully_contained) {
-      if (!fully_contained) {
-        return absl::OkStatus();
-      }
-      const auto entry = visitor.GetCurrentEntry();
-      if (entry.Delete(/*is_directory=*/true)) {
-        return absl::OkStatus();
-      }
-      auto status_code = GetOsErrorStatusCode(GetLastErrorCode());
-      if (status_code == absl::StatusCode::kNotFound ||
-          status_code == absl::StatusCode::kAlreadyExists) {
-        return absl::OkStatus();
-      }
-      return StatusFromErrno("Failed to remove directory");
-    };
-    auto delete_file = [&] {
-      auto entry = visitor.GetCurrentEntry();
-      if (entry.Delete(/*is_directory=*/false)) {
-        // File deleted.
-      } else if (GetOsErrorStatusCode(GetLastErrorCode()) !=
-                 absl::StatusCode::kNotFound) {
-        return StatusFromErrno("Failed to remove file");
-      }
-      return absl::OkStatus();
-    };
-
-    promise.SetResult(
-        MakeResult(visitor.Visit(is_cancelled, delete_file, remove_directory)));
+    std::string prefix(internal_file_util::LongestDirectoryPrefix(range));
+    auto status = internal_os::RecursiveFileList(
+        prefix,
+        [&](std::string_view path) {
+          return tensorstore::IntersectsPrefix(range, path);
+        },
+        [&](auto entry) -> absl::Status {
+          if (!promise.result_needed()) return absl::CancelledError("");
+          bool do_delete = false;
+          if (entry.IsDirectory()) {
+            // Delete fully contained directories.
+            do_delete = tensorstore::ContainsPrefix(range, entry.GetFullPath());
+          } else {
+            do_delete = tensorstore::Contains(range, entry.GetFullPath());
+          }
+          if (!do_delete) return absl::OkStatus();
+          auto status = entry.Delete();
+          if (status.ok() || absl::IsNotFound(status) ||  // Already deleted
+              absl::IsFailedPrecondition(status)  // WIN32 directory not empty
+          ) {
+            return absl::OkStatus();
+          }
+          MaybeAddSourceLocation(status);
+          return status;
+        });
+    promise.SetResult(MakeResult(std::move(status)));
   }
 };
 
@@ -959,28 +821,33 @@ struct ListTask {
   ListReceiver receiver;
 
   void operator()() {
-    PathRangeVisitor visitor(options.range);
-
     std::atomic<bool> cancelled = false;
     execution::set_starting(receiver, [&cancelled] {
       cancelled.store(true, std::memory_order_relaxed);
     });
-    auto is_cancelled = [&cancelled] {
-      return cancelled.load(std::memory_order_relaxed);
-    };
-    auto handle_file_at = [this, &visitor] {
-      std::string path = visitor.GetFullPath();
-      if (!absl::EndsWith(path, kLockSuffix)) {
-        path.erase(0, options.strip_prefix_length);
-        // TODO: If the file was stat'd, include length.
-        execution::set_value(receiver, ListEntry{std::move(path), -1});
-      }
-      return absl::OkStatus();
-    };
-    auto handle_dir_at = [](bool fully_contained) { return absl::OkStatus(); };
-
-    auto status = visitor.Visit(is_cancelled, handle_file_at, handle_dir_at);
-    if (!status.ok() && !is_cancelled()) {
+    std::string prefix(
+        internal_file_util::LongestDirectoryPrefix(options.range));
+    auto status = internal_os::RecursiveFileList(
+        prefix,
+        [&](std::string_view path) {
+          return tensorstore::IntersectsPrefix(options.range, path);
+        },
+        [&](auto entry) -> absl::Status {
+          if (cancelled.load(std::memory_order_relaxed)) {
+            return absl::CancelledError("");
+          }
+          if (entry.IsDirectory()) return absl::OkStatus();
+          std::string_view path = entry.GetFullPath();
+          if (tensorstore::Contains(options.range, path) &&
+              !absl::EndsWith(path, kLockSuffix)) {
+            // TODO: If the file was stat'd, include length.
+            path.remove_prefix(options.strip_prefix_length);
+            execution::set_value(receiver,
+                                 ListEntry{std::string(path), entry.GetSize()});
+          }
+          return absl::OkStatus();
+        });
+    if (!status.ok() && !cancelled.load(std::memory_order_relaxed)) {
       execution::set_error(receiver, std::move(status));
       execution::set_stopping(receiver);
       return;

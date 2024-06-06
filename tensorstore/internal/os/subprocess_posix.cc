@@ -12,9 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <cerrno>
-
-#include "absl/container/inlined_vector.h"
 #include "tensorstore/internal/os/subprocess.h"
 
 #ifdef _WIN32
@@ -32,6 +29,7 @@
 
 #include <atomic>
 #include <cassert>
+#include <cerrno>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -39,6 +37,7 @@
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/container/inlined_vector.h"
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"

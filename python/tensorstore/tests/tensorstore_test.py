@@ -475,7 +475,8 @@ async def test_spec_open_mode():
     assert requested_spec.open_mode == open_mode
 
 
-async def test_zero_copy():
+@pytest.mark.parametrize("writable", [True, False])
+async def test_zero_copy(writable: bool):
   store = await ts.open(
       {"driver": "zarr3", "kvstore": "memory://"},
       dtype=ts.uint32,
@@ -483,7 +484,12 @@ async def test_zero_copy():
       create=True,
   )
   arr = np.full(shape=[64], fill_value=42, dtype=np.uint32)
-  await store.write(arr, can_reference_source_data_indefinitely=True)
+  arr_maybe_immutable = arr[...]
+  assert arr_maybe_immutable is not arr
+  arr_maybe_immutable.setflags(write=writable)
+  await store.write(
+      arr_maybe_immutable, can_reference_source_data_indefinitely=True
+  )
   np.testing.assert_equal(42, await store.read())
   # Modify arr.  This violates the guarantee indicated by
   # `can_reference_source_data_indefinitely=True` but is done here for testing

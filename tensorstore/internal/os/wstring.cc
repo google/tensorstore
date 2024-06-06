@@ -15,10 +15,10 @@
 #include "tensorstore/internal/os/wstring.h"  // IWYU pragma: keep
 
 #ifdef _WIN32
+
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
-#include <windows.h>
 
 #include <cassert>
 #include <limits>  // IWYU pragma: keep
@@ -27,6 +27,9 @@
 
 #include "absl/status/status.h"
 #include "tensorstore/internal/os/error_code.h"  // IWYU pragma: keep
+
+// Include system headers last to reduce impact of macros.
+#include "tensorstore/internal/os/include_windows.h"
 
 namespace tensorstore {
 namespace internal {
@@ -44,7 +47,7 @@ absl::Status ConvertUTF8ToWindowsWide(std::string_view in, std::wstring& out) {
       /*CodePage=*/CP_UTF8, /*dwFlags=*/MB_ERR_INVALID_CHARS, in.data(),
       static_cast<int>(in.size()), nullptr, 0);
   if (n <= 0) {
-    return StatusFromOsError(GetLastErrorCode(),
+    return StatusFromOsError(::GetLastError(),
                              "ConvertUTF8ToWindowsWide failed");
   }
   out.resize(n);
@@ -52,8 +55,36 @@ absl::Status ConvertUTF8ToWindowsWide(std::string_view in, std::wstring& out) {
       /*CodePage=*/CP_UTF8, /*dwFlags=*/MB_ERR_INVALID_CHARS, in.data(),
       static_cast<int>(in.size()), out.data(), n);
   if (n <= 0) {
-    return StatusFromOsError(GetLastErrorCode(),
+    return StatusFromOsError(::GetLastError(),
                              "ConvertUTF8ToWindowsWide failed");
+  }
+  return absl::OkStatus();
+}
+
+/// Converts a windows Multibyte string to a UTF-8 String
+absl::Status ConvertWindowsWideToUTF8(std::wstring_view in, std::string& out) {
+  if (in.empty()) {
+    out.clear();
+    return absl::OkStatus();
+  }
+  int n = ::WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS,           //
+                                in.data(), static_cast<int>(in.size()),  //
+                                nullptr, 0,
+                                /*lpDefaultChar=*/nullptr,
+                                /*lpUsedDefaultChar=*/nullptr);
+  if (n <= 0) {
+    return StatusFromOsError(::GetLastError(),
+                             "ConvertWindowsWideToUTF8 failed");
+  }
+  out.resize(n);
+  n = ::WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS,           //
+                            in.data(), static_cast<int>(in.size()),  //
+                            out.data(), n,
+                            /*lpDefaultChar=*/nullptr,
+                            /*lpUsedDefaultChar=*/nullptr);
+  if (n <= 0) {
+    return StatusFromOsError(::GetLastError(),
+                             "ConvertWindowsWideToUTF8 failed");
   }
   return absl::OkStatus();
 }

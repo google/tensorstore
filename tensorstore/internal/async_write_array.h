@@ -273,7 +273,7 @@ struct AsyncWriteArray {
         bool read_state_already_integrated = false);
 
    private:
-    friend class AsyncWriteArray;
+    friend struct AsyncWriteArray;
 
     /// Copies `array`, which must already exist.
     void EnsureWritable(const Spec& spec);

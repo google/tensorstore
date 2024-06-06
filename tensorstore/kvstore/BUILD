@@ -279,7 +279,6 @@ tensorstore_cc_library(
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",
         "//tensorstore/util/execution",
-        "//tensorstore/util/execution:any_receiver",
         "//tensorstore/util/execution:sender_testutil",
         "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/functional:function_ref",

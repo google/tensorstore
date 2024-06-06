@@ -29,6 +29,9 @@ namespace internal {
 /// TODO: Consider consolidating with kvstore/file/windows_file_util.cc
 absl::Status ConvertUTF8ToWindowsWide(std::string_view in, std::wstring& out);
 
+/// Converts a windows Multibyte string to a UTF-8 String
+absl::Status ConvertWindowsWideToUTF8(std::wstring_view in, std::string& out);
+
 }  // namespace internal
 }  // namespace tensorstore
 

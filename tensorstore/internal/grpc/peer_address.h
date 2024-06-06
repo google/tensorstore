@@ -15,6 +15,7 @@
 #ifndef TENSORSTORE_INTERNAL_GRPC_PEER_ADDRESS_H_
 #define TENSORSTORE_INTERNAL_GRPC_PEER_ADDRESS_H_
 
+#include <string>
 #include <utility>
 
 #include "grpcpp/server_context.h"  // third_party

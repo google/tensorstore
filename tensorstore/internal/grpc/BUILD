@@ -90,6 +90,7 @@ tensorstore_cc_library(
     deps = [
         "@com_github_grpc_grpc//:gpr",
         "@com_github_grpc_grpc//:grpc++",
+        "@com_github_grpc_grpc//:grpc_security_base",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/time",

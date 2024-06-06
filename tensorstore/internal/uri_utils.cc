@@ -101,6 +101,19 @@ ParsedGenericUri ParseGenericUri(std::string_view uri) {
   // Note: Since substr clips out-of-range count, this works even if
   // `path_end == npos`.
   result.authority_and_path = uri_suffix.substr(0, path_end);
+
+  if (const auto path_start = result.authority_and_path.find('/');
+      path_start == 0 || result.authority_and_path.empty()) {
+    result.authority = {};
+    result.path = result.authority_and_path;
+  } else if (path_start != std::string_view::npos) {
+    result.authority = result.authority_and_path.substr(0, path_start);
+    result.path = result.authority_and_path.substr(path_start);
+  } else {
+    result.authority = result.authority_and_path;
+    result.path = {};
+  }
+
   if (query_start != std::string_view::npos) {
     result.query =
         uri_suffix.substr(query_start + 1, fragment_start - query_start - 1);
@@ -111,29 +124,6 @@ ParsedGenericUri ParseGenericUri(std::string_view uri) {
   return result;
 }
 
-/// Parses the hostname from "authority_and_path".
-std::string_view ParseHostname(std::string_view authority_and_path) {
-  // Does not include authority.
-  const auto path_start = authority_and_path.find('/');
-  if (path_start == 0 || authority_and_path.empty()) {
-    return {};
-  }
-  std::string_view authority = authority_and_path.substr(0, path_start);
-  if (authority[0] == '[') {
-    // IPv6 literal host.
-    auto close = authority.rfind(']');
-    if (close == std::string_view::npos) {
-      return {};
-    }
-    return authority.substr(1, close - 1);
-  }
-
-  const auto colon = authority.rfind(':');
-  if (colon != std::string_view::npos) {
-    return authority.substr(0, colon);
-  }
-  return authority;
-}
 
 }  // namespace internal
 }  // namespace tensorstore

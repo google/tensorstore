@@ -18,8 +18,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <cassert>
 #include <limits>
 #include <optional>
+#include <ostream>
 #include <string_view>
 #include <vector>
 
@@ -32,10 +34,10 @@
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/spec.h"
+#include "tensorstore/transaction.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/any_sender.h"
 #include "tensorstore/util/future.h"
-#include "tensorstore/util/quote_string.h"
 
 namespace tensorstore {
 namespace kvstore {
@@ -218,6 +220,9 @@ struct ListEntry {
     absl::Format(&sink, "%s", entry.key);
   }
 };
+
+// gtest output formatting.
+void PrintTo(const std::vector<ListEntry>& v, ::std::ostream* os);
 
 using ListReceiver = AnyFlowReceiver<absl::Status, ListEntry>;
 using ListSender = AnyFlowSender<absl::Status, ListEntry>;

@@ -19,9 +19,11 @@
 #include <string_view>
 
 #include "absl/random/random.h"
+#include "absl/status/status.h"
+#include "tensorstore/internal/os/cwd.h"
+#include "tensorstore/internal/os/file_util.h"
 #include "tensorstore/internal/os/filesystem.h"
 #include "tensorstore/internal/path.h"
-#include "tensorstore/kvstore/file/file_util.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
@@ -46,17 +48,22 @@ ScopedTemporaryDirectory::ScopedTemporaryDirectory() {
 }
 
 ScopedTemporaryDirectory::~ScopedTemporaryDirectory() {
-  TENSORSTORE_CHECK_OK(internal_os::RemoveAll(path_));
+  auto status = internal_os::RemoveAll(path_);
+  if (absl::IsNotFound(status) /* already removed */
+      || absl::IsFailedPrecondition(status) /* WIN32: not empty. */) {
+    status = absl::OkStatus();
+  }
+  TENSORSTORE_CHECK_OK(status);
 }
 
 ScopedCurrentWorkingDirectory::ScopedCurrentWorkingDirectory(
     const std::string& new_cwd) {
-  TENSORSTORE_CHECK_OK_AND_ASSIGN(old_cwd_, internal_file_util::GetCwd());
-  TENSORSTORE_CHECK_OK(internal_file_util::SetCwd(new_cwd));
+  TENSORSTORE_CHECK_OK_AND_ASSIGN(old_cwd_, internal_os::GetCwd());
+  TENSORSTORE_CHECK_OK(internal_os::SetCwd(new_cwd));
 }
 
 ScopedCurrentWorkingDirectory::~ScopedCurrentWorkingDirectory() {
-  TENSORSTORE_CHECK_OK(internal_file_util::SetCwd(old_cwd_));
+  TENSORSTORE_CHECK_OK(internal_os::SetCwd(old_cwd_));
 }
 
 }  // namespace internal_testing

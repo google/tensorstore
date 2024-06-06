@@ -15,18 +15,15 @@
 #ifndef TENSORSTORE_INTERNAL_OS_ERROR_CODE_H_
 #define TENSORSTORE_INTERNAL_OS_ERROR_CODE_H_
 
-#ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#else
-#include <errno.h>
-#endif
-
+#include <cerrno>
 #include <string>
 #include <string_view>
 
 #include "absl/status/status.h"
 #include "tensorstore/internal/source_location.h"
+
+// Include system headers last to reduce impact of macros.
+#include "tensorstore/internal/os/include_windows.h"
 
 namespace tensorstore {
 namespace internal {

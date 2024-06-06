@@ -1280,18 +1280,16 @@ Result<kvstore::Spec> ParseGcsUrl(std::string_view url) {
   if (!parsed.fragment.empty()) {
     return absl::InvalidArgumentError("Fragment identifier not supported");
   }
-  size_t end_of_bucket = parsed.authority_and_path.find('/');
-  std::string_view bucket = parsed.authority_and_path.substr(0, end_of_bucket);
-  if (!IsValidBucketName(bucket)) {
-    return absl::InvalidArgumentError(
-        tensorstore::StrCat("Invalid GCS bucket name: ", QuoteString(bucket)));
+  if (!IsValidBucketName(parsed.authority)) {
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "Invalid GCS bucket name: ", QuoteString(parsed.authority)));
   }
-  std::string_view encoded_path =
-      (end_of_bucket == std::string_view::npos)
-          ? std::string_view{}
-          : parsed.authority_and_path.substr(end_of_bucket + 1);
+  auto decoded_path = parsed.path.empty()
+                          ? std::string()
+                          : internal::PercentDecode(parsed.path.substr(1));
+
   auto driver_spec = internal::MakeIntrusivePtr<GcsKeyValueStoreSpec>();
-  driver_spec->data_.bucket = bucket;
+  driver_spec->data_.bucket = std::string(parsed.authority);
   driver_spec->data_.request_concurrency =
       Context::Resource<GcsConcurrencyResource>::DefaultSpec();
   driver_spec->data_.user_project =
@@ -1301,8 +1299,7 @@ Result<kvstore::Spec> ParseGcsUrl(std::string_view url) {
   driver_spec->data_.data_copy_concurrency =
       Context::Resource<DataCopyConcurrencyResource>::DefaultSpec();
 
-  return {std::in_place, std::move(driver_spec),
-          internal::PercentDecode(encoded_path)};
+  return {std::in_place, std::move(driver_spec), std::move(decoded_path)};
 }
 
 }  // namespace
