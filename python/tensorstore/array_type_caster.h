@@ -144,7 +144,7 @@ std::conditional_t<NoThrow, bool, void> ConvertToArray(
   SharedArray<void, dynamic_rank> dynamic_out;
   bool result =
       ConvertToArrayImpl(src, &dynamic_out, data_type_constraint, min_rank,
-                         max_rank, /*writable=*/std::is_const_v<Element>,
+                         max_rank, /*writable=*/!std::is_const_v<Element>,
                          /*no_throw=*/NoThrow, /*allow_copy=*/AllowCopy);
   if constexpr (NoThrow) {
     if (!result) return false;
