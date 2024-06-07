@@ -2255,22 +2255,25 @@ void DefineTensorStoreFunctions(py::module m) {
   m.def(
       "array",
       [](ArrayArgumentPlaceholder array, std::optional<DataTypeLike> dtype,
-         internal_context::ContextImplPtr context) {
+         internal_context::ContextImplPtr context, std::optional<bool> copy,
+         std::optional<bool> write) {
         if (!context) {
           context = internal_context::Access::impl(Context::Default());
         }
         SharedArray<void> converted_array;
-        if (dtype.has_value()) {
-          ConvertToArray</*Element=*/void, /*Rank=*/dynamic_rank,
-                         /*NoThrow=*/false, /*AllowCopy=*/true>(
-              array.value, &converted_array, dtype ? dtype->value : DataType());
-        } else {
-          ConvertToArray</*Element=*/void, /*Rank=*/dynamic_rank,
-                         /*NoThrow=*/false, /*AllowCopy=*/false>(
-              array.value, &converted_array);
+        bool is_writable;
+        internal_python::ConvertToArrayImpl(
+            array.value, converted_array, is_writable,
+            dtype ? dtype->value : DataType(),
+            /*min_rank=*/-1, /*max_rank=*/-1, write.value_or(false),
+            /*no_throw=*/false, copy);
+        TensorStore<> store = ValueOrThrow(FromArray(
+            std::move(converted_array), WrapImpl(std::move(context))));
+        if (write == false || !is_writable) {
+          store =
+              ValueOrThrow(tensorstore::ModeCast(store, ReadWriteMode::read));
         }
-        return ValueOrThrow(FromArray(std::move(converted_array),
-                                      WrapImpl(std::move(context))));
+        return store;
       },
       R"(
 Returns a TensorStore that reads/writes from an in-memory array.
@@ -2278,13 +2281,35 @@ Returns a TensorStore that reads/writes from an in-memory array.
 Args:
   array: Source array.
   dtype: Data type to which :python:`array` will be converted.
-  context: Context to use.
+  context: Optional context to use, for specifying
+    :json:schema:`Context.data_copy_concurrency`.
+  copy: Indicates whether the returned TensorStore may be a copy of the source
+    array, rather than a reference to it.
+
+    - If `None` (default), the source array is copied only if it cannot be
+      referenced.
+
+    - If `True`, a copy is always made.
+
+    - If `False`, a copy is never made and an error is raised if the source data
+      can't be referenced.
+  write: Indicates whether the returned TensorStore is writable.
+
+    - If `None` (default), the returned TensorStore may or may not be writable,
+      depending on whether the source array converts to a writable NumPy array.
+
+    - If `True`, the returned TensorStore is required to be writable, and an
+      error is returned if the source array does not support writing.
+
+    - If `False`, the returned TensorStore is never writable, even if the source
+      array is writable.
 
 Group:
   Views
 )",
-      py::arg("array"), py::arg("dtype") = std::nullopt,
-      py::arg("context") = nullptr);
+      py::arg("array"), py::arg("dtype") = std::nullopt, py::kw_only(),
+      py::arg("context") = nullptr, py::arg("copy") = std::nullopt,
+      py::arg("write") = std::nullopt);
 
   ForwardOpenSetters([&](auto... param_def) {
     std::string doc = R"(

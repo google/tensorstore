@@ -117,6 +117,50 @@ async def test_array():
   }
 
 
+async def test_array_no_copy():
+  with pytest.raises(
+      ValueError, match=r"Unable to avoid copy while creating an array\."
+  ):
+    ts.array([1, 2, 3], copy=False)
+
+  x = np.array([1, 2, 3], dtype=np.int32)
+
+  y = ts.array(x, copy=False)
+
+  x[0] = 4
+  assert (await y[0].read()) == 4
+
+  y = ts.array(x, copy=True)
+  x[0] = 5
+  assert (await y[0].read()) == 4
+
+
+async def test_array_no_write():
+  x = np.array([1, 2, 3], dtype=np.int32)
+
+  y = ts.array(x)
+  assert y.writable
+
+  y = ts.array(x, write=False)
+  assert not y.writable
+
+  x.setflags(write=False)
+  y = ts.array(x)
+  assert not y.writable
+
+  y = ts.array(x, write=True)
+  x.setflags(write=True)
+  x[0] = 4
+  assert (await y[0].read()) == 1
+  x.setflags(write=False)
+
+  with pytest.raises(
+      ValueError,
+      match=r"Unable to avoid copy while creating an array from given array\.",
+  ):
+    ts.array(x, write=True, copy=False)
+
+
 async def test_open_ustring_dtype():
   t = await ts.open({
       "driver": "array",
@@ -370,7 +414,7 @@ async def test_write_string():
     t[1] = "abc"
 
 
-def test_instantiation():
+async def test_instantiation():
   with pytest.raises(TypeError):
     ts.TensorStore()
 
