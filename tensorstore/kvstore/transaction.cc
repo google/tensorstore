@@ -864,8 +864,11 @@ MultiPhaseMutation::MultiPhaseMutation() {
 
 SinglePhaseMutation& MultiPhaseMutation::GetCommittingPhase() {
   auto* single_phase_mutation = &phases_;
-  if (single_phase_mutation->phase_number_ !=
-      this->GetTransactionNode().phase()) {
+  auto initial_phase_number = single_phase_mutation->phase_number_;
+  // If no entries have been added, the initial phase number will equal
+  // `kInvalidPhase`.
+  if (initial_phase_number != this->GetTransactionNode().phase() &&
+      initial_phase_number != internal::TransactionState::kInvalidPhase) {
     single_phase_mutation = single_phase_mutation->next_;
     assert(single_phase_mutation->phase_number_ ==
            this->GetTransactionNode().phase());

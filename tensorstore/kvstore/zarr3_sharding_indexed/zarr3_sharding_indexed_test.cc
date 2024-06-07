@@ -194,7 +194,7 @@ TEST(ShardedKeyValueStoreTest, BasicFunctionality) {
   }
 }
 
-TEST(Uint64ShardedKeyValueStoreTest, DescribeKey) {
+TEST(ShardedKeyValueStoreTest, DescribeKey) {
   CachePool::StrongPtr cache_pool = CachePool::Make(kSmallCacheLimits);
   kvstore::DriverPtr base_kv_store = tensorstore::GetMemoryKeyValueStore();
   int64_t num_entries = 100;
@@ -1293,15 +1293,14 @@ TEST_F(UnderlyingKeyValueStoreTest, BatchRead) {
 }
 
 // Tests of ReadModifyWrite operations, using `KvsBackedTestCache` ->
-// `Uint64ShardedKeyValueStore` -> `MockKeyValueStore`.
+// `ShardedKeyValueStore` -> `MockKeyValueStore`.
 class ReadModifyWriteTest : public ::testing::Test {
  protected:
   MockKeyValueStore::MockPtr mock_store = MockKeyValueStore::Make();
   tensorstore::kvstore::DriverPtr memory_store =
       tensorstore::GetMemoryKeyValueStore();
 
-  /// Returns a new (unique) `Uint64ShardedKeyValueStore` backed by
-  /// `mock_store`.
+  /// Returns a new (unique) `ShardedKeyValueStore` backed by `mock_store`.
   kvstore::DriverPtr GetStore(int64_t num_entries = 100) {
     return GetDefaultStore(mock_store, "shard_path",
                            tensorstore::InlineExecutor{},
@@ -1397,8 +1396,8 @@ TENSORSTORE_GLOBAL_INITIALIZER {
   for (bool underlying_atomic : {false, true}) {
     KvsBackedCacheBasicTransactionalTestOptions options;
     const int64_t num_entries = 100;
-    options.test_name = tensorstore::StrCat("Uint64Sharded/underlying_atomic=",
-                                            underlying_atomic);
+    options.test_name = tensorstore::StrCat(
+        "ZarrShardingIndexed/underlying_atomic=", underlying_atomic);
     options.get_store = [=] {
       return GetDefaultStore(
           tensorstore::GetMemoryKeyValueStore(/*atomic=*/underlying_atomic),
