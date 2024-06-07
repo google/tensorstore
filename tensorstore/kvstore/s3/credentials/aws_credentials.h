@@ -33,7 +33,7 @@ namespace internal_kvstore_s3 {
 struct AwsCredentials {
   /// AWS_ACCESS_KEY_ID
   std::string access_key;
-  /// AWS_SECRET_KEY_ID
+  /// AWS_SECRET_ACCESS_KEY
   std::string secret_key;
   /// AWS_SESSION_TOKEN
   std::string session_token;

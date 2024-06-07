@@ -66,7 +66,7 @@ class DefaultCredentialProviderTest : public ::testing::Test {
  protected:
   void SetUp() override {
     UnsetEnv("AWS_ACCESS_KEY_ID");
-    UnsetEnv("AWS_SECRET_KEY_ID");
+    UnsetEnv("AWS_SECRET_ACCESS_KEY");
     UnsetEnv("AWS_SESSION_TOKEN");
   }
 };

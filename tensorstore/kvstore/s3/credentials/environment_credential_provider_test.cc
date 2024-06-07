@@ -36,15 +36,19 @@ class EnvironmentCredentialProviderTest : public ::testing::Test {
   }
 };
 
+#ifndef _WIN32
+// Windows does not allow setting environment variables to "".
 TEST_F(EnvironmentCredentialProviderTest, ProviderNoCredentials) {
   auto provider = EnvironmentCredentialProvider();
   ASSERT_FALSE(provider.GetCredentials().ok());
   SetEnv("AWS_ACCESS_KEY_ID", "foo");
+  SetEnv("AWS_SECRET_ACCESS_KEY", "");
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials, provider.GetCredentials());
   ASSERT_EQ(credentials.access_key, "foo");
   ASSERT_TRUE(credentials.secret_key.empty());
   ASSERT_TRUE(credentials.session_token.empty());
 }
+#endif
 
 TEST_F(EnvironmentCredentialProviderTest, ProviderAwsCredentialsFromEnv) {
   SetEnv("AWS_ACCESS_KEY_ID", "foo");

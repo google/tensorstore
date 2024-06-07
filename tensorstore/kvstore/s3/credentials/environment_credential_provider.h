@@ -22,7 +22,7 @@ namespace tensorstore {
 namespace internal_kvstore_s3 {
 
 /// Provides credentials from the following environment variables:
-/// AWS_ACCESS_KEY_ID, AWS_SECRET_KEY_ID, AWS_SESSION_TOKEN
+/// AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN
 class EnvironmentCredentialProvider : public AwsCredentialProvider {
  public:
   Result<AwsCredentials> GetCredentials() override;

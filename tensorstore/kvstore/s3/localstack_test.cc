@@ -85,7 +85,6 @@ namespace kvstore = ::tensorstore::kvstore;
 
 using ::tensorstore::Context;
 using ::tensorstore::MatchesJson;
-using ::tensorstore::internal::GetEnv;
 using ::tensorstore::internal::GetEnvironmentMap;
 using ::tensorstore::internal::SetEnv;
 using ::tensorstore::internal::SpawnSubprocess;
@@ -229,9 +228,9 @@ class LocalStackFixture : public ::testing::Test {
     if (!EnvironmentCredentialProvider{}.GetCredentials().ok()) {
       ABSL_LOG(INFO) << "Installing environment credentials AWS_ACCESS_KEY_ID="
                      << kAwsAccessKeyId
-                     << " AWS_SECRET_KEY_ID=" << kAwsSecretKeyId;
+                     << " AWS_SECRET_ACCESS_KEY=" << kAwsSecretKeyId;
       SetEnv("AWS_ACCESS_KEY_ID", kAwsAccessKeyId);
-      SetEnv("AWS_SECRET_KEY_ID", kAwsSecretKeyId);
+      SetEnv("AWS_SECRET_ACCESS_KEY", kAwsSecretKeyId);
       TENSORSTORE_CHECK_OK(EnvironmentCredentialProvider{}.GetCredentials());
     }
 
