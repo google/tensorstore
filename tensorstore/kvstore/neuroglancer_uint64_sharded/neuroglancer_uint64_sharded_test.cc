@@ -22,6 +22,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -124,50 +125,74 @@ class GetUint64Key {
   mutable absl::flat_hash_map<uint64_t, std::string> uint64_to_key_;
 };
 
+tensorstore::Executor GetExecutor(std::string_view executor_name) {
+  if (executor_name == "inline") return tensorstore::InlineExecutor{};
+  return tensorstore::internal::DetachedThreadPool(2);
+}
+
+struct BasicFunctionalityTestOptions {
+  std::string_view executor_name = "thread_pool";
+  bool sequential_ids = false;
+  std::string_view hash = "identity";
+  std::string_view data_encoding = "raw";
+  std::string_view minishard_index_encoding = "raw";
+  bool all_zero_bits = false;
+};
+
+void TestReadWriteOps(BasicFunctionalityTestOptions options) {
+  ::nlohmann::json sharding_spec_json{
+      {"@type", "neuroglancer_uint64_sharded_v1"},
+      {"hash", options.hash},
+      {"preshift_bits", options.all_zero_bits ? 0 : 1},
+      {"minishard_bits", options.all_zero_bits ? 0 : 2},
+      {"shard_bits", options.all_zero_bits ? 0 : 3},
+      {"data_encoding", options.data_encoding},
+      {"minishard_index_encoding", options.minishard_index_encoding}};
+
+  auto cache_pool = CachePool::Make(kSmallCacheLimits);
+  auto base_kv_store = tensorstore::GetMemoryKeyValueStore();
+  auto sharding_spec = ShardingSpec::FromJson(sharding_spec_json).value();
+  SCOPED_TRACE(options.executor_name);
+  SCOPED_TRACE(sharding_spec_json.dump());
+
+  auto store = GetShardedKeyValueStore(
+      base_kv_store, GetExecutor(options.executor_name), "prefix",
+      sharding_spec, CachePool::WeakPtr(cache_pool));
+  GetUint64Key get_key_fn(options.sequential_ids);
+  tensorstore::internal::TestKeyValueReadWriteOps(store, get_key_fn);
+}
+
 TEST(Uint64ShardedKeyValueStoreTest, BasicFunctionality) {
-  std::vector<std::pair<std::string, tensorstore::Executor>> executors{
-      {"inline", tensorstore::InlineExecutor{}},
-      {"thread_pool", tensorstore::internal::DetachedThreadPool(2)}};
-  for (const auto& [executor_name, executor] : executors) {
-    for (const auto sequential_ids : {true, false}) {
-      for (const auto& hash : {"identity", "murmurhash3_x86_128"}) {
-        for (const auto& data_encoding : {"raw", "gzip"}) {
-          for (const auto& minishard_index_encoding : {"raw", "gzip"}) {
-            for (const auto& sharding_spec_json : ::nlohmann::json::array_t{
-                     {{"@type", "neuroglancer_uint64_sharded_v1"},
-                      {"hash", hash},
-                      {"preshift_bits", 0},
-                      {"minishard_bits", 0},
-                      {"shard_bits", 0},
-                      {"data_encoding", data_encoding},
-                      {"minishard_index_encoding", minishard_index_encoding}},
-                     {{"@type", "neuroglancer_uint64_sharded_v1"},
-                      {"hash", "identity"},
-                      {"preshift_bits", 1},
-                      {"minishard_bits", 2},
-                      {"shard_bits", 3},
-                      {"data_encoding", data_encoding},
-                      {"minishard_index_encoding", minishard_index_encoding}},
-                 }) {
-              auto cache_pool = CachePool::Make(kSmallCacheLimits);
-              auto base_kv_store = tensorstore::GetMemoryKeyValueStore();
-              auto sharding_spec =
-                  ShardingSpec::FromJson(sharding_spec_json).value();
-              SCOPED_TRACE(executor_name);
-              SCOPED_TRACE(sharding_spec_json.dump());
-
-              auto store = GetShardedKeyValueStore(
-                  base_kv_store, executor, "prefix", sharding_spec,
-                  CachePool::WeakPtr(cache_pool));
-              GetUint64Key get_key_fn(sequential_ids);
-
-              tensorstore::internal::TestKeyValueReadWriteOps(store,
-                                                              get_key_fn);
-            }
-          }
-        }
-      }
-    }
+  {
+    BasicFunctionalityTestOptions options;
+    TestReadWriteOps(options);
+    options.sequential_ids = true;
+    TestReadWriteOps(options);
+  }
+  {
+    BasicFunctionalityTestOptions options;
+    options.hash = "murmurhash3_x86_128";
+    TestReadWriteOps(options);
+  }
+  {
+    BasicFunctionalityTestOptions options;
+    options.data_encoding = "gzip";
+    TestReadWriteOps(options);
+  }
+  {
+    BasicFunctionalityTestOptions options;
+    options.minishard_index_encoding = "gzip";
+    TestReadWriteOps(options);
+  }
+  {
+    BasicFunctionalityTestOptions options;
+    options.all_zero_bits = true;
+    TestReadWriteOps(options);
+  }
+  {
+    BasicFunctionalityTestOptions options;
+    options.executor_name = "inline";
+    TestReadWriteOps(options);
   }
 }
 

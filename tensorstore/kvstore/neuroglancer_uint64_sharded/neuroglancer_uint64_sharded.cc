@@ -1423,7 +1423,7 @@ class ReadOperationState
       auto byte_range = FindChunkInMinishard(*minishard_index, chunk_id);
       if (!byte_range) {
         internal_kvstore_batch::SetCommonResult(
-            chunk_requests, kvstore::ReadResult::Missing(std::move(stamp)));
+            chunk_requests, kvstore::ReadResult::Missing(stamp));
         return;
       }
 

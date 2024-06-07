@@ -242,6 +242,7 @@ tensorstore_cc_test(
         "//tensorstore/kvstore/s3/credentials:environment_credential_provider",
         "//tensorstore/util:future",
         "//tensorstore/util:result",
+        "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
         "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/flags:flag",
