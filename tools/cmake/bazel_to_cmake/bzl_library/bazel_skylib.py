@@ -177,7 +177,7 @@ def _expand_template_impl(
   state: EvaluationState = _context.access(EvaluationState)
 
   cmake_target_pair = state.generate_cmake_target_pair(_target).with_alias(None)
-  out_file = _context.get_generated_file_path(_out_target)
+  out_file = str(_context.get_generated_file_path(_out_target))
 
   _context.add_analyzed_target(
       _out_target,
@@ -283,7 +283,7 @@ def _write_file_impl(
     **kwargs,
 ):
   del kwargs
-  out_file = _context.get_generated_file_path(_out_target)
+  out_file = str(_context.get_generated_file_path(_out_target))
   _context.add_analyzed_target(
       _out_target, TargetInfo(FilesProvider([out_file]))
   )

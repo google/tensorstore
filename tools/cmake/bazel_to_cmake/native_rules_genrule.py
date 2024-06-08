@@ -173,11 +173,15 @@ def _genrule_impl(
 
   # Add outputs with a dependency on this target.
   out_files: List[str] = []
+  out_dirs: Set[pathlib.PurePath] = set()
   for out_target in _out_targets:
-    path = str(state.get_generated_file_path(out_target))
-    out_files.append(path)
+    path = state.get_generated_file_path(out_target)
+    if path.parent and path.parent != state.active_repo.cmake_binary_dir:
+      out_dirs.add(path.parent)
+    str_path = str(path)
+    out_files.append(str_path)
     _context.add_analyzed_target(
-        out_target, TargetInfo(FilesProvider([path]), cmake_deps_provider)
+        out_target, TargetInfo(FilesProvider([str_path]), cmake_deps_provider)
     )
 
   cmake_deps: List[CMakeTarget] = state.get_deps(resolved_tools)
@@ -220,6 +224,10 @@ def _genrule_impl(
     )
     cmd_text = f'bash -c "{escaped}"'
 
+  # NOTE: We could do create the directories here:
+  # pathlib.Path(x).mkdir(parents=True, exist_ok=True) for x in out_dirs
+  _emit_make_directory(out, out_dirs)
+
   _emit_genrule(
       out,
       "genrule__" + cmake_target_pair.target,
@@ -242,6 +250,11 @@ def _genrule_impl(
 
 
 _QUOTED_VAR = re.compile(r"(^[$]{[A-Z0-9_]+})|(^\"[$]{[A-Z0-9_]+}\")")
+
+
+def _emit_make_directory(out: io.StringIO, out_dirs: Set[pathlib.PurePath]):
+  if out_dirs:
+    out.write(f"file(MAKE_DIRECTORY {quote_path_list(sorted(out_dirs))})\n")
 
 
 def _emit_filegroup(

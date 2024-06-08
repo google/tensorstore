@@ -81,6 +81,8 @@ function(btc_protobuf)
 
   if(NOT btc_protobuf_PROTOC_OUT_DIR)
     set(btc_protobuf_PROTOC_OUT_DIR ${CMAKE_CURRENT_BINARY_DIR})
+  else()
+    file(MAKE_DIRECTORY ${btc_protobuf_PROTOC_OUT_DIR})
   endif()
 
   # Get the sources from the PROTO_TARGET

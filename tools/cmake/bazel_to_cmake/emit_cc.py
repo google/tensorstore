@@ -71,16 +71,16 @@ def _emit_cc_common_options(
       for include_dir in sorted(set(includes))
   ]
   public_context = "INTERFACE" if interface_only else "PUBLIC"
-  if local_defines and not interface_only:
+  if local_defines is not None and local_defines and not interface_only:
     _builder.addtext(
         f"target_compile_definitions({target_name} PRIVATE"
         f" {quote_list(local_defines)})\n"
     )
-  if defines:
+  if defines is not None and defines:
     _builder.addtext(
         f"target_compile_definitions({target_name} {public_context} {quote_list(defines)})\n"
     )
-  if copts and not interface_only:
+  if copts is not None and copts and not interface_only:
     _builder.addtext(
         f"target_compile_options({target_name} PRIVATE {quote_list(copts)})\n"
     )
