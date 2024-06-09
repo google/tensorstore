@@ -180,6 +180,7 @@ def btc_protobuf(
     plugin_flags = f"\n    PLUGIN_OPTIONS {quote_list(flags)}"
 
   return f"""
+file(MAKE_DIRECTORY {output_dir})
 btc_protobuf(
     TARGET {cmake_name}
     PROTO_TARGET {proto_cmake_target}
