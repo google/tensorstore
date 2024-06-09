@@ -368,7 +368,7 @@ setuptools.setup(
         'install': InstallCommand,
     },
     install_requires=[
-        'numpy>=1.16.0',
+        'numpy>=1.22.0',
         'ml_dtypes>=0.3.1',
     ],
 )
