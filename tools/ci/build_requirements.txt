@@ -1,2 +1,2 @@
 -r ../../third_party/pypa/wheel_requirements_frozen.txt
-oldest-supported-numpy
+numpy>=1.22.0
