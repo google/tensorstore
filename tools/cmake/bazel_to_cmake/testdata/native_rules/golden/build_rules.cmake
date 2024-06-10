@@ -277,6 +277,7 @@ target_sources(CMakeProject_subdir_x PRIVATE
 add_library(CMakeProject::subdir_x ALIAS CMakeProject_subdir_x)
 
 # genrule(@native_rules_test_repo//subdir:make_ycc)
+file(MAKE_DIRECTORY "_cmake_binary_dir_/subdir")
 add_custom_command(
   OUTPUT
     "_cmake_binary_dir_/subdir/y.cc"
@@ -296,6 +297,7 @@ set_property(TARGET CMakeProject_subdir_make_ycc PROPERTY INTERFACE_INCLUDE_DIRE
 add_dependencies(CMakeProject_subdir_make_ycc genrule__CMakeProject_subdir_make_ycc)
 
 # genrule(@native_rules_test_repo//subdir:make_y)
+file(MAKE_DIRECTORY "_cmake_binary_dir_/subdir")
 add_custom_command(
   OUTPUT
     "_cmake_binary_dir_/subdir/y.h"

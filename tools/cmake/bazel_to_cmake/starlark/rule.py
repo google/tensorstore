@@ -266,7 +266,7 @@ class AttrModule:
           setattr(ctx.attr, name, None)
           setattr(ctx.outputs, name, None)
           return
-        path = ctx._context.get_generated_file_path(target)
+        path = str(ctx._context.get_generated_file_path(target))
         ctx._context.add_analyzed_target(
             target, TargetInfo(FilesProvider([path]))
         )

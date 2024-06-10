@@ -220,15 +220,13 @@ class InvocationContext(object):
         target_id.package_name, target_id.target_name
     )
 
-  def get_generated_file_path(self, target_id: TargetId) -> str:
+  def get_generated_file_path(self, target_id: TargetId) -> pathlib.PurePath:
     assert isinstance(target_id, TargetId)
     root = self.resolve_output_root(target_id.repository_id)
     if root is None:
       raise ValueError(
           f"Target '{target_id.as_label()}' missing output root directory."
       )
-    return str(
-        pathlib.PurePosixPath(root).joinpath(
-            target_id.package_name, target_id.target_name
-        )
+    return pathlib.PurePosixPath(root).joinpath(
+        target_id.package_name, target_id.target_name
     )

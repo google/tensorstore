@@ -35,6 +35,7 @@
 #include "tensorstore/util/status.h"
 
 // Include system headers last to reduce impact of macros.
+#include "tensorstore/internal/os/file_util.h"
 #include "tensorstore/internal/os/include_windows.h"
 
 using ::tensorstore::internal::StatusFromOsError;
@@ -66,14 +67,10 @@ absl::Status ListerEntry::Delete() {
     if (::RemoveDirectoryW(impl_->wpath.c_str())) {
       return absl::OkStatus();
     }
-  } else {
-    if (::DeleteFileW(impl_->wpath.c_str())) {
-      return absl::OkStatus();
-    }
+    return StatusFromOsError(::GetLastError(), "Failed to remove directory: ",
+                             QuoteString(impl_->path));
   }
-  return StatusFromOsError(
-      ::GetLastError(), "Failed to remove ",
-      impl_->is_directory ? "directory: " : "file: ", QuoteString(impl_->path));
+  return DeleteFile(impl_->path);
 }
 
 namespace {
@@ -138,12 +135,12 @@ absl::Status RecursiveListImpl(
     auto& entry = stack.back();
 
     // helper to invoke on_item with the correct parameters.
-    auto visit = [&](bool is_directory) -> absl::Status {
+    auto visit = [&]() -> absl::Status {
       std::string_view component(entry.path);
       component.remove_prefix(entry.path.size() - entry.component_size);
       std::wstring_view wcomponent(entry.wpath);
       wcomponent.remove_prefix(entry.wpath.size() - entry.wcomponent_size);
-
+      const bool is_directory = (entry.attributes & FILE_ATTRIBUTE_DIRECTORY);
       ListerEntry::Impl impl{entry.path, entry.wpath, component,
                              wcomponent, entry.size,  is_directory};
       return on_item(ListerEntry(&impl));
@@ -152,7 +149,7 @@ absl::Status RecursiveListImpl(
     // Initial state: Not a directory.
     if (!(entry.attributes & FILE_ATTRIBUTE_DIRECTORY)) {
       // Not a directory.
-      TENSORSTORE_RETURN_IF_ERROR(visit(false));
+      TENSORSTORE_RETURN_IF_ERROR(visit());
       stack.pop_back();
       continue;
     }
@@ -160,7 +157,7 @@ absl::Status RecursiveListImpl(
     // Initial state: Attempt to open directory.
     if (entry.find_handle == INVALID_HANDLE_VALUE) {
       if (!recurse_into(entry.path)) {
-        TENSORSTORE_RETURN_IF_ERROR(visit(true));
+        TENSORSTORE_RETURN_IF_ERROR(visit());
         stack.pop_back();
         continue;
       }
@@ -186,7 +183,7 @@ absl::Status RecursiveListImpl(
       // Try to advance to next entry.
       if (::FindNextFileW(entry.find_handle, &find_data) != TRUE) {
         // Done.
-        TENSORSTORE_RETURN_IF_ERROR(visit(true));
+        TENSORSTORE_RETURN_IF_ERROR(visit());
         stack.pop_back();
         continue;
       }

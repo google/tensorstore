@@ -23,6 +23,7 @@
 // inclusion constraints are satisfied.
 
 #include <memory>
+#include <optional>
 #include <type_traits>
 #include <utility>
 
@@ -106,10 +107,11 @@ SharedArray<Element, Rank> UncheckedArrayFromNumpy(pybind11::array array_obj) {
 
 /// Implementation of `ConvertToArray`, see documentation below.
 bool ConvertToArrayImpl(pybind11::handle src,
-                        SharedArray<void, dynamic_rank>* out,
+                        SharedArray<void, dynamic_rank>& out,
+                        bool& out_array_is_writable,
                         DataType data_type_constraint, DimensionIndex min_rank,
                         DimensionIndex max_rank, bool writable, bool no_throw,
-                        bool allow_copy);
+                        std::optional<bool> copy);
 
 /// Converts a Python object to a `SharedArray`.
 ///
@@ -142,10 +144,13 @@ std::conditional_t<NoThrow, bool, void> ConvertToArray(
     StaticOrDynamicRank<Rank> min_rank = GetDefaultRank<Rank>(),
     StaticOrDynamicRank<Rank> max_rank = GetDefaultRank<Rank>()) {
   SharedArray<void, dynamic_rank> dynamic_out;
-  bool result =
-      ConvertToArrayImpl(src, &dynamic_out, data_type_constraint, min_rank,
-                         max_rank, /*writable=*/!std::is_const_v<Element>,
-                         /*no_throw=*/NoThrow, /*allow_copy=*/AllowCopy);
+  bool out_is_writable;
+  bool result = ConvertToArrayImpl(src, dynamic_out, out_is_writable,
+                                   data_type_constraint, min_rank, max_rank,
+                                   /*writable=*/!std::is_const_v<Element>,
+                                   /*no_throw=*/NoThrow, /*copy=*/
+                                   AllowCopy ? std::optional<bool>(std::nullopt)
+                                             : std::optional<bool>(false));
   if constexpr (NoThrow) {
     if (!result) return false;
   }

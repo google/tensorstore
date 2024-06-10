@@ -202,11 +202,15 @@ def test_generate_substitutions():
       ctx.get_source_file_path(ctx.caller_package_id.parse_target("file/b.h"))
       or pathlib.PurePosixPath("__missing__")
   ).as_posix()
-  a_cc = ctx.get_generated_file_path(
-      ctx.caller_package_id.parse_target("file/a.cc")
+  a_cc = str(
+      ctx.get_generated_file_path(
+          ctx.caller_package_id.parse_target("file/a.cc")
+      )
   )
-  b_cc = ctx.get_generated_file_path(
-      ctx.caller_package_id.parse_target("file/b.cc")
+  b_cc = str(
+      ctx.get_generated_file_path(
+          ctx.caller_package_id.parse_target("file/b.cc")
+      )
   )
 
   assert generate_substitutions(

@@ -18,7 +18,7 @@
 import collections
 import json
 import pathlib
-from typing import Dict, List, Optional, Iterable, Set, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple, Union
 
 
 def quote_string(x: str) -> str:
@@ -45,11 +45,16 @@ def quote_list(y: Iterable[str], separator: str = " ") -> str:
   return separator.join(quote_string(x) for x in y)
 
 
-def quote_path_list(
-    y: Union[Iterable[str], Iterable[pathlib.PurePosixPath]],
-    separator: str = " ",
-) -> str:
-  return separator.join(quote_path(x) for x in y)
+PathSequence = Union[
+    Sequence[Union[str, pathlib.PurePath]],
+    Iterable[Union[str, pathlib.PurePath]],
+    Set[str],
+    Set[pathlib.PurePath],
+]
+
+
+def quote_path_list(y: PathSequence, separator: str = " ") -> str:
+  return separator.join(quote_path(x) for x in y if x)
 
 
 INCLUDE_SECTION = 0

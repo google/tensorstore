@@ -102,62 +102,48 @@ std::string CanonicalRequest(
 }
 
 std::string SigningString(std::string_view canonical_request,
-                          std::string_view aws_region, const absl::Time& time) {
+                          const absl::Time& time, std::string_view scope) {
   absl::TimeZone utc = absl::UTCTimeZone();
   SHA256Digester sha256;
   sha256.Write(canonical_request);
   const auto digest = sha256.Digest();
   auto digest_sv = std::string_view(reinterpret_cast<const char*>(&digest[0]),
                                     digest.size());
-
-  return absl::StrFormat(
-      "AWS4-HMAC-SHA256\n"
-      "%s\n"
-      "%s/%s/s3/aws4_request\n"
-      "%s",
-      absl::FormatTime("%Y%m%dT%H%M%SZ", time, utc),
-      absl::FormatTime("%Y%m%d", time, utc), aws_region,
-      absl::BytesToHexString(digest_sv));
+  return absl::StrFormat("AWS4-HMAC-SHA256\n%s\n%s\n%s",
+                         absl::FormatTime("%Y%m%dT%H%M%SZ", time, utc), scope,
+                         absl::BytesToHexString(digest_sv));
 }
 
-std::string Signature(std::string_view aws_secret_access_key,
-                      std::string_view aws_region,
-                      std::string_view signing_string, const absl::Time& time) {
+void GetSigningKey(std::string_view aws_secret_access_key,
+                   std::string_view aws_region, const absl::Time& time,
+                   unsigned char (&signing_key)[kHmacSize]) {
   absl::TimeZone utc = absl::UTCTimeZone();
   unsigned char date_key[kHmacSize];
   unsigned char date_region_key[kHmacSize];
   unsigned char date_region_service_key[kHmacSize];
-  unsigned char signing_key[kHmacSize];
-  unsigned char final_key[kHmacSize];
 
   ComputeHmac(absl::StrCat("AWS4", aws_secret_access_key),
               absl::FormatTime("%Y%m%d", time, utc), date_key);
   ComputeHmac(date_key, aws_region, date_region_key);
   ComputeHmac(date_region_key, "s3", date_region_service_key);
   ComputeHmac(date_region_service_key, "aws4_request", signing_key);
-  ComputeHmac(signing_key, signing_string, final_key);
-
-  auto key_view =
-      std::string_view(reinterpret_cast<const char*>(final_key), kHmacSize);
-  return absl::BytesToHexString(key_view);
 }
 
 std::string AuthorizationHeader(
-    std::string_view aws_access_key, std::string_view aws_region,
-    std::string_view signature,
-    const std::vector<std::pair<std::string, std::string_view>>& headers,
-    const absl::Time& time) {
+    std::string_view access_key, std::string_view scope,
+    std::string_view signature_hex,
+    const std::vector<std::pair<std::string, std::string_view>>& headers) {
   return absl::StrFormat(
-      "Authorization: AWS4-HMAC-SHA256 Credential=%s"
-      "/%s/%s/s3/aws4_request,"
-      "SignedHeaders=%s,Signature=%s",
-      aws_access_key, absl::FormatTime("%Y%m%d", time, absl::UTCTimeZone()),
-      aws_region,
+      "Authorization: AWS4-HMAC-SHA256 "
+      "Credential=%s/%s, "
+      "SignedHeaders=%s, "
+      "Signature=%s",
+      access_key, scope,
       absl::StrJoin(headers, ";",
                     [](std::string* out, auto pair) {
                       absl::StrAppend(out, pair.first);
                     }),
-      signature);
+      signature_hex);
 }
 
 static constexpr char kAmzContentSha256Header[] = "x-amz-content-sha256: ";
@@ -227,20 +213,34 @@ HttpRequest S3RequestBuilder::BuildRequest(std::string_view host_header,
   auto parsed_uri = ParseGenericUri(request.url);
   assert(!parsed_uri.path.empty());
 
+  std::string scope = absl::StrFormat(
+      "%s/%s/s3/aws4_request",
+      absl::FormatTime("%Y%m%d", time, absl::UTCTimeZone()), aws_region);
+
   canonical_request_ =
       CanonicalRequest(request.method, parsed_uri.path, parsed_uri.query,
                        payload_sha256_hash, signed_headers);
-  signing_string_ = SigningString(canonical_request_, aws_region, time);
-  signature_ =
-      Signature(credentials.secret_key, aws_region, signing_string_, time);
-  auto auth_header = AuthorizationHeader(credentials.access_key, aws_region,
-                                         signature_, signed_headers, time);
+  signing_string_ = SigningString(canonical_request_, time, scope);
+
+  unsigned char signing_key[kHmacSize];
+  GetSigningKey(credentials.secret_key, aws_region, time, signing_key);
+
+  unsigned char signature[kHmacSize];
+  ComputeHmac(signing_key, signing_string_, signature);
+  signature_ = absl::BytesToHexString(
+      std::string_view(reinterpret_cast<char*>(&signature[0]), kHmacSize));
+
+  std::string auth_header = AuthorizationHeader(credentials.access_key, scope,
+                                                signature_, signed_headers);
 
   ABSL_LOG_IF(INFO, s3_logging.Level(1))  //
       << "Canonical Request\n"
       << canonical_request_  //
       << "\n\nSigning String\n"
-      << signing_string_  //
+      << signing_string_      //
+      << "\n\nSigning Key\n"  //
+      << absl::BytesToHexString(std::string_view(
+             reinterpret_cast<char*>(signing_key), kHmacSize))  //
       << "\n\nAuthorization Header\n"
       << auth_header;
 

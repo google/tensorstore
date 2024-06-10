@@ -21,6 +21,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
@@ -33,43 +34,49 @@
 namespace {
 
 using ::tensorstore::IsOk;
+using ::tensorstore::IsOkAndHolds;
 using ::tensorstore::internal_os::FsyncDirectory;
 using ::tensorstore::internal_os::FsyncFile;
 using ::tensorstore::internal_os::MakeDirectory;
 using ::tensorstore::internal_os::OpenDirectoryDescriptor;
+using ::tensorstore::internal_os::OpenExistingFileForReading;
 using ::tensorstore::internal_os::OpenFileForWriting;
+using ::tensorstore::internal_os::ReadFromFile;
 using ::tensorstore::internal_os::RecursiveFileList;
+using ::tensorstore::internal_os::WriteToFile;
 using ::tensorstore::internal_testing::ScopedTemporaryDirectory;
 
 static std::optional<ScopedTemporaryDirectory> g_scoped_dir;
+
+void AddFiles(std::string_view root) {
+  ABSL_CHECK(!root.empty());
+
+  // Setup files.
+  TENSORSTORE_CHECK_OK(MakeDirectory(absl::StrCat(root, "/xyz")));
+  TENSORSTORE_CHECK_OK(MakeDirectory(absl::StrCat(root, "/zzq")));
+  std::string fname = "/a.txt";
+  for (; fname[1] < 'd'; fname[1] += 1) {
+    TENSORSTORE_CHECK_OK_AND_ASSIGN(
+        auto f, OpenFileForWriting(absl::StrCat(root, fname)));
+    TENSORSTORE_CHECK_OK(FsyncFile(f.get()));
+
+    TENSORSTORE_CHECK_OK_AND_ASSIGN(
+        auto g, OpenFileForWriting(absl::StrCat(root, "/xyz", fname)));
+    TENSORSTORE_CHECK_OK(FsyncFile(g.get()));
+  }
+
+  for (const auto& suffix : {"/xyz", ""}) {
+    TENSORSTORE_CHECK_OK_AND_ASSIGN(
+        auto f, OpenDirectoryDescriptor(absl::StrCat(root, suffix)));
+    EXPECT_THAT(FsyncDirectory(f.get()), IsOk());
+  }
+}
 
 class RecursiveFileListTest : public testing::Test {
  public:
   static void SetUpTestSuite() {
     g_scoped_dir.emplace();
-
-    // Setup files.
-    TENSORSTORE_CHECK_OK(MakeDirectory(g_scoped_dir->path() + "/xyz"));
-    TENSORSTORE_CHECK_OK(MakeDirectory(g_scoped_dir->path() + "/zzq"));
-    std::string fname = "a.txt";
-    for (; fname[0] < 'd'; fname[0] += 1) {
-      TENSORSTORE_CHECK_OK_AND_ASSIGN(
-          auto f,
-          OpenFileForWriting(absl::StrCat(g_scoped_dir->path(), "/", fname)));
-      TENSORSTORE_CHECK_OK(FsyncFile(f.get()));
-
-      TENSORSTORE_CHECK_OK_AND_ASSIGN(
-          auto g, OpenFileForWriting(
-                      absl::StrCat(g_scoped_dir->path(), "/xyz/", fname)));
-      TENSORSTORE_CHECK_OK(FsyncFile(g.get()));
-    }
-
-    for (const auto& suffix : {"/xyz", ""}) {
-      TENSORSTORE_CHECK_OK_AND_ASSIGN(
-          auto f,
-          OpenDirectoryDescriptor(absl::StrCat(g_scoped_dir->path(), suffix)));
-      EXPECT_THAT(FsyncDirectory(f.get()), IsOk());
-    }
+    AddFiles(g_scoped_dir->path());
   }
 
   static void TearDownTestSuite() { g_scoped_dir = std::nullopt; }
@@ -165,6 +172,60 @@ TEST_F(RecursiveFileListTest, NonRecursive) {
   EXPECT_THAT(files,
               ::testing::UnorderedElementsAre("c.txt", "b.txt", "a.txt",
                                               "<dir>zzq", "<dir>xyz", "<dir>"));
+}
+
+TEST(RecursiveFileListEntryTest, DeleteWithOpenFile) {
+  // List the subdirectory (relative path)
+  ScopedTemporaryDirectory tmpdir;
+  AddFiles(tmpdir.path());
+
+  {
+    auto f = OpenFileForWriting(absl::StrCat(tmpdir.path(), "/read.txt"));
+    EXPECT_THAT(f, IsOk());
+    EXPECT_THAT(WriteToFile(f->get(), "bar", 3), IsOkAndHolds(3));
+  }
+
+  {
+    // Open file; it should be deleted.
+    auto f =
+        OpenExistingFileForReading(absl::StrCat(tmpdir.path(), "/read.txt"));
+    EXPECT_THAT(f, IsOk());
+
+    std::vector<std::string> files;
+    EXPECT_THAT(RecursiveFileList(
+                    tmpdir.path(),
+                    /*recurse_into=*/
+                    [](std::string_view path) { return true; },
+                    /*on_item=*/
+                    [&](auto entry) {
+                      if (entry.GetFullPath() == tmpdir.path()) {
+                        return absl::OkStatus();
+                      }
+                      auto status = entry.Delete();
+                      if (status.ok() || absl::IsNotFound(status))
+                        return absl::OkStatus();
+                      return status;
+                    }),
+                IsOk());
+
+    char buf[16];
+    EXPECT_THAT(ReadFromFile(f->get(), buf, 3, 0), IsOkAndHolds(3));
+  }
+
+  std::vector<std::string> files;
+  EXPECT_THAT(
+      RecursiveFileList(
+          tmpdir.path(),
+          /*recurse_into=*/[](std::string_view path) { return true; },
+          /*on_item=*/
+          [&](auto entry) {
+            files.push_back(absl::StrCat(entry.IsDirectory() ? "<dir>" : "",
+                                         entry.GetPathComponent()));
+            return absl::OkStatus();
+          }),
+      IsOk());
+
+  EXPECT_THAT(files, ::testing::UnorderedElementsAre("<dir>"));
 }
 
 }  // namespace

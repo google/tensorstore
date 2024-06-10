@@ -150,8 +150,8 @@ TEST(S3RequestBuilderTest, AWS4SignatureGetExample) {
 
   auto expected_auth_header =
       "Authorization: AWS4-HMAC-SHA256 "
-      "Credential=AKIAIOSFODNN7EXAMPLE/20130524/us-east-1/s3/aws4_request,"
-      "SignedHeaders=host;range;x-amz-content-sha256;x-amz-date,"
+      "Credential=AKIAIOSFODNN7EXAMPLE/20130524/us-east-1/s3/aws4_request, "
+      "SignedHeaders=host;range;x-amz-content-sha256;x-amz-date, "
       "Signature="
       "f0e8bdb87c964420e857bd35b5d6ed310bd44f0170aba48dd91039c6036bdb41";
 
@@ -205,9 +205,9 @@ TEST(S3RequestBuilderTest, AWS4SignaturePutExample) {
 
   auto expected_auth_header =
       "Authorization: AWS4-HMAC-SHA256 "
-      "Credential=AKIAIOSFODNN7EXAMPLE/20130524/us-east-1/s3/aws4_request,"
+      "Credential=AKIAIOSFODNN7EXAMPLE/20130524/us-east-1/s3/aws4_request, "
       "SignedHeaders=date;host;x-amz-content-sha256;x-amz-date;x-amz-storage-"
-      "class,"
+      "class, "
       "Signature="
       "98ad721746da40c64f1a55b78f14c238d841ea1380cd77a1b5971af0ece108bd";
 
@@ -262,8 +262,8 @@ TEST(S3RequestBuilderTest, AWS4SignatureListObjectsExample) {
 
   auto expected_auth_header =
       "Authorization: AWS4-HMAC-SHA256 "
-      "Credential=AKIAIOSFODNN7EXAMPLE/20130524/us-east-1/s3/aws4_request,"
-      "SignedHeaders=host;x-amz-content-sha256;x-amz-date,"
+      "Credential=AKIAIOSFODNN7EXAMPLE/20130524/us-east-1/s3/aws4_request, "
+      "SignedHeaders=host;x-amz-content-sha256;x-amz-date, "
       "Signature="
       "34b48302e7b5fa45bde8084f4b7868a86f0a534bc59db6670ed5711ef69dc6f7";
 

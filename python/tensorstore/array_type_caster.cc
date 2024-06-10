@@ -29,6 +29,7 @@
 #include <cstddef>
 #include <exception>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -325,10 +326,11 @@ invalid:
 }
 
 bool ConvertToArrayImpl(pybind11::handle src,
-                        SharedArray<void, dynamic_rank>* out,
+                        SharedArray<void, dynamic_rank>& out,
+                        bool& out_array_is_writable,
                         DataType data_type_constraint, DimensionIndex min_rank,
                         DimensionIndex max_rank, bool writable, bool no_throw,
-                        bool allow_copy) {
+                        std::optional<bool> copy) {
   // Determine the NumPy data type corresponding to `data_type_constraint`.
   pybind11::dtype dtype_handle =
       data_type_constraint.valid()
@@ -338,6 +340,12 @@ bool ConvertToArrayImpl(pybind11::handle src,
   if (writable) {
     flags |= NPY_ARRAY_WRITEABLE;
   }
+  if (copy == true) {
+    flags |= NPY_ARRAY_ENSURECOPY;
+  } else if (copy == false) {
+    flags |= NPY_ARRAY_ENSURENOCOPY;
+  }
+
   // Convert `src` to a NumPy array.
   auto obj = pybind11::reinterpret_steal<pybind11::array>(PyArray_FromAny(
       src.ptr(), reinterpret_cast<PyArray_Descr*>(dtype_handle.release().ptr()),
@@ -353,13 +361,10 @@ bool ConvertToArrayImpl(pybind11::handle src,
     }
     const int type_num =
         pybind11::detail::array_descriptor_proxy(obj.dtype().ptr())->type_num;
-    if (!allow_copy && (obj.ptr() != src.ptr() || type_num == NPY_OBJECT)) {
-      // The caller has specified that copying is not allowed, and either
-      // PyArray_FromAny created a copy, or the caller passed in a NumPy
-      // "object" array which always requires a copy.
+    if (copy == false && type_num == NPY_OBJECT) {
       if (no_throw) return false;
       throw pybind11::value_error(
-          "Argument is not a writable array with suitable dtype");
+          "NumPy object arrays cannot be converted without copying");
     }
     // PyArray_FromAny does not handle rank constraints of 0, so we need to
     // check them separately.
@@ -374,15 +379,20 @@ bool ConvertToArrayImpl(pybind11::handle src,
       // `[1, 2, 3]` which is intended to be interpreted as a single JSON value
       // (i.e. rank-0 array).  Attempt a conversion directly from the
       // user-specified value.
-      *out = MakeScalarArray(PyObjectToJson(src));
+      out = MakeScalarArray(PyObjectToJson(src));
+      out_array_is_writable = true;
       return true;
     }
     if (type_num == NPY_OBJECT) {
       // Arrays of Python objects require copying.
-      *out = ArrayFromNumpyObjectArray(std::move(obj), data_type_constraint);
+      out = ArrayFromNumpyObjectArray(std::move(obj), data_type_constraint);
+      out_array_is_writable = true;
       return true;
     }
-    *out = UncheckedArrayFromNumpy<void>(std::move(obj));
+    out_array_is_writable = static_cast<bool>(
+        PyArray_FLAGS(reinterpret_cast<PyArrayObject*>(obj.ptr())) &
+        NPY_ARRAY_WRITEABLE);
+    out = UncheckedArrayFromNumpy<void>(std::move(obj));
     return true;
   };
   if (no_throw) {

@@ -130,7 +130,7 @@ def _generate_cc_impl(
     proto_prefix = src.target_name[: -len(".proto")]
     for ext in plugin_settings.exts:
       generated_target = src.get_target_id(f"{proto_prefix}{ext}")
-      generated_path = _context.get_generated_file_path(generated_target)
+      generated_path = str(_context.get_generated_file_path(generated_target))
       _context.add_analyzed_target(
           generated_target,
           TargetInfo(
