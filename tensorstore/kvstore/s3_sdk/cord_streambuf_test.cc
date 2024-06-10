@@ -104,10 +104,13 @@ TEST(CordStreamBufTest, GetEntireStreamBuf) {
 
   int count = 0;
   char ch;
+
   while(is.get(ch)) {
-    EXPECT_EQ(ch, '1' + count / kBufferSize);
-    EXPECT_EQ(is.tellg(), count);
+    EXPECT_EQ(ch, '1' + (count / kBufferSize));
+    EXPECT_TRUE(is.good());
+    EXPECT_FALSE(is.eof());
     ++count;
+    EXPECT_EQ(is.tellg(), count < kBufferSize * kNBuffers ? count : -1);
   }
   EXPECT_EQ(count, kBufferSize * kNBuffers);
   EXPECT_FALSE(is.good());
@@ -119,19 +122,20 @@ TEST(CordStreamBufTest, ReadSeek) {
   auto is = DefaultUnderlyingStream(
     MakeUnique<CordStreamBuf>(kAwsTag, ThreeBufferCord()));
 
-  for(char ch = 0; ch < kNBuffers; ++ch) {
-    is.seekg(5 + kBufferSize * ch);
-    EXPECT_EQ(is.tellg(), 5 + kBufferSize * ch);
+  for(char b = 0; b < kNBuffers; ++b) {
+    is.seekg(5 + kBufferSize * b);
+    EXPECT_EQ(is.tellg(), 5 + kBufferSize * b);
     char result[6] = {0x00};
     is.read(result, sizeof(result));
-    auto expected = std::string(sizeof(result), '1' + ch);
+    auto expected = std::string(sizeof(result), '1' + b);
     EXPECT_EQ(std::string_view(result, sizeof(result)), expected);
     EXPECT_TRUE(is.good());
-    EXPECT_EQ(is.tellg(), 5 + kBufferSize * ch + sizeof(result));
+    EXPECT_EQ(is.tellg(), 5 + kBufferSize * b + sizeof(result));
   }
 
+  is.seekg(kBufferSize * kNBuffers);
+  EXPECT_EQ(is.tellg(), -1);
   EXPECT_FALSE(is.good());
-  EXPECT_TRUE(is.eof());
 }
 
 } // namespace
