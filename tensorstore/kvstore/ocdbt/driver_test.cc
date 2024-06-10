@@ -542,6 +542,9 @@ TEST(OcdbtTest, TransactionalCopyRange) {
         store.WithPathSuffix("x/"), transactional_store.WithPathSuffix("y/")));
     TENSORSTORE_ASSERT_OK(kvstore::ExperimentalCopyRange(
         store.WithPathSuffix("x/"), transactional_store.WithPathSuffix("z/")));
+    // Overwrite existing copy.
+    TENSORSTORE_ASSERT_OK(kvstore::ExperimentalCopyRange(
+        store.WithPathSuffix("x/"), transactional_store.WithPathSuffix("z/")));
     EXPECT_THAT(kvstore::Read(transactional_store, "y/a").result(),
                 MatchesKvsReadResult(absl::Cord("value_a")));
     TENSORSTORE_ASSERT_OK(transaction.CommitAsync());
