@@ -24,6 +24,8 @@
 
 #include <gtest/gtest.h>
 
+using std::ios_base;
+
 using ::absl::Cord;
 using ::absl::CordBuffer;
 using ::Aws::Utils::Stream::DefaultUnderlyingStream;
@@ -34,9 +36,15 @@ namespace {
 
 static constexpr char kAwsTag[] = "AWS";
 static constexpr int kNBuffers = 3;
+static constexpr auto kBufferSize = CordBuffer::kDefaultLimit;
 
-CordStreamBuf & GetStreamBuf(DefaultUnderlyingStream & stream) {
-  return *dynamic_cast<CordStreamBuf *>(stream.rdbuf());
+absl::Cord ThreeBufferCord() {
+  absl::Cord cord;
+  for(char ch = 0; ch < kNBuffers; ++ch) {
+    cord.Append(std::string(kBufferSize, '1' + ch));
+  }
+  assert(std::distance(cord.Chunks().begin(), cord.Chunks().end()) == 3);
+  return cord;
 }
 
 TEST(CordStreamBufTest, Read) {
@@ -51,6 +59,7 @@ TEST(CordStreamBufTest, Read) {
   char ch;
   EXPECT_FALSE(is.get(ch));
   EXPECT_FALSE(is.good());
+  EXPECT_TRUE(is.eof());
 }
 
 
@@ -60,7 +69,7 @@ TEST(CordStreamBufTest, Write) {
   os << " ";
   os << "This is a test";
   EXPECT_TRUE(os.good());
-  auto cord = GetStreamBuf(os).GetCord();
+  auto cord = dynamic_cast<CordStreamBuf *>(os.rdbuf())->GetCord();
   EXPECT_EQ(cord, "Hello World This is a test");
 
   // Single Cord chunk
@@ -70,47 +79,59 @@ TEST(CordStreamBufTest, Write) {
 }
 
 
-/// Test seeking within the CordStreamBuf
-TEST(CordSreamBufTest, ReadSeek) {
-  absl::Cord cord;
-  for(char ch = 0; ch < kNBuffers; ++ch) {
-    cord.Append(std::string(CordBuffer::kDefaultLimit, '1' + ch));
-  }
-  EXPECT_EQ(std::distance(cord.Chunks().begin(), cord.Chunks().end()), 3);
+TEST(CordStreamBufTest, BufferSeek) {
+  auto buffer = CordStreamBuf(ThreeBufferCord());
 
+  // Seeks from beginning
+  EXPECT_EQ(buffer.pubseekoff(0, ios_base::beg, ios_base::in), 0);
+  EXPECT_EQ(buffer.pubseekoff(10, ios_base::beg, ios_base::in), 10);
+  EXPECT_EQ(buffer.pubseekoff(10 + kBufferSize, ios_base::beg, ios_base::in), 10 + kBufferSize);
+  EXPECT_EQ(buffer.pubseekoff(10 + 2*kBufferSize, ios_base::beg, ios_base::in), 10 + 2*kBufferSize);
+  EXPECT_EQ(buffer.pubseekoff(10 + 3*kBufferSize, ios_base::beg, ios_base::in), -1);  // eof
+
+  // Seeks from current position
+  EXPECT_EQ(buffer.pubseekoff(0, ios_base::beg, ios_base::in), 0);
+  EXPECT_EQ(buffer.pubseekoff(10, ios_base::cur, ios_base::in), 10);
+  EXPECT_EQ(buffer.pubseekoff(kBufferSize, ios_base::cur, ios_base::in), 10 + kBufferSize);
+  EXPECT_EQ(buffer.pubseekoff(kBufferSize, ios_base::cur, ios_base::in), 10 + 2*kBufferSize);
+  EXPECT_EQ(buffer.pubseekoff(kBufferSize, ios_base::cur, ios_base::in), -1);  // eof
+}
+
+/// Test that reading the CordStreamBuf reads the Cord
+TEST(CordStreamBufTest, GetEntireStreamBuf) {
   auto is = DefaultUnderlyingStream(
-    MakeUnique<CordStreamBuf>(kAwsTag, std::move(cord)));
+    MakeUnique<CordStreamBuf>(kAwsTag, ThreeBufferCord()));
+
+  int count = 0;
+  char ch;
+  while(is.get(ch)) {
+    EXPECT_EQ(ch, '1' + count / kBufferSize);
+    EXPECT_EQ(is.tellg(), count);
+    ++count;
+  }
+  EXPECT_EQ(count, kBufferSize * kNBuffers);
+  EXPECT_FALSE(is.good());
+  EXPECT_TRUE(is.eof());
+}
+
+/// Test seeking within the CordStreamBuf
+TEST(CordStreamBufTest, ReadSeek) {
+  auto is = DefaultUnderlyingStream(
+    MakeUnique<CordStreamBuf>(kAwsTag, ThreeBufferCord()));
 
   for(char ch = 0; ch < kNBuffers; ++ch) {
-    is.seekg(5 + CordBuffer::kDefaultLimit * ch);
-    EXPECT_EQ(is.tellg(), 5 + CordBuffer::kDefaultLimit * ch);
+    is.seekg(5 + kBufferSize * ch);
+    EXPECT_EQ(is.tellg(), 5 + kBufferSize * ch);
     char result[6] = {0x00};
     is.read(result, sizeof(result));
     auto expected = std::string(sizeof(result), '1' + ch);
     EXPECT_EQ(std::string_view(result, sizeof(result)), expected);
     EXPECT_TRUE(is.good());
-    EXPECT_EQ(is.tellg(), 5 + CordBuffer::kDefaultLimit * ch + sizeof(result));
+    EXPECT_EQ(is.tellg(), 5 + kBufferSize * ch + sizeof(result));
   }
-}
 
-/// Test that reading the CordStreamBuf reads the Cord
-TEST(CordStreamBufTest, GetEntireStreamBuf) {
-  absl::Cord cord;
-  for(char ch = 0; ch < kNBuffers; ++ch) {
-    cord.Append(std::string(CordBuffer::kDefaultLimit, '1' + ch));
-  }
-  EXPECT_EQ(std::distance(cord.Chunks().begin(), cord.Chunks().end()), 3);
-
-  auto is = DefaultUnderlyingStream(
-    MakeUnique<CordStreamBuf>(kAwsTag, std::move(cord)));
-
-  int count = 0;
-  char ch;
-  while(is.get(ch)) {
-    EXPECT_EQ(ch, '1' + count / CordBuffer::kDefaultLimit);
-    ++count;
-  }
-  EXPECT_EQ(count, CordBuffer::kDefaultLimit * kNBuffers);
+  EXPECT_FALSE(is.good());
+  EXPECT_TRUE(is.eof());
 }
 
 } // namespace

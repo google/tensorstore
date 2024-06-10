@@ -29,6 +29,14 @@ namespace internal_kvstore_s3 {
 /// (1) Append-only writing mode, where data is appended to the underlying Cord
 /// (2) Read mode, where data is read from the Cord. Seeking is supported
 ///     within the Stream Buffer.
+///
+/// The streambuf get area is assigned to a chunk of the underlying Cord,
+/// referred to by read_chunk_: this is usually set up by
+/// setg(read_chunk_->data(),
+///      read_chunk_->data(),
+///      read_chunk->data() + read_chunk_->size());
+/// Then, characters are consumed from this area until underflow occurs,
+/// at which point, the get area is constructed with the next chunk
 class CordStreamBuf : public std::basic_streambuf<char> {
 public:
   // Creates a stream buffer for writing
@@ -65,10 +73,16 @@ protected:
       return seekoff(sp - std::streampos(0), std::ios_base::beg, which);
   }
 
+  // Number of characters consumed in the current chunk
+  // (gptr() - eback())
+  std::streamsize consumed() const;
+  // Number of characters remaining in the current chunk
+  // (egptr() - gptr())
+  std::streamsize remaining() const;
 private:
   std::ios_base::openmode mode_;
   absl::Cord cord_;
-  absl::Cord::CharIterator get_iterator_;
+  absl::Cord::ChunkIterator read_chunk_;
 };
 
 }  // namespace internal_kvstore_s3

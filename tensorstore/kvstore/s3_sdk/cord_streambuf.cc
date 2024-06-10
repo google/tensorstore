@@ -15,6 +15,7 @@
 #include "tensorstore/kvstore/s3_sdk/cord_streambuf.h"
 
 #include <ios>
+#include <numeric>
 #include <string_view>
 
 #include "absl/strings/cord.h"
@@ -29,25 +30,26 @@ using std::ios_base;
 namespace tensorstore {
 namespace internal_kvstore_s3 {
 
-CordStreamBuf::CordStreamBuf() : CordStreamBuf(Cord()) {}
+CordStreamBuf::CordStreamBuf() :
+  CordStreamBuf(Cord()) {}
 
 CordStreamBuf::CordStreamBuf(Cord && cord) :
     mode_(cord.size() == 0 ? ios_base::out : ios_base::in),
     cord_(std::move(cord)),
-    get_iterator_(cord_.Chars().begin()) {
+    read_chunk_(cord_.Chunks().begin()) {
 
   // Set up the get area, if the Cord has data
-  if(get_iterator_ != cord_.Chars().end()) {
-    auto chunk = Cord::ChunkRemaining(get_iterator_);
-    char * data = const_cast<char *>(chunk.data());
-    setg(data, data, data + chunk.size());
+  if(read_chunk_ != cord_.Chunks().end()) {
+    char * data = const_cast<char *>(read_chunk_->data());
+    setg(data, data, data + read_chunk_->size());
   }
+
 }
 
 Cord CordStreamBuf::GetCord() {
   Cord result;
   std::swap(result, cord_);
-  get_iterator_ = cord_.Chars().begin();
+  read_chunk_ = cord_.Chunks().begin();
   char dummy;
   setg(&dummy, &dummy, &dummy + 1);
   setp(&dummy, &dummy + 1);
@@ -90,23 +92,32 @@ CordStreamBuf::int_type CordStreamBuf::overflow(int_type ch) {
 streamsize CordStreamBuf::xsgetn(char * s, streamsize count) {
   // Not reading or no more Cord data
   if(!(mode_ & ios_base::in)) return 0;
-  if(get_iterator_ == cord_.Chars().end()) return 0;
-  auto chunk = cord_.ChunkRemaining(get_iterator_);
-  auto bytes_to_read = std::min<streamsize>(chunk.size(), count);
-  for(streamsize i = 0; i < bytes_to_read; ++i) s[i] = chunk[i];
-  Cord::Advance(&get_iterator_, bytes_to_read);
+  if(read_chunk_ == cord_.Chunks().end()) return 0;
+  auto bytes_to_read = std::min<streamsize>(read_chunk_->size(), count);
+  for(streamsize i = 0; i < bytes_to_read; ++i) s[i] = read_chunk_->operator[](i);
+  assert(gptr() + bytes_to_read <= egptr());
+  if(gptr() + bytes_to_read < egptr()) {
+    setg(eback(), gptr() + bytes_to_read, egptr());
+  } else {
+    if(++read_chunk_ != cord_.Chunks().end()) {
+      char_type * data = const_cast<char_type *>(read_chunk_->data());
+      setg(data, data, data + read_chunk_->size());
+    }
+  }
   return bytes_to_read;
 }
 
 // Handle buffer underflow.
 CordStreamBuf::int_type CordStreamBuf::underflow() {
   // Not reading or no more Cord data
-  if(!(mode_ & ios_base::in) || get_iterator_ == cord_.Chars().end()) return traits_type::eof();
-  Cord::Advance(&get_iterator_, cord_.ChunkRemaining(get_iterator_).size());
-  if(get_iterator_ == cord_.Chars().end()) return traits_type::eof();
-  auto chunk = cord_.ChunkRemaining(get_iterator_);
-  char * data = const_cast<char *>(chunk.data());
-  setg(data, data, data + chunk.size());
+  if(!(mode_ & ios_base::in)) return traits_type::eof();
+  if(read_chunk_ == cord_.Chunks().end()) return traits_type::eof();
+  if(gptr() < egptr()) {
+    return traits_type::to_int_type(*gptr());
+  }
+  if(++read_chunk_ == cord_.Chunks().end()) return traits_type::eof();
+  char_type * data = const_cast<char_type *>(read_chunk_->data());
+  setg(data, data, data + read_chunk_->size());
   return traits_type::to_int_type(*data);
 }
 
@@ -115,29 +126,30 @@ streampos CordStreamBuf::seekoff(streamoff off, ios_base::seekdir way, ios_base:
     if (way == ios_base::beg) {
       // Seek from the beginning of the cord
       if(off >= cord_.size()) return traits_type::eof();
-      get_iterator_ = cord_.Chars().begin();
-      Cord::Advance(&get_iterator_, off);
-      auto chunk = cord_.ChunkRemaining(get_iterator_);
-      char * data = const_cast<char *>(chunk.data());
-      setg(data, data, data + chunk.size());
+      auto n = off;
+      read_chunk_ = cord_.Chunks().begin();
+      while(n > read_chunk_->size()) {
+        n -= read_chunk_->size();
+        ++read_chunk_;
+      }
+      char_type * data = const_cast<char_type *>(read_chunk_->data());
+      setg(data, data + n, data + read_chunk_->size());
       return off;
     } else if (way == ios_base::cur) {
-      if(get_iterator_ == cord_.Chars().end()) return traits_type::eof();
-      // Advance to next chunk if there isn't space in the current
-      while(egptr() - gptr() <= off) {
-        auto chunk = cord_.ChunkRemaining(get_iterator_);
-        Cord::Advance(&get_iterator_, chunk.size());
-        if(get_iterator_ == cord_.Chars().end()) return traits_type::eof();
-        char * data = const_cast<char *>(chunk.data());
-        setg(data, data, data + chunk.size());
-        off -= chunk.size();
+      if(read_chunk_ == cord_.Chunks().end()) return traits_type::eof();
+      auto n = off;
+      // Advance forward by Cord chunk,
+      // consuming any remaining characters
+      // in the chunk
+      while(n >= remaining()) {
+        n -= remaining();
+        if(++read_chunk_ == cord_.Chunks().end()) return traits_type::eof();
+        char_type * data = const_cast<char_type *>(read_chunk_->data());
+        setg(data, data, data + read_chunk_->size());
       }
-      // Advance within the chunk
-      if(off > 0) {
-        Cord::Advance(&get_iterator_, off);
-        setg(eback(), gptr() + off, egptr());
-      }
-      return std::distance(cord_.Chars().begin(), get_iterator_);
+      setg(eback(), gptr() + n, egptr());
+      return std::accumulate(cord_.Chunks().begin(), read_chunk_, consumed(),
+                             [](auto i, auto c) { return i + c.size(); });
     } else if (way == ios_base::end) {
       // Seeks past the stream end are unsupported
       return traits_type::eof();
@@ -149,8 +161,12 @@ streampos CordStreamBuf::seekoff(streamoff off, ios_base::seekdir way, ios_base:
   return traits_type::eof();
 }
 
-
-
+std::streamsize CordStreamBuf::consumed() const {
+  return gptr() - eback();
+};
+std::streamsize CordStreamBuf::remaining() const {
+  return egptr() - gptr();
+}
 
 }  // namespace internal_kvstore_s3
 }  // namespace tensorstore
