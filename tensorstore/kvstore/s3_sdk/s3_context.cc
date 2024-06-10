@@ -155,7 +155,7 @@ public:
 
 /// Custom factory overriding Aws::Http::DefaultHttpFatory
 /// Generates a CustomHttpClient (which defers to tensorflow's curl library)
-/// as well as overriding Createhttp Request to return
+/// as well as overriding CreateHttpRequest to return
 /// Standard Http Requests
 class CustomHttpFactory : public Aws::Http::HttpClientFactory {
 public:
