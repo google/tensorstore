@@ -33,7 +33,7 @@
 #include "tensorstore/internal/cache/async_cache.h"
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/cache_key/cache_key.h"
-#include "tensorstore/internal/cache_key/std_optional.h"
+#include "tensorstore/internal/cache_key/std_optional.h"  // IWYU pragma: keep
 #include "tensorstore/internal/concurrency_resource.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/intrusive_ptr.h"
@@ -368,8 +368,8 @@ IoHandle::Ptr MakeIoHandle(
     const Context::Resource<tensorstore::internal::DataCopyConcurrencyResource>&
         data_copy_concurrency,
     internal::CachePool* cache_pool, const KvStore& base_kvstore,
-    ConfigStatePtr config_state, const DataFilePrefixes& data_file_prefixes,
-    size_t write_target_size,
+    const KvStore& manifest_kvstore, ConfigStatePtr config_state,
+    const DataFilePrefixes& data_file_prefixes, size_t write_target_size,
     std::optional<ReadCoalesceOptions> read_coalesce_options) {
   // Maybe wrap the base driver in CoalesceKvStoreDriver.
   kvstore::DriverPtr driver_with_optional_coalescing =
@@ -425,26 +425,26 @@ IoHandle::Ptr MakeIoHandle(
     bytes_for_cache_key = read_coalesce_options->max_overhead_bytes_per_request;
   }
   internal::EncodeCacheKey(&manifest_cache_identifier, data_copy_concurrency,
-                           base_kvstore.driver, bytes_for_cache_key);
+                           manifest_kvstore.driver, bytes_for_cache_key);
   {
     auto manifest_cache =
         internal::GetCache<tensorstore::internal_ocdbt::ManifestCache>(
             cache_pool, manifest_cache_identifier, [&] {
               return std::make_unique<ManifestCache>(
-                  base_kvstore.driver, data_copy_concurrency->executor);
+                  manifest_kvstore.driver, data_copy_concurrency->executor);
             });
-    impl->manifest_cache_entry_ =
-        tensorstore::internal::GetCacheEntry(manifest_cache, base_kvstore.path);
+    impl->manifest_cache_entry_ = tensorstore::internal::GetCacheEntry(
+        manifest_cache, manifest_kvstore.path);
   }
   {
     auto numbered_manifest_cache =
         internal::GetCache<tensorstore::internal_ocdbt::NumberedManifestCache>(
             cache_pool, manifest_cache_identifier, [&] {
               return std::make_unique<NumberedManifestCache>(
-                  base_kvstore.driver, data_copy_concurrency->executor);
+                  manifest_kvstore.driver, data_copy_concurrency->executor);
             });
     impl->numbered_manifest_cache_entry_ = tensorstore::internal::GetCacheEntry(
-        numbered_manifest_cache, base_kvstore.path);
+        numbered_manifest_cache, manifest_kvstore.path);
   }
   return impl;
 }

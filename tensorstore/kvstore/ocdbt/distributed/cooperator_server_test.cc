@@ -66,7 +66,7 @@ class CooperatorServerTest : public ::testing::Test {
             .value();
     base_kvstore_ = tensorstore::GetMemoryKeyValueStore();
     io_handle_ = MakeIoHandle(
-        data_copy_concurrency, cache_pool.get(), base_kvstore_,
+        data_copy_concurrency, cache_pool.get(), base_kvstore_, base_kvstore_,
         ConfigState::Make(ConfigConstraints{},
                           base_kvstore_.driver->GetSupportedFeatures({}))
             .value(),

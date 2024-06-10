@@ -19,6 +19,7 @@
 #include <stdint.h>
 
 #include <optional>
+#include <string>
 
 #include "absl/time/time.h"
 #include "tensorstore/context.h"
@@ -52,8 +53,8 @@ IoHandle::Ptr MakeIoHandle(
     const Context::Resource<tensorstore::internal::DataCopyConcurrencyResource>&
         data_copy_concurrency,
     internal::CachePool* cache_pool, const KvStore& base_kvstore,
-    ConfigStatePtr config_state, const DataFilePrefixes& data_file_prefixes,
-    size_t write_target_size = 0,
+    const KvStore& manifest_kvstore, ConfigStatePtr config_state,
+    const DataFilePrefixes& data_file_prefixes, size_t write_target_size = 0,
     std::optional<ReadCoalesceOptions> read_coalesce_options = std::nullopt);
 
 }  // namespace internal_ocdbt

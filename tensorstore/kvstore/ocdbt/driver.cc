@@ -130,8 +130,13 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
     OcdbtDriverSpecData,
     jb::Object(
         jb::Member("base", jb::Projection<&OcdbtDriverSpecData::base>()),
+        jb::Member("manifest",
+                   jb::Projection<&OcdbtDriverSpecData::manifest>()),
         jb::Initialize([](auto* obj) {
           internal::EnsureDirectoryPath(obj->base.path);
+          if (obj->manifest) {
+            internal::EnsureDirectoryPath(obj->manifest->path);
+          }
           return absl::OkStatus();
         }),
         jb::Member("config", jb::Projection<&OcdbtDriverSpecData::config>(
@@ -177,12 +182,18 @@ Result<kvstore::Spec> OcdbtDriverSpec::GetBase(std::string_view path) const {
 }
 
 Future<kvstore::DriverPtr> OcdbtDriverSpec::DoOpen() const {
+  auto base_kvstore_future = kvstore::Open(data_.base);
+  Future<kvstore::KvStore> manifest_kvstore_future =
+      data_.manifest ? kvstore::Open(*data_.manifest)
+                     : Future<kvstore::KvStore>(kvstore::KvStore{});
   return MapFutureValue(
       InlineExecutor{},
       [spec = internal::IntrusivePtr<const OcdbtDriverSpec>(this)](
-          kvstore::KvStore& base_kvstore) -> Result<kvstore::DriverPtr> {
+          kvstore::KvStore& base_kvstore,
+          kvstore::KvStore& manifest_kvstore) -> Result<kvstore::DriverPtr> {
         auto driver = internal::MakeIntrusivePtr<OcdbtDriver>();
         driver->base_ = std::move(base_kvstore);
+        driver->manifest_kvstore_ = std::move(manifest_kvstore);
 
         auto supported_manifest_features =
             driver->base_.driver->GetSupportedFeatures(KeyRange::Prefix(
@@ -224,7 +235,10 @@ Future<kvstore::DriverPtr> OcdbtDriverSpec::DoOpen() const {
 
         driver->io_handle_ = internal_ocdbt::MakeIoHandle(
             driver->data_copy_concurrency_, driver->cache_pool_->get(),
-            driver->base_, std::move(config_state), driver->data_file_prefixes_,
+            driver->base_,
+            driver->manifest_kvstore_.driver ? driver->manifest_kvstore_
+                                             : driver->base_,
+            std::move(config_state), driver->data_file_prefixes_,
             driver->target_data_file_size_.value_or(kDefaultTargetBufferSize),
             std::move(read_coalesce_options));
         driver->btree_writer_ =
@@ -256,13 +270,14 @@ Future<kvstore::DriverPtr> OcdbtDriverSpec::DoOpen() const {
         driver->btree_writer_ = MakeDistributedBtreeWriter(std::move(options));
         return driver;
       },
-      kvstore::Open(data_.base));
+      std::move(base_kvstore_future), std::move(manifest_kvstore_future));
 }
 
 absl::Status OcdbtDriverSpec::ApplyOptions(
     kvstore::DriverSpecOptions&& options) {
   if (options.minimal_spec) {
     data_.config = {};
+    data_.assume_config = false;
   }
   return data_.base.driver.Set(std::move(options));
 }
@@ -270,6 +285,12 @@ absl::Status OcdbtDriverSpec::ApplyOptions(
 absl::Status OcdbtDriver::GetBoundSpecData(OcdbtDriverSpecData& spec) const {
   TENSORSTORE_ASSIGN_OR_RETURN(spec.base.driver, base_.driver->GetBoundSpec());
   spec.base.path = base_.path;
+  if (manifest_kvstore_.driver) {
+    auto& manifest_spec = spec.manifest.emplace();
+    TENSORSTORE_ASSIGN_OR_RETURN(manifest_spec.driver,
+                                 base_.driver->GetBoundSpec());
+    manifest_spec.path = manifest_kvstore_.path;
+  }
   spec.data_copy_concurrency = data_copy_concurrency_;
   spec.cache_pool = cache_pool_;
   spec.config = io_handle_->config_state->GetConstraints();

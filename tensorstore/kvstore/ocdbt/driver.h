@@ -57,6 +57,7 @@
 #include "tensorstore/serialization/absl_time.h"  // IWYU pragma: keep
 #include "tensorstore/serialization/std_optional.h"  // IWYU pragma: keep
 #include "tensorstore/serialization/std_variant.h"  // IWYU pragma: keep
+#include "tensorstore/util/garbage_collection/std_optional.h"  // IWYU pragma: keep
 
 namespace tensorstore {
 namespace internal_ocdbt {
@@ -80,6 +81,7 @@ struct OcdbtDriverSpecData {
   Context::Resource<internal::DataCopyConcurrencyResource>
       data_copy_concurrency;
   kvstore::Spec base;
+  std::optional<kvstore::Spec> manifest;
   ConfigConstraints config;
   DataFilePrefixes data_file_prefixes;
   std::optional<size_t> experimental_read_coalescing_threshold_bytes;
@@ -95,7 +97,7 @@ struct OcdbtDriverSpecData {
                                           ::nlohmann::json::object_t)
 
   constexpr static auto ApplyMembers = [](auto&& x, auto f) {
-    return f(x.base, x.config, x.data_file_prefixes, x.cache_pool,
+    return f(x.base, x.manifest, x.config, x.data_file_prefixes, x.cache_pool,
              x.data_copy_concurrency,
              x.experimental_read_coalescing_threshold_bytes,
              x.experimental_read_coalescing_merged_bytes,
@@ -158,6 +160,7 @@ class OcdbtDriver
   Context::Resource<internal::DataCopyConcurrencyResource>
       data_copy_concurrency_;
   kvstore::KvStore base_;
+  kvstore::KvStore manifest_kvstore_;
   BtreeWriterPtr btree_writer_;
   DataFilePrefixes data_file_prefixes_;
   std::optional<size_t> experimental_read_coalescing_threshold_bytes_;
@@ -175,6 +178,8 @@ struct GarbageCollection<internal_ocdbt::OcdbtDriver> {
   static void Visit(GarbageCollectionVisitor& visitor,
                     const internal_ocdbt::OcdbtDriver& value) {
     garbage_collection::GarbageCollectionVisit(visitor, value.base_);
+    garbage_collection::GarbageCollectionVisit(visitor,
+                                               value.manifest_kvstore_);
   }
 };
 }  // namespace garbage_collection

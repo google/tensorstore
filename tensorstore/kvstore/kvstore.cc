@@ -107,6 +107,7 @@ Result<DriverSpecPtr> Driver::spec(SpecRequestOptions&& options) const {
   TENSORSTORE_ASSIGN_OR_RETURN(auto spec, GetBoundSpec());
   internal::ApplyContextBindingMode(spec, options.context_binding_mode,
                                     /*default_mode=*/ContextBindingMode::strip);
+  TENSORSTORE_RETURN_IF_ERROR(spec.Set(std::move(options)));
   return spec;
 }
 

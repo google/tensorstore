@@ -60,7 +60,7 @@ Future<std::variant<absl::Cord, ::nlohmann::json>> ReadAndDump(
         auto cache_pool_resource,
         context.GetResource<internal::CachePoolResource>());
     auto io_handle = internal_ocdbt::MakeIoHandle(
-        data_copy_concurrency_resource, cache_pool_resource->get(), base,
+        data_copy_concurrency_resource, cache_pool_resource->get(), base, base,
         /*config_state=*/
         ConfigState::Make().value(), /*data_file_prefixes=*/{});
 
