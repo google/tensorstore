@@ -304,7 +304,8 @@ struct IndirectValueReadModifyWriteSource final
 
   void KvsWriteback(WritebackOptions options,
                     WritebackReceiver receiver) override {
-    if (options.writeback_mode == WritebackMode::kNormalWriteback) {
+    if (options.writeback_mode == WritebackMode::kNormalWriteback ||
+        options.writeback_mode == WritebackMode::kValidateOnly) {
       // Just return an empty string.  The actual value will be obtained by
       // calling `IsSpecialSource()`.
       TimestampedStorageGeneration stamp;
@@ -313,11 +314,6 @@ struct IndirectValueReadModifyWriteSource final
       execution::set_value(
           std::move(receiver),
           kvstore::ReadResult::Value(absl::Cord(), std::move(stamp)));
-      return;
-    }
-
-    if (options.writeback_mode == WritebackMode::kValidateOnly) {
-      execution::set_value(receiver, kvstore::ReadResult{});
       return;
     }
     auto& writer =

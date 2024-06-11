@@ -118,7 +118,7 @@ inline ::OVERLAPPED GetLockOverlapped() {
   return GetOverlappedWithOffset(0xffffffff'fffffffe);
 }
 
-bool RenameFileWin32(FileDescriptor fd, const std::wstring& new_name) {
+bool RenameFilePosix(FileDescriptor fd, const std::wstring& new_name) {
   alignas(::FILE_RENAME_INFO) char
       file_rename_info_buffer[sizeof(::FILE_RENAME_INFO) + kMaxWindowsPathSize -
                               1];
@@ -131,6 +131,14 @@ bool RenameFileWin32(FileDescriptor fd, const std::wstring& new_name) {
                        0x00000002 /*FILE_RENAME_REPLACE_IF_EXISTS*/;
   return static_cast<bool>(::SetFileInformationByHandle(
       fd, FileRenameInfoEx, rename_info, std::size(file_rename_info_buffer)));
+}
+
+bool DeleteFilePosix(FileDescriptor fd) {
+  FileDispositionInfoExData disposition_info;
+  disposition_info.Flags = 0x00000001 /*FILE_DISPOSITION_DELETE*/ |
+                           0x00000002 /*FILE_DISPOSITION_POSIX_SEMANTICS*/;
+  return static_cast<bool>(::SetFileInformationByHandle(
+      fd, FileDispositionInfoEx, &disposition_info, sizeof(disposition_info)));
 }
 
 std::string_view GetDirName(std::string_view path) {
@@ -273,7 +281,7 @@ absl::Status RenameOpenFile(FileDescriptor fd, const std::string& old_name,
   TENSORSTORE_RETURN_IF_ERROR(ConvertUTF8ToWindowsWide(new_name, wpath_new));
 
   // Try using Posix semantics.
-  if (RenameFileWin32(fd, wpath_new)) {
+  if (RenameFilePosix(fd, wpath_new)) {
     return absl::OkStatus();
   }
 
@@ -323,15 +331,27 @@ absl::Status DeleteOpenFile(FileDescriptor fd, const std::string& path) {
                    std::string_view(temp_name, temp_name_size)),
       wpath_temp));
 
-  if (RenameFileWin32(fd, wpath_temp)) {
-    FileDispositionInfoExData disposition_info;
-    disposition_info.Flags = 0x00000001 /*FILE_DISPOSITION_DELETE*/ |
-                             0x00000002 /*FILE_DISPOSITION_POSIX_SEMANTICS*/;
-    if (::SetFileInformationByHandle(fd, FileDispositionInfoEx,
-                                     &disposition_info,
-                                     sizeof(disposition_info))) {
-      return absl::OkStatus();
-    }
+  if (!RenameFilePosix(fd, wpath_temp)) {
+#ifndef NDEBUG
+    ABSL_LOG_FIRST_N(INFO, 1) << StatusFromOsError(
+        ::GetLastError(), "Failed to rename for delete: ", QuoteString(path),
+        " using posix; using fallback delete.");
+#endif
+    // Fallback to original path.
+    TENSORSTORE_RETURN_IF_ERROR(ConvertUTF8ToWindowsWide(path, wpath_temp));
+  }
+  // Attempt to delete the open handle using posix semantics?
+  if (DeleteFilePosix(fd)) {
+    return absl::OkStatus();
+  }
+#ifndef NDEBUG
+  ABSL_LOG_FIRST_N(INFO, 1) << StatusFromOsError(
+      ::GetLastError(), "Failed to delete: ", QuoteString(path),
+      " using posix; using fallback delete.");
+#endif
+  // The file has been renamed, so delete the renamed file.
+  if (::DeleteFileW(wpath_temp.c_str())) {
+    return absl::OkStatus();
   }
   return StatusFromOsError(::GetLastError(),
                            "Failed to delete: ", QuoteString(path));

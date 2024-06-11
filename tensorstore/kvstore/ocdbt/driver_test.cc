@@ -148,6 +148,138 @@ TEST(OcdbtTest, SeparatePrefixes) {
                   MatchesListEntry(::testing::StartsWith("v")))));
 }
 
+TEST(OcdbtTest, SeparateManifestKvStore) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto context,
+      Context::FromJson(
+          {{"memory_key_value_store#a", ::nlohmann::json::object_t()},
+           {"memory_key_value_store#b", ::nlohmann::json::object_t()}}));
+
+  ::nlohmann::json spec_json{
+      {"driver", "ocdbt"},
+      {"base",
+       {{"driver", "memory"},
+        {"memory_key_value_store", "memory_key_value_store#a"},
+        {"path", "abc/"}}},
+      {"manifest",
+       {{"driver", "memory"},
+        {"memory_key_value_store", "memory_key_value_store#b"},
+        {"path", "def/"}}},
+      {"config",
+       {{"max_inline_value_bytes", 0}, {"version_tree_arity_log2", 1}}},
+      {"path", "def"},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto memory_a,
+      kvstore::Open({{"driver", "memory"},
+                     {"memory_key_value_store", "memory_key_value_store#a"}},
+                    context)
+          .result());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto memory_b,
+      kvstore::Open({{"driver", "memory"},
+                     {"memory_key_value_store", "memory_key_value_store#b"}},
+                    context)
+          .result());
+
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store, kvstore::Open(spec_json, context).result());
+
+    TENSORSTORE_ASSERT_OK(kvstore::Write(store, "testa", absl::Cord("a")));
+
+    EXPECT_THAT(kvstore::ListFuture(memory_a).result(),
+                ::testing::Optional(::testing::UnorderedElementsAre(
+                    MatchesListEntry(::testing::StartsWith("abc/d/")))));
+    EXPECT_THAT(kvstore::ListFuture(memory_b).result(),
+                ::testing::Optional(::testing::UnorderedElementsAre(
+                    MatchesListEntry("def/manifest.ocdbt"))));
+
+    // Verify that the returned spec includes the manifest kvstore.
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto retrieved_spec,
+                                     store.spec(tensorstore::MinimalSpec{}));
+    EXPECT_THAT(retrieved_spec.ToJson(),
+                ::testing::Optional(tensorstore::MatchesJson({
+                    {"driver", "ocdbt"},
+                    {"base", {{"driver", "memory"}, {"path", "abc/"}}},
+                    {"manifest", {{"driver", "memory"}, {"path", "def/"}}},
+                    {"path", "def"},
+                })));
+  }
+
+  // Verify that reopening succeeds.
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store, kvstore::Open(spec_json, context).result());
+    EXPECT_THAT(kvstore::Read(store, "testa").result(),
+                MatchesKvsReadResult(absl::Cord("a")));
+  }
+}
+
+TEST(OcdbtTest, SeparateManifestKvStoreNumbered) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto context,
+      Context::FromJson(
+          {{"memory_key_value_store#a", ::nlohmann::json::object_t()},
+           {"memory_key_value_store#b", ::nlohmann::json::object_t()}}));
+
+  ::nlohmann::json spec_json{
+      {"driver", "ocdbt"},
+      {"base",
+       {{"driver", "memory"},
+        {"memory_key_value_store", "memory_key_value_store#a"},
+        {"path", "abc/"}}},
+      {"manifest",
+       {{"driver", "memory"},
+        {"memory_key_value_store", "memory_key_value_store#b"},
+        {"path", "def/"}}},
+      {"config",
+       {{"max_inline_value_bytes", 0},
+        {"version_tree_arity_log2", 1},
+        {"manifest_kind", "numbered"}}},
+      {"path", "def"},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto memory_a,
+      kvstore::Open({{"driver", "memory"},
+                     {"memory_key_value_store", "memory_key_value_store#a"}},
+                    context)
+          .result());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto memory_b,
+      kvstore::Open({{"driver", "memory"},
+                     {"memory_key_value_store", "memory_key_value_store#b"}},
+                    context)
+          .result());
+
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store, kvstore::Open(spec_json, context).result());
+
+    TENSORSTORE_ASSERT_OK(kvstore::Write(store, "testa", absl::Cord("a")));
+
+    EXPECT_THAT(kvstore::ListFuture(memory_a).result(),
+                ::testing::Optional(::testing::UnorderedElementsAre(
+                    MatchesListEntry(::testing::StartsWith("abc/d/")))));
+    EXPECT_THAT(
+        kvstore::ListFuture(memory_b).result(),
+        ::testing::Optional(::testing::UnorderedElementsAre(
+            MatchesListEntry("def/manifest.ocdbt"),
+            MatchesListEntry(::testing::StartsWith("def/manifest.0")),
+            MatchesListEntry(::testing::StartsWith("def/manifest.0")))));
+  }
+
+  // Verify that reopening succeeds.
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store, kvstore::Open(spec_json, context).result());
+    EXPECT_THAT(kvstore::Read(store, "testa").result(),
+                MatchesKvsReadResult(absl::Cord("a")));
+  }
+}
+
 TEST(OcdbtTest, WriteTwoKeys) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
@@ -540,6 +672,9 @@ TEST(OcdbtTest, TransactionalCopyRange) {
 
     TENSORSTORE_ASSERT_OK(kvstore::ExperimentalCopyRange(
         store.WithPathSuffix("x/"), transactional_store.WithPathSuffix("y/")));
+    TENSORSTORE_ASSERT_OK(kvstore::ExperimentalCopyRange(
+        store.WithPathSuffix("x/"), transactional_store.WithPathSuffix("z/")));
+    // Overwrite existing copy.
     TENSORSTORE_ASSERT_OK(kvstore::ExperimentalCopyRange(
         store.WithPathSuffix("x/"), transactional_store.WithPathSuffix("z/")));
     EXPECT_THAT(kvstore::Read(transactional_store, "y/a").result(),

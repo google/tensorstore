@@ -92,7 +92,9 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/base/attributes.h"
 #include "absl/functional/function_ref.h"
+#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/match.h"
@@ -109,6 +111,7 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/os/error_code.h"
 #include "tensorstore/internal/os/unique_handle.h"
@@ -206,6 +209,8 @@ auto& file_list = internal_metrics::Counter<int64_t>::New(
 auto& file_lock_contention = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/file/lock_contention",
     "file driver write lock contention");
+
+ABSL_CONST_INIT internal_log::VerboseFlag file_logging("file");
 
 struct FileIoSyncResource
     : public internal::ContextResourceTraits<FileIoSyncResource> {
@@ -778,6 +783,7 @@ struct DeleteRangeTask {
 
   void operator()(Promise<void> promise) {
     std::string prefix(internal_file_util::LongestDirectoryPrefix(range));
+    absl::Status delete_status;
     auto status = internal_os::RecursiveFileList(
         prefix,
         [&](std::string_view path) {
@@ -792,17 +798,22 @@ struct DeleteRangeTask {
           } else {
             do_delete = tensorstore::Contains(range, entry.GetFullPath());
           }
-          if (!do_delete) return absl::OkStatus();
-          auto status = entry.Delete();
-          if (status.ok() || absl::IsNotFound(status) ||  // Already deleted
-              absl::IsFailedPrecondition(status)  // WIN32 directory not empty
-          ) {
-            return absl::OkStatus();
+          if (do_delete) {
+            auto s = entry.Delete();
+            if (!s.ok() && !absl::IsNotFound(s) &&  // Already deleted
+                !absl::IsFailedPrecondition(s)) {   // No delete permissions
+              ABSL_LOG_IF(INFO, file_logging) << s;
+              delete_status.Update(s);
+            }
           }
-          MaybeAddSourceLocation(status);
-          return status;
+          // Even when failing to delete the current file, continue to the next
+          // file.
+          return absl::OkStatus();
         });
-    promise.SetResult(MakeResult(std::move(status)));
+    if (!status.ok()) {
+      promise.SetResult(MakeResult(std::move(status)));
+    }
+    promise.SetResult(MakeResult(std::move(delete_status)));
   }
 };
 
