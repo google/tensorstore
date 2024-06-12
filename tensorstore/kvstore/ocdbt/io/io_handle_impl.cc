@@ -419,13 +419,8 @@ IoHandle::Ptr MakeIoHandle(
           cache_pool, impl->indirect_data_kvstore_driver_,
           data_copy_concurrency);
   std::string manifest_cache_identifier;
-
-  std::optional<size_t> bytes_for_cache_key;
-  if (read_coalesce_options.has_value()) {
-    bytes_for_cache_key = read_coalesce_options->max_overhead_bytes_per_request;
-  }
   internal::EncodeCacheKey(&manifest_cache_identifier, data_copy_concurrency,
-                           manifest_kvstore.driver, bytes_for_cache_key);
+                           manifest_kvstore.driver);
   {
     auto manifest_cache =
         internal::GetCache<tensorstore::internal_ocdbt::ManifestCache>(
