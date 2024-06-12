@@ -20,13 +20,13 @@ import os
 import sys
 from typing import Any, Dict, List, Optional
 
-from ..cmake_builder import quote_path
-from ..cmake_builder import quote_string
 from ..cmake_repository import CMakeRepository
 from ..cmake_target import CMakeTarget
 from ..evaluation import EvaluationState
 from ..starlark.invocation_context import InvocationContext
 from ..starlark.invocation_context import RelativeLabel
+from ..util import quote_path
+from ..util import quote_string
 
 _SEP = "\n        "
 

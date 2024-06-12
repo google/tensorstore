@@ -62,9 +62,6 @@ import io
 from typing import List, Optional
 
 from .cmake_builder import CMakeBuilder
-from .cmake_builder import quote_list
-from .cmake_builder import quote_path
-from .cmake_builder import quote_path_list
 from .cmake_target import CMakeTarget
 from .emit_cc import construct_cc_includes
 from .evaluation import EvaluationState
@@ -76,6 +73,9 @@ from .starlark.common_providers import ProtoLibraryProvider
 from .starlark.invocation_context import InvocationContext
 from .starlark.label import RelativeLabel
 from .starlark.provider import TargetInfo
+from .util import quote_list
+from .util import quote_path
+from .util import quote_path_list
 
 PROTO_REPO = RepositoryId("com_google_protobuf")
 

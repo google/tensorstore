@@ -21,10 +21,6 @@ import pathlib
 from typing import List, Optional, Set, cast
 
 from ..cmake_builder import CMakeBuilder
-from ..cmake_builder import quote_list
-from ..cmake_builder import quote_path
-from ..cmake_builder import quote_path_list
-from ..cmake_builder import quote_string
 from ..cmake_target import CMakeTarget
 from ..evaluation import EvaluationState
 from ..starlark.bazel_globals import BazelGlobals
@@ -35,11 +31,13 @@ from ..starlark.invocation_context import RelativeLabel
 from ..starlark.provider import TargetInfo
 from ..starlark.select import Configurable
 from ..util import cmake_is_true
+from ..util import quote_list
+from ..util import quote_path
+from ..util import quote_path_list
+from ..util import quote_string
 
 
-@register_bzl_library(
-    "@tensorstore//bazel:rules_nasm.bzl", build=True
-)
+@register_bzl_library("@tensorstore//bazel:rules_nasm.bzl", build=True)
 class RulesNasmLibrary(BazelGlobals):
 
   def bazel_nasm_library(

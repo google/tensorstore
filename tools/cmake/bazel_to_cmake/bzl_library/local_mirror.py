@@ -23,8 +23,6 @@ from ..cmake_builder import CMakeBuilder
 from ..cmake_builder import ENABLE_LANGUAGES_SECTION
 from ..cmake_builder import FETCH_CONTENT_MAKE_AVAILABLE_SECTION
 from ..cmake_builder import LOCAL_MIRROR_DOWNLOAD_SECTION
-from ..cmake_builder import quote_path
-from ..cmake_builder import quote_string
 from ..cmake_repository import CMakeRepository
 from ..cmake_repository import make_repo_mapping
 from ..evaluation import EvaluationState
@@ -32,13 +30,13 @@ from ..starlark.bazel_globals import BazelGlobals
 from ..starlark.bazel_globals import register_bzl_library
 from ..starlark.bazel_target import RepositoryId
 from ..starlark.invocation_context import InvocationContext
+from ..util import quote_path
+from ..util import quote_string
 from .helpers import update_target_mapping
 from .helpers import write_bazel_to_cmake_cmakelists
 
 
-@register_bzl_library(
-    "@tensorstore//bazel:local_mirror.bzl", workspace=True
-)
+@register_bzl_library("@tensorstore//bazel:local_mirror.bzl", workspace=True)
 class ThirdPartyLocalMirrorLibrary(BazelGlobals):
 
   def bazel_local_mirror(self, **kwargs):

@@ -23,7 +23,6 @@ import pickle
 import sys
 from typing import List, Set, Union, Dict
 
-from . import cmake_builder
 from . import native_rules  # pylint: disable=unused-import
 from . import native_rules_alias  # pylint: disable=unused-import
 from . import native_rules_cc  # pylint: disable=unused-import
@@ -43,6 +42,7 @@ from .starlark.common_providers import BuildSettingProvider
 from .starlark.common_providers import ConditionProvider
 from .starlark.provider import TargetInfo
 from .util import get_matching_build_files
+from .util import quote_list
 from .workspace import Repository
 from .workspace import Workspace
 
@@ -245,7 +245,7 @@ def run_main(args: argparse.Namespace):
   sep = "\n    "
   builder.addtext(
       "set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "
-      f"{cmake_builder.quote_list(sorted(input_files), separator=sep)})\n",
+      f"{quote_list(sorted(input_files), separator=sep)})\n",
       section=0,
   )
 
