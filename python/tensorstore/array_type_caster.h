@@ -22,6 +22,7 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
+#include <cassert>
 #include <memory>
 #include <optional>
 #include <type_traits>
@@ -39,6 +40,7 @@
 #include "tensorstore/static_cast.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/element_pointer.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_python {
@@ -96,6 +98,10 @@ template <typename Element, DimensionIndex Rank = dynamic_rank>
 SharedArray<Element, Rank> UncheckedArrayFromNumpy(pybind11::array array_obj) {
   namespace py = pybind11;
   const DimensionIndex rank = array_obj.ndim();
+  if (rank > kMaxRank) {
+    throw pybind11::value_error(tensorstore::StrCat(
+        "Array of rank ", rank, " is not supported by tensorstore"));
+  }
   SharedArray<Element, Rank> array;
   array.layout().set_rank(StaticRankCast<Rank, unchecked>(rank));
   AssignArrayLayout(array_obj, array.rank(), array.shape().data(),

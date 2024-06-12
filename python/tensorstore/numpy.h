@@ -59,6 +59,7 @@
 #define NO_IMPORT_UFUNC
 #endif
 
+#include "numpy/numpyconfig.h"  // IWYU pragma: keep
 #include "numpy/arrayobject.h"  // IWYU pragma: export
 #include "numpy/ufuncobject.h"  // IWYU pragma: export
 

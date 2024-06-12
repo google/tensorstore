@@ -34,7 +34,6 @@
 #include <string>
 #include <utility>
 
-#include "absl/status/status.h"
 #include "python/tensorstore/data_type.h"
 #include "python/tensorstore/json_type_caster.h"
 #include "tensorstore/array.h"
@@ -206,7 +205,11 @@ SharedArray<void, dynamic_rank> ArrayFromNumpyObjectArray(
     dtype = dtype_v<::tensorstore::dtypes::json_t>;
   }
   const DimensionIndex rank = array_obj.ndim();
-  StridedLayout<dynamic_rank(NPY_MAXDIMS)> array_obj_layout;
+  if (rank > kMaxRank) {
+    throw pybind11::value_error(tensorstore::StrCat(
+        "Array of rank ", rank, " is not supported by tensorstore"));
+  }
+  StridedLayout<dynamic_rank(kMaxRank)> array_obj_layout;
   array_obj_layout.set_rank(rank);
   AssignArrayLayout(array_obj, rank, array_obj_layout.shape().data(),
                     array_obj_layout.byte_strides().data());
