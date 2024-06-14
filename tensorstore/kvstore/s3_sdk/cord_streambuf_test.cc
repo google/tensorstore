@@ -47,6 +47,40 @@ absl::Cord ThreeBufferCord() {
   return cord;
 }
 
+/// Remove this
+TEST(CordStreamBufTest, Chunks) {
+  using ::absl::CordBuffer;
+  absl::Cord cord;
+
+  auto buffer = cord.GetAppendBuffer(32);
+  auto span = buffer.available_up_to(32);
+  EXPECT_EQ(span.size(), 32);
+  for(int i = 0; i < span.size(); ++i) span[i] = i;
+  buffer.IncreaseLengthBy(span.size());
+  cord.Append(std::move(buffer));
+
+  EXPECT_EQ(cord.Chunks().begin()->size(), 32);
+  EXPECT_EQ(cord.size(), 32);
+
+  buffer = cord.GetAppendBuffer(32);
+  span = buffer.available_up_to(32);
+  EXPECT_EQ(span.size(), 32);
+  for(int i = 0; i < span.size(); ++i) span[i] = i;
+  buffer.IncreaseLengthBy(span.size());
+  cord.Append(std::move(buffer));
+
+  buffer = cord.GetAppendBuffer(97);
+  span = buffer.available_up_to(97);
+  EXPECT_EQ(span.size(), 97);
+  for(int i = 0; i < span.size(); ++i) span[i] = i;
+  buffer.IncreaseLengthBy(span.size());
+  cord.Append(std::move(buffer));
+
+  EXPECT_EQ(std::distance(cord.Chunks().begin(), cord.Chunks().end()), 3);
+  EXPECT_EQ(cord.size(), 161);
+}
+
+
 TEST(CordStreamBufTest, Read) {
   auto cord = absl::Cord{"Hello World This is a test"};
   auto is = DefaultUnderlyingStream(MakeUnique<CordStreamBuf>(kAwsTag, std::move(cord)));
@@ -66,27 +100,32 @@ TEST(CordStreamBufTest, Read) {
 TEST(CordStreamBufTest, Write) {
   auto os = DefaultUnderlyingStream(MakeUnique<CordStreamBuf>(kAwsTag));
   os << "Hello World";
+  EXPECT_EQ(os.tellp(), 11);
   os << " ";
+  EXPECT_EQ(os.tellp(), 12);
   os << "This is a test";
+  EXPECT_EQ(os.tellp(), 26);
   EXPECT_TRUE(os.good());
   auto cord = dynamic_cast<CordStreamBuf *>(os.rdbuf())->GetCord();
   EXPECT_EQ(cord, "Hello World This is a test");
 
   // Single Cord chunk
-  auto it = cord.chunk_begin();
+  auto it = cord.Chunks().begin();
   EXPECT_EQ(*it, "Hello World This is a test");
-  EXPECT_EQ(++it, cord.chunk_end());
+  ++it;
+  EXPECT_EQ(it, cord.Chunks().end());
+  EXPECT_EQ(std::distance(cord.Chunks().begin(), cord.Chunks().end()), 1);
 }
 
 
+// Test get seeks via the streambuf interface
 TEST(CordStreamBufTest, BufferSeek) {
   auto buffer = CordStreamBuf(ThreeBufferCord());
 
   // Seeks from beginning
   EXPECT_EQ(buffer.pubseekoff(0, ios_base::beg, ios_base::in), 0);
-  EXPECT_EQ(buffer.pubseekoff(10, ios_base::beg, ios_base::in), 10);
-  EXPECT_EQ(buffer.pubseekoff(10 + kBufferSize, ios_base::beg, ios_base::in), 10 + kBufferSize);
   EXPECT_EQ(buffer.pubseekoff(10 + 2*kBufferSize, ios_base::beg, ios_base::in), 10 + 2*kBufferSize);
+  EXPECT_EQ(buffer.pubseekoff(kNBuffers * kBufferSize, ios_base::beg, ios_base::in), kNBuffers * kBufferSize);
   EXPECT_EQ(buffer.pubseekoff(10 + 3*kBufferSize, ios_base::beg, ios_base::in), -1);  // eof
 
   // Seeks from current position
@@ -94,7 +133,59 @@ TEST(CordStreamBufTest, BufferSeek) {
   EXPECT_EQ(buffer.pubseekoff(10, ios_base::cur, ios_base::in), 10);
   EXPECT_EQ(buffer.pubseekoff(kBufferSize, ios_base::cur, ios_base::in), 10 + kBufferSize);
   EXPECT_EQ(buffer.pubseekoff(kBufferSize, ios_base::cur, ios_base::in), 10 + 2*kBufferSize);
-  EXPECT_EQ(buffer.pubseekoff(kBufferSize, ios_base::cur, ios_base::in), -1);  // eof
+  EXPECT_EQ(buffer.pubseekoff(kBufferSize - 10, ios_base::cur, ios_base::in), kNBuffers*kBufferSize);
+  EXPECT_EQ(buffer.pubseekoff(10, ios_base::cur, ios_base::in), -1);  // eof
+
+  // Seek from end
+  EXPECT_EQ(buffer.pubseekoff(0, ios_base::beg, ios_base::in), 0);
+  EXPECT_EQ(buffer.pubseekoff(0, ios_base::end, ios_base::in), kBufferSize * kNBuffers);
+  EXPECT_EQ(buffer.pubseekoff(1, ios_base::end, ios_base::in), -1);  // eof
+  EXPECT_EQ(buffer.pubseekoff(-1, ios_base::end, ios_base::in), kBufferSize * kNBuffers - 1);
+  EXPECT_EQ(buffer.pubseekoff(-kBufferSize * kNBuffers, ios_base::end, ios_base::in), 0);
+  EXPECT_EQ(buffer.pubseekoff(1, ios_base::end, ios_base::in), -1);  // eof
+}
+
+// Test get seeks via the istream interface
+TEST(CordStreamBufTest, StreamSeek) {
+  auto is = DefaultUnderlyingStream(
+    MakeUnique<CordStreamBuf>(kAwsTag, ThreeBufferCord()));
+
+  // Seek from beginning
+  is.clear();
+  is.seekg(0, is.beg);
+  EXPECT_EQ(is.tellg(), 0);
+  is.seekg(kBufferSize * kNBuffers - 1, is.beg);
+  EXPECT_EQ(is.tellg(), kBufferSize * kNBuffers - 1);
+  is.seekg(kBufferSize * kNBuffers, is.beg);
+  EXPECT_EQ(is.tellg(), kBufferSize * kNBuffers);
+  is.seekg(kBufferSize * kNBuffers + 1, is.beg);
+  EXPECT_EQ(is.tellg(), -1);  // eof
+
+  // Seek from current position
+  is.clear();
+  is.seekg(0, is.beg);
+  EXPECT_EQ(is.tellg(), 0);
+  is.seekg(10, is.cur);
+  EXPECT_EQ(is.tellg(), 10);
+  is.seekg(kBufferSize, is.cur);
+  EXPECT_EQ(is.tellg(), 10 + kBufferSize);
+  is.seekg(kBufferSize, is.cur);
+  EXPECT_EQ(is.tellg(), 10 + 2*kBufferSize);
+  is.seekg(kBufferSize - 10, is.cur);
+  EXPECT_EQ(is.tellg(), kNBuffers*kBufferSize);
+  is.seekg(10, is.cur);
+  EXPECT_EQ(is.tellg(), -1);  // eof
+
+  // Seek from end
+  is.clear();
+  is.seekg(0, is.end);
+  EXPECT_EQ(is.tellg(), kBufferSize * kNBuffers);
+  is.seekg(-kBufferSize * kNBuffers, is.end);
+  EXPECT_EQ(is.tellg(), 0);
+  is.seekg(-1, is.end);
+  EXPECT_EQ(is.tellg(), kBufferSize * kNBuffers - 1);
+  is.seekg(1, is.end);
+  EXPECT_EQ(is.tellg(), -1);  // eof
 }
 
 /// Test that reading the CordStreamBuf reads the Cord
@@ -110,7 +201,7 @@ TEST(CordStreamBufTest, GetEntireStreamBuf) {
     EXPECT_TRUE(is.good());
     EXPECT_FALSE(is.eof());
     ++count;
-    EXPECT_EQ(is.tellg(), count < kBufferSize * kNBuffers ? count : -1);
+    EXPECT_EQ(is.tellg(), count);
   }
   EXPECT_EQ(count, kBufferSize * kNBuffers);
   EXPECT_FALSE(is.good());
@@ -134,8 +225,13 @@ TEST(CordStreamBufTest, ReadSeek) {
   }
 
   is.seekg(kBufferSize * kNBuffers);
-  EXPECT_EQ(is.tellg(), -1);
+  EXPECT_EQ(is.tellg(), kBufferSize*kNBuffers);
+  EXPECT_TRUE(is.good());
+  EXPECT_FALSE(is.eof());
+
+  EXPECT_EQ(is.get(), -1);
   EXPECT_FALSE(is.good());
+  EXPECT_TRUE(is.eof());
 }
 
 } // namespace

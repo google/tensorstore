@@ -30,8 +30,9 @@
 #include "absl/time/time.h"
 
 #include <aws/core/Aws.h>
-#include <aws/core/utils/threading/Executor.h>
 #include <aws/core/client/ClientConfiguration.h>
+#include <aws/core/utils/threading/Executor.h>
+#include <aws/core/utils/stream/ResponseStream.h>
 #include <aws/s3/S3Client.h>
 #include <aws/s3/model/CreateBucketConfiguration.h>
 #include <aws/s3/model/CreateBucketRequest.h>
@@ -50,9 +51,9 @@
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/os/subprocess.h"
 #include "tensorstore/internal/thread/thread_pool.h"
+#include "tensorstore/kvstore/s3_sdk/cord_streambuf.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/result.h"
-
 
 #include "tensorstore/kvstore/s3_sdk/s3_context.h"
 
@@ -88,6 +89,9 @@ ABSL_FLAG(std::string, aws_region, "af-south-1",
 ABSL_FLAG(std::string, aws_path, "tensorstore/test/",
           "The S3 path used for the test.");
 
+using ::Aws::MakeUnique;
+using ::Aws::MakeShared;
+using ::Aws::Utils::Stream::DefaultUnderlyingStream;
 
 using ::tensorstore::Context;
 using ::tensorstore::MatchesJson;
@@ -103,6 +107,8 @@ using ::tensorstore::internal_http::IssueRequestOptions;
 using ::tensorstore::transport_test_utils::TryPickUnusedPort;
 
 using ::tensorstore::internal_kvstore_s3::AwsContext;
+using ::tensorstore::internal_kvstore_s3::CordStreamBuf;
+using ::tensorstore::internal_kvstore_s3::CordBackedResponseStreamFactory;
 
 namespace {
 
@@ -178,7 +184,7 @@ class LocalStackProcess {
     // Give the child process several seconds to start.
     auto deadline = absl::Now() + absl::Seconds(10);
     while (absl::Now() < deadline) {
-      absl::SleepFor(absl::Milliseconds(250));
+      absl::SleepFor(absl::Milliseconds(500));
       auto join_result = spawn_proc.Join(/*block=*/false);
 
       if (join_result.ok()) {
@@ -329,22 +335,25 @@ TEST_F(LocalStackFixture, BasicSync) {
 
   // Put an object
   auto put_request = Aws::S3::Model::PutObjectRequest{};
+  put_request.SetResponseStreamFactory(CordBackedResponseStreamFactory);
   put_request.SetBucket(Bucket());
   put_request.SetKey("portunus");
-  put_request.SetBody(Aws::MakeShared<Aws::StringStream>(kAwsTag, payload));
+  put_request.SetBody(MakeShared<DefaultUnderlyingStream>(kAwsTag, MakeUnique<CordStreamBuf>(kAwsTag, absl::Cord{payload})));
   auto put_outcome = client->PutObject(put_request);
   EXPECT_TRUE(put_outcome.IsSuccess());
 
   // Put the same object with a different key
   put_request = Aws::S3::Model::PutObjectRequest{};
+  put_request.SetResponseStreamFactory(CordBackedResponseStreamFactory);
   put_request.SetBucket(Bucket());
   put_request.SetKey("portunus0");
-  put_request.SetBody(Aws::MakeShared<Aws::StringStream>(kAwsTag, payload));
+  put_request.SetBody(MakeShared<DefaultUnderlyingStream>(kAwsTag, MakeUnique<CordStreamBuf>(kAwsTag, absl::Cord{payload})));
   put_outcome = client->PutObject(put_request);
   EXPECT_TRUE(put_outcome.IsSuccess());
 
   // List the objects
   auto list_request = Aws::S3::Model::ListObjectsV2Request{};
+  list_request.SetResponseStreamFactory(CordBackedResponseStreamFactory);
   list_request.SetBucket(Bucket());
   list_request.SetMaxKeys(1);
   auto continuation_token = Aws::String{};
@@ -372,6 +381,7 @@ TEST_F(LocalStackFixture, BasicSync) {
 
   // Get the contents of the key
   auto get_request = Aws::S3::Model::GetObjectRequest{};
+  get_request.SetResponseStreamFactory(CordBackedResponseStreamFactory);
   get_request.SetBucket(Bucket());
   get_request.SetKey("portunus");
   auto get_outcome = client->GetObject(get_request);
@@ -396,7 +406,8 @@ TEST_F(LocalStackFixture, BasicAsync) {
       auto put_request = Aws::S3::Model::PutObjectRequest{};
       put_request.SetBucket(Bucket());
       put_request.SetKey(key);
-      put_request.SetBody(Aws::MakeShared<Aws::StringStream>(kAwsTag, payload));
+      put_request.SetResponseStreamFactory(CordBackedResponseStreamFactory);
+      put_request.SetBody(MakeShared<DefaultUnderlyingStream>(kAwsTag, MakeUnique<CordStreamBuf>(kAwsTag, absl::Cord{payload})));
       client->PutObjectAsync(put_request, [this](
         const auto *, const auto &, const auto & outcome, const auto &) {
           this->on_put(outcome);
@@ -414,6 +425,7 @@ TEST_F(LocalStackFixture, BasicAsync) {
 
     void do_get() {
       auto get_request = Aws::S3::Model::GetObjectRequest{};
+      get_request.SetResponseStreamFactory(CordBackedResponseStreamFactory);
       get_request.SetBucket(Bucket());
       get_request.SetKey(key);
       client->GetObjectAsync(get_request, [this](

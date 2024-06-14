@@ -15,7 +15,6 @@
 #include "tensorstore/kvstore/s3_sdk/cord_streambuf.h"
 
 #include <ios>
-#include <numeric>
 #include <string_view>
 
 #include "absl/strings/cord.h"
@@ -34,26 +33,46 @@ CordStreamBuf::CordStreamBuf() :
   CordStreamBuf(Cord()) {}
 
 CordStreamBuf::CordStreamBuf(Cord && cord) :
-    mode_(cord.size() == 0 ? ios_base::out : ios_base::in),
+    mode_(ios_base::out | ios_base::in),
     cord_(std::move(cord)),
     read_chunk_(cord_.Chunks().begin()) {
 
-  // Set up the get area, if the Cord has data
+  assert(eback() == nullptr);
+  assert(gptr() == nullptr);
+  assert(egptr() == nullptr);
+  assert(pbase() == nullptr);
+  assert(pptr() == nullptr);
+  assert(epptr() == nullptr);
+
+  // Set up the get area to point at the first chunk,
+  // if the Cord has data
   if(read_chunk_ != cord_.Chunks().end()) {
-    char * data = const_cast<char *>(read_chunk_->data());
+    char_type * data = const_cast<char_type *>(read_chunk_->data());
     setg(data, data, data + read_chunk_->size());
   }
-
 }
 
-Cord CordStreamBuf::GetCord() {
+Cord CordStreamBuf::MoveCord() {
   Cord result;
   std::swap(result, cord_);
   read_chunk_ = cord_.Chunks().begin();
-  char dummy;
-  setg(&dummy, &dummy, &dummy + 1);
-  setp(&dummy, &dummy + 1);
+  assert(read_chunk_ == cord_.Chunks().end());
+  setg(nullptr, nullptr, nullptr);
+  setp(nullptr, nullptr);
   return result;
+}
+
+void CordStreamBuf::TakeCord(Cord && cord) {
+  setg(nullptr, nullptr, nullptr);
+  setp(nullptr, nullptr);
+
+  cord_ = std::move(cord);
+  read_chunk_ = cord_.Chunks().begin();
+
+  if(read_chunk_ != cord_.Chunks().end()) {
+    char_type * data = const_cast<char_type *>(read_chunk_->data());
+    setg(data, data, data + read_chunk_->size());
+  }
 }
 
 // Bulk put operation
@@ -75,6 +94,7 @@ streamsize CordStreamBuf::xsputn(const char * s, streamsize count) {
     first = false;
   }
 
+  MaybeSetGetArea();
   return p;
 }
 
@@ -85,6 +105,7 @@ CordStreamBuf::int_type CordStreamBuf::overflow(int_type ch) {
   if(traits_type::eq_int_type(ch, traits_type::eof())) return traits_type::eof();
   auto c = traits_type::to_char_type(ch);
   cord_.Append(absl::string_view(&c, 1));
+  MaybeSetGetArea();
   return ch;
 }
 
@@ -124,8 +145,8 @@ CordStreamBuf::int_type CordStreamBuf::underflow() {
 streampos CordStreamBuf::seekoff(streamoff off, ios_base::seekdir way, ios_base::openmode which) {
   if (which == ios_base::in) {
     if (way == ios_base::beg) {
+      if(off > cord_.size()) return traits_type::eof();
       // Seek from the beginning of the cord
-      if(off >= cord_.size()) return traits_type::eof();
       auto n = off;
       read_chunk_ = cord_.Chunks().begin();
       while(n > read_chunk_->size()) {
@@ -137,35 +158,67 @@ streampos CordStreamBuf::seekoff(streamoff off, ios_base::seekdir way, ios_base:
       return off;
     } else if (way == ios_base::cur) {
       if(read_chunk_ == cord_.Chunks().end()) return traits_type::eof();
+      auto current = gconsumed();
+      for(auto c = cord_.Chunks().begin(); c != read_chunk_; ++c) {
+        current += c->size();
+      }
+
       auto n = off;
-      // Advance forward by Cord chunk,
+      // Advance forward in the current chunk
+      if(n > 0 && gremaining() > 0) {
+        auto bytes_to_remove = std::min<streamsize>(n, gremaining());
+        n -= bytes_to_remove;
+        gbump(bytes_to_remove);
+      }
+      // Advance forward by Cord chunks,
       // consuming any remaining characters
       // in the chunk
-      while(n >= remaining()) {
-        n -= remaining();
+      while(n > 0) {
         if(++read_chunk_ == cord_.Chunks().end()) return traits_type::eof();
+        auto bytes_to_advance = std::min<streamsize>(n, read_chunk_->size());
         char_type * data = const_cast<char_type *>(read_chunk_->data());
-        setg(data, data, data + read_chunk_->size());
+        setg(data, data + bytes_to_advance, data + read_chunk_->size());
+        n -= bytes_to_advance;
       }
-      setg(eback(), gptr() + n, egptr());
-      return std::accumulate(cord_.Chunks().begin(), read_chunk_, consumed(),
-                             [](auto i, auto c) { return i + c.size(); });
+
+      return current + off;
     } else if (way == ios_base::end) {
       // Seeks past the stream end are unsupported
-      return traits_type::eof();
+      if(off > 0) return traits_type::eof();
+      auto n = cord_.size() + off;
+      read_chunk_ = cord_.Chunks().begin();
+      while(n > read_chunk_->size()) {
+        n -= read_chunk_->size();
+        ++read_chunk_;
+      }
+      char_type * data = const_cast<char_type *>(read_chunk_->data());
+      setg(data, data + n, data + read_chunk_->size());
+      return cord_.size() + off;
     }
   } else if (which == ios_base::out) {
-    // Only support appends
-    return traits_type::eof();
+    // This streambuf only supports appends.
+    // Don't respect the off argument, always return
+    // the append position
+    return cord_.size();
   }
   return traits_type::eof();
 }
 
-std::streamsize CordStreamBuf::consumed() const {
+streamsize CordStreamBuf::gconsumed() const {
   return gptr() - eback();
 };
-std::streamsize CordStreamBuf::remaining() const {
+
+streamsize CordStreamBuf::gremaining() const {
   return egptr() - gptr();
+}
+
+void CordStreamBuf::MaybeSetGetArea() {
+  if(read_chunk_ == cord_.Chunks().end()) {
+    read_chunk_ = cord_.Chunks().begin();
+    if(read_chunk_ == cord_.Chunks().end()) return;
+    char_type * data = const_cast<char_type *>(read_chunk_->data());
+    setg(data, data, data + read_chunk_->size());
+  }
 }
 
 }  // namespace internal_kvstore_s3

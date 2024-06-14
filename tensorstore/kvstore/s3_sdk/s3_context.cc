@@ -18,12 +18,13 @@
 #include <memory>
 
 #include <aws/core/Aws.h>
+#include <aws/core/auth/AWSCredentialsProviderChain.h>
 #include <aws/core/http/HttpClient.h>
 #include <aws/core/http/standard/StandardHttpRequest.h>
 #include <aws/core/http/standard/StandardHttpResponse.h>
 #include <aws/core/utils/logging/LogSystemInterface.h>
-#include <aws/core/auth/AWSCredentialsProviderChain.h>
 #include <aws/core/utils/memory/stl/AWSStringStream.h>
+#include <aws/core/utils/stream/ResponseStream.h>
 
 #include "absl/log/absl_log.h"
 #include "absl/synchronization/mutex.h"
@@ -32,6 +33,7 @@
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
+#include "tensorstore/kvstore/s3_sdk/cord_streambuf.h"
 
 using AwsHttpClient = ::Aws::Http::HttpClient;
 using AwsHttpRequest = ::Aws::Http::HttpRequest;
@@ -75,23 +77,6 @@ public:
 
   // Converts an Aws StandardHttpRequest to a tensorstore HttpRequest
   RequestAndPayload FromAwsRequest(const std::shared_ptr<AwsHttpRequest> & aws_request) const {
-    absl::Cord payload;
-
-    // Copy characters off the stream into the Cord
-    // TODO: This is impractical for large data and
-    // should be mitigated by an Aws::IOStream backed by a Cord
-    if(auto body = aws_request->GetContentBody(); body) {
-      const size_t bufferSize = 1024*1024;
-      std::vector<char> buffer(bufferSize);
-      std::streampos original = body->tellg();
-      while (body->read(buffer.data(), buffer.size()) || body->gcount() > 0) {
-        payload.Append(absl::string_view(buffer.data(), body->gcount()));
-      }
-      // Reset stream
-      body->clear();
-      body->seekg(original);
-    }
-
     auto aws_headers = aws_request->GetHeaders();
     auto headers = std::vector<std::string>{};
     for(auto &[name, value]: aws_headers) {
@@ -100,6 +85,29 @@ public:
     std::string user_agent;
     if(auto it = aws_headers.find(kUserAgentHeader); it != aws_headers.end()) {
       user_agent = it->second;
+    }
+
+    absl::Cord payload;
+
+    // Get the underlying body as a Cord
+    if (auto body = aws_request->GetContentBody(); body) {
+      // Fast path, extract underlying Cord
+      if (auto cordstreambuf = dynamic_cast<CordStreamBuf *>(body->rdbuf());
+          cordstreambuf) {
+        payload = cordstreambuf->MoveCord();
+        // TODO: remove this
+        ABSL_LOG(INFO) << "CordBacked Aws::Http::StandardHttpRequest of size " << payload.size();
+      } else {
+        // Slow path, copy characters off the stream into Cord
+        std::vector<char> buffer(absl::CordBuffer::kDefaultLimit);
+        std::streampos original = body->tellg();
+        while (body->read(buffer.data(), buffer.size()) || body->gcount() > 0) {
+          payload.Append(absl::string_view(buffer.data(), body->gcount()));
+        }
+        // Reset stream
+        body->clear();
+        body->seekg(original);
+      }
     }
 
     return RequestAndPayload{
@@ -114,7 +122,7 @@ public:
 
   // Converts a tensorstore response to an Aws StandardHttpResponse
   std::shared_ptr<AwsStandardHttpResponse> ToAwsResponse(
-      const HttpResponse & ts_response,
+      HttpResponse & ts_response,
       const std::shared_ptr<AwsHttpRequest> & aws_request) const {
 
     auto aws_response = Aws::MakeShared<AwsStandardHttpResponse>(kAwsTag, aws_request);
@@ -122,11 +130,19 @@ public:
     for(auto &[name, value]: aws_response->GetHeaders()) {
       aws_response->AddHeader(name, value);
     }
-    // Copy cord onto the body stream
-    // TODO: This should be avoided by subclassing Aws::IOStream
-    // to encapsulate a Cord
+
+    // Move Cord into the body stream
     if(!ts_response.payload.empty()) {
-      aws_response->GetResponseBody() << ts_response.payload;
+      auto & body = aws_response->GetResponseBody();
+      if(auto cordstreambuf = dynamic_cast<CordStreamBuf *>(body.rdbuf());
+          cordstreambuf) {
+        // Fast path, directly assign the Cord
+        // TODO: remove this
+        ABSL_LOG(INFO) << "CordBacked Aws::Http::StandardHttpResponse of size " << ts_response.payload.size();
+        cordstreambuf->TakeCord(std::move(ts_response.payload));
+      } else {
+        body << ts_response.payload;
+      }
     }
 
     return aws_response;
@@ -168,6 +184,7 @@ public:
   std::shared_ptr<Aws::Http::HttpRequest> CreateHttpRequest(
     const Aws::String &uri, Aws::Http::HttpMethod method,
     const Aws::IOStreamFactory &streamFactory) const override {
+      ABSL_LOG(INFO) << "Constructing custom HttpRequest";
       return CreateHttpRequest(Aws::Http::URI(uri), method, streamFactory);
   }
 
@@ -175,9 +192,10 @@ public:
     const Aws::Http::URI& uri, Aws::Http::HttpMethod method,
     const Aws::IOStreamFactory& streamFactory) const override
   {
-      auto request = Aws::MakeShared<AwsStandardHttpRequest>(kAwsTag, uri, method);
-      request->SetResponseStreamFactory(streamFactory);
-      return request;
+    ABSL_LOG(INFO) << "Constructing custom HttpRequest";
+    auto request = Aws::MakeShared<AwsStandardHttpRequest>(kAwsTag, uri, method);
+    request->SetResponseStreamFactory(streamFactory);
+    return request;
   }
 };
 
@@ -242,6 +260,11 @@ void AWSLogSystem::LogMessage(AwsLogLevel log_level, const std::string & message
 }
 
 }  // namespace
+
+Aws::IOStream * CordBackedResponseStreamFactory() {
+  return Aws::New<Aws::Utils::Stream::DefaultUnderlyingStream>(
+    kAwsTag, Aws::MakeUnique<CordStreamBuf>(kAwsTag));
+}
 
 // Initialise AWS API and Logging
 std::shared_ptr<AwsContext> GetAwsContext() {

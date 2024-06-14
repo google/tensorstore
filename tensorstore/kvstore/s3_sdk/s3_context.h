@@ -32,6 +32,8 @@ struct AwsContext {
 // Initialise AWS API and Logging
 std::shared_ptr<AwsContext> GetAwsContext();
 
+// Return an IOStream backed by a Cord
+Aws::IOStream * CordBackedResponseStreamFactory();
 
 }  // namespace internal_kvstore_s3
 }  // neamespace tensorstore

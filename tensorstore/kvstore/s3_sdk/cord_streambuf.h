@@ -23,8 +23,7 @@
 namespace tensorstore {
 namespace internal_kvstore_s3 {
 
-/// Basic implementation of a std::basic_streambuf<char>
-/// backed by an abseil Cord.
+/// Basic implementation of a std::basic_streambuf<char> backed by an abseil Cord.
 /// It should be used in two modes
 /// (1) Append-only writing mode, where data is appended to the underlying Cord
 /// (2) Read mode, where data is read from the Cord. Seeking is supported
@@ -36,10 +35,10 @@ namespace internal_kvstore_s3 {
 ///      read_chunk_->data(),
 ///      read_chunk->data() + read_chunk_->size());
 /// Then, characters are consumed from this area until underflow occurs,
-/// at which point, the get area is constructed with the next chunk
+/// at which point, the get area is constructed from the next chunk
 class CordStreamBuf : public std::basic_streambuf<char> {
 public:
-  // Creates a stream buffer for writing
+  // Creates an empty stream buffer for writing
   CordStreamBuf();
   // Creates a stream buffer for reading from the supplied Cord
   CordStreamBuf(absl::Cord && cord);
@@ -48,7 +47,10 @@ public:
   const absl::Cord & GetCord() const { return cord_; }
 
   // Returns the underlying Cord, resetting the underlying stream
-  absl::Cord GetCord();
+  absl::Cord MoveCord();
+  // Takes the supplied Cord as the underlying Cord,
+  // resetting the underlying stream
+  void TakeCord(absl::Cord && cord);
 
 protected:
   // Bulk put operation
@@ -60,7 +62,11 @@ protected:
   // Handle buffer underflow.
   virtual int_type underflow() override;
 
-  // Seek within the underlying Cord (only seeks in the get area are supported)
+  // Seek within the underlying Cord.
+  // Seeking in the get area is supported
+  // Seeking in the put area always returns the length of the Cord
+  // (only appends are supported).
+  // do not appear to be called by the AWS C++ SDK
   virtual std::streampos seekoff(
     std::streamoff off,
     std::ios_base::seekdir way,
@@ -73,12 +79,17 @@ protected:
       return seekoff(sp - std::streampos(0), std::ios_base::beg, which);
   }
 
-  // Number of characters consumed in the current chunk
+  // Number of get characters consumed in the current read chunk
   // (gptr() - eback())
-  std::streamsize consumed() const;
-  // Number of characters remaining in the current chunk
+  std::streamsize gconsumed() const;
+  // Number of characters remaining in the current read  chunk
   // (egptr() - gptr())
-  std::streamsize remaining() const;
+  std::streamsize gremaining() const;
+
+private:
+  // Configure the get area after put operations.
+  void MaybeSetGetArea();
+
 private:
   std::ios_base::openmode mode_;
   absl::Cord cord_;
