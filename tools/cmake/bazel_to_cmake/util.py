@@ -14,12 +14,47 @@
 """Miscellaneous utility functions."""
 
 import glob
+import json
 import os
 import pathlib
 import re
-from typing import List, Optional, Set
+from typing import Iterable, List, Optional, Sequence, Set, Tuple, Union
 
 from .starlark.bazel_glob import glob_pattern_to_regexp
+
+
+def quote_string(x: str) -> str:
+  """Quotes a string for CMake."""
+  assert not isinstance(x, pathlib.PurePath)
+  return json.dumps(x)
+
+
+def quote_list(y: Iterable[str], separator: str = " ") -> str:
+  return separator.join(quote_string(x) for x in y)
+
+
+def quote_path(p: Union[str, pathlib.PurePath]) -> str:
+  """Quotes a path, converting backslashes to forward slashes.
+
+  While CMake in some cases allows backslashes to be escaped, in other cases
+  paths are passed without escaping.  Using forward slashes reduces the risk of
+  problems.
+  """
+  if isinstance(p, str):
+    p = pathlib.PurePath(p)
+  return json.dumps(p.as_posix())
+
+
+PathSequence = Union[
+    Sequence[Union[str, pathlib.PurePath]],
+    Iterable[Union[str, pathlib.PurePath]],
+    Set[str],
+    Set[pathlib.PurePath],
+]
+
+
+def quote_path_list(y: PathSequence, separator: str = " ") -> str:
+  return separator.join(quote_path(x) for x in y if x)
 
 
 # Unfortunately, pathlib.PurePath.is_relative_to is a python3.9 invention.
@@ -31,6 +66,42 @@ def is_relative_to(
     return left.is_relative_to(right)
   other = type(left)(right)
   return other == left or other in left.parents
+
+
+def map_path_prefixes(
+    paths: List[Union[str, pathlib.PurePath]],
+    mappings: List[Tuple[pathlib.PurePath, str]],
+) -> List[pathlib.PurePath]:
+  """For each path, if the prefix is in mapping, converts it to a relative path."""
+
+  def _get_mapping(
+      path: pathlib.PurePath,
+      mapping_directory: pathlib.PurePath,
+      mapping_prefix: str,
+  ) -> Optional[pathlib.PurePath]:
+    if is_relative_to(path, mapping_directory):
+      return pathlib.PurePath(
+          f"{mapping_prefix}{path.relative_to(mapping_directory).as_posix()}"
+      )
+    return None
+
+  result: List[pathlib.PurePath] = []
+  for p in paths:
+    if isinstance(p, str):
+      p = pathlib.PurePath(p)
+
+    mapped_p = None
+    for mapping_directory, mapping_prefix in mappings:
+      mapped_p = _get_mapping(p, mapping_directory, mapping_prefix)
+      if mapped_p is not None:
+        break
+
+    if mapped_p is not None:
+      result.append(mapped_p)
+    else:
+      result.append(p)
+
+  return result
 
 
 def write_file_if_not_already_equal(path: pathlib.PurePath, content: bytes):

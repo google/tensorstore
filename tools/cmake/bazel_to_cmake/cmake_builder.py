@@ -16,45 +16,7 @@
 # pylint: disable=g-doc-args,g-doc-return-or-yield
 
 import collections
-import json
-import pathlib
-from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple, Union
-
-
-def quote_string(x: str) -> str:
-  """Quotes a string for CMake."""
-  assert not isinstance(x, pathlib.PurePath)
-  return json.dumps(x)
-
-
-def quote_path(x: Union[str, pathlib.PurePath]) -> str:
-  """Quotes a path, converting backslashes to forward slashes.
-
-  While CMake in some cases allows backslashes to be escaped, in other cases
-  paths are passed without escaping.  Using forward slashes reduces the risk of
-  problems.
-  """
-  if not isinstance(x, pathlib.PurePath) or isinstance(
-      x, pathlib.PurePosixPath
-  ):
-    x = pathlib.PurePath(x)
-  return json.dumps(x.as_posix())
-
-
-def quote_list(y: Iterable[str], separator: str = " ") -> str:
-  return separator.join(quote_string(x) for x in y)
-
-
-PathSequence = Union[
-    Sequence[Union[str, pathlib.PurePath]],
-    Iterable[Union[str, pathlib.PurePath]],
-    Set[str],
-    Set[pathlib.PurePath],
-]
-
-
-def quote_path_list(y: PathSequence, separator: str = " ") -> str:
-  return separator.join(quote_path(x) for x in y if x)
+from typing import Dict, List, Optional, Set, Tuple
 
 
 INCLUDE_SECTION = 0

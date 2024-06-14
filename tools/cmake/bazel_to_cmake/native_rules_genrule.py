@@ -28,9 +28,6 @@ import re
 from typing import List, Optional, cast, Set
 
 from .cmake_builder import CMakeBuilder
-from .cmake_builder import quote_list
-from .cmake_builder import quote_path_list
-from .cmake_builder import quote_string
 from .cmake_target import CMakeDepsProvider
 from .cmake_target import CMakeTarget
 from .evaluation import EvaluationState
@@ -44,6 +41,9 @@ from .starlark.provider import Provider
 from .starlark.provider import TargetInfo
 from .starlark.select import Configurable
 from .util import is_relative_to
+from .util import quote_list
+from .util import quote_path_list
+from .util import quote_string
 from .variable_substitution import apply_location_and_make_variable_substitutions
 from .variable_substitution import do_bash_command_replacement
 from .variable_substitution import generate_substitutions

@@ -30,30 +30,38 @@
 
 #include <array>
 #include <complex>
+#include <cstddef>
 #include <string_view>
 
 #include "tensorstore/data_type.h"
 
+#if defined(NPY_ABI_VERSION) && NPY_ABI_VERSION >= 0x02000000
+#define TENSORSTORE_NPY_NTYPES NPY_NTYPES_LEGACY
+#else
+#define TENSORSTORE_NPY_NTYPES NPY_NTYPES
+#endif
+
 namespace tensorstore {
 namespace internal_python {
 
-inline constexpr std::array<DataTypeId, NPY_NTYPES> kDataTypeIdForNumpyTypeNum =
-    [] {
-      std::array<DataTypeId, NPY_NTYPES> result = {};
-      for (size_t i = 0; i < NPY_NTYPES; ++i) {
+inline constexpr std::array<DataTypeId, TENSORSTORE_NPY_NTYPES>
+    kDataTypeIdForNumpyTypeNum = [] {
+      std::array<DataTypeId, TENSORSTORE_NPY_NTYPES> result = {};
+      for (size_t i = 0; i < TENSORSTORE_NPY_NTYPES; ++i) {
         result[i] = DataTypeId::custom;
       }
       result[NPY_BOOL] = DataTypeId::bool_t;
       result[NPY_BYTE] = DataTypeIdOf<signed char>;
       result[NPY_UBYTE] = DataTypeIdOf<unsigned char>;
-      result[NPY_SHORT] = DataTypeIdOf<short>;
-      result[NPY_USHORT] = DataTypeIdOf<unsigned short>;
+      result[NPY_SHORT] = DataTypeIdOf<short>;            // NOLINT(runtime/int)
+      result[NPY_USHORT] = DataTypeIdOf<unsigned short>;  // NOLINT(runtime/int)
       result[NPY_INT] = DataTypeIdOf<int>;
       result[NPY_UINT] = DataTypeIdOf<unsigned int>;
-      result[NPY_LONG] = DataTypeIdOf<long>;
-      result[NPY_ULONG] = DataTypeIdOf<unsigned long>;
-      result[NPY_LONGLONG] = DataTypeIdOf<long long>;
-      result[NPY_ULONGLONG] = DataTypeIdOf<unsigned long long>;
+      result[NPY_LONG] = DataTypeIdOf<long>;            // NOLINT(runtime/int)
+      result[NPY_ULONG] = DataTypeIdOf<unsigned long>;  // NOLINT(runtime/int)
+      result[NPY_LONGLONG] = DataTypeIdOf<long long>;   // NOLINT(runtime/int)
+      result[NPY_ULONGLONG] =
+          DataTypeIdOf<unsigned long long>;  // NOLINT(runtime/int)
       result[NPY_FLOAT] = DataTypeIdOf<float>;
       result[NPY_DOUBLE] = DataTypeIdOf<double>;
       result[NPY_LONGDOUBLE] = DataTypeIdOf<long double>;
@@ -80,7 +88,7 @@ constexpr std::array<int, kNumDataTypeIds> kNumpyTypeNumForDataTypeId = [] {
     if (id == DataTypeId::custom) return;
     array[static_cast<size_t>(id)] = i;
   };
-  for (size_t i = 0; i < NPY_NTYPES; ++i) {
+  for (size_t i = 0; i < TENSORSTORE_NPY_NTYPES; ++i) {
     AssignMapping(i);
   }
   // Add mapping for `NPY_{U,}LONG` last so that they take precedence over

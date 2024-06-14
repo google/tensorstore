@@ -425,6 +425,20 @@ TEST(OcdbtTest, SpecRoundtripFile) {
   tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
 }
 
+TEST(OcdbtTest, CacheKey) {
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store1,
+      kvstore::Open({{"driver", "ocdbt"}, {"base", "memory://"}}, context)
+          .result());
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store1, "abc", absl::Cord("value")));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store2,
+      kvstore::Open({{"driver", "ocdbt"}, {"base", "memory://"}}, context)
+          .result());
+  EXPECT_EQ(store2.driver, store1.driver);
+}
+
 // TODO(jbms): Consider refactoring into TEST_P.
 TENSORSTORE_GLOBAL_INITIALIZER {
   const auto register_test_suite = [](ConfigConstraints config) {

@@ -211,9 +211,6 @@ from ..cmake_builder import ENABLE_LANGUAGES_SECTION
 from ..cmake_builder import FETCH_CONTENT_DECLARE_SECTION
 from ..cmake_builder import FETCH_CONTENT_MAKE_AVAILABLE_SECTION
 from ..cmake_builder import OPTIONS_SECTION
-from ..cmake_builder import quote_list
-from ..cmake_builder import quote_path
-from ..cmake_builder import quote_string
 from ..cmake_repository import CMakeRepository
 from ..cmake_repository import label_to_generated_cmake_target
 from ..cmake_repository import make_repo_mapping
@@ -226,14 +223,15 @@ from ..starlark.bazel_target import RepositoryId
 from ..starlark.invocation_context import InvocationContext
 from ..starlark.label import Label
 from ..util import cmake_is_true
+from ..util import quote_list
+from ..util import quote_path
+from ..util import quote_string
 from ..workspace import Repository
 from .helpers import update_target_mapping
 from .helpers import write_bazel_to_cmake_cmakelists
 
 
-@register_bzl_library(
-    "@tensorstore//third_party:repo.bzl", workspace=True
-)
+@register_bzl_library("@tensorstore//third_party:repo.bzl", workspace=True)
 class ThirdPartyRepoLibrary(BazelGlobals):
 
   def bazel_third_party_http_archive(self, **kwargs):

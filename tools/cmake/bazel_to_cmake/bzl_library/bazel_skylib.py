@@ -21,9 +21,6 @@ from typing import Any, Dict, List, Optional, Tuple, TypeVar, Union, cast
 
 from .. import native_rules_genrule
 from ..cmake_builder import CMakeBuilder
-from ..cmake_builder import quote_list
-from ..cmake_builder import quote_path
-from ..cmake_builder import quote_string
 from ..cmake_target import CMakeDepsProvider
 from ..cmake_target import CMakeTarget
 from ..evaluation import EvaluationState
@@ -41,6 +38,9 @@ from ..starlark.select import Select
 from ..starlark.toolchain import CMAKE_TOOLCHAIN
 from ..util import cmake_is_true
 from ..util import cmake_is_windows
+from ..util import quote_list
+from ..util import quote_path
+from ..util import quote_string
 from ..util import write_file_if_not_already_equal
 
 T = TypeVar("T")
@@ -75,12 +75,10 @@ class BazelSelectsWrapper:
   ) -> Select[T]:
     del no_match_error
     conditions = self.with_or_dict(input_dict)
-    return Select(
-        {
-            self._context.resolve_target_or_label(condition): value
-            for condition, value in conditions.items()
-        }
-    )
+    return Select({
+        self._context.resolve_target_or_label(condition): value
+        for condition, value in conditions.items()
+    })
 
   def config_setting_group(
       self,

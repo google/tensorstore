@@ -21,8 +21,6 @@ import re
 from typing import Any, Dict, Iterable, List, Optional, Set, cast
 
 from .cmake_builder import CMakeBuilder
-from .cmake_builder import quote_list
-from .cmake_builder import quote_path_list
 from .cmake_repository import CMakeRepository
 from .cmake_target import CMakeTarget
 from .cmake_target import CMakeTargetPair
@@ -31,6 +29,8 @@ from .starlark.invocation_context import InvocationContext
 from .starlark.label import RelativeLabel
 from .starlark.select import Configurable
 from .util import is_relative_to
+from .util import quote_list
+from .util import quote_path_list
 from .workspace import Workspace
 
 _SEP = "\n        "

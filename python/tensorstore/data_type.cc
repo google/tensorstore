@@ -163,7 +163,7 @@ DataType GetDataType(pybind11::dtype dt) {
     return kDataTypes[static_cast<size_t>(type_id)];
   }
 
-  if (type_num < 0 || type_num > NPY_NTYPES) {
+  if (type_num < 0 || type_num > TENSORSTORE_NPY_NTYPES) {
     return DataType();
   }
   const DataTypeId id = kDataTypeIdForNumpyTypeNum[type_num];

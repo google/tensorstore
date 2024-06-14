@@ -41,7 +41,6 @@ import pathlib
 from typing import Callable, List, NamedTuple, Optional, Protocol, Tuple
 
 from .cmake_builder import CMakeBuilder
-from .cmake_builder import quote_list
 from .cmake_target import CMakeLibraryTargetProvider
 from .cmake_target import CMakeTarget
 from .emit_cc import emit_cc_library
@@ -53,6 +52,7 @@ from .starlark.common_providers import ProtoLibraryProvider
 from .starlark.invocation_context import InvocationContext
 from .starlark.label import RelativeLabel
 from .starlark.provider import TargetInfo
+from .util import quote_list
 
 
 PROTO_REPO = RepositoryId("com_google_protobuf")
@@ -83,6 +83,8 @@ _PROTO_ASPECT: List[Tuple[str, ProtoAspectCallable]] = []
 
 
 def add_proto_aspect(name: str, fn: ProtoAspectCallable):
+  print(f"Proto aspect: {name}")
+
   _PROTO_ASPECT.append((
       name,
       fn,

@@ -183,22 +183,36 @@ OpenDriverCache& GetOpenDriverCache() {
 
 Future<DriverPtr> Open(DriverSpecPtr spec, DriverOpenOptions&& options) {
   TENSORSTORE_RETURN_IF_ERROR(spec.BindContext(options.context));
+
+  std::string cache_identifier;
+  spec->EncodeCacheKey(&cache_identifier);
+  {
+    // Check if the driver is already in the open driver cache.
+    auto& open_cache = GetOpenDriverCache();
+    absl::MutexLock lock(&open_cache.mutex);
+    auto it = open_cache.map.find(cache_identifier);
+    if (it != open_cache.map.end()) {
+      ABSL_LOG_IF(INFO, kvstore_cache_logging)
+          << "Reusing cached kvstore: " << QuoteString(cache_identifier);
+      return DriverPtr(it->second);
+    }
+  }
+
   return MapFutureValue(
       InlineExecutor{},
-      [](DriverPtr driver) {
-        std::string cache_key;
-        driver->EncodeCacheKey(&cache_key);
+      [cache_identifier =
+           std::move(cache_identifier)](DriverPtr driver) mutable {
         auto& open_cache = GetOpenDriverCache();
         absl::MutexLock lock(&open_cache.mutex);
-        auto p = open_cache.map.emplace(cache_key, driver.get());
+        auto p = open_cache.map.emplace(cache_identifier, driver.get());
         if (p.second) {
-          driver->cache_identifier_ = std::move(cache_key);
+          driver->cache_identifier_ = std::move(cache_identifier);
           ABSL_LOG_IF(INFO, kvstore_cache_logging)
               << "Inserted kvstore into cache: "
               << QuoteString(driver->cache_identifier_);
         } else {
           ABSL_LOG_IF(INFO, kvstore_cache_logging)
-              << "Reusing cached kvstore: " << QuoteString(cache_key);
+              << "Reusing cached kvstore: " << QuoteString(cache_identifier);
         }
         return DriverPtr(p.first->second);
       },

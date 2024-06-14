@@ -18,6 +18,31 @@ import pathlib
 
 from .util import cmake_is_true
 from .util import is_relative_to
+from .util import map_path_prefixes
+from .util import quote_list
+from .util import quote_path_list
+
+
+def test_quote_list():
+  assert quote_list(["a", "b", "c"]) == '"a" "b" "c"'
+  assert quote_list(["a", "b", "c"], separator=" ") == '"a" "b" "c"'
+  assert quote_list(["a", "b", "c"], separator="\\n") == '"a"\\n"b"\\n"c"'
+
+
+def test_quote_pathlist():
+  assert (
+      quote_path_list(
+          ["a", pathlib.PureWindowsPath("b\\d"), pathlib.PurePosixPath("c")]
+      )
+      == '"a" "b/d" "c"'
+  )
+  assert (
+      quote_path_list(
+          ["a", pathlib.PureWindowsPath("b\\d"), pathlib.PurePosixPath("c")],
+          separator=" ",
+      )
+      == '"a" "b/d" "c"'
+  )
 
 
 def test_cmake_is_true():
@@ -46,3 +71,29 @@ def test_is_relative_to():
 
   assert is_relative_to(leaf, root, _use_attr=False)
   assert not is_relative_to(root, leaf, _use_attr=False)
+
+
+def test_map_path_prefixes():
+
+  assert map_path_prefixes(
+      [
+          pathlib.PurePath("/foo/bar"),
+          pathlib.PurePath("/foo/bar/baz"),
+          "/foo/bindir/baz/blah",
+          "/foo/bindir/baz/xyz",
+          "/foo/srcdir/baz/blah",
+          "/foo/srcdir/baz/xyz",
+      ],
+      [
+          (pathlib.PurePath("/foo/bindir"), "${CMAKE_BINDIR}/"),
+          (pathlib.PurePath("/foo/srcdir"), ""),
+          (pathlib.PurePath("/bar"), "{BAR}"),
+      ],
+  ) == [
+      pathlib.PurePath("/foo/bar"),
+      pathlib.PurePath("/foo/bar/baz"),
+      pathlib.PurePath("${CMAKE_BINDIR}/baz/blah"),
+      pathlib.PurePath("${CMAKE_BINDIR}/baz/xyz"),
+      pathlib.PurePath("baz/blah"),
+      pathlib.PurePath("baz/xyz"),
+  ]

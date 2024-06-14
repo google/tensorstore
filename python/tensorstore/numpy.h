@@ -42,6 +42,10 @@
 #error "Numpy cannot be included before numpy.h."
 #endif
 
+// Require NumPy >= 1.22 for NPY_ARRAY_ENSURENOCOPY.
+// https://numpy.org/devdocs/dev/depending_on_numpy.html#build-time-dependency
+#define NPY_TARGET_VERSION NPY_1_22_API_VERSION
+
 // Disallow Numpy 1.7 deprecated symbols.
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 
@@ -55,6 +59,7 @@
 #define NO_IMPORT_UFUNC
 #endif
 
+#include "numpy/numpyconfig.h"  // IWYU pragma: keep
 #include "numpy/arrayobject.h"  // IWYU pragma: export
 #include "numpy/ufuncobject.h"  // IWYU pragma: export
 
