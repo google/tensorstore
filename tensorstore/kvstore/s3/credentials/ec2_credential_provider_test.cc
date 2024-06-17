@@ -153,10 +153,8 @@ TEST_F(EC2MetadataCredentialProviderTest, UnsuccessfulJsonResponse) {
 
   EXPECT_THAT(credentials.status(), MatchesStatus(absl::StatusCode::kNotFound));
   EXPECT_THAT(credentials.status().ToString(),
-              ::testing::AllOf(
-                  ::testing::HasSubstr("EC2Metadata request"),
-                  ::testing::HasSubstr(
-                      "failed with {\"Code\": \"EntirelyUnsuccessful\"}")));
+              ::testing::AllOf(::testing::HasSubstr("EC2Metadata request"),
+                               ::testing::HasSubstr("EntirelyUnsuccessful")));
 }
 
 }  // namespace

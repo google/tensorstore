@@ -19,7 +19,6 @@
 #include <stdint.h>
 
 #include <string>
-#include <tuple>
 
 #include "absl/container/btree_map.h"
 #include "absl/status/status.h"
@@ -65,6 +64,13 @@ struct HttpResponse {
     }
   }
 };
+
+/// Returns the error message corresponding to the HttpResponse.status_code.
+const char* HttpResponseCodeToMessage(const HttpResponse& response);
+
+/// Returns the `absl::StatusCode` corresponding to the
+/// HttpResponse.status_code.
+absl::StatusCode HttpResponseCodeToStatusCode(const HttpResponse& response);
 
 /// Returns an `absl::Status` object for a corresponding
 /// HttpResponse.status_code.

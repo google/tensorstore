@@ -40,6 +40,7 @@ namespace kvstore = ::tensorstore::kvstore;
 
 using ::tensorstore::Context;
 using ::tensorstore::MatchesStatus;
+using ::tensorstore::StatusIs;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::internal::MatchesKvsReadResult;
 using ::tensorstore::internal::MatchesListEntry;
@@ -54,7 +55,7 @@ namespace {
 Context DefaultTestContext() {
   // Opens the s3 driver with small exponential backoff values.
   return Context{Context::Spec::FromJson({{"s3_request_retries",
-                                           {{"max_retries", 1},
+                                           {{"max_retries", 2},
                                             {"initial_delay", "1ms"},
                                             {"max_delay", "2ms"}}}})
                      .value()};
@@ -432,6 +433,46 @@ TEST(S3KeyValueStoreTest, SimpleMock_ListPrefix) {
   EXPECT_THAT(list_result, ::testing::ElementsAre(MatchesListEntry("b"),
                                                   MatchesListEntry("b/a"),
                                                   MatchesListEntry("b/b")));
+}
+
+// TODO: Add tests for various responses
+TEST(S3KeyValueStoreTest, SimpleMock_RetryTimesOut) {
+  // Mocks for s3
+  absl::flat_hash_map<std::string, HttpResponse> url_to_response{
+      // initial HEAD request responds with an x-amz-bucket-region header.
+      {"HEAD https://localhost:1234/base/my-bucket",
+       HttpResponse{200, absl::Cord(), {{"x-amz-bucket-region", "us-east-1"}}}},
+
+      {"GET https://localhost:1234/base/my-bucket/tmp:1/key_read",
+       HttpResponse{400,
+                    absl::Cord(R"(<?xml version="1.0" encoding="UTF-8"?>
+<Error>
+  <Code>ThrottledException</Code>
+  <Message>Endless retry</Message>
+  <Resource>/my-bucket/tmp:1/key_read</Resource>
+  <RequestId>4442587FB7D0A2F9</RequestId>
+</Error>
+)"),
+                    {{"etag", "900150983cd24fb0d6963f7d28e17f72"}}}},
+  };
+
+  auto mock_transport =
+      std::make_shared<DefaultMockHttpTransport>(url_to_response);
+  DefaultHttpTransportSetter mock_transport_setter{mock_transport};
+
+  // Opens the s3 driver with small exponential backoff values.
+  auto context = DefaultTestContext();
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, kvstore::Open({{"driver", "s3"},
+                                 {"bucket", "my-bucket"},
+                                 {"endpoint", "https://localhost:1234/base"},
+                                 {"path", "tmp:1/"}},
+                                context)
+                      .result());
+
+  auto read_result = kvstore::Read(store, "key_read").result();
+  EXPECT_THAT(read_result, StatusIs(absl::StatusCode::kAborted));
 }
 
 // TODO: Add mocking to satisfy kvstore testing methods, such as:

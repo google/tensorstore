@@ -126,6 +126,7 @@ using ::tensorstore::internal_kvstore_gcs_http::GcsConcurrencyResource;
 using ::tensorstore::internal_kvstore_gcs_http::GcsRateLimiterResource;
 using ::tensorstore::internal_kvstore_gcs_http::ObjectMetadata;
 using ::tensorstore::internal_kvstore_gcs_http::ParseObjectMetadata;
+using ::tensorstore::internal_storage_gcs::GcsHttpResponseToStatus;
 using ::tensorstore::internal_storage_gcs::GcsRequestRetries;
 using ::tensorstore::internal_storage_gcs::GcsUserProjectResource;
 using ::tensorstore::internal_storage_gcs::IsRetriable;
@@ -596,6 +597,7 @@ struct ReadTask : public RateLimiterNode,
     ABSL_LOG_IF(INFO, gcs_http_logging.Level(1) && response.ok())
         << "ReadTask " << *response;
 
+    bool is_retryable = IsRetriable(response.status());
     absl::Status status = [&]() -> absl::Status {
       if (!response.ok()) return response.status();
       switch (response.value().status_code) {
@@ -605,10 +607,10 @@ struct ReadTask : public RateLimiterNode,
         case 304:
           return absl::OkStatus();
       }
-      return HttpResponseCodeToStatus(response.value());
+      return GcsHttpResponseToStatus(response.value(), is_retryable);
     }();
 
-    if (!status.ok() && IsRetriable(status)) {
+    if (!status.ok() && is_retryable) {
       status =
           owner->BackoffForAttemptAsync(std::move(status), attempt_++, this);
       if (status.ok()) {
@@ -795,6 +797,7 @@ struct WriteTask : public RateLimiterNode,
     ABSL_LOG_IF(INFO, gcs_http_logging.Level(1) && response.ok())
         << "WriteTask " << *response;
 
+    bool is_retryable = IsRetriable(response.status());
     absl::Status status = [&]() -> absl::Status {
       if (!response.ok()) return response.status();
       switch (response.value().status_code) {
@@ -812,10 +815,10 @@ struct WriteTask : public RateLimiterNode,
         default:
           break;
       }
-      return HttpResponseCodeToStatus(response.value());
+      return GcsHttpResponseToStatus(response.value(), is_retryable);
     }();
 
-    if (!status.ok() && IsRetriable(status)) {
+    if (!status.ok() && is_retryable) {
       status =
           owner->BackoffForAttemptAsync(std::move(status), attempt_++, this);
       if (status.ok()) {
@@ -946,6 +949,7 @@ struct DeleteTask : public RateLimiterNode,
     ABSL_LOG_IF(INFO, gcs_http_logging.Level(1) && response.ok())
         << "DeleteTask " << *response;
 
+    bool is_retryable = IsRetriable(response.status());
     absl::Status status = [&]() -> absl::Status {
       if (!response.ok()) return response.status();
       switch (response.value().status_code) {
@@ -957,10 +961,10 @@ struct DeleteTask : public RateLimiterNode,
         default:
           break;
       }
-      return HttpResponseCodeToStatus(response.value());
+      return GcsHttpResponseToStatus(response.value(), is_retryable);
     }();
 
-    if (!status.ok() && IsRetriable(status)) {
+    if (!status.ok() && is_retryable) {
       status =
           owner->BackoffForAttemptAsync(std::move(status), attempt_++, this);
       if (status.ok()) {
@@ -1167,9 +1171,12 @@ struct ListTask : public RateLimiterNode,
     ABSL_LOG_IF(INFO, gcs_http_logging.Level(1) && response.ok())
         << "List " << *response;
 
+    bool is_retryable = IsRetriable(response.status());
     absl::Status status =
-        response.ok() ? HttpResponseCodeToStatus(*response) : response.status();
-    if (!status.ok() && IsRetriable(status)) {
+        response.ok() ? GcsHttpResponseToStatus(response.value(), is_retryable)
+                      : response.status();
+
+    if (!status.ok() && is_retryable) {
       return owner_->BackoffForAttemptAsync(std::move(status), attempt_++,
                                             this);
     }

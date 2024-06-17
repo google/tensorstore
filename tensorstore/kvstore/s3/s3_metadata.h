@@ -20,13 +20,23 @@
 /// stored as the file content.
 
 #include <stddef.h>
+#include <stdint.h>
 
+#include <optional>
 #include <string>
 
 #include "absl/container/btree_map.h"
+#include "absl/status/status.h"
+#include "absl/time/time.h"
+#include "tensorstore/internal/http/http_response.h"
+#include "tensorstore/internal/source_location.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/util/result.h"
-#include "tinyxml2.h"
+
+namespace tinyxml2 {
+class XMLNode;
+}
+
 namespace tensorstore {
 namespace internal_kvstore_s3 {
 
@@ -35,6 +45,8 @@ namespace internal_kvstore_s3 {
 ///   <Key>Foo/bar</Key>
 /// The result is 'Foo/bar'
 std::string GetNodeText(tinyxml2::XMLNode* node);
+std::optional<int64_t> GetNodeInt(tinyxml2::XMLNode* node);
+std::optional<absl::Time> GetNodeTimestamp(tinyxml2::XMLNode* node);
 
 /// Creates a storage generation from the etag header in the
 /// HTTP response `headers`.
@@ -46,6 +58,11 @@ std::string GetNodeText(tinyxml2::XMLNode* node);
 /// https://docs.aws.amazon.com/AmazonS3/latest/API/API_Object.html
 Result<StorageGeneration> StorageGenerationFromHeaders(
     const absl::btree_multimap<std::string, std::string>& headers);
+
+/// Constructs an absl::Status from an Aws HttpResponse.
+absl::Status AwsHttpResponseToStatus(
+    const internal_http::HttpResponse& response, bool& retryable,
+    SourceLocation loc = ::tensorstore::SourceLocation::current());
 
 }  // namespace internal_kvstore_s3
 }  // namespace tensorstore

@@ -27,10 +27,17 @@ tensorstore_cc_library(
     ],
     hdrs = ["validate.h"],
     deps = [
+        "//tensorstore/internal:source_location",
         "//tensorstore/internal:utf8",
+        "//tensorstore/internal/http",
+        "//tensorstore/internal/json",
         "//tensorstore/kvstore:generation",
+        "//tensorstore/util:status",
+        "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/strings:str_format",
     ],
 )
 
