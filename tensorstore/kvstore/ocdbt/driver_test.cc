@@ -14,10 +14,13 @@
 
 #include "tensorstore/kvstore/ocdbt/driver.h"
 
+#include <stdint.h>
+
 #include <initializer_list>
 #include <memory>
 #include <string>
 #include <type_traits>
+#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -40,6 +43,7 @@
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
 #include "tensorstore/kvstore/ocdbt/format/config.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
+#include "tensorstore/kvstore/ocdbt/format/manifest.h"
 #include "tensorstore/kvstore/ocdbt/format/version_tree.h"
 #include "tensorstore/kvstore/ocdbt/test_util.h"
 #include "tensorstore/kvstore/operations.h"
@@ -439,6 +443,46 @@ TEST(OcdbtTest, CacheKey) {
   EXPECT_EQ(store2.driver, store1.driver);
 }
 
+TEST(OcdbtTest, ConcurrentWrites) {
+  auto context = Context::Default();
+  tensorstore::internal::TestConcurrentWritesOptions options;
+  options.get_store = [&] {
+    TENSORSTORE_CHECK_OK_AND_ASSIGN(
+        auto store, kvstore::Open(
+                        {
+                            {"driver", "ocdbt"},
+                            {"base", "memory://"},
+                            {"cache_pool", {{"total_bytes_limit", 0}}},
+                        },
+                        context)
+                        .result());
+    return store;
+  };
+  options.num_threads = 16;
+  tensorstore::internal::TestConcurrentWrites(options);
+}
+
+TEST(OcdbtTest, ConcurrentWritesNumbered) {
+  auto context = Context::Default();
+  tensorstore::internal::TestConcurrentWritesOptions options;
+  options.get_store = [&] {
+    TENSORSTORE_CHECK_OK_AND_ASSIGN(
+        auto store,
+        kvstore::Open(
+            {{"driver", "ocdbt"},
+             {"base", "memory://"},
+             // Use separate cache to ensure independent driver objects.
+             {"cache_pool", {{"total_bytes_limit", 0}}},
+             {"config", {{"manifest_kind", "numbered"}}}},
+            context)
+            .result());
+    return store;
+  };
+  options.num_threads = 16;
+  options.num_iterations = 100;
+  tensorstore::internal::TestConcurrentWrites(options);
+}
+
 // TODO(jbms): Consider refactoring into TEST_P.
 TENSORSTORE_GLOBAL_INITIALIZER {
   const auto register_test_suite = [](ConfigConstraints config) {
@@ -651,6 +695,37 @@ TEST(OcdbtTest, NumberedManifest) {
                   MatchesListEntry("manifest.0000000000000001"),
                   MatchesListEntry("manifest.0000000000000002"),
                   MatchesListEntry(::testing::StartsWith("d/")))));
+}
+
+TEST(OcdbtTest, NumberedManifestNumNumberedManifestsToKeep) {
+  using ::tensorstore::internal_ocdbt::kNumNumberedManifestsToKeep;
+  auto context = Context::Default();
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto base_store, kvstore::Open("memory://", context).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto ocdbt_store,
+      kvstore::Open({{"driver", "ocdbt"},
+                     {"config", {{"manifest_kind", "numbered"}}},
+                     {"base", "memory://"}},
+                    context)
+          .result());
+  for (uint64_t i = 0; i < kNumNumberedManifestsToKeep + 4; ++i) {
+    TENSORSTORE_ASSERT_OK(kvstore::Write(ocdbt_store, "a", absl::Cord("b")));
+    std::vector<::testing::Matcher<kvstore::ListEntry>> matchers;
+    uint64_t max_generation = i + 2;
+    uint64_t min_generation = (max_generation > kNumNumberedManifestsToKeep)
+                                  ? max_generation - kNumNumberedManifestsToKeep
+                                  : 1;
+    for (uint64_t j = min_generation; j <= max_generation; ++j) {
+      matchers.push_back(
+          MatchesListEntry(absl::StrFormat("manifest.%016x", j)));
+    }
+    matchers.push_back(MatchesListEntry("manifest.ocdbt"));
+    EXPECT_THAT(kvstore::ListFuture(base_store, {KeyRange::Prefix("manifest.")})
+                    .result(),
+                ::testing::Optional(::testing::ElementsAreArray(matchers)));
+  }
 }
 
 TEST(OcdbtTest, CopyRange) {

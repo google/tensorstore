@@ -15,6 +15,7 @@
 #ifndef TENSORSTORE_KVSTORE_TEST_UTIL_H_
 #define TENSORSTORE_KVSTORE_TEST_UTIL_H_
 
+#include <functional>
 #include <map>
 #include <string>
 #include <string_view>
@@ -158,6 +159,15 @@ struct BatchReadGenericCoalescingTestOptions {
 
 void TestBatchReadGenericCoalescing(
     const KvStore& store, const BatchReadGenericCoalescingTestOptions& options);
+
+struct TestConcurrentWritesOptions {
+  size_t num_iterations = 100;
+  size_t num_threads = 4;
+  std::string key = "test";
+  std::function<KvStore()> get_store;
+};
+
+void TestConcurrentWrites(const TestConcurrentWritesOptions& options);
 
 }  // namespace internal
 }  // namespace tensorstore

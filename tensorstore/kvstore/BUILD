@@ -270,6 +270,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/metrics:collect",
         "//tensorstore/internal/metrics:registry",
         "//tensorstore/internal/testing:random_seed",
+        "//tensorstore/internal/thread",
         "//tensorstore/serialization:test_util",
         "//tensorstore/util:future",
         "//tensorstore/util:result",

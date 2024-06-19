@@ -57,16 +57,18 @@ class ManifestCache : public internal::AsyncCache {
 
     // Performs an atomic read-modify-write operation on the manifest.
     //
-    // The `update_function` will be called at least once to compute the
-    // modified manifest.  In the case that the cached manifest is out-of-date
-    // or there are concurrent modifications, the `update_function` may be
-    // called multiple times.
+    // If the existing manifest (as of `staleness_bound`) is not equal to
+    // `old_manifest`, resolves with `TryUpdateManifestResult::success = false`.
     //
-    // The returned `Future` resolves to the new manifest and its timestamp on
-    // success.
+    // Otherwise, atomically writes `new_manifest` in its place (subject to the
+    // atomic limitations of the underlying base kvstore).
+    //
+    // Fails with an error status if an I/O error occurs in the underlying base
+    // kvstore.
     Future<TryUpdateManifestResult> TryUpdate(
         std::shared_ptr<const Manifest> old_manifest,
-        std::shared_ptr<const Manifest> new_manifest);
+        std::shared_ptr<const Manifest> new_manifest,
+        absl::Time staleness_bound);
   };
 
   class TransactionNode : public Base::TransactionNode {
@@ -82,6 +84,7 @@ class ManifestCache : public internal::AsyncCache {
     void WritebackSuccess(ReadState&& read_state) final;
 
     std::shared_ptr<const Manifest> old_manifest, new_manifest;
+    absl::Time staleness_bound;
     Promise<TryUpdateManifestResult> promise;
   };
 

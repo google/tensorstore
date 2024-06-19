@@ -158,7 +158,7 @@ tensorstore_cc_library(
 
 tensorstore_cc_test(
     name = "driver_test",
-    size = "small",
+    size = "medium",
     srcs = ["driver_test.cc"],
     deps = [
         ":config",
