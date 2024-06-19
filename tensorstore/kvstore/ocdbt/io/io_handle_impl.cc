@@ -28,6 +28,7 @@
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "tensorstore/context.h"
 #include "tensorstore/internal/cache/async_cache.h"
@@ -81,6 +82,11 @@ class IoHandleImpl : public IoHandle {
   IndirectDataWriterPtr indirect_data_writer_[kNumIndirectDataKinds];
   kvstore::DriverPtr indirect_data_kvstore_driver_;
 
+  mutable absl::Mutex manifest_mutex_;
+  mutable ManifestWithTime cached_top_level_manifest_{nullptr,
+                                                      absl::InfinitePast()};
+  mutable ManifestWithTime cached_numbered_manifest_{nullptr,
+                                                     absl::InfinitePast()};
   Future<const std::shared_ptr<const BtreeNode>> GetBtreeNode(
       const IndirectDataReference& ref) const final {
     return btree_node_cache_->ReadEntry(ref);
@@ -91,19 +97,64 @@ class IoHandleImpl : public IoHandle {
     return version_tree_node_cache_->ReadEntry(ref);
   }
 
-  static absl::Status GetCachedManifest(const IoHandleImpl& self,
-                                        ManifestWithTime& manifest_with_time) {
+  // Returns the cached "top-level" manifest at `manifest.ocdbt`.
+  absl::Status GetCachedTopLevelManifest(
+      ManifestWithTime& manifest_with_time) const {
+    ManifestWithTime new_manifest_with_time;
     {
-      internal::AsyncCache::ReadLock<Manifest> lock{
-          *self.manifest_cache_entry_};
-      manifest_with_time.manifest = lock.shared_data();
-      manifest_with_time.time = lock.stamp().time;
+      internal::AsyncCache::ReadLock<Manifest> lock{*manifest_cache_entry_};
+      new_manifest_with_time.manifest = lock.shared_data();
+      new_manifest_with_time.time = lock.stamp().time;
     }
 
-    if (manifest_with_time.manifest) {
-      TENSORSTORE_RETURN_IF_ERROR(self.config_state->ValidateNewConfig(
-          manifest_with_time.manifest->config));
+    if (new_manifest_with_time.time == absl::InfinitePast()) {
+      manifest_with_time = std::move(new_manifest_with_time);
+      return absl::OkStatus();
     }
+
+    absl::MutexLock lock(&manifest_mutex_);
+    // Only validate the new manifest if it is not the same as the existing
+    // manifest.
+    if (new_manifest_with_time.manifest !=
+        cached_top_level_manifest_.manifest) {
+      auto* new_manifest = new_manifest_with_time.manifest.get();
+      if (new_manifest) {
+        TENSORSTORE_RETURN_IF_ERROR(
+            config_state->ValidateNewConfig(new_manifest->config));
+      }
+    }
+    cached_top_level_manifest_ = new_manifest_with_time;
+    manifest_with_time = std::move(new_manifest_with_time);
+    return absl::OkStatus();
+  }
+
+  absl::Status GetCachedNumberedManifest(
+      ManifestWithTime& manifest_with_time) const {
+    ManifestWithTime new_manifest_with_time;
+    {
+      internal::AsyncCache::ReadLock<NumberedManifestCache::NumberedManifest>
+          lock{*numbered_manifest_cache_entry_};
+      if (auto* data = lock.data()) {
+        new_manifest_with_time.manifest = data->manifest;
+      }
+      new_manifest_with_time.time = lock.stamp().time;
+    }
+
+    if (new_manifest_with_time.time == absl::InfinitePast()) {
+      manifest_with_time = std::move(new_manifest_with_time);
+      return absl::OkStatus();
+    }
+
+    absl::MutexLock lock(&manifest_mutex_);
+    if (new_manifest_with_time.manifest != cached_numbered_manifest_.manifest) {
+      auto* new_manifest = new_manifest_with_time.manifest.get();
+      if (new_manifest) {
+        TENSORSTORE_RETURN_IF_ERROR(
+            config_state->ValidateNewConfig(new_manifest->config));
+      }
+    }
+    cached_numbered_manifest_ = new_manifest_with_time;
+    manifest_with_time = std::move(new_manifest_with_time);
     return absl::OkStatus();
   }
 
@@ -113,8 +164,9 @@ class IoHandleImpl : public IoHandle {
                       absl::Time staleness_bound) {
       // Retrieve the cached manifest to see if it can be used.
       ManifestWithTime manifest_with_time;
-      TENSORSTORE_RETURN_IF_ERROR(GetCachedManifest(*self, manifest_with_time),
-                                  static_cast<void>(promise.SetResult(_)));
+      TENSORSTORE_RETURN_IF_ERROR(
+          self->GetCachedTopLevelManifest(manifest_with_time),
+          static_cast<void>(promise.SetResult(_)));
 
       if (manifest_with_time.manifest &&
           manifest_with_time.manifest->config.manifest_kind !=
@@ -139,7 +191,7 @@ class IoHandleImpl : public IoHandle {
               ReadyFuture<const void> future) mutable {
             ManifestWithTime manifest_with_time;
             TENSORSTORE_RETURN_IF_ERROR(
-                GetCachedManifest(*self, manifest_with_time),
+                self->GetCachedTopLevelManifest(manifest_with_time),
                 static_cast<void>(promise.SetResult(_)));
             if (manifest_with_time.manifest &&
                 manifest_with_time.manifest->config.manifest_kind !=
@@ -157,30 +209,29 @@ class IoHandleImpl : public IoHandle {
     static void HandleNonSingleManifest(Ptr self,
                                         Promise<ManifestWithTime> promise,
                                         absl::Time staleness_bound) {
+      ManifestWithTime manifest_with_time;
+      TENSORSTORE_RETURN_IF_ERROR(
+          self->GetCachedNumberedManifest(manifest_with_time),
+          static_cast<void>(promise.SetResult(_)));
+      if (manifest_with_time.time >= staleness_bound &&
+          manifest_with_time.time != absl::InfinitePast()) {
+        ABSL_LOG_IF(INFO, ocdbt_logging)
+            << "GetManifestOp::Start: using cached numbered manifest: time="
+            << manifest_with_time.time
+            << ", staleness_bound=" << staleness_bound << ", latest_generation="
+            << GetLatestGeneration(manifest_with_time.manifest.get());
+        promise.SetResult(std::move(manifest_with_time));
+        return;
+      }
       auto read_future =
           self->numbered_manifest_cache_entry_->Read({staleness_bound});
       LinkValue(
           [self = std::move(self)](Promise<ManifestWithTime> promise,
                                    ReadyFuture<const void> future) {
             ManifestWithTime manifest_with_time;
-            {
-              internal::AsyncCache::ReadLock<
-                  NumberedManifestCache::NumberedManifest>
-                  lock{*self->numbered_manifest_cache_entry_};
-              manifest_with_time.manifest = lock.shared_data()->manifest;
-              manifest_with_time.time = lock.stamp().time;
-            }
-
-            if (manifest_with_time.manifest) {
-              ABSL_LOG_IF(INFO, ocdbt_logging)
-                  << "HandleNonSingleManifest: got manifest: "
-                  << manifest_with_time.manifest->latest_generation();
-
-              TENSORSTORE_RETURN_IF_ERROR(
-                  self->config_state->ValidateNewConfig(
-                      manifest_with_time.manifest->config),
-                  static_cast<void>(promise.SetResult(_)));
-            }
+            TENSORSTORE_RETURN_IF_ERROR(
+                self->GetCachedNumberedManifest(manifest_with_time),
+                static_cast<void>(promise.SetResult(_)));
             promise.SetResult(std::move(manifest_with_time));
           },
           std::move(promise), std::move(read_future));
@@ -218,8 +269,8 @@ class IoHandleImpl : public IoHandle {
             self->GetManifest(time));
       }
       if (new_manifest->config.manifest_kind == ManifestKind::kSingle) {
-        return self->manifest_cache_entry_->TryUpdate(std::move(old_manifest),
-                                                      std::move(new_manifest));
+        return self->manifest_cache_entry_->TryUpdate(
+            std::move(old_manifest), std::move(new_manifest), time);
       }
       auto [promise, future] =
           PromiseFuturePair<TryUpdateManifestResult>::Make();
@@ -240,18 +291,18 @@ class IoHandleImpl : public IoHandle {
         Ptr self, PromiseType promise,
         std::shared_ptr<const Manifest> new_manifest, absl::Time time) {
       {
-        // Check for existing cached config manifest.  This may be present even
-        // if `old_manifest == nullptr`, e.g. in the case that the
+        // Check for existing cached config manifest.  This may be present
+        // even if `old_manifest == nullptr`, e.g. in the case that the
         // `manifest.ocdbt` file is written but then an error/failure occurs
         // that prevents the `manifest.0000000000000001` file from being
         // written.
         ManifestWithTime manifest_with_time;
         TENSORSTORE_RETURN_IF_ERROR(
-            GetCachedManifest(*self, manifest_with_time),
+            self->GetCachedTopLevelManifest(manifest_with_time),
             static_cast<void>(promise.SetResult(_)));
         if (manifest_with_time.manifest && manifest_with_time.time >= time) {
           // Config-only `manifest.ocdbt` already present.  Note that
-          // `GetCachedManifest` already checked the `config`.
+          // `GetCachedTopLevelManifest` already checked the `config`.
           WriteNewNumberedManifest(std::move(self), std::move(promise),
                                    /*old_manifest=*/{},
                                    std::move(new_manifest));
@@ -263,7 +314,7 @@ class IoHandleImpl : public IoHandle {
       config_manifest->config = new_manifest->config;
 
       auto config_manifest_future = self->manifest_cache_entry_->TryUpdate(
-          {}, std::move(config_manifest));
+          {}, std::move(config_manifest), time);
       LinkValue(
           [self = std::move(self), new_manifest = std::move(new_manifest)](
               PromiseType promise,

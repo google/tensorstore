@@ -21,6 +21,7 @@
 #include <variant>
 #include <vector>
 
+#include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
@@ -331,7 +332,7 @@ void BtreeWriterCommitOperationBase::WriteNewManifest() {
                        return;
                      }
                      if (!r->success) {
-                       assert(r->time > staleness_bound_);
+                       ABSL_CHECK_GE(r->time, staleness_bound_);
                        staleness_bound_ = r->time;
                        Retry();
                        return;

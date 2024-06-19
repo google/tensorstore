@@ -141,87 +141,14 @@ TEST_F(GcsTestbenchTest, CancellationDoesNotCrash) {
   }
 }
 
-struct ConcurrentWriteFn {
-  static constexpr char kKey[] = "test";
-  static constexpr size_t kNumIterations = 0x3f;
-
-  const size_t offset;
-  mutable std::string value;
-  mutable StorageGeneration generation;
-  tensorstore::KvStore store;
-
-  void operator()() const {
-    bool read = false;
-    for (size_t i = 0; i < kNumIterations; /**/) {
-      if (read) {
-        auto read_result = kvstore::Read(store, kKey).result();
-        ABSL_CHECK_OK(read_result.status());
-        ABSL_CHECK(!read_result->aborted());
-        ABSL_CHECK(!read_result->not_found());
-        ABSL_CHECK_EQ(read_result->value.size(), value.size());
-        value = std::string(read_result->value);
-        generation = read_result->stamp.generation;
-      }
-
-      size_t x;
-      std::memcpy(&x, &value[offset], sizeof(size_t));
-      ABSL_CHECK_EQ(i, x);
-      std::string new_value = value;
-      x = i + 1;
-      std::memcpy(&new_value[offset], &x, sizeof(size_t));
-      TENSORSTORE_CHECK_OK_AND_ASSIGN(
-          auto write_result,
-          kvstore::Write(store, kKey, absl::Cord(new_value), {generation})
-              .result());
-      if (!StorageGeneration::IsUnknown(write_result.generation)) {
-        generation = write_result.generation;
-        value = new_value;
-        i = x;
-        read = false;
-      } else {
-        read = true;
-      }
-    }
-  }
-};
-
 // On windows, this concurrent test is flaky when used against the gcs
 // storage-testbench.
 TEST_F(GcsTestbenchTest, ConcurrentWrites) {
-  static constexpr size_t kNumThreads = 4;
-
-  std::vector<tensorstore::internal::Thread> threads;
-  threads.reserve(kNumThreads);
-
+  tensorstore::internal::TestConcurrentWritesOptions options;
   auto store = OpenStore("concurrent_writes/");
-  std::string initial_value;
-  initial_value.resize(sizeof(size_t) * kNumThreads);
-  StorageGeneration initial_generation =
-      kvstore::Write(store, ConcurrentWriteFn::kKey, absl::Cord(initial_value))
-          .value()
-          .generation;
-
-  for (size_t thread_i = 0; thread_i < kNumThreads; ++thread_i) {
-    threads.emplace_back(tensorstore::internal::Thread(
-        {"concurrent_write"},
-        ConcurrentWriteFn{thread_i * sizeof(size_t), initial_value,
-                          initial_generation, store}));
-  }
-  for (auto& t : threads) t.Join();
-
-  // Verify the output.
-  {
-    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        auto read_result,
-        kvstore::Read(store, ConcurrentWriteFn::kKey).result());
-    ASSERT_FALSE(read_result.aborted() || read_result.not_found());
-    auto value = std::string(read_result.value);
-    for (size_t thread_i = 0; thread_i < kNumThreads; ++thread_i) {
-      size_t x = 0;
-      std::memcpy(&x, &value[thread_i * sizeof(size_t)], sizeof(size_t));
-      EXPECT_EQ(x, ConcurrentWriteFn::kNumIterations) << thread_i;
-    }
-  }
+  options.get_store = [&] { return store; };
+  options.num_iterations = 0x3f;
+  tensorstore::internal::TestConcurrentWrites(options);
 }
 
 }  // namespace

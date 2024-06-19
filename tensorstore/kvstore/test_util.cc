@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <cstring>
 #include <limits>
 #include <map>
 #include <optional>
@@ -50,6 +51,7 @@
 #include "tensorstore/internal/metrics/collect.h"
 #include "tensorstore/internal/metrics/registry.h"
 #include "tensorstore/internal/testing/random_seed.h"
+#include "tensorstore/internal/thread/thread.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
@@ -1413,6 +1415,73 @@ void TestBatchReadGenericCoalescing(
             {
                 {"open_read", 1},
             }));
+  }
+}
+
+void TestConcurrentWrites(const TestConcurrentWritesOptions& options) {
+  std::vector<tensorstore::internal::Thread> threads;
+  threads.reserve(options.num_threads);
+  StorageGeneration initial_generation;
+  std::string initial_value;
+  initial_value.resize(sizeof(size_t) * options.num_threads);
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto initial_stamp, kvstore::Write(options.get_store(), options.key,
+                                           absl::Cord(initial_value))
+                                .result());
+    initial_generation = initial_stamp.generation;
+  }
+  for (size_t thread_i = 0; thread_i < options.num_threads; ++thread_i) {
+    threads.emplace_back(
+        tensorstore::internal::Thread({"concurrent_write"}, [&, thread_i] {
+          auto store = options.get_store();
+          StorageGeneration generation = initial_generation;
+          std::string value = initial_value;
+          for (size_t i = 0; i < options.num_iterations; ++i) {
+            const size_t value_offset = sizeof(size_t) * thread_i;
+            while (true) {
+              size_t x;
+              std::memcpy(&x, &value[value_offset], sizeof(size_t));
+              ABSL_CHECK_EQ(i, x);
+              std::string new_value = value;
+              x = i + 1;
+              std::memcpy(&new_value[value_offset], &x, sizeof(size_t));
+              TENSORSTORE_CHECK_OK_AND_ASSIGN(
+                  auto write_result,
+                  kvstore::Write(store, options.key, absl::Cord(new_value),
+                                 {generation})
+                      .result());
+              if (!StorageGeneration::IsUnknown(write_result.generation)) {
+                generation = write_result.generation;
+                value = new_value;
+                break;
+              }
+              TENSORSTORE_CHECK_OK_AND_ASSIGN(
+                  auto read_result, kvstore::Read(store, options.key).result());
+              ABSL_CHECK(!read_result.aborted());
+              ABSL_CHECK(!read_result.not_found());
+              value = std::string(read_result.value);
+              ABSL_CHECK_EQ(sizeof(size_t) * options.num_threads, value.size());
+              generation = read_result.stamp.generation;
+            }
+          }
+        }));
+  }
+  for (auto& t : threads) t.Join();
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto read_result,
+        kvstore::Read(options.get_store(), options.key).result());
+    ASSERT_FALSE(read_result.aborted() || read_result.not_found());
+    std::string expected_value;
+    expected_value.resize(sizeof(size_t) * options.num_threads);
+    {
+      std::vector<size_t> expected_nums(options.num_threads,
+                                        options.num_iterations);
+      std::memcpy(const_cast<char*>(expected_value.data()),
+                  expected_nums.data(), expected_value.size());
+    }
+    EXPECT_EQ(expected_value, read_result.value);
   }
 }
 

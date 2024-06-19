@@ -36,6 +36,7 @@
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/kvstore/s3/credentials/aws_credentials.h"
+#include "tensorstore/kvstore/s3/s3_metadata.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
@@ -53,7 +54,6 @@ using ::tensorstore::Result;
 using ::tensorstore::internal::GetFlagOrEnvValue;
 using ::tensorstore::internal::ParseJson;
 using ::tensorstore::internal_http::HttpRequestBuilder;
-using ::tensorstore::internal_http::HttpResponseCodeToStatus;
 
 namespace jb = tensorstore::internal_json_binding;
 
@@ -135,7 +135,10 @@ Result<absl::Cord> GetEC2ApiToken(std::string_view endpoint,
                             .SetConnectTimeout(kConnectTimeout))
           .result());
 
-  TENSORSTORE_RETURN_IF_ERROR(HttpResponseCodeToStatus(token_response));
+  bool is_retryable = false;
+  TENSORSTORE_RETURN_IF_ERROR(
+      AwsHttpResponseToStatus(token_response, is_retryable));
+
   return std::move(token_response.payload);
 }
 
@@ -173,10 +176,15 @@ Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials() {
       auto iam_role_response,
       transport_->IssueRequest(iam_role_request, {}).result());
 
-  TENSORSTORE_RETURN_IF_ERROR(HttpResponseCodeToStatus(iam_role_response));
+  auto iam_role_plain_text = iam_role_response.payload.Flatten();
 
-  std::vector<std::string_view> iam_roles = absl::StrSplit(
-      iam_role_response.payload.Flatten(), '\n', absl::SkipWhitespace());
+  // TODO: Add retries here.
+  bool is_retryable = false;
+  TENSORSTORE_RETURN_IF_ERROR(
+      AwsHttpResponseToStatus(iam_role_response, is_retryable));
+
+  std::vector<std::string_view> iam_roles =
+      absl::StrSplit(iam_role_plain_text, '\n', absl::SkipWhitespace());
 
   if (iam_roles.empty()) {
     return absl::NotFoundError("Empty EC2 Role list");
@@ -194,11 +202,11 @@ Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials() {
       auto iam_credentials_response,
       transport_->IssueRequest(iam_credentials_request, {}).result());
 
+  auto iam_credentials_plain_text = iam_credentials_response.payload.Flatten();
   TENSORSTORE_RETURN_IF_ERROR(
-      HttpResponseCodeToStatus(iam_credentials_response));
+      AwsHttpResponseToStatus(iam_credentials_response, is_retryable));
 
-  auto json_sv = iam_credentials_response.payload.Flatten();
-  auto json_credentials = ParseJson(json_sv);
+  auto json_credentials = ParseJson(iam_credentials_plain_text);
 
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto iam_credentials,
@@ -206,9 +214,9 @@ Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials() {
                                            EC2CredentialsResponseBinder));
 
   if (iam_credentials.code != kSuccess) {
-    return absl::NotFoundError(absl::StrCat("EC2Metadata request to [",
-                                            iam_credentials_request_url,
-                                            "] failed with ", json_sv));
+    return absl::NotFoundError(
+        absl::StrCat("EC2Metadata request to [", iam_credentials_request_url,
+                     "] failed with code ", iam_credentials.code));
   }
 
   // Introduce a leeway of 60 seconds to avoid credential expiry conditions

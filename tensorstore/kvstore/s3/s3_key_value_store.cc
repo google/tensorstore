@@ -29,7 +29,6 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/escaping.h"
-#include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/synchronization/mutex.h"
@@ -54,7 +53,6 @@
 #include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/byte_range.h"
-#include "tensorstore/kvstore/gcs/validate.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/generic_coalescing_batch_util.h"
 #include "tensorstore/kvstore/http/byte_range_util.h"
@@ -102,7 +100,9 @@ using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_http::HttpTransport;
 using ::tensorstore::internal_kvstore_s3::AwsCredentialProvider;
 using ::tensorstore::internal_kvstore_s3::AwsCredentials;
+using ::tensorstore::internal_kvstore_s3::AwsHttpResponseToStatus;
 using ::tensorstore::internal_kvstore_s3::GetAwsCredentialProvider;
+using ::tensorstore::internal_kvstore_s3::GetNodeInt;
 using ::tensorstore::internal_kvstore_s3::GetNodeText;
 using ::tensorstore::internal_kvstore_s3::IsValidBucketName;
 using ::tensorstore::internal_kvstore_s3::IsValidObjectName;
@@ -115,8 +115,6 @@ using ::tensorstore::internal_kvstore_s3::S3RequestRetries;
 using ::tensorstore::internal_kvstore_s3::S3UriEncode;
 using ::tensorstore::internal_kvstore_s3::S3UriObjectKeyEncode;
 using ::tensorstore::internal_kvstore_s3::StorageGenerationFromHeaders;
-using ::tensorstore::internal_storage_gcs::IsRetriable;
-
 using ::tensorstore::kvstore::Key;
 using ::tensorstore::kvstore::ListEntry;
 using ::tensorstore::kvstore::ListOptions;
@@ -202,6 +200,11 @@ std::string payload_sha256(const absl::Cord& cord = absl::Cord()) {
                                     digest.size());
 
   return absl::BytesToHexString(digest_sv);
+}
+
+bool DefaultIsRetryableCode(absl::StatusCode code) {
+  return code == absl::StatusCode::kDeadlineExceeded ||
+         code == absl::StatusCode::kUnavailable;
 }
 
 /// Specifies the AWS profile name.
@@ -525,8 +528,12 @@ struct ReadTask : public RateLimiterNode,
     ABSL_LOG_IF(INFO, s3_logging.Level(1) && response.ok())
         << "ReadTask " << *response;
 
+    bool is_retryable = false;
     absl::Status status = [&]() -> absl::Status {
-      if (!response.ok()) return response.status();
+      if (!response.ok()) {
+        is_retryable = DefaultIsRetryableCode(response.status().code());
+        return response.status();
+      }
       switch (response.value().status_code) {
         // Special status codes handled outside the retry loop.
         case 412:
@@ -534,10 +541,10 @@ struct ReadTask : public RateLimiterNode,
         case 304:
           return absl::OkStatus();
       }
-      return HttpResponseCodeToStatus(response.value());
+      return AwsHttpResponseToStatus(response.value(), is_retryable);
     }();
 
-    if (!status.ok() && IsRetriable(status)) {
+    if (!status.ok() && is_retryable) {
       status =
           owner->BackoffForAttemptAsync(std::move(status), attempt_++, this);
       if (status.ok()) {
@@ -779,11 +786,15 @@ struct WriteTask : public RateLimiterNode,
     ABSL_LOG_IF(INFO, s3_logging.Level(1) && response.ok())
         << "WriteTask " << *response;
 
-    absl::Status status = !response.ok()
-                              ? response.status()
-                              : HttpResponseCodeToStatus(response.value());
-
-    if (!status.ok() && IsRetriable(status)) {
+    bool is_retryable = false;
+    absl::Status status = [&]() -> absl::Status {
+      if (!response.ok()) {
+        is_retryable = DefaultIsRetryableCode(response.status().code());
+        return response.status();
+      }
+      return AwsHttpResponseToStatus(response.value(), is_retryable);
+    }();
+    if (!status.ok() && is_retryable) {
       status =
           owner->BackoffForAttemptAsync(std::move(status), attempt_++, this);
       if (status.ok()) {
@@ -961,18 +972,21 @@ struct DeleteTask : public RateLimiterNode,
     ABSL_LOG_IF(INFO, s3_logging.Level(1) && response.ok())
         << "DeleteTask " << *response;
 
+    bool is_retryable = false;
     absl::Status status = [&]() -> absl::Status {
-      if (!response.ok()) return response.status();
+      if (!response.ok()) {
+        is_retryable = DefaultIsRetryableCode(response.status().code());
+        return response.status();
+      }
       switch (response.value().status_code) {
         case 404:
           return absl::OkStatus();
         default:
           break;
       }
-      return HttpResponseCodeToStatus(response.value());
+      return AwsHttpResponseToStatus(response.value(), is_retryable);
     }();
-
-    if (!status.ok() && IsRetriable(status)) {
+    if (!status.ok() && is_retryable) {
       status =
           owner->BackoffForAttemptAsync(std::move(status), attempt_++, this);
       if (status.ok()) {
@@ -1173,9 +1187,15 @@ struct ListTask : public RateLimiterNode,
     ABSL_LOG_IF(INFO, s3_logging.Level(1) && response.ok())
         << "List " << *response;
 
-    absl::Status status =
-        response.ok() ? HttpResponseCodeToStatus(*response) : response.status();
-    if (!status.ok() && IsRetriable(status)) {
+    bool is_retryable = false;
+    absl::Status status = [&]() -> absl::Status {
+      if (!response.ok()) {
+        is_retryable = DefaultIsRetryableCode(response.status().code());
+        return response.status();
+      }
+      return AwsHttpResponseToStatus(response.value(), is_retryable);
+    }();
+    if (!status.ok() && is_retryable) {
       return owner_->BackoffForAttemptAsync(std::move(status), attempt_++,
                                             this);
     }
@@ -1220,12 +1240,11 @@ struct ListTask : public RateLimiterNode,
         execution::set_done(receiver_);
         return absl::OkStatus();
       }
+
       // Visit /ListBucketResult/Contents/Size
-      int64_t size = -1;
-      if (!absl::SimpleAtoi(GetNodeText(contents->FirstChildElement("Size")),
-                            &size)) {
-        size = -1;
-      }
+      int64_t size =
+          GetNodeInt(contents->FirstChildElement("Size")).value_or(-1);
+
       // TODO: Visit /ListBucketResult/Contents/LastModified?
       if (key.size() > options_.strip_prefix_length) {
         execution::set_value(

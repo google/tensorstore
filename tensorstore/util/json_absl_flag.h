@@ -65,12 +65,14 @@ struct JsonAbslFlag {
       *error = absl::StrFormat("Failed to parse JSON: '%s'", in);
       return false;
     }
+    T new_value = {};
     absl::Status status = internal_json_binding::DefaultBinder<>(
-        std::true_type{}, internal_json_binding::NoOptions{}, &out->value, &j);
+        std::true_type{}, internal_json_binding::NoOptions{}, &new_value, &j);
     if (!status.ok()) {
       *error = absl::StrFormat("Failed to bind JSON: %s", status.message());
       return false;
     }
+    out->value = std::move(new_value);
     return true;
   }
 };

@@ -185,66 +185,11 @@ TEST(FileKeyValueStoreTest, NestedDirectories) {
 }
 
 TEST(FileKeyValueStoreTest, ConcurrentWrites) {
-  constexpr size_t num_threads = 4;
-  std::vector<tensorstore::internal::Thread> threads;
-  threads.reserve(num_threads);
-
   ScopedTemporaryDirectory tempdir;
   std::string root = tempdir.path() + "/root";
-  auto store = GetStore(root);
-  std::string key = "test";
-  std::string initial_value;
-  initial_value.resize(sizeof(size_t) * num_threads);
-  auto initial_generation =
-      kvstore::Write(store, key, absl::Cord(initial_value)).value().generation;
-  constexpr size_t num_iterations = 100;
-  for (size_t thread_i = 0; thread_i < num_threads; ++thread_i) {
-    threads.emplace_back(
-        tensorstore::internal::Thread({"concurrent_write"}, [&, thread_i] {
-          StorageGeneration generation = initial_generation;
-          std::string value = initial_value;
-          for (size_t i = 0; i < num_iterations; ++i) {
-            const size_t value_offset = sizeof(size_t) * thread_i;
-            while (true) {
-              size_t x;
-              std::memcpy(&x, &value[value_offset], sizeof(size_t));
-              ASSERT_EQ(i, x);
-              std::string new_value = value;
-              x = i + 1;
-              std::memcpy(&new_value[value_offset], &x, sizeof(size_t));
-              TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-                  auto write_result,
-                  kvstore::Write(store, key, absl::Cord(new_value),
-                                 {generation})
-                      .result());
-              if (!StorageGeneration::IsUnknown(write_result.generation)) {
-                generation = write_result.generation;
-                value = new_value;
-                break;
-              }
-              TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-                  auto read_result, kvstore::Read(store, key).result());
-              ASSERT_FALSE(read_result.aborted() || read_result.not_found());
-              value = std::string(read_result.value);
-              ASSERT_EQ(sizeof(size_t) * num_threads, value.size());
-              generation = read_result.stamp.generation;
-            }
-          }
-        }));
-  }
-  for (auto& t : threads) t.Join();
-  {
-    auto read_result = kvstore::Read(store, key).result();
-    ASSERT_TRUE(read_result);
-    std::string expected_value;
-    expected_value.resize(sizeof(size_t) * num_threads);
-    {
-      std::vector<size_t> expected_nums(num_threads, num_iterations);
-      std::memcpy(const_cast<char*>(expected_value.data()),
-                  expected_nums.data(), expected_value.size());
-    }
-    EXPECT_EQ(expected_value, read_result->value);
-  }
+  tensorstore::internal::TestConcurrentWritesOptions options;
+  options.get_store = [&] { return GetStore(root); };
+  tensorstore::internal::TestConcurrentWrites(options);
 }
 
 // Tests `FileKeyValueStore` on a directory without write or read/write

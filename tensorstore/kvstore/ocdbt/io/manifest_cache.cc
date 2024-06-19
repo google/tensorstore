@@ -235,7 +235,13 @@ void ManifestCache::TransactionNode::Commit() {
     existing_manifest = lock.shared_data();
   }
 
-  if (existing_manifest != this->old_manifest) {
+  // Check if the update can be aborted just based on the cached data.  In this
+  // case the caller will retry with an updated `old_manifest`.
+  if ((existing_manifest != this->old_manifest &&
+       existing_stamp.time >= this->staleness_bound) ||
+      (existing_manifest == this->old_manifest &&
+       this->old_manifest == this->new_manifest &&
+       existing_stamp.time >= this->staleness_bound)) {
     this->promise.SetResult(TryUpdateManifestResult{
         /*.time=*/existing_stamp.time, /*.success=*/false});
     this->SetError(absl::AbortedError(""));
@@ -243,8 +249,10 @@ void ManifestCache::TransactionNode::Commit() {
     return;
   }
 
-  if (this->old_manifest == this->new_manifest) {
-    // Verify that it is unchanged.
+  if (existing_manifest != this->old_manifest ||
+      this->old_manifest == this->new_manifest) {
+    // No new manifest will be written, but the `staleness_bound` requires a
+    // newer manifest.
     kvstore::ReadOptions read_options;
     read_options.generation_conditions.if_not_equal =
         std::move(existing_stamp.generation);
@@ -257,6 +265,13 @@ void ManifestCache::TransactionNode::Commit() {
 
       void set_value(ReadState read_state) {
         // Changed.
+        //
+        // Note: In the (unusual) case that `node->old_manifest == nullptr`, it
+        // is possible the `old_manifest` condition was unsatisfied by
+        // `existing_manifest` but is satisfied by the updated manifest.
+        //
+        // In that case, we may spuriously return `false` here.  That is fine
+        // because `TryUpdate` is always retried at a higher level.
         node->promise.SetResult(
             TryUpdateManifestResult{/*.time=*/read_state.stamp.time,
                                     /*.success=*/false});
@@ -265,6 +280,10 @@ void ManifestCache::TransactionNode::Commit() {
 
       void set_value(TimestampedStorageGeneration stamp) {
         // Unchanged
+        SetDeferredResult(node->promise, TryUpdateManifestResult{
+                                             /*.time=*/stamp.time,
+                                             /*.success=*/existing_manifest ==
+                                                 node->new_manifest});
         node->WritebackSuccess(
             ReadState{std::move(existing_manifest), std::move(stamp)});
       }
@@ -325,7 +344,7 @@ ManifestCache::TransactionNode* ManifestCache::DoAllocateTransactionNode(
 
 Future<TryUpdateManifestResult> ManifestCache::Entry::TryUpdate(
     std::shared_ptr<const Manifest> old_manifest,
-    std::shared_ptr<const Manifest> new_manifest) {
+    std::shared_ptr<const Manifest> new_manifest, absl::Time staleness_bound) {
   Transaction transaction(TransactionMode::isolated);
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto open_transaction,
@@ -335,6 +354,7 @@ Future<TryUpdateManifestResult> ManifestCache::Entry::TryUpdate(
       GetWriteLockedTransactionNode(*this, open_transaction));
   transaction_node->old_manifest = std::move(old_manifest);
   transaction_node->new_manifest = std::move(new_manifest);
+  transaction_node->staleness_bound = staleness_bound;
   auto [promise, future] = PromiseFuturePair<TryUpdateManifestResult>::Make();
   transaction_node->promise = promise;
   LinkError(std::move(promise), transaction.future());
@@ -618,11 +638,11 @@ Future<TryUpdateManifestResult> NumberedManifestCache::Entry::TryUpdate(
   // after the transaction commits and the updated manifest is present in the
   // cache.
   auto [promise2, future2] = PromiseFuturePair<TryUpdateManifestResult>::Make();
-  LinkValue(
+  Link(
       [](Promise<TryUpdateManifestResult> promise,
          ReadyFuture<const void> transaction_future,
          ReadyFuture<TryUpdateManifestResult> manifest_future) {
-        promise.SetResult(std::move(manifest_future.value()));
+        promise.SetResult(std::move(manifest_future.result()));
       },
       std::move(promise2), transaction.future(), std::move(future));
   return std::move(future2);
@@ -702,17 +722,21 @@ void NumberedManifestCache::TransactionNode::Commit() {
   // at the same time as the new manifest is written.
   std::vector<GenerationNumber> versions_to_delete;
   if (existing_numbered_manifest) {
+    static_assert(kNumNumberedManifestsToKeep > 1);
     const auto& versions_present = existing_numbered_manifest->versions_present;
     versions_to_delete.insert(
-        versions_to_delete.end(),
+        versions_to_delete.end(), versions_present.begin(),
         std::lower_bound(versions_present.begin(), versions_present.end(),
                          new_generation_number,
                          [&](GenerationNumber existing_generation,
                              GenerationNumber new_generation) {
-                           return (new_generation - existing_generation) <=
+                           return (new_generation - existing_generation) >
                                   kNumNumberedManifestsToKeep;
-                         }),
-        versions_present.end());
+                         }));
+    ABSL_LOG_IF(INFO, ocdbt_logging)
+        << "Numbered manifest versions present: "
+        << tensorstore::span(versions_present)
+        << ", to delete: " << tensorstore::span(versions_to_delete);
   }
 
   auto& cache = GetOwningCache(entry);
@@ -750,6 +774,9 @@ void NumberedManifestCache::TransactionNode::Commit() {
           std::move(encoded_manifest), std::move(write_options)));
 
   for (GenerationNumber generation_number : versions_to_delete) {
+    ABSL_LOG_IF(INFO, ocdbt_logging)
+        << "Deleting manifest: "
+        << GetNumberedManifestPath(entry.key(), generation_number);
     Link(
         [](Promise<TryUpdateManifestResult> promise,
            ReadyFuture<TimestampedStorageGeneration> future) {

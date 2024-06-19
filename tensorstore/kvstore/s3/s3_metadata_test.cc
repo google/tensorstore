@@ -14,12 +14,23 @@
 
 #include "tensorstore/kvstore/s3/s3_metadata.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include "absl/strings/cord.h"
+#include "absl/time/time.h"
+#include "tensorstore/internal/http/http_response.h"
+#include "tensorstore/util/status_testutil.h"
 #include "tinyxml2.h"
 
 namespace {
 
+using ::tensorstore::StatusIs;
+using ::tensorstore::internal_http::HttpResponse;
+using ::tensorstore::internal_kvstore_s3::AwsHttpResponseToStatus;
+using ::tensorstore::internal_kvstore_s3::GetNodeInt;
 using ::tensorstore::internal_kvstore_s3::GetNodeText;
+using ::tensorstore::internal_kvstore_s3::GetNodeTimestamp;
 
 /// Exemplar ListObjects v2 Response
 /// https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjectsV2.html#API_ListObjectsV2_ResponseSyntax
@@ -56,7 +67,7 @@ static constexpr char kListXml[] =
     R"(</Contents>)"
     R"(</ListBucketResult>)";
 
-TEST(XmlSearchTest, GetNodeText) {
+TEST(XmlSearchTest, GetNodeValues) {
   tinyxml2::XMLDocument xmlDocument;
   ASSERT_EQ(xmlDocument.Parse(kListXml), tinyxml2::XML_SUCCESS);
 
@@ -69,6 +80,86 @@ TEST(XmlSearchTest, GetNodeText) {
 
   EXPECT_EQ(R"("900150983cd24fb0d6963f7d28e17f72")",
             GetNodeText(contents->FirstChildElement("ETag")));
+
+  EXPECT_THAT(GetNodeInt(contents->FirstChildElement("Size")),
+              ::testing::Optional(::testing::Eq(3)));
+
+  EXPECT_THAT(
+      GetNodeTimestamp(contents->FirstChildElement("LastModified")),
+      ::testing::Optional(::testing::Eq(absl::FromUnixSeconds(1688830015))));
+}
+
+TEST(S3MetadataTest, AwsHttpResponseToStatus) {
+  HttpResponse response;
+  // No header, no payload.
+  {
+    response.status_code = 404;
+    bool retryable = false;
+    EXPECT_THAT(AwsHttpResponseToStatus(response, retryable),
+                StatusIs(absl::StatusCode::kNotFound));
+    EXPECT_FALSE(retryable);
+  }
+
+  {
+    response.status_code = 429;
+    bool retryable = false;
+    EXPECT_THAT(AwsHttpResponseToStatus(response, retryable),
+                StatusIs(absl::StatusCode::kUnavailable));
+    EXPECT_TRUE(retryable);
+  }
+
+  // No header, but payload.
+  {
+    response.status_code = 400;
+    response.payload = absl::Cord(R"(<?xml version="1.0" encoding="UTF-8"?>
+<Error>
+  <Code>UnknownError</Code>
+  <Message>Unknown message</Message>
+  <Resource>/mybucket/myfoto.jpg</Resource>
+  <RequestId>4442587FB7D0A2F9</RequestId>
+</Error>
+)");
+    bool retryable = false;
+    EXPECT_THAT(AwsHttpResponseToStatus(response, retryable),
+                StatusIs(absl::StatusCode::kInvalidArgument));
+    EXPECT_FALSE(retryable);
+  }
+
+  {
+    response.status_code = 400;
+    response.payload = absl::Cord(R"(<?xml version="1.0" encoding="UTF-8"?>
+<Error>
+  <Code>ThrottledException</Code>
+  <Message>Throttled message</Message>
+  <Resource>/mybucket/myfoto.jpg</Resource>
+  <RequestId>4442587FB7D0A2F9</RequestId>
+</Error>
+)");
+    bool retryable = false;
+    EXPECT_THAT(AwsHttpResponseToStatus(response, retryable),
+                StatusIs(absl::StatusCode::kInvalidArgument));
+    EXPECT_TRUE(retryable);
+  }
+
+  // header and payload.
+  {
+    response.status_code = 400;
+    response.headers.emplace("x-amzn-errortype", "UnknownError");
+    bool retryable = false;
+    EXPECT_THAT(AwsHttpResponseToStatus(response, retryable),
+                StatusIs(absl::StatusCode::kInvalidArgument));
+    EXPECT_FALSE(retryable);
+  }
+
+  {
+    response.status_code = 400;
+    response.headers.clear();
+    response.headers.emplace("x-amzn-errortype", "ThrottledException");
+    bool retryable = false;
+    EXPECT_THAT(AwsHttpResponseToStatus(response, retryable),
+                StatusIs(absl::StatusCode::kInvalidArgument));
+    EXPECT_TRUE(retryable);
+  }
 }
 
 }  // namespace
