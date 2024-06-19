@@ -111,21 +111,29 @@ CordStreamBuf::int_type CordStreamBuf::overflow(int_type ch) {
 
 // Bulk get operation
 streamsize CordStreamBuf::xsgetn(char * s, streamsize count) {
-  // Not reading or no more Cord data
+  // Not reading
   if(!(mode_ & ios_base::in)) return 0;
-  if(read_chunk_ == cord_.Chunks().end()) return 0;
-  auto bytes_to_read = std::min<streamsize>(read_chunk_->size(), count);
-  for(streamsize i = 0; i < bytes_to_read; ++i) s[i] = read_chunk_->operator[](i);
-  assert(gptr() + bytes_to_read <= egptr());
-  if(gptr() + bytes_to_read < egptr()) {
-    setg(eback(), gptr() + bytes_to_read, egptr());
-  } else {
-    if(++read_chunk_ != cord_.Chunks().end()) {
+  streamsize bytes_read = 0;
+
+  while(bytes_read < count && read_chunk_ != cord_.Chunks().end()) {
+    assert(read_chunk_->size() == egptr() - eback());   // invariant
+    auto bytes_to_read = std::min<streamsize>(gremaining(), count - bytes_read);
+    for(streamsize i = 0, consumed = gconsumed(); i < bytes_to_read; ++i) {
+      s[bytes_read + i] = read_chunk_->operator[](consumed + i);
+    }
+    if(gptr() + bytes_to_read < egptr()) {
+      // Data remains in the get area
+      setg(eback(), gptr() + bytes_to_read, egptr());
+    } else if(++read_chunk_ != cord_.Chunks().end()) {
+      // Initialise get area for next iteration
       char_type * data = const_cast<char_type *>(read_chunk_->data());
       setg(data, data, data + read_chunk_->size());
     }
-  }
-  return bytes_to_read;
+
+    bytes_read += bytes_to_read;
+  };
+
+  return bytes_read;
 }
 
 // Handle buffer underflow.

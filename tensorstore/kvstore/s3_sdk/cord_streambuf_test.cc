@@ -16,6 +16,7 @@
 
 #include <iterator>
 #include <string>
+#include <string_view>
 
 #include "absl/strings/cord.h"
 
@@ -208,8 +209,8 @@ TEST(CordStreamBufTest, GetEntireStreamBuf) {
   EXPECT_TRUE(is.eof());
 }
 
-/// Test seeking within the CordStreamBuf
-TEST(CordStreamBufTest, ReadSeek) {
+/// Test get seeking within the CordStreamBuf
+TEST(CordStreamBufTest, GetSeek) {
   auto is = DefaultUnderlyingStream(
     MakeUnique<CordStreamBuf>(kAwsTag, ThreeBufferCord()));
 
@@ -232,6 +233,40 @@ TEST(CordStreamBufTest, ReadSeek) {
   EXPECT_EQ(is.get(), -1);
   EXPECT_FALSE(is.good());
   EXPECT_TRUE(is.eof());
+}
+
+/// Test read seeking within the CordStreamBuf
+/// exercises xsgetn
+TEST(CordStreamBuftest, ReadSeek) {
+  auto is = DefaultUnderlyingStream(
+    MakeUnique<CordStreamBuf>(kAwsTag, ThreeBufferCord()));
+
+  is.seekg(5);
+
+  {
+    char result[kBufferSize] = {0x00};
+    EXPECT_TRUE(is.read(result, kBufferSize));
+    auto expected = std::string(kBufferSize - 5, '1') + std::string(5, '2');
+    EXPECT_EQ(std::string_view(result, kBufferSize), expected);
+    EXPECT_EQ(is.tellg(), 5 + kBufferSize);
+  }
+
+  {
+    char result[kBufferSize] = {0x00};
+    EXPECT_TRUE(is.read(result, kBufferSize));
+    auto expected = std::string(kBufferSize - 5, '2') + std::string(5, '3');
+    EXPECT_EQ(std::string_view(result, kBufferSize), expected);
+    EXPECT_EQ(is.tellg(), 5 + 2 * kBufferSize);
+  }
+
+  {
+    char result[kBufferSize] = {0x00};
+    EXPECT_FALSE(is.read(result, kBufferSize));
+    auto expected = std::string(kBufferSize - 5, '3');
+    EXPECT_EQ(std::string_view(result, kBufferSize - 5), expected);
+    EXPECT_EQ(std::string_view(result + kBufferSize - 5, 5), std::string(5, 0));
+    EXPECT_EQ(is.tellg(), -1);
+  }
 }
 
 } // namespace
