@@ -47,10 +47,10 @@ public:
   const absl::Cord & GetCord() const { return cord_; }
 
   // Returns the underlying Cord, resetting the underlying stream
-  absl::Cord MoveCord();
+  absl::Cord DetachCord();
   // Takes the supplied Cord as the underlying Cord,
   // resetting the underlying stream
-  void TakeCord(absl::Cord && cord);
+  void AssignCord(absl::Cord && cord);
 
 protected:
   // Bulk put operation

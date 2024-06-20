@@ -15,6 +15,7 @@
 #include "tensorstore/kvstore/s3_sdk/cord_streambuf.h"
 
 #include <ios>
+#include <iosfwd>
 #include <string_view>
 
 #include "absl/strings/cord.h"
@@ -52,7 +53,7 @@ CordStreamBuf::CordStreamBuf(Cord && cord) :
   }
 }
 
-Cord CordStreamBuf::MoveCord() {
+Cord CordStreamBuf::DetachCord() {
   Cord result;
   std::swap(result, cord_);
   read_chunk_ = cord_.Chunks().begin();
@@ -62,7 +63,7 @@ Cord CordStreamBuf::MoveCord() {
   return result;
 }
 
-void CordStreamBuf::TakeCord(Cord && cord) {
+void CordStreamBuf::AssignCord(Cord && cord) {
   setg(nullptr, nullptr, nullptr);
   setp(nullptr, nullptr);
 

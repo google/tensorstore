@@ -94,7 +94,7 @@ public:
       // Fast path, extract underlying Cord
       if (auto cordstreambuf = dynamic_cast<CordStreamBuf *>(body->rdbuf());
           cordstreambuf) {
-        payload = cordstreambuf->MoveCord();
+        payload = cordstreambuf->DetachCord();
         // TODO: remove this
         ABSL_LOG(INFO) << "CordBacked Aws::Http::StandardHttpRequest of size " << payload.size();
       } else {
@@ -139,7 +139,7 @@ public:
         // Fast path, directly assign the Cord
         // TODO: remove this
         ABSL_LOG(INFO) << "CordBacked Aws::Http::StandardHttpResponse of size " << ts_response.payload.size();
-        cordstreambuf->TakeCord(std::move(ts_response.payload));
+        cordstreambuf->AssignCord(std::move(ts_response.payload));
       } else {
         body << ts_response.payload;
       }
