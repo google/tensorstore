@@ -214,7 +214,7 @@ namespace {
 /// \param value The zarr metadata "dtype" JSON specification.
 /// \param out[out] Must be non-null.  Filled with the parsed dtype on success.
 /// \error `absl::StatusCode::kInvalidArgument' if `value` is invalid.
-Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value) {
+Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value, const ParseDTypeOptions& options) {
   ZarrDType out;
   if (value.is_string()) {
     // Single field.
@@ -279,6 +279,19 @@ Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value) {
             });
       });
   if (!parse_result.ok()) return parse_result;
+ 
+  if (options.treat_struct_as_byte_array) {
+    // Convert struct dtype to a single byte array dtype.
+    out.has_fields = false;
+    ZarrDType::Field byte_array_field;
+    byte_array_field.name = "";
+    byte_array_field.dtype = dtype_v<std::byte>;
+    byte_array_field.endian = endian::native;
+    byte_array_field.encoded_dtype = "V";
+    byte_array_field.flexible_shape = {out.bytes_per_outer_element};
+    out.fields = {byte_array_field};
+  }
+ 
   return out;
 }
 
@@ -320,8 +333,8 @@ absl::Status ValidateDType(ZarrDType& dtype) {
   return absl::OkStatus();
 }
 
-Result<ZarrDType> ParseDType(const nlohmann::json& value) {
-  TENSORSTORE_ASSIGN_OR_RETURN(ZarrDType dtype, ParseDTypeNoDerived(value));
+Result<ZarrDType> ParseDType(const nlohmann::json& value, const ParseDTypeOptions& options) {
+  TENSORSTORE_ASSIGN_OR_RETURN(ZarrDType dtype, ParseDTypeNoDerived(value, options));
   TENSORSTORE_RETURN_IF_ERROR(ValidateDType(dtype));
   return dtype;
 }

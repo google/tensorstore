@@ -445,9 +445,32 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(ZarrPartialMetadata,
 // only support raw decoder.
 
 Result<absl::InlinedVector<SharedArray<const void>, 1>> DecodeChunk(
-    const ZarrMetadata& metadata, absl::Cord buffer) {
+    const ZarrMetadata& metadata, absl::Cord buffer, bool treat_struct_as_byte_array) {
   const size_t num_fields = metadata.dtype.fields.size();
   absl::InlinedVector<SharedArray<const void>, 1> field_arrays(num_fields);
+  if (treat_struct_as_byte_array) {
+    // Treat the entire chunk as a single byte array.
+    SharedArray<const void> byte_array;
+    if (metadata.compressor) {
+      std::unique_ptr<riegeli::Reader> reader =
+          std::make_unique<riegeli::CordReader<absl::Cord>>(std::move(buffer));
+      reader = metadata.compressor->GetReader(
+          std::move(reader), metadata.dtype.bytes_per_outer_element);
+      TENSORSTORE_RETURN_IF_ERROR(riegeli::ReadAll(std::move(reader), buffer));
+    }
+    byte_array = AllocateArray(
+        {metadata.chunk_layout.bytes_per_chunk}, ContiguousLayoutOrder::c,
+        default_init, dtype_v<std::byte>);
+    std::string buffer_str(buffer.Flatten()); // TODO: Does this really need to be a string? What's going on here?
+    if (byte_array.num_elements() >= buffer_str.size()) {
+        std::memcpy(const_cast<void*>(byte_array.data()), buffer_str.data(), buffer_str.size());
+    } else {
+      return absl::InvalidArgumentError("byte_array is not large enough to hold buffer_str");
+    }
+    field_arrays[0] = std::move(byte_array);
+    return field_arrays;
+  }
+
   if (num_fields == 1) {
     // Optimized code path, decompress directly into output array.
     const auto& dtype_field = metadata.dtype.fields[0];

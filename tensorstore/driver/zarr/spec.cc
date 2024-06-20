@@ -525,7 +525,7 @@ std::string GetFieldNames(const ZarrDType& dtype) {
 Result<size_t> GetFieldIndex(const ZarrDType& dtype,
                              const SelectedField& selected_field) {
   if (selected_field.empty()) {
-    if (dtype.fields.size() != 1) {
+    if (dtype.fields.size() != 1 && !dtype.fields.back().name.empty()) {
       return absl::FailedPreconditionError(tensorstore::StrCat(
           "Must specify a \"field\" that is one of: ", GetFieldNames(dtype)));
     }

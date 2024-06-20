@@ -186,6 +186,9 @@ TEST(GetFieldIndexTest, Null) {
       MatchesStatus(
           absl::StatusCode::kFailedPrecondition,
           "Must specify a \"field\" that is one of: \\[\"x\",\"y\"\\]"));
+
+  auto res = GetFieldIndex(ParseDType(::nlohmann::json::array_t{{"x", "<i4"}, {"y", "<u2"}}, {true}).value(), "");
+  ASSERT_TRUE(res.status().ok()) << res.status();
 }
 
 TEST(GetFieldIndexTest, String) {

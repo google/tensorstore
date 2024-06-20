@@ -241,7 +241,7 @@ Result<absl::Cord> EncodeChunk(
 /// \error `absl::StatusCode::kInvalidArgument` if `buffer` is not a valid
 ///     encoded zarr chunk according to `metadata`.
 Result<absl::InlinedVector<SharedArray<const void>, 1>> DecodeChunk(
-    const ZarrMetadata& metadata, absl::Cord buffer);
+    const ZarrMetadata& metadata, absl::Cord buffer, bool treat_struct_as_byte_array = false);
 
 /// Returns `true` if `a` and `b` are compatible, meaning stored data created
 /// with `a` can be read using `b`.
