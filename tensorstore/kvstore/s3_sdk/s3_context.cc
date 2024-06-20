@@ -301,7 +301,7 @@ std::shared_ptr<AwsContext> GetAwsContext() {
 
   ABSL_LOG(INFO) << "Initialising AWS SDK API";
   Aws::InitAPI(options);
-  ABSL_LOG(INFO) << "Done initialising AWS SDK API";
+  ABSL_LOG(INFO) << "AWS SDK API Initialised";
 
   auto provider = Aws::MakeShared<DefaultAWSCredentialsProviderChain>(kAwsTag);
 
@@ -313,7 +313,7 @@ std::shared_ptr<AwsContext> GetAwsContext() {
         absl::MutexLock lock(&context_mu_);
         ABSL_LOG(INFO) << "Shutting down AWS SDK API";
         Aws::ShutdownAPI(ctx->options);
-        ABSL_LOG(INFO) << "Done shutting down AWS SDK API";
+        ABSL_LOG(INFO) << "AWS SDK API Shutdown";
         delete ctx;
     });
   context_ = ctx;
