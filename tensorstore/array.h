@@ -1638,13 +1638,16 @@ bool IterateOverArrays(ElementwiseClosure<sizeof...(Array), void*> closure,
                        void* arg, IterationConstraints constraints,
                        const Array&... array) {
   ABSL_CHECK(ArraysHaveSameShapes(array...));
+  std::array<ByteStridedPointer<void>, sizeof...(Array)> pointers{
+      {const_cast<void*>(static_cast<const void*>(
+          array.byte_strided_origin_pointer().get()))...}};
+  std::array<const Index*, sizeof...(Array)> strides{
+      {array.byte_strides().data()...}};
   const std::array<ptrdiff_t, sizeof...(Array)> element_sizes{
       {array.dtype().size()...}};
   return IterateOverStridedLayouts(
-      closure, arg, internal::GetFirstArgument(array...).shape(),
-      {{const_cast<void*>(static_cast<const void*>(
-          array.byte_strided_origin_pointer().get()))...}},
-      {{array.byte_strides().data()...}}, constraints, element_sizes);
+      closure, arg, internal::GetFirstArgument(array...).shape(), pointers,
+      strides, constraints, element_sizes);
 }
 
 }  // namespace internal
@@ -1688,7 +1691,7 @@ IterateOverArrays(Func&& func, IterationConstraints constraints,
       internal::SimpleElementwiseFunction<decltype(func_wrapper)(
                                               typename Array::Element...),
                                           void*>::Closure(&func_wrapper),
-      /*status=*/nullptr, constraints, array...);
+      /*arg=*/nullptr, constraints, array...);
 }
 
 /// Copies the contents of `source` to `dest`.

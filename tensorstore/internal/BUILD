@@ -882,7 +882,6 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
-        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/status",
     ],
 )

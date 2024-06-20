@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <string>
 #include <type_traits>
@@ -289,7 +290,7 @@ Result<SharedArray<void, dynamic_rank, offset_origin>> ParseArrayFromProto(
 
     ReadProtoImpl impl{proto};
     internal::IterateOverArrays({kProtoFunctions[index].read_fn, &impl},
-                                /*arg*/ nullptr,
+                                /*arg=*/nullptr,
                                 {c_order, skip_repeated_elements}, array);
     if (impl.error_count > 0) {
       return absl::DataLossError("Array element truncated");

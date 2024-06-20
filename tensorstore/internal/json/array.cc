@@ -18,7 +18,6 @@
 
 #include <algorithm>
 #include <cassert>
-#include <string>
 #include <utility>
 #include <vector>
 
@@ -53,11 +52,9 @@ namespace internal_json {
   // Special case rank-0 arrays, because we assume below that there is always a
   // parent array to which elements are added.
   if (array.rank() == 0) {
+    assert(array.data());
     return encode_element(array.data());
   }
-
-  // Pointer to next array element to encode.
-  ByteStridedPointer<const void> pointer = array.byte_strided_origin_pointer();
 
   // `path[0], ..., path[level]` specify the ancestor JSON arrays of the next
   // encoded element.  `path[0]` is the root, `path[level]` is the immediate
@@ -75,12 +72,16 @@ namespace internal_json {
     return j_root;
   }
 
+  // Pointer to next array element to encode.
+  ByteStridedPointer<const void> pointer = array.byte_strided_origin_pointer();
+
   while (true) {
     // Encode the next element of the current level, either as a terminal
     // element (if `level == array.rank() - 1`) as a nested array (if
     // `level < array.rank() - 1`).
     array_t* j_parent = path[level];
     if (level == array.rank() - 1) {
+      assert(pointer.get());
       j_parent->push_back(encode_element(pointer.get()));
     } else {
       // We are not at the last array dimension.  Create a new JSON array and
@@ -151,8 +152,9 @@ Result<SharedArray<void>> JsonParseNestedArrayImpl(
   const ::nlohmann::json* j = &j_root;
 
   const auto allocate_array = [&] {
-    array = AllocateArray(span(&shape_or_position[0], nesting_level), c_order,
-                          default_init, dtype);
+    array =
+        AllocateArray(tensorstore::span(&shape_or_position[0], nesting_level),
+                      c_order, default_init, dtype);
     pointer = array.byte_strided_origin_pointer();
     // Convert shape vector to position vector.
     std::fill_n(&shape_or_position[0], nesting_level, static_cast<Index>(0));

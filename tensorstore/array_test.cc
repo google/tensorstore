@@ -568,6 +568,13 @@ TEST(SharedArrayTest, ConstructAndAssign) {
     EXPECT_EQ(2, a7());
   }
 
+  // Construct rank-0 array from a null pointer.
+  {
+    SharedArray<float, 0> a7(std::shared_ptr<float>(nullptr));
+    EXPECT_FALSE(a7.valid());
+    EXPECT_EQ(0, a7.rank());
+  }
+
   // Move construct and assign.
   {
     auto data = std::make_shared<float>(2.0f);

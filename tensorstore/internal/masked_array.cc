@@ -17,11 +17,8 @@
 #include <algorithm>
 #include <cassert>
 #include <memory>
-#include <new>
-#include <type_traits>
 #include <utility>
 
-#include "absl/base/attributes.h"
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
@@ -47,7 +44,6 @@
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal {
@@ -226,9 +222,8 @@ void RebaseMaskedArray(BoxView<> box, ArrayView<const void> source,
   DataType dtype = source.dtype();
   if (mask.num_masked_elements == 0) {
     [[maybe_unused]] const auto success = internal::IterateOverArrays(
-        {&dtype->copy_assign,
-         /*context=*/nullptr},
-        /*status=*/nullptr, skip_repeated_elements, source, dest);
+        {&dtype->copy_assign, /*context=*/nullptr},
+        /*arg=*/nullptr, skip_repeated_elements, source, dest);
     assert(success);
     return;
   }
@@ -248,8 +243,8 @@ void RebaseMaskedArray(BoxView<> box, ArrayView<const void> source,
   ArrayView<const bool> mask_array(
       mask_array_ptr, StridedLayoutView<>(box.shape(), mask_byte_strides));
   [[maybe_unused]] const auto success = internal::IterateOverArrays(
-      {&dtype->copy_assign_unmasked, /*context=*/nullptr}, /*status=*/nullptr,
-      skip_repeated_elements, source, dest, mask_array);
+      {&dtype->copy_assign_unmasked, /*context=*/nullptr},
+      /*arg=*/nullptr, skip_repeated_elements, source, dest, mask_array);
   assert(success);
 }
 

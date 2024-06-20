@@ -50,6 +50,7 @@
 #include "tensorstore/open_mode.h"
 #include "tensorstore/open_options.h"
 #include "tensorstore/rank.h"
+#include "tensorstore/schema.h"
 #include "tensorstore/spec.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/transaction.h"
@@ -365,8 +366,14 @@ Result<internal::TransformedDriverSpec> ArrayDriver::GetBoundSpec(
   for (const Index byte_stride : array.byte_strides()) {
     if (byte_stride != 0) ++output_rank;
   }
+
+  auto new_array_layout = transform.domain().num_elements() == 0
+                              ? StridedLayout<>({0}, {0})
+                              : StridedLayout<>(output_rank);
+  output_rank = new_array_layout.rank();
   SharedArray<const void> new_array(array.element_pointer(),
-                                    StridedLayout<>(output_rank));
+                                    std::move(new_array_layout));
+
   IndexTransformBuilder<> transform_builder(transform.input_rank(),
                                             output_rank);
   transform_builder.input_domain(transform.input_domain());
@@ -490,6 +497,9 @@ Result<internal::Driver::Handle> MakeArrayDriver(
         (tensorstore::ArrayOriginCast<zero_origin, container>(
             std::move(array))));
   }
+  if (!zero_origin_array.valid() && zero_origin_array.num_elements() != 0) {
+    return absl::InvalidArgumentError("Array is not valid");
+  }
   if (!options.context) options.context = Context::Default();
   return internal::Driver::Handle{
       internal::MakeReadWritePtr<internal_array_driver::ArrayDriver>(
@@ -529,9 +539,16 @@ Result<tensorstore::Spec> SpecFromArray(SharedOffsetArrayView<const void> array,
   TENSORSTORE_ASSIGN_OR_RETURN(
       impl.transform, tensorstore::IdentityTransform(array.shape()) |
                           tensorstore::AllDims().TranslateTo(array.origin()));
-  TENSORSTORE_ASSIGN_OR_RETURN(
-      driver_spec->array,
-      (tensorstore::ArrayOriginCast<zero_origin, container>(std::move(array))));
+
+  auto zero_origin_array =
+      tensorstore::ArrayOriginCast<zero_origin, container>(std::move(array));
+  if (!zero_origin_array.ok()) {
+    return std::move(zero_origin_array).status();
+  }
+  if (!zero_origin_array->valid() && zero_origin_array->num_elements() != 0) {
+    return absl::InvalidArgumentError("Array is not valid");
+  }
+  driver_spec->array = std::move(*zero_origin_array);
   impl.driver_spec = std::move(driver_spec);
   return spec;
 }

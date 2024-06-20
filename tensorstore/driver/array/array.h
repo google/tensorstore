@@ -16,13 +16,19 @@
 #define TENSORSTORE_DRIVER_ARRAY_ARRAY_H_
 
 #include <type_traits>
+#include <utility>
 
+#include "absl/meta/type_traits.h"
+#include "tensorstore/array.h"
 #include "tensorstore/context.h"
 #include "tensorstore/driver/driver.h"
 #include "tensorstore/index_space/dimension_units.h"
-#include "tensorstore/index_space/transformed_array.h"
-#include "tensorstore/internal/nditerable_transformed_array.h"
+#include "tensorstore/open_mode.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/spec.h"
+#include "tensorstore/strided_layout.h"
 #include "tensorstore/tensorstore.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 

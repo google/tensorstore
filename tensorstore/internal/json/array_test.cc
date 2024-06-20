@@ -15,9 +15,8 @@
 #include "tensorstore/internal/json/array.h"
 
 #include <cstddef>
-#include <optional>
+#include <cstdint>
 #include <string>
-#include <type_traits>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -28,7 +27,6 @@
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/json/value_as.h"
 #include "tensorstore/internal/json_gtest.h"
-#include "tensorstore/util/element_pointer.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
 
@@ -38,6 +36,7 @@ using ::nlohmann::json;
 using ::tensorstore::dtype_v;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
+using ::tensorstore::SharedArray;
 using ::tensorstore::internal_json::JsonEncodeNestedArray;
 using ::tensorstore::internal_json::JsonParseNestedArray;
 using ::tensorstore::internal_json::JsonValueAs;
@@ -71,6 +70,11 @@ TEST(JsonEncodeNestedArray, Rank2) {
       (::nlohmann::json{{1, 2, 3}, {4, 5, 6}}),
       JsonEncodeNestedArray(tensorstore::MakeArray({{1, 2, 3}, {4, 5, 6}}),
                             [](const int* i) { return *i; }));
+}
+TEST(JsonEncodeNestedArray, Rank2ZeroSize) {
+  EXPECT_EQ(::nlohmann::json::array(),
+            JsonEncodeNestedArray(tensorstore::AllocateArray<int>({0, 0}),
+                                  [](const int* i) { return *i; }));
 }
 
 TEST(JsonEncodeNestedArray, Rank2ZeroSizeDim0) {
@@ -141,23 +145,23 @@ TEST(JsonEncodeNestedArray, DataTypeConversionByteError) {
                             "Conversion from byte to JSON is not implemented"));
 }
 
-Result<std::int64_t> DecodeInt64(const ::nlohmann::json& v) {
-  if (auto x = JsonValueAs<std::int64_t>(v)) return *x;
+Result<int64_t> DecodeInt64(const ::nlohmann::json& v) {
+  if (auto x = JsonValueAs<int64_t>(v)) return *x;
   return absl::InvalidArgumentError("Invalid integer");
 }
 
 TEST(JsonParseNestedArrayTest, RankZero) {
-  EXPECT_EQ(tensorstore::MakeScalarArray<std::int64_t>(1),
+  EXPECT_EQ(tensorstore::MakeScalarArray<int64_t>(1),
             JsonParseNestedArray(::nlohmann::json(1), &DecodeInt64));
 }
 
 TEST(JsonParseNestedArrayTest, RankOne) {
-  EXPECT_EQ(tensorstore::MakeArray<std::int64_t>({1, 2, 3}),
+  EXPECT_EQ(tensorstore::MakeArray<int64_t>({1, 2, 3}),
             JsonParseNestedArray(::nlohmann::json{1, 2, 3}, &DecodeInt64));
 }
 
 TEST(JsonParseNestedArrayTest, RankTwo) {
-  EXPECT_EQ(tensorstore::MakeArray<std::int64_t>({{1, 2, 3}, {4, 5, 6}}),
+  EXPECT_EQ(tensorstore::MakeArray<int64_t>({{1, 2, 3}, {4, 5, 6}}),
             JsonParseNestedArray(::nlohmann::json{{1, 2, 3}, {4, 5, 6}},
                                  &DecodeInt64));
 }
@@ -207,24 +211,24 @@ TEST(JsonParseNestedArrayTest, Ragged) {
 }
 
 TEST(JsonParseNestedArrayTest, ZeroSize) {
-  EXPECT_EQ(tensorstore::AllocateArray<std::int64_t>({2, 0}),
-            JsonParseNestedArray(
-                ::nlohmann::json::array_t{::nlohmann::json::array_t(),
-                                          ::nlohmann::json::array_t()},
-                &DecodeInt64));
+  EXPECT_EQ(
+      tensorstore::AllocateArray<int64_t>({2, 0}),
+      JsonParseNestedArray(::nlohmann::json::array({::nlohmann::json::array(),
+                                                    ::nlohmann::json::array()}),
+                           &DecodeInt64));
 }
 
 TEST(JsonParseNestedArrayTest, DataTypeConversionInt) {
   EXPECT_THAT(
       JsonParseNestedArray(::nlohmann::json{{1, 2, 3}, {4, 5, 6}},
-                           dtype_v<std::int32_t>, 2),
+                           dtype_v<int32_t>, 2),
       ::testing::Optional(tensorstore::MakeArray({{1, 2, 3}, {4, 5, 6}})));
 }
 
 TEST(JsonParseNestedArrayTest, DataTypeConversionIntRankError) {
   EXPECT_THAT(
       JsonParseNestedArray(::nlohmann::json{{1, 2, 3}, {4, 5, 6}},
-                           dtype_v<std::int32_t>, 3),
+                           dtype_v<int32_t>, 3),
       MatchesStatus(absl::StatusCode::kInvalidArgument,
                     "Array rank \\(2\\) does not match expected rank \\(3\\)"));
 }
