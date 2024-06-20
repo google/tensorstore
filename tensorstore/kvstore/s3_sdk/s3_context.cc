@@ -65,9 +65,9 @@ absl::Mutex context_mu_;
 std::weak_ptr<AwsContext> context_ ABSL_GUARDED_BY(context_mu_);
 
 /// Provides a custom Aws HttpClient.
-/// Overrides the Aws::HttpClient::MakeRequest to convert AWS HttpRequests
-/// into tensorstore HttpRequests which are issued on the tensorstore
-/// default HTTP transport. The returned tensorstore HttpResponse is
+/// Overrides Aws::HttpClient::MakeRequest to convert AWS HttpRequests
+/// into tensorstore HttpRequests which are issued on the default  tensorstore
+/// HTTP transport. The returned tensorstore HttpResponse is
 // converted into an AWS HttpResponse
 class CustomHttpClient : public AwsHttpClient {
 public:
