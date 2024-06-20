@@ -58,6 +58,7 @@ namespace {
 
 static constexpr char kAwsTag[] = "AWS";
 static constexpr char kUserAgentHeader[] = "user-agent";
+static constexpr std::size_t k1MB = 1024 * 1024;
 
 // Context guarded by mutex
 absl::Mutex context_mu_;
@@ -96,7 +97,6 @@ public:
           cordstreambuf) {
         payload = cordstreambuf->DetachCord();
         // TODO: remove this
-        ABSL_LOG(INFO) << "CordBacked Aws::Http::StandardHttpRequest of size " << payload.size();
       } else {
         // Slow path, copy characters off the stream into Cord
         std::vector<char> buffer(absl::CordBuffer::kDefaultLimit);
@@ -104,6 +104,11 @@ public:
         while (body->read(buffer.data(), buffer.size()) || body->gcount() > 0) {
           payload.Append(absl::string_view(buffer.data(), body->gcount()));
         }
+
+        if(payload.size() > k1MB) {
+          ABSL_LOG(WARNING) << "Copied HttpRequest body of size " << payload.size() << " from iostream";
+        }
+
         // Reset stream
         body->clear();
         body->seekg(original);
@@ -137,10 +142,12 @@ public:
       if(auto cordstreambuf = dynamic_cast<CordStreamBuf *>(body.rdbuf());
           cordstreambuf) {
         // Fast path, directly assign the Cord
-        // TODO: remove this
-        ABSL_LOG(INFO) << "CordBacked Aws::Http::StandardHttpResponse of size " << ts_response.payload.size();
         cordstreambuf->AssignCord(std::move(ts_response.payload));
       } else {
+        if(ts_response.payload.size() > k1MB) {
+          ABSL_LOG(WARNING) << "Copied HttpResponse body of size " << ts_response.payload.size() << " to iostream";
+        }
+
         body << ts_response.payload;
       }
     }
