@@ -525,11 +525,14 @@ std::string GetFieldNames(const ZarrDType& dtype) {
 Result<size_t> GetFieldIndex(const ZarrDType& dtype,
                              const SelectedField& selected_field) {
   if (selected_field.empty()) {
-    if (dtype.fields.size() != 1 && !dtype.fields.back().name.empty()) {
-      return absl::FailedPreconditionError(tensorstore::StrCat(
-          "Must specify a \"field\" that is one of: ", GetFieldNames(dtype)));
+    std::size_t size = dtype.fields.size();
+    if (size == 1) {
+      return 0;
+    } else if (dtype.fields.back().name.empty()) {
+      return size-1;
     }
-    return 0;
+    return absl::FailedPreconditionError(tensorstore::StrCat(
+        "Must specify a \"field\" that is one of: ", GetFieldNames(dtype)));
   }
   if (!dtype.has_fields) {
     return absl::FailedPreconditionError(
