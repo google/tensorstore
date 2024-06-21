@@ -26,6 +26,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_format.h"
+#include "absl/time/time.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
@@ -38,10 +39,12 @@
 #include "tensorstore/driver/driver_testutil.h"
 #include "tensorstore/driver/zarr3/codec/codec_test_util.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
+#include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/memory/memory_key_value_store.h"
 #include "tensorstore/kvstore/mock_kvstore.h"
@@ -50,6 +53,7 @@
 #include "tensorstore/open_mode.h"
 #include "tensorstore/read_write_options.h"
 #include "tensorstore/schema.h"
+#include "tensorstore/spec.h"
 #include "tensorstore/staleness_bound.h"
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/util/future.h"
@@ -67,6 +71,8 @@ using ::tensorstore::Index;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
 using ::tensorstore::Schema;
+using ::tensorstore::StorageGeneration;
+using ::tensorstore::TimestampedStorageGeneration;
 using ::tensorstore::internal::TestSpecSchema;
 using ::tensorstore::internal::TestTensorStoreCreateCheckSchema;
 using ::tensorstore::internal::TestTensorStoreCreateWithSchema;
@@ -1284,6 +1290,75 @@ TEST(ZarrDriverTest, CanReferenceSourceDataIndefinitelyWithCast) {
                     reinterpret_cast<const char*>(array.data()));
     }
   }
+}
+
+TEST(FullShardWriteTest, WithoutTransaction) {
+  auto context = Context::Default();
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto mock_key_value_store_resource,
+      context.GetResource<tensorstore::internal::MockKeyValueStoreResource>());
+  auto mock_key_value_store = *mock_key_value_store_resource;
+
+  ::nlohmann::json json_spec{
+      {"driver", "zarr3"},
+      {"kvstore",
+       {
+           {"driver", "mock_key_value_store"},
+           {"path", "prefix/"},
+       }},
+      {"create", true},
+      {"schema",
+       {
+           {"chunk_layout",
+            {{"read_chunk", {{"shape", {2, 2, 2}}}},
+             {"write_chunk", {{"shape", {4, 4, 4}}}}}},
+           {"domain", {{"shape", {4, 8, 12}}}},
+           {"dtype", "uint16"},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
+                                   tensorstore::Spec::FromJson(json_spec));
+
+  auto store_future = tensorstore::Open(spec, context);
+  store_future.Force();
+
+  {
+    auto req = mock_key_value_store->read_requests.pop();
+    EXPECT_EQ("prefix/zarr.json", req.key);
+    req.promise.SetResult(
+        tensorstore::kvstore::ReadResult::Missing(absl::Now()));
+  }
+
+  {
+    auto req = mock_key_value_store->write_requests.pop();
+    EXPECT_EQ("prefix/zarr.json", req.key);
+    EXPECT_EQ(StorageGeneration::NoValue(),
+              req.options.generation_conditions.if_equal);
+    req.promise.SetResult(TimestampedStorageGeneration{
+        StorageGeneration::FromString("g0"), absl::Now()});
+  }
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store, store_future.result());
+
+  auto future = tensorstore::Write(
+      tensorstore::MakeScalarArray<uint16_t>(42),
+      store | tensorstore::Dims(0, 1, 2).SizedInterval({0, 4, 8}, {4, 4, 4}));
+
+  future.Force();
+
+  {
+    auto req = mock_key_value_store->write_requests.pop();
+    ASSERT_EQ("prefix/c/0/1/2", req.key);
+    // Writeback is unconditional because the entire shard is being written.
+    ASSERT_EQ(StorageGeneration::Unknown(),
+              req.options.generation_conditions.if_equal);
+    req.promise.SetResult(TimestampedStorageGeneration{
+        StorageGeneration::FromString("g0"), absl::Now()});
+  }
+
+  TENSORSTORE_ASSERT_OK(future);
 }
 
 }  // namespace

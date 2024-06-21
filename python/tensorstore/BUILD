@@ -444,6 +444,7 @@ pybind11_cc_library(
         "//tensorstore/util:str_cat",
         "@com_github_nlohmann_json//:json",
         "@com_github_pybind_pybind11//:pybind11",
+        "@com_google_absl//absl/time",
     ],
     alwayslink = True,
 )

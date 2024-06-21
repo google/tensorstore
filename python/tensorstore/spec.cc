@@ -25,6 +25,7 @@
 #include <string>
 #include <utility>
 
+#include "absl/time/time.h"
 #include <nlohmann/json_fwd.hpp>
 #include "python/tensorstore/array_type_caster.h"
 #include "python/tensorstore/context.h"

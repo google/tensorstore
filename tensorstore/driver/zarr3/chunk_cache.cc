@@ -345,7 +345,7 @@ void ZarrShardedChunkCache::Write(
                    AnyFlowReceiver<absl::Status, internal::WriteChunk,
                                    IndexTransform<>>&& receiver) {
           entry->sub_chunk_cache.get()->Write(
-              {transaction, std::move(transform)}, std::move(receiver));
+              {shard_transaction, std::move(transform)}, std::move(receiver));
         };
       });
 }
