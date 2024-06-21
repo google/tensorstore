@@ -434,6 +434,7 @@ pybind11_cc_library(
         "//tensorstore:rank",
         "//tensorstore:schema",
         "//tensorstore:spec",
+        "//tensorstore:staleness_bound",
         "//tensorstore/driver",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/internal:global_initializer",

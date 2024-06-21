@@ -37,6 +37,7 @@
 #include "tensorstore/open_mode.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/spec.h"
+#include "tensorstore/staleness_bound.h"
 
 namespace tensorstore {
 namespace internal_python {
@@ -363,10 +364,15 @@ struct SetMinimalSpec {
   static constexpr const char* name = "minimal_spec";
   static constexpr const char* doc = R"(
 
-Indicates whether to include in the returned :py:obj:`~tensorstore.Spec` the
-metadata necessary to re-create the :py:obj:`~tensorstore.TensorStore`.  By
-default, the returned :py:obj:`~tensorstore.Spec` includes the full metadata,
-but it is skipped if :py:param:`.minimal_spec` is set to :python:`True`.
+Indicates whether to include in the :py:obj:`~tensorstore.Spec` returned by
+:py:obj:`tensorstore.TensorStore.spec` the metadata necessary to re-create the
+:py:obj:`~tensorstore.TensorStore`. By default, the returned
+:py:obj:`~tensorstore.Spec` includes the full metadata, but it is skipped if
+:py:param:`.minimal_spec` is set to :python:`True`.
+
+When applied to an existing :py:obj:`~tensorstore.Spec` via
+:py:obj:`tensorstore.open` or :py:obj:`tensorstore.Spec.update`, only ``False``
+has any effect.
 
 )";
   template <typename Self>
@@ -474,6 +480,65 @@ key-value store.
   }
 };
 
+struct SetRecheckCachedData {
+  using type = RecheckCacheOption;
+  static constexpr const char* name = "recheck_cached_data";
+  static constexpr const char* doc = R"(
+
+Time after which cached data is assumed to be fresh. Cached data older than the
+specified time is revalidated prior to being returned from a read operation.
+Partial chunk writes are always consistent regardless of the value of this
+option.
+
+The default value of ``True`` means that cached data is revalidated on every
+read. To enable in-memory data caching, you must both specify a
+:json:schema:`~Context.cache_pool` with a non-zero
+:json:schema:`~Context.cache_pool.total_bytes_limit` and also specify ``False``,
+``"open"``, or an explicit time bound for :py:param:`.recheck_cached_data`.
+
+)";
+  template <typename Self>
+  static absl::Status Apply(Self& self, type value) {
+    return self.Set(RecheckCachedData{value});
+  }
+};
+
+struct SetRecheckCachedMetadata {
+  using type = RecheckCacheOption;
+  static constexpr const char* name = "recheck_cached_metadata";
+  static constexpr const char* doc = R"(
+
+Time after which cached metadata is assumed to be fresh. Cached metadata older
+than the specified time is revalidated prior to use. The metadata is used to
+check the bounds of every read or write operation.
+
+Specifying ``True`` means that the metadata will be revalidated prior to every
+read or write operation. With the default value of ``"open"``, any cached
+metadata is revalidated when the TensorStore is opened but is not rechecked for
+each read or write operation.
+
+)";
+  template <typename Self>
+  static absl::Status Apply(Self& self, type value) {
+    return self.Set(RecheckCachedMetadata{value});
+  }
+};
+
+struct SetRecheckCached {
+  using type = RecheckCacheOption;
+  static constexpr const char* name = "recheck_cached";
+  static constexpr const char* doc = R"(
+
+Sets both :py:param:`.recheck_cached_data` and
+:py:param:`.recheck_cached_metadata`.
+
+)";
+  template <typename Self>
+  static absl::Status Apply(Self& self, type value) {
+    return self.Set(RecheckCached{value});
+  }
+};
+
 }  // namespace spec_setters
 
 }  // namespace internal_python
@@ -513,6 +578,16 @@ struct type_caster<tensorstore::OpenMode> {
     return pybind11::cast(tensorstore::internal_python::PythonOpenMode{value})
         .release();
   }
+};
+
+// Defines automatic conversion from `tensorstore.RecheckCacheOption` to
+// `tensorstore::RecheckCacheOption`.
+template <>
+struct type_caster<tensorstore::RecheckCacheOption> {
+  PYBIND11_TYPE_CASTER(tensorstore::RecheckCacheOption,
+                       _("tensorstore.RecheckCacheOption"));
+
+  bool load(handle src, bool convert);
 };
 
 }  // namespace detail
