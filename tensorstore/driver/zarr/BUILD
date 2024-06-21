@@ -400,6 +400,7 @@ tensorstore_cc_library(
         "//tensorstore/driver:kvs_backed_chunk_driver",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/index_space:transform_broadcastable_array",
+        "//tensorstore/internal:async_write_array",
         "//tensorstore/internal:chunk_grid_specification",
         "//tensorstore/internal:grid_storage_statistics",
         "//tensorstore/internal:type_traits",

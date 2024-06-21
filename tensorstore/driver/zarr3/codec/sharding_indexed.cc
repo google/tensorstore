@@ -36,6 +36,7 @@
 #include "tensorstore/driver/zarr3/codec/registry.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
+#include "tensorstore/internal/async_write_array.h"
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/chunk_grid_specification.h"
 #include "tensorstore/internal/global_initializer.h"
@@ -257,10 +258,12 @@ Result<ZarrArrayToBytesCodec::Ptr> ShardingIndexedCodecSpec::Resolve(
   internal::ChunkGridSpecification::ComponentList components;
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto broadcast_fill_value,
-      BroadcastArray(decoded.fill_value, sub_chunk_shape));
-  components.emplace_back(std::move(broadcast_fill_value),
-                          Box<>(sub_chunk_shape.size()));
-  components.back().fill_value_comparison_kind =
+      BroadcastArray(decoded.fill_value, BoxView<>(sub_chunk_shape.size())));
+  components.emplace_back(
+      internal::AsyncWriteArray::Spec{std::move(broadcast_fill_value),
+                                      Box<>(sub_chunk_shape.size())},
+      std::vector<Index>(sub_chunk_shape.begin(), sub_chunk_shape.end()));
+  components.back().array_spec.fill_value_comparison_kind =
       EqualityComparisonKind::identical;
   auto codec = internal::MakeIntrusivePtr<ShardingIndexedCodec>(
       internal::ChunkGridSpecification(std::move(components)));

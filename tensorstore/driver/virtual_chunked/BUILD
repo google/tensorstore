@@ -34,6 +34,7 @@ tensorstore_cc_library(
         "//tensorstore/driver:chunk_cache_driver",
         "//tensorstore/index_space:dimension_units",
         "//tensorstore/index_space:index_transform",
+        "//tensorstore/internal:async_write_array",
         "//tensorstore/internal:chunk_grid_specification",
         "//tensorstore/internal:data_copy_concurrency_resource",
         "//tensorstore/internal:integer_overflow",

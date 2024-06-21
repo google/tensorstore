@@ -32,6 +32,7 @@
 #include "tensorstore/box.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/codec_spec.h"
+#include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/chunk_cache_driver.h"
 #include "tensorstore/driver/driver_spec.h"
@@ -44,6 +45,7 @@
 #include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
+#include "tensorstore/internal/async_write_array.h"
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/cache_key/cache_key.h"
 #include "tensorstore/internal/chunk_grid_specification.h"
@@ -246,16 +248,19 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
 
   static internal::ChunkGridSpecification GetChunkGridSpecification(
       const N5Metadata& metadata) {
-    SharedArray<const void> fill_value(
-        internal::AllocateAndConstructSharedElements(1, value_init,
-                                                     metadata.dtype),
-        StridedLayout<>(metadata.chunk_layout.shape(),
-                        GetConstantVector<Index, 0>(metadata.rank)));
+    auto fill_value = BroadcastArray(AllocateArray(
+                                         /*shape=*/span<const Index>{}, c_order,
+                                         value_init, metadata.dtype),
+                                     BoxView<>(metadata.rank))
+                          .value();
     internal::ChunkGridSpecification::ComponentList components;
-    components.emplace_back(std::move(fill_value),
-                            // Since all dimensions are resizable, just specify
-                            // unbounded `component_bounds`.
-                            Box<>(metadata.rank));
+    components.emplace_back(
+        internal::AsyncWriteArray::Spec{
+            std::move(fill_value),
+            // Since all dimensions are resizable, just specify
+            // unbounded `component_bounds`.
+            Box<>(metadata.rank)},
+        metadata.chunk_shape);
     return internal::ChunkGridSpecification(std::move(components));
   }
 
@@ -274,7 +279,7 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
 
   Result<absl::Cord> EncodeChunk(
       span<const Index> chunk_indices,
-      span<const SharedArrayView<const void>> component_arrays) override {
+      span<const SharedArray<const void>> component_arrays) override {
     assert(component_arrays.size() == 1);
     return internal_n5::EncodeChunk(metadata(), component_arrays[0]);
   }
@@ -318,9 +323,7 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
     constraints.compressor = metadata.compressor;
     constraints.units_and_resolution = metadata.units_and_resolution;
     constraints.extra_attributes = metadata.extra_attributes;
-    constraints.chunk_shape =
-        std::vector<Index>(metadata.chunk_layout.shape().begin(),
-                           metadata.chunk_layout.shape().end());
+    constraints.chunk_shape = metadata.chunk_shape;
     return absl::OkStatus();
   }
 

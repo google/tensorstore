@@ -154,7 +154,7 @@ ZarrLeafChunkCache::DecodeChunk(span<const Index> chunk_indices,
 
 Result<absl::Cord> ZarrLeafChunkCache::EncodeChunk(
     span<const Index> chunk_indices,
-    span<const SharedArrayView<const void>> component_arrays) {
+    span<const SharedArray<const void>> component_arrays) {
   assert(component_arrays.size() == 1);
   return codec_state_->EncodeArray(component_arrays[0]);
 }

@@ -137,9 +137,6 @@ absl::Status ValidateMetadata(N5Metadata& metadata) {
         "\"blockSize\" of ", span(metadata.chunk_shape), " with data type of ",
         metadata.dtype, " exceeds maximum chunk size of 2GB"));
   }
-  InitializeContiguousLayout(fortran_order, metadata.dtype.size(),
-                             span<const Index>(metadata.chunk_shape),
-                             &metadata.chunk_layout);
   return absl::OkStatus();
 }
 
@@ -184,7 +181,6 @@ constexpr auto MetadataJsonBinder = [](auto maybe_optional) {
 
 std::string N5Metadata::GetCompatibilityKey() const {
   ::nlohmann::json::object_t obj;
-  span<const Index> chunk_shape = chunk_layout.shape();
   obj.emplace("blockSize", ::nlohmann::json::array_t(chunk_shape.begin(),
                                                      chunk_shape.end()));
   obj.emplace("dataType", dtype.name());
@@ -267,10 +263,11 @@ Result<SharedArray<const void>> DecodeChunk(const N5Metadata& metadata,
     encoded_shape[i] = size;
   }
   for (DimensionIndex i = 0; i < num_dims; ++i) {
-    if (encoded_shape[i] > metadata.chunk_layout.shape()[i]) {
-      return absl::InvalidArgumentError(tensorstore::StrCat(
-          "Received chunk of size ", encoded_shape,
-          " which exceeds blockSize of ", metadata.chunk_layout.shape()));
+    if (encoded_shape[i] > metadata.chunk_shape[i]) {
+      return absl::InvalidArgumentError(
+          tensorstore::StrCat("Received chunk of size ", encoded_shape,
+                              " which exceeds blockSize of ",
+                              tensorstore::span(metadata.chunk_shape)));
     }
   }
   if (metadata.compressor) {
@@ -278,16 +275,15 @@ Result<SharedArray<const void>> DecodeChunk(const N5Metadata& metadata,
                                             metadata.dtype.size());
   }
   SharedArray<const void> decoded_array;
-  if (absl::c_equal(encoded_shape, metadata.chunk_layout.shape())) {
+  if (absl::c_equal(encoded_shape, metadata.chunk_shape)) {
     // Decode full array.
     TENSORSTORE_ASSIGN_OR_RETURN(
-        decoded_array,
-        internal::DecodeArrayEndian(*reader, metadata.dtype,
-                                    metadata.chunk_layout.shape(), endian::big,
-                                    fortran_order));
+        decoded_array, internal::DecodeArrayEndian(*reader, metadata.dtype,
+                                                   metadata.chunk_shape,
+                                                   endian::big, fortran_order));
   } else {
-    auto array = AllocateArray(metadata.chunk_layout.shape(), fortran_order,
-                               value_init, metadata.dtype);
+    auto array = AllocateArray(metadata.chunk_shape, fortran_order, value_init,
+                               metadata.dtype);
     ArrayView<void> partial_decoded_array(
         array.element_pointer(),
         StridedLayoutView<>{encoded_shape, array.byte_strides()});
@@ -303,7 +299,7 @@ Result<SharedArray<const void>> DecodeChunk(const N5Metadata& metadata,
 
 Result<absl::Cord> EncodeChunk(const N5Metadata& metadata,
                                SharedArrayView<const void> array) {
-  assert(absl::c_equal(metadata.chunk_layout.shape(), array.shape()));
+  assert(absl::c_equal(metadata.chunk_shape, array.shape()));
   absl::Cord encoded;
   std::unique_ptr<riegeli::Writer> writer =
       std::make_unique<riegeli::CordWriter<>>(&encoded);
@@ -343,7 +339,7 @@ absl::Status ValidateMetadata(const N5Metadata& metadata,
     return MetadataMismatchError("axes", *constraints.axes, metadata.axes);
   }
   if (constraints.chunk_shape &&
-      !absl::c_equal(metadata.chunk_layout.shape(), *constraints.chunk_shape)) {
+      !absl::c_equal(metadata.chunk_shape, *constraints.chunk_shape)) {
     return MetadataMismatchError("blockSize", *constraints.chunk_shape,
                                  metadata.chunk_shape);
   }

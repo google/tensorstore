@@ -61,6 +61,7 @@
 #include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
+#include "tensorstore/internal/async_write_array.h"
 #include "tensorstore/internal/cache_key/cache_key.h"
 #include "tensorstore/internal/chunk_grid_specification.h"
 #include "tensorstore/internal/grid_chunk_key_ranges_base10.h"
@@ -289,10 +290,13 @@ class DataCacheBase : public internal_kvs_backed_chunk_driver::DataCache {
       chunk_shape_czyx[3 - i] = chunk_size_xyz[i];
     }
     // Component dimension order is `[channel, z, y, x]`.
-    SharedArray<const void> fill_value(
-        internal::AllocateAndConstructSharedElements(1, value_init,
-                                                     metadata.dtype),
-        StridedLayout<>(chunk_shape_czyx, GetConstantVector<Index, 0, 4>()));
+    auto fill_value = BroadcastArray(AllocateArray(
+                                         /*shape=*/span<const Index>{}, c_order,
+                                         value_init, metadata.dtype),
+                                     BoxView<>(4))
+                          .value();
+    std::vector<Index> chunk_shape_czyx_vec(chunk_shape_czyx.begin(),
+                                            chunk_shape_czyx.end());
     // Resizing is not supported.  Specifying the `component_bounds` permits
     // partial chunks at the upper bounds to be written unconditionally (which
     // may be more efficient) if fully overwritten.
@@ -306,9 +310,10 @@ class DataCacheBase : public internal_kvs_backed_chunk_driver::DataCache {
           IndexInterval::UncheckedSized(0, box_xyz[i].size());
     }
     internal::ChunkGridSpecification::ComponentList components;
-    components.emplace_back(std::move(fill_value),
-                            std::move(component_bounds_czyx),
-                            std::vector<DimensionIndex>{3, 2, 1});
+    components.emplace_back(
+        internal::AsyncWriteArray::Spec{std::move(fill_value),
+                                        std::move(component_bounds_czyx)},
+        std::move(chunk_shape_czyx_vec), std::vector<DimensionIndex>{3, 2, 1});
     return internal::ChunkGridSpecification(std::move(components));
   }
 
@@ -327,7 +332,7 @@ class DataCacheBase : public internal_kvs_backed_chunk_driver::DataCache {
 
   Result<absl::Cord> EncodeChunk(
       span<const Index> chunk_indices,
-      span<const SharedArrayView<const void>> component_arrays) override {
+      span<const SharedArray<const void>> component_arrays) override {
     assert(component_arrays.size() == 1);
     return internal_neuroglancer_precomputed::EncodeChunk(
         chunk_indices, metadata(), scale_index_, component_arrays[0]);

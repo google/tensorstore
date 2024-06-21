@@ -49,6 +49,7 @@
 #include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
+#include "tensorstore/internal/async_write_array.h"
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/cache_key/cache_key.h"
 #include "tensorstore/internal/chunk_grid_specification.h"
@@ -264,14 +265,17 @@ class DataCacheBase
   static internal::ChunkGridSpecification GetChunkGridSpecification(
       const ZarrMetadata& metadata) {
     auto fill_value =
-        BroadcastArray(metadata.fill_value, metadata.chunk_shape).value();
+        BroadcastArray(metadata.fill_value, BoxView<>(metadata.rank)).value();
     internal::ChunkGridSpecification::ComponentList components;
-    auto& component =
-        components.emplace_back(std::move(fill_value),
-                                // Since all dimensions are resizable, just
-                                // specify unbounded `component_bounds`.
-                                Box<>(metadata.rank));
-    component.fill_value_comparison_kind = EqualityComparisonKind::identical;
+    auto& component = components.emplace_back(
+        internal::AsyncWriteArray::Spec{
+            std::move(fill_value),
+            // Since all dimensions are resizable, just
+            // specify unbounded `valid_data_bounds`.
+            Box<>(metadata.rank)},
+        metadata.chunk_shape);
+    component.array_spec.fill_value_comparison_kind =
+        EqualityComparisonKind::identical;
     return internal::ChunkGridSpecification(std::move(components));
   }
 

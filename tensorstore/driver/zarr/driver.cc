@@ -47,6 +47,7 @@
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/transform_broadcastable_array.h"
+#include "tensorstore/internal/async_write_array.h"
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/cache/chunk_cache.h"
 #include "tensorstore/internal/cache_key/cache_key.h"
@@ -310,30 +311,19 @@ internal::ChunkGridSpecification DataCache::GetChunkGridSpecification(
     assert(fill_value.rank() <=
            static_cast<DimensionIndex>(field.field_shape.size()));
     const DimensionIndex cell_rank = field_layout.full_chunk_shape().size();
-    SharedArray<const void> chunk_fill_value;
-    chunk_fill_value.layout().set_rank(cell_rank);
-    chunk_fill_value.element_pointer() = fill_value.element_pointer();
-    const DimensionIndex fill_value_start_dim = cell_rank - fill_value.rank();
-    for (DimensionIndex cell_dim = 0; cell_dim < fill_value_start_dim;
-         ++cell_dim) {
-      chunk_fill_value.shape()[cell_dim] =
-          field_layout.full_chunk_shape()[cell_dim];
-      chunk_fill_value.byte_strides()[cell_dim] = 0;
-    }
-    for (DimensionIndex cell_dim = fill_value_start_dim; cell_dim < cell_rank;
-         ++cell_dim) {
-      const Index size = field_layout.full_chunk_shape()[cell_dim];
-      assert(fill_value.shape()[cell_dim - fill_value_start_dim] == size);
-      chunk_fill_value.shape()[cell_dim] = size;
-      chunk_fill_value.byte_strides()[cell_dim] =
-          fill_value.byte_strides()[cell_dim - fill_value_start_dim];
-    }
-    components.emplace_back(std::move(chunk_fill_value),
-                            // Since all chunked dimensions are resizable in
-                            // zarr, just specify unbounded
-                            // `component_bounds`.
-                            Box<>(cell_rank), chunked_to_cell_dimensions);
-    components.back().store_if_equal_to_fill_value = !fill_value_specified;
+    Box<> valid_data_bounds(cell_rank);
+    SubBoxView(valid_data_bounds, cell_rank - field.field_shape.size())
+        .DeepAssign(BoxView<>(field.field_shape));
+    auto chunk_fill_value =
+        BroadcastArray(fill_value, valid_data_bounds).value();
+    std::vector<Index> cell_chunk_shape(field_layout.full_chunk_shape().begin(),
+                                        field_layout.full_chunk_shape().end());
+    components.emplace_back(
+        internal::AsyncWriteArray::Spec{std::move(chunk_fill_value),
+                                        std::move(valid_data_bounds)},
+        std::move(cell_chunk_shape), chunked_to_cell_dimensions);
+    components.back().array_spec.store_if_equal_to_fill_value =
+        !fill_value_specified;
   }
   return internal::ChunkGridSpecification{std::move(components)};
 }
@@ -345,7 +335,7 @@ Result<absl::InlinedVector<SharedArray<const void>, 1>> DataCache::DecodeChunk(
 
 Result<absl::Cord> DataCache::EncodeChunk(
     span<const Index> chunk_indices,
-    span<const SharedArrayView<const void>> component_arrays) {
+    span<const SharedArray<const void>> component_arrays) {
   return internal_zarr::EncodeChunk(metadata(), component_arrays);
 }
 

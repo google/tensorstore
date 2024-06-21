@@ -26,7 +26,6 @@
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/serialization/fwd.h"
-#include "tensorstore/strided_layout.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
@@ -87,7 +86,7 @@ class N5Metadata {
   UnitsAndResolution units_and_resolution;
 
   /// Specifies the chunk size (corresponding to the `"blockSize"` attribute)
-  /// and the in-memory layout of a full chunk (always C order).
+  /// and the in-memory layout of a full chunk (always Fortran order).
   std::vector<Index> chunk_shape;
 
   Compressor compressor;
@@ -96,10 +95,6 @@ class N5Metadata {
   /// Contains all additional attributes, excluding attributes parsed into the
   /// data members above.
   ::nlohmann::json::object_t extra_attributes;
-
-  // Derived members computed from `chunk_shape` and `dtype`:
-
-  StridedLayout<> chunk_layout;
 
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(N5Metadata,
                                           internal_json_binding::NoOptions,

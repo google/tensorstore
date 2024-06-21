@@ -48,6 +48,7 @@
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
+#include "tensorstore/internal/async_write_array.h"
 #include "tensorstore/internal/cache/async_cache.h"
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/cache/cache_pool_resource.h"
@@ -193,7 +194,7 @@ bool GetPermutedPartialArray(
   span<const DimensionIndex> inner_order = cache.inner_order_;
   span<const Index> grid_origin_for_read_function =
       cache.grid_origin_for_read_function_;
-  BoxView<> domain_bounds = component_spec.component_bounds;
+  BoxView<> domain_bounds = component_spec.array_spec.valid_data_bounds;
   partial_array.layout().set_rank(rank);
   ByteStridedPointer<const void> data = full_array.byte_strided_pointer();
   for (DimensionIndex component_dim = 0; component_dim < rank;
@@ -258,8 +259,7 @@ void VirtualChunkedCache::DoRead(EntryOrNode& node,
            {StorageGeneration::NoValue(), absl::InfiniteFuture()}});
       return;
     }
-    read_data.get()[0] = SharedArrayView<void>(
-        std::move(full_array.element_pointer()), component_spec.write_layout());
+    read_data.get()[0] = full_array;
     ReadParameters read_params;
     read_params.executor_ = cache.executor();
     {
@@ -299,13 +299,9 @@ void VirtualChunkedCache::DoRead(EntryOrNode& node,
 std::string VirtualChunkedCache::TransactionNode::Describe() {
   auto& entry = GetOwningEntry(*this);
   auto& cache = GetOwningCache(entry);
-  auto& component_spec = cache.grid().components[0];
-  Array<const void, dynamic_rank, offset_origin> partial_array;
-  if (!GetPermutedPartialArray(entry, component_spec.fill_value,
-                               partial_array)) {
-    return {};
-  }
-  return tensorstore::StrCat("write to virtual chunk ", partial_array.domain());
+  auto domain = cache.grid().GetValidCellDomain(0, entry.cell_indices());
+  if (domain.is_empty()) return {};
+  return tensorstore::StrCat("write to virtual chunk ", domain);
 }
 
 void VirtualChunkedCache::TransactionNode::Commit() {
@@ -328,15 +324,17 @@ void VirtualChunkedCache::TransactionNode::InitiateWriteback(
       GetOwningCache(self).executor()(
           [node = &self, update = std::move(update)] {
             auto* read_data = static_cast<const ReadData*>(update.data.get());
-            SharedArrayView<const void> full_array;
-            if (read_data && read_data[0].valid()) {
-              full_array = read_data[0];
-            } else {
-              full_array = node->component_specs()[0].fill_value;
-            }
+            SharedArray<const void> full_array;
 
             auto& entry = GetOwningEntry(*node);
             auto& cache = GetOwningCache(*node);
+            if (read_data && read_data[0].valid()) {
+              full_array = read_data[0];
+            } else {
+              full_array =
+                  node->component_specs()[0].array_spec.GetFillValueForDomain(
+                      cache.grid().GetCellDomain(0, entry.cell_indices()));
+            }
 
             Array<const void, dynamic_rank, offset_origin> partial_array;
             if (!GetPermutedPartialArray(entry, full_array, partial_array)) {
@@ -519,7 +517,9 @@ Result<internal::TransformedDriverSpec> VirtualChunkedDriver::GetBoundSpec(
 
     TENSORSTORE_ASSIGN_OR_RETURN(
         external_domain_builder.bounds()[external_dim],
-        ShiftInterval(component_spec.component_bounds[component_dim], offset));
+        ShiftInterval(
+            component_spec.array_spec.valid_data_bounds[component_dim],
+            offset));
   }
 
   TENSORSTORE_ASSIGN_OR_RETURN(auto external_to_output_transform,
@@ -650,21 +650,22 @@ Result<internal::Driver::Handle> VirtualChunkedDriver::OpenFromSpecData(
         // The fill value is not user-configurable and doesn't have any
         // user-visible effect for this driver, but the chunk cache requires
         // one.
-        SharedArray<const void> fill_value;
-        fill_value.layout().set_rank(rank);
-        std::fill_n(fill_value.byte_strides().begin(), rank, 0);
+        auto fill_value =
+            BroadcastArray(AllocateArray(/*shape=*/span<const Index>{}, c_order,
+                                         value_init, spec.schema.dtype()),
+                           BoxView<>(rank))
+                .value();
+        std::vector<Index> chunk_shape(rank);
         for (DimensionIndex component_dim = 0; component_dim < rank;
              ++component_dim) {
           const DimensionIndex external_dim = inner_order[component_dim];
-          fill_value.shape()[component_dim] =
-              chunk_template.shape()[external_dim];
+          chunk_shape[component_dim] = chunk_template.shape()[external_dim];
         }
-        fill_value.element_pointer() =
-            internal::AllocateAndConstructSharedElements(1, value_init,
-                                                         spec.schema.dtype());
         internal::ChunkGridSpecification::ComponentList components;
-        components.emplace_back(std::move(fill_value),
-                                std::move(adjusted_component_domain));
+        components.emplace_back(
+            internal::AsyncWriteArray::Spec{
+                std::move(fill_value), std::move(adjusted_component_domain)},
+            std::move(chunk_shape));
         auto cache = std::make_unique<VirtualChunkedCache>(
             internal::ChunkGridSpecification(std::move(components)),
             spec.data_copy_concurrency->executor);

@@ -84,12 +84,9 @@ bool IsFullyOverwritten(ChunkCache::TransactionNode& node) {
   const span<const Index> cell_indices = entry.cell_indices();
   for (size_t component_index = 0, num_components = component_specs.size();
        component_index != num_components; ++component_index) {
-    const auto& component_spec = component_specs[component_index];
-    Index origin[kMaxRank];
-    const span<Index> origin_span(origin, component_spec.rank());
-    grid.GetComponentOrigin(component_index, cell_indices, origin_span);
     if (!node.components()[component_index].write_state.IsFullyOverwritten(
-            component_spec, origin_span)) {
+            component_specs[component_index].array_spec,
+            grid.GetCellDomain(component_index, cell_indices))) {
       return false;
     }
   }
@@ -152,18 +149,14 @@ struct ReadChunkImpl {
   Result<NDIterable::Ptr> operator()(ReadChunk::BeginRead,
                                      IndexTransform<> chunk_transform,
                                      Arena* arena) const {
-    const auto& component_spec =
-        GetOwningCache(*entry).grid().components[component_index];
-    Index origin[kMaxRank];
-    const span<Index> origin_span(origin, component_spec.rank());
-    GetOwningCache(*entry).grid().GetComponentOrigin(
-        component_index, entry->cell_indices(), origin_span);
+    auto& grid = GetOwningCache(*entry).grid();
+    auto domain = grid.GetCellDomain(component_index, entry->cell_indices());
     SharedArray<const void, dynamic_rank(kMaxRank)> read_array{
         ChunkCache::GetReadComponent(
             AsyncCache::ReadLock<ChunkCache::ReadData>(*entry).data(),
             component_index)};
-    return component_spec.GetReadNDIterable(std::move(read_array), origin_span,
-                                            std::move(chunk_transform), arena);
+    return grid.components[component_index].array_spec.GetReadNDIterable(
+        std::move(read_array), domain, std::move(chunk_transform), arena);
   }
 };
 
@@ -209,13 +202,10 @@ struct ReadChunkTransactionImpl {
                                      IndexTransform<> chunk_transform,
                                      Arena* arena) const {
     auto& entry = GetOwningEntry(*node);
-    const auto& component_spec =
-        GetOwningCache(entry).grid().components[component_index];
+    auto& grid = GetOwningCache(entry).grid();
+    const auto& component_spec = grid.components[component_index];
     auto& component = node->components()[component_index];
-    Index origin[kMaxRank];
-    const span<Index> origin_span(origin, component_spec.rank());
-    GetOwningCache(entry).grid().GetComponentOrigin(
-        component_index, entry.cell_indices(), origin_span);
+    auto domain = grid.GetCellDomain(component_index, entry.cell_indices());
     SharedArray<const void, dynamic_rank(kMaxRank)> read_array;
     StorageGeneration read_generation;
     // Copy the shared_ptr to the immutable cached chunk data for the node.  If
@@ -235,7 +225,7 @@ struct ReadChunkTransactionImpl {
             node->RequireRepeatableRead(read_generation));
       }
     }
-    return component.GetReadNDIterable(component_spec, origin_span,
+    return component.GetReadNDIterable(component_spec.array_spec, domain,
                                        std::move(read_array), read_generation,
                                        std::move(chunk_transform), arena);
   }
@@ -333,27 +323,23 @@ struct WriteChunkImpl {
                                      IndexTransform<> chunk_transform,
                                      Arena* arena) const {
     auto& entry = GetOwningEntry(*node);
-    const auto component_spec = entry.component_specs()[component_index];
-    Index origin[kMaxRank];
-    const span<Index> origin_span(origin, component_spec.rank());
-    GetOwningCache(entry).grid().GetComponentOrigin(
-        component_index, entry.cell_indices(), origin_span);
+    auto& grid = GetOwningCache(entry).grid();
+    const auto& component_spec = grid.components[component_index];
+    auto domain = grid.GetCellDomain(component_index, entry.cell_indices());
     node->MarkSizeUpdated();
     return node->components()[component_index].BeginWrite(
-        component_spec, origin_span, std::move(chunk_transform), arena);
+        component_spec.array_spec, domain, std::move(chunk_transform), arena);
   }
 
   WriteChunk::EndWriteResult operator()(WriteChunk::EndWrite,
                                         IndexTransformView<> chunk_transform,
                                         bool success, Arena* arena) const {
     auto& entry = GetOwningEntry(*node);
-    const auto& component_spec = entry.component_specs()[component_index];
-    Index origin[kMaxRank];
-    const span<Index> origin_span(origin, component_spec.rank());
-    GetOwningCache(entry).grid().GetComponentOrigin(
-        component_index, entry.cell_indices(), origin_span);
+    auto& grid = GetOwningCache(entry).grid();
+    const auto& component_spec = grid.components[component_index];
+    auto domain = grid.GetCellDomain(component_index, entry.cell_indices());
     node->components()[component_index].EndWrite(
-        component_spec, origin_span, chunk_transform, success, arena);
+        component_spec.array_spec, domain, chunk_transform, success, arena);
     node->is_modified = true;
     if (IsFullyOverwritten(*node)) {
       node->SetUnconditional();
@@ -366,15 +352,13 @@ struct WriteChunkImpl {
                   Arena* arena,
                   WriteChunk::EndWriteResult& end_write_result) const {
     auto& entry = GetOwningEntry(*node);
-    const auto& component_spec = entry.component_specs()[component_index];
-    Index origin[kMaxRank];
-    const span<Index> origin_span(origin, component_spec.rank());
-    GetOwningCache(entry).grid().GetComponentOrigin(
-        component_index, entry.cell_indices(), origin_span);
+    auto& grid = GetOwningCache(entry).grid();
+    const auto& component_spec = grid.components[component_index];
+    auto domain = grid.GetCellDomain(component_index, entry.cell_indices());
     using WriteArraySourceCapabilities =
         AsyncWriteArray::WriteArraySourceCapabilities;
     auto status = node->components()[component_index].WriteArray(
-        component_spec, origin_span, chunk_transform,
+        component_spec.array_spec, domain, chunk_transform,
         [&]() -> Result<std::pair<TransformedSharedArray<const void>,
                                   WriteArraySourceCapabilities>> {
           // Translate source array and source restriction into write array and
@@ -526,14 +510,12 @@ absl::Status ChunkCache::TransactionNode::Delete() {
   for (Index component_index = 0, num_components = grid.components.size();
        component_index != num_components; ++component_index) {
     const auto& component_spec = grid.components[component_index];
-    Index origin[kMaxRank];
-    const span<Index> origin_span(origin, component_spec.rank());
-    grid.GetComponentOrigin(component_index, cell_indices, origin_span);
+    auto domain = grid.GetCellDomain(component_index, cell_indices);
     // There is no need to check the reference count of the component data array
     // (i.e. to check for a concurrent read) because this doesn't modify the
     // data array, it just resets the data pointer to `nullptr`.
-    components()[component_index].write_state.WriteFillValue(component_spec,
-                                                             origin_span);
+    components()[component_index].write_state.WriteFillValue(
+        component_spec.array_spec, domain);
   }
   SetUnconditional();
   return OnModified();
@@ -552,9 +534,10 @@ size_t ChunkCache::TransactionNode::ComputeWriteStateSizeInBytes() {
   for (size_t component_index = 0;
        component_index < static_cast<size_t>(component_specs.size());
        ++component_index) {
+    auto& component_spec = component_specs[component_index];
     total +=
         this->components()[component_index].write_state.EstimateSizeInBytes(
-            component_specs[component_index]);
+            component_spec.array_spec, component_spec.chunk_shape);
   }
   return total;
 }
@@ -566,8 +549,9 @@ size_t ChunkCache::Entry::ComputeReadDataSizeInBytes(const void* read_data) {
   for (size_t component_index = 0;
        component_index < static_cast<size_t>(component_specs.size());
        ++component_index) {
-    total += component_specs[component_index].EstimateReadStateSizeInBytes(
-        components[component_index].valid());
+    auto& component_spec = component_specs[component_index];
+    total += component_spec.array_spec.EstimateReadStateSizeInBytes(
+        components[component_index].valid(), component_spec.chunk_shape);
   }
   return total;
 }
@@ -575,25 +559,21 @@ size_t ChunkCache::Entry::ComputeReadDataSizeInBytes(const void* read_data) {
 ChunkCache::WritebackSnapshot::WritebackSnapshot(
     TransactionNode& node, AsyncCache::ReadView<ReadData> read_state) {
   auto& entry = GetOwningEntry(node);
-  auto& cache = GetOwningCache(entry);
-  const auto component_specs = node.component_specs();
+  auto& grid = GetOwningCache(entry).grid();
   const span<const Index> cell_indices = entry.cell_indices();
-  for (size_t component_i = 0;
-       component_i < static_cast<size_t>(component_specs.size());
+  for (size_t component_i = 0; component_i < grid.components.size();
        ++component_i) {
-    auto& component_spec = component_specs[component_i];
+    const auto& component_spec = grid.components[component_i];
     auto& component = node.components()[component_i];
-    Index origin[kMaxRank];
-    const span<Index> origin_span(origin, component_spec.rank());
-    cache.grid().GetComponentOrigin(component_i, cell_indices, origin_span);
+    auto domain = grid.GetCellDomain(component_i, cell_indices);
     auto component_snapshot = component.GetArrayForWriteback(
-        component_spec, origin_span,
+        component_spec.array_spec, domain,
         GetReadComponent(read_state.data(), component_i),
         read_state.stamp().generation);
     if (component_snapshot.must_store) {
       if (!new_read_data_) {
         new_read_data_ = internal::make_shared_for_overwrite<ReadData[]>(
-            component_specs.size());
+            grid.components.size());
       }
       new_read_data_.get()[component_i] = std::move(component_snapshot.array);
     }

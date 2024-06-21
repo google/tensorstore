@@ -117,6 +117,8 @@ tensorstore_cc_library(
         "//tensorstore:box",
         "//tensorstore:chunk_layout",
         "//tensorstore:index",
+        "//tensorstore:index_interval",
+        "//tensorstore:rank",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/internal/cache",
         "@com_google_absl//absl/container:inlined_vector",

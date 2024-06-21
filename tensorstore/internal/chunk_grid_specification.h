@@ -97,23 +97,27 @@ struct ChunkGridSpecification {
   /// For each `chunked_to_cell_dimensions[i]`, it must be the case that
   /// `fill_value.shape()[chunked_to_cell_dimensions[i]] = chunk_shape[i]`,
   /// where `chunk_shape` is from the containing `ChunkGridSpecification`.
-  struct Component : public AsyncWriteArray::Spec {
-    /// Construct a component specification from a fill value.
+  struct Component {
+    /// Construct a component specification from an array spec.
     ///
     /// The `chunked_to_cell_dimensions` map is set to an identity map over
-    /// `[0, fill_value.rank())`, meaning all dimensions are chunked.
-    ///
-    /// There are no constraints on the memory layout of `fill_value`.  To more
-    /// efficiently represent the `fill_value` if the same value is used for all
-    /// positions within a given dimension, you can specify a byte stride of 0
-    /// for that dimension.  In particular, if the same value is used for all
-    /// positions in the cell, you can specify all zero byte strides.
-    Component(SharedArray<const void> fill_value, Box<> component_bounds);
+    /// `[0, array_spec.rank())`, meaning all dimensions are chunked.
+    Component(AsyncWriteArray::Spec array_spec, std::vector<Index> chunk_shape);
 
-    /// Constructs a component specification with the specified fill value and
-    /// set of chunked dimensions.
-    Component(SharedArray<const void> fill_value, Box<> component_bounds,
+    /// Constructs a component specification from an array spec and set of
+    /// chunked dimension.
+    Component(AsyncWriteArray::Spec array_spec, std::vector<Index> chunk_shape,
               std::vector<DimensionIndex> chunked_to_cell_dimensions);
+
+    AsyncWriteArray::Spec array_spec;
+
+    std::vector<Index> chunk_shape;
+
+    span<const Index> shape() const { return chunk_shape; }
+
+    DataType dtype() const { return array_spec.dtype(); }
+
+    DimensionIndex rank() const { return array_spec.rank(); }
 
     /// Mapping from chunked dimensions (corresponding to components of
     /// `chunk_shape`) to cell dimensions (corresponding to dimensions of
@@ -146,9 +150,20 @@ struct ChunkGridSpecification {
   /// \post `origin[i] == 0` for all unchunked dimensions `i`
   /// \post `origin[component_spec.chunked_to_cell_dimensions[j]]` equals
   ///     `cell_indices[j] * spec.chunk_shape[j]` for all grid dimensions `j`.
-  void GetComponentOrigin(const size_t component_index,
+  void GetComponentOrigin(size_t component_index,
                           span<const Index> cell_indices,
                           span<Index> origin) const;
+
+  using CellDomain = Box<dynamic_rank(kMaxRank)>;
+
+  /// Returns the domain within a given component of the specified cell.
+  CellDomain GetCellDomain(size_t component_index,
+                           span<const Index> cell_indices) const;
+
+  /// Returns `GetCellDomain(component_index, cell_indices)`, restricted to the
+  /// valid data bounds.
+  CellDomain GetValidCellDomain(size_t component_index,
+                                span<const Index> cell_indices) const;
 };
 
 /// Returns the entry for the specified grid cell.  If it does not already

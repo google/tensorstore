@@ -65,28 +65,16 @@ struct AsyncWriteArray {
         read_generation(std::move(other.read_generation)) {}
 
   struct Spec {
-    Spec() = default;
+    /// The overall fill value.  Every individual chunk must be contained within
+    /// `overall_fill_value.domain()`.
+    SharedOffsetArray<const void> overall_fill_value;
 
-    //// Constructs an async array specification.
-    ///
-    /// \param fill_value The fill value to use for each chunk, specifies the
-    ///     shape of the chunk.  There are no constraints on
-    ///     `fill_value.layout()`.
-    /// \param component_bounds Specifies the non-resizable bounds of the
-    ///     overall array.  Resizable bound should be specified as
-    ///     +/-`kInfIndex`.  Must have the same rank as `fill_value`.  This is
-    ///     used to determine whether a chunk has been fully overwritten (and
-    ///     thereby allow an unconditional write to be used), even if part of
-    ///     the chunk is outside the bounds of the overall component.
-    explicit Spec(SharedArray<const void> fill_value, Box<> component_bounds);
-
-    /// The fill value of the array.  Must be non-null.  This also specifies the
-    /// shape of the "chunk".
-    SharedArray<const void> fill_value;
-
-    /// The bounds of the overall array.  Must have the same rank as
-    /// `fill_value`.
-    Box<> component_bounds;
+    /// Bounds on the valid data.  The domain of a chunk may extend beyond
+    /// `valid_data_bounds` (but must still be contained within
+    /// `overall_fill_value.domain()`).  However, values outside of
+    /// `valid_data_bounds` are neither read nor written and do not need to be
+    /// preserved.
+    Box<> valid_data_bounds;
 
     /// If `true`, indicates that the array should be stored even if it equals
     /// the fill value.  By default (when set to `false`), when preparing a
@@ -100,45 +88,37 @@ struct AsyncWriteArray {
     EqualityComparisonKind fill_value_comparison_kind =
         EqualityComparisonKind::identical;
 
-    /// Returns the shape of the array.
-    span<const Index> shape() const { return fill_value.shape(); }
-
-    Index num_elements() const { return fill_value.num_elements(); }
-
-    /// Returns the number of elements in the chunk starting at `origin`.  This
-    /// is less than or equal to `num_elements()`.
-    Index chunk_num_elements(span<const Index> origin) const;
-
     /// Returns the rank of this array.
-    DimensionIndex rank() const { return fill_value.rank(); }
+    DimensionIndex rank() const { return overall_fill_value.rank(); }
 
     /// Returns the data type of this array.
-    DataType dtype() const { return fill_value.dtype(); }
+    DataType dtype() const { return overall_fill_value.dtype(); }
 
-    /// C-order byte strides for `fill_value.shape()`.
-    std::vector<Index> c_order_byte_strides;
+    /// Returns the number of elements that are contained within `bounds` and
+    /// `domain`.
+    Index GetNumInBoundsElements(BoxView<> domain) const;
 
-    /// Returns the `StridedLayout` used for `write_data`.  May not be the
-    /// layout of `fill_value` or `read_array`.
-    StridedLayoutView<> write_layout() const {
-      return StridedLayoutView<>(fill_value.shape(), c_order_byte_strides);
-    }
+    /// Returns the portion of `fill_value_and_bounds` contained within
+    /// `domain`, translated to have a zero origin.
+    SharedArrayView<const void> GetFillValueForDomain(BoxView<> domain) const;
 
     /// Returns an `NDIterable` for that may be used for reading the specified
     /// `array`, using the specified `chunk_transform`.
     ///
-    /// \param array The array to read, must have shape equal to `shape()`.
-    /// \param origin The associated origin of the array.
+    /// \param array The array to read. If `!array.valid()`, then the fill value
+    ///     is used instead.
+    /// \param domain The associated domain of the array.
     /// \param chunk_transform Transform to use for reading, the output rank
     ///     must equal `rank()`.
     Result<NDIterable::Ptr> GetReadNDIterable(SharedArrayView<const void> array,
-                                              span<const Index> origin,
+                                              BoxView<> domain,
                                               IndexTransform<> chunk_transform,
                                               Arena* arena) const;
 
-    size_t EstimateReadStateSizeInBytes(bool valid) const {
+    size_t EstimateReadStateSizeInBytes(bool valid,
+                                        span<const Index> shape) const {
       if (!valid) return 0;
-      return num_elements() * dtype()->size;
+      return ProductOfExtents(shape) * dtype()->size;
     }
   };
 
@@ -180,7 +160,7 @@ struct AsyncWriteArray {
     explicit MaskedArray(DimensionIndex rank);
 
     /// Returns an estimate of the memory required.
-    size_t EstimateSizeInBytes(const Spec& spec) const;
+    size_t EstimateSizeInBytes(const Spec& spec, span<const Index> shape) const;
 
     /// Array with data type of `spec.dtype()` and shape equal to
     /// `spec.shape()`.  If `array.data() == nullptr`, no data has been written
@@ -209,24 +189,22 @@ struct AsyncWriteArray {
     /// Returns a writable transformed array corresponding to `chunk_transform`.
     ///
     /// \param spec The associated `Spec`.
-    /// \param origin The associated origin of the array.
+    /// \param domain The associated domain of the array.
     /// \param chunk_transform Transform to use for writing, the output rank
     ///     must equal `spec.rank()`.
     Result<TransformedSharedArray<void>> GetWritableTransformedArray(
-        const Spec& spec, span<const Index> origin,
-        IndexTransform<> chunk_transform);
+        const Spec& spec, BoxView<> domain, IndexTransform<> chunk_transform);
 
     /// Returns an `NDIterable` that may be used for writing to this array using
     /// the specified `chunk_transform`.
     ///
     /// \param spec The associated `Spec`.
-    /// \param origin The associated origin of the array.
+    /// \param domain The associated domain of the array.
     /// \param chunk_transform Transform to use for writing, the output rank
     ///     must equal `spec.rank()`.
     /// \param arena Arena Non-null pointer to allocation arena that may be used
     ///     for allocating memory.
-    Result<NDIterable::Ptr> BeginWrite(const Spec& spec,
-                                       span<const Index> origin,
+    Result<NDIterable::Ptr> BeginWrite(const Spec& spec, BoxView<> domain,
                                        IndexTransform<> chunk_transform,
                                        Arena* arena);
 
@@ -234,23 +212,23 @@ struct AsyncWriteArray {
     /// `BeginWrite`, even if an error occurs.
     ///
     /// \param spec The associated `Spec`.
-    /// \param origin The associated origin of the array.
+    /// \param domain The associated domain of the array.
     /// \param chunk_transform Same transform supplied to prior call to
     ///     `BeginWrite`, the output rank must equal `spec.rank()`.
     /// \param arena Arena Non-null pointer to allocation arena that may be used
     ///     for allocating memory.
-    void EndWrite(const Spec& spec, span<const Index> origin,
+    void EndWrite(const Spec& spec, BoxView<> domain,
                   IndexTransformView<> chunk_transform, Arena* arena);
 
     /// Write the fill value.
     ///
     /// \param spec The associated `Spec`.
     /// \param origin The associated origin of the array.
-    void WriteFillValue(const Spec& spec, span<const Index> origin);
+    void WriteFillValue(const Spec& spec, BoxView<> domain);
 
     /// Returns `true` if the array has been fully overwritten.
-    bool IsFullyOverwritten(const Spec& spec, span<const Index> origin) const {
-      return mask.num_masked_elements >= spec.chunk_num_elements(origin);
+    bool IsFullyOverwritten(const Spec& spec, BoxView<> domain) const {
+      return mask.num_masked_elements >= spec.GetNumInBoundsElements(domain);
     }
 
     /// Returns `true` if the array is unmodified.
@@ -261,14 +239,14 @@ struct AsyncWriteArray {
 
     /// Returns a snapshot to use to write back the current modifications.
     ///
-    /// The returned array references `data`, so the caller should ensure that
-    /// no concurrent modifications are made to `data` while the returned
+    /// The returned array references `array`, so the caller should ensure that
+    /// no concurrent modifications are made to `array` while the returned
     /// snapshot is in use.
     ///
     /// \param spec The associated `Spec`.
-    /// \param origin The associated origin of the array.
+    /// \param domain The associated domain of the array.
     WritebackData GetArrayForWriteback(
-        const Spec& spec, span<const Index> origin,
+        const Spec& spec, BoxView<> domain,
         const SharedArrayView<const void>& read_array,
         bool read_state_already_integrated = false);
 
@@ -291,7 +269,7 @@ struct AsyncWriteArray {
   /// state of this array, using the specified `chunk_transform`.
   ///
   /// \param spec The associated `Spec`.
-  /// \param origin The associated origin of the array.
+  /// \param domain The associated domain of the array.
   /// \param read_array The last read state.  If `read_array.data() == nullptr`,
   ///     implies `spec.fill_value()`.  Must match `spec.shape()` and
   ///     `spec.dtype()`, but the layout does not necessarily have to match
@@ -302,7 +280,7 @@ struct AsyncWriteArray {
   /// \param chunk_transform Transform to use for reading, the output rank must
   ///     equal `spec.rank()`.
   Result<NDIterable::Ptr> GetReadNDIterable(
-      const Spec& spec, span<const Index> origin,
+      const Spec& spec, BoxView<> domain,
       SharedArrayView<const void> read_array,
       const StorageGeneration& read_generation,
       IndexTransform<> chunk_transform, Arena* arena);
@@ -334,12 +312,12 @@ struct AsyncWriteArray {
   /// the specified `chunk_transform`.
   ///
   /// \param spec The associated `Spec`.
-  /// \param origin The associated origin of the array.
+  /// \param domain The associated domain of the array.
   /// \param chunk_transform Transform to use for writing, the output rank
   ///     must equal `spec.rank()`.
   /// \param arena Arena Non-null pointer to allocation arena that may be used
   ///     for allocating memory.
-  Result<NDIterable::Ptr> BeginWrite(const Spec& spec, span<const Index> origin,
+  Result<NDIterable::Ptr> BeginWrite(const Spec& spec, BoxView<> domain,
                                      IndexTransform<> chunk_transform,
                                      Arena* arena);
 
@@ -347,14 +325,14 @@ struct AsyncWriteArray {
   /// even if an error occurs.
   ///
   /// \param spec The associated `Spec`.
-  /// \param origin The associated origin of the array.
+  /// \param domain The associated domain of the array.
   /// \param chunk_transform Same transform supplied to prior call to
   ///     `BeginWrite`, the output rank must equal `spec.rank()`.
   /// \param success Indicates if all positions in the range of
   ///     `chunk_transform` were successfully updated.
   /// \param arena Arena Non-null pointer to allocation arena that may be used
   ///     for allocating memory.
-  void EndWrite(const Spec& spec, span<const Index> origin,
+  void EndWrite(const Spec& spec, BoxView<> domain,
                 IndexTransformView<> chunk_transform, bool success,
                 Arena* arena);
 
@@ -362,7 +340,7 @@ struct AsyncWriteArray {
   /// actually copying the data.
   ///
   /// \param spec The associated `Spec`.
-  /// \param origin The associated origin of the array.
+  /// \param domain The associated domain of the array.
   /// \param chunk_transform Transform to use for writing, the output rank
   ///     must equal `spec.rank()`.
   /// \param get_source_array Returns the source array information.  Provided as
@@ -374,8 +352,7 @@ struct AsyncWriteArray {
   ///     case, callers should fall back to writing via `BeginWrite` and
   ///     `EndWrite`.
   absl::Status WriteArray(
-      const Spec& spec, span<const Index> origin,
-      IndexTransformView<> chunk_transform,
+      const Spec& spec, BoxView<> domain, IndexTransformView<> chunk_transform,
       absl::FunctionRef<Result<std::pair<TransformedSharedArray<const void>,
                                          WriteArraySourceCapabilities>>()>
           get_source_array);
@@ -387,9 +364,9 @@ struct AsyncWriteArray {
   /// modified while the returned snapshot is in use.
   ///
   /// \param spec The associated `Spec`.
-  /// \param origin The associated origin of the array.
+  /// \param domain The associated domain of the array.
   WritebackData GetArrayForWriteback(
-      const Spec& spec, span<const Index> origin,
+      const Spec& spec, BoxView<> domain,
       const SharedArrayView<const void>& read_array,
       const StorageGeneration& read_generation);
 };

@@ -55,6 +55,7 @@
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/transformed_array.h"
+#include "tensorstore/internal/async_write_array.h"
 #include "tensorstore/internal/cache/async_cache.h"
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/cache/kvs_backed_cache.h"
@@ -95,6 +96,7 @@ namespace {
 namespace kvstore = tensorstore::kvstore;
 using ::tensorstore::ArrayView;
 using ::tensorstore::Box;
+using ::tensorstore::BoxView;
 using ::tensorstore::DimensionIndex;
 using ::tensorstore::Executor;
 using ::tensorstore::Future;
@@ -114,6 +116,7 @@ using ::tensorstore::TensorStore;
 using ::tensorstore::Transaction;
 using ::tensorstore::WriteProgressFunction;
 using ::tensorstore::internal::AsyncCache;
+using ::tensorstore::internal::AsyncWriteArray;
 using ::tensorstore::internal::CachePool;
 using ::tensorstore::internal::CachePtr;
 using ::tensorstore::internal::ChunkCache;
@@ -243,9 +246,10 @@ ElementCopyFunction GetCopyFunction() {
 
 TEST(ChunkGridSpecificationTest, Basic) {
   ChunkGridSpecification grid({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+      AsyncWriteArray::Spec{SharedArray<const void>(MakeArray<int>({1, 2})),
+                            Box<>(1)},
+      /*chunk_shape=*/{2}}});
   EXPECT_EQ(1, grid.components[0].rank());
-  EXPECT_EQ(1, grid.components[0].fill_value.rank());
   EXPECT_EQ(1, grid.components[0].chunked_to_cell_dimensions.size());
   EXPECT_EQ(1, grid.chunk_shape.size());
 
@@ -259,7 +263,7 @@ TEST(ChunkGridSpecificationTest, Basic) {
 }
 
 TEST(ChunkGridSpecificationTest, MoreComplicated) {
-  std::array<Index, 4> shape = {1, 2, 3, 4};
+  std::vector<Index> shape = {1, 2, 3, 4};
 
   // The fill value is an array of int{0} where the byte-strides
   // is 0, so it always references the same element.
@@ -270,13 +274,15 @@ TEST(ChunkGridSpecificationTest, MoreComplicated) {
           shape, tensorstore::GetConstantVector<Index, 0, 4>()));
 
   // The grid has a single component, with fill value as above.
-  ChunkGridSpecification grid(
-      {ChunkGridSpecification::Component{fill_value, Box<>(shape), {3, 2, 1}}});
+  ChunkGridSpecification grid({ChunkGridSpecification::Component{
+      AsyncWriteArray::Spec{fill_value, Box<>(shape)},
+      /*chunk_shape=*/shape,
+      {3, 2, 1}}});
 
   EXPECT_EQ(3, grid.chunk_shape.size());
   EXPECT_THAT(grid.chunk_shape, testing::ElementsAre(4, 3, 2));
 
-  EXPECT_EQ(4, grid.components[0].fill_value.rank());
+  EXPECT_EQ(4, grid.components[0].array_spec.overall_fill_value.rank());
   EXPECT_EQ(4, grid.components[0].rank());
   EXPECT_EQ(3, grid.components[0].chunked_to_cell_dimensions.size());
   EXPECT_THAT(grid.components[0].chunked_to_cell_dimensions,
@@ -375,11 +381,31 @@ class ChunkCacheTest : public ::testing::Test {
   }
 };
 
+template <typename T>
+tensorstore::SharedOffsetArray<T> MakeSequentialArray(BoxView<> domain) {
+  auto array = tensorstore::AllocateArray<T>(domain);
+  T value = T{};
+  IterateOverArrays(
+      [&](T* ptr) {
+        *ptr = value;
+        ++value;
+      },
+      tensorstore::c_order, array);
+  return array;
+}
+
+ChunkGridSpecification GetSimple1DGrid() {
+  // Dimension 0 is chunked with a size of 2.
+  return ChunkGridSpecification({ChunkGridSpecification::Component{
+      AsyncWriteArray::Spec{MakeSequentialArray<int>(BoxView<>{{0}, {10}}),
+                            Box<>(1)},
+      /*chunk_shape=*/{2}}});
+}
+
 // Tests reading of chunks not present in the data store.
 TEST_F(ChunkCacheTest, ReadSingleComponentOneDimensionalFill) {
   // Dimension 0 is chunked with a size of 2.
-  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  grid = GetSimple1DGrid();
 
   auto cache = MakeChunkCache();
 
@@ -404,10 +430,10 @@ TEST_F(ChunkCacheTest, ReadSingleComponentOneDimensionalFill) {
       r(memory_store);
     }
     // Index:         0 1 2 3 4 5 ...
-    // Fill value:    1 2 1 2 1 2 ...
+    // Fill value:    0 1 2 3 4 5 ...
     // Read region:        [     ]
     EXPECT_THAT(read_future.result(),
-                ::testing::Optional(tensorstore::MakeArray({2, 1, 2})));
+                ::testing::Optional(tensorstore::MakeArray({3, 4, 5})));
   }
 
   // Test reading cached chunks.  The staleness bound of `absl::InfinitePast()`
@@ -418,7 +444,7 @@ TEST_F(ChunkCacheTest, ReadSingleComponentOneDimensionalFill) {
                           tensorstore::Dims(0).TranslateSizedInterval(3, 3));
     // Verify that same response as before is received (fill value).
     EXPECT_THAT(read_future.result(),
-                ::testing::Optional(tensorstore::MakeArray({2, 1, 2})));
+                ::testing::Optional(tensorstore::MakeArray({3, 4, 5})));
   }
 
   // Test re-reading chunks.  The staleness bound of `absl::InfiniteFuture()` is
@@ -443,15 +469,14 @@ TEST_F(ChunkCacheTest, ReadSingleComponentOneDimensionalFill) {
     }
     // Verify that result matches fill value after the new read response.
     EXPECT_THAT(read_future.result(),
-                ::testing::Optional(tensorstore::MakeArray({2, 1, 2})));
+                ::testing::Optional(tensorstore::MakeArray({3, 4, 5})));
   }
 }
 
 // Tests cancelling a read request.
 TEST_F(ChunkCacheTest, CancelRead) {
   // Dimension 0 is chunked with a size of 2.
-  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  grid = GetSimple1DGrid();
 
   auto cache = MakeChunkCache();
 
@@ -509,8 +534,7 @@ struct CancelWriteReceiver {
 // Tests cancelling a write request.
 TEST_F(ChunkCacheTest, CancelWrite) {
   // Dimension 0 is chunked with a size of 2.
-  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  grid = GetSimple1DGrid();
 
   CancelWriteReceiver receiver;
   auto cache = MakeChunkCache();
@@ -530,10 +554,14 @@ TEST_F(ChunkCacheTest, CancelWrite) {
 TEST_F(ChunkCacheTest, DriverDataType) {
   grid = ChunkGridSpecification({
       ChunkGridSpecification::Component{
-          SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)},
+          AsyncWriteArray::Spec{SharedArray<const void>(MakeArray<int>({1, 2})),
+                                Box<>(1)},
+          /*chunk_shape=*/{2}},
       ChunkGridSpecification::Component{
-          SharedArray<const void>(MakeArray<float>({{1, 2}, {3, 4}})),
-          Box<>(2),
+          AsyncWriteArray::Spec{
+              SharedArray<const void>(MakeArray<float>({{1, 2}, {3, 4}})),
+              Box<>(2)},
+          /*chunk_shape=*/{2, 2},
           {1}},
   });
 
@@ -547,11 +575,10 @@ TEST_F(ChunkCacheTest, DriverDataType) {
 // Tests reading of existing data.
 TEST_F(ChunkCacheTest, ReadSingleComponentOneDimensionalExisting) {
   // Dimension 0 is chunked with a size of 2.
-  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  grid = GetSimple1DGrid();
 
   // Initialize chunk 1 in the `memory_store`.
-  SetChunk({1}, {MakeArray<int>({5, 6})});
+  SetChunk({1}, {MakeArray<int>({42, 43})});
 
   auto cache = MakeChunkCache();
 
@@ -573,12 +600,12 @@ TEST_F(ChunkCacheTest, ReadSingleComponentOneDimensionalExisting) {
       r(memory_store);
     }
     EXPECT_THAT(read_future.result(),
-                ::testing::Optional(tensorstore::MakeArray({6, 1, 2})));
+                ::testing::Optional(tensorstore::MakeArray({43, 4, 5})));
   }
 
   // Initialize chunk 2 in the data store.  The cache does not yet reflect this
   // chunk.
-  SetChunk({2}, {MakeArray<int>({7, 8})});
+  SetChunk({2}, {MakeArray<int>({44, 45})});
 
   // Test reading cached chunks (verifies that the previously cached cells were
   // not evicted).
@@ -592,7 +619,7 @@ TEST_F(ChunkCacheTest, ReadSingleComponentOneDimensionalExisting) {
     // [1]: chunk 2, position [0] (fill value)
     // [2]: chunk 2, position [1] (fill value)
     EXPECT_THAT(read_future.result(),
-                ::testing::Optional(tensorstore::MakeArray({6, 1, 2})));
+                ::testing::Optional(tensorstore::MakeArray({43, 4, 5})));
   }
 
   // Test re-reading chunks by using a staleness bound of
@@ -614,15 +641,16 @@ TEST_F(ChunkCacheTest, ReadSingleComponentOneDimensionalExisting) {
       r(memory_store);
     }
     EXPECT_THAT(read_future.result(),
-                ::testing::Optional(tensorstore::MakeArray({6, 7, 8})));
+                ::testing::Optional(tensorstore::MakeArray({43, 44, 45})));
   }
 }
 
 // Test reading the fill value from a two-dimensional chunk cache.
 TEST_F(ChunkCacheTest, TwoDimensional) {
   grid = ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({{1, 2, 3}, {4, 5, 6}})),
-      Box<>(2),
+      AsyncWriteArray::Spec{
+          MakeSequentialArray<int>(BoxView<>({0, 0}, {10, 100})), Box<>(2)},
+      /*chunk_shape=*/{2, 3},
       // Transpose the grid dimensions relative to the cell dimensions to test
       // that grid vs. cell indices are correctly handled.
       {1, 0}}});
@@ -647,19 +675,19 @@ TEST_F(ChunkCacheTest, TwoDimensional) {
     EXPECT_THAT(ParseKey(r.key), ::testing::ElementsAreArray(cell_indices));
     r(memory_store);
   }
-  EXPECT_THAT(read_future.result(),
-              ::testing::Optional(MakeArray<int>({{6, 4, 5, 6, 4},
-                                                  {3, 1, 2, 3, 1},
-                                                  {6, 4, 5, 6, 4},
-                                                  {3, 1, 2, 3, 1},
-                                                  {6, 4, 5, 6, 4},
-                                                  {3, 1, 2, 3, 1}})));
+  EXPECT_THAT(read_future.result(), ::testing::Optional(MakeArray<int>({
+                                        {105, 106, 107, 108, 109},
+                                        {205, 206, 207, 208, 209},
+                                        {305, 306, 307, 308, 309},
+                                        {405, 406, 407, 408, 409},
+                                        {505, 506, 507, 508, 509},
+                                        {605, 606, 607, 608, 609},
+                                    })));
 }
 
 TEST_F(ChunkCacheTest, ReadRequestErrorBasic) {
   // Dimension 0 is chunked with a size of 2.
-  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  grid = GetSimple1DGrid();
 
   auto cache = MakeChunkCache();
 
@@ -715,14 +743,13 @@ TEST_F(ChunkCacheTest, ReadRequestErrorBasic) {
       r(memory_store);
     }
     EXPECT_THAT(read_future.result(),
-                ::testing::Optional(tensorstore::MakeArray({2, 1, 2})));
+                ::testing::Optional(tensorstore::MakeArray({3, 4, 5})));
   }
 }
 
 TEST_F(ChunkCacheTest, WriteSingleComponentOneDimensional) {
   // Dimension 0 is chunked with a size of 2.
-  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  grid = GetSimple1DGrid();
   auto cache = MakeChunkCache();
 
   // Read chunk 3 into the cache.
@@ -736,14 +763,14 @@ TEST_F(ChunkCacheTest, WriteSingleComponentOneDimensional) {
       r(memory_store);
     }
     EXPECT_THAT(read_future.result(),
-                ::testing::Optional(tensorstore::MakeArray({1, 2})));
+                ::testing::Optional(tensorstore::MakeArray({6, 7})));
   }
 
-  // Write chunk 1: [1]=3
-  // Write chunk 2: [0]=4, [1]=5
-  // Write chunk 3: [0]=6
+  // Write chunk 1: [1]=13
+  // Write chunk 2: [0]=14, [1]=15
+  // Write chunk 3: [0]=16
   auto write_future =
-      tensorstore::Write(MakeArray<int>({3, 4, 5, 6}),
+      tensorstore::Write(MakeArray<int>({13, 14, 15, 16}),
                          GetTensorStore(cache) |
                              tensorstore::Dims(0).TranslateSizedInterval(3, 4));
 
@@ -770,16 +797,15 @@ TEST_F(ChunkCacheTest, WriteSingleComponentOneDimensional) {
           ::testing::Pair(ElementsAre(2), StorageGeneration::Unknown()),
           ::testing::Pair(ElementsAre(3), StorageGeneration::NoValue()),
           ::testing::Pair(ElementsAre(1), StorageGeneration::NoValue())));
-  EXPECT_THAT(GetChunk({1}), ElementsAre(MakeArray<int>({1, 3})));
-  EXPECT_THAT(GetChunk({2}), ElementsAre(MakeArray<int>({4, 5})));
-  EXPECT_THAT(GetChunk({3}), ElementsAre(MakeArray<int>({6, 2})));
+  EXPECT_THAT(GetChunk({1}), ElementsAre(MakeArray<int>({2, 13})));
+  EXPECT_THAT(GetChunk({2}), ElementsAre(MakeArray<int>({14, 15})));
+  EXPECT_THAT(GetChunk({3}), ElementsAre(MakeArray<int>({16, 7})));
   TENSORSTORE_EXPECT_OK(write_future);
 }
 
 TEST_F(ChunkCacheTest, WriteSingleComponentOneDimensionalCacheDisabled) {
   // Dimension 0 is chunked with a size of 2.
-  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  grid = GetSimple1DGrid();
   auto cache = MakeChunkCache("", CachePool::StrongPtr{});
 
   // Test that reading chunk 3 returns fill value.
@@ -793,14 +819,14 @@ TEST_F(ChunkCacheTest, WriteSingleComponentOneDimensionalCacheDisabled) {
       r(memory_store);
     }
     EXPECT_THAT(read_future.result(),
-                ::testing::Optional(tensorstore::MakeArray({1, 2})));
+                ::testing::Optional(tensorstore::MakeArray({6, 7})));
   }
 
-  // Write chunk 1: [1]=3
-  // Write chunk 2: [0]=4, [1]=5
-  // Write chunk 3: [0]=6
+  // Write chunk 1: [1]=13
+  // Write chunk 2: [0]=14, [1]=15
+  // Write chunk 3: [0]=16
   auto write_future =
-      tensorstore::Write(MakeArray<int>({3, 4, 5, 6}),
+      tensorstore::Write(MakeArray<int>({13, 14, 15, 16}),
                          GetTensorStore(cache) |
                              tensorstore::Dims(0).TranslateSizedInterval(3, 4));
 
@@ -835,26 +861,25 @@ TEST_F(ChunkCacheTest, WriteSingleComponentOneDimensionalCacheDisabled) {
             ::testing::Pair(ElementsAre(3), StorageGeneration::NoValue()),
             ::testing::Pair(ElementsAre(1), StorageGeneration::NoValue())));
   }
-  EXPECT_THAT(GetChunk({1}), ElementsAre(MakeArray<int>({1, 3})));
-  EXPECT_THAT(GetChunk({2}), ElementsAre(MakeArray<int>({4, 5})));
-  EXPECT_THAT(GetChunk({3}), ElementsAre(MakeArray<int>({6, 2})));
+  EXPECT_THAT(GetChunk({1}), ElementsAre(MakeArray<int>({2, 13})));
+  EXPECT_THAT(GetChunk({2}), ElementsAre(MakeArray<int>({14, 15})));
+  EXPECT_THAT(GetChunk({3}), ElementsAre(MakeArray<int>({16, 7})));
   TENSORSTORE_EXPECT_OK(write_future);
 }
 
 TEST_F(ChunkCacheTest,
        WriteSingleComponentOneDimensionalWithTransactionCacheDisabled) {
   // Dimension 0 is chunked with a size of 2.
-  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  grid = GetSimple1DGrid();
   auto cache = MakeChunkCache("", CachePool::StrongPtr{});
 
   Transaction transaction(tensorstore::isolated);
 
-  // Write chunk 1: [1]=3
-  // Write chunk 2: [0]=4, [1]=5
-  // Write chunk 3: [0]=6
+  // Write chunk 1: [1]=13
+  // Write chunk 2: [0]=14, [1]=15
+  // Write chunk 3: [0]=16
   auto write_future = tensorstore::Write(
-      MakeArray<int>({3, 4, 5, 6}),
+      MakeArray<int>({13, 14, 15, 16}),
       GetTensorStore(cache, /*data_staleness=*/{}, /*component_index=*/0,
                      /*transaction=*/transaction) |
           tensorstore::Dims(0).TranslateSizedInterval(3, 4));
@@ -872,7 +897,7 @@ TEST_F(ChunkCacheTest,
       r(memory_store);
     }
     EXPECT_THAT(read_future.result(),
-                ::testing::Optional(tensorstore::MakeArray({6, 2})));
+                ::testing::Optional(tensorstore::MakeArray({16, 7})));
   }
 
   auto commit_future = transaction.CommitAsync();
@@ -906,16 +931,15 @@ TEST_F(ChunkCacheTest,
             ::testing::Pair(ElementsAre(3), StorageGeneration::NoValue()),
             ::testing::Pair(ElementsAre(1), StorageGeneration::NoValue())));
   }
-  EXPECT_THAT(GetChunk({1}), ElementsAre(MakeArray<int>({1, 3})));
-  EXPECT_THAT(GetChunk({2}), ElementsAre(MakeArray<int>({4, 5})));
-  EXPECT_THAT(GetChunk({3}), ElementsAre(MakeArray<int>({6, 2})));
+  EXPECT_THAT(GetChunk({1}), ElementsAre(MakeArray<int>({2, 13})));
+  EXPECT_THAT(GetChunk({2}), ElementsAre(MakeArray<int>({14, 15})));
+  EXPECT_THAT(GetChunk({3}), ElementsAre(MakeArray<int>({16, 7})));
   TENSORSTORE_EXPECT_OK(commit_future);
 }
 
 TEST_F(ChunkCacheTest, WriteAfterReadWithTransactionCacheDisabled) {
   // Dimension 0 is chunked with a size of 2.
-  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  grid = GetSimple1DGrid();
   auto cache = MakeChunkCache("", CachePool::StrongPtr{});
 
   Transaction transaction(tensorstore::isolated);
@@ -932,11 +956,11 @@ TEST_F(ChunkCacheTest, WriteAfterReadWithTransactionCacheDisabled) {
       r(memory_store);
     }
     EXPECT_THAT(read_future.result(),
-                ::testing::Optional(tensorstore::MakeArray({1, 2})));
+                ::testing::Optional(tensorstore::MakeArray({0, 1})));
   }
 
   auto write_future = tensorstore::Write(
-      MakeArray<int>({3}),
+      MakeArray<int>({13}),
       GetTensorStore(cache, /*data_staleness=*/{}, /*component_index=*/0,
                      /*transaction=*/transaction) |
           tensorstore::Dims(0).TranslateSizedInterval(0, 1));
@@ -958,7 +982,7 @@ TEST_F(ChunkCacheTest, WriteAfterReadWithTransactionCacheDisabled) {
                 ::testing::UnorderedElementsAre(::testing::Pair(
                     ElementsAre(0), StorageGeneration::NoValue())));
   }
-  EXPECT_THAT(GetChunk({0}), ElementsAre(MakeArray<int>({3, 2})));
+  EXPECT_THAT(GetChunk({0}), ElementsAre(MakeArray<int>({13, 1})));
   TENSORSTORE_EXPECT_OK(commit_future);
 }
 
@@ -966,13 +990,12 @@ TEST_F(ChunkCacheTest, WriteAfterReadWithTransactionCacheDisabled) {
 // chunk remaining deleted.
 TEST_F(ChunkCacheTest, OverwriteMissingWithFillValue) {
   // Dimension 0 is chunked with a size of 2.
-  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  grid = GetSimple1DGrid();
   auto cache = MakeChunkCache();
   auto cell_entry = GetEntryForGridCell(*cache, span<const Index>({1}));
-  // Overwrite chunk 1: [0]=1, [1]=2 (matches fill value)
+  // Overwrite chunk 1: [0]=2, [1]=3 (matches fill value)
   auto write_future =
-      tensorstore::Write(MakeArray<int>({1, 2}),
+      tensorstore::Write(MakeArray<int>({2, 3}),
                          GetTensorStore(cache) |
                              tensorstore::Dims(0).TranslateSizedInterval(2, 2));
   write_future.Force();
@@ -991,8 +1014,7 @@ TEST_F(ChunkCacheTest, OverwriteMissingWithFillValue) {
 // chunk being deleted.
 TEST_F(ChunkCacheTest, OverwriteExistingWithFillValue) {
   // Dimension 0 is chunked with a size of 2.
-  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  grid = GetSimple1DGrid();
   auto cache = MakeChunkCache();
   auto cell_entry = GetEntryForGridCell(*cache, span<const Index>({1}));
   // Write initial value to chunk 1: [0]=3, [1]=4
@@ -1013,10 +1035,10 @@ TEST_F(ChunkCacheTest, OverwriteExistingWithFillValue) {
     EXPECT_TRUE(HasChunk({1}));
   }
 
-  // Overwrite chunk 1 with fill value: [0]=1, [1]=2
+  // Overwrite chunk 1 with fill value: [0]=2, [1]=3
   {
     auto write_future = tensorstore::Write(
-        MakeArray<int>({1, 2}),
+        MakeArray<int>({2, 3}),
         GetTensorStore(cache) |
             tensorstore::Dims(0).TranslateSizedInterval(2, 2));
     write_future.Force();
@@ -1036,7 +1058,10 @@ TEST_F(ChunkCacheTest, OverwriteExistingWithFillValue) {
 TEST_F(ChunkCacheTest, FillValueIdenticallyEqual) {
   // Dimension 0 is chunked with a size of 2.
   grid = ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<float>({NAN, -0.0})), Box<>(1)}});
+      AsyncWriteArray::Spec{
+          SharedArray<const void>(MakeArray<float>({NAN, -0.0, NAN, -0.0})),
+          Box<>(1)},
+      /*chunk_shape=*/{2}}});
   auto cache = MakeChunkCache();
   auto cell_entry = GetEntryForGridCell(*cache, span<const Index>({1}));
   // Write initial value to chunk 1: [0]=NAN, [1]=+0.0
@@ -1080,8 +1105,7 @@ TEST_F(ChunkCacheTest, FillValueIdenticallyEqual) {
 // being deleted.
 TEST_F(ChunkCacheTest, DeleteAfterNormalWriteback) {
   // Dimension 0 is chunked with a size of 2.
-  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  grid = GetSimple1DGrid();
   auto cache = MakeChunkCache();
   auto cell_entry = GetEntryForGridCell(*cache, span<const Index>({1}));
   // Write initial value to chunk 1: [0]=3, [1]=4
@@ -1120,8 +1144,7 @@ TEST_F(ChunkCacheTest, DeleteAfterNormalWriteback) {
 // written back.
 TEST_F(ChunkCacheTest, PartialWriteAfterWrittenBackDelete) {
   // Dimension 0 is chunked with a size of 2.
-  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  grid = GetSimple1DGrid();
   auto cache = MakeChunkCache();
   auto cell_entry = GetEntryForGridCell(*cache, span<const Index>({1}));
   // Cell initially has unknown data because no reads have been performed.
@@ -1142,10 +1165,10 @@ TEST_F(ChunkCacheTest, PartialWriteAfterWrittenBackDelete) {
   EXPECT_FALSE(HasChunk({1}));
   TENSORSTORE_EXPECT_OK(write_future);
 
-  // Issue partial write: chunk 1, position [0]=3
+  // Issue partial write: chunk 1, position [0]=42
   {
     auto write_future = tensorstore::Write(
-        MakeArray<int>({3}),
+        MakeArray<int>({42}),
         GetTensorStore(cache) |
             tensorstore::Dims(0).TranslateSizedInterval(2, 1));
     write_future.Force();
@@ -1159,7 +1182,7 @@ TEST_F(ChunkCacheTest, PartialWriteAfterWrittenBackDelete) {
       r(memory_store);
     }
     TENSORSTORE_EXPECT_OK(write_future);
-    EXPECT_THAT(GetChunk({1}), ElementsAre(MakeArray({3, 2})));
+    EXPECT_THAT(GetChunk({1}), ElementsAre(MakeArray({42, 3})));
   }
 
   // Read back value from cache.
@@ -1171,15 +1194,14 @@ TEST_F(ChunkCacheTest, PartialWriteAfterWrittenBackDelete) {
     // [0]: chunk 1, position [0]
     // [1]: chunk 1, position [1] (fill value)
     EXPECT_THAT(read_future.result(),
-                ::testing::Optional(MakeArray<int>({3, 2})));
+                ::testing::Optional(MakeArray<int>({42, 3})));
   }
 }
 
 // Tests calling Delete on a chunk while a read is pending.
 TEST_F(ChunkCacheTest, DeleteWithPendingRead) {
   // Dimension 0 is chunked with a size of 2.
-  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  grid = GetSimple1DGrid();
   auto cache = MakeChunkCache();
   auto cell_entry = GetEntryForGridCell(*cache, span<const Index>({1}));
   // Read chunk 1, position [0] and [1]
@@ -1200,7 +1222,7 @@ TEST_F(ChunkCacheTest, DeleteWithPendingRead) {
 
   // Verify that read result matches fill value.
   EXPECT_THAT(read_future.result(),
-              ::testing::Optional(MakeArray<int>({1, 2})));
+              ::testing::Optional(MakeArray<int>({2, 3})));
 
   {
     auto r = mock_store->write_requests.pop();
@@ -1215,8 +1237,9 @@ TEST_F(ChunkCacheTest, WriteToMaskedArrayError) {
   // Dimension 1 has a size of 2 and is not chunked.
   // Fill value is: {{1,2}, {3,4}}
   grid = ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({{1, 2}, {3, 4}})),
-      Box<>(2),
+      AsyncWriteArray::Spec{
+          MakeSequentialArray<int>(BoxView<>{{0, 0}, {10, 10}}), Box<>(2)},
+      /*chunk_shape=*/{2, 2},
       {0}}});
 
   auto cache = MakeChunkCache();
@@ -1246,15 +1269,14 @@ TEST_F(ChunkCacheTest, WriteToMaskedArrayError) {
     r(memory_store);
   }
   EXPECT_THAT(read_future.result(),
-              ::testing::Optional(MakeArray<int>({{1, 2}, {3, 4}})));
+              ::testing::Optional(MakeArray<int>({{20, 21}, {30, 31}})));
 }
 
 // Tests writeback where the store was modified after the read and before the
 // writeback.
 TEST_F(ChunkCacheTest, WriteGenerationMismatch) {
   // Dimension 0 is chunked with a size of 2.
-  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  grid = GetSimple1DGrid();
 
   auto cache = MakeChunkCache();
 
@@ -1310,7 +1332,9 @@ TEST_F(ChunkCacheTest, WriteGenerationMismatch) {
 TEST_F(ChunkCacheTest, ModifyDuringWriteback) {
   // Dimension 0 is chunked with a size of 4.
   grid = ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2, 3, 4})), Box<>(1)}});
+      AsyncWriteArray::Spec{
+          SharedArray<const void>(MakeArray<int>({1, 2, 3, 4})), Box<>(1)},
+      /*chunk_shape=*/{4}}});
   auto cache = MakeChunkCache();
   // Partial write to chunk 0: [1]=5, [3]=6
   auto write_future = tensorstore::Write(
@@ -1392,13 +1416,15 @@ TEST_F(ChunkCacheTest, FullyOverwritePartialChunk) {
   // `[1, 6)`, meaning chunk 0 has a valid range of `[1, 4)` and chunk 1 has a
   // valid range of `[4, 6)`.
   grid = ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2, 3, 4})), Box<>({1}, {5})}});
+      AsyncWriteArray::Spec{MakeSequentialArray<int>(BoxView<>{{0}, {10}}),
+                            Box<>({1}, {5})},
+      /*chunk_shape=*/{4}}});
   auto cache = MakeChunkCache();
 
   // Fully overwrite chunk 0
   {
     auto write_future = tensorstore::Write(
-        MakeArray<int>({1, 2, 3}),
+        MakeArray<int>({11, 12, 13}),
         GetTensorStore(cache) | tensorstore::Dims(0).HalfOpenInterval(1, 4));
     write_future.Force();
     {
@@ -1407,7 +1433,7 @@ TEST_F(ChunkCacheTest, FullyOverwritePartialChunk) {
       EXPECT_EQ(StorageGeneration::Unknown(),
                 r.options.generation_conditions.if_equal);
       r(memory_store);
-      EXPECT_THAT(GetChunk({0}), ElementsAre(MakeArray({1, 1, 2, 3})));
+      EXPECT_THAT(GetChunk({0}), ElementsAre(MakeArray({0, 11, 12, 13})));
     }
     TENSORSTORE_ASSERT_OK(write_future);
   }
@@ -1415,7 +1441,7 @@ TEST_F(ChunkCacheTest, FullyOverwritePartialChunk) {
   // Fully overwrite chunk 1
   {
     auto write_future = tensorstore::Write(
-        MakeArray<int>({4, 5}),
+        MakeArray<int>({14, 15}),
         GetTensorStore(cache) | tensorstore::Dims(0).HalfOpenInterval(4, 6));
     write_future.Force();
     {
@@ -1424,7 +1450,7 @@ TEST_F(ChunkCacheTest, FullyOverwritePartialChunk) {
       EXPECT_EQ(StorageGeneration::Unknown(),
                 r.options.generation_conditions.if_equal);
       r(memory_store);
-      EXPECT_THAT(GetChunk({1}), ElementsAre(MakeArray({4, 5, 3, 4})));
+      EXPECT_THAT(GetChunk({1}), ElementsAre(MakeArray({14, 15, 6, 7})));
     }
     TENSORSTORE_ASSERT_OK(write_future);
   }
@@ -1432,8 +1458,7 @@ TEST_F(ChunkCacheTest, FullyOverwritePartialChunk) {
 
 TEST_F(ChunkCacheTest, WritebackError) {
   // Dimension 0 is chunked with a size of 2.
-  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  grid = GetSimple1DGrid();
   auto cache = MakeChunkCache();
 
   auto write_future =
@@ -1473,15 +1498,14 @@ INSTANTIATE_TEST_SUITE_P(Instantiation, ChunkCacheTransactionalTest,
 // serves as a sanity check.
 TEST_P(ChunkCacheTransactionalTest, SelfCopyDifferentChunksNoExistingData) {
   // Dimension 0 is chunked with a size of 2.
-  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  grid = GetSimple1DGrid();
   auto cache = MakeChunkCache();
   Transaction transaction{no_transaction};
   if (UseTransaction()) {
     transaction = Transaction(tensorstore::isolated);
   }
 
-  // Copies the fill value of `1` from position 0 to position 3.
+  // Copies the fill value of `0` from position 0 to position 3.
   auto write_future =
       tensorstore::Copy(GetTensorStore(cache, {}, 0, transaction) |
                             tensorstore::Dims(0).SizedInterval(0, 1),
@@ -1512,7 +1536,7 @@ TEST_P(ChunkCacheTransactionalTest, SelfCopyDifferentChunksNoExistingData) {
     TENSORSTORE_EXPECT_OK(transaction.future());
   }
 
-  EXPECT_THAT(GetChunk({1}), ElementsAre(MakeArray<int>({1, 1})));
+  EXPECT_THAT(GetChunk({1}), ElementsAre(MakeArray<int>({2, 0})));
 }
 
 // Tests that copying from a chunk to a different chunk in the same
@@ -1523,8 +1547,7 @@ TEST_P(ChunkCacheTransactionalTest, SelfCopyDifferentChunksNoExistingData) {
 // serves as a sanity check.
 TEST_P(ChunkCacheTransactionalTest, SelfCopyDifferentChunksWithExistingData) {
   // Dimension 0 is chunked with a size of 2.
-  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  grid = GetSimple1DGrid();
 
   auto cache = MakeChunkCache();
 
@@ -1593,7 +1616,7 @@ TEST_P(ChunkCacheTransactionalTest, SelfCopyDifferentChunksWithExistingData) {
   }
 
   EXPECT_THAT(GetChunk({0}), ElementsAre(MakeArray<int>({42, 43})));
-  EXPECT_THAT(GetChunk({1}), ElementsAre(MakeArray<int>({1, 42})));
+  EXPECT_THAT(GetChunk({1}), ElementsAre(MakeArray<int>({2, 42})));
 }
 
 // Tests that copying from a chunk to itself, when the chunk has not previously
@@ -1603,8 +1626,7 @@ TEST_P(ChunkCacheTransactionalTest, SelfCopyDifferentChunksWithExistingData) {
 // serves as a sanity check.
 TEST_P(ChunkCacheTransactionalTest, SelfCopySameChunkNoExistingData) {
   // Dimension 0 is chunked with a size of 2.
-  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  grid = GetSimple1DGrid();
 
   auto cache = MakeChunkCache();
 
@@ -1613,7 +1635,7 @@ TEST_P(ChunkCacheTransactionalTest, SelfCopySameChunkNoExistingData) {
     transaction = Transaction(tensorstore::isolated);
   }
 
-  // Copies the fill value of `1` from position 0 to position 1.
+  // Copies the fill value of `0` from position 0 to position 1.
   auto write_future =
       tensorstore::Copy(GetTensorStore(cache, {}, 0, transaction) |
                             tensorstore::Dims(0).SizedInterval(0, 1),
@@ -1638,7 +1660,7 @@ TEST_P(ChunkCacheTransactionalTest, SelfCopySameChunkNoExistingData) {
     TENSORSTORE_EXPECT_OK(transaction.future());
   }
 
-  EXPECT_THAT(GetChunk({0}), ElementsAre(MakeArray<int>({1, 1})));
+  EXPECT_THAT(GetChunk({0}), ElementsAre(MakeArray<int>({0, 0})));
 }
 
 // Tests that copying from a chunk to itself, when the chunk *has* previously
@@ -1649,8 +1671,7 @@ TEST_P(ChunkCacheTransactionalTest, SelfCopySameChunkNoExistingData) {
 // avoid deadlock.
 TEST_P(ChunkCacheTransactionalTest, SelfCopySameChunkWithExistingData) {
   // Dimension 0 is chunked with a size of 2.
-  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  grid = GetSimple1DGrid();
   auto cache = MakeChunkCache();
 
   Transaction transaction{no_transaction};
@@ -1721,8 +1742,7 @@ TEST_P(ChunkCacheTransactionalTest, SelfCopySameChunkWithExistingData) {
 // adapter exists.
 TEST_F(ChunkCacheTest, SelfCopySameChunkSeparateCachesWithExistingData) {
   // Dimension 0 is chunked with a size of 2.
-  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  grid = GetSimple1DGrid();
   auto cache1 = MakeChunkCache();
   auto cache2 = MakeChunkCache();
 
@@ -1760,8 +1780,7 @@ TEST_F(ChunkCacheTest, SelfCopySameChunkSeparateCachesWithExistingData) {
 
 TEST_F(ChunkCacheTest, SeparateCachesTransactionalReadThenWrite) {
   // Dimension 0 is chunked with a size of 2.
-  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  grid = GetSimple1DGrid();
   auto cache1 = MakeChunkCache();
   auto cache2 = MakeChunkCache();
 
@@ -1777,7 +1796,7 @@ TEST_F(ChunkCacheTest, SeparateCachesTransactionalReadThenWrite) {
   }
 
   EXPECT_THAT(read_future.result(),
-              ::testing::Optional(MakeArray<int>({1, 2})));
+              ::testing::Optional(MakeArray<int>({0, 1})));
 
   TENSORSTORE_ASSERT_OK(tensorstore::Write(
       MakeArray<int>({42, 43}),
@@ -1799,8 +1818,7 @@ TEST_F(ChunkCacheTest, SeparateCachesTransactionalReadThenWrite) {
 
 TEST_F(ChunkCacheTest, SeparateCachesTransactionalWriteThenRead) {
   // Dimension 0 is chunked with a size of 2.
-  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  grid = GetSimple1DGrid();
   auto cache1 = MakeChunkCache();
   auto cache2 = MakeChunkCache();
 
@@ -1832,8 +1850,7 @@ TEST_F(ChunkCacheTest, SeparateCachesTransactionalWriteThenRead) {
 
 TEST_F(ChunkCacheTest, SeparateCachesReadIfNotEqualAbort) {
   // Dimension 0 is chunked with a size of 2.
-  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  grid = GetSimple1DGrid();
   auto cache1 = MakeChunkCache();
   auto cache2 = MakeChunkCache();
 
@@ -1852,7 +1869,7 @@ TEST_F(ChunkCacheTest, SeparateCachesReadIfNotEqualAbort) {
       r(memory_store);
     }
     EXPECT_THAT(read_future.result(),
-                ::testing::Optional(MakeArray<int>({1, 2})));
+                ::testing::Optional(MakeArray<int>({0, 1})));
   }
 
   // Read to populate read state of transaction node in cache2.
@@ -1868,7 +1885,7 @@ TEST_F(ChunkCacheTest, SeparateCachesReadIfNotEqualAbort) {
       r(memory_store);
     }
     EXPECT_THAT(read_future.result(),
-                ::testing::Optional(MakeArray<int>({1, 2})));
+                ::testing::Optional(MakeArray<int>({0, 1})));
   }
 
   // Re-read transaction node in cache2.
@@ -1884,7 +1901,7 @@ TEST_F(ChunkCacheTest, SeparateCachesReadIfNotEqualAbort) {
       r(memory_store);
     }
     EXPECT_THAT(read_future.result(),
-                ::testing::Optional(MakeArray<int>({1, 2})));
+                ::testing::Optional(MakeArray<int>({0, 1})));
   }
 }
 
@@ -1899,7 +1916,9 @@ TENSORSTORE_GLOBAL_INITIALIZER {
 
   auto grid = std::make_shared<ChunkGridSpecification>(
       ChunkGridSpecification({ChunkGridSpecification::Component{
-          SharedArray<const void>(options.fill_value), Box<>(1)}}));
+          AsyncWriteArray::Spec{SharedArray<const void>(options.fill_value),
+                                Box<>(1)},
+          /*chunk_shape=*/{2}}}));
 
   options.encode_value =
       [=](SharedArray<const void> value) -> Result<std::optional<absl::Cord>> {
@@ -1929,9 +1948,11 @@ TEST_F(ChunkCacheTest, CanReferenceSourceDataIndefinitely) {
   // Dimension 0 is chunked with a size of 64.  Need chunk to be at least 256
   // bytes due to riegeli size limits for non copying cords.
   grid = ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(tensorstore::AllocateArray<int32_t>(
-          {64}, tensorstore::c_order, tensorstore::value_init)),
-      Box<>(1)}});
+      AsyncWriteArray::Spec{
+          SharedArray<const void>(tensorstore::AllocateArray<int32_t>(
+              {64}, tensorstore::c_order, tensorstore::value_init)),
+          Box<>(1)},
+      /*chunk_shape=*/{64}}});
   const Index size = 64;
   auto index_array = tensorstore::AllocateArray<int64_t>({size});
   for (Index i = 0; i < size; ++i) {
