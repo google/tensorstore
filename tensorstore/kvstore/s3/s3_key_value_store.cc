@@ -35,7 +35,6 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/context.h"
-#include "tensorstore/context_resource_provider.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/digest/sha256.h"
 #include "tensorstore/internal/http/curl_transport.h"
@@ -60,6 +59,7 @@
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/registry.h"
+#include "tensorstore/kvstore/s3/aws_credentials_resource.h"
 #include "tensorstore/kvstore/s3/credentials/aws_credentials.h"
 #include "tensorstore/kvstore/s3/credentials/default_credential_provider.h"
 #include "tensorstore/kvstore/s3/s3_endpoint.h"
@@ -100,6 +100,7 @@ using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_http::HttpTransport;
 using ::tensorstore::internal_kvstore_s3::AwsCredentialProvider;
 using ::tensorstore::internal_kvstore_s3::AwsCredentials;
+using ::tensorstore::internal_kvstore_s3::AwsCredentialsResource;
 using ::tensorstore::internal_kvstore_s3::AwsHttpResponseToStatus;
 using ::tensorstore::internal_kvstore_s3::GetAwsCredentialProvider;
 using ::tensorstore::internal_kvstore_s3::GetNodeInt;
@@ -206,73 +207,6 @@ bool DefaultIsRetryableCode(absl::StatusCode code) {
   return code == absl::StatusCode::kDeadlineExceeded ||
          code == absl::StatusCode::kUnavailable;
 }
-
-/// Specifies the AWS profile name.
-/// TODO: Allow more complex credential specification, which could be any of:
-///  {"profile", "filename"} or { "access_key", "secret_key", "session_token" }
-///
-struct AwsCredentialsResource
-    : public internal::ContextResourceTraits<AwsCredentialsResource> {
-  static constexpr char id[] = "aws_credentials";
-
-  struct Spec {
-    std::string profile;
-    std::string filename;
-    std::string metadata_endpoint;
-
-    constexpr static auto ApplyMembers = [](auto&& x, auto f) {
-      return f(x.profile, x.filename, x.metadata_endpoint);
-    };
-  };
-
-  struct Resource {
-    Spec spec;
-    std::shared_ptr<AwsCredentialProvider> credential_provider_;
-
-    Result<std::optional<AwsCredentials>> GetCredentials();
-  };
-
-  static Spec Default() { return Spec{}; }
-
-  static constexpr auto JsonBinder() {
-    return jb::Object(jb::Member("profile", jb::Projection<&Spec::profile>()),
-                      jb::Member("filename", jb::Projection<&Spec::filename>()),
-                      jb::Member("metadata_endpoint",
-                                 jb::Projection<&Spec::metadata_endpoint>()));
-  }
-
-  Result<Resource> Create(
-      const Spec& spec,
-      internal::ContextResourceCreationContext context) const {
-    auto result = GetAwsCredentialProvider(
-        spec.filename, spec.profile, spec.metadata_endpoint,
-        internal_http::GetDefaultHttpTransport());
-    if (!result.ok() && absl::IsNotFound(result.status())) {
-      return Resource{spec, nullptr};
-    }
-    TENSORSTORE_RETURN_IF_ERROR(result);
-    return Resource{spec, std::move(*result)};
-  }
-
-  Spec GetSpec(const Resource& resource,
-               const internal::ContextSpecBuilder& builder) const {
-    return resource.spec;
-  }
-};
-
-Result<std::optional<AwsCredentials>>
-AwsCredentialsResource::Resource::GetCredentials() {
-  if (!credential_provider_) return std::nullopt;
-  auto credential_result_ = credential_provider_->GetCredentials();
-  if (!credential_result_.ok() &&
-      absl::IsNotFound(credential_result_.status())) {
-    return std::nullopt;
-  }
-  return credential_result_;
-}
-
-const internal::ContextResourceRegistration<AwsCredentialsResource>
-    aws_credentials_registration;
 
 struct S3KeyValueStoreSpecData {
   std::string bucket;

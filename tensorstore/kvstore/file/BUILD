@@ -51,7 +51,6 @@ tensorstore_cc_library(
         "//tensorstore/util:str_cat",
         "//tensorstore/util/execution",
         "//tensorstore/util/garbage_collection",
-        "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/functional:function_ref",
         "@com_google_absl//absl/log:absl_log",
