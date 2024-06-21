@@ -281,6 +281,7 @@ Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value, ParseDTypeOpt
       });
   if (!parse_result.ok()) return parse_result;
  
+  // TODO: How can I check that there wasn't a field provided and that it is structarray?
   if (options.treat_struct_as_byte_array) {
     // Convert struct dtype to a single byte array dtype.
     out.has_fields = false;
@@ -290,7 +291,8 @@ Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value, ParseDTypeOpt
     byte_array_field.endian = endian::native;
     byte_array_field.encoded_dtype = "V";
     byte_array_field.flexible_shape = {out.bytes_per_outer_element};
-    out.fields = {byte_array_field};
+    out.fields.emplace_back({byte_array_field});
+    // out.fields = {byte_array_field};
   }
  
   return out;
@@ -334,7 +336,7 @@ absl::Status ValidateDType(ZarrDType& dtype) {
   return absl::OkStatus();
 }
 
-Result<ZarrDType> ParseDType(const nlohmann::json& value, const ParseDTypeOptions& options) {
+Result<ZarrDType> ParseDType(const nlohmann::json& value, ParseDTypeOptions& options) {
   TENSORSTORE_ASSIGN_OR_RETURN(ZarrDType dtype, ParseDTypeNoDerived(value, options));
   TENSORSTORE_RETURN_IF_ERROR(ValidateDType(dtype));
   return dtype;
