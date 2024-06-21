@@ -214,9 +214,10 @@ namespace {
 /// \param value The zarr metadata "dtype" JSON specification.
 /// \param out[out] Must be non-null.  Filled with the parsed dtype on success.
 /// \error `absl::StatusCode::kInvalidArgument' if `value` is invalid.
-Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value, const ParseDTypeOptions& options) {
+Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value, ParseDTypeOptions& options) {
   ZarrDType out;
   if (value.is_string()) {
+    options.treat_struct_as_byte_array = false; // We don't want to treat a single value as struct.
     // Single field.
     out.has_fields = false;
     out.fields.resize(1);
