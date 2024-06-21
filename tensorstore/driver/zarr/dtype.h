@@ -122,7 +122,7 @@ struct ZarrDType {
 };
 
 struct ParseDTypeOptions {
-  bool treat_struct_as_byte_array = false;
+  bool treat_struct_as_byte_array = true;
 };
 /// Parses a zarr metadata "dtype" JSON specification.
 ///
