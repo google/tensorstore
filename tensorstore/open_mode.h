@@ -67,6 +67,10 @@ enum class OpenMode {
   /// This option must be specified in conjunction with `open` and must not be
   /// specified in conjunction with `delete_existing`.
   assume_cached_metadata = 16,
+
+  /// Open the TensorStore as a byte array instead of converting everything to
+  /// it's native dtype.
+  treat_struct_as_byte_array = 32,
 };
 
 /// Returns the intersection of two open modes.
