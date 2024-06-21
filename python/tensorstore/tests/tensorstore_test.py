@@ -540,3 +540,17 @@ async def test_zero_copy(writable: bool):
   # purposes.
   arr[...] = 43
   np.testing.assert_equal(43, await store.read())
+
+
+def test_issue_168():
+  t = ts.array(np.zeros((0,)))
+  assert t.spec().to_json(include_defaults=False) == {
+      "driver": "array",
+      "dtype": "float64",
+      "array": [],
+      "transform": {
+          "input_inclusive_min": [0],
+          "input_exclusive_max": [0],
+          "output": [{}],
+      },
+  }

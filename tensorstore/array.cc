@@ -15,6 +15,7 @@
 #include "tensorstore/array.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <algorithm>
 #include <cassert>
@@ -61,21 +62,17 @@ bool CompareArraysEqualImpl(const ArrayView<const void, dynamic_rank, OKind>& a,
   if (IsBroadcastScalar(a)) {
     return internal::IterateOverArrays(
         {&funcs.array_scalar, nullptr},
-        /*status=*/
-        reinterpret_cast<absl ::Status*>(
-            const_cast<void*>(a.byte_strided_origin_pointer().get())),
+        /*arg=*/const_cast<void*>(a.byte_strided_origin_pointer().get()),
         /*constraints=*/skip_repeated_elements, b);
   }
   if (IsBroadcastScalar(b)) {
     return internal::IterateOverArrays(
         {&funcs.array_scalar, nullptr},
-        /*status=*/
-        reinterpret_cast<absl ::Status*>(
-            const_cast<void*>(b.byte_strided_origin_pointer().get())),
+        /*arg=*/const_cast<void*>(b.byte_strided_origin_pointer().get()),
         /*constraints=*/skip_repeated_elements, a);
   }
   return internal::IterateOverArrays({&funcs.array_array, nullptr},
-                                     /*status=*/nullptr,
+                                     /*arg=*/nullptr,
                                      /*constraints=*/skip_repeated_elements, a,
                                      b);
 }
@@ -102,7 +99,7 @@ void CopyArrayImplementation(
     const ArrayView<void, dynamic_rank, offset_origin>& dest) {
   ABSL_CHECK_EQ(source.dtype(), dest.dtype());
   internal::IterateOverArrays({&source.dtype()->copy_assign, nullptr},
-                              /*status=*/nullptr,
+                              /*arg=*/nullptr,
                               /*constraints=*/skip_repeated_elements, source,
                               dest);
 }
@@ -114,7 +111,7 @@ absl::Status CopyConvertedArrayImplementation(
                                            source.dtype(), dest.dtype()));
   absl::Status status;
   if (!internal::IterateOverArrays(r.closure,
-                                   /*status=*/&status,
+                                   /*arg=*/&status,
                                    /*constraints=*/skip_repeated_elements,
                                    source, dest)) {
     return internal::GetElementCopyErrorStatus(std::move(status));
@@ -200,7 +197,7 @@ SharedElementPointer<void> AllocateArrayLike(
 void InitializeArray(
     const ArrayView<void, dynamic_rank, offset_origin>& array) {
   internal::IterateOverArrays({&array.dtype()->initialize, nullptr},
-                              /*status=*/nullptr,
+                              /*arg=*/nullptr,
                               /*constraints=*/skip_repeated_elements, array);
 }
 

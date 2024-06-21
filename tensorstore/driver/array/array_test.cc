@@ -16,6 +16,7 @@
 
 #include <stdint.h>
 
+#include <memory>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -67,6 +68,7 @@ using ::tensorstore::OpenMode;
 using ::tensorstore::ReadProgress;
 using ::tensorstore::ReadProgressFunction;
 using ::tensorstore::ReadWriteMode;
+using ::tensorstore::SharedArray;
 using ::tensorstore::TensorStore;
 using ::tensorstore::WriteProgress;
 using ::tensorstore::WriteProgressFunction;
@@ -526,6 +528,42 @@ TEST(FromArrayTest, Spec) {
               ::testing::Optional(MatchesJson(json_spec)));
 }
 
+TEST(FromArrayTest, Rank0) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::FromArray(
+                      SharedArray<float, 0>(std::make_shared<float>(2.0f))));
+
+  ::nlohmann::json json_spec{
+      {"driver", "array"},
+      {"array", 2.0},
+      {"dtype", "float32"},
+      {"transform", {{"input_rank", 0}}},
+  };
+  EXPECT_THAT(store.spec().value().ToJson(),
+              ::testing::Optional(MatchesJson(json_spec)));
+}
+
+TEST(FromArrayTest, InvalidArray) {
+  EXPECT_THAT(
+      tensorstore::FromArray(
+          SharedArray<float, 0>(std::shared_ptr<float>(nullptr))),
+      MatchesStatus(absl::StatusCode::kInvalidArgument, "Array is not valid"));
+}
+
+TEST(OpenTest, MissingArray) {
+  EXPECT_THAT(
+      tensorstore::Open({
+                            {"driver", "array"},
+                            {"dtype", "float32"},
+                            {"transform", {{"input_rank", 0}}},
+                        })
+          .result(),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    "Error parsing object member \"array\": Error parsing "
+                    "array element at position [{][}]: Expected 64-bit "
+                    "floating-point number, but member is missing"));
+}
+
 TEST(OpenTest, MissingDataType) {
   EXPECT_THAT(tensorstore::Open({
                                     {"driver", "array"},
@@ -566,6 +604,19 @@ TEST(OpenTest, InvalidRank) {
       MatchesStatus(absl::StatusCode::kInvalidArgument,
                     "Error parsing object member \"array\": "
                     "Array rank \\(2\\) does not match expected rank \\(3\\)"));
+}
+
+TEST(OpenTest, InvalidRank0) {
+  EXPECT_THAT(tensorstore::Open({
+                                    {"driver", "array"},
+                                    {"dtype", "float32"},
+                                    {"array", ::nlohmann::json::array_t{}},
+                                    {"transform", {{"input_rank", 0}}},
+                                })
+                  .result(),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Error parsing object member \"array\": Array rank "
+                            ".1. does not match expected rank .0."));
 }
 
 // Tests that copying from an array driver to itself does not lead to deadlock.

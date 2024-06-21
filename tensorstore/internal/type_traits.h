@@ -22,10 +22,8 @@
 #include <iosfwd>
 #include <type_traits>
 
-#if defined(__has_builtin) && defined(__clang__)
-#if __has_builtin(__type_pack_element)
+#if defined(__has_builtin) && __has_builtin(__type_pack_element)
 #define TENSORSTORE_HAS_TYPE_PACK_ELEMENT
-#endif
 #endif
 
 #ifndef TENSORSTORE_HAS_TYPE_PACK_ELEMENT
@@ -210,8 +208,18 @@ constexpr inline bool IsConstConvertibleOrVoid =
      std::is_void_v<Dest>);
 
 #ifdef TENSORSTORE_HAS_TYPE_PACK_ELEMENT
+#if __clang__
 template <size_t I, typename... Ts>
 using TypePackElement = __type_pack_element<I, Ts...>;
+#else
+//  GCC does not allow  __type_pack_element to be used as a return type.
+template <std::size_t I, typename... Ts>
+struct TypePackElementImpl {
+  using type = __type_pack_element<I, Ts...>;
+};
+template <size_t I, typename... Ts>
+using TypePackElement = typename TypePackElementImpl<I, Ts...>::type;
+#endif
 #else
 template <size_t I, typename... Ts>
 using TypePackElement = typename std::tuple_element<I, std::tuple<Ts...>>::type;

@@ -16,17 +16,31 @@
 
 #include <stddef.h>
 
+#include <algorithm>
 #include <array>
+#include <cassert>
+#include <cstring>
 
+#include "absl/base/optimization.h"
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/internal/iterate_impl.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
 #include "tensorstore/index_space/internal/transform_rep_impl.h"
+#include "tensorstore/index_space/output_index_method.h"
 #include "tensorstore/internal/elementwise_function.h"
+#include "tensorstore/internal/integer_overflow.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/strided_layout.h"
+#include "tensorstore/util/byte_strided_pointer.h"
+#include "tensorstore/util/element_pointer.h"
 #include "tensorstore/util/internal/iterate_impl.h"
+#include "tensorstore/util/iterate.h"
 #include "tensorstore/util/iterate_over_index_range.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"

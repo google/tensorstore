@@ -95,7 +95,6 @@ tensorstore_cc_test(
         "//tensorstore:contiguous_layout",
         "//tensorstore:data_type",
         "//tensorstore/internal:json_gtest",
-        "//tensorstore/util:element_pointer",
         "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
         "@com_github_nlohmann_json//:json",
