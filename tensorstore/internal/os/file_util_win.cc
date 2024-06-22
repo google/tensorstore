@@ -392,7 +392,7 @@ absl::Status GetFileInfo(FileDescriptor fd, FileInfo* info) {
   return StatusFromOsError(::GetLastError());
 }
 
-absl::Status GetFileInfo(std::string& path, FileInfo* info) {
+absl::Status GetFileInfo(const std::string& path, FileInfo* info) {
   // The typedef uses BY_HANDLE_FILE_INFO, which includes device and index
   // metadata, and requires an open handle.
   std::wstring wpath;

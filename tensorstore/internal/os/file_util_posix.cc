@@ -250,7 +250,7 @@ absl::Status GetFileInfo(FileDescriptor fd, FileInfo* info) {
   return StatusFromOsError(errno);
 }
 
-absl::Status GetFileInfo(std::string& path, FileInfo* info) {
+absl::Status GetFileInfo(const std::string& path, FileInfo* info) {
   if (::stat(path.c_str(), info) == 0) {
     return absl::OkStatus();
   }

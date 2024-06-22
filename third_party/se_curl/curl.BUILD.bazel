@@ -201,7 +201,7 @@ write_file(
         "#  define OS \"x86_64-apple-darwin15.5.0\"",
         "#  define USE_SECTRANSP 1",
         "#else",
-        "#  define CURL_CA_BUNDLE \"/etc/ssl/certs/ca-certificates.crt\"",
+        "/* #  undef CURL_CA_BUNDLE \"/etc/ssl/certs/ca-certificates.crt\" */",
         "#  define GETSERVBYPORT_R_ARGS 6",
         "#  define GETSERVBYPORT_R_BUFSIZE 4096",
         "#  define HAVE_BORINGSSL 1",
