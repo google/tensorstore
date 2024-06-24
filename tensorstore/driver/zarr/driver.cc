@@ -121,8 +121,12 @@ Result<MetadataCache::MetadataPtr> MetadataCache::DecodeMetadata(
 
 Result<absl::Cord> MetadataCache::EncodeMetadata(std::string_view entry_key,
                                                  const void* metadata) {
-  return absl::Cord(
-      ::nlohmann::json(*static_cast<const ZarrMetadata*>(metadata)).dump());
+  auto meta = ::nlohmann::json(*static_cast<const ZarrMetadata*>(metadata));
+  if (meta["dtype"].is_array() && meta["dtype"].back()[0] == "") {
+    meta["dtype"].erase(meta["dtype"].size() - 1);
+  }
+
+  return absl::Cord(meta.dump());
 }
 
 absl::Status ZarrDriverSpec::ApplyOptions(SpecOptions&& options) {
