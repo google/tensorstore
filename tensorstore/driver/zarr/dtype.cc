@@ -304,8 +304,11 @@ Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value, const ParseDT
 absl::Status ValidateDType(ZarrDType& dtype) {
   dtype.bytes_per_outer_element = 0;
   size_t num_fields = dtype.fields.size();
+  // TODO: Implement better logic and name
+  bool flag = false;
   if (dtype.fields.back().name.empty() && dtype.fields.size() > 1) {
     --num_fields;
+    flag = true;
   }
   for (size_t field_i = 0; field_i < num_fields; ++field_i) {
     auto& field = dtype.fields[field_i];
@@ -337,6 +340,9 @@ absl::Status ValidateDType(ZarrDType& dtype) {
       return absl::InvalidArgumentError(
           "Total number of bytes per outer array element is too large");
     }
+  }
+  if (flag) {
+    dtype.fields[num_fields].field_shape = {dtype.bytes_per_outer_element};
   }
   return absl::OkStatus();
 }
