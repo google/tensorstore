@@ -254,6 +254,9 @@ python_type_to_xref_mappings = {
     'numpy.typing.ArrayLike': TypeXrefTarget(
         'py', 'data', 'numpy.typing.ArrayLike', 'ArrayLike'
     ),
+    'tensorstore.RecheckCacheOption': TypeXrefTarget(
+        'py', 'data', 'tensorstore.RecheckCacheOption', 'RecheckCacheOption'
+    ),
     'NumpyIndexingSpec': TypeXrefTarget(
         'std', 'ref', 'python-numpy-style-indexing', 'NumpyIndexingSpec'
     ),

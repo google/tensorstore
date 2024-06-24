@@ -123,17 +123,20 @@ constexpr auto ForwardOpenSetters = [](auto callback, auto... other_param) {
       open_setters::SetDeleteExisting{}, open_setters::SetAssumeMetadata{},
       open_setters::SetAssumeCachedMetadata{}, open_setters::SetContext{},
       open_setters::SetTransaction{}, open_setters::SetBatch{},
-      spec_setters::SetKvstore{});
+      spec_setters::SetKvstore{}, spec_setters::SetRecheckCachedMetadata{},
+      spec_setters::SetRecheckCachedData{}, spec_setters::SetRecheckCached{});
 };
 
 constexpr auto ForwardSpecRequestSetters = [](auto callback,
                                               auto... other_param) {
-  callback(other_param..., spec_setters::SetOpenMode{}, spec_setters::SetOpen{},
-           spec_setters::SetCreate{}, spec_setters::SetDeleteExisting{},
-           spec_setters::SetAssumeMetadata{},
-           spec_setters::SetAssumeCachedMetadata{},
-           spec_setters::SetMinimalSpec{}, spec_setters::SetRetainContext{},
-           spec_setters::SetUnbindContext{});
+  callback(
+      other_param..., spec_setters::SetOpenMode{}, spec_setters::SetOpen{},
+      spec_setters::SetCreate{}, spec_setters::SetDeleteExisting{},
+      spec_setters::SetAssumeMetadata{},
+      spec_setters::SetAssumeCachedMetadata{}, spec_setters::SetMinimalSpec{},
+      spec_setters::SetRetainContext{}, spec_setters::SetUnbindContext{},
+      spec_setters::SetRecheckCachedMetadata{},
+      spec_setters::SetRecheckCachedData{}, spec_setters::SetRecheckCached{});
 };
 
 constexpr auto ForwardWriteSetters = [](auto callback, auto... other_param) {

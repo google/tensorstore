@@ -228,6 +228,7 @@ tensorstore_cc_library(
         "//tensorstore/driver:kvs_backed_chunk_driver",
         "//tensorstore/index_space:dimension_units",
         "//tensorstore/index_space:index_transform",
+        "//tensorstore/internal:async_write_array",
         "//tensorstore/internal:chunk_grid_specification",
         "//tensorstore/internal:grid_chunk_key_ranges_base10",
         "//tensorstore/internal:grid_partition",

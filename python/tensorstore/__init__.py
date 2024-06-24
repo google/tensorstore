@@ -14,7 +14,9 @@
 """TensorStore is a library for reading and writing multi-dimensional arrays."""
 
 import abc as _abc
+import builtins as _builtins
 import collections.abc as _collections_abc
+import typing as _typing
 
 from ._tensorstore import *
 from ._tensorstore import _Decodable
@@ -89,7 +91,6 @@ class FutureLike(metaclass=_abc.ABCMeta):
 
   Group:
     Asynchronous support
-
   """
 
 
@@ -297,5 +298,30 @@ Group:
   Data types
 """
 
+RecheckCacheOption = _typing.Union[
+    _builtins.bool, _typing.Literal["open"], _builtins.float
+]
+"""Determines under what circumstances cached data is revalidated.
+
+``True``
+  Revalidate cached data at every option.
+
+``False``
+  Assume cached data is always fresh and never revalidate.
+
+``"open"``
+  Revalidate cached data older than the time at which the TensorStore was
+  opened.
+
+:py:obj:`float`
+  Revalidate cached data older than the specified time in seconds since
+  the unix epoch.
+
+Group:
+  Spec
+"""
+
 del _abc
+del _builtins
 del _collections_abc
+del _typing

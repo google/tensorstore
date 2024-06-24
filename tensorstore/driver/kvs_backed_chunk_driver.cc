@@ -389,7 +389,8 @@ void ChunkedDataCacheBase::GetComponentBounds(
     DimensionSet& implicit_upper_bounds) {
   const auto& grid = this->grid();
   const auto& component_spec = grid.components[component_index];
-  bounds.set_rank(component_spec.rank());
+  const DimensionIndex component_rank = component_spec.rank();
+  bounds.set_rank(component_rank);
   Box<dynamic_rank(kMaxRank)> grid_bounds(grid.chunk_shape.size());
   DimensionSet grid_implicit_lower_bounds;
   DimensionSet grid_implicit_upper_bounds;
@@ -397,7 +398,7 @@ void ChunkedDataCacheBase::GetComponentBounds(
                            grid_implicit_upper_bounds);
   span<const DimensionIndex> chunked_to_cell_dimensions =
       component_spec.chunked_to_cell_dimensions;
-  bounds = component_spec.fill_value.domain();
+  bounds = component_spec.array_spec.overall_fill_value.domain();
   implicit_lower_bounds = false;
   implicit_upper_bounds = false;
   for (DimensionIndex grid_dim = 0; grid_dim < grid_bounds.rank(); ++grid_dim) {

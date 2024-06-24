@@ -111,6 +111,11 @@ definitions:
       Specifies parameters to provide AWS credentials.
     type: object
     properties:
+      anonymous:
+        type: boolean
+        description: |-
+          Must be true, if present, and forces anonymous credentials.
+        default: false
       profile:
         type: string
         description: |-

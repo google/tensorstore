@@ -50,10 +50,13 @@
 
 namespace {
 
+using ::tensorstore::Box;
+using ::tensorstore::BoxView;
 using ::tensorstore::Index;
 using ::tensorstore::kInfIndex;
 using ::tensorstore::kInfSize;
 using ::tensorstore::MakeArray;
+using ::tensorstore::MakeOffsetArray;
 using ::tensorstore::MakeScalarArray;
 using ::tensorstore::ReferencesSameDataAs;
 using ::tensorstore::span;
@@ -79,50 +82,49 @@ tensorstore::SharedArray<void> CopyNDIterable(
 }
 
 template <typename Target>
-void TestWrite(Target* target, const Spec& spec, span<const Index> origin,
+void TestWrite(Target* target, const Spec& spec, BoxView<> domain,
                tensorstore::SharedOffsetArrayView<const void> source_array) {
   Arena arena;
   auto transform = tensorstore::IdentityTransform(source_array.domain());
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto dest_iterable, target->BeginWrite(spec, origin, transform, &arena));
+      auto dest_iterable, target->BeginWrite(spec, domain, transform, &arena));
   auto source_iterable =
       tensorstore::internal::GetArrayNDIterable(source_array, &arena);
   tensorstore::internal::NDIterableCopier copier(
       *source_iterable, *dest_iterable, source_array.shape(), &arena);
   TENSORSTORE_EXPECT_OK(copier.Copy());
   if constexpr (std::is_same_v<Target, AsyncWriteArray>) {
-    target->EndWrite(spec, origin, transform, true, &arena);
+    target->EndWrite(spec, domain, transform, true, &arena);
   } else {
-    target->EndWrite(spec, origin, transform, &arena);
+    target->EndWrite(spec, domain, transform, &arena);
   }
 }
 
 TEST(SpecTest, Basic) {
-  auto fill_value = MakeArray<int32_t>({{1, 2, 3}, {4, 5, 6}});
+  auto overall_fill_value = MakeOffsetArray<int32_t>(
+      {-2, 0}, {
+                   {1, 2, 3, 4, 5, 6, 7, 8, 9},
+                   {11, 12, 13, 14, 15, 16, 17, 18, 19},
+                   {21, 22, 23, 24, 25, 26, 27, 28, 29},
+                   {31, 32, 33, 34, 35, 36, 37, 38, 39},
+               });
   tensorstore::Box<> component_bounds({-1, -kInfIndex}, {3, kInfSize});
-  Spec spec(fill_value, component_bounds);
-  EXPECT_EQ(fill_value, spec.fill_value);
-  EXPECT_EQ(component_bounds, spec.component_bounds);
-  EXPECT_THAT(spec.shape(), ::testing::ElementsAre(2, 3));
-  EXPECT_EQ(6, spec.num_elements());
+  Spec spec{overall_fill_value, component_bounds};
 
   // Chunk [0,2), [0, 3) is fully contained within bounds [-1, 2), (-inf,+inf)
-  EXPECT_EQ(6, spec.chunk_num_elements(span<const Index>({0, 0})));
+  EXPECT_EQ(6, spec.GetNumInBoundsElements(BoxView<>({0, 0}, {2, 3})));
 
   // Chunk [-2,0), [0, 3) is half contained within bounds [-1, 2), (-inf,+inf)
-  EXPECT_EQ(3, spec.chunk_num_elements(span<const Index>({-2, 0})));
+  EXPECT_EQ(3, spec.GetNumInBoundsElements(BoxView<>({-2, 0}, {2, 3})));
 
   EXPECT_EQ(2, spec.rank());
   EXPECT_EQ(tensorstore::dtype_v<int32_t>, spec.dtype());
-  EXPECT_THAT(spec.c_order_byte_strides,
-              ::testing::ElementsAre(3 * sizeof(int32_t), sizeof(int32_t)));
 
-  EXPECT_EQ(tensorstore::StridedLayout<>({2, 3}, {3 * 4, 4}),
-            spec.write_layout());
-
-  EXPECT_EQ(0, spec.EstimateReadStateSizeInBytes(/*valid=*/false));
+  EXPECT_EQ(0, spec.EstimateReadStateSizeInBytes(/*valid=*/false,
+                                                 span<const Index>({2, 3})));
   EXPECT_EQ(2 * 3 * sizeof(int32_t),
-            spec.EstimateReadStateSizeInBytes(/*valid=*/true));
+            spec.EstimateReadStateSizeInBytes(/*valid=*/true,
+                                              span<const Index>({2, 3})));
 
   {
     auto read_array = MakeArray<int32_t>({{7, 8, 9}, {10, 11, 12}});
@@ -130,7 +132,7 @@ TEST(SpecTest, Basic) {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto iterable,
         spec.GetReadNDIterable(
-            read_array, /*origin=*/span<const Index>({2, 6}),
+            read_array, /*domain=*/BoxView<>({2, 6}, {2, 3}),
             tensorstore::IdentityTransform(tensorstore::Box<>({2, 6}, {2, 2})),
             &arena));
     EXPECT_EQ(
@@ -140,13 +142,19 @@ TEST(SpecTest, Basic) {
 }
 
 TEST(MaskedArrayTest, Basic) {
-  auto fill_value = MakeArray<int32_t>({{1, 2, 3}, {4, 5, 6}});
-  auto fill_value_copy = MakeCopy(fill_value);
+  auto overall_fill_value = MakeOffsetArray<int32_t>(
+      {-2, 0}, {
+                   {1, 2, 3, 4, 5, 6, 7, 8, 9},
+                   {11, 12, 13, 14, 15, 16, 17, 18, 19},
+                   {21, 22, 23, 24, 25, 26, 27, 28, 29},
+                   {31, 32, 33, 34, 35, 36, 37, 38, 39},
+               });
+  auto fill_value_copy = MakeArray<int32_t>({{21, 22, 23}, {31, 32, 33}});
   tensorstore::Box<> component_bounds({-1, -kInfIndex}, {3, kInfSize});
-  Spec spec(fill_value, component_bounds);
+  Spec spec{overall_fill_value, component_bounds};
   MaskedArray write_state(2);
-  std::vector<Index> origin{0, 0};
-  EXPECT_EQ(0, write_state.EstimateSizeInBytes(spec));
+  Box<> domain({0, 0}, {2, 3});
+  EXPECT_EQ(0, write_state.EstimateSizeInBytes(spec, domain.shape()));
   EXPECT_TRUE(write_state.IsUnmodified());
   EXPECT_FALSE(write_state.array.valid());
 
@@ -154,23 +162,23 @@ TEST(MaskedArrayTest, Basic) {
 
   {
     auto writeback_data = write_state.GetArrayForWriteback(
-        spec, origin, /*read_array=*/{},
+        spec, domain, /*read_array=*/{},
         /*read_state_already_integrated=*/false);
-    EXPECT_EQ(spec.fill_value, writeback_data.array);
+    EXPECT_EQ(spec.GetFillValueForDomain(domain), writeback_data.array);
     EXPECT_FALSE(writeback_data.must_store);
   }
 
   {
     auto writeback_data = write_state.GetArrayForWriteback(
-        spec, origin, /*read_array=*/fill_value_copy,
+        spec, domain, /*read_array=*/fill_value_copy,
         /*read_state_already_integrated=*/false);
-    EXPECT_EQ(spec.fill_value, writeback_data.array);
+    EXPECT_EQ(spec.GetFillValueForDomain(domain), writeback_data.array);
     EXPECT_FALSE(writeback_data.must_store);
   }
 
   {
     auto writeback_data = write_state.GetArrayForWriteback(
-        spec, origin, read_array,
+        spec, domain, read_array,
         /*read_state_already_integrated=*/false);
     EXPECT_EQ(read_array, writeback_data.array);
     EXPECT_TRUE(writeback_data.must_store);
@@ -178,57 +186,60 @@ TEST(MaskedArrayTest, Basic) {
 
   // Write a zero-size region to test handling of a write that does not modify
   // the array.
-  TestWrite(&write_state, spec, origin,
+  TestWrite(&write_state, spec, domain,
             tensorstore::AllocateArray<int32_t>(
                 tensorstore::BoxView<>({1, 1}, {0, 0})));
   EXPECT_TRUE(write_state.array.valid());
   EXPECT_TRUE(write_state.IsUnmodified());
-  EXPECT_FALSE(write_state.IsFullyOverwritten(spec, origin));
+  EXPECT_FALSE(write_state.IsFullyOverwritten(spec, domain));
   // Data array has been allocated, but mask array has not.
-  EXPECT_EQ(2 * 3 * sizeof(int32_t), write_state.EstimateSizeInBytes(spec));
+  EXPECT_EQ(2 * 3 * sizeof(int32_t),
+            write_state.EstimateSizeInBytes(spec, domain.shape()));
   // Zero initialize `write_state.array` to simplify testing.
   std::fill_n(static_cast<int32_t*>(write_state.array.data()),
-              spec.num_elements(), 0);
-  TestWrite(&write_state, spec, origin,
+              domain.num_elements(), 0);
+  TestWrite(&write_state, spec, domain,
             tensorstore::MakeOffsetArray<int32_t>({1, 1}, {{7, 8}}));
   EXPECT_EQ(MakeArray<int32_t>({{0, 0, 0}, {0, 7, 8}}),
             write_state.shared_array_view(spec));
   EXPECT_FALSE(write_state.IsUnmodified());
-  EXPECT_FALSE(write_state.IsFullyOverwritten(spec, origin));
+  EXPECT_FALSE(write_state.IsFullyOverwritten(spec, domain));
 
   // Make write region non-rectangular to force mask allocation.
-  TestWrite(&write_state, spec, origin,
+  TestWrite(&write_state, spec, domain,
             tensorstore::MakeOffsetArray<int32_t>({0, 0}, {{9}}));
   EXPECT_EQ(MakeArray<int32_t>({{9, 0, 0}, {0, 7, 8}}),
             write_state.shared_array_view(spec));
   EXPECT_EQ(MakeArray<bool>({{1, 0, 0}, {0, 1, 1}}),
             tensorstore::Array(write_state.mask.mask_array.get(), {2, 3}));
   EXPECT_FALSE(write_state.IsUnmodified());
-  EXPECT_FALSE(write_state.IsFullyOverwritten(spec, origin));
+  EXPECT_FALSE(write_state.IsFullyOverwritten(spec, domain));
   // Both data array and mask array have been allocated.
   EXPECT_EQ(2 * 3 * (sizeof(int32_t) + sizeof(bool)),
-            write_state.EstimateSizeInBytes(spec));
+            write_state.EstimateSizeInBytes(spec, domain.shape()));
 
   {
     auto writeback_data = write_state.GetArrayForWriteback(
-        spec, origin, /*read_array=*/{},
+        spec, domain, /*read_array=*/{},
         /*read_state_already_integrated=*/false);
     EXPECT_TRUE(writeback_data.must_store);
-    EXPECT_EQ(MakeArray<int32_t>({{9, 2, 3}, {4, 7, 8}}), writeback_data.array);
+    EXPECT_EQ(MakeArray<int32_t>({{9, 22, 23}, {31, 7, 8}}),
+              writeback_data.array);
   }
 
   {
     auto writeback_data = write_state.GetArrayForWriteback(
-        spec, origin, read_array,
+        spec, domain, read_array,
         /*read_state_already_integrated=*/true);
     EXPECT_TRUE(writeback_data.must_store);
     // Data is not updated due to `read_state_already_integrated`.
-    EXPECT_EQ(MakeArray<int32_t>({{9, 2, 3}, {4, 7, 8}}), writeback_data.array);
+    EXPECT_EQ(MakeArray<int32_t>({{9, 22, 23}, {31, 7, 8}}),
+              writeback_data.array);
   }
 
   {
     auto writeback_data = write_state.GetArrayForWriteback(
-        spec, origin, read_array,
+        spec, domain, read_array,
         /*read_state_already_integrated=*/false);
     EXPECT_TRUE(writeback_data.must_store);
     EXPECT_EQ(MakeArray<int32_t>({{9, 12, 13}, {14, 7, 8}}),
@@ -236,16 +247,16 @@ TEST(MaskedArrayTest, Basic) {
   }
 
   // Overwrite fully.
-  TestWrite(&write_state, spec, origin,
+  TestWrite(&write_state, spec, domain,
             tensorstore::MakeOffsetArray<int32_t>({0, 0}, {{9}, {9}}));
-  TestWrite(&write_state, spec, origin,
+  TestWrite(&write_state, spec, domain,
             tensorstore::MakeOffsetArray<int32_t>({0, 0}, {{10, 10, 10}}));
   EXPECT_FALSE(write_state.IsUnmodified());
-  EXPECT_TRUE(write_state.IsFullyOverwritten(spec, origin));
+  EXPECT_TRUE(write_state.IsFullyOverwritten(spec, domain));
 
   {
     auto writeback_data = write_state.GetArrayForWriteback(
-        spec, origin, read_array,
+        spec, domain, read_array,
         /*read_state_already_integrated=*/false);
     EXPECT_TRUE(writeback_data.must_store);
     EXPECT_EQ(MakeArray<int32_t>({{10, 10, 10}, {9, 7, 8}}),
@@ -253,15 +264,15 @@ TEST(MaskedArrayTest, Basic) {
   }
 
   // Overwrite with the fill value via writing.
-  TestWrite(&write_state, spec, origin, fill_value_copy);
+  TestWrite(&write_state, spec, domain, fill_value_copy);
   // Data array is still allocated.
   EXPECT_TRUE(write_state.array.valid());
   {
     auto writeback_data = write_state.GetArrayForWriteback(
-        spec, origin, read_array,
+        spec, domain, read_array,
         /*read_state_already_integrated=*/false);
     EXPECT_FALSE(writeback_data.must_store);
-    EXPECT_EQ(spec.fill_value, writeback_data.array);
+    EXPECT_EQ(spec.GetFillValueForDomain(domain), writeback_data.array);
     // Data array no longer allocated.
     EXPECT_FALSE(write_state.array.valid());
   }
@@ -271,68 +282,74 @@ TEST(MaskedArrayTest, Basic) {
   EXPECT_TRUE(write_state.IsUnmodified());
 
   // Partially overwrite then call `WriteFillValue`.
-  TestWrite(&write_state, spec, origin,
+  TestWrite(&write_state, spec, domain,
             tensorstore::MakeOffsetArray<int32_t>({1, 1}, {{7, 8}}));
-  write_state.WriteFillValue(spec, origin);
+  write_state.WriteFillValue(spec, domain);
   EXPECT_FALSE(write_state.IsUnmodified());
   EXPECT_FALSE(write_state.array.valid());
-  EXPECT_EQ(0, write_state.EstimateSizeInBytes(spec));
-  EXPECT_TRUE(write_state.IsFullyOverwritten(spec, origin));
+  EXPECT_EQ(0, write_state.EstimateSizeInBytes(spec, domain.shape()));
+  EXPECT_TRUE(write_state.IsFullyOverwritten(spec, domain));
 
   {
     auto writeback_data = write_state.GetArrayForWriteback(
-        spec, origin, read_array,
+        spec, domain, read_array,
         /*read_state_already_integrated=*/false);
     EXPECT_FALSE(writeback_data.must_store);
-    EXPECT_EQ(spec.fill_value, writeback_data.array);
+    EXPECT_EQ(spec.GetFillValueForDomain(domain), writeback_data.array);
     // Data array still not allocated.
     EXPECT_FALSE(write_state.array.valid());
   }
 
   // Partially overwrite.
-  TestWrite(&write_state, spec, origin,
+  TestWrite(&write_state, spec, domain,
             tensorstore::MakeOffsetArray<int32_t>({1, 1}, {{7, 8}}));
-  EXPECT_EQ(MakeArray<int32_t>({{1, 2, 3}, {4, 7, 8}}),
+  EXPECT_EQ(MakeArray<int32_t>({{21, 22, 23}, {31, 7, 8}}),
             write_state.shared_array_view(spec));
 }
 
 // Tests that `IsFullyOverwritten` correctly handles chunks that are partially
 // outside `component_bounds`.
 TEST(MaskedArrayTest, PartialChunk) {
-  auto fill_value = MakeArray<int32_t>({{1, 2, 3}, {4, 5, 6}});
+  auto overall_fill_value = MakeOffsetArray<int32_t>(
+      {-2, 0}, {
+                   {1, 2, 3, 4, 5, 6, 7, 8, 9},
+                   {11, 12, 13, 14, 15, 16, 17, 18, 19},
+                   {21, 22, 23, 24, 25, 26, 27, 28, 29},
+                   {31, 32, 33, 34, 35, 36, 37, 38, 39},
+               });
   tensorstore::Box<> component_bounds({-1, -kInfIndex}, {3, kInfSize});
-  Spec spec(fill_value, component_bounds);
-  std::vector<Index> origin{-2, 0};
+  Spec spec{overall_fill_value, component_bounds};
+  Box<> domain{{-2, 0}, {2, 3}};
   MaskedArray write_state(2);
   // Fully overwrite the portion within `component_bounds`.
-  TestWrite(&write_state, spec, origin,
+  TestWrite(&write_state, spec, domain,
             tensorstore::MakeOffsetArray<int32_t>({-1, 0}, {{7, 8, 9}}));
-  EXPECT_TRUE(write_state.IsFullyOverwritten(spec, origin));
+  EXPECT_TRUE(write_state.IsFullyOverwritten(spec, domain));
 }
 
 // Tests that `store_if_equal_to_fill_value==true` is correctly handled.
 TEST(MaskedArrayTest, StoreIfEqualToFillValue) {
-  auto fill_value = MakeScalarArray<int32_t>(42);
+  auto overall_fill_value = MakeScalarArray<int32_t>(42);
   tensorstore::Box<> component_bounds;
-  Spec spec(fill_value, component_bounds);
+  Spec spec{overall_fill_value, component_bounds};
   spec.store_if_equal_to_fill_value = true;
   MaskedArray write_state(0);
   // Fully overwrite the portion within `component_bounds`.
   TestWrite(&write_state, spec, {}, tensorstore::MakeScalarArray<int32_t>(42));
   {
     auto writeback_data = write_state.GetArrayForWriteback(
-        spec, /*origin=*/{}, /*read_array=*/{},
+        spec, /*domain=*/{}, /*read_array=*/{},
         /*read_state_already_integrated=*/false);
-    EXPECT_EQ(fill_value, writeback_data.array);
+    EXPECT_EQ(overall_fill_value, writeback_data.array);
     EXPECT_TRUE(writeback_data.must_store);
   }
 
   auto read_array = MakeScalarArray<int32_t>(50);
   {
     auto writeback_data = write_state.GetArrayForWriteback(
-        spec, /*origin=*/{}, read_array,
+        spec, /*domain=*/{}, read_array,
         /*read_state_already_integrated=*/false);
-    EXPECT_EQ(fill_value, writeback_data.array);
+    EXPECT_EQ(overall_fill_value, writeback_data.array);
     EXPECT_TRUE(writeback_data.must_store);
   }
 }
@@ -343,7 +360,7 @@ TEST(MaskedArrayTest, CompareFillValueIdenticallyEqual) {
   auto fill_value =
       MakeScalarArray<float>(std::numeric_limits<float>::quiet_NaN());
   tensorstore::Box<> component_bounds;
-  Spec spec(fill_value, component_bounds);
+  Spec spec{fill_value, component_bounds};
   spec.fill_value_comparison_kind =
       tensorstore::EqualityComparisonKind::identical;
   MaskedArray write_state(0);
@@ -353,7 +370,7 @@ TEST(MaskedArrayTest, CompareFillValueIdenticallyEqual) {
                 std::numeric_limits<float>::signaling_NaN()));
   {
     auto writeback_data = write_state.GetArrayForWriteback(
-        spec, /*origin=*/{}, /*read_array=*/{},
+        spec, /*domain=*/{}, /*read_array=*/{},
         /*read_state_already_integrated=*/false);
     EXPECT_TRUE(AreArraysIdenticallyEqual(
         tensorstore::MakeScalarArray<float>(
@@ -367,23 +384,30 @@ TEST(MaskedArrayTest, CompareFillValueIdenticallyEqual) {
                 std::numeric_limits<float>::quiet_NaN()));
   {
     auto writeback_data = write_state.GetArrayForWriteback(
-        spec, /*origin=*/{}, /*read_array=*/{},
+        spec, /*domain=*/{}, /*read_array=*/{},
         /*read_state_already_integrated=*/false);
     EXPECT_TRUE(
         AreArraysIdenticallyEqual(tensorstore::MakeScalarArray<float>(
                                       std::numeric_limits<float>::quiet_NaN()),
                                   writeback_data.array));
     EXPECT_FALSE(writeback_data.must_store);
-    EXPECT_EQ(spec.fill_value.data(), writeback_data.array.data());
+    EXPECT_EQ(fill_value.data(), writeback_data.array.data());
   }
 }
 
 TEST(AsyncWriteArrayTest, Basic) {
   AsyncWriteArray async_write_array(2);
-  auto fill_value = MakeArray<int32_t>({{1, 2, 3}, {4, 5, 6}});
+  auto overall_fill_value = MakeOffsetArray<int32_t>(
+      {-2, 0}, {
+                   {1, 2, 3, 4, 5, 6, 7, 8, 9},
+                   {11, 12, 13, 14, 15, 16, 17, 18, 19},
+                   {21, 22, 23, 24, 25, 26, 27, 28, 29},
+                   {31, 32, 33, 34, 35, 36, 37, 38, 39},
+               });
   tensorstore::Box<> component_bounds({-1, -kInfIndex}, {3, kInfSize});
-  Spec spec(fill_value, component_bounds);
-  std::vector<Index> origin{0, 0};
+  Spec spec{overall_fill_value, component_bounds};
+  Box<> domain{{0, 0}, {2, 3}};
+  auto fill_value_copy = MakeArray<int32_t>({{21, 22, 23}, {31, 32, 33}});
 
   // Test that `GetReadNDIterable` correctly handles the case of an unmodified
   // write state.
@@ -392,12 +416,12 @@ TEST(AsyncWriteArrayTest, Basic) {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto iterable,
         async_write_array.GetReadNDIterable(
-            spec, origin, /*read_array=*/{},
+            spec, domain, /*read_array=*/{},
             /*read_generation=*/StorageGeneration::FromString("a"),
             tensorstore::IdentityTransform(tensorstore::Box<>({0, 1}, {2, 2})),
             &arena));
     EXPECT_EQ(
-        MakeArray<int32_t>({{2, 3}, {5, 6}}),
+        MakeArray<int32_t>({{22, 23}, {32, 33}}),
         CopyNDIterable(std::move(iterable), span<const Index>({2, 2}), &arena));
   }
 
@@ -406,7 +430,7 @@ TEST(AsyncWriteArrayTest, Basic) {
     auto read_array = MakeArray<int32_t>({{21, 22, 23}, {24, 25, 26}});
     Arena arena;
     auto writeback_data = async_write_array.GetArrayForWriteback(
-        spec, origin, read_array,
+        spec, domain, read_array,
         /*read_generation=*/StorageGeneration::FromString("b"));
     EXPECT_TRUE(writeback_data.must_store);
     // Writeback reflects updated `read_array`.
@@ -416,13 +440,13 @@ TEST(AsyncWriteArrayTest, Basic) {
 
   // Test that `GetReadNDIterable` correctly handles the case of a
   // partially-modified write state.
-  TestWrite(&async_write_array, spec, origin,
+  TestWrite(&async_write_array, spec, domain,
             tensorstore::MakeOffsetArray<int32_t>({0, 0}, {{8}}));
 
   // Test that writing does not normally copy the data array.
   {
     auto* data_ptr = async_write_array.write_state.array.data();
-    TestWrite(&async_write_array, spec, origin,
+    TestWrite(&async_write_array, spec, domain,
               tensorstore::MakeOffsetArray<int32_t>({0, 0}, {{7}}));
     EXPECT_EQ(data_ptr, async_write_array.write_state.array.data());
   }
@@ -432,12 +456,12 @@ TEST(AsyncWriteArrayTest, Basic) {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto iterable,
         async_write_array.GetReadNDIterable(
-            spec, origin, /*read_array=*/{},
+            spec, domain, /*read_array=*/{},
             /*read_generation=*/StorageGeneration::FromString("a"),
             tensorstore::IdentityTransform(tensorstore::Box<>({0, 0}, {2, 3})),
             &arena));
     EXPECT_EQ(
-        MakeArray<int32_t>({{7, 2, 3}, {4, 5, 6}}),
+        MakeArray<int32_t>({{7, 22, 23}, {31, 32, 33}}),
         CopyNDIterable(std::move(iterable), span<const Index>({2, 3}), &arena));
   }
 
@@ -448,13 +472,13 @@ TEST(AsyncWriteArrayTest, Basic) {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto iterable,
         async_write_array.GetReadNDIterable(
-            spec, origin, read_array,
+            spec, domain, read_array,
             /*read_generation=*/StorageGeneration::FromString("a"),
             tensorstore::IdentityTransform(tensorstore::Box<>({0, 0}, {2, 3})),
             &arena));
     // Result should not reflect updated `read_array`.
     EXPECT_EQ(
-        MakeArray<int32_t>({{7, 2, 3}, {4, 5, 6}}),
+        MakeArray<int32_t>({{7, 22, 23}, {31, 32, 33}}),
         CopyNDIterable(std::move(iterable), span<const Index>({2, 3}), &arena));
   }
 
@@ -464,12 +488,13 @@ TEST(AsyncWriteArrayTest, Basic) {
     auto read_array = MakeArray<int32_t>({{11, 12, 13}, {14, 15, 16}});
     Arena arena;
     auto writeback_data = async_write_array.GetArrayForWriteback(
-        spec, origin, read_array,
+        spec, domain, read_array,
         /*read_generation=*/StorageGeneration::FromString("a"));
     EXPECT_TRUE(writeback_data.must_store);
     prev_writeback_array = writeback_data.array;
     // Writeback does not reflect updated `read_array`.
-    EXPECT_EQ(MakeArray<int32_t>({{7, 2, 3}, {4, 5, 6}}), writeback_data.array);
+    EXPECT_EQ(MakeArray<int32_t>({{7, 22, 23}, {31, 32, 33}}),
+              writeback_data.array);
   }
 
   // Test that `GetReadNDIterable` handles an updated read array.
@@ -479,7 +504,7 @@ TEST(AsyncWriteArrayTest, Basic) {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto iterable,
         async_write_array.GetReadNDIterable(
-            spec, origin, read_array,
+            spec, domain, read_array,
             /*read_generation=*/StorageGeneration::FromString("b"),
             tensorstore::IdentityTransform(tensorstore::Box<>({0, 0}, {2, 3})),
             &arena));
@@ -493,7 +518,7 @@ TEST(AsyncWriteArrayTest, Basic) {
     auto read_array = MakeArray<int32_t>({{21, 22, 23}, {24, 25, 26}});
     Arena arena;
     auto writeback_data = async_write_array.GetArrayForWriteback(
-        spec, origin, read_array,
+        spec, domain, read_array,
         /*read_generation=*/StorageGeneration::FromString("c"));
     EXPECT_TRUE(writeback_data.must_store);
     // Writeback reflects updated `read_array`.
@@ -509,24 +534,25 @@ TEST(AsyncWriteArrayTest, Basic) {
 
   // Test that `GetReadNDIterable` handles a write state fully-overwritten with
   // the fill value.
-  async_write_array.write_state.WriteFillValue(spec, origin);
+  async_write_array.write_state.WriteFillValue(spec, domain);
   {
     auto read_array = MakeArray<int32_t>({{11, 12, 13}, {14, 15, 16}});
     Arena arena;
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto iterable,
         async_write_array.GetReadNDIterable(
-            spec, origin, read_array,
+            spec, domain, read_array,
             /*read_generation=*/StorageGeneration::FromString("b"),
             tensorstore::IdentityTransform(tensorstore::Box<>({0, 0}, {2, 3})),
             &arena));
-    EXPECT_EQ(fill_value, CopyNDIterable(std::move(iterable),
-                                         span<const Index>({2, 3}), &arena));
+    EXPECT_EQ(
+        fill_value_copy,
+        CopyNDIterable(std::move(iterable), span<const Index>({2, 3}), &arena));
   }
 
   // Test that `GetReadNDIterable` handles a write state fully-overwritten not
   // with the fill value.
-  TestWrite(&async_write_array, spec, origin,
+  TestWrite(&async_write_array, spec, domain,
             tensorstore::MakeOffsetArray<int32_t>({0, 0}, {{9}}));
   {
     auto read_array = MakeArray<int32_t>({{11, 12, 13}, {14, 15, 16}});
@@ -534,12 +560,12 @@ TEST(AsyncWriteArrayTest, Basic) {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto iterable,
         async_write_array.GetReadNDIterable(
-            spec, origin, read_array,
+            spec, domain, read_array,
             /*read_generation=*/StorageGeneration::FromString("b"),
             tensorstore::IdentityTransform(tensorstore::Box<>({0, 0}, {2, 3})),
             &arena));
     EXPECT_EQ(
-        MakeArray<int32_t>({{9, 2, 3}, {4, 5, 6}}),
+        MakeArray<int32_t>({{9, 22, 23}, {31, 32, 33}}),
         CopyNDIterable(std::move(iterable), span<const Index>({2, 3}), &arena));
   }
 }
@@ -547,21 +573,20 @@ TEST(AsyncWriteArrayTest, Basic) {
 // https://github.com/google/tensorstore/issues/144
 TEST(AsyncWriteArrayTest, Issue144) {
   AsyncWriteArray async_write_array(1);
-  auto fill_value = MakeArray<int32_t>({0, 0});
-  auto fill_value_copy = MakeCopy(fill_value);
+  auto overall_fill_value = MakeArray<int32_t>({0, 0});
   tensorstore::Box<> component_bounds(1);
-  Spec spec(fill_value, component_bounds);
-  std::vector<Index> origin{0};
+  Spec spec{overall_fill_value, component_bounds};
+  Box<> domain{{0}, {2}};
   // Overwrite position 1 with the fill value.
-  TestWrite(&async_write_array, spec, origin,
+  TestWrite(&async_write_array, spec, domain,
             tensorstore::MakeOffsetArray<int32_t>({1}, {0}));
 
   // Get writeback data, assuming no existing `read_array`.
   {
     auto writeback_data = async_write_array.GetArrayForWriteback(
-        spec, origin, /*read_array=*/{},
+        spec, domain, /*read_array=*/{},
         /*read_generation=*/StorageGeneration::FromString("c"));
-    EXPECT_EQ(spec.fill_value, writeback_data.array);
+    EXPECT_EQ(spec.GetFillValueForDomain(domain), writeback_data.array);
     EXPECT_FALSE(writeback_data.must_store);
   }
 
@@ -574,9 +599,9 @@ TEST(AsyncWriteArrayTest, Issue144) {
   // correctly.
   for (int i = 0; i < 2; ++i) {
     auto writeback_data = async_write_array.GetArrayForWriteback(
-        spec, origin, /*read_array=*/{},
+        spec, domain, /*read_array=*/{},
         /*read_generation=*/StorageGeneration::FromString("d"));
-    EXPECT_EQ(spec.fill_value, writeback_data.array);
+    EXPECT_EQ(spec.GetFillValueForDomain(domain), writeback_data.array);
     EXPECT_FALSE(writeback_data.must_store);
     EXPECT_EQ(1, async_write_array.write_state.mask.num_masked_elements);
     EXPECT_FALSE(async_write_array.write_state.array.data());
@@ -586,7 +611,7 @@ TEST(AsyncWriteArrayTest, Issue144) {
   // value.
   {
     auto writeback_data = async_write_array.GetArrayForWriteback(
-        spec, origin, /*read_array=*/MakeArray<int32_t>({2, 2}),
+        spec, domain, /*read_array=*/MakeArray<int32_t>({2, 2}),
         /*read_generation=*/StorageGeneration::FromString("e"));
     EXPECT_EQ(MakeArray<int32_t>({2, 0}), writeback_data.array);
     EXPECT_TRUE(writeback_data.must_store);
@@ -598,9 +623,9 @@ TEST(AsyncWriteArrayTest, Issue144) {
   // to the fill value.
   {
     auto writeback_data = async_write_array.GetArrayForWriteback(
-        spec, origin, /*read_array=*/MakeArray<int32_t>({0, 2}),
+        spec, domain, /*read_array=*/MakeArray<int32_t>({0, 2}),
         /*read_generation=*/StorageGeneration::FromString("f"));
-    EXPECT_EQ(spec.fill_value, writeback_data.array);
+    EXPECT_EQ(spec.GetFillValueForDomain(domain), writeback_data.array);
     EXPECT_FALSE(writeback_data.must_store);
     EXPECT_EQ(1, async_write_array.write_state.mask.num_masked_elements);
     EXPECT_FALSE(async_write_array.write_state.array.data());
@@ -624,14 +649,14 @@ void TestWriteArraySuccess(
   auto origin = output_range.origin();
   SCOPED_TRACE(tensorstore::StrCat("origin=", origin));
   auto fill_value =
-      tensorstore::AllocateArray(output_range.shape(), tensorstore::c_order,
+      tensorstore::AllocateArray(output_range, tensorstore::c_order,
                                  tensorstore::value_init, source_array.dtype());
   tensorstore::Box<> component_bounds(chunk_transform.output_rank());
-  Spec spec(fill_value, component_bounds);
+  Spec spec{fill_value, component_bounds};
   size_t orig_use_count = source_array.element_pointer().pointer().use_count();
 
   TENSORSTORE_ASSERT_OK(async_write_array.WriteArray(
-      spec, origin, chunk_transform,
+      spec, output_range, chunk_transform,
       [&] { return std::pair{source_array, source_capabilities}; }));
 
   auto validate_zero_copy = [&](const auto& target_array,
@@ -640,7 +665,8 @@ void TestWriteArraySuccess(
               source_array.element_pointer().pointer().use_count());
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto materialized_target_array,
-        target_array | tensorstore::AllDims().TranslateTo(origin) |
+        target_array |
+            tensorstore::AllDims().TranslateTo(output_range.origin()) |
             chunk_transform | tensorstore::TryConvertToArray());
 
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -667,7 +693,7 @@ void TestWriteArraySuccess(
     SCOPED_TRACE("Checking writeback_data");
     orig_use_count = source_array.element_pointer().pointer().use_count();
     auto writeback_data = async_write_array.GetArrayForWriteback(
-        spec, origin, /*read_array=*/{},
+        spec, output_range, /*read_array=*/{},
         /*read_generation=*/StorageGeneration::Invalid());
 
     validate_zero_copy(writeback_data.array, orig_use_count);
@@ -684,13 +710,12 @@ absl::Status TestWriteArrayError(
     tensorstore::IndexTransformView<> chunk_transform,
     tensorstore::TransformedSharedArray<const void> source_array) {
   AsyncWriteArray async_write_array(chunk_transform.output_rank());
-  auto fill_value =
-      tensorstore::AllocateArray(box.shape(), tensorstore::c_order,
-                                 tensorstore::value_init, source_array.dtype());
+  auto fill_value = tensorstore::AllocateArray(
+      box, tensorstore::c_order, tensorstore::value_init, source_array.dtype());
   tensorstore::Box<> component_bounds(chunk_transform.output_rank());
-  Spec spec(fill_value, component_bounds);
+  Spec spec{fill_value, component_bounds};
 
-  return async_write_array.WriteArray(spec, box.origin(), chunk_transform, [&] {
+  return async_write_array.WriteArray(spec, box, chunk_transform, [&] {
     return std::pair{source_array, source_capabilities};
   });
 }

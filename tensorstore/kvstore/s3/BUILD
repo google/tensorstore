@@ -17,6 +17,7 @@ tensorstore_cc_library(
     name = "s3",
     srcs = ["s3_key_value_store.cc"],
     deps = [
+        ":aws_credentials_resource",
         ":s3_endpoint",
         ":s3_metadata",
         ":s3_request_builder",
@@ -66,6 +67,41 @@ tensorstore_cc_library(
         "@tinyxml2",
     ],
     alwayslink = 1,
+)
+
+tensorstore_cc_library(
+    name = "aws_credentials_resource",
+    srcs = ["aws_credentials_resource.cc"],
+    hdrs = ["aws_credentials_resource.h"],
+    deps = [
+        ":s3_resource",
+        "//tensorstore:context",
+        "//tensorstore:json_serialization_options",
+        "//tensorstore/internal:data_copy_concurrency_resource",
+        "//tensorstore/internal/http:curl_transport",
+        "//tensorstore/internal/json_binding",
+        "//tensorstore/kvstore/s3/credentials:aws_credentials",
+        "//tensorstore/kvstore/s3/credentials:default_credential_provider",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "@com_github_nlohmann_json//:json",
+        "@com_google_absl//absl/status",
+    ],
+    alwayslink = 1,
+)
+
+tensorstore_cc_test(
+    name = "aws_credentials_resource_test",
+    size = "small",
+    srcs = ["aws_credentials_resource_test.cc"],
+    deps = [
+        ":aws_credentials_resource",
+        "//tensorstore:context",
+        "//tensorstore/util:status_testutil",
+        "@com_github_nlohmann_json//:json",
+        "@com_google_absl//absl/status",
+        "@com_google_googletest//:gtest_main",
+    ],
 )
 
 tensorstore_cc_library(

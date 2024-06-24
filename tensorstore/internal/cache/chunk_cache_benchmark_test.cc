@@ -38,6 +38,7 @@
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/transformed_array.h"
+#include "tensorstore/internal/async_write_array.h"
 #include "tensorstore/internal/cache/async_cache.h"
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/cache/chunk_cache.h"
@@ -139,15 +140,16 @@ class BenchmarkCache : public ConcreteChunkCache {
     using OwningCache = BenchmarkCache;
     void DoRead(AsyncCacheReadRequest request) override {
       GetOwningCache(*this).executor()([this] {
+        auto& grid = GetOwningCache(*this).grid();
         const auto component_specs = this->component_specs();
         auto read_data = tensorstore::internal::make_shared_for_overwrite<
             ChunkCache::ReadData[]>(component_specs.size());
-        for (size_t component_i = 0;
-             component_i < static_cast<size_t>(component_specs.size());
+        for (size_t component_i = 0; component_i < grid.components.size();
              ++component_i) {
-          const auto& spec = component_specs[component_i];
-          read_data.get()[component_i] = SharedArrayView<const void>(
-              MakeCopy(spec.fill_value).element_pointer(), spec.write_layout());
+          const auto& spec = grid.components[component_i];
+          read_data.get()[component_i] =
+              MakeCopy(spec.array_spec.GetFillValueForDomain(
+                  grid.GetCellDomain(component_i, this->cell_indices())));
         }
         this->ReadSuccess(
             {std::move(read_data),
@@ -235,9 +237,14 @@ class CopyBenchmarkRunner {
       if (config.chunked[i]) chunked_dims.push_back(i);
     }
     ChunkGridSpecification grid({ChunkGridSpecification::Component{
-        AllocateArray(config.cell_shape, tensorstore::c_order,
-                      tensorstore::value_init, config.dtype),
-        Box<>(rank), chunked_dims}});
+        tensorstore::internal::AsyncWriteArray::Spec{
+            BroadcastArray(AllocateArray(/*shape=*/span<const Index>{},
+                                         tensorstore::c_order,
+                                         tensorstore::value_init, config.dtype),
+                           tensorstore::BoxView<>(rank))
+                .value(),
+            Box<>(rank)},
+        /*chunk_shape=*/config.cell_shape, chunked_dims}});
     cache = GetCache<BenchmarkCache>(pool.get(), "", [&] {
       return std::make_unique<BenchmarkCache>(grid, executor);
     });

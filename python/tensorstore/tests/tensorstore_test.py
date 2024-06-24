@@ -17,6 +17,7 @@ import copy
 import pickle
 import re
 import tempfile
+import time
 
 import numpy as np
 import pytest
@@ -554,3 +555,37 @@ def test_issue_168():
           "output": [{}],
       },
   }
+
+
+@pytest.mark.parametrize("value", [True, False, "open", 100, 1000.5])
+@pytest.mark.parametrize(
+    "key",
+    [
+        "recheck_cached_data",
+        "recheck_cached_metadata",
+        "recheck_cached",
+    ],
+)
+async def test_recheck_cached(key, value):
+  spec = ts.Spec({
+      "driver": "zarr",
+      "kvstore": "memory://",
+      "schema": {"dtype": "uint32", "domain": {"shape": [100, 200]}},
+  })
+
+  def validate_spec(s):
+    j = s.to_json(include_defaults=True)
+    if key != "recheck_cached_data":
+      assert j["recheck_cached_metadata"] == value
+    if key != "recheck_cached_metadata":
+      assert j["recheck_cached_data"] == value
+
+  spec_copy = spec.copy()
+  spec_copy.update(**{key: value})
+  validate_spec(spec_copy)
+
+  t = await ts.open(spec, create=True, **{key: value})
+  validate_spec(t.spec())
+
+  t = await ts.open(spec, create=True)
+  validate_spec(t.spec(**{key: value}))

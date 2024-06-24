@@ -73,18 +73,21 @@ void KvsBackedChunkCache::Entry::DoEncode(std::shared_ptr<const ReadData> data,
   // Convert from array of `SharedArray<const void>` to array of
   // `SharedArrayView<const void>`.
   auto* components = data.get();
-  const auto component_specs = this->component_specs();
-  absl::FixedArray<SharedArrayView<const void>, 2> component_arrays(
-      component_specs.size());
+  auto& grid = cache.grid();
+  absl::FixedArray<SharedArray<const void>, 2> component_arrays(
+      grid.components.size());
+  const span<const Index> cell_indices = this->cell_indices();
   for (size_t i = 0; i < component_arrays.size(); ++i) {
     if (components[i].valid()) {
       component_arrays[i] = components[i];
     } else {
-      component_arrays[i] = component_specs[i].fill_value;
+      auto& component_spec = grid.components[i];
+      auto domain = grid.GetCellDomain(i, cell_indices);
+      component_arrays[i] =
+          component_spec.array_spec.GetFillValueForDomain(domain);
     }
   }
-  auto encoded_result =
-      cache.EncodeChunk(entry.cell_indices(), component_arrays);
+  auto encoded_result = cache.EncodeChunk(cell_indices, component_arrays);
   if (!encoded_result.ok()) {
     execution::set_error(receiver, std::move(encoded_result).status());
     return;

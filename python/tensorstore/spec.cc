@@ -25,6 +25,7 @@
 #include <string>
 #include <utility>
 
+#include "absl/time/time.h"
 #include <nlohmann/json_fwd.hpp>
 #include "python/tensorstore/array_type_caster.h"
 #include "python/tensorstore/context.h"
@@ -48,6 +49,7 @@
 #include "tensorstore/open_mode.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/spec.h"
+#include "tensorstore/staleness_bound.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/str_cat.h"
@@ -82,7 +84,9 @@ constexpr auto WithSpecKeywordArguments = [](auto callback,
       spec_setters::SetDeleteExisting{}, spec_setters::SetAssumeMetadata{},
       spec_setters::SetAssumeCachedMetadata{}, spec_setters::SetUnbindContext{},
       spec_setters::SetStripContext{}, spec_setters::SetContext{},
-      spec_setters::SetKvstore{});
+      spec_setters::SetKvstore{}, spec_setters::SetMinimalSpec{},
+      spec_setters::SetRecheckCachedMetadata{},
+      spec_setters::SetRecheckCachedData{}, spec_setters::SetRecheckCached{});
 };
 
 using SpecCls = py::class_<PythonSpecObject>;
@@ -747,8 +751,7 @@ Group:
 )",
       py::arg("include_defaults") = false);
 
-  cls.def(
-      "copy", [](Self& self) { return self.value; }, R"(
+  cls.def("copy", [](Self& self) { return self.value; }, R"(
 Returns a copy of the spec.
 
 Example:
@@ -1483,8 +1486,7 @@ Group:
 )",
       py::arg("include_defaults") = false);
 
-  cls.def(
-      "copy", [](const Self& self) { return self; }, R"(
+  cls.def("copy", [](const Self& self) { return self; }, R"(
 Returns a copy of the schema.
 
 Example:
@@ -2048,6 +2050,36 @@ bool type_caster<tensorstore::internal_python::SpecLike>::load(handle src,
       tensorstore::internal_python::ValueOrThrow(tensorstore::Spec::FromJson(
           tensorstore::internal_python::PyObjectToJson(src)));
   return true;
+}
+
+bool type_caster<tensorstore::RecheckCacheOption>::load(handle src,
+                                                        bool convert) {
+  using tensorstore::RecheckCacheOption;
+  if (src.ptr() == Py_False) {
+    value = RecheckCacheOption{false};
+    return true;
+  }
+
+  if (src.ptr() == Py_True) {
+    value = RecheckCacheOption{true};
+    return true;
+  }
+
+  if (PyUnicode_Check(src.ptr()) &&
+      PyUnicode_CompareWithASCIIString(src.ptr(), "open") == 0) {
+    value = RecheckCacheOption::AtOpen();
+    return true;
+  }
+
+  double x = PyFloat_AsDouble(src.ptr());
+  if (x == -1 && PyErr_Occurred()) {
+    PyErr_Clear();
+  } else {
+    value = RecheckCacheOption{absl::UnixEpoch() + absl::Seconds(x)};
+    return true;
+  }
+
+  return false;
 }
 
 }  // namespace detail

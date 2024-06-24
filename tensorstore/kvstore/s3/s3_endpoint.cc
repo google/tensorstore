@@ -93,11 +93,13 @@ struct S3CustomFormatter {
 template <typename Formatter>
 struct ResolveHost {
   std::string bucket;
+  std::string default_aws_region;
   Formatter formatter;
 
   void operator()(Promise<S3EndpointRegion> promise,
                   ReadyFuture<HttpResponse> ready) {
     if (!promise.result_needed()) return;
+    // TODO: Handle retries.
 
     auto& headers = ready.value().headers;
     if (auto it = headers.find(kAmzBucketRegionHeader); it != headers.end()) {
@@ -105,10 +107,15 @@ struct ResolveHost {
           formatter.GetEndpoint(bucket, it->second),
           it->second,
       });
-    } else {
-      promise.SetResult(absl::FailedPreconditionError(
-          tensorstore::StrCat("bucket ", bucket, " does not exist")));
     }
+    if (!default_aws_region.empty()) {
+      promise.SetResult(S3EndpointRegion{
+          formatter.GetEndpoint(bucket, default_aws_region),
+          default_aws_region,
+      });
+    }
+    promise.SetResult(absl::FailedPreconditionError(tensorstore::StrCat(
+        "Failed to resolve aws_region for bucket ", QuoteString(bucket))));
   }
 };
 
@@ -193,6 +200,8 @@ Future<S3EndpointRegion> ResolveEndpointRegion(
   assert(transport);
   assert(IsValidBucketName(bucket));
 
+  // TODO: Handle retries, and sign the request.
+
   if (endpoint.empty()) {
     // Use a HEAD request on bucket.s3.amazonaws.com to acquire the aws_region
     // does not work when there is a . in the bucket name; for now require the
@@ -200,8 +209,8 @@ Future<S3EndpointRegion> ResolveEndpointRegion(
     if (!absl::StrContains(bucket, ".")) {
       std::string url = absl::StrFormat("https://%s.s3.amazonaws.com", bucket);
       return PromiseFuturePair<S3EndpointRegion>::Link(
-                 ResolveHost<S3VirtualHostFormatter>{std::move(bucket),
-                                                     S3VirtualHostFormatter{}},
+                 ResolveHost<S3VirtualHostFormatter>{
+                     std::move(bucket), {}, S3VirtualHostFormatter{}},
                  transport->IssueRequest(
                      HttpRequestBuilder("HEAD", std::move(url))
                          .AddHostHeader(host_header)
@@ -218,8 +227,8 @@ Future<S3EndpointRegion> ResolveEndpointRegion(
     std::string url =
         absl::StrFormat("https://s3.us-east-1.amazonaws.com/%s", bucket);
     return PromiseFuturePair<S3EndpointRegion>::Link(
-               ResolveHost<S3PathFormatter>{std::move(bucket),
-                                            S3PathFormatter{}},
+               ResolveHost<S3PathFormatter>{
+                   std::move(bucket), {}, S3PathFormatter{}},
                transport->IssueRequest(
                    HttpRequestBuilder("HEAD", std ::move(url))
                        .AddHostHeader(host_header)
@@ -233,7 +242,8 @@ Future<S3EndpointRegion> ResolveEndpointRegion(
   std::string url = absl::StrFormat("%s/%s", endpoint, bucket);
   return PromiseFuturePair<S3EndpointRegion>::Link(
              ResolveHost<S3CustomFormatter>{
-                 std::move(bucket), S3CustomFormatter{std::string(endpoint)}},
+                 std::move(bucket), "us-east-1",
+                 S3CustomFormatter{std::string(endpoint)}},
              transport->IssueRequest(HttpRequestBuilder("HEAD", std::move(url))
                                          .AddHostHeader(host_header)
                                          .BuildRequest(),

@@ -554,7 +554,7 @@ absl::Cord MakeCordFromContiguousArray(
 
 absl::Cord CopyComponentsToEncodedLayout(
     const ZarrMetadata& metadata,
-    span<const SharedArrayView<const void>> components) {
+    span<const SharedArray<const void>> components) {
   internal::FlatCordBuilder output_builder(
       metadata.chunk_layout.bytes_per_chunk);
   ByteStridedPointer<void> data_ptr = output_builder.data();
@@ -569,9 +569,8 @@ absl::Cord CopyComponentsToEncodedLayout(
 }
 }  // namespace
 
-Result<absl::Cord> EncodeChunk(
-    const ZarrMetadata& metadata,
-    span<const SharedArrayView<const void>> components) {
+Result<absl::Cord> EncodeChunk(const ZarrMetadata& metadata,
+                               span<const SharedArray<const void>> components) {
   absl::Cord output;
   if (components.size() == 1 &&
       SingleArrayMatchesEncodedRepresentation(metadata, components[0])) {

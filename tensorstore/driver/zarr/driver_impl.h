@@ -122,7 +122,7 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
 
   Result<absl::Cord> EncodeChunk(
       span<const Index> chunk_indices,
-      span<const SharedArrayView<const void>> component_arrays) override;
+      span<const SharedArray<const void>> component_arrays) override;
 
   std::string GetChunkStorageKey(span<const Index> cell_indices) override;
 

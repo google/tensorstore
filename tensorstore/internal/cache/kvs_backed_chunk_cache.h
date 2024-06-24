@@ -62,7 +62,7 @@ class KvsBackedChunkCache
   ///     where `grid = GetChunkGridSpecification(metadata)`.
   virtual Result<absl::Cord> EncodeChunk(
       span<const Index> chunk_indices,
-      span<const SharedArrayView<const void>> component_arrays) = 0;
+      span<const SharedArray<const void>> component_arrays) = 0;
 
   // The members below are implementation details not relevant to derived class
   // driver implementations.

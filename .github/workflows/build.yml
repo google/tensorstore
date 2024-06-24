@@ -7,93 +7,93 @@ jobs:
     strategy:
       matrix:
         include:
-        - os: 'ubuntu-latest'
-          cibw_build: '*'
-          wheel_identifier: linux
-        - os: 'windows-2019'
-          # Revert to windows-latest after: https://github.com/actions/runner-images/issues/7662
-          cibw_build: '*'
-          wheel_identifier: windows
-        - os: 'macos-latest'
-          cibw_build: '*_x86_64'
-          wheel_identifier: macos_x86_64
-        - os: 'macos-latest'
-          cibw_build: '*_arm64'
-          wheel_identifier: macos_arm64
+          - os: "ubuntu-latest"
+            cibw_build: "*"
+            wheel_identifier: linux_x86_64
+          - os: "arm-ubuntu-arm-22.04-8core"
+            cibw_build: "*"
+            wheel_identifier: linux_arm64
+          - os: "windows-2019"
+            # Revert to windows-latest after: https://github.com/actions/runner-images/issues/7662
+            cibw_build: "*"
+            wheel_identifier: windows
+          - os: "macos-latest"
+            cibw_build: "*_x86_64"
+            wheel_identifier: macos_x86_64
+          - os: "macos-latest"
+            cibw_build: "*_arm64"
+            wheel_identifier: macos_arm64
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v2
-      with:
-        # Need full history to determine version number.
-        fetch-depth: 0
-    - name: 'Set up Python'
-      uses: actions/setup-python@v2
-      with:
-        python-version: '3.9'
-    - name: 'Configure bazel remote cache write credentials'
-      env:
-        BAZEL_CACHE_SERVICE_ACCOUNT_KEY: ${{ secrets.BAZEL_CACHE_SERVICE_ACCOUNT_KEY }}
-      run: python ./tools/ci/configure_bazel_remote_cache.py --bazelrc ~/ci_bazelrc buildwheel-${{ matrix.os }}
-      shell: bash # For ~ expansion
-    - name: Get pip cache dir
-      id: pip-cache
-      shell: bash
-      run: |
-        echo "dir=$(pip cache dir)" >> $GITHUB_OUTPUT
-    - uses: actions/cache@v2
-      with:
-        path: ${{ steps.pip-cache.outputs.dir }}
-        key: pip-${{ runner.os }}-buildwheel-${{ hashFiles('tools/ci/*_requirements.txt', 'third_party/pypa/*_requirements_frozen.txt') }}
-    - uses: actions/cache@v2
-      with:
-        path: |
-          ~/.cache/cibuildwheel_bazel_cache/cache/repos
-          ~/.cache/bazelisk
-        key: bazel-${{ runner.os }}-buildwheel-${{ hashFiles('.bazelversion', 'WORKSPACE', 'external.bzl', 'third_party/**') }}
-    - name: Build Python source distribution (sdist)
-      run: python setup.py sdist --format gztar
-      if: ${{ runner.os == 'Linux' }}
-    - name: Install cibuildwheel
-      run: pip install -r third_party/pypa/cibuildwheel_requirements_frozen.txt
-    - name: Build Python wheels
-      run: python ./tools/ci/cibuildwheel.py --bazelrc ~/ci_bazelrc
-      shell: bash # For ~ expansion
-      env:
-        CIBW_BUILD: ${{ matrix.cibw_build }}
-    - name: Upload wheels as artifacts
-      uses: actions/upload-artifact@v2
-      with:
-        name: python-wheels-${{ matrix.wheel_identifier }}
-        path: |
-          dist/*.whl
-          dist/*.tar.gz
+      - uses: actions/checkout@v4
+        with:
+          # Need full history to determine version number.
+          fetch-depth: 0
+      - if: ${{ !startsWith(matrix.os, 'arm-ubuntu-') }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # actions/setup-python does not support Linux arm64, but deadsnakes/action
+      # is a drop-in replacement that does.
+      #
+      # https://github.com/actions/setup-python/issues/678
+      - if: ${{ startsWith(matrix.os, 'arm-ubuntu-') }}
+        uses: deadsnakes/action@6c8b9b82fe0b4344f4b98f2775fcc395df45e494 # v3.1.0
+        with:
+          python-version: "3.12"
+      - name: "Configure bazel remote cache write credentials"
+        env:
+          BAZEL_CACHE_SERVICE_ACCOUNT_KEY: ${{ secrets.BAZEL_CACHE_SERVICE_ACCOUNT_KEY }}
+        run: python ./tools/ci/configure_bazel_remote_cache.py --bazelrc ~/ci_bazelrc buildwheel-${{ matrix.os }}
+        shell: bash # For ~ expansion
+      - name: Get pip cache dir
+        id: pip-cache
+        shell: bash
+        run: |
+          echo "dir=$(pip cache dir)" >> $GITHUB_OUTPUT
+      - uses: actions/cache@v2
+        with:
+          path: ${{ steps.pip-cache.outputs.dir }}
+          key: pip-${{ runner.os }}-buildwheel-${{ hashFiles('tools/ci/*_requirements.txt', 'third_party/pypa/*_requirements_frozen.txt') }}
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cache/cibuildwheel_bazel_cache/cache/repos
+            ~/.cache/bazelisk
+          key: bazel-${{ runner.os }}-buildwheel-${{ hashFiles('.bazelversion', 'WORKSPACE', 'external.bzl', 'third_party/**') }}
+      - name: Install cibuildwheel
+        run: pip install -r third_party/pypa/cibuildwheel_requirements_frozen.txt
+      - name: Build Python source distribution (sdist)
+        run: python -m build --sdist
+        if: ${{ runner.os == 'Linux' }}
+      - name: Build Python wheels
+        run: python ./tools/ci/cibuildwheel.py --bazelrc ~/ci_bazelrc
+        shell: bash # For ~ expansion
+        env:
+          CIBW_BUILD: ${{ matrix.cibw_build }}
+      - name: Upload wheels as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-wheels-${{ matrix.wheel_identifier }}
+          path: |
+            dist/*.whl
+            dist/*.tar.gz
 
   python-publish-package:
     # Only publish package on push to tag or default branch.
     if: ${{ github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/master') }}
     runs-on: ubuntu-latest
     needs:
-      - 'python-build-package'
+      - "python-build-package"
     steps:
-    - uses: actions/download-artifact@v2
-      with:
-        name: python-wheels-linux
-        path: dist
-    - uses: actions/download-artifact@v2
-      with:
-        name: python-wheels-macos_x86_64
-        path: dist
-    - uses: actions/download-artifact@v2
-      with:
-        name: python-wheels-macos_arm64
-        path: dist
-    - uses: actions/download-artifact@v2
-      with:
-        name: python-wheels-windows
-        path: dist
-    - name: Publish to PyPI (main server)
-      uses: pypa/gh-action-pypi-publish@54b39fb9371c0b3a6f9f14bb8a67394defc7a806 # 2020-09-25
-      with:
-        user: __token__
-        password: ${{ secrets.pypi_token }}
-      if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: python-wheels-*
+          path: dist
+          merge-multiple: true
+      - name: Publish to PyPI (main server)
+        uses: pypa/gh-action-pypi-publish@54b39fb9371c0b3a6f9f14bb8a67394defc7a806 # 2020-09-25
+        with:
+          user: __token__
+          password: ${{ secrets.pypi_token }}
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}

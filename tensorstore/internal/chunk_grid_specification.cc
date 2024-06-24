@@ -16,6 +16,8 @@
 
 #include <assert.h>
 
+#include <algorithm>
+#include <utility>
 #include <vector>
 
 #include "absl/container/inlined_vector.h"
@@ -23,27 +25,31 @@
 #include "tensorstore/box.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dimension_permutation.h"
 #include "tensorstore/internal/async_write_array.h"
+#include "tensorstore/rank.h"
 
 namespace tensorstore {
 namespace internal {
 
-ChunkGridSpecification::Component::Component(SharedArray<const void> fill_value,
-                                             Box<> component_bounds)
-    : internal::AsyncWriteArray::Spec(std::move(fill_value),
-                                      std::move(component_bounds)) {
-  chunked_to_cell_dimensions.resize(rank());
+ChunkGridSpecification::Component::Component(AsyncWriteArray::Spec array_spec,
+                                             std::vector<Index> chunk_shape)
+    : array_spec(std::move(array_spec)), chunk_shape(std::move(chunk_shape)) {
+  assert(this->chunk_shape.size() == this->array_spec.rank());
+  chunked_to_cell_dimensions.resize(this->array_spec.rank());
   std::iota(chunked_to_cell_dimensions.begin(),
             chunked_to_cell_dimensions.end(), static_cast<DimensionIndex>(0));
 }
 
 ChunkGridSpecification::Component::Component(
-    SharedArray<const void> fill_value, Box<> component_bounds,
+    AsyncWriteArray::Spec array_spec, std::vector<Index> chunk_shape,
     std::vector<DimensionIndex> chunked_to_cell_dimensions)
-    : internal::AsyncWriteArray::Spec(std::move(fill_value),
-                                      std::move(component_bounds)),
-      chunked_to_cell_dimensions(std::move(chunked_to_cell_dimensions)) {}
+    : array_spec(std::move(array_spec)),
+      chunk_shape(std::move(chunk_shape)),
+      chunked_to_cell_dimensions(std::move(chunked_to_cell_dimensions)) {
+  assert(this->chunk_shape.size() == this->array_spec.rank());
+}
 
 ChunkGridSpecification::ChunkGridSpecification(ComponentList components_arg)
     : components(std::move(components_arg)) {
@@ -53,7 +59,7 @@ ChunkGridSpecification::ChunkGridSpecification(ComponentList components_arg)
   for (DimensionIndex i = 0;
        i < static_cast<DimensionIndex>(chunk_shape.size()); ++i) {
     chunk_shape[i] =
-        components[0].shape()[components[0].chunked_to_cell_dimensions[i]];
+        components[0].chunk_shape[components[0].chunked_to_cell_dimensions[i]];
   }
   // Verify that the extents of the chunked dimensions are the same for all
   // components.
@@ -66,7 +72,7 @@ ChunkGridSpecification::ChunkGridSpecification(ComponentList components_arg)
       const DimensionIndex cell_dim = component.chunked_to_cell_dimensions[i];
       assert(!seen_dimensions[cell_dim]);
       seen_dimensions[cell_dim] = true;
-      assert(chunk_shape[i] == component.shape()[cell_dim]);
+      assert(chunk_shape[i] == component.chunk_shape[cell_dim]);
     }
   }
 #endif  // !defined(NDEBUG)
@@ -88,6 +94,30 @@ void ChunkGridSpecification::GetComponentOrigin(const size_t component_index,
         component_spec.chunked_to_cell_dimensions[chunk_dim_i];
     origin[cell_dim_i] = cell_indices[chunk_dim_i] * chunk_shape[chunk_dim_i];
   }
+}
+
+ChunkGridSpecification::CellDomain ChunkGridSpecification::GetCellDomain(
+    size_t component_index, span<const Index> cell_indices) const {
+  Box<dynamic_rank(kMaxRank)> domain;
+  const auto& component_spec = components[component_index];
+  const DimensionIndex component_rank = component_spec.rank();
+  domain.set_rank(component_rank);
+  GetComponentOrigin(component_index, cell_indices, domain.origin());
+  std::copy_n(component_spec.chunk_shape.data(), component_rank,
+              domain.shape().data());
+  return domain;
+}
+
+ChunkGridSpecification::CellDomain ChunkGridSpecification::GetValidCellDomain(
+    size_t component_index, span<const Index> cell_indices) const {
+  auto domain = GetCellDomain(component_index, cell_indices);
+  auto& component_spec = components[component_index];
+  DimensionIndex rank = component_spec.rank();
+  for (DimensionIndex i = 0; i < rank; ++i) {
+    domain[i] =
+        Intersect(domain[i], component_spec.array_spec.valid_data_bounds[i]);
+  }
+  return domain;
 }
 
 Result<ChunkLayout> GetChunkLayoutFromGrid(

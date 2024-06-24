@@ -240,6 +240,7 @@ tensorstore_cc_library(
         "//tensorstore:index",
         "//tensorstore:index_interval",
         "//tensorstore:rank",
+        "//tensorstore/internal:async_write_array",
         "//tensorstore/internal:chunk_grid_specification",
         "//tensorstore/internal:global_initializer",
         "//tensorstore/internal:intrusive_ptr",

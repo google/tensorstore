@@ -56,8 +56,6 @@ TEST(MetadataTest, ParseValid) {
   EXPECT_THAT(metadata.dtype, tensorstore::dtype_v<uint16_t>);
   EXPECT_THAT(metadata.axes, ::testing::ElementsAre("a", "", ""));
   EXPECT_THAT(metadata.extra_attributes, MatchesJson({{"extra", "value"}}));
-  EXPECT_THAT(metadata.chunk_layout,
-              StridedLayout(fortran_order, 2, {1, 2, 3}));
 }
 
 TEST(MetadataTest, ParseValidNoAxes) {
@@ -75,8 +73,6 @@ TEST(MetadataTest, ParseValidNoAxes) {
   EXPECT_THAT(metadata.axes, ::testing::ElementsAre("", "", ""));
   EXPECT_THAT(metadata.extra_attributes,
               MatchesJson(::nlohmann::json::object_t()));
-  EXPECT_THAT(metadata.chunk_layout,
-              StridedLayout(fortran_order, 2, {1, 2, 3}));
 }
 
 TEST(MetadataTest, ParseMissingDimensions) {

@@ -89,6 +89,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <tuple>  // IWYU pragma: keep for std::get<>
 #include <type_traits>
 #include <utility>
 
@@ -100,7 +101,6 @@
 #include "absl/strings/match.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
-#include <nlohmann/json.hpp>
 #include "tensorstore/batch.h"
 #include "tensorstore/context.h"
 #include "tensorstore/context_resource_provider.h"

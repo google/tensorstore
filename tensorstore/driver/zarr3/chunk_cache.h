@@ -167,7 +167,7 @@ class ZarrLeafChunkCache : public internal::KvsBackedChunkCache,
 
   Result<absl::Cord> EncodeChunk(
       span<const Index> chunk_indices,
-      span<const SharedArrayView<const void>> component_arrays) override;
+      span<const SharedArray<const void>> component_arrays) override;
 
   kvstore::Driver* GetKvStoreDriver() override;
 

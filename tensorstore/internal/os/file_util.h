@@ -189,8 +189,8 @@ absl::Status FsyncFile(FileDescriptor fd);
 /// \returns `absl::OkStatus` on success, or a failure absl::Status code.
 absl::Status GetFileInfo(FileDescriptor fd, FileInfo* info);
 
-/// Retrieves the metadata for a filename.
-absl::Status GetFileInfo(std::string& filename, FileInfo* info);
+/// Retrieves the metadata for a file.
+absl::Status GetFileInfo(const std::string& path, FileInfo* info);
 
 /// Returns `true` if `info` is the metadata of a regular file (rather than a
 /// directory or other special file).
