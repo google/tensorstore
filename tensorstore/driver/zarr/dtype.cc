@@ -217,7 +217,7 @@ namespace {
 Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value, const ParseDTypeOptions& options) {
   ZarrDType out;
   if (value.is_string()) {
-    options.treat_struct_as_byte_array = false; // We don't want to treat a single value as struct.
+    const_cast<ParseDTypeOptions&>(options).treat_struct_as_byte_array = false;
     // Single field.
     out.has_fields = false;
     out.fields.resize(1);
