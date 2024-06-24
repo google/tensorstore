@@ -270,10 +270,10 @@ Result<std::vector<SharedArray<const void>>> ParseFillValue(
 ::nlohmann::json EncodeFillValue(
     const ZarrDType& dtype, span<const SharedArray<const void>> fill_values) {
   assert(dtype.fields.size() == static_cast<size_t>(fill_values.size()));
-  if (!dtype.has_fields) {
-    assert(dtype.fields.size() == 1);
-    const auto& field = dtype.fields[0];
-    const auto& fill_value = fill_values[0];
+  if (!dtype.has_fields && dtype.fields.back().name != "") {
+    std::size_t idx = 0;
+    const auto& field = dtype.fields[idx];
+    const auto& fill_value = fill_values[idx];
     if (!fill_value.valid()) return nullptr;
     char type_indicator = GetTypeIndicator(field.encoded_dtype);
     switch (type_indicator) {
@@ -443,12 +443,15 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(ZarrPartialMetadata,
 
 // Two decoding strategies:  raw decoder and custom decoder.  Initially we will
 // only support raw decoder.
-
+// TODO: Remove the bool arg.
 Result<absl::InlinedVector<SharedArray<const void>, 1>> DecodeChunk(
     const ZarrMetadata& metadata, absl::Cord buffer, bool treat_struct_as_byte_array) {
   const size_t num_fields = metadata.dtype.fields.size();
   absl::InlinedVector<SharedArray<const void>, 1> field_arrays(num_fields);
-  if (treat_struct_as_byte_array) {
+
+  std::string back_field = metadata.dtype.fields.back().name;
+  if (back_field == "") {
+    const_cast<ZarrMetadata&>(metadata).dtype.has_fields = false;
     // Treat the entire chunk as a single byte array.
     SharedArray<const void> byte_array;
     if (metadata.compressor) {
