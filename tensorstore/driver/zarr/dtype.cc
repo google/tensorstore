@@ -301,6 +301,9 @@ Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value, ParseDTypeOpt
 absl::Status ValidateDType(ZarrDType& dtype) {
   dtype.bytes_per_outer_element = 0;
   for (size_t field_i = 0; field_i < dtype.fields.size(); ++field_i) {
+    if (dtype.fields[field_i].name.empty()) {
+      continue;
+    }
     auto& field = dtype.fields[field_i];
     if (std::any_of(
             dtype.fields.begin(), dtype.fields.begin() + field_i,
