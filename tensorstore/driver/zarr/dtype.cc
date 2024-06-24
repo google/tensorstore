@@ -291,10 +291,8 @@ Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value, ParseDTypeOpt
     byte_array_field.endian = endian::native;
     byte_array_field.encoded_dtype = "V";
     byte_array_field.flexible_shape = {out.bytes_per_outer_element};
-    out.fields.emplace_back({byte_array_field});
-    // out.fields = {byte_array_field};
+    out.fields.push_back({byte_array_field});
   }
- 
   return out;
 }
 
