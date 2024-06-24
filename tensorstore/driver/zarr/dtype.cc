@@ -284,13 +284,16 @@ Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value, const ParseDT
   // TODO: How can I check that there wasn't a field provided and that it is structarray?
   if (options.treat_struct_as_byte_array) {
     // Convert struct dtype to a single byte array dtype.
-    out.has_fields = false;
+    // out.has_fields = false;
     ZarrDType::Field byte_array_field;
     byte_array_field.name = "";
     byte_array_field.dtype = dtype_v<std::byte>;
     byte_array_field.endian = endian::native;
     byte_array_field.encoded_dtype = "V";
     byte_array_field.flexible_shape = {out.bytes_per_outer_element};
+    byte_array_field.num_inner_elements = 0; // I don't think I need to set this explicitly
+    byte_array_field.byte_offset = 0; // I don't think I need to set this explicitly
+    byte_array_field.num_bytes = 0; // This will get set properly elsewhere, but let's init it to 0 anyway
     out.fields.push_back({byte_array_field});
   }
   return out;
