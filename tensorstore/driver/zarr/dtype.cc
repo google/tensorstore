@@ -293,7 +293,7 @@ Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value, const ParseDT
     byte_array_field.name = "";
     byte_array_field.dtype = dtype_v<std::byte>;
     byte_array_field.endian = endian::native;
-    byte_array_field.encoded_dtype = "V";
+    byte_array_field.encoded_dtype = "|V";
     byte_array_field.flexible_shape = {out.bytes_per_outer_element};
     byte_array_field.num_inner_elements = 0; // I don't think I need to set this explicitly
     byte_array_field.byte_offset = 0; // I don't think I need to set this explicitly
@@ -347,6 +347,7 @@ absl::Status ValidateDType(ZarrDType& dtype) {
   }
   if (flag) {
     dtype.fields[num_fields].field_shape = {dtype.bytes_per_outer_element};
+    dtype.fields[num_fields].encoded_dtype += std::to_string(dtype.bytes_per_outer_element);
   }
   return absl::OkStatus();
 }
