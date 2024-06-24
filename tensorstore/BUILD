@@ -42,6 +42,7 @@ tensorstore_cc_library(
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "//tensorstore/util/garbage_collection",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/status",
         "@com_google_riegeli//riegeli/varint:varint_reading",
@@ -172,7 +173,6 @@ tensorstore_cc_library(
         ":index_interval",
         ":rank",
         ":static_cast",
-        "//tensorstore/internal:attributes",
         "//tensorstore/internal:gdb_scripting",
         "//tensorstore/internal:multi_vector",
         "//tensorstore/internal:multi_vector_view",
@@ -183,6 +183,7 @@ tensorstore_cc_library(
         "//tensorstore/util:span",
         "//tensorstore/util:str_cat",
         "//tensorstore/util/garbage_collection",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/status",
     ],
 )

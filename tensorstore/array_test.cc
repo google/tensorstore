@@ -984,9 +984,12 @@ TEST(ToStringTest, Basic) {
   EXPECT_EQ("<null>", ToString(ArrayView<const void>()));
 
   // Printing of type-erased arrays.
-  ArrayView<const void> void_array = MakeArrayView<int>({1, 2, 3});
+  int arr[] = {1, 2, 3};
+  ArrayView<const void> void_array = MakeArrayView<int>(arr);
   EXPECT_EQ("{1, 2, 3}", ToString(void_array));
+}
 
+TEST(ToStringTest, BasicWithOptions) {
   tensorstore::ArrayFormatOptions options;
   options.summary_threshold = 10;
   options.summary_edge_items = 2;

@@ -12,6 +12,7 @@ tensorstore_cc_library(
         ":small_bit_set",
         ":span",
         "//tensorstore/internal:attributes",
+        "@com_google_absl//absl/base:core_headers",
     ],
 )
 
@@ -158,8 +159,8 @@ tensorstore_cc_library(
     name = "small_bit_set",
     hdrs = ["small_bit_set.h"],
     deps = [
-        "//tensorstore/internal:attributes",
         "//tensorstore/internal:integer_types",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/numeric:bits",
     ],
 )
