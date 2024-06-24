@@ -248,6 +248,10 @@ Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value, const ParseDT
               switch (i) {
                 case 0:
                   if (internal_json::JsonRequireValueAs(v, &field.name).ok()) {
+                    // This SHOULD only be the case if a field was not provided
+                    if (field_i == out.fields.size() - 1 && field.name.empty()) {
+                      return absl::OkStatus();
+                    }
                     if (!field.name.empty()) return absl::OkStatus();
                   }
                   return absl::InvalidArgumentError(tensorstore::StrCat(
