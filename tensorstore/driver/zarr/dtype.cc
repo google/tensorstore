@@ -214,7 +214,7 @@ namespace {
 /// \param value The zarr metadata "dtype" JSON specification.
 /// \param out[out] Must be non-null.  Filled with the parsed dtype on success.
 /// \error `absl::StatusCode::kInvalidArgument' if `value` is invalid.
-Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value, ParseDTypeOptions& options) {
+Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value, const ParseDTypeOptions& options) {
   ZarrDType out;
   if (value.is_string()) {
     options.treat_struct_as_byte_array = false; // We don't want to treat a single value as struct.
@@ -337,7 +337,7 @@ absl::Status ValidateDType(ZarrDType& dtype) {
   return absl::OkStatus();
 }
 
-Result<ZarrDType> ParseDType(const nlohmann::json& value, ParseDTypeOptions& options) {
+Result<ZarrDType> ParseDType(const nlohmann::json& value, const ParseDTypeOptions& options) {
   TENSORSTORE_ASSIGN_OR_RETURN(ZarrDType dtype, ParseDTypeNoDerived(value, options));
   TENSORSTORE_RETURN_IF_ERROR(ValidateDType(dtype));
   return dtype;

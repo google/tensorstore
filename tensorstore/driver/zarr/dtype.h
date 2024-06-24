@@ -127,7 +127,7 @@ struct ParseDTypeOptions {
 /// Parses a zarr metadata "dtype" JSON specification.
 ///
 /// \error `absl::StatusCode::kInvalidArgument` if `value` is not valid.
-Result<ZarrDType> ParseDType(const ::nlohmann::json& value, ParseDTypeOptions& options = {});
+Result<ZarrDType> ParseDType(const ::nlohmann::json& value, const ParseDTypeOptions& options = {});
 
 /// Validates `dtype and computes derived values.
 ///
