@@ -18,6 +18,7 @@
 #include <string_view>
 
 #include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include <curl/curl.h>
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/util/status.h"
@@ -107,9 +108,9 @@ absl::Status CurlCodeToStatus(CURLcode code, std::string_view detail,
   }
 
   absl::Status status(
-      error_code,
-      tensorstore::StrCat("CURL error[", code, "] ", curl_easy_strerror(code),
-                          detail.empty() ? "" : ": ", detail));
+      error_code, tensorstore::StrCat("CURL error ", curl_easy_strerror(code),
+                                      detail.empty() ? "" : ": ", detail));
+  status.SetPayload("curl_code", absl::Cord(tensorstore::StrCat(code)));
   MaybeAddSourceLocation(status, loc);
   return status;
 }
@@ -122,8 +123,9 @@ absl::Status CurlMCodeToStatus(CURLMcode code, std::string_view detail,
   }
   absl::Status status(
       absl::StatusCode::kInternal,
-      tensorstore::StrCat("CURLM error[", code, "] ", curl_multi_strerror(code),
+      tensorstore::StrCat("CURLM error ", curl_multi_strerror(code),
                           detail.empty() ? "" : ": ", detail));
+  status.SetPayload("curlm_code", absl::Cord(tensorstore::StrCat(code)));
   MaybeAddSourceLocation(status, loc);
   return status;
 }

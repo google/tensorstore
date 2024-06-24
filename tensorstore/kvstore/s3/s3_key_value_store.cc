@@ -1307,7 +1307,7 @@ Future<kvstore::DriverPtr> S3KeyValueStoreSpec::DoOpen() const {
 
   // NOTE: Remove temporary logging use of experimental feature.
   if (data_.rate_limiter.has_value()) {
-    ABSL_LOG(INFO) << "Using experimental_s3_rate_limiter";
+    ABSL_LOG_IF(INFO, s3_logging) << "Using experimental_s3_rate_limiter";
   }
 
   auto result = internal_kvstore_s3::ValidateEndpoint(

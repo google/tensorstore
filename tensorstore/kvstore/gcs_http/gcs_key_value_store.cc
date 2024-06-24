@@ -470,7 +470,8 @@ Future<kvstore::DriverPtr> GcsKeyValueStoreSpec::DoOpen() const {
 
   // NOTE: Remove temporary logging use of experimental feature.
   if (data_.rate_limiter.has_value()) {
-    ABSL_LOG(INFO) << "Using experimental_gcs_rate_limiter";
+    ABSL_LOG_IF(INFO, gcs_http_logging)
+        << "Using experimental_gcs_rate_limiter";
   }
   if (const auto& project_id = data_.user_project->project_id) {
     driver->encoded_user_project_ =

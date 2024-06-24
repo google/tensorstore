@@ -61,6 +61,8 @@ pybind11_py_extension(
         "//tensorstore:all_drivers",
         "//tensorstore/kvstore/ocdbt/python",
         "@com_github_pybind_pybind11//:pybind11",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/log:initialize",
     ],
 )
 
