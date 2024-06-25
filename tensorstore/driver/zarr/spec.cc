@@ -528,11 +528,16 @@ Result<size_t> GetFieldIndex(const ZarrDType& dtype,
     std::size_t size = dtype.fields.size();
     if (size == 1) {
       return 0;
-    } else if (dtype.fields.back().name.empty()) {
+    } else if (dtype.fields.back().name.empty() && size > 2) {
       return size-1;
+    } else {
+      // Case where there is "structured data" but it's only one field.
+      const_cast<ZarrDType&>(dtype).fields.pop_back();
+      return 0;
     }
-    return absl::FailedPreconditionError(tensorstore::StrCat(
-        "Must specify a \"field\" that is one of: ", GetFieldNames(dtype)));
+  } else if(dtype.fields.size() > 1 && dtype.fields.back().name.empty()) {
+    // We want to discard the synthetic element if there was a field specified with structured data
+    const_cast<ZarrDType&>(dtype).fields.pop_back();
   }
   if (!dtype.has_fields) {
     return absl::FailedPreconditionError(
