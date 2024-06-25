@@ -449,8 +449,7 @@ Result<absl::InlinedVector<SharedArray<const void>, 1>> DecodeChunk(
   absl::InlinedVector<SharedArray<const void>, 1> field_arrays(num_fields);
 
   std::string back_field = metadata.dtype.fields.back().name;
-  if (back_field == "") {
-    // const_cast<ZarrMetadata&>(metadata).dtype.has_fields = false;
+  if (back_field == "" && metadata.dtype.fields.size() > 1) {
     // Treat the entire chunk as a single byte array.
     SharedArray<const void> byte_array;
     if (metadata.compressor) {
