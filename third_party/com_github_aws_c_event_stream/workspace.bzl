@@ -24,7 +24,8 @@ def repo():
         urls = [
             "https://storage.googleapis.com/mirror.tensorflow.org/github.com/awslabs/aws-c-event-stream/archive/v0.1.4.tar.gz",
             "https://github.com/awslabs/aws-c-event-stream/archive/v0.1.4.tar.gz",
-        ],        build_file = Label("//third_party:com_github_aws_c_event_stream/aws_c_event_stream.BUILD.bazel"),
+        ],
+        build_file = Label("//third_party:com_github_aws_c_event_stream/aws_c_event_stream.BUILD.bazel"),
         system_build_file = Label("//third_party:com_github_aws_c_event_stream/system.BUILD.bazel"),
         cmake_name = "aws_c_event_stream",
         cmake_target_mapping = {
