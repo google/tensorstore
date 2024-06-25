@@ -443,9 +443,8 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(ZarrPartialMetadata,
 
 // Two decoding strategies:  raw decoder and custom decoder.  Initially we will
 // only support raw decoder.
-// TODO: Remove the bool arg.
 Result<absl::InlinedVector<SharedArray<const void>, 1>> DecodeChunk(
-    const ZarrMetadata& metadata, absl::Cord buffer, bool treat_struct_as_byte_array) {
+    const ZarrMetadata& metadata, absl::Cord buffer) {
   const size_t num_fields = metadata.dtype.fields.size();
   absl::InlinedVector<SharedArray<const void>, 1> field_arrays(num_fields);
 
