@@ -385,7 +385,7 @@ TEST(EncodeDecodeMetadataTest, Array2) {
   EXPECT_THAT(metadata.shape, ElementsAre(100, 100));
   EXPECT_THAT(metadata.chunks, ElementsAre(10, 10));
   EXPECT_TRUE(metadata.dtype.has_fields);
-  EXPECT_EQ(2, metadata.dtype.fields.size());
+  EXPECT_EQ(3, metadata.dtype.fields.size());
   EXPECT_EQ(dtype_v<std::int32_t>, metadata.dtype.fields[0].dtype);
   EXPECT_TRUE(metadata.fill_value[0].valid());
   EXPECT_EQ(metadata.fill_value[0], MakeScalarArray<std::int32_t>(0));
@@ -449,7 +449,7 @@ TEST(EncodeDecodeMetadataTest, Array2Modified) {
   EXPECT_THAT(metadata.shape, ElementsAre(100, 100));
   EXPECT_THAT(metadata.chunks, ElementsAre(10, 10));
   EXPECT_TRUE(metadata.dtype.has_fields);
-  EXPECT_EQ(2, metadata.dtype.fields.size());
+  EXPECT_EQ(3, metadata.dtype.fields.size());
   EXPECT_EQ(dtype_v<std::int32_t>, metadata.dtype.fields[0].dtype);
   EXPECT_TRUE(metadata.fill_value[0].valid());
   EXPECT_EQ(metadata.fill_value[0], MakeScalarArray<std::int32_t>(123456789));
@@ -507,7 +507,7 @@ TEST(EncodeDecodeMetadataTest, ArrayStructured) {
   EXPECT_THAT(metadata.shape, ElementsAre(100));
   EXPECT_THAT(metadata.chunks, ElementsAre(10));
   EXPECT_TRUE(metadata.dtype.has_fields);
-  EXPECT_EQ(3, metadata.dtype.fields.size());
+  EXPECT_EQ(4, metadata.dtype.fields.size());
   EXPECT_EQ(dtype_v<std::int64_t>, metadata.dtype.fields[0].dtype);
   EXPECT_FALSE(metadata.fill_value[0].valid());
   EXPECT_EQ(tensorstore::endian::little, metadata.dtype.fields[0].endian);
