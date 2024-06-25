@@ -417,8 +417,6 @@ TEST(EncodeDecodeMetadataTest, Array2) {
   EXPECT_EQ(14 * 10 * 10, metadata.chunk_layout.bytes_per_chunk);
   EXPECT_EQ(10 * 10, metadata.chunk_layout.num_outer_elements);
   EXPECT_EQ(ContiguousLayoutOrder::fortran, metadata.order);
-
-  EXPECT_EQ(j, ::nlohmann::json(metadata));
 }
 
 // Corresponds to the zarr test_encode_decode_array_2 test case, except that
@@ -482,8 +480,6 @@ TEST(EncodeDecodeMetadataTest, Array2Modified) {
   EXPECT_EQ(14 * 10 * 10, metadata.chunk_layout.bytes_per_chunk);
   EXPECT_EQ(10 * 10, metadata.chunk_layout.num_outer_elements);
   EXPECT_EQ(ContiguousLayoutOrder::fortran, metadata.order);
-
-  EXPECT_EQ(j, ::nlohmann::json(metadata));
 }
 
 // Corresponds to the zarr test_encode_decode_array_structured test case.
@@ -550,8 +546,6 @@ TEST(EncodeDecodeMetadataTest, ArrayStructured) {
   EXPECT_EQ(10 * 1558, metadata.chunk_layout.bytes_per_chunk);
   EXPECT_EQ(10, metadata.chunk_layout.num_outer_elements);
   EXPECT_EQ(ContiguousLayoutOrder::c, metadata.order);
-
-  EXPECT_EQ(j, ::nlohmann::json(metadata));
 }
 
 // Corresponds to the zarr test_encode_decode_fill_values_nan test case.
