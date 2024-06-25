@@ -459,11 +459,11 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(ZarrPartialMetadata,
 // only support raw decoder.
 Result<absl::InlinedVector<SharedArray<const void>, 1>> DecodeChunk(
     const ZarrMetadata& metadata, absl::Cord buffer) {
-  const size_t num_fields = metadata.dtype.fields.size();
+  size_t num_fields = metadata.dtype.fields.size();
   absl::InlinedVector<SharedArray<const void>, 1> field_arrays(num_fields);
 
   std::string back_field = metadata.dtype.fields.back().name;
-  if (back_field == "" && metadata.dtype.fields.size() > 1) {
+  if (back_field.empty() && metadata.dtype.fields.size() > 1) {
     // Treat the entire chunk as a single byte array.
     SharedArray<const void> byte_array;
     if (metadata.compressor) {
@@ -476,7 +476,7 @@ Result<absl::InlinedVector<SharedArray<const void>, 1>> DecodeChunk(
     byte_array = AllocateArray(
         {metadata.chunk_layout.bytes_per_chunk}, ContiguousLayoutOrder::c,
         default_init, dtype_v<std::byte>);
-    std::string buffer_str(buffer.Flatten()); // TODO: Does this really need to be a string? What's going on here?
+    std::string buffer_str(buffer.Flatten());
     if (byte_array.num_elements() >= buffer_str.size()) {
         std::memcpy(const_cast<void*>(byte_array.data()), buffer_str.data(), buffer_str.size());
     } else {
