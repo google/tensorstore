@@ -295,13 +295,17 @@ Result<std::shared_ptr<const void>> DataCache::GetResizedMetadata(
 
 internal::ChunkGridSpecification DataCache::GetChunkGridSpecification(
     const ZarrMetadata& metadata) {
+  size_t true_size = metadata.dtype.fields.size();
+  if (true_size > 1 && metadata.dtype.fields.back().name.empty()) {
+    --true_size;
+  }
   internal::ChunkGridSpecification::ComponentList components;
-  components.reserve(metadata.dtype.fields.size());
+  components.reserve(true_size);
   std::vector<DimensionIndex> chunked_to_cell_dimensions(
       metadata.chunks.size());
   std::iota(chunked_to_cell_dimensions.begin(),
             chunked_to_cell_dimensions.end(), static_cast<DimensionIndex>(0));
-  for (size_t field_i = 0; field_i < metadata.dtype.fields.size(); ++field_i) {
+  for (size_t field_i = 0; field_i < true_size; ++field_i) {
     const auto& field = metadata.dtype.fields[field_i];
     const auto& field_layout = metadata.chunk_layout.fields[field_i];
     auto fill_value = metadata.fill_value[field_i];
