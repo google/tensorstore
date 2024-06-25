@@ -512,13 +512,21 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
 
   Result<size_t> GetComponentIndex(const void* metadata_ptr,
                                    OpenMode open_mode) override {
-    const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
+    const auto& const_metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
+
+    ZarrMetadata metadata = const_metadata;
+    // Modify temporary metadata objects for validation. There is probably a better way!
+    if (!spec().selected_field.empty() && metadata.dtype.fields.back().name.empty()) {
+      metadata.dtype.fields.pop_back();
+    }
+    // We're only going to use our modified variables up to here.
     TENSORSTORE_RETURN_IF_ERROR(
-        ValidateMetadata(metadata, spec().partial_metadata));
+            ValidateMetadata(metadata, spec().partial_metadata));
+    
     TENSORSTORE_ASSIGN_OR_RETURN(
-        auto field_index, GetFieldIndex(metadata.dtype, spec().selected_field));
+            auto field_index, GetFieldIndex(const_metadata.dtype, spec().selected_field));
     TENSORSTORE_RETURN_IF_ERROR(
-        ValidateMetadataSchema(metadata, field_index, spec().schema));
+            ValidateMetadataSchema(metadata, field_index, spec().schema));
     return field_index;
   }
 };
