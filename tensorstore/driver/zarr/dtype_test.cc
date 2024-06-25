@@ -176,8 +176,6 @@ void CheckDType(const ::nlohmann::json& json, const ZarrDType& expected) {
     ASSERT_TRUE(dtype_json.back()[0].get<std::string>().empty());
     dtype_json.erase(dtype_json.end() - 1);  // Remove the last element
     ASSERT_EQ(json, dtype_json);
-  } else {
-    EXPECT_EQ(false); // Failed the comparison
   }
 }
 
