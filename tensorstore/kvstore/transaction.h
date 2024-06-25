@@ -461,7 +461,7 @@ class MultiPhaseMutation {
                          ReadModifyWriteEntry& source_entry,
                          ReadResult&& read_result) = 0;
 
-  virtual void Writeback(DeleteRangeEntry& entry) = 0;
+  virtual void WritebackDelete(DeleteRangeEntry& entry) = 0;
   virtual bool MultiPhaseReadsCommitted() { return true; }
   virtual void PhaseCommitDone(size_t next_phase) = 0;
 
@@ -544,7 +544,7 @@ class AtomicMultiPhaseMutationBase : public MultiPhaseMutation {
     TimestampedStorageGeneration stamp_;
   };
   void RetryAtomicWriteback(absl::Time staleness_bound);
-  void Writeback(DeleteRangeEntry& entry) override;
+  void WritebackDelete(DeleteRangeEntry& entry) override;
   void AtomicCommitWritebackSuccess();
   void RevokeAllEntries();
 
@@ -646,7 +646,7 @@ class NonAtomicTransactionNode
                                         std::move(read_result));
   }
 
-  void Writeback(DeleteRangeEntry& entry) override {
+  void WritebackDelete(DeleteRangeEntry& entry) override {
     internal_kvstore::WritebackDirectly(driver(), entry);
   }
 };

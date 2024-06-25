@@ -18,6 +18,7 @@
 #include <utility>
 #include <variant>
 
+#include "absl/base/optimization.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/time/clock.h"
@@ -108,6 +109,7 @@ Future<std::variant<absl::Cord, ::nlohmann::json>> ReadAndDump(
             return Dump(node);
           }
         }
+        ABSL_UNREACHABLE();
       },
       kvstore::Read(indirect_kvs, node_identifier->location.EncodeCacheKey()));
 }

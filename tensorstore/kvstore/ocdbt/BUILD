@@ -259,6 +259,7 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:str_cat",
         "@com_github_nlohmann_json//:json",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/time",
