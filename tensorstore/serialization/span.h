@@ -18,7 +18,8 @@
 #include <cstddef>
 #include <type_traits>
 
-#include "tensorstore/internal/attributes.h"
+#include "absl/base/attributes.h"
+#include "tensorstore/serialization/fwd.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/span.h"
 
@@ -52,8 +53,7 @@ struct SpanSerializer {
     }
     return true;
   }
-  TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS ElementSerializer
-      element_serializer = {};
+  ABSL_ATTRIBUTE_NO_UNIQUE_ADDRESS ElementSerializer element_serializer = {};
   constexpr static bool non_serializable() {
     return IsNonSerializer<ElementSerializer>;
   }

@@ -22,8 +22,8 @@
 #include <memory>
 #include <type_traits>
 
+#include "absl/base/attributes.h"
 #include "absl/log/absl_check.h"
-#include "tensorstore/internal/attributes.h"
 
 namespace tensorstore {
 namespace internal_container {
@@ -171,7 +171,7 @@ class CircularQueue {
     buffer_ = new_buffer;
   }
 
-  TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS Allocator allocator_;
+  ABSL_ATTRIBUTE_NO_UNIQUE_ADDRESS Allocator allocator_;
   size_t begin_;
   size_t end_;
   size_t mask_;

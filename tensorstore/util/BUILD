@@ -11,7 +11,6 @@ tensorstore_cc_library(
     deps = [
         ":small_bit_set",
         ":span",
-        "//tensorstore/internal:attributes",
         "@com_google_absl//absl/base:core_headers",
     ],
 )
@@ -266,9 +265,9 @@ tensorstore_cc_library(
     name = "executor",
     hdrs = ["executor.h"],
     deps = [
-        "//tensorstore/internal:attributes",
         "//tensorstore/internal:type_traits",
         "//tensorstore/internal/poly",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/functional:any_invocable",
     ],
 )
@@ -322,7 +321,6 @@ tensorstore_cc_library(
         ":executor",
         ":result",
         ":span",
-        "//tensorstore/internal:attributes",
         "//tensorstore/internal:integer_sequence",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:tagged_ptr",
@@ -537,7 +535,6 @@ tensorstore_cc_library(
     name = "span",
     hdrs = ["span.h"],
     deps = [
-        "//tensorstore/internal:attributes",
         "//tensorstore/internal:gdb_scripting",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/log:absl_log",
@@ -744,7 +741,6 @@ tensorstore_cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//tensorstore/internal:attributes",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal/container:intrusive_linked_list",
         "@com_google_absl//absl/base:core_headers",

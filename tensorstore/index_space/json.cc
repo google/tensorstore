@@ -14,21 +14,44 @@
 
 #include "tensorstore/index_space/json.h"
 
-#include "absl/container/flat_hash_set.h"
+#include <stddef.h>
+
+#include <algorithm>
+#include <cassert>
+#include <optional>
+#include <string>
+#include <type_traits>
+#include <utility>
+
+#include "absl/base/attributes.h"
 #include "absl/container/inlined_vector.h"
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
+#include "tensorstore/array.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
+#include "tensorstore/index_space/index_domain.h"
+#include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
+#include "tensorstore/index_space/internal/transform_rep.h"
+#include "tensorstore/index_space/output_index_method.h"
 #include "tensorstore/internal/json/array.h"
+#include "tensorstore/internal/json/json.h"
+#include "tensorstore/internal/json/value_as.h"
 #include "tensorstore/internal/json_binding/array.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/dimension_indexed.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/internal/json_binding/std_array.h"
 #include "tensorstore/internal/json_binding/std_optional.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/json_serialization_options.h"
+#include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/rank.h"
-#include "tensorstore/util/quote_string.h"
+#include "tensorstore/util/dimension_set.h"
+#include "tensorstore/util/iterate.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -63,7 +86,7 @@ constexpr DomainJsonKeys kIndexTransformJsonKeys = {
 // and expresses the implicit value as being wrapped in an array of length 1.
 template <typename ElementBinder>
 struct ImplicitPairBinder {
-  TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS ElementBinder element_binder;
+  ABSL_ATTRIBUTE_NO_UNIQUE_ADDRESS ElementBinder element_binder;
 
   template <typename Options, typename Obj>
   absl::Status operator()(std::true_type is_loading, const Options& options,
@@ -106,7 +129,7 @@ struct ImplicitArrayBinderImpl {
   RankProjection rank_ptr;
   ValuesProjection values_ptr;
   ImplicitProjection implicit_ptr;
-  TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS ElementBinder element_binder;
+  ABSL_ATTRIBUTE_NO_UNIQUE_ADDRESS ElementBinder element_binder;
 
   template <typename Loading, typename Options, typename Obj>
   absl::Status operator()(Loading is_loading, const Options& options, Obj* obj,

@@ -246,6 +246,7 @@
 #include <functional>
 #include <type_traits>
 
+#include "absl/base/attributes.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/context.h"
@@ -415,7 +416,7 @@ struct FunctionAdapter {
                      std::move(array)),
                  std::move(params));
   }
-  TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS Func func_;
+  ABSL_ATTRIBUTE_NO_UNIQUE_ADDRESS Func func_;
   constexpr static auto ApplyMembers = [](auto&& x, auto f) {
     return f(x.func_);
   };

@@ -22,16 +22,17 @@
 
 // IWYU pragma: private, include "third_party/tensorstore/context.h"
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <string_view>
 #include <type_traits>
 #include <utility>
 
+#include "absl/base/attributes.h"
 #include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
 #include <nlohmann/json.hpp>
-#include "tensorstore/internal/attributes.h"
 #include "tensorstore/internal/cache_key/cache_key.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
@@ -466,7 +467,7 @@ class ResourceProviderImpl : public ResourceProviderImplBase {
         static_cast<const ResourceImpl&>(resource).value_, spec_builder)));
   }
 
-  TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS Traits traits_;
+  ABSL_ATTRIBUTE_NO_UNIQUE_ADDRESS Traits traits_;
 };
 
 /// Globally registers a context resource provider.  This is intended for use by

@@ -25,9 +25,9 @@
 #include <optional>
 #include <type_traits>
 
+#include "absl/base/attributes.h"
 #include "absl/base/optimization.h"
 #include "absl/log/absl_check.h"
-#include "tensorstore/internal/attributes.h"
 
 namespace tensorstore {
 namespace internal_container {
@@ -250,7 +250,7 @@ class SingleProducerQueue {
   }
 
  private:
-  TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS Allocator allocator_;
+  ABSL_ATTRIBUTE_NO_UNIQUE_ADDRESS Allocator allocator_;
   ABSL_CACHELINE_ALIGNED std::atomic<int64_t> top_;
   std::atomic<int64_t> bottom_;
   std::atomic<Array*> array_;

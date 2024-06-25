@@ -28,7 +28,6 @@
 #include <type_traits>
 
 #include "absl/base/attributes.h"
-#include "tensorstore/internal/attributes.h"
 #include "tensorstore/util/small_bit_set.h"
 #include "tensorstore/util/span.h"
 
@@ -205,7 +204,7 @@ class BitSpan {
 
  private:
   BitIterator<T> begin_;
-  TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS ExtentType size_;
+  ABSL_ATTRIBUTE_NO_UNIQUE_ADDRESS ExtentType size_;
 };
 
 /// Returns the number of elements of type `Block` required to store a bitvector

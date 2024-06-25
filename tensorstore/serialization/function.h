@@ -119,18 +119,21 @@
 /// passed as `NonSerializable{f}`, which can be converted to a
 /// `SerializableFunction` but will fail to serialize at run time.
 
+#include <cassert>
 #include <string_view>
 #include <tuple>
 #include <type_traits>
 #include <typeindex>
 #include <typeinfo>
+#include <utility>
 
-#include "absl/status/status.h"
+#include "absl/base/attributes.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/type_traits.h"
+#include "tensorstore/serialization/fwd.h"
 #include "tensorstore/serialization/serialization.h"
-#include "tensorstore/serialization/std_tuple.h"
+#include "tensorstore/serialization/std_tuple.h"  // IWYU pragma: keep
 #include "tensorstore/util/garbage_collection/garbage_collection.h"
-#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace serialization {
@@ -230,7 +233,7 @@ class SerializableFunctionImpl : public SerializableFunctionBase {
     garbage_collection::GarbageCollectionVisit(visitor, func_);
   }
 
-  TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS
+  ABSL_ATTRIBUTE_NO_UNIQUE_ADDRESS
   internal::DefaultConstructibleFunctionIfEmpty<T> func_;
 
   static inline const RegisteredSerializableFunction registry_entry_{
@@ -262,7 +265,7 @@ class NonSerializableFunctionImpl : public NonSerializableFunctionBase {
   }
 
  private:
-  TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS
+  ABSL_ATTRIBUTE_NO_UNIQUE_ADDRESS
   internal::DefaultConstructibleFunctionIfEmpty<T> func_;
 };
 
@@ -378,17 +381,17 @@ class BindFront {
   };
 
  private:
-  TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS
+  ABSL_ATTRIBUTE_NO_UNIQUE_ADDRESS
   internal::DefaultConstructibleFunctionIfEmpty<Func> func_;
 
-  TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS
+  ABSL_ATTRIBUTE_NO_UNIQUE_ADDRESS
   std::tuple<internal::DefaultConstructibleFunctionIfEmpty<BoundArg>...>
       bound_args_;
 };
 
 template <typename Func, typename... BoundArg>
-BindFront(const Func& func, const BoundArg&... bound_arg)
-    -> BindFront<Func, BoundArg...>;
+BindFront(const Func& func,
+          const BoundArg&... bound_arg) -> BindFront<Func, BoundArg...>;
 
 template <typename Func, typename... BoundArg>
 class BindBack {
@@ -411,16 +414,16 @@ class BindBack {
   };
 
  private:
-  TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS
+  ABSL_ATTRIBUTE_NO_UNIQUE_ADDRESS
   internal::DefaultConstructibleFunctionIfEmpty<Func> func_;
-  TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS
+  ABSL_ATTRIBUTE_NO_UNIQUE_ADDRESS
   std::tuple<internal::DefaultConstructibleFunctionIfEmpty<BoundArg>...>
       bound_args_;
 };
 
 template <typename Func, typename... BoundArg>
-BindBack(const Func& func, const BoundArg&... bound_arg)
-    -> BindBack<Func, BoundArg...>;
+BindBack(const Func& func,
+         const BoundArg&... bound_arg) -> BindBack<Func, BoundArg...>;
 
 }  // namespace serialization
 

@@ -108,16 +108,23 @@
 /// `SerializableFunction` to allow a single interface to be used for both
 /// serialiable and non-serializable functions.
 
+#include <stddef.h>
+#include <stdint.h>
+
+#include <cassert>
 #include <memory>
 #include <string>
 #include <string_view>
 #include <type_traits>
 #include <typeinfo>
+#include <utility>
 
+#include "absl/base/attributes.h"
 #include "absl/functional/function_ref.h"
+#include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include "riegeli/bytes/reader.h"
 #include "riegeli/bytes/writer.h"
-#include "tensorstore/internal/attributes.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/memory.h"
 #include "tensorstore/internal/poly/poly.h"
@@ -125,8 +132,6 @@
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/util/apply_members/apply_members.h"
-#include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 
@@ -587,8 +592,7 @@ struct ContainerSerializer {
     }
     return true;
   }
-  TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS ElementSerializer
-      element_serializer = {};
+  ABSL_ATTRIBUTE_NO_UNIQUE_ADDRESS ElementSerializer element_serializer = {};
 
   constexpr static bool non_serializable() {
     return IsNonSerializer<ElementSerializer>;
@@ -607,7 +611,7 @@ struct OptionalSerializer {
     return serialization::Decode(source, has_value) &&
            (!has_value || element_serializer.Decode(source, value.emplace()));
   }
-  TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS ElementSerializer element_serializer;
+  ABSL_ATTRIBUTE_NO_UNIQUE_ADDRESS ElementSerializer element_serializer;
   constexpr static bool non_serializable() {
     return IsNonSerializer<ElementSerializer>;
   }
@@ -689,8 +693,7 @@ struct MaybeNullSerializer {
     assert(IsNullPredicate{}(value));
     return true;
   }
-  TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS NonNullSerializer
-      non_null_serializer = {};
+  ABSL_ATTRIBUTE_NO_UNIQUE_ADDRESS NonNullSerializer non_null_serializer = {};
   constexpr static bool non_serializable() {
     return IsNonSerializer<NonNullSerializer>;
   }
@@ -719,7 +722,7 @@ struct NonNullSerializer {
     }
     return true;
   }
-  TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS BaseSerializer base_serializer = {};
+  ABSL_ATTRIBUTE_NO_UNIQUE_ADDRESS BaseSerializer base_serializer = {};
   constexpr static bool non_serializable() {
     return IsNonSerializer<BaseSerializer>;
   }
@@ -782,8 +785,7 @@ struct NonNullPointerSerializer {
     return element_serializer.Decode(source, *value);
   }
 
-  TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS ElementSerializer
-      element_serializer = {};
+  ABSL_ATTRIBUTE_NO_UNIQUE_ADDRESS ElementSerializer element_serializer = {};
   constexpr static bool non_serializable() {
     return IsNonSerializer<ElementSerializer>;
   }
@@ -810,8 +812,7 @@ struct NonNullIndirectPointerSerializer {
     return source.Indirect(value, non_null_serializer);
   }
 
-  TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS NonNullSerializer
-      non_null_serializer = {};
+  ABSL_ATTRIBUTE_NO_UNIQUE_ADDRESS NonNullSerializer non_null_serializer = {};
   constexpr static bool non_serializable() {
     return IsNonSerializer<NonNullSerializer>;
   }

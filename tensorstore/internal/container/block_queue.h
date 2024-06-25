@@ -22,8 +22,8 @@
 #include <cassert>
 #include <memory>
 
+#include "absl/base/attributes.h"
 #include "absl/log/absl_check.h"
-#include "tensorstore/internal/attributes.h"
 
 namespace tensorstore {
 namespace internal_container {
@@ -261,7 +261,7 @@ class BlockQueue {
     }
   }
 
-  TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS Allocator allocator_;
+  ABSL_ATTRIBUTE_NO_UNIQUE_ADDRESS Allocator allocator_;
   Cursor head_;
   Cursor tail_;
   size_t size_;

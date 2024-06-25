@@ -15,7 +15,6 @@ tensorstore_cc_library(
     hdrs = ["schedule_at.h"],
     deps = [
         ":thread",
-        "//tensorstore/internal:attributes",
         "//tensorstore/internal:tagged_ptr",
         "//tensorstore/internal/container:intrusive_red_black_tree",
         "//tensorstore/internal/metrics",
@@ -137,8 +136,8 @@ tensorstore_cc_library(
     name = "task",
     hdrs = ["task.h"],
     deps = [
-        "//tensorstore/internal:attributes",
         "//tensorstore/internal/tracing",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/functional:any_invocable",
         "@com_google_absl//absl/time",
     ],

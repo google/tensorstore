@@ -17,18 +17,6 @@
 
 #include "absl/base/attributes.h"
 
-#if _MSC_FULL_VER >= 192829913
-// https://devblogs.microsoft.com/cppblog/msvc-cpp20-and-the-std-cpp20-switch/#c20-no_unique_address
-// On VS 2019 v16.9 and later, `msvc::no_unique_address` performs the
-// optimization in /std:c++14 and /std:c++17 language modes as well.
-#define TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS [[msvc::no_unique_address]]
-#elif ABSL_HAVE_ATTRIBUTE(no_unique_address)
-#define TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS [[no_unique_address]]
-#else
-#define TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS
-#endif
-
-
 // When defining a conditionally-explicit constructor, this may be used on the
 // explicit overload to wrap the portion of the `enable_if` conditions that
 // differ from the implicit overload.

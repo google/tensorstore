@@ -315,7 +315,6 @@ tensorstore_cc_library(
     ],
     deps = [
         ":json_serialization_options",
-        "//tensorstore/internal:attributes",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:mutex",
         "//tensorstore/internal:tagged_ptr",

@@ -22,8 +22,8 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/base/attributes.h"
 #include "absl/functional/any_invocable.h"
-#include "tensorstore/internal/attributes.h"
 #include "tensorstore/internal/poly/poly.h"
 #include "tensorstore/internal/type_traits.h"
 
@@ -87,10 +87,10 @@ class ExecutorBoundFunction {
   }
 
   /// Executor object.
-  TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS Executor executor;
+  ABSL_ATTRIBUTE_NO_UNIQUE_ADDRESS Executor executor;
 
   /// Function object.
-  TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS Function function;
+  ABSL_ATTRIBUTE_NO_UNIQUE_ADDRESS Function function;
 };
 
 /// Returns an instance of `ExecutorBoundFunction` that invokes the given

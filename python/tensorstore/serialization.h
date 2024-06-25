@@ -19,15 +19,18 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
-#include <cstddef>
-#include <memory>
-#include <string>
+#include <type_traits>
 
+#include "absl/base/attributes.h"
+#include "absl/functional/function_ref.h"
+#include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include "python/tensorstore/garbage_collection.h"
 #include "python/tensorstore/gil_safe.h"
 #include "python/tensorstore/status.h"
-#include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/serialization/fwd.h"
 #include "tensorstore/serialization/serialization.h"
+#include "tensorstore/util/result.h"
 
 /// \file
 ///
@@ -312,7 +315,7 @@ struct GilSafeSerializer {
     }
     return base_serializer.Decode(source, *value);
   }
-  TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS BaseSerializer base_serializer = {};
+  ABSL_ATTRIBUTE_NO_UNIQUE_ADDRESS BaseSerializer base_serializer = {};
 };
 
 }  // namespace internal_python
