@@ -147,11 +147,15 @@ char GetTypeIndicator(const std::string& encoded_dtype) {
 
 Result<std::vector<SharedArray<const void>>> ParseFillValue(
     const nlohmann::json& j, const ZarrDType& dtype) {
+  size_t true_fields = dtype.fields.size();
+  if (dtype.has_fields && dtype.fields.back().name.empty()) {
+    true_fields--;
+  }
   std::vector<SharedArray<const void>> fill_values;
-  fill_values.resize(dtype.fields.size());
+  fill_values.resize(true_fields);
   if (j.is_null()) return fill_values;
   if (!dtype.has_fields) {
-    assert(dtype.fields.size() == 1);
+    assert(true_fields == 1);
     auto& field = dtype.fields[0];
     char type_indicator = GetTypeIndicator(field.encoded_dtype);
     switch (type_indicator) {
@@ -251,7 +255,7 @@ Result<std::vector<SharedArray<const void>>> ParseFillValue(
         tensorstore::StrCat("Expected ", dtype.bytes_per_outer_element,
                             " base64-encoded bytes, but received: ", j.dump()));
   }
-  for (size_t field_i = 0; field_i < dtype.fields.size(); ++field_i) {
+  for (size_t field_i = 0; field_i < true_fields; ++field_i) {
     auto& field = dtype.fields[field_i];
     DataType r = field.dtype;
     auto fill_value = AllocateArray(field.field_shape, ContiguousLayoutOrder::c,
