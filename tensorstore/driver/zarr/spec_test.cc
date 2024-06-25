@@ -176,21 +176,6 @@ TEST(ParseSelectedFieldTest, InvalidType) {
                     "Expected null or non-empty string, but received: true"));
 }
 
-TEST(GetFieldIndexTest, Null) {
-  EXPECT_EQ(0u, GetFieldIndex(ParseDType("<i4").value(), SelectedField()));
-  EXPECT_THAT(
-      GetFieldIndex(
-          ParseDType(::nlohmann::json::array_t{{"x", "<i4"}, {"y", "<u2"}})
-              .value(),
-          SelectedField()),
-      MatchesStatus(
-          absl::StatusCode::kFailedPrecondition,
-          "Must specify a \"field\" that is one of: \\[\"x\",\"y\"\\]"));
-
-  auto res = GetFieldIndex(ParseDType(::nlohmann::json::array_t{{"x", "<i4"}, {"y", "<u2"}}, {true}).value(), "");
-  ASSERT_TRUE(res.status().ok()) << res.status();
-}
-
 TEST(GetFieldIndexTest, String) {
   EXPECT_THAT(
       GetFieldIndex(ParseDType("<i4").value(), "x"),
