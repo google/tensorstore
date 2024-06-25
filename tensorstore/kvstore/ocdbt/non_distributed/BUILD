@@ -267,6 +267,7 @@ tensorstore_cc_library(
         "//tensorstore/util:str_cat",
         "//tensorstore/util/execution",
         "//tensorstore/util/execution:future_sender",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:cord",

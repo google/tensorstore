@@ -28,21 +28,6 @@
 #define TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS
 #endif
 
-// TENSORSTORE_LIFETIME_BOUND
-//
-// A clang-specific c++ attribute that indicates that the lifetime of a
-// function result is bound to one of the arguments. This is particularly
-// useful when constructing reference-like types such as tensorstore::span.
-//
-// See https://wg21.link/p0936r0, https://reviews.llvm.org/D49922
-#ifndef TENSORSTORE_LIFETIME_BOUND
-#if defined(__cplusplus) && defined(__has_cpp_attribute) && \
-    __has_cpp_attribute(clang::lifetimebound)
-#define TENSORSTORE_LIFETIME_BOUND [[clang::lifetimebound]]
-#else
-#define TENSORSTORE_LIFETIME_BOUND
-#endif
-#endif  // !defined(TENSORSTORE_LIFETIME_BOUND)
 
 // When defining a conditionally-explicit constructor, this may be used on the
 // explicit overload to wrap the portion of the `enable_if` conditions that

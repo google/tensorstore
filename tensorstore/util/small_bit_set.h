@@ -22,8 +22,8 @@
 #include <ostream>
 #include <type_traits>
 
+#include "absl/base/attributes.h"
 #include "absl/numeric/bits.h"
-#include "tensorstore/internal/attributes.h"
 #include "tensorstore/internal/integer_types.h"
 
 namespace tensorstore {
@@ -56,7 +56,7 @@ class BitRef {
   constexpr static ptrdiff_t kBitsPerBlock = sizeof(T) * 8;
 
   /// Binds to bit `offset % kBitsPerBlock` of `*block`.
-  constexpr BitRef(T* block TENSORSTORE_LIFETIME_BOUND, ptrdiff_t offset)
+  constexpr BitRef(T* block ABSL_ATTRIBUTE_LIFETIME_BOUND, ptrdiff_t offset)
       : block_(block), mask_(static_cast<T>(1) << (offset % kBitsPerBlock)) {
     assert(offset >= 0);
   }
@@ -168,7 +168,7 @@ class BitIterator {
   /// Constructs from a base pointer and offset.
   ///
   /// \id base, offset
-  constexpr BitIterator(T* base TENSORSTORE_LIFETIME_BOUND, ptrdiff_t offset)
+  constexpr BitIterator(T* base ABSL_ATTRIBUTE_LIFETIME_BOUND, ptrdiff_t offset)
       : base_(base), offset_(offset) {}
 
   /// Converts from a non-``const`` iterator.
@@ -488,13 +488,13 @@ class SmallBitSet {
 
   /// Mutable view of SmallBitSet bits.
   using BoolsView = bitset_impl::BoolsView<BitIterator<Uint>, N>;
-  constexpr BoolsView bools_view() TENSORSTORE_LIFETIME_BOUND {
+  constexpr BoolsView bools_view() ABSL_ATTRIBUTE_LIFETIME_BOUND {
     return BoolsView(BitIterator<Uint>(&bits_, 0));
   }
 
   /// Immutable view of SmallBitSet bits.
   using ConstBoolsView = bitset_impl::BoolsView<BitIterator<const Uint>, N>;
-  constexpr ConstBoolsView bools_view() const TENSORSTORE_LIFETIME_BOUND {
+  constexpr ConstBoolsView bools_view() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
     return ConstBoolsView(BitIterator<const Uint>(&bits_, 0));
   }
 
@@ -561,7 +561,7 @@ class SmallBitSet {
   /// Returns a reference to an individual bit.
   ///
   /// \dchecks `offset >= 0 && offset < N`
-  constexpr reference operator[](size_t offset) TENSORSTORE_LIFETIME_BOUND {
+  constexpr reference operator[](size_t offset) ABSL_ATTRIBUTE_LIFETIME_BOUND {
     assert(offset >= 0 && offset < N);
     return reference(&bits_, offset);
   }

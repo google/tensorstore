@@ -449,9 +449,6 @@ void MultiTransportImpl::FinishRequest(std::unique_ptr<CurlRequestState> state,
 
   if (code != CURLE_OK) {
     /// Transfer failed; set the status
-    ABSL_LOG(WARNING) << "Error [" << code << "]=" << curl_easy_strerror(code)
-                      << " in curl operation\n"
-                      << state->error_buffer_;
     state->response_handler_->OnFailure(
         CurlCodeToStatus(code, state->error_buffer_));
     return;

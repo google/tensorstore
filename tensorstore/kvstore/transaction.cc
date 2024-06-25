@@ -677,7 +677,7 @@ void DeletedEntryDone(DeleteRangeEntry& dr_entry, bool error, size_t count) {
     return;
   }
 
-  dr_entry.multi_phase().Writeback(dr_entry);
+  dr_entry.multi_phase().WritebackDelete(dr_entry);
 }
 
 std::string DescribeEntry(MutationEntry& entry) {
@@ -1316,7 +1316,7 @@ void AtomicMultiPhaseMutation::Writeback(ReadModifyWriteEntry& entry,
   AtomicWritebackReady(entry);
 }
 
-void AtomicMultiPhaseMutationBase::Writeback(DeleteRangeEntry& entry) {
+void AtomicMultiPhaseMutationBase::WritebackDelete(DeleteRangeEntry& entry) {
   EntryDone(entry.single_phase_mutation(), /*error=*/false);
 }
 

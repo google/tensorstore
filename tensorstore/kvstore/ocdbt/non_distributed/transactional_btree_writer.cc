@@ -79,6 +79,7 @@
 #include <utility>
 #include <variant>
 
+#include "absl/base/optimization.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
@@ -243,6 +244,7 @@ BtreeWriterTransactionNode::ApplyWriteEntryChain(
     case kvstore::ReadResult::kUnspecified:
       return std::nullopt;
   }
+  ABSL_UNREACHABLE();
 }
 
 void BtreeWriterTransactionNode::CommitSuccessful(absl::Time time) {

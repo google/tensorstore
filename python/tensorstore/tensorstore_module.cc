@@ -24,7 +24,9 @@
 // inclusion constraints are satisfied.
 
 #include <string>
+#include <utility>
 
+#include "absl/log/initialize.h"  // IWYU pragma: keep
 #include "python/tensorstore/gil_safe.h"
 #include "python/tensorstore/python_imports.h"
 #include "python/tensorstore/tensorstore_module_components.h"
@@ -54,6 +56,8 @@ class ScopedModuleNameOverride {
 };
 
 PYBIND11_MODULE(_tensorstore, m) {
+  absl::InitializeLog();
+
   internal_python::InitializeNumpy();
 
   // Ensure that members of this module display as `tensorstore.X` rather than

@@ -22,6 +22,7 @@
 #include <string>
 #include <string_view>
 
+#include "absl/base/optimization.h"
 #include "absl/status/status.h"
 #include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/util/result.h"
@@ -51,6 +52,7 @@ std::string_view IndirectDataKindToString(IndirectDataKind kind) {
     case IndirectDataKind::kVersionNode:
       return "versionnode";
   }
+  ABSL_UNREACHABLE();
 }
 
 std::ostream& operator<<(std::ostream& os, IndirectDataKind kind) {

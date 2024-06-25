@@ -47,10 +47,11 @@ def output_comment(out: io.StringIO, is_view: bool, origin_type: str) -> None:
   ///    6 dimensions are supported.
   ///""")
   if origin_type:
-    out.write(r"""
+    out.write(
+        r"""
   /// \param origin The origin vector of the array.  May be specified as a
   ///     braced list, e.g. `MakeOffsetArray({1, 2}, {{3, 4, 5}, {6, 7, 8}})`."""
-             )
+    )
   if is_view:
     out.write(r"""
   /// \param array The C array to which the returned `ArrayView` will point.
@@ -75,8 +76,13 @@ def output_comment(out: io.StringIO, is_view: bool, origin_type: str) -> None:
 """)
 
 
-def output_make_array(out: io.StringIO, rank: int, is_const: bool,
-                      is_view: bool, origin_type: str) -> None:
+def output_make_array(
+    out: io.StringIO,
+    rank: int,
+    is_const: bool,
+    is_view: bool,
+    origin_type: str,
+) -> None:
   """Print a single MakeArray or MakeArrayView definition.
 
   Args:
@@ -94,12 +100,17 @@ def output_make_array(out: io.StringIO, rank: int, is_const: bool,
     The overload definition as a `str`.
   """
   maybe_const_element = 'const Element' if is_const else 'Element'
-  is_offset = (origin_type is not None)
+  is_offset = origin_type is not None
   function_name = 'OffsetArray' if is_offset else 'Array'
   if origin_type == 'span':
-    origin_parameter = ('span<const Index, {rank}> origin, '.format(rank=rank))
+    origin_parameter = 'span<const Index, {rank}> origin, '.format(rank=rank)
   elif origin_type == 'array':
-    origin_parameter = ('const Index (&origin)[OriginRank], '.format(rank=rank))
+    if is_view:
+      origin_parameter = (
+          'const Index (&origin ABSL_ATTRIBUTE_LIFETIME_BOUND)[OriginRank], '
+      )
+    else:
+      origin_parameter = 'const Index (&origin)[OriginRank], '
   else:
     origin_parameter = ''
   origin_kind_parameter = ', offset_origin' if is_offset else ''
@@ -109,8 +120,10 @@ def output_make_array(out: io.StringIO, rank: int, is_const: bool,
     if is_offset:
       start_ptr = (
           'AddByteOffset(ElementPointer<{element}>(&array{deref_expr}), '
-          '-layout.origin_byte_offset())'.format(element=maybe_const_element,
-                                                 deref_expr=deref_expr))
+          '-layout.origin_byte_offset())'.format(
+              element=maybe_const_element, deref_expr=deref_expr
+          )
+      )
     else:
       start_ptr = '&array{deref_expr}'.format(deref_expr=deref_expr)
   out.write('template <typename Element')
@@ -121,25 +134,35 @@ def output_make_array(out: io.StringIO, rank: int, is_const: bool,
   out.write('>\n')
   if is_view:
     out.write(
-        'ArrayView<{element}, {rank}{origin_kind_parameter}> '
-        'Make{function_name}View({origin_parameter}{element} (&array)'.format(
-            rank=rank, element=maybe_const_element,
+        'ArrayView<{element}, {rank}{origin_kind_parameter}>'
+        ' Make{function_name}View({origin_parameter}{element} (&array'
+        ' ABSL_ATTRIBUTE_LIFETIME_BOUND)'.format(
+            rank=rank,
+            element=maybe_const_element,
             origin_parameter=origin_parameter,
             origin_kind_parameter=origin_kind_parameter,
-            function_name=function_name))
+            function_name=function_name,
+        )
+    )
   else:
-    out.write('SharedArray<Element, {rank}{origin_kind_parameter}> '
-              'Make{function_name}({origin_parameter}{element} (&array)'.format(
-                  rank=rank, element=maybe_const_element,
-                  origin_parameter=origin_parameter,
-                  origin_kind_parameter=origin_kind_parameter,
-                  function_name=function_name))
+    out.write(
+        'SharedArray<Element, {rank}{origin_kind_parameter}> '
+        'Make{function_name}({origin_parameter}{element} (&array)'.format(
+            rank=rank,
+            element=maybe_const_element,
+            origin_parameter=origin_parameter,
+            origin_kind_parameter=origin_kind_parameter,
+            function_name=function_name,
+        )
+    )
   for i in range(rank):
     out.write('[N%d]' % i)
   out.write(') {\n')
   if origin_type == 'array':
-    out.write('static_assert(OriginRank == {rank}, '
-              '"Origin vector must have length {rank}.");\n'.format(rank=rank))
+    out.write(
+        'static_assert(OriginRank == {rank}, '
+        '"Origin vector must have length {rank}.");\n'.format(rank=rank)
+    )
   if is_view:
     out.write("""static constexpr Index shape[] = {""")
     out.write(', '.join('N%d' % i for i in range(rank)))
@@ -152,15 +175,21 @@ def output_make_array(out: io.StringIO, rank: int, is_const: bool,
       out.write('sizeof(Element)')
     out.write("""};
     """)
-    out.write("""StridedLayoutView<{rank}{origin_kind_parameter}> layout"""
-              """({origin_argument}shape, byte_strides);
-    """.format(rank=rank, origin_kind_parameter=origin_kind_parameter,
-               origin_argument=origin_argument))
+    out.write(
+        """StridedLayoutView<{rank}{origin_kind_parameter}> layout"""
+        """({origin_argument}shape, byte_strides);
+    """.format(
+            rank=rank,
+            origin_kind_parameter=origin_kind_parameter,
+            origin_argument=origin_argument,
+        )
+    )
     out.write('return {{{start_ptr}, layout}};'.format(start_ptr=start_ptr))
   else:
     out.write(
-        '  return MakeCopy(Make{function_name}View({origin_argument}array));'.
-        format(function_name=function_name, origin_argument=origin_argument))
+        '  return MakeCopy(Make{function_name}View({origin_argument}array));'
+        .format(function_name=function_name, origin_argument=origin_argument)
+    )
   out.write('\n}\n')
 
 
@@ -179,8 +208,13 @@ def write_functions(out: io.StringIO, ranks: List[int]) -> None:
           out.write('\n')
 
         for is_const in [False, True]:
-          output_make_array(out=out, rank=rank, is_const=is_const,
-                            is_view=is_view, origin_type=origin_type)
+          output_make_array(
+              out=out,
+              rank=rank,
+              is_const=is_const,
+              is_view=is_view,
+              origin_type=origin_type,
+          )
 
 
 def main():
