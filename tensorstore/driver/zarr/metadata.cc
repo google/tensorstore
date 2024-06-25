@@ -269,8 +269,14 @@ Result<std::vector<SharedArray<const void>>> ParseFillValue(
 
 ::nlohmann::json EncodeFillValue(
     const ZarrDType& dtype, span<const SharedArray<const void>> fill_values) {
-  assert(dtype.fields.size() == static_cast<size_t>(fill_values.size()));
-  if (!dtype.has_fields && dtype.fields.back().name != "") {
+  auto fill_value_size = static_cast<size_t>(fill_values.size());
+  // If there is one fewer dtype elements then we probably popped it off the end.
+  // Find the absolute difference
+  size_t size_diff = (dtype.fields.size() > fill_value_size) ? 
+                   dtype.fields.size() - fill_value_size : 
+                   fill_value_size - dtype.fields.size();
+  assert(size_diff <= 1);
+  if (!dtype.has_fields) {
     std::size_t idx = 0;
     const auto& field = dtype.fields[idx];
     const auto& fill_value = fill_values[idx];
@@ -302,7 +308,7 @@ Result<std::vector<SharedArray<const void>>> ParseFillValue(
   }
   // Compute base-64 encoding of fill values.
   std::vector<unsigned char> buffer(dtype.bytes_per_outer_element);
-  for (size_t field_i = 0; field_i < dtype.fields.size(); ++field_i) {
+  for (size_t field_i = 0; field_i < fill_value_size; ++field_i) {
     const auto& field = dtype.fields[field_i];
     const auto& fill_value = fill_values[field_i];
     if (!fill_value.valid()) return nullptr;
@@ -324,7 +330,11 @@ Result<ZarrChunkLayout> ComputeChunkLayout(const ZarrDType& dtype,
                                            ContiguousLayoutOrder order,
                                            span<const Index> chunk_shape) {
   ZarrChunkLayout layout;
-  layout.fields.resize(dtype.fields.size());
+  size_t true_size = dtype.fields.size();
+  if (dtype.has_fields && dtype.fields.back().name.empty()) {
+    --true_size;
+  }
+  layout.fields.resize(true_size);
   layout.num_outer_elements = ProductOfExtents(chunk_shape);
   if (layout.num_outer_elements == std::numeric_limits<Index>::max()) {
     return absl::InvalidArgumentError(tensorstore::StrCat(
@@ -337,7 +347,7 @@ Result<ZarrChunkLayout> ComputeChunkLayout(const ZarrDType& dtype,
         tensorstore::StrCat("Total number of bytes per chunk is too large"));
   }
 
-  for (size_t field_i = 0; field_i < dtype.fields.size(); ++field_i) {
+  for (size_t field_i = 0; field_i < true_size; ++field_i) {
     auto& field = dtype.fields[field_i];
     auto& field_layout = layout.fields[field_i];
     const DimensionIndex inner_rank = field.field_shape.size();
