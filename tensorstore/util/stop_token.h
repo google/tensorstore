@@ -16,10 +16,11 @@
 #define TENSORSTORE_UTIL_STOP_TOKEN_H_
 
 #include <atomic>
+#include <cstddef>
 #include <type_traits>
 #include <utility>
 
-#include "tensorstore/internal/attributes.h"
+#include "absl/base/attributes.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/util/stop_token_impl.h"
 
@@ -182,7 +183,7 @@ class StopCallback : private internal_stop_token::StopCallbackBase {
     static_cast<Callback&&>(static_cast<StopCallback&&>(self).callback_)();
   }
 
-  TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS Callback callback_;
+  ABSL_ATTRIBUTE_NO_UNIQUE_ADDRESS Callback callback_;
 };
 
 template <typename Callback>

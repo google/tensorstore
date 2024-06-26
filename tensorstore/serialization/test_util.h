@@ -15,10 +15,13 @@
 #ifndef TENSORSTORE_SERIALIZATION_TEST_UTIL_H_
 #define TENSORSTORE_SERIALIZATION_TEST_UTIL_H_
 
+#include <utility>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "tensorstore/serialization/batch.h"
-#include "tensorstore/serialization/serialization.h"
+#include "tensorstore/serialization/fwd.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"

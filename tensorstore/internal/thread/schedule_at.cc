@@ -22,6 +22,7 @@
 #include <memory>
 #include <utility>
 
+#include "absl/base/attributes.h"
 #include "absl/base/no_destructor.h"
 #include "absl/base/optimization.h"
 #include "absl/base/thread_annotations.h"
@@ -30,7 +31,6 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "absl/types/compare.h"
-#include "tensorstore/internal/attributes.h"
 #include "tensorstore/internal/container/intrusive_red_black_tree.h"
 #include "tensorstore/internal/metrics/gauge.h"
 #include "tensorstore/internal/metrics/histogram.h"
@@ -87,8 +87,7 @@ struct DeadlineTaskNode : public DeadlineTaskTree::NodeBase {
 
   absl::Time deadline;
   ScheduleAtTask task;
-  TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS internal_tracing::TraceContext
-      trace_context;
+  ABSL_ATTRIBUTE_NO_UNIQUE_ADDRESS internal_tracing::TraceContext trace_context;
 
   // The raw `DeadlineTaskQueue` pointer is non-null once the task has been
   // added to the tree.  The tag bit is 1 if cancellation of the task has been

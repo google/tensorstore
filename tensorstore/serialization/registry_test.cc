@@ -14,6 +14,9 @@
 
 #include "tensorstore/serialization/registry.h"
 
+#include <memory>
+#include <string>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "tensorstore/serialization/serialization.h"

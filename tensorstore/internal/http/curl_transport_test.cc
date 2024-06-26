@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "absl/strings/cord.h"
 #ifdef _WIN32
 #undef UNICODE
 #define WIN32_LEAN_AND_MEAN
-#pragma comment(lib, "ws2_32.lib")
 #endif
+
+#include "tensorstore/internal/http/curl_transport.h"
 
 #include <optional>
 #include <string>
@@ -27,8 +27,8 @@
 #include <gtest/gtest.h>
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
-#include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/http/transport_test_utils.h"
 #include "tensorstore/internal/thread/thread.h"

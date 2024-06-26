@@ -27,7 +27,6 @@
 #include "absl/base/attributes.h"
 #include "absl/base/optimization.h"
 #include "absl/log/absl_log.h"
-#include "tensorstore/internal/attributes.h"
 #include "tensorstore/internal/gdb_scripting.h"
 
 TENSORSTORE_GDB_AUTO_SCRIPT("span_gdb.py")
@@ -415,7 +414,7 @@ class span {
   // initializer for `size_`.
   //
   // https://developercommunity.visualstudio.com/t/miscompilation-with-msvcno-unique-address-and-defa/1699750
-  TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS
+  ABSL_ATTRIBUTE_NO_UNIQUE_ADDRESS
   std::conditional_t<Extent == dynamic_extent, ptrdiff_t,
                      std::integral_constant<ptrdiff_t, Extent>>
       size_;

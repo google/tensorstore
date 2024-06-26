@@ -19,9 +19,9 @@
 
 #include <utility>
 
+#include "absl/base/attributes.h"
 #include "absl/functional/any_invocable.h"
 #include "absl/time/clock.h"
-#include "tensorstore/internal/attributes.h"
 #include "tensorstore/internal/tracing/tracing.h"
 
 namespace tensorstore {
@@ -43,7 +43,7 @@ struct InFlightTask {
   }
 
   absl::AnyInvocable<void() &&> callback_;
-  TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS internal_tracing::TraceContext tc_;
+  ABSL_ATTRIBUTE_NO_UNIQUE_ADDRESS internal_tracing::TraceContext tc_;
   int64_t start_nanos;
 };
 

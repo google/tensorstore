@@ -8,7 +8,7 @@ tensorstore_cc_library(
     name = "block_queue",
     hdrs = ["block_queue.h"],
     deps = [
-        "//tensorstore/internal:attributes",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/log:absl_check",
     ],
 )
@@ -26,7 +26,7 @@ tensorstore_cc_library(
     name = "circular_queue",
     hdrs = ["circular_queue.h"],
     deps = [
-        "//tensorstore/internal:attributes",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/log:absl_check",
     ],
 )
@@ -114,7 +114,6 @@ tensorstore_cc_library(
     name = "single_producer_queue",
     hdrs = ["single_producer_queue.h"],
     deps = [
-        "//tensorstore/internal:attributes",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/log:absl_check",
     ],

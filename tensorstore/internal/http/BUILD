@@ -7,8 +7,10 @@ licenses(["notice"])
 # Ensure that ws2_32.lib is linked for mingw.
 _WS2_32_LINKOPTS = select({
     "@tensorstore//:compiler_mingw_gcc": [
+        "-DEFAULTLIB:ws2_32.lib",
         "-lws2_32",
     ],
+    "@tensorstore//:compiler_msvc": ["-DEFAULTLIB:ws2_32.lib"],
     "//conditions:default": [],
 })
 

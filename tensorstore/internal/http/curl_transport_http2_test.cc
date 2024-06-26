@@ -12,11 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "absl/strings/match.h"
 #ifdef _WIN32
 #undef UNICODE
 #define WIN32_LEAN_AND_MEAN
-#pragma comment(lib, "ws2_32.lib")
 #endif
 
 #include <stddef.h>
@@ -39,6 +37,7 @@
 #include "absl/log/absl_log.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/escaping.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/internal/http/http_request.h"

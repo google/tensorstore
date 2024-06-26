@@ -25,6 +25,7 @@
 /// This is used by tensorstore.distributed to serialize/deserialize task
 /// results, and also for testing.
 
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -32,9 +33,14 @@
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/status/status.h"
 #include "riegeli/bytes/string_reader.h"
 #include "riegeli/bytes/string_writer.h"
+#include "riegeli/bytes/writer.h"
+#include "tensorstore/internal/type_traits.h"
+#include "tensorstore/serialization/fwd.h"
 #include "tensorstore/serialization/serialization.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace serialization {
