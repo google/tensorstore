@@ -61,7 +61,6 @@
 #include "tensorstore/kvstore/registry.h"
 #include "tensorstore/kvstore/s3/aws_credentials_resource.h"
 #include "tensorstore/kvstore/s3/credentials/aws_credentials.h"
-#include "tensorstore/kvstore/s3/credentials/default_credential_provider.h"
 #include "tensorstore/kvstore/s3/s3_endpoint.h"
 #include "tensorstore/kvstore/s3/s3_metadata.h"
 #include "tensorstore/kvstore/s3/s3_request_builder.h"
@@ -98,11 +97,9 @@ using ::tensorstore::internal::SHA256Digester;
 using ::tensorstore::internal_http::HttpRequest;
 using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_http::HttpTransport;
-using ::tensorstore::internal_kvstore_s3::AwsCredentialProvider;
 using ::tensorstore::internal_kvstore_s3::AwsCredentials;
 using ::tensorstore::internal_kvstore_s3::AwsCredentialsResource;
 using ::tensorstore::internal_kvstore_s3::AwsHttpResponseToStatus;
-using ::tensorstore::internal_kvstore_s3::GetAwsCredentialProvider;
 using ::tensorstore::internal_kvstore_s3::GetNodeInt;
 using ::tensorstore::internal_kvstore_s3::GetNodeText;
 using ::tensorstore::internal_kvstore_s3::IsValidBucketName;
@@ -114,7 +111,6 @@ using ::tensorstore::internal_kvstore_s3::S3RateLimiterResource;
 using ::tensorstore::internal_kvstore_s3::S3RequestBuilder;
 using ::tensorstore::internal_kvstore_s3::S3RequestRetries;
 using ::tensorstore::internal_kvstore_s3::S3UriEncode;
-using ::tensorstore::internal_kvstore_s3::S3UriObjectKeyEncode;
 using ::tensorstore::internal_kvstore_s3::StorageGenerationFromHeaders;
 using ::tensorstore::kvstore::Key;
 using ::tensorstore::kvstore::ListEntry;
@@ -175,6 +171,8 @@ static constexpr char kEmptySha256[] =
 
 /// An empty etag which should not collide with an actual payload hash
 static constexpr char kEmptyEtag[] = "\"\"";
+
+static constexpr size_t kMaxS3PutSize = size_t{5} * 1024 * 1024 * 1024;  // 5GB
 
 /// Adds the generation header to the provided builder.
 bool AddGenerationHeader(S3RequestBuilder* builder, std::string_view header,
@@ -570,71 +568,69 @@ Future<kvstore::ReadResult> S3KeyValueStore::ReadImpl(Key&& key,
   return std::move(op.future);
 }
 
-/// A WriteTask is a function object used to satisfy a
-/// S3KeyValueStore::Write request.
-struct WriteTask : public RateLimiterNode,
-                   public internal::AtomicReferenceCount<WriteTask> {
-  IntrusivePtr<S3KeyValueStore> owner;
-  std::string object_name;
-  absl::Cord value;
-  kvstore::WriteOptions options;
-  Promise<TimestampedStorageGeneration> promise;
+// S3 doesn't support conditional PUT, so we use a HEAD request
+// to test the if-match condition; unfortunately this still has races.
+// Base must provide the following methods:
+//   bool IsCancelled()
+//   void Fail(absl::Status)
+//   void OnHeadResponse(const Result<HttpResponse>& response)
+//   void AfterHeadRequest()
+//
+template <typename Base>
+struct ConditionTask : public RateLimiterNode,
+                       public internal::AtomicReferenceCount<Base> {
+  using Self = ConditionTask<Base>;
 
-  std::string upload_url_;
+  IntrusivePtr<S3KeyValueStore> owner;
+  kvstore::WriteOptions options_;
   ReadyFuture<const S3EndpointRegion> endpoint_region_;
+  std::string object_url_;
 
   AwsCredentials credentials_;
-  int attempt_ = 0;
-  absl::Time start_time_;
 
-  WriteTask(IntrusivePtr<S3KeyValueStore> owner, std::string object_name,
-            absl::Cord value, kvstore::WriteOptions options,
-            Promise<TimestampedStorageGeneration> promise)
+  ConditionTask(IntrusivePtr<S3KeyValueStore> owner,
+                kvstore::WriteOptions options,
+                ReadyFuture<const S3EndpointRegion> endpoint_region,
+                std::string object_url)
       : owner(std::move(owner)),
-        object_name(std::move(object_name)),
-        value(std::move(value)),
-        options(std::move(options)),
-        promise(std::move(promise)) {}
-
-  ~WriteTask() { owner->admission_queue().Finish(this); }
+        options_(std::move(options)),
+        endpoint_region_(std::move(endpoint_region)),
+        object_url_(std::move(object_url)) {}
 
   static void Start(void* task) {
-    auto* self = reinterpret_cast<WriteTask*>(task);
+    auto* self = reinterpret_cast<Base*>(task);
     self->owner->write_rate_limiter().Finish(self);
-    self->owner->admission_queue().Admit(self, &WriteTask::Admit);
+    self->owner->admission_queue().Admit(self, &Base::Admit);
   }
+
   static void Admit(void* task) {
-    auto* self = reinterpret_cast<WriteTask*>(task);
+    auto* self = reinterpret_cast<Base*>(task);
     self->owner->executor()(
-        [state = IntrusivePtr<WriteTask>(self, internal::adopt_object_ref)] {
+        [state = IntrusivePtr<Base>(self, internal::adopt_object_ref)] {
           state->Retry();
         });
   }
 
-  /// Writes an object to S3.
   void Retry() {
-    if (!promise.result_needed()) {
+    if (static_cast<Base*>(this)->IsCancelled()) {
       return;
     }
-
     if (auto maybe_credentials = owner->GetCredentials();
         !maybe_credentials.ok()) {
-      promise.SetResult(maybe_credentials.status());
+      static_cast<Base*>(this)->Fail(maybe_credentials.status());
       return;
     } else if (maybe_credentials.value().has_value()) {
       credentials_ = std::move(*maybe_credentials.value());
     }
 
-    if (StorageGeneration::IsUnknown(options.generation_conditions.if_equal)) {
-      DoPut();
+    if (StorageGeneration::IsUnknown(options_.generation_conditions.if_equal)) {
+      static_cast<Base*>(this)->AfterHeadRequest();
       return;
     }
 
-    // S3 doesn't support conditional PUT, so we use a HEAD call
-    // to test the if-match condition
-    auto builder = S3RequestBuilder("HEAD", upload_url_);
+    auto builder = S3RequestBuilder("HEAD", object_url_);
     AddGenerationHeader(&builder, "if-match",
-                        options.generation_conditions.if_equal);
+                        options_.generation_conditions.if_equal);
 
     auto now = absl::Now();
     const auto& ehr = endpoint_region_.value();
@@ -642,21 +638,47 @@ struct WriteTask : public RateLimiterNode,
                        .BuildRequest(owner->host_header_, credentials_,
                                      ehr.aws_region, kEmptySha256, now);
 
-    ABSL_LOG_IF(INFO, s3_logging) << "WriteTask (Peek): " << request;
+    ABSL_LOG_IF(INFO, s3_logging) << "Peek: " << request;
 
     auto future = owner->transport_->IssueRequest(request, {});
-    future.ExecuteWhenReady([self = IntrusivePtr<WriteTask>(this)](
-                                ReadyFuture<HttpResponse> response) {
-      self->OnPeekResponse(response.result());
+    future.ExecuteWhenReady([self = IntrusivePtr<Base>(static_cast<Base*>(
+                                 this))](ReadyFuture<HttpResponse> response) {
+      ABSL_LOG_IF(INFO, s3_logging.Level(1) && response.result().ok())
+          << "Peek (Response): " << response.value();
+      if (self->IsCancelled()) return;
+      self->OnHeadResponse(response.result());
     });
   }
+};
 
-  void OnPeekResponse(const Result<HttpResponse>& response) {
-    ABSL_LOG_IF(INFO, s3_logging.Level(1) && response.ok())
-        << "WriteTask (Peek) " << *response;
+// A WriteTask is a function object used to satisfy S3KeyValueStore::Write.
+struct WriteTask : public ConditionTask<WriteTask> {
+  using Base = ConditionTask<WriteTask>;
 
+  absl::Cord value_;
+  Promise<TimestampedStorageGeneration> promise;
+
+  int attempt_ = 0;
+  absl::Time start_time_;
+
+  WriteTask(IntrusivePtr<S3KeyValueStore> o, kvstore::WriteOptions options,
+            ReadyFuture<const S3EndpointRegion> endpoint_region,
+            std::string object_url, absl::Cord value,
+            Promise<TimestampedStorageGeneration> promise)
+      : Base(std::move(o), std::move(options), std::move(endpoint_region),
+             std::move(object_url)),
+        value_(std::move(value)),
+        promise(std::move(promise)) {}
+
+  ~WriteTask() { owner->admission_queue().Finish(this); }
+
+  bool IsCancelled() { return !promise.result_needed(); }
+  void Fail(absl::Status status) { promise.SetResult(std::move(status)); }
+
+  void OnHeadResponse(const Result<HttpResponse>& response) {
+    // TODO: Retry these.
     if (!response.ok()) {
-      promise.SetResult(response.status());
+      Fail(response.status());
       return;
     }
 
@@ -672,7 +694,7 @@ struct WriteTask : public RateLimiterNode,
         promise.SetResult(r);
         return;
       case 404:
-        if (!options.generation_conditions.MatchesNoValue()) {
+        if (!options_.generation_conditions.MatchesNoValue()) {
           r.generation = StorageGeneration::Unknown();
           promise.SetResult(r);
           return;
@@ -682,31 +704,31 @@ struct WriteTask : public RateLimiterNode,
         break;
     }
 
-    DoPut();
+    AfterHeadRequest();
   }
 
-  void DoPut() {
+  void AfterHeadRequest() {
     // NOTE: This was changed from POST to PUT as a basic POST does not work
     // Some more headers need to be added to allow POST to work:
     // https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-authentication-HTTPPOST.html
 
     start_time_ = absl::Now();
-    auto content_sha256 = payload_sha256(value);
+    auto content_sha256 = payload_sha256(value_);
 
     const auto& ehr = endpoint_region_.value();
     auto request =
-        S3RequestBuilder("PUT", upload_url_)
+        S3RequestBuilder("PUT", object_url_)
             .AddHeader("Content-Type: application/octet-stream")
-            .AddHeader(absl::StrCat("Content-Length: ", value.size()))
+            .AddHeader(absl::StrCat("Content-Length: ", value_.size()))
             .MaybeAddRequesterPayer(owner->spec_.requester_pays)
             .BuildRequest(owner->host_header_, credentials_, ehr.aws_region,
                           content_sha256, start_time_);
 
     ABSL_LOG_IF(INFO, s3_logging)
-        << "WriteTask: " << request << " size=" << value.size();
+        << "WriteTask: " << request << " size=" << value_.size();
 
     auto future = owner->transport_->IssueRequest(
-        request, internal_http::IssueRequestOptions(value));
+        request, internal_http::IssueRequestOptions(value_));
     future.ExecuteWhenReady([self = IntrusivePtr<WriteTask>(this)](
                                 ReadyFuture<HttpResponse> response) {
       self->OnResponse(response.result());
@@ -750,7 +772,7 @@ struct WriteTask : public RateLimiterNode,
     switch (response.status_code) {
       case 404:
         if (!StorageGeneration::IsUnknown(
-                options.generation_conditions.if_equal)) {
+                options_.generation_conditions.if_equal)) {
           r.generation = StorageGeneration::Unknown();
           return r;
         }
@@ -758,102 +780,37 @@ struct WriteTask : public RateLimiterNode,
 
     auto latency = absl::Now() - start_time_;
     s3_write_latency_ms.Observe(absl::ToInt64Milliseconds(latency));
-    s3_bytes_written.IncrementBy(value.size());
+    s3_bytes_written.IncrementBy(value_.size());
     TENSORSTORE_ASSIGN_OR_RETURN(
         r.generation, StorageGenerationFromHeaders(response.headers));
     return r;
   }
 };
 
-/// A DeleteTask is a function object used to satisfy a
-/// S3KeyValueStore::Delete request.
-struct DeleteTask : public RateLimiterNode,
-                    public internal::AtomicReferenceCount<DeleteTask> {
-  IntrusivePtr<S3KeyValueStore> owner;
-  std::string object_name;
-  kvstore::WriteOptions options;
-  Promise<TimestampedStorageGeneration> promise;
+/// A DeleteTask is a function object used to satisfy S3KeyValueStore::Delete.
+struct DeleteTask : public ConditionTask<DeleteTask> {
+  using Base = ConditionTask<DeleteTask>;
 
-  std::string delete_url_;
-  ReadyFuture<const S3EndpointRegion> endpoint_region_;
+  Promise<TimestampedStorageGeneration> promise;
 
   int attempt_ = 0;
   absl::Time start_time_;
-  AwsCredentials credentials_;
 
-  DeleteTask(IntrusivePtr<S3KeyValueStore> owner, std::string object_name,
-             kvstore::WriteOptions options,
+  DeleteTask(IntrusivePtr<S3KeyValueStore> o, kvstore::WriteOptions options,
+             ReadyFuture<const S3EndpointRegion> endpoint_region,
+             std::string object_url,
              Promise<TimestampedStorageGeneration> promise)
-      : owner(std::move(owner)),
-        object_name(std::move(object_name)),
-        options(std::move(options)),
+      : Base(std::move(o), std::move(options), std::move(endpoint_region),
+             std::move(object_url)),
         promise(std::move(promise)) {}
 
   ~DeleteTask() { owner->admission_queue().Finish(this); }
 
-  static void Start(void* task) {
-    auto* self = reinterpret_cast<DeleteTask*>(task);
-    self->owner->write_rate_limiter().Finish(self);
-    self->owner->admission_queue().Admit(self, &DeleteTask::Admit);
-  }
+  bool IsCancelled() { return !promise.result_needed(); }
+  void Fail(absl::Status status) { promise.SetResult(std::move(status)); }
 
-  static void Admit(void* task) {
-    auto* self = reinterpret_cast<DeleteTask*>(task);
-    self->owner->executor()(
-        [state = IntrusivePtr<DeleteTask>(self, internal::adopt_object_ref)] {
-          state->Retry();
-        });
-  }
-
-  /// Removes an object from S3.
-  void Retry() {
-    if (!promise.result_needed()) {
-      return;
-    }
-    if (!IsValidStorageGeneration(options.generation_conditions.if_equal)) {
-      promise.SetResult(
-          absl::InvalidArgumentError("Malformed StorageGeneration"));
-      return;
-    }
-
-    if (auto maybe_credentials = owner->GetCredentials();
-        !maybe_credentials.ok()) {
-      promise.SetResult(maybe_credentials.status());
-      return;
-    } else if (maybe_credentials.value().has_value()) {
-      credentials_ = std::move(*maybe_credentials.value());
-    }
-
-    if (StorageGeneration::IsUnknown(options.generation_conditions.if_equal)) {
-      DoDelete();
-      return;
-    }
-
-    // S3 doesn't support conditional DELETE,
-    // use a HEAD call to test the if-match condition
-    auto builder = S3RequestBuilder("HEAD", delete_url_);
-    AddGenerationHeader(&builder, "if-match",
-                        options.generation_conditions.if_equal);
-
-    auto now = absl::Now();
-    const auto& ehr = endpoint_region_.value();
-    auto request = builder.MaybeAddRequesterPayer(owner->spec_.requester_pays)
-                       .BuildRequest(owner->host_header_, credentials_,
-                                     ehr.aws_region, kEmptySha256, now);
-
-    ABSL_LOG_IF(INFO, s3_logging) << "DeleteTask (Peek): " << request;
-
-    auto future = owner->transport_->IssueRequest(request, {});
-    future.ExecuteWhenReady([self = IntrusivePtr<DeleteTask>(this)](
-                                ReadyFuture<HttpResponse> response) {
-      self->OnPeekResponse(response.result());
-    });
-  }
-
-  void OnPeekResponse(const Result<HttpResponse>& response) {
-    ABSL_LOG_IF(INFO, s3_logging.Level(1) && response.ok())
-        << "DeleteTask (Peek) " << *response;
-
+  void OnHeadResponse(const Result<HttpResponse>& response) {
+    // TODO: Retry these.
     if (!response.ok()) {
       promise.SetResult(response.status());
       return;
@@ -868,7 +825,7 @@ struct DeleteTask : public RateLimiterNode,
         promise.SetResult(std::move(r));
         return;
       case 404:
-        if (!options.generation_conditions.MatchesNoValue()) {
+        if (!options_.generation_conditions.MatchesNoValue()) {
           r.generation = StorageGeneration::Unknown();
           promise.SetResult(std::move(r));
           return;
@@ -878,14 +835,14 @@ struct DeleteTask : public RateLimiterNode,
         break;
     }
 
-    DoDelete();
+    AfterHeadRequest();
   }
 
-  void DoDelete() {
+  void AfterHeadRequest() {
     start_time_ = absl::Now();
 
     const auto& ehr = endpoint_region_.value();
-    auto request = S3RequestBuilder("DELETE", delete_url_)
+    auto request = S3RequestBuilder("DELETE", object_url_)
                        .MaybeAddRequesterPayer(owner->spec_.requester_pays)
                        .BuildRequest(owner->host_header_, credentials_,
                                      ehr.aws_region, kEmptySha256, start_time_);
@@ -938,9 +895,9 @@ struct DeleteTask : public RateLimiterNode,
       case 404:
         // 404 Not Found means aborted when a StorageGeneration was specified.
         if (!StorageGeneration::IsNoValue(
-                options.generation_conditions.if_equal) &&
+                options_.generation_conditions.if_equal) &&
             !StorageGeneration::IsUnknown(
-                options.generation_conditions.if_equal)) {
+                options_.generation_conditions.if_equal)) {
           r.generation = StorageGeneration::Unknown();
           break;
         }
@@ -962,47 +919,50 @@ Future<TimestampedStorageGeneration> S3KeyValueStore::Write(
   if (!IsValidStorageGeneration(options.generation_conditions.if_equal)) {
     return absl::InvalidArgumentError("Malformed StorageGeneration");
   }
+  if (value && value->size() > kMaxS3PutSize) {
+    // TODO: Support multi-part uploads of files larger than 5GB.
+    // Generally, asws-cli splits uploads which exceed ~8MB into multiple
+    // parts.
+    return absl::InvalidArgumentError(absl::StrCat(
+        "Object size ", value->size(), " exceeds S3 limit of ", kMaxS3PutSize));
+  }
 
   auto op = PromiseFuturePair<TimestampedStorageGeneration>::Make();
 
-  if (value) {
-    auto state = internal::MakeIntrusivePtr<WriteTask>(
-        IntrusivePtr<S3KeyValueStore>(this), key, std::move(*value),
-        std::move(options), std::move(op.promise));
-    MaybeResolveRegion().ExecuteWhenReady(
-        [state = std::move(state)](ReadyFuture<const S3EndpointRegion> ready) {
-          if (!ready.status().ok()) {
-            state->promise.SetResult(ready.status());
-            return;
-          }
-          state->upload_url_ = tensorstore::StrCat(ready.value().endpoint, "/",
-                                                   state->object_name);
-          state->endpoint_region_ = std::move(ready);
-          intrusive_ptr_increment(state.get());  // adopted by WriteTask::Start.
-          state->owner->write_rate_limiter().Admit(state.get(),
-                                                   &WriteTask::Start);
-        });
-  } else {
-    auto state = internal::MakeIntrusivePtr<DeleteTask>(
-        IntrusivePtr<S3KeyValueStore>(this), key, std::move(options),
-        std::move(op.promise));
+  MaybeResolveRegion().ExecuteWhenReady(
+      [self = IntrusivePtr<S3KeyValueStore>(this),
+       promise = std::move(op.promise), key = std::move(key),
+       value = std::move(value), options = std::move(options)](
+          ReadyFuture<const S3EndpointRegion> ready) {
+        if (!ready.status().ok()) {
+          promise.SetResult(ready.status());
+          return;
+        }
+        std::string object_url =
+            tensorstore::StrCat(ready.value().endpoint, "/", key);
 
-    MaybeResolveRegion().ExecuteWhenReady(
-        [state = std::move(state)](ReadyFuture<const S3EndpointRegion> ready) {
-          if (!ready.status().ok()) {
-            state->promise.SetResult(ready.status());
-            return;
-          }
-          state->delete_url_ = tensorstore::StrCat(ready.value().endpoint, "/",
-                                                   state->object_name);
-          state->endpoint_region_ = std::move(ready);
+        if (!value) {
+          // Write with a std::nullopt value is a delete.
+          auto state = internal::MakeIntrusivePtr<DeleteTask>(
+              std::move(self), std::move(options), std::move(ready),
+              std::move(object_url), std::move(promise));
 
           intrusive_ptr_increment(
-              state.get());  // adopted by DeleteTask::Start.
+              state.get());  // adopted by DeleteTask::Admit.
           state->owner->write_rate_limiter().Admit(state.get(),
                                                    &DeleteTask::Start);
-        });
-  }
+          return;
+        }
+
+        auto state = internal::MakeIntrusivePtr<WriteTask>(
+            std::move(self), std::move(options), std::move(ready),
+            std::move(object_url), std::move(*value), std::move(promise));
+
+        intrusive_ptr_increment(state.get());  // adopted by WriteTask::Admit.
+        state->owner->write_rate_limiter().Admit(state.get(),
+                                                 &WriteTask::Start);
+      });
+
   return std::move(op.future);
 }
 
@@ -1301,7 +1261,8 @@ Future<const S3EndpointRegion> S3KeyValueStore::MaybeResolveRegion() {
 }
 
 Future<kvstore::DriverPtr> S3KeyValueStoreSpec::DoOpen() const {
-  // TODO: The transport should support the AWS_CA_BUNDLE environment variable.
+  // TODO: The transport should support the AWS_CA_BUNDLE environment
+  // variable.
   auto driver = internal::MakeIntrusivePtr<S3KeyValueStore>(
       internal_http::GetDefaultHttpTransport(), data_);
 
