@@ -1125,6 +1125,29 @@ TEST(ZarrDriverTest, CreateLittleEndianUnaligned) {
       }));
 }
 
+TEST(ZarrDriverTest, OpenWithoutField) {
+    ::nlohmann::json json_spec{
+      {"driver", "zarr"},
+      {"kvstore",
+       {
+           {"driver", "memory"},
+           {"path", "prefix/"},
+       }},
+      {"metadata",
+       {
+           {"compressor", {{"id", "blosc"}}},
+           {"dtype", ::nlohmann::json::array_t{{"x", "|b1"}, {"y", "<i2"}}},
+           {"shape", {100, 100}},
+           {"chunks", {3, 2}},
+       }},
+  };
+  auto context = Context::Default();
+
+  auto store_res = tensorstore::Open(json_spec, context, tensorstore::OpenMode::create,
+                          tensorstore::ReadWriteMode::read_write);
+  ASSERT_TRUE(store_res.status().ok()) << store_res.status();
+}
+
 TEST(ZarrDriverTest, CreateComplexWithFillValue) {
   ::nlohmann::json json_spec{
       {"driver", "zarr"},
