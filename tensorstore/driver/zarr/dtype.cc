@@ -352,6 +352,7 @@ absl::Status ValidateDType(ZarrDType& dtype) {
     //  Check that we haven't already added the size to the encoding
     if (dtype.fields[num_fields].encoded_dtype.size() == 2) {
       dtype.fields[num_fields].encoded_dtype += std::to_string(dtype.bytes_per_outer_element);
+      dtype.fields[num_fields].num_bytes = dtype.bytes_per_outer_element;
     }
   }
   return absl::OkStatus();
