@@ -230,7 +230,7 @@ TEST(ParseDType, SingleNamedFieldChar) {
                       /*.field_shape=*/{10},
                       /*.num_inner_elements=*/0,/*Not set yet*/
                       /*.byte_offset=*/0,/*Not set yet*/
-                      /*.num_bytes=*/0/*Not set yet*/},
+                      /*.num_bytes=*/10},
                  },
                  /*.bytes_per_outer_element=*/10/*Won't change*/,
              });
@@ -279,7 +279,7 @@ TEST(ParseDType, TwoNamedFieldsCharAndInt) {
                 /*.field_shape=*/{70},
                 /*.num_inner_elements=*/0,/*Not set yet*/
                 /*.byte_offset=*/0,/*Not set yet*/
-                /*.num_bytes=*/0/*Not set yet*/},
+                /*.num_bytes=*/70},
           },
           /*.bytes_per_outer_element=*/10 * 2 * 3 + 2 * 5,
       });
