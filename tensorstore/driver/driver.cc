@@ -103,7 +103,17 @@ Future<Driver::Handle> OpenDriver(TransformedDriverSpec bound_spec,
           if (composed_transform.ok()) {
             handle->transform = std::move(composed_transform).value();
           } else {
-            status = composed_transform.status();
+            // Fallback for Zarr driver opening without field specified.
+            if ((handle->transform.domain().rank() + 1) == bound_spec.transform.domain().rank()) {
+              // TODO: Make this a safer fallback. There may be a way to do it at the Zarr driver level.
+              // Just use the spec's transform twice... What's the worst that could happen!?
+              composed_transform = tensorstore::ComposeTransforms(std::move(bound_spec.transform), std::move(bound_spec.transform));
+              if (composed_transform.ok()) {
+                handle->transform = std::move(composed_transform).value();
+              }
+            } else {
+              status = composed_transform.status();
+            }
           }
         }
 
