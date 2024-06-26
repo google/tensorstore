@@ -268,7 +268,8 @@ void DataCache::GetChunkGridBounds(const void* metadata_ptr,
                                    DimensionSet& implicit_lower_bounds,
                                    DimensionSet& implicit_upper_bounds) {
   const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
-  assert(bounds.rank() == static_cast<DimensionIndex>(metadata.shape.size()));
+  assert((bounds.rank() == static_cast<DimensionIndex>(metadata.shape.size())) ||
+         (bounds.rank()+1 == static_cast<DimensionIndex>(metadata.shape.size())));
   std::fill(bounds.origin().begin(), bounds.origin().end(), Index(0));
   std::copy(metadata.shape.begin(), metadata.shape.end(),
             bounds.shape().begin());
