@@ -297,9 +297,6 @@ Result<std::shared_ptr<const void>> DataCache::GetResizedMetadata(
 internal::ChunkGridSpecification DataCache::GetChunkGridSpecification(
     const ZarrMetadata& metadata) {
   size_t true_size = metadata.dtype.fields.size();
-  if (true_size > 1 && metadata.dtype.fields.back().name.empty()) {
-    --true_size;
-  }
   internal::ChunkGridSpecification::ComponentList components;
   components.reserve(true_size);
   std::vector<DimensionIndex> chunked_to_cell_dimensions(
@@ -309,6 +306,15 @@ internal::ChunkGridSpecification DataCache::GetChunkGridSpecification(
   for (size_t field_i = 0; field_i < true_size; ++field_i) {
     const auto& field = metadata.dtype.fields[field_i];
     const auto& field_layout = metadata.chunk_layout.fields[field_i];
+
+    if (field.name.empty() && true_size > 1) {
+      // Fix the synthetic field
+      const_cast<ZarrMetadata&>(metadata).chunk_layout.fields[field_i].decoded_chunk_layout = metadata.chunk_layout.fields[0].decoded_chunk_layout;
+      // We need to "add" a dimension or there will be an illegal transform
+      const_cast<ZarrMetadata&>(metadata).shape.push_back(metadata.dtype.fields.back().num_bytes);
+      const_cast<ZarrMetadata&>(metadata).chunks.push_back(0); // No chunking in the synthetic dimension
+    }
+
     auto fill_value = metadata.fill_value[field_i];
     const bool fill_value_specified = fill_value.valid();
     if (!fill_value.valid()) {
