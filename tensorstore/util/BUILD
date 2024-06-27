@@ -327,6 +327,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:type_traits",
         "//tensorstore/internal/container:intrusive_linked_list",
         "//tensorstore/internal/metrics",
+        "//tensorstore/internal/metrics:metadata",
         "//tensorstore/internal/tracing",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/base:no_destructor",

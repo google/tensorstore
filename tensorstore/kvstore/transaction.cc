@@ -35,6 +35,7 @@
 #include "tensorstore/internal/compare.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/metrics/counter.h"
+#include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
@@ -57,7 +58,7 @@ namespace {
 
 auto& kvstore_transaction_retries = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/transaction_retries",
-    "Count of kvstore transaction retries");
+    internal_metrics::MetricMetadata("Count of kvstore transaction retries"));
 
 template <typename Controller>
 void ReportWritebackError(Controller controller, std::string_view action,

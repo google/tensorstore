@@ -63,6 +63,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:env",
         "//tensorstore/internal/container:circular_queue",
         "//tensorstore/internal/metrics",
+        "//tensorstore/internal/metrics:metadata",
         "//tensorstore/internal/thread",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/flags:flag",

@@ -14,8 +14,10 @@
 
 #include "tensorstore/internal/metrics/metadata.h"
 
+#include <cstddef>
 #include <string_view>
 
+#include "absl/base/optimization.h"
 #include "absl/strings/ascii.h"
 
 namespace tensorstore {
@@ -54,6 +56,32 @@ bool IsValidMetricLabel(std::string_view name) {
     }
   }
   return true;
+}
+
+/// Returns a unit-type string for the given units.
+std::string_view UnitsToString(Units units) {
+  // Translate units.
+  switch (units) {
+    case Units::kUnknown:
+      return {};
+    case Units::kSeconds:
+      return "seconds";
+    case Units::kMilliseconds:
+      return "milliseconds";
+    case Units::kMicroseconds:
+      return "microseconds";
+    case Units::kNanoseconds:
+      return "nanoseconds";
+    case Units::kBits:
+      return "bits";
+    case Units::kBytes:
+      return "bytes";
+    case Units::kKilobytes:
+      return "kilobytes";
+    case Units::kMegabytes:
+      return "megabytes";
+  }
+  ABSL_UNREACHABLE();
 }
 
 }  // namespace internal_metrics

@@ -36,6 +36,7 @@
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/metrics/counter.h"
+#include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/ref_counted_string.h"
 #include "tensorstore/kvstore/driver.h"
@@ -73,11 +74,12 @@
 #include "tensorstore/internal/json_binding/absl_time.h"  // IWYU pragma: keep
 #include "tensorstore/internal/json_binding/std_optional.h"  // IWYU pragma: keep
 
+using ::tensorstore::internal_metrics::MetricMetadata;
+using ::tensorstore::kvstore::ListReceiver;
+
 namespace tensorstore {
 namespace internal_ocdbt {
 namespace {
-
-using ::tensorstore::kvstore::ListReceiver;
 
 constexpr absl::Duration kDefaultLeaseDuration = absl::Seconds(10);
 
@@ -111,17 +113,20 @@ const internal::ContextResourceRegistration<OcdbtCoordinatorResourceTraits>
     registration;
 
 auto& ocdbt_read = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/ocdbt/read", "OCDBT driver kvstore::Read calls");
+    "/tensorstore/kvstore/ocdbt/read",
+    MetricMetadata("OCDBT driver kvstore::Read calls"));
 
 auto& ocdbt_write = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/ocdbt/write", "OCDBT driver kvstore::Write calls");
+    "/tensorstore/kvstore/ocdbt/write",
+    MetricMetadata("OCDBT driver kvstore::Write calls"));
 
 auto& ocdbt_delete_range = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/ocdbt/delete_range",
-    "OCDBT driver kvstore::DeleteRange calls");
+    MetricMetadata("OCDBT driver kvstore::DeleteRange calls"));
 
 auto& ocdbt_list = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/ocdbt/list", "OCDBT driver kvstore::List calls");
+    "/tensorstore/kvstore/ocdbt/list",
+    MetricMetadata("OCDBT driver kvstore::List calls"));
 
 }  // namespace
 namespace jb = ::tensorstore::internal_json_binding;

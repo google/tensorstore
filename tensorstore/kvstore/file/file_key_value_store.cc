@@ -113,6 +113,7 @@
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/counter.h"
+#include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/os/error_code.h"
 #include "tensorstore/internal/os/unique_handle.h"
 #include "tensorstore/internal/uri_utils.h"
@@ -161,14 +162,10 @@
 /// require passing through the Promise to the task code, rather than using
 /// `MapFuture`.
 
-namespace tensorstore {
-namespace internal_file_kvstore {
-namespace {
-namespace jb = tensorstore::internal_json_binding;
-
 using ::tensorstore::internal::OsErrorCode;
 using ::tensorstore::internal_file_util::IsKeyValid;
 using ::tensorstore::internal_file_util::LongestDirectoryPrefix;
+using ::tensorstore::internal_metrics::MetricMetadata;
 using ::tensorstore::internal_os::FileDescriptor;
 using ::tensorstore::internal_os::FileInfo;
 using ::tensorstore::internal_os::kLockSuffix;
@@ -178,37 +175,48 @@ using ::tensorstore::kvstore::ListReceiver;
 using ::tensorstore::kvstore::ReadResult;
 using ::tensorstore::kvstore::SupportedFeatures;
 
+namespace tensorstore {
+namespace internal_file_kvstore {
+namespace {
+namespace jb = tensorstore::internal_json_binding;
+
 auto& file_bytes_read = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/file/bytes_read",
-    "Bytes read by the file kvstore driver");
+    MetricMetadata("Bytes read by the file kvstore driver",
+                   internal_metrics::Units::kBytes));
 
 auto& file_bytes_written = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/file/bytes_written",
-    "Bytes written by the file kvstore driver");
+    MetricMetadata("Bytes written by the file kvstore driver",
+                   internal_metrics::Units::kBytes));
 
 auto& file_read = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/file/read", "file driver kvstore::Read calls");
+    "/tensorstore/kvstore/file/read",
+    MetricMetadata("file driver kvstore::Read calls"));
 
 auto& file_open_read = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/file/open_read",
-    "Number of times a file is opened for reading");
+    MetricMetadata("Number of times a file is opened for reading"));
 
 auto& file_batch_read = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/file/batch_read", "file driver reads after batching");
+    "/tensorstore/kvstore/file/batch_read",
+    MetricMetadata("file driver reads after batching"));
 
 auto& file_write = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/file/write", "file driver kvstore::Write calls");
+    "/tensorstore/kvstore/file/write",
+    MetricMetadata("file driver kvstore::Write calls"));
 
 auto& file_delete_range = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/file/delete_range",
-    "file driver kvstore::DeleteRange calls");
+    MetricMetadata("file driver kvstore::DeleteRange calls"));
 
 auto& file_list = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/file/list", "file driver kvstore::List calls");
+    "/tensorstore/kvstore/file/list",
+    MetricMetadata("file driver kvstore::List calls"));
 
 auto& file_lock_contention = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/file/lock_contention",
-    "file driver write lock contention");
+    MetricMetadata("file driver write lock contention"));
 
 ABSL_CONST_INIT internal_log::VerboseFlag file_logging("file");
 

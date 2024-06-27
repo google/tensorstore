@@ -46,6 +46,7 @@
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/histogram.h"
+#include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/rate_limiter/rate_limiter.h"
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/thread/schedule_at.h"
@@ -112,6 +113,7 @@ using ::tensorstore::internal_kvstore_s3::S3RequestBuilder;
 using ::tensorstore::internal_kvstore_s3::S3RequestRetries;
 using ::tensorstore::internal_kvstore_s3::S3UriEncode;
 using ::tensorstore::internal_kvstore_s3::StorageGenerationFromHeaders;
+using ::tensorstore::internal_metrics::MetricMetadata;
 using ::tensorstore::kvstore::Key;
 using ::tensorstore::kvstore::ListEntry;
 using ::tensorstore::kvstore::ListOptions;
@@ -124,41 +126,49 @@ namespace jb = tensorstore::internal_json_binding;
 
 auto& s3_bytes_read = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/s3/bytes_read",
-    "Bytes read by the s3 kvstore driver");
+    MetricMetadata("Bytes read by the s3 kvstore driver",
+                   internal_metrics::Units::kBytes));
 
 auto& s3_bytes_written = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/s3/bytes_written",
-    "Bytes written by the s3 kvstore driver");
+    MetricMetadata("Bytes written by the s3 kvstore driver",
+                   internal_metrics::Units::kBytes));
 
 auto& s3_retries = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/s3/retries",
-    "Count of all retried S3 requests (read/write/delete)");
+    MetricMetadata("Count of all retried S3 requests (read/write/delete)"));
 
 auto& s3_read = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/s3/read", "S3 driver kvstore::Read calls");
+    "/tensorstore/kvstore/s3/read",
+    MetricMetadata("S3 driver kvstore::Read calls"));
 
 auto& s3_batch_read = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/s3/batch_read", "S3 driver reads after batching");
+    "/tensorstore/kvstore/s3/batch_read",
+    MetricMetadata("S3 driver reads after batching"));
 
 auto& s3_read_latency_ms =
     internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
         "/tensorstore/kvstore/s3/read_latency_ms",
-        "S3 driver kvstore::Read latency (ms)");
+        MetricMetadata("S3 driver kvstore::Read latency (ms)",
+                       internal_metrics::Units::kMilliseconds));
 
 auto& s3_write = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/s3/write", "S3 driver kvstore::Write calls");
+    "/tensorstore/kvstore/s3/write",
+    MetricMetadata("S3 driver kvstore::Write calls"));
 
 auto& s3_write_latency_ms =
     internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
         "/tensorstore/kvstore/s3/write_latency_ms",
-        "S3 driver kvstore::Write latency (ms)");
+        MetricMetadata("S3 driver kvstore::Write latency (ms)",
+                       internal_metrics::Units::kMilliseconds));
 
 auto& s3_delete_range = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/s3/delete_range",
-    "S3 driver kvstore::DeleteRange calls");
+    MetricMetadata("S3 driver kvstore::DeleteRange calls"));
 
 auto& s3_list = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/s3/list", "S3 driver kvstore::List calls");
+    "/tensorstore/kvstore/s3/list",
+    MetricMetadata("S3 driver kvstore::List calls"));
 
 ABSL_CONST_INIT internal_log::VerboseFlag s3_logging("s3");
 

@@ -52,6 +52,7 @@
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/histogram.h"
+#include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/oauth2/auth_provider.h"
 #include "tensorstore/internal/oauth2/google_auth_provider.h"
 #include "tensorstore/internal/path.h"
@@ -126,6 +127,7 @@ using ::tensorstore::internal_kvstore_gcs_http::GcsConcurrencyResource;
 using ::tensorstore::internal_kvstore_gcs_http::GcsRateLimiterResource;
 using ::tensorstore::internal_kvstore_gcs_http::ObjectMetadata;
 using ::tensorstore::internal_kvstore_gcs_http::ParseObjectMetadata;
+using ::tensorstore::internal_metrics::MetricMetadata;
 using ::tensorstore::internal_storage_gcs::GcsHttpResponseToStatus;
 using ::tensorstore::internal_storage_gcs::GcsRequestRetries;
 using ::tensorstore::internal_storage_gcs::GcsUserProjectResource;
@@ -149,41 +151,49 @@ namespace jb = tensorstore::internal_json_binding;
 
 auto& gcs_bytes_read = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/gcs/bytes_read",
-    "Bytes read by the gcs kvstore driver");
+    MetricMetadata("Bytes read by the gcs kvstore driver",
+                   internal_metrics::Units::kBytes));
 
 auto& gcs_bytes_written = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/gcs/bytes_written",
-    "Bytes written by the gcs kvstore driver");
+    MetricMetadata("Bytes written by the gcs kvstore driver",
+                   internal_metrics::Units::kBytes));
 
 auto& gcs_retries = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/gcs/retries",
-    "Count of all retried GCS requests (read/write/delete)");
+    MetricMetadata("Count of all retried GCS requests (read/write/delete)"));
 
 auto& gcs_read = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/gcs/read", "GCS driver kvstore::Read calls");
+    "/tensorstore/kvstore/gcs/read",
+    MetricMetadata("GCS driver kvstore::Read calls"));
 
 auto& gcs_batch_read = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/gcs/batch_read", "gcs driver reads after batching");
+    "/tensorstore/kvstore/gcs/batch_read",
+    MetricMetadata("gcs driver reads after batching"));
 
 auto& gcs_read_latency_ms =
     internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
         "/tensorstore/kvstore/gcs/read_latency_ms",
-        "GCS driver kvstore::Read latency (ms)");
+        MetricMetadata("GCS driver kvstore::Read latency (ms)",
+                       internal_metrics::Units::kMilliseconds));
 
 auto& gcs_write = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/gcs/write", "GCS driver kvstore::Write calls");
+    "/tensorstore/kvstore/gcs/write",
+    MetricMetadata("GCS driver kvstore::Write calls"));
 
 auto& gcs_write_latency_ms =
     internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
         "/tensorstore/kvstore/gcs/write_latency_ms",
-        "GCS driver kvstore::Write latency (ms)");
+        MetricMetadata("GCS driver kvstore::Write latency (ms)",
+                       internal_metrics::Units::kMilliseconds));
 
 auto& gcs_delete_range = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/gcs/delete_range",
-    "GCS driver kvstore::DeleteRange calls");
+    MetricMetadata("GCS driver kvstore::DeleteRange calls"));
 
 auto& gcs_list = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/gcs/list", "GCS driver kvstore::List calls");
+    "/tensorstore/kvstore/gcs/list",
+    MetricMetadata("GCS driver kvstore::List calls"));
 
 ABSL_CONST_INIT internal_log::VerboseFlag gcs_http_logging("gcs_http");
 

@@ -19,6 +19,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:type_traits",
         "//tensorstore/internal:unaligned_data_type_functions",
         "//tensorstore/internal/metrics",
+        "//tensorstore/internal/metrics:metadata",
         "//tensorstore/util:element_pointer",
         "//tensorstore/util:endian",
         "//tensorstore/util:extents",

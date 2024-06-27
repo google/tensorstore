@@ -34,6 +34,7 @@
 #include "tensorstore/index.h"
 #include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/internal/metrics/counter.h"
+#include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/internal/unaligned_data_type_functions.h"
 #include "tensorstore/util/element_pointer.h"
@@ -44,15 +45,21 @@
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 
+using ::tensorstore::internal_metrics::MetricMetadata;
+
 namespace tensorstore {
 namespace internal {
 namespace {
 
 auto& contiguous_bytes = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/internal/riegeli/contiguous_bytes", "");
+    "/tensorstore/internal/riegeli/contiguous_bytes",
+    MetricMetadata("Endian codec bytes from contiguous buffers",
+                   internal_metrics::Units::kBytes));
 
 auto& noncontiguous_bytes = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/internal/riegeli/noncontiguous_bytes", "");
+    "/tensorstore/internal/riegeli/noncontiguous_bytes",
+    MetricMetadata("Endian codec bytes from non-contiguous buffers",
+                   internal_metrics::Units::kBytes));
 
 }  // namespace
 

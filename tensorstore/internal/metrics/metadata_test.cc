@@ -23,6 +23,8 @@ namespace {
 
 using ::tensorstore::internal_metrics::IsValidMetricLabel;
 using ::tensorstore::internal_metrics::IsValidMetricName;
+using ::tensorstore::internal_metrics::Units;
+using ::tensorstore::internal_metrics::UnitsToString;
 
 TEST(MetadataTest, IsValidMetricName) {
   EXPECT_FALSE(IsValidMetricName(""));
@@ -50,6 +52,11 @@ TEST(MetadataTest, IsValidMetricLabel) {
 
   EXPECT_TRUE(IsValidMetricLabel("a"));
   EXPECT_TRUE(IsValidMetricLabel("foB_1"));
+}
+
+TEST(MetadataTest, UnitsToString) {
+  EXPECT_THAT(UnitsToString(Units::kUnknown), ::testing::IsEmpty());
+  EXPECT_THAT(UnitsToString(Units::kSeconds), ::testing::Eq("seconds"));
 }
 
 }  // namespace

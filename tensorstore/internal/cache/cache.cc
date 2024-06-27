@@ -40,6 +40,7 @@
 #include "tensorstore/internal/container/intrusive_linked_list.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/metrics/counter.h"
+#include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/type_traits.h"
 
@@ -49,15 +50,18 @@
 // A Cache owns a weak reference to the CachePool that contains it only if
 // its reference count is > 0.
 
+using ::tensorstore::internal_metrics::MetricMetadata;
+
 namespace tensorstore {
 namespace internal_cache {
 
 auto& hit_count = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/cache/hit_count", "Number of cache hits.");
+    "/tensorstore/cache/hit_count", MetricMetadata("Number of cache hits."));
 auto& miss_count = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/cache/miss_count", "Number of cache misses.");
+    "/tensorstore/cache/miss_count", MetricMetadata("Number of cache misses."));
 auto& evict_count = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/cache/evict_count", "Number of evictions from the cache.");
+    "/tensorstore/cache/evict_count",
+    MetricMetadata("Number of evictions from the cache."));
 
 using ::tensorstore::internal::PinnedCacheEntry;
 

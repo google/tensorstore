@@ -46,6 +46,7 @@
 #include "tensorstore/internal/json_binding/std_array.h"
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/counter.h"
+#include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/generation.h"
@@ -69,6 +70,7 @@
 #include "tensorstore/util/span.h"
 
 using ::grpc::CallbackServerContext;
+using ::tensorstore::internal_metrics::MetricMetadata;
 using ::tensorstore::kvstore::ListEntry;
 using ::tensorstore_grpc::EncodeGenerationAndTimestamp;
 using ::tensorstore_grpc::Handler;
@@ -89,16 +91,20 @@ namespace tensorstore {
 namespace {
 
 auto& read_metric = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/grpc_server/read", "KvStoreService::Read calls");
+    "/tensorstore/kvstore/grpc_server/read",
+    MetricMetadata("KvStoreService::Read calls"));
 
 auto& write_metric = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/grpc_server/write", "KvStoreService::Write calls");
+    "/tensorstore/kvstore/grpc_server/write",
+    MetricMetadata("KvStoreService::Write calls"));
 
 auto& delete_metric = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/grpc_server/delete", "KvStoreService::Delete calls");
+    "/tensorstore/kvstore/grpc_server/delete",
+    MetricMetadata("KvStoreService::Delete calls"));
 
 auto& list_metric = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/grpc_server/list", "KvStoreService::List calls");
+    "/tensorstore/kvstore/grpc_server/list",
+    MetricMetadata("KvStoreService::List calls"));
 
 ABSL_CONST_INIT internal_log::VerboseFlag verbose_logging("tsgrpc_kvstore");
 

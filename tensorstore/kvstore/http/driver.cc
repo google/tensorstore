@@ -43,6 +43,7 @@
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/counter.h"
+#include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/retries_context_resource.h"
 #include "tensorstore/internal/retry.h"
@@ -74,6 +75,7 @@ using ::tensorstore::internal::IntrusivePtr;
 using ::tensorstore::internal_http::HttpRequestBuilder;
 using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_http::HttpTransport;
+using ::tensorstore::internal_metrics::MetricMetadata;
 
 namespace tensorstore {
 namespace {
@@ -81,14 +83,17 @@ namespace {
 namespace jb = tensorstore::internal_json_binding;
 
 auto& http_read = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/http/read", "http driver kvstore::Read calls");
+    "/tensorstore/kvstore/http/read",
+    MetricMetadata("http driver kvstore::Read calls"));
 
 auto& http_batch_read = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/http/batch_read", "http driver reads after batching");
+    "/tensorstore/kvstore/http/batch_read",
+    MetricMetadata("http driver reads after batching"));
 
 auto& http_bytes_read = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/http/bytes_read",
-    "Bytes read by the http kvstore driver");
+    MetricMetadata("Bytes read by the http kvstore driver",
+                   internal_metrics::Units::kBytes));
 
 ABSL_CONST_INIT internal_log::VerboseFlag http_logging("http_kvstore");
 

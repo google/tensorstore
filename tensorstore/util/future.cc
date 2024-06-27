@@ -19,7 +19,6 @@
 
 #include <atomic>
 #include <cassert>
-#include <new>
 #include <thread>  // NOLINT
 #include <utility>
 
@@ -35,22 +34,26 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/gauge.h"
+#include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/util/future_impl.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
+
+using ::tensorstore::internal_metrics::MetricMetadata;
 
 namespace tensorstore {
 namespace internal_future {
 namespace {
 
 auto& live_futures = internal_metrics::Gauge<int64_t>::New(
-    "/tensorstore/futures/live", "Live futures");
+    "/tensorstore/futures/live", MetricMetadata("Live futures"));
 auto& future_ready_callbacks = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/futures/ready_callbacks", "Ready callbacks");
+    "/tensorstore/futures/ready_callbacks", MetricMetadata("Ready callbacks"));
 auto& future_not_needed_callbacks = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/futures/not_needed_callbacks", "Not needed callbacks");
+    "/tensorstore/futures/not_needed_callbacks",
+    MetricMetadata("Not needed callbacks"));
 auto& future_force_callbacks = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/futures/force_callbacks", "Force callbacks");
+    "/tensorstore/futures/force_callbacks", MetricMetadata("Force callbacks"));
 
 }  // namespace
 

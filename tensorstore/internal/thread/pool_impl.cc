@@ -31,8 +31,11 @@
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/gauge.h"
+#include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/thread/task_provider.h"
 #include "tensorstore/internal/thread/thread.h"
+
+using ::tensorstore::internal_metrics::MetricMetadata;
 
 namespace tensorstore {
 namespace internal_thread_impl {
@@ -44,15 +47,16 @@ constexpr absl::Duration kThreadIdleBeforeExit = absl::Seconds(20);
 constexpr absl::Duration kOverseerIdleBeforeExit = absl::Seconds(20);
 
 auto& thread_pool_started = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/thread_pool/started", "Threads started by SharedThreadPool");
+    "/tensorstore/thread_pool/started",
+    MetricMetadata("Threads started by SharedThreadPool"));
 
 auto& thread_pool_active = internal_metrics::Gauge<int64_t>::New(
     "/tensorstore/thread_pool/active",
-    "Active threads managed by SharedThreadPool");
+    MetricMetadata("Active threads managed by SharedThreadPool"));
 
 auto& thread_pool_task_providers = internal_metrics::Gauge<int64_t>::New(
     "/tensorstore/thread_pool/task_providers",
-    "TaskProviders requesting threads from SharedThreadPool");
+    MetricMetadata("TaskProviders requesting threads from SharedThreadPool"));
 
 ABSL_CONST_INIT internal_log::VerboseFlag thread_pool_logging("thread_pool");
 

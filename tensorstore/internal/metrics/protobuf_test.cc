@@ -22,9 +22,11 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "tensorstore/internal/metrics/collect.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/gauge.h"
 #include "tensorstore/internal/metrics/histogram.h"
+#include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/metrics/metrics.pb.h"
 #include "tensorstore/internal/metrics/registry.h"
 #include "tensorstore/internal/metrics/value.h"
@@ -41,6 +43,7 @@ using ::tensorstore::internal_metrics::DefaultBucketer;
 using ::tensorstore::internal_metrics::Gauge;
 using ::tensorstore::internal_metrics::GetMetricRegistry;
 using ::tensorstore::internal_metrics::Histogram;
+using ::tensorstore::internal_metrics::MetricMetadata;
 using ::tensorstore::internal_metrics::Value;
 
 TEST(ProtobufTest, BasicConversion) {
@@ -106,76 +109,81 @@ TEST(ProtobufTest, BasicConversion) {
 
 TEST(ProtobufTest, FromRegistry) {
   {
-    auto& counter =
-        Counter<int64_t>::New("/protobuf_test/counter1", "A metric");
+    auto& counter = Counter<int64_t>::New("/protobuf_test/counter1",
+                                          MetricMetadata("A metric"));
     counter.Increment();
     counter.IncrementBy(2);
   }
   {
-    auto& counter = Counter<double>::New("/protobuf_test/counter2", "A metric");
+    auto& counter = Counter<double>::New("/protobuf_test/counter2",
+                                         MetricMetadata("A metric"));
     counter.Increment();
     counter.IncrementBy(2);
   }
   {
     auto& counter = Counter<int64_t, std::string>::New(
-        "/protobuf_test/counter3", "field1", "A metric");
+        "/protobuf_test/counter3", "field1", MetricMetadata("A metric"));
     counter.Increment("a");
     counter.IncrementBy(2, "b");
   }
   {
-    auto& counter = Counter<double, int>::New("/protobuf_test/counter4",
-                                              "field1", "A metric");
+    auto& counter = Counter<double, int>::New(
+        "/protobuf_test/counter4", "field1", MetricMetadata("A metric"));
     counter.Increment(1);
     counter.IncrementBy(2, 2);
   }
   {
-    auto& gauge = Gauge<int64_t>::New("/protobuf_test/gauge1", "A metric");
+    auto& gauge = Gauge<int64_t>::New("/protobuf_test/gauge1",
+                                      MetricMetadata("A metric"));
     gauge.Set(3);
     gauge.Increment();
     gauge.IncrementBy(2);
   }
   {
-    auto& gauge = Gauge<double>::New("/protobuf_test/gauge2", "A metric");
+    auto& gauge =
+        Gauge<double>::New("/protobuf_test/gauge2", MetricMetadata("A metric"));
     gauge.Set(3);
     gauge.Increment();
     gauge.IncrementBy(2);
   }
   {
-    auto& gauge = Gauge<int64_t, std::string>::New("/protobuf_test/gauge3",
-                                                   "field1", "A metric");
+    auto& gauge = Gauge<int64_t, std::string>::New(
+        "/protobuf_test/gauge3", "field1", MetricMetadata("A metric"));
     gauge.Increment("a");
     gauge.IncrementBy(2, "a");
     gauge.Set(3, "b");
   }
   {
-    auto& gauge =
-        Gauge<double, bool>::New("/protobuf_test/gauge4", "field1", "A metric");
+    auto& gauge = Gauge<double, bool>::New("/protobuf_test/gauge4", "field1",
+                                           MetricMetadata("A metric"));
     gauge.Increment(false);
     gauge.IncrementBy(2, false);
     gauge.Set(3, true);
   }
 
   {
-    auto& histogram =
-        Histogram<DefaultBucketer>::New("/protobuf_test/hist1", "A metric");
+    auto& histogram = Histogram<DefaultBucketer>::New(
+        "/protobuf_test/hist1", MetricMetadata("A metric"));
     histogram.Observe(1);
     histogram.Observe(2);
     histogram.Observe(1000);
   }
   {
     auto& histogram = Histogram<DefaultBucketer, int>::New(
-        "/protobuf_test/hist2", "field1", "A metric");
+        "/protobuf_test/hist2", "field1", MetricMetadata("A metric"));
     histogram.Observe(-1.0, 1);  // =0
     histogram.Observe(0.11, 2);  // =1
     histogram.Observe(1.2, 3);   // =2
     histogram.Observe(2.1, 4);   // =3
   }
   {
-    auto& value = Value<int64_t>::New("/protobuf_test/value1", "A metric");
+    auto& value = Value<int64_t>::New("/protobuf_test/value1",
+                                      MetricMetadata("A metric"));
     value.Set(3);
   }
   {
-    auto& gauge = Value<std::string>::New("/protobuf_test/value2", "A metric");
+    auto& gauge = Value<std::string>::New("/protobuf_test/value2",
+                                          MetricMetadata("A metric"));
     gauge.Set("foo");
   }
 
