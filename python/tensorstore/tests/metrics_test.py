@@ -46,9 +46,9 @@ async def test_collect_prometheus_format_metrics():
   metric_list = ts.experimental_collect_prometheus_format_metrics(
       '/tensorstore/'
   )
-  for m in metric_list:
-    assert m.startswith('tensorstore_')
+  assert len(metric_list) > 0
 
-  # There are a lot of metrics, including these which should be 0.
-  assert 'tensorstore_cache_chunk_cache_reads 0' in metric_list
-  assert 'tensorstore_cache_chunk_cache_writes 0' in metric_list
+  for m in metric_list:
+    if m.startswith('#'):  # Skip comments.
+      continue
+    assert m.startswith('tensorstore_')

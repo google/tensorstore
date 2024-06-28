@@ -34,11 +34,14 @@
 #include "tensorstore/internal/container/intrusive_red_black_tree.h"
 #include "tensorstore/internal/metrics/gauge.h"
 #include "tensorstore/internal/metrics/histogram.h"
+#include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/metrics/value.h"
 #include "tensorstore/internal/tagged_ptr.h"
 #include "tensorstore/internal/thread/thread.h"
 #include "tensorstore/internal/tracing/tracing.h"
 #include "tensorstore/util/stop_token.h"
+
+using ::tensorstore::internal_metrics::MetricMetadata;
 
 namespace tensorstore {
 namespace internal {
@@ -48,16 +51,17 @@ using ScheduleAtTask = absl::AnyInvocable<void() &&>;
 
 auto& schedule_at_queued_ops = internal_metrics::Gauge<int64_t>::New(
     "/tensorstore/internal/thread/schedule_at/queued_ops",
-    "Operations in flight on the schedule_at thread");
+    MetricMetadata("Operations in flight on the schedule_at thread"));
 
 auto& schedule_at_next_event = internal_metrics::Value<absl::Time>::New(
     "/tensorstore/internal/thread/schedule_at/next_event",
-    "Time of the next in-flight schedule_at operation");
+    MetricMetadata("Time of the next in-flight schedule_at operation"));
 
 auto& schedule_at_insert_histogram_ms =
     internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
         "/tensorstore/internal/thread/schedule_at/insert_histogram_ms",
-        "Histogram of schedule_at insert delays (ms)");
+        MetricMetadata("Histogram of schedule_at insert delays (ms)",
+                       internal_metrics::Units::kMilliseconds));
 
 class DeadlineTaskQueue;
 

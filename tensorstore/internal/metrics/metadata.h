@@ -20,14 +20,31 @@
 namespace tensorstore {
 namespace internal_metrics {
 
+// Describes the metric units in MetricMetadata.
+enum class Units : int {
+  kUnknown = 0,
+  kSeconds,
+  kMilliseconds,
+  kMicroseconds,
+  kNanoseconds,
+  kBits,
+  kBytes,
+  kKilobytes,
+  kMegabytes,
+};
+
 /// Metadata for a metric, such as description.
 /// Consider adding more here as necessary.
 struct MetricMetadata {
   MetricMetadata() = default;
-  MetricMetadata(const char* description) : description(description) {}
-  MetricMetadata(std::string_view description) : description(description) {}
+  explicit MetricMetadata(const char* description)
+      : description(description), units(Units::kUnknown) {}
+
+  MetricMetadata(const char* description, Units u)
+      : description(description), units(u) {}
 
   std::string_view description;
+  Units units;
 };
 
 /// Returns whether name is a valid metric name.
@@ -42,6 +59,9 @@ bool IsValidMetricName(std::string_view name);
 /// Returns whether name is a valid metric label.
 /// Valid labels match the RE: [a-zA-Z][a-zA-Z0-9_]*
 bool IsValidMetricLabel(std::string_view name);
+
+/// Returns a unit-type string for the given units.
+std::string_view UnitsToString(Units units);
 
 }  // namespace internal_metrics
 }  // namespace tensorstore

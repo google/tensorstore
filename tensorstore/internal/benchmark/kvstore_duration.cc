@@ -49,6 +49,7 @@ bazel run -c opt \
 #include "absl/flags/parse.h"
 #include "tensorstore/internal/benchmark/metric_utils.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/metrics/value.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -81,7 +82,7 @@ namespace {
 
 auto& read_throughput = internal_metrics::Value<double>::New(
     "/tensorstore/kvstore_benchmark/read_throughput",
-    "the read throughput in this test");
+    internal_metrics::MetricMetadata("the read throughput in this test"));
 
 struct ReadState : public internal::AtomicReferenceCount<ReadState> {
   std::vector<std::string> keys;

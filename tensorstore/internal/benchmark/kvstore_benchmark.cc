@@ -78,6 +78,7 @@ bazel run -c opt \
 #include "tensorstore/context.h"
 #include "absl/flags/parse.h"
 #include "tensorstore/internal/benchmark/metric_utils.h"
+#include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/metrics/registry.h"
 #include "tensorstore/internal/metrics/value.h"
 #include "tensorstore/internal/path.h"
@@ -132,11 +133,11 @@ namespace {
 
 auto& write_throughput = internal_metrics::Value<double>::New(
     "/tensorstore/kvstore_benchmark/write_throughput",
-    "the write throughput in this test");
+    internal_metrics::MetricMetadata("the write throughput in this test"));
 
 auto& read_throughput = internal_metrics::Value<double>::New(
     "/tensorstore/kvstore_benchmark/read_throughput",
-    "the read throughput in this test");
+    internal_metrics::MetricMetadata("the read throughput in this test"));
 
 ::nlohmann::json StartMetrics() {
   ::nlohmann::json json_metrics = ::nlohmann::json::array();

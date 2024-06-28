@@ -52,58 +52,72 @@
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/gauge.h"
 #include "tensorstore/internal/metrics/histogram.h"
+#include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/thread/thread.h"
 
 ABSL_FLAG(std::optional<uint32_t>, tensorstore_http_threads, std::nullopt,
           "Threads to use for http requests. "
           "Overrides TENSORSTORE_HTTP_THREADS.");
 
+using ::tensorstore::internal::GetFlagOrEnvValue;
+using ::tensorstore::internal_container::CircularQueue;
+using ::tensorstore::internal_metrics::MetricMetadata;
+
 namespace tensorstore {
 namespace internal_http {
 namespace {
 
-using ::tensorstore::internal::GetFlagOrEnvValue;
-using ::tensorstore::internal_container::CircularQueue;
-
 auto& http_request_started = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/http/request_started", "HTTP requests started");
+    "/tensorstore/http/request_started",
+    MetricMetadata("HTTP requests started"));
 
 auto& http_request_completed = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/http/request_completed", "HTTP requests completed");
+    "/tensorstore/http/request_completed",
+    MetricMetadata("HTTP requests completed"));
 
 auto& http_request_bytes =
     internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
-        "/tensorstore/http/request_bytes", "HTTP request bytes transmitted");
+        "/tensorstore/http/request_bytes",
+        MetricMetadata("HTTP request bytes transmitted",
+                       internal_metrics::Units::kBytes));
 
 auto& http_request_header_bytes =
     internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
         "/tensorstore/http/request_header_bytes",
-        "HTTP request bytes transmitted");
+        MetricMetadata("HTTP request bytes transmitted",
+                       internal_metrics::Units::kBytes));
 
 auto& http_response_codes = internal_metrics::Counter<int64_t, int>::New(
     "/tensorstore/http/response_codes", "code",
-    "HTTP response status code counts");
+    MetricMetadata("HTTP response status code counts"));
 
 auto& http_response_bytes =
     internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
-        "/tensorstore/http/response_bytes", "HTTP response bytes received");
+        "/tensorstore/http/response_bytes",
+        MetricMetadata("HTTP response bytes received",
+                       internal_metrics::Units::kBytes));
 
 auto& http_active = internal_metrics::Gauge<int64_t>::New(
-    "/tensorstore/http/active", "HTTP requests considered active");
+    "/tensorstore/http/active",
+    MetricMetadata("HTTP requests considered active"));
 
 auto& http_total_time_ms =
     internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
-        "/tensorstore/http/total_time_ms", "HTTP total latency (ms)");
+        "/tensorstore/http/total_time_ms",
+        MetricMetadata("HTTP total latency (ms)",
+                       internal_metrics::Units::kMilliseconds));
 
 auto& http_first_byte_latency_us =
     internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
         "/tensorstore/http/first_byte_latency_us",
-        "HTTP first byte received latency (us)");
+        MetricMetadata("HTTP first byte received latency (us)",
+                       internal_metrics::Units::kMicroseconds));
 
 auto& http_poll_time_ns =
     internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
         "/tensorstore/http/http_poll_time_ns",
-        "HTTP time spent in curl_multi_poll (ns)");
+        MetricMetadata("HTTP time spent in curl_multi_poll (ns)",
+                       internal_metrics::Units::kNanoseconds));
 
 uint32_t GetHttpThreads() {
   return std::max(1u, GetFlagOrEnvValue(FLAGS_tensorstore_http_threads,

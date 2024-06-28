@@ -28,6 +28,7 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/histogram.h"
+#include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -43,7 +44,9 @@ namespace {
 auto& indirect_data_writer_histogram =
     internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
         "/tensorstore/kvstore/ocdbt/indirect_data_write_size",
-        "Histogram of OCDBT buffered write sizes.");
+        internal_metrics::MetricMetadata(
+            "Histogram of OCDBT buffered write sizes.",
+            internal_metrics::Units::kBytes));
 
 ABSL_CONST_INIT internal_log::VerboseFlag ocdbt_logging("ocdbt");
 

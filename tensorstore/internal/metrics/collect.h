@@ -15,6 +15,8 @@
 #ifndef TENSORSTORE_INTERNAL_METRICS_COLLECT_H_
 #define TENSORSTORE_INTERNAL_METRICS_COLLECT_H_
 
+#include <stdint.h>
+
 #include <string>
 #include <string_view>
 #include <variant>

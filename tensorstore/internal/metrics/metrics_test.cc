@@ -28,6 +28,7 @@
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/gauge.h"
 #include "tensorstore/internal/metrics/histogram.h"
+#include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/metrics/registry.h"
 #include "tensorstore/internal/metrics/value.h"
 
@@ -39,10 +40,12 @@ using ::tensorstore::internal_metrics::Gauge;
 using ::tensorstore::internal_metrics::GetMetricRegistry;
 using ::tensorstore::internal_metrics::Histogram;
 using ::tensorstore::internal_metrics::MaxGauge;
+using ::tensorstore::internal_metrics::MetricMetadata;
 using ::tensorstore::internal_metrics::Value;
 
 TEST(MetricTest, CounterInt) {
-  auto& counter = Counter<int64_t>::New("/tensorstore/counter1", "A metric");
+  auto& counter = Counter<int64_t>::New("/tensorstore/counter1",
+                                        MetricMetadata("A metric"));
   counter.Increment();
   counter.IncrementBy(2);
 
@@ -70,7 +73,8 @@ TEST(MetricTest, CounterInt) {
 }
 
 TEST(MetricTest, CounterDouble) {
-  auto& counter = Counter<double>::New("/tensorstore/counter2", "A metric");
+  auto& counter =
+      Counter<double>::New("/tensorstore/counter2", MetricMetadata("A metric"));
   counter.Increment();
   counter.IncrementBy(2);
 
@@ -83,8 +87,8 @@ TEST(MetricTest, CounterDouble) {
 }
 
 TEST(MetricTest, CounterIntFields) {
-  auto& counter = Counter<int64_t, std::string>::New("/tensorstore/counter3",
-                                                     "field1", "A metric");
+  auto& counter = Counter<int64_t, std::string>::New(
+      "/tensorstore/counter3", "field1", MetricMetadata("A metric"));
   counter.Increment("a");
   counter.IncrementBy(2, "b");
 
@@ -106,8 +110,8 @@ TEST(MetricTest, CounterIntFields) {
 }
 
 TEST(MetricTest, CounterDoubleFields) {
-  auto& counter =
-      Counter<double, int>::New("/tensorstore/counter4", "field1", "A metric");
+  auto& counter = Counter<double, int>::New("/tensorstore/counter4", "field1",
+                                            MetricMetadata("A metric"));
   counter.Increment(1);
   counter.IncrementBy(2, 2);
 
@@ -127,7 +131,8 @@ TEST(MetricTest, CounterDoubleFields) {
 }
 
 TEST(MetricTest, GaugeInt) {
-  auto& gauge = Gauge<int64_t>::New("/tensorstore/gauge1", "A metric");
+  auto& gauge =
+      Gauge<int64_t>::New("/tensorstore/gauge1", MetricMetadata("A metric"));
   gauge.Set(3);
   gauge.Increment();
   gauge.IncrementBy(2);
@@ -145,7 +150,8 @@ TEST(MetricTest, GaugeInt) {
 }
 
 TEST(MetricTest, GaugeDouble) {
-  auto& gauge = Gauge<double>::New("/tensorstore/gauge2", "A metric");
+  auto& gauge =
+      Gauge<double>::New("/tensorstore/gauge2", MetricMetadata("A metric"));
   gauge.Set(3);
   gauge.Increment();
   gauge.IncrementBy(2);
@@ -160,8 +166,8 @@ TEST(MetricTest, GaugeDouble) {
 }
 
 TEST(MetricTest, GaugeIntFields) {
-  auto& gauge = Gauge<int64_t, std::string>::New("/tensorstore/gauge3",
-                                                 "field1", "A metric");
+  auto& gauge = Gauge<int64_t, std::string>::New(
+      "/tensorstore/gauge3", "field1", MetricMetadata("A metric"));
   gauge.Increment("a");
   gauge.IncrementBy(2, "a");
   gauge.Set(3, "b");
@@ -185,8 +191,8 @@ TEST(MetricTest, GaugeIntFields) {
 }
 
 TEST(MetricTest, GaugeDoubleFields) {
-  auto& gauge =
-      Gauge<double, bool>::New("/tensorstore/gauge4", "field1", "A metric");
+  auto& gauge = Gauge<double, bool>::New("/tensorstore/gauge4", "field1",
+                                         MetricMetadata("A metric"));
   gauge.Increment(false);
   gauge.IncrementBy(2, false);
   gauge.Set(3, true);
@@ -207,7 +213,8 @@ TEST(MetricTest, GaugeDoubleFields) {
 }
 
 TEST(MetricTest, MaxGauge) {
-  auto& gauge = MaxGauge<double>::New("/tensorstore/max_gauge", "A metric");
+  auto& gauge = MaxGauge<double>::New("/tensorstore/max_gauge",
+                                      MetricMetadata("A metric"));
   gauge.Set(3);
   gauge.Set(7);
 
@@ -221,8 +228,8 @@ TEST(MetricTest, MaxGauge) {
 }
 
 TEST(MetricTest, Histogram) {
-  auto& histogram =
-      Histogram<DefaultBucketer>::New("/tensorstore/hist1", "A metric");
+  auto& histogram = Histogram<DefaultBucketer>::New("/tensorstore/hist1",
+                                                    MetricMetadata("A metric"));
   histogram.Observe(1);
   histogram.Observe(2);
   histogram.Observe(1000);
@@ -244,8 +251,8 @@ TEST(MetricTest, Histogram) {
 }
 
 TEST(MetricTest, HistogramFields) {
-  auto& histogram = Histogram<DefaultBucketer, int>::New("/tensorstore/hist2",
-                                                         "field1", "A metric");
+  auto& histogram = Histogram<DefaultBucketer, int>::New(
+      "/tensorstore/hist2", "field1", MetricMetadata("A metric"));
   histogram.Observe(-1.0, 1);  // =0
   histogram.Observe(0.11, 2);  // =1
   histogram.Observe(1.2, 3);   // =2
@@ -272,7 +279,8 @@ TEST(MetricTest, HistogramFields) {
 }
 
 TEST(MetricTest, ValueInt) {
-  auto& value = Value<int64_t>::New("/tensorstore/value1", "A metric");
+  auto& value =
+      Value<int64_t>::New("/tensorstore/value1", MetricMetadata("A metric"));
   value.Set(3);
   EXPECT_EQ(3, value.Get());
 
@@ -290,7 +298,8 @@ TEST(MetricTest, ValueInt) {
 }
 
 TEST(MetricTest, ValueString) {
-  auto& gauge = Value<std::string>::New("/tensorstore/value2", "A metric");
+  auto& gauge = Value<std::string>::New("/tensorstore/value2",
+                                        MetricMetadata("A metric"));
   gauge.Set("foo");
 
   auto metric = gauge.Collect();

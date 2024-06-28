@@ -44,6 +44,7 @@
 #include "tensorstore/internal/estimate_heap_usage/std_vector.h"
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/counter.h"
+#include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/ocdbt/format/config.h"
@@ -61,17 +62,19 @@
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/str_cat.h"
 
+using ::tensorstore::internal_metrics::MetricMetadata;
+
 namespace tensorstore {
 namespace internal_ocdbt {
 namespace {
 
 auto& manifest_updates = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/ocdbt/manifest_updates",
-    "OCDBT driver manifest updates");
+    MetricMetadata("OCDBT driver manifest updates"));
 
 auto& manifest_update_errors = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/ocdbt/manifest_update_errors",
-    "OCDBT driver manifest update errors (typically retried)");
+    MetricMetadata("OCDBT driver manifest update errors (typically retried)"));
 
 ABSL_CONST_INIT internal_log::VerboseFlag ocdbt_logging("ocdbt");
 

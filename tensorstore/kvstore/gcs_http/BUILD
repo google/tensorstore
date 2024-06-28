@@ -33,6 +33,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/internal/metrics",
+        "//tensorstore/internal/metrics:metadata",
         "//tensorstore/internal/oauth2",
         "//tensorstore/internal/oauth2:google_auth_provider",
         "//tensorstore/internal/rate_limiter",

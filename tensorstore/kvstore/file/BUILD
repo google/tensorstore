@@ -33,6 +33,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/internal/metrics",
+        "//tensorstore/internal/metrics:metadata",
         "//tensorstore/internal/os:error_code",
         "//tensorstore/internal/os:file_lister",
         "//tensorstore/internal/os:file_util",

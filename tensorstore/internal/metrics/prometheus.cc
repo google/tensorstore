@@ -31,6 +31,7 @@
 #include "absl/strings/str_cat.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/metrics/collect.h"
+#include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
@@ -168,6 +169,20 @@ void PrometheusExpositionFormat(
   std::string metric_name =
       AsPrometheusString(metric.metric_name, kMetricFirst);
   if (metric_name.empty()) return;
+  if ((metric.values.empty() && metric.histograms.empty()) ||
+      (!metric.values.empty() && !metric.histograms.empty())) {
+    // Must have one and only one of values or histograms.
+    return;
+  }
+
+  if (!metric.metadata.description.empty()) {
+    handle_line(
+        absl::StrCat("# HELP ", metric_name, " ", metric.metadata.description));
+  }
+  if (auto units_str = UnitsToString(metric.metadata.units);
+      !units_str.empty()) {
+    handle_line(absl::StrCat("# UNIT ", metric_name, " ", units_str));
+  }
 
   std::vector<std::string> prometheus_fields;
   prometheus_fields.reserve(metric.field_names.size());
@@ -205,6 +220,7 @@ void PrometheusExpositionFormat(
     }
   }
   if (!metric.histograms.empty()) {
+    handle_line(absl::StrCat("# TYPE ", metric_name, " histogram"));
     std::string line;
     for (const auto& v : metric.histograms) {
       // Build labels for values.

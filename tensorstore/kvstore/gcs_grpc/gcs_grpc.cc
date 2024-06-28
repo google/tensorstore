@@ -53,6 +53,7 @@
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/histogram.h"
+#include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/thread/schedule_at.h"
 #include "tensorstore/internal/uri_utils.h"
@@ -104,6 +105,7 @@ using ::tensorstore::internal::ScheduleAt;
 using ::tensorstore::internal_gcs_grpc::GetCredentialsForEndpoint;
 using ::tensorstore::internal_gcs_grpc::GetSharedStorageStubPool;
 using ::tensorstore::internal_gcs_grpc::StorageStubPool;
+using ::tensorstore::internal_metrics::MetricMetadata;
 using ::tensorstore::internal_storage_gcs::GcsUserProjectResource;
 using ::tensorstore::internal_storage_gcs::IsRetriable;
 using ::tensorstore::internal_storage_gcs::IsValidBucketName;
@@ -136,33 +138,38 @@ namespace jb = tensorstore::internal_json_binding;
 
 auto& gcs_grpc_bytes_read = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/gcs_grpc/bytes_read",
-    "Bytes read by the gcs_grpc kvstore driver");
+    MetricMetadata("Bytes read by the gcs_grpc kvstore driver",
+                   internal_metrics::Units::kBytes));
 
 auto& gcs_grpc_read = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/gcs_grpc/read", "GCS driver kvstore::Read calls");
+    "/tensorstore/kvstore/gcs_grpc/read",
+    MetricMetadata("GCS driver kvstore::Read calls"));
 
 auto& gcs_grpc_batch_read = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/gcs_grpc/batch_read",
-    "GCS driver reads after batching");
+    MetricMetadata("GCS driver reads after batching"));
 
 auto& gcs_grpc_read_latency_ms =
     internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
         "/tensorstore/kvstore/gcs_grpc/read_latency_ms",
-        "GCS driver kvstore::Read latency (ms)");
+        MetricMetadata("GCS driver kvstore::Read latency (ms)",
+                       internal_metrics::Units::kMilliseconds));
 
 auto& gcs_grpc_write = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/gcs_grpc/write", "GCS driver kvstore::Write calls");
+    "/tensorstore/kvstore/gcs_grpc/write",
+    MetricMetadata("GCS driver kvstore::Write calls"));
 
 auto& gcs_grpc_delete_range = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/gcs_grpc/delete_range",
-    "GCS driver kvstore::DeleteRange calls");
+    MetricMetadata("GCS driver kvstore::DeleteRange calls"));
 
 auto& gcs_grpc_list = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/gcs_grpc/list", "GCS driver kvstore::List calls");
+    "/tensorstore/kvstore/gcs_grpc/list",
+    MetricMetadata("GCS driver kvstore::List calls"));
 
 auto& gcs_grpc_retries = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/gcs_grpc/retries",
-    "Count of all retried GCS requests (read/write/delete)");
+    MetricMetadata("Count of all retried GCS requests (read/write/delete)"));
 
 ABSL_CONST_INIT internal_log::VerboseFlag gcs_grpc_logging("gcs_grpc");
 

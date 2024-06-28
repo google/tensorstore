@@ -23,6 +23,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "tensorstore/internal/metrics/collect.h"
+#include "tensorstore/internal/metrics/metadata.h"
 
 namespace {
 
@@ -30,6 +31,7 @@ using ::tensorstore::internal_metrics::BuildPrometheusPushRequest;
 using ::tensorstore::internal_metrics::CollectedMetric;
 using ::tensorstore::internal_metrics::PrometheusExpositionFormat;
 using ::tensorstore::internal_metrics::PushGatewayConfig;
+using ::tensorstore::internal_metrics::Units;
 
 TEST(PrometheusTest, BuildPrometheusPushRequest) {
   auto request = BuildPrometheusPushRequest(
@@ -52,8 +54,36 @@ TEST(PrometheusTest, PrometheusExpositionFormat) {
   metric.metric_name = "metric_name";
   metric.field_names.push_back("field_name");
   metric.metadata.description = "description";
+  metric.metadata.units = Units::kBytes;
   metric.tag = "tag";
   EXPECT_THAT(format_lines(metric), ::testing::IsEmpty());
+
+  metric.values.push_back(CollectedMetric::Value{});
+  auto& v = metric.values.back();
+  v.fields.push_back("vv");
+  v.value = int64_t{1};
+  v.max_value = int64_t{2};
+  EXPECT_THAT(format_lines(metric),
+              ::testing::ElementsAre("# HELP metric_name description",  //
+                                     "# UNIT metric_name bytes",        //
+                                     "metric_name {field_name=\"vv\"} 1",
+                                     "metric_name_max {field_name=\"vv\"} 2"));
+}
+
+TEST(PrometheusTest, PrometheusExpositionFormat_Histogram) {
+  auto format_lines = [](const CollectedMetric& metric) {
+    std::vector<std::string> lines;
+    PrometheusExpositionFormat(
+        metric, [&](std::string line) { lines.push_back(std::move(line)); });
+    return lines;
+  };
+
+  CollectedMetric metric;
+  metric.metric_name = "metric_name";
+  metric.field_names.push_back("field_name");
+  metric.metadata.description = "description";
+  metric.metadata.units = Units::kBytes;
+  metric.tag = "tag";
 
   metric.histograms.push_back(CollectedMetric::Histogram{});
   auto& h = metric.histograms.back();
@@ -64,15 +94,11 @@ TEST(PrometheusTest, PrometheusExpositionFormat) {
   h.buckets.push_back(0);
   h.buckets.push_back(1);
 
-  metric.values.push_back(CollectedMetric::Value{});
-  auto& v = metric.values.back();
-  v.fields.push_back("vv");
-  v.value = int64_t{1};
-  v.max_value = int64_t{2};
   EXPECT_THAT(format_lines(metric),
               ::testing::ElementsAre(
-                  "metric_name {field_name=\"vv\"} 1",
-                  "metric_name_max {field_name=\"vv\"} 2",
+                  "# HELP metric_name description",  //
+                  "# UNIT metric_name bytes",        //
+                  "# TYPE metric_name histogram",    //
                   "metric_name_mean {field_name=\"hh\"} 1",
                   "metric_name_count {field_name=\"hh\"} 1",
                   "metric_name_variance {field_name=\"hh\"} 1",

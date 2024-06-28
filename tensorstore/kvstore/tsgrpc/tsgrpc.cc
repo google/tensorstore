@@ -45,6 +45,7 @@
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/counter.h"
+#include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
@@ -78,6 +79,7 @@ using ::tensorstore::GrpcClientCredentials;
 using ::tensorstore::internal::AbslTimeToProto;
 using ::tensorstore::internal::DataCopyConcurrencyResource;
 using ::tensorstore::internal::GrpcStatusToAbslStatus;
+using ::tensorstore::internal_metrics::MetricMetadata;
 using ::tensorstore::kvstore::ListEntry;
 using ::tensorstore::kvstore::ListReceiver;
 using ::tensorstore_grpc::DecodeGenerationAndTimestamp;
@@ -96,20 +98,24 @@ namespace tensorstore {
 namespace {
 
 auto& grpc_read = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/tsgrpc/read", "grpc driver kvstore::Read calls");
+    "/tensorstore/kvstore/tsgrpc/read",
+    MetricMetadata("grpc driver kvstore::Read calls"));
 
 auto& grpc_write = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/tsgrpc/write", "grpc driver kvstore::Write calls");
+    "/tensorstore/kvstore/tsgrpc/write",
+    MetricMetadata("grpc driver kvstore::Write calls"));
 
 auto& grpc_delete = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/tsgrpc/delete", "grpc driver kvstore::Write calls");
+    "/tensorstore/kvstore/tsgrpc/delete",
+    MetricMetadata("grpc driver kvstore::Delete calls"));
 
 auto& grpc_delete_range = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/tsgrpc/delete_range",
-    "grpc driver kvstore::DeleteRange calls");
+    MetricMetadata("grpc driver kvstore::DeleteRange calls"));
 
 auto& grpc_list = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/tsgrpc/list", "grpc driver kvstore::List calls");
+    "/tensorstore/kvstore/tsgrpc/list",
+    MetricMetadata("grpc driver kvstore::List calls"));
 
 ABSL_CONST_INIT internal_log::VerboseFlag verbose_logging("tsgrpc_kvstore");
 

@@ -16,22 +16,18 @@
 
 #include <stddef.h>
 
-#include <algorithm>
 #include <atomic>
 #include <cassert>
+#include <cstdint>
 #include <memory>
 #include <mutex>  // NOLINT
-#include <numeric>
 #include <string_view>
 #include <utility>
-#include <vector>
 
 #include "absl/base/thread_annotations.h"
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
-#include "tensorstore/contiguous_layout.h"
-#include "tensorstore/data_type.h"
 #include "tensorstore/driver/chunk.h"
 #include "tensorstore/driver/chunk_receiver_utils.h"
 #include "tensorstore/index.h"
@@ -46,31 +42,31 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/memory.h"
 #include "tensorstore/internal/metrics/counter.h"
+#include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/nditerable.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/read_write_options.h"
-#include "tensorstore/staleness_bound.h"
-#include "tensorstore/strided_layout.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/element_pointer.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
-#include "tensorstore/util/execution/sender.h"
-#include "tensorstore/util/extents.h"
 #include "tensorstore/util/future.h"
-#include "tensorstore/util/iterate.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
+
+using ::tensorstore::internal_metrics::MetricMetadata;
 
 namespace tensorstore {
 namespace internal {
 
 auto& num_writes = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/cache/chunk_cache/writes", "Number of writes to ChunkCache.");
+    "/tensorstore/cache/chunk_cache/writes",
+    MetricMetadata("Number of writes to ChunkCache."));
 auto& num_reads = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/cache/chunk_cache/reads", "Number of reads from ChunkCache.");
+    "/tensorstore/cache/chunk_cache/reads",
+    MetricMetadata("Number of reads from ChunkCache."));
 
 namespace {
 

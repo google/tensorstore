@@ -63,6 +63,7 @@ tensorstore_cc_library(
     srcs = ["metadata.cc"],
     hdrs = ["metadata.h"],
     deps = [
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/strings",
     ],
 )
@@ -79,7 +80,10 @@ tensorstore_cc_test(
 tensorstore_cc_library(
     name = "metric_hook",
     hdrs = ["metric_hook.h"],
-    deps = ["//tensorstore/internal:type_traits"],
+    deps = [
+        ":metadata",
+        "//tensorstore/internal:type_traits",
+    ],
 )
 
 tensorstore_cc_library(
@@ -129,6 +133,7 @@ tensorstore_cc_test(
     srcs = ["metrics_test.cc"],
     deps = [
         ":collect",
+        ":metadata",
         ":metrics",
         ":registry",
         "@com_google_googletest//:gtest_main",
@@ -140,6 +145,7 @@ tensorstore_cc_binary(
     testonly = 1,
     srcs = ["metrics_benchmark_test.cc"],
     deps = [
+        ":metadata",
         ":metrics",
         ":registry",
         "//tensorstore/internal/thread:thread_pool",
@@ -167,6 +173,7 @@ tensorstore_cc_library(
     hdrs = ["prometheus.h"],
     deps = [
         ":collect",
+        ":metadata",
         "//tensorstore/internal:uri_utils",
         "//tensorstore/internal/http",
         "//tensorstore/util:result",
@@ -182,6 +189,7 @@ cc_test(
     srcs = ["prometheus_test.cc"],
     deps = [
         ":collect",
+        ":metadata",
         ":prometheus",
         "@com_google_googletest//:gtest_main",
     ],
@@ -191,6 +199,8 @@ cc_test(
     name = "protobuf_test",
     srcs = ["protobuf_test.cc"],
     deps = [
+        ":collect",
+        ":metadata",
         ":metrics",
         ":metrics_cc_proto",
         ":protobuf",
