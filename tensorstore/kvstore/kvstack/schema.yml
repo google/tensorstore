@@ -36,7 +36,7 @@ allOf:
             description: |
               Specifies an exclusive upper bound of a range mapping onto the base kvstore.
           strip_prefix:
-            type: int
+            type: integer
             description: |
               Prefix to remove from the key mapping. Defaults to the common prefix of the range.
         required:
