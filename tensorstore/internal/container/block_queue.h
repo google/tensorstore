@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <cassert>
 #include <memory>
+#include <utility>
 
 #include "absl/base/attributes.h"
 #include "absl/log/absl_check.h"
@@ -49,7 +50,7 @@ template <typename T, size_t kMin = 1024, size_t kMax = 1024,
 class BlockQueue;
 
 // SQBlock is a buffer used as a backing SimpleDeque.
-template <typename T, typename Allocator = std::allocator<T>>
+template <typename T, typename Allocator>
 struct SQBlock {
  private:
   using BlockAllocator =
@@ -135,7 +136,10 @@ class BlockQueue {
   };
 
  public:
-  BlockQueue() : head_(), tail_(), size_(0) {}
+  BlockQueue() : BlockQueue(Allocator()) {}
+
+  explicit BlockQueue(Allocator alloc)
+      : allocator_(std::move(alloc)), head_(), tail_(), size_(0) {}
 
   ~BlockQueue() {
     Block* b = head_.block;

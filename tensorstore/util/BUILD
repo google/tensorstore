@@ -219,7 +219,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:memory",
         "//tensorstore/internal:type_traits",
         "//tensorstore/internal:unowned_to_shared",
-        "//tensorstore/internal/container:compressed_pair",
+        "//tensorstore/internal/container:compressed_tuple",
     ],
 )
 
