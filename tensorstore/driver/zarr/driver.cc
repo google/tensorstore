@@ -296,6 +296,14 @@ Result<std::shared_ptr<const void>> DataCache::GetResizedMetadata(
 
 internal::ChunkGridSpecification DataCache::GetChunkGridSpecification(
     const ZarrMetadata& metadata) {
+  bool flag = false;
+
+  // TODO: Hardcode fix attempt
+  if (metadata.shape.size() == 3) {
+    flag = true;
+    const_cast<ZarrMetadata&>(metadata).shape.pop_back();
+    const_cast<ZarrMetadata&>(metadata).chunks.pop_back();
+  }
   size_t true_size = metadata.dtype.fields.size();
   internal::ChunkGridSpecification::ComponentList components;
   components.reserve(true_size);
@@ -307,7 +315,7 @@ internal::ChunkGridSpecification DataCache::GetChunkGridSpecification(
     const auto& field = metadata.dtype.fields[field_i];
     const auto& field_layout = metadata.chunk_layout.fields[field_i];
 
-    if (field.name.empty() && true_size > 1) {
+    if (field.name.empty() && true_size > 1 && !flag) {
       // Fix the synthetic field
       const_cast<ZarrMetadata&>(metadata).chunk_layout.fields[field_i].decoded_chunk_layout = metadata.chunk_layout.fields[0].decoded_chunk_layout;
       // We need to "add" a dimension or there will be an illegal transform
