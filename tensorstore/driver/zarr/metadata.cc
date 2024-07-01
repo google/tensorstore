@@ -335,9 +335,9 @@ Result<ZarrChunkLayout> ComputeChunkLayout(const ZarrDType& dtype,
                                            span<const Index> chunk_shape) {
   ZarrChunkLayout layout;
   size_t true_size = dtype.fields.size();
-  if (dtype.has_fields && dtype.fields.back().name.empty()) {
-    --true_size;
-  }
+  // if (dtype.has_fields && dtype.fields.back().name.empty()) {
+    // --true_size;
+  // }
   layout.fields.resize(true_size);
   layout.num_outer_elements = ProductOfExtents(chunk_shape);
   if (layout.num_outer_elements == std::numeric_limits<Index>::max()) {
