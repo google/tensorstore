@@ -41,17 +41,15 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
-    name = "compressed_pair",
-    hdrs = ["compressed_pair.h"],
+    name = "compressed_tuple",
+    hdrs = ["compressed_tuple.h"],
 )
 
 tensorstore_cc_test(
-    name = "compressed_pair_test",
-    size = "small",
-    srcs = ["compressed_pair_test.cc"],
+    name = "compressed_tuple_test",
+    srcs = ["compressed_tuple_test.cc"],
     deps = [
-        ":compressed_pair",
-        "//tensorstore/internal:type_traits",
+        ":compressed_tuple",
         "@com_google_googletest//:gtest_main",
     ],
 )

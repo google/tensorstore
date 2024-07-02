@@ -54,8 +54,14 @@ class CircularQueue {
   using StorageAllocatorTraits = std::allocator_traits<StorageAllocator>;
 
  public:
-  explicit CircularQueue(size_t n)
-      : begin_(0), end_(0), mask_(0), buffer_(nullptr) {
+  explicit CircularQueue(size_t n) : CircularQueue(n, Allocator()) {}
+
+  CircularQueue(size_t n, Allocator alloc)
+      : allocator_(std::move(alloc)),
+        begin_(0),
+        end_(0),
+        mask_(0),
+        buffer_(nullptr) {
     ABSL_CHECK_EQ(n & (n - 1), 0);
     internal_resize(n);
   }

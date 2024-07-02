@@ -28,7 +28,7 @@
 
 #include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
-#include "tensorstore/internal/container/compressed_pair.h"
+#include "tensorstore/internal/container/compressed_tuple.h"
 #include "tensorstore/internal/memory.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/internal/unowned_to_shared.h"
@@ -350,7 +350,7 @@ class ElementPointer {
   /// Returns the data type.
   ///
   /// \membergroup Accessors
-  constexpr DataType dtype() const { return storage_.first(); }
+  constexpr DataType dtype() const { return storage_.template get<0>(); }
 
   /// Returns the raw pointer value.
   ///
@@ -365,9 +365,9 @@ class ElementPointer {
   /// Returns a reference to the stored pointer.
   ///
   /// \membergroup Accessors
-  const Pointer& pointer() const& { return storage_.second(); }
-  Pointer& pointer() & { return storage_.second(); }
-  Pointer&& pointer() && { return static_cast<Pointer&&>(storage_.second()); }
+  const Pointer& pointer() const& { return storage_.template get<1>(); }
+  Pointer& pointer() & { return storage_.template get<1>(); }
+  Pointer&& pointer() && { return std::move(storage_).template get<1>(); }
 
   /// Returns `data() != nullptr`.
   ///
@@ -406,7 +406,7 @@ class ElementPointer {
   }
 
  private:
-  using Storage = internal::CompressedPair<DataType, Pointer>;
+  using Storage = internal_container::CompressedTuple<DataType, Pointer>;
   Storage storage_{DataType(), nullptr};
 };
 
