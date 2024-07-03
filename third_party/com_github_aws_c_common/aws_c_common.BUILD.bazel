@@ -1,32 +1,92 @@
 # Description:
 #   AWS C Common
 
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
+
 package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])  # Apache 2.0
 
 exports_files(["LICENSE"])
 
+write_file(
+    name = "write_config_h",
+    out = "include/aws/common/config.h",
+    newline = "auto",
+
+    content = [
+        "#ifndef AWS_COMMON_CONFIG_H",
+        "#define AWS_COMMON_CONFIG_H",
+        "",
+        "#define AWS_HAVE_GCC_OVERFLOW_MATH_EXTENSIONS",
+        "#define AWS_HAVE_GCC_INLINE_ASM",
+        "#define AWS_HAVE_POSIX_LARGE_FILE_SUPPORT",
+    ] + select({
+        "@platforms//os:linux": [
+            "#define AWS_HAVE_EXECINFO",
+            "#define AWS_HAVE_LINUX_IF_LINK_H",
+        ],
+        "@platforms//os:windows": [
+            "#define AWS_HAVE_WINAPI_DESKTOP",
+        ],
+    }) + [
+        "#undef AWS_HAVE_WINAPI_DESKTOP",
+        # TODO: improve with logic from AwsSIMD.cmake
+        # but this strictly requires configure style tests...
+        "#undef AWS_USE_CPU_EXTENSIONS",
+        "#undef AWS_HAVE_MSVC_INTRINSICS_X64",
+        "#undef AWS_HAVE_AVX2_INTRINSICS",
+        "#undef AWS_HAVE_AVX512_INTRINSICS",
+        "#undef AWS_HAVE_MM256_EXTRACT_EPI64",
+        "#undef AWS_HAVE_CLMUL",
+        "#undef AWS_HAVE_ARM32_CRC",
+        "#undef AWS_HAVE_ARMv8_1",
+        "#undef AWS_ARCH_ARM64",
+        "#undef AWS_ARCH_INTEL",
+        "#undef AWS_ARCH_INTEL_X64",
+        "",
+        "#endif"
+    ]
+)
+
 cc_library(
     name = "aws_c_common",
     srcs = glob([
         "include/aws/common/*.h",
+        "include/aws/common/external/*.h",
         "include/aws/common/private/*.h",
         "source/*.c",
+        "source/arch/generic/*.c",
+        "source/external/**/*.h",
+        "source/external/**/*.c",
     ]) + select({
         "@platforms//os:windows": glob([
             "source/windows/*.c",
         ]),
-        "//conditions:default": glob([
+        "@platforms//os:linux": glob([
+            "source/linux/*.c",
             "source/posix/*.c",
         ]),
+        "@platforms//os:osx": glob([
+            "source/posix/*.c",
+        ])
     }),
-    hdrs = [
-        "include/aws/common/config.h",
+    hdrs = glob([
+        "include/aws/common/*.h",
+        "include/aws/common/private/*.h",
+    ]) + [
+        ":write_config_h"
     ],
-    defines = [],
+    defines = [
+        # TODO: improve this with logic from AwsThreadAffinity.cmake
+        "AWS_AFFINITY_METHOD=AWS_AFFINITY_METHOD_NONE",
+        # Disable macro tracing API
+        "INTEL_NO_ITTNOTIFY_API",
+    ],
     includes = [
         "include",
+        "source/external",
+        "source/external/libcbor"
     ],
     textual_hdrs = glob([
         "include/**/*.inl",
@@ -34,13 +94,3 @@ cc_library(
     deps = [],
 )
 
-genrule(
-    name = "config_h",
-    srcs = [
-        "include/aws/common/config.h.in",
-    ],
-    outs = [
-        "include/aws/common/config.h",
-    ],
-    cmd = "sed 's/cmakedefine/undef/g' $< > $@",
-)

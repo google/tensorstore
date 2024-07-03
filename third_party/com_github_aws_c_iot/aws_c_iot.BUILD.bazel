@@ -1,0 +1,30 @@
+# Description:
+#   AWS C IOT
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])  # Apache 2.0
+
+exports_files(["LICENSE"])
+
+cc_library(
+    name = "aws_c_iot",
+    srcs = glob([
+        "include/aws/iotdevice/**/*.h",
+        "source/*.c",
+    ]) + select({
+        "@platforms//os:linux": glob([
+            "source/linux/*.c",
+        ]),
+        "@platforms//os:windows": glob([
+            "source/windows/*.c",
+        ]),
+        "@platforms//os:osx": glob([
+            "source/apple/*.c",
+        ]),
+    }),
+    includes = ["include"],
+    deps = [
+        "@com_github_aws_c_mqtt//:aws_c_mqtt",
+    ],
+)

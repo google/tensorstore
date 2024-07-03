@@ -1,0 +1,44 @@
+# Description:
+#   AWS CPP CRT
+
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])  # Apache 2.0
+
+exports_files(["LICENSE"])
+
+write_file(
+    name = "generated_config_h",
+    out = "include/aws/crt/Config.h",
+
+    content = [
+        "#pragma once",
+        "#define AWS_CRT_CPP_VERSION \"0.27.1\"",
+        "#define AWS_CRT_CPP_VERSION_MAJOR 0",
+        "#define AWS_CRT_CPP_VERSION_MINOR 27",
+        "#define AWS_CRT_CPP_VERSION_PATCH 1",
+        "#define AWS_CRT_CPP_GIT_HASH \"635106906bf8dc0b877d962613f12f019f03e10a\"",
+    ]
+)
+
+cc_library(
+    name = "aws_cpp_crt",
+    hdrs = [":generated_config_h"],
+    srcs = glob([
+        "include/**/*.h",
+        "source/**/*.cpp",
+    ]),
+    includes = ["include"],
+    # https://docs.aws.amazon.com/sdkref/latest/guide/common-runtime.html#crt-dep
+    deps = [
+        "@com_github_aws_c_event_stream//:aws_c_event_stream",
+        "@com_github_aws_c_auth//:aws_c_auth",
+        "@com_github_aws_c_cal//:aws_c_cal",
+        "@com_github_aws_c_iot//:aws_c_iot",
+        "@com_github_aws_c_mqtt//:aws_c_mqtt",
+        "@com_github_aws_c_s3//:aws_c_s3",
+        "@com_github_aws_checksums//:aws_checksums",
+    ],
+)

@@ -15,20 +15,21 @@
 load("//third_party:repo.bzl", "third_party_http_archive")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 
+
 def repo():
     maybe(
         third_party_http_archive,
-        name = "com_github_aws_c_common",
-        sha256 = "adf838daf6a60aa31268522105b03262d745f529bc981d3ac665424133d6f91b",
-        strip_prefix = "aws-c-common-0.9.23",
+        name = "com_github_aws_c_cal",
+        sha256 = "9c51afbece6aa7a4a3e40b99c242884c1744d7f949a3f720cea41d247ac2d06a",
+        strip_prefix = "aws-c-cal-0.7.0",
         urls = [
-            "https://github.com/awslabs/aws-c-common/archive/v0.9.23.tar.gz",
+            "https://github.com/awslabs/aws-c-cal/archive/refs/tags/v0.7.0.tar.gz",
         ],
-        build_file = Label("//third_party:com_github_aws_c_common/aws_c_common.BUILD.bazel"),
-        system_build_file = Label("//third_party:com_github_aws_c_common/system.BUILD.bazel"),
-        cmake_name = "aws_c_common",
+        build_file = Label("//third_party:com_github_aws_c_cal/aws_c_cal.BUILD.bazel"),
+        #system_build_file = Label("//third_party:com_github_aws_c_cal/system.BUILD.bazel"),
+        cmake_name = "aws_c_cal",
         cmake_target_mapping = {
-            "@com_github_aws_c_common//:aws_c_common": "aws_c_common::aws_c_common",
+            "@com_github_aws_c_cal//:aws_c_cal": "aws_c_cal::aws_c_cal",
         },
         bazel_to_cmake = {},
     )

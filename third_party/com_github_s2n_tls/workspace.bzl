@@ -15,20 +15,21 @@
 load("//third_party:repo.bzl", "third_party_http_archive")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 
+
 def repo():
     maybe(
         third_party_http_archive,
-        name = "com_github_aws_c_common",
-        sha256 = "adf838daf6a60aa31268522105b03262d745f529bc981d3ac665424133d6f91b",
-        strip_prefix = "aws-c-common-0.9.23",
+        name = "com_github_s2n_tls",
+        sha256 = "84fdbaa894c722bf13cac87b8579f494c1c2d66de642e5e6104638fddea76ad9",
+        strip_prefix = "s2n-tls-1.4.16",
         urls = [
-            "https://github.com/awslabs/aws-c-common/archive/v0.9.23.tar.gz",
+            "https://github.com/aws/s2n-tls/archive/refs/tags/v1.4.16.tar.gz",
         ],
-        build_file = Label("//third_party:com_github_aws_c_common/aws_c_common.BUILD.bazel"),
-        system_build_file = Label("//third_party:com_github_aws_c_common/system.BUILD.bazel"),
-        cmake_name = "aws_c_common",
+        build_file = Label("//third_party:com_github_s2n_tls/s2n_tls.BUILD.bazel"),
+        #system_build_file = Label("//third_party:com_github_s2n_tls/system.BUILD.bazel"),
+        cmake_name = "s2n_tls",
         cmake_target_mapping = {
-            "@com_github_aws_c_common//:aws_c_common": "aws_c_common::aws_c_common",
+            "@com_github_s2n_tls//:s2n_tls": "s2n_tls::s2n_tls",
         },
         bazel_to_cmake = {},
     )

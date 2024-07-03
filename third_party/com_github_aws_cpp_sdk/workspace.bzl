@@ -19,14 +19,14 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_github_aws_cpp_sdk",
-        patches = [
-            Label("//third_party:com_github_aws_cpp_sdk/patches/update_sdk.diff"),
-        ],
-        patch_args = ["-p1"],
-        sha256 = "ae1cb22225b1f47eee351c0064be5e87676bf7090bb9ad19888bea0dab0e2749",
-        strip_prefix = "aws-sdk-cpp-1.8.187",
+        # patches = [
+        #     Label("//third_party:com_github_aws_cpp_sdk/patches/update_sdk.diff"),
+        # ],
+        # patch_args = ["-p1"],
+        sha256 = "c2a6977eb2a10066922b72e3876bccccea2902f87f9e86f978bcd3fb50a0adcc",
+        strip_prefix = "aws-sdk-cpp-1.11.361",
         urls = [
-            "https://github.com/aws/aws-sdk-cpp/archive/1.8.187.tar.gz",
+            "https://github.com/aws/aws-sdk-cpp/archive/refs/tags/1.11.361.tar.gz",
         ],
         build_file = Label("//third_party:com_github_aws_cpp_sdk/aws_cpp_sdk.BUILD.bazel"),
         system_build_file = Label("//third_party:com_github_aws_cpp_sdk/system.BUILD.bazel"),

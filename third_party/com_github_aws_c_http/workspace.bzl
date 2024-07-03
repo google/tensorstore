@@ -18,17 +18,17 @@ load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 def repo():
     maybe(
         third_party_http_archive,
-        name = "com_github_aws_c_common",
-        sha256 = "adf838daf6a60aa31268522105b03262d745f529bc981d3ac665424133d6f91b",
-        strip_prefix = "aws-c-common-0.9.23",
+        name = "com_github_aws_c_http",
+        sha256 = "a76ba75e59e1ac169df3ec00c0d1c453db1a4db85ee8acd3282a85ee63d6b31c",
+        strip_prefix = "aws-c-http-0.8.2",
         urls = [
-            "https://github.com/awslabs/aws-c-common/archive/v0.9.23.tar.gz",
+            "https://github.com/awslabs/aws-c-http/archive/refs/tags/v0.8.2.tar.gz",
         ],
-        build_file = Label("//third_party:com_github_aws_c_common/aws_c_common.BUILD.bazel"),
-        system_build_file = Label("//third_party:com_github_aws_c_common/system.BUILD.bazel"),
-        cmake_name = "aws_c_common",
+        build_file = Label("//third_party:com_github_aws_c_http/aws_c_http.BUILD.bazel"),
+        system_build_file = Label("//third_party:com_github_aws_c_http/system.BUILD.bazel"),
+        cmake_name = "aws_c_http",
         cmake_target_mapping = {
-            "@com_github_aws_c_common//:aws_c_common": "aws_c_common::aws_c_common",
+            "@com_github_aws_c_http//:aws_c_http": "aws_c_http::aws_c_http",
         },
         bazel_to_cmake = {},
     )

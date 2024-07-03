@@ -18,17 +18,17 @@ load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 def repo():
     maybe(
         third_party_http_archive,
-        name = "com_github_aws_c_common",
-        sha256 = "adf838daf6a60aa31268522105b03262d745f529bc981d3ac665424133d6f91b",
-        strip_prefix = "aws-c-common-0.9.23",
+        name = "com_github_aws_cpp_crt",
+        sha256 = "9689854b67b1a436b1cd31aae75eed8669fbb8d6240fe36684133f93e345f1ac",
+        strip_prefix = "aws-crt-cpp-0.27.1",
         urls = [
-            "https://github.com/awslabs/aws-c-common/archive/v0.9.23.tar.gz",
+            "https://github.com/awslabs/aws-crt-cpp/archive/refs/tags/v0.27.1.tar.gz",
         ],
-        build_file = Label("//third_party:com_github_aws_c_common/aws_c_common.BUILD.bazel"),
-        system_build_file = Label("//third_party:com_github_aws_c_common/system.BUILD.bazel"),
-        cmake_name = "aws_c_common",
+        build_file = Label("//third_party:com_github_aws_cpp_crt/aws_cpp_crt.BUILD.bazel"),
+        system_build_file = Label("//third_party:com_github_aws_cpp_crt/system.BUILD.bazel"),
+        cmake_name = "aws_cpp_crt",
         cmake_target_mapping = {
-            "@com_github_aws_c_common//:aws_c_common": "aws_c_common::aws_c_common",
+            "@com_github_aws_cpp_crt//:aws_cpp_crt": "aws_cpp_crt::aws_cpp_crt",
         },
         bazel_to_cmake = {},
     )

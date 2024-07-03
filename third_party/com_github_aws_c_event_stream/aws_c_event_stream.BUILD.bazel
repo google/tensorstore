@@ -21,5 +21,6 @@ cc_library(
     deps = [
         "@com_github_aws_c_common//:aws_c_common",
         "@com_github_aws_checksums//:aws_checksums",
+        "@com_github_aws_c_io//:aws_c_io",
     ],
 )

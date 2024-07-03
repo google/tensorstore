@@ -300,7 +300,11 @@ class LocalStackFixture : public ::testing::Test {
     auto cfg = Aws::Client::ClientConfiguration{};
     cfg.endpointOverride = endpoint_url();
     cfg.region = Region();
-    auto create_client = std::make_shared<Aws::S3::S3Client>(Aws::Auth::AWSCredentials(), cfg);
+    auto create_client = std::make_shared<Aws::S3::S3Client>(
+      Aws::Auth::AWSCredentials(),
+      cfg,
+      Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Always,
+      false);
 
     auto create_request = Aws::S3::Model::CreateBucketRequest{};
     create_request.SetBucket(Bucket());

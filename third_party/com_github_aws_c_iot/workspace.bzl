@@ -18,17 +18,17 @@ load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 def repo():
     maybe(
         third_party_http_archive,
-        name = "com_github_aws_c_common",
-        sha256 = "adf838daf6a60aa31268522105b03262d745f529bc981d3ac665424133d6f91b",
-        strip_prefix = "aws-c-common-0.9.23",
+        name = "com_github_aws_c_iot",
+        sha256 = "6b9ae985d9b019304e86e49fc6da738ed5fff3b2778ed3617db551f1e033cadf",
+        strip_prefix = "aws-c-iot-0.1.21",
         urls = [
-            "https://github.com/awslabs/aws-c-common/archive/v0.9.23.tar.gz",
+            "https://github.com/awslabs/aws-c-iot/archive/refs/tags/v0.1.21.tar.gz",
         ],
-        build_file = Label("//third_party:com_github_aws_c_common/aws_c_common.BUILD.bazel"),
-        system_build_file = Label("//third_party:com_github_aws_c_common/system.BUILD.bazel"),
-        cmake_name = "aws_c_common",
+        build_file = Label("//third_party:com_github_aws_c_iot/aws_c_iot.BUILD.bazel"),
+        system_build_file = Label("//third_party:com_github_aws_c_iot/system.BUILD.bazel"),
+        cmake_name = "aws_c_iot",
         cmake_target_mapping = {
-            "@com_github_aws_c_common//:aws_c_common": "aws_c_common::aws_c_common",
+            "@com_github_aws_c_iot//:aws_c_iot": "aws_c_iot::aws_c_iot",
         },
         bazel_to_cmake = {},
     )

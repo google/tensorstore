@@ -16,6 +16,8 @@
 
 #include <cstdarg>
 #include <memory>
+#include <string_view>
+#include <vector>
 
 #include <aws/core/Aws.h>
 #include <aws/core/auth/AWSCredentialsProviderChain.h>
@@ -102,7 +104,7 @@ public:
         std::vector<char> buffer(absl::CordBuffer::kDefaultLimit);
         std::streampos original = body->tellg();
         while (body->read(buffer.data(), buffer.size()) || body->gcount() > 0) {
-          payload.Append(absl::string_view(buffer.data(), body->gcount()));
+          payload.Append(std::string_view(buffer.data(), body->gcount()));
         }
 
         if(payload.size() > k1MB) {
@@ -228,23 +230,35 @@ public:
   void Log(AwsLogLevel log_level, const char* tag,
            const char* format, ...) override;
 
+  // Overridden, but prefer the safer LogStream
+  void vaLog(AwsLogLevel log_level, const char* tag,
+             const char* format, va_list args) override;
+
 private:
-  void LogMessage(AwsLogLevel log_level, const std::string & message);
+  void LogMessage(AwsLogLevel log_level, std::string_view message);
   AwsLogLevel log_level_;
 };
 
-
 void AWSLogSystem::Log(AwsLogLevel log_level, const char* tag,
            const char* format, ...) {
-  char buffer[256];
+  // https://www.open-std.org/JTC1/SC22/WG14/www/docs/n1570.pdf
+  // Section 7.16
   va_list args;
   va_start(args, format);
-  vsnprintf(buffer, 256, format, args);
+  vaLog(log_level, tag, format, args);
   va_end(args);
+}
+
+void AWSLogSystem::vaLog(AwsLogLevel log_level, const char* tag,
+           const char* format, va_list args) {
+  // https://www.open-std.org/JTC1/SC22/WG14/www/docs/n1570.pdf
+  // Section 7.16
+  char buffer[256];
+  vsnprintf(buffer, 256, format, args);
   LogMessage(log_level, buffer);
 }
 
-void AWSLogSystem::LogMessage(AwsLogLevel log_level, const std::string & message) {
+void AWSLogSystem::LogMessage(AwsLogLevel log_level, std::string_view message) {
   switch(log_level) {
     case AwsLogLevel::Info:
       ABSL_LOG(INFO) << message;
