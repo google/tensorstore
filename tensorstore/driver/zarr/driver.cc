@@ -298,8 +298,7 @@ internal::ChunkGridSpecification DataCache::GetChunkGridSpecification(
     const ZarrMetadata& metadata) {
   bool flag = false;
 
-  // TODO: Hardcode fix attempt
-  if (metadata.shape.size() == 3) {
+  if (metadata.shape.size() - 1  == metadata.rank) {
     flag = true;
     const_cast<ZarrMetadata&>(metadata).shape.pop_back();
     const_cast<ZarrMetadata&>(metadata).chunks.pop_back();
@@ -313,7 +312,6 @@ internal::ChunkGridSpecification DataCache::GetChunkGridSpecification(
             chunked_to_cell_dimensions.end(), static_cast<DimensionIndex>(0));
   for (size_t field_i = 0; field_i < true_size; ++field_i) {
     const auto& field = metadata.dtype.fields[field_i];
-    const auto& field_layout = metadata.chunk_layout.fields[field_i];
 
     if (field.name.empty() && true_size > 1 && !flag) {
       // Fix the synthetic field
@@ -322,6 +320,7 @@ internal::ChunkGridSpecification DataCache::GetChunkGridSpecification(
       const_cast<ZarrMetadata&>(metadata).shape.push_back(metadata.dtype.fields.back().num_bytes);
       const_cast<ZarrMetadata&>(metadata).chunks.push_back(0); // No chunking in the synthetic dimension
     }
+    const auto& field_layout = metadata.chunk_layout.fields[field_i];
 
     auto fill_value = metadata.fill_value[field_i];
     const bool fill_value_specified = fill_value.valid();
