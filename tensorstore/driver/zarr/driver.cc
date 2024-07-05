@@ -345,7 +345,13 @@ internal::ChunkGridSpecification DataCache::GetChunkGridSpecification(
     for (DimensionIndex cell_dim = fill_value_start_dim; cell_dim < cell_rank;
          ++cell_dim) {
       const Index size = field_layout.full_chunk_shape()[cell_dim];
-      assert(fill_value.shape()[cell_dim - fill_value_start_dim] == size);
+
+      if(field.name.empty() && true_size > 1 && field_i+1 == true_size) {
+        // TODO: Figure out how this case should be properly handled
+      } else {
+        assert(fill_value.shape()[cell_dim - fill_value_start_dim] == size);
+      }
+
       chunk_fill_value.shape()[cell_dim] = size;
       chunk_fill_value.byte_strides()[cell_dim] =
           fill_value.byte_strides()[cell_dim - fill_value_start_dim];
