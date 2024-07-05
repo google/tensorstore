@@ -148,9 +148,6 @@ char GetTypeIndicator(const std::string& encoded_dtype) {
 Result<std::vector<SharedArray<const void>>> ParseFillValue(
     const nlohmann::json& j, const ZarrDType& dtype) {
   size_t true_fields = dtype.fields.size();
-  if (dtype.has_fields && dtype.fields.back().name.empty()) {
-    true_fields--;
-  }
   std::vector<SharedArray<const void>> fill_values;
   fill_values.resize(true_fields);
   if (j.is_null()) return fill_values;
