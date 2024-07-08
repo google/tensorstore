@@ -104,7 +104,7 @@ using WeakPinnedCacheEntry = internal::IntrusivePtr<CacheEntryWeakState>;
 // Acquires a weak reference to a cache entry.
 //
 // The caller must hold a strong reference already.
-WeakPinnedCacheEntry AcquireWeakCacheEntryReference(CacheEntry* e);
+WeakPinnedCacheEntry AcquireWeakCacheEntryReference(CacheEntryImpl* e);
 
 class CacheEntryImpl : public internal_cache::LruListNode {
  public:
@@ -323,11 +323,13 @@ struct StrongPtrTraitsCache {
     TENSORSTORE_INTERNAL_CACHE_DEBUG_REFCOUNT(
         "Cache:increment", p, old_count + CacheImpl::kStrongReferenceIncrement);
   }
-  static void decrement(internal::Cache* p) noexcept;
+
   template <typename U>
   static void decrement(U* p) noexcept {
-    decrement(&GetCacheObject(p));
+    decrement_impl(Access::StaticCast<CacheImpl>(&GetCacheObject(p)));
   }
+
+  static void decrement_impl(CacheImpl* cache) noexcept;
 };
 
 template <typename CacheType>
@@ -347,7 +349,12 @@ struct StrongPtrTraitsCacheEntry {
                                               old_count + 2);
   }
 
-  static void decrement(internal::CacheEntry* p) noexcept;
+  template <typename U = internal::CacheEntry*>
+  static void decrement(U* p) noexcept {
+    return decrement_impl(Access::StaticCast<CacheEntryImpl>(p));
+  }
+
+  static void decrement_impl(CacheEntryImpl* entry_impl) noexcept;
 };
 
 using CacheEntryWeakPtr = internal::IntrusivePtr<CacheEntryWeakState>;

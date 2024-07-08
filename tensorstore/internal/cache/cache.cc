@@ -335,27 +335,26 @@ inline UniqueWriterLock<absl::Mutex> DecrementReferenceCountWithLock(
 
 }  // namespace
 
-void StrongPtrTraitsCacheEntry::decrement(CacheEntry* p) noexcept
-    ABSL_NO_THREAD_SAFETY_ANALYSIS {
-  auto* entry = Access::StaticCast<CacheEntryImpl>(p);
-  auto* cache = entry->cache_;
+void StrongPtrTraitsCacheEntry::decrement_impl(
+    CacheEntryImpl* entry_impl) noexcept ABSL_NO_THREAD_SAFETY_ANALYSIS {
+  auto* cache = entry_impl->cache_;
   uint32_t new_count;
   if (auto* pool_impl = cache->pool_) {
     if (pool_impl->limits_.total_bytes_limit == 0) {
       CacheImpl::Shard* shard = nullptr;
       auto lock = DecrementReferenceCountWithLock(
-          entry->reference_count_,
+          entry_impl->reference_count_,
           [&]() -> absl::Mutex& {
-            shard = &cache->ShardForKey(entry->key_);
+            shard = &cache->ShardForKey(entry_impl->key_);
             return shard->mutex;
           },
           new_count,
           /*decrease_amount=*/2, /*lock_threshold=*/1);
-      TENSORSTORE_INTERNAL_CACHE_DEBUG_REFCOUNT("CacheEntry:decrement", p,
-                                                new_count);
+      TENSORSTORE_INTERNAL_CACHE_DEBUG_REFCOUNT("CacheEntry:decrement",
+                                                entry_impl, new_count);
       if (!lock) return;
       if (new_count == 0) {
-        shard->entries.erase(entry);
+        shard->entries.erase(entry_impl);
         if (shard->entries.empty()) {
           // Note: There is no need to check `ShouldDelete` conditions here
           // because we still hold a strong reference to the cache (released
@@ -363,19 +362,19 @@ void StrongPtrTraitsCacheEntry::decrement(CacheEntry* p) noexcept
           cache->reference_count_.fetch_sub(CacheImpl::kNonEmptyShardIncrement,
                                             std::memory_order_relaxed);
         }
-        delete p;
+        delete entry_impl;
       }
     } else {
       auto lock = DecrementReferenceCountWithLock(
-          entry->reference_count_,
+          entry_impl->reference_count_,
           [pool_impl]() -> absl::Mutex& { return pool_impl->lru_mutex_; },
           new_count,
           /*decrease_amount=*/2, /*lock_threshold=*/1);
-      TENSORSTORE_INTERNAL_CACHE_DEBUG_REFCOUNT("CacheEntry:decrement", p,
-                                                new_count);
+      TENSORSTORE_INTERNAL_CACHE_DEBUG_REFCOUNT("CacheEntry:decrement",
+                                                entry_impl, new_count);
       if (!lock) return;
       if (new_count == 0) {
-        AddToEvictionQueue(pool_impl, entry);
+        AddToEvictionQueue(pool_impl, entry_impl);
         MaybeEvictEntries(pool_impl);
       }
     }
@@ -383,11 +382,12 @@ void StrongPtrTraitsCacheEntry::decrement(CacheEntry* p) noexcept
     assert(new_count <= 1);
   } else {
     new_count =
-        entry->reference_count_.fetch_sub(2, std::memory_order_acq_rel) - 2;
-    TENSORSTORE_INTERNAL_CACHE_DEBUG_REFCOUNT("CacheEntry:decrement", p,
-                                              new_count);
+        entry_impl->reference_count_.fetch_sub(2, std::memory_order_acq_rel) -
+        2;
+    TENSORSTORE_INTERNAL_CACHE_DEBUG_REFCOUNT("CacheEntry:decrement",
+                                              entry_impl, new_count);
     if (new_count > 1) return;
-    delete p;
+    delete entry_impl;
   }
   StrongPtrTraitsCache::decrement(Access::StaticCast<Cache>(cache));
 }
@@ -553,8 +553,7 @@ PinnedCacheEntry<Cache> GetCacheEntryInternal(internal::Cache* cache,
   return returned_entry;
 }
 
-void StrongPtrTraitsCache::decrement(Cache* p) noexcept {
-  auto* cache = Access::StaticCast<CacheImpl>(p);
+void StrongPtrTraitsCache::decrement_impl(CacheImpl* cache) noexcept {
   auto decrement_result =
       DecrementCacheReferenceCount(cache, CacheImpl::kStrongReferenceIncrement);
   CachePoolImpl* pool = nullptr;
@@ -687,8 +686,7 @@ void intrusive_ptr_decrement(CacheEntryWeakState* p)
 }
 
 internal::IntrusivePtr<CacheEntryWeakState> AcquireWeakCacheEntryReference(
-    CacheEntry* e) {
-  auto* entry_impl = Access::StaticCast<CacheEntryImpl>(e);
+    CacheEntryImpl* entry_impl) {
   CacheEntryWeakState* weak_state =
       entry_impl->weak_state_.load(std::memory_order_acquire);
   if (!weak_state) {

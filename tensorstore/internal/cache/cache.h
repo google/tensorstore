@@ -64,20 +64,17 @@
 #include <stdint.h>
 
 #include <atomic>
-#include <iosfwd>
 #include <memory>
-#include <optional>
 #include <string_view>
 #include <type_traits>
+#include <typeinfo>
 #include <utility>
 
 #include "absl/base/thread_annotations.h"
-#include "absl/functional/function_ref.h"
+#include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/cache/cache_impl.h"
 #include "tensorstore/internal/cache/cache_pool_limits.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/mutex.h"
-#include "tensorstore/internal/poly/poly.h"
 
 namespace tensorstore {
 namespace internal {
