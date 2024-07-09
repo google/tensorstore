@@ -1148,6 +1148,47 @@ TEST(ZarrDriverTest, OpenWithoutField) {
   ASSERT_TRUE(store_res.status().ok()) << store_res.status();
 }
 
+TEST(ZarrDriverTest, OpenExistingWithoutField) {
+    ::nlohmann::json json_spec{
+      {"driver", "zarr"},
+      {"kvstore",
+       {
+           {"driver", "memory"},
+           {"path", "prefix/"},
+       }},
+      {"metadata",
+       {
+           {"compressor", {{"id", "blosc"}}},
+           // I changed the standard test here to ensure that it was getting opened as a byte array
+           {"dtype", ::nlohmann::json::array_t{{"y", "<i2"}, {"x", "<f4"}}},
+           {"shape", {100, 100}},
+           {"chunks", {3, 2}},
+       }},
+  };
+  auto context = Context::Default();
+
+  auto store_res = tensorstore::Open(json_spec, context, tensorstore::OpenMode::create,
+                          tensorstore::ReadWriteMode::read_write);
+  ASSERT_TRUE(store_res.status().ok()) << store_res.status();
+
+  auto creation_store = store_res.value();
+  auto creation_dtype = creation_store.dtype();
+  auto creation_rank = creation_store.rank();
+  auto creation_domain = creation_store.domain();
+
+  json_spec.erase("metadata");
+
+  auto store_res_open = tensorstore::Open(json_spec, context, tensorstore::OpenMode::open,
+                          tensorstore::ReadWriteMode::read_write);
+
+  ASSERT_TRUE(store_res_open.status().ok()) << store_res_open.status();
+  auto open_store = store_res_open.value();
+
+  EXPECT_EQ(creation_store.dtype(), open_store.dtype());
+  EXPECT_EQ(creation_store.rank(), open_store.rank());
+  EXPECT_EQ(creation_store.domain(), open_store.domain());
+}
+
 TEST(ZarrDriverTest, CreateComplexWithFillValue) {
   ::nlohmann::json json_spec{
       {"driver", "zarr"},
