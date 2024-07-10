@@ -16,25 +16,24 @@
 
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 
-def get_tensorstore_copts(copts):
-    return (copts or []) + [
-    ]
+def _get_tensorstore_copts(copts):
+    return (copts or []) + []
 
 def tensorstore_cc_library(copts = None, **kwargs):
     native.cc_library(
-        copts = get_tensorstore_copts(copts),
+        copts = _get_tensorstore_copts(copts),
         **kwargs
     )
 
 def tensorstore_cc_test(copts = None, **kwargs):
     native.cc_test(
-        copts = get_tensorstore_copts(copts),
+        copts = _get_tensorstore_copts(copts),
         **kwargs
     )
 
 def tensorstore_cc_binary(copts = None, **kwargs):
     native.cc_binary(
-        copts = get_tensorstore_copts(copts),
+        copts = _get_tensorstore_copts(copts),
         **kwargs
     )
 
@@ -42,7 +41,7 @@ def tensorstore_cc_compile_test(name, copts = None, **kwargs):
     lib_name = name + "__lib"
     native.cc_library(
         name = lib_name,
-        copts = get_tensorstore_copts(copts),
+        copts = _get_tensorstore_copts(copts),
         **kwargs
     )
     build_test(
