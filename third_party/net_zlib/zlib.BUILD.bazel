@@ -56,16 +56,16 @@ cc_library(
         "zutil.c",
     ] + select({
         "//conditions:default": [
-            "inflate.c",
             "contrib/optimizations/insert_string.h",
+            "inflate.c",
         ],
         ":zlib_optimizations": [
             "adler32_simd.c",
+            "contrib/optimizations/inffast_chunk.c",
+            "contrib/optimizations/inflate.c",
             "cpu_features.c",
             "crc32_simd.c",
             "crc_folding.c",
-            "contrib/optimizations/inflate.c",
-            "contrib/optimizations/inffast_chunk.c",
         ],
     }),
     hdrs = [
@@ -73,12 +73,12 @@ cc_library(
         "zlib.h",
     ],
     copts = select({
-        ":clang_or_gcc_x86_64": [
+        ":x86_64_gcc_or_clang": [
             "-mssse3",
             "-msse4.2",
             "-mpclmul",
         ],
-        ":clang_or_gcc_arm64": [
+        ":arm64_gcc_or_clang": [
             "-march=armv8-a+crc+crypto",
         ],
         "//conditions:default": [],
@@ -126,30 +126,6 @@ alias(
     actual = "@platforms//cpu:arm64",
 )
 
-selects.config_setting_group(
-    name = "clang_or_gcc_x86_64",
-    match_all = [
-        ":compiler_clang_or_gcc",
-        "@platforms//cpu:x86_64",
-    ],
-)
-
-selects.config_setting_group(
-    name = "clang_or_gcc_arm64",
-    match_all = [
-        ":compiler_clang_or_gcc",
-        "@platforms//cpu:arm64",
-    ],
-)
-
-selects.config_setting_group(
-    name = "compiler_clang_or_gcc",
-    match_any = [
-        ":compiler_clang",
-        ":compiler_gcc",
-    ],
-)
-
 [
     alias(
         name = name,
@@ -159,5 +135,8 @@ selects.config_setting_group(
         "compiler_clang",
         "compiler_gcc",
         "compiler_msvc",
+        "compiler_gcc_or_clang",
+        "arm64_gcc_or_clang",
+        "x86_64_gcc_or_clang",
     ]
 ]

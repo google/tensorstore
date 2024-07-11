@@ -19,3 +19,8 @@ Contains build targets used by Starlark files in the bazel/ directory.
 package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
+
+filegroup(
+    name = "_bazel_sources",
+    srcs = glob(["*.bzl"]),
+)

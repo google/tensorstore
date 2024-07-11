@@ -58,3 +58,21 @@ def package_relative_path(path):
     if path == "":
         path = "."
     return path
+
+# Used to emit combined settings for os / cpu / compiler.
+def emit_os_cpu_compiler_group(os, cpu, compiler):
+    n = [x for x in [os, cpu, compiler] if x != None]
+    if len(n) < 2:
+        return
+    name = "_".join(n)
+
+    if native.existing_rule(name) == None:
+        m = [
+            "@platforms//os:" + os if os != None else None,
+            "@platforms//cpu:" + cpu if cpu != None else None,
+            ":compiler_" + compiler if compiler != None else None,
+        ]
+        selects.config_setting_group(
+            name = name,
+            match_all = [x for x in m if x != None],
+        )

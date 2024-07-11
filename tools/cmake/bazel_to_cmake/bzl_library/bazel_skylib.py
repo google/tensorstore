@@ -276,8 +276,8 @@ def _write_file_impl(
     _context: InvocationContext,
     _target: TargetId,
     _out_target: TargetId,
-    content: Configurable[List[str]],
-    newline: Configurable[str],
+    content: Optional[Configurable[List[str]]] = None,
+    newline: Optional[Configurable[str]] = None,
     **kwargs,
 ):
   del kwargs
@@ -288,7 +288,9 @@ def _write_file_impl(
 
   _context.add_analyzed_target(_target, TargetInfo())
 
-  resolved_newline = _context.evaluate_configurable(newline)
+  resolved_newline = "auto"
+  if newline is not None:
+    resolved_newline = _context.evaluate_configurable(newline)
 
   if resolved_newline == "unix" or (
       resolved_newline == "auto"
@@ -301,7 +303,10 @@ def _write_file_impl(
     nl = "\n"
   else:
     nl = "\r\n"
-  text = nl.join(cast(Any, _context.evaluate_configurable_list(content))) + nl
+
+  text = ""
+  if content is not None:
+    text = nl.join(cast(Any, _context.evaluate_configurable_list(content))) + nl
 
   _context.access(CMakeBuilder).addtext(
       f"\n# bazel_to_cmake wrote {out_file}\n"

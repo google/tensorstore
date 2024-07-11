@@ -1,4 +1,5 @@
 load("@bazel_skylib//lib:selects.bzl", "selects")
+load("@tensorstore//bazel:utils.bzl", "emit_os_cpu_compiler_group")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -13,182 +14,103 @@ exports_files(glob(["*"]))
 #        actual = "@tensorstore//:{target}".format(target = name),
 #    )
 #    for name in [
+#        "arm64_clang",
+#        "arm64_gcc_or_clang",
+#        "arm64_gcc",
+#        "arm64_mingw_gcc",
+#        "arm64_msvc",
+#
 #        "linux_arm64_clang",
+#        "linux_arm64_gcc_or_clang",
 #        "linux_arm64_gcc",
-#        "linux_x86_64_clang",
-#        "linux_x86_64_gcc",
-#        "windows_x86_64_msvc",
-#        "windows_x86_64_mingw_gcc",
-#        "linux_x86_64",
-#        "macos_x86_64",
-#        "macos_arm64",
-#        "windows_x86_64",
 #        "linux_clang",
+#        "linux_gcc_or_clang",
 #        "linux_gcc",
+#        "linux_x86_64_clang",
+#        "linux_x86_64_gcc_or_clang",
+#        "linux_x86_64_gcc",
+#
+#        "macos_arm64_clang",
+#        "macos_clang",
+#        "macos_x86_64_clang",
+#
+#        "windows_arm64_mingw_gcc",
+#        "windows_arm64_msvc",
 #        "windows_mingw_gcc",
 #        "windows_msvc",
-#        "macos_clang",
+#        "windows_x86_64_mingw_gcc",
+#        "windows_x86_64_msvc",
+#
+#        "x86_64_clang",
+#        "x86_64_gcc_or_clang",
+#        "x86_64_gcc",
+#        "x86_64_mingw_gcc",
+#        "x86_64_msvc",
+#
 #        "compiler_msvc",
 #        "compiler_clang",
 #        "compiler_regular_gcc",
 #        "compiler_mingw_gcc",
 #        "compiler_unknown",
 #        "compiler_gcc",
-#        "x86_64",
-#        "arm64",
-#        "linux",
-#        "macos",
-#        "windows",
-#
+#        "compiler_gcc_or_clang",
 #    ]
 #]
 #
 
-# Combined os / cpu / compiler settings
-#
-# :linux_arm64_clang
-# :linux_arm64_gcc
-# :linux_x86_64_clang
-# :linux_x86_64_gcc
-# :windows_x86_64_msvc
-# :windows_x86_64_mingw_gcc
-selects.config_setting_group(
-    name = "linux_arm64_clang",
-    match_all = [
-        ":compiler_clang",
-        ":linux",
-        ":arm64",
-    ],
-)
+[
+    emit_os_cpu_compiler_group(os, cpu, compiler)
+    for os in [
+        "macos",
+        None,
+    ]
+    for cpu in [
+        "x86_64",
+        "arm64",
+        None,
+    ]
+    for compiler in [
+        "clang",
+        None,
+    ]
+]
 
-selects.config_setting_group(
-    name = "linux_arm64_gcc",
-    match_all = [
-        ":compiler_gcc",
-        ":linux",
-        ":arm64",
-    ],
-)
+[
+    emit_os_cpu_compiler_group(os, cpu, compiler)
+    for os in [
+        "linux",
+        None,
+    ]
+    for cpu in [
+        "x86_64",
+        "arm64",
+        None,
+    ]
+    for compiler in [
+        "clang",
+        "gcc",
+        "gcc_or_clang",
+        None,
+    ]
+]
 
-selects.config_setting_group(
-    name = "linux_x86_64_clang",
-    match_all = [
-        ":compiler_clang",
-        ":linux",
-        ":x86_64",
-    ],
-)
-
-selects.config_setting_group(
-    name = "linux_x86_64_gcc",
-    match_all = [
-        ":compiler_gcc",
-        ":linux",
-        ":x86_64",
-    ],
-)
-
-selects.config_setting_group(
-    name = "windows_x86_64_msvc",
-    match_all = [
-        ":compiler_msvc",
-        ":windows",
-        ":x86_64",
-    ],
-)
-
-selects.config_setting_group(
-    name = "windows_x86_64_mingw_gcc",
-    match_all = [
-        ":compiler_mingw_gcc",
-        ":x86_64",
-    ],
-)
-
-# Combined os / cpu settings
-#
-# :linux_x86_64
-# :macos_x86_64
-# :macos_arm64
-# :windows_x86_64
-selects.config_setting_group(
-    name = "linux_x86_64",
-    match_all = [
-        ":linux",
-        ":x86_64",
-    ],
-)
-
-selects.config_setting_group(
-    name = "macos_x86_64",
-    match_all = [
-        ":macos",
-        ":x86_64",
-    ],
-)
-
-selects.config_setting_group(
-    name = "macos_arm64",
-    match_all = [
-        ":macos",
-        ":arm64",
-    ],
-)
-
-selects.config_setting_group(
-    name = "windows_x86_64",
-    match_all = [
-        ":windows",
-        ":x86_64",
-    ],
-)
-
-# Combined os / compiler settings
-# :linux_clang
-# :linux_gcc
-# :windows_mingw_gcc
-# :windows_msvc
-# :macos_clang
-
-selects.config_setting_group(
-    name = "linux_clang",
-    match_all = [
-        ":compiler_clang",
-        ":linux",
-    ],
-)
-
-selects.config_setting_group(
-    name = "linux_gcc",
-    match_all = [
-        ":compiler_gcc",
-        ":linux",
-    ],
-)
-
-selects.config_setting_group(
-    name = "windows_mingw_gcc",
-    match_all = [
-        ":compiler_mingw_gcc",
-        ":linux",
-    ],
-)
-
-selects.config_setting_group(
-    name = "windows_msvc",
-    match_all = [
-        ":compiler_msvc",
-        ":windows",
-    ],
-)
-
-selects.config_setting_group(
-    name = "macos_clang",
-    match_all = [
-        ":compiler_clang",
-        ":macos",
-    ],
-)
+[
+    emit_os_cpu_compiler_group(os, cpu, compiler)
+    for os in [
+        "windows",
+        None,
+    ]
+    for cpu in [
+        "x86_64",
+        "arm64",
+        None,
+    ]
+    for compiler in [
+        "msvc",
+        "mingw_gcc",
+        None,
+    ]
+]
 
 # Compiler selection
 #
@@ -243,36 +165,10 @@ selects.config_setting_group(
     ],
 )
 
-# Cpu settings
-#
-# :arm64
-# :x86_64
-config_setting(
-    name = "x86_64",
-    constraint_values = ["@platforms//cpu:x86_64"],
-)
-
-config_setting(
-    name = "arm64",
-    constraint_values = ["@platforms//cpu:arm64"],
-)
-
-# Os settings
-#
-# :linux
-# :macos
-# :windows
-config_setting(
-    name = "linux",
-    constraint_values = ["@platforms//os:linux"],
-)
-
-config_setting(
-    name = "macos",
-    constraint_values = ["@platforms//os:macos"],
-)
-
-config_setting(
-    name = "windows",
-    constraint_values = ["@platforms//os:windows"],
+selects.config_setting_group(
+    name = "compiler_gcc_or_clang",
+    match_any = [
+        ":compiler_gcc",
+        ":compiler_clang",
+    ],
 )
