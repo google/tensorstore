@@ -60,7 +60,7 @@ class SingleProducerQueue;
 // SPQArray is a circular buffer used as a backing store for
 // SingleProducerQueue.
 template <typename T, typename Allocator>
-struct SPQArray {
+class SPQArray {
  private:
   static_assert(std::is_trivially_destructible_v<T>);
 

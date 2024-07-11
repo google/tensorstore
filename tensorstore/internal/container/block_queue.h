@@ -52,7 +52,7 @@ class BlockQueue;
 
 // SQBlock is a buffer used as a backing SimpleDeque.
 template <typename T, typename Allocator>
-struct SQBlock {
+class SQBlock {
  private:
   using BlockAllocator =
       typename std::allocator_traits<Allocator>::template rebind_alloc<SQBlock>;

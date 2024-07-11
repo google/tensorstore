@@ -1,0 +1,25 @@
+# Description:
+#   AWS s2n tls
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])  # Apache 2.0
+
+cc_library(
+    name = "s2n_tls",
+    srcs = glob([
+        "crypto/*.h",
+        "crypto/*.c",
+        "error/*.h",
+        "error/*.c",
+        "stuffer/*.h",
+        "stuffer/*.c",
+        "tls/**/*.h",
+        "tls/**/*.c",
+        "utils/*.h",
+        "utils/*.c",
+    ]),
+    hdrs = glob(["api/**/*.h"]),
+    includes = ["api"],
+    deps = ["@com_google_boringssl//:crypto"],
+)
