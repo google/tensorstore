@@ -5,9 +5,17 @@ package(default_visibility = ["//tensorstore:internal_packages"])
 licenses(["notice"])
 
 tensorstore_cc_library(
+    name = "item_traits",
+    hdrs = ["item_traits.h"],
+    visibility = ["//visibility:private"],
+    deps = ["@com_google_absl//absl/meta:type_traits"],
+)
+
+tensorstore_cc_library(
     name = "block_queue",
     hdrs = ["block_queue.h"],
     deps = [
+        ":item_traits",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/log:absl_check",
     ],
@@ -26,6 +34,7 @@ tensorstore_cc_library(
     name = "circular_queue",
     hdrs = ["circular_queue.h"],
     deps = [
+        ":item_traits",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/log:absl_check",
     ],

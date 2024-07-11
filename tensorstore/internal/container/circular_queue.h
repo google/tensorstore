@@ -24,6 +24,7 @@
 
 #include "absl/base/attributes.h"
 #include "absl/log/absl_check.h"
+#include "tensorstore/internal/container/item_traits.h"
 
 namespace tensorstore {
 namespace internal_container {
@@ -46,12 +47,15 @@ namespace internal_container {
 ///
 template <typename T, typename Allocator = std::allocator<T>>
 class CircularQueue {
-  using AllocatorTraits = std::allocator_traits<Allocator>;
+  using TransferTraits = ItemTraits<T>;
   using Storage = typename std::aligned_storage<sizeof(T), alignof(T)>::type;
   static_assert(sizeof(T) == sizeof(Storage));
   using StorageAllocator =
       typename std::allocator_traits<Allocator>::template rebind_alloc<Storage>;
   using StorageAllocatorTraits = std::allocator_traits<StorageAllocator>;
+
+  static constexpr bool kDestroyIsTrivial =
+      TransferTraits::template destroy_is_trivial<Allocator>();
 
  public:
   explicit CircularQueue(size_t n) : CircularQueue(n, Allocator()) {}
@@ -124,20 +128,25 @@ class CircularQueue {
   template <typename... A>
   T& emplace_back(A&&... args) {
     auto* storage = emplace_back_raw();
-    AllocatorTraits::construct(allocator_, storage, std::forward<A>(args)...);
+    TransferTraits::construct(&allocator_, storage, std::forward<A>(args)...);
     return *storage;
   }
 
   /// Remove the front element.
   void pop_front() {
     ABSL_CHECK(!empty());
-    AllocatorTraits::destroy(allocator_, buffer_ + (begin_++ & mask_));
+    auto x = begin_++;
+    if constexpr (!kDestroyIsTrivial) {
+      TransferTraits::destroy(&allocator_, buffer_ + (x & mask_));
+    }
   }
 
   /// Clears the container.
   void clear() {
-    for (size_t i = begin_; i < end_; i++) {
-      AllocatorTraits::destroy(allocator_, buffer_ + (i & mask_));
+    if constexpr (!kDestroyIsTrivial) {
+      for (size_t i = begin_; i < end_; i++) {
+        TransferTraits::destroy(&allocator_, buffer_ + (i & mask_));
+      }
     }
     begin_ = 0;
     end_ = 0;
@@ -163,9 +172,7 @@ class CircularQueue {
     size_t j = 0;
     for (size_t i = begin_; i < end_; i++) {
       auto* storage = buffer_ + (i & mask_);
-      AllocatorTraits::construct(allocator_, new_buffer + j++,
-                                 std::move(*storage));
-      AllocatorTraits::destroy(allocator_, storage);
+      TransferTraits::transfer(&allocator_, new_buffer + j++, storage);
     }
     if (buffer_) {
       StorageAllocatorTraits::deallocate(

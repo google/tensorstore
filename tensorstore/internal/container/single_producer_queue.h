@@ -59,7 +59,7 @@ class SingleProducerQueue;
 
 // SPQArray is a circular buffer used as a backing store for
 // SingleProducerQueue.
-template <typename T, typename Allocator = std::allocator<T>>
+template <typename T, typename Allocator>
 struct SPQArray {
  private:
   static_assert(std::is_trivially_destructible_v<T>);
@@ -86,7 +86,11 @@ struct SPQArray {
   }
 
   // Makes the constructor private; use the New / Delete methods.
-  struct private_t {};
+  struct private_t {
+   private:
+    friend class SPQArray;
+    private_t() = default;
+  };
 
  public:
   static SPQArray* New(int64_t c, SPQArray* retired, Allocator* alloc) {
@@ -148,10 +152,16 @@ class SingleProducerQueue {
   using optional_t =
       std::conditional_t<std::is_pointer_v<T>, T, std::optional<T>>;
 
-  SingleProducerQueue(int64_t n)
-      : top_(0), bottom_(0), array_(Array::New(n, nullptr, &allocator_)) {
+  SingleProducerQueue(int64_t n, Allocator alloc)
+      : top_(0),
+        bottom_(0),
+        allocator_(alloc),
+        array_(Array::New(n, nullptr, &allocator_)) {
     ABSL_CHECK_EQ(n & (n - 1), 0);
   }
+
+  explicit SingleProducerQueue(int64_t n)
+      : SingleProducerQueue(n, Allocator()) {}
 
   ~SingleProducerQueue() {
     // Avoid recursion on destruction.
@@ -250,9 +260,9 @@ class SingleProducerQueue {
   }
 
  private:
-  ABSL_ATTRIBUTE_NO_UNIQUE_ADDRESS Allocator allocator_;
   ABSL_CACHELINE_ALIGNED std::atomic<int64_t> top_;
   std::atomic<int64_t> bottom_;
+  ABSL_ATTRIBUTE_NO_UNIQUE_ADDRESS Allocator allocator_;
   std::atomic<Array*> array_;
 };
 

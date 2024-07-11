@@ -25,6 +25,7 @@
 
 #include "absl/base/attributes.h"
 #include "absl/log/absl_check.h"
+#include "tensorstore/internal/container/item_traits.h"
 
 namespace tensorstore {
 namespace internal_container {
@@ -70,7 +71,11 @@ struct SQBlock {
   }
 
   // Makes the constructor private; use the New / Delete methods.
-  struct private_t {};
+  struct private_t {
+   private:
+    friend class SQBlock;
+    private_t() = default;
+  };
 
  public:
   static SQBlock* New(int64_t c, Allocator* alloc) {
@@ -121,7 +126,10 @@ struct SQBlock {
 template <typename T, size_t kMin, size_t kMax, typename Allocator>
 class BlockQueue {
   using Block = SQBlock<T, Allocator>;
-  using AllocatorTraits = std::allocator_traits<Allocator>;
+  using TransferTraits = ItemTraits<T>;
+
+  static constexpr bool kDestroyIsTrivial =
+      TransferTraits::template destroy_is_trivial<Allocator>();
 
   static_assert(kMin > 0);
   static_assert(kMin <= kMax);
@@ -187,7 +195,7 @@ class BlockQueue {
   template <typename... A>
   T& emplace_back(A&&... args) {
     auto* storage = emplace_back_raw();
-    AllocatorTraits::construct(allocator_, storage, std::forward<A>(args)...);
+    TransferTraits::construct(&allocator_, storage, std::forward<A>(args)...);
     return *storage;
   }
 
@@ -195,7 +203,7 @@ class BlockQueue {
   void pop_front() {
     ABSL_CHECK(!empty());
     ABSL_CHECK(head_.block);
-    AllocatorTraits::destroy(allocator_, head_.ptr);
+    TransferTraits::destroy(&allocator_, head_.ptr);
     ++head_.ptr;
     --size_;
     if (empty()) {
@@ -260,8 +268,10 @@ class BlockQueue {
   void ClearBlock(Block* b) {
     auto* begin = b == head_.block ? head_.ptr : b->begin();
     auto* end = b == tail_.block ? tail_.ptr : b->end();
-    for (; begin != end; ++begin) {
-      AllocatorTraits::destroy(allocator_, begin);
+    if constexpr (!kDestroyIsTrivial) {
+      for (; begin != end; ++begin) {
+        TransferTraits::destroy(&allocator_, begin);
+      }
     }
   }
 
