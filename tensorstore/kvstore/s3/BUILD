@@ -366,3 +366,13 @@ tensorstore_cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+tensorstore_cc_test(
+    name = "aws_api_test",
+    size = "small",
+    srcs = ["aws_api_test.cc"],
+    deps = [
+        "@aws_crt_cpp",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

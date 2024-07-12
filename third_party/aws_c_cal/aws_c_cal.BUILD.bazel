@@ -1,0 +1,66 @@
+# Description:
+#   AWS s2n tls
+
+load("@tensorstore//bazel:utils.bzl", "package_relative_path")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])  # Apache 2.0
+
+cc_library(
+    name = "aws_c_cal",
+    srcs = glob([
+        "source/*.c",
+    ]) + select({
+        "@platforms//os:windows": glob([
+            "source/windows/*.c",
+        ]),
+        "@platforms//os:linux": glob([
+            "source/unix/*.c",
+        ]),
+        "@platforms//os:osx": glob([
+            "source/darwin/*.c",
+            "source/darwin/*.h",
+        ]),
+    }),
+    hdrs = glob([
+        "include/aws/cal/*.h",
+        "include/aws/cal/private/*.h",
+    ]),
+    copts = select({
+        "@platforms//os:osx": [
+            "-I" + package_relative_path("source/darwin"),
+        ],
+        "//conditions:default": [],
+    }),
+    includes = ["include"],
+    linkopts = select({
+        "@platforms//os:windows": [
+            "-DEFAULTLIB:bcrypt.lib",
+        ],
+        "@platforms//os:macos": [
+            "-framework CoreFoundation",
+            "-framework Security",
+        ],
+        "//conditions:default": [],
+    }) + select({
+        ":compiler_mingw_gcc": [
+            "-lbcrypt",
+        ],
+        "//conditions:default": [],
+    }),
+    deps = [
+        "@aws_c_common",
+        "@com_google_boringssl//:crypto",
+    ],
+)
+
+[
+    alias(
+        name = name,
+        actual = "@tensorstore//:{target}".format(target = name),
+    )
+    for name in [
+        "compiler_mingw_gcc",
+    ]
+]

@@ -1,0 +1,24 @@
+# Description:
+#   AWS C MQTT
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])  # Apache 2.0
+
+exports_files(["LICENSE"])
+
+cc_library(
+    name = "aws_c_mqtt",
+    srcs = glob([
+        "source/*.c",
+        "source/v5/*.c",
+    ]),
+    hdrs = glob([
+        "include/aws/mqtt/**/*.h",
+    ]),
+    includes = ["include"],
+    deps = [
+        "@aws_c_http",
+        "@aws_c_io",
+    ],
+)

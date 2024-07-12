@@ -1,0 +1,46 @@
+# Description:
+#   AWS CPP CRT
+
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])  # Apache 2.0
+
+exports_files(["LICENSE"])
+
+write_file(
+    name = "generated_config_h",
+    out = "include/aws/crt/Config.h",
+    content = [
+        "#pragma once",
+        "#define AWS_CRT_CPP_VERSION \"0.27.1\"",
+        "#define AWS_CRT_CPP_VERSION_MAJOR 0",
+        "#define AWS_CRT_CPP_VERSION_MINOR 27",
+        "#define AWS_CRT_CPP_VERSION_PATCH 1",
+        "#define AWS_CRT_CPP_GIT_HASH \"635106906bf8dc0b877d962613f12f019f03e10a\"",
+    ],
+)
+
+cc_library(
+    name = "aws_crt_cpp",
+    srcs = glob([
+        "source/**/*.cpp",
+    ]),
+    hdrs = glob([
+        "include/**/*.h",
+    ]) + [
+        "include/aws/crt/Config.h",
+    ],
+    includes = ["include"],
+    # https://docs.aws.amazon.com/sdkref/latest/guide/common-runtime.html#crt-dep
+    deps = [
+        "@aws_c_auth",
+        "@aws_c_cal",
+        "@aws_c_event_stream",
+        "@aws_c_io",
+        "@aws_c_mqtt",
+        "@aws_c_s3",
+        "@aws_checksums",
+    ],
+)

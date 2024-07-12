@@ -1,0 +1,249 @@
+# Description:
+#   AWS C Common
+
+load("@bazel_skylib//lib:selects.bzl", "selects")
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
+load("@tensorstore//bazel:utils.bzl", "package_relative_path")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])  # Apache 2.0
+
+exports_files(["LICENSE"])
+
+_LOCAL_DEFINES = select({
+    "@platforms//os:windows": [
+        "CJSON_HIDE_SYMBOLS",
+        "AWS_AFFINITY_METHOD=AWS_AFFINITY_METHOD_NONE",
+        "PSAPI_VERSION=1",
+    ],
+    "@platforms//os:macos": [
+        "CJSON_HIDE_SYMBOLS",
+        "AWS_AFFINITY_METHOD=AWS_AFFINITY_METHOD_NONE",
+        "AWS_PTHREAD_GETNAME_TAKES_3ARGS",
+        "HAVE_SYSCONF",
+    ],
+    "//conditions:default": [
+        "CJSON_HIDE_SYMBOLS",
+        "AWS_AFFINITY_METHOD=AWS_AFFINITY_METHOD_PTHREAD_ATTR",  # or AWS_AFFINITY_METHOD_PTHREAD
+        "AWS_PTHREAD_GETNAME_TAKES_3ARGS",
+        "AWS_PTHREAD_SETNAME_TAKES_2ARGS",
+        "HAVE_SYSCONF",
+    ],
+}) + select({
+    ":have_avx2_intrinsics": ["USE_SIMD_ENCODING"],
+    "//conditions:default": [],
+})
+
+cc_library(
+    name = "aws_c_common",
+    srcs = glob([
+        "include/aws/common/external/*.h",
+        "source/*.c",
+        "source/external/**/*.h",
+        "source/external/**/*.c",
+    ]) + select({
+        "@platforms//os:windows": glob([
+            "source/windows/*.c",
+        ]),
+        "@platforms//os:linux": glob([
+            "source/linux/*.c",
+            "source/posix/*.c",
+        ]),
+        "@platforms//os:osx": glob([
+            "source/posix/*.c",
+            "source/darwin/*.c",
+        ]),
+        "//conditions:default": [],
+    }) + select({
+        "@platforms//os:linux": [],
+        "//conditions:default": [
+            "source/platform_fallback_stubs/system_info.c",
+        ],
+    }) + select({
+        ":windows_arm64": glob(["source/arch/arm/windows/*.c"]),
+        ":macos_arm64": glob(["source/arch/arm/darwin/*.c"]),
+        ":linux_arm64": glob(["source/arch/arm/auxv/*.c"]),
+        ":linux_x86_64": glob([
+            "source/arch/intel/*.c",
+            "source/arch/intel/asm/*.c",
+        ]),
+        ":macos_x86_64": glob([
+            "source/arch/intel/*.c",
+            "source/arch/intel/asm/*.c",
+        ]),
+        ":windows_x86_64": glob(["source/arch/intel/*.c"]),
+        "//conditions:default": glob(["source/arch/generic/*.c"]),
+    }) + select({
+        ":x86_64_mingw_gcc": glob(["source/arch/intel/asm/*.c"]),
+        ":x86_64_msvc": glob(["source/arch/intel/msvc/*.c"]),
+        "//conditions:default": [],
+    }),
+    hdrs = glob([
+        "include/aws/common/*.h",
+        "include/aws/common/private/*.h",
+    ]) + [
+        "include/aws/common/config.h",
+    ],
+    copts = select({
+        ":x86_64_msvc": [
+            "/arch:AVX2",
+        ],
+        ":x86_64_gcc_or_clang": [
+            "-mavx",
+            "-mpclmul",
+            "-msse4.2",
+            "-mavx2",
+        ],
+        ":arm64_msvc": [],
+        ":arm64_gcc_or_clang": [
+            "-march=armv8-a+crc+crypto",
+            "-mtune=neoverse-v1",
+        ],
+    }) + [
+        "-I" + package_relative_path("source/external"),
+        "-I" + package_relative_path("source/external/libcbor"),
+    ],
+    defines = [
+        "INTEL_NO_ITTNOTIFY_API",
+    ],
+    includes = [
+        "include",
+    ],
+    linkopts = select({
+        "@platforms//os:windows": [
+            "-DEFAULTLIB:bcrypt.lib",
+            "-DEFAULTLIB:ws2_32.lib",
+            "-DEFAULTLIB:shlwapi.lib",
+            "-DEFAULTLIB:psapi.lib",
+            "-DEFAULTLIB:kernel32.lib",
+        ],
+        "@platforms//os:macos": [
+            "-framework CoreFoundation",
+            "-ldl",
+        ],
+        "//conditions:default": [
+            "-ldl",
+        ],
+    }) + select({
+        ":compiler_mingw_gcc": [
+            "-lbcrypt",
+            "-lws2_32",
+            "-lshlwapi",
+            "-lpsapi",
+            "-lkernel32",
+        ],
+        "//conditions:default": [],
+    }),
+    local_defines = _LOCAL_DEFINES,
+    textual_hdrs = glob([
+        "include/**/*.inl",
+    ]),
+)
+
+_CONFIG = [
+    "#ifndef AWS_COMMON_CONFIG_H",
+    "#define AWS_COMMON_CONFIG_H",
+    "",
+    "#if (defined(__x86_64__) || defined(__i386__) || defined(_M_X64) || defined(_M_IX86))",
+    "#define  AWS_ARCH_INTEL",
+    "#endif",
+    "",
+    "#if (defined(__x86_64__) || defined(_M_X64))",
+    "#define  AWS_ARCH_INTEL_X64",
+    "#endif",
+    "",
+    "#if (defined(__aarch64__) || defined(_M_ARM64))",
+    "#define  AWS_ARCH_ARM64",
+    "#endif",
+    "",
+    "#if (defined(__arm__) || defined(_M_ARM))",
+    "#define  AWS_ARCH_ARM32",
+    "#endif",
+    "",
+    "#if defined(_MSC_VER)",
+    "#define AWS_HAVE_MSVC_INTRINSICS_X64",
+    "#endif",
+] + select({
+    ":compiler_gcc_or_clang": [
+        "#define AWS_HAVE_GCC_OVERFLOW_MATH_EXTENSIONS",
+        "#define AWS_HAVE_GCC_INLINE_ASM",
+    ],
+    "//conditions:default": [],
+}) + select({
+    "@platforms//os:windows": ["#define AWS_HAVE_WINAPI_DESKTOP"],
+    "@platforms//os:linux": [
+        "#define AWS_HAVE_POSIX_LARGE_FILE_SUPPORT",
+        "#define AWS_HAVE_EXECINFO",
+        "#define AWS_HAVE_LINUX_IF_LINK_H",
+    ],
+    "@platforms//os:osx": [
+        "#define AWS_HAVE_POSIX_LARGE_FILE_SUPPORT",
+        "#define AWS_HAVE_EXECINFO",
+    ],
+    "//conditions:default": [],
+}) + select({
+    ":have_avx2_intrinsics": ["#define AWS_HAVE_AVX2_INTRINSICS"],
+    "//conditions:default": [],
+}) + select({
+    "@platforms//cpu:x86_64": [
+        "#define AWS_HAVE_MM256_EXTRACT_EPI64",
+        "#define AWS_HAVE_CLMUL",
+        "#define AWS_USE_CPU_EXTENSIONS",
+    ],
+    "@platforms//cpu:arm64": [
+        "#define AWS_HAVE_ARM32_CRC",
+        "#define AWS_HAVE_ARMv8_1",
+    ],
+    "//conditions:default": [],
+}) + [
+    "",
+    "#endif  // AWS_COMMON_CONFIG_H",
+]
+
+write_file(
+    name = "write_config_h",
+    out = "include/aws/common/config.h",
+    content = _CONFIG,
+    newline = "auto",
+)
+
+[
+    alias(
+        name = name,
+        actual = "@tensorstore//:{target}".format(target = name),
+    )
+    for name in [
+        "arm64_gcc_or_clang",
+        "arm64_msvc",
+        "compiler_gcc_or_clang",
+        "linux_arm64",
+        "linux_x86_64",
+        "macos_arm64",
+        "macos_x86_64",
+        "windows_arm64",
+        "windows_x86_64",
+        "x86_64_gcc_or_clang",
+        "x86_64_msvc",
+        "x86_64_mingw_gcc",
+        "compiler_mingw_gcc",
+        "compiler_msvc",
+    ]
+]
+
+# Constraint that indicates whether avx2 intrinsics can be used (subject to
+# runtime CPU detection).
+alias(
+    name = "have_avx2_intrinsics",
+    actual = select({
+        # mingw gcc does not correctly align the stack to 32 bytes, which makes
+        # avx2 intrinsics unusable.
+        #
+        # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=54412
+        #
+        # In this case map to `:compiler_msvc` which we know to be unsatisfied.
+        ":compiler_mingw_gcc": ":compiler_msvc",
+        # Enable by default on x86_64.
+        "//conditions:default": "@platforms//cpu:x86_64",
+    }),
+)

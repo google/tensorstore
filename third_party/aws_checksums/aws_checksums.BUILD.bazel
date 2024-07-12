@@ -1,0 +1,26 @@
+# Description:
+#   AWS CheckSums
+
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])  # Apache 2.0
+
+exports_files(["LICENSE"])
+
+cc_library(
+    name = "aws_checksums",
+    srcs = glob([
+        "source/*.c",
+        "source/generic/*.c",
+    ]),
+    hdrs = glob([
+        "include/aws/checksums/*.h",
+        "include/aws/checksums/private/*.h",
+    ]),
+    includes = ["include"],
+    deps = [
+        "@aws_c_common",
+    ],
+)
