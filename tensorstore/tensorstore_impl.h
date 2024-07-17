@@ -17,15 +17,29 @@
 
 // IWYU pragma: private, include "third_party/tensorstore/tensorstore.h"
 
+#include <string>
+#include <type_traits>
+#include <utility>
+
 #include "absl/status/status.h"
+#include "tensorstore/array.h"
+#include "tensorstore/container_kind.h"
+#include "tensorstore/data_type.h"
 #include "tensorstore/data_type_conversion.h"
 #include "tensorstore/driver/driver.h"
+#include "tensorstore/driver/driver_handle.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/rank.h"
-#include "tensorstore/read_write_options.h"
+#include "tensorstore/static_cast.h"
+#include "tensorstore/strided_layout.h"
+#include "tensorstore/transaction.h"
+#include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 template <typename ElementType, DimensionIndex Rank, ReadWriteMode Mode>
@@ -116,53 +130,13 @@ constexpr inline bool AreElementTypesCompatible = false;
 template <typename A, typename B>
 constexpr inline bool AreElementTypesCompatible<
     A, B,
-    std::integral_constant<
-        bool,
-        static_cast<bool>((IsTransformedArrayLike<A> || IsTensorStore<A>)&&(
-            IsTransformedArrayLike<B> || IsTensorStore<B>))>> =
+    std::integral_constant<bool, static_cast<bool>((IsTransformedArrayLike<A> ||
+                                                    IsTensorStore<A>) &&
+                                                   (IsTransformedArrayLike<B> ||
+                                                    IsTensorStore<B>))>> =
     IsDataTypeConversionSupported<std::remove_const_t<typename A::Element>,
                                   std::remove_const_t<typename B::Element>,
                                   DataTypeConversionFlags::kSafeAndImplicit>;
-
-/// Evaluates to `X` if the constraints required for `tensorstore::Read` are
-/// satisfied.
-///
-/// Used to specify the return type of `tensorstore::Read`.
-template <typename Source, typename Dest, typename X>
-using EnableIfCanCopyTensorStoreToArray = std::enable_if_t<
-    (IsTensorStoreThatSupportsMode<Source, ReadWriteMode::read> &&
-     IsTransformedArrayLike<Dest> && IsNonConstArrayLike<Dest> &&
-     AreElementTypesCompatible<Source, Dest>),
-    X>;
-
-/// Evaluates to `X` if the constraints required for `tensorstore::Write` are
-/// satisfied.
-///
-/// Used to specify the return type of `tensorstore::Write`.
-template <typename Source, typename Dest, typename X>
-using EnableIfCanCopyArrayToTensorStore = std::enable_if_t<
-    (IsTensorStoreThatSupportsMode<Dest, ReadWriteMode::write> &&
-     IsTransformedArrayLike<Source> && AreElementTypesCompatible<Source, Dest>),
-    X>;
-
-/// Evaluates to `X` if the constraints required for `tensorstore::Copy` are
-/// satisfied.
-///
-/// Used to specify the return type of `tensorstore::Copy`.
-template <typename Source, typename Dest, typename X>
-using EnableIfCanCopyTensorStoreToTensorStore = std::enable_if_t<
-    (IsTensorStoreThatSupportsMode<Source, ReadWriteMode::read> &&
-     IsTensorStoreThatSupportsMode<Dest, ReadWriteMode::write> &&
-     AreElementTypesCompatible<Source, Dest>),
-    X>;
-
-/// Evaluates to the return type of `Read` (for a new target array) if the
-/// constrains are satisfied.
-template <ArrayOriginKind OriginKind, typename Store>
-using ReadTensorStoreIntoNewArrayResult = std::enable_if_t<
-    internal::IsTensorStoreThatSupportsMode<Store, ReadWriteMode::read>,
-    Future<
-        SharedArray<typename Store::Element, Store::static_rank, OriginKind>>>;
 
 absl::Status InvalidModeError(ReadWriteMode mode, ReadWriteMode static_mode);
 absl::Status ValidateDataTypeAndRank(DataType expected_dtype,

@@ -1225,7 +1225,7 @@ void TestTensorStoreCreateCheckSchemaImpl(::nlohmann::json json_spec,
 void TestTensorStoreCreateCheckSchema(::nlohmann::json json_spec,
                                       ::nlohmann::json json_schema) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto schema, Schema::FromJson(json_schema));
-  TestTensorStoreCreateCheckSchema(std::move(json_spec), schema);
+  TestTensorStoreCreateCheckSchemaImpl(std::move(json_spec), schema);
 }
 
 void TestSpecSchemaImpl(::nlohmann::json json_spec, const Schema& schema) {

@@ -809,8 +809,10 @@ tensorstore_cc_library(
     hdrs = ["tensorstore.h"],
     deps = [
         ":array",
+        ":array_storage_statistics",
         ":chunk_layout",
         ":codec_spec",
+        ":container_kind",
         ":data_type",
         ":index",
         ":open_mode",
