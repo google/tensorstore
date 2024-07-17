@@ -74,7 +74,6 @@ tensorstore_cc_library(
         "//tensorstore/internal:cord_util",
         "//tensorstore/internal/compression:zlib",
         "//tensorstore/kvstore:byte_range",
-        "//tensorstore/util:endian",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
