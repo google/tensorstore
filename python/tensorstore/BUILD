@@ -500,6 +500,7 @@ pybind11_cc_library(
         ":sequence_parameter",
         ":serialization",
         ":spec",
+        ":status",
         ":tensorstore_module_components",
         ":transaction",
         ":unit",

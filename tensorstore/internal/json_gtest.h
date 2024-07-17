@@ -35,7 +35,11 @@ namespace nlohmann {
 //     https://en.wikipedia.org/wiki/Argument-dependent_name_lookup
 //
 /// Prints json objects to output streams from within Google Test.
-inline void PrintTo(json const& j, std::ostream* os) { *os << j.dump(); }
+inline void PrintTo(json const& j, std::ostream* os) {
+  *os << j.dump(
+      /*indent=*/-1, /*indent_char=*/' ', /*ensure_ascii=*/true,
+      /*error_handler=*/::nlohmann::json::error_handler_t::ignore);
+}
 
 }  // namespace nlohmann
 
