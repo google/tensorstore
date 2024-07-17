@@ -24,7 +24,7 @@ allOf:
       description: |-
         Specifies the scale-independent metadata of a new volume exactly as in
         the `info file
-        <https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed#info-json-file-specification>`_,
+        <https://github.com/google/neuroglancer/blob/master/src/datasource/precomputed/volume.md#info-json-file-specification>`_,
         except that not all members are required.  Required when creating a new
         multiscale volume.  When opening an existing volume or creating a new
         scale within an existing multiscale volume, specifies constraints on the
@@ -58,7 +58,7 @@ allOf:
       title: Per-scale metadata.
       description: |-
         Specifies the per-scale metadata of a new volume as in the `info file
-        <https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed#info-json-file-specification>`_,
+        <https://github.com/google/neuroglancer/blob/master/src/datasource/precomputed/volume.md#info-json-file-specification>`_,
         except that not all members are required, and the `.chunk_size` member
         for specifying a single chunk size takes the place of the
         :literal:`chunk_sizes` member in the :file:`info` file.  Required when creating a
@@ -157,9 +157,9 @@ allOf:
             - type: 'null'
             description: |-
               Specifies to use the `unsharded
-              <https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed#unsharded-chunk-storage>`_
+              <https://github.com/google/neuroglancer/blob/master/src/datasource/precomputed/volume.md#unsharded-chunk-storage>`_
               (indicated by ``null``) or `sharded
-              <https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed#sharded-chunk-storage>`_
+              <https://github.com/google/neuroglancer/blob/master/src/datasource/precomputed/volume.md#sharded-chunk-storage>`_
               format.  When creating a new scale, if not specified, the unsharded
               format is used.
 definitions:

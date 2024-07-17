@@ -19,14 +19,15 @@
 /// Support for decoding the neuroglancer_uint64_sharded_v1 format.
 ///
 /// See description of format here:
-/// https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed#sharded-format
+/// https://github.com/google/neuroglancer/blob/master/src/datasource/precomputed/sharded.md
 
 #include <optional>
 #include <string_view>
 #include <vector>
 
+#include "absl/strings/cord.h"
+#include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/neuroglancer_uint64_sharded/uint64_sharded.h"
-#include "tensorstore/util/endian.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 
