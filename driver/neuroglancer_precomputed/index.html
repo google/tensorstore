@@ -1731,7 +1731,9 @@
 
 
 <h1 id="neuroglancer-precomputed-driver"><span id="id1"></span><code class="docutils literal notranslate"><span class="pre">neuroglancer_precomputed</span></code> Driver<a class="headerlink" href="#neuroglancer-precomputed-driver" title="Permalink to this heading">¶</a></h1>
-<p>The <code class="docutils literal notranslate"><span class="pre">neuroglancer_precomputed</span></code> driver provides access to <a class="reference external" href="https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed">Neuroglancer Precomputed format</a> volumes backed by any supported <a class="reference internal" href="../../kvstore/index.html#key-value-store"><span class="std std-ref">Key-Value Storage Layer</span></a>.  It supports reading, writing, and creating new volumes.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">neuroglancer_precomputed</span></code> driver provides access to <a class="reference external" href="https://github.com/google/neuroglancer/blob/master/src/datasource/precomputed">Neuroglancer Precomputed format</a>
+volumes backed by any supported <a class="reference internal" href="../../kvstore/index.html#key-value-store"><span class="std std-ref">Key-Value Storage Layer</span></a>.  It supports reading,
+writing, and creating new volumes.</p>
 <p>Multiscale volumes are supported, but each scale must be opened individually.</p>
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/neuroglancer_precomputed">
@@ -1942,7 +1944,7 @@ index that will be assigned to the new scale).</p>
 <span class="sig-name descname"><span class="pre">multiscale_metadata</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-driver/neuroglancer_precomputed.multiscale_metadata" title="Permalink to this definition">¶</a></dt>
 <dd><span><p>Scale-independent metadata.</p>
   </span><p>Specifies the scale-independent metadata of a new volume exactly as in
-the <a class="reference external" href="https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed#info-json-file-specification">info file</a>,
+the <a class="reference external" href="https://github.com/google/neuroglancer/blob/master/src/datasource/precomputed/volume.md#info-json-file-specification">info file</a>,
 except that not all members are required.  Required when creating a new
 multiscale volume.  When opening an existing volume or creating a new
 scale within an existing multiscale volume, specifies constraints on the
@@ -1980,7 +1982,7 @@ multiscale volume.</p>
 <dt class="sig sig-object highlight json" id="json-driver/neuroglancer_precomputed.scale_metadata">
 <span class="sig-name descname"><span class="pre">scale_metadata</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-driver/neuroglancer_precomputed.scale_metadata" title="Permalink to this definition">¶</a></dt>
 <dd><span><p>Per-scale metadata.</p>
-  </span><p>Specifies the per-scale metadata of a new volume as in the <a class="reference external" href="https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed#info-json-file-specification">info file</a>,
+  </span><p>Specifies the per-scale metadata of a new volume as in the <a class="reference external" href="https://github.com/google/neuroglancer/blob/master/src/datasource/precomputed/volume.md#info-json-file-specification">info file</a>,
 except that not all members are required, and the <a class="reference internal" href="#json-driver/neuroglancer_precomputed.scale_metadata.chunk_size" title="driver/neuroglancer_precomputed.scale_metadata.chunk_size (JSON member) — Chunk dimensions (XYZ order)."><code class="xref json json-schema docutils literal notranslate"><span class="pre">chunk_size</span></code></a> member
 for specifying a single chunk size takes the place of the
 <code class="docutils literal notranslate"><span class="pre">chunk_sizes</span></code> member in the <code class="file docutils literal notranslate"><span class="pre">info</span></code> file.  Required when creating a
@@ -2083,8 +2085,8 @@ opening an existing scale.  Otherwise, must not be specified.</p>
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/neuroglancer_precomputed.scale_metadata.sharding">
 <span class="sig-name descname"><span class="pre">sharding</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../kvstore/neuroglancer_uint64_sharded/index.html#json-kvstore/neuroglancer_uint64_sharded/ShardingSpec" title="kvstore/neuroglancer_uint64_sharded/ShardingSpec (JSON type) — Sharding metadata"><span class="pre">kvstore/neuroglancer_uint64_sharded/ShardingSpec</span></a></span><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="kc">null</span></code><a class="headerlink" href="#json-driver/neuroglancer_precomputed.scale_metadata.sharding" title="Permalink to this definition">¶</a></dt>
-<dd><p>Specifies to use the <a class="reference external" href="https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed#unsharded-chunk-storage">unsharded</a>
-(indicated by <code class="code highlight json docutils literal highlight-json"><span class="kc">null</span></code>) or <a class="reference external" href="https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed#sharded-chunk-storage">sharded</a>
+<dd><p>Specifies to use the <a class="reference external" href="https://github.com/google/neuroglancer/blob/master/src/datasource/precomputed/volume.md#unsharded-chunk-storage">unsharded</a>
+(indicated by <code class="code highlight json docutils literal highlight-json"><span class="kc">null</span></code>) or <a class="reference external" href="https://github.com/google/neuroglancer/blob/master/src/datasource/precomputed/volume.md#sharded-chunk-storage">sharded</a>
 format.  When creating a new scale, if not specified, the unsharded
 format is used.</p>
 </dd></dl>
