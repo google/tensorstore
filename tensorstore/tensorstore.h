@@ -20,6 +20,7 @@
 #include <utility>
 
 #include "tensorstore/array.h"
+#include "tensorstore/array_storage_statistics.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/codec_spec.h"
 #include "tensorstore/data_type.h"
@@ -606,13 +607,24 @@ Resize(
                 ResizeOptions(std::forward<Option>(options)...));
 }
 
+/// Evaluates whether the constraints required for `tensorstore::Read` are
+/// satisfied.
+///
+/// Used to specify the return type of `tensorstore::Read`.
+template <typename Source, typename Dest>
+constexpr inline bool CanReadTensorstoreToArray =
+    (internal::IsTensorStoreThatSupportsMode<Source, ReadWriteMode::read> &&
+     internal::IsNonConstArrayLike<Dest> && IsSharedArrayLike<Dest> &&
+     internal::AreElementTypesCompatible<Source, Dest>);
+
 /// Copies from `source` TensorStore to `target` array.
 ///
 /// The domain of `source` is resolved via `ResolveBounds` and then
 /// aligned/broadcast to the domain of `target` via `AlignDomainTo`.
 ///
-/// If an error occurs while reading, the `target` array may be left in a
-/// partially-written state.
+/// The `target` array must be a SharedArray; it must remain valid until the
+/// Future has completed. If an error occurs while reading, the `target` array
+/// may be left in a partially-written state.
 ///
 /// Options compatible with `ReadOptions` are specified in any order after
 /// `store`.  The meaning of each option is determined by its type.
@@ -645,9 +657,10 @@ Resize(
 /// \id TensorStore, Array
 /// \membergroup I/O
 template <typename Source, typename TargetArray>
-internal::EnableIfCanCopyTensorStoreToArray<
-    UnwrapResultType<internal::remove_cvref_t<Source>>,
-    UnwrapResultType<internal::remove_cvref_t<TargetArray>>, Future<void>>
+std::enable_if_t<CanReadTensorstoreToArray<
+                     UnwrapResultType<internal::remove_cvref_t<Source>>,
+                     UnwrapResultType<internal::remove_cvref_t<TargetArray>>>,
+                 Future<void>>
 Read(Source&& source, TargetArray&& target, ReadOptions options) {
   return MapResult(
       [&](UnwrapQualifiedResultType<Source&&> unwrapped_source,
@@ -661,9 +674,11 @@ Read(Source&& source, TargetArray&& target, ReadOptions options) {
       std::forward<Source>(source), std::forward<TargetArray>(target));
 }
 template <typename Source, typename TargetArray, typename... Option>
-internal::EnableIfCanCopyTensorStoreToArray<
-    UnwrapResultType<internal::remove_cvref_t<Source>>,
-    UnwrapResultType<internal::remove_cvref_t<TargetArray>>, Future<void>>
+std::enable_if_t<(IsCompatibleOptionSequence<ReadOptions, Option...> &&
+                  CanReadTensorstoreToArray<
+                      UnwrapResultType<internal::remove_cvref_t<Source>>,
+                      UnwrapResultType<internal::remove_cvref_t<TargetArray>>>),
+                 Future<void>>
 Read(Source&& source, TargetArray&& target, Option&&... options) {
   return tensorstore::Read(std::forward<Source>(source),
                            std::forward<TargetArray>(target),
@@ -701,8 +716,14 @@ Read(Source&& source, TargetArray&& target, Option&&... options) {
 /// \id TensorStore
 /// \membergroup I/O
 template <ArrayOriginKind OriginKind = offset_origin, typename Source>
-internal::ReadTensorStoreIntoNewArrayResult<
-    OriginKind, UnwrapResultType<internal::remove_cvref_t<Source>>>
+std::enable_if_t<
+    internal::IsTensorStoreThatSupportsMode<
+        UnwrapResultType<internal::remove_cvref_t<Source>>,
+        ReadWriteMode::read>,
+    Future<SharedArray<
+        typename UnwrapResultType<internal::remove_cvref_t<Source>>::Element,
+        UnwrapResultType<internal::remove_cvref_t<Source>>::static_rank,
+        OriginKind>>>
 Read(Source&& source, ReadIntoNewArrayOptions options) {
   return MapResult(
       [&](UnwrapQualifiedResultType<Source&&> unwrapped_source) {
@@ -719,16 +740,34 @@ Read(Source&& source, ReadIntoNewArrayOptions options) {
 template <ArrayOriginKind OriginKind = offset_origin, typename Source,
           typename... Option>
 std::enable_if_t<
-    IsCompatibleOptionSequence<ReadIntoNewArrayOptions, Option...>,
-    internal::ReadTensorStoreIntoNewArrayResult<
-        OriginKind, UnwrapResultType<internal::remove_cvref_t<Source>>>>
+    (IsCompatibleOptionSequence<ReadIntoNewArrayOptions, Option...> &&
+     internal::IsTensorStoreThatSupportsMode<
+         UnwrapResultType<internal::remove_cvref_t<Source>>,
+         ReadWriteMode::read>),
+    Future<SharedArray<
+        typename UnwrapResultType<internal::remove_cvref_t<Source>>::Element,
+        UnwrapResultType<internal::remove_cvref_t<Source>>::static_rank,
+        OriginKind>>>
 Read(Source&& source, Option&&... options) {
   return tensorstore::Read<OriginKind>(
       std::forward<Source>(source),
       ReadIntoNewArrayOptions(std::forward<Option>(options)...));
 }
 
+/// Evaluates whether the constraints required for `tensorstore::Write` are
+/// satisfied.
+///
+/// Used to specify the return type of `tensorstore::Write`.
+template <typename Source, typename Dest>
+constexpr inline bool CanWriteArrayToTensorStore =
+    (internal::IsTensorStoreThatSupportsMode<Dest, ReadWriteMode::write> &&
+     IsSharedArrayLike<Source> &&
+     internal::AreElementTypesCompatible<Source, Dest>);
+
 /// Copies from a `source` array to `target` TensorStore.
+///
+/// The `source` array must be a SharedArray; it must remain valid until the
+/// WriteFutures::copy_future has completed.
 ///
 /// The domain of `target` is resolved via `ResolveBounds` and then the domain
 /// of `source` is aligned/broadcast to it via `AlignDomainTo`.
@@ -766,9 +805,10 @@ Read(Source&& source, Option&&... options) {
 /// \membergoup I/O
 /// \id Array, TensorStore
 template <typename SourceArray, typename Target>
-internal::EnableIfCanCopyArrayToTensorStore<
-    UnwrapResultType<internal::remove_cvref_t<SourceArray>>,
-    UnwrapResultType<internal::remove_cvref_t<Target>>, WriteFutures>
+std::enable_if_t<CanWriteArrayToTensorStore<
+                     UnwrapResultType<internal::remove_cvref_t<SourceArray>>,
+                     UnwrapResultType<internal::remove_cvref_t<Target>>>,
+                 WriteFutures>
 Write(SourceArray&& source, Target&& target, WriteOptions options) {
   return MapResult(
       [&](UnwrapQualifiedResultType<SourceArray&&> unwrapped_source,
@@ -782,16 +822,26 @@ Write(SourceArray&& source, Target&& target, WriteOptions options) {
       std::forward<SourceArray>(source), std::forward<Target>(target));
 }
 template <typename SourceArray, typename Target, typename... Option>
-std::enable_if_t<
-    IsCompatibleOptionSequence<WriteOptions, Option...>,
-    internal::EnableIfCanCopyArrayToTensorStore<
-        UnwrapResultType<internal::remove_cvref_t<SourceArray>>,
-        UnwrapResultType<internal::remove_cvref_t<Target>>, WriteFutures>>
+std::enable_if_t<(IsCompatibleOptionSequence<WriteOptions, Option...> &&
+                  CanWriteArrayToTensorStore<
+                      UnwrapResultType<internal::remove_cvref_t<SourceArray>>,
+                      UnwrapResultType<internal::remove_cvref_t<Target>>>),
+                 WriteFutures>
 Write(SourceArray&& source, Target&& target, Option&&... options) {
   return tensorstore::Write(std::forward<SourceArray>(source),
                             std::forward<Target>(target),
                             WriteOptions(std::forward<Option>(options)...));
 }
+
+/// Evaluates whether the constraints required for `tensorstore::Copy` are
+/// satisfied.
+///
+/// Used to specify the return type of `tensorstore::Copy`.
+template <typename Source, typename Dest>
+constexpr inline bool CanCopyTensorStoreToTensorStore =
+    (internal::IsTensorStoreThatSupportsMode<Source, ReadWriteMode::read> &&
+     internal::IsTensorStoreThatSupportsMode<Dest, ReadWriteMode::write> &&
+     internal::AreElementTypesCompatible<Source, Dest>);
 
 /// Copies from `source` `TensorStore` to `target` `TensorStore`.
 ///
@@ -821,7 +871,7 @@ Write(SourceArray&& source, Target&& target, Option&&... options) {
 ///     TensorWriter<std::int32_t, 3> target = ...;
 ///     Copy(
 ///         store | AllDims().SizedInterval({100, 200}, {25, 30}),
-///         store | AllDims().SizedInterval({400, 500}, {25, 30}))
+///         store | AllDims().SizedInterval({400, 500}, {25, 30})).
 ///         commit_future.value();
 ///
 /// \param source The source `TensorStore` that supports reading.  May be
@@ -834,9 +884,10 @@ Write(SourceArray&& source, Target&& target, Option&&... options) {
 /// \membergoup I/O
 /// \id TensorStore, TensorStore
 template <typename Source, typename Target>
-internal::EnableIfCanCopyTensorStoreToTensorStore<
-    UnwrapResultType<internal::remove_cvref_t<Source>>,
-    UnwrapResultType<internal::remove_cvref_t<Target>>, WriteFutures>
+std::enable_if_t<CanCopyTensorStoreToTensorStore<
+                     UnwrapResultType<internal::remove_cvref_t<Source>>,
+                     UnwrapResultType<internal::remove_cvref_t<Target>>>,
+                 WriteFutures>
 Copy(Source&& source, Target&& target, CopyOptions options) {
   return MapResult(
       [&](UnwrapQualifiedResultType<Source&&> unwrapped_source,
@@ -851,11 +902,11 @@ Copy(Source&& source, Target&& target, CopyOptions options) {
       std::forward<Source>(source), std::forward<Target>(target));
 }
 template <typename Source, typename Target, typename... Option>
-std::enable_if_t<
-    IsCompatibleOptionSequence<CopyOptions, Option...>,
-    internal::EnableIfCanCopyTensorStoreToTensorStore<
-        UnwrapResultType<internal::remove_cvref_t<Source>>,
-        UnwrapResultType<internal::remove_cvref_t<Target>>, WriteFutures>>
+std::enable_if_t<(IsCompatibleOptionSequence<CopyOptions, Option...> &&
+                  CanCopyTensorStoreToTensorStore<
+                      UnwrapResultType<internal::remove_cvref_t<Source>>,
+                      UnwrapResultType<internal::remove_cvref_t<Target>>>),
+                 WriteFutures>
 Copy(Source&& source, Target&& target, Option&&... options) {
   return tensorstore::Copy(std::forward<Source>(source),
                            std::forward<Target>(target),

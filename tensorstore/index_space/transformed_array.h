@@ -100,6 +100,20 @@ template <typename T>
 constexpr inline bool IsTransformedArrayLike =
     IsArray<T> || IsTransformedArray<T>;
 
+/// Bool-valued metafunction that evaluates to `true` if `T` satisfies
+/// `IsTransformedArrayLike` and `IsShared`
+///
+/// \relates TransformedArray
+template <typename ArrayLike, typename = std::true_type>
+constexpr inline bool IsSharedArrayLike = false;
+
+template <typename ArrayLike>
+constexpr inline bool IsSharedArrayLike<
+    ArrayLike,
+    std::integral_constant<bool, static_cast<bool>(
+                                     IsTransformedArrayLike<ArrayLike>)>> =
+    IsShared<typename ArrayLike::ElementTag>;
+
 namespace internal_index_space {
 TransformRep::Ptr<> MakeTransformFromStridedLayout(
     StridedLayoutView<dynamic_rank, offset_origin> layout);
