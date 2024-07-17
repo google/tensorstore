@@ -184,7 +184,11 @@ void KillCycle(ResourceContainer* container) {
     }
     auto json_result = node->spec_->ToJson(IncludeDefaults{true});
     if (json_result.has_value()) {
-      tensorstore::StrAppend(&part, json_result->dump());
+      tensorstore::StrAppend(
+          &part,
+          json_result->dump(
+              /*indent=*/-1, /*indent_char=*/' ', /*ensure_ascii=*/true,
+              /*error_handler=*/::nlohmann::json::error_handler_t::ignore));
     } else {
       tensorstore::StrAppend(
           &part, "unprintable spec for ",

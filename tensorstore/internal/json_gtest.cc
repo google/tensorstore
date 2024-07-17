@@ -39,7 +39,12 @@ class JsonMatcherImpl : public ::testing::MatcherInterface<::nlohmann::json> {
     if (!internal_json::JsonSame(value_, value_untyped)) {
       if (listener->IsInterested()) {
         *listener << "where the difference is:\n"
-                  << ::nlohmann::json::diff(value_, value_untyped).dump(2);
+                  << ::nlohmann::json::diff(value_, value_untyped)
+                         .dump(
+                             /*indent=*/2, /*indent_char=*/' ',
+                             /*ensure_ascii=*/true,
+                             /*error_handler=*/
+                             ::nlohmann::json::error_handler_t::ignore);
       }
       return false;
     }

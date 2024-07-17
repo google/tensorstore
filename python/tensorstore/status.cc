@@ -181,14 +181,20 @@ pybind11::handle GetExceptionType(absl::StatusCode error_code,
 
 class DynamicPythonException : public pybind11::builtin_exception {
  public:
-  DynamicPythonException(pybind11::handle type, const std::string& what = "")
-      : pybind11::builtin_exception(what), type_(type) {}
+  DynamicPythonException(pybind11::handle type, const std::string& what = {})
+      : pybind11::builtin_exception(what), type_(type), len_(what.size()) {}
   void set_error() const override {
-    PyErr_SetString(type_.ptr(), this->what());
+    if (py::object str_obj = py::reinterpret_steal<py::object>(
+            PyUnicode_DecodeUTF8(this->what(), len_,
+                                 /*errors=*/"replace"))) {
+      PyErr_SetObject(type_.ptr(), str_obj.ptr());
+    }
   }
 
  private:
   pybind11::handle type_;
+  // Store length separately in case message contain embedded NUL chars.
+  size_t len_;
 };
 
 void ThrowStatusException(const absl::Status& status,
@@ -210,8 +216,9 @@ void SetErrorIndicatorFromStatus(const absl::Status& status,
     return;
   }
   std::string message = GetMessageFromStatus(status);
-  if (py::object python_message = py::reinterpret_steal<py::object>(
-          PyUnicode_FromStringAndSize(message.data(), message.size()))) {
+  if (py::object python_message =
+          py::reinterpret_steal<py::object>(PyUnicode_DecodeUTF8(
+              message.data(), message.size(), /*errors=*/"replace"))) {
     PyErr_SetObject(GetExceptionType(status.code(), policy).ptr(),
                     python_message.ptr());
   }
@@ -223,7 +230,18 @@ pybind11::object GetStatusPythonException(const absl::Status& status,
   if (auto exc = GetExceptionFromStatus(status); exc.ptr()) {
     return exc;
   }
-  return GetExceptionType(status.code(), policy)(GetMessageFromStatus(status));
+  auto message = GetMessageFromStatus(status);
+  auto exc_type = GetExceptionType(status.code(), policy);
+  if (py::object python_message =
+          py::reinterpret_steal<py::object>(PyUnicode_DecodeUTF8(
+              message.data(), message.size(), /*errors=*/"replace"))) {
+    return exc_type(python_message);
+  } else {
+    PyErr_Clear();
+    // Construction of error message object failed (unusual), just return bare
+    // exception object.
+    return py::reinterpret_borrow<py::object>(exc_type);
+  }
 }
 
 absl::Status GetStatusFromPythonException(pybind11::handle exc) noexcept {

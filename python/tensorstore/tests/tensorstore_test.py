@@ -589,3 +589,8 @@ async def test_recheck_cached(key, value):
 
   t = await ts.open(spec, create=True)
   validate_spec(t.spec(**{key: value}))
+
+
+async def test_non_utf8_error():
+  with pytest.raises(ValueError, match='.*local file "\\\\xfa.*'):
+    await ts.open({"driver": "zarr", "kvstore": "file://%fa"})

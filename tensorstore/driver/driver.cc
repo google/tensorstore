@@ -117,8 +117,12 @@ Future<Driver::Handle> OpenDriver(TransformedDriverSpec bound_spec,
                   " driver"));
           auto spec_json = internal_json_binding::ToJson(bound_spec);
           if (spec_json.ok()) {
-            AddStatusPayload(status, "tensorstore_spec",
-                             absl::Cord(spec_json.value().dump()));
+            AddStatusPayload(
+                status, "tensorstore_spec",
+                absl::Cord(spec_json.value().dump(
+                    /*indent=*/-1, /*indent_char=*/' ', /*ensure_ascii=*/false,
+                    /*error_handler=*/
+                    ::nlohmann::json::error_handler_t::ignore)));
           }
           return status;
         }
