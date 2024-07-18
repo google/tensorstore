@@ -31,15 +31,29 @@ def invoke_tests(argv):
   if 'TEST_TMPDIR' in os.environ:  # running as bazel test
     # set pytest's cache dir to a location that it can safely write to
     implicit_args += [
-        '--override-ini', 'cache_dir=' + os.environ['TEST_TMPDIR']
+        '--override-ini',
+        'cache_dir=' + os.environ['TEST_TMPDIR'],
     ]
   if 'XML_OUTPUT_FILE' in os.environ:
     # Output per-test-case information in XML format to allow Bazel to aggregate
     # with greater detail.
     implicit_args += ['--junitxml', os.environ['XML_OUTPUT_FILE']]
-  implicit_args += ['--pyargs']
   implicit_args += PYTEST_TARGETS
   print(implicit_args + argv[1:])
+
+  # Monkey patch os.path.samefile to swallow FileNotFoundError, to avoid flakes
+  # on Windows due to pytest finding temporary `local-spawn-runner.XXXX` files
+  # created and deleted by Bazel for other concurrent test runs.
+  orig_samefile = os.path.samefile
+
+  def samefile(*args, **kwargs):
+    try:
+      return orig_samefile(*args, **kwargs)
+    except FileNotFoundError:
+      return False
+
+  os.path.samefile = samefile
+
   return pytest.main(args=implicit_args + argv[1:])
 
 
@@ -47,6 +61,7 @@ def main():
   if USE_ABSL:
     import absl.app
     import absl.flags
+
     absl.flags.FLAGS.set_default('logtostderr', True)
     sys.argv.insert(1, '--')
     absl.app.run(invoke_tests)
