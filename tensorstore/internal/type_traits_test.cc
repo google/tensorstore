@@ -20,12 +20,10 @@
 #include <type_traits>
 
 #include <gtest/gtest.h>
-#include "absl/base/attributes.h"
 
 namespace {
 
 using ::tensorstore::internal::CopyQualifiers;
-using ::tensorstore::internal::FirstNonVoidType;
 using ::tensorstore::internal::FirstType;
 using ::tensorstore::internal::GetLValue;
 using ::tensorstore::internal::IsConstConvertible;
@@ -35,10 +33,6 @@ using ::tensorstore::internal::PossiblyEmptyObjectGetter;
 using ::tensorstore::internal::remove_cvref_t;
 using ::tensorstore::internal::type_identity_t;
 using ::tensorstore::internal::TypePackElement;
-
-static_assert(std::is_same_v<FirstNonVoidType<void, int>, int>);
-static_assert(std::is_same_v<FirstNonVoidType<float, void>, float>);
-static_assert(std::is_same_v<FirstNonVoidType<float, int>, float>);
 
 namespace equality_comparable_tests {
 struct X {};

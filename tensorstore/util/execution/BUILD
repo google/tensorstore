@@ -7,7 +7,10 @@ licenses(["notice"])
 tensorstore_cc_library(
     name = "execution",
     hdrs = ["execution.h"],
-    deps = ["@com_google_absl//absl/base:core_headers"],
+    deps = [
+        "//tensorstore/internal:type_traits",
+        "@com_google_absl//absl/base:core_headers",
+    ],
 )
 
 tensorstore_cc_library(
@@ -72,6 +75,7 @@ tensorstore_cc_test(
         ":execution",
         ":sender",
         ":sender_testutil",
+        "//tensorstore/internal:type_traits",
         "//tensorstore/util:executor",
         "@com_google_googletest//:gtest_main",
     ],

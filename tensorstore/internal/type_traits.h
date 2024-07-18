@@ -21,6 +21,7 @@
 #include <initializer_list>
 #include <iosfwd>
 #include <type_traits>
+#include <utility>
 
 #if defined(__has_builtin)
 #if __has_builtin(__type_pack_element)
@@ -37,12 +38,31 @@
 namespace tensorstore {
 namespace internal {
 
-/// Type alias that evaluates to `A` if `A` is not `void`, otherwise to `B` if
-/// `B` is not `void`, otherwise results in a substitution failure.
-template <typename A, typename B>
-using FirstNonVoidType =
-    typename std::conditional_t<!std::is_void_v<A>, std::common_type<A>,
-                                std::enable_if<!std::is_void_v<B>, B>>::type;
+/// C++ detector idiom:
+/// See: https://en.cppreference.com/w/cpp/experimental/is_detected
+struct not_detected {
+  ~not_detected() = delete;
+  not_detected(not_detected const&) = delete;
+  void operator=(not_detected const&) = delete;
+};
+
+template <class AlwaysVoid, template <class...> class Op, class... Args>
+struct detector_impl {
+  using value_t = std::false_type;
+  using type = not_detected;
+};
+
+template <template <class...> class Op, class... Args>
+struct detector_impl<std::void_t<Op<Args...>>, Op, Args...> {
+  using value_t = std::true_type;
+  using type = Op<Args...>;
+};
+
+template <template <class...> class Op, class... Args>
+using is_detected = typename detector_impl<void, Op, Args...>::value_t;
+
+template <template <class...> class Op, class... Args>
+using detected_t = typename detector_impl<void, Op, Args...>::type;
 
 /// Bool-valued metafunction that checks if `T == U` is convertible to `bool`.
 template <typename T, typename U = T, typename = void>

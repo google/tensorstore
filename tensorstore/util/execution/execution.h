@@ -23,20 +23,10 @@
 #include <utility>
 
 #include "absl/base/attributes.h"
+#include "tensorstore/internal/type_traits.h"
 
 namespace tensorstore {
 namespace internal_execution {
-
-/// C++ detector idiom, simplified
-template <template <class...> class Trait, class AlwaysVoid, class... Arg>
-struct detector_impl : std::false_type {};
-
-template <template <class...> class Trait, class... Arg>
-struct detector_impl<Trait, std::void_t<Trait<Arg...>>, Arg...>
-    : std::true_type {};
-
-template <template <class...> class Trait, class... Args>
-using detected_t = typename detector_impl<Trait, void, Args...>::type;
 
 /// TENSORSTORE_DEFINE_EXECUTION_CUSTOMIZATION_POINT(name)
 ///
@@ -60,9 +50,11 @@ using detected_t = typename detector_impl<Trait, void, Args...>::type;
   using return_adl_##NAME = decltype(NAME(std::declval<Arg>()...));          \
                                                                              \
   template <typename T, typename... Arg>                                     \
-  using has_##NAME = detected_t<return_##NAME, T, Arg...>;                   \
+  using has_##NAME =                                                         \
+      ::tensorstore::internal::is_detected<return_##NAME, T, Arg...>;        \
   template <typename T, typename... Arg>                                     \
-  using has_adl_##NAME = detected_t<return_adl_##NAME, T, Arg...>;           \
+  using has_adl_##NAME =                                                     \
+      ::tensorstore::internal::is_detected<return_adl_##NAME, T, Arg...>;    \
                                                                              \
  public:                                                                     \
   template <typename Self, typename... Arg>                                  \

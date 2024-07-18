@@ -1676,7 +1676,6 @@ tensorstore_cc_test(
     srcs = ["type_traits_test.cc"],
     deps = [
         ":type_traits",
-        "@com_google_absl//absl/base:core_headers",
         "@com_google_googletest//:gtest_main",  # buildcleaner: keep
     ],
 )
