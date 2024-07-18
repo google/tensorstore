@@ -594,3 +594,19 @@ async def test_recheck_cached(key, value):
 async def test_non_utf8_error():
   with pytest.raises(ValueError, match='.*local file "\\\\xfa.*'):
     await ts.open({"driver": "zarr", "kvstore": "file://%fa"})
+
+
+async def test_write_batch():
+  store = await ts.open(
+      {"driver": "zarr3", "kvstore": "memory://"},
+      dtype=ts.uint8,
+      shape=[],
+      create=True,
+  )
+  with pytest.raises(ValueError, match=".*batch can only be specified.*"):
+    with ts.Batch() as batch:
+      await store.write(42, batch=batch)
+
+  with ts.Batch() as batch:
+    write_future = store.write(ts.array(42, dtype=np.uint8), batch=batch)
+  await write_future
