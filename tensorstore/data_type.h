@@ -67,6 +67,7 @@
 
 #include "absl/base/attributes.h"
 #include "absl/base/casts.h"
+#include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include <half.hpp>
 #include <nlohmann/json_fwd.hpp>
@@ -1486,7 +1487,7 @@ template <typename TargetElement, CastChecking Checking = CastChecking::checked,
 StaticCastResultType<RebindDataType<SourceRef, TargetElement>, SourceRef,
                      Checking>
 StaticDataTypeCast(SourceRef&& source) {
-  using Source = internal::remove_cvref_t<SourceRef>;
+  using Source = absl::remove_cvref_t<SourceRef>;
   static_assert(IsElementTypeExplicitlyConvertible<typename Source::Element,
                                                    TargetElement>,
                 "StaticDataTypeCast cannot cast away const qualification");
@@ -1512,7 +1513,7 @@ StaticDataTypeCast(SourceRef&& source) {
 template <typename TargetElement, typename SourceRef>
 inline StaticCastResultType<RebindDataType<SourceRef, TargetElement>, SourceRef>
 ConstDataTypeCast(SourceRef&& source) {
-  using Source = internal::remove_cvref_t<SourceRef>;
+  using Source = absl::remove_cvref_t<SourceRef>;
   static_assert(
       std::is_same_v<const typename Source::Element, const TargetElement>,
       "ConstDataTypeCast can only change const qualification");
@@ -1572,8 +1573,8 @@ constexpr DataType kDataTypes[] = {
 ///
 /// \relates ElementPointer
 template <typename Pointer>
-using pointee_dtype_t = dtype_t<typename std::pointer_traits<
-    internal::remove_cvref_t<Pointer>>::element_type>;
+using pointee_dtype_t = dtype_t<
+    typename std::pointer_traits<absl::remove_cvref_t<Pointer>>::element_type>;
 
 namespace internal {
 absl::Status NonSerializableDataTypeError(DataType dtype);

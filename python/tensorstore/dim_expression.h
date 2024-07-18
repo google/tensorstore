@@ -28,6 +28,7 @@
 #include <variant>
 #include <vector>
 
+#include "absl/meta/type_traits.h"
 #include "python/tensorstore/index.h"
 #include "python/tensorstore/subscript_method.h"
 #include "python/tensorstore/typed_slice.h"
@@ -481,7 +482,7 @@ class PythonDimExpression {
   template <typename Op>
   PythonDimExpression Extend(Op&& op) const {
     auto new_chain = internal::MakeIntrusivePtr<
-        PythonDimExpressionChainOp<internal::remove_cvref_t<Op>>>();
+        PythonDimExpressionChainOp<absl::remove_cvref_t<Op>>>();
     new_chain->op = std::forward<Op>(op);
     new_chain->parent = ops;
     return PythonDimExpression{std::move(new_chain)};

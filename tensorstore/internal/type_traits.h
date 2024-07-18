@@ -33,6 +33,7 @@
 #include <tuple>
 #endif
 
+#include "absl/meta/type_traits.h"
 #include "tensorstore/index.h"
 
 namespace tensorstore {
@@ -154,11 +155,6 @@ constexpr inline bool
                                           << std ::declval<const T&>())>> =
         true;
 
-/// Type alias that removes both reference and const/volatile qualification.
-///
-/// Equivalent to C++20 `std::remove_cvref_t`.
-template <typename T>
-using remove_cvref_t = std::remove_cv_t<std::remove_reference_t<T>>;
 
 template <typename Qualified, typename T>
 struct CopyQualifiersHelper {
@@ -200,7 +196,7 @@ struct CopyQualifiersHelper<Qualified&&, T> {
 ///     CopyQualifiers<const float&&, volatile int&> -> const int&&
 template <typename Qualified, typename T>
 using CopyQualifiers =
-    typename CopyQualifiersHelper<Qualified, remove_cvref_t<T>>::type;
+    typename CopyQualifiersHelper<Qualified, absl::remove_cvref_t<T>>::type;
 
 /// Converts an rvalue reference to an lvalue reference.  Among other things,
 /// this permits taking the address of a temporary object, which can be useful

@@ -24,6 +24,7 @@
 
 #include "absl/base/attributes.h"
 #include "absl/functional/any_invocable.h"
+#include "absl/meta/type_traits.h"
 #include "tensorstore/internal/poly/poly.h"
 #include "tensorstore/internal/type_traits.h"
 
@@ -101,16 +102,15 @@ class ExecutorBoundFunction {
 /// \relates Executor
 template <typename Executor, typename Function>
 std::enable_if_t<
-    !std::is_same_v<internal::remove_cvref_t<Executor>, InlineExecutor>,
-    ExecutorBoundFunction<internal::remove_cvref_t<Executor>,
-                          internal::remove_cvref_t<Function>>>
+    !std::is_same_v<absl::remove_cvref_t<Executor>, InlineExecutor>,
+    ExecutorBoundFunction<absl::remove_cvref_t<Executor>,
+                          absl::remove_cvref_t<Function>>>
 WithExecutor(Executor&& executor, Function&& function) {
   return {std::forward<Executor>(executor), std::forward<Function>(function)};
 }
 template <typename Executor, typename Function>
-std::enable_if_t<
-    std::is_same_v<internal::remove_cvref_t<Executor>, InlineExecutor>,
-    Function&&>
+std::enable_if_t<std::is_same_v<absl::remove_cvref_t<Executor>, InlineExecutor>,
+                 Function&&>
 WithExecutor(Executor&& executor, Function&& function) {
   return std::forward<Function>(function);
 }

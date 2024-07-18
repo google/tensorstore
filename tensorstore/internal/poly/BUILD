@@ -10,7 +10,10 @@ tensorstore_cc_library(
         "poly_impl.h",
     ],
     hdrs = ["poly.h"],
-    deps = [":storage"],
+    deps = [
+        ":storage",
+        "@com_google_absl//absl/meta:type_traits",
+    ],
 )
 
 tensorstore_cc_test(

@@ -23,8 +23,8 @@
 #include "absl/base/optimization.h"
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
+#include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
-#include "tensorstore/internal/attributes.h"
 #include "tensorstore/internal/preprocessor/cat.h"
 #include "tensorstore/internal/preprocessor/expand.h"
 #include "tensorstore/internal/type_traits.h"
@@ -60,7 +60,7 @@ using UnwrapResultType = typename internal_result::UnwrapResultHelper<T>::type;
 /// \relates Result
 template <typename T>
 using UnwrapQualifiedResultType =
-    internal::CopyQualifiers<T, UnwrapResultType<internal::remove_cvref_t<T>>>;
+    internal::CopyQualifiers<T, UnwrapResultType<absl::remove_cvref_t<T>>>;
 
 /// FlatResult<T> maps
 ///
@@ -183,7 +183,7 @@ class Result : private internal_result::ResultStorage<T>,
   Result& operator=(const Result& src) = default;
   Result& operator=(Result&& src) = default;
 
-  /// absl::Status construtors.
+  /// absl::Status constructors.
 
   /// Constructs from a status object.
   ///
@@ -694,8 +694,7 @@ class Result<void> {
 /// \id value
 inline Result<void> MakeResult() { return {std::in_place}; }
 template <int&... ExplicitArgumentBarrier, typename T>
-inline Result<typename tensorstore::internal::remove_cvref_t<T>> MakeResult(
-    T&& t) {
+inline Result<typename absl::remove_cvref_t<T>> MakeResult(T&& t) {
   return {std::in_place, std::forward<T>(t)};
 }
 template <typename U, typename... Args>
@@ -771,7 +770,7 @@ FlatResult<std::invoke_result_t<Func&&, UnwrapQualifiedResultType<T>...>>
 MapResult(Func&& func, T&&... arg) {
   absl::Status status;
   if (!([&] {
-        if constexpr (IsResult<internal::remove_cvref_t<T>>) {
+        if constexpr (IsResult<absl::remove_cvref_t<T>>) {
           if (!arg.ok()) {
             status = arg.status();
             return false;
@@ -794,7 +793,7 @@ struct ChainResultTypeHelper;
 template <typename T>
 struct ChainResultTypeHelper<T> {
   using type =
-      typename UnwrapResultHelper<internal::remove_cvref_t<T>>::result_type;
+      typename UnwrapResultHelper<absl::remove_cvref_t<T>>::result_type;
 };
 
 template <typename T, typename Func0, typename... Func>

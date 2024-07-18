@@ -23,6 +23,7 @@
 
 #include <type_traits>
 
+#include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include <nlohmann/json_fwd.hpp>
 #include "tensorstore/array.h"
@@ -30,7 +31,6 @@
 #include "tensorstore/index.h"
 #include "tensorstore/internal/json/array.h"
 #include "tensorstore/internal/json_binding/bindable.h"
-#include "tensorstore/internal/type_traits.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/static_cast.h"
 #include "tensorstore/util/result.h"
@@ -43,7 +43,7 @@ constexpr auto NestedVoidArray(DataType dtype,
                                DimensionIndex rank_constraint = dynamic_rank) {
   return [=](auto is_loading, const auto& options, auto* obj,
              ::nlohmann::json* j) -> absl::Status {
-    using Element = typename internal::remove_cvref_t<
+    using Element = typename absl::remove_cvref_t<
         std::remove_pointer_t<decltype(obj)>>::Element;
     static_assert(std::is_void_v<Element>,
                   "Use NestedArray for tensorstore::Array<T> arrays");
@@ -62,7 +62,7 @@ constexpr auto NestedVoidArray(DataType dtype,
 constexpr auto NestedArray(DimensionIndex rank_constraint = dynamic_rank) {
   return [=](auto is_loading, const auto& options, auto* obj,
              ::nlohmann::json* j) -> absl::Status {
-    using Element = typename internal::remove_cvref_t<
+    using Element = typename absl::remove_cvref_t<
         std::remove_pointer_t<decltype(obj)>>::Element;
     static_assert(!std::is_void_v<Element>,
                   "Use NestedVoidArray for tensorstore::Array<void> arrays");

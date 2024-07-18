@@ -31,6 +31,7 @@ tensorstore_cc_library(
         "//tensorstore/util:str_cat",
         "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/meta:type_traits",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
     ],
@@ -75,10 +76,10 @@ tensorstore_cc_library(
         "//tensorstore:index",
         "//tensorstore:rank",
         "//tensorstore:static_cast",
-        "//tensorstore/internal:type_traits",
         "//tensorstore/internal/json:array",
         "//tensorstore/util:result",
         "@com_github_nlohmann_json//:json",
+        "@com_google_absl//absl/meta:type_traits",
         "@com_google_absl//absl/status",
     ],
 )
@@ -268,6 +269,7 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore:json_serialization_options_base",
         "@com_github_nlohmann_json//:json",
+        "@com_google_absl//absl/meta:type_traits",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",

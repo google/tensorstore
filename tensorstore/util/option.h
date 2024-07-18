@@ -18,6 +18,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include "tensorstore/internal/type_traits.h"
 
@@ -29,8 +30,8 @@ namespace tensorstore {
 template <typename Options, typename... Option>
 // NONITPICK: Options::IsOption<std::remove_cvref_t<Option>>
 constexpr inline bool IsCompatibleOptionSequence =
-    ((!std::is_same_v<Options, internal::remove_cvref_t<Option>> &&
-      Options::template IsOption<internal::remove_cvref_t<Option>>) &&
+    ((!std::is_same_v<Options, absl::remove_cvref_t<Option>> &&
+      Options::template IsOption<absl::remove_cvref_t<Option>>) &&
      ...);
 
 }  // namespace tensorstore

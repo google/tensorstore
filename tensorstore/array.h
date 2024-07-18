@@ -35,6 +35,7 @@
 
 #include "absl/base/attributes.h"
 #include "absl/log/absl_check.h"
+#include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include "tensorstore/box.h"
 #include "tensorstore/container_kind.h"
@@ -679,15 +680,15 @@ class Array {
   /// Unchecked conversion.
   ///
   /// \id unchecked
-  template <
-      typename Other,
-      std::enable_if_t<
-          (IsArray<internal::remove_cvref_t<Other>> &&
-           IsStaticCastConstructible<
-               ElementPointer,
-               typename internal::remove_cvref_t<Other>::ElementPointer> &&
-           IsStaticCastConstructible<Layout, typename internal::remove_cvref_t<
-                                                 Other>::Layout>)>* = nullptr>
+  template <typename Other,
+            std::enable_if_t<
+                (IsArray<absl::remove_cvref_t<Other>> &&
+                 IsStaticCastConstructible<
+                     ElementPointer,
+                     typename absl::remove_cvref_t<Other>::ElementPointer> &&
+                 IsStaticCastConstructible<
+                     Layout, typename absl::remove_cvref_t<Other>::Layout>)>* =
+                nullptr>
   // NONITPICK: std::remove_cvref_t<Other>::ElementPointer
   // NONITPICK: std::remove_cvref_t<Other>::Layout
   explicit Array(unchecked_t, Other&& other)
@@ -696,13 +697,12 @@ class Array {
 
   /// Copy assigns from a compatible existing array.
   template <typename Other>
-  std::enable_if_t<
-      (IsArray<internal::remove_cvref_t<Other>> &&
-       internal::IsPairAssignable<
-           typename internal::remove_cvref_t<Other>::ElementPointer,
-           typename internal::remove_cvref_t<Other>::Layout, ElementPointer,
-           Layout>),
-      Array&>
+  std::enable_if_t<(IsArray<absl::remove_cvref_t<Other>> &&
+                    internal::IsPairAssignable<
+                        typename absl::remove_cvref_t<Other>::ElementPointer,
+                        typename absl::remove_cvref_t<Other>::Layout,
+                        ElementPointer, Layout>),
+                   Array&>
   operator=(Other&& other) {
     element_pointer() = std::forward<Other>(other).element_pointer();
     layout() = std::forward<Other>(other).layout();
@@ -1051,20 +1051,20 @@ struct StaticCastTraits<
 /// \relates Array
 template <ArrayOriginKind TargetOriginKind,
           ContainerKind LayoutContainerKind = view, typename A>
-std::enable_if_t<(IsArray<internal::remove_cvref_t<A>> &&
-                  !IsArrayOriginKindConvertible(
-                      internal::remove_cvref_t<A>::array_origin_kind,
-                      TargetOriginKind)),
-                 Result<Array<typename internal::remove_cvref_t<A>::ElementTag,
-                              internal::remove_cvref_t<A>::static_rank,
-                              TargetOriginKind, LayoutContainerKind>>>
+std::enable_if_t<
+    (IsArray<absl::remove_cvref_t<A>> &&
+     !IsArrayOriginKindConvertible(absl::remove_cvref_t<A>::array_origin_kind,
+                                   TargetOriginKind)),
+    Result<Array<typename absl::remove_cvref_t<A>::ElementTag,
+                 absl::remove_cvref_t<A>::static_rank, TargetOriginKind,
+                 LayoutContainerKind>>>
 // NONITPICK: std::remove_cvref_t<A>::array_origin_kind
 // NONITPICK: std::remove_cvref_t<A>::ElementTag
 // NONITPICK: std::remove_cvref_t<A>::static_rank
 // This overload handles the case of `TargetOriginKind == zero_origin`
 // and `array.array_origin_kind == offset_origin`.
 ArrayOriginCast(A&& array) {
-  using AX = internal::remove_cvref_t<A>;
+  using AX = absl::remove_cvref_t<A>;
   if (std::any_of(array.shape().begin(), array.shape().end(),
                   [](Index x) { return x > kInfIndex; })) {
     return internal_array::ArrayOriginCastError(array.shape());
@@ -1077,15 +1077,15 @@ ArrayOriginCast(A&& array) {
 }
 template <ArrayOriginKind TargetOriginKind,
           ContainerKind LayoutContainerKind = view, typename A>
-std::enable_if_t<(IsArray<internal::remove_cvref_t<A>> &&
-                  IsArrayOriginKindConvertible(
-                      internal::remove_cvref_t<A>::array_origin_kind,
-                      TargetOriginKind)),
-                 Array<typename internal::remove_cvref_t<A>::ElementTag,
-                       internal::remove_cvref_t<A>::static_rank,
-                       TargetOriginKind, LayoutContainerKind>>
+std::enable_if_t<
+    (IsArray<absl::remove_cvref_t<A>> &&
+     IsArrayOriginKindConvertible(absl::remove_cvref_t<A>::array_origin_kind,
+                                  TargetOriginKind)),
+    Array<typename absl::remove_cvref_t<A>::ElementTag,
+          absl::remove_cvref_t<A>::static_rank, TargetOriginKind,
+          LayoutContainerKind>>
 ArrayOriginCast(A&& array) {
-  using AX = internal::remove_cvref_t<A>;
+  using AX = absl::remove_cvref_t<A>;
   return Array<typename AX::ElementTag, AX::static_rank, TargetOriginKind,
                LayoutContainerKind>(std::forward<A>(array));
 }

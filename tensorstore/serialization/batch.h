@@ -33,11 +33,11 @@
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include "riegeli/bytes/string_reader.h"
 #include "riegeli/bytes/string_writer.h"
 #include "riegeli/bytes/writer.h"
-#include "tensorstore/internal/type_traits.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/result.h"
@@ -97,7 +97,7 @@ Result<std::string> EncodeBatch(const T& value,
 
 /// Decodes a single object from a string.
 template <typename T,
-          typename ElementSerializer = Serializer<internal::remove_cvref_t<T>>>
+          typename ElementSerializer = Serializer<absl::remove_cvref_t<T>>>
 absl::Status DecodeBatch(std::string_view encoded, T& value,
                          const ElementSerializer& serializer = {}) {
   riegeli::StringReader reader(encoded);
@@ -111,7 +111,7 @@ absl::Status DecodeBatch(std::string_view encoded, T& value,
 /// Overload that accepts rvalue reference, which is useful for mutable view
 /// types like `span`.
 template <typename T,
-          typename ElementSerializer = Serializer<internal::remove_cvref_t<T>>>
+          typename ElementSerializer = Serializer<absl::remove_cvref_t<T>>>
 absl::Status DecodeBatch(std::string_view encoded, T&& value,
                          const ElementSerializer& serializer = {}) {
   riegeli::StringReader reader(encoded);

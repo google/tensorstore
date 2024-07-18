@@ -100,6 +100,7 @@
 #include <typeinfo>
 #include <utility>
 
+#include "absl/meta/type_traits.h"
 #include "tensorstore/internal/poly/poly_impl.h"  // IWYU pragma: export
 
 namespace tensorstore {
@@ -214,8 +215,8 @@ class Poly
                        IsCompatibleWithPoly<T, Copyable, Signature...>>;
 
   /// `bool`-valued metafunction that evaluates to `true` if
-  /// `IsCompatible<remove_cvref_t<T>>` and
-  /// `std::is_constructible_v<remove_cvref_t<T>, T&&>` are both `true`.
+  /// `IsCompatible<absl::remove_cvref_t<T>>` and
+  /// `std::is_constructible_v<absl::remove_cvref_t<T>, T&&>` are both `true`.
   template <typename T>
   using IsCompatibleAndConstructible =
       // Prevent instantiation of `IsCompatibleWithPoly` and `is_constructible`
@@ -223,11 +224,11 @@ class Poly
       // `std::is_copy_constructible` being instantiated before `Poly` is
       // complete.
       std::disjunction<
-          std::is_same<Poly, internal_poly::remove_cvref_t<T>>,
+          std::is_same<Poly, absl::remove_cvref_t<T>>,
           std::conjunction<
-              IsCompatibleWithPoly<internal_poly::remove_cvref_t<T>, Copyable,
+              IsCompatibleWithPoly<absl::remove_cvref_t<T>, Copyable,
                                    Signature...>,
-              std::is_constructible<internal_poly::remove_cvref_t<T>, T&&>>>;
+              std::is_constructible<absl::remove_cvref_t<T>, T&&>>>;
 
   /// Constructs in a null state.
   ///
@@ -239,15 +240,15 @@ class Poly
   /// \post `bool(*this) == false`
   Poly(std::nullptr_t) noexcept {}
 
-  /// Constructs an object of type `remove_cvref_t<T>` from `obj`.
+  /// Constructs an object of type `absl::remove_cvref_t<T>` from `obj`.
   ///
-  /// \requires `IsCompatible<remove_cvref_t<T>>`.
-  /// \requires `remove_cvref_t<T>` is constructible from `T&&`.
+  /// \requires `IsCompatible<absl::remove_cvref_t<T>>`.
+  /// \requires `absl::remove_cvref_t<T>` is constructible from `T&&`.
   /// \post `bool(*this) == true`
   template <typename T,
             std::enable_if_t<IsCompatibleAndConstructible<T>::value>* = nullptr>
   Poly(T&& obj) {
-    Construct(std::in_place_type_t<internal_poly::remove_cvref_t<T>>{},
+    Construct(std::in_place_type_t<absl::remove_cvref_t<T>>{},
               std::forward<T>(obj));
   }
 
@@ -313,7 +314,7 @@ class Poly
             std::enable_if_t<IsCompatibleAndConstructible<T>::value>* = nullptr>
   void emplace(T&& obj) {
     storage_.Destroy();
-    Construct(std::in_place_type_t<internal_poly::remove_cvref_t<T>>{},
+    Construct(std::in_place_type_t<absl::remove_cvref_t<T>>{},
               std::forward<T>(obj));
   }
 

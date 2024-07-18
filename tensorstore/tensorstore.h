@@ -19,6 +19,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/meta/type_traits.h"
 #include "tensorstore/array.h"
 #include "tensorstore/array_storage_statistics.h"
 #include "tensorstore/chunk_layout.h"
@@ -658,8 +659,8 @@ constexpr inline bool CanReadTensorstoreToArray =
 /// \membergroup I/O
 template <typename Source, typename TargetArray>
 std::enable_if_t<CanReadTensorstoreToArray<
-                     UnwrapResultType<internal::remove_cvref_t<Source>>,
-                     UnwrapResultType<internal::remove_cvref_t<TargetArray>>>,
+                     UnwrapResultType<absl::remove_cvref_t<Source>>,
+                     UnwrapResultType<absl::remove_cvref_t<TargetArray>>>,
                  Future<void>>
 Read(Source&& source, TargetArray&& target, ReadOptions options) {
   return MapResult(
@@ -676,8 +677,8 @@ Read(Source&& source, TargetArray&& target, ReadOptions options) {
 template <typename Source, typename TargetArray, typename... Option>
 std::enable_if_t<(IsCompatibleOptionSequence<ReadOptions, Option...> &&
                   CanReadTensorstoreToArray<
-                      UnwrapResultType<internal::remove_cvref_t<Source>>,
-                      UnwrapResultType<internal::remove_cvref_t<TargetArray>>>),
+                      UnwrapResultType<absl::remove_cvref_t<Source>>,
+                      UnwrapResultType<absl::remove_cvref_t<TargetArray>>>),
                  Future<void>>
 Read(Source&& source, TargetArray&& target, Option&&... options) {
   return tensorstore::Read(std::forward<Source>(source),
@@ -718,16 +719,15 @@ Read(Source&& source, TargetArray&& target, Option&&... options) {
 template <ArrayOriginKind OriginKind = offset_origin, typename Source>
 std::enable_if_t<
     internal::IsTensorStoreThatSupportsMode<
-        UnwrapResultType<internal::remove_cvref_t<Source>>,
-        ReadWriteMode::read>,
+        UnwrapResultType<absl::remove_cvref_t<Source>>, ReadWriteMode::read>,
     Future<SharedArray<
-        typename UnwrapResultType<internal::remove_cvref_t<Source>>::Element,
-        UnwrapResultType<internal::remove_cvref_t<Source>>::static_rank,
+        typename UnwrapResultType<absl::remove_cvref_t<Source>>::Element,
+        UnwrapResultType<absl::remove_cvref_t<Source>>::static_rank,
         OriginKind>>>
 Read(Source&& source, ReadIntoNewArrayOptions options) {
   return MapResult(
       [&](UnwrapQualifiedResultType<Source&&> unwrapped_source) {
-        using Store = UnwrapResultType<internal::remove_cvref_t<Source>>;
+        using Store = UnwrapResultType<absl::remove_cvref_t<Source>>;
         return internal_tensorstore::MapArrayFuture<
             typename Store::Element, Store::static_rank, OriginKind>(
             internal::DriverReadIntoNewArray(
@@ -742,11 +742,10 @@ template <ArrayOriginKind OriginKind = offset_origin, typename Source,
 std::enable_if_t<
     (IsCompatibleOptionSequence<ReadIntoNewArrayOptions, Option...> &&
      internal::IsTensorStoreThatSupportsMode<
-         UnwrapResultType<internal::remove_cvref_t<Source>>,
-         ReadWriteMode::read>),
+         UnwrapResultType<absl::remove_cvref_t<Source>>, ReadWriteMode::read>),
     Future<SharedArray<
-        typename UnwrapResultType<internal::remove_cvref_t<Source>>::Element,
-        UnwrapResultType<internal::remove_cvref_t<Source>>::static_rank,
+        typename UnwrapResultType<absl::remove_cvref_t<Source>>::Element,
+        UnwrapResultType<absl::remove_cvref_t<Source>>::static_rank,
         OriginKind>>>
 Read(Source&& source, Option&&... options) {
   return tensorstore::Read<OriginKind>(
@@ -806,8 +805,8 @@ constexpr inline bool CanWriteArrayToTensorStore =
 /// \id Array, TensorStore
 template <typename SourceArray, typename Target>
 std::enable_if_t<CanWriteArrayToTensorStore<
-                     UnwrapResultType<internal::remove_cvref_t<SourceArray>>,
-                     UnwrapResultType<internal::remove_cvref_t<Target>>>,
+                     UnwrapResultType<absl::remove_cvref_t<SourceArray>>,
+                     UnwrapResultType<absl::remove_cvref_t<Target>>>,
                  WriteFutures>
 Write(SourceArray&& source, Target&& target, WriteOptions options) {
   return MapResult(
@@ -824,8 +823,8 @@ Write(SourceArray&& source, Target&& target, WriteOptions options) {
 template <typename SourceArray, typename Target, typename... Option>
 std::enable_if_t<(IsCompatibleOptionSequence<WriteOptions, Option...> &&
                   CanWriteArrayToTensorStore<
-                      UnwrapResultType<internal::remove_cvref_t<SourceArray>>,
-                      UnwrapResultType<internal::remove_cvref_t<Target>>>),
+                      UnwrapResultType<absl::remove_cvref_t<SourceArray>>,
+                      UnwrapResultType<absl::remove_cvref_t<Target>>>),
                  WriteFutures>
 Write(SourceArray&& source, Target&& target, Option&&... options) {
   return tensorstore::Write(std::forward<SourceArray>(source),
@@ -885,8 +884,8 @@ constexpr inline bool CanCopyTensorStoreToTensorStore =
 /// \id TensorStore, TensorStore
 template <typename Source, typename Target>
 std::enable_if_t<CanCopyTensorStoreToTensorStore<
-                     UnwrapResultType<internal::remove_cvref_t<Source>>,
-                     UnwrapResultType<internal::remove_cvref_t<Target>>>,
+                     UnwrapResultType<absl::remove_cvref_t<Source>>,
+                     UnwrapResultType<absl::remove_cvref_t<Target>>>,
                  WriteFutures>
 Copy(Source&& source, Target&& target, CopyOptions options) {
   return MapResult(
@@ -904,8 +903,8 @@ Copy(Source&& source, Target&& target, CopyOptions options) {
 template <typename Source, typename Target, typename... Option>
 std::enable_if_t<(IsCompatibleOptionSequence<CopyOptions, Option...> &&
                   CanCopyTensorStoreToTensorStore<
-                      UnwrapResultType<internal::remove_cvref_t<Source>>,
-                      UnwrapResultType<internal::remove_cvref_t<Target>>>),
+                      UnwrapResultType<absl::remove_cvref_t<Source>>,
+                      UnwrapResultType<absl::remove_cvref_t<Target>>>),
                  WriteFutures>
 Copy(Source&& source, Target&& target, Option&&... options) {
   return tensorstore::Copy(std::forward<Source>(source),

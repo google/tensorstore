@@ -26,6 +26,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/meta/type_traits.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/container/compressed_tuple.h"
@@ -209,7 +210,7 @@ constexpr inline bool IsNonVoidArrayBasePointer<std::shared_ptr<T>> =
 namespace internal_element_pointer {
 template <typename Target, typename Source>
 inline std::enable_if_t<(std::is_pointer_v<Target> ==
-                         std::is_pointer_v<internal::remove_cvref_t<Source>>),
+                         std::is_pointer_v<absl::remove_cvref_t<Source>>),
                         Target>
 ConvertPointer(Source&& x) {
   return internal::StaticConstPointerCast<
@@ -218,7 +219,7 @@ ConvertPointer(Source&& x) {
 }
 template <typename Target, typename Source>
 inline std::enable_if_t<(std::is_pointer_v<Target> >
-                         std::is_pointer_v<internal::remove_cvref_t<Source>>),
+                         std::is_pointer_v<absl::remove_cvref_t<Source>>),
                         Target>
 ConvertPointer(Source&& x) {
   return internal::StaticConstPointerCast<
@@ -293,9 +294,9 @@ class ElementPointer {
   /// \id element_pointer
   template <
       typename Source,
-      std::enable_if_t<(IsElementPointer<internal::remove_cvref_t<Source>> &&
+      std::enable_if_t<(IsElementPointer<absl::remove_cvref_t<Source>> &&
                         IsArrayBasePointerConvertible<
-                            typename internal::remove_cvref_t<Source>::Pointer,
+                            typename absl::remove_cvref_t<Source>::Pointer,
                             Pointer>)>* = nullptr>
   // NONITPICK: std::remove_cvref_t<Source>::Pointer
   ElementPointer(Source&& source)
@@ -308,7 +309,7 @@ class ElementPointer {
   /// \id unchecked
   template <typename Source,
             std::enable_if_t<IsElementPointerCastConvertible<
-                internal::remove_cvref_t<Source>, ElementPointer>>* = nullptr>
+                absl::remove_cvref_t<Source>, ElementPointer>>* = nullptr>
   explicit ElementPointer(unchecked_t, Source&& source)
       : storage_(DataType(unchecked, source.dtype()),
                  internal_element_pointer::ConvertPointer<Pointer>(
@@ -323,8 +324,8 @@ class ElementPointer {
   template <
       typename SourcePointer,
       std::enable_if_t<
-          IsNonVoidArrayBasePointer<internal::remove_cvref_t<SourcePointer>> &&
-          IsArrayBasePointerConvertible<internal::remove_cvref_t<SourcePointer>,
+          IsNonVoidArrayBasePointer<absl::remove_cvref_t<SourcePointer>> &&
+          IsArrayBasePointerConvertible<absl::remove_cvref_t<SourcePointer>,
                                         Pointer>>* = nullptr>
   ElementPointer(SourcePointer&& pointer)
       : storage_(pointee_dtype_t<SourcePointer>(),
@@ -333,7 +334,7 @@ class ElementPointer {
                          std::forward<SourcePointer>(pointer)))) {}
   template <typename SourcePointer,
             std::enable_if_t<IsArrayBasePointerConvertible<
-                internal::remove_cvref_t<SourcePointer>, Pointer>>* = nullptr>
+                absl::remove_cvref_t<SourcePointer>, Pointer>>* = nullptr>
   ElementPointer(SourcePointer&& pointer, pointee_dtype_t<SourcePointer> dtype)
       : storage_(dtype, internal::static_pointer_cast<Element>(
                             internal_element_pointer::ConvertPointer<Pointer>(
@@ -543,7 +544,7 @@ struct DeducedElementTagHelper<T*>
 template <typename T>
 using DeducedElementTag =
     typename internal_element_pointer::DeducedElementTagHelper<
-        internal::remove_cvref_t<T>>::type;
+        absl::remove_cvref_t<T>>::type;
 
 template <typename Pointer>
 ElementPointer(Pointer pointer) -> ElementPointer<DeducedElementTag<Pointer>>;

@@ -247,6 +247,7 @@
 #include <type_traits>
 
 #include "absl/base/attributes.h"
+#include "absl/meta/type_traits.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/context.h"
@@ -440,7 +441,7 @@ template <typename Element = void, DimensionIndex Rank = dynamic_rank,
 std::enable_if_t<IsReadFunction<ReadFunc, Element, Rank>,
                  Result<TensorStore<Element, Rank, ReadWriteMode::read>>>
 VirtualChunked(ReadFunc read_function, OpenOptions&& options) {
-  static_assert(std::is_same_v<Element, internal::remove_cvref_t<Element>>,
+  static_assert(std::is_same_v<Element, absl::remove_cvref_t<Element>>,
                 "Element type must be unqualified");
   static_assert(Rank >= dynamic_rank,
                 "Rank must equal dynamic_rank (-1) or be non-negative.");
@@ -494,7 +495,7 @@ std::enable_if_t<(IsReadFunction<ReadFunc, Element, Rank> &&
                  Result<TensorStore<Element, Rank, ReadWriteMode::read_write>>>
 VirtualChunked(ReadFunc read_function, WriteFunc write_function,
                OpenOptions&& options) {
-  static_assert(std::is_same_v<Element, internal::remove_cvref_t<Element>>,
+  static_assert(std::is_same_v<Element, absl::remove_cvref_t<Element>>,
                 "Element type must be unqualified");
   static_assert(Rank >= dynamic_rank,
                 "Rank must equal dynamic_rank (-1) or be non-negative.");
@@ -550,7 +551,7 @@ template <typename Element = void, DimensionIndex Rank = dynamic_rank,
           typename WriteFunc>
 Result<TensorStore<Element, Rank, ReadWriteMode::write>>
 VirtualChunkedWriteOnly(WriteFunc write_function, OpenOptions&& options) {
-  static_assert(std::is_same_v<Element, internal::remove_cvref_t<Element>>,
+  static_assert(std::is_same_v<Element, absl::remove_cvref_t<Element>>,
                 "Element type must be unqualified");
   static_assert(Rank >= dynamic_rank,
                 "Rank must equal dynamic_rank (-1) or be non-negative.");

@@ -15,8 +15,12 @@
 #ifndef TENSORSTORE_INTERNAL_JSON_BINDING_STD_VARIANT_H_
 #define TENSORSTORE_INTERNAL_JSON_BINDING_STD_VARIANT_H_
 
+#include <cstddef>
+#include <type_traits>
+#include <utility>
 #include <variant>
 
+#include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include <nlohmann/json_fwd.hpp>
 #include "tensorstore/internal/json/json.h"
@@ -109,10 +113,9 @@ template <typename... ValueBinder>
 constexpr auto Variant(ValueBinder... value_binder) {
   return [=](auto is_loading, const auto& options, auto* obj,
              auto* j) -> absl::Status {
-    static_assert(
-        sizeof...(value_binder) ==
-            std::variant_size_v<internal::remove_cvref_t<decltype(*obj)>>,
-        "value_binder pack must have the same size as the variant");
+    static_assert(sizeof...(value_binder) ==
+                      std::variant_size_v<absl::remove_cvref_t<decltype(*obj)>>,
+                  "value_binder pack must have the same size as the variant");
     return VariantBinderImpl(
         std::make_index_sequence<sizeof...(value_binder)>{}, is_loading,
         options, obj, j, value_binder...);
@@ -125,7 +128,7 @@ constexpr auto Variant() {
              auto* j) -> absl::Status {
     return VariantDefaultBinderImpl(
         std::make_index_sequence<
-            std::variant_size_v<internal::remove_cvref_t<decltype(*obj)>>>{},
+            std::variant_size_v<absl::remove_cvref_t<decltype(*obj)>>>{},
         is_loading, options, obj, j);
   };
 }

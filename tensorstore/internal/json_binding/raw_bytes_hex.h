@@ -18,6 +18,7 @@
 #include <cstddef>
 #include <type_traits>
 
+#include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/json_serialization_options_base.h"
@@ -38,7 +39,7 @@ struct RawBytesHexImpl {
 /// the in-memory byte representation.
 constexpr auto RawBytesHex = [](auto is_loading, NoOptions options, auto* obj,
                                 auto* j) -> absl::Status {
-  using T = internal::remove_cvref_t<decltype(*obj)>;
+  using T = absl::remove_cvref_t<decltype(*obj)>;
   static_assert(std::is_trivially_destructible_v<T>);
   return RawBytesHexImpl{sizeof(T)}(is_loading, options, obj, j);
 };

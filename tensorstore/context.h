@@ -24,6 +24,7 @@
 #include <string>
 #include <utility>
 
+#include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context_impl_base.h"  // IWYU pragma: export
@@ -492,7 +493,7 @@ absl::Status BindContextCopyOnWriteWithNestedContext(Ptr& ptr,
     }
     if (orig_obj.use_count() != 1) ptr = orig_obj.Clone();
   }
-  using T = internal::remove_cvref_t<decltype(*ptr)>;
+  using T = absl::remove_cvref_t<decltype(*ptr)>;
   auto& obj = const_cast<T&>(*ptr);
   Access::context_binding_state(obj) = ContextBindingState::unknown;
 
@@ -536,7 +537,7 @@ void UnbindContextCopyOnWriteWithNestedContext(
     }
     if (orig_obj.use_count() != 1) ptr = orig_obj.Clone();
   }
-  using T = internal::remove_cvref_t<decltype(*ptr)>;
+  using T = absl::remove_cvref_t<decltype(*ptr)>;
   auto& obj = const_cast<T&>(*ptr);
   // Unbinds context resources via Ptr::UnbindContext
   auto child_builder = internal::ContextSpecBuilder::Make(
@@ -559,7 +560,7 @@ void StripContextCopyOnWriteWithNestedContext(Ptr& ptr) {
     auto& orig_obj = *ptr;
     if (orig_obj.use_count() != 1) ptr = orig_obj.Clone();
   }
-  using T = internal::remove_cvref_t<decltype(*ptr)>;
+  using T = absl::remove_cvref_t<decltype(*ptr)>;
   auto& obj = const_cast<T&>(*ptr);
   Access::context_spec(obj) = {};
   obj.StripContext();

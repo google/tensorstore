@@ -29,6 +29,7 @@
 
 #include "absl/base/attributes.h"
 #include "absl/base/optimization.h"
+#include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
@@ -109,7 +110,7 @@ class FutureAccess {
 
   template <typename T>
   using SharedStateType =
-      internal::remove_cvref_t<decltype(FutureAccess::rep(std::declval<T>()))>;
+      absl::remove_cvref_t<decltype(FutureAccess::rep(std::declval<T>()))>;
 };
 
 // Metafunction to select the ReadyFuture<T> type for a given future.
@@ -128,7 +129,7 @@ struct ReadyFutureTypeImpl<ReadyFuture<T>> {
 
 template <typename T>
 using ReadyFutureType =
-    typename ReadyFutureTypeImpl<internal::remove_cvref_t<T>>::type;
+    typename ReadyFutureTypeImpl<absl::remove_cvref_t<T>>::type;
 
 /// Returns a pointer to the Mutex guarding the callback lists for `ptr`.
 ///
@@ -1071,8 +1072,7 @@ class FutureLink<Policy, Deleter, Callback, PromiseValue,
           Futures, Is>... {
   static_assert(sizeof...(Futures) <= kMaxNumFutures, "");
 
-  static_assert((std::is_same_v<Futures, internal::remove_cvref_t<Futures>> &&
-                 ...),
+  static_assert((std::is_same_v<Futures, absl::remove_cvref_t<Futures>> && ...),
                 "FutureLink requires non cv-ref qualified Futures");
 
   // The promise and each of the futures have reference counts.  Additionally,
@@ -1429,8 +1429,8 @@ CallbackPointer MakeLink(Callback&& callback, Promise<PromiseValue> promise,
     case FutureErrorPropagationResult::kNotReady: {
       // The Policy is not yet ready, construct a link that defers execution.
       auto link = new internal_future::FutureLinkType<
-          Policy, DefaultFutureLinkDeleter, internal::remove_cvref_t<Callback>,
-          PromiseValue, internal::remove_cvref_t<Futures>...>(
+          Policy, DefaultFutureLinkDeleter, absl::remove_cvref_t<Callback>,
+          PromiseValue, absl::remove_cvref_t<Futures>...>(
           std::move(promise), std::forward<Futures>(future)..., {},
           std::forward<Callback>(callback));
       link->RegisterLink();
@@ -1494,8 +1494,7 @@ class LinkedFutureState
                             PromiseValue, Futures...> {
   static_assert(sizeof...(Futures) > 0,
                 "LinkedFutureState requires at least one Future.");
-  static_assert((std::is_same_v<Futures, internal::remove_cvref_t<Futures>> &&
-                 ...),
+  static_assert((std::is_same_v<Futures, absl::remove_cvref_t<Futures>> && ...),
                 "LinkedFutureState requires non cv-ref qualified Futures");
 
   using FutureStateType = FutureState<PromiseValue>;
@@ -1545,8 +1544,7 @@ class LinkedFutureState
 /// \tparam Futures Future<T> or AnyFuture of each future.
 template <typename Policy, typename PromiseValue, typename... Futures>
 struct MakeLinkedFutureState {
-  static_assert((std::is_same_v<Futures, internal::remove_cvref_t<Futures>> &&
-                 ...),
+  static_assert((std::is_same_v<Futures, absl::remove_cvref_t<Futures>> && ...),
                 "LinkedFutureState requires non cv-ref qualified futures");
 
   /// Returns a new `FutureState<PromiseValue>` where the promise has been
@@ -1560,7 +1558,7 @@ struct MakeLinkedFutureState {
   static FutureState<PromiseValue>* Make(Futures... future, Callback&& callback,
                                          ResultInit&&... result_init) {
     return new internal_future::LinkedFutureState<
-        Policy, internal::remove_cvref_t<Callback>, PromiseValue, Futures...>(
+        Policy, absl::remove_cvref_t<Callback>, PromiseValue, Futures...>(
         std::move(future)..., std::forward<Callback>(callback),
         std::forward<ResultInit>(result_init)...);
   }
@@ -1597,7 +1595,7 @@ constexpr inline bool is_result_status_or_future<absl::Status> = true;
 // Metafunction for enabling the Future<T>::Future(U) constructor overloads.
 template <typename T, typename U>
 constexpr inline bool value_conversion =
-    !is_result_status_or_future<internal::remove_cvref_t<U>>;
+    !is_result_status_or_future<absl::remove_cvref_t<U>>;
 template <typename U>
 constexpr inline bool value_conversion<void, U> = false;
 template <typename U>

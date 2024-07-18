@@ -97,6 +97,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_join.h"
 #include <nlohmann/json.hpp>
@@ -518,8 +519,7 @@ constexpr auto GetterSetter(Get get, Set set, Binder binder = DefaultBinder<>) {
     if constexpr (is_loading) {
       using Projected = std::conditional_t<
           std::is_void_v<T>,
-          internal::remove_cvref_t<std::invoke_result_t<Get, decltype(*obj)>>,
-          T>;
+          absl::remove_cvref_t<std::invoke_result_t<Get, decltype(*obj)>>, T>;
       Projected projected;
       TENSORSTORE_RETURN_IF_ERROR(binder(is_loading, options, &projected, j));
       return internal::InvokeForStatus(set, *obj, std::move(projected));
@@ -636,7 +636,7 @@ template <IncludeDefaultsPolicy DefaultsPolicy = kMaybeIncludeDefaults,
           typename Binder = decltype(DefaultBinder<>)>
 constexpr auto DefaultInitializedValue(Binder binder = DefaultBinder<>) {
   return internal_json_binding::DefaultValue<DefaultsPolicy>(
-      [](auto* obj) { *obj = internal::remove_cvref_t<decltype(*obj)>{}; },
+      [](auto* obj) { *obj = absl::remove_cvref_t<decltype(*obj)>{}; },
       std::move(binder));
 }
 
@@ -703,7 +703,7 @@ template <IncludeDefaultsPolicy Policy = kMaybeIncludeDefaults,
 constexpr auto DefaultInitializedPredicate(IsDefault is_default,
                                            Binder binder = DefaultBinder<>) {
   return internal_json_binding::DefaultPredicate<Policy>(
-      [](auto* obj) { *obj = internal::remove_cvref_t<decltype(*obj)>{}; },
+      [](auto* obj) { *obj = absl::remove_cvref_t<decltype(*obj)>{}; },
       std::move(is_default), std::move(binder));
 }
 

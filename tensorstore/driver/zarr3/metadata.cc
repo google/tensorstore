@@ -34,6 +34,7 @@
 #include "absl/algorithm/container.h"
 #include "absl/base/casts.h"
 #include "absl/base/optimization.h"
+#include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
@@ -67,7 +68,6 @@
 #include "tensorstore/internal/json_binding/std_optional.h"
 #include "tensorstore/internal/json_binding/unit.h"
 #include "tensorstore/internal/json_metadata_matching.h"
-#include "tensorstore/internal/type_traits.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/schema.h"
@@ -352,7 +352,7 @@ constexpr auto MetadataJsonBinder = [] {
   };
 
   return [=](auto is_loading, const auto& options, auto* obj, auto* j) {
-    using Self = internal::remove_cvref_t<decltype(*obj)>;
+    using Self = absl::remove_cvref_t<decltype(*obj)>;
     DimensionIndex* rank = nullptr;
     if constexpr (is_loading) {
       rank = &obj->rank;

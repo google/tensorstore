@@ -19,6 +19,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
@@ -34,7 +35,9 @@
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/type_traits.h"
+#include "tensorstore/json_serialization_options.h"
 #include "tensorstore/kvstore/spec.h"
+#include "tensorstore/open_mode.h"
 #include "tensorstore/open_options.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/serialization/fwd.h"
@@ -148,7 +151,7 @@ class Spec {
   /// \id expr
   template <typename Expr>
   friend internal::FirstType<
-      std::enable_if_t<!IsIndexTransform<internal::remove_cvref_t<Expr>>,
+      std::enable_if_t<!IsIndexTransform<absl::remove_cvref_t<Expr>>,
                        Result<Spec>>,
       decltype(ApplyIndexTransform(std::declval<Expr>(),
                                    std::declval<IndexTransform<>>()))>

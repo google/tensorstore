@@ -220,6 +220,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:type_traits",
         "//tensorstore/internal:unowned_to_shared",
         "//tensorstore/internal/container:compressed_tuple",
+        "@com_google_absl//absl/meta:type_traits",
     ],
 )
 
@@ -269,6 +270,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/poly",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/functional:any_invocable",
+        "@com_google_absl//absl/meta:type_traits",
     ],
 )
 
@@ -332,6 +334,7 @@ tensorstore_cc_library(
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/base:no_destructor",
         "@com_google_absl//absl/hash",
+        "@com_google_absl//absl/meta:type_traits",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/time",
@@ -463,6 +466,7 @@ tensorstore_cc_library(
     hdrs = ["option.h"],
     deps = [
         "//tensorstore/internal:type_traits",
+        "@com_google_absl//absl/meta:type_traits",
         "@com_google_absl//absl/status",
     ],
 )
@@ -492,16 +496,14 @@ tensorstore_cc_library(
     ],
     deps = [
         ":status",
-        "//tensorstore/internal:attributes",
         "//tensorstore/internal:type_traits",
         "//tensorstore/internal/preprocessor:cat",
         "//tensorstore/internal/preprocessor:expand",
-        "@com_google_absl//absl/base:config",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/log:absl_log",
+        "@com_google_absl//absl/meta:type_traits",
         "@com_google_absl//absl/status",
-        "@com_google_absl//absl/utility",
     ],
 )
 
@@ -587,9 +589,9 @@ tensorstore_cc_library(
     ],
     deps = [
         "//tensorstore/internal:source_location",
-        "//tensorstore/internal:type_traits",
         "//tensorstore/internal/preprocessor:expand",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/meta:type_traits",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",

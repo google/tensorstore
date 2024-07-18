@@ -17,6 +17,7 @@
 #include <tuple>
 
 #include <gtest/gtest.h>
+#include "absl/meta/type_traits.h"
 #include "tensorstore/internal/type_traits.h"
 
 namespace tensorstore {
@@ -39,7 +40,7 @@ const auto GetDTypeTuple = [](const ZarrDType& a) {
 
 template <typename T>
 struct remove_cvref_recursive {
-  using type = internal::remove_cvref_t<T>;
+  using type = absl::remove_cvref_t<T>;
 };
 
 template <typename... T>

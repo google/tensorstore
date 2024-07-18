@@ -72,11 +72,6 @@
 namespace tensorstore {
 namespace internal_poly {
 
-/// Type alias that removes both reference and const/volatile qualification.
-///
-/// Equivalent to C++20 `std::remove_cvref_t`.
-template <typename T>
-using remove_cvref_t = std::remove_cv_t<std::remove_reference_t<T>>;
 
 /// Alias that evaluates to the return type of an unqualified `PolyApply` call
 /// (found via ADL) with the specified arguments.

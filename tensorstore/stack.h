@@ -20,6 +20,7 @@
 #include <variant>
 #include <vector>
 
+#include "absl/meta/type_traits.h"
 #include "tensorstore/driver/stack/driver.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dimension_identifier.h"
@@ -41,7 +42,7 @@ using StackOpenOptions = TransactionalOpenOptions;
 /// \param layers Sequence of layers to overlay.  Later layers take precedence.
 template <typename Layers = std::vector<std::variant<Spec, TensorStore<>>>>
 Result<typename internal_stack::OverlayResult<
-    internal::remove_cvref_t<typename Layers::value_type>>::type>
+    absl::remove_cvref_t<typename Layers::value_type>>::type>
 Overlay(const Layers& layers, StackOpenOptions&& options) {
   std::vector<internal_stack::StackLayerSpec> layers_internal(
       std::begin(layers), std::end(layers));
@@ -51,15 +52,14 @@ Overlay(const Layers& layers, StackOpenOptions&& options) {
   return {std::in_place,
           internal::TensorStoreAccess::Construct<
               typename internal_stack::OverlayResult<
-                  internal::remove_cvref_t<typename Layers::value_type>>::type>(
+                  absl::remove_cvref_t<typename Layers::value_type>>::type>(
               std::move(handle))};
 }
 template <typename Layers = std::vector<std::variant<Spec, TensorStore<>>>,
           typename... Option>
-std::enable_if_t<
-    IsCompatibleOptionSequence<StackOpenOptions, Option...>,
-    Result<typename internal_stack::OverlayResult<
-        internal::remove_cvref_t<typename Layers::value_type>>::type>>
+std::enable_if_t<IsCompatibleOptionSequence<StackOpenOptions, Option...>,
+                 Result<typename internal_stack::OverlayResult<
+                     absl::remove_cvref_t<typename Layers::value_type>>::type>>
 Overlay(const Layers& layers, Option&&... option) {
   TENSORSTORE_INTERNAL_ASSIGN_OPTIONS_OR_RETURN(StackOpenOptions, options,
                                                 option)
@@ -72,7 +72,7 @@ Overlay(const Layers& layers, Option&&... option) {
 /// \param layers Sequence of layers to stack.
 template <typename Layers = std::vector<std::variant<Spec, TensorStore<>>>>
 Result<typename internal_stack::StackResult<
-    internal::remove_cvref_t<typename Layers::value_type>>::type>
+    absl::remove_cvref_t<typename Layers::value_type>>::type>
 Stack(const Layers& layers, DimensionIndex stack_dimension,
       StackOpenOptions&& options) {
   std::vector<internal_stack::StackLayerSpec> layers_internal(
@@ -83,15 +83,14 @@ Stack(const Layers& layers, DimensionIndex stack_dimension,
   return {std::in_place,
           internal::TensorStoreAccess::Construct<
               typename internal_stack::StackResult<
-                  internal::remove_cvref_t<typename Layers::value_type>>::type>(
+                  absl::remove_cvref_t<typename Layers::value_type>>::type>(
               std::move(handle))};
 }
 template <typename Layers = std::vector<std::variant<Spec, TensorStore<>>>,
           typename... Option>
-std::enable_if_t<
-    IsCompatibleOptionSequence<StackOpenOptions, Option...>,
-    Result<typename internal_stack::StackResult<
-        internal::remove_cvref_t<typename Layers::value_type>>::type>>
+std::enable_if_t<IsCompatibleOptionSequence<StackOpenOptions, Option...>,
+                 Result<typename internal_stack::StackResult<
+                     absl::remove_cvref_t<typename Layers::value_type>>::type>>
 Stack(const Layers& layers, DimensionIndex stack_dimension,
       Option&&... option) {
   TENSORSTORE_INTERNAL_ASSIGN_OPTIONS_OR_RETURN(StackOpenOptions, options,
@@ -105,7 +104,7 @@ Stack(const Layers& layers, DimensionIndex stack_dimension,
 /// \param layers Sequence of layers to concatenate.
 template <typename Layers = std::vector<std::variant<Spec, TensorStore<>>>>
 Result<typename internal_stack::OverlayResult<
-    internal::remove_cvref_t<typename Layers::value_type>>::type>
+    absl::remove_cvref_t<typename Layers::value_type>>::type>
 Concat(const Layers& layers, DimensionIdentifier concat_dimension,
        StackOpenOptions&& options) {
   std::vector<internal_stack::StackLayerSpec> layers_internal(
@@ -116,15 +115,14 @@ Concat(const Layers& layers, DimensionIdentifier concat_dimension,
   return {std::in_place,
           internal::TensorStoreAccess::Construct<
               typename internal_stack::OverlayResult<
-                  internal::remove_cvref_t<typename Layers::value_type>>::type>(
+                  absl::remove_cvref_t<typename Layers::value_type>>::type>(
               std::move(handle))};
 }
 template <typename Layers = std::vector<std::variant<Spec, TensorStore<>>>,
           typename... Option>
-std::enable_if_t<
-    IsCompatibleOptionSequence<StackOpenOptions, Option...>,
-    Result<typename internal_stack::OverlayResult<
-        internal::remove_cvref_t<typename Layers::value_type>>::type>>
+std::enable_if_t<IsCompatibleOptionSequence<StackOpenOptions, Option...>,
+                 Result<typename internal_stack::OverlayResult<
+                     absl::remove_cvref_t<typename Layers::value_type>>::type>>
 Concat(const Layers& layers, DimensionIdentifier concat_dimension,
        Option&&... option) {
   TENSORSTORE_INTERNAL_ASSIGN_OPTIONS_OR_RETURN(StackOpenOptions, options,

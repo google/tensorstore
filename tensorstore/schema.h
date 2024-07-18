@@ -22,6 +22,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
@@ -243,7 +244,7 @@ class Schema {
 
   /// Transforms a `Schema` object by a `DimExpression`.
   template <typename Expr>
-  friend std::enable_if_t<!IsIndexTransform<internal::remove_cvref_t<Expr>>,
+  friend std::enable_if_t<!IsIndexTransform<absl::remove_cvref_t<Expr>>,
                           Result<Schema>>
   ApplyIndexTransform(Expr&& expr, Schema schema) {
     TENSORSTORE_ASSIGN_OR_RETURN(auto identity_transform,

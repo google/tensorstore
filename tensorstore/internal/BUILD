@@ -171,6 +171,7 @@ tensorstore_cc_library(
         "//tensorstore:context",
         "//tensorstore/util:status",
         "//tensorstore/util/apply_members",
+        "@com_google_absl//absl/meta:type_traits",
         "@com_google_absl//absl/status",
     ],
 )
@@ -321,8 +322,7 @@ tensorstore_cc_library(
         ":void_wrapper",
         "//tensorstore:index",
         "//tensorstore/util:byte_strided_pointer",
-        "//tensorstore/util:result",
-        "//tensorstore/util:status",
+        "@com_google_absl//absl/meta:type_traits",
         "@com_google_absl//absl/status",
     ],
 )
@@ -1667,7 +1667,10 @@ tensorstore_cc_test(
 tensorstore_cc_library(
     name = "type_traits",
     hdrs = ["type_traits.h"],
-    deps = ["//tensorstore:index"],
+    deps = [
+        "//tensorstore:index",
+        "@com_google_absl//absl/meta:type_traits",
+    ],
 )
 
 tensorstore_cc_test(

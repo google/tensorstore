@@ -30,6 +30,7 @@
 #include <string>
 #include <utility>
 
+#include "absl/meta/type_traits.h"
 #include "python/tensorstore/dim_expression.h"
 #include "python/tensorstore/gil_safe.h"
 #include "python/tensorstore/homogeneous_tuple.h"
@@ -153,7 +154,7 @@ void DefineIndexTransformOrDomainOperations(
     pybind11::class_<T, ClassOptions...>* cls, GetTransform get_transform,
     ApplyTransform apply_transform) {
   namespace py = ::pybind11;
-  using Self = internal::remove_cvref_t<typename FunctionArgType<
+  using Self = absl::remove_cvref_t<typename FunctionArgType<
       0, py::detail::function_signature_t<ApplyTransform>>::type>;
 
   auto apply_op = [get_transform, apply_transform](const Self& self,
