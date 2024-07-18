@@ -15,12 +15,12 @@
 #include "tensorstore/util/execution/sender.h"
 
 #include <string>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "tensorstore/internal/type_traits.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender_testutil.h"
 #include "tensorstore/util/executor.h"
@@ -34,9 +34,9 @@ using trait_has_submit =
 template <typename... Arg>
 using trait_has_adl_submit = decltype(submit(std::declval<Arg>()...));
 
-static_assert(!tensorstore::internal_execution::detected_t<
+static_assert(!tensorstore::internal::is_detected<
               trait_has_submit, tensorstore::NullSender&, int>::value);
-static_assert(tensorstore::internal_execution::detected_t<
+static_assert(tensorstore::internal::is_detected<
               trait_has_adl_submit, tensorstore::NullSender&, int>::value);
 
 TEST(NullReceiverTest, SetDone) {
