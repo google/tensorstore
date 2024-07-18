@@ -121,7 +121,12 @@ Batch to use for reading any metadata required for opening.
 )";
   template <typename Self>
   static absl::Status Apply(Self& self, type value) {
-    return self.Set(std::move(value));
+    if constexpr (std::is_void_v<decltype(self.Set(std::move(value)))>) {
+      self.Set(std::move(value));
+      return absl::OkStatus();
+    } else {
+      return self.Set(std::move(value));
+    }
   }
 };
 

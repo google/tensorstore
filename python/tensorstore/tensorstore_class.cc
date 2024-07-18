@@ -27,6 +27,7 @@
 #include <variant>
 #include <vector>
 
+#include "absl/status/status.h"
 #include "absl/strings/str_format.h"
 #include "python/tensorstore/array_type_caster.h"
 #include "python/tensorstore/batch.h"
@@ -94,6 +95,19 @@ namespace py = ::pybind11;
 
 namespace {
 
+// Adds a `Batch` option to `WriteOptions` that always results in an error when
+// set.
+//
+// This is used by `IssueCopyOrWrite` to support either `CopyOptions` or
+// `WriteOptions` with the same set of compile-time keyword arguments.
+struct WriteOptionsWithBatch : public WriteOptions {
+  using WriteOptions::Set;
+  absl::Status Set(Batch::View batch) {
+    return absl::InvalidArgumentError(
+        "batch can only be specified when copying from a TensorStore source");
+  }
+};
+
 template <typename... ParamDef>
 WriteFutures IssueCopyOrWrite(
     const TensorStore<>& self,
@@ -104,7 +118,7 @@ WriteFutures IssueCopyOrWrite(
     ApplyKeywordArguments<ParamDef...>(options, arg...);
     return tensorstore::Copy((**store).value, self, std::move(options));
   } else {
-    WriteOptions options;
+    WriteOptionsWithBatch options;
     ApplyKeywordArguments<ParamDef...>(options, arg...);
     auto& source_obj = std::get_if<ArrayArgumentPlaceholder>(&source)->value;
     SharedArray<const void> source_array;
@@ -140,7 +154,7 @@ constexpr auto ForwardSpecRequestSetters = [](auto callback,
 };
 
 constexpr auto ForwardWriteSetters = [](auto callback, auto... other_param) {
-  callback(other_param...,
+  callback(other_param..., open_setters::SetBatch{},
   // TODO(jbms): Add this option once it is supported.
 #if 0
            write_setters::SetCanReferenceSourceDataUntilCommit{},
