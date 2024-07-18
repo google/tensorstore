@@ -121,6 +121,7 @@
 
 #include "absl/base/attributes.h"
 #include "absl/functional/function_ref.h"
+#include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "riegeli/bytes/reader.h"
@@ -486,7 +487,7 @@ template <typename T, typename ElementSerializer = Serializer<T>>
 
 /// Convenient interface for decoding an object with its default serializer.
 template <typename T,
-          typename ElementSerializer = Serializer<internal::remove_cvref_t<T>>>
+          typename ElementSerializer = Serializer<absl::remove_cvref_t<T>>>
 [[nodiscard]] bool Decode(DecodeSource& source, T&& value,
                           const ElementSerializer& serialize = {}) {
   return serialize.Decode(source, value);

@@ -25,6 +25,7 @@
 
 #include "absl/base/attributes.h"
 #include "absl/container/inlined_vector.h"
+#include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
@@ -231,7 +232,7 @@ constexpr auto TransformParserOutputBinder = jb::Object(
 
 template <typename T, typename ElementBinder>
 constexpr auto LowerBoundsBinder(ElementBinder element_binder) {
-  using Binder = ImplicitPairBinder<internal::remove_cvref_t<ElementBinder>>;
+  using Binder = ImplicitPairBinder<absl::remove_cvref_t<ElementBinder>>;
   auto rank_ptr = &T::rank;
   auto value_ptr = &T::lower_bounds;
   auto implicit_ptr = &T::implicit_lower_bounds;
@@ -243,7 +244,7 @@ constexpr auto LowerBoundsBinder(ElementBinder element_binder) {
 
 template <typename T, typename ElementBinder>
 constexpr auto UpperBoundsBinder(ElementBinder element_binder) {
-  using Binder = ImplicitPairBinder<internal::remove_cvref_t<ElementBinder>>;
+  using Binder = ImplicitPairBinder<absl::remove_cvref_t<ElementBinder>>;
   auto rank_ptr = &T::rank;
   auto value_ptr = &T::upper_bounds;
   auto implicit_ptr = &T::implicit_upper_bounds;

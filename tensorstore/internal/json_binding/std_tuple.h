@@ -22,13 +22,13 @@
 #include <utility>
 #include <vector>
 
+#include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/json/json.h"
 #include "tensorstore/internal/json/value_as.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/type_traits.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
@@ -144,7 +144,7 @@ constexpr auto Tuple(ElementBinder... element_binder) {
 constexpr auto Tuple() {
   return [](auto is_loading, const auto& options, auto* obj, auto* j) {
     constexpr size_t N =
-        std::tuple_size_v<internal::remove_cvref_t<decltype(*obj)>>;
+        std::tuple_size_v<absl::remove_cvref_t<decltype(*obj)>>;
     return TupleDefaultJsonBinderImpl(std::make_index_sequence<N>{})(
         is_loading, options, obj, j);
   };

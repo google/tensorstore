@@ -137,18 +137,16 @@
 
 #include <array>
 #include <cstddef>
-#include <tuple>
 #include <type_traits>
 #include <utility>
 
+#include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/internal/void_wrapper.h"
 #include "tensorstore/util/byte_strided_pointer.h"
-#include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal {
@@ -634,7 +632,7 @@ struct SimpleElementwiseFunction<Func(Element...), ExtraArg...>
   /// does not require specify a pointer to `Func`, can be used instead.
   constexpr static ClosureType Closure(std::remove_reference_t<Func>* func) {
     return ClosureType{SimpleElementwiseFunction{},
-                       const_cast<remove_cvref_t<Func>*>(func)};
+                       const_cast<absl::remove_cvref_t<Func>*>(func)};
   }
 
   /// Convenience conversion operator to `ElementwiseClosure` with a `context`
@@ -642,10 +640,10 @@ struct SimpleElementwiseFunction<Func(Element...), ExtraArg...>
   ///
   /// \tparam ExtraArg Extra arguments required by `Func`.
   /// \requires `std::is_empty<Func>::value`.
-  template <
-      int&... ExplicitArgumentBarrier,
-      std::enable_if_t<(sizeof...(ExplicitArgumentBarrier) == 0 &&
-                        std::is_empty<remove_cvref_t<Func>>::value)>* = nullptr>
+  template <int&... ExplicitArgumentBarrier,
+            std::enable_if_t<
+                (sizeof...(ExplicitArgumentBarrier) == 0 &&
+                 std::is_empty<absl::remove_cvref_t<Func>>::value)>* = nullptr>
   constexpr operator ClosureType() const {
     return {SimpleElementwiseFunction{}, nullptr};
   }

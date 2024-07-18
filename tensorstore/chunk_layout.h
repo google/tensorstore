@@ -24,6 +24,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include "tensorstore/box.h"
 #include "tensorstore/index.h"
@@ -927,7 +928,7 @@ class ChunkLayout {
   ///
   /// \id expr
   template <typename Expr>
-  friend std::enable_if_t<!IsIndexTransform<internal::remove_cvref_t<Expr>>,
+  friend std::enable_if_t<!IsIndexTransform<absl::remove_cvref_t<Expr>>,
                           Result<ChunkLayout>>
   ApplyIndexTransform(Expr&& expr, ChunkLayout constraints) {
     DimensionIndex rank = constraints.rank();

@@ -22,6 +22,7 @@
 #include <string_view>
 #include <utility>
 
+#include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "riegeli/base/chain.h"
@@ -35,7 +36,6 @@
 #include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/metadata.h"
-#include "tensorstore/internal/type_traits.h"
 #include "tensorstore/internal/unaligned_data_type_functions.h"
 #include "tensorstore/util/element_pointer.h"
 #include "tensorstore/util/endian.h"
@@ -127,8 +127,7 @@ class ContiguousBufferSinkWriter : public riegeli::Writer {
       return false;
     }
     if (!ValidateContiguousBuffer(*buf)) return false;
-    auto data =
-        std::make_shared<internal::remove_cvref_t<T>>(std::forward<T>(src));
+    auto data = std::make_shared<absl::remove_cvref_t<T>>(std::forward<T>(src));
     // Normally `TryFlat` should return the same thing after move construction.
     // However, if the data is stored inline (small buffer optimization) or the
     // move constructor otherwise moves the buffer for some reason, the result

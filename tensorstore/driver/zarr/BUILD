@@ -273,6 +273,7 @@ tensorstore_cc_library(
         "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:inlined_vector",
+        "@com_google_absl//absl/meta:type_traits",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
@@ -316,6 +317,7 @@ tensorstore_cc_library(
     deps = [
         ":metadata",
         "//tensorstore/internal:type_traits",
+        "@com_google_absl//absl/meta:type_traits",
         "@com_google_googletest//:gtest",
     ],
 )

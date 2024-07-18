@@ -15,17 +15,12 @@
 #ifndef TENSORSTORE_RESULT_IMPL_H_
 #define TENSORSTORE_RESULT_IMPL_H_
 
-#include <new>
-#include <tuple>
 #include <type_traits>
 #include <utility>
 
-#include "absl/base/config.h"
-#include "absl/base/optimization.h"
+#include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
-#include "absl/utility/utility.h"
 #include "tensorstore/internal/type_traits.h"
-#include "tensorstore/util/status.h"
 
 // IWYU pragma: private, include "third_party/tensorstore/util/result.h"
 
@@ -39,7 +34,7 @@ namespace internal_result {
 /// Result type traits helper structs for UnwrapResultType / FlatResultType.
 template <typename T>
 struct UnwrapResultHelper {
-  static_assert(std::is_same_v<T, internal::remove_cvref_t<T>>,
+  static_assert(std::is_same_v<T, absl::remove_cvref_t<T>>,
                 "Type argument to UnwrapResultType must be unqualified.");
   using type = T;
   using result_type = Result<T>;
@@ -278,7 +273,7 @@ constexpr inline bool result_conversion<void, U> = false;
 // Metafunction for enabling the Result<T>::Result(U) constructor overloads.
 template <typename T, typename U>
 constexpr inline bool value_conversion =
-    !is_result_status_or_inplace<internal::remove_cvref_t<U>>;
+    !is_result_status_or_inplace<absl::remove_cvref_t<U>>;
 template <typename U>
 constexpr inline bool value_conversion<void, U> = false;
 

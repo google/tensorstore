@@ -16,6 +16,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/meta/type_traits.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/util/span.h"
@@ -57,7 +58,6 @@ using ::tensorstore::StridedLayout;
 using ::tensorstore::StridedLayoutView;
 using ::tensorstore::unchecked;
 using ::tensorstore::zero_origin;
-using ::tensorstore::internal::remove_cvref_t;
 
 static_assert(!IsStridedLayout<int>);
 static_assert(IsStridedLayout<StridedLayout<>>);
@@ -69,7 +69,7 @@ static_assert(IsStridedLayout<StridedLayoutView<2, offset_origin>>);
 namespace dynamic_layout_cast_tests {
 template <typename T>
 constexpr inline bool NoOpCheck =
-    std::is_same_v<T, decltype(StaticCast<remove_cvref_t<T>, unchecked>(
+    std::is_same_v<T, decltype(StaticCast<absl::remove_cvref_t<T>, unchecked>(
                           std::declval<T>()))>;
 
 static_assert(NoOpCheck<const StridedLayout<2>&>);
@@ -83,9 +83,9 @@ static_assert(NoOpCheck<StridedLayout<2, offset_origin>&&>);
 // Tests the no-op overload of `StaticRankCast`.
 namespace dynamic_rank_cast_tests {
 template <typename T>
-constexpr inline bool NoOpCheck =
-    std::is_same_v<T, decltype(StaticRankCast<remove_cvref_t<T>::static_rank,
-                                              unchecked>(std::declval<T>()))>;
+constexpr inline bool NoOpCheck = std::is_same_v<
+    T, decltype(StaticRankCast<absl::remove_cvref_t<T>::static_rank, unchecked>(
+           std::declval<T>()))>;
 
 static_assert(NoOpCheck<const StridedLayout<2>&>);
 static_assert(NoOpCheck<StridedLayout<2>&>);

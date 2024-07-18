@@ -26,6 +26,7 @@
 #include <utility>
 
 #include "absl/algorithm/container.h"
+#include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
@@ -142,7 +143,7 @@ absl::Status ValidateMetadata(N5Metadata& metadata) {
 
 constexpr auto MetadataJsonBinder = [](auto maybe_optional) {
   return [=](auto is_loading, const auto& options, auto* obj, auto* j) {
-    using T = internal::remove_cvref_t<decltype(*obj)>;
+    using T = absl::remove_cvref_t<decltype(*obj)>;
     DimensionIndex* rank = nullptr;
     if constexpr (is_loading) {
       rank = &obj->rank;

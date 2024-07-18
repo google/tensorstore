@@ -22,11 +22,11 @@
 #include <utility>
 
 #include "absl/base/optimization.h"
+#include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
 #include "tensorstore/internal/preprocessor/expand.h"
 #include "tensorstore/internal/source_location.h"
-#include "tensorstore/internal/type_traits.h"
 
 namespace tensorstore {
 namespace internal {
@@ -73,7 +73,7 @@ template <typename F, typename... Args>
 inline absl::Status InvokeForStatus(F&& f, Args&&... args) {
   using R = std::invoke_result_t<F&&, Args&&...>;
   static_assert(std::is_void_v<R> ||
-                std::is_same_v<internal::remove_cvref_t<R>, absl::Status>);
+                std::is_same_v<absl::remove_cvref_t<R>, absl::Status>);
   if constexpr (std::is_void_v<R>) {
     std::invoke(static_cast<F&&>(f), static_cast<Args&&>(args)...);
     return absl::OkStatus();

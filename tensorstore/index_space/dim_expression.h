@@ -22,11 +22,18 @@
 ///
 /// Most users should #include  "third_party/tensorstore/index_space.h" instead.
 
+#include <array>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 
+#include "absl/meta/type_traits.h"
 #include "tensorstore/array.h"
+#include "tensorstore/container_kind.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
+#include "tensorstore/index_space/dimension_identifier.h"
+#include "tensorstore/index_space/dimension_index_buffer.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/internal/add_new_dims_op.h"
 #include "tensorstore/index_space/internal/diagonal_op.h"
@@ -40,6 +47,11 @@
 #include "tensorstore/index_space/internal/transform_rep.h"
 #include "tensorstore/index_space/internal/translate_op.h"
 #include "tensorstore/index_space/internal/transpose_op.h"
+#include "tensorstore/internal/type_traits.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/static_cast.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 
@@ -2075,7 +2087,7 @@ class DimExpression {
   /// \id transformable
   template <typename Transformable>
   internal_index_space::EnableIfApplyIndexTransformResult<
-      !IsIndexTransform<internal::remove_cvref_t<Transformable>>,
+      !IsIndexTransform<absl::remove_cvref_t<Transformable>>,
       const DimExpression&, Transformable>
   operator()(Transformable&& transformable) const {
     return ApplyIndexTransform(*this,

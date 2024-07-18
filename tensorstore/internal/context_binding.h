@@ -93,6 +93,7 @@
 #include <optional>
 #include <type_traits>
 
+#include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include "tensorstore/context.h"
 #include "tensorstore/util/apply_members/apply_members.h"
@@ -146,9 +147,8 @@ struct ContextBindingTraits<Spec,
   static absl::Status Bind(Spec& spec, const Context& context) {
     return ApplyMembers<Spec>::Apply(spec, [&context](auto&&... spec_member) {
       absl::Status status;
-      (void)((status = ContextBindingTraits<
-                  remove_cvref_t<decltype(spec_member)>>::Bind(spec_member,
-                                                               context))
+      (void)((status = ContextBindingTraits<absl::remove_cvref_t<
+                  decltype(spec_member)>>::Bind(spec_member, context))
                  .ok() &&
              ...);
       return status;
@@ -157,15 +157,16 @@ struct ContextBindingTraits<Spec,
 
   static void Unbind(Spec& spec, const ContextSpecBuilder& builder) {
     ApplyMembers<Spec>::Apply(spec, [&builder](auto&&... spec_member) {
-      (ContextBindingTraits<remove_cvref_t<decltype(spec_member)>>::Unbind(
-           spec_member, builder),
+      (ContextBindingTraits<
+           absl::remove_cvref_t<decltype(spec_member)>>::Unbind(spec_member,
+                                                                builder),
        ...);
     });
   }
 
   static void Strip(Spec& spec) {
     ApplyMembers<Spec>::Apply(spec, [](auto&&... spec_member) {
-      (ContextBindingTraits<remove_cvref_t<decltype(spec_member)>>::Strip(
+      (ContextBindingTraits<absl::remove_cvref_t<decltype(spec_member)>>::Strip(
            spec_member),
        ...);
     });

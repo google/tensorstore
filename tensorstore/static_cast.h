@@ -46,12 +46,13 @@
 /// checked and unchecked casts.
 
 #include <cassert>
+#include <string>
 #include <string_view>
 #include <type_traits>
 
+#include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 
@@ -143,7 +144,7 @@ struct DefaultStaticCastTraits {
 // Alias that evaluates to the `StaticCastTraits` type to use for an
 // optionally-qualified type `T`.
 template <typename T>
-using StaticCastTraitsType = StaticCastTraits<internal::remove_cvref_t<T>>;
+using StaticCastTraitsType = StaticCastTraits<absl::remove_cvref_t<T>>;
 
 namespace internal_cast {
 
@@ -209,8 +210,7 @@ struct CastImpl<CastChecking::unchecked, true> {
 };
 
 template <typename Target, typename SourceRef, CastChecking Checking,
-          bool IsSame =
-              std::is_same_v<Target, internal::remove_cvref_t<SourceRef>>>
+          bool IsSame = std::is_same_v<Target, absl::remove_cvref_t<SourceRef>>>
 using CastImplType =
     internal_cast::CastImpl<Checking,
                             (Checking == CastChecking::unchecked && IsSame)>;

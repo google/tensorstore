@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "absl/log/absl_log.h"
+#include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/time/clock.h"
@@ -55,9 +56,9 @@
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/open_mode_spec.h"
 #include "tensorstore/internal/path.h"
-#include "tensorstore/internal/type_traits.h"
 #include "tensorstore/internal/unowned_to_shared.h"
 #include "tensorstore/kvstore/driver.h"
+#include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/spec.h"
@@ -65,6 +66,8 @@
 #include "tensorstore/open_options.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/resize_options.h"
+#include "tensorstore/schema.h"
+#include "tensorstore/staleness_bound.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/execution/execution.h"
@@ -322,9 +325,8 @@ Result<MetadataPtr> GetUpdatedMetadataWithAssumeCachedMetadata(
       new_metadata = driver.assumed_metadata_;
     }
 
-    if constexpr (std::is_same_v<
-                      internal::remove_cvref_t<decltype(entry_or_node)>,
-                      MetadataCache::TransactionNode>) {
+    if constexpr (std::is_same_v<absl::remove_cvref_t<decltype(entry_or_node)>,
+                                 MetadataCache::TransactionNode>) {
       TENSORSTORE_ASSIGN_OR_RETURN(
           new_metadata,
           entry_or_node.GetUpdatedMetadata(std::move(new_metadata)),

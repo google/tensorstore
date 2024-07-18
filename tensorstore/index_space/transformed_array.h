@@ -26,6 +26,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
@@ -131,17 +132,17 @@ StridedLayoutView<dynamic_rank, offset_origin> GetUnboundedLayout(
 template <typename A, typename Func>
 using TransformedArrayMapTransformResultType = FlatMapResultType<
     A::template RebindTransform,
-    internal::remove_cvref_t<std::invoke_result_t<
-        Func, const typename internal::remove_cvref_t<A>::Transform&>>>;
+    absl::remove_cvref_t<std::invoke_result_t<
+        Func, const typename absl::remove_cvref_t<A>::Transform&>>>;
 
 /// Returns a new `Result`-wrapped `TransformedArray` where the index transform
 /// has been mapped by the specified function.
 template <typename A, typename Func>
-static TransformedArrayMapTransformResultType<internal::remove_cvref_t<A>, Func>
+static TransformedArrayMapTransformResultType<absl::remove_cvref_t<A>, Func>
 TransformedArrayMapTransform(A&& a, Func&& func) {
   using ResultType =
-      TransformedArrayMapTransformResultType<internal::remove_cvref_t<A>, Func>;
-  using AX = internal::remove_cvref_t<A>;
+      TransformedArrayMapTransformResultType<absl::remove_cvref_t<A>, Func>;
+  using AX = absl::remove_cvref_t<A>;
   using MappedTransform = UnwrapResultType<
       std::invoke_result_t<Func, const typename AX::Transform&>>;
   return MapResult(
@@ -301,14 +302,14 @@ class TransformedArray {
   /// Constructs a transformed array from a regular strided `Array`.
   ///
   /// \id array
-  template <typename A, ContainerKind SfinaeC = LayoutCKind,
-            typename = std::enable_if_t<
-                (SfinaeC == container && IsArray<internal::remove_cvref_t<A>> &&
-                 std::is_convertible_v<
-                     typename internal::remove_cvref_t<A>::ElementPointer,
-                     ElementPointer> &&
-                 RankConstraint::Implies(
-                     internal::remove_cvref_t<A>::static_rank, Rank))>>
+  template <
+      typename A, ContainerKind SfinaeC = LayoutCKind,
+      typename = std::enable_if_t<(
+          SfinaeC == container && IsArray<absl::remove_cvref_t<A>> &&
+          std::is_convertible_v<
+              typename absl::remove_cvref_t<A>::ElementPointer,
+              ElementPointer> &&
+          RankConstraint::Implies(absl::remove_cvref_t<A>::static_rank, Rank))>>
   // NONITPICK: std::remove_cvref_t<A>::ElementPointer
   // NONITPICK: std::remove_cvref_t<A>::static_rank
   TransformedArray(A&& array)
@@ -325,10 +326,10 @@ class TransformedArray {
   /// \id convert
   template <typename Other,
             std::enable_if_t<
-                (IsTransformedArray<internal::remove_cvref_t<Other>> &&
+                (IsTransformedArray<absl::remove_cvref_t<Other>> &&
                  internal::IsPairImplicitlyConvertible<
-                     typename internal::remove_cvref_t<Other>::ElementPointer,
-                     typename internal::remove_cvref_t<Other>::Transform,
+                     typename absl::remove_cvref_t<Other>::ElementPointer,
+                     typename absl::remove_cvref_t<Other>::Transform,
                      ElementPointer, Transform>)>* = nullptr>
   // NONITPICK: std::remove_cvref_t<Other>::ElementPointer
   // NONITPICK: std::remove_cvref_t<Other>::Transform
@@ -339,15 +340,16 @@ class TransformedArray {
   /// Unchecked conversion from an existing `TransformedArray`.
   ///
   /// \id unchecked
-  template <typename Other,
-            std::enable_if_t<(
-                IsTransformedArray<internal::remove_cvref_t<Other>> &&
-                IsStaticCastConstructible<
-                    ElementPointer,
-                    typename internal::remove_cvref_t<Other>::ElementPointer> &&
-                IsStaticCastConstructible<Transform,
-                                          typename internal::remove_cvref_t<
-                                              Other>::Transform>)>* = nullptr>
+  template <
+      typename Other,
+      std::enable_if_t<
+          (IsTransformedArray<absl::remove_cvref_t<Other>> &&
+           IsStaticCastConstructible<
+               ElementPointer,
+               typename absl::remove_cvref_t<Other>::ElementPointer> &&
+           IsStaticCastConstructible<
+               Transform, typename absl::remove_cvref_t<Other>::Transform>)>* =
+          nullptr>
   // NONITPICK: std::remove_cvref_t<Other>::ElementPointer
   // NONITPICK: std::remove_cvref_t<Other>::Transform
   explicit TransformedArray(unchecked_t, Other&& other) noexcept
@@ -358,15 +360,14 @@ class TransformedArray {
   /// Unchecked conversion from an existing `Array`.
   ///
   /// \id unchecked, array
-  template <
-      typename A, ContainerKind SfinaeC = LayoutCKind,
-      std::enable_if_t<
-          (SfinaeC == container && IsArray<internal::remove_cvref_t<A>> &&
-           IsStaticCastConstructible<
-               ElementPointer,
-               typename internal::remove_cvref_t<A>::ElementPointer> &&
-           RankConstraint::EqualOrUnspecified(
-               internal::remove_cvref_t<A>::static_rank, Rank))>* = nullptr>
+  template <typename A, ContainerKind SfinaeC = LayoutCKind,
+            std::enable_if_t<
+                (SfinaeC == container && IsArray<absl::remove_cvref_t<A>> &&
+                 IsStaticCastConstructible<
+                     ElementPointer,
+                     typename absl::remove_cvref_t<A>::ElementPointer> &&
+                 RankConstraint::EqualOrUnspecified(
+                     absl::remove_cvref_t<A>::static_rank, Rank))>* = nullptr>
   // NONITPICK: std::remove_cvref_t<A>::ElementPointer
   // NONITPICK: std::remove_cvref_t<A>::static_rank
   explicit TransformedArray(unchecked_t, A&& array) noexcept
@@ -381,10 +382,10 @@ class TransformedArray {
   /// \id convert
   template <typename Other,
             std::enable_if_t<
-                (IsTransformedArray<internal::remove_cvref_t<Other>> &&
+                (IsTransformedArray<absl::remove_cvref_t<Other>> &&
                  internal::IsPairImplicitlyConvertible<
-                     typename internal::remove_cvref_t<Other>::ElementPointer,
-                     typename internal::remove_cvref_t<Other>::Transform,
+                     typename absl::remove_cvref_t<Other>::ElementPointer,
+                     typename absl::remove_cvref_t<Other>::Transform,
                      ElementPointer, Transform>)>* = nullptr>
   TransformedArray& operator=(Other&& other) noexcept {
     element_pointer_ = std::forward<Other>(other).element_pointer();
@@ -395,14 +396,13 @@ class TransformedArray {
   /// Copy or move assigns from another `Array`.
   ///
   /// \id array
-  template <typename A, ContainerKind SfinaeC = LayoutCKind,
-            typename = std::enable_if_t<
-                (SfinaeC == container && IsArray<internal::remove_cvref_t<A>> &&
-                 std::is_assignable_v<
-                     ElementPointer,
-                     typename internal::remove_cvref_t<A>::ElementPointer> &&
-                 RankConstraint::Implies(
-                     internal::remove_cvref_t<A>::static_rank, Rank))>>
+  template <
+      typename A, ContainerKind SfinaeC = LayoutCKind,
+      typename = std::enable_if_t<(
+          SfinaeC == container && IsArray<absl::remove_cvref_t<A>> &&
+          std::is_assignable_v<ElementPointer, typename absl::remove_cvref_t<
+                                                   A>::ElementPointer> &&
+          RankConstraint::Implies(absl::remove_cvref_t<A>::static_rank, Rank))>>
   // NONITPICK: std::remove_cvref_t<A>::ElementPointer
   // NONITPICK: std::remove_cvref_t<A>::static_rank
   TransformedArray& operator=(A&& array) noexcept {
@@ -645,14 +645,14 @@ using TransformedArrayTypeFromArrayAndTransform = std::enable_if_t<
 template <DimensionIndex R, ArrayOriginKind O, ContainerKind AC, typename T>
 // NONITPICK: std::remove_cvref_t<T>::static_input_rank
 inline std::enable_if_t<
-    (IsIndexTransform<internal::remove_cvref_t<T>>),
-    Result<IndexTransform<internal::remove_cvref_t<T>::static_input_rank,
+    (IsIndexTransform<absl::remove_cvref_t<T>>),
+    Result<IndexTransform<absl::remove_cvref_t<T>::static_input_rank,
                           RankConstraint::FromInlineRank(R)>>>
 ComposeLayoutAndTransform(const StridedLayout<R, O, AC>& layout,
                           T&& transform) {
   static_assert(RankConstraint::FromInlineRank(R) ==
-                internal::remove_cvref_t<T>::static_output_rank);
-  using TX = internal::remove_cvref_t<T>;
+                absl::remove_cvref_t<T>::static_output_rank);
+  using TX = absl::remove_cvref_t<T>;
   using internal_index_space::TransformAccess;
   TENSORSTORE_ASSIGN_OR_RETURN(auto transform_ptr,
                                MakeTransformFromStridedLayoutAndTransform(
@@ -675,7 +675,7 @@ ComposeLayoutAndTransform(const StridedLayout<R, O, AC>& layout,
 /// \relates TransformedArray
 template <typename A, typename T>
 inline Result<TransformedArrayTypeFromArrayAndTransform<
-    internal::remove_cvref_t<A>, internal::remove_cvref_t<T>>>
+    absl::remove_cvref_t<A>, absl::remove_cvref_t<T>>>
 MakeTransformedArray(A&& array, T&& transform) {
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto composed_transform,
@@ -763,8 +763,7 @@ CopyTransformedArray(const SourceResult& source, const DestResult& dest) {
 /// \id TransformedArray
 template <typename Expr, typename T>
 internal_index_space::EnableIfTransformedArrayMapTransformResultType<
-    IsTransformedArray<internal::remove_cvref_t<T>>,
-    internal::remove_cvref_t<T>, Expr>
+    IsTransformedArray<absl::remove_cvref_t<T>>, absl::remove_cvref_t<T>, Expr>
 ApplyIndexTransform(Expr&& expr, T&& t) {
   return internal_index_space::TransformedArrayMapTransform(
       std::forward<T>(t), std::forward<Expr>(expr));
@@ -779,8 +778,8 @@ ApplyIndexTransform(Expr&& expr, T&& t) {
 /// \id Array
 template <typename Expr, typename T>
 internal_index_space::EnableIfTransformedArrayMapTransformResultType<
-    IsArray<internal::remove_cvref_t<T>>,
-    TransformedArrayTypeFromArray<internal::remove_cvref_t<T>>, Expr>
+    IsArray<absl::remove_cvref_t<T>>,
+    TransformedArrayTypeFromArray<absl::remove_cvref_t<T>>, Expr>
 ApplyIndexTransform(Expr&& expr, T&& t) {
   return internal_index_space::TransformedArrayMapTransform(
       TransformedArray(std::forward<T>(t)), std::forward<Expr>(expr));

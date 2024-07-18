@@ -30,7 +30,6 @@ using ::tensorstore::internal::IsConstConvertible;
 using ::tensorstore::internal::IsConstConvertibleOrVoid;
 using ::tensorstore::internal::IsEqualityComparable;
 using ::tensorstore::internal::PossiblyEmptyObjectGetter;
-using ::tensorstore::internal::remove_cvref_t;
 using ::tensorstore::internal::type_identity_t;
 using ::tensorstore::internal::TypePackElement;
 
@@ -41,11 +40,6 @@ static_assert(IsEqualityComparable<float, float>);
 static_assert(IsEqualityComparable<float, int>);
 static_assert(!IsEqualityComparable<X, X>);
 }  // namespace equality_comparable_tests
-
-static_assert(std::is_same_v<remove_cvref_t<const int&>, int>);
-static_assert(std::is_same_v<remove_cvref_t<int&&>, int>);
-static_assert(std::is_same_v<remove_cvref_t<const int&&>, int>);
-static_assert(std::is_same_v<remove_cvref_t<const volatile int&&>, int>);
 
 static_assert(std::is_same_v<CopyQualifiers<float, int>, int>);
 static_assert(std::is_same_v<CopyQualifiers<const float, int>, const int>);

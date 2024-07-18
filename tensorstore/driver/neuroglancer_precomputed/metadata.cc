@@ -33,6 +33,7 @@
 
 #include "absl/algorithm/container.h"
 #include "absl/base/optimization.h"
+#include "absl/meta/type_traits.h"
 #include "absl/numeric/bits.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
@@ -231,7 +232,7 @@ constexpr static auto ScaleMetatadaEncodingBinder() {
 constexpr static auto EncodingJsonBinder = [](auto maybe_optional) {
   return [=](auto is_loading, const auto& options, auto* obj,
              auto* j) -> absl::Status {
-    using T = internal::remove_cvref_t<decltype(*obj)>;
+    using T = absl::remove_cvref_t<decltype(*obj)>;
     return jb::Sequence(
         jb::Member(
             "encoding",
@@ -291,7 +292,7 @@ template <typename MaybeOptional>
 constexpr auto ScaleMetadataCommon(MaybeOptional maybe_optional) {
   return [=](auto is_loading, const auto& options, auto* obj,
              auto* j) -> absl::Status {
-    using T = internal::remove_cvref_t<decltype(*obj)>;
+    using T = absl::remove_cvref_t<decltype(*obj)>;
     return jb::Sequence(
         jb::Member("key", jb::Projection(&T::key)),
         jb::Member(

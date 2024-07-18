@@ -44,6 +44,7 @@ tensorstore_cc_library(
         "//tensorstore/util/garbage_collection",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/log:absl_check",
+        "@com_google_absl//absl/meta:type_traits",
         "@com_google_absl//absl/status",
         "@com_google_riegeli//riegeli/varint:varint_reading",
         "@com_google_riegeli//riegeli/varint:varint_writing",
@@ -184,6 +185,7 @@ tensorstore_cc_library(
         "//tensorstore/util:str_cat",
         "//tensorstore/util/garbage_collection",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/meta:type_traits",
         "@com_google_absl//absl/status",
     ],
 )
@@ -250,6 +252,7 @@ tensorstore_cc_library(
         "//tensorstore/util/garbage_collection",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/functional:function_ref",
+        "@com_google_absl//absl/meta:type_traits",
         "@com_google_absl//absl/status",
     ],
 )
@@ -339,6 +342,7 @@ tensorstore_cc_library(
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/log:absl_log",
+        "@com_google_absl//absl/meta:type_traits",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/synchronization",
@@ -421,6 +425,7 @@ tensorstore_cc_library(
         "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/base",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/meta:type_traits",
         "@com_google_absl//absl/status",
         "@net_sourceforge_half//:half",
     ],
@@ -684,6 +689,8 @@ tensorstore_cc_library(
         ":context",
         ":data_type",
         ":index",
+        ":json_serialization_options",
+        ":open_mode",
         ":open_options",
         ":rank",
         ":schema",
@@ -700,6 +707,7 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util/garbage_collection",
         "@com_github_nlohmann_json//:json",
+        "@com_google_absl//absl/meta:type_traits",
         "@com_google_absl//absl/status",
     ],
 )
@@ -739,8 +747,8 @@ tensorstore_cc_library(
     hdrs = ["static_cast.h"],
     deps = [
         "//tensorstore/util:result",
-        "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/meta:type_traits",
         "@com_google_absl//absl/status",
     ],
 )
@@ -793,9 +801,9 @@ tensorstore_cc_test(
         ":strided_layout",
         "//tensorstore/internal:type_traits",
         "//tensorstore/util:span",
-        "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/meta:type_traits",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -841,6 +849,7 @@ tensorstore_cc_library(
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "//tensorstore/util/garbage_collection",
+        "@com_google_absl//absl/meta:type_traits",
         "@com_google_absl//absl/status",
     ],
 )
@@ -993,6 +1002,7 @@ tensorstore_cc_library(
         "//tensorstore/util:unit",
         "//tensorstore/util/garbage_collection",
         "@com_github_nlohmann_json//:json",
+        "@com_google_absl//absl/meta:type_traits",
         "@com_google_absl//absl/status",
     ],
 )

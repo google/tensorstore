@@ -27,6 +27,7 @@
 #include <type_traits>
 
 #include "absl/base/attributes.h"
+#include "absl/meta/type_traits.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/internal/gdb_scripting.h"
@@ -81,7 +82,7 @@ std::string DescribeForCast(DimensionIndex rank);
 /// \relates Box
 template <typename T>
 constexpr inline bool IsBoxLike =
-    internal_box::IsBoxLikeHelper<internal::remove_cvref_t<T>> != 0;
+    internal_box::IsBoxLikeHelper<absl::remove_cvref_t<T>> != 0;
 
 /// Metafunction that evaluates to `true` if, and only if, `T` is an optionally
 /// ref-qualified non-const Box or MutableBoxView instance.
@@ -101,7 +102,7 @@ constexpr inline bool IsBoxLikeImplicitlyConvertibleToRank = false;
 template <typename T, DimensionIndex Rank>
 constexpr inline bool IsBoxLikeImplicitlyConvertibleToRank<
     T, Rank, std::enable_if_t<IsBoxLike<T>>> =
-    RankConstraint::Implies(internal::remove_cvref_t<T>::static_rank, Rank);
+    RankConstraint::Implies(absl::remove_cvref_t<T>::static_rank, Rank);
 
 /// Metafunction that evaluates to `true` if, and only if, `T` is a Box-like
 /// type with `Box::static_rank` explicitly convertible to `Rank`.
@@ -113,7 +114,7 @@ constexpr inline bool IsBoxLikeExplicitlyConvertibleToRank = false;
 template <typename T, DimensionIndex Rank>
 constexpr inline bool IsBoxLikeExplicitlyConvertibleToRank<
     T, Rank, std::enable_if_t<IsBoxLike<T>>> =
-    RankConstraint::EqualOrUnspecified(internal::remove_cvref_t<T>::static_rank,
+    RankConstraint::EqualOrUnspecified(absl::remove_cvref_t<T>::static_rank,
                                        Rank);
 
 namespace internal_box {
@@ -550,12 +551,11 @@ class BoxView : public internal_box::BoxViewStorage<Rank, Mutable> {
   /// \requires If `Mutable == true`, `BoxType` must be a mutable Box-like type
   ///     (such as a non-const `Box` reference or a `MutableBoxView`).
   /// \id convert
-  template <
-      typename BoxType,
-      typename = std::enable_if_t<
-          (IsBoxLike<BoxType> &&
-           (!Mutable || IsMutableBoxLike<BoxType>)&&RankConstraint::Implies(
-               internal::remove_cvref_t<BoxType>::static_rank, Rank))>>
+  template <typename BoxType,
+            typename = std::enable_if_t<(
+                IsBoxLike<BoxType> && (!Mutable || IsMutableBoxLike<BoxType>) &&
+                RankConstraint::Implies(
+                    absl::remove_cvref_t<BoxType>::static_rank, Rank))>>
   // NONITPICK: std::remove_cvref_t<BoxType>::static_rank
   BoxView(BoxType&& other)
       : BoxView(other.rank(), other.origin().data(), other.shape().data()) {}
@@ -579,12 +579,11 @@ class BoxView : public internal_box::BoxViewStorage<Rank, Mutable> {
   template <
       typename BoxType,
       std::enable_if_t<
-          (IsBoxLike<internal::remove_cvref_t<BoxType>> &&
-           (!Mutable || IsMutableBoxLike<std::remove_reference_t<BoxType>>)&&
+          (IsBoxLike<absl::remove_cvref_t<BoxType>> &&
+           (!Mutable || IsMutableBoxLike<std::remove_reference_t<BoxType>>) &&
 
-           RankConstraint::Implies(
-               internal::remove_cvref_t<BoxType>::static_rank, Rank))>* =
-          nullptr>
+           RankConstraint::Implies(absl::remove_cvref_t<BoxType>::static_rank,
+                                   Rank))>* = nullptr>
   // NONITPICK: std::remove_cvref_t<BoxType>::static_rank
   BoxView& operator=(BoxType&& other) {
     *this = BoxView(other);

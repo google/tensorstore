@@ -30,6 +30,7 @@
 #include <vector>
 
 #include "absl/base/attributes.h"
+#include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/intrusive_ptr.h"
@@ -291,8 +292,7 @@ class Promise {
         // The state has not been marked ready and the force callbacks have not
         // yet been invoked.  We just add the callback to the list normally.
         using Impl =
-            internal_future::ForceCallback<T,
-                                           internal::remove_cvref_t<Callback>>;
+            internal_future::ForceCallback<T, absl::remove_cvref_t<Callback>>;
         return internal_future::FutureAccess::Construct<
             FutureCallbackRegistration>(
             // Create and detach a new promise reference to transfer to
@@ -334,7 +334,7 @@ class Promise {
     auto& rep = this->rep();
     if (rep.result_needed()) {
       using Impl = internal_future::ResultNotNeededCallback<
-          internal::remove_cvref_t<Callback>>;
+          absl::remove_cvref_t<Callback>>;
       return internal_future::FutureAccess::Construct<
           FutureCallbackRegistration>(rep.RegisterNotNeededCallback(
           new Impl(&rep, std::forward<Callback>(callback))));
@@ -476,7 +476,7 @@ class AnyFuture {
     if (!rep_->ready()) {
       using Impl =
           internal_future::ReadyCallback<AnyFuture,
-                                         internal::remove_cvref_t<Callback>>;
+                                         absl::remove_cvref_t<Callback>>;
       return internal_future::FutureAccess::Construct<
           FutureCallbackRegistration>(rep_->RegisterReadyCallback(
           new Impl(rep_.release(), std::forward<Callback>(callback))));
@@ -791,7 +791,7 @@ class Future : public AnyFuture {
     if (!rep_->ready()) {
       using Impl =
           internal_future::ReadyCallback<ReadyFuture<T>,
-                                         internal::remove_cvref_t<Callback>>;
+                                         absl::remove_cvref_t<Callback>>;
       return internal_future::FutureAccess::Construct<
           FutureCallbackRegistration>(rep_->RegisterReadyCallback(
           new Impl(rep_.release(), std::forward<Callback>(callback))));
@@ -938,11 +938,11 @@ namespace internal_future {
 
 template <typename... Futures>
 constexpr inline bool AreAnyFutures =
-    (std::is_base_of_v<AnyFuture, internal::remove_cvref_t<Futures>> && ...);
+    (std::is_base_of_v<AnyFuture, absl::remove_cvref_t<Futures>> && ...);
 
 template <typename Callback, typename PromiseType, typename... Futures>
 constexpr inline bool IsCallbackInvocableWithReadyFutures =
-    ((std::is_base_of_v<AnyFuture, internal::remove_cvref_t<Futures>> && ...) &&
+    ((std::is_base_of_v<AnyFuture, absl::remove_cvref_t<Futures>> && ...) &&
      std::is_invocable_v<Callback, PromiseType,
                          internal_future::ReadyFutureType<Futures>...>);
 
@@ -1165,7 +1165,7 @@ class PromiseFuturePair {
   Link(Callback&& callback, Futures&&... future) {
     return MakeFromState(internal_future::MakeLinkedFutureState<
                          internal_future::FutureLinkAllReadyPolicy, T,
-                         internal::remove_cvref_t<Futures>...>::
+                         absl::remove_cvref_t<Futures>...>::
                              Make(std::forward<Futures>(future)...,
                                   std::forward<Callback>(callback)));
   }
@@ -1177,7 +1177,7 @@ class PromiseFuturePair {
   Link(ResultInit&& result_init, Callback&& callback, Futures&&... future) {
     return MakeFromState(internal_future::MakeLinkedFutureState<
                          internal_future::FutureLinkAllReadyPolicy, T,
-                         internal::remove_cvref_t<Futures>...>::
+                         absl::remove_cvref_t<Futures>...>::
                              Make(std::forward<Futures>(future)...,
                                   std::forward<Callback>(callback),
                                   std::forward<ResultInit>(result_init)));
@@ -1200,7 +1200,7 @@ class PromiseFuturePair {
   LinkValue(Callback&& callback, Futures&&... future) {
     return MakeFromState(internal_future::MakeLinkedFutureState<
                          internal_future::FutureLinkPropagateFirstErrorPolicy,
-                         T, internal::remove_cvref_t<Futures>...>::
+                         T, absl::remove_cvref_t<Futures>...>::
                              Make(std::forward<Futures>(future)...,
                                   std::forward<Callback>(callback)));
   }
@@ -1213,7 +1213,7 @@ class PromiseFuturePair {
             Futures&&... future) {
     return MakeFromState(internal_future::MakeLinkedFutureState<
                          internal_future::FutureLinkPropagateFirstErrorPolicy,
-                         T, internal::remove_cvref_t<Futures>...>::
+                         T, absl::remove_cvref_t<Futures>...>::
                              Make(std::forward<Futures>(future)...,
                                   std::forward<Callback>(callback),
                                   std::forward<ResultInit>(result_init)));
@@ -1238,7 +1238,7 @@ class PromiseFuturePair {
   LinkError(ResultInit&& result_init, Futures&&... future) {
     return MakeFromState(internal_future::MakeLinkedFutureState<
                          internal_future::FutureLinkPropagateFirstErrorPolicy,
-                         T, internal::remove_cvref_t<Futures>...>::
+                         T, absl::remove_cvref_t<Futures>...>::
                              Make(std::forward<Futures>(future)...,
                                   internal_future::NoOpCallback{},
                                   std::forward<ResultInit>(result_init)));
@@ -1267,9 +1267,9 @@ class PromiseFuturePair {
 /// \relates Future
 /// \id variadic
 template <typename... Futures>
-std::enable_if_t<
-    (std::is_base_of_v<AnyFuture, internal::remove_cvref_t<Futures>> && ...),
-    Future<void>>
+std::enable_if_t<(std::is_base_of_v<AnyFuture, absl::remove_cvref_t<Futures>> &&
+                  ...),
+                 Future<void>>
 WaitAllFuture(Futures&&... future) {
   return PromiseFuturePair<void>::LinkError(absl::OkStatus(),
                                             std::forward<Futures>(future)...)
@@ -1289,10 +1289,9 @@ WaitAllFuture(Futures&&... future) {
 Future<void> WaitAllFuture(tensorstore::span<const AnyFuture> futures);
 
 template <typename FutureT>
-std::enable_if_t<
-    std::is_base_of_v<AnyFuture, internal::remove_cvref_t<FutureT>> &&
-        !std::is_same_v<AnyFuture, internal::remove_cvref_t<FutureT>>,
-    Future<void>>
+std::enable_if_t<std::is_base_of_v<AnyFuture, absl::remove_cvref_t<FutureT>> &&
+                     !std::is_same_v<AnyFuture, absl::remove_cvref_t<FutureT>>,
+                 Future<void>>
 WaitAllFuture(tensorstore::span<FutureT> futures) {
   std::vector<AnyFuture> futures_vec(futures.begin(), futures.end());
   return WaitAllFuture(tensorstore::span<const AnyFuture>(futures_vec));
@@ -1314,15 +1313,15 @@ WaitAllFuture(tensorstore::span<FutureT> futures) {
 /// \relates Future
 /// \membergroup Map functions
 template <typename Executor, typename Callback, typename... FutureValue>
-Future<UnwrapFutureType<internal::remove_cvref_t<std::invoke_result_t<
+Future<UnwrapFutureType<absl::remove_cvref_t<std::invoke_result_t<
     Callback, internal_future::ResultType<FutureValue>&...>>>>
 MapFuture(Executor&& executor, Callback&& callback,
           Future<FutureValue>... future) {
-  using R = internal::remove_cvref_t<std::invoke_result_t<
+  using R = absl::remove_cvref_t<std::invoke_result_t<
       Callback, internal_future::ResultType<FutureValue>&...>>;
   using PromiseValue = UnwrapResultType<UnwrapFutureType<R>>;
   struct SetPromiseFromCallback {
-    internal::remove_cvref_t<Callback> callback;
+    absl::remove_cvref_t<Callback> callback;
     void operator()(Promise<PromiseValue> promise,
                     Future<FutureValue>... future) {
       if (!promise.result_needed()) return;
@@ -1368,14 +1367,14 @@ MapFuture(Executor&& executor, Callback&& callback,
 /// \membergroup Map functions
 template <typename Executor, typename Callback, typename... FutureValue>
 Future<UnwrapFutureType<
-    internal::remove_cvref_t<std::invoke_result_t<Callback, FutureValue&...>>>>
+    absl::remove_cvref_t<std::invoke_result_t<Callback, FutureValue&...>>>>
 MapFutureValue(Executor&& executor, Callback&& callback,
                Future<FutureValue>... future) {
   using R =
-      internal::remove_cvref_t<std::invoke_result_t<Callback, FutureValue&...>>;
+      absl::remove_cvref_t<std::invoke_result_t<Callback, FutureValue&...>>;
   using PromiseValue = UnwrapFutureType<R>;
   struct SetPromiseFromCallback {
-    internal::remove_cvref_t<Callback> callback;
+    absl::remove_cvref_t<Callback> callback;
     void operator()(Promise<PromiseValue> promise,
                     Future<FutureValue>... future) {
       if (!promise.result_needed()) return;

@@ -31,6 +31,7 @@
 
 #include "absl/base/optimization.h"
 #include "absl/container/inlined_vector.h"
+#include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/escaping.h"
@@ -366,7 +367,7 @@ Result<ZarrChunkLayout> ComputeChunkLayout(const ZarrDType& dtype,
 
 constexpr auto MetadataJsonBinder = [](auto maybe_optional) {
   return [=](auto is_loading, const auto& options, auto* obj, auto* j) {
-    using T = internal::remove_cvref_t<decltype(*obj)>;
+    using T = absl::remove_cvref_t<decltype(*obj)>;
     DimensionIndex* rank = nullptr;
     if constexpr (is_loading) {
       rank = &obj->rank;
