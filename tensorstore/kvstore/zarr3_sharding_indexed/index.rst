@@ -1,9 +1,9 @@
-.. _zarr-sharding-indexed-kvstore-driver:
+.. _zarr3-sharding-indexed-kvstore-driver:
 
-``zarr_sharding_indexed`` Key-Value Store driver
+``zarr3_sharding_indexed`` Key-Value Store driver
 ======================================================
 
-The ``zarr_sharding_indexed`` driver implements support for stored
+The ``zarr3_sharding_indexed`` driver implements support for stored
 representation used by the Zarr v3 ``sharding_indexed`` codec on top of a base
 key-value store.
 
@@ -11,7 +11,7 @@ For a grid of rank ``n``, keys must be ``n * 4`` bytes long, specifying the grid
 cell indices, where ``0 <= grid_cell_indices[i] < grid_shape[i]``, as ``n``
 consecutive ``uint32be`` values.
 
-.. json:schema:: kvstore/zarr_sharding_indexed
+.. json:schema:: kvstore/zarr3_sharding_indexed
 
 Example JSON specifications
 ---------------------------
@@ -19,7 +19,7 @@ Example JSON specifications
 .. code-block:: json
 
    {
-     "driver": "zarr_sharding_indexed",
+     "driver": "zarr3_sharding_indexed",
      "kvstore": "gs://my-bucket/path/to/sharded/data",
      "grid_shape": [32, 128],
      "index_codecs" [
