@@ -56,6 +56,7 @@
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_python {
@@ -81,8 +82,7 @@ struct SetContextBindingModeBase {
   template <typename Self>
   static absl::Status Apply(Self& self, bool value) {
     if (!value) return absl::OkStatus();
-    self.Set(Mode);
-    return absl::OkStatus();
+    return self.Set(Mode);
   }
 };
 
@@ -151,8 +151,7 @@ created as specified, but won't be overridden by :py:param:`.context`.
 )";
   template <typename Self>
   static absl::Status Apply(Self& self, type value) {
-    self.Set(WrapImpl(std::move(value)));
-    return absl::OkStatus();
+    return self.Set(WrapImpl(std::move(value)));
   }
 };
 
@@ -173,8 +172,8 @@ non-transactional.
 )";
   template <typename Self>
   static absl::Status Apply(Self& self, type value) {
-    self.Set(internal::TransactionState::ToTransaction(std::move(value)));
-    return absl::OkStatus();
+    return self.Set(
+        internal::TransactionState::ToTransaction(std::move(value)));
   }
 };
 

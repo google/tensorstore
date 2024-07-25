@@ -133,7 +133,8 @@ tensorstore_cc_library(
     hdrs = ["array_storage_statistics.h"],
     deps = [
         ":batch",
-        "@com_google_absl//absl/time",
+        "@com_google_absl//absl/meta:type_traits",
+        "@com_google_absl//absl/status",
     ],
 )
 
@@ -554,6 +555,7 @@ tensorstore_cc_library(
         "//tensorstore/util:future",
         "//tensorstore/util:option",
         "//tensorstore/util:result",
+        "//tensorstore/util:status",
         "@com_github_nlohmann_json//:json",
     ],
 )
@@ -587,7 +589,6 @@ tensorstore_cc_library(
         ":staleness_bound",
         ":transaction",
         "//tensorstore/kvstore",
-        "//tensorstore/util:option",
         "@com_google_absl//absl/status",
     ],
 )
@@ -649,7 +650,7 @@ tensorstore_cc_library(
         ":contiguous_layout",
         ":progress",
         "//tensorstore/index_space:alignment",
-        "@com_google_absl//absl/meta:type_traits",
+        "@com_google_absl//absl/status",
     ],
 )
 
@@ -661,6 +662,7 @@ tensorstore_cc_library(
         ":batch",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/meta:type_traits",
+        "@com_google_absl//absl/status",
     ],
 )
 
@@ -838,7 +840,6 @@ tensorstore_cc_library(
         "//tensorstore/index_space:dimension_units",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/index_space:transformed_array",
-        "//tensorstore/internal:type_traits",
         "//tensorstore/kvstore",
         "//tensorstore/serialization",
         "//tensorstore/util:executor",
@@ -849,7 +850,6 @@ tensorstore_cc_library(
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "//tensorstore/util/garbage_collection",
-        "@com_google_absl//absl/meta:type_traits",
         "@com_google_absl//absl/status",
     ],
 )

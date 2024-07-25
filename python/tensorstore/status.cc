@@ -197,8 +197,8 @@ class DynamicPythonException : public pybind11::builtin_exception {
   size_t len_;
 };
 
-void ThrowStatusException(const absl::Status& status,
-                          StatusExceptionPolicy policy) {
+void ThrowStatusExceptionImpl(const absl::Status& status,
+                              StatusExceptionPolicy policy) {
   if (status.ok()) return;
   if (auto exc = GetExceptionFromStatus(status); exc.ptr()) {
     PyErr_SetObject(reinterpret_cast<PyObject*>(exc.ptr()->ob_type), exc.ptr());

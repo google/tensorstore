@@ -260,7 +260,7 @@ Future<void> DriverRead(Executor executor, DriverHandle source,
   Driver::ResolveBoundsRequest request;
   request.transaction = state->source_transaction;
   request.transform = std::move(source.transform);
-  request.options = fix_resizable_bounds;
+  request.options.Set(fix_resizable_bounds).IgnoreError();
   auto transform_future =
       state->source_driver->ResolveBounds(std::move(request));
 
@@ -302,7 +302,7 @@ Future<SharedOffsetArray<void>> DriverReadIntoNewArray(
   Driver::ResolveBoundsRequest request;
   request.transaction = state->source_transaction;
   request.transform = std::move(source.transform);
-  request.options = fix_resizable_bounds;
+  request.options.Set(fix_resizable_bounds).IgnoreError();
 
   auto transform_future =
       state->source_driver->ResolveBounds(std::move(request));

@@ -18,7 +18,6 @@
 #include <stdint.h>
 
 #include <algorithm>
-#include <array>
 #include <cmath>
 #include <functional>
 #include <memory>
@@ -1931,7 +1930,7 @@ TENSORSTORE_GLOBAL_INITIALIZER {
         context
             .GetResource<tensorstore::internal::MockKeyValueStoreResource>());
     auto thread_pool = tensorstore::internal::DetachedThreadPool(1);
-    auto mock_store = *mock_key_value_store_resource;
+    const auto& mock_store = *mock_key_value_store_resource;
     auto pool = CachePool::Make(CachePool::Limits{});
     auto cache = GetCache<TestCache>(pool.get(), "", [&] {
       return std::make_unique<TestCache>(mock_store, *grid, thread_pool);

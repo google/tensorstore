@@ -16,19 +16,26 @@
 
 #include "tensorstore/driver/zarr/driver_impl.h"
 
+#include <string>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "tensorstore/context.h"
+#include "absl/status/status.h"
 #include "tensorstore/driver/kvs_backed_chunk_driver_impl.h"
 #include "tensorstore/driver/zarr/metadata.h"
 #include "tensorstore/driver/zarr/spec.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
+#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/open.h"
+#include "tensorstore/resize_options.h"
+#include "tensorstore/tensorstore.h"
+#include "tensorstore/transaction.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -44,6 +51,7 @@ using ::tensorstore::internal_zarr::DimensionSeparator;
 using ::tensorstore::internal_zarr::ZarrDriver;
 using ::tensorstore::internal_zarr::ZarrMetadata;
 
+template <typename... Option>
 Result<tensorstore::IndexTransform<>> ResolveBoundsFromMetadata(
     const ZarrMetadata& metadata, std::string field,
     tensorstore::IndexTransform<> transform,
@@ -133,10 +141,12 @@ TEST(ResolveBoundsFromMetadataTest, FixResizableBoundsSuccess) {
                                                       {"shape", {100, 100}},
                                                       {"chunks", {3, 2}},
                                                   }));
+  tensorstore::ResolveBoundsOptions options;
+  options.Set(tensorstore::fix_resizable_bounds).IgnoreError();
   EXPECT_THAT(ResolveBoundsFromMetadata(
                   /*metadata=*/metadata, /*field=*/"",
                   /*transform=*/tensorstore::IdentityTransform(2),
-                  /*options=*/tensorstore::fix_resizable_bounds),
+                  /*options=*/options),
               (tensorstore::IndexTransformBuilder<>(2, 2)
                    .input_origin({0, 0})
                    .input_shape({100, 100})
@@ -158,11 +168,13 @@ TEST(ResolveBoundsFromMetadataTest, FixResizableBoundsFailure) {
                                                       {"shape", {100, 100}},
                                                       {"chunks", {3, 2}},
                                                   }));
+  tensorstore::ResolveBoundsOptions options;
+  options.Set(tensorstore::fix_resizable_bounds).IgnoreError();
   EXPECT_THAT(ResolveBoundsFromMetadata(
                   /*metadata=*/metadata, /*field=*/"",
                   /*transform=*/
                   tensorstore::IdentityTransform(span<const Index>({200, 100})),
-                  /*options=*/tensorstore::fix_resizable_bounds),
+                  /*options=*/options),
               MatchesStatus(absl::StatusCode::kOutOfRange));
 }
 
@@ -240,12 +252,14 @@ TEST(GetResizeParametersTest, Basic) {
   }
 
   {
+    tensorstore::ResizeOptions options;
+    options.Set(tensorstore::expand_only).IgnoreError();
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        auto p, GetResizeParameters(metadata,
-                                    /*field=*/"", transform,
-                                    span<const Index>({kImplicit, kImplicit}),
-                                    span<const Index>({kImplicit, 150}),
-                                    tensorstore::expand_only));
+        auto p,
+        GetResizeParameters(metadata,
+                            /*field=*/"", transform,
+                            span<const Index>({kImplicit, kImplicit}),
+                            span<const Index>({kImplicit, 150}), options));
     EXPECT_THAT(p.new_exclusive_max, ::testing::ElementsAre(kImplicit, 150));
     EXPECT_THAT(p.exclusive_max_constraint,
                 ::testing::ElementsAre(kImplicit, kImplicit));
@@ -254,12 +268,14 @@ TEST(GetResizeParametersTest, Basic) {
   }
 
   {
+    tensorstore::ResizeOptions options;
+    options.Set(tensorstore::shrink_only).IgnoreError();
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        auto p, GetResizeParameters(metadata,
-                                    /*field=*/"", transform,
-                                    span<const Index>({kImplicit, kImplicit}),
-                                    span<const Index>({kImplicit, 150}),
-                                    tensorstore::shrink_only));
+        auto p,
+        GetResizeParameters(metadata,
+                            /*field=*/"", transform,
+                            span<const Index>({kImplicit, kImplicit}),
+                            span<const Index>({kImplicit, 150}), options));
     EXPECT_THAT(p.new_exclusive_max, ::testing::ElementsAre(kImplicit, 150));
     EXPECT_THAT(p.exclusive_max_constraint,
                 ::testing::ElementsAre(kImplicit, kImplicit));
@@ -282,13 +298,14 @@ TEST(GetResizeParametersTest, Basic) {
   }
 
   {
+    tensorstore::ResizeOptions options;
+    options.Set(tensorstore::resize_metadata_only).IgnoreError();
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto p, GetResizeParameters(metadata,
                                     /*field=*/"", transform,
                                     span<const Index>({kImplicit, kImplicit}),
                                     span<const Index>({kImplicit, 150}),
-                                    tensorstore::resize_metadata_only,
-                                    TransactionMode::atomic_isolated));
+                                    options, TransactionMode::atomic_isolated));
     EXPECT_THAT(p.new_exclusive_max, ::testing::ElementsAre(kImplicit, 150));
     EXPECT_THAT(p.exclusive_max_constraint,
                 ::testing::ElementsAre(kImplicit, kImplicit));
@@ -352,14 +369,15 @@ TEST(GetResizeParametersTest, MultipleFields) {
                     "Resize operation would affect other fields but "
                     "`resize_tied_bounds` was not specified"));
 
+  tensorstore::ResizeOptions options;
+  options.Set(tensorstore::ResizeMode::resize_tied_bounds).IgnoreError();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto p,
       GetResizeParameters(
           metadata,
           /*field=*/"x", transform,
           span<const Index>({kImplicit, kImplicit, kImplicit, kImplicit}),
-          span<const Index>({kImplicit, 150, kImplicit, kImplicit}),
-          tensorstore::ResizeMode::resize_tied_bounds));
+          span<const Index>({kImplicit, 150, kImplicit, kImplicit}), options));
   EXPECT_THAT(p.new_exclusive_max, ::testing::ElementsAre(kImplicit, 150));
   EXPECT_THAT(p.exclusive_max_constraint,
               ::testing::ElementsAre(kImplicit, kImplicit));

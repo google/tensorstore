@@ -310,7 +310,7 @@ WriteFutures DriverWrite(Executor executor,
   Driver::ResolveBoundsRequest request;
   request.transaction = state->target_transaction;
   request.transform = std::move(target.transform);
-  request.options = fix_resizable_bounds;
+  request.options.Set(fix_resizable_bounds).IgnoreError();
   auto transform_future =
       state->target_driver->ResolveBounds(std::move(request));
 

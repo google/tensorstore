@@ -131,8 +131,9 @@ class Spec {
   std::enable_if_t<IsCompatibleOptionSequence<SpecConvertOptions, Option...>,
                    absl::Status>
   Set(Option&&... option) {
-    TENSORSTORE_INTERNAL_ASSIGN_OPTIONS_OR_RETURN(SpecConvertOptions, options,
-                                                  option)
+    SpecConvertOptions options;
+    TENSORSTORE_RETURN_IF_ERROR(
+        internal::SetAll(options, std::forward<Option>(option)...));
     return this->Set(std::move(options));
   }
   absl::Status Set(SpecConvertOptions&& options);

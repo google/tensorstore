@@ -335,7 +335,6 @@ TEST(JsonDriverTest, ZeroElementWrite) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto mock_key_value_store_resource,
       context.GetResource<tensorstore::internal::MockKeyValueStoreResource>());
-  auto mock_key_value_store = *mock_key_value_store_resource;
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store, tensorstore::Open(json_spec, context).result());
   // Test that a write to zero elements is detected as a non-modification, and

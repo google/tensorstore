@@ -155,7 +155,6 @@ constexpr inline bool
                                           << std ::declval<const T&>())>> =
         true;
 
-
 template <typename Qualified, typename T>
 struct CopyQualifiersHelper {
   using type = T;

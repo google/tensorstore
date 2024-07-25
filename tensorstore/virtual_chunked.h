@@ -248,6 +248,7 @@
 
 #include "absl/base/attributes.h"
 #include "absl/meta/type_traits.h"
+#include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/context.h"
@@ -601,7 +602,9 @@ std::enable_if_t<(IsReadFunction<ReadFunc, Element, Rank> &&
                   IsCompatibleOptionSequence<OpenOptions, Option...>),
                  Result<TensorStore<Element, Rank, ReadWriteMode::read>>>
 VirtualChunked(ReadFunc read_function, Option&&... option) {
-  TENSORSTORE_INTERNAL_ASSIGN_OPTIONS_OR_RETURN(OpenOptions, options, option);
+  OpenOptions options;
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal::SetAll(options, std::forward<Option>(option)...));
   return VirtualChunked<Element, Rank>(std::move(read_function),
                                        std::move(options));
 }
@@ -633,7 +636,9 @@ std::enable_if_t<(IsReadFunction<ReadFunc, Element, Rank> &&
                  Result<TensorStore<Element, Rank, ReadWriteMode::read_write>>>
 VirtualChunked(ReadFunc read_function, WriteFunc write_function,
                Option&&... option) {
-  TENSORSTORE_INTERNAL_ASSIGN_OPTIONS_OR_RETURN(OpenOptions, options, option);
+  OpenOptions options;
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal::SetAll(options, std::forward<Option>(option)...));
   return VirtualChunked<Element, Rank>(
       std::move(read_function), std::move(write_function), std::move(options));
 }
@@ -657,7 +662,9 @@ std::enable_if_t<IsCompatibleOptionSequence<OpenOptions, Option...>,
                  Result<TensorStore<Element, Rank, ReadWriteMode::write>>>
 VirtualChunkedWriteOnly(WriteFunc write_function, Option&&... option) {
   static_assert(IsWriteFunction<WriteFunc, Element, Rank>);
-  TENSORSTORE_INTERNAL_ASSIGN_OPTIONS_OR_RETURN(OpenOptions, options, option);
+  OpenOptions options;
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal::SetAll(options, std::forward<Option>(option)...));
   return VirtualChunkedWriteOnly<Element, Rank>(std::move(write_function),
                                                 std::move(options));
 }

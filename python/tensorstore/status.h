@@ -23,6 +23,7 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
+#include "absl/base/attributes.h"
 #include "absl/status/status.h"
 
 namespace tensorstore {
@@ -39,14 +40,21 @@ enum class StatusExceptionPolicy {
   kIndexError,
 };
 
+void ThrowStatusExceptionImpl(
+    const absl::Status& status,
+    StatusExceptionPolicy policy = StatusExceptionPolicy::kDefault);
+
 /// Throws an exception that will map to the corresponding Python exception type
 /// if `!status.ok()`.
 ///
 /// Requires GIL.  Furthermore, the GIL must be held until any exception that is
 /// thrown is handled.
-void ThrowStatusException(
+ABSL_ATTRIBUTE_ALWAYS_INLINE inline void ThrowStatusException(
     const absl::Status& status,
-    StatusExceptionPolicy policy = StatusExceptionPolicy::kDefault);
+    StatusExceptionPolicy policy = StatusExceptionPolicy::kDefault) {
+  if (status.ok()) return;
+  ThrowStatusExceptionImpl(status, policy);
+}
 
 /// Sets the Python error indicator (i.e. `PyErr_Occurred()`) from the specified
 /// error status.

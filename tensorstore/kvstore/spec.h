@@ -17,6 +17,8 @@
 
 #include <string>
 #include <string_view>
+#include <type_traits>
+#include <utility>
 
 #include "absl/status/status.h"
 #include "tensorstore/context.h"
@@ -26,9 +28,9 @@
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/serialization/fwd.h"
-#include "tensorstore/util/future.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/option.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace kvstore {
@@ -40,7 +42,10 @@ struct DriverSpecOptions {
   template <typename T>
   constexpr static bool IsOption = false;
 
-  void Set(MinimalSpec value) { minimal_spec = value.minimal_spec(); }
+  absl::Status Set(MinimalSpec value) {
+    minimal_spec = value.minimal_spec();
+    return absl::OkStatus();
+  }
 };
 
 template <>
@@ -69,9 +74,13 @@ struct SpecConvertOptions : public DriverSpecOptions {
 
   using DriverSpecOptions::Set;
 
-  void Set(Context value) { context = std::move(value); }
-  void Set(ContextBindingMode value) {
+  absl::Status Set(Context value) {
+    context = std::move(value);
+    return absl::OkStatus();
+  }
+  absl::Status Set(ContextBindingMode value) {
     if (value > context_binding_mode) context_binding_mode = value;
+    return absl::OkStatus();
   }
 };
 

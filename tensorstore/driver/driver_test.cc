@@ -14,19 +14,26 @@
 
 #include "tensorstore/driver/driver.h"
 
+#include <utility>
+#include <vector>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "tensorstore/array.h"
-#include "tensorstore/context.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/driver/chunk.h"
+#include "tensorstore/driver/driver_handle.h"
 #include "tensorstore/driver/write.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/open_mode.h"
 #include "tensorstore/progress.h"
 #include "tensorstore/util/execution/any_receiver.h"
+#include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/executor.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/util/garbage_collection/garbage_collection.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -34,6 +41,8 @@ using ::tensorstore::AnyFlowReceiver;
 using ::tensorstore::IndexTransform;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::WriteProgress;
+using ::tensorstore::internal::DriverWrite;
+using ::tensorstore::internal::DriverWriteOptions;
 using ::tensorstore::internal::ReadChunk;
 using ::tensorstore::internal::WriteChunk;
 
@@ -66,17 +75,19 @@ TEST(WriteTest, ChunkError) {
   auto driver = tensorstore::internal::MakeReadWritePtr<ChunkErrorDriver>(
       tensorstore::ReadWriteMode::read_write);
   std::vector<WriteProgress> write_progress;
-  auto write_result = tensorstore::internal::DriverWrite(
+  DriverWriteOptions options;
+  options.progress_function = tensorstore::WriteProgressFunction{
+      [&write_progress](WriteProgress progress) {
+        write_progress.push_back(progress);
+      }};
+
+  auto write_result = DriverWrite(
       /*executor=*/tensorstore::InlineExecutor{},
       /*source=*/tensorstore::MakeScalarArray(3),
       /*target=*/
       {/*.driver=*/driver,
        /*.transform=*/tensorstore::IdentityTransform(0)},
-      /*options=*/
-      {/*.progress_function=*/tensorstore::WriteProgressFunction{
-          [&write_progress](WriteProgress progress) {
-            write_progress.push_back(progress);
-          }}});
+      std::move(options));
   EXPECT_THAT(write_result.copy_future.result(),
               MatchesStatus(absl::StatusCode::kUnknown, "Chunk error"));
   EXPECT_EQ(write_result.copy_future.status(),

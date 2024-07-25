@@ -20,6 +20,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/status/status.h"
 #include <nlohmann/json_fwd.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/internal/path.h"
@@ -50,8 +51,9 @@ struct SpecRequestOptions : public DriverSpecOptions {
 
   using DriverSpecOptions::Set;
 
-  void Set(ContextBindingMode value) {
+  absl::Status Set(ContextBindingMode value) {
     if (value > context_binding_mode) context_binding_mode = value;
+    return absl::OkStatus();
   }
 };
 
@@ -211,7 +213,10 @@ struct DriverOpenOptions {
   template <typename T>
   constexpr static bool IsOption = false;
 
-  void Set(Context value) { context = std::move(value); }
+  absl::Status Set(Context value) {
+    context = std::move(value);
+    return absl::OkStatus();
+  }
 };
 
 /// Driver-agnostic options that may be specified when opening a `KvStore`.
@@ -227,8 +232,9 @@ struct OpenOptions : public DriverOpenOptions {
 
   using DriverOpenOptions::Set;
 
-  void Set(Transaction transaction) {
+  absl::Status Set(Transaction transaction) {
     this->transaction = std::move(transaction);
+    return absl::OkStatus();
   }
 };
 

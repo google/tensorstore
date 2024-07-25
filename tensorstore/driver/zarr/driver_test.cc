@@ -89,7 +89,6 @@ using ::tensorstore::kImplicit;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::Schema;
-using ::tensorstore::span;
 using ::tensorstore::StrCat;
 using ::tensorstore::dtypes::complex64_t;
 using ::tensorstore::internal::DecodedMatches;
@@ -462,7 +461,7 @@ TEST(ZarrDriverTest, MetadataCache) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto mock_key_value_store_resource,
       context.GetResource<tensorstore::internal::MockKeyValueStoreResource>());
-  auto mock_key_value_store = *mock_key_value_store_resource;
+  const auto& mock_key_value_store = *mock_key_value_store_resource;
   auto memory_store = tensorstore::GetMemoryKeyValueStore();
 
   ::nlohmann::json json_spec{
@@ -1242,8 +1241,8 @@ TEST(ZarrDriverTest, Resize) {
               Pair("prefix/1.1", Bytes({5, 6, 0, 0, 0, 0}))));
 
       auto resize_future =
-          Resize(store, span<const Index>({kImplicit, kImplicit}),
-                 span<const Index>({3, 2}), resize_mode);
+          Resize(store, tensorstore::span<const Index>({kImplicit, kImplicit}),
+                 tensorstore::span<const Index>({3, 2}), resize_mode);
       TENSORSTORE_ASSERT_OK(resize_future);
       EXPECT_EQ(tensorstore::BoxView({3, 2}),
                 resize_future.value().domain().box());
@@ -1284,16 +1283,18 @@ void TestResizeToZeroAndBack(Op... op) {
           .result());
   // Resize to shape of {0, 0}
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto resized, Resize(store, span<const Index>({kImplicit, kImplicit}),
-                           span<const Index>({0, 0}))
-                        .result());
+      auto resized,
+      Resize(store, tensorstore::span<const Index>({kImplicit, kImplicit}),
+             tensorstore::span<const Index>({0, 0}))
+          .result());
   EXPECT_EQ(tensorstore::BoxView({0, 0}), resized.domain().box());
 
   // Resize back to non-zero shape of {10, 20}.
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto resized2, Resize(store, span<const Index>({kImplicit, kImplicit}),
-                            span<const Index>({10, 20}))
-                         .result());
+      auto resized2,
+      Resize(store, tensorstore::span<const Index>({kImplicit, kImplicit}),
+             tensorstore::span<const Index>({10, 20}))
+          .result());
   EXPECT_EQ(tensorstore::BoxView({10, 20}), resized2.domain().box());
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto transformed_store,
@@ -1388,8 +1389,9 @@ TEST(ZarrDriverTest, ResizeMetadataOnly) {
           Pair("prefix/1.1", Bytes({5, 6, 0, 0, 0, 0}))));
 
   auto resize_future =
-      Resize(store, span<const Index>({kImplicit, kImplicit}),
-             span<const Index>({3, 2}), tensorstore::resize_metadata_only);
+      Resize(store, tensorstore::span<const Index>({kImplicit, kImplicit}),
+             tensorstore::span<const Index>({3, 2}),
+             tensorstore::resize_metadata_only);
   TENSORSTORE_ASSERT_OK(resize_future);
   EXPECT_EQ(tensorstore::BoxView({3, 2}), resize_future.value().domain().box());
 
@@ -1439,9 +1441,9 @@ TEST(ZarrDriverTest, ResizeExpandOnly) {
           Pair("prefix/1.0", Bytes({0, 4, 0, 0, 0, 0})),
           Pair("prefix/1.1", Bytes({5, 6, 0, 0, 0, 0}))));
 
-  auto resize_future =
-      Resize(store, span<const Index>({kImplicit, kImplicit}),
-             span<const Index>({150, 200}), tensorstore::expand_only);
+  auto resize_future = Resize(
+      store, tensorstore::span<const Index>({kImplicit, kImplicit}),
+      tensorstore::span<const Index>({150, 200}), tensorstore::expand_only);
   TENSORSTORE_ASSERT_OK(resize_future);
   EXPECT_EQ(tensorstore::BoxView({150, 200}),
             resize_future.value().domain().box());
@@ -1476,8 +1478,8 @@ TEST(ZarrDriverTest, InvalidResize) {
                       .result());
   EXPECT_THAT(
       Resize(store | tensorstore::Dims(0).SizedInterval(0, 10),
-             span<const Index>({kImplicit, kImplicit}),
-             span<const Index>({kImplicit, 2}))
+             tensorstore::span<const Index>({kImplicit, kImplicit}),
+             tensorstore::span<const Index>({kImplicit, 2}))
           .result(),
       MatchesStatus(absl::StatusCode::kFailedPrecondition,
                     "Resize operation would also affect output dimension 0 "
@@ -1486,8 +1488,8 @@ TEST(ZarrDriverTest, InvalidResize) {
 
   EXPECT_THAT(
       Resize(store | tensorstore::Dims(0).HalfOpenInterval(5, 100),
-             span<const Index>({kImplicit, kImplicit}),
-             span<const Index>({kImplicit, 2}))
+             tensorstore::span<const Index>({kImplicit, kImplicit}),
+             tensorstore::span<const Index>({kImplicit, 2}))
           .result(),
       MatchesStatus(absl::StatusCode::kFailedPrecondition,
                     "Resize operation would also affect output dimension 0 "
@@ -1495,8 +1497,9 @@ TEST(ZarrDriverTest, InvalidResize) {
                     "was not specified"));
 
   EXPECT_THAT(
-      Resize(store, span<const Index>({kImplicit, kImplicit}),
-             span<const Index>({kImplicit, 10}), tensorstore::expand_only)
+      Resize(store, tensorstore::span<const Index>({kImplicit, kImplicit}),
+             tensorstore::span<const Index>({kImplicit, 10}),
+             tensorstore::expand_only)
           .result(),
       MatchesStatus(
           absl::StatusCode::kFailedPrecondition,
@@ -1505,8 +1508,9 @@ TEST(ZarrDriverTest, InvalidResize) {
           "\\[0, 100\\) to \\[0, 10\\) but `expand_only` was specified"));
 
   EXPECT_THAT(
-      Resize(store, span<const Index>({kImplicit, kImplicit}),
-             span<const Index>({kImplicit, 200}), tensorstore::shrink_only)
+      Resize(store, tensorstore::span<const Index>({kImplicit, kImplicit}),
+             tensorstore::span<const Index>({kImplicit, 200}),
+             tensorstore::shrink_only)
           .result(),
       MatchesStatus(
           absl::StatusCode::kFailedPrecondition,
@@ -1529,14 +1533,15 @@ TEST(ZarrDriverTest, InvalidResizeConcurrentModification) {
                                     tensorstore::ReadWriteMode::read_write)
                       .result());
 
-  TENSORSTORE_EXPECT_OK(Resize(store, span<const Index>({kImplicit, kImplicit}),
-                               span<const Index>({50, kImplicit})));
+  TENSORSTORE_EXPECT_OK(
+      Resize(store, tensorstore::span<const Index>({kImplicit, kImplicit}),
+             tensorstore::span<const Index>({50, kImplicit})));
 
   // Make bounds of dimension 0 explicit.
   EXPECT_THAT(
       Resize(store | tensorstore::Dims(0).HalfOpenInterval(0, 100),
-             span<const Index>({kImplicit, kImplicit}),
-             span<const Index>({kImplicit, 50}))
+             tensorstore::span<const Index>({kImplicit, kImplicit}),
+             tensorstore::span<const Index>({kImplicit, 50}))
           .result(),
       MatchesStatus(absl::StatusCode::kFailedPrecondition,
                     "Resize operation would also affect output dimension 0 "
@@ -1559,8 +1564,8 @@ TEST(ZarrDriverTest, InvalidResizeLowerBound) {
                       .result());
 
   EXPECT_THAT(Resize(store | tensorstore::Dims(0).UnsafeMarkBoundsImplicit(),
-                     span<const Index>({10, kImplicit}),
-                     span<const Index>({kImplicit, kImplicit}))
+                     tensorstore::span<const Index>({10, kImplicit}),
+                     tensorstore::span<const Index>({kImplicit, kImplicit}))
                   .result(),
               MatchesStatus(
                   absl::StatusCode::kFailedPrecondition,
@@ -1582,12 +1587,13 @@ TEST(ZarrDriverTest, InvalidResizeDueToOtherFields) {
       auto store, tensorstore::Open(json_spec, tensorstore::OpenMode::create,
                                     tensorstore::ReadWriteMode::read_write)
                       .result());
-  EXPECT_THAT(Resize(store, span<const Index>({kImplicit, kImplicit}),
-                     span<const Index>({kImplicit, 2}))
-                  .result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            "Resize operation would affect other fields but "
-                            "`resize_tied_bounds` was not specified"));
+  EXPECT_THAT(
+      Resize(store, tensorstore::span<const Index>({kImplicit, kImplicit}),
+             tensorstore::span<const Index>({kImplicit, 2}))
+          .result(),
+      MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                    "Resize operation would affect other fields but "
+                    "`resize_tied_bounds` was not specified"));
 }
 
 TEST(ZarrDriverTest, InvalidResizeDueToFieldShapeConstraints) {
@@ -1605,19 +1611,23 @@ TEST(ZarrDriverTest, InvalidResizeDueToFieldShapeConstraints) {
       auto store, tensorstore::Open(json_spec, tensorstore::OpenMode::create,
                                     tensorstore::ReadWriteMode::read_write)
                       .result());
-  EXPECT_THAT(Resize(store | tensorstore::Dims(3).UnsafeMarkBoundsImplicit(),
-                     span<const Index>({kImplicit, kImplicit, kImplicit, 0}),
-                     span<const Index>({kImplicit, kImplicit, kImplicit, 2}))
-                  .result(),
-              MatchesStatus(
-                  absl::StatusCode::kFailedPrecondition,
-                  "Cannot change exclusive upper bound of output dimension 3, "
-                  "which is fixed at 3, to 2"));
+  EXPECT_THAT(
+      Resize(
+          store | tensorstore::Dims(3).UnsafeMarkBoundsImplicit(),
+          tensorstore::span<const Index>({kImplicit, kImplicit, kImplicit, 0}),
+          tensorstore::span<const Index>({kImplicit, kImplicit, kImplicit, 2}))
+          .result(),
+      MatchesStatus(
+          absl::StatusCode::kFailedPrecondition,
+          "Cannot change exclusive upper bound of output dimension 3, "
+          "which is fixed at 3, to 2"));
 
   EXPECT_THAT(
-      Resize(store | tensorstore::Dims(3).SizedInterval(0, 2),
-             span<const Index>({kImplicit, kImplicit, kImplicit, kImplicit}),
-             span<const Index>({kImplicit, 2, kImplicit, kImplicit}))
+      Resize(
+          store | tensorstore::Dims(3).SizedInterval(0, 2),
+          tensorstore::span<const Index>(
+              {kImplicit, kImplicit, kImplicit, kImplicit}),
+          tensorstore::span<const Index>({kImplicit, 2, kImplicit, kImplicit}))
           .result(),
       MatchesStatus(absl::StatusCode::kFailedPrecondition,
                     "Resize operation would also affect output dimension 3 "
@@ -1649,8 +1659,9 @@ TEST(ZarrDriverTest, InvalidResizeIncompatibleMetadata) {
                                      tensorstore::ReadWriteMode::read_write)
                        .result());
   EXPECT_THAT(
-      Resize(store, span<const Index>({kImplicit, kImplicit}),
-             span<const Index>({5, 5}), tensorstore::resize_metadata_only)
+      Resize(store, tensorstore::span<const Index>({kImplicit, kImplicit}),
+             tensorstore::span<const Index>({5, 5}),
+             tensorstore::resize_metadata_only)
           .result(),
       MatchesStatus(absl::StatusCode::kFailedPrecondition,
                     "Error writing \"prefix/\\.zarray\": "
@@ -1683,8 +1694,8 @@ TEST(ZarrDriverTest, InvalidResizeConstraintsViolated) {
                        .result());
   EXPECT_THAT(
       Resize(store | tensorstore::Dims(0).SizedInterval(0, 100),
-             span<const Index>({kImplicit, kImplicit}),
-             span<const Index>({kImplicit, 5}),
+             tensorstore::span<const Index>({kImplicit, kImplicit}),
+             tensorstore::span<const Index>({kImplicit, 5}),
              tensorstore::resize_metadata_only)
           .result(),
       MatchesStatus(
@@ -1740,8 +1751,9 @@ TEST(ZarrDriverTest, InvalidResizeDeletedMetadata) {
       auto kvs, kvstore::Open(storage_spec, context).result());
   TENSORSTORE_ASSERT_OK(kvstore::Delete(kvs, "prefix/.zarray"));
   EXPECT_THAT(
-      Resize(store, span<const Index>({kImplicit, kImplicit}),
-             span<const Index>({5, 5}), tensorstore::resize_metadata_only)
+      Resize(store, tensorstore::span<const Index>({kImplicit, kImplicit}),
+             tensorstore::span<const Index>({5, 5}),
+             tensorstore::resize_metadata_only)
           .result(),
       MatchesStatus(absl::StatusCode::kNotFound,
                     "Error writing \"prefix/\\.zarray\": "

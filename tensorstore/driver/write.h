@@ -17,7 +17,6 @@
 
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/driver_handle.h"
-#include "tensorstore/index_space/alignment.h"
 #include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/progress.h"
 #include "tensorstore/read_write_options.h"

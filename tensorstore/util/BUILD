@@ -465,7 +465,7 @@ tensorstore_cc_library(
     name = "option",
     hdrs = ["option.h"],
     deps = [
-        "//tensorstore/internal:type_traits",
+        ":result",
         "@com_google_absl//absl/meta:type_traits",
         "@com_google_absl//absl/status",
     ],

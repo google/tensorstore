@@ -16,10 +16,11 @@
 #define TENSORSTORE_ARRAY_STORAGE_STATISTICS_H_
 
 #include <iosfwd>
-#include <optional>
 #include <type_traits>
+#include <utility>
 
-#include "absl/time/time.h"
+#include "absl/meta/type_traits.h"
+#include "absl/status/status.h"
 #include "tensorstore/batch.h"
 
 namespace tensorstore {
@@ -100,9 +101,15 @@ struct GetArrayStorageStatisticsOptions {
 
   Batch batch{no_batch};
 
-  void Set(ArrayStorageStatistics::Mask value) { mask |= value; }
+  absl::Status Set(ArrayStorageStatistics::Mask value) {
+    mask |= value;
+    return absl::OkStatus();
+  }
 
-  void Set(Batch value) { this->batch = std::move(value); }
+  absl::Status Set(Batch value) {
+    this->batch = std::move(value);
+    return absl::OkStatus();
+  }
 
   template <typename T>
   constexpr static inline bool IsOption = false;
