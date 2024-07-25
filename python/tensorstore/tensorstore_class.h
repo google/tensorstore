@@ -24,12 +24,22 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
+#include <utility>
+
+#include "absl/status/status.h"
 #include "python/tensorstore/batch.h"
+#include "python/tensorstore/context.h"
+#include "python/tensorstore/define_heap_type.h"
 #include "python/tensorstore/garbage_collection.h"
 #include "python/tensorstore/spec.h"
 #include "python/tensorstore/transaction.h"
 #include "tensorstore/batch.h"
+#include "tensorstore/context.h"
+#include "tensorstore/index.h"
+#include "tensorstore/open_mode.h"
+#include "tensorstore/read_write_options.h"
 #include "tensorstore/tensorstore.h"
+#include "tensorstore/transaction.h"
 #include "tensorstore/util/executor.h"
 
 namespace tensorstore {
@@ -121,12 +131,7 @@ Batch to use for reading any metadata required for opening.
 )";
   template <typename Self>
   static absl::Status Apply(Self& self, type value) {
-    if constexpr (std::is_void_v<decltype(self.Set(std::move(value)))>) {
-      self.Set(std::move(value));
-      return absl::OkStatus();
-    } else {
-      return self.Set(std::move(value));
-    }
+    return self.Set(std::move(value));
   }
 };
 

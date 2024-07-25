@@ -27,6 +27,7 @@
 
 #include "absl/random/bit_gen_ref.h"
 #include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
@@ -51,6 +52,7 @@
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/garbage_collection/garbage_collection.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
 
@@ -104,10 +106,8 @@ TestTensorStoreDriverSpecConvert(::nlohmann::json orig_spec,
                                  ::nlohmann::json expected_converted_spec,
                                  Option&&... option) {
   SpecConvertOptions options;
-  if (absl::Status status;
-      !((status = options.Set(std::forward<Option>(option))).ok() && ...)) {
-    TENSORSTORE_ASSERT_OK(status);
-  }
+  TENSORSTORE_ASSERT_OK(
+      internal::SetAll(options, std::forward<Option>(option)...));
   TestTensorStoreDriverSpecConvertImpl(std::move(orig_spec),
                                        std::move(expected_converted_spec),
                                        std::move(options));

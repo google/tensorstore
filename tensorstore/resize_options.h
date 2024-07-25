@@ -17,8 +17,10 @@
 
 #include <iosfwd>
 #include <type_traits>
+#include <utility>
 
 #include "absl/meta/type_traits.h"
+#include "absl/status/status.h"
 #include "tensorstore/batch.h"
 
 namespace tensorstore {
@@ -83,16 +85,15 @@ struct ResolveBoundsOptions {
   template <typename T>
   constexpr static inline bool IsOption = false;
 
-  /// Combines any number of supported options.
-  template <typename... T, typename = std::enable_if_t<
-                               (IsOption<absl::remove_cvref_t<T>> && ...)>>
-  ResolveBoundsOptions(T&&... option) {
-    (Set(std::forward<T>(option)), ...);
+  absl::Status Set(ResolveBoundsMode value) {
+    this->mode = value;
+    return absl::OkStatus();
   }
 
-  void Set(ResolveBoundsMode value) { this->mode = value; }
-
-  void Set(Batch value) { this->batch = std::move(value); }
+  absl::Status Set(Batch value) {
+    this->batch = std::move(value);
+    return absl::OkStatus();
+  }
 
   ResolveBoundsMode mode = ResolveBoundsMode{};
 
@@ -175,14 +176,10 @@ struct ResizeOptions {
   template <typename T>
   constexpr static inline bool IsOption = false;
 
-  /// Combines any number of supported options.
-  template <typename... T, typename = std::enable_if_t<
-                               (IsOption<absl::remove_cvref_t<T>> && ...)>>
-  ResizeOptions(T&&... option) {
-    (Set(std::forward<T>(option)), ...);
+  absl::Status Set(ResizeMode value) {
+    this->mode = value;
+    return absl::OkStatus();
   }
-
-  void Set(ResizeMode value) { this->mode = value; }
 
   /// Specifies the resize mode.
   ResizeMode mode = ResizeMode{};

@@ -25,7 +25,6 @@
 #include "tensorstore/schema.h"
 #include "tensorstore/staleness_bound.h"
 #include "tensorstore/transaction.h"
-#include "tensorstore/util/option.h"
 
 namespace tensorstore {
 

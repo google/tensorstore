@@ -373,13 +373,14 @@ WriteFutures DriverCopy(Executor executor, DriverHandle source,
     commit_pair.future = copy_pair.future;
   }
 
+  ResolveBoundsOptions bounds_options;
+  bounds_options.Set(fix_resizable_bounds).IgnoreError();
+
   // Resolve the source and target bounds.
   auto source_transform_future = state->source_driver->ResolveBounds(
-      {state->source_transaction, std::move(source.transform),
-       fix_resizable_bounds});
+      {state->source_transaction, std::move(source.transform), bounds_options});
   auto target_transform_future = state->target_driver->ResolveBounds(
-      {state->target_transaction, std::move(target.transform),
-       fix_resizable_bounds});
+      {state->target_transaction, std::move(target.transform), bounds_options});
 
   // Initiate the copy once the bounds have been resolved.
   LinkValue(

@@ -140,7 +140,7 @@ TEST(MemoryKeyValueStoreTest, SpecRoundtrip) {
 
 TEST(MemoryKeyValueStoreTest, SpecRoundtripWithContextSpec) {
   tensorstore::internal::KeyValueStoreSpecRoundtripOptions options;
-  options.spec_request_options.Set(tensorstore::unbind_context);
+  options.spec_request_options.Set(tensorstore::unbind_context).IgnoreError();
   options.full_spec = {
       {"driver", "memory"},
       {"memory_key_value_store", "memory_key_value_store#a"},

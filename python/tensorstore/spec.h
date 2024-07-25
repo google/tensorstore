@@ -23,21 +23,36 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
-#include <string>
+#include <cstddef>
+#include <optional>
+#include <utility>
+#include <vector>
 
+#include "absl/status/status.h"
 #include "python/tensorstore/array_type_caster.h"
 #include "python/tensorstore/context.h"
 #include "python/tensorstore/data_type.h"
+#include "python/tensorstore/define_heap_type.h"
 #include "python/tensorstore/garbage_collection.h"
 #include "python/tensorstore/index.h"
 #include "python/tensorstore/keyword_arguments.h"
 #include "python/tensorstore/kvstore.h"
 #include "python/tensorstore/sequence_parameter.h"
 #include "python/tensorstore/unit.h"
+#include "tensorstore/array.h"
+#include "tensorstore/chunk_layout.h"
+#include "tensorstore/codec_spec.h"
+#include "tensorstore/context.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_space/index_domain.h"
+#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/open_mode.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/spec.h"
 #include "tensorstore/staleness_bound.h"
+#include "tensorstore/util/option.h"
+#include "tensorstore/util/unit.h"
 
 namespace tensorstore {
 namespace internal_python {

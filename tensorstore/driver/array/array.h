@@ -15,10 +15,11 @@
 #ifndef TENSORSTORE_DRIVER_ARRAY_ARRAY_H_
 #define TENSORSTORE_DRIVER_ARRAY_ARRAY_H_
 
+#include <algorithm>
 #include <type_traits>
 #include <utility>
 
-#include "absl/meta/type_traits.h"
+#include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/context.h"
 #include "tensorstore/driver/driver.h"
@@ -28,7 +29,9 @@
 #include "tensorstore/spec.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/tensorstore.h"
+#include "tensorstore/util/option.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 
@@ -49,16 +52,15 @@ struct FromArrayOptions {
   template <typename T>
   constexpr static inline bool IsOption = false;
 
-  /// Combines any number of supported options.
-  template <typename... T, typename = std::enable_if_t<
-                               (IsOption<absl::remove_cvref_t<T>> && ...)>>
-  FromArrayOptions(T&&... option) {
-    (Set(std::forward<T>(option)), ...);
+  absl::Status Set(Context value) {
+    context = std::move(value);
+    return absl::OkStatus();
   }
 
-  void Set(Context value) { context = std::move(value); }
-
-  void Set(DimensionUnitsVector value) { dimension_units = std::move(value); }
+  absl::Status Set(DimensionUnitsVector value) {
+    dimension_units = std::move(value);
+    return absl::OkStatus();
+  }
 };
 
 template <>
@@ -90,16 +92,19 @@ FromArray(const Array& array, FromArrayOptions options) {
                        std::move(options)));
   return internal::TensorStoreAccess::Construct<Store>(std::move(handle));
 }
-template <typename Array, typename... Options>
+template <typename Array, typename... Option>
 std::enable_if_t<(IsArray<Array> && IsShared<typename Array::ElementTag> &&
-                  IsCompatibleOptionSequence<FromArrayOptions, Options...>),
+                  IsCompatibleOptionSequence<FromArrayOptions, Option...>),
                  Result<TensorStoreFromArrayType<Array>>>
-FromArray(const Array& array, Options&&... options) {
+FromArray(const Array& array, Option&&... option) {
   using Store = TensorStoreFromArrayType<Array>;
+  FromArrayOptions options;
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal::SetAll(options, std::forward<Option>(option)...));
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto handle, internal::MakeArrayDriver<Array::array_origin_kind>(
                        ConstDataTypeCast<typename Store::Element>(array),
-                       FromArrayOptions(std::forward<Options>(options)...)));
+                       std::move(options)));
   return internal::TensorStoreAccess::Construct<Store>(std::move(handle));
 }
 

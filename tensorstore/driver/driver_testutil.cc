@@ -1292,7 +1292,7 @@ void TestTensorStoreRepeatableRead(
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto mock_key_value_store_resource,
       context.GetResource<tensorstore::internal::MockKeyValueStoreResource>());
-  auto mock_store = *mock_key_value_store_resource;
+  const auto& mock_store = *mock_key_value_store_resource;
   auto memory_store = tensorstore::GetMemoryKeyValueStore();
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,

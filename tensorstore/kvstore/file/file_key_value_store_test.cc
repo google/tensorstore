@@ -30,7 +30,6 @@
 #include "tensorstore/context.h"
 #include "tensorstore/internal/os/filesystem.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
-#include "tensorstore/internal/thread/thread.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -41,7 +40,6 @@
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender_testutil.h"
 #include "tensorstore/util/future.h"
-#include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
 
 // Include system headers last to reduce impact of macros.
@@ -340,7 +338,7 @@ TEST(FileKeyValueStoreTest, SpecRoundtripSync) {
            {"file_io_concurrency", ::nlohmann::json::object_t()},
        }},
   };
-  options.spec_request_options.Set(tensorstore::retain_context);
+  options.spec_request_options.Set(tensorstore::retain_context).IgnoreError();
   tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
 }
 

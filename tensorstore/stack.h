@@ -24,13 +24,13 @@
 #include "tensorstore/driver/stack/driver.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dimension_identifier.h"
-#include "tensorstore/internal/type_traits.h"
 #include "tensorstore/open_options.h"
 #include "tensorstore/spec.h"
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/util/option.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 
@@ -61,8 +61,9 @@ std::enable_if_t<IsCompatibleOptionSequence<StackOpenOptions, Option...>,
                  Result<typename internal_stack::OverlayResult<
                      absl::remove_cvref_t<typename Layers::value_type>>::type>>
 Overlay(const Layers& layers, Option&&... option) {
-  TENSORSTORE_INTERNAL_ASSIGN_OPTIONS_OR_RETURN(StackOpenOptions, options,
-                                                option)
+  StackOpenOptions options;
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal::SetAll(options, std::forward<Option>(option)...));
   return Overlay(layers, std::move(options));
 }
 
@@ -93,8 +94,9 @@ std::enable_if_t<IsCompatibleOptionSequence<StackOpenOptions, Option...>,
                      absl::remove_cvref_t<typename Layers::value_type>>::type>>
 Stack(const Layers& layers, DimensionIndex stack_dimension,
       Option&&... option) {
-  TENSORSTORE_INTERNAL_ASSIGN_OPTIONS_OR_RETURN(StackOpenOptions, options,
-                                                option)
+  StackOpenOptions options;
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal::SetAll(options, std::forward<Option>(option)...));
   return Stack(layers, stack_dimension, std::move(options));
 }
 
@@ -125,8 +127,9 @@ std::enable_if_t<IsCompatibleOptionSequence<StackOpenOptions, Option...>,
                      absl::remove_cvref_t<typename Layers::value_type>>::type>>
 Concat(const Layers& layers, DimensionIdentifier concat_dimension,
        Option&&... option) {
-  TENSORSTORE_INTERNAL_ASSIGN_OPTIONS_OR_RETURN(StackOpenOptions, options,
-                                                option)
+  StackOpenOptions options;
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal::SetAll(options, std::forward<Option>(option)...));
   return Concat(layers, concat_dimension, std::move(options));
 }
 

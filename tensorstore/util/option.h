@@ -20,7 +20,7 @@
 
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
-#include "tensorstore/internal/type_traits.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 
@@ -28,41 +28,34 @@ namespace tensorstore {
 ///
 /// \ingroup utilities
 template <typename Options, typename... Option>
-// NONITPICK: Options::IsOption<std::remove_cvref_t<Option>>
 constexpr inline bool IsCompatibleOptionSequence =
     ((!std::is_same_v<Options, absl::remove_cvref_t<Option>> &&
       Options::template IsOption<absl::remove_cvref_t<Option>>) &&
      ...);
 
-}  // namespace tensorstore
+namespace internal {
 
 /// Collects a parameter pack of options into an options type.
 ///
-/// Intended to be used in a function scope.  Defines a local variable named
-/// `OPTIONS_NAME` of type `OPTIONS_TYPE`, and attempts to set each of the
-/// options specified by `OPTIONS_PACK`.  If setting an option fails with an
-/// error status, it is returned.
+/// An Options type is a struct which accepts types via a`Set` method;
+/// Each type has a corresponding `constexpr bool IsOption<T>` which evaluates
+/// to true for each settable type.
 ///
+/// \ingroup utilities
 /// Example usage:
 ///
-///     template <typename... Option>
-///     std::enable_if_t<IsCompatibleOptionSequence<OpenOptions, Option...>,
-///                      Result<Whatever>>
-///     MyFunction(Option&&... option) {
-///       TENSORSTORE_INTERNAL_ASSIGN_OPTIONS_OR_RETURN(
-///           OpenOptions, options, option);
-///       // use `options`
-///     }
-#define TENSORSTORE_INTERNAL_ASSIGN_OPTIONS_OR_RETURN(          \
-    OPTIONS_TYPE, OPTIONS_NAME, OPTION_PACK)                    \
-  OPTIONS_TYPE OPTIONS_NAME;                                    \
-  if (absl::Status status;                                      \
-      !((status = OPTIONS_NAME.Set(                             \
-             std::forward<decltype(OPTION_PACK)>(OPTION_PACK))) \
-            .ok() &&                                            \
-        ...)) {                                                 \
-    return status;                                              \
-  }                                                             \
-  /**/
+///    OpenOptions options;
+///    TENSORSTORE_RETURN_IF_ERROR
+///        SetAll(options, std::forward<Args>(args)...));
+///
+template <typename Options, typename... Args>
+absl::Status SetAll(Options& options, Args&&... args) {
+  absl::Status status;
+  ((status = options.Set(std::forward<Args>(args))).ok() && ...);
+  return status;
+}
+
+}  // namespace internal
+}  // namespace tensorstore
 
 #endif  // TENSORSTORE_UTIL_OPTION_H_

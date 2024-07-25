@@ -14,6 +14,7 @@
 
 #include "tensorstore/util/json_absl_flag.h"
 
+#include <cstdint>
 #include <string>
 
 #include <gtest/gtest.h>

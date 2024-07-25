@@ -53,14 +53,15 @@ constexpr inline bool IsResult<Result<T>> = true;
 ///
 /// \relates Result
 template <typename T>
-using UnwrapResultType = typename internal_result::UnwrapResultHelper<T>::type;
+using UnwrapResultType =
+    typename internal_result::UnwrapResultHelper<absl::remove_cvref_t<T>>::type;
 
 /// As above, preserving const / volatile / reference qualifiers.
 ///
 /// \relates Result
 template <typename T>
 using UnwrapQualifiedResultType =
-    internal::CopyQualifiers<T, UnwrapResultType<absl::remove_cvref_t<T>>>;
+    internal::CopyQualifiers<T, UnwrapResultType<T>>;
 
 /// FlatResult<T> maps
 ///
@@ -483,13 +484,13 @@ class Result : private internal_result::ResultStorage<T>,
   ///
   template <typename Func>
   inline FlatResult<std::invoke_result_t<Func&&, T&>>  //
-  operator|(Func&& func) const& {
+  operator|(Func && func) const& {
     if (!ok()) return status();
     return static_cast<Func&&>(func)(value());
   }
   template <typename Func>
   inline FlatResult<std::invoke_result_t<Func&&, T&&>>  //
-  operator|(Func&& func) && {
+  operator|(Func && func) && {
     if (!ok()) return status();
     return static_cast<Func&&>(func)(value());
   }

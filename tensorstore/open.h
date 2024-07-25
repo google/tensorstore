@@ -29,6 +29,7 @@
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/option.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 
@@ -108,8 +109,9 @@ std::enable_if_t<
     IsCompatibleOptionSequence<TransactionalOpenOptions, Option...>,
     Future<TensorStore<Element, Rank, Mode>>>
 Open(Spec spec, Option&&... option) {
-  TENSORSTORE_INTERNAL_ASSIGN_OPTIONS_OR_RETURN(TransactionalOpenOptions,
-                                                options, option)
+  TransactionalOpenOptions options;
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal::SetAll(options, std::forward<Option>(option)...));
   return tensorstore::Open<Element, Rank, Mode>(std::move(spec),
                                                 std::move(options));
 }

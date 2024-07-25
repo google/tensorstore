@@ -15,11 +15,11 @@
 #ifndef TENSORSTORE_TENSORSTORE_H_
 #define TENSORSTORE_TENSORSTORE_H_
 
+#include <algorithm>
 #include <string>
 #include <type_traits>
 #include <utility>
 
-#include "absl/meta/type_traits.h"
 #include "tensorstore/array.h"
 #include "tensorstore/array_storage_statistics.h"
 #include "tensorstore/chunk_layout.h"
@@ -34,7 +34,6 @@
 #include "tensorstore/index_space/dimension_units.h"
 #include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_transform.h"
-#include "tensorstore/internal/type_traits.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/open_options.h"
@@ -233,9 +232,10 @@ class TensorStore {
   std::enable_if_t<IsCompatibleOptionSequence<SpecRequestOptions, Option...>,
                    Result<Spec>>
   spec(Option&&... option) const {
-    TENSORSTORE_INTERNAL_ASSIGN_OPTIONS_OR_RETURN(SpecRequestOptions, options,
-                                                  option)
-    return spec(std::move(options));
+    SpecRequestOptions options;
+    TENSORSTORE_RETURN_IF_ERROR(
+        internal::SetAll(options, std::forward<Option>(option)...));
+    return internal::GetSpec(handle_, std::move(options));
   }
 
   /// Returns the storage layout of this TensorStore, which can be used to
@@ -514,10 +514,12 @@ template <typename StoreResult, typename... Option>
 std::enable_if_t<(IsCompatibleOptionSequence<ResolveBoundsOptions, Option...> &&
                   internal::IsTensorStore<UnwrapResultType<StoreResult>>),
                  Future<UnwrapResultType<StoreResult>>>
-ResolveBounds(StoreResult store, Option&&... options) {
-  return tensorstore::ResolveBounds(
-      std::forward<StoreResult>(store),
-      ResolveBoundsOptions(std::forward<Option>(options)...));
+ResolveBounds(StoreResult store, Option&&... option) {
+  ResolveBoundsOptions options;
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal::SetAll(options, std::forward<Option>(option)...));
+  return tensorstore::ResolveBounds(std::forward<StoreResult>(store),
+                                    std::move(options));
 }
 
 /// Resizes a `TensorStore` to have the specified `inclusive_min` and
@@ -603,9 +605,12 @@ Resize(
     StoreResult store,
     span<const Index, UnwrapResultType<StoreResult>::static_rank> inclusive_min,
     span<const Index, UnwrapResultType<StoreResult>::static_rank> exclusive_max,
-    Option&&... options) {
+    Option&&... option) {
+  ResizeOptions options;
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal::SetAll(options, std::forward<Option>(option)...));
   return Resize(std::move(store), inclusive_min, exclusive_max,
-                ResizeOptions(std::forward<Option>(options)...));
+                std::move(options));
 }
 
 /// Evaluates whether the constraints required for `tensorstore::Read` are
@@ -657,14 +662,13 @@ constexpr inline bool CanReadTensorstoreToArray =
 /// \relates TensorStore
 /// \id TensorStore, Array
 /// \membergroup I/O
-template <typename Source, typename TargetArray>
-std::enable_if_t<CanReadTensorstoreToArray<
-                     UnwrapResultType<absl::remove_cvref_t<Source>>,
-                     UnwrapResultType<absl::remove_cvref_t<TargetArray>>>,
+template <typename SourceTensorstore, typename TargetArray>
+std::enable_if_t<CanReadTensorstoreToArray<UnwrapResultType<SourceTensorstore>,
+                                           UnwrapResultType<TargetArray>>,
                  Future<void>>
-Read(Source&& source, TargetArray&& target, ReadOptions options) {
+Read(SourceTensorstore&& source, TargetArray&& target, ReadOptions options) {
   return MapResult(
-      [&](UnwrapQualifiedResultType<Source&&> unwrapped_source,
+      [&](UnwrapQualifiedResultType<SourceTensorstore&&> unwrapped_source,
           UnwrapQualifiedResultType<TargetArray&&> unwrapped_target) {
         return internal::DriverRead(
             internal::TensorStoreAccess::handle(
@@ -672,18 +676,21 @@ Read(Source&& source, TargetArray&& target, ReadOptions options) {
             std::forward<decltype(unwrapped_target)>(unwrapped_target),
             std::move(options));
       },
-      std::forward<Source>(source), std::forward<TargetArray>(target));
+      std::forward<SourceTensorstore>(source),
+      std::forward<TargetArray>(target));
 }
-template <typename Source, typename TargetArray, typename... Option>
+template <typename SourceTensorstore, typename TargetArray, typename... Option>
 std::enable_if_t<(IsCompatibleOptionSequence<ReadOptions, Option...> &&
-                  CanReadTensorstoreToArray<
-                      UnwrapResultType<absl::remove_cvref_t<Source>>,
-                      UnwrapResultType<absl::remove_cvref_t<TargetArray>>>),
+                  CanReadTensorstoreToArray<UnwrapResultType<SourceTensorstore>,
+                                            UnwrapResultType<TargetArray>>),
                  Future<void>>
-Read(Source&& source, TargetArray&& target, Option&&... options) {
-  return tensorstore::Read(std::forward<Source>(source),
+Read(SourceTensorstore&& source, TargetArray&& target, Option&&... option) {
+  ReadOptions options;
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal::SetAll(options, std::forward<Option>(option)...));
+  return tensorstore::Read(std::forward<SourceTensorstore>(source),
                            std::forward<TargetArray>(target),
-                           ReadOptions(std::forward<Option>(options)...));
+                           std::move(options));
 }
 
 /// Copies from a `source` `TensorStore` to a newly-allocated target `Array`.
@@ -716,18 +723,18 @@ Read(Source&& source, TargetArray&& target, Option&&... options) {
 /// \relates TensorStore
 /// \id TensorStore
 /// \membergroup I/O
-template <ArrayOriginKind OriginKind = offset_origin, typename Source>
+template <ArrayOriginKind OriginKind = offset_origin,
+          typename SourceTensorstore>
 std::enable_if_t<
-    internal::IsTensorStoreThatSupportsMode<
-        UnwrapResultType<absl::remove_cvref_t<Source>>, ReadWriteMode::read>,
-    Future<SharedArray<
-        typename UnwrapResultType<absl::remove_cvref_t<Source>>::Element,
-        UnwrapResultType<absl::remove_cvref_t<Source>>::static_rank,
-        OriginKind>>>
-Read(Source&& source, ReadIntoNewArrayOptions options) {
+    internal::IsTensorStoreThatSupportsMode<UnwrapResultType<SourceTensorstore>,
+                                            ReadWriteMode::read>,
+    Future<SharedArray<typename UnwrapResultType<SourceTensorstore>::Element,
+                       UnwrapResultType<SourceTensorstore>::static_rank,
+                       OriginKind>>>
+Read(SourceTensorstore&& source, ReadIntoNewArrayOptions options) {
+  using Store = UnwrapResultType<SourceTensorstore>;
   return MapResult(
-      [&](UnwrapQualifiedResultType<Source&&> unwrapped_source) {
-        using Store = UnwrapResultType<absl::remove_cvref_t<Source>>;
+      [&](UnwrapQualifiedResultType<SourceTensorstore&&> unwrapped_source) {
         return internal_tensorstore::MapArrayFuture<
             typename Store::Element, Store::static_rank, OriginKind>(
             internal::DriverReadIntoNewArray(
@@ -735,22 +742,23 @@ Read(Source&& source, ReadIntoNewArrayOptions options) {
                     std::forward<decltype(unwrapped_source)>(unwrapped_source)),
                 std::move(options)));
       },
-      std::forward<Source>(source));
+      std::forward<SourceTensorstore>(source));
 }
-template <ArrayOriginKind OriginKind = offset_origin, typename Source,
-          typename... Option>
+template <ArrayOriginKind OriginKind = offset_origin,
+          typename SourceTensorstore, typename... Option>
 std::enable_if_t<
     (IsCompatibleOptionSequence<ReadIntoNewArrayOptions, Option...> &&
      internal::IsTensorStoreThatSupportsMode<
-         UnwrapResultType<absl::remove_cvref_t<Source>>, ReadWriteMode::read>),
-    Future<SharedArray<
-        typename UnwrapResultType<absl::remove_cvref_t<Source>>::Element,
-        UnwrapResultType<absl::remove_cvref_t<Source>>::static_rank,
-        OriginKind>>>
-Read(Source&& source, Option&&... options) {
-  return tensorstore::Read<OriginKind>(
-      std::forward<Source>(source),
-      ReadIntoNewArrayOptions(std::forward<Option>(options)...));
+         UnwrapResultType<SourceTensorstore>, ReadWriteMode::read>),
+    Future<SharedArray<typename UnwrapResultType<SourceTensorstore>::Element,
+                       UnwrapResultType<SourceTensorstore>::static_rank,
+                       OriginKind>>>
+Read(SourceTensorstore&& source, Option&&... option) {
+  ReadIntoNewArrayOptions options;
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal::SetAll(options, std::forward<Option>(option)...));
+  return tensorstore::Read<OriginKind>(std::forward<SourceTensorstore>(source),
+                                       std::move(options));
 }
 
 /// Evaluates whether the constraints required for `tensorstore::Write` are
@@ -804,9 +812,8 @@ constexpr inline bool CanWriteArrayToTensorStore =
 /// \membergoup I/O
 /// \id Array, TensorStore
 template <typename SourceArray, typename Target>
-std::enable_if_t<CanWriteArrayToTensorStore<
-                     UnwrapResultType<absl::remove_cvref_t<SourceArray>>,
-                     UnwrapResultType<absl::remove_cvref_t<Target>>>,
+std::enable_if_t<CanWriteArrayToTensorStore<UnwrapResultType<SourceArray>,
+                                            UnwrapResultType<Target>>,
                  WriteFutures>
 Write(SourceArray&& source, Target&& target, WriteOptions options) {
   return MapResult(
@@ -822,14 +829,15 @@ Write(SourceArray&& source, Target&& target, WriteOptions options) {
 }
 template <typename SourceArray, typename Target, typename... Option>
 std::enable_if_t<(IsCompatibleOptionSequence<WriteOptions, Option...> &&
-                  CanWriteArrayToTensorStore<
-                      UnwrapResultType<absl::remove_cvref_t<SourceArray>>,
-                      UnwrapResultType<absl::remove_cvref_t<Target>>>),
+                  CanWriteArrayToTensorStore<UnwrapResultType<SourceArray>,
+                                             UnwrapResultType<Target>>),
                  WriteFutures>
-Write(SourceArray&& source, Target&& target, Option&&... options) {
+Write(SourceArray&& source, Target&& target, Option&&... option) {
+  WriteOptions options;
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal::SetAll(options, std::forward<Option>(option)...));
   return tensorstore::Write(std::forward<SourceArray>(source),
-                            std::forward<Target>(target),
-                            WriteOptions(std::forward<Option>(options)...));
+                            std::forward<Target>(target), std::move(options));
 }
 
 /// Evaluates whether the constraints required for `tensorstore::Copy` are
@@ -883,9 +891,8 @@ constexpr inline bool CanCopyTensorStoreToTensorStore =
 /// \membergoup I/O
 /// \id TensorStore, TensorStore
 template <typename Source, typename Target>
-std::enable_if_t<CanCopyTensorStoreToTensorStore<
-                     UnwrapResultType<absl::remove_cvref_t<Source>>,
-                     UnwrapResultType<absl::remove_cvref_t<Target>>>,
+std::enable_if_t<CanCopyTensorStoreToTensorStore<UnwrapResultType<Source>,
+                                                 UnwrapResultType<Target>>,
                  WriteFutures>
 Copy(Source&& source, Target&& target, CopyOptions options) {
   return MapResult(
@@ -902,14 +909,15 @@ Copy(Source&& source, Target&& target, CopyOptions options) {
 }
 template <typename Source, typename Target, typename... Option>
 std::enable_if_t<(IsCompatibleOptionSequence<CopyOptions, Option...> &&
-                  CanCopyTensorStoreToTensorStore<
-                      UnwrapResultType<absl::remove_cvref_t<Source>>,
-                      UnwrapResultType<absl::remove_cvref_t<Target>>>),
+                  CanCopyTensorStoreToTensorStore<UnwrapResultType<Source>,
+                                                  UnwrapResultType<Target>>),
                  WriteFutures>
-Copy(Source&& source, Target&& target, Option&&... options) {
+Copy(Source&& source, Target&& target, Option&&... option) {
+  CopyOptions options;
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal::SetAll(options, std::forward<Option>(option)...));
   return tensorstore::Copy(std::forward<Source>(source),
-                           std::forward<Target>(target),
-                           CopyOptions(std::forward<Option>(options)...));
+                           std::forward<Target>(target), std::move(options));
 }
 
 /// Retrieves statistics of the data stored within the given array region.
@@ -963,7 +971,8 @@ std::enable_if_t<
     Future<ArrayStorageStatistics>>
 GetStorageStatistics(const StoreResult& store, Option&&... option) {
   GetArrayStorageStatisticsOptions options;
-  (options.Set(option), ...);
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal::SetAll(options, std::forward<Option>(option)...));
   return GetStorageStatistics(store, std::move(options));
 }
 

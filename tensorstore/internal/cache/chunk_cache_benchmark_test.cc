@@ -15,14 +15,13 @@
 #include <cassert>
 #include <cstddef>
 #include <memory>
-#include <new>
 #include <ostream>
 #include <utility>
 #include <vector>
 
 #include <benchmark/benchmark.h>
 #include "absl/base/optimization.h"
-#include "absl/container/inlined_vector.h"
+#include "absl/status/status.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/array.h"
@@ -30,26 +29,28 @@
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/chunk_cache_driver.h"
-#include "tensorstore/driver/driver.h"
+#include "tensorstore/driver/driver_handle.h"
 #include "tensorstore/driver/read.h"
 #include "tensorstore/driver/write.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_transform.h"
-#include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/internal/async_write_array.h"
 #include "tensorstore/internal/cache/async_cache.h"
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/cache/chunk_cache.h"
+#include "tensorstore/internal/chunk_grid_specification.h"
 #include "tensorstore/internal/element_copy_function.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/memory.h"
 #include "tensorstore/internal/thread/thread_pool.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/progress.h"
-#include "tensorstore/rank.h"
+#include "tensorstore/transaction.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/garbage_collection/garbage_collection.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/str_cat.h"
@@ -60,23 +61,23 @@ using ::tensorstore::ArrayView;
 using ::tensorstore::Box;
 using ::tensorstore::DimensionIndex;
 using ::tensorstore::Executor;
-using ::tensorstore::Future;
 using ::tensorstore::Index;
 using ::tensorstore::IndexTransform;
-using ::tensorstore::MakeArray;
 using ::tensorstore::MakeCopy;
 using ::tensorstore::SharedArray;
 using ::tensorstore::SharedArrayView;
 using ::tensorstore::span;
 using ::tensorstore::StorageGeneration;
-using ::tensorstore::TimestampedStorageGeneration;
 using ::tensorstore::internal::CachePool;
 using ::tensorstore::internal::CachePtr;
 using ::tensorstore::internal::ChunkCache;
 using ::tensorstore::internal::ChunkCacheDriver;
 using ::tensorstore::internal::ChunkGridSpecification;
 using ::tensorstore::internal::ConcreteChunkCache;
-using ::tensorstore::internal::Driver;
+using ::tensorstore::internal::DriverRead;
+using ::tensorstore::internal::DriverReadOptions;
+using ::tensorstore::internal::DriverWrite;
+using ::tensorstore::internal::DriverWriteOptions;
 using ::tensorstore::internal::ElementCopyFunction;
 using ::tensorstore::internal::GetCache;
 using ::tensorstore::internal::GetOwningCache;
@@ -118,7 +119,8 @@ struct BenchmarkConfig {
   bool read;
 };
 
-std::ostream& operator<<(std::ostream& os, const BenchmarkConfig& config) {
+[[maybe_unused]] std::ostream& operator<<(std::ostream& os,
+                                          const BenchmarkConfig& config) {
   return os
          << (config.read ? "Read:  " : "Write: ")
          << "copy_shape=" << span(config.copy_shape)
@@ -283,13 +285,12 @@ class CopyBenchmarkRunner {
 
   void RunOnce() {
     if (config.read) {
-      tensorstore::internal::DriverRead(cache->executor(), {driver, transform},
-                                        array, {/*.progress_function=*/{}})
+      DriverRead(cache->executor(), {driver, transform}, array,
+                 DriverReadOptions{})
           .result();
     } else {
-      tensorstore::internal::DriverWrite(cache->executor(), array,
-                                         /*target=*/{driver, transform},
-                                         {/*.progress_function=*/{}})
+      DriverWrite(cache->executor(), array,
+                  /*target=*/{driver, transform}, DriverWriteOptions{})
           .commit_future.result();
     }
     transform =

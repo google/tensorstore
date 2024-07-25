@@ -15,11 +15,20 @@
 #include "tensorstore/kvstore/ocdbt/distributed/cooperator.h"
 // Part of the Cooperator interface
 
+#include <utility>
+
+#include "absl/synchronization/mutex.h"
+#include "absl/time/time.h"
 #include "tensorstore/internal/grpc/utils.h"
+#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/kvstore/driver.h"
+#include "tensorstore/kvstore/ocdbt/distributed/btree_node_identifier.h"
 #include "tensorstore/kvstore/ocdbt/distributed/cooperator_impl.h"
+#include "tensorstore/kvstore/ocdbt/distributed/lease_cache_for_cooperator.h"
+#include "tensorstore/kvstore/ocdbt/format/manifest.h"
 #include "tensorstore/kvstore/ocdbt/non_distributed/create_new_manifest.h"
 #include "tensorstore/util/executor.h"
+#include "tensorstore/util/future.h"
 
 namespace tensorstore {
 namespace internal_ocdbt_cooperator {

@@ -43,6 +43,7 @@
 #include "python/tensorstore/sequence_parameter.h"
 #include "python/tensorstore/serialization.h"
 #include "python/tensorstore/spec.h"
+#include "python/tensorstore/status.h"
 #include "python/tensorstore/tensorstore_class.h"
 #include "python/tensorstore/tensorstore_module_components.h"
 #include "python/tensorstore/write_futures.h"
@@ -2201,10 +2202,14 @@ See also:
       "storage_statistics",
       [](Self& self, bool query_not_stored, bool query_fully_stored) {
         GetArrayStorageStatisticsOptions options;
-        if (query_not_stored)
-          options.Set(ArrayStorageStatistics::query_not_stored);
-        if (query_fully_stored)
-          options.Set(ArrayStorageStatistics::query_fully_stored);
+        if (query_not_stored) {
+          ThrowStatusException(
+              options.Set(ArrayStorageStatistics::query_not_stored));
+        }
+        if (query_fully_stored) {
+          ThrowStatusException(
+              options.Set(ArrayStorageStatistics::query_fully_stored));
+        }
         return PythonFutureWrapper<ArrayStorageStatistics>(
             tensorstore::GetStorageStatistics(self.value, options),
             self.reference_manager());
