@@ -55,7 +55,6 @@
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/constant_vector.h"
-#include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
@@ -215,13 +214,9 @@ class ArrayDriver
 
   Future<IndexTransform<>> ResolveBounds(ResolveBoundsRequest request) override;
 
-  void Read(ReadRequest request,
-            AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver)
-      override;
+  void Read(ReadRequest request, ReadChunkReceiver receiver) override;
 
-  void Write(WriteRequest request,
-             AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>>
-                 receiver) override;
+  void Write(WriteRequest request, WriteChunkReceiver receiver) override;
 
   DataType dtype() override { return data_.dtype(); }
 
@@ -266,9 +261,7 @@ Future<IndexTransform<>> ArrayDriver::ResolveBounds(
                                             std::move(request.transform));
 }
 
-void ArrayDriver::Read(
-    ReadRequest request,
-    AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver) {
+void ArrayDriver::Read(ReadRequest request, ReadChunkReceiver receiver) {
   // Implementation of `tensorstore::ReadChunk::Impl` Poly interface.
   struct ChunkImpl {
     IntrusivePtr<ArrayDriver> self;
@@ -300,9 +293,7 @@ void ArrayDriver::Read(
   execution::set_stopping(receiver);
 }
 
-void ArrayDriver::Write(
-    WriteRequest request,
-    AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>> receiver) {
+void ArrayDriver::Write(WriteRequest request, WriteChunkReceiver receiver) {
   // Implementation of `tensorstore::internal::WriteChunk::Impl` Poly interface.
   struct ChunkImpl {
     IntrusivePtr<ArrayDriver> self;

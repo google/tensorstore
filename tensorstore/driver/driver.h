@@ -66,7 +66,6 @@
 #include "tensorstore/schema.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/transaction.h"
-#include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
@@ -166,10 +165,8 @@ class Driver : public AtomicReferenceCount<Driver> {
   /// Read and Write operations).
   virtual Executor data_copy_executor() = 0;
 
-  using ReadChunkReceiver =
-      AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>>;
-
   using ReadRequest = DriverReadRequest;
+  using ReadChunkReceiver = internal::ReadChunkReceiver;
 
   /// Requests a partition of the output range of `request.transform` into
   /// chunks that may each be read synchronously and atomically.
@@ -190,10 +187,8 @@ class Driver : public AtomicReferenceCount<Driver> {
   ///     was opened.
   virtual void Read(ReadRequest request, ReadChunkReceiver receiver);
 
-  using WriteChunkReceiver =
-      AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>>;
-
   using WriteRequest = internal::DriverWriteRequest;
+  using WriteChunkReceiver = internal::WriteChunkReceiver;
 
   /// Requests a partition of the output range of `request.transform` into
   /// chunks that may each be written synchronously and atomically.

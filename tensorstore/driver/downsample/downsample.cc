@@ -71,7 +71,6 @@
 #include "tensorstore/serialization/std_vector.h"  // IWYU pragma: keep
 #include "tensorstore/spec.h"
 #include "tensorstore/transaction.h"
-#include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender_util.h"
 #include "tensorstore/util/executor.h"
@@ -111,7 +110,8 @@ namespace jb = tensorstore::internal_json_binding;
 /// \dchecks `downsampled_domain.valid()`
 /// \dchecks `downsampled_domain.rank() == downsample_factors.size()`
 Result<IndexDomain<>> GetBaseDomainConstraintFromDownsampledDomain(
-    IndexDomain<> downsampled_domain, span<const Index> downsample_factors) {
+    IndexDomain<> downsampled_domain,
+    tensorstore::span<const Index> downsample_factors) {
   assert(downsampled_domain.valid());
   const DimensionIndex rank = downsampled_domain.rank();
   assert(rank == downsample_factors.size());
@@ -140,7 +140,8 @@ Result<IndexDomain<>> GetBaseDomainConstraintFromDownsampledDomain(
 Result<IndexTransform<>> GetBaseTransformForDownsampledTransform(
     IndexTransformView<> base_transform,
     IndexTransformView<> downsampled_transform,
-    span<const Index> downsample_factors, DownsampleMethod downsample_method) {
+    tensorstore::span<const Index> downsample_factors,
+    DownsampleMethod downsample_method) {
   if (downsample_method == DownsampleMethod::kStride) {
     return base_transform | tensorstore::AllDims().Stride(downsample_factors) |
            downsampled_transform;
@@ -281,7 +282,8 @@ class DownsampleDriverSpec
     TENSORSTORE_ASSIGN_OR_RETURN(auto dimension_units,
                                  internal::GetEffectiveDimensionUnits(base));
     if (!dimension_units.empty()) {
-      span<const Index> downsample_factors = this->downsample_factors;
+      tensorstore::span<const Index> downsample_factors =
+          this->downsample_factors;
       TENSORSTORE_ASSIGN_OR_RETURN(
           auto transform,
           tensorstore::IdentityTransform(downsample_factors.size()) |
@@ -431,7 +433,7 @@ class DownsampleDriver
       GetStorageStatisticsRequest request) override;
 
   explicit DownsampleDriver(DriverPtr base, IndexTransform<> base_transform,
-                            span<const Index> downsample_factors,
+                            tensorstore::span<const Index> downsample_factors,
                             DownsampleMethod downsample_method)
       : base_driver_(std::move(base)),
         base_transform_(std::move(base_transform)),
@@ -446,9 +448,7 @@ class DownsampleDriver
     return base_driver_->data_copy_executor();
   }
 
-  void Read(ReadRequest request,
-            AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver)
-      override;
+  void Read(ReadRequest request, ReadChunkReceiver receiver) override;
 
   Result<IndexTransform<>> GetStridedBaseTransform() {
     return base_transform_ | tensorstore::AllDims().Stride(downsample_factors_);
@@ -543,7 +543,7 @@ struct ReadState : public internal::AtomicReferenceCount<ReadState> {
   IntrusivePtr<DownsampleDriver> self_;
 
   /// Receiver of downsampled chunks.
-  AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver_;
+  internal::ReadChunkReceiver receiver_;
 
   /// Protects access to most other members.
   absl::Mutex mutex_;
@@ -706,7 +706,7 @@ struct BufferedReadChunkImpl {
 /// assumed to be singleton dimensions and are not used by any output index
 /// maps.
 IndexTransform<> GetDownsampledRequestIdentityTransform(
-    BoxView<> base_domain, span<const Index> downsample_factors,
+    BoxView<> base_domain, tensorstore::span<const Index> downsample_factors,
     DownsampleMethod downsample_method, DimensionIndex request_rank) {
   // Construct the `request_transform` to send to the receiver, which is simply
   // an identity transform over the first `request_rank` dimensions.  The
@@ -748,7 +748,7 @@ void ReadState::EmitBufferedChunks() {
     // Iterate over grid cells that haven't been independently emitted.
     const DimensionIndex rank = emitted_chunk_map.rank();
     Index grid_cell[kMaxRank];
-    span<Index> grid_cell_span(&grid_cell[0], rank);
+    tensorstore::span<Index> grid_cell_span(&grid_cell[0], rank);
     Box<dynamic_rank(internal::kNumInlinedDims)> grid_cell_domain;
     grid_cell_domain.set_rank(rank);
     emitted_chunk_map.InitializeCellIterator(grid_cell_span);
@@ -962,9 +962,7 @@ struct ReadReceiverImpl {
   }
 };
 
-void DownsampleDriver::Read(
-    ReadRequest request,
-    AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver) {
+void DownsampleDriver::Read(ReadRequest request, ReadChunkReceiver receiver) {
   if (downsample_method_ == DownsampleMethod::kStride) {
     // Stride-based downsampling just relies on the normal `IndexTransform`
     // machinery.
@@ -1064,7 +1062,7 @@ const internal::DriverRegistration<DownsampleDriverSpec> driver_registration;
 namespace internal {
 
 Result<Driver::Handle> MakeDownsampleDriver(
-    Driver::Handle base, span<const Index> downsample_factors,
+    Driver::Handle base, tensorstore::span<const Index> downsample_factors,
     DownsampleMethod downsample_method) {
   if (downsample_factors.size() != base.transform.input_rank()) {
     return absl::InvalidArgumentError(tensorstore::StrCat(
@@ -1097,7 +1095,7 @@ Result<Driver::Handle> MakeDownsampleDriver(
 }  // namespace internal
 
 Result<Spec> Downsample(const Spec& base_spec,
-                        span<const Index> downsample_factors,
+                        tensorstore::span<const Index> downsample_factors,
                         DownsampleMethod downsample_method) {
   using internal_spec::SpecAccess;
   Spec downsampled_spec;

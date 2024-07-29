@@ -37,20 +37,22 @@
 #include "tensorstore/internal/async_write_array.h"
 #include "tensorstore/internal/cache/async_cache.h"
 #include "tensorstore/internal/cache/cache.h"
+#include "tensorstore/internal/chunk_grid_specification.h"
 #include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/internal/grid_partition.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/lock_collection.h"
 #include "tensorstore/internal/memory.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/nditerable.h"
+#include "tensorstore/kvstore/generation.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/read_write_options.h"
 #include "tensorstore/transaction.h"
-#include "tensorstore/util/element_pointer.h"
-#include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
+#include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
@@ -77,7 +79,7 @@ bool IsFullyOverwritten(ChunkCache::TransactionNode& node) {
   auto& entry = GetOwningEntry(node);
   const auto& grid = GetOwningCache(entry).grid();
   const auto& component_specs = grid.components;
-  const span<const Index> cell_indices = entry.cell_indices();
+  const tensorstore::span<const Index> cell_indices = entry.cell_indices();
   for (size_t component_index = 0, num_components = component_specs.size();
        component_index != num_components; ++component_index) {
     if (!node.components()[component_index].write_state.IsFullyOverwritten(
@@ -388,9 +390,7 @@ struct WriteChunkImpl {
 
 }  // namespace
 
-void ChunkCache::Read(
-    ReadRequest request,
-    AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver) {
+void ChunkCache::Read(ReadRequest request, ReadChunkReceiver receiver) {
   assert(request.component_index >= 0 &&
          request.component_index < grid().components.size());
   const auto& component_spec = grid().components[request.component_index];
@@ -401,7 +401,7 @@ void ChunkCache::Read(
   auto status = PartitionIndexTransformOverRegularGrid(
       component_spec.chunked_to_cell_dimensions, grid().chunk_shape,
       request.transform,
-      [&](span<const Index> grid_cell_indices,
+      [&](tensorstore::span<const Index> grid_cell_indices,
           IndexTransformView<> cell_transform) {
         if (state->cancelled()) {
           return absl::CancelledError("");
@@ -450,9 +450,7 @@ void ChunkCache::Read(
   }
 }
 
-void ChunkCache::Write(
-    WriteRequest request,
-    AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>> receiver) {
+void ChunkCache::Write(WriteRequest request, WriteChunkReceiver receiver) {
   assert(request.component_index >= 0 &&
          request.component_index < grid().components.size());
   // In this implementation, chunks are always available for writing
@@ -464,7 +462,7 @@ void ChunkCache::Write(
   absl::Status status = PartitionIndexTransformOverRegularGrid(
       component_spec.chunked_to_cell_dimensions, grid().chunk_shape,
       request.transform,
-      [&](span<const Index> grid_cell_indices,
+      [&](tensorstore::span<const Index> grid_cell_indices,
           IndexTransformView<> cell_transform) {
         if (cancelled) return absl::CancelledError("");
         num_writes.Increment();
@@ -491,7 +489,7 @@ void ChunkCache::Write(
 }
 
 Future<const void> ChunkCache::DeleteCell(
-    span<const Index> grid_cell_indices,
+    tensorstore::span<const Index> grid_cell_indices,
     internal::OpenTransactionPtr transaction) {
   return GetEntryForGridCell(*this, grid_cell_indices)->Delete(transaction);
 }
@@ -501,7 +499,7 @@ absl::Status ChunkCache::TransactionNode::Delete() {
   this->MarkSizeUpdated();
   this->is_modified = true;
   auto& entry = GetOwningEntry(*this);
-  const span<const Index> cell_indices = entry.cell_indices();
+  const tensorstore::span<const Index> cell_indices = entry.cell_indices();
   const auto& grid = GetOwningCache(entry).grid();
   for (Index component_index = 0, num_components = grid.components.size();
        component_index != num_components; ++component_index) {
@@ -556,7 +554,7 @@ ChunkCache::WritebackSnapshot::WritebackSnapshot(
     TransactionNode& node, AsyncCache::ReadView<ReadData> read_state) {
   auto& entry = GetOwningEntry(node);
   auto& grid = GetOwningCache(entry).grid();
-  const span<const Index> cell_indices = entry.cell_indices();
+  const tensorstore::span<const Index> cell_indices = entry.cell_indices();
   for (size_t component_i = 0; component_i < grid.components.size();
        ++component_i) {
     const auto& component_spec = grid.components[component_i];

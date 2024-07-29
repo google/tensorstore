@@ -59,6 +59,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:staleness_bound",
         "//tensorstore/serialization",
+        "//tensorstore/util:dimension_set",
         "//tensorstore/util:executor",
         "//tensorstore/util:future",
         "//tensorstore/util:iterate_over_index_range",

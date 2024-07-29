@@ -25,6 +25,7 @@
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/open_options.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/spec.h"
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/transaction.h"
@@ -76,14 +77,15 @@ struct StackLayerSpec {
   Transaction transaction{no_transaction};
 };
 
-Result<internal::DriverHandle> Overlay(span<const StackLayerSpec> layer_specs,
-                                       StackOpenOptions&& options);
-Result<internal::DriverHandle> Stack(span<const StackLayerSpec> layer_specs,
-                                     DimensionIndex stack_dimension,
-                                     StackOpenOptions&& options);
-Result<internal::DriverHandle> Concat(span<const StackLayerSpec> layer_specs,
-                                      DimensionIdentifier concat_dimension,
-                                      StackOpenOptions&& options);
+Result<internal::DriverHandle> Overlay(
+    tensorstore::span<const StackLayerSpec> layer_specs,
+    StackOpenOptions&& options);
+Result<internal::DriverHandle> Stack(
+    tensorstore::span<const StackLayerSpec> layer_specs,
+    DimensionIndex stack_dimension, StackOpenOptions&& options);
+Result<internal::DriverHandle> Concat(
+    tensorstore::span<const StackLayerSpec> layer_specs,
+    DimensionIdentifier concat_dimension, StackOpenOptions&& options);
 
 template <typename T>
 struct StackResult {

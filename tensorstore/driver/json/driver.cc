@@ -66,7 +66,6 @@
 #include "tensorstore/serialization/absl_time.h"  // IWYU pragma: keep
 #include "tensorstore/staleness_bound.h"
 #include "tensorstore/transaction.h"
-#include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender_util.h"
 #include "tensorstore/util/executor.h"
@@ -332,12 +331,8 @@ class JsonDriver : public RegisteredDriver<JsonDriver,
     return GetOwningCache(*cache_entry_).executor();
   }
 
-  void Read(ReadRequest request,
-            AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver)
-      override;
-  void Write(WriteRequest request,
-             AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>>
-                 receiver) override;
+  void Read(ReadRequest request, ReadChunkReceiver receiver) override;
+  void Write(WriteRequest request, WriteChunkReceiver receiver) override;
 
   PinnedCacheEntry<JsonCache> cache_entry_;
   StalenessBound data_staleness_;
@@ -496,9 +491,7 @@ struct ReadChunkTransactionImpl {
   }
 };
 
-void JsonDriver::Read(
-    ReadRequest request,
-    AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver) {
+void JsonDriver::Read(ReadRequest request, ReadChunkReceiver receiver) {
   ReadChunk chunk;
   chunk.transform = std::move(request.transform);
   auto read_future = [&]() -> Future<const void> {
@@ -595,9 +588,7 @@ struct WriteChunkImpl {
   }
 };
 
-void JsonDriver::Write(
-    WriteRequest request,
-    AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>> receiver) {
+void JsonDriver::Write(WriteRequest request, WriteChunkReceiver receiver) {
   auto cell_transform = IdentityTransform(request.transform.domain());
   execution::set_value(
       FlowSingleReceiver{std::move(receiver)},

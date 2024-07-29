@@ -58,7 +58,6 @@ tensorstore_cc_library(
     name = "chunk",
     hdrs = ["chunk.h"],
     deps = [
-        "//tensorstore:index",
         "//tensorstore:read_write_options",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/index_space:transformed_array",
@@ -68,7 +67,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/poly",
         "//tensorstore/util:future",
         "//tensorstore/util:result",
-        "//tensorstore/util:span",
+        "//tensorstore/util/execution:any_receiver",
         "@com_google_absl//absl/functional:function_ref",
         "@com_google_absl//absl/status",
     ],
@@ -83,14 +82,10 @@ tensorstore_cc_library(
         "//tensorstore:data_type",
         "//tensorstore:index",
         "//tensorstore:staleness_bound",
-        "//tensorstore:transaction",
-        "//tensorstore/index_space:index_transform",
         "//tensorstore/internal:chunk_grid_specification",
         "//tensorstore/internal/cache",
         "//tensorstore/internal/cache:chunk_cache",
         "//tensorstore/util:executor",
-        "//tensorstore/util/execution:any_receiver",
-        "@com_google_absl//absl/status",
     ],
 )
 
@@ -169,7 +164,6 @@ tensorstore_cc_library(
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "//tensorstore/util/execution",
-        "//tensorstore/util/execution:any_receiver",
         "//tensorstore/util/execution:sender",
         "//tensorstore/util/execution:sender_util",
         "//tensorstore/util/garbage_collection",
@@ -185,7 +179,6 @@ tensorstore_cc_test(
     size = "small",
     srcs = ["driver_test.cc"],
     deps = [
-        ":chunk",
         ":driver",
         "//tensorstore:array",
         "//tensorstore:data_type",

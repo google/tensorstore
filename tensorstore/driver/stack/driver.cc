@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <numeric>
 #include <optional>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -63,6 +64,7 @@
 #include "tensorstore/rank.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/transaction.h"
+#include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
@@ -152,30 +154,33 @@ struct Cell {
   std::vector<Index> points;
 
   Cell(std::vector<Index> data) : points(std::move(data)) {}
-  Cell(span<const Index> data) : points(data.begin(), data.end()) {}
+  Cell(tensorstore::span<const Index> data)
+      : points(data.begin(), data.end()) {}
 
-  span<const Index> as_span() const { return span<const Index>(points); }
+  tensorstore::span<const Index> as_span() const {
+    return tensorstore::span<const Index>(points);
+  }
 };
 
 struct CellHash {
   using is_transparent = void;
 
-  size_t operator()(span<const Index> v) const {
-    return absl::Hash<span<const Index>>{}(v);
+  size_t operator()(tensorstore::span<const Index> v) const {
+    return absl::Hash<tensorstore::span<const Index>>{}(v);
   }
   size_t operator()(const Cell& v) const {
-    return absl::Hash<span<const Index>>{}(v.as_span());
+    return absl::Hash<tensorstore::span<const Index>>{}(v.as_span());
   }
 };
 
 struct CellEq {
   using is_transparent = void;
 
-  bool operator()(const Cell& a, span<const Index> b) const {
+  bool operator()(const Cell& a, tensorstore::span<const Index> b) const {
     return std::equal(a.as_span().begin(), a.as_span().end(), b.begin(),
                       b.end());
   }
-  bool operator()(span<const Index> a, const Cell& b) const {
+  bool operator()(tensorstore::span<const Index> a, const Cell& b) const {
     return std::equal(a.begin(), a.end(), b.as_span().begin(),
                       b.as_span().end());
   }
@@ -183,7 +188,8 @@ struct CellEq {
     return std::equal(a.as_span().begin(), a.as_span().end(),
                       b.as_span().begin(), b.as_span().end());
   }
-  bool operator()(span<const Index> a, span<const Index> b) const {
+  bool operator()(tensorstore::span<const Index> a,
+                  tensorstore::span<const Index> b) const {
     return std::equal(a.begin(), a.end(), b.begin(), b.end());
   }
 };
@@ -223,7 +229,7 @@ Result<IndexDomain<>> GetEffectiveDomain(const StackLayer& layer) {
 
 template <typename Layer>
 Result<std::vector<IndexDomain<>>> GetEffectiveDomainsForLayers(
-    span<const Layer> layers) {
+    tensorstore::span<const Layer> layers) {
   static_assert(IsStackLayerLike<Layer>);
   std::vector<IndexDomain<>> domains;
   domains.reserve(layers.size());
@@ -252,7 +258,8 @@ Result<std::vector<IndexDomain<>>> GetEffectiveDomainsForLayers(
 }
 
 Result<IndexDomain<>> GetCombinedDomain(
-    const Schema& schema, span<const IndexDomain<>> layer_domains) {
+    const Schema& schema,
+    tensorstore::span<const IndexDomain<>> layer_domains) {
   // Each layer is expected to have an effective domain so that each layer
   // can be queried when resolving chunks.
   // The overall domain is Hull(layer.domain...)
@@ -284,8 +291,8 @@ Result<DimensionUnitsVector> GetEffectiveDimensionUnits(
 }
 
 template <typename Layer>
-Result<DimensionUnitsVector> GetDimensionUnits(const Schema& schema,
-                                               span<const Layer> layers) {
+Result<DimensionUnitsVector> GetDimensionUnits(
+    const Schema& schema, tensorstore::span<const Layer> layers) {
   static_assert(IsStackLayerLike<Layer>);
   // Retrieve dimension units from schema. These take precedence over computed
   // dimensions, so disallow further assignment.
@@ -332,7 +339,7 @@ absl::Status TransformAndApplyOptions(StackLayer& layer,
 }
 
 template <typename Layer>
-absl::Status ApplyLayerOptions(span<Layer> layers, Schema& schema,
+absl::Status ApplyLayerOptions(tensorstore::span<Layer> layers, Schema& schema,
                                const SpecOptions& options) {
   if (&schema != &options) {
     TENSORSTORE_RETURN_IF_ERROR(schema.Set(options.rank()));
@@ -486,13 +493,12 @@ class StackDriver
 
   Future<IndexTransform<>> ResolveBounds(ResolveBoundsRequest request) override;
 
-  void Read(ReadRequest request,
-            AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver)
-      override;
+  void Read(ReadRequest request, ReadChunkReceiver receiver) override;
 
   void Write(WriteRequest request, WriteChunkReceiver receiver) override;
 
-  absl::Status InitializeGridIndices(span<const IndexDomain<>> domains);
+  absl::Status InitializeGridIndices(
+      tensorstore::span<const IndexDomain<>> domains);
 
   constexpr static auto ApplyMembers = [](auto&& x, auto f) {
     // Exclude `context_binding_state_` because it is handled specially.
@@ -512,8 +518,8 @@ class StackDriver
 
 Result<internal::Driver::Handle> MakeStackDriverHandle(
     internal::ReadWritePtr<StackDriver> driver,
-    span<const IndexDomain<>> layer_domains, Transaction transaction,
-    const Schema& schema) {
+    tensorstore::span<const IndexDomain<>> layer_domains,
+    Transaction transaction, const Schema& schema) {
   driver->dtype_ = schema.dtype();
   TENSORSTORE_ASSIGN_OR_RETURN(
       driver->layer_domain_,
@@ -564,10 +570,11 @@ Future<internal::Driver::Handle> StackDriverSpec::Open(
 /// an R-tree variant using the layer MBRs to restrict the query space,
 /// then applying a similar gridding decomposition to the read transforms.
 absl::Status StackDriver::InitializeGridIndices(
-    span<const IndexDomain<>> domains) {
+    tensorstore::span<const IndexDomain<>> domains) {
   assert(domains.size() == layers_.size());
-  grid_ = IrregularGrid::Make(layers_.empty() ? span(&layer_domain_, 1)
-                                              : span(domains));
+  grid_ =
+      IrregularGrid::Make(layers_.empty() ? tensorstore::span(&layer_domain_, 1)
+                                          : tensorstore::span(domains));
 
   Index start[kMaxRank];
   Index shape[kMaxRank];
@@ -580,19 +587,21 @@ absl::Status StackDriver::InitializeGridIndices(
     }
     // Set the mapping for all irregular grid cell covered by this layer
     // to point to this layer.
-    IterateOverIndexRange<>(BoxView<>(rank, start, shape),
-                            [layer_i, this](span<const Index> key) {
-                              grid_to_layer_[key] = layer_i;
-                            });
+    IterateOverIndexRange<>(
+        BoxView<>(rank, start, shape),
+        [layer_i, this](tensorstore::span<const Index> key) {
+          grid_to_layer_[key] = layer_i;
+        });
   }
 
 #if !defined(NDEBUG)
   // Log the missing cells.
-  IterateOverIndexRange<>(grid_.shape(), [this](span<const Index> key) {
-    if (auto it = grid_to_layer_.find(key); it == grid_to_layer_.end()) {
-      ABSL_LOG(INFO) << "\"stack\" driver missing grid cell: " << key;
-    }
-  });
+  IterateOverIndexRange<>(
+      grid_.shape(), [this](tensorstore::span<const Index> key) {
+        if (auto it = grid_to_layer_.find(key); it == grid_to_layer_.end()) {
+          ABSL_LOG(INFO) << "\"stack\" driver missing grid cell: " << key;
+        }
+      });
 #endif
 
   return absl::OkStatus();
@@ -720,7 +729,7 @@ struct OpenLayerOp {
     absl::flat_hash_map<size_t, std::vector<IndexTransform<>>> layers_to_load;
     auto status = tensorstore::internal::PartitionIndexTransformOverGrid(
         dimension_order, self->grid_, state->request.transform,
-        [&](span<const Index> grid_cell_indices,
+        [&](tensorstore::span<const Index> grid_cell_indices,
             IndexTransformView<> cell_transform) {
           auto it = self->grid_to_layer_.find(grid_cell_indices);
           if (it != self->grid_to_layer_.end()) {
@@ -770,11 +779,11 @@ struct OpenLayerOp {
 
 struct UnmappedOp {
   StackDriver* self;
-  absl::Status operator()(span<const Index> grid_cell_indices,
+  absl::Status operator()(tensorstore::span<const Index> grid_cell_indices,
                           IndexTransformView<> cell_transform) {
     auto origin = self->grid_.cell_origin(grid_cell_indices);
     return absl::InvalidArgumentError(
-        tensorstore::StrCat("Cell with origin=", span(origin),
+        tensorstore::StrCat("Cell with origin=", tensorstore::span(origin),
                             " missing layer mapping in \"stack\" driver"));
   }
 };
@@ -829,9 +838,7 @@ struct ReadOrWriteState : public internal::ChunkOperationState<ChunkType> {
   }
 };
 
-void StackDriver::Read(
-    ReadRequest request,
-    AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver) {
+void StackDriver::Read(ReadRequest request, ReadChunkReceiver receiver) {
   ReadOrWriteState<ReadChunk>::Start(*this, std::move(request),
                                      std::move(receiver));
 }
@@ -842,8 +849,8 @@ void StackDriver::Write(WriteRequest request, WriteChunkReceiver receiver) {
 }
 
 Result<internal::ReadWritePtr<StackDriver>> MakeDriverFromLayerSpecs(
-    span<const StackLayerSpec> layer_specs, StackOpenOptions& options,
-    DimensionIndex& rank) {
+    tensorstore::span<const StackLayerSpec> layer_specs,
+    StackOpenOptions& options, DimensionIndex& rank) {
   auto driver =
       internal::MakeReadWritePtr<StackDriver>(ReadWriteMode::read_write);
   auto& dtype = driver->dtype_;
@@ -957,8 +964,9 @@ Result<internal::DriverHandle> FinalizeStackHandle(
 
 }  // namespace
 
-Result<internal::DriverHandle> Overlay(span<const StackLayerSpec> layer_specs,
-                                       StackOpenOptions&& options) {
+Result<internal::DriverHandle> Overlay(
+    tensorstore::span<const StackLayerSpec> layer_specs,
+    StackOpenOptions&& options) {
   DimensionIndex rank;
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto driver,
@@ -968,9 +976,9 @@ Result<internal::DriverHandle> Overlay(span<const StackLayerSpec> layer_specs,
                                              std::move(options));
 }
 
-Result<internal::DriverHandle> Stack(span<const StackLayerSpec> layer_specs,
-                                     DimensionIndex stack_dimension,
-                                     StackOpenOptions&& options) {
+Result<internal::DriverHandle> Stack(
+    tensorstore::span<const StackLayerSpec> layer_specs,
+    DimensionIndex stack_dimension, StackOpenOptions&& options) {
   if (layer_specs.empty()) {
     return absl::InvalidArgumentError(
         "At least one layer must be specified for stack");
@@ -1007,9 +1015,9 @@ Result<internal::DriverHandle> Stack(span<const StackLayerSpec> layer_specs,
                                              std::move(options));
 }
 
-Result<internal::DriverHandle> Concat(span<const StackLayerSpec> layer_specs,
-                                      DimensionIdentifier concat_dimension,
-                                      StackOpenOptions&& options) {
+Result<internal::DriverHandle> Concat(
+    tensorstore::span<const StackLayerSpec> layer_specs,
+    DimensionIdentifier concat_dimension, StackOpenOptions&& options) {
   if (layer_specs.empty()) {
     return absl::InvalidArgumentError(
         "At least one layer must be specified for concat");
@@ -1046,7 +1054,7 @@ Result<internal::DriverHandle> Concat(span<const StackLayerSpec> layer_specs,
         concat_dimension_index,
         tensorstore::NormalizeDimensionLabel(
             concat_dimension.label(),
-            span<const std::string_view>(&labels[0], rank)));
+            tensorstore::span<const std::string_view>(&labels[0], rank)));
   } else {
     TENSORSTORE_ASSIGN_OR_RETURN(
         concat_dimension_index,

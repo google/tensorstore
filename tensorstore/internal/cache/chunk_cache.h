@@ -50,28 +50,23 @@
 #include <atomic>
 #include <memory>
 #include <string_view>
-#include <vector>
 
 #include "absl/container/inlined_vector.h"
 #include "absl/status/status.h"
+#include "absl/time/time.h"
 #include "tensorstore/array.h"
-#include "tensorstore/data_type.h"
 #include "tensorstore/driver/chunk.h"
 #include "tensorstore/driver/read_request.h"
 #include "tensorstore/driver/write_request.h"
 #include "tensorstore/index.h"
-#include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/async_write_array.h"
 #include "tensorstore/internal/cache/async_cache.h"
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/chunk_grid_specification.h"
-#include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/staleness_bound.h"
+#include "tensorstore/kvstore/generation.h"
 #include "tensorstore/transaction.h"
-#include "tensorstore/util/execution/any_receiver.h"
-#include "tensorstore/util/execution/sender.h"
+#include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
-#include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 
 namespace tensorstore {
@@ -95,12 +90,13 @@ class ChunkCache : public AsyncCache {
     using OwningCache = ChunkCache;
 
     /// Returns the grid cell index vector corresponding to this cache entry.
-    span<const Index> cell_indices() {
+    tensorstore::span<const Index> cell_indices() {
       return {reinterpret_cast<const Index*>(key().data()),
               static_cast<ptrdiff_t>(key().size() / sizeof(Index))};
     }
 
-    span<const ChunkGridSpecification::Component> component_specs() {
+    tensorstore::span<const ChunkGridSpecification::Component>
+    component_specs() {
       return GetOwningCache(*this).grid().components;
     }
 
@@ -117,14 +113,15 @@ class ChunkCache : public AsyncCache {
 
     using Component = AsyncWriteArray;
 
-    span<Component> components() { return components_; }
+    tensorstore::span<Component> components() { return components_; }
 
     /// Overwrites all components with the fill value.
     absl::Status Delete();
 
     size_t ComputeWriteStateSizeInBytes() override;
 
-    span<const ChunkGridSpecification::Component> component_specs() {
+    tensorstore::span<const ChunkGridSpecification::Component>
+    component_specs() {
       return GetOwningCache(*this).grid().components;
     }
 
@@ -219,9 +216,7 @@ class ChunkCache : public AsyncCache {
   /// Each chunk sent to `receiver` corresponds to a single grid cell.
   ///
   /// \param receiver Receiver for the chunks.
-  virtual void Read(
-      ReadRequest request,
-      AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver);
+  virtual void Read(ReadRequest request, ReadChunkReceiver receiver);
 
   struct WriteRequest : public internal::DriverWriteRequest {
     /// Component array index in the range `[0, grid().components.size())`.
@@ -233,12 +228,11 @@ class ChunkCache : public AsyncCache {
   /// Each chunk sent to `receiver` corresponds to a single grid cell.
   ///
   /// \param receiver Receiver for the chunks.
-  virtual void Write(
-      WriteRequest request,
-      AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>> receiver);
+  virtual void Write(WriteRequest request, WriteChunkReceiver receiver);
 
-  Future<const void> DeleteCell(span<const Index> grid_cell_indices,
-                                internal::OpenTransactionPtr transaction);
+  Future<const void> DeleteCell(
+      tensorstore::span<const Index> grid_cell_indices,
+      internal::OpenTransactionPtr transaction);
 };
 
 class ConcreteChunkCache : public ChunkCache {
