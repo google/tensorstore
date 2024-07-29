@@ -22,7 +22,6 @@
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/data_type.h"
-#include "tensorstore/driver/chunk.h"
 #include "tensorstore/driver/driver_handle.h"
 #include "tensorstore/driver/write.h"
 #include "tensorstore/index.h"
@@ -38,24 +37,17 @@
 namespace {
 
 using ::tensorstore::AnyFlowReceiver;
-using ::tensorstore::IndexTransform;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::WriteProgress;
 using ::tensorstore::internal::DriverWrite;
 using ::tensorstore::internal::DriverWriteOptions;
-using ::tensorstore::internal::ReadChunk;
-using ::tensorstore::internal::WriteChunk;
 
 class ChunkErrorDriver : public tensorstore::internal::Driver {
  public:
   tensorstore::DataType dtype() override { return tensorstore::dtype_v<int>; }
   tensorstore::DimensionIndex rank() override { return 0; }
-  void Read(ReadRequest request,
-            AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver)
-      override {}
-  void Write(WriteRequest request,
-             AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>>
-                 receiver) override {
+  void Read(ReadRequest request, ReadChunkReceiver receiver) override {}
+  void Write(WriteRequest request, WriteChunkReceiver receiver) override {
     tensorstore::execution::set_starting(receiver, [] {});
     tensorstore::execution::set_error(receiver,
                                       absl::UnknownError("Chunk error"));

@@ -28,7 +28,6 @@
 
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
-#include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/internal/arena.h"
@@ -36,9 +35,9 @@
 #include "tensorstore/internal/nditerable.h"
 #include "tensorstore/internal/poly/poly.h"
 #include "tensorstore/read_write_options.h"
+#include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 namespace internal {
@@ -81,6 +80,9 @@ struct ReadChunk {
   /// Transform from the "cell domain" to the chunk.
   IndexTransform<> transform;
 };
+
+using ReadChunkReceiver =
+    AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>>;
 
 struct WriteChunk {
   struct BeginWrite {};
@@ -192,6 +194,9 @@ struct WriteChunk {
   /// Transform from the "cell domain" to the chunk.
   IndexTransform<> transform;
 };
+
+using WriteChunkReceiver =
+    AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>>;
 
 /// Attempts to lock one or more `ReadChunk`/`WriteChunk` objects.
 ///

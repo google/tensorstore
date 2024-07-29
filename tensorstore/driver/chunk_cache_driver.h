@@ -20,18 +20,14 @@
 #include <cassert>
 #include <utility>
 
-#include "absl/status/status.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/chunk.h"
 #include "tensorstore/driver/driver.h"
 #include "tensorstore/index.h"
-#include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/cache/chunk_cache.h"
 #include "tensorstore/internal/chunk_grid_specification.h"
 #include "tensorstore/staleness_bound.h"
-#include "tensorstore/transaction.h"
-#include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/executor.h"
 
 namespace tensorstore {
@@ -48,9 +44,7 @@ template <typename Derived, typename Parent>
 class ChunkCacheReadWriteDriverMixin : public Parent {
  public:
   /// Simply forwards to `ChunkCache::Read`.
-  void Read(Driver::ReadRequest request,
-            AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver)
-      override {
+  void Read(Driver::ReadRequest request, ReadChunkReceiver receiver) override {
     static_cast<Derived*>(this)->cache()->Read(
         {std::move(request), static_cast<Derived*>(this)->component_index(),
          static_cast<Derived*>(this)->data_staleness_bound().time},
@@ -59,8 +53,7 @@ class ChunkCacheReadWriteDriverMixin : public Parent {
 
   /// Simply forwards to `ChunkCache::Write`.
   void Write(Driver::WriteRequest request,
-             AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>>
-                 receiver) override {
+             WriteChunkReceiver receiver) override {
     static_cast<Derived*>(this)->cache()->Write(
         {std::move(request), static_cast<Derived*>(this)->component_index()},
         std::move(receiver));

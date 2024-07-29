@@ -15,14 +15,20 @@
 #ifndef TENSORSTORE_INTERNAL_CHUNK_GRID_SPECIFICATION_H_
 #define TENSORSTORE_INTERNAL_CHUNK_GRID_SPECIFICATION_H_
 
+#include <cstddef>
+#include <string_view>
 #include <vector>
 
 #include "absl/container/inlined_vector.h"
-#include "tensorstore/array.h"
+#include "tensorstore/box.h"
 #include "tensorstore/chunk_layout.h"
+#include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/async_write_array.h"
 #include "tensorstore/internal/cache/cache.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 namespace internal {
@@ -113,7 +119,7 @@ struct ChunkGridSpecification {
 
     std::vector<Index> chunk_shape;
 
-    span<const Index> shape() const { return chunk_shape; }
+    tensorstore::span<const Index> shape() const { return chunk_shape; }
 
     DataType dtype() const { return array_spec.dtype(); }
 
@@ -151,26 +157,27 @@ struct ChunkGridSpecification {
   /// \post `origin[component_spec.chunked_to_cell_dimensions[j]]` equals
   ///     `cell_indices[j] * spec.chunk_shape[j]` for all grid dimensions `j`.
   void GetComponentOrigin(size_t component_index,
-                          span<const Index> cell_indices,
-                          span<Index> origin) const;
+                          tensorstore::span<const Index> cell_indices,
+                          tensorstore::span<Index> origin) const;
 
   using CellDomain = Box<dynamic_rank(kMaxRank)>;
 
   /// Returns the domain within a given component of the specified cell.
   CellDomain GetCellDomain(size_t component_index,
-                           span<const Index> cell_indices) const;
+                           tensorstore::span<const Index> cell_indices) const;
 
   /// Returns `GetCellDomain(component_index, cell_indices)`, restricted to the
   /// valid data bounds.
-  CellDomain GetValidCellDomain(size_t component_index,
-                                span<const Index> cell_indices) const;
+  CellDomain GetValidCellDomain(
+      size_t component_index,
+      tensorstore::span<const Index> cell_indices) const;
 };
 
 /// Returns the entry for the specified grid cell.  If it does not already
 /// exist, it will be created.
 template <typename CacheType>
 PinnedCacheEntry<CacheType> GetEntryForGridCell(
-    CacheType& cache, span<const Index> grid_cell_indices) {
+    CacheType& cache, tensorstore::span<const Index> grid_cell_indices) {
   static_assert(std::is_base_of_v<Cache, CacheType>);
   const std::string_view key(
       reinterpret_cast<const char*>(grid_cell_indices.data()),

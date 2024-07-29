@@ -46,7 +46,6 @@
 #include "tensorstore/open_mode.h"
 #include "tensorstore/open_options.h"
 #include "tensorstore/rank.h"
-#include "tensorstore/resize_options.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/spec.h"
 #include "tensorstore/transaction.h"
@@ -56,7 +55,6 @@
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -269,13 +267,9 @@ class CastDriver
     return base_driver_->data_copy_executor();
   }
 
-  void Read(ReadRequest request,
-            AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver)
-      override;
+  void Read(ReadRequest request, ReadChunkReceiver receiver) override;
 
-  void Write(WriteRequest request,
-             AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>>
-                 receiver) override;
+  void Write(WriteRequest request, WriteChunkReceiver receiver) override;
 
   Future<IndexTransform<>> ResolveBounds(
       ResolveBoundsRequest request) override {
@@ -382,17 +376,13 @@ struct ChunkReceiverAdapter {
   void set_stopping() { tensorstore::execution::set_stopping(base); }
 };
 
-void CastDriver::Read(
-    ReadRequest request,
-    AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver) {
+void CastDriver::Read(ReadRequest request, ReadChunkReceiver receiver) {
   base_driver_->Read(std::move(request),
                      ChunkReceiverAdapter<ReadChunk, ReadChunkImpl>{
                          IntrusivePtr<CastDriver>(this), std::move(receiver)});
 }
 
-void CastDriver::Write(
-    WriteRequest request,
-    AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>> receiver) {
+void CastDriver::Write(WriteRequest request, WriteChunkReceiver receiver) {
   base_driver_->Write(std::move(request),
                       ChunkReceiverAdapter<WriteChunk, WriteChunkImpl>{
                           IntrusivePtr<CastDriver>(this), std::move(receiver)});
