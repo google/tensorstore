@@ -174,7 +174,7 @@ class ContextResourceTraitsConcept : public ContextResourceTraits<Provider> {
   /// If there are no nested context resources, this need not be defined.
   void UnbindContext(Spec& spec, const ContextSpecBuilder& builder) const;
 
-  /// Optional.  Increments the strong reference count associated with
+  /// Optional.  Increments the strong reference count.
   ///
   /// A `Resource` object is assumed to represent a weak reference by default.
   /// This method acquires an additional strong reference, if supported.  If

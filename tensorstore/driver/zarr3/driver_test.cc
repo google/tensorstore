@@ -1361,4 +1361,53 @@ TEST(FullShardWriteTest, WithoutTransaction) {
   TENSORSTORE_ASSERT_OK(future);
 }
 
+TEST(ZarrDriverTest, MetadataCache) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto context,
+      Context::FromJson(
+          {{"cache_pool", {{"total_bytes_limit", 1024 * 1024 * 10}}}}));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto mock_key_value_store_resource,
+      context.GetResource<tensorstore::internal::MockKeyValueStoreResource>());
+  auto mock_kvstore = *mock_key_value_store_resource;
+  mock_kvstore->forward_to = tensorstore::GetMemoryKeyValueStore();
+  mock_kvstore->log_requests = true;
+
+  ::nlohmann::json json_spec{
+      {"driver", "zarr3"},
+      {"kvstore",
+       {
+           {"driver", "mock_key_value_store"},
+           {"path", "prefix/"},
+       }},
+      {"schema",
+       {
+           {"domain", {{"shape", {4}}}},
+           {"dtype", "uint16"},
+       }},
+      {"recheck_cached_metadata", false},
+      {"recheck_cached_data", false},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
+                                   tensorstore::Spec::FromJson(json_spec));
+
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open(spec, context, tensorstore::OpenMode::create)
+            .result());
+    mock_kvstore->request_log.pop_all();
+  }
+
+  {
+    // Reopening uses cached metadata without revalidation.
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open(spec, context, tensorstore::OpenMode::open).result());
+    EXPECT_THAT(mock_kvstore->request_log.pop_all(), ::testing::SizeIs(0));
+  }
+}
+
 }  // namespace
