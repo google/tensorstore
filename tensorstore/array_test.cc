@@ -1835,9 +1835,13 @@ TEST(BroadcastStridedLayoutTest, Basic) {
 }
 
 TEST(BroadcastArrayTest, ZeroOrigin) {
-  EXPECT_THAT(
-      BroadcastArray(MakeArray<int>({1, 2, 3}), span<const Index>({2, 3})),
-      MakeArray<int>({{1, 2, 3}, {1, 2, 3}}));
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto b,
+        BroadcastArray(MakeArray<int>({1, 2, 3}), span<const Index>({2, 3})));
+    static_assert(std::is_same_v<decltype(b), SharedArray<int>>);
+    EXPECT_THAT(b, MakeArray<int>({{1, 2, 3}, {1, 2, 3}}));
+  }
   EXPECT_THAT(BroadcastArray(MakeArray<int>({{1}, {2}, {3}}),
                              span<const Index>({3, 2})),
               MakeArray<int>({{1, 1}, {2, 2}, {3, 3}}));
@@ -1850,9 +1854,14 @@ TEST(BroadcastArrayTest, ZeroOrigin) {
 }
 
 TEST(BroadcastArrayTest, OffsetOrigin) {
-  EXPECT_THAT(BroadcastArray(MakeOffsetArray<int>({3}, {1, 2, 3}),
-                             BoxView<>({1, 2}, {2, 3})),
-              MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {1, 2, 3}}));
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto b, BroadcastArray(MakeOffsetArray<int>({3}, {1, 2, 3}),
+                               BoxView<>({1, 2}, {2, 3})));
+    static_assert(
+        std::is_same_v<decltype(b), tensorstore::SharedOffsetArray<int>>);
+    EXPECT_THAT(b, MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {1, 2, 3}}));
+  }
   EXPECT_THAT(BroadcastArray(MakeOffsetArray<int>({3, 4}, {{1}, {2}, {3}}),
                              BoxView<>({1, 2}, {3, 2})),
               MakeOffsetArray<int>({1, 2}, {{1, 1}, {2, 2}, {3, 3}}));
@@ -1870,6 +1879,7 @@ TEST(UnbroadcastArrayTest, Basic) {
       auto broadcast_array,
       BroadcastArray(orig_array, BoxView<>({1, 2, 3, 4}, {2, 3, 2, 2})));
   auto unbroadcast_array = UnbroadcastArray(broadcast_array);
+  static_assert(std::is_same_v<decltype(unbroadcast_array), SharedArray<int>>);
   auto unbroadcast_array2 = UnbroadcastArray(unbroadcast_array);
   EXPECT_EQ(orig_array, unbroadcast_array);
   EXPECT_EQ(orig_array.pointer(), unbroadcast_array.pointer());
