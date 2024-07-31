@@ -789,8 +789,11 @@ tensorstore_cc_library(
         "//tensorstore/internal:type_traits",
         "//tensorstore/util:constant_vector",
         "//tensorstore/util:extents",
+        "//tensorstore/util:result",
         "//tensorstore/util:span",
+        "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/status",
     ],
 )
 

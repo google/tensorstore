@@ -31,6 +31,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/status/status.h"
 #include "tensorstore/box.h"
 #include "tensorstore/container_kind.h"
 #include "tensorstore/contiguous_layout.h"
@@ -44,6 +45,7 @@
 #include "tensorstore/static_cast.h"
 #include "tensorstore/util/constant_vector.h"
 #include "tensorstore/util/extents.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 
 TENSORSTORE_GDB_AUTO_SCRIPT("multi_vector_gdb.py")
@@ -977,6 +979,70 @@ Index GetByteExtent(const StridedLayout<Rank, OriginKind, CKind>& layout,
                           layout.byte_strides().data()),
       element_size);
 }
+
+/// Validates that `source_shape` can be broadcast to `target_shape`.
+///
+/// A `source_shape` can be broadcast to a `target_shape` if, starting from the
+/// trailing (highest index) dimensions, the size in `source_shape` is either
+/// `1` or equal to the size in `target_shape`.  Any additional leading
+/// dimensions of `source_shape` that don't correspond to a dimension of
+/// `target_shape` must be `1`.  There are no restrictions on additional leading
+/// dimensions of `target_shape` that don't correspond to a dimension of
+/// `source_shape`.
+///
+/// For example:
+///
+///     [VALID]
+///     source_shape:    5
+///     target_shape: 4, 5
+///
+///     [VALID]
+///     source_shape: 4, 1
+///     target_shape: 4, 5
+///
+///     [VALID]
+///     source_shape: 1, 1, 5
+///     target_shape:    4, 5
+///
+///     [INVALID]
+///     source_shape: 2, 5
+///     target_shape: 4, 5
+///
+///     [INVALID]
+///     source_shape: 2, 5
+///     target_shape:    5
+///
+/// \returns `absl::OkStatus()` if the shapes are compatible.
+/// \error `absl::StatusCode::kInvalidArgument` if the shapes are not
+///     compatible.
+/// \relates StridedLayout
+/// \membergroup Broadcasting
+absl::Status ValidateShapeBroadcast(
+    tensorstore::span<const Index> source_shape,
+    tensorstore::span<const Index> target_shape);
+
+/// Broadcasts `source` to `target_shape`.
+///
+/// \param source Source layout to broadcast.
+/// \param target_shape Target shape to which `source` will be broadcast.
+/// \param target_byte_strides Pointer to array of length `target_shape.size()`.
+/// \param target Target layout to assign.
+/// \returns For `offset_origin` overload, the offset in bytes of broadcasted
+///     array data pointer relative to source array data pointer.
+/// \error `absl::StatusCode::kInvalidArgument` if the shapes are not
+///     compatible.
+/// \relates StridedLayout
+/// \membergroup Broadcasting
+absl::Status BroadcastStridedLayout(StridedLayoutView<> source,
+                                    tensorstore::span<const Index> target_shape,
+                                    Index* target_byte_strides);
+absl::Status BroadcastStridedLayout(StridedLayoutView<> source,
+                                    tensorstore::span<const Index> target_shape,
+                                    StridedLayout<>& target);
+Result<Index> BroadcastStridedLayout(
+    StridedLayoutView<dynamic_rank, offset_origin> source,
+    BoxView<> target_domain,
+    StridedLayout<dynamic_rank, offset_origin>& target);
 
 }  // namespace tensorstore
 

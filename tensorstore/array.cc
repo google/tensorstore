@@ -37,7 +37,7 @@
 #include "tensorstore/internal/unaligned_data_type_functions.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/serialization/serialization.h"
-#include "tensorstore/serialization/span.h"
+#include "tensorstore/serialization/span.h"  // IWYU pragma: keep
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/element_pointer.h"
@@ -45,7 +45,6 @@
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -241,71 +240,6 @@ void PrintToOstream(
 }
 }  // namespace internal_array
 
-absl::Status ValidateShapeBroadcast(span<const Index> source_shape,
-                                    span<const Index> target_shape) {
-  for (DimensionIndex source_dim = 0; source_dim < source_shape.size();
-       ++source_dim) {
-    const Index source_size = source_shape[source_dim];
-    if (source_size == 1) continue;
-    const DimensionIndex target_dim =
-        target_shape.size() - source_shape.size() + source_dim;
-    if (target_dim < 0 || target_shape[target_dim] != source_size) {
-      return absl::InvalidArgumentError(
-          tensorstore::StrCat("Cannot broadcast array of shape ", source_shape,
-                              " to target shape ", target_shape));
-    }
-  }
-  return absl::OkStatus();
-}
-
-absl::Status BroadcastStridedLayout(StridedLayoutView<> source,
-                                    span<const Index> target_shape,
-                                    Index* target_byte_strides) {
-  TENSORSTORE_RETURN_IF_ERROR(
-      ValidateShapeBroadcast(source.shape(), target_shape));
-  SharedArray<const void> target;
-  for (DimensionIndex target_dim = 0; target_dim < target_shape.size();
-       ++target_dim) {
-    const DimensionIndex source_dim =
-        target_dim + source.rank() - target_shape.size();
-    target_byte_strides[target_dim] =
-        (source_dim < 0 || source.shape()[source_dim] == 1)
-            ? 0
-            : source.byte_strides()[source_dim];
-  }
-  return absl::OkStatus();
-}
-
-Result<SharedArray<const void>> BroadcastArray(
-    SharedArrayView<const void> source, span<const Index> target_shape) {
-  SharedArray<const void> target;
-  target.layout().set_rank(target_shape.size());
-  TENSORSTORE_RETURN_IF_ERROR(BroadcastStridedLayout(
-      source.layout(), target_shape, target.byte_strides().data()));
-  target.element_pointer() = std::move(source.element_pointer());
-  std::copy(target_shape.begin(), target_shape.end(), target.shape().begin());
-  return target;
-}
-
-Result<SharedOffsetArray<const void>> BroadcastArray(
-    SharedOffsetArrayView<const void> source, BoxView<> target_domain) {
-  SharedOffsetArray<const void> target;
-  target.layout().set_rank(target_domain.rank());
-  TENSORSTORE_RETURN_IF_ERROR(BroadcastStridedLayout(
-      StridedLayoutView<>(source.shape(), source.byte_strides()),
-      target_domain.shape(), target.byte_strides().data()));
-  std::copy_n(target_domain.origin().begin(), target_domain.rank(),
-              target.origin().begin());
-  std::copy_n(target_domain.shape().begin(), target_domain.rank(),
-              target.shape().begin());
-  target.element_pointer() =
-      AddByteOffset(std::move(source.element_pointer()),
-                    internal::wrap_on_overflow::Subtract(
-                        source.layout().origin_byte_offset(),
-                        target.layout().origin_byte_offset()));
-  return target;
-}
-
 namespace internal_array {
 void UnbroadcastStridedLayout(StridedLayoutView<> layout,
                               span<Index> unbroadcast_shape,
@@ -324,29 +258,24 @@ void UnbroadcastStridedLayout(StridedLayoutView<> layout,
     unbroadcast_byte_strides[i] = byte_stride;
   }
 }
-}  // namespace internal_array
-
-SharedArray<const void> UnbroadcastArray(
-    SharedOffsetArrayView<const void> source) {
+void UnbroadcastStridedLayout(StridedLayoutView<> layout,
+                              StridedLayout<>& unbroadcast_layout) {
   DimensionIndex new_rank = 0;
-  for (DimensionIndex orig_dim = source.rank() - 1; orig_dim >= 0; --orig_dim) {
-    if (source.shape()[orig_dim] != 1 && source.byte_strides()[orig_dim] != 0) {
-      new_rank = source.rank() - orig_dim;
+  for (DimensionIndex orig_dim = layout.rank() - 1; orig_dim >= 0; --orig_dim) {
+    if (layout.shape()[orig_dim] != 1 && layout.byte_strides()[orig_dim] != 0) {
+      new_rank = layout.rank() - orig_dim;
     }
   }
 
-  SharedArray<const void> new_array;
-  new_array.layout().set_rank(new_rank);
+  unbroadcast_layout.set_rank(new_rank);
   internal_array::UnbroadcastStridedLayout(
       StridedLayoutView<>(
-          new_rank, source.shape().data() + source.rank() - new_rank,
-          source.byte_strides().data() + source.rank() - new_rank),
-      new_array.shape(), new_array.byte_strides());
-  new_array.element_pointer() =
-      AddByteOffset(std::move(source.element_pointer()),
-                    source.layout().origin_byte_offset());
-  return new_array;
+          new_rank, layout.shape().data() + layout.rank() - new_rank,
+          layout.byte_strides().data() + layout.rank() - new_rank),
+      unbroadcast_layout.shape(), unbroadcast_layout.byte_strides());
 }
+
+}  // namespace internal_array
 
 namespace internal_array {
 

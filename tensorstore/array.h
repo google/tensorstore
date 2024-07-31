@@ -1927,59 +1927,6 @@ bool AreArraysIdenticallyEqual(
   return AreArraysEqual(a, b, EqualityComparisonKind::identical);
 }
 
-/// Validates that `source_shape` can be broadcast to `target_shape`.
-///
-/// A `source_shape` can be broadcast to a `target_shape` if, starting from the
-/// trailing (highest index) dimensions, the size in `source_shape` is either
-/// `1` or equal to the size in `target_shape`.  Any additional leading
-/// dimensions of `source_shape` that don't correspond to a dimension of
-/// `target_shape` must be `1`.  There are no restrictions on additional leading
-/// dimensions of `target_shape` that don't correspond to a dimension of
-/// `source_shape`.
-///
-/// For example:
-///
-///     [VALID]
-///     source_shape:    5
-///     target_shape: 4, 5
-///
-///     [VALID]
-///     source_shape: 4, 1
-///     target_shape: 4, 5
-///
-///     [VALID]
-///     source_shape: 1, 1, 5
-///     target_shape:    4, 5
-///
-///     [INVALID]
-///     source_shape: 2, 5
-///     target_shape: 4, 5
-///
-///     [INVALID]
-///     source_shape: 2, 5
-///     target_shape:    5
-///
-/// \returns `absl::OkStatus()` if the shapes are compatible.
-/// \error `absl::StatusCode::kInvalidArgument` if the shapes are not
-///     compatible.
-/// \relates Array
-/// \membergroup Broadcasting
-absl::Status ValidateShapeBroadcast(span<const Index> source_shape,
-                                    span<const Index> target_shape);
-
-/// Broadcasts `source` to `target_shape`.
-///
-/// \param source Source layout to broadcast.
-/// \param target_shape Target shape to which `source` will be broadcast.
-/// \param target_byte_strides Pointer to array of length `target_shape.size()`.
-/// \error `absl::StatusCode::kInvalidArgument` if the shapes are not
-///     compatible.
-/// \relates Array
-/// \membergroup Broadcasting
-absl::Status BroadcastStridedLayout(StridedLayoutView<> source,
-                                    span<const Index> target_shape,
-                                    Index* target_byte_strides);
-
 /// Broadcasts `source` to `target_shape`.
 ///
 /// For example::
@@ -2002,10 +1949,29 @@ absl::Status BroadcastStridedLayout(StridedLayoutView<> source,
 ///     compatible.
 /// \relates Array
 /// \membergroup Broadcasting
-Result<SharedArray<const void>> BroadcastArray(
-    SharedArrayView<const void> source, span<const Index> target_shape);
-Result<SharedOffsetArray<const void>> BroadcastArray(
-    SharedOffsetArrayView<const void> source, BoxView<> target_domain);
+template <typename ElementTag, DimensionIndex Rank, ContainerKind CKind>
+Result<Array<ElementTag, dynamic_rank, zero_origin>> BroadcastArray(
+    const Array<ElementTag, Rank, zero_origin, CKind>& source,
+    tensorstore::span<const Index> target_shape) {
+  Array<ElementTag> target;
+  TENSORSTORE_RETURN_IF_ERROR(
+      BroadcastStridedLayout(source.layout(), target_shape, target.layout()));
+  target.element_pointer() = source.element_pointer();
+  return target;
+}
+template <typename ElementTag, DimensionIndex Rank, ArrayOriginKind OriginKind,
+          ContainerKind CKind>
+Result<Array<ElementTag, dynamic_rank, offset_origin>> BroadcastArray(
+    const Array<ElementTag, Rank, OriginKind, CKind>& source,
+    BoxView<> target_domain) {
+  Array<ElementTag, dynamic_rank, offset_origin> target;
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      Index byte_offset,
+      BroadcastStridedLayout(source.layout(), target_domain, target.layout()));
+  target.element_pointer() =
+      AddByteOffset(source.element_pointer(), byte_offset);
+  return target;
+}
 
 namespace internal_array {
 /// Converts zero-stride dimensions (with non-zero size) to have an extent of 1,
@@ -2016,9 +1982,13 @@ namespace internal_array {
 ///     with the unbroadcast shape.
 /// \param unbroadcast_byte_strides[out] Array of size `layout.rank()` to be
 ///     filled with the unbroadcast byte strides.
+/// \param unbroadcast_layout Set to unbroadcasted layout.
+void UnbroadcastStridedLayout(
+    StridedLayoutView<> layout, tensorstore::span<Index> unbroadcast_shape,
+    tensorstore::span<Index> unbroadcast_byte_strides);
 void UnbroadcastStridedLayout(StridedLayoutView<> layout,
-                              span<Index> unbroadcast_shape,
-                              span<Index> unbroadcast_byte_strides);
+                              StridedLayout<>& unbroadcast_layout);
+
 }  // namespace internal_array
 
 /// Converts zero-stride dimensions (with non-zero size) to have an extent of 1,
@@ -2033,8 +2003,23 @@ void UnbroadcastStridedLayout(StridedLayoutView<> layout,
 ///
 /// \relates Array
 /// \membergroup Broadcasting
-SharedArray<const void> UnbroadcastArray(
-    SharedOffsetArrayView<const void> source);
+template <typename ElementTag, DimensionIndex Rank, ArrayOriginKind OriginKind,
+          ContainerKind CKind>
+Array<ElementTag> UnbroadcastArray(
+    const Array<ElementTag, Rank, OriginKind, CKind>& source) {
+  Array<ElementTag> target;
+  internal_array::UnbroadcastStridedLayout(
+      StridedLayout<>(source.rank(), source.shape().data(),
+                      source.byte_strides().data()),
+      target.layout());
+  if constexpr (OriginKind == offset_origin) {
+    target.element_pointer() = AddByteOffset(
+        source.element_pointer(), source.layout().origin_byte_offset());
+  } else {
+    target.element_pointer() = source.element_pointer();
+  }
+  return target;
+}
 
 /// Converts zero-stride dimensions (with non-zero size) to have an extent of 1,
 /// and translates the origin to 0.

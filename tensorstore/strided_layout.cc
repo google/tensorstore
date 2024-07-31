@@ -21,11 +21,15 @@
 #include <ostream>
 #include <string>
 
+#include "absl/status/status.h"
+#include "tensorstore/box.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/rank.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -105,5 +109,65 @@ Index GetByteExtent(StridedLayoutView<> layout, Index element_size) {
 }
 
 }  // namespace internal_strided_layout
+
+absl::Status ValidateShapeBroadcast(
+    tensorstore::span<const Index> source_shape,
+    tensorstore::span<const Index> target_shape) {
+  for (DimensionIndex source_dim = 0; source_dim < source_shape.size();
+       ++source_dim) {
+    const Index source_size = source_shape[source_dim];
+    if (source_size == 1) continue;
+    const DimensionIndex target_dim =
+        target_shape.size() - source_shape.size() + source_dim;
+    if (target_dim < 0 || target_shape[target_dim] != source_size) {
+      return absl::InvalidArgumentError(
+          tensorstore::StrCat("Cannot broadcast array of shape ", source_shape,
+                              " to target shape ", target_shape));
+    }
+  }
+  return absl::OkStatus();
+}
+
+absl::Status BroadcastStridedLayout(StridedLayoutView<> source,
+                                    tensorstore::span<const Index> target_shape,
+                                    Index* target_byte_strides) {
+  TENSORSTORE_RETURN_IF_ERROR(
+      ValidateShapeBroadcast(source.shape(), target_shape));
+  for (DimensionIndex target_dim = 0; target_dim < target_shape.size();
+       ++target_dim) {
+    const DimensionIndex source_dim =
+        target_dim + source.rank() - target_shape.size();
+    target_byte_strides[target_dim] =
+        (source_dim < 0 || source.shape()[source_dim] == 1)
+            ? 0
+            : source.byte_strides()[source_dim];
+  }
+  return absl::OkStatus();
+}
+
+absl::Status BroadcastStridedLayout(StridedLayoutView<> source,
+                                    tensorstore::span<const Index> target_shape,
+                                    StridedLayout<>& target) {
+  target.set_rank(target_shape.size());
+  std::copy(target_shape.begin(), target_shape.end(), target.shape().begin());
+  return BroadcastStridedLayout(source, target_shape,
+                                target.byte_strides().data());
+}
+
+Result<Index> BroadcastStridedLayout(
+    StridedLayoutView<dynamic_rank, offset_origin> source,
+    BoxView<> target_domain,
+    StridedLayout<dynamic_rank, offset_origin>& target) {
+  target.set_rank(target_domain.rank());
+  TENSORSTORE_RETURN_IF_ERROR(BroadcastStridedLayout(
+      StridedLayoutView<>(source.shape(), source.byte_strides()),
+      target_domain.shape(), target.byte_strides().data()));
+  std::copy_n(target_domain.origin().begin(), target_domain.rank(),
+              target.origin().begin());
+  std::copy_n(target_domain.shape().begin(), target_domain.rank(),
+              target.shape().begin());
+  return internal::wrap_on_overflow::Subtract(source.origin_byte_offset(),
+                                              target.origin_byte_offset());
+}
 
 }  // namespace tensorstore
