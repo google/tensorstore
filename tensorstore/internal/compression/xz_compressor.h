@@ -18,8 +18,11 @@
 /// \file Define an XZ-format JsonSpecifiedCompressor.
 
 #include <cstddef>
+#include <memory>
 
 #include <lzma.h>
+#include "riegeli/bytes/reader.h"
+#include "riegeli/bytes/writer.h"
 #include "tensorstore/internal/compression/json_specified_compressor.h"
 
 namespace tensorstore {

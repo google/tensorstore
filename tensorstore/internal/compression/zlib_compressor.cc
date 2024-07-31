@@ -16,10 +16,11 @@
 
 #include <cstddef>
 #include <memory>
+#include <utility>
 
+#include "riegeli/bytes/writer.h"
 #include "riegeli/zlib/zlib_reader.h"
 #include "riegeli/zlib/zlib_writer.h"
-#include "tensorstore/internal/compression/json_specified_compressor.h"
 
 namespace tensorstore {
 namespace internal {

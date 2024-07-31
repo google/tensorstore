@@ -19,22 +19,29 @@
 /// Support for encoding/decoding the JSON metadata for zarr arrays
 /// See: https://zarr.readthedocs.io/en/stable/spec/v2.html
 
-#include <cstdint>
+#include <cstddef>
 #include <memory>
 #include <optional>
 #include <string>
 #include <vector>
 
 #include "absl/container/inlined_vector.h"
+#include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
-#include "tensorstore/data_type.h"
+#include "tensorstore/contiguous_layout.h"
 #include "tensorstore/driver/zarr/compressor.h"
 #include "tensorstore/driver/zarr/dtype.h"
+#include "tensorstore/index.h"
+#include "tensorstore/internal/json_binding/bindable.h"
+#include "tensorstore/json_serialization_options_base.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/serialization/fwd.h"
-#include "tensorstore/util/endian.h"
+#include "tensorstore/strided_layout.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 namespace internal_zarr {
@@ -60,7 +67,7 @@ struct ZarrChunkLayout {
     StridedLayout<> decoded_chunk_layout;
 
     /// The concatenation of the chunk shape with `field_shape`.
-    span<const Index> full_chunk_shape() const {
+    tensorstore::span<const Index> full_chunk_shape() const {
       return decoded_chunk_layout.shape();
     }
   };
@@ -186,9 +193,9 @@ struct ZarrPartialMetadata {
 ///
 /// \error `absl::StatusCode::kInvalidArgument` if the chunk or data type size
 ///     is too large.
-Result<ZarrChunkLayout> ComputeChunkLayout(const ZarrDType& dtype,
-                                           ContiguousLayoutOrder order,
-                                           span<const Index> chunk_shape);
+Result<ZarrChunkLayout> ComputeChunkLayout(
+    const ZarrDType& dtype, ContiguousLayoutOrder order,
+    tensorstore::span<const Index> chunk_shape);
 
 /// Encodes the field fill values as a zarr metadata "fill_value" JSON
 /// specification.
@@ -201,7 +208,8 @@ Result<ZarrChunkLayout> ComputeChunkLayout(const ZarrDType& dtype,
 /// \pre `fill_values[i].dtype() == dtype.fields[i].dtype` for
 ///     `0 <= i < dtype.fields.size()`.
 ::nlohmann::json EncodeFillValue(
-    const ZarrDType& dtype, span<const SharedArray<const void>> fill_values);
+    const ZarrDType& dtype,
+    tensorstore::span<const SharedArray<const void>> fill_values);
 
 /// Parses a zarr metadata "fill_value" JSON specification.
 ///
@@ -229,8 +237,9 @@ inline auto FillValueJsonBinder(const ZarrDType& dtype) {
 /// \param components Vector of per-field arrays.
 /// \dchecks `components.size() == metadata.dtype.fields.size()`
 /// \returns The encoded chunk.
-Result<absl::Cord> EncodeChunk(const ZarrMetadata& metadata,
-                               span<const SharedArray<const void>> components);
+Result<absl::Cord> EncodeChunk(
+    const ZarrMetadata& metadata,
+    tensorstore::span<const SharedArray<const void>> components);
 
 /// Decodes an encoded zarr chunk into per-field arrays.
 ///

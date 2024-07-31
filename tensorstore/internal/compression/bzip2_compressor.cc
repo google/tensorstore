@@ -15,10 +15,13 @@
 #include "tensorstore/internal/compression/bzip2_compressor.h"
 
 #include <cstddef>
+#include <memory>
+#include <utility>
 
+#include "riegeli/bytes/reader.h"
+#include "riegeli/bytes/writer.h"
 #include "riegeli/bzip2/bzip2_reader.h"
 #include "riegeli/bzip2/bzip2_writer.h"
-#include "tensorstore/internal/compression/json_specified_compressor.h"
 
 namespace tensorstore {
 namespace internal {

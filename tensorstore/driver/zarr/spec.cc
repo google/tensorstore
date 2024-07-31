@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "absl/status/status.h"
+#include <nlohmann/json_fwd.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/chunk_layout.h"
@@ -99,7 +100,7 @@ const internal::CodecSpecRegistration<ZarrCodecSpec> encoding_registration;
 
 void GetChunkInnerOrder(DimensionIndex chunked_rank,
                         ContiguousLayoutOrder order,
-                        span<DimensionIndex> permutation) {
+                        tensorstore::span<DimensionIndex> permutation) {
   assert(chunked_rank <= permutation.size());
   const DimensionIndex inner_rank = permutation.size() - chunked_rank;
   std::iota(permutation.begin(), permutation.end(), DimensionIndex(0));
@@ -359,7 +360,8 @@ SpecRankAndFieldInfo GetSpecRankAndFieldInfo(const ZarrMetadata& metadata,
 
 Result<IndexDomain<>> GetDomainFromMetadata(
     const SpecRankAndFieldInfo& info,
-    std::optional<span<const Index>> metadata_shape, const Schema& schema) {
+    std::optional<tensorstore::span<const Index>> metadata_shape,
+    const Schema& schema) {
   const DimensionIndex full_rank = info.full_rank;
   auto schema_domain = schema.domain();
   if (full_rank == dynamic_rank ||
@@ -371,7 +373,7 @@ Result<IndexDomain<>> GetDomainFromMetadata(
     return schema_domain;
   }
   IndexDomainBuilder builder(full_rank);
-  span<Index> shape = builder.shape();
+  tensorstore::span<Index> shape = builder.shape();
   std::fill(shape.begin(), shape.end(), kInfIndex + 1);
   DimensionSet implicit_upper_bounds = true;
   if (metadata_shape) {
@@ -394,7 +396,8 @@ Result<IndexDomain<>> GetDomainFromMetadata(
 }
 
 absl::Status SetChunkLayoutFromMetadata(
-    const SpecRankAndFieldInfo& info, std::optional<span<const Index>> chunks,
+    const SpecRankAndFieldInfo& info,
+    std::optional<tensorstore::span<const Index>> chunks,
     std::optional<ContiguousLayoutOrder> order, ChunkLayout& chunk_layout) {
   const DimensionIndex full_rank = info.full_rank;
   if (full_rank == dynamic_rank) {

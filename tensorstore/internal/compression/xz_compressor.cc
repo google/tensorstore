@@ -14,6 +14,10 @@
 
 #include "tensorstore/internal/compression/xz_compressor.h"
 
+#include <cstddef>
+#include <memory>
+#include <utility>
+
 #include "riegeli/bytes/cord_reader.h"
 #include "riegeli/bytes/cord_writer.h"
 #include "riegeli/bytes/reader.h"

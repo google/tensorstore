@@ -161,7 +161,6 @@ tensorstore_cc_library(
     hdrs = ["zlib.h"],
     deps = [
         ":cord_stream_manager",
-        "//tensorstore/util:status",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/status",
@@ -190,8 +189,8 @@ tensorstore_cc_test(
     srcs = ["zlib_test.cc"],
     deps = [
         ":zlib",
-        "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/strings:cord_test_helpers",
         "@com_google_googletest//:gtest_main",

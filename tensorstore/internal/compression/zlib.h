@@ -18,12 +18,8 @@
 /// \file
 /// Convenience interface to the zlib library.
 
-#include <cstddef>
-#include <string>
-
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
-#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace zlib {

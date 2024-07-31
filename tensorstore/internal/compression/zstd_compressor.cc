@@ -15,10 +15,12 @@
 #include "tensorstore/internal/compression/zstd_compressor.h"
 
 #include <cstddef>
+#include <memory>
+#include <utility>
 
+#include "riegeli/bytes/writer.h"
 #include "riegeli/zstd/zstd_reader.h"
 #include "riegeli/zstd/zstd_writer.h"
-#include "tensorstore/internal/compression/json_specified_compressor.h"
 
 namespace tensorstore {
 namespace internal {
