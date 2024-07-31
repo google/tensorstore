@@ -20,7 +20,6 @@
 #include "tensorstore/internal/compression/zstd_compressor.h"
 
 #include "riegeli/zstd/zstd_writer.h"
-#include "tensorstore/driver/zarr/compressor.h"
 #include "tensorstore/driver/zarr/compressor_registry.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 

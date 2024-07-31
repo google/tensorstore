@@ -19,11 +19,14 @@
 // drivers.
 
 #include <ostream>
+#include <string>
 
 #include <gtest/gtest.h>
+#include <nlohmann/json_fwd.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/kvstore/memory/memory_key_value_store.h"
 #include "tensorstore/kvstore/mock_kvstore.h"
+#include "tensorstore/kvstore/spec.h"
 
 namespace tensorstore {
 namespace internal_zarr {

@@ -58,8 +58,10 @@
 /// If multiple blocks have exactly the same set of encoded values, the same
 /// value table will be shared by both blocks.
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
@@ -92,9 +94,9 @@ using EncodedValueCache = absl::flat_hash_map<std::vector<Label>, uint32_t>;
 /// \param output[out] String to which encoded output will be appended.
 /// \pre `input_shape[i] >= 0 && input_shape[i] <= block_shape[i]`
 template <typename Label>
-void EncodeBlock(const Label* input, const std::ptrdiff_t input_shape[3],
-                 const std::ptrdiff_t input_byte_strides[3],
-                 const std::ptrdiff_t block_shape[3], size_t base_offset,
+void EncodeBlock(const Label* input, const ptrdiff_t input_shape[3],
+                 const ptrdiff_t input_byte_strides[3],
+                 const ptrdiff_t block_shape[3], size_t base_offset,
                  size_t* encoded_bits_output, size_t* table_offset_output,
                  EncodedValueCache<Label>* cache, std::string* output);
 
@@ -108,9 +110,9 @@ void EncodeBlock(const Label* input, const std::ptrdiff_t input_shape[3],
 /// \param block_shape Block shape to use for encoding.
 /// \param output[out] String to which encoded output will be appended.
 template <typename Label>
-void EncodeChannel(const Label* input, const std::ptrdiff_t input_shape[3],
-                   const std::ptrdiff_t input_byte_strides[3],
-                   const std::ptrdiff_t block_shape[3], std::string* output);
+void EncodeChannel(const Label* input, const ptrdiff_t input_shape[3],
+                   const ptrdiff_t input_byte_strides[3],
+                   const ptrdiff_t block_shape[3], std::string* output);
 
 /// Encodes multiple channels.
 ///
@@ -129,9 +131,9 @@ void EncodeChannel(const Label* input, const std::ptrdiff_t input_shape[3],
 /// \param block_shape Block shape to use for encoding.
 /// \param output[out] String to which encoded output will be appended.
 template <typename Label>
-void EncodeChannels(const Label* input, const std::ptrdiff_t input_shape[3 + 1],
-                    const std::ptrdiff_t input_byte_strides[3 + 1],
-                    const std::ptrdiff_t block_shape[3], std::string* output);
+void EncodeChannels(const Label* input, const ptrdiff_t input_shape[3 + 1],
+                    const ptrdiff_t input_byte_strides[3 + 1],
+                    const ptrdiff_t block_shape[3], std::string* output);
 
 /// Decodes a single block.
 ///
@@ -152,9 +154,9 @@ void EncodeChannels(const Label* input, const std::ptrdiff_t input_shape[3 + 1],
 template <typename Label>
 bool DecodeBlock(size_t encoded_bits, const char* encoded_input,
                  const char* table_input, size_t table_size,
-                 const std::ptrdiff_t block_shape[3],
-                 const std::ptrdiff_t output_shape[3],
-                 const std::ptrdiff_t output_byte_strides[3], Label* output);
+                 const ptrdiff_t block_shape[3],
+                 const ptrdiff_t output_shape[3],
+                 const ptrdiff_t output_byte_strides[3], Label* output);
 
 /// Decodes a single channel.
 ///
@@ -167,9 +169,9 @@ bool DecodeBlock(size_t encoded_bits, const char* encoded_input,
 /// \param output[out] Pointer to output array.
 /// \returns `true` on success, or `false` if the input is corrupt.
 template <typename Label>
-bool DecodeChannel(std::string_view input, const std::ptrdiff_t block_shape[3],
-                   const std::ptrdiff_t output_shape[3],
-                   const std::ptrdiff_t output_byte_strides[3], Label* output);
+bool DecodeChannel(std::string_view input, const ptrdiff_t block_shape[3],
+                   const ptrdiff_t output_shape[3],
+                   const ptrdiff_t output_byte_strides[3], Label* output);
 
 /// Decodes multiple channel.
 ///
@@ -183,10 +185,9 @@ bool DecodeChannel(std::string_view input, const std::ptrdiff_t block_shape[3],
 /// \param output[out] Pointer to output array.
 /// \returns `true` on success, or `false` if the input is corrupt.
 template <typename Label>
-bool DecodeChannels(std::string_view input, const std::ptrdiff_t block_shape[3],
-                    const std::ptrdiff_t output_shape[3 + 1],
-                    const std::ptrdiff_t output_byte_strides[3 + 1],
-                    Label* output);
+bool DecodeChannels(std::string_view input, const ptrdiff_t block_shape[3],
+                    const ptrdiff_t output_shape[3 + 1],
+                    const ptrdiff_t output_byte_strides[3 + 1], Label* output);
 
 }  // namespace neuroglancer_compressed_segmentation
 }  // namespace tensorstore

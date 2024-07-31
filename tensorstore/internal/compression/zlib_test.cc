@@ -14,14 +14,15 @@
 
 #include "tensorstore/internal/compression/zlib.h"
 
+#include <cstddef>
 #include <string>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/cord_test_helpers.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {

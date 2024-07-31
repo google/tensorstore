@@ -21,7 +21,6 @@
 #include <stddef.h>
 
 #include <blosc.h>
-#include "tensorstore/driver/zarr/compressor.h"
 #include "tensorstore/driver/zarr/compressor_registry.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 

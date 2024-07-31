@@ -37,6 +37,7 @@
 #include "absl/strings/escaping.h"
 #include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
+#include <nlohmann/json_fwd.hpp>
 #include "riegeli/bytes/cord_reader.h"
 #include "riegeli/bytes/cord_writer.h"
 #include "riegeli/bytes/read_all.h"
@@ -269,7 +270,8 @@ Result<std::vector<SharedArray<const void>>> ParseFillValue(
 }
 
 ::nlohmann::json EncodeFillValue(
-    const ZarrDType& dtype, span<const SharedArray<const void>> fill_values) {
+    const ZarrDType& dtype,
+    tensorstore::span<const SharedArray<const void>> fill_values) {
   assert(dtype.fields.size() == static_cast<size_t>(fill_values.size()));
   if (!dtype.has_fields) {
     assert(dtype.fields.size() == 1);
@@ -321,9 +323,9 @@ Result<std::vector<SharedArray<const void>>> ParseFillValue(
   return b64_encoded;
 }
 
-Result<ZarrChunkLayout> ComputeChunkLayout(const ZarrDType& dtype,
-                                           ContiguousLayoutOrder order,
-                                           span<const Index> chunk_shape) {
+Result<ZarrChunkLayout> ComputeChunkLayout(
+    const ZarrDType& dtype, ContiguousLayoutOrder order,
+    tensorstore::span<const Index> chunk_shape) {
   ZarrChunkLayout layout;
   layout.fields.resize(dtype.fields.size());
   layout.num_outer_elements = ProductOfExtents(chunk_shape);
@@ -460,7 +462,7 @@ Result<absl::InlinedVector<SharedArray<const void>, 1>> DecodeChunk(
     // neither c_order nor fortran_order. As a workaround, we decode using a
     // fake shape with the same number of elements, and then adjust the shape
     // and byte_strides of the resultant array afterwards.
-    span<const Index> c_order_shape_span;
+    tensorstore::span<const Index> c_order_shape_span;
     Index c_order_shape[kMaxRank];
     if (metadata.order == c_order) {
       c_order_shape_span = chunk_layout_field.full_chunk_shape();
@@ -555,7 +557,7 @@ absl::Cord MakeCordFromContiguousArray(
 
 absl::Cord CopyComponentsToEncodedLayout(
     const ZarrMetadata& metadata,
-    span<const SharedArray<const void>> components) {
+    tensorstore::span<const SharedArray<const void>> components) {
   internal::FlatCordBuilder output_builder(
       metadata.chunk_layout.bytes_per_chunk);
   ByteStridedPointer<void> data_ptr = output_builder.data();
@@ -570,8 +572,9 @@ absl::Cord CopyComponentsToEncodedLayout(
 }
 }  // namespace
 
-Result<absl::Cord> EncodeChunk(const ZarrMetadata& metadata,
-                               span<const SharedArray<const void>> components) {
+Result<absl::Cord> EncodeChunk(
+    const ZarrMetadata& metadata,
+    tensorstore::span<const SharedArray<const void>> components) {
   absl::Cord output;
   if (components.size() == 1 &&
       SingleArrayMatchesEncodedRepresentation(metadata, components[0])) {

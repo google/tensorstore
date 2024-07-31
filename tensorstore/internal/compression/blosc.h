@@ -42,7 +42,7 @@ struct Options {
   int clevel;
 
   /// Must be one of `BLOSC_NOSHUFFLE` (no shuffling), `BLOSC_SHUFFLE`
-  /// (byte-wise shuffling), `BLOSC_BITSHUFFLE` (bit-wise shuffling), or the
+  /// (byte-wise shuffling), `BLOSC_BITSHUFFLE` (bitwise shuffling), or the
   /// special value of `-1`, which is equivalent to `BLOSC_BITSHUFFLE` if
   /// `element_size == 1`, otherwise is equivalent to `BLOSC_SHUFFLE`.
   int shuffle;

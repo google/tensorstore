@@ -14,11 +14,12 @@
 
 #include "tensorstore/internal/compression/json_specified_compressor.h"
 
-#include <stddef.h>
-
+#include <cstddef>
+#include <memory>
 #include <utility>
 
 #include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include "riegeli/bytes/cord_reader.h"
 #include "riegeli/bytes/cord_writer.h"
 #include "riegeli/bytes/read_all.h"

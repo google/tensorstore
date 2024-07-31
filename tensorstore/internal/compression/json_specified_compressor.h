@@ -16,6 +16,7 @@
 #define TENSORSTORE_INTERNAL_COMPRESSION_JSON_SPECIFIED_COMPRESSOR_H_
 
 #include <cstddef>
+#include <memory>
 
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
