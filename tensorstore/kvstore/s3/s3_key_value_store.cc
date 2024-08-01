@@ -46,13 +46,13 @@
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/histogram.h"
-#include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/rate_limiter/rate_limiter.h"
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/thread/schedule_at.h"
 #include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/byte_range.h"
+#include "tensorstore/kvstore/common_metrics.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/generic_coalescing_batch_util.h"
 #include "tensorstore/kvstore/http/byte_range_util.h"
@@ -113,7 +113,6 @@ using ::tensorstore::internal_kvstore_s3::S3RequestBuilder;
 using ::tensorstore::internal_kvstore_s3::S3RequestRetries;
 using ::tensorstore::internal_kvstore_s3::S3UriEncode;
 using ::tensorstore::internal_kvstore_s3::StorageGenerationFromHeaders;
-using ::tensorstore::internal_metrics::MetricMetadata;
 using ::tensorstore::kvstore::Key;
 using ::tensorstore::kvstore::ListEntry;
 using ::tensorstore::kvstore::ListOptions;
@@ -124,51 +123,17 @@ namespace {
 
 namespace jb = tensorstore::internal_json_binding;
 
-auto& s3_bytes_read = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/s3/bytes_read",
-    MetricMetadata("Bytes read by the s3 kvstore driver",
-                   internal_metrics::Units::kBytes));
+struct S3Metrics : public internal_kvstore::CommonMetrics {
+  internal_metrics::Counter<int64_t>& retries;
+  // no additional members
+};
 
-auto& s3_bytes_written = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/s3/bytes_written",
-    MetricMetadata("Bytes written by the s3 kvstore driver",
-                   internal_metrics::Units::kBytes));
-
-auto& s3_retries = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/s3/retries",
-    MetricMetadata("Count of all retried S3 requests (read/write/delete)"));
-
-auto& s3_read = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/s3/read",
-    MetricMetadata("S3 driver kvstore::Read calls"));
-
-auto& s3_batch_read = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/s3/batch_read",
-    MetricMetadata("S3 driver reads after batching"));
-
-auto& s3_read_latency_ms =
-    internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
-        "/tensorstore/kvstore/s3/read_latency_ms",
-        MetricMetadata("S3 driver kvstore::Read latency (ms)",
-                       internal_metrics::Units::kMilliseconds));
-
-auto& s3_write = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/s3/write",
-    MetricMetadata("S3 driver kvstore::Write calls"));
-
-auto& s3_write_latency_ms =
-    internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
-        "/tensorstore/kvstore/s3/write_latency_ms",
-        MetricMetadata("S3 driver kvstore::Write latency (ms)",
-                       internal_metrics::Units::kMilliseconds));
-
-auto& s3_delete_range = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/s3/delete_range",
-    MetricMetadata("S3 driver kvstore::DeleteRange calls"));
-
-auto& s3_list = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/s3/list",
-    MetricMetadata("S3 driver kvstore::List calls"));
+auto s3_metrics = []() -> S3Metrics {
+  return {
+      TENSORSTORE_KVSTORE_COMMON_METRICS(s3),
+      TENSORSTORE_KVSTORE_COUNTER_IMPL(
+          s3, retries, "count of all retried requests (read/write/delete)")};
+}();
 
 ABSL_CONST_INIT internal_log::VerboseFlag s3_logging("s3");
 
@@ -366,7 +331,7 @@ class S3KeyValueStore
                                                  spec_.retries->max_retries),
                                  absl::StatusCode::kAborted, loc);
     }
-    s3_retries.Increment();
+    s3_metrics.retries.Increment();
     ScheduleAt(absl::Now() + *delay,
                WithExecutor(executor(), [task = IntrusivePtr<Task>(task)] {
                  task->Retry();
@@ -501,9 +466,9 @@ struct ReadTask : public RateLimiterNode,
   }
 
   Result<kvstore::ReadResult> FinishResponse(const HttpResponse& httpresponse) {
-    s3_bytes_read.IncrementBy(httpresponse.payload.size());
+    s3_metrics.bytes_read.IncrementBy(httpresponse.payload.size());
     auto latency = absl::Now() - start_time_;
-    s3_read_latency_ms.Observe(absl::ToInt64Milliseconds(latency));
+    s3_metrics.read_latency_ms.Observe(absl::ToInt64Milliseconds(latency));
 
     switch (httpresponse.status_code) {
       case 204:
@@ -544,7 +509,7 @@ struct ReadTask : public RateLimiterNode,
 
 Future<kvstore::ReadResult> S3KeyValueStore::Read(Key key,
                                                   ReadOptions options) {
-  s3_read.Increment();
+  s3_metrics.read.Increment();
   if (!IsValidObjectName(key)) {
     return absl::InvalidArgumentError("Invalid S3 object name");
   }
@@ -558,7 +523,7 @@ Future<kvstore::ReadResult> S3KeyValueStore::Read(Key key,
 
 Future<kvstore::ReadResult> S3KeyValueStore::ReadImpl(Key&& key,
                                                       ReadOptions&& options) {
-  s3_batch_read.Increment();
+  s3_metrics.batch_read.Increment();
   auto op = PromiseFuturePair<ReadResult>::Make();
   auto state = internal::MakeIntrusivePtr<ReadTask>(
       internal::IntrusivePtr<S3KeyValueStore>(this), key, std::move(options),
@@ -789,8 +754,8 @@ struct WriteTask : public ConditionTask<WriteTask> {
     }
 
     auto latency = absl::Now() - start_time_;
-    s3_write_latency_ms.Observe(absl::ToInt64Milliseconds(latency));
-    s3_bytes_written.IncrementBy(value_.size());
+    s3_metrics.write_latency_ms.Observe(absl::ToInt64Milliseconds(latency));
+    s3_metrics.bytes_written.IncrementBy(value_.size());
     TENSORSTORE_ASSIGN_OR_RETURN(
         r.generation, StorageGenerationFromHeaders(response.headers));
     return r;
@@ -922,7 +887,7 @@ struct DeleteTask : public ConditionTask<DeleteTask> {
 
 Future<TimestampedStorageGeneration> S3KeyValueStore::Write(
     Key key, std::optional<Value> value, WriteOptions options) {
-  s3_write.Increment();
+  s3_metrics.write.Increment();
   if (!IsValidObjectName(key)) {
     return absl::InvalidArgumentError("Invalid S3 object name");
   }
@@ -1178,7 +1143,7 @@ struct ListTask : public RateLimiterNode,
 };
 
 void S3KeyValueStore::ListImpl(ListOptions options, ListReceiver receiver) {
-  s3_list.Increment();
+  s3_metrics.list.Increment();
   if (options.range.empty()) {
     execution::set_starting(receiver, [] {});
     execution::set_done(receiver);
@@ -1231,7 +1196,7 @@ struct DeleteRangeListReceiver {
 };
 
 Future<const void> S3KeyValueStore::DeleteRange(KeyRange range) {
-  s3_delete_range.Increment();
+  s3_metrics.delete_range.Increment();
   if (range.empty()) return absl::OkStatus();
 
   // TODO(jbms): It could make sense to rate limit the list operation, so that

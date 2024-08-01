@@ -36,9 +36,9 @@
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/metrics/counter.h"
-#include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/ref_counted_string.h"
+#include "tensorstore/kvstore/common_metrics.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
@@ -74,12 +74,21 @@
 #include "tensorstore/internal/json_binding/absl_time.h"  // IWYU pragma: keep
 #include "tensorstore/internal/json_binding/std_optional.h"  // IWYU pragma: keep
 
-using ::tensorstore::internal_metrics::MetricMetadata;
 using ::tensorstore::kvstore::ListReceiver;
 
 namespace tensorstore {
 namespace internal_ocdbt {
 namespace {
+
+namespace jb = ::tensorstore::internal_json_binding;
+
+struct OcdbtMetrics : public internal_kvstore::CommonReadMetrics,
+                      public internal_kvstore::CommonWriteMetrics {};
+
+auto ocdbt_metrics = []() -> OcdbtMetrics {
+  return {TENSORSTORE_KVSTORE_COMMON_READ_METRICS(ocdbt),
+          TENSORSTORE_KVSTORE_COMMON_WRITE_METRICS(ocdbt)};
+}();
 
 constexpr absl::Duration kDefaultLeaseDuration = absl::Seconds(10);
 
@@ -112,24 +121,7 @@ struct OcdbtCoordinatorResourceTraits
 const internal::ContextResourceRegistration<OcdbtCoordinatorResourceTraits>
     registration;
 
-auto& ocdbt_read = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/ocdbt/read",
-    MetricMetadata("OCDBT driver kvstore::Read calls"));
-
-auto& ocdbt_write = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/ocdbt/write",
-    MetricMetadata("OCDBT driver kvstore::Write calls"));
-
-auto& ocdbt_delete_range = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/ocdbt/delete_range",
-    MetricMetadata("OCDBT driver kvstore::DeleteRange calls"));
-
-auto& ocdbt_list = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/ocdbt/list",
-    MetricMetadata("OCDBT driver kvstore::List calls"));
-
 }  // namespace
-namespace jb = ::tensorstore::internal_json_binding;
 
 TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
     OcdbtDriverSpecData,
@@ -320,27 +312,27 @@ kvstore::SupportedFeatures OcdbtDriver::GetSupportedFeatures(
 
 Future<kvstore::ReadResult> OcdbtDriver::Read(kvstore::Key key,
                                               kvstore::ReadOptions options) {
-  ocdbt_read.Increment();
+  ocdbt_metrics.read.Increment();
   return internal_ocdbt::NonDistributedRead(io_handle_, std::move(key),
                                             std::move(options));
 }
 
 void OcdbtDriver::ListImpl(kvstore::ListOptions options,
                            ListReceiver receiver) {
-  ocdbt_list.Increment();
+  ocdbt_metrics.list.Increment();
   return internal_ocdbt::NonDistributedList(io_handle_, std::move(options),
                                             std::move(receiver));
 }
 
 Future<TimestampedStorageGeneration> OcdbtDriver::Write(
     Key key, std::optional<Value> value, WriteOptions options) {
-  ocdbt_write.Increment();
+  ocdbt_metrics.write.Increment();
   return btree_writer_->Write(std::move(key), std::move(value),
                               std::move(options));
 }
 
 Future<const void> OcdbtDriver::DeleteRange(KeyRange range) {
-  ocdbt_delete_range.Increment();
+  ocdbt_metrics.delete_range.Increment();
   return btree_writer_->DeleteRange(std::move(range));
 }
 

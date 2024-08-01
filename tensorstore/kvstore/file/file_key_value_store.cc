@@ -119,6 +119,7 @@
 #include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/byte_range.h"
+#include "tensorstore/kvstore/common_metrics.h"
 #include "tensorstore/kvstore/file/util.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
@@ -154,7 +155,6 @@
 using ::tensorstore::internal::OsErrorCode;
 using ::tensorstore::internal_file_util::IsKeyValid;
 using ::tensorstore::internal_file_util::LongestDirectoryPrefix;
-using ::tensorstore::internal_metrics::MetricMetadata;
 using ::tensorstore::internal_os::FileDescriptor;
 using ::tensorstore::internal_os::FileInfo;
 using ::tensorstore::internal_os::kLockSuffix;
@@ -167,45 +167,22 @@ using ::tensorstore::kvstore::SupportedFeatures;
 namespace tensorstore {
 namespace internal_file_kvstore {
 namespace {
+
 namespace jb = tensorstore::internal_json_binding;
 
-auto& file_bytes_read = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/file/bytes_read",
-    MetricMetadata("Bytes read by the file kvstore driver",
-                   internal_metrics::Units::kBytes));
+struct FileMetrics : public internal_kvstore::CommonMetrics {
+  internal_metrics::Counter<int64_t>& open_read;
+  internal_metrics::Counter<int64_t>& lock_contention;
+  // no additional members
+};
 
-auto& file_bytes_written = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/file/bytes_written",
-    MetricMetadata("Bytes written by the file kvstore driver",
-                   internal_metrics::Units::kBytes));
-
-auto& file_read = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/file/read",
-    MetricMetadata("file driver kvstore::Read calls"));
-
-auto& file_open_read = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/file/open_read",
-    MetricMetadata("Number of times a file is opened for reading"));
-
-auto& file_batch_read = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/file/batch_read",
-    MetricMetadata("file driver reads after batching"));
-
-auto& file_write = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/file/write",
-    MetricMetadata("file driver kvstore::Write calls"));
-
-auto& file_delete_range = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/file/delete_range",
-    MetricMetadata("file driver kvstore::DeleteRange calls"));
-
-auto& file_list = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/file/list",
-    MetricMetadata("file driver kvstore::List calls"));
-
-auto& file_lock_contention = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/file/lock_contention",
-    MetricMetadata("file driver write lock contention"));
+auto file_metrics = []() -> FileMetrics {
+  return {TENSORSTORE_KVSTORE_COMMON_METRICS(file),
+          TENSORSTORE_KVSTORE_COUNTER_IMPL(
+              file, open_read, "Number of times a file is opened for reading"),
+          TENSORSTORE_KVSTORE_COUNTER_IMPL(file, lock_contention,
+                                           " kvstore::Write lock contention")};
+}();
 
 ABSL_CONST_INIT internal_log::VerboseFlag file_logging("file");
 
@@ -485,7 +462,7 @@ struct WriteLockHelper {
       // Release lock and try again.
       lock = FileLock{};
       lock_fd = std::move(other_fd);
-      file_lock_contention.Increment();
+      file_metrics.lock_contention.Increment();
     }
   }
 
@@ -500,8 +477,9 @@ struct WriteLockHelper {
 };
 
 Result<absl::Cord> ReadFromFileDescriptor(FileDescriptor fd,
-                                          ByteRange byte_range) {
-  file_batch_read.Increment();
+                                          ByteRange byte_range,
+                                          absl::Time start_time) {
+  file_metrics.batch_read.Increment();
   internal::FlatCordBuilder buffer(byte_range.size(), false);
   size_t offset = 0;
   while (offset < buffer.size()) {
@@ -510,7 +488,7 @@ Result<absl::Cord> ReadFromFileDescriptor(FileDescriptor fd,
                                           buffer.size() - offset,
                                           byte_range.inclusive_min + offset));
     if (n > 0) {
-      file_bytes_read.IncrementBy(n);
+      file_metrics.bytes_read.IncrementBy(n);
       offset += n;
       buffer.set_inuse(offset);
       continue;
@@ -520,6 +498,8 @@ Result<absl::Cord> ReadFromFileDescriptor(FileDescriptor fd,
           tensorstore::StrCat("Length changed while reading"));
     }
   }
+  file_metrics.read_latency_ms.Observe(
+      absl::ToInt64Milliseconds(absl::Now() - start_time));
   return std::move(buffer).Build();
 }
 
@@ -557,14 +537,14 @@ class BatchReadTask final
   Result<kvstore::ReadResult> DoByteRangeRead(ByteRange byte_range) {
     absl::Cord value;
     TENSORSTORE_ASSIGN_OR_RETURN(
-        value, ReadFromFileDescriptor(fd_.get(), byte_range),
+        value, ReadFromFileDescriptor(fd_.get(), byte_range, stamp_.time),
         tensorstore::MaybeAnnotateStatus(_, "Error reading from open file"));
     return kvstore::ReadResult::Value(std::move(value), stamp_);
   }
 
   void ProcessBatch() {
     stamp_.time = absl::Now();
-    file_open_read.Increment();
+    file_metrics.open_read.Increment();
     auto& requests = request_batch.requests;
     TENSORSTORE_ASSIGN_OR_RETURN(
         fd_,
@@ -587,6 +567,7 @@ class BatchReadTask final
       // Perform single read immediately.
       byte_range_request.promise.SetResult(
           DoByteRangeRead(byte_range_request.byte_range.AsByteRange()));
+
       return;
     }
 
@@ -596,7 +577,8 @@ class BatchReadTask final
     coalescing_options.max_extra_read_bytes = 255;
     internal_kvstore_batch::ForEachCoalescedRequest<Request>(
         requests, coalescing_options,
-        [&](ByteRange coalesced_byte_range, span<Request> coalesced_requests) {
+        [&](ByteRange coalesced_byte_range,
+            tensorstore::span<Request> coalesced_requests) {
           auto self = internal::IntrusivePtr<BatchReadTask>(this);
           executor([self = std::move(self), coalesced_byte_range,
                     coalesced_requests] {
@@ -607,7 +589,7 @@ class BatchReadTask final
   }
 
   void ProcessCoalescedRead(ByteRange coalesced_byte_range,
-                            span<Request> coalesced_requests) {
+                            tensorstore::span<Request> coalesced_requests) {
     TENSORSTORE_ASSIGN_OR_RETURN(auto read_result,
                                  DoByteRangeRead(coalesced_byte_range),
                                  internal_kvstore_batch::SetCommonResult(
@@ -618,7 +600,7 @@ class BatchReadTask final
 };
 
 Future<ReadResult> FileKeyValueStore::Read(Key key, ReadOptions options) {
-  file_read.Increment();
+  file_metrics.read.Increment();
   TENSORSTORE_RETURN_IF_ERROR(ValidateKey(key));
   auto [promise, future] = PromiseFuturePair<kvstore::ReadResult>::Make();
   BatchReadTask::MakeRequest<BatchReadTask>(
@@ -670,7 +652,7 @@ struct WriteTask {
             MaybeAnnotateStatus(_,
                                 tensorstore::StrCat("Failed writing: ",
                                                     QuoteString(lock_path))));
-        file_bytes_written.IncrementBy(n);
+        file_metrics.bytes_written.IncrementBy(n);
         if (n == value_for_write.size()) break;
         value_for_write.RemovePrefix(n);
       }
@@ -696,6 +678,8 @@ struct WriteTask {
       // modification time doesn't change afterwards.
       FileInfo info;
       TENSORSTORE_RETURN_IF_ERROR(internal_os::GetFileInfo(fd, &info));
+      file_metrics.write_latency_ms.Observe(
+          absl::ToInt64Milliseconds(absl::Now() - r.time));
       return GetFileGeneration(info);
     }();
 
@@ -767,7 +751,7 @@ struct DeleteTask {
 
 Future<TimestampedStorageGeneration> FileKeyValueStore::Write(
     Key key, std::optional<Value> value, WriteOptions options) {
-  file_write.Increment();
+  file_metrics.write.Increment();
   TENSORSTORE_RETURN_IF_ERROR(ValidateKey(key));
   if (value) {
     return MapFuture(executor(), WriteTask{std::move(key), std::move(*value),
@@ -821,7 +805,7 @@ struct DeleteRangeTask {
 };
 
 Future<const void> FileKeyValueStore::DeleteRange(KeyRange range) {
-  file_delete_range.Increment();
+  file_metrics.delete_range.Increment();
   if (range.empty()) return absl::OkStatus();  // Converted to a ReadyFuture.
   TENSORSTORE_RETURN_IF_ERROR(ValidateKeyRange(range));
   return PromiseFuturePair<void>::Link(
@@ -872,7 +856,7 @@ struct ListTask {
 };
 
 void FileKeyValueStore::ListImpl(ListOptions options, ListReceiver receiver) {
-  file_list.Increment();
+  file_metrics.list.Increment();
   if (options.range.empty()) {
     execution::set_starting(receiver, [] {});
     execution::set_done(receiver);

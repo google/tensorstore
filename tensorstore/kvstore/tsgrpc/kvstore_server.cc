@@ -85,25 +85,25 @@ using ::tensorstore_grpc::kvstore::WriteRequest;
 using ::tensorstore_grpc::kvstore::WriteResponse;
 using ::tensorstore_grpc::kvstore::grpc_gen::KvStoreService;
 
-namespace jb = ::tensorstore::internal_json_binding;
-
 namespace tensorstore {
 namespace {
 
+namespace jb = ::tensorstore::internal_json_binding;
+
 auto& read_metric = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/grpc_server/read",
+    "/tensorstore/kvstore/tsgrpc_server/read",
     MetricMetadata("KvStoreService::Read calls"));
 
 auto& write_metric = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/grpc_server/write",
+    "/tensorstore/kvstore/tsgrpc_server/write",
     MetricMetadata("KvStoreService::Write calls"));
 
 auto& delete_metric = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/grpc_server/delete",
+    "/tensorstore/kvstore/tsgrpc_server/delete",
     MetricMetadata("KvStoreService::Delete calls"));
 
 auto& list_metric = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/grpc_server/list",
+    "/tensorstore/kvstore/tsgrpc_server/list",
     MetricMetadata("KvStoreService::List calls"));
 
 ABSL_CONST_INIT internal_log::VerboseFlag verbose_logging("tsgrpc_kvstore");

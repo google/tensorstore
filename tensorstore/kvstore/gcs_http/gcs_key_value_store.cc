@@ -52,7 +52,6 @@
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/histogram.h"
-#include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/oauth2/auth_provider.h"
 #include "tensorstore/internal/oauth2/google_auth_provider.h"
 #include "tensorstore/internal/path.h"
@@ -63,6 +62,7 @@
 #include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/byte_range.h"
+#include "tensorstore/kvstore/common_metrics.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/gcs/gcs_resource.h"
 #include "tensorstore/kvstore/gcs/validate.h"
@@ -127,7 +127,6 @@ using ::tensorstore::internal_kvstore_gcs_http::GcsConcurrencyResource;
 using ::tensorstore::internal_kvstore_gcs_http::GcsRateLimiterResource;
 using ::tensorstore::internal_kvstore_gcs_http::ObjectMetadata;
 using ::tensorstore::internal_kvstore_gcs_http::ParseObjectMetadata;
-using ::tensorstore::internal_metrics::MetricMetadata;
 using ::tensorstore::internal_storage_gcs::GcsHttpResponseToStatus;
 using ::tensorstore::internal_storage_gcs::GcsRequestRetries;
 using ::tensorstore::internal_storage_gcs::GcsUserProjectResource;
@@ -147,53 +146,20 @@ static constexpr char kUriScheme[] = "gs";
 
 namespace tensorstore {
 namespace {
+
 namespace jb = tensorstore::internal_json_binding;
 
-auto& gcs_bytes_read = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/gcs/bytes_read",
-    MetricMetadata("Bytes read by the gcs kvstore driver",
-                   internal_metrics::Units::kBytes));
+struct GcsMetrics : public internal_kvstore::CommonMetrics {
+  internal_metrics::Counter<int64_t>& retries;
+  // no additional members
+};
 
-auto& gcs_bytes_written = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/gcs/bytes_written",
-    MetricMetadata("Bytes written by the gcs kvstore driver",
-                   internal_metrics::Units::kBytes));
-
-auto& gcs_retries = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/gcs/retries",
-    MetricMetadata("Count of all retried GCS requests (read/write/delete)"));
-
-auto& gcs_read = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/gcs/read",
-    MetricMetadata("GCS driver kvstore::Read calls"));
-
-auto& gcs_batch_read = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/gcs/batch_read",
-    MetricMetadata("gcs driver reads after batching"));
-
-auto& gcs_read_latency_ms =
-    internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
-        "/tensorstore/kvstore/gcs/read_latency_ms",
-        MetricMetadata("GCS driver kvstore::Read latency (ms)",
-                       internal_metrics::Units::kMilliseconds));
-
-auto& gcs_write = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/gcs/write",
-    MetricMetadata("GCS driver kvstore::Write calls"));
-
-auto& gcs_write_latency_ms =
-    internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
-        "/tensorstore/kvstore/gcs/write_latency_ms",
-        MetricMetadata("GCS driver kvstore::Write latency (ms)",
-                       internal_metrics::Units::kMilliseconds));
-
-auto& gcs_delete_range = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/gcs/delete_range",
-    MetricMetadata("GCS driver kvstore::DeleteRange calls"));
-
-auto& gcs_list = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/gcs/list",
-    MetricMetadata("GCS driver kvstore::List calls"));
+auto gcs_metrics = []() -> GcsMetrics {
+  return {
+      TENSORSTORE_KVSTORE_COMMON_METRICS(gcs),
+      TENSORSTORE_KVSTORE_COUNTER_IMPL(
+          gcs, retries, "count of all retried requests (read/write/delete)")};
+}();
 
 ABSL_CONST_INIT internal_log::VerboseFlag gcs_http_logging("gcs_http");
 
@@ -448,7 +414,7 @@ class GcsKeyValueStore
                                  absl::StatusCode::kAborted, loc);
     }
 
-    gcs_retries.Increment();
+    gcs_metrics.retries.Increment();
     ScheduleAt(absl::Now() + *delay,
                WithExecutor(executor(), [task = IntrusivePtr<Task>(task)] {
                  task->Retry();
@@ -636,9 +602,9 @@ struct ReadTask : public RateLimiterNode,
   }
 
   Result<kvstore::ReadResult> FinishResponse(const HttpResponse& httpresponse) {
-    gcs_bytes_read.IncrementBy(httpresponse.payload.size());
+    gcs_metrics.bytes_read.IncrementBy(httpresponse.payload.size());
     auto latency = absl::Now() - start_time_;
-    gcs_read_latency_ms.Observe(absl::ToInt64Milliseconds(latency));
+    gcs_metrics.read_latency_ms.Observe(absl::ToInt64Milliseconds(latency));
 
     // Parse `Date` header from response to correctly handle cached responses.
     // The GCS servers always send a `date` header.
@@ -689,7 +655,7 @@ struct ReadTask : public RateLimiterNode,
 
 Future<kvstore::ReadResult> GcsKeyValueStore::Read(Key key,
                                                    ReadOptions options) {
-  gcs_read.Increment();
+  gcs_metrics.read.Increment();
   if (!IsValidObjectName(key)) {
     return absl::InvalidArgumentError("Invalid GCS object name");
   }
@@ -703,7 +669,7 @@ Future<kvstore::ReadResult> GcsKeyValueStore::Read(Key key,
 
 Future<kvstore::ReadResult> GcsKeyValueStore::ReadImpl(Key&& key,
                                                        ReadOptions&& options) {
-  gcs_batch_read.Increment();
+  gcs_metrics.batch_read.Increment();
   auto encoded_object_name = internal::PercentEncodeUriComponent(key);
   std::string resource = tensorstore::internal::JoinPath(resource_root_, "/o/",
                                                          encoded_object_name);
@@ -864,8 +830,8 @@ struct WriteTask : public RateLimiterNode,
     }
 
     auto latency = absl::Now() - start_time_;
-    gcs_write_latency_ms.Observe(absl::ToInt64Milliseconds(latency));
-    gcs_bytes_written.IncrementBy(value.size());
+    gcs_metrics.write_latency_ms.Observe(absl::ToInt64Milliseconds(latency));
+    gcs_metrics.bytes_written.IncrementBy(value.size());
 
     // TODO: Avoid parsing the entire metadata & only extract the
     // generation field.
@@ -1011,7 +977,7 @@ struct DeleteTask : public RateLimiterNode,
 
 Future<TimestampedStorageGeneration> GcsKeyValueStore::Write(
     Key key, std::optional<Value> value, WriteOptions options) {
-  gcs_write.Increment();
+  gcs_metrics.write.Increment();
   if (!IsValidObjectName(key)) {
     return absl::InvalidArgumentError("Invalid GCS object name");
   }
@@ -1229,7 +1195,7 @@ struct ListTask : public RateLimiterNode,
 };
 
 void GcsKeyValueStore::ListImpl(ListOptions options, ListReceiver receiver) {
-  gcs_list.Increment();
+  gcs_metrics.list.Increment();
   if (options.range.empty()) {
     execution::set_starting(receiver, [] {});
     execution::set_done(receiver);
@@ -1274,7 +1240,7 @@ struct DeleteRangeListReceiver {
 };
 
 Future<const void> GcsKeyValueStore::DeleteRange(KeyRange range) {
-  gcs_delete_range.Increment();
+  gcs_metrics.delete_range.Increment();
   if (range.empty()) return absl::OkStatus();
 
   // TODO(jbms): It could make sense to rate limit the list operation, so that

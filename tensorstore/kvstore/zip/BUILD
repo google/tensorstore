@@ -39,6 +39,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:byte_range",
+        "//tensorstore/kvstore:common_metrics",
         "//tensorstore/kvstore:generation",
         "//tensorstore/kvstore:key_range",
         "//tensorstore/serialization",
