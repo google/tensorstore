@@ -69,7 +69,8 @@ namespace internal_zarr3 {
 ZarrChunkCache::~ZarrChunkCache() = default;
 
 ZarrLeafChunkCache::ZarrLeafChunkCache(
-    kvstore::DriverPtr store, ZarrCodecChain::PreparedState::Ptr codec_state)
+    kvstore::DriverPtr store, ZarrCodecChain::PreparedState::Ptr codec_state,
+    internal::CachePool::WeakPtr /*data_cache_pool*/)
     : Base(std::move(store)), codec_state_(std::move(codec_state)) {}
 
 void ZarrLeafChunkCache::Read(ZarrChunkCache::ReadRequest request,
@@ -164,8 +165,11 @@ kvstore::Driver* ZarrLeafChunkCache::GetKvStoreDriver() {
 }
 
 ZarrShardedChunkCache::ZarrShardedChunkCache(
-    kvstore::DriverPtr store, ZarrCodecChain::PreparedState::Ptr codec_state)
-    : base_kvstore_(std::move(store)), codec_state_(std::move(codec_state)) {}
+    kvstore::DriverPtr store, ZarrCodecChain::PreparedState::Ptr codec_state,
+    internal::CachePool::WeakPtr data_cache_pool)
+    : base_kvstore_(std::move(store)),
+      codec_state_(std::move(codec_state)),
+      data_cache_pool_(std::move(data_cache_pool)) {}
 
 Result<IndexTransform<>> TranslateCellToSourceTransformForShard(
     IndexTransform<> transform, span<const Index> grid_cell_indices,
@@ -442,14 +446,23 @@ void ZarrShardedChunkCache::Entry::DoInitialize() {
       cache.executor(), internal::CachePool::WeakPtr(cache.pool()));
   ZarrChunkCache* zarr_chunk_cache;
   internal::GetCache<internal::Cache>(
-      cache.pool(), "",
+      // `cache.pool()` is the metadata cache pool, which may or may not be
+      // equal to the data cache pool. If the sub-chunk cache is a leaf cache
+      // (no further sharding), then create the sub-chunk cache in the data
+      // cache pool. Otherwise, create the sub-chunk cache in the metadata cache
+      // pool.
+      sharding_state.sub_chunk_codec_chain->is_sharding_chain()
+          ? cache.pool()
+          : cache.data_cache_pool_.get(),
+      "",
       [&]() -> std::unique_ptr<internal::Cache> {
         auto new_cache =
             internal_zarr3::MakeZarrChunkCache<ZarrChunkCache,
                                                ZarrShardSubChunkCache>(
                 *sharding_state.sub_chunk_codec_chain,
                 std::move(sharding_kvstore), cache.executor(),
-                ZarrShardingCodec::PreparedState::Ptr(&sharding_state));
+                ZarrShardingCodec::PreparedState::Ptr(&sharding_state),
+                cache.data_cache_pool_);
         zarr_chunk_cache = new_cache.release();
         return std::unique_ptr<internal::Cache>(&zarr_chunk_cache->cache());
       })

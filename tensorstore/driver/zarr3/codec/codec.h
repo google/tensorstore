@@ -306,6 +306,8 @@ class ZarrCodecChain : public internal::AtomicReferenceCount<ZarrCodecChain> {
 
   Result<PreparedState::Ptr> Prepare(span<const Index> decoded_shape) const;
 
+  bool is_sharding_chain() const { return array_to_bytes->is_sharding_codec(); }
+
   std::vector<ZarrArrayToArrayCodec::Ptr> array_to_array;
   ZarrArrayToBytesCodec::Ptr array_to_bytes;
   std::vector<ZarrBytesToBytesCodec::Ptr> bytes_to_bytes;

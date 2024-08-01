@@ -572,13 +572,18 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
     return metadata;
   }
 
+  bool DataCacheUsesMetadataCachePool(const void* metadata_ptr) override {
+    const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
+    return metadata.codecs->is_sharding_chain();
+  }
+
   std::unique_ptr<internal_kvs_backed_chunk_driver::DataCacheBase> GetDataCache(
       DataCacheInitializer&& initializer) override {
     const auto& metadata =
         *static_cast<const ZarrMetadata*>(initializer.metadata.get());
     return internal_zarr3::MakeZarrChunkCache<DataCacheBase, ZarrDataCache>(
         *metadata.codecs, std::move(initializer), spec().store.path,
-        metadata.codec_state);
+        metadata.codec_state, /*data_cache_pool=*/*cache_pool());
   }
 
   Result<size_t> GetComponentIndex(const void* metadata_ptr,

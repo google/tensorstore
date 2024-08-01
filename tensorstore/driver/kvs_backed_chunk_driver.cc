@@ -47,12 +47,14 @@
 #include "tensorstore/internal/cache/chunk_cache.h"
 #include "tensorstore/internal/cache/kvs_backed_chunk_cache.h"
 #include "tensorstore/internal/cache_key/cache_key.h"
+#include "tensorstore/internal/cache_key/std_optional.h"  // IWYU pragma: keep
 #include "tensorstore/internal/chunk_grid_specification.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/staleness_bound.h"  // IWYU: pragma keep
+#include "tensorstore/internal/json_binding/std_optional.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/open_mode_spec.h"
 #include "tensorstore/internal/path.h"
@@ -125,14 +127,19 @@ AtomicUpdateConstraint MetadataOpenState::GetCreateConstraint() {
   return AtomicUpdateConstraint::kRequireMissing;
 }
 
+bool OpenState::DataCacheUsesMetadataCachePool(const void* metadata_ptr) {
+  return false;
+}
+
 MetadataCache::MetadataCache(Initializer initializer)
     : Base(kvstore::DriverPtr()),
       data_copy_concurrency_(std::move(initializer.data_copy_concurrency)),
-      cache_pool_(std::move(initializer.cache_pool)) {}
+      metadata_cache_pool_(std::move(initializer.cache_pool)) {}
 
 DataCacheBase::DataCacheBase(Initializer&& initializer)
     : metadata_cache_entry_(std::move(initializer.metadata_cache_entry)),
-      initial_metadata_(std::move(initializer.metadata)) {}
+      initial_metadata_(std::move(initializer.metadata)),
+      cache_pool_(std::move(initializer.cache_pool)) {}
 
 DataCache::DataCache(Initializer&& initializer,
                      internal::ChunkGridSpecification&& grid)
@@ -722,7 +729,10 @@ Result<IndexTransform<>> KvsMetadataDriverBase::GetBoundSpecData(
                                metadata_cache->base_store()->GetBoundSpec());
   spec.store.path = cache->GetBaseKvstorePath();
   spec.data_copy_concurrency = metadata_cache->data_copy_concurrency_;
-  spec.cache_pool = metadata_cache->cache_pool_;
+  spec.cache_pool = cache->cache_pool_;
+  if (spec.cache_pool != metadata_cache->metadata_cache_pool_) {
+    spec.metadata_cache_pool = metadata_cache->metadata_cache_pool_;
+  }
   spec.delete_existing = false;
   spec.open = true;
   spec.create = false;
@@ -819,17 +829,29 @@ Result<internal::Driver::Handle> CreateTensorStoreFromMetadata(
   }
 
   std::string chunk_cache_identifier;
+  bool data_cache_uses_metadata_cache_pool =
+      state->DataCacheUsesMetadataCachePool(metadata.get());
+
   if (!base.metadata_cache_key_.empty()) {
     auto data_cache_key = state->GetDataCacheKey(metadata.get());
     if (!data_cache_key.empty()) {
       internal::EncodeCacheKey(&chunk_cache_identifier, data_cache_key,
-                               base.metadata_cache_key_);
+                               base.metadata_cache_entry_.get(),
+                               // Include the data cache pool in the key, in
+                               // case `data_cache_uses_metadata_cache_pool` is
+                               // `true`. Note that the metadata cache is
+                               // already implicitly part of the key due to the
+                               // inclusion of `metadata_cache_entry_`.
+                               state->cache_pool()->get());
     }
   }
   absl::Status data_key_value_store_status;
   const auto& state_ref = *state;
   auto data_cache = internal::GetCacheWithExplicitTypeInfo<DataCacheBase>(
-      state->cache_pool()->get(), typeid(state_ref), chunk_cache_identifier,
+      (data_cache_uses_metadata_cache_pool
+           ? GetOwningCache(*base.metadata_cache_entry_).pool()
+           : state->cache_pool()->get()),
+      typeid(state_ref), chunk_cache_identifier,
       [&]() -> std::unique_ptr<DataCacheBase> {
         auto store_result = state->GetDataKeyValueStore(
             GetOwningCache(*base.metadata_cache_entry_).base_store_,
@@ -842,6 +864,7 @@ Result<internal::Driver::Handle> CreateTensorStoreFromMetadata(
         initializer.store = std::move(*store_result);
         initializer.metadata_cache_entry = base.metadata_cache_entry_;
         initializer.metadata = metadata;
+        initializer.cache_pool = state->cache_pool();
         return state->GetDataCache(std::move(initializer));
       });
   TENSORSTORE_RETURN_IF_ERROR(data_key_value_store_status);
@@ -1228,12 +1251,12 @@ internal::CachePtr<MetadataCache> GetOrCreateMetadataCache(
   internal::EncodeCacheKey(&base.metadata_cache_key_, spec.store.driver,
                            typeid(*state), state->GetMetadataCacheKey());
   return internal::GetOrCreateAsyncInitializedCache<MetadataCache>(
-      state->cache_pool()->get(), base.metadata_cache_key_,
+      state->metadata_cache_pool()->get(), base.metadata_cache_key_,
       [&] {
         ABSL_LOG_IF(INFO, TENSORSTORE_KVS_DRIVER_DEBUG)
             << "Creating metadata cache: open_state=" << state;
         return state->GetMetadataCache(
-            {base.spec_->data_copy_concurrency, base.spec_->cache_pool});
+            {base.spec_->data_copy_concurrency, state->metadata_cache_pool()});
       },
       [&](Promise<void> initialized,
           internal::CachePtr<MetadataCache> metadata_cache) {
@@ -1447,6 +1470,8 @@ TENSORSTORE_DEFINE_JSON_BINDER(
                    jb::Projection<&KvsDriverSpec::data_copy_concurrency>()),
         jb::Member(internal::CachePoolResource::id,
                    jb::Projection<&KvsDriverSpec::cache_pool>()),
+        jb::Member("metadata_cache_pool",
+                   jb::Projection<&KvsDriverSpec::metadata_cache_pool>()),
         jb::Projection<&KvsDriverSpec::store>(jb::KvStoreSpecAndPathJsonBinder),
         jb::Initialize([](auto* obj) {
           internal::EnsureDirectoryPath(obj->store.path);

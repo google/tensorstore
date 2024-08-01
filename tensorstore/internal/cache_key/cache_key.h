@@ -85,6 +85,13 @@ struct CacheKeyEncoder<std::type_info> {
 };
 
 template <typename T>
+struct CacheKeyEncoder<T*> {
+  static void Encode(std::string* out, T* value) {
+    out->append(reinterpret_cast<const char*>(&value), sizeof(value));
+  }
+};
+
+template <typename T>
 struct CacheKeyEncoder<CacheKeyExcludes<T>> {
   static void Encode(std::string* out, const CacheKeyExcludes<T>& v) {
     // do nothing
