@@ -71,6 +71,7 @@ tensorstore_cc_library(
         ":wstring",  # build_cleaner: keep
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:inlined_vector",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/log:absl_log",
@@ -89,6 +90,7 @@ tensorstore_cc_test(
         "//tensorstore/internal/testing:scoped_directory",
         "//tensorstore/util:status_testutil",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest_main",

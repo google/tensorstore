@@ -142,17 +142,6 @@
 #include "tensorstore/internal/os/file_lister.h"
 #include "tensorstore/internal/os/file_util.h"
 
-/// On FreeBSD and Mac OS X, `flock` can safely be used instead of open file
-/// descriptor locks.  `flock`/`fcntl`/`lockf` all use the same underlying lock
-/// mechanism and are all compatible with each other, and with NFS.
-///
-/// On Linux, `lockf` is simply equivalent to traditional `fcntl` UNIX record
-/// locking (which is compatible with open file descriptor locks), while `flock`
-/// is a completely independent mechanism, with some bad NFS interactions: on
-/// Linux <=2.6.11, `flock` on an NFS-mounted filesystem provides only local
-/// locking; on Linux >=2.6.12, `flock` on an NFS-mounted filesystem is treated
-/// as an `fnctl` UNIX record lock that does affect all NFS clients.
-
 /// This implementation does not currently support cancellation.  On Linux, most
 /// filesystem operations, like `open`, `read`, `write`, and `fsync` cannot be
 /// interrupted (even if they are blocked due to a non-responsive network
@@ -343,16 +332,22 @@ StorageGeneration GetFileGeneration(const FileInfo& info) {
 /// RAII lock on an open file.
 struct FileLock {
  public:
-  absl::Status Acquire(FileDescriptor fd) {
-    auto result = internal_os::FileLockTraits::Acquire(fd);
-    if (result.ok()) {
-      lock_.reset(fd);
+  ~FileLock() {
+    if (fd_ != internal_os::FileDescriptorTraits::Invalid()) {
+      assert(unlock_fn_);
+      unlock_fn_(fd_);
     }
-    return result;
+  }
+
+  absl::Status Acquire(FileDescriptor fd) {
+    TENSORSTORE_ASSIGN_OR_RETURN(unlock_fn_, internal_os::AcquireFdLock(fd));
+    fd_ = fd;
+    return absl::OkStatus();
   }
 
  private:
-  internal_os::UniqueHandle<FileDescriptor, internal_os::FileLockTraits> lock_;
+  FileDescriptor fd_ = internal_os::FileDescriptorTraits::Invalid();
+  internal_os::UnlockFn unlock_fn_ = {};
 };
 
 /// Creates any directory ancestors of `path` that do not exist, and returns an
