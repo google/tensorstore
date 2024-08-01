@@ -37,7 +37,6 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_format.h"
-#include "absl/strings/str_split.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
@@ -53,12 +52,12 @@
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/histogram.h"
-#include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/thread/schedule_at.h"
 #include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/byte_range.h"
+#include "tensorstore/kvstore/common_metrics.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/gcs/gcs_resource.h"
 #include "tensorstore/kvstore/gcs/validate.h"
@@ -105,7 +104,6 @@ using ::tensorstore::internal::ScheduleAt;
 using ::tensorstore::internal_gcs_grpc::GetCredentialsForEndpoint;
 using ::tensorstore::internal_gcs_grpc::GetSharedStorageStubPool;
 using ::tensorstore::internal_gcs_grpc::StorageStubPool;
-using ::tensorstore::internal_metrics::MetricMetadata;
 using ::tensorstore::internal_storage_gcs::GcsUserProjectResource;
 using ::tensorstore::internal_storage_gcs::IsRetriable;
 using ::tensorstore::internal_storage_gcs::IsValidBucketName;
@@ -136,40 +134,17 @@ namespace {
 
 namespace jb = tensorstore::internal_json_binding;
 
-auto& gcs_grpc_bytes_read = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/gcs_grpc/bytes_read",
-    MetricMetadata("Bytes read by the gcs_grpc kvstore driver",
-                   internal_metrics::Units::kBytes));
+struct GcsMetrics : public internal_kvstore::CommonMetrics {
+  internal_metrics::Counter<int64_t>& retries;
+  // no additional members
+};
 
-auto& gcs_grpc_read = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/gcs_grpc/read",
-    MetricMetadata("GCS driver kvstore::Read calls"));
-
-auto& gcs_grpc_batch_read = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/gcs_grpc/batch_read",
-    MetricMetadata("GCS driver reads after batching"));
-
-auto& gcs_grpc_read_latency_ms =
-    internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
-        "/tensorstore/kvstore/gcs_grpc/read_latency_ms",
-        MetricMetadata("GCS driver kvstore::Read latency (ms)",
-                       internal_metrics::Units::kMilliseconds));
-
-auto& gcs_grpc_write = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/gcs_grpc/write",
-    MetricMetadata("GCS driver kvstore::Write calls"));
-
-auto& gcs_grpc_delete_range = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/gcs_grpc/delete_range",
-    MetricMetadata("GCS driver kvstore::DeleteRange calls"));
-
-auto& gcs_grpc_list = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/gcs_grpc/list",
-    MetricMetadata("GCS driver kvstore::List calls"));
-
-auto& gcs_grpc_retries = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/gcs_grpc/retries",
-    MetricMetadata("Count of all retried GCS requests (read/write/delete)"));
+auto gcs_grpc_metrics = []() -> GcsMetrics {
+  return {TENSORSTORE_KVSTORE_COMMON_METRICS(gcs_grpc),
+          TENSORSTORE_KVSTORE_COUNTER_IMPL(
+              gcs_grpc, retries,
+              "Ccunt of all retried requests (read/write/delete)")};
+}();
 
 ABSL_CONST_INIT internal_log::VerboseFlag gcs_grpc_logging("gcs_grpc");
 
@@ -336,7 +311,7 @@ class GcsGrpcKeyValueStore
                                                  spec_.retries->max_retries),
                                  absl::StatusCode::kAborted, loc);
     }
-    gcs_grpc_retries.Increment();
+    gcs_grpc_metrics.retries.Increment();
     ScheduleAt(absl::Now() + *delay,
                WithExecutor(executor(), [task = internal::IntrusivePtr<Task>(
                                              task)] { task->Retry(); }));
@@ -511,7 +486,7 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
       }
     }
     if (response_.has_checksummed_data()) {
-      gcs_grpc_bytes_read.IncrementBy(
+      gcs_grpc_metrics.bytes_read.IncrementBy(
           response_.checksummed_data().content().size());
       value_.Append(response_.checksummed_data().content());
     }
@@ -558,7 +533,8 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
     }
 
     auto latency = absl::Now() - storage_generation_.time;
-    gcs_grpc_read_latency_ms.Observe(absl::ToInt64Milliseconds(latency));
+    gcs_grpc_metrics.read_latency_ms.Observe(
+        absl::ToInt64Milliseconds(latency));
 
     if (!status.ok()) {
       if (absl::IsFailedPrecondition(status) || absl::IsAborted(status)) {
@@ -752,6 +728,10 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
     ABSL_LOG_IF(INFO, gcs_grpc_logging)
         << "WriteTask::WriteFinished: " << this << " " << status << " "
         << ConciseDebugString(response_);
+
+    auto latency = absl::Now() - write_result_.time;
+    gcs_grpc_metrics.write_latency_ms.Observe(
+        absl::ToInt64Milliseconds(latency));
     {
       absl::MutexLock lock(&mutex_);
       context_ = nullptr;
@@ -1079,7 +1059,7 @@ struct DeleteRangeListReceiver {
 /// Key value store operations.
 Future<kvstore::ReadResult> GcsGrpcKeyValueStore::Read(Key key,
                                                        ReadOptions options) {
-  gcs_grpc_read.Increment();
+  gcs_grpc_metrics.read.Increment();
   if (!IsValidObjectName(key)) {
     return absl::InvalidArgumentError("Invalid blob object name");
   }
@@ -1093,7 +1073,7 @@ Future<kvstore::ReadResult> GcsGrpcKeyValueStore::Read(Key key,
 
 Future<kvstore::ReadResult> GcsGrpcKeyValueStore::ReadImpl(
     Key&& key, ReadOptions&& options) {
-  gcs_grpc_batch_read.Increment();
+  gcs_grpc_metrics.batch_read.Increment();
   auto op = PromiseFuturePair<ReadResult>::Make();
 
   auto task = internal::MakeIntrusivePtr<ReadTask>();
@@ -1106,7 +1086,7 @@ Future<kvstore::ReadResult> GcsGrpcKeyValueStore::ReadImpl(
 
 Future<TimestampedStorageGeneration> GcsGrpcKeyValueStore::Write(
     Key key, std::optional<Value> value, WriteOptions options) {
-  gcs_grpc_write.Increment();
+  gcs_grpc_metrics.write.Increment();
   if (!IsValidObjectName(key)) {
     return absl::InvalidArgumentError("Invalid blob object name");
   }
@@ -1133,7 +1113,7 @@ Future<TimestampedStorageGeneration> GcsGrpcKeyValueStore::Write(
 
 void GcsGrpcKeyValueStore::ListImpl(ListOptions options,
                                     ListReceiver receiver) {
-  gcs_grpc_list.Increment();
+  gcs_grpc_metrics.list.Increment();
   if (options.range.empty()) {
     execution::set_starting(receiver, [] {});
     execution::set_done(receiver);
@@ -1148,7 +1128,7 @@ void GcsGrpcKeyValueStore::ListImpl(ListOptions options,
 }
 
 Future<const void> GcsGrpcKeyValueStore::DeleteRange(KeyRange range) {
-  gcs_grpc_delete_range.Increment();
+  gcs_grpc_metrics.delete_range.Increment();
   if (range.empty()) return absl::OkStatus();
 
   // TODO(jbms): It could make sense to rate limit the list operation, so that

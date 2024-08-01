@@ -41,6 +41,7 @@ tensorstore_cc_library(
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:batch_util",
         "//tensorstore/kvstore:byte_range",
+        "//tensorstore/kvstore:common_metrics",
         "//tensorstore/kvstore:generation",
         "//tensorstore/kvstore:key_range",
         "//tensorstore/util:executor",

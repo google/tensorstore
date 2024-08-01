@@ -38,6 +38,7 @@
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/kvstore/byte_range.h"
+#include "tensorstore/kvstore/common_metrics.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
@@ -77,6 +78,8 @@ namespace {
 namespace jb = tensorstore::internal_json_binding;
 
 ABSL_CONST_INIT internal_log::VerboseFlag zip_logging("zip");
+
+auto zip_metrics = TENSORSTORE_KVSTORE_COMMON_READ_METRICS(zip);
 
 // -----------------------------------------------------------------------------
 
@@ -308,7 +311,7 @@ Future<kvstore::ReadResult> ZipKvStore::Read(Key key, ReadOptions options) {
   state->owner_ = internal::IntrusivePtr<ZipKvStore>(this);
   state->key_ = std::move(key);
   state->options_ = options;
-
+  zip_metrics.read.Increment();
   return PromiseFuturePair<kvstore::ReadResult>::LinkValue(
              WithExecutor(
                  executor(),
@@ -383,6 +386,8 @@ void ZipKvStore::ListImpl(ListOptions options, ListReceiver receiver) {
       internal::IntrusivePtr<ZipKvStore>(this), std::move(options),
       std::move(receiver));
   auto* state_ptr = state.get();
+  zip_metrics.list.Increment();
+
   LinkValue(WithExecutor(executor(),
                          [state = std::move(state)](Promise<void> promise,
                                                     ReadyFuture<const void>) {

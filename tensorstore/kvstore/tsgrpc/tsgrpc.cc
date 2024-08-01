@@ -45,8 +45,8 @@
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/counter.h"
-#include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/kvstore/byte_range.h"
+#include "tensorstore/kvstore/common_metrics.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
@@ -79,7 +79,6 @@ using ::tensorstore::GrpcClientCredentials;
 using ::tensorstore::internal::AbslTimeToProto;
 using ::tensorstore::internal::DataCopyConcurrencyResource;
 using ::tensorstore::internal::GrpcStatusToAbslStatus;
-using ::tensorstore::internal_metrics::MetricMetadata;
 using ::tensorstore::kvstore::ListEntry;
 using ::tensorstore::kvstore::ListReceiver;
 using ::tensorstore_grpc::DecodeGenerationAndTimestamp;
@@ -97,29 +96,23 @@ using ::tensorstore_grpc::kvstore::grpc_gen::KvStoreService;
 namespace tensorstore {
 namespace {
 
-auto& grpc_read = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/tsgrpc/read",
-    MetricMetadata("grpc driver kvstore::Read calls"));
+namespace jb = tensorstore::internal_json_binding;
 
-auto& grpc_write = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/tsgrpc/write",
-    MetricMetadata("grpc driver kvstore::Write calls"));
+struct TsGrpcMetrics : public internal_kvstore::CommonReadMetrics,
+                       public internal_kvstore::CommonWriteMetrics {
+  internal_metrics::Counter<int64_t>& delete_calls;
+  // no additional members
+};
 
-auto& grpc_delete = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/tsgrpc/delete",
-    MetricMetadata("grpc driver kvstore::Delete calls"));
-
-auto& grpc_delete_range = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/tsgrpc/delete_range",
-    MetricMetadata("grpc driver kvstore::DeleteRange calls"));
-
-auto& grpc_list = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/tsgrpc/list",
-    MetricMetadata("grpc driver kvstore::List calls"));
+auto tsgrpc_metrics = []() -> TsGrpcMetrics {
+  return {TENSORSTORE_KVSTORE_COMMON_READ_METRICS(tsgrpc),
+          TENSORSTORE_KVSTORE_COMMON_WRITE_METRICS(tsgrpc),
+          TENSORSTORE_KVSTORE_COUNTER_IMPL(
+              tsgrpc, delete_calls, "kvstore::Write calls deleting a key")};
+}();
 
 ABSL_CONST_INIT internal_log::VerboseFlag verbose_logging("tsgrpc_kvstore");
 
-namespace jb = tensorstore::internal_json_binding;
 
 struct TsGrpcKeyValueStoreSpecData {
   std::string address;
@@ -409,7 +402,7 @@ struct ListTask {
 /// Key value store operations.
 Future<kvstore::ReadResult> TsGrpcKeyValueStore::Read(Key key,
                                                       ReadOptions options) {
-  grpc_read.Increment();
+  tsgrpc_metrics.read.Increment();
   auto task = internal::MakeIntrusivePtr<ReadTask>();
   task->driver = internal::IntrusivePtr<TsGrpcKeyValueStore>(this);
   return task->Start(std::move(key), options);
@@ -418,13 +411,13 @@ Future<kvstore::ReadResult> TsGrpcKeyValueStore::Read(Key key,
 Future<TimestampedStorageGeneration> TsGrpcKeyValueStore::Write(
     Key key, std::optional<Value> value, WriteOptions options) {
   if (value) {
-    grpc_write.Increment();
+    tsgrpc_metrics.write.Increment();
     auto task = internal::MakeIntrusivePtr<WriteTask>();
     task->driver = internal::IntrusivePtr<TsGrpcKeyValueStore>(this);
     return task->Start(std::move(key), value.value(), options);
   } else {
     // empty value is delete.
-    grpc_delete.Increment();
+    tsgrpc_metrics.delete_calls.Increment();
     auto task = internal::MakeIntrusivePtr<DeleteTask>();
     task->driver = internal::IntrusivePtr<TsGrpcKeyValueStore>(this);
     return task->Start(std::move(key), options);
@@ -433,7 +426,7 @@ Future<TimestampedStorageGeneration> TsGrpcKeyValueStore::Write(
 
 Future<const void> TsGrpcKeyValueStore::DeleteRange(KeyRange range) {
   if (range.empty()) return absl::OkStatus();
-  grpc_delete_range.Increment();
+  tsgrpc_metrics.delete_range.Increment();
   auto task = internal::MakeIntrusivePtr<DeleteTask>();
   task->driver = internal::IntrusivePtr<TsGrpcKeyValueStore>(this);
 
@@ -453,7 +446,7 @@ void TsGrpcKeyValueStore::ListImpl(ListOptions options, ListReceiver receiver) {
     execution::set_stopping(receiver);
     return;
   }
-  grpc_list.Increment();
+  tsgrpc_metrics.list.Increment();
   auto task = std::make_unique<ListTask>(
       internal::IntrusivePtr<TsGrpcKeyValueStore>(this), std::move(receiver));
   task->request.mutable_range()->set_inclusive_min(options.range.inclusive_min);

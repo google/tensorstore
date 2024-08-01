@@ -408,3 +408,12 @@ tensorstore_cc_library(
         "@com_google_absl//absl/time",
     ],
 )
+
+cc_library(
+    name = "common_metrics",
+    hdrs = ["common_metrics.h"],
+    deps = [
+        "//tensorstore/internal/metrics",
+        "//tensorstore/internal/metrics:metadata",
+    ],
+)
