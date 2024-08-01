@@ -26,6 +26,8 @@
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
+#include "tensorstore/array_testutil.h"
+#include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
@@ -708,6 +710,36 @@ TEST(NDIterableTransformedArrayTest, BlockTraceThreeStridedDimensions) {
                                      &a(1, 2, 2),
                                  })))),
            absl::OkStatus()));
+}
+
+// Tests that IterateOverNDIterables covers each element exactly once in the
+// case that the innermost block size is less than the innermost iteration size.
+TEST(NDIterableTransformedArrayTest,
+     InnermostBlockSizeLessThanInnermostIterationSize) {
+  Arena arena;
+  auto a = AllocateArray<int>({2, 32768}, tensorstore::c_order,
+                              tensorstore::value_init);
+  auto ta = (a | tensorstore::Dims(0).IndexArraySlice(MakeArray<Index>({0, 1})))
+                .value();
+  auto iterable = GetTransformedArrayNDIterable(ta, &arena).value();
+
+  struct IncrementValue {
+    void operator()(int* x) const { *x += 1; }
+  };
+
+  constexpr tensorstore::internal::ElementwiseFunction<1> increment_value_func =
+      tensorstore::internal::SimpleElementwiseFunction<IncrementValue(int)>();
+
+  // Increment each element of `a` exactly once.
+  TENSORSTORE_ASSERT_OK(
+      (tensorstore::internal::IterateOverNDIterables<1, /*Update=*/true>(
+          ta.shape(), skip_repeated_elements, {{iterable.get()}}, &arena,
+          {&increment_value_func, nullptr})));
+
+  EXPECT_THAT(a, tensorstore::MatchesArray(
+                     tensorstore::BroadcastArray(
+                         tensorstore::MakeScalarArray<int>(1), a.shape())
+                         .value()));
 }
 
 }  // namespace

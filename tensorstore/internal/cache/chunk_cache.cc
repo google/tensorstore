@@ -25,6 +25,7 @@
 #include <utility>
 
 #include "absl/base/thread_annotations.h"
+#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
@@ -59,6 +60,10 @@
 #include "tensorstore/util/status.h"
 
 using ::tensorstore::internal_metrics::MetricMetadata;
+
+#ifndef TENSORSTORE_INTERNAL_CHUNK_CACHE_DEBUG
+#define TENSORSTORE_INTERNAL_CHUNK_CACHE_DEBUG 0
+#endif
 
 namespace tensorstore {
 namespace internal {
@@ -469,6 +474,11 @@ void ChunkCache::Write(WriteRequest request, WriteChunkReceiver receiver) {
         TENSORSTORE_ASSIGN_OR_RETURN(
             auto cell_to_dest,
             ComposeTransforms(request.transform, cell_transform));
+        ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_CHUNK_CACHE_DEBUG)
+            << "grid_cell_indices=" << grid_cell_indices
+            << ", request.transform=" << request.transform
+            << ", cell_transform=" << cell_transform
+            << ", cell_to_dest=" << cell_to_dest;
         auto entry = GetEntryForGridCell(*this, grid_cell_indices);
         auto transaction_copy = request.transaction;
         TENSORSTORE_ASSIGN_OR_RETURN(

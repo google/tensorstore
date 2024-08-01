@@ -438,6 +438,30 @@ TEST(WriteToMaskedArrayTest, RankTwoIndexArray) {
             tester.mask_array());
 }
 
+TEST(WriteToMaskedArrayTest, IndexArrayLarge) {
+  const Index kSize = 32768;
+  auto index_array = tensorstore::AllocateArray<Index>({kSize});
+  for (Index i = 0; i < kSize; ++i) {
+    index_array(i) = i;
+  }
+  auto fill_array =
+      tensorstore::BroadcastArray(tensorstore::MakeScalarArray<int>(42),
+                                  span<const Index>({2, kSize}))
+          .value();
+  auto mask_array =
+      tensorstore::BroadcastArray(tensorstore::MakeScalarArray<bool>(true),
+                                  span<const Index>({2, kSize}))
+          .value();
+  MaskedArrayWriteTester<int> tester{fill_array.domain()};
+  TENSORSTORE_EXPECT_OK(tester.Write(
+      (tester.transform() | Dims(1).OuterIndexArraySlice(index_array)).value(),
+      fill_array));
+  EXPECT_EQ(fill_array.num_elements(), tester.num_masked_elements());
+  EXPECT_EQ(fill_array.domain(), tester.mask_region());
+  EXPECT_EQ(fill_array, tester.dest_array());
+  EXPECT_EQ(mask_array, tester.mask_array());
+}
+
 TEST(WriteToMaskedArrayTest, RankOneInvalidTransform) {
   MaskedArrayWriteTester<int> tester{BoxView({1}, {4})};
   EXPECT_THAT(
