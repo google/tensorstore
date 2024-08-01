@@ -80,12 +80,6 @@ constexpr inline bool IsDirSeparator(char c) { return c == '/'; }
 
 #endif
 
-struct FileLockTraits {
-  static FileDescriptor Invalid() { return FileDescriptorTraits::Invalid(); }
-  static void Close(FileDescriptor fd);
-  static absl::Status Acquire(FileDescriptor fd);
-};
-
 /// Suffix used for lock files.
 inline constexpr std::string_view kLockSuffix = ".__lock";
 
@@ -98,17 +92,13 @@ using UniqueFileDescriptor = UniqueHandle<FileDescriptor, FileDescriptorTraits>;
 
 /// Opens an file that must already exist for reading.
 ///
-/// \returns The open file descriptor on success.  An error is indicated by an
-///     invalid file descriptor (in which case `GetLastErrorCode()` retrieves
-///     the error).
+/// \returns The open file descriptor or a failure absl::Status code.
 Result<UniqueFileDescriptor> OpenExistingFileForReading(
     const std::string& path);
 
 /// Opens a file for writing.  If there is an existing file, it is truncated.
 ///
-/// \returns The open file descriptor on success.  An error is indicated by an
-///     invalid file descriptor (in which case `GetLastErrorCode()` retrieves
-///     the error).
+/// \returns The open file descriptor or a failure absl::Status code.
 Result<UniqueFileDescriptor> OpenFileForWriting(const std::string& path);
 
 /// Reads from an open file.
@@ -117,9 +107,7 @@ Result<UniqueFileDescriptor> OpenFileForWriting(const std::string& path);
 /// \param buf[out] Pointer to memory where data will be stored.
 /// \param count Maximum number of bytes to read.
 /// \param offset Byte offset within file at which to start reading.
-/// \returns Number of bytes read on success.  Returns `0` to indicate end of
-///     file, or `-1` to indicate an error (in which case `GetLastErrorCode()`
-///     retrieves the error).
+/// \returns Number of bytes read or a failure absl::Status code.
 Result<ptrdiff_t> ReadFromFile(FileDescriptor fd, void* buf, size_t count,
                                int64_t offset);
 
@@ -128,9 +116,7 @@ Result<ptrdiff_t> ReadFromFile(FileDescriptor fd, void* buf, size_t count,
 /// \param fd Open file descriptor.
 /// \param buf[in] Pointer to data to write.
 /// \param count Maximum number of bytes to write.
-/// \returns Number of bytes written on success.  Returns `0` or `-1` to
-///     indicate an error (in which case `GetLastErrorCode()` retrieves the
-///     error).
+/// \returns Number of bytes written or a failure absl::Status code.
 Result<ptrdiff_t> WriteToFile(FileDescriptor fd, const void* buf, size_t count);
 
 /// Writes an absl::Cord to an open file.
@@ -138,16 +124,12 @@ Result<ptrdiff_t> WriteToFile(FileDescriptor fd, const void* buf, size_t count);
 /// \param fd Open file descriptor.
 /// \param cord[in] data to write.
 /// \param count Maximum number of bytes to write.
-/// \returns Number of bytes written on success.  Returns `0` or `-1` to
-///     indicate an error (in which case `GetLastErrorCode()` retrieves the
-///     error).
+/// \returns Number of bytes written or a failure absl::Status code.
 Result<ptrdiff_t> WriteCordToFile(FileDescriptor fd, absl::Cord value);
 
 /// Truncates an open file.
 ///
-/// \returns `true` on success, or `false` in case of an error (in which case
-///     `GetLastErrorCode()` retrieves the error).
-
+/// \returns `absl::OkStatus` on success, or a failure absl::Status code.
 absl::Status TruncateFile(FileDescriptor fd);
 
 /// Renames an open file.
@@ -155,8 +137,7 @@ absl::Status TruncateFile(FileDescriptor fd);
 /// \param fd The open file descriptor (ignored by POSIX implementation).
 /// \param old_name The existing path.
 /// \param new_name The new path.
-/// \returns `true` on success, or `false` in case of an error (in which case
-///     `GetLastErrorCode()` retrieves the error).
+/// \returns `absl::OkStatus` on success, or a failure absl::Status code.
 absl::Status RenameOpenFile(FileDescriptor fd, const std::string& old_name,
                             const std::string& new_name);
 
@@ -164,21 +145,24 @@ absl::Status RenameOpenFile(FileDescriptor fd, const std::string& old_name,
 ///
 /// \param fd The open file descriptor (ignored by POSIX implementation).
 /// \param path The path to the open file.
-/// \returns `true` on success, or `false` in case of an error (in which case
-///     `GetLastErrorCode()` retrieves the error).
+/// \returns `absl::OkStatus` on success, or a failure absl::Status code.
 absl::Status DeleteOpenFile(FileDescriptor fd, const std::string& path);
 
 /// Deletes a file.
 ///
-/// \returns `true` on success, or `false` in case of an error (in which case
-///     `GetLastErrorCode()` retrieves the error).
+/// \returns `absl::OkStatus` on success, or a failure absl::Status code.
 absl::Status DeleteFile(const std::string& path);
 
 /// Syncs an open file descriptor.
 ///
-/// \returns `true` on success, `false` on error (call `GetLastErrorCode()` to
-///     retrieve the error).
+/// \returns `absl::OkStatus` on success, or a failure absl::Status code.
 absl::Status FsyncFile(FileDescriptor fd);
+
+/// Acquires a lock on an open file descriptor.
+///
+/// \returns An unlock function on success, or an error status.
+using UnlockFn = void (*)(FileDescriptor fd);
+Result<UnlockFn> AcquireFdLock(FileDescriptor fd);
 
 /// --------------------------------------------------------------------------
 

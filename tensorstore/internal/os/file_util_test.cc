@@ -20,6 +20,7 @@
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
@@ -118,6 +119,23 @@ TEST(FileUtilTest, Basics) {
     EXPECT_THAT(WriteToFile(f->get(), "bar", 3), IsOkAndHolds(3));
     EXPECT_THAT(DeleteOpenFile(f->get(), bar_txt), IsOk());
   }
+}
+
+TEST(FileUtilTest, LockFile) {
+  tensorstore::internal_testing::ScopedTemporaryDirectory tempdir;
+  std::string foo_txt = absl::StrCat(tempdir.path(), "/foo.txt",
+                                     tensorstore::internal_os::kLockSuffix);
+
+  // Create
+  auto f = OpenFileForWriting(foo_txt);
+  EXPECT_THAT(f, IsOk());
+
+  // Lock
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto lock, tensorstore::internal_os::AcquireFdLock(f->get()));
+
+  // Unlock
+  lock(f->get());
 }
 
 }  // namespace

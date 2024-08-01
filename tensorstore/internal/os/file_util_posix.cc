@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "absl/base/optimization.h"
 #ifdef _WIN32
 #error "Use file_util_win.cc instead."
 #endif
@@ -23,14 +24,11 @@
 #include <fcntl.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <sys/file.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <unistd.h>
-
-#ifndef __linux__
-#include <sys/file.h>
-#endif
 
 #include <cerrno>
 #include <cstdio>
@@ -62,65 +60,117 @@ using ::tensorstore::internal::StatusFromOsError;
 namespace tensorstore {
 namespace internal_os {
 
-absl::Status FileLockTraits::Acquire(FileDescriptor fd) {
-  PotentiallyBlockingRegion region;
-  while (true) {
-    // This blocks until the lock is acquired (SETLKW).  If any signal is
-    // received by the current thread, `fcntl` returns `EINTR`.
-    //
-    // Note: If we wanted to support cancellation while waiting on the lock,
-    // we could pass the Promise to this function and register an
-    // ExecuteWhenNotNeeded function that uses `pthread_kill` to send a signal
-    // to this thread to abort the `fcntl` call (taking care to do it in a
-    // race-free way).
-#ifdef __linux__
-    // Use Linux 3.15+ open file descriptor lock.
-    struct ::flock lock;
-    lock.l_type = F_WRLCK;
-    lock.l_whence = SEEK_SET;
-    lock.l_start = 0;
-    lock.l_len = 0;
-    lock.l_pid = 0;
-    if (::fcntl(fd, 38 /*F_OFD_SETLKW*/, &lock) == 0) {
-      return absl::OkStatus();
-    }
-#else
-    // Use `flock` on BSD/Mac OS.
-    if (::flock(fd, LOCK_EX) == 0) {
-      return absl::OkStatus();
-    }
-#endif
-    if (errno == EINTR) continue;
-    return StatusFromOsError(errno, "Failed to lock file");
-  }
-}
+// On FreeBSD and Mac OS X, `flock` can safely be used instead of open file
+// descriptor locks.  `flock`/`fcntl`/`lockf` all use the same underlying lock
+// mechanism and are all compatible with each other, and with NFS.
+//
+// On Linux, `lockf` is simply equivalent to traditional `fcntl` UNIX record
+// locking (which is compatible with open file descriptor locks), while `flock`
+// is a completely independent mechanism, with some bad NFS interactions: on
+// Linux <=2.6.11, `flock` on an NFS-mounted filesystem provides only local
+// locking; on Linux >=2.6.12, `flock` on an NFS-mounted filesystem is treated
+// as an `fnctl` UNIX record lock that does affect all NFS clients.
 
-void FileLockTraits::Close(FileDescriptor fd) {
-  PotentiallyBlockingRegion region;
-  // This releases a lock acquired above.
+#ifdef __linux__
+// When building with glibc <2.20, or another libc which predates
+// OFD locks, define the constant ourselves.  This assumes that the libc
+// and kernel definitions for struct flock are identical.
+#ifndef F_OFD_SETLK
+#define F_OFD_SETLK 37
+#endif
+#ifndef F_OFD_SETLKW
+#define F_OFD_SETLKW 38
+#endif
+#endif  // __linux__
+
+namespace {
+
+#if defined(F_OFD_SETLKW)
+void UnlockFcntlLock(FileDescriptor fd) {
+  // This releases a lock acquired by fcntl(F_OFD_SETLKW).
   // This is not strictly necessary as the posix/linux locks will be released
   // when the fd is closed, but it allows easier reasoning by making locking
   // behave similarly across platforms.
   while (true) {
-#ifdef __linux__
-    // Use Linux 3.15+ open file descriptor lock.
     struct ::flock lock;
     lock.l_type = F_UNLCK;
     lock.l_whence = SEEK_SET;
     lock.l_start = 0;
     lock.l_len = 0;
     lock.l_pid = 0;
-    if (::fcntl(fd, 37 /*F_OFD_SETLK*/, &lock) != EINTR) return;
-#else
-    // Use `flock` on BSD/Mac OS.
-    if (::flock(fd, LOCK_UN) != EINTR) return;
-#endif
+    {
+      PotentiallyBlockingRegion region;
+      if (::fcntl(fd, F_OFD_SETLK, &lock) != -1) return;
+    }
+    if (errno == EINTR) continue;
+    ABSL_LOG_FIRST_N(INFO, 1)
+        << StatusFromOsError(errno, "Failed to release lock");
+    return;
   }
+  ABSL_UNREACHABLE();
+}
+#endif
+
+void UnlockFlockLock(FileDescriptor fd) {
+  while (true) {
+    {
+      PotentiallyBlockingRegion region;
+      if (::flock(fd, LOCK_UN) != -1) return;
+    }
+    if (errno == EINTR) continue;
+    ABSL_LOG_FIRST_N(INFO, 1)
+        << StatusFromOsError(errno, "Failed to release lock");
+    return;
+  }
+  ABSL_UNREACHABLE();
+}
+
+}  // namespace
+
+Result<UnlockFn> AcquireFdLock(FileDescriptor fd) {
+#if defined(F_OFD_SETLKW)
+  while (true) {
+    // This blocks until the lock is acquired (SETLKW).  If any signal is
+    // received by the current thread, `fcntl` returns `EINTR`.
+    //
+    // Note: To support cancellation while waiting on the lock, modify to
+    // pass the Promise to this function and register an ExecuteWhenNotNeeded
+    // function that uses `pthread_kill` to send a signal to this thread to
+    // abort the `fcntl` call (taking care to do it in a race-free way). Use
+    // Linux 3.15+ open file descriptor lock.
+    struct ::flock lock;
+    lock.l_type = F_WRLCK;
+    lock.l_whence = SEEK_SET;
+    lock.l_start = 0;
+    lock.l_len = 0;
+    lock.l_pid = 0;
+    {
+      PotentiallyBlockingRegion region;
+      if (::fcntl(fd, F_OFD_SETLKW, &lock) != -1) return UnlockFcntlLock;
+    }
+    if (errno == EINTR) continue;
+    if (errno == EINVAL || errno == ENOTSUP) break;
+    return StatusFromOsError(errno, "Failed to lock file");
+  }
+#endif
+  while (true) {
+    {
+      PotentiallyBlockingRegion region;
+      if (::flock(fd, LOCK_EX) != -1) return UnlockFlockLock;
+    }
+    if (errno == EINTR) continue;
+    return StatusFromOsError(errno, "Failed to lock file");
+  }
+  ABSL_UNREACHABLE();
 }
 
 Result<UniqueFileDescriptor> OpenExistingFileForReading(
     const std::string& path) {
-  FileDescriptor fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC);
+  FileDescriptor fd;
+  {
+    PotentiallyBlockingRegion region;
+    fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC);
+  }
   if (fd == FileDescriptorTraits::Invalid()) {
     return StatusFromOsError(errno, "Failed to open: ", QuoteString(path));
   }
@@ -138,9 +188,9 @@ Result<UniqueFileDescriptor> OpenFileForWriting(const std::string& path) {
 #else
   // Maximum number of attempts to open the file.  On macOS, `open` may return
   // `ENOENT` or `EPERM` if an existing file is deleted concurrently with the
-  // call to `open`.  We mitigate this race condition by retrying, but we limit
-  // the number of retries to avoid getting stuck in an infinite loop if the
-  // error is due to a parent directory having been deleted.
+  // call to `open`.  Mitigate this race condition by retrying, limiting the
+  // number of retries to avoid getting stuck in an infinite loop if the error
+  // is due to a parent directory having been deleted.
   constexpr int kMaxAttempts = 100;
   for (int attempt = 0; attempt < kMaxAttempts; ++attempt) {
     attempt_open();
@@ -207,6 +257,7 @@ Result<ptrdiff_t> WriteCordToFile(FileDescriptor fd, absl::Cord value) {
 }
 
 absl::Status TruncateFile(FileDescriptor fd) {
+  PotentiallyBlockingRegion region;
   if (::ftruncate(fd, 0) == 0) {
     return absl::OkStatus();
   }
@@ -215,6 +266,7 @@ absl::Status TruncateFile(FileDescriptor fd) {
 
 absl::Status RenameOpenFile(FileDescriptor fd, const std::string& old_name,
                             const std::string& new_name) {
+  PotentiallyBlockingRegion region;
   if (::rename(old_name.c_str(), new_name.c_str()) == 0) {
     return absl::OkStatus();
   }
@@ -223,6 +275,7 @@ absl::Status RenameOpenFile(FileDescriptor fd, const std::string& old_name,
 }
 
 absl::Status DeleteOpenFile(FileDescriptor fd, const std::string& path) {
+  PotentiallyBlockingRegion region;
   if (::unlink(path.c_str()) == 0) {
     return absl::OkStatus();
   }
@@ -230,6 +283,7 @@ absl::Status DeleteOpenFile(FileDescriptor fd, const std::string& path) {
 }
 
 absl::Status DeleteFile(const std::string& path) {
+  PotentiallyBlockingRegion region;
   if (::unlink(path.c_str()) == 0) {
     return absl::OkStatus();
   }
@@ -237,6 +291,7 @@ absl::Status DeleteFile(const std::string& path) {
 }
 
 absl::Status FsyncFile(FileDescriptor fd) {
+  PotentiallyBlockingRegion region;
   if (::fsync(fd) == 0) {
     return absl::OkStatus();
   }
@@ -244,6 +299,7 @@ absl::Status FsyncFile(FileDescriptor fd) {
 }
 
 absl::Status GetFileInfo(FileDescriptor fd, FileInfo* info) {
+  PotentiallyBlockingRegion region;
   if (::fstat(fd, info) == 0) {
     return absl::OkStatus();
   }
@@ -251,6 +307,7 @@ absl::Status GetFileInfo(FileDescriptor fd, FileInfo* info) {
 }
 
 absl::Status GetFileInfo(const std::string& path, FileInfo* info) {
+  PotentiallyBlockingRegion region;
   if (::stat(path.c_str(), info) == 0) {
     return absl::OkStatus();
   }
@@ -258,8 +315,11 @@ absl::Status GetFileInfo(const std::string& path, FileInfo* info) {
 }
 
 Result<UniqueFileDescriptor> OpenDirectoryDescriptor(const std::string& path) {
-  FileDescriptor fd =
-      ::open(path.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC, 0);
+  FileDescriptor fd;
+  {
+    PotentiallyBlockingRegion region;
+    fd = ::open(path.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC, 0);
+  }
   if (fd == FileDescriptorTraits::Invalid()) {
     return StatusFromOsError(errno,
                              "Failed to open directory: ", QuoteString(path));
@@ -268,6 +328,7 @@ Result<UniqueFileDescriptor> OpenDirectoryDescriptor(const std::string& path) {
 }
 
 absl::Status MakeDirectory(const std::string& path) {
+  PotentiallyBlockingRegion region;
   if (::mkdir(path.c_str(), 0777) == 0 || errno == EEXIST) {
     return absl::OkStatus();
   }
@@ -276,6 +337,7 @@ absl::Status MakeDirectory(const std::string& path) {
 }
 
 absl::Status FsyncDirectory(FileDescriptor fd) {
+  PotentiallyBlockingRegion region;
   if (::fsync(fd) == 0) {
     return absl::OkStatus();
   }

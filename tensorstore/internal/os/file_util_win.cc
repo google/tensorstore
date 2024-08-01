@@ -163,24 +163,27 @@ void FileDescriptorTraits::Close(FileDescriptor handle) {
   ::CloseHandle(handle);
 }
 
-absl::Status FileLockTraits::Acquire(FileDescriptor fd) {
+namespace {
+void UnlockWin32Lock(FileDescriptor fd) {
+  auto lock_offset = GetLockOverlapped();
+  // Ignore any errors.
+  ::UnlockFileEx(fd, /*dwReserved=*/0, /*nNumberOfBytesToUnlockLow=*/1,
+                 /*nNumberOfBytesToUnlockHigh=*/0,
+                 /*lpOverlapped=*/&lock_offset);
+}
+
+}  // namespace
+
+Result<UnlockFn> AcquireFdLock(FileDescriptor fd) {
   auto lock_offset = GetLockOverlapped();
   if (::LockFileEx(fd, /*dwFlags=*/LOCKFILE_EXCLUSIVE_LOCK,
                    /*dwReserved=*/0,
                    /*nNumberOfBytesToLockLow=*/1,
                    /*nNumberOfBytesToLockHigh=*/0,
                    /*lpOverlapped=*/&lock_offset)) {
-    return absl::OkStatus();
+    return UnlockWin32Lock;
   }
   return StatusFromOsError(::GetLastError(), "Failed to lock file");
-}
-
-void FileLockTraits::Close(FileDescriptor fd) {
-  auto lock_offset = GetLockOverlapped();
-  // Ignore any errors.
-  ::UnlockFileEx(fd, /*dwReserved=*/0, /*nNumberOfBytesToUnlockLow=*/1,
-                 /*nNumberOfBytesToUnlockHigh=*/0,
-                 /*lpOverlapped=*/&lock_offset);
 }
 
 Result<UniqueFileDescriptor> OpenExistingFileForReading(
