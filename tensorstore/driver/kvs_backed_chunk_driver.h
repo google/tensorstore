@@ -48,9 +48,11 @@
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/open_mode.h"
-#include "tensorstore/serialization/absl_time.h"
+#include "tensorstore/serialization/absl_time.h"  // IWYU pragma: keep
+#include "tensorstore/serialization/std_optional.h"  // IWYU pragma: keep
 #include "tensorstore/spec.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/garbage_collection/std_optional.h"  // IWYU pragma: keep
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
@@ -66,12 +68,15 @@ struct KvsDriverSpec : public internal::DriverSpec,
   Context::Resource<internal::DataCopyConcurrencyResource>
       data_copy_concurrency;
   Context::Resource<internal::CachePoolResource> cache_pool;
+  std::optional<Context::Resource<internal::CachePoolResource>>
+      metadata_cache_pool;
   StalenessBounds staleness;
 
   static constexpr auto ApplyMembers = [](auto& x, auto f) {
     return f(internal::BaseCast<internal::DriverSpec>(x),
              internal::BaseCast<internal::OpenModeSpec>(x), x.store,
-             x.data_copy_concurrency, x.cache_pool, x.staleness);
+             x.data_copy_concurrency, x.cache_pool, x.metadata_cache_pool,
+             x.staleness);
   };
 
   kvstore::Spec GetKvstore() const override;
@@ -269,7 +274,7 @@ class MetadataCache
   kvstore::DriverPtr base_store_;
   Context::Resource<internal::DataCopyConcurrencyResource>
       data_copy_concurrency_;
-  Context::Resource<internal::CachePoolResource> cache_pool_;
+  Context::Resource<internal::CachePoolResource> metadata_cache_pool_;
 };
 
 /// Abstract base class for `Cache` types that are used with
@@ -292,6 +297,7 @@ class DataCacheBase {
   struct Initializer {
     internal::PinnedCacheEntry<MetadataCache> metadata_cache_entry;
     MetadataPtr metadata;
+    Context::Resource<internal::CachePoolResource> cache_pool;
   };
 
   explicit DataCacheBase(Initializer&& initializer);
@@ -386,6 +392,7 @@ class DataCacheBase {
 
   const internal::PinnedCacheEntry<MetadataCache> metadata_cache_entry_;
   const MetadataPtr initial_metadata_;
+  Context::Resource<internal::CachePoolResource> cache_pool_;
 };
 
 /// Abstract base class for `Cache` types that are used with
@@ -696,6 +703,11 @@ class MetadataOpenState
   const Context::Resource<internal::CachePoolResource>& cache_pool() const {
     return spec_->cache_pool;
   }
+  const Context::Resource<internal::CachePoolResource>& metadata_cache_pool()
+      const {
+    return spec_->metadata_cache_pool ? *spec_->metadata_cache_pool
+                                      : spec_->cache_pool;
+  }
 };
 
 /// Extends `MetadataOpenState` with integration with a "data cache"
@@ -719,6 +731,14 @@ class OpenState : public MetadataOpenState {
   /// Returns a unique identifier (for a given value of `typeid(*this)`) of the
   /// cache returned by `GetDataCache`.
   virtual std::string GetDataCacheKey(const void* metadata) = 0;
+
+  /// Indicates whether the data cache returned by `GetDataCache` should be
+  /// associated with the metadata cache. Normally, the data cache should use
+  /// the data cache pool, but e.g. in the case of a zarr v3 sharded array, the
+  /// outer cache corresponding to the shard grid is associated with the
+  /// metadata cache pool, and only the leaf chunk caches are associated with
+  /// the data cache.
+  virtual bool DataCacheUsesMetadataCachePool(const void* metadata_ptr);
 
   /// Returns a non-null pointer to a `Cache` object associated with the
   /// same `Metadata` type as this object.  If there is an existing data cache

@@ -2945,4 +2945,85 @@ TEST(DriverTest, ShardingBatchRead) {
   EXPECT_THAT(mock_kvstore->request_log.pop_all(), ::testing::SizeIs(4));
 }
 
+TEST(DriverTest, SeparateMetadataCache) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto context,
+      Context::FromJson({{"cache_pool#metadata",
+                          {{"total_bytes_limit", 1024 * 1024 * 10}}}}));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto mock_key_value_store_resource,
+      context.GetResource<tensorstore::internal::MockKeyValueStoreResource>());
+  auto mock_kvstore = *mock_key_value_store_resource;
+  mock_kvstore->forward_to = tensorstore::GetMemoryKeyValueStore();
+  mock_kvstore->log_requests = true;
+
+  ::nlohmann::json json_spec{
+      {"driver", "neuroglancer_precomputed"},
+      {"kvstore",
+       {
+           {"driver", "mock_key_value_store"},
+       }},
+      {"metadata_cache_pool", "cache_pool#metadata"},
+      {"schema",
+       {
+           {"chunk_layout",
+            {{"read_chunk", {{"shape", {1, 1, 1, 1}}}},
+             {"write_chunk", {{"shape", {2, 2, 2, 1}}}}}},
+           {"domain", {{"shape", {4, 4, 4, 1}}}},
+           {"dtype", "uint16"},
+       }},
+      {"recheck_cached_metadata", false},
+      {"recheck_cached_data", false},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
+                                   tensorstore::Spec::FromJson(json_spec));
+
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open(spec, context, tensorstore::OpenMode::create)
+            .result());
+    // Write initial data.
+    TENSORSTORE_ASSERT_OK(
+        tensorstore::Write(tensorstore::MakeScalarArray<uint16_t>(42),
+                           store | tensorstore::AllDims().IndexSlice(0)));
+
+    mock_kvstore->request_log.pop_all();
+
+    // Read value from chunk that was written.
+    //
+    // The shard index and minishard index will be read and cached.
+    EXPECT_THAT(tensorstore::Read(store | tensorstore::AllDims().IndexSlice(0))
+                    .result(),
+                tensorstore::MakeScalarArray<uint16_t>(42));
+    EXPECT_THAT(mock_kvstore->request_log.pop_all(), ::testing::SizeIs(3));
+
+    // Read same value again.
+    //
+    // The data chunk will be re-read but the shard index will not be.
+    EXPECT_THAT(tensorstore::Read(store | tensorstore::AllDims().IndexSlice(0))
+                    .result(),
+                tensorstore::MakeScalarArray<uint16_t>(42));
+    EXPECT_THAT(mock_kvstore->request_log.pop_all(), ::testing::SizeIs(1));
+
+    // Read value from missing chunk in same shard. No kvstore reads are
+    // performed because the shard index is cached.
+    EXPECT_THAT(tensorstore::Read(store | tensorstore::Dims(0).IndexSlice(1) |
+                                  tensorstore::Dims(0, 1, 2).IndexSlice(0))
+                    .result(),
+                tensorstore::MakeScalarArray<uint16_t>(0));
+    EXPECT_THAT(mock_kvstore->request_log.pop_all(), ::testing::SizeIs(0));
+  }
+
+  {
+    // Reopening uses cached metadata without revalidation.
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open(spec, context, tensorstore::OpenMode::open).result());
+    EXPECT_THAT(mock_kvstore->request_log.pop_all(), ::testing::SizeIs(0));
+  }
+}
+
 }  // namespace

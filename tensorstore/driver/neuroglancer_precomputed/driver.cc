@@ -912,7 +912,7 @@ class NeuroglancerPrecomputedDriver::OpenState
       return neuroglancer_uint64_sharded::GetShardedKeyValueStore(
           std::move(base_kv_store), executor(),
           ResolveScaleKey(spec().store.path, scale.key), *sharding_spec,
-          *cache_pool(),
+          *metadata_cache_pool(),
           GetChunksPerVolumeShardFunction(*sharding_spec, scale.box.shape(),
                                           scale.chunk_sizes[0]));
     }

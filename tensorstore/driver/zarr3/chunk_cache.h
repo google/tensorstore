@@ -57,6 +57,12 @@ namespace internal_zarr3 {
 ///
 /// This is used at the top level to operate on the entire array.  Additionally,
 /// it is used to operate on a (possibly-nested) shard.
+///
+/// When a separate metadata cache pool is used, the bottom-most
+/// ZarrLeafChunkCache objects are associated with the data cache pool, but all
+/// of the higher-level cache objects (all of which inherit from
+/// ZarrShardedChunkCache) are associated with the metadata cache pool, in order
+/// to keep the ShardedKeyValueStore objects alive.
 class ZarrChunkCache {
  public:
   virtual internal::Cache& cache() = 0;
@@ -145,7 +151,8 @@ class ZarrLeafChunkCache : public internal::KvsBackedChunkCache,
   size_t DoGetSizeofEntry() override { return sizeof(Entry); }
 
   explicit ZarrLeafChunkCache(kvstore::DriverPtr store,
-                              ZarrCodecChain::PreparedState::Ptr codec_state);
+                              ZarrCodecChain::PreparedState::Ptr codec_state,
+                              internal::CachePool::WeakPtr data_cache_pool);
 
   void Read(ZarrChunkCache::ReadRequest request,
             AnyFlowReceiver<absl::Status, internal::ReadChunk,
@@ -179,8 +186,9 @@ class ZarrShardedChunkCache : public internal::Cache, public ZarrChunkCache {
   using Base = ZarrChunkCache;
 
  public:
-  explicit ZarrShardedChunkCache(
-      kvstore::DriverPtr store, ZarrCodecChain::PreparedState::Ptr codec_state);
+  explicit ZarrShardedChunkCache(kvstore::DriverPtr store,
+                                 ZarrCodecChain::PreparedState::Ptr codec_state,
+                                 internal::CachePool::WeakPtr data_cache_pool);
 
   const ZarrShardingCodec::PreparedState& sharding_codec_state() const {
     return static_cast<const ZarrShardingCodec::PreparedState&>(
@@ -229,6 +237,10 @@ class ZarrShardedChunkCache : public internal::Cache, public ZarrChunkCache {
 
   kvstore::DriverPtr base_kvstore_;
   ZarrCodecChain::PreparedState::Ptr codec_state_;
+
+  // Data cache pool, if it differs from `this->pool()` (which is equal to the
+  // metadata cache pool).
+  internal::CachePool::WeakPtr data_cache_pool_;
 };
 
 /// Chunk cache mixin for a chunk cache where the entire chunk cache corresponds
@@ -238,10 +250,12 @@ class ZarrShardSubChunkCache : public ChunkCacheImpl {
  public:
   explicit ZarrShardSubChunkCache(
       kvstore::DriverPtr store, Executor executor,
-      ZarrShardingCodec::PreparedState::Ptr sharding_state)
+      ZarrShardingCodec::PreparedState::Ptr sharding_state,
+      internal::CachePool::WeakPtr data_cache_pool)
       : ChunkCacheImpl(std::move(store),
                        ZarrCodecChain::PreparedState::Ptr(
-                           sharding_state->sub_chunk_codec_state)),
+                           sharding_state->sub_chunk_codec_state),
+                       std::move(data_cache_pool)),
         sharding_state_(std::move(sharding_state)),
         executor_(std::move(executor)) {}
 
@@ -281,7 +295,7 @@ template <typename ChunkCacheType, template <typename> class CacheWrapper,
           typename... U>
 std::unique_ptr<ChunkCacheType> MakeZarrChunkCache(
     const ZarrCodecChain& codec_chain, U&&... args) {
-  if (codec_chain.array_to_bytes->is_sharding_codec()) {
+  if (codec_chain.is_sharding_chain()) {
     return std::make_unique<CacheWrapper<ZarrShardedChunkCache>>(
         std::forward<U>(args)...);
   } else {

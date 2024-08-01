@@ -866,6 +866,11 @@ ShardedKeyValueStore::ShardedKeyValueStore(
                       std::move(params.index_params));
                 }));
       });
+  this->SetBatchNestingDepth(
+      this->base_kvstore_driver()->BatchNestingDepth() +
+      1 +  // for queuing entry requests
+      1    // for AsyncCache queuing the index request when needed
+  );
 }
 
 /// Asynchronous state and associated methods for `ShardedKeyValueStore::Read`.
@@ -1356,11 +1361,6 @@ Future<kvstore::DriverPtr> ShardedKeyValueStoreSpec::DoOpen() const {
             spec->data_.data_copy_concurrency,
             spec->data_.index_codecs,
         });
-        driver->SetBatchNestingDepth(
-            driver->base_kvstore_driver()->BatchNestingDepth() +
-            1 +  // for queuing entry requests
-            1    // for AsyncCache queuing the index request when needed
-        );
         return driver;
       },
       kvstore::Open(data_.base));

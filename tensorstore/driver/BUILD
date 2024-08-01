@@ -346,6 +346,7 @@ tensorstore_cc_library(
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:generation",
         "//tensorstore/kvstore:key_range",
+        "//tensorstore/serialization",
         "//tensorstore/serialization:absl_time",
         "//tensorstore/util:dimension_set",
         "//tensorstore/util:executor",
