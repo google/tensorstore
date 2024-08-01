@@ -419,7 +419,9 @@ struct MultiNDIterator : public NDIterationInfo<Full>,
             NDIterablesWithManagedBuffers<Iterables>{iterables}, shape,
             constraints),
         NDIteratorsWithManagedBuffers<Arity>(
-            iterables, this->buffer_layout_view(), allocator) {}
+            iterables, this->buffer_layout_view(), allocator) {
+    inner_iteration_shape_ = this->iteration_shape.back();
+  }
 
   IterationBufferShape ResetAtBeginning() {
     std::fill_n(position_, this->iteration_shape.size(), Index(0));
@@ -427,9 +429,9 @@ struct MultiNDIterator : public NDIterationInfo<Full>,
   }
 
   IterationBufferShape StepForward(IterationBufferShape step) {
-    if (step[1] != this->block_shape[1]) {
+    if (step[1] != inner_iteration_shape_) {
       const Index next_block_size = StepBufferPositionForward(
-          this->iteration_shape, 1, this->block_shape[1], position_);
+          this->iteration_shape, step[1], block_shape[1], position_);
       return {1, next_block_size};
     } else {
       const Index next_block_size = StepBufferPositionForward(
@@ -460,6 +462,7 @@ struct MultiNDIterator : public NDIterationInfo<Full>,
 
  private:
   Index position_[kMaxRank];
+  Index inner_iteration_shape_;
 };
 
 template <ptrdiff_t Arity, bool Update, typename... ExtraArg>

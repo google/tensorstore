@@ -1447,6 +1447,8 @@ tensorstore_cc_test(
         ":nditerable_buffer_management",
         ":nditerable_transformed_array",
         "//tensorstore:array",
+        "//tensorstore:array_testutil",
+        "//tensorstore:contiguous_layout",
         "//tensorstore:data_type",
         "//tensorstore:index",
         "//tensorstore:strided_layout",

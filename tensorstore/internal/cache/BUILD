@@ -15,6 +15,11 @@ bool_flag(
     build_setting_default = False,
 )
 
+bool_flag(
+    name = "chunk_cache_debug",
+    build_setting_default = False,
+)
+
 config_setting(
     name = "refcount_debug_setting",
     flag_values = {
@@ -27,6 +32,14 @@ config_setting(
     name = "async_cache_debug_setting",
     flag_values = {
         ":async_cache_debug": "True",
+    },
+    visibility = ["//visibility:private"],
+)
+
+config_setting(
+    name = "chunk_cache_debug_setting",
+    flag_values = {
+        ":chunk_cache_debug": "True",
     },
     visibility = ["//visibility:private"],
 )
@@ -304,6 +317,10 @@ tensorstore_cc_library(
     name = "chunk_cache",
     srcs = ["chunk_cache.cc"],
     hdrs = ["chunk_cache.h"],
+    local_defines = select({
+        ":chunk_cache_debug_setting": ["TENSORSTORE_INTERNAL_CHUNK_CACHE_DEBUG"],
+        "//conditions:default": [],
+    }),
     deps = [
         ":async_cache",
         ":cache",
@@ -340,6 +357,7 @@ tensorstore_cc_library(
         "//tensorstore/util/execution",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:inlined_vector",
+        "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/time",
     ],
