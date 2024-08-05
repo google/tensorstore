@@ -14,11 +14,21 @@
 
 #include "tensorstore/strided_layout.h"
 
+#include <array>
+#include <type_traits>
+#include <utility>
+#include <vector>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/meta/type_traits.h"
+#include "absl/status/status.h"
+#include "tensorstore/box.h"
+#include "tensorstore/contiguous_layout.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/type_traits.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/static_cast.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
@@ -50,7 +60,6 @@ using ::tensorstore::IndexInnerProduct;
 using ::tensorstore::IsStridedLayout;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::offset_origin;
-using ::tensorstore::span;
 using ::tensorstore::StaticCast;
 using ::tensorstore::StaticRankCast;
 using ::tensorstore::StrCat;
@@ -126,7 +135,8 @@ TEST(IndexInnerProductTest, WrapOnOverflowAdd) {
 TEST(IndexInnerProductTest, Span) {
   const Index a[] = {1, 2, 3};
   const Index b[] = {4, 5, 6};
-  EXPECT_EQ(1 * 4 + 2 * 5 + 3 * 6, IndexInnerProduct(span(a), span(b)));
+  EXPECT_EQ(1 * 4 + 2 * 5 + 3 * 6,
+            IndexInnerProduct(tensorstore::span(a), tensorstore::span(b)));
 }
 
 namespace conversion_tests {
@@ -261,7 +271,7 @@ TEST(StridedLayoutTest, DynamicRankCopyAndMove) {
   EXPECT_EQ(8 + 5, (layout[{2, 1}]));
   EXPECT_EQ(8 + 5 + 6, (layout[{2, 1, 1}]));
   EXPECT_EQ(8 + 5 + 6, (layout({2, 1, 1})));
-  EXPECT_EQ(8 + 5 + 6, layout(span({2, 1, 1})));
+  EXPECT_EQ(8 + 5 + 6, layout(tensorstore::span({2, 1, 1})));
   EXPECT_EQ(8 + 5 + 6, layout(2, 1, 1));
 
   // Test copy construction.
@@ -298,8 +308,8 @@ TEST(StridedLayoutTest, DynamicRankCopyAndMove) {
 TEST(StridedLayoutTest, ConstructDynamicFromShapeAndByteStrides) {
   const Index shape_arr[] = {1, 2};
   const Index byte_strides_arr[] = {3, 4};
-  span<const Index> shape(shape_arr);
-  span<const Index> byte_strides(byte_strides_arr);
+  tensorstore::span<const Index> shape(shape_arr);
+  tensorstore::span<const Index> byte_strides(byte_strides_arr);
   StridedLayout<> layout5(shape, byte_strides);
   EXPECT_EQ(2, layout5.rank());
   EXPECT_THAT(layout5.shape(), ::testing::ElementsAreArray({1, 2}));
@@ -310,8 +320,8 @@ TEST(StridedLayoutTest, ConstructDynamicFromShapeAndByteStrides) {
 TEST(StridedLayoutDeathTest, ConstructDynamicFromShapeAndByteStrides) {
   const Index shape_arr[] = {1, 2};
   const Index byte_strides_arr[] = {3};
-  span<const Index> shape(shape_arr);
-  span<const Index> byte_strides(byte_strides_arr);
+  tensorstore::span<const Index> shape(shape_arr);
+  tensorstore::span<const Index> byte_strides(byte_strides_arr);
   TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY((StridedLayout<>(shape, byte_strides)),
                                       "shape");
 }
@@ -389,7 +399,8 @@ TEST(StridedLayoutDeathTest, DynamicRankIndexing) {
   TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY(
       layout({1, 2}), "Length of index vector must match rank of array");
   TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY(
-      (StridedLayout<>(span<const Index>({1}), span<const Index>({1, 2}))),
+      (StridedLayout<>(tensorstore::span<const Index>({1}),
+                       tensorstore::span<const Index>({1, 2}))),
       "shape");
 }
 
@@ -407,7 +418,8 @@ TEST(StridedLayoutTest, StaticRank0) {
       !std::is_constructible_v<StridedLayout<0>, StridedLayoutView<1>>);
 
   // Test constructing from zero-length shape and byte_strides spans.
-  StridedLayout<0> layout3(span<const Index, 0>{}, span<const Index, 0>{});
+  StridedLayout<0> layout3(tensorstore::span<const Index, 0>{},
+                           tensorstore::span<const Index, 0>{});
 
   // Test copy construction from StridedLayout<0>.
   [[maybe_unused]] StridedLayout<0> layout2 = layout;
@@ -708,7 +720,10 @@ TEST(StridedLayoutViewTest, Static0) {
   }
 
   // Construct from zero-length shape and byte_strides.
-  { StridedLayoutView<0> r(span<const Index, 0>{}, span<const Index, 0>{}); }
+  {
+    StridedLayoutView<0> r(tensorstore::span<const Index, 0>{},
+                           tensorstore::span<const Index, 0>{});
+  }
 
   {
     // Construct from a StridedLayout<0>.
@@ -736,12 +751,14 @@ TEST(StridedLayoutViewDeathTest, DynamicConstruct) {
 }
 
 TEST(StridedLayoutViewTest, Compare) {
-  StridedLayout<> r1(span<const Index>({1, 2}), span<const Index>({3, 4}));
+  StridedLayout<> r1(tensorstore::span<const Index>({1, 2}),
+                     tensorstore::span<const Index>({3, 4}));
 
-  StridedLayout<> r2(span<const Index>({1, 2}), span<const Index>({3, 4}));
+  StridedLayout<> r2(tensorstore::span<const Index>({1, 2}),
+                     tensorstore::span<const Index>({3, 4}));
 
-  StridedLayout<> r3(span<const Index>({1, 2, 3}),
-                     span<const Index>({3, 4, 5}));
+  StridedLayout<> r3(tensorstore::span<const Index>({1, 2, 3}),
+                     tensorstore::span<const Index>({3, 4, 5}));
 
   EXPECT_TRUE(r1 == r2);
   EXPECT_FALSE(r1 != r2);
@@ -899,7 +916,7 @@ TEST(StridedLayoutViewDeathTest, SubLayout) {
 
 TEST(StridedLayoutTest, COrderStatic) {
   auto layout = StridedLayout(ContiguousLayoutOrder::c, 2,
-                              span<const Index, 3>({3, 4, 5}));
+                              tensorstore::span<const Index, 3>({3, 4, 5}));
   static_assert(std::is_same_v<decltype(layout), StridedLayout<3>>);
   EXPECT_EQ(StridedLayout<3>({3, 4, 5}, {4 * 5 * 2, 5 * 2, 2}), layout);
 
@@ -911,8 +928,8 @@ TEST(StridedLayoutTest, COrderStatic) {
 }
 
 TEST(StridedLayoutTest, COrderDynamic) {
-  auto layout =
-      StridedLayout(ContiguousLayoutOrder::c, 2, span<const Index>({3, 4, 5}));
+  auto layout = StridedLayout(ContiguousLayoutOrder::c, 2,
+                              tensorstore::span<const Index>({3, 4, 5}));
   static_assert(std::is_same_v<decltype(layout), StridedLayout<>>);
   EXPECT_EQ(StridedLayout<3>({3, 4, 5}, {4 * 5 * 2, 5 * 2, 2}), layout);
 }
@@ -938,7 +955,7 @@ TEST(StridedLayoutTest, FortranOrderStatic) {
 
 TEST(StridedLayoutTest, FortranOrderDynamic) {
   auto layout = StridedLayout(ContiguousLayoutOrder::fortran, 2,
-                              span<const Index>({3, 4, 5}));
+                              tensorstore::span<const Index>({3, 4, 5}));
   static_assert(std::is_same_v<decltype(layout), StridedLayout<>>);
   EXPECT_EQ(StridedLayout<3>({3, 4, 5}, {2, 3 * 2, 3 * 4 * 2}), layout);
 }
@@ -987,8 +1004,9 @@ TEST(StridedLayoutTest, ConstructOffsetFromThreeSpans) {
   const Index origin[] = {1, 2, 3};
   const Index shape[] = {4, 5, 6};
   const Index byte_strides[] = {7, 8, 9};
-  StridedLayout<dynamic_rank, offset_origin> layout{span(origin), span(shape),
-                                                    span(byte_strides)};
+  StridedLayout<dynamic_rank, offset_origin> layout{
+      tensorstore::span(origin), tensorstore::span(shape),
+      tensorstore::span(byte_strides)};
   EXPECT_EQ(layout.domain(), BoxView(origin, shape));
   EXPECT_THAT(layout.byte_strides(), ::testing::ElementsAreArray(byte_strides));
 }
@@ -996,8 +1014,8 @@ TEST(StridedLayoutTest, ConstructOffsetFromThreeSpans) {
 TEST(StridedLayoutTest, ConstructOffsetFromTwoSpans) {
   const Index shape[] = {4, 5, 6};
   const Index byte_strides[] = {7, 8, 9};
-  StridedLayout<dynamic_rank, offset_origin> layout{span(shape),
-                                                    span(byte_strides)};
+  StridedLayout<dynamic_rank, offset_origin> layout{
+      tensorstore::span(shape), tensorstore::span(byte_strides)};
   EXPECT_EQ(layout.domain(), BoxView(shape));
   EXPECT_THAT(layout.byte_strides(), ::testing::ElementsAreArray(byte_strides));
 }
@@ -1006,8 +1024,8 @@ TEST(StridedLayoutTest, ConstructOffsetFromBoxAndByteStrides) {
   const Index origin[] = {1, 2, 3};
   const Index shape[] = {4, 5, 6};
   const Index byte_strides[] = {7, 8, 9};
-  StridedLayout<dynamic_rank, offset_origin> layout{BoxView(origin, shape),
-                                                    span(byte_strides)};
+  StridedLayout<dynamic_rank, offset_origin> layout{
+      BoxView(origin, shape), tensorstore::span(byte_strides)};
   EXPECT_EQ(layout.domain(), BoxView(origin, shape));
   EXPECT_THAT(layout.byte_strides(), ::testing::ElementsAreArray(byte_strides));
 }
@@ -1016,7 +1034,8 @@ TEST(StridedLayoutTest, AssignOffsetOriginFromZeroOrigin) {
   const Index shape[] = {4, 5, 6};
   const Index byte_strides[] = {7, 8, 9};
   StridedLayout<dynamic_rank, offset_origin> layout;
-  layout = StridedLayout<>(span(shape), span(byte_strides));
+  layout = StridedLayout<>(tensorstore::span(shape),
+                           tensorstore::span(byte_strides));
   EXPECT_EQ(layout.domain(), BoxView(shape));
   EXPECT_THAT(layout.byte_strides(), ::testing::ElementsAreArray(byte_strides));
 }
@@ -1049,10 +1068,10 @@ TEST(StridedLayoutTest, Contains) {
   const Index byte_strides[] = {7, 8, 9};
   StridedLayout<dynamic_rank, offset_origin> layout(origin, shape,
                                                     byte_strides);
-  EXPECT_TRUE(Contains(layout, span({1, 2, 3})));
-  EXPECT_FALSE(Contains(layout, span({0, 2, 3})));
-  EXPECT_FALSE(Contains(layout, span({1, 2, 3, 4})));
-  EXPECT_FALSE(Contains(layout, span({1, 2})));
+  EXPECT_TRUE(Contains(layout, tensorstore::span({1, 2, 3})));
+  EXPECT_FALSE(Contains(layout, tensorstore::span({0, 2, 3})));
+  EXPECT_FALSE(Contains(layout, tensorstore::span({1, 2, 3, 4})));
+  EXPECT_FALSE(Contains(layout, tensorstore::span({1, 2})));
 }
 
 TEST(StridedLayoutTest, ContainsPartial) {
@@ -1061,11 +1080,11 @@ TEST(StridedLayoutTest, ContainsPartial) {
   const Index byte_strides[] = {7, 8, 9};
   StridedLayout<dynamic_rank, offset_origin> layout(origin, shape,
                                                     byte_strides);
-  EXPECT_TRUE(ContainsPartial(layout, span({1, 2, 3})));
-  EXPECT_FALSE(ContainsPartial(layout, span({0, 2, 3})));
-  EXPECT_FALSE(ContainsPartial(layout, span({1, 2, 3, 4})));
-  EXPECT_TRUE(ContainsPartial(layout, span({1, 2})));
-  EXPECT_FALSE(ContainsPartial(layout, span({0, 2})));
+  EXPECT_TRUE(ContainsPartial(layout, tensorstore::span({1, 2, 3})));
+  EXPECT_FALSE(ContainsPartial(layout, tensorstore::span({0, 2, 3})));
+  EXPECT_FALSE(ContainsPartial(layout, tensorstore::span({1, 2, 3, 4})));
+  EXPECT_TRUE(ContainsPartial(layout, tensorstore::span({1, 2})));
+  EXPECT_FALSE(ContainsPartial(layout, tensorstore::span({0, 2})));
 }
 
 TEST(StridedLayoutTest, RankCastNoOp) {

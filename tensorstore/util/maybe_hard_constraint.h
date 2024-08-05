@@ -29,7 +29,7 @@ namespace tensorstore {
 ///
 /// \ingroup utilities
 template <typename T>
-class MaybeHardConstraintSpan : public span<const T> {
+class MaybeHardConstraintSpan : public tensorstore::span<const T> {
  public:
   /// Constructs a zero-length span with no hard constraints.
   ///
@@ -42,12 +42,13 @@ class MaybeHardConstraintSpan : public span<const T> {
   ///
   /// \id span, hard_constraint
   explicit MaybeHardConstraintSpan(
-      span<const T> s, DimensionSet hard_constraint = DimensionSet(true))
-      : span<const T>(s), hard_constraint(hard_constraint) {}
+      tensorstore::span<const T> s,
+      DimensionSet hard_constraint = DimensionSet(true))
+      : tensorstore::span<const T>(s), hard_constraint(hard_constraint) {}
   template <size_t N>
   explicit MaybeHardConstraintSpan(
       const T (&s)[N], DimensionSet hard_constraint = DimensionSet(true))
-      : span<const T>(s), hard_constraint(hard_constraint) {}
+      : tensorstore::span<const T>(s), hard_constraint(hard_constraint) {}
 
   /// Checks if the `span` has non-zero length.
   constexpr bool valid() const { return !this->empty(); }

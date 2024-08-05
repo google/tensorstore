@@ -29,7 +29,7 @@ namespace tensorstore {
 namespace internal {
 
 std::string Base10LexicographicalGridIndexKeyParser::FormatKey(
-    span<const Index> grid_indices) const {
+    tensorstore::span<const Index> grid_indices) const {
   if (rank == 0) return "0";
   std::string key;
   FormatGridIndexKeyWithDimensionSeparator(
@@ -42,7 +42,7 @@ std::string Base10LexicographicalGridIndexKeyParser::FormatKey(
 }
 
 bool Base10LexicographicalGridIndexKeyParser::ParseKey(
-    std::string_view key, span<Index> grid_indices) const {
+    std::string_view key, tensorstore::span<Index> grid_indices) const {
   return ParseGridIndexKeyWithDimensionSeparator(
       dimension_separator,
       [](std::string_view part, DimensionIndex dim, Index& grid_index) {

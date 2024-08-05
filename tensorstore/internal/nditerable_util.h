@@ -20,11 +20,15 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstddef>
+#include <cstdlib>
 #include <type_traits>
 #include <utility>
 
+#include "absl/base/optimization.h"
 #include "absl/container/fixed_array.h"
 #include "absl/container/inlined_vector.h"
+#include "absl/status/status.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/arena.h"
 #include "tensorstore/internal/elementwise_function.h"
@@ -55,13 +59,13 @@ using NDIterationLayoutInfo =
 /// \param info[out] Non-null pointer to location where computed layout is
 ///     stored.
 void GetNDIterationLayoutInfo(const NDIterableLayoutConstraint& iterable,
-                              span<const Index> shape,
+                              tensorstore::span<const Index> shape,
                               IterationConstraints constraints,
                               NDIterationSimplifiedLayoutInfo* info);
 
 /// Same as above, but also computes the corresponding "full" layout.
 void GetNDIterationLayoutInfo(const NDIterableLayoutConstraint& iterable,
-                              span<const Index> shape,
+                              tensorstore::span<const Index> shape,
                               IterationConstraints constraints,
                               NDIterationFullLayoutInfo* info);
 
@@ -70,7 +74,7 @@ struct NDIterationSimplifiedLayoutInfo {
   NDIterationSimplifiedLayoutInfo() = default;
 
   NDIterationSimplifiedLayoutInfo(const NDIterableLayoutConstraint& iterable,
-                                  span<const Index> shape,
+                                  tensorstore::span<const Index> shape,
                                   IterationConstraints constraints) {
     GetNDIterationLayoutInfo(iterable, shape, constraints, this);
   }
@@ -117,7 +121,7 @@ struct NDIterationFullLayoutInfo : public NDIterationSimplifiedLayoutInfo {
   NDIterationFullLayoutInfo() = default;
 
   NDIterationFullLayoutInfo(const NDIterableLayoutConstraint& iterable,
-                            span<const Index> shape,
+                            tensorstore::span<const Index> shape,
                             IterationConstraints constraints) {
     GetNDIterationLayoutInfo(iterable, shape, constraints, this);
   }
@@ -152,7 +156,7 @@ struct NDIterationBufferInfo {
 ///     `{iteration_shape[rank-2], iteration_shape[rank-1]}`.
 IterationBufferShape GetNDIterationBlockShape(
     std::ptrdiff_t working_memory_bytes_per_element,
-    span<const Index> iteration_shape);
+    tensorstore::span<const Index> iteration_shape);
 
 /// Computes the block shape to use for iteration, based on
 /// `iterable.GetWorkingMemoryBytesPerElement`.
@@ -184,7 +188,7 @@ struct NDIterationInfo : public NDIterationLayoutInfo<Full>,
   NDIterationInfo() = default;
 
   explicit NDIterationInfo(const NDIterableBufferConstraint& iterable,
-                           span<const Index> shape,
+                           tensorstore::span<const Index> shape,
                            IterationConstraints constraints) {
     GetNDIterationLayoutInfo(iterable, shape, constraints, this);
     GetNDIterationBufferInfo(iterable, this->layout_view(), this);
@@ -272,8 +276,9 @@ struct CompositeNDIterableLayoutConstraint : public Base {
 ///     `0 < i < shape.size()`.
 /// \returns The remaining number of elements in the last dimension, after
 ///     advancing by `step` and carrying if necessary.
-inline Index StepBufferPositionForward(span<const Index> shape, Index step,
-                                       Index max_buffer_size, Index* position) {
+inline Index StepBufferPositionForward(tensorstore::span<const Index> shape,
+                                       Index step, Index max_buffer_size,
+                                       Index* position) {
   const DimensionIndex rank = shape.size();
   assert(rank > 0);
   assert(step >= 0);
@@ -321,7 +326,7 @@ inline Index StepBufferPositionForward(span<const Index> shape, Index step,
 /// \pre `position[i] >= 0 && position[i] < shape[i]` for
 ///     `0 < i < shape.size()`.
 /// \returns The number of (backward) positions advanced.
-inline Index StepBufferPositionBackward(span<const Index> shape,
+inline Index StepBufferPositionBackward(tensorstore::span<const Index> shape,
                                         Index max_buffer_size,
                                         Index* position) {
   const DimensionIndex rank = shape.size();
@@ -353,7 +358,7 @@ inline Index StepBufferPositionBackward(span<const Index> shape,
 }
 
 /// Resets `position` to a zero vector.
-inline void ResetBufferPositionAtBeginning(span<Index> position) {
+inline void ResetBufferPositionAtBeginning(tensorstore::span<Index> position) {
   std::fill_n(position.begin(), position.size(), Index(0));
 }
 
@@ -364,8 +369,8 @@ inline void ResetBufferPositionAtBeginning(span<Index> position) {
 /// \param position[out] Non-null pointer to vector of length `shape.size()`.
 /// \dchecks `shape.size() > 0`
 /// \dchecks `step >= 0 && step <= shape[shape.size()-1]`
-inline void ResetBufferPositionAtEnd(span<const Index> shape, Index step,
-                                     Index* position) {
+inline void ResetBufferPositionAtEnd(tensorstore::span<const Index> shape,
+                                     Index step, Index* position) {
   const DimensionIndex rank = shape.size();
   assert(rank > 0);
   assert(step >= 0);
@@ -422,7 +427,8 @@ class NDIterationPositionStepper {
   ///
   /// \param shape The shape vector, must outlive this object.
   /// \param block_size The maximum block size.
-  NDIterationPositionStepper(span<const Index> shape, Index block_size)
+  NDIterationPositionStepper(tensorstore::span<const Index> shape,
+                             Index block_size)
       : position_(shape.size()),
         shape_(shape.data()),
         block_size_(block_size) {}
@@ -448,11 +454,13 @@ class NDIterationPositionStepper {
   }
 
   /// Returns the position vector.
-  span<Index> position() { return position_; }
-  span<const Index> position() const { return position_; }
+  tensorstore::span<Index> position() { return position_; }
+  tensorstore::span<const Index> position() const { return position_; }
 
   /// Returns the shape vector.
-  span<const Index> shape() const { return span(shape_, position_.size()); }
+  tensorstore::span<const Index> shape() const {
+    return tensorstore::span(shape_, position_.size());
+  }
 
   /// Returns the block size.
   Index block_size() const { return block_size_; }
@@ -497,13 +505,15 @@ class DefaultNDIterableArena {
 void SetNDIterableTestUnitBlockSize(bool value);
 #endif
 
-Index UpdatePartialBlock(NDIterator& iterator, span<const Index> indices,
+Index UpdatePartialBlock(NDIterator& iterator,
+                         tensorstore::span<const Index> indices,
                          IterationBufferShape block_shape,
                          IterationBufferKind buffer_kind,
                          IterationBufferPointer buffer, Index modified_count,
                          absl::Status* status);
 
-inline Index UpdateBlock(NDIterator& iterator, span<const Index> indices,
+inline Index UpdateBlock(NDIterator& iterator,
+                         tensorstore::span<const Index> indices,
                          IterationBufferShape block_shape,
                          IterationBufferKind buffer_kind,
                          IterationBufferPointer buffer, Index modified_count,

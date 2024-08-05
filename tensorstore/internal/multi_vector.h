@@ -34,7 +34,7 @@ TENSORSTORE_GDB_AUTO_SCRIPT("multi_vector_gdb.py")
 namespace tensorstore {
 namespace internal {
 
-template <std::ptrdiff_t Extent, std::ptrdiff_t InlineSize, typename... Ts>
+template <ptrdiff_t Extent, ptrdiff_t InlineSize, typename... Ts>
 class MultiVectorStorageImpl;
 
 /// MultiVectorStorage stores multiple one-dimensional arrays, all of the same
@@ -100,7 +100,7 @@ class MultiVectorStorageImpl;
 ///         return Access_::template get<2>(this);
 ///       }
 ///     };
-template <std::ptrdiff_t Extent, typename... Ts>
+template <ptrdiff_t Extent, typename... Ts>
 using MultiVectorStorage =
     MultiVectorStorageImpl<RankConstraint::FromInlineRank(Extent),
                            InlineRankLimit(Extent), Ts...>;
@@ -109,7 +109,7 @@ template <typename StorageT>
 class MultiVectorAccess;
 
 /// Specialization of `MultiVectorStorageImpl` for a static `Extent > 0`.
-template <std::ptrdiff_t Extent, std::ptrdiff_t InlineSize, typename... Ts>
+template <ptrdiff_t Extent, ptrdiff_t InlineSize, typename... Ts>
 class MultiVectorStorageImpl {
  private:
   static_assert((... && std::is_trivial_v<Ts>),
@@ -133,7 +133,7 @@ class MultiVectorStorageImpl {
 /// Specialization of `MultiVectorStorageImpl` for a static `Extent == 0`.
 ///
 /// This is an empty class.
-template <std::ptrdiff_t InlineSize, typename... Ts>
+template <ptrdiff_t InlineSize, typename... Ts>
 class MultiVectorStorageImpl<0, InlineSize, Ts...> {
  private:
   static_assert(InlineSize == 0,
@@ -147,7 +147,7 @@ class MultiVectorStorageImpl<0, InlineSize, Ts...> {
 };
 
 /// Specialization of `MultiVectorStorageImpl` for a dynamic extent.
-template <std::ptrdiff_t InlineSize, typename... Ts>
+template <ptrdiff_t InlineSize, typename... Ts>
 class MultiVectorStorageImpl<dynamic_rank, InlineSize, Ts...> {
   static_assert((std::is_trivial_v<Ts> && ...),
                 "Non-trivial types are not currently supported.");
@@ -168,7 +168,7 @@ class MultiVectorStorageImpl<dynamic_rank, InlineSize, Ts...> {
   }
   MultiVectorStorageImpl& operator=(const MultiVectorStorageImpl& other) {
     if (this == &other) return *this;
-    const std::ptrdiff_t extent = other.extent_;
+    const ptrdiff_t extent = other.extent_;
     InternalResize(extent);
     const bool use_inline = InlineSize > 0 && extent <= InlineSize;
     std::memcpy(use_inline ? data_.inline_data : data_.pointer,
@@ -184,14 +184,14 @@ class MultiVectorStorageImpl<dynamic_rank, InlineSize, Ts...> {
 
  private:
   friend class MultiVectorAccess<MultiVectorStorageImpl>;
-  std::ptrdiff_t InternalGetExtent() const { return extent_; }
-  void* InternalGetDataPointer(std::ptrdiff_t array_i) {
+  ptrdiff_t InternalGetExtent() const { return extent_; }
+  void* InternalGetDataPointer(ptrdiff_t array_i) {
     return (extent_ > InlineSize ? data_.pointer : data_.inline_data) +
            Offsets::GetVectorOffset(extent_, array_i);
   }
 
   /// Resizes the vectors to the specified size.
-  void InternalResize(std::ptrdiff_t new_extent) {
+  void InternalResize(ptrdiff_t new_extent) {
     assert(new_extent >= 0);
     if (extent_ == new_extent) return;
     if (new_extent > InlineSize) {
@@ -204,16 +204,16 @@ class MultiVectorStorageImpl<dynamic_rank, InlineSize, Ts...> {
     extent_ = new_extent;
   }
 
-  constexpr static std::ptrdiff_t kAlignment =
+  constexpr static ptrdiff_t kAlignment =
       InlineSize == 0 ? 1 : Offsets::kAlignment;
-  constexpr static std::ptrdiff_t kInlineBytes =
+  constexpr static ptrdiff_t kInlineBytes =
       InlineSize == 0 ? 1 : Offsets::GetTotalSize(InlineSize);
   union Data {
     char* pointer;
     alignas(kAlignment) char inline_data[kInlineBytes];
   };
   Data data_;
-  std::ptrdiff_t extent_ = 0;
+  ptrdiff_t extent_ = 0;
 };
 
 /// Friend class of MultiVectorStorage that provides the public API.
@@ -227,7 +227,7 @@ class MultiVectorStorageImpl<dynamic_rank, InlineSize, Ts...> {
 ///
 ///   using StorageType = T;
 ///   using ExtentType = ...;
-///   constexpr static std::ptrdiff_t static_extent = ...;
+///   constexpr static ptrdiff_t static_extent = ...;
 ///
 ///   template <size_t I>
 ///   using ElementType = ...;
@@ -251,14 +251,14 @@ class MultiVectorStorageImpl<dynamic_rank, InlineSize, Ts...> {
 /// interface provided for `MultiVectorViewStorage`: for
 /// `MultiVectorViewStorage`, there is an additional `Resize` method and the
 /// `Assign` methods allow element type conversions.
-template <std::ptrdiff_t Extent, std::ptrdiff_t InlineSize, typename... Ts>
+template <ptrdiff_t Extent, ptrdiff_t InlineSize, typename... Ts>
 class MultiVectorAccess<MultiVectorStorageImpl<Extent, InlineSize, Ts...>> {
  public:
   using StorageType = MultiVectorStorageImpl<Extent, InlineSize, Ts...>;
 
   using ExtentType = StaticOrDynamicRank<Extent>;
 
-  constexpr static std::ptrdiff_t static_extent = Extent;
+  constexpr static ptrdiff_t static_extent = Extent;
   constexpr static size_t num_vectors = sizeof...(Ts);
 
   template <size_t I>
@@ -273,14 +273,15 @@ class MultiVectorAccess<MultiVectorStorageImpl<Extent, InlineSize, Ts...>> {
 
   //// Returns the `I`th vector of a non-const `MultiVectorStorage` as a `span`.
   template <size_t I>
-  static span<ElementType<I>, Extent> get(StorageType* array) {
+  static tensorstore::span<ElementType<I>, Extent> get(StorageType* array) {
     return {static_cast<ElementType<I>*>(array->InternalGetDataPointer(I)),
             GetExtent(*array)};
   }
 
   /// Returns the `I`th vector of a const `MultiVectorStorage` as a `span`.
   template <size_t I>
-  static span<ConstElementType<I>, Extent> get(const StorageType* array) {
+  static tensorstore::span<ConstElementType<I>, Extent> get(
+      const StorageType* array) {
     return get<I>(const_cast<StorageType*>(array));
   }
 
@@ -306,8 +307,9 @@ class MultiVectorAccess<MultiVectorStorageImpl<Extent, InlineSize, Ts...>> {
   /// `Ts...` must be assignable from the types `Us...`.
   ///
   /// \dchecks `spans.size()`... are all the same.
-  template <typename... Us, std::ptrdiff_t... Extents>
-  static void Assign(StorageType* array, span<Us, Extents>... spans) {
+  template <typename... Us, ptrdiff_t... Extents>
+  static void Assign(StorageType* array,
+                     tensorstore::span<Us, Extents>... spans) {
     static_assert(sizeof...(Us) == sizeof...(Ts));
     const ExtentType extent =
         GetFirstArgument(GetStaticOrDynamicExtent(spans)...);

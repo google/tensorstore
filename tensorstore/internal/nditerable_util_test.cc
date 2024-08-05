@@ -25,7 +25,6 @@
 namespace {
 
 using ::tensorstore::Index;
-using ::tensorstore::span;
 using ::tensorstore::internal::GetNDIterationBlockShape;
 using ::tensorstore::internal::NDIterationPositionStepper;
 using ::tensorstore::internal::ResetBufferPositionAtBeginning;
@@ -47,25 +46,29 @@ TEST(GetNDIterationBlockShape, Basic) {
   // dimensions.
   EXPECT_THAT(
       GetNDIterationBlockShape(/*working_memory_bytes_per_element=*/0,
-                               span<const Index>({3, 4, 1000000})),
+                               tensorstore::span<const Index>({3, 4, 1000000})),
       ElementsAre(expected_block_size(4), expected_block_size(1000000)));
 
   // Block size is limited by the extent of the last dimension.
-  EXPECT_THAT(GetNDIterationBlockShape(/*working_memory_bytes_per_element=*/1,
-                                       span<const Index>({3, 4, 15})),
-              ElementsAre(expected_block_size(4), expected_block_size(15)));
+  EXPECT_THAT(
+      GetNDIterationBlockShape(/*working_memory_bytes_per_element=*/1,
+                               tensorstore::span<const Index>({3, 4, 15})),
+      ElementsAre(expected_block_size(4), expected_block_size(15)));
 
-  EXPECT_THAT(GetNDIterationBlockShape(/*working_memory_bytes_per_element=*/1,
-                                       span<const Index>({3, 4, 1000000})),
-              ElementsAre(1, expected_block_size(24 * 1024)));
+  EXPECT_THAT(
+      GetNDIterationBlockShape(/*working_memory_bytes_per_element=*/1,
+                               tensorstore::span<const Index>({3, 4, 1000000})),
+      ElementsAre(1, expected_block_size(24 * 1024)));
 
-  EXPECT_THAT(GetNDIterationBlockShape(/*working_memory_bytes_per_element=*/32,
-                                       span<const Index>({3, 4, 1000000})),
-              ElementsAre(1, expected_block_size(768)));
+  EXPECT_THAT(
+      GetNDIterationBlockShape(/*working_memory_bytes_per_element=*/32,
+                               tensorstore::span<const Index>({3, 4, 1000000})),
+      ElementsAre(1, expected_block_size(768)));
 
-  EXPECT_THAT(GetNDIterationBlockShape(/*working_memory_bytes_per_element=*/64,
-                                       span<const Index>({3, 4, 1000000})),
-              ElementsAre(1, expected_block_size(384)));
+  EXPECT_THAT(
+      GetNDIterationBlockShape(/*working_memory_bytes_per_element=*/64,
+                               tensorstore::span<const Index>({3, 4, 1000000})),
+      ElementsAre(1, expected_block_size(384)));
 }
 
 TEST(ResetBufferPositionTest, OneDimensional) {

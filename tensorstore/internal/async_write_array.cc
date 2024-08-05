@@ -19,7 +19,6 @@
 #include <algorithm>
 #include <cassert>
 #include <utility>
-#include <vector>
 
 #include "absl/base/optimization.h"
 #include "absl/functional/function_ref.h"
@@ -207,7 +206,7 @@ AsyncWriteArray::MaskedArray::GetArrayForWriteback(
 }
 
 size_t AsyncWriteArray::MaskedArray::EstimateSizeInBytes(
-    const Spec& spec, span<const Index> shape) const {
+    const Spec& spec, tensorstore::span<const Index> shape) const {
   size_t total = 0;
   if (array.valid()) {
     total += GetByteExtent(array);

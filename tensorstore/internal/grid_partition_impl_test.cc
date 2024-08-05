@@ -66,7 +66,7 @@ std::ostream& operator<<(std::ostream& os,
             << "  partitioned_input_indices=" << s.partitioned_input_indices
             << "\n"
             << "  grid_cell_partition_offsets="
-            << span(s.grid_cell_partition_offsets) << "\n";
+            << tensorstore::span(s.grid_cell_partition_offsets) << "\n";
 }
 
 bool operator==(const IndexTransformGridPartition::IndexArraySet& a,
@@ -95,7 +95,6 @@ using ::tensorstore::IndexTransformBuilder;
 using ::tensorstore::kInfIndex;
 using ::tensorstore::MakeArray;
 using ::tensorstore::MatchesStatus;
-using ::tensorstore::span;
 using ::tensorstore::internal::IrregularGrid;
 using ::tensorstore::internal_grid_partition::IndexTransformGridPartition;
 using ::tensorstore::internal_grid_partition::
@@ -130,8 +129,8 @@ TEST(PrePartitionIndexTransformOverRegularGridTest, NoGridDimensions) {
                        .output_single_input_dimension(0, 0)
                        .Finalize()
                        .value();
-  span<const DimensionIndex> grid_output_dimensions;
-  span<const Index> grid_cell_shape;
+  tensorstore::span<const DimensionIndex> grid_output_dimensions;
+  tensorstore::span<const Index> grid_cell_shape;
   IndexTransformGridPartition partitioned;
   TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverGrid(
       transform, grid_output_dimensions, RegularGridRef{grid_cell_shape},

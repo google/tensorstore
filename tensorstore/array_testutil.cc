@@ -56,18 +56,19 @@ class ArrayMatcherImpl
     }
     if (!listener_interested) return false;
     bool reason_printed = false;
-    IterateOverIndexRange(value.domain(), [&](span<const Index> indices) {
-      if (!AreArraysEqual(value[indices], expected_[indices],
-                          comparison_kind_)) {
-        if (reason_printed) {
-          *listener << ", ";
-        }
-        *listener << "whose element at " << indices
-                  << " doesn't match, expected=" << expected_[indices]
-                  << ", actual=" << value[indices];
-        reason_printed = true;
-      }
-    });
+    IterateOverIndexRange(
+        value.domain(), [&](tensorstore::span<const Index> indices) {
+          if (!AreArraysEqual(value[indices], expected_[indices],
+                              comparison_kind_)) {
+            if (reason_printed) {
+              *listener << ", ";
+            }
+            *listener << "whose element at " << indices
+                      << " doesn't match, expected=" << expected_[indices]
+                      << ", actual=" << value[indices];
+            reason_printed = true;
+          }
+        });
     return false;
   }
 

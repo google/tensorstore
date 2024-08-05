@@ -17,9 +17,7 @@
 
 #include <cassert>
 #include <type_traits>
-#include <utility>
 
-#include "absl/container/fixed_array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/index.h"
@@ -41,19 +39,19 @@ inline constexpr DimensionIndex GetLoopDimension(ContiguousLayoutOrder order,
 }
 
 template <typename Func, typename IndexType, DimensionIndex Rank>
-using IterateOverIndexRangeResult =
-    std::decay_t<std::invoke_result_t<Func, span<const IndexType, Rank>>>;
+using IterateOverIndexRangeResult = std::decay_t<
+    std::invoke_result_t<Func, tensorstore::span<const IndexType, Rank>>>;
 
 template <ContiguousLayoutOrder Order, typename Func, typename IndexType,
           DimensionIndex Rank>
 struct IterateOverIndexRangeHelper {
-  using IndicesSpan = span<const IndexType, Rank>;
+  using IndicesSpan = tensorstore::span<const IndexType, Rank>;
   using ResultType = IterateOverIndexRangeResult<Func, IndexType, Rank>;
   using WrappedResultType = internal::Void::WrappedType<ResultType>;
 
   static WrappedResultType Loop(Func func, DimensionIndex outer_dims,
                                 const IndexType* origin, const IndexType* shape,
-                                span<IndexType, Rank> indices) {
+                                tensorstore::span<IndexType, Rank> indices) {
     WrappedResultType result =
         internal::DefaultIterationResult<WrappedResultType>::value();
     const DimensionIndex cur_dim =
@@ -78,32 +76,32 @@ struct IterateOverIndexRangeHelper {
   static ResultType Start(Func func, const IndexType* origin,
                           IndicesSpan shape) {
     if (shape.size() == 0) {
-      return func(span<const IndexType, Rank>());
+      return func(tensorstore::span<const IndexType, Rank>());
     }
     assert(shape.size() <= kMaxRank);
     IndexType indices[kMaxRank];
     return internal::Void::Unwrap(
         Loop(func, 0, &origin[0], &shape[0],
-             span<IndexType, Rank>(&indices[0], shape.size())));
+             tensorstore::span<IndexType, Rank>(&indices[0], shape.size())));
   }
 };
 }  // namespace internal_iterate
 
 /// Iterates over a multi-dimensional hyperrectangle specified by `origin` and
-/// `shape` and invokes `func` with a `span<const Index, Rank>` of indices
-/// corresponding to each position.
+/// `shape` and invokes `func` with a `tensorstore::span<const Index, Rank>` of
+/// indices corresponding to each position.
 ///
 /// For example:
 ///
 /// `IterateOverIndexRange<ContiguousLayoutOrder::c>(
-///      span({0, 0}), span({2, 3}), func)`
+///      tensorstore::span({0, 0}), tensorstore::span({2, 3}), func)`
 /// invokes:
 ///
 ///     `func({0, 0})`, `func({0, 1})`, `func({0, 2})`,
 ///     `func({1, 0})`, `func({1, 1})`, `func({1, 2})`.
 ///
 /// `IterateOverIndexRange<ContiguousLayoutOrder::fortran>(
-///      span({0, 0}), span({2, 3}), func)`
+///      tensorstore::span({0, 0}), tensorstore::span({2, 3}), func)`
 /// invokes:
 ///
 ///     `func({0, 0})`, `func({1, 0})`,
@@ -111,7 +109,7 @@ struct IterateOverIndexRangeHelper {
 ///     `func({0, 2})`, `func({1, 2})`.
 ///
 /// `IterateOverIndexRange<ContiguousLayoutOrder::c>(
-///      span({0, 1}), span({2, 2}), func)`
+///      tensorstore::span({0, 1}), tensorstore::span({2, 2}), func)`
 /// invokes:
 ///
 ///     `func({0, 1})`, `func({0, 2})`,
@@ -121,9 +119,9 @@ struct IterateOverIndexRangeHelper {
 /// \param origin The origin from which iteration starts.
 /// \param shape The multi-dimensional shape over which this function iterates.
 /// \param func The function to invoke for each position.  It must be invocable
-///     as `func(std::declval<span<const IndexType, Rank>>())`, and the return
-///     type must be `void` or `bool`.  A non-`void` return value of `false`
-///     causes iteration to stop.
+///     as `func(std::declval<tensorstore::span<const IndexType, Rank>>())`, and
+///     the return type must be `void` or `bool`.  A non-`void` return value of
+///     `false` causes iteration to stop.
 /// \dchecks `origin.size() == shape.size()`.
 /// \returns `void` if `func` returns `void`.  Otherwise, returns the result of
 ///     the last invocation of `func`, or `true` if `shape` contains an extent
@@ -132,8 +130,8 @@ template <ContiguousLayoutOrder Order = ContiguousLayoutOrder::c,
           typename IndexType, DimensionIndex Rank, typename Func>
 internal_iterate::IterateOverIndexRangeResult<
     Func, std::remove_const_t<IndexType>, Rank>
-IterateOverIndexRange(span<IndexType, Rank> origin, span<IndexType, Rank> shape,
-                      Func&& func) {
+IterateOverIndexRange(tensorstore::span<IndexType, Rank> origin,
+                      tensorstore::span<IndexType, Rank> shape, Func&& func) {
   assert(origin.size() == shape.size());
   return internal_iterate::IterateOverIndexRangeHelper<
       Order, Func, std::remove_const_t<IndexType>, Rank>::Start(func,
@@ -157,7 +155,8 @@ IterateOverIndexRange(const BoxType& box, Func&& func,
 }
 
 /// Iterates over a multi-dimensional `shape` and invokes `func` with a
-/// `span<const Index, Rank>` of indices corresponding to each position.
+/// `tensorstore::span<const Index, Rank>` of indices corresponding to each
+/// position.
 ///
 /// Equivalent to:
 /// `IterateOverIndexRange(GetConstantVector<IndexType, 0>(shape.size()),
@@ -165,13 +164,15 @@ IterateOverIndexRange(const BoxType& box, Func&& func,
 ///
 /// For example:
 ///
-/// `IterateOverIndexRange<ContiguousLayoutOrder::c>(span({2, 3}), func)`
+/// `IterateOverIndexRange<ContiguousLayoutOrder::c>(
+///      tensorstore::span({2, 3}), func)`
 /// invokes:
 ///
 ///     `func({0, 0})`, `func({0, 1})`, `func({0, 2})`,
 ///     `func({1, 0})`, `func({1, 1})`, `func({1, 2})`.
 ///
-/// `IterateOverIndexRange<ContiguousLayoutOrder::fortran>(span({2, 3}), func)`
+/// `IterateOverIndexRange<ContiguousLayoutOrder::fortran>(
+///      tensorstore::span({2, 3}), func)`
 /// invokes:
 ///
 ///     `func({0, 0})`, `func({1, 0})`,
@@ -181,10 +182,10 @@ IterateOverIndexRange(const BoxType& box, Func&& func,
 /// \tparam Order The order in which to iterate.
 /// \param shape The multi-dimensional shape over which this function iterates.
 /// \param func The function to invoke for each position.  It must be invocable
-///     as `func(std::declval<span<const IndexType, Rank>>())`, and the return
-///     type must be `void` or a default-constructible type `ResultType`
-///     explicitly convertible to `bool`.  A non-void return convertible to
-///     `false` causes iteration to stop.
+///     as `func(std::declval<tensorstore::span<const IndexType, Rank>>())`, and
+///     the return type must be `void` or a default-constructible type
+///     `ResultType` explicitly convertible to `bool`.  A non-void return
+///     convertible to `false` causes iteration to stop.
 /// \returns `void` if `func` returns `void`.  Otherwise, returns the result of
 ///     the last invocation of `func`, or `true` if `shape` contains an extent
 ///     of `0`.
@@ -192,7 +193,7 @@ template <ContiguousLayoutOrder Order = ContiguousLayoutOrder::c,
           typename IndexType, DimensionIndex Rank, typename Func>
 internal_iterate::IterateOverIndexRangeResult<
     Func, std::remove_const_t<IndexType>, Rank>
-IterateOverIndexRange(span<IndexType, Rank> shape, Func&& func) {
+IterateOverIndexRange(tensorstore::span<IndexType, Rank> shape, Func&& func) {
   using NonConstIndex = std::remove_const_t<IndexType>;
   return internal_iterate::
       IterateOverIndexRangeHelper<Order, Func, NonConstIndex, Rank>::Start(

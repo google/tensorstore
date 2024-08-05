@@ -66,7 +66,8 @@ inline NDIterable::DirectionPref DirectionPrefFromStride(Index byte_stride) {
 /// \param prefs[in,out] Pointer to array of length `byte_strides.size()` to
 ///     update via `NDIterable::CombineDirectionPrefs`.
 inline void UpdateDirectionPrefsFromByteStrides(
-    span<const Index> byte_strides, NDIterable::DirectionPref* prefs) {
+    tensorstore::span<const Index> byte_strides,
+    NDIterable::DirectionPref* prefs) {
   for (DimensionIndex i = 0; i < byte_strides.size(); ++i) {
     prefs[i] = NDIterable::CombineDirectionPrefs(
         prefs[i], DirectionPrefFromStride(byte_strides[i]));

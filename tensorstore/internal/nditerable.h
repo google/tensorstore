@@ -36,7 +36,6 @@
 #include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/internal/unique_with_intrusive_allocator.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal {
@@ -112,7 +111,7 @@ class NDIterator {
   ///     `*status` is left unchanged, a default error status is used.
   /// \remark The default implementation just returns `true`.  Except for
   ///     write-only iterators with `external == true`, it must be overridden.
-  virtual bool GetBlock(span<const Index> indices,
+  virtual bool GetBlock(tensorstore::span<const Index> indices,
                         internal::IterationBufferShape block_shape,
                         IterationBufferPointer* pointer, absl::Status* status);
 
@@ -132,7 +131,7 @@ class NDIterator {
   /// \returns `true` on success, or `false` to indicate an error.
   /// \remark The default implementation just returns `true`, and need not be
   ///     overridden by read-only iterators.
-  virtual bool UpdateBlock(span<const Index> indices,
+  virtual bool UpdateBlock(tensorstore::span<const Index> indices,
                            internal::IterationBufferShape block_shape,
                            IterationBufferPointer pointer,
                            absl::Status* status);
@@ -275,12 +274,12 @@ class NDIterableBufferConstraint : public NDIterableLayoutConstraint {
   struct IterationLayoutView {
     /// Specifies the extent of each original dimension (must have the same
     /// length as `iteration_directions`).
-    span<const Index> shape;
+    tensorstore::span<const Index> shape;
 
     /// The iteration direction for each original dimension.  A value of `+1`
     /// means forward, a value of `-1` means reverse.  A value of `0` is only
     /// valid when it corresponds to a skipped (but not a combined) dimension.
-    span<const int> directions;
+    tensorstore::span<const int> directions;
 
     /// The sequence of simplified dimensions.  The first dimension is the
     /// outermost dimension when iterating (changes slowest), while the last
@@ -297,12 +296,12 @@ class NDIterableBufferConstraint : public NDIterableLayoutConstraint {
     /// Note that `iteration_dimensions` and `iteration_shape` are indexed by
     /// the iteration dimension index, while `shape` and `directions` are
     /// indexed by the original dimension index.
-    span<const DimensionIndex> iteration_dimensions;
+    tensorstore::span<const DimensionIndex> iteration_dimensions;
 
     /// Specifies the simplified iteration shape for each dimension in
     /// `iteration_dimensions`.  Must have the same length as
     /// `iteration_dimensions`.
-    span<const Index> iteration_shape;
+    tensorstore::span<const Index> iteration_shape;
 
     /// Returns the full (original) number of dimensions.
     DimensionIndex full_rank() const { return shape.size(); }

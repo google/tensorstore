@@ -44,7 +44,6 @@ using ::tensorstore::IndexTransformBuilder;
 using ::tensorstore::IndexTransformView;
 using ::tensorstore::MakeArray;
 using ::tensorstore::Result;
-using ::tensorstore::span;
 using ::tensorstore::internal::GetGridCellRanges;
 using ::tensorstore::internal::IrregularGrid;
 using ::tensorstore::internal_grid_partition::IndexTransformGridPartition;
@@ -86,7 +85,7 @@ std::vector<R> GetPartitions(
   TENSORSTORE_CHECK_OK(
       tensorstore::internal::PartitionIndexTransformOverRegularGrid(
           grid_output_dimensions, grid_cell_shape, transform,
-          [&](span<const Index> grid_cell_indices,
+          [&](tensorstore::span<const Index> grid_cell_indices,
               IndexTransformView<> cell_transform) {
             auto cell_transform_direct = info.GetCellTransform(
                 transform, grid_cell_indices, grid_output_dimensions,
@@ -591,7 +590,7 @@ std::vector<R> GetIrregularPartitions(
   std::vector<R> results;
   TENSORSTORE_CHECK_OK(tensorstore::internal::PartitionIndexTransformOverGrid(
       grid_output_dimensions, grid, transform,
-      [&](span<const Index> grid_cell_indices,
+      [&](tensorstore::span<const Index> grid_cell_indices,
           IndexTransformView<> cell_transform) {
         results.emplace_back(std::vector<Index>(grid_cell_indices.begin(),
                                                 grid_cell_indices.end()),
@@ -763,8 +762,9 @@ namespace get_grid_cell_ranges_tests {
 
 using R = Box<>;
 Result<std::vector<R>> GetRanges(
-    span<const DimensionIndex> grid_output_dimensions, BoxView<> grid_bounds,
-    OutputToGridCellFn output_to_grid_cell, IndexTransformView<> transform) {
+    tensorstore::span<const DimensionIndex> grid_output_dimensions,
+    BoxView<> grid_bounds, OutputToGridCellFn output_to_grid_cell,
+    IndexTransformView<> transform) {
   std::vector<R> results;
   IndexTransformGridPartition grid_partition;
   TENSORSTORE_RETURN_IF_ERROR(PrePartitionIndexTransformOverGrid(

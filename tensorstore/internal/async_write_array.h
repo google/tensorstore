@@ -22,10 +22,10 @@
 
 #include <stddef.h>
 
-#include <memory>
 #include <utility>
-#include <vector>
 
+#include "absl/functional/function_ref.h"
+#include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/data_type.h"
@@ -36,7 +36,7 @@
 #include "tensorstore/internal/masked_array.h"
 #include "tensorstore/internal/nditerable.h"
 #include "tensorstore/kvstore/generation.h"
-#include "tensorstore/strided_layout.h"
+#include "tensorstore/util/extents.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 
@@ -115,8 +115,8 @@ struct AsyncWriteArray {
                                               IndexTransform<> chunk_transform,
                                               Arena* arena) const;
 
-    size_t EstimateReadStateSizeInBytes(bool valid,
-                                        span<const Index> shape) const {
+    size_t EstimateReadStateSizeInBytes(
+        bool valid, tensorstore::span<const Index> shape) const {
       if (!valid) return 0;
       return ProductOfExtents(shape) * dtype()->size;
     }
@@ -160,7 +160,8 @@ struct AsyncWriteArray {
     explicit MaskedArray(DimensionIndex rank);
 
     /// Returns an estimate of the memory required.
-    size_t EstimateSizeInBytes(const Spec& spec, span<const Index> shape) const;
+    size_t EstimateSizeInBytes(const Spec& spec,
+                               tensorstore::span<const Index> shape) const;
 
     /// Array with data type of `spec.dtype()` and shape equal to
     /// `spec.shape()`.  If `array.data() == nullptr`, no data has been written

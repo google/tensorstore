@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright 2020 The TensorStore Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -37,7 +37,9 @@ def print_for_rank(rank, origin_type):
   """
   is_offset = (origin_type is not None)
   if origin_type == 'span':
-    origin_parameter = ('span<const Index, {rank}> origin, '.format(rank=rank))
+    origin_parameter = 'tensorstore::span<const Index, {rank}> origin, '.format(
+        rank=rank
+    )
   elif origin_type == 'array':
     origin_parameter = ('const Index (&origin)[OriginRank], '.format(rank=rank))
   else:

@@ -39,7 +39,7 @@ struct ElementwiseOutputTransformNDIterator
       const NDIterable* output, ElementwiseClosure<2, void*> closure,
       NDIterable::IterationBufferKindLayoutView layout,
       ArenaAllocator<> allocator)
-      : output_(span(&output, 1), layout, allocator),
+      : output_(tensorstore::span(&output, 1), layout, allocator),
         context_(closure.context),
         elementwise_function_((*closure.function)[layout.buffer_kind]) {}
 
@@ -47,7 +47,8 @@ struct ElementwiseOutputTransformNDIterator
     return output_.get_allocator();
   }
 
-  bool UpdateBlock(span<const Index> indices, IterationBufferShape block_shape,
+  bool UpdateBlock(tensorstore::span<const Index> indices,
+                   IterationBufferShape block_shape,
                    IterationBufferPointer pointer,
                    absl::Status* status) override {
     return output_.GetBlock(indices, block_shape, status) &&

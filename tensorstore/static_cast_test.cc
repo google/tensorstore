@@ -14,11 +14,17 @@
 
 #include "tensorstore/static_cast.h"
 
+#include <cstddef>
+#include <string>
+#include <type_traits>
+#include <utility>
+#include <vector>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -28,31 +34,30 @@ using ::tensorstore::dynamic_extent;
 using ::tensorstore::IsStaticCastConstructible;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
-using ::tensorstore::span;
 using ::tensorstore::StaticCast;
 using ::tensorstore::unchecked;
 using ::tensorstore::unchecked_t;
 
 /// Define a type that follows the `unchecked_t` construction convention.
-template <std::ptrdiff_t Extent>
+template <ptrdiff_t Extent>
 struct X {
-  X(span<int, Extent> data) : data(data) {}
+  X(tensorstore::span<int, Extent> data) : data(data) {}
 
-  template <std::ptrdiff_t OtherExtent,
+  template <ptrdiff_t OtherExtent,
             std::enable_if_t<(OtherExtent == Extent ||
                               OtherExtent == dynamic_extent ||
                               Extent == dynamic_extent)>* = nullptr>
   explicit X(unchecked_t, X<OtherExtent> other)
       : data(other.data.data(), other.data.size()) {}
-  span<int, Extent> data;
+  tensorstore::span<int, Extent> data;
 };
 
 /// Define a type that does not follow the `unchecked_t` construction
 /// convention.
-template <std::ptrdiff_t Extent>
+template <ptrdiff_t Extent>
 struct Y {
-  Y(span<int, Extent> data) : data(data) {}
-  span<int, Extent> data;
+  Y(tensorstore::span<int, Extent> data) : data(data) {}
+  tensorstore::span<int, Extent> data;
 };
 
 }  // namespace
@@ -60,7 +65,7 @@ struct Y {
 namespace tensorstore {
 /// Specialize `StaticCastTraits` for `X<Extent>`, using
 /// `DefaultStaticCastTraits<X<Extent>>` as a base class.
-template <std::ptrdiff_t Extent>
+template <ptrdiff_t Extent>
 struct StaticCastTraits<X<Extent>> : public DefaultStaticCastTraits<X<Extent>> {
   template <typename Other>
   static bool IsCompatible(const Other& other) {
@@ -75,15 +80,16 @@ struct StaticCastTraits<X<Extent>> : public DefaultStaticCastTraits<X<Extent>> {
 };
 
 /// Specialize `StaticCastTraits` for `Y<Extent>`.
-template <std::ptrdiff_t Extent>
+template <ptrdiff_t Extent>
 struct StaticCastTraits<Y<Extent>> {
   /// Define custom `Construct` function.
-  template <std::ptrdiff_t OtherExtent,
+  template <ptrdiff_t OtherExtent,
             std::enable_if_t<(OtherExtent == Extent ||
                               OtherExtent == dynamic_extent ||
                               Extent == dynamic_extent)>* = nullptr>
   static Y<Extent> Construct(Y<OtherExtent> other) {
-    return Y<Extent>(span<int, Extent>(other.data.data(), other.data.size()));
+    return Y<Extent>(
+        tensorstore::span<int, Extent>(other.data.data(), other.data.size()));
   }
 
   template <typename Other>

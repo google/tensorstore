@@ -17,7 +17,6 @@
 
 #include <cassert>
 #include <cstddef>
-#include <type_traits>
 
 #include "tensorstore/index.h"
 #include "tensorstore/internal/gdb_scripting.h"
@@ -84,7 +83,7 @@ class MultiVectorAccess;
 ////
 /// This specialization stores base pointers for each vector but does not store
 /// the extent (since it is a compile-time constant).
-template <std::ptrdiff_t Extent, typename... Ts>
+template <ptrdiff_t Extent, typename... Ts>
 class MultiVectorViewStorage {
  private:
   friend class MultiVectorAccess<MultiVectorViewStorage>;
@@ -122,8 +121,8 @@ template <typename... Ts>
 class MultiVectorViewStorage<dynamic_rank, Ts...> {
  private:
   friend class MultiVectorAccess<MultiVectorViewStorage>;
-  std::ptrdiff_t InternalGetExtent() const { return extent_; }
-  void InternalSetExtent(std::ptrdiff_t extent) { extent_ = extent; }
+  ptrdiff_t InternalGetExtent() const { return extent_; }
+  void InternalSetExtent(ptrdiff_t extent) { extent_ = extent; }
   void* InternalGetDataPointer(size_t i) const {
     return const_cast<void*>(data_[i]);
   }
@@ -133,7 +132,7 @@ class MultiVectorViewStorage<dynamic_rank, Ts...> {
   /// pointers to simplify the implementation.  `MultiVectorAccess` provides a
   /// type-safe interface.
   const void* data_[sizeof...(Ts)]{};
-  std::ptrdiff_t extent_ = 0;
+  ptrdiff_t extent_ = 0;
 };
 
 /// Friend class of MultiVectorViewStorage that provides the public API.
@@ -151,7 +150,7 @@ class MultiVectorAccess<MultiVectorViewStorage<Extent, Ts...>> {
 
   using ExtentType = StaticOrDynamicRank<Extent>;
 
-  constexpr static std::ptrdiff_t static_extent = Extent;
+  constexpr static ptrdiff_t static_extent = Extent;
   constexpr static size_t num_vectors = sizeof...(Ts);
 
   template <size_t I>
@@ -166,7 +165,8 @@ class MultiVectorAccess<MultiVectorViewStorage<Extent, Ts...>> {
 
   /// Returns the `I`th vector as a `span`.
   template <size_t I>
-  static span<ElementType<I>, Extent> get(const StorageType* array) noexcept {
+  static tensorstore::span<ElementType<I>, Extent> get(
+      const StorageType* array) noexcept {
     return {static_cast<ElementType<I>*>(array->InternalGetDataPointer(I)),
             array->InternalGetExtent()};
   }
@@ -183,7 +183,8 @@ class MultiVectorAccess<MultiVectorViewStorage<Extent, Ts...>> {
   /// `spans...`.
   ///
   /// \dchecks `spans.size()`... are all the same.
-  static void Assign(StorageType* array, span<Ts, Extent>... spans) {
+  static void Assign(StorageType* array,
+                     tensorstore::span<Ts, Extent>... spans) {
     const ExtentType extent =
         GetFirstArgument(GetStaticOrDynamicExtent(spans)...);
     assert(((spans.size() == extent) && ...));

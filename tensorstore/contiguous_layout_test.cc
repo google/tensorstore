@@ -29,7 +29,6 @@ using ::tensorstore::ContiguousLayoutOrder;
 using ::tensorstore::GetContiguousIndices;
 using ::tensorstore::GetContiguousOffset;
 using ::tensorstore::Index;
-using ::tensorstore::span;
 
 TEST(ContiguousLayoutOrderTest, PrintToOstream) {
   {
@@ -48,13 +47,13 @@ TEST(ComputeStridesTest, COrder) {
   {
     std::array<Index, 3> strides;
     ComputeStrides(ContiguousLayoutOrder::c, /*element_stride=*/1,
-                   span<const Index>({3l, 4l, 5l}), strides);
+                   tensorstore::span<const Index>({3l, 4l, 5l}), strides);
     EXPECT_THAT(strides, ::testing::ElementsAre(20, 5, 1));
   }
   {
     std::array<Index, 3> strides;
     ComputeStrides(ContiguousLayoutOrder::c, /*element_stride=*/2,
-                   span<const Index>({3l, 4l, 5l}), strides);
+                   tensorstore::span<const Index>({3l, 4l, 5l}), strides);
     EXPECT_THAT(strides, ::testing::ElementsAre(40, 10, 2));
   }
 }
@@ -62,7 +61,7 @@ TEST(ComputeStridesTest, COrder) {
 TEST(ComputeStridesTest, FOrder) {
   std::array<Index, 3> strides;
   ComputeStrides(ContiguousLayoutOrder::fortran, /*element_stride=*/1,
-                 span<const Index>({3l, 4l, 5l}), strides);
+                 tensorstore::span<const Index>({3l, 4l, 5l}), strides);
   EXPECT_THAT(strides, ::testing::ElementsAre(1, 3, 12));
 }
 

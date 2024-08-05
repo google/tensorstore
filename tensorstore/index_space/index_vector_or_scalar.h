@@ -15,14 +15,15 @@
 #ifndef TENSORSTORE_INDEX_SPACE_INDEX_VECTOR_OR_SCALAR_H_
 #define TENSORSTORE_INDEX_SPACE_INDEX_VECTOR_OR_SCALAR_H_
 
+#include <cstddef>
 #include <type_traits>
 #include <variant>
+#include <vector>
 
 #include "absl/status/status.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 
@@ -71,7 +72,7 @@ struct IsIndexVectorOrScalar<
     std::integral_constant<bool, static_cast<bool>(internal::IsIndexPack<T>)>>
     : public std::true_type {
   using normalized_type = Index;
-  constexpr static std::ptrdiff_t extent = dynamic_extent;
+  constexpr static ptrdiff_t extent = dynamic_extent;
 };
 
 // Specialization of IsIndexVectorOrScalar for the vector case.
@@ -84,7 +85,7 @@ struct IsIndexVectorOrScalar<
                       typename internal::ConstSpanType<T>::value_type, Index>)>>
     : public std::true_type {
   using normalized_type = internal::ConstSpanType<T>;
-  constexpr static std::ptrdiff_t extent = normalized_type::extent;
+  constexpr static ptrdiff_t extent = normalized_type::extent;
 };
 
 namespace internal_index_space {
@@ -105,7 +106,7 @@ class IndexVectorOrScalarView {
       size_or_scalar = *std::get_if<Index>(&c);
     }
   }
-  IndexVectorOrScalarView(span<const Index> s)
+  IndexVectorOrScalarView(tensorstore::span<const Index> s)
       : pointer(s.data()), size_or_scalar(s.size()) {}
   IndexVectorOrScalarView(const Index scalar)
       : pointer(nullptr), size_or_scalar(scalar) {}

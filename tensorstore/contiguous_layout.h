@@ -64,7 +64,8 @@ constexpr ContiguousLayoutOrder column_major_order =
 ///     and strides[i] = strides[i+1] * shape[i+1].
 /// \relates ContiguousLayoutOrder
 void ComputeStrides(ContiguousLayoutOrder order, ptrdiff_t element_stride,
-                    span<const Index> shape, span<Index> strides);
+                    tensorstore::span<const Index> shape,
+                    tensorstore::span<Index> strides);
 
 /// Computes the offset of a given index vector in C or Fortran order.
 ///
@@ -75,7 +76,8 @@ void ComputeStrides(ContiguousLayoutOrder order, ptrdiff_t element_stride,
 /// \dchecks `shape.size() == indices.size()`
 /// \relates ContiguousLayoutOrder
 template <ContiguousLayoutOrder Order = c_order, typename I = Index>
-inline I GetContiguousOffset(span<const I> shape, span<const I> indices) {
+inline I GetContiguousOffset(tensorstore::span<const I> shape,
+                             tensorstore::span<const I> indices) {
   assert(shape.size() == indices.size());
   I offset = 0;
   for (ptrdiff_t i = (Order == c_order) ? 0 : (indices.size() - 1);
@@ -100,8 +102,8 @@ inline I GetContiguousOffset(span<const I> shape, span<const I> indices) {
 /// \dchecks `shape.size() == indices.size()`
 /// \relates ContiguousLayoutOrder
 template <ContiguousLayoutOrder Order = c_order, typename I = Index>
-inline void GetContiguousIndices(I offset, span<const I> shape,
-                                 span<I> indices) {
+inline void GetContiguousIndices(I offset, tensorstore::span<const I> shape,
+                                 tensorstore::span<I> indices) {
   assert(shape.size() == indices.size());
   assert(offset >= 0);
   ptrdiff_t rank = shape.size();

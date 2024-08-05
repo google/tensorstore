@@ -41,7 +41,7 @@ bool nditerable_use_unit_block_size = false;
 
 template <bool Full>
 void GetNDIterationLayoutInfo(const NDIterableLayoutConstraint& iterable,
-                              span<const Index> shape,
+                              tensorstore::span<const Index> shape,
                               IterationConstraints constraints,
                               NDIterationLayoutInfo<Full>* info) {
   info->shape.assign(shape.begin(), shape.end());
@@ -145,14 +145,14 @@ void GetNDIterationLayoutInfo(const NDIterableLayoutConstraint& iterable,
 }  // namespace
 
 void GetNDIterationLayoutInfo(const NDIterableLayoutConstraint& iterable,
-                              span<const Index> shape,
+                              tensorstore::span<const Index> shape,
                               IterationConstraints constraints,
                               NDIterationSimplifiedLayoutInfo* info) {
   GetNDIterationLayoutInfo<false>(iterable, shape, constraints, info);
 }
 
 void GetNDIterationLayoutInfo(const NDIterableLayoutConstraint& iterable,
-                              span<const Index> shape,
+                              tensorstore::span<const Index> shape,
                               IterationConstraints constraints,
                               NDIterationFullLayoutInfo* info) {
   GetNDIterationLayoutInfo<true>(iterable, shape, constraints, info);
@@ -160,7 +160,7 @@ void GetNDIterationLayoutInfo(const NDIterableLayoutConstraint& iterable,
 
 IterationBufferShape GetNDIterationBlockShape(
     ptrdiff_t working_memory_bytes_per_element,
-    span<const Index> iteration_shape) {
+    tensorstore::span<const Index> iteration_shape) {
 #ifdef TENSORSTORE_INTERNAL_NDITERABLE_TEST_UNIT_BLOCK_SIZE
   return {1, 1};
 #else
@@ -216,7 +216,8 @@ void SetNDIterableTestUnitBlockSize(bool value) {
 }
 #endif
 
-Index UpdatePartialBlock(NDIterator& iterator, span<const Index> indices,
+Index UpdatePartialBlock(NDIterator& iterator,
+                         tensorstore::span<const Index> indices,
                          IterationBufferShape block_shape,
                          IterationBufferKind buffer_kind,
                          IterationBufferPointer buffer, Index modified_count,
@@ -237,7 +238,7 @@ Index UpdatePartialBlock(NDIterator& iterator, span<const Index> indices,
     std::copy(indices.begin(), indices.end(), final_row_indices);
     final_row_indices[indices.size() - 2] += full_rows;
     updated += iterator.UpdateBlock(
-        span<const Index>(final_row_indices, indices.size()),
+        tensorstore::span<const Index>(final_row_indices, indices.size()),
         {1, final_row_count}, buffer, status);
   }
   return updated;

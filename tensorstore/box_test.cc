@@ -14,13 +14,20 @@
 
 #include "tensorstore/box.h"
 
+#include <array>
+#include <type_traits>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "tensorstore/box.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/serialization/test_util.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/static_cast.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -37,7 +44,6 @@ using ::tensorstore::kInfIndex;
 using ::tensorstore::kInfSize;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::MutableBoxView;
-using ::tensorstore::span;
 using ::tensorstore::StaticRankCast;
 using ::tensorstore::SubBoxView;
 using ::tensorstore::unchecked;
@@ -100,7 +106,7 @@ TEST(BoxTest, ShapeArrayConstruct) {
 TEST(BoxTest, DynamicRankSpanConstruct) {
   const Index origin[] = {1, 2, 3};
   const Index shape[] = {3, 4, 5};
-  Box<> box{span(origin), span(shape)};
+  Box<> box{tensorstore::span(origin), tensorstore::span(shape)};
   EXPECT_EQ(3, box.rank());
   EXPECT_THAT(origin, ElementsAreArray(origin));
   EXPECT_THAT(shape, ElementsAreArray(shape));
@@ -132,7 +138,7 @@ TEST(BoxTest, DeduceFromShapeArray) {
 
 TEST(BoxTest, DeduceFromShapeSpanStatic) {
   const Index shape[] = {3, 4, 5};
-  auto box = Box(span(shape));
+  auto box = Box(tensorstore::span(shape));
   static_assert(std::is_same_v<decltype(box), Box<3>>);
   EXPECT_THAT(box.origin(), ElementsAre(0, 0, 0));
   EXPECT_THAT(box.shape(), ElementsAre(3, 4, 5));
@@ -140,7 +146,7 @@ TEST(BoxTest, DeduceFromShapeSpanStatic) {
 
 TEST(BoxTest, DeduceFromShapeSpanDynamic) {
   const Index shape[] = {3, 4, 5};
-  auto box = Box(span<const Index>(shape));
+  auto box = Box(tensorstore::span<const Index>(shape));
   static_assert(std::is_same_v<decltype(box), Box<>>);
   EXPECT_THAT(box.origin(), ElementsAre(0, 0, 0));
   EXPECT_THAT(box.shape(), ElementsAre(3, 4, 5));
@@ -158,7 +164,7 @@ TEST(BoxTest, DeduceFromOriginAndShapeArrays) {
 TEST(BoxTest, DeduceFromOriginAndShapeSpansStatic) {
   const Index origin[] = {1, 2, 3};
   const Index shape[] = {3, 4, 5};
-  auto box = Box(span(origin), span(shape));
+  auto box = Box(tensorstore::span(origin), tensorstore::span(shape));
   static_assert(std::is_same_v<decltype(box), Box<3>>);
   EXPECT_THAT(box.origin(), ElementsAre(1, 2, 3));
   EXPECT_THAT(box.shape(), ElementsAre(3, 4, 5));
@@ -167,7 +173,8 @@ TEST(BoxTest, DeduceFromOriginAndShapeSpansStatic) {
 TEST(BoxTest, DeduceFromOriginAndShapeDynamic) {
   const Index origin[] = {1, 2, 3};
   const Index shape[] = {3, 4, 5};
-  auto box = Box(span<const Index>(origin), span<const Index>(shape));
+  auto box = Box(tensorstore::span<const Index>(origin),
+                 tensorstore::span<const Index>(shape));
   static_assert(std::is_same_v<decltype(box), Box<>>);
   EXPECT_THAT(box.origin(), ElementsAre(1, 2, 3));
   EXPECT_THAT(box.shape(), ElementsAre(3, 4, 5));
@@ -310,7 +317,7 @@ TEST(BoxViewTest, DynamicRankSizeConstruct) {
 TEST(BoxViewTest, DynamicRankSpanConstruct) {
   const Index origin[] = {1, 2, 3};
   const Index shape[] = {3, 4, 5};
-  BoxView<> box{span(origin), span(shape)};
+  BoxView<> box{tensorstore::span(origin), tensorstore::span(shape)};
   EXPECT_EQ(3, box.rank());
   EXPECT_EQ(&origin[0], box.origin().data());
   EXPECT_EQ(&shape[0], box.shape().data());
@@ -326,7 +333,7 @@ TEST(BoxViewTest, DeduceFromShapeArray) {
 
 TEST(BoxViewTest, DeduceFromShapeSpanStatic) {
   const Index shape[] = {3, 4, 5};
-  auto box = BoxView(span(shape));
+  auto box = BoxView(tensorstore::span(shape));
   static_assert(std::is_same_v<decltype(box), BoxView<3>>);
   EXPECT_THAT(box.origin(), ElementsAre(0, 0, 0));
   EXPECT_THAT(box.shape(), ElementsAre(3, 4, 5));
@@ -334,7 +341,7 @@ TEST(BoxViewTest, DeduceFromShapeSpanStatic) {
 
 TEST(BoxViewTest, DeduceFromShapeSpanDynamic) {
   const Index shape[] = {3, 4, 5};
-  auto box = BoxView(span<const Index>(shape));
+  auto box = BoxView(tensorstore::span<const Index>(shape));
   static_assert(std::is_same_v<decltype(box), BoxView<>>);
   EXPECT_THAT(box.origin(), ElementsAre(0, 0, 0));
   EXPECT_THAT(box.shape(), ElementsAre(3, 4, 5));
@@ -352,7 +359,7 @@ TEST(BoxViewTest, DeduceFromOriginAndShapeArrays) {
 TEST(BoxViewTest, DeduceFromOriginAndShapeSpansStatic) {
   const Index origin[] = {1, 2, 3};
   const Index shape[] = {3, 4, 5};
-  auto box = BoxView(span(origin), span(shape));
+  auto box = BoxView(tensorstore::span(origin), tensorstore::span(shape));
   static_assert(std::is_same_v<decltype(box), BoxView<3>>);
   EXPECT_THAT(box.origin(), ElementsAre(1, 2, 3));
   EXPECT_THAT(box.shape(), ElementsAre(3, 4, 5));
@@ -361,7 +368,8 @@ TEST(BoxViewTest, DeduceFromOriginAndShapeSpansStatic) {
 TEST(BoxViewTest, DeduceFromOriginAndShapeDynamic) {
   const Index origin[] = {1, 2, 3};
   const Index shape[] = {3, 4, 5};
-  auto box = BoxView(span<const Index>(origin), span<const Index>(shape));
+  auto box = BoxView(tensorstore::span<const Index>(origin),
+                     tensorstore::span<const Index>(shape));
   static_assert(std::is_same_v<decltype(box), BoxView<>>);
   EXPECT_THAT(box.origin(), ElementsAre(1, 2, 3));
   EXPECT_THAT(box.shape(), ElementsAre(3, 4, 5));
@@ -477,7 +485,7 @@ TEST(MutableBoxViewTest, RankPointersConstruct) {
 TEST(MutableBoxViewTest, DynamicRankSpanConstruct) {
   Index origin[] = {1, 2, 3};
   Index shape[] = {3, 4, 5};
-  MutableBoxView<> box{span(origin), span(shape)};
+  MutableBoxView<> box{tensorstore::span(origin), tensorstore::span(shape)};
   EXPECT_EQ(3, box.rank());
   EXPECT_EQ(box.origin().data(), origin);
   EXPECT_EQ(box.shape().data(), shape);
@@ -496,7 +504,7 @@ TEST(MutableBoxViewTest, DeduceFromOriginAndShapeArrays) {
 TEST(MutableBoxViewTest, DeduceFromOriginAndShapeSpansStatic) {
   Index origin[] = {1, 2, 3};
   Index shape[] = {3, 4, 5};
-  auto box = BoxView(span(origin), span(shape));
+  auto box = BoxView(tensorstore::span(origin), tensorstore::span(shape));
   static_assert(std::is_same_v<decltype(box), MutableBoxView<3>>);
   EXPECT_EQ(3, box.rank());
   EXPECT_EQ(box.origin().data(), origin);
@@ -506,7 +514,8 @@ TEST(MutableBoxViewTest, DeduceFromOriginAndShapeSpansStatic) {
 TEST(MutableBoxViewTest, DeduceFromOriginAndShapeDynamic) {
   Index origin[] = {1, 2, 3};
   Index shape[] = {3, 4, 5};
-  auto box = BoxView(span<Index>(origin), span<Index>(shape));
+  auto box = BoxView(tensorstore::span<Index>(origin),
+                     tensorstore::span<Index>(shape));
   static_assert(std::is_same_v<decltype(box), MutableBoxView<>>);
   EXPECT_EQ(3, box.rank());
   EXPECT_EQ(box.origin().data(), origin);
@@ -670,10 +679,10 @@ TEST(BoxTest, Contains) {
   const Index indices3[] = {0};
   Index indices4[] = {2};
 
-  auto span1 = span(indices1);
-  auto span2 = span(indices2);
-  auto span3 = span(indices3);
-  auto span4 = span(indices4);
+  auto span1 = tensorstore::span(indices1);
+  auto span2 = tensorstore::span(indices2);
+  auto span3 = tensorstore::span(indices3);
+  auto span4 = tensorstore::span(indices4);
 
   BoxView<> view1(origin1, shape1);
   BoxView<> view2(origin2, shape2);

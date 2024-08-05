@@ -110,11 +110,12 @@ class Schema {
 
   /// Strongly-typed alias of `span<const Index>` for representing a shape
   /// constraint.
-  struct Shape : public span<const Index> {
+  struct Shape : public tensorstore::span<const Index> {
    public:
-    explicit Shape(span<const Index> s) : span<const Index>(s) {}
+    explicit Shape(tensorstore::span<const Index> s)
+        : tensorstore::span<const Index>(s) {}
     template <size_t N>
-    explicit Shape(const Index (&s)[N]) : span<const Index>(s) {}
+    explicit Shape(const Index (&s)[N]) : tensorstore::span<const Index>(s) {}
   };
 
   /// Specifies the zero-origin bounds for the domain.
@@ -169,14 +170,14 @@ class Schema {
 
   /// Strongly-typed alias of `span<const std::optional<Unit>>` for representing
   /// dimension unit constraints.
-  struct DimensionUnits : public span<const std::optional<Unit>> {
+  struct DimensionUnits : public tensorstore::span<const std::optional<Unit>> {
    public:
     explicit DimensionUnits() = default;
-    explicit DimensionUnits(span<const std::optional<Unit>> s)
-        : span<const std::optional<Unit>>(s) {}
+    explicit DimensionUnits(tensorstore::span<const std::optional<Unit>> s)
+        : tensorstore::span<const std::optional<Unit>>(s) {}
     template <size_t N>
     explicit DimensionUnits(const std::optional<Unit> (&s)[N])
-        : span<const std::optional<Unit>>(s) {}
+        : tensorstore::span<const std::optional<Unit>>(s) {}
     friend std::ostream& operator<<(std::ostream& os, DimensionUnits u);
     friend bool operator==(DimensionUnits a, DimensionUnits b);
     friend bool operator!=(DimensionUnits a, DimensionUnits b) {

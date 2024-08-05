@@ -26,7 +26,6 @@
 namespace {
 
 using ::tensorstore::dynamic_rank;
-using ::tensorstore::span;
 using ::tensorstore::internal::MultiVectorAccess;
 using ::tensorstore::internal::MultiVectorStorage;
 using ::tensorstore::internal::MultiVectorStorageImpl;
@@ -113,11 +112,10 @@ TYPED_TEST_SUITE(MultiVectorDynamicTest, DynamicStorageTypes);
 template <typename T>
 struct Decompose;
 
-template <std::ptrdiff_t Extent, std::ptrdiff_t InlineSize, typename T0,
-          typename T1>
+template <ptrdiff_t Extent, ptrdiff_t InlineSize, typename T0, typename T1>
 struct Decompose<MultiVectorStorageImpl<Extent, InlineSize, T0, T1>> {
-  constexpr static std::ptrdiff_t inline_size = InlineSize;
-  constexpr static std::ptrdiff_t extent = Extent;
+  constexpr static ptrdiff_t inline_size = InlineSize;
+  constexpr static ptrdiff_t extent = Extent;
   using Element0 = T0;
   using Element1 = T1;
 };
@@ -150,7 +148,8 @@ TYPED_TEST(MultiVectorDynamicTest, Basic) {
   EXPECT_THAT(Access::template get<1>(&vec), ElementsAre(5, 6, 7, 8));
 
   // Test (span...) assignment.
-  Access::Assign(&vec, span<const T0>({4, 5, 6}), span<const T1>({7, 8, 9}));
+  Access::Assign(&vec, tensorstore::span<const T0>({4, 5, 6}),
+                 tensorstore::span<const T1>({7, 8, 9}));
   EXPECT_THAT(Access::template get<0>(&vec), ElementsAre(4, 5, 6));
   EXPECT_THAT(Access::template get<1>(&vec), ElementsAre(7, 8, 9));
 
@@ -231,22 +230,23 @@ TYPED_TEST(MultiVectorStaticTest, Basic) {
 
   // Test default construction.
   Container vec;
-  static_assert(std::is_same_v<std::integral_constant<std::ptrdiff_t, 2>,
+  static_assert(std::is_same_v<std::integral_constant<ptrdiff_t, 2>,
                                decltype(Access::GetExtent(vec))>);
   EXPECT_EQ(2, Access::GetExtent(vec));
 
   // Test Resize (no op).
-  Access::Resize(&vec, std::integral_constant<std::ptrdiff_t, 2>());
+  Access::Resize(&vec, std::integral_constant<ptrdiff_t, 2>());
 
   // Test (rank, pointer...) assignment.
   const T0 a0[] = {1, 2};
   const T1 a1[] = {5, 6};
-  Access::Assign(&vec, std::integral_constant<std::ptrdiff_t, 2>(), a0, a1);
+  Access::Assign(&vec, std::integral_constant<ptrdiff_t, 2>(), a0, a1);
   EXPECT_THAT(Access::template get<0>(&vec), ElementsAre(1, 2));
   EXPECT_THAT(Access::template get<1>(&vec), ElementsAre(5, 6));
 
   // Test (span...) assignment.
-  Access::Assign(&vec, span<const T0, 2>({4, 5}), span<const T1, 2>({7, 8}));
+  Access::Assign(&vec, tensorstore::span<const T0, 2>({4, 5}),
+                 tensorstore::span<const T1, 2>({7, 8}));
   EXPECT_THAT(Access::template get<0>(&vec), ElementsAre(4, 5));
   EXPECT_THAT(Access::template get<1>(&vec), ElementsAre(7, 8));
 

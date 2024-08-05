@@ -395,7 +395,6 @@ tensorstore_cc_library(
         "//tensorstore:contiguous_layout",
         "//tensorstore:index",
         "//tensorstore/internal:void_wrapper",
-        "@com_google_absl//absl/container:fixed_array",
     ],
 )
 

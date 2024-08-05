@@ -115,10 +115,11 @@ class IterableImpl : public NDIterable::Base<IterableImpl> {
     for (DimensionIndex i = 0; i < state_.num_array_indexed_output_dimensions;
          ++i) {
       UpdateDirectionPrefsFromByteStrides(
-          span(state_.index_array_byte_strides[i], input_rank), prefs);
+          tensorstore::span(state_.index_array_byte_strides[i], input_rank),
+          prefs);
     }
     UpdateDirectionPrefsFromByteStrides(
-        span(&state_.input_byte_strides[0], input_rank), prefs);
+        tensorstore::span(&state_.input_byte_strides[0], input_rank), prefs);
   }
 
   bool CanCombineDimensions(DimensionIndex dim_i, int dir_i,
@@ -334,7 +335,8 @@ class IterableImpl : public NDIterable::Base<IterableImpl> {
       return buffer_.get_allocator();
     }
 
-    bool GetBlock(span<const Index> indices, IterationBufferShape block_shape,
+    bool GetBlock(tensorstore::span<const Index> indices,
+                  IterationBufferShape block_shape,
                   IterationBufferPointer* pointer,
                   absl::Status* status) override {
       IterationBufferPointer block_pointer = pointer_;

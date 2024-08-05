@@ -63,15 +63,17 @@ Index IrregularGrid::operator()(DimensionIndex dim, Index output_index,
 }
 
 /*static*/
-IrregularGrid IrregularGrid::Make(span<const IndexDomain<>> domains) {
+IrregularGrid IrregularGrid::Make(
+    tensorstore::span<const IndexDomain<>> domains) {
   absl::InlinedVector<IndexDomainView<>, 16> views;
   views.reserve(domains.size());
   for (const auto& d : domains) views.push_back(d);
-  return Make(span(views));
+  return Make(tensorstore::span(views));
 }
 
 /*static*/
-IrregularGrid IrregularGrid::Make(span<const IndexDomainView<>> domains) {
+IrregularGrid IrregularGrid::Make(
+    tensorstore::span<const IndexDomainView<>> domains) {
   assert(!domains.empty());
   DimensionIndex rank = domains[0].rank();
 

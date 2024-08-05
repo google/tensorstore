@@ -34,7 +34,6 @@ using ::tensorstore::Index;
 using ::tensorstore::IndexDomain;
 using ::tensorstore::IndexInterval;
 using ::tensorstore::kInfIndex;
-using ::tensorstore::span;
 using ::tensorstore::internal::IrregularGrid;
 using ::testing::ElementsAre;
 
@@ -83,9 +82,12 @@ TEST(IrregularGridTest, IndexDomain) {
   const Index shape3[] = {2, 15};
 
   std::vector<IndexDomain<>> domains(
-      {IndexDomain<>{BoxView<>{span(origin1), span(shape1)}},
-       IndexDomain<>{BoxView<>{span(origin2), span(shape2)}},
-       IndexDomain<>{BoxView<>{span(origin3), span(shape3)}}});
+      {IndexDomain<>{
+           BoxView<>{tensorstore::span(origin1), tensorstore::span(shape1)}},
+       IndexDomain<>{
+           BoxView<>{tensorstore::span(origin2), tensorstore::span(shape2)}},
+       IndexDomain<>{
+           BoxView<>{tensorstore::span(origin3), tensorstore::span(shape3)}}});
 
   auto grid = IrregularGrid::Make(domains);
 

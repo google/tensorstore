@@ -14,10 +14,19 @@
 
 #include "tensorstore/internal/cord_util.h"
 
+#include <algorithm>
+#include <cassert>
+#include <cstddef>
+#include <cstring>
+
+#include "absl/strings/cord.h"
+#include "tensorstore/util/span.h"
+
 namespace tensorstore {
 namespace internal {
 
-void CopyCordToSpan(absl::Cord::CharIterator& char_it, span<char> output) {
+void CopyCordToSpan(absl::Cord::CharIterator& char_it,
+                    tensorstore::span<char> output) {
   while (!output.empty()) {
     auto chunk = absl::Cord::ChunkRemaining(char_it);
     size_t n = std::min(chunk.size(), static_cast<size_t>(output.size()));
@@ -27,7 +36,7 @@ void CopyCordToSpan(absl::Cord::CharIterator& char_it, span<char> output) {
   }
 }
 
-void CopyCordToSpan(const absl::Cord& cord, span<char> output) {
+void CopyCordToSpan(const absl::Cord& cord, tensorstore::span<char> output) {
   assert(output.size() <= cord.size());
   auto char_it = cord.char_begin();
   CopyCordToSpan(char_it, output);

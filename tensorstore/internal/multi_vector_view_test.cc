@@ -25,7 +25,6 @@
 namespace {
 
 using ::tensorstore::dynamic_rank;
-using ::tensorstore::span;
 using ::tensorstore::internal::MultiVectorAccess;
 using ::tensorstore::internal::MultiVectorViewStorage;
 using ::testing::ElementsAre;
@@ -49,7 +48,7 @@ TEST(MultiVectorViewStorageTest, StaticExtent2) {
 
   // Test default construction.
   Container vec;
-  static_assert(std::is_same_v<std::integral_constant<std::ptrdiff_t, 2>,
+  static_assert(std::is_same_v<std::integral_constant<ptrdiff_t, 2>,
                                decltype(Access::GetExtent(vec))>);
   EXPECT_EQ(2, Access::GetExtent(vec));
   EXPECT_EQ(nullptr, Access::template get<0>(&vec).data());
@@ -58,7 +57,7 @@ TEST(MultiVectorViewStorageTest, StaticExtent2) {
   // Test (rank, pointer...) assignment.
   float float_arr[] = {1, 2};
   int int_arr[] = {3, 4};
-  Access::Assign(&vec, std::integral_constant<std::ptrdiff_t, 2>(), float_arr,
+  Access::Assign(&vec, std::integral_constant<ptrdiff_t, 2>(), float_arr,
                  int_arr);
   EXPECT_THAT(Access::template get<0>(&vec), ElementsAre(1, 2));
   EXPECT_THAT(Access::template get<1>(&vec), ElementsAre(3, 4));
@@ -68,7 +67,8 @@ TEST(MultiVectorViewStorageTest, StaticExtent2) {
   // Test (span...) assignment.
   float float_arr2[] = {5, 6};
   int int_arr2[] = {7, 8};
-  Access::Assign(&vec, span(float_arr2), span(int_arr2));
+  Access::Assign(&vec, tensorstore::span(float_arr2),
+                 tensorstore::span(int_arr2));
   EXPECT_EQ(&float_arr2[0], Access::template get<0>(&vec).data());
   EXPECT_EQ(&int_arr2[0], Access::template get<1>(&vec).data());
 }
@@ -86,20 +86,21 @@ TEST(MultiVectorViewStorageTest, StaticExtent0) {
 
   // Test default construction.
   Container vec;
-  static_assert(std::is_same_v<std::integral_constant<std::ptrdiff_t, 0>,
+  static_assert(std::is_same_v<std::integral_constant<ptrdiff_t, 0>,
                                decltype(Access::GetExtent(vec))>);
   EXPECT_EQ(0, Access::GetExtent(vec));
   EXPECT_EQ(nullptr, Access::template get<0>(&vec).data());
   EXPECT_EQ(nullptr, Access::template get<1>(&vec).data());
 
   // Test (rank, pointer...) assignment.
-  Access::Assign(&vec, std::integral_constant<std::ptrdiff_t, 0>(), nullptr,
+  Access::Assign(&vec, std::integral_constant<ptrdiff_t, 0>(), nullptr,
                  nullptr);
   EXPECT_EQ(nullptr, Access::template get<0>(&vec).data());
   EXPECT_EQ(nullptr, Access::template get<1>(&vec).data());
 
   // Test (span...) assignment.
-  Access::Assign(&vec, span<float, 0>{}, span<int, 0>{});
+  Access::Assign(&vec, tensorstore::span<float, 0>{},
+                 tensorstore::span<int, 0>{});
 }
 
 TEST(MultiVectorViewStorageTest, DynamicExtent) {
@@ -115,8 +116,7 @@ TEST(MultiVectorViewStorageTest, DynamicExtent) {
 
   // Test default construction.
   Container vec;
-  static_assert(
-      std::is_same_v<std::ptrdiff_t, decltype(Access::GetExtent(vec))>);
+  static_assert(std::is_same_v<ptrdiff_t, decltype(Access::GetExtent(vec))>);
   EXPECT_EQ(0, Access::GetExtent(vec));
   EXPECT_EQ(nullptr, Access::template get<0>(&vec).data());
   EXPECT_EQ(nullptr, Access::template get<1>(&vec).data());
@@ -124,7 +124,7 @@ TEST(MultiVectorViewStorageTest, DynamicExtent) {
   // Test (rank, pointer...) assignment.
   float float_arr[] = {1, 2};
   int int_arr[] = {3, 4};
-  Access::Assign(&vec, std::integral_constant<std::ptrdiff_t, 2>(), float_arr,
+  Access::Assign(&vec, std::integral_constant<ptrdiff_t, 2>(), float_arr,
                  int_arr);
   EXPECT_EQ(2, Access::GetExtent(vec));
   EXPECT_THAT(Access::template get<0>(&vec), ElementsAre(1, 2));
@@ -135,7 +135,8 @@ TEST(MultiVectorViewStorageTest, DynamicExtent) {
   // Test (span...) assignment.
   float float_arr2[] = {5, 6, 7};
   int int_arr2[] = {7, 8, 9};
-  Access::Assign(&vec, span<float>(float_arr2), span<int>(int_arr2));
+  Access::Assign(&vec, tensorstore::span<float>(float_arr2),
+                 tensorstore::span<int>(int_arr2));
   EXPECT_EQ(3, Access::GetExtent(vec));
   EXPECT_EQ(&float_arr2[0], Access::template get<0>(&vec).data());
   EXPECT_EQ(&int_arr2[0], Access::template get<1>(&vec).data());

@@ -40,7 +40,6 @@ namespace {
 using ::tensorstore::Array;
 using ::tensorstore::DimensionIndex;
 using ::tensorstore::Index;
-using ::tensorstore::span;
 using ::tensorstore::StridedLayout;
 using ::tensorstore::internal::Arena;
 using ::tensorstore::internal::GetArrayNDIterable;
@@ -109,10 +108,11 @@ TEST(NDIterableArrayTest, Direct) {
                                              /*size_j=*/2));
   {
     auto c = iterable->GetIterationBufferConstraint(
-        {/*.shape=*/span<const Index>({6, 3, 4, 5}),
-         /*.directions=*/span<const int>({1, 1, 1, 1}),
-         /*.iteration_dimensions=*/span<const DimensionIndex>({0, 1, 2, 3}),
-         /*.iteration_shape=*/span<const Index>({6, 3, 4, 5})});
+        {/*.shape=*/tensorstore::span<const Index>({6, 3, 4, 5}),
+         /*.directions=*/tensorstore::span<const int>({1, 1, 1, 1}),
+         /*.iteration_dimensions=*/
+         tensorstore::span<const DimensionIndex>({0, 1, 2, 3}),
+         /*.iteration_shape=*/tensorstore::span<const Index>({6, 3, 4, 5})});
     // `kStrided` because the last iteration dimension has a byte stride of
     // `array.byte_strides()[3] == 3`, which is not equal to the element size of
     // `1`.
@@ -122,10 +122,11 @@ TEST(NDIterableArrayTest, Direct) {
 
   {
     auto c = iterable->GetIterationBufferConstraint(
-        {/*.shape=*/span<const Index>({6, 3, 4, 5}),
-         /*.directions=*/span<const int>({1, 1, 1, 1}),
-         /*.iteration_dimensions=*/span<const DimensionIndex>({1, 3, 0}),
-         /*.iteration_shape=*/span<const Index>({3, 5, 6})});
+        {/*.shape=*/tensorstore::span<const Index>({6, 3, 4, 5}),
+         /*.directions=*/tensorstore::span<const int>({1, 1, 1, 1}),
+         /*.iteration_dimensions=*/
+         tensorstore::span<const DimensionIndex>({1, 3, 0}),
+         /*.iteration_shape=*/tensorstore::span<const Index>({3, 5, 6})});
     // `kStrided` because the last iteration dimension has a byte stride of
     // `array.byte_strides()[0] == -1`, which is not equal to the element size
     // of `1`.
@@ -135,10 +136,11 @@ TEST(NDIterableArrayTest, Direct) {
 
   {
     auto c = iterable->GetIterationBufferConstraint(
-        {/*.shape=*/span<const Index>({6, 3, 4, 5}),
-         /*.directions=*/span<const int>({-1, -1, 0, 1}),
-         /*.iteration_dimensions=*/span<const DimensionIndex>({1, 3, 0}),
-         /*.iteration_shape=*/span<const Index>({3, 5, 6})});
+        {/*.shape=*/tensorstore::span<const Index>({6, 3, 4, 5}),
+         /*.directions=*/tensorstore::span<const int>({-1, -1, 0, 1}),
+         /*.iteration_dimensions=*/
+         tensorstore::span<const DimensionIndex>({1, 3, 0}),
+         /*.iteration_shape=*/tensorstore::span<const Index>({3, 5, 6})});
     // `kContiguous` because the last iteration dimension has a byte stride of
     // `-1 * array.byte_strides()[0] == 1`, which is equal to the element size
     // of `1`.
@@ -148,39 +150,43 @@ TEST(NDIterableArrayTest, Direct) {
 
   EXPECT_EQ(
       0, iterable->GetWorkingMemoryBytesPerElement(
-             {/*.shape=*/span<const Index>({6, 3, 4, 5}),
-              /*.directions=*/span<const int>({-1, -1, 0, 1}),
-              /*.iteration_dimensions=*/span<const DimensionIndex>({1, 3, 0}),
-              /*.iteration_shape=*/span<const Index>({3, 5, 6})},
+             {/*.shape=*/tensorstore::span<const Index>({6, 3, 4, 5}),
+              /*.directions=*/tensorstore::span<const int>({-1, -1, 0, 1}),
+              /*.iteration_dimensions=*/
+              tensorstore::span<const DimensionIndex>({1, 3, 0}),
+              /*.iteration_shape=*/tensorstore::span<const Index>({3, 5, 6})},
              IterationBufferKind::kContiguous));
   EXPECT_EQ(
       0, iterable->GetWorkingMemoryBytesPerElement(
-             {/*.shape=*/span<const Index>({6, 3, 4, 5}),
-              /*.directions=*/span<const int>({-1, -1, 0, 1}),
-              /*.iteration_dimensions=*/span<const DimensionIndex>({1, 3, 0}),
-              /*.iteration_shape=*/span<const Index>({3, 5, 6})},
+             {/*.shape=*/tensorstore::span<const Index>({6, 3, 4, 5}),
+              /*.directions=*/tensorstore::span<const int>({-1, -1, 0, 1}),
+              /*.iteration_dimensions=*/
+              tensorstore::span<const DimensionIndex>({1, 3, 0}),
+              /*.iteration_shape=*/tensorstore::span<const Index>({3, 5, 6})},
              IterationBufferKind::kStrided));
   EXPECT_EQ(
       sizeof(Index),
       iterable->GetWorkingMemoryBytesPerElement(
-          {/*.shape=*/span<const Index>({6, 3, 4, 5}),
-           /*.directions=*/span<const int>({-1, -1, 0, 1}),
-           /*.iteration_dimensions=*/span<const DimensionIndex>({1, 3, 0}),
-           /*.iteration_shape=*/span<const Index>({3, 5, 6})},
+          {/*.shape=*/tensorstore::span<const Index>({6, 3, 4, 5}),
+           /*.directions=*/tensorstore::span<const int>({-1, -1, 0, 1}),
+           /*.iteration_dimensions=*/
+           tensorstore::span<const DimensionIndex>({1, 3, 0}),
+           /*.iteration_shape=*/tensorstore::span<const Index>({3, 5, 6})},
           IterationBufferKind::kIndexed));
 
   {
     auto iterator = iterable->GetIterator(
-        {{{/*.shape=*/span<const Index>({6, 3, 4, 5}),
-           /*.directions=*/span<const int>({-1, -1, 0, 1}),
-           /*.iteration_dimensions=*/span<const DimensionIndex>({1, 3, 0}),
-           /*.iteration_shape=*/span<const Index>({3, 5, 6})},
+        {{{/*.shape=*/tensorstore::span<const Index>({6, 3, 4, 5}),
+           /*.directions=*/tensorstore::span<const int>({-1, -1, 0, 1}),
+           /*.iteration_dimensions=*/
+           tensorstore::span<const DimensionIndex>({1, 3, 0}),
+           /*.iteration_shape=*/tensorstore::span<const Index>({3, 5, 6})},
           /*.block_shape=*/{1, 3}},
          /*.buffer_kind=*/IterationBufferKind::kContiguous});
     IterationBufferPointer pointer;
     absl::Status status;
-    EXPECT_TRUE(iterator->GetBlock(span<const Index>({2, 3, 1}), {1, 3},
-                                   &pointer, &status));
+    EXPECT_TRUE(iterator->GetBlock(tensorstore::span<const Index>({2, 3, 1}),
+                                   {1, 3}, &pointer, &status));
     EXPECT_EQ(&array((6 - 1) - 1, (3 - 1) - 2, 0, 3), pointer.pointer.get());
     EXPECT_EQ(1, pointer.inner_byte_stride);
     EXPECT_EQ(absl::OkStatus(), status);
@@ -188,18 +194,19 @@ TEST(NDIterableArrayTest, Direct) {
 
   {
     auto iterator = iterable->GetIterator(
-        {{{/*.shape=*/span<const Index>({6, 3, 4, 5}),
-           /*.directions=*/span<const int>({-1, -1, 0, 1}),
-           /*.iteration_dimensions=*/span<const DimensionIndex>({1, 3, 0}),
-           /*.iteration_shape=*/span<const Index>({3, 5, 6})},
+        {{{/*.shape=*/tensorstore::span<const Index>({6, 3, 4, 5}),
+           /*.directions=*/tensorstore::span<const int>({-1, -1, 0, 1}),
+           /*.iteration_dimensions=*/
+           tensorstore::span<const DimensionIndex>({1, 3, 0}),
+           /*.iteration_shape=*/tensorstore::span<const Index>({3, 5, 6})},
           /*.block_shape=*/{1, 3}},
          /*.buffer_kind=*/IterationBufferKind::kIndexed});
     IterationBufferPointer pointer;
     absl::Status status;
-    EXPECT_TRUE(iterator->GetBlock(span<const Index>({2, 3, 1}), {1, 3},
-                                   &pointer, &status));
+    EXPECT_TRUE(iterator->GetBlock(tensorstore::span<const Index>({2, 3, 1}),
+                                   {1, 3}, &pointer, &status));
     EXPECT_EQ(&array((6 - 1) - 1, (3 - 1) - 2, 0, 3), pointer.pointer.get());
-    EXPECT_THAT(span<const Index>(pointer.byte_offsets, 3),
+    EXPECT_THAT(tensorstore::span<const Index>(pointer.byte_offsets, 3),
                 ::testing::ElementsAre(0, 1, 2));
     EXPECT_EQ(absl::OkStatus(), status);
   }
@@ -210,8 +217,8 @@ TEST(NDIterableArrayTest, RankZero) {
 
   Arena arena;
   auto iterable = GetArrayNDIterable(array, &arena);
-  MultiNDIterator<1, /*Full=*/true> multi_iterator(span<const Index>{}, {},
-                                                   {{iterable.get()}}, &arena);
+  MultiNDIterator<1, /*Full=*/true> multi_iterator(
+      tensorstore::span<const Index>{}, {}, {{iterable.get()}}, &arena);
 
   EXPECT_THAT(multi_iterator.iteration_dimensions,
               ::testing::ElementsAre(-1, -1));
@@ -246,8 +253,8 @@ TEST(NDIterableArrayTest, RankOne) {
 
   Arena arena;
   auto iterable = GetArrayNDIterable(array, &arena);
-  MultiNDIterator<1, /*Full=*/true> multi_iterator(span<const Index>({5}), {},
-                                                   {{iterable.get()}}, &arena);
+  MultiNDIterator<1, /*Full=*/true> multi_iterator(
+      tensorstore::span<const Index>({5}), {}, {{iterable.get()}}, &arena);
 
   EXPECT_THAT(multi_iterator.shape, ::testing::ElementsAre(5));
   EXPECT_THAT(multi_iterator.iteration_dimensions,

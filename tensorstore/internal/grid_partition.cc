@@ -47,20 +47,19 @@ namespace internal_grid_partition {
 
 namespace {
 
-using ::tensorstore::internal_index_space::OutputIndexMap;
 using ::tensorstore::internal_index_space::TransformAccess;
-using ::tensorstore::internal_index_space::TransformRep;
 
 using IndexArraySet = IndexTransformGridPartition::IndexArraySet;
 using StridedSet = IndexTransformGridPartition::StridedSet;
 
 struct ConnectedSetIterateParameters {
   const IndexTransformGridPartition& info;
-  span<const DimensionIndex> grid_output_dimensions;
+  tensorstore::span<const DimensionIndex> grid_output_dimensions;
   OutputToGridCellFn output_to_grid_cell;
   IndexTransformView<> transform;
-  absl::FunctionRef<absl::Status(span<const Index> grid_cell_indices,
-                                 IndexTransformView<> cell_transform)>
+  absl::FunctionRef<absl::Status(
+      tensorstore::span<const Index> grid_cell_indices,
+      IndexTransformView<> cell_transform)>
       func;
 };
 
@@ -68,8 +67,9 @@ struct ConnectedSetIterateParameters {
 /// depend on any input dimensions (i.e. not contained in a connected set).
 void InitializeConstantGridCellIndices(
     IndexTransformView<> transform,
-    span<const DimensionIndex> grid_output_dimensions,
-    OutputToGridCellFn output_to_grid_cell, span<Index> grid_cell_indices) {
+    tensorstore::span<const DimensionIndex> grid_output_dimensions,
+    OutputToGridCellFn output_to_grid_cell,
+    tensorstore::span<Index> grid_cell_indices) {
   for (DimensionIndex grid_dim = 0; grid_dim < grid_output_dimensions.size();
        ++grid_dim) {
     const DimensionIndex output_dim = grid_output_dimensions[grid_dim];
@@ -93,7 +93,7 @@ class StridedSetGridCellIterator {
  public:
   explicit StridedSetGridCellIterator(
       IndexTransformView<> transform,
-      span<const DimensionIndex> grid_output_dimensions,
+      tensorstore::span<const DimensionIndex> grid_output_dimensions,
       OutputToGridCellFn output_to_grid_cell, StridedSet strided_set)
       : transform_(transform),
         grid_output_dimensions_(grid_output_dimensions),
@@ -107,7 +107,7 @@ class StridedSetGridCellIterator {
 
   bool AtEnd() const { return input_index_ == input_end_index_; }
 
-  IndexInterval Next(span<Index> grid_cell_indices) {
+  IndexInterval Next(tensorstore::span<Index> grid_cell_indices) {
     assert(!AtEnd());
     // The subset of the original input domain that corresponds to the current
     // partial grid cell.
@@ -137,7 +137,7 @@ class StridedSetGridCellIterator {
 
  private:
   IndexTransformView<> transform_;
-  span<const DimensionIndex> grid_output_dimensions_;
+  tensorstore::span<const DimensionIndex> grid_output_dimensions_;
   OutputToGridCellFn output_to_grid_cell_;
   StridedSet strided_set_;
   Index input_index_;
@@ -334,15 +334,15 @@ bool GetStridedGridCellRanges(
 
 struct GetGridCellRangesIterateParameters {
   const IndexTransformGridPartition& info;
-  span<const DimensionIndex> grid_output_dimensions;
+  tensorstore::span<const DimensionIndex> grid_output_dimensions;
   OutputToGridCellFn output_to_grid_cell;
   IndexTransformView<> transform;
   absl::FunctionRef<absl::Status(BoxView<> bounds)> func;
   DimensionIndex outer_prefix_rank;
   BoxView<> grid_bounds;
-  span<const IndexInterval> inner_intervals;
-  span<const StridedSet*> strided_sets_in_prefix;
-  span<const IndexArraySet*> index_array_sets_in_prefix;
+  tensorstore::span<const IndexInterval> inner_intervals;
+  tensorstore::span<const StridedSet*> strided_sets_in_prefix;
+  tensorstore::span<const IndexArraySet*> index_array_sets_in_prefix;
 };
 
 class GetGridCellRangesIterateHelper {
@@ -353,7 +353,8 @@ class GetGridCellRangesIterateHelper {
     InitializeConstantGridCellIndices(
         params_.transform, params_.grid_output_dimensions,
         params_.output_to_grid_cell,
-        span<Index>(&grid_bounds_origin_[0], params_.transform.output_rank()));
+        tensorstore::span<Index>(&grid_bounds_origin_[0],
+                                 params_.transform.output_rank()));
     for (DimensionIndex i = 0; i < params.outer_prefix_rank; ++i) {
       grid_bounds_shape_[i] = 1;
     }
@@ -481,11 +482,12 @@ class GetGridCellRangesIterateHelper {
 namespace internal {
 
 absl::Status PartitionIndexTransformOverGrid(
-    span<const DimensionIndex> grid_output_dimensions,
+    tensorstore::span<const DimensionIndex> grid_output_dimensions,
     internal_grid_partition::OutputToGridCellFn output_to_grid_cell,
     IndexTransformView<> transform,
-    absl::FunctionRef<absl::Status(span<const Index> grid_cell_indices,
-                                   IndexTransformView<> cell_transform)>
+    absl::FunctionRef<
+        absl::Status(tensorstore::span<const Index> grid_cell_indices,
+                     IndexTransformView<> cell_transform)>
         func) {
   internal_grid_partition::IndexTransformGridPartition partition_info;
   auto status = internal_grid_partition::PrePartitionIndexTransformOverGrid(
@@ -502,10 +504,12 @@ absl::Status PartitionIndexTransformOverGrid(
 }
 
 absl::Status PartitionIndexTransformOverRegularGrid(
-    span<const DimensionIndex> grid_output_dimensions,
-    span<const Index> grid_cell_shape, IndexTransformView<> transform,
-    absl::FunctionRef<absl::Status(span<const Index> grid_cell_indices,
-                                   IndexTransformView<> cell_transform)>
+    tensorstore::span<const DimensionIndex> grid_output_dimensions,
+    tensorstore::span<const Index> grid_cell_shape,
+    IndexTransformView<> transform,
+    absl::FunctionRef<
+        absl::Status(tensorstore::span<const Index> grid_cell_indices,
+                     IndexTransformView<> cell_transform)>
         func) {
   assert(grid_cell_shape.size() == grid_output_dimensions.size());
   internal_grid_partition::RegularGridRef grid{grid_cell_shape};
@@ -518,8 +522,9 @@ absl::Status PartitionIndexTransformOverRegularGrid(
 namespace internal_grid_partition {
 absl::Status GetGridCellRanges(
     const IndexTransformGridPartition& grid_partition,
-    span<const DimensionIndex> grid_output_dimensions, BoxView<> grid_bounds,
-    OutputToGridCellFn output_to_grid_cell, IndexTransformView<> transform,
+    tensorstore::span<const DimensionIndex> grid_output_dimensions,
+    BoxView<> grid_bounds, OutputToGridCellFn output_to_grid_cell,
+    IndexTransformView<> transform,
     absl::FunctionRef<absl::Status(BoxView<> bounds)> callback) {
   assert(grid_output_dimensions.size() == grid_bounds.rank());
 
@@ -642,7 +647,7 @@ absl::Status GetGridCellRanges(
       }
       buffer[i++] = &set;
     }
-    return span(buffer, i);
+    return tensorstore::span(buffer, i);
   };
 
   auto strided_sets_in_prefix = get_sets_in_prefix(
@@ -666,7 +671,8 @@ absl::Status GetGridCellRanges(
 namespace internal {
 
 absl::Status GetGridCellRanges(
-    span<const DimensionIndex> grid_output_dimensions, BoxView<> grid_bounds,
+    tensorstore::span<const DimensionIndex> grid_output_dimensions,
+    BoxView<> grid_bounds,
     internal_grid_partition::OutputToGridCellFn output_to_grid_cell,
     IndexTransformView<> transform,
     absl::FunctionRef<absl::Status(BoxView<> bounds)> callback) {

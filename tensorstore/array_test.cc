@@ -51,6 +51,7 @@
 #include "tensorstore/util/element_pointer.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -99,7 +100,6 @@ using ::tensorstore::offset_origin;
 using ::tensorstore::SharedArray;
 using ::tensorstore::SharedArrayView;
 using ::tensorstore::SharedSubArray;
-using ::tensorstore::span;
 using ::tensorstore::StaticCast;
 using ::tensorstore::StaticDataTypeCast;
 using ::tensorstore::StaticRankCast;
@@ -140,10 +140,12 @@ static_assert(!IsArrayExplicitlyConvertible<const int, 2, zero_origin,
 }  // namespace array_metafunctions_tests
 
 namespace subarray_ref_tests {
-static_assert(SubArrayStaticRank<dynamic_rank, span<const Index, 2>> ==
+static_assert(
+    SubArrayStaticRank<dynamic_rank, tensorstore::span<const Index, 2>> ==
+    dynamic_rank);
+static_assert(SubArrayStaticRank<5, tensorstore::span<const Index>> ==
               dynamic_rank);
-static_assert(SubArrayStaticRank<5, span<const Index>> == dynamic_rank);
-static_assert(SubArrayStaticRank<5, span<const Index, 3>> == 2);
+static_assert(SubArrayStaticRank<5, tensorstore::span<const Index, 3>> == 2);
 }  // namespace subarray_ref_tests
 
 namespace strided_array_size_tests {
@@ -864,7 +866,7 @@ TEST(ArrayTest, Indexing) {
   EXPECT_EQ(6, a(1, 2));
   EXPECT_EQ(6, a(1, two));
   EXPECT_EQ(6, a({1, 2}));
-  EXPECT_EQ(6, a(span({1, 2})));
+  EXPECT_EQ(6, a(tensorstore::span({1, 2})));
   EXPECT_EQ(MakeScalarArrayView<int>(6), a[1][2]);
 
   {
@@ -877,7 +879,7 @@ TEST(ArrayTest, Indexing) {
   }
 
   {
-    auto a_sub = a[span<const Index>({1, 2})];
+    auto a_sub = a[tensorstore::span<const Index>({1, 2})];
     static_assert(std::is_same_v<decltype(a_sub), ArrayView<int>>);
     EXPECT_EQ(0, a_sub.rank());
     EXPECT_EQ(&data[1][2], a_sub.data());
@@ -923,13 +925,13 @@ TEST(ArrayDeathTest, Indexing) {
       (ArrayView<int>(a)[0][0][0]),
       "Length of index vector is greater than rank of array");
   TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY(
-      a(span<const Index>({1})),
+      a(tensorstore::span<const Index>({1})),
       "Length of index vector must match rank of array");
   TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY(
-      a(span<const Index>({1, 2, 3})),
+      a(tensorstore::span<const Index>({1, 2, 3})),
       "Length of index vector must match rank of array");
   TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY(
-      (a[span<const Index>({1, 2, 3})]),
+      (a[tensorstore::span<const Index>({1, 2, 3})]),
       "Length of index vector is greater than rank of array");
 }
 
@@ -942,13 +944,13 @@ TEST(ArrayDeathTest, OffsetOriginIndexing) {
       (ArrayView<int, dynamic_rank, offset_origin>(a)[7][8][0]),
       "Length of index vector is greater than rank of array");
   TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY(
-      a(span<const Index>({1})),
+      a(tensorstore::span<const Index>({1})),
       "Length of index vector must match rank of array");
   TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY(
-      a(span<const Index>({1, 2, 3})),
+      a(tensorstore::span<const Index>({1, 2, 3})),
       "Length of index vector must match rank of array");
   TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY(
-      (a[span<const Index>({1, 2, 3})]),
+      (a[tensorstore::span<const Index>({1, 2, 3})]),
       "Length of index vector is greater than rank of array");
 }
 
@@ -1648,23 +1650,24 @@ TEST(ArrayTest, ConstructContiguousBracedList) {
 TEST(ArrayTest, ConstructContiguousSpan) {
   int data[6] = {1, 2, 3, 4, 5, 6};
   // Defaults to `c_order`.
-  Array<int, 2> array(data, span<const Index, 2>({2, 3}));
+  Array<int, 2> array(data, tensorstore::span<const Index, 2>({2, 3}));
   EXPECT_EQ(data, array.data());
   EXPECT_EQ(array, MakeArray<int>({{1, 2, 3}, {4, 5, 6}}));
 
   // Explicit `c_order`.
-  Array<int, 2> array_c_order(data, span<const Index, 2>({2, 3}), c_order);
+  Array<int, 2> array_c_order(data, tensorstore::span<const Index, 2>({2, 3}),
+                              c_order);
   EXPECT_EQ(data, array_c_order.data());
   EXPECT_EQ(array_c_order, MakeArray<int>({{1, 2, 3}, {4, 5, 6}}));
 
   // Explicit `fortran_order`.
-  Array<int, 2> array_f_order(data, span<const Index, 2>({3, 2}),
+  Array<int, 2> array_f_order(data, tensorstore::span<const Index, 2>({3, 2}),
                               fortran_order);
   EXPECT_EQ(data, array_f_order.data());
   EXPECT_EQ(array_f_order, MakeArray<int>({{1, 4}, {2, 5}, {3, 6}}));
 
   Array<int, 2, offset_origin> array_offset_origin(
-      data, span<const Index, 2>({2, 3}));
+      data, tensorstore::span<const Index, 2>({2, 3}));
   EXPECT_EQ(data, array.data());
   EXPECT_EQ(array_offset_origin, MakeArray<int>({{1, 2, 3}, {4, 5, 6}}));
 }
@@ -1781,45 +1784,59 @@ TEST(ArrayTest, DeductionGuides) {
   }
 }
 TEST(ValidateShapeBroadcastTest, Examples) {
-  TENSORSTORE_EXPECT_OK(ValidateShapeBroadcast(span<const Index>({5}),
-                                               span<const Index>({4, 5})));
-  TENSORSTORE_EXPECT_OK(ValidateShapeBroadcast(span<const Index>({4, 1}),
-                                               span<const Index>({4, 5})));
-  TENSORSTORE_EXPECT_OK(ValidateShapeBroadcast(span<const Index>({1, 1, 5}),
-                                               span<const Index>({4, 5})));
-  TENSORSTORE_EXPECT_OK(ValidateShapeBroadcast(span<const Index>({1, 1, 5}),
-                                               span<const Index>({4, 5})));
-  EXPECT_THAT(ValidateShapeBroadcast(span<const Index>({2, 5}),
-                                     span<const Index>({4, 5})),
+  TENSORSTORE_EXPECT_OK(
+      ValidateShapeBroadcast(tensorstore::span<const Index>({5}),
+                             tensorstore::span<const Index>({4, 5})));
+  TENSORSTORE_EXPECT_OK(
+      ValidateShapeBroadcast(tensorstore::span<const Index>({4, 1}),
+                             tensorstore::span<const Index>({4, 5})));
+  TENSORSTORE_EXPECT_OK(
+      ValidateShapeBroadcast(tensorstore::span<const Index>({1, 1, 5}),
+                             tensorstore::span<const Index>({4, 5})));
+  TENSORSTORE_EXPECT_OK(
+      ValidateShapeBroadcast(tensorstore::span<const Index>({1, 1, 5}),
+                             tensorstore::span<const Index>({4, 5})));
+  EXPECT_THAT(ValidateShapeBroadcast(tensorstore::span<const Index>({2, 5}),
+                                     tensorstore::span<const Index>({4, 5})),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
-  EXPECT_THAT(ValidateShapeBroadcast(span<const Index>({2, 5}),
-                                     span<const Index>({5, 5})),
+  EXPECT_THAT(ValidateShapeBroadcast(tensorstore::span<const Index>({2, 5}),
+                                     tensorstore::span<const Index>({5, 5})),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(ValidateShapeBroadcastTest, Basic) {
+  TENSORSTORE_EXPECT_OK(ValidateShapeBroadcast(
+      tensorstore::span<const Index>(), tensorstore::span<const Index>()));
   TENSORSTORE_EXPECT_OK(
-      ValidateShapeBroadcast(span<const Index>(), span<const Index>()));
+      ValidateShapeBroadcast(tensorstore::span<const Index>(),
+                             tensorstore::span<const Index>({3, 4})));
   TENSORSTORE_EXPECT_OK(
-      ValidateShapeBroadcast(span<const Index>(), span<const Index>({3, 4})));
-  TENSORSTORE_EXPECT_OK(ValidateShapeBroadcast(span<const Index>({3, 4}),
-                                               span<const Index>({3, 4})));
-  TENSORSTORE_EXPECT_OK(ValidateShapeBroadcast(span<const Index>({1, 3, 4}),
-                                               span<const Index>({3, 4})));
-  TENSORSTORE_EXPECT_OK(ValidateShapeBroadcast(span<const Index>({1, 1, 3, 4}),
-                                               span<const Index>({3, 4})));
-  TENSORSTORE_EXPECT_OK(ValidateShapeBroadcast(span<const Index>({1, 1, 1, 4}),
-                                               span<const Index>({3, 4})));
-  TENSORSTORE_EXPECT_OK(ValidateShapeBroadcast(span<const Index>({1, 1, 3, 1}),
-                                               span<const Index>({3, 4})));
-  TENSORSTORE_EXPECT_OK(ValidateShapeBroadcast(span<const Index>({3, 1}),
-                                               span<const Index>({3, 4})));
-  TENSORSTORE_EXPECT_OK(ValidateShapeBroadcast(span<const Index>({4}),
-                                               span<const Index>({3, 4})));
-  TENSORSTORE_EXPECT_OK(ValidateShapeBroadcast(span<const Index>({1}),
-                                               span<const Index>({3, 4})));
+      ValidateShapeBroadcast(tensorstore::span<const Index>({3, 4}),
+                             tensorstore::span<const Index>({3, 4})));
+  TENSORSTORE_EXPECT_OK(
+      ValidateShapeBroadcast(tensorstore::span<const Index>({1, 3, 4}),
+                             tensorstore::span<const Index>({3, 4})));
+  TENSORSTORE_EXPECT_OK(
+      ValidateShapeBroadcast(tensorstore::span<const Index>({1, 1, 3, 4}),
+                             tensorstore::span<const Index>({3, 4})));
+  TENSORSTORE_EXPECT_OK(
+      ValidateShapeBroadcast(tensorstore::span<const Index>({1, 1, 1, 4}),
+                             tensorstore::span<const Index>({3, 4})));
+  TENSORSTORE_EXPECT_OK(
+      ValidateShapeBroadcast(tensorstore::span<const Index>({1, 1, 3, 1}),
+                             tensorstore::span<const Index>({3, 4})));
+  TENSORSTORE_EXPECT_OK(
+      ValidateShapeBroadcast(tensorstore::span<const Index>({3, 1}),
+                             tensorstore::span<const Index>({3, 4})));
+  TENSORSTORE_EXPECT_OK(
+      ValidateShapeBroadcast(tensorstore::span<const Index>({4}),
+                             tensorstore::span<const Index>({3, 4})));
+  TENSORSTORE_EXPECT_OK(
+      ValidateShapeBroadcast(tensorstore::span<const Index>({1}),
+                             tensorstore::span<const Index>({3, 4})));
   EXPECT_THAT(
-      ValidateShapeBroadcast(span<const Index>({5}), span<const Index>({3, 4})),
+      ValidateShapeBroadcast(tensorstore::span<const Index>({5}),
+                             tensorstore::span<const Index>({3, 4})),
       MatchesStatus(absl::StatusCode::kInvalidArgument,
                     "Cannot broadcast array of shape \\{5\\} to target shape "
                     "\\{3, 4\\}"));
@@ -1837,16 +1854,16 @@ TEST(BroadcastStridedLayoutTest, Basic) {
 TEST(BroadcastArrayTest, ZeroOrigin) {
   {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        auto b,
-        BroadcastArray(MakeArray<int>({1, 2, 3}), span<const Index>({2, 3})));
+        auto b, BroadcastArray(MakeArray<int>({1, 2, 3}),
+                               tensorstore::span<const Index>({2, 3})));
     static_assert(std::is_same_v<decltype(b), SharedArray<int>>);
     EXPECT_THAT(b, MakeArray<int>({{1, 2, 3}, {1, 2, 3}}));
   }
   EXPECT_THAT(BroadcastArray(MakeArray<int>({{1}, {2}, {3}}),
-                             span<const Index>({3, 2})),
+                             tensorstore::span<const Index>({3, 2})),
               MakeArray<int>({{1, 1}, {2, 2}, {3, 3}}));
   EXPECT_THAT(BroadcastArray(MakeArray<int>({{1}, {2}, {3}}),
-                             span<const Index>({4, 2})),
+                             tensorstore::span<const Index>({4, 2})),
               MatchesStatus(
                   absl::StatusCode::kInvalidArgument,
                   "Cannot broadcast array of shape \\{3, 1\\} to target shape "

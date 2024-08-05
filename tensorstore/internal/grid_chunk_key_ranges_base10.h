@@ -36,9 +36,11 @@ class Base10LexicographicalGridIndexKeyParser
                                                    char dimension_separator)
       : rank(rank), dimension_separator(dimension_separator) {}
 
-  std::string FormatKey(span<const Index> grid_indices) const final;
+  std::string FormatKey(
+      tensorstore::span<const Index> grid_indices) const final;
 
-  bool ParseKey(std::string_view key, span<Index> grid_indices) const final;
+  bool ParseKey(std::string_view key,
+                tensorstore::span<Index> grid_indices) const final;
 
   Index MinGridIndexForLexicographicalOrder(
       DimensionIndex dim, IndexInterval grid_interval) const final;

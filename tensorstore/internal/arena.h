@@ -42,7 +42,7 @@ namespace internal {
 class Arena {
  public:
   Arena() : remaining_bytes_(0) {}
-  explicit Arena(span<unsigned char> initial_buffer)
+  explicit Arena(tensorstore::span<unsigned char> initial_buffer)
       : initial_buffer_(initial_buffer),
         remaining_bytes_(initial_buffer.size()) {}
 
@@ -89,7 +89,7 @@ class Arena {
   }
 
  private:
-  span<unsigned char> initial_buffer_;
+  tensorstore::span<unsigned char> initial_buffer_;
   size_t remaining_bytes_;
 };
 

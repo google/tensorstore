@@ -124,7 +124,7 @@ bool AreEqual(const BoxView<dynamic_rank, false>& box_a,
               const BoxView<dynamic_rank, false>& box_b);
 
 template <DimensionIndex Rank>
-bool IsEmpty(span<const Index, Rank> shape) {
+bool IsEmpty(tensorstore::span<const Index, Rank> shape) {
   for (const Index size : shape) {
     if (size == 0) return true;
   }
@@ -162,18 +162,18 @@ using BoxStorage = internal::MultiVectorStorage<Rank, Index, Index>;
 ///
 /// - `BoxView<Rank>` represents a const view that behaves similarly to
 ///   `std::string_view`: logically it points to existing `origin` and `shape`
-///   vectors (of type `span<const Index, Rank>`).  Like `std::string_view`,
-///   assignment is shallow and merely reassigns its `origin` and `shape`
-///   pointers, but comparison is deep.  This type is useful as an input
-///   parameter type for a function.
+///   vectors (of type `tensorstore::span<const Index, Rank>`).  Like
+///   `std::string_view`, assignment is shallow and merely reassigns its
+///   `origin` and `shape` pointers, but comparison is deep.  This type is
+///   useful as an input parameter type for a function.
 ///
 /// - `MutableBoxView<Rank>` (an alias for `BoxView<Rank, true>`) represents a
 ///   mutable view: it points to existing `origin` and `shape` vectors (of type
-///   `span<Index, Rank>`).  Like `BoxView<Rank>`, assignment is shallow but
-///   comparison is deep.  The `BoxView::DeepAssign` method may be used for deep
-///   assignment (modifies the contents of the referenced `origin` and `shape`
-///   vectors).  This type is useful as an output or input/output parameter type
-///   for a function.
+///   `tensorstore::span<Index, Rank>`).  Like `BoxView<Rank>`, assignment is
+///   shallow but comparison is deep.  The `BoxView::DeepAssign` method may be
+///   used for deep assignment (modifies the contents of the referenced `origin`
+///   and `shape` vectors).  This type is useful as an output or input/output
+///   parameter type for a function.
 ///
 /// These types are useful for specifying hyperrectangular sub-regions, and in
 /// particular can be used to represent the domains of arrays, index transforms,
@@ -255,7 +255,7 @@ class Box : public internal_box::BoxStorage<Rank> {
                 IsImplicitlyCompatibleFullIndexVector<static_rank, OriginVec> &&
                 IsImplicitlyCompatibleFullIndexVector<static_rank, ShapeVec>)>>
   explicit Box(OriginVec origin, ShapeVec shape) {
-    Access::Assign(this, span(origin), span(shape));
+    Access::Assign(this, tensorstore::span(origin), tensorstore::span(shape));
   }
   template <size_t N, typename = std::enable_if_t<
                           RankConstraint::Implies(N, static_rank)>>
@@ -284,8 +284,9 @@ class Box : public internal_box::BoxStorage<Rank> {
             typename = std::enable_if_t<
                 IsImplicitlyCompatibleFullIndexVector<static_rank, ShapeVec>>>
   explicit Box(const ShapeVec& shape)
-      : Box(GetStaticOrDynamicExtent(span(shape)),
-            GetConstantVector<Index, 0>(GetStaticOrDynamicExtent(span(shape)))
+      : Box(GetStaticOrDynamicExtent(tensorstore::span(shape)),
+            GetConstantVector<Index, 0>(
+                GetStaticOrDynamicExtent(tensorstore::span(shape)))
                 .data(),
             shape.data()) {}
   template <size_t N, typename = std::enable_if_t<
@@ -343,18 +344,22 @@ class Box : public internal_box::BoxStorage<Rank> {
   /// Returns the origin array of length `rank()`.
   ///
   /// \membergroup Accessors
-  span<const Index, static_rank> origin() const {
+  tensorstore::span<const Index, static_rank> origin() const {
     return Access::template get<0>(this);
   }
-  span<Index, static_rank> origin() { return Access::template get<0>(this); }
+  tensorstore::span<Index, static_rank> origin() {
+    return Access::template get<0>(this);
+  }
 
   /// Returns the shape array of length `rank()`.
   ///
   /// \membergroup Accessors
-  span<const Index, static_rank> shape() const {
+  tensorstore::span<const Index, static_rank> shape() const {
     return Access::template get<1>(this);
   }
-  span<Index, static_rank> shape() { return Access::template get<1>(this); }
+  tensorstore::span<Index, static_rank> shape() {
+    return Access::template get<1>(this);
+  }
 
   /// Returns the product of the extents.
   ///
@@ -434,8 +439,8 @@ Box(const Index (&shape)[Rank]) -> Box<Rank>;
 template <typename Origin, typename Shape,
           std::enable_if_t<(IsIndexConvertibleVector<Origin> &&
                             IsIndexConvertibleVector<Shape>)>* = nullptr>
-Box(const Origin& origin, const Shape& shape)
-    -> Box<SpanStaticExtent<Origin, Shape>::value>;
+Box(const Origin& origin,
+    const Shape& shape) -> Box<SpanStaticExtent<Origin, Shape>::value>;
 
 template <DimensionIndex Rank>
 Box(const Index (&origin)[Rank], const Index (&shape)[Rank]) -> Box<Rank>;
@@ -506,8 +511,8 @@ class BoxView : public internal_box::BoxViewStorage<Rank, Mutable> {
   /// \id shape
   template <bool SfinaeM = Mutable,
             typename = std::enable_if_t<SfinaeM == false>>
-  explicit BoxView(
-      span<const Index, Rank> shape ABSL_ATTRIBUTE_LIFETIME_BOUND) {
+  explicit BoxView(tensorstore::span<const Index, Rank> shape
+                       ABSL_ATTRIBUTE_LIFETIME_BOUND) {
     const auto rank = GetStaticOrDynamicExtent(shape);
     Access::Assign(this, rank, GetConstantVector<Index, 0>(rank).data(),
                    shape.data());
@@ -524,7 +529,8 @@ class BoxView : public internal_box::BoxViewStorage<Rank, Mutable> {
   ///
   /// \id origin, shape
   /// \dchecks `std::size(origin) == std::size(shape)`
-  explicit BoxView(span<IndexType, Rank> origin, span<IndexType, Rank> shape) {
+  explicit BoxView(tensorstore::span<IndexType, Rank> origin,
+                   tensorstore::span<IndexType, Rank> shape) {
     Access::Assign(this, origin, shape);
   }
   template <size_t N, typename = std::enable_if_t<
@@ -604,17 +610,21 @@ class BoxView : public internal_box::BoxViewStorage<Rank, Mutable> {
   }
 
   /// Returns the origin array of length `rank()`.
-  span<IndexType, Rank> origin() const { return Access::template get<0>(this); }
+  tensorstore::span<IndexType, Rank> origin() const {
+    return Access::template get<0>(this);
+  }
 
   /// Returns the shape array of length `rank()`.
-  span<IndexType, Rank> shape() const { return Access::template get<1>(this); }
+  tensorstore::span<IndexType, Rank> shape() const {
+    return Access::template get<1>(this);
+  }
 
   /// Returns the product of the extents.
   Index num_elements() const { return ProductOfExtents(shape()); }
 
   /// Returns `true` if `num_elements() == 0`.
   bool is_empty() const {
-    return internal_box::IsEmpty(span<const Index, Rank>(shape()));
+    return internal_box::IsEmpty(tensorstore::span<const Index, Rank>(shape()));
   }
 
   /// Copies the contents of `other.origin()` and `other.shape()` to `origin()`
@@ -693,8 +703,8 @@ BoxView(Origin&& origin, Shape&& shape)
                (IsMutableIndexVector<Origin> && IsMutableIndexVector<Shape>)>;
 
 template <DimensionIndex Rank>
-BoxView(const Index (&origin)[Rank], const Index (&shape)[Rank])
-    -> BoxView<Rank>;
+BoxView(const Index (&origin)[Rank],
+        const Index (&shape)[Rank]) -> BoxView<Rank>;
 
 template <DimensionIndex Rank, bool Mutable>
 struct StaticCastTraits<BoxView<Rank, Mutable>>
@@ -780,7 +790,7 @@ namespace internal_box {
 bool IsFinite(BoxView<> box);
 template <DimensionIndex BoxRank, DimensionIndex VectorRank, typename IndexType>
 bool Contains(const BoxView<BoxRank>& box,
-              span<const IndexType, VectorRank> indices) {
+              tensorstore::span<const IndexType, VectorRank> indices) {
   if (indices.size() != box.rank()) return false;
   for (DimensionIndex i = 0; i < box.rank(); ++i) {
     if (!Contains(box[i], indices[i])) return false;
@@ -800,7 +810,7 @@ bool Contains(const BoxView<OuterRank>& outer,
 
 template <DimensionIndex BoxRank, DimensionIndex VectorRank, typename IndexType>
 bool ContainsPartial(const BoxView<BoxRank>& box,
-                     span<const IndexType, VectorRank> indices) {
+                     tensorstore::span<const IndexType, VectorRank> indices) {
   if (indices.size() > box.rank()) return false;
   for (DimensionIndex i = 0; i < indices.size(); ++i) {
     if (!Contains(box[i], indices[i])) return false;
@@ -834,13 +844,15 @@ std::enable_if_t<(HasBoxDomain<BoxType> && IsIndexConvertibleVector<Indices>),
                  bool>
 Contains(const BoxType& box, const Indices& indices) {
   return internal_box::Contains(
-      BoxView<BoxType::static_rank>(GetBoxDomainOf(box)), span(indices));
+      BoxView<BoxType::static_rank>(GetBoxDomainOf(box)),
+      tensorstore::span(indices));
 }
 template <typename BoxType, DimensionIndex IndicesRank>
 std::enable_if_t<HasBoxDomain<BoxType>, bool> Contains(
     const BoxType& box, const Index (&indices)[IndicesRank]) {
   return internal_box::Contains(
-      BoxView<BoxType::static_rank>(GetBoxDomainOf(box)), span(indices));
+      BoxView<BoxType::static_rank>(GetBoxDomainOf(box)),
+      tensorstore::span(indices));
 }
 
 /// Returns `true` if `inner` is a subset of `outer`.
@@ -877,7 +889,8 @@ template <typename BoxType, DimensionIndex IndicesRank>
 std::enable_if_t<HasBoxDomain<BoxType>, bool> ContainsPartial(
     const BoxType& box, const Index (&indices)[IndicesRank]) {
   return internal_box::ContainsPartial(
-      BoxView<BoxType::static_rank>(GetBoxDomainOf(box)), span(indices));
+      BoxView<BoxType::static_rank>(GetBoxDomainOf(box)),
+      tensorstore::span(indices));
 }
 
 /// Returns a view of the sub-box corresponding to the specified dimension

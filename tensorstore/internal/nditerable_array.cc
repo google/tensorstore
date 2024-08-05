@@ -33,7 +33,6 @@
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/byte_strided_pointer.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
 
 // Uncomment the following line to disable specializing `StridedIteratorImpl`
 // for small ranks.
@@ -48,8 +47,8 @@ namespace {
 /// Computes the `byte_strides` for an iterator based on the original byte
 /// strides and iteration layout.
 Index ComputeIteratorBaseOffsetAndByteStrides(
-    NDIterable::IterationLayoutView layout, span<const Index> orig_byte_strides,
-    Index* byte_strides) {
+    NDIterable::IterationLayoutView layout,
+    tensorstore::span<const Index> orig_byte_strides, Index* byte_strides) {
   assert(layout.full_rank() == orig_byte_strides.size());
   Index base_offset = 0;
   for (DimensionIndex dim = 0; dim < layout.full_rank(); ++dim) {
@@ -113,7 +112,7 @@ class StridedIteratorImpl : public StridedIteratorImplBase<Rank> {
 
  public:
   StridedIteratorImpl(ByteStridedPointer<void> data,
-                      span<const Index> orig_byte_strides,
+                      tensorstore::span<const Index> orig_byte_strides,
                       NDIterable::IterationLayoutView layout,
                       ArenaAllocator<> allocator)
       : Base(layout.iteration_rank(), allocator) {
@@ -121,7 +120,8 @@ class StridedIteratorImpl : public StridedIteratorImplBase<Rank> {
                        layout, orig_byte_strides, byte_strides_.data());
   }
 
-  bool GetBlock(span<const Index> indices, IterationBufferShape block_shape,
+  bool GetBlock(tensorstore::span<const Index> indices,
+                IterationBufferShape block_shape,
                 IterationBufferPointer* pointer,
                 absl::Status* status) override {
     Index offset;
@@ -144,7 +144,7 @@ class StridedIteratorImpl : public StridedIteratorImplBase<Rank> {
 class IndexedIteratorImpl : public NDIterator::Base<IndexedIteratorImpl> {
  public:
   IndexedIteratorImpl(ByteStridedPointer<void> data,
-                      span<const Index> orig_byte_strides,
+                      tensorstore::span<const Index> orig_byte_strides,
                       NDIterable::IterationBufferLayoutView layout,
                       ArenaAllocator<> allocator)
       : block_inner_size_(layout.block_shape[1]),
@@ -163,7 +163,8 @@ class IndexedIteratorImpl : public NDIterator::Base<IndexedIteratorImpl> {
     return buffer_.get_allocator();
   }
 
-  bool GetBlock(span<const Index> indices, IterationBufferShape block_shape,
+  bool GetBlock(tensorstore::span<const Index> indices,
+                IterationBufferShape block_shape,
                 IterationBufferPointer* pointer,
                 absl::Status* status) override {
     *pointer = IterationBufferPointer{

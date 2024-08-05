@@ -28,14 +28,14 @@ NDIterable::~NDIterable() = default;
 NDIterableLayoutConstraint::~NDIterableLayoutConstraint() = default;
 NDIterableBufferConstraint::~NDIterableBufferConstraint() = default;
 
-bool NDIterator::GetBlock(span<const Index> indices,
+bool NDIterator::GetBlock(tensorstore::span<const Index> indices,
                           IterationBufferShape block_shape,
                           IterationBufferPointer* pointer,
                           absl::Status* status) {
   return true;
 }
 
-bool NDIterator::UpdateBlock(span<const Index> indices,
+bool NDIterator::UpdateBlock(tensorstore::span<const Index> indices,
                              IterationBufferShape block_shape,
                              IterationBufferPointer pointer,
                              absl::Status* status) {

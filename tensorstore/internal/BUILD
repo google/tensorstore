@@ -116,6 +116,7 @@ tensorstore_cc_library(
         "//tensorstore:array",
         "//tensorstore:box",
         "//tensorstore:chunk_layout",
+        "//tensorstore:contiguous_layout",
         "//tensorstore:data_type",
         "//tensorstore:index",
         "//tensorstore:index_interval",
@@ -124,6 +125,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/cache",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
+        "//tensorstore/util:status",
         "@com_google_absl//absl/container:inlined_vector",
     ],
 )
@@ -1141,7 +1143,6 @@ tensorstore_cc_library(
         "//tensorstore:strided_layout",
         "//tensorstore/util:byte_strided_pointer",
         "//tensorstore/util:span",
-        "//tensorstore/util:status",
         "@com_google_absl//absl/status",
     ],
 )

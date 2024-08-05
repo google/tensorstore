@@ -298,7 +298,7 @@ constexpr inline DimensionIndex SubArrayStaticRank =
     RankConstraint::Subtract(Rank, internal::ConstSpanType<Indices>::extent);
 
 /// Returns a reference to the sub-array obtained by subscripting the first
-/// `span(indices).size()` dimensions of `array`.
+/// `tensorstore::span(indices).size()` dimensions of `array`.
 ///
 /// `SubArray` always returns an array with an unowned data pointer, while
 /// `SharedSubArray` returns an array that shares ownership of the data.
@@ -309,9 +309,9 @@ constexpr inline DimensionIndex SubArrayStaticRank =
 /// \param indices A `span`-compatible index array.  May be specified as a
 ///     braced list, e.g. ``SubArray(array, {1, 2})`` or
 ///     ``SharedSubArray(array, {1, 2})``.
-/// \dchecks `array.rank() >= span(indices).size()`.
-/// \dchecks ``0 <= span(indices)[i] < array.shape()[i]`` for
-///     ``0 <= i < span(indices).size()``.
+/// \dchecks `array.rank() >= tensorstore::span(indices).size()`.
+/// \dchecks ``0 <= tensorstore::span(indices)[i] < array.shape()[i]`` for
+///          ``0 <= i < tensorstore::span(indices).size()``.
 /// \returns The sub array.
 /// \relates Array
 template <ContainerKind LayoutCKind = view, typename ElementTag,
@@ -362,11 +362,12 @@ template <ContainerKind LayoutCKind = view, typename ElementTag,
           ContainerKind SourceCKind, size_t N>
 Array<typename ElementTagTraits<ElementTag>::Element,
       SubArrayStaticRank<RankConstraint::FromInlineRank(Rank),
-                         span<const Index, N>>,
+                         tensorstore::span<const Index, N>>,
       OriginKind, LayoutCKind>
 SubArray(const Array<ElementTag, Rank, OriginKind, SourceCKind>& array,
          const Index (&indices)[N]) {
-  return SubArray<LayoutCKind>(array, span<const Index, N>(indices));
+  return SubArray<LayoutCKind>(array,
+                               tensorstore::span<const Index, N>(indices));
 }
 
 template <ContainerKind LayoutCKind = view, typename Element,
@@ -374,11 +375,12 @@ template <ContainerKind LayoutCKind = view, typename Element,
           ContainerKind SourceCKind, size_t N>
 SharedArray<Element,
             SubArrayStaticRank<RankConstraint::FromInlineRank(Rank),
-                               span<const Index, N>>,
+                               tensorstore::span<const Index, N>>,
             OriginKind, LayoutCKind>
 SharedSubArray(const SharedArray<Element, Rank, OriginKind, SourceCKind>& array,
                const Index (&indices)[N]) {
-  return SharedSubArray<LayoutCKind>(array, span<const Index, N>(indices));
+  return SharedSubArray<LayoutCKind>(
+      array, tensorstore::span<const Index, N>(indices));
 }
 
 namespace internal_array {
@@ -386,7 +388,7 @@ void PrintToOstream(
     std::ostream& os,
     const ArrayView<const void, dynamic_rank, offset_origin>& array);
 std::string DescribeForCast(DataType dtype, DimensionIndex rank);
-absl::Status ArrayOriginCastError(span<const Index> shape);
+absl::Status ArrayOriginCastError(tensorstore::span<const Index> shape);
 }  // namespace internal_array
 
 /// Represents a pointer to an in-memory multi-dimensional array with an
@@ -577,8 +579,8 @@ class Array {
   Array(SourcePointer element_pointer, const Shape& shape,
         ContiguousLayoutOrder order = c_order) {
     this->element_pointer() = std::move(element_pointer);
-    InitializeContiguousLayout(order, this->dtype().size(), span(shape),
-                               &this->layout());
+    InitializeContiguousLayout(order, this->dtype().size(),
+                               tensorstore::span(shape), &this->layout());
   }
   template <typename SourcePointer = ElementPointer, DimensionIndex ShapeRank,
             std::enable_if_t<
@@ -588,8 +590,8 @@ class Array {
   Array(SourcePointer element_pointer, const Index (&shape)[ShapeRank],
         ContiguousLayoutOrder order = c_order) {
     this->element_pointer() = std::move(element_pointer);
-    InitializeContiguousLayout(order, this->dtype().size(), span(shape),
-                               &this->layout());
+    InitializeContiguousLayout(order, this->dtype().size(),
+                               tensorstore::span(shape), &this->layout());
   }
 
   /// Constructs an array with a contiguous layout from an implicitly
@@ -749,24 +751,26 @@ class Array {
   constexpr RankType rank() const { return storage_.rank(); }
 
   /// Returns the origin vector of size `rank()`.
-  constexpr span<const Index, static_rank> origin() const {
+  constexpr tensorstore::span<const Index, static_rank> origin() const {
     return storage_.origin();
   }
-  span<MaybeConstOriginIndex, static_rank> origin() {
+  tensorstore::span<MaybeConstOriginIndex, static_rank> origin() {
     return storage_.origin();
   }
 
   /// Returns the shape vector of size `rank()`.
-  constexpr span<const Index, static_rank> shape() const {
+  constexpr tensorstore::span<const Index, static_rank> shape() const {
     return storage_.shape();
   }
-  span<MaybeConstIndex, static_rank> shape() { return storage_.shape(); }
+  tensorstore::span<MaybeConstIndex, static_rank> shape() {
+    return storage_.shape();
+  }
 
   /// Returns the byte strides vector of size `rank()`.
-  constexpr span<const Index, static_rank> byte_strides() const {
+  constexpr tensorstore::span<const Index, static_rank> byte_strides() const {
     return storage_.byte_strides();
   }
-  span<MaybeConstIndex, static_rank> byte_strides() {
+  tensorstore::span<MaybeConstIndex, static_rank> byte_strides() {
     return storage_.byte_strides();
   }
 
@@ -854,7 +858,7 @@ class Array {
                    ArrayView<Element, RankConstraint::Subtract(SfinaeR, 1),
                              array_origin_kind>>
   operator[](Index index) const {
-    return SubArray(*this, span<const Index, 1>(&index, 1));
+    return SubArray(*this, tensorstore::span<const Index, 1>(&index, 1));
   }
 
   /// Returns a reference to the sub-array obtained by subscripting the first
@@ -1297,7 +1301,7 @@ SharedArray<Element, 2> MakeArray(const Element (&array)[N0][N1]) {
 /// \id array
 template <typename Element, Index N0>
 ArrayView<Element, 1, offset_origin> MakeOffsetArrayView(
-    span<const Index, 1> origin,
+    tensorstore::span<const Index, 1> origin,
     Element (&array ABSL_ATTRIBUTE_LIFETIME_BOUND)[N0]) {
   static constexpr Index shape[] = {N0};
   static constexpr Index byte_strides[] = {sizeof(Element)};
@@ -1308,7 +1312,7 @@ ArrayView<Element, 1, offset_origin> MakeOffsetArrayView(
 }
 template <typename Element, Index N0>
 ArrayView<const Element, 1, offset_origin> MakeOffsetArrayView(
-    span<const Index, 1> origin,
+    tensorstore::span<const Index, 1> origin,
     const Element (&array ABSL_ATTRIBUTE_LIFETIME_BOUND)[N0]) {
   static constexpr Index shape[] = {N0};
   static constexpr Index byte_strides[] = {sizeof(Element)};
@@ -1319,7 +1323,7 @@ ArrayView<const Element, 1, offset_origin> MakeOffsetArrayView(
 }
 template <typename Element, Index N0, Index N1>
 ArrayView<Element, 2, offset_origin> MakeOffsetArrayView(
-    span<const Index, 2> origin,
+    tensorstore::span<const Index, 2> origin,
     Element (&array ABSL_ATTRIBUTE_LIFETIME_BOUND)[N0][N1]) {
   static constexpr Index shape[] = {N0, N1};
   static constexpr Index byte_strides[] = {N1 * sizeof(Element),
@@ -1331,7 +1335,7 @@ ArrayView<Element, 2, offset_origin> MakeOffsetArrayView(
 }
 template <typename Element, Index N0, Index N1>
 ArrayView<const Element, 2, offset_origin> MakeOffsetArrayView(
-    span<const Index, 2> origin,
+    tensorstore::span<const Index, 2> origin,
     const Element (&array ABSL_ATTRIBUTE_LIFETIME_BOUND)[N0][N1]) {
   static constexpr Index shape[] = {N0, N1};
   static constexpr Index byte_strides[] = {N1 * sizeof(Element),
@@ -1358,22 +1362,22 @@ ArrayView<const Element, 2, offset_origin> MakeOffsetArrayView(
 /// \id array
 template <typename Element, Index N0>
 SharedArray<Element, 1, offset_origin> MakeOffsetArray(
-    span<const Index, 1> origin, Element (&array)[N0]) {
+    tensorstore::span<const Index, 1> origin, Element (&array)[N0]) {
   return MakeCopy(MakeOffsetArrayView(origin, array));
 }
 template <typename Element, Index N0>
 SharedArray<Element, 1, offset_origin> MakeOffsetArray(
-    span<const Index, 1> origin, const Element (&array)[N0]) {
+    tensorstore::span<const Index, 1> origin, const Element (&array)[N0]) {
   return MakeCopy(MakeOffsetArrayView(origin, array));
 }
 template <typename Element, Index N0, Index N1>
 SharedArray<Element, 2, offset_origin> MakeOffsetArray(
-    span<const Index, 2> origin, Element (&array)[N0][N1]) {
+    tensorstore::span<const Index, 2> origin, Element (&array)[N0][N1]) {
   return MakeCopy(MakeOffsetArrayView(origin, array));
 }
 template <typename Element, Index N0, Index N1>
 SharedArray<Element, 2, offset_origin> MakeOffsetArray(
-    span<const Index, 2> origin, const Element (&array)[N0][N1]) {
+    tensorstore::span<const Index, 2> origin, const Element (&array)[N0][N1]) {
   return MakeCopy(MakeOffsetArrayView(origin, array));
 }
 
@@ -1552,7 +1556,7 @@ SharedArray<Element, Rank> AllocateArray(
     ContiguousLayoutOrder layout_order = ContiguousLayoutOrder::c,
     ElementInitialization initialization = default_init,
     dtype_t<Element> representation = dtype_v<Element>) {
-  return AllocateArray<Element, span<const Index, Rank>>(
+  return AllocateArray<Element, tensorstore::span<const Index, Rank>>(
       extents, layout_order, initialization, representation);
 }
 
@@ -1933,11 +1937,11 @@ bool AreArraysIdenticallyEqual(
 ///
 ///     EXPECT_THAT(
 ///         BroadcastArray(MakeArray<int>({1, 2, 3}),
-///                        span<const Index>({2, 3})),
+///                        tensorstore::span<const Index>({2, 3})),
 ///         MakeArray<int>({{1, 2, 3}, {1, 2, 3}}));
 ///
 ///     EXPECT_THAT(BroadcastArray(MakeArray<int>({{1}, {2}, {3}}),
-///                                span<const Index>({3, 2})),
+///                                tensorstore::span<const Index>({3, 2})),
 ///                 MakeArray<int>({{1, 1}, {2, 2}, {3, 3}}));
 ///
 /// \param source Source array to broadcast.

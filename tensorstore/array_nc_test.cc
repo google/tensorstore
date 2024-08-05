@@ -21,14 +21,13 @@
 namespace {
 
 using ::tensorstore::Index;
-using ::tensorstore::span;
 
 void FullIndexing() {
   tensorstore::SharedArray<int, 2> x =
       tensorstore::MakeArray<int>({{1, 2}, {3, 4}});
   static_cast<void>(x(0, 1));
   static_cast<void>(x({0, 1}));
-  static_cast<void>(x(span<const Index, 2>({0, 1})));
+  static_cast<void>(x(tensorstore::span<const Index, 2>({0, 1})));
 
   EXPECT_NON_COMPILE("double", x({1.1, 2.2}));
   EXPECT_NON_COMPILE("no matching function", x());
@@ -38,7 +37,7 @@ void FullIndexing() {
   EXPECT_NON_COMPILE("template argument", x({}));
   EXPECT_NON_COMPILE("RankConstraint::EqualOrUnspecified", x({1, 2, 3}));
   EXPECT_NON_COMPILE("IsCompatibleFullIndexVector",
-                     x(span<const Index, 3>({1, 2, 3})));
+                     x(tensorstore::span<const Index, 3>({1, 2, 3})));
 }
 
 void PartialIndexing() {
@@ -47,12 +46,12 @@ void PartialIndexing() {
   static_cast<void>(x[0]);
   static_cast<void>(x[0][1]);
   static_cast<void>(x[{0, 1}]);
-  static_cast<void>(x[span<const Index, 2>({0, 1})]);
+  static_cast<void>(x[tensorstore::span<const Index, 2>({0, 1})]);
 
   EXPECT_NON_COMPILE("GreaterOrUnspecified", x[0][0][0]);
   EXPECT_NON_COMPILE("no viable overloaded operator\\[\\]", x[{0, 0, 0}]);
   EXPECT_NON_COMPILE("no viable overloaded operator\\[\\]",
-                     x[span<const Index, 3>({0, 0, 0})]);
+                     x[tensorstore::span<const Index, 3>({0, 0, 0})]);
 }
 
 }  // namespace

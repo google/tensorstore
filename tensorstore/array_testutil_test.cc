@@ -18,6 +18,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "tensorstore/util/span.h"
 
 namespace {
 
@@ -27,7 +28,6 @@ using ::tensorstore::MakeOffsetArray;
 using ::tensorstore::MakeScalarArray;
 using ::tensorstore::MatchesArray;
 using ::tensorstore::MatchesScalarArray;
-using ::tensorstore::span;
 
 TEST(MatchesArrayTest, Describe) {
   std::ostringstream ss;
@@ -141,31 +141,36 @@ TEST(MatchesArrayTest, Matches) {
               MatchesArray<int>({3, 4, 5, 6, 7, 8}, {{{{{{1, 2}}}}}}));
 
   // Rank 1 with span offset origin.
-  EXPECT_THAT(MakeOffsetArray<int>({3}, {1, 2}),
-              MatchesArray<int>(span<const Index, 1>({3}), {1, 2}));
+  EXPECT_THAT(
+      MakeOffsetArray<int>({3}, {1, 2}),
+      MatchesArray<int>(tensorstore::span<const Index, 1>({3}), {1, 2}));
 
   // Rank 2 with span offset origin.
-  EXPECT_THAT(MakeOffsetArray<int>({3, 4}, {{1, 2}}),
-              MatchesArray<int>(span<const Index, 2>({3, 4}), {{1, 2}}));
+  EXPECT_THAT(
+      MakeOffsetArray<int>({3, 4}, {{1, 2}}),
+      MatchesArray<int>(tensorstore::span<const Index, 2>({3, 4}), {{1, 2}}));
 
   // Rank 3 with span offset origin.
   EXPECT_THAT(MakeOffsetArray<int>({3, 4, 5}, {{{1, 2}}}),
-              MatchesArray<int>(span<const Index, 3>({3, 4, 5}), {{{1, 2}}}));
+              MatchesArray<int>(tensorstore::span<const Index, 3>({3, 4, 5}),
+                                {{{1, 2}}}));
 
   // Rank 4 with span offset origin.
-  EXPECT_THAT(
-      MakeOffsetArray<int>({3, 4, 5, 6}, {{{{1, 2}}}}),
-      MatchesArray<int>(span<const Index, 4>({3, 4, 5, 6}), {{{{1, 2}}}}));
+  EXPECT_THAT(MakeOffsetArray<int>({3, 4, 5, 6}, {{{{1, 2}}}}),
+              MatchesArray<int>(tensorstore::span<const Index, 4>({3, 4, 5, 6}),
+                                {{{{1, 2}}}}));
 
   // Rank 5 with span offset origin.
   EXPECT_THAT(
       MakeOffsetArray<int>({3, 4, 5, 6, 7}, {{{{{1, 2}}}}}),
-      MatchesArray<int>(span<const Index, 5>({3, 4, 5, 6, 7}), {{{{{1, 2}}}}}));
+      MatchesArray<int>(tensorstore::span<const Index, 5>({3, 4, 5, 6, 7}),
+                        {{{{{1, 2}}}}}));
 
   // Rank 6 with span offset origin.
-  EXPECT_THAT(MakeOffsetArray<int>({3, 4, 5, 6, 7, 8}, {{{{{{1, 2}}}}}}),
-              MatchesArray<int>(span<const Index, 6>({3, 4, 5, 6, 7, 8}),
-                                {{{{{{1, 2}}}}}}));
+  EXPECT_THAT(
+      MakeOffsetArray<int>({3, 4, 5, 6, 7, 8}, {{{{{{1, 2}}}}}}),
+      MatchesArray<int>(tensorstore::span<const Index, 6>({3, 4, 5, 6, 7, 8}),
+                        {{{{{{1, 2}}}}}}));
 
   // Mismatch due to elements.
   EXPECT_THAT(MakeArray<int>({1, 3}),

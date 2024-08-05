@@ -70,12 +70,12 @@ namespace internal {
 absl::Status GetChunkKeyRangesForRegularGridWithSemiLexicographicalKeys(
     const internal_grid_partition::IndexTransformGridPartition& grid_partition,
     IndexTransformView<> transform,
-    span<const DimensionIndex> grid_output_dimensions,
+    tensorstore::span<const DimensionIndex> grid_output_dimensions,
     internal_grid_partition::OutputToGridCellFn output_to_grid_cell,
     BoxView<> grid_bounds,
     const LexicographicalGridIndexKeyFormatter& key_formatter,
     absl::FunctionRef<absl::Status(std::string key,
-                                   span<const Index> grid_indices)>
+                                   tensorstore::span<const Index> grid_indices)>
         handle_key,
     absl::FunctionRef<absl::Status(KeyRange key_range, BoxView<> grid_bounds)>
         handle_key_range);

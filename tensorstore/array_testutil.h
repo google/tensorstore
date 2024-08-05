@@ -65,8 +65,8 @@ class ArrayElementMatcherImpl
       explanations = AllocateArray<std::string>(value.domain());
     }
     std::vector<Index> mismatch_indices;
-    bool matches =
-        IterateOverIndexRange(value.domain(), [&](span<const Index> indices) {
+    bool matches = IterateOverIndexRange(
+        value.domain(), [&](tensorstore::span<const Index> indices) {
           const Element& element = value(indices);
           const auto& matcher = element_matchers_(indices);
           bool element_matches;
@@ -84,7 +84,7 @@ class ArrayElementMatcherImpl
         });
     if (!matches) {
       if (listener_interested) {
-        *listener << "whose element at " << span(mismatch_indices)
+        *listener << "whose element at " << tensorstore::span(mismatch_indices)
                   << " doesn't match";
         const auto& explanation = explanations(mismatch_indices);
         if (!explanation.empty()) {
@@ -97,14 +97,15 @@ class ArrayElementMatcherImpl
     // Every element matches its expectation.
     if (listener_interested) {
       bool reason_printed = false;
-      IterateOverIndexRange(value.domain(), [&](span<const Index> indices) {
-        const std::string& explanation = explanations(indices);
-        if (explanation.empty()) return;
-        if (reason_printed) *listener << ",\nand ";
-        *listener << "whose element at " << span(indices) << " matches, "
-                  << explanation;
-        reason_printed = true;
-      });
+      IterateOverIndexRange(
+          value.domain(), [&](tensorstore::span<const Index> indices) {
+            const std::string& explanation = explanations(indices);
+            if (explanation.empty()) return;
+            if (reason_printed) *listener << ",\nand ";
+            *listener << "whose element at " << tensorstore::span(indices)
+                      << " matches, " << explanation;
+            reason_printed = true;
+          });
     }
     return true;
   }
@@ -116,7 +117,7 @@ class ArrayElementMatcherImpl
       *os << " where\n";
       bool is_first = true;
       IterateOverIndexRange(element_matchers_.domain(),
-                            [&](span<const Index> indices) {
+                            [&](tensorstore::span<const Index> indices) {
                               if (!is_first) {
                                 *os << ",\n";
                               }
@@ -132,7 +133,7 @@ class ArrayElementMatcherImpl
         << dtype_v<Element> << ", or\ndoesn't have a domain of "
         << element_matchers_.domain();
     IterateOverIndexRange(element_matchers_.domain(),
-                          [&](span<const Index> indices) {
+                          [&](tensorstore::span<const Index> indices) {
                             *os << ", or\nelement at " << indices << " ";
                             element_matchers_(indices).DescribeNegationTo(os);
                           });
@@ -196,7 +197,7 @@ ArrayMatcher MatchesArray(
 /// \param element_matchers The matchers for each element of the array.
 template <typename Element, Index N0>
 ArrayMatcher MatchesArray(
-    span<const Index, 1> origin,
+    tensorstore::span<const Index, 1> origin,
     const ::testing::Matcher<Element> (&element_matchers)[N0]) {
   return MatchesArray<Element>(MakeOffsetArray(origin, element_matchers));
 }

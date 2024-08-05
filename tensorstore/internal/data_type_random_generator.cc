@@ -164,7 +164,8 @@ SharedOffsetArray<const void> MakeRandomArray(absl::BitGenRef gen,
 }
 
 SharedArray<const void> MakeRandomArray(absl::BitGenRef gen,
-                                        span<const Index> shape, DataType dtype,
+                                        tensorstore::span<const Index> shape,
+                                        DataType dtype,
                                         ContiguousLayoutOrder order) {
   assert(dtype.id() != DataTypeId::custom);
   auto array = AllocateArray(shape, order, default_init, dtype);

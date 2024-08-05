@@ -539,10 +539,11 @@ ResolveBounds(StoreResult store, Option&&... option) {
 /// Example::
 ///
 ///     TensorStore<std::int32_t, 3> store = ...;
-///     store = Resize(store,
-///                    span<const Index, 3>({kImplicit, 5, 3}),
-///                    span<const Index, 3>({kImplicit, 20, kImplicit}),
-///                    expand_only).value();
+///     store = Resize(
+///         store,
+///         tensorstore::span<const Index, 3>({kImplicit, 5, 3}),
+///         tensorstore::span<const Index, 3>({kImplicit, 20, kImplicit}),
+///         expand_only).value();
 ///
 /// \param store The TensorStore to resize.
 /// \param inclusive_min Vector of length `store.rank()` specifying the new
@@ -563,8 +564,10 @@ std::enable_if_t<internal::IsTensorStore<UnwrapResultType<StoreResult>>,
 // exclusive bounds.
 Resize(
     StoreResult store,
-    span<const Index, UnwrapResultType<StoreResult>::static_rank> inclusive_min,
-    span<const Index, UnwrapResultType<StoreResult>::static_rank> exclusive_max,
+    tensorstore::span<const Index, UnwrapResultType<StoreResult>::static_rank>
+        inclusive_min,
+    tensorstore::span<const Index, UnwrapResultType<StoreResult>::static_rank>
+        exclusive_max,
     ResizeOptions options) {
   using Store = UnwrapResultType<StoreResult>;
   return MapResult(
@@ -603,8 +606,10 @@ std::enable_if_t<(IsCompatibleOptionSequence<ResizeOptions, Option...> &&
                  Future<UnwrapResultType<StoreResult>>>
 Resize(
     StoreResult store,
-    span<const Index, UnwrapResultType<StoreResult>::static_rank> inclusive_min,
-    span<const Index, UnwrapResultType<StoreResult>::static_rank> exclusive_max,
+    tensorstore::span<const Index, UnwrapResultType<StoreResult>::static_rank>
+        inclusive_min,
+    tensorstore::span<const Index, UnwrapResultType<StoreResult>::static_rank>
+        exclusive_max,
     Option&&... option) {
   ResizeOptions options;
   TENSORSTORE_RETURN_IF_ERROR(

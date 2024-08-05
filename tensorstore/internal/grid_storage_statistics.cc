@@ -96,9 +96,10 @@ struct ListReceiver {
   void set_value(ListEntry entry) {
     Index grid_indices[kMaxRank];
     const DimensionIndex rank = handler->grid_output_dimensions.size();
-    span<Index> grid_indices_span(&grid_indices[0], rank);
+    tensorstore::span<Index> grid_indices_span(&grid_indices[0], rank);
     if (!handler->key_formatter->ParseKey(entry.key, grid_indices_span) ||
-        !Contains(grid_bounds, span<const Index>(grid_indices_span))) {
+        !Contains(grid_bounds,
+                  tensorstore::span<const Index>(grid_indices_span))) {
       return;
     }
     ++total_chunks_seen;
@@ -117,15 +118,15 @@ GridStorageStatisticsChunkHandler::~GridStorageStatisticsChunkHandler() =
     default;
 
 void GridStorageStatisticsChunkHandler::ChunkPresent(
-    span<const Index> grid_indices) {
+    tensorstore::span<const Index> grid_indices) {
   state->IncrementChunksPresent();
 }
 
 Future<ArrayStorageStatistics>
 GetStorageStatisticsForRegularGridWithSemiLexicographicalKeys(
     const KvStore& kvs, IndexTransformView<> transform,
-    span<const DimensionIndex> grid_output_dimensions,
-    span<const Index> chunk_shape, BoxView<> grid_bounds,
+    tensorstore::span<const DimensionIndex> grid_output_dimensions,
+    tensorstore::span<const Index> chunk_shape, BoxView<> grid_bounds,
     std::unique_ptr<const LexicographicalGridIndexKeyParser> key_formatter,
     absl::Time staleness_bound, GetArrayStorageStatisticsOptions options) {
   // TODO(jbms): integrate this with the chunk cache
@@ -175,7 +176,8 @@ void GetStorageStatisticsForRegularGridWithSemiLexicographicalKeys(
 
   int64_t total_chunks = 0;
 
-  const auto handle_key = [&](std::string key, span<const Index> grid_indices) {
+  const auto handle_key = [&](std::string key,
+                              tensorstore::span<const Index> grid_indices) {
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_GRID_STORAGE_STATISTICS_DEBUG)
         << "key: " << tensorstore::QuoteString(key);
     if (internal::AddOverflow<Index>(total_chunks, 1, &total_chunks)) {
@@ -244,10 +246,10 @@ void GetStorageStatisticsForRegularGridWithSemiLexicographicalKeys(
 
 Future<ArrayStorageStatistics> GetStorageStatisticsForRegularGridWithBase10Keys(
     const KvStore& kvs, IndexTransformView<> transform,
-    span<const DimensionIndex> grid_output_dimensions,
-    span<const Index> chunk_shape, span<const Index> shape,
-    char dimension_separator, absl::Time staleness_bound,
-    GetArrayStorageStatisticsOptions options) {
+    tensorstore::span<const DimensionIndex> grid_output_dimensions,
+    tensorstore::span<const Index> chunk_shape,
+    tensorstore::span<const Index> shape, char dimension_separator,
+    absl::Time staleness_bound, GetArrayStorageStatisticsOptions options) {
   const DimensionIndex rank = grid_output_dimensions.size();
   assert(rank == chunk_shape.size());
   assert(rank == shape.size());

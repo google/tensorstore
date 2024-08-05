@@ -131,7 +131,7 @@ NDIteratorCopyManager::NDIteratorCopyManager(
   // 3. Call `UpdateBlock` on the output iterator.
   constexpr static CopyImpl kCopyImpls[] = {
       // kBoth
-      [](NDIteratorCopyManager* self, span<const Index> indices,
+      [](NDIteratorCopyManager* self, tensorstore::span<const Index> indices,
          IterationBufferShape block_shape, absl::Status* status) -> bool {
         IterationBufferPointer input_pointer, output_pointer;
         return self->input_->GetBlock(indices, block_shape, &input_pointer,
@@ -145,7 +145,7 @@ NDIteratorCopyManager::NDIteratorCopyManager(
                                           status);
       },
       // kInput
-      [](NDIteratorCopyManager* self, span<const Index> indices,
+      [](NDIteratorCopyManager* self, tensorstore::span<const Index> indices,
          IterationBufferShape block_shape, absl::Status* status) -> bool {
         IterationBufferPointer pointer;
         return self->input_->GetBlock(indices, block_shape, &pointer, status) &&
@@ -155,7 +155,7 @@ NDIteratorCopyManager::NDIteratorCopyManager(
                                           status);
       },
       // kOutput
-      [](NDIteratorCopyManager* self, span<const Index> indices,
+      [](NDIteratorCopyManager* self, tensorstore::span<const Index> indices,
          IterationBufferShape block_shape, absl::Status* status) -> bool {
         IterationBufferPointer pointer;
         return self->output_->GetBlock(indices, block_shape, &pointer,
@@ -165,7 +165,7 @@ NDIteratorCopyManager::NDIteratorCopyManager(
                                           status);
       },
       // kExternal
-      [](NDIteratorCopyManager* self, span<const Index> indices,
+      [](NDIteratorCopyManager* self, tensorstore::span<const Index> indices,
          IterationBufferShape block_shape, absl::Status* status) -> bool {
         return self->input_->GetBlock(
                    indices, block_shape,
@@ -183,15 +183,16 @@ NDIteratorCopyManager::NDIteratorCopyManager(
 
 NDIterableCopier::NDIterableCopier(const NDIterable& input,
                                    const NDIterable& output,
-                                   span<const Index> shape,
+                                   tensorstore::span<const Index> shape,
                                    IterationConstraints constraints,
                                    Arena* arena)
     : NDIterableCopier(NDIterableCopyManager(&input, &output), shape,
                        constraints, arena) {}
 
 NDIterableCopier::NDIterableCopier(
-    const NDIterableCopyManager& iterable_copy_manager, span<const Index> shape,
-    IterationConstraints constraints, Arena* arena)
+    const NDIterableCopyManager& iterable_copy_manager,
+    tensorstore::span<const Index> shape, IterationConstraints constraints,
+    Arena* arena)
     : layout_info_(iterable_copy_manager, shape, constraints),
       block_shape_(GetNDIterationBlockShape(
           iterable_copy_manager.GetWorkingMemoryBytesPerElement(
@@ -202,7 +203,7 @@ NDIterableCopier::NDIterableCopier(
                              arena) {}
 
 absl::Status NDIterableCopier::Copy() {
-  span<const Index> iteration_shape = layout_info_.iteration_shape;
+  tensorstore::span<const Index> iteration_shape = layout_info_.iteration_shape;
   std::fill_n(position_, iteration_shape.size(), static_cast<Index>(0));
   if (layout_info_.empty) {
     return absl::OkStatus();
@@ -215,7 +216,7 @@ absl::Status NDIterableCopier::Copy() {
     assert(block_shape_[0] == 1);
     for (Index block_size = inner_block_size; block_size;) {
       if (!iterator_copy_manager_.Copy(
-              span<const Index>(position_, iteration_shape.size()),
+              tensorstore::span<const Index>(position_, iteration_shape.size()),
               {1, block_size}, &copy_status)) {
         return GetElementCopyErrorStatus(std::move(copy_status));
       }
@@ -227,7 +228,7 @@ absl::Status NDIterableCopier::Copy() {
     const Index outer_block_size = block_shape_[0];
     for (Index block_size = outer_block_size; block_size;) {
       if (!iterator_copy_manager_.Copy(
-              span<const Index>(position_, iteration_shape.size()),
+              tensorstore::span<const Index>(position_, iteration_shape.size()),
               {block_size, inner_block_size}, &copy_status)) {
         return GetElementCopyErrorStatus(std::move(copy_status));
       }

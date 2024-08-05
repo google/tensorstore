@@ -33,7 +33,8 @@ namespace internal {
 class LexicographicalGridIndexKeyFormatter {
  public:
   // Returns the key or key prefix corresponding to `grid_indices`.
-  virtual std::string FormatKey(span<const Index> grid_indices) const = 0;
+  virtual std::string FormatKey(
+      tensorstore::span<const Index> grid_indices) const = 0;
 
   // Returns the first grid index for dimension `dim` at which the formatted
   // keys are ordered lexicographically.
@@ -50,15 +51,14 @@ class LexicographicalGridIndexKeyParser
  public:
   // Parses a key, inverse of `LexicographicalGridIndexKeyFormatter::FormatKey`.
   virtual bool ParseKey(std::string_view key,
-                        span<Index> grid_indices) const = 0;
+                        tensorstore::span<Index> grid_indices) const = 0;
 };
 
 template <typename FormatGridIndex>
-void FormatGridIndexKeyWithDimensionSeparator(std::string& out,
-                                              char dimension_separator,
-                                              FormatGridIndex format_grid_index,
-                                              DimensionIndex rank,
-                                              span<const Index> grid_indices) {
+void FormatGridIndexKeyWithDimensionSeparator(
+    std::string& out, char dimension_separator,
+    FormatGridIndex format_grid_index, DimensionIndex rank,
+    tensorstore::span<const Index> grid_indices) {
   assert(grid_indices.size() <= rank);
   for (DimensionIndex i = 0; i < grid_indices.size(); ++i) {
     format_grid_index(out, i, grid_indices[i]);
@@ -67,10 +67,9 @@ void FormatGridIndexKeyWithDimensionSeparator(std::string& out,
 }
 
 template <typename ParseGridIndex>
-bool ParseGridIndexKeyWithDimensionSeparator(char dimension_separator,
-                                             ParseGridIndex parse_grid_index,
-                                             std::string_view key,
-                                             span<Index> grid_indices) {
+bool ParseGridIndexKeyWithDimensionSeparator(
+    char dimension_separator, ParseGridIndex parse_grid_index,
+    std::string_view key, tensorstore::span<Index> grid_indices) {
   if (key.empty()) return false;
   for (DimensionIndex i = 0; i != grid_indices.size(); ++i) {
     std::string_view part;

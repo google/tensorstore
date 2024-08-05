@@ -212,7 +212,9 @@ class NDIteratorExternalBufferManager {
   ArenaAllocator<> get_allocator() const { return allocator_; }
 
   /// Returns the data types of the buffers that are allocated.
-  span<const DataType, Arity> data_types() const { return data_types_; }
+  tensorstore::span<const DataType, Arity> data_types() const {
+    return data_types_;
+  }
 
   /// Returns the block size of the buffers that are allocated.
   Index block_size() const { return block_size_; }
@@ -224,12 +226,13 @@ class NDIteratorExternalBufferManager {
   /// of size `block_size()` of kind `buffer_kinds[i][j]`, where `buffer_kinds`
   /// is the argument passed to `Initialize`.  Otherwise,
   /// `buffer_pointers()[j][i]` is unspecified.
-  span<std::array<IterationBufferPointer, Arity>, NumBufferKinds>
+  tensorstore::span<std::array<IterationBufferPointer, Arity>, NumBufferKinds>
   buffer_pointers() {
     return buffer_pointers_;
   }
 
-  span<const std::array<IterationBufferPointer, Arity>, NumBufferKinds>
+  tensorstore::span<const std::array<IterationBufferPointer, Arity>,
+                    NumBufferKinds>
   buffer_pointers() const {
     return buffer_pointers_;
   }
@@ -329,8 +332,8 @@ struct NDIteratorsWithManagedBuffers {
   ///     be assumed.
   /// \returns `true` if `GetBlock` succeeded for all of the iterators, `false`
   ///     otherwise.
-  bool GetBlock(span<const Index> indices, IterationBufferShape block_shape,
-                absl::Status* status) {
+  bool GetBlock(tensorstore::span<const Index> indices,
+                IterationBufferShape block_shape, absl::Status* status) {
     for (size_t i = 0; i < Arity; ++i) {
       if (!iterators_[i]->GetBlock(indices, block_shape, get_block_pointers_[i],
                                    status)) {
@@ -351,8 +354,8 @@ struct NDIteratorsWithManagedBuffers {
   ///     the return value is `false`, in which case a default error should be
   ///     assumed.
   /// \returns `true` on success, `false` to indicate an error.
-  bool UpdateBlock(span<const Index> indices, IterationBufferShape block_shape,
-                   absl::Status* status) {
+  bool UpdateBlock(tensorstore::span<const Index> indices,
+                   IterationBufferShape block_shape, absl::Status* status) {
     for (size_t i = 0; i < Arity; ++i) {
       if (!iterators_[i]->UpdateBlock(indices, block_shape,
                                       *get_block_pointers_[i], status)) {
@@ -364,7 +367,8 @@ struct NDIteratorsWithManagedBuffers {
 
   /// Returns block pointers corresponding to the prior successful call to
   /// `GetBlock`.
-  span<const IterationBufferPointer, Arity> block_pointers() const {
+  tensorstore::span<const IterationBufferPointer, Arity> block_pointers()
+      const {
     return buffer_manager_.buffer_pointers()[1];
   }
 
@@ -413,8 +417,9 @@ struct MultiNDIterator : public NDIterationInfo<Full>,
 
   /// Computes a layout for the specified `iterables`, obtains iterators, and
   /// allocates any necessary external buffers.
-  MultiNDIterator(span<const Index> shape, IterationConstraints constraints,
-                  Iterables iterables, ArenaAllocator<> allocator)
+  MultiNDIterator(tensorstore::span<const Index> shape,
+                  IterationConstraints constraints, Iterables iterables,
+                  ArenaAllocator<> allocator)
       : NDIterationInfo<Full>(
             NDIterablesWithManagedBuffers<Iterables>{iterables}, shape,
             constraints),
@@ -435,8 +440,8 @@ struct MultiNDIterator : public NDIterationInfo<Full>,
       return {1, next_block_size};
     } else {
       const Index next_block_size = StepBufferPositionForward(
-          span<const Index>(&this->iteration_shape[0],
-                            this->iteration_shape.size() - 1),
+          tensorstore::span<const Index>(&this->iteration_shape[0],
+                                         this->iteration_shape.size() - 1),
           step[0], block_shape[0], position_);
       return {next_block_size, step[1]};
     }
@@ -452,12 +457,13 @@ struct MultiNDIterator : public NDIterationInfo<Full>,
                                                              cur_shape, status);
   }
 
-  span<Index> position() {
-    return span<Index>(position_, this->iteration_shape.size());
+  tensorstore::span<Index> position() {
+    return tensorstore::span<Index>(position_, this->iteration_shape.size());
   }
 
-  span<const Index> position() const {
-    return span<const Index>(position_, this->iteration_shape.size());
+  tensorstore::span<const Index> position() const {
+    return tensorstore::span<const Index>(position_,
+                                          this->iteration_shape.size());
   }
 
  private:
@@ -467,7 +473,7 @@ struct MultiNDIterator : public NDIterationInfo<Full>,
 
 template <ptrdiff_t Arity, bool Update, typename... ExtraArg>
 absl::Status IterateOverNDIterables(
-    span<const Index> shape, IterationConstraints constraints,
+    tensorstore::span<const Index> shape, IterationConstraints constraints,
     std::array<const NDIterable*, Arity> iterables, ArenaAllocator<> allocator,
     ElementwiseClosure<Arity, ExtraArg...> closure, ExtraArg... arg) {
   absl::Status status;
