@@ -56,8 +56,8 @@ namespace internal {
 Future<ArrayStorageStatistics>
 GetStorageStatisticsForRegularGridWithSemiLexicographicalKeys(
     const KvStore& kvs, IndexTransformView<> transform,
-    span<const DimensionIndex> grid_output_dimensions,
-    span<const Index> chunk_shape, BoxView<> grid_bounds,
+    tensorstore::span<const DimensionIndex> grid_output_dimensions,
+    tensorstore::span<const Index> chunk_shape, BoxView<> grid_bounds,
     std::unique_ptr<const LexicographicalGridIndexKeyParser> key_formatter,
     absl::Time staleness_bound, GetArrayStorageStatisticsOptions options);
 
@@ -65,21 +65,21 @@ GetStorageStatisticsForRegularGridWithSemiLexicographicalKeys(
 // `key_formatter`.
 Future<ArrayStorageStatistics> GetStorageStatisticsForRegularGridWithBase10Keys(
     const KvStore& kvs, IndexTransformView<> transform,
-    span<const DimensionIndex> grid_output_dimensions,
-    span<const Index> chunk_shape, span<const Index> shape,
-    char dimension_separator, absl::Time staleness_bound,
-    GetArrayStorageStatisticsOptions options);
+    tensorstore::span<const DimensionIndex> grid_output_dimensions,
+    tensorstore::span<const Index> chunk_shape,
+    tensorstore::span<const Index> shape, char dimension_separator,
+    absl::Time staleness_bound, GetArrayStorageStatisticsOptions options);
 
 struct GridStorageStatisticsChunkHandler
     : public internal::AtomicReferenceCount<GridStorageStatisticsChunkHandler> {
   internal::IntrusivePtr<GetStorageStatisticsAsyncOperationState> state;
   internal_grid_partition::IndexTransformGridPartition grid_partition;
   IndexTransform<> full_transform;
-  span<const DimensionIndex> grid_output_dimensions;
-  span<const Index> chunk_shape;
+  tensorstore::span<const DimensionIndex> grid_output_dimensions;
+  tensorstore::span<const Index> chunk_shape;
   const LexicographicalGridIndexKeyParser* key_formatter;
 
-  virtual void ChunkPresent(span<const Index> grid_indices);
+  virtual void ChunkPresent(tensorstore::span<const Index> grid_indices);
 
   virtual ~GridStorageStatisticsChunkHandler();
 };

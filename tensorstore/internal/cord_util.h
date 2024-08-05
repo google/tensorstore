@@ -27,9 +27,10 @@ namespace internal {
 ///
 /// \param char_it The start iterator, must be at least `output.size()` bytes
 ///     before the end.
-void CopyCordToSpan(absl::Cord::CharIterator& char_it, span<char> output);
+void CopyCordToSpan(absl::Cord::CharIterator& char_it,
+                    tensorstore::span<char> output);
 
-void CopyCordToSpan(const absl::Cord& cord, span<char> output);
+void CopyCordToSpan(const absl::Cord& cord, tensorstore::span<char> output);
 
 }  // namespace internal
 }  // namespace tensorstore

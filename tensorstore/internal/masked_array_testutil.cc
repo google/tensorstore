@@ -48,16 +48,17 @@ absl::Status WriteToMaskedArray(ElementPointer<void> output_ptr, MaskData* mask,
                                 const NDIterable& source, Arena* arena) {
   const DimensionIndex output_rank = output_box.rank();
   Index data_byte_strides_storage[kMaxRank];
-  const span<Index> data_byte_strides(&data_byte_strides_storage[0],
-                                      output_rank);
+  const tensorstore::span<Index> data_byte_strides(
+      &data_byte_strides_storage[0], output_rank);
   ComputeStrides(ContiguousLayoutOrder::c, output_ptr.dtype()->size,
                  output_box.shape(), data_byte_strides);
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto dest_iterable,
       GetTransformedArrayNDIterable(
           {UnownedToShared(AddByteOffset(
-               output_ptr, -IndexInnerProduct(output_box.origin(),
-                                              span(data_byte_strides)))),
+               output_ptr,
+               -IndexInnerProduct(output_box.origin(),
+                                  tensorstore::span(data_byte_strides)))),
            StridedLayoutView<dynamic_rank, offset_origin>(output_box,
                                                           data_byte_strides)},
           input_to_output, arena));

@@ -42,7 +42,7 @@ using OutputToGridCellFn = absl::FunctionRef<Index(
 /// hyperrectangle with inclusive lower bound `v * grid_cell_shape` and
 /// exclusive upper bound `(v + 1) * grid_cell_shape`.
 struct RegularGridRef {
-  span<const Index> grid_cell_shape;
+  tensorstore::span<const Index> grid_cell_shape;
 
   DimensionIndex rank() const { return grid_cell_shape.size(); }
 

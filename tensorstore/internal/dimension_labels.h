@@ -29,9 +29,10 @@ namespace internal {
 /// \param labels The sequence of labels to validate.
 /// \returns `absl::Status()` if valid.
 /// \error `absl::StatusCode::kInvalidArgument` if there is a non-unique label.
-absl::Status ValidateDimensionLabelsAreUnique(span<const std::string> labels);
 absl::Status ValidateDimensionLabelsAreUnique(
-    span<const std::string_view> labels);
+    tensorstore::span<const std::string> labels);
+absl::Status ValidateDimensionLabelsAreUnique(
+    tensorstore::span<const std::string_view> labels);
 
 }  // namespace internal
 }  // namespace tensorstore

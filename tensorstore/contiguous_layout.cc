@@ -25,7 +25,8 @@
 namespace tensorstore {
 
 void ComputeStrides(ContiguousLayoutOrder order, ptrdiff_t element_stride,
-                    span<const Index> shape, span<Index> strides) {
+                    tensorstore::span<const Index> shape,
+                    tensorstore::span<Index> strides) {
   const DimensionIndex rank = shape.size();
   assert(strides.size() == rank);
   if (order == ContiguousLayoutOrder::right) {

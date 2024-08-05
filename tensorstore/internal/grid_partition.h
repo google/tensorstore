@@ -129,10 +129,12 @@ namespace internal {
 /// \error `absl::StatusCode::kOutOfRange` if an index array contains an
 ///     out-of-bounds index.
 absl::Status PartitionIndexTransformOverRegularGrid(
-    span<const DimensionIndex> grid_output_dimensions,
-    span<const Index> grid_cell_shape, IndexTransformView<> transform,
-    absl::FunctionRef<absl::Status(span<const Index> grid_cell_indices,
-                                   IndexTransformView<> cell_transform)>
+    tensorstore::span<const DimensionIndex> grid_output_dimensions,
+    tensorstore::span<const Index> grid_cell_shape,
+    IndexTransformView<> transform,
+    absl::FunctionRef<
+        absl::Status(tensorstore::span<const Index> grid_cell_indices,
+                     IndexTransformView<> cell_transform)>
         func);
 
 /// Partitions the input domain of a given `transform` from an input space
@@ -144,17 +146,19 @@ absl::Status PartitionIndexTransformOverRegularGrid(
 ///   `func(h, cell_transform[h])`.
 ///
 absl::Status PartitionIndexTransformOverGrid(
-    span<const DimensionIndex> grid_output_dimensions,
+    tensorstore::span<const DimensionIndex> grid_output_dimensions,
     absl::FunctionRef<Index(DimensionIndex grid_dim, Index output_index,
                             IndexInterval* cell_bounds)>
         output_to_grid_cell,
     IndexTransformView<> transform,
-    absl::FunctionRef<absl::Status(span<const Index> grid_cell_indices,
-                                   IndexTransformView<> cell_transform)>
+    absl::FunctionRef<
+        absl::Status(tensorstore::span<const Index> grid_cell_indices,
+                     IndexTransformView<> cell_transform)>
         func);
 
 absl::Status GetGridCellRanges(
-    span<const DimensionIndex> grid_output_dimensions, BoxView<> grid_bounds,
+    tensorstore::span<const DimensionIndex> grid_output_dimensions,
+    BoxView<> grid_bounds,
     absl::FunctionRef<Index(DimensionIndex grid_dim, Index output_index,
                             IndexInterval* cell_bounds)>
         output_to_grid_cell,
@@ -195,7 +199,8 @@ class IndexTransformGridPartition;
 //     `0 <= m <= n <= grid_bounds.rank()`.
 absl::Status GetGridCellRanges(
     const IndexTransformGridPartition& grid_partition,
-    span<const DimensionIndex> grid_output_dimensions, BoxView<> grid_bounds,
+    tensorstore::span<const DimensionIndex> grid_output_dimensions,
+    BoxView<> grid_bounds,
     absl::FunctionRef<Index(DimensionIndex grid_dim, Index output_index,
                             IndexInterval* cell_bounds)>
         output_to_grid_cell,

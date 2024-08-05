@@ -39,8 +39,8 @@ namespace tensorstore {
 ///     overflow occurred in computing an intermediate product.
 ///
 /// \relates Box
-template <typename T, std::ptrdiff_t Extent>
-T ProductOfExtents(span<T, Extent> s) {
+template <typename T, ptrdiff_t Extent>
+T ProductOfExtents(tensorstore::span<T, Extent> s) {
   using value_type = std::remove_const_t<T>;
   value_type result = 1;
   for (const auto& x : s) {
@@ -153,12 +153,12 @@ namespace internal_extents {
 template <typename... Xs>
 struct SpanStaticExtentHelper {};
 
-template <typename... Ts, std::ptrdiff_t Extent>
-struct SpanStaticExtentHelper<span<Ts, Extent>...>
-    : public std::integral_constant<std::ptrdiff_t, Extent> {};
+template <typename... Ts, ptrdiff_t Extent>
+struct SpanStaticExtentHelper<tensorstore::span<Ts, Extent>...>
+    : public std::integral_constant<ptrdiff_t, Extent> {};
 }  // namespace internal_extents
 
-/// `std::ptrdiff_t`-valued metafunction with a
+/// `ptrdiff_t`-valued metafunction with a
 /// ``static constexpr ptrdiff_t value`` member that is equal to the common
 /// static extent of ``X0, Xs...`` if ``X0, Xs...`` are all
 /// `span`-compatible types with the same static extent.

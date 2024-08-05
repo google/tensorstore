@@ -31,7 +31,7 @@
 ///               tensorstore::virtual_chunked::ReadParameters read_params) {
 ///             tensorstore::IterateOverIndexRange(
 ///                 output.domain(),
-///                 [&](span<const Index> indices) {
+///                 [&](tensorstore::span<const Index> indices) {
 ///                     output(indices) = indices[dim];
 ///                 });
 ///             return TimestampedStorageGeneration{
@@ -175,7 +175,7 @@
 ///           tensorstore::virtual_chunked::ReadParameters read_params) const {
 ///         tensorstore::IterateOverIndexRange(
 ///             output.domain(),
-///             [&](span<const Index> indices) {
+///             [&](tensorstore::span<const Index> indices) {
 ///               output(indices) = indices[dim];
 ///             });
 ///         return TimestampedStorageGeneration{
@@ -200,7 +200,7 @@
 ///                                                  auto read_params) {
 ///             tensorstore::IterateOverIndexRange(
 ///                 output.domain(),
-///                 [&](span<const Index> indices) {
+///                 [&](tensorstore::span<const Index> indices) {
 ///                     output(indices) = indices[dim];
 ///                 });
 ///             return TimestampedStorageGeneration{

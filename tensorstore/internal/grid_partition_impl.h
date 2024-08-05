@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "absl/container/inlined_vector.h"
+#include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/index.h"
@@ -112,7 +113,8 @@ class IndexTransformGridPartition {
     /// `i`.
     ///
     /// \returns A `span` of size `grid_dimensions.count()`.
-    span<const Index> partition_grid_cell_indices(Index partition_i) const;
+    tensorstore::span<const Index> partition_grid_cell_indices(
+        Index partition_i) const;
 
     /// Returns the number of partitions (partial grid cell index vectors).
     Index num_partitions() const {
@@ -127,15 +129,17 @@ class IndexTransformGridPartition {
     /// `0 <= partition_i && partition_i < num_partitions()`.
     ///
     /// If there is no such partition, returns -1`.
-    Index FindPartition(span<const Index> grid_cell_indices) const;
+    Index FindPartition(tensorstore::span<const Index> grid_cell_indices) const;
   };
 
-  span<const IndexArraySet> index_array_sets() const {
+  tensorstore::span<const IndexArraySet> index_array_sets() const {
     return index_array_sets_;
   }
   auto& index_array_sets() { return index_array_sets_; }
 
-  span<const StridedSet> strided_sets() const { return strided_sets_; }
+  tensorstore::span<const StridedSet> strided_sets() const {
+    return strided_sets_;
+  }
   auto& strided_sets() { return strided_sets_; }
 
   /// Returns the "cell transform" for the grid cell given by
@@ -157,8 +161,9 @@ class IndexTransformGridPartition {
   ///     consistent with that of the `output_to_grid_cell` function supplied to
   ///     `PrePartitionIndexTransformOverGrid`.
   IndexTransform<> GetCellTransform(
-      IndexTransformView<> full_transform, span<const Index> grid_cell_indices,
-      span<const DimensionIndex> grid_output_dimensions,
+      IndexTransformView<> full_transform,
+      tensorstore::span<const Index> grid_cell_indices,
+      tensorstore::span<const DimensionIndex> grid_output_dimensions,
       absl::FunctionRef<IndexInterval(DimensionIndex grid_dim,
                                       Index grid_cell_index)>
           get_grid_cell_output_interval) const;
@@ -221,7 +226,7 @@ void UpdateCellTransformForIndexArraySetPartition(
 ///     out-of-bounds index.
 absl::Status PrePartitionIndexTransformOverGrid(
     IndexTransformView<> index_transform,
-    span<const DimensionIndex> grid_output_dimensions,
+    tensorstore::span<const DimensionIndex> grid_output_dimensions,
     OutputToGridCellFn output_to_grid_cell,
     IndexTransformGridPartition& grid_partition);
 

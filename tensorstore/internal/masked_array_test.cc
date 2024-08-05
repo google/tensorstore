@@ -57,7 +57,6 @@ using ::tensorstore::MakeScalarArray;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::offset_origin;
 using ::tensorstore::SharedArray;
-using ::tensorstore::span;
 using ::tensorstore::StridedLayout;
 using ::tensorstore::TransformedArray;
 using ::tensorstore::internal::ElementCopyFunction;
@@ -183,7 +182,7 @@ TEST(WriteToMaskedArrayTest, RankOneNoElementsWritten) {
   MaskedArrayWriteTester<int> tester{BoxView<>(0)};
   TENSORSTORE_EXPECT_OK(tester.Write(
       (tester.transform() | Dims(0).AddNew().SizedInterval(0, 0)).value(),
-      MakeArrayView(span<const int>{})));
+      MakeArrayView(tensorstore::span<const int>{})));
   EXPECT_EQ(0, tester.num_masked_elements());
   EXPECT_FALSE(tester.mask_array().valid());
   EXPECT_EQ(MakeScalarArray(0), tester.dest_array());
@@ -446,11 +445,11 @@ TEST(WriteToMaskedArrayTest, IndexArrayLarge) {
   }
   auto fill_array =
       tensorstore::BroadcastArray(tensorstore::MakeScalarArray<int>(42),
-                                  span<const Index>({2, kSize}))
+                                  tensorstore::span<const Index>({2, kSize}))
           .value();
   auto mask_array =
       tensorstore::BroadcastArray(tensorstore::MakeScalarArray<bool>(true),
-                                  span<const Index>({2, kSize}))
+                                  tensorstore::span<const Index>({2, kSize}))
           .value();
   MaskedArrayWriteTester<int> tester{fill_array.domain()};
   TENSORSTORE_EXPECT_OK(tester.Write(

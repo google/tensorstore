@@ -38,8 +38,8 @@ class IrregularGrid {
   IrregularGrid() = default;
   IrregularGrid(std::vector<std::vector<Index>> unsorted_inclusive_mins);
 
-  static IrregularGrid Make(span<const IndexDomainView<>> domains);
-  static IrregularGrid Make(span<const IndexDomain<>> domains);
+  static IrregularGrid Make(tensorstore::span<const IndexDomainView<>> domains);
+  static IrregularGrid Make(tensorstore::span<const IndexDomain<>> domains);
 
   /// Converts output indices to grid indices of a regular grid.
   Index operator()(DimensionIndex dim, Index output_index,
@@ -50,16 +50,16 @@ class IrregularGrid {
 
   /// The number of cells along each dimension.
   /// Valid cell indices are from 0 .. shape()[dimension], exclusive.
-  span<const Index> shape() const { return shape_; }
+  tensorstore::span<const Index> shape() const { return shape_; }
 
   /// Returns the points on the grid for dimension r
-  span<const Index> inclusive_min(DimensionIndex r) const {
+  tensorstore::span<const Index> inclusive_min(DimensionIndex r) const {
     assert(r >= 0);
     assert(r < rank());
     return inclusive_mins_[r];
   }
 
-  std::vector<Index> cell_origin(span<const Index> indices) const {
+  std::vector<Index> cell_origin(tensorstore::span<const Index> indices) const {
     assert(indices.size() == rank());
     std::vector<Index> origin;
     origin.reserve(rank());

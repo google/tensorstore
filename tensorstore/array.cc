@@ -157,7 +157,7 @@ std::string DescribeForCast(DataType dtype, DimensionIndex rank) {
       StaticCastTraits<DimensionIndex>::Describe(rank));
 }
 
-absl::Status ArrayOriginCastError(span<const Index> shape) {
+absl::Status ArrayOriginCastError(tensorstore::span<const Index> shape) {
   return absl::InvalidArgumentError(tensorstore::StrCat(
       "Cannot translate array with shape ", shape, " to have zero origin."));
 }
@@ -173,7 +173,7 @@ SharedElementPointer<void> AllocateArrayLike(
   const auto dimension_order =
       internal_iterate::ComputeStridedLayoutDimensionIterationOrder(
           constraints, source_layout.shape(),
-          span({source_layout.byte_strides().data()}));
+          tensorstore::span({source_layout.byte_strides().data()}));
   const DimensionIndex rank = source_layout.rank();
   std::fill_n(byte_strides, rank, Index(0));
   Index stride = r->size;
@@ -217,7 +217,7 @@ void AppendToString(
   } else {
     internal_array::PrintArrayDimension(result, array, options, summarize);
   }
-  const span<const Index> origin = array.origin();
+  const tensorstore::span<const Index> origin = array.origin();
   if (std::any_of(origin.begin(), origin.end(),
                   [](Index x) { return x != 0; })) {
     tensorstore::StrAppend(result, " @ ", origin);
@@ -241,9 +241,9 @@ void PrintToOstream(
 }  // namespace internal_array
 
 namespace internal_array {
-void UnbroadcastStridedLayout(StridedLayoutView<> layout,
-                              span<Index> unbroadcast_shape,
-                              span<Index> unbroadcast_byte_strides) {
+void UnbroadcastStridedLayout(
+    StridedLayoutView<> layout, tensorstore::span<Index> unbroadcast_shape,
+    tensorstore::span<Index> unbroadcast_byte_strides) {
   assert(unbroadcast_shape.size() == layout.rank());
   assert(unbroadcast_byte_strides.size() == layout.rank());
   for (DimensionIndex i = 0; i < layout.rank(); ++i) {

@@ -39,7 +39,7 @@ class ElementwiseInputTransformNDIterator
     : public NDIterator::Base<ElementwiseInputTransformNDIterator<Arity>> {
  public:
   explicit ElementwiseInputTransformNDIterator(
-      span<const NDIterable::Ptr, Arity> inputs,
+      tensorstore::span<const NDIterable::Ptr, Arity> inputs,
       ElementwiseClosure<Arity + 1, void*> closure,
       NDIterable::IterationBufferKindLayoutView layout,
       ArenaAllocator<> allocator)
@@ -51,7 +51,8 @@ class ElementwiseInputTransformNDIterator
     return inputs_.get_allocator();
   }
 
-  bool GetBlock(span<const Index> indices, IterationBufferShape block_shape,
+  bool GetBlock(tensorstore::span<const Index> indices,
+                IterationBufferShape block_shape,
                 IterationBufferPointer* pointer,
                 absl::Status* status) override {
     return inputs_.GetBlock(indices, block_shape, status) &&

@@ -53,7 +53,6 @@ using ::tensorstore::IndexTransformView;
 using ::tensorstore::KeyRange;
 using ::tensorstore::kMaxRank;
 using ::tensorstore::Result;
-using ::tensorstore::span;
 using ::tensorstore::internal::Base10LexicographicalGridIndexKeyParser;
 using ::tensorstore::internal_grid_partition::IndexTransformGridPartition;
 using ::tensorstore::internal_grid_partition::
@@ -66,11 +65,11 @@ using R = std::tuple<KeyRange, Box<>>;
 
 absl::Status GetChunkKeyRangesForRegularGridWithBase10Keys(
     IndexTransformView<> transform,
-    span<const DimensionIndex> grid_output_dimensions,
-    span<const Index> chunk_shape, span<const Index> shape,
-    char dimension_separator,
+    tensorstore::span<const DimensionIndex> grid_output_dimensions,
+    tensorstore::span<const Index> chunk_shape,
+    tensorstore::span<const Index> shape, char dimension_separator,
     absl::FunctionRef<absl::Status(std::string key,
-                                   span<const Index> grid_indices)>
+                                   tensorstore::span<const Index> grid_indices)>
         handle_key,
     absl::FunctionRef<absl::Status(KeyRange key_range, BoxView<> grid_bounds)>
         handle_key_range) {
@@ -94,12 +93,13 @@ absl::Status GetChunkKeyRangesForRegularGridWithBase10Keys(
 
 Result<std::vector<R>> GetRanges(
     IndexTransformView<> transform,
-    span<const DimensionIndex> grid_output_dimensions,
-    span<const Index> chunk_shape, span<const Index> shape,
-    char dimension_separator) {
+    tensorstore::span<const DimensionIndex> grid_output_dimensions,
+    tensorstore::span<const Index> chunk_shape,
+    tensorstore::span<const Index> shape, char dimension_separator) {
   std::vector<R> ranges;
-  const auto handle_key = [&](std::string key,
-                              span<const Index> grid_indices) -> absl::Status {
+  const auto handle_key =
+      [&](std::string key,
+          tensorstore::span<const Index> grid_indices) -> absl::Status {
     ranges.emplace_back(
         KeyRange::Singleton(key),
         Box<>(grid_indices, std::vector<Index>(grid_indices.size(), 1)));

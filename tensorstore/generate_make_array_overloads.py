@@ -103,7 +103,9 @@ def output_make_array(
   is_offset = origin_type is not None
   function_name = 'OffsetArray' if is_offset else 'Array'
   if origin_type == 'span':
-    origin_parameter = 'span<const Index, {rank}> origin, '.format(rank=rank)
+    origin_parameter = 'tensorstore::span<const Index, {rank}> origin, '.format(
+        rank=rank
+    )
   elif origin_type == 'array':
     if is_view:
       origin_parameter = (

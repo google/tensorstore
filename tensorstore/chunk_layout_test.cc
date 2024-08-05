@@ -47,6 +47,7 @@
 #include "tensorstore/serialization/test_util.h"
 #include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/division.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
@@ -69,7 +70,6 @@ using ::tensorstore::kInfIndex;
 using ::tensorstore::kMaxRank;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
-using ::tensorstore::span;
 using ::tensorstore::internal::ChooseChunkGrid;
 using ::tensorstore::internal::ChooseChunkShape;
 using ::tensorstore::internal::ChooseReadWriteChunkShapes;
@@ -103,8 +103,8 @@ TEST(ChunkLayoutTest, SingleLevelRank1) {
 
 using HierarchicalGridCell = std::array<std::vector<Index>, 3>;
 
-HierarchicalGridCell GetHierarchicalGridCell(const ChunkLayout& layout,
-                                             span<const Index> position) {
+HierarchicalGridCell GetHierarchicalGridCell(
+    const ChunkLayout& layout, tensorstore::span<const Index> position) {
   const DimensionIndex rank = layout.rank();
   auto origin = layout.grid_origin();
   HierarchicalGridCell hier_grid_cell;
@@ -198,8 +198,10 @@ void TestGridCorrespondence(absl::BitGenRef gen,
             out_cell, output_chunk_divisors[usage_index][output_dim]);
       }
     }
-    SCOPED_TRACE(tensorstore::StrCat("input_pos=", span(input_pos)));
-    SCOPED_TRACE(tensorstore::StrCat("output_pos=", span(output_pos)));
+    SCOPED_TRACE(
+        tensorstore::StrCat("input_pos=", tensorstore::span(input_pos)));
+    SCOPED_TRACE(
+        tensorstore::StrCat("output_pos=", tensorstore::span(output_pos)));
     SCOPED_TRACE(tensorstore::StrCat("input_cell=",
                                      ::testing::PrintToString(input_cell)));
     SCOPED_TRACE(tensorstore::StrCat("output_cell=",
@@ -256,9 +258,9 @@ ChunkLayout MakeRandomChunkLayout(
   if (absl::Bernoulli(gen, 0.5)) {
     // Set inner_order
     DimensionIndex inner_order[kMaxRank];
-    MakeRandomDimensionOrder(gen, span(inner_order, rank));
-    TENSORSTORE_CHECK_OK(
-        layout.Set(ChunkLayout::InnerOrder(span(inner_order, rank))));
+    MakeRandomDimensionOrder(gen, tensorstore::span(inner_order, rank));
+    TENSORSTORE_CHECK_OK(layout.Set(
+        ChunkLayout::InnerOrder(tensorstore::span(inner_order, rank))));
   } else {
     // Leave inner_order unspecified.
   }
@@ -268,8 +270,8 @@ ChunkLayout MakeRandomChunkLayout(
     grid_origin[dim] =
         absl::Uniform<Index>(absl::IntervalClosedClosed, gen, -5, 5);
   }
-  TENSORSTORE_CHECK_OK(
-      layout.Set(ChunkLayout::GridOrigin(span(grid_origin, rank))));
+  TENSORSTORE_CHECK_OK(layout.Set(
+      ChunkLayout::GridOrigin(tensorstore::span(grid_origin, rank))));
   const auto set_grid = [&](Usage usage) {
     if (absl::Bernoulli(gen, 0.3)) {
       // Skip this usage.
@@ -293,8 +295,10 @@ ChunkLayout MakeRandomChunkLayout(
       }
       shape[dim] = size;
     }
-    TENSORSTORE_CHECK_OK(layout.Set(ChunkLayout::Chunk(
-        ChunkLayout::ChunkShapeBase(span<const Index>(shape, rank)), usage)));
+    TENSORSTORE_CHECK_OK(layout.Set(
+        ChunkLayout::Chunk(ChunkLayout::ChunkShapeBase(
+                               tensorstore::span<const Index>(shape, rank)),
+                           usage)));
   };
   set_grid(Usage::kCodec);
   set_grid(Usage::kRead);
@@ -1466,7 +1470,7 @@ TEST(ChooseChunkGridTest, Rank4Unconstrained) {
 TEST(ChooseChunkGridTest, Rank1ElementsConstrained) {
   Box box(1);
   TENSORSTORE_ASSERT_OK(ChooseChunkGrid(
-      /*origin_constraints=*/span<const Index>({42}),
+      /*origin_constraints=*/tensorstore::span<const Index>({42}),
       ChunkLayout::GridView(ChunkLayout::ChunkElementsBase(9000)), BoxView(1),
       box));
   EXPECT_EQ(Box<1>({42}, {9000}), box);
@@ -1475,7 +1479,7 @@ TEST(ChooseChunkGridTest, Rank1ElementsConstrained) {
 TEST(ChooseChunkGridTest, Rank1ShapeConstrained) {
   Box box(1);
   TENSORSTORE_ASSERT_OK(ChooseChunkGrid(
-      /*origin_constraints=*/span<const Index>({42}),
+      /*origin_constraints=*/tensorstore::span<const Index>({42}),
       ChunkLayout::GridView(ChunkLayout::ChunkShape({55})), BoxView(1), box));
   EXPECT_EQ(Box<1>({42}, {55}), box);
 }
@@ -1483,7 +1487,7 @@ TEST(ChooseChunkGridTest, Rank1ShapeConstrained) {
 TEST(ChooseChunkGridTest, Rank1ShapeFullExtent) {
   Box box(1);
   TENSORSTORE_ASSERT_OK(ChooseChunkGrid(
-      /*origin_constraints=*/span<const Index>({42}),
+      /*origin_constraints=*/tensorstore::span<const Index>({42}),
       ChunkLayout::GridView(
           // -1 means match size to domain
           ChunkLayout::ChunkShape({-1}), ChunkLayout::ChunkAspectRatio(),
@@ -1494,7 +1498,7 @@ TEST(ChooseChunkGridTest, Rank1ShapeFullExtent) {
   // Error if domain is not bounded.
   EXPECT_THAT(
       ChooseChunkGrid(
-          /*origin_constraints=*/span<const Index>({42}),
+          /*origin_constraints=*/tensorstore::span<const Index>({42}),
           ChunkLayout::GridView(
               // -1 means match size to domain
               ChunkLayout::ChunkShape({-1}), ChunkLayout::ChunkAspectRatio(),
@@ -1517,7 +1521,7 @@ TEST(ChooseChunkGridTest, Rank1BoundedDomain) {
 TEST(ChunkLayoutTest, ChooseChunkGridRank1BoundedDomainOriginConstrained) {
   Box box(1);
   TENSORSTORE_ASSERT_OK(ChooseChunkGrid(
-      /*origin_constraints=*/span<const Index>({45}),
+      /*origin_constraints=*/tensorstore::span<const Index>({45}),
       ChunkLayout::GridView(ChunkLayout::ChunkElementsBase(9000)),
       BoxView<1>({42}, {1000}), box));
   EXPECT_EQ(Box<1>({45}, {1000}), box);
@@ -1593,7 +1597,7 @@ TEST(ChooseChunkGridTest, GridOriginRankMismatch) {
   Box box(3);
   EXPECT_THAT(
       ChooseChunkGrid(
-          /*origin_constraints=*/span<const Index>({1, 2}),
+          /*origin_constraints=*/tensorstore::span<const Index>({1, 2}),
           ChunkLayout::GridView(), BoxView(3), box),
       MatchesStatus(
           absl::StatusCode::kInvalidArgument,
@@ -1671,17 +1675,19 @@ TEST(ChooseChunkShapeTest, Elements) {
       /*shape_constraints=*/ChunkLayout::GridView(
           ChunkLayout::ChunkElementsBase(1000, false)),
       /*domain=*/BoxView({0, 0, 0}, {2000, 2000, 2000}),
-      span<Index>(chunk_shape, 3)));
+      tensorstore::span<Index>(chunk_shape, 3)));
 
-  EXPECT_THAT(span<Index>(chunk_shape, 3), testing::ElementsAre(10, 10, 10));
+  EXPECT_THAT(tensorstore::span<Index>(chunk_shape, 3),
+              testing::ElementsAre(10, 10, 10));
 
   TENSORSTORE_ASSERT_OK(ChooseChunkShape(
       /*shape_constraints=*/ChunkLayout::GridView(
           ChunkLayout::ChunkElementsBase(1000, true)),
       /*domain=*/BoxView({0, 0, 0}, {2000, 2000, 1}),
-      span<Index>(chunk_shape, 3)));
+      tensorstore::span<Index>(chunk_shape, 3)));
 
-  EXPECT_THAT(span<Index>(chunk_shape, 3), testing::ElementsAre(31, 31, 1));
+  EXPECT_THAT(tensorstore::span<Index>(chunk_shape, 3),
+              testing::ElementsAre(31, 31, 1));
 }
 
 TEST(ChooseChunkShapeTest, AspectRatio) {
@@ -1690,17 +1696,19 @@ TEST(ChooseChunkShapeTest, AspectRatio) {
       /*shape_constraints=*/ChunkLayout::GridView(
           ChunkLayout::ChunkAspectRatioBase({3, 2, 1}, true)),
       /*domain=*/BoxView({0, 0, 0}, {2000, 2000, 2000}),
-      span<Index>(chunk_shape, 3)));
+      tensorstore::span<Index>(chunk_shape, 3)));
 
-  EXPECT_THAT(span<Index>(chunk_shape, 3), testing::ElementsAre(167, 111, 55));
+  EXPECT_THAT(tensorstore::span<Index>(chunk_shape, 3),
+              testing::ElementsAre(167, 111, 55));
 
   TENSORSTORE_ASSERT_OK(ChooseChunkShape(
       /*shape_constraints=*/ChunkLayout::GridView(
           ChunkLayout::ChunkAspectRatioBase({3, 2, 1}, false)),
       /*domain=*/BoxView({0, 0, 0}, {2000, 2000, 1}),
-      span<Index>(chunk_shape, 3)));
+      tensorstore::span<Index>(chunk_shape, 3)));
 
-  EXPECT_THAT(span<Index>(chunk_shape, 3), testing::ElementsAre(1254, 836, 1));
+  EXPECT_THAT(tensorstore::span<Index>(chunk_shape, 3),
+              testing::ElementsAre(1254, 836, 1));
 }
 
 TEST(ChooseChunkShapeTest, Shape) {
@@ -1711,17 +1719,19 @@ TEST(ChooseChunkShapeTest, Shape) {
       /*shape_constraints=*/ChunkLayout::GridView(
           ChunkLayout::ChunkShapeBase({30, 20, 10}, false)),
       /*domain=*/BoxView({0, 0, 0}, {2000, 2000, 2000}),
-      span<Index>(chunk_shape, 3)));
+      tensorstore::span<Index>(chunk_shape, 3)));
 
-  EXPECT_THAT(span<Index>(chunk_shape, 3), testing::ElementsAre(30, 20, 10));
+  EXPECT_THAT(tensorstore::span<Index>(chunk_shape, 3),
+              testing::ElementsAre(30, 20, 10));
 
   TENSORSTORE_ASSERT_OK(ChooseChunkShape(
       /*shape_constraints=*/ChunkLayout::GridView(
           ChunkLayout::ChunkShapeBase({30, 20, 10}, false)),
       /*domain=*/BoxView({0, 0, 0}, {2000, 2000, 1}),
-      span<Index>(chunk_shape, 3)));
+      tensorstore::span<Index>(chunk_shape, 3)));
 
-  EXPECT_THAT(span<Index>(chunk_shape, 3), testing::ElementsAre(30, 20, 10));
+  EXPECT_THAT(tensorstore::span<Index>(chunk_shape, 3),
+              testing::ElementsAre(30, 20, 10));
 }
 
 TEST(ChooseReadWriteChunkShapesTest, Unconstrained) {

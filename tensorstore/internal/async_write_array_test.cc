@@ -59,7 +59,6 @@ using ::tensorstore::MakeArray;
 using ::tensorstore::MakeOffsetArray;
 using ::tensorstore::MakeScalarArray;
 using ::tensorstore::ReferencesSameDataAs;
-using ::tensorstore::span;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::internal::Arena;
 using ::tensorstore::internal::AsyncWriteArray;
@@ -69,7 +68,7 @@ using Spec = AsyncWriteArray::Spec;
 
 tensorstore::SharedArray<void> CopyNDIterable(
     tensorstore::internal::NDIterable::Ptr source_iterable,
-    span<const Index> shape, Arena* arena) {
+    tensorstore::span<const Index> shape, Arena* arena) {
   auto dest_array = tensorstore::AllocateArray(shape, tensorstore::c_order,
                                                tensorstore::default_init,
                                                source_iterable->dtype());
@@ -120,11 +119,11 @@ TEST(SpecTest, Basic) {
   EXPECT_EQ(2, spec.rank());
   EXPECT_EQ(tensorstore::dtype_v<int32_t>, spec.dtype());
 
-  EXPECT_EQ(0, spec.EstimateReadStateSizeInBytes(/*valid=*/false,
-                                                 span<const Index>({2, 3})));
+  EXPECT_EQ(0, spec.EstimateReadStateSizeInBytes(
+                   /*valid=*/false, tensorstore::span<const Index>({2, 3})));
   EXPECT_EQ(2 * 3 * sizeof(int32_t),
-            spec.EstimateReadStateSizeInBytes(/*valid=*/true,
-                                              span<const Index>({2, 3})));
+            spec.EstimateReadStateSizeInBytes(
+                /*valid=*/true, tensorstore::span<const Index>({2, 3})));
 
   {
     auto read_array = MakeArray<int32_t>({{7, 8, 9}, {10, 11, 12}});
@@ -135,9 +134,9 @@ TEST(SpecTest, Basic) {
             read_array, /*domain=*/BoxView<>({2, 6}, {2, 3}),
             tensorstore::IdentityTransform(tensorstore::Box<>({2, 6}, {2, 2})),
             &arena));
-    EXPECT_EQ(
-        MakeArray<int32_t>({{7, 8}, {10, 11}}),
-        CopyNDIterable(std::move(iterable), span<const Index>({2, 2}), &arena));
+    EXPECT_EQ(MakeArray<int32_t>({{7, 8}, {10, 11}}),
+              CopyNDIterable(std::move(iterable),
+                             tensorstore::span<const Index>({2, 2}), &arena));
   }
 }
 
@@ -420,9 +419,9 @@ TEST(AsyncWriteArrayTest, Basic) {
             /*read_generation=*/StorageGeneration::FromString("a"),
             tensorstore::IdentityTransform(tensorstore::Box<>({0, 1}, {2, 2})),
             &arena));
-    EXPECT_EQ(
-        MakeArray<int32_t>({{22, 23}, {32, 33}}),
-        CopyNDIterable(std::move(iterable), span<const Index>({2, 2}), &arena));
+    EXPECT_EQ(MakeArray<int32_t>({{22, 23}, {32, 33}}),
+              CopyNDIterable(std::move(iterable),
+                             tensorstore::span<const Index>({2, 2}), &arena));
   }
 
   // Test that `GetArrayForWriteback` handles an unmodified write state.
@@ -460,9 +459,9 @@ TEST(AsyncWriteArrayTest, Basic) {
             /*read_generation=*/StorageGeneration::FromString("a"),
             tensorstore::IdentityTransform(tensorstore::Box<>({0, 0}, {2, 3})),
             &arena));
-    EXPECT_EQ(
-        MakeArray<int32_t>({{7, 22, 23}, {31, 32, 33}}),
-        CopyNDIterable(std::move(iterable), span<const Index>({2, 3}), &arena));
+    EXPECT_EQ(MakeArray<int32_t>({{7, 22, 23}, {31, 32, 33}}),
+              CopyNDIterable(std::move(iterable),
+                             tensorstore::span<const Index>({2, 3}), &arena));
   }
 
   // Test that `GetReadNDIterable` handles a non-updated read array.
@@ -477,9 +476,9 @@ TEST(AsyncWriteArrayTest, Basic) {
             tensorstore::IdentityTransform(tensorstore::Box<>({0, 0}, {2, 3})),
             &arena));
     // Result should not reflect updated `read_array`.
-    EXPECT_EQ(
-        MakeArray<int32_t>({{7, 22, 23}, {31, 32, 33}}),
-        CopyNDIterable(std::move(iterable), span<const Index>({2, 3}), &arena));
+    EXPECT_EQ(MakeArray<int32_t>({{7, 22, 23}, {31, 32, 33}}),
+              CopyNDIterable(std::move(iterable),
+                             tensorstore::span<const Index>({2, 3}), &arena));
   }
 
   // Test that `GetArrayForWriteback` handles a non-updated read array.
@@ -508,9 +507,9 @@ TEST(AsyncWriteArrayTest, Basic) {
             /*read_generation=*/StorageGeneration::FromString("b"),
             tensorstore::IdentityTransform(tensorstore::Box<>({0, 0}, {2, 3})),
             &arena));
-    EXPECT_EQ(
-        MakeArray<int32_t>({{7, 12, 13}, {14, 15, 16}}),
-        CopyNDIterable(std::move(iterable), span<const Index>({2, 3}), &arena));
+    EXPECT_EQ(MakeArray<int32_t>({{7, 12, 13}, {14, 15, 16}}),
+              CopyNDIterable(std::move(iterable),
+                             tensorstore::span<const Index>({2, 3}), &arena));
   }
 
   // Test that `GetArrayForWriteback` handles an updated read array.
@@ -545,9 +544,9 @@ TEST(AsyncWriteArrayTest, Basic) {
             /*read_generation=*/StorageGeneration::FromString("b"),
             tensorstore::IdentityTransform(tensorstore::Box<>({0, 0}, {2, 3})),
             &arena));
-    EXPECT_EQ(
-        fill_value_copy,
-        CopyNDIterable(std::move(iterable), span<const Index>({2, 3}), &arena));
+    EXPECT_EQ(fill_value_copy,
+              CopyNDIterable(std::move(iterable),
+                             tensorstore::span<const Index>({2, 3}), &arena));
   }
 
   // Test that `GetReadNDIterable` handles a write state fully-overwritten not
@@ -564,9 +563,9 @@ TEST(AsyncWriteArrayTest, Basic) {
             /*read_generation=*/StorageGeneration::FromString("b"),
             tensorstore::IdentityTransform(tensorstore::Box<>({0, 0}, {2, 3})),
             &arena));
-    EXPECT_EQ(
-        MakeArray<int32_t>({{9, 22, 23}, {31, 32, 33}}),
-        CopyNDIterable(std::move(iterable), span<const Index>({2, 3}), &arena));
+    EXPECT_EQ(MakeArray<int32_t>({{9, 22, 23}, {31, 32, 33}}),
+              CopyNDIterable(std::move(iterable),
+                             tensorstore::span<const Index>({2, 3}), &arena));
   }
 }
 

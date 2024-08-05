@@ -18,13 +18,18 @@
 /// \file
 /// Downsampling adapter for TensorStore objects.
 
+#include <type_traits>
+
 #include "tensorstore/downsample_method.h"
 #include "tensorstore/driver/downsample/downsample.h"
+#include "tensorstore/index.h"
 #include "tensorstore/internal/type_traits.h"
+#include "tensorstore/open_mode.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/spec.h"
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 
@@ -47,7 +52,8 @@ namespace tensorstore {
 template <typename Element, DimensionIndex Rank, ReadWriteMode Mode>
 Result<TensorStore<Element, Rank, ReadWriteMode::read>> Downsample(
     TensorStore<Element, Rank, Mode> store,
-    internal::type_identity_t<span<const Index, Rank>> downsample_factors,
+    internal::type_identity_t<tensorstore::span<const Index, Rank>>
+        downsample_factors,
     DownsampleMethod downsample_method) {
   static_assert(Mode != ReadWriteMode::write,
                 "Cannot downsample write-only TensorStore");
@@ -70,7 +76,7 @@ std::enable_if_t<RankConstraint::Implies(FactorsRank, Rank),
 Downsample(TensorStore<Element, Rank, Mode> store,
            const Index (&downsample_factors)[FactorsRank],
            DownsampleMethod downsample_method) {
-  return Downsample(std::move(store), span(downsample_factors),
+  return Downsample(std::move(store), tensorstore::span(downsample_factors),
                     downsample_method);
 }
 
@@ -86,7 +92,7 @@ Downsample(TensorStore<Element, Rank, Mode> store,
 /// \ingroup downsample
 /// \id Spec
 Result<Spec> Downsample(const Spec& base_spec,
-                        span<const Index> downsample_factors,
+                        tensorstore::span<const Index> downsample_factors,
                         DownsampleMethod downsample_method);
 
 // Overload that allows `downsample_factors` to be specified as a braced
@@ -96,7 +102,8 @@ Result<Spec> Downsample(const Spec& base_spec,
                         const Index (&downsample_factors)[FactorsRank],
                         DownsampleMethod downsample_method) {
   return tensorstore::Downsample(
-      base_spec, span<const Index>(downsample_factors), downsample_method);
+      base_spec, tensorstore::span<const Index>(downsample_factors),
+      downsample_method);
 }
 
 }  // namespace tensorstore

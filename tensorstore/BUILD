@@ -85,6 +85,7 @@ tensorstore_cc_test(
         "//tensorstore/util:element_pointer",
         "//tensorstore/util:iterate",
         "//tensorstore/util:result",
+        "//tensorstore/util:span",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",
         "@com_github_nlohmann_json//:json",
@@ -123,6 +124,7 @@ tensorstore_cc_test(
     srcs = ["array_testutil_test.cc"],
     deps = [
         ":array_testutil",
+        "//tensorstore/util:span",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -197,12 +199,16 @@ tensorstore_cc_test(
     srcs = ["box_test.cc"],
     deps = [
         ":box",
+        ":index",
+        ":index_interval",
         ":rank",
+        ":static_cast",
         "//tensorstore/serialization",
         "//tensorstore/serialization:test_util",
-        "//tensorstore/util:status",
+        "//tensorstore/util:span",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -280,6 +286,7 @@ tensorstore_cc_test(
         "//tensorstore/serialization:test_util",
         "//tensorstore/util:dimension_set",
         "//tensorstore/util:division",
+        "//tensorstore/util:span",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",
@@ -763,9 +770,9 @@ tensorstore_cc_test(
         ":static_cast",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
-        "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -802,13 +809,18 @@ tensorstore_cc_test(
     size = "small",
     srcs = ["strided_layout_test.cc"],
     deps = [
+        ":box",
+        ":contiguous_layout",
         ":index",
+        ":rank",
+        ":static_cast",
         ":strided_layout",
         "//tensorstore/internal:type_traits",
         "//tensorstore/util:span",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",
         "@com_google_absl//absl/meta:type_traits",
+        "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -924,12 +936,15 @@ tensorstore_cc_library(
     hdrs = ["downsample.h"],
     deps = [
         ":downsample_method",
+        ":index",
+        ":open_mode",
         ":rank",
         ":spec",
         ":tensorstore",
         "//tensorstore/driver/downsample",
         "//tensorstore/internal:type_traits",
         "//tensorstore/util:result",
+        "//tensorstore/util:span",
     ],
 )
 

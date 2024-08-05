@@ -23,9 +23,9 @@
 namespace tensorstore {
 
 /// Converts a `span` to a JSON array.
-template <typename T, std::ptrdiff_t Extent>
+template <typename T, ptrdiff_t Extent>
 void to_json(::nlohmann::json& out,  // NOLINT
-             span<T, Extent> s) {
+             tensorstore::span<T, Extent> s) {
   out = ::nlohmann::json::array_t(s.begin(), s.end());
 }
 

@@ -71,7 +71,7 @@ ArrayMatcher MatchesArray(const ::testing::Matcher<Element> (
 /// \param element_matchers The matchers for each element of the array.
 template <typename Element, Index N0, Index N1>
 ArrayMatcher MatchesArray(
-    span<const Index, 2> origin,
+    tensorstore::span<const Index, 2> origin,
     const ::testing::Matcher<Element> (&element_matchers)[N0][N1]) {
   return MatchesArray<Element>(MakeOffsetArray(origin, element_matchers));
 }
@@ -85,7 +85,7 @@ ArrayMatcher MatchesArray(
 /// \param element_matchers The matchers for each element of the array.
 template <typename Element, Index N0, Index N1, Index N2>
 ArrayMatcher MatchesArray(
-    span<const Index, 3> origin,
+    tensorstore::span<const Index, 3> origin,
     const ::testing::Matcher<Element> (&element_matchers)[N0][N1][N2]) {
   return MatchesArray<Element>(MakeOffsetArray(origin, element_matchers));
 }
@@ -99,7 +99,7 @@ ArrayMatcher MatchesArray(
 /// \param element_matchers The matchers for each element of the array.
 template <typename Element, Index N0, Index N1, Index N2, Index N3>
 ArrayMatcher MatchesArray(
-    span<const Index, 4> origin,
+    tensorstore::span<const Index, 4> origin,
     const ::testing::Matcher<Element> (&element_matchers)[N0][N1][N2][N3]) {
   return MatchesArray<Element>(MakeOffsetArray(origin, element_matchers));
 }
@@ -113,7 +113,7 @@ ArrayMatcher MatchesArray(
 /// \param element_matchers The matchers for each element of the array.
 template <typename Element, Index N0, Index N1, Index N2, Index N3, Index N4>
 ArrayMatcher MatchesArray(
-    span<const Index, 5> origin,
+    tensorstore::span<const Index, 5> origin,
     const ::testing::Matcher<Element> (&element_matchers)[N0][N1][N2][N3][N4]) {
   return MatchesArray<Element>(MakeOffsetArray(origin, element_matchers));
 }
@@ -127,7 +127,7 @@ ArrayMatcher MatchesArray(
 /// \param element_matchers The matchers for each element of the array.
 template <typename Element, Index N0, Index N1, Index N2, Index N3, Index N4,
           Index N5>
-ArrayMatcher MatchesArray(span<const Index, 6> origin,
+ArrayMatcher MatchesArray(tensorstore::span<const Index, 6> origin,
                           const ::testing::Matcher<Element> (
                               &element_matchers)[N0][N1][N2][N3][N4][N5]) {
   return MatchesArray<Element>(MakeOffsetArray(origin, element_matchers));

@@ -105,8 +105,9 @@ void Intersect(BoxView<> a, BoxView<> b, MutableBoxView<> out) {
   }
 }
 
-Index GetRelativeOffset(span<const Index> base, span<const Index> position,
-                        span<const Index> strides) {
+Index GetRelativeOffset(tensorstore::span<const Index> base,
+                        tensorstore::span<const Index> position,
+                        tensorstore::span<const Index> strides) {
   const DimensionIndex rank = base.size();
   assert(rank == position.size());
   assert(rank == strides.size());
@@ -132,7 +133,8 @@ MaskData::MaskData(DimensionIndex rank) : region(rank) {
 }
 
 std::unique_ptr<bool[], FreeDeleter> CreateMaskArray(
-    BoxView<> box, BoxView<> mask_region, span<const Index> byte_strides) {
+    BoxView<> box, BoxView<> mask_region,
+    tensorstore::span<const Index> byte_strides) {
   std::unique_ptr<bool[], FreeDeleter> result(
       static_cast<bool*>(std::calloc(box.num_elements(), sizeof(bool))));
   ByteStridedPointer<bool> start = result.get();
@@ -147,7 +149,7 @@ std::unique_ptr<bool[], FreeDeleter> CreateMaskArray(
 }
 
 void CreateMaskArrayFromRegion(BoxView<> box, MaskData* mask,
-                               span<const Index> byte_strides) {
+                               tensorstore::span<const Index> byte_strides) {
   assert(mask->num_masked_elements == mask->region.num_elements());
   mask->mask_array = CreateMaskArray(box, mask->region, byte_strides);
 }
@@ -189,7 +191,7 @@ void UnionMasks(BoxView<> box, MaskData* mask_a, MaskData* mask_b) {
   }
 
   Index byte_strides[kMaxRank];  // Only first `rank` elements are used.
-  const span<Index> byte_strides_span(&byte_strides[0], rank);
+  const tensorstore::span<Index> byte_strides_span(&byte_strides[0], rank);
   ComputeStrides(ContiguousLayoutOrder::c, sizeof(bool), box.shape(),
                  byte_strides_span);
   if (!mask_a->mask_array) {
@@ -228,8 +230,8 @@ void RebaseMaskedArray(BoxView<> box, ArrayView<const void> source,
     return;
   }
   Index mask_byte_strides_storage[kMaxRank];
-  const span<Index> mask_byte_strides(&mask_byte_strides_storage[0],
-                                      box.rank());
+  const tensorstore::span<Index> mask_byte_strides(
+      &mask_byte_strides_storage[0], box.rank());
   ComputeStrides(ContiguousLayoutOrder::c, sizeof(bool), box.shape(),
                  mask_byte_strides);
   std::unique_ptr<bool[], FreeDeleter> mask_owner;
@@ -264,8 +266,8 @@ void WriteToMask(MaskData* mask, BoxView<> output_box,
   Intersect(output_range, output_box, output_range);
 
   Index mask_byte_strides_storage[kMaxRank];
-  const span<Index> mask_byte_strides(&mask_byte_strides_storage[0],
-                                      output_rank);
+  const tensorstore::span<Index> mask_byte_strides(
+      &mask_byte_strides_storage[0], output_rank);
   ComputeStrides(ContiguousLayoutOrder::c, sizeof(bool), output_box.shape(),
                  mask_byte_strides);
   StridedLayoutView<dynamic_rank, offset_origin> mask_layout(output_box,
@@ -287,10 +289,11 @@ void WriteToMask(MaskData* mask, BoxView<> output_box,
     auto mask_iterable =
         GetTransformedArrayNDIterable(
             ArrayView<Shared<bool>, dynamic_rank, offset_origin>(
-                AddByteOffset(SharedElementPointer<bool>(
-                                  UnownedToShared(mask->mask_array.get())),
-                              -IndexInnerProduct(output_box.origin(),
-                                                 span(mask_byte_strides))),
+                AddByteOffset(
+                    SharedElementPointer<bool>(
+                        UnownedToShared(mask->mask_array.get())),
+                    -IndexInnerProduct(output_box.origin(),
+                                       tensorstore::span(mask_byte_strides))),
                 mask_layout),
             input_to_output, arena)
             .value();

@@ -35,21 +35,21 @@ namespace tensorstore {
 ///     extent at run time.  If `dynamic_extent` is specified, the bit vector is
 ///     stored in heap-allocated memory if the size exceeds 64 bits.  Otherwise,
 ///     it is stored within the BitVec object.
-template <std::ptrdiff_t Extent = dynamic_extent>
+template <ptrdiff_t Extent = dynamic_extent>
 class BitVec {
   using Storage = internal_bitvec::BitVecStorage<Extent>;
 
  public:
   using Block = internal_bitvec::Block;
   using value_type = bool;
-  using difference_type = std::ptrdiff_t;
-  using size_type = std::ptrdiff_t;
+  using difference_type = ptrdiff_t;
+  using size_type = ptrdiff_t;
   using reference = BitRef<Block>;
   using const_reference = BitRef<const Block>;
   using iterator = BitIterator<Block>;
   using const_iterator = BitIterator<const Block>;
-  static constexpr std::ptrdiff_t static_extent = Extent;
-  static constexpr std::ptrdiff_t static_block_extent =
+  static constexpr ptrdiff_t static_extent = Extent;
+  static constexpr ptrdiff_t static_block_extent =
       Extent == dynamic_extent ? dynamic_extent
                                : BitVectorSizeInBlocks<Block>(Extent);
   using ExtentType = typename Storage::ExtentType;
@@ -64,18 +64,18 @@ class BitVec {
   /// Constructs from a braced list of bool values.
   ///
   /// \requires `OtherExtent` is compatible with `Extent`.
-  template <std::ptrdiff_t OtherExtent,
+  template <ptrdiff_t OtherExtent,
             typename = std::enable_if_t<(OtherExtent == Extent ||
                                          Extent == dynamic_extent)> >
   BitVec(const bool (&arr)[OtherExtent])
-      : storage_(std::integral_constant<std::ptrdiff_t, OtherExtent>{}) {
+      : storage_(std::integral_constant<ptrdiff_t, OtherExtent>{}) {
     std::copy(arr, arr + OtherExtent, begin());
   }
 
   /// Constructs from an existing BitSpan.
   ///
   /// \requires `OtherExtent` is compatible with `Extent`.
-  template <typename OtherBlock, std::ptrdiff_t OtherExtent,
+  template <typename OtherBlock, ptrdiff_t OtherExtent,
             typename = std::enable_if_t<(OtherExtent == Extent ||
                                          Extent == dynamic_extent)> >
   explicit BitVec(BitSpan<OtherBlock, OtherExtent> other)
@@ -86,7 +86,7 @@ class BitVec {
   /// Copy constructs from an existing BitVec.
   ///
   /// \requires `OtherExtent` is compatible with `Extent`.
-  template <std::ptrdiff_t OtherExtent,
+  template <ptrdiff_t OtherExtent,
             std::enable_if_t<(OtherExtent == Extent ||
                               Extent == dynamic_extent)>* = nullptr>
   BitVec(const BitVec<OtherExtent>& other) : storage_(other.size()) {
@@ -117,10 +117,10 @@ class BitVec {
   }
 
   /// Returns a view of the `Block` array representation of the bit vector.
-  span<const Block, static_block_extent> blocks() const {
+  tensorstore::span<const Block, static_block_extent> blocks() const {
     return {storage_.data(), storage_.num_blocks()};
   }
-  span<Block, static_block_extent> blocks() {
+  tensorstore::span<Block, static_block_extent> blocks() {
     return {storage_.data(), storage_.num_blocks()};
   }
 
@@ -129,14 +129,14 @@ class BitVec {
 
   bool empty() const { return size() == 0; }
 
-  template <std::ptrdiff_t OtherExtent,
+  template <ptrdiff_t OtherExtent,
             std::enable_if_t<(OtherExtent == Extent ||
                               OtherExtent == dynamic_extent)>* = nullptr>
   operator BitSpan<const Block, OtherExtent>() const {
     return {storage_.data(), 0, size()};
   }
 
-  template <std::ptrdiff_t OtherExtent,
+  template <ptrdiff_t OtherExtent,
             std::enable_if_t<(OtherExtent == Extent ||
                               OtherExtent == dynamic_extent)>* = nullptr>
   operator BitSpan<Block, OtherExtent>() {
@@ -182,21 +182,21 @@ class BitVec {
   /// Returns a proxy const reference to bit `i`.
   /// \dchecks `0 <= i && i < size()`
   ABSL_ATTRIBUTE_ALWAYS_INLINE BitRef<const Block> operator[](
-      std::ptrdiff_t i) const {
+      ptrdiff_t i) const {
     return assert(i >= 0 && i <= size()), *(begin() + i);
   }
 
   /// Returns a proxy reference to bit `i`.
   /// \dchecks `0 <= i && i < size()`
-  ABSL_ATTRIBUTE_ALWAYS_INLINE BitRef<Block> operator[](std::ptrdiff_t i) {
+  ABSL_ATTRIBUTE_ALWAYS_INLINE BitRef<Block> operator[](ptrdiff_t i) {
     return assert(i >= 0 && i <= size()), *(begin() + i);
   }
 
   /// Compares two bit vectors for equality.
   friend bool operator==(const BitVec& a, const BitVec& b) {
-    const std::ptrdiff_t size = a.size();
+    const ptrdiff_t size = a.size();
     if (size != b.size()) return false;
-    const std::ptrdiff_t full_blocks = size / (sizeof(Block) * 8);
+    const ptrdiff_t full_blocks = size / (sizeof(Block) * 8);
     const Block* a_data = a.storage_.data();
     const Block* b_data = b.storage_.data();
     if (!std::equal(a_data, a_data + full_blocks, b_data)) {
@@ -214,10 +214,10 @@ class BitVec {
   Storage storage_;
 };
 
-template <std::ptrdiff_t Extent>
+template <ptrdiff_t Extent>
 BitVec(const bool (&arr)[Extent]) -> BitVec<Extent>;
 
-template <typename Block, std::ptrdiff_t Extent>
+template <typename Block, ptrdiff_t Extent>
 BitVec(BitSpan<Block, Extent>) -> BitVec<Extent>;
 
 }  // namespace tensorstore

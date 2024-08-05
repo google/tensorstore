@@ -76,14 +76,15 @@ IndexTransformGridPartition::IndexArraySet::partition_input_indices(
   return result;
 }
 
-span<const Index>
+tensorstore::span<const Index>
 IndexTransformGridPartition::IndexArraySet::partition_grid_cell_indices(
     Index partition_i) const {
   assert(partition_i >= 0 && partition_i < num_partitions());
   assert(grid_cell_indices.size() ==
          static_cast<size_t>(num_partitions() * grid_dimensions.count()));
-  return span(&grid_cell_indices[partition_i * grid_dimensions.count()],
-              grid_dimensions.count());
+  return tensorstore::span(
+      &grid_cell_indices[partition_i * grid_dimensions.count()],
+      grid_dimensions.count());
 }
 
 namespace {
@@ -109,7 +110,7 @@ struct GridCellIndicesIndirectPartialCompare {
 }  // namespace
 
 Index IndexTransformGridPartition::IndexArraySet::FindPartition(
-    span<const Index> grid_cell_indices) const {
+    tensorstore::span<const Index> grid_cell_indices) const {
   Index lower = 0, upper = num_partitions();
   GridCellIndicesIndirectPartialCompare compare{grid_dimensions,
                                                 this->grid_cell_indices.data()};
@@ -139,7 +140,8 @@ void UpdateCellTransformForIndexArraySetPartition(
       partition_input_indices.byte_strided_pointer();
   const Index vector_dimension_byte_stride =
       partition_input_indices.byte_strides()[1];
-  const span<OutputIndexMap> output_maps = cell_transform->output_index_maps();
+  const tensorstore::span<OutputIndexMap> output_maps =
+      cell_transform->output_index_maps();
   for (DimensionIndex full_input_dim :
        index_array_set.input_dimensions.index_view()) {
     internal_index_space::IndexArrayData& index_array_data =
@@ -151,8 +153,9 @@ void UpdateCellTransformForIndexArraySetPartition(
 }
 
 IndexTransform<> IndexTransformGridPartition::GetCellTransform(
-    IndexTransformView<> full_transform, span<const Index> grid_cell_indices,
-    span<const DimensionIndex> grid_output_dimensions,
+    IndexTransformView<> full_transform,
+    tensorstore::span<const Index> grid_cell_indices,
+    tensorstore::span<const DimensionIndex> grid_output_dimensions,
     absl::FunctionRef<IndexInterval(DimensionIndex grid_dim,
                                     Index grid_cell_index)>
         get_grid_cell_output_interval) const {
@@ -206,9 +209,9 @@ namespace {
 ///            bool has_array)`.  This function is called for each
 ///     connected set.
 template <typename SetCallbackFn>
-void ForEachConnectedSet(span<const DimensionIndex> grid_output_dimensions,
-                         IndexTransformView<> transform,
-                         SetCallbackFn set_callback) {
+void ForEachConnectedSet(
+    tensorstore::span<const DimensionIndex> grid_output_dimensions,
+    IndexTransformView<> transform, SetCallbackFn set_callback) {
   // Set of input dimensions on which each grid dimension depends.
   DimensionSet input_dims_for_grid_dims[kMaxRank];
   // Indicates for each grid dimension whether it has an index array output
@@ -360,7 +363,7 @@ absl::Status GenerateSingleInputDimensionOutputIndices(
   // `single_input_dim` is a range of `size` integers starting from `start` with
   // a step of `stride`, and this range is simply tiled over all of the other
   // dimensions.
-  span<const Index> input_shape = index_transform.input_shape();
+  tensorstore::span<const Index> input_shape = index_transform.input_shape();
   // Compute the product of the sizes of the dimensions of the index array
   // before and after the one corresponding to `single_input_dim`.
   Index inner_count = 1;
@@ -438,17 +441,17 @@ absl::Status GenerateIndexArrayOutputIndices(
       // destination
       ArrayView<Index>(
           output_indices,
-          StridedLayoutView<>(
-              index_transform.input_shape(),
-              span<const Index>(&output_byte_strides[0], input_rank))));
+          StridedLayoutView<>(index_transform.input_shape(),
+                              tensorstore::span<const Index>(
+                                  &output_byte_strides[0], input_rank))));
   return absl::OkStatus();
 }
 
 /// Computes the product of `input_shape[d]` for `d` in `dims`.
 ///
 /// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs.
-Result<Index> ProductOfIndirectExtents(span<const Index> input_shape,
-                                       DimensionSet dims) {
+Result<Index> ProductOfIndirectExtents(
+    tensorstore::span<const Index> input_shape, DimensionSet dims) {
   Index num_positions = 1;
   for (const DimensionIndex dim : dims.index_view()) {
     if (internal::MulOverflow(num_positions, input_shape[dim],
@@ -482,7 +485,7 @@ Result<Index> ProductOfIndirectExtents(span<const Index> input_shape,
 ///     index vectors for each input position.
 Result<std::vector<Index>> GenerateIndexArraySetGridCellIndices(
     DimensionSet grid_dims, DimensionSet input_dims,
-    span<const DimensionIndex> grid_output_dimensions,
+    tensorstore::span<const DimensionIndex> grid_output_dimensions,
     OutputToGridCellFn output_to_grid_cell,
     IndexTransformView<> index_transform, Index num_positions) {
   const DimensionIndex num_grid_dims = grid_dims.count();
@@ -720,15 +723,16 @@ SharedArray<Index, 2> GenerateIndexArraySetPartitionedInputIndices(
       AllocateArray<Index>({num_positions, num_input_dims});
   // Flat position index.
   Index position_i = 0;
-  IterateOverIndexRange(partial_input_domain, [&](span<const Index> indices) {
-    auto it = cells.find(position_i);
-    assert(it != cells.end());
-    auto& offset = it->second;
-    std::copy(indices.begin(), indices.end(),
-              partitioned_input_indices.data() + offset * num_input_dims);
-    ++offset;
-    ++position_i;
-  });
+  IterateOverIndexRange(
+      partial_input_domain, [&](tensorstore::span<const Index> indices) {
+        auto it = cells.find(position_i);
+        assert(it != cells.end());
+        auto& offset = it->second;
+        std::copy(indices.begin(), indices.end(),
+                  partitioned_input_indices.data() + offset * num_input_dims);
+        ++offset;
+        ++position_i;
+      });
   return partitioned_input_indices;
 }
 
@@ -763,7 +767,7 @@ SharedArray<Index, 2> GenerateIndexArraySetPartitionedInputIndices(
 ///     out-of-bounds index.
 absl::Status FillIndexArraySetData(
     IndexTransformGridPartition::IndexArraySet& index_array_set,
-    span<const DimensionIndex> grid_output_dimensions,
+    tensorstore::span<const DimensionIndex> grid_output_dimensions,
     OutputToGridCellFn output_to_grid_cell,
     IndexTransformView<> index_transform) {
   // Compute the total number of distinct partial input index vectors in the
@@ -827,7 +831,7 @@ absl::Status FillIndexArraySetData(
 /// \error `absl::StatusCode::kOutOfRange` if an index array contains an
 ///     out-of-bounds index.
 absl::Status GenerateIndexTransformGridPartitionData(
-    span<const DimensionIndex> grid_output_dimensions,
+    tensorstore::span<const DimensionIndex> grid_output_dimensions,
     OutputToGridCellFn output_to_grid_cell,
     IndexTransformView<> index_transform,
     IndexTransformGridPartition& grid_partition) {
@@ -887,9 +891,9 @@ internal_index_space::TransformRep::Ptr<> InitializeCellTransform(
   cell_transform->implicit_lower_bounds = false;
   cell_transform->implicit_upper_bounds = false;
 
-  const span<Index> input_origin =
+  const tensorstore::span<Index> input_origin =
       cell_transform->input_origin().first(cell_input_rank);
-  const span<OutputIndexMap> output_maps =
+  const tensorstore::span<OutputIndexMap> output_maps =
       cell_transform->output_index_maps().first(full_input_rank);
 
   // Initialize the `cell_transform` output index maps for all input
@@ -965,7 +969,7 @@ internal_index_space::TransformRep::Ptr<> InitializeCellTransform(
 
 absl::Status PrePartitionIndexTransformOverGrid(
     IndexTransformView<> index_transform,
-    span<const DimensionIndex> grid_output_dimensions,
+    tensorstore::span<const DimensionIndex> grid_output_dimensions,
     OutputToGridCellFn output_to_grid_cell,
     IndexTransformGridPartition& grid_partition) {
   const DimensionIndex input_rank = index_transform.input_rank();

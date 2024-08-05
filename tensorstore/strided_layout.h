@@ -129,7 +129,7 @@ inline std::enable_if_t<internal::IsIndexPack<T0, T1>, Index> IndexInnerProduct(
 }
 template <DimensionIndex Rank, typename T0, typename T1>
 inline std::enable_if_t<internal::IsIndexPack<T0, T1>, Index> IndexInnerProduct(
-    span<T0, Rank> a, span<T1, Rank> b) {
+    tensorstore::span<T0, Rank> a, tensorstore::span<T1, Rank> b) {
   assert(a.size() == b.size());
   if constexpr (Rank == -1) {
     return IndexInnerProduct(a.size(), a.data(), b.data());
@@ -201,7 +201,7 @@ template <DimensionIndex Rank, ArrayOriginKind OriginKind>
 void InitializeContiguousLayout(
     ContiguousLayoutOrder order, Index element_stride,
     internal::type_identity_t<
-        span<const Index, RankConstraint::FromInlineRank(Rank)>>
+        tensorstore::span<const Index, RankConstraint::FromInlineRank(Rank)>>
         shape,
     StridedLayout<Rank, OriginKind>* layout) {
   layout->set_rank(GetStaticOrDynamicExtent(shape));
@@ -225,14 +225,17 @@ struct LayoutAccess<zero_origin, StorageT>
   using MaybeConstOriginIndex = const Index;
   using MaybeConstIndex = typename Base::template ElementType<0>;
 
-  static span<const Index, static_extent> origin(const StorageT* storage) {
+  static tensorstore::span<const Index, static_extent> origin(
+      const StorageT* storage) {
     return GetConstantVector<Index, 0>(Base::GetExtent(*storage));
   }
 
-  static span<MaybeConstIndex, static_extent> shape(StorageT* storage) {
+  static tensorstore::span<MaybeConstIndex, static_extent> shape(
+      StorageT* storage) {
     return Base::template get<0>(storage);
   }
-  static span<MaybeConstIndex, static_extent> byte_strides(StorageT* storage) {
+  static tensorstore::span<MaybeConstIndex, static_extent> byte_strides(
+      StorageT* storage) {
     return Base::template get<1>(storage);
   }
 
@@ -254,15 +257,18 @@ struct LayoutAccess<offset_origin, StorageT>
   using MaybeConstOriginIndex = MaybeConstIndex;
   using Base::static_extent;
 
-  static span<MaybeConstIndex, static_extent> origin(StorageT* storage) {
+  static tensorstore::span<MaybeConstIndex, static_extent> origin(
+      StorageT* storage) {
     return Base::template get<0>(storage);
   }
 
-  static span<MaybeConstIndex, static_extent> shape(StorageT* storage) {
+  static tensorstore::span<MaybeConstIndex, static_extent> shape(
+      StorageT* storage) {
     return Base::template get<1>(storage);
   }
 
-  static span<MaybeConstIndex, static_extent> byte_strides(StorageT* storage) {
+  static tensorstore::span<MaybeConstIndex, static_extent> byte_strides(
+      StorageT* storage) {
     return Base::template get<2>(storage);
   }
 
@@ -453,8 +459,10 @@ class StridedLayout
   /// \dchecks `std::size(shape) == std::size(byte_strides)`
   /// \id shape, byte_strides
   explicit StridedLayout(
-      span<const Index, RankConstraint::FromInlineRank(Rank)> shape,
-      span<const Index, RankConstraint::FromInlineRank(Rank)> byte_strides) {
+      tensorstore::span<const Index, RankConstraint::FromInlineRank(Rank)>
+          shape,
+      tensorstore::span<const Index, RankConstraint::FromInlineRank(Rank)>
+          byte_strides) {
     // This check is redundant with the check done by Access::Assign, but
     // provides a better assertion error message.
     assert(shape.size() == byte_strides.size());
@@ -477,9 +485,12 @@ class StridedLayout
   template <ArrayOriginKind SfinaeOKind = array_origin_kind,
             typename = std::enable_if_t<SfinaeOKind == offset_origin>>
   explicit StridedLayout(
-      span<const Index, RankConstraint::FromInlineRank(Rank)> origin,
-      span<const Index, RankConstraint::FromInlineRank(Rank)> shape,
-      span<const Index, RankConstraint::FromInlineRank(Rank)> byte_strides) {
+      tensorstore::span<const Index, RankConstraint::FromInlineRank(Rank)>
+          origin,
+      tensorstore::span<const Index, RankConstraint::FromInlineRank(Rank)>
+          shape,
+      tensorstore::span<const Index, RankConstraint::FromInlineRank(Rank)>
+          byte_strides) {
     assert(origin.size() == shape.size());
     assert(origin.size() == byte_strides.size());
     Access::Assign(this, GetStaticOrDynamicExtent(origin), origin.data(),
@@ -506,7 +517,8 @@ class StridedLayout
             typename = std::enable_if_t<SfinaeOKind == offset_origin>>
   explicit StridedLayout(
       BoxView<RankConstraint::FromInlineRank(Rank)> domain,
-      span<const Index, RankConstraint::FromInlineRank(Rank)> byte_strides) {
+      tensorstore::span<const Index, RankConstraint::FromInlineRank(Rank)>
+          byte_strides) {
     assert(domain.rank() == byte_strides.size());
     Access::Assign(this, domain.rank(), domain.origin().data(),
                    domain.shape().data(), byte_strides.data());
@@ -592,7 +604,8 @@ class StridedLayout
             typename = std::enable_if_t<(SfinaeC == container)>>
   explicit StridedLayout(
       ContiguousLayoutOrder order, Index element_stride,
-      span<const Index, RankConstraint::FromInlineRank(Rank)> shape) {
+      tensorstore::span<const Index, RankConstraint::FromInlineRank(Rank)>
+          shape) {
     InitializeContiguousLayout(order, element_stride, shape, this);
   }
   template <
@@ -601,7 +614,8 @@ class StridedLayout
                                    RankConstraint::Implies(R, static_rank))>>
   explicit StridedLayout(ContiguousLayoutOrder order, Index element_stride,
                          const Index (&shape)[R]) {
-    InitializeContiguousLayout(order, element_stride, span(shape), this);
+    InitializeContiguousLayout(order, element_stride, tensorstore::span(shape),
+                               this);
   }
 
   /// Assigns from a layout with a compatible `static_rank` and
@@ -635,10 +649,12 @@ class StridedLayout
   /// elements if `container_kind == container` and
   /// `array_origin_kind == offset_origin`.
   /// \membergroup Accessors
-  span<const Index, RankConstraint::FromInlineRank(Rank)> origin() const {
+  tensorstore::span<const Index, RankConstraint::FromInlineRank(Rank)> origin()
+      const {
     return const_cast<StridedLayout*>(this)->origin();
   }
-  span<MaybeConstOriginIndex, RankConstraint::FromInlineRank(Rank)> origin() {
+  tensorstore::span<MaybeConstOriginIndex, RankConstraint::FromInlineRank(Rank)>
+  origin() {
     return Access::origin(this);
   }
 
@@ -647,10 +663,12 @@ class StridedLayout
   /// For the non-const overload, the returned `span` has non-const `Index`
   /// elements if `container_kind == container`.
   /// \membergroup Accessors
-  span<const Index, RankConstraint::FromInlineRank(Rank)> byte_strides() const {
+  tensorstore::span<const Index, RankConstraint::FromInlineRank(Rank)>
+  byte_strides() const {
     return const_cast<StridedLayout*>(this)->byte_strides();
   }
-  span<MaybeConstIndex, RankConstraint::FromInlineRank(Rank)> byte_strides() {
+  tensorstore::span<MaybeConstIndex, RankConstraint::FromInlineRank(Rank)>
+  byte_strides() {
     return Access::byte_strides(this);
   }
 
@@ -659,10 +677,12 @@ class StridedLayout
   /// For the non-const overload, the returned `span` has non-const `Index`
   /// elements if `container_kind == container`.
   /// \membergroup Accessors
-  span<const Index, RankConstraint::FromInlineRank(Rank)> shape() const {
+  tensorstore::span<const Index, RankConstraint::FromInlineRank(Rank)> shape()
+      const {
     return const_cast<StridedLayout*>(this)->shape();
   }
-  span<MaybeConstIndex, RankConstraint::FromInlineRank(Rank)> shape() {
+  tensorstore::span<MaybeConstIndex, RankConstraint::FromInlineRank(Rank)>
+  shape() {
     return Access::shape(this);
   }
 
@@ -690,7 +710,7 @@ class StridedLayout
   template <typename Indices>
   std::enable_if_t<IsCompatiblePartialIndexVector<static_rank, Indices>, Index>
   operator[](const Indices& indices) const {
-    const auto indices_span = span(indices);
+    const auto indices_span = tensorstore::span(indices);
     assert(indices_span.size() <= rank() &&
            "Length of index vector is greater than rank of array");
     assert(ContainsPartial(*this, indices_span) &&
@@ -703,7 +723,7 @@ class StridedLayout
       IsCompatiblePartialIndexVector<static_rank, const IndexType (&)[N]>,
       Index>
   operator[](const IndexType (&indices)[N]) const {
-    return (*this)[span<const IndexType, N>(indices)];
+    return (*this)[tensorstore::span<const IndexType, N>(indices)];
   }
 
   /// Returns the byte offset corresponding to a list of `rank()` indices into
@@ -723,7 +743,7 @@ class StridedLayout
   template <typename Indices>
   std::enable_if_t<IsCompatibleFullIndexVector<static_rank, Indices>, Index>
   operator()(const Indices& indices) const {
-    const auto indices_span = span(indices);
+    const auto indices_span = tensorstore::span(indices);
     assert(indices_span.size() == rank() &&
            "Length of index vector must match rank of array.");
     return (*this)[indices_span];
@@ -731,7 +751,7 @@ class StridedLayout
   template <size_t N>
   std::enable_if_t<RankConstraint::EqualOrUnspecified(static_rank, N), Index>
   operator()(const Index (&indices)[N]) const {
-    return (*this)(span<const Index, N>(indices));
+    return (*this)(tensorstore::span<const Index, N>(indices));
   }
 
   /// Returns `(*this)({index...})`, or `0` if `index` is an empty pack.
@@ -748,7 +768,7 @@ class StridedLayout
       return 0;
     } else {
       const Index indices[N] = {index...};
-      return (*this)(span<const Index, N>(indices));
+      return (*this)(tensorstore::span<const Index, N>(indices));
     }
   }
 
@@ -812,8 +832,9 @@ template <typename BoxLike, typename ByteStrides,
           std::enable_if_t<(IsBoxLike<BoxLike> &&
                             IsIndexConvertibleVector<ByteStrides>)>* = nullptr>
 explicit StridedLayout(const BoxLike& domain, const ByteStrides& byte_strides)
-    -> StridedLayout<SpanStaticExtent<span<const Index, BoxLike::static_rank>,
-                                      ByteStrides>::value>;
+    -> StridedLayout<
+        SpanStaticExtent<tensorstore::span<const Index, BoxLike::static_rank>,
+                         ByteStrides>::value>;
 
 template <typename BoxLike, std::enable_if_t<IsBoxLike<BoxLike>>* = nullptr>
 explicit StridedLayout(ContiguousLayoutOrder order, Index element_stride,

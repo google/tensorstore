@@ -304,7 +304,7 @@ class ChunkLayout {
   ///     EXPECT_EQ(tensorstore::DimensionSet::FromBools({1, 1, 1}),
   ///               constraints.read_chunk_elements().hard_constraint);
   ///
-  /// This type inherits from `span<const Index>`.
+  /// This type inherits from `tensorstore::span<const Index>`.
   ///
   /// The chunk size constraint for each dimension is specified as a
   /// non-negative integer.  The special value of 0 for a given dimension
@@ -363,7 +363,7 @@ class ChunkLayout {
   ///         tensorstore::ChunkLayout::ReadChunkAspectRatio{
   ///             {1, 1, 0}, /*hard_constraint=*/true}));
   ///
-  /// This type inherits from `span<const double>`.
+  /// This type inherits from `tensorstore::span<const double>`.
   ///
   /// The aspect ratio for each dimension is specified as a non-negative
   /// `double`.  A value of `0` for a given dimension indicates no constraint
@@ -417,7 +417,7 @@ class ChunkLayout {
 
     /// Specifies the shape constraint.
     Shape shape() const {
-      return shape_ ? Shape(span<const Index>(shape_.get(), rank_),
+      return shape_ ? Shape(tensorstore::span<const Index>(shape_.get(), rank_),
                             shape_hard_constraint_)
                     : Shape();
     }
@@ -426,10 +426,10 @@ class ChunkLayout {
 
     /// Specifies the aspect ratio constraint.
     AspectRatio aspect_ratio() const {
-      return aspect_ratio_
-                 ? AspectRatio(span<const double>(aspect_ratio_.get(), rank_),
-                               aspect_ratio_hard_constraint_)
-                 : AspectRatio();
+      return aspect_ratio_ ? AspectRatio(tensorstore::span<const double>(
+                                             aspect_ratio_.get(), rank_),
+                                         aspect_ratio_hard_constraint_)
+                           : AspectRatio();
     }
     explicit operator AspectRatio() const { return aspect_ratio(); }
     absl::Status Set(AspectRatio value);
@@ -513,14 +513,14 @@ class ChunkLayout {
 
     /// Returns the shape constraint.
     ChunkShapeBase shape() const {
-      return ChunkShapeBase(span<const Index>(shape_, shape_rank_),
+      return ChunkShapeBase(tensorstore::span<const Index>(shape_, shape_rank_),
                             shape_hard_constraint_);
     }
 
     /// Returns the aspect ratio constraint.
     ChunkAspectRatioBase aspect_ratio() const {
       return ChunkAspectRatioBase(
-          span<const double>(aspect_ratio_, aspect_ratio_rank_),
+          tensorstore::span<const double>(aspect_ratio_, aspect_ratio_rank_),
           aspect_ratio_hard_constraint_);
     }
 
@@ -619,7 +619,7 @@ class ChunkLayout {
   ///     EXPECT_THAT(constraints.inner_order(),
   ///                 ::testing::ElementsAre(1, 0, 2));
   ///     EXPECT_EQ(true, constraints.inner_order().hard_constraint);
-  struct InnerOrder : public span<const DimensionIndex> {
+  struct InnerOrder : public tensorstore::span<const DimensionIndex> {
     /// Constructs an unspecified order.
     ///
     /// \id default
@@ -628,13 +628,15 @@ class ChunkLayout {
     /// Constructs from the specified order.
     ///
     /// \id order
-    explicit InnerOrder(span<const DimensionIndex> s,
+    explicit InnerOrder(tensorstore::span<const DimensionIndex> s,
                         bool hard_constraint = true)
-        : span<const DimensionIndex>(s), hard_constraint(hard_constraint) {}
+        : tensorstore::span<const DimensionIndex>(s),
+          hard_constraint(hard_constraint) {}
     template <size_t N>
     explicit InnerOrder(const DimensionIndex (&s)[N],
                         bool hard_constraint = true)
-        : span<const DimensionIndex>(s), hard_constraint(hard_constraint) {}
+        : tensorstore::span<const DimensionIndex>(s),
+          hard_constraint(hard_constraint) {}
 
     /// Returns `true` if this specifies an order constraint.
     bool valid() const { return !this->empty(); }
@@ -1063,7 +1065,7 @@ namespace internal {
 /// \dchecks `domain.rank() == chunk_template.rank()`
 /// \error `absl::StatusCode::kInvalidArgument` if `domain.rank()` does not
 ///     match the rank of `origin_constraints` or `shape_constraints`.
-absl::Status ChooseChunkGrid(span<const Index> origin_constraints,
+absl::Status ChooseChunkGrid(tensorstore::span<const Index> origin_constraints,
                              ChunkLayout::GridView shape_constraints,
                              BoxView<> domain, MutableBoxView<> chunk_template);
 
@@ -1079,7 +1081,8 @@ absl::Status ChooseChunkGrid(span<const Index> origin_constraints,
 /// \error `absl::StatusCode::kInvalidArgument` if `domain.rank()` does not
 ///     match the rank of `shape_constraints`.
 absl::Status ChooseChunkShape(ChunkLayout::GridView shape_constraints,
-                              BoxView<> domain, span<Index> chunk_shape);
+                              BoxView<> domain,
+                              tensorstore::span<Index> chunk_shape);
 
 /// Chooses a regular grid based on the combined read and write chunk
 /// constraints.
@@ -1098,11 +1101,11 @@ absl::Status ChooseReadWriteChunkGrid(const ChunkLayout& constraints,
 
 /// Chooses a read chunk shape and write chunk shape, where the read chunk shape
 /// evenly divides the write chunk shape.
-absl::Status ChooseReadWriteChunkShapes(ChunkLayout::GridView read_constraints,
-                                        ChunkLayout::GridView write_constraints,
-                                        BoxView<> domain,
-                                        span<Index> read_chunk_shape,
-                                        span<Index> write_chunk_shape);
+absl::Status ChooseReadWriteChunkShapes(
+    ChunkLayout::GridView read_constraints,
+    ChunkLayout::GridView write_constraints, BoxView<> domain,
+    tensorstore::span<Index> read_chunk_shape,
+    tensorstore::span<Index> write_chunk_shape);
 
 }  // namespace internal
 }  // namespace tensorstore

@@ -249,13 +249,13 @@ struct ChunkLayout::Storage : public ChunkLayoutData {
   }
   Index* grid_origin() { return reinterpret_cast<Index*>(this + 1); }
   Index* chunk_shapes() { return grid_origin() + rank_; }
-  span<Index> chunk_shape(size_t usage_index) {
+  tensorstore::span<Index> chunk_shape(size_t usage_index) {
     return {chunk_shapes() + rank_ * usage_index, rank_};
   }
   double* chunk_aspect_ratios() {
     return reinterpret_cast<double*>(chunk_shapes() + NumShapeElements(rank_));
   }
-  span<double> chunk_aspect_ratio(size_t usage_index) {
+  tensorstore::span<double> chunk_aspect_ratio(size_t usage_index) {
     return {chunk_aspect_ratios() + rank_ * usage_index, rank_};
   }
   DimensionIndex* inner_order() {
@@ -528,8 +528,9 @@ absl::Status SetInnerOrderInternal(ChunkLayout& self,
     if (!value.hard_constraint) return absl::OkStatus();
     if (IsHardConstraint(impl, HardConstraintBit::inner_order)) {
       if (!std::equal(value.data(), value.data() + rank, inner_order)) {
-        return MismatchError(span<const DimensionIndex>(inner_order, rank),
-                             span<const DimensionIndex>(value));
+        return MismatchError(
+            tensorstore::span<const DimensionIndex>(inner_order, rank),
+            tensorstore::span<const DimensionIndex>(value));
       }
       return absl::OkStatus();
     }
@@ -725,7 +726,7 @@ ChunkLayout::InnerOrder ChunkLayout::inner_order() const {
       const DimensionIndex* inner_order = storage_->inner_order();
       if (inner_order[0] != -1) {
         return InnerOrder(
-            span(inner_order, rank),
+            tensorstore::span(inner_order, rank),
             IsHardConstraint(*storage_, HardConstraintBit::inner_order));
       }
     }
@@ -746,9 +747,9 @@ ChunkLayout::GridOrigin ChunkLayout::grid_origin() const {
   if (storage_) {
     const DimensionIndex rank = storage_->rank_;
     if (rank > 0) {
-      return GridOrigin(
-          span<const Index>(storage_->grid_origin(), storage_->rank_),
-          storage_->grid_origin_hard_constraint_);
+      return GridOrigin(tensorstore::span<const Index>(storage_->grid_origin(),
+                                                       storage_->rank_),
+                        storage_->grid_origin_hard_constraint_);
     }
   }
   return GridOrigin();
@@ -855,7 +856,7 @@ constexpr auto DimensionIndexedFixedArrayJsonBinder(
 }
 
 template <typename Traits>
-bool VectorIsDefault(span<const typename Traits::Element> vec) {
+bool VectorIsDefault(tensorstore::span<const typename Traits::Element> vec) {
   return std::all_of(vec.begin(), vec.end(), [](typename Traits::Element x) {
     return x == Traits::kDefaultValue;
   });
@@ -918,8 +919,9 @@ constexpr auto VectorJsonBinder(Getter getter, Setter setter) {
         DimensionIndex rank = dynamic_rank;
         TENSORSTORE_RETURN_IF_ERROR(DimensionIndexedFixedArrayJsonBinder(
             rank, element_binder)(is_loading, options, &value[0], j));
-        return setter(*obj, Wrapper(span<const ElementType>(value, rank),
-                                    hard_constraint));
+        return setter(*obj,
+                      Wrapper(tensorstore::span<const ElementType>(value, rank),
+                              hard_constraint));
       } else {
         auto vec = getter(*obj);
         if (!vec.valid()) {
@@ -937,7 +939,7 @@ constexpr auto VectorJsonBinder(Getter getter, Setter setter) {
           }
         }
         if (!has_value) return absl::OkStatus();
-        span<const ElementType> new_span(new_vec, vec.size());
+        tensorstore::span<const ElementType> new_span(new_vec, vec.size());
         return jb::Array(element_binder)(is_loading, options, &new_span, j);
       }
     };
@@ -958,8 +960,9 @@ constexpr auto InnerOrderJsonBinder(bool hard_constraint) {
       StoragePtr storage_to_be_destroyed;
       return SetInnerOrderInternal(
           *obj,
-          ChunkLayout::InnerOrder(span<const DimensionIndex>(value, rank),
-                                  hard_constraint),
+          ChunkLayout::InnerOrder(
+              tensorstore::span<const DimensionIndex>(value, rank),
+              hard_constraint),
           storage_to_be_destroyed);
     } else {
       auto vec = obj->inner_order();
@@ -1153,8 +1156,10 @@ namespace {
 ///     `out_vec` are hard constraints.
 template <typename Traits>
 static absl::Status TransformInputVector(
-    IndexTransformView<> transform, span<const typename Traits::Element> in_vec,
-    DimensionSet in_hard_constraint, span<typename Traits::Element> out_vec,
+    IndexTransformView<> transform,
+    tensorstore::span<const typename Traits::Element> in_vec,
+    DimensionSet in_hard_constraint,
+    tensorstore::span<typename Traits::Element> out_vec,
     DimensionSet& out_hard_constraint) {
   using Element = typename Traits::Element;
   const DimensionIndex output_rank = transform.output_rank();
@@ -1231,8 +1236,9 @@ static absl::Status TransformInputVector(
 template <typename Traits>
 static absl::Status TransformOutputVector(
     IndexTransformView<> transform, DimensionSet one_to_one_input_dims,
-    span<const typename Traits::Element> out_vec,
-    DimensionSet out_hard_constraint, span<typename Traits::Element> in_vec,
+    tensorstore::span<const typename Traits::Element> out_vec,
+    DimensionSet out_hard_constraint,
+    tensorstore::span<typename Traits::Element> in_vec,
     DimensionSet& in_hard_constraint) {
   using Element = typename Traits::Element;
   const DimensionIndex input_rank = transform.input_rank();
@@ -1368,9 +1374,11 @@ Result<ChunkLayout> ApplyIndexTransform(IndexTransformView<> transform,
   TENSORSTORE_RETURN_IF_ERROR(
       TransformOutputVector<OriginValueTraits>(
           transform, one_to_one_input_dims,
-          span<const Index>(output_storage->grid_origin(), output_rank),
+          tensorstore::span<const Index>(output_storage->grid_origin(),
+                                         output_rank),
           output_storage->grid_origin_hard_constraint_,
-          span<Index>(input_constraints.storage_->grid_origin(), input_rank),
+          tensorstore::span<Index>(input_constraints.storage_->grid_origin(),
+                                   input_rank),
           input_constraints.storage_->grid_origin_hard_constraint_),
       tensorstore::MaybeAnnotateStatus(_, "Error transforming grid_origin"));
   for (size_t usage_index = 0; usage_index < kNumUsages; ++usage_index) {
@@ -1422,9 +1430,11 @@ Result<ChunkLayout> ApplyInverseIndexTransform(IndexTransformView<> transform,
   TENSORSTORE_RETURN_IF_ERROR(
       TransformInputVector<OriginValueTraits>(
           transform,
-          span<const Index>(input_storage->grid_origin(), input_rank),
+          tensorstore::span<const Index>(input_storage->grid_origin(),
+                                         input_rank),
           input_storage->grid_origin_hard_constraint_,
-          span<Index>(output_constraints.storage_->grid_origin(), output_rank),
+          tensorstore::span<Index>(output_constraints.storage_->grid_origin(),
+                                   output_rank),
           output_constraints.storage_->grid_origin_hard_constraint_),
       tensorstore::MaybeAnnotateStatus(_, "Error transforming grid_origin"));
   for (size_t usage_index = 0; usage_index < kNumUsages; ++usage_index) {
@@ -1452,11 +1462,12 @@ bool operator==(const ChunkLayout& a, const ChunkLayout& b) {
   if (a_storage.hard_constraint_ != b_storage.hard_constraint_ ||
       a_storage.grid_origin_hard_constraint_ !=
           b_storage.grid_origin_hard_constraint_ ||
-      !internal::RangesEqual(span(a_storage.chunk_shape_hard_constraint_),
-                             span(b_storage.chunk_shape_hard_constraint_)) ||
       !internal::RangesEqual(
-          span(a_storage.chunk_aspect_ratio_hard_constraint_),
-          span(b_storage.chunk_aspect_ratio_hard_constraint_)) ||
+          tensorstore::span(a_storage.chunk_shape_hard_constraint_),
+          tensorstore::span(b_storage.chunk_shape_hard_constraint_)) ||
+      !internal::RangesEqual(
+          tensorstore::span(a_storage.chunk_aspect_ratio_hard_constraint_),
+          tensorstore::span(b_storage.chunk_aspect_ratio_hard_constraint_)) ||
       !std::equal(a_storage.chunk_elements_,
                   a_storage.chunk_elements_ + kNumUsages,
                   b_storage.chunk_elements_)) {
@@ -1498,8 +1509,9 @@ constexpr Index kDefaultChunkElements = 1024 * 1024;
 
 namespace {
 void ChooseChunkSizeFromAspectRatio(
-    span<const double> aspect_ratio, span<Index> chunk_shape,
-    Index target_chunk_elements, BoxView<> domain,
+    tensorstore::span<const double> aspect_ratio,
+    tensorstore::span<Index> chunk_shape, Index target_chunk_elements,
+    BoxView<> domain,
     absl::FunctionRef<Index(DimensionIndex dim, Index value)> map_size) {
   const DimensionIndex rank = chunk_shape.size();
   assert(aspect_ratio.size() == rank);
@@ -1550,7 +1562,7 @@ void ChooseChunkSizeFromAspectRatio(
     }
 #ifdef TENSORSTORE_INTERNAL_CHUNK_LAYOUT_DEBUG
     ABSL_LOG(INFO) << "factor=" << factor << ", chunk_shape="
-                   << span<const Index>(&cur_chunk_shape[0], rank)
+                   << tensorstore::span<const Index>(&cur_chunk_shape[0], rank)
                    << ", total=" << total;
 #endif
     return total;
@@ -1599,10 +1611,11 @@ void ChooseChunkSizeFromAspectRatio(
   }
 }
 
-absl::Status ChooseChunkGridOrigin(span<const Index> origin_constraints,
-                                   span<const Index> domain_origin,
-                                   span<const Index> chunk_shape,
-                                   span<Index> grid_origin) {
+absl::Status ChooseChunkGridOrigin(
+    tensorstore::span<const Index> origin_constraints,
+    tensorstore::span<const Index> domain_origin,
+    tensorstore::span<const Index> chunk_shape,
+    tensorstore::span<Index> grid_origin) {
   const DimensionIndex rank = grid_origin.size();
 
   // For any dimension with an explicitly-constrained origin, just set the
@@ -1641,7 +1654,8 @@ absl::Status ChooseChunkGridOrigin(span<const Index> origin_constraints,
 }
 
 absl::Status InitializeChunkShape(ChunkLayout::ChunkShapeBase shape_constraints,
-                                  BoxView<> domain, span<Index> chunk_shape,
+                                  BoxView<> domain,
+                                  tensorstore::span<Index> chunk_shape,
                                   DimensionSet& shape_hard_constraint) {
   const DimensionIndex rank = chunk_shape.size();
   DimensionSet hard_constraint = false;
@@ -1682,7 +1696,7 @@ absl::Status CompleteChunkShapeFromAspectRatio(
     ChunkLayout::ChunkAspectRatioBase aspect_ratio_constraints,
     ChunkLayout::ChunkElementsBase elements_constraint,
     absl::FunctionRef<Index(DimensionIndex dim, Index value)> map_size,
-    span<Index> chunk_shape) {
+    tensorstore::span<Index> chunk_shape) {
   const DimensionIndex rank = chunk_shape.size();
   if (std::any_of(chunk_shape.begin(), chunk_shape.end(),
                   [](Index x) { return x == 0; })) {
@@ -1711,16 +1725,17 @@ absl::Status CompleteChunkShapeFromAspectRatio(
     if (elements_constraint.valid()) {
       target_chunk_elements = elements_constraint;
     }
-    ChooseChunkSizeFromAspectRatio(span<const double>(aspect_ratio, rank),
-                                   chunk_shape, target_chunk_elements, domain,
-                                   map_size);
+    ChooseChunkSizeFromAspectRatio(
+        tensorstore::span<const double>(aspect_ratio, rank), chunk_shape,
+        target_chunk_elements, domain, map_size);
   }
   return absl::OkStatus();
 }
 }  // namespace
 
 absl::Status ChooseChunkShape(ChunkLayout::GridView shape_constraints,
-                              BoxView<> domain, span<Index> chunk_shape) {
+                              BoxView<> domain,
+                              tensorstore::span<Index> chunk_shape) {
   assert(domain.rank() == chunk_shape.size());
   DimensionSet shape_hard_constraint;
   TENSORSTORE_RETURN_IF_ERROR(InitializeChunkShape(
@@ -1731,7 +1746,7 @@ absl::Status ChooseChunkShape(ChunkLayout::GridView shape_constraints,
       map_size, chunk_shape);
 }
 
-absl::Status ChooseChunkGrid(span<const Index> origin_constraints,
+absl::Status ChooseChunkGrid(tensorstore::span<const Index> origin_constraints,
                              ChunkLayout::GridView shape_constraints,
                              BoxView<> domain,
                              MutableBoxView<> chunk_template) {
@@ -1794,11 +1809,11 @@ Index FindNearestMultiple(Index divisor, Index target) {
   }
 }
 
-absl::Status ChooseReadWriteChunkShapes(ChunkLayout::GridView read_constraints,
-                                        ChunkLayout::GridView write_constraints,
-                                        BoxView<> domain,
-                                        span<Index> read_chunk_shape,
-                                        span<Index> write_chunk_shape) {
+absl::Status ChooseReadWriteChunkShapes(
+    ChunkLayout::GridView read_constraints,
+    ChunkLayout::GridView write_constraints, BoxView<> domain,
+    tensorstore::span<Index> read_chunk_shape,
+    tensorstore::span<Index> write_chunk_shape) {
   DimensionIndex rank = write_chunk_shape.size();
   assert(read_chunk_shape.size() == rank);
   assert(domain.rank() == rank);

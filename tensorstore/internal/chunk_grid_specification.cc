@@ -17,6 +17,7 @@
 #include <assert.h>
 
 #include <algorithm>
+#include <cstddef>
 #include <utility>
 #include <vector>
 
@@ -24,11 +25,14 @@
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/chunk_layout.h"
+#include "tensorstore/contiguous_layout.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dimension_permutation.h"
 #include "tensorstore/internal/async_write_array.h"
 #include "tensorstore/rank.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal {
@@ -78,9 +82,9 @@ ChunkGridSpecification::ChunkGridSpecification(ComponentList components_arg)
 #endif  // !defined(NDEBUG)
 }
 
-void ChunkGridSpecification::GetComponentOrigin(const size_t component_index,
-                                                span<const Index> cell_indices,
-                                                span<Index> origin) const {
+void ChunkGridSpecification::GetComponentOrigin(
+    const size_t component_index, tensorstore::span<const Index> cell_indices,
+    tensorstore::span<Index> origin) const {
   assert(rank() == cell_indices.size());
   assert(component_index < components.size());
   const auto& component_spec = components[component_index];
@@ -97,7 +101,7 @@ void ChunkGridSpecification::GetComponentOrigin(const size_t component_index,
 }
 
 ChunkGridSpecification::CellDomain ChunkGridSpecification::GetCellDomain(
-    size_t component_index, span<const Index> cell_indices) const {
+    size_t component_index, tensorstore::span<const Index> cell_indices) const {
   Box<dynamic_rank(kMaxRank)> domain;
   const auto& component_spec = components[component_index];
   const DimensionIndex component_rank = component_spec.rank();
@@ -109,7 +113,7 @@ ChunkGridSpecification::CellDomain ChunkGridSpecification::GetCellDomain(
 }
 
 ChunkGridSpecification::CellDomain ChunkGridSpecification::GetValidCellDomain(
-    size_t component_index, span<const Index> cell_indices) const {
+    size_t component_index, tensorstore::span<const Index> cell_indices) const {
   auto domain = GetCellDomain(component_index, cell_indices);
   auto& component_spec = components[component_index];
   DimensionIndex rank = component_spec.rank();
@@ -125,9 +129,9 @@ Result<ChunkLayout> GetChunkLayoutFromGrid(
   ChunkLayout layout;
   DimensionIndex inner_order[kMaxRank];
   const DimensionIndex rank = component_spec.rank();
-  tensorstore::SetPermutation(c_order, span(inner_order, rank));
-  TENSORSTORE_RETURN_IF_ERROR(
-      layout.Set(ChunkLayout::InnerOrder(span(inner_order, rank))));
+  tensorstore::SetPermutation(c_order, tensorstore::span(inner_order, rank));
+  TENSORSTORE_RETURN_IF_ERROR(layout.Set(
+      ChunkLayout::InnerOrder(tensorstore::span(inner_order, rank))));
   TENSORSTORE_RETURN_IF_ERROR(
       layout.Set(ChunkLayout::GridOrigin(GetConstantVector<Index, 0>(rank))));
   TENSORSTORE_RETURN_IF_ERROR(

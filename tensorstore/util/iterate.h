@@ -176,10 +176,10 @@ namespace internal {
 template <size_t Arity>
 bool IterateOverStridedLayouts(
     ElementwiseClosure<Arity, void*> closure, void* arg,
-    span<const Index> shape,
+    tensorstore::span<const Index> shape,
     std::array<ByteStridedPointer<void>, Arity> pointers,
     std::array<const Index*, Arity> strides, IterationConstraints constraints,
-    std::array<std::ptrdiff_t, Arity> element_sizes);
+    std::array<ptrdiff_t, Arity> element_sizes);
 
 /// Number of dimensions that iteration functions support without heap
 /// allocation.

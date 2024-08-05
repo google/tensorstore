@@ -24,6 +24,7 @@
 /// to perform partial copies or for greater control over the iteration order.
 
 #include <array>
+#include <cstddef>
 
 #include "absl/status/status.h"
 #include "tensorstore/index.h"
@@ -35,7 +36,6 @@
 #include "tensorstore/rank.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal {
@@ -88,7 +88,7 @@ struct NDIterableCopyManager
   BufferParameters GetBufferParameters(
       NDIterable::IterationLayoutView layout) const;
 
-  std::ptrdiff_t GetWorkingMemoryBytesPerElement(
+  ptrdiff_t GetWorkingMemoryBytesPerElement(
       NDIterable::IterationLayoutView layout) const;
 
   const NDIterable* input() const { return this->iterables[0]; }
@@ -121,8 +121,8 @@ struct NDIteratorCopyManager {
   /// \returns `true` on success.  If an error occurs, returns `false` and
   ///     `*status` may be set to an error, or may be left unchanged to indicate
   ///     a default/unspecified error.
-  bool Copy(span<const Index> indices, IterationBufferShape block_shape,
-            absl::Status* status) {
+  bool Copy(tensorstore::span<const Index> indices,
+            IterationBufferShape block_shape, absl::Status* status) {
     return copy_impl_(this, indices, block_shape, status);
   }
 
@@ -130,7 +130,7 @@ struct NDIteratorCopyManager {
   NDIterator::Ptr input_;
   NDIterator::Ptr output_;
   using CopyImpl = bool (*)(NDIteratorCopyManager* self,
-                            span<const Index> indices,
+                            tensorstore::span<const Index> indices,
                             IterationBufferShape block_shape,
                             absl::Status* status);
   CopyImpl copy_impl_;
@@ -160,12 +160,12 @@ struct NDIterableCopier {
   /// \param arena Arena to use for memory allocation.  Must be non-null.
   /// \dchecks `input.dtype() == output.dtype()`.
   NDIterableCopier(const NDIterable& input, const NDIterable& output,
-                   span<const Index> shape, IterationConstraints constraints,
-                   Arena* arena);
+                   tensorstore::span<const Index> shape,
+                   IterationConstraints constraints, Arena* arena);
 
   /// Same as above, but sets `constraints = skip_repeated_elements`.
   NDIterableCopier(const NDIterable& input, const NDIterable& output,
-                   span<const Index> shape, Arena* arena)
+                   tensorstore::span<const Index> shape, Arena* arena)
       : NDIterableCopier(input, output, shape, skip_repeated_elements, arena) {}
 
   /// Attempts to copy from `source` to `dest`.
@@ -177,8 +177,9 @@ struct NDIterableCopier {
   const NDIterationLayoutInfo<>& layout_info() const { return layout_info_; }
 
   /// Returns the final position after `Copy` is called.
-  span<const Index> position() const {
-    return span<const Index>(position_, layout_info_.iteration_shape.size());
+  tensorstore::span<const Index> position() const {
+    return tensorstore::span<const Index>(position_,
+                                          layout_info_.iteration_shape.size());
   }
 
   /// Provides access to the iterators obtained from the `input` and `output`
@@ -189,8 +190,8 @@ struct NDIterableCopier {
 
  private:
   NDIterableCopier(const NDIterableCopyManager& iterable_copy_manager,
-                   span<const Index> shape, IterationConstraints constraints,
-                   Arena* arena);
+                   tensorstore::span<const Index> shape,
+                   IterationConstraints constraints, Arena* arena);
 
   NDIterationLayoutInfo<> layout_info_;
   IterationBufferShape block_shape_;

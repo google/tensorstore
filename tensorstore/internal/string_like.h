@@ -19,7 +19,6 @@
 #include <cstddef>
 #include <string>
 #include <string_view>
-#include <type_traits>
 
 #include "absl/base/optimization.h"
 #include "tensorstore/util/span.h"
@@ -46,17 +45,17 @@ class StringLikeSpan {
  public:
   StringLikeSpan() = default;
 
-  StringLikeSpan(span<const char* const> c_strings)
+  StringLikeSpan(tensorstore::span<const char* const> c_strings)
       : c_strings_(c_strings.data()), size_and_tag_(c_strings.size() << 2) {}
 
-  StringLikeSpan(span<const std::string> strings)
+  StringLikeSpan(tensorstore::span<const std::string> strings)
       : strings_(strings.data()), size_and_tag_((strings.size() << 2) | 1) {}
 
-  StringLikeSpan(span<const std::string_view> string_views)
+  StringLikeSpan(tensorstore::span<const std::string_view> string_views)
       : string_views_(string_views.data()),
         size_and_tag_((string_views.size() << 2) | 2) {}
 
-  std::string_view operator[](std::ptrdiff_t i) const {
+  std::string_view operator[](ptrdiff_t i) const {
     assert(i >= 0 && i < size());
     switch (size_and_tag_ & 3) {
       case 0:
@@ -70,7 +69,7 @@ class StringLikeSpan {
     }
   }
 
-  std::ptrdiff_t size() const { return size_and_tag_ >> 2; }
+  ptrdiff_t size() const { return size_and_tag_ >> 2; }
 
  private:
   union {
@@ -78,7 +77,7 @@ class StringLikeSpan {
     const std::string* strings_;
     const std::string_view* string_views_;
   };
-  std::ptrdiff_t size_and_tag_ = 0;
+  ptrdiff_t size_and_tag_ = 0;
 };
 
 }  // namespace internal
