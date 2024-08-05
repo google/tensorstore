@@ -1,0 +1,35 @@
+diff --git a/aws-cpp-sdk-core/include/aws/core/external/tinyxml2/tinyxml2.h b/aws-cpp-sdk-core/include/aws/core/external/tinyxml2/tinyxml2.h
+index 3721ed1..73ac4a3 100644
+--- a/aws-cpp-sdk-core/include/aws/core/external/tinyxml2/tinyxml2.h
++++ b/aws-cpp-sdk-core/include/aws/core/external/tinyxml2/tinyxml2.h
+@@ -80,7 +80,7 @@ This file has been modified from its original version by Amazon:
+         #endif // AWS_CORE_EXPORTS
+     #endif // USE_IMPORT_EXPORT
+ #elif __GNUC__ >= 4
+-    #define TINYXML2_LIB __attribute__((visibility("default")))
++    #define TINYXML2_LIB
+ #endif // _WIN32
+ 
+ #ifndef TINYXML2_LIB
+diff --git a/aws-cpp-sdk-core/source/client/AWSClient.cpp b/aws-cpp-sdk-core/source/client/AWSClient.cpp
+index 4b2a38b..5198448 100644
+--- a/aws-cpp-sdk-core/source/client/AWSClient.cpp
++++ b/aws-cpp-sdk-core/source/client/AWSClient.cpp
+@@ -232,7 +232,7 @@ HttpResponseOutcome AWSClient::AttemptExhaustively(const Aws::Http::URI& uri,
+     const char* signerRegion = signerRegionOverride;
+     Aws::String regionFromResponse;
+ 
+-    Aws::String invocationId = UUID::RandomUUID();
++    Aws::String invocationId = Aws::Utils::UUID::RandomUUID();
+     RequestInfo requestInfo;
+     requestInfo.attempt = 1;
+     requestInfo.maxAttempts = 0;
+@@ -358,7 +358,7 @@ HttpResponseOutcome AWSClient::AttemptExhaustively(const Aws::Http::URI& uri,
+     const char* signerRegion = signerRegionOverride;
+     Aws::String regionFromResponse;
+ 
+-    Aws::String invocationId = UUID::RandomUUID();
++    Aws::String invocationId = Aws::Utils::UUID::RandomUUID();
+     RequestInfo requestInfo;
+     requestInfo.attempt = 1;
+     requestInfo.maxAttempts = 0;

@@ -1,0 +1,188 @@
+# Description:
+#   AWS C++ SDK
+
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])  # Apache 2.0
+
+exports_files(["LICENSE"])
+
+cc_library(
+    name = "smithy",
+    srcs = glob([
+        "src/aws-cpp-sdk-core/include/smithy/**/*.h",
+    ]),
+    hdrs = glob([
+        "src/aws-cpp-sdk-core/source/smithy/**/*.cpp",
+    ]),
+    includes = [
+        "src/aws-cpp-sdk-core/include",
+        "src/aws-cpp-sdk-core/include/smithy/tracing/impl",
+    ],
+)
+
+
+write_file(
+    name = "write_SDKConfig_h",
+    out = "src/aws-cpp-sdk-core/include/aws/core/SDKConfig.h",
+    newline = "auto",
+
+    content = [
+        "#undef USE_AWS_MEMORY_MANAGEMENT",
+        "#define ENABLE_CURL_CLIENT 0",
+    ] +  select({
+        "@platforms//os:windows": [
+            "#define WIN32_LEAN_AND_MEAN",
+            "#include <Windows.h>",
+            "#define PLATFORM_WINDOWS",
+        ],
+        "@platforms//os:macos": [
+            "#define PLATFORM_MACOS"
+        ],
+        "//conditions:default": [
+            "#define PLATFORM_LINUX",
+        ],
+    }),
+)
+
+cc_library(
+    name = "core",
+    srcs = glob([
+        "src/aws-cpp-sdk-core/source/*.cpp",
+        "src/aws-cpp-sdk-core/source/endpoint/*.cpp",
+        "src/aws-cpp-sdk-core/source/endpoint/internal/*.cpp",
+        "src/aws-cpp-sdk-core/source/http/*.cpp",
+        "src/aws-cpp-sdk-core/source/http/crt/*.cpp",
+        "src/aws-cpp-sdk-core/source/http/curl/*.cpp",
+        "src/aws-cpp-sdk-core/source/http/standard/*.cpp",
+        "src/aws-cpp-sdk-core/source/utils/*.cpp",
+        "src/aws-cpp-sdk-core/source/utils/memory/*.cpp",
+        "src/aws-cpp-sdk-core/source/utils/memory/stl/*.cpp",
+        "src/aws-cpp-sdk-core/source/utils/component-registry/*.cpp",
+        "src/aws-cpp-sdk-core/source/utils/crypto/*.cpp",
+        "src/aws-cpp-sdk-core/source/utils/crypto/factory/*.cpp",
+        "src/aws-cpp-sdk-core/source/utils/crypto/crt/*.cpp",
+        "src/aws-cpp-sdk-core/source/utils/logging/*.cpp",
+        "src/aws-cpp-sdk-core/source/utils/event/*.cpp",
+        "src/aws-cpp-sdk-core/source/utils/threading/*.cpp",
+        "src/aws-cpp-sdk-core/source/utils/stream/*.cpp",
+        "src/aws-cpp-sdk-core/source/utils/base64/*.cpp",
+        "src/aws-cpp-sdk-core/source/utils/json/*.cpp",
+        "src/aws-cpp-sdk-core/source/utils/xml/*.cpp",
+        "src/aws-cpp-sdk-core/source/external/*.cpp",
+        "src/aws-cpp-sdk-core/source/external/tinyxml2/*.cpp",
+        "src/aws-cpp-sdk-core/source/external/cjson/*.cpp",
+        "src/aws-cpp-sdk-core/source/platform/*.cpp",
+        "src/aws-cpp-sdk-core/source/config/*.cpp",
+        "src/aws-cpp-sdk-core/source/config/defaults/*.cpp",
+        "src/aws-cpp-sdk-core/source/internal/*.cpp",
+        "src/aws-cpp-sdk-core/source/client/*.cpp",
+        "src/aws-cpp-sdk-core/source/auth/*.cpp",
+        "src/aws-cpp-sdk-core/source/auth/signer/*.cpp",
+        "src/aws-cpp-sdk-core/source/auth/bearer-token-provider/*.cpp",
+        "src/aws-cpp-sdk-core/source/auth/signer-provider/*.cpp",
+        "src/aws-cpp-sdk-core/source/smithy/*.cpp",
+        "src/aws-cpp-sdk-core/source/smithy/tracing/*.cpp",
+        "src/aws-cpp-sdk-core/source/smithy/tracing/impl/*.cpp",
+        #"src/aws-cpp-sdk-core/source/smithy/tracing/impl/opentelemetry/*.cpp",
+        "src/aws-cpp-sdk-core/source/monitoring/*.cpp",
+    ]) + select({
+        "@platforms//os:windows": glob([
+            "src/aws-cpp-sdk-core/source/http/windows/*.cpp",
+            "src/aws-cpp-sdk-core/source/net/windows/*.cpp",
+            "src/aws-cpp-sdk-core/source/platform/windows/*.cpp",
+        ]),
+        "@platforms//os:linux": glob([
+            "src/aws-cpp-sdk-core/source/net/linux-shared/*.cpp",
+            "src/aws-cpp-sdk-core/source/platform/linux-shared/*.cpp",
+        ]),
+        "//conditions:default": glob([
+            "src/aws-cpp-sdk-core/source/http/standard/*.cpp",
+            "src/aws-cpp-sdk-core/source/net/*.cpp",
+        ]),
+    }),
+    hdrs = [
+        ":write_SDKConfig_h",
+    ] + glob([
+        "src/aws-cpp-sdk-core/include/aws/core/**/*.h",
+    ]),
+    defines = [],
+    includes = [
+        "src/aws-cpp-sdk-core/include",
+        "src/aws-cpp-sdk-core/include/smithy/tracing/impl",
+    ],
+    linkopts = select({
+        "@platforms//os:windows": [
+            "-DEFAULTLIB:userenv.lib",
+            "-DEFAULTLIB:version.lib",
+        ],
+        "//conditions:default": [],
+    }),
+    deps = [
+        "@com_github_aws_cpp_crt//:aws_cpp_crt",
+        "@se_curl//:curl",
+        ":smithy",
+    ],
+)
+
+cc_library(
+    name = "s3",
+    srcs = glob([
+        "generated/src/aws-cpp-sdk-s3/source/*.cpp",  # AWS_S3_SOURCE
+        "generated/src/aws-cpp-sdk-s3/source/model/*.cpp",  # AWS_S3_MODEL_SOURCE
+    ]),
+    hdrs = glob([
+        "generated/src/aws-cpp-sdk-s3/include/aws/s3/*.h",  # AWS_S3_HEADERS
+        "generated/src/aws-cpp-sdk-s3/include/aws/s3/model/*.h",  # AWS_S3_MODEL_HEADERS
+    ]),
+    includes = [
+        "generated/src/aws-cpp-sdk-s3/include",
+    ],
+    deps = [
+        ":core",
+    ],
+)
+
+cc_library(
+    name = "s3_encryption",
+    srcs = glob([
+        "src/aws-cpp-sdk-s3-encryption/source/*.cpp",
+        "src/aws-cpp-sdk-s3-encryption/source/handlers/*.cpp",
+        "src/aws-cpp-sdk-s3-encryption/source/materials/*.cpp",
+        "src/aws-cpp-sdk-s3-encryption/source/modules/*.cpp",
+    ]),
+    hdrs = glob([
+        "src/aws-cpp-sdk-s3-encryption/include/aws/s3/*.h",
+        "src/aws-cpp-sdk-s3-encryption/include/handlers/*.h",
+        "src/aws-cpp-sdk-s3-encryption/include/materials/*.h",
+        "src/aws-cpp-sdk-s3-encryption/include/modules/*.h",
+    ]),
+    includes = [
+        "src/aws-cpp-sdk-s3-encryption/include",
+    ],
+    deps = [
+        ":core",
+    ],
+)
+
+
+cc_library(
+    name = "transfer",
+    srcs = glob([
+        "src/aws-cpp-sdk-transfer/source/transfer/*.cpp",  # TRANSFER_SOURCE
+    ]),
+    hdrs = glob([
+        "src/aws-cpp-sdk-transfer/include/aws/transfer/*.h",  # TRANSFER_HEADERS
+    ]),
+    includes = [
+        "src/aws-cpp-sdk-transfer/include",
+    ],
+    deps = [
+        ":core",
+        ":s3",
+    ],
+)
+
+

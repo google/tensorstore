@@ -223,6 +223,34 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
+    name = "new_s3_request_builder",
+    srcs = [
+        "new_s3_request_builder.cc",
+    ],
+    hdrs = [
+        "new_s3_request_builder.h"
+    ],
+    deps = [
+        "//tensorstore/kvstore/s3_sdk:s3_context",
+        "//tensorstore/internal/http",
+        "@com_github_aws_cpp_sdk//:core",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
+    ]
+)
+
+tensorstore_cc_test(
+    name = "new_s3_request_builder_test",
+    srcs = [
+        "new_s3_request_builder_test.cc",
+    ],
+    deps = [
+        ":new_s3_request_builder",
+        "@com_google_googletest//:gtest_main",
+    ]
+)
+
+tensorstore_cc_library(
     name = "validate",
     srcs = [
         "validate.cc",
