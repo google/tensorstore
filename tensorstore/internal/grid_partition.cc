@@ -99,15 +99,19 @@ class StridedSetGridCellIterator {
         grid_output_dimensions_(grid_output_dimensions),
         output_to_grid_cell_(output_to_grid_cell),
         strided_set_(strided_set) {
+    Reset();
+  }
+
+  void Reset() {
     const IndexInterval domain =
-        transform.input_domain()[strided_set.input_dimension];
-    input_index_ = domain.inclusive_min();
+        transform_.input_domain()[strided_set_.input_dimension];
     input_end_index_ = domain.exclusive_max();
+    input_index_ = domain.inclusive_min();
   }
 
   bool AtEnd() const { return input_index_ == input_end_index_; }
 
-  IndexInterval Next(tensorstore::span<Index> grid_cell_indices) {
+  IndexInterval Next(tensorstore::span<Index> output_grid_cell_indices) {
     assert(!AtEnd());
     // The subset of the original input domain that corresponds to the current
     // partial grid cell.
@@ -121,7 +125,7 @@ class StridedSetGridCellIterator {
       const DimensionIndex output_dim = grid_output_dimensions_[grid_dim];
       const OutputIndexMapRef<> map = transform_.output_index_map(output_dim);
       IndexInterval cell_range;
-      grid_cell_indices[grid_dim] = output_to_grid_cell_(
+      output_grid_cell_indices[grid_dim] = output_to_grid_cell_(
           grid_dim, input_index_ * map.stride() + map.offset(), &cell_range);
       // The check in PrePartitionIndexTransformOverRegularGrid guarantees
       // that GetAffineTransformDomain is successful.
@@ -140,8 +144,48 @@ class StridedSetGridCellIterator {
   tensorstore::span<const DimensionIndex> grid_output_dimensions_;
   OutputToGridCellFn output_to_grid_cell_;
   StridedSet strided_set_;
-  Index input_index_;
   Index input_end_index_;
+  Index input_index_;
+};
+
+// Java-style iterator for computing the grid cells that intersect the original
+// input domain for a given `StridedSet`.
+//
+/// For each grid cell, updates the `output_grid_cell_indices` for the given
+/// index array.
+class IndexArraySetIterator {
+ public:
+  IndexArraySetIterator(const IndexArraySet& index_array_set)
+      : grid_dimensions_(index_array_set.grid_dimensions),
+        grid_cell_indices_(index_array_set.grid_cell_indices),
+        partition_end_index_(index_array_set.num_partitions()),
+        partition_index_(0) {}
+
+  void Reset() { partition_index_ = 0; }
+
+  bool AtEnd() const { return partition_index_ == partition_end_index_; }
+
+  Index Next(tensorstore::span<Index> output_grid_cell_indices) {
+    assert(!AtEnd());
+
+    // Assign the grid_cell_indices to the precomputed grid cell indices for
+    // this partition.
+    const Index grid_cell_indices_offset =
+        partition_index_ * grid_dimensions_.count();
+    DimensionIndex grid_i = 0;
+    for (DimensionIndex grid_dim : grid_dimensions_.index_view()) {
+      output_grid_cell_indices[grid_dim] =
+          grid_cell_indices_[grid_cell_indices_offset + grid_i++];
+    }
+
+    return partition_index_++;
+  }
+
+ private:
+  DimensionSet grid_dimensions_;
+  tensorstore::span<const Index> grid_cell_indices_;
+  Index partition_end_index_;
+  Index partition_index_;
 };
 
 /// Helper class for iterating over the grid cell index vectors and computing
@@ -188,22 +232,9 @@ class ConnectedSetIterateHelper {
     }
     const IndexArraySet& index_array_set =
         params_.info.index_array_sets()[set_i];
-    const auto grid_dimensions = index_array_set.grid_dimensions;
-    const DimensionIndex num_grid_dimensions = grid_dimensions.count();
-    // Iterate over the precomputed partitions.
-    for (Index partition_i = 0,
-               num_partitions = index_array_set.num_partitions();
-         partition_i < num_partitions; ++partition_i) {
-      // Assign the grid_cell_indices to the precomputed grid cell indices for
-      // this partition.
-      const Index grid_cell_indices_offset = partition_i * num_grid_dimensions;
-      DimensionIndex grid_i = 0;
-      for (DimensionIndex grid_dim : grid_dimensions.index_view()) {
-        grid_cell_indices_[grid_dim] =
-            index_array_set
-                .grid_cell_indices[grid_cell_indices_offset + grid_i++];
-      }
-
+    IndexArraySetIterator iterator(index_array_set);
+    while (!iterator.AtEnd()) {
+      Index partition_i = iterator.Next(grid_cell_indices_);
       UpdateCellTransformForIndexArraySetPartition(
           index_array_set, set_i, partition_i, cell_transform_.get());
       TENSORSTORE_RETURN_IF_ERROR(IterateOverIndexArraySets(set_i + 1));
