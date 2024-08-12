@@ -120,26 +120,34 @@ inline constexpr auto EC2CredentialsResponseBinder = jb::Object(
 Result<absl::Cord> GetEC2ApiToken(std::string_view endpoint,
                                   internal_http::HttpTransport& transport) {
   // Obtain Metadata server API tokens with a TTL of 21600 seconds
-  auto token_request =
-      HttpRequestBuilder("POST",
-                         tensorstore::StrCat(endpoint, "/latest/api/token"))
-          .AddHeader("x-aws-ec2-metadata-token-ttl-seconds: 21600")
-          .BuildRequest();
+  const std::string token_url = tensorstore::StrCat(endpoint, "/latest/api/token");
+  const std::string request_header = "x-aws-ec2-metadata-token-ttl-seconds: 21600";
+  const auto request_options = internal_http::IssueRequestOptions()
+                                   .SetRequestTimeout(absl::InfiniteDuration())
+                                   .SetConnectTimeout(kConnectTimeout);
 
-  TENSORSTORE_ASSIGN_OR_RETURN(
-      auto token_response,
-      transport
-          .IssueRequest(token_request,
-                        internal_http::IssueRequestOptions()
-                            .SetRequestTimeout(absl::InfiniteDuration())
-                            .SetConnectTimeout(kConnectTimeout))
-          .result());
+  for (const char* method : {"POST", "PUT"}) {
+    auto token_request = HttpRequestBuilder(method, token_url)
+                       .AddHeader(request_header)
+                       .BuildRequest();
 
-  bool is_retryable = false;
-  TENSORSTORE_RETURN_IF_ERROR(
-      AwsHttpResponseToStatus(token_response, is_retryable));
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto token_response,
+        transport.IssueRequest(token_request, request_options).result());
 
-  return std::move(token_response.payload);
+    if (method == "POST" &&
+        (token_response.status_code == 405 || token_response.status_code == 401)) {
+      continue;  // Try PUT for IMDSv2
+    }
+
+    bool is_retryable = false;
+    TENSORSTORE_RETURN_IF_ERROR(
+        AwsHttpResponseToStatus(token_response, is_retryable));
+
+    return std::move(token_response.payload);
+  }
+
+  return absl::NotFoundError("Failed to obtain EC2 API token from either IMDSv1 or IMDSv2");
 }
 
 }  // namespace
