@@ -72,7 +72,6 @@
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/supported_features.h"
 #include "tensorstore/kvstore/url_registry.h"
-#include "tensorstore/proto/proto_util.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/executor.h"
@@ -362,7 +361,7 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
   }
 
   void Start(const std::string& object_name) {
-    ABSL_LOG_IF(INFO, gcs_grpc_logging) << "ReadTask::Start " << this;
+    ABSL_LOG_IF(INFO, gcs_grpc_logging) << "ReadTask " << object_name;
 
     stub_ = driver_->get_stub().get();
     promise_.ExecuteWhenNotNeeded(
@@ -413,9 +412,6 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
     storage_generation_ =
         TimestampedStorageGeneration{StorageGeneration::Unknown(), absl::Now()};
 
-    ABSL_LOG_IF(INFO, gcs_grpc_logging)
-        << "ReadTask::Retry " << this << " " << ConciseDebugString(request_);
-
     {
       absl::MutexLock lock(&mutex_);
       assert(context_ == nullptr);
@@ -431,9 +427,6 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
   }
 
   void OnReadDone(bool ok) override {
-    ABSL_LOG_IF(INFO, gcs_grpc_logging)
-        << "ReadTask::OnReadDone: " << this << " " << ok << " "
-        << (ok ? ConciseDebugString(response_) : std::string());
     if (!ok) return;
     if (!promise_.result_needed()) {
       TryCancel();
@@ -492,8 +485,6 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
     }
 
     // Issue next request, if necessary.
-    ABSL_LOG_IF(INFO, gcs_grpc_logging)
-        << "ReadTask (next) " << this << " " << ConciseDebugString(request_);
     StartRead(&response_);
   }
 
@@ -510,8 +501,6 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
     if (!promise_.result_needed()) {
       return;
     }
-    ABSL_LOG_IF(INFO, gcs_grpc_logging)
-        << "ReadTask::ReadFinished: " << this << " " << status;
     {
       absl::MutexLock lock(&mutex_);
       context_ = nullptr;
@@ -650,7 +639,7 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
   }
 
   void Start(std::string object_name, absl::Cord value) {
-    ABSL_LOG_IF(INFO, gcs_grpc_logging) << "WriteTask::Start " << this;
+    ABSL_LOG_IF(INFO, gcs_grpc_logging) << "WriteTask " << object_name;
 
     object_name_ = std::move(object_name);
     value_ = std::move(value);
@@ -683,9 +672,6 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
 
     UpdateRequestForNextWrite();
 
-    ABSL_LOG_IF(INFO, gcs_grpc_logging)
-        << "WriteTask::Retry " << this << " " << ConciseDebugString(request_);
-
     auto options = grpc::WriteOptions();
     if (request_.finish_write()) {
       options.set_last_message();
@@ -696,9 +682,6 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
 
   void OnWriteDone(bool ok) override {
     // Not streaming any additional data bits.
-    ABSL_LOG_IF(INFO, gcs_grpc_logging)
-        << "WriteTask::OnWriteDone: " << this << " " << ok;
-
     if (!ok) return;
     if (request_.finish_write()) return;
 
@@ -708,8 +691,6 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
     if (request_.finish_write()) {
       options.set_last_message();
     }
-    ABSL_LOG_IF(INFO, gcs_grpc_logging)
-        << "WriteTask (next) " << this << " " << ConciseDebugString(request_);
     StartWrite(&request_, options);
   }
 
@@ -725,9 +706,6 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
     if (!promise_.result_needed()) {
       return;
     }
-    ABSL_LOG_IF(INFO, gcs_grpc_logging)
-        << "WriteTask::WriteFinished: " << this << " " << status << " "
-        << ConciseDebugString(response_);
 
     auto latency = absl::Now() - write_result_.time;
     gcs_grpc_metrics.write_latency_ms.Observe(
@@ -797,6 +775,8 @@ struct DeleteTask : public internal::AtomicReferenceCount<DeleteTask> {
   }
 
   void Start(const std::string& object_name) {
+    ABSL_LOG_IF(INFO, gcs_grpc_logging) << "DeleteTask " << object_name;
+
     stub_ = driver_->get_stub().get();
     promise_.ExecuteWhenNotNeeded([self = internal::IntrusivePtr<DeleteTask>(
                                        this)] { self->TryCancel(); });
@@ -817,10 +797,7 @@ struct DeleteTask : public internal::AtomicReferenceCount<DeleteTask> {
       return;
     }
 
-    ABSL_LOG_IF(INFO, gcs_grpc_logging)
-        << "Delete: " << this << " " << ConciseDebugString(request_);
     start_time_ = absl::Now();
-
     {
       absl::MutexLock lock(&mutex_);
       assert(context_ == nullptr);
@@ -842,8 +819,6 @@ struct DeleteTask : public internal::AtomicReferenceCount<DeleteTask> {
       return;
     }
 
-    ABSL_LOG_IF(INFO, gcs_grpc_logging)
-        << "DeleteFinished: " << this << " " << status;
     {
       absl::MutexLock lock(&mutex_);
       context_ = nullptr;
@@ -932,6 +907,8 @@ struct ListTask : public internal::AtomicReferenceCount<ListTask> {
   }
 
   void Start() {
+    ABSL_LOG_IF(INFO, gcs_grpc_logging) << "ListTask " << options_.range;
+
     stub_ = driver_->get_stub().get();
     request.set_lexicographic_start(options_.range.inclusive_min);
     request.set_lexicographic_end(options_.range.exclusive_max);
@@ -947,9 +924,6 @@ struct ListTask : public internal::AtomicReferenceCount<ListTask> {
       execution::set_done(receiver_);
       return;
     }
-
-    ABSL_LOG_IF(INFO, gcs_grpc_logging)
-        << "List: " << this << " " << ConciseDebugString(request);
 
     {
       absl::MutexLock lock(&mutex_);
@@ -971,9 +945,6 @@ struct ListTask : public internal::AtomicReferenceCount<ListTask> {
       execution::set_done(receiver_);
       return;
     }
-    ABSL_LOG_IF(INFO, gcs_grpc_logging)
-        << "ListResponse: " << this << " " << status << " :"
-        << ConciseDebugString(response);
 
     if (!status.ok() && IsRetriable(status)) {
       status =
