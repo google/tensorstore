@@ -384,16 +384,6 @@ Result<UniqueFileDescriptor> OpenParentDirectory(std::string path) {
   }
 }
 
-absl::Status VerifyRegularFile(FileDescriptor fd, FileInfo* info,
-                               const char* path) {
-  TENSORSTORE_RETURN_IF_ERROR(internal_os::GetFileInfo(fd, info));
-  if (!internal_os::IsRegularFile(*info)) {
-    return absl::FailedPreconditionError(
-        tensorstore::StrCat("Not a regular file: ", path));
-  }
-  return absl::OkStatus();
-}
-
 Result<UniqueFileDescriptor> OpenValueFile(const char* path,
                                            StorageGeneration* generation,
                                            int64_t* size = nullptr) {
@@ -407,7 +397,19 @@ Result<UniqueFileDescriptor> OpenValueFile(const char* path,
     return fd;
   }
   FileInfo info;
-  TENSORSTORE_RETURN_IF_ERROR(VerifyRegularFile(fd->get(), &info, path));
+  auto status = internal_os::GetFileInfo(fd->get(), &info);
+#ifndef _WIN32
+  if (absl::IsNotFound(status)) {
+    // Stating a newly opened file can fail with ENOTFOUND on some network
+    // filesystems.  In that case, retry using the path.
+    status = internal_os::GetFileInfo(path, &info);
+  }
+#endif
+  if (!status.ok()) return status;
+  if (!internal_os::IsRegularFile(info)) {
+    return absl::FailedPreconditionError(
+        tensorstore::StrCat("Not a regular file: ", path));
+  }
   if (size) *size = internal_os::GetSize(info);
   *generation = GetFileGeneration(info);
   return fd;
@@ -429,9 +431,20 @@ struct WriteLockHelper {
   /// Opens or Creates the lock file.
   Result<UniqueFileDescriptor> OpenLockFile(FileInfo* info) {
     auto fd = internal_os::OpenFileForWriting(lock_path);
-    if (fd.ok()) {
-      TENSORSTORE_RETURN_IF_ERROR(
-          VerifyRegularFile(fd->get(), info, lock_path.c_str()));
+    if (!fd.ok()) return fd;
+
+    auto status = internal_os::GetFileInfo(fd->get(), info);
+#ifndef _WIN32
+    if (absl::IsNotFound(status)) {
+      // Stating a newly opened file can fail with ENOTFOUND on some network
+      // filesystems.  In that case, retry using the path.
+      status = internal_os::GetFileInfo(lock_path, info);
+    }
+#endif
+    if (!status.ok()) return status;
+    if (!internal_os::IsRegularFile(*info)) {
+      return absl::FailedPreconditionError(
+          tensorstore::StrCat("Not a regular file: ", lock_path));
     }
     return fd;
   }
@@ -477,9 +490,9 @@ struct WriteLockHelper {
 };
 
 Result<absl::Cord> ReadFromFileDescriptor(FileDescriptor fd,
-                                          ByteRange byte_range,
-                                          absl::Time start_time) {
+                                          ByteRange byte_range) {
   file_metrics.batch_read.Increment();
+  absl::Time start_time = absl::Now();
   internal::FlatCordBuilder buffer(byte_range.size(), false);
   size_t offset = 0;
   while (offset < buffer.size()) {
@@ -537,12 +550,15 @@ class BatchReadTask final
   Result<kvstore::ReadResult> DoByteRangeRead(ByteRange byte_range) {
     absl::Cord value;
     TENSORSTORE_ASSIGN_OR_RETURN(
-        value, ReadFromFileDescriptor(fd_.get(), byte_range, stamp_.time),
+        value, ReadFromFileDescriptor(fd_.get(), byte_range),
         tensorstore::MaybeAnnotateStatus(_, "Error reading from open file"));
     return kvstore::ReadResult::Value(std::move(value), stamp_);
   }
 
   void ProcessBatch() {
+    ABSL_LOG_IF(INFO, file_logging)
+        << "BatchReadTask " << std::get<std::string>(batch_entry_key);
+
     stamp_.time = absl::Now();
     file_metrics.open_read.Increment();
     auto& requests = request_batch.requests;
@@ -618,6 +634,7 @@ struct WriteTask {
   bool sync;
 
   Result<TimestampedStorageGeneration> operator()() const {
+    ABSL_LOG_IF(INFO, file_logging) << "WriteTask " << full_path;
     TimestampedStorageGeneration r;
     r.time = absl::Now();
 
@@ -646,6 +663,7 @@ struct WriteTask {
         TENSORSTORE_RETURN_IF_ERROR(internal_os::TruncateFile(fd));
       }
       absl::Cord value_for_write = value;
+      auto start_write = absl::Now();
       for (; !value_for_write.empty();) {
         TENSORSTORE_ASSIGN_OR_RETURN(
             auto n, internal_os::WriteCordToFile(fd, value_for_write),
@@ -679,7 +697,7 @@ struct WriteTask {
       FileInfo info;
       TENSORSTORE_RETURN_IF_ERROR(internal_os::GetFileInfo(fd, &info));
       file_metrics.write_latency_ms.Observe(
-          absl::ToInt64Milliseconds(absl::Now() - r.time));
+          absl::ToInt64Milliseconds(absl::Now() - start_write));
       return GetFileGeneration(info);
     }();
 
@@ -701,6 +719,7 @@ struct DeleteTask {
   bool sync;
 
   Result<TimestampedStorageGeneration> operator()() const {
+    ABSL_LOG_IF(INFO, file_logging) << "DeleteTask " << full_path;
     TimestampedStorageGeneration r;
     r.time = absl::Now();
 
@@ -769,6 +788,7 @@ struct DeleteRangeTask {
   // TODO(jbms): Add fsync support
 
   void operator()(Promise<void> promise) {
+    ABSL_LOG_IF(INFO, file_logging) << "DeleteRangeTask " << range;
     std::string prefix(internal_file_util::LongestDirectoryPrefix(range));
     absl::Status delete_status;
     auto status = internal_os::RecursiveFileList(
@@ -819,6 +839,7 @@ struct ListTask {
   ListReceiver receiver;
 
   void operator()() {
+    ABSL_LOG_IF(INFO, file_logging) << "ListTask " << options.range;
     std::atomic<bool> cancelled = false;
     execution::set_starting(receiver, [&cancelled] {
       cancelled.store(true, std::memory_order_relaxed);

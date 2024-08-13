@@ -32,6 +32,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:source_location",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/status",
     ],
 )
@@ -69,6 +70,7 @@ tensorstore_cc_library(
         ":potentially_blocking_region",
         ":unique_handle",
         ":wstring",  # build_cleaner: keep
+        "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
         "@com_google_absl//absl/base:core_headers",

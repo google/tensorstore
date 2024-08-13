@@ -48,9 +48,6 @@ inline OsErrorCode GetLastErrorCode() {
 /// Returns the error message associated with a system error code.
 std::string GetOsErrorMessage(OsErrorCode error);
 
-/// Converts a system error code to the corresponding `absl::StatusCode`.
-absl::StatusCode GetOsErrorStatusCode(OsErrorCode error);
-
 /// Returns an `absl::Status` from an OS error. The message is composed by
 /// catenation of the provided string parts.
 absl::Status StatusFromOsError(
