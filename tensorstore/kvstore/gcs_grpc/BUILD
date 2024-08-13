@@ -36,7 +36,6 @@ tensorstore_cc_library(
         "//tensorstore/kvstore:key_range",
         "//tensorstore/kvstore/gcs:gcs_resource",
         "//tensorstore/kvstore/gcs:validate",
-        "//tensorstore/proto:proto_util",
         "//tensorstore/serialization",
         "//tensorstore/serialization:absl_time",
         "//tensorstore/util:executor",
@@ -168,7 +167,9 @@ tensorstore_cc_library(
     visibility = ["//visibility:private"],
     deps = [
         "//tensorstore/internal:env",
+        "//tensorstore/internal/grpc:utils",
         "//tensorstore/internal/log:verbose_flag",
+        "//tensorstore/proto:proto_util",
         "@com_github_grpc_grpc//:grpc++",
         "@com_github_grpc_grpc//:grpc_security_base",
         "@com_google_absl//absl/base:core_headers",
@@ -181,5 +182,7 @@ tensorstore_cc_library(
         "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/time",
         "@com_google_googleapis//google/storage/v2:storage_cc_grpc",
+        "@com_google_googleapis//google/storage/v2:storage_cc_proto",
+        "@com_google_protobuf//:protobuf",
     ],
 )
