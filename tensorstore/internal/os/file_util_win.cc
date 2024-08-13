@@ -73,12 +73,15 @@
 #include <string>
 #include <string_view>
 
+#include "absl/base/attributes.h"
+#include "absl/base/optimization.h"
 #include "absl/container/inlined_vector.h"
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/os/error_code.h"
 #include "tensorstore/internal/os/potentially_blocking_region.h"
 #include "tensorstore/internal/os/wstring.h"
@@ -98,6 +101,18 @@ using ::tensorstore::internal::StatusFromOsError;
 namespace tensorstore {
 namespace internal_os {
 namespace {
+
+ABSL_CONST_INIT internal_log::VerboseFlag detail_logging("file_detail");
+
+#define TS_DETAIL_LOG_BEGIN \
+  ABSL_LOG_IF(INFO, detail_logging.Level(1)) << "Begin: " << __func__
+
+#define TS_DETAIL_LOG_END \
+  ABSL_LOG_IF(INFO, detail_logging.Level(1)) << "End: " << __func__
+
+#define TS_DETAIL_LOG_ERROR                  \
+  ABSL_LOG_IF(INFO, detail_logging.Level(1)) \
+      << "Error: " << __func__ << " " << ::GetLastError()
 
 /// Maximum length of Windows path, including terminating NUL.
 constexpr size_t kMaxWindowsPathSize = 32768;
@@ -157,13 +172,6 @@ Result<DWORD> GetFileAttributes(const std::wstring& filename) {
 }
 #endif
 
-}  // namespace
-
-void FileDescriptorTraits::Close(FileDescriptor handle) {
-  ::CloseHandle(handle);
-}
-
-namespace {
 void UnlockWin32Lock(FileDescriptor fd) {
   auto lock_offset = GetLockOverlapped();
   // Ignore any errors.
@@ -173,6 +181,12 @@ void UnlockWin32Lock(FileDescriptor fd) {
 }
 
 }  // namespace
+
+void FileDescriptorTraits::Close(FileDescriptor handle) {
+  TS_DETAIL_LOG_BEGIN << " handle=" << handle;
+  ::CloseHandle(handle);
+  TS_DETAIL_LOG_END << " handle=" << handle;
+}
 
 Result<UnlockFn> AcquireFdLock(FileDescriptor fd) {
   auto lock_offset = GetLockOverlapped();
@@ -188,6 +202,7 @@ Result<UnlockFn> AcquireFdLock(FileDescriptor fd) {
 
 Result<UniqueFileDescriptor> OpenExistingFileForReading(
     const std::string& path) {
+  TS_DETAIL_LOG_BEGIN << " path=" << tensorstore::QuoteString(path);
   std::wstring wpath;
   TENSORSTORE_RETURN_IF_ERROR(ConvertUTF8ToWindowsWide(path, wpath));
 
@@ -200,13 +215,17 @@ Result<UniqueFileDescriptor> OpenExistingFileForReading(
       /*hTemplateFile=*/nullptr);
 
   if (fd == FileDescriptorTraits::Invalid()) {
+    TS_DETAIL_LOG_ERROR << " path=" << tensorstore::QuoteString(path);
     return StatusFromOsError(::GetLastError(),
                              "Failed to open: ", QuoteString(path));
   }
+  TS_DETAIL_LOG_END << " path=" << tensorstore::QuoteString(path)
+                    << ", handle=" << fd;
   return UniqueFileDescriptor(fd);
 }
 
 Result<UniqueFileDescriptor> OpenFileForWriting(const std::string& path) {
+  TS_DETAIL_LOG_BEGIN << " path=" << tensorstore::QuoteString(path);
   std::wstring wpath;
   TENSORSTORE_RETURN_IF_ERROR(ConvertUTF8ToWindowsWide(path, wpath));
 
@@ -223,14 +242,18 @@ Result<UniqueFileDescriptor> OpenFileForWriting(const std::string& path) {
       /*hTemplateFile=*/nullptr);
 
   if (fd == FileDescriptorTraits::Invalid()) {
+    TS_DETAIL_LOG_ERROR << " path=" << tensorstore::QuoteString(path);
     return StatusFromOsError(::GetLastError(),
                              "Failed to create: ", QuoteString(path));
   }
+  TS_DETAIL_LOG_END << " path=" << tensorstore::QuoteString(path)
+                    << ", handle=" << fd;
   return UniqueFileDescriptor(fd);
 }
 
 Result<ptrdiff_t> ReadFromFile(FileDescriptor fd, void* buf, size_t count,
                                int64_t offset) {
+  TS_DETAIL_LOG_BEGIN << " handle=" << fd;
   auto overlapped = GetOverlappedWithOffset(static_cast<uint64_t>(offset));
   if (count > std::numeric_limits<DWORD>::max()) {
     count = std::numeric_limits<DWORD>::max();
@@ -238,21 +261,26 @@ Result<ptrdiff_t> ReadFromFile(FileDescriptor fd, void* buf, size_t count,
   DWORD bytes_read;
   if (::ReadFile(fd, buf, static_cast<DWORD>(count), &bytes_read,
                  &overlapped)) {
+    TS_DETAIL_LOG_END << " handle=" << fd << ", bytes_read=" << bytes_read;
     return static_cast<ptrdiff_t>(bytes_read);
   }
+  TS_DETAIL_LOG_ERROR << " handle=" << fd;
   return StatusFromOsError(::GetLastError(), "Failed to read from file");
 }
 
 Result<ptrdiff_t> WriteToFile(FileDescriptor fd, const void* buf,
                               size_t count) {
+  TS_DETAIL_LOG_BEGIN << " handle=" << fd << ", count=" << count;
   if (count > std::numeric_limits<DWORD>::max()) {
     count = std::numeric_limits<DWORD>::max();
   }
   DWORD num_written;
   if (::WriteFile(fd, buf, static_cast<DWORD>(count), &num_written,
                   /*lpOverlapped=*/nullptr)) {
+    TS_DETAIL_LOG_END << " handle=" << fd;
     return static_cast<size_t>(num_written);
   }
+  TS_DETAIL_LOG_ERROR << " handle=" << fd;
   return StatusFromOsError(::GetLastError(), "Failed to write to file");
 }
 
@@ -264,7 +292,9 @@ Result<ptrdiff_t> WriteCordToFile(FileDescriptor fd, absl::Cord value) {
        value_remaining;) {
     auto chunk = absl::Cord::ChunkRemaining(char_it);
     auto result = WriteToFile(fd, chunk.data(), chunk.size());
-    if (!result.ok()) return result;
+    if (!result.ok()) {
+      return result;
+    }
     value_remaining -= result.value();
     absl::Cord::Advance(&char_it, result.value());
   }
@@ -317,7 +347,6 @@ absl::Status DeleteOpenFile(FileDescriptor fd, const std::string& path) {
   // result in the normal read/write paths failing with an error.  To avoid
   // that problem, we first rename the file to a random name, with a suffix of
   // `kLockSuffix` to prevent it from being included in List results.
-
   unsigned int buf[5];
   for (int i = 0; i < 5; ++i) {
     ::rand_s(&buf[i]);
@@ -382,36 +411,46 @@ absl::Status DeleteFile(const std::string& path) {
 }
 
 absl::Status FsyncFile(FileDescriptor fd) {
+  TS_DETAIL_LOG_BEGIN << " handle=" << fd;
   if (::FlushFileBuffers(fd)) {
+    TS_DETAIL_LOG_END << " handle=" << fd;
     return absl::OkStatus();
   }
+  TS_DETAIL_LOG_ERROR << " handle=" << fd;
   return StatusFromOsError(::GetLastError());
 }
 
 absl::Status GetFileInfo(FileDescriptor fd, FileInfo* info) {
+  TS_DETAIL_LOG_BEGIN << " handle=" << fd;
   if (::GetFileInformationByHandle(fd, info)) {
+    TS_DETAIL_LOG_END << " handle=" << fd;
     return absl::OkStatus();
   }
+  TS_DETAIL_LOG_ERROR << " handle=" << fd;
   return StatusFromOsError(::GetLastError());
 }
 
 absl::Status GetFileInfo(const std::string& path, FileInfo* info) {
+  TS_DETAIL_LOG_BEGIN << " path=" << tensorstore::QuoteString(path);
+
   // The typedef uses BY_HANDLE_FILE_INFO, which includes device and index
   // metadata, and requires an open handle.
   std::wstring wpath;
   TENSORSTORE_RETURN_IF_ERROR(ConvertUTF8ToWindowsWide(path, wpath));
-  FileDescriptor fd = ::CreateFileW(
+  UniqueFileDescriptor stat_fd(::CreateFileW(
       wpath.c_str(), /*dwDesiredAccess=*/GENERIC_READ,
       /*dwShareMode=*/FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE,
       /*lpSecurityAttributes=*/nullptr,
       /*dwCreationDisposition=*/OPEN_EXISTING,
       /*dwFlagsAndAttributes=*/FILE_FLAG_BACKUP_SEMANTICS,
-      /*hTemplateFile=*/nullptr);
-  if (fd != FileDescriptorTraits::Invalid()) {
-    auto status = GetFileInfo(fd, info);
-    ::CloseHandle(fd);
-    return status;
+      /*hTemplateFile=*/nullptr));
+  if (stat_fd.valid()) {
+    if (::GetFileInformationByHandle(stat_fd.get(), info)) {
+      TS_DETAIL_LOG_END << " path=" << tensorstore::QuoteString(path);
+      return absl::OkStatus();
+    }
   }
+  TS_DETAIL_LOG_ERROR << " path=" << tensorstore::QuoteString(path);
   return StatusFromOsError(::GetLastError());
 }
 

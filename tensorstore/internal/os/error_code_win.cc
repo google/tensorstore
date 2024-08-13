@@ -27,6 +27,7 @@
 #include <string>
 #include <string_view>
 
+#include "absl/base/optimization.h"
 #include "absl/status/status.h"
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/util/status.h"
@@ -37,6 +38,7 @@
 
 namespace tensorstore {
 namespace internal {
+namespace {
 
 absl::StatusCode GetOsErrorStatusCode(OsErrorCode error) {
   switch (error) {
@@ -72,6 +74,56 @@ absl::StatusCode GetOsErrorStatusCode(OsErrorCode error) {
   }
 }
 
+const char* OsErrorToCString(OsErrorCode error) {
+  switch (error) {
+    case ERROR_FILE_EXISTS:
+      return "ERROR_FILE_EXISTS ";
+    case ERROR_ALREADY_EXISTS:
+      return "ERROR_ALREADY_EXISTS ";
+    case ERROR_FILE_NOT_FOUND:
+      return "ERROR_FILE_NOT_FOUND ";
+    case ERROR_PATH_NOT_FOUND:
+      return "ERROR_PATH_NOT_FOUND ";
+    case ERROR_BAD_PATHNAME:
+      return "ERROR_BAD_PATHNAME ";
+    case ERROR_DIRECTORY:
+      return "ERROR_DIRECTORY ";
+    case ERROR_NO_MORE_FILES:
+      return "ERROR_NO_MORE_FILES ";
+    case ERROR_TOO_MANY_OPEN_FILES:
+      return "ERROR_TOO_MANY_OPEN_FILES ";
+    case ERROR_NOT_ENOUGH_MEMORY:
+      return "ERROR_NOT_ENOUGH_MEMORY ";
+    case ERROR_HANDLE_DISK_FULL:
+      return "ERROR_HANDLE_DISK_FULL ";
+    case ERROR_DISK_FULL:
+      return "ERROR_DISK_FULL ";
+    case ERROR_DISK_TOO_FRAGMENTED:
+      return "ERROR_DISK_TOO_FRAGMENTED ";
+    case ERROR_OUTOFMEMORY:
+      return "ERROR_OUTOFMEMORY ";
+    case ERROR_ACCESS_DENIED:
+      return "ERROR_ACCESS_DENIED ";
+    case ERROR_SHARING_VIOLATION:
+      return "ERROR_SHARING_VIOLATION ";
+    case ERROR_INVALID_NAME:
+      return "ERROR_INVALID_NAME ";
+    case ERROR_DELETE_PENDING:
+      return "ERROR_DELETE_PENDING ";
+    case ERROR_BUFFER_OVERFLOW:
+      return "ERROR_BUFFER_OVERFLOW ";
+    case ERROR_FILENAME_EXCED_RANGE:
+      return "ERROR_FILENAME_EXCED_RANGE ";
+    case ERROR_DIR_NOT_EMPTY:
+      return "ERROR_DIR_NOT_EMPTY ";
+    default:
+      return "";
+  }
+  ABSL_UNREACHABLE();
+}
+
+}  // namespace
+
 std::string GetOsErrorMessage(OsErrorCode error) {
   char buf[4096];
   DWORD size = ::FormatMessageA(
@@ -88,10 +140,10 @@ std::string GetOsErrorMessage(OsErrorCode error) {
 absl::Status StatusFromOsError(OsErrorCode error_code, std::string_view a,
                                std::string_view b, std::string_view c,
                                std::string_view d, SourceLocation loc) {
-  absl::Status status(
-      GetOsErrorStatusCode(error_code),
-      tensorstore::StrCat(a, b, c, d, " [OS error ", error_code, ": ",
-                          GetOsErrorMessage(error_code), "]"));
+  absl::Status status(GetOsErrorStatusCode(error_code),
+                      tensorstore::StrCat(a, b, c, d, " [OS error ", error_code,
+                                          ": ", OsErrorToCString(error_code),
+                                          GetOsErrorMessage(error_code), "]"));
   MaybeAddSourceLocation(status, loc);
   return status;
 }
