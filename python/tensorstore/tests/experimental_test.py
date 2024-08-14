@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Tests for tensorstore.metrics."""
+"""Tests for tensorstore.experimental methods."""
 
 import pytest
 import tensorstore as ts
@@ -52,3 +52,9 @@ async def test_collect_prometheus_format_metrics():
     if m.startswith('#'):  # Skip comments.
       continue
     assert m.startswith('tensorstore_')
+
+
+def test_experimental_update_verbose_logging():
+  # There's no way to query whether the verbose logging flags are set, so just
+  # check that the function exists.
+  assert hasattr(ts, 'experimental_update_verbose_logging')
