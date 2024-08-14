@@ -157,4 +157,23 @@ TEST_F(EC2MetadataCredentialProviderTest, UnsuccessfulJsonResponse) {
                                ::testing::HasSubstr("EntirelyUnsuccessful")));
 }
 
+TEST_F(EC2MetadataCredentialProviderTest, IMDSv2AfterFailure) {
+  // Test that IMDSv1 falls back to IMDSv2
+  auto url_to_response = absl::flat_hash_map<std::string, HttpResponse>{
+      {"POST http://169.254.169.254/latest/api/token",
+       HttpResponse{405, absl::Cord()}},
+      {"PUT http://169.254.169.254/latest/api/token",
+       HttpResponse{401, absl::Cord{}}},
+  };
+
+  auto mock_transport =
+      std::make_shared<DefaultMockHttpTransport>(std::move(url_to_response));
+  auto provider =
+      std::make_shared<EC2MetadataCredentialProvider>("", mock_transport);
+  auto credentials = provider->GetCredentials();
+
+  EXPECT_THAT(credentials.status(),
+              MatchesStatus(absl::StatusCode::kPermissionDenied));
+}
+
 }  // namespace
