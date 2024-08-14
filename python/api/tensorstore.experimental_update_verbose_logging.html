@@ -13,7 +13,7 @@
     
     
       
-        <title>tensorstore.experimental_push_metrics_to_prometheus - TensorStore</title>
+        <title>tensorstore.experimental_update_verbose_logging - TensorStore</title>
       
     
     
@@ -92,7 +92,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              tensorstore.experimental_push_metrics_to_prometheus
+              tensorstore.experimental_update_verbose_logging
             
           </span>
         </div>
@@ -479,6 +479,21 @@
               
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.experimental_push_metrics_to_prometheus.html" class="md-nav__link">
+        <span aria-label="Python function" class="objinfo-icon objinfo-icon__procedure" title="Python function">F</span><span title="tensorstore.experimental_push_metrics_to_prometheus (Python function) — Publishes metrics to the prometheus pushgateway. See: https://github.com/prometheus/pushgateway" class="md-ellipsis">experimental_<wbr>push_<wbr>metrics_<wbr>to_<wbr>prometheus</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
     
   
     
@@ -490,12 +505,12 @@
       <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
       
         <label class="md-nav__link md-nav__link--active" for="__toc">
-          <span aria-label="Python function" class="objinfo-icon objinfo-icon__procedure" title="Python function">F</span><span title="tensorstore.experimental_push_metrics_to_prometheus (Python function) — Publishes metrics to the prometheus pushgateway. See: https://github.com/prometheus/pushgateway" class="md-ellipsis">experimental_<wbr>push_<wbr>metrics_<wbr>to_<wbr>prometheus</span>
+          <span aria-label="Python function" class="objinfo-icon objinfo-icon__procedure" title="Python function">F</span><span title="tensorstore.experimental_update_verbose_logging (Python function) — Updates verbose logging flags associated with --tensorstore_verbose_logging and TENSORSTORE_VERBOSE_LOGGING flags." class="md-ellipsis">experimental_<wbr>update_<wbr>verbose_<wbr>logging</span>
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <a href="#" class="md-nav__link md-nav__link--active">
-        <span aria-label="Python function" class="objinfo-icon objinfo-icon__procedure" title="Python function">F</span><span title="tensorstore.experimental_push_metrics_to_prometheus (Python function) — Publishes metrics to the prometheus pushgateway. See: https://github.com/prometheus/pushgateway" class="md-ellipsis">experimental_<wbr>push_<wbr>metrics_<wbr>to_<wbr>prometheus</span>
+        <span aria-label="Python function" class="objinfo-icon objinfo-icon__procedure" title="Python function">F</span><span title="tensorstore.experimental_update_verbose_logging (Python function) — Updates verbose logging flags associated with --tensorstore_verbose_logging and TENSORSTORE_VERBOSE_LOGGING flags." class="md-ellipsis">experimental_<wbr>update_<wbr>verbose_<wbr>logging</span>
       </a>
       
         
@@ -510,7 +525,7 @@
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
-      <span aria-label="Python function" class="objinfo-icon objinfo-icon__procedure" title="Python function">F</span><span title="tensorstore.experimental_push_metrics_to_prometheus (Python function) — Publishes metrics to the prometheus pushgateway. See: https://github.com/prometheus/pushgateway" class="md-ellipsis">experimental_<wbr>push_<wbr>metrics_<wbr>to_<wbr>prometheus</span>
+      <span aria-label="Python function" class="objinfo-icon objinfo-icon__procedure" title="Python function">F</span><span title="tensorstore.experimental_update_verbose_logging (Python function) — Updates verbose logging flags associated with --tensorstore_verbose_logging and TENSORSTORE_VERBOSE_LOGGING flags." class="md-ellipsis">experimental_<wbr>update_<wbr>verbose_<wbr>logging</span>
     </label>
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
@@ -523,29 +538,15 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#p-pushgateway" class="md-nav__link">
-    <span aria-label="Python parameter" class="objinfo-icon objinfo-icon__sub-data" title="Python parameter">p</span><span title="tensorstore.experimental_push_metrics_to_prometheus.pushgateway (Python parameter) — prometheus pushgateway url, like &#39;http://localhost:1234/&#39;" class="md-ellipsis">pushgateway</span>
+  <a href="#p-flags" class="md-nav__link">
+    <span aria-label="Python parameter" class="objinfo-icon objinfo-icon__sub-data" title="Python parameter">p</span><span title="tensorstore.experimental_update_verbose_logging.flags (Python parameter) — str comma separated list of flags with optional values." class="md-ellipsis">flags</span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#p-job" class="md-nav__link">
-    <span aria-label="Python parameter" class="objinfo-icon objinfo-icon__sub-data" title="Python parameter">p</span><span title="tensorstore.experimental_push_metrics_to_prometheus.job (Python parameter) — prometheus job name" class="md-ellipsis">job</span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#p-instance" class="md-nav__link">
-    <span aria-label="Python parameter" class="objinfo-icon objinfo-icon__sub-data" title="Python parameter">p</span><span title="tensorstore.experimental_push_metrics_to_prometheus.instance (Python parameter) — prometheus instance identifier" class="md-ellipsis">instance</span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#p-metric_prefix" class="md-nav__link">
-    <span aria-label="Python parameter" class="objinfo-icon objinfo-icon__sub-data" title="Python parameter">p</span><span title="tensorstore.experimental_push_metrics_to_prometheus.metric_prefix (Python parameter) — Prefix of the metric names to publish." class="md-ellipsis">metric_<wbr>prefix</span>
+  <a href="#p-overwrite" class="md-nav__link">
+    <span aria-label="Python parameter" class="objinfo-icon objinfo-icon__sub-data" title="Python parameter">p</span><span title="tensorstore.experimental_update_verbose_logging.overwrite (Python parameter) — When true overwrites existing flags, otherwise updates." class="md-ellipsis">overwrite</span>
   </a>
   
 </li>
@@ -555,32 +556,10 @@
   
 </li>
       
-        <li class="md-nav__item">
-  <a href="#returns" class="md-nav__link">
-    <span class="md-ellipsis">Returns</span>
-  </a>
-  
-</li>
-      
     </ul>
   
 </nav>
       
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.experimental_update_verbose_logging.html" class="md-nav__link">
-        <span aria-label="Python function" class="objinfo-icon objinfo-icon__procedure" title="Python function">F</span><span title="tensorstore.experimental_update_verbose_logging (Python function) — Updates verbose logging flags associated with --tensorstore_verbose_logging and TENSORSTORE_VERBOSE_LOGGING flags." class="md-ellipsis">experimental_<wbr>update_<wbr>verbose_<wbr>logging</span>
-      </a>
     </li>
   
 
@@ -822,7 +801,7 @@
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
-      <span aria-label="Python function" class="objinfo-icon objinfo-icon__procedure" title="Python function">F</span><span title="tensorstore.experimental_push_metrics_to_prometheus (Python function) — Publishes metrics to the prometheus pushgateway. See: https://github.com/prometheus/pushgateway" class="md-ellipsis">experimental_<wbr>push_<wbr>metrics_<wbr>to_<wbr>prometheus</span>
+      <span aria-label="Python function" class="objinfo-icon objinfo-icon__procedure" title="Python function">F</span><span title="tensorstore.experimental_update_verbose_logging (Python function) — Updates verbose logging flags associated with --tensorstore_verbose_logging and TENSORSTORE_VERBOSE_LOGGING flags." class="md-ellipsis">experimental_<wbr>update_<wbr>verbose_<wbr>logging</span>
     </label>
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
@@ -835,42 +814,21 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#p-pushgateway" class="md-nav__link">
-    <span aria-label="Python parameter" class="objinfo-icon objinfo-icon__sub-data" title="Python parameter">p</span><span title="tensorstore.experimental_push_metrics_to_prometheus.pushgateway (Python parameter) — prometheus pushgateway url, like &#39;http://localhost:1234/&#39;" class="md-ellipsis">pushgateway</span>
+  <a href="#p-flags" class="md-nav__link">
+    <span aria-label="Python parameter" class="objinfo-icon objinfo-icon__sub-data" title="Python parameter">p</span><span title="tensorstore.experimental_update_verbose_logging.flags (Python parameter) — str comma separated list of flags with optional values." class="md-ellipsis">flags</span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#p-job" class="md-nav__link">
-    <span aria-label="Python parameter" class="objinfo-icon objinfo-icon__sub-data" title="Python parameter">p</span><span title="tensorstore.experimental_push_metrics_to_prometheus.job (Python parameter) — prometheus job name" class="md-ellipsis">job</span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#p-instance" class="md-nav__link">
-    <span aria-label="Python parameter" class="objinfo-icon objinfo-icon__sub-data" title="Python parameter">p</span><span title="tensorstore.experimental_push_metrics_to_prometheus.instance (Python parameter) — prometheus instance identifier" class="md-ellipsis">instance</span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#p-metric_prefix" class="md-nav__link">
-    <span aria-label="Python parameter" class="objinfo-icon objinfo-icon__sub-data" title="Python parameter">p</span><span title="tensorstore.experimental_push_metrics_to_prometheus.metric_prefix (Python parameter) — Prefix of the metric names to publish." class="md-ellipsis">metric_<wbr>prefix</span>
+  <a href="#p-overwrite" class="md-nav__link">
+    <span aria-label="Python parameter" class="objinfo-icon objinfo-icon__sub-data" title="Python parameter">p</span><span title="tensorstore.experimental_update_verbose_logging.overwrite (Python parameter) — When true overwrites existing flags, otherwise updates." class="md-ellipsis">overwrite</span>
   </a>
   
 </li>
         
       </ul>
     </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#returns" class="md-nav__link">
-    <span class="md-ellipsis">Returns</span>
-  </a>
   
 </li>
       
@@ -890,24 +848,17 @@
 
 <dl class="py function objdesc">
 <dt class="sig sig-object highlight sig-wrap py">
-<span class="sig-prename descclassname"><span class="pre">tensorstore.</span></span><span class="sig-name descname"><span class="pre">experimental_push_metrics_to_prometheus</span></span><span class="sig-paren">(</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="#p-pushgateway" title="tensorstore.experimental_push_metrics_to_prometheus.pushgateway (Python parameter) — prometheus pushgateway url, like 'http://localhost:1234/'"><span class="n"><span class="pre">pushgateway</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><code class="code python default_value docutils literal highlight highlight-python"><span class="s1">&#39;&#39;</span></code></em>, </span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="#p-job" title="tensorstore.experimental_push_metrics_to_prometheus.job (Python parameter) — prometheus job name"><span class="n"><span class="pre">job</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><code class="code python default_value docutils literal highlight highlight-python"><span class="s1">&#39;&#39;</span></code></em>, </span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="#p-instance" title="tensorstore.experimental_push_metrics_to_prometheus.instance (Python parameter) — prometheus instance identifier"><span class="n"><span class="pre">instance</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><code class="code python default_value docutils literal highlight highlight-python"><span class="s1">&#39;&#39;</span></code></em>, </span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="#p-metric_prefix" title="tensorstore.experimental_push_metrics_to_prometheus.metric_prefix (Python parameter) — Prefix of the metric names to publish."><span class="n"><span class="pre">metric_prefix</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><code class="code python default_value docutils literal highlight highlight-python"><span class="s1">&#39;&#39;</span></code></em></span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference internal" href="tensorstore.Future.html" title="tensorstore.Future (Python class) — Handle for consuming the result of an asynchronous operation."><span class="pre">Future</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span></span></span></span></dt>
-<dd><p>Publishes metrics to the prometheus pushgateway.
-See: <a class="reference external" href="https://github.com/prometheus/pushgateway">https://github.com/prometheus/pushgateway</a></p>
+<span class="sig-prename descclassname"><span class="pre">tensorstore.</span></span><span class="sig-name descname"><span class="pre">experimental_update_verbose_logging</span></span><span class="sig-paren">(</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="#p-flags" title="tensorstore.experimental_update_verbose_logging.flags (Python parameter) — str comma separated list of flags with optional values."><span class="n"><span class="pre">flags</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><code class="code python default_value docutils literal highlight highlight-python"><span class="s1">&#39;&#39;</span></code></em>, </span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="#p-overwrite" title="tensorstore.experimental_update_verbose_logging.overwrite (Python parameter) — When true overwrites existing flags, otherwise updates."><span class="n"><span class="pre">overwrite</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><span class="pre">bool</span></a></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><code class="code python default_value docutils literal highlight highlight-python"><span class="kc">False</span></code></em></span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a></span></span></span></dt>
+<dd><p>Updates verbose logging flags associated with –tensorstore_verbose_logging and
+TENSORSTORE_VERBOSE_LOGGING flags.</p>
 <dl class="field-list simple">
 <dt class="field-odd" id="parameters">Parameters<span class="colon">:</span><a class="headerlink" href="#parameters" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd"><dl class="simple api-field highlight">
-<dt id="p-pushgateway"><span class="n sig-name">pushgateway</span><span class="p">:</span><span class="w">   </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)">str</a></span></span><span class="w">   </span><span class="o">=</span><span class="w">   </span><code class="code python default_value docutils literal highlight highlight-python"><span class="s1">&#39;&#39;</span></code><a class="headerlink" href="#p-pushgateway" title="Permalink to this definition">¶</a></dt><dd><p>prometheus pushgateway url, like ‘<a class="reference external" href="http://localhost:1234/">http://localhost:1234/</a>’</p>
+<dt id="p-flags"><span class="n sig-name">flags</span><span class="p">:</span><span class="w">   </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)">str</a></span></span><span class="w">   </span><span class="o">=</span><span class="w">   </span><code class="code python default_value docutils literal highlight highlight-python"><span class="s1">&#39;&#39;</span></code><a class="headerlink" href="#p-flags" title="Permalink to this definition">¶</a></dt><dd><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a> comma separated list of flags with optional values.</p>
 </dd>
-<dt id="p-job"><span class="n sig-name">job</span><span class="p">:</span><span class="w">   </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)">str</a></span></span><span class="w">   </span><span class="o">=</span><span class="w">   </span><code class="code python default_value docutils literal highlight highlight-python"><span class="s1">&#39;&#39;</span></code><a class="headerlink" href="#p-job" title="Permalink to this definition">¶</a></dt><dd><p>prometheus job name</p>
-</dd>
-<dt id="p-instance"><span class="n sig-name">instance</span><span class="p">:</span><span class="w">   </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)">str</a></span></span><span class="w">   </span><span class="o">=</span><span class="w">   </span><code class="code python default_value docutils literal highlight highlight-python"><span class="s1">&#39;&#39;</span></code><a class="headerlink" href="#p-instance" title="Permalink to this definition">¶</a></dt><dd><p>prometheus instance identifier</p>
-</dd>
-<dt id="p-metric_prefix"><span class="n sig-name">metric_prefix</span><span class="p">:</span><span class="w">   </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)">str</a></span></span><span class="w">   </span><span class="o">=</span><span class="w">   </span><code class="code python default_value docutils literal highlight highlight-python"><span class="s1">&#39;&#39;</span></code><a class="headerlink" href="#p-metric_prefix" title="Permalink to this definition">¶</a></dt><dd><p>Prefix of the metric names to publish.</p>
+<dt id="p-overwrite"><span class="n sig-name">overwrite</span><span class="p">:</span><span class="w">   </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)">bool</a></span></span><span class="w">   </span><span class="o">=</span><span class="w">   </span><code class="code python default_value docutils literal highlight highlight-python"><span class="kc">False</span></code><a class="headerlink" href="#p-overwrite" title="Permalink to this definition">¶</a></dt><dd><p>When true overwrites existing flags, otherwise updates.</p>
 </dd>
 </dl>
-</dd>
-<dt class="field-even" id="returns">Returns<span class="colon">:</span><a class="headerlink" href="#returns" title="Permalink to this headline">¶</a></dt>
-<dd class="field-even"><p>A future with the response status code.</p>
 </dd>
 </dl>
 </dd></dl>
@@ -938,7 +889,7 @@ See: <a class="reference external" href="https://github.com/prometheus/pushgatew
     <nav class="md-footer__inner md-grid" aria-label="Footer" >
       
         
-        <a href="tensorstore.experimental_collect_prometheus_format_metrics.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: tensorstore.experimental_collect_prometheus_format_metrics" rel="prev">
+        <a href="tensorstore.experimental_push_metrics_to_prometheus.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: tensorstore.experimental_push_metrics_to_prometheus" rel="prev">
           <div class="md-footer__button md-icon">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
           </div>
@@ -947,20 +898,20 @@ See: <a class="reference external" href="https://github.com/prometheus/pushgatew
               <span class="md-footer__direction">
                 Previous
               </span>
-              tensorstore.experimental_collect_prometheus_format_metrics
+              tensorstore.experimental_push_metrics_to_prometheus
             </div>
           </div>
         </a>
       
       
         
-        <a href="tensorstore.experimental_update_verbose_logging.html" class="md-footer__link md-footer__link--next" aria-label="Next: tensorstore.experimental_update_verbose_logging" rel="next">
+        <a href="../../installation.html" class="md-footer__link md-footer__link--next" aria-label="Next: Building and Installing" rel="next">
           <div class="md-footer__title">
             <div class="md-ellipsis">
               <span class="md-footer__direction">
                 Next
               </span>
-              tensorstore.experimental_update_verbose_logging
+              Building and Installing
             </div>
           </div>
           <div class="md-footer__button md-icon">
