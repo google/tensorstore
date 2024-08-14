@@ -120,6 +120,7 @@
 #include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/common_metrics.h"
+#include "tensorstore/kvstore/file/file_resource.h"
 #include "tensorstore/kvstore/file/util.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
@@ -185,23 +186,6 @@ auto file_metrics = []() -> FileMetrics {
 }();
 
 ABSL_CONST_INIT internal_log::VerboseFlag file_logging("file");
-
-struct FileIoSyncResource
-    : public internal::ContextResourceTraits<FileIoSyncResource> {
-  constexpr static bool config_only = true;
-  static constexpr char id[] = "file_io_sync";
-  using Spec = bool;
-  using Resource = Spec;
-  static Spec Default() { return true; }
-  static constexpr auto JsonBinder() { return jb::DefaultBinder<>; }
-  static Result<Resource> Create(
-      Spec v, internal::ContextResourceCreationContext context) {
-    return v;
-  }
-  static Spec GetSpec(Resource v, const internal::ContextSpecBuilder& builder) {
-    return v;
-  }
-};
 
 struct FileKeyValueStoreSpecData {
   Context::Resource<internal::FileIoConcurrencyResource> file_io_concurrency;
@@ -934,9 +918,5 @@ const tensorstore::internal_kvstore::UrlSchemeRegistration
     url_scheme_registration{
         tensorstore::internal_file_kvstore::FileKeyValueStoreSpec::id,
         tensorstore::internal_file_kvstore::ParseFileUrl};
-
-const tensorstore::internal::ContextResourceRegistration<
-    tensorstore::internal_file_kvstore::FileIoSyncResource>
-    file_io_sync_registration;
 
 }  // namespace

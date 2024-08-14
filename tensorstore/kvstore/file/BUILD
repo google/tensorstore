@@ -20,6 +20,7 @@ tensorstore_cc_library(
         "file_key_value_store.cc",
     ],
     deps = [
+        ":file_resource",
         ":util",
         "//tensorstore:batch",
         "//tensorstore:context",
@@ -89,6 +90,19 @@ tensorstore_cc_test(
         "@com_google_absl//absl/synchronization",
         "@com_google_googletest//:gtest_main",
     ],
+)
+
+tensorstore_cc_library(
+    name = "file_resource",
+    srcs = ["file_resource.cc"],
+    hdrs = ["file_resource.h"],
+    deps = [
+        "//tensorstore:context",
+        "//tensorstore/internal/json_binding",
+        "//tensorstore/internal/json_binding:bindable",
+        "//tensorstore/util:result",
+    ],
+    alwayslink = 1,
 )
 
 tensorstore_cc_library(

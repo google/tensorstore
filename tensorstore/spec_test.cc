@@ -18,32 +18,32 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include <nlohmann/json_fwd.hpp>
+#include "tensorstore/context.h"
+#include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
+#include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/gtest.h"
 #include "tensorstore/internal/json_gtest.h"
+#include "tensorstore/json_serialization_options.h"
+#include "tensorstore/json_serialization_options_base.h"
+#include "tensorstore/kvstore/spec.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/serialization/test_util.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace {
 
 using ::nlohmann::json;
-using ::tensorstore::BoxView;
-using ::tensorstore::DataType;
 using ::tensorstore::DimensionIndex;
 using ::tensorstore::dtype_v;
-using ::tensorstore::dynamic_rank;
-using ::tensorstore::IndexTransform;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
-using ::tensorstore::Result;
 using ::tensorstore::Spec;
-using ::tensorstore::StaticDataType;
-using ::tensorstore::StaticRankCast;
-using ::tensorstore::StrCat;
 using ::tensorstore::serialization::SerializationRoundTrip;
 using ::tensorstore::serialization::TestSerializationRoundTrip;
 
