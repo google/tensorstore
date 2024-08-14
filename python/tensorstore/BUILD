@@ -41,12 +41,12 @@ pybind11_py_extension(
         ":data_type",
         ":dim_expression",
         ":downsample",
+        ":experimental",
         ":future",
         ":garbage_collection",
         ":gil_safe",
         ":index_space",
         ":kvstore",
-        ":metrics",
         ":numpy",
         ":python_imports",
         ":serialization",
@@ -61,7 +61,6 @@ pybind11_py_extension(
         "//tensorstore:all_drivers",
         "//tensorstore/kvstore/ocdbt/python",
         "@com_github_pybind_pybind11//:pybind11",
-        "@com_google_absl//absl/log",
         "@com_google_absl//absl/log:initialize",
     ],
 )
@@ -1149,8 +1148,8 @@ tensorstore_pytest_test(
 )
 
 pybind11_cc_library(
-    name = "metrics",
-    srcs = ["metrics.cc"],
+    name = "experimental",
+    srcs = ["experimental.cc"],
     deps = [
         ":future",
         ":json_type_caster",
@@ -1158,6 +1157,7 @@ pybind11_cc_library(
         "//tensorstore/internal:global_initializer",
         "//tensorstore/internal/http",
         "//tensorstore/internal/http:curl_transport",
+        "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/internal/metrics:collect",
         "//tensorstore/internal/metrics:prometheus",
         "//tensorstore/internal/metrics:registry",
@@ -1165,6 +1165,7 @@ pybind11_cc_library(
         "//tensorstore/util:future",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
+        "@com_github_nlohmann_json//:json",
         "@com_github_pybind_pybind11//:pybind11",
         "@com_google_absl//absl/strings:cord",
     ],
@@ -1172,9 +1173,9 @@ pybind11_cc_library(
 )
 
 tensorstore_pytest_test(
-    name = "metrics_test",
+    name = "experimental_test",
     size = "small",
-    srcs = ["tests/metrics_test.py"],
+    srcs = ["tests/experimental_test.py"],
     deps = [
         ":tensorstore",
     ],

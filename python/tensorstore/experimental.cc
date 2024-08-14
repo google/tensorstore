@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "absl/strings/cord.h"
+#include <nlohmann/json.hpp>
 #include "python/tensorstore/future.h"
 #include "python/tensorstore/json_type_caster.h"
 #include "python/tensorstore/tensorstore_module_components.h"
@@ -32,6 +33,7 @@
 #include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/collect.h"
 #include "tensorstore/internal/metrics/prometheus.h"
 #include "tensorstore/internal/metrics/registry.h"
@@ -152,6 +154,21 @@ Args:
 
 Returns:
   A future with the response status code.
+
+Group:
+  Experimental
+)");
+
+  m.def("experimental_update_verbose_logging",
+        &tensorstore::internal_log::UpdateVerboseLogging,
+        pybind11::arg("flags") = "", pybind11::arg("overwrite") = false,
+        R"(
+Updates verbose logging flags associated with --tensorstore_verbose_logging and
+TENSORSTORE_VERBOSE_LOGGING flags.
+
+Args:
+  flags: :py:obj:`str` comma separated list of flags with optional values.
+  overwrite: When true overwrites existing flags, otherwise updates.
 
 Group:
   Experimental
