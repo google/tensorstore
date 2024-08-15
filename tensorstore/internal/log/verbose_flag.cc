@@ -65,8 +65,8 @@ struct LoggingLevelConfig {
   absl::flat_hash_map<std::string, int> levels;
 };
 
-void UpdateLoggingLevelConfig(std::string_view input,
-                              LoggingLevelConfig& config) {
+void UpdateLoggingLevelConfig(LoggingLevelConfig& config,
+                              std::string_view input) {
   auto& levels = config.levels;
 
   // Split input into name=value pairs.
@@ -95,6 +95,23 @@ void UpdateLoggingLevelConfig(std::string_view input,
   }
 }
 
+// Lookup the level for the given verbose flag name.
+int GetLevelForVerboseFlag(const LoggingLevelConfig& config,
+                           std::string_view name) {
+  while (!name.empty()) {
+    auto it = config.levels.find(name);
+    if (it != config.levels.end()) {
+      return it->second;
+    }
+    auto pos = name.rfind('.');
+    if (pos == name.npos) {
+      break;
+    }
+    name = name.substr(0, pos);
+  }
+  return config.default_level;
+}
+
 // Owns the current set of live/active logging config values.
 LoggingLevelConfig& GetLoggingLevelConfig()
     ABSL_EXCLUSIVE_LOCKS_REQUIRED(g_mutex) {
@@ -103,7 +120,7 @@ LoggingLevelConfig& GetLoggingLevelConfig()
   static absl::NoDestructor<LoggingLevelConfig> flags{[] {
     LoggingLevelConfig config;
     if (auto env = internal::GetEnv("TENSORSTORE_VERBOSE_LOGGING"); env) {
-      UpdateLoggingLevelConfig(*env, config);
+      UpdateLoggingLevelConfig(config, *env);
     }
     return config;
   }()};
@@ -117,7 +134,7 @@ void UpdateVerboseLogging(std::string_view input, bool overwrite)
     ABSL_LOCKS_EXCLUDED(g_mutex) {
   ABSL_LOG(INFO) << "--tensorstore_verbose_logging=" << input;
   LoggingLevelConfig config;
-  UpdateLoggingLevelConfig(input, config);
+  UpdateLoggingLevelConfig(config, input);
 
   // Update the global map and all registered flag values under lock.
   // This can stall logging on first-seen VerboseFlags, so if VerboseFlag
@@ -139,41 +156,26 @@ void UpdateVerboseLogging(std::string_view input, bool overwrite)
     global_config.levels.merge(config.levels);
   }
 
+  int vlevel = GetLevelForVerboseFlag(global_config, "verbose_logging");
+
   // Update all registered named flags.
-  std::string_view last;
-  int last_level = 0;
   while (slist != nullptr) {
-    std::string_view current(slist->name_);
-    if (current != last) {
-      last = current;
-      auto it = global_config.levels.find(current);
-      if (it != global_config.levels.end()) {
-        last_level = it->second;
-      } else {
-        last_level = global_config.default_level;
-      }
-    }
-    slist->value_.store(last_level, std::memory_order_seq_cst);
+    int value = GetLevelForVerboseFlag(global_config, slist->name_);
+    ABSL_LOG_IF(INFO, vlevel >= 1) << slist->name_ << "=" << value;
+    slist->value_.store(value, std::memory_order_seq_cst);
     slist = slist->next_;
   }
 }
 
 /* static */
 int VerboseFlag::RegisterVerboseFlag(VerboseFlag* flag) {
-  std::string_view flag_name(flag->name_);
-
   absl::MutexLock lock(&g_mutex);
   int old_v = flag->value_.load(std::memory_order_relaxed);
   if (old_v == kValueUninitialized) {
     // If the value was uninitialized, this is the first time the registration
     // code is running. Set the verbosity level and add to the linked list.
-    const auto& global_config = GetLoggingLevelConfig();
-    if (auto it = global_config.levels.find(flag_name);
-        it != global_config.levels.end()) {
-      old_v = it->second;
-    } else {
-      old_v = global_config.default_level;
-    }
+    const auto& config = GetLoggingLevelConfig();
+    old_v = GetLevelForVerboseFlag(config, flag->name_);
     flag->value_.store(old_v, std::memory_order_relaxed);
     flag->next_ = std::exchange(g_list_head, flag);
   }
@@ -183,7 +185,7 @@ int VerboseFlag::RegisterVerboseFlag(VerboseFlag* flag) {
 /* static */
 bool VerboseFlag::VerboseFlagSlowPath(VerboseFlag* flag, int old_v, int level) {
   if (ABSL_PREDICT_TRUE(old_v != kValueUninitialized)) {
-    return level >= 0;
+    return old_v >= level;
   }
 
   // This is the first time the flag is seen, so add it to the global

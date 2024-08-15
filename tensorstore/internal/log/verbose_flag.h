@@ -24,6 +24,24 @@
 #include "absl/base/attributes.h"
 #include "absl/base/optimization.h"
 
+/// \file
+/// Tensorstore has a verbose flag mechanism used to enable verbose logging.
+/// Verbose logging is configured with the flags --tensorstore_verbose_logging
+/// and/or the environment variable TENSORSTORE_VERBOSE_LOGGING.
+///
+/// The flags are a comma separated list of names, or name=level values, which
+/// correspobnd to specific VerboseFlag objects. Setting the level to -1
+/// disables the flag, levels 0 and higher enable more detailed logging.
+///
+/// Including the special value "all" in the list sets the global default,
+/// enabling all verbose log sites.
+///
+/// Verbose flags also support hierarchical names, which are separated by
+/// periods. For example, "foo.bar" will enable verbose logging for all sites
+/// named "foo.bar.*", but not "foo".
+///
+/// When adding a new VerboseFlag, also add it to docs/environment.rst
+
 namespace tensorstore {
 namespace internal_log {
 
@@ -33,11 +51,7 @@ namespace internal_log {
 /// enabling all verbose log sites.
 void UpdateVerboseLogging(std::string_view input, bool overwrite);
 
-/// VerboseFlag is used for verbose logging. It must be initialized by a
-/// constant string, which is used in conjunction with the flags
-/// --tensorstore_verbose_logging and/or environment variable
-/// TENSORSTORE_VERBOSE_LOGGING to enable verbose logging for the name.
-///
+/// Defines a verbose logging flag. It must be initialized with a const char*.
 /// When adding a new VerboseFlag, also add it to docs/environment.rst
 /// There is only a single supported way to use VerboseFlag:
 ///
