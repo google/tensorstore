@@ -100,9 +100,9 @@ Debugging
    the list.
 
    Verbose flag values include: ``curl``, ``distributed``, ``file``,
-    ``file_detail``, ``gcs``, ``gcs_grpc``, ``gcs_http``, ``gcs_stubby``,
-    ``http_kvstore``, ``http_transport``, ``ocdbt``, ``rate_limiter``, ``s3``,
-    ``thread_pool``, ``tsgrpc_kvstore``, ``zip``, ``zip_details``.
+   ``file_detail``, ``gcs``, ``gcs_grpc``, ``gcs_http``, ``gcs_stubby``,
+   ``http_kvstore``, ``http_transport``, ``ocdbt``, ``rate_limiter``, ``s3``,
+   ``thread_pool``, ``tsgrpc_kvstore``, ``zip``, ``zip_details``.
 
 
 .. envvar:: TENSORSTORE_CURL_VERBOSE

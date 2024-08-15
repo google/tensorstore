@@ -35,23 +35,36 @@ TEST(VerboseFlag, Basic) {
   // environment is parsed on first variable access.
   UpdateVerboseLogging("a=2", true);
 
-  ABSL_CONST_INIT static VerboseFlag a1("a");
+  ABSL_CONST_INIT static VerboseFlag a("a");
+  ABSL_CONST_INIT static VerboseFlag ab("a.b");
   auto& b = TENSORSTORE_VERBOSE_FLAG("b");
 
-  EXPECT_THAT((bool)a1, true);
-  EXPECT_THAT(a1.Level(0), true);
-  EXPECT_THAT(a1.Level(1), true);
-  EXPECT_THAT(a1.Level(2), true);
-  EXPECT_THAT(a1.Level(3), false);
+  // Logging is threshold based, so if 2 is true, so is 1, 0, ...
+  EXPECT_THAT((bool)a, true);
+  EXPECT_THAT(a.Level(0), true);
+  EXPECT_THAT(a.Level(1), true);
+  EXPECT_THAT(a.Level(2), true);
+  EXPECT_THAT(a.Level(3), false);
+
+  EXPECT_THAT(ab.Level(3), false);
+  EXPECT_THAT(ab.Level(2), true);
+  EXPECT_THAT(ab.Level(1), true);
+  EXPECT_THAT(ab.Level(0), true);
+  EXPECT_THAT((bool)ab, true);
 
   EXPECT_THAT((bool)b, false);
   EXPECT_THAT(b.Level(0), false);
 
-  UpdateVerboseLogging("b,a=-1", false);
+  UpdateVerboseLogging("b,a=-1,a.b=1", false);
 
-  EXPECT_THAT((bool)a1, false);
-  EXPECT_THAT(a1.Level(0), false);
-  EXPECT_THAT(a1.Level(1), false);
+  EXPECT_THAT((bool)a, false);
+  EXPECT_THAT(a.Level(0), false);
+  EXPECT_THAT(a.Level(1), false);
+
+  EXPECT_THAT((bool)ab, true);
+  EXPECT_THAT(ab.Level(0), true);
+  EXPECT_THAT(ab.Level(1), true);
+  EXPECT_THAT(ab.Level(2), false);
 
   EXPECT_THAT((bool)b, true);
   EXPECT_THAT(b.Level(0), true);
