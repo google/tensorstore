@@ -14,16 +14,18 @@
 
 #include "tensorstore/util/quote_string.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace {
 
 using ::tensorstore::QuoteString;
+using ::testing::StrEq;
 
 TEST(QuoteStringTest, Basic) {
-  EXPECT_EQ("\"abc \"", QuoteString("abc "));
-  EXPECT_EQ("\"a\\\"b\\n\\x01\"", QuoteString("a\"b\n\x01"));
-  EXPECT_EQ("\"\\'\"", QuoteString("'"));
+  EXPECT_THAT(QuoteString("abc "), StrEq("\"abc \""));
+  EXPECT_THAT(QuoteString("a\"b\n\x01"), StrEq("\"a\\\"b\\n\\x01\""));
+  EXPECT_THAT(QuoteString("'"), StrEq("\"\\'\""));
 }
 
 }  // namespace

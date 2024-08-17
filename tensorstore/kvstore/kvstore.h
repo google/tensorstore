@@ -21,6 +21,7 @@
 #include <utility>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include <nlohmann/json_fwd.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/internal/path.h"
@@ -86,7 +87,7 @@ class KvStore {
   /// Appends `suffix` to the `path`.
   ///
   /// There is no special treatment of '/'.
-  void AppendSuffix(std::string_view suffix) { path += suffix; }
+  void AppendSuffix(std::string_view suffix) { absl::StrAppend(&path, suffix); }
 
   /// Joins a '/'-separated path component to the end `path`.
   void AppendPathComponent(std::string_view component) {

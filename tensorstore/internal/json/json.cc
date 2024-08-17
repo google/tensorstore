@@ -47,7 +47,7 @@ absl::Status JsonExtraMembersError(const ::nlohmann::json::object_t& j_obj) {
   return absl::InvalidArgumentError(tensorstore::StrCat(
       "Object includes extra members: ",
       absl::StrJoin(j_obj, ",", [](std::string* out, const auto& p) {
-        *out += QuoteString(p.first);
+        absl::StrAppend(out, QuoteString(p.first));
       })));
 }
 
