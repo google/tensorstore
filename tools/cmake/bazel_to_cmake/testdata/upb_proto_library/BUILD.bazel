@@ -18,13 +18,11 @@ cc_library(
 proto_library(
     name = "c_proto",
     srcs = ["c.proto"],
-    cc_api_version = 2,
 )
 
 proto_library(
     name = "d_proto",
     srcs = ["d.proto"],
-    cc_api_version = 2,
 )
 
 proto_library(

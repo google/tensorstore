@@ -36,7 +36,6 @@ config_setting(
 proto_library(
     name = "c_proto",
     srcs = ["c.proto"],
-    cc_api_version = 2,
     deps = [
         "@com_google_protobuf//:timestamp_proto",
     ],
@@ -58,7 +57,6 @@ cc_test(
 proto_library(
     name = "c_proto_2",
     srcs = ["c.proto"],
-    cc_api_version = 2,
 )
 
 alias(
