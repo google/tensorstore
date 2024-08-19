@@ -11,7 +11,6 @@ cc_library(
 proto_library(
     name = "c_proto",
     srcs = ["c.proto"],
-    cc_api_version = 2,
 )
 
 # Mimic cc_grpc_library

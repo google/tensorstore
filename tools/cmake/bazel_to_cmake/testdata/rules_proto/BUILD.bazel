@@ -5,18 +5,15 @@ package(default_visibility = ["//visibility:public"])
 proto_library(
     name = "a_proto",
     srcs = ["a.proto"],
-    cc_api_version = 2,
 )
 
 proto_library(
     name = "b_proto",
     srcs = ["b.proto"],
-    cc_api_version = 2,
 )
 
 proto_library(
     name = "ab_proto",
-    cc_api_version = 2,
     deps = [
         "a_proto",
         ":b_proto",
@@ -26,7 +23,6 @@ proto_library(
 proto_library(
     name = "abc_proto",
     srcs = ["c.proto"],
-    cc_api_version = 2,
     deps = [
         "ab_proto",
     ],
@@ -45,7 +41,6 @@ cc_proto_library(
 proto_library(
     name = "x_proto",
     srcs = ["x.proto"],
-    cc_api_version = 2,
     deps = ["@com_google_protobuf//:any_proto"],
 )
 
