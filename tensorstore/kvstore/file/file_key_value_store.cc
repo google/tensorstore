@@ -95,15 +95,16 @@
 
 #include "absl/base/attributes.h"
 #include "absl/functional/function_ref.h"
+#include "absl/log/absl_check.h"  // IWYU pragma: keep
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/match.h"
+#include "absl/strings/str_cat.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/batch.h"
 #include "tensorstore/context.h"
-#include "tensorstore/context_resource_provider.h"
 #include "tensorstore/internal/cache_key/cache_key.h"
 #include "tensorstore/internal/context_binding.h"
 #include "tensorstore/internal/file_io_concurrency_resource.h"
@@ -138,7 +139,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 // Include these last to reduce impact of macros.
 #include "tensorstore/internal/os/file_lister.h"
@@ -229,7 +229,7 @@ class FileKeyValueStoreSpec
   Future<kvstore::DriverPtr> DoOpen() const override;
 
   Result<std::string> ToUrl(std::string_view path) const override {
-    return tensorstore::StrCat(id, "://", internal::PercentEncodeUriPath(path));
+    return absl::StrCat(id, "://", internal::PercentEncodeUriPath(path));
   }
 };
 
@@ -250,7 +250,7 @@ class FileKeyValueStore
   const Executor& executor() { return spec_.file_io_concurrency->executor; }
 
   std::string DescribeKey(std::string_view key) override {
-    return tensorstore::StrCat("local file ", tensorstore::QuoteString(key));
+    return absl::StrCat("local file ", QuoteString(key));
   }
 
   absl::Status GetBoundSpecData(FileKeyValueStoreSpecData& spec) const {
@@ -272,7 +272,7 @@ class FileKeyValueStore
 absl::Status ValidateKey(std::string_view key) {
   if (!IsKeyValid(key, kLockSuffix)) {
     return absl::InvalidArgumentError(
-        tensorstore::StrCat("Invalid key: ", tensorstore::QuoteString(key)));
+        absl::StrCat("Invalid key: ", QuoteString(key)));
   }
   return absl::OkStatus();
 }
@@ -289,27 +289,6 @@ StorageGeneration GetFileGeneration(const FileInfo& info) {
       internal_os::GetDeviceId(info), internal_os::GetFileId(info),
       absl::ToUnixNanos(internal_os::GetMTime(info)));
 }
-
-/// RAII lock on an open file.
-struct FileLock {
- public:
-  ~FileLock() {
-    if (fd_ != internal_os::FileDescriptorTraits::Invalid()) {
-      assert(unlock_fn_);
-      unlock_fn_(fd_);
-    }
-  }
-
-  absl::Status Acquire(FileDescriptor fd) {
-    TENSORSTORE_ASSIGN_OR_RETURN(unlock_fn_, internal_os::AcquireFdLock(fd));
-    fd_ = fd;
-    return absl::OkStatus();
-  }
-
- private:
-  FileDescriptor fd_ = internal_os::FileDescriptorTraits::Invalid();
-  internal_os::UnlockFn unlock_fn_ = {};
-};
 
 /// Creates any directory ancestors of `path` that do not exist, and returns an
 /// open file descriptor to the parent directory of `path`.
@@ -368,7 +347,9 @@ Result<UniqueFileDescriptor> OpenParentDirectory(std::string path) {
   }
 }
 
-Result<UniqueFileDescriptor> OpenValueFile(const char* path,
+/// ----------------------------------------------------------------------------
+
+Result<UniqueFileDescriptor> OpenValueFile(const std::string& path,
                                            StorageGeneration* generation,
                                            int64_t* size = nullptr) {
   auto fd = internal_os::OpenExistingFileForReading(path);
@@ -381,97 +362,15 @@ Result<UniqueFileDescriptor> OpenValueFile(const char* path,
     return fd;
   }
   FileInfo info;
-  auto status = internal_os::GetFileInfo(fd->get(), &info);
-#ifndef _WIN32
-  if (absl::IsNotFound(status)) {
-    // Stating a newly opened file can fail with ENOTFOUND on some network
-    // filesystems.  In that case, retry using the path.
-    status = internal_os::GetFileInfo(path, &info);
-  }
-#endif
-  if (!status.ok()) return status;
+  TENSORSTORE_RETURN_IF_ERROR(internal_os::GetFileInfo(fd->get(), &info));
   if (!internal_os::IsRegularFile(info)) {
     return absl::FailedPreconditionError(
-        tensorstore::StrCat("Not a regular file: ", path));
+        absl::StrCat("Not a regular file: ", QuoteString(path)));
   }
   if (size) *size = internal_os::GetSize(info);
   *generation = GetFileGeneration(info);
   return fd;
 }
-
-/// Helper class to acquire write lock for the specified path.
-struct WriteLockHelper {
-  std::string lock_path;  // Composed write lock file path.
-  UniqueFileDescriptor lock_fd;
-  FileInfo info;
-  FileLock lock;
-
-  /// Constructor.
-  ///
-  /// \param path Full path to the key.
-  WriteLockHelper(const std::string& path)
-      : lock_path(tensorstore::StrCat(path, kLockSuffix)) {}
-
-  /// Opens or Creates the lock file.
-  Result<UniqueFileDescriptor> OpenLockFile(FileInfo* info) {
-    auto fd = internal_os::OpenFileForWriting(lock_path);
-    if (!fd.ok()) return fd;
-
-    auto status = internal_os::GetFileInfo(fd->get(), info);
-#ifndef _WIN32
-    if (absl::IsNotFound(status)) {
-      // Stating a newly opened file can fail with ENOTFOUND on some network
-      // filesystems.  In that case, retry using the path.
-      status = internal_os::GetFileInfo(lock_path, info);
-    }
-#endif
-    if (!status.ok()) return status;
-    if (!internal_os::IsRegularFile(*info)) {
-      return absl::FailedPreconditionError(
-          tensorstore::StrCat("Not a regular file: ", lock_path));
-    }
-    return fd;
-  }
-
-  /// Creates the lock file and acquires the lock.
-  absl::Status CreateAndAcquire() {
-    TENSORSTORE_ASSIGN_OR_RETURN(lock_fd, OpenLockFile(&info));
-    // Loop until lock is acquired successfully.
-    while (true) {
-      // Acquire lock.
-      if (auto status = lock.Acquire(lock_fd.get()); !status.ok()) {
-        return MaybeAnnotateStatus(
-            std::move(status),
-            tensorstore::StrCat("Failed to acquire lock on file: ",
-                                QuoteString(lock_path)));
-      }
-      // Check if the lock file has been renamed.
-      FileInfo other_info;
-      TENSORSTORE_ASSIGN_OR_RETURN(UniqueFileDescriptor other_fd,
-                                   OpenLockFile(&other_info));
-      if (internal_os::GetDeviceId(other_info) ==
-              internal_os::GetDeviceId(info) &&
-          internal_os::GetFileId(other_info) == internal_os::GetFileId(info)) {
-        // Lock was acquired successfully.
-        return absl::OkStatus();
-      }
-      info = other_info;
-      // Release lock and try again.
-      lock = FileLock{};
-      lock_fd = std::move(other_fd);
-      file_metrics.lock_contention.Increment();
-    }
-  }
-
-  // Deletes the lock file.
-  absl::Status Delete() {
-    auto status = internal_os::DeleteOpenFile(lock_fd.get(), lock_path);
-    if (status.ok() || absl::IsNotFound(status)) {
-      return absl::OkStatus();
-    }
-    return MaybeAnnotateStatus(std::move(status), "Failed to clean lock file");
-  }
-};
 
 Result<absl::Cord> ReadFromFileDescriptor(FileDescriptor fd,
                                           ByteRange byte_range) {
@@ -491,8 +390,7 @@ Result<absl::Cord> ReadFromFileDescriptor(FileDescriptor fd,
       continue;
     }
     if (n == 0) {
-      return absl::UnavailableError(
-          tensorstore::StrCat("Length changed while reading"));
+      return absl::UnavailableError("Length changed while reading");
     }
   }
   file_metrics.read_latency_ms.Observe(
@@ -548,7 +446,7 @@ class BatchReadTask final
     auto& requests = request_batch.requests;
     TENSORSTORE_ASSIGN_OR_RETURN(
         fd_,
-        OpenValueFile(std::get<std::string>(batch_entry_key).c_str(),
+        OpenValueFile(std::get<std::string>(batch_entry_key),
                       &stamp_.generation, &size_),
         internal_kvstore_batch::SetCommonResult(requests, std::move(_)));
     if (!fd_.valid()) {
@@ -610,6 +508,119 @@ Future<ReadResult> FileKeyValueStore::Read(Key key, ReadOptions options) {
   return std::move(future);
 }
 
+/// ----------------------------------------------------------------------------
+
+Result<StorageGeneration> WriteWithSyncAndRename(
+    FileDescriptor fd, const std::string& fd_path, absl::Cord value, bool sync,
+    const std::string& rename_path) {
+  auto start_write = absl::Now();
+  while (!value.empty()) {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto n, internal_os::WriteCordToFile(fd, value),
+        MaybeAnnotateStatus(
+            _, absl::StrCat("Failed writing: ", QuoteString(fd_path))));
+    file_metrics.bytes_written.IncrementBy(n);
+    if (n == value.size()) break;
+    value.RemovePrefix(n);
+  }
+  if (sync) {
+    TENSORSTORE_RETURN_IF_ERROR(internal_os::FsyncFile(fd));
+  }
+  // File stat should not be modified by the rename.
+  FileInfo info;
+  TENSORSTORE_RETURN_IF_ERROR(internal_os::GetFileInfo(fd, &info));
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal_os::RenameOpenFile(fd, fd_path, rename_path));
+#if 0  // Uncomment to validate that rename does not affect ::stat.
+  FileInfo debug_info;
+  ABSL_CHECK_OK(internal_os::GetFileInfo(fd, &debug_info));
+  ABSL_CHECK_EQ(GetFileGeneration(info), GetFileGeneration(debug_info));
+#endif
+  file_metrics.write_latency_ms.Observe(
+      absl::ToInt64Milliseconds(absl::Now() - start_write));
+  return GetFileGeneration(info);
+}
+
+/// Opens or creates the lock file.
+Result<UniqueFileDescriptor> OpenLockFile(const std::string& path,
+                                          FileInfo* info) {
+  auto fd = internal_os::OpenFileForWriting(path);
+  if (!fd.ok()) return fd;
+
+  // Is this a network filesystem?
+  TENSORSTORE_RETURN_IF_ERROR(internal_os::GetFileInfo(fd->get(), info));
+  if (!internal_os::IsRegularFile(*info)) {
+    return absl::FailedPreconditionError(
+        absl::StrCat("Not a regular file: ", path));
+  }
+  return fd;
+}
+
+/// Helper class to acquire write lock for the specified path.
+struct WriteLockHelper {
+  std::string lock_path;  // Composed write lock file path.
+  UniqueFileDescriptor lock_fd;
+  std::optional<internal_os::UnlockFn> unlock_fn;
+
+  /// Constructor.
+  ///
+  /// \param path Full path to the key.
+  WriteLockHelper(const std::string& path)
+      : lock_path(absl::StrCat(path, kLockSuffix)) {}
+
+  ~WriteLockHelper() { Unlock(); }
+
+  /// Creates the lock file and acquires the lock.
+  absl::Status CreateAndAcquire() {
+    FileInfo a, b;
+    FileInfo* info = &a;
+    TENSORSTORE_ASSIGN_OR_RETURN(lock_fd, OpenLockFile(lock_path, info));
+
+    // Loop until lock is acquired successfully.
+    while (true) {
+      // Acquire lock.
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          unlock_fn, internal_os::AcquireFdLock(lock_fd.get()),
+          MaybeAnnotateStatus(_,
+                              absl::StrCat("Failed to acquire lock on file: ",
+                                           QuoteString(lock_path))));
+
+      // Reopening the file should give the same value since the lock is held.
+      FileInfo* other_info = info == &a ? &b : &a;
+      TENSORSTORE_ASSIGN_OR_RETURN(UniqueFileDescriptor other_fd,
+                                   OpenLockFile(lock_path, other_info));
+      if (internal_os::GetDeviceId(a) == internal_os::GetDeviceId(b) &&
+          internal_os::GetFileId(a) == internal_os::GetFileId(b)) {
+        // Lock was acquired successfully.
+        return absl::OkStatus();
+      }
+
+      // Release lock and try again.
+      Unlock();
+      info = other_info;
+      lock_fd = std::move(other_fd);
+      file_metrics.lock_contention.Increment();
+    }
+  }
+
+  // Deletes the lock file.
+  absl::Status Delete() {
+    auto status = internal_os::DeleteOpenFile(lock_fd.get(), lock_path);
+    if (status.ok() || absl::IsNotFound(status)) {
+      return absl::OkStatus();
+    }
+    return MaybeAnnotateStatus(std::move(status), "Failed to clean lock file");
+  }
+
+  // Unlocks the lock file.
+  void Unlock() {
+    if (unlock_fn) {
+      std::move (*unlock_fn)(lock_fd.get());
+      unlock_fn = std::nullopt;
+    }
+  }
+};
+
 /// Implements `FileKeyValueStore::Write`.
 struct WriteTask {
   std::string full_path;
@@ -622,71 +633,43 @@ struct WriteTask {
     TimestampedStorageGeneration r;
     r.time = absl::Now();
 
-    WriteLockHelper lock_helper(full_path);
     TENSORSTORE_ASSIGN_OR_RETURN(auto dir_fd, OpenParentDirectory(full_path));
+
+    WriteLockHelper lock_helper(full_path);
     TENSORSTORE_RETURN_IF_ERROR(lock_helper.CreateAndAcquire());
     bool delete_lock_file = true;
+    FileDescriptor fd = lock_helper.lock_fd.get();
+    const std::string& lock_path = lock_helper.lock_path;
 
     auto generation_result = [&]() -> Result<StorageGeneration> {
-      FileDescriptor fd = lock_helper.lock_fd.get();
-      const std::string& lock_path = lock_helper.lock_path;
       // Check condition.
       if (!StorageGeneration::IsUnknown(
               options.generation_conditions.if_equal)) {
         StorageGeneration generation;
-        TENSORSTORE_ASSIGN_OR_RETURN(
-            UniqueFileDescriptor value_fd,
-            OpenValueFile(full_path.c_str(), &generation));
+        TENSORSTORE_ASSIGN_OR_RETURN(UniqueFileDescriptor value_fd,
+                                     OpenValueFile(full_path, &generation));
         if (generation != options.generation_conditions.if_equal) {
           return StorageGeneration::Unknown();
         }
       }
-      if (internal_os::GetSize(lock_helper.info) > value.size()) {
-        // Only truncate when the file is larger. In the common path, the lock
-        // file is newly created, so truncate is useless.
-        TENSORSTORE_RETURN_IF_ERROR(internal_os::TruncateFile(fd));
-      }
-      absl::Cord value_for_write = value;
-      auto start_write = absl::Now();
-      for (; !value_for_write.empty();) {
-        TENSORSTORE_ASSIGN_OR_RETURN(
-            auto n, internal_os::WriteCordToFile(fd, value_for_write),
-            MaybeAnnotateStatus(_,
-                                tensorstore::StrCat("Failed writing: ",
-                                                    QuoteString(lock_path))));
-        file_metrics.bytes_written.IncrementBy(n);
-        if (n == value_for_write.size()) break;
-        value_for_write.RemovePrefix(n);
-      }
-
-      if (this->sync) {
-        TENSORSTORE_RETURN_IF_ERROR(internal_os::FsyncFile(fd));
-      }
-      TENSORSTORE_RETURN_IF_ERROR(
-          internal_os::RenameOpenFile(fd, lock_path, full_path));
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          auto generation,
+          WriteWithSyncAndRename(fd, lock_path, value, sync, full_path));
       delete_lock_file = false;
-      if (this->sync) {
+      if (sync) {
         // fsync the parent directory to ensure the `rename` is durable.
         TENSORSTORE_RETURN_IF_ERROR(
             internal_os::FsyncDirectory(dir_fd.get()),
             MaybeAnnotateStatus(
-                _, tensorstore::StrCat(
-                       "Error calling fsync on parent directory of: ",
-                       full_path)));
+                _, absl::StrCat("Error calling fsync on parent directory of: ",
+                                full_path)));
       }
-      lock_helper.lock = FileLock{};
-
-      // Retrieve `FileInfo` after the fsync and rename to ensure the
-      // modification time doesn't change afterwards.
-      FileInfo info;
-      TENSORSTORE_RETURN_IF_ERROR(internal_os::GetFileInfo(fd, &info));
-      file_metrics.write_latency_ms.Observe(
-          absl::ToInt64Milliseconds(absl::Now() - start_write));
-      return GetFileGeneration(info);
+      lock_helper.Unlock();
+      return generation;
     }();
 
     if (delete_lock_file) {
-      TENSORSTORE_RETURN_IF_ERROR(lock_helper.Delete());
+      lock_helper.Delete().IgnoreError();
     }
     if (!generation_result) {
       return std::move(generation_result).status();
@@ -717,9 +700,8 @@ struct DeleteTask {
       if (!StorageGeneration::IsUnknown(
               options.generation_conditions.if_equal)) {
         StorageGeneration generation;
-        TENSORSTORE_ASSIGN_OR_RETURN(
-            UniqueFileDescriptor value_fd,
-            OpenValueFile(full_path.c_str(), &generation));
+        TENSORSTORE_ASSIGN_OR_RETURN(UniqueFileDescriptor value_fd,
+                                     OpenValueFile(full_path, &generation));
         if (generation != options.generation_conditions.if_equal) {
           return StorageGeneration::Unknown();
         }
@@ -728,7 +710,7 @@ struct DeleteTask {
       if (!status.ok() && !absl::IsNotFound(status)) {
         return status;
       }
-      fsync_directory = this->sync;
+      fsync_directory = sync;
       return StorageGeneration::NoValue();
     }();
 
@@ -740,9 +722,8 @@ struct DeleteTask {
       TENSORSTORE_RETURN_IF_ERROR(
           internal_os::FsyncDirectory(dir_fd.get()),
           MaybeAnnotateStatus(
-              _,
-              tensorstore::StrCat(
-                  "Error calling fsync on parent directory of: ", full_path)));
+              _, absl::StrCat("Error calling fsync on parent directory of: ",
+                              QuoteString(full_path))));
     }
     if (!generation_result) {
       return std::move(generation_result).status();
@@ -764,6 +745,8 @@ Future<TimestampedStorageGeneration> FileKeyValueStore::Write(
                                             this->sync()});
   }
 }
+
+/// ----------------------------------------------------------------------------
 
 /// Implements `FileKeyValueStore::DeleteRange`.
 struct DeleteRangeTask {
