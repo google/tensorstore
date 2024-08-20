@@ -173,36 +173,41 @@ Result<DWORD> GetFileAttributes(const std::wstring& filename) {
 #endif
 
 void UnlockWin32Lock(FileDescriptor fd) {
+  TS_DETAIL_LOG_BEGIN << " handle=" << fd;
   auto lock_offset = GetLockOverlapped();
   // Ignore any errors.
   ::UnlockFileEx(fd, /*dwReserved=*/0, /*nNumberOfBytesToUnlockLow=*/1,
                  /*nNumberOfBytesToUnlockHigh=*/0,
                  /*lpOverlapped=*/&lock_offset);
+  TS_DETAIL_LOG_END << " handle=" << fd;
 }
 
 }  // namespace
 
-void FileDescriptorTraits::Close(FileDescriptor handle) {
-  TS_DETAIL_LOG_BEGIN << " handle=" << handle;
-  ::CloseHandle(handle);
-  TS_DETAIL_LOG_END << " handle=" << handle;
+void FileDescriptorTraits::Close(FileDescriptor fd) {
+  TS_DETAIL_LOG_BEGIN << " handle=" << fd;
+  ::CloseHandle(fd);
+  TS_DETAIL_LOG_END << " handle=" << fd;
 }
 
 Result<UnlockFn> AcquireFdLock(FileDescriptor fd) {
+  TS_DETAIL_LOG_BEGIN << " handle=" << fd;
   auto lock_offset = GetLockOverlapped();
   if (::LockFileEx(fd, /*dwFlags=*/LOCKFILE_EXCLUSIVE_LOCK,
                    /*dwReserved=*/0,
                    /*nNumberOfBytesToLockLow=*/1,
                    /*nNumberOfBytesToLockHigh=*/0,
                    /*lpOverlapped=*/&lock_offset)) {
+    TS_DETAIL_LOG_END << " handle=" << fd;
     return UnlockWin32Lock;
   }
+  TS_DETAIL_LOG_ERROR << " handle=" << fd;
   return StatusFromOsError(::GetLastError(), "Failed to lock file");
 }
 
 Result<UniqueFileDescriptor> OpenExistingFileForReading(
     const std::string& path) {
-  TS_DETAIL_LOG_BEGIN << " path=" << tensorstore::QuoteString(path);
+  TS_DETAIL_LOG_BEGIN << " path=" << QuoteString(path);
   std::wstring wpath;
   TENSORSTORE_RETURN_IF_ERROR(ConvertUTF8ToWindowsWide(path, wpath));
 
@@ -215,17 +220,16 @@ Result<UniqueFileDescriptor> OpenExistingFileForReading(
       /*hTemplateFile=*/nullptr);
 
   if (fd == FileDescriptorTraits::Invalid()) {
-    TS_DETAIL_LOG_ERROR << " path=" << tensorstore::QuoteString(path);
+    TS_DETAIL_LOG_ERROR << " path=" << QuoteString(path);
     return StatusFromOsError(::GetLastError(),
                              "Failed to open: ", QuoteString(path));
   }
-  TS_DETAIL_LOG_END << " path=" << tensorstore::QuoteString(path)
-                    << ", handle=" << fd;
+  TS_DETAIL_LOG_END << " path=" << QuoteString(path) << ", handle=" << fd;
   return UniqueFileDescriptor(fd);
 }
 
 Result<UniqueFileDescriptor> OpenFileForWriting(const std::string& path) {
-  TS_DETAIL_LOG_BEGIN << " path=" << tensorstore::QuoteString(path);
+  TS_DETAIL_LOG_BEGIN << " path=" << QuoteString(path);
   std::wstring wpath;
   TENSORSTORE_RETURN_IF_ERROR(ConvertUTF8ToWindowsWide(path, wpath));
 
@@ -242,12 +246,11 @@ Result<UniqueFileDescriptor> OpenFileForWriting(const std::string& path) {
       /*hTemplateFile=*/nullptr);
 
   if (fd == FileDescriptorTraits::Invalid()) {
-    TS_DETAIL_LOG_ERROR << " path=" << tensorstore::QuoteString(path);
+    TS_DETAIL_LOG_ERROR << " path=" << QuoteString(path);
     return StatusFromOsError(::GetLastError(),
                              "Failed to create: ", QuoteString(path));
   }
-  TS_DETAIL_LOG_END << " path=" << tensorstore::QuoteString(path)
-                    << ", handle=" << fd;
+  TS_DETAIL_LOG_END << " path=" << QuoteString(path) << ", handle=" << fd;
   return UniqueFileDescriptor(fd);
 }
 
@@ -310,11 +313,15 @@ absl::Status TruncateFile(FileDescriptor fd) {
 
 absl::Status RenameOpenFile(FileDescriptor fd, const std::string& old_name,
                             const std::string& new_name) {
+  TS_DETAIL_LOG_BEGIN << " handle=" << fd
+                      << ", old_name=" << QuoteString(old_name)
+                      << ", new_name=" << QuoteString(new_name);
   std::wstring wpath_new;
   TENSORSTORE_RETURN_IF_ERROR(ConvertUTF8ToWindowsWide(new_name, wpath_new));
 
   // Try using Posix semantics.
   if (RenameFilePosix(fd, wpath_new)) {
+    TS_DETAIL_LOG_END << " handle=" << fd;
     return absl::OkStatus();
   }
 
@@ -330,9 +337,11 @@ absl::Status RenameOpenFile(FileDescriptor fd, const std::string& old_name,
   // Try using MoveFileEx, which may not be atomic.
   if (::MoveFileExW(wpath_old.c_str(), wpath_new.c_str(),
                     MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+    TS_DETAIL_LOG_END << " handle=" << fd;
     return absl::OkStatus();
   }
 
+  TS_DETAIL_LOG_ERROR << " handle=" << fd;
   return StatusFromOsError(::GetLastError(),
                            "Failed to rename: ", QuoteString(old_name),
                            " to: ", QuoteString(new_name));
@@ -347,6 +356,7 @@ absl::Status DeleteOpenFile(FileDescriptor fd, const std::string& path) {
   // result in the normal read/write paths failing with an error.  To avoid
   // that problem, we first rename the file to a random name, with a suffix of
   // `kLockSuffix` to prevent it from being included in List results.
+  TS_DETAIL_LOG_BEGIN << " handle=" << fd << ", path=" << QuoteString(path);
   unsigned int buf[5];
   for (int i = 0; i < 5; ++i) {
     ::rand_s(&buf[i]);
@@ -374,6 +384,7 @@ absl::Status DeleteOpenFile(FileDescriptor fd, const std::string& path) {
   }
   // Attempt to delete the open handle using posix semantics?
   if (DeleteFilePosix(fd)) {
+    TS_DETAIL_LOG_END << " handle=" << fd;
     return absl::OkStatus();
   }
 #ifndef NDEBUG
@@ -383,8 +394,10 @@ absl::Status DeleteOpenFile(FileDescriptor fd, const std::string& path) {
 #endif
   // The file has been renamed, so delete the renamed file.
   if (::DeleteFileW(wpath_temp.c_str())) {
+    TS_DETAIL_LOG_END << " handle=" << fd;
     return absl::OkStatus();
   }
+  TS_DETAIL_LOG_ERROR << " handle=" << fd;
   return StatusFromOsError(::GetLastError(),
                            "Failed to delete: ", QuoteString(path));
 }
@@ -431,7 +444,7 @@ absl::Status GetFileInfo(FileDescriptor fd, FileInfo* info) {
 }
 
 absl::Status GetFileInfo(const std::string& path, FileInfo* info) {
-  TS_DETAIL_LOG_BEGIN << " path=" << tensorstore::QuoteString(path);
+  TS_DETAIL_LOG_BEGIN << " path=" << QuoteString(path);
 
   // The typedef uses BY_HANDLE_FILE_INFO, which includes device and index
   // metadata, and requires an open handle.
@@ -446,11 +459,11 @@ absl::Status GetFileInfo(const std::string& path, FileInfo* info) {
       /*hTemplateFile=*/nullptr));
   if (stat_fd.valid()) {
     if (::GetFileInformationByHandle(stat_fd.get(), info)) {
-      TS_DETAIL_LOG_END << " path=" << tensorstore::QuoteString(path);
+      TS_DETAIL_LOG_END << " path=" << QuoteString(path);
       return absl::OkStatus();
     }
   }
-  TS_DETAIL_LOG_ERROR << " path=" << tensorstore::QuoteString(path);
+  TS_DETAIL_LOG_ERROR << " path=" << QuoteString(path);
   return StatusFromOsError(::GetLastError());
 }
 

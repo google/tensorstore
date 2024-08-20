@@ -53,7 +53,7 @@ using FileDescriptor = HANDLE;  // HANDLE
 /// File descriptor traits for use with `UniqueHandle`.
 struct FileDescriptorTraits {
   static FileDescriptor Invalid() { return ((FileDescriptor)-1); }
-  static void Close(FileDescriptor handle);
+  static void Close(FileDescriptor fd);
 };
 
 /// Representation of file metadata.

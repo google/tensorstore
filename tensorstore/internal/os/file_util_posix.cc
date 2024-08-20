@@ -105,6 +105,7 @@ void UnlockFcntlLock(FileDescriptor fd) {
   // This is not strictly necessary as the posix/linux locks will be released
   // when the fd is closed, but it allows easier reasoning by making locking
   // behave similarly across platforms.
+  TS_DETAIL_LOG_BEGIN << " fd=" << fd;
   while (true) {
     struct ::flock lock;
     lock.l_type = F_UNLCK;
@@ -119,8 +120,7 @@ void UnlockFcntlLock(FileDescriptor fd) {
       }
     }
     if (errno == EINTR) continue;
-    ABSL_LOG_FIRST_N(INFO, 1)
-        << StatusFromOsError(errno, "Failed to release lock");
+    TS_DETAIL_LOG_ERROR << " fd=" << fd;
     return;
   }
   ABSL_UNREACHABLE();
@@ -128,6 +128,7 @@ void UnlockFcntlLock(FileDescriptor fd) {
 #endif
 
 void UnlockFlockLock(FileDescriptor fd) {
+  TS_DETAIL_LOG_BEGIN << " fd=" << fd;
   while (true) {
     {
       PotentiallyBlockingRegion region;
@@ -136,8 +137,7 @@ void UnlockFlockLock(FileDescriptor fd) {
       }
     }
     if (errno == EINTR) continue;
-    ABSL_LOG_FIRST_N(INFO, 1)
-        << StatusFromOsError(errno, "Failed to release lock");
+    TS_DETAIL_LOG_ERROR << " fd=" << fd;
     return;
   }
   ABSL_UNREACHABLE();
@@ -146,6 +146,7 @@ void UnlockFlockLock(FileDescriptor fd) {
 }  // namespace
 
 Result<UnlockFn> AcquireFdLock(FileDescriptor fd) {
+  TS_DETAIL_LOG_BEGIN << " fd=" << fd;
 #if defined(F_OFD_SETLKW)
   while (true) {
     // This blocks until the lock is acquired (SETLKW).  If any signal is
@@ -165,11 +166,13 @@ Result<UnlockFn> AcquireFdLock(FileDescriptor fd) {
     {
       PotentiallyBlockingRegion region;
       if (::fcntl(fd, F_OFD_SETLKW, &lock) != -1) {
+        TS_DETAIL_LOG_END << " fd=" << fd;
         return UnlockFcntlLock;
       }
     }
     if (errno == EINTR) continue;
     if (errno == EINVAL || errno == ENOTSUP) break;
+    TS_DETAIL_LOG_ERROR << " fd=" << fd;
     return StatusFromOsError(errno, "Failed to lock file");
   }
 #endif
@@ -177,9 +180,11 @@ Result<UnlockFn> AcquireFdLock(FileDescriptor fd) {
     {
       PotentiallyBlockingRegion region;
       if (::flock(fd, LOCK_EX) != -1) {
+        TS_DETAIL_LOG_END << " fd=" << fd;
         return UnlockFlockLock;
       }
       if (errno == EINTR) continue;
+      TS_DETAIL_LOG_ERROR << " fd=" << fd;
       return StatusFromOsError(errno, "Failed to lock file");
     }
   }
@@ -188,23 +193,22 @@ Result<UnlockFn> AcquireFdLock(FileDescriptor fd) {
 
 Result<UniqueFileDescriptor> OpenExistingFileForReading(
     const std::string& path) {
-  TS_DETAIL_LOG_BEGIN << " path=" << tensorstore::QuoteString(path);
+  TS_DETAIL_LOG_BEGIN << " path=" << QuoteString(path);
   FileDescriptor fd;
   {
     PotentiallyBlockingRegion region;
     fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC);
   }
   if (fd == FileDescriptorTraits::Invalid()) {
-    TS_DETAIL_LOG_ERROR << " path=" << tensorstore::QuoteString(path);
+    TS_DETAIL_LOG_ERROR << " path=" << QuoteString(path);
     return StatusFromOsError(errno, "Failed to open: ", QuoteString(path));
   }
-  TS_DETAIL_LOG_END << " path=" << tensorstore::QuoteString(path)
-                    << ", fd=" << fd;
+  TS_DETAIL_LOG_END << " path=" << QuoteString(path) << ", fd=" << fd;
   return UniqueFileDescriptor(fd);
 }
 
 Result<UniqueFileDescriptor> OpenFileForWriting(const std::string& path) {
-  TS_DETAIL_LOG_BEGIN << " path=" << tensorstore::QuoteString(path);
+  TS_DETAIL_LOG_BEGIN << " path=" << QuoteString(path);
   FileDescriptor fd = FileDescriptorTraits::Invalid();
   const auto attempt_open = [&] {
     PotentiallyBlockingRegion region;
@@ -227,11 +231,10 @@ Result<UniqueFileDescriptor> OpenFileForWriting(const std::string& path) {
   }
 #endif
   if (fd == FileDescriptorTraits::Invalid()) {
-    TS_DETAIL_LOG_ERROR << " path=" << tensorstore::QuoteString(path);
+    TS_DETAIL_LOG_ERROR << " path=" << QuoteString(path);
     return StatusFromOsError(errno, "Failed to create: ", QuoteString(path));
   }
-  TS_DETAIL_LOG_END << " path=" << tensorstore::QuoteString(path)
-                    << ", fd=" << fd;
+  TS_DETAIL_LOG_END << " path=" << QuoteString(path) << ", fd=" << fd;
   return UniqueFileDescriptor(fd);
 }
 
@@ -306,27 +309,39 @@ absl::Status TruncateFile(FileDescriptor fd) {
 
 absl::Status RenameOpenFile(FileDescriptor fd, const std::string& old_name,
                             const std::string& new_name) {
+  TS_DETAIL_LOG_BEGIN << " fd=" << fd << ", old_name=" << QuoteString(old_name)
+                      << ", new_name=" << QuoteString(new_name);
   PotentiallyBlockingRegion region;
   if (::rename(old_name.c_str(), new_name.c_str()) == 0) {
+    TS_DETAIL_LOG_END << " fd=" << fd << ", old_name=" << QuoteString(old_name)
+                      << ", new_name=" << QuoteString(new_name);
     return absl::OkStatus();
   }
+  TS_DETAIL_LOG_ERROR << " fd=" << fd << ", old_name=" << QuoteString(old_name)
+                      << ", new_name=" << QuoteString(new_name);
   return StatusFromOsError(errno, "Failed to rename: ", QuoteString(old_name),
                            " to: ", QuoteString(new_name));
 }
 
 absl::Status DeleteOpenFile(FileDescriptor fd, const std::string& path) {
+  TS_DETAIL_LOG_BEGIN << " fd=" << fd << ", path=" << QuoteString(path);
   PotentiallyBlockingRegion region;
   if (::unlink(path.c_str()) == 0) {
+    TS_DETAIL_LOG_END << " fd=" << fd;
     return absl::OkStatus();
   }
+  TS_DETAIL_LOG_ERROR << " fd=" << fd;
   return StatusFromOsError(errno, "Failed to delete: ", QuoteString(path));
 }
 
 absl::Status DeleteFile(const std::string& path) {
+  TS_DETAIL_LOG_BEGIN << " path=" << QuoteString(path);
   PotentiallyBlockingRegion region;
   if (::unlink(path.c_str()) == 0) {
+    TS_DETAIL_LOG_END << " path=" << QuoteString(path);
     return absl::OkStatus();
   }
+  TS_DETAIL_LOG_ERROR << " path=" << QuoteString(path);
   return StatusFromOsError(errno, "Failed to delete: ", QuoteString(path));
 }
 
@@ -353,13 +368,13 @@ absl::Status GetFileInfo(FileDescriptor fd, FileInfo* info) {
 }
 
 absl::Status GetFileInfo(const std::string& path, FileInfo* info) {
-  TS_DETAIL_LOG_BEGIN << " path=" << tensorstore::QuoteString(path);
+  TS_DETAIL_LOG_BEGIN << " path=" << QuoteString(path);
   PotentiallyBlockingRegion region;
   if (::stat(path.c_str(), info) == 0) {
-    TS_DETAIL_LOG_END << " path=" << tensorstore::QuoteString(path);
+    TS_DETAIL_LOG_END << " path=" << QuoteString(path);
     return absl::OkStatus();
   }
-  TS_DETAIL_LOG_ERROR << " path=" << tensorstore::QuoteString(path);
+  TS_DETAIL_LOG_ERROR << " path=" << QuoteString(path);
   return StatusFromOsError(errno);
 }
 
