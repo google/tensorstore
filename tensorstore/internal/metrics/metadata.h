@@ -44,7 +44,7 @@ struct MetricMetadata {
       : description(description), units(u) {}
 
   std::string_view description;
-  Units units;
+  Units units = Units::kUnknown;
 };
 
 /// Returns whether name is a valid metric name.
