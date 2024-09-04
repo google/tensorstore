@@ -15,6 +15,7 @@
 #include <stddef.h>
 
 #include <array>
+#include <cstdint>
 
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
@@ -27,6 +28,7 @@
 #include "tensorstore/index.h"
 #include "tensorstore/internal/image/avif_reader.h"
 #include "tensorstore/internal/image/avif_writer.h"
+#include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"

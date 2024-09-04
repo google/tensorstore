@@ -33,6 +33,7 @@ tensorstore_cc_library(
         "//tensorstore/driver/image:driver_impl",
         "//tensorstore/internal:data_copy_concurrency_resource",
         "//tensorstore/internal/cache:cache_pool_resource",
+        "//tensorstore/internal/image",
         "//tensorstore/internal/image:avif",
         "//tensorstore/internal/json_binding",
         "//tensorstore/util:result",

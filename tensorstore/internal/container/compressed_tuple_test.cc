@@ -233,6 +233,7 @@ TEST(CompressedTupleTest, OneMoveOnRValueAccess) {
   CopyableMovableInstance i2 = std::move(x).get<0>();
   EXPECT_EQ(CopyableMovableInstance::num_copies, 0);
   EXPECT_EQ(CopyableMovableInstance::num_moves, 1);
+  EXPECT_EQ(i2.value(), 1);
 }
 
 TEST(CompressedTupleTest, OneCopyOnLValueAccess) {
@@ -244,6 +245,7 @@ TEST(CompressedTupleTest, OneCopyOnLValueAccess) {
   CopyableMovableInstance t = x.get<0>();
   EXPECT_EQ(CopyableMovableInstance::num_copies, 1);
   EXPECT_EQ(CopyableMovableInstance::num_moves, 1);
+  EXPECT_EQ(t.value(), 0);
 }
 
 TEST(CompressedTupleTest, ZeroCopyOnRefAccess) {

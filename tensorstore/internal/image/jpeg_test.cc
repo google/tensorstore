@@ -14,18 +14,19 @@
 
 #include <stddef.h>
 
-#include <cmath>
+#include <cstdint>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "riegeli/bytes/cord_reader.h"
 #include "riegeli/bytes/cord_writer.h"
 #include "riegeli/bytes/string_reader.h"
+#include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/internal/image/jpeg_reader.h"
 #include "tensorstore/internal/image/jpeg_writer.h"
-#include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
 
