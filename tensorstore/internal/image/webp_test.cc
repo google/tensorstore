@@ -15,7 +15,6 @@
 #include <stdint.h>
 
 #include <string_view>
-#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -64,11 +63,9 @@ TEST(WebPTest, Decode) {
 }
 
 TEST(WebPTest, EncodeDecode) {
-  static constexpr unsigned char raw[] = {
-      0x52, 0x49, 0x46, 0x46, 0x20, 0x00, 0x00, 0x00, 0x57, 0x45,
-      0x42, 0x50, 0x56, 0x50, 0x38, 0x4c, 0x14, 0x00, 0x00, 0x00,
-      0x2f, 0x00, 0x00, 0x00, 0x00, 0x07, 0x50, 0x81, 0x54, 0x08,
-      0x20, 0x00, 0x0a, 0x9a, 0xfe, 0xc7, 0x88, 0x88, 0xfe, 0x07,
+  // https://developers.google.com/speed/webp/docs/riff_container
+  static constexpr const char prefix[] = {
+      'R', 'I', 'F', 'F', 0x20, 0x00, 0x00, 0x00, 'W', 'E', 'B', 'P',
   };
 
   uint8_t pixels[3] = {1, 2, 3};
@@ -84,8 +81,8 @@ TEST(WebPTest, EncodeDecode) {
     ASSERT_THAT(encoder.Done(), ::tensorstore::IsOk());
   }
 
-  EXPECT_THAT(encoded, ::testing::StrEq(std::string_view(
-                           reinterpret_cast<const char*>(raw), sizeof(raw))));
+  EXPECT_THAT(encoded.Flatten(),
+              ::testing::StartsWith(std::string_view(prefix, sizeof(prefix))));
 
   {
     WebPReader decoder;

@@ -23,12 +23,12 @@
 #include <gtest/gtest.h>
 #include "absl/flags/flag.h"
 #include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include "riegeli/bytes/cord_reader.h"
 #include "riegeli/bytes/cord_writer.h"
 #include "riegeli/bytes/fd_reader.h"
 #include "riegeli/bytes/read_all.h"
 #include "riegeli/bytes/string_reader.h"
-#include "tensorstore/data_type.h"
 #include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/internal/image/tiff_reader.h"
 #include "tensorstore/internal/image/tiff_writer.h"

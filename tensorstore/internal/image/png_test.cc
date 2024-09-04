@@ -14,8 +14,6 @@
 
 #include <stdint.h>
 
-#include <string_view>
-
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
