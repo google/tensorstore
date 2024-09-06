@@ -70,7 +70,7 @@
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include <half.hpp>
-#include <nlohmann/json_fwd.hpp>
+#include <nlohmann/json.hpp>
 #include "tensorstore/index.h"
 #include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/internal/integer_types.h"
@@ -82,19 +82,6 @@
 #include "tensorstore/util/int4.h"
 #include "tensorstore/util/str_cat.h"
 #include "tensorstore/util/utf8_string.h"
-
-#ifdef _MSC_VER
-// On MSVC, if `MakeDataTypeOperations<T>::operations` is not declared
-// constexpr, it is initialized dynamically, which can happen too late if
-// `DataType` is used from a global dynamic initializer, e.g. in order to
-// allocate an Array.
-#define TENSORSTORE_DATA_TYPE_CONSTEXPR_OPERATIONS
-#endif
-
-#ifdef TENSORSTORE_DATA_TYPE_CONSTEXPR_OPERATIONS
-// Required by constexpr definition of `MakeDataTypeOperations<T>::operations`.
-#include <nlohmann/json.hpp>
-#endif
 
 namespace tensorstore {
 namespace dtypes {
@@ -1142,19 +1129,10 @@ constexpr internal::DataTypeOperations DataTypeOperationsImpl = {
 template <typename T>
 class MakeDataTypeOperations {
  public:
-#ifdef TENSORSTORE_DATA_TYPE_CONSTEXPR_OPERATIONS
   static constexpr internal::DataTypeOperations operations =
       DataTypeOperationsImpl<T>;
-#else
-  static const internal::DataTypeOperations operations;
-#endif
 };
 
-#ifndef TENSORSTORE_DATA_TYPE_CONSTEXPR_OPERATIONS
-template <typename T>
-const internal::DataTypeOperations MakeDataTypeOperations<T>::operations =
-    DataTypeOperationsImpl<T>;
-#endif
 
 #define TENSORSTORE_DATA_TYPE_EXPLICIT_INSTANTIATION(T, ...)                   \
   __VA_ARGS__ template class MakeDataTypeOperations<::tensorstore::dtypes::T>; \
