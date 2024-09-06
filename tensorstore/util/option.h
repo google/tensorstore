@@ -20,7 +20,6 @@
 
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
-#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 
@@ -51,8 +50,12 @@ namespace internal {
 template <typename Options, typename... Args>
 absl::Status SetAll(Options& options, Args&&... args) {
   absl::Status status;
-  ((status = options.Set(std::forward<Args>(args))).ok() && ...);
+  ((status.Update(options.Set(std::forward<Args>(args)))), ...);
   return status;
+}
+template <typename Options>
+absl::Status SetAll(Options& options) {
+  return absl::OkStatus();
 }
 
 }  // namespace internal

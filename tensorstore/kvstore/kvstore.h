@@ -136,7 +136,7 @@ class KvStore {
                    Result<Spec>>
   spec(Option&&... option) const {
     SpecRequestOptions options;
-    (options.Set(std::move(option)), ...);
+    internal::SetAll(options, std::forward<Option>(option)...).IgnoreError();
     return spec(std::move(options));
   }
   Result<Spec> spec(SpecRequestOptions&& options) const;
@@ -270,7 +270,7 @@ static std::enable_if_t<IsCompatibleOptionSequence<OpenOptions, Option...>,
                         Future<KvStore>>
 Open(Spec spec, Option&&... option) {
   OpenOptions options;
-  (options.Set(option), ...);
+  internal::SetAll(options, std::forward<Option>(option)...).IgnoreError();
   return kvstore::Open(std::move(spec), std::move(options));
 }
 template <typename... Option>
@@ -278,7 +278,7 @@ static std::enable_if_t<IsCompatibleOptionSequence<OpenOptions, Option...>,
                         Future<KvStore>>
 Open(::nlohmann::json j, Option&&... option) {
   OpenOptions options;
-  (options.Set(option), ...);
+  internal::SetAll(options, std::forward<Option>(option)...).IgnoreError();
   return kvstore::Open(std::move(j), std::move(options));
 }
 
