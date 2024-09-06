@@ -40,6 +40,7 @@
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
+#include "tensorstore/util/option.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
@@ -266,7 +267,7 @@ class Driver {
                    Result<DriverSpecPtr>>
   spec(Option&&... option) const {
     SpecRequestOptions options;
-    (options.Set(std::move(option)), ...);
+    internal::SetAll(options, std::forward<Option>(option)...).IgnoreError();
     return spec(std::move(options));
   }
 
@@ -375,7 +376,7 @@ static std::enable_if_t<
     IsCompatibleOptionSequence<DriverOpenOptions, Option...>, Future<DriverPtr>>
 Open(DriverSpecPtr spec, Option&&... option) {
   DriverOpenOptions options;
-  (options.Set(option), ...);
+  internal::SetAll(options, std::forward<Option>(option)...).IgnoreError();
   return Open(std::move(spec), std::move(options));
 }
 

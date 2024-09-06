@@ -21,6 +21,7 @@
 #include <utility>
 
 #include "absl/status/status.h"
+#include <nlohmann/json_fwd.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
@@ -148,7 +149,7 @@ class DriverSpecPtr : public internal::IntrusivePtr<const DriverSpec> {
                    absl::Status>
   Set(Option&&... option) {
     SpecConvertOptions options;
-    (options.Set(option), ...);
+    internal::SetAll(options, std::forward<Option>(option)...).IgnoreError();
     return Set(std::move(options));
   }
   absl::Status Set(DriverSpecOptions&& options);
@@ -275,7 +276,7 @@ class Spec {
                    absl::Status>
   Set(Option&&... option) {
     SpecConvertOptions options;
-    (options.Set(option), ...);
+    internal::SetAll(options, std::forward<Option>(option)...).IgnoreError();
     return Set(std::move(options));
   }
   absl::Status Set(SpecConvertOptions&& options);
