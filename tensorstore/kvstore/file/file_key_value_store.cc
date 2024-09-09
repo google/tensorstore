@@ -187,6 +187,14 @@ auto file_metrics = []() -> FileMetrics {
 
 ABSL_CONST_INIT internal_log::VerboseFlag file_logging("file");
 
+bool IsFileKvstorePathValid(std::string_view path) {
+  if (path.empty() || path == "/") return true;
+  if (path.back() == '/' || path.back() == '\\') {
+    path.remove_suffix(1);
+  }
+  return IsKeyValid(path, kLockSuffix);
+}
+
 struct FileKeyValueStoreSpecData {
   Context::Resource<internal::FileIoConcurrencyResource> file_io_concurrency;
   Context::Resource<FileIoSyncResource> file_io_sync;
@@ -225,6 +233,15 @@ class FileKeyValueStoreSpec
                                                     FileKeyValueStoreSpecData> {
  public:
   static constexpr char id[] = "file";
+
+  absl::Status NormalizeSpec(std::string& path) override {
+    if (!IsFileKvstorePathValid(path)) {
+      return absl::InvalidArgumentError(
+          absl::StrCat("Invalid file path: ", QuoteString(path)));
+    }
+    // NOTE: We should lexically normalize the path here.
+    return absl::OkStatus();
+  }
 
   Future<kvstore::DriverPtr> DoOpen() const override;
 
@@ -867,11 +884,6 @@ Future<kvstore::DriverPtr> FileKeyValueStoreSpec::DoOpen() const {
 }
 
 Result<kvstore::Spec> ParseFileUrl(std::string_view url) {
-  auto driver_spec = internal::MakeIntrusivePtr<FileKeyValueStoreSpec>();
-  driver_spec->data_.file_io_concurrency =
-      Context::Resource<internal::FileIoConcurrencyResource>::DefaultSpec();
-  driver_spec->data_.file_io_sync =
-      Context::Resource<FileIoSyncResource>::DefaultSpec();
   auto parsed = internal::ParseGenericUri(url);
   assert(parsed.scheme == internal_file_kvstore::FileKeyValueStoreSpec::id);
   if (!parsed.query.empty()) {
@@ -880,8 +892,13 @@ Result<kvstore::Spec> ParseFileUrl(std::string_view url) {
   if (!parsed.fragment.empty()) {
     return absl::InvalidArgumentError("Fragment identifier not supported");
   }
-  return {std::in_place, std::move(driver_spec),
-          internal::PercentDecode(parsed.authority_and_path)};
+  std::string path = internal::PercentDecode(parsed.authority_and_path);
+  auto driver_spec = internal::MakeIntrusivePtr<FileKeyValueStoreSpec>();
+  driver_spec->data_.file_io_concurrency =
+      Context::Resource<internal::FileIoConcurrencyResource>::DefaultSpec();
+  driver_spec->data_.file_io_sync =
+      Context::Resource<FileIoSyncResource>::DefaultSpec();
+  return {std::in_place, std::move(driver_spec), std::move(path)};
 }
 
 }  // namespace

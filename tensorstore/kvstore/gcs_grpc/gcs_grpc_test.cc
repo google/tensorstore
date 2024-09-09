@@ -616,6 +616,15 @@ TEST(GcsGrpcSpecTest, InvalidSpec) {
       kvstore::Open({{"driver", "gcs_grpc"}, {"bucket", "bucket:xyz"}}, context)
           .result(),
       MatchesStatus(absl::StatusCode::kInvalidArgument));
+
+  // Test with invalid `"path"`
+  EXPECT_THAT(
+      kvstore::Open(
+          {{"driver", "gcs_grpc"}, {"bucket", "my-bucket"}, {"path", "a\tb"}},
+          context)
+          .result(),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    ".*Invalid GCS path.*"));
 }
 
 TEST(GcsGrpcUrlTest, UrlRoundtrip) {
@@ -628,6 +637,11 @@ TEST(GcsGrpcUrlTest, UrlRoundtrip) {
 }
 
 TEST(GcsGrpcUrlTest, InvalidUri) {
+  EXPECT_THAT(kvstore::Spec::FromUrl("gcs_grpc://"),
+              MatchesStatus(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(kvstore::Spec::FromUrl("gcs_grpc:///"),
+              MatchesStatus(absl::StatusCode::kInvalidArgument));
+
   EXPECT_THAT(kvstore::Spec::FromUrl("gcs_grpc://bucket:xyz"),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             ".*: Invalid GCS bucket name: \"bucket:xyz\""));
@@ -637,6 +651,9 @@ TEST(GcsGrpcUrlTest, InvalidUri) {
   EXPECT_THAT(kvstore::Spec::FromUrl("gcs_grpc://bucket#fragment"),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             ".*: Fragment identifier not supported"));
+  EXPECT_THAT(kvstore::Spec::FromUrl("gcs_grpc://bucket/a%0Ab"),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            ".*Invalid GCS path.*"));
 }
 
 }  // namespace

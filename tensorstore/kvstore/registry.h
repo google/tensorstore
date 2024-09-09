@@ -25,13 +25,22 @@
 ///
 /// Refer to `memory/memory_key_value_store.cc` for an example.
 
+#include <string>
+#include <string_view>
+
+#include "absl/status/status.h"
+#include "tensorstore/context.h"
 #include "tensorstore/internal/context_binding.h"
+#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_registry.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/kvstore/driver.h"
+#include "tensorstore/kvstore/spec.h"
 #include "tensorstore/serialization/registry.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/garbage_collection/garbage_collection.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal_kvstore {

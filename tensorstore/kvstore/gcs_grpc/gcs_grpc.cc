@@ -207,6 +207,14 @@ class GcsGrpcKeyValueStoreSpec
   static constexpr char id[] = "gcs_grpc";
   Future<kvstore::DriverPtr> DoOpen() const override;
 
+  absl::Status NormalizeSpec(std::string& path) override {
+    if (!path.empty() && !IsValidObjectName(path)) {
+      return absl::InvalidArgumentError(
+          tensorstore::StrCat("Invalid GCS path: ", QuoteString(path)));
+    }
+    return absl::OkStatus();
+  }
+
   Result<std::string> ToUrl(std::string_view path) const override {
     if (!data_.endpoint.empty()) {
       return absl::UnimplementedError(

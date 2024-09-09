@@ -22,9 +22,14 @@
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/registry.h"
+#include "tensorstore/serialization/fwd.h"
+#include "tensorstore/serialization/registry.h"
+#include "tensorstore/serialization/serialization.h"
+#include "tensorstore/util/garbage_collection/garbage_collection.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
@@ -77,6 +82,7 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(Spec, [](auto is_loading,
   if constexpr (is_loading) {
     if (auto* s = j->template get_ptr<const std::string*>()) {
       TENSORSTORE_ASSIGN_OR_RETURN(*obj, Spec::FromUrl(*s));
+      // Spec::FromUrl already calls NormalizeSpec
       return absl::OkStatus();
     }
   } else {

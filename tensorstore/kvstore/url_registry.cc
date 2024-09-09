@@ -23,6 +23,7 @@
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
+#include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
@@ -83,6 +84,8 @@ Result<Spec> Spec::FromUrl(std::string_view url) {
         tensorstore::StrCat(tensorstore::StrCat(
             "Invalid kvstore URL: ", tensorstore::QuoteString(url))));
   }
+  TENSORSTORE_RETURN_IF_ERROR(
+      const_cast<DriverSpec&>(*result->driver).NormalizeSpec(result->path));
   return result;
 }
 

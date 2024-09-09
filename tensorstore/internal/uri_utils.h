@@ -16,42 +16,13 @@
 #ifndef TENSORSTORE_INTERNAL_URI_UTILS_H_
 #define TENSORSTORE_INTERNAL_URI_UTILS_H_
 
-#include <cstdint>
 #include <string>
 #include <string_view>
 
+#include "tensorstore/internal/ascii_set.h"
+
 namespace tensorstore {
 namespace internal {
-
-/// Set of ASCII characters (0-127) represented as a bit vector.
-class AsciiSet {
- public:
-  /// Constructs an empty set.
-  constexpr AsciiSet() : bitvec_{0, 0} {}
-
-  /// Constructs a set of the characters in `s`.
-  constexpr AsciiSet(std::string_view s) : bitvec_{0, 0} {
-    for (char c : s) {
-      Set(c);
-    }
-  }
-
-  /// Adds a character to the set.
-  constexpr void Set(char c) {
-    auto uc = static_cast<unsigned char>(c);
-    bitvec_[(uc & 64) ? 1 : 0] |= static_cast<uint64_t>(1) << (uc & 63);
-  }
-
-  /// Returns `true` if `c` is in the set.
-  constexpr bool Test(char c) const {
-    auto uc = static_cast<unsigned char>(c);
-    if (uc >= 128) return false;
-    return (bitvec_[(uc & 64) ? 1 : 0] >> (uc & 63)) & 1;
-  }
-
- private:
-  uint64_t bitvec_[2];
-};
 
 static inline constexpr AsciiSet kUriUnreservedChars{
     "abcdefghijklmnopqrstuvwxyz"

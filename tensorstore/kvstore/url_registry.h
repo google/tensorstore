@@ -18,6 +18,7 @@
 #include <string_view>
 
 #include "tensorstore/kvstore/spec.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace internal_kvstore {

@@ -54,6 +54,7 @@ TEST(ValidateTest, IsValidBucketName) {
 TEST(ValidateTest, IsValidObjectName) {
   EXPECT_TRUE(IsValidObjectName("foo"));
   EXPECT_TRUE(IsValidObjectName("foo.bar"));
+  EXPECT_TRUE(IsValidObjectName("foo/bar\\baz"));
 
   EXPECT_FALSE(IsValidObjectName(""));
   EXPECT_FALSE(IsValidObjectName("."));
