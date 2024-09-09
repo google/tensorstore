@@ -25,7 +25,9 @@ namespace {
 using ::tensorstore::internal::EnsureDirectoryPath;
 using ::tensorstore::internal::EnsureNonDirectoryPath;
 using ::tensorstore::internal::JoinPath;
+using ::tensorstore::internal::LexicalNormalizePath;
 using ::tensorstore::internal::PathDirnameBasename;
+using ::testing::StrEq;
 
 TEST(PathTest, JoinPath) {
   EXPECT_EQ("/foo/bar", JoinPath("/foo", "bar"));
@@ -60,6 +62,15 @@ TEST(PathTest, JoinPath_MixedArgs) {
 TEST(PathTest, PathDirnameBasename) {
   EXPECT_EQ("/a/b", PathDirnameBasename("/a/b/bar").first);
   EXPECT_EQ("bar", PathDirnameBasename("/a/b/bar").second);
+
+  EXPECT_EQ("/a/b/bar", PathDirnameBasename("/a/b/bar/").first);
+  EXPECT_EQ("", PathDirnameBasename("/a/b/bar/").second);
+
+  EXPECT_EQ("", PathDirnameBasename("").first);
+  EXPECT_EQ("", PathDirnameBasename("").second);
+
+  EXPECT_EQ("/", PathDirnameBasename("/").first);
+  EXPECT_EQ("", PathDirnameBasename("/").second);
 
   EXPECT_EQ("a/b", PathDirnameBasename("a/b/bar").first);
   EXPECT_EQ("bar", PathDirnameBasename("a/b/bar").second);
@@ -129,6 +140,28 @@ TEST(EnsureNonDirectoryPathTest, NonEmptyWithSlashes) {
   std::string path = "abc////";
   EnsureNonDirectoryPath(path);
   EXPECT_EQ("abc", path);
+}
+
+TEST(PathTest, LexicalNormalizePath) {
+  EXPECT_THAT(LexicalNormalizePath("/"), StrEq("/"));
+  EXPECT_THAT(LexicalNormalizePath("a/b/c"), StrEq("a/b/c"));
+  EXPECT_THAT(LexicalNormalizePath("/a/b/c"), StrEq("/a/b/c"));
+  EXPECT_THAT(LexicalNormalizePath("a/b/c/"), StrEq("a/b/c/"));
+  EXPECT_THAT(LexicalNormalizePath("/a/b/c/"), StrEq("/a/b/c/"));
+  EXPECT_THAT(LexicalNormalizePath("a\\b\\c/"), StrEq("a/b/c/"));
+  EXPECT_THAT(LexicalNormalizePath("C:\\a/b\\c\\"), StrEq("C:/a/b/c/"));
+
+  // self .
+  EXPECT_THAT(LexicalNormalizePath("a/b/./c"), StrEq("a/b/c"));
+  EXPECT_THAT(LexicalNormalizePath("./a/b/c/"), StrEq("a/b/c/"));
+  EXPECT_THAT(LexicalNormalizePath("a/b/c/./"), StrEq("a/b/c/"));
+  EXPECT_THAT(LexicalNormalizePath("a/b/c/."), StrEq("a/b/c/"));
+
+  // parent ..
+  EXPECT_THAT(LexicalNormalizePath("a/b/bb/../c/"), StrEq("a/b/c/"));
+  EXPECT_THAT(LexicalNormalizePath("a/b/c/bb/.."), StrEq("a/b/c/"));
+  EXPECT_THAT(LexicalNormalizePath("../a/b/c"), StrEq("../a/b/c"));
+  EXPECT_THAT(LexicalNormalizePath("/../a/b/c"), StrEq("/a/b/c"));
 }
 
 }  // namespace

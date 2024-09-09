@@ -14,6 +14,8 @@
 
 #include "tensorstore/kvstore/file/util.h"
 
+#include <string_view>
+
 #include <gtest/gtest.h>
 #include "tensorstore/kvstore/key_range.h"
 
@@ -27,17 +29,25 @@ TEST(IsKeyValid, Basic) {
   EXPECT_TRUE(IsKeyValid("tmp/root", ""));
   EXPECT_TRUE(IsKeyValid("a", ""));
   EXPECT_TRUE(IsKeyValid("a/b", ""));
+  EXPECT_TRUE(IsKeyValid("/tmp/root", ""));
+  EXPECT_TRUE(IsKeyValid("a\\b", ""));
 
   EXPECT_FALSE(IsKeyValid("", ""));
   EXPECT_FALSE(IsKeyValid("/", ""));
-  EXPECT_TRUE(IsKeyValid("/tmp/root", ""));
+  EXPECT_FALSE(IsKeyValid("//", ""));
+  EXPECT_FALSE(IsKeyValid("//tmp/x", ""));
   EXPECT_FALSE(IsKeyValid("/tmp/root/", ""));
-  EXPECT_TRUE(IsKeyValid("tmp//root", ""));
+  EXPECT_FALSE(IsKeyValid("tmp//root", ""));
   EXPECT_FALSE(IsKeyValid("tmp/./root", ""));
   EXPECT_FALSE(IsKeyValid("tmp/../root", ""));
   EXPECT_FALSE(IsKeyValid("tmp/root/", ""));
   EXPECT_FALSE(IsKeyValid("tmp/.lock/a", ".lock"));
   EXPECT_FALSE(IsKeyValid("tmp/foo.lock/a", ".lock"));
+
+  // Using Windows separators.
+  EXPECT_FALSE(IsKeyValid("\\", ""));
+  EXPECT_FALSE(IsKeyValid("tmp\\..\\root", ""));
+  EXPECT_FALSE(IsKeyValid("tmp\\root\\", ""));
 
   EXPECT_FALSE(IsKeyValid(std::string_view("tmp/\0bar", 8), ""));
 }

@@ -20,13 +20,13 @@
 
 #include "absl/random/random.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "tensorstore/internal/os/cwd.h"
 #include "tensorstore/internal/os/file_util.h"
 #include "tensorstore/internal/os/filesystem.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_testing {
@@ -40,10 +40,10 @@ ScopedTemporaryDirectory::ScopedTemporaryDirectory() {
     x = kAlphabet[absl::Uniform(gen, 0u, std::size(kAlphabet) - 1)];
   }
 
-  std::string basename = tensorstore::StrCat(
-      "tmp_tensorstore_test_", std::string_view(data, std::size(data)));
+  std::string basename = absl::StrCat("tmp_tensorstore_test_",
+                                      std::string_view(data, std::size(data)));
   path_ = internal::JoinPath(internal_os::TemporaryDirectoryPath(), basename);
-
+  // NOTE: We should lexically normalize the path here.
   TENSORSTORE_CHECK_OK(internal_os::MakeDirectory(path_));
 }
 

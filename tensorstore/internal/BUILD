@@ -62,6 +62,11 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
+    name = "ascii_set",
+    hdrs = ["ascii_set.h"],
+)
+
+tensorstore_cc_library(
     name = "attributes",
     hdrs = ["attributes.h"],
     deps = ["@com_google_absl//absl/base:core_headers"],
@@ -810,6 +815,7 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:str_cat",
         "@com_github_nlohmann_json//:json",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status",
@@ -1839,7 +1845,10 @@ tensorstore_cc_library(
     name = "uri_utils",
     srcs = ["uri_utils.cc"],
     hdrs = ["uri_utils.h"],
-    deps = ["@com_google_absl//absl/strings"],
+    deps = [
+        ":ascii_set",
+        "@com_google_absl//absl/strings",
+    ],
 )
 
 tensorstore_cc_test(

@@ -86,7 +86,6 @@
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 /// specializations
 #include "tensorstore/internal/cache_key/std_optional.h"  // IWYU pragma: keep
@@ -232,16 +231,15 @@ bool AddUserProjectParam(std::string* url, const bool has_query,
 /// and constants for the host, api-version, etc.
 std::string BucketResourceRoot(std::string_view bucket) {
   const char kVersion[] = "v1";
-  return tensorstore::StrCat(GetGcsBaseUrl(), "/storage/", kVersion, "/b/",
-                             bucket);
+  return absl::StrCat(GetGcsBaseUrl(), "/storage/", kVersion, "/b/", bucket);
 }
 
 /// Composes the resource upload root uri for the GCS API using the bucket
 /// and constants for the host, api-version, etc.
 std::string BucketUploadRoot(std::string_view bucket) {
   const char kVersion[] = "v1";
-  return tensorstore::StrCat(GetGcsBaseUrl(), "/upload/storage/", kVersion,
-                             "/b/", bucket);
+  return absl::StrCat(GetGcsBaseUrl(), "/upload/storage/", kVersion, "/b/",
+                      bucket);
 }
 
 struct GcsKeyValueStoreSpecData {
@@ -265,7 +263,7 @@ struct GcsKeyValueStoreSpecData {
                  jb::Projection<&GcsKeyValueStoreSpecData::bucket>(jb::Validate(
                      [](const auto& options, const std::string* x) {
                        if (!IsValidBucketName(*x)) {
-                         return absl::InvalidArgumentError(tensorstore::StrCat(
+                         return absl::InvalidArgumentError(absl::StrCat(
                              "Invalid GCS bucket name: ", QuoteString(*x)));
                        }
                        return absl::OkStatus();
@@ -291,8 +289,8 @@ struct GcsKeyValueStoreSpecData {
 };
 
 std::string GetGcsUrl(std::string_view bucket, std::string_view path) {
-  return tensorstore::StrCat(kUriScheme, "://", bucket, "/",
-                             internal::PercentEncodeUriPath(path));
+  return absl::StrCat(kUriScheme, "://", bucket, "/",
+                      internal::PercentEncodeUriPath(path));
 }
 
 class GcsKeyValueStoreSpec
@@ -300,6 +298,14 @@ class GcsKeyValueStoreSpec
                                                     GcsKeyValueStoreSpecData> {
  public:
   static constexpr char id[] = "gcs";
+
+  absl::Status NormalizeSpec(std::string& path) override {
+    if (!path.empty() && !IsValidObjectName(path)) {
+      return absl::InvalidArgumentError(
+          absl::StrCat("Invalid GCS path: ", QuoteString(path)));
+    }
+    return absl::OkStatus();
+  }
 
   Future<kvstore::DriverPtr> DoOpen() const override;
   Result<std::string> ToUrl(std::string_view path) const override {
@@ -478,9 +484,8 @@ void AddUniqueQueryParameterToDisableCaching(std::string& url) {
   for (auto& x : uuid) {
     x = absl::Uniform<uint64_t>(random_state.gen);
   }
-  tensorstore::StrAppend(&url,
-                         "&tensorstore=", absl::Hex(uuid[0], absl::kZeroPad16),
-                         absl::Hex(uuid[1], absl::kZeroPad16));
+  absl::StrAppend(&url, "&tensorstore=", absl::Hex(uuid[0], absl::kZeroPad16),
+                  absl::Hex(uuid[1], absl::kZeroPad16));
 }
 
 ////////////////////////////////////////////////////
@@ -525,7 +530,7 @@ struct ReadTask : public RateLimiterNode,
       return;
     }
     /// Reads contents of a GCS object.
-    std::string media_url = tensorstore::StrCat(
+    std::string media_url = absl::StrCat(
         resource, options.byte_range.size() == 0 ? "?alt=json" : "?alt=media");
 
     // Add the ifGenerationNotMatch condition.
@@ -730,8 +735,8 @@ struct WriteTask : public RateLimiterNode,
     // We use the SimpleUpload technique.
 
     std::string upload_url =
-        tensorstore::StrCat(owner->upload_root(), "/o", "?uploadType=media",
-                            "&name=", encoded_object_name);
+        absl::StrCat(owner->upload_root(), "/o", "?uploadType=media",
+                     "&name=", encoded_object_name);
 
     // Add the ifGenerationNotMatch condition.
     AddGenerationParam(&upload_url, true, "ifGenerationMatch",
@@ -752,7 +757,7 @@ struct WriteTask : public RateLimiterNode,
     }
     auto request =
         request_builder.AddHeader("Content-Type: application/octet-stream")
-            .AddHeader(tensorstore::StrCat("Content-Length: ", value.size()))
+            .AddHeader(absl::StrCat("Content-Length: ", value.size()))
             .BuildRequest();
     start_time_ = absl::Now();
 
@@ -1160,7 +1165,7 @@ struct ListTask : public RateLimiterNode,
     auto payload = response->payload;
     auto j = internal::ParseJson(payload.Flatten());
     if (j.is_discarded()) {
-      return absl::InternalError(tensorstore::StrCat(
+      return absl::InternalError(absl::StrCat(
           "Failed to parse response metadata: ", payload.Flatten()));
     }
     TENSORSTORE_ASSIGN_OR_RETURN(
@@ -1265,7 +1270,7 @@ Result<kvstore::Spec> ParseGcsUrl(std::string_view url) {
     return absl::InvalidArgumentError("Fragment identifier not supported");
   }
   if (!IsValidBucketName(parsed.authority)) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
+    return absl::InvalidArgumentError(absl::StrCat(
         "Invalid GCS bucket name: ", QuoteString(parsed.authority)));
   }
   auto decoded_path = parsed.path.empty()

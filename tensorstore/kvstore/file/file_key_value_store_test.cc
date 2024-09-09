@@ -358,6 +358,12 @@ TEST(FileKeyValueStoreTest, InvalidSpec) {
   EXPECT_THAT(
       kvstore::Open({{"driver", "file"}, {"path", 5}}, context).result(),
       MatchesStatus(absl::StatusCode::kInvalidArgument));
+
+  // Test with invalid `"path"`
+  EXPECT_THAT(kvstore::Open({{"driver", "file"}, {"path", "/a/../b/"}}, context)
+                  .result(),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            ".*Invalid file path.*"));
 }
 
 TEST(FileKeyValueStoreTest, UrlRoundtrip) {
@@ -379,12 +385,19 @@ TEST(FileKeyValueStoreTest, UrlOpen) {
 }
 
 TEST(FileKeyValueStoreTest, InvalidUri) {
+  EXPECT_THAT(kvstore::Spec::FromUrl("file:///"), tensorstore::IsOk());
+  // Currently valid, should it be?
+  EXPECT_THAT(kvstore::Spec::FromUrl("file://"), tensorstore::IsOk());
+
   EXPECT_THAT(kvstore::Spec::FromUrl("file://abc?query"),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             ".*: Query string not supported"));
   EXPECT_THAT(kvstore::Spec::FromUrl("file://abc#fragment"),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             ".*: Fragment identifier not supported"));
+  EXPECT_THAT(kvstore::Spec::FromUrl("file://abc/../b/"),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            ".*Invalid file path.*"));
 }
 
 TEST(FileKeyValueStoreTest, RelativePath) {

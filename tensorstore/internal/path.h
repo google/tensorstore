@@ -18,6 +18,7 @@
 #include <initializer_list>
 #include <string>
 #include <string_view>
+#include <utility>
 
 namespace tensorstore {
 namespace internal_path {
@@ -67,6 +68,10 @@ void EnsureDirectoryPath(std::string& path);
 
 /// Ensure that `path` does not end in '/'.
 void EnsureNonDirectoryPath(std::string& path);
+
+/// Normalizes the path by converting windows separators to '/' and removing
+/// as many relative path segments ('.' and '..') as possible.
+std::string LexicalNormalizePath(std::string path);
 
 }  // namespace internal
 }  // namespace tensorstore

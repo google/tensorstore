@@ -14,11 +14,14 @@
 
 #include "tensorstore/internal/path.h"
 
+#include <cstddef>
 #include <initializer_list>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 
 namespace {
 
@@ -93,6 +96,82 @@ void AppendPathComponent(std::string& path, std::string_view component) {
   } else {
     path += component;
   }
+}
+
+std::string LexicalNormalizePath(std::string path) {
+  if (path.empty()) return path;
+
+  const char* src = path.c_str();
+  auto dst = path.begin();
+
+  // Remove initial '/' characters.
+  // Assume that Windows paths do not begin with '/'.
+  const bool is_absolute_path = (*src == '/');
+  if (is_absolute_path) {
+    dst++;
+    src++;
+    while (*src == '/') ++src;
+  }
+  auto limit = dst;
+
+  // Process all parts
+  while (*src) {
+    bool parsed = false;
+
+    if (src[0] == '.') {
+      //  1dot ".<whateverisnext>", check for END or SEP.
+      if (src[1] == '/' || src[1] == '\\' || !src[1]) {
+        if (*++src) {
+          ++src;
+        }
+        parsed = true;
+      } else if (src[1] == '.' &&
+                 (src[2] == '/' || src[2] == '\\' || !src[2])) {
+        // 2dot END or SEP (".." | "../<whateverisnext>").
+        src += 2;
+        if (dst != limit) {
+          // We can backtrack the previous part
+          for (--dst; dst != limit && dst[-1] != '/'; --dst) {
+            // Empty.
+          }
+        } else if (!is_absolute_path) {
+          // Failed to backtrack and we can't skip it either. Rewind and copy.
+          src -= 2;
+          *dst++ = *src++;
+          *dst++ = *src++;
+          if (*src) {
+            *dst++ = *src;
+          }
+          // We can never backtrack over a copied "../" part so set new limit.
+          limit = dst;
+        }
+        if (*src) {
+          ++src;
+        }
+        parsed = true;
+      }
+    }
+
+    // If not parsed, copy entire part until the next SEP or EOS.
+    if (!parsed) {
+      while (*src && *src != '/' && *src != '\\') {
+        *dst++ = *src++;
+      }
+      if (*src) {  // Always convert to /
+        *dst++ = '/';
+        src++;
+      }
+    }
+
+    // Skip consecutive SEP occurrences
+    while (*src == '/' || *src == '\\') {
+      ++src;
+    }
+  }
+
+  // The path may be empty.
+  path.resize(dst - path.begin());
+  return path;
 }
 
 }  // namespace internal

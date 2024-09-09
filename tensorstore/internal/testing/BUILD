@@ -67,8 +67,8 @@ tensorstore_cc_library(
         "//tensorstore/internal/os:filesystem",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
-        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/random",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
     ],
 )

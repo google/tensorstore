@@ -19,6 +19,7 @@
 #include <string_view>
 
 #include "absl/strings/match.h"
+#include "absl/strings/str_split.h"
 #include "tensorstore/kvstore/key_range.h"
 
 namespace tensorstore {
@@ -28,24 +29,27 @@ namespace internal_file_util {
 /// path components, where each valid path component does not contain '\0', and
 /// is not equal to "." or "..", and does not end in lock_suffix.
 bool IsKeyValid(std::string_view key, std::string_view lock_suffix) {
-  if (key.find('\0') != std::string_view::npos) return false;
-  // Do not allow `key` to end with '/'.
+  if (absl::StrContains(key, '\0')) return false;
   if (key.empty()) return false;
-  if (key.back() == '/') return false;
-  while (true) {
-    size_t next_delimiter = key.find('/');
-    std::string_view component = next_delimiter == std::string_view::npos
-                                     ? key
-                                     : key.substr(0, next_delimiter);
+  // Do not allow `key` to end with '/'.
+  if (key.back() == '/' || key.back() == '\\') {
+    return false;
+  }
+  // Remove leading / which leads to an empty path component.
+  if (key.front() == '/' || key.front() == '\\') {
+    key = key.substr(1);
+  }
+  for (std::string_view component :
+       absl::StrSplit(key, absl::ByAnyChar("/\\"))) {
+    if (component.empty()) return false;
     if (component == ".") return false;
     if (component == "..") return false;
     if (!lock_suffix.empty() && component.size() >= lock_suffix.size() &&
         absl::EndsWith(component, lock_suffix)) {
       return false;
     }
-    if (next_delimiter == std::string_view::npos) return true;
-    key.remove_prefix(next_delimiter + 1);
   }
+  return true;
 }
 
 std::string_view LongestDirectoryPrefix(const KeyRange& range) {
