@@ -82,7 +82,7 @@ def test_copy_memory():
     t3['abc']  # pylint: disable=pointless-statement
 
 
-def test_copy_range_to():
+def test_copy_range_to_ocdbt_memory():
   context = ts.Context()
   for k in ['a', 'b', 'c']:
     child = ts.KvStore.open(
@@ -98,3 +98,61 @@ def test_copy_range_to():
     ).result()
     child.experimental_copy_range_to(parent).result()
   assert parent.list().result() == [b'a', b'b', b'c']
+
+
+def test_copy_range_to_ocdbt_file():
+  context = ts.Context()
+  with tempfile.TemporaryDirectory() as dir_path:
+    child_spec = {
+        'driver': 'ocdbt',
+        'base': f'file://{dir_path}/child',
+    }
+    child = ts.KvStore.open(child_spec, context=context).result()
+    for k in ['a', 'b', 'c']:
+      child[k] = f'value_{k}'
+
+    parent_spec = {
+        'driver': 'ocdbt',
+        'base': f'file://{dir_path}',
+    }
+    parent = ts.KvStore.open(parent_spec, context=context).result()
+    child.experimental_copy_range_to(parent).result()
+
+    assert parent.list().result() == [b'a', b'b', b'c']
+
+
+def test_copy_range_to_memory_fails():
+  context = ts.Context()
+  child = ts.KvStore.open('memory://child/', context=context).result()
+  for k in ['a', 'b', 'c']:
+    child[k] = f'value_{k}'
+  parent = ts.KvStore.open('memory://', context=context).result()
+  with pytest.raises(NotImplementedError):
+    child.experimental_copy_range_to(parent).result()
+
+
+def test_copy_range_to_file_fails():
+  context = ts.Context()
+  with tempfile.TemporaryDirectory() as dir_path:
+    child = ts.KvStore.open(
+        f'file://{dir_path}/child/', context=context
+    ).result()
+    for k in ['a', 'b', 'c']:
+      child[k] = f'value_{k}'
+    parent = ts.KvStore.open(f'file://{dir_path}', context=context).result()
+    with pytest.raises(NotImplementedError):
+      child.experimental_copy_range_to(parent).result()
+
+
+def test_copy_range_to_ocdbt_memory_bad_path():
+  context = ts.Context()
+  child = ts.KvStore.open(
+      {'driver': 'ocdbt', 'base': 'memory://child/'}, context=context
+  ).result()
+  for k in ['a', 'b', 'c']:
+    child[k] = f'value_{k}'
+  parent = ts.KvStore.open(
+      {'driver': 'ocdbt', 'base': 'memory://c'}, context=context
+  ).result()
+  with pytest.raises(NotImplementedError):
+    child.experimental_copy_range_to(parent).result()

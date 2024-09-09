@@ -117,6 +117,7 @@
 #include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/os/error_code.h"
 #include "tensorstore/internal/os/unique_handle.h"
+#include "tensorstore/internal/path.h"
 #include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/byte_range.h"
@@ -239,7 +240,7 @@ class FileKeyValueStoreSpec
       return absl::InvalidArgumentError(
           absl::StrCat("Invalid file path: ", QuoteString(path)));
     }
-    // NOTE: We should lexically normalize the path here.
+    path = internal::LexicalNormalizePath(path);
     return absl::OkStatus();
   }
 
@@ -691,7 +692,7 @@ struct WriteTask {
     if (!generation_result) {
       return std::move(generation_result).status();
     }
-    r.generation = std::move(*generation_result);
+    r.generation = *std::move(generation_result);
     return r;
   }
 };
@@ -745,7 +746,7 @@ struct DeleteTask {
     if (!generation_result) {
       return std::move(generation_result).status();
     }
-    r.generation = std::move(*generation_result);
+    r.generation = *std::move(generation_result);
     return r;
   }
 };
@@ -755,7 +756,7 @@ Future<TimestampedStorageGeneration> FileKeyValueStore::Write(
   file_metrics.write.Increment();
   TENSORSTORE_RETURN_IF_ERROR(ValidateKey(key));
   if (value) {
-    return MapFuture(executor(), WriteTask{std::move(key), std::move(*value),
+    return MapFuture(executor(), WriteTask{std::move(key), *std::move(value),
                                            std::move(options), this->sync()});
   } else {
     return MapFuture(executor(), DeleteTask{std::move(key), std::move(options),
