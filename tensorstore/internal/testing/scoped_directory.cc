@@ -43,8 +43,8 @@ ScopedTemporaryDirectory::ScopedTemporaryDirectory() {
   std::string basename = absl::StrCat("tmp_tensorstore_test_",
                                       std::string_view(data, std::size(data)));
   path_ = internal::JoinPath(internal_os::TemporaryDirectoryPath(), basename);
-  // NOTE: We should lexically normalize the path here.
   TENSORSTORE_CHECK_OK(internal_os::MakeDirectory(path_));
+  path_ = internal::LexicalNormalizePath(path_);
 }
 
 ScopedTemporaryDirectory::~ScopedTemporaryDirectory() {
