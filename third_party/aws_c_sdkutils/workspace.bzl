@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# buildifier: disable=module-docstring
+
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load("//third_party:repo.bzl", "third_party_http_archive")
 
@@ -19,10 +21,10 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "aws_c_sdkutils",
-        sha256 = "4a818563d7c6636b5b245f5d22d4d7c804fa33fc4ea6976e9c296d272f4966d3",
-        strip_prefix = "aws-c-sdkutils-0.1.16",
+        sha256 = "66bd7a8679703386aec1539407aaed0942a78032fe340ab44e810a3cf6d7e505",
+        strip_prefix = "aws-c-sdkutils-0.1.19",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/awslabs/aws-c-sdkutils/archive/refs/tags/v0.1.16.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/awslabs/aws-c-sdkutils/archive/v0.1.19.tar.gz",
         ],
         build_file = Label("//third_party:aws_c_sdkutils/aws_c_sdkutils.BUILD.bazel"),
         cmake_name = "aws_c_sdkutils",

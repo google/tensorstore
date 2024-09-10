@@ -14,13 +14,56 @@ cc_library(
     srcs = glob([
         "source/*.c",
         "source/generic/*.c",
-    ]),
+    ]) + select({
+        "@platforms//cpu:x86_64": glob([
+            "source/intel/*.c",
+            "source/intel/intrin/*.c",
+        ]),
+        "@platforms//cpu:arm64": glob(["source/arm/*.c"]),
+        "//conditions:default": [],
+    }) + select({
+        ":x86_64_gcc_or_clang": glob(["source/intel/asm/*.c"]),
+        "//conditions:default": [],
+    }),
     hdrs = glob([
         "include/aws/checksums/*.h",
         "include/aws/checksums/private/*.h",
     ]),
+    copts = select({
+        ":x86_64_msvc": [
+            "/arch:AVX2",
+            "/arch:AVX512",
+        ],
+        ":x86_64_gcc_or_clang": [
+            "-mavx",
+            "-mpclmul",
+            "-msse4.2",
+            "-mavx2",
+            "-mavx512f",
+            "-mvpclmulqdq",
+        ],
+        ":arm64_msvc": ["/arch:arm8.1"],
+        ":arm64_gcc_or_clang": [
+            "-march=armv8-a+crc+crypto",
+            "-mtune=neoverse-v1",
+        ],
+        "//conditions:default": [],
+    }),
     includes = ["include"],
     deps = [
         "@aws_c_common",
     ],
 )
+
+[
+    alias(
+        name = name,
+        actual = "@tensorstore//:{target}".format(target = name),
+    )
+    for name in [
+        "arm64_gcc_or_clang",
+        "arm64_msvc",
+        "x86_64_gcc_or_clang",
+        "x86_64_msvc",
+    ]
+]

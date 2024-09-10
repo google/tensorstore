@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# buildifier: disable=module-docstring
+
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load("//third_party:repo.bzl", "third_party_http_archive")
 
@@ -19,10 +21,10 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "aws_c_mqtt",
-        sha256 = "63c402b8b81b107e5c1b9b6ae0065bc025b6ad4347518bf30fbd958f999e037e",
-        strip_prefix = "aws-c-mqtt-0.10.1",
+        sha256 = "6a41456f9eee15d71e4e2ee162b354865809f26620f1e6e5acb237f190f77f3f",
+        strip_prefix = "aws-c-mqtt-0.10.4",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/awslabs/aws-c-mqtt/archive/refs/tags/v0.10.1.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/awslabs/aws-c-mqtt/archive/v0.10.4.tar.gz",
         ],
         build_file = Label("//third_party:aws_c_mqtt/aws_c_mqtt.BUILD.bazel"),
         cmake_name = "aws_c_mqtt",

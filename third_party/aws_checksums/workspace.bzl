@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# buildifier: disable=module-docstring
+
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load("//third_party:repo.bzl", "third_party_http_archive")
 
@@ -19,10 +21,10 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "aws_checksums",
-        sha256 = "bdba9d0a8b8330a89c6b8cbc00b9aa14f403d3449b37ff2e0d96d62a7301b2ee",
-        strip_prefix = "aws-checksums-0.1.18",
+        sha256 = "844e5a4f659f454112c559d4f4043b7accfbb134e47a55f4c55f79d9c71bdab1",
+        strip_prefix = "aws-checksums-0.1.19",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/awslabs/aws-checksums/archive/v0.1.18.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/awslabs/aws-checksums/archive/v0.1.19.tar.gz",
         ],
         build_file = Label("//third_party:aws_checksums/aws_checksums.BUILD.bazel"),
         cmake_name = "aws_checksums",
