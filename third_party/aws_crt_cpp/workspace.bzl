@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# buildifier: disable=module-docstring
+
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load("//third_party:repo.bzl", "third_party_http_archive")
 
@@ -19,10 +21,10 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "aws_crt_cpp",
-        sha256 = "9689854b67b1a436b1cd31aae75eed8669fbb8d6240fe36684133f93e345f1ac",
-        strip_prefix = "aws-crt-cpp-0.27.1",
+        sha256 = "7f27df9d2028008e665bab4b2e094365eac696610610e52182c679a43dbeaf6f",
+        strip_prefix = "aws-crt-cpp-0.28.2",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/awslabs/aws-crt-cpp/archive/refs/tags/v0.27.1.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/awslabs/aws-crt-cpp/archive/v0.28.2.tar.gz",
         ],
         build_file = Label("//third_party:aws_crt_cpp/aws_crt_cpp.BUILD.bazel"),
         remove_paths = ["VERSION"],

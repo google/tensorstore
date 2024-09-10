@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# buildifier: disable=module-docstring
+
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load("//third_party:repo.bzl", "third_party_http_archive")
 
@@ -19,10 +21,10 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "aws_c_common",
-        sha256 = "adf838daf6a60aa31268522105b03262d745f529bc981d3ac665424133d6f91b",
-        strip_prefix = "aws-c-common-0.9.23",
+        sha256 = "bf265e9e409d563b0eddcb66e1cb00ff6b371170db3e119348478d911d054317",
+        strip_prefix = "aws-c-common-0.9.28",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/awslabs/aws-c-common/archive/v0.9.23.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/awslabs/aws-c-common/archive/v0.9.28.tar.gz",
         ],
         build_file = Label("//third_party:aws_c_common/aws_c_common.BUILD.bazel"),
         cmake_name = "aws_c_common",
