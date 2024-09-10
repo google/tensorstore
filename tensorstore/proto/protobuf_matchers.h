@@ -186,14 +186,19 @@
 //   // the type of the protobuf.
 //   // EXPECT_THAT(data, WhenDeserialized(EqualsProto("foo: 1")));
 
+#include <cstddef>
+#include <cstring>
 #include <initializer_list>
+#include <iomanip>
 #include <iostream>  // NOLINT
+#include <limits>
 #include <memory>
 #include <sstream>  // NOLINT
 #include <string>   // NOLINT
 #include <vector>   // NOLINT
 
 #include <gmock/gmock.h>
+#include <gtest/gtest.h>
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/strings/string_view.h"
@@ -202,7 +207,6 @@
 #include "google/protobuf/io/zero_copy_stream_impl.h"
 #include "google/protobuf/io/zero_copy_stream_impl_lite.h"
 #include "google/protobuf/message.h"
-#include "google/protobuf/text_format.h"
 #include "google/protobuf/util/field_comparator.h"
 #include "google/protobuf/util/message_differencer.h"
 
@@ -274,7 +278,7 @@ const bool kMustBeInitialized = true;
 const bool kMayBeUninitialized = false;
 
 // Parses the TextFormat representation of a protobuf, allowing required fields
-// to be missing.  Returns true iff successful.
+// to be missing.  Returns true if successful.
 bool ParsePartialFromAscii(const std::string& pb_ascii, google::protobuf::Message* proto,
                            std::string* error_text);
 
@@ -345,7 +349,7 @@ class ProtoMatcherBase {
 
   // Returns the expected value as a protobuf object; if the object
   // cannot be created (e.g. in ProtoStringMatcher), explains why to
-  // 'listener' and returns NULL.  The caller must call
+  // 'listener' and returns nullptr.  The caller must call
   // DeleteExpectedProto() on the returned value later.
   virtual const google::protobuf::Message* CreateExpectedProto(
       const google::protobuf::Message& arg,  // For determining the type of the
@@ -408,7 +412,7 @@ class ProtoMatcherBase {
 
   bool MatchAndExplain(const google::protobuf::Message* arg,
                        ::testing::MatchResultListener* listener) const {
-    return (arg != NULL) && MatchAndExplain(*arg, true, listener);
+    return (arg != nullptr) && MatchAndExplain(*arg, true, listener);
   }
 
   // Describes the expected relation between the actual protobuf and
@@ -538,7 +542,7 @@ class ProtoStringMatcher : public ProtoMatcherBase {
       : ProtoMatcherBase(must_be_initialized, comp), expected_(expected) {}
 
   // Parses the expected string as a protobuf of the same type as arg,
-  // and returns the parsed protobuf (or NULL when the parse fails).
+  // and returns the parsed protobuf (or nullptr when the parse fails).
   // The caller must call DeleteExpectedProto() on the return value
   // later.
   virtual const google::protobuf::Message* CreateExpectedProto(
@@ -565,7 +569,7 @@ class ProtoStringMatcher : public ProtoMatcherBase {
                   << ":\n"
                   << error_text;
       }
-      return NULL;
+      return nullptr;
     }
   }
 
@@ -619,7 +623,7 @@ class WhenDeserializedMatcherBase {
       return proto;
     } else {
       delete proto;
-      return NULL;
+      return nullptr;
     }
   }
 
@@ -640,12 +644,12 @@ class WhenDeserializedMatcherBase {
     ::std::unique_ptr<const Proto> deserialized_arg(Deserialize(arg));
     if (!listener->IsInterested()) {
       // No need to explain the match result.
-      return (deserialized_arg != NULL) &&
+      return (deserialized_arg != nullptr) &&
              proto_matcher_.Matches(*deserialized_arg);
     }
 
     ::std::ostream* const os = listener->stream();
-    if (deserialized_arg == NULL) {
+    if (deserialized_arg == nullptr) {
       *os << "which cannot be deserialized as a " << ExpectedTypeName();
       return false;
     }
@@ -758,10 +762,10 @@ class IsInitializedProtoMatcher {
   // is a pointer to a non-const value.
   template <typename T>
   bool MatchAndExplain(T* arg, ::testing::MatchResultListener* listener) const {
-    if (listener->IsInterested() && arg != NULL) {
+    if (listener->IsInterested() && arg != nullptr) {
       *listener << PrintProtoPointee(arg);
     }
-    if (arg == NULL) {
+    if (arg == nullptr) {
       *listener << "which is null";
       return false;
     } else if (!arg->IsInitialized()) {
