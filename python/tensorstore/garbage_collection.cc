@@ -75,7 +75,7 @@ PythonObjectReferenceManager& PythonObjectReferenceManager::operator=(
 }
 
 void PythonObjectReferenceManager::Clear() {
-  auto python_refs = std::move(python_refs_);
+  auto python_refs = std::exchange(python_refs_, {});
   for (auto* ptr : python_refs) {
     Py_DECREF(ptr);
   }
