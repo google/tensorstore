@@ -165,12 +165,14 @@ def _proto_library_impl(
 
   # strip_import_prefix and import_prefix behave the same as for cc_library
   includes = construct_cc_includes(
-      _context,
+      state.workspace.all_repositories.get(
+          _context.caller_package_id.repository_id
+      ),
+      _context.caller_package_id,
       includes=None,
       include_prefix=import_prefix,
       strip_include_prefix=strip_import_prefix,
-      srcs_file_paths=None,
-      hdrs_file_paths=proto_src_files,
+      known_include_files=proto_src_files,
   )
 
   # Sanity check; if there are sources, then there should be includes.

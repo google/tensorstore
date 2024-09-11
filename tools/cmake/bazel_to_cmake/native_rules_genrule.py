@@ -321,10 +321,12 @@ def _emit_genrule(
   sep = "\n    "
   quoted_outputs = quote_list(generated_files, sep)
   deps_str = quote_list(sorted(set(add_dependencies)), sep)
+  if deps_str:
+    deps_str = f"DEPENDS{sep}{deps_str}"
 
   out.write(f"""add_custom_command(
   OUTPUT{sep}{quoted_outputs}
-  DEPENDS{sep}{deps_str}
+  {deps_str}
   COMMAND {cmd_text}
   {optional_message_text}VERBATIM
   WORKING_DIRECTORY "${{CMAKE_CURRENT_SOURCE_DIR}}"
