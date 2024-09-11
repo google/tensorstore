@@ -90,13 +90,13 @@ from .cmake_target import CMakeTargetPair
 from .package import Package
 from .package import Visibility
 from .starlark import dict_polyfill
-from .starlark.bazel_globals import BazelWorkspaceGlobals
-from .starlark.bazel_globals import BuildFileGlobals
-from .starlark.bazel_globals import BuildFileLibraryGlobals
+from .starlark.bazel_build_file import BuildFileGlobals
+from .starlark.bazel_build_file import BuildFileLibraryGlobals
 from .starlark.bazel_globals import get_bazel_library
 from .starlark.bazel_target import PackageId
 from .starlark.bazel_target import RepositoryId
 from .starlark.bazel_target import TargetId
+from .starlark.bazel_workspace_file import BazelWorkspaceGlobals
 from .starlark.common_providers import BuildSettingProvider
 from .starlark.common_providers import ConditionProvider
 from .starlark.common_providers import FilesProvider
@@ -566,15 +566,13 @@ class EvaluationState:
     )
     self.loaded_files.add(library_path.as_posix())
 
-    try:
-      # Load the library content.
-      content = pathlib.Path(library_path).read_text(encoding="utf-8")
-      # Parse and evaluate the starlark script as a library.
-      _exec_module(content, library_path.as_posix(), library)
-    except Exception as e:
-      raise RuntimeError(
-          f"While loading {target_id.as_label()} ({library_path})"
-      ) from e
+    # Load, parse and evaluate the starlark script as a library.
+    _exec_module(
+        None,
+        library_path.as_posix(),
+        library,
+        f" loading library {target_id.as_label()}",
+    )
 
     # Restore packages and save the library
     self._evaluation_context.update_current_package(*self._stack.pop())
@@ -618,14 +616,16 @@ class EvaluationState:
     scope = BuildFileGlobals(
         self._evaluation_context, build_target, build_file_path.as_posix()
     )
-    try:
-      _exec_module(content, build_file_path.as_posix(), scope)
-    except Exception as e:
-      raise RuntimeError(
-          f"While processing {repr(package.package_id)} ({build_file_path})"
-      ) from e
 
-  def process_workspace(self):
+    # Load, parse and evaluate the starlark script as a library.
+    _exec_module(
+        content,
+        build_file_path.as_posix(),
+        scope,
+        f" processing {repr(package.package_id)}",
+    )
+
+  def process_workspace(self) -> bool:
     """Processes the WORKSPACE."""
     assert self.active_repo.top_level
     workspace_file_path = self.active_repo.source_directory.joinpath(
@@ -636,6 +636,8 @@ class EvaluationState:
           "WORKSPACE"
       )
 
+    if not pathlib.Path(workspace_file_path).exists():
+      return False
     if self.verbose:
       print(f"Loading {workspace_file_path}")
     self.loaded_files.add(workspace_file_path.as_posix())
@@ -643,6 +645,7 @@ class EvaluationState:
         workspace_file_path,
         pathlib.Path(workspace_file_path).read_text(encoding="utf-8"),
     )
+    return True
 
   def process_workspace_content(
       self, workspace_file_path: pathlib.PurePath, content: str
@@ -667,7 +670,11 @@ class EvaluationState:
         workspace_file_path.as_posix(),
     )
 
-    _exec_module(content, workspace_file_path.as_posix(), scope)
+    _exec_module(
+        content,
+        workspace_file_path.as_posix(),
+        scope,
+    )
     while self._call_after_workspace_loading:
       callback = self._call_after_workspace_loading.pop()
       callback()
@@ -851,13 +858,28 @@ class EvaluationContext(InvocationContext):
     self._state.add_analyzed_target(target_id, info)
 
 
-def _exec_module(source: str, filename: str, scope: Dict[str, Any]) -> None:
+def _exec_module(
+    source: Optional[str],
+    filename: str,
+    scope: Dict[str, Any],
+    extra: Optional[str] = None,
+) -> None:
   """Executes Python code with the specified `scope`.
 
   Polyfills support for dict union operator (PEP 584) on Python 3.8.
   """
-  tree = ast.parse(source, filename)
-  # Apply AST transformations to support `dict.__or__`. (PEP 584)
-  tree = ast.fix_missing_locations(dict_polyfill.ASTTransformer().visit(tree))
-  code = compile(tree, filename=filename, mode="exec")
-  exec(code, scope)  # pylint: disable=exec-used
+  if extra is None:
+    extra = ""
+  try:
+    if source is None:
+      source = pathlib.Path(filename).read_text(encoding="utf-8")
+
+    tree = ast.parse(source, filename)
+    # Apply AST transformations to support `dict.__or__`. (PEP 584)
+    tree = ast.fix_missing_locations(dict_polyfill.ASTTransformer().visit(tree))
+    code = compile(tree, filename=filename, mode="exec")
+    exec(code, scope)  # pylint: disable=exec-used
+  except Exception as e:
+    raise RuntimeError(
+        f"While evaluating {filename} {extra} with content:\n{source}"
+    ) from e

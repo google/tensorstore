@@ -23,7 +23,7 @@ import pathlib
 from typing import Any, Callable, Dict, List, NamedTuple, Optional, cast
 
 from ..util import write_file_if_not_already_equal
-from .bazel_globals import BuildFileLibraryGlobals
+from .bazel_build_file import BuildFileLibraryGlobals
 from .bazel_target import TargetId
 from .common_providers import ConditionProvider
 from .common_providers import FilesProvider

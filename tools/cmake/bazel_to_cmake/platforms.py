@@ -42,11 +42,21 @@ _CMAKE_SYSTEM_NAME_CONFIG_SETTINGS: Dict[str, List[str]] = {
     "Darwin": ["@platforms//os:osx", "@platforms//os:macos"],
     "watchOS": ["@platforms//os:watchos"],
     "tvOS": ["@platforms//os:tvos"],
+    "visionOS": ["@platforms//os:visionos"],
     "Android": ["@platforms//os:android"],
     "WASI": ["@platforms//os:wasi"],
     "OpenBSD": ["@platforms//os:openbsd"],
     "FreeBSD": ["@platforms//os:freebsd"],
+    "NetBSD": ["@platforms//os:netbsd"],
     "QNX": ["@platforms//os:qnx"],
+    "Haiku": ["@platforms//os:haiku"],
+    "VXworks": ["@platforms//os:vxworks"],
+    "NixOS": ["@platforms//os:nixos"],
+    "Emscripten": ["@platforms//os:emscripten"],
+    "Fuchsia": ["@platforms//os:fuchsia"],
+    "ChromiumOS": ["@platforms//os:chromiumos"],
+    "UEFI": ["@platforms//os:uefi"],
+    "UNKNOWN": ["@platforms//os:none"],
 }
 
 _CMAKE_SYSTEM_PROCESSOR_CONFIG_SETTINGS: Dict[str, List[str]] = {
