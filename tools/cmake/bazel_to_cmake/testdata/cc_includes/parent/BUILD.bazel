@@ -1,0 +1,80 @@
+package(default_visibility = ["//visibility:public"])
+
+genrule(
+    name = "c_inc",
+    outs = ["child/c.inc"],
+    cmd = "echo \"// c.inc\" > $@",
+)
+
+cc_library(
+    name = "a",
+    srcs = [
+        "child/a.cc",
+        "child/a.inc",
+    ],
+    hdrs = ["child/a.h"],
+    textual_hdrs = ["child/c.inc"],
+)
+
+cc_library(
+    name = "a_dot",
+    srcs = [
+        "child/a.cc",
+        "child/a.inc",
+    ],
+    hdrs = ["child/a.h"],
+    includes = ["."],
+    textual_hdrs = ["child/c.inc"],
+)
+
+cc_library(
+    name = "a_child",
+    srcs = [
+        "child/a.cc",
+        "child/a.inc",
+    ],
+    hdrs = ["child/a.h"],
+    includes = ["child"],
+)
+
+cc_library(
+    name = "a_parent",
+    srcs = [
+        "child/a.cc",
+        "child/a.inc",
+        "child/c.inc",
+    ],
+    hdrs = ["child/a.h"],
+    includes = ["/parent"],
+)
+
+cc_library(
+    name = "a_strip_parent",
+    srcs = [
+        "child/a.cc",
+        "child/a.inc",
+        "child/c.inc",
+    ],
+    hdrs = ["child/a.h"],
+    strip_include_prefix = "parent",
+)
+
+cc_library(
+    name = "a_strip_child",
+    srcs = [
+        "child/a.cc",
+        "child/a.inc",
+    ],
+    hdrs = ["child/a.h"],
+    strip_include_prefix = "child",
+)
+
+cc_library(
+    name = "a_prefix_child",
+    srcs = [
+        "child/a.cc",
+        "child/a.inc",
+    ],
+    hdrs = ["child/a.h"],
+    include_prefix = "child",
+)

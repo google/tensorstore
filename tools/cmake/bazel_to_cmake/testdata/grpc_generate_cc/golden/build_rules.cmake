@@ -73,6 +73,8 @@ target_link_libraries(CMakeProject_cc_grpc PUBLIC
         "m")
 target_include_directories(CMakeProject_cc_grpc PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
+target_include_directories(CMakeProject_cc_grpc PRIVATE
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_cc_grpc PUBLIC cxx_std_17)
 add_dependencies(CMakeProject_cc_grpc "CMakeProject_cc__grpc_codegen")
 target_sources(CMakeProject_cc_grpc PRIVATE
@@ -86,6 +88,8 @@ target_link_libraries(CMakeProject_a PUBLIC
         "CMakeProject::cc_grpc"
         "Threads::Threads"
         "m")
+target_include_directories(CMakeProject_a PRIVATE
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_a PUBLIC cxx_std_17)
 target_sources(CMakeProject_a PRIVATE
         "${TEST_DIRECTORY}/a.cc")

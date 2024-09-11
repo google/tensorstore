@@ -37,10 +37,6 @@ def quote_string(x: str) -> str:
   return json.dumps(x)
 
 
-def quote_list(y: Iterable[str], separator: str = " ") -> str:
-  return separator.join(quote_string(x) for x in y)
-
-
 def quote_path(p: PathLike) -> str:
   """Quotes a path, converting backslashes to forward slashes.
 
@@ -51,8 +47,21 @@ def quote_path(p: PathLike) -> str:
   return json.dumps(pathlib.PurePath(p).as_posix())
 
 
+def quote_unescaped(x: str) -> str:
+  unescaped = bytes(x, "utf-8").decode("unicode_escape")
+  return json.dumps(unescaped)
+
+
+def quote_list(y: Iterable[str], separator: str = " ") -> str:
+  return separator.join(quote_string(x) for x in y)
+
+
 def quote_path_list(y: PathSequence, separator: str = " ") -> str:
   return separator.join(quote_path(x) for x in y if x)
+
+
+def quote_unescaped_list(y: Iterable[str], separator: str = " ") -> str:
+  return separator.join(quote_unescaped(x) for x in y)
 
 
 # Unfortunately, pathlib.PurePath.is_relative_to is a python3.9 invention.

@@ -64,6 +64,7 @@ CMAKE_VARS = {
 def parameters() -> List[Tuple[str, Dict[str, Any]]]:
   """Returns config tuples by reading config.json from the 'testdata' subdir."""
   if UPDATE_GOLDENS:
+    print('UPDATE_GOLDENS')
     testdata = pathlib.Path(__file__).resolve().with_name('testdata')
   else:
     testdata = pathlib.Path(__file__).with_name('testdata').resolve()

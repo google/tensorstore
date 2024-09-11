@@ -7,6 +7,8 @@ target_compile_definitions(CMakeProject_bb PUBLIC "BUILD_LINUX")
 target_link_libraries(CMakeProject_bb PUBLIC
         "Threads::Threads"
         "m")
+target_include_directories(CMakeProject_bb PRIVATE
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_bb PUBLIC cxx_std_17)
 target_sources(CMakeProject_bb PRIVATE
         "${TEST_DIRECTORY}/a.cc")
@@ -47,6 +49,8 @@ target_link_libraries(CMakeProject_a PUBLIC
         "m")
 target_include_directories(CMakeProject_a PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
+target_include_directories(CMakeProject_a PRIVATE
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_a PUBLIC cxx_std_17)
 add_dependencies(CMakeProject_a "CMakeProject_h_file")
 target_sources(CMakeProject_a PRIVATE
@@ -102,6 +106,8 @@ target_link_libraries(CMakeProject_a_test PUBLIC
         "CMakeProject::c_proto_cc"
         "Threads::Threads"
         "m")
+target_include_directories(CMakeProject_a_test PRIVATE
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_a_test PUBLIC cxx_std_17)
 target_sources(CMakeProject_a_test PRIVATE
         "${TEST_DIRECTORY}/a.cc")
@@ -133,129 +139,6 @@ btc_protobuf(
     DEPENDENCIES "protobuf::protoc"
 )
 
-# @native_rules_test_repo//:c_proto_2__minitable_library
-add_library(CMakeProject_c_proto_2__minitable_library)
-set_property(TARGET CMakeProject_c_proto_2__minitable_library PROPERTY LINKER_LANGUAGE "CXX")
-target_link_libraries(CMakeProject_c_proto_2__minitable_library PUBLIC
-        "protobuf::upb_generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me")
-target_compile_features(CMakeProject_c_proto_2__minitable_library PUBLIC cxx_std_17)
-add_library(CMakeProject::c_proto_2__minitable_library ALIAS CMakeProject_c_proto_2__minitable_library)
-
-btc_protobuf(
-    TARGET CMakeProject_c_proto_2__minitable_library
-    PROTO_TARGET CMakeProject_c_proto_2
-    LANGUAGE upb_minitable
-    GENERATE_EXTENSIONS ".upb_minitable.h" ".upb_minitable.c"
-    PROTOC_OPTIONS --experimental_allow_proto3_optional
-    PROTOC_OUT_DIR ${PROJECT_BINARY_DIR}/c5077a10
-    PLUGIN protoc-gen-upb_minitable=$<TARGET_FILE:protobuf::protoc_gen_upb_minitable_stage1>
-    DEPENDENCIES "protobuf::protoc" "protobuf::protoc_gen_upb_minitable_stage1"
-)
-
-# @native_rules_test_repo//:c_proto_2__upb_library
-add_library(CMakeProject_c_proto_2__upb_library)
-set_property(TARGET CMakeProject_c_proto_2__upb_library PROPERTY LINKER_LANGUAGE "CXX")
-target_link_libraries(CMakeProject_c_proto_2__upb_library PUBLIC
-        "CMakeProject::c_proto_2__minitable_library"
-        "protobuf::upb_generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me")
-target_compile_features(CMakeProject_c_proto_2__upb_library PUBLIC cxx_std_17)
-add_library(CMakeProject::c_proto_2__upb_library ALIAS CMakeProject_c_proto_2__upb_library)
-
-btc_protobuf(
-    TARGET CMakeProject_c_proto_2__upb_library
-    PROTO_TARGET CMakeProject_c_proto_2
-    LANGUAGE upb
-    GENERATE_EXTENSIONS ".upb.h" ".upb.c"
-    PROTOC_OPTIONS --experimental_allow_proto3_optional
-    PROTOC_OUT_DIR ${PROJECT_BINARY_DIR}/c5077a10
-    PLUGIN protoc-gen-upb=$<TARGET_FILE:protobuf::protoc_gen_upb>
-    DEPENDENCIES "protobuf::protoc" "protobuf::protoc_gen_upb"
-)
-
-# @native_rules_test_repo//:c_proto_2__upbdefs_library
-add_library(CMakeProject_c_proto_2__upbdefs_library)
-set_property(TARGET CMakeProject_c_proto_2__upbdefs_library PROPERTY LINKER_LANGUAGE "CXX")
-target_link_libraries(CMakeProject_c_proto_2__upbdefs_library PUBLIC
-        "CMakeProject::c_proto_2__minitable_library"
-        "Protobuf::upb_generated_reflection_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me"
-        "Protobuf::upb_port")
-target_compile_features(CMakeProject_c_proto_2__upbdefs_library PUBLIC cxx_std_17)
-add_library(CMakeProject::c_proto_2__upbdefs_library ALIAS CMakeProject_c_proto_2__upbdefs_library)
-
-btc_protobuf(
-    TARGET CMakeProject_c_proto_2__upbdefs_library
-    PROTO_TARGET CMakeProject_c_proto_2
-    LANGUAGE upbdefs
-    GENERATE_EXTENSIONS ".upbdefs.h" ".upbdefs.c"
-    PROTOC_OPTIONS --experimental_allow_proto3_optional
-    PROTOC_OUT_DIR ${PROJECT_BINARY_DIR}/c5077a10
-    PLUGIN protoc-gen-upbdefs=$<TARGET_FILE:protobuf::protoc_gen_upbdefs>
-    DEPENDENCIES "protobuf::protoc" "protobuf::protoc_gen_upbdefs"
-)
-
-# @native_rules_test_repo//:c_proto__minitable_library
-add_library(CMakeProject_c_proto__minitable_library)
-set_property(TARGET CMakeProject_c_proto__minitable_library PROPERTY LINKER_LANGUAGE "CXX")
-target_link_libraries(CMakeProject_c_proto__minitable_library PUBLIC
-        "Protobuf_timestamp_proto__minitable_library"
-        "protobuf::upb_generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me")
-target_compile_features(CMakeProject_c_proto__minitable_library PUBLIC cxx_std_17)
-add_library(CMakeProject::c_proto__minitable_library ALIAS CMakeProject_c_proto__minitable_library)
-
-btc_protobuf(
-    TARGET CMakeProject_c_proto__minitable_library
-    PROTO_TARGET CMakeProject_c_proto
-    LANGUAGE upb_minitable
-    GENERATE_EXTENSIONS ".upb_minitable.h" ".upb_minitable.c"
-    PROTOC_OPTIONS --experimental_allow_proto3_optional
-    PROTOC_OUT_DIR ${PROJECT_BINARY_DIR}/de6f8ca9
-    PLUGIN protoc-gen-upb_minitable=$<TARGET_FILE:protobuf::protoc_gen_upb_minitable_stage1>
-    DEPENDENCIES "protobuf::protoc" "protobuf::protoc_gen_upb_minitable_stage1"
-)
-
-# @native_rules_test_repo//:c_proto__upb_library
-add_library(CMakeProject_c_proto__upb_library)
-set_property(TARGET CMakeProject_c_proto__upb_library PROPERTY LINKER_LANGUAGE "CXX")
-target_link_libraries(CMakeProject_c_proto__upb_library PUBLIC
-        "CMakeProject::c_proto__minitable_library"
-        "Protobuf_timestamp_proto__upb_library"
-        "protobuf::upb_generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me")
-target_compile_features(CMakeProject_c_proto__upb_library PUBLIC cxx_std_17)
-add_library(CMakeProject::c_proto__upb_library ALIAS CMakeProject_c_proto__upb_library)
-
-btc_protobuf(
-    TARGET CMakeProject_c_proto__upb_library
-    PROTO_TARGET CMakeProject_c_proto
-    LANGUAGE upb
-    GENERATE_EXTENSIONS ".upb.h" ".upb.c"
-    PROTOC_OPTIONS --experimental_allow_proto3_optional
-    PROTOC_OUT_DIR ${PROJECT_BINARY_DIR}/de6f8ca9
-    PLUGIN protoc-gen-upb=$<TARGET_FILE:protobuf::protoc_gen_upb>
-    DEPENDENCIES "protobuf::protoc" "protobuf::protoc_gen_upb"
-)
-
-# @native_rules_test_repo//:c_proto__upbdefs_library
-add_library(CMakeProject_c_proto__upbdefs_library)
-set_property(TARGET CMakeProject_c_proto__upbdefs_library PROPERTY LINKER_LANGUAGE "CXX")
-target_link_libraries(CMakeProject_c_proto__upbdefs_library PUBLIC
-        "CMakeProject::c_proto__minitable_library"
-        "Protobuf::upb_generated_reflection_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me"
-        "Protobuf::upb_port"
-        "Protobuf_timestamp_proto__upbdefs_library")
-target_compile_features(CMakeProject_c_proto__upbdefs_library PUBLIC cxx_std_17)
-add_library(CMakeProject::c_proto__upbdefs_library ALIAS CMakeProject_c_proto__upbdefs_library)
-
-btc_protobuf(
-    TARGET CMakeProject_c_proto__upbdefs_library
-    PROTO_TARGET CMakeProject_c_proto
-    LANGUAGE upbdefs
-    GENERATE_EXTENSIONS ".upbdefs.h" ".upbdefs.c"
-    PROTOC_OPTIONS --experimental_allow_proto3_optional
-    PROTOC_OUT_DIR ${PROJECT_BINARY_DIR}/de6f8ca9
-    PLUGIN protoc-gen-upbdefs=$<TARGET_FILE:protobuf::protoc_gen_upbdefs>
-    DEPENDENCIES "protobuf::protoc" "protobuf::protoc_gen_upbdefs"
-)
-
 # alias(@native_rules_test_repo//:c_proto_alias)
 add_library(CMakeProject_c_proto_alias ALIAS CMakeProject_c_proto)
 add_library(CMakeProject::c_proto_alias ALIAS CMakeProject_c_proto)
@@ -271,6 +154,8 @@ target_compile_definitions(CMakeProject_subdir_x PUBLIC "BUILD_LINUX")
 target_link_libraries(CMakeProject_subdir_x PUBLIC
         "Threads::Threads"
         "m")
+target_include_directories(CMakeProject_subdir_x PRIVATE
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_subdir_x PUBLIC cxx_std_17)
 target_sources(CMakeProject_subdir_x PRIVATE
         "${TEST_DIRECTORY}/subdir/x.cc")
@@ -325,6 +210,8 @@ target_link_libraries(CMakeProject_subdir_y PUBLIC
         "m")
 target_include_directories(CMakeProject_subdir_y PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
+target_include_directories(CMakeProject_subdir_y PRIVATE
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_subdir_y PUBLIC cxx_std_17)
 add_dependencies(CMakeProject_subdir_y "CMakeProject_subdir_make_y" "CMakeProject_subdir_make_ycc")
 target_sources(CMakeProject_subdir_y PRIVATE
@@ -344,6 +231,8 @@ target_link_libraries(CMakeProject_subdir_y_include_prefix PUBLIC
         "m")
 target_include_directories(CMakeProject_subdir_y_include_prefix PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
+target_include_directories(CMakeProject_subdir_y_include_prefix PRIVATE
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_subdir_y_include_prefix PUBLIC cxx_std_17)
 add_dependencies(CMakeProject_subdir_y_include_prefix "CMakeProject_subdir_make_y" "CMakeProject_subdir_make_ycc")
 target_sources(CMakeProject_subdir_y_include_prefix PRIVATE
@@ -358,8 +247,11 @@ target_link_libraries(CMakeProject_subdir_y_includes PUBLIC
         "Threads::Threads"
         "m")
 target_include_directories(CMakeProject_subdir_y_includes PUBLIC
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/subdir>"
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/subdir>")
+target_include_directories(CMakeProject_subdir_y_includes PRIVATE
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
-        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/subdir>")
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_subdir_y_includes PUBLIC cxx_std_17)
 add_dependencies(CMakeProject_subdir_y_includes "CMakeProject_subdir_make_y" "CMakeProject_subdir_make_ycc")
 target_sources(CMakeProject_subdir_y_includes PRIVATE
@@ -375,6 +267,9 @@ target_link_libraries(CMakeProject_subdir_y_strip_include_prefix PUBLIC
         "m")
 target_include_directories(CMakeProject_subdir_y_strip_include_prefix PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/subdir>")
+target_include_directories(CMakeProject_subdir_y_strip_include_prefix PRIVATE
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_subdir_y_strip_include_prefix PUBLIC cxx_std_17)
 add_dependencies(CMakeProject_subdir_y_strip_include_prefix "CMakeProject_subdir_make_y" "CMakeProject_subdir_make_ycc")
 target_sources(CMakeProject_subdir_y_strip_include_prefix PRIVATE
@@ -407,62 +302,19 @@ btc_protobuf(
     DEPENDENCIES "protobuf::protoc"
 )
 
-# @native_rules_test_repo//subdir:z_proto__minitable_library
-add_library(CMakeProject_subdir_z_proto__minitable_library)
-set_property(TARGET CMakeProject_subdir_z_proto__minitable_library PROPERTY LINKER_LANGUAGE "CXX")
-target_link_libraries(CMakeProject_subdir_z_proto__minitable_library PUBLIC
-        "protobuf::upb_generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me")
-target_compile_features(CMakeProject_subdir_z_proto__minitable_library PUBLIC cxx_std_17)
-add_library(CMakeProject::subdir_z_proto__minitable_library ALIAS CMakeProject_subdir_z_proto__minitable_library)
-
-btc_protobuf(
-    TARGET CMakeProject_subdir_z_proto__minitable_library
-    PROTO_TARGET CMakeProject_subdir_z_proto
-    LANGUAGE upb_minitable
-    GENERATE_EXTENSIONS ".upb_minitable.h" ".upb_minitable.c"
-    PROTOC_OPTIONS --experimental_allow_proto3_optional
-    PROTOC_OUT_DIR ${PROJECT_BINARY_DIR}/fb9b71f5
-    PLUGIN protoc-gen-upb_minitable=$<TARGET_FILE:protobuf::protoc_gen_upb_minitable_stage1>
-    DEPENDENCIES "protobuf::protoc" "protobuf::protoc_gen_upb_minitable_stage1"
-)
-
-# @native_rules_test_repo//subdir:z_proto__upb_library
-add_library(CMakeProject_subdir_z_proto__upb_library)
-set_property(TARGET CMakeProject_subdir_z_proto__upb_library PROPERTY LINKER_LANGUAGE "CXX")
-target_link_libraries(CMakeProject_subdir_z_proto__upb_library PUBLIC
-        "CMakeProject::subdir_z_proto__minitable_library"
-        "protobuf::upb_generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me")
-target_compile_features(CMakeProject_subdir_z_proto__upb_library PUBLIC cxx_std_17)
-add_library(CMakeProject::subdir_z_proto__upb_library ALIAS CMakeProject_subdir_z_proto__upb_library)
-
-btc_protobuf(
-    TARGET CMakeProject_subdir_z_proto__upb_library
-    PROTO_TARGET CMakeProject_subdir_z_proto
-    LANGUAGE upb
-    GENERATE_EXTENSIONS ".upb.h" ".upb.c"
-    PROTOC_OPTIONS --experimental_allow_proto3_optional
-    PROTOC_OUT_DIR ${PROJECT_BINARY_DIR}/fb9b71f5
-    PLUGIN protoc-gen-upb=$<TARGET_FILE:protobuf::protoc_gen_upb>
-    DEPENDENCIES "protobuf::protoc" "protobuf::protoc_gen_upb"
-)
-
-# @native_rules_test_repo//subdir:z_proto__upbdefs_library
-add_library(CMakeProject_subdir_z_proto__upbdefs_library)
-set_property(TARGET CMakeProject_subdir_z_proto__upbdefs_library PROPERTY LINKER_LANGUAGE "CXX")
-target_link_libraries(CMakeProject_subdir_z_proto__upbdefs_library PUBLIC
-        "CMakeProject::subdir_z_proto__minitable_library"
-        "Protobuf::upb_generated_reflection_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me"
-        "Protobuf::upb_port")
-target_compile_features(CMakeProject_subdir_z_proto__upbdefs_library PUBLIC cxx_std_17)
-add_library(CMakeProject::subdir_z_proto__upbdefs_library ALIAS CMakeProject_subdir_z_proto__upbdefs_library)
-
-btc_protobuf(
-    TARGET CMakeProject_subdir_z_proto__upbdefs_library
-    PROTO_TARGET CMakeProject_subdir_z_proto
-    LANGUAGE upbdefs
-    GENERATE_EXTENSIONS ".upbdefs.h" ".upbdefs.c"
-    PROTOC_OPTIONS --experimental_allow_proto3_optional
-    PROTOC_OUT_DIR ${PROJECT_BINARY_DIR}/fb9b71f5
-    PLUGIN protoc-gen-upbdefs=$<TARGET_FILE:protobuf::protoc_gen_upbdefs>
-    DEPENDENCIES "protobuf::protoc" "protobuf::protoc_gen_upbdefs"
-)
+# cc_library(@native_rules_test_repo//:defines)
+add_library(CMakeProject_defines)
+set_property(TARGET CMakeProject_defines PROPERTY LINKER_LANGUAGE "CXX")
+target_compile_definitions(CMakeProject_defines PUBLIC "VERSION=\"\"" "BUILD_LINUX")
+target_link_libraries(CMakeProject_defines PUBLIC
+        "Threads::Threads"
+        "m")
+target_include_directories(CMakeProject_defines PUBLIC
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
+target_include_directories(CMakeProject_defines PRIVATE
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
+target_compile_features(CMakeProject_defines PUBLIC cxx_std_17)
+add_dependencies(CMakeProject_defines "CMakeProject_h_file")
+target_sources(CMakeProject_defines PRIVATE
+        "${TEST_DIRECTORY}/a.cc")
+add_library(CMakeProject::defines ALIAS CMakeProject_defines)

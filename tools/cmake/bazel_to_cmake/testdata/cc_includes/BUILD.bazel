@@ -1,0 +1,27 @@
+package(default_visibility = ["//visibility:public"])
+
+COMMENT = """
+rm out.*
+for x in a a_dot a_parent a_child a_strip_parent a_strip_child a_prefix_child; do
+   ../../../../../bazelisk.py aquery parent:$x   >> out.$x
+   echo "--------------------------------------" >> out.$x
+   ../../../../../bazelisk.py aquery :$x         >> out.$x
+done
+"""
+
+[
+    cc_binary(
+        name = x,
+        srcs = ["b.cc"],
+        deps = ["//parent:" + x],
+    )
+    for x in [
+        "a",
+        "a_dot",
+        "a_child",
+        "a_parent",
+        "a_strip_child",
+        "a_strip_parent",
+        "a_prefix_child",
+    ]
+]

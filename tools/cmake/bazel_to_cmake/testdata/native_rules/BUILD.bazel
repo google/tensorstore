@@ -99,3 +99,12 @@ filegroup(
     name = "subdir_z",
     srcs = ["subdir/z.proto"],
 )
+
+cc_library(
+    name = "defines",
+    srcs = ["a.cc"],
+    hdrs = ["a.h"],
+    defines = [
+        "VERSION=\\\"" + (module_version() if module_version() != None else "") + "\\\"",
+    ],
+)

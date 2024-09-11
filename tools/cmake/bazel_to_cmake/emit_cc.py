@@ -15,7 +15,6 @@
 
 # pylint: disable=relative-beyond-top-level,invalid-name,missing-function-docstring,g-long-lambda
 
-import os
 import pathlib
 import re
 from typing import Any, Dict, Iterable, List, Optional, Set, cast
@@ -25,12 +24,15 @@ from .cmake_repository import CMakeRepository
 from .cmake_target import CMakeTarget
 from .cmake_target import CMakeTargetPair
 from .evaluation import EvaluationState
+from .starlark.bazel_target import PackageId
 from .starlark.invocation_context import InvocationContext
 from .starlark.label import RelativeLabel
 from .starlark.select import Configurable
 from .util import is_relative_to
+from .util import PathSequence
 from .util import quote_list
 from .util import quote_path_list
+from .util import quote_unescaped_list
 from .workspace import Workspace
 
 _SEP = "\n        "
@@ -55,6 +57,7 @@ def _emit_cc_common_options(
     defines: Optional[Iterable[str]] = None,
     local_defines: Optional[Iterable[str]] = None,
     includes: Optional[Iterable[str]] = None,
+    private_includes: Optional[Iterable[str]] = None,
     custom_target_deps: Optional[Iterable[str]] = None,
     extra_public_compile_options: Optional[Iterable[str]] = None,
     interface_only: bool = False,
@@ -64,21 +67,15 @@ def _emit_cc_common_options(
   """Emits CMake rules for common C++ target options."""
   del kwargs
 
-  # PROJECT_BINARY_DIR and PROJECT_SOURCE_DIR should be in includes
-  assert includes is not None
-  include_dirs = [
-      f"$<BUILD_INTERFACE:{include_dir}>"
-      for include_dir in sorted(set(includes))
-  ]
   public_context = "INTERFACE" if interface_only else "PUBLIC"
   if local_defines is not None and local_defines and not interface_only:
     _builder.addtext(
         f"target_compile_definitions({target_name} PRIVATE"
-        f" {quote_list(local_defines)})\n"
+        f" {quote_unescaped_list(local_defines)})\n"
     )
   if defines is not None and defines:
     _builder.addtext(
-        f"target_compile_definitions({target_name} {public_context} {quote_list(defines)})\n"
+        f"target_compile_definitions({target_name} {public_context} {quote_unescaped_list(defines)})\n"
     )
   if copts is not None and copts and not interface_only:
     _builder.addtext(
@@ -91,7 +88,7 @@ def _emit_cc_common_options(
       link_libs.extend(sorted(deps))
 
     link_options: List[str] = []
-    for x in (linkopts or []):
+    for x in linkopts or []:
       if x.startswith("-l") or x.startswith("-framework"):
         link_libs.append(x)
       else:
@@ -105,10 +102,26 @@ def _emit_cc_common_options(
           f"target_link_options({target_name} {public_context}{_SEP}{quote_list(link_options, separator=_SEP)})\n"
       )
 
+  include_dirs = [
+      f"$<BUILD_INTERFACE:{include_dir}>"
+      for include_dir in sorted(set(includes))
+  ]
   if include_dirs:
     _builder.addtext(
-        f"target_include_directories({target_name} {public_context}{_SEP}{quote_path_list(include_dirs, separator=_SEP)})\n"
+        f"target_include_directories({target_name} {public_context}"
+        f"{_SEP}{quote_path_list(include_dirs, separator=_SEP)})\n"
     )
+  if not interface_only and private_includes:
+    include_dirs = [
+        f"$<BUILD_INTERFACE:{include_dir}>"
+        for include_dir in sorted(set(private_includes))
+    ]
+    if include_dirs:
+      _builder.addtext(
+          f"target_include_directories({target_name} PRIVATE"
+          f"{_SEP}{quote_path_list(include_dirs, separator=_SEP)})\n"
+      )
+
   _builder.addtext(
       f"target_compile_features({target_name} {public_context} cxx_std_17)\n"
   )
@@ -139,142 +152,178 @@ def _emit_cc_common_options(
 
 
 def replace_with_cmake_macro_dirs(
-    repo: CMakeRepository, paths: Iterable[str]
+    repo: CMakeRepository, paths: PathSequence
 ) -> List[str]:
   """Substitute reposotory path prefixes with CMake PROJECT_{*}_DIR macros."""
   assert repo is not None
 
-  result: List[str] = []
+  result: Set[str] = set()
   for x in paths:
     x_path = pathlib.PurePath(x)
     if is_relative_to(x_path, repo.cmake_binary_dir):
       relative_path = x_path.relative_to(repo.cmake_binary_dir).as_posix()
       if relative_path != ".":
-        result.append(f"${{PROJECT_BINARY_DIR}}/{relative_path}")
+        result.add(f"${{PROJECT_BINARY_DIR}}/{relative_path}")
       else:
-        result.append("${PROJECT_BINARY_DIR}")
+        result.add("${PROJECT_BINARY_DIR}")
     elif is_relative_to(x_path, repo.source_directory):
       relative_path = x_path.relative_to(repo.source_directory).as_posix()
       if relative_path != ".":
-        result.append(f"${{PROJECT_SOURCE_DIR}}/{relative_path}")
+        result.add(f"${{PROJECT_SOURCE_DIR}}/{relative_path}")
       else:
-        result.append("${PROJECT_SOURCE_DIR}")
+        result.add("${PROJECT_SOURCE_DIR}")
     else:
-      result.append(x)
-  return result
+      result.add(str(x))
+  return list(sorted(result))
 
 
 def construct_cc_includes(
-    _context: InvocationContext,
+    repo: CMakeRepository,
+    current_package_id: PackageId,
     *,
     includes: Optional[Configurable[List[str]]] = None,
     include_prefix: Optional[str] = None,
     strip_include_prefix: Optional[str] = None,
-    srcs_file_paths: Optional[Iterable[str]] = None,
-    hdrs_file_paths: Optional[Iterable[str]] = None,
+    known_include_files: Optional[Iterable[str]] = None,
 ) -> List[str]:
-  state = _context.access(EvaluationState)
-  repo = state.workspace.all_repositories.get(
-      _context.caller_package_id.repository_id
-  )
+  """Returns the list of system includes for the configuration.
+
+  By default Bazel generates private includes (-iquote) for the SRCDIR
+  and a few other directories.  When `includes` is set, then bazel generates
+  public includes (-isystem) which are propagated to callers.
+  
+  Here we attempt to generate system includes for CMake based on the
+  bazel flags, however it is a best effort technique which, so far, has met
+  the needs of cmake translation.
+  """
   assert repo is not None
+  if not known_include_files:
+    known_include_files = []
 
-  # When constructing include dirs, first check the "header-like" files in srcs
-  # and make sure that they can be included.
   include_dirs: Set[str] = set()
-  add_bare: bool = strip_include_prefix is None and include_prefix is None
 
-  def _try_add(
-      paths: Optional[Iterable[str]], repo_paths: List[pathlib.PurePath]
-  ):
-    if paths is None:
-      return
-    nonlocal include_dirs
-    nonlocal repo
-    for x in paths:
-      for y in repo_paths:
-        if is_relative_to(pathlib.PurePath(x), y):
-          include_dirs.add(str(y))
-
-  def _try_add_prefix(paths: Optional[Iterable[str]], prefix: str):
-    if not paths:
-      return
-    if not prefix or prefix == ".":
-      nonlocal add_bare
-      add_bare = True
-      return
-    nonlocal repo
-    _try_add(
-        paths,
-        [
-            repo.cmake_binary_dir.joinpath(prefix),
-            repo.source_directory.joinpath(prefix),
-        ],
-    )
+  current_package_path = pathlib.PurePosixPath(current_package_id.package_name)
 
   # This include manipulation is a best effort that works for known cases.
   #   https://bazel.build/reference/be/c-cpp#cc_library.includes
   #
-  current_package_name = _context.caller_package_id.package_name
-  relative_package_path = pathlib.PurePosixPath(current_package_name)
-
-  for include in _context.evaluate_configurable_list(includes):
+  # List of include dirs to be added to the compile line. Subject to
+  # "Make variable" substitution. Each string is prepended with the package
+  # path and passed to the C++ toolchain for expansion via the "include_paths"
+  # CROSSTOOL feature. A toolchain running on a POSIX system with typical
+  # feature definitions will produce -isystem path_to_package/include_entry.
+  #
+  # Unlike COPTS, these flags are added for this rule and every rule that
+  # depends on it.
+  for include in includes or []:
     # HACK(gRPC): grpc build_system.bzl adds the following includes to
     # all targets; bazel currently requires them, however they interfere in
     # the CMake build, so remove them.
     if (
-        _context.caller_package_id.repository_id.repository_name
+        current_package_id.repository_id.repository_name
         == "com_github_grpc_grpc"
         and include
         in ["src/core/ext/upb-generated", "src/core/ext/upbdefs-generated"]
     ):
       continue
 
-    include_path = str(
-        relative_package_path.joinpath(pathlib.PurePosixPath(include))
-    )
-    if include_path[0] == "/":
-      include_path = include_path[1:]
+    constructed = str(current_package_path.joinpath(include))
+    if constructed[0] == "/":
+      constructed = constructed[1:]
 
-    _try_add_prefix(hdrs_file_paths, include_path)
+    include_dirs.add(str(repo.source_directory.joinpath(constructed)))
+    include_dirs.add(str(repo.cmake_binary_dir.joinpath(constructed)))
 
-  # Assuming a package with files, a/b/c.h:
-  # Default include path is "a/b/c.h"
-  # When `strip_include_prefix = "/a"` is specified, the include path is "b/c.h"
-  # When `include_prefix = "x"` is specified, the include path is "x/a/b/c.h",
-  # however if both are specified, then the path would be "x/b/c.h".
+  # For the package foo/bar
+  #  - default include path is foo/bar/file.h
+  #  - strip_include_prefix=/foo then the include path is bar/file.h
+  #  - include_prefix=bar then the include path is bar/file.h
   #
   # bazel_to_cmake only supports composing strip_import_prefix and import_prefix
   # which happens to be a part of the path already, otherwise we'd need to
   # create symbolic links to the files.
   if strip_include_prefix is not None:
-    # Normalize to a relative prefix.
+    # The prefix to strip from the paths of the headers of this rule.
+    #
+    # When set, the headers in the hdrs attribute of this rule are accessible
+    # at their path with this prefix cut off.
+    #
+    # If it's a relative path, it's taken as a package-relative one. If it's an
+    # absolute one, it's understood as a repository-relative path.
+    #
+    # The prefix in the include_prefix attribute is added after this prefix is
+    # stripped.
     if strip_include_prefix[0] == "/":
-      _try_add_prefix(hdrs_file_paths, strip_include_prefix[1:])
+      constructed = strip_include_prefix[1:]
     else:
-      _try_add_prefix(
-          hdrs_file_paths,
-          str(relative_package_path.joinpath(strip_include_prefix)),
-      )
+      constructed = str(current_package_path.joinpath(strip_include_prefix))
+
+    src_path = repo.source_directory.joinpath(constructed)
+    bin_path = repo.cmake_binary_dir.joinpath(constructed)
+    # Only add if existing files are discoverable at the prefix
+    for x in known_include_files:
+      x_path = pathlib.PurePath(x)
+      if is_relative_to(x_path, src_path):
+        include_dirs.add(str(src_path))
+      elif is_relative_to(x_path, bin_path):
+        include_dirs.add(str(bin_path))
 
   if include_prefix is not None:
+    # The prefix to add to the paths of the headers of this rule.
+    #
     # "When set, the headers in the hdrs attribute of this rule are accessable
     # at is the value of this attribute prepended to their repository-relative
     # path."
     #
-    # Bazel may create a sandbox (symlink tree) to support the newly composed
-    # prefix, but bazel_to_cmake does not.
-    if current_package_name.endswith(include_prefix):
-      computed_prefix = str(
-          pathlib.PurePosixPath(current_package_name[: -len(include_prefix)])
-      )
-      _try_add_prefix(hdrs_file_paths, computed_prefix)
+    # The prefix in the strip_include_prefix attribute is removed before this
+    # prefix is added.
+    if current_package_id.package_name.endswith(include_prefix):
+      # Bazel creates a sandbox (symlink tree) to support the newly composed
+      # prefix, but bazel_to_cmake does not, so mimic this behavior by looking
+      # at the current package and trying to remove the prefix of the path,
+      # thus omitting it from the C search path.
+      constructed = current_package_id.package_name[: -len(include_prefix)]
+      src_path = repo.source_directory.joinpath(constructed)
+      bin_path = repo.cmake_binary_dir.joinpath(constructed)
+      # Only add if existing files are discoverable at the prefix
+      for x in known_include_files:
+        x_path = pathlib.PurePath(x)
+        if is_relative_to(x_path, src_path):
+          include_dirs.add(str(src_path))
+        elif is_relative_to(x_path, bin_path):
+          include_dirs.add(str(bin_path))
 
-  _try_add(srcs_file_paths, [repo.cmake_binary_dir, repo.source_directory])
-  if add_bare:
-    _try_add(hdrs_file_paths, [repo.cmake_binary_dir, repo.source_directory])
+  # HACK: Bazel does not add such a fallback, but since three are potential
+  # includes CMake needs to include SRC/BIN as interface includes.
+  if not include_dirs:
+    for x in known_include_files:
+      x_path = pathlib.PurePath(x)
+      if is_relative_to(x_path, repo.source_directory):
+        include_dirs.add(str(repo.source_directory))
+      elif is_relative_to(x_path, repo.cmake_binary_dir):
+        include_dirs.add(str(repo.cmake_binary_dir))
 
   return replace_with_cmake_macro_dirs(repo, include_dirs)
+
+
+def construct_cc_private_includes(
+    repo: CMakeRepository,
+    *,
+    includes: Optional[List[str]] = None,
+    known_include_files: Optional[Iterable[str]] = None,
+) -> List[str]:
+  if not includes:
+    includes = []
+  result: List[str] = []
+  if "${PROJECT_SOURCE_DIR}" not in includes:
+    result.append("${PROJECT_SOURCE_DIR}")
+  if "${PROJECT_BINARY_DIR}" not in includes:
+    for x in known_include_files:
+      x_path = pathlib.PurePath(x)
+      if is_relative_to(x_path, repo.cmake_binary_dir):
+        result.append("${PROJECT_BINARY_DIR}")
+        break
+  return result
 
 
 def handle_cc_common_options(
@@ -349,18 +398,29 @@ def handle_cc_common_options(
         f" include_prefix={include_prefix}."
     )
 
+  known_include_files = (
+      [x for x in srcs_file_paths if re.search(_HEADER_SRC_PATTERN, x)]
+      + (hdrs_file_paths or [])
+      + (textual_hdrs_file_paths or [])
+  )
+
   result["includes"] = construct_cc_includes(
-      _context,
-      includes=includes,
+      state.workspace.all_repositories.get(
+          _context.caller_package_id.repository_id
+      ),
+      _context.caller_package_id,
+      includes=_context.evaluate_configurable_list(includes),
       include_prefix=include_prefix,
       strip_include_prefix=strip_include_prefix,
-      srcs_file_paths=[
-          x for x in srcs_file_paths if re.search(_HEADER_SRC_PATTERN, x)
-      ],
-      hdrs_file_paths=set(
-          [os.path.dirname(x) for x in (hdrs_file_paths or [])]
-          + [os.path.dirname(x) for x in (textual_hdrs_file_paths or [])]
+      known_include_files=known_include_files,
+  )
+
+  result["private_includes"] = construct_cc_private_includes(
+      state.workspace.all_repositories.get(
+          _context.caller_package_id.repository_id
       ),
+      includes=result["includes"],
+      known_include_files=known_include_files,
   )
 
   return result

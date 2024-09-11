@@ -8,13 +8,7 @@
     "//:c_proto",
     "//:c_proto_2",
     "//:c_proto_2__cpp_library",
-    "//:c_proto_2__minitable_library",
-    "//:c_proto_2__upb_library",
-    "//:c_proto_2__upbdefs_library",
     "//:c_proto__cpp_library",
-    "//:c_proto__minitable_library",
-    "//:c_proto__upb_library",
-    "//:c_proto__upbdefs_library",
     "//:c_proto_alias",
     "//:c_proto_cc",
     "//:c_proto_cc_alias",
@@ -27,8 +21,6 @@
     "//subdir:y_includes",
     "//subdir:y_strip_include_prefix",
     "//subdir:z_proto__cpp_library",
-    "//subdir:z_proto__minitable_library",
-    "//subdir:z_proto__upb_library",
-    "//subdir:z_proto__upbdefs_library"
+    "//:defines"
   ]
 }
