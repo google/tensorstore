@@ -16,8 +16,8 @@
 
 from typing import Any, Dict, List, Optional
 
-from .bazel_globals import BuildFileGlobals
-from .bazel_globals import BuildFileLibraryGlobals
+from .bazel_build_file import BuildFileGlobals
+from .bazel_build_file import BuildFileLibraryGlobals
 from .bazel_target import RepositoryId
 from .bazel_target import TargetId
 from .ignored import IgnoredLibrary

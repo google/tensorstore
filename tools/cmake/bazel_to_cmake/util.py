@@ -18,9 +18,17 @@ import json
 import os
 import pathlib
 import re
-from typing import Iterable, List, Optional, Sequence, Set, Tuple, Union
+from typing import Iterable, List, Optional, Sequence, Set, Tuple, TypeVar, Union
 
 from .starlark.bazel_glob import glob_pattern_to_regexp
+
+PathLike = TypeVar("PathLike", str, pathlib.Path, pathlib.PurePath, None)
+
+PathSequence = Union[
+    Sequence[PathLike],
+    Iterable[PathLike],
+    Set[PathLike],
+]
 
 
 def quote_string(x: str) -> str:
@@ -33,24 +41,14 @@ def quote_list(y: Iterable[str], separator: str = " ") -> str:
   return separator.join(quote_string(x) for x in y)
 
 
-def quote_path(p: Union[str, pathlib.PurePath]) -> str:
+def quote_path(p: PathLike) -> str:
   """Quotes a path, converting backslashes to forward slashes.
 
   While CMake in some cases allows backslashes to be escaped, in other cases
   paths are passed without escaping.  Using forward slashes reduces the risk of
   problems.
   """
-  if isinstance(p, str):
-    p = pathlib.PurePath(p)
-  return json.dumps(p.as_posix())
-
-
-PathSequence = Union[
-    Sequence[Union[str, pathlib.PurePath]],
-    Iterable[Union[str, pathlib.PurePath]],
-    Set[str],
-    Set[pathlib.PurePath],
-]
+  return json.dumps(pathlib.PurePath(p).as_posix())
 
 
 def quote_path_list(y: PathSequence, separator: str = " ") -> str:
@@ -59,13 +57,13 @@ def quote_path_list(y: PathSequence, separator: str = " ") -> str:
 
 # Unfortunately, pathlib.PurePath.is_relative_to is a python3.9 invention.
 def is_relative_to(
-    left: pathlib.PurePath, right: pathlib.PurePath, _use_attr: bool = True
+    leaf: pathlib.PurePath, root: pathlib.PurePath, _use_attr: bool = True
 ) -> bool:
   """Return True if the path is relative to another path or False."""
-  if _use_attr and hasattr(left, "is_relative_to"):
-    return left.is_relative_to(right)
-  other = type(left)(right)
-  return other == left or other in left.parents
+  if _use_attr and hasattr(leaf, "is_relative_to"):
+    return leaf.is_relative_to(root)
+  other = type(leaf)(root)
+  return other == leaf or other in leaf.parents
 
 
 def map_path_prefixes(

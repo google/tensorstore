@@ -17,11 +17,11 @@
 import pathlib
 from typing import Any, Dict, List, Optional
 
-from .bazel_globals import BazelWorkspaceGlobals
-from .bazel_globals import BuildFileLibraryGlobals
+from .bazel_build_file import BuildFileLibraryGlobals
 from .bazel_target import PackageId
 from .bazel_target import RepositoryId
 from .bazel_target import TargetId
+from .bazel_workspace_file import BazelWorkspaceGlobals
 from .ignored import IgnoredLibrary
 from .invocation_context import InvocationContext
 from .invocation_context import RuleImpl

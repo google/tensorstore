@@ -32,7 +32,7 @@ from .cmake_target import CMakeDepsProvider
 from .cmake_target import CMakeTarget
 from .evaluation import EvaluationState
 from .starlark import rule  # pylint: disable=unused-import
-from .starlark.bazel_globals import register_native_build_rule
+from .starlark.bazel_build_file import register_native_build_rule
 from .starlark.bazel_target import TargetId
 from .starlark.common_providers import FilesProvider
 from .starlark.invocation_context import InvocationContext

@@ -26,7 +26,7 @@ from .emit_cc import emit_cc_test
 from .emit_cc import handle_cc_common_options
 from .evaluation import EvaluationState
 from .package import Visibility
-from .starlark.bazel_globals import register_native_build_rule
+from .starlark.bazel_build_file import register_native_build_rule
 from .starlark.bazel_target import TargetId
 from .starlark.invocation_context import InvocationContext
 from .starlark.label import RelativeLabel

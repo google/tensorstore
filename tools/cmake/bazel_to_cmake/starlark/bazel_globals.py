@@ -15,7 +15,7 @@
 
 # pylint: disable=invalid-name,missing-function-docstring,relative-beyond-top-level,g-importing-member
 
-from typing import Dict, Optional, Tuple, Type, TypeVar
+from typing import Dict, Optional, Tuple, Type
 
 from .bazel_target import parse_absolute_target
 from .bazel_target import TargetId
@@ -24,12 +24,7 @@ from .dict_polyfill import DictWithUnion
 from .invocation_context import InvocationContext
 from .label import Label
 from .label import RelativeLabel
-from .provider import provider
-from .select import Select
 from .struct import Struct
-
-
-T = TypeVar("T")
 
 
 class BazelGlobals(dict):
@@ -54,7 +49,7 @@ class BazelGlobals(dict):
     self._path = path
 
   def __missing__(self, key):
-    func = getattr(self, f"bazel_{key}")
+    func = getattr(self, f'bazel_{key}')
     if func is not None:
       return func
     raise KeyError
@@ -80,7 +75,7 @@ class BazelGlobals(dict):
       self[key] = library[value]
 
   def bazel_fail(self, *args):
-    raise ValueError(" ".join([str(x) for x in args]))
+    raise ValueError(' '.join([str(x) for x in args]))
 
   bazel_all = staticmethod(all)  # type: ignore[not-callable]
   bazel_any = staticmethod(any)  # type: ignore[not-callable]
@@ -116,73 +111,11 @@ class BazelGlobals(dict):
   bazel_struct = staticmethod(Struct)  # type: ignore[not-callable]
 
 
-class BazelNativeWorkspaceRules:
-  """Defines the `native` global accessible when evaluating workspace files."""
-
-  def __init__(self, context: InvocationContext):
-    self._context = context
-
-  def bind(self, *args, **kwargs):
-    pass
-
-
-class BazelWorkspaceGlobals(BazelGlobals):
-  """Globals for WORKSPACE file and .bzl libraries loaded from the WORKSPACE."""
-
-  def bazel_workspace(self, *args, **kwargs):
-    pass
-
-  def bazel_register_toolchains(self, *args, **kwargs):
-    pass
-
-  @property
-  def bazel_native(self):
-    return BazelNativeWorkspaceRules(self._context)
-
-
-class BazelNativeBuildRules:
-  """Defines the `native` global accessible when evaluating build files."""
-
-  def __init__(self, context: InvocationContext):
-    self._context = context
-
-
-class CcCommonModule:
-  do_not_use_tools_cpp_compiler_present = True
-
-
-class BuildFileLibraryGlobals(BazelGlobals):
-  """Global scope used for .bzl libraries loaded from BUILD files."""
-
-  @property
-  def bazel_native(self):
-    return BazelNativeBuildRules(self._context)
-
-  def bazel_select(self, conditions: Dict[RelativeLabel, T]) -> Select[T]:
-    return Select({
-        self._context.resolve_target_or_label(condition): value
-        for condition, value in conditions.items()
-    })
-
-  bazel_provider = staticmethod(provider)
-
-  @property
-  def bazel_cc_common(self):
-    return CcCommonModule
-
-
-class BuildFileGlobals(BuildFileLibraryGlobals):
-  """Global scope used for BUILD files themselves."""
-
-  def bazel_licenses(self, *args, **kwargs):
-    pass
-
-
 _BZL_LIBRARIES: Dict[Tuple[TargetId, bool], Type[BazelGlobals]] = {}
 
 
 def get_bazel_library(
-    key: Tuple[TargetId, bool]
+    key: Tuple[TargetId, bool],
 ) -> Optional[Type[BazelGlobals]]:
   """Returns the target library, if registered."""
   return _BZL_LIBRARIES.get(key)
@@ -201,27 +134,3 @@ def register_bzl_library(
     return library
 
   return register
-
-
-def register_native_build_rule(impl):
-  name = impl.__name__
-
-  def wrapper(self, *args, **kwargs):
-    self._context.record_rule_location(name)  # pylint: disable=protected-access
-    return impl(self._context, *args, **kwargs)  # pylint: disable=protected-access
-
-  setattr(BazelNativeBuildRules, name, wrapper)
-  setattr(BuildFileGlobals, f"bazel_{name}", wrapper)
-  return impl
-
-
-def register_native_workspace_rule(impl):
-  name = impl.__name__
-
-  def wrapper(self, *args, **kwargs):
-    self._context.record_rule_location(name)  # pylint: disable=protected-access
-    return impl(self._context, *args, **kwargs)  # pylint: disable=protected-access
-
-  setattr(BazelNativeWorkspaceRules, name, wrapper)
-  setattr(BazelWorkspaceGlobals, f"bazel_{name}", wrapper)
-  return impl

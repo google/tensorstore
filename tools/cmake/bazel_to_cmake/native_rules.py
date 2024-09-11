@@ -27,8 +27,8 @@ from typing import Dict, List, Optional
 from .evaluation import EvaluationState
 from .package import Visibility
 from .starlark import rule  # pylint: disable=unused-import
+from .starlark.bazel_build_file import register_native_build_rule
 from .starlark.bazel_glob import glob as starlark_glob
-from .starlark.bazel_globals import register_native_build_rule
 from .starlark.bazel_target import TargetId
 from .starlark.common_providers import ConditionProvider
 from .starlark.invocation_context import InvocationContext
@@ -42,8 +42,20 @@ def repository_name(self: InvocationContext):
 
 
 @register_native_build_rule
+def repo_name(self: InvocationContext):
+  return self.caller_package_id.repository_name
+
+
+@register_native_build_rule
 def package_name(self: InvocationContext):
   return self.caller_package_id.package_name
+
+
+@register_native_build_rule
+def package_group(self: InvocationContext, **kwargs):
+  del self
+  del kwargs
+  pass
 
 
 @register_native_build_rule
@@ -57,13 +69,6 @@ def package(
     self.access(Visibility).set_default_visibility(
         self.resolve_target_or_label_list(default_visibility)
     )
-
-
-@register_native_build_rule
-def package_group(self: InvocationContext, **kwargs):
-  del self
-  del kwargs
-  pass
 
 
 @register_native_build_rule
@@ -214,13 +219,6 @@ def _platform_impl(
   _context.add_analyzed_target(
       _target, TargetInfo(ConditionProvider(evaluated_condition))
   )
-
-
-@register_native_build_rule
-def exports_files(self: InvocationContext, *args, **kwargs):
-  del self
-  del args
-  del kwargs
 
 
 @register_native_build_rule

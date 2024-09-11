@@ -23,7 +23,7 @@ from .cmake_target import CMakeLibraryTargetProvider
 from .cmake_target import CMakeTarget
 from .cmake_target import CMakeTargetPair
 from .evaluation import EvaluationState
-from .starlark.bazel_globals import register_native_build_rule
+from .starlark.bazel_build_file import register_native_build_rule
 from .starlark.bazel_target import TargetId
 from .starlark.invocation_context import InvocationContext
 from .starlark.label import RelativeLabel
