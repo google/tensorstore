@@ -26,6 +26,10 @@ def repo():
         ],
         sha256 = "6c72b4d43cd11c8cfd966dbe293cd7f11a3e4e2e08408861b49198dc50b447c3",
         strip_prefix = "brotli-39bcecf4559f9b0e75c6248a75d9c0db6b123d88",
+        patches = [
+            Label("//third_party:com_google_brotli/patches/fix_ror.diff"),
+        ],
+        patch_args = ["-p1"],
         system_build_file = Label("//third_party:com_google_brotli/system.BUILD.bazel"),
         cmake_name = "Brotli",
         bazel_to_cmake = {},
