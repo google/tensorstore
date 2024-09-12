@@ -12,11 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# buildifier: disable=module-docstring
+
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load(
-    "//third_party:repo.bzl",
-    "third_party_http_archive",
-)
+load("//third_party:repo.bzl", "third_party_http_archive")
 
 # REPO_BRANCH = main
 
@@ -24,11 +23,12 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_googletest",
-        urls = ["https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/google/googletest/archive/a798c2f10200b6293a5cc236b5f41b26c1ae7378.zip"],  # main(2023-03-07)
-        sha256 = "65789e4fd5bb28ca6a87667ca9f7eea923f82c8c7e48d6677e06b74504720c84",
-        strip_prefix = "googletest-a798c2f10200b6293a5cc236b5f41b26c1ae7378",
+        urls = ["https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/google/googletest/archive/0953a17a4281fc26831da647ad3fcd5e21e6473b.zip"],  # main(2024-09-10)
+        sha256 = "374cf3b88504f141a0da1058d8bb2cefbcd2f952037b3fc7909d6360785095e4",
+        strip_prefix = "googletest-0953a17a4281fc26831da647ad3fcd5e21e6473b",
         repo_mapping = {
-            "@com_googlesource_code_re2": "@com_google_re2",
+            "@re2": "@com_google_re2",
+            "@abseil-cpp": "@com_google_absl",
         },
         cmake_name = "GTest",
         bazel_to_cmake = {

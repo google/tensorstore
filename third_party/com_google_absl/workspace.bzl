@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# buildifier: disable=module-docstring
+
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load("//third_party:repo.bzl", "third_party_http_archive")
 
@@ -21,11 +23,11 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_absl",
-        strip_prefix = "abseil-cpp-20240116.2",
+        strip_prefix = "abseil-cpp-20240722.0",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/abseil/abseil-cpp/archive/20240116.2.tar.gz",  # lts_2024_01_16(2023-09-19)
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/abseil/abseil-cpp/archive/20240722.0.tar.gz",  # lts_2024_01_16(2023-09-19)
         ],
-        sha256 = "733726b8c3a6d39a4120d7e45ea8b41a434cdacde401cba500f14236c49b39dc",
+        sha256 = "f50e5ac311a81382da7fa75b97310e4b9006474f9560ac46f54a9967f07d4ae3",
         cmake_name = "absl",
         cmake_target_mapping = ABSL_CMAKE_MAPPING,
         cmake_settings = {
