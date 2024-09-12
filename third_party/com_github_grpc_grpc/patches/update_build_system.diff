@@ -142,3 +142,14 @@ diff -Nur a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
          "size": size,
          "timeout": timeout,
          "exec_compatible_with": exec_compatible_with,
+diff -Nur a/src/core/BUILD b/src/core/BUILD
+--- a/src/core/BUILD	2024-04-25 23:05:05
++++ b/src/core/BUILD	2024-09-11 21:53:08
+@@ -2493,6 +2493,7 @@
+         "absl/container:flat_hash_map",
+         "absl/strings",
+         "absl/strings:str_format",
++        "absl/status",
+     ],
+     deps = [
+         "event_engine_common",
