@@ -1,9 +1,9 @@
 diff -Nur a/BUILD.bazel b/BUILD.bazel
---- a/BUILD.bazel	2023-08-31 05:16:50
-+++ b/BUILD.bazel	2024-05-07 00:24:32
-@@ -25,6 +25,13 @@
+--- a/BUILD.bazel
++++ b/BUILD.bazel
+@@ -42,6 +42,13 @@
  )
- 
+
  config_setting(
 +    name = "mingw-gcc",
 +    flag_values = {
@@ -15,13 +15,13 @@ diff -Nur a/BUILD.bazel b/BUILD.bazel
      name = "perfcounters",
      define_values = {
          "pfm": "1",
-@@ -48,6 +55,9 @@
+@@ -77,6 +84,9 @@
      linkopts = select({
          ":windows": ["-DEFAULTLIB:shlwapi.lib"],
          "//conditions:default": ["-pthread"],
 +    }) + select({
-+        ":mingw-gcc": ["-lshlwapi"],
++       ":mingw-gcc": ["-lshlwapi"],
 +        "//conditions:default": [],
      }),
-     copts = select({
-         ":windows": [],
+     # Only static linking is allowed; no .so will be produced.
+     # Using `defines` (i.e. not `local_defines`) means that no

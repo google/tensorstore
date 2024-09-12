@@ -12,21 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# buildifier: disable=module-docstring
+
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load(
-    "//third_party:repo.bzl",
-    "third_party_http_archive",
-)
+load("//third_party:repo.bzl", "third_party_http_archive")
 
 def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_snappy",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/google/snappy/archive/52820ea9c6cb0af6ebe4920f806dbfbb0de9eaab.tar.gz",  # main(2024-04-10)
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/google/snappy/archive/32ded457c0b1fe78ceb8397632c416568d6714a0.tar.gz",  # main(2024-09-10)
         ],
-        sha256 = "eb9aa0369f9e74dfa28c64a03bd3c6663a17a9ffc9e2d80e94f0a3f0f2a37342",
-        strip_prefix = "snappy-52820ea9c6cb0af6ebe4920f806dbfbb0de9eaab",
+        sha256 = "677d1dd8172bac1862e6c8d7bbe1fe9fb2320cfd11ee04756b1ef8b3699c6135",
+        strip_prefix = "snappy-32ded457c0b1fe78ceb8397632c416568d6714a0",
         build_file = Label("//third_party:com_google_snappy/snappy.BUILD.bazel"),
         system_build_file = Label("//third_party:com_google_snappy/system.BUILD.bazel"),
         cmake_name = "Snappy",
