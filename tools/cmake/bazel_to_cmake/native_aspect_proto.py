@@ -41,6 +41,7 @@ import pathlib
 from typing import Callable, List, NamedTuple, Optional, Protocol, Tuple
 
 from .cmake_builder import CMakeBuilder
+from .cmake_target import CMakeDepsProvider
 from .cmake_target import CMakeLibraryTargetProvider
 from .cmake_target import CMakeTarget
 from .emit_cc import emit_cc_library
@@ -105,47 +106,38 @@ def _get_proto_output_dir(
     _context: InvocationContext,
     out_hash: Optional[str],
     strip_import_prefix: Optional[str],
-) -> str:
+) -> pathlib.PurePath:
   """Construct the output path for the proto compiler.
 
   This is typically a path relative to ${PROJECT_BINARY_DIR} where the
   protocol compiler will output copied protos.
   """
-  output_dir = "${PROJECT_BINARY_DIR}"
+  output_dir = pathlib.PurePath("")
   if out_hash:
-    output_dir = output_dir + f"/{out_hash}"
+    output_dir = pathlib.PurePath(out_hash)
   if strip_import_prefix is not None:
-    relative_package_path = pathlib.PurePosixPath(
-        _context.caller_package_id.package_name
-    )
     include_path = str(
-        relative_package_path.joinpath(
-            pathlib.PurePosixPath(strip_import_prefix)
+        pathlib.PurePosixPath(_context.caller_package_id.package_name).joinpath(
+            strip_import_prefix
         )
     )
     if include_path[0] == "/":
       include_path = include_path[1:]
-    output_dir = output_dir + f"/{include_path}"
+    output_dir = output_dir.joinpath(include_path)
   return output_dir
 
 
 def btc_protobuf(
     _context: InvocationContext,
     cmake_name: CMakeTarget,
-    proto_library_target: TargetId,
+    proto_cmake_target: CMakeTarget,
     plugin_settings: PluginSettings,
     *,
     cmake_deps: List[CMakeTarget],
     flags: Optional[List[str]] = None,
-    out_hash: Optional[str] = None,
+    output_dir: Optional[pathlib.PurePath] = None,
 ) -> str:
   """Generate text to invoke btc_protobuf for a single target."""
-
-  target_info = _context.get_target_info(proto_library_target)
-  proto_cmake_target = target_info.get(CMakeLibraryTargetProvider).target
-
-  proto_info = target_info.get(ProtoLibraryProvider)
-  assert proto_info is not None
 
   state = _context.access(EvaluationState)
 
@@ -173,9 +165,10 @@ def btc_protobuf(
 
   # Construct the output path. This is also the target include dir.
   # ${PROJECT_BINARY_DIR}
-  output_dir = _get_proto_output_dir(
-      _context, out_hash, proto_info.strip_import_prefix
-  )
+  if output_dir:
+    output_dir = f"${{PROJECT_BINARY_DIR}}/{output_dir.as_posix()}"
+  else:
+    output_dir = "${PROJECT_BINARY_DIR}"
 
   plugin_flags = ""
   if flags:
@@ -221,7 +214,7 @@ def aspect_genproto_library_target(
     *,
     target: TargetId,
     proto_target: TargetId,
-    plugin: PluginSettings,
+    plugin_settings: PluginSettings,
     aspect_dependency: Callable[[TargetId], TargetId],
     extra_deps: Optional[List[TargetId]] = None,
 ):
@@ -234,63 +227,19 @@ def aspect_genproto_library_target(
       target.repository_id == proto_target.repository_id
       or _context.caller_package_id.repository_id == target.repository_id
   ):
-    target_info = state.get_target_info(proto_target)
+    proto_target_info = state.get_target_info(proto_target)
   else:
-    target_info = state.get_optional_target_info(proto_target)
+    proto_target_info = state.get_optional_target_info(proto_target)
 
   # This library could already have been constructed.
   if state.get_optional_target_info(target) is not None:
     return
 
-  # Get our cmake name; proto libraries need aliases to be referenced
-  # from other source trees.
-  cmake_target_pair = state.generate_cmake_target_pair(target)
-
-  cc_deps: List[CMakeTarget] = []
-  cmake_deps: List[CMakeTarget] = []
-  import_target: Optional[CMakeTarget] = None
-  proto_src_files: List[str] = []
-
-  # Resolve extra deps first.
-  if extra_deps is not None:
-    cc_deps.extend(state.get_deps(extra_deps))
-
-  # Run genproto on each dependency.
-  proto_info = target_info.get(ProtoLibraryProvider) if target_info else None
-  if proto_info is not None:
-    for dep in sorted(proto_info.deps):
-      cc_deps.append(get_aspect_dep(_context, aspect_dependency(dep)))
-
-    # NOTE: Consider using generator expressions to add to the library target.
-    # Something like  $<TARGET_PROPERTY:target,INTERFACE_SOURCES>
-    for src in proto_info.srcs:
-      proto_src_files.extend(state.get_file_paths(src, cmake_deps))
-
-    import_target = cmake_target_pair.target
-
-  # ... It may be exported as a FilesProvider instead.
-  files_info = (
-      target_info.get(FilesProvider)
-      if target_info is not None and import_target is None
-      else None
-  )
-  if files_info is not None:
-    for src in files_info.paths:
-      if src.endswith(".proto"):
-        proto_src_files.extend(state.get_file_paths(src, cmake_deps))
-
-    if proto_src_files:
-      import_target = cmake_target_pair.target
-
-  provider = (
-      target_info.get(CMakeLibraryTargetProvider)
-      if target_info is not None and import_target is None
-      else None
-  )
-  if provider:
-    import_target = provider.target
-
-  if import_target is None:
+  if not proto_target_info or (
+      proto_target_info.get(ProtoLibraryProvider) is None
+      and proto_target_info.get(CMakeLibraryTargetProvider) is None
+      and proto_target_info.get(FilesProvider) is None
+  ):
     # This target is not available; construct an ephemeral reference.
     print(
         f"Blind reference to {target.as_label()} for"
@@ -298,31 +247,94 @@ def aspect_genproto_library_target(
     )
     return
 
-  proto_src_files = sorted(set(proto_src_files))
+  proto_provider = proto_target_info.get(ProtoLibraryProvider)
+  assert proto_provider is not None
 
+  # Resolve extra deps first.
+  cc_deps: List[CMakeTarget] = []
+  if extra_deps is not None:
+    cc_deps.extend(state.get_deps(extra_deps))
+  for dep in plugin_settings.runtime:
+    cc_deps.extend(state.get_dep(dep))
+  for dep in sorted(proto_provider.deps):
+    cc_deps.append(get_aspect_dep(_context, aspect_dependency(dep)))
+
+  # Get our cmake name; proto libraries need aliases to be referenced
+  # from other source trees.
+  cmake_target_pair = state.generate_cmake_target_pair(target)
+
+  # NOTE: Consider using generator expressions to add to the library target.
+  # Something like  $<TARGET_PROPERTY:target,INTERFACE_SOURCES>
+  cmake_deps: List[CMakeTarget] = []
+  proto_src_files: List[str] = state.get_file_paths(
+      proto_provider.srcs, cmake_deps
+  )
+  import_target = cmake_target_pair.target
+
+  proto_src_files = sorted(set(proto_src_files))
   if not proto_src_files and not cc_deps and not import_target:
     raise ValueError(
         f"Proto generation failed: {target.as_label()} no inputs for"
         f" {proto_target.as_label()}"
     )
 
-  out_hash = hashlib.sha1(proto_target.as_label().encode("utf-8")).hexdigest()[
-      :8
-  ]
+  # Construct the output path. This is also the target include dir.
+  # ${PROJECT_BINARY_DIR}
+  hash_id = proto_target.as_label()
+  hash_prefix = hashlib.sha1(hash_id.encode("utf-8")).hexdigest()[:8]
+  output_dir = _get_proto_output_dir(
+      _context,
+      hash_prefix,
+      proto_provider.strip_import_prefix,
+  )
+  assert not output_dir or str(output_dir)[0] != "/"
 
+  # For the input protos, if known, generate the output files.
+  # This also adds an "alias", or rather, a mapping to the generated file
+  # path for the generated target, which just happens to be in a separate
+  # directory.
+  repo = state.workspace.all_repositories.get(
+      _context.caller_package_id.repository_id
+  )
+
+  # Emit the generated files.
+  generated_paths = []
+  for src in proto_provider.srcs:
+    assert src.target_name.endswith(
+        ".proto"
+    ), f"{src.as_label()} must end in .proto"
+    target_name = src.target_name.removesuffix(".proto")
+    for ext in plugin_settings.exts:
+      generated_target = src.get_target_id(f"{target_name}{ext}")
+      generated_path = generated_target.as_rooted_path(
+          repo.cmake_binary_dir.joinpath(output_dir)
+      )
+      _context.add_analyzed_target(
+          generated_target,
+          TargetInfo(
+              FilesProvider([str(generated_path)]),
+              CMakeDepsProvider([cmake_target_pair.target]),
+          ),
+      )
+      generated_paths.append(generated_path)
+  _context.add_analyzed_target(
+      target,
+      TargetInfo(
+          *cmake_target_pair.as_providers(), FilesProvider(generated_paths)
+      ),
+  )
+
+  # Emit.
   btc_protobuf_txt = ""
   if proto_src_files:
     btc_protobuf_txt = btc_protobuf(
         _context,
         cmake_target_pair.target,
-        proto_target,
-        plugin,
+        proto_target_info.get(CMakeLibraryTargetProvider).target,
+        plugin_settings,
         cmake_deps=cmake_deps.copy(),
-        out_hash=out_hash,
+        output_dir=output_dir,
     )
-
-  for dep in plugin.runtime:
-    cc_deps.extend(state.get_dep(dep))
 
   builder = _context.access(CMakeBuilder)
   builder.addtext(f"\n# {target.as_label()}")
@@ -336,6 +348,3 @@ def aspect_genproto_library_target(
       includes=[],
   )
   builder.addtext(btc_protobuf_txt)
-  _context.add_analyzed_target(
-      target, TargetInfo(*cmake_target_pair.as_providers())
-  )

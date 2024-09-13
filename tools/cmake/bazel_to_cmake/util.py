@@ -18,16 +18,18 @@ import json
 import os
 import pathlib
 import re
-from typing import Iterable, List, Optional, Sequence, Set, Tuple, TypeVar, Union
+from typing import Any, Iterable, List, Optional, Sequence, Tuple, TypeVar, Union
 
 from .starlark.bazel_glob import glob_pattern_to_regexp
 
-PathLike = TypeVar("PathLike", str, pathlib.Path, pathlib.PurePath, None)
+PathLike = TypeVar(
+    "PathLike", str, pathlib.Path, pathlib.PurePath, pathlib.PurePosixPath
+)
 
 PathSequence = Union[
     Sequence[PathLike],
     Iterable[PathLike],
-    Set[PathLike],
+    set[PathLike],
 ]
 
 
@@ -75,40 +77,18 @@ def is_relative_to(
   return other == leaf or other in leaf.parents
 
 
-def map_path_prefixes(
-    paths: List[Union[str, pathlib.PurePath]],
-    mappings: List[Tuple[pathlib.PurePath, str]],
-) -> List[pathlib.PurePath]:
-  """For each path, if the prefix is in mapping, converts it to a relative path."""
+def make_relative_path(p: PathLike, *target) -> Tuple[Any, pathlib.PurePath]:
 
-  def _get_mapping(
-      path: pathlib.PurePath,
-      mapping_directory: pathlib.PurePath,
-      mapping_prefix: str,
-  ) -> Optional[pathlib.PurePath]:
-    if is_relative_to(path, mapping_directory):
-      return pathlib.PurePath(
-          f"{mapping_prefix}{path.relative_to(mapping_directory).as_posix()}"
-      )
-    return None
-
-  result: List[pathlib.PurePath] = []
-  for p in paths:
-    if isinstance(p, str):
-      p = pathlib.PurePath(p)
-
-    mapped_p = None
-    for mapping_directory, mapping_prefix in mappings:
-      mapped_p = _get_mapping(p, mapping_directory, mapping_prefix)
-      if mapped_p is not None:
-        break
-
-    if mapped_p is not None:
-      result.append(mapped_p)
-    else:
-      result.append(p)
-
-  return result
+  if not isinstance(p, pathlib.PurePath):
+    p = pathlib.PurePath(p)
+  i = 0
+  for item in target:
+    (i, x) = item
+    if not isinstance(x, pathlib.PurePath):
+      x = pathlib.PurePath(x)
+    if is_relative_to(p, x):
+      return (i, p.relative_to(x))
+  return (None, p)
 
 
 def write_file_if_not_already_equal(path: pathlib.PurePath, content: bytes):
@@ -219,7 +199,7 @@ def get_matching_build_files(
       + ")"
   )
 
-  build_file_set: Set[str] = set()
+  build_file_set: set[str] = set()
   for pattern in include_patterns:
     for build_filename in glob.iglob(root_prefix + pattern, recursive=True):
       path = pathlib.PurePath(build_filename)

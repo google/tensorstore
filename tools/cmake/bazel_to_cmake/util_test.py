@@ -18,7 +18,7 @@ import pathlib
 
 from .util import cmake_is_true
 from .util import is_relative_to
-from .util import map_path_prefixes
+from .util import make_relative_path
 from .util import quote_list
 from .util import quote_path_list
 
@@ -73,27 +73,34 @@ def test_is_relative_to():
   assert not is_relative_to(root, leaf, _use_attr=False)
 
 
-def test_map_path_prefixes():
+def test_relative_path():
 
-  assert map_path_prefixes(
-      [
+  assert [
+      make_relative_path(
+          x,
+          (1, pathlib.PurePath("/foo/bindir")),
+          (2, pathlib.PurePath("/foo/srcdir")),
+          (3, pathlib.PurePath("/bar")),
+      )
+      for x in [
           pathlib.PurePath("/foo/bar"),
           pathlib.PurePath("/foo/bar/baz"),
-          "/foo/bindir/baz/blah",
-          "/foo/bindir/baz/xyz",
-          "/foo/srcdir/baz/blah",
-          "/foo/srcdir/baz/xyz",
-      ],
-      [
-          (pathlib.PurePath("/foo/bindir"), "${CMAKE_BINDIR}/"),
-          (pathlib.PurePath("/foo/srcdir"), ""),
-          (pathlib.PurePath("/bar"), "{BAR}"),
-      ],
-  ) == [
-      pathlib.PurePath("/foo/bar"),
-      pathlib.PurePath("/foo/bar/baz"),
-      pathlib.PurePath("${CMAKE_BINDIR}/baz/blah"),
-      pathlib.PurePath("${CMAKE_BINDIR}/baz/xyz"),
-      pathlib.PurePath("baz/blah"),
-      pathlib.PurePath("baz/xyz"),
+          pathlib.PurePath("/foo/bindir/baz/blah"),
+          pathlib.PurePath("/foo/bindir/baz/xyz"),
+          pathlib.PurePath("/foo/srcdir/baz/blah"),
+          pathlib.PurePath("/foo/srcdir/baz/xyz"),
+          pathlib.PurePath("/barb"),
+          pathlib.PurePath("bar"),
+          pathlib.PurePath("/bar/b"),
+      ]
+  ] == [
+      (None, pathlib.PurePath("/foo/bar")),
+      (None, pathlib.PurePath("/foo/bar/baz")),
+      (1, pathlib.PurePath("baz/blah")),
+      (1, pathlib.PurePath("baz/xyz")),
+      (2, pathlib.PurePath("baz/blah")),
+      (2, pathlib.PurePath("baz/xyz")),
+      (None, pathlib.PurePath("/barb")),
+      (None, pathlib.PurePath("bar")),
+      (3, pathlib.PurePath("b")),
   ]

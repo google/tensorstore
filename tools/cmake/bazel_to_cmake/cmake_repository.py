@@ -26,9 +26,14 @@ from .cmake_target import CMakeTargetPair
 from .starlark.bazel_target import apply_repo_mapping
 from .starlark.bazel_target import RepositoryId
 from .starlark.bazel_target import TargetId
+from .util import make_relative_path
+from .util import PathSequence
 
 _SPLIT_RE = re.compile("[:/]+")
 _BIG = 35
+
+PROJECT_SOURCE_DIR = "${PROJECT_SOURCE_DIR}"
+PROJECT_BINARY_DIR = "${PROJECT_BINARY_DIR}"
 
 
 class CMakeRepository(NamedTuple):
@@ -86,6 +91,23 @@ class CMakeRepository(NamedTuple):
   ) -> Optional[CMakeTargetPair]:
     assert target_id.repository_id == self.repository_id
     return self.persisted_canonical_name.get(target_id, None)
+
+  def replace_with_cmake_macro_dirs(self, paths: PathSequence) -> List[str]:
+    """Substitute reposotory path prefixes with CMake PROJECT_{*}_DIR macros."""
+    result: list[str] = []
+    for x in paths:
+      (c, relative_path) = make_relative_path(
+          x,
+          (PROJECT_SOURCE_DIR, self.source_directory),
+          (PROJECT_BINARY_DIR, self.cmake_binary_dir),
+      )
+      if c is None:
+        result.append(str(relative_path))
+      elif relative_path.as_posix() == ".":
+        result.append(c)
+      else:
+        result.append(f"{c}/{relative_path.as_posix()}")
+    return result
 
 
 def make_repo_mapping(

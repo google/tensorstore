@@ -11,7 +11,7 @@ target_include_directories(CMakeProject_bb PRIVATE
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_bb PUBLIC cxx_std_17)
 target_sources(CMakeProject_bb PRIVATE
-        "${TEST_DIRECTORY}/a.cc")
+        "${PROJECT_SOURCE_DIR}/a.cc")
 
 # filegroup(@native_rules_test_repo//:subdir_z)
 add_library(CMakeProject_subdir_z INTERFACE)
@@ -54,7 +54,7 @@ target_include_directories(CMakeProject_a PRIVATE
 target_compile_features(CMakeProject_a PUBLIC cxx_std_17)
 add_dependencies(CMakeProject_a "CMakeProject_h_file")
 target_sources(CMakeProject_a PRIVATE
-        "${TEST_DIRECTORY}/a.cc")
+        "${PROJECT_SOURCE_DIR}/a.cc")
 add_library(CMakeProject::a ALIAS CMakeProject_a)
 
 # alias(@native_rules_test_repo//:a_alias)
@@ -64,7 +64,7 @@ add_library(CMakeProject::a_alias ALIAS CMakeProject_a)
 # proto_library(@native_rules_test_repo//:c_proto)
 add_library(CMakeProject_c_proto INTERFACE)
 target_sources(CMakeProject_c_proto INTERFACE
-        "${TEST_DIRECTORY}/c.proto")
+        "${PROJECT_SOURCE_DIR}/c.proto")
 target_link_libraries(CMakeProject_c_proto INTERFACE
         "Protobuf_timestamp_proto")
 target_include_directories(CMakeProject_c_proto INTERFACE
@@ -110,13 +110,13 @@ target_include_directories(CMakeProject_a_test PRIVATE
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_a_test PUBLIC cxx_std_17)
 target_sources(CMakeProject_a_test PRIVATE
-        "${TEST_DIRECTORY}/a.cc")
+        "${PROJECT_SOURCE_DIR}/a.cc")
 add_test(NAME CMakeProject_a_test COMMAND CMakeProject_a_test WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 # proto_library(@native_rules_test_repo//:c_proto_2)
 add_library(CMakeProject_c_proto_2 INTERFACE)
 target_sources(CMakeProject_c_proto_2 INTERFACE
-        "${TEST_DIRECTORY}/c.proto")
+        "${PROJECT_SOURCE_DIR}/c.proto")
 target_include_directories(CMakeProject_c_proto_2 INTERFACE
        "${PROJECT_SOURCE_DIR}")
 add_library(CMakeProject::c_proto_2 ALIAS CMakeProject_c_proto_2)
@@ -158,7 +158,7 @@ target_include_directories(CMakeProject_subdir_x PRIVATE
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_subdir_x PUBLIC cxx_std_17)
 target_sources(CMakeProject_subdir_x PRIVATE
-        "${TEST_DIRECTORY}/subdir/x.cc")
+        "${PROJECT_SOURCE_DIR}/subdir/x.cc")
 add_library(CMakeProject::subdir_x ALIAS CMakeProject_subdir_x)
 
 # genrule(@native_rules_test_repo//subdir:make_ycc)
@@ -215,7 +215,7 @@ target_include_directories(CMakeProject_subdir_y PRIVATE
 target_compile_features(CMakeProject_subdir_y PUBLIC cxx_std_17)
 add_dependencies(CMakeProject_subdir_y "CMakeProject_subdir_make_y" "CMakeProject_subdir_make_ycc")
 target_sources(CMakeProject_subdir_y PRIVATE
-        "_cmake_binary_dir_/subdir/y.cc")
+        "${PROJECT_BINARY_DIR}/subdir/y.cc")
 add_library(CMakeProject::subdir_y ALIAS CMakeProject_subdir_y)
 
 # alias(@native_rules_test_repo//:y_alias)
@@ -236,7 +236,7 @@ target_include_directories(CMakeProject_subdir_y_include_prefix PRIVATE
 target_compile_features(CMakeProject_subdir_y_include_prefix PUBLIC cxx_std_17)
 add_dependencies(CMakeProject_subdir_y_include_prefix "CMakeProject_subdir_make_y" "CMakeProject_subdir_make_ycc")
 target_sources(CMakeProject_subdir_y_include_prefix PRIVATE
-        "_cmake_binary_dir_/subdir/y.cc")
+        "${PROJECT_BINARY_DIR}/subdir/y.cc")
 add_library(CMakeProject::subdir_y_include_prefix ALIAS CMakeProject_subdir_y_include_prefix)
 
 # cc_library(@native_rules_test_repo//subdir:y_includes)
@@ -255,7 +255,7 @@ target_include_directories(CMakeProject_subdir_y_includes PRIVATE
 target_compile_features(CMakeProject_subdir_y_includes PUBLIC cxx_std_17)
 add_dependencies(CMakeProject_subdir_y_includes "CMakeProject_subdir_make_y" "CMakeProject_subdir_make_ycc")
 target_sources(CMakeProject_subdir_y_includes PRIVATE
-        "_cmake_binary_dir_/subdir/y.cc")
+        "${PROJECT_BINARY_DIR}/subdir/y.cc")
 add_library(CMakeProject::subdir_y_includes ALIAS CMakeProject_subdir_y_includes)
 
 # cc_library(@native_rules_test_repo//subdir:y_strip_include_prefix)
@@ -273,13 +273,13 @@ target_include_directories(CMakeProject_subdir_y_strip_include_prefix PRIVATE
 target_compile_features(CMakeProject_subdir_y_strip_include_prefix PUBLIC cxx_std_17)
 add_dependencies(CMakeProject_subdir_y_strip_include_prefix "CMakeProject_subdir_make_y" "CMakeProject_subdir_make_ycc")
 target_sources(CMakeProject_subdir_y_strip_include_prefix PRIVATE
-        "_cmake_binary_dir_/subdir/y.cc")
+        "${PROJECT_BINARY_DIR}/subdir/y.cc")
 add_library(CMakeProject::subdir_y_strip_include_prefix ALIAS CMakeProject_subdir_y_strip_include_prefix)
 
 # proto_library(@native_rules_test_repo//subdir:z_proto)
 add_library(CMakeProject_subdir_z_proto INTERFACE)
 target_sources(CMakeProject_subdir_z_proto INTERFACE
-        "${TEST_DIRECTORY}/subdir/z.proto")
+        "${PROJECT_SOURCE_DIR}/subdir/z.proto")
 target_include_directories(CMakeProject_subdir_z_proto INTERFACE
        "${PROJECT_SOURCE_DIR}")
 add_library(CMakeProject::subdir_z_proto ALIAS CMakeProject_subdir_z_proto)
@@ -316,5 +316,5 @@ target_include_directories(CMakeProject_defines PRIVATE
 target_compile_features(CMakeProject_defines PUBLIC cxx_std_17)
 add_dependencies(CMakeProject_defines "CMakeProject_h_file")
 target_sources(CMakeProject_defines PRIVATE
-        "${TEST_DIRECTORY}/a.cc")
+        "${PROJECT_SOURCE_DIR}/a.cc")
 add_library(CMakeProject::defines ALIAS CMakeProject_defines)

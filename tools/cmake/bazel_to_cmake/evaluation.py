@@ -76,7 +76,7 @@ import functools
 import inspect
 import os
 import pathlib
-from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Set, Tuple, Type, TypeVar, cast
+from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Tuple, Type, TypeVar, cast
 
 from . import cmake_builder
 from .cmake_builder import CMakeBuilder
@@ -143,19 +143,19 @@ class EvaluationState:
         self.active_repo.top_level
         and cmake_is_true(self.workspace.cmake_vars["PROJECT_IS_TOP_LEVEL"])
     )
-    self.loaded_files: Set[str] = set()
+    self.loaded_files: set[str] = set()
     self._loaded_libraries: Dict[Tuple[TargetId, bool], Dict[str, Any]] = dict()
     self._wrote_placeholder_source = False
     self.errors: List[str] = []
     # Track CMakePackage dependencies.
-    self._required_dep_packages: Set[CMakePackage] = set()
+    self._required_dep_packages: set[CMakePackage] = set()
     # Track CMakeTargetPair dependencies
     self._required_dep_targets: Dict[TargetId, CMakeTargetPair] = {}
     # Maps targets to their rules.
-    self._unanalyzed_rules: Set[TargetId] = set()
+    self._unanalyzed_rules: set[TargetId] = set()
     self._all_rules: Dict[TargetId, RuleInfo] = {}
     self._unanalyzed_targets: Dict[TargetId, TargetId] = {}
-    self._targets_to_analyze: Set[TargetId] = set()
+    self._targets_to_analyze: set[TargetId] = set()
     self._analyzed_targets: Dict[TargetId, TargetInfo] = {}
     self._call_after_workspace_loading = collections.deque()
     self._call_after_analysis = collections.deque()
@@ -298,22 +298,21 @@ class EvaluationState:
 
       # Is this a source file?
       source_path = self.get_source_file_path(target_id)
+      if source_path and os.path.isfile(source_path):
+        info = TargetInfo(FilesProvider([source_path.as_posix()]))
+        self.add_analyzed_target(target_id, info)
+        return info
+
+      if optional:
+        return None
       if source_path is None:
-        if optional:
-          return None
         raise ValueError(
             f"Error analyzing {target_id.as_label()}: Unknown repository"
         )
-      if not os.path.isfile(source_path):
-        if optional:
-          return None
-        raise ValueError(
-            f"Error analyzing {target_id.as_label()}: File not found"
-            f" {source_path}"
-        )
-      info = TargetInfo(FilesProvider([source_path.as_posix()]))
-      self.add_analyzed_target(target_id, info)
-      return info
+      raise ValueError(
+          f"Error analyzing {target_id.as_label()}: File not found"
+          f" {source_path}"
+      )
 
     # At this point a rule_info instance is expected.
     rule_info = self._all_rules.get(rule_id, None)
@@ -373,6 +372,7 @@ class EvaluationState:
     return repo.get_source_file_path(target_id)
 
   def get_generated_file_path(self, target_id: TargetId) -> pathlib.PurePath:
+    assert isinstance(target_id, TargetId)
     repo = self.workspace.all_repositories.get(target_id.repository_id)
     if repo is None:
       raise ValueError(
@@ -401,27 +401,21 @@ class EvaluationState:
 
   def get_file_paths(
       self,
-      target: TargetId,
-      custom_target_deps: Optional[List[CMakeTarget]],
-  ) -> List[str]:
-    info = self.get_target_info(target)
-    if custom_target_deps is not None:
-      cmake_info = info.get(CMakeDepsProvider)
-      if cmake_info is not None:
-        custom_target_deps.extend(cmake_info.targets)
-    files_provider = info.get(FilesProvider)
-    if files_provider is not None:
-      return files_provider.paths
-    raise ValueError(f"get_file_paths failed for {target} info {repr(info)}")
-
-  def get_targets_file_paths(
-      self,
       targets: Iterable[TargetId],
       custom_target_deps: Optional[List[CMakeTarget]] = None,
   ) -> List[str]:
     files = []
-    for target in targets:
-      files.extend(self.get_file_paths(target, custom_target_deps))
+    for t in targets:
+      info = self.get_target_info(t)
+      if custom_target_deps is not None:
+        cmake_info = info.get(CMakeDepsProvider)
+        if cmake_info is not None:
+          custom_target_deps.extend(cmake_info.targets)
+      files_provider = info.get(FilesProvider)
+      if files_provider is not None:
+        files.extend(files_provider.paths)
+      else:
+        raise ValueError(f"get_file_paths failed for {t} info {repr(info)}")
     return sorted(set(files))
 
   def _generate_cmake_target_pair_imp(

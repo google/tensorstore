@@ -25,9 +25,11 @@ https://github.com/bazelbuild/bazel/tree/master/src/main/starlark/builtins_bzl/c
 import io
 import pathlib
 import re
-from typing import List, Optional, cast, Set
+from typing import List, Optional, cast
 
 from .cmake_builder import CMakeBuilder
+from .cmake_repository import PROJECT_BINARY_DIR
+from .cmake_repository import PROJECT_SOURCE_DIR
 from .cmake_target import CMakeDepsProvider
 from .cmake_target import CMakeTarget
 from .evaluation import EvaluationState
@@ -40,7 +42,7 @@ from .starlark.label import RelativeLabel
 from .starlark.provider import Provider
 from .starlark.provider import TargetInfo
 from .starlark.select import Configurable
-from .util import is_relative_to
+from .util import make_relative_path
 from .util import quote_list
 from .util import quote_path_list
 from .util import quote_string
@@ -88,7 +90,7 @@ def _filegroup_impl(
   cmake_target_pair = state.generate_cmake_target_pair(_target, alias=False)
 
   cmake_deps: List[CMakeTarget] = []
-  srcs_files = state.get_targets_file_paths(resolved_srcs, cmake_deps)
+  srcs_files = state.get_file_paths(resolved_srcs, cmake_deps)
 
   # Also add an INTERFACE_LIBRARY in order to reference in compile targets.
   out = io.StringIO()
@@ -173,7 +175,7 @@ def _genrule_impl(
 
   # Add outputs with a dependency on this target.
   out_files: List[str] = []
-  out_dirs: Set[pathlib.PurePath] = set()
+  out_dirs: set[pathlib.PurePath] = set()
   for out_target in _out_targets:
     path = state.get_generated_file_path(out_target)
     if path.parent and path.parent != state.active_repo.cmake_binary_dir:
@@ -185,7 +187,7 @@ def _genrule_impl(
     )
 
   cmake_deps: List[CMakeTarget] = state.get_deps(resolved_tools)
-  src_files = state.get_targets_file_paths(resolved_srcs, cmake_deps)
+  src_files = state.get_file_paths(resolved_srcs, cmake_deps)
   cmake_deps.extend(cast(List[CMakeTarget], src_files))
 
   substitutions = generate_substitutions(
@@ -252,7 +254,7 @@ def _genrule_impl(
 _QUOTED_VAR = re.compile(r"(^[$]{[A-Z0-9_]+})|(^\"[$]{[A-Z0-9_]+}\")")
 
 
-def _emit_make_directory(out: io.StringIO, out_dirs: Set[pathlib.PurePath]):
+def _emit_make_directory(out: io.StringIO, out_dirs: set[pathlib.PurePath]):
   if out_dirs:
     out.write(f"file(MAKE_DIRECTORY {quote_path_list(sorted(out_dirs))})\n")
 
@@ -267,7 +269,7 @@ def _emit_filegroup(
 ):
   has_proto = False
   has_ch = False
-  includes: Set[str] = set()
+  includes: set[str] = set()
   for path in filegroup_files:
     has_proto = has_proto or path.endswith(".proto")
     has_ch = (
@@ -278,10 +280,13 @@ def _emit_filegroup(
         or path.endswith(".cc")
         or path.endswith(".inc")
     )
-    if is_relative_to(pathlib.PurePath(path), source_directory):
-      includes.add("${PROJECT_SOURCE_DIR}")
-    if is_relative_to(pathlib.PurePath(path), cmake_binary_dir):
-      includes.add("${PROJECT_BINARY_DIR}")
+    (c, _) = make_relative_path(
+        pathlib.PurePath(path),
+        (PROJECT_SOURCE_DIR, source_directory),
+        (PROJECT_BINARY_DIR, cmake_binary_dir),
+    )
+    if c is not None:
+      includes.add(c)
 
   sep = "\n    "
   quoted_includes = quote_list(sorted(includes), sep)

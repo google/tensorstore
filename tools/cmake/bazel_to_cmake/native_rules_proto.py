@@ -132,12 +132,11 @@ def _proto_library_impl(
   # Validate src properties: files ending in .proto within the same repo,
   # and add them to the proto_src_files.
   cmake_deps: List[CMakeTarget] = []
-  proto_src_files: List[str] = []
+  proto_src_files: List[str] = state.get_file_paths(resolved_srcs, cmake_deps)
   for proto in resolved_srcs:
     assert proto.target_name.endswith(".proto"), f"{proto} must end in .proto"
     # Verify that the source is in the same repository as the proto_library rule
     assert proto.repository_id == _target.repository_id
-    proto_src_files.extend(state.get_file_paths(proto, cmake_deps))
     maybe_set_import_var(proto)
 
   proto_src_files = sorted(set(proto_src_files))
@@ -163,11 +162,12 @@ def _proto_library_impl(
         f" import_prefix={import_prefix}."
     )
 
+  repo = state.workspace.all_repositories.get(_target.repository_id)
+  assert repo is not None
+
   # strip_import_prefix and import_prefix behave the same as for cc_library
   includes = construct_cc_includes(
-      state.workspace.all_repositories.get(
-          _context.caller_package_id.repository_id
-      ),
+      repo,
       _context.caller_package_id,
       includes=None,
       include_prefix=import_prefix,
@@ -179,15 +179,17 @@ def _proto_library_impl(
   if proto_src_files:
     assert includes
 
+  relative_src_files = repo.replace_with_cmake_macro_dirs(proto_src_files)
+
   out = io.StringIO()
   out.write(f"""
 # proto_library({_target.as_label()})
 add_library({cmake_target_pair.target} INTERFACE)
 """)
-  if proto_src_files:
+  if relative_src_files:
     out.write(
         f"target_sources({cmake_target_pair.target} INTERFACE"
-        f"{_SEP}{quote_path_list(proto_src_files, _SEP)})\n"
+        f"{_SEP}{quote_path_list(sorted(relative_src_files), _SEP)})\n"
     )
   if import_targets:
     out.write(

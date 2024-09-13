@@ -30,7 +30,7 @@ target_include_directories(CMakeProject_parent_a PUBLIC
 target_compile_features(CMakeProject_parent_a PUBLIC cxx_std_17)
 add_dependencies(CMakeProject_parent_a "CMakeProject_parent_c_inc")
 target_sources(CMakeProject_parent_a PRIVATE
-        "${TEST_DIRECTORY}/parent/child/a.cc")
+        "${PROJECT_SOURCE_DIR}/parent/child/a.cc")
 add_library(CMakeProject::parent_a ALIAS CMakeProject_parent_a)
 
 # cc_library(@cc_includes_test_repo//parent:a_dot)
@@ -48,7 +48,7 @@ target_include_directories(CMakeProject_parent_a_dot PRIVATE
 target_compile_features(CMakeProject_parent_a_dot PUBLIC cxx_std_17)
 add_dependencies(CMakeProject_parent_a_dot "CMakeProject_parent_c_inc")
 target_sources(CMakeProject_parent_a_dot PRIVATE
-        "${TEST_DIRECTORY}/parent/child/a.cc")
+        "${PROJECT_SOURCE_DIR}/parent/child/a.cc")
 add_library(CMakeProject::parent_a_dot ALIAS CMakeProject_parent_a_dot)
 
 # cc_library(@cc_includes_test_repo//parent:a_child)
@@ -64,7 +64,7 @@ target_include_directories(CMakeProject_parent_a_child PRIVATE
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_parent_a_child PUBLIC cxx_std_17)
 target_sources(CMakeProject_parent_a_child PRIVATE
-        "${TEST_DIRECTORY}/parent/child/a.cc")
+        "${PROJECT_SOURCE_DIR}/parent/child/a.cc")
 add_library(CMakeProject::parent_a_child ALIAS CMakeProject_parent_a_child)
 
 # cc_library(@cc_includes_test_repo//parent:a_parent)
@@ -82,7 +82,7 @@ target_include_directories(CMakeProject_parent_a_parent PRIVATE
 target_compile_features(CMakeProject_parent_a_parent PUBLIC cxx_std_17)
 add_dependencies(CMakeProject_parent_a_parent "CMakeProject_parent_c_inc")
 target_sources(CMakeProject_parent_a_parent PRIVATE
-        "${TEST_DIRECTORY}/parent/child/a.cc")
+        "${PROJECT_SOURCE_DIR}/parent/child/a.cc")
 add_library(CMakeProject::parent_a_parent ALIAS CMakeProject_parent_a_parent)
 
 # cc_library(@cc_includes_test_repo//parent:a_strip_child)
@@ -97,7 +97,7 @@ target_include_directories(CMakeProject_parent_a_strip_child PRIVATE
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_parent_a_strip_child PUBLIC cxx_std_17)
 target_sources(CMakeProject_parent_a_strip_child PRIVATE
-        "${TEST_DIRECTORY}/parent/child/a.cc")
+        "${PROJECT_SOURCE_DIR}/parent/child/a.cc")
 add_library(CMakeProject::parent_a_strip_child ALIAS CMakeProject_parent_a_strip_child)
 
 # cc_library(@cc_includes_test_repo//parent:a_strip_parent)
@@ -112,7 +112,7 @@ target_include_directories(CMakeProject_parent_a_strip_parent PUBLIC
 target_compile_features(CMakeProject_parent_a_strip_parent PUBLIC cxx_std_17)
 add_dependencies(CMakeProject_parent_a_strip_parent "CMakeProject_parent_c_inc")
 target_sources(CMakeProject_parent_a_strip_parent PRIVATE
-        "${TEST_DIRECTORY}/parent/child/a.cc")
+        "${PROJECT_SOURCE_DIR}/parent/child/a.cc")
 add_library(CMakeProject::parent_a_strip_parent ALIAS CMakeProject_parent_a_strip_parent)
 
 # cc_library(@cc_includes_test_repo//parent:a_prefix_child)
@@ -125,7 +125,7 @@ target_include_directories(CMakeProject_parent_a_prefix_child PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_parent_a_prefix_child PUBLIC cxx_std_17)
 target_sources(CMakeProject_parent_a_prefix_child PRIVATE
-        "${TEST_DIRECTORY}/parent/child/a.cc")
+        "${PROJECT_SOURCE_DIR}/parent/child/a.cc")
 add_library(CMakeProject::parent_a_prefix_child ALIAS CMakeProject_parent_a_prefix_child)
 
 # cc_binary(@cc_includes_test_repo//:a)
@@ -139,7 +139,7 @@ target_include_directories(CMakeProject_a PRIVATE
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_a PUBLIC cxx_std_17)
 target_sources(CMakeProject_a PRIVATE
-        "${TEST_DIRECTORY}/b.cc")
+        "${PROJECT_SOURCE_DIR}/b.cc")
 
 # cc_binary(@cc_includes_test_repo//:a_dot)
 add_executable(CMakeProject_a_dot "")
@@ -152,7 +152,7 @@ target_include_directories(CMakeProject_a_dot PRIVATE
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_a_dot PUBLIC cxx_std_17)
 target_sources(CMakeProject_a_dot PRIVATE
-        "${TEST_DIRECTORY}/b.cc")
+        "${PROJECT_SOURCE_DIR}/b.cc")
 
 # cc_binary(@cc_includes_test_repo//:a_child)
 add_executable(CMakeProject_a_child "")
@@ -165,7 +165,7 @@ target_include_directories(CMakeProject_a_child PRIVATE
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_a_child PUBLIC cxx_std_17)
 target_sources(CMakeProject_a_child PRIVATE
-        "${TEST_DIRECTORY}/b.cc")
+        "${PROJECT_SOURCE_DIR}/b.cc")
 
 # cc_binary(@cc_includes_test_repo//:a_parent)
 add_executable(CMakeProject_a_parent "")
@@ -178,7 +178,7 @@ target_include_directories(CMakeProject_a_parent PRIVATE
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_a_parent PUBLIC cxx_std_17)
 target_sources(CMakeProject_a_parent PRIVATE
-        "${TEST_DIRECTORY}/b.cc")
+        "${PROJECT_SOURCE_DIR}/b.cc")
 
 # cc_binary(@cc_includes_test_repo//:a_strip_child)
 add_executable(CMakeProject_a_strip_child "")
@@ -191,7 +191,7 @@ target_include_directories(CMakeProject_a_strip_child PRIVATE
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_a_strip_child PUBLIC cxx_std_17)
 target_sources(CMakeProject_a_strip_child PRIVATE
-        "${TEST_DIRECTORY}/b.cc")
+        "${PROJECT_SOURCE_DIR}/b.cc")
 
 # cc_binary(@cc_includes_test_repo//:a_strip_parent)
 add_executable(CMakeProject_a_strip_parent "")
@@ -204,7 +204,7 @@ target_include_directories(CMakeProject_a_strip_parent PRIVATE
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_a_strip_parent PUBLIC cxx_std_17)
 target_sources(CMakeProject_a_strip_parent PRIVATE
-        "${TEST_DIRECTORY}/b.cc")
+        "${PROJECT_SOURCE_DIR}/b.cc")
 
 # cc_binary(@cc_includes_test_repo//:a_prefix_child)
 add_executable(CMakeProject_a_prefix_child "")
@@ -217,4 +217,4 @@ target_include_directories(CMakeProject_a_prefix_child PRIVATE
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_a_prefix_child PUBLIC cxx_std_17)
 target_sources(CMakeProject_a_prefix_child PRIVATE
-        "${TEST_DIRECTORY}/b.cc")
+        "${PROJECT_SOURCE_DIR}/b.cc")

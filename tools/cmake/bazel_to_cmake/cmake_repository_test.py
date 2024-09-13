@@ -66,3 +66,25 @@ def test_ignored():
           )
       ).target
   )
+
+
+def test_replace_with_cmake_macro_dirs():
+  x = CMakeRepository(
+      RepositoryId("foo"),
+      CMakePackage("Foo"),
+      pathlib.PurePath("foo-srcdir"),
+      pathlib.PurePath("foo-bindir"),
+      {},
+      {},
+  )
+  assert [
+      "${PROJECT_BINARY_DIR}/b",
+      "${PROJECT_SOURCE_DIR}/c",
+      "a",
+  ] == x.replace_with_cmake_macro_dirs(
+      [
+          x.cmake_binary_dir.joinpath("b"),
+          x.source_directory.joinpath("c"),
+          "a",
+      ],
+  )

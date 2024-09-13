@@ -73,10 +73,10 @@ def _cc_library_impl(
 
   cmake_target_pair = state.generate_cmake_target_pair(_target)
   custom_target_deps: List[CMakeTarget] = []
-  hdrs_file_paths = state.get_targets_file_paths(
+  hdrs_file_paths = state.get_file_paths(
       resolved_hdrs, custom_target_deps=custom_target_deps
   )
-  textual_hdrs_file_paths = state.get_targets_file_paths(
+  textual_hdrs_file_paths = state.get_file_paths(
       resolved_textual_hdrs, custom_target_deps=custom_target_deps
   )
 

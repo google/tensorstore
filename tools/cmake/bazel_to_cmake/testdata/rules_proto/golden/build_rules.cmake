@@ -3,7 +3,7 @@ find_package(Protobuf REQUIRED)
 # proto_library(@rules_proto_test_repo//:a_proto)
 add_library(CMakeProject_a_proto INTERFACE)
 target_sources(CMakeProject_a_proto INTERFACE
-        "${TEST_DIRECTORY}/a.proto")
+        "${PROJECT_SOURCE_DIR}/a.proto")
 target_include_directories(CMakeProject_a_proto INTERFACE
        "${PROJECT_SOURCE_DIR}")
 add_library(CMakeProject::a_proto ALIAS CMakeProject_a_proto)
@@ -89,7 +89,7 @@ btc_protobuf(
 # proto_library(@rules_proto_test_repo//:b_proto)
 add_library(CMakeProject_b_proto INTERFACE)
 target_sources(CMakeProject_b_proto INTERFACE
-        "${TEST_DIRECTORY}/b.proto")
+        "${PROJECT_SOURCE_DIR}/b.proto")
 target_include_directories(CMakeProject_b_proto INTERFACE
        "${PROJECT_SOURCE_DIR}")
 add_library(CMakeProject::b_proto ALIAS CMakeProject_b_proto)
@@ -228,7 +228,7 @@ add_library(CMakeProject::ab_protos_cc ALIAS CMakeProject_ab_protos_cc)
 # proto_library(@rules_proto_test_repo//:abc_proto)
 add_library(CMakeProject_abc_proto INTERFACE)
 target_sources(CMakeProject_abc_proto INTERFACE
-        "${TEST_DIRECTORY}/c.proto")
+        "${PROJECT_SOURCE_DIR}/c.proto")
 target_link_libraries(CMakeProject_abc_proto INTERFACE
         "CMakeProject::ab_proto")
 target_include_directories(CMakeProject_abc_proto INTERFACE
@@ -327,7 +327,7 @@ add_library(CMakeProject::abc_protos_cc ALIAS CMakeProject_abc_protos_cc)
 # proto_library(@rules_proto_test_repo//:x_proto)
 add_library(CMakeProject_x_proto INTERFACE)
 target_sources(CMakeProject_x_proto INTERFACE
-        "${TEST_DIRECTORY}/x.proto")
+        "${PROJECT_SOURCE_DIR}/x.proto")
 target_link_libraries(CMakeProject_x_proto INTERFACE
         "Protobuf_any_proto")
 target_include_directories(CMakeProject_x_proto INTERFACE

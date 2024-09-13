@@ -18,7 +18,7 @@
 import hashlib
 import os
 import pathlib
-from typing import List, Optional, Set, cast
+from typing import List, Optional, cast
 
 from ..cmake_builder import CMakeBuilder
 from ..cmake_target import CMakeTarget
@@ -55,6 +55,38 @@ class RulesNasmLibrary(BazelGlobals):
     )
 
 
+def _nasm_includes(
+    _context: InvocationContext,
+    resolved_includes: List[TargetId],
+    cmake_deps: List[CMakeTarget],
+) -> set[str]:
+  state = _context.access(EvaluationState)
+
+  # Construct a package prefix string to compare against the include target.
+  package_prefix_str = _context.caller_repository_name
+  if _context.caller_package_id.package_name:
+    package_prefix_str += "/"
+
+  all_includes: set[str] = set()
+  for include_target in resolved_includes:
+    # Get include target relative to current package, so that if `includes =
+    # ["a/b/whatever.asm"]` then it can be found as either "whatever.asm" or
+    # "a/b/whatever.asm".
+    relative_target = None
+    include_target_str = include_target.as_label()
+    if include_target_str.startswith(package_prefix_str):
+      relative_target = include_target_str[len(package_prefix_str) :].replace(
+          ":", "/"
+      )
+
+    for include_file in state.get_file_paths([include_target], cmake_deps):
+      all_includes.add(str(pathlib.PurePosixPath(include_file).parent))
+      if relative_target and include_file.endswith(relative_target):
+        all_includes.add(include_file[: -len(relative_target)].rstrip("/"))
+
+  return all_includes
+
+
 def _nasm_library_impl(
     _context: InvocationContext,
     _target: TargetId,
@@ -67,11 +99,6 @@ def _nasm_library_impl(
   del kwargs
   state = _context.access(EvaluationState)
 
-  # Construct a package prefix string to compare against the include target.
-  package_prefix_str = _context.caller_repository_name
-  if _context.caller_package_id.package_name:
-    package_prefix_str += "/"
-
   cmake_target_pair = state.generate_cmake_target_pair(_target)
   cmake_deps: List[CMakeTarget] = []
 
@@ -80,27 +107,10 @@ def _nasm_library_impl(
   resolved_srcs = _context.resolve_target_or_label_list(
       _context.evaluate_configurable_list(srcs or [])
   )
-  src_files = set(state.get_targets_file_paths(resolved_srcs, cmake_deps))
-
   resolved_includes = _context.resolve_target_or_label_list(
       _context.evaluate_configurable_list(includes or [])
   )
-
-  all_includes = set()
-  for include_target in resolved_includes:
-    # Get include target relative to current package, so that if `includes =
-    # ["a/b/whatever.asm"]` then it can be found as either "whatever.asm" or
-    # "a/b/whatever.asm".
-    include_target_str = include_target.as_label()
-    if include_target_str.startswith(package_prefix_str):
-      relative_target = include_target_str[len(package_prefix_str) :].replace(
-          ":", "/"
-      )
-
-    for include_file in state.get_file_paths(include_target, cmake_deps):
-      all_includes.add(str(pathlib.PurePosixPath(include_file).parent))
-      if relative_target and include_file.endswith(relative_target):
-        all_includes.add(include_file[: -len(relative_target)].rstrip("/"))
+  src_files = set(state.get_file_paths(resolved_srcs, cmake_deps))
 
   use_builtin_rule = True
 
@@ -133,7 +143,7 @@ def _nasm_library_impl(
       cmake_deps=cmake_deps,
       srcs=src_files,
       flags=resolved_flags,
-      includes=all_includes,
+      includes=_nasm_includes(_context, resolved_includes, cmake_deps),
       alwayslink=alwayslink,
       placeholder_source=placeholder_source,
       use_builtin_rule=use_builtin_rule,
@@ -158,8 +168,8 @@ def _emit_nasm_library(
     target_name: CMakeTarget,
     alias_name: Optional[CMakeTarget],
     cmake_deps: List[CMakeTarget],
-    srcs: Set[str],
-    includes: Set[str],
+    srcs: set[str],
+    includes: set[str],
     flags: List[str],
     placeholder_source: Optional[str],
     alwayslink: bool,

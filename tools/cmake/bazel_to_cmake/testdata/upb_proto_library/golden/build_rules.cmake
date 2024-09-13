@@ -3,7 +3,7 @@ find_package(Protobuf REQUIRED)
 # proto_library(@upb_proto_library_test_repo//:c_proto)
 add_library(CMakeProject_c_proto INTERFACE)
 target_sources(CMakeProject_c_proto INTERFACE
-        "${TEST_DIRECTORY}/c.proto")
+        "${PROJECT_SOURCE_DIR}/c.proto")
 target_include_directories(CMakeProject_c_proto INTERFACE
        "${PROJECT_SOURCE_DIR}")
 add_library(CMakeProject::c_proto ALIAS CMakeProject_c_proto)
@@ -85,7 +85,7 @@ add_library(CMakeProject::c_upb_proto_reflection ALIAS CMakeProject_c_upb_proto_
 # proto_library(@upb_proto_library_test_repo//:d_proto)
 add_library(CMakeProject_d_proto INTERFACE)
 target_sources(CMakeProject_d_proto INTERFACE
-        "${TEST_DIRECTORY}/d.proto")
+        "${PROJECT_SOURCE_DIR}/d.proto")
 target_include_directories(CMakeProject_d_proto INTERFACE
        "${PROJECT_SOURCE_DIR}")
 add_library(CMakeProject::d_proto ALIAS CMakeProject_d_proto)
