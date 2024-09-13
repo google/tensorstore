@@ -189,7 +189,7 @@ def _expand_template_impl(
   )
 
   deps: List[CMakeTarget] = []
-  template_paths = state.get_file_paths(resolved_template, deps)
+  template_paths = state.get_file_paths([resolved_template], deps)
 
   assert len(template_paths) == 1
   template_path = template_paths[0]

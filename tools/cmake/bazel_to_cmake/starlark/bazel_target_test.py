@@ -26,6 +26,13 @@ from .bazel_target import TargetId
 
 
 def test_parse_absolute_target():
+  t = parse_absolute_target('@foo//bar:baz.x')
+  assert t.repository_name == 'foo'
+  assert t.package_name == 'bar'
+  assert t.target_name == 'baz.x'
+
+  assert t.get_target_id('baz.y') == parse_absolute_target('@foo//bar:baz.y')
+
   assert TargetId(
       repository_name='foo', package_name='bar', target_name='bar'
   ) == parse_absolute_target('@foo//bar')
@@ -38,6 +45,8 @@ def test_parse_absolute_target():
   assert TargetId(
       repository_name='foo', package_name='', target_name='foo'
   ) == parse_absolute_target('@foo')
+
+  assert t.get_target_id('baz')
 
   with pytest.raises(Exception):
     parse_absolute_target('')

@@ -4,7 +4,7 @@ find_package(gRPC REQUIRED)
 # proto_library(@grpc_generate_cc_test_repo//:c_proto)
 add_library(CMakeProject_c_proto INTERFACE)
 target_sources(CMakeProject_c_proto INTERFACE
-        "${TEST_DIRECTORY}/c.proto")
+        "${PROJECT_SOURCE_DIR}/c.proto")
 target_include_directories(CMakeProject_c_proto INTERFACE
        "${PROJECT_SOURCE_DIR}")
 add_library(CMakeProject::c_proto ALIAS CMakeProject_c_proto)
@@ -78,7 +78,7 @@ target_include_directories(CMakeProject_cc_grpc PRIVATE
 target_compile_features(CMakeProject_cc_grpc PUBLIC cxx_std_17)
 add_dependencies(CMakeProject_cc_grpc "CMakeProject_cc__grpc_codegen")
 target_sources(CMakeProject_cc_grpc PRIVATE
-        "_cmake_binary_dir_/c.grpc.pb.cc")
+        "${PROJECT_BINARY_DIR}/c.grpc.pb.cc")
 add_library(CMakeProject::cc_grpc ALIAS CMakeProject_cc_grpc)
 
 # cc_library(@grpc_generate_cc_test_repo//:a)
@@ -92,7 +92,7 @@ target_include_directories(CMakeProject_a PRIVATE
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_a PUBLIC cxx_std_17)
 target_sources(CMakeProject_a PRIVATE
-        "${TEST_DIRECTORY}/a.cc")
+        "${PROJECT_SOURCE_DIR}/a.cc")
 add_library(CMakeProject::a ALIAS CMakeProject_a)
 
 # @grpc_generate_cc_test_repo//:c_proto__cpp_library

@@ -19,7 +19,6 @@ import pathlib
 from .cmake_repository import CMakeRepository
 from .cmake_target import CMakePackage
 from .emit_cc import construct_cc_includes
-from .emit_cc import replace_with_cmake_macro_dirs
 from .starlark.bazel_target import PackageId
 from .starlark.bazel_target import RepositoryId
 
@@ -31,22 +30,6 @@ REPO = CMakeRepository(
     {},
     {},
 )
-
-
-def test_replace_with_cmake_macro_dirs():
-  assert [
-      "${PROJECT_BINARY_DIR}/b",
-      "${PROJECT_SOURCE_DIR}/c",
-      "a",
-  ] == replace_with_cmake_macro_dirs(
-      REPO,
-      [
-          "a",
-          REPO.cmake_binary_dir.joinpath("b"),
-          REPO.source_directory.joinpath("c"),
-      ],
-  )
-
 
 def test_construct_cc_includes_bare():
   # No includes

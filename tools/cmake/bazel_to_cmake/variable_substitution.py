@@ -33,7 +33,7 @@ from .starlark.common_providers import FilesProvider
 from .starlark.invocation_context import InvocationContext
 from .starlark.toolchain import get_toolchain_substitutions
 from .starlark.toolchain import MakeVariableSubstitutions
-from .util import map_path_prefixes
+from .util import make_relative_path
 
 _LOCATION_RE = re.compile(
     r"^(location|locations|execpath|execpaths|rootpath|rootpaths)\s+(.*)$"
@@ -311,7 +311,10 @@ def generate_substitutions(
       _context.resolve_output_root(_target.repository_id)
   )
 
-  relative_src_paths = map_path_prefixes(src_files, [(source_directory, "")])
+  relative_src_paths = [
+      (make_relative_path(s, (None, source_directory))[1]).as_posix()
+      for s in src_files
+  ]
 
   package_binary_dir = binary_directory.joinpath(_target.package_name)
   quoted_out_files = [json.dumps(path) for path in out_files]
@@ -319,14 +322,14 @@ def generate_substitutions(
   substitutions: Dict[str, str] = {
       "GENDIR": str(binary_directory),
       "BINDIR": str(binary_directory),
-      "SRCS": " ".join([json.dumps(p.as_posix()) for p in relative_src_paths]),
+      "SRCS": " ".join([json.dumps(p) for p in relative_src_paths]),
       "OUTS": " ".join(quoted_out_files),
       "RULEDIR": str(package_binary_dir),
       "@D": str(package_binary_dir),
   }
 
   if len(src_files) == 1:
-    substitutions["<"] = json.dumps(relative_src_paths[0].as_posix())
+    substitutions["<"] = json.dumps(relative_src_paths[0])
 
   if len(out_files) == 1:
     substitutions["@"] = quoted_out_files[0]

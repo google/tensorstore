@@ -113,7 +113,7 @@ def cpp_proto_aspect(
           context,
           target=aspect_target,
           proto_target=proto_target,
-          plugin=_CC,
+          plugin_settings=_CC,
           aspect_dependency=_cpp_proto_target,
           **kwargs,
       ),

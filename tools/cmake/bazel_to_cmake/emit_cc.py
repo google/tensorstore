@@ -17,10 +17,12 @@
 
 import pathlib
 import re
-from typing import Any, Dict, Iterable, List, Optional, Set, cast
+from typing import Any, Dict, Iterable, List, Optional, cast
 
 from .cmake_builder import CMakeBuilder
 from .cmake_repository import CMakeRepository
+from .cmake_repository import PROJECT_BINARY_DIR
+from .cmake_repository import PROJECT_SOURCE_DIR
 from .cmake_target import CMakeTarget
 from .cmake_target import CMakeTargetPair
 from .evaluation import EvaluationState
@@ -29,7 +31,7 @@ from .starlark.invocation_context import InvocationContext
 from .starlark.label import RelativeLabel
 from .starlark.select import Configurable
 from .util import is_relative_to
-from .util import PathSequence
+from .util import make_relative_path
 from .util import quote_list
 from .util import quote_path_list
 from .util import quote_unescaped_list
@@ -151,32 +153,6 @@ def _emit_cc_common_options(
       LANGUAGE {asm_dialect})\n""")
 
 
-def replace_with_cmake_macro_dirs(
-    repo: CMakeRepository, paths: PathSequence
-) -> List[str]:
-  """Substitute reposotory path prefixes with CMake PROJECT_{*}_DIR macros."""
-  assert repo is not None
-
-  result: Set[str] = set()
-  for x in paths:
-    x_path = pathlib.PurePath(x)
-    if is_relative_to(x_path, repo.cmake_binary_dir):
-      relative_path = x_path.relative_to(repo.cmake_binary_dir).as_posix()
-      if relative_path != ".":
-        result.add(f"${{PROJECT_BINARY_DIR}}/{relative_path}")
-      else:
-        result.add("${PROJECT_BINARY_DIR}")
-    elif is_relative_to(x_path, repo.source_directory):
-      relative_path = x_path.relative_to(repo.source_directory).as_posix()
-      if relative_path != ".":
-        result.add(f"${{PROJECT_SOURCE_DIR}}/{relative_path}")
-      else:
-        result.add("${PROJECT_SOURCE_DIR}")
-    else:
-      result.add(str(x))
-  return list(sorted(result))
-
-
 def construct_cc_includes(
     repo: CMakeRepository,
     current_package_id: PackageId,
@@ -191,7 +167,7 @@ def construct_cc_includes(
   By default Bazel generates private includes (-iquote) for the SRCDIR
   and a few other directories.  When `includes` is set, then bazel generates
   public includes (-isystem) which are propagated to callers.
-  
+
   Here we attempt to generate system includes for CMake based on the
   bazel flags, however it is a best effort technique which, so far, has met
   the needs of cmake translation.
@@ -200,7 +176,7 @@ def construct_cc_includes(
   if not known_include_files:
     known_include_files = []
 
-  include_dirs: Set[str] = set()
+  include_dirs = set()
 
   current_package_path = pathlib.PurePosixPath(current_package_id.package_name)
 
@@ -262,11 +238,9 @@ def construct_cc_includes(
     bin_path = repo.cmake_binary_dir.joinpath(constructed)
     # Only add if existing files are discoverable at the prefix
     for x in known_include_files:
-      x_path = pathlib.PurePath(x)
-      if is_relative_to(x_path, src_path):
-        include_dirs.add(str(src_path))
-      elif is_relative_to(x_path, bin_path):
-        include_dirs.add(str(bin_path))
+      (c, _) = make_relative_path(x, (src_path, src_path), (bin_path, bin_path))
+      if c is not None:
+        include_dirs.add(c)
 
   if include_prefix is not None:
     # The prefix to add to the paths of the headers of this rule.
@@ -287,23 +261,23 @@ def construct_cc_includes(
       bin_path = repo.cmake_binary_dir.joinpath(constructed)
       # Only add if existing files are discoverable at the prefix
       for x in known_include_files:
-        x_path = pathlib.PurePath(x)
-        if is_relative_to(x_path, src_path):
-          include_dirs.add(str(src_path))
-        elif is_relative_to(x_path, bin_path):
-          include_dirs.add(str(bin_path))
+        (c, _) = make_relative_path(
+            x, (src_path, src_path), (bin_path, bin_path)
+        )
+        if c is not None:
+          include_dirs.add(c)
 
   # HACK: Bazel does not add such a fallback, but since three are potential
   # includes CMake needs to include SRC/BIN as interface includes.
   if not include_dirs:
+    src_path = repo.source_directory
+    bin_path = repo.cmake_binary_dir
     for x in known_include_files:
-      x_path = pathlib.PurePath(x)
-      if is_relative_to(x_path, repo.source_directory):
-        include_dirs.add(str(repo.source_directory))
-      elif is_relative_to(x_path, repo.cmake_binary_dir):
-        include_dirs.add(str(repo.cmake_binary_dir))
+      (c, _) = make_relative_path(x, (src_path, src_path), (bin_path, bin_path))
+      if c is not None:
+        include_dirs.add(c)
 
-  return replace_with_cmake_macro_dirs(repo, include_dirs)
+  return sorted(repo.replace_with_cmake_macro_dirs(include_dirs))
 
 
 def construct_cc_private_includes(
@@ -315,13 +289,13 @@ def construct_cc_private_includes(
   if not includes:
     includes = []
   result: List[str] = []
-  if "${PROJECT_SOURCE_DIR}" not in includes:
-    result.append("${PROJECT_SOURCE_DIR}")
-  if "${PROJECT_BINARY_DIR}" not in includes:
+  if PROJECT_SOURCE_DIR not in includes:
+    result.append(PROJECT_SOURCE_DIR)
+  if PROJECT_BINARY_DIR not in includes:
     for x in known_include_files:
       x_path = pathlib.PurePath(x)
       if is_relative_to(x_path, repo.cmake_binary_dir):
-        result.append("${PROJECT_BINARY_DIR}")
+        result.append(PROJECT_BINARY_DIR)
         break
   return result
 
@@ -349,9 +323,9 @@ def handle_cc_common_options(
   resolved_deps = _context.resolve_target_or_label_list(
       _context.evaluate_configurable_list(deps)
   )
-  srcs_file_paths = state.get_targets_file_paths(
-      resolved_srcs, custom_target_deps
-  )
+  srcs_file_paths = [
+      str(x) for x in state.get_file_paths(resolved_srcs, custom_target_deps)
+  ]
 
   if src_required and not srcs_file_paths:
     srcs_file_paths = [state.get_placeholder_source()]
@@ -376,8 +350,13 @@ def handle_cc_common_options(
   add_compile_options("C,CXX", state.workspace.copts)
   add_compile_options("CXX", state.workspace.cxxopts)
 
+  repo = state.workspace.all_repositories.get(
+      _context.caller_package_id.repository_id
+  )
+  assert repo is not None
+
   result: Dict[str, Any] = {
-      "srcs": set(srcs_file_paths),
+      "srcs": repo.replace_with_cmake_macro_dirs(sorted(set(srcs_file_paths))),
       "deps": cmake_deps,
       "custom_target_deps": set(custom_target_deps),
       "extra_public_compile_options": extra_public_compile_options,
@@ -405,9 +384,7 @@ def handle_cc_common_options(
   )
 
   result["includes"] = construct_cc_includes(
-      state.workspace.all_repositories.get(
-          _context.caller_package_id.repository_id
-      ),
+      repo,
       _context.caller_package_id,
       includes=_context.evaluate_configurable_list(includes),
       include_prefix=include_prefix,
@@ -416,9 +393,7 @@ def handle_cc_common_options(
   )
 
   result["private_includes"] = construct_cc_private_includes(
-      state.workspace.all_repositories.get(
-          _context.caller_package_id.repository_id
-      ),
+      repo,
       includes=result["includes"],
       known_include_files=known_include_files,
   )
@@ -429,8 +404,8 @@ def handle_cc_common_options(
 def emit_cc_library(
     _builder: CMakeBuilder,
     _cmake_target_pair: CMakeTargetPair,
-    srcs: Set[str],
-    hdrs: Set[str],
+    srcs: set[str],
+    hdrs: set[str],
     alwayslink: bool = False,
     header_only: Optional[bool] = None,
     **kwargs,
@@ -471,7 +446,7 @@ add_library({target_name} INTERFACE)
 def emit_cc_binary(
     _builder: CMakeBuilder,
     _cmake_target_pair: CMakeTargetPair,
-    srcs: Set[str],
+    srcs: set[str],
     **kwargs,
 ):
   target_name = _cmake_target_pair.target

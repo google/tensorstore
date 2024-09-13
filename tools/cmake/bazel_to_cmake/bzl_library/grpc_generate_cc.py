@@ -18,6 +18,7 @@ from typing import Any, List, Optional, cast
 
 from ..cmake_builder import CMakeBuilder
 from ..cmake_target import CMakeDepsProvider
+from ..cmake_target import CMakeLibraryTargetProvider
 from ..cmake_target import CMakeTarget
 from ..evaluation import EvaluationState
 from ..native_aspect_proto import btc_protobuf
@@ -63,7 +64,7 @@ class GrpcGenerateCcLibrary(BazelGlobals):
     target = context.resolve_target(name)
     context.add_rule(
         target,
-        lambda: _generate_cc_impl(
+        lambda: _generate_grpc_cc_impl(
             context,
             target,
             well_known_protos=well_known_protos,
@@ -73,7 +74,7 @@ class GrpcGenerateCcLibrary(BazelGlobals):
     )
 
 
-def _generate_cc_impl(
+def _generate_grpc_cc_impl(
     _context: InvocationContext,
     _target: TargetId,
     srcs: Optional[Configurable[List[RelativeLabel]]] = None,
@@ -108,7 +109,6 @@ def _generate_cc_impl(
 
   # Construct the generated paths, installing this rule as a dependency.
   # TODO: Handle skip_import_prefix?
-  proto_src_files = []
   generated_paths = []
   cmake_deps: List[CMakeTarget] = [
       get_aspect_dep(
@@ -118,23 +118,28 @@ def _generate_cc_impl(
           ),
       )
   ]
+  proto_target_info = _context.get_target_info(proto_library_target)
+  proto_provider = proto_target_info.get(ProtoLibraryProvider)
+  assert proto_provider is not None
 
-  proto_info = _context.get_target_info(proto_library_target).get(
-      ProtoLibraryProvider
+  # Emit the generated files.
+  # See also native_aspect_proto.py
+  repo = state.workspace.all_repositories.get(
+      _context.caller_package_id.repository_id
   )
-  assert proto_info is not None
-
-  for src in proto_info.srcs:
-    proto_src_files.extend(state.get_file_paths(src, cmake_deps))
-    assert src.target_name.endswith(".proto"), f"{repr(src)} must end in .proto"
-    proto_prefix = src.target_name[: -len(".proto")]
+  assert repo is not None
+  for src in proto_provider.srcs:
+    assert src.target_name.endswith(
+        ".proto"
+    ), f"{src.as_label()} must end in .proto"
+    target_name = src.target_name.removesuffix(".proto")
     for ext in plugin_settings.exts:
-      generated_target = src.get_target_id(f"{proto_prefix}{ext}")
-      generated_path = str(_context.get_generated_file_path(generated_target))
+      generated_target = src.get_target_id(f"{target_name}{ext}")
+      generated_path = generated_target.as_rooted_path(repo.cmake_binary_dir)
       _context.add_analyzed_target(
           generated_target,
           TargetInfo(
-              FilesProvider([generated_path]),
+              FilesProvider([str(generated_path)]),
               CMakeDepsProvider([cmake_target_pair.target]),
           ),
       )
@@ -150,7 +155,7 @@ def _generate_cc_impl(
   out = btc_protobuf(
       _context,
       cmake_target_pair.target,
-      proto_library_target,
+      proto_target_info.get(CMakeLibraryTargetProvider).target,
       plugin_settings,
       cmake_deps=cmake_deps,
       flags=flags,

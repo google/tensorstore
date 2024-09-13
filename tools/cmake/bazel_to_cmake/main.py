@@ -326,7 +326,11 @@ def main():
   ap.add_argument("--cmake-vars")
   ap.add_argument("--bazelrc", action="append", default=[])
   ap.add_argument("--module", action="append", default=[])
-  ap.add_argument("--verbose", type=int, default=0)
+  ap.add_argument(
+      "--verbose",
+      type=int,
+      default=int(os.getenv("BAZEL_TO_CMAKE_VERBOSE", "0")),
+  )
 
   args = ap.parse_args()
   return run_main(args)

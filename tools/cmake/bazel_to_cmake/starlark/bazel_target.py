@@ -19,8 +19,8 @@ TargetId: Identify a target in a package and repository.
 """
 
 # pylint: disable=missing-function-docstring,relative-beyond-top-level
-
 import os
+import pathlib
 from typing import Dict, NamedTuple, Optional
 
 
@@ -91,6 +91,9 @@ class PackageId(NamedTuple):
   def package_id(self) -> 'PackageId':
     return self
 
+  def as_rooted_path(self, root: pathlib.PurePath) -> pathlib.PurePath:
+    return root.joinpath(self.package_name)
+
   def get_target_id(self, target_name: str) -> 'TargetId':
     return TargetId(
         repository_name=self.repository_name,
@@ -146,6 +149,9 @@ class TargetId(NamedTuple):
     return PackageId(
         repository_name=self.repository_name, package_name=self.package_name
     )
+
+  def as_rooted_path(self, root: pathlib.PurePath) -> pathlib.PurePath:
+    return root.joinpath(self.package_name, self.target_name)
 
   def get_target_id(self, target_name: str) -> 'TargetId':
     return self._replace(target_name=target_name)
