@@ -162,6 +162,9 @@ TEST(PathTest, LexicalNormalizePath) {
   EXPECT_THAT(LexicalNormalizePath("a/b/c/bb/.."), StrEq("a/b/c/"));
   EXPECT_THAT(LexicalNormalizePath("../a/b/c"), StrEq("../a/b/c"));
   EXPECT_THAT(LexicalNormalizePath("/../a/b/c"), StrEq("/a/b/c"));
+
+  // Remove duplicate slashes
+  EXPECT_THAT(LexicalNormalizePath("//a////b//c////"), StrEq("/a/b/c/"));
 }
 
 }  // namespace
