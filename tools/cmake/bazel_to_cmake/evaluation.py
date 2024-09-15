@@ -80,9 +80,9 @@ from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Tu
 
 from . import cmake_builder
 from .cmake_builder import CMakeBuilder
-from .cmake_target import CMakeDepsProvider
+from .cmake_target import CMakeAddDependenciesProvider
 from .cmake_target import CMakeExecutableTargetProvider
-from .cmake_target import CMakeLibraryTargetProvider
+from .cmake_target import CMakeLinkLibrariesProvider
 from .cmake_target import CMakePackage
 from .cmake_target import CMakePackageDepsProvider
 from .cmake_target import CMakeTarget
@@ -259,7 +259,7 @@ class EvaluationState:
 
     if (
         info.get(CMakeExecutableTargetProvider) is not None
-        or info.get(CMakeLibraryTargetProvider) is not None
+        or info.get(CMakeLinkLibrariesProvider) is not None
     ):
       self._required_dep_targets.pop(target_id, None)
     if (self.verbose > 1) or (
@@ -402,15 +402,15 @@ class EvaluationState:
   def get_file_paths(
       self,
       targets: Iterable[TargetId],
-      custom_target_deps: Optional[List[CMakeTarget]] = None,
+      add_dependencies: Optional[List[CMakeTarget]] = None,
   ) -> List[str]:
     files = []
     for t in targets:
       info = self.get_target_info(t)
-      if custom_target_deps is not None:
-        cmake_info = info.get(CMakeDepsProvider)
+      if add_dependencies is not None:
+        cmake_info = info.get(CMakeAddDependenciesProvider)
         if cmake_info is not None:
-          custom_target_deps.extend(cmake_info.targets)
+          add_dependencies.append(cmake_info.target)
       files_provider = info.get(FilesProvider)
       if files_provider is not None:
         files.extend(files_provider.paths)
@@ -459,8 +459,8 @@ class EvaluationState:
       if info.get(CMakePackageDepsProvider):
         for package in info[CMakePackageDepsProvider].packages:
           self.add_required_dep_package(package)
-      if info.get(CMakeDepsProvider):
-        return info[CMakeDepsProvider].targets.copy()
+      if info.get(CMakeAddDependenciesProvider):
+        return [info[CMakeAddDependenciesProvider].target]
 
     # If this package is already a required dependency, return that.
     cmake_target = self._required_dep_targets.get(target_id)
@@ -472,7 +472,7 @@ class EvaluationState:
     self.add_required_dep_package(cmake_target.cmake_package)
     return [cmake_target.dep]
 
-  def get_deps(self, targets: List[TargetId]) -> List[CMakeTarget]:
+  def get_deps(self, targets: Iterable[TargetId]) -> List[CMakeTarget]:
     deps: List[CMakeTarget] = []
     for target in targets:
       deps.extend(self.get_dep(target))

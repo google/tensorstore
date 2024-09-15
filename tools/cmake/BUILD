@@ -25,12 +25,14 @@ SRCS = [
     "bazel_to_cmake/cmake_repository_test.py",
     "bazel_to_cmake/cmake_repository.py",
     "bazel_to_cmake/cmake_target.py",
-    "bazel_to_cmake/emit_cc.py",
     "bazel_to_cmake/emit_cc_test.py",
+    "bazel_to_cmake/emit_cc.py",
+    "bazel_to_cmake/emit_filegroup.py",
     "bazel_to_cmake/evaluation.py",
     "bazel_to_cmake/golden_test.py",
     "bazel_to_cmake/main.py",
     "bazel_to_cmake/native_aspect_proto.py",
+    "bazel_to_cmake/native_aspect.py",
     "bazel_to_cmake/native_rules_alias.py",
     "bazel_to_cmake/native_rules_cc_proto.py",
     "bazel_to_cmake/native_rules_cc.py",
@@ -162,44 +164,4 @@ tensorstore_pytest_test(
         "skip-cmake",
         "skip-windows",  # path canonicalization isn't correct when testing on windows.
     ],
-)
-
-cc_library(
-    name = "bazel_to_cmake/testdata/upb_proto_library/x",
-    srcs = ["bazel_to_cmake/testdata/upb_proto_library/x.cc"],
-)
-
-proto_library(
-    name = "bazel_to_cmake/testdata/rules_proto/a_proto",
-    srcs = ["bazel_to_cmake/testdata/rules_proto/a.proto"],
-)
-
-proto_library(
-    name = "bazel_to_cmake/testdata/rules_proto/c_proto",
-    srcs = ["bazel_to_cmake/testdata/rules_proto/c.proto"],
-)
-
-proto_library(
-    name = "bazel_to_cmake/testdata/rules_proto/b_proto",
-    srcs = ["bazel_to_cmake/testdata/rules_proto/b.proto"],
-)
-
-proto_library(
-    name = "bazel_to_cmake/testdata/upb_proto_library/a_proto",
-    srcs = ["bazel_to_cmake/testdata/upb_proto_library/a.proto"],
-)
-
-proto_library(
-    name = "bazel_to_cmake/testdata/rules_proto/x_proto",
-    srcs = ["bazel_to_cmake/testdata/rules_proto/x.proto"],
-)
-
-proto_library(
-    name = "bazel_to_cmake/testdata/rules_proto/src/subdir/y_proto",
-    srcs = ["bazel_to_cmake/testdata/rules_proto/src/subdir/y.proto"],
-)
-
-proto_library(
-    name = "bazel_to_cmake/testdata/upb_proto_library/b_proto",
-    srcs = ["bazel_to_cmake/testdata/upb_proto_library/b.proto"],
 )

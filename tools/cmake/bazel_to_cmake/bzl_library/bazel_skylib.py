@@ -21,7 +21,7 @@ from typing import Any, Dict, List, Optional, Tuple, TypeVar, Union, cast
 
 from .. import native_rules_genrule
 from ..cmake_builder import CMakeBuilder
-from ..cmake_target import CMakeDepsProvider
+from ..cmake_target import CMakeAddDependenciesProvider
 from ..cmake_target import CMakeTarget
 from ..evaluation import EvaluationState
 from ..starlark.bazel_globals import BazelGlobals
@@ -180,7 +180,8 @@ def _expand_template_impl(
   _context.add_analyzed_target(
       _out_target,
       TargetInfo(
-          CMakeDepsProvider([cmake_target_pair.dep]), FilesProvider([out_file])
+          CMakeAddDependenciesProvider(cmake_target_pair.dep),
+          FilesProvider([out_file]),
       ),
   )
 

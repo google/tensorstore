@@ -17,8 +17,8 @@
 from typing import Any, List, Optional, cast
 
 from ..cmake_builder import CMakeBuilder
-from ..cmake_target import CMakeDepsProvider
-from ..cmake_target import CMakeLibraryTargetProvider
+from ..cmake_target import CMakeAddDependenciesProvider
+from ..cmake_target import CMakeLinkLibrariesProvider
 from ..cmake_target import CMakeTarget
 from ..evaluation import EvaluationState
 from ..native_aspect_proto import btc_protobuf
@@ -41,11 +41,18 @@ GRPC_REPO = RepositoryId("com_github_grpc_grpc")
 
 _SEP = "\n        "
 
+
+def _empty_target_list(t: TargetId) -> List[TargetId]:
+  del t
+  return []
+
+
 _GRPC = PluginSettings(
     name="grpc",
     plugin=GRPC_REPO.parse_target("//src/compiler:grpc_cpp_plugin"),
     exts=[".grpc.pb.h", ".grpc.pb.cc"],
     runtime=[GRPC_REPO.parse_target("//:grpc++_codegen_proto")],
+    aspectdeps=_empty_target_list,
 )
 
 
@@ -96,6 +103,7 @@ def _generate_grpc_cc_impl(
         plugin=resolved_plugin,
         exts=_GRPC.exts,
         runtime=_GRPC.runtime,
+        aspectdeps=_empty_target_list,
     )
 
   assert plugin_settings.plugin is not None
@@ -141,7 +149,7 @@ def _generate_grpc_cc_impl(
           generated_target,
           TargetInfo(
               FilesProvider([str(generated_path)]),
-              CMakeDepsProvider([cmake_target_pair.target]),
+              CMakeAddDependenciesProvider(cmake_target_pair.target),
           ),
       )
       generated_paths.append(generated_path)
@@ -156,7 +164,7 @@ def _generate_grpc_cc_impl(
   out = btc_protobuf(
       _context,
       cmake_target_pair.target,
-      proto_target_info.get(CMakeLibraryTargetProvider).target,
+      proto_target_info.get(CMakeLinkLibrariesProvider).target,
       plugin_settings,
       cmake_deps=cmake_deps,
       flags=flags,

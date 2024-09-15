@@ -23,7 +23,7 @@ btc_protobuf(
     GENERATE_EXTENSIONS ".pb.h" ".pb.cc"
     PROTOC_OPTIONS --experimental_allow_proto3_optional
     PROTOC_OUT_DIR ${PROJECT_BINARY_DIR}/92f46a52
-    DEPENDENCIES "protobuf::protoc"
+    DEPENDS "protobuf::protoc"
 )
 
 # cc_proto_library(@upb_proto_library_test_repo//:a_cc_proto)
@@ -49,7 +49,7 @@ btc_protobuf(
     PROTOC_OPTIONS --experimental_allow_proto3_optional
     PROTOC_OUT_DIR ${PROJECT_BINARY_DIR}/92f46a52
     PLUGIN protoc-gen-upb_minitable=$<TARGET_FILE:protobuf::protoc_gen_upb_minitable_stage1>
-    DEPENDENCIES "protobuf::protoc" "protobuf::protoc_gen_upb_minitable_stage1"
+    DEPENDS "protobuf::protoc" "protobuf::protoc_gen_upb_minitable_stage1"
 )
 
 # @upb_proto_library_test_repo//:a_proto__upb_library
@@ -69,12 +69,13 @@ btc_protobuf(
     PROTOC_OPTIONS --experimental_allow_proto3_optional
     PROTOC_OUT_DIR ${PROJECT_BINARY_DIR}/92f46a52
     PLUGIN protoc-gen-upb=$<TARGET_FILE:protobuf::protoc_gen_upb>
-    DEPENDENCIES "protobuf::protoc" "protobuf::protoc_gen_upb"
+    DEPENDS "protobuf::protoc" "protobuf::protoc_gen_upb"
 )
 
 # upb_c_proto_library(@upb_proto_library_test_repo//:a_upb_proto)
 add_library(CMakeProject_a_upb_proto INTERFACE)
 target_link_libraries(CMakeProject_a_upb_proto INTERFACE
+        "CMakeProject::a_proto__minitable_library"
         "CMakeProject::a_proto__upb_library")
 target_compile_features(CMakeProject_a_upb_proto INTERFACE cxx_std_17)
 add_library(CMakeProject::a_upb_proto ALIAS CMakeProject_a_upb_proto)
@@ -97,12 +98,13 @@ btc_protobuf(
     PROTOC_OPTIONS --experimental_allow_proto3_optional
     PROTOC_OUT_DIR ${PROJECT_BINARY_DIR}/92f46a52
     PLUGIN protoc-gen-upbdefs=$<TARGET_FILE:protobuf::protoc_gen_upbdefs>
-    DEPENDENCIES "protobuf::protoc" "protobuf::protoc_gen_upbdefs"
+    DEPENDS "protobuf::protoc" "protobuf::protoc_gen_upbdefs"
 )
 
 # upb_proto_reflection_library(@upb_proto_library_test_repo//:a_upb_proto_reflection)
 add_library(CMakeProject_a_upb_proto_reflection INTERFACE)
 target_link_libraries(CMakeProject_a_upb_proto_reflection INTERFACE
+        "CMakeProject::a_proto__minitable_library"
         "CMakeProject::a_proto__upbdefs_library")
 target_compile_features(CMakeProject_a_upb_proto_reflection INTERFACE cxx_std_17)
 add_library(CMakeProject::a_upb_proto_reflection ALIAS CMakeProject_a_upb_proto_reflection)
@@ -110,6 +112,7 @@ add_library(CMakeProject::a_upb_proto_reflection ALIAS CMakeProject_a_upb_proto_
 # upb_c_proto_library(@upb_proto_library_test_repo//:abc_upb_proto)
 add_library(CMakeProject_abc_upb_proto INTERFACE)
 target_link_libraries(CMakeProject_abc_upb_proto INTERFACE
+        "CMakeProject::abc_protos__minitable_library"
         "CMakeProject::abc_protos__upb_library")
 target_compile_features(CMakeProject_abc_upb_proto INTERFACE cxx_std_17)
 add_library(CMakeProject::abc_upb_proto ALIAS CMakeProject_abc_upb_proto)
@@ -117,6 +120,7 @@ add_library(CMakeProject::abc_upb_proto ALIAS CMakeProject_abc_upb_proto)
 # upb_proto_reflection_library(@upb_proto_library_test_repo//:abc_upb_proto_reflection)
 add_library(CMakeProject_abc_upb_proto_reflection INTERFACE)
 target_link_libraries(CMakeProject_abc_upb_proto_reflection INTERFACE
+        "CMakeProject::abc_protos__minitable_library"
         "CMakeProject::abc_protos__upbdefs_library")
 target_compile_features(CMakeProject_abc_upb_proto_reflection INTERFACE cxx_std_17)
 add_library(CMakeProject::abc_upb_proto_reflection ALIAS CMakeProject_abc_upb_proto_reflection)

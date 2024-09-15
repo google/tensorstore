@@ -28,6 +28,9 @@
 #   PROTO_TARGET <proto>
 #     Target used to resolve .proto imports.
 #
+#   PROTOS  <proto files>
+#     Proto files
+#
 #   PROTOC_OPTIONS  <options list>
 #     Addional options passed to protoc
 #
@@ -48,14 +51,14 @@
 #     List of variable used to reslove imports. For defined variables,
 #     contents will be added to the import flags.
 #
-#   DEPENDENCIES  <dependencies>
-#    CMake dependencies.
+#   DEPENDS  <DEPENDS>
+#     CMake DEPENDS.
 # )
 function(btc_protobuf)
   include(CMakeParseArguments)
 
-  set(_singleargs TARGET PROTO_TARGET LANGUAGE PROTOC_OUT_DIR PLUGIN PLUGIN_OPTIONS DEPENDENCIES)
-  set(_multiargs IMPORT_VARS GENERATE_EXTENSIONS PROTOC_OPTIONS)
+  set(_singleargs PROTO_TARGET LANGUAGE PROTOC_OUT_DIR PLUGIN PLUGIN_OPTIONS DEPENDS)
+  set(_multiargs PROTOS IMPORT_VARS GENERATE_EXTENSIONS PROTOC_OPTIONS)
 
   cmake_parse_arguments(btc_protobuf "" "${_singleargs}" "${_multiargs}" "${ARGN}")
 
@@ -70,12 +73,12 @@ function(btc_protobuf)
   string(TOLOWER ${btc_protobuf_LANGUAGE} btc_protobuf_LANGUAGE)
 
   if(NOT btc_protobuf_GENERATE_EXTENSIONS)
-    message(SEND_ERROR "Error: btc_protobuf called without GENERATE_EXTENSIONS for LANGUAGE ${btc_protobuf_LANGUAGE}.  ${btc_protobuf_TARGET}")
+    message(SEND_ERROR "Error: btc_protobuf called without GENERATE_EXTENSIONS for LANGUAGE ${btc_protobuf_LANGUAGE}.")
     return()
   endif()
 
   if(NOT btc_protobuf_PROTO_TARGET)
-    message(SEND_ERROR "Error: btc_protobuf called without a PROTO_TARGET. ${btc_protobuf_TARGET}")
+    message(SEND_ERROR "Error: btc_protobuf called without a PROTO_TARGET.")
     return()
   endif()
 
@@ -86,24 +89,28 @@ function(btc_protobuf)
   endif()
 
   # Get the sources from the PROTO_TARGET
-  get_property(_source_list TARGET ${btc_protobuf_PROTO_TARGET} PROPERTY INTERFACE_SOURCES)
-  foreach(_file ${_source_list})
-    if(_file MATCHES "proto$")
-      list(APPEND btc_protobuf_PROTOS ${_file})
-    endif()
-  endforeach()
+  if(NOT btc_protobuf_PROTOS)
+    get_property(_source_list TARGET ${btc_protobuf_PROTO_TARGET} PROPERTY INTERFACE_SOURCES)
+    foreach(_file ${_source_list})
+      if(_file MATCHES "proto$")
+        list(APPEND btc_protobuf_PROTOS ${_file})
+      endif()
+    endforeach()
 
-  get_property(_source_list TARGET ${btc_protobuf_PROTO_TARGET} PROPERTY SOURCES)
-  foreach(_file ${_source_list})
-    if(_file MATCHES "proto$")
-      list(APPEND btc_protobuf_PROTOS ${_file})
-    endif()
-  endforeach()
+    get_property(_source_list TARGET ${btc_protobuf_PROTO_TARGET} PROPERTY SOURCES)
+    foreach(_file ${_source_list})
+      if(_file MATCHES "proto$")
+        list(APPEND btc_protobuf_PROTOS ${_file})
+      endif()
+    endforeach()
+  endif()
 
   if(NOT btc_protobuf_PROTOS)
-    message(SEND_ERROR "Error: protobuf_generate could not find any .proto files.  ${btc_protobuf_TARGET}")
+    message(SEND_ERROR "Error: protobuf_generate could not find any .proto files.")
     return()
   endif()
+
+  list(REMOVE_DUPLICATES btc_protobuf_PROTOS)
 
   # Construct the plugin options.
   foreach(_option IN LISTS btc_protobuf_PLUGIN_OPTIONS)
@@ -173,7 +180,8 @@ function(btc_protobuf)
     list(APPEND _protobuf_imports  "${btc_protobuf_PROTOC_OUT_DIR}")
   endif()
 
-  list(REMOVE_ITEM btc_protobuf_DEPENDENCIES protobuf::protoc)
+  list(PREPEND btc_protobuf_DEPENDS "protobuf::protoc")
+  list(REMOVE_DUPLICATES btc_protobuf_DEPENDS)
 
   if(NOT _protobuf_include_path)
     set(_protobuf_include_path -I ${PROJECT_SOURCE_DIR} -I ${PROJECT_BINARY_DIR})
@@ -201,7 +209,7 @@ function(btc_protobuf)
     endforeach()
 
     if(NOT _suitable_include_found)
-      message(SEND_ERROR "Error: btc_protobuf could not find any correct proto include directory.  ${btc_protobuf_TARGET}")
+      message(SEND_ERROR "Error: btc_protobuf could not find any correct proto include directory.")
       return()
     endif()
 
@@ -219,8 +227,10 @@ function(btc_protobuf)
       set(_comment "${_comment}, plugin-options: ${_plugin_options}")
     endif()
 
+    # message(STATUS "btc_protobuf: ${btc_protobuf_VARNAME}  ${_generated_srcs}")
     add_custom_command(
-      OUTPUT ${_generated_srcs}
+      OUTPUT
+          ${_generated_srcs}
       COMMAND protobuf::protoc
           ${btc_protobuf_PROTOC_OPTIONS} --${btc_protobuf_LANGUAGE}_out
           ${_plugin_options}:${btc_protobuf_PROTOC_OUT_DIR}
@@ -228,7 +238,8 @@ function(btc_protobuf)
           ${_protobuf_include_path}
           "${_protobuf_transitive_include}"
           ${_abs_file}
-      DEPENDS ${_abs_file} protobuf::protoc ${btc_protobuf_DEPENDENCIES} ${btc_protobuf_PROTO_TARGET}
+      DEPENDS
+          ${_abs_file} ${btc_protobuf_DEPENDS} ${btc_protobuf_PROTO_TARGET}
       COMMENT ${_comment}
       COMMAND_EXPAND_LISTS
       VERBATIM )
@@ -244,5 +255,3 @@ function(btc_protobuf)
       APPEND PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${btc_protobuf_PROTOC_OUT_DIR}" )
 
 endfunction()
-
-

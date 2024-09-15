@@ -76,7 +76,7 @@ add_library(CMakeProject::c_proto ALIAS CMakeProject_c_proto)
 add_library(CMakeProject_c_proto__cpp_library)
 set_property(TARGET CMakeProject_c_proto__cpp_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_c_proto__cpp_library PUBLIC
-        "Protobuf_timestamp_proto__cpp_library"
+        "Protobuf::timestamp_proto__cpp_library"
         "protobuf::libprotobuf")
 target_compile_features(CMakeProject_c_proto__cpp_library PUBLIC cxx_std_17)
 add_library(CMakeProject::c_proto__cpp_library ALIAS CMakeProject_c_proto__cpp_library)
@@ -88,7 +88,7 @@ btc_protobuf(
     GENERATE_EXTENSIONS ".pb.h" ".pb.cc"
     PROTOC_OPTIONS --experimental_allow_proto3_optional
     PROTOC_OUT_DIR ${PROJECT_BINARY_DIR}/de6f8ca9
-    DEPENDENCIES "protobuf::protoc"
+    DEPENDS "protobuf::protoc"
 )
 
 # cc_proto_library(@native_rules_test_repo//:c_proto_cc)
@@ -136,7 +136,7 @@ btc_protobuf(
     GENERATE_EXTENSIONS ".pb.h" ".pb.cc"
     PROTOC_OPTIONS --experimental_allow_proto3_optional
     PROTOC_OUT_DIR ${PROJECT_BINARY_DIR}/c5077a10
-    DEPENDENCIES "protobuf::protoc"
+    DEPENDS "protobuf::protoc"
 )
 
 # alias(@native_rules_test_repo//:c_proto_alias)
@@ -299,7 +299,7 @@ btc_protobuf(
     GENERATE_EXTENSIONS ".pb.h" ".pb.cc"
     PROTOC_OPTIONS --experimental_allow_proto3_optional
     PROTOC_OUT_DIR ${PROJECT_BINARY_DIR}/fb9b71f5
-    DEPENDENCIES "protobuf::protoc"
+    DEPENDS "protobuf::protoc"
 )
 
 # cc_library(@native_rules_test_repo//:defines)

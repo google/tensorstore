@@ -19,7 +19,7 @@ from typing import List, Optional
 
 from .cmake_builder import CMakeBuilder
 from .cmake_target import CMakeExecutableTargetProvider
-from .cmake_target import CMakeLibraryTargetProvider
+from .cmake_target import CMakeLinkLibrariesProvider
 from .cmake_target import CMakeTarget
 from .cmake_target import CMakeTargetPair
 from .evaluation import EvaluationState
@@ -65,7 +65,7 @@ def _alias_impl(
 
   state = _context.access(EvaluationState)
 
-  resolved_provider = target_info.get(CMakeLibraryTargetProvider)
+  resolved_provider = target_info.get(CMakeLinkLibrariesProvider)
   if resolved_provider is None:
     resolved_provider = target_info.get(CMakeExecutableTargetProvider)
   if resolved_provider is not None:

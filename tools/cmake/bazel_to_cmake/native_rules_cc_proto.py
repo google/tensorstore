@@ -54,7 +54,7 @@ from .cmake_builder import CMakeBuilder
 from .cmake_target import CMakeTarget
 from .emit_cc import emit_cc_library
 from .evaluation import EvaluationState
-from .native_aspect_proto import add_proto_aspect
+from .native_aspect import add_proto_aspect
 from .native_aspect_proto import aspect_genproto_library_target
 from .native_aspect_proto import PluginSettings
 from .starlark.bazel_build_file import register_native_build_rule
@@ -86,16 +86,17 @@ _IGNORED = set([
 ])
 
 
+def _cpp_proto_target(t: TargetId) -> List[TargetId]:
+  return [t.get_target_id(f"{t.target_name}__cpp_library")]
+
+
 _CC = PluginSettings(
     name="cpp",
     plugin=None,
     exts=[".pb.h", ".pb.cc"],
     runtime=[PROTO_RUNTIME],
+    aspectdeps=_cpp_proto_target,
 )
-
-
-def _cpp_proto_target(t: TargetId) -> TargetId:
-  return t.get_target_id(f"{t.target_name}__cpp_library")
 
 
 def cpp_proto_aspect(
@@ -106,7 +107,7 @@ def cpp_proto_aspect(
 ):
   if proto_target in _IGNORED:
     return
-  aspect_target = _cpp_proto_target(proto_target)
+  aspect_target = _CC.aspectdeps(proto_target)[0]
   context.add_rule(
       aspect_target,
       lambda: aspect_genproto_library_target(
@@ -114,7 +115,6 @@ def cpp_proto_aspect(
           target=aspect_target,
           proto_target=proto_target,
           plugin_settings=_CC,
-          aspect_dependency=_cpp_proto_target,
           **kwargs,
       ),
       visibility=visibility,
@@ -138,8 +138,8 @@ def cc_proto_library(
       lambda: cc_proto_library_impl(
           context,
           target,
-          _aspect_target=_cpp_proto_target,
           _mnemonic="cc_proto_library",
+          _aspectdeps=_cpp_proto_target,
           **kwargs,
       ),
       visibility=visibility,
@@ -150,8 +150,8 @@ def cc_proto_library_impl(
     _context: InvocationContext,
     _target: TargetId,
     *,
-    _aspect_target: Callable[[TargetId], TargetId],
     _mnemonic: str,
+    _aspectdeps: Callable[[TargetId], List[TargetId]],  # Converts to deps
     deps: Optional[List[RelativeLabel]] = None,  # points to proto_library rules
     **kwargs,
 ):
@@ -166,9 +166,14 @@ def cc_proto_library_impl(
 
   # Typically there is a single proto dep in a cc_library_target, multiple are
   # supported, thus we resolve each library target here.
-  library_deps: List[CMakeTarget] = state.get_deps(
-      [_aspect_target(t) for t in resolved_deps]
-  )
+  aspect_deps = set()
+  for t in resolved_deps:
+    aspect_deps.update(_aspectdeps(t))
+  if _target in aspect_deps:
+    print(f"WARNING: {_target.as_label()} is identical to an aspect target")
+    aspect_deps.remove(_target)
+
+  library_deps: List[CMakeTarget] = state.get_deps(aspect_deps)
 
   builder = _context.access(CMakeBuilder)
   builder.addtext(f"\n# {_mnemonic}({_target.as_label()})")

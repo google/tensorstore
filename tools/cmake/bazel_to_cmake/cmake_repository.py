@@ -18,7 +18,7 @@
 import hashlib
 import pathlib
 import re
-from typing import Any, Dict, List, NamedTuple, Optional
+from typing import Any, Dict, Iterable, List, NamedTuple, Optional
 
 from .cmake_target import CMakePackage
 from .cmake_target import CMakeTarget
@@ -27,7 +27,7 @@ from .starlark.bazel_target import apply_repo_mapping
 from .starlark.bazel_target import RepositoryId
 from .starlark.bazel_target import TargetId
 from .util import make_relative_path
-from .util import PathSequence
+from .util import PathLike
 
 _SPLIT_RE = re.compile("[:/]+")
 _BIG = 35
@@ -92,7 +92,9 @@ class CMakeRepository(NamedTuple):
     assert target_id.repository_id == self.repository_id
     return self.persisted_canonical_name.get(target_id, None)
 
-  def replace_with_cmake_macro_dirs(self, paths: PathSequence) -> List[str]:
+  def replace_with_cmake_macro_dirs(
+      self, paths: Iterable[PathLike]
+  ) -> List[str]:
     """Substitute reposotory path prefixes with CMake PROJECT_{*}_DIR macros."""
     result: list[str] = []
     for x in paths:

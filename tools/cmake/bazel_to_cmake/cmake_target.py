@@ -33,20 +33,20 @@ class CMakePackageDepsProvider(Provider):
     return f"{self.__class__.__name__}({repr(self.packages)})"
 
 
-class CMakeDepsProvider(Provider):
-  """CMake deps corresponding to a Bazel target."""
+class CMakeAddDependenciesProvider(Provider):
+  """CMake add_dependencies required by a Bazel target."""
 
-  __slots__ = ("targets",)
+  __slots__ = ("target",)
 
-  def __init__(self, targets: List[CMakeTarget]):
-    self.targets = targets
+  def __init__(self, target: CMakeTarget):
+    self.target = target
 
   def __repr__(self):
-    return f"{self.__class__.__name__}({repr(self.targets)})"
+    return f"{self.__class__.__name__}({repr(self.target)})"
 
 
-class CMakeLibraryTargetProvider(Provider):
-  """CMake target corresponding to a Bazel library target."""
+class CMakeLinkLibrariesProvider(Provider):
+  """CMake link_libraries required by a Bazel target."""
 
   __slots__ = ("target",)
 
@@ -71,7 +71,7 @@ class CMakeExecutableTargetProvider(Provider):
 
 AnyCMakeTargetProvider = TypeVar(
     "AnyCMakeTargetProvider",
-    CMakeLibraryTargetProvider,
+    CMakeLinkLibrariesProvider,
     CMakeExecutableTargetProvider,
 )
 
@@ -94,11 +94,11 @@ class CMakeTargetPair(NamedTuple):
       self,
       provider: Optional[
           Type[AnyCMakeTargetProvider]
-      ] = CMakeLibraryTargetProvider,
+      ] = CMakeLinkLibrariesProvider,
   ):
     a = (provider(self.target),) if provider is not None else tuple()
     return (
-        CMakeDepsProvider([self.dep]),
+        CMakeAddDependenciesProvider(self.dep),
         CMakePackageDepsProvider([self.cmake_package]),
     ) + a
 

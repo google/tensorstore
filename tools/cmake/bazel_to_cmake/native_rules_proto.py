@@ -65,7 +65,7 @@ from .cmake_builder import CMakeBuilder
 from .cmake_target import CMakeTarget
 from .emit_cc import construct_cc_includes
 from .evaluation import EvaluationState
-from .native_aspect_proto import invoke_proto_aspects
+from .native_aspect import invoke_proto_aspects
 from .starlark.bazel_build_file import register_native_build_rule
 from .starlark.bazel_target import RepositoryId
 from .starlark.bazel_target import TargetId

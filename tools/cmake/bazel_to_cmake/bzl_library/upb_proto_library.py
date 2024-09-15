@@ -21,7 +21,7 @@ https://github.com/protocolbuffers/protobuf/blob/main/bazel/upb_proto_library.bz
 # pylint: disable=relative-beyond-top-level
 from typing import List, Optional
 
-from ..native_aspect_proto import add_proto_aspect
+from ..native_aspect import add_proto_aspect
 from ..native_aspect_proto import aspect_genproto_library_target
 from ..native_aspect_proto import PluginSettings
 from ..native_rules_cc_proto import cc_proto_library_impl
@@ -61,6 +61,23 @@ UPB_REPO = RepositoryId("com_google_protobuf")
 #   visibility = ["//visibility:public"],
 # )
 
+
+def _minitable_target(t: TargetId) -> List[TargetId]:
+  return [t.get_target_id(f"{t.target_name}__minitable_library")]
+
+
+def _upb_target(t: TargetId) -> List[TargetId]:
+  return [
+      t.get_target_id(f"{t.target_name}__upb_library"),
+  ] + _minitable_target(t)
+
+
+def _upbdefs_target(t: TargetId) -> List[TargetId]:
+  return [
+      t.get_target_id(f"{t.target_name}__upbdefs_library"),
+  ] + _minitable_target(t)
+
+
 _UPB_MINITABLE = PluginSettings(
     name="upb_minitable",
     plugin=UPB_REPO.parse_target(
@@ -72,6 +89,7 @@ _UPB_MINITABLE = PluginSettings(
             "//upb:generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me"
         ),
     ],
+    aspectdeps=_minitable_target,
 )
 
 _UPB = PluginSettings(
@@ -83,6 +101,7 @@ _UPB = PluginSettings(
             "//upb:generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me"
         ),
     ],
+    aspectdeps=_upb_target,
 )
 
 # STAGE1 is used for bootstrapping upb via cmake.
@@ -95,6 +114,7 @@ _UPB_STAGE1 = PluginSettings(
             "//upb:generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me"
         ),
     ],
+    aspectdeps=_upb_target,
 )
 
 
@@ -108,19 +128,8 @@ _UPBDEFS = PluginSettings(
         ),
         UPB_REPO.parse_target("//upb:port"),
     ],
+    aspectdeps=_upbdefs_target,
 )
-
-
-def _minitable_target(t: TargetId) -> TargetId:
-  return t.get_target_id(f"{t.target_name}__minitable_library")
-
-
-def _upb_target(t: TargetId) -> TargetId:
-  return t.get_target_id(f"{t.target_name}__upb_library")
-
-
-def _upbdefs_target(t: TargetId) -> TargetId:
-  return t.get_target_id(f"{t.target_name}__upbdefs_library")
 
 
 def upb_minitable_aspect(
@@ -129,7 +138,7 @@ def upb_minitable_aspect(
     visibility: Optional[List[RelativeLabel]] = None,
     **kwargs,
 ):
-  aspect_target = _minitable_target(proto_target)
+  aspect_target = _UPB_MINITABLE.aspectdeps(proto_target)[0]
   context.add_rule(
       aspect_target,
       lambda: aspect_genproto_library_target(
@@ -137,7 +146,6 @@ def upb_minitable_aspect(
           target=aspect_target,
           proto_target=proto_target,
           plugin_settings=_UPB_MINITABLE,
-          aspect_dependency=_minitable_target,
           **kwargs,
       ),
       visibility=visibility,
@@ -154,8 +162,7 @@ def upb_aspect(
   if proto_target.repository_id == UPB_REPO:
     plugin = _UPB_STAGE1
 
-  aspect_target = _upb_target(proto_target)
-  minitable_target = _minitable_target(proto_target)
+  aspect_target = plugin.aspectdeps(proto_target)[0]
   context.add_rule(
       aspect_target,
       lambda: aspect_genproto_library_target(
@@ -163,8 +170,6 @@ def upb_aspect(
           target=aspect_target,
           proto_target=proto_target,
           plugin_settings=plugin,
-          aspect_dependency=_upb_target,
-          extra_deps=[minitable_target],
           **kwargs,
       ),
       visibility=visibility,
@@ -177,8 +182,7 @@ def upbdefs_aspect(
     visibility: Optional[List[RelativeLabel]] = None,
     **kwargs,
 ):
-  aspect_target = _upbdefs_target(proto_target)
-  minitable_target = _minitable_target(proto_target)
+  aspect_target = _UPBDEFS.aspectdeps(proto_target)[0]
   context.add_rule(
       aspect_target,
       lambda: aspect_genproto_library_target(
@@ -186,8 +190,6 @@ def upbdefs_aspect(
           target=aspect_target,
           proto_target=proto_target,
           plugin_settings=_UPBDEFS,
-          aspect_dependency=_upbdefs_target,
-          extra_deps=[minitable_target],
           **kwargs,
       ),
       visibility=visibility,
@@ -232,7 +234,7 @@ class UpbMinitableProtoLibrary(BazelGlobals):
         lambda: cc_proto_library_impl(
             context,
             target,
-            _aspect_target=_minitable_target,
+            _aspectdeps=_minitable_target,
             _mnemonic="upb_minitable_proto_library",
             **kwargs,
         ),
@@ -277,7 +279,7 @@ class UpbCProtoLibrary(BazelGlobals):
         lambda: cc_proto_library_impl(
             context,
             target,
-            _aspect_target=_minitable_target,
+            _aspectdeps=_upb_target,
             _mnemonic="upb_c_proto_library",
             **kwargs,
         ),
@@ -306,7 +308,7 @@ class UpbProtoReflectionLibrary(BazelGlobals):
         lambda: cc_proto_library_impl(
             context,
             target,
-            _aspect_target=_upbdefs_target,
+            _aspectdeps=_upbdefs_target,
             _mnemonic="upb_proto_reflection_library",
             **kwargs,
         ),
@@ -358,7 +360,7 @@ class UpbProtoLibrary(BazelGlobals):
         lambda: cc_proto_library_impl(
             context,
             target,
-            _aspect_target=_upb_target,
+            _aspectdeps=_upb_target,
             _mnemonic="upb_c_proto_library",
             **kwargs,
         ),
@@ -378,7 +380,7 @@ class UpbProtoLibrary(BazelGlobals):
         lambda: cc_proto_library_impl(
             context,
             target,
-            _aspect_target=_upbdefs_target,
+            _aspectdeps=_upbdefs_target,
             _mnemonic="upb_proto_reflection_library",
             **kwargs,
         ),

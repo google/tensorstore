@@ -25,7 +25,7 @@ import shlex
 from typing import Dict, List, Match, Optional
 
 from .cmake_target import CMakeExecutableTargetProvider
-from .cmake_target import CMakeLibraryTargetProvider
+from .cmake_target import CMakeLinkLibrariesProvider
 from .cmake_target import CMakeTarget
 from .evaluation import EvaluationState
 from .starlark.bazel_target import TargetId
@@ -102,7 +102,7 @@ def _get_location_replacement(
     _context: InvocationContext,
     _cmd: str,
     relative_to: str,
-    custom_target_deps: Optional[List[CMakeTarget]],
+    add_dependencies: Optional[List[CMakeTarget]],
     key: str,
     label: str,
 ) -> str:
@@ -126,8 +126,8 @@ def _get_location_replacement(
   if not info:
     # This target is not available; construct an ephemeral reference.
     cmake_target = state.generate_cmake_target_pair(target)
-    if custom_target_deps is not None:
-      custom_target_deps.append(cmake_target.dep)
+    if add_dependencies is not None:
+      add_dependencies.append(cmake_target.dep)
     return f"$<TARGET_FILE:{cmake_target.target}>"
 
   files_provider = info.get(FilesProvider)
@@ -141,7 +141,7 @@ def _get_location_replacement(
 
   cmake_target_provider = info.get(CMakeExecutableTargetProvider)
   if cmake_target_provider is None:
-    cmake_target_provider = info.get(CMakeLibraryTargetProvider)
+    cmake_target_provider = info.get(CMakeLinkLibrariesProvider)
   if cmake_target_provider is not None:
     return f"$<TARGET_FILE:{cmake_target_provider.target}>"
 
@@ -156,7 +156,7 @@ def _apply_location_and_make_variable_substitutions(
     *,
     cmd: str,
     relative_to: str,
-    custom_target_deps: Optional[List[CMakeTarget]],
+    add_dependencies: Optional[List[CMakeTarget]],
     substitutions: MakeVariableSubstitutions,
     toolchains: Optional[List[TargetId]],
     enable_location: bool,
@@ -183,7 +183,7 @@ def _apply_location_and_make_variable_substitutions(
             _context,
             cmd,
             relative_to,
-            custom_target_deps,
+            add_dependencies,
             m.group(1),
             m.group(2),
         )
@@ -220,7 +220,7 @@ def apply_make_variable_substitutions(
       _context,
       cmd=cmd,
       relative_to="",
-      custom_target_deps=None,
+      add_dependencies=None,
       substitutions=substitutions,
       toolchains=toolchains,
       enable_location=False,
@@ -232,7 +232,7 @@ def apply_location_and_make_variable_substitutions(
     *,
     cmd: str,
     relative_to: str,
-    custom_target_deps: Optional[List[CMakeTarget]],
+    add_dependencies: Optional[List[CMakeTarget]],
     substitutions: MakeVariableSubstitutions,
     toolchains: Optional[List[TargetId]],
 ) -> str:
@@ -241,7 +241,7 @@ def apply_location_and_make_variable_substitutions(
       _context,
       cmd=cmd,
       relative_to=relative_to,
-      custom_target_deps=custom_target_deps,
+      add_dependencies=add_dependencies,
       substitutions=substitutions,
       toolchains=toolchains,
       enable_location=True,
@@ -252,7 +252,7 @@ def apply_location_substitutions(
     _context: InvocationContext,
     cmd: str,
     relative_to: str,
-    custom_target_deps: Optional[List[CMakeTarget]] = None,
+    add_dependencies: Optional[List[CMakeTarget]] = None,
 ) -> str:
   """Substitues $(location) references in `cmd`.
 
@@ -262,7 +262,7 @@ def apply_location_substitutions(
     _context: InvocationContext used for label resolution.
     cmd: Source string.
     relative_to: Working directory.
-    custom_target_deps: cmake target dependencies for the genrule
+    add_dependencies: cmake target dependencies for the genrule
 
   Returns:
     Modified string.
@@ -270,7 +270,7 @@ def apply_location_substitutions(
 
   def _replace(m: Match[str]) -> str:
     return _get_location_replacement(
-        _context, cmd, relative_to, custom_target_deps, m.group(1), m.group(2)
+        _context, cmd, relative_to, add_dependencies, m.group(1), m.group(2)
     )
 
   return _LOCATION_SUB_RE.sub(_replace, cmd)

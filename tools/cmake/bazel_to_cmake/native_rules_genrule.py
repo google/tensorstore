@@ -24,14 +24,13 @@ https://github.com/bazelbuild/bazel/tree/master/src/main/starlark/builtins_bzl/c
 
 import io
 import pathlib
-import re
 from typing import List, Optional, cast
 
 from .cmake_builder import CMakeBuilder
-from .cmake_repository import PROJECT_BINARY_DIR
-from .cmake_repository import PROJECT_SOURCE_DIR
-from .cmake_target import CMakeDepsProvider
+from .cmake_target import CMakeAddDependenciesProvider
 from .cmake_target import CMakeTarget
+from .emit_filegroup import emit_filegroup
+from .emit_filegroup import emit_genrule
 from .evaluation import EvaluationState
 from .starlark import rule  # pylint: disable=unused-import
 from .starlark.bazel_build_file import register_native_build_rule
@@ -39,16 +38,17 @@ from .starlark.bazel_target import TargetId
 from .starlark.common_providers import FilesProvider
 from .starlark.invocation_context import InvocationContext
 from .starlark.label import RelativeLabel
-from .starlark.provider import Provider
 from .starlark.provider import TargetInfo
 from .starlark.select import Configurable
-from .util import make_relative_path
-from .util import quote_list
 from .util import quote_path_list
-from .util import quote_string
 from .variable_substitution import apply_location_and_make_variable_substitutions
 from .variable_substitution import do_bash_command_replacement
 from .variable_substitution import generate_substitutions
+
+
+def _emit_make_directory(out: io.StringIO, out_dirs: set[pathlib.PurePath]):
+  if out_dirs:
+    out.write(f"file(MAKE_DIRECTORY {quote_path_list(sorted(out_dirs))})\n")
 
 
 @register_native_build_rule
@@ -92,10 +92,15 @@ def _filegroup_impl(
   cmake_deps: List[CMakeTarget] = []
   srcs_files = state.get_file_paths(resolved_srcs, cmake_deps)
 
+  _context.add_analyzed_target(
+      _target,
+      TargetInfo(*cmake_target_pair.as_providers(), FilesProvider(srcs_files)),
+  )
+
   # Also add an INTERFACE_LIBRARY in order to reference in compile targets.
   out = io.StringIO()
   out.write(f"\n# filegroup({_target.as_label()})\n")
-  _emit_filegroup(
+  emit_filegroup(
       out,
       cmake_target_pair.target,
       srcs_files,
@@ -104,11 +109,6 @@ def _filegroup_impl(
       add_dependencies=cmake_deps,
   )
   _context.access(CMakeBuilder).addtext(out.getvalue())
-
-  providers: List[Provider] = [FilesProvider(srcs_files)]
-  _context.add_analyzed_target(
-      _target, TargetInfo(*cmake_target_pair.as_providers(), *providers)
-  )
 
 
 @register_native_build_rule
@@ -169,7 +169,7 @@ def _genrule_impl(
     message_text = _context.evaluate_configurable(message)
 
   cmake_target_pair = state.generate_cmake_target_pair(_target).with_alias(None)
-  cmake_deps_provider = CMakeDepsProvider([cmake_target_pair.target])
+  cmake_deps_provider = CMakeAddDependenciesProvider(cmake_target_pair.target)
   repo = state.workspace.all_repositories.get(_target.repository_id)
   assert repo is not None
 
@@ -204,13 +204,10 @@ def _genrule_impl(
       _context,
       cmd=_context.evaluate_configurable(cmd),
       relative_to=str(source_directory),
-      custom_target_deps=cmake_deps,
+      add_dependencies=cmake_deps,
       substitutions=substitutions,
       toolchains=resolved_toolchains,
   )
-
-  out = io.StringIO()
-  out.write(f"\n# genrule({_target.as_label()})\n")
 
   if cmd_text.find("$(") != -1:
     cmd_text = do_bash_command_replacement(cmd_text)
@@ -226,11 +223,16 @@ def _genrule_impl(
     )
     cmd_text = f'bash -c "{escaped}"'
 
+  _context.add_analyzed_target(_target, TargetInfo(cmake_deps_provider))
+
   # NOTE: We could do create the directories here:
   # pathlib.Path(x).mkdir(parents=True, exist_ok=True) for x in out_dirs
+  out = io.StringIO()
+
+  out.write(f"\n# genrule({_target.as_label()})\n")
   _emit_make_directory(out, out_dirs)
 
-  _emit_genrule(
+  emit_genrule(
       out,
       "genrule__" + cmake_target_pair.target,
       generated_files=out_files,
@@ -238,7 +240,7 @@ def _genrule_impl(
       cmd_text=cmd_text,
       message=message_text,
   )
-  _emit_filegroup(
+  emit_filegroup(
       out,
       cmake_target_pair.target,
       out_files,
@@ -247,94 +249,3 @@ def _genrule_impl(
       add_dependencies=[CMakeTarget("genrule__" + cmake_target_pair.target)],
   )
   _context.access(CMakeBuilder).addtext(out.getvalue())
-
-  _context.add_analyzed_target(_target, TargetInfo(cmake_deps_provider))
-
-
-_QUOTED_VAR = re.compile(r"(^[$]{[A-Z0-9_]+})|(^\"[$]{[A-Z0-9_]+}\")")
-
-
-def _emit_make_directory(out: io.StringIO, out_dirs: set[pathlib.PurePath]):
-  if out_dirs:
-    out.write(f"file(MAKE_DIRECTORY {quote_path_list(sorted(out_dirs))})\n")
-
-
-def _emit_filegroup(
-    out: io.StringIO,
-    cmake_name: str,
-    filegroup_files: List[str],
-    source_directory: pathlib.PurePath,
-    cmake_binary_dir: pathlib.PurePath,
-    add_dependencies: Optional[List[CMakeTarget]] = None,
-):
-  has_proto = False
-  has_ch = False
-  includes: set[str] = set()
-  for path in filegroup_files:
-    has_proto = has_proto or path.endswith(".proto")
-    has_ch = (
-        has_ch
-        or path.endswith(".c")
-        or path.endswith(".h")
-        or path.endswith(".hpp")
-        or path.endswith(".cc")
-        or path.endswith(".inc")
-    )
-    (c, _) = make_relative_path(
-        pathlib.PurePath(path),
-        (PROJECT_SOURCE_DIR, source_directory),
-        (PROJECT_BINARY_DIR, cmake_binary_dir),
-    )
-    if c is not None:
-      includes.add(c)
-
-  sep = "\n    "
-  quoted_includes = quote_list(sorted(includes), sep)
-  quoted_srcs = quote_path_list(sorted(filegroup_files), sep)
-
-  out.write(f"add_library({cmake_name} INTERFACE)\n")
-  out.write(f"target_sources({cmake_name} INTERFACE{sep}{quoted_srcs})\n")
-  if has_proto:
-    out.write(
-        f"set_property(TARGET {cmake_name} PROPERTY"
-        f" INTERFACE_IMPORTS{sep}{quoted_includes})\n"
-    )
-  if has_ch:
-    out.write(
-        f"set_property(TARGET {cmake_name} PROPERTY"
-        f" INTERFACE_INCLUDE_DIRECTORIES{sep}{quoted_includes})\n"
-    )
-  if add_dependencies:
-    deps_str = sep.join(sorted(set(add_dependencies)))
-    out.write(f"add_dependencies({cmake_name} {deps_str})\n")
-
-
-def _emit_genrule(
-    out: io.StringIO,
-    cmake_name: str,
-    generated_files: List[str],
-    add_dependencies: List[CMakeTarget],
-    cmd_text: str,
-    message: Optional[str],
-):
-  cmd_text = cmd_text.strip()
-  if message:
-    optional_message_text = f"COMMENT {quote_string(message)}\n  "
-  else:
-    optional_message_text = ""
-
-  sep = "\n    "
-  quoted_outputs = quote_list(generated_files, sep)
-  deps_str = quote_list(sorted(set(add_dependencies)), sep)
-  if deps_str:
-    deps_str = f"DEPENDS{sep}{deps_str}"
-
-  out.write(f"""add_custom_command(
-  OUTPUT{sep}{quoted_outputs}
-  {deps_str}
-  COMMAND {cmd_text}
-  {optional_message_text}VERBATIM
-  WORKING_DIRECTORY "${{CMAKE_CURRENT_SOURCE_DIR}}"
-)
-add_custom_target({cmake_name} DEPENDS{sep}{quoted_outputs})
-""")

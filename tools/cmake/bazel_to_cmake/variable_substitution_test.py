@@ -185,7 +185,7 @@ def test_apply_location_and_make_variable_substitutions():
           ctx,
           cmd="ls $$(dirname $(location $(foo)))",
           relative_to="",
-          custom_target_deps=[],
+          add_dependencies=[],
           substitutions=subs,
           toolchains=None,
       )
