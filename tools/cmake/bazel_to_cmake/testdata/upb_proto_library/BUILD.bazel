@@ -6,54 +6,64 @@ load(
 
 package(default_visibility = ["//visibility:public"])
 
-cc_library(
-    name = "a",
-    srcs = ["a.cc"],
-    deps = [
-        ":c_upb_proto",
-        ":c_upb_proto_reflection",
+proto_library(
+    name = "a_proto",
+    srcs = ["a.proto"],
+)
+
+proto_library(
+    name = "b_proto",
+    srcs = ["b.proto"],
+)
+
+proto_library(
+    name = "ab_proto",
+    srcs = [
+        "a.proto",
+        "b.proto",
     ],
 )
 
 proto_library(
-    name = "c_proto",
+    name = "abc_proto",
     srcs = ["c.proto"],
-)
-
-proto_library(
-    name = "d_proto",
-    srcs = ["d.proto"],
-)
-
-proto_library(
-    name = "abc_protos",
     deps = [
-        ":c_proto",
-        ":d_proto",
+        ":ab_proto",
     ],
-)
-
-upb_proto_library(
-    name = "c_upb_proto",
-    deps = [":c_proto"],
-)
-
-upb_proto_reflection_library(
-    name = "c_upb_proto_reflection",
-    deps = [":c_proto"],
 )
 
 cc_proto_library(
-    name = "abc_protos_cc",
-    deps = [":abc_protos"],
+    name = "a_cc_proto",
+    deps = [":a_proto"],
 )
 
 upb_proto_library(
-    name = "abc_protos_upb",
+    name = "a_upb_proto",
+    deps = [":a_proto"],
+)
+
+upb_proto_reflection_library(
+    name = "a_upb_proto_reflection",
+    deps = [":a_proto"],
+)
+
+# ...
+
+upb_proto_library(
+    name = "abc_upb_proto",
     deps = [":abc_protos"],
 )
 
 upb_proto_reflection_library(
-    name = "abc_protos_upbdefs",
+    name = "abc_upb_proto_reflection",
     deps = [":abc_protos"],
+)
+
+cc_library(
+    name = "x",
+    srcs = ["x.cc"],
+    deps = [
+        ":abc_upb_proto",
+        ":abc_upb_proto_reflection",
+    ],
 )

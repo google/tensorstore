@@ -35,6 +35,7 @@ from ..starlark.invocation_context import RelativeLabel
 from ..starlark.provider import TargetInfo
 from ..starlark.select import Configurable
 
+from .upb_proto_library import UPB_REPO  # pylint: disable=unused-import
 
 GRPC_REPO = RepositoryId("com_github_grpc_grpc")
 

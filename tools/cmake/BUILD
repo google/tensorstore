@@ -132,6 +132,7 @@ TESTDATA = [
     "bazel_to_cmake/testdata/rules_proto/golden/build_rules.cmake",
     "bazel_to_cmake/testdata/rules_proto/WORKSPACE.bazel",
     "bazel_to_cmake/testdata/rules_proto/x.proto",
+    "bazel_to_cmake/testdata/rules_proto/src/subdir/y.proto",
     "bazel_to_cmake/testdata/third_party_http_archive/a.cc",
     "bazel_to_cmake/testdata/third_party_http_archive/BUILD.bazel",
     "bazel_to_cmake/testdata/third_party_http_archive/config.json",
@@ -142,11 +143,12 @@ TESTDATA = [
     "bazel_to_cmake/testdata/third_party_http_archive/golden/build_rules.cmake",
     "bazel_to_cmake/testdata/third_party_http_archive/half.BUILD.bazel",
     "bazel_to_cmake/testdata/third_party_http_archive/WORKSPACE.bazel",
-    "bazel_to_cmake/testdata/upb_proto_library/a.cc",
+    "bazel_to_cmake/testdata/upb_proto_library/x.cc",
     "bazel_to_cmake/testdata/upb_proto_library/BUILD.bazel",
+    "bazel_to_cmake/testdata/upb_proto_library/a.proto",
+    "bazel_to_cmake/testdata/upb_proto_library/b.proto",
     "bazel_to_cmake/testdata/upb_proto_library/c.proto",
     "bazel_to_cmake/testdata/upb_proto_library/config.json",
-    "bazel_to_cmake/testdata/upb_proto_library/d.proto",
     "bazel_to_cmake/testdata/upb_proto_library/golden/build_rules.cmake",
     "bazel_to_cmake/testdata/upb_proto_library/WORKSPACE.bazel",
 ]
@@ -160,4 +162,44 @@ tensorstore_pytest_test(
         "skip-cmake",
         "skip-windows",  # path canonicalization isn't correct when testing on windows.
     ],
+)
+
+cc_library(
+    name = "bazel_to_cmake/testdata/upb_proto_library/x",
+    srcs = ["bazel_to_cmake/testdata/upb_proto_library/x.cc"],
+)
+
+proto_library(
+    name = "bazel_to_cmake/testdata/rules_proto/a_proto",
+    srcs = ["bazel_to_cmake/testdata/rules_proto/a.proto"],
+)
+
+proto_library(
+    name = "bazel_to_cmake/testdata/rules_proto/c_proto",
+    srcs = ["bazel_to_cmake/testdata/rules_proto/c.proto"],
+)
+
+proto_library(
+    name = "bazel_to_cmake/testdata/rules_proto/b_proto",
+    srcs = ["bazel_to_cmake/testdata/rules_proto/b.proto"],
+)
+
+proto_library(
+    name = "bazel_to_cmake/testdata/upb_proto_library/a_proto",
+    srcs = ["bazel_to_cmake/testdata/upb_proto_library/a.proto"],
+)
+
+proto_library(
+    name = "bazel_to_cmake/testdata/rules_proto/x_proto",
+    srcs = ["bazel_to_cmake/testdata/rules_proto/x.proto"],
+)
+
+proto_library(
+    name = "bazel_to_cmake/testdata/rules_proto/src/subdir/y_proto",
+    srcs = ["bazel_to_cmake/testdata/rules_proto/src/subdir/y.proto"],
+)
+
+proto_library(
+    name = "bazel_to_cmake/testdata/upb_proto_library/b_proto",
+    srcs = ["bazel_to_cmake/testdata/upb_proto_library/b.proto"],
 )

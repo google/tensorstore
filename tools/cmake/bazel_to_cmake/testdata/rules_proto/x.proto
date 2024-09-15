@@ -1,1 +1,2 @@
 // x.proto
+syntax = "proto2";

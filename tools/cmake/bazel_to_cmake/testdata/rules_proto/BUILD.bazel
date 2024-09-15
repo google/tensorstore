@@ -14,9 +14,9 @@ proto_library(
 
 proto_library(
     name = "ab_proto",
-    deps = [
-        "a_proto",
-        ":b_proto",
+    srcs = [
+        "a.proto",
+        "b.proto",
     ],
 )
 
@@ -24,7 +24,7 @@ proto_library(
     name = "abc_proto",
     srcs = ["c.proto"],
     deps = [
-        "ab_proto",
+        ":ab_proto",
     ],
 )
 
@@ -47,4 +47,10 @@ proto_library(
 cc_proto_library(
     name = "x_proto_cc",
     deps = [":x_proto"],
+)
+
+proto_library(
+    name = "y_proto",
+    srcs = ["src/subdir/y.proto"],
+    strip_import_prefix = "src",
 )
