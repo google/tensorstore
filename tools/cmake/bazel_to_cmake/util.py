@@ -18,19 +18,13 @@ import json
 import os
 import pathlib
 import re
-from typing import Any, Iterable, List, Optional, Sequence, Tuple, TypeVar, Union
+from typing import Any, Iterable, List, Optional, Tuple, TypeVar
 
 from .starlark.bazel_glob import glob_pattern_to_regexp
 
 PathLike = TypeVar(
     "PathLike", str, pathlib.Path, pathlib.PurePath, pathlib.PurePosixPath
 )
-
-PathSequence = Union[
-    Sequence[PathLike],
-    Iterable[PathLike],
-    set[PathLike],
-]
 
 
 def quote_string(x: str) -> str:
@@ -58,7 +52,7 @@ def quote_list(y: Iterable[str], separator: str = " ") -> str:
   return separator.join(quote_string(x) for x in y)
 
 
-def quote_path_list(y: PathSequence, separator: str = " ") -> str:
+def quote_path_list(y: Iterable[PathLike], separator: str = " ") -> str:
   return separator.join(quote_path(x) for x in y if x)
 
 
@@ -78,7 +72,6 @@ def is_relative_to(
 
 
 def make_relative_path(p: PathLike, *target) -> Tuple[Any, pathlib.PurePath]:
-
   if not isinstance(p, pathlib.PurePath):
     p = pathlib.PurePath(p)
   i = 0
@@ -89,6 +82,18 @@ def make_relative_path(p: PathLike, *target) -> Tuple[Any, pathlib.PurePath]:
     if is_relative_to(p, x):
       return (i, p.relative_to(x))
   return (None, p)
+
+
+def partition_by(*args, pattern: str) -> Tuple[List[str], List[str]]:
+  yes = []
+  no = []
+  for x in args:
+    y = str(x)
+    if re.search(pattern, y):
+      yes.append(y)
+    else:
+      no.append(y)
+  return (yes, no)
 
 
 def write_file_if_not_already_equal(path: pathlib.PurePath, content: bytes):

@@ -37,12 +37,13 @@ correctly included in the generated CMake file.
 # pylint: disable=invalid-name
 
 import hashlib
+import io
 import pathlib
-from typing import Callable, List, NamedTuple, Optional, Protocol, Tuple
+from typing import Callable, Collection, List, NamedTuple, Optional
 
 from .cmake_builder import CMakeBuilder
-from .cmake_target import CMakeDepsProvider
-from .cmake_target import CMakeLibraryTargetProvider
+from .cmake_target import CMakeAddDependenciesProvider
+from .cmake_target import CMakeLinkLibrariesProvider
 from .cmake_target import CMakeTarget
 from .emit_cc import emit_cc_library
 from .evaluation import EvaluationState
@@ -51,7 +52,6 @@ from .starlark.bazel_target import TargetId
 from .starlark.common_providers import FilesProvider
 from .starlark.common_providers import ProtoLibraryProvider
 from .starlark.invocation_context import InvocationContext
-from .starlark.label import RelativeLabel
 from .starlark.provider import TargetInfo
 from .util import quote_list
 
@@ -60,46 +60,13 @@ PROTO_REPO = RepositoryId("com_google_protobuf")
 PROTO_COMPILER = PROTO_REPO.parse_target("//:protoc")
 
 
-class ProtoAspectCallable(Protocol):
-
-  def __call__(
-      self,  # ignored
-      context: InvocationContext,
-      proto_target: TargetId,
-      visibility: Optional[List[RelativeLabel]] = None,
-      **kwargs,
-  ):
-    pass
-
-
 class PluginSettings(NamedTuple):
   name: str
   plugin: Optional[TargetId]
   exts: List[str]
   runtime: List[TargetId]
+  aspectdeps: Callable[[TargetId], List[TargetId]]
   language: Optional[str] = None
-
-
-_PROTO_ASPECT: List[Tuple[str, ProtoAspectCallable]] = []
-
-
-def add_proto_aspect(name: str, fn: ProtoAspectCallable):
-  print(f"Proto aspect: {name}")
-
-  _PROTO_ASPECT.append((
-      name,
-      fn,
-  ))
-
-
-def invoke_proto_aspects(
-    context: InvocationContext,
-    proto_target: TargetId,
-    visibility: Optional[List[RelativeLabel]] = None,
-    **kwargs,
-):
-  for t in _PROTO_ASPECT:
-    t[1](context, proto_target, visibility, **kwargs)
 
 
 def _get_proto_output_dir(
@@ -127,6 +94,52 @@ def _get_proto_output_dir(
   return output_dir
 
 
+def _emit_btc_protobuf(
+    out: io.StringIO,
+    *,
+    plugin_settings: PluginSettings,
+    plugin_name: Optional[str] = None,
+    cmake_name: CMakeTarget,
+    proto_cmake_target: CMakeTarget,
+    add_dependencies: Collection[CMakeTarget],
+    flags: Optional[List[str]] = None,
+    output_dir: Optional[pathlib.PurePath] = None,
+):
+  language = (
+      plugin_settings.language
+      if plugin_settings.language
+      else plugin_settings.name
+  )
+
+  plugin = ""
+  if plugin_name:
+    assert plugin_name in add_dependencies
+    plugin = f"\n    PLUGIN protoc-gen-{language}=$<TARGET_FILE:{plugin_name}>"
+
+  # Construct the output path. This is also the target include dir.
+  # ${PROJECT_BINARY_DIR}
+  if output_dir:
+    output_dir = f"${{PROJECT_BINARY_DIR}}/{output_dir.as_posix()}"
+  else:
+    output_dir = "${PROJECT_BINARY_DIR}"
+
+  plugin_flags = ""
+  if flags:
+    plugin_flags = f"\n    PLUGIN_OPTIONS {quote_list(flags)}"
+
+  out.write(f"""
+btc_protobuf(
+    TARGET {cmake_name}
+    PROTO_TARGET {proto_cmake_target}
+    LANGUAGE {language}
+    GENERATE_EXTENSIONS {quote_list(plugin_settings.exts)}
+    PROTOC_OPTIONS --experimental_allow_proto3_optional
+    PROTOC_OUT_DIR {output_dir}{plugin}{plugin_flags}
+    DEPENDS {quote_list(sorted(add_dependencies))}
+)
+""")
+
+
 def btc_protobuf(
     _context: InvocationContext,
     cmake_name: CMakeTarget,
@@ -141,50 +154,30 @@ def btc_protobuf(
 
   state = _context.access(EvaluationState)
 
-  language = (
-      plugin_settings.language
-      if plugin_settings.language
-      else plugin_settings.name
-  )
-
-  plugin = ""
+  plugin_name = None
   if plugin_settings.plugin:
-    plugin_name = state.get_dep(plugin_settings.plugin)
-    if len(plugin_name) != 1:
+    plugin = state.get_dep(plugin_settings.plugin)
+    if len(plugin) != 1:
       raise ValueError(
           f"Resolving {plugin_settings.plugin} returned: {plugin_name}"
       )
-
-    cmake_deps.append(plugin_name[0])
-    plugin = (
-        f"\n    PLUGIN protoc-gen-{language}=$<TARGET_FILE:{plugin_name[0]}>"
-    )
+    cmake_deps.append(plugin[0])
+    plugin_name = plugin[0]
 
   cmake_deps.extend(state.get_dep(PROTO_COMPILER))
-  btc_cmake_deps = list(sorted(set(cmake_deps)))
 
-  # Construct the output path. This is also the target include dir.
-  # ${PROJECT_BINARY_DIR}
-  if output_dir:
-    output_dir = f"${{PROJECT_BINARY_DIR}}/{output_dir.as_posix()}"
-  else:
-    output_dir = "${PROJECT_BINARY_DIR}"
-
-  plugin_flags = ""
-  if flags:
-    plugin_flags = f"\n    PLUGIN_OPTIONS {quote_list(flags)}"
-
-  return f"""
-btc_protobuf(
-    TARGET {cmake_name}
-    PROTO_TARGET {proto_cmake_target}
-    LANGUAGE {language}
-    GENERATE_EXTENSIONS {quote_list(plugin_settings.exts)}
-    PROTOC_OPTIONS --experimental_allow_proto3_optional
-    PROTOC_OUT_DIR {output_dir}{plugin}{plugin_flags}
-    DEPENDENCIES {quote_list(btc_cmake_deps)}
-)
-"""
+  out = io.StringIO()
+  _emit_btc_protobuf(
+      out,
+      plugin_settings=plugin_settings,
+      cmake_name=cmake_name,
+      proto_cmake_target=proto_cmake_target,
+      plugin_name=plugin_name,
+      add_dependencies=cmake_deps,
+      flags=flags,
+      output_dir=output_dir,
+  )
+  return out.getvalue()
 
 
 def get_aspect_dep(
@@ -199,7 +192,7 @@ def get_aspect_dep(
     target_info = state.get_optional_target_info(t)
 
   if target_info:
-    provider = target_info.get(CMakeLibraryTargetProvider)
+    provider = target_info.get(CMakeLinkLibrariesProvider)
     if provider:
       return provider.target
 
@@ -215,8 +208,6 @@ def aspect_genproto_library_target(
     target: TargetId,
     proto_target: TargetId,
     plugin_settings: PluginSettings,
-    aspect_dependency: Callable[[TargetId], TargetId],
-    extra_deps: Optional[List[TargetId]] = None,
 ):
   """Emit or return an appropriate TargetId for protos compiled."""
   state = _context.access(EvaluationState)
@@ -237,7 +228,7 @@ def aspect_genproto_library_target(
 
   if not proto_target_info or (
       proto_target_info.get(ProtoLibraryProvider) is None
-      and proto_target_info.get(CMakeLibraryTargetProvider) is None
+      and proto_target_info.get(CMakeLinkLibrariesProvider) is None
       and proto_target_info.get(FilesProvider) is None
   ):
     # This target is not available; construct an ephemeral reference.
@@ -250,14 +241,15 @@ def aspect_genproto_library_target(
   proto_provider = proto_target_info.get(ProtoLibraryProvider)
   assert proto_provider is not None
 
-  # Resolve extra deps first.
-  cc_deps: List[CMakeTarget] = []
-  if extra_deps is not None:
-    cc_deps.extend(state.get_deps(extra_deps))
-  for dep in plugin_settings.runtime:
-    cc_deps.extend(state.get_dep(dep))
-  for dep in sorted(proto_provider.deps):
-    cc_deps.append(get_aspect_dep(_context, aspect_dependency(dep)))
+  # Resovle aspect deps, excluding self.
+  aspect_deps = set(plugin_settings.aspectdeps(proto_target))
+  for d in proto_provider.deps:
+    aspect_deps.update(plugin_settings.aspectdeps(d))
+  if target in aspect_deps:
+    aspect_deps.remove(target)
+
+  link_libraries = state.get_deps(plugin_settings.runtime)
+  link_libraries.extend(state.get_deps(sorted(aspect_deps)))
 
   # Get our cmake name; proto libraries need aliases to be referenced
   # from other source trees.
@@ -272,7 +264,7 @@ def aspect_genproto_library_target(
   import_target = cmake_target_pair.target
 
   proto_src_files = sorted(set(proto_src_files))
-  if not proto_src_files and not cc_deps and not import_target:
+  if not proto_src_files and not link_libraries and not import_target:
     raise ValueError(
         f"Proto generation failed: {target.as_label()} no inputs for"
         f" {proto_target.as_label()}"
@@ -313,7 +305,7 @@ def aspect_genproto_library_target(
           generated_target,
           TargetInfo(
               FilesProvider([str(generated_path)]),
-              CMakeDepsProvider([cmake_target_pair.target]),
+              CMakeAddDependenciesProvider(cmake_target_pair.target),
           ),
       )
       generated_paths.append(generated_path)
@@ -330,7 +322,7 @@ def aspect_genproto_library_target(
     btc_protobuf_txt = btc_protobuf(
         _context,
         cmake_target_pair.target,
-        proto_target_info.get(CMakeLibraryTargetProvider).target,
+        proto_target_info.get(CMakeLinkLibrariesProvider).target,
         plugin_settings,
         cmake_deps=cmake_deps.copy(),
         output_dir=output_dir,
@@ -343,7 +335,7 @@ def aspect_genproto_library_target(
       cmake_target_pair,
       hdrs=set(),
       srcs=set(),
-      deps=set(cc_deps),
+      deps=set(link_libraries),
       header_only=(not bool(proto_src_files)),
       includes=[],
   )

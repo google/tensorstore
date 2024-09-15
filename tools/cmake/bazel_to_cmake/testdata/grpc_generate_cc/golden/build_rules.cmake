@@ -25,7 +25,7 @@ btc_protobuf(
     PROTOC_OPTIONS --experimental_allow_proto3_optional
     PROTOC_OUT_DIR ${PROJECT_BINARY_DIR}/bdf6942a
     PLUGIN protoc-gen-upb_minitable=$<TARGET_FILE:protobuf::protoc_gen_upb_minitable_stage1>
-    DEPENDENCIES "protobuf::protoc" "protobuf::protoc_gen_upb_minitable_stage1"
+    DEPENDS "protobuf::protoc" "protobuf::protoc_gen_upb_minitable_stage1"
 )
 
 # @grpc_generate_cc_test_repo//:c_proto__upb_library
@@ -45,7 +45,7 @@ btc_protobuf(
     PROTOC_OPTIONS --experimental_allow_proto3_optional
     PROTOC_OUT_DIR ${PROJECT_BINARY_DIR}/bdf6942a
     PLUGIN protoc-gen-upb=$<TARGET_FILE:protobuf::protoc_gen_upb>
-    DEPENDENCIES "protobuf::protoc" "protobuf::protoc_gen_upb"
+    DEPENDS "protobuf::protoc" "protobuf::protoc_gen_upb"
 )
 
 # @grpc_generate_cc_test_repo//:cc__grpc_codegen
@@ -60,7 +60,7 @@ btc_protobuf(
     PROTOC_OUT_DIR ${PROJECT_BINARY_DIR}
     PLUGIN protoc-gen-grpc=$<TARGET_FILE:gRPC::grpc_cpp_plugin>
     PLUGIN_OPTIONS "services_namespace=grpc_gen"
-    DEPENDENCIES "CMakeProject_c_proto__upb_library" "gRPC::grpc_cpp_plugin" "protobuf::protoc"
+    DEPENDS "CMakeProject_c_proto__upb_library" "gRPC::grpc_cpp_plugin" "protobuf::protoc"
 )
 
 
@@ -110,7 +110,7 @@ btc_protobuf(
     GENERATE_EXTENSIONS ".pb.h" ".pb.cc"
     PROTOC_OPTIONS --experimental_allow_proto3_optional
     PROTOC_OUT_DIR ${PROJECT_BINARY_DIR}/bdf6942a
-    DEPENDENCIES "protobuf::protoc"
+    DEPENDS "protobuf::protoc"
 )
 
 # @grpc_generate_cc_test_repo//:c_proto__upbdefs_library
@@ -131,5 +131,5 @@ btc_protobuf(
     PROTOC_OPTIONS --experimental_allow_proto3_optional
     PROTOC_OUT_DIR ${PROJECT_BINARY_DIR}/bdf6942a
     PLUGIN protoc-gen-upbdefs=$<TARGET_FILE:protobuf::protoc_gen_upbdefs>
-    DEPENDENCIES "protobuf::protoc" "protobuf::protoc_gen_upbdefs"
+    DEPENDS "protobuf::protoc" "protobuf::protoc_gen_upbdefs"
 )

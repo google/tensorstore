@@ -16,7 +16,6 @@
 # pylint: disable=relative-beyond-top-level,invalid-name,missing-function-docstring,g-long-lambda
 
 import pathlib
-import re
 from typing import Any, Dict, Iterable, List, Optional, cast
 
 from .cmake_builder import CMakeBuilder
@@ -32,6 +31,7 @@ from .starlark.label import RelativeLabel
 from .starlark.select import Configurable
 from .util import is_relative_to
 from .util import make_relative_path
+from .util import partition_by
 from .util import quote_list
 from .util import quote_path_list
 from .util import quote_unescaped_list
@@ -60,7 +60,7 @@ def _emit_cc_common_options(
     local_defines: Optional[Iterable[str]] = None,
     includes: Optional[Iterable[str]] = None,
     private_includes: Optional[Iterable[str]] = None,
-    custom_target_deps: Optional[Iterable[str]] = None,
+    add_dependencies: Optional[Iterable[str]] = None,
     extra_public_compile_options: Optional[Iterable[str]] = None,
     interface_only: bool = False,
     srcs: Optional[Iterable[str]] = None,
@@ -127,21 +127,21 @@ def _emit_cc_common_options(
   _builder.addtext(
       f"target_compile_features({target_name} {public_context} cxx_std_17)\n"
   )
-  if custom_target_deps:
+  if add_dependencies:
     _builder.addtext(
-        f"add_dependencies({target_name} {quote_list(sorted(custom_target_deps))})\n"
+        f"add_dependencies({target_name} {quote_list(sorted(add_dependencies))})\n"
     )
   if extra_public_compile_options:
     _builder.addtext(
         f"target_compile_options({target_name} {public_context} {quote_list(extra_public_compile_options)})\n"
     )
   if srcs:
-    non_header_srcs = [x for x in srcs if not re.search(_HEADER_SRC_PATTERN, x)]
+    non_header_srcs = partition_by(*srcs, pattern=_HEADER_SRC_PATTERN)[1]
     _builder.addtext(
         f"target_sources({target_name} PRIVATE{_SEP}{quote_path_list(non_header_srcs , separator=_SEP)})\n"
     )
 
-    asm_srcs = [x for x in srcs if re.search(_ASM_SRC_PATTERN, x)]
+    asm_srcs = partition_by(*srcs, pattern=_ASM_SRC_PATTERN)[0]
     if asm_srcs:
       if asm_dialect is None:
         raise ValueError(
@@ -303,7 +303,7 @@ def construct_cc_private_includes(
 def handle_cc_common_options(
     _context: InvocationContext,
     src_required=False,
-    custom_target_deps: Optional[List[CMakeTarget]] = None,
+    add_dependencies: Optional[List[CMakeTarget]] = None,
     srcs: Optional[Configurable[List[RelativeLabel]]] = None,
     deps: Optional[Configurable[List[RelativeLabel]]] = None,
     includes: Optional[Configurable[List[str]]] = None,
@@ -313,8 +313,8 @@ def handle_cc_common_options(
     textual_hdrs_file_paths: Optional[List[str]] = None,
     **kwargs,
 ) -> Dict[str, Any]:
-  if custom_target_deps is None:
-    custom_target_deps = []
+  if add_dependencies is None:
+    add_dependencies = []
   state = _context.access(EvaluationState)
 
   resolved_srcs = _context.resolve_target_or_label_list(
@@ -324,7 +324,7 @@ def handle_cc_common_options(
       _context.evaluate_configurable_list(deps)
   )
   srcs_file_paths = [
-      str(x) for x in state.get_file_paths(resolved_srcs, custom_target_deps)
+      str(x) for x in state.get_file_paths(resolved_srcs, add_dependencies)
   ]
 
   if src_required and not srcs_file_paths:
@@ -358,7 +358,7 @@ def handle_cc_common_options(
   result: Dict[str, Any] = {
       "srcs": repo.replace_with_cmake_macro_dirs(sorted(set(srcs_file_paths))),
       "deps": cmake_deps,
-      "custom_target_deps": set(custom_target_deps),
+      "add_dependencies": set(add_dependencies),
       "extra_public_compile_options": extra_public_compile_options,
       "asm_dialect": default_asm_dialect(state.workspace),
   }
@@ -378,7 +378,7 @@ def handle_cc_common_options(
     )
 
   known_include_files = (
-      [x for x in srcs_file_paths if re.search(_HEADER_SRC_PATTERN, x)]
+      partition_by(*srcs_file_paths, pattern=_HEADER_SRC_PATTERN)[0]
       + (hdrs_file_paths or [])
       + (textual_hdrs_file_paths or [])
   )
@@ -412,7 +412,7 @@ def emit_cc_library(
 ):
   """Generates a C++ library target."""
   if header_only is None:
-    header_only = all(re.search(_HEADER_SRC_PATTERN, x) for x in srcs)
+    header_only = not (partition_by(*srcs, pattern=_HEADER_SRC_PATTERN)[1])
   del hdrs
 
   target_name = _cmake_target_pair.target
