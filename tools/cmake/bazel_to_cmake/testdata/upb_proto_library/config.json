@@ -3,11 +3,9 @@
     ".bzl_library.upb_proto_library"
   ],
   "targets": [
-    "//:c_upb_proto",
-    "//:c_upb_proto_reflection",
-    "//:abc_protos_cc",
-    "//:abc_protos_upb",
-    "//:abc_protos_upbdefs"
+    "//:a_cc_proto",
+    "//:a_upb_proto",
+    "//:a_upb_proto_reflection",
+    "//:x"
   ]
 }
-
