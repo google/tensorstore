@@ -14,7 +14,7 @@ add_custom_target(genrule__CMakeProject_parent_c_inc DEPENDS
 add_library(CMakeProject_parent_c_inc INTERFACE)
 target_sources(CMakeProject_parent_c_inc INTERFACE
     "${TEST_BINDIR}/parent/child/c.inc")
-set_property(TARGET CMakeProject_parent_c_inc PROPERTY INTERFACE_INCLUDE_DIRECTORIES
+target_include_directories(CMakeProject_parent_c_inc INTERFACE
     "${PROJECT_BINARY_DIR}")
 add_dependencies(CMakeProject_parent_c_inc genrule__CMakeProject_parent_c_inc)
 

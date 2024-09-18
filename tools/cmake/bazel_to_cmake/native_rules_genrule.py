@@ -23,11 +23,14 @@ https://github.com/bazelbuild/bazel/tree/master/src/main/starlark/builtins_bzl/c
 # pylint: disable=relative-beyond-top-level,invalid-name,missing-function-docstring,g-long-lambda
 
 import io
+import itertools
 import pathlib
-from typing import List, Optional, cast
+from typing import List, Optional
 
 from .cmake_builder import CMakeBuilder
-from .cmake_target import CMakeAddDependenciesProvider
+from .cmake_provider import CMakeAddDependenciesProvider
+from .cmake_provider import CMakePackageDepsProvider
+from .cmake_provider import make_providers
 from .cmake_target import CMakeTarget
 from .emit_filegroup import emit_filegroup
 from .emit_filegroup import emit_genrule
@@ -44,11 +47,6 @@ from .util import quote_path_list
 from .variable_substitution import apply_location_and_make_variable_substitutions
 from .variable_substitution import do_bash_command_replacement
 from .variable_substitution import generate_substitutions
-
-
-def _emit_make_directory(out: io.StringIO, out_dirs: set[pathlib.PurePath]):
-  if out_dirs:
-    out.write(f"file(MAKE_DIRECTORY {quote_path_list(sorted(out_dirs))})\n")
 
 
 @register_native_build_rule
@@ -89,12 +87,19 @@ def _filegroup_impl(
 
   cmake_target_pair = state.generate_cmake_target_pair(_target, alias=False)
 
-  cmake_deps: List[CMakeTarget] = []
-  srcs_files = state.get_file_paths(resolved_srcs, cmake_deps)
+  srcs_collector = state.collect_targets(resolved_srcs)
+  srcs_files = sorted(set(srcs_collector.file_paths()))
 
   _context.add_analyzed_target(
       _target,
-      TargetInfo(*cmake_target_pair.as_providers(), FilesProvider(srcs_files)),
+      TargetInfo(
+          *make_providers(
+              cmake_target_pair,
+              CMakePackageDepsProvider,
+              CMakeAddDependenciesProvider,
+          ),
+          FilesProvider(srcs_files),
+      ),
   )
 
   # Also add an INTERFACE_LIBRARY in order to reference in compile targets.
@@ -102,11 +107,11 @@ def _filegroup_impl(
   out.write(f"\n# filegroup({_target.as_label()})\n")
   emit_filegroup(
       out,
-      cmake_target_pair.target,
-      srcs_files,
-      repo.source_directory,
-      repo.cmake_binary_dir,
-      add_dependencies=cmake_deps,
+      cmake_name=cmake_target_pair.target,
+      filegroup_files=srcs_files,
+      source_directory=repo.source_directory,
+      cmake_binary_dir=repo.cmake_binary_dir,
+      add_dependencies=set(srcs_collector.add_dependencies()),
   )
   _context.access(CMakeBuilder).addtext(out.getvalue())
 
@@ -186,14 +191,21 @@ def _genrule_impl(
         out_target, TargetInfo(FilesProvider([str_path]), cmake_deps_provider)
     )
 
-  cmake_deps: List[CMakeTarget] = state.get_deps(resolved_tools)
-  src_files = state.get_file_paths(resolved_srcs, cmake_deps)
-  cmake_deps.extend(cast(List[CMakeTarget], src_files))
+  tools_collector = state.collect_deps(resolved_tools)
+  src_collector = state.collect_targets(resolved_srcs)
+
+  add_dependencies: List[CMakeTarget] = list(
+      itertools.chain(
+          tools_collector.targets(),
+          src_collector.add_dependencies(),
+      )
+  )
+  add_dependencies.extend(CMakeTarget(x) for x in src_collector.file_paths())
 
   substitutions = generate_substitutions(
       _context,
       _target,
-      src_files=src_files,
+      src_files=list(src_collector.file_paths()),
       out_files=out_files,
   )
   source_directory = _context.resolve_source_root(
@@ -204,7 +216,7 @@ def _genrule_impl(
       _context,
       cmd=_context.evaluate_configurable(cmd),
       relative_to=str(source_directory),
-      add_dependencies=cmake_deps,
+      add_dependencies=add_dependencies,
       substitutions=substitutions,
       toolchains=resolved_toolchains,
   )
@@ -230,22 +242,23 @@ def _genrule_impl(
   out = io.StringIO()
 
   out.write(f"\n# genrule({_target.as_label()})\n")
-  _emit_make_directory(out, out_dirs)
+  if out_dirs:
+    out.write(f"file(MAKE_DIRECTORY {quote_path_list(sorted(out_dirs))})\n")
 
   emit_genrule(
       out,
       "genrule__" + cmake_target_pair.target,
       generated_files=out_files,
-      add_dependencies=cmake_deps,
+      add_dependencies=add_dependencies,
       cmd_text=cmd_text,
       message=message_text,
   )
   emit_filegroup(
       out,
-      cmake_target_pair.target,
-      out_files,
-      repo.source_directory,
-      repo.cmake_binary_dir,
+      cmake_name=cmake_target_pair.target,
+      filegroup_files=out_files,
+      source_directory=repo.source_directory,
+      cmake_binary_dir=repo.cmake_binary_dir,
       add_dependencies=[CMakeTarget("genrule__" + cmake_target_pair.target)],
   )
   _context.access(CMakeBuilder).addtext(out.getvalue())

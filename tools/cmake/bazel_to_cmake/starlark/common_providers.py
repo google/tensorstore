@@ -15,10 +15,16 @@
 
 # pylint: disable=missing-function-docstring,relative-beyond-top-level
 
-from typing import Any, List, Optional
+import pathlib
+from typing import Any, Iterable, Optional, TypeVar
 
 from .bazel_target import TargetId
 from .provider import Provider
+
+
+PathLike = TypeVar(
+    "PathLike", str, pathlib.Path, pathlib.PurePath, pathlib.PurePosixPath
+)
 
 
 class BuildSettingProvider(Provider):
@@ -50,28 +56,42 @@ class FilesProvider(Provider):
 
   __slots__ = ("paths",)
 
-  def __init__(self, paths: List[str]):
-    self.paths = paths
+  def __init__(self, paths: Iterable[PathLike]):
+    self.paths = [str(x) for x in paths]
 
   def __repr__(self):
     return f"{self.__class__.__name__}({repr(self.paths)})"
 
 
 class ProtoLibraryProvider(Provider):
-  __slots__ = ("srcs", "deps", "strip_import_prefix")
+  __slots__ = (
+      "bazel_target",
+      "srcs",
+      "deps",
+      "strip_import_prefix",
+      "import_prefix",
+  )
 
   def __init__(
       self,
-      srcs: List[TargetId],
-      deps: List[TargetId],
+      bazel_target: TargetId,
+      srcs: Iterable[TargetId],
+      deps: Iterable[TargetId],
       strip_import_prefix: Optional[str],
+      import_prefix: Optional[str],
   ):
-    self.srcs = sorted(set(srcs))
-    self.deps = sorted(set(deps))
+    self.bazel_target = bazel_target
+    self.srcs = set(srcs)
+    self.deps = set(deps)
     self.strip_import_prefix = strip_import_prefix
+    self.import_prefix = import_prefix
 
   def __repr__(self):
     return (
-        f"{self.__class__.__name__}({repr(self.srcs)}, {repr(self.deps)},"
-        f" {repr(self.strip_import_prefix)})"
+        f"{self.__class__.__name__}("
+        f"{repr(self.bazel_target)},"
+        f"{repr(self.srcs)},"
+        f"{repr(self.deps)},"
+        f"{repr(self.strip_import_prefix)},"
+        f"{repr(self.import_prefix)})"
     )

@@ -28,5 +28,8 @@
     "//:x_proto_cc",
     "//:y_proto__cpp_library",
     "//:y_proto__upb_library"
+  ],
+  "excludes": [
+    "_bindir/bazel_to_cmake_empty_source.cc"
   ]
 }

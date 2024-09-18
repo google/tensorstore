@@ -16,12 +16,15 @@
 # pylint: disable=relative-beyond-top-level,invalid-name,missing-function-docstring,missing-class-docstring
 
 import hashlib
+import io
 import os
 import pathlib
-from typing import List, Optional, cast
+from typing import Iterable, List, Optional, cast
 
 from ..cmake_builder import CMakeBuilder
+from ..cmake_provider import default_providers
 from ..cmake_target import CMakeTarget
+from ..emit_alias import emit_library_alias
 from ..evaluation import EvaluationState
 from ..starlark.bazel_globals import BazelGlobals
 from ..starlark.bazel_globals import register_bzl_library
@@ -37,6 +40,16 @@ from ..util import quote_path_list
 from ..util import quote_string
 
 
+_EMIT_YASM_CHECK = """
+get_filename_component(_nasm_compiler_barename "${CMAKE_ASM_NASM_COMPILER}" NAME)
+if (_nasm_compiler_barename STREQUAL "yasm")
+  message(WARNING "CMake found YASM assembler. Please install 'nasm' instead.")
+endif()
+unset(_nasm_compiler_barename)
+
+"""
+
+
 @register_bzl_library("@tensorstore//bazel:rules_nasm.bzl", build=True)
 class RulesNasmLibrary(BazelGlobals):
 
@@ -47,6 +60,7 @@ class RulesNasmLibrary(BazelGlobals):
       **kwargs,
   ):
     context = self._context.snapshot()
+
     target = context.resolve_target(name)
     context.add_rule(
         target,
@@ -57,7 +71,7 @@ class RulesNasmLibrary(BazelGlobals):
 
 def _nasm_includes(
     _context: InvocationContext,
-    resolved_includes: List[TargetId],
+    resolved_includes: Iterable[TargetId],
     cmake_deps: List[CMakeTarget],
 ) -> set[str]:
   state = _context.access(EvaluationState)
@@ -78,8 +92,10 @@ def _nasm_includes(
       relative_target = include_target_str[len(package_prefix_str) :].replace(
           ":", "/"
       )
+    collector = state.collect_targets([include_target])
+    cmake_deps.extend(collector.add_dependencies())
 
-    for include_file in state.get_file_paths([include_target], cmake_deps):
+    for include_file in collector.file_paths():
       all_includes.add(str(pathlib.PurePosixPath(include_file).parent))
       if relative_target and include_file.endswith(relative_target):
         all_includes.add(include_file[: -len(relative_target)].rstrip("/"))
@@ -110,7 +126,8 @@ def _nasm_library_impl(
   resolved_includes = _context.resolve_target_or_label_list(
       _context.evaluate_configurable_list(includes or [])
   )
-  src_files = set(state.get_file_paths(resolved_srcs, cmake_deps))
+
+  srcs_collector = state.collect_targets(resolved_srcs)
 
   use_builtin_rule = True
 
@@ -136,43 +153,48 @@ def _nasm_library_impl(
       or not use_builtin_rule
   ):
     placeholder_source = state.get_placeholder_source()
+
+  # Emit
+  out = io.StringIO()
+  out.write(f"\n# nasm_library({_target.as_label()})\n")
   _emit_nasm_library(
-      _context.access(CMakeBuilder),
+      out,
       target_name=cmake_target_pair.target,
-      alias_name=cmake_target_pair.alias,
       cmake_deps=cmake_deps,
-      srcs=src_files,
+      srcs=set(srcs_collector.file_paths()),
       flags=resolved_flags,
       includes=_nasm_includes(_context, resolved_includes, cmake_deps),
-      alwayslink=alwayslink,
       placeholder_source=placeholder_source,
       use_builtin_rule=use_builtin_rule,
   )
+  extra_providers = ()
+  if cmake_target_pair.alias:
+    extra_providers = emit_library_alias(
+        out,
+        target_name=cmake_target_pair.target,
+        alias_name=cmake_target_pair.alias,
+        alwayslink=alwayslink,
+        interface_only=False,
+    )
+
+  builder = _context.access(CMakeBuilder)
+  builder.addtext(_EMIT_YASM_CHECK, unique=True)
+  builder.addtext(out.getvalue())
+
   _context.add_analyzed_target(
-      _target, TargetInfo(*cmake_target_pair.as_providers())
+      _target,
+      TargetInfo(*default_providers(cmake_target_pair), *extra_providers),
   )
 
 
-_EMIT_YASM_CHECK = """
-get_filename_component(_nasm_compiler_barename "${CMAKE_ASM_NASM_COMPILER}" NAME)
-if (_nasm_compiler_barename STREQUAL "yasm")
-  message(WARNING "CMake found YASM assembler. Please install 'nasm' instead.")
-endif()
-unset(_nasm_compiler_barename)
-
-"""
-
-
 def _emit_nasm_library(
-    _builder: CMakeBuilder,
+    out: io.StringIO,
     target_name: CMakeTarget,
-    alias_name: Optional[CMakeTarget],
     cmake_deps: List[CMakeTarget],
     srcs: set[str],
     includes: set[str],
     flags: List[str],
     placeholder_source: Optional[str],
-    alwayslink: bool,
     use_builtin_rule: bool,
 ):
   """Generates an NASM library target."""
@@ -180,20 +202,22 @@ def _emit_nasm_library(
   placeholder_sources = (
       [placeholder_source] if placeholder_source is not None else []
   )
-  _builder.addtext(f"add_library({target_name})\n")
+
+  _sep = "\n    "
+
+  out.write(f"add_library({target_name})\n")
   if use_builtin_rule:
-    _builder.addtext(_EMIT_YASM_CHECK, unique=True)
-    _builder.addtext(
-        f"""target_sources({target_name} PRIVATE {quote_list(all_srcs + placeholder_sources)})
-target_include_directories({target_name} PRIVATE {quote_list(sorted(includes))})
+    out.write(
+        f"""target_sources({target_name} PRIVATE {quote_list(all_srcs + placeholder_sources, separator=_sep)})
+target_include_directories({target_name} PRIVATE {quote_list(sorted(includes), separator=_sep)})
 set_source_files_properties(
-    {quote_list(all_srcs)}
+    {quote_list(all_srcs, separator=_sep)}
     PROPERTIES
       LANGUAGE ASM_NASM
       COMPILE_OPTIONS {quote_string(";".join(flags))})\n"""
     )
     if cmake_deps:
-      _builder.addtext(
+      out.write(
           f"add_dependencies({target_name} {quote_list(sorted(cmake_deps))})\n"
       )
   else:
@@ -209,7 +233,7 @@ set_source_files_properties(
       )
       src_obj_expr = f"${{CMAKE_CURRENT_BINARY_DIR}}/{src_obj_base}${{CMAKE_C_OUTPUT_EXTENSION}}"
       all_src_obj_exprs.append(src_obj_expr)
-      _builder.addtext(f"""
+      out.write(f"""
 add_custom_command(
   OUTPUT {quote_string(src_obj_expr)}
   DEPENDS {quote_path_list(all_srcs + cast(List[str], cmake_deps))}
@@ -221,14 +245,7 @@ add_custom_command(
           -o {quote_string(src_obj_expr)}
 )
 """)
-
-    _builder.addtext(
-        f"""target_sources({target_name} PRIVATE {quote_list(all_src_obj_exprs + placeholder_sources)})\n"""
-    )
-  if alias_name:
-    _builder.add_library_alias(
-        target_name=target_name,
-        alias_name=alias_name,
-        alwayslink=alwayslink,
-        interface_only=False,
+    out.write(
+        f"target_sources({target_name} PRIVATE\n"
+        f"{_sep}{quote_list(all_src_obj_exprs + placeholder_sources, separator=_sep)})\n"
     )

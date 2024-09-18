@@ -80,6 +80,7 @@ def _upbdefs_target(t: TargetId) -> List[TargetId]:
 
 _UPB_MINITABLE = PluginSettings(
     name="upb_minitable",
+    language="upb_minitable",
     plugin=UPB_REPO.parse_target(
         "//upb_generator:protoc-gen-upb_minitable_stage1"
     ),
@@ -92,21 +93,11 @@ _UPB_MINITABLE = PluginSettings(
     aspectdeps=_minitable_target,
 )
 
-_UPB = PluginSettings(
-    name="upb",
-    plugin=UPB_REPO.parse_target("//upb_generator:protoc-gen-upb"),
-    exts=[".upb.h", ".upb.c"],
-    runtime=[
-        UPB_REPO.parse_target(
-            "//upb:generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me"
-        ),
-    ],
-    aspectdeps=_upb_target,
-)
 
 # STAGE1 is used for bootstrapping upb via cmake.
 _UPB_STAGE1 = PluginSettings(
     name="upb",
+    language="upb",
     plugin=UPB_REPO.parse_target("//upb_generator:protoc-gen-upb_stage1"),
     exts=[".upb.h", ".upb.c"],
     runtime=[
@@ -120,6 +111,7 @@ _UPB_STAGE1 = PluginSettings(
 
 _UPBDEFS = PluginSettings(
     name="upbdefs",
+    language="upbdefs",
     plugin=UPB_REPO.parse_target("//upb_generator:protoc-gen-upbdefs"),
     exts=[".upbdefs.h", ".upbdefs.c"],
     runtime=[
@@ -129,6 +121,19 @@ _UPBDEFS = PluginSettings(
         UPB_REPO.parse_target("//upb:port"),
     ],
     aspectdeps=_upbdefs_target,
+)
+
+UPB_PLUGIN = PluginSettings(
+    name="upb",
+    language="upb",
+    plugin=UPB_REPO.parse_target("//upb_generator:protoc-gen-upb"),
+    exts=[".upb.h", ".upb.c"],
+    runtime=[
+        UPB_REPO.parse_target(
+            "//upb:generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me"
+        ),
+    ],
+    aspectdeps=_upb_target,
 )
 
 
@@ -158,7 +163,7 @@ def upb_aspect(
     visibility: Optional[List[RelativeLabel]] = None,
     **kwargs,
 ):
-  plugin = _UPB
+  plugin = UPB_PLUGIN
   if proto_target.repository_id == UPB_REPO:
     plugin = _UPB_STAGE1
 

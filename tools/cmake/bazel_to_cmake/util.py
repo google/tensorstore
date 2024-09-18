@@ -18,13 +18,22 @@ import json
 import os
 import pathlib
 import re
-from typing import Any, Iterable, List, Optional, Tuple, TypeVar
+from typing import Any, Collection, Iterable, Iterator, List, Optional, Tuple, TypeVar, Union
 
 from .starlark.bazel_glob import glob_pattern_to_regexp
 
-PathLike = TypeVar(
-    "PathLike", str, pathlib.Path, pathlib.PurePath, pathlib.PurePosixPath
-)
+PathLike = TypeVar("PathLike", str, pathlib.PurePath)
+
+PathIterable = Union[
+    Iterable[str], Iterable[pathlib.PurePath], Iterable[PathLike]
+]
+
+PathCollection = Union[
+    Collection[str], Collection[pathlib.PurePath], Collection[PathLike]
+]
+
+
+T = TypeVar("T")
 
 
 def quote_string(x: str) -> str:
@@ -52,12 +61,19 @@ def quote_list(y: Iterable[str], separator: str = " ") -> str:
   return separator.join(quote_string(x) for x in y)
 
 
-def quote_path_list(y: Iterable[PathLike], separator: str = " ") -> str:
+def quote_path_list(y: PathIterable, separator: str = " ") -> str:
   return separator.join(quote_path(x) for x in y if x)
 
 
 def quote_unescaped_list(y: Iterable[str], separator: str = " ") -> str:
   return separator.join(quote_unescaped(x) for x in y)
+
+
+def exactly_one(x: Iterator[T]) -> T:
+  v = next(x)
+  if not v or not all(map(lambda y: y == v, x)):
+    raise ValueError("There is not exactly 1 file in the collection.")
+  return v
 
 
 # Unfortunately, pathlib.PurePath.is_relative_to is a python3.9 invention.
@@ -84,10 +100,12 @@ def make_relative_path(p: PathLike, *target) -> Tuple[Any, pathlib.PurePath]:
   return (None, p)
 
 
-def partition_by(*args, pattern: str) -> Tuple[List[str], List[str]]:
+def partition_by(
+    inputs: Iterable[PathLike], pattern: str
+) -> Tuple[List[str], List[str]]:
   yes = []
   no = []
-  for x in args:
+  for x in inputs:
     y = str(x)
     if re.search(pattern, y):
       yes.append(y)

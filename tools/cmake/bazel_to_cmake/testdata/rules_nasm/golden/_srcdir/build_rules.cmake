@@ -1,4 +1,3 @@
-add_library(CMakeProject_asm_library)
 
 get_filename_component(_nasm_compiler_barename "${CMAKE_ASM_NASM_COMPILER}" NAME)
 if (_nasm_compiler_barename STREQUAL "yasm")
@@ -6,8 +5,12 @@ if (_nasm_compiler_barename STREQUAL "yasm")
 endif()
 unset(_nasm_compiler_barename)
 
+
+# nasm_library(@rules_nasm_test_repo//:asm_library)
+add_library(CMakeProject_asm_library)
 target_sources(CMakeProject_asm_library PRIVATE "${TEST_SRCDIR}/a.asm")
-target_include_directories(CMakeProject_asm_library PRIVATE "${TEST_SRCDIR}" "${TEST_SRCDIR}/include")
+target_include_directories(CMakeProject_asm_library PRIVATE "${TEST_SRCDIR}"
+    "${TEST_SRCDIR}/include")
 set_source_files_properties(
     "${TEST_SRCDIR}/a.asm"
     PROPERTIES
