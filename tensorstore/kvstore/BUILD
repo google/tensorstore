@@ -14,6 +14,7 @@ DRIVER_DOCS = [
     "neuroglancer_uint64_sharded",
     "ocdbt",
     "s3",
+    # "s3_sdk",
     "tsgrpc",
     "zarr3_sharding_indexed",
     "zip",

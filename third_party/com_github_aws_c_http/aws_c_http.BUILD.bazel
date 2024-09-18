@@ -1,0 +1,24 @@
+# Description:
+#   AWS C HTTP
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])  # Apache 2.0
+
+exports_files(["LICENSE"])
+
+cc_library(
+    name = "aws_c_http",
+    srcs = glob([
+        "include/aws/http/**/*.h",
+        "source/*.c",
+    ]),
+    textual_hdrs = glob([
+        "include/aws/http/**/*.def",
+    ]),
+    includes = ["include"],
+    deps = [
+        "@com_github_aws_c_io//:aws_c_io",
+        "@com_github_aws_c_compression//:aws_c_compression",
+    ],
+)
