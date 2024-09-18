@@ -24,6 +24,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/flags/parse.h"
 #include "absl/strings/cord.h"
 #include <nlohmann/json.hpp>
 #include "python/tensorstore/future.h"
@@ -102,6 +103,21 @@ Future<uint32_t> PushMetricsToPrometheus(std::string pushgateway,
           request, internal_http::IssueRequestOptions(std::move(payload))));
 }
 
+void ParseTensorstoreAbslFlags(std::vector<std::string> python_argv) {
+  // Convert vector of strings to c-style command line arguments.
+  std::vector<char*> char_args;
+  char_args.reserve(python_argv.size());
+  for (std::string& s : python_argv) {
+    char_args.push_back(s.data());
+  }
+  char** argv = char_args.data();
+  int argc = static_cast<int>(char_args.size());
+
+  std::vector<char*> positional_args;
+  std::vector<absl::UnrecognizedFlag> unrecognized_flags;
+  absl::ParseAbseilFlagsOnly(argc, argv, positional_args, unrecognized_flags);
+}
+
 }  // namespace
 
 void RegisterMetricBindings(pybind11::module_ m, Executor defer) {
@@ -169,6 +185,17 @@ TENSORSTORE_VERBOSE_LOGGING flags.
 Args:
   flags: :py:obj:`str` comma separated list of flags with optional values.
   overwrite: When true overwrites existing flags, otherwise updates.
+
+Group:
+  Experimental
+)");
+
+  m.def("parse_tensorstore_flags", &ParseTensorstoreAbslFlags,
+        pybind11::arg("argv"), R"(
+Parses and initializes internal tensorstore flags from argv.
+
+Args:
+  argv: list of command line argument strings, such as sys.argv.
 
 Group:
   Experimental

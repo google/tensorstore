@@ -16,9 +16,8 @@
 import pytest
 import tensorstore as ts
 
-pytestmark = pytest.mark.asyncio
 
-
+@pytest.mark.asyncio
 async def test_collect_matching_metrics():
   # Open a tensorstore and read to ensure that some metric is populated.
   t = await ts.open({
@@ -34,6 +33,7 @@ async def test_collect_matching_metrics():
     assert m['name'].startswith('/tensorstore/')
 
 
+@pytest.mark.asyncio
 async def test_collect_prometheus_format_metrics():
   # Open a tensorstore and read to ensure that some metric is populated.
   t = await ts.open({
@@ -46,7 +46,7 @@ async def test_collect_prometheus_format_metrics():
   metric_list = ts.experimental_collect_prometheus_format_metrics(
       '/tensorstore/'
   )
-  assert len(metric_list) > 0
+  assert metric_list
 
   for m in metric_list:
     if m.startswith('#'):  # Skip comments.
@@ -58,3 +58,4 @@ def test_experimental_update_verbose_logging():
   # There's no way to query whether the verbose logging flags are set, so just
   # check that the function exists.
   assert hasattr(ts, 'experimental_update_verbose_logging')
+  ts.experimental_update_verbose_logging('')
