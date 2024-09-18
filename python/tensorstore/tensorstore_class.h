@@ -147,7 +147,7 @@ struct SetCanReferenceSourceDataUntilCommit {
   template <typename Self>
   static absl::Status Apply(Self& self, type value) {
     if (value) {
-      self.Set(can_reference_source_data_until_commit);
+      return self.Set(can_reference_source_data_until_commit);
     }
     return absl::OkStatus();
   }
@@ -166,7 +166,7 @@ struct SetCanReferenceSourceDataIndefinitely {
   template <typename Self>
   static absl::Status Apply(Self& self, type value) {
     if (value) {
-      self.Set(can_reference_source_data_indefinitely);
+      return self.Set(can_reference_source_data_indefinitely);
     }
     return absl::OkStatus();
   }

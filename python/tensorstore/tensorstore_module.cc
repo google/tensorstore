@@ -26,7 +26,9 @@
 #include <string>
 #include <utility>
 
-#include "absl/log/initialize.h"  // IWYU pragma: keep
+#include "absl/base/log_severity.h"  // IWYU pragma: keep
+#include "absl/log/globals.h"        // IWYU pragma: keep
+#include "absl/log/initialize.h"     // IWYU pragma: keep
 #include "python/tensorstore/gil_safe.h"
 #include "python/tensorstore/python_imports.h"
 #include "python/tensorstore/tensorstore_module_components.h"
@@ -55,9 +57,16 @@ class ScopedModuleNameOverride {
   py::object original_name_;
 };
 
-PYBIND11_MODULE(_tensorstore, m) {
+void InitializeAbslLogging() {
+  // NOTE: Consider calling absl::ParseAbseilFlagsOnly with sys.argv
+  // directly here to initialize the internal flags. In some cases there may
+  // be interactions between absl::Flags and absl::Logging.
   absl::InitializeLog();
+  absl::SetStderrThreshold(absl::LogSeverityAtLeast::kInfo);
+}
 
+PYBIND11_MODULE(_tensorstore, m) {
+  InitializeAbslLogging();
   internal_python::InitializeNumpy();
 
   // Ensure that members of this module display as `tensorstore.X` rather than

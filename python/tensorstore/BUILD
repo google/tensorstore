@@ -61,6 +61,8 @@ pybind11_py_extension(
         "//tensorstore:all_drivers",
         "//tensorstore/kvstore/ocdbt/python",
         "@com_github_pybind_pybind11//:pybind11",
+        "@com_google_absl//absl/base:log_severity",
+        "@com_google_absl//absl/log:globals",
         "@com_google_absl//absl/log:initialize",
     ],
 )
@@ -266,8 +268,9 @@ pybind11_cc_library(
         ":sequence_parameter",
         "//tensorstore:index",
         "//tensorstore/index_space:dim_expression",
+        "//tensorstore/index_space:index_vector_or_scalar",
         "//tensorstore/index_space:numpy_indexing_spec",
-        "//tensorstore/util:str_cat",
+        "//tensorstore/util:span",
         "@com_github_pybind_pybind11//:pybind11",
     ],
 )
@@ -1167,6 +1170,7 @@ pybind11_cc_library(
         "//tensorstore/util:status",
         "@com_github_nlohmann_json//:json",
         "@com_github_pybind_pybind11//:pybind11",
+        "@com_google_absl//absl/flags:parse",
         "@com_google_absl//absl/strings:cord",
     ],
     alwayslink = True,

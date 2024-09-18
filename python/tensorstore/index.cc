@@ -19,13 +19,16 @@
 #include "python/tensorstore/index.h"
 
 // Other headers
+#include <cstddef>
 #include <string>
 #include <variant>
 #include <vector>
 
 #include "python/tensorstore/sequence_parameter.h"
 #include "tensorstore/index.h"
-#include "tensorstore/util/str_cat.h"
+#include "tensorstore/index_space/index_vector_or_scalar.h"
+#include "tensorstore/index_space/internal/numpy_indexing_spec.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 namespace internal_python {
