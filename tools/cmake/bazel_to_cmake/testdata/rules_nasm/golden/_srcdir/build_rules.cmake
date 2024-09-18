@@ -6,10 +6,10 @@ if (_nasm_compiler_barename STREQUAL "yasm")
 endif()
 unset(_nasm_compiler_barename)
 
-target_sources(CMakeProject_asm_library PRIVATE "${TEST_DIRECTORY}/a.asm")
-target_include_directories(CMakeProject_asm_library PRIVATE "${TEST_DIRECTORY}" "${TEST_DIRECTORY}/include")
+target_sources(CMakeProject_asm_library PRIVATE "${TEST_SRCDIR}/a.asm")
+target_include_directories(CMakeProject_asm_library PRIVATE "${TEST_SRCDIR}" "${TEST_SRCDIR}/include")
 set_source_files_properties(
-    "${TEST_DIRECTORY}/a.asm"
+    "${TEST_SRCDIR}/a.asm"
     PROPERTIES
       LANGUAGE ASM_NASM
       COMPILE_OPTIONS "-w+all;-D__x86_64__;-felf64;-DELF;-DPIC")

@@ -40,6 +40,7 @@ from .platforms import add_platform_constraints
 from .starlark import rule  # pylint: disable=unused-import
 from .starlark.bazel_target import RepositoryId
 from .starlark.bazel_target import TargetId
+from .util import is_relative_to
 from .workspace import Repository
 from .workspace import Workspace
 
@@ -82,29 +83,28 @@ def parameters() -> List[Tuple[str, Dict[str, Any]]]:
   return result
 
 
-def get_files_list(source_directory: str) -> List[pathlib.Path]:
+def get_files_list(
+    source_directory: pathlib.Path, include_goldens=False
+) -> List[pathlib.Path]:
   """Returns non-golden files under source directory."""
   files: List[pathlib.Path] = []
   try:
-    include_goldens = 'golden' in source_directory
-    p = pathlib.Path(source_directory)
-    for x in sorted(p.glob('**/*')):
+    for x in sorted(source_directory.glob('**/*')):
       if not x.is_file():
         continue
       if 'golden/' in str(x) and not include_goldens:
         continue
-      files.append(x.relative_to(p))
+      files.append(x)
   except FileNotFoundError as e:
-    print(f'Failure to read {source_directory}: {e}')
+    print(f'Failure to read {source_directory.as_posix()}: {e}')
   return files
 
 
-def copy_tree(source_dir: str, source_files: List[str], dest_dir: str):
+def copy_tree(source_dir: str, source_files: List[str], dest_dir: pathlib.Path):
   """Copies source_files from source_dir to dest_dir."""
   for x in source_files:
-    dest_path = os.path.join(dest_dir, x)
+    dest_path = dest_dir.joinpath(x)
     os.makedirs(os.path.dirname(dest_path), exist_ok=True)
-
     shutil.copy(os.path.join(source_dir, x), dest_path)
 
 
@@ -229,22 +229,33 @@ def add_repositories(workspace: Workspace):
 @pytest.mark.parametrize('test_name,config', parameters())
 def test_golden(test_name: str, config: Dict[str, Any], tmpdir):
   # Start with the list of source files.
-  source_directory = config['source_directory']
+  source_directory = pathlib.Path(config['source_directory'])
   del config['source_directory']
-  input_files = [str(x) for x in get_files_list(source_directory)]
+  input_files = [
+      str(x.relative_to(source_directory))
+      for x in get_files_list(source_directory, include_goldens=False)
+  ]
 
   # Create the working directory as a snapshot of the source directory.
-  directory = str(tmpdir)
-  os.chdir(directory)
-  copy_tree(source_directory, input_files, directory)
+  directory = pathlib.Path(tmpdir)
+  srcdir = directory.joinpath('_srcdir')
+  srcdir.mkdir(exist_ok=True, parents=True)
+  copy_tree(str(source_directory), input_files, srcdir)
+
+  bindir = directory.joinpath('_bindir')
+  bindir.mkdir(exist_ok=True, parents=True)
+
+  golden_directory = source_directory.joinpath('golden')
+
+  os.chdir(srcdir)
   os.makedirs(CMAKE_VARS['CMAKE_FIND_PACKAGE_REDIRECTS_DIR'], exist_ok=True)
 
   repository_id = RepositoryId(f'{test_name}_test_repo')
   root_repository = CMakeRepository(
       repository_id=repository_id,
       cmake_project_name=CMakePackage('CMakeProject'),
-      source_directory=pathlib.PurePath(directory),
-      cmake_binary_dir=pathlib.PurePath('_cmake_binary_dir_'),
+      source_directory=srcdir,
+      cmake_binary_dir=bindir,
       repo_mapping=make_repo_mapping(
           repository_id, config.get('repo_mapping', [])
       ),
@@ -308,32 +319,43 @@ def test_golden(test_name: str, config: Dict[str, Any], tmpdir):
   # and normalize the contents.
   excludes = config.get('excludes', [])
   files = []
-  for x in get_files_list('.'):
-    if str(x) in input_files:
+  for p in get_files_list(directory):
+    if is_relative_to(p, srcdir):
+      r = str(p.relative_to(srcdir))
+      if r in input_files:
+        continue
+    if str(p.relative_to(directory)) in excludes:
       continue
-    if str(x) in excludes:
-      continue
-    txt = x.read_text()
-    txt = txt.replace(os.path.abspath(sys.argv[0]), 'run_bazel_to_cmake.py')
-    txt = txt.replace(directory, '${TEST_DIRECTORY}')
-    txt = txt.replace(os.path.dirname(__file__), '${SCRIPT_DIRECTORY}')
-    x.write_text(txt)
-    files.append(str(x))
 
-  golden_directory = os.path.join(source_directory, 'golden')
+    txt = p.read_text()
+    newtxt = txt
+    for args in [
+        (os.path.abspath(sys.argv[0]), 'run_bazel_to_cmake.py'),
+        (str(bindir), '${TEST_BINDIR}'),
+        (str(srcdir), '${TEST_SRCDIR}'),
+        (os.path.dirname(__file__), '${SCRIPT_DIRECTORY}'),
+    ]:
+      newtxt = newtxt.replace(*args)
+    if newtxt != txt:
+      print(f'Rewriting {p}')
+      p.write_text(newtxt)
+    files.append(p)
+
+  print(f'Found {files}')
   if UPDATE_GOLDENS:
-    print(f'Updating goldens for {test_name}')
+    print(f'Updating goldens for {test_name} in {golden_directory}')
     try:
       shutil.rmtree(golden_directory)
     except FileNotFoundError:
       pass
-    for x in files:
-      dest_path = os.path.join(golden_directory, x)
-      os.makedirs(os.path.dirname(dest_path), exist_ok=True)
-      shutil.copyfile(x, dest_path)
+    for p in files:
+      x = str(p.relative_to(directory))
+      dest_path = golden_directory.joinpath(x)
+      dest_path.parent.mkdir(parents=True, exist_ok=True)
+      shutil.copyfile(p, dest_path)
 
   # Assert files exist.
-  golden_files = get_files_list(golden_directory)
+  golden_files = get_files_list(golden_directory, include_goldens=True)
   assert len(golden_files) > 0  # pylint: disable=g-explicit-length-test
   for x in golden_files:
     # Assert on file contents.

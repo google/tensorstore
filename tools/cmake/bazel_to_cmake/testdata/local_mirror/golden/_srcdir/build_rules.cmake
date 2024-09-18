@@ -1,5 +1,5 @@
 # Loading local_proto_mirror
-add_subdirectory("_cmake_binary_dir_/_local_mirror/lpm-src" "_cmake_binary_dir_/_local_mirror/lpm-build" EXCLUDE_FROM_ALL)
+add_subdirectory("${TEST_BINDIR}/_local_mirror/lpm-src" "${TEST_BINDIR}/_local_mirror/lpm-build" EXCLUDE_FROM_ALL)
 find_package(lpm REQUIRED)
 
 # cc_library(@local_mirror_test_repo//:a)

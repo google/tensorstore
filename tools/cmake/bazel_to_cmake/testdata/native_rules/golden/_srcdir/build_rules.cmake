@@ -3,7 +3,6 @@ find_package(Protobuf REQUIRED)
 # cc_binary(@native_rules_test_repo//:bb)
 add_executable(CMakeProject_bb "")
 add_executable(CMakeProject::bb ALIAS CMakeProject_bb)
-target_compile_definitions(CMakeProject_bb PUBLIC "BUILD_LINUX")
 target_link_libraries(CMakeProject_bb PUBLIC
         "Threads::Threads"
         "m")
@@ -16,26 +15,26 @@ target_sources(CMakeProject_bb PRIVATE
 # filegroup(@native_rules_test_repo//:subdir_z)
 add_library(CMakeProject_subdir_z INTERFACE)
 target_sources(CMakeProject_subdir_z INTERFACE
-    "${TEST_DIRECTORY}/subdir/z.proto")
+    "${TEST_SRCDIR}/subdir/z.proto")
 set_property(TARGET CMakeProject_subdir_z PROPERTY INTERFACE_IMPORTS
     "${PROJECT_SOURCE_DIR}")
 
 # genrule(@native_rules_test_repo//:h_file)
 add_custom_command(
   OUTPUT
-    "_cmake_binary_dir_/a.h"
+    "${TEST_BINDIR}/a.h"
   DEPENDS
-    "${TEST_DIRECTORY}/x.h"
+    "${TEST_SRCDIR}/x.h"
     "CMakeProject::bb"
-  COMMAND $<TARGET_FILE:CMakeProject_bb> ./a .  -I_cmake_binary_dir_/foo -Isubdir/../..  "x.h" "_cmake_binary_dir_/a.h"
+  COMMAND $<TARGET_FILE:CMakeProject_bb> ./a .  -I${TEST_BINDIR}/foo -Isubdir/../..  "x.h" "${TEST_BINDIR}/a.h"
   VERBATIM
   WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 add_custom_target(genrule__CMakeProject_h_file DEPENDS
-    "_cmake_binary_dir_/a.h")
+    "${TEST_BINDIR}/a.h")
 add_library(CMakeProject_h_file INTERFACE)
 target_sources(CMakeProject_h_file INTERFACE
-    "_cmake_binary_dir_/a.h")
+    "${TEST_BINDIR}/a.h")
 set_property(TARGET CMakeProject_h_file PROPERTY INTERFACE_INCLUDE_DIRECTORIES
     "${PROJECT_BINARY_DIR}")
 add_dependencies(CMakeProject_h_file genrule__CMakeProject_h_file)
@@ -43,7 +42,6 @@ add_dependencies(CMakeProject_h_file genrule__CMakeProject_h_file)
 # cc_library(@native_rules_test_repo//:a)
 add_library(CMakeProject_a)
 set_property(TARGET CMakeProject_a PROPERTY LINKER_LANGUAGE "CXX")
-target_compile_definitions(CMakeProject_a PUBLIC "BUILD_LINUX")
 target_link_libraries(CMakeProject_a PUBLIC
         "Threads::Threads"
         "m")
@@ -101,7 +99,6 @@ add_library(CMakeProject::c_proto_cc ALIAS CMakeProject_c_proto_cc)
 # cc_test(@native_rules_test_repo//:a_test)
 add_executable(CMakeProject_a_test "")
 add_executable(CMakeProject::a_test ALIAS CMakeProject_a_test)
-target_compile_definitions(CMakeProject_a_test PUBLIC "BUILD_LINUX")
 target_link_libraries(CMakeProject_a_test PUBLIC
         "CMakeProject::c_proto_cc"
         "Threads::Threads"
@@ -150,7 +147,6 @@ add_library(CMakeProject::c_proto_cc_alias ALIAS CMakeProject_c_proto_cc)
 # cc_library(@native_rules_test_repo//:subdir_x)
 add_library(CMakeProject_subdir_x)
 set_property(TARGET CMakeProject_subdir_x PROPERTY LINKER_LANGUAGE "CXX")
-target_compile_definitions(CMakeProject_subdir_x PUBLIC "BUILD_LINUX")
 target_link_libraries(CMakeProject_subdir_x PUBLIC
         "Threads::Threads"
         "m")
@@ -162,41 +158,41 @@ target_sources(CMakeProject_subdir_x PRIVATE
 add_library(CMakeProject::subdir_x ALIAS CMakeProject_subdir_x)
 
 # genrule(@native_rules_test_repo//subdir:make_ycc)
-file(MAKE_DIRECTORY "_cmake_binary_dir_/subdir")
+file(MAKE_DIRECTORY "${TEST_BINDIR}/subdir")
 add_custom_command(
   OUTPUT
-    "_cmake_binary_dir_/subdir/y.cc"
+    "${TEST_BINDIR}/subdir/y.cc"
   DEPENDS
     "CMakeProject::bb"
-  COMMAND $<TARGET_FILE:CMakeProject_bb> "_cmake_binary_dir_/subdir/y.cc"
+  COMMAND $<TARGET_FILE:CMakeProject_bb> "${TEST_BINDIR}/subdir/y.cc"
   VERBATIM
   WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 add_custom_target(genrule__CMakeProject_subdir_make_ycc DEPENDS
-    "_cmake_binary_dir_/subdir/y.cc")
+    "${TEST_BINDIR}/subdir/y.cc")
 add_library(CMakeProject_subdir_make_ycc INTERFACE)
 target_sources(CMakeProject_subdir_make_ycc INTERFACE
-    "_cmake_binary_dir_/subdir/y.cc")
+    "${TEST_BINDIR}/subdir/y.cc")
 set_property(TARGET CMakeProject_subdir_make_ycc PROPERTY INTERFACE_INCLUDE_DIRECTORIES
     "${PROJECT_BINARY_DIR}")
 add_dependencies(CMakeProject_subdir_make_ycc genrule__CMakeProject_subdir_make_ycc)
 
 # genrule(@native_rules_test_repo//subdir:make_y)
-file(MAKE_DIRECTORY "_cmake_binary_dir_/subdir")
+file(MAKE_DIRECTORY "${TEST_BINDIR}/subdir")
 add_custom_command(
   OUTPUT
-    "_cmake_binary_dir_/subdir/y.h"
+    "${TEST_BINDIR}/subdir/y.h"
   DEPENDS
     "CMakeProject::bb"
-  COMMAND $<TARGET_FILE:CMakeProject_bb> "_cmake_binary_dir_/subdir/y.h"
+  COMMAND $<TARGET_FILE:CMakeProject_bb> "${TEST_BINDIR}/subdir/y.h"
   VERBATIM
   WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 add_custom_target(genrule__CMakeProject_subdir_make_y DEPENDS
-    "_cmake_binary_dir_/subdir/y.h")
+    "${TEST_BINDIR}/subdir/y.h")
 add_library(CMakeProject_subdir_make_y INTERFACE)
 target_sources(CMakeProject_subdir_make_y INTERFACE
-    "_cmake_binary_dir_/subdir/y.h")
+    "${TEST_BINDIR}/subdir/y.h")
 set_property(TARGET CMakeProject_subdir_make_y PROPERTY INTERFACE_INCLUDE_DIRECTORIES
     "${PROJECT_BINARY_DIR}")
 add_dependencies(CMakeProject_subdir_make_y genrule__CMakeProject_subdir_make_y)
@@ -204,7 +200,6 @@ add_dependencies(CMakeProject_subdir_make_y genrule__CMakeProject_subdir_make_y)
 # cc_library(@native_rules_test_repo//subdir:y)
 add_library(CMakeProject_subdir_y)
 set_property(TARGET CMakeProject_subdir_y PROPERTY LINKER_LANGUAGE "CXX")
-target_compile_definitions(CMakeProject_subdir_y PUBLIC "BUILD_LINUX")
 target_link_libraries(CMakeProject_subdir_y PUBLIC
         "Threads::Threads"
         "m")
@@ -225,7 +220,6 @@ add_library(CMakeProject::y_alias ALIAS CMakeProject_subdir_y)
 # cc_library(@native_rules_test_repo//subdir:y_include_prefix)
 add_library(CMakeProject_subdir_y_include_prefix)
 set_property(TARGET CMakeProject_subdir_y_include_prefix PROPERTY LINKER_LANGUAGE "CXX")
-target_compile_definitions(CMakeProject_subdir_y_include_prefix PUBLIC "BUILD_LINUX")
 target_link_libraries(CMakeProject_subdir_y_include_prefix PUBLIC
         "Threads::Threads"
         "m")
@@ -242,7 +236,6 @@ add_library(CMakeProject::subdir_y_include_prefix ALIAS CMakeProject_subdir_y_in
 # cc_library(@native_rules_test_repo//subdir:y_includes)
 add_library(CMakeProject_subdir_y_includes)
 set_property(TARGET CMakeProject_subdir_y_includes PROPERTY LINKER_LANGUAGE "CXX")
-target_compile_definitions(CMakeProject_subdir_y_includes PUBLIC "BUILD_LINUX")
 target_link_libraries(CMakeProject_subdir_y_includes PUBLIC
         "Threads::Threads"
         "m")
@@ -261,7 +254,6 @@ add_library(CMakeProject::subdir_y_includes ALIAS CMakeProject_subdir_y_includes
 # cc_library(@native_rules_test_repo//subdir:y_strip_include_prefix)
 add_library(CMakeProject_subdir_y_strip_include_prefix)
 set_property(TARGET CMakeProject_subdir_y_strip_include_prefix PROPERTY LINKER_LANGUAGE "CXX")
-target_compile_definitions(CMakeProject_subdir_y_strip_include_prefix PUBLIC "BUILD_LINUX")
 target_link_libraries(CMakeProject_subdir_y_strip_include_prefix PUBLIC
         "Threads::Threads"
         "m")
@@ -305,7 +297,7 @@ btc_protobuf(
 # cc_library(@native_rules_test_repo//:defines)
 add_library(CMakeProject_defines)
 set_property(TARGET CMakeProject_defines PROPERTY LINKER_LANGUAGE "CXX")
-target_compile_definitions(CMakeProject_defines PUBLIC "VERSION=\"\"" "BUILD_LINUX")
+target_compile_definitions(CMakeProject_defines PUBLIC "VERSION=\"\"")
 target_link_libraries(CMakeProject_defines PUBLIC
         "Threads::Threads"
         "m")

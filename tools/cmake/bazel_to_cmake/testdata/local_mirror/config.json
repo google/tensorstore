@@ -3,6 +3,6 @@
         ".bzl_library.local_mirror"
     ],
     "excludes": [
-        "_cmake_binary_dir_/_local_mirror/lpm-src/a.cc"
+        "_bindir/_local_mirror/lpm-src/a.cc"
     ]
 }

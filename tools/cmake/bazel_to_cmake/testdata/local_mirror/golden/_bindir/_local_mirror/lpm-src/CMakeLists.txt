@@ -7,7 +7,7 @@ file(DOWNLOAD "https://raw.githubusercontent.com/bufbuild/protoc-gen-validate/26
 
 execute_process(
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
-       "${TEST_DIRECTORY}/a.cc"
+       "${TEST_SRCDIR}/a.cc"
        "${CMAKE_CURRENT_SOURCE_DIR}/a.cc"
   WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
