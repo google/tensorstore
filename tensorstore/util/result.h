@@ -859,7 +859,7 @@ internal_result::ChainResultType<T, Func0, Func...> ChainResult(
     ::tensorstore::MaybeAddSourceLocation(_);                             \
     return (error_expr);                                                  \
   }                                                                       \
-  decl = std::move(*temp);                                                \
+  decl = *std::move(temp);                                                \
   /**/
 
 /// Convenience macro for propagating errors when calling a function that
@@ -894,7 +894,7 @@ internal_result::ChainResultType<T, Func0, Func...> ChainResult(
   if (ABSL_PREDICT_FALSE(!temp)) {                                           \
     TENSORSTORE_CHECK_OK(temp.status());                                     \
   }                                                                          \
-  decl = std::move(*temp);
+  decl = *std::move(temp);
 
 /// Convenience macro for checking errors when calling a function that returns a
 /// `tensorstore::Result`.

@@ -86,7 +86,7 @@ std::unique_ptr<riegeli::Reader> BloscCompressor::GetReader(
         return *std::move(output);
       });
   auto reader = std::make_unique<riegeli::ChainReader<riegeli::Chain>>(
-      output.ok() ? riegeli::Chain(std::move(*output)) : riegeli::Chain());
+      output.ok() ? riegeli::Chain(*std::move(output)) : riegeli::Chain());
   if (!output.ok()) {
     reader->Fail(std::move(output).status());
   }

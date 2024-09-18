@@ -103,7 +103,7 @@ Overload:
                       std::optional<ContextImplPtr> parent) {
             if (!parent) parent.emplace();
             return Access::impl(Context(WrapImpl(std::move(spec)),
-                                        WrapImpl(std::move(*parent))));
+                                        WrapImpl(*std::move(parent))));
           }),
           R"(
 Constructs a context from a parsed spec.
@@ -122,7 +122,7 @@ Overload:
       py::init([](::nlohmann::json json, std::optional<ContextImplPtr> parent) {
         if (!parent) parent.emplace();
         return Access::impl(Context(ValueOrThrow(Context::Spec::FromJson(json)),
-                                    WrapImpl(std::move(*parent))));
+                                    WrapImpl(*std::move(parent))));
       }),
       R"(
 Constructs a context from its :json:schema:`JSON representation<Context>`.

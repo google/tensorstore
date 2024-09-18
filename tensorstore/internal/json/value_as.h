@@ -151,7 +151,7 @@ JsonRequireValueAs(const ::nlohmann::json& j, T* result, ValidateFn is_valid,
         j, internal_json::GetTypeName(internal::type_identity<T>{}));
   }
   if (result != nullptr) {
-    *result = std::move(*value);
+    *result = *std::move(value);
   }
   return absl::OkStatus();
 }

@@ -291,10 +291,10 @@ Future<TimestampedStorageGeneration> NonDistributedBtreeWriter::Write(
             writer.io_handle_->config_state->GetAssumedOrExistingConfig();
         !config || value->size() <= config->max_inline_value_bytes) {
       // Config not yet known or value to be written inline.
-      value_ref = std::move(*value);
+      value_ref = *std::move(value);
     } else {
       value_future = writer.io_handle_->WriteData(
-          IndirectDataKind::kValue, std::move(*value),
+          IndirectDataKind::kValue, *std::move(value),
           value_ref.emplace<IndirectDataReference>());
     }
   }

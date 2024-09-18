@@ -51,7 +51,7 @@ std::vector<CollectedMetric> MetricRegistry::CollectWithPrefix(
     if (prefix.empty() || absl::StartsWith(kv.first, prefix)) {
       auto opt_metric = kv.second.poly(CollectMetricTag{});
       if (opt_metric.has_value()) {
-        all.emplace_back(std::move(*opt_metric));
+        all.emplace_back(*std::move(opt_metric));
         assert(all.back().metric_name == kv.first);
       }
     }

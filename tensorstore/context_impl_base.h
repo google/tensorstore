@@ -410,7 +410,7 @@ class ResourceProviderImpl : public ResourceProviderImplBase {
         return std::move(result).status();
       }
       return ResourceImplStrongPtr(
-          new ResourceImpl(ResourceSpecImplPtr(this), std::move(*result)));
+          new ResourceImpl(ResourceSpecImplPtr(this), *std::move(result)));
     }
 
     Result<::nlohmann::json> ToJson(JsonSerializationOptions options) override {
@@ -448,7 +448,7 @@ class ResourceProviderImpl : public ResourceProviderImplBase {
     auto result =
         internal_json_binding::FromJson<Spec>(j, traits_.JsonBinder(), options);
     if (!result) return std::move(result).status();
-    return ResourceSpecImplPtr(new SpecImpl(std::move(*result)));
+    return ResourceSpecImplPtr(new SpecImpl(*std::move(result)));
   }
 
   void AcquireContextReference(ResourceImplBase& resource) const override {

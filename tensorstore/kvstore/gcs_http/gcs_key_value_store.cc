@@ -357,7 +357,7 @@ class GcsKeyValueStore
         auth_provider_ = nullptr;
       } else {
         TENSORSTORE_RETURN_IF_ERROR(result);
-        auth_provider_ = std::move(*result);
+        auth_provider_ = *std::move(result);
       }
     }
     if (!*auth_provider_) return std::nullopt;
@@ -996,7 +996,7 @@ Future<TimestampedStorageGeneration> GcsKeyValueStore::Write(
   if (value) {
     auto state = internal::MakeIntrusivePtr<WriteTask>(
         IntrusivePtr<GcsKeyValueStore>(this), std::move(encoded_object_name),
-        std::move(*value), std::move(options), std::move(op.promise));
+        *std::move(value), std::move(options), std::move(op.promise));
 
     intrusive_ptr_increment(state.get());  // adopted by WriteTask::Start.
     write_rate_limiter().Admit(state.get(), &WriteTask::Start);

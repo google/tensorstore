@@ -20,6 +20,7 @@
 #include <cassert>
 #include <iterator>
 #include <memory>
+#include <new>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -1661,7 +1662,7 @@ Future<TimestampedStorageGeneration> WriteViaExistingTransaction(
   node.reset(new Node);
   node->promise_ = promise;
   node->read_result_ =
-      value ? ReadResult::Value(std::move(*value), std::move(stamp))
+      value ? ReadResult::Value(*std::move(value), std::move(stamp))
             : ReadResult::Missing(std::move(stamp));
 
   node->if_equal_no_value_ = if_equal_no_value;

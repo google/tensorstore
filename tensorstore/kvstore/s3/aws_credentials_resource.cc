@@ -58,7 +58,7 @@ Result<Resource> AwsCredentialsResource::Create(
     return Resource{spec, nullptr};
   }
   TENSORSTORE_RETURN_IF_ERROR(result);
-  return Resource{spec, std::move(*result)};
+  return Resource{spec, *std::move(result)};
 }
 
 Result<std::optional<AwsCredentials>>

@@ -736,10 +736,10 @@ Future<TimestampedStorageGeneration> DistributedBtreeWriter::Write(
         needs_inline_value_pass = true;
       }
       // Config not yet known or value to be written inline.
-      value_ref = std::move(*value);
+      value_ref = *std::move(value);
     } else {
       request.flush_future = writer.io_handle_->WriteData(
-          IndirectDataKind::kValue, std::move(*value),
+          IndirectDataKind::kValue, *std::move(value),
           value_ref.emplace<IndirectDataReference>());
     }
   }

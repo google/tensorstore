@@ -117,7 +117,7 @@ class JsonCache
               return;
             }
             execution::set_value(receiver, std::make_shared<::nlohmann::json>(
-                                               std::move(*decode_result)));
+                                               *std::move(decode_result)));
           });
     }
     void DoEncode(std::shared_ptr<const ReadData> data,
@@ -173,7 +173,7 @@ class JsonCache
                       ? *existing_json
                       : ::nlohmann::json(::nlohmann::json::value_t::discarded));
               if (result.ok()) {
-                new_json = std::move(*result);
+                new_json = *std::move(result);
               } else {
                 execution::set_error(receiver, std::move(result).status());
                 return;

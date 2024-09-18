@@ -896,7 +896,7 @@ Future<TimestampedStorageGeneration> S3KeyValueStore::Write(
   }
   if (value && value->size() > kMaxS3PutSize) {
     // TODO: Support multi-part uploads of files larger than 5GB.
-    // Generally, asws-cli splits uploads which exceed ~8MB into multiple
+    // Generally, aws-cli splits uploads which exceed ~8MB into multiple
     // parts.
     return absl::InvalidArgumentError(absl::StrCat(
         "Object size ", value->size(), " exceeds S3 limit of ", kMaxS3PutSize));
@@ -931,7 +931,7 @@ Future<TimestampedStorageGeneration> S3KeyValueStore::Write(
 
         auto state = internal::MakeIntrusivePtr<WriteTask>(
             std::move(self), std::move(options), std::move(ready),
-            std::move(object_url), std::move(*value), std::move(promise));
+            std::move(object_url), *std::move(value), std::move(promise));
 
         intrusive_ptr_increment(state.get());  // adopted by WriteTask::Admit.
         state->owner->write_rate_limiter().Admit(state.get(),

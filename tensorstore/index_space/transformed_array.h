@@ -856,7 +856,7 @@ inline Result<Array<ElementTag, Rank, OriginKind>> TryConvertToArrayImpl(
   array.element_pointer() = ElementPointer<ElementTag>(
       StaticDataTypeCast<typename ElementTagTraits<ElementTag>::Element,
                          unchecked>(
-          ConstDataTypeCast<void>(std::move(*element_pointer_result))));
+          ConstDataTypeCast<void>(*std::move(element_pointer_result))));
   return array;
 }
 

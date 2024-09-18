@@ -102,11 +102,11 @@ void CurlPtrHook(CurlPtr& handle) {
     // Return either "SSL_CERT_FILE" or "SSL_CERT_DIR" if set.
     if (auto default_cert_env = internal::GetEnv("SSL_CERT_FILE");
         default_cert_env.has_value()) {
-      return CertFile{std::move(*default_cert_env)};
+      return CertFile{*std::move(default_cert_env)};
     }
     if (auto default_cert_env = internal::GetEnv("SSL_CERT_DIR");
         default_cert_env.has_value()) {
-      return CertDirectory{std::move(*default_cert_env)};
+      return CertDirectory{*std::move(default_cert_env)};
     }
 
     // This check only happens on startup so that all the curl handles use

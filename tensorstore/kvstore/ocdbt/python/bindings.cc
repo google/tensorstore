@@ -21,9 +21,11 @@
 
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "absl/strings/cord.h"
+#include <nlohmann/json.hpp>
 #include "python/tensorstore/context.h"
 #include "python/tensorstore/future.h"
 #include "python/tensorstore/json_type_caster.h"
@@ -96,7 +98,7 @@ void RegisterOcdbtBindings(py::module m, Executor defer) {
           }
           auto read_and_dump_future = internal_ocdbt::ReadAndDump(
               base.value, node_identifier,
-              context ? WrapImpl(std::move(*context)) : Context());
+              context ? WrapImpl(*std::move(context)) : Context());
           return PythonFutureWrapper<::nlohmann::json>(
               MapFutureValue(
                   InlineExecutor{},

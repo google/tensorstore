@@ -30,6 +30,7 @@ pybind11_cc_library(
         "//tensorstore/util:executor",
         "//tensorstore/util:future",
         "//tensorstore/util/garbage_collection:json",
+        "@com_github_nlohmann_json//:json",
         "@com_github_pybind_pybind11//:pybind11",
         "@com_google_absl//absl/strings:cord",
     ],

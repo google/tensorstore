@@ -18,6 +18,7 @@
 #include <fstream>
 #include <functional>
 #include <memory>
+#include <new>
 #include <optional>
 #include <string>
 #include <utility>
@@ -133,7 +134,7 @@ Result<std::unique_ptr<AuthProvider>> GetDefaultGoogleAuthProvider(
   auto var = GetEnv(kGoogleAuthTokenForTesting);
   if (var) {
     ABSL_LOG(INFO) << "Using GOOGLE_AUTH_TOKEN_FOR_TESTING";
-    result.reset(new FixedTokenAuthProvider(std::move(*var)));
+    result.reset(new FixedTokenAuthProvider(*std::move(var)));
     return std::move(result);
   }
 

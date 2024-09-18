@@ -401,7 +401,7 @@ class MinishardIndexCache
               if (auto result = DecodeMinishardIndexAndAdjustByteRanges(
                       *value, GetOwningCache(*this).sharding_spec());
                   result.ok()) {
-                read_data = std::make_shared<ReadData>(std::move(*result));
+                read_data = std::make_shared<ReadData>(*std::move(result));
               } else {
                 execution::set_error(receiver,
                                      ConvertInvalidArgumentToFailedPrecondition(
@@ -497,7 +497,7 @@ class ShardedKeyValueStoreWriteCache
               if (auto result =
                       SplitShard(GetOwningCache(*this).sharding_spec(), *value);
                   result.ok()) {
-                chunks = std::move(*result);
+                chunks = *std::move(result);
               } else {
                 execution::set_error(receiver,
                                      ConvertInvalidArgumentToFailedPrecondition(
