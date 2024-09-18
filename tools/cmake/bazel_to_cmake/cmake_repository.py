@@ -81,6 +81,13 @@ class CMakeRepository(NamedTuple):
     generated automatically by bazel_to_cmake, and is set from the
     third_party_http_archive target_mapping setting.
     """
+    assert isinstance(
+        cmake_target_pair, CMakeTargetPair
+    ), f"{repr(cmake_target_pair)}"
+    assert isinstance(
+        cmake_target_pair.cmake_package, CMakePackage
+    ), f"{repr(cmake_target_pair)}"
+
     assert cmake_target_pair.cmake_package is not None
     assert cmake_target_pair.cmake_package == self.cmake_project_name
     assert target_id.repository_id == self.repository_id
@@ -140,6 +147,7 @@ def label_to_generated_cmake_target(
     target_id: TargetId, cmake_project: CMakePackage
 ) -> CMakeTargetPair:
   """Computes the generated CMake target corresponding to a Bazel target."""
+  assert isinstance(cmake_project, CMakePackage), f"{repr(cmake_project)}"
 
   parts: List[str] = []
   parts.extend(x for x in _SPLIT_RE.split(target_id.package_name) if x)

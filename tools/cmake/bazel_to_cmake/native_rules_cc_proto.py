@@ -47,12 +47,13 @@ changes in how upb and protobuf are bundled.
 """
 
 # pylint: disable=invalid-name
-
+import io
 from typing import Callable, List, Optional
 
 from .cmake_builder import CMakeBuilder
-from .cmake_target import CMakeTarget
+from .cmake_provider import default_providers
 from .emit_cc import emit_cc_library
+from .emit_cc import handle_cc_common_options
 from .evaluation import EvaluationState
 from .native_aspect import add_proto_aspect
 from .native_aspect_proto import aspect_genproto_library_target
@@ -66,6 +67,7 @@ from .starlark.provider import TargetInfo
 
 PROTO_REPO = RepositoryId("com_google_protobuf")
 PROTO_RUNTIME = PROTO_REPO.parse_target("//:protobuf")
+
 
 _WELL_KNOWN_TYPES = [
     "any",
@@ -81,7 +83,7 @@ _WELL_KNOWN_TYPES = [
 ]
 
 _IGNORED = set([
-    PROTO_REPO.parse_target(f"//src/google/protobuf:{x}_proto")
+    PROTO_REPO.parse_target(f"//src/google/protobuf:{x}_proto__cpp_library")
     for x in _WELL_KNOWN_TYPES
 ])
 
@@ -92,6 +94,7 @@ def _cpp_proto_target(t: TargetId) -> List[TargetId]:
 
 _CC = PluginSettings(
     name="cpp",
+    language="cpp",
     plugin=None,
     exts=[".pb.h", ".pb.cc"],
     runtime=[PROTO_RUNTIME],
@@ -105,9 +108,9 @@ def cpp_proto_aspect(
     visibility: Optional[List[RelativeLabel]] = None,
     **kwargs,
 ):
-  if proto_target in _IGNORED:
-    return
   aspect_target = _CC.aspectdeps(proto_target)[0]
+  if aspect_target in _IGNORED:
+    return
   context.add_rule(
       aspect_target,
       lambda: aspect_genproto_library_target(
@@ -173,18 +176,26 @@ def cc_proto_library_impl(
     print(f"WARNING: {_target.as_label()} is identical to an aspect target")
     aspect_deps.remove(_target)
 
-  library_deps: List[CMakeTarget] = state.get_deps(aspect_deps)
+  aspect_deps.update(resolved_deps)
 
-  builder = _context.access(CMakeBuilder)
-  builder.addtext(f"\n# {_mnemonic}({_target.as_label()})")
-  emit_cc_library(
-      builder,
-      cmake_target_pair,
-      hdrs=set(),
-      srcs=set(),
-      includes=[],
-      deps=set(library_deps),
+  common_options = handle_cc_common_options(
+      _context,
+      src_required=True,
+      srcs=[],
+      deps=aspect_deps,
+      includes=None,
   )
+
+  out = io.StringIO()
+  out.write(f"\n# {_mnemonic}({_target.as_label()})")
+  extra_providers = emit_cc_library(
+      out,
+      cmake_target_pair,
+      hdrs=[],
+      **common_options,
+  )
+  _context.access(CMakeBuilder).addtext(out.getvalue())
   _context.add_analyzed_target(
-      _target, TargetInfo(*cmake_target_pair.as_providers())
+      _target,
+      TargetInfo(*default_providers(cmake_target_pair), *extra_providers),
   )

@@ -18,7 +18,7 @@ https://bazel.build/rules/lib/globals#provider
 
 # pylint: disable=missing-function-docstring,relative-beyond-top-level,missing-class-docstring
 
-from typing import Optional, Type, TypeVar, cast
+from typing import Optional, Tuple, Type, TypeVar, cast
 
 
 class Provider:
@@ -26,6 +26,7 @@ class Provider:
 
 
 P = TypeVar('P', bound=Provider)
+ProviderTuple = Tuple[Provider, ...]
 
 
 class TargetInfo:
@@ -47,6 +48,9 @@ class TargetInfo:
 
   def __iter__(self):
     return iter(self._providers.values())
+
+  def __tuple__(self):
+    return tuple(self._providers.values())
 
   def __repr__(self):
     return (

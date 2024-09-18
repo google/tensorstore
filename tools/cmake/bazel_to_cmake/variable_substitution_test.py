@@ -21,7 +21,7 @@ from typing import Any, List, Optional
 
 import pytest
 
-from .cmake_target import CMakeExecutableTargetProvider
+from .cmake_provider import CMakeExecutableTargetProvider
 from .cmake_target import CMakePackage
 from .cmake_target import CMakeTarget
 from .cmake_target import CMakeTargetPair

@@ -30,48 +30,62 @@ from .util import quote_string
 
 def emit_filegroup(
     out: io.StringIO,
+    *,
     cmake_name: str,
     filegroup_files: Collection[str],
     source_directory: pathlib.PurePath,
     cmake_binary_dir: pathlib.PurePath,
     add_dependencies: Optional[Iterable[CMakeTarget]] = None,
+    link_libraries: Optional[Iterable[CMakeTarget]] = None,
+    includes: Optional[set[str]] = None,
 ):
+  add_includes = False
   has_proto = False
   has_ch = False
-  includes: set[str] = set()
+  if includes is None:
+    add_includes = True
+    includes = set()
+
   for path in filegroup_files:
-    has_proto = has_proto or path.endswith(".proto")
+    path = pathlib.PurePath(path)
+    has_proto = has_proto or path.suffix == ".proto"
     has_ch = (
         has_ch
-        or path.endswith(".c")
-        or path.endswith(".h")
-        or path.endswith(".hpp")
-        or path.endswith(".cc")
-        or path.endswith(".inc")
+        or path.suffix == ".c"
+        or path.suffix == ".h"
+        or path.suffix == ".hpp"
+        or path.suffix == ".cc"
+        or path.suffix == ".inc"
     )
-    (c, _) = make_relative_path(
-        pathlib.PurePath(path),
-        (PROJECT_SOURCE_DIR, source_directory),
-        (PROJECT_BINARY_DIR, cmake_binary_dir),
-    )
-    if c is not None:
-      includes.add(c)
+    if add_includes:
+      (c, _) = make_relative_path(
+          path,
+          (PROJECT_SOURCE_DIR, source_directory),
+          (PROJECT_BINARY_DIR, cmake_binary_dir),
+      )
+      if c is not None:
+        includes.add(c)
 
   sep = "\n    "
-  quoted_includes = quote_list(sorted(includes), sep)
   quoted_srcs = quote_path_list(sorted(filegroup_files), sep)
+
+  quoted_includes = None
+  if includes and (has_ch or has_proto):
+    quoted_includes = quote_list(sorted(includes), sep)
+  quoted_libraries = None
+  if link_libraries:
+    quoted_libraries = quote_list(sorted(link_libraries), sep)
 
   out.write(f"add_library({cmake_name} INTERFACE)\n")
   out.write(f"target_sources({cmake_name} INTERFACE{sep}{quoted_srcs})\n")
-  if has_proto:
+  if quoted_includes and (has_ch or has_proto):
     out.write(
-        f"set_property(TARGET {cmake_name} PROPERTY"
-        f" INTERFACE_IMPORTS{sep}{quoted_includes})\n"
+        f"target_include_directories({cmake_name} INTERFACE{sep}{quoted_includes})\n"
     )
-  if has_ch:
+  # TODO: Introduce a custom property for proto files? INTERFACE_IMPORTS?
+  if quoted_libraries:
     out.write(
-        f"set_property(TARGET {cmake_name} PROPERTY"
-        f" INTERFACE_INCLUDE_DIRECTORIES{sep}{quoted_includes})\n"
+        f"target_link_libraries({cmake_name} INTERFACE{sep}{quoted_libraries})\n"
     )
   if add_dependencies:
     deps_str = sep.join(sorted(set(add_dependencies)))

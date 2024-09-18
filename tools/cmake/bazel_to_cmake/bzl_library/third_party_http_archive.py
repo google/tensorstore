@@ -214,6 +214,7 @@ from ..cmake_builder import OPTIONS_SECTION
 from ..cmake_repository import CMakeRepository
 from ..cmake_repository import label_to_generated_cmake_target
 from ..cmake_repository import make_repo_mapping
+from ..cmake_target import CMakePackage
 from ..cmake_target import CMakeTarget
 from ..evaluation import EvaluationState
 from ..starlark.bazel_globals import BazelGlobals
@@ -445,7 +446,7 @@ def _third_party_http_archive_impl(_context: InvocationContext, **kwargs):
         state.active_repo.repository.cmake_binary_dir.joinpath("_deps")
     )
 
-  cmake_name: str = kwargs["cmake_name"]
+  cmake_name = CMakePackage(kwargs["cmake_name"])
   repository_id = RepositoryId(kwargs["name"])
   new_repository = CMakeRepository(
       repository_id=repository_id,

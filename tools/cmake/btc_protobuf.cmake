@@ -23,10 +23,10 @@
 #
 # btc_protobuf(
 #   TARGET <source>
-#     Build .proto files included in the target.
+#     Add generated .proto sources to this target.
 #
 #   PROTO_TARGET <proto>
-#     Target used to resolve .proto imports.
+#     Resolve .proto files from the target INTERFACE_SOURCES.
 #
 #   PROTOS  <proto files>
 #     Proto files
@@ -53,67 +53,65 @@
 #
 #   DEPENDS  <DEPENDS>
 #     CMake DEPENDS.
+#
+#   VARNAME  <variable> 
+#     Output generated files to this variable.
 # )
 function(btc_protobuf)
   include(CMakeParseArguments)
 
-  set(_singleargs PROTO_TARGET LANGUAGE PROTOC_OUT_DIR PLUGIN PLUGIN_OPTIONS DEPENDS)
+  set(_singleargs PROTO_TARGET LANGUAGE PROTOC_OUT_DIR PLUGIN PLUGIN_OPTIONS DEPENDS VARNAME)
   set(_multiargs PROTOS IMPORT_VARS GENERATE_EXTENSIONS PROTOC_OPTIONS)
 
-  cmake_parse_arguments(btc_protobuf "" "${_singleargs}" "${_multiargs}" "${ARGN}")
+  cmake_parse_arguments(btc "" "${_singleargs}" "${_multiargs}" "${ARGN}")
 
-  if(NOT btc_protobuf_TARGET)
-    message(SEND_ERROR "Error: btc_protobuf called without a TARGET")
+  if(NOT btc_LANGUAGE)
+    set(btc_LANGUAGE cpp)
+  endif()
+  string(TOLOWER ${btc_LANGUAGE} btc_LANGUAGE)
+
+  if(NOT btc_GENERATE_EXTENSIONS)
+    message(SEND_ERROR "Error: btc_protobuf called without GENERATE_EXTENSIONS for LANGUAGE ${btc_LANGUAGE}.")
     return()
   endif()
 
-  if(NOT btc_protobuf_LANGUAGE)
-    set(btc_protobuf_LANGUAGE cpp)
-  endif()
-  string(TOLOWER ${btc_protobuf_LANGUAGE} btc_protobuf_LANGUAGE)
-
-  if(NOT btc_protobuf_GENERATE_EXTENSIONS)
-    message(SEND_ERROR "Error: btc_protobuf called without GENERATE_EXTENSIONS for LANGUAGE ${btc_protobuf_LANGUAGE}.")
-    return()
-  endif()
-
-  if(NOT btc_protobuf_PROTO_TARGET)
+  if(NOT btc_PROTO_TARGET)
     message(SEND_ERROR "Error: btc_protobuf called without a PROTO_TARGET.")
     return()
   endif()
 
-  if(NOT btc_protobuf_PROTOC_OUT_DIR)
-    set(btc_protobuf_PROTOC_OUT_DIR ${CMAKE_CURRENT_BINARY_DIR})
+  if(NOT btc_PROTOC_OUT_DIR)
+    set(btc_PROTOC_OUT_DIR ${CMAKE_CURRENT_BINARY_DIR})
   else()
-    file(MAKE_DIRECTORY ${btc_protobuf_PROTOC_OUT_DIR})
+    file(MAKE_DIRECTORY ${btc_PROTOC_OUT_DIR})
   endif()
 
   # Get the sources from the PROTO_TARGET
-  if(NOT btc_protobuf_PROTOS)
-    get_property(_source_list TARGET ${btc_protobuf_PROTO_TARGET} PROPERTY INTERFACE_SOURCES)
+  if(NOT btc_PROTOS)
+    get_property(_source_list TARGET ${btc_PROTO_TARGET} PROPERTY INTERFACE_SOURCES)
     foreach(_file ${_source_list})
       if(_file MATCHES "proto$")
-        list(APPEND btc_protobuf_PROTOS ${_file})
+        list(APPEND btc_PROTOS ${_file})
       endif()
     endforeach()
 
-    get_property(_source_list TARGET ${btc_protobuf_PROTO_TARGET} PROPERTY SOURCES)
+    get_property(_source_list TARGET ${btc_PROTO_TARGET} PROPERTY SOURCES)
     foreach(_file ${_source_list})
       if(_file MATCHES "proto$")
-        list(APPEND btc_protobuf_PROTOS ${_file})
+        list(APPEND btc_PROTOS ${_file})
       endif()
     endforeach()
   endif()
 
-  if(NOT btc_protobuf_PROTOS)
+  if(NOT btc_PROTOS)
     message(SEND_ERROR "Error: protobuf_generate could not find any .proto files.")
     return()
   endif()
 
-  list(REMOVE_DUPLICATES btc_protobuf_PROTOS)
+  list(REMOVE_DUPLICATES btc_PROTOS)
 
   # Construct the plugin options.
-  foreach(_option IN LISTS btc_protobuf_PLUGIN_OPTIONS)
+  foreach(_option IN LISTS btc_PLUGIN_OPTIONS)
     # append comma - not using CMake lists and string replacement as users
     # might have semicolons in options
     if(_plugin_options)
@@ -122,8 +120,8 @@ function(btc_protobuf)
     set(_plugin_options "${_plugin_options}${_option}")
   endforeach()
 
-  if(btc_protobuf_PLUGIN)
-    set(_plugin "--plugin=${btc_protobuf_PLUGIN}")
+  if(btc_PLUGIN)
+    set(_plugin "--plugin=${btc_PLUGIN}")
   endif()
 
   # Construct transitive includes using generator expressions.
@@ -140,55 +138,22 @@ function(btc_protobuf)
   # using generator expressions.
 
   unset(_protobuf_transitive_include)
+  btc_transitive_includes(
+    PROTO_TARGET  ${btc_PROTO_TARGET}
+    IMPORT_VARS   ${btc_IMPORT_VARS}
+    VARNAME _protobuf_transitive_include
+  )
 
-  get_property(_link_libs TARGET ${btc_protobuf_PROTO_TARGET} PROPERTY INTERFACE_LINK_LIBRARIES)
-  foreach(_tgt ${_link_libs})
-    # When using system libs, Protobuf targets may be generated which do not exist.
-    set(_prop "$<TARGET_PROPERTY:${_tgt},INTERFACE_INCLUDE_DIRECTORIES>")
-    set(_expr "-I$<SEMICOLON>$<JOIN:${_prop},$<SEMICOLON>-I$<SEMICOLON>>")
-    list(APPEND _protobuf_transitive_include "$<$<TARGET_EXISTS:${_tgt}>:$<$<BOOL:${_prop}>:${_expr}>>")
-  endforeach()
+  btc_basic_includes(
+    PROTO_TARGET  ${btc_PROTO_TARGET}
+    VARNAME _protobuf_include_path
+  )
 
-  list(REMOVE_DUPLICATES _protobuf_transitive_include)
-
-  # Resolve import directories, which will be used to construct
-  # the includes list for the proto compiler.
-  unset(_protobuf_imports)
-  get_property(_inc TARGET ${btc_protobuf_PROTO_TARGET} PROPERTY INTERFACE_INCLUDE_DIRECTORIES)
-  list(APPEND _protobuf_imports ${_inc})
-
-  foreach(_var ${btc_protobuf_IMPORT_VARS})
-    if(DEFINED ${_var})
-    list(APPEND _protobuf_imports ${_var})
-    endif()
-  endforeach()
-
-  list(REMOVE_DUPLICATES _protobuf_imports)
-
-  # Construct the include paths
-  unset(_protobuf_include_path)
-  foreach(_dir ${_protobuf_imports})
-    get_filename_component(_abs_path "${_dir}" ABSOLUTE)
-    list(FIND _protobuf_include_path "${_abs_path}" _contains_already)
-    if(${_contains_already} EQUAL -1)
-        list(APPEND _protobuf_include_path "-I" "${_abs_path}")
-    endif()
-  endforeach()
-
-  list(FIND _protobuf_imports "${btc_protobuf_PROTOC_OUT_DIR}" _contains_already)
-  if(${_contains_already} EQUAL -1)
-    list(APPEND _protobuf_imports  "${btc_protobuf_PROTOC_OUT_DIR}")
-  endif()
-
-  list(PREPEND btc_protobuf_DEPENDS "protobuf::protoc")
-  list(REMOVE_DUPLICATES btc_protobuf_DEPENDS)
-
-  if(NOT _protobuf_include_path)
-    set(_protobuf_include_path -I ${PROJECT_SOURCE_DIR} -I ${PROJECT_BINARY_DIR})
-  endif()
+  list(PREPEND btc_DEPENDS "protobuf::protoc")
+  list(REMOVE_DUPLICATES btc_DEPENDS)
 
   set(_generated_srcs_all)
-  foreach(_proto ${btc_protobuf_PROTOS})
+  foreach(_proto ${btc_PROTOS})
     get_filename_component(_abs_file ${_proto} ABSOLUTE)
     get_filename_component(_abs_dir ${_abs_file} DIRECTORY)
 
@@ -214,44 +179,45 @@ function(btc_protobuf)
     endif()
 
     set(_generated_srcs)
-    foreach(_ext ${btc_protobuf_GENERATE_EXTENSIONS})
-      list(APPEND _generated_srcs "${btc_protobuf_PROTOC_OUT_DIR}/${_rel_dir}/${_basename}${_ext}")
+    foreach(_ext ${btc_GENERATE_EXTENSIONS})
+      list(APPEND _generated_srcs "${btc_PROTOC_OUT_DIR}/${_rel_dir}/${_basename}${_ext}")
     endforeach()
     list(APPEND _generated_srcs_all ${_generated_srcs})
 
-    set(_comment "Running ${btc_protobuf_LANGUAGE} protocol buffer compiler on ${_proto}")
-    if(btc_protobuf_PROTOC_OPTIONS)
-      set(_comment "${_comment}, protoc-options: ${btc_protobuf_PROTOC_OPTIONS}")
+    set(_comment "Running ${btc_LANGUAGE} protocol buffer compiler on ${_proto}")
+    if(btc_PROTOC_OPTIONS)
+      set(_comment "${_comment}, protoc-options: ${btc_PROTOC_OPTIONS}")
     endif()
     if(_plugin_options)
       set(_comment "${_comment}, plugin-options: ${_plugin_options}")
     endif()
 
-    # message(STATUS "btc_protobuf: ${btc_protobuf_VARNAME}  ${_generated_srcs}")
+    # message(STATUS "btc_protobuf: ${btc_VARNAME}  ${_generated_srcs}")
     add_custom_command(
       OUTPUT
           ${_generated_srcs}
       COMMAND protobuf::protoc
-          ${btc_protobuf_PROTOC_OPTIONS} --${btc_protobuf_LANGUAGE}_out
-          ${_plugin_options}:${btc_protobuf_PROTOC_OUT_DIR}
+          ${btc_PROTOC_OPTIONS} --${btc_LANGUAGE}_out
+          ${_plugin_options}:${btc_PROTOC_OUT_DIR}
           ${_plugin}
           ${_protobuf_include_path}
           "${_protobuf_transitive_include}"
           ${_abs_file}
       DEPENDS
-          ${_abs_file} ${btc_protobuf_DEPENDS} ${btc_protobuf_PROTO_TARGET}
+          ${_abs_file} ${btc_DEPENDS} ${btc_PROTO_TARGET}
       COMMENT ${_comment}
       COMMAND_EXPAND_LISTS
       VERBATIM )
   endforeach()
 
   set_source_files_properties(${_generated_srcs_all} PROPERTIES GENERATED TRUE)
-  target_sources(${btc_protobuf_TARGET} PRIVATE ${_generated_srcs_all})
-  set_property(
-      TARGET ${btc_protobuf_TARGET}
-      APPEND PROPERTY INCLUDE_DIRECTORIES "${btc_protobuf_PROTOC_OUT_DIR}" )
-  set_property(
-      TARGET ${btc_protobuf_TARGET}
-      APPEND PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${btc_protobuf_PROTOC_OUT_DIR}" )
+
+  if (btc_TARGET)
+    target_sources(${btc_TARGET} PRIVATE ${_generated_srcs_all})
+  endif()
+
+  if(btc_VARNAME)
+    set(${btc_VARNAME} "${_generated_srcs_all}" PARENT_SCOPE)
+  endif()
 
 endfunction()

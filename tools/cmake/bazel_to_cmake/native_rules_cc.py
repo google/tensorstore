@@ -15,10 +15,15 @@
 
 # pylint: disable=relative-beyond-top-level,invalid-name,missing-function-docstring,g-long-lambda
 
-from typing import List, Optional
+import io
+import itertools
+from typing import Callable, Dict, List, Optional
 
 from .cmake_builder import CMakeBuilder
-from .cmake_target import CMakeExecutableTargetProvider
+from .cmake_provider import CMakeExecutableTargetProvider
+from .cmake_provider import CMakePackageDepsProvider
+from .cmake_provider import default_providers
+from .cmake_provider import make_providers
 from .cmake_target import CMakeTarget
 from .emit_cc import emit_cc_binary
 from .emit_cc import emit_cc_library
@@ -35,6 +40,54 @@ from .starlark.select import Configurable
 from .variable_substitution import apply_location_substitutions
 
 
+def _common_cc_resolve(
+    _next: Callable[..., None],
+    _context: InvocationContext,
+    _target: TargetId,
+    srcs: Optional[Configurable[List[RelativeLabel]]] = None,
+    hdrs: Optional[Configurable[List[RelativeLabel]]] = None,
+    textual_hdrs: Optional[Configurable[List[RelativeLabel]]] = None,
+    deps: Optional[Configurable[List[RelativeLabel]]] = None,
+    includes: Optional[Configurable[List[str]]] = None,
+    include_prefix: Optional[Configurable[str]] = None,
+    strip_include_prefix: Optional[Configurable[str]] = None,
+    tags: Optional[Configurable[List[str]]] = None,
+    args: Optional[Configurable[List[str]]] = None,
+    **kwargs,
+):
+  """Applies evaluate_configurable to common (and uncommon) cc rule arguments."""
+  _next(
+      _context,
+      _target,
+      srcs=_context.resolve_target_or_label_list(
+          _context.evaluate_configurable_list(srcs)
+      ),
+      hdrs=_context.resolve_target_or_label_list(
+          _context.evaluate_configurable_list(hdrs)
+      ),
+      deps=_context.resolve_target_or_label_list(
+          _context.evaluate_configurable_list(deps)
+      ),
+      textual_hdrs=_context.resolve_target_or_label_list(
+          _context.evaluate_configurable_list(textual_hdrs)
+      ),
+      includes=_context.evaluate_configurable_list(includes),
+      include_prefix=(
+          _context.evaluate_configurable(include_prefix)
+          if include_prefix
+          else None
+      ),
+      strip_include_prefix=(
+          _context.evaluate_configurable(strip_include_prefix)
+          if strip_include_prefix
+          else None
+      ),
+      tags=_context.evaluate_configurable_list(tags),
+      args=_context.evaluate_configurable_list(args),
+      **kwargs,
+  )
+
+
 @register_native_build_rule
 def cc_library(
     self: InvocationContext,
@@ -49,7 +102,7 @@ def cc_library(
   target = context.parse_rule_target(name)
   context.add_rule(
       target,
-      lambda: _cc_library_impl(context, target, **kwargs),
+      lambda: _common_cc_resolve(_cc_library_impl, context, target, **kwargs),
       visibility=visibility,
   )
 
@@ -57,46 +110,51 @@ def cc_library(
 def _cc_library_impl(
     _context: InvocationContext,
     _target: TargetId,
-    hdrs: Optional[Configurable[List[RelativeLabel]]] = None,
-    textual_hdrs: Optional[Configurable[List[RelativeLabel]]] = None,
+    hdrs: Optional[List[TargetId]] = None,
+    textual_hdrs: Optional[List[TargetId]] = None,
     alwayslink: bool = False,
     **kwargs,
 ):
-  resolved_hdrs = _context.resolve_target_or_label_list(
-      _context.evaluate_configurable_list(hdrs)
-  )
-  resolved_textual_hdrs = _context.resolve_target_or_label_list(
-      _context.evaluate_configurable_list(textual_hdrs)
-  )
-
   state = _context.access(EvaluationState)
 
-  cmake_target_pair = state.generate_cmake_target_pair(_target)
-  add_dependencies: List[CMakeTarget] = []
-  hdrs_file_paths = state.get_file_paths(resolved_hdrs, add_dependencies)
-  textual_hdrs_file_paths = state.get_file_paths(
-      resolved_textual_hdrs, add_dependencies
+  hdrs_collector = state.collect_targets(hdrs)
+  textual_hdrs_collector = state.collect_targets(textual_hdrs)
+
+  add_dependencies: List[CMakeTarget] = list(
+      itertools.chain(
+          hdrs_collector.add_dependencies(),
+          textual_hdrs_collector.add_dependencies(),
+      )
   )
+  all_hdrs = set(
+      itertools.chain(
+          hdrs_collector.file_paths(), textual_hdrs_collector.file_paths()
+      )
+  )
+
+  cmake_target_pair = state.generate_cmake_target_pair(_target)
 
   common_options = handle_cc_common_options(
       _context,
       add_dependencies=add_dependencies,
-      hdrs_file_paths=hdrs_file_paths,
-      textual_hdrs_file_paths=textual_hdrs_file_paths,
+      hdrs_file_paths=list(hdrs_collector.file_paths()),
+      textual_hdrs_file_paths=list(textual_hdrs_collector.file_paths()),
       **kwargs,
   )
-  builder = _context.access(CMakeBuilder)
-  builder.addtext(f"\n# cc_library({_target.as_label()})")
 
-  emit_cc_library(
-      builder,
+  out = io.StringIO()
+  out.write(f"\n# cc_library({_target.as_label()})")
+  extra_providers = emit_cc_library(
+      out,
       cmake_target_pair,
-      hdrs=set(hdrs_file_paths + textual_hdrs_file_paths),
+      hdrs=all_hdrs,
       alwayslink=alwayslink,
       **common_options,
   )
+  _context.access(CMakeBuilder).addtext(out.getvalue())
   _context.add_analyzed_target(
-      _target, TargetInfo(*cmake_target_pair.as_providers())
+      _target,
+      TargetInfo(*default_providers(cmake_target_pair), *extra_providers),
   )
 
 
@@ -124,7 +182,7 @@ def cc_binary(
 
   context.add_rule(
       target,
-      lambda: _cc_binary_impl(context, target, **kwargs),
+      lambda: _common_cc_resolve(_cc_binary_impl, context, target, **kwargs),
       analyze_by_default=analyze_by_default,
   )
 
@@ -137,19 +195,22 @@ def _cc_binary_impl(_context: InvocationContext, _target: TargetId, **kwargs):
   common_options = handle_cc_common_options(
       _context, src_required=True, **kwargs
   )
-  builder = _context.access(CMakeBuilder)
-  builder.addtext(f"\n# cc_binary({_target.as_label()})")
 
+  out = io.StringIO()
+  out.write(f"\n# cc_binary({_target.as_label()})")
   emit_cc_binary(
-      _context.access(CMakeBuilder),
+      out,
       cmake_target_pair,
       **common_options,
   )
+  _context.access(CMakeBuilder).addtext(out.getvalue())
   _context.add_analyzed_target(
       _target,
       TargetInfo(
-          *cmake_target_pair.as_providers(
-              provider=CMakeExecutableTargetProvider
+          *make_providers(
+              cmake_target_pair,
+              CMakePackageDepsProvider,
+              CMakeExecutableTargetProvider,
           )
       ),
   )
@@ -162,18 +223,13 @@ def cc_test(
     visibility: Optional[List[RelativeLabel]] = None,
     **kwargs,
 ):
-  if "skip-cmake" in kwargs.get("tags", []):
-    return
-  # CMake does not run tests multiple times, so skip the flaky tests.
-  if kwargs.get("flaky", False):
-    return
   context = self.snapshot()
   target = context.parse_rule_target(name)
 
   resolved_visibility = context.resolve_target_or_label_list(visibility or [])
   context.add_rule(
       target,
-      lambda: _cc_test_impl(context, target, **kwargs),
+      lambda: _common_cc_resolve(_cc_test_impl, context, target, **kwargs),
       analyze_by_default=context.access(Visibility).analyze_test_by_default(
           resolved_visibility
       ),
@@ -183,35 +239,55 @@ def cc_test(
 def _cc_test_impl(
     _context: InvocationContext,
     _target: TargetId,
-    args: Optional[Configurable[List[str]]] = None,
+    args: Optional[List[str]] = None,
+    tags: Optional[List[str]] = None,
     **kwargs,
 ):
+  # CMake does not run tests multiple times, so skip the flaky tests.
+  if "skip-cmake" in tags or "flaky" in tags:
+    _context.access(CMakeBuilder).addtext(
+        f"\n# Skipping cc_test {_target.as_label()}\n"
+    )
+    _context.add_analyzed_target(_target, TargetInfo())
+    return
+
   state = _context.access(EvaluationState)
+
   cmake_target_pair = state.generate_cmake_target_pair(_target)
   resolved_args = [
       apply_location_substitutions(
           _context, arg, relative_to=state.active_repo.source_directory
       )
-      for arg in _context.evaluate_configurable_list(args)
+      for arg in args
   ]
 
   common_options = handle_cc_common_options(
       _context, src_required=True, **kwargs
   )
-  builder = _context.access(CMakeBuilder)
-  builder.addtext(f"\n# cc_test({_target.as_label()})")
+  # Translate tags to CMake properties.
+  # https://cmake.org/cmake/help/latest/manual/cmake-properties.7.html#test-properties
+  properties: Dict[str, str] = {}
+  for t in tags:
+    if t.startswith("cpu:"):
+      properties["RUN_SERIAL"] = "TRUE"
 
+  out = io.StringIO()
+  out.write(f"\n# cc_test({_target.as_label()})")
   emit_cc_test(
-      _context.access(CMakeBuilder),
+      out,
       cmake_target_pair,
       args=resolved_args,
+      properties=properties,
       **common_options,
   )
+  _context.access(CMakeBuilder).addtext(out.getvalue())
   _context.add_analyzed_target(
       _target,
       TargetInfo(
-          *cmake_target_pair.as_providers(
-              provider=CMakeExecutableTargetProvider
+          *make_providers(
+              cmake_target_pair,
+              CMakePackageDepsProvider,
+              CMakeExecutableTargetProvider,
           )
       ),
   )

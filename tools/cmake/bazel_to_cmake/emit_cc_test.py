@@ -16,45 +16,42 @@
 # pylint: disable=g-importing-member
 import pathlib
 
-from .cmake_repository import CMakeRepository
-from .cmake_target import CMakePackage
 from .emit_cc import construct_cc_includes
 from .starlark.bazel_target import PackageId
-from .starlark.bazel_target import RepositoryId
 
-REPO = CMakeRepository(
-    RepositoryId("foo"),
-    CMakePackage("Foo"),
-    pathlib.PurePath("foo-srcdir"),
-    pathlib.PurePath("foo-bindir"),
-    {},
-    {},
-)
+
+SRCDIR = pathlib.PurePath("foo-srcdir")
+BINDIR = pathlib.PurePath("foo-bindir")
+
 
 def test_construct_cc_includes_bare():
   # No includes
   assert not construct_cc_includes(
-      REPO,
       PackageId("foo", "bar"),
+      source_directory=SRCDIR,
+      cmake_binary_dir=BINDIR,
   )
   # Individual srcdir / bindir includes
-  assert ["${PROJECT_SOURCE_DIR}"] == construct_cc_includes(
-      REPO,
+  assert set([SRCDIR]) == construct_cc_includes(
       PackageId("foo", "bar"),
+      source_directory=SRCDIR,
+      cmake_binary_dir=BINDIR,
       known_include_files=["foo-srcdir/bar/a.inc"],
   )
-  assert ["${PROJECT_BINARY_DIR}"] == construct_cc_includes(
-      REPO,
+  assert set([BINDIR]) == construct_cc_includes(
       PackageId("foo", "bar"),
+      source_directory=SRCDIR,
+      cmake_binary_dir=BINDIR,
       known_include_files=["foo-bindir/bar/b.inc"],
   )
   # Other combinations
-  assert [
-      "${PROJECT_BINARY_DIR}",
-      "${PROJECT_SOURCE_DIR}",
-  ] == construct_cc_includes(
-      REPO,
+  assert set([
+      BINDIR,
+      SRCDIR,
+  ]) == construct_cc_includes(
       PackageId("foo", "bar"),
+      source_directory=SRCDIR,
+      cmake_binary_dir=BINDIR,
       known_include_files=[
           "foo-srcdir/bar/e.inc",
           "foo-bindir/bar/ee.h",
@@ -64,41 +61,45 @@ def test_construct_cc_includes_bare():
 
 def test_construct_cc_includes_includes():
   # includes does not test for file presence.
-  assert [
-      "${PROJECT_BINARY_DIR}/bar",
-      "${PROJECT_SOURCE_DIR}/bar",
-  ] == construct_cc_includes(
-      REPO,
+  assert set([
+      BINDIR.joinpath("bar"),
+      SRCDIR.joinpath("bar"),
+  ]) == construct_cc_includes(
       PackageId("foo", "bar"),
+      source_directory=SRCDIR,
+      cmake_binary_dir=BINDIR,
       includes=["."],
   )
   # package-relative
-  assert [
-      "${PROJECT_BINARY_DIR}/bar/includes",
-      "${PROJECT_SOURCE_DIR}/bar/includes",
-  ] == construct_cc_includes(
-      REPO,
+  assert set([
+      BINDIR.joinpath("bar/includes"),
+      SRCDIR.joinpath("bar/includes"),
+  ]) == construct_cc_includes(
       PackageId("foo", "bar"),
+      source_directory=SRCDIR,
+      cmake_binary_dir=BINDIR,
       includes=["includes"],
       known_include_files=["foo-srcdir/includes/b.h"],
   )
-  assert [
-      "${PROJECT_BINARY_DIR}/bar/includes",
-      "${PROJECT_SOURCE_DIR}/bar/includes",
-  ] == construct_cc_includes(
-      REPO,
+  assert set([
+      BINDIR.joinpath("bar/includes"),
+      SRCDIR.joinpath("bar/includes"),
+  ]) == construct_cc_includes(
       PackageId("foo", "bar"),
+      source_directory=SRCDIR,
+      cmake_binary_dir=BINDIR,
       includes=["includes"],
       known_include_files=["foo-srcdir/bar/includes/c.h"],
   )
   # reposnitory-relative
   # bazel doesn't generate this one; it probably builds file symlinks.
-  assert [
-      "${PROJECT_BINARY_DIR}/includes",
-      "${PROJECT_SOURCE_DIR}/includes",
-  ] == construct_cc_includes(
-      REPO,
+  assert set([
+      BINDIR.joinpath("includes"),
+      SRCDIR.joinpath("includes"),
+  ]) == construct_cc_includes(
       PackageId("foo", "bar"),
+      source_directory=SRCDIR,
+      cmake_binary_dir=BINDIR,
       includes=["/includes"],
       known_include_files=["foo-srcdir/includes/a.h"],
   )
@@ -106,19 +107,21 @@ def test_construct_cc_includes_includes():
 
 def test_construct_cc_includes_include_prefix():
   # include_prefix really doesn't work for bazel_to_cmake.
-  assert [
-      "${PROJECT_SOURCE_DIR}",
-  ] == construct_cc_includes(
-      REPO,
+  assert set([
+      SRCDIR,
+  ]) == construct_cc_includes(
       PackageId("foo", "bar"),
+      source_directory=SRCDIR,
+      cmake_binary_dir=BINDIR,
       include_prefix="bar",
       known_include_files=["foo-srcdir/bar/x.h"],
   )
-  assert [
-      "${PROJECT_SOURCE_DIR}",
-  ] == construct_cc_includes(
-      REPO,
+  assert set([
+      SRCDIR,
+  ]) == construct_cc_includes(
       PackageId("foo", "bar"),
+      source_directory=SRCDIR,
+      cmake_binary_dir=BINDIR,
       include_prefix="_mismatch_",
       known_include_files=["foo-srcdir/bar/y.h"],
   )
@@ -126,62 +129,69 @@ def test_construct_cc_includes_include_prefix():
 
 def test_construct_cc_includes_strip_include_prefix():
   # mismatched
-  assert [
-      "${PROJECT_SOURCE_DIR}",
-  ] == construct_cc_includes(
-      REPO,
+  assert set([
+      SRCDIR,
+  ]) == construct_cc_includes(
       PackageId("foo", "bar"),
+      source_directory=SRCDIR,
+      cmake_binary_dir=BINDIR,
       strip_include_prefix="xyz",
       known_include_files=["foo-srcdir/bar/a.h"],
   )
-  assert [
-      "${PROJECT_BINARY_DIR}",
-  ] == construct_cc_includes(
-      repo=REPO,
+  assert set([
+      BINDIR,
+  ]) == construct_cc_includes(
+      PackageId("foo", "bar"),
+      source_directory=SRCDIR,
+      cmake_binary_dir=BINDIR,
       strip_include_prefix="xyz",
-      current_package_id=PackageId("foo", "bar"),
       known_include_files=["foo-bindir/bar/b.h"],
   )
   # Respoitory relative
-  assert [
-      "${PROJECT_SOURCE_DIR}/bar",
-  ] == construct_cc_includes(
-      REPO,
+  assert set([
+      SRCDIR.joinpath("bar"),
+  ]) == construct_cc_includes(
       PackageId("foo", "bar"),
+      source_directory=SRCDIR,
+      cmake_binary_dir=BINDIR,
       strip_include_prefix="/bar",
       known_include_files=["foo-srcdir/bar/c.h"],
   )
-  assert [
-      "${PROJECT_BINARY_DIR}/bar",
-      "${PROJECT_SOURCE_DIR}/bar",
-  ] == construct_cc_includes(
-      REPO,
+  assert set([
+      BINDIR.joinpath("bar"),
+      SRCDIR.joinpath("bar"),
+  ]) == construct_cc_includes(
       PackageId("foo", "bar"),
+      source_directory=SRCDIR,
+      cmake_binary_dir=BINDIR,
       strip_include_prefix="/bar",
       known_include_files=["foo-srcdir/bar/d.h", "foo-bindir/bar/dd.h"],
   )
-  assert [
-      "${PROJECT_SOURCE_DIR}/bar",
-  ] == construct_cc_includes(
-      REPO,
+  assert set([
+      SRCDIR.joinpath("bar"),
+  ]) == construct_cc_includes(
       PackageId("foo", "bar"),
+      source_directory=SRCDIR,
+      cmake_binary_dir=BINDIR,
       strip_include_prefix="/bar",
       known_include_files=["foo-srcdir/bar/e.inc", "foo-srcdir/bar/e.h"],
   )
   # Package includes
-  assert [
-      "${PROJECT_SOURCE_DIR}",
-  ] == construct_cc_includes(
-      repo=REPO,
+  assert set([
+      SRCDIR,
+  ]) == construct_cc_includes(
+      PackageId("foo", "bar"),
+      source_directory=SRCDIR,
+      cmake_binary_dir=BINDIR,
       strip_include_prefix="bar",
-      current_package_id=PackageId("foo", "bar"),
       known_include_files=["foo-srcdir/bar/f.h"],
   )
-  assert [
-      "${PROJECT_SOURCE_DIR}/bar/includes",
-  ] == construct_cc_includes(
-      REPO,
+  assert set([
+      SRCDIR.joinpath("bar/includes"),
+  ]) == construct_cc_includes(
       PackageId("foo", "bar"),
+      source_directory=SRCDIR,
+      cmake_binary_dir=BINDIR,
       strip_include_prefix="includes",
       known_include_files=["foo-srcdir/bar/includes/g.h"],
   )

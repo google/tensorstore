@@ -62,20 +62,19 @@ import io
 from typing import List, Optional
 
 from .cmake_builder import CMakeBuilder
-from .cmake_target import CMakeTarget
+from .cmake_provider import default_providers
 from .emit_cc import construct_cc_includes
+from .emit_filegroup import emit_filegroup
 from .evaluation import EvaluationState
 from .native_aspect import invoke_proto_aspects
 from .starlark.bazel_build_file import register_native_build_rule
 from .starlark.bazel_target import RepositoryId
 from .starlark.bazel_target import TargetId
+from .starlark.common_providers import FilesProvider
 from .starlark.common_providers import ProtoLibraryProvider
 from .starlark.invocation_context import InvocationContext
 from .starlark.label import RelativeLabel
 from .starlark.provider import TargetInfo
-from .util import quote_list
-from .util import quote_path
-from .util import quote_path_list
 
 PROTO_REPO = RepositoryId("com_google_protobuf")
 
@@ -131,25 +130,20 @@ def _proto_library_impl(
 
   # Validate src properties: files ending in .proto within the same repo,
   # and add them to the proto_src_files.
-  cmake_deps: List[CMakeTarget] = []
-  proto_src_files: List[str] = state.get_file_paths(resolved_srcs, cmake_deps)
+  srcs_collector = state.collect_targets(resolved_srcs)
+  proto_src_files = sorted(set(srcs_collector.file_paths()))
+
   for proto in resolved_srcs:
     assert proto.target_name.endswith(".proto"), f"{proto} must end in .proto"
     # Verify that the source is in the same repository as the proto_library rule
     assert proto.repository_id == _target.repository_id
     maybe_set_import_var(proto)
 
-  proto_src_files = sorted(set(proto_src_files))
-
   # Resolve deps. When using system protobuffers, well-known-proto targets need
   # 'Protobuf_IMPORT_DIRS' added to their transitive includes.
-  import_var: str = ""
-  import_targets: List[CMakeTarget] = []
-  for d in resolved_deps:
-    maybe_set_import_var(d)
-    import_targets.extend(state.get_dep(d, False))
-
-  import_targets = list(sorted(set(import_targets)))
+  for t in resolved_deps:
+    maybe_set_import_var(t)
+  deps_collector = state.collect_deps(resolved_deps, alias=False)
 
   # In order to propagate the includes to our compile targets, each
   # proto_library() becomes a custom CMake target which contains an
@@ -166,47 +160,34 @@ def _proto_library_impl(
   assert repo is not None
 
   # strip_import_prefix and import_prefix behave the same as for cc_library
-  includes = construct_cc_includes(
-      repo,
-      _context.caller_package_id,
-      includes=None,
-      include_prefix=import_prefix,
-      strip_include_prefix=strip_import_prefix,
-      known_include_files=proto_src_files,
+  includes = repo.replace_with_cmake_macro_dirs(
+      construct_cc_includes(
+          _context.caller_package_id,
+          source_directory=repo.source_directory,
+          cmake_binary_dir=repo.cmake_binary_dir,
+          includes=None,
+          include_prefix=import_prefix,
+          strip_include_prefix=strip_import_prefix,
+          known_include_files=proto_src_files,
+      )
   )
 
   # Sanity check; if there are sources, then there should be includes.
   if proto_src_files:
     assert includes
 
-  relative_src_files = repo.replace_with_cmake_macro_dirs(proto_src_files)
-
   out = io.StringIO()
-  out.write(f"""
-# proto_library({_target.as_label()})
-add_library({cmake_target_pair.target} INTERFACE)
-""")
-  if relative_src_files:
-    out.write(
-        f"target_sources({cmake_target_pair.target} INTERFACE"
-        f"{_SEP}{quote_path_list(sorted(relative_src_files), _SEP)})\n"
-    )
-  if import_targets:
-    out.write(
-        f"target_link_libraries({cmake_target_pair.target} INTERFACE"
-        f"{_SEP}{quote_list(import_targets, _SEP)})\n"
-    )
-
-  if includes or import_var:
-    out.write(
-        f"target_include_directories({cmake_target_pair.target} INTERFACE"
-    )
-    if import_var:
-      out.write(f"\n       {import_var}")
-    for x in sorted(includes):
-      out.write(f"\n       {quote_path(x)}")
-    out.write(")\n")
-
+  out.write(f"\n# proto_library({_target.as_label()})\n")
+  emit_filegroup(
+      out,
+      cmake_name=cmake_target_pair.target,
+      filegroup_files=repo.replace_with_cmake_macro_dirs(proto_src_files),
+      source_directory=repo.source_directory,
+      cmake_binary_dir=repo.cmake_binary_dir,
+      add_dependencies=list(srcs_collector.add_dependencies()),
+      link_libraries=deps_collector.link_libraries(),
+      includes=set(includes),
+  )
   if cmake_target_pair.alias is not None:
     out.write(
         f"add_library({cmake_target_pair.alias} ALIAS"
@@ -217,9 +198,14 @@ add_library({cmake_target_pair.target} INTERFACE)
   _context.add_analyzed_target(
       _target,
       TargetInfo(
-          *cmake_target_pair.as_providers(),
+          *default_providers(cmake_target_pair),
+          FilesProvider(proto_src_files),
           ProtoLibraryProvider(
-              resolved_srcs, resolved_deps, strip_import_prefix
+              _target,
+              resolved_srcs,
+              resolved_deps,
+              strip_import_prefix,
+              import_prefix,
           ),
       ),
   )

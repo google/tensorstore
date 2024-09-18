@@ -24,8 +24,8 @@ import re
 import shlex
 from typing import Dict, List, Match, Optional
 
-from .cmake_target import CMakeExecutableTargetProvider
-from .cmake_target import CMakeLinkLibrariesProvider
+from .cmake_provider import CMakeExecutableTargetProvider
+from .cmake_provider import CMakeLinkLibrariesProvider
 from .cmake_target import CMakeTarget
 from .evaluation import EvaluationState
 from .starlark.bazel_target import TargetId

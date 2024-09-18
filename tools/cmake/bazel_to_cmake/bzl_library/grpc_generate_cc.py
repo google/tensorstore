@@ -14,15 +14,16 @@
 """CMake implementation of "@tensorstore//bazel:cc_grpc_library.bzl"."""
 
 # pylint: disable=invalid-name,missing-function-docstring,relative-beyond-top-level,g-long-lambda
+import io
+import pathlib
 from typing import Any, List, Optional, cast
 
 from ..cmake_builder import CMakeBuilder
-from ..cmake_target import CMakeAddDependenciesProvider
-from ..cmake_target import CMakeLinkLibrariesProvider
-from ..cmake_target import CMakeTarget
+from ..cmake_provider import CMakeAddDependenciesProvider
+from ..cmake_provider import default_providers
 from ..evaluation import EvaluationState
 from ..native_aspect_proto import btc_protobuf
-from ..native_aspect_proto import get_aspect_dep
+from ..native_aspect_proto import plugin_generated_files
 from ..native_aspect_proto import PluginSettings
 from ..starlark.bazel_globals import BazelGlobals
 from ..starlark.bazel_globals import register_bzl_library
@@ -34,8 +35,8 @@ from ..starlark.invocation_context import InvocationContext
 from ..starlark.invocation_context import RelativeLabel
 from ..starlark.provider import TargetInfo
 from ..starlark.select import Configurable
-
-from .upb_proto_library import UPB_REPO  # pylint: disable=unused-import
+from ..util import quote_path_list
+from .upb_proto_library import UPB_PLUGIN  # pylint: disable=unused-import
 
 GRPC_REPO = RepositoryId("com_github_grpc_grpc")
 
@@ -49,6 +50,7 @@ def _empty_target_list(t: TargetId) -> List[TargetId]:
 
 _GRPC = PluginSettings(
     name="grpc",
+    language="grpc",
     plugin=GRPC_REPO.parse_target("//src/compiler:grpc_cpp_plugin"),
     exts=[".grpc.pb.h", ".grpc.pb.cc"],
     runtime=[GRPC_REPO.parse_target("//:grpc++_codegen_proto")],
@@ -92,6 +94,17 @@ def _generate_grpc_cc_impl(
 ):
   del kwargs
   state = _context.access(EvaluationState)
+  repo = state.workspace.all_repositories.get(
+      _context.caller_package_id.repository_id
+  )
+  assert repo is not None
+
+  # Only a single source is allowed.
+  resolved_srcs = _context.resolve_target_or_label_list(
+      _context.evaluate_configurable_list(srcs)
+  )
+  assert len(resolved_srcs) == 1
+  proto_target = resolved_srcs[0]
 
   plugin_settings = _GRPC
   if plugin is not None:
@@ -100,79 +113,91 @@ def _generate_grpc_cc_impl(
     )
     plugin_settings = PluginSettings(
         name=_GRPC.name,
+        language=_GRPC.language,
         plugin=resolved_plugin,
         exts=_GRPC.exts,
         runtime=_GRPC.runtime,
         aspectdeps=_empty_target_list,
     )
 
-  assert plugin_settings.plugin is not None
-  cmake_target_pair = state.generate_cmake_target_pair(_target, alias=False)
+  proto_target_info = _context.get_target_info(proto_target)
+  proto_library_provider = proto_target_info.get(ProtoLibraryProvider)
+  assert proto_library_provider is not None
 
-  # Only a single source is allowed.
-  resolved_srcs = _context.resolve_target_or_label_list(
-      _context.evaluate_configurable_list(srcs)
-  )
-  assert len(resolved_srcs) == 1
-  proto_library_target = resolved_srcs[0]
+  cmake_target_pair = state.generate_cmake_target_pair(_target, alias=False)
 
   # Construct the generated paths, installing this rule as a dependency.
   # TODO: Handle skip_import_prefix?
-  generated_paths = []
-  cmake_deps: List[CMakeTarget] = [
-      get_aspect_dep(
-          _context,
-          proto_library_target.get_target_id(
-              f"{proto_library_target.target_name}__upb_library"
-          ),
-      )
-  ]
-  proto_target_info = _context.get_target_info(proto_library_target)
-  proto_provider = proto_target_info.get(ProtoLibraryProvider)
-  assert proto_provider is not None
+  proto_cmake_target = state.generate_cmake_target_pair(
+      proto_library_provider.bazel_target
+  ).target
+
+  import_targets = set(
+      state.collect_deps(proto_library_provider.deps).link_libraries()
+  )
+  import_targets.add(proto_cmake_target)
 
   # Emit the generated files.
   # See also native_aspect_proto.py
-  repo = state.workspace.all_repositories.get(
-      _context.caller_package_id.repository_id
-  )
-  assert repo is not None
-  for src in proto_provider.srcs:
-    assert src.target_name.endswith(
-        ".proto"
-    ), f"{src.as_label()} must end in .proto"
-    target_name = src.target_name.removesuffix(".proto")
-    for ext in plugin_settings.exts:
-      generated_target = src.get_target_id(f"{target_name}{ext}")
-      generated_path = generated_target.as_rooted_path(repo.cmake_binary_dir)
+  generated_files = []
+  for src in proto_library_provider.srcs:
+    for t in plugin_generated_files(
+        src,
+        plugin_settings,
+        repo.cmake_binary_dir,
+    ):
       _context.add_analyzed_target(
-          generated_target,
+          t[0],
           TargetInfo(
-              FilesProvider([str(generated_path)]),
               CMakeAddDependenciesProvider(cmake_target_pair.target),
+              FilesProvider([t[1]]),
           ),
       )
-      generated_paths.append(generated_path)
-
+      generated_files.append(t[1])
   _context.add_analyzed_target(
       _target,
       TargetInfo(
-          *cmake_target_pair.as_providers(), FilesProvider(generated_paths)
+          *default_providers(cmake_target_pair),
+          FilesProvider(generated_files),
       ),
   )
 
-  out = btc_protobuf(
+  src_collector = state.collect_targets(proto_library_provider.srcs)
+  state.collect_deps(UPB_PLUGIN.aspectdeps(resolved_srcs[0]))
+
+  # Augment output with strip import prefix
+  output_dir = repo.cmake_binary_dir
+  if proto_library_provider.strip_import_prefix:
+    include_path = str(
+        pathlib.PurePosixPath(_context.caller_package_id.package_name).joinpath(
+            proto_library_provider.strip_import_prefix
+        )
+    )
+    if include_path[0] == "/":
+      include_path = include_path[1:]
+    output_dir = output_dir.joinpath(include_path)
+
+  # Emit.
+  out = io.StringIO()
+  out.write(f"\n# {_target.as_label()}")
+
+  btc_protobuf(
       _context,
-      cmake_target_pair.target,
-      proto_target_info.get(CMakeLinkLibrariesProvider).target,
-      plugin_settings,
-      cmake_deps=cmake_deps,
+      out,
+      plugin_settings=plugin_settings,
+      # varname=str(cmake_target_pair.target),
+      proto_src=next(src_collector.file_paths()),
+      generated_files=generated_files,
+      import_targets=import_targets,
+      cmake_depends=set(src_collector.add_dependencies()),
       flags=flags,
+      output_dir=repo.replace_with_cmake_macro_dirs([output_dir])[0],
+  )
+  sep = "\n    "
+
+  out.write(
+      f"add_custom_target({cmake_target_pair.target} DEPENDS\n"
+      f"  {quote_path_list(generated_files, separator=sep)})\n"
   )
 
-  builder = _context.access(CMakeBuilder)
-  builder.addtext(f"""
-# {_target.as_label()}
-add_custom_target({cmake_target_pair.target})
-{out}
-""")
+  _context.access(CMakeBuilder).addtext(out.getvalue())

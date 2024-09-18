@@ -15,13 +15,15 @@
 
 # pylint: disable=invalid-name,relative-beyond-top-level,missing-function-docstring,missing-class-docstring,g-long-lambda
 
+import itertools
 import json
 import pathlib
 from typing import Any, Dict, List, Optional, Tuple, TypeVar, Union, cast
 
 from .. import native_rules_genrule
 from ..cmake_builder import CMakeBuilder
-from ..cmake_target import CMakeAddDependenciesProvider
+from ..cmake_provider import CMakeAddDependenciesProvider
+from ..cmake_provider import default_providers
 from ..cmake_target import CMakeTarget
 from ..evaluation import EvaluationState
 from ..starlark.bazel_globals import BazelGlobals
@@ -42,6 +44,7 @@ from ..util import quote_list
 from ..util import quote_path
 from ..util import quote_string
 from ..util import write_file_if_not_already_equal
+
 
 T = TypeVar("T")
 
@@ -189,10 +192,17 @@ def _expand_template_impl(
       cast(RelativeLabel, _context.evaluate_configurable(template))
   )
 
-  deps: List[CMakeTarget] = []
-  template_paths = state.get_file_paths([resolved_template], deps)
+  template_collector = state.collect_targets([resolved_template])
 
-  assert len(template_paths) == 1
+  add_dependencies: set[CMakeTarget] = set(
+      itertools.chain(
+          template_collector.add_dependencies(),
+          template_collector.file_paths(),
+      )
+  )
+  template_paths = list(template_collector.file_paths())
+  assert len(template_paths) == 1, f"For {template_collector}"
+
   template_path = template_paths[0]
   script_path = pathlib.PurePath(__file__).parent.joinpath("expand_template.py")
 
@@ -205,25 +215,27 @@ def _expand_template_impl(
       subs_path,
       json.dumps(_context.evaluate_configurable(substitutions)).encode("utf-8"),
   )
-  deps.append(CMakeTarget(template_path))
-  deps.append(CMakeTarget(script_path.as_posix()))
-  deps.append(CMakeTarget(subs_path.as_posix()))
+  add_dependencies.add(CMakeTarget(template_path))
+  add_dependencies.add(CMakeTarget(script_path.as_posix()))
+  add_dependencies.add(CMakeTarget(subs_path.as_posix()))
 
   builder: CMakeBuilder = _context.access(CMakeBuilder)
   builder.addtext(f"""
+# expand_template({_target.as_label()})
 add_custom_command(
 OUTPUT {quote_path(out_file)}
 COMMAND ${{Python3_EXECUTABLE}} {quote_path(script_path)}
         {quote_path(template_path)}
         {quote_path(subs_path)}
         {quote_path(out_file)}
-DEPENDS {quote_list(deps)}
+DEPENDS {quote_list(sorted(add_dependencies))}
 VERBATIM
 )
 add_custom_target({cmake_target_pair.target} DEPENDS {quote_path(out_file)})
 """)
   _context.add_analyzed_target(
-      _target, TargetInfo(*cmake_target_pair.as_providers())
+      _target,
+      TargetInfo(*default_providers(cmake_target_pair)),
   )
 
 

@@ -22,5 +22,8 @@
     "//subdir:y_strip_include_prefix",
     "//subdir:z_proto__cpp_library",
     "//:defines"
+  ],
+  "excludes": [
+    "_bindir/bazel_to_cmake_empty_source.cc"
   ]
 }

@@ -25,6 +25,7 @@ from ..cmake_builder import FETCH_CONTENT_MAKE_AVAILABLE_SECTION
 from ..cmake_builder import LOCAL_MIRROR_DOWNLOAD_SECTION
 from ..cmake_repository import CMakeRepository
 from ..cmake_repository import make_repo_mapping
+from ..cmake_target import CMakePackage
 from ..evaluation import EvaluationState
 from ..starlark.bazel_globals import BazelGlobals
 from ..starlark.bazel_globals import register_bzl_library
@@ -53,7 +54,7 @@ def _local_mirror_impl(
 
   state = _context.access(EvaluationState)
 
-  cmake_name: str = kwargs["cmake_name"]
+  cmake_name = CMakePackage(kwargs["cmake_name"])
   repository_id = RepositoryId(kwargs["name"])
   new_repository = CMakeRepository(
       repository_id=repository_id,

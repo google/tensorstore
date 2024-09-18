@@ -16,7 +16,7 @@ target_sources(CMakeProject_bb PRIVATE
 add_library(CMakeProject_subdir_z INTERFACE)
 target_sources(CMakeProject_subdir_z INTERFACE
     "${TEST_SRCDIR}/subdir/z.proto")
-set_property(TARGET CMakeProject_subdir_z PROPERTY INTERFACE_IMPORTS
+target_include_directories(CMakeProject_subdir_z INTERFACE
     "${PROJECT_SOURCE_DIR}")
 
 # genrule(@native_rules_test_repo//:h_file)
@@ -26,7 +26,7 @@ add_custom_command(
   DEPENDS
     "${TEST_SRCDIR}/x.h"
     "CMakeProject::bb"
-  COMMAND $<TARGET_FILE:CMakeProject_bb> ./a .  -I${TEST_BINDIR}/foo -Isubdir/../..  "x.h" "${TEST_BINDIR}/a.h"
+  COMMAND $<TARGET_FILE:CMakeProject::bb> ./a .  -I${TEST_BINDIR}/foo -Isubdir/../..  "x.h" "${TEST_BINDIR}/a.h"
   VERBATIM
   WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
@@ -35,7 +35,7 @@ add_custom_target(genrule__CMakeProject_h_file DEPENDS
 add_library(CMakeProject_h_file INTERFACE)
 target_sources(CMakeProject_h_file INTERFACE
     "${TEST_BINDIR}/a.h")
-set_property(TARGET CMakeProject_h_file PROPERTY INTERFACE_INCLUDE_DIRECTORIES
+target_include_directories(CMakeProject_h_file INTERFACE
     "${PROJECT_BINARY_DIR}")
 add_dependencies(CMakeProject_h_file genrule__CMakeProject_h_file)
 
@@ -62,38 +62,73 @@ add_library(CMakeProject::a_alias ALIAS CMakeProject_a)
 # proto_library(@native_rules_test_repo//:c_proto)
 add_library(CMakeProject_c_proto INTERFACE)
 target_sources(CMakeProject_c_proto INTERFACE
-        "${PROJECT_SOURCE_DIR}/c.proto")
-target_link_libraries(CMakeProject_c_proto INTERFACE
-        "Protobuf_timestamp_proto")
+    "${PROJECT_SOURCE_DIR}/c.proto")
 target_include_directories(CMakeProject_c_proto INTERFACE
-       ${Protobuf_IMPORT_DIRS}
-       "${PROJECT_SOURCE_DIR}")
+    "${PROJECT_SOURCE_DIR}")
+target_link_libraries(CMakeProject_c_proto INTERFACE
+    "Protobuf_timestamp_proto")
 add_library(CMakeProject::c_proto ALIAS CMakeProject_c_proto)
 
+# @native_rules_test_repo//:aspect_cpp__2c7be24c
+# genproto cpp @native_rules_test_repo//:c.proto
+file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_cpp")
+add_custom_command(
+OUTPUT
+    "${TEST_BINDIR}/_gen_cpp/c.pb.h"
+    "${TEST_BINDIR}/_gen_cpp/c.pb.cc"
+COMMAND $<TARGET_FILE:protobuf::protoc>
+    --experimental_allow_proto3_optional
+    "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_c_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
+    "-I$<JOIN:$<TARGET_PROPERTY:Protobuf_timestamp_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
+    "--cpp_out=${PROJECT_BINARY_DIR}/_gen_cpp"
+    "${TEST_SRCDIR}/c.proto"
+DEPENDS
+    "protobuf::protoc"
+    "${TEST_SRCDIR}/c.proto"
+COMMENT "Running protoc cpp on ${TEST_SRCDIR}/c.proto"
+COMMAND_EXPAND_LISTS
+VERBATIM
+)
+add_custom_target(genrule_CMakeProject_aspect_cpp__2c7be24c DEPENDS
+    "${PROJECT_BINARY_DIR}/_gen_cpp/c.pb.h"
+    "${PROJECT_BINARY_DIR}/_gen_cpp/c.pb.cc")
+add_library(CMakeProject_aspect_cpp__2c7be24c INTERFACE)
+target_sources(CMakeProject_aspect_cpp__2c7be24c INTERFACE
+    "${TEST_BINDIR}/_gen_cpp/c.pb.cc"
+    "${TEST_BINDIR}/_gen_cpp/c.pb.h")
+target_include_directories(CMakeProject_aspect_cpp__2c7be24c INTERFACE
+    "${PROJECT_BINARY_DIR}/_gen_cpp")
+add_dependencies(CMakeProject_aspect_cpp__2c7be24c genrule__CMakeProject_aspect_cpp__2c7be24c)
+
 # @native_rules_test_repo//:c_proto__cpp_library
+# aspect cpp @native_rules_test_repo//:c_proto
 add_library(CMakeProject_c_proto__cpp_library)
 set_property(TARGET CMakeProject_c_proto__cpp_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_c_proto__cpp_library PUBLIC
         "Protobuf::timestamp_proto__cpp_library"
+        "Threads::Threads"
+        "m"
         "protobuf::libprotobuf")
+target_include_directories(CMakeProject_c_proto__cpp_library PUBLIC
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_cpp>")
 target_compile_features(CMakeProject_c_proto__cpp_library PUBLIC cxx_std_17)
+target_sources(CMakeProject_c_proto__cpp_library PRIVATE
+        "${PROJECT_BINARY_DIR}/_gen_cpp/c.pb.cc")
 add_library(CMakeProject::c_proto__cpp_library ALIAS CMakeProject_c_proto__cpp_library)
 
-btc_protobuf(
-    TARGET CMakeProject_c_proto__cpp_library
-    PROTO_TARGET CMakeProject_c_proto
-    LANGUAGE cpp
-    GENERATE_EXTENSIONS ".pb.h" ".pb.cc"
-    PROTOC_OPTIONS --experimental_allow_proto3_optional
-    PROTOC_OUT_DIR ${PROJECT_BINARY_DIR}/de6f8ca9
-    DEPENDS "protobuf::protoc"
-)
-
 # cc_proto_library(@native_rules_test_repo//:c_proto_cc)
-add_library(CMakeProject_c_proto_cc INTERFACE)
-target_link_libraries(CMakeProject_c_proto_cc INTERFACE
-        "CMakeProject::c_proto__cpp_library")
-target_compile_features(CMakeProject_c_proto_cc INTERFACE cxx_std_17)
+add_library(CMakeProject_c_proto_cc)
+set_property(TARGET CMakeProject_c_proto_cc PROPERTY LINKER_LANGUAGE "CXX")
+target_link_libraries(CMakeProject_c_proto_cc PUBLIC
+        "CMakeProject::c_proto"
+        "CMakeProject::c_proto__cpp_library"
+        "Threads::Threads"
+        "m")
+target_include_directories(CMakeProject_c_proto_cc PRIVATE
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
+target_compile_features(CMakeProject_c_proto_cc PUBLIC cxx_std_17)
+target_sources(CMakeProject_c_proto_cc PRIVATE
+        "${PROJECT_BINARY_DIR}/bazel_to_cmake_empty_source.cc")
 add_library(CMakeProject::c_proto_cc ALIAS CMakeProject_c_proto_cc)
 
 # cc_test(@native_rules_test_repo//:a_test)
@@ -108,33 +143,32 @@ target_include_directories(CMakeProject_a_test PRIVATE
 target_compile_features(CMakeProject_a_test PUBLIC cxx_std_17)
 target_sources(CMakeProject_a_test PRIVATE
         "${PROJECT_SOURCE_DIR}/a.cc")
-add_test(NAME CMakeProject_a_test COMMAND CMakeProject_a_test WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+add_test(NAME CMakeProject_a_test
+      COMMAND CMakeProject_a_test
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 # proto_library(@native_rules_test_repo//:c_proto_2)
 add_library(CMakeProject_c_proto_2 INTERFACE)
 target_sources(CMakeProject_c_proto_2 INTERFACE
-        "${PROJECT_SOURCE_DIR}/c.proto")
+    "${PROJECT_SOURCE_DIR}/c.proto")
 target_include_directories(CMakeProject_c_proto_2 INTERFACE
-       "${PROJECT_SOURCE_DIR}")
+    "${PROJECT_SOURCE_DIR}")
 add_library(CMakeProject::c_proto_2 ALIAS CMakeProject_c_proto_2)
 
 # @native_rules_test_repo//:c_proto_2__cpp_library
+# aspect cpp @native_rules_test_repo//:c_proto_2
 add_library(CMakeProject_c_proto_2__cpp_library)
 set_property(TARGET CMakeProject_c_proto_2__cpp_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_c_proto_2__cpp_library PUBLIC
+        "Threads::Threads"
+        "m"
         "protobuf::libprotobuf")
+target_include_directories(CMakeProject_c_proto_2__cpp_library PUBLIC
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_cpp>")
 target_compile_features(CMakeProject_c_proto_2__cpp_library PUBLIC cxx_std_17)
+target_sources(CMakeProject_c_proto_2__cpp_library PRIVATE
+        "${PROJECT_BINARY_DIR}/_gen_cpp/c.pb.cc")
 add_library(CMakeProject::c_proto_2__cpp_library ALIAS CMakeProject_c_proto_2__cpp_library)
-
-btc_protobuf(
-    TARGET CMakeProject_c_proto_2__cpp_library
-    PROTO_TARGET CMakeProject_c_proto_2
-    LANGUAGE cpp
-    GENERATE_EXTENSIONS ".pb.h" ".pb.cc"
-    PROTOC_OPTIONS --experimental_allow_proto3_optional
-    PROTOC_OUT_DIR ${PROJECT_BINARY_DIR}/c5077a10
-    DEPENDS "protobuf::protoc"
-)
 
 # alias(@native_rules_test_repo//:c_proto_alias)
 add_library(CMakeProject_c_proto_alias ALIAS CMakeProject_c_proto)
@@ -164,7 +198,7 @@ add_custom_command(
     "${TEST_BINDIR}/subdir/y.cc"
   DEPENDS
     "CMakeProject::bb"
-  COMMAND $<TARGET_FILE:CMakeProject_bb> "${TEST_BINDIR}/subdir/y.cc"
+  COMMAND $<TARGET_FILE:CMakeProject::bb> "${TEST_BINDIR}/subdir/y.cc"
   VERBATIM
   WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
@@ -173,7 +207,7 @@ add_custom_target(genrule__CMakeProject_subdir_make_ycc DEPENDS
 add_library(CMakeProject_subdir_make_ycc INTERFACE)
 target_sources(CMakeProject_subdir_make_ycc INTERFACE
     "${TEST_BINDIR}/subdir/y.cc")
-set_property(TARGET CMakeProject_subdir_make_ycc PROPERTY INTERFACE_INCLUDE_DIRECTORIES
+target_include_directories(CMakeProject_subdir_make_ycc INTERFACE
     "${PROJECT_BINARY_DIR}")
 add_dependencies(CMakeProject_subdir_make_ycc genrule__CMakeProject_subdir_make_ycc)
 
@@ -184,7 +218,7 @@ add_custom_command(
     "${TEST_BINDIR}/subdir/y.h"
   DEPENDS
     "CMakeProject::bb"
-  COMMAND $<TARGET_FILE:CMakeProject_bb> "${TEST_BINDIR}/subdir/y.h"
+  COMMAND $<TARGET_FILE:CMakeProject::bb> "${TEST_BINDIR}/subdir/y.h"
   VERBATIM
   WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
@@ -193,7 +227,7 @@ add_custom_target(genrule__CMakeProject_subdir_make_y DEPENDS
 add_library(CMakeProject_subdir_make_y INTERFACE)
 target_sources(CMakeProject_subdir_make_y INTERFACE
     "${TEST_BINDIR}/subdir/y.h")
-set_property(TARGET CMakeProject_subdir_make_y PROPERTY INTERFACE_INCLUDE_DIRECTORIES
+target_include_directories(CMakeProject_subdir_make_y INTERFACE
     "${PROJECT_BINARY_DIR}")
 add_dependencies(CMakeProject_subdir_make_y genrule__CMakeProject_subdir_make_y)
 
@@ -271,28 +305,55 @@ add_library(CMakeProject::subdir_y_strip_include_prefix ALIAS CMakeProject_subdi
 # proto_library(@native_rules_test_repo//subdir:z_proto)
 add_library(CMakeProject_subdir_z_proto INTERFACE)
 target_sources(CMakeProject_subdir_z_proto INTERFACE
-        "${PROJECT_SOURCE_DIR}/subdir/z.proto")
+    "${PROJECT_SOURCE_DIR}/subdir/z.proto")
 target_include_directories(CMakeProject_subdir_z_proto INTERFACE
-       "${PROJECT_SOURCE_DIR}")
+    "${PROJECT_SOURCE_DIR}")
 add_library(CMakeProject::subdir_z_proto ALIAS CMakeProject_subdir_z_proto)
 
+# @native_rules_test_repo//subdir:aspect_cpp__2eff1b8c
+# genproto cpp @native_rules_test_repo//subdir:z.proto
+file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_cpp/subdir")
+add_custom_command(
+OUTPUT
+    "${TEST_BINDIR}/_gen_cpp/subdir/z.pb.h"
+    "${TEST_BINDIR}/_gen_cpp/subdir/z.pb.cc"
+COMMAND $<TARGET_FILE:protobuf::protoc>
+    --experimental_allow_proto3_optional
+    "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_subdir_z_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
+    "--cpp_out=${PROJECT_BINARY_DIR}/_gen_cpp"
+    "${TEST_SRCDIR}/subdir/z.proto"
+DEPENDS
+    "${TEST_SRCDIR}/subdir/z.proto"
+    "protobuf::protoc"
+COMMENT "Running protoc cpp on ${TEST_SRCDIR}/subdir/z.proto"
+COMMAND_EXPAND_LISTS
+VERBATIM
+)
+add_custom_target(genrule_CMakeProject_subdir_aspect_cpp__2eff1b8c DEPENDS
+    "${PROJECT_BINARY_DIR}/_gen_cpp/subdir/z.pb.h"
+    "${PROJECT_BINARY_DIR}/_gen_cpp/subdir/z.pb.cc")
+add_library(CMakeProject_subdir_aspect_cpp__2eff1b8c INTERFACE)
+target_sources(CMakeProject_subdir_aspect_cpp__2eff1b8c INTERFACE
+    "${TEST_BINDIR}/_gen_cpp/subdir/z.pb.cc"
+    "${TEST_BINDIR}/_gen_cpp/subdir/z.pb.h")
+target_include_directories(CMakeProject_subdir_aspect_cpp__2eff1b8c INTERFACE
+    "${PROJECT_BINARY_DIR}/_gen_cpp")
+add_dependencies(CMakeProject_subdir_aspect_cpp__2eff1b8c genrule__CMakeProject_subdir_aspect_cpp__2eff1b8c)
+
 # @native_rules_test_repo//subdir:z_proto__cpp_library
+# aspect cpp @native_rules_test_repo//subdir:z_proto
 add_library(CMakeProject_subdir_z_proto__cpp_library)
 set_property(TARGET CMakeProject_subdir_z_proto__cpp_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_subdir_z_proto__cpp_library PUBLIC
+        "Threads::Threads"
+        "m"
         "protobuf::libprotobuf")
+target_include_directories(CMakeProject_subdir_z_proto__cpp_library PUBLIC
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_cpp>")
 target_compile_features(CMakeProject_subdir_z_proto__cpp_library PUBLIC cxx_std_17)
+target_sources(CMakeProject_subdir_z_proto__cpp_library PRIVATE
+        "${PROJECT_BINARY_DIR}/_gen_cpp/subdir/z.pb.cc")
 add_library(CMakeProject::subdir_z_proto__cpp_library ALIAS CMakeProject_subdir_z_proto__cpp_library)
-
-btc_protobuf(
-    TARGET CMakeProject_subdir_z_proto__cpp_library
-    PROTO_TARGET CMakeProject_subdir_z_proto
-    LANGUAGE cpp
-    GENERATE_EXTENSIONS ".pb.h" ".pb.cc"
-    PROTOC_OPTIONS --experimental_allow_proto3_optional
-    PROTOC_OUT_DIR ${PROJECT_BINARY_DIR}/fb9b71f5
-    DEPENDS "protobuf::protoc"
-)
 
 # cc_library(@native_rules_test_repo//:defines)
 add_library(CMakeProject_defines)

@@ -80,15 +80,15 @@ from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Tu
 
 from . import cmake_builder
 from .cmake_builder import CMakeBuilder
-from .cmake_target import CMakeAddDependenciesProvider
-from .cmake_target import CMakeExecutableTargetProvider
-from .cmake_target import CMakeLinkLibrariesProvider
+from .cmake_provider import CMakeExecutableTargetProvider
+from .cmake_provider import CMakeHallucinatedTarget
+from .cmake_provider import CMakeLinkLibrariesProvider
+from .cmake_provider import CMakePackageDepsProvider
 from .cmake_target import CMakePackage
-from .cmake_target import CMakePackageDepsProvider
-from .cmake_target import CMakeTarget
 from .cmake_target import CMakeTargetPair
 from .package import Package
 from .package import Visibility
+from .provider_util import ProviderCollection
 from .starlark import dict_polyfill
 from .starlark.bazel_build_file import BuildFileGlobals
 from .starlark.bazel_build_file import BuildFileLibraryGlobals
@@ -399,24 +399,43 @@ class EvaluationState:
       return configurable.evaluate(self.evaluate_condition)
     return configurable
 
-  def get_file_paths(
+  def collect_targets(
       self,
       targets: Iterable[TargetId],
-      add_dependencies: Optional[List[CMakeTarget]] = None,
-  ) -> List[str]:
-    files = []
+      collector: Optional[ProviderCollection] = None,
+  ) -> ProviderCollection:
+    if collector is None:
+      collector = ProviderCollection()
     for t in targets:
-      info = self.get_target_info(t)
-      if add_dependencies is not None:
-        cmake_info = info.get(CMakeAddDependenciesProvider)
-        if cmake_info is not None:
-          add_dependencies.append(cmake_info.target)
-      files_provider = info.get(FilesProvider)
-      if files_provider is not None:
-        files.extend(files_provider.paths)
-      else:
-        raise ValueError(f"get_file_paths failed for {t} info {repr(info)}")
-    return sorted(set(files))
+      assert isinstance(t, TargetId), f"Requires TargetId: {repr(t)}"
+      try:
+        target_info = self.get_target_info(t)
+        collector.collect(t, target_info)
+        assert target_info.get(FilesProvider) is not None
+      except Exception as e:
+        e.args = (e.args if e.args else tuple()) + (
+            f"collecting target {t.as_label()}",
+        )
+        raise
+    return collector
+
+  def collect_deps(
+      self,
+      targets: Iterable[TargetId],
+      collector: Optional[ProviderCollection] = None,
+      alias: bool = True,
+  ) -> ProviderCollection:
+    if collector is None:
+      collector = ProviderCollection()
+    for t in targets:
+      try:
+        collector.collect(t, self._get_dep(t, alias))
+      except Exception as e:
+        e.args = (e.args if e.args else tuple()) + (
+            f"collecting target {t.as_label()}",
+        )
+        raise
+    return collector
 
   def _generate_cmake_target_pair_imp(
       self, target_id: TargetId, alias: bool = True
@@ -425,9 +444,9 @@ class EvaluationState:
     if repo is None:
       raise ValueError(f"Unknown repo in target {target_id.as_label()}")
     cmake_target_pair = repo.get_cmake_target_pair(target_id)
-    if not alias:
-      cmake_target_pair = cmake_target_pair.with_alias(None)
-    return cmake_target_pair
+    if alias:
+      return cmake_target_pair
+    return cmake_target_pair.with_alias(None)
 
   def generate_cmake_target_pair(
       self, target_id: TargetId, alias: bool = True
@@ -446,9 +465,11 @@ class EvaluationState:
     if package != self.active_repo.cmake_project_name:
       self._required_dep_packages.add(package)
 
-  def get_dep(
-      self, target_id: TargetId, alias: bool = True
-  ) -> List[CMakeTarget]:
+  def _get_dep(
+      self,
+      target_id: TargetId,
+      alias: bool,
+  ) -> TargetInfo:
     """Maps a Bazel target to the corresponding CMake target."""
     # Local target.
     assert isinstance(
@@ -457,10 +478,8 @@ class EvaluationState:
     info = self.get_optional_target_info(target_id)
     if info is not None:
       if info.get(CMakePackageDepsProvider):
-        for package in info[CMakePackageDepsProvider].packages:
-          self.add_required_dep_package(package)
-      if info.get(CMakeAddDependenciesProvider):
-        return [info[CMakeAddDependenciesProvider].target]
+        self.add_required_dep_package(info[CMakePackageDepsProvider].package)
+      return info
 
     # If this package is already a required dependency, return that.
     cmake_target = self._required_dep_targets.get(target_id)
@@ -470,13 +489,7 @@ class EvaluationState:
       self._required_dep_targets[target_id] = cmake_target
 
     self.add_required_dep_package(cmake_target.cmake_package)
-    return [cmake_target.dep]
-
-  def get_deps(self, targets: Iterable[TargetId]) -> List[CMakeTarget]:
-    deps: List[CMakeTarget] = []
-    for target in targets:
-      deps.extend(self.get_dep(target))
-    return deps
+    return TargetInfo(CMakeHallucinatedTarget(cmake_target.dep))
 
   def get_placeholder_source(self):
     """Returns the path to a placeholder source file.
@@ -803,6 +816,7 @@ class EvaluationContext(InvocationContext):
     mapping_repo = self._state.workspace.all_repositories.get(
         mapping_repository_id
     )
+    assert mapping_repo is not None
     target = mapping_repo.apply_repo_mapping(target_id)
 
     # Resolve --bind in the active repo.
