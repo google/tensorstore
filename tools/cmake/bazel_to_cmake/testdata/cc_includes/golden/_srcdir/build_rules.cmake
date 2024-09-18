@@ -1,19 +1,19 @@
 
 # genrule(@cc_includes_test_repo//parent:c_inc)
-file(MAKE_DIRECTORY "_cmake_binary_dir_/parent/child")
+file(MAKE_DIRECTORY "${TEST_BINDIR}/parent/child")
 add_custom_command(
   OUTPUT
-    "_cmake_binary_dir_/parent/child/c.inc"
+    "${TEST_BINDIR}/parent/child/c.inc"
   
-  COMMAND echo "// c.inc" > "_cmake_binary_dir_/parent/child/c.inc"
+  COMMAND echo "// c.inc" > "${TEST_BINDIR}/parent/child/c.inc"
   VERBATIM
   WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 add_custom_target(genrule__CMakeProject_parent_c_inc DEPENDS
-    "_cmake_binary_dir_/parent/child/c.inc")
+    "${TEST_BINDIR}/parent/child/c.inc")
 add_library(CMakeProject_parent_c_inc INTERFACE)
 target_sources(CMakeProject_parent_c_inc INTERFACE
-    "_cmake_binary_dir_/parent/child/c.inc")
+    "${TEST_BINDIR}/parent/child/c.inc")
 set_property(TARGET CMakeProject_parent_c_inc PROPERTY INTERFACE_INCLUDE_DIRECTORIES
     "${PROJECT_BINARY_DIR}")
 add_dependencies(CMakeProject_parent_c_inc genrule__CMakeProject_parent_c_inc)

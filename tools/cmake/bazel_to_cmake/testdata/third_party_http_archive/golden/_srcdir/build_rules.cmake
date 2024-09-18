@@ -4,9 +4,9 @@ option(TENSORSTORE_USE_SYSTEM_HALF "Use an installed version of half")
 FetchContent_Declare(half
     URL "https://storage.googleapis.com/tensorstore-bazel-mirror/sourceforge.net/projects/half/files/half/2.1.0/half-2.1.0.zip"
     URL_HASH "SHA256=ad1788afe0300fa2b02b0d1df128d857f021f92ccf7c8bddd07812685fa07a25"
-    PATCH_COMMAND ${CMAKE_COMMAND} -E copy "${TEST_DIRECTORY}/half.BUILD.bazel" BUILD.bazel && ${CMAKE_COMMAND} -E copy "_cmake_binary_dir_/third_party/half-proxy-CMakeLists.txt" CMakeLists.txt
+    PATCH_COMMAND ${CMAKE_COMMAND} -E copy "${TEST_SRCDIR}/half.BUILD.bazel" BUILD.bazel && ${CMAKE_COMMAND} -E copy "${TEST_BINDIR}/third_party/half-proxy-CMakeLists.txt" CMakeLists.txt
     OVERRIDE_FIND_PACKAGE)
-add_subdirectory("_cmake_binary_dir_/third_party" _third_party_configs EXCLUDE_FROM_ALL)
+add_subdirectory("${TEST_BINDIR}/third_party" _third_party_configs EXCLUDE_FROM_ALL)
 find_package(half REQUIRED)
 
 # cc_library(@third_party_http_archive_test_repo//:a)

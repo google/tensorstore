@@ -20,11 +20,25 @@ proto_library(
     ],
 )
 
+filegroup(
+    name = "d_proto_srcs",
+    srcs = [
+        "d.proto",
+    ],
+)
+
 proto_library(
-    name = "abc_proto",
+    name = "d_proto",
+    srcs = ["d.proto"],
+    # TODO: srcs = [":d_proto_srcs"],
+)
+
+proto_library(
+    name = "abcd_proto",
     srcs = ["c.proto"],
     deps = [
         ":ab_proto",
+        ":d_proto",
     ],
 )
 
@@ -34,8 +48,8 @@ cc_proto_library(
 )
 
 cc_proto_library(
-    name = "abc_protos_cc",
-    deps = [":abc_proto"],
+    name = "abcd_protos_cc",
+    deps = [":abcd_proto"],
 )
 
 proto_library(
