@@ -621,7 +621,7 @@ struct ResolveBoundsForDeleteAndResizeContinuation {
     std::shared_ptr<const void> new_metadata;
     if (auto result = ValidateNewMetadata(*state->driver, state->transaction);
         result.ok()) {
-      new_metadata = std::move(*result);
+      new_metadata = *std::move(result);
     } else {
       promise.SetResult(std::move(result).status());
       return;
@@ -702,7 +702,7 @@ Future<IndexTransform<>> KvsChunkedDriverBase::Resize(
       /*.transaction=*/std::move(request.transaction),
       /*.component_index=*/component_index(),
       /*.transform=*/std::move(request.transform),
-      /*.resize_parameters=*/std::move(*resize_parameters),
+      /*.resize_parameters=*/*std::move(resize_parameters),
   };
   if ((request.options.mode & resize_metadata_only) == resize_metadata_only ||
       (request.options.mode & expand_only) == expand_only) {
@@ -861,7 +861,7 @@ Result<internal::Driver::Handle> CreateTensorStoreFromMetadata(
           return nullptr;
         }
         DataCacheInitializer initializer;
-        initializer.store = std::move(*store_result);
+        initializer.store = *std::move(store_result);
         initializer.metadata_cache_entry = base.metadata_cache_entry_;
         initializer.metadata = metadata;
         initializer.cache_pool = state->cache_pool();
@@ -978,7 +978,7 @@ struct HandleReadMetadata {
     if (auto result =
             base.metadata_cache_entry_->GetMetadata(base.transaction_);
         result.ok()) {
-      metadata = std::move(*result);
+      metadata = *std::move(result);
     } else {
       promise.SetResult(std::move(result).status());
       return;
@@ -1151,10 +1151,10 @@ void MetadataCache::Entry::DoDecode(std::optional<absl::Cord> value,
                                     receiver = std::move(receiver)]() mutable {
     MetadataPtr new_metadata;
     if (value) {
-      if (auto result =
-              GetOwningCache(*this).DecodeMetadata(this->key(), *value);
+      if (auto result = GetOwningCache(*this).DecodeMetadata(this->key(),
+                                                             *std::move(value));
           result.ok()) {
-        new_metadata = std::move(*result);
+        new_metadata = *std::move(result);
       } else {
         execution::set_error(
             receiver, internal::ConvertInvalidArgumentToFailedPrecondition(
@@ -1188,7 +1188,7 @@ void MetadataCache::TransactionNode::DoApply(ApplyOptions options,
     auto read_state = AsyncCache::ReadLock<void>(*this).read_state();
     std::shared_ptr<const void> new_data;
     if (auto result = this->GetUpdatedMetadata(read_state.data); result.ok()) {
-      new_data = std::move(*result);
+      new_data = *std::move(result);
     } else {
       execution::set_error(receiver, std::move(result).status());
       return;
@@ -1219,7 +1219,7 @@ void MetadataCache::Entry::DoEncode(std::shared_ptr<const void> data,
   auto& cache = GetOwningCache(entry);
   if (auto encoded_result = cache.EncodeMetadata(entry.key(), data.get());
       encoded_result.ok()) {
-    execution::set_value(receiver, std::move(*encoded_result));
+    execution::set_value(receiver, *std::move(encoded_result));
   } else {
     execution::set_error(receiver, std::move(encoded_result).status());
   }
@@ -1272,7 +1272,7 @@ internal::CachePtr<MetadataCache> GetOrCreateMetadataCache(
               if (auto result = state->GetMetadataKeyValueStore(
                       metadata_cache->base_store_);
                   result.ok()) {
-                metadata_cache->SetKvStoreDriver(std::move(*result));
+                metadata_cache->SetKvStoreDriver(*std::move(result));
               } else {
                 metadata_cache_promise.SetResult(std::move(result).status());
               }

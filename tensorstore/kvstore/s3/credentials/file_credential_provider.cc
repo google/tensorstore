@@ -77,7 +77,7 @@ FileCredentialProvider::FileCredentialProvider(std::string_view filename,
     : filename_(filename), profile_(profile) {
   if (filename_.empty()) {
     if (auto credentials_file = GetAwsCredentialsFileName(); credentials_file) {
-      filename_ = std::move(*credentials_file);
+      filename_ = *std::move(credentials_file);
     }
   }
 

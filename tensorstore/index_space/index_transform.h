@@ -1103,7 +1103,7 @@ MakeCopy(const Array& array,
   if (auto result = TransformArray<OriginKind>(array, transform,
                                                {constraints, must_allocate})) {
     return ConstDataTypeCast<std::remove_const_t<typename Array::Element>>(
-        std::move(*result));
+        *std::move(result));
   } else {
     return std::move(result).status();
   }

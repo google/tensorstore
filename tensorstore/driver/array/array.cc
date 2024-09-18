@@ -539,7 +539,7 @@ Result<tensorstore::Spec> SpecFromArray(SharedOffsetArrayView<const void> array,
   if (!zero_origin_array->valid() && zero_origin_array->num_elements() != 0) {
     return absl::InvalidArgumentError("Array is not valid");
   }
-  driver_spec->array = std::move(*zero_origin_array);
+  driver_spec->array = *std::move(zero_origin_array);
   impl.driver_spec = std::move(driver_spec);
   return spec;
 }

@@ -220,14 +220,14 @@ class ImageCache : public internal::KvsBackedCache<ImageCache<Specialization>,
       }
       auto options = GetOwningCache(*this).specialization_;
       GetOwningCache(*this).executor()(
-          [value = std::move(value), receiver = std::move(receiver),
+          [value = *std::move(value), receiver = std::move(receiver),
            options = std::move(options)]() mutable {
-            auto decode_result = options.DecodeImage(std::move(*value));
+            auto decode_result = options.DecodeImage(std::move(value));
             if (!decode_result.ok()) {
               execution::set_error(receiver, decode_result.status());
             } else {
               execution::set_value(receiver, std::make_shared<ReadData>(
-                                                 std::move(*decode_result)));
+                                                 *std::move(decode_result)));
             }
           });
     }
@@ -239,7 +239,7 @@ class ImageCache : public internal::KvsBackedCache<ImageCache<Specialization>,
       if (!encode_result.ok()) {
         execution::set_error(receiver, encode_result.status());
       } else {
-        execution::set_value(receiver, std::move(*encode_result));
+        execution::set_value(receiver, *std::move(encode_result));
       }
     }
   };

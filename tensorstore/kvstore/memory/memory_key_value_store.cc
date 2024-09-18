@@ -417,7 +417,7 @@ Future<TimestampedStorageGeneration> MemoryDriver::Write(
     // generation number.
     it = values
              .emplace(std::move(key),
-                      ValueWithGenerationNumber{std::move(*value),
+                      ValueWithGenerationNumber{*std::move(value),
                                                 data.next_generation_number++})
              .first;
     return GenerationNow(it->second.generation());
@@ -436,7 +436,7 @@ Future<TimestampedStorageGeneration> MemoryDriver::Write(
   // Set the generation number to the next unused generation number.
   it->second.generation_number = data.next_generation_number++;
   // Update the value.
-  it->second.value = std::move(*value);
+  it->second.value = *std::move(value);
   return GenerationNow(it->second.generation());
 }
 

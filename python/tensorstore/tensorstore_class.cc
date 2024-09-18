@@ -1389,7 +1389,7 @@ Group:
         if (!transaction) transaction.emplace();
         return ValueOrThrow(
             self.value |
-            internal::TransactionState::ToTransaction(std::move(*transaction)));
+            internal::TransactionState::ToTransaction(*std::move(transaction)));
       },
       R"(Returns a transaction-bound view of this TensorStore.
 

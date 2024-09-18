@@ -323,7 +323,7 @@ class DataCacheBase : public internal_kvs_backed_chunk_driver::DataCache {
             chunk_indices, metadata(), scale_index_, chunk_layout_czyx_,
             std::move(data))) {
       absl::InlinedVector<SharedArray<const void>, 1> components;
-      components.emplace_back(std::move(*result));
+      components.emplace_back(*std::move(result));
       return components;
     } else {
       return absl::FailedPreconditionError(result.status().message());

@@ -15,15 +15,46 @@
 #include "tensorstore/kvstore/ocdbt/distributed/cooperator.h"
 // Part of the Cooperator interface
 
+#include <algorithm>
+#include <cassert>
+#include <cstddef>
+#include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
 #include "absl/base/attributes.h"
 #include "absl/log/absl_log.h"
+#include "absl/status/status.h"
+#include "absl/synchronization/mutex.h"
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
 #include "tensorstore/internal/grpc/utils.h"
+#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/log/verbose_flag.h"
+#include "tensorstore/internal/mutex.h"
+#include "tensorstore/kvstore/generation.h"
+#include "tensorstore/kvstore/key_range.h"
+#include "tensorstore/kvstore/ocdbt/distributed/btree_node_identifier.h"
+#include "tensorstore/kvstore/ocdbt/distributed/btree_node_write_mutation.h"
 #include "tensorstore/kvstore/ocdbt/distributed/cooperator_impl.h"
+#include "tensorstore/kvstore/ocdbt/format/btree.h"
+#include "tensorstore/kvstore/ocdbt/format/btree_node_encoder.h"
+#include "tensorstore/kvstore/ocdbt/format/manifest.h"
+#include "tensorstore/kvstore/ocdbt/format/version_tree.h"
+#include "tensorstore/kvstore/ocdbt/io_handle.h"
 #include "tensorstore/kvstore/ocdbt/non_distributed/create_new_manifest.h"
 #include "tensorstore/kvstore/ocdbt/non_distributed/storage_generation.h"
 #include "tensorstore/kvstore/ocdbt/non_distributed/write_nodes.h"
+#include "tensorstore/util/executor.h"
+#include "tensorstore/util/future.h"
 #include "tensorstore/util/quote_string.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_ocdbt_cooperator {
@@ -670,7 +701,7 @@ void NodeCommitOperation::UpdateParent(
     mutation->mode = new_entries->empty()
                          ? BtreeNodeWriteMutation::kDeleteExisting
                          : BtreeNodeWriteMutation::kAddNew;
-    mutation->new_entries = std::move(*new_entries);
+    mutation->new_entries = *std::move(new_entries);
   } else {
     mutation->mode = BtreeNodeWriteMutation::kRetainExisting;
   }
@@ -727,7 +758,7 @@ void NodeCommitOperation::UpdateRoot(
         new_generation,
         internal_ocdbt::WriteRootNode(
             *commit_op->server->io_handle_, commit_op->flush_promise,
-            commit_op->height, std::move(*new_entries)),
+            commit_op->height, *std::move(new_entries)),
         commit_op->SetError(_));
   }
   CreateNewManifest(std::move(commit_op), std::move(new_generation));

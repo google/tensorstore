@@ -305,7 +305,7 @@ class KvsBackedCache : public Parent {
         void set_cancel() { ABSL_UNREACHABLE(); }  // COV_NF_LINE
         void set_value(std::optional<absl::Cord> value) {
           kvstore::ReadResult read_result =
-              value ? kvstore::ReadResult::Value(std::move(*value),
+              value ? kvstore::ReadResult::Value(*std::move(value),
                                                  std::move(update_stamp_))
                     : kvstore::ReadResult::Missing(std::move(update_stamp_));
           execution::set_value(receiver_, std::move(read_result));
@@ -403,7 +403,7 @@ class KvsBackedCache : public Parent {
     void KvsWritebackSuccess(TimestampedStorageGeneration new_stamp) override {
       if (new_data_) {
         this->WritebackSuccess(
-            AsyncCache::ReadState{std::move(*new_data_), std::move(new_stamp)});
+            AsyncCache::ReadState{*std::move(new_data_), std::move(new_stamp)});
       } else {
         // Unmodified.
         this->WritebackSuccess(AsyncCache::ReadState{});

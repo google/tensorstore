@@ -14,18 +14,28 @@
 
 #include "tensorstore/internal/cache/kvs_backed_chunk_cache.h"
 
+#include <algorithm>
+#include <cassert>
+#include <cstddef>
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 
+#include "absl/container/fixed_array.h"
 #include "absl/container/inlined_vector.h"
 #include "absl/strings/cord.h"
 #include "tensorstore/array.h"
 #include "tensorstore/index.h"
+#include "tensorstore/internal/cache/async_cache.h"
+#include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/cache/chunk_cache.h"
 #include "tensorstore/internal/cache/kvs_backed_cache.h"
+#include "tensorstore/internal/memory.h"
+#include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal {
@@ -45,7 +55,7 @@ void KvsBackedChunkCache::Entry::DoDecode(std::optional<absl::Cord> value,
     }
     auto& cache = GetOwningCache(*this);
     auto decoded_result =
-        cache.DecodeChunk(this->cell_indices(), std::move(*value));
+        cache.DecodeChunk(this->cell_indices(), *std::move(value));
     if (!decoded_result.ok()) {
       execution::set_error(receiver,
                            internal::ConvertInvalidArgumentToFailedPrecondition(
@@ -92,7 +102,7 @@ void KvsBackedChunkCache::Entry::DoEncode(std::shared_ptr<const ReadData> data,
     execution::set_error(receiver, std::move(encoded_result).status());
     return;
   }
-  execution::set_value(receiver, std::move(*encoded_result));
+  execution::set_value(receiver, *std::move(encoded_result));
 }
 
 }  // namespace internal

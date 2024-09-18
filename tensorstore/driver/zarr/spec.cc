@@ -232,7 +232,7 @@ Result<ZarrMetadataPtr> GetNewMetadata(
   }
   TENSORSTORE_RETURN_IF_ERROR(codec_spec->MergeFrom(schema.codec()));
   if (codec_spec->compressor) {
-    metadata->compressor = std::move(*codec_spec->compressor);
+    metadata->compressor = *std::move(codec_spec->compressor);
   } else {
     TENSORSTORE_ASSIGN_OR_RETURN(metadata->compressor,
                                  Compressor::FromJson({{"id", "blosc"}}));

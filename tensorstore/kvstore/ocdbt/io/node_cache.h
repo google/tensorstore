@@ -83,7 +83,7 @@ class DecodedIndirectDataCache
       ABSL_CHECK(ref.DecodeCacheKey(this->key()));
 
       GetOwningCache(*this).executor()(
-          [value = std::move(*value), base_path = ref.file_id.base_path,
+          [value = *std::move(value), base_path = ref.file_id.base_path,
            receiver = std::move(receiver)]() mutable {
             auto read_data = std::make_shared<T>();
             TENSORSTORE_ASSIGN_OR_RETURN(

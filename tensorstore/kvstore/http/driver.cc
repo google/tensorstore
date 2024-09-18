@@ -301,7 +301,7 @@ struct ReadTask {
 
     auto response = owner->transport_->IssueRequest(request, {}).result();
     if (!response.ok()) return response.status();
-    httpresponse = std::move(*response);
+    httpresponse = *std::move(response);
     http_bytes_read.IncrementBy(httpresponse.payload.size());
     ABSL_LOG_IF(INFO, http_logging.Level(1))
         << "[http] Read response: " << httpresponse;

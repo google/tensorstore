@@ -1085,7 +1085,7 @@ Future<TimestampedStorageGeneration> GcsGrpcKeyValueStore::Write(
     task->driver_ = internal::IntrusivePtr<GcsGrpcKeyValueStore>(this);
     task->options_ = std::move(options);
     task->promise_ = std::move(op.promise);
-    task->Start(key, std::move(*value));
+    task->Start(key, *std::move(value));
   }
   return std::move(op.future);
 }

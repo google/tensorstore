@@ -35,7 +35,7 @@ namespace py = ::pybind11;
 Batch ValidateOptionalBatch(std::optional<Batch> batch) {
   if (!batch) return no_batch;
   if (!*batch) throw py::value_error("batch was already submitted");
-  return std::move(*batch);
+  return *std::move(batch);
 }
 
 namespace {

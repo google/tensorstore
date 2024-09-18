@@ -50,7 +50,7 @@ void MaybeAddSourceLocationImpl(absl::Status& status, SourceLocation loc) {
                                               "%s:%d", filename, loc.line())));
   } else {
     payload->Append(absl::StrFormat("\n%s:%d", filename, loc.line()));
-    status.SetPayload(kSourceLocationKey, std::move(*payload));
+    status.SetPayload(kSourceLocationKey, *std::move(payload));
   }
 #endif
 }

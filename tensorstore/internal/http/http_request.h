@@ -114,7 +114,7 @@ class HttpRequestBuilder {
     return AddHeader(std::string_view(header));
   }
   HttpRequestBuilder& AddHeader(std::optional<std::string> header) {
-    return header ? AddHeader(std::move(*header)) : *this;
+    return header ? AddHeader(*std::move(header)) : *this;
   }
 
   /// Adds a `range` header to the http request if the byte_range

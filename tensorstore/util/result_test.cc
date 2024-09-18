@@ -546,7 +546,7 @@ TEST(ResultTest, Emplace) {
     Result<std::vector<int>> result = absl::UnknownError("");
     result.emplace({3, 4, 5});
     EXPECT_TRUE(result);
-    std::vector<int> x = std::move(*result);
+    std::vector<int> x = *std::move(result);
     EXPECT_EQ(3, x.size());
   }
 }

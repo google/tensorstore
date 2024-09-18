@@ -71,7 +71,7 @@ py::bytes CordToPython(const absl::Cord& value) {
 std::optional<absl::Cord> OptionalCordFromPython(
     std::optional<std::string_view> value) {
   if (!value) return std::nullopt;
-  return absl::Cord(std::move(*value));
+  return absl::Cord(*value);
 }
 
 namespace kvstore_spec_setters {
