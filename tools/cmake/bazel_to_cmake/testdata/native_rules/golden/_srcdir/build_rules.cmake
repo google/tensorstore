@@ -83,22 +83,15 @@ COMMAND $<TARGET_FILE:protobuf::protoc>
     "--cpp_out=${PROJECT_BINARY_DIR}/_gen_cpp"
     "${TEST_SRCDIR}/c.proto"
 DEPENDS
-    "protobuf::protoc"
     "${TEST_SRCDIR}/c.proto"
+    "protobuf::protoc"
 COMMENT "Running protoc cpp on ${TEST_SRCDIR}/c.proto"
 COMMAND_EXPAND_LISTS
 VERBATIM
 )
-add_custom_target(genrule_CMakeProject_aspect_cpp__2c7be24c DEPENDS
+add_custom_target(CMakeProject_aspect_cpp__2c7be24c DEPENDS
     "${PROJECT_BINARY_DIR}/_gen_cpp/c.pb.h"
     "${PROJECT_BINARY_DIR}/_gen_cpp/c.pb.cc")
-add_library(CMakeProject_aspect_cpp__2c7be24c INTERFACE)
-target_sources(CMakeProject_aspect_cpp__2c7be24c INTERFACE
-    "${TEST_BINDIR}/_gen_cpp/c.pb.cc"
-    "${TEST_BINDIR}/_gen_cpp/c.pb.h")
-target_include_directories(CMakeProject_aspect_cpp__2c7be24c INTERFACE
-    "${PROJECT_BINARY_DIR}/_gen_cpp")
-add_dependencies(CMakeProject_aspect_cpp__2c7be24c genrule__CMakeProject_aspect_cpp__2c7be24c)
 
 # @native_rules_test_repo//:c_proto__cpp_library
 # aspect cpp @native_rules_test_repo//:c_proto
@@ -112,6 +105,9 @@ target_link_libraries(CMakeProject_c_proto__cpp_library PUBLIC
 target_include_directories(CMakeProject_c_proto__cpp_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_cpp>")
 target_compile_features(CMakeProject_c_proto__cpp_library PUBLIC cxx_std_17)
+add_dependencies(CMakeProject_c_proto__cpp_library "CMakeProject_aspect_cpp__2c7be24c")
+target_sources(CMakeProject_c_proto__cpp_library PUBLIC
+        "${PROJECT_BINARY_DIR}/_gen_cpp/c.pb.h")
 target_sources(CMakeProject_c_proto__cpp_library PRIVATE
         "${PROJECT_BINARY_DIR}/_gen_cpp/c.pb.cc")
 add_library(CMakeProject::c_proto__cpp_library ALIAS CMakeProject_c_proto__cpp_library)
@@ -166,6 +162,9 @@ target_link_libraries(CMakeProject_c_proto_2__cpp_library PUBLIC
 target_include_directories(CMakeProject_c_proto_2__cpp_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_cpp>")
 target_compile_features(CMakeProject_c_proto_2__cpp_library PUBLIC cxx_std_17)
+add_dependencies(CMakeProject_c_proto_2__cpp_library "CMakeProject_aspect_cpp__2c7be24c")
+target_sources(CMakeProject_c_proto_2__cpp_library PUBLIC
+        "${PROJECT_BINARY_DIR}/_gen_cpp/c.pb.h")
 target_sources(CMakeProject_c_proto_2__cpp_library PRIVATE
         "${PROJECT_BINARY_DIR}/_gen_cpp/c.pb.cc")
 add_library(CMakeProject::c_proto_2__cpp_library ALIAS CMakeProject_c_proto_2__cpp_library)
@@ -329,16 +328,9 @@ COMMENT "Running protoc cpp on ${TEST_SRCDIR}/subdir/z.proto"
 COMMAND_EXPAND_LISTS
 VERBATIM
 )
-add_custom_target(genrule_CMakeProject_subdir_aspect_cpp__2eff1b8c DEPENDS
+add_custom_target(CMakeProject_subdir_aspect_cpp__2eff1b8c DEPENDS
     "${PROJECT_BINARY_DIR}/_gen_cpp/subdir/z.pb.h"
     "${PROJECT_BINARY_DIR}/_gen_cpp/subdir/z.pb.cc")
-add_library(CMakeProject_subdir_aspect_cpp__2eff1b8c INTERFACE)
-target_sources(CMakeProject_subdir_aspect_cpp__2eff1b8c INTERFACE
-    "${TEST_BINDIR}/_gen_cpp/subdir/z.pb.cc"
-    "${TEST_BINDIR}/_gen_cpp/subdir/z.pb.h")
-target_include_directories(CMakeProject_subdir_aspect_cpp__2eff1b8c INTERFACE
-    "${PROJECT_BINARY_DIR}/_gen_cpp")
-add_dependencies(CMakeProject_subdir_aspect_cpp__2eff1b8c genrule__CMakeProject_subdir_aspect_cpp__2eff1b8c)
 
 # @native_rules_test_repo//subdir:z_proto__cpp_library
 # aspect cpp @native_rules_test_repo//subdir:z_proto
@@ -351,6 +343,9 @@ target_link_libraries(CMakeProject_subdir_z_proto__cpp_library PUBLIC
 target_include_directories(CMakeProject_subdir_z_proto__cpp_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_cpp>")
 target_compile_features(CMakeProject_subdir_z_proto__cpp_library PUBLIC cxx_std_17)
+add_dependencies(CMakeProject_subdir_z_proto__cpp_library "CMakeProject_subdir_aspect_cpp__2eff1b8c")
+target_sources(CMakeProject_subdir_z_proto__cpp_library PUBLIC
+        "${PROJECT_BINARY_DIR}/_gen_cpp/subdir/z.pb.h")
 target_sources(CMakeProject_subdir_z_proto__cpp_library PRIVATE
         "${PROJECT_BINARY_DIR}/_gen_cpp/subdir/z.pb.cc")
 add_library(CMakeProject::subdir_z_proto__cpp_library ALIAS CMakeProject_subdir_z_proto__cpp_library)

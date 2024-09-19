@@ -68,6 +68,7 @@ def _emit_cc_common_options(
     extra_public_compile_options: Optional[Iterable[str]] = None,
     interface_only: bool = False,
     srcs: Optional[Iterable[str]] = None,
+    public_srcs: Optional[Iterable[str]] = None,
     **kwargs,
 ):
   """Emits CMake rules for common C++ target options."""
@@ -134,18 +135,31 @@ def _emit_cc_common_options(
   )
   if add_dependencies:
     out.write(
-        f"add_dependencies({target_name} {quote_list(sorted(add_dependencies))})\n"
+        f"add_dependencies({target_name} "
+        f"{quote_list(sorted(add_dependencies))})\n"
     )
   if extra_public_compile_options:
     out.write(
-        f"target_compile_options({target_name} {public_context} {quote_list(extra_public_compile_options)})\n"
+        f"target_compile_options({target_name} {public_context} "
+        f"{quote_list(extra_public_compile_options)})\n"
     )
-  if srcs:
+
+  if srcs or public_srcs:
     non_header_srcs = partition_by(srcs, pattern=_HEADER_SRC_PATTERN)[1]
-    out.write(
-        f"target_sources({target_name} PRIVATE{_SEP}{quote_path_list(non_header_srcs , separator=_SEP)})\n"
-    )
-    asm_srcs = partition_by(non_header_srcs, pattern=_ASM_SRC_PATTERN)[0]
+    asm_srcs = partition_by(
+        itertools.chain(non_header_srcs, public_srcs or []),
+        pattern=_ASM_SRC_PATTERN,
+    )[0]
+    if public_srcs:
+      out.write(
+          f"target_sources({target_name} PUBLIC{_SEP}"
+          f"{quote_path_list(public_srcs , separator=_SEP)})\n"
+      )
+    if non_header_srcs:
+      out.write(
+          f"target_sources({target_name} PRIVATE{_SEP}"
+          f"{quote_path_list(non_header_srcs , separator=_SEP)})\n"
+      )
     if asm_srcs:
       if asm_dialect is None:
         raise ValueError(
@@ -491,7 +505,7 @@ def emit_cc_test(
   out.write(
       f"add_test(NAME {target_name}\n"
       f"      COMMAND {target_name}{args_suffix}\n"
-      f"      WORKING_DIRECTORY ${{CMAKE_CURRENT_SOURCE_DIR}})\n"
+      "      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})\n"
   )
   if properties:
     out.write(f"set_tests_properties({target_name} PROPERTIES\n")

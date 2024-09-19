@@ -30,16 +30,9 @@ COMMENT "Running protoc upb on ${TEST_SRCDIR}/c.proto"
 COMMAND_EXPAND_LISTS
 VERBATIM
 )
-add_custom_target(genrule_CMakeProject_aspect_upb__71950a86 DEPENDS
+add_custom_target(CMakeProject_aspect_upb__71950a86 DEPENDS
     "${PROJECT_BINARY_DIR}/_gen_upb/c.upb.h"
     "${PROJECT_BINARY_DIR}/_gen_upb/c.upb.c")
-add_library(CMakeProject_aspect_upb__71950a86 INTERFACE)
-target_sources(CMakeProject_aspect_upb__71950a86 INTERFACE
-    "${TEST_BINDIR}/_gen_upb/c.upb.c"
-    "${TEST_BINDIR}/_gen_upb/c.upb.h")
-target_include_directories(CMakeProject_aspect_upb__71950a86 INTERFACE
-    "${PROJECT_BINARY_DIR}/_gen_upb")
-add_dependencies(CMakeProject_aspect_upb__71950a86 genrule__CMakeProject_aspect_upb__71950a86)
 
 # @grpc_generate_cc_test_repo//:aspect_upb_minitable__71950a86
 # genproto upb_minitable @grpc_generate_cc_test_repo//:c.proto
@@ -55,23 +48,16 @@ COMMAND $<TARGET_FILE:protobuf::protoc>
     "--upb_minitable_out=${PROJECT_BINARY_DIR}/_gen_upb_minitable"
     "${TEST_SRCDIR}/c.proto"
 DEPENDS
+    "protobuf::protoc_gen_upb_minitable_stage1"
     "${TEST_SRCDIR}/c.proto"
     "protobuf::protoc"
-    "protobuf::protoc_gen_upb_minitable_stage1"
 COMMENT "Running protoc upb_minitable on ${TEST_SRCDIR}/c.proto"
 COMMAND_EXPAND_LISTS
 VERBATIM
 )
-add_custom_target(genrule_CMakeProject_aspect_upb_minitable__71950a86 DEPENDS
+add_custom_target(CMakeProject_aspect_upb_minitable__71950a86 DEPENDS
     "${PROJECT_BINARY_DIR}/_gen_upb_minitable/c.upb_minitable.h"
     "${PROJECT_BINARY_DIR}/_gen_upb_minitable/c.upb_minitable.c")
-add_library(CMakeProject_aspect_upb_minitable__71950a86 INTERFACE)
-target_sources(CMakeProject_aspect_upb_minitable__71950a86 INTERFACE
-    "${TEST_BINDIR}/_gen_upb_minitable/c.upb_minitable.c"
-    "${TEST_BINDIR}/_gen_upb_minitable/c.upb_minitable.h")
-target_include_directories(CMakeProject_aspect_upb_minitable__71950a86 INTERFACE
-    "${PROJECT_BINARY_DIR}/_gen_upb_minitable")
-add_dependencies(CMakeProject_aspect_upb_minitable__71950a86 genrule__CMakeProject_aspect_upb_minitable__71950a86)
 
 # @grpc_generate_cc_test_repo//:c_proto__minitable_library
 # aspect upb_minitable @grpc_generate_cc_test_repo//:c_proto
@@ -84,6 +70,9 @@ target_link_libraries(CMakeProject_c_proto__minitable_library PUBLIC
 target_include_directories(CMakeProject_c_proto__minitable_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upb_minitable>")
 target_compile_features(CMakeProject_c_proto__minitable_library PUBLIC cxx_std_17)
+add_dependencies(CMakeProject_c_proto__minitable_library "CMakeProject_aspect_upb_minitable__71950a86")
+target_sources(CMakeProject_c_proto__minitable_library PUBLIC
+        "${PROJECT_BINARY_DIR}/_gen_upb_minitable/c.upb_minitable.h")
 target_sources(CMakeProject_c_proto__minitable_library PRIVATE
         "${PROJECT_BINARY_DIR}/_gen_upb_minitable/c.upb_minitable.c")
 add_library(CMakeProject::c_proto__minitable_library ALIAS CMakeProject_c_proto__minitable_library)
@@ -100,6 +89,9 @@ target_link_libraries(CMakeProject_c_proto__upb_library PUBLIC
 target_include_directories(CMakeProject_c_proto__upb_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upb>")
 target_compile_features(CMakeProject_c_proto__upb_library PUBLIC cxx_std_17)
+add_dependencies(CMakeProject_c_proto__upb_library "CMakeProject_aspect_upb__71950a86")
+target_sources(CMakeProject_c_proto__upb_library PUBLIC
+        "${PROJECT_BINARY_DIR}/_gen_upb/c.upb.h")
 target_sources(CMakeProject_c_proto__upb_library PRIVATE
         "${PROJECT_BINARY_DIR}/_gen_upb/c.upb.c")
 add_library(CMakeProject::c_proto__upb_library ALIAS CMakeProject_c_proto__upb_library)
@@ -116,9 +108,9 @@ COMMAND $<TARGET_FILE:protobuf::protoc>
     "--grpc_out=services_namespace=grpc_gen:${PROJECT_BINARY_DIR}"
     "${TEST_SRCDIR}/c.proto"
 DEPENDS
+    "gRPC::grpc_cpp_plugin"
     "${TEST_SRCDIR}/c.proto"
     "protobuf::protoc"
-    "gRPC::grpc_cpp_plugin"
 COMMENT "Running protoc grpc on ${TEST_SRCDIR}/c.proto"
 COMMAND_EXPAND_LISTS
 VERBATIM
@@ -176,16 +168,9 @@ COMMENT "Running protoc cpp on ${TEST_SRCDIR}/c.proto"
 COMMAND_EXPAND_LISTS
 VERBATIM
 )
-add_custom_target(genrule_CMakeProject_aspect_cpp__71950a86 DEPENDS
+add_custom_target(CMakeProject_aspect_cpp__71950a86 DEPENDS
     "${PROJECT_BINARY_DIR}/_gen_cpp/c.pb.h"
     "${PROJECT_BINARY_DIR}/_gen_cpp/c.pb.cc")
-add_library(CMakeProject_aspect_cpp__71950a86 INTERFACE)
-target_sources(CMakeProject_aspect_cpp__71950a86 INTERFACE
-    "${TEST_BINDIR}/_gen_cpp/c.pb.cc"
-    "${TEST_BINDIR}/_gen_cpp/c.pb.h")
-target_include_directories(CMakeProject_aspect_cpp__71950a86 INTERFACE
-    "${PROJECT_BINARY_DIR}/_gen_cpp")
-add_dependencies(CMakeProject_aspect_cpp__71950a86 genrule__CMakeProject_aspect_cpp__71950a86)
 
 # @grpc_generate_cc_test_repo//:c_proto__cpp_library
 # aspect cpp @grpc_generate_cc_test_repo//:c_proto
@@ -198,6 +183,9 @@ target_link_libraries(CMakeProject_c_proto__cpp_library PUBLIC
 target_include_directories(CMakeProject_c_proto__cpp_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_cpp>")
 target_compile_features(CMakeProject_c_proto__cpp_library PUBLIC cxx_std_17)
+add_dependencies(CMakeProject_c_proto__cpp_library "CMakeProject_aspect_cpp__71950a86")
+target_sources(CMakeProject_c_proto__cpp_library PUBLIC
+        "${PROJECT_BINARY_DIR}/_gen_cpp/c.pb.h")
 target_sources(CMakeProject_c_proto__cpp_library PRIVATE
         "${PROJECT_BINARY_DIR}/_gen_cpp/c.pb.cc")
 add_library(CMakeProject::c_proto__cpp_library ALIAS CMakeProject_c_proto__cpp_library)
@@ -216,23 +204,16 @@ COMMAND $<TARGET_FILE:protobuf::protoc>
     "--upbdefs_out=${PROJECT_BINARY_DIR}/_gen_upbdefs"
     "${TEST_SRCDIR}/c.proto"
 DEPENDS
-    "${TEST_SRCDIR}/c.proto"
     "protobuf::protoc_gen_upbdefs"
+    "${TEST_SRCDIR}/c.proto"
     "protobuf::protoc"
 COMMENT "Running protoc upbdefs on ${TEST_SRCDIR}/c.proto"
 COMMAND_EXPAND_LISTS
 VERBATIM
 )
-add_custom_target(genrule_CMakeProject_aspect_upbdefs__71950a86 DEPENDS
+add_custom_target(CMakeProject_aspect_upbdefs__71950a86 DEPENDS
     "${PROJECT_BINARY_DIR}/_gen_upbdefs/c.upbdefs.h"
     "${PROJECT_BINARY_DIR}/_gen_upbdefs/c.upbdefs.c")
-add_library(CMakeProject_aspect_upbdefs__71950a86 INTERFACE)
-target_sources(CMakeProject_aspect_upbdefs__71950a86 INTERFACE
-    "${TEST_BINDIR}/_gen_upbdefs/c.upbdefs.c"
-    "${TEST_BINDIR}/_gen_upbdefs/c.upbdefs.h")
-target_include_directories(CMakeProject_aspect_upbdefs__71950a86 INTERFACE
-    "${PROJECT_BINARY_DIR}/_gen_upbdefs")
-add_dependencies(CMakeProject_aspect_upbdefs__71950a86 genrule__CMakeProject_aspect_upbdefs__71950a86)
 
 # @grpc_generate_cc_test_repo//:c_proto__upbdefs_library
 # aspect upbdefs @grpc_generate_cc_test_repo//:c_proto
@@ -247,6 +228,9 @@ target_link_libraries(CMakeProject_c_proto__upbdefs_library PUBLIC
 target_include_directories(CMakeProject_c_proto__upbdefs_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upbdefs>")
 target_compile_features(CMakeProject_c_proto__upbdefs_library PUBLIC cxx_std_17)
+add_dependencies(CMakeProject_c_proto__upbdefs_library "CMakeProject_aspect_upbdefs__71950a86")
+target_sources(CMakeProject_c_proto__upbdefs_library PUBLIC
+        "${PROJECT_BINARY_DIR}/_gen_upbdefs/c.upbdefs.h")
 target_sources(CMakeProject_c_proto__upbdefs_library PRIVATE
         "${PROJECT_BINARY_DIR}/_gen_upbdefs/c.upbdefs.c")
 add_library(CMakeProject::c_proto__upbdefs_library ALIAS CMakeProject_c_proto__upbdefs_library)
