@@ -50,7 +50,6 @@ from .cmake_repository import PROJECT_BINARY_DIR
 from .cmake_target import CMakeTarget
 from .emit_cc import emit_cc_library
 from .emit_cc import handle_cc_common_options
-from .emit_filegroup import emit_filegroup
 from .evaluation import EvaluationState
 from .provider_util import ProviderCollection
 from .starlark.bazel_target import RepositoryId
@@ -181,6 +180,24 @@ def _assert_is_proto(src: TargetId):
   ), f"{src.as_label()} must end in .proto"
 
 
+def maybe_augment_output_dir(
+    _context: InvocationContext,
+    proto_library_provider: ProtoLibraryProvider,
+    output_dir: pathlib.PurePath,
+):
+  """If necessary, augment the output_dir with the strip_import_prefix."""
+  if proto_library_provider.strip_import_prefix:
+    include_path = str(
+        pathlib.PurePosixPath(_context.caller_package_id.package_name).joinpath(
+            proto_library_provider.strip_import_prefix
+        )
+    )
+    if include_path[0] == "/":
+      include_path = include_path[1:]
+    return output_dir.joinpath(include_path)
+  return output_dir
+
+
 def singleproto_aspect_target(
     src: TargetId,
     plugin_settings: PluginSettings,
@@ -269,26 +286,9 @@ def aspect_genproto_singleproto(
     )
     generated_files.append(t[1])
 
-  _context.add_analyzed_target(
-      aspect_target,
-      TargetInfo(
-          *default_providers(cmake_target_pair),
-          FilesProvider(generated_files),
-      ),
+  output_dir = maybe_augment_output_dir(
+      _context, proto_library_provider, output_dir
   )
-
-  # Augment output with strip import prefix
-  if proto_library_provider.strip_import_prefix:
-    include_path = str(
-        pathlib.PurePosixPath(_context.caller_package_id.package_name).joinpath(
-            proto_library_provider.strip_import_prefix
-        )
-    )
-    if include_path[0] == "/":
-      include_path = include_path[1:]
-    output_dir = output_dir.joinpath(include_path)
-
-  relative_includes = repo.replace_with_cmake_macro_dirs([output_dir])
 
   # Emit.
   out = io.StringIO()
@@ -304,8 +304,8 @@ def aspect_genproto_singleproto(
       proto_src=proto_src_files[0],
       generated_files=generated_files,
       import_targets=import_targets,
-      cmake_depends=src_collector.add_dependencies(),
-      output_dir=relative_includes[0],
+      cmake_depends=sorted(src_collector.add_dependencies()),
+      output_dir=repo.replace_with_cmake_macro_dirs([output_dir])[0],
   )
 
   sep = "\n    "
@@ -313,24 +313,21 @@ def aspect_genproto_singleproto(
       repo.replace_with_cmake_macro_dirs(generated_files), sep
   )
   out.write(
-      f"add_custom_target(genrule_{cmake_target_pair.target} DEPENDS{sep}{quoted_outputs})\n"
+      f"add_custom_target({cmake_target_pair.target} DEPENDS{sep}{quoted_outputs})\n"
   )
-  # NOTE: We probably don't need this file group once the aspect target
-  # includes .h files as INTERFACE sources to ensure that they are generated.
-  # Without that, CMake had trouble finding the files properly, but that
-  # may have been by attempted includes across directories (.pb.h):
-  # https://gitlab.kitware.com/cmake/cmake/-/issues/18399
-  emit_filegroup(
-      out,
-      cmake_name=cmake_target_pair.target,
-      filegroup_files=generated_files,
-      source_directory=repo.source_directory,
-      cmake_binary_dir=output_dir,
-      add_dependencies=[CMakeTarget("genrule__" + cmake_target_pair.target)],
-      includes=relative_includes,
-  )
-
   _context.access(CMakeBuilder).addtext(out.getvalue())
+
+  _context.add_analyzed_target(
+      aspect_target,
+      TargetInfo(
+          *make_providers(
+              cmake_target_pair,
+              CMakeAddDependenciesProvider,
+              CMakePackageDepsProvider,
+          ),
+          FilesProvider(generated_files),
+      ),
+  )
 
 
 ##############################################################################
@@ -406,6 +403,10 @@ def aspect_genproto_library_target(
         output_dir=output_dir,
     )
 
+  aspect_dir = repo.replace_with_cmake_macro_dirs(
+      [maybe_augment_output_dir(_context, proto_library_provider, output_dir)]
+  )[0]
+
   # Now emit a cc_library for each proto_library
   srcs_collector = state.collect_targets(aspect_srcs)
   split_srcs = partition_by(
@@ -427,6 +428,9 @@ def aspect_genproto_library_target(
   )
   del common_options["private_includes"]
 
+  if aspect_dir not in common_options["includes"]:
+    common_options["includes"].append(aspect_dir)
+
   out = io.StringIO()
   out.write(
       f"\n# {target.as_label()}"
@@ -436,6 +440,7 @@ def aspect_genproto_library_target(
       out,
       cmake_target_pair,
       hdrs=split_srcs[0],
+      public_srcs=repo.replace_with_cmake_macro_dirs(sorted(split_srcs[0])),
       **common_options,
   )
   _context.access(CMakeBuilder).addtext(out.getvalue())

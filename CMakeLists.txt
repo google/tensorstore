@@ -78,7 +78,6 @@ if(MSVC AND CMAKE_CXX_COMPILER_LAUNCHER MATCHES "sccache")
 endif()
 
 include(bazel_to_cmake)
-include(btc_protobuf)
 
 bazel_to_cmake(
   --cmake-project-name tensorstore

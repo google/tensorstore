@@ -15,7 +15,6 @@
 
 # pylint: disable=invalid-name,missing-function-docstring,relative-beyond-top-level,g-long-lambda
 import io
-import pathlib
 from typing import Any, List, Optional, cast
 
 from ..cmake_builder import CMakeBuilder
@@ -25,6 +24,7 @@ from ..evaluation import EvaluationState
 from ..native_aspect_proto import btc_protobuf
 from ..native_aspect_proto import plugin_generated_files
 from ..native_aspect_proto import PluginSettings
+from ..native_aspect_proto import maybe_augment_output_dir
 from ..starlark.bazel_globals import BazelGlobals
 from ..starlark.bazel_globals import register_bzl_library
 from ..starlark.bazel_target import RepositoryId
@@ -166,16 +166,11 @@ def _generate_grpc_cc_impl(
   state.collect_deps(UPB_PLUGIN.aspectdeps(resolved_srcs[0]))
 
   # Augment output with strip import prefix
-  output_dir = repo.cmake_binary_dir
-  if proto_library_provider.strip_import_prefix:
-    include_path = str(
-        pathlib.PurePosixPath(_context.caller_package_id.package_name).joinpath(
-            proto_library_provider.strip_import_prefix
-        )
-    )
-    if include_path[0] == "/":
-      include_path = include_path[1:]
-    output_dir = output_dir.joinpath(include_path)
+  output_dir = repo.replace_with_cmake_macro_dirs([
+      maybe_augment_output_dir(
+          _context, proto_library_provider, repo.cmake_binary_dir
+      )
+  ])[0]
 
   # Emit.
   out = io.StringIO()
