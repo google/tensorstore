@@ -12,21 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# buildifier: disable=module-docstring
+
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load(
-    "//third_party:repo.bzl",
-    "third_party_http_archive",
-)
+load("//third_party:repo.bzl", "third_party_http_archive")
 
 def repo():
     maybe(
         third_party_http_archive,
         name = "org_nghttp2",
-        strip_prefix = "nghttp2-1.61.0",
+        strip_prefix = "nghttp2-1.63.0",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/nghttp2/nghttp2/archive/v1.61.0.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/nghttp2/nghttp2/archive/v1.63.0.tar.gz",
         ],
-        sha256 = "5905df7984d04b7a6621ae591c410978b183af3900f923241138c953812f7dd4",
+        sha256 = "f3da0627bee7a6a60f5a4eb6de8d17d25e99f50f87b0fc0c20676c682bf31098",
         build_file = Label("//third_party:org_nghttp2/nghttp2.BUILD.bazel"),
         system_build_file = Label("//third_party:org_nghttp2/system.BUILD.bazel"),
         # https://github.com/nghttp2/nghttp2/blob/master/CMakeLists.txt

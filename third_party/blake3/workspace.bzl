@@ -12,20 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# buildifier: disable=module-docstring
+
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load(
-    "//third_party:repo.bzl",
-    "third_party_http_archive",
-)
+load("//third_party:repo.bzl", "third_party_http_archive")
 
 def repo():
     maybe(
         third_party_http_archive,
         name = "blake3",
-        strip_prefix = "BLAKE3-0816badf3ada3ec48e712dd4f4cbc2cd60828278",
-        sha256 = "32192e448971bafc3761a2bb9623f4cda1470e0f3b8fbb93ce9691fd849004e1",
+        strip_prefix = "BLAKE3-1.5.4",
+        sha256 = "ddd24f26a31d23373e63d9be2e723263ac46c8b6d49902ab08024b573fd2a416",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/BLAKE3-team/blake3/archive/0816badf3ada3ec48e712dd4f4cbc2cd60828278.tar.gz",  # master(2024-05-02)
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/BLAKE3-team/BLAKE3/archive/1.5.4.tar.gz",
         ],
         build_file = Label("//third_party:blake3/blake3.BUILD.bazel"),
         system_build_file = Label("//third_party:blake3/system.BUILD.bazel"),

@@ -12,27 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# buildifier: disable=module-docstring
+
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load(
-    "//third_party:repo.bzl",
-    "third_party_http_archive",
-)
+load("//third_party:repo.bzl", "third_party_http_archive")
 
 def repo():
     maybe(
         third_party_http_archive,
         name = "se_curl",
-        strip_prefix = "curl-8.7.1",
+        strip_prefix = "curl-8.10.1",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/curl.se/download/curl-8.7.1.tar.gz",
-            "https://curl.se/download/curl-8.7.1.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/curl.se/download/curl-8.10.1.tar.gz",
+            "https://curl.se/download/curl-8.10.1.tar.gz",
         ],
-        patches = [
-            # protobuf uses rules_python, but we just use the native python rules.
-            Label("//third_party:se_curl/patches/13210.diff"),
-        ],
-        patch_args = ["-p1"],
-        sha256 = "f91249c87f68ea00cf27c44fdfa5a78423e41e71b7d408e5901a9896d905c495",
+        sha256 = "d15ebab765d793e2e96db090f0e172d127859d78ca6f6391d7eafecfd894bbc0",
         build_file = Label("//third_party:se_curl/curl.BUILD.bazel"),
         system_build_file = Label("//third_party:se_curl/system.BUILD.bazel"),
         cmake_name = "CURL",
