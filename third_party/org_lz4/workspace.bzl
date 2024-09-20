@@ -12,21 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# buildifier: disable=module-docstring
+
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load(
-    "//third_party:repo.bzl",
-    "third_party_http_archive",
-)
+load("//third_party:repo.bzl", "third_party_http_archive")
 
 def repo():
     maybe(
         third_party_http_archive,
         name = "org_lz4",
-        strip_prefix = "lz4-1.9.4",
+        strip_prefix = "lz4-1.10.0",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/lz4/lz4/archive/v1.9.4.zip",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/lz4/lz4/archive/v1.10.0.zip",
         ],
-        sha256 = "37e63d56fb9cbe2e430c7f737a404cd4b98637b05e1467459d5c8fe1a4364cc3",
+        sha256 = "3224b4c80f351f194984526ef396f6079bd6332dd9825c72ac0d7a37b3cdc565",
         build_file = Label("//third_party:org_lz4/lz4.BUILD.bazel"),
         system_build_file = Label("//third_party:org_lz4/system.BUILD.bazel"),
         cmake_name = "LZ4",

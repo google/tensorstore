@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# buildifier: disable=module-docstring
+
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load("//third_party:repo.bzl", "third_party_http_archive")
 
@@ -21,11 +23,11 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_github_pybind_pybind11",
-        strip_prefix = "pybind11-2.12.0",
+        strip_prefix = "pybind11-2.13.6",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/pybind/pybind11/archive/v2.12.0.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/pybind/pybind11/archive/v2.13.6.tar.gz",
         ],
-        sha256 = "bf8f242abd1abcd375d516a7067490fb71abd79519a282d22b6e4d19282185a7",
+        sha256 = "e08cb87f4773da97fa7b5f035de8763abc656d87d5773e62f6da0587d1f0ec20",
         build_file = Label("//third_party:com_github_pybind_pybind11/pybind11.BUILD.bazel"),
         system_build_file = Label("//third_party:com_github_pybind_pybind11/system.BUILD.bazel"),
         # documentation-only
