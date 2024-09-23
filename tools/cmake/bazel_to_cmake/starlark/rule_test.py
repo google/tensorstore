@@ -40,6 +40,7 @@ empty_rule = rule(
         "a_labellist": attr.label_list(),
         "a_bool": attr.bool(default = False),
         "out": attr.output(),
+        "outs": attr.output_list(),
     },
 )
 

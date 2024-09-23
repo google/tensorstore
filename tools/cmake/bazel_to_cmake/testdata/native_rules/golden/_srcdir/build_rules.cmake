@@ -74,8 +74,8 @@ add_library(CMakeProject::c_proto ALIAS CMakeProject_c_proto)
 file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_cpp")
 add_custom_command(
 OUTPUT
-    "${TEST_BINDIR}/_gen_cpp/c.pb.h"
     "${TEST_BINDIR}/_gen_cpp/c.pb.cc"
+    "${TEST_BINDIR}/_gen_cpp/c.pb.h"
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional
     "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_c_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
@@ -314,8 +314,8 @@ add_library(CMakeProject::subdir_z_proto ALIAS CMakeProject_subdir_z_proto)
 file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_cpp/subdir")
 add_custom_command(
 OUTPUT
-    "${TEST_BINDIR}/_gen_cpp/subdir/z.pb.h"
     "${TEST_BINDIR}/_gen_cpp/subdir/z.pb.cc"
+    "${TEST_BINDIR}/_gen_cpp/subdir/z.pb.h"
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional
     "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_subdir_z_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"

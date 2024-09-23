@@ -13,8 +13,8 @@ add_library(CMakeProject::a_proto ALIAS CMakeProject_a_proto)
 file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_cpp")
 add_custom_command(
 OUTPUT
-    "${TEST_BINDIR}/_gen_cpp/a.pb.h"
     "${TEST_BINDIR}/_gen_cpp/a.pb.cc"
+    "${TEST_BINDIR}/_gen_cpp/a.pb.h"
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional
     "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_a_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
@@ -69,8 +69,8 @@ add_library(CMakeProject::a_cc_proto ALIAS CMakeProject_a_cc_proto)
 file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_upb")
 add_custom_command(
 OUTPUT
-    "${TEST_BINDIR}/_gen_upb/a.upb.h"
     "${TEST_BINDIR}/_gen_upb/a.upb.c"
+    "${TEST_BINDIR}/_gen_upb/a.upb.h"
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional
     --plugin=protoc-gen-upb=$<TARGET_FILE:protobuf::protoc_gen_upb>
@@ -94,8 +94,8 @@ add_custom_target(CMakeProject_aspect_upb__9411025a DEPENDS
 file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_upb_minitable")
 add_custom_command(
 OUTPUT
-    "${TEST_BINDIR}/_gen_upb_minitable/a.upb_minitable.h"
     "${TEST_BINDIR}/_gen_upb_minitable/a.upb_minitable.c"
+    "${TEST_BINDIR}/_gen_upb_minitable/a.upb_minitable.h"
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional
     --plugin=protoc-gen-upb_minitable=$<TARGET_FILE:protobuf::protoc_gen_upb_minitable_stage1>
@@ -172,8 +172,8 @@ add_library(CMakeProject::a_upb_proto ALIAS CMakeProject_a_upb_proto)
 file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_upbdefs")
 add_custom_command(
 OUTPUT
-    "${TEST_BINDIR}/_gen_upbdefs/a.upbdefs.h"
     "${TEST_BINDIR}/_gen_upbdefs/a.upbdefs.c"
+    "${TEST_BINDIR}/_gen_upbdefs/a.upbdefs.h"
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional
     --plugin=protoc-gen-upbdefs=$<TARGET_FILE:protobuf::protoc_gen_upbdefs>
@@ -182,8 +182,8 @@ COMMAND $<TARGET_FILE:protobuf::protoc>
     "${TEST_SRCDIR}/a.proto"
 DEPENDS
     "${TEST_SRCDIR}/a.proto"
-    "protobuf::protoc_gen_upbdefs"
     "protobuf::protoc"
+    "protobuf::protoc_gen_upbdefs"
 COMMENT "Running protoc upbdefs on ${TEST_SRCDIR}/a.proto"
 COMMAND_EXPAND_LISTS
 VERBATIM

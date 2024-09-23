@@ -14,8 +14,8 @@ add_library(CMakeProject::c_proto ALIAS CMakeProject_c_proto)
 file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_upb")
 add_custom_command(
 OUTPUT
-    "${TEST_BINDIR}/_gen_upb/c.upb.h"
     "${TEST_BINDIR}/_gen_upb/c.upb.c"
+    "${TEST_BINDIR}/_gen_upb/c.upb.h"
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional
     --plugin=protoc-gen-upb=$<TARGET_FILE:protobuf::protoc_gen_upb>
@@ -39,8 +39,8 @@ add_custom_target(CMakeProject_aspect_upb__71950a86 DEPENDS
 file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_upb_minitable")
 add_custom_command(
 OUTPUT
-    "${TEST_BINDIR}/_gen_upb_minitable/c.upb_minitable.h"
     "${TEST_BINDIR}/_gen_upb_minitable/c.upb_minitable.c"
+    "${TEST_BINDIR}/_gen_upb_minitable/c.upb_minitable.h"
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional
     --plugin=protoc-gen-upb_minitable=$<TARGET_FILE:protobuf::protoc_gen_upb_minitable_stage1>
@@ -48,9 +48,9 @@ COMMAND $<TARGET_FILE:protobuf::protoc>
     "--upb_minitable_out=${PROJECT_BINARY_DIR}/_gen_upb_minitable"
     "${TEST_SRCDIR}/c.proto"
 DEPENDS
-    "protobuf::protoc_gen_upb_minitable_stage1"
     "${TEST_SRCDIR}/c.proto"
     "protobuf::protoc"
+    "protobuf::protoc_gen_upb_minitable_stage1"
 COMMENT "Running protoc upb_minitable on ${TEST_SRCDIR}/c.proto"
 COMMAND_EXPAND_LISTS
 VERBATIM
@@ -99,8 +99,8 @@ add_library(CMakeProject::c_proto__upb_library ALIAS CMakeProject_c_proto__upb_l
 # @grpc_generate_cc_test_repo//:cc__grpc_codegenfile(MAKE_DIRECTORY "${TEST_BINDIR}")
 add_custom_command(
 OUTPUT
-    "${TEST_BINDIR}/c.grpc.pb.h"
     "${TEST_BINDIR}/c.grpc.pb.cc"
+    "${TEST_BINDIR}/c.grpc.pb.h"
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional
     --plugin=protoc-gen-grpc=$<TARGET_FILE:gRPC::grpc_cpp_plugin>
@@ -108,8 +108,8 @@ COMMAND $<TARGET_FILE:protobuf::protoc>
     "--grpc_out=services_namespace=grpc_gen:${PROJECT_BINARY_DIR}"
     "${TEST_SRCDIR}/c.proto"
 DEPENDS
-    "gRPC::grpc_cpp_plugin"
     "${TEST_SRCDIR}/c.proto"
+    "gRPC::grpc_cpp_plugin"
     "protobuf::protoc"
 COMMENT "Running protoc grpc on ${TEST_SRCDIR}/c.proto"
 COMMAND_EXPAND_LISTS
@@ -154,8 +154,8 @@ add_library(CMakeProject::a ALIAS CMakeProject_a)
 file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_cpp")
 add_custom_command(
 OUTPUT
-    "${TEST_BINDIR}/_gen_cpp/c.pb.h"
     "${TEST_BINDIR}/_gen_cpp/c.pb.cc"
+    "${TEST_BINDIR}/_gen_cpp/c.pb.h"
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional
     "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_c_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
@@ -195,8 +195,8 @@ add_library(CMakeProject::c_proto__cpp_library ALIAS CMakeProject_c_proto__cpp_l
 file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_upbdefs")
 add_custom_command(
 OUTPUT
-    "${TEST_BINDIR}/_gen_upbdefs/c.upbdefs.h"
     "${TEST_BINDIR}/_gen_upbdefs/c.upbdefs.c"
+    "${TEST_BINDIR}/_gen_upbdefs/c.upbdefs.h"
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional
     --plugin=protoc-gen-upbdefs=$<TARGET_FILE:protobuf::protoc_gen_upbdefs>
@@ -204,9 +204,9 @@ COMMAND $<TARGET_FILE:protobuf::protoc>
     "--upbdefs_out=${PROJECT_BINARY_DIR}/_gen_upbdefs"
     "${TEST_SRCDIR}/c.proto"
 DEPENDS
-    "protobuf::protoc_gen_upbdefs"
     "${TEST_SRCDIR}/c.proto"
     "protobuf::protoc"
+    "protobuf::protoc_gen_upbdefs"
 COMMENT "Running protoc upbdefs on ${TEST_SRCDIR}/c.proto"
 COMMAND_EXPAND_LISTS
 VERBATIM

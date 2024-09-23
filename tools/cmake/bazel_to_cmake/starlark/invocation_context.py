@@ -21,7 +21,6 @@ from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Union, ca
 from .bazel_target import PackageId
 from .bazel_target import RepositoryId
 from .bazel_target import TargetId
-from .common_providers import BuildSettingProvider
 from .common_providers import ConditionProvider
 from .label import Label
 from .label import RelativeLabel
@@ -29,6 +28,7 @@ from .provider import TargetInfo
 from .select import Configurable
 from .select import Select
 from .select import SelectExpression
+
 
 RuleImpl = Callable[[], None]
 T = TypeVar("T")
@@ -120,9 +120,6 @@ class InvocationContext(object):
 
   def evaluate_condition(self, target_id: TargetId) -> bool:
     return self.get_target_info(target_id)[ConditionProvider].value
-
-  def evaluate_build_setting(self, target_id: TargetId) -> Any:
-    return self.get_target_info(target_id)[BuildSettingProvider].value
 
   def evaluate_configurable(self, configurable: Configurable[T]) -> T:
     """Evaluates a `Configurable` expression."""

@@ -137,7 +137,7 @@ def btc_protobuf(
   mkdirs = set()
 
   def _generated_files():
-    for x in generated_files:
+    for x in sorted(generated_files):
       mkdirs.add(pathlib.PurePath(x).parent)
       yield x
 
@@ -160,7 +160,7 @@ COMMAND $<TARGET_FILE:protobuf::protoc>
     {quote_string(flags)}
     {quote_path(proto_src)}
 DEPENDS
-    {quote_list(cmake_depends, separator=_sep)}
+    {quote_list(sorted(cmake_depends), separator=_sep)}
 COMMENT "Running protoc {plugin_settings.name} on {proto_src}"
 COMMAND_EXPAND_LISTS
 VERBATIM

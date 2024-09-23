@@ -46,3 +46,20 @@ def test_restricted_provider():
   # Invalid field.
   with pytest.raises(Exception):
     Y(c=2)
+
+
+def test_restricted_provider_with_dict():
+  Y = provider(doc='bar', fields={'a': 'a doc', 'b': 'b doc'})
+  x = Y(a=1, b=2)
+  assert x.a == 1
+  assert x.b == 2
+  assert 'struct(a=1,b=2)' == str(repr(x))
+  Y(b=2)
+
+  # Cannot assign
+  with pytest.raises(Exception):
+    x.a = 2
+
+  # Invalid field.
+  with pytest.raises(Exception):
+    Y(c=2)
