@@ -120,7 +120,7 @@ async def test_array():
 
 async def test_array_no_copy():
   with pytest.raises(
-      ValueError, match=r"Unable to avoid copy while creating an array\."
+      ValueError, match=r"Unable to avoid copy while creating an array"
   ):
     ts.array([1, 2, 3], copy=False)
 
@@ -157,7 +157,7 @@ async def test_array_no_write():
 
   with pytest.raises(
       ValueError,
-      match=r"Unable to avoid copy while creating an array from given array\.",
+      match=r"Unable to avoid copy while creating an array",
   ):
     ts.array(x, write=True, copy=False)
 

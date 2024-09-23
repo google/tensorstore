@@ -139,14 +139,13 @@ def test_add():
   assert math.isnan(float(bfloat16(3.5) + bfloat16(float("nan"))))
 
   # Test type promotion against Numpy scalar values.
+  # See ml_dtypes.custom_float_test.py for comprehensive tests.
   assert np.float32 == type(bfloat16(3.5) + np.float16(2.25))
   assert np.float32 == type(np.float16(3.5) + bfloat16(2.25))
   assert np.float32 == type(bfloat16(3.5) + np.float32(2.25))
   assert np.float32 == type(np.float32(3.5) + bfloat16(2.25))
   assert np.float64 == type(bfloat16(3.5) + np.float64(2.25))
   assert np.float64 == type(np.float64(3.5) + bfloat16(2.25))
-  assert np.float64 == type(bfloat16(3.5) + float(2.25))
-  assert np.float64 == type(float(3.5) + bfloat16(2.25))
   assert np.float32 == type(bfloat16(3.5) + np.array(2.25, np.float32))
   assert np.float32 == type(np.array(3.5, np.float32) + bfloat16(2.25))
 
