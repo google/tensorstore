@@ -25,11 +25,6 @@ from typing import Any, Dict, List, Tuple, Union
 import pytest
 
 from . import native_rules  # pylint: disable=unused-import
-from . import native_rules_alias  # pylint: disable=unused-import
-from . import native_rules_cc  # pylint: disable=unused-import
-from . import native_rules_cc_proto  # pylint: disable=unused-import
-from . import native_rules_genrule  # pylint: disable=unused-import
-from . import native_rules_proto  # pylint: disable=unused-import
 from .cmake_repository import CMakeRepository
 from .cmake_repository import make_repo_mapping
 from .cmake_target import CMakePackage

@@ -277,6 +277,46 @@ class AttrModule:
     return Attr(handle)
 
   @staticmethod
+  def output_list(
+      allow_empty=True,
+      *,
+      mandatory: bool = False,
+      **kwargs,
+  ):
+    """https://bazel.build/rules/lib/attr#output_list"""
+    del kwargs
+    del allow_empty
+
+    def handle(
+        context: InvocationContext,
+        name: str,
+        value: Optional[Configurable[List[RelativeLabel]]],
+        outs: List[TargetId],
+    ):
+      if mandatory and value is None:
+        raise ValueError(f"Attribute {name} not specified")
+      if value is None:
+        value = []
+
+      del outs
+      del context
+
+      def impl(ctx: RuleCtx):
+        targets = ctx._context.resolve_target_or_label_list(
+            ctx._context.evaluate_configurable_list(value)
+        )
+        paths = []
+        for x in targets:
+          p = str(ctx._context.get_generated_file_path(x))
+          ctx._context.add_analyzed_target(x, TargetInfo(FilesProvider([p])))
+          paths.append(p)
+        setattr(ctx.outputs, name, [File(p) for p in paths])
+
+      return impl
+
+    return Attr(handle)
+
+  @staticmethod
   def bool_(default: bool = False, doc: str = "", mandatory: bool = False):
     # https://bazel.build/rules/lib/attr#bool
     del doc
@@ -310,8 +350,8 @@ def _rule_impl(
     implementation: Callable[[RuleCtx], Any],
 ):
   ctx = RuleCtx(_context, Label(target, _context.workspace_root_for_label))
-  for attr in attr_impls:
-    attr(ctx)
+  for a in attr_impls:
+    a(ctx)
   _context.add_analyzed_target(target, TargetInfo())
   implementation(ctx)
 
@@ -319,10 +359,12 @@ def _rule_impl(
 def rule(
     self: BuildFileLibraryGlobals,
     implementation: Callable[[RuleCtx], Any],
+    *,
     attrs: Optional[Dict[str, Attr]] = None,
     executable: bool = False,
     output_to_genfiles: bool = False,
     doc: str = "",
+    **rule_kwargs,
 ):
   """https://bazel.build/rules/lib/globals#rule"""
   del executable
@@ -330,18 +372,18 @@ def rule(
   del doc
 
   def rule_func(
-      name: str, visibility: Optional[List[RelativeLabel]] = None, **rule_kwargs
+      name: str, visibility: Optional[List[RelativeLabel]] = None, **kwargs
   ):
     # snaptshot the invocation context.
     context = self._context.snapshot()
-    target = context.resolve_target(context.evaluate_configurable(name))
+    target = context.resolve_target(name)
 
     outs: List[TargetId] = []
 
     if attrs is not None:
       attr_impls = [
           attr_obj._handle(
-              context, attr_name, rule_kwargs.pop(attr_name, None), outs
+              context, attr_name, kwargs.pop(attr_name, None), outs
           )
           for attr_name, attr_obj in attrs.items()
       ]

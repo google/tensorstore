@@ -20,6 +20,8 @@ from typing import Dict, List, Tuple
 from .starlark.bazel_target import parse_absolute_target
 from .starlark.common_providers import BuildSettingProvider
 from .starlark.common_providers import ConditionProvider
+from .starlark.common_providers import ConstraintSettingInfo
+from .starlark.common_providers import ConstraintValueInfo
 from .starlark.provider import TargetInfo
 from .util import cmake_is_true
 from .workspace import Workspace
@@ -87,6 +89,7 @@ _CMAKE_SYSTEM_NAME_AND_PROCESSOR_VALUES: Dict[Tuple[str, str], ValueList] = {
 }
 
 
+# https://bazel.build/extending/platforms#specifying-build-platform
 def add_platform_constraints(workspace: Workspace) -> None:
   cmake_cxx_compiler_id = workspace.cmake_vars["CMAKE_CXX_COMPILER_ID"]
   cmake_system_name = workspace.cmake_vars["CMAKE_SYSTEM_NAME"]
@@ -111,6 +114,21 @@ def add_platform_constraints(workspace: Workspace) -> None:
       TargetInfo(BuildSettingProvider(bazel_compiler)),
   )
 
+  # See bazel_tools/tools/cpp:BUILD
+  cc_compiler = parse_absolute_target("@bazel_tools//tools/cpp:cc_compiler")
+  workspace.set_persistent_target_info(
+      cc_compiler,
+      TargetInfo(ConstraintSettingInfo(cc_compiler, None)),
+  )
+
+  # Install build_tools constraint values.
+  for compiler in ("clang", "gcc", "msvc", "clang-cl", "mingw", "msys"):
+    t = parse_absolute_target("@bazel_tools//tools/cpp:" + compiler)
+    workspace.set_persistent_target_info(
+        t,
+        TargetInfo(ConstraintValueInfo(cc_compiler, t)),
+    )
+
   workspace.set_persistent_target_info(
       parse_absolute_target("@bazel_tools//tools/python:python_version"),
       TargetInfo(BuildSettingProvider("PY3")),
@@ -134,6 +152,11 @@ def add_platform_constraints(workspace: Workspace) -> None:
     workspace.set_persistent_target_info(
         parse_absolute_target(target), TargetInfo(ConditionProvider(value))
     )
+
+  workspace.values.add((
+      "@bazel_tools//tools/cpp:cc_compiler",
+      "@bazel_tools//tools/cpp:" + bazel_compiler,
+  ))
 
   workspace.values.update(
       _CMAKE_SYSTEM_PROCESSOR_VALUES.get(cmake_system_processor, [])

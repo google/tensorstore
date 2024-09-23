@@ -380,15 +380,17 @@ class EvaluationState:
       )
     return repo.get_generated_file_path(target_id)
 
-  def evaluate_condition(self, target_id: TargetId) -> bool:
+  def evaluate_condition(self, target_id: TargetId) -> Any:
     assert isinstance(target_id, TargetId)
     assert self._phase == Phase.ANALYZE
-    return self.get_target_info(target_id)[ConditionProvider].value
 
-  def evaluate_build_setting(self, target_id: TargetId) -> Any:
-    assert isinstance(target_id, TargetId)
-    assert self._phase == Phase.ANALYZE
-    return self.get_target_info(target_id)[BuildSettingProvider].value
+    target_info = self.get_target_info(target_id)
+    if target_info.get(ConditionProvider) is not None:
+      return target_info[ConditionProvider].value
+    if target_info.get(BuildSettingProvider) is not None:
+      return target_info[BuildSettingProvider].value
+    print(f"Using {target_id.as_label()} as false condition.")
+    return False
 
   def evaluate_configurable(self, configurable: Configurable[T]) -> T:
     """Evaluates a `Configurable` expression."""

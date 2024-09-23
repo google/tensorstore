@@ -22,18 +22,22 @@ https://github.com/bazelbuild/bazel/tree/master/src/main/starlark/builtins_bzl/c
 
 # pylint: disable=relative-beyond-top-level,invalid-name,missing-function-docstring,g-long-lambda
 
-from typing import Dict, List, Optional
+from typing import List, Optional
 
+from . import native_rules_alias  # pylint: disable=unused-import
+from . import native_rules_cc  # pylint: disable=unused-import
+from . import native_rules_cc_proto  # pylint: disable=unused-import
+from . import native_rules_config  # pylint: disable=unused-import
+from . import native_rules_genrule  # pylint: disable=unused-import
+from . import native_rules_platform  # pylint: disable=unused-import
+from . import native_rules_proto  # pylint: disable=unused-import
 from .evaluation import EvaluationState
 from .package import Visibility
 from .starlark import rule  # pylint: disable=unused-import
 from .starlark.bazel_build_file import register_native_build_rule
 from .starlark.bazel_glob import glob as starlark_glob
-from .starlark.bazel_target import TargetId
-from .starlark.common_providers import ConditionProvider
 from .starlark.invocation_context import InvocationContext
 from .starlark.label import RelativeLabel
-from .starlark.provider import TargetInfo
 
 
 @register_native_build_rule
@@ -90,138 +94,6 @@ def glob(
 
 
 @register_native_build_rule
-def config_setting(
-    self: InvocationContext,
-    name: str,
-    constraint_values: Optional[List[RelativeLabel]] = None,
-    flag_values: Optional[Dict[RelativeLabel, str]] = None,
-    values: Optional[Dict[str, str]] = None,
-    define_values: Optional[Dict[str, str]] = None,
-    visibility: Optional[List[RelativeLabel]] = None,
-    **kwargs,
-):
-  del kwargs
-  # Bazel ignores visibility for `config_setting` by default.  See
-  # `--incompatible_enforce_config_setting_visibility` and
-  # `--incompatible_config_setting_private_default_visibility`.
-  del visibility
-  context = self.snapshot()
-  target = context.resolve_target(name)
-  context.add_rule(
-      target,
-      lambda: _config_setting_impl(
-          context,
-          target,
-          constraint_values=constraint_values,
-          flag_values=flag_values,
-          values=values,
-          define_values=define_values,
-      ),
-      analyze_by_default=True,
-  )
-
-
-def _config_setting_impl(
-    _context: InvocationContext,
-    _target: TargetId,
-    constraint_values: Optional[List[RelativeLabel]],
-    flag_values: Optional[Dict[RelativeLabel, str]],
-    values: Optional[Dict[str, str]],
-    define_values: Optional[Dict[str, str]],
-):
-  def evaluate() -> bool:
-    if flag_values:
-      for flag, value in flag_values.items():
-        if (
-            str(
-                _context.evaluate_build_setting(
-                    _context.resolve_target_or_label(flag)
-                )
-            )
-            != value
-        ):
-          return False
-    if constraint_values:
-      for constraint in _context.resolve_target_or_label_list(
-          constraint_values
-      ):
-        if not _context.evaluate_condition(constraint):
-          return False
-    workspace_values = _context.access(EvaluationState).workspace.values
-    if values:
-      for key, value in values.items():
-        if (key, value) not in workspace_values:
-          return False
-    if define_values:
-      for key, value in define_values.items():
-        if ("define", f"{key}={value}") not in workspace_values:
-          return False
-    return True
-
-  evaluated_condition = evaluate()
-  _context.add_analyzed_target(
-      _target, TargetInfo(ConditionProvider(evaluated_condition))
-  )
-
-
-# https://bazel.build/reference/be/platforms-and-toolchains#platform
-@register_native_build_rule
-def platform(
-    self: InvocationContext,
-    name: str,
-    constraint_values: Optional[List[RelativeLabel]] = None,
-    exec_properties: Optional[Dict[str, str]] = None,
-    flags: Optional[List[str]] = None,
-    parents: Optional[List[RelativeLabel]] = None,
-    visibility: Optional[List[RelativeLabel]] = None,
-    **kwargs,
-):
-  del kwargs
-  del visibility
-  del flags
-  del exec_properties
-  context = self.snapshot()
-  target = context.resolve_target(name)
-  context.add_rule(
-      target,
-      lambda: _platform_impl(
-          context,
-          target,
-          constraint_values=constraint_values,
-          parents=parents,
-      ),
-      analyze_by_default=True,
-  )
-
-
-def _platform_impl(
-    _context: InvocationContext,
-    _target: TargetId,
-    constraint_values: Optional[List[RelativeLabel]] = None,
-    parents: Optional[List[RelativeLabel]] = None,
-):
-  def evaluate() -> bool:
-    if constraint_values:
-      for constraint in _context.resolve_target_or_label_list(
-          constraint_values
-      ):
-        if not _context.evaluate_condition(constraint):
-          return False
-    if parents:
-      p = _context.resolve_target_or_label_list(
-          _context.evaluate_configurable_list(parents)
-      )[0]
-      if not _context.evaluate_condition(p):
-        return False
-    return True
-
-  evaluated_condition = evaluate()
-  _context.add_analyzed_target(
-      _target, TargetInfo(ConditionProvider(evaluated_condition))
-  )
-
-
-@register_native_build_rule
 def py_library(self: InvocationContext, name: str, **kwargs):
   del self
   del name
@@ -272,6 +144,13 @@ def java_binary(self: InvocationContext, name: str, **kwargs):
 
 @register_native_build_rule
 def java_proto_library(self: InvocationContext, name: str, **kwargs):
+  del self
+  del name
+  del kwargs
+
+
+@register_native_build_rule
+def java_lite_proto_library(self: InvocationContext, name: str, **kwargs):
   del self
   del name
   del kwargs

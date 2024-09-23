@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Implements register_toolchain helers."""
+"""Implements register_toolchain helpers."""
 
 # pylint: disable=relative-beyond-top-level,invalid-name
 
