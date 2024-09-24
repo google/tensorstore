@@ -12,22 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load(
-    "//third_party:repo.bzl",
-    "third_party_http_archive",
-)
+# buildifier: disable=module-docstring
 
-# Must match grpc c-ares, see grpc/bazel/grpc_deps.bzl
+load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
+load("//third_party:repo.bzl", "third_party_http_archive")
+
+# Should be compatible with grpc/bazel/grpc_deps.bzl c-ares.
 
 def repo():
     maybe(
         third_party_http_archive,
         name = "com_github_cares_cares",
-        sha256 = "ec76c5e79db59762776bece58b69507d095856c37b81fd35bfb0958e74b61d93",
-        strip_prefix = "c-ares-6654436a307a5a686b008c1d4c93b0085da6e6d8",
+        sha256 = "b3d127d8357863eb465053ce9308b79d9b00314f92ec09df056221a1a45c2fef",
+        strip_prefix = "c-ares-1.33.1",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/c-ares/c-ares/archive/6654436a307a5a686b008c1d4c93b0085da6e6d8.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/c-ares/c-ares/archive/v1.33.1.tar.gz",
         ],
         build_file = Label("//third_party:com_github_cares_cares/cares.BUILD.bazel"),
         system_build_file = Label("//third_party:com_github_cares_cares/system.BUILD.bazel"),

@@ -21,7 +21,6 @@ from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Union, ca
 from .bazel_target import PackageId
 from .bazel_target import RepositoryId
 from .bazel_target import TargetId
-from .common_providers import ConditionProvider
 from .label import Label
 from .label import RelativeLabel
 from .provider import TargetInfo
@@ -119,7 +118,8 @@ class InvocationContext(object):
     raise NotImplementedError("add_analyzed_target")
 
   def evaluate_condition(self, target_id: TargetId) -> bool:
-    return self.get_target_info(target_id)[ConditionProvider].value
+    """Evaluates the target_id as a condition."""
+    raise NotImplementedError("evaluate_condition")
 
   def evaluate_configurable(self, configurable: Configurable[T]) -> T:
     """Evaluates a `Configurable` expression."""
@@ -127,12 +127,8 @@ class InvocationContext(object):
     if isinstance(configurable, Select) or isinstance(
         configurable, SelectExpression
     ):
-      return cast(
-          T,
-          cast(Union[Select[T], SelectExpression[T]], configurable).evaluate(
-              self.evaluate_condition
-          ),
-      )
+      c_t = cast(Union[Select[T], SelectExpression[T]], configurable)
+      return cast(T, c_t.evaluate(self.evaluate_condition))
     return cast(T, configurable)
 
   def evaluate_configurable_list(

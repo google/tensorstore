@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# buildifier: disable=module-docstring
+
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load("//third_party:repo.bzl", "third_party_http_archive")
 
@@ -22,10 +24,10 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_github_grpc_grpc",
-        sha256 = "493d9905aa09124c2f44268b66205dd013f3925a7e82995f36745974e97af609",
-        strip_prefix = "grpc-1.63.0",
+        sha256 = "79ed4ab72fa9589b20f8b0b76c16e353e4cfec1d773d33afad605d97b5682c61",
+        strip_prefix = "grpc-1.66.1",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/grpc/grpc/archive/v1.63.0.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/grpc/grpc/archive/v1.66.1.tar.gz",
         ],
         patches = [
             # Fixes, including https://github.com/grpc/grpc/issues/34482
@@ -38,6 +40,8 @@ def repo():
             "@com_github_google_benchmark": "@com_google_benchmark",
             "@io_bazel_rules_go": "@local_proto_mirror",
             "@com_github_cncf_xds": "@com_github_cncf_udpa",
+            "@zlib": "@net_zlib",
+            "@boringssl": "@com_google_boringssl",
         },
         cmake_name = "gRPC",
         # We currently use grpc++_test, which is not public. Fix that, test, and enable.
@@ -49,6 +53,7 @@ def repo():
                 "--ignore-library=//bazel:python_rules.bzl",
                 "--ignore-library=//bazel:generate_objc.bzl",
                 "--ignore-library=//bazel:python_rules.bzl",
+                "--ignore-library=@rules_fuzzing//fuzzing:cc_defs.bzl",
                 "--exclude-target=//:grpc_cel_engine",
                 "--target=//:grpc",
                 "--target=//:grpc++",
@@ -56,7 +61,13 @@ def repo():
                 "--target=//:grpc++_public_hdrs",
                 "--target=//:grpc++_test",
                 "--target=//src/compiler:grpc_cpp_plugin",
-            ] + ["--bind=" + k + "=" + v for k, v in GRPC_NATIVE_BINDINGS.items()],
+            ] + [
+                "--bind=" + k + "=" + v
+                for k, v in GRPC_NATIVE_BINDINGS.items()
+            ] + [
+                "--bind=//third_party:" + k + "=" + v
+                for k, v in GRPC_NATIVE_BINDINGS.items()
+            ],
             "exclude": [
                 "src/android/**",
                 "src/csharp/**",

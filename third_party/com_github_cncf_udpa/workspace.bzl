@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# buildifier: disable=module-docstring
+
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load("//third_party:repo.bzl", "third_party_http_archive")
 
@@ -20,19 +22,34 @@ def repo():
         third_party_http_archive,
         name = "com_github_cncf_udpa",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/cncf/xds/archive/e9ce68804cb4e64cab5a52e3c8baf840d4ff87b7.tar.gz",  # main(2023-06-23)
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/cncf/xds/archive/b4127c9b8d78b77423fd25169f05b7476b6ea932.tar.gz",  # main(2024-09-11)
         ],
-        sha256 = "0d33b83f8c6368954e72e7785539f0d272a8aba2f6e2e336ed15fd1514bc9899",
-        strip_prefix = "xds-e9ce68804cb4e64cab5a52e3c8baf840d4ff87b7",
+        sha256 = "aa5f1596bbef3f277dcf4700e4c1097b34301ae66f3b79cd731e3adfbaff2f8f",
+        strip_prefix = "xds-b4127c9b8d78b77423fd25169f05b7476b6ea932",
         repo_mapping = {
             "@io_bazel_rules_go": "@local_proto_mirror",
             "@com_envoyproxy_protoc_gen_validate": "@local_proto_mirror",
+            "@dev_cel": "@cel-spec",
         },
         # CMake options
         cmake_name = "udpa",
         cmake_extra_build_file = Label("//third_party:com_github_cncf_udpa/cmake_extra.BUILD.bazel"),
         bazel_to_cmake = {
-            "args": ["--target=" + p + ":all" for p in _PACKAGES],
+            "args": [
+                "--bind=@com_github_cncf_udpa//bazel:api_build_system.bzl=@tensorstore//bazel:proxy_xds_build_system.bzl",
+            ] + [
+                "--target=" + p + ":pkg"
+                for p in _PACKAGES
+            ] + [
+                "--target=" + p + ":pkg_cc_proto"
+                for p in _PACKAGES
+            ] + [
+                "--target=" + p + ":pkg__upb_library"
+                for p in _PACKAGES
+            ] + [
+                "--target=" + p + ":pkg__upbdefs_library"
+                for p in _PACKAGES
+            ],
         },
     )
 

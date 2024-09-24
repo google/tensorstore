@@ -94,12 +94,9 @@ def platform(
 
   context = self.snapshot()
   target = context.resolve_target(name)
-  _constraint_values = context.resolve_target_or_label_list(
-      context.evaluate_configurable_list(constraint_values)
-  )
-  _parents = context.resolve_target_or_label_list(
-      context.evaluate_configurable_list(parents)
-  )
+  _constraint_values = context.resolve_target_or_label_list(constraint_values)
+  _parents = context.resolve_target_or_label_list(parents)
+
   context.add_rule(
       target,
       lambda: _platform_impl(

@@ -330,11 +330,18 @@ class EvaluationState:
     self._unanalyzed_rules.remove(rule_id)
     self._unanalyzed_targets.pop(rule_id, None)
 
-    self._stack.append((target_id, rule_info))
-    if self.verbose > 2:
-      print(f"Invoking {target_id.as_label()}: {repr(rule_info)}")
-    rule_info.impl()
-    self._stack.pop()
+    try:
+      self._stack.append((target_id, rule_info))
+      if self.verbose > 2:
+        print(f"Invoking {target_id.as_label()}: {repr(rule_info)}")
+      rule_info.impl()
+    except Exception as e:
+      e.args = (e.args if e.args else tuple()) + (
+          f"collecting target {target_id.as_label()}",
+      )
+      raise
+    finally:
+      self._stack.pop()
 
     for out_id in rule_info.outs:
       if out_id not in self._analyzed_targets:
@@ -389,6 +396,7 @@ class EvaluationState:
       return target_info[ConditionProvider].value
     if target_info.get(BuildSettingProvider) is not None:
       return target_info[BuildSettingProvider].value
+
     print(f"Using {target_id.as_label()} as false condition.")
     return False
 
@@ -745,16 +753,6 @@ class EvaluationContext(InvocationContext):
         "}\n"
     )
 
-  def record_rule_location(self, mnemonic):
-    # Record the path of non-python callers.
-    s = inspect.stack()
-    callers = []
-    for i in range(2, min(6, len(s))):
-      c = inspect.getframeinfo(s[i][0])
-      if not c.filename.endswith(".py"):
-        callers.append(f"{c.filename}:{c.lineno}")
-    self._rule_location = (mnemonic, callers)
-
   def update_current_package(
       self,
       package: Optional[Package] = None,
@@ -771,14 +769,6 @@ class EvaluationContext(InvocationContext):
   def snapshot(self) -> "EvaluationContext":
     return copy.copy(self)
 
-  @property
-  def caller_package(self) -> Optional[Package]:
-    return self._caller_package
-
-  @property
-  def caller_package_id(self) -> PackageId:
-    return self._caller_package_id
-
   def access(self, provider_type: Type[T]) -> T:
     if provider_type == EvaluationState:
       return cast(T, self._state)
@@ -791,6 +781,24 @@ class EvaluationContext(InvocationContext):
       assert self._caller_package
       return cast(T, Visibility(self._caller_package))
     return super().access(provider_type)
+
+  @property
+  def caller_package(self) -> Optional[Package]:
+    return self._caller_package
+
+  @property
+  def caller_package_id(self) -> PackageId:
+    return self._caller_package_id
+
+  def record_rule_location(self, mnemonic):
+    # Record the path of non-python callers.
+    s = inspect.stack()
+    callers = []
+    for i in range(2, min(6, len(s))):
+      c = inspect.getframeinfo(s[i][0])
+      if not c.filename.endswith(".py"):
+        callers.append(f"{c.filename}:{c.lineno}")
+    self._rule_location = (mnemonic, callers)
 
   def resolve_source_root(
       self, repository_id: RepositoryId
@@ -866,6 +874,12 @@ class EvaluationContext(InvocationContext):
   @trace_exception
   def add_analyzed_target(self, target_id: TargetId, info: TargetInfo) -> None:
     self._state.add_analyzed_target(target_id, info)
+
+  def evaluate_condition(self, target_id: TargetId) -> bool:
+    return self._state.evaluate_condition(target_id)
+
+  def evaluate_configurable(self, configurable: Configurable[T]) -> T:
+    return self._state.evaluate_configurable(configurable)
 
 
 def _exec_module(
