@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# buildifier: disable=module-docstring
+
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load("//third_party:repo.bzl", "third_party_http_archive")
 
@@ -20,11 +22,11 @@ def repo():
         third_party_http_archive,
         name = "envoy_api",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/envoyproxy/data-plane-api/archive/4bcd3855e69a88190c8a88cd6d71538b461dacb8.tar.gz",  # main(2024-05-03)
-            "https://github.com/envoyproxy/data-plane-api/archive/4bcd3855e69a88190c8a88cd6d71538b461dacb8.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/envoyproxy/data-plane-api/archive/19420fea29dd86aa3b25172151f0311476a66599.tar.gz",  # main(2024-09-11)
+            "https://github.com/envoyproxy/data-plane-api/archive/19420fea29dd86aa3b25172151f0311476a66599.tar.gz",
         ],
-        sha256 = "ff9bb431d8a7ed2899e31240a7ef72495904c65606fbe3acfe3d9506e7f7b091",
-        strip_prefix = "data-plane-api-4bcd3855e69a88190c8a88cd6d71538b461dacb8",
+        sha256 = "d84dcb4d88a961fcf6aa5ea1ff479180bd9e58e41ad82d8dca3beacac2fb3bdc",
+        strip_prefix = "data-plane-api-19420fea29dd86aa3b25172151f0311476a66599",
         repo_mapping = {
             "@com_envoyproxy_protoc_gen_validate": "@local_proto_mirror",
             "@io_bazel_rules_go": "@local_proto_mirror",

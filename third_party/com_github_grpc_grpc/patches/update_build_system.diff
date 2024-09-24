@@ -1,81 +1,6 @@
-# Copyright 2022 The TensorStore Authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-# NOTE: The second patch to includes has no change, but is intended to signal
-# whether we still need a workaround in bazel_to_cmake/emit_cc.py
-#
-diff -Nur a/BUILD b/BUILD
---- a/BUILD	2024-04-25 23:05:05
-+++ b/BUILD	2024-05-02 10:49:18
-@@ -23,6 +23,8 @@
-     "grpc_upb_proto_library",
-     "grpc_upb_proto_reflection_library",
-     "python_config_settings",
-+    "if_windows",
-+    "if_mingw",
- )
- 
- licenses(["reciprocal"])
-@@ -220,6 +222,13 @@
- )
- 
- config_setting(
-+    name = "mingw-gcc",
-+    flag_values = {
-+        "@bazel_tools//tools/cpp:compiler": "mingw-gcc",
-+    },
-+)
-+
-+config_setting(
-     name = "mac_x86_64",
-     values = {"cpu": "darwin_x86_64"},
- )
-@@ -2575,6 +2584,7 @@
-     external_deps = [
-         "protobuf_headers",
-         "protobuf",
-+        "absl/status",
-     ],
-     language = "c++",
-     public_hdrs = [
-@@ -3215,6 +3225,7 @@
-     external_deps = [
-         "absl/strings",
-         "absl/strings:str_format",
-+        "absl/types:optional",
-     ],
-     tags = ["nofixdeps"],
-     deps = [
-@@ -3972,6 +3983,7 @@
-         "//src/core:lib/security/security_connector/load_system_roots_supported.h",
-         "//src/core:lib/security/util/json_util.h",
-     ],
-+    linkopts = if_windows(["-defaultlib:crypt32.lib"]) + if_mingw(["-lcrypt32"]),
-     external_deps = ["absl/strings"],
-     language = "c++",
-     visibility = ["@grpc:public"],
-@@ -4291,6 +4303,7 @@
-         "protobuf_struct_upb",
-         "protobuf_timestamp_upb",
-         "ref_counted_ptr",
-+        "server_address",
-         "uri_parser",
-         "work_serializer",
-         "//src/core:default_event_engine",
 diff -Nur a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
---- a/bazel/grpc_build_system.bzl	2024-04-25 23:05:05
-+++ b/bazel/grpc_build_system.bzl	2024-05-02 10:50:24
+--- a/bazel/grpc_build_system.bzl	2024-08-23 23:09:41.000000000 +0000
++++ b/bazel/grpc_build_system.bzl	2024-09-21 06:45:31.065224006 +0000
 @@ -27,8 +27,8 @@
  Contains macros used throughout the repo.
  """
@@ -102,7 +27,7 @@ diff -Nur a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
  def if_not_windows(a):
      return select({
          "//:windows": [],
-@@ -55,6 +63,12 @@
+@@ -57,6 +65,12 @@
          "//conditions:default": [],
      })
  
@@ -115,25 +40,34 @@ diff -Nur a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
  def _get_external_deps(external_deps):
      ret = []
      for dep in external_deps:
-@@ -108,7 +122,7 @@
-         "grpc_opencensus_plugin": PUBLIC,
+@@ -116,7 +130,7 @@
          "grpcpp_gcp_observability": PUBLIC,
          "grpc_resolver_fake": PRIVATE,
+         "grpc++_public_hdrs": PUBLIC,
 -        "grpc++_test": PRIVATE,
 +        "grpc++_test": PUBLIC,
          "http": PRIVATE,
          "httpcli": PRIVATE,
          "iomgr_internal_errqueue": PRIVATE,
-@@ -179,7 +193,7 @@
+@@ -188,7 +202,7 @@
      copts = []
      if language.upper() == "C":
          copts = copts + if_not_windows(["-std=c11"])
 -    linkopts = linkopts + if_not_windows(["-pthread"]) + if_windows(["-defaultlib:ws2_32.lib"])
-+    linkopts = linkopts + if_not_windows(["-pthread"]) + if_windows(["-defaultlib:ws2_32.lib"]) +  if_mingw(["-lws2_32"])
++    linkopts = linkopts + if_not_windows(["-pthread"]) + if_windows(["-defaultlib:ws2_32.lib"]) + if_mingw(["-lws2_32"])
      if select_deps:
          for select_deps_entry in select_deps:
              deps += select(select_deps_entry)
-@@ -538,7 +552,7 @@
+@@ -217,8 +231,6 @@
+         linkopts = linkopts,
+         includes = [
+             "include",
+-            "src/core/ext/upb-gen",  # Once upb code-gen issue is resolved, remove this.
+-            "src/core/ext/upbdefs-gen",  # Once upb code-gen issue is resolved, remove this.
+         ],
+         alwayslink = alwayslink,
+         data = data,
+@@ -549,7 +561,7 @@
      test_args = {
          "data": data,
          "copts": GRPC_DEFAULT_COPTS + copts,
@@ -142,11 +76,69 @@ diff -Nur a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
          "size": size,
          "timeout": timeout,
          "exec_compatible_with": exec_compatible_with,
+diff -Nur a/BUILD b/BUILD
+--- a/BUILD	2024-08-23 23:09:41.000000000 +0000
++++ b/BUILD	2024-09-21 00:03:07.146136113 +0000
+@@ -25,6 +25,8 @@
+     "grpc_upb_proto_library",
+     "grpc_upb_proto_reflection_library",
+     "python_config_settings",
++    "if_windows",
++    "if_mingw",
+ )
+ 
+ licenses(["reciprocal"])
+@@ -205,6 +207,13 @@
+ )
+ 
+ config_setting(
++    name = "mingw-gcc",
++    flag_values = {
++        "@bazel_tools//tools/cpp:compiler": "mingw-gcc",
++    },
++)
++
++config_setting(
+     name = "mac_x86_64",
+     values = {"cpu": "darwin_x86_64"},
+ )
+@@ -2614,6 +2623,7 @@
+     external_deps = [
+         "protobuf_headers",
+         "protobuf",
++        "absl/status",
+     ],
+     language = "c++",
+     public_hdrs = [
+@@ -3332,6 +3342,7 @@
+         "absl/log:log",
+         "absl/strings",
+         "absl/strings:str_format",
++        "absl/types:optional",
+     ],
+     tags = ["nofixdeps"],
+     deps = [
+@@ -4117,6 +4128,7 @@
+         "absl/log:log",
+         "absl/strings",
+     ],
++    linkopts = if_windows(["-defaultlib:crypt32.lib"]) + if_mingw(["-lcrypt32"]),
+     language = "c++",
+     visibility = ["@grpc:public"],
+     deps = [
+@@ -4447,6 +4459,7 @@
+         "protobuf_struct_upb",
+         "protobuf_timestamp_upb",
+         "ref_counted_ptr",
++        "server_address",
+         "uri_parser",
+         "work_serializer",
+         "//src/core:default_event_engine",
 diff -Nur a/src/core/BUILD b/src/core/BUILD
---- a/src/core/BUILD	2024-04-25 23:05:05
-+++ b/src/core/BUILD	2024-09-11 21:53:08
-@@ -2493,6 +2493,7 @@
-         "absl/container:flat_hash_map",
+--- a/src/core/BUILD	2024-08-23 23:09:41.000000000 +0000
++++ b/src/core/BUILD	2024-09-21 00:03:07.146136113 +0000
+@@ -2632,6 +2632,7 @@
+         "absl/log:log",
          "absl/strings",
          "absl/strings:str_format",
 +        "absl/status",
