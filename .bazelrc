@@ -30,8 +30,8 @@ build:gcc_or_clang --host_per_file_copt=upb/.*\\.c$@-Wno-array-bounds,-Wno-strin
 build:gcc_or_clang --per_file_copt=upbc/.*\\.cc$@-Wno-array-bounds,-Wno-stringop-overflow,-Wno-stringop-overread
 build:gcc_or_clang --host_per_file_copt=upbc/.*\\.cc$@-Wno-array-bounds,-Wno-stringop-overflow,-Wno-stringop-overread
 
-build:gcc_or_clang --per_file_copt=src/core.*\\.cc$@-Wno-attributes
-build:gcc_or_clang --host_per_file_copt=src/core.*\\.cc$@-Wno-attributes
+build:gcc_or_clang --per_file_copt=grpc/src/.*\\.cc$@-Wno-attributes
+build:gcc_or_clang --host_per_file_copt=grpc/src/.*\\.cc$@-Wno-attributes
 
 # Use colors
 build:gcc_or_clang --copt=-fdiagnostics-color=always
