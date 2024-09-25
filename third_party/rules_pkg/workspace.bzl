@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# buildifier: disable=module-docstring
+
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 
@@ -19,8 +21,9 @@ def repo():
     maybe(
         http_archive,
         name = "rules_pkg",
+        strip_prefix = "rules_pkg-1.0.1",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/bazelbuild/rules_pkg/releases/download/0.7.0/rules_pkg-0.7.0.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/bazelbuild/rules_pkg/archive/1.0.1.tar.gz",
         ],
-        sha256 = "8a298e832762eda1830597d64fe7db58178aa84cd5926d76d5b744d6558941c2",
+        sha256 = "23005750a27aabfd5975a3d5aeac9542371cbfa24d3ad74e47f80b84547754da",
     )
