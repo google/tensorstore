@@ -1165,6 +1165,10 @@ overall build.</p>
 <span class="n">load</span><span class="p">(</span><span class="s2">&quot;@tensorstore//:external.bzl&quot;</span><span class="p">,</span> <span class="s2">&quot;tensorstore_dependencies&quot;</span><span class="p">)</span>
 
 <span class="n">tensorstore_dependencies</span><span class="p">()</span>
+
+<span class="n">load</span><span class="p">(</span><span class="s2">&quot;@bazel_features//:deps.bzl&quot;</span><span class="p">,</span> <span class="s2">&quot;bazel_features_deps&quot;</span><span class="p">)</span>
+
+<span class="n">bazel_features_deps</span><span class="p">()</span>
 </code></pre></div>
 </div>
 <p>Additionally, TensorStore must be built in C++17 mode.  You should add the
