@@ -19,11 +19,11 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_protobuf",
-        strip_prefix = "protobuf-26.1",
-        sha256 = "4fc5ff1b2c339fb86cd3a25f0b5311478ab081e65ad258c6789359cd84d421f8",
+        strip_prefix = "protobuf-28.2",
+        sha256 = "b2340aa47faf7ef10a0328190319d3f3bee1b24f426d4ce8f4253b6f27ce16db",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/protocolbuffers/protobuf/archive/v26.1.tar.gz",
-            "https://github.com/protocolbuffers/protobuf/archive/v26.1.tar.gz",  # 26.x(2024-05-03)
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/protocolbuffers/protobuf/archive/v28.2.tar.gz",
+            "https://github.com/protocolbuffers/protobuf/archive/v28.2.tar.gz",
         ],
         patches = [
             # protobuf uses rules_python, but we just use the native python rules.
@@ -43,6 +43,7 @@ def repo():
                 # required by bazel_to_cmake
                 "--bind=//src/google/protobuf:wkt_cc_proto=//src/google/protobuf:cmake_wkt_cc_proto",
                 # Ignore libraries
+                "--ignore-library=//bazel/private:native.bzl",
                 "--ignore-library=//bazel:amalgamation.bzl",
                 "--ignore-library=//bazel:py_proto_library.bzl",
                 "--ignore-library=//bazel:python_downloads.bzl",
@@ -102,13 +103,14 @@ def repo():
                 "upb/cmake/**",
                 # Disable languages
                 "csharp/**",
+                "hpb/**",
                 "java/**",
                 "lua/**",
                 "objectivec/**",
                 "php/**",
+                "python/**",
                 "ruby/**",
                 "rust/**",
-                "python/**",
                 "protos/**",  # future C++ api?
             ],
         },

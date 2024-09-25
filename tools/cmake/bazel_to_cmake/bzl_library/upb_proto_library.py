@@ -25,6 +25,7 @@ from ..native_aspect import add_proto_aspect
 from ..native_aspect_proto import aspect_genproto_library_target
 from ..native_aspect_proto import PluginSettings
 from ..native_rules_cc_proto import cc_proto_library_impl
+from ..starlark.aspect import aspect
 from ..starlark.bazel_globals import BazelGlobals
 from ..starlark.bazel_globals import register_bzl_library
 from ..starlark.bazel_target import RepositoryId
@@ -32,7 +33,9 @@ from ..starlark.bazel_target import TargetId
 from ..starlark.invocation_context import InvocationContext
 from ..starlark.invocation_context import RelativeLabel
 from ..starlark.provider import Provider
-
+from ..starlark.provider import provider
+from ..starlark.rule import AttrModule
+from ..starlark.rule import rule
 
 UPB_REPO = RepositoryId("com_google_protobuf")
 
@@ -223,6 +226,10 @@ class UpbMinitableCcInfo(Provider):
 )
 class UpbMinitableProtoLibrary(BazelGlobals):
 
+  def __init__(self, *args, **kwargs):
+    super().__init__(*args, **kwargs)
+    self.bazel_upb_minitable_proto_library_aspect = aspect(self, None)
+
   # pylint: disable-next=invalid-name
   bazel_UpbMinitableCcInfo = UpbMinitableCcInfo
 
@@ -241,51 +248,6 @@ class UpbMinitableProtoLibrary(BazelGlobals):
             target,
             _aspectdeps=_minitable_target,
             _mnemonic="upb_minitable_proto_library",
-            **kwargs,
-        ),
-        visibility=visibility,
-    )
-
-
-#############################################################################
-
-
-class UpbWrappedCcInfo(Provider):
-  """Build setting value (i.e. flag value) corresponding to a Bazel target."""
-
-  __slots__ = ("cc_info", "cc_info_with_thunks")
-
-  def __init__(self, cc_info: List[str], cc_info_with_thunks: List[str]):
-    self.cc_info = cc_info
-    self.cc_info_with_thunks = cc_info_with_thunks
-
-  def __repr__(self):
-    return f"{self.__class__.__name__}({repr(self.cc_info)},{repr(self.cc_info_with_thunks)})"
-
-
-@register_bzl_library(
-    "@com_google_protobuf//bazel:upb_c_proto_library.bzl", build=True
-)
-class UpbCProtoLibrary(BazelGlobals):
-
-  # pylint: disable-next=invalid-name
-  bazel_UpbWrappedCcInfo = UpbWrappedCcInfo
-
-  def bazel_upb_c_proto_library(
-      self,
-      name: str,
-      visibility: Optional[List[RelativeLabel]] = None,
-      **kwargs,
-  ):
-    context = self._context.snapshot()
-    target = context.resolve_target(name)
-    context.add_rule(
-        target,
-        lambda: cc_proto_library_impl(
-            context,
-            target,
-            _aspectdeps=_upb_target,
-            _mnemonic="upb_c_proto_library",
             **kwargs,
         ),
         visibility=visibility,
@@ -324,33 +286,30 @@ class UpbProtoReflectionLibrary(BazelGlobals):
 #############################################################################
 
 
-class UpbProtoLibraryCoptsInfo(Provider):
+class UpbWrappedCcInfo(Provider):
   """Build setting value (i.e. flag value) corresponding to a Bazel target."""
 
-  __slots__ = ("copts",)
+  __slots__ = ("cc_info", "cc_info_with_thunks")
 
-  def __init__(self, copts: List[str]):
-    self.copts = copts
+  def __init__(self, cc_info: List[str], cc_info_with_thunks: List[str]):
+    self.cc_info = cc_info
+    self.cc_info_with_thunks = cc_info_with_thunks
 
   def __repr__(self):
-    return f"{self.__class__.__name__}({repr(self.copts)})"
+    return f"{self.__class__.__name__}({repr(self.cc_info)},{repr(self.cc_info_with_thunks)})"
 
 
 @register_bzl_library(
-    "@com_google_protobuf//bazel:upb_proto_library.bzl", build=True
+    "@com_google_protobuf//bazel:upb_c_proto_library.bzl", build=True
 )
-class UpbProtoLibrary(BazelGlobals):
+class UpbCProtoLibrary(BazelGlobals):
+
+  def __init__(self, *args, **kwargs):
+    super().__init__(*args, **kwargs)
+    self.bazel_upb_c_proto_library_aspect = aspect(self, None)
 
   # pylint: disable-next=invalid-name
   bazel_UpbWrappedCcInfo = UpbWrappedCcInfo
-
-  def bazel_upb_proto_library(
-      self,
-      name: str,
-      visibility: Optional[List[RelativeLabel]] = None,
-      **kwargs,
-  ):
-    return self.bazel_upb_c_proto_library(name, visibility, **kwargs)
 
   def bazel_upb_c_proto_library(
       self,
@@ -372,22 +331,64 @@ class UpbProtoLibrary(BazelGlobals):
         visibility=visibility,
     )
 
-  def bazel_upb_proto_reflection_library(
-      self,
-      name: str,
-      visibility: Optional[List[RelativeLabel]] = None,
-      **kwargs,
-  ):
-    context = self._context.snapshot()
-    target = context.resolve_target(name)
-    context.add_rule(
-        target,
-        lambda: cc_proto_library_impl(
-            context,
-            target,
-            _aspectdeps=_upbdefs_target,
-            _mnemonic="upb_proto_reflection_library",
-            **kwargs,
+
+#############################################################################
+
+
+@register_bzl_library(
+    "@com_google_protobuf//bazel:upb_proto_library.bzl", build=True
+)
+class UpbProtoLibrary(UpbCProtoLibrary, UpbProtoReflectionLibrary):
+
+  def __init__(self, *args, **kwargs):
+    super().__init__(*args, **kwargs)
+    self.bazel_upb_proto_library_aspect = self.bazel_upb_c_proto_library_aspect
+
+  # pylint: disable-next=invalid-name
+  bazel_GeneratedSrcsInfo = provider(
+      "Provides generated headers and sources",
+      fields={
+          "srcs": "list of srcs",
+          "hdrs": "list of hdrs",
+      },
+  )
+
+  def bazel_upb_proto_library(self, **kwargs):
+    return self.bazel_upb_c_proto_library(**kwargs)
+
+  #############################################################################
+
+
+HpbProtoLibraryCoptsInfo = provider(
+    "Provides copts for hpb proto targets",
+    fields={
+        "copts": "copts for hpb_proto_library()",
+    },
+)
+
+
+@register_bzl_library(
+    "@com_google_protobuf//hpb/bazel:hpb_proto_library.bzl", build=True
+)
+class HpbProtoLibrary(BazelGlobals):
+
+  def __init__(self, *args, **kwargs):
+    super().__init__(*args, **kwargs)
+    self.bazel_hpb_proto_library_copts = rule(
+        self,
+        implementation=lambda ctx: HpbProtoLibraryCoptsInfo(
+            copts=ctx.attr.copts
         ),
-        visibility=visibility,
+        attrs={"copts": AttrModule.string_list(default=[])},
     )
+
+  def bazel_upb_use_cpp_toolchain():
+    return True
+
+  bazel_HpbProtoLibraryCoptsInfo = HpbProtoLibraryCoptsInfo
+
+  def bazel_upb_cc_proto_library(self, **kwargs):
+    pass
+
+  def bazel_hpb_proto_library(self, **kwargs):
+    pass

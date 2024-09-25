@@ -102,6 +102,7 @@ ABSL_CMAKE_MAPPING = {
     "//absl/status:statusor": "absl::statusor",
     "//absl/strings:cord": "absl::cord",
     "//absl/strings:str_format": "absl::str_format",
+    "//absl/strings:string_view": "absl::string_view",
     "//absl/strings:strings": "absl::strings",
     "//absl/synchronization:synchronization": "absl::synchronization",
     "//absl/time:civil_time": "absl::civil_time",
