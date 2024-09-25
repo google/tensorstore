@@ -66,6 +66,12 @@ class BuildFileLibraryGlobals(BazelGlobals):
     del kwargs
     pass
 
+  def bazel_test_suite(self, name, **kwargs):
+    """https://bazel.build/reference/be/general#test_suite"""
+    del name
+    del kwargs
+    pass
+
   @property
   def bazel_cc_common(self):
     return CcCommonModule

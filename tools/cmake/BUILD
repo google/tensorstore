@@ -48,6 +48,7 @@ SRCS = [
     "bazel_to_cmake/platforms.py",
     "bazel_to_cmake/provider_util.py",
     "bazel_to_cmake/starlark/__init__.py",
+    "bazel_to_cmake/starlark/aspect.py",
     "bazel_to_cmake/starlark/bazel_build_file.py",
     "bazel_to_cmake/starlark/bazel_glob_test.py",
     "bazel_to_cmake/starlark/bazel_glob.py",
