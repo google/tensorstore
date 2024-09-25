@@ -20,10 +20,10 @@ load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 def repo():
     maybe(
         http_archive,
-        name = "bazel_skylib",
-        strip_prefix = "bazel-skylib-1.7.1",
+        name = "bazel_features",
+        sha256 = "bdc12fcbe6076180d835c9dd5b3685d509966191760a0eb10b276025fcb76158",
+        strip_prefix = "bazel_features-1.17.0",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/bazelbuild/bazel-skylib/archive/1.7.1.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/bazel-contrib/bazel_features/archive/v1.17.0.tar.gz",
         ],
-        sha256 = "e3fea03ff75a9821e84199466799ba560dbaebb299c655b5307f4df1e5970696",
     )

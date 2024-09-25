@@ -197,6 +197,11 @@ To add TensorStore as a dependency to an existing Bazel workspace:
 
    tensorstore_dependencies()
 
+   load("@bazel_features//:deps.bzl", "bazel_features_deps")
+
+   bazel_features_deps()
+
+
 Additionally, TensorStore must be built in C++17 mode.  You should add the
 compiler flags specified in the ``.bazelrc`` file in the TensorStore repository
 to your dependent project's ``.bazelrc``.
