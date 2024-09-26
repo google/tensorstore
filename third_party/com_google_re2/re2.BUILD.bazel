@@ -1,0 +1,81 @@
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])
+
+exports_files(["LICENSE"])
+
+cc_library(
+    name = "re2",
+    srcs = [
+        "re2/bitmap256.cc",
+        "re2/bitmap256.h",
+        "re2/bitstate.cc",
+        "re2/compile.cc",
+        "re2/dfa.cc",
+        "re2/filtered_re2.cc",
+        "re2/mimics_pcre.cc",
+        "re2/nfa.cc",
+        "re2/onepass.cc",
+        "re2/parse.cc",
+        "re2/perl_groups.cc",
+        "re2/pod_array.h",
+        "re2/prefilter.cc",
+        "re2/prefilter.h",
+        "re2/prefilter_tree.cc",
+        "re2/prefilter_tree.h",
+        "re2/prog.cc",
+        "re2/prog.h",
+        "re2/re2.cc",
+        "re2/regexp.cc",
+        "re2/regexp.h",
+        "re2/set.cc",
+        "re2/simplify.cc",
+        "re2/sparse_array.h",
+        "re2/sparse_set.h",
+        "re2/tostring.cc",
+        "re2/unicode_casefold.cc",
+        "re2/unicode_casefold.h",
+        "re2/unicode_groups.cc",
+        "re2/unicode_groups.h",
+        "re2/walker-inl.h",
+        "util/rune.cc",
+        "util/strutil.cc",
+        "util/strutil.h",
+        "util/utf.h",
+    ],
+    hdrs = [
+        "re2/filtered_re2.h",
+        "re2/re2.h",
+        "re2/set.h",
+        "re2/stringpiece.h",
+    ],
+    copts = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["-pthread"],
+    }),
+    linkopts = select({
+        # macOS doesn't need `-pthread' when linking and it appears that
+        # older versions of Clang will warn about the unused command line
+        # argument, so just don't pass it.
+        "@platforms//os:macos": [],
+        "@platforms//os:windows": [],
+        "//conditions:default": ["-pthread"],
+    }),
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_google_absl//absl/base",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/container:fixed_array",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/container:inlined_vector",
+        "@com_google_absl//absl/hash",
+        "@com_google_absl//absl/log:absl_check",
+        "@com_google_absl//absl/log:absl_log",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
+        "@com_google_absl//absl/synchronization",
+        "@com_google_absl//absl/types:optional",
+        "@com_google_absl//absl/types:span",
+    ],
+)

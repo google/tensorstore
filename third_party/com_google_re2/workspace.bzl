@@ -12,11 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# buildifier: disable=module-docstring
+
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load(
-    "//third_party:repo.bzl",
-    "third_party_http_archive",
-)
+load("//third_party:repo.bzl", "third_party_http_archive")
 
 # REPO_BRANCH = main
 
@@ -24,14 +23,13 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_re2",
-        strip_prefix = "re2-03da4fc0857c285e3a26782f6bc8931c4c950df4",
+        strip_prefix = "re2-2024-07-02",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/google/re2/archive/03da4fc0857c285e3a26782f6bc8931c4c950df4.tar.gz",  # 2023-06-01
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/google/re2/releases/download/2024-07-02/re2-2024-07-02.tar.gz",
         ],
-        sha256 = "ef516fb84824a597c4d5d0d6d330daedb18363b5a99eda87d027e6bdd9cba299",
-        repo_mapping = {
-            "@com_github_google_benchmark": "@com_google_benchmark",
-        },
+        sha256 = "eb2df807c781601c14a260a507a5bb4509be1ee626024cb45acbd57cb9d4032b",
+        # Cloned from the repo in place of patching the bundled BUILD.bazel
+        build_file = Label("//third_party:com_google_re2/re2.BUILD.bazel"),
         cmake_name = "Re2",
         bazel_to_cmake = {
             "include": [""],

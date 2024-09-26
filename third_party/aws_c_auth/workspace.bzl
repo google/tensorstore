@@ -21,10 +21,10 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "aws_c_auth",
-        sha256 = "f49f5dce1153e908dd9c0639f4aa4b1477f8564a28635f433cc0be121a18106e",
-        strip_prefix = "aws-c-auth-0.7.29",
+        sha256 = "7f97aacef6bd1649734383c2bf022250671f353b7fa60d195e6865d7f4594b43",
+        strip_prefix = "aws-c-auth-0.7.31",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/awslabs/aws-c-auth/archive/v0.7.29.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/awslabs/aws-c-auth/archive/v0.7.31.tar.gz",
         ],
         build_file = Label("//third_party:aws_c_auth/aws_c_auth.BUILD.bazel"),
         cmake_name = "aws_c_auth",

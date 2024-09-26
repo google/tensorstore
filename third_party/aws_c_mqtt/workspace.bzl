@@ -21,10 +21,10 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "aws_c_mqtt",
-        sha256 = "6a41456f9eee15d71e4e2ee162b354865809f26620f1e6e5acb237f190f77f3f",
-        strip_prefix = "aws-c-mqtt-0.10.4",
+        sha256 = "7579fafc74a8751c15c0196eda6ec93d00a17e7f79fb994f34a8f62ceb66cc62",
+        strip_prefix = "aws-c-mqtt-0.10.6",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/awslabs/aws-c-mqtt/archive/v0.10.4.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/awslabs/aws-c-mqtt/archive/v0.10.6.tar.gz",
         ],
         build_file = Label("//third_party:aws_c_mqtt/aws_c_mqtt.BUILD.bazel"),
         cmake_name = "aws_c_mqtt",

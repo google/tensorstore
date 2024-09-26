@@ -21,10 +21,10 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "aws_crt_cpp",
-        sha256 = "7f27df9d2028008e665bab4b2e094365eac696610610e52182c679a43dbeaf6f",
-        strip_prefix = "aws-crt-cpp-0.28.2",
+        sha256 = "0d0255eb1983ff3b6f7a7e98a54f65e2e8b40a7c7d6118a96a9c656ada7afb5f",
+        strip_prefix = "aws-crt-cpp-0.28.3",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/awslabs/aws-crt-cpp/archive/v0.28.2.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/awslabs/aws-crt-cpp/archive/v0.28.3.tar.gz",
         ],
         build_file = Label("//third_party:aws_crt_cpp/aws_crt_cpp.BUILD.bazel"),
         remove_paths = ["VERSION"],
