@@ -12,11 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# buildifier: disable=module-docstring
+
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load(
-    "//third_party:repo.bzl",
-    "third_party_http_archive",
-)
+load("//third_party:repo.bzl", "third_party_http_archive")
 
 # Homepages http://www.simplesystems.org/libtiff/
 # TODO: Use mirror the gitlab bundle: "https://gitlab.com/libtiff/libtiff"
@@ -25,10 +24,10 @@ def repo():
         third_party_http_archive,
         name = "libtiff",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/download.osgeo.org/libtiff/tiff-4.6.0.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/download.osgeo.org/libtiff/tiff-4.7.0.tar.gz",
         ],
-        sha256 = "88b3979e6d5c7e32b50d7ec72fb15af724f6ab2cbf7e10880c360a77e4b5d99a",
-        strip_prefix = "tiff-4.6.0",
+        sha256 = "67160e3457365ab96c5b3286a0903aa6e78bdc44c4bc737d2e486bcecb6ba976",
+        strip_prefix = "tiff-4.7.0",
         build_file = Label("//third_party:libtiff/libtiff.BUILD.bazel"),
         system_build_file = Label("//third_party:libtiff/system.BUILD.bazel"),
         remove_paths = ["VERSION"],
