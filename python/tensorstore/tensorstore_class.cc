@@ -871,7 +871,7 @@ Group:
 
   cls.def(
       "__array__",
-      [](Self& self, std::optional<py::dtype> dtype,
+      [](Self& self, std::optional<py::dtype> dtype, std::optional<bool> copy,
          std::optional<py::object> context) {
         return ValueOrThrow(internal_python::InterruptibleWait(
             tensorstore::Read<zero_origin>(self.value)));
@@ -920,7 +920,8 @@ Group:
   I/O
 
 )",
-      py::arg("dtype") = std::nullopt, py::arg("context") = std::nullopt);
+      py::arg("dtype") = std::nullopt, py::arg("copy") = std::nullopt,
+      py::arg("context") = std::nullopt);
 
   cls.def(
       "resolve",
