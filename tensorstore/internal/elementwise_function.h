@@ -409,9 +409,9 @@ struct SimpleLoopTemplate<Func(Element...), ExtraArg...> {
       ExtraArg... extra_arg) {
     using Traits = StatelessTraits<Func>;
     using FuncType = typename Traits::type;
+    static_assert(ArrayAccessor::buffer_kind ==
+                  internal::IterationBufferKind::kContiguous);
     static_assert(
-        ArrayAccessor::buffer_kind ==
-            internal::IterationBufferKind::kContiguous &&
         HasApplyContiguous<Func(Element...), /*SFINAE=*/void, ExtraArg...>);
 
     internal::PossiblyEmptyObjectGetter<FuncType> func_helper;
@@ -519,10 +519,11 @@ class ElementwiseFunction {
 
   constexpr ElementwiseFunction() = default;
 
-  template <
-      typename LoopTemplate,
-      typename = decltype(&LoopTemplate::template Loop<IterationBufferAccessor<
-                              IterationBufferKind::kContiguous>>)>
+  // Initializes a dispatch table by calling LoopTemplate::GetLoopFn().
+  template <typename LoopTemplate,
+            typename = decltype(LoopTemplate::template GetLoopFn<
+                                IterationBufferAccessor<
+                                    IterationBufferKind::kContiguous>>())>
   constexpr explicit ElementwiseFunction(LoopTemplate)
       : functions_{
             LoopTemplate::template GetLoopFn<

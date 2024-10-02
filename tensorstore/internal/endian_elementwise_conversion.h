@@ -225,9 +225,10 @@ struct WriteSwapEndianLoopTemplate {
   static bool ContiguousBytes(void* context,
                               internal::IterationBufferShape shape,
                               IterationBufferPointer source, void* /*arg*/) {
-    static_assert(SubElementSize == 1 &&
-                  ArrayAccessor::buffer_kind ==
-                      internal::IterationBufferKind::kContiguous);
+    static_assert(SubElementSize == 1);
+    static_assert(ArrayAccessor::buffer_kind ==
+                  internal::IterationBufferKind::kContiguous);
+
     auto& writer = *reinterpret_cast<riegeli::Writer*>(context);
     for (Index outer_i = 0; outer_i < shape[0]; ++outer_i) {
       // Fast path: source array is contiguous and byte swapping is not
@@ -279,6 +280,9 @@ struct WriteSwapEndianLoopTemplate {
   template <typename ArrayAccessor>
   static bool Loop(void* context, internal::IterationBufferShape shape,
                    IterationBufferPointer source, void* /*arg*/) {
+    static_assert(ArrayAccessor::buffer_kind !=
+                  internal::IterationBufferKind::kContiguous);
+
     auto& writer = *reinterpret_cast<riegeli::Writer*>(context);
     for (Index outer_i = 0; outer_i < shape[0]; ++outer_i) {
       Index element_i = 0;
@@ -347,9 +351,10 @@ struct ReadSwapEndianLoopTemplate {
   static bool ContiguousBytes(void* context,
                               internal::IterationBufferShape shape,
                               IterationBufferPointer dest, void* /*arg*/) {
-    static_assert(SubElementSize == 1 &&
-                  ArrayAccessor::buffer_kind ==
-                      internal::IterationBufferKind::kContiguous);
+    static_assert(SubElementSize == 1);
+    static_assert(ArrayAccessor::buffer_kind ==
+                  internal::IterationBufferKind::kContiguous);
+
     auto& reader = *reinterpret_cast<riegeli::Reader*>(context);
     for (Index outer_i = 0; outer_i < shape[0]; ++outer_i) {
       // Fast path: destination array is contiguous and byte swapping is not
@@ -380,8 +385,9 @@ struct ReadSwapEndianLoopTemplate {
   static bool Contiguous(void* context, internal::IterationBufferShape shape,
                          IterationBufferPointer dest, void* /*arg*/) {
     static_assert(ArrayAccessor::buffer_kind ==
-                      internal::IterationBufferKind::kContiguous &&
-                  !IsBool);
+                  internal::IterationBufferKind::kContiguous);
+    static_assert(!IsBool);
+
     auto& reader = *reinterpret_cast<riegeli::Reader*>(context);
     for (Index outer_i = 0; outer_i < shape[0]; ++outer_i) {
       Element* output = ArrayAccessor::template GetPointerAtPosition<Element>(
@@ -412,10 +418,8 @@ struct ReadSwapEndianLoopTemplate {
   template <typename ArrayAccessor>
   static bool Loop(void* context, internal::IterationBufferShape shape,
                    IterationBufferPointer dest, void* /*arg*/) {
-    static_assert(!(SubElementSize == 1 &&
-                    ArrayAccessor::buffer_kind ==
-                        internal::IterationBufferKind::kContiguous &&
-                    !IsBool));
+    static_assert(ArrayAccessor::buffer_kind !=
+                  internal::IterationBufferKind::kContiguous);
 
     auto& reader = *reinterpret_cast<riegeli::Reader*>(context);
     for (Index outer_i = 0; outer_i < shape[0]; ++outer_i) {
@@ -431,6 +435,14 @@ struct ReadSwapEndianLoopTemplate {
                           element_i + (reader.available() / sizeof(Element))));
         const char* cursor = reader.cursor();
         for (; element_i < end_element_i; ++element_i) {
+          if constexpr (IsBool) {
+            if (*cursor & ~static_cast<unsigned char>(1)) {
+              reader.set_cursor(cursor);
+              reader.Fail(absl::InvalidArgumentError(tensorstore::StrCat(
+                  "Invalid bool value: ", static_cast<unsigned int>(*cursor))));
+              return false;
+            }
+          }
           SwapEndianUnaligned<SubElementSize, NumSubElements>(
               cursor, ArrayAccessor::template GetPointerAtPosition<Element>(
                           dest, outer_i, element_i));
