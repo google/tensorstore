@@ -141,7 +141,6 @@
 #include <utility>
 
 #include "absl/meta/type_traits.h"
-#include "absl/status/status.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/internal/type_traits.h"
@@ -389,56 +388,88 @@ template <typename Func, typename... Element, typename... ExtraArg>
 struct SimpleLoopTemplate<Func(Element...), ExtraArg...> {
   using ElementwiseFunctionType =
       internal::ElementwiseFunction<sizeof...(Element), ExtraArg...>;
+
+  template <typename ArrayAccessor>
+  static constexpr auto GetLoopFn() {
+    if constexpr (ArrayAccessor::buffer_kind ==
+                      internal::IterationBufferKind::kContiguous &&
+                  HasApplyContiguous<Func(Element...), /*SFINAE=*/void,
+                                     ExtraArg...>) {
+      return &FastLoop<ArrayAccessor>;
+    } else {
+      return &Loop<ArrayAccessor>;
+    }
+  }
+
+  /// \tparam ArrayAccessor The ArrayAccessor type.
+  template <typename ArrayAccessor>
+  static bool FastLoop(
+      void* context, internal::IterationBufferShape shape,
+      internal::FirstType<internal::IterationBufferPointer, Element>... pointer,
+      ExtraArg... extra_arg) {
+    using Traits = StatelessTraits<Func>;
+    using FuncType = typename Traits::type;
+    static_assert(
+        ArrayAccessor::buffer_kind ==
+            internal::IterationBufferKind::kContiguous &&
+        HasApplyContiguous<Func(Element...), /*SFINAE=*/void, ExtraArg...>);
+
+    internal::PossiblyEmptyObjectGetter<FuncType> func_helper;
+    FuncType& func = func_helper.get(static_cast<FuncType*>(context));
+    for (Index outer = 0; outer < shape[0]; ++outer) {
+      if constexpr (StatelessTraits<Func>::is_stateless) {
+        if (!func.ApplyContiguous(
+                *static_cast<typename Func::ContextType*>(context), shape[1],
+                ArrayAccessor::template GetPointerAtPosition<Element>(
+                    pointer, outer, 0)...,
+                extra_arg...)) {
+          return false;
+        }
+      } else {
+        if (!func.ApplyContiguous(
+                shape[1],
+                ArrayAccessor::template GetPointerAtPosition<Element>(
+                    pointer, outer, 0)...,
+                extra_arg...)) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
   /// \tparam ArrayAccessor The ArrayAccessor type.
   template <typename ArrayAccessor>
   static bool Loop(
       void* context, internal::IterationBufferShape shape,
       internal::FirstType<internal::IterationBufferPointer, Element>... pointer,
       ExtraArg... extra_arg) {
+    static_assert(
+        !(ArrayAccessor::buffer_kind ==
+              internal::IterationBufferKind::kContiguous &&
+          HasApplyContiguous<Func(Element...), /*SFINAE=*/void, ExtraArg...>));
+
     using Traits = StatelessTraits<Func>;
     using FuncType = typename Traits::type;
     internal::PossiblyEmptyObjectGetter<FuncType> func_helper;
     FuncType& func = func_helper.get(static_cast<FuncType*>(context));
     for (Index outer = 0; outer < shape[0]; ++outer) {
-      if constexpr (ArrayAccessor::buffer_kind ==
-                        internal::IterationBufferKind::kContiguous &&
-                    HasApplyContiguous<Func(Element...), /*SFINAE=*/void,
-                                       ExtraArg...>) {
-        if constexpr (Traits::is_stateless) {
-          if (!func.ApplyContiguous(
-                  *static_cast<typename Func::ContextType*>(context), shape[1],
+      for (Index inner = 0; inner < shape[1]; ++inner) {
+        if constexpr (StatelessTraits<Func>::is_stateless) {
+          if (!static_cast<bool>(internal::Void::CallAndWrap(
+                  func, *static_cast<typename Func::ContextType*>(context),
                   ArrayAccessor::template GetPointerAtPosition<Element>(
-                      pointer, outer, 0)...,
-                  extra_arg...)) {
+                      pointer, outer, inner)...,
+                  extra_arg...))) {
             return false;
           }
         } else {
-          if (!func.ApplyContiguous(
-                  shape[1],
+          if (!static_cast<bool>(internal::Void::CallAndWrap(
+                  func,
                   ArrayAccessor::template GetPointerAtPosition<Element>(
-                      pointer, outer, 0)...,
-                  extra_arg...)) {
+                      pointer, outer, inner)...,
+                  extra_arg...))) {
             return false;
-          }
-        }
-      } else {
-        for (Index inner = 0; inner < shape[1]; ++inner) {
-          if constexpr (Traits::is_stateless) {
-            if (!static_cast<bool>(internal::Void::CallAndWrap(
-                    func, *static_cast<typename Func::ContextType*>(context),
-                    ArrayAccessor::template GetPointerAtPosition<Element>(
-                        pointer, outer, inner)...,
-                    extra_arg...))) {
-              return false;
-            }
-          } else {
-            if (!static_cast<bool>(internal::Void::CallAndWrap(
-                    func,
-                    ArrayAccessor::template GetPointerAtPosition<Element>(
-                        pointer, outer, inner)...,
-                    extra_arg...))) {
-              return false;
-            }
           }
         }
       }
@@ -494,12 +525,12 @@ class ElementwiseFunction {
                               IterationBufferKind::kContiguous>>)>
   constexpr explicit ElementwiseFunction(LoopTemplate)
       : functions_{
-            &LoopTemplate::template Loop<
-                IterationBufferAccessor<IterationBufferKind::kContiguous>>,
-            &LoopTemplate::template Loop<
-                IterationBufferAccessor<IterationBufferKind::kStrided>>,
-            &LoopTemplate::template Loop<
-                IterationBufferAccessor<IterationBufferKind::kIndexed>>} {}
+            LoopTemplate::template GetLoopFn<
+                IterationBufferAccessor<IterationBufferKind::kContiguous>>(),
+            LoopTemplate::template GetLoopFn<
+                IterationBufferAccessor<IterationBufferKind::kStrided>>(),
+            LoopTemplate::template GetLoopFn<
+                IterationBufferAccessor<IterationBufferKind::kIndexed>>()} {}
 
   constexpr SpecializedFunctionPointer operator[](
       IterationBufferKind buffer_kind) const {

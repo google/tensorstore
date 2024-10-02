@@ -105,63 +105,26 @@ bazel run -c opt \
 #include <stddef.h>
 #include <stdint.h>
 
-#include <algorithm>
 #include <optional>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "absl/flags/flag.h"
-#include "absl/flags/marshalling.h"
 #include "absl/log/absl_log.h"
 #include "absl/random/random.h"
-#include "absl/strings/str_cat.h"
-#include "absl/strings/str_join.h"
-#include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "tensorstore/context.h"
 #include "tensorstore/driver/driver_testutil.h"
 #include "absl/flags/parse.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/benchmark/metric_utils.h"
+#include "tensorstore/internal/benchmark/vector_flag.h"
 #include "tensorstore/spec.h"
 #include "tensorstore/util/json_absl_flag.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
 namespace {
-
-template <typename T>
-struct VectorFlag {
-  VectorFlag() = default;
-  VectorFlag(std::vector<T> e) : elements(std::move(e)) {}
-  VectorFlag(T x) : elements({std::move(x)}) {}
-
-  std::vector<T> elements;
-};
-
-template <typename T>
-std::string AbslUnparseFlag(const VectorFlag<T>& list) {
-  auto unparse_element = [](std::string* const out, const T element) {
-    absl::StrAppend(out, absl::UnparseFlag(element));
-  };
-  return absl::StrJoin(list.elements, ",", unparse_element);
-}
-
-template <typename T>
-bool AbslParseFlag(absl::string_view text, VectorFlag<T>* list,
-                   std::string* error) {
-  list->elements.clear();
-  for (const auto& part : absl::StrSplit(text, ',', absl::SkipWhitespace())) {
-    T element;
-    // Let flag module parse the element type for us.
-    if (!absl::ParseFlag(part, &element, error)) {
-      return false;
-    }
-    list->elements.push_back(element);
-  }
-  return true;
-}
 
 tensorstore::Spec DefaultTensorstore() {
   return tensorstore::Spec::FromJson(
@@ -197,7 +160,7 @@ ABSL_FLAG(tensorstore::JsonAbslFlag<tensorstore::Context::Spec>, context_spec,
 ABSL_FLAG(std::string, strategy, "random",
           "Specifies the strategy to use: 'sequential' or 'random'.");
 
-ABSL_FLAG(VectorFlag<tensorstore::Index>, chunk_shape, {},
+ABSL_FLAG(tensorstore::VectorFlag<tensorstore::Index>, chunk_shape, {},
           "Read/write chunks of --chunk_shape dimensions.");
 
 ABSL_FLAG(size_t, chunk_bytes, 2 * 1024 * 1024,

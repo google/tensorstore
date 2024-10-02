@@ -17,10 +17,10 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <cstddef>
 #include <memory>
 #include <utility>
 
-#include "absl/container/inlined_vector.h"
 #include "absl/status/status.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
@@ -32,7 +32,6 @@
 #include "tensorstore/internal/nditerable_util.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal {
@@ -93,6 +92,52 @@ std::ptrdiff_t NDIterableCopyManager::GetWorkingMemoryBytesPerElement(
   return num_bytes;
 }
 
+bool NDIteratorCopyManager::CopyImplBoth(NDIteratorCopyManager* self,
+                                         tensorstore::span<const Index> indices,
+                                         IterationBufferShape block_shape,
+                                         absl::Status* status) {
+  IterationBufferPointer input_pointer, output_pointer;
+  return self->input_->GetBlock(indices, block_shape, &input_pointer, status) &&
+         self->output_->GetBlock(indices, block_shape, &output_pointer,
+                                 status) &&
+         self->copy_elements_function_(nullptr, block_shape, input_pointer,
+                                       output_pointer, status) &&
+         self->output_->UpdateBlock(indices, block_shape, output_pointer,
+                                    status);
+}
+
+bool NDIteratorCopyManager::CopyImplInput(
+    NDIteratorCopyManager* self, tensorstore::span<const Index> indices,
+    IterationBufferShape block_shape, absl::Status* status) {
+  IterationBufferPointer pointer;
+  return self->input_->GetBlock(indices, block_shape, &pointer, status) &&
+         self->output_->GetBlock(indices, block_shape, &pointer, status) &&
+         self->output_->UpdateBlock(indices, block_shape, pointer, status);
+}
+
+bool NDIteratorCopyManager::CopyImplOutput(
+    NDIteratorCopyManager* self, tensorstore::span<const Index> indices,
+    IterationBufferShape block_shape, absl::Status* status) {
+  IterationBufferPointer pointer;
+  return self->output_->GetBlock(indices, block_shape, &pointer, status) &&
+         self->input_->GetBlock(indices, block_shape, &pointer, status) &&
+         self->output_->UpdateBlock(indices, block_shape, pointer, status);
+}
+
+bool NDIteratorCopyManager::CopyImplExternal(
+    NDIteratorCopyManager* self, tensorstore::span<const Index> indices,
+    IterationBufferShape block_shape, absl::Status* status) {
+  return self->input_->GetBlock(indices, block_shape,
+                                &self->buffer_manager_.buffer_pointers()[0][0],
+                                status) &&
+         self->output_->GetBlock(indices, block_shape,
+                                 &self->buffer_manager_.buffer_pointers()[1][0],
+                                 status) &&
+         self->output_->UpdateBlock(
+             indices, block_shape,
+             self->buffer_manager_.buffer_pointers()[1][0], status);
+}
+
 NDIteratorCopyManager::NDIteratorCopyManager(
     const NDIterableCopyManager& iterable,
     NDIterable::IterationBufferLayoutView layout, ArenaAllocator<> allocator)
@@ -102,22 +147,7 @@ NDIteratorCopyManager::NDIteratorCopyManager(
       {layout, buffer_parameters.input_buffer_kind});
   output_ = iterable.output()->GetIterator(
       {layout, buffer_parameters.output_buffer_kind});
-  switch (buffer_parameters.buffer_source) {
-    case NDIterableCopyManager::BufferSource::kBoth:
-      copy_elements_function_ =
-          iterable.input()
-              ->dtype()
-              ->copy_assign[buffer_parameters.input_buffer_kind];
-      break;
-    case NDIterableCopyManager::BufferSource::kExternal:
-      buffer_manager_.Initialize(layout.block_shape,
-                                 {{iterable.input()->dtype()}},
-                                 {{{{buffer_parameters.input_buffer_kind,
-                                     buffer_parameters.output_buffer_kind}}}});
-      break;
-    default:
-      break;
-  }
+
   // Single block copy implementation for each possible `buffer_source`.
   //
   // In all cases, the sequence is as follows:
@@ -129,56 +159,28 @@ NDIteratorCopyManager::NDIteratorCopyManager(
   //    i.e. `buffer_source=kBoth`, copy from the input to output buffer.
   //
   // 3. Call `UpdateBlock` on the output iterator.
-  constexpr static CopyImpl kCopyImpls[] = {
-      // kBoth
-      [](NDIteratorCopyManager* self, tensorstore::span<const Index> indices,
-         IterationBufferShape block_shape, absl::Status* status) -> bool {
-        IterationBufferPointer input_pointer, output_pointer;
-        return self->input_->GetBlock(indices, block_shape, &input_pointer,
-                                      status) &&
-               self->output_->GetBlock(indices, block_shape, &output_pointer,
-                                       status) &&
-               self->copy_elements_function_(nullptr, block_shape,
-                                             input_pointer, output_pointer,
-                                             status) &&
-               self->output_->UpdateBlock(indices, block_shape, output_pointer,
-                                          status);
-      },
-      // kInput
-      [](NDIteratorCopyManager* self, tensorstore::span<const Index> indices,
-         IterationBufferShape block_shape, absl::Status* status) -> bool {
-        IterationBufferPointer pointer;
-        return self->input_->GetBlock(indices, block_shape, &pointer, status) &&
-               self->output_->GetBlock(indices, block_shape, &pointer,
-                                       status) &&
-               self->output_->UpdateBlock(indices, block_shape, pointer,
-                                          status);
-      },
-      // kOutput
-      [](NDIteratorCopyManager* self, tensorstore::span<const Index> indices,
-         IterationBufferShape block_shape, absl::Status* status) -> bool {
-        IterationBufferPointer pointer;
-        return self->output_->GetBlock(indices, block_shape, &pointer,
-                                       status) &&
-               self->input_->GetBlock(indices, block_shape, &pointer, status) &&
-               self->output_->UpdateBlock(indices, block_shape, pointer,
-                                          status);
-      },
-      // kExternal
-      [](NDIteratorCopyManager* self, tensorstore::span<const Index> indices,
-         IterationBufferShape block_shape, absl::Status* status) -> bool {
-        return self->input_->GetBlock(
-                   indices, block_shape,
-                   &self->buffer_manager_.buffer_pointers()[0][0], status) &&
-               self->output_->GetBlock(
-                   indices, block_shape,
-                   &self->buffer_manager_.buffer_pointers()[1][0], status) &&
-               self->output_->UpdateBlock(
-                   indices, block_shape,
-                   self->buffer_manager_.buffer_pointers()[1][0], status);
-      },
-  };
-  copy_impl_ = kCopyImpls[static_cast<int>(buffer_parameters.buffer_source)];
+  switch (buffer_parameters.buffer_source) {
+    case NDIterableCopyManager::BufferSource::kInput:
+      copy_impl_ = NDIteratorCopyManager::CopyImplInput;
+      break;
+    case NDIterableCopyManager::BufferSource::kOutput:
+      copy_impl_ = NDIteratorCopyManager::CopyImplOutput;
+      break;
+    case NDIterableCopyManager::BufferSource::kBoth:
+      copy_impl_ = NDIteratorCopyManager::CopyImplBoth;
+      copy_elements_function_ =
+          iterable.input()
+              ->dtype()
+              ->copy_assign[buffer_parameters.input_buffer_kind];
+      break;
+    case NDIterableCopyManager::BufferSource::kExternal:
+      copy_impl_ = NDIteratorCopyManager::CopyImplExternal;
+      buffer_manager_.Initialize(layout.block_shape,
+                                 {{iterable.input()->dtype()}},
+                                 {{{{buffer_parameters.input_buffer_kind,
+                                     buffer_parameters.output_buffer_kind}}}});
+      break;
+  }
 }
 
 NDIterableCopier::NDIterableCopier(const NDIterable& input,

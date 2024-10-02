@@ -19,16 +19,19 @@
 
 #include <algorithm>
 #include <array>
+#include <string>
 #include <string_view>
 
 #include "absl/status/status.h"
+#include <nlohmann/json_fwd.hpp>
+#include "riegeli/bytes/reader.h"
+#include "riegeli/bytes/writer.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/internal/riegeli/delimited.h"
 #include "tensorstore/internal/riegeli/json_input.h"
 #include "tensorstore/internal/riegeli/json_output.h"
 #include "tensorstore/util/endian.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 #include "tensorstore/util/utf8_string.h"
 
@@ -203,46 +206,101 @@ struct WriteSwapEndianLoopTemplate {
   using Element = std::array<unsigned char, SubElementSize * NumSubElements>;
 
   using ElementwiseFunctionType = ElementwiseFunction<1, void*>;
+
+  template <typename ArrayAccessor>
+  static constexpr auto GetLoopFn() {
+    if constexpr (ArrayAccessor::buffer_kind ==
+                  internal::IterationBufferKind::kContiguous) {
+      if constexpr (SubElementSize == 1) {
+        return &ContiguousBytes<ArrayAccessor>;
+      } else {
+        return &Contiguous<ArrayAccessor>;
+      }
+    } else {
+      return &Loop<ArrayAccessor>;
+    }
+  }
+
+  template <typename ArrayAccessor>
+  static bool ContiguousBytes(void* context,
+                              internal::IterationBufferShape shape,
+                              IterationBufferPointer source, void* /*arg*/) {
+    static_assert(SubElementSize == 1 &&
+                  ArrayAccessor::buffer_kind ==
+                      internal::IterationBufferKind::kContiguous);
+    auto& writer = *reinterpret_cast<riegeli::Writer*>(context);
+    for (Index outer_i = 0; outer_i < shape[0]; ++outer_i) {
+      // Fast path: source array is contiguous and byte swapping is not
+      // required.
+      if (!writer.Write(std::string_view(
+              reinterpret_cast<const char*>(
+                  ArrayAccessor::template GetPointerAtPosition<Element>(
+                      source, outer_i, 0)),
+              shape[1] * sizeof(Element)))) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  template <typename ArrayAccessor>
+  static bool Contiguous(void* context, internal::IterationBufferShape shape,
+                         IterationBufferPointer source, void* /*arg*/) {
+    static_assert(ArrayAccessor::buffer_kind ==
+                  internal::IterationBufferKind::kContiguous);
+
+    auto& writer = *reinterpret_cast<riegeli::Writer*>(context);
+    for (Index outer_i = 0; outer_i < shape[0]; ++outer_i) {
+      Element* input = ArrayAccessor::template GetPointerAtPosition<Element>(
+          source, outer_i, 0);
+      Index element_i = 0;
+      while (element_i < shape[1]) {
+        const size_t remaining_bytes = (shape[1] - element_i) * sizeof(Element);
+        if (!writer.Push(/*min_length=*/sizeof(Element),
+                         /*recommended_length=*/remaining_bytes)) {
+          return false;
+        }
+        const Index end_element_i = std::min(
+            shape[1], static_cast<Index>(
+                          element_i + (writer.available() / sizeof(Element))));
+        char* cursor = writer.cursor();
+        for (; element_i < end_element_i; ++element_i) {
+          SwapEndianUnaligned<SubElementSize, NumSubElements>(input, cursor);
+          input++;
+          cursor += sizeof(Element);
+        }
+        element_i = end_element_i;
+        writer.set_cursor(cursor);
+      }
+    }
+    return true;
+  }
+
   template <typename ArrayAccessor>
   static bool Loop(void* context, internal::IterationBufferShape shape,
                    IterationBufferPointer source, void* /*arg*/) {
     auto& writer = *reinterpret_cast<riegeli::Writer*>(context);
     for (Index outer_i = 0; outer_i < shape[0]; ++outer_i) {
-      if constexpr (SubElementSize == 1 &&
-                    ArrayAccessor::buffer_kind ==
-                        internal::IterationBufferKind::kContiguous) {
-        // Fast path: source array is contiguous and byte swapping is not
-        // required.
-        if (!writer.Write(std::string_view(
-                reinterpret_cast<const char*>(
-                    ArrayAccessor::template GetPointerAtPosition<Element>(
-                        source, outer_i, 0)),
-                shape[1] * sizeof(Element)))) {
+      Index element_i = 0;
+      while (element_i < shape[1]) {
+        const size_t remaining_bytes = (shape[1] - element_i) * sizeof(Element);
+        if (!writer.Push(/*min_length=*/sizeof(Element),
+                         /*recommended_length=*/remaining_bytes)) {
           return false;
         }
-      } else {
-        Index element_i = 0;
-        while (element_i < shape[1]) {
-          const size_t remaining_bytes =
-              (shape[1] - element_i) * sizeof(Element);
-          if (!writer.Push(/*min_length=*/sizeof(Element),
-                           /*recommended_length=*/remaining_bytes)) {
-            return false;
-          }
-          const Index end_element_i = std::min(
-              shape[1], static_cast<Index>(element_i + (writer.available() /
-                                                        sizeof(Element))));
-          char* cursor = writer.cursor();
-          for (; element_i < end_element_i; ++element_i) {
-            SwapEndianUnaligned<SubElementSize, NumSubElements>(
-                ArrayAccessor::template GetPointerAtPosition<Element>(
-                    source, outer_i, element_i),
-                cursor);
-            cursor += sizeof(Element);
-          }
-          element_i = end_element_i;
-          writer.set_cursor(cursor);
+        const Index end_element_i = std::min(
+            shape[1], static_cast<Index>(
+                          element_i + (writer.available() / sizeof(Element))));
+        char* cursor = writer.cursor();
+        for (; element_i < end_element_i; ++element_i) {
+          SwapEndianUnaligned<SubElementSize, NumSubElements>(
+              ArrayAccessor::template GetPointerAtPosition<Element>(
+                  source, outer_i, element_i),
+              cursor);
+          cursor += sizeof(Element);
         }
+        element_i = end_element_i;
+        writer.set_cursor(cursor);
       }
     }
     return true;
@@ -270,59 +328,116 @@ struct ReadSwapEndianLoopTemplate {
   using Element = std::array<unsigned char, SubElementSize * NumSubElements>;
 
   using ElementwiseFunctionType = ElementwiseFunction<1, void*>;
+
   template <typename ArrayAccessor>
-  static bool Loop(void* context, internal::IterationBufferShape shape,
-                   IterationBufferPointer source, void* /*arg*/) {
+  static constexpr auto GetLoopFn() {
+    if constexpr (ArrayAccessor::buffer_kind ==
+                  internal::IterationBufferKind::kContiguous) {
+      if constexpr (SubElementSize == 1) {
+        return &ContiguousBytes<ArrayAccessor>;
+      } else {
+        return &Contiguous<ArrayAccessor>;
+      }
+    } else {
+      return &Loop<ArrayAccessor>;
+    }
+  }
+
+  template <typename ArrayAccessor>
+  static bool ContiguousBytes(void* context,
+                              internal::IterationBufferShape shape,
+                              IterationBufferPointer dest, void* /*arg*/) {
+    static_assert(SubElementSize == 1 &&
+                  ArrayAccessor::buffer_kind ==
+                      internal::IterationBufferKind::kContiguous);
     auto& reader = *reinterpret_cast<riegeli::Reader*>(context);
     for (Index outer_i = 0; outer_i < shape[0]; ++outer_i) {
-      if constexpr (SubElementSize == 1 &&
-                    ArrayAccessor::buffer_kind ==
-                        internal::IterationBufferKind::kContiguous &&
-                    !IsBool) {
-        // Fast path: destination array is contiguous and byte swapping is not
-        // required.
-        if (!reader.Read(
-                shape[1] * sizeof(Element),
-                reinterpret_cast<char*>(
-                    ArrayAccessor::template GetPointerAtPosition<Element>(
-                        source, outer_i, 0)))) {
-          return false;
-        }
-      } else {
-        Index element_i = 0;
-        while (element_i < shape[1]) {
-          const size_t remaining_bytes =
-              (shape[1] - element_i) * sizeof(Element);
-          if (!reader.Pull(/*min_length=*/sizeof(Element),
-                           /*recommended_length=*/remaining_bytes)) {
+      // Fast path: destination array is contiguous and byte swapping is not
+      // required.
+      auto* output = reinterpret_cast<char*>(
+          ArrayAccessor::template GetPointerAtPosition<Element>(dest, outer_i,
+                                                                0));
+      auto pos = reader.pos();
+      size_t length = shape[1] * sizeof(Element);
+      if (!reader.Read(length, output)) {
+        return false;
+      }
+      if constexpr (IsBool) {
+        for (size_t i = 0; i < length; ++i) {
+          if (output[i] & ~static_cast<unsigned char>(1)) {
+            reader.Seek(pos + i);
+            reader.Fail(absl::InvalidArgumentError(tensorstore::StrCat(
+                "Invalid bool value: ", static_cast<unsigned int>(output[i]))));
             return false;
           }
-          const Index end_element_i = std::min(
-              shape[1], static_cast<Index>(element_i + (reader.available() /
-                                                        sizeof(Element))));
-          const char* cursor = reader.cursor();
-          for (; element_i < end_element_i; ++element_i) {
-            if constexpr (IsBool) {
-              unsigned char val = static_cast<unsigned char>(*cursor);
-              if (val & ~static_cast<unsigned char>(1)) {
-                reader.set_cursor(cursor);
-                reader.Fail(absl::InvalidArgumentError(
-                    tensorstore::StrCat("Invalid bool value: ",
-                                        static_cast<unsigned int>(*cursor))));
-                return false;
-              }
-              *ArrayAccessor::template GetPointerAtPosition<bool>(
-                  source, outer_i, element_i) = static_cast<bool>(val);
-            } else {
-              SwapEndianUnaligned<SubElementSize, NumSubElements>(
-                  cursor, ArrayAccessor::template GetPointerAtPosition<Element>(
-                              source, outer_i, element_i));
-            }
-            cursor += sizeof(Element);
-          }
-          element_i = end_element_i;
-          reader.set_cursor(cursor);
         }
+      }
+    }
+    return true;
+  }
+
+  template <typename ArrayAccessor>
+  static bool Contiguous(void* context, internal::IterationBufferShape shape,
+                         IterationBufferPointer dest, void* /*arg*/) {
+    static_assert(ArrayAccessor::buffer_kind ==
+                      internal::IterationBufferKind::kContiguous &&
+                  !IsBool);
+    auto& reader = *reinterpret_cast<riegeli::Reader*>(context);
+    for (Index outer_i = 0; outer_i < shape[0]; ++outer_i) {
+      Element* output = ArrayAccessor::template GetPointerAtPosition<Element>(
+          dest, outer_i, 0);
+      Index element_i = 0;
+      while (element_i < shape[1]) {
+        const size_t remaining_bytes = (shape[1] - element_i) * sizeof(Element);
+        if (!reader.Pull(/*min_length=*/sizeof(Element),
+                         /*recommended_length=*/remaining_bytes)) {
+          return false;
+        }
+        const Index end_element_i = std::min(
+            shape[1], static_cast<Index>(
+                          element_i + (reader.available() / sizeof(Element))));
+        const char* cursor = reader.cursor();
+        for (; element_i < end_element_i; ++element_i) {
+          SwapEndianUnaligned<SubElementSize, NumSubElements>(cursor, output);
+          cursor += sizeof(Element);
+          output++;
+        }
+        element_i = end_element_i;
+        reader.set_cursor(cursor);
+      }
+    }
+    return true;
+  }
+
+  template <typename ArrayAccessor>
+  static bool Loop(void* context, internal::IterationBufferShape shape,
+                   IterationBufferPointer dest, void* /*arg*/) {
+    static_assert(!(SubElementSize == 1 &&
+                    ArrayAccessor::buffer_kind ==
+                        internal::IterationBufferKind::kContiguous &&
+                    !IsBool));
+
+    auto& reader = *reinterpret_cast<riegeli::Reader*>(context);
+    for (Index outer_i = 0; outer_i < shape[0]; ++outer_i) {
+      Index element_i = 0;
+      while (element_i < shape[1]) {
+        const size_t remaining_bytes = (shape[1] - element_i) * sizeof(Element);
+        if (!reader.Pull(/*min_length=*/sizeof(Element),
+                         /*recommended_length=*/remaining_bytes)) {
+          return false;
+        }
+        const Index end_element_i = std::min(
+            shape[1], static_cast<Index>(
+                          element_i + (reader.available() / sizeof(Element))));
+        const char* cursor = reader.cursor();
+        for (; element_i < end_element_i; ++element_i) {
+          SwapEndianUnaligned<SubElementSize, NumSubElements>(
+              cursor, ArrayAccessor::template GetPointerAtPosition<Element>(
+                          dest, outer_i, element_i));
+          cursor += sizeof(Element);
+        }
+        element_i = end_element_i;
+        reader.set_cursor(cursor);
       }
     }
     return true;

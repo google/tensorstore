@@ -45,6 +45,7 @@
 #include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/option.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 

@@ -22,6 +22,7 @@
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/void_wrapper.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/util/constant_vector.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/span.h"
@@ -49,9 +50,9 @@ struct IterateOverIndexRangeHelper {
   using ResultType = IterateOverIndexRangeResult<Func, IndexType, Rank>;
   using WrappedResultType = internal::Void::WrappedType<ResultType>;
 
-  static WrappedResultType Loop(Func func, DimensionIndex outer_dims,
-                                const IndexType* origin, const IndexType* shape,
-                                tensorstore::span<IndexType, Rank> indices) {
+  static WrappedResultType LoopImpl(
+      Func func, DimensionIndex outer_dims, const IndexType* origin,
+      const IndexType* shape, tensorstore::span<IndexType, Rank> indices) {
     WrappedResultType result =
         internal::DefaultIterationResult<WrappedResultType>::value();
     const DimensionIndex cur_dim =
@@ -67,7 +68,7 @@ struct IterateOverIndexRangeHelper {
     } else {
       for (IndexType i = start; i < stop; ++i) {
         indices[cur_dim] = i;
-        result = Loop(func, outer_dims + 1, origin, shape, indices);
+        result = LoopImpl(func, outer_dims + 1, origin, shape, indices);
         if (!result) break;
       }
     }
@@ -80,9 +81,9 @@ struct IterateOverIndexRangeHelper {
     }
     assert(shape.size() <= kMaxRank);
     IndexType indices[kMaxRank];
-    return internal::Void::Unwrap(
-        Loop(func, 0, &origin[0], &shape[0],
-             tensorstore::span<IndexType, Rank>(&indices[0], shape.size())));
+    return internal::Void::Unwrap(LoopImpl(
+        func, 0, &origin[0], &shape[0],
+        tensorstore::span<IndexType, Rank>(&indices[0], shape.size())));
   }
 };
 }  // namespace internal_iterate

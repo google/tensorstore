@@ -58,10 +58,8 @@ struct NDIterableCopyManager
     kBoth,
     /// Buffer provided by `input` is directly used to update `output`.
     kInput,
-
     /// Buffer provided by `output` is directly filled by `input`.
     kOutput,
-
     /// External buffer is separately allocated, filled by `input`, and then
     /// directly used to update `output`.
     kExternal,
@@ -127,12 +125,34 @@ struct NDIteratorCopyManager {
   }
 
  private:
-  NDIterator::Ptr input_;
-  NDIterator::Ptr output_;
   using CopyImpl = bool (*)(NDIteratorCopyManager* self,
                             tensorstore::span<const Index> indices,
                             IterationBufferShape block_shape,
                             absl::Status* status);
+
+  // kBoth
+  static bool CopyImplBoth(NDIteratorCopyManager* self,
+                           tensorstore::span<const Index> indices,
+                           IterationBufferShape block_shape,
+                           absl::Status* status);
+  // kInput
+  static bool CopyImplInput(NDIteratorCopyManager* self,
+                            tensorstore::span<const Index> indices,
+                            IterationBufferShape block_shape,
+                            absl::Status* status);
+  // kOutput
+  static bool CopyImplOutput(NDIteratorCopyManager* self,
+                             tensorstore::span<const Index> indices,
+                             IterationBufferShape block_shape,
+                             absl::Status* status);
+  // kExternal
+  static bool CopyImplExternal(NDIteratorCopyManager* self,
+                               tensorstore::span<const Index> indices,
+                               IterationBufferShape block_shape,
+                               absl::Status* status);
+
+  NDIterator::Ptr input_;
+  NDIterator::Ptr output_;
   CopyImpl copy_impl_;
   SpecializedElementwiseFunctionPointer<2, void*> copy_elements_function_;
   NDIteratorExternalBufferManager<1, 2> buffer_manager_;

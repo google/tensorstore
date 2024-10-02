@@ -18,7 +18,6 @@
 #include "tensorstore/index.h"
 #include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal {

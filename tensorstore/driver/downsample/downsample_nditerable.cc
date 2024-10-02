@@ -508,6 +508,11 @@ struct DownsampleImpl {
   /// total.
   struct ProcessInput {
     template <typename ArrayAccessor>
+    static constexpr auto GetLoopFn() {
+      return &Loop<ArrayAccessor>;
+    }
+
+    template <typename ArrayAccessor>
     static bool Loop(void* accumulate_buffer,
                      internal::IterationBufferShape output_block_shape,
                      IterationBufferPointer source_pointer,
@@ -607,6 +612,11 @@ struct DownsampleImpl {
   /// ElementwiseFunction LoopTemplate implementation for computing the output
   /// from the accumulated values.
   struct ComputeOutput {
+    template <typename ArrayAccessor>
+    static constexpr auto GetLoopFn() {
+      return &Loop<ArrayAccessor>;
+    }
+
     template <typename ArrayAccessor>
     static bool Loop(void* accumulate_buffer,
                      internal::IterationBufferShape output_block_shape,
