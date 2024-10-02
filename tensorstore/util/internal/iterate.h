@@ -69,8 +69,8 @@ namespace internal {
 /// space transforms.
 template <size_t Arity>
 class StridedLayoutFunctionApplyer {
-  static_assert(Arity > 0 && Arity <= kMaxSupportedIterationArity,
-                "Invalid arity.");
+  static_assert(Arity > 0, "Invalid arity.");
+  static_assert(Arity <= kMaxSupportedIterationArity, "Invalid arity.");
 
  public:
   /// Precomputes an iteration layout based on the specified constraints.

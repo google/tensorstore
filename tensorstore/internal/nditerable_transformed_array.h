@@ -15,9 +15,12 @@
 #ifndef TENSORSTORE_INTERNAL_NDITERABLE_TRANSFORMED_ARRAY_H_
 #define TENSORSTORE_INTERNAL_NDITERABLE_TRANSFORMED_ARRAY_H_
 
+#include "tensorstore/array.h"
+#include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/internal/arena.h"
 #include "tensorstore/internal/nditerable.h"
+#include "tensorstore/util/element_pointer.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {

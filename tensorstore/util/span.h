@@ -298,8 +298,9 @@ class span {
   /// \id static
   template <ptrdiff_t Count>
   constexpr span<element_type, Count> first() const {
-    static_assert(Count >= 0 && (Extent == dynamic_extent || Extent >= Count),
-                  "Invalid Count");
+    static_assert(Count >= 0, "Invalid Count");
+    static_assert(Extent == dynamic_extent || Extent >= Count,
+                  "Invalid Count for Extent.");
     return {data(), Count};
   }
 
@@ -318,8 +319,9 @@ class span {
   /// \id static
   template <ptrdiff_t Count>
   constexpr span<element_type, Count> last() const {
-    static_assert(Count >= 0 && (Extent == dynamic_extent || Extent >= Count),
-                  "Invalid Count");
+    static_assert(Count >= 0, "Invalid Count");
+    static_assert(Extent == dynamic_extent || Extent >= Count,
+                  "Invalid Count for Extent.");
     return {end() - Count, Count};
   }
 

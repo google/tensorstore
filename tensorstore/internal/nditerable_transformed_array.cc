@@ -15,6 +15,7 @@
 #include "tensorstore/internal/nditerable_transformed_array.h"
 
 #include <cassert>
+#include <cstddef>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -25,6 +26,7 @@
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/internal/iterate_impl.h"
+#include "tensorstore/index_space/internal/transform_rep.h"
 #include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/internal/arena.h"
 #include "tensorstore/internal/elementwise_function.h"
