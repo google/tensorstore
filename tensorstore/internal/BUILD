@@ -333,7 +333,6 @@ tensorstore_cc_library(
         "//tensorstore:index",
         "//tensorstore/util:byte_strided_pointer",
         "@com_google_absl//absl/meta:type_traits",
-        "@com_google_absl//absl/status",
     ],
 )
 
@@ -362,10 +361,12 @@ tensorstore_cc_library(
         "//tensorstore/internal/riegeli:json_input",
         "//tensorstore/internal/riegeli:json_output",
         "//tensorstore/util:endian",
-        "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "//tensorstore/util:utf8_string",
+        "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/status",
+        "@com_google_riegeli//riegeli/bytes:reader",
+        "@com_google_riegeli//riegeli/bytes:writer",
     ],
 )
 
@@ -1126,7 +1127,6 @@ tensorstore_cc_library(
         "//tensorstore:data_type",
         "//tensorstore:index",
         "//tensorstore/util:span",
-        "//tensorstore/util:status",
         "@com_google_absl//absl/status",
     ],
 )
@@ -1225,8 +1225,6 @@ tensorstore_cc_library(
         "//tensorstore:rank",
         "//tensorstore/util:iterate",
         "//tensorstore/util:span",
-        "//tensorstore/util:status",
-        "@com_google_absl//absl/container:inlined_vector",
         "@com_google_absl//absl/status",
     ],
 )

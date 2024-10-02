@@ -8,6 +8,7 @@ tensorstore_cc_library(
     name = "json_binding",
     srcs = ["std_variant.cc"],
     hdrs = [
+        "box.h",
         "enum.h",
         "json_binding.h",
         "optional_object.h",
@@ -18,7 +19,10 @@ tensorstore_cc_library(
     ],
     deps = [
         ":bindable",
+        "//tensorstore:box",
+        "//tensorstore:index",
         "//tensorstore:json_serialization_options_base",
+        "//tensorstore:rank",
         "//tensorstore/internal:type_traits",
         "//tensorstore/internal/json",
         "//tensorstore/internal/json:array",

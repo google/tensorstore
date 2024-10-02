@@ -394,6 +394,7 @@ tensorstore_cc_library(
         "//tensorstore:box",
         "//tensorstore:contiguous_layout",
         "//tensorstore:index",
+        "//tensorstore:rank",
         "//tensorstore/internal:void_wrapper",
     ],
 )
@@ -431,6 +432,8 @@ tensorstore_cc_library(
     name = "json_absl_flag",
     hdrs = ["json_absl_flag.h"],
     deps = [
+        ":result",
+        "//tensorstore:json_serialization_options_base",
         "//tensorstore/internal/json_binding:bindable",
         "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/flags:marshalling",

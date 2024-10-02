@@ -27,6 +27,8 @@
 /// `nditerable_elementwise_{input,output}_transform.h` for obtaining an
 /// NDIterable objects that are elementwise-transformed views.
 
+#include <cstddef>
+#include <cstdlib>
 #include <memory>
 
 #include "absl/status/status.h"

@@ -15,6 +15,8 @@
 #ifndef TENSORSTORE_UTIL_JSON_ABSL_FLAG_H_
 #define TENSORSTORE_UTIL_JSON_ABSL_FLAG_H_
 
+#include <string>
+#include <string_view>
 #include <type_traits>
 
 #include "absl/flags/marshalling.h"
@@ -22,6 +24,8 @@
 #include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/json_binding/bindable.h"
+#include "tensorstore/json_serialization_options_base.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 

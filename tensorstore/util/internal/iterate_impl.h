@@ -240,8 +240,8 @@ class IterateHelper {
     if (layouts.size() == 0) {
       return func(pointers...);
     }
-    return Loop(func, layouts, std::index_sequence_for<Pointer...>(),
-                pointers...);
+    return LoopImpl(func, layouts, std::index_sequence_for<Pointer...>(),
+                    pointers...);
   }
 
  private:
@@ -249,10 +249,10 @@ class IterateHelper {
   ///
   /// \pre layouts.size() >= 1
   template <size_t... Is>
-  static Result Loop(Func func,
-                     span<const DimensionSizeAndStrides<arity>> layouts,
-                     std::index_sequence<Is...> index_sequence,
-                     Pointer... pointers) {
+  static Result LoopImpl(Func func,
+                         span<const DimensionSizeAndStrides<arity>> layouts,
+                         std::index_sequence<Is...> index_sequence,
+                         Pointer... pointers) {
     const DimensionSizeAndStrides<arity> size_and_strides = layouts[0];
     auto increment_pointers = [&]() ABSL_ATTRIBUTE_ALWAYS_INLINE {
       ((pointers += size_and_strides.strides[Is]), ...);
@@ -266,8 +266,8 @@ class IterateHelper {
       }
     } else {
       for (Index i = 0; i < size_and_strides.size; ++i) {
-        auto result = Loop(func, {&layouts[1], layouts.size() - 1},
-                           index_sequence, pointers...);
+        auto result = LoopImpl(func, {&layouts[1], layouts.size() - 1},
+                               index_sequence, pointers...);
         if (!result) break;
         increment_pointers();
       }

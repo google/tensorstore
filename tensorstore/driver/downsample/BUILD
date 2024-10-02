@@ -286,7 +286,11 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore:array",
         "//tensorstore:box",
+        "//tensorstore:contiguous_layout",
+        "//tensorstore:data_type",
         "//tensorstore:index",
+        "//tensorstore:index_interval",
+        "//tensorstore:rank",
         "//tensorstore/util:iterate",
         "//tensorstore/util:span",
         "@com_google_absl//absl/container:flat_hash_map",

@@ -18,6 +18,7 @@
 #include <cassert>
 #include <complex>
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <random>
 #include <string>

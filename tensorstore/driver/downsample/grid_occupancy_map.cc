@@ -14,12 +14,19 @@
 
 #include "tensorstore/driver/downsample/grid_occupancy_map.h"
 
+#include <algorithm>
+#include <cassert>
+#include <cstddef>
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
+#include "tensorstore/contiguous_layout.h"
+#include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/span.h"
 
