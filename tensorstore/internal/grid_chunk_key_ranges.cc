@@ -26,7 +26,6 @@
 #include "tensorstore/internal/grid_partition.h"
 #include "tensorstore/internal/grid_partition_impl.h"
 #include "tensorstore/internal/lexicographical_grid_index_key.h"
-#include "tensorstore/internal/regular_grid.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/util/span.h"
@@ -39,8 +38,7 @@ absl::Status GetChunkKeyRangesForRegularGridWithSemiLexicographicalKeys(
     const internal_grid_partition::IndexTransformGridPartition& grid_partition,
     IndexTransformView<> transform,
     tensorstore::span<const DimensionIndex> grid_output_dimensions,
-    internal_grid_partition::OutputToGridCellFn output_to_grid_cell,
-    BoxView<> grid_bounds,
+    internal::OutputToGridCellFn output_to_grid_cell, BoxView<> grid_bounds,
     const LexicographicalGridIndexKeyFormatter& key_formatter,
     absl::FunctionRef<absl::Status(std::string key,
                                    tensorstore::span<const Index> grid_indices)>

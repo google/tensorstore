@@ -46,8 +46,8 @@ using ::tensorstore::MakeArray;
 using ::tensorstore::Result;
 using ::tensorstore::internal::GetGridCellRanges;
 using ::tensorstore::internal::IrregularGrid;
+using ::tensorstore::internal::OutputToGridCellFn;
 using ::tensorstore::internal_grid_partition::IndexTransformGridPartition;
-using ::tensorstore::internal_grid_partition::OutputToGridCellFn;
 using ::tensorstore::internal_grid_partition::
     PrePartitionIndexTransformOverGrid;
 using ::tensorstore::internal_grid_partition::RegularGridRef;
@@ -83,8 +83,8 @@ std::vector<R> GetPartitions(
   TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverGrid(
       transform, grid_output_dimensions, grid, info));
   TENSORSTORE_CHECK_OK(
-      tensorstore::internal::PartitionIndexTransformOverRegularGrid(
-          grid_output_dimensions, grid_cell_shape, transform,
+      tensorstore::internal::PartitionIndexTransformOverGrid(
+          grid_output_dimensions, grid, transform,
           [&](tensorstore::span<const Index> grid_cell_indices,
               IndexTransformView<> cell_transform) {
             auto cell_transform_direct = info.GetCellTransform(

@@ -35,7 +35,6 @@
 #include "tensorstore/index_space/output_index_map.h"
 #include "tensorstore/index_space/output_index_method.h"
 #include "tensorstore/internal/integer_overflow.h"
-#include "tensorstore/internal/regular_grid.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/byte_strided_pointer.h"
@@ -55,6 +54,9 @@ using ::tensorstore::internal_index_space::TransformRep;
 
 using IndexArraySet = IndexTransformGridPartition::IndexArraySet;
 using StridedSet = IndexTransformGridPartition::StridedSet;
+
+using OutputToGridCellFn = absl::FunctionRef<Index(
+    DimensionIndex grid_dim, Index output_index, IndexInterval* cell_bounds)>;
 
 SharedArray<const Index, 2>
 IndexTransformGridPartition::IndexArraySet::partition_input_indices(

@@ -70,6 +70,7 @@
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/lexicographical_grid_index_key.h"
+#include "tensorstore/internal/regular_grid.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/neuroglancer_uint64_sharded/neuroglancer_uint64_sharded.h"
 #include "tensorstore/kvstore/spec.h"
@@ -724,8 +725,10 @@ class RegularlyShardedDataCache : public ShardedDataCache {
     using ForwardingReceiver =
         internal::ForwardingChunkOperationReceiver<State>;
     auto state = internal::MakeIntrusivePtr<State>(std::move(receiver));
-    auto status = internal::PartitionIndexTransformOverRegularGrid(
-        chunked_to_cell_dimensions, shard_shape_in_elements, transform,
+    internal_grid_partition::RegularGridRef regular_grid{
+        shard_shape_in_elements};
+    auto status = internal::PartitionIndexTransformOverGrid(
+        chunked_to_cell_dimensions, regular_grid, transform,
         [&](span<const Index> grid_cell_indices,
             IndexTransformView<> cell_transform) -> absl::Status {
           if (state->cancelled()) {

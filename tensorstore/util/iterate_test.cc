@@ -15,19 +15,18 @@
 #include "tensorstore/util/internal/iterate.h"
 
 #include <array>
+#include <cstddef>
 #include <tuple>
 #include <type_traits>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "absl/container/inlined_vector.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/index.h"
 #include "tensorstore/util/internal/iterate_impl.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 

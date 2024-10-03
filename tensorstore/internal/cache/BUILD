@@ -352,6 +352,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:memory",
         "//tensorstore/internal:mutex",
         "//tensorstore/internal:nditerable",
+        "//tensorstore/internal:regular_grid",
         "//tensorstore/internal/metrics",
         "//tensorstore/internal/metrics:metadata",
         "//tensorstore/kvstore:generation",

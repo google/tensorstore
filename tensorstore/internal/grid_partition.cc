@@ -34,7 +34,6 @@
 #include "tensorstore/index_space/output_index_method.h"
 #include "tensorstore/internal/grid_partition_impl.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/regular_grid.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/iterate.h"
@@ -42,12 +41,13 @@
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 
+using ::tensorstore::internal::OutputToGridCellFn;
+using ::tensorstore::internal_index_space::TransformAccess;
+
 namespace tensorstore {
 namespace internal_grid_partition {
-
 namespace {
 
-using ::tensorstore::internal_index_space::TransformAccess;
 
 using IndexArraySet = IndexTransformGridPartition::IndexArraySet;
 using StridedSet = IndexTransformGridPartition::StridedSet;
@@ -127,7 +127,7 @@ class StridedSetGridCellIterator {
       IndexInterval cell_range;
       output_grid_cell_indices[grid_dim] = output_to_grid_cell_(
           grid_dim, input_index_ * map.stride() + map.offset(), &cell_range);
-      // The check in PrePartitionIndexTransformOverRegularGrid guarantees
+      // The check in PrePartitionIndexTransformOverGrid guarantees
       // that GetAffineTransformDomain is successful.
       const IndexInterval cell_domain =
           GetAffineTransformDomain(cell_range, map.offset(), map.stride())
@@ -514,8 +514,7 @@ namespace internal {
 
 absl::Status PartitionIndexTransformOverGrid(
     tensorstore::span<const DimensionIndex> grid_output_dimensions,
-    internal_grid_partition::OutputToGridCellFn output_to_grid_cell,
-    IndexTransformView<> transform,
+    OutputToGridCellFn output_to_grid_cell, IndexTransformView<> transform,
     absl::FunctionRef<
         absl::Status(tensorstore::span<const Index> grid_cell_indices,
                      IndexTransformView<> cell_transform)>
@@ -532,20 +531,6 @@ absl::Status PartitionIndexTransformOverGrid(
               /*.transform=*/transform,
               /*.func=*/std::move(func)})
       .Iterate();
-}
-
-absl::Status PartitionIndexTransformOverRegularGrid(
-    tensorstore::span<const DimensionIndex> grid_output_dimensions,
-    tensorstore::span<const Index> grid_cell_shape,
-    IndexTransformView<> transform,
-    absl::FunctionRef<
-        absl::Status(tensorstore::span<const Index> grid_cell_indices,
-                     IndexTransformView<> cell_transform)>
-        func) {
-  assert(grid_cell_shape.size() == grid_output_dimensions.size());
-  internal_grid_partition::RegularGridRef grid{grid_cell_shape};
-  return PartitionIndexTransformOverGrid(grid_output_dimensions, grid,
-                                         transform, std::move(func));
 }
 
 }  // namespace internal
@@ -703,8 +688,7 @@ namespace internal {
 
 absl::Status GetGridCellRanges(
     tensorstore::span<const DimensionIndex> grid_output_dimensions,
-    BoxView<> grid_bounds,
-    internal_grid_partition::OutputToGridCellFn output_to_grid_cell,
+    BoxView<> grid_bounds, OutputToGridCellFn output_to_grid_cell,
     IndexTransformView<> transform,
     absl::FunctionRef<absl::Status(BoxView<> bounds)> callback) {
   using internal_grid_partition::StridedSet;

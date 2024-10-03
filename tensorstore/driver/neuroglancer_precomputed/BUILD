@@ -235,6 +235,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:grid_partition",
         "//tensorstore/internal:grid_storage_statistics",
         "//tensorstore/internal:lexicographical_grid_index_key",
+        "//tensorstore/internal:regular_grid",
         "//tensorstore/internal/cache_key",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",

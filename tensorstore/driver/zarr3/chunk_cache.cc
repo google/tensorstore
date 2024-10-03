@@ -264,8 +264,10 @@ void ShardedReadOrWrite(
   span<const DimensionIndex> chunked_to_cell_dimensions =
       component_spec.chunked_to_cell_dimensions;
   auto state = internal::MakeIntrusivePtr<State>(std::move(receiver));
-  auto status = internal::PartitionIndexTransformOverRegularGrid(
-      chunked_to_cell_dimensions, chunk_shape, transform,
+  assert(chunked_to_cell_dimensions.size() == chunk_shape.size());
+  internal_grid_partition::RegularGridRef regular_grid{chunk_shape};
+  auto status = internal::PartitionIndexTransformOverGrid(
+      chunked_to_cell_dimensions, regular_grid, transform,
       [&](span<const Index> grid_cell_indices,
           IndexTransformView<> cell_transform) {
         if (state->cancelled()) {
