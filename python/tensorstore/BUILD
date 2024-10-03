@@ -48,6 +48,7 @@ pybind11_py_extension(
         ":index_space",
         ":kvstore",
         ":numpy",
+        ":ocdbt",
         ":python_imports",
         ":serialization",
         ":spec",
@@ -59,7 +60,6 @@ pybind11_py_extension(
         ":virtual_chunked",
         ":write_futures",
         "//tensorstore:all_drivers",
-        "//tensorstore/kvstore/ocdbt/python",
         "@com_github_pybind_pybind11//:pybind11",
         "@com_google_absl//absl/base:log_severity",
         "@com_google_absl//absl/log:globals",
@@ -573,6 +573,7 @@ pybind11_cc_library(
         "//tensorstore:json_serialization_options",
         "//tensorstore:json_serialization_options_base",
         "//tensorstore/internal:global_initializer",
+        "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal/json:pprint_python",
         "//tensorstore/serialization",
         "//tensorstore/util:executor",
@@ -1094,6 +1095,32 @@ tensorstore_cc_library(
     srcs = ["time.cc"],
     hdrs = ["time.h"],
     deps = ["@com_google_absl//absl/time"],
+)
+
+pybind11_cc_library(
+    name = "ocdbt",
+    srcs = ["ocdbt.cc"],
+    deps = [
+        ":context",
+        ":future",
+        ":json_type_caster",
+        ":kvstore",
+        ":result_type_caster",
+        ":status",
+        ":tensorstore_module_components",
+        "//tensorstore:context",
+        "//tensorstore/internal:global_initializer",
+        "//tensorstore/kvstore/ocdbt:dump_util",
+        "//tensorstore/kvstore/ocdbt/distributed:coordinator_server",
+        "//tensorstore/kvstore/ocdbt/format:dump",
+        "//tensorstore/util:executor",
+        "//tensorstore/util:future",
+        "//tensorstore/util/garbage_collection:json",
+        "@com_github_nlohmann_json//:json",
+        "@com_github_pybind_pybind11//:pybind11",
+        "@com_google_absl//absl/strings:cord",
+    ],
+    alwayslink = True,
 )
 
 pybind11_cc_library(
