@@ -85,7 +85,6 @@ bazel_to_cmake(
   "--include-package="
   "--include-package=tensorstore/**"
   "--exclude-package=tensorstore/examples/python/**"
-  "--exclude-package=tensorstore/kvstore/ocdbt/python/**"
   "--exclude-package=third_party/local_proto_mirror/**"
   --ignore-library "//third_party:python/python_configure.bzl"
   --ignore-library "//docs:doctest.bzl"
