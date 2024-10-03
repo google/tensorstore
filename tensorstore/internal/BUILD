@@ -439,7 +439,6 @@ tensorstore_cc_library(
         ":grid_partition",
         ":grid_partition_impl",
         ":lexicographical_grid_index_key",
-        ":regular_grid",
         "//tensorstore:box",
         "//tensorstore:index",
         "//tensorstore:index_interval",
@@ -499,7 +498,6 @@ tensorstore_cc_library(
     deps = [
         ":grid_partition_impl",
         ":intrusive_ptr",
-        ":regular_grid",
         "//tensorstore:box",
         "//tensorstore:index",
         "//tensorstore:index_interval",
@@ -526,7 +524,6 @@ tensorstore_cc_library(
     ],
     deps = [
         ":integer_overflow",
-        ":regular_grid",
         "//tensorstore:array",
         "//tensorstore:box",
         "//tensorstore:index",
@@ -1578,7 +1575,6 @@ tensorstore_cc_library(
         "//tensorstore:index_interval",
         "//tensorstore/util:division",
         "//tensorstore/util:span",
-        "@com_google_absl//absl/functional:function_ref",
     ],
 )
 
@@ -1862,4 +1858,15 @@ tensorstore_cc_library(
     name = "compare",
     hdrs = ["compare.h"],
     deps = ["@com_google_absl//absl/types:compare"],
+)
+
+cc_test(
+    name = "regular_grid_test",
+    srcs = ["regular_grid_test.cc"],
+    deps = [
+        ":regular_grid",
+        "//tensorstore:index",
+        "//tensorstore:index_interval",
+        "@com_google_googletest//:gtest_main",
+    ],
 )

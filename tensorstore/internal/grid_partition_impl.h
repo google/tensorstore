@@ -30,7 +30,6 @@
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
-#include "tensorstore/internal/regular_grid.h"
 #include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/span.h"
@@ -227,7 +226,9 @@ void UpdateCellTransformForIndexArraySetPartition(
 absl::Status PrePartitionIndexTransformOverGrid(
     IndexTransformView<> index_transform,
     tensorstore::span<const DimensionIndex> grid_output_dimensions,
-    OutputToGridCellFn output_to_grid_cell,
+    absl::FunctionRef<Index(DimensionIndex grid_dim, Index output_index,
+                            IndexInterval* cell_bounds)>
+        output_to_grid_cell,
     IndexTransformGridPartition& grid_partition);
 
 }  // namespace internal_grid_partition

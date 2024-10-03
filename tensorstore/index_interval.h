@@ -166,6 +166,11 @@ class IndexInterval {
   /// \membergroup Constructors
   static Result<IndexInterval> Sized(Index inclusive_min, Index size);
 
+  /// Returns the full range of all valid finite index values.
+  static constexpr IndexInterval FiniteRange() {
+    return UncheckedClosed(kMinFiniteIndex, kMaxFiniteIndex);
+  }
+
   /// Returns the inclusive lower bound of the interval.
   ///
   /// \invariant inclusive_min() >= -kInfIndex
@@ -245,11 +250,6 @@ class IndexInterval {
   template <typename H>
   friend H AbslHashValue(H h, IndexInterval x) {
     return H::combine(std::move(h), x.inclusive_min(), x.size());
-  }
-
-  /// Returns the full range of all valid finite index values.
-  static constexpr IndexInterval FiniteRange() {
-    return UncheckedClosed(kMinFiniteIndex, kMaxFiniteIndex);
   }
 
  private:
@@ -353,6 +353,15 @@ class IndexIntervalRef {
   /// Prints a string representation.
   friend std::ostream& operator<<(std::ostream& os, IndexIntervalRef x) {
     return os << static_cast<IndexInterval>(x);
+  }
+
+  /// Compares two intervals for equality.
+  friend constexpr bool operator==(IndexIntervalRef a, IndexIntervalRef b) {
+    return a.inclusive_min() == b.inclusive_min() && a.size() == b.size();
+  }
+
+  friend constexpr bool operator!=(IndexIntervalRef a, IndexIntervalRef b) {
+    return !(a == b);
   }
 
  private:

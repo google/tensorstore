@@ -17,6 +17,7 @@
 
 #include <assert.h>
 
+#include <cstddef>
 #include <vector>
 
 #include "tensorstore/index.h"

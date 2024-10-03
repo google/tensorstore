@@ -15,7 +15,8 @@
 #ifndef TENSORSTORE_INTERNAL_REGULAR_GRID_H_
 #define TENSORSTORE_INTERNAL_REGULAR_GRID_H_
 
-#include "absl/functional/function_ref.h"
+#include <cassert>
+
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/util/division.h"
@@ -28,11 +29,6 @@
 
 namespace tensorstore {
 namespace internal_grid_partition {
-
-/// For a given DimensionIndex dimension, returns the cell index corresponding
-/// to the output_index, optionally filling the bounds for the cell.
-using OutputToGridCellFn = absl::FunctionRef<Index(
-    DimensionIndex grid_dim, Index output_index, IndexInterval* cell_bounds)>;
 
 /// RegularGridRef is a functor that supplies a grid cell index as well as grid
 /// cell bounds for PartitionIndexTransformOverGrid.
@@ -48,14 +44,18 @@ struct RegularGridRef {
 
   IndexInterval GetCellOutputInterval(DimensionIndex dim,
                                       Index cell_index) const {
+    assert(dim >= 0 && dim < rank());
     return IndexInterval::UncheckedSized(cell_index * grid_cell_shape[dim],
                                          grid_cell_shape[dim]);
   }
 
   /// Converts output indices to grid indices of a regular grid.
   /// Returns the cell index and cell bounds.
+  /// For example, if the grid describes a regular 10x10 grid, the output cell 9
+  /// would be in grid cell 0, and the bounds would be [0, 10).
   Index operator()(DimensionIndex dim, Index output_index,
                    IndexInterval* cell_bounds) const {
+    assert(dim >= 0 && dim < rank());
     Index cell_index = FloorOfRatio(output_index, grid_cell_shape[dim]);
     if (cell_bounds) {
       *cell_bounds = GetCellOutputInterval(dim, cell_index);

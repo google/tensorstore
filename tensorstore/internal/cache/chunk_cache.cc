@@ -48,6 +48,7 @@
 #include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/nditerable.h"
+#include "tensorstore/internal/regular_grid.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/read_write_options.h"
@@ -105,7 +106,7 @@ bool IsFullyOverwritten(ChunkCache::TransactionNode& node) {
 /// as follows:
 ///
 /// 1. Like the `Write` method, `Read` calls
-///    `PartitionIndexTransformOverRegularGrid` to iterate over the set of grid
+///    `PartitionIndexTransformOverGrid` to iterate over the set of grid
 ///    cells (corresponding to cache entries) contained in the range of the
 ///    user-specified `transform`.
 ///
@@ -247,7 +248,7 @@ struct ReadChunkTransactionImpl {
 /// Phase I: Copying the data into the cache
 /// ----------------------------------------
 ///
-/// 1. `Write` calls `PartitionIndexTransformOverRegularGrid` to iterate over
+/// 1. `Write` calls `PartitionIndexTransformOverGrid` to iterate over
 ///    the set of grid cells (corresponding to cache entries) contained in the
 ///    range of the user-specified `transform`.
 ///
@@ -259,7 +260,7 @@ struct ReadChunkTransactionImpl {
 ///    transform from a synthetic "chunk" index space to the index space over
 ///    which the array component is defined.  (This transform is obtained by
 ///    simply composing the user-specified `transform` with the `cell_transform`
-///    computed by `PartitionIndexTransformOverRegularGrid`.  Along with the
+///    computed by `PartitionIndexTransformOverGrid`.  Along with the
 ///    `WriteChunk` object, the `cell_transform` is also sent to the `receiver`;
 ///    the `receiver` uses this `cell_transform` to convert from the domain of
 ///    the original input domain (i.e. the input domain of the user-specified
@@ -402,9 +403,12 @@ void ChunkCache::Read(ReadRequest request, ReadChunkReceiver receiver) {
   // Shared state used while `Read` is in progress.
   using ReadOperationState = ChunkOperationState<ReadChunk>;
 
+  assert(component_spec.chunked_to_cell_dimensions.size() ==
+         grid().chunk_shape.size());
   auto state = MakeIntrusivePtr<ReadOperationState>(std::move(receiver));
-  auto status = PartitionIndexTransformOverRegularGrid(
-      component_spec.chunked_to_cell_dimensions, grid().chunk_shape,
+  internal_grid_partition::RegularGridRef regular_grid{grid().chunk_shape};
+  auto status = PartitionIndexTransformOverGrid(
+      component_spec.chunked_to_cell_dimensions, regular_grid,
       request.transform,
       [&](tensorstore::span<const Index> grid_cell_indices,
           IndexTransformView<> cell_transform) {
@@ -464,8 +468,9 @@ void ChunkCache::Write(WriteRequest request, WriteChunkReceiver receiver) {
   const auto& component_spec = grid().components[request.component_index];
   std::atomic<bool> cancelled{false};
   execution::set_starting(receiver, [&cancelled] { cancelled = true; });
-  absl::Status status = PartitionIndexTransformOverRegularGrid(
-      component_spec.chunked_to_cell_dimensions, grid().chunk_shape,
+  internal_grid_partition::RegularGridRef regular_grid{grid().chunk_shape};
+  absl::Status status = PartitionIndexTransformOverGrid(
+      component_spec.chunked_to_cell_dimensions, regular_grid,
       request.transform,
       [&](tensorstore::span<const Index> grid_cell_indices,
           IndexTransformView<> cell_transform) {
