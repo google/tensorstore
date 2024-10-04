@@ -22,9 +22,9 @@
 #include "python/tensorstore/numpy.h"
 // numpy.h must be included first to ensure the header inclusion order
 // constraints are satisfied.
-
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
+
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
@@ -44,62 +44,72 @@
 namespace tensorstore {
 namespace internal_python {
 
+// Mapping from NPY_TYPES enum to tensorstore type.
+//
+// See the data type details in the numpy docs:
+// https://numpy.org/doc/stable/user/basics.types.html#relationship-between-numpy-data-types-and-c-data-types
 inline constexpr std::array<DataTypeId, TENSORSTORE_NPY_NTYPES>
     kDataTypeIdForNumpyTypeNum = [] {
-      std::array<DataTypeId, TENSORSTORE_NPY_NTYPES> result = {};
+      std::array<DataTypeId, TENSORSTORE_NPY_NTYPES> npy_to_id = {};
       for (size_t i = 0; i < TENSORSTORE_NPY_NTYPES; ++i) {
-        result[i] = DataTypeId::custom;
+        npy_to_id[i] = DataTypeId::custom;
       }
-      result[NPY_BOOL] = DataTypeId::bool_t;
-      result[NPY_BYTE] = DataTypeIdOf<signed char>;
-      result[NPY_UBYTE] = DataTypeIdOf<unsigned char>;
-      result[NPY_SHORT] = DataTypeIdOf<short>;            // NOLINT(runtime/int)
-      result[NPY_USHORT] = DataTypeIdOf<unsigned short>;  // NOLINT(runtime/int)
-      result[NPY_INT] = DataTypeIdOf<int>;
-      result[NPY_UINT] = DataTypeIdOf<unsigned int>;
-      result[NPY_LONG] = DataTypeIdOf<long>;            // NOLINT(runtime/int)
-      result[NPY_ULONG] = DataTypeIdOf<unsigned long>;  // NOLINT(runtime/int)
-      result[NPY_LONGLONG] = DataTypeIdOf<long long>;   // NOLINT(runtime/int)
-      result[NPY_ULONGLONG] =
-          DataTypeIdOf<unsigned long long>;  // NOLINT(runtime/int)
-      result[NPY_FLOAT] = DataTypeIdOf<float>;
-      result[NPY_DOUBLE] = DataTypeIdOf<double>;
-      result[NPY_LONGDOUBLE] = DataTypeIdOf<long double>;
-      result[NPY_CFLOAT] = DataTypeIdOf<std::complex<float>>;
-      result[NPY_CDOUBLE] = DataTypeIdOf<std::complex<double>>;
-      result[NPY_CLONGDOUBLE] = DataTypeIdOf<std::complex<long double>>;
-      // result[NPY_OBJECT] = DataTypeId::custom;
-      result[NPY_STRING] = DataTypeId::char_t;
-      // result[NPY_UNICODE] = DataTypeId::custom;
-      result[NPY_VOID] = DataTypeId::byte_t;
-      // result[NPY_DATETIME] = DataTypeId::custom;
-      // result[NPY_TIMEDELTA] = DataTypeId::custom;
-      result[NPY_HALF] = DataTypeId::float16_t;
-      return result;
+
+      // Legacy NPY types
+      // NOLINTBEGIN(runtime/int)
+      npy_to_id[NPY_BOOL] = DataTypeId::bool_t;
+      npy_to_id[NPY_BYTE] = DataTypeIdOf<signed char>;
+      npy_to_id[NPY_UBYTE] = DataTypeIdOf<unsigned char>;
+      npy_to_id[NPY_SHORT] = DataTypeIdOf<short>;
+      npy_to_id[NPY_USHORT] = DataTypeIdOf<unsigned short>;
+      npy_to_id[NPY_INT] = DataTypeIdOf<int>;
+      npy_to_id[NPY_UINT] = DataTypeIdOf<unsigned int>;
+      npy_to_id[NPY_LONG] = DataTypeIdOf<long>;
+      npy_to_id[NPY_ULONG] = DataTypeIdOf<unsigned long>;
+      npy_to_id[NPY_LONGLONG] = DataTypeIdOf<long long>;
+      npy_to_id[NPY_ULONGLONG] = DataTypeIdOf<unsigned long long>;
+      npy_to_id[NPY_FLOAT] = DataTypeIdOf<float>;
+      npy_to_id[NPY_DOUBLE] = DataTypeIdOf<double>;
+      npy_to_id[NPY_LONGDOUBLE] = DataTypeIdOf<long double>;
+      npy_to_id[NPY_CFLOAT] = DataTypeIdOf<std::complex<float>>;
+      npy_to_id[NPY_CDOUBLE] = DataTypeIdOf<std::complex<double>>;
+      npy_to_id[NPY_CLONGDOUBLE] = DataTypeIdOf<std::complex<long double>>;
+      // npy_to_id[NPY_OBJECT] = DataTypeId::custom;
+      npy_to_id[NPY_STRING] = DataTypeId::char_t;
+      // npy_to_id[NPY_UNICODE] = DataTypeId::custom;
+      npy_to_id[NPY_VOID] = DataTypeId::byte_t;
+      // npy_to_id[NPY_DATETIME] = DataTypeId::custom;
+      // npy_to_id[NPY_TIMEDELTA] = DataTypeId::custom;
+      npy_to_id[NPY_HALF] = DataTypeId::float16_t;
+      // NOLINTEND(runtime/int)
+
+      return npy_to_id;
     }();
 
+// Mapping from tensorstore datatype to NPY_TYPES enum.
 constexpr std::array<int, kNumDataTypeIds> kNumpyTypeNumForDataTypeId = [] {
-  std::array<int, kNumDataTypeIds> array = {};
+  std::array<int, kNumDataTypeIds> id_to_npy = {};
   for (size_t i = 0; i < kNumDataTypeIds; ++i) {
-    array[i] = -1;
+    id_to_npy[i] = -1;
   }
-  const auto AssignMapping = [&array](size_t i) {
-    DataTypeId id = kDataTypeIdForNumpyTypeNum[i];
-    if (id == DataTypeId::custom) return;
-    array[static_cast<size_t>(id)] = i;
-  };
   for (size_t i = 0; i < TENSORSTORE_NPY_NTYPES; ++i) {
-    AssignMapping(i);
+    if (kDataTypeIdForNumpyTypeNum[i] != DataTypeId::custom) {
+      id_to_npy[static_cast<size_t>(kDataTypeIdForNumpyTypeNum[i])] = i;
+    }
   }
-  // Add mapping for `NPY_{U,}LONG` last so that they take precedence over
-  // `NPY_{U,}INT` and `NPY_{U,}LONGLONG` for consistency with how Numpy defines
-  // the sized integer types.
-  AssignMapping(NPY_LONG);
-  AssignMapping(NPY_ULONG);
-  array[static_cast<size_t>(DataTypeId::string_t)] = NPY_OBJECT;
-  array[static_cast<size_t>(DataTypeId::ustring_t)] = NPY_OBJECT;
-  array[static_cast<size_t>(DataTypeId::json_t)] = NPY_OBJECT;
-  return array;
+
+  // Add mapping for `NPY_{U,}LONG` last so that it takes precedence over
+  // `NPY_{U,}INT` and `NPY_{U,}LONGLONG` for consistency with how Numpy
+  // defines the sized integer types.
+  id_to_npy[static_cast<size_t>(kDataTypeIdForNumpyTypeNum[NPY_LONG])] =
+      NPY_LONG;
+  id_to_npy[static_cast<size_t>(kDataTypeIdForNumpyTypeNum[NPY_ULONG])] =
+      NPY_ULONG;
+
+  id_to_npy[static_cast<size_t>(DataTypeId::string_t)] = NPY_OBJECT;
+  id_to_npy[static_cast<size_t>(DataTypeId::ustring_t)] = NPY_OBJECT;
+  id_to_npy[static_cast<size_t>(DataTypeId::json_t)] = NPY_OBJECT;
+  return id_to_npy;
 }();
 
 /// Returns `true` if the in-memory representation of `d` is the same in C++ and
@@ -107,7 +117,9 @@ constexpr std::array<int, kNumDataTypeIds> kNumpyTypeNumForDataTypeId = [] {
 constexpr inline bool CanDataTypeShareMemoryWithNumpy(DataType d) {
   DataTypeId id = d.id();
   if (id == DataTypeId::custom) return false;
-  return kNumpyTypeNumForDataTypeId[static_cast<size_t>(id)] != NPY_OBJECT;
+  // NPY_OBJECT and uninitialized mappings (-1) cannot share representation.
+  return kNumpyTypeNumForDataTypeId[static_cast<size_t>(id)] != NPY_OBJECT &&
+         kNumpyTypeNumForDataTypeId[static_cast<size_t>(id)] != -1;
 }
 
 using tensorstore::GetDataType;

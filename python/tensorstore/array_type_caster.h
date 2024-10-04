@@ -96,7 +96,6 @@ GetSharedElementPointerFromNumpyArray(pybind11::array array_obj) {
 /// \tparam Rank Rank constraint, or `dynamic_rank` to indicate no constraint.
 template <typename Element, DimensionIndex Rank = dynamic_rank>
 SharedArray<Element, Rank> UncheckedArrayFromNumpy(pybind11::array array_obj) {
-  namespace py = pybind11;
   const DimensionIndex rank = array_obj.ndim();
   if (rank > kMaxRank) {
     throw pybind11::value_error(tensorstore::StrCat(

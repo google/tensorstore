@@ -487,6 +487,7 @@ pybind11_cc_library(
         "@com_google_absl//absl/base:no_destructor",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/hash",
+        "@pypa_numpy//:headers",
     ],
     alwayslink = True,
 )

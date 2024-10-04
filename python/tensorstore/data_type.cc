@@ -14,9 +14,11 @@
 
 #include "python/tensorstore/numpy.h"
 // numpy.h must be included first.
-
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
+
+#include "numpy/npy_common.h"
+
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
@@ -44,6 +46,16 @@
 
 namespace tensorstore {
 namespace internal_python {
+
+// Validate NPY_ enum alias reference a type assigned in
+// kDataTypeIdForNumpyTypeNum.
+static_assert(kDataTypeIdForNumpyTypeNum[NPY_INT8] != DataTypeId::custom);
+static_assert(kDataTypeIdForNumpyTypeNum[NPY_INT16] != DataTypeId::custom);
+static_assert(kDataTypeIdForNumpyTypeNum[NPY_INT32] != DataTypeId::custom);
+static_assert(kDataTypeIdForNumpyTypeNum[NPY_INT64] != DataTypeId::custom);
+static_assert(kDataTypeIdForNumpyTypeNum[NPY_FLOAT16] != DataTypeId::custom);
+static_assert(kDataTypeIdForNumpyTypeNum[NPY_FLOAT32] != DataTypeId::custom);
+static_assert(kDataTypeIdForNumpyTypeNum[NPY_FLOAT64] != DataTypeId::custom);
 
 namespace py = ::pybind11;
 
