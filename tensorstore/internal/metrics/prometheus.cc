@@ -253,8 +253,15 @@ void PrometheusExpositionFormat(
       while (end > 0 && v.buckets[end - 1] == 0) --end;
 
       for (size_t i = 0; i < end; i++) {
+        assert(i < metric.histogram_labels.size());
+        std::string_view i_label = metric.histogram_labels[i];
+        if (i_label == "Inf") {
+          // This is the overflow bucket; ignore it.
+          continue;
+        }
         std::string bucket_labels = absl::StrCat(
-            label_str, label_str.empty() ? "" : ", ", "le=\"", i, "\"");
+            label_str, label_str.empty() ? "" : ", ", "le=\"", i_label, "\"");
+
         line = PrometheusValueLine{metric_name, "_bucket ",
                                    bucket_labels}(v.buckets[i]);
         if (!line.empty()) {

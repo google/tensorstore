@@ -18,6 +18,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <cmath>
@@ -31,7 +32,6 @@
 #include "absl/base/optimization.h"
 #include "absl/debugging/leak_check.h"
 #include "absl/memory/memory.h"
-#include "absl/numeric/bits.h"
 #include "tensorstore/internal/metrics/collect.h"
 #include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/metrics/metric_impl.h"
@@ -57,18 +57,27 @@ struct DefaultBucketer {
   static constexpr const char kTag[] = "default_histogram";
 
   /// Number of buckets.
-  static constexpr size_t Max = 65;
+  static constexpr size_t Max = 66;
   static constexpr size_t UnderflowBucket = 0;
-  static constexpr size_t OverflowBucket = 64;
+  static constexpr size_t OverflowBucket = 65;
 
   /// Mapping from value to bucket in the range [0 .. Max-1].
   static size_t BucketForValue(double value) {
-    static constexpr double kMaximumValue = static_cast<double>(1ull << 63);
+    if (!std::isfinite(value)) return UnderflowBucket;
     if (value < 0) return UnderflowBucket;
-    if (value >= kMaximumValue) return OverflowBucket;
-    size_t v = absl::bit_width(static_cast<uint64_t>(value)) + 1;
-    return (v >= Max) ? OverflowBucket : v;
+    int exp = 0;
+    std::frexp(value, &exp);
+    if (exp <= 0) return 1;
+    if (exp < OverflowBucket) return exp + 1;
+    return OverflowBucket;
   }
+
+  /// Upper-bound label for the bucket.
+  /// OverflowBucket should return "Inf".
+  static std::string_view LabelForBucket(size_t b);
+
+  // Fills in the labels for the histogram.
+  static void SetHistogramLabels(std::vector<std::string_view>& labels);
 };
 
 /// A Histogram metric records a distribution value.
@@ -160,6 +169,9 @@ class ABSL_CACHELINE_ALIGNED Histogram {
           },
           fields));
     });
+    if (!result.histograms.empty()) {
+      Bucketer::SetHistogramLabels(result.histogram_labels);
+    }
     return result;
   }
 

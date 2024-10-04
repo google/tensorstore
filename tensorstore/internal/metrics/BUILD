@@ -52,6 +52,7 @@ tensorstore_cc_test(
     srcs = ["collect_test.cc"],
     deps = [
         ":collect",
+        ":metadata",
         "//tensorstore/internal:json_gtest",
         "@com_github_nlohmann_json//:json",
         "@com_google_googletest//:gtest_main",
@@ -103,6 +104,9 @@ tensorstore_cc_library(
 
 tensorstore_cc_library(
     name = "metrics",
+    srcs = [
+        "histogram.cc",
+    ],
     hdrs = [
         "counter.h",
         "gauge.h",
@@ -121,9 +125,10 @@ tensorstore_cc_library(
         "//tensorstore/internal:type_traits",
         "//tensorstore/util:str_cat",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/base:no_destructor",
         "@com_google_absl//absl/debugging:leak_check",
         "@com_google_absl//absl/memory",
-        "@com_google_absl//absl/numeric:bits",
+        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/synchronization",
     ],
 )
@@ -234,5 +239,24 @@ tensorstore_cc_test(
         ":collect",
         ":registry",
         "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "histogram",
+    srcs = ["histogram.cc"],
+    hdrs = ["histogram.h"],
+    deps = [
+        ":collect",
+        ":metadata",
+        ":metric_impl",
+        ":registry",
+        "//tensorstore/internal:type_traits",
+        "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/base:no_destructor",
+        "@com_google_absl//absl/debugging:leak_check",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/strings",
     ],
 )
