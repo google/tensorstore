@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <cmath>
+#include <limits>
 #ifndef TENSORSTORE_METRICS_DISABLED
 
 #include <stddef.h>
@@ -225,6 +227,40 @@ TEST(MetricTest, MaxGauge) {
   ASSERT_EQ(1, metric.values.size());
   EXPECT_TRUE(metric.values[0].fields.empty());
   EXPECT_EQ(7, std::get<double>(metric.values[0].max_value));
+}
+
+TEST(MetricTest, DefaultBucketer) {
+  // Boundary cases.
+  EXPECT_EQ(DefaultBucketer::UnderflowBucket,
+            DefaultBucketer::BucketForValue(-1));
+  EXPECT_EQ(1, DefaultBucketer::BucketForValue(0));
+  EXPECT_EQ(2, DefaultBucketer::BucketForValue(1));
+
+  double v = std::nextafter(static_cast<double>(1ull << 63), 0);
+  EXPECT_EQ(64, DefaultBucketer::BucketForValue(v));
+
+  EXPECT_EQ(65,
+            DefaultBucketer::BucketForValue(static_cast<double>(1ull << 63)));
+
+  EXPECT_EQ(65, DefaultBucketer::BucketForValue(
+                    std::numeric_limits<uint64_t>::max()));
+
+  // Labels
+  EXPECT_EQ("0",
+            DefaultBucketer::LabelForBucket(DefaultBucketer::UnderflowBucket));
+  EXPECT_EQ("1", DefaultBucketer::LabelForBucket(1));
+  EXPECT_EQ("2", DefaultBucketer::LabelForBucket(2));
+  EXPECT_EQ("4", DefaultBucketer::LabelForBucket(3));
+  EXPECT_EQ("1M", DefaultBucketer::LabelForBucket(20));
+  EXPECT_EQ("64E", DefaultBucketer::LabelForBucket(
+                       DefaultBucketer::OverflowBucket - 3));
+  EXPECT_EQ("128E", DefaultBucketer::LabelForBucket(
+                        DefaultBucketer::OverflowBucket - 2));
+  EXPECT_EQ("256E", DefaultBucketer::LabelForBucket(
+                        DefaultBucketer::OverflowBucket - 1));
+
+  EXPECT_EQ("Inf",
+            DefaultBucketer::LabelForBucket(DefaultBucketer::OverflowBucket));
 }
 
 TEST(MetricTest, Histogram) {

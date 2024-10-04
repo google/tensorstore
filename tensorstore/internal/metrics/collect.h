@@ -53,6 +53,7 @@ struct CollectedMetric {
     std::vector<int64_t> buckets;
   };
   std::vector<Histogram> histograms;
+  std::vector<std::string_view> histogram_labels;
 };
 
 /// Returns whether a collected metric is non-zero

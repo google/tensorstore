@@ -25,6 +25,7 @@
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/json_gtest.h"
+#include "tensorstore/internal/metrics/metadata.h"
 
 namespace {
 
@@ -33,6 +34,7 @@ using ::tensorstore::internal_metrics::CollectedMetric;
 using ::tensorstore::internal_metrics::CollectedMetricToJson;
 using ::tensorstore::internal_metrics::FormatCollectedMetric;
 using ::tensorstore::internal_metrics::IsCollectedMetricNonZero;
+using ::tensorstore::internal_metrics::Units;
 using ::testing::ElementsAre;
 using ::testing::Pair;
 
@@ -124,7 +126,9 @@ TEST(CollectTest, CollectedMetricToJson) {
   metric.metric_name = "metric_name";
   metric.field_names.push_back("field_name");
   metric.metadata.description = "description";
+  metric.metadata.units = Units::kBytes;
   metric.tag = "tag";
+  metric.histogram_labels = {"0", "3", "Inf"};
 
   {
     metric.values.push_back(CollectedMetric::Value{});
@@ -142,10 +146,15 @@ TEST(CollectTest, CollectedMetricToJson) {
 
   {
     metric.values.clear();
+
     metric.histograms.push_back(CollectedMetric::Histogram{});
     auto& h = metric.histograms.back();
     h.fields.push_back("hh");
     h.count = 1;
+    h.mean = 1;
+    h.sum_of_squared_deviation = 1;
+    h.buckets.push_back(0);
+    h.buckets.push_back(1);
 
     EXPECT_THAT(CollectedMetricToJson(metric),
                 MatchesJson({{"name", "metric_name"},
@@ -153,8 +162,10 @@ TEST(CollectTest, CollectedMetricToJson) {
                               {{
                                   {"count", 1},
                                   {"field_name", "hh"},
-                                  {"mean", 0.0},
-                                  {"sum_of_squared_deviation", 0.0},
+                                  {"mean", 1.0},
+                                  {"sum_of_squared_deviation", 1.0},
+                                  {"0", 0},
+                                  {"3", 1},
                               }}}}));
   }
 }

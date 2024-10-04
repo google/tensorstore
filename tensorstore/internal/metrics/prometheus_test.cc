@@ -84,6 +84,7 @@ TEST(PrometheusTest, PrometheusExpositionFormat_Histogram) {
   metric.metadata.description = "description";
   metric.metadata.units = Units::kBytes;
   metric.tag = "tag";
+  metric.histogram_labels = {"0", "3", "Inf"};
 
   metric.histograms.push_back(CollectedMetric::Histogram{});
   auto& h = metric.histograms.back();
@@ -104,7 +105,7 @@ TEST(PrometheusTest, PrometheusExpositionFormat_Histogram) {
                   "metric_name_variance {field_name=\"hh\"} 1",
                   "metric_name_sum {field_name=\"hh\"} 1",
                   "metric_name_bucket {field_name=\"hh\", le=\"0\"} 0",
-                  "metric_name_bucket {field_name=\"hh\", le=\"1\"} 1",
+                  "metric_name_bucket {field_name=\"hh\", le=\"3\"} 1",
                   "metric_name_bucket {field_name=\"hh\", le=\"+Inf\"} 1"));
 }
 
