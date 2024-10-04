@@ -272,12 +272,14 @@ pybind11::object GetNumpyArrayImpl(SharedArrayView<const void> value,
   if (!is_const) {
     flags |= NPY_ARRAY_WRITEABLE;
   }
+  auto py_dtype = GetNumpyDtypeOrThrow(value.dtype());
   auto obj = py::reinterpret_steal<py::array>(PyArray_NewFromDescr(
-      &PyArray_Type,
-      reinterpret_cast<PyArray_Descr*>(
-          GetNumpyDtypeOrThrow(value.dtype()).release().ptr()),
-      static_cast<int>(value.rank()), shape, strides,
-      const_cast<void*>(value.data()), flags, nullptr));
+      /*subtype=*/&PyArray_Type,
+      /*descr=*/reinterpret_cast<PyArray_Descr*>(py_dtype.release().ptr()),
+      /*nd=*/static_cast<int>(value.rank()),
+      /*dims=*/shape,
+      /*strides=*/strides,
+      /*data=*/const_cast<void*>(value.data()), flags, nullptr));
   if (!obj) throw py::error_already_set();
   using Pointer = std::shared_ptr<const void>;
   PyArray_SetBaseObject(

@@ -894,7 +894,7 @@ Examples:
     ...     dtype=ts.uint32,
     ...     shape=[70, 80],
     ...     create=True)
-    >>> dataset[10:20, 5:10] + np.array(5)
+    >>> dataset[10:20, 5:10] + np.array(5, dtype=np.uint32)
     array([[5, 5, 5, 5, 5],
            [5, 5, 5, 5, 5],
            [5, 5, 5, 5, 5],
