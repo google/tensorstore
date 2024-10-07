@@ -29,7 +29,7 @@ bazel run -c opt \
       "driver": "zarr3",
       "kvstore": {
           "driver": "ocdbt",
-          "base": "gs://bucket/path/ocdbt.root/"
+          "base": "file:///tmp/benchmark"
       }}'
   --read_config=config.json
 */
@@ -80,23 +80,31 @@ bazel run -c opt \
 using ::tensorstore::internal_benchmark::ReadFromFileOrFlag;
 using ::tensorstore::internal_benchmark::ShardVariable;
 
-ABSL_FLAG(tensorstore::JsonAbslFlag<tensorstore::Context::Spec>, context_spec,
-          {},
-          "Context spec for writing data.  This can be used to control the "
-          "number of concurrent write operations of the underlying key-value "
-          "store.  See examples at the start of the source file.");
+ABSL_FLAG(
+    tensorstore::JsonAbslFlag<tensorstore::Context::Spec>, context_spec,
+    []() {
+      return tensorstore::Context::Spec::FromJson(
+                 {
+                     {"file_io_concurrency", {{"limit", 128}}},
+                 })
+          .value();
+    }(),
+    "Context spec for reading data.  This can be used to control the "
+    "number of concurrent read operations, for example.");
 
 ABSL_FLAG(
     tensorstore::JsonAbslFlag<tensorstore::Spec>, base_spec,
     []() {
-      return tensorstore::Spec::FromJson({
-                                             {"driver", "zarr"},
-                                             {"kvstore", "memory://"},
-                                         })
+      return tensorstore::Spec::FromJson(
+                 {
+                     {"driver", "zarr"},
+                     {"kvstore",
+                      {{"driver", "ocdbt"}, {"base", "memory:///prefix/"}}},
+                 })
           .value();
     }(),
     "Base TensorStore Spec to use for reading; the kvstore path will be "
-    "augmented with each specified --path.");
+    "augmented with each name in --read_config or --paths.");
 
 ABSL_FLAG(std::string, read_config, {},
           "Paths to all the tensorstore specs to benchmark. The actual spec "

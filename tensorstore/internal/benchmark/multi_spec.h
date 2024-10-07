@@ -17,7 +17,6 @@
 
 #include <stddef.h>
 
-#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -38,19 +37,20 @@ struct ShardVariable {
   std::string dtype;
   std::vector<Box<>> array_boxes;
 
-  constexpr static auto default_json_binder =
-      [](auto is_loading, const auto& options, auto* obj, auto* j) {
-        namespace jb = tensorstore::internal_json_binding;
-        using Self = ShardVariable;
-        return jb::Object(
-            jb::Member("name", jb::Projection<&Self::name>()),
-            jb::Member("shape", jb::Projection<&Self::shape>()),
-            jb::Member("chunks", jb::Projection<&Self::chunks>()),
-            jb::Member("dtype", jb::Projection<&Self::dtype>()),
-            jb::Member("array_boxes", jb::Projection<&Self::array_boxes>()),
-            jb::DiscardExtraMembers /**/
-            )(is_loading, options, obj, j);
-      };
+  constexpr static auto default_json_binder = [](auto is_loading,
+                                                 const auto& options, auto* obj,
+                                                 auto* j) {
+    namespace jb = tensorstore::internal_json_binding;
+    using Self = ShardVariable;
+    return jb::Object(
+        jb::Member("name", jb::Projection<&Self::name>()),
+        jb::Member("shape", jb::Projection<&Self::shape>()),
+        jb::Member("chunks", jb::Projection<&Self::chunks>()),
+        jb::Member("dtype", jb::Projection<&Self::dtype>()),
+        jb::OptionalMember("array_boxes", jb::Projection<&Self::array_boxes>()),
+        jb::DiscardExtraMembers /**/
+        )(is_loading, options, obj, j);
+  };
 };
 
 /// Read a list of ShardVariable from a file or a json object.
