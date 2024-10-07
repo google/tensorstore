@@ -29,7 +29,7 @@ bazel run -c opt \
       "driver": "zarr3",
       "kvstore": {
           "driver": "ocdbt",
-          "base": "gs://bucket/path/ocdbt.root/"
+          "base": "file:///tmp/benchmark"
       }}'
   --write_config=config.json
 */
@@ -91,22 +91,30 @@ bazel run -c opt \
 using ::tensorstore::internal_benchmark::ReadFromFileOrFlag;
 using ::tensorstore::internal_benchmark::ShardVariable;
 
-ABSL_FLAG(tensorstore::JsonAbslFlag<tensorstore::Context::Spec>, context_spec,
-          {},
-          "Context spec for writing data.  This can be used to control the "
-          "number of concurrent write operations of the underlying key-value "
-          "store.  See examples at the start of the source file.");
+ABSL_FLAG(
+    tensorstore::JsonAbslFlag<tensorstore::Context::Spec>, context_spec,
+    []() {
+      return tensorstore::Context::Spec::FromJson(
+                 {
+                     {"file_io_concurrency", {{"limit", 128}}},
+                 })
+          .value();
+    }(),
+    "Context spec for writing data.  This can be used to control the "
+    "number of concurrent write operations, for example.");
 
 ABSL_FLAG(
     tensorstore::JsonAbslFlag<tensorstore::Spec>, base_spec,
     []() {
-      return tensorstore::Spec::FromJson({
-                                             {"driver", "zarr"},
-                                             {"kvstore", "memory://"},
-                                         })
+      return tensorstore::Spec::FromJson(
+                 {
+                     {"driver", "zarr"},
+                     {"kvstore",
+                      {{"driver", "ocdbt"}, {"base", "memory:///prefix/"}}},
+                 })
           .value();
     }(),
-    "Base TensorStore Spec to use for reading; the kvstore path will be "
+    "Base TensorStore Spec to use for writing; the kvstore path will be "
     "augmented with each name in --write_config.");
 
 ABSL_FLAG(std::string, write_config, {},
@@ -195,12 +203,14 @@ Stats DoSinglePass(tensorstore::Context context,
         [&, var_i = i, copy_promise = copy_promise,
          commit_promise = commit_promise](Promise<void> open_promise,
                                           ReadyFuture<TensorStore<>> future) {
+          const auto& var = config[var_i];
           if (!future.status().ok()) {
-            open_promise.SetResult(future.status());
+            // If one tensorstore fails to open, keep going with the rest.
+            ABSL_LOG(ERROR) << "Failed to open: " << var.name;
+            ABSL_LOG(ERROR) << future.status();
             return;
           }
 
-          const auto& var = config[var_i];
           KeyType key(std::string_view(var.dtype),
                       tensorstore::span(var.chunks));
           auto it = chunk_arrays.find(key);
@@ -263,17 +273,13 @@ Stats DoSinglePass(tensorstore::Context context,
 
   // Wait until all opens complete.
   open_future.Wait();
-  if (!open_future.result().ok()) {
-    // write test failed, return to write_before
-    ABSL_LOG(FATAL) << "Failed to open:" << open_future.status();
-  }
   stats.open_time = absl::Now();
 
   // Wait until all copies complete.
   copy_future.Wait();
   if (!copy_future.result().ok()) {
     // write test failed, return to write_before
-    ABSL_LOG(FATAL) << "Failed to copy:" << copy_future.status();
+    ABSL_LOG(WARNING) << "Failed to copy:" << copy_future.status();
   }
   stats.copy_time = absl::Now();
 
