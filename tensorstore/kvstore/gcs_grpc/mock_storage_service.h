@@ -58,18 +58,6 @@ class MockStorage : public ::google::storage::v2::Storage::Service {
   TENSORSTORE_GRPC_MOCK(UpdateBucket,
                         ::google::storage::v2::UpdateBucketRequest,
                         ::google::storage::v2::Bucket);
-  TENSORSTORE_GRPC_MOCK(DeleteNotificationConfig,
-                        ::google::storage::v2::DeleteNotificationConfigRequest,
-                        ::google::protobuf::Empty);
-  TENSORSTORE_GRPC_MOCK(GetNotificationConfig,
-                        ::google::storage::v2::GetNotificationConfigRequest,
-                        ::google::storage::v2::NotificationConfig);
-  TENSORSTORE_GRPC_MOCK(CreateNotificationConfig,
-                        ::google::storage::v2::CreateNotificationConfigRequest,
-                        ::google::storage::v2::NotificationConfig);
-  TENSORSTORE_GRPC_MOCK(ListNotificationConfigs,
-                        ::google::storage::v2::ListNotificationConfigsRequest,
-                        ::google::storage::v2::ListNotificationConfigsResponse);
   TENSORSTORE_GRPC_MOCK(ComposeObject,
                         ::google::storage::v2::ComposeObjectRequest,
                         ::google::storage::v2::Object);
