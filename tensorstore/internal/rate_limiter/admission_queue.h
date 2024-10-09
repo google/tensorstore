@@ -38,7 +38,7 @@ class AdmissionQueue : public RateLimiter {
  public:
   /// Construct an AdmissionQueue with `limit` parallelism.
   AdmissionQueue(size_t limit);
-  ~AdmissionQueue() override = default;
+  ~AdmissionQueue() override;
 
   size_t limit() const { return limit_; }
   size_t in_flight() const {
@@ -58,6 +58,9 @@ class AdmissionQueue : public RateLimiter {
 
  private:
   const size_t limit_;
+
+  mutable absl::Mutex mutex_;
+  RateLimiterNode head_ ABSL_GUARDED_BY(mutex_);
   size_t in_flight_ ABSL_GUARDED_BY(mutex_) = 0;
 };
 

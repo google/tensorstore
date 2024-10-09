@@ -56,10 +56,16 @@ tensorstore_cc_library(
     name = "rate_limiter",
     srcs = ["rate_limiter.cc"],
     hdrs = ["rate_limiter.h"],
+    deps = ["//tensorstore/internal/container:intrusive_linked_list"],
+)
+
+tensorstore_cc_test(
+    name = "rate_limiter_test",
+    srcs = ["rate_limiter_test.cc"],
     deps = [
-        "//tensorstore/internal/container:intrusive_linked_list",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/synchronization",
+        ":rate_limiter",
+        "//tensorstore/internal:intrusive_ptr",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 

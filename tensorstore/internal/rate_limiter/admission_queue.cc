@@ -27,7 +27,15 @@ namespace tensorstore {
 namespace internal {
 
 AdmissionQueue::AdmissionQueue(size_t limit)
-    : limit_(limit == 0 ? std::numeric_limits<size_t>::max() : limit) {}
+    : limit_(limit == 0 ? std::numeric_limits<size_t>::max() : limit) {
+  internal::intrusive_linked_list::Initialize(RateLimiterNodeAccessor{},
+                                              &head_);
+}
+
+AdmissionQueue::~AdmissionQueue() {
+  absl::MutexLock l(&mutex_);
+  assert(head_.next_ == &head_);
+}
 
 void AdmissionQueue::Admit(RateLimiterNode* node, RateLimiterNode::StartFn fn) {
   assert(node->next_ == nullptr);
@@ -37,11 +45,12 @@ void AdmissionQueue::Admit(RateLimiterNode* node, RateLimiterNode::StartFn fn) {
 
   {
     absl::MutexLock lock(&mutex_);
-    if (in_flight_++ >= limit_) {
+    if (in_flight_ + 1 > limit_) {
       internal::intrusive_linked_list::InsertBefore(RateLimiterNodeAccessor{},
                                                     &head_, node);
       return;
     }
+    in_flight_++;
   }
 
   RunStartFunction(node);
@@ -50,18 +59,24 @@ void AdmissionQueue::Admit(RateLimiterNode* node, RateLimiterNode::StartFn fn) {
 void AdmissionQueue::Finish(RateLimiterNode* node) {
   assert(node->next_ == nullptr);
 
+  absl::MutexLock lock(&mutex_);
+  in_flight_--;
+
+  // Typically this loop will admit only a single node at a time.
   RateLimiterNode* next_node = nullptr;
-  {
-    absl::MutexLock lock(&mutex_);
-    in_flight_--;
+  while (true) {
     next_node = head_.next_;
     if (next_node == &head_) return;
+    if (in_flight_ + 1 > limit_) return;
+    in_flight_++;
     internal::intrusive_linked_list::Remove(RateLimiterNodeAccessor{},
                                             next_node);
-  }
 
-  // Next node gets a chance to run after clearing admission queue state.
-  RunStartFunction(next_node);
+    // Next node gets a chance to run after clearing admission queue state.
+    mutex_.Unlock();
+    RunStartFunction(next_node);
+    mutex_.Lock();
+  }
 }
 
 }  // namespace internal

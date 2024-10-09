@@ -67,6 +67,9 @@ class TokenBucketRateLimiter : public RateLimiter {
   void PerformWork() ABSL_LOCKS_EXCLUDED(mutex_);
   void PerformWorkLocked() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
+  mutable absl::Mutex mutex_;
+  RateLimiterNode head_ ABSL_GUARDED_BY(mutex_);
+
   // Intermediate state values.
   std::function<absl::Time()> clock_;
   const double max_tokens_;

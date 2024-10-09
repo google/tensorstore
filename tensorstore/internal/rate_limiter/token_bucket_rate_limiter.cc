@@ -44,7 +44,10 @@ TokenBucketRateLimiter::TokenBucketRateLimiter(double max_tokens)
       max_tokens_(max_tokens),
       start_time_(clock_()),
       last_update_(start_time_),
-      allow_schedule_at_(true) {}
+      allow_schedule_at_(true) {
+  internal::intrusive_linked_list::Initialize(RateLimiterNodeAccessor{},
+                                              &head_);
+}
 
 TokenBucketRateLimiter::TokenBucketRateLimiter(
     double max_tokens, std::function<absl::Time()> clock)
@@ -52,7 +55,10 @@ TokenBucketRateLimiter::TokenBucketRateLimiter(
       max_tokens_(max_tokens),
       start_time_(clock_()),
       last_update_(start_time_),
-      allow_schedule_at_(false) {}
+      allow_schedule_at_(false) {
+  internal::intrusive_linked_list::Initialize(RateLimiterNodeAccessor{},
+                                              &head_);
+}
 
 TokenBucketRateLimiter::~TokenBucketRateLimiter() {
   absl::MutexLock l(&mutex_);
@@ -60,6 +66,7 @@ TokenBucketRateLimiter::~TokenBucketRateLimiter() {
       +[](TokenBucketRateLimiter* self) ABSL_EXCLUSIVE_LOCKS_REQUIRED(
            self->mutex_) { return !self->scheduled_; },
       this));
+  assert(head_.next_ == &head_);
 }
 
 void TokenBucketRateLimiter::Admit(RateLimiterNode* node,
