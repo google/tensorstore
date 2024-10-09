@@ -15,23 +15,20 @@
 #ifndef TENSORSTORE_INTERNAL_RATE_LIMITER_RATE_LIMITER_H_
 #define TENSORSTORE_INTERNAL_RATE_LIMITER_RATE_LIMITER_H_
 
-#include "absl/base/thread_annotations.h"
-#include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/container/intrusive_linked_list.h"
 
 namespace tensorstore {
 namespace internal {
 
-// RateLimiter is an interface which supports rate-limiting for an operation.
-// Pending operations use the `RateLimiterNode` base class, and are managed
-// via `RateLimiter::Admit` and `RateLimiter::Finish` calls.
-//
-// Generally, a RateLimiterNode will also be reference counted, however neither
-// the RateLimiterNode nor the RateLimiter class manage any reference counts.
-// Callers should manage reference counts externally.
-//
+/// RateLimiter is an interface which supports rate-limiting for an operation.
+/// Pending operations use the `RateLimiterNode` base class, and are managed
+/// via `RateLimiter::Admit` and `RateLimiter::Finish` calls.
+///
+/// Generally, a RateLimiterNode will also be reference counted, however neither
+/// the RateLimiterNode nor the RateLimiter class manage any reference counts.
+/// Callers should manage reference counts externally.
 struct RateLimiterNode {
-  using StartFn = void (*)(void*);
+  using StartFn = void (*)(RateLimiterNode*);
 
   RateLimiterNode* next_ = nullptr;
   RateLimiterNode* prev_ = nullptr;
@@ -44,8 +41,7 @@ using RateLimiterNodeAccessor = internal::intrusive_linked_list::MemberAccessor<
 /// RateLimiter interface.
 class RateLimiter {
  public:
-  RateLimiter();
-  virtual ~RateLimiter();
+  virtual ~RateLimiter() = default;
 
   /// Add a task to  the rate limiter. Will arrange for `fn(node)` to be called
   /// at some (possible future) point.
@@ -56,9 +52,6 @@ class RateLimiter {
 
  protected:
   static void RunStartFunction(RateLimiterNode* node);
-
-  mutable absl::Mutex mutex_;
-  RateLimiterNode head_ ABSL_GUARDED_BY(mutex_);
 };
 
 /// RateLimiter interface.

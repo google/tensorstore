@@ -49,8 +49,8 @@ struct Node : public RateLimiterNode, public AtomicReferenceCount<Node> {
 
   ~Node() { queue_->Finish(this); }
 
-  static void Start(void* task) {
-    IntrusivePtr<Node> self(reinterpret_cast<Node*>(task), adopt_object_ref);
+  static void Start(RateLimiterNode* task) {
+    IntrusivePtr<Node> self(static_cast<Node*>(task), adopt_object_ref);
     std::move(self->task_)();
   }
 };

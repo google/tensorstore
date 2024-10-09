@@ -373,14 +373,14 @@ struct ReadTask : public RateLimiterNode,
 
   ~ReadTask() { owner->admission_queue().Finish(this); }
 
-  static void Start(void* task) {
-    auto* self = reinterpret_cast<ReadTask*>(task);
+  static void Start(RateLimiterNode* task) {
+    auto* self = static_cast<ReadTask*>(task);
     self->owner->read_rate_limiter().Finish(self);
     self->owner->admission_queue().Admit(self, &ReadTask::Admit);
   }
 
-  static void Admit(void* task) {
-    auto* self = reinterpret_cast<ReadTask*>(task);
+  static void Admit(RateLimiterNode* task) {
+    auto* self = static_cast<ReadTask*>(task);
     self->owner->executor()(
         [state = IntrusivePtr<ReadTask>(self, internal::adopt_object_ref)] {
           state->Retry();
@@ -572,14 +572,14 @@ struct ConditionTask : public RateLimiterNode,
         endpoint_region_(std::move(endpoint_region)),
         object_url_(std::move(object_url)) {}
 
-  static void Start(void* task) {
-    auto* self = reinterpret_cast<Base*>(task);
+  static void Start(RateLimiterNode* task) {
+    auto* self = static_cast<Base*>(task);
     self->owner->write_rate_limiter().Finish(self);
     self->owner->admission_queue().Admit(self, &Base::Admit);
   }
 
-  static void Admit(void* task) {
-    auto* self = reinterpret_cast<Base*>(task);
+  static void Admit(RateLimiterNode* task) {
+    auto* self = static_cast<Base*>(task);
     self->owner->executor()(
         [state = IntrusivePtr<Base>(self, internal::adopt_object_ref)] {
           state->Retry();
@@ -976,13 +976,13 @@ struct ListTask : public RateLimiterNode,
     return cancelled_.load(std::memory_order_relaxed);
   }
 
-  static void Start(void* task) {
-    auto* self = reinterpret_cast<ListTask*>(task);
+  static void Start(RateLimiterNode* task) {
+    auto* self = static_cast<ListTask*>(task);
     self->owner_->read_rate_limiter().Finish(self);
     self->owner_->admission_queue().Admit(self, &ListTask::Admit);
   }
-  static void Admit(void* task) {
-    auto* self = reinterpret_cast<ListTask*>(task);
+  static void Admit(RateLimiterNode* task) {
+    auto* self = static_cast<ListTask*>(task);
     self->owner_->executor()(
         [state = IntrusivePtr<ListTask>(self, internal::adopt_object_ref)] {
           state->IssueRequest();

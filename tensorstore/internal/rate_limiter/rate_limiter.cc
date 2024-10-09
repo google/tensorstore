@@ -16,22 +16,8 @@
 
 #include <cassert>
 
-#include "absl/synchronization/mutex.h"
-#include "tensorstore/internal/container/intrusive_linked_list.h"
-
 namespace tensorstore {
 namespace internal {
-
-RateLimiter::RateLimiter() {
-  absl::MutexLock l(&mutex_);
-  internal::intrusive_linked_list::Initialize(RateLimiterNodeAccessor{},
-                                              &head_);
-}
-
-RateLimiter::~RateLimiter() {
-  absl::MutexLock l(&mutex_);
-  assert(head_.next_ == &head_);
-}
 
 void RateLimiter::RunStartFunction(RateLimiterNode* node) {
   // Next node gets a chance to run after clearing admission queue state.
@@ -53,6 +39,8 @@ void NoRateLimiter::Admit(RateLimiterNode* node, RateLimiterNode::StartFn fn) {
 
 void NoRateLimiter::Finish(RateLimiterNode* node) {
   assert(node->next_ == nullptr);
+  assert(node->prev_ == nullptr);
+  assert(node->start_fn_ == nullptr);
 }
 
 }  // namespace internal
