@@ -15,7 +15,17 @@
 #ifndef TENSORSTORE_INDEX_SPACE_INDEX_DOMAIN_H_
 #define TENSORSTORE_INDEX_SPACE_INDEX_DOMAIN_H_
 
+#include <cassert>
+#include <ostream>
+#include <string>
+#include <string_view>
+#include <type_traits>
+#include <utility>
+
 #include "tensorstore/box.h"
+#include "tensorstore/container_kind.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/internal/identity_transform.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
 #include "tensorstore/index_space/internal/transpose.h"
@@ -23,8 +33,11 @@
 #include "tensorstore/internal/string_like.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/serialization/fwd.h"
+#include "tensorstore/static_cast.h"
 #include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 
 TENSORSTORE_GDB_AUTO_SCRIPT("index_space_gdb.py")
 

@@ -15,9 +15,6 @@
 #ifndef TENSORSTORE_JSON_SERIALIZATION_OPTIONS_BASE_H_
 #define TENSORSTORE_JSON_SERIALIZATION_OPTIONS_BASE_H_
 
-#include "tensorstore/index.h"
-#include "tensorstore/rank.h"
-
 namespace tensorstore {
 namespace internal_json_binding {
 

@@ -12,18 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
 #include <iostream>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "absl/log/log.h"
 #include "absl/status/status.h"
+#include "absl/synchronization/mutex.h"
 #include "tensorstore/array_storage_statistics.h"
 #include "tensorstore/box.h"
 #include "tensorstore/context.h"
 #include "tensorstore/index_space/dim_expression.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/box.h"  // IWYU pragma: keep
 #include "tensorstore/internal/json_binding/json_binding.h"  // IWYU pragma: keep
 #include "tensorstore/internal/json_binding/std_optional.h"  // IWYU pragma: keep
@@ -33,6 +39,9 @@
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/tscli/args.h"
 #include "tensorstore/tscli/cli.h"
+#include "tensorstore/util/division.h"
+#include "tensorstore/util/future.h"
+#include "tensorstore/util/iterate.h"
 #include "tensorstore/util/json_absl_flag.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
@@ -40,10 +49,172 @@
 
 namespace tensorstore {
 namespace cli {
+namespace {
 
-absl::Status TsPrintStorageStatistics(
-    Context::Spec context_spec, tensorstore::Spec spec,
-    tensorstore::span<std::string_view> args) {
+// Greedily merges adjacent boxes in the array.
+// The basic greedy algorithm is to sort the boxes by each position, and then
+// attempt to merge any boxes which are adjacent along a single dimension,
+// repeating until no more merges are possible.
+std::vector<Box<>> MergeAdjacentBoxes(std::vector<Box<>> boxes) {
+  if (boxes.empty()) return boxes;
+  bool merged = false;
+  auto rank = boxes[0].rank();
+  for (auto& box : boxes) {
+    rank = std::max(rank, box.rank());
+  }
+  if (rank == 0) return boxes;
+
+  auto merge_if_adjacent = [&](const Box<>& left,
+                               const Box<>& right) -> std::optional<Box<>> {
+    if (left.rank() != right.rank()) return std::nullopt;
+    std::optional<size_t> dim_to_merge;
+    std::vector<int64_t> shape(left.rank());
+    for (size_t i = 0; i < left.rank(); ++i) {
+      shape[i] = left.shape()[i];
+      if (left.origin()[i] == right.origin()[i]) continue;
+      if (left.origin()[i] + left.shape()[i] == right.origin()[i]) {
+        if (!dim_to_merge.has_value()) {
+          dim_to_merge = i;
+          shape[i] = left.shape()[i] + right.shape()[i];
+          continue;
+        }
+      }
+      return std::nullopt;
+    }
+    return Box<>(left.origin(), shape);
+  };
+
+  std::vector<Box<>> result = std::move(boxes);
+
+  do {
+    merged = false;
+    // Sort boxes by each rank.
+    for (size_t i = 0; i < rank; ++i) {
+      boxes = std::move(result);
+      std::sort(boxes.begin(), boxes.end(),
+                [i](const Box<>& a, const Box<>& b) {
+                  if (a.rank() != b.rank()) {
+                    return a.rank() < b.rank();
+                  }
+                  if (std::equal(a.origin().begin(), a.origin().end(),
+                                 b.origin().begin())) {
+                    return std::lexicographical_compare(
+                        a.shape().begin(), a.shape().end(), b.shape().begin(),
+                        b.shape().end());
+                  }
+                  if (i < a.rank() && a.origin()[i] != b.origin()[i]) {
+                    return a.origin()[i] < b.origin()[i];
+                  }
+                  return std::lexicographical_compare(
+                      a.origin().begin(), a.origin().end(), b.origin().begin(),
+                      b.origin().end());
+                });
+      // Merge adjacent boxes.
+      result = {};
+      auto it = boxes.begin();
+      result.push_back(std::move(*it));
+      for (++it; it != boxes.end(); ++it) {
+        auto box_maybe = merge_if_adjacent(result.back(), *it);
+        if (box_maybe.has_value()) {
+          result.back() = *std::move(box_maybe);
+          merged = true;
+        } else {
+          result.push_back(std::move(*it));
+        }
+      }
+    }
+  } while (merged);
+
+  // Sort the final set of merged boxes to ensure consistent ordering.
+  std::sort(result.begin(), result.end(), [](const Box<>& a, const Box<>& b) {
+    if (a.rank() != b.rank()) return a.rank() < b.rank();
+    if (std::equal(a.origin().begin(), a.origin().end(), b.origin().begin())) {
+      return std::lexicographical_compare(a.shape().begin(), a.shape().end(),
+                                          b.shape().begin(), b.shape().end());
+    } else {
+      return std::lexicographical_compare(a.origin().begin(), a.origin().end(),
+                                          b.origin().begin(), b.origin().end());
+    }
+  });
+  return result;
+}
+
+// Queries the storage statistics for each possible stored chunk within the
+// specified tensorstore.
+// NOTE: On a large dataset this may be very expensive.
+std::vector<Box<>> GetStoredChunks(tensorstore::TensorStore<> ts) {
+  size_t rank = ts.rank();
+
+  std::vector<int64_t> chunk_shape(rank);
+  std::vector<int64_t> grid_shape(rank);
+  std::vector<int64_t> grid_pos(rank);
+
+  for (size_t i = 0; i < rank; ++i) {
+    chunk_shape[i] = ts.chunk_layout()->read_chunk_shape()[i];
+    grid_shape[i] =
+        tensorstore::CeilOfRatio(ts.domain().shape()[i], chunk_shape[i]);
+  }
+
+  auto [stat_promise, stat_future] =
+      PromiseFuturePair<void>::Make(absl::OkStatus());
+
+  absl::Mutex mutex;
+  std::vector<Box<>> array_boxes;
+  std::vector<int64_t> slice_start(rank), slice_shape(rank);
+  size_t count = 0;
+  do {
+    for (size_t i = 0; i < rank; ++i) {
+      slice_start[i] = ts.domain().origin()[i] + (chunk_shape[i] * grid_pos[i]);
+      slice_shape[i] =
+          std::min(chunk_shape[i], ts.domain().shape()[i] - slice_start[i]);
+    }
+    if (count++ % 500 == 499) {
+      std::cerr << "Issuing query " << count << std::endl;
+    }
+    const auto box = Box(slice_start, slice_shape);
+    LinkValue(
+        [b = box, &array_boxes, &mutex](auto promise,
+                                        ReadyFuture<ArrayStorageStatistics> f) {
+          absl::MutexLock lock(&mutex);
+          if (!f.value().not_stored) {
+            array_boxes.push_back(std::move(b));
+          }
+        },
+        stat_promise,
+        GetStorageStatistics(
+            ts | tensorstore::AllDims().BoxSlice(box),
+            tensorstore::ArrayStorageStatistics::query_not_stored));
+  } while (tensorstore::internal::AdvanceIndices(rank, grid_pos.data(),
+                                                 grid_shape.data()));
+  if (count > 1000) {
+    std::cerr << "Waiting for " << count << " queries." << std::endl;
+  }
+  stat_promise = {};
+  stat_future.Wait();
+  return MergeAdjacentBoxes(std::move(array_boxes));
+}
+
+void Output(tensorstore::span<Box<>> not_stored,
+            tensorstore::span<Box<>> partial,
+            tensorstore::span<Box<>> fully_stored) {
+  for (const auto& b : not_stored) {
+    std::cout << "missing: " << internal_json_binding::ToJson(b)->dump()
+              << std::endl;
+  }
+  for (const auto& b : partial) {
+    std::cout << "partial: " << internal_json_binding::ToJson(b)->dump()
+              << std::endl;
+  }
+  for (const auto& b : fully_stored) {
+    std::cout << "present: " << internal_json_binding::ToJson(b)->dump()
+              << std::endl;
+  }
+}
+
+}  // namespace
+
+absl::Status TsPrintStoredChunks(Context::Spec context_spec,
+                                 tensorstore::Spec spec) {
   tensorstore::Context context(context_spec);
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto ts,
@@ -51,57 +222,92 @@ absl::Status TsPrintStorageStatistics(
                         tensorstore::OpenMode::open)
           .result());
 
-  for (const auto& arg : args) {
-    tensorstore::JsonAbslFlag<Box<>> box_flag;
-    std::string error;
-    if (!AbslParseFlag(arg, &box_flag, &error)) {
-      std::cerr << "Invalid box: " << arg << ": " << error << std::endl;
-      continue;
-    }
-    auto future = GetStorageStatistics(
-        ts | tensorstore::AllDims().BoxSlice(box_flag.value),
-        tensorstore::ArrayStorageStatistics::query_not_stored,
-        tensorstore::ArrayStorageStatistics::query_fully_stored);
-    future.Wait();
-    if (!future.status().ok()) {
-      std::cerr << "Error getting storage statistics for " << arg << ": "
-                << future.status() << std::endl;
-      continue;
-    }
-    const char* txt = "partial";
-    if (future.value().not_stored) {
-      txt = "not_stored";
-    } else if (future.value().fully_stored) {
-      txt = "fully_stored";
-    }
-    std::cout << "Box: " << arg << " " << txt << std::endl;
-  }
+  auto array_boxes = GetStoredChunks(ts);
+  Output({}, {}, array_boxes);
+  return absl::OkStatus();
+}
 
+absl::Status TsPrintStorageStatistics(Context::Spec context_spec,
+                                      tensorstore::Spec spec,
+                                      tensorstore::span<Box<>> boxes) {
+  tensorstore::Context context(context_spec);
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto ts,
+      tensorstore::Open(spec, context, tensorstore::ReadWriteMode::read,
+                        tensorstore::OpenMode::open)
+          .result());
+
+  absl::Mutex mutex;
+  std::vector<Box<>> fully_stored;
+  std::vector<Box<>> not_stored;
+  std::vector<Box<>> partial;
+
+  auto [stat_promise, stat_future] =
+      PromiseFuturePair<void>::Make(absl::OkStatus());
+  for (const auto& box : boxes) {
+    LinkValue(
+        [&, b = box](auto promise, ReadyFuture<ArrayStorageStatistics> f) {
+          absl::MutexLock lock(&mutex);
+          if (f.value().not_stored) {
+            not_stored.push_back(std::move(b));
+          } else if (f.value().fully_stored) {
+            fully_stored.push_back(std::move(b));
+          } else {
+            partial.push_back(std::move(b));
+          }
+        },
+        stat_promise,
+        GetStorageStatistics(
+            ts | tensorstore::AllDims().BoxSlice(box),
+            tensorstore::ArrayStorageStatistics::query_not_stored,
+            tensorstore::ArrayStorageStatistics::query_fully_stored));
+  }
+  stat_promise = {};
+  stat_future.Wait();
+  Output(not_stored, partial, fully_stored);
   return absl::OkStatus();
 }
 
 absl::Status RunTsPrintStorageStatistics(Context::Spec context_spec,
                                          CommandFlags flags) {
   tensorstore::JsonAbslFlag<std::optional<tensorstore::Spec>> spec;
-  std::vector<Option> options({
-      Option{"--spec",
-             [&](std::string_view value) {
-               std::string error;
-               if (!AbslParseFlag(value, &spec, &error)) {
-                 return absl::InvalidArgumentError(error);
-               }
-               return absl::OkStatus();
-             }},
+  std::vector<LongOption> options({
+      LongOption{"--spec",
+                 [&](std::string_view value) {
+                   std::string error;
+                   if (!AbslParseFlag(value, &spec, &error)) {
+                     return absl::InvalidArgumentError(error);
+                   }
+                   return absl::OkStatus();
+                 }},
   });
 
   TENSORSTORE_RETURN_IF_ERROR(TryParseOptions(flags, options));
 
   if (!spec.value) {
-    return absl::InvalidArgumentError("print_spec: Must include --spec");
+    return absl::InvalidArgumentError("print_stats: Must include --spec");
   }
 
-  return TsPrintStorageStatistics(context_spec, *spec.value,
-                                  flags.positional_args);
+  std::vector<Box<>> boxes;
+  for (const std::string_view arg : flags.positional_args) {
+    tensorstore::JsonAbslFlag<Box<>> box_flag;
+    std::string error;
+    if (!AbslParseFlag(arg, &box_flag, &error)) {
+      std::cerr << "Invalid box: " << arg << ": " << error << std::endl;
+      continue;
+    }
+    boxes.push_back(std::move(box_flag).value);
+  }
+
+  if (!flags.positional_args.empty()) {
+    if (boxes.empty()) {
+      std::cerr << "No valid boxes specified." << std::endl;
+      return absl::InvalidArgumentError("No valid boxes specified.");
+    }
+    return TsPrintStorageStatistics(context_spec, *spec.value, boxes);
+  } else {
+    return TsPrintStoredChunks(context_spec, *spec.value);
+  }
 }
 
 }  // namespace cli

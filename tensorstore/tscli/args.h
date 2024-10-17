@@ -15,12 +15,12 @@
 #ifndef TENSORSTORE_TSCLI_ARGS_H_
 #define TENSORSTORE_TSCLI_ARGS_H_
 
+#include <functional>
 #include <string>
 #include <string_view>
 #include <vector>
 
 #include "absl/flags/parse.h"
-#include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "tensorstore/util/span.h"
@@ -35,17 +35,17 @@ struct CommandFlags {
   std::vector<std::string_view> positional_args;
 };
 
-/// Representation of a cli option.
-struct Option {
+/// Representation of a "long" cli option--one which takes a value.
+struct LongOption {
   // Long option name. Should begin with a "--" prefix.
   std::string_view longname;
   // Parsing function.  An error status indicates an invalid argument.
-  absl::FunctionRef<absl::Status(std::string_view)> parse;
+  std::function<absl::Status(std::string_view)> parse;
 };
 
 // Try to parse cli options.
 absl::Status TryParseOptions(CommandFlags& flags,
-                             tensorstore::span<Option> options);
+                             tensorstore::span<LongOption> options);
 
 // Convert a glob pattern to a regular expression.
 std::string GlobToRegex(std::string_view glob);
