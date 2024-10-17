@@ -57,6 +57,7 @@ const char kUsage[] =
     "  list [spec...]\n"
     "  print_spec --spec <tensorstore-spec>\n"
     "  print_stats --spec <tensorstore-spec> [box...]\n"
+    "  print_stats --spec <tensorstore-spec>\n"
     "  search --source <source-kvstore-spec>\n"
     "  search [spec...]\n"
     "  help\n";
@@ -103,7 +104,6 @@ int main(int argc, char** argv) {
     PrintShortHelp(argv[0]);
     return 1;
   }
-
   std::string_view command = positional_args[1];
   flags.positional_args.assign(positional_args.begin() + 2,
                                positional_args.end());

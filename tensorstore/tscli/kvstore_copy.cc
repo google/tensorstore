@@ -108,23 +108,23 @@ absl::Status RunKvstoreCopy(Context::Spec context_spec, CommandFlags flags) {
   tensorstore::JsonAbslFlag<std::optional<tensorstore::kvstore::Spec>> source;
   tensorstore::JsonAbslFlag<std::optional<tensorstore::kvstore::Spec>> target;
 
-  std::vector<Option> options({
-      Option{"--source",
-             [&](std::string_view value) {
-               std::string error;
-               if (!AbslParseFlag(value, &source, &error)) {
-                 return absl::InvalidArgumentError(error);
-               }
-               return absl::OkStatus();
-             }},
-      Option{"--target",
-             [&](std::string_view value) {
-               std::string error;
-               if (!AbslParseFlag(value, &target, &error)) {
-                 return absl::InvalidArgumentError(error);
-               }
-               return absl::OkStatus();
-             }},
+  std::vector<LongOption> options({
+      LongOption{"--source",
+                 [&](std::string_view value) {
+                   std::string error;
+                   if (!AbslParseFlag(value, &source, &error)) {
+                     return absl::InvalidArgumentError(error);
+                   }
+                   return absl::OkStatus();
+                 }},
+      LongOption{"--target",
+                 [&](std::string_view value) {
+                   std::string error;
+                   if (!AbslParseFlag(value, &target, &error)) {
+                     return absl::InvalidArgumentError(error);
+                   }
+                   return absl::OkStatus();
+                 }},
   });
 
   TENSORSTORE_RETURN_IF_ERROR(TryParseOptions(flags, options));

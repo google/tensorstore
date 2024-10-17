@@ -23,6 +23,7 @@
 #include "tensorstore/context.h"
 #include "tensorstore/internal/json_binding/json_binding.h"  // IWYU pragma: keep
 #include "tensorstore/internal/json_binding/std_optional.h"  // IWYU pragma: keep
+#include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/spec.h"
@@ -45,22 +46,23 @@ absl::Status TsPrintSpec(Context::Spec context_spec, tensorstore::Spec spec) {
                         tensorstore::OpenMode::open)
           .result());
   TENSORSTORE_ASSIGN_OR_RETURN(auto actual_spec, ts.spec());
-  TENSORSTORE_ASSIGN_OR_RETURN(auto json_spec, actual_spec.ToJson());
+  TENSORSTORE_ASSIGN_OR_RETURN(auto json_spec,
+                               actual_spec.ToJson(IncludeDefaults(false)));
   std::cout << json_spec.dump() << std::endl;
   return absl::OkStatus();
 }
 
 absl::Status RunTsPrintSpec(Context::Spec context_spec, CommandFlags flags) {
   tensorstore::JsonAbslFlag<std::optional<tensorstore::Spec>> spec;
-  std::vector<Option> options({
-      Option{"--spec",
-             [&](std::string_view value) {
-               std::string error;
-               if (!AbslParseFlag(value, &spec, &error)) {
-                 return absl::InvalidArgumentError(error);
-               }
-               return absl::OkStatus();
-             }},
+  std::vector<LongOption> options({
+      LongOption{"--spec",
+                 [&](std::string_view value) {
+                   std::string error;
+                   if (!AbslParseFlag(value, &spec, &error)) {
+                     return absl::InvalidArgumentError(error);
+                   }
+                   return absl::OkStatus();
+                 }},
   });
 
   TENSORSTORE_RETURN_IF_ERROR(TryParseOptions(flags, options));

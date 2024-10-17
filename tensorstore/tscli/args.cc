@@ -33,7 +33,7 @@ namespace tensorstore {
 namespace cli {
 
 absl::Status TryParseOptions(CommandFlags& flags,
-                             tensorstore::span<Option> options) {
+                             tensorstore::span<LongOption> options) {
   absl::flat_hash_set<uintptr_t> handled;
 
   auto it = flags.argv.begin() + 1;

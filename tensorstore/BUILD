@@ -542,10 +542,6 @@ tensorstore_cc_library(
 tensorstore_cc_library(
     name = "json_serialization_options_base",
     hdrs = ["json_serialization_options_base.h"],
-    deps = [
-        ":index",
-        ":rank",
-    ],
 )
 
 tensorstore_cc_library(
