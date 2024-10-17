@@ -27,27 +27,34 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
-#include <string>
+#include <cstddef>
+#include <cstdint>
+#include <optional>
 #include <utility>
 
 #include "absl/meta/type_traits.h"
 #include "python/tensorstore/dim_expression.h"
 #include "python/tensorstore/gil_safe.h"
 #include "python/tensorstore/homogeneous_tuple.h"
-#include "python/tensorstore/index.h"
 #include "python/tensorstore/numpy_indexing_spec.h"
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/status.h"
 #include "python/tensorstore/subscript_method.h"
 #include "tensorstore/array.h"
+#include "tensorstore/container_kind.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
+#include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/dimension_identifier.h"
 #include "tensorstore/index_space/dimension_index_buffer.h"
 #include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/internal/numpy_indexing_spec.h"
+#include "tensorstore/index_space/internal/transform_rep.h"
+#include "tensorstore/index_space/internal/transpose.h"
 #include "tensorstore/index_space/output_index_map.h"
 #include "tensorstore/index_space/output_index_method.h"
 #include "tensorstore/util/bit_span.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 
 namespace tensorstore {

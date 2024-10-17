@@ -15,11 +15,19 @@
 #include "tensorstore/index_space/internal/transpose.h"
 
 #include <cassert>
+#include <cstddef>
+#include <cstring>
+#include <utility>
 
 #include "absl/container/fixed_array.h"
+#include "tensorstore/container_kind.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dimension_permutation.h"
+#include "tensorstore/index_space/internal/transform_rep.h"
+#include "tensorstore/index_space/output_index_method.h"
 #include "tensorstore/rank.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 namespace internal_index_space {

@@ -16,7 +16,7 @@
 #define TENSORSTORE_INDEX_SPACE_DIMENSION_INDEX_BUFFER_H_
 
 #include "absl/container/inlined_vector.h"
-#include "tensorstore/internal/type_traits.h"
+#include "tensorstore/index.h"
 #include "tensorstore/util/iterate.h"
 
 namespace tensorstore {
