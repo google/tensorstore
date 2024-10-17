@@ -212,6 +212,22 @@ def test_transpose():
   b = ts.IndexDomain(labels=["y", "x"])
 
   assert a.T == b
+  assert a.transpose() == b
+  assert a.transpose([1, 0]) == b
+  assert a.transpose(["y", "x"]) == b
+  assert a.transpose(["y", 0]) == b
+
+
+def test_transpose_errors():
+  a = ts.IndexDomain(labels=["x", "y", "z"])
+  with pytest.raises(ValueError):
+    a.transpose([1, 0])
+  with pytest.raises(ValueError):
+    a.transpose(["x", "y", "y"])
+  with pytest.raises(ValueError):
+    a.transpose(["x", "y", "z", 1])
+  with pytest.raises(ValueError):
+    a.transpose(["x", "y", 1])
 
 
 def test_pickle():

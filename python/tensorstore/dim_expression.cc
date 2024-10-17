@@ -20,7 +20,10 @@
 #include "python/tensorstore/dim_expression.h"
 
 // Other headers
+#include <cstddef>
+#include <iterator>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -42,12 +45,15 @@
 #include "tensorstore/index_space/dimension_identifier.h"
 #include "tensorstore/index_space/dimension_index_buffer.h"
 #include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/internal/compose_transforms.h"
 #include "tensorstore/index_space/internal/numpy_indexing_spec.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/serialization/serialization.h"
 #include "tensorstore/serialization/std_optional.h"
 #include "tensorstore/serialization/std_variant.h"
 #include "tensorstore/serialization/std_vector.h"
+#include "tensorstore/util/executor.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"

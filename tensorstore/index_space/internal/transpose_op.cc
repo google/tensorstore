@@ -14,14 +14,26 @@
 
 #include "tensorstore/index_space/internal/transpose_op.h"
 
+#include <algorithm>
 #include <cassert>
 #include <numeric>
+#include <utility>
+#include <variant>
 
 #include "absl/status/status.h"
+#include "tensorstore/container_kind.h"
+#include "tensorstore/index.h"
 #include "tensorstore/index_space/dimension_identifier.h"
+#include "tensorstore/index_space/dimension_index_buffer.h"
 #include "tensorstore/index_space/dimension_permutation.h"
 #include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/internal/transform_rep.h"
 #include "tensorstore/index_space/internal/transpose.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/util/dimension_set.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -164,7 +176,8 @@ Result<IndexTransform<>> ApplyTranspose(
   source_dimensions.reserve(transform.input_rank());
   TENSORSTORE_RETURN_IF_ERROR(NormalizeDynamicDimSpecs(
       source_dim_specs, transform.input_labels(), &source_dimensions));
-  if (!IsValidPermutation(source_dimensions)) {
+  if (source_dimensions.size() != transform.input_rank() ||
+      !IsValidPermutation(source_dimensions)) {
     return absl::InvalidArgumentError(
         tensorstore::StrCat("Source dimension list ", span(source_dimensions),
                             " is not a valid dimension permutation for rank ",

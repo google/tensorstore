@@ -21,12 +21,16 @@
 
 // IWYU pragma: private, include "third_party/tensorstore/index_space/dim_expression.h"
 
+#include <utility>
+
+#include "tensorstore/index.h"
 #include "tensorstore/index_space/dimension_identifier.h"
 #include "tensorstore/index_space/dimension_index_buffer.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/meta.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 namespace internal_index_space {
