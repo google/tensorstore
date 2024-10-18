@@ -43,9 +43,18 @@ struct LongOption {
   std::function<absl::Status(std::string_view)> parse;
 };
 
+/// Representation of a "bool" cli option.
+struct BoolOption {
+  // Option name. May be a short name [-c] or may begin with a "--" prefix.
+  std::string_view boolname;
+  // Presence function.
+  std::function<void()> found;
+};
+
 // Try to parse cli options.
 absl::Status TryParseOptions(CommandFlags& flags,
-                             tensorstore::span<LongOption> options);
+                             tensorstore::span<LongOption> long_options,
+                             tensorstore::span<BoolOption> bool_options);
 
 // Convert a glob pattern to a regular expression.
 std::string GlobToRegex(std::string_view glob);

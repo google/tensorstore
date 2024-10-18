@@ -40,11 +40,10 @@
 namespace tensorstore {
 namespace cli {
 
-absl::Status KvstoreCopy(Context::Spec context_spec,
+absl::Status KvstoreCopy(Context context,
                          tensorstore::kvstore::Spec source_spec,
                          tensorstore::kvstore::Spec target_spec) {
   static absl::Mutex log_mutex;
-  tensorstore::Context context(context_spec);
 
   TENSORSTORE_ASSIGN_OR_RETURN(auto source,
                                kvstore::Open(source_spec, context).result());
@@ -127,7 +126,7 @@ absl::Status RunKvstoreCopy(Context::Spec context_spec, CommandFlags flags) {
                  }},
   });
 
-  TENSORSTORE_RETURN_IF_ERROR(TryParseOptions(flags, options));
+  TENSORSTORE_RETURN_IF_ERROR(TryParseOptions(flags, options, {}));
 
   if (!source.value) {
     return absl::InvalidArgumentError("Must specify --source");
@@ -136,8 +135,10 @@ absl::Status RunKvstoreCopy(Context::Spec context_spec, CommandFlags flags) {
     return absl::InvalidArgumentError("Must specify --target");
   }
 
+  tensorstore::Context context(context_spec);
+
   // TODO: Use positional args as optional keys.
-  return KvstoreCopy(context_spec, *source.value, *target.value);
+  return KvstoreCopy(context, *source.value, *target.value);
 }
 
 }  // namespace cli
