@@ -48,10 +48,9 @@ std::string_view NonGlobPrefix(std::string_view glob) {
 }
 
 }  // namespace
-absl::Status KvstoreList(Context::Spec context_spec,
+absl::Status KvstoreList(Context context,
                          tensorstore::kvstore::Spec source_spec,
                          tensorstore::span<std::string_view> args) {
-  tensorstore::Context context(context_spec);
   TENSORSTORE_ASSIGN_OR_RETURN(auto source,
                                kvstore::Open(source_spec, context).result());
 
@@ -111,12 +110,15 @@ absl::Status RunKvstoreList(Context::Spec context_spec, CommandFlags flags) {
                  }},
   });
 
-  TENSORSTORE_RETURN_IF_ERROR(TryParseOptions(flags, options));
+  TENSORSTORE_RETURN_IF_ERROR(TryParseOptions(flags, options, {}));
+
+  tensorstore::Context context(context_spec);
 
   if (source.value) {
     if (flags.positional_args.empty()) flags.positional_args.push_back("");
-    return KvstoreList(context_spec, *source.value, flags.positional_args);
-  } else if (flags.positional_args.empty()) {
+    return KvstoreList(context, *source.value, flags.positional_args);
+  }
+  if (flags.positional_args.empty()) {
     return absl::InvalidArgumentError(
         "list: Must include --source or a sequence of specs");
   }
@@ -126,13 +128,13 @@ absl::Status RunKvstoreList(Context::Spec context_spec, CommandFlags flags) {
   for (const auto spec : flags.positional_args) {
     auto from_url = kvstore::Spec::FromUrl(spec);
     if (from_url.ok()) {
-      status.Update(KvstoreList(context_spec, from_url.value(), args));
+      status.Update(KvstoreList(context, from_url.value(), args));
       continue;
     }
     tensorstore::JsonAbslFlag<tensorstore::kvstore::Spec> arg_spec;
     std::string error;
     if (AbslParseFlag(spec, &arg_spec, &error)) {
-      status.Update(KvstoreList(context_spec, arg_spec.value, args));
+      status.Update(KvstoreList(context, arg_spec.value, args));
       continue;
     }
     std::cerr << "Invalid spec: " << spec << ": " << error << std::endl;

@@ -16,13 +16,16 @@
 
 #include <cassert>
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <string_view>
 #include <vector>
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/strings/ascii.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
@@ -33,19 +36,30 @@ namespace tensorstore {
 namespace cli {
 
 absl::Status TryParseOptions(CommandFlags& flags,
-                             tensorstore::span<LongOption> options) {
+                             tensorstore::span<LongOption> long_options,
+                             tensorstore::span<BoolOption> bool_options) {
   absl::flat_hash_set<uintptr_t> handled;
+  absl::flat_hash_map<char, std::function<void()>> shortmapping;
+  for (auto& opt : bool_options) {
+    if (absl::StartsWith(opt.boolname, "--")) continue;
+    // A Short option may start with -- or -; when using - it must be a single
+    // letter.
+    assert(absl::StartsWith(opt.boolname, "-"));
+    assert(opt.boolname.size() == 2);
+    shortmapping[opt.boolname[1]] = opt.found;
+  }
 
   auto it = flags.argv.begin() + 1;
   while (it != flags.argv.end()) {
     bool parsed = false;
     std::string_view it_str = *it;
 
-    // Try to parse as a long option.
-    for (auto& opt : options) {
-      if (opt.longname.empty()) continue;
-      std::string_view arg = it_str;
-      if (absl::ConsumePrefix(&arg, opt.longname)) {
+    if (absl::StartsWith(it_str, "--")) {
+      // Try to parse as a long option.
+      for (auto& opt : long_options) {
+        if (opt.longname.empty()) continue;
+        std::string_view arg = it_str;
+        if (!absl::ConsumePrefix(&arg, opt.longname)) continue;
         if (arg.empty()) {
           parsed = true;
           std::string_view value;
@@ -63,6 +77,32 @@ absl::Status TryParseOptions(CommandFlags& flags,
         }
       }
       if (parsed) break;
+      for (auto& opt : bool_options) {
+        if (opt.boolname.empty()) continue;
+        std::string_view arg = it_str;
+        if (!absl::ConsumePrefix(&arg, opt.boolname)) continue;
+        if (arg.empty()) {
+          parsed = true;
+          handled.insert(reinterpret_cast<uintptr_t>(*it));
+          opt.found();
+          break;
+        }
+      }
+      if (parsed) break;
+    } else if (absl::StartsWith(it_str, "-")) {
+      // Try to parse as a short option, which may be combined.
+      handled.insert(reinterpret_cast<uintptr_t>(*it));
+      parsed = true;
+      for (int i = 1; i < it_str.size(); ++i) {
+        char c = it_str[i];
+        assert(c != '-');
+        auto it = shortmapping.find(c);
+        if (it == shortmapping.end()) {
+          return absl::InvalidArgumentError(
+              absl::StrCat("Unknown short option: ", it_str));
+        }
+        it->second();
+      }
     }
     it++;
   }

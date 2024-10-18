@@ -38,8 +38,8 @@
 namespace tensorstore {
 namespace cli {
 
-absl::Status TsPrintSpec(Context::Spec context_spec, tensorstore::Spec spec) {
-  tensorstore::Context context(context_spec);
+absl::Status TsPrintSpec(Context context, tensorstore::Spec spec,
+                         IncludeDefaults include_defaults) {
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto ts,
       tensorstore::Open(spec, context, tensorstore::ReadWriteMode::read,
@@ -47,14 +47,16 @@ absl::Status TsPrintSpec(Context::Spec context_spec, tensorstore::Spec spec) {
           .result());
   TENSORSTORE_ASSIGN_OR_RETURN(auto actual_spec, ts.spec());
   TENSORSTORE_ASSIGN_OR_RETURN(auto json_spec,
-                               actual_spec.ToJson(IncludeDefaults(false)));
+                               actual_spec.ToJson(include_defaults));
   std::cout << json_spec.dump() << std::endl;
   return absl::OkStatus();
 }
 
 absl::Status RunTsPrintSpec(Context::Spec context_spec, CommandFlags flags) {
   tensorstore::JsonAbslFlag<std::optional<tensorstore::Spec>> spec;
-  std::vector<LongOption> options({
+  IncludeDefaults include_defaults(false);
+
+  std::vector<LongOption> long_options({
       LongOption{"--spec",
                  [&](std::string_view value) {
                    std::string error;
@@ -64,13 +66,35 @@ absl::Status RunTsPrintSpec(Context::Spec context_spec, CommandFlags flags) {
                    return absl::OkStatus();
                  }},
   });
+  std::vector<BoolOption> bool_options({
+      BoolOption{"--include_defaults",
+                 [&]() { include_defaults = IncludeDefaults(true); }},
+  });
 
-  TENSORSTORE_RETURN_IF_ERROR(TryParseOptions(flags, options));
+  TENSORSTORE_RETURN_IF_ERROR(
+      TryParseOptions(flags, long_options, bool_options));
 
-  if (!spec.value) {
-    return absl::InvalidArgumentError("print_spec: Must include --spec");
+  tensorstore::Context context(context_spec);
+
+  if (spec.value) {
+    return TsPrintSpec(context, *spec.value, include_defaults);
   }
-  return TsPrintSpec(context_spec, *spec.value);
+  if (flags.positional_args.empty()) {
+    return absl::InvalidArgumentError(
+        "print_spec: Must include --spec or a sequence of specs");
+  }
+
+  absl::Status status;
+  for (const std::string_view spec : flags.positional_args) {
+    tensorstore::JsonAbslFlag<tensorstore::Spec> arg_spec;
+    std::string error;
+    if (AbslParseFlag(spec, &arg_spec, &error)) {
+      status.Update(TsPrintSpec(context, arg_spec.value, include_defaults));
+      continue;
+    }
+    std::cerr << "Invalid spec: " << spec << ": " << error << std::endl;
+  }
+  return status;
 }
 
 }  // namespace cli

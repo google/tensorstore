@@ -48,7 +48,7 @@ namespace {
 
 absl::Status TryOpenTensorstore(Context context, kvstore::Spec base_spec,
                                 std::string_view driver_name,
-                                std::string_view key) {
+                                std::string_view key, bool brief) {
   auto [dirname, basename] = internal::PathDirnameBasename(key);
   if (!dirname.empty()) {
     base_spec.AppendPathComponent(dirname);
@@ -71,17 +71,19 @@ absl::Status TryOpenTensorstore(Context context, kvstore::Spec base_spec,
                         tensorstore::OpenMode::open)
           .result());
 
-  std::cout << json.dump() << std::endl;
+  if (brief) {
+    std::cout << parsed_spec.ToJson()->dump() << std::endl;
+  } else {
+    std::cout << ts.spec()->ToJson()->dump() << std::endl;
+  }
 
   return absl::OkStatus();
 }
 
 }  // namespace
 
-absl::Status TsSearch(Context::Spec context_spec,
-                      tensorstore::kvstore::Spec source_spec) {
-  tensorstore::Context context(context_spec);
-
+absl::Status TsSearch(Context context, tensorstore::kvstore::Spec source_spec,
+                      bool brief) {
   TENSORSTORE_ASSIGN_OR_RETURN(auto source,
                                kvstore::Open(source_spec, context).result());
 
@@ -93,15 +95,17 @@ absl::Status TsSearch(Context::Spec context_spec,
 
     if (basename == "info.json") {
       TryOpenTensorstore(context, source_spec, "neuroglancer_precomputed",
-                         entry.key)
+                         entry.key, brief)
           .IgnoreError();
-    } else if (basename == "metadata.json") {
-      TryOpenTensorstore(context, source_spec, "n5", entry.key).IgnoreError();
+    } else if (basename == "attributes.json") {
+      TryOpenTensorstore(context, source_spec, "n5", entry.key, brief)
+          .IgnoreError();
     } else if (basename == "zarr.json") {
-      TryOpenTensorstore(context, source_spec, "zarr3", entry.key)
+      TryOpenTensorstore(context, source_spec, "zarr3", entry.key, brief)
           .IgnoreError();
-    } else if (absl::EndsWith(basename, "zarray")) {
-      TryOpenTensorstore(context, source_spec, "zarr", entry.key).IgnoreError();
+    } else if (basename == ".zarray") {
+      TryOpenTensorstore(context, source_spec, "zarr", entry.key, brief)
+          .IgnoreError();
     } else if (absl::StrContains(basename, "manifest.ocdbt")) {
       // Found an ocdbt manifest file. try to recurse into it.
       kvstore::Spec base_spec = source_spec;
@@ -124,7 +128,7 @@ absl::Status TsSearch(Context::Spec context_spec,
           {"base", std::move(base_json.value())},
       });
       if (!ocdbt_spec.ok()) continue;
-      TsSearch(context_spec, ocdbt_spec.value()).IgnoreError();
+      TsSearch(context, ocdbt_spec.value(), brief).IgnoreError();
     }
   }
 
@@ -133,7 +137,9 @@ absl::Status TsSearch(Context::Spec context_spec,
 
 absl::Status RunTsSearch(Context::Spec context_spec, CommandFlags flags) {
   tensorstore::JsonAbslFlag<std::optional<tensorstore::kvstore::Spec>> source;
-  std::vector<LongOption> options({
+  bool brief = true;
+
+  std::vector<LongOption> long_options({
       LongOption{"--source",
                  [&](std::string_view value) {
                    std::string error;
@@ -143,11 +149,20 @@ absl::Status RunTsSearch(Context::Spec context_spec, CommandFlags flags) {
                    return absl::OkStatus();
                  }},
   });
+  std::vector<BoolOption> bool_options({
+      BoolOption{"--full", [&]() { brief = false; }},
+      BoolOption{"-f", [&]() { brief = false; }},
+      BoolOption{"--brief", [&]() { brief = true; }},
+      BoolOption{"-b", [&]() { brief = true; }},
+  });
 
-  TENSORSTORE_RETURN_IF_ERROR(TryParseOptions(flags, options));
+  TENSORSTORE_RETURN_IF_ERROR(
+      TryParseOptions(flags, long_options, bool_options));
+
+  tensorstore::Context context(context_spec);
 
   if (source.value) {
-    return TsSearch(context_spec, *source.value);
+    return TsSearch(context, *source.value, brief);
   }
   if (flags.positional_args.empty()) {
     return absl::InvalidArgumentError(
@@ -157,13 +172,13 @@ absl::Status RunTsSearch(Context::Spec context_spec, CommandFlags flags) {
   for (const std::string_view spec : flags.positional_args) {
     auto from_url = kvstore::Spec::FromUrl(spec);
     if (from_url.ok()) {
-      status.Update(TsSearch(context_spec, from_url.value()));
+      status.Update(TsSearch(context, from_url.value(), brief));
       continue;
     }
     tensorstore::JsonAbslFlag<tensorstore::kvstore::Spec> arg_spec;
     std::string error;
     if (AbslParseFlag(spec, &arg_spec, &error)) {
-      status.Update(TsSearch(context_spec, arg_spec.value));
+      status.Update(TsSearch(context, arg_spec.value, brief));
       continue;
     }
     std::cerr << "Invalid spec: " << spec << ": " << error << std::endl;

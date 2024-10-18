@@ -194,28 +194,33 @@ std::vector<Box<>> GetStoredChunks(tensorstore::TensorStore<> ts) {
   return MergeAdjacentBoxes(std::move(array_boxes));
 }
 
-void Output(tensorstore::span<Box<>> not_stored,
+void Output(tensorstore::Spec spec, bool brief,
+            tensorstore::span<Box<>> not_stored,
             tensorstore::span<Box<>> partial,
             tensorstore::span<Box<>> fully_stored) {
+  auto dump = [&](const Box<>& b) {
+    if (brief) {
+      return internal_json_binding::ToJson(b)->dump();
+    }
+    auto s = spec | tensorstore::AllDims().BoxSlice(b);
+    return s->ToJson()->dump();
+  };
+
   for (const auto& b : not_stored) {
-    std::cout << "missing: " << internal_json_binding::ToJson(b)->dump()
-              << std::endl;
+    std::cout << "missing: " << dump(b) << std::endl;
   }
   for (const auto& b : partial) {
-    std::cout << "partial: " << internal_json_binding::ToJson(b)->dump()
-              << std::endl;
+    std::cout << "partial: " << dump(b) << std::endl;
   }
   for (const auto& b : fully_stored) {
-    std::cout << "present: " << internal_json_binding::ToJson(b)->dump()
-              << std::endl;
+    std::cout << "present: " << dump(b) << std::endl;
   }
 }
 
 }  // namespace
 
-absl::Status TsPrintStoredChunks(Context::Spec context_spec,
-                                 tensorstore::Spec spec) {
-  tensorstore::Context context(context_spec);
+absl::Status TsPrintStoredChunks(Context context, tensorstore::Spec spec,
+                                 bool brief) {
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto ts,
       tensorstore::Open(spec, context, tensorstore::ReadWriteMode::read,
@@ -223,14 +228,13 @@ absl::Status TsPrintStoredChunks(Context::Spec context_spec,
           .result());
 
   auto array_boxes = GetStoredChunks(ts);
-  Output({}, {}, array_boxes);
+  Output(ts.spec().value(), brief, {}, {}, array_boxes);
   return absl::OkStatus();
 }
 
-absl::Status TsPrintStorageStatistics(Context::Spec context_spec,
-                                      tensorstore::Spec spec,
-                                      tensorstore::span<Box<>> boxes) {
-  tensorstore::Context context(context_spec);
+absl::Status TsPrintStorageStatistics(Context context, tensorstore::Spec spec,
+                                      tensorstore::span<Box<>> boxes,
+                                      bool brief) {
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto ts,
       tensorstore::Open(spec, context, tensorstore::ReadWriteMode::read,
@@ -264,14 +268,15 @@ absl::Status TsPrintStorageStatistics(Context::Spec context_spec,
   }
   stat_promise = {};
   stat_future.Wait();
-  Output(not_stored, partial, fully_stored);
+  Output(ts.spec().value(), brief, not_stored, partial, fully_stored);
   return absl::OkStatus();
 }
 
 absl::Status RunTsPrintStorageStatistics(Context::Spec context_spec,
                                          CommandFlags flags) {
   tensorstore::JsonAbslFlag<std::optional<tensorstore::Spec>> spec;
-  std::vector<LongOption> options({
+  bool brief = true;
+  std::vector<LongOption> long_options({
       LongOption{"--spec",
                  [&](std::string_view value) {
                    std::string error;
@@ -281,33 +286,52 @@ absl::Status RunTsPrintStorageStatistics(Context::Spec context_spec,
                    return absl::OkStatus();
                  }},
   });
+  std::vector<BoolOption> bool_options({
+      BoolOption{"--full", [&]() { brief = false; }},
+      BoolOption{"-f", [&]() { brief = false; }},
+      BoolOption{"--brief", [&]() { brief = true; }},
+      BoolOption{"-b", [&]() { brief = true; }},
+  });
 
-  TENSORSTORE_RETURN_IF_ERROR(TryParseOptions(flags, options));
+  TENSORSTORE_RETURN_IF_ERROR(
+      TryParseOptions(flags, long_options, bool_options));
 
-  if (!spec.value) {
-    return absl::InvalidArgumentError("print_stats: Must include --spec");
+  tensorstore::Context context(context_spec);
+
+  if (spec.value) {
+    if (flags.positional_args.empty()) {
+      return TsPrintStoredChunks(context, *spec.value, brief);
+    }
+
+    std::vector<Box<>> boxes;
+    for (const std::string_view arg : flags.positional_args) {
+      tensorstore::JsonAbslFlag<Box<>> box_flag;
+      std::string error;
+      if (!AbslParseFlag(arg, &box_flag, &error)) {
+        std::cerr << "Invalid box: " << arg << ": " << error << std::endl;
+        continue;
+      }
+      boxes.push_back(std::move(box_flag).value);
+    }
+    return TsPrintStorageStatistics(context, *spec.value, boxes, brief);
   }
 
-  std::vector<Box<>> boxes;
-  for (const std::string_view arg : flags.positional_args) {
-    tensorstore::JsonAbslFlag<Box<>> box_flag;
+  if (flags.positional_args.empty()) {
+    return absl::InvalidArgumentError(
+        "print_stats: Must include --spec or a sequence of specs");
+  }
+
+  absl::Status status;
+  for (const std::string_view spec : flags.positional_args) {
+    tensorstore::JsonAbslFlag<tensorstore::Spec> arg_spec;
     std::string error;
-    if (!AbslParseFlag(arg, &box_flag, &error)) {
-      std::cerr << "Invalid box: " << arg << ": " << error << std::endl;
+    if (AbslParseFlag(spec, &arg_spec, &error)) {
+      status.Update(TsPrintStoredChunks(context, arg_spec.value, brief));
       continue;
     }
-    boxes.push_back(std::move(box_flag).value);
+    std::cerr << "Invalid spec: " << spec << ": " << error << std::endl;
   }
-
-  if (!flags.positional_args.empty()) {
-    if (boxes.empty()) {
-      std::cerr << "No valid boxes specified." << std::endl;
-      return absl::InvalidArgumentError("No valid boxes specified.");
-    }
-    return TsPrintStorageStatistics(context_spec, *spec.value, boxes);
-  } else {
-    return TsPrintStoredChunks(context_spec, *spec.value);
-  }
+  return status;
 }
 
 }  // namespace cli
