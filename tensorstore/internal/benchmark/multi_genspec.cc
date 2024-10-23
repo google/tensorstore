@@ -17,8 +17,7 @@
 
 /* Examples
 
-bazel run -c opt \
-  //tensorstore/internal/benchmark:multi_genspec -- \
+bazel run //tensorstore/internal/benchmark:multi_genspec -- \
   --base_spec='{
       "driver": "zarr3",
       "kvstore": {
@@ -30,13 +29,13 @@ bazel run -c opt \
 
 */
 
-#include <stddef.h>
-#include <stdint.h>
-
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
 #include <iostream>
 #include <optional>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -48,19 +47,22 @@ bazel run -c opt \
 #include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
 #include <nlohmann/json.hpp>
+#include "riegeli/bytes/fd_reader.h"
+#include "riegeli/bytes/read_all.h"
 #include "tensorstore/array_storage_statistics.h"
 #include "tensorstore/box.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/context.h"
 #include "tensorstore/data_type.h"
 #include "absl/flags/parse.h"
+#include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
-#include "tensorstore/internal/benchmark/multi_spec.h"
 #include "tensorstore/internal/benchmark/vector_flag.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/box.h"  // IWYU pragma: keep
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/std_array.h"  // IWYU pragma: keep
+#include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/spec.h"
@@ -77,8 +79,7 @@ bazel run -c opt \
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 
-using ::tensorstore::internal_benchmark::ReadFromFileOrFlag;
-using ::tensorstore::internal_benchmark::ShardVariable;
+namespace {
 
 struct HostSpec {
   /// Number of partitions into which each variable should be divided.
@@ -113,6 +114,8 @@ struct HostSpec {
       };
 };
 
+}  // namespace
+
 ABSL_FLAG(
     tensorstore::JsonAbslFlag<tensorstore::Context::Spec>, context_spec,
     []() {
@@ -138,24 +141,82 @@ ABSL_FLAG(
     "Base TensorStore Spec to use for reading; the kvstore path will be "
     "augmented with each name in --config or --paths.");
 
-ABSL_FLAG(std::string, config, {},
-          "Paths to all the tensorstore specs to benchmark. The actual spec "
-          "is constructed by merging the base_spec with the path.");
-
 ABSL_FLAG(tensorstore::VectorFlag<std::string>, paths, {},
           "Paths to all the tensorstore specs to benchmark. The actual spec "
           "is constructed by merging the base_spec with the path.");
+
+ABSL_FLAG(std::string, config, {},
+          "Filename or text  containing json ShardVariable array. "
+          "The actual specs are constructed by merging with the base spec.");
 
 ABSL_FLAG(
     tensorstore::JsonAbslFlag<HostSpec>, host_spec, {},
     "HostShard json object to use for reading.  This can be used to control "
     "the number of partitions of each variable to read.");
 
-ABSL_FLAG(bool, list_kvstore, false,
-          "List the contents of the kvstore in --base_spec.");
-
 namespace tensorstore {
 namespace {
+
+namespace jb = tensorstore::internal_json_binding;
+
+struct ShardVariable {
+  std::string name;
+  std::vector<Index> shape;
+  std::vector<Index> chunks;
+  std::string dtype;
+  std::vector<Box<>> array_boxes;
+
+  constexpr static auto default_json_binder = [](auto is_loading,
+                                                 const auto& options, auto* obj,
+                                                 auto* j) {
+    namespace jb = tensorstore::internal_json_binding;
+    using Self = ShardVariable;
+    return jb::Object(
+        jb::Member("name", jb::Projection<&Self::name>()),
+        jb::Member("shape", jb::Projection<&Self::shape>()),
+        jb::Member("chunks", jb::Projection<&Self::chunks>()),
+        jb::Member("dtype", jb::Projection<&Self::dtype>()),
+        jb::OptionalMember("array_boxes", jb::Projection<&Self::array_boxes>()),
+        jb::DiscardExtraMembers /**/
+        )(is_loading, options, obj, j);
+  };
+};
+
+struct ShardConfig {
+  std::vector<ShardVariable> variables;
+
+  constexpr static auto default_json_binder =
+      [](auto is_loading, const auto& options, auto* obj, auto* j) {
+        using Self = ShardConfig;
+        return jb::Projection<&Self::variables>() /**/
+            (is_loading, options, obj, j);
+      };
+};
+
+std::vector<ShardVariable> ReadShardVariableConfig(std::string flag_value) {
+  std::string json_data;
+  auto read_status = riegeli::ReadAll(riegeli::FdReader(flag_value), json_data);
+  if (!read_status.ok()) {
+    ABSL_LOG(INFO) << read_status;
+    json_data = flag_value;
+  }
+
+  ::nlohmann::json j = ::nlohmann::json::parse(json_data, nullptr, false);
+  if (j.is_discarded()) {
+    ABSL_LOG(INFO) << "json is discarded: " << json_data;
+    return {};
+  }
+
+  ShardConfig config;
+  read_status = internal_json_binding::DefaultBinder<>(
+      std::true_type{}, internal_json_binding::NoOptions{}, &config, &j);
+  if (!read_status.ok()) {
+    ABSL_LOG(INFO) << read_status;
+    return {};
+  }
+
+  return std::move(config).variables;
+}
 
 std::vector<std::optional<tensorstore::TensorStore<>>> TryMultiOpen(
     Context context, std::vector<tensorstore::Spec> specs) {
@@ -418,20 +479,6 @@ std::vector<Box<>> MergeAdjacentBoxes(std::vector<Box<>> boxes) {
   return result;
 }
 
-void Dump(std::vector<ShardVariable>& config) {
-  std::cout << "[";
-  bool add_comma = false;
-  for (auto& var : config) {
-    if (add_comma) std::cout << ",";
-    add_comma = true;
-    auto j = internal_json_binding::ToJson(var);
-    if (j.ok() && !j->is_discarded()) {
-      std::cout << "\n  " << j->dump();
-    }
-  }
-  std::cout << "\n]\n" << std::endl;
-}
-
 void Run() {
   auto ensure_trailing_slash = [](auto& spec) {
     if (!spec.path.empty() && spec.path.back() != '/') {
@@ -450,19 +497,6 @@ void Run() {
 
   Context context(absl::GetFlag(FLAGS_context_spec).value);
 
-  if (absl::GetFlag(FLAGS_list_kvstore)) {
-    TENSORSTORE_CHECK_OK_AND_ASSIGN(
-        auto kvstore, kvstore::Open(kvstore_spec, context).result());
-    auto list_future = kvstore::ListFuture(kvstore, {});
-    if (!list_future.status().ok()) {
-      ABSL_LOG(ERROR) << "Failed to list kvstore: " << list_future.status();
-    } else {
-      for (const auto& entry : list_future.result().value()) {
-        ABSL_LOG(INFO) << entry.key;
-      }
-    }
-  }
-
   // --read_config specifies a file or a json object.
   std::vector<ShardVariable> config = [&]() {
     if (absl::GetFlag(FLAGS_config).empty()) {
@@ -472,7 +506,7 @@ void Run() {
       }
       return config;
     }
-    return ReadFromFileOrFlag(absl::GetFlag(FLAGS_config));
+    return ReadShardVariableConfig(absl::GetFlag(FLAGS_config));
   }();
 
   ABSL_QCHECK(!config.empty())
@@ -530,7 +564,36 @@ void Run() {
     var.array_boxes = MergeAdjacentBoxes(std::move(var.array_boxes));
   }
 
-  Dump(config);
+  std::vector<tensorstore::Spec> specs_to_dump;
+  for (size_t i = 0; i < stores.size(); ++i) {
+    const auto& var = config[i];
+    if (stores[i].has_value()) {
+      const auto& ts = *stores[i];
+      for (const auto& box : var.array_boxes) {
+        auto f = ts | tensorstore::AllDims().BoxSlice(box);
+        specs_to_dump.push_back(f->spec().value());
+      }
+    } else {
+      const auto& ts = specs[i];
+      for (const auto& box : var.array_boxes) {
+        auto f = ts | tensorstore::AllDims().BoxSlice(box);
+        specs_to_dump.push_back(f.value());
+      }
+    }
+  }
+
+  std::cout << "[";
+  bool add_comma = false;
+  for (auto& s : specs_to_dump) {
+    if (add_comma) std::cout << ",";
+    add_comma = true;
+    s.StripContext();
+    auto j = s.ToJson();
+    if (j.ok() && !j->is_discarded()) {
+      std::cout << "\n  " << j->dump();
+    }
+  }
+  std::cout << "\n]\n" << std::endl;
 }
 
 }  // namespace

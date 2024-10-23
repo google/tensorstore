@@ -39,7 +39,7 @@ bazel run -c opt \
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
-#include <map>
+#include <optional>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -61,7 +61,6 @@ bazel run -c opt \
 #include "tensorstore/box.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/context.h"
-#include "tensorstore/data_type.h"
 #include "absl/flags/parse.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
@@ -78,7 +77,6 @@ bazel run -c opt \
 #include "tensorstore/open_mode.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/spec.h"
-#include "tensorstore/staleness_bound.h"
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/util/division.h"
 #include "tensorstore/util/future.h"
@@ -87,9 +85,6 @@ bazel run -c opt \
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-
-using ::tensorstore::internal_benchmark::ReadFromFileOrFlag;
-using ::tensorstore::internal_benchmark::ShardVariable;
 
 ABSL_FLAG(
     tensorstore::JsonAbslFlag<tensorstore::Context::Spec>, context_spec,
@@ -103,19 +98,10 @@ ABSL_FLAG(
     "Context spec for writing data.  This can be used to control the "
     "number of concurrent write operations, for example.");
 
-ABSL_FLAG(
-    tensorstore::JsonAbslFlag<tensorstore::Spec>, base_spec,
-    []() {
-      return tensorstore::Spec::FromJson(
-                 {
-                     {"driver", "zarr"},
-                     {"kvstore",
-                      {{"driver", "ocdbt"}, {"base", "memory:///prefix/"}}},
-                 })
-          .value();
-    }(),
-    "Base TensorStore Spec to use for writing; the kvstore path will be "
-    "augmented with each name in --write_config.");
+ABSL_FLAG(tensorstore::JsonAbslFlag<tensorstore::kvstore::Spec>, clean_spec, {},
+          "kvstore::Spec to use for cleaning the kvstore before writing. "
+          "When unset, no cleanup is done, which may cause ocdbt volumes to "
+          "grow excessively large.");
 
 ABSL_FLAG(std::string, write_config, {},
           "Paths to all the tensorstore specs to benchmark. The actual spec "
@@ -129,16 +115,19 @@ ABSL_FLAG(bool, clean_before_write, true, "Clean kvstore before writing.");
 ABSL_FLAG(bool, reuse_context, false,
           "Whether to reuse the tensorstore::Context.");
 
-ABSL_FLAG(std::string, metrics_prefix, "/tensorstore", "Prefix for metrics.");
+ABSL_FLAG(std::optional<std::string>, metrics_prefix, std::nullopt,
+          "Prefix for metrics.");
 
 namespace tensorstore {
 namespace {
+
+using ::tensorstore::internal_benchmark::ReadSpecsFromFile;
 
 auto& write_throughput = internal_metrics::Value<double>::New(
     "/tensorstore/ts_write_benchmark/write_throughput",
     internal_metrics::MetricMetadata("the write throughput in this test"));
 
-using KeyType = std::pair<std::string_view, tensorstore::span<const Index>>;
+using KeyType = std::pair<std::string_view, std::vector<Index>>;
 struct ArrayMapEq {
   bool operator()(const KeyType& x, const KeyType& y) const {
     return x.first == y.first && x.second.size() == y.second.size() &&
@@ -147,6 +136,10 @@ struct ArrayMapEq {
 };
 using ArrayMap = absl::flat_hash_map<KeyType, SharedOffsetArray<const void>,
                                      absl::Hash<KeyType>, ArrayMapEq>;
+
+int64_t GetBytesEstimate(const tensorstore::TensorStore<>& ts) {
+  return ts.domain().num_elements() * ts.dtype().size();
+}
 
 struct Stats {
   absl::Time start_time;
@@ -178,7 +171,6 @@ std::string FormatStats(const Stats& s) {
 }
 
 Stats DoSinglePass(tensorstore::Context context,
-                   const std::vector<ShardVariable>& config,
                    const std::vector<tensorstore::Spec>& specs,
                    const ArrayMap& chunk_arrays) {
   std::atomic<int64_t> bytes_completed = 0;
@@ -196,30 +188,32 @@ Stats DoSinglePass(tensorstore::Context context,
       PromiseFuturePair<void>::Make(absl::OkStatus());
 
   for (size_t i = 0; i < specs.size(); ++i) {
-    auto cur_open_future = tensorstore::Open(specs[i], context);
+    auto cur_open_future = tensorstore::Open(
+        specs[i], context, tensorstore::ReadWriteMode::read_write,
+        tensorstore::OpenMode::open_or_create);
     // Open all tensorstores in parallel.  Once a given tensorstore is open,
     // write each of its partitions.
     Link(
-        [&, var_i = i, copy_promise = copy_promise,
-         commit_promise = commit_promise](Promise<void> open_promise,
-                                          ReadyFuture<TensorStore<>> future) {
-          const auto& var = config[var_i];
+        [&, copy_promise = copy_promise, commit_promise = commit_promise](
+            Promise<void> open_promise, ReadyFuture<TensorStore<>> future) {
           if (!future.status().ok()) {
             // If one tensorstore fails to open, keep going with the rest.
-            ABSL_LOG(ERROR) << "Failed to open: " << var.name;
             ABSL_LOG(ERROR) << future.status();
             return;
           }
-
-          KeyType key(std::string_view(var.dtype),
-                      tensorstore::span(var.chunks));
+          auto& ts = future.value();
+          KeyType key(ts.dtype().name(),
+                      {ts.chunk_layout()->write_chunk_shape().begin(),
+                       ts.chunk_layout()->write_chunk_shape().end()});
           auto it = chunk_arrays.find(key);
           if (it == chunk_arrays.end()) {
+            // No data to write.
             return;
           }
 
           const auto& array = it->second;
           auto chunk_bytes = array.num_elements() * array.dtype().size();
+
           const auto& domain = future.value().domain();
 
           const auto rank = array.rank();
@@ -232,17 +226,13 @@ Stats DoSinglePass(tensorstore::Context context,
           std::vector<int64_t> slice_start(rank), slice_shape(rank);
           do {
             for (size_t i = 0; i < rank; ++i) {
-              slice_start[i] = var.chunks[i] * grid_pos[i];
-              slice_shape[i] =
-                  std::min(var.chunks[i], var.shape[i] - slice_start[i]);
+              slice_start[i] = grid_pos[i] * array.shape()[i];
+              slice_shape[i] = array.shape()[i];
+              if (slice_start[i] + slice_shape[i] > domain.shape()[i]) {
+                slice_shape[i] = domain.shape()[i] - slice_start[i];
+              }
             }
             Box target(slice_start, slice_shape);
-
-            bool contains = false;
-            for (auto& box : var.array_boxes) {
-              contains = contains || Contains(box, target);
-            }
-            if (!contains) return;
 
             auto write_futures = tensorstore::Write(
                 array,
@@ -296,55 +286,38 @@ Stats DoSinglePass(tensorstore::Context context,
   return stats;
 }
 
-void RunBenchmark(tensorstore::Context::Spec context_spec,
-                  tensorstore::kvstore::Spec clean_spec,
-                  std::vector<ShardVariable> config,
-                  std::vector<tensorstore::Spec> specs) {
+absl::Status RunBenchmark(tensorstore::Context::Spec context_spec,
+                          tensorstore::kvstore::Spec clean_spec,
+                          std::vector<tensorstore::Spec> specs) {
   ABSL_QCHECK(!specs.empty()) << "No stores to benchmark";
-  ABSL_QCHECK(specs.size() == config.size())
-      << "Number of stores and config size mismatch";
+
+  int64_t total_bytes = 0;
+  int64_t max_ts_bytes = 0;
 
   // Generate data arrays in the shape as the write chunks.
   ArrayMap chunk_arrays;
   {
+    Context context(context_spec);
     absl::BitGen gen;
-    for (const auto& var : config) {
-      if (var.chunks.empty()) {
-        continue;
-      }
-      KeyType key(std::string_view(var.dtype), tensorstore::span(var.chunks));
+    for (const auto& spec : specs) {
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          auto ts, tensorstore::Open(spec, context,
+                                     tensorstore::ReadWriteMode::read_write,
+                                     tensorstore::OpenMode::open_or_create)
+                       .result());
+      KeyType key(ts.dtype().name(),
+                  {ts.chunk_layout()->write_chunk_shape().begin(),
+                   ts.chunk_layout()->write_chunk_shape().end()});
+      if (key.second.empty()) continue;
       if (chunk_arrays.find(key) != chunk_arrays.end()) continue;
-      Box<> box(var.chunks);
-      ABSL_LOG(INFO) << "Generating random array: " << var.dtype << " " << box;
-      chunk_arrays[key] =
-          internal::MakeRandomArray(gen, box, GetDataType(var.dtype));
+      Box<> box(key.second);
+      ABSL_LOG(INFO) << "Generating random array: " << ts.dtype().name() << " "
+                     << box;
+      chunk_arrays[key] = internal::MakeRandomArray(gen, box, ts.dtype());
+      total_bytes += GetBytesEstimate(ts);
+      max_ts_bytes =
+          std::max(max_ts_bytes, box.num_elements() * ts.dtype().size());
     }
-  }
-
-  int64_t total_bytes = 0;
-  int64_t max_ts_bytes = 0;
-  for (size_t i = 0; i < config.size(); ++i) {
-    // If there are no array boxes, write the entire tensorstore.
-    if (config[i].array_boxes.empty() && !config[i].shape.empty()) {
-      config[i].array_boxes.push_back(Box<>(config[i].shape));
-    }
-
-    for (const auto& box : config[i].array_boxes) {
-      if (box.rank() > 0) {
-        const int64_t estimate = box.num_elements() * specs[i].dtype().size();
-        ABSL_CHECK(estimate < 1ull * 1024 * 1024 * 1024 * 1024 * 1024) << box;
-        total_bytes += estimate;
-        max_ts_bytes = std::max(max_ts_bytes, estimate);
-      }
-    }
-
-    // Log the config variable.
-    [&](const ShardVariable& var) {
-      auto j = internal_json_binding::ToJson(config[i]);
-      if (j.ok() && !j->is_discarded()) {
-        ABSL_LOG(INFO) << j->dump();
-      }
-    }(config[i]);
   }
 
   std::cout << absl::StrFormat("Writing %d mb (max %d mb) to %d stores\n",
@@ -370,83 +343,43 @@ void RunBenchmark(tensorstore::Context::Spec context_spec,
     Context context(context_spec);
     for (size_t i = 0; i < absl::GetFlag(FLAGS_repeat_writes); ++i) {
       maybe_clean(context);
-      auto s = DoSinglePass(context, config, specs, chunk_arrays);
+      auto s = DoSinglePass(context, specs, chunk_arrays);
       std::cout << "Write Summary: " << FormatStats(s) << std::endl;
     }
   } else {
     for (size_t i = 0; i < absl::GetFlag(FLAGS_repeat_writes); ++i) {
       Context context(context_spec);
       maybe_clean(context);
-      auto s = DoSinglePass(context, config, specs, chunk_arrays);
+      auto s = DoSinglePass(context, specs, chunk_arrays);
       std::cout << "Write Summary: " << FormatStats(s) << std::endl;
     }
   }
+  return absl::OkStatus();
 }
 
-void Run() {
+void Run(int argc, char** argv) {
   ABSL_CHECK(absl::GetFlag(FLAGS_repeat_writes) > 0);
 
-  // --write_config specifies a file or a json object.
-  std::vector<ShardVariable> config =
-      ReadFromFileOrFlag(absl::GetFlag(FLAGS_write_config));
-
-  ABSL_QCHECK(!config.empty())
-      << "Empty config; supply non-empty --write_config.";
-
-  auto ensure_trailing_slash = [](auto& spec) {
-    if (!spec.path.empty() && spec.path.back() != '/') {
-      spec.AppendSuffix("/");
+  std::vector<tensorstore::Spec> specs =
+      ReadSpecsFromFile(absl::GetFlag(FLAGS_write_config));
+  for (int i = 1; i < argc; ++i) {
+    ::nlohmann::json j =
+        ::nlohmann::json::parse(std::string(argv[i]), nullptr, false);
+    auto spec = tensorstore::Spec::FromJson(j);
+    if (spec.ok()) {
+      specs.push_back(std::move(spec).value());
     }
-  };
-
-  auto kvstore_spec = absl::GetFlag(FLAGS_base_spec).value.kvstore();
-  ensure_trailing_slash(kvstore_spec);
-  auto base_spec = [&]() {
-    TENSORSTORE_CHECK_OK_AND_ASSIGN(
-        auto ts_json, absl::GetFlag(FLAGS_base_spec).value.ToJson());
-    ts_json.erase("kvstore");
-    return tensorstore::Spec::FromJson(ts_json).value();
-  }();
-
-  std::vector<tensorstore::Spec> specs;
-  for (auto& variable : config) {
-    ABSL_QCHECK(!variable.name.empty()) << "Variable name must not be empty.";
-    ABSL_QCHECK(!variable.dtype.empty())
-        << "Variable dtype must be set for " << variable.name;
-
-    auto write_spec = kvstore_spec;
-    write_spec.AppendPathComponent(variable.name);
-    ensure_trailing_slash(write_spec);
-
-    auto spec = base_spec;
-    TENSORSTORE_CHECK_OK(spec.Set(std::move(write_spec)));
-
-    auto dtype = GetDataType(variable.dtype);
-    ABSL_QCHECK(dtype.valid()) << "Invalid dtype: " << variable.dtype;
-    TENSORSTORE_CHECK_OK(spec.Set(dtype));
-    TENSORSTORE_CHECK_OK(spec.Set(Schema::Shape(variable.shape)));
-
-    ABSL_QCHECK(variable.chunks.size() == variable.shape.size())
-        << "\"chunks\" rank must match \"shape\" rank.";
-    TENSORSTORE_CHECK_OK(
-        spec.Set(ChunkLayout::ReadChunkShape(variable.chunks)));
-
-    // Set some common options based on the flags.
-    TENSORSTORE_CHECK_OK(base_spec.Set(RecheckCached::AtOpen()));
-    if (absl::GetFlag(FLAGS_clean_before_write)) {
-      TENSORSTORE_CHECK_OK(
-          base_spec.Set(OpenMode::create | OpenMode::delete_existing));
-    } else {
-      TENSORSTORE_CHECK_OK(base_spec.Set(OpenMode::open_or_create));
-    }
-
-    specs.push_back(std::move(spec));
   }
-  ABSL_QCHECK(!specs.empty()) << "No tensorstores to benchmark.";
+
+  ABSL_QCHECK(!specs.empty())
+      << "Empty config; supply non-empty --write_config "
+         "or pass specs on the command line.";
 
   // For OCDBT, deleting from the kvstore itself would not delete data
   // from the underlying storage system.  Instead, we must directly delete
   // from the underlying storage system.
+
+#if 0
   tensorstore::kvstore::Spec clean_spec = [&]() {
     TENSORSTORE_CHECK_OK_AND_ASSIGN(auto kvstore_json_spec,
                                     kvstore_spec.ToJson());
@@ -459,11 +392,16 @@ void Run() {
     }
     return kvstore_spec;
   }();
+#endif
 
-  RunBenchmark(absl::GetFlag(FLAGS_context_spec).value, std::move(clean_spec),
-               std::move(config), std::move(specs));
-
-  internal::DumpMetrics(absl::GetFlag(FLAGS_metrics_prefix));
+  auto status =
+      RunBenchmark(absl::GetFlag(FLAGS_context_spec).value,
+                   absl::GetFlag(FLAGS_clean_spec).value, std::move(specs));
+  if (!status.ok()) {
+    ABSL_LOG(ERROR) << "Failed to run benchmark: " << status;
+  } else if (absl::GetFlag(FLAGS_metrics_prefix).has_value()) {
+    internal::DumpMetrics(absl::GetFlag(FLAGS_metrics_prefix).value());
+  }
 }
 
 }  // namespace
@@ -471,6 +409,6 @@ void Run() {
 
 int main(int argc, char** argv) {
   absl::ParseCommandLine(argc, argv);  // InitTensorstore
-  tensorstore::Run();
+  tensorstore::Run(argc, argv);
   return 0;
 }
