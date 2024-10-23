@@ -11,7 +11,7 @@
 
 template <typename Element, Index N0, Index N1, Index N2>
 ArrayView<Element, 3> MakeArrayView(
-    Element (&array ABSL_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2]) {
+    Element (&array TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2]) {
   static constexpr Index shape[] = {N0, N1, N2};
   static constexpr Index byte_strides[] = {
       N1 * N2 * sizeof(Element), N2 * sizeof(Element), sizeof(Element)};
@@ -20,7 +20,7 @@ ArrayView<Element, 3> MakeArrayView(
 }
 template <typename Element, Index N0, Index N1, Index N2>
 ArrayView<const Element, 3> MakeArrayView(
-    const Element (&array ABSL_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2]) {
+    const Element (&array TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2]) {
   static constexpr Index shape[] = {N0, N1, N2};
   static constexpr Index byte_strides[] = {
       N1 * N2 * sizeof(Element), N2 * sizeof(Element), sizeof(Element)};
@@ -30,7 +30,7 @@ ArrayView<const Element, 3> MakeArrayView(
 
 template <typename Element, Index N0, Index N1, Index N2, Index N3>
 ArrayView<Element, 4> MakeArrayView(
-    Element (&array ABSL_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2][N3]) {
+    Element (&array TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2][N3]) {
   static constexpr Index shape[] = {N0, N1, N2, N3};
   static constexpr Index byte_strides[] = {
       N1 * N2 * N3 * sizeof(Element), N2 * N3 * sizeof(Element),
@@ -39,8 +39,8 @@ ArrayView<Element, 4> MakeArrayView(
   return {&array[0][0][0][0], layout};
 }
 template <typename Element, Index N0, Index N1, Index N2, Index N3>
-ArrayView<const Element, 4> MakeArrayView(
-    const Element (&array ABSL_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2][N3]) {
+ArrayView<const Element, 4> MakeArrayView(const Element (
+    &array TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2][N3]) {
   static constexpr Index shape[] = {N0, N1, N2, N3};
   static constexpr Index byte_strides[] = {
       N1 * N2 * N3 * sizeof(Element), N2 * N3 * sizeof(Element),
@@ -51,7 +51,7 @@ ArrayView<const Element, 4> MakeArrayView(
 
 template <typename Element, Index N0, Index N1, Index N2, Index N3, Index N4>
 ArrayView<Element, 5> MakeArrayView(
-    Element (&array ABSL_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2][N3][N4]) {
+    Element (&array TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2][N3][N4]) {
   static constexpr Index shape[] = {N0, N1, N2, N3, N4};
   static constexpr Index byte_strides[] = {
       N1 * N2 * N3 * N4 * sizeof(Element), N2 * N3 * N4 * sizeof(Element),
@@ -60,8 +60,8 @@ ArrayView<Element, 5> MakeArrayView(
   return {&array[0][0][0][0][0], layout};
 }
 template <typename Element, Index N0, Index N1, Index N2, Index N3, Index N4>
-ArrayView<const Element, 5> MakeArrayView(
-    const Element (&array ABSL_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2][N3][N4]) {
+ArrayView<const Element, 5> MakeArrayView(const Element (
+    &array TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2][N3][N4]) {
   static constexpr Index shape[] = {N0, N1, N2, N3, N4};
   static constexpr Index byte_strides[] = {
       N1 * N2 * N3 * N4 * sizeof(Element), N2 * N3 * N4 * sizeof(Element),
@@ -72,8 +72,8 @@ ArrayView<const Element, 5> MakeArrayView(
 
 template <typename Element, Index N0, Index N1, Index N2, Index N3, Index N4,
           Index N5>
-ArrayView<Element, 6> MakeArrayView(
-    Element (&array ABSL_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2][N3][N4][N5]) {
+ArrayView<Element, 6> MakeArrayView(Element (
+    &array TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2][N3][N4][N5]) {
   static constexpr Index shape[] = {N0, N1, N2, N3, N4, N5};
   static constexpr Index byte_strides[] = {
       N1 * N2 * N3 * N4 * N5 * sizeof(Element),
@@ -88,7 +88,7 @@ ArrayView<Element, 6> MakeArrayView(
 template <typename Element, Index N0, Index N1, Index N2, Index N3, Index N4,
           Index N5>
 ArrayView<const Element, 6> MakeArrayView(const Element (
-    &array ABSL_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2][N3][N4][N5]) {
+    &array TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2][N3][N4][N5]) {
   static constexpr Index shape[] = {N0, N1, N2, N3, N4, N5};
   static constexpr Index byte_strides[] = {
       N1 * N2 * N3 * N4 * N5 * sizeof(Element),
@@ -143,7 +143,7 @@ SharedArray<Element, 6> MakeArray(
 template <typename Element, Index N0, Index N1, Index N2>
 ArrayView<Element, 3, offset_origin> MakeOffsetArrayView(
     tensorstore::span<const Index, 3> origin,
-    Element (&array ABSL_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2]) {
+    Element (&array TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2]) {
   static constexpr Index shape[] = {N0, N1, N2};
   static constexpr Index byte_strides[] = {
       N1 * N2 * sizeof(Element), N2 * sizeof(Element), sizeof(Element)};
@@ -155,7 +155,7 @@ ArrayView<Element, 3, offset_origin> MakeOffsetArrayView(
 template <typename Element, Index N0, Index N1, Index N2>
 ArrayView<const Element, 3, offset_origin> MakeOffsetArrayView(
     tensorstore::span<const Index, 3> origin,
-    const Element (&array ABSL_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2]) {
+    const Element (&array TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2]) {
   static constexpr Index shape[] = {N0, N1, N2};
   static constexpr Index byte_strides[] = {
       N1 * N2 * sizeof(Element), N2 * sizeof(Element), sizeof(Element)};
@@ -168,7 +168,7 @@ ArrayView<const Element, 3, offset_origin> MakeOffsetArrayView(
 template <typename Element, Index N0, Index N1, Index N2, Index N3>
 ArrayView<Element, 4, offset_origin> MakeOffsetArrayView(
     tensorstore::span<const Index, 4> origin,
-    Element (&array ABSL_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2][N3]) {
+    Element (&array TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2][N3]) {
   static constexpr Index shape[] = {N0, N1, N2, N3};
   static constexpr Index byte_strides[] = {
       N1 * N2 * N3 * sizeof(Element), N2 * N3 * sizeof(Element),
@@ -181,7 +181,8 @@ ArrayView<Element, 4, offset_origin> MakeOffsetArrayView(
 template <typename Element, Index N0, Index N1, Index N2, Index N3>
 ArrayView<const Element, 4, offset_origin> MakeOffsetArrayView(
     tensorstore::span<const Index, 4> origin,
-    const Element (&array ABSL_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2][N3]) {
+    const Element (
+        &array TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2][N3]) {
   static constexpr Index shape[] = {N0, N1, N2, N3};
   static constexpr Index byte_strides[] = {
       N1 * N2 * N3 * sizeof(Element), N2 * N3 * sizeof(Element),
@@ -195,7 +196,7 @@ ArrayView<const Element, 4, offset_origin> MakeOffsetArrayView(
 template <typename Element, Index N0, Index N1, Index N2, Index N3, Index N4>
 ArrayView<Element, 5, offset_origin> MakeOffsetArrayView(
     tensorstore::span<const Index, 5> origin,
-    Element (&array ABSL_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2][N3][N4]) {
+    Element (&array TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2][N3][N4]) {
   static constexpr Index shape[] = {N0, N1, N2, N3, N4};
   static constexpr Index byte_strides[] = {
       N1 * N2 * N3 * N4 * sizeof(Element), N2 * N3 * N4 * sizeof(Element),
@@ -208,7 +209,8 @@ ArrayView<Element, 5, offset_origin> MakeOffsetArrayView(
 template <typename Element, Index N0, Index N1, Index N2, Index N3, Index N4>
 ArrayView<const Element, 5, offset_origin> MakeOffsetArrayView(
     tensorstore::span<const Index, 5> origin,
-    const Element (&array ABSL_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2][N3][N4]) {
+    const Element (
+        &array TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2][N3][N4]) {
   static constexpr Index shape[] = {N0, N1, N2, N3, N4};
   static constexpr Index byte_strides[] = {
       N1 * N2 * N3 * N4 * sizeof(Element), N2 * N3 * N4 * sizeof(Element),
@@ -223,7 +225,8 @@ template <typename Element, Index N0, Index N1, Index N2, Index N3, Index N4,
           Index N5>
 ArrayView<Element, 6, offset_origin> MakeOffsetArrayView(
     tensorstore::span<const Index, 6> origin,
-    Element (&array ABSL_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2][N3][N4][N5]) {
+    Element (
+        &array TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2][N3][N4][N5]) {
   static constexpr Index shape[] = {N0, N1, N2, N3, N4, N5};
   static constexpr Index byte_strides[] = {
       N1 * N2 * N3 * N4 * N5 * sizeof(Element),
@@ -242,7 +245,7 @@ template <typename Element, Index N0, Index N1, Index N2, Index N3, Index N4,
 ArrayView<const Element, 6, offset_origin> MakeOffsetArrayView(
     tensorstore::span<const Index, 6> origin,
     const Element (
-        &array ABSL_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2][N3][N4][N5]) {
+        &array TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2][N3][N4][N5]) {
   static constexpr Index shape[] = {N0, N1, N2, N3, N4, N5};
   static constexpr Index byte_strides[] = {
       N1 * N2 * N3 * N4 * N5 * sizeof(Element),
@@ -312,8 +315,8 @@ SharedArray<Element, 6, offset_origin> MakeOffsetArray(
 
 template <typename Element, Index N0, Index N1, Index N2, ptrdiff_t OriginRank>
 ArrayView<Element, 3, offset_origin> MakeOffsetArrayView(
-    const Index (&origin ABSL_ATTRIBUTE_LIFETIME_BOUND)[OriginRank],
-    Element (&array ABSL_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2]) {
+    const Index (&origin TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)[OriginRank],
+    Element (&array TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2]) {
   static_assert(OriginRank == 3, "Origin vector must have length 3.");
   static constexpr Index shape[] = {N0, N1, N2};
   static constexpr Index byte_strides[] = {
@@ -325,8 +328,8 @@ ArrayView<Element, 3, offset_origin> MakeOffsetArrayView(
 }
 template <typename Element, Index N0, Index N1, Index N2, ptrdiff_t OriginRank>
 ArrayView<const Element, 3, offset_origin> MakeOffsetArrayView(
-    const Index (&origin ABSL_ATTRIBUTE_LIFETIME_BOUND)[OriginRank],
-    const Element (&array ABSL_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2]) {
+    const Index (&origin TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)[OriginRank],
+    const Element (&array TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2]) {
   static_assert(OriginRank == 3, "Origin vector must have length 3.");
   static constexpr Index shape[] = {N0, N1, N2};
   static constexpr Index byte_strides[] = {
@@ -340,8 +343,8 @@ ArrayView<const Element, 3, offset_origin> MakeOffsetArrayView(
 template <typename Element, Index N0, Index N1, Index N2, Index N3,
           ptrdiff_t OriginRank>
 ArrayView<Element, 4, offset_origin> MakeOffsetArrayView(
-    const Index (&origin ABSL_ATTRIBUTE_LIFETIME_BOUND)[OriginRank],
-    Element (&array ABSL_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2][N3]) {
+    const Index (&origin TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)[OriginRank],
+    Element (&array TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2][N3]) {
   static_assert(OriginRank == 4, "Origin vector must have length 4.");
   static constexpr Index shape[] = {N0, N1, N2, N3};
   static constexpr Index byte_strides[] = {
@@ -355,8 +358,9 @@ ArrayView<Element, 4, offset_origin> MakeOffsetArrayView(
 template <typename Element, Index N0, Index N1, Index N2, Index N3,
           ptrdiff_t OriginRank>
 ArrayView<const Element, 4, offset_origin> MakeOffsetArrayView(
-    const Index (&origin ABSL_ATTRIBUTE_LIFETIME_BOUND)[OriginRank],
-    const Element (&array ABSL_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2][N3]) {
+    const Index (&origin TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)[OriginRank],
+    const Element (
+        &array TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2][N3]) {
   static_assert(OriginRank == 4, "Origin vector must have length 4.");
   static constexpr Index shape[] = {N0, N1, N2, N3};
   static constexpr Index byte_strides[] = {
@@ -371,8 +375,8 @@ ArrayView<const Element, 4, offset_origin> MakeOffsetArrayView(
 template <typename Element, Index N0, Index N1, Index N2, Index N3, Index N4,
           ptrdiff_t OriginRank>
 ArrayView<Element, 5, offset_origin> MakeOffsetArrayView(
-    const Index (&origin ABSL_ATTRIBUTE_LIFETIME_BOUND)[OriginRank],
-    Element (&array ABSL_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2][N3][N4]) {
+    const Index (&origin TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)[OriginRank],
+    Element (&array TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2][N3][N4]) {
   static_assert(OriginRank == 5, "Origin vector must have length 5.");
   static constexpr Index shape[] = {N0, N1, N2, N3, N4};
   static constexpr Index byte_strides[] = {
@@ -386,8 +390,9 @@ ArrayView<Element, 5, offset_origin> MakeOffsetArrayView(
 template <typename Element, Index N0, Index N1, Index N2, Index N3, Index N4,
           ptrdiff_t OriginRank>
 ArrayView<const Element, 5, offset_origin> MakeOffsetArrayView(
-    const Index (&origin ABSL_ATTRIBUTE_LIFETIME_BOUND)[OriginRank],
-    const Element (&array ABSL_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2][N3][N4]) {
+    const Index (&origin TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)[OriginRank],
+    const Element (
+        &array TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2][N3][N4]) {
   static_assert(OriginRank == 5, "Origin vector must have length 5.");
   static constexpr Index shape[] = {N0, N1, N2, N3, N4};
   static constexpr Index byte_strides[] = {
@@ -402,8 +407,9 @@ ArrayView<const Element, 5, offset_origin> MakeOffsetArrayView(
 template <typename Element, Index N0, Index N1, Index N2, Index N3, Index N4,
           Index N5, ptrdiff_t OriginRank>
 ArrayView<Element, 6, offset_origin> MakeOffsetArrayView(
-    const Index (&origin ABSL_ATTRIBUTE_LIFETIME_BOUND)[OriginRank],
-    Element (&array ABSL_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2][N3][N4][N5]) {
+    const Index (&origin TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)[OriginRank],
+    Element (
+        &array TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2][N3][N4][N5]) {
   static_assert(OriginRank == 6, "Origin vector must have length 6.");
   static constexpr Index shape[] = {N0, N1, N2, N3, N4, N5};
   static constexpr Index byte_strides[] = {
@@ -421,9 +427,9 @@ ArrayView<Element, 6, offset_origin> MakeOffsetArrayView(
 template <typename Element, Index N0, Index N1, Index N2, Index N3, Index N4,
           Index N5, ptrdiff_t OriginRank>
 ArrayView<const Element, 6, offset_origin> MakeOffsetArrayView(
-    const Index (&origin ABSL_ATTRIBUTE_LIFETIME_BOUND)[OriginRank],
+    const Index (&origin TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)[OriginRank],
     const Element (
-        &array ABSL_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2][N3][N4][N5]) {
+        &array TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)[N0][N1][N2][N3][N4][N5]) {
   static_assert(OriginRank == 6, "Origin vector must have length 6.");
   static constexpr Index shape[] = {N0, N1, N2, N3, N4, N5};
   static constexpr Index byte_strides[] = {

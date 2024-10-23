@@ -11,6 +11,7 @@ tensorstore_cc_library(
     deps = [
         ":small_bit_set",
         ":span",
+        "//tensorstore/internal:attributes",
         "@com_google_absl//absl/base:core_headers",
     ],
 )
@@ -158,8 +159,8 @@ tensorstore_cc_library(
     name = "small_bit_set",
     hdrs = ["small_bit_set.h"],
     deps = [
+        "//tensorstore/internal:attributes",
         "//tensorstore/internal:integer_types",
-        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/numeric:bits",
     ],
 )
@@ -323,6 +324,7 @@ tensorstore_cc_library(
         ":executor",
         ":result",
         ":span",
+        "//tensorstore/internal:attributes",
         "//tensorstore/internal:integer_sequence",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:tagged_ptr",
@@ -495,6 +497,7 @@ tensorstore_cc_library(
     ],
     deps = [
         ":status",
+        "//tensorstore/internal:attributes",
         "//tensorstore/internal:type_traits",
         "//tensorstore/internal/preprocessor:cat",
         "//tensorstore/internal/preprocessor:expand",
@@ -537,6 +540,7 @@ tensorstore_cc_library(
     name = "span",
     hdrs = ["span.h"],
     deps = [
+        "//tensorstore/internal:attributes",
         "//tensorstore/internal:gdb_scripting",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/log:absl_log",

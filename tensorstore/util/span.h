@@ -27,6 +27,7 @@
 #include "absl/base/attributes.h"
 #include "absl/base/optimization.h"
 #include "absl/log/absl_log.h"
+#include "tensorstore/internal/attributes.h"
 #include "tensorstore/internal/gdb_scripting.h"
 
 TENSORSTORE_GDB_AUTO_SCRIPT("span_gdb.py")
@@ -194,7 +195,7 @@ class span {
   ///
   /// \dchecks `Extent == dynamic_extent || count == Extent`
   /// \id pointer, count
-  constexpr span(pointer ptr ABSL_ATTRIBUTE_LIFETIME_BOUND,
+  constexpr span(pointer ptr TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND,
                  index_type count) noexcept
       : data_(ptr), size_{} {
     if constexpr (Extent == dynamic_extent) {
@@ -216,8 +217,8 @@ class span {
       //
       // See https://github.com/Microsoft/GSL/issues/541.
       typename = void>
-  constexpr span(pointer begin ABSL_ATTRIBUTE_LIFETIME_BOUND,
-                 pointer end ABSL_ATTRIBUTE_LIFETIME_BOUND) noexcept
+  constexpr span(pointer begin TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND,
+                 pointer end TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND) noexcept
       : span(begin, end - begin) {}
 
   /// Constructs from an array or `std::array`.
@@ -225,19 +226,19 @@ class span {
   /// \id array
   template <size_t N, typename = std::enable_if_t<(Extent == dynamic_extent ||
                                                    Extent == N)>>
-  constexpr span(T (&arr ABSL_ATTRIBUTE_LIFETIME_BOUND)[N]) noexcept
+  constexpr span(T (&arr TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)[N]) noexcept
       : span(arr, N) {}
   template <size_t N, typename = std::enable_if_t<(Extent == dynamic_extent ||
                                                    Extent == N)>>
-  constexpr span(
-      std::array<value_type, N>& arr ABSL_ATTRIBUTE_LIFETIME_BOUND) noexcept
+  constexpr span(std::array<value_type, N>& arr
+                     TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND) noexcept
       : span(arr.data(), N) {}
   template <
       size_t N, typename U = T,
       typename = std::enable_if_t<std::is_const_v<U> &&
                                   (Extent == dynamic_extent || Extent == N)>>
   constexpr span(const std::array<value_type, N>& arr
-                     ABSL_ATTRIBUTE_LIFETIME_BOUND) noexcept
+                     TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND) noexcept
       : span(arr.data(), N) {}
 
   /// Constructs from a container with ``data`` and ``size`` methods.
@@ -245,12 +246,12 @@ class span {
   /// \id container
   template <typename Container,
             typename = internal_span::EnableIfCompatibleContainer<T, Container>>
-  constexpr span(Container& cont ABSL_ATTRIBUTE_LIFETIME_BOUND)
+  constexpr span(Container& cont TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)
       : span(cont.data(), cont.size()) {}
   template <
       typename Container,
       typename = internal_span::EnableIfCompatibleContainer<T, const Container>>
-  constexpr span(const Container& cont ABSL_ATTRIBUTE_LIFETIME_BOUND)
+  constexpr span(const Container& cont TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)
       : span(cont.data(), cont.size()) {}
 
   /// Converts from a compatible span type.

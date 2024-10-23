@@ -28,6 +28,7 @@
 #include <type_traits>
 
 #include "absl/base/attributes.h"
+#include "tensorstore/internal/attributes.h"
 #include "tensorstore/util/small_bit_set.h"
 #include "tensorstore/util/span.h"
 
@@ -118,7 +119,7 @@ class BitSpan {
   /// \dchecks `offset >= 0`.
   /// \dchecks `size >= 0`.
   /// \dchecks `Extent == dynamic_extent || Extent == size`.
-  constexpr BitSpan(T* base ABSL_ATTRIBUTE_LIFETIME_BOUND,
+  constexpr BitSpan(T* base TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND,
                     std::ptrdiff_t offset, std::ptrdiff_t size)
       : BitSpan(BitIterator<T>(base, offset), size) {}
 
