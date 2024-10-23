@@ -412,7 +412,28 @@ constexpr auto MetadataJsonBinder = [](auto maybe_optional) {
                        }))),
         jb::Member("order",
                    jb::Projection(&T::order, maybe_optional(OrderJsonBinder))),
-        jb::Member("filters", jb::Projection(&T::filters)),
+        jb::Member(
+            "filters",
+            jb::Projection<&T::filters>(maybe_optional(
+                [](auto is_loading, const auto& options, auto* obj, auto* j) {
+                  if constexpr (is_loading) {
+                    if (!j->is_null()) {
+                      if (auto* a = j->template get_ptr<
+                                    const ::nlohmann::json::array_t*>()) {
+                        if (a->size() != 0) {
+                          return absl::InvalidArgumentError(
+                              "filters are not supported");
+                        }
+                      } else {
+                        return internal_json::ExpectedError(*j,
+                                                            "null or array");
+                      }
+                    }
+                  } else {
+                    *j = nullptr;
+                  }
+                  return absl::OkStatus();
+                }))),
         jb::Member("dimension_separator",
                    jb::Projection(&T::dimension_separator,
                                   jb::Optional(DimensionSeparatorJsonBinder))),
