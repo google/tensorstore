@@ -362,6 +362,9 @@ void StrongPtrTraitsCacheEntry::decrement_impl(
           cache->reference_count_.fetch_sub(CacheImpl::kNonEmptyShardIncrement,
                                             std::memory_order_relaxed);
         }
+        // Release lock before invoking entry destructor, as that may be
+        // expensive.
+        lock = {};
         delete entry_impl;
       }
     } else {
