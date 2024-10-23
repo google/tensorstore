@@ -27,6 +27,7 @@ namespace tensorstore {
 ///
 /// \ingroup utilities
 template <typename Options, typename... Option>
+// NONITPICK: Options::IsOption<std::remove_cvref_t<Option>>
 constexpr inline bool IsCompatibleOptionSequence =
     ((!std::is_same_v<Options, absl::remove_cvref_t<Option>> &&
       Options::template IsOption<absl::remove_cvref_t<Option>>) &&

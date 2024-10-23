@@ -106,12 +106,12 @@ class Int4Padded {
   /**/
 
 #define TENSORSTORE_INTERNAL_INT4_PADDED_ARITHMETIC_ASSIGN_OP(OP)          \
-  friend Int4Padded& operator OP##=(Int4Padded& a, Int4Padded b) {         \
+  friend Int4Padded& operator OP##=(Int4Padded & a, Int4Padded b) {        \
     return a = Int4Padded(a.rep_ OP b.rep_);                               \
   }                                                                        \
   template <typename T>                                                    \
   friend std::enable_if_t<std::numeric_limits<T>::is_integer, Int4Padded&> \
-  operator OP##=(Int4Padded& a, T b) {                                     \
+  operator OP##=(Int4Padded & a, T b) {                                    \
     return a = Int4Padded(a.rep_ OP b);                                    \
   }                                                                        \
   /**/
@@ -340,6 +340,7 @@ class Int4Padded {
 ///
 /// \membergroup Basic operations
 /// \relates BFloat16
+/// \id int4padded
 inline Int4Padded abs(Int4Padded x) {
   x.rep_ = internal::SignedTrunc4(::std::abs(x.rep_));
   return x;
@@ -349,6 +350,7 @@ inline Int4Padded abs(Int4Padded x) {
 ///
 /// \membergroup Power functions
 /// \relates Int4Padded
+/// \id int4padded
 inline Int4Padded pow(Int4Padded x, Int4Padded y) {
   return Int4Padded(std::pow(static_cast<int8_t>(x), static_cast<int8_t>(y)));
 }

@@ -101,11 +101,12 @@ template <typename T>
 constexpr inline bool IsTransformedArrayLike =
     IsArray<T> || IsTransformedArray<T>;
 
-/// Bool-valued metafunction that evaluates to `true` if `T` satisfies
-/// `IsTransformedArrayLike` and `IsShared`
+/// Bool-valued metafunction that evaluates to `true` if
+/// `IsTransformedArrayLike<ArrayLike>` and the associated element tag of the
+/// array satisfies `IsShared`.
 ///
 /// \relates TransformedArray
-template <typename ArrayLike, typename = std::true_type>
+template <typename ArrayLike, typename Sfinae = std::true_type>
 constexpr inline bool IsSharedArrayLike = false;
 
 template <typename ArrayLike>

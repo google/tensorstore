@@ -60,7 +60,7 @@ T ProductOfExtents(tensorstore::span<T, Extent> s) {
 /// `Index` and a static `span::extent` compatible with `Rank`.
 ///
 /// \ingroup index vectors
-template <DimensionIndex Rank, typename Indices, typename = void>
+template <DimensionIndex Rank, typename Indices, typename Sfinae = void>
 constexpr inline bool IsCompatibleFullIndexVector = false;
 
 template <DimensionIndex Rank, typename Indices>
@@ -76,7 +76,7 @@ constexpr inline bool IsCompatibleFullIndexVector<
 /// `Index` and a static `span::extent` implicitly compatible with `Rank`.
 ///
 /// \ingroup index vectors
-template <DimensionIndex Rank, typename Indices, typename = void>
+template <DimensionIndex Rank, typename Indices, typename Sfinae = void>
 constexpr inline bool IsImplicitlyCompatibleFullIndexVector = false;
 
 template <DimensionIndex Rank, typename Indices>
@@ -91,7 +91,7 @@ constexpr inline bool IsImplicitlyCompatibleFullIndexVector<
 /// `Index` and a static `span::extent <= Rank`.
 ///
 /// \ingroup index vectors
-template <DimensionIndex Rank, typename Indices, typename = void>
+template <DimensionIndex Rank, typename Indices, typename Sfinae = void>
 constexpr inline bool IsCompatiblePartialIndexVector = false;
 
 template <DimensionIndex Rank, typename Indices>
@@ -115,9 +115,9 @@ constexpr inline bool IsCompatibleFullIndexPack =
 /// Bool-valued metafunction that evaluates to `true` if `Indices` is
 /// `span`-compatible with a `span::value_type` convertible without narrowing to
 /// `Index`.
-//
+///
 /// \ingroup index vectors
-template <typename Indices, typename = void>
+template <typename Indices, typename Sfinae = void>
 constexpr inline bool IsIndexConvertibleVector = false;
 
 template <typename Indices>
@@ -130,7 +130,7 @@ constexpr inline bool IsIndexConvertibleVector<
 /// `span`-compatible with a `span::value_type` of `Index`.
 ///
 /// \ingroup index vectors
-template <typename Indices, typename = Index>
+template <typename Indices, typename Sfinae = Index>
 constexpr inline bool IsIndexVector = false;
 
 template <typename Indices>
@@ -141,7 +141,7 @@ constexpr inline bool IsIndexVector<
 /// `span`-compatible with a `span::element_type` of `Index`.
 ///
 /// \ingroup index vectors
-template <typename Indices, typename = Index>
+template <typename Indices, typename Sfinae = Index>
 constexpr inline bool IsMutableIndexVector = false;
 
 template <typename Indices>

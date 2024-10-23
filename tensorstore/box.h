@@ -96,7 +96,7 @@ constexpr inline bool IsMutableBoxLike =
 /// type with `Box::static_rank` implicitly convertible to `Rank`.
 ///
 /// \relates Box
-template <typename T, DimensionIndex Rank, typename = void>
+template <typename T, DimensionIndex Rank, typename Sfinae = void>
 constexpr inline bool IsBoxLikeImplicitlyConvertibleToRank = false;
 
 template <typename T, DimensionIndex Rank>
@@ -108,7 +108,7 @@ constexpr inline bool IsBoxLikeImplicitlyConvertibleToRank<
 /// type with `Box::static_rank` explicitly convertible to `Rank`.
 ///
 /// \relates Box
-template <typename T, DimensionIndex Rank, typename = void>
+template <typename T, DimensionIndex Rank, typename Sfinae = void>
 constexpr inline bool IsBoxLikeExplicitlyConvertibleToRank = false;
 
 template <typename T, DimensionIndex Rank>
@@ -439,8 +439,8 @@ Box(const Index (&shape)[Rank]) -> Box<Rank>;
 template <typename Origin, typename Shape,
           std::enable_if_t<(IsIndexConvertibleVector<Origin> &&
                             IsIndexConvertibleVector<Shape>)>* = nullptr>
-Box(const Origin& origin, const Shape& shape)
-    -> Box<SpanStaticExtent<Origin, Shape>::value>;
+Box(const Origin& origin,
+    const Shape& shape) -> Box<SpanStaticExtent<Origin, Shape>::value>;
 
 template <DimensionIndex Rank>
 Box(const Index (&origin)[Rank], const Index (&shape)[Rank]) -> Box<Rank>;
@@ -557,12 +557,11 @@ class BoxView : public internal_box::BoxViewStorage<Rank, Mutable> {
   /// \requires If `Mutable == true`, `BoxType` must be a mutable Box-like type
   ///     (such as a non-const `Box` reference or a `MutableBoxView`).
   /// \id convert
-  template <
-      typename BoxType,
-      typename = std::enable_if_t<
-          (IsBoxLike<BoxType> &&
-           (!Mutable || IsMutableBoxLike<BoxType>)&&RankConstraint::Implies(
-               absl::remove_cvref_t<BoxType>::static_rank, Rank))>>
+  template <typename BoxType,
+            typename = std::enable_if_t<(
+                IsBoxLike<BoxType> && (!Mutable || IsMutableBoxLike<BoxType>) &&
+                RankConstraint::Implies(
+                    absl::remove_cvref_t<BoxType>::static_rank, Rank))>>
   // NONITPICK: std::remove_cvref_t<BoxType>::static_rank
   BoxView(BoxType&& other)
       : BoxView(other.rank(), other.origin().data(), other.shape().data()) {}
@@ -587,7 +586,7 @@ class BoxView : public internal_box::BoxViewStorage<Rank, Mutable> {
       typename BoxType,
       std::enable_if_t<
           (IsBoxLike<absl::remove_cvref_t<BoxType>> &&
-           (!Mutable || IsMutableBoxLike<std::remove_reference_t<BoxType>>)&&
+           (!Mutable || IsMutableBoxLike<std::remove_reference_t<BoxType>>) &&
 
            RankConstraint::Implies(absl::remove_cvref_t<BoxType>::static_rank,
                                    Rank))>* = nullptr>
@@ -704,8 +703,8 @@ BoxView(Origin&& origin, Shape&& shape)
                (IsMutableIndexVector<Origin> && IsMutableIndexVector<Shape>)>;
 
 template <DimensionIndex Rank>
-BoxView(const Index (&origin)[Rank], const Index (&shape)[Rank])
-    -> BoxView<Rank>;
+BoxView(const Index (&origin)[Rank],
+        const Index (&shape)[Rank]) -> BoxView<Rank>;
 
 template <DimensionIndex Rank, bool Mutable>
 struct StaticCastTraits<BoxView<Rank, Mutable>>
@@ -897,10 +896,12 @@ std::enable_if_t<HasBoxDomain<BoxType>, bool> ContainsPartial(
 /// Returns a view of the sub-box corresponding to the specified dimension
 /// range.
 ///
-/// \params box The existing box from which to extract the sub-box.
-/// \param  begin Inclusive start dimension of the sub-box.
-/// \param end Exclusive end dimension of the sub-box.  The default value of
-///     `-1` is treated the same as `box.rank()`.
+/// \param box The existing box from which to extract the sub-box.
+/// \param begin Inclusive start dimension of the sub-box.
+/// \param end Exclusive end dimension of the sub-box.
+///     The default value of ``-1`` is treated the same as `box.rank()`.
+///
+/// \relates Box
 template <typename BoxType>
 std::enable_if_t<IsBoxLike<BoxType>,
                  BoxView<dynamic_rank, IsMutableBoxLike<BoxType>>>

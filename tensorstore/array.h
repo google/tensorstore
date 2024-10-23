@@ -2079,6 +2079,9 @@ bool IsBroadcastScalar(
 }
 
 /// Returns minimum number of contiguous bytes into which the array fits.
+///
+/// \relates Array
+/// \id array
 template <typename ElementTag, DimensionIndex Rank, ArrayOriginKind OriginKind,
           ContainerKind LayoutCKind>
 Index GetByteExtent(

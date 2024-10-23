@@ -29,6 +29,8 @@ namespace tensorstore {
 ///
 /// For some operations, there are batch implementations there are batch
 /// implementations that reduce the number of separate I/O requests performed.
+///
+/// \ingroup core
 class Batch {
   class ImplBase {
    public:
@@ -55,10 +57,14 @@ class Batch {
   class View {
    public:
     /// Constructs a view that refers to `no_batch`.
+    ///
+    /// \id no_batch
     constexpr View() = default;
     constexpr View(no_batch_t) {}
 
     /// Constructs a view that refers to an existing batch.
+    ///
+    /// \id batch
     constexpr View(const Batch& batch) : impl_(batch.impl_.get()) {}
 
     /// Returns `true` if this refers to a batch (as opposed to `no_batch`).
@@ -113,6 +119,9 @@ class Batch {
   internal::IntrusivePtr<ImplBase> impl_;
 };
 
+/// Alias for indicating not to use a batch.
+///
+/// \relates Batch
 constexpr inline Batch::no_batch_t no_batch = Batch::no_batch_t{};
 
 }  // namespace tensorstore

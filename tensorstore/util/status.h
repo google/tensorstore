@@ -34,8 +34,8 @@ namespace internal {
 /// Add the SourceLocation to the Status.
 void MaybeAddSourceLocationImpl(absl::Status& status, SourceLocation loc);
 
-/// Returns a copy of `source` with `prefix_message` appended, possibly changing
-/// the status code and adding a source location.
+// Returns a copy of `source` with `prefix_message` appended, possibly changing
+// the status code and adding a source location.
 absl::Status MaybeAnnotateStatusImpl(absl::Status source,
                                      std::string_view prefix_message,
                                      std::optional<absl::StatusCode> new_code,
@@ -84,7 +84,7 @@ inline absl::Status InvokeForStatus(F&& f, Args&&... args) {
 
 }  // namespace internal
 
-/// Add a source location to the status.
+// Add a source location to the status.
 inline void MaybeAddSourceLocation(
     absl::Status& status,
     SourceLocation loc = tensorstore::SourceLocation::current()) {
@@ -93,10 +93,10 @@ inline void MaybeAddSourceLocation(
   internal::MaybeAddSourceLocationImpl(status, loc);
 }
 
-/// Adds value to status usiung `status.SetPayload`.
-/// Iterates through payloads like `prefix` and `prefix[N]`, and if value
-/// is not found, adds to the status payload, returning prefix.
-/// If the payload already exists, returns std::nullopt.
+// Adds value to status usiung `status.SetPayload`.
+// Iterates through payloads like `prefix` and `prefix[N]`, and if value
+// is not found, adds to the status payload, returning prefix.
+// If the payload already exists, returns std::nullopt.
 std::optional<std::string> AddStatusPayload(absl::Status& status,
                                             std::string_view prefix,
                                             absl::Cord value);
@@ -111,7 +111,6 @@ inline absl::Status MaybeAnnotateStatus(
   return internal::MaybeAnnotateStatusImpl(std::move(source), message,
                                            std::nullopt, loc);
 }
-
 inline absl::Status MaybeAnnotateStatus(
     absl::Status source, std::string_view message, absl::StatusCode new_code,
     SourceLocation loc = tensorstore::SourceLocation::current()) {

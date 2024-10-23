@@ -48,7 +48,7 @@ namespace tensorstore {
 /// `DimExpression`.
 ///
 /// \relates DimExpression
-template <typename T, typename = std::true_type>
+template <typename T, typename Sfinae = std::true_type>
 struct IsIndexVectorOrScalar {
   /// Indicates whether `T` satisfies the concept.
   static constexpr bool value = false;

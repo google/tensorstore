@@ -431,6 +431,7 @@ using RebindMode =
 /// Casts `source` to have a static `ReadWriteMode` of `TargetMode`.
 ///
 /// \ingroup compile-time-constraints
+/// \id compile_time
 template <ReadWriteMode TargetMode,
           CastChecking Checking = CastChecking::checked, typename SourceRef>
 StaticCastResultType<RebindMode<SourceRef, TargetMode>, SourceRef, Checking>
@@ -444,6 +445,7 @@ ModeCast(SourceRef&& source) {
 /// If `new_mode == ReadWriteMode::dynamic`, the existing mode is unchanged.
 ///
 /// \relates TensorStore
+/// \id runtime
 template <typename Element, DimensionIndex Rank, ReadWriteMode ExistingMode>
 Result<TensorStore<Element, Rank>> ModeCast(
     TensorStore<Element, Rank, ExistingMode> store, ReadWriteMode new_mode) {
@@ -622,6 +624,8 @@ Resize(
 /// satisfied.
 ///
 /// Used to specify the return type of `tensorstore::Read`.
+///
+/// \relates Read[TensorStore, Array]
 template <typename Source, typename Dest>
 constexpr inline bool CanReadTensorstoreToArray =
     (internal::IsTensorStoreThatSupportsMode<Source, ReadWriteMode::read> &&
@@ -638,7 +642,7 @@ constexpr inline bool CanReadTensorstoreToArray =
 /// may be left in a partially-written state.
 ///
 /// Options compatible with `ReadOptions` are specified in any order after
-/// `store`.  The meaning of each option is determined by its type.
+/// `target`.  The meaning of each option is determined by its type.
 ///
 /// Supported option types are:
 ///
@@ -701,7 +705,7 @@ Read(SourceTensorstore&& source, TargetArray&& target, Option&&... option) {
 /// Copies from a `source` `TensorStore` to a newly-allocated target `Array`.
 ///
 /// Options compatible with `ReadIntoNewArrayOptions` are specified in any order
-/// after `store`.  The meaning of each option is determined by its type.
+/// after `source`.  The meaning of each option is determined by its type.
 ///
 /// Supported option types are:
 ///
@@ -736,6 +740,8 @@ std::enable_if_t<
     Future<SharedArray<typename UnwrapResultType<SourceTensorstore>::Element,
                        UnwrapResultType<SourceTensorstore>::static_rank,
                        OriginKind>>>
+// NONITPICK: UnwrapResultType<SourceTensorstore>::Element
+// NONITPICK: UnwrapResultType<SourceTensorstore>::static_rank
 Read(SourceTensorstore&& source, ReadIntoNewArrayOptions options) {
   using Store = UnwrapResultType<SourceTensorstore>;
   return MapResult(
@@ -770,6 +776,8 @@ Read(SourceTensorstore&& source, Option&&... option) {
 /// satisfied.
 ///
 /// Used to specify the return type of `tensorstore::Write`.
+///
+/// \relates Write[Array, TensorStore]
 template <typename Source, typename Dest>
 constexpr inline bool CanWriteArrayToTensorStore =
     (internal::IsTensorStoreThatSupportsMode<Dest, ReadWriteMode::write> &&
@@ -788,7 +796,7 @@ constexpr inline bool CanWriteArrayToTensorStore =
 /// partially-written state.
 ///
 /// Options compatible with `WriteOptions` are specified in any order after
-/// `store`.  The meaning of each option is determined by its type.
+/// `target`.  The meaning of each option is determined by its type.
 ///
 /// Supported option types are:
 ///
@@ -849,6 +857,8 @@ Write(SourceArray&& source, Target&& target, Option&&... option) {
 /// satisfied.
 ///
 /// Used to specify the return type of `tensorstore::Copy`.
+///
+/// \relates Copy[TensorStore, TensorStore]
 template <typename Source, typename Dest>
 constexpr inline bool CanCopyTensorStoreToTensorStore =
     (internal::IsTensorStoreThatSupportsMode<Source, ReadWriteMode::read> &&
@@ -865,7 +875,7 @@ constexpr inline bool CanCopyTensorStoreToTensorStore =
 /// partially-written state.
 ///
 /// Options compatible with `CopyOptions` are specified in any order after
-/// `store`.  The meaning of each option is determined by its type.
+/// `target`.  The meaning of each option is determined by its type.
 ///
 /// Supported option types are:
 ///

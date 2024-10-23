@@ -148,42 +148,44 @@ class DimExpression {
   //     with compatible static ranks, that are compatible with the static
   //     selection rank.
   template <template <typename...> class OpTemplate, typename... IndexVector>
-  using IndexVectorOpExpr = NewExpr<DimExpressionHelper::IndexVectorOp<
+  using IndexVectorOpExprImpl = NewExpr<DimExpressionHelper::IndexVectorOp<
       OpTemplate, static_selection_rank::value, IndexVector...>>;
 
   // Defines the return type for TranslateBy.
   template <typename IndexVector>
-  using TranslateByOpExpr =
-      IndexVectorOpExpr<internal_index_space::TranslateByOp, IndexVector>;
+  using TranslateByOpExprImpl =
+      IndexVectorOpExprImpl<internal_index_space::TranslateByOp, IndexVector>;
 
   // Defines the return type for TranslateBackwardBy.
   template <typename IndexVector>
-  using TranslateBackwardByOpExpr =
-      IndexVectorOpExpr<internal_index_space::TranslateBackwardByOp,
-                        IndexVector>;
+  using TranslateBackwardByOpExprImpl =
+      IndexVectorOpExprImpl<internal_index_space::TranslateBackwardByOp,
+                            IndexVector>;
 
   // Defines the return type for TranslateTo.
   template <typename IndexVector>
-  using TranslateToOpExpr =
-      IndexVectorOpExpr<internal_index_space::TranslateToOp, IndexVector>;
+  using TranslateToOpExprImpl =
+      IndexVectorOpExprImpl<internal_index_space::TranslateToOp, IndexVector>;
 
   // Defines the return type for Stride.
   template <typename IndexVector>
-  using StrideOpExpr =
-      IndexVectorOpExpr<internal_index_space::StrideOp, IndexVector>;
+  using StrideOpExprImpl =
+      IndexVectorOpExprImpl<internal_index_space::StrideOp, IndexVector>;
 
   // Defines the return type for IndexSlice with an index vector.
   template <typename IndexVector>
-  using SingleIndexSliceOpExpr =
-      IndexVectorOpExpr<internal_index_space::SingleIndexSliceOp, IndexVector>;
+  using SingleIndexSliceOpExprImpl =
+      IndexVectorOpExprImpl<internal_index_space::SingleIndexSliceOp,
+                            IndexVector>;
 
   // Defines the return type for the *Interval member functions.
   template <typename... IndexVector>
-  using IntervalSliceOpExpr =
-      IndexVectorOpExpr<internal_index_space::IntervalSliceOp, IndexVector...>;
+  using IntervalSliceOpExprImpl =
+      IndexVectorOpExprImpl<internal_index_space::IntervalSliceOp,
+                            IndexVector...>;
 
   template <typename BoxType>
-  using BoxSliceOpExpr = NewExpr<std::enable_if_t<
+  using BoxSliceOpExprImpl = NewExpr<std::enable_if_t<
       (IsBoxLike<BoxType> &&
        RankConstraint::EqualOrUnspecified(static_selection_rank::value,
                                           BoxType::static_rank)),
@@ -192,7 +194,7 @@ class DimExpression {
   // Defines the return type for IndexArraySlice with a parameter pack of index
   // arrays.
   template <typename... IndexArray>
-  using IndexArraySliceOpExpr = std::enable_if_t<
+  using IndexArraySliceOpExprImpl = std::enable_if_t<
       (sizeof...(IndexArray) >= 1) &&
           RankConstraint::EqualOrUnspecified(sizeof...(IndexArray),
                                              static_selection_rank::value) &&
@@ -204,7 +206,7 @@ class DimExpression {
           std::array<SharedArrayView<const Index>, sizeof...(IndexArray)>>>>;
 
   // Defines the return type for IndexArraySlice with a span of index arrays.
-  using DynamicIndexArraySliceOpExpr =
+  using DynamicIndexArraySliceOpExprImpl =
       NewExpr<internal_index_space::IndexArraySliceOp<
           /*OuterIndexing=*/false, dynamic_rank,
           span<const SharedArrayView<const Index>>>>;
@@ -212,7 +214,7 @@ class DimExpression {
   // Defines the return type for OuterIndexArraySlice with a parameter pack of
   // index arrays.
   template <typename... IndexArray>
-  using IndexArrayOuterSliceOpExpr = std::enable_if_t<
+  using IndexArrayOuterSliceOpExprImpl = std::enable_if_t<
       RankConstraint::EqualOrUnspecified(sizeof...(IndexArray),
                                          static_selection_rank::value) &&
           (IsIndexArray<IndexArray> && ...),
@@ -223,7 +225,7 @@ class DimExpression {
 
   // Defines the return type for OuterIndexArraySlice with a span of index
   // arrays.
-  using DynamicIndexArrayOuterSliceOpExpr =
+  using DynamicIndexArrayOuterSliceOpExprImpl =
       NewExpr<internal_index_space::IndexArraySliceOp<
           /*OuterIndexing=*/true, dynamic_rank,
           span<const SharedArrayView<const Index>>>>;
@@ -231,7 +233,7 @@ class DimExpression {
   // Defines the return type for Label using the specified `Labels` container
   // with the specified static `Rank`.
   template <typename Labels, DimensionIndex Rank>
-  using LabelOpExpr =
+  using LabelOpExprImpl =
       std::enable_if_t<RankConstraint::EqualOrUnspecified(
                            Rank, static_selection_rank::value),
                        NewExpr<internal_index_space::LabelOp<Labels>>>;
@@ -240,46 +242,46 @@ class DimExpression {
   // converted to a `span`.
   template <typename Labels,
             typename LabelsSpan = internal::ConstSpanType<Labels>>
-  using LabelSpanOpExpr =
+  using LabelSpanOpExprImpl =
       std::enable_if_t<internal::IsStringLike<typename LabelsSpan::value_type>,
-                       LabelOpExpr<LabelsSpan, LabelsSpan::extent>>;
+                       LabelOpExprImpl<LabelsSpan, LabelsSpan::extent>>;
 
   // Defines the return type for Label, where the labels are specified as an
   // argument pack.
   template <typename... Label>
-  using LabelPackOpExpr = std::enable_if_t<
+  using LabelPackOpExprImpl = std::enable_if_t<
       internal::IsPackConvertibleWithoutNarrowing<std::string_view, Label...>,
-      LabelOpExpr<std::array<std::string_view, sizeof...(Label)>,
-                  sizeof...(Label)>>;
+      LabelOpExprImpl<std::array<std::string_view, sizeof...(Label)>,
+                      sizeof...(Label)>>;
 
   // Defines the return type for MoveTo, MoveToFront, and MoveToBack.
-  using MoveToOpExpr = NewExpr<internal_index_space::MoveToOp>;
+  using MoveToOpExprImpl = NewExpr<internal_index_space::MoveToOp>;
 
   // Defines the return type for Diagonal.
-  using DiagonalOpExpr = NewExpr<internal_index_space::DiagonalOp>;
+  using DiagonalOpExprImpl = NewExpr<internal_index_space::DiagonalOp>;
 
   // Defines the return type for AddNew.
-  using AddNewOpExpr = NewExpr<internal_index_space::AddNewDimsOp>;
+  using AddNewOpExprImpl = NewExpr<internal_index_space::AddNewDimsOp>;
 
   // Defines the return type for `Transpose()`.
-  using TransposeOpExpr = NewExpr<internal_index_space::TransposeOp>;
+  using TransposeOpExprImpl = NewExpr<internal_index_space::TransposeOp>;
 
   // Defines the return type for `Transpose(target_dimensions)`.
   template <typename TargetDims,
             typename TargetDimsSpan = internal::ConstSpanType<TargetDims>>
-  using TransposeToOpExpr = std::enable_if_t<
+  using TransposeToOpExprImpl = std::enable_if_t<
       (RankConstraint::EqualOrUnspecified(TargetDimsSpan::extent,
                                           static_selection_rank::value) &&
        std::is_same_v<typename TargetDimsSpan::value_type, DimensionIndex>),
       NewExpr<internal_index_space::TransposeToOp<TargetDimsSpan>>>;
 
   // Defines the return type for {Unsafe,}MarkBounds{Explicit,Implicit}.
-  using ChangeImplicitStateOpExpr =
+  using ChangeImplicitStateOpExprImpl =
       NewExpr<internal_index_space::ChangeImplicitStateOp>;
 
   // Defines the return type for IndexVectorArraySlice.
   template <typename IndexVectorArray>
-  using IndexVectorArraySliceOpExpr =
+  using IndexVectorArraySliceOpExprImpl =
       std::enable_if_t<IsIndexArray<IndexVectorArray> &&
                            RankConstraint::GreaterOrUnspecified(
                                IndexVectorArray::static_rank, 0),
@@ -350,13 +352,13 @@ class DimExpression {
   /// \error `absl::StatusCode::kInvalidArgument` if a shifted interval is
   ///     outside the valid range.
   template <typename Offsets>
-  TranslateByOpExpr<Offsets> TranslateBy(const Offsets& offsets) const {
+  TranslateByOpExprImpl<Offsets> TranslateBy(const Offsets& offsets) const {
     return {{offsets}, *this};
   }
 
   // Overload that permits the offset vector to be specified as a braced list.
   template <DimensionIndex Rank>
-  TranslateByOpExpr<const Index (&)[Rank]> TranslateBy(
+  TranslateByOpExprImpl<const Index (&)[Rank]> TranslateBy(
       const Index (&offsets)[Rank]) const {
     return {{span(offsets)}, *this};
   }
@@ -425,14 +427,14 @@ class DimExpression {
   /// \error `absl::StatusCode::kInvalidArgument` if a shifted interval is
   ///     outside the valid range.
   template <typename Offsets>
-  TranslateBackwardByOpExpr<Offsets> TranslateBackwardBy(
+  TranslateBackwardByOpExprImpl<Offsets> TranslateBackwardBy(
       const Offsets& offsets) const {
     return {{offsets}, *this};
   }
 
   // Overload that permits the offset vector to be specified as a braced list.
   template <DimensionIndex Rank>
-  TranslateBackwardByOpExpr<const Index (&)[Rank]> TranslateBackwardBy(
+  TranslateBackwardByOpExprImpl<const Index (&)[Rank]> TranslateBackwardBy(
       const Index (&offsets)[Rank]) const {
     return {{span(offsets)}, *this};
   }
@@ -501,13 +503,13 @@ class DimExpression {
   /// \error `absl::StatusCode::kInvalidArgument` if a shifted interval is
   ///     outside the valid range.
   template <typename Origins>
-  TranslateToOpExpr<Origins> TranslateTo(const Origins& origins) const {
+  TranslateToOpExprImpl<Origins> TranslateTo(const Origins& origins) const {
     return {{origins}, *this};
   }
 
   // Overload that permits the origin vector to be specified as a braced list.
   template <DimensionIndex Rank>
-  TranslateToOpExpr<const Index (&)[Rank]> TranslateTo(
+  TranslateToOpExprImpl<const Index (&)[Rank]> TranslateTo(
       const Index (&origins)[Rank]) const {
     return {{span(origins)}, *this};
   }
@@ -567,13 +569,13 @@ class DimExpression {
   /// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs
   ///     when computing the resultant transform.
   template <typename Indices>
-  SingleIndexSliceOpExpr<Indices> IndexSlice(const Indices& indices) const {
+  SingleIndexSliceOpExprImpl<Indices> IndexSlice(const Indices& indices) const {
     return {{indices}, *this};
   }
 
   // Overload that permits the indices vector to be specified as a braced list.
   template <DimensionIndex Rank>
-  SingleIndexSliceOpExpr<const Index (&)[Rank]> IndexSlice(
+  SingleIndexSliceOpExprImpl<const Index (&)[Rank]> IndexSlice(
       const Index (&indices)[Rank]) const {
     return {{span(indices)}, *this};
   }
@@ -614,7 +616,7 @@ class DimExpression {
   ///     the static rank of the dimension selection.
   /// \param box The box to extract.
   template <typename BoxType>
-  BoxSliceOpExpr<BoxType> BoxSlice(const BoxType& box) const {
+  BoxSliceOpExprImpl<BoxType> BoxSlice(const BoxType& box) const {
     return {{box, false}, *this};
   }
 
@@ -655,7 +657,7 @@ class DimExpression {
   ///     the static rank of the dimension selection.
   /// \param box The box to extract.
   template <typename BoxType>
-  BoxSliceOpExpr<BoxType> TranslateBoxSlice(const BoxType& box) const {
+  BoxSliceOpExprImpl<BoxType> TranslateBoxSlice(const BoxType& box) const {
     return {{box, true}, *this};
   }
 
@@ -764,14 +766,14 @@ class DimExpression {
   /// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs
   ///     when computing the resultant transform.
   template <typename Start, typename Stop, typename Strides = Index>
-  IntervalSliceOpExpr<Start, Stop, Strides> ClosedInterval(
+  IntervalSliceOpExprImpl<Start, Stop, Strides> ClosedInterval(
       const Start& start, const Stop& stop, const Strides& strides = 1) const {
     return {{IntervalForm::closed, false, start, stop, strides}, *this};
   }
 
   // Overload that permits arguments to be specified as braced lists.
   template <typename Stop, typename Strides = Index, DimensionIndex Rank>
-  IntervalSliceOpExpr<const Index (&)[Rank], Stop, Strides> ClosedInterval(
+  IntervalSliceOpExprImpl<const Index (&)[Rank], Stop, Strides> ClosedInterval(
       const Index (&start)[Rank], const Stop& stop,
       const Strides& strides = 1) const {
     return {{IntervalForm::closed, false, start, stop, strides}, *this};
@@ -779,7 +781,7 @@ class DimExpression {
 
   // Overload that permits arguments to be specified as braced lists.
   template <typename Start, typename Strides = Index, DimensionIndex Rank>
-  IntervalSliceOpExpr<Start, const Index (&)[Rank], Strides> ClosedInterval(
+  IntervalSliceOpExprImpl<Start, const Index (&)[Rank], Strides> ClosedInterval(
       const Start& start, const Index (&stop)[Rank],
       const Strides& strides = 1) const {
     return {{IntervalForm::closed, false, start, stop, strides}, *this};
@@ -787,7 +789,7 @@ class DimExpression {
 
   // Overload that permits arguments to be specified as braced lists.
   template <typename Strides = Index, DimensionIndex Rank>
-  IntervalSliceOpExpr<const Index (&)[Rank], const Index (&)[Rank], Strides>
+  IntervalSliceOpExprImpl<const Index (&)[Rank], const Index (&)[Rank], Strides>
   ClosedInterval(const Index (&start)[Rank], const Index (&stop)[Rank],
                  const Strides& strides = 1) const {
     return {{IntervalForm::closed, false, start, stop, strides}, *this};
@@ -795,7 +797,7 @@ class DimExpression {
 
   // Overload that permits arguments to be specified as braced lists.
   template <typename Start, typename Stop, DimensionIndex Rank>
-  IntervalSliceOpExpr<Start, Stop, const Index (&)[Rank]> ClosedInterval(
+  IntervalSliceOpExprImpl<Start, Stop, const Index (&)[Rank]> ClosedInterval(
       const Start& start, const Stop& stop,
       const Index (&strides)[Rank]) const {
     return {{IntervalForm::closed, false, start, stop, strides}, *this};
@@ -803,7 +805,7 @@ class DimExpression {
 
   // Overload that permits arguments to be specified as braced lists.
   template <typename Stop, DimensionIndex Rank>
-  IntervalSliceOpExpr<const Index (&)[Rank], Stop, const Index (&)[Rank]>
+  IntervalSliceOpExprImpl<const Index (&)[Rank], Stop, const Index (&)[Rank]>
   ClosedInterval(const Index (&start)[Rank], const Stop& stop,
                  const Index (&strides)[Rank]) const {
     return {{IntervalForm::closed, false, start, stop, strides}, *this};
@@ -811,7 +813,7 @@ class DimExpression {
 
   // Overload that permits arguments to be specified as braced lists.
   template <typename Start, DimensionIndex Rank>
-  IntervalSliceOpExpr<Start, const Index (&)[Rank], const Index (&)[Rank]>
+  IntervalSliceOpExprImpl<Start, const Index (&)[Rank], const Index (&)[Rank]>
   ClosedInterval(const Start& start, const Index (&stop)[Rank],
                  const Index (&strides)[Rank]) const {
     return {{IntervalForm::closed, false, start, stop, strides}, *this};
@@ -819,8 +821,8 @@ class DimExpression {
 
   // Overload that permits arguments to be specified as braced lists.
   template <DimensionIndex Rank>
-  IntervalSliceOpExpr<const Index (&)[Rank], const Index (&)[Rank],
-                      const Index (&)[Rank]>
+  IntervalSliceOpExprImpl<const Index (&)[Rank], const Index (&)[Rank],
+                          const Index (&)[Rank]>
   ClosedInterval(const Index (&start)[Rank], const Index (&stop)[Rank],
                  const Index (&strides)[Rank]) const {
     return {{IntervalForm::closed, false, start, stop, strides}, *this};
@@ -896,30 +898,30 @@ class DimExpression {
   /// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs
   ///     when computing the resultant transform.
   template <typename Start, typename Stop, typename Strides = Index>
-  IntervalSliceOpExpr<Start, Stop, Strides> HalfOpenInterval(
+  IntervalSliceOpExprImpl<Start, Stop, Strides> HalfOpenInterval(
       const Start& start, const Stop& stop, const Strides& strides = 1) const {
     return {{IntervalForm::half_open, false, start, stop, strides}, *this};
   }
 
   // Overload that permits arguments to be specified as braced lists.
   template <typename Stop, typename Strides = Index, DimensionIndex Rank>
-  IntervalSliceOpExpr<const Index (&)[Rank], Stop, Strides> HalfOpenInterval(
-      const Index (&start)[Rank], const Stop& stop,
-      const Strides& strides = 1) const {
+  IntervalSliceOpExprImpl<const Index (&)[Rank], Stop, Strides>
+  HalfOpenInterval(const Index (&start)[Rank], const Stop& stop,
+                   const Strides& strides = 1) const {
     return {{IntervalForm::half_open, false, start, stop, strides}, *this};
   }
 
   // Overload that permits arguments to be specified as braced lists.
   template <typename Start, typename Strides = Index, DimensionIndex Rank>
-  IntervalSliceOpExpr<Start, const Index (&)[Rank], Strides> HalfOpenInterval(
-      const Start& start, const Index (&stop)[Rank],
-      const Strides& strides = 1) const {
+  IntervalSliceOpExprImpl<Start, const Index (&)[Rank], Strides>
+  HalfOpenInterval(const Start& start, const Index (&stop)[Rank],
+                   const Strides& strides = 1) const {
     return {{IntervalForm::half_open, false, start, stop, strides}, *this};
   }
 
   // Overload that permits arguments to be specified as braced lists.
   template <typename Strides = Index, DimensionIndex Rank>
-  IntervalSliceOpExpr<const Index (&)[Rank], const Index (&)[Rank], Strides>
+  IntervalSliceOpExprImpl<const Index (&)[Rank], const Index (&)[Rank], Strides>
   HalfOpenInterval(const Index (&start)[Rank], const Index (&stop)[Rank],
                    const Strides& strides = 1) const {
     return {{IntervalForm::half_open, false, start, stop, strides}, *this};
@@ -927,7 +929,7 @@ class DimExpression {
 
   // Overload that permits arguments to be specified as braced lists.
   template <typename Start, typename Stop, DimensionIndex Rank>
-  IntervalSliceOpExpr<Start, Stop, const Index (&)[Rank]> HalfOpenInterval(
+  IntervalSliceOpExprImpl<Start, Stop, const Index (&)[Rank]> HalfOpenInterval(
       const Start& start, const Stop& stop,
       const Index (&strides)[Rank]) const {
     return {{IntervalForm::half_open, false, start, stop, strides}, *this};
@@ -935,7 +937,7 @@ class DimExpression {
 
   // Overload that permits arguments to be specified as braced lists.
   template <typename Stop, DimensionIndex Rank>
-  IntervalSliceOpExpr<const Index (&)[Rank], Stop, const Index (&)[Rank]>
+  IntervalSliceOpExprImpl<const Index (&)[Rank], Stop, const Index (&)[Rank]>
   HalfOpenInterval(const Index (&start)[Rank], const Stop& stop,
                    const Index (&strides)[Rank]) const {
     return {{IntervalForm::half_open, false, start, stop, strides}, *this};
@@ -943,7 +945,7 @@ class DimExpression {
 
   // Overload that permits arguments to be specified as braced lists.
   template <typename Start, DimensionIndex Rank>
-  IntervalSliceOpExpr<Start, const Index (&)[Rank], const Index (&)[Rank]>
+  IntervalSliceOpExprImpl<Start, const Index (&)[Rank], const Index (&)[Rank]>
   HalfOpenInterval(const Start& start, const Index (&stop)[Rank],
                    const Index (&strides)[Rank]) const {
     return {{IntervalForm::half_open, false, start, stop, strides}, *this};
@@ -951,8 +953,8 @@ class DimExpression {
 
   // Overload that permits arguments to be specified as braced lists.
   template <DimensionIndex Rank>
-  IntervalSliceOpExpr<const Index (&)[Rank], const Index (&)[Rank],
-                      const Index (&)[Rank]>
+  IntervalSliceOpExprImpl<const Index (&)[Rank], const Index (&)[Rank],
+                          const Index (&)[Rank]>
   HalfOpenInterval(const Index (&start)[Rank], const Index (&stop)[Rank],
                    const Index (&strides)[Rank]) const {
     return {{IntervalForm::half_open, false, start, stop, strides}, *this};
@@ -1028,14 +1030,14 @@ class DimExpression {
   /// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs
   ///     when computing the resultant transform.
   template <typename Start, typename Size, typename Strides = Index>
-  IntervalSliceOpExpr<Start, Size, Strides> SizedInterval(
+  IntervalSliceOpExprImpl<Start, Size, Strides> SizedInterval(
       const Start& start, const Size& size, const Strides& strides = 1) const {
     return {{IntervalForm::sized, false, start, size, strides}, *this};
   }
 
   // Overload that permits arguments to be specified as braced lists.
   template <typename Size, typename Strides = Index, DimensionIndex Rank>
-  IntervalSliceOpExpr<const Index (&)[Rank], Size, Strides> SizedInterval(
+  IntervalSliceOpExprImpl<const Index (&)[Rank], Size, Strides> SizedInterval(
       const Index (&start)[Rank], const Size& size,
       const Strides& strides = 1) const {
     return {{IntervalForm::sized, false, start, size, strides}, *this};
@@ -1043,7 +1045,7 @@ class DimExpression {
 
   // Overload that permits arguments to be specified as braced lists.
   template <typename Start, typename Strides = Index, DimensionIndex Rank>
-  IntervalSliceOpExpr<Start, const Index (&)[Rank], Strides> SizedInterval(
+  IntervalSliceOpExprImpl<Start, const Index (&)[Rank], Strides> SizedInterval(
       const Start& start, const Index (&size)[Rank],
       const Strides& strides = 1) const {
     return {{IntervalForm::sized, false, start, size, strides}, *this};
@@ -1051,7 +1053,7 @@ class DimExpression {
 
   // Overload that permits arguments to be specified as braced lists.
   template <typename Strides = Index, DimensionIndex Rank>
-  IntervalSliceOpExpr<const Index (&)[Rank], const Index (&)[Rank], Strides>
+  IntervalSliceOpExprImpl<const Index (&)[Rank], const Index (&)[Rank], Strides>
   SizedInterval(const Index (&start)[Rank], const Index (&size)[Rank],
                 const Strides& strides = 1) const {
     return {{IntervalForm::sized, false, start, size, strides}, *this};
@@ -1059,7 +1061,7 @@ class DimExpression {
 
   // Overload that permits arguments to be specified as braced lists.
   template <typename Start, typename Size, DimensionIndex Rank>
-  IntervalSliceOpExpr<Start, Size, const Index (&)[Rank]> SizedInterval(
+  IntervalSliceOpExprImpl<Start, Size, const Index (&)[Rank]> SizedInterval(
       const Start& start, const Size& size,
       const Index (&strides)[Rank]) const {
     return {{IntervalForm::sized, false, start, size, strides}, *this};
@@ -1067,7 +1069,7 @@ class DimExpression {
 
   // Overload that permits arguments to be specified as braced lists.
   template <typename Size, DimensionIndex Rank>
-  IntervalSliceOpExpr<const Index (&)[Rank], Size, const Index (&)[Rank]>
+  IntervalSliceOpExprImpl<const Index (&)[Rank], Size, const Index (&)[Rank]>
   SizedInterval(const Index (&start)[Rank], const Size& size,
                 const Index (&strides)[Rank]) const {
     return {{IntervalForm::sized, false, start, size, strides}, *this};
@@ -1075,7 +1077,7 @@ class DimExpression {
 
   // Overload that permits arguments to be specified as braced lists.
   template <typename Start, DimensionIndex Rank>
-  IntervalSliceOpExpr<Start, const Index (&)[Rank], const Index (&)[Rank]>
+  IntervalSliceOpExprImpl<Start, const Index (&)[Rank], const Index (&)[Rank]>
   SizedInterval(const Start& start, const Index (&size)[Rank],
                 const Index (&strides)[Rank]) const {
     return {{IntervalForm::sized, false, start, size, strides}, *this};
@@ -1083,8 +1085,8 @@ class DimExpression {
 
   // Overload that permits arguments to be specified as braced lists.
   template <DimensionIndex Rank>
-  IntervalSliceOpExpr<const Index (&)[Rank], const Index (&)[Rank],
-                      const Index (&)[Rank]>
+  IntervalSliceOpExprImpl<const Index (&)[Rank], const Index (&)[Rank],
+                          const Index (&)[Rank]>
   SizedInterval(const Index (&start)[Rank], const Index (&size)[Rank],
                 const Index (&strides)[Rank]) const {
     return {{IntervalForm::sized, false, start, size, strides}, *this};
@@ -1092,14 +1094,14 @@ class DimExpression {
 
   /// Equivalent to `ClosedInterval(start, stop, strides).TranslateTo(0)`.
   template <typename Start, typename Stop, typename Strides = Index>
-  IntervalSliceOpExpr<Start, Stop, Strides> TranslateClosedInterval(
+  IntervalSliceOpExprImpl<Start, Stop, Strides> TranslateClosedInterval(
       const Start& start, const Stop& stop, const Strides& strides = 1) const {
     return {{IntervalForm::closed, true, start, stop, strides}, *this};
   }
 
   // Overload that permits arguments to be specified as braced lists.
   template <typename Stop, typename Strides = Index, DimensionIndex Rank>
-  IntervalSliceOpExpr<const Index (&)[Rank], Stop, Strides>
+  IntervalSliceOpExprImpl<const Index (&)[Rank], Stop, Strides>
   TranslateClosedInterval(const Index (&start)[Rank], const Stop& stop,
                           const Strides& strides = 1) const {
     return {{IntervalForm::closed, true, start, stop, strides}, *this};
@@ -1107,7 +1109,7 @@ class DimExpression {
 
   // Overload that permits arguments to be specified as braced lists.
   template <typename Start, typename Strides = Index, DimensionIndex Rank>
-  IntervalSliceOpExpr<Start, const Index (&)[Rank], Strides>
+  IntervalSliceOpExprImpl<Start, const Index (&)[Rank], Strides>
   TranslateClosedInterval(const Start& start, const Index (&stop)[Rank],
                           const Strides& strides = 1) const {
     return {{IntervalForm::closed, true, start, stop, strides}, *this};
@@ -1115,7 +1117,7 @@ class DimExpression {
 
   // Overload that permits arguments to be specified as braced lists.
   template <typename Strides = Index, DimensionIndex Rank>
-  IntervalSliceOpExpr<const Index (&)[Rank], const Index (&)[Rank], Strides>
+  IntervalSliceOpExprImpl<const Index (&)[Rank], const Index (&)[Rank], Strides>
   TranslateClosedInterval(const Index (&start)[Rank], const Index (&stop)[Rank],
                           const Strides& strides = 1) const {
     return {{IntervalForm::closed, true, start, stop, strides}, *this};
@@ -1123,7 +1125,7 @@ class DimExpression {
 
   // Overload that permits arguments to be specified as braced lists.
   template <typename Start, typename Stop, DimensionIndex Rank>
-  IntervalSliceOpExpr<Start, Stop, const Index (&)[Rank]>
+  IntervalSliceOpExprImpl<Start, Stop, const Index (&)[Rank]>
   TranslateClosedInterval(const Start& start, const Stop& stop,
                           const Index (&strides)[Rank]) const {
     return {{IntervalForm::closed, true, start, stop, strides}, *this};
@@ -1131,7 +1133,7 @@ class DimExpression {
 
   // Overload that permits arguments to be specified as braced lists.
   template <typename Stop, DimensionIndex Rank>
-  IntervalSliceOpExpr<const Index (&)[Rank], Stop, const Index (&)[Rank]>
+  IntervalSliceOpExprImpl<const Index (&)[Rank], Stop, const Index (&)[Rank]>
   TranslateClosedInterval(const Index (&start)[Rank], const Stop& stop,
                           const Index (&strides)[Rank]) const {
     return {{IntervalForm::closed, true, start, stop, strides}, *this};
@@ -1139,7 +1141,7 @@ class DimExpression {
 
   // Overload that permits arguments to be specified as braced lists.
   template <typename Start, DimensionIndex Rank>
-  IntervalSliceOpExpr<Start, const Index (&)[Rank], const Index (&)[Rank]>
+  IntervalSliceOpExprImpl<Start, const Index (&)[Rank], const Index (&)[Rank]>
   TranslateClosedInterval(const Start& start, const Index (&stop)[Rank],
                           const Index (&strides)[Rank]) const {
     return {{IntervalForm::closed, true, start, stop, strides}, *this};
@@ -1147,8 +1149,8 @@ class DimExpression {
 
   // Overload that permits arguments to be specified as braced lists.
   template <DimensionIndex Rank>
-  IntervalSliceOpExpr<const Index (&)[Rank], const Index (&)[Rank],
-                      const Index (&)[Rank]>
+  IntervalSliceOpExprImpl<const Index (&)[Rank], const Index (&)[Rank],
+                          const Index (&)[Rank]>
   TranslateClosedInterval(const Index (&start)[Rank], const Index (&stop)[Rank],
                           const Index (&strides)[Rank]) const {
     return {{IntervalForm::closed, true, start, stop, strides}, *this};
@@ -1156,14 +1158,14 @@ class DimExpression {
 
   /// Equivalent to `HalfOpenInterval(start, stop, strides).TranslateTo(0)`.
   template <typename Start, typename Stop, typename Strides = Index>
-  IntervalSliceOpExpr<Start, Stop, Strides> TranslateHalfOpenInterval(
+  IntervalSliceOpExprImpl<Start, Stop, Strides> TranslateHalfOpenInterval(
       const Start& start, const Stop& stop, const Strides& strides = 1) const {
     return {{IntervalForm::half_open, true, start, stop, strides}, *this};
   }
 
   // Overload that permits arguments to be specified as braced lists.
   template <typename Stop, typename Strides = Index, DimensionIndex Rank>
-  IntervalSliceOpExpr<const Index (&)[Rank], Stop, Strides>
+  IntervalSliceOpExprImpl<const Index (&)[Rank], Stop, Strides>
   TranslateHalfOpenInterval(const Index (&start)[Rank], const Stop& stop,
                             const Strides& strides = 1) const {
     return {{IntervalForm::half_open, true, start, stop, strides}, *this};
@@ -1171,7 +1173,7 @@ class DimExpression {
 
   // Overload that permits arguments to be specified as braced lists.
   template <typename Start, typename Strides = Index, DimensionIndex Rank>
-  IntervalSliceOpExpr<Start, const Index (&)[Rank], Strides>
+  IntervalSliceOpExprImpl<Start, const Index (&)[Rank], Strides>
   TranslateHalfOpenInterval(const Start& start, const Index (&stop)[Rank],
                             const Strides& strides = 1) const {
     return {{IntervalForm::half_open, true, start, stop, strides}, *this};
@@ -1179,7 +1181,7 @@ class DimExpression {
 
   // Overload that permits arguments to be specified as braced lists.
   template <typename Strides = Index, DimensionIndex Rank>
-  IntervalSliceOpExpr<const Index (&)[Rank], const Index (&)[Rank], Strides>
+  IntervalSliceOpExprImpl<const Index (&)[Rank], const Index (&)[Rank], Strides>
   TranslateHalfOpenInterval(const Index (&start)[Rank],
                             const Index (&stop)[Rank],
                             const Strides& strides = 1) const {
@@ -1188,7 +1190,7 @@ class DimExpression {
 
   // Overload that permits arguments to be specified as braced lists.
   template <typename Start, typename Stop, DimensionIndex Rank>
-  IntervalSliceOpExpr<Start, Stop, const Index (&)[Rank]>
+  IntervalSliceOpExprImpl<Start, Stop, const Index (&)[Rank]>
   TranslateHalfOpenInterval(const Start& start, const Stop& stop,
                             const Index (&strides)[Rank]) const {
     return {{IntervalForm::half_open, true, start, stop, strides}, *this};
@@ -1196,7 +1198,7 @@ class DimExpression {
 
   // Overload that permits arguments to be specified as braced lists.
   template <typename Stop, DimensionIndex Rank>
-  IntervalSliceOpExpr<const Index (&)[Rank], Stop, const Index (&)[Rank]>
+  IntervalSliceOpExprImpl<const Index (&)[Rank], Stop, const Index (&)[Rank]>
   TranslateHalfOpenInterval(const Index (&start)[Rank], const Stop& stop,
                             const Index (&strides)[Rank]) const {
     return {{IntervalForm::half_open, true, start, stop, strides}, *this};
@@ -1204,7 +1206,7 @@ class DimExpression {
 
   // Overload that permits arguments to be specified as braced lists.
   template <typename Start, DimensionIndex Rank>
-  IntervalSliceOpExpr<Start, const Index (&)[Rank], const Index (&)[Rank]>
+  IntervalSliceOpExprImpl<Start, const Index (&)[Rank], const Index (&)[Rank]>
   TranslateHalfOpenInterval(const Start& start, const Index (&stop)[Rank],
                             const Index (&strides)[Rank]) const {
     return {{IntervalForm::half_open, true, start, stop, strides}, *this};
@@ -1212,8 +1214,8 @@ class DimExpression {
 
   // Overload that permits arguments to be specified as braced lists.
   template <DimensionIndex Rank>
-  IntervalSliceOpExpr<const Index (&)[Rank], const Index (&)[Rank],
-                      const Index (&)[Rank]>
+  IntervalSliceOpExprImpl<const Index (&)[Rank], const Index (&)[Rank],
+                          const Index (&)[Rank]>
   TranslateHalfOpenInterval(const Index (&start)[Rank],
                             const Index (&stop)[Rank],
                             const Index (&strides)[Rank]) const {
@@ -1222,14 +1224,14 @@ class DimExpression {
 
   /// Equivalent to `SizedInterval(start, size, strides).TranslateTo(0)`.
   template <typename Start, typename Size, typename Strides = Index>
-  IntervalSliceOpExpr<Start, Size, Strides> TranslateSizedInterval(
+  IntervalSliceOpExprImpl<Start, Size, Strides> TranslateSizedInterval(
       const Start& start, const Size& size, const Strides& strides = 1) const {
     return {{IntervalForm::sized, true, start, size, strides}, *this};
   }
 
   // Overload that permits arguments to be specified as braced lists.
   template <typename Size, typename Strides = Index, DimensionIndex Rank>
-  IntervalSliceOpExpr<const Index (&)[Rank], Size, Strides>
+  IntervalSliceOpExprImpl<const Index (&)[Rank], Size, Strides>
   TranslateSizedInterval(const Index (&start)[Rank], const Size& size,
                          const Strides& strides = 1) const {
     return {{IntervalForm::sized, true, start, size, strides}, *this};
@@ -1237,7 +1239,7 @@ class DimExpression {
 
   // Overload that permits arguments to be specified as braced lists.
   template <typename Start, typename Strides = Index, DimensionIndex Rank>
-  IntervalSliceOpExpr<Start, const Index (&)[Rank], Strides>
+  IntervalSliceOpExprImpl<Start, const Index (&)[Rank], Strides>
   TranslateSizedInterval(const Start& start, const Index (&size)[Rank],
                          const Strides& strides = 1) const {
     return {{IntervalForm::sized, true, start, size, strides}, *this};
@@ -1245,7 +1247,7 @@ class DimExpression {
 
   // Overload that permits arguments to be specified as braced lists.
   template <typename Strides = Index, DimensionIndex Rank>
-  IntervalSliceOpExpr<const Index (&)[Rank], const Index (&)[Rank], Strides>
+  IntervalSliceOpExprImpl<const Index (&)[Rank], const Index (&)[Rank], Strides>
   TranslateSizedInterval(const Index (&start)[Rank], const Index (&size)[Rank],
                          const Strides& strides = 1) const {
     return {{IntervalForm::sized, true, start, size, strides}, *this};
@@ -1253,7 +1255,7 @@ class DimExpression {
 
   // Overload that permits arguments to be specified as braced lists.
   template <typename Start, typename Size, DimensionIndex Rank>
-  IntervalSliceOpExpr<Start, Size, const Index (&)[Rank]>
+  IntervalSliceOpExprImpl<Start, Size, const Index (&)[Rank]>
   TranslateSizedInterval(const Start& start, const Size& size,
                          const Index (&strides)[Rank]) const {
     return {{IntervalForm::sized, true, start, size, strides}, *this};
@@ -1261,7 +1263,7 @@ class DimExpression {
 
   // Overload that permits arguments to be specified as braced lists.
   template <typename Size, DimensionIndex Rank>
-  IntervalSliceOpExpr<const Index (&)[Rank], Size, const Index (&)[Rank]>
+  IntervalSliceOpExprImpl<const Index (&)[Rank], Size, const Index (&)[Rank]>
   TranslateSizedInterval(const Index (&start)[Rank], const Size& size,
                          const Index (&strides)[Rank]) const {
     return {{IntervalForm::sized, true, start, size, strides}, *this};
@@ -1269,7 +1271,7 @@ class DimExpression {
 
   // Overload that permits arguments to be specified as braced lists.
   template <typename Start, DimensionIndex Rank>
-  IntervalSliceOpExpr<Start, const Index (&)[Rank], const Index (&)[Rank]>
+  IntervalSliceOpExprImpl<Start, const Index (&)[Rank], const Index (&)[Rank]>
   TranslateSizedInterval(const Start& start, const Index (&size)[Rank],
                          const Index (&strides)[Rank]) const {
     return {{IntervalForm::sized, true, start, size, strides}, *this};
@@ -1277,8 +1279,8 @@ class DimExpression {
 
   // Overload that permits arguments to be specified as braced lists.
   template <DimensionIndex Rank>
-  IntervalSliceOpExpr<const Index (&)[Rank], const Index (&)[Rank],
-                      const Index (&)[Rank]>
+  IntervalSliceOpExprImpl<const Index (&)[Rank], const Index (&)[Rank],
+                          const Index (&)[Rank]>
   TranslateSizedInterval(const Index (&start)[Rank], const Index (&size)[Rank],
                          const Index (&strides)[Rank]) const {
     return {{IntervalForm::sized, true, start, size, strides}, *this};
@@ -1368,11 +1370,11 @@ class DimExpression {
   ///     detected. \error `absl::StatusCode::kInvalidArgument` if integer
   ///     overflow occurs when computing the resultant transform.
   template <typename... IndexArray>
-  IndexArraySliceOpExpr<IndexArray...> IndexArraySlice(
+  IndexArraySliceOpExprImpl<IndexArray...> IndexArraySlice(
       const IndexArray&... index_arrays) const {
     return {{index_arrays...}, *this};
   }
-  DynamicIndexArraySliceOpExpr IndexArraySlice(
+  DynamicIndexArraySliceOpExprImpl IndexArraySlice(
       span<const SharedArrayView<const Index>> index_arrays) const {
     return {{index_arrays}, *this};
   }
@@ -1480,7 +1482,7 @@ class DimExpression {
   /// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs
   ///     when computing the resultant transform.
   template <typename IndexVectorArray>
-  IndexVectorArraySliceOpExpr<IndexVectorArray> IndexVectorArraySlice(
+  IndexVectorArraySliceOpExprImpl<IndexVectorArray> IndexVectorArraySlice(
       const IndexVectorArray& index_vector_array,
       DimensionIndex vector_dimension = -1) const {
     return {{index_vector_array, vector_dimension}, *this};
@@ -1563,11 +1565,11 @@ class DimExpression {
   ///     detected. \error `absl::StatusCode::kInvalidArgument` if integer
   ///     overflow occurs when computing the resultant transform.
   template <typename... IndexArray>
-  IndexArrayOuterSliceOpExpr<IndexArray...> OuterIndexArraySlice(
+  IndexArrayOuterSliceOpExprImpl<IndexArray...> OuterIndexArraySlice(
       const IndexArray&... index_arrays) const {
     return {{index_arrays...}, *this};
   }
-  DynamicIndexArrayOuterSliceOpExpr OuterIndexArraySlice(
+  DynamicIndexArrayOuterSliceOpExprImpl OuterIndexArraySlice(
       span<const SharedArrayView<const Index>> index_arrays) const {
     return {{index_arrays}, *this};
   }
@@ -1605,17 +1607,17 @@ class DimExpression {
   /// \error `absl::StatusCode::kInvalidArgument` if the extent of the `labels`
   ///     vector is equal to the number of selected dimensions.
   template <typename Labels>
-  LabelSpanOpExpr<Labels> Label(const Labels& labels) const {
+  LabelSpanOpExprImpl<Labels> Label(const Labels& labels) const {
     return {{labels}, *this};
   }
   template <typename... L>
-  LabelPackOpExpr<L...> Label(const L&... labels) const {
+  LabelPackOpExprImpl<L...> Label(const L&... labels) const {
     return {{{{labels...}}}, *this};
   }
 
   // Overload that permits the labels to specified as a braced list.
   template <DimensionIndex Rank>
-  LabelOpExpr<span<const std::string_view, Rank>, Rank> Label(
+  LabelOpExprImpl<span<const std::string_view, Rank>, Rank> Label(
       const std::string_view (&labels)[Rank]) const {
     return {{labels}, *this};
   }
@@ -1657,13 +1659,15 @@ class DimExpression {
   ///     index of the last selected dimension.
   /// \error `absl::StatusCode::kInvalidArgument` if `target` is outside the
   ///     valid range.
-  MoveToOpExpr MoveTo(DimensionIndex target) const { return {{target}, *this}; }
+  MoveToOpExprImpl MoveTo(DimensionIndex target) const {
+    return {{target}, *this};
+  }
 
   /// Equivalent to `MoveTo(0)`.
-  MoveToOpExpr MoveToFront() const { return {{0}, *this}; }
+  MoveToOpExprImpl MoveToFront() const { return {{0}, *this}; }
 
   /// Equivalent to `MoveTo(-1)`.
-  MoveToOpExpr MoveToBack() const { return {{-1}, *this}; }
+  MoveToOpExprImpl MoveToBack() const { return {{-1}, *this}; }
 
   /// Extracts the diagonal of the selected dimensions.
   ///
@@ -1710,7 +1714,7 @@ class DimExpression {
   ///     dimension as the first dimension.
   /// \remark `Diagonal()` with a single selected dimension is equivalent to
   ///     `MoveToFront().Label("")`.
-  DiagonalOpExpr Diagonal() const { return {{}, *this}; }
+  DiagonalOpExprImpl Diagonal() const { return {{}, *this}; }
 
   /// Adds new inert input dimensions that have no effect on the output indices.
   ///
@@ -1766,7 +1770,7 @@ class DimExpression {
   ///     `AllDims()` selection.
   template <int&... ExplicitArgumentBarrier,
             bool SfinaeIsFirst = sizeof...(Op) == 1>
-  std::enable_if_t<SfinaeIsFirst, AddNewOpExpr> AddNew() const {
+  std::enable_if_t<SfinaeIsFirst, AddNewOpExprImpl> AddNew() const {
     return {{}, *this};
   }
 
@@ -1809,7 +1813,7 @@ class DimExpression {
   /// \error `absl::StatusCode::kInvalidArgument` if the rank of the dimension
   ///     selection is not equal to the input rank.
   /// \id consecutive
-  TransposeOpExpr Transpose() const { return {{}, *this}; }
+  TransposeOpExprImpl Transpose() const { return {{}, *this}; }
 
   /// Transposes the input dimensions such that the selected dimensions have the
   /// specified indices.  Dimensions not in the selection retain their relative
@@ -1859,7 +1863,7 @@ class DimExpression {
   ///     range.
   /// \id target_dimensions
   template <typename TargetDimensions>
-  TransposeToOpExpr<TargetDimensions> Transpose(
+  TransposeToOpExprImpl<TargetDimensions> Transpose(
       const TargetDimensions& target_dimensions) const {
     return {{span(target_dimensions)}, *this};
   }
@@ -1867,7 +1871,7 @@ class DimExpression {
   // Overload that permits the target dimensions to be specified as a braced
   // list.
   template <DimensionIndex Rank>
-  TransposeToOpExpr<span<const DimensionIndex, Rank>> Transpose(
+  TransposeToOpExprImpl<span<const DimensionIndex, Rank>> Transpose(
       const DimensionIndex (&target_dimensions)[Rank]) const {
     return {{span(target_dimensions)}, *this};
   }
@@ -1897,8 +1901,8 @@ class DimExpression {
   ///
   /// \param lower If `true` (the default), mark the lower bounds as explicit.
   /// \param upper If `true` (the default), mark the upper bounds as explicit.
-  ChangeImplicitStateOpExpr MarkBoundsExplicit(bool lower = true,
-                                               bool upper = true) const {
+  ChangeImplicitStateOpExprImpl MarkBoundsExplicit(bool lower = true,
+                                                   bool upper = true) const {
     return {{/*.implicit=*/false, lower, upper}, *this};
   }
 
@@ -1931,8 +1935,8 @@ class DimExpression {
   ///
   /// \param lower If `true` (the default), mark the lower bounds as implicit.
   /// \param upper If `true` (the default), mark the upper bounds as implicit.
-  ChangeImplicitStateOpExpr UnsafeMarkBoundsImplicit(bool lower = true,
-                                                     bool upper = true) const {
+  ChangeImplicitStateOpExprImpl UnsafeMarkBoundsImplicit(
+      bool lower = true, bool upper = true) const {
     return {{/*.implicit=*/true, lower, upper}, *this};
   }
 
@@ -1989,13 +1993,13 @@ class DimExpression {
   ///     vector is not equal to the number of selected dimensions.
   /// \error `absl::StatusCode::kInvalidArgument` if a stride value is `0`.
   template <typename Strides>
-  StrideOpExpr<Strides> Stride(const Strides& strides) const {
+  StrideOpExprImpl<Strides> Stride(const Strides& strides) const {
     return {{strides}, *this};
   }
 
   // Overload that permits the strides vector to be specified as a braced list.
   template <DimensionIndex Rank>
-  StrideOpExpr<const Index (&)[Rank]> Stride(
+  StrideOpExprImpl<const Index (&)[Rank]> Stride(
       const Index (&strides)[Rank]) const {
     return {{span(strides)}, *this};
   }
@@ -2006,13 +2010,13 @@ class DimExpression {
   // DimExpression to an index transform with the specified `InputRank`,
   // `OutputRank`.
   template <DimensionIndex InputRank, DimensionIndex OutputRank>
-  using NewTransformType =
+  using NewTransformTypeImpl =
       DimExpressionHelper::NewTransformType<InputRank, OutputRank, Op...>;
 
   // Type alias for the new domain type that results from applying this
   // DimExpression to an index domain with the specified `Rank`.
   template <DimensionIndex Rank>
-  using NewDomainType = DimExpressionHelper::NewDomainType<Rank, Op...>;
+  using NewDomainTypeImpl = DimExpressionHelper::NewDomainType<Rank, Op...>;
 
   /// Applies this DimExpression to the specified index transform.
   ///
@@ -2032,14 +2036,14 @@ class DimExpression {
   // https://developercommunity.visualstudio.com/t/constexpr-evaluation-sometimes-seems-to/10307697
   auto
 #else
-  Result<NewTransformType<InputRank, OutputRank>>
+  Result<NewTransformTypeImpl<InputRank, OutputRank>>
 #endif
   operator()(IndexTransform<InputRank, OutputRank, CKind> transform,
              DimensionIndexBuffer* selection_output =
                  &internal::GetLValue(DimensionIndexBuffer())) const {
     // NONITPICK: internal
     // NONITPICK: internal::GetLValue
-    using R = Result<NewTransformType<InputRank, OutputRank>>;
+    using R = Result<NewTransformTypeImpl<InputRank, OutputRank>>;
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto result,
         DimExpressionHelper::Apply(*this, std::move(transform),
@@ -2064,21 +2068,21 @@ class DimExpression {
   // https://developercommunity.visualstudio.com/t/constexpr-evaluation-sometimes-seems-to/10307697
   auto
 #else
-  Result<NewDomainType<Rank>>
+  Result<NewDomainTypeImpl<Rank>>
 #endif
   operator()(IndexDomain<Rank, CKind> domain,
              DimensionIndexBuffer* selection_output =
                  &internal::GetLValue(DimensionIndexBuffer())) const {
     // NONITPICK: internal
     // NONITPICK: internal::GetLValue
-    using R = Result<NewDomainType<Rank>>;
+    using R = Result<NewDomainTypeImpl<Rank>>;
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto result,
         DimExpressionHelper::Apply(*this, Access::transform(std::move(domain)),
                                    selection_output, /*domain_only=*/true),
         R(_));
-    return R(
-        Access::Make<NewDomainType<Rank>>(Access::rep_ptr(std::move(result))));
+    return R(Access::Make<NewDomainTypeImpl<Rank>>(
+        Access::rep_ptr(std::move(result))));
   }
 
   /// Applies this DimExpression to an object with an associated index space
@@ -2096,9 +2100,9 @@ class DimExpression {
 
   template <DimensionIndex InputRank, DimensionIndex OutputRank,
             ContainerKind CKind>
-  friend Result<NewTransformType<InputRank, OutputRank>> ApplyIndexTransform(
-      const DimExpression& expr,
-      IndexTransform<InputRank, OutputRank, CKind> transform) {
+  friend Result<NewTransformTypeImpl<InputRank, OutputRank>>
+  ApplyIndexTransform(const DimExpression& expr,
+                      IndexTransform<InputRank, OutputRank, CKind> transform) {
     return expr(std::move(transform));
   }
 

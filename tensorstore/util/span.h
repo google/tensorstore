@@ -62,9 +62,9 @@ constexpr inline bool IsArrayOrSpan<span<T, Extent>> = true;
 template <typename T, typename Container,
           typename Pointer = decltype(std::declval<Container>().data()),
           typename Size = decltype(std::declval<Container>().size())>
-using EnableIfCompatibleContainer = std::enable_if_t<
+constexpr inline bool IsCompatibleContainer =
     !IsArrayOrSpan<std::remove_cv_t<Container>> &&
-    std::is_convertible_v<std::remove_pointer_t<Pointer> (*)[], T (*)[]>>;
+    std::is_convertible_v<std::remove_pointer_t<Pointer> (*)[], T (*)[]>;
 
 template <typename Container,
           typename Pointer = decltype(std::declval<Container>().data()),
@@ -245,12 +245,13 @@ class span {
   ///
   /// \id container
   template <typename Container,
-            typename = internal_span::EnableIfCompatibleContainer<T, Container>>
+            typename = std::enable_if_t<
+                internal_span::IsCompatibleContainer<T, Container>>>
   constexpr span(Container& cont TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)
       : span(cont.data(), cont.size()) {}
-  template <
-      typename Container,
-      typename = internal_span::EnableIfCompatibleContainer<T, const Container>>
+  template <typename Container,
+            typename = std::enable_if_t<
+                internal_span::IsCompatibleContainer<T, const Container>>>
   constexpr span(const Container& cont TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)
       : span(cont.data(), cont.size()) {}
 

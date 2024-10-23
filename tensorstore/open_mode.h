@@ -151,7 +151,7 @@ constexpr inline bool operator!(ReadWriteMode a) {
 }
 
 /// Returns the complement of a mode.
-////
+///
 /// \relates ReadWriteMode
 /// \id ReadWriteMode
 constexpr inline ReadWriteMode operator~(ReadWriteMode a) {

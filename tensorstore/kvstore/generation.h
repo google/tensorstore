@@ -285,8 +285,9 @@ struct StorageGeneration {
   /// `StorageGeneration::Unknown()` value, i.e. an empty string.
   ///
   /// This usually indicates an unspecified generation; in
-  /// `kvstore::ReadOptions::if_equal` and `kvstore::ReadOptions::if_not_equal`
-  /// conditions, it indicates that the condition does not apply.
+  /// `kvstore::ReadGenerationConditions::if_equal` and
+  /// `kvstore::ReadGenerationConditions::if_not_equal`, it indicates
+  /// that the condition does not apply.
   static bool IsUnknown(const StorageGeneration& generation) {
     return generation.value.empty();
   }
@@ -305,10 +306,12 @@ struct StorageGeneration {
   /// Returns `true` if `generation` is equal to the special `NoValue()`
   /// generation.
   ///
-  /// While all kvstore drivers support `StorageGeneration::NoValue()` in
-  /// `kvstore::ReadOptions::if_equal` and `kvstore::ReadOptions::if_not_equal`
-  /// conditions, some kvstore drivers may return a different generation for
-  /// missing values.
+  /// .. warning::
+  ///
+  ///    While all kvstore drivers support `StorageGeneration::NoValue()` in
+  ///    store::ReadGenerationConditions::if_equal` and
+  ///    `kvstore::ReadGenerationConditions::if_not_equal`, some kvstore drivers
+  ///    may return a different generation for missing values.
   static bool IsNoValue(const StorageGeneration& generation) {
     return generation.value.size() == 1 &&
            generation.value[0] == (kNoValue | kBaseGeneration);

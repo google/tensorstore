@@ -258,7 +258,7 @@ constexpr inline bool IsElementPointer<ElementPointer<PointerType>> = true;
 /// \ingroup array
 template <typename ElementTagType>
 class ElementPointer {
-  using Traits = ElementTagTraits<ElementTagType>;
+  using TraitsImpl = ElementTagTraits<ElementTagType>;
 
  public:
   static_assert(IsElementTag<ElementTagType>,
@@ -269,7 +269,7 @@ class ElementPointer {
 
   /// Underlying data pointer type, either `Element*` or
   /// `std::shared_ptr<Element>`.
-  using Pointer = typename Traits::Pointer;
+  using Pointer = typename TraitsImpl::Pointer;
 
   /// Underlying element type.
   using element_type = typename std::pointer_traits<Pointer>::
@@ -281,7 +281,8 @@ class ElementPointer {
 
   // For compatibility with `std::pointer_traits`.
   template <typename OtherElement>
-  using rebind = ElementPointer<typename Traits::template rebind<OtherElement>>;
+  using rebind =
+      ElementPointer<typename TraitsImpl::template rebind<OtherElement>>;
 
   /// Initializes to a null pointer.
   ///

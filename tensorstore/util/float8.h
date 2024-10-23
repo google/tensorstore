@@ -1329,6 +1329,12 @@ TENSORSTORE_INTERNAL_FPCLASSIFY(Float8e5m2fnuz);
 }  // namespace float8_internal
 
 // Exported types.
+
+/// Storage-only 8-bit floating-point data types.
+///
+/// See https://github.com/jax-ml/ml_dtypes for details.
+///
+/// \ingroup Data types
 using Float8e4m3fn = float8_internal::Float8e4m3fn;
 using Float8e4m3fnuz = float8_internal::Float8e4m3fnuz;
 using Float8e4m3b11fnuz = float8_internal::Float8e4m3b11fnuz;

@@ -118,6 +118,8 @@ constexpr inline bool ReadIntoNewArrayOptions::IsOption<Batch::View> = true;
 
 /// Specifies restrictions on how references to the source array/source
 /// TensorStore may be used by write operations.
+///
+/// \relates TensorStore
 enum SourceDataReferenceRestriction {
   /// References to the source data must be released as soon as possible, which
   /// may result in additional copies.

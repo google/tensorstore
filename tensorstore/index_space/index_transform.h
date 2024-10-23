@@ -399,9 +399,10 @@ class IndexTransform {
   /// If `!valid()`, returns an invalid view.
   ///
   /// \param permutation Permutation of ``0, ..., input_rank()-1``, where
-  ///     `permutation[i]` specifies the dimension of the existing transform
-  ///     that corresponds to input dimension `i` of the new transform.
+  ///     ``permutation[i]`` specifies the dimension of the existing transform
+  ///     that corresponds to input dimension ``i`` of the new transform.
   /// \dchecks `permutation` is a valid permutation.
+  /// \id permutation
   IndexTransform<InputRank, OutputRank> Transpose(
       span<const DimensionIndex, InputRank> permutation) const& {
     return Access::Make<IndexTransform<InputRank, OutputRank, container>>(
@@ -434,9 +435,10 @@ class IndexTransform {
   /// If `!valid()`, returns an invalid view.
   ///
   /// \param permutation Permutation of ``0, ..., output_rank()-1``, where
-  ///     `permutation[i]` specifies the dimension of the existing transform
-  ///     that corresponds to output dimension `i` of the new transform.
+  ///     ``permutation[i]`` specifies the dimension of the existing transform
+  ///     that corresponds to output dimension ``i`` of the new transform.
   /// \dchecks `permutation` is a valid permutation.
+  /// \id permutation
   IndexTransform<InputRank, OutputRank> TransposeOutput(
       span<const DimensionIndex, OutputRank> permutation) const& {
     return Access::Make<IndexTransform<InputRank, OutputRank, container>>(
@@ -679,10 +681,10 @@ inline IndexTransform<Rank, Rank> IdentityTransform(
       internal::StringLikeSpan(span(labels))));
 }
 template <typename Labels>
-inline IdentityTransformFromLabelsType<Labels> IdentityTransform(
-    const Labels& labels) {
+inline internal_index_space::IdentityTransformFromLabelsType<Labels>
+IdentityTransform(const Labels& labels) {
   return internal_index_space::TransformAccess::Make<
-      IdentityTransformFromLabelsType<Labels>>(
+      internal_index_space::IdentityTransformFromLabelsType<Labels>>(
       internal_index_space::MakeIdentityTransform(
           internal::StringLikeSpan(span(labels))));
 }
@@ -745,10 +747,10 @@ IdentityTransformLike(const Array& array) {
 /// \membergroup Identity transform
 /// \id shape
 template <typename Shape>
-inline IdentityTransformFromShapeType<Shape> IdentityTransform(
-    const Shape& shape) {
+inline internal_index_space::IdentityTransformFromShapeType<Shape>
+IdentityTransform(const Shape& shape) {
   return internal_index_space::TransformAccess::Make<
-      IdentityTransformFromShapeType<Shape>>(
+      internal_index_space::IdentityTransformFromShapeType<Shape>>(
       internal_index_space::MakeIdentityTransform(shape));
 }
 template <DimensionIndex Rank>

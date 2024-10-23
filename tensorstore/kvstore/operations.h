@@ -44,7 +44,7 @@ namespace kvstore {
 
 /// Specifies constraints on the generation for read operations.
 ///
-/// \relates KvStore
+/// \relates Read
 struct ReadGenerationConditions {
   /// The read is aborted if the generation associated with the stored key
   /// matches `if_not_equal`.  The special values of
@@ -98,9 +98,10 @@ struct ReadGenerationConditions {
 
 /// Read options for non-transactional reads.
 ///
-/// See also `TransactionalReadOptions`.
+/// See also:
+///   - `TransactionalReadOptions`.
 ///
-/// \relates KvStore
+/// \relates Read
 struct ReadOptions {
   /// Specifies conditions for the read.
   ReadGenerationConditions generation_conditions;
@@ -120,6 +121,9 @@ struct ReadOptions {
   Batch batch{no_batch};
 };
 
+/// Conditions on the existing generation for transactional read operations.
+///
+/// \relates Read
 struct TransactionalReadGenerationConditions {
   /// The read is aborted if the generation associated with the stored ``key``
   /// matches `if_not_equal`.  The special values of
@@ -130,7 +134,8 @@ struct TransactionalReadGenerationConditions {
 
 /// Read options for transactional reads.
 ///
-/// See also `ReadOptions`
+/// See also:
+///   - `ReadOptions`
 ///
 /// \relates KvStore
 struct TransactionalReadOptions {
@@ -149,6 +154,9 @@ struct TransactionalReadOptions {
   Batch batch{no_batch};
 };
 
+/// Conditions on the existing generation for write operations.
+///
+/// \relates Write
 struct WriteGenerationConditions {
   // Note: While it would be nice to use default member initializers to be
   // more explicit about what the default values are, doing so would trigger
@@ -179,7 +187,7 @@ struct WriteGenerationConditions {
 
 /// Options for `Write`.
 ///
-/// \relates KvStore
+/// \relates Write
 struct WriteOptions {
   /// Specifies conditions for the write.
   WriteGenerationConditions generation_conditions;
@@ -187,7 +195,7 @@ struct WriteOptions {
 
 /// Options for `ListFuture`.
 ///
-/// \relates KvStore
+/// \relates ListFuture
 struct ListOptions {
   /// Only keys in this range are emitted.
   KeyRange range;
@@ -199,7 +207,9 @@ struct ListOptions {
   absl::Time staleness_bound = absl::InfiniteFuture();
 };
 
-/// Return value for List operations
+/// Information for a single key returned from a `ListFuture` operation.
+///
+/// \relates ListFuture
 struct ListEntry {
   Key key;
 
@@ -227,9 +237,9 @@ void PrintTo(const std::vector<ListEntry>& v, ::std::ostream* os);
 using ListReceiver = AnyFlowReceiver<absl::Status, ListEntry>;
 using ListSender = AnyFlowSender<absl::Status, ListEntry>;
 
-/// Options for `CopyRange`.
+/// Options for `ExperimentalCopyRange`.
 ///
-/// \relates KvStore
+/// \relates ExperimentalCopyRange
 struct CopyRangeOptions {
   /// Only keys in this range are copied.
   KeyRange source_range;

@@ -1362,7 +1362,7 @@ MapFuture(Executor&& executor, Callback&& callback,
 ///     `callback(future.result().value()...)` when all of the `future` objects
 ///     become ready with non-error results.
 /// \param future The `Future` objects to link.
-/// \dchecks `(future.!null() && ...)`
+/// \dchecks `(!future.null() && ...)`
 /// \returns A ``Future<UnwrapFutureType<std::remove_cvref_t<U>>>``, where
 ///     ``U`` is the return type of the specified `callback` function.
 /// \relates Future
