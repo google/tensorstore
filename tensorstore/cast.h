@@ -61,6 +61,7 @@ namespace tensorstore {
 /// \error `absl::StatusCode::kInvalidArgument` if neither reading nor writing
 ///     would be supported by the returned `TensorStore`.
 /// \relates TensorStore
+/// \id TensorStore
 template <typename TargetElementType, int&... ExplicitArgumentBarrier,
           typename ElementType, DimensionIndex Rank, ReadWriteMode Mode>
 Result<TensorStore<
@@ -100,6 +101,7 @@ Cast(TensorStore<ElementType, Rank, Mode> store, DataType target_dtype) {
 /// \error `absl::StatusCode::kInvalidArgument` if the conversion is not
 ///     supported.
 /// \relates Spec
+/// \id Spec
 Result<Spec> Cast(const Spec& base_spec, DataType target_dtype);
 
 }  // namespace tensorstore

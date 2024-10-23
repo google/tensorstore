@@ -25,7 +25,11 @@
 
 namespace tensorstore {
 
+/// Response from a storage statistics query.
+///
+/// \relates GetStorageStatistics
 struct ArrayStorageStatistics {
+  /// Indicates the information to request.
   enum Mask {
     /// Query if no data is stored.
     query_not_stored = 1,
@@ -34,25 +38,22 @@ struct ArrayStorageStatistics {
     query_fully_stored = 2,
   };
 
+  /// Set operations.
   friend constexpr Mask operator~(Mask a) {
     return static_cast<Mask>(~static_cast<std::underlying_type_t<Mask>>(a));
   }
-
   friend constexpr Mask operator|(Mask a, Mask b) {
     using U = std::underlying_type_t<Mask>;
     return static_cast<Mask>(static_cast<U>(a) | static_cast<U>(b));
   }
-
   friend constexpr Mask& operator|=(Mask& a, Mask b) {
     using U = std::underlying_type_t<Mask>;
     return a = static_cast<Mask>(static_cast<U>(a) | static_cast<U>(b));
   }
-
   friend constexpr Mask operator&(Mask a, Mask b) {
     using U = std::underlying_type_t<Mask>;
     return static_cast<Mask>(static_cast<U>(a) & static_cast<U>(b));
   }
-
   friend constexpr Mask operator&=(Mask& a, Mask b) {
     using U = std::underlying_type_t<Mask>;
     return a = static_cast<Mask>(static_cast<U>(a) & static_cast<U>(b));
@@ -88,6 +89,7 @@ struct ArrayStorageStatistics {
     return !(a == b);
   }
 
+  /// Prints a debug representation.
   friend std::ostream& operator<<(std::ostream& os,
                                   const ArrayStorageStatistics& a);
 
@@ -96,6 +98,14 @@ struct ArrayStorageStatistics {
   };
 };
 
+/// Specifies options for computing array storage statistics.
+///
+/// Supported option types are:
+///
+///   - `Batch`
+///   - `ArrayStorageStatistics::Mask`
+///
+/// \relates GetStorageStatistics
 struct GetArrayStorageStatisticsOptions {
   ArrayStorageStatistics::Mask mask = {};
 

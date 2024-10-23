@@ -61,7 +61,12 @@ namespace tensorstore {
 /// that returns ``Result<T>``.
 ///
 /// \ingroup compile-time-constraints
-enum class CastChecking { checked = 0, unchecked = 1 };
+enum class CastChecking {
+  /// Indicates that the cast is checked at runtime and returns a ``Result<T>``.
+  checked = 0,
+  /// Indicates that the cast is unchecked and returns a bare value ``T``.
+  unchecked = 1
+};
 
 /// Tag type used as the first parameter of some constructors to request an
 /// unchecked conversion (e.g. from dynamic rank to a compile-time rank).

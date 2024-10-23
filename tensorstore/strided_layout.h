@@ -397,7 +397,7 @@ class StridedLayout
   using Selector =
       internal_strided_layout::LayoutStorageSelector<Rank, OriginKind, CKind>;
   using Storage = typename Selector::Storage;
-  using Access = typename Selector::Access;
+  using AccessImpl = typename Selector::Access;
 
  public:
   /// Origin kind of the layout.
@@ -419,13 +419,13 @@ class StridedLayout
   using RankType = StaticOrDynamicRank<RankConstraint::FromInlineRank(Rank)>;
 
   /// Conditionally const-qualified element type of `shape` vector.
-  using MaybeConstIndex = typename Access::MaybeConstIndex;
+  using MaybeConstIndex = typename AccessImpl::MaybeConstIndex;
 
   /// Conditionally const-qualified element type of `origin` vector.
-  using MaybeConstOriginIndex = typename Access::MaybeConstOriginIndex;
+  using MaybeConstOriginIndex = typename AccessImpl::MaybeConstOriginIndex;
 
   /// Returns the number of dimensions in the layout.
-  RankType rank() const { return Access::GetExtent(*this); }
+  RankType rank() const { return AccessImpl::GetExtent(*this); }
 
   /// Constructs a default layout of rank equal to `static_rank` (if
   /// `static_rank >= 0`) or rank `0` (if `static_rank == dynamic_rank`).
@@ -436,7 +436,7 @@ class StridedLayout
   StridedLayout() noexcept {
     if (container_kind == view) {
       const Index* zero_vec = GetConstantVector<Index, 0>(RankType{}).data();
-      Access::Assign(this, RankType{}, zero_vec, zero_vec);
+      AccessImpl::Assign(this, RankType{}, zero_vec, zero_vec);
     }
   }
 
@@ -463,17 +463,17 @@ class StridedLayout
           shape,
       tensorstore::span<const Index, RankConstraint::FromInlineRank(Rank)>
           byte_strides) {
-    // This check is redundant with the check done by Access::Assign, but
-    // provides a better assertion error message.
+    // This check is redundant with the check done by AccessImpl::Assign,
+    // but provides a better assertion error message.
     assert(shape.size() == byte_strides.size());
-    Access::Assign(this, GetStaticOrDynamicExtent(shape), shape.data(),
-                   byte_strides.data());
+    AccessImpl::Assign(this, GetStaticOrDynamicExtent(shape), shape.data(),
+                       byte_strides.data());
   }
   template <size_t N, typename = std::enable_if_t<
                           RankConstraint::Implies(N, static_rank)>>
   explicit StridedLayout(const Index (&shape)[N],
                          const Index (&byte_strides)[N]) {
-    Access::Assign(this, StaticRank<N>{}, shape, byte_strides);
+    AccessImpl::Assign(this, StaticRank<N>{}, shape, byte_strides);
   }
 
   /// Constructs from the specified `origin`, `shape` and `byte_strides`.
@@ -493,8 +493,8 @@ class StridedLayout
           byte_strides) {
     assert(origin.size() == shape.size());
     assert(origin.size() == byte_strides.size());
-    Access::Assign(this, GetStaticOrDynamicExtent(origin), origin.data(),
-                   shape.data(), byte_strides.data());
+    AccessImpl::Assign(this, GetStaticOrDynamicExtent(origin), origin.data(),
+                       shape.data(), byte_strides.data());
   }
   template <
       size_t N, ArrayOriginKind SfinaeOKind = OriginKind,
@@ -502,7 +502,7 @@ class StridedLayout
                                   RankConstraint::Implies(N, static_rank)>>
   explicit StridedLayout(const Index (&origin)[N], const Index (&shape)[N],
                          const Index (&byte_strides)[N]) {
-    Access::Assign(this, StaticRank<N>{}, origin, shape, byte_strides);
+    AccessImpl::Assign(this, StaticRank<N>{}, origin, shape, byte_strides);
   }
 
   /// Constructs from the specified `domain` and `byte_strides`.
@@ -520,8 +520,8 @@ class StridedLayout
       tensorstore::span<const Index, RankConstraint::FromInlineRank(Rank)>
           byte_strides) {
     assert(domain.rank() == byte_strides.size());
-    Access::Assign(this, domain.rank(), domain.origin().data(),
-                   domain.shape().data(), byte_strides.data());
+    AccessImpl::Assign(this, domain.rank(), domain.origin().data(),
+                       domain.shape().data(), byte_strides.data());
   }
 
   /// Constructs from a layout with a compatible `static_rank` and
@@ -537,7 +537,7 @@ class StridedLayout
                                    static_rank) &&
            IsArrayOriginKindConvertible(O, OriginKind))>>
   explicit StridedLayout(const StridedLayout<R, O, C>& source) {
-    Access::AssignFrom(this, source);
+    AccessImpl::AssignFrom(this, source);
   }
 
   // Overload of above constructor that handles the implicit conversion case of
@@ -549,7 +549,7 @@ class StridedLayout
                                          static_rank) &&
                  (R == 0 || IsArrayOriginKindConvertible(O, OriginKind)))>>
   StridedLayout(const StridedLayout<R, O, C>& source) {
-    Access::AssignFrom(this, source);
+    AccessImpl::AssignFrom(this, source);
   }
 
   /// Unchecked conversion.
@@ -562,7 +562,7 @@ class StridedLayout
                  (R == 0 || IsArrayOriginKindConvertible(O, OriginKind)))>>
   explicit StridedLayout(unchecked_t, const StridedLayout<R, O, C>& source) {
     assert(RankConstraint::EqualOrUnspecified(source.rank(), static_rank));
-    Access::AssignFrom(this, source);
+    AccessImpl::AssignFrom(this, source);
   }
   explicit StridedLayout(unchecked_t, StridedLayout&& source)
       : StridedLayout(std::move(source)) {}
@@ -578,13 +578,13 @@ class StridedLayout
   /// \id rank, components
   explicit StridedLayout(RankType rank, const Index* shape,
                          const Index* byte_strides) {
-    Access::Assign(this, rank, shape, byte_strides);
+    AccessImpl::Assign(this, rank, shape, byte_strides);
   }
   template <ArrayOriginKind OKind = array_origin_kind,
             typename = std::enable_if_t<OKind == offset_origin>>
   explicit StridedLayout(RankType rank, const Index* origin, const Index* shape,
                          const Index* byte_strides) {
-    Access::Assign(this, rank, origin, shape, byte_strides);
+    AccessImpl::Assign(this, rank, origin, shape, byte_strides);
   }
 
   /// Constructs a contiguous layout with the specified domain and element
@@ -629,7 +629,7 @@ class StridedLayout
                     (R == 0 || IsArrayOriginKindConvertible(O, OriginKind))),
                    StridedLayout&>
   operator=(const StridedLayout<R, O, C>& other) {
-    Access::AssignFrom(this, other);
+    AccessImpl::AssignFrom(this, other);
     return *this;
   }
 
@@ -640,7 +640,7 @@ class StridedLayout
   /// \membergroup Assignment
   template <int&... ExplicitArgumentBarrier, ContainerKind SfinaeC = CKind>
   std::enable_if_t<SfinaeC == container> set_rank(RankType rank) {
-    Access::Resize(this, rank);
+    AccessImpl::Resize(this, rank);
   }
 
   /// Returns the origin vector of size `rank()`.
@@ -655,7 +655,7 @@ class StridedLayout
   }
   tensorstore::span<MaybeConstOriginIndex, RankConstraint::FromInlineRank(Rank)>
   origin() {
-    return Access::origin(this);
+    return AccessImpl::origin(this);
   }
 
   /// Returns the byte strides vector of size `rank()`.
@@ -669,7 +669,7 @@ class StridedLayout
   }
   tensorstore::span<MaybeConstIndex, RankConstraint::FromInlineRank(Rank)>
   byte_strides() {
-    return Access::byte_strides(this);
+    return AccessImpl::byte_strides(this);
   }
 
   /// Returns the shape vector of size `rank()`.
@@ -683,7 +683,7 @@ class StridedLayout
   }
   tensorstore::span<MaybeConstIndex, RankConstraint::FromInlineRank(Rank)>
   shape() {
-    return Access::shape(this);
+    return AccessImpl::shape(this);
   }
 
   /// Returns the byte offset of the origin.
@@ -992,6 +992,9 @@ Index GetByteExtent(StridedLayoutView<> layout, Index element_size);
 
 /// Returns smallest number of contiguous bytes into which the specified layout
 /// fits.
+///
+/// \relates StridedLayout
+/// \id strided_layout
 template <DimensionIndex Rank, ArrayOriginKind OriginKind, ContainerKind CKind>
 Index GetByteExtent(const StridedLayout<Rank, OriginKind, CKind>& layout,
                     Index element_size) {

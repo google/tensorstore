@@ -466,6 +466,8 @@ inline constexpr DataTypeConversionFlags operator&(DataTypeConversionFlags a,
 }
 
 /// Specifies an equality comparison method.
+///
+/// \relates DataType
 enum class EqualityComparisonKind {
   /// Compare using regular equality (``operator==``).  For floating point
   /// types, this considers positive and negative zero equal, and NaN unequal to
@@ -476,7 +478,7 @@ enum class EqualityComparisonKind {
   ///
   /// For integer and floating point types, this performs a bitwise comparison.
   ///
-  /// For integer types this is equivalent to `kCompareEqual`.
+  /// For integer types this is equivalent to `equal`.
   identical,
 };
 
@@ -1551,6 +1553,7 @@ constexpr DataType kDataTypes[] = {
 ///
 /// \relates ElementPointer
 template <typename Pointer>
+// NONITPICK: std::pointer_traits<std::remove_cvref_t<Pointer>>::element_type
 using pointee_dtype_t = dtype_t<
     typename std::pointer_traits<absl::remove_cvref_t<Pointer>>::element_type>;
 

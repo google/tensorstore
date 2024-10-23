@@ -301,7 +301,7 @@ class BitIterator {
   ptrdiff_t offset_;
 };
 
-namespace bitset_impl {
+namespace internal_bitset {
 
 // View type for exposing SmallBitSet iterators.
 template <typename Iterator, size_t N>
@@ -376,7 +376,7 @@ class IndexView {
   Uint bits_;
 };
 
-}  // namespace bitset_impl
+}  // namespace internal_bitset
 
 /// Bit set that fits in a single unsigned integer.
 ///
@@ -419,10 +419,12 @@ class SmallBitSet {
   }
 
   /// Constructs the set containing bits at the specified indices.
-  /// Can be invoked with a braced list, e.g.
-  ///   `SmallBitSet<8>::FromIndices({1, 10})`.
   ///
-  /// \dchecks  `values[i] >= 0 && values[i] < N`
+  /// This can be invoked with a braced list, e.g.
+  ///
+  ///     SmallBitSet<8>::FromIndices({1, 10})
+  ///
+  /// \dchecks  ``positions[i] >= 0 && positions[i] < N`` for all ``i``
   /// \membergroup Constructors
   template <size_t NumBits, typename = std::enable_if_t<(NumBits <= N)>>
   static constexpr SmallBitSet FromIndices(const int (&positions)[NumBits]) {
@@ -442,10 +444,11 @@ class SmallBitSet {
   }
 
   /// Constructs from an array of `bool` values.
-  /// Can be invoked with a braced list, e.g.
-  ///   `SmallBitSet<8>::FromBools({0, 1, 1, 0})`.
   ///
-  /// \dchecks Size of `range` is not greater than `N`
+  /// This can be invoked with a braced list, e.g.
+  ///
+  ///     SmallBitSet<8>::FromBools({0, 1, 1, 0})
+  ///
   /// \membergroup constructors
   template <size_t NumBits, typename = std::enable_if_t<(NumBits <= N)>>
   static constexpr SmallBitSet FromBools(const bool (&bits)[NumBits]) {
@@ -489,20 +492,20 @@ class SmallBitSet {
   }
 
   /// Mutable view of SmallBitSet bits.
-  using BoolsView = bitset_impl::BoolsView<BitIterator<Uint>, N>;
+  using BoolsView = internal_bitset::BoolsView<BitIterator<Uint>, N>;
   constexpr BoolsView bools_view() TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     return BoolsView(BitIterator<Uint>(&bits_, 0));
   }
 
   /// Immutable view of SmallBitSet bits.
-  using ConstBoolsView = bitset_impl::BoolsView<BitIterator<const Uint>, N>;
+  using ConstBoolsView = internal_bitset::BoolsView<BitIterator<const Uint>, N>;
   constexpr ConstBoolsView bools_view() const
       TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     return ConstBoolsView(BitIterator<const Uint>(&bits_, 0));
   }
 
   /// Immutable view of SmallBitSet indices.
-  using IndexView = bitset_impl::IndexView<Uint>;
+  using IndexView = internal_bitset::IndexView<Uint>;
   constexpr IndexView index_view() const { return IndexView(bits_); }
 
   /// Returns the static size, `N`.

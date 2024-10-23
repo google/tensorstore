@@ -309,9 +309,10 @@ class IndexDomain {
   /// If `!valid()`, returns an invalid view.
   ///
   /// \param permutation Permutation of ``0, ..., rank()-1``, where
-  ///     `permutation[i]` specifies the dimension of the existing domain that
-  ///     corresponds to dimension `i` of the new domain.
+  ///     ``permutation[i]`` specifies the dimension of the existing domain that
+  ///     corresponds to dimension ``i`` of the new domain.
   /// \dchecks `permutation` is a valid permutation.
+  /// \id permutation
   IndexDomain<Rank> Transpose(
       span<const DimensionIndex, Rank> permutation) const& {
     return Access::Make<IndexDomain<Rank, container>>(
@@ -479,6 +480,8 @@ class IndexDomain {
   Ptr rep_{};
 };
 
+namespace internal_index_space {
+
 template <typename Shape, typename ShapeSpan = internal::ConstSpanType<Shape>,
           DimensionIndex Rank = ShapeSpan::extent>
 using IdentityTransformFromShapeType =
@@ -491,7 +494,9 @@ using IdentityTransformFromLabelsType = std::enable_if_t<
     internal::IsStringLike<typename LabelsSpan::value_type>,
     IndexTransform<LabelsSpan::extent, LabelsSpan::extent, container>>;
 
-explicit IndexDomain(DimensionIndex)->IndexDomain<>;
+}  // namespace internal_index_space
+
+explicit IndexDomain(DimensionIndex) -> IndexDomain<>;
 
 template <DimensionIndex Rank>
 explicit IndexDomain(std::integral_constant<DimensionIndex, Rank>)
@@ -506,17 +511,19 @@ explicit IndexDomain(const std::string_view (&labels)[Rank])
 
 template <typename Shape>
 explicit IndexDomain(const Shape& shape)
-    -> IndexDomain<IdentityTransformFromShapeType<Shape>::static_input_rank>;
+    -> IndexDomain<internal_index_space::IdentityTransformFromShapeType<
+        Shape>::static_input_rank>;
 
 template <typename Labels>
 explicit IndexDomain(const Labels& labels)
-    -> IndexDomain<IdentityTransformFromLabelsType<Labels>::static_input_rank>;
+    -> IndexDomain<internal_index_space::IdentityTransformFromLabelsType<
+        Labels>::static_input_rank>;
 
 template <typename BoxType>
 explicit IndexDomain(const BoxType& box)
     -> IndexDomain<std::enable_if_t<IsBoxLike<BoxType>, BoxType>::static_rank>;
 
-explicit IndexDomain()->IndexDomain<>;
+explicit IndexDomain() -> IndexDomain<>;
 
 /// Specializes the HasBoxDomain metafunction for IndexTransform.
 ///

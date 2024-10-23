@@ -38,7 +38,7 @@ struct SpecOptions : public Schema {
   bool minimal_spec = false;
   kvstore::Spec kvstore;
 
-  /// Excludes `Schema`, `MinimalSpec`, and `kvstore::Spec`.
+  // Excludes `Schema`, `MinimalSpec`, and `kvstore::Spec`.
   template <typename T>
   constexpr static inline bool IsCommonOption = false;
 

@@ -139,12 +139,12 @@ class BFloat16 {
   /**/
 
 #define TENSORSTORE_INTERNAL_BFLOAT16_ARITHMETIC_ASSIGN_OP(OP)           \
-  friend BFloat16& operator OP##=(BFloat16& a, BFloat16 b) {             \
+  friend BFloat16& operator OP##=(BFloat16 & a, BFloat16 b) {            \
     return a = BFloat16(static_cast<float>(a) OP static_cast<float>(b)); \
   }                                                                      \
   template <typename T>                                                  \
   friend std::enable_if_t<std::numeric_limits<T>::is_integer, BFloat16&> \
-  operator OP##=(BFloat16& a, T b) {                                     \
+  operator OP##=(BFloat16 & a, T b) {                                    \
     return a = BFloat16(static_cast<float>(a) OP b);                     \
   }                                                                      \
   /**/
@@ -311,6 +311,7 @@ inline bool isfinite(BFloat16 x) {
 ///
 /// \membergroup Basic operations
 /// \relates BFloat16
+/// \id bfloat16
 inline BFloat16 abs(BFloat16 x) {
   x.rep_ &= 0x7fff;
   return x;
@@ -320,6 +321,7 @@ inline BFloat16 abs(BFloat16 x) {
 ///
 /// \membergroup Exponential functions
 /// \relates BFloat16
+/// \id bfloat16
 inline BFloat16 exp(BFloat16 x) {
   return BFloat16(std::exp(static_cast<float>(x)));
 }
@@ -328,6 +330,7 @@ inline BFloat16 exp(BFloat16 x) {
 ///
 /// \membergroup Exponential functions
 /// \relates BFloat16
+/// \id bfloat16
 inline BFloat16 exp2(BFloat16 x) {
   return BFloat16(std::exp2(static_cast<float>(x)));
 }
@@ -336,6 +339,7 @@ inline BFloat16 exp2(BFloat16 x) {
 ///
 /// \membergroup Exponential functions
 /// \relates BFloat16
+/// \id bfloat16
 inline BFloat16 expm1(BFloat16 x) {
   return BFloat16(std::expm1(static_cast<float>(x)));
 }
@@ -344,6 +348,7 @@ inline BFloat16 expm1(BFloat16 x) {
 ///
 /// \membergroup Exponential functions
 /// \relates BFloat16
+/// \id bfloat16
 inline BFloat16 log(BFloat16 x) {
   return BFloat16(std::log(static_cast<float>(x)));
 }
@@ -353,6 +358,7 @@ inline BFloat16 log(BFloat16 x) {
 ///
 /// \membergroup Exponential functions
 /// \relates BFloat16
+/// \id bfloat16
 inline BFloat16 log1p(BFloat16 x) {
   return BFloat16(std::log1p(static_cast<float>(x)));
 }
@@ -361,6 +367,7 @@ inline BFloat16 log1p(BFloat16 x) {
 ///
 /// \membergroup Exponential functions
 /// \relates BFloat16
+/// \id bfloat16
 inline BFloat16 log10(BFloat16 x) {
   return BFloat16(std::log10(static_cast<float>(x)));
 }
@@ -369,6 +376,7 @@ inline BFloat16 log10(BFloat16 x) {
 ///
 /// \membergroup Exponential functions
 /// \relates BFloat16
+/// \id bfloat16
 inline BFloat16 log2(BFloat16 x) {
   return BFloat16(std::log2(static_cast<float>(x)));
 }
@@ -377,6 +385,7 @@ inline BFloat16 log2(BFloat16 x) {
 ///
 /// \membergroup Power functions
 /// \relates BFloat16
+/// \id bfloat16
 inline BFloat16 sqrt(BFloat16 x) {
   return BFloat16(std::sqrt(static_cast<float>(x)));
 }
@@ -385,6 +394,7 @@ inline BFloat16 sqrt(BFloat16 x) {
 ///
 /// \membergroup Power functions
 /// \relates BFloat16
+/// \id bfloat16
 inline BFloat16 pow(BFloat16 x, BFloat16 y) {
   return BFloat16(std::pow(static_cast<float>(x), static_cast<float>(y)));
 }
@@ -393,6 +403,7 @@ inline BFloat16 pow(BFloat16 x, BFloat16 y) {
 ///
 /// \membergroup Trigonometric functions
 /// \relates BFloat16
+/// \id bfloat16
 inline BFloat16 sin(BFloat16 x) {
   return BFloat16(std::sin(static_cast<float>(x)));
 }
@@ -401,6 +412,7 @@ inline BFloat16 sin(BFloat16 x) {
 ///
 /// \membergroup Trigonometric functions
 /// \relates BFloat16
+/// \id bfloat16
 inline BFloat16 cos(BFloat16 x) {
   return BFloat16(std::cos(static_cast<float>(x)));
 }
@@ -409,6 +421,7 @@ inline BFloat16 cos(BFloat16 x) {
 ///
 /// \membergroup Trigonometric functions
 /// \relates BFloat16
+/// \id bfloat16
 inline BFloat16 tan(BFloat16 x) {
   return BFloat16(std::tan(static_cast<float>(x)));
 }
@@ -417,6 +430,7 @@ inline BFloat16 tan(BFloat16 x) {
 ///
 /// \membergroup Trigonometric functions
 /// \relates BFloat16
+/// \id bfloat16
 inline BFloat16 asin(BFloat16 x) {
   return BFloat16(std::asin(static_cast<float>(x)));
 }
@@ -425,6 +439,7 @@ inline BFloat16 asin(BFloat16 x) {
 ///
 /// \membergroup Trigonometric functions
 /// \relates BFloat16
+/// \id bfloat16
 inline BFloat16 acos(BFloat16 x) {
   return BFloat16(std::acos(static_cast<float>(x)));
 }
@@ -433,6 +448,7 @@ inline BFloat16 acos(BFloat16 x) {
 ///
 /// \membergroup Trigonometric functions
 /// \relates BFloat16
+/// \id bfloat16
 inline BFloat16 atan(BFloat16 x) {
   return BFloat16(std::atan(static_cast<float>(x)));
 }
@@ -441,6 +457,7 @@ inline BFloat16 atan(BFloat16 x) {
 ///
 /// \membergroup Hyperbolic functions
 /// \relates BFloat16
+/// \id bfloat16
 inline BFloat16 sinh(BFloat16 x) {
   return BFloat16(std::sinh(static_cast<float>(x)));
 }
@@ -449,6 +466,7 @@ inline BFloat16 sinh(BFloat16 x) {
 ///
 /// \membergroup Hyperbolic functions
 /// \relates BFloat16
+/// \id bfloat16
 inline BFloat16 cosh(BFloat16 x) {
   return BFloat16(std::cosh(static_cast<float>(x)));
 }
@@ -457,6 +475,7 @@ inline BFloat16 cosh(BFloat16 x) {
 ///
 /// \membergroup Hyperbolic functions
 /// \relates BFloat16
+/// \id bfloat16
 inline BFloat16 tanh(BFloat16 x) {
   return BFloat16(std::tanh(static_cast<float>(x)));
 }
@@ -465,6 +484,7 @@ inline BFloat16 tanh(BFloat16 x) {
 ///
 /// \membergroup Hyperbolic functions
 /// \relates BFloat16
+/// \id bfloat16
 inline BFloat16 asinh(BFloat16 x) {
   return BFloat16(std::asinh(static_cast<float>(x)));
 }
@@ -473,6 +493,7 @@ inline BFloat16 asinh(BFloat16 x) {
 ///
 /// \membergroup Hyperbolic functions
 /// \relates BFloat16
+/// \id bfloat16
 inline BFloat16 acosh(BFloat16 x) {
   return BFloat16(std::acosh(static_cast<float>(x)));
 }
@@ -481,6 +502,7 @@ inline BFloat16 acosh(BFloat16 x) {
 ///
 /// \membergroup Hyperbolic functions
 /// \relates BFloat16
+/// \id bfloat16
 inline BFloat16 atanh(BFloat16 x) {
   return BFloat16(std::atanh(static_cast<float>(x)));
 }
@@ -489,6 +511,7 @@ inline BFloat16 atanh(BFloat16 x) {
 ///
 /// \membergroup Rounding functions
 /// \relates BFloat16
+/// \id bfloat16
 inline BFloat16 floor(BFloat16 x) {
   return BFloat16(std::floor(static_cast<float>(x)));
 }
@@ -497,6 +520,7 @@ inline BFloat16 floor(BFloat16 x) {
 ///
 /// \membergroup Rounding functions
 /// \relates BFloat16
+/// \id bfloat16
 inline BFloat16 trunc(BFloat16 x) {
   return BFloat16(std::trunc(static_cast<float>(x)));
 }
@@ -505,6 +529,7 @@ inline BFloat16 trunc(BFloat16 x) {
 ///
 /// \membergroup Rounding functions
 /// \relates BFloat16
+/// \id bfloat16
 inline BFloat16 rint(BFloat16 x) {
   return BFloat16(std::rint(static_cast<float>(x)));
 }
@@ -513,6 +538,7 @@ inline BFloat16 rint(BFloat16 x) {
 ///
 /// \membergroup Rounding functions
 /// \relates BFloat16
+/// \id bfloat16
 inline BFloat16 ceil(BFloat16 x) {
   return BFloat16(std::ceil(static_cast<float>(x)));
 }
@@ -521,6 +547,7 @@ inline BFloat16 ceil(BFloat16 x) {
 ///
 /// \membergroup Basic operations
 /// \relates BFloat16
+/// \id bfloat16
 inline BFloat16 fmod(BFloat16 x, BFloat16 y) {
   return BFloat16(std::fmod(static_cast<float>(x), static_cast<float>(y)));
 }
@@ -529,6 +556,7 @@ inline BFloat16 fmod(BFloat16 x, BFloat16 y) {
 ///
 /// \membergroup Basic operations
 /// \relates BFloat16
+/// \id bfloat16
 inline BFloat16 fmin(BFloat16 a, BFloat16 b) {
   return BFloat16(std::fmin(static_cast<float>(a), static_cast<float>(b)));
 }
@@ -537,6 +565,7 @@ inline BFloat16 fmin(BFloat16 a, BFloat16 b) {
 ///
 /// \membergroup Basic operations
 /// \relates BFloat16
+/// \id bfloat16
 inline BFloat16 fmax(BFloat16 a, BFloat16 b) {
   return BFloat16(std::fmax(static_cast<float>(a), static_cast<float>(b)));
 }
@@ -545,6 +574,7 @@ inline BFloat16 fmax(BFloat16 a, BFloat16 b) {
 ///
 /// \membergroup Floating-point manipulation functions
 /// \relates BFloat16
+/// \id bfloat16
 inline BFloat16 nextafter(BFloat16 from, BFloat16 to) {
   const uint16_t from_as_int = absl::bit_cast<uint16_t>(from),
                  to_as_int = absl::bit_cast<uint16_t>(to);

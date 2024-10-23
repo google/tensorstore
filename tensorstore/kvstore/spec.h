@@ -37,9 +37,16 @@ namespace tensorstore {
 namespace kvstore {
 
 /// Options for mutating `Spec` objects that are handled directly by drivers.
+///
+/// \relates Spec
 struct DriverSpecOptions {
   bool minimal_spec = false;
 
+  /// Indicates which option types are supported.
+  ///
+  /// Supported types include:
+  ///
+  /// - `MinimalSpec`
   template <typename T>
   constexpr static bool IsOption = false;
 
@@ -68,6 +75,7 @@ struct SpecConvertOptions : public DriverSpecOptions {
   ///
   /// Supported types include:
   ///
+  /// - `MinimalSpec`
   /// - `Context`
   /// - `ContextBindingMode`
   template <typename T>

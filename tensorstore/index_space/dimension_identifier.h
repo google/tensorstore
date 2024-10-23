@@ -262,7 +262,7 @@ absl::Status NormalizeDynamicDimSpec(const DynamicDimSpec& spec,
 
 /// Equivalent to calling ``NormalizeDynamicDimSpec(spec, labels, result)`` for
 /// each ``spec`` in `specs`.
-//
+///
 /// \relates DynamicDimSpec
 absl::Status NormalizeDynamicDimSpecs(span<const DynamicDimSpec> specs,
                                       span<const std::string> labels,
