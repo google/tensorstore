@@ -25,12 +25,6 @@
 
 bazel run -c opt \
   //tensorstore/internal/benchmark:multi_read_benchmark -- \
-  --base_spec='{
-      "driver": "zarr3",
-      "kvstore": {
-          "driver": "ocdbt",
-          "base": "file:///tmp/benchmark"
-      }}'
   --read_config=config.json
 */
 
@@ -39,8 +33,10 @@ bazel run -c opt \
 
 #include <algorithm>
 #include <atomic>
+#include <cstdio>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -55,18 +51,15 @@ bazel run -c opt \
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include <nlohmann/json_fwd.hpp>
 #include "tensorstore/array.h"
-#include "tensorstore/box.h"
 #include "tensorstore/context.h"
 #include "absl/flags/parse.h"
-#include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/internal/benchmark/metric_utils.h"
 #include "tensorstore/internal/benchmark/multi_spec.h"
-#include "tensorstore/internal/benchmark/vector_flag.h"
-#include "tensorstore/internal/json_binding/bindable.h"
+#include "tensorstore/internal/json_binding/std_array.h"  // IWYU pragma: keep
 #include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/metrics/value.h"
-#include "tensorstore/kvstore/spec.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/spec.h"
@@ -75,10 +68,6 @@ bazel run -c opt \
 #include "tensorstore/util/json_absl_flag.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
-
-using ::tensorstore::internal_benchmark::ReadFromFileOrFlag;
-using ::tensorstore::internal_benchmark::ShardVariable;
 
 ABSL_FLAG(
     tensorstore::JsonAbslFlag<tensorstore::Context::Spec>, context_spec,
@@ -92,27 +81,8 @@ ABSL_FLAG(
     "Context spec for reading data.  This can be used to control the "
     "number of concurrent read operations, for example.");
 
-ABSL_FLAG(
-    tensorstore::JsonAbslFlag<tensorstore::Spec>, base_spec,
-    []() {
-      return tensorstore::Spec::FromJson(
-                 {
-                     {"driver", "zarr"},
-                     {"kvstore",
-                      {{"driver", "ocdbt"}, {"base", "memory:///prefix/"}}},
-                 })
-          .value();
-    }(),
-    "Base TensorStore Spec to use for reading; the kvstore path will be "
-    "augmented with each name in --read_config or --paths.");
-
 ABSL_FLAG(std::string, read_config, {},
-          "Paths to all the tensorstore specs to benchmark. The actual spec "
-          "is constructed by merging the base_spec with the path.");
-
-ABSL_FLAG(tensorstore::VectorFlag<std::string>, paths, {},
-          "Paths to all the tensorstore specs to benchmark. The actual spec "
-          "is constructed by merging the base_spec with the path.");
+          "Paths to all the tensorstore specs to benchmark.");
 
 ABSL_FLAG(int64_t, repeat_reads, 1,
           "Number of times to repeat read benchmark.");
@@ -120,26 +90,33 @@ ABSL_FLAG(int64_t, repeat_reads, 1,
 ABSL_FLAG(int64_t, max_in_flight, 64ll * 1024 * 1024 * 1024,  // 64GB
           "Maximum number of in_flight bytes.");
 
-ABSL_FLAG(bool, reuse_context, true,
+ABSL_FLAG(std::string, context_mode, "",
           "Whether to reuse the tensorstore::Context.");
 
-ABSL_FLAG(std::string, metrics_prefix, "/tensorstore", "Prefix for metrics.");
+ABSL_FLAG(std::optional<std::string>, metrics_prefix, std::nullopt,
+          "Prefix for metrics.");
+
+ABSL_FLAG(int64_t, ith_spec, -1, "Start at the ith spec in the config file.");
 
 namespace tensorstore {
 namespace {
+
+using ::tensorstore::internal_benchmark::ReadSpecsFromFile;
 
 auto& read_throughput = internal_metrics::Value<double>::New(
     "/tensorstore/ts_read_benchmark/read_throughput",
     internal_metrics::MetricMetadata("the read throughput in this test"));
 
 std::vector<tensorstore::TensorStore<>> MultiOpen(
-    Context context, std::vector<tensorstore::Spec> specs) {
+    std::vector<tensorstore::Context> context,
+    std::vector<tensorstore::Spec> specs) {
   ABSL_LOG(INFO) << "Opening " << specs.size() << " tensorstores";
   std::vector<Future<tensorstore::TensorStore<>>> pending_open;
   pending_open.reserve(specs.size());
-  for (const auto& spec : specs) {
+  for (size_t i = 0; i < specs.size(); ++i) {
+    Context ctx = i < context.size() ? context[i] : context[0];
     pending_open.push_back(
-        tensorstore::Open(spec, context, tensorstore::ReadWriteMode::read));
+        tensorstore::Open(specs[i], ctx, tensorstore::ReadWriteMode::read));
   }
   auto wait_all = tensorstore::WaitAllFuture(tensorstore::span(pending_open));
   std::vector<tensorstore::TensorStore<>> stores;
@@ -154,11 +131,14 @@ std::vector<tensorstore::TensorStore<>> MultiOpen(
   return stores;
 }
 
+int64_t GetBytesEstimate(const tensorstore::TensorStore<>& ts) {
+  return ts.domain().num_elements() * ts.dtype().size();
+}
+
 // This class manages the state of a single pass through all the tensorstores.
 // It starts new reads when the count of in-flight bytes is below the limit,
 // and tracks the total number of bytes read.
 struct ReadContinuation {
-  const std::vector<ShardVariable>& config;
   const std::vector<tensorstore::TensorStore<>>& stores;
 
   int64_t max_in_flight = 0;
@@ -166,13 +146,11 @@ struct ReadContinuation {
 
   absl::Mutex mutex;
   size_t i = 0;
-  size_t b = 0;
   int64_t in_flight = 0;
 
-  ReadContinuation(const std::vector<ShardVariable>& config,
-                   const std::vector<tensorstore::TensorStore<>>& stores,
+  ReadContinuation(const std::vector<tensorstore::TensorStore<>>& stores,
                    int64_t max_in_flight)
-      : config(config), stores(stores), max_in_flight(max_in_flight) {}
+      : stores(stores), max_in_flight(max_in_flight) {}
 };
 
 static bool StartNextRead(tensorstore::Promise<void> promise,
@@ -189,29 +167,15 @@ static bool StartNextRead(tensorstore::Promise<void> promise,
     if (self->in_flight >= self->max_in_flight) {
       return false;
     }
-    while (true) {
-      if (self->i >= self->stores.size()) {
-        return false;
-      }
-      if (self->b == self->config[self->i].array_boxes.size()) {
-        self->b = 0;
-        self->i++;
-        continue;
-      }
-      break;
+    if (self->i >= self->stores.size()) {
+      return false;
     }
-
-    const size_t i = self->i;
-    const size_t b = self->b++;
-
+    const size_t i = self->i++;
     const auto& ts = self->stores[i];
-    const auto& var = self->config[i];
-    const auto& box = var.array_boxes[b];
 
-    int64_t estimate = box.num_elements() * ts.dtype().size();
+    int64_t estimate = GetBytesEstimate(ts);
     self->in_flight += estimate;
-
-    read_future = tensorstore::Read(ts | tensorstore::AllDims().BoxSlice(box));
+    read_future = tensorstore::Read(ts);
   }
 
   // Release the mutex before calling Link; the callback may be immediately
@@ -250,14 +214,11 @@ std::string FormatStats(const Stats& s) {
                          read_mb, elapsed_s * 1e3, throughput);
 }
 
-Stats DoSinglePass(tensorstore::Context context_spec,
-                   const std::vector<ShardVariable>& config,
-                   const std::vector<tensorstore::TensorStore<>>& stores,
+Stats DoSinglePass(const std::vector<tensorstore::TensorStore<>>& stores,
                    size_t bytes_semaphore) {
   auto [promise, future] = PromiseFuturePair<void>::Make(absl::OkStatus());
 
-  auto cont =
-      std::make_shared<ReadContinuation>(config, stores, bytes_semaphore);
+  auto cont = std::make_shared<ReadContinuation>(stores, bytes_semaphore);
   Stats stats;
   stats.start_time = absl::Now();
 
@@ -272,52 +233,39 @@ Stats DoSinglePass(tensorstore::Context context_spec,
   return stats;
 }
 
-Stats DoSinglePass(tensorstore::Context::Spec context_spec,
-                   const std::vector<ShardVariable>& config,
-                   std::vector<tensorstore::Spec> specs,
-                   size_t bytes_semaphore) {
+Stats DoSinglePassPerPass(tensorstore::Context::Spec context_spec,
+                          std::vector<tensorstore::Spec> specs,
+                          size_t bytes_semaphore) {
   Context context(context_spec);
-  std::vector<tensorstore::TensorStore<>> stores = MultiOpen(context, specs);
-  return DoSinglePass(context, config, stores, bytes_semaphore);
+  std::vector<tensorstore::TensorStore<>> stores = MultiOpen({context}, specs);
+  return DoSinglePass(stores, bytes_semaphore);
+}
+
+Stats DoSinglePassDistinct(tensorstore::Context::Spec context_spec,
+                           std::vector<tensorstore::Spec> specs,
+                           size_t bytes_semaphore) {
+  std::vector<tensorstore::Context> contexts;
+  contexts.reserve(specs.size());
+  while (contexts.size() < specs.size()) {
+    contexts.push_back(Context(context_spec));
+  }
+  std::vector<tensorstore::TensorStore<>> stores = MultiOpen(contexts, specs);
+  return DoSinglePass(stores, bytes_semaphore);
 }
 
 void RunBenchmark(tensorstore::Context::Spec context_spec,
-                  std::vector<ShardVariable> config,
                   std::vector<tensorstore::Spec> specs) {
   Context context(context_spec);
-  std::vector<tensorstore::TensorStore<>> stores = MultiOpen(context, specs);
+  std::vector<tensorstore::TensorStore<>> stores = MultiOpen({context}, specs);
   ABSL_QCHECK(!stores.empty()) << "No stores to benchmark";
-  ABSL_QCHECK(stores.size() == config.size())
-      << "Number of stores and config size mismatch";
 
   int64_t total_bytes = 0;
   int64_t max_ts_bytes = 0;
   for (size_t i = 0; i < stores.size(); ++i) {
-    if (config[i].shape.empty()) {
-      config[i].shape.assign(stores[i].domain().shape().cbegin(),
-                             stores[i].domain().shape().cend());
-    }
-    if (config[i].array_boxes.empty() && !config[i].shape.empty()) {
-      config[i].array_boxes.push_back(Box<>(config[i].shape));
-    }
-
-    for (const auto& box : config[i].array_boxes) {
-      ABSL_CHECK_EQ(box.rank(), stores[i].rank());
-      if (box.rank() > 0) {
-        const int64_t estimate = box.num_elements() * stores[i].dtype().size();
-        ABSL_CHECK(estimate < 1ull * 1024 * 1024 * 1024 * 1024 * 1024) << box;
-        total_bytes += estimate;
-        max_ts_bytes = std::max(max_ts_bytes, estimate);
-      }
-    }
-
-    // Log the config variable.
-    [&](const ShardVariable& var) {
-      auto j = internal_json_binding::ToJson(config[i]);
-      if (j.ok() && !j->is_discarded()) {
-        ABSL_LOG(INFO) << j->dump();
-      }
-    }(config[i]);
+    const int64_t estimate = GetBytesEstimate(stores[i]);
+    ABSL_CHECK(estimate < 1ull * 1024 * 1024 * 1024 * 1024) << specs[i];
+    total_bytes += estimate;
+    max_ts_bytes = std::max(max_ts_bytes, estimate);
   }
 
   std::cout << absl::StrFormat(
@@ -333,80 +281,57 @@ void RunBenchmark(tensorstore::Context::Spec context_spec,
       << "--max_in_flight=" << max_ts_bytes
       << " is the minimum allowed by this configuration.";
 
-  if (absl::GetFlag(FLAGS_reuse_context)) {
-    // Reuse the context on each pass. This should be generally faster.
-    for (size_t i = 0; i < absl::GetFlag(FLAGS_repeat_reads); ++i) {
-      auto s = DoSinglePass(context, config, stores,
-                            absl::GetFlag(FLAGS_max_in_flight));
-      std::cout << FormatStats(s) << std::endl;
-    }
-  } else {
-    // Re
+  if (absl::GetFlag(FLAGS_context_mode) == "distinct") {
     context = {};
     stores = {};
     for (size_t i = 0; i < absl::GetFlag(FLAGS_repeat_reads); ++i) {
-      auto s = DoSinglePass(context_spec, config, specs,
-                            absl::GetFlag(FLAGS_max_in_flight));
+      auto s = DoSinglePassDistinct(context_spec, specs,
+                                    absl::GetFlag(FLAGS_max_in_flight));
+      std::cout << FormatStats(s) << std::endl;
+    }
+  } else if (absl::GetFlag(FLAGS_context_mode) == "pass") {
+    context = {};
+    stores = {};
+    for (size_t i = 0; i < absl::GetFlag(FLAGS_repeat_reads); ++i) {
+      auto s = DoSinglePassPerPass(context_spec, specs,
+                                   absl::GetFlag(FLAGS_max_in_flight));
+      std::cout << FormatStats(s) << std::endl;
+    }
+  } else {
+    for (size_t i = 0; i < absl::GetFlag(FLAGS_repeat_reads); ++i) {
+      auto s = DoSinglePass(stores, absl::GetFlag(FLAGS_max_in_flight));
       std::cout << FormatStats(s) << std::endl;
     }
   }
 }
 
-void Run() {
+void Run(int argc, char** argv) {
   ABSL_CHECK(absl::GetFlag(FLAGS_repeat_reads) > 0);
 
-  // --read_config specifies a file or a json object.
-  std::vector<ShardVariable> config = [&]() {
-    if (absl::GetFlag(FLAGS_read_config).empty()) {
-      std::vector<ShardVariable> config;
-      for (const auto& name : absl::GetFlag(FLAGS_paths).elements) {
-        config.push_back(ShardVariable{name});
-      }
-      return config;
+  std::vector<tensorstore::Spec> specs =
+      ReadSpecsFromFile(absl::GetFlag(FLAGS_read_config));
+  for (int i = 1; i < argc; ++i) {
+    ::nlohmann::json j =
+        ::nlohmann::json::parse(std::string(argv[i]), nullptr, false);
+    auto spec = tensorstore::Spec::FromJson(j);
+    if (spec.ok()) {
+      specs.push_back(std::move(spec).value());
     }
-    return ReadFromFileOrFlag(absl::GetFlag(FLAGS_read_config));
-  }();
-
-  ABSL_QCHECK(!config.empty())
-      << "Empty config; supply non-empty --read_config or --paths.";
-
-  auto ensure_trailing_slash = [](auto& spec) {
-    if (!spec.path.empty() && spec.path.back() != '/') {
-      spec.AppendSuffix("/");
-    }
-  };
-
-  auto kvstore_spec = absl::GetFlag(FLAGS_base_spec).value.kvstore();
-  ensure_trailing_slash(kvstore_spec);
-  auto base_spec = [&]() {
-    TENSORSTORE_CHECK_OK_AND_ASSIGN(
-        auto ts_json, absl::GetFlag(FLAGS_base_spec).value.ToJson());
-    ts_json.erase("kvstore");
-    return tensorstore::Spec::FromJson(ts_json).value();
-  }();
-  TENSORSTORE_CHECK_OK(base_spec.Set(OpenMode::open));
-
-  // Construct the specs to benchmark by combining the base spec with each
-  // specified path. Orbax, for example, constructs multiple tensorstores
-  // within the same ocdbt kvstore, so this can be used to benchmark the read
-  // of an orbax-style checkpoint.
-  std::vector<tensorstore::Spec> specs;
-  for (const auto& variable : config) {
-    ABSL_QCHECK(!variable.name.empty()) << "Variable name must not be empty.";
-
-    auto read_spec = kvstore_spec;
-    read_spec.AppendPathComponent(variable.name);
-    ensure_trailing_slash(read_spec);
-
-    auto spec = base_spec;
-    TENSORSTORE_CHECK_OK(spec.Set(std::move(read_spec)));
-    specs.push_back(std::move(spec));
   }
 
-  RunBenchmark(absl::GetFlag(FLAGS_context_spec).value, std::move(config),
-               std::move(specs));
+  ABSL_QCHECK(!specs.empty()) << "Empty config; supply non-empty --read_config "
+                                 "or pass specs on the command line.";
 
-  internal::DumpMetrics(absl::GetFlag(FLAGS_metrics_prefix));
+  if (absl::GetFlag(FLAGS_ith_spec) >= 0) {
+    ABSL_LOG(INFO) << "Reading only spec #" << absl::GetFlag(FLAGS_ith_spec);
+    specs = {specs[absl::GetFlag(FLAGS_ith_spec)]};
+  }
+
+  RunBenchmark(absl::GetFlag(FLAGS_context_spec).value, std::move(specs));
+
+  if (absl::GetFlag(FLAGS_metrics_prefix).has_value()) {
+    internal::DumpMetrics(absl::GetFlag(FLAGS_metrics_prefix).value());
+  }
 }
 
 }  // namespace
@@ -414,6 +339,6 @@ void Run() {
 
 int main(int argc, char** argv) {
   absl::ParseCommandLine(argc, argv);  // InitTensorstore
-  tensorstore::Run();
+  tensorstore::Run(argc, argv);
   return 0;
 }

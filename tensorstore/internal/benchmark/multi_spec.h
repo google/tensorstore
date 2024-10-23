@@ -15,46 +15,24 @@
 #ifndef TENSORSTORE_INTERNAL_BENCHMARK_MULTI_SPEC_H_
 #define TENSORSTORE_INTERNAL_BENCHMARK_MULTI_SPEC_H_
 
-#include <stddef.h>
-
 #include <string>
 #include <vector>
 
-#include "tensorstore/box.h"
-#include "tensorstore/index.h"
-#include "tensorstore/internal/json_binding/bindable.h"
-#include "tensorstore/internal/json_binding/box.h"  // IWYU pragma: keep
-#include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/json_binding/std_array.h"  // IWYU pragma: keep
+#include "tensorstore/spec.h"
 
 namespace tensorstore {
 namespace internal_benchmark {
 
-struct ShardVariable {
-  std::string name;
-  std::vector<Index> shape;
-  std::vector<Index> chunks;
-  std::string dtype;
-  std::vector<Box<>> array_boxes;
-
-  constexpr static auto default_json_binder = [](auto is_loading,
-                                                 const auto& options, auto* obj,
-                                                 auto* j) {
-    namespace jb = tensorstore::internal_json_binding;
-    using Self = ShardVariable;
-    return jb::Object(
-        jb::Member("name", jb::Projection<&Self::name>()),
-        jb::Member("shape", jb::Projection<&Self::shape>()),
-        jb::Member("chunks", jb::Projection<&Self::chunks>()),
-        jb::Member("dtype", jb::Projection<&Self::dtype>()),
-        jb::OptionalMember("array_boxes", jb::Projection<&Self::array_boxes>()),
-        jb::DiscardExtraMembers /**/
-        )(is_loading, options, obj, j);
-  };
-};
-
-/// Read a list of ShardVariable from a file or a json object.
-std::vector<ShardVariable> ReadFromFileOrFlag(std::string flag);
+/// Reads a list of tensorstore::Spec from a text file.
+///
+/// The text file can contain either a list of tensorstore::Spec in JSON format,
+/// or a list of tensorstore::Spec in a text format.
+///
+/// The text format is a list of lines, where each line contains a single
+/// tensorstore::Spec in JSON format. Empty lines and lines starting with '#'
+/// are ignored.
+std::vector<tensorstore::Spec> ReadSpecsFromFile(
+    const std::string& txt_file_path);
 
 }  // namespace internal_benchmark
 }  // namespace tensorstore
