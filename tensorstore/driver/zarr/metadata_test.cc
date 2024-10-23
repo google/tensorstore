@@ -357,6 +357,27 @@ TEST(EncodeDecodeMetadataTest, Array1) {
   EXPECT_EQ(j, ::nlohmann::json(metadata));
 }
 
+// Same as above but with filters specified as an empty list.
+// https://github.com/google/tensorstore/issues/199
+TEST(EncodeDecodeMetadataTest, Array1EmptyFilterList) {
+  std::string_view metadata_text = R"(
+{
+        "chunks": [10],
+        "compressor": {"id": "zlib", "level": 1},
+        "dtype": "<f8",
+        "fill_value": null,
+        "filters": [],
+        "order": "C",
+        "shape": [100],
+        "zarr_format": 2
+}
+)";
+  nlohmann::json j = nlohmann::json::parse(metadata_text, nullptr,
+                                           /*allow_exceptions=*/false);
+  ASSERT_FALSE(j.is_discarded());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata, ZarrMetadata::FromJson(j));
+}
+
 // Corresponds to the zarr test_encode_decode_array_2 test case, except that
 // "filters" are `null`.
 TEST(EncodeDecodeMetadataTest, Array2) {
@@ -729,6 +750,31 @@ TEST(ParseMetadataTest, InvalidRank) {
         {"zarr_format", 2}},
        MatchesStatus(absl::StatusCode::kInvalidArgument,
                      ".*: Rank 33 is outside valid range \\[0, 32\\]")},
+  });
+}
+
+TEST(ParseMetadataTest, InvalidFilters) {
+  tensorstore::TestJsonBinderFromJson<ZarrMetadata>({
+      {{{"chunks", ::nlohmann::json::array_t(5, 1)},
+        {"compressor", nullptr},
+        {"dtype", "|i1"},
+        {"fill_value", 0},
+        {"filters", 5},
+        {"order", "F"},
+        {"shape", ::nlohmann::json::array_t(5, 10)},
+        {"zarr_format", 2}},
+       MatchesStatus(absl::StatusCode::kInvalidArgument,
+                     ".*: Expected null or array, but received: 5")},
+      {{{"chunks", ::nlohmann::json::array_t(5, 1)},
+        {"compressor", nullptr},
+        {"dtype", "|i1"},
+        {"fill_value", 0},
+        {"filters", {{"id", "whatever"}}},
+        {"order", "F"},
+        {"shape", ::nlohmann::json::array_t(5, 10)},
+        {"zarr_format", 2}},
+       MatchesStatus(absl::StatusCode::kInvalidArgument,
+                     ".*: Expected null or array, but received: .*")},
   });
 }
 
