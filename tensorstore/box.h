@@ -26,10 +26,10 @@
 #include <string>
 #include <type_traits>
 
-#include "absl/base/attributes.h"
 #include "absl/meta/type_traits.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
+#include "tensorstore/internal/attributes.h"
 #include "tensorstore/internal/gdb_scripting.h"
 #include "tensorstore/internal/multi_vector.h"
 #include "tensorstore/internal/multi_vector_view.h"
@@ -439,8 +439,8 @@ Box(const Index (&shape)[Rank]) -> Box<Rank>;
 template <typename Origin, typename Shape,
           std::enable_if_t<(IsIndexConvertibleVector<Origin> &&
                             IsIndexConvertibleVector<Shape>)>* = nullptr>
-Box(const Origin& origin,
-    const Shape& shape) -> Box<SpanStaticExtent<Origin, Shape>::value>;
+Box(const Origin& origin, const Shape& shape)
+    -> Box<SpanStaticExtent<Origin, Shape>::value>;
 
 template <DimensionIndex Rank>
 Box(const Index (&origin)[Rank], const Index (&shape)[Rank]) -> Box<Rank>;
@@ -512,7 +512,7 @@ class BoxView : public internal_box::BoxViewStorage<Rank, Mutable> {
   template <bool SfinaeM = Mutable,
             typename = std::enable_if_t<SfinaeM == false>>
   explicit BoxView(tensorstore::span<const Index, Rank> shape
-                       ABSL_ATTRIBUTE_LIFETIME_BOUND) {
+                       TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND) {
     const auto rank = GetStaticOrDynamicExtent(shape);
     Access::Assign(this, rank, GetConstantVector<Index, 0>(rank).data(),
                    shape.data());
@@ -520,7 +520,7 @@ class BoxView : public internal_box::BoxViewStorage<Rank, Mutable> {
   template <size_t N, bool SfinaeM = Mutable,
             typename = std::enable_if_t<
                 (RankConstraint::Implies(N, static_rank) && SfinaeM == false)>>
-  explicit BoxView(IndexType (&shape ABSL_ATTRIBUTE_LIFETIME_BOUND)[N]) {
+  explicit BoxView(IndexType (&shape TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)[N]) {
     const auto rank = std::integral_constant<ptrdiff_t, N>{};
     Access::Assign(this, rank, GetConstantVector<Index, 0>(rank).data(), shape);
   }
@@ -535,8 +535,8 @@ class BoxView : public internal_box::BoxViewStorage<Rank, Mutable> {
   }
   template <size_t N, typename = std::enable_if_t<
                           RankConstraint::Implies(N, static_rank)>>
-  explicit BoxView(IndexType (&origin ABSL_ATTRIBUTE_LIFETIME_BOUND)[N],
-                   IndexType (&shape ABSL_ATTRIBUTE_LIFETIME_BOUND)[N]) {
+  explicit BoxView(IndexType (&origin TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)[N],
+                   IndexType (&shape TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)[N]) {
     const auto rank = std::integral_constant<ptrdiff_t, N>{};
     Access::Assign(this, rank, origin, shape);
   }
@@ -557,11 +557,12 @@ class BoxView : public internal_box::BoxViewStorage<Rank, Mutable> {
   /// \requires If `Mutable == true`, `BoxType` must be a mutable Box-like type
   ///     (such as a non-const `Box` reference or a `MutableBoxView`).
   /// \id convert
-  template <typename BoxType,
-            typename = std::enable_if_t<(
-                IsBoxLike<BoxType> && (!Mutable || IsMutableBoxLike<BoxType>) &&
-                RankConstraint::Implies(
-                    absl::remove_cvref_t<BoxType>::static_rank, Rank))>>
+  template <
+      typename BoxType,
+      typename = std::enable_if_t<
+          (IsBoxLike<BoxType> &&
+           (!Mutable || IsMutableBoxLike<BoxType>)&&RankConstraint::Implies(
+               absl::remove_cvref_t<BoxType>::static_rank, Rank))>>
   // NONITPICK: std::remove_cvref_t<BoxType>::static_rank
   BoxView(BoxType&& other)
       : BoxView(other.rank(), other.origin().data(), other.shape().data()) {}
@@ -586,7 +587,7 @@ class BoxView : public internal_box::BoxViewStorage<Rank, Mutable> {
       typename BoxType,
       std::enable_if_t<
           (IsBoxLike<absl::remove_cvref_t<BoxType>> &&
-           (!Mutable || IsMutableBoxLike<std::remove_reference_t<BoxType>>) &&
+           (!Mutable || IsMutableBoxLike<std::remove_reference_t<BoxType>>)&&
 
            RankConstraint::Implies(absl::remove_cvref_t<BoxType>::static_rank,
                                    Rank))>* = nullptr>
@@ -666,7 +667,7 @@ class BoxView : public internal_box::BoxViewStorage<Rank, Mutable> {
     return ApplyIndexTransform(*this,
                                std::forward<Transformable>(transformable));
   }
-};
+};  // namespace tensorstore
 
 BoxView(DimensionIndex rank) -> BoxView<>;
 
@@ -703,8 +704,8 @@ BoxView(Origin&& origin, Shape&& shape)
                (IsMutableIndexVector<Origin> && IsMutableIndexVector<Shape>)>;
 
 template <DimensionIndex Rank>
-BoxView(const Index (&origin)[Rank],
-        const Index (&shape)[Rank]) -> BoxView<Rank>;
+BoxView(const Index (&origin)[Rank], const Index (&shape)[Rank])
+    -> BoxView<Rank>;
 
 template <DimensionIndex Rank, bool Mutable>
 struct StaticCastTraits<BoxView<Rank, Mutable>>

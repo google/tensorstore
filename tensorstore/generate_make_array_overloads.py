@@ -109,7 +109,8 @@ def output_make_array(
   elif origin_type == 'array':
     if is_view:
       origin_parameter = (
-          'const Index (&origin ABSL_ATTRIBUTE_LIFETIME_BOUND)[OriginRank], '
+          'const Index (&origin'
+          ' TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)[OriginRank], '
       )
     else:
       origin_parameter = 'const Index (&origin)[OriginRank], '
@@ -138,7 +139,7 @@ def output_make_array(
     out.write(
         'ArrayView<{element}, {rank}{origin_kind_parameter}>'
         ' Make{function_name}View({origin_parameter}{element} (&array'
-        ' ABSL_ATTRIBUTE_LIFETIME_BOUND)'.format(
+        ' TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND)'.format(
             rank=rank,
             element=maybe_const_element,
             origin_parameter=origin_parameter,

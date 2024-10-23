@@ -17,6 +17,14 @@
 
 #include "absl/base/attributes.h"
 
+#ifndef TENSORSTORE_CPP_DOC_GENERATION
+#define TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND ABSL_ATTRIBUTE_LIFETIME_BOUND
+#else
+// Expand to nothing to avoid cluttering the documentation and because the
+// Sphinx C++ parser chokes on it.
+#define TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND
+#endif
+
 // When defining a conditionally-explicit constructor, this may be used on the
 // explicit overload to wrap the portion of the `enable_if` conditions that
 // differ from the implicit overload.

@@ -19,12 +19,12 @@
 #include <type_traits>
 #include <utility>
 
-#include "absl/base/attributes.h"
 #include "absl/base/optimization.h"
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
+#include "tensorstore/internal/attributes.h"
 #include "tensorstore/internal/preprocessor/cat.h"
 #include "tensorstore/internal/preprocessor/expand.h"
 #include "tensorstore/internal/type_traits.h"
@@ -380,14 +380,14 @@ class Result : private internal_result::ResultStorage<T>,
   ///   opt.emplace(arg1,arg2,arg3);  // Constructs Foo(arg1,arg2,arg3)
   ///
   template <typename... Args>
-  T& emplace(Args&&... args) ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  T& emplace(Args&&... args) TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     static_assert(sizeof...(Args) == 0 || !std::is_void_v<T>);
     this->emplace_value(std::forward<Args>(args)...);
     return this->value_;
   }
   template <typename U, typename... Args>
   T& emplace(std::initializer_list<U> il,
-             Args&&... args) ABSL_ATTRIBUTE_LIFETIME_BOUND {
+             Args&&... args) TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     this->emplace_value(il, std::forward<Args>(args)...);
     return this->value_;
   }
@@ -412,25 +412,26 @@ class Result : private internal_result::ResultStorage<T>,
   /// Terminates the process if `*this` represents a failure state.
   ///
   /// \pre `has_value() == true`
-  const T& value() const& noexcept ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  const T& value() const& noexcept TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     if (!has_value()) TENSORSTORE_CHECK_OK(status());
     return this->value_;
   }
-  T& value() & noexcept ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  T& value() & noexcept TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     if (!has_value()) TENSORSTORE_CHECK_OK(status());
     return this->value_;
   }
-  const T&& value() const&& noexcept ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  const T&& value() const&& noexcept TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     if (!has_value()) TENSORSTORE_CHECK_OK(status());
     return std::move(this->value_);
   }
-  T&& value() && noexcept ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  T&& value() && noexcept TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     if (!has_value()) TENSORSTORE_CHECK_OK(status());
     return std::move(this->value_);
   }
 
   /// Returns the error status.
-  const absl::Status& status() const& noexcept ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  const absl::Status& status() const& noexcept
+      TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     return status_;
   }
   absl::Status status() && noexcept {
@@ -442,30 +443,32 @@ class Result : private internal_result::ResultStorage<T>,
   /// Returns a pointer to the contained value.
   ///
   /// \pre has_value() == true
-  constexpr const T* operator->() const noexcept ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  constexpr const T* operator->() const noexcept
+      TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     assert_has_value();
     return &this->value_;
   }
-  constexpr T* operator->() noexcept ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  constexpr T* operator->() noexcept TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     assert_has_value();
     return &this->value_;
   }
 
   /// Returns a reference to the contained value.
-  constexpr const T& operator*() const& noexcept ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  constexpr const T& operator*() const& noexcept
+      TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     assert_has_value();
     return this->value_;
   }
-  constexpr T& operator*() & noexcept ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  constexpr T& operator*() & noexcept TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     assert_has_value();
     return this->value_;
   }
   constexpr const T&& operator*() const&& noexcept
-      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+      TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     assert_has_value();
     return std::move(this->value_);
   }
-  constexpr T&& operator*() && noexcept ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  constexpr T&& operator*() && noexcept TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     assert_has_value();
     return std::move(this->value_);
   }
@@ -668,7 +671,8 @@ class Result<void> {
 
   void value() const { TENSORSTORE_CHECK_OK(status()); }
 
-  const absl::Status& status() const& noexcept ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  const absl::Status& status() const& noexcept
+      TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     return status_;
   }
 

@@ -29,10 +29,10 @@
 #include <utility>
 #include <vector>
 
-#include "absl/base/attributes.h"
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include "absl/time/time.h"
+#include "tensorstore/internal/attributes.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/util/executor.h"
@@ -463,7 +463,8 @@ class AnyFuture {
   /// (when a value is present) or a copy of result.status().
   ///
   /// \dchecks `!null()`
-  const absl::Status& status() const& noexcept ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  const absl::Status& status() const& noexcept
+      TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     Wait();
     return rep().status();
   }
@@ -811,13 +812,14 @@ class Future : public AnyFuture {
   ///
   /// \dchecks `!null()`
   std::add_lvalue_reference_t<result_type> result() const
-      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+      TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     this->Wait();
     return rep().result;
   }
 
   /// Equivalent to `result().value()`.
-  std::add_lvalue_reference_t<T> value() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::add_lvalue_reference_t<T> value() const
+      TENSORSTORE_ATTRIBUTE_LIFETIME_BOUND {
     return result().value();
   }
 
