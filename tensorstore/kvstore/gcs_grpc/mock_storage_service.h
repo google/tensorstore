@@ -45,19 +45,6 @@ class MockStorage : public ::google::storage::v2::Storage::Service {
                         ::google::storage::v2::Bucket);
   TENSORSTORE_GRPC_MOCK(ListBuckets, ::google::storage::v2::ListBucketsRequest,
                         ::google::storage::v2::ListBucketsResponse);
-  TENSORSTORE_GRPC_MOCK(LockBucketRetentionPolicy,
-                        ::google::storage::v2::LockBucketRetentionPolicyRequest,
-                        ::google::storage::v2::Bucket);
-  TENSORSTORE_GRPC_MOCK(GetIamPolicy, ::google::iam::v1::GetIamPolicyRequest,
-                        ::google::iam::v1::Policy);
-  TENSORSTORE_GRPC_MOCK(SetIamPolicy, ::google::iam::v1::SetIamPolicyRequest,
-                        ::google::iam::v1::Policy);
-  TENSORSTORE_GRPC_MOCK(TestIamPermissions,
-                        ::google::iam::v1::TestIamPermissionsRequest,
-                        ::google::iam::v1::TestIamPermissionsResponse);
-  TENSORSTORE_GRPC_MOCK(UpdateBucket,
-                        ::google::storage::v2::UpdateBucketRequest,
-                        ::google::storage::v2::Bucket);
   TENSORSTORE_GRPC_MOCK(ComposeObject,
                         ::google::storage::v2::ComposeObjectRequest,
                         ::google::storage::v2::Object);
@@ -89,23 +76,6 @@ class MockStorage : public ::google::storage::v2::Storage::Service {
   TENSORSTORE_GRPC_MOCK(QueryWriteStatus,
                         ::google::storage::v2::QueryWriteStatusRequest,
                         ::google::storage::v2::QueryWriteStatusResponse);
-  TENSORSTORE_GRPC_MOCK(GetServiceAccount,
-                        ::google::storage::v2::GetServiceAccountRequest,
-                        ::google::storage::v2::ServiceAccount);
-  TENSORSTORE_GRPC_MOCK(CreateHmacKey,
-                        ::google::storage::v2::CreateHmacKeyRequest,
-                        ::google::storage::v2::CreateHmacKeyResponse);
-  TENSORSTORE_GRPC_MOCK(DeleteHmacKey,
-                        ::google::storage::v2::DeleteHmacKeyRequest,
-                        ::google::protobuf::Empty);
-  TENSORSTORE_GRPC_MOCK(GetHmacKey, ::google::storage::v2::GetHmacKeyRequest,
-                        ::google::storage::v2::HmacKeyMetadata);
-  TENSORSTORE_GRPC_MOCK(ListHmacKeys,
-                        ::google::storage::v2::ListHmacKeysRequest,
-                        ::google::storage::v2::ListHmacKeysResponse);
-  TENSORSTORE_GRPC_MOCK(UpdateHmacKey,
-                        ::google::storage::v2::UpdateHmacKeyRequest,
-                        ::google::storage::v2::HmacKeyMetadata);
 };
 
 }  // namespace tensorstore_grpc
