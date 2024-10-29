@@ -24,6 +24,7 @@
 #include <gtest/gtest.h>
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "google/protobuf/descriptor.h"
@@ -328,8 +329,9 @@ bool ProtoCompare(const internal::ProtoComparison& comp,
 // Describes the types of the expected and the actual protocol buffer.
 std::string DescribeTypes(const google::protobuf::Message& expected,
                           const google::protobuf::Message& actual) {
-  return "whose type should be " + expected.GetDescriptor()->full_name() +
-         " but actually is " + actual.GetDescriptor()->full_name();
+  return absl::StrCat("whose type should be ",
+                      expected.GetDescriptor()->full_name(),
+                      " but actually is ", actual.GetDescriptor()->full_name());
 }
 
 // Prints the protocol buffer pointed to by proto.
