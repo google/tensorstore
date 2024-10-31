@@ -1,6 +1,6 @@
 # DO NOT EDIT: Generated from docs_requirements.txt by pypi_solver
 sphinx==6.0.1
-sphinx-immaterial==0.11.11
-jsonschema==4.21.1
-pyyaml==6.0.1
-markupsafe==2.1.5
+sphinx-immaterial==0.12.4
+jsonschema==4.23.0
+pyyaml==6.0.2
+markupsafe==3.0.2

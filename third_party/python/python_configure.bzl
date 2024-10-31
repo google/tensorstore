@@ -126,7 +126,8 @@ def _get_copy_directory_rule(
         dest_dir,
         genrule_name,
         src_files = [],
-        dest_files = []):
+        dest_files = [],
+        predicate = None):
     """Returns a genrule to copy a set of files.
 
     If src_dir is passed, files will be read from the given directory; otherwise
@@ -135,7 +136,12 @@ def _get_copy_directory_rule(
     if src_dir != None:
         src_dir = _norm_path(src_dir)
         dest_dir = _norm_path(dest_dir)
-        files = "\n".join(sorted(_read_dir(repository_ctx, src_dir).splitlines()))
+        file_list = sorted(_read_dir(repository_ctx, src_dir).splitlines())
+
+        if predicate != None:
+            file_list = [f for f in file_list if predicate(f)]
+
+        files = "\n".join(file_list)
 
         # Create a list with the src_dir stripped to use for outputs.
         dest_files = files.replace(src_dir, "").splitlines()
@@ -243,9 +249,9 @@ def get_numpy_include_rule(repository_ctx, python_bin, target_name = "numpy_incl
     numpy_include = _get_numpy_include(repository_ctx, python_bin) + "/numpy"
     return _get_copy_directory_rule(
         repository_ctx,
-        numpy_include,
-        "numpy_include/numpy",
-        target_name,
+        src_dir = numpy_include,
+        dest_dir = "numpy_include/numpy",
+        genrule_name = target_name,
     )
 
 def _create_local_python_repository(repository_ctx):
@@ -257,19 +263,28 @@ def _create_local_python_repository(repository_ctx):
     build_tpl = repository_ctx.path(Label("//third_party:python/BUILD.tpl"))
 
     python_bin = get_python_bin(repository_ctx)
-    python_include = _get_python_include(repository_ctx, python_bin)
+    python_include = _norm_path(_get_python_include(repository_ctx, python_bin))
+
+    # The `numpy` include directory may be symlinked from the system Python
+    # include directory. They need to be excluded to ensure that the correct
+    # version of the NumPy headers is used.
+    numpy_prefix = python_include + "/numpy/"
+
+    def not_numpy_header(f):
+        return not f.startswith(numpy_prefix)
+
     python_include_rule = _get_copy_directory_rule(
         repository_ctx,
-        python_include,
-        "python_include",
-        "python_include",
+        src_dir = python_include,
+        dest_dir = "python_include",
+        genrule_name = "python_include",
+        predicate = not_numpy_header,
     )
     python_import_lib_genrule = ""
 
     # To build Python C/C++ extension on Windows, we need to link to python import library pythonXY.lib
     # See https://docs.python.org/3/extending/windows.html
     if _is_windows(repository_ctx):
-        python_include = _norm_path(python_include)
         python_import_lib_name = _get_python_import_lib_name(repository_ctx, python_bin)
         python_import_lib_src = python_include.rsplit("/", 1)[0] + "/libs/" + python_import_lib_name
         python_import_lib_genrule = _get_copy_directory_rule(
