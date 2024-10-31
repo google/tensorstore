@@ -235,8 +235,8 @@ py_library(
 
 cc_library(
   name = "headers",
-  hdrs = glob(["numpy/core/include/**/*.h"]),
-  strip_include_prefix = "numpy/core/include",
+  hdrs = glob(["numpy/_core/include/**/*.h"]),
+  strip_include_prefix = "numpy/_core/include",
   visibility = ["//visibility:public"],
 )
 """
