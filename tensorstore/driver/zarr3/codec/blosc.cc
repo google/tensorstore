@@ -24,17 +24,11 @@
 #include <utility>
 
 #include "absl/status/status.h"
-#include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include <blosc.h>
-#include "riegeli/base/chain.h"
-#include "riegeli/bytes/chain_reader.h"
-#include "riegeli/bytes/cord_writer.h"
-#include "riegeli/bytes/read_all.h"
 #include "riegeli/bytes/reader.h"
-#include "riegeli/bytes/write.h"
 #include "riegeli/bytes/writer.h"
 #include "tensorstore/driver/zarr3/codec/codec.h"
 #include "tensorstore/driver/zarr3/codec/codec_spec.h"
@@ -53,43 +47,13 @@ namespace tensorstore {
 namespace internal_zarr3 {
 namespace {
 
-// Buffers writes to a `std::string`, and then in `Done`, calls `blosc::Encode`
-// and forwards the result to another `Writer`.
-class BloscDeferredWriter : public riegeli::CordWriter<absl::Cord> {
- public:
-  explicit BloscDeferredWriter(blosc::Options options,
-                               riegeli::Writer& base_writer)
-      : CordWriter(riegeli::CordWriterBase::Options().set_max_block_size(
-            std::numeric_limits<size_t>::max())),
-        options_(std::move(options)),
-        base_writer_(base_writer) {}
-
-  void Done() override {
-    CordWriter::Done();
-    auto output = blosc::Encode(dest().Flatten(), options_);
-    if (!output.ok()) {
-      Fail(std::move(output).status());
-      return;
-    }
-    auto status = riegeli::Write(*std::move(output), base_writer_);
-    if (!status.ok()) {
-      Fail(std::move(status));
-      return;
-    }
-  }
-
- private:
-  blosc::Options options_;
-  riegeli::Writer& base_writer_;
-};
-
 class BloscCodec : public ZarrBytesToBytesCodec {
  public:
   class State : public ZarrBytesToBytesCodec::PreparedState {
    public:
     Result<std::unique_ptr<riegeli::Writer>> GetEncodeWriter(
         riegeli::Writer& encoded_writer) const final {
-      return std::make_unique<BloscDeferredWriter>(
+      return std::make_unique<blosc::BloscWriter>(
           blosc::Options{codec_->cname.c_str(), codec_->clevel, codec_->shuffle,
                          codec_->blocksize, codec_->typesize},
           encoded_writer);
@@ -97,19 +61,7 @@ class BloscCodec : public ZarrBytesToBytesCodec {
 
     Result<std::unique_ptr<riegeli::Reader>> GetDecodeReader(
         riegeli::Reader& encoded_reader) const final {
-      auto output = riegeli::ReadAll(
-          encoded_reader,
-          [](absl::string_view input) -> absl::StatusOr<std::string> {
-            auto output = blosc::Decode(input);
-            if (!output.ok()) return std::move(output).status();
-            return *std::move(output);
-          });
-      auto reader = std::make_unique<riegeli::ChainReader<riegeli::Chain>>(
-          output.ok() ? riegeli::Chain(*std::move(output)) : riegeli::Chain());
-      if (!output.ok()) {
-        reader->Fail(std::move(output).status());
-      }
-      return reader;
+      return std::make_unique<blosc::BloscReader>(encoded_reader);
     }
 
     const BloscCodec* codec_;
