@@ -32,7 +32,7 @@
         <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
       
     
-        <link rel="stylesheet" type="text/css" href="../../_static/sphinx_immaterial_theme.1c495b8425a51fa92.min.css" />
+        <link rel="stylesheet" type="text/css" href="../../_static/sphinx_immaterial_theme.b454d0e296e565629.min.css" />
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
@@ -693,7 +693,7 @@
         
           <li class="md-nav__item">
   <a href="#p-axes" class="md-nav__link">
-    <span aria-label="Python parameter" class="objinfo-icon objinfo-icon__sub-data" title="Python parameter">p</span><span title="tensorstore.Spec.transpose.axes (Python parameter) — Specifies the existing dimension corresponding to each dimension of the new view.  Dimensions may be specified either by index or label.  Specifying None is equivalent to specifying [rank-1, ..., 0], which reverses the dimension order." class="md-ellipsis">axes</span>
+    <span aria-label="Python parameter" class="objinfo-icon objinfo-icon__sub-data" title="Python parameter">p</span><span title="tensorstore.Spec.transpose.axes (Python parameter) — Specifies the existing dimension corresponding to each dimension of the new view." class="md-ellipsis">axes</span>
   </a>
   
 </li>
@@ -1195,7 +1195,7 @@
         
           <li class="md-nav__item">
   <a href="#p-axes" class="md-nav__link">
-    <span aria-label="Python parameter" class="objinfo-icon objinfo-icon__sub-data" title="Python parameter">p</span><span title="tensorstore.Spec.transpose.axes (Python parameter) — Specifies the existing dimension corresponding to each dimension of the new view.  Dimensions may be specified either by index or label.  Specifying None is equivalent to specifying [rank-1, ..., 0], which reverses the dimension order." class="md-ellipsis">axes</span>
+    <span aria-label="Python parameter" class="objinfo-icon objinfo-icon__sub-data" title="Python parameter">p</span><span title="tensorstore.Spec.transpose.axes (Python parameter) — Specifies the existing dimension corresponding to each dimension of the new view." class="md-ellipsis">axes</span>
   </a>
   
 </li>
@@ -1227,8 +1227,8 @@
 
 
 <dl class="py method objdesc">
-<dt class="sig sig-object highlight py">
-<span class="sig-prename descclassname"><span class="pre">tensorstore.</span><span class="pre">Spec.</span></span><span class="sig-name descname"><span class="pre">transpose</span></span><span class="sig-paren">(</span><span class="sig-param-decl"><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, </span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="#p-axes" title="tensorstore.Spec.transpose.axes (Python parameter) — Specifies the existing dimension corresponding to each dimension of the new view.  Dimensions may be specified either by index or label.  Specifying None is equivalent to specifying [rank-1, ..., 0], which reverses the dimension order."><span class="n"><span class="pre">axes</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference internal" href="../indexing.html#python-dim-selections"><span class="std std-ref"><span class="pre">DimSelectionLike</span></span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><code class="code python default_value docutils literal highlight highlight-python"><span class="kc">None</span></code></em></span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference internal" href="tensorstore.Spec.html" title="tensorstore.Spec (Python class) — Specification for opening or creating a TensorStore."><span class="pre">Spec</span></a></span></span></span></dt>
+<dt class="sig sig-object highlight sig-wrap py">
+<span class="sig-prename descclassname"><span class="pre">tensorstore.</span><span class="pre">Spec.</span></span><span class="sig-name descname"><span class="pre">transpose</span></span><span class="sig-paren">(</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="#" title="tensorstore.Spec.transpose.self (Python parameter)"><span class="n"><span class="pre">self</span></span></a></em>, </span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="#p-axes" title="tensorstore.Spec.transpose.axes (Python parameter) — Specifies the existing dimension corresponding to each dimension of the new view."><span class="n"><span class="pre">axes</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference internal" href="../indexing.html#python-dim-selections"><span class="std std-ref"><span class="pre">DimSelectionLike</span></span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><code class="code python default_value docutils literal highlight highlight-python"><span class="kc">None</span></code></em></span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference internal" href="tensorstore.Spec.html" title="tensorstore.Spec (Python class) — Specification for opening or creating a TensorStore."><span class="pre">Spec</span></a></span></span></span></dt>
 <dd><p>Returns a view with a transposed domain.</p>
 <p>This is equivalent to <code class="code highlight python docutils literal highlight-python"><span class="bp">self</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="n">axes</span><span class="p">]</span><span class="o">.</span><span class="n">transpose</span><span class="p">[:]]</span></code>.</p>
 <dl class="field-list simple">
@@ -1242,7 +1242,7 @@ reverses the dimension order.</p>
 </dl>
 </dd>
 <dt class="field-even" id="raises">Raises<span class="colon">:</span><a class="headerlink" href="#raises" title="Permalink to this headline">¶</a></dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If <a class="reference internal" href="#p-axes" title="tensorstore.Spec.transpose.axes (Python parameter) — Specifies the existing dimension corresponding to each dimension of the new view.  Dimensions may be specified either by index or label.  Specifying None is equivalent to specifying [rank-1, ..., 0], which reverses the dimension order."><code class="xref py py-param docutils literal notranslate"><span class="pre">axes</span></code></a> does not specify a valid permutation.</p>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If <a class="reference internal" href="#p-axes" title="tensorstore.Spec.transpose.axes (Python parameter) — Specifies the existing dimension corresponding to each dimension of the new view."><code class="xref py py-param docutils literal notranslate"><span class="pre">axes</span></code></a> does not specify a valid permutation.</p>
 </dd>
 </dl>
 <div class="seealso admonition">
