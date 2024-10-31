@@ -11,38 +11,42 @@ exports_files(["LICENSE.md"])
 
 WITH_SIMD_COPTS = ["-DWITH_SIMD"]
 
-LIBJPEGTURBO_COPTS = select({
-    ":compiler_msvc": [
-        "-wd4996",
-    ],
-    ":armeabi-v7a": [
-        "-D__ARM_NEON__",
-        "-DNEON_INTRINSICS",
-        "-march=armv7-a",
-        "-mfpu=neon",
-        "-mfloat-abi=softfp",
-        "-fprefetch-loop-arrays",
-        "-w",
-    ],
-    "@platforms//cpu:arm64": [
-        "-DNEON_INTRINSICS",
-        "-w",
-    ],
-    "@platforms//cpu:ppc": [
-        "-mcpu=power8",
-        "-mtune=power8",
-        "-w",
-    ],
-    "//conditions:default": [
-        "-w",
-    ],
-}) + select({
-    "@platforms//cpu:x86_64": WITH_SIMD_COPTS,
-    "@platforms//cpu:arm64": WITH_SIMD_COPTS,
-    "@platforms//cpu:ppc": WITH_SIMD_COPTS,
-    ":armeabi-v7a": WITH_SIMD_COPTS,
-    "//conditions:default": [],
-})
+LIBJPEGTURBO_COPTS = select(
+    {
+        ":compiler_msvc": [
+            "-wd4996",
+        ],
+        ":armeabi-v7a": [
+            "-D__ARM_NEON__",
+            "-DNEON_INTRINSICS",
+            "-march=armv7-a",
+            "-mfpu=neon",
+            "-mfloat-abi=softfp",
+            "-fprefetch-loop-arrays",
+            "-w",
+        ],
+        "@platforms//cpu:arm64": [
+            "-DNEON_INTRINSICS",
+            "-w",
+        ],
+        "@platforms//cpu:ppc": [
+            "-mcpu=power8",
+            "-mtune=power8",
+            "-w",
+        ],
+        "//conditions:default": [
+            "-w",
+        ],
+    },
+) + select(
+    {
+        "@platforms//cpu:x86_64": WITH_SIMD_COPTS,
+        "@platforms//cpu:arm64": WITH_SIMD_COPTS,
+        "@platforms//cpu:ppc": WITH_SIMD_COPTS,
+        ":armeabi-v7a": WITH_SIMD_COPTS,
+        "//conditions:default": [],
+    },
+)
 
 cc_library(
     name = "jpeg",
@@ -121,7 +125,7 @@ cc_library(
         "jpeglib.h",
     ],
     copts = LIBJPEGTURBO_COPTS,
-    strip_include_prefix = ".",
+    includes = ["."],
     textual_hdrs = [
         "jccolext.c",
         "jdcol565.c",
@@ -131,13 +135,15 @@ cc_library(
         "jstdhuff.c",
     ],
     visibility = ["//visibility:public"],
-    deps = select({
-        "@platforms//cpu:x86_64": [":simd_x86_64"],
-        ":armeabi-v7a": [":simd_arm"],
-        "@platforms//cpu:arm64": [":simd_arm"],
-        "@platforms//cpu:ppc": [":simd_altivec"],
-        "//conditions:default": [":simd_none"],
-    }),
+    deps = select(
+        {
+            "@platforms//cpu:x86_64": [":simd_x86_64"],
+            ":armeabi-v7a": [":simd_arm"],
+            "@platforms//cpu:arm64": [":simd_arm"],
+            "@platforms//cpu:ppc": [":simd_altivec"],
+            "//conditions:default": [":simd_none"],
+        },
+    ),
 )
 
 # SIMD support
@@ -216,22 +222,24 @@ cc_library(
 NASM_FLAGS = [
     "-w+all",
     "-D__x86_64__",
-] + select({
-    "@platforms//os:windows": [
-        "-fwin64",
-        "-DWIN64",
-    ],
-    "@platforms//os:macos": [
-        "-fmacho64",
-        "-DMACHO",
-        "-DPIC",
-    ],
-    "//conditions:default": [
-        "-felf64",
-        "-DELF",
-        "-DPIC",
-    ],
-})
+] + select(
+    {
+        "@platforms//os:windows": [
+            "-fwin64",
+            "-DWIN64",
+        ],
+        "@platforms//os:macos": [
+            "-fmacho64",
+            "-DMACHO",
+            "-DPIC",
+        ],
+        "//conditions:default": [
+            "-felf64",
+            "-DELF",
+            "-DPIC",
+        ],
+    },
+)
 
 nasm_library(
     name = "simd_x86_64_asm",
@@ -324,17 +332,19 @@ cc_library(
         "simd/arm/jidctint-neon.c",
         "simd/arm/jidctred-neon.c",
         "simd/arm/jquanti-neon.c",
-    ] + select({
-        ":armeabi-v7a": [
-            "simd/arm/aarch32/jchuff-neon.c",
-            "simd/arm/aarch32/jsimd.c",
-        ],
-        "@platforms//cpu:arm64": [
-            "simd/arm/aarch64/jchuff-neon.c",
-            "simd/arm/aarch64/jsimd.c",
-        ],
-        "//conditions:default": [],
-    }),
+    ] + select(
+        {
+            ":armeabi-v7a": [
+                "simd/arm/aarch32/jchuff-neon.c",
+                "simd/arm/aarch32/jsimd.c",
+            ],
+            "@platforms//cpu:arm64": [
+                "simd/arm/aarch64/jchuff-neon.c",
+                "simd/arm/aarch64/jsimd.c",
+            ],
+            "//conditions:default": [],
+        },
+    ),
     hdrs = [
         "simd/arm/align.h",
         "simd/arm/jchuff.h",
@@ -348,15 +358,17 @@ cc_library(
         "simd/arm/jcgryext-neon.c",
         "simd/arm/jdcolext-neon.c",
         "simd/arm/jdmrgext-neon.c",
-    ] + select({
-        ":armeabi-v7a": [
-            "simd/arm/aarch32/jccolext-neon.c",
-        ],
-        "@platforms//cpu:arm64": [
-            "simd/arm/aarch64/jccolext-neon.c",
-        ],
-        "//conditions:default": [],
-    }),
+    ] + select(
+        {
+            ":armeabi-v7a": [
+                "simd/arm/aarch32/jccolext-neon.c",
+            ],
+            "@platforms//cpu:arm64": [
+                "simd/arm/aarch64/jccolext-neon.c",
+            ],
+            "//conditions:default": [],
+        },
+    ),
     deps = [
         ":neon-compat_hdr",
         ":simd_common",
@@ -421,54 +433,68 @@ JCONFIG_SUBSTITUTIONS_WIN.update(COMMON_SUBSTITUTIONS)
 expand_template(
     name = "configure",
     out = "jconfig.h",
-    substitutions = select({
-        "@platforms//os:windows": JCONFIG_SUBSTITUTIONS_WIN,
-        "//conditions:default": JCONFIG_SUBSTITUTIONS,
-    }),
-    template = select({
-        "@platforms//os:windows": "win/jconfig.h.in",
-        "//conditions:default": "jconfig.h.in",
-    }),
+    substitutions = select(
+        {
+            "@platforms//os:windows": JCONFIG_SUBSTITUTIONS_WIN,
+            "//conditions:default": JCONFIG_SUBSTITUTIONS,
+        },
+    ),
+    template = select(
+        {
+            "@platforms//os:windows": "win/jconfig.h.in",
+            "//conditions:default": "jconfig.h.in",
+        },
+    ),
 )
 
 # Substitutions used on all platforms for `jconfigint.h.in`.
 JCONFIGINT_SUBSTITUTIONS = {
     "#undef inline": "",
-    "#define INLINE  @INLINE@": "\n".join([
-        "#ifndef INLINE",
-        "#if defined(__GNUC__)",
-        "#define INLINE  inline __attribute__((always_inline))",
-        "#elif defined(_MSC_VER)",
-        "#define INLINE  __forceinline",
-        "#else",
-        "#define INLINE",
-        "#endif",
-        "#endif",
-    ]),
-    "#define THREAD_LOCAL  @THREAD_LOCAL@": "\n".join([
-        "#if defined(_MSC_VER) && (defined(_WIN32) || defined(_WIN64))",
-        "#define THREAD_LOCAL  __declspec(thread)",
-        "#else",
-        "#define THREAD_LOCAL  __thread",
-        "#endif",
-    ]),
-    "#define SIZEOF_SIZE_T  @SIZE_T@": "\n".join([
-        "#if !defined(__native_client__) && (__WORDSIZE==64 || defined(_WIN64))",
-        "#define SIZEOF_SIZE_T  8",
-        "#else",
-        "#define SIZEOF_SIZE_T  4",
-        "#endif",
-    ]),
-    "#cmakedefine HAVE_BUILTIN_CTZL": "\n".join([
-        "#if defined(__GNUC__)",
-        "#define HAVE_BUILTIN_CTZL 1",
-        "#endif",
-    ]),
-    "#cmakedefine HAVE_INTRIN_H": "\n".join([
-        "#if defined(_MSC_VER)",
-        "#define HAVE_INTRIN_H  1",
-        "#endif",
-    ]),
+    "#define INLINE  @INLINE@": "\n".join(
+        [
+            "#ifndef INLINE",
+            "#if defined(__GNUC__)",
+            "#define INLINE  inline __attribute__((always_inline))",
+            "#elif defined(_MSC_VER)",
+            "#define INLINE  __forceinline",
+            "#else",
+            "#define INLINE",
+            "#endif",
+            "#endif",
+        ],
+    ),
+    "#define THREAD_LOCAL  @THREAD_LOCAL@": "\n".join(
+        [
+            "#if defined(_MSC_VER) && (defined(_WIN32) || defined(_WIN64))",
+            "#define THREAD_LOCAL  __declspec(thread)",
+            "#else",
+            "#define THREAD_LOCAL  __thread",
+            "#endif",
+        ],
+    ),
+    "#define SIZEOF_SIZE_T  @SIZE_T@": "\n".join(
+        [
+            "#if !defined(__native_client__) && (__WORDSIZE==64 || defined(_WIN64))",
+            "#define SIZEOF_SIZE_T  8",
+            "#else",
+            "#define SIZEOF_SIZE_T  4",
+            "#endif",
+        ],
+    ),
+    "#cmakedefine HAVE_BUILTIN_CTZL": "\n".join(
+        [
+            "#if defined(__GNUC__)",
+            "#define HAVE_BUILTIN_CTZL 1",
+            "#endif",
+        ],
+    ),
+    "#cmakedefine HAVE_INTRIN_H": "\n".join(
+        [
+            "#if defined(_MSC_VER)",
+            "#define HAVE_INTRIN_H  1",
+            "#endif",
+        ],
+    ),
 }
 
 JCONFIGINT_SUBSTITUTIONS.update(COMMON_SUBSTITUTIONS)

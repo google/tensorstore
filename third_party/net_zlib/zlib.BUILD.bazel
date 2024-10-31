@@ -4,38 +4,48 @@ package(default_visibility = ["//visibility:private"])
 
 licenses(["notice"])  # BSD/MIT-like license (for zlib)
 
-ZLIB_LOCAL_DEFINES = select({
-    "@platforms//cpu:x86_64": ["UNALIGNED_OK"],
-    "//conditions:default": [],
-}) + select({
-    "@platforms//os:windows": [
-        "_CRT_SECURE_NO_DEPRECATE",
-        "_CRT_NONSTDC_NO_DEPRECATE",
-        "X86_WINDOWS",
-    ],
-    "//conditions:default": [
-        "HAVE_UNISTD_H",
-        "HAVE_STDINT_H",
-        "HAVE_STDDEF_H",
-        "X86_NOT_WINDOWS",
-    ],
-}) + select({
-    ":zlib_x86_optimizations": [
-        "ADLER32_SIMD_SSSE3",
-        "CRC32_SIMD_SSE42_PCLMUL",
-        "INFLATE_CHUNK_SIMD_SSE2",
-        "INFLATE_CHUNK_READ_64LE",  # requires x86_64
-        "DEFLATE_SLIDE_HASH_SSE2",
-    ],
-    ":zlib_arm64_optimizations": [
-        "ADLER32_SIMD_NEON",
-        "CRC32_ARMV8_CRC32",
-        "INFLATE_CHUNK_SIMD_NEON",
-        "INFLATE_CHUNK_READ_64LE",  # requires arm64
-        "DEFLATE_SLIDE_HASH_NEON",
-    ],
-    "//conditions:default": [],
-})
+ZLIB_LOCAL_DEFINES = (
+    select(
+        {
+            "@platforms//cpu:x86_64": ["UNALIGNED_OK"],
+            "//conditions:default": [],
+        },
+    ) +
+    select(
+        {
+            "@platforms//os:windows": [
+                "_CRT_SECURE_NO_DEPRECATE",
+                "_CRT_NONSTDC_NO_DEPRECATE",
+                "X86_WINDOWS",
+            ],
+            "//conditions:default": [
+                "HAVE_UNISTD_H",
+                "HAVE_STDINT_H",
+                "HAVE_STDDEF_H",
+                "X86_NOT_WINDOWS",
+            ],
+        },
+    ) +
+    select(
+        {
+            ":zlib_x86_optimizations": [
+                "ADLER32_SIMD_SSSE3",
+                "CRC32_SIMD_SSE42_PCLMUL",
+                "INFLATE_CHUNK_SIMD_SSE2",
+                "INFLATE_CHUNK_READ_64LE",  # requires x86_64
+                "DEFLATE_SLIDE_HASH_SSE2",
+            ],
+            ":zlib_arm64_optimizations": [
+                "ADLER32_SIMD_NEON",
+                "CRC32_ARMV8_CRC32",
+                "INFLATE_CHUNK_SIMD_NEON",
+                "INFLATE_CHUNK_READ_64LE",  # requires arm64
+                "DEFLATE_SLIDE_HASH_NEON",
+            ],
+            "//conditions:default": [],
+        },
+    )
+)
 
 cc_library(
     name = "zlib",
@@ -54,56 +64,65 @@ cc_library(
         "trees.c",
         "uncompr.c",
         "zutil.c",
-    ] + select({
-        "//conditions:default": [
-            "contrib/optimizations/insert_string.h",
-            "inflate.c",
-        ],
-        ":zlib_optimizations": [
-            "adler32_simd.c",
-            "contrib/optimizations/inffast_chunk.c",
-            "contrib/optimizations/inflate.c",
-            "cpu_features.c",
-            "crc32_simd.c",
-            "crc_folding.c",
-        ],
-    }),
+    ] + select(
+        {
+            "//conditions:default": [
+                "contrib/optimizations/insert_string.h",
+                "inflate.c",
+            ],
+            ":zlib_optimizations": [
+                "adler32_simd.c",
+                "contrib/optimizations/inffast_chunk.c",
+                "contrib/optimizations/inflate.c",
+                "cpu_features.c",
+                "crc32_simd.c",
+                "crc_folding.c",
+            ],
+        },
+    ),
     hdrs = [
         "zconf.h",
         "zlib.h",
     ],
-    copts = select({
-        ":x86_64_gcc_or_clang": [
-            "-mssse3",
-            "-msse4.2",
-            "-mpclmul",
-        ],
-        ":arm64_gcc_or_clang": [
-            "-march=armv8-a+crc+crypto",
-        ],
-        "//conditions:default": [],
-    }) + select({
-        ":compiler_clang": [
-            "-Wno-deprecated-non-prototype",
-        ],
-        "//conditions:default": [],
-    }),
+    copts = select(
+                {
+                    ":x86_64_gcc_or_clang": [
+                        "-mssse3",
+                        "-msse4.2",
+                        "-mpclmul",
+                    ],
+                    ":arm64_gcc_or_clang": [
+                        "-march=armv8-a+crc+crypto",
+                    ],
+                    "//conditions:default": [],
+                },
+            ) +
+            select(
+                {
+                    ":compiler_clang": [
+                        "-Wno-deprecated-non-prototype",
+                    ],
+                    "//conditions:default": [],
+                },
+            ),
     defines = ["CHROMIUM_ZLIB_NO_CHROMECONF"],
+    implementation_deps = select(
+        {
+            "//conditions:default": [],
+            ":zlib_optimizations": [":zlib_opt_includes"],
+        },
+    ),
+    includes = ["."],
     local_defines = ZLIB_LOCAL_DEFINES,
-    strip_include_prefix = ".",
     visibility = ["//visibility:public"],
-    deps = select({
-        "//conditions:default": [],
-        ":zlib_optimizations": [":zlib_opt_includes"],
-    }),
 )
 
 cc_library(
     name = "zlib_opt_includes",
     hdrs = glob(["contrib/optimizations/*.h"]),
     defines = ["CHROMIUM_ZLIB_NO_CHROMECONF"],
+    includes = ["contrib/optimizations"],
     local_defines = ZLIB_LOCAL_DEFINES,
-    strip_include_prefix = "contrib/optimizations",
     visibility = ["//visibility:private"],
 )
 

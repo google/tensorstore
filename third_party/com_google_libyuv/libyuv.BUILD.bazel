@@ -34,12 +34,14 @@ cc_library(
 
 cc_library(
     name = "libyuv_headers",
-    hdrs = ["include/libyuv.h"] + glob([
-        "include/libyuv/*.h",
-    ]),
-    strip_include_prefix = "include",
+    hdrs = ["include/libyuv.h"] + glob(
+        [
+            "include/libyuv/*.h",
+        ],
+    ),
+    includes = ["include"],
     visibility = ["//visibility:private"],
 )
 
-#TODO: Once the compiler supports dotprod, add neon/neon64.
-#TODO: Once the compiler supports arm9, add sme and sve., add arm9_sme.
+# TODO: Once the compiler supports dotprod, add neon/neon64.
+# TODO: Once the compiler supports arm9, add sme and sve., add arm9_sme.

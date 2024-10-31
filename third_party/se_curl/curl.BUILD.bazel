@@ -21,39 +21,47 @@ config_setting(
     visibility = ["//visibility:private"],
 )
 
-LOCAL_DEFINES = [
-    "BUILDING_LIBCURL",
-    "HTTP_ONLY",
-    "HAVE_CONFIG_H",
-    "HAVE_LIBZ",
-    "HAVE_ZLIB_H",
-    "HAVE_BROTLI",
-    "ENABLE_IPV6",
-    # "USE_ARES",  # TODO: Enable c-ares; after debugging broken test.
-] + select({
-    "@platforms//os:windows": [
-        "CURL_DISABLE_PROXY",
-        # Defining _USING_V110_SDK71_ is hackery to defeat curl's incorrect
-        # detection of what OS releases we can build on with VC 2012. This
-        # may not be needed (or may have to change) if the WINVER setting
-        # changes in //third_party/msvc/vc_12_0/CROSSTOOL.
-        "_USING_V110_SDK71_",
-    ],
-    "//conditions:default": ["_GNU_SOURCE"],
-}) + select({
-    "@platforms//os:osx": [],
-    "@platforms//os:windows": [
-        # See curl.h for discussion of write size and Windows
-        "CURL_MAX_WRITE_SIZE=16384",
-        "USE_IPV6",
-    ],
-    "//conditions:default": [
-        "CURL_MAX_WRITE_SIZE=65536",
-    ],
-}) + select({
-    ":debug_setting": ["DEBUGBUILD"],
-    "//conditions:default": [],
-})
+LOCAL_DEFINES = (
+    [
+        "BUILDING_LIBCURL",
+        "HTTP_ONLY",
+        "HAVE_CONFIG_H",
+        "HAVE_LIBZ",
+        "HAVE_ZLIB_H",
+        "HAVE_BROTLI",
+        "ENABLE_IPV6",
+        # "USE_ARES",  # TODO: Enable c-ares; after debugging broken test.
+    ] + select(
+        {
+            "@platforms//os:windows": [
+                "CURL_DISABLE_PROXY",
+                # Defining _USING_V110_SDK71_ is hackery to defeat curl's incorrect
+                # detection of what OS releases we can build on with VC 2012. This
+                # may not be needed (or may have to change) if the WINVER setting
+                # changes in //third_party/msvc/vc_12_0/CROSSTOOL.
+                "_USING_V110_SDK71_",
+            ],
+            "//conditions:default": ["_GNU_SOURCE"],
+        },
+    ) + select(
+        {
+            "@platforms//os:osx": [],
+            "@platforms//os:windows": [
+                # See curl.h for discussion of write size and Windows
+                "CURL_MAX_WRITE_SIZE=16384",
+                "USE_IPV6",
+            ],
+            "//conditions:default": [
+                "CURL_MAX_WRITE_SIZE=65536",
+            ],
+        },
+    ) + select(
+        {
+            ":debug_setting": ["DEBUGBUILD"],
+            "//conditions:default": [],
+        },
+    )
+)
 
 cc_library(
     name = "curl",
@@ -72,88 +80,103 @@ cc_library(
                    "lib/vtls/sectransp.c",
                ],
            ) +
-           select({
-               "@platforms//os:osx": [
-                   "lib/vtls/sectransp.c",
-               ],
-               "@platforms//os:ios": [
-                   "lib/vtls/sectransp.c",
-               ],
-               "@platforms//os:windows": [
-                   "lib/socks_sspi.c",
-                   "lib/system_win32.c",
-                   "lib/vauth/spnego_sspi.c",
-                   "lib/vtls/schannel.c",
-                   "lib/vtls/schannel_verify.c",
-               ],
-               "//conditions:default": [
-                   "lib/vtls/openssl.c",
-               ],
-           }),
-    hdrs = glob([
-        "include/curl/*.h",
-    ]) + [
+           select(
+               {
+                   "@platforms//os:osx": [
+                       "lib/vtls/sectransp.c",
+                   ],
+                   "@platforms//os:ios": [
+                       "lib/vtls/sectransp.c",
+                   ],
+                   "@platforms//os:windows": [
+                       "lib/socks_sspi.c",
+                       "lib/system_win32.c",
+                       "lib/vauth/spnego_sspi.c",
+                       "lib/vtls/schannel.c",
+                       "lib/vtls/schannel_verify.c",
+                   ],
+                   "//conditions:default": [
+                       "lib/vtls/openssl.c",
+                   ],
+               },
+           ),
+    hdrs = glob(
+        [
+            "include/curl/*.h",
+        ],
+    ) + [
         "include/curl_config.h",
     ],
-    copts = ["-I" + package_relative_path("lib")] + select({
-                ":compiler_msvc": [],
-                "//conditions:default": [
-                    "-Wno-string-plus-int",
-                    "-Wno-pointer-bool-conversion",
-                ],
-            }) +
-            select({
-                "@platforms//os:osx": [
-                    "-fno-constant-cfstrings",
-                ],
-                "//conditions:default": [],
-            }),
+    copts = ["-I" + package_relative_path("lib")] +
+            select(
+                {
+                    ":compiler_msvc": [],
+                    "//conditions:default": [
+                        "-Wno-string-plus-int",
+                        "-Wno-pointer-bool-conversion",
+                    ],
+                },
+            ) + select(
+        {
+            "@platforms//os:osx": [
+                "-fno-constant-cfstrings",
+            ],
+            "//conditions:default": [],
+        },
+    ),
     defines = ["CURL_STATICLIB"],
-    linkopts = select({
-        "@platforms//os:android": [
-            "-pie",
-        ],
-        "@platforms//os:osx": [
-            "-Wl,-framework,CoreFoundation",
-            "-Wl,-framework,SystemConfiguration",
-            "-Wl,-framework,Security",
-        ],
-        "@platforms//os:ios": [],
-        "@platforms//os:windows": [
-            "-DEFAULTLIB:ws2_32.lib",
-            "-DEFAULTLIB:advapi32.lib",
-            "-DEFAULTLIB:crypt32.lib",
-            "-DEFAULTLIB:Normaliz.lib",
-            "-DEFAULTLIB:bcrypt.lib",
-        ],
-        "//conditions:default": [
-            "-lrt",
-        ],
-    }) + select({
-        ":compiler_mingw_gcc": [
-            "-lws2_32",
-            "-ladvapi32",
-            "-lcrypt32",
-            "-lNormaliz",
-            "-lbcrypt",
-        ],
-        "//conditions:default": [],
-    }),
-    local_defines = LOCAL_DEFINES,
-    strip_include_prefix = "include",
-    visibility = ["//visibility:public"],
-    deps = [
+    implementation_deps = [
         "@net_zlib//:zlib",
         "@com_google_brotli//:brotlidec",
         # "@com_github_cares_cares//:ares",
         "@org_nghttp2//:nghttp2",
-    ] + select({
-        "@platforms//os:ios": [],
-        "@platforms//os:windows": [],
-        "//conditions:default": [
-            "@com_google_boringssl//:ssl",
-        ],
-    }),
+    ] + select(
+        {
+            "@platforms//os:ios": [],
+            "@platforms//os:windows": [],
+            "//conditions:default": [
+                "@com_google_boringssl//:ssl",
+            ],
+        },
+    ),
+    includes = ["include"],
+    linkopts = select(
+                   {
+                       "@platforms//os:android": [
+                           "-pie",
+                       ],
+                       "@platforms//os:osx": [
+                           "-Wl,-framework,CoreFoundation",
+                           "-Wl,-framework,SystemConfiguration",
+                           "-Wl,-framework,Security",
+                       ],
+                       "@platforms//os:ios": [],
+                       "@platforms//os:windows": [
+                           "-DEFAULTLIB:ws2_32.lib",
+                           "-DEFAULTLIB:advapi32.lib",
+                           "-DEFAULTLIB:crypt32.lib",
+                           "-DEFAULTLIB:Normaliz.lib",
+                           "-DEFAULTLIB:bcrypt.lib",
+                       ],
+                       "//conditions:default": [
+                           "-lrt",
+                       ],
+                   },
+               ) +
+               select(
+                   {
+                       ":compiler_mingw_gcc": [
+                           "-lws2_32",
+                           "-ladvapi32",
+                           "-lcrypt32",
+                           "-lNormaliz",
+                           "-lbcrypt",
+                       ],
+                       "//conditions:default": [],
+                   },
+               ),
+    local_defines = LOCAL_DEFINES,
+    visibility = ["//visibility:public"],
 )
 
 write_file(
@@ -184,7 +207,7 @@ write_file(
         "#define USE_NGHTTP2 1",
         "",
         "#if defined(_WIN32)",
-        "#  include \"lib/config-win32.h\"",
+        '#  include "lib/config-win32.h"',
         "#  define BUILDING_LIBCURL 1",
         "#  define CURL_DISABLE_CRYPTO_AUTH 1",
         "#  define CURL_PULL_WS2TCPIP_H 1",
@@ -198,10 +221,10 @@ write_file(
         "#  define HAVE_SETMODE 1",
         "#  define HAVE_SYS_FILIO_H 1",
         "#  define HAVE_SYS_SOCKIO_H 1",
-        "#  define OS \"x86_64-apple-darwin15.5.0\"",
+        '#  define OS "x86_64-apple-darwin15.5.0"',
         "#  define USE_SECTRANSP 1",
         "#else",
-        "/* #  undef CURL_CA_BUNDLE \"/etc/ssl/certs/ca-certificates.crt\" */",
+        '/* #  undef CURL_CA_BUNDLE "/etc/ssl/certs/ca-certificates.crt" */',
         "#  define GETSERVBYPORT_R_ARGS 6",
         "#  define GETSERVBYPORT_R_BUFSIZE 4096",
         "#  define HAVE_BORINGSSL 1",
@@ -227,13 +250,13 @@ write_file(
         "#  define HAVE_RAND_STATUS 1",
         "#  define HAVE_SSL_GET_SHUTDOWN 1",
         "#  define HAVE_TERMIOS_H 1",
-        "#  define OS \"x86_64-pc-linux-gnu\"",
-        "#  define RANDOM_FILE \"/dev/urandom\"",
+        '#  define OS "x86_64-pc-linux-gnu"',
+        '#  define RANDOM_FILE "/dev/urandom"',
         "#  define USE_OPENSSL 1",
         "#endif",
         "",
         "#if !defined(_WIN32)",
-        "#  define CURL_EXTERN_SYMBOL __attribute__ ((__visibility__ (\"default\")))",
+        '#  define CURL_EXTERN_SYMBOL __attribute__ ((__visibility__ ("default")))',
         "#  define ENABLE_IPV6 1",
         "#  define GETHOSTNAME_TYPE_ARG2 size_t",
         "#  define GETNAMEINFO_QUAL_ARG1 const",
@@ -367,14 +390,14 @@ write_file(
         "#  define HAVE_WRITABLE_ARGV 1",
         "#  define HAVE_WRITEV 1",
         "#  define HAVE_ZLIB_H 1",
-        "#  define LT_OBJDIR \".libs/\"",
-        "#  define PACKAGE \"curl\"",
-        "#  define PACKAGE_BUGREPORT \"a suitable curl mailing list: https://curl.haxx.se/mail/\"",
-        "#  define PACKAGE_NAME \"curl\"",
-        "#  define PACKAGE_STRING \"curl -\"",
-        "#  define PACKAGE_TARNAME \"curl\"",
-        "#  define PACKAGE_URL \"\"",
-        "#  define PACKAGE_VERSION \"-\"",
+        '#  define LT_OBJDIR ".libs/"',
+        '#  define PACKAGE "curl"',
+        '#  define PACKAGE_BUGREPORT "a suitable curl mailing list: https://curl.haxx.se/mail/"',
+        '#  define PACKAGE_NAME "curl"',
+        '#  define PACKAGE_STRING "curl -"',
+        '#  define PACKAGE_TARNAME "curl"',
+        '#  define PACKAGE_URL ""',
+        '#  define PACKAGE_VERSION "-"',
         "#  define RECV_TYPE_ARG1 int",
         "#  define RECV_TYPE_ARG2 void *",
         "#  define RECV_TYPE_ARG3 size_t",
@@ -403,7 +426,7 @@ write_file(
         "#  define STDC_HEADERS 1",
         "#  define STRERROR_R_TYPE_ARG3 size_t",
         "#  define TIME_WITH_SYS_TIME 1",
-        "#  define VERSION \"-\"",
+        '#  define VERSION "-"',
         "#  ifndef _DARWIN_USE_64_BIT_INODE",
         "#    define _DARWIN_USE_64_BIT_INODE 1",
         "#  endif",

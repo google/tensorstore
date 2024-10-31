@@ -59,10 +59,12 @@ cc_library(
         "libtiff/tif_hash_set.h",
         # tiffxx
         "libtiff/tif_stream.cxx",
-    ] + select({
-        "@platforms//os:windows": ["libtiff/tif_win32.c"],
-        "//conditions:default": ["libtiff/tif_unix.c"],
-    }),
+    ] + select(
+        {
+            "@platforms//os:windows": ["libtiff/tif_win32.c"],
+            "//conditions:default": ["libtiff/tif_unix.c"],
+        },
+    ),
     hdrs = [
         "libtiff/tif_config.h",
         "libtiff/tiff.h",
@@ -72,15 +74,17 @@ cc_library(
         # tiffxx
         "libtiff/tiffio.hxx",
     ],
-    copts = select({
-        ":compiler_msvc": [],
-        "//conditions:default": [
-            "-Wno-format",
-            "-Wno-format-extra-args",
-            # "-Wno-array-parameter",
-        ],
-    }),
-    strip_include_prefix = "libtiff",
+    copts = select(
+        {
+            ":compiler_msvc": [],
+            "//conditions:default": [
+                "-Wno-format",
+                "-Wno-format-extra-args",
+                # "-Wno-array-parameter",
+            ],
+        },
+    ),
+    includes = ["libtiff"],
     visibility = ["//visibility:public"],
     deps = [
         "@jpeg",
@@ -227,10 +231,11 @@ write_file(
     name = "tif_config_h",
     out = "libtiff/tif_config.h",
     content = [
-        "#ifndef _TIFF_CONFIG_H_",
-        "#define _TIFF_CONFIG_H_",
-        "// libtiff/tif_config.h from bazel BUILD file",
-    ] + TIFFCONF_LINES + TIF_CONFIG_LINES + [
+                  "#ifndef _TIFF_CONFIG_H_",
+                  "#define _TIFF_CONFIG_H_",
+                  "// libtiff/tif_config.h from bazel BUILD file",
+              ] + TIFFCONF_LINES +
+              TIF_CONFIG_LINES + [
         "#endif // _TIFF_CONFIG_H_",
     ],
     newline = "unix",

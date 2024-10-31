@@ -1,8 +1,8 @@
 # Enable using platform specific build settings
 build --enable_platform_specific_config
 
-# Use platforms to select toolchains (https://github.com/bazelbuild/bazel/issues/7260)
-build --incompatible_enable_cc_toolchain_resolution
+# Disable bzlmod to suppress a warning since we don't yet support it.
+build --noenable_bzlmod
 
 # Specify platform mapping to ensure "platforms" and --cpu flags are
 # in sync.

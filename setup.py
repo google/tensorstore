@@ -253,6 +253,9 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
                 compilation_mode,
                 '//python/tensorstore:_tensorstore__shared_objects',
                 '--verbose_failures',
+                # Bazel does not seem to download these files by default when
+                # using remote caching.
+                r'--remote_download_regex=.*/_tensorstore\.(so|pyd)',
             ]
             + action_env
             + build_options

@@ -23,7 +23,7 @@ cc_library(
         "@platforms//os:windows": [":python_lib"],
         "//conditions:default": [],
     }),
-    strip_include_prefix = "python_include",
+    includes = ["python_include"],
     defines = select({
         # This define is needed to prevent pyerrors.h from defining a
         # problematic snprintf macro.

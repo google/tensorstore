@@ -4,15 +4,19 @@ licenses(["notice"])  # BSD/MIT-like license
 
 exports_files(["LICENSE"])
 
-libpng_local_defines = select({
-    "@platforms//os:windows": ["PNG_INTEL_SSE_OPT=1"],
-    "//conditions:default": [],
-})
+libpng_local_defines = select(
+    {
+        "@platforms//os:windows": ["PNG_INTEL_SSE_OPT=1"],
+        "//conditions:default": [],
+    },
+)
 
-libpng_linkopts = select({
-    "@platforms//os:windows": [],
-    "//conditions:default": ["-lm"],
-})
+libpng_linkopts = select(
+    {
+        "@platforms//os:windows": [],
+        "//conditions:default": ["-lm"],
+    },
+)
 
 cc_library(
     name = "png",
@@ -37,36 +41,40 @@ cc_library(
         "pngwrite.c",
         "pngwtran.c",
         "pngwutil.c",
-    ] + select({
-        "@platforms//os:windows": [
-            "intel/filter_sse2_intrinsics.c",
-            "intel/intel_init.c",
-        ],
-        "@platforms//cpu:ppc": [
-            "powerpc/filter_vsx_intrinsics.c",
-            "powerpc/powerpc_init.c",
-        ],
-        "@platforms//cpu:arm64": [
-            "arm/arm_init.c",
-            "arm/filter_neon.S",
-            "arm/filter_neon_intrinsics.c",
-            "arm/palette_neon_intrinsics.c",
-        ],
-        "//conditions:default": [],
-    }),
+    ] + select(
+        {
+            "@platforms//os:windows": [
+                "intel/filter_sse2_intrinsics.c",
+                "intel/intel_init.c",
+            ],
+            "@platforms//cpu:ppc": [
+                "powerpc/filter_vsx_intrinsics.c",
+                "powerpc/powerpc_init.c",
+            ],
+            "@platforms//cpu:arm64": [
+                "arm/arm_init.c",
+                "arm/filter_neon.S",
+                "arm/filter_neon_intrinsics.c",
+                "arm/palette_neon_intrinsics.c",
+            ],
+            "//conditions:default": [],
+        },
+    ),
     hdrs = [
         "png.h",
         "pngconf.h",
     ],
-    copts = select({
-        ":compiler_msvc": [],
-        "//conditions:default": ["-Wno-unused-but-set-variable"],
-    }),
+    copts = select(
+        {
+            ":compiler_msvc": [],
+            "//conditions:default": ["-Wno-unused-but-set-variable"],
+        },
+    ),
+    implementation_deps = ["@net_zlib//:zlib"],
+    includes = ["."],
     linkopts = libpng_linkopts,
     local_defines = libpng_local_defines,
-    strip_include_prefix = ".",
     visibility = ["//visibility:public"],
-    deps = ["@net_zlib//:zlib"],
 )
 
 PNG_IN_SUBSTITUTIONS = {

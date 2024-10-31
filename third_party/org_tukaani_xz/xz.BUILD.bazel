@@ -36,13 +36,15 @@ cc_library(
         ],
     ) + [
         "config.h",
-    ] + select({
-        "@platforms//os:osx": [],
-        "@platforms//os:ios": [],
-        "//conditions:default": [
-            "src/liblzma/check/sha256.c",
-        ],
-    }),
+    ] + select(
+        {
+            "@platforms//os:osx": [],
+            "@platforms//os:ios": [],
+            "//conditions:default": [
+                "src/liblzma/check/sha256.c",
+            ],
+        },
+    ),
     hdrs = ["src/liblzma/api/lzma.h"] + glob(["src/liblzma/api/lzma/*.h"]),
     copts = [
         "-I" + "$(GENDIR)/" + package_relative_path("."),
@@ -58,18 +60,19 @@ cc_library(
     defines = [
         "LZMA_API_STATIC",
     ],
+    includes = ["src/liblzma/api"],
     local_defines = [
         "HAVE_CONFIG_H",
         "_GNU_SOURCE",
     ],
-    strip_include_prefix = "src/liblzma/api",
     visibility = ["//visibility:public"],
 )
 
 write_file(
     name = "configure",
     out = "config.h",
-    content = ["""
+    content = [
+        """
 /* config.h.  Generated from config.h.in by configure.  */
 /* config.h.in.  Generated from configure.ac by autoheader.  */
 
@@ -612,6 +615,7 @@ write_file(
 /* Define to the type of an unsigned integer type wide enough to hold a
    pointer, if such a type exists, and if the system does not define it. */
 /* #undef uintptr_t */
-"""],
+""",
+    ],
     newline = "unix",
 )

@@ -2,32 +2,44 @@ licenses(["notice"])
 
 exports_files(["LICENSE"])
 
-C89_FLAGS = select({
-    "//conditions:default": [],
-    ":armeabi-v7a": ["-marm"],
-}) + select({
-    "@platforms//cpu:arm": ["-mfpu=neon"],
-    "//conditions:default": [],
-}) + select({
-    ":windows_x86_64_mingw_gcc": ["-msse4.1"],
-    ":linux_x86_64": ["-msse4.1"],
-    "//conditions:default": [],
-})
+C89_FLAGS = (
+    select(
+        {
+            "//conditions:default": [],
+            ":armeabi-v7a": ["-marm"],
+        },
+    ) +
+    select(
+        {
+            "@platforms//cpu:arm": ["-mfpu=neon"],
+            "//conditions:default": [],
+        },
+    ) +
+    select(
+        {
+            ":windows_x86_64_mingw_gcc": ["-msse4.1"],
+            ":linux_x86_64": ["-msse4.1"],
+            "//conditions:default": [],
+        },
+    )
+)
 
 cc_library(
     name = "webp",
-    srcs = glob([
-        "src/enc/*.c",
-        "src/enc/*.h",
-        "src/dec/*.c",
-        "src/dec/*.h",
-        "src/mux/*.c",
-        "src/mux/*.h",
-        "src/demux/*.c",
-        "src/demux/*.h",
-        "src/dsp/*.c",
-        "src/dsp/*.h",
-    ]),
+    srcs = glob(
+        [
+            "src/enc/*.c",
+            "src/enc/*.h",
+            "src/dec/*.c",
+            "src/dec/*.h",
+            "src/mux/*.c",
+            "src/mux/*.h",
+            "src/demux/*.c",
+            "src/demux/*.h",
+            "src/dsp/*.c",
+            "src/dsp/*.h",
+        ],
+    ),
     hdrs = [
         "src/webp/decode.h",
         "src/webp/demux.h",
@@ -38,7 +50,7 @@ cc_library(
         "src/webp/types.h",
     ],
     copts = C89_FLAGS,
-    strip_include_prefix = "src",
+    includes = ["src"],
     visibility = ["//visibility:public"],
     deps = [
         ":sharpyuv",

@@ -34,11 +34,11 @@ cc_library(
         # overriding global `-fvisibility=hidden` setting.
         "LZ4LIB_VISIBILITY=",
     ],
+    includes = ["lib"],
     local_defines = [
         # Inline XXH for better performance and to avoid exposing symbols.
         "XXH_INLINE_ALL",
     ],
-    strip_include_prefix = "lib",
     visibility = ["//visibility:public"],
     deps = [
         ":lz4_internal",
