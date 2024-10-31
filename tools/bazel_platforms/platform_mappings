@@ -7,11 +7,11 @@
 
 # Define mapping from platforms to "legacy" flags
 platforms:
-  //tools/bazel_platforms:macos_x86_64
+  @build_bazel_apple_support//platforms:macos_x86_64
     --apple_platform_type=macos
     --cpu=darwin_x86_64
 
-  //tools/bazel_platforms:macos_arm64
+  @build_bazel_apple_support//platforms:macos_arm64
     --apple_platform_type=macos
     --cpu=darwin_arm64
 
@@ -19,8 +19,8 @@ platforms:
 flags:
   --cpu=darwin_x86_64
   --apple_platform_type=macos
-    //tools/bazel_platforms:macos_x86_64
+    @build_bazel_apple_support//platforms:macos_x86_64
 
   --cpu=darwin_arm64
   --apple_platform_type=macos
-    //tools/bazel_platforms:macos_arm64
+    @build_bazel_apple_support//platforms:macos_arm64

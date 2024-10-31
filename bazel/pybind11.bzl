@@ -90,10 +90,14 @@ def py_extension(
         cur_deps = [cc_library_name]
         if cc_binary_name == cc_binary_so_name:
             cur_linkopts = linkopts + select({
-                # On macOS, the linker does not support version scripts.  Use
-                # the `-exported_symbol` option instead to restrict symbol
-                # visibility.
                 "@platforms//os:macos": [
+                    # Avoid undefined symbol errors for CPython symbols that
+                    # will be resolved at runtime.
+                    "-undefined",
+                    "dynamic_lookup",
+                    # On macOS, the linker does not support version scripts.  Use
+                    # the `-exported_symbol` option instead to restrict symbol
+                    # visibility.
                     "-Wl,-exported_symbol",
                     # On macOS, the symbol starts with an underscore.
                     "-Wl,_" + exported_symbol,

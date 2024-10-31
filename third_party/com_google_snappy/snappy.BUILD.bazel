@@ -12,7 +12,8 @@ filegroup(
 write_file(
     name = "configure",
     out = "snappy-stubs-public.h",
-    content = ["""
+    content = [
+        """
 // Copyright 2011 Google Inc. All Rights Reserved.
 // Author: sesse@google.com (Steinar H. Gunderson)
 //
@@ -111,7 +112,8 @@ struct iovec {
 }  // namespace snappy
 
 #endif  // UTIL_SNAPPY_OPENSOURCE_SNAPPY_STUBS_PUBLIC_H_
-"""],
+""",
+    ],
     newline = "unix",
 )
 
@@ -131,5 +133,5 @@ cc_library(
         "snappy-stubs-internal.h",
         "snappy-stubs-public.h",
     ],
-    strip_include_prefix = ".",
+    includes = ["."],
 )

@@ -143,6 +143,21 @@ add_test(NAME CMakeProject_a_test
       COMMAND CMakeProject_a_test
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
+# cc_library(@native_rules_test_repo//:b)
+add_library(CMakeProject_b)
+set_property(TARGET CMakeProject_b PROPERTY LINKER_LANGUAGE "CXX")
+target_link_libraries(CMakeProject_b PUBLIC
+        "Threads::Threads"
+        "m")
+target_link_libraries(CMakeProject_b PRIVATE
+        "CMakeProject::a")
+target_include_directories(CMakeProject_b PUBLIC
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
+target_compile_features(CMakeProject_b PUBLIC cxx_std_17)
+target_sources(CMakeProject_b PRIVATE
+        "${PROJECT_SOURCE_DIR}/b.cc")
+add_library(CMakeProject::b ALIAS CMakeProject_b)
+
 # proto_library(@native_rules_test_repo//:c_proto_2)
 add_library(CMakeProject_c_proto_2 INTERFACE)
 target_sources(CMakeProject_c_proto_2 INTERFACE

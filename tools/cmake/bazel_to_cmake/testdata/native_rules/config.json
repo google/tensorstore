@@ -4,6 +4,7 @@
     "//:a",
     "//:a_alias",
     "//:a_test",
+    "//:b",
     "//:bb",
     "//:c_proto",
     "//:c_proto_2",

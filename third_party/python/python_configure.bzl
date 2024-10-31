@@ -183,7 +183,7 @@ def get_python_bin(repository_ctx):
           ))
 
 def _run_python_script(repository_ctx, python_bin, script_code):
-    """Returns output of running Pythhon script.
+    """Returns output of running Python script.
 
     The code is specified inline.
     """
@@ -299,7 +299,9 @@ def _create_local_python_repository(repository_ctx):
     repository_ctx.template("BUILD", build_tpl, {
         "%{PYTHON_INCLUDE_GENRULE}": python_include_rule,
         "%{PYTHON_IMPORT_LIB_GENRULE}": python_import_lib_genrule,
-        "%{PYTHON_BIN}": python_bin.replace("\\", "\\\\"),
+        # Ensure forward slashses because Bazel sometimes does not handle
+        # quoting correctly.
+        "%{PYTHON_BIN}": _norm_path(python_bin),
     })
 
 def _create_remote_python_repository(repository_ctx, remote_config_repo):

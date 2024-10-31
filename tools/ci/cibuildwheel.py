@@ -232,8 +232,11 @@ def run(args, extra_args):
     )
 
     if platform != "linux" and sys.platform.startswith("darwin"):
-      # macOS
+      # macOS (and not building for linux via docker)
       cibw_environment["MACOSX_DEPLOYMENT_TARGET"] = "10.14"
+
+      # Workaround for https://github.com/bazelbuild/bazel/issues/10472
+      bazel_build_options.append("--sandbox_block_path=/usr/local/include")
     else:
       # Windows
       # See https://github.com/protocolbuffers/protobuf/issues/12947

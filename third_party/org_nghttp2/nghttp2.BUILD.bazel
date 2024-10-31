@@ -25,17 +25,21 @@ config_setting(
 LOCAL_DEFINES = [
     "BUILDING_NGHTTP2",
     "HAVE_CONFIG_H",
-] + select({
-    ":debug_setting": ["DEBUGBUILD"],
-    "//conditions:default": [],
-})
+] + select(
+    {
+        ":debug_setting": ["DEBUGBUILD"],
+        "//conditions:default": [],
+    },
+)
 
 cc_library(
     name = "nghttp2",
-    srcs = glob([
-        "lib/*.h",
-        "lib/*.c",
-    ]),
+    srcs = glob(
+        [
+            "lib/*.h",
+            "lib/*.c",
+        ],
+    ),
     hdrs = glob(["lib/includes/nghttp2/*.h"]) + [
         "lib/includes/config.h",
         "lib/includes/nghttp2/nghttp2ver.h",
@@ -43,17 +47,19 @@ cc_library(
     copts = [
         "-I" + package_relative_path("lib"),
         "-I" + package_relative_path("lib/includes"),
-    ] + select({
-        ":compiler_msvc": [],
-        "//conditions:default": [
-            "-Wno-string-plus-int",
-        ],
-    }),
+    ] + select(
+        {
+            ":compiler_msvc": [],
+            "//conditions:default": [
+                "-Wno-string-plus-int",
+            ],
+        },
+    ),
     defines = [
         "NGHTTP2_STATICLIB",
     ],
+    includes = ["lib/includes"],
     local_defines = LOCAL_DEFINES,
-    strip_include_prefix = "lib/includes",
     visibility = ["//visibility:public"],
 )
 
@@ -190,7 +196,7 @@ write_file(
         "#elif UINTPTR_MAX == UINT32_MAX",
         "#  define SIZEOF_INT_P 4",
         "#else",
-        "#  error \"Unknown int pointer size\"",
+        '#  error "Unknown int pointer size"',
         "#endif",
         "",
         "#endif  // EXTERNAL_NGHTTP2_CONFIG_H_",

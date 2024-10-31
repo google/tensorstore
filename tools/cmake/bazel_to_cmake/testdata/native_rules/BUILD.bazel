@@ -8,6 +8,13 @@ cc_library(
     visibility = ["//visibility:public"],
 )
 
+cc_library(
+    name = "b",
+    hdrs = ["b.h"],
+    srcs = ["b.cc"],
+    implementation_deps = [":a"],
+)
+
 cc_binary(
     name = "bb",
     srcs = ["a.cc"],

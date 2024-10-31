@@ -116,6 +116,8 @@ TESTDATA = [
     "bazel_to_cmake/testdata/local_mirror/WORKSPACE.bazel",
     "bazel_to_cmake/testdata/native_rules/.bazelrc",
     "bazel_to_cmake/testdata/native_rules/a.cc",
+    "bazel_to_cmake/testdata/native_rules/b.h",
+    "bazel_to_cmake/testdata/native_rules/b.cc",
     "bazel_to_cmake/testdata/native_rules/BUILD.bazel",
     "bazel_to_cmake/testdata/native_rules/c.proto",
     "bazel_to_cmake/testdata/native_rules/config.json",

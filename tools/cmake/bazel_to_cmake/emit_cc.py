@@ -58,6 +58,7 @@ def _emit_cc_common_options(
     target_name: str,
     asm_dialect: Optional[str] = None,
     link_libraries: Optional[Iterable[str]] = None,
+    private_link_libraries: Optional[Iterable[str]] = None,
     copts: Optional[Iterable[str]] = None,
     linkopts: Optional[Iterable[str]] = None,
     defines: Optional[Iterable[str]] = None,
@@ -109,6 +110,12 @@ def _emit_cc_common_options(
       out.write(
           f"target_link_options({target_name} {public_context}{_SEP}{quote_list(link_options, separator=_SEP)})\n"
       )
+
+  if private_link_libraries:
+    private_link_libs: List[str] = sorted(private_link_libraries)
+    out.write(
+        f"target_link_libraries({target_name} PRIVATE{_SEP}{quote_list(private_link_libs, separator=_SEP)})\n"
+    )
 
   include_dirs = [
       f"$<BUILD_INTERFACE:{include_dir}>"
@@ -324,6 +331,7 @@ def handle_cc_common_options(
     add_dependencies: Optional[Collection[CMakeTarget]] = None,
     srcs: Optional[Collection[TargetId]] = None,
     deps: Optional[Collection[TargetId]] = None,
+    implementation_deps: Optional[Collection[TargetId]] = None,
     includes: Optional[Collection[TargetId]] = None,
     include_prefix: Optional[str] = None,
     strip_include_prefix: Optional[str] = None,
@@ -363,6 +371,12 @@ def handle_cc_common_options(
 
   link_libraries.add(CMakeTarget("Threads::Threads"))
 
+  if implementation_deps is not None:
+    implementation_deps_collector = state.collect_deps(implementation_deps)
+    private_link_libraries = set(implementation_deps_collector.link_libraries())
+  else:
+    private_link_libraries = set()
+
   extra_public_compile_options = []
 
   def add_compile_options(lang: str, options: List[str]):
@@ -377,6 +391,7 @@ def handle_cc_common_options(
   result: Dict[str, Any] = {
       "srcs": repo.replace_with_cmake_macro_dirs(sorted(set(srcs_file_paths))),
       "link_libraries": link_libraries,
+      "private_link_libraries": private_link_libraries,
       "add_dependencies": set(
           itertools.chain(
               iter(add_dependencies), srcs_collector.add_dependencies()

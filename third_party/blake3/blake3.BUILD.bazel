@@ -10,35 +10,37 @@ cc_library(
         "c/blake3.c",
         "c/blake3_dispatch.c",
         "c/blake3_portable.c",
-    ] + selects.with_or({
-        ":windows_x86_64_msvc": [
-            "c/blake3_avx2_x86-64_windows_msvc.asm",
-            "c/blake3_avx512_x86-64_windows_msvc.asm",
-            "c/blake3_sse2_x86-64_windows_msvc.asm",
-            "c/blake3_sse41_x86-64_windows_msvc.asm",
-        ],
-        ":windows_x86_64_mingw_gcc": [
-            "c/blake3_avx2_x86-64_windows_gnu.S",
-            "c/blake3_avx512_x86-64_windows_gnu.S",
-            "c/blake3_sse2_x86-64_windows_gnu.S",
-            "c/blake3_sse41_x86-64_windows_gnu.S",
-        ],
-        "@platforms//cpu:arm64": [
-            "c/blake3_neon.c",
-        ],
-        "@platforms//cpu:ppc": [],
-        (":linux_x86_64", ":macos_x86_64"): [
-            "c/blake3_avx2_x86-64_unix.S",
-            "c/blake3_avx512_x86-64_unix.S",
-            "c/blake3_sse2_x86-64_unix.S",
-            "c/blake3_sse41_x86-64_unix.S",
-        ],
-    }),
+    ] + selects.with_or(
+        {
+            ":windows_x86_64_msvc": [
+                "c/blake3_avx2_x86-64_windows_msvc.asm",
+                "c/blake3_avx512_x86-64_windows_msvc.asm",
+                "c/blake3_sse2_x86-64_windows_msvc.asm",
+                "c/blake3_sse41_x86-64_windows_msvc.asm",
+            ],
+            ":windows_x86_64_mingw_gcc": [
+                "c/blake3_avx2_x86-64_windows_gnu.S",
+                "c/blake3_avx512_x86-64_windows_gnu.S",
+                "c/blake3_sse2_x86-64_windows_gnu.S",
+                "c/blake3_sse41_x86-64_windows_gnu.S",
+            ],
+            "@platforms//cpu:arm64": [
+                "c/blake3_neon.c",
+            ],
+            "@platforms//cpu:ppc": [],
+            (":linux_x86_64", ":macos_x86_64"): [
+                "c/blake3_avx2_x86-64_unix.S",
+                "c/blake3_avx512_x86-64_unix.S",
+                "c/blake3_sse2_x86-64_unix.S",
+                "c/blake3_sse41_x86-64_unix.S",
+            ],
+        },
+    ),
     hdrs = [
         "c/blake3.h",
         "c/blake3_impl.h",
     ],
-    strip_include_prefix = "c",
+    includes = ["c"],
     visibility = ["//visibility:public"],
 )
 

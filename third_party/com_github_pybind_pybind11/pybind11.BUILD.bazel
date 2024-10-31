@@ -7,7 +7,7 @@ exports_files(["LICENSE"])
 cc_library(
     name = "pybind11",
     hdrs = glob(include = ["include/pybind11/**/*.h"]),
-    strip_include_prefix = "include",
+    includes = ["include"],
     deps = [
         "@local_config_python//:python_headers",
     ],

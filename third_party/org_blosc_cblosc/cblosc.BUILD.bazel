@@ -2,15 +2,17 @@ load("@tensorstore//bazel:utils.bzl", "package_relative_path")
 
 package(default_visibility = ["//visibility:private"])
 
-BLOSC_LOCAL_DEFINES = select({
-    "@platforms//cpu:x86_64": [
-        "SHUFFLE_SSE2_ENABLED",
-        # Always build AVX2 support.  It is only used at runtime if the CPU
-        # supports it.
-        "SHUFFLE_AVX2_ENABLED",
-    ],
-    "//conditions:default": [],
-}) + [
+BLOSC_LOCAL_DEFINES = select(
+    {
+        "@platforms//cpu:x86_64": [
+            "SHUFFLE_SSE2_ENABLED",
+            # Always build AVX2 support.  It is only used at runtime if the CPU
+            # supports it.
+            "SHUFFLE_AVX2_ENABLED",
+        ],
+        "//conditions:default": [],
+    },
+) + [
     # This makes the BLOSC_NO_EXPORT macro, which would otherwise make internal
     # functions have hidden visibility, a no-op.  Hidden visibility isn't
     # compatible with using multiple cc_library rules to compile this library,
@@ -24,10 +26,12 @@ BLOSC_LOCAL_DEFINES = select({
     "HAVE_SNAPPY",
 ]
 
-BLOSC_COPTS = ["-I" + package_relative_path("blosc")] + select({
-    ":compiler_msvc": [],
-    "//conditions:default": ["-Wno-unused-function"],
-})
+BLOSC_COPTS = ["-I" + package_relative_path("blosc")] + select(
+    {
+        ":compiler_msvc": [],
+        "//conditions:default": ["-Wno-unused-function"],
+    },
+)
 
 cc_library(
     name = "blosc_common",
@@ -86,10 +90,13 @@ cc_library(
         "blosc/bitshuffle-avx2.h",
         "blosc/shuffle-avx2.h",
     ],
-    copts = BLOSC_COPTS + select({
-        ":compiler_msvc": ["/arch:AVX2"],
-        "//conditions:default": ["-mavx2"],
-    }),
+    copts = BLOSC_COPTS +
+            select(
+                {
+                    ":compiler_msvc": ["/arch:AVX2"],
+                    "//conditions:default": ["-mavx2"],
+                },
+            ),
     local_defines = BLOSC_LOCAL_DEFINES,
     target_compatible_with = ["@platforms//cpu:x86_64"],
     deps = [
@@ -110,16 +117,20 @@ cc_library(
     deps = [
         ":blosc_common",
         ":shuffle_generic",
-    ] + select({
-        "@platforms//cpu:x86_64": [
-            ":shuffle_avx2",
-            ":shuffle_sse2",
-        ],
-        "//conditions:default": [],
-    }) + select({
-        "@platforms//os:windows": [":win32"],
-        "//conditions:default": [],
-    }),
+    ] + select(
+        {
+            "@platforms//cpu:x86_64": [
+                ":shuffle_avx2",
+                ":shuffle_sse2",
+            ],
+            "//conditions:default": [],
+        },
+    ) + select(
+        {
+            "@platforms//os:windows": [":win32"],
+            "//conditions:default": [],
+        },
+    ),
 )
 
 cc_library(
@@ -148,12 +159,14 @@ cc_library(
         "blosc/blosc-export.h",
     ],
     copts = BLOSC_COPTS +
-            select({
-                ":compiler_msvc": [],
-                "//conditions:default": ["-Wno-unused-but-set-variable"],
-            }),
+            select(
+                {
+                    ":compiler_msvc": [],
+                    "//conditions:default": ["-Wno-unused-but-set-variable"],
+                },
+            ),
+    includes = ["blosc"],
     local_defines = BLOSC_LOCAL_DEFINES,
-    strip_include_prefix = "blosc",
     visibility = ["//visibility:public"],
     deps = [
         ":blosc_common",
@@ -162,10 +175,12 @@ cc_library(
         "@net_zlib//:zlib",
         "@net_zstd//:zstdlib",
         "@org_lz4//:lz4",
-    ] + select({
-        "@platforms//os:windows": [":win32"],
-        "//conditions:default": [],
-    }),
+    ] + select(
+        {
+            "@platforms//os:windows": [":win32"],
+            "//conditions:default": [],
+        },
+    ),
 )
 
 [

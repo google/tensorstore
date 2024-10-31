@@ -18,18 +18,22 @@ ZSTD_SRCS = glob(
 
 LOCAL_DEFINES = [
     "XXH_NAMESPACE=ZSTD_",
-] + select({
-    ":zstd_asm_supported": [],
-    "//conditions:default": ["ZSTD_DISABLE_ASM=1"],
-})
+] + select(
+    {
+        ":zstd_asm_supported": [],
+        "//conditions:default": ["ZSTD_DISABLE_ASM=1"],
+    },
+)
 
 cc_library(
     name = "zstdlib",
     srcs = ZSTD_SRCS +
-           select({
-               ":zstd_asm_supported": ["lib/decompress/huf_decompress_amd64.S"],
-               "//conditions:default": [],
-           }),
+           select(
+               {
+                   ":zstd_asm_supported": ["lib/decompress/huf_decompress_amd64.S"],
+                   "//conditions:default": [],
+               },
+           ),
     hdrs = ["lib/zstd.h"],
     copts = ["-I" + package_relative_path("lib/common")],
     defines = [
@@ -38,8 +42,8 @@ cc_library(
         "ZSTDLIB_VISIBLE=",
         "ZSTDLIB_HIDDEN=",
     ],
+    includes = ["lib"],
     local_defines = LOCAL_DEFINES,
-    strip_include_prefix = "lib",
 )
 
 # Config settings

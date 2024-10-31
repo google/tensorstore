@@ -48,6 +48,7 @@ def _common_cc_resolve(
     hdrs: Optional[Configurable[List[RelativeLabel]]] = None,
     textual_hdrs: Optional[Configurable[List[RelativeLabel]]] = None,
     deps: Optional[Configurable[List[RelativeLabel]]] = None,
+    implementation_deps: Optional[Configurable[List[RelativeLabel]]] = None,
     includes: Optional[Configurable[List[str]]] = None,
     include_prefix: Optional[Configurable[str]] = None,
     strip_include_prefix: Optional[Configurable[str]] = None,
@@ -67,6 +68,9 @@ def _common_cc_resolve(
       ),
       deps=_context.resolve_target_or_label_list(
           _context.evaluate_configurable_list(deps)
+      ),
+      implementation_deps=_context.resolve_target_or_label_list(
+          _context.evaluate_configurable_list(implementation_deps)
       ),
       textual_hdrs=_context.resolve_target_or_label_list(
           _context.evaluate_configurable_list(textual_hdrs)
