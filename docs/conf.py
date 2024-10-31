@@ -13,12 +13,16 @@
 # limitations under the License.
 """Sphinx configuration for TensorStore."""
 
+import importlib
+import os
+import sys
 from typing import NamedTuple, Optional
 
 import docutils.nodes
 import sphinx.addnodes
 import sphinx.domains.python
 import sphinx.environment
+import sphinx.util.parallel
 
 project = 'TensorStore'
 copyright = '2020 The TensorStore Authors'  # pylint: disable=redefined-builtin
@@ -54,6 +58,7 @@ extensions = [
     'sphinx_immaterial.apidoc.cpp.cppreference',
     'sphinx_immaterial.apidoc.json.domain',
     'sphinx_immaterial.apidoc.python.apigen',
+    'sphinx_immaterial.apidoc.cpp.apigen',
 ]
 
 exclude_patterns = [
@@ -149,6 +154,10 @@ rst_prolog = """
    :language: python
    :class: highlight
 
+.. role:: cpp(code)
+   :language: cpp
+   :class: highlight
+
 .. role:: json(code)
    :language: json
    :class: highlight
@@ -156,6 +165,24 @@ rst_prolog = """
 
 # Warn about missing references
 nitpicky = True
+
+# The Sphinx C++ domain generates bogus undefined reference warnings for every
+# C++ namespace that is mentioned in the documentation. All such namespaces need
+# to be listed here in order to silence the warnings.
+nitpick_ignore = [
+    ('cpp:identifier', 'tensorstore'),
+    ('cpp:identifier', '::tensorstore'),
+    ('cpp:identifier', 'tensorstore::kvstore'),
+    ('cpp:identifier', 'tensorstore::dtypes'),
+    ('cpp:identifier', 'kvstore'),
+    ('cpp:identifier', 'absl'),
+    ('cpp:identifier', 'std'),
+    ('cpp:identifier', '::std'),
+    ('cpp:identifier', 'nlohmann'),
+    ('cpp:identifier', '::nlohmann'),
+    ('cpp:identifier', 'half_float'),
+    ('cpp:identifier', '::half_float'),
+]
 
 default_role = 'any'
 
@@ -185,6 +212,8 @@ extlinks = {
 napoleon_numpy_docstring = False
 napoleon_use_admonition_for_examples = True
 napoleon_use_admonition_for_notes = True
+
+object_description_options = []
 
 json_schemas = [
     '*schema.yml',
@@ -268,30 +297,258 @@ python_type_to_xref_mappings = {
     ),
 }
 
-_orig_python_type_to_xref = sphinx.domains.python.type_to_xref
+
+def _monkey_patch_type_to_xref():
+  _orig_python_type_to_xref = sphinx.domains.python.type_to_xref
+
+  def _python_type_to_xref(
+      target: str,
+      env: Optional[sphinx.environment.BuildEnvironment] = None,
+      *args,
+      **kwargs,
+  ) -> sphinx.addnodes.pending_xref:
+    xref_info = python_type_to_xref_mappings.get(target)
+    if xref_info is not None:
+      return sphinx.addnodes.pending_xref(
+          '',
+          docutils.nodes.Text(xref_info.title),
+          refdomain=xref_info.domain,
+          reftype=xref_info.reftype,
+          reftarget=xref_info.target,
+          refspecific=False,
+          refexplicit=True,
+          refwarn=True,
+      )
+    return _orig_python_type_to_xref(target, env, *args, **kwargs)
+
+  for modname in [
+      'sphinx.domains.python',
+      # In newer sphinx versions, `type_to_xref` is actually defined in
+      # `sphinx.domains.python._annotations`, and must be overridden there as
+      # well.
+      'sphinx.domains.python._annotations',
+  ]:
+    module = sys.modules.get(modname)
+    if module is None:
+      continue
+    if getattr(module, 'type_to_xref', None) is _orig_python_type_to_xref:
+      setattr(module, 'type_to_xref', _python_type_to_xref)
 
 
-def _python_type_to_xref(
-    target: str,
-    env: Optional[sphinx.environment.BuildEnvironment] = None,
-    suppress_prefix: bool = False,
-) -> sphinx.addnodes.pending_xref:
-  xref_info = python_type_to_xref_mappings.get(target)
-  if xref_info is not None:
-    return sphinx.addnodes.pending_xref(
-        '',
-        docutils.nodes.Text(xref_info.title),
-        refdomain=xref_info.domain,
-        reftype=xref_info.reftype,
-        reftarget=xref_info.target,
-        refspecific=False,
-        refexplicit=True,
-        refwarn=True,
-    )
-  return _orig_python_type_to_xref(target, env, suppress_prefix)
+_monkey_patch_type_to_xref()
+
+external_cpp_references = {
+    'nlohmann::json': {
+        'url': 'https://json.nlohmann.me/api/json/',
+        'object_type': 'type alias',
+        'desc': 'C++ type alias',
+    },
+    'nlohmann::basic_json': {
+        'url': 'https://json.nlohmann.me/api/basic_json/',
+        'object_type': 'class',
+        'desc': 'C++ class',
+    },
+    'half_float::half': {
+        'url': 'http://half.sourceforge.net/classhalf__float_1_1half.html',
+        'object_type': 'class',
+        'desc': 'C++ class',
+    },
+    'absl::Status': {
+        'url': 'https://abseil.io/docs/cpp/guides/status',
+        'object_type': 'class',
+        'desc': 'C++ class',
+    },
+    'absl::StatusOr': {
+        'url': 'https://abseil.io/docs/cpp/guides/statuss#returning-a-status-or-a-value',
+        'object_type': 'class',
+        'desc': 'C++ class',
+    },
+    'absl::OkStatus': {
+        'url': 'https://abseil.io/docs/cpp/guides/status',
+        'object_type': 'function',
+        'desc': 'C++ function',
+    },
+    'absl::StatusCode': {
+        'url': 'https://abseil.io/docs/cpp/guides/status-codes',
+        'object_type': 'enum',
+        'desc': 'C++ enumeration',
+    },
+    'absl::Time': {
+        'url': 'https://abseil.io/docs/cpp/guides/time#absolute-times-with-absltime',
+        'object_type': 'class',
+        'desc': 'C++ class',
+    },
+    'absl::InfiniteFuture': {
+        'url': 'https://abseil.io/docs/cpp/guides/time#absolute-times-with-absltime',
+        'object_type': 'function',
+        'desc': 'C++ function',
+    },
+    'absl::InfinitePast': {
+        'url': 'https://abseil.io/docs/cpp/guides/time#absolute-times-with-absltime',
+        'object_type': 'function',
+        'desc': 'C++ function',
+    },
+    'absl::Now': {
+        'url': 'https://abseil.io/docs/cpp/guides/time#absolute-times-with-absltime',
+        'object_type': 'function',
+        'desc': 'C++ function',
+    },
+    'absl::Duration': {
+        'url': 'https://abseil.io/docs/cpp/guides/time#time-durations',
+        'object_type': 'class',
+        'desc': 'C++ class',
+    },
+    'absl::Cord': {
+        'url': 'https://github.com/abseil/abseil-cpp/blob/master/absl/strings/cord.h',
+        'object_type': 'class',
+        'desc': 'C++ class',
+    },
+    'absl::AnyInvocable': {
+        'url': 'https://github.com/abseil/abseil-cpp/blob/master/absl/functional/any_invocable.h',
+        'object_type': 'class',
+        'desc': 'C++ class',
+    },
+}
+
+for code in [
+    'kOk',
+    'kCancelled',
+    'kUnknown',
+    'kInvalidArgument',
+    'kNotFound',
+    'kAlreadyExists',
+    'kPermissionDenied',
+    'kResourceExhausted',
+    'kFailedPrecondition',
+    'kAborted',
+    'kOutOfRange',
+    'kUnimplemented',
+    'kInternal',
+    'kUnavailable',
+    'kDataLoss',
+    'kUnauthenticated',
+]:
+  external_cpp_references[f'absl::StatusCode::{code}'] = {
+      'url': 'https://abseil.io/docs/cpp/guides/status-codes',
+      'object_type': 'enumerator',
+      'desc': 'C++ enumerator',
+  }
+
+html_wrap_signatures_with_css = ['py']
+
+object_description_options.append((
+    '(cpp|c):.*',
+    dict(
+        clang_format_style={
+            'BasedOnStyle': 'Google',
+            'AlignAfterOpenBracket': 'Align',
+            'AlignOperands': 'AlignAfterOperator',
+            'AllowAllArgumentsOnNextLine': 'true',
+            'AllowAllParametersOfDeclarationOnNextLine': 'false',
+            'AlwaysBreakTemplateDeclarations': 'Yes',
+            'BinPackArguments': 'true',
+            'BinPackParameters': 'false',
+            'BreakInheritanceList': 'BeforeColon',
+            'ColumnLimit': '70',
+            'ContinuationIndentWidth': '4',
+            'Cpp11BracedListStyle': 'true',
+            'DerivePointerAlignment': 'false',
+            'IndentRequiresClause': 'true',
+            'IndentWidth': '2',
+            'IndentWrappedFunctionNames': 'false',
+            'InsertBraces': 'false',
+            'InsertTrailingCommas': 'None',
+            'PointerAlignment': 'Left',
+            'QualifierAlignment': 'Leave',
+            'ReferenceAlignment': 'Pointer',
+            'RemoveBracesLLVM': 'false',
+            'RequiresClausePosition': 'OwnLine',
+            'Standard': 'c++20',
+            'PenaltyReturnTypeOnItsOwnLine': '1',
+            'PenaltyBreakBeforeFirstCallParameter': '2',
+            'PenaltyBreakAssignment': '3',
+            'SpaceBeforeParens': 'Custom',
+            'SpaceBeforeParensOptions': {
+                'AfterRequiresInClause': 'true',
+            },
+        }
+    ),
+))
+
+clang_format_command = os.environ.get('SPHINX_CLANG_FORMAT', 'clang-format')
+
+cpp_strip_namespaces_from_signatures = ['tensorstore']
+
+cpp_apigen_configs = [
+    {
+        'document_prefix': 'cpp/api/',
+        # Generated by generate_cpp_api.py
+        'api_data': 'cpp_api.json',
+    },
+]
+
+cpp_apigen_rst_prolog = """
+.. default-role:: cpp:expr
+
+.. default-literal-role:: cpp
+
+.. highlight:: cpp
+
+"""
 
 
-sphinx.domains.python.type_to_xref = _python_type_to_xref
+# Workaround for Sphinx parallel build inefficiency with large number of
+# documents.
+#
+# This ensures that there is one worker per batch, and all workers are forked
+# immediately at the start of reading/writing documents, such that the forked
+# BuildEnvironment in each worker does not contain any partial results from
+# previously-finished batches.
+#
+# https://github.com/sphinx-doc/sphinx/issues/10967
+def _monkey_patch_parallel_maxbatch():
+  orig_make_chunks = sphinx.util.parallel.make_chunks
+
+  orig_add_task = sphinx.util.parallel.ParallelTasks.add_task
+  orig_join_one = sphinx.util.parallel.ParallelTasks._join_one
+  orig_join = sphinx.util.parallel.ParallelTasks.join
+
+  def add_task(self, *args, **kwargs):
+    try:
+      self._in_add_task = True
+      return orig_add_task(self, *args, **kwargs)
+    finally:
+      self._in_add_task = False
+
+  sphinx.util.parallel.ParallelTasks.add_task = add_task
+
+  def _join_one(self) -> bool:
+    if getattr(self, '_in_add_task', False):
+      return False
+    return orig_join_one(self)
+
+  def join(self):
+    orig_join_one(self)
+    return orig_join(self)
+
+  sphinx.util.parallel.ParallelTasks.join = join
+
+  sphinx.util.parallel.ParallelTasks._join_one = _join_one
+
+  def make_chunks(arguments, nproc: int, maxbatch: int = 10000000):
+    chunks = orig_make_chunks(arguments, nproc - 1, maxbatch)
+    return chunks
+
+  for modname in [
+      'sphinx.util.parallel',
+      'sphinx.builders',
+  ]:
+    module = importlib.import_module(modname)
+    if getattr(module, 'make_chunks', None) is orig_make_chunks:
+      setattr(module, 'make_chunks', make_chunks)
+
+
+_monkey_patch_parallel_maxbatch()
 
 
 def setup(app):

@@ -21,6 +21,7 @@ import os
 import pathlib
 import platform
 import re
+import shutil
 import sys
 import tempfile
 from typing import List
@@ -182,7 +183,7 @@ def _write_third_party_libraries_summary(runfiles_dir: str, output_path: str):
 
 
 @contextlib.contextmanager
-def _prepare_source_tree(runfiles_dir: str):
+def _prepare_source_tree(runfiles_dir: str, excluded: List[str]):
   with tempfile.TemporaryDirectory() as temp_src_dir:
     _write_third_party_libraries_summary(
         runfiles_dir=runfiles_dir,
@@ -238,6 +239,18 @@ def _prepare_source_tree(runfiles_dir: str):
         zipfile.ZipFile(cache_zip).extractall(zip_path)
         os.environ[cache_env_key] = zip_path
 
+    for excluded_glob in excluded:
+      if excluded_glob.startswith('/'):
+        excluded_glob = excluded_glob[1:]
+      matching_paths = glob.glob(
+          os.path.join(temp_src_dir, excluded_glob), recursive=True
+      )
+      matching_paths.reverse()
+      for matching_path in matching_paths:
+        if os.path.islink(matching_path):
+          os.remove(matching_path)
+        else:
+          shutil.rmtree(matching_path)
     yield temp_src_dir
 
 
@@ -294,7 +307,9 @@ def run(args: argparse.Namespace, unknown: List[str]):
       os.getenv('BUILD_WORKING_DIRECTORY', os.getcwd()), args.output
   )
   os.makedirs(output_dir, exist_ok=True)
-  with _prepare_source_tree(runfiles_dir) as temp_src_dir:
+  with _prepare_source_tree(
+      runfiles_dir, excluded=args.exclude
+  ) as temp_src_dir:
     # Use a separate temporary directory for the doctrees, since we don't want
     # them mixed into the output directory.
     with tempfile.TemporaryDirectory() as doctree_dir:

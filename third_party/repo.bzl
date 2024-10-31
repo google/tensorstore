@@ -202,7 +202,7 @@ cc_library(
         # packages, such as `sphinxcontrib`.
         result = ctx.execute([
             get_python_bin(ctx),
-            ctx.path(ctx.attr._create_init_files).realpath,
+            ctx.path(ctx.attr._postinstall_fix).realpath,
         ])
         if result.return_code != 0:
             fail("Failed to install create init files for: %s\n%s%s" % (
@@ -229,6 +229,19 @@ py_library(
     }),
   visibility = ["//visibility:public"],
 )
+
+SCRIPT_PREFIX = "console_scripts_for_bazel/"
+SCRIPT_SUFFIX = ".py"
+
+[py_binary(
+   name = bin[len(SCRIPT_PREFIX):-len(SCRIPT_SUFFIX)] + "_binary",
+   srcs = [bin],
+   main = bin,
+   deps = [":""" + ctx.attr.target + """"],
+   visibility = ["//visibility:public"],
+ )
+ for bin in glob([SCRIPT_PREFIX + "*" + SCRIPT_SUFFIX])
+]
 """)
         if is_numpy:
             build_file_content += """
@@ -257,8 +270,8 @@ _third_party_python_package_attrs = {
     "not_win32": attr.string_list(),
     "darwin": attr.string_list(),
     "not_darwin": attr.string_list(),
-    "_create_init_files": attr.label(
-        default = Label("//third_party:pypa/create_init_files.py"),
+    "_postinstall_fix": attr.label(
+        default = Label("//third_party:pypa/postinstall_fix.py"),
     ),
 }
 
