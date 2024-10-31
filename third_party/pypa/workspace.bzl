@@ -18,6 +18,7 @@ def repo():
     repo_pypa_aws_sam_translator()
     repo_pypa_aws_xray_sdk()
     repo_pypa_babel()
+    repo_pypa_black()
     repo_pypa_blinker()
     repo_pypa_boto3()
     repo_pypa_botocore()
@@ -25,6 +26,7 @@ def repo():
     repo_pypa_cffi()
     repo_pypa_cfn_lint()
     repo_pypa_charset_normalizer()
+    repo_pypa_clang_format()
     repo_pypa_click()
     repo_pypa_cloudpickle()
     repo_pypa_colorama()
@@ -58,11 +60,13 @@ def repo():
     repo_pypa_jsonschema_path()
     repo_pypa_jsonschema_specifications()
     repo_pypa_lazy_object_proxy()
+    repo_pypa_libclang()
     repo_pypa_markupsafe()
     repo_pypa_matplotlib_inline()
     repo_pypa_ml_dtypes()
     repo_pypa_moto()
     repo_pypa_mpmath()
+    repo_pypa_mypy_extensions()
     repo_pypa_networkx()
     repo_pypa_numpy()
     repo_pypa_openapi_schema_validator()
@@ -70,6 +74,7 @@ def repo():
     repo_pypa_packaging()
     repo_pypa_parso()
     repo_pypa_pathable()
+    repo_pypa_pathspec()
     repo_pypa_pexpect()
     repo_pypa_platformdirs()
     repo_pypa_pluggy()
@@ -222,6 +227,30 @@ def repo_pypa_babel():
         requirement = "babel==2.16.0",
     )
 
+def repo_pypa_black():
+    repo_pypa_click()
+    repo_pypa_mypy_extensions()
+    repo_pypa_packaging()
+    repo_pypa_pathspec()
+    repo_pypa_platformdirs()
+    repo_pypa_tomli()
+    repo_pypa_typing_extensions()
+    maybe(
+        third_party_python_package,
+        name = "pypa_black",
+        target = "black",
+        requirement = "black==24.10.0",
+        deps = [
+            "@pypa_click//:click",
+            "@pypa_mypy_extensions//:mypy_extensions",
+            "@pypa_packaging//:packaging",
+            "@pypa_pathspec//:pathspec",
+            "@pypa_platformdirs//:platformdirs",
+            "@pypa_tomli//:tomli",
+            "@pypa_typing_extensions//:typing_extensions",
+        ],
+    )
+
 def repo_pypa_blinker():
     maybe(
         third_party_python_package,
@@ -314,6 +343,14 @@ def repo_pypa_charset_normalizer():
         requirement = "charset-normalizer==3.4.0",
     )
 
+def repo_pypa_clang_format():
+    maybe(
+        third_party_python_package,
+        name = "pypa_clang_format",
+        target = "clang_format",
+        requirement = "clang-format==19.1.2",
+    )
+
 def repo_pypa_click():
     maybe(
         third_party_python_package,
@@ -389,7 +426,7 @@ def repo_pypa_docutils():
         third_party_python_package,
         name = "pypa_docutils",
         target = "docutils",
-        requirement = "docutils==0.19",
+        requirement = "docutils==0.21.2",
     )
 
 def repo_pypa_exceptiongroup():
@@ -694,6 +731,14 @@ def repo_pypa_lazy_object_proxy():
         requirement = "lazy-object-proxy==1.10.0",
     )
 
+def repo_pypa_libclang():
+    maybe(
+        third_party_python_package,
+        name = "pypa_libclang",
+        target = "libclang",
+        requirement = "libclang==18.1.1",
+    )
+
 def repo_pypa_markupsafe():
     maybe(
         third_party_python_package,
@@ -792,6 +837,14 @@ def repo_pypa_mpmath():
         requirement = "mpmath==1.3.0",
     )
 
+def repo_pypa_mypy_extensions():
+    maybe(
+        third_party_python_package,
+        name = "pypa_mypy_extensions",
+        target = "mypy_extensions",
+        requirement = "mypy-extensions==1.0.0",
+    )
+
 def repo_pypa_networkx():
     maybe(
         third_party_python_package,
@@ -864,6 +917,14 @@ def repo_pypa_pathable():
         name = "pypa_pathable",
         target = "pathable",
         requirement = "pathable==0.4.3",
+    )
+
+def repo_pypa_pathspec():
+    maybe(
+        third_party_python_package,
+        name = "pypa_pathspec",
+        target = "pathspec",
+        requirement = "pathspec==0.12.1",
     )
 
 def repo_pypa_pexpect():
@@ -1063,7 +1124,7 @@ def repo_pypa_pyyaml():
         third_party_python_package,
         name = "pypa_pyyaml",
         target = "pyyaml",
-        requirement = "pyyaml==6.0.2",
+        requirement = "PyYAML==6.0.2",
     )
 
 def repo_pypa_referencing():
@@ -1216,11 +1277,12 @@ def repo_pypa_sphinx():
     repo_pypa_sphinxcontrib_jsmath()
     repo_pypa_sphinxcontrib_qthelp()
     repo_pypa_sphinxcontrib_serializinghtml()
+    repo_pypa_tomli()
     maybe(
         third_party_python_package,
         name = "pypa_sphinx",
         target = "sphinx",
-        requirement = "sphinx==6.0.1",
+        requirement = "sphinx==7.3.7",
         deps = [
             "@pypa_alabaster//:alabaster",
             "@pypa_babel//:babel",
@@ -1238,6 +1300,7 @@ def repo_pypa_sphinx():
             "@pypa_sphinxcontrib_jsmath//:sphinxcontrib_jsmath",
             "@pypa_sphinxcontrib_qthelp//:sphinxcontrib_qthelp",
             "@pypa_sphinxcontrib_serializinghtml//:sphinxcontrib_serializinghtml",
+            "@pypa_tomli//:tomli",
         ],
         win32 = [
             "@pypa_colorama//:colorama",
@@ -1390,7 +1453,7 @@ def repo_pypa_werkzeug():
         third_party_python_package,
         name = "pypa_werkzeug",
         target = "werkzeug",
-        requirement = "Werkzeug==3.0.4",
+        requirement = "werkzeug==3.0.4",
         deps = [
             "@pypa_markupsafe//:markupsafe",
         ],

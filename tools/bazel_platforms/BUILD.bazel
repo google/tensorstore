@@ -3,7 +3,7 @@
 platform(
     name = "windows_x86_64_mingw",
     constraint_values = [
-        "//tools/cpp:mingw",
+        "@bazel_tools//tools/cpp:mingw",
         "@platforms//os:windows",
         "@platforms//cpu:x86_64",
     ],

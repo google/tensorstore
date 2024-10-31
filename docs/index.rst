@@ -13,6 +13,12 @@ TensorStore
 
 .. toctree::
    :hidden:
+   :caption: C++ API
+
+   cpp/api/index
+
+.. toctree::
+   :hidden:
    :caption: Setup
 
    installation
