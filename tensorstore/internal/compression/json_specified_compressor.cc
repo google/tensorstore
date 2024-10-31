@@ -34,25 +34,27 @@ JsonSpecifiedCompressor::~JsonSpecifiedCompressor() = default;
 absl::Status JsonSpecifiedCompressor::Encode(const absl::Cord& input,
                                              absl::Cord* output,
                                              size_t element_bytes) const {
-  auto base_writer = std::make_unique<riegeli::CordWriter<>>(
+  riegeli::CordWriter<> base_writer(
       output, riegeli::CordWriterBase::Options().set_append(true));
-  auto writer = GetWriter(std::move(base_writer), element_bytes);
+  auto writer = GetWriter(base_writer, element_bytes);
 
   TENSORSTORE_RETURN_IF_ERROR(
       riegeli::Write(input, std::move(writer)),
       MaybeConvertStatusTo(_, absl::StatusCode::kInvalidArgument));
+  if (!base_writer.Close()) return base_writer.status();
   return absl::OkStatus();
 }
 
 absl::Status JsonSpecifiedCompressor::Decode(const absl::Cord& input,
                                              absl::Cord* output,
                                              size_t element_bytes) const {
-  auto base_reader = std::make_unique<riegeli::CordReader<>>(&input);
-  auto reader = GetReader(std::move(base_reader), element_bytes);
+  riegeli::CordReader<> base_reader(&input);
+  auto reader = GetReader(base_reader, element_bytes);
 
   TENSORSTORE_RETURN_IF_ERROR(
       riegeli::ReadAndAppendAll(std::move(reader), *output),
       MaybeConvertStatusTo(_, absl::StatusCode::kInvalidArgument));
+  if (!base_reader.VerifyEndAndClose()) return base_reader.status();
   return absl::OkStatus();
 }
 

@@ -496,16 +496,20 @@ Result<absl::InlinedVector<SharedArray<const void>, 1>> DecodeChunk(
       std::reverse(c_order_shape, c_order_shape + metadata.rank);
       c_order_shape_span = span(&c_order_shape[0], full_chunk_shape.size());
     }
-    std::unique_ptr<riegeli::Reader> reader =
-        std::make_unique<riegeli::CordReader<absl::Cord>>(std::move(buffer));
+    riegeli::CordReader<absl::Cord> base_reader(std::move(buffer));
+    std::unique_ptr<riegeli::Reader> compressed_reader;
     if (metadata.compressor) {
-      reader = metadata.compressor->GetReader(
-          std::move(reader), metadata.dtype.bytes_per_outer_element);
+      compressed_reader = metadata.compressor->GetReader(
+          base_reader, metadata.dtype.bytes_per_outer_element);
     }
     TENSORSTORE_ASSIGN_OR_RETURN(
-        auto array, internal::DecodeArrayEndian(*reader, dtype_field.dtype,
-                                                c_order_shape_span,
-                                                dtype_field.endian, c_order));
+        auto array, internal::DecodeArrayEndian(
+                        compressed_reader ? *compressed_reader : base_reader,
+                        dtype_field.dtype, c_order_shape_span,
+                        dtype_field.endian, c_order));
+    if (compressed_reader) {
+      if (!base_reader.VerifyEndAndClose()) return base_reader.status();
+    }
     if (metadata.order == fortran_order) {
       std::reverse(array.shape().begin(),
                    array.shape().begin() + metadata.rank);
@@ -516,11 +520,12 @@ Result<absl::InlinedVector<SharedArray<const void>, 1>> DecodeChunk(
     return field_arrays;
   }
   if (metadata.compressor) {
-    std::unique_ptr<riegeli::Reader> reader =
-        std::make_unique<riegeli::CordReader<absl::Cord>>(std::move(buffer));
-    reader = metadata.compressor->GetReader(
-        std::move(reader), metadata.dtype.bytes_per_outer_element);
-    TENSORSTORE_RETURN_IF_ERROR(riegeli::ReadAll(std::move(reader), buffer));
+    riegeli::CordReader<absl::Cord> base_reader(std::move(buffer));
+    auto compressed_reader = metadata.compressor->GetReader(
+        base_reader, metadata.dtype.bytes_per_outer_element);
+    TENSORSTORE_RETURN_IF_ERROR(
+        riegeli::ReadAll(std::move(compressed_reader), buffer));
+    if (!base_reader.VerifyEndAndClose()) return base_reader.status();
   }
   if (static_cast<Index>(buffer.size()) !=
       metadata.chunk_layout.bytes_per_chunk) {
@@ -605,12 +610,12 @@ Result<absl::Cord> EncodeChunk(
   }
   if (metadata.compressor) {
     absl::Cord encoded;
-    std::unique_ptr<riegeli::Writer> writer =
-        std::make_unique<riegeli::CordWriter<absl::Cord*>>(&encoded);
-    writer = metadata.compressor->GetWriter(
-        std::move(writer), metadata.dtype.bytes_per_outer_element);
+    riegeli::CordWriter<absl::Cord*> base_writer(&encoded);
+    auto writer = metadata.compressor->GetWriter(
+        base_writer, metadata.dtype.bytes_per_outer_element);
     TENSORSTORE_RETURN_IF_ERROR(
         riegeli::Write(std::move(output), std::move(writer)));
+    if (!base_writer.Close()) return base_writer.status();
     return encoded;
   }
   return output;

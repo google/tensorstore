@@ -232,8 +232,8 @@ Result<SharedArray<const void>> DecodeChunk(const N5Metadata& metadata,
         tensorstore::StrCat("Expected header of length ", header_size,
                             ", but chunk has size ", buffer.size()));
   }
-  std::unique_ptr<riegeli::Reader> reader =
-      std::make_unique<riegeli::CordReader<>>(&buffer);
+  riegeli::CordReader<> base_reader(&buffer);
+  riegeli::Reader* reader = &base_reader;
   uint16_t mode;
   uint16_t num_dims;
   if (!riegeli::ReadBigEndian16(*reader, mode) ||
@@ -271,9 +271,11 @@ Result<SharedArray<const void>> DecodeChunk(const N5Metadata& metadata,
                               tensorstore::span(metadata.chunk_shape)));
     }
   }
+  std::unique_ptr<riegeli::Reader> compressed_reader;
   if (metadata.compressor) {
-    reader = metadata.compressor->GetReader(std::move(reader),
-                                            metadata.dtype.size());
+    compressed_reader =
+        metadata.compressor->GetReader(base_reader, metadata.dtype.size());
+    reader = compressed_reader.get();
   }
   SharedArray<const void> decoded_array;
   if (absl::c_equal(encoded_shape, metadata.chunk_shape)) {
@@ -292,9 +294,10 @@ Result<SharedArray<const void>> DecodeChunk(const N5Metadata& metadata,
         *reader, endian::big, fortran_order, partial_decoded_array));
     decoded_array = std::move(array);
   }
-  if (!reader->VerifyEndAndClose()) {
-    return reader->status();
+  if (compressed_reader && !compressed_reader->VerifyEndAndClose()) {
+    return compressed_reader->status();
   }
+  if (!base_reader.VerifyEndAndClose()) return base_reader.status();
   return decoded_array;
 }
 
@@ -302,8 +305,8 @@ Result<absl::Cord> EncodeChunk(const N5Metadata& metadata,
                                SharedArrayView<const void> array) {
   assert(absl::c_equal(metadata.chunk_shape, array.shape()));
   absl::Cord encoded;
-  std::unique_ptr<riegeli::Writer> writer =
-      std::make_unique<riegeli::CordWriter<>>(&encoded);
+  riegeli::CordWriter<> base_writer(&encoded);
+  riegeli::Writer* writer = &base_writer;
 
   // Write header
   // mode: 0x0 = default
@@ -316,9 +319,11 @@ Result<absl::Cord> EncodeChunk(const N5Metadata& metadata,
       return writer->status();
     }
   }
+  std::unique_ptr<riegeli::Writer> compressed_writer;
   if (metadata.compressor) {
-    writer = metadata.compressor->GetWriter(std::move(writer),
-                                            metadata.dtype.size());
+    compressed_writer =
+        metadata.compressor->GetWriter(base_writer, metadata.dtype.size());
+    writer = compressed_writer.get();
   }
   // Always write chunks as full size, to avoid race conditions or data loss
   // in the event of a concurrent resize.
@@ -326,7 +331,10 @@ Result<absl::Cord> EncodeChunk(const N5Metadata& metadata,
                                    *writer)) {
     return writer->status();
   }
-  if (!writer->Close()) return writer->status();
+  if (compressed_writer && !compressed_writer->Close()) {
+    return compressed_writer->status();
+  }
+  if (!base_writer.Close()) return base_writer.status();
   return encoded;
 }
 

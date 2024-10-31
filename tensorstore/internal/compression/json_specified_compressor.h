@@ -18,6 +18,7 @@
 #include <cstddef>
 #include <memory>
 
+#include "absl/base/attributes.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "riegeli/bytes/reader.h"
@@ -40,7 +41,7 @@ class JsonSpecifiedCompressor
 
   /// Returns a writer that encodes the compression format.
   virtual std::unique_ptr<riegeli::Writer> GetWriter(
-      std::unique_ptr<riegeli::Writer> base_writer,
+      riegeli::Writer& base_writer ABSL_ATTRIBUTE_LIFETIME_BOUND,
       size_t element_bytes) const = 0;
 
   /// Returns a reader that decodes the compression format.
@@ -50,7 +51,7 @@ class JsonSpecifiedCompressor
   ///     compressor, e.g. `4` if `input` is actually a sequence of `int32_t`
   ///     values.  Must be `> 0`.
   virtual std::unique_ptr<riegeli::Reader> GetReader(
-      std::unique_ptr<riegeli::Reader> base_reader,
+      riegeli::Reader& base_reader ABSL_ATTRIBUTE_LIFETIME_BOUND,
       size_t element_bytes) const = 0;
 
   /// Encodes `input`.

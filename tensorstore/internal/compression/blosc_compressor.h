@@ -37,12 +37,10 @@ namespace internal {
 class BloscCompressor : public JsonSpecifiedCompressor {
  public:
   std::unique_ptr<riegeli::Writer> GetWriter(
-      std::unique_ptr<riegeli::Writer> base_writer,
-      size_t element_bytes) const override;
+      riegeli::Writer& base_writer, size_t element_bytes) const override;
 
   std::unique_ptr<riegeli::Reader> GetReader(
-      std::unique_ptr<riegeli::Reader> base_reader,
-      size_t element_bytes) const override;
+      riegeli::Reader& base_reader, size_t element_bytes) const override;
 
   static constexpr auto CodecBinder() {
     namespace jb = tensorstore::internal_json_binding;

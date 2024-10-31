@@ -93,6 +93,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:json_registry",
         "//tensorstore/util:status",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:cord",
         "@com_google_riegeli//riegeli/bytes:cord_reader",
