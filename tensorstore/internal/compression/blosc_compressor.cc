@@ -42,11 +42,11 @@ namespace {
 class BloscDeferredWriter : public riegeli::CordWriter<absl::Cord> {
  public:
   explicit BloscDeferredWriter(blosc::Options options,
-                               std::unique_ptr<riegeli::Writer> base_writer)
+                               riegeli::Writer& base_writer)
       : CordWriter(riegeli::CordWriterBase::Options().set_max_block_size(
             std::numeric_limits<size_t>::max())),
         options_(std::move(options)),
-        base_writer_(std::move(base_writer)) {}
+        base_writer_(base_writer) {}
 
   void Done() override {
     CordWriter::Done();
@@ -55,7 +55,7 @@ class BloscDeferredWriter : public riegeli::CordWriter<absl::Cord> {
       Fail(std::move(output).status());
       return;
     }
-    auto status = riegeli::Write(*std::move(output), std::move(base_writer_));
+    auto status = riegeli::Write(*std::move(output), base_writer_);
     if (!status.ok()) {
       Fail(std::move(status));
       return;
@@ -64,23 +64,22 @@ class BloscDeferredWriter : public riegeli::CordWriter<absl::Cord> {
 
  private:
   blosc::Options options_;
-  std::unique_ptr<riegeli::Writer> base_writer_;
+  riegeli::Writer& base_writer_;
 };
 
 }  // namespace
 
 std::unique_ptr<riegeli::Writer> BloscCompressor::GetWriter(
-    std::unique_ptr<riegeli::Writer> base_writer, size_t element_bytes) const {
+    riegeli::Writer& base_writer, size_t element_bytes) const {
   return std::make_unique<BloscDeferredWriter>(
       blosc::Options{codec.c_str(), level, shuffle, blocksize, element_bytes},
-      std::move(base_writer));
+      base_writer);
 }
 
 std::unique_ptr<riegeli::Reader> BloscCompressor::GetReader(
-    std::unique_ptr<riegeli::Reader> base_reader, size_t element_bytes) const {
+    riegeli::Reader& base_reader, size_t element_bytes) const {
   auto output = riegeli::ReadAll(
-      std::move(base_reader),
-      [](absl::string_view input) -> absl::StatusOr<std::string> {
+      base_reader, [](absl::string_view input) -> absl::StatusOr<std::string> {
         auto output = blosc::Decode(input);
         if (!output.ok()) return std::move(output).status();
         return *std::move(output);
