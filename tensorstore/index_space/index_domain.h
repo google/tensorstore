@@ -525,9 +525,7 @@ explicit IndexDomain(const BoxType& box)
 
 explicit IndexDomain() -> IndexDomain<>;
 
-/// Specializes the HasBoxDomain metafunction for IndexTransform.
-///
-/// \relates IndexDomain
+// Specializes the HasBoxDomain metafunction for IndexTransform.
 template <DimensionIndex Rank, ContainerKind CKind>
 constexpr inline bool HasBoxDomain<IndexDomain<Rank, CKind>> = true;
 

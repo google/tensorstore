@@ -572,9 +572,9 @@ class IndexTransform {
   Ptr rep_{};
 };
 
-/// Specializes the HasBoxDomain metafunction for `IndexTransform`.
-///
-/// \relates IndexTransform
+// Specializes the HasBoxDomain metafunction for `IndexTransform`.
+//
+// \relates IndexTransform
 template <DimensionIndex InputRank, DimensionIndex OutputRank,
           ContainerKind CKind>
 constexpr inline bool
