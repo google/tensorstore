@@ -583,6 +583,23 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
+    name = "split_box",
+    srcs = ["split_box.cc"],
+    hdrs = ["split_box.h"],
+    deps = ["//tensorstore:box"],
+)
+
+tensorstore_cc_test(
+    name = "split_box_test",
+    size = "small",
+    srcs = ["split_box_test.cc"],
+    deps = [
+        ":split_box",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
     name = "status",
     srcs = [
         "status.cc",

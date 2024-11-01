@@ -341,6 +341,35 @@ TENSORSTORE_GLOBAL_INITIALIZER {
 }
 
 TENSORSTORE_GLOBAL_INITIALIZER {
+  tensorstore::internal::TensorStoreDriverBasicFunctionalityTestOptions options;
+  options.test_name = "zarr3/cache_disabled";
+  options.create_spec = {
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}}},
+      {"path", "prefix/"},
+      {"cache_pool", {{"disabled", true}}},
+      {"metadata",
+       {
+           {"data_type", "uint16"},
+           {"shape", {10, 11}},
+           {"chunk_grid",
+            {{"name", "regular"},
+             {"configuration", {{"chunk_shape", {4, 5}}}}}},
+       }},
+  };
+  options.expected_domain = tensorstore::IndexDomainBuilder(2)
+                                .shape({10, 11})
+                                .implicit_upper_bounds({1, 1})
+                                .Finalize()
+                                .value();
+  options.initial_value = tensorstore::AllocateArray<uint16_t>(
+      tensorstore::BoxView({10, 11}), tensorstore::c_order,
+      tensorstore::value_init);
+  tensorstore::internal::RegisterTensorStoreDriverBasicFunctionalityTest(
+      std::move(options));
+}
+
+TENSORSTORE_GLOBAL_INITIALIZER {
   tensorstore::internal::TestTensorStoreDriverResizeOptions options;
   options.test_name = "zarr3/metadata";
   options.get_create_spec = [](tensorstore::BoxView<> bounds) {

@@ -36,6 +36,13 @@ TEST(CachePoolResourceTest, Default) {
   EXPECT_EQ(0u, (*cache)->limits().total_bytes_limit);
 }
 
+TEST(CachePoolResourceTest, Disable) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto cache,
+      Context::Default().GetResource<CachePoolResource>({{"disabled", true}}));
+  EXPECT_FALSE(cache->get());
+}
+
 TEST(CachePoolResourceTest, EmptyObject) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto resource_spec, Context::Resource<CachePoolResource>::FromJson(

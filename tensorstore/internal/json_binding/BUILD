@@ -106,7 +106,10 @@ tensorstore_cc_test(
 
 tensorstore_cc_library(
     name = "bindable",
-    hdrs = ["bindable.h"],
+    hdrs = [
+        "bindable.h",
+        "json_binding_fwd.h",
+    ],
     deps = [
         "//tensorstore:json_serialization_options_base",
         "//tensorstore/util:result",

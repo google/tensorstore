@@ -1,3 +1,4 @@
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 load("//bazel:tensorstore.bzl", "tensorstore_cc_binary", "tensorstore_cc_library", "tensorstore_cc_test")
 load("//docs:doctest.bzl", "doctest_test")
 
@@ -190,10 +191,27 @@ tensorstore_cc_test(
     ],
 )
 
+bool_flag(
+    name = "disable_automatic_shard_batching",
+    build_setting_default = False,
+)
+
+config_setting(
+    name = "disable_automatic_shard_batching_setting",
+    flag_values = {
+        ":disable_automatic_shard_batching": "True",
+    },
+    visibility = ["//visibility:private"],
+)
+
 tensorstore_cc_library(
     name = "chunk_cache",
     srcs = ["chunk_cache.cc"],
     hdrs = ["chunk_cache.h"],
+    local_defines = select({
+        ":disable_automatic_shard_batching_setting": ["TENSORSTORE_ZARR3_AUTOMATIC_SHARD_BATCHING=0"],
+        "//conditions:default": [],
+    }),
     deps = [
         "//tensorstore:array",
         "//tensorstore:array_storage_statistics",

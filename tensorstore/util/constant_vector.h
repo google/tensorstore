@@ -44,6 +44,8 @@ constexpr inline std::array<T, kMaxRank> kConstantArray =
 
 extern const std::string kStringArray[kMaxRank];
 
+extern const DimensionIndex kIdentityPermutation[kMaxRank];
+
 }  // namespace internal_constant_vector
 
 /// Returns a `tensorstore::span<const T>` of length `length` filled with
@@ -115,6 +117,16 @@ inline constexpr tensorstore::span<const std::string, Length>
 GetDefaultStringVector(std::integral_constant<ptrdiff_t, Length> = {}) {
   static_assert(IsValidRank(Length));
   return {internal_constant_vector::kStringArray, Length};
+}
+
+inline constexpr span<const DimensionIndex> GetIdentityPermutation(
+    DimensionIndex rank) {
+  assert(IsValidRank(rank));
+  return {internal_constant_vector::kIdentityPermutation, rank};
+}
+
+inline constexpr const DimensionIndex* GetIdentityPermutation() {
+  return internal_constant_vector::kIdentityPermutation;
 }
 
 }  // namespace tensorstore

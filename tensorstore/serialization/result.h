@@ -15,6 +15,7 @@
 #ifndef TENSORSTORE_SERIALIZATION_RESULT_H_
 #define TENSORSTORE_SERIALIZATION_RESULT_H_
 
+#include "absl/base/attributes.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/serialization/status.h"
 #include "tensorstore/util/result.h"
@@ -22,19 +23,19 @@
 namespace tensorstore {
 namespace serialization {
 
-template <typename T>
-struct Serializer<Result<T>> {
-  [[nodiscard]] static bool Encode(EncodeSink& sink, const Result<T>& value) {
+template <typename T, typename ValueSerializer = serialization::Serializer<T>>
+struct ResultSerializer {
+  [[nodiscard]] bool Encode(EncodeSink& sink, const Result<T>& value) const {
     return serialization::Encode(sink, value.ok()) &&
-           (value.ok() ? serialization::Encode(sink, *value)
+           (value.ok() ? value_serializer.Encode(sink, *value)
                        : serialization::Encode(sink, value.status()));
   }
 
-  [[nodiscard]] static bool Decode(DecodeSource& source, Result<T>& value) {
+  [[nodiscard]] bool Decode(DecodeSource& source, Result<T>& value) const {
     bool has_value;
     if (!serialization::Decode(source, has_value)) return false;
     if (has_value) {
-      return serialization::Decode(source, value.emplace());
+      return value_serializer.Decode(source, value.emplace());
     } else {
       absl::Status status;
       if (!ErrorStatusSerializer::Decode(source, status)) return false;
@@ -42,7 +43,12 @@ struct Serializer<Result<T>> {
       return true;
     }
   }
+
+  ABSL_ATTRIBUTE_NO_UNIQUE_ADDRESS ValueSerializer value_serializer;
 };
+
+template <typename T>
+struct Serializer<Result<T>> : public ResultSerializer<T> {};
 
 }  // namespace serialization
 }  // namespace tensorstore

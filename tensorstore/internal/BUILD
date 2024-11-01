@@ -24,6 +24,19 @@ config_setting(
 )
 
 bool_flag(
+    name = "nditerable_disable_2d_block",
+    build_setting_default = False,
+)
+
+config_setting(
+    name = "nditerable_disable_2d_block_setting",
+    flag_values = {
+        ":nditerable_disable_2d_block": "True",
+    },
+    visibility = ["//visibility:private"],
+)
+
+bool_flag(
     name = "grid_storage_statistics_debug",
     build_setting_default = False,
 )
@@ -1471,7 +1484,10 @@ tensorstore_cc_library(
     name = "nditerable_util",
     srcs = ["nditerable_util.cc"],
     hdrs = ["nditerable_util.h"],
-    local_defines = NDITERABLE_TEST_UNIT_BLOCK_SIZE_DEFINES,
+    local_defines = NDITERABLE_TEST_UNIT_BLOCK_SIZE_DEFINES + select({
+        "nditerable_disable_2d_block_setting": ["TENSORSTORE_NDITERABLE_2D_BLOCK=0"],
+        "//conditions:default": [],
+    }),
     deps = [
         ":arena",
         ":elementwise_function",

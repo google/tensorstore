@@ -160,6 +160,8 @@ ABSL_FLAG(tensorstore::JsonAbslFlag<tensorstore::Context::Spec>, context_spec,
 ABSL_FLAG(std::string, strategy, "random",
           "Specifies the strategy to use: 'sequential' or 'random'.");
 
+ABSL_FLAG(std::string, benchmark_id, "", "Identifier for the benchmark.");
+
 ABSL_FLAG(tensorstore::VectorFlag<tensorstore::Index>, chunk_shape, {},
           "Read/write chunks of --chunk_shape dimensions.");
 
@@ -179,6 +181,8 @@ ABSL_FLAG(int64_t, repeat_reads, 1,
 
 ABSL_FLAG(int64_t, repeat_writes, 0,
           "Number of times to repeat write benchmark.");
+
+ABSL_FLAG(bool, dump_metrics, true, "Print metrics to stdout.");
 
 namespace tensorstore {
 namespace {
@@ -213,6 +217,13 @@ void DoTsBenchmark() {
   options.repeat_writes = absl::GetFlag(FLAGS_repeat_writes);
   options.total_write_bytes = absl::GetFlag(FLAGS_total_write_bytes);
   options.total_read_bytes = absl::GetFlag(FLAGS_total_read_bytes);
+  options.result_callback = [&](const auto& results) {
+    auto summary_line = results.FormatSummary();
+    auto benchmark_id = absl::GetFlag(FLAGS_benchmark_id);
+    std::cout << "[" << benchmark_id << "] " << summary_line << std::endl;
+    ABSL_LOG(INFO) << "[" << benchmark_id << "] " << summary_line;
+    return absl::OkStatus();
+  };
 
   if (options.total_write_bytes == 0 && options.total_read_bytes == 0) {
     ABSL_LOG(FATAL)
@@ -223,7 +234,9 @@ void DoTsBenchmark() {
   absl::InsecureBitGen gen;
   TENSORSTORE_CHECK_OK(TestDriverWriteReadChunks(gen, options));
 
-  internal::DumpMetrics("");
+  if (absl::GetFlag(FLAGS_dump_metrics)) {
+    internal::DumpMetrics("");
+  }
 }
 
 }  // namespace

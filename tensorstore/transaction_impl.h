@@ -823,7 +823,11 @@ class TransactionState {
   /// transaction.  The callback holds a commit reference.  This is unregistered
   /// when all other commit references have been released, in order to break the
   /// reference cycle.
-  FutureCallbackRegistration promise_callback_;
+  FutureCallbackRegistration promise_force_callback_;
+
+  /// Registration of "not needed" callback on `promise_` that aborts the
+  /// transaction.
+  FutureCallbackRegistration promise_not_needed_callback_;
 
   /// Retained until all write handles are released.
   Promise<void> promise_;

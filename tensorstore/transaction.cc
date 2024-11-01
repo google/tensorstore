@@ -104,7 +104,9 @@ TransactionState::OpenPtr TransactionState::AcquireImplicitOpenPtr() {
     // Future reference was already released.  Try to obtain another future
     // reference.
     future = promise_.future();
-    if (future.null()) return {};
+    if (future.null()) {
+      return {};
+    }
   }
   if (!future.null()) {
     future_ = std::move(future);
@@ -118,9 +120,14 @@ TransactionState::TransactionState(TransactionMode mode,
       commit_reference_count_{kFutureReferenceIncrement +
                               kCommitReferenceIncrement},
       open_reference_count_{implicit_transaction ? 1u : 0u},
-      // Two weak references initially, one owned by the promise callback
-      // attached to `future_`, and one for the initial `Transaction` object.
-      weak_reference_count_{2},
+      // Initial weak references:
+      //
+      // - one owned by the promise force callback attached to `future_`,
+      //
+      // - one owned by the promise not needed callback,
+      //
+      // - and one for the initial `Transaction` object.
+      weak_reference_count_{3},
       total_bytes_{0},
       commit_state_{kOpen},
       implicit_transaction_(implicit_transaction) {
@@ -130,12 +137,14 @@ TransactionState::TransactionState(TransactionMode mode,
     phase_ = 0;
   }
   auto [promise, future] = PromiseFuturePair<void>::Make(MakeResult());
-  promise_callback_ = promise.ExecuteWhenForced(
+  promise_force_callback_ = promise.ExecuteWhenForced(
       [self = IntrusivePtr<TransactionState,
                            CommitPtrTraits<kFutureReferenceIncrement>>(
            this, adopt_object_ref)](Promise<void> promise) {
         self->RequestCommit();
       });
+  promise_not_needed_callback_ = promise.ExecuteWhenNotNeeded(
+      [self = WeakPtr(this, adopt_object_ref)] { self->RequestAbort(); });
   promise_ = std::move(promise);
   future_ = std::move(future);
 }
@@ -182,25 +191,28 @@ void TransactionState::RequestAbort(const absl::Status& error,
                                     UniqueWriterLock<absl::Mutex> lock) {
   auto commit_state = commit_state_;
   if (commit_state > kOpenAndCommitRequested) return;
-  SetDeferredResult(promise_, error);
   if (open_reference_count_.load(std::memory_order_relaxed) != 0) {
     // A thread is not permitted to increase `open_reference_count_` from 0
     // except while owning a lock on `mutex_`.  If another thread concurrently
     // decreases `open_reference_count_` to 0, `NoMoreOpenReferences` will take
     // care of calling `ExecuteAbort()`.
     commit_state_ = kAbortRequested;
+    lock.unlock();
+    SetDeferredResult(promise_, error);
     return;
   } else {
     commit_state_ = kAborted;
   }
   // Ensure `ExecuteAbort` is run with the lock released.
   lock.unlock();
+  SetDeferredResult(promise_, error);
   ExecuteAbort();
 }
 
 void TransactionState::ExecuteAbort() {
   // Release the promise callback to break the reference cycle.
-  promise_callback_.Unregister();
+  promise_force_callback_.Unregister();
+  promise_not_needed_callback_.Unregister();
   if (nodes_.empty()) {
     // Nothing to abort, just release `promise_` so that it becomes ready with
     // the error set previously by `SetDeferredResult`.
@@ -246,7 +258,8 @@ void TransactionState::DecrementNodesPendingAbort(size_t count) {
 void TransactionState::ExecuteCommit() {
   assert(commit_state_ == kCommitStarted);
   // Release the promise callback to break the reference cycle.
-  promise_callback_.Unregister();
+  promise_force_callback_.Unregister();
+  promise_not_needed_callback_.Unregister();
   ExecuteCommitPhase();
 }
 

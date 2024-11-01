@@ -171,6 +171,7 @@ void DoReadImpl(EntryOrNode* entry_or_node,
                 internal::AsyncCache::AsyncCacheReadRequest request) {
   kvstore::ReadOptions kvstore_options;
   kvstore_options.staleness_bound = request.staleness_bound;
+  kvstore_options.batch = request.batch;
   auto read_state =
       internal::AsyncCache::ReadLock<void>(*entry_or_node).read_state();
   kvstore_options.generation_conditions.if_not_equal =

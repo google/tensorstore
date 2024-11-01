@@ -744,4 +744,31 @@ TEST(TransactionTest, ReleaseTransactionReferenceDuringAbort) {
               MatchesStatus(absl::StatusCode::kUnknown, "failed"));
 }
 
+// Tests that releasing all of the `Future` references after requesting a
+// commit, but before the commit actually starts, results in the transaction
+// being aborted.
+TEST(TransactionTest, ReleaseFutureReferencesAfterRequestCommit) {
+  NodeLog log;
+  auto txn = Transaction(tensorstore::isolated);
+  TransactionState::WeakPtr weak_txn(TransactionState::get(txn));
+  WeakTransactionNodePtr<TestNode> weak_node(new TestNode(&log, 1));
+  weak_txn->AcquireCommitBlock();
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto open_ptr,
+                                     AcquireOpenTransactionPtrOrError(txn));
+    {
+      weak_node->SetTransaction(*open_ptr);
+      TENSORSTORE_EXPECT_OK(weak_node->Register());
+    }
+    // Request commit.
+    txn.CommitAsync().IgnoreFuture();
+    txn = no_transaction;
+  }
+  weak_txn->ReleaseCommitBlock();
+
+  EXPECT_THAT(log, ::testing::ElementsAre("abort:1"));
+  EXPECT_TRUE(weak_txn->aborted());
+  weak_node->AbortDone();
+}
+
 }  // namespace

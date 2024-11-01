@@ -278,6 +278,25 @@ struct TestDriverWriteReadChunksOptions {
 
   // Number of times to repeat the writes.
   int64_t repeat_writes = 1;
+
+  // Delete existing data before writing.
+  bool delete_existing = true;
+
+  struct Results {
+    span<const Index> chunk_shape;
+    int64_t total_bytes;
+    int64_t chunk_bytes;
+    int64_t num_chunks;
+    absl::Duration elapsed_time;
+    bool read;
+
+    std::string FormatSummary() const;
+  };
+
+  using ResultCallback = std::function<absl::Status(const Results& results)>;
+
+  // Callback to invoke instead of logging results.
+  ResultCallback result_callback;
 };
 
 // Tests concurrently reading and/or writing multiple chunks.
@@ -296,7 +315,8 @@ absl::Status TestDriverWriteReadChunks(
 absl::Status TestDriverReadOrWriteChunks(
     absl::BitGenRef gen, tensorstore::TensorStore<> ts,
     span<const Index> chunk_shape, int64_t total_bytes,
-    TestDriverWriteReadChunksOptions::Strategy strategy, bool read);
+    TestDriverWriteReadChunksOptions::Strategy strategy, bool read,
+    const TestDriverWriteReadChunksOptions::ResultCallback& result_callback);
 
 void TestTensorStoreCreateWithSchemaImpl(::nlohmann::json json_spec,
                                          const Schema& schema);

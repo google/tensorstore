@@ -63,6 +63,10 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 
+#ifndef TENSORSTORE_ZARR3_AUTOMATIC_SHARD_BATCHING
+#define TENSORSTORE_ZARR3_AUTOMATIC_SHARD_BATCHING 1
+#endif
+
 namespace tensorstore {
 namespace internal_zarr3 {
 
@@ -317,9 +321,11 @@ void ZarrShardedChunkCache::Read(
        batch = std::move(request.batch),
        staleness_bound = request.staleness_bound](auto entry) {
         Batch shard_batch = batch;
+#if TENSORSTORE_ZARR3_AUTOMATIC_SHARD_BATCHING
         if (!shard_batch) {
           shard_batch = Batch::New();
         }
+#endif
         return
             [=, shard_batch = std::move(shard_batch), entry = std::move(entry)](
                 span<const Index> decoded_shape, IndexTransform<> transform,

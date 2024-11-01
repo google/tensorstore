@@ -157,8 +157,8 @@ tensorstore_cc_library(
     deps = [
         ":serialization",
         ":status",
-        "//tensorstore/internal:attributes",
         "//tensorstore/util:result",
+        "@com_google_absl//absl/base:core_headers",
     ],
 )
 

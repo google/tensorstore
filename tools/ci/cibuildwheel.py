@@ -96,7 +96,8 @@ def run(args, extra_args):
 
   env["CIBW_ARCHS_MACOS"] = "x86_64 arm64"
   env["CIBW_SKIP"] = (
-      "cp27-*  cp35-* cp36-* cp37-* cp38-* pp* *_i686 *-win32 *-musllinux*"
+      "cp27-* cp35-* cp36-* cp37-* cp38-* cp313-* pp* *_i686 *-win32"
+      " *-musllinux*"
   )
   env["CIBW_TEST_COMMAND"] = (
       "python -m pytest {project}/python/tensorstore/tests -vv -s"

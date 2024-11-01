@@ -30,6 +30,10 @@
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/span.h"
 
+#ifndef TENSORSTORE_NDITERABLE_2D_BLOCK
+#define TENSORSTORE_NDITERABLE_2D_BLOCK 1
+#endif
+
 namespace tensorstore {
 namespace internal {
 
@@ -184,10 +188,12 @@ IterationBufferShape GetNDIterationBlockShape(
     const Index block_inner_size =
         std::max(Index(1), std::min(last_dimension_size, target_size));
     Index block_outer_size = 1;
+#if TENSORSTORE_NDITERABLE_2D_BLOCK
     if (block_inner_size < target_size) {
       block_outer_size =
           std::min(penultimate_dimension_size, target_size / block_inner_size);
     }
+#endif
     return {block_outer_size, block_inner_size};
   }
 #endif

@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cassert>
+#include <iostream>
 #include <map>
 #include <memory>
 #include <optional>
@@ -582,9 +583,13 @@ absl::Status TestDriverWriteReadChunks(
     absl::BitGenRef gen, const TestDriverWriteReadChunksOptions& options) {
   Context context(options.context_spec);
   const auto is_write = options.total_write_bytes != 0;
-  tensorstore::OpenMode open_mode = is_write
-                                        ? tensorstore::OpenMode::open_or_create
-                                        : tensorstore::OpenMode::open;
+  tensorstore::OpenMode open_mode =
+      is_write
+          ? (options.delete_existing ? (tensorstore::OpenMode::create |
+                                        tensorstore::OpenMode::delete_existing)
+                                     : (tensorstore::OpenMode::open |
+                                        tensorstore::OpenMode::create))
+          : tensorstore::OpenMode::open;
 
   tensorstore::ReadWriteMode read_write_mode =
       is_write ? tensorstore::ReadWriteMode::read_write
@@ -629,11 +634,20 @@ absl::Status TestDriverWriteReadChunks(
   ABSL_LOG(INFO) << "read/write shape " << span(chunk_shape, ts.rank());
   ABSL_LOG(INFO) << "Starting writes: " << options.repeat_writes
                  << ", total_write_bytes=" << options.total_write_bytes;
+
+  auto result_callback = options.result_callback;
+  if (!result_callback) {
+    result_callback =
+        [](const TestDriverWriteReadChunksOptions::Results& results) {
+          ABSL_LOG(INFO) << results.FormatSummary();
+          return absl::OkStatus();
+        };
+  }
   for (int64_t i = 0; i < options.repeat_writes; i++) {
     TENSORSTORE_RETURN_IF_ERROR(
         TestDriverReadOrWriteChunks(gen, ts, span(chunk_shape, ts.rank()),
                                     options.total_write_bytes, options.strategy,
-                                    /*read=*/false));
+                                    /*read=*/false, result_callback));
   }
 
   ABSL_LOG(INFO) << "Starting reads: " << options.repeat_reads
@@ -642,7 +656,7 @@ absl::Status TestDriverWriteReadChunks(
     TENSORSTORE_RETURN_IF_ERROR(
         TestDriverReadOrWriteChunks(gen, ts, span(chunk_shape, ts.rank()),
                                     options.total_read_bytes, options.strategy,
-                                    /*read=*/true));
+                                    /*read=*/true, result_callback));
   }
   return absl::OkStatus();
 }
@@ -696,10 +710,22 @@ void ForEachChunk(BoxView<> domain, DataType dtype, absl::BitGenRef gen,
 
 }  // namespace
 
+std::string TestDriverWriteReadChunksOptions::Results::FormatSummary() const {
+  auto elapsed_s = absl::FDivDuration(elapsed_time, absl::Seconds(1));
+  double bytes_mb = static_cast<double>(total_bytes) / 1e6;
+
+  return absl::StrFormat(
+      "%s summary: %d bytes in %.0f ms:  %.3f MB/second (%d chunks of %d "
+      "bytes)",
+      (read ? "Read" : "Write"), total_bytes, elapsed_s * 1e3,
+      bytes_mb / elapsed_s, num_chunks, chunk_bytes);
+}
+
 absl::Status TestDriverReadOrWriteChunks(
     absl::BitGenRef gen, tensorstore::TensorStore<> ts,
     span<const Index> chunk_shape, int64_t total_bytes,
-    TestDriverWriteReadChunksOptions::Strategy strategy, bool read) {
+    TestDriverWriteReadChunksOptions::Strategy strategy, bool read,
+    const TestDriverWriteReadChunksOptions::ResultCallback& result_callback) {
   if (total_bytes == 0) return absl::OkStatus();
 
   if (total_bytes < 0) {
@@ -742,18 +768,15 @@ absl::Status TestDriverReadOrWriteChunks(
   op.future.Wait();
   TENSORSTORE_RETURN_IF_ERROR(op.future.result());
 
-  auto elapsed_s =
-      absl::FDivDuration(absl::Now() - start_time, absl::Seconds(1));
-  double bytes_mb = static_cast<double>(bytes_completed.load()) / 1e6;
+  TestDriverWriteReadChunksOptions::Results results;
+  results.chunk_shape = chunk_shape;
+  results.total_bytes = bytes_completed.load();
+  results.chunk_bytes = chunk_bytes;
+  results.num_chunks = chunks_completed.load();
+  results.elapsed_time = absl::Now() - start_time;
+  results.read = read;
 
-  ABSL_LOG(INFO)
-      << (read ? "Read" : "Write") << " summary: "
-      << absl::StrFormat(
-             "%d bytes in %.0f ms:  %.3f MB/second (%d chunks of %d bytes)",
-             bytes_completed.load(), elapsed_s * 1e3, bytes_mb / elapsed_s,
-             chunks_completed.load(), chunk_bytes);
-
-  return absl::OkStatus();
+  return result_callback(results);
 }
 
 void RegisterTensorStoreDriverBasicFunctionalityTest(

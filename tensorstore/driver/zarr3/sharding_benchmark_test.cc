@@ -21,11 +21,8 @@
 //
 // cache_pool_size:
 //
-//   Size of the context "cache_pool" "total_bytes_limit"
-//
-// total_size:
-//
-//   Indicates a volume of shape `total_size^3`.
+//   Size of the context "cache_pool" "total_bytes_limit", or `-1` to disable
+//   the cache completely.
 //
 // write_chunk_size:
 //
@@ -85,8 +82,11 @@ struct BenchmarkHelper {
         {"driver", "zarr3"},
         {"kvstore", "memory://"},
     };
+
     if (cache_pool_size > 0) {
       json_spec["cache_pool"] = {{"total_bytes_limit", cache_pool_size}};
+    } else if (cache_pool_size == -1) {
+      json_spec["cache_pool"] = {{"disabled", true}};
     }
 
     TENSORSTORE_CHECK_OK_AND_ASSIGN(spec, Spec::FromJson(json_spec));

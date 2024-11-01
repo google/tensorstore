@@ -530,6 +530,21 @@ constexpr auto GetterSetter(Get get, Set set, Binder binder = DefaultBinder<>) {
   };
 }
 
+template <typename T, typename Set, typename Binder = decltype(DefaultBinder<>)>
+constexpr auto Setter(Set set, Binder binder = DefaultBinder<>) {
+  return [set = std::move(set), binder = std::move(binder)](
+             auto is_loading, const auto& options, auto* obj,
+             auto* j) -> absl::Status {
+    if constexpr (is_loading) {
+      T projected;
+      TENSORSTORE_RETURN_IF_ERROR(binder(is_loading, options, &projected, j));
+      return internal::InvokeForStatus(set, *obj, std::move(projected));
+    } else {
+      return absl::OkStatus();
+    }
+  };
+}
+
 // Binder parameterized by distinct load and save objects.
 // Invokes LoadBinder when loading and SaveBinder when saving.
 template <typename LoadBinder = decltype(EmptyBinder),

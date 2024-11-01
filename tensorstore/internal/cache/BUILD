@@ -275,6 +275,7 @@ tensorstore_cc_library(
         ":cache",
         "//tensorstore:context",
         "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/internal/cache_key",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/util:result",
