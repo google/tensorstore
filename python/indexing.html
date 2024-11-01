@@ -32,7 +32,7 @@
         <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
       
     
-        <link rel="stylesheet" type="text/css" href="../_static/sphinx_immaterial_theme.b454d0e296e565629.min.css" />
+        <link rel="stylesheet" type="text/css" href="../_static/sphinx_immaterial_theme.4b4a8c74e2ff2ab5b.min.css?v=afa97f93" />
     <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
@@ -556,12 +556,63 @@
       
       
         <label class="md-nav__link" for="__nav_2">
+          <span class="md-ellipsis">C++ API</span>
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="C++ API" data-md-level="1">
+        <label class="md-nav__title" for="__nav_2">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">C++ API</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cpp/api/index.html" class="md-nav__link">
+        <span class="md-ellipsis">API reference</span>
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_3" type="checkbox" id="__nav_3" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3">
           <span class="md-ellipsis">Setup</span>
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="Setup" data-md-level="1">
-        <label class="md-nav__title" for="__nav_2">
+        <label class="md-nav__title" for="__nav_3">
           <span class="md-nav__icon md-icon"></span>
           <span class="md-ellipsis">Setup</span>
         </label>
@@ -617,17 +668,17 @@
     <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_3" type="checkbox" id="__nav_3" checked>
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_4" type="checkbox" id="__nav_4" checked>
       
       
       
-        <label class="md-nav__link" for="__nav_3">
+        <label class="md-nav__link" for="__nav_4">
           <span class="md-ellipsis">JSON</span>
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="JSON" data-md-level="1">
-        <label class="md-nav__title" for="__nav_3">
+        <label class="md-nav__title" for="__nav_4">
           <span class="md-nav__icon md-icon"></span>
           <span class="md-ellipsis">JSON</span>
         </label>
@@ -976,7 +1027,7 @@
                   
 
 
-<h1 id="indexing"><span id="python-indexing"></span>Indexing<a class="headerlink" href="#indexing" title="Permalink to this heading">¶</a></h1>
+<h1 id="indexing"><span id="python-indexing"></span>Indexing<a class="headerlink" href="#indexing" title="Link to this heading">¶</a></h1>
 <p><a class="reference internal" href="api/tensorstore.TensorStore.html" title="tensorstore.TensorStore (Python class) — Asynchronous multi-dimensional array handle."><code class="xref any py py-class docutils literal notranslate"><span class="pre">tensorstore.TensorStore</span></code></a> (and objects of other
 <a class="reference internal" href="api/tensorstore.Indexable.html" title="tensorstore.Indexable (Python class) — Abstract base class for types that support TensorStore indexing operations."><code class="xref any py py-class docutils literal notranslate"><span class="pre">tensorstore.Indexable</span></code></a> types) support a common set of <em>indexing
 operations</em> for read/write access to individual positions and subsets
@@ -994,13 +1045,13 @@ from <a class="reference external" href="https://numpy.org/doc/stable/user/basic
 indexing results in a view of the original data, but advanced
 indexing always results in a copy.</p>
 </div>
-<h2 id="index-transforms">Index transforms<a class="headerlink" href="#index-transforms" title="Permalink to this heading">¶</a></h2>
+<h2 id="index-transforms">Index transforms<a class="headerlink" href="#index-transforms" title="Link to this heading">¶</a></h2>
 <p>Indexing operations are composed into a normalized representation via the
 <a class="reference internal" href="api/tensorstore.IndexTransform.html" title="tensorstore.IndexTransform (Python class) — Represents a transform from an input index space to an output space."><code class="xref py py-obj docutils literal notranslate"><span class="pre">tensorstore.IndexTransform</span></code></a> class, which represents an <a class="reference internal" href="../index_space.html#index-transform"><span class="std std-ref">index
 transform</span></a> from an input space to an output space. The
 examples below may include the <a class="reference internal" href="../index_space.html#index-transform"><span class="std std-ref">index transform</span></a>
 representation.</p>
-<h2 id="numpy-style-indexing"><span id="python-numpy-style-indexing"></span>NumPy-style indexing<a class="headerlink" href="#numpy-style-indexing" title="Permalink to this heading">¶</a></h2>
+<h2 id="numpy-style-indexing"><span id="python-numpy-style-indexing"></span>NumPy-style indexing<a class="headerlink" href="#numpy-style-indexing" title="Link to this heading">¶</a></h2>
 <p>NumPy-style indexing is performed using the syntax
 <code class="code highlight python docutils literal highlight-python"><span class="n">obj</span><span class="p">[</span><span class="n">expr</span><span class="p">]</span></code>, where <code class="code highlight python docutils literal highlight-python"><span class="n">obj</span></code> is any <a class="reference internal" href="api/tensorstore.Indexable.html" title="tensorstore.Indexable (Python class) — Abstract base class for types that support TensorStore indexing operations."><code class="xref any py py-class docutils literal notranslate"><span class="pre">tensorstore.Indexable</span></code></a> object
 and the indexing expression <code class="code highlight python docutils literal highlight-python"><span class="n">expr</span></code> is one of:</p>
@@ -1038,7 +1089,7 @@ consuming dimensions from the existing domain and adding dimensions to
 the resultant domain in order; if the indexing expression consumes
 fewer than <code class="code highlight python docutils literal highlight-python"><span class="n">obj</span><span class="o">.</span><span class="n">rank</span></code> dimensions, the remaining dimensions are
 retained unchanged as if indexed by <code class="code highlight python docutils literal highlight-python"><span class="p">:</span></code>.</p>
-<h3 id="integer-indexing"><span id="python-indexing-integer"></span>Integer indexing<a class="headerlink" href="#integer-indexing" title="Permalink to this heading">¶</a></h3>
+<h3 id="integer-indexing"><span id="python-indexing-integer"></span>Integer indexing<a class="headerlink" href="#integer-indexing" title="Link to this heading">¶</a></h3>
 <p>Indexing with an integer selects a single position within the corresponding
 dimension:</p>
 <div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">a</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
@@ -1126,7 +1177,7 @@ will fail if any index is actually out of bounds.</p>
 using any object that supports the <code class="code highlight python docutils literal highlight-python"><span class="fm">__index__</span></code> protocol
 (<span class="target" id="index-0"></span><a class="pep reference external" href="https://peps.python.org/pep-0357/"><strong>PEP 357</strong></a>), including <a class="reference external" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#arrays-scalars" title="(in NumPy v1.24)"><span class="xref std std-ref">NumPy integer scalar types</span></a>.</p>
 </div>
-<h3 id="interval-indexing"><span id="python-indexing-interval"></span>Interval indexing<a class="headerlink" href="#interval-indexing" title="Permalink to this heading">¶</a></h3>
+<h3 id="interval-indexing"><span id="python-indexing-interval"></span>Interval indexing<a class="headerlink" href="#interval-indexing" title="Link to this heading">¶</a></h3>
 <p>Indexing with a <a class="reference external" href="https://docs.python.org/3/library/functions.html#slice" title="(in Python v3.11)"><code class="xref any docutils literal notranslate"><span class="pre">slice</span></code></a> object <code class="code highlight python docutils literal highlight-python"><span class="n">start</span><span class="p">:</span><span class="n">stop</span><span class="p">:</span><span class="n">step</span></code> selects an
 interval or strided interval within the corresponding dimension:</p>
 <div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">a</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
@@ -1294,7 +1345,7 @@ lengths, but a sequence may be combined with a scalar value:</p>
 <span class="go">})</span>
 </code></pre></div>
 </div>
-<h3 id="adding-singleton-dimensions"><span id="python-indexing-newaxis"></span>Adding singleton dimensions<a class="headerlink" href="#adding-singleton-dimensions" title="Permalink to this heading">¶</a></h3>
+<h3 id="adding-singleton-dimensions"><span id="python-indexing-newaxis"></span>Adding singleton dimensions<a class="headerlink" href="#adding-singleton-dimensions" title="Link to this heading">¶</a></h3>
 <p>Specifying a value of <a class="reference internal" href="api/tensorstore.newaxis.html" title="tensorstore.newaxis (Python data) — Alias for None used in indexing expressions to specify a new singleton dimension."><code class="xref py py-obj docutils literal notranslate"><span class="pre">tensorstore.newaxis</span></code></a> (equal to <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><code class="xref any docutils literal notranslate"><span class="pre">None</span></code></a>) adds a
 new inert/singleton dimension with <a class="reference internal" href="../index_space.html#implicit-bounds"><span class="std std-ref">implicit bounds</span></a>
 <span class="math notranslate nohighlight">\([0, 1)\)</span>:</p>
@@ -1340,7 +1391,7 @@ arbitrary bounds by a subsequent interval indexing term:</p>
 <span class="go">    out[1] = 0 + 1 * in[2]</span>
 </code></pre></div>
 </div>
-<h3 id="ellipsis"><span id="python-indexing-ellipsis"></span>Ellipsis<a class="headerlink" href="#ellipsis" title="Permalink to this heading">¶</a></h3>
+<h3 id="ellipsis"><span id="python-indexing-ellipsis"></span>Ellipsis<a class="headerlink" href="#ellipsis" title="Link to this heading">¶</a></h3>
 <p>Specifying the special <a class="reference external" href="https://docs.python.org/3/library/constants.html#Ellipsis" title="(in Python v3.11)"><code class="xref any docutils literal notranslate"><span class="pre">Ellipsis</span></code></a> value (<code class="code highlight python docutils literal highlight-python"><span class="o">...</span></code>) is equivalent
 to specifying as many full slices <code class="code highlight python docutils literal highlight-python"><span class="p">:</span></code> as needed to consume the
 remaining dimensions of the original domin not consumed by other
@@ -1384,7 +1435,7 @@ for the purpose of an assignment:</p>
 <span class="go">})</span>
 </code></pre></div>
 </div>
-<h3 id="integer-array-indexing"><span id="python-indexing-integer-array"></span>Integer array indexing<a class="headerlink" href="#integer-array-indexing" title="Permalink to this heading">¶</a></h3>
+<h3 id="integer-array-indexing"><span id="python-indexing-integer-array"></span>Integer array indexing<a class="headerlink" href="#integer-array-indexing" title="Link to this heading">¶</a></h3>
 <p>Specifying an <a class="reference external" href="https://numpy.org/doc/stable/glossary.html#term-array_like" title="(in NumPy v1.24)"><code class="xref any docutils literal notranslate"><span class="pre">array_like</span></code></a> <em>index array</em> of integer values selects the
 coordinates of the dimension given by the elements of the array:</p>
 <div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">a</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">5</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
@@ -1498,7 +1549,7 @@ but may be confusing.  It is recommended to instead use either the
 <a class="reference internal" href="#python-oindex-indexing"><span class="std std-ref">oindex</span></a> indexing method for less
 confusing behavior when using multiple index arrays.</p>
 </div>
-<h3 id="boolean-array-indexing"><span id="python-indexing-boolean-array"></span>Boolean array indexing<a class="headerlink" href="#boolean-array-indexing" title="Permalink to this heading">¶</a></h3>
+<h3 id="boolean-array-indexing"><span id="python-indexing-boolean-array"></span>Boolean array indexing<a class="headerlink" href="#boolean-array-indexing" title="Link to this heading">¶</a></h3>
 <p>Specifying an <a class="reference external" href="https://numpy.org/doc/stable/glossary.html#term-array_like" title="(in NumPy v1.24)"><code class="xref any docutils literal notranslate"><span class="pre">array_like</span></code></a> of <a class="reference internal" href="api/tensorstore.bool.html" title="tensorstore.bool (Python data) — Boolean data type (0 or 1).  Corresponds to the python:bool type and numpy.bool_."><code class="xref any py py-data docutils literal notranslate"><span class="pre">bool</span></code></a> values is equivalent to
 specifying a sequence of integer index arrays containing the
 coordinates of <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.11)"><code class="xref any docutils literal notranslate"><span class="pre">True</span></code></a> values (in C order), e.g. as obtained from
@@ -1670,7 +1721,7 @@ domain:</p></li>
 <p>Zero-rank boolean arrays are supported for consistency and for
 compatibility with NumPy, but are rarely useful.</p>
 </div>
-<h3 id="differences-compared-to-numpy-indexing"><span id="python-indexing-numpy-comparison"></span>Differences compared to NumPy indexing<a class="headerlink" href="#differences-compared-to-numpy-indexing" title="Permalink to this heading">¶</a></h3>
+<h3 id="differences-compared-to-numpy-indexing"><span id="python-indexing-numpy-comparison"></span>Differences compared to NumPy indexing<a class="headerlink" href="#differences-compared-to-numpy-indexing" title="Link to this heading">¶</a></h3>
 <p>TensorStore indexing has near-perfect compatibility with NumPy, but
 there are a few differences to be aware of:</p>
 <ul>
@@ -1729,7 +1780,7 @@ contrast, will attempt to convert any non-<a class="reference external" href="ht
 or boolean array, which results in an error if the sequence contains a
 <a class="reference external" href="https://docs.python.org/3/library/functions.html#slice" title="(in Python v3.11)"><code class="xref any docutils literal notranslate"><span class="pre">slice</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/constants.html#Ellipsis" title="(in Python v3.11)"><code class="xref any docutils literal notranslate"><span class="pre">Ellipsis</span></code></a>, or <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><code class="xref any docutils literal notranslate"><span class="pre">None</span></code></a> value.</p></li>
 </ul>
-<h3 id="vectorized-indexing-mode-vindex"><span id="python-vindex-indexing"></span>Vectorized indexing mode (<code class="code highlight python docutils literal highlight-python"><span class="n">vindex</span></code>)<a class="headerlink" href="#vectorized-indexing-mode-vindex" title="Permalink to this heading">¶</a></h3>
+<h3 id="vectorized-indexing-mode-vindex"><span id="python-vindex-indexing"></span>Vectorized indexing mode (<code class="code highlight python docutils literal highlight-python"><span class="n">vindex</span></code>)<a class="headerlink" href="#vectorized-indexing-mode-vindex" title="Link to this heading">¶</a></h3>
 <p>The expression <code class="code highlight python docutils literal highlight-python"><span class="n">obj</span><span class="o">.</span><span class="n">vindex</span><span class="p">[</span><span class="n">expr</span><span class="p">]</span></code>, where <code class="code highlight python docutils literal highlight-python"><span class="n">obj</span></code> is any
 <a class="reference internal" href="api/tensorstore.Indexable.html" title="tensorstore.Indexable (Python class) — Abstract base class for types that support TensorStore indexing operations."><code class="xref any py py-class docutils literal notranslate"><span class="pre">tensorstore.Indexable</span></code></a> object and <code class="code highlight python docutils literal highlight-python"><span class="n">expr</span></code> is a valid
 <a class="reference internal" href="#python-numpy-style-indexing"><span class="std std-ref">NumPy-style indexing expression</span></a>, has a
@@ -1764,7 +1815,7 @@ are separated by a <a class="reference external" href="https://docs.python.org/3
 <li><p><a class="reference external" href="https://zarr.readthedocs.io/en/stable/api/core.html#zarr.core.Array" title="(in zarr v2.13.6)"><code class="xref any docutils literal notranslate"><span class="pre">zarr.core.Array.vindex</span></code></a>, and</p></li>
 <li><p>the proposed <code class="code highlight python docutils literal highlight-python"><span class="n">vindex</span></code> in <a class="reference external" href="https://numpy.org/neps/nep-0021-advanced-indexing.html">NumPy Enhancement Proposal 21</a>.</p></li>
 </ul>
-<h3 id="outer-indexing-mode-oindex"><span id="python-oindex-indexing"></span>Outer indexing mode (<code class="code highlight python docutils literal highlight-python"><span class="n">oindex</span></code>)<a class="headerlink" href="#outer-indexing-mode-oindex" title="Permalink to this heading">¶</a></h3>
+<h3 id="outer-indexing-mode-oindex"><span id="python-oindex-indexing"></span>Outer indexing mode (<code class="code highlight python docutils literal highlight-python"><span class="n">oindex</span></code>)<a class="headerlink" href="#outer-indexing-mode-oindex" title="Link to this heading">¶</a></h3>
 <p>The expression <code class="code highlight python docutils literal highlight-python"><span class="n">obj</span><span class="o">.</span><span class="n">oindex</span><span class="p">[</span><span class="n">expr</span><span class="p">]</span></code>, where <code class="code highlight python docutils literal highlight-python"><span class="n">obj</span></code> is any
 <a class="reference internal" href="api/tensorstore.Indexable.html" title="tensorstore.Indexable (Python class) — Abstract base class for types that support TensorStore indexing operations."><code class="xref any py py-class docutils literal notranslate"><span class="pre">tensorstore.Indexable</span></code></a> object and <code class="code highlight python docutils literal highlight-python"><span class="n">expr</span></code> is a valid
 <a class="reference internal" href="#python-numpy-style-indexing"><span class="std std-ref">NumPy-style indexing expression</span></a>,
@@ -1835,7 +1886,7 @@ domain:</p>
 <li><p><a class="reference external" href="https://zarr.readthedocs.io/en/stable/api/core.html#zarr.core.Array" title="(in zarr v2.13.6)"><code class="xref any docutils literal notranslate"><span class="pre">zarr.core.Array.oindex</span></code></a>, and</p></li>
 <li><p>the proposed <code class="code highlight python docutils literal highlight-python"><span class="n">oindex</span></code> in <a class="reference external" href="https://numpy.org/neps/nep-0021-advanced-indexing.html">NumPy Enhancement Proposal 21</a>.</p></li>
 </ul>
-<h2 id="dimension-expressions"><span id="python-dim-expressions"></span>Dimension expressions<a class="headerlink" href="#dimension-expressions" title="Permalink to this heading">¶</a></h2>
+<h2 id="dimension-expressions"><span id="python-dim-expressions"></span>Dimension expressions<a class="headerlink" href="#dimension-expressions" title="Link to this heading">¶</a></h2>
 <p><em>Dimension expressions</em> provide an alternative indexing mechanism to
 <a class="reference internal" href="#python-numpy-style-indexing"><span class="std std-ref">NumPy-style indexing</span></a> that is more powerful and expressive and
 supports <a class="reference internal" href="../index_space.html#dimension-labels"><span class="std std-ref">dimension labels</span></a> (but can be more
@@ -1887,9 +1938,9 @@ full validation is deferred until it is actually applied to an
 <span class="go">})</span>
 </code></pre></div>
 </div>
-<h3 id="operations">Operations<a class="headerlink" href="#operations" title="Permalink to this heading">¶</a></h3>
+<h3 id="operations">Operations<a class="headerlink" href="#operations" title="Link to this heading">¶</a></h3>
 <p>Dimension expressions provide the following advanced operations:</p>
-<h4 id="label"><a class="reference internal" href="api/tensorstore.DimExpression.label.html" title="tensorstore.DimExpression.label (Python method) — Sets (or changes) the labels of the selected dimensions."><code class="xref py py-obj docutils literal notranslate"><span class="pre">label</span></code></a><a class="headerlink" href="#label" title="Permalink to this heading">¶</a></h4>
+<h4 id="label"><a class="reference internal" href="api/tensorstore.DimExpression.label.html" title="tensorstore.DimExpression.label (Python method) — Sets (or changes) the labels of the selected dimensions."><code class="xref py py-obj docutils literal notranslate"><span class="pre">label</span></code></a><a class="headerlink" href="#label" title="Link to this heading">¶</a></h4>
 <p>Sets (or changes) the labels of the selected dimensions.</p>
 <div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">a</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">],</span> <span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">]],</span>
 <span class="gp">... </span>             <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
@@ -1938,7 +1989,7 @@ which case it applies to all dimensions:</p>
 <span class="go">})</span>
 </code></pre></div>
 </div>
-<h4 id="diagonal"><a class="reference internal" href="api/tensorstore.DimExpression.diagonal.html" title="tensorstore.DimExpression.diagonal (Python property) — Extracts the diagonal of the selected dimensions."><code class="xref py py-obj docutils literal notranslate"><span class="pre">diagonal</span></code></a><a class="headerlink" href="#diagonal" title="Permalink to this heading">¶</a></h4>
+<h4 id="diagonal"><a class="reference internal" href="api/tensorstore.DimExpression.diagonal.html" title="tensorstore.DimExpression.diagonal (Python property) — Extracts the diagonal of the selected dimensions."><code class="xref py py-obj docutils literal notranslate"><span class="pre">diagonal</span></code></a><a class="headerlink" href="#diagonal" title="Link to this heading">¶</a></h4>
 <p>Extracts the diagonal of the selected dimensions.</p>
 <div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">a</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">],</span> <span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">]],</span>
 <span class="gp">... </span>             <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
@@ -1952,7 +2003,7 @@ which case it applies to all dimensions:</p>
 <span class="go">})</span>
 </code></pre></div>
 </div>
-<h4 id="translate-to"><a class="reference internal" href="api/tensorstore.DimExpression.translate_to.html" title="tensorstore.DimExpression.translate_to (Python method) — Translates the domains of the selected input dimensions to the specified origins without affecting the output range."><code class="xref py py-obj docutils literal notranslate"><span class="pre">translate_to</span></code></a><a class="headerlink" href="#translate-to" title="Permalink to this heading">¶</a></h4>
+<h4 id="translate-to"><a class="reference internal" href="api/tensorstore.DimExpression.translate_to.html" title="tensorstore.DimExpression.translate_to (Python method) — Translates the domains of the selected input dimensions to the specified origins without affecting the output range."><code class="xref py py-obj docutils literal notranslate"><span class="pre">translate_to</span></code></a><a class="headerlink" href="#translate-to" title="Link to this heading">¶</a></h4>
 <p>Translates the domains of the selected input dimensions to the specified
 origins without affecting the output range.</p>
 <div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">a</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">],</span> <span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">]],</span>
@@ -1985,7 +2036,7 @@ which case it applies to all dimensions:</p>
 <span class="go">})</span>
 </code></pre></div>
 </div>
-<h4 id="translate-by"><a class="reference internal" href="api/tensorstore.DimExpression.translate_by.html" title="tensorstore.DimExpression.translate_by (Python method) — Translates (shifts) the domains of the selected input dimensions by the specified offsets, without affecting the output range."><code class="xref py py-obj docutils literal notranslate"><span class="pre">translate_by</span></code></a><a class="headerlink" href="#translate-by" title="Permalink to this heading">¶</a></h4>
+<h4 id="translate-by"><a class="reference internal" href="api/tensorstore.DimExpression.translate_by.html" title="tensorstore.DimExpression.translate_by (Python method) — Translates (shifts) the domains of the selected input dimensions by the specified offsets, without affecting the output range."><code class="xref py py-obj docutils literal notranslate"><span class="pre">translate_by</span></code></a><a class="headerlink" href="#translate-by" title="Link to this heading">¶</a></h4>
 <p>Translates (shifts) the domains of the selected input dimensions by the
 specified offsets, without affecting the output range.</p>
 <div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">a</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">],</span> <span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">]],</span>
@@ -2014,7 +2065,7 @@ which case it applies to all dimensions:</p>
 <span class="go">})</span>
 </code></pre></div>
 </div>
-<h4 id="translate-backward-by"><a class="reference internal" href="api/tensorstore.DimExpression.translate_backward_by.html" title="tensorstore.DimExpression.translate_backward_by (Python method) — Translates (shifts) the domains of the selected input dimensions backward by the specified offsets, without affecting the output range."><code class="xref py py-obj docutils literal notranslate"><span class="pre">translate_backward_by</span></code></a><a class="headerlink" href="#translate-backward-by" title="Permalink to this heading">¶</a></h4>
+<h4 id="translate-backward-by"><a class="reference internal" href="api/tensorstore.DimExpression.translate_backward_by.html" title="tensorstore.DimExpression.translate_backward_by (Python method) — Translates (shifts) the domains of the selected input dimensions backward by the specified offsets, without affecting the output range."><code class="xref py py-obj docutils literal notranslate"><span class="pre">translate_backward_by</span></code></a><a class="headerlink" href="#translate-backward-by" title="Link to this heading">¶</a></h4>
 <p>Translates (shifts) the domains of the selected input dimensions backward by
 the specified offsets, without affecting the output range.</p>
 <div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">a</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">],</span> <span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">]],</span>
@@ -2043,7 +2094,7 @@ which case it applies to all dimensions:</p>
 <span class="go">})</span>
 </code></pre></div>
 </div>
-<h4 id="stride"><a class="reference internal" href="api/tensorstore.DimExpression.stride.html" title="tensorstore.DimExpression.stride (Python method) — Strides the domains of the selected input dimensions by the specified amounts."><code class="xref py py-obj docutils literal notranslate"><span class="pre">stride</span></code></a><a class="headerlink" href="#stride" title="Permalink to this heading">¶</a></h4>
+<h4 id="stride"><a class="reference internal" href="api/tensorstore.DimExpression.stride.html" title="tensorstore.DimExpression.stride (Python method) — Strides the domains of the selected input dimensions by the specified amounts."><code class="xref py py-obj docutils literal notranslate"><span class="pre">stride</span></code></a><a class="headerlink" href="#stride" title="Link to this heading">¶</a></h4>
 <p>Strides the domains of the selected input dimensions by the specified amounts.</p>
 <div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">a</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">],</span> <span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">]],</span>
 <span class="gp">... </span>             <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
@@ -2057,7 +2108,7 @@ which case it applies to all dimensions:</p>
 <span class="go">})</span>
 </code></pre></div>
 </div>
-<h4 id="transpose"><a class="reference internal" href="api/tensorstore.DimExpression.transpose.html" title="tensorstore.DimExpression.transpose (Python method) — Transposes the selected dimensions to the specified target indices."><code class="xref py py-obj docutils literal notranslate"><span class="pre">transpose</span></code></a><a class="headerlink" href="#transpose" title="Permalink to this heading">¶</a></h4>
+<h4 id="transpose"><a class="reference internal" href="api/tensorstore.DimExpression.transpose.html" title="tensorstore.DimExpression.transpose (Python method) — Transposes the selected dimensions to the specified target indices."><code class="xref py py-obj docutils literal notranslate"><span class="pre">transpose</span></code></a><a class="headerlink" href="#transpose" title="Link to this heading">¶</a></h4>
 <p>Transposes the selected dimensions to the specified target indices.</p>
 <div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">a</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">],</span> <span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">]],</span>
 <span class="gp">... </span>             <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
@@ -2088,7 +2139,7 @@ which case it applies to all dimensions:</p>
 <span class="go">})</span>
 </code></pre></div>
 </div>
-<h4 id="mark-bounds-implicit"><a class="reference internal" href="api/tensorstore.DimExpression.mark_bounds_implicit.html" title="tensorstore.DimExpression.mark_bounds_implicit (Python method) — Marks the lower/upper bounds of the selected dimensions as implicit/explicit."><code class="xref py py-obj docutils literal notranslate"><span class="pre">mark_bounds_implicit</span></code></a><a class="headerlink" href="#mark-bounds-implicit" title="Permalink to this heading">¶</a></h4>
+<h4 id="mark-bounds-implicit"><a class="reference internal" href="api/tensorstore.DimExpression.mark_bounds_implicit.html" title="tensorstore.DimExpression.mark_bounds_implicit (Python method) — Marks the lower/upper bounds of the selected dimensions as implicit/explicit."><code class="xref py py-obj docutils literal notranslate"><span class="pre">mark_bounds_implicit</span></code></a><a class="headerlink" href="#mark-bounds-implicit" title="Link to this heading">¶</a></h4>
 <p>Changes the lower and/or upper bounds of the selected dimensions to be
 <a class="reference internal" href="../index_space.html#implicit-bounds"><span class="std std-ref">implicit or explicit</span></a>.</p>
 <div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">s</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">({</span>
@@ -2163,7 +2214,7 @@ which case it applies to all dimensions:</p>
 <span class="go">{ [0, 100), [0, 200) }</span>
 </code></pre></div>
 </div>
-<h4 id="oindex"><a class="reference internal" href="api/tensorstore.DimExpression.oindex.html" title="tensorstore.DimExpression.oindex (Python method) — Applies a NumPy-style indexing operation with outer indexing semantics."><code class="xref py py-obj docutils literal notranslate"><span class="pre">oindex</span></code></a><a class="headerlink" href="#oindex" title="Permalink to this heading">¶</a></h4>
+<h4 id="oindex"><a class="reference internal" href="api/tensorstore.DimExpression.oindex.html" title="tensorstore.DimExpression.oindex (Python method) — Applies a NumPy-style indexing operation with outer indexing semantics."><code class="xref py py-obj docutils literal notranslate"><span class="pre">oindex</span></code></a><a class="headerlink" href="#oindex" title="Link to this heading">¶</a></h4>
 <p>Applies a NumPy-style indexing operation with outer indexing semantics.</p>
 <div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">a</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">],</span> <span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">]],</span>
 <span class="gp">... </span>             <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
@@ -2177,7 +2228,7 @@ which case it applies to all dimensions:</p>
 <span class="go">})</span>
 </code></pre></div>
 </div>
-<h4 id="vindex"><a class="reference internal" href="api/tensorstore.DimExpression.vindex.html" title="tensorstore.DimExpression.vindex (Python method) — Applies a NumPy-style indexing operation with vectorized indexing semantics."><code class="xref py py-obj docutils literal notranslate"><span class="pre">vindex</span></code></a><a class="headerlink" href="#vindex" title="Permalink to this heading">¶</a></h4>
+<h4 id="vindex"><a class="reference internal" href="api/tensorstore.DimExpression.vindex.html" title="tensorstore.DimExpression.vindex (Python method) — Applies a NumPy-style indexing operation with vectorized indexing semantics."><code class="xref py py-obj docutils literal notranslate"><span class="pre">vindex</span></code></a><a class="headerlink" href="#vindex" title="Link to this heading">¶</a></h4>
 <p>Applies a NumPy-style indexing operation with vectorized indexing semantics.</p>
 <div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">a</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">],</span> <span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">]],</span>
 <span class="gp">... </span>             <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
@@ -2191,7 +2242,7 @@ which case it applies to all dimensions:</p>
 <span class="go">})</span>
 </code></pre></div>
 </div>
-<h3 id="composed-examples">Composed examples<a class="headerlink" href="#composed-examples" title="Permalink to this heading">¶</a></h3>
+<h3 id="composed-examples">Composed examples<a class="headerlink" href="#composed-examples" title="Link to this heading">¶</a></h3>
 <p>Composing dimension expressions enables constructing more complex indexing
 operations than are easily done with native syntax.</p>
 <div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">a</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">]],</span> <span class="p">[[</span><span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">],</span> <span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">],</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">]]],</span>
@@ -2237,7 +2288,7 @@ operations than are easily done with native syntax.</p>
 <span class="go">})</span>
 </code></pre></div>
 </div>
-<h3 id="dimension-selections"><span id="python-dim-selections"></span>Dimension selections<a class="headerlink" href="#dimension-selections" title="Permalink to this heading">¶</a></h3>
+<h3 id="dimension-selections"><span id="python-dim-selections"></span>Dimension selections<a class="headerlink" href="#dimension-selections" title="Link to this heading">¶</a></h3>
 <p>A dimension selection is specified using the syntax <code class="code highlight python docutils literal highlight-python"><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="n">sel</span><span class="p">]</span></code>, where
 <code class="code highlight python docutils literal highlight-python"><span class="n">sel</span></code> is one of:</p>
 <ul class="simple">
@@ -2372,7 +2423,7 @@ but no existing dimensions consumed:</p>
 <span class="go">    out[1] = 0</span>
 </code></pre></div>
 </div>
-<h3 id="dimension-expression-construction"><span id="python-dim-expression-construction"></span>Dimension expression construction<a class="headerlink" href="#dimension-expression-construction" title="Permalink to this heading">¶</a></h3>
+<h3 id="dimension-expression-construction"><span id="python-dim-expression-construction"></span>Dimension expression construction<a class="headerlink" href="#dimension-expression-construction" title="Link to this heading">¶</a></h3>
 <p>A <a class="reference internal" href="api/tensorstore.DimExpression.html" title="tensorstore.DimExpression (Python class) — Specifies an advanced indexing operation."><code class="xref any py py-class docutils literal notranslate"><span class="pre">tensorstore.DimExpression</span></code></a> that applies a given operation to an
 initial dimension selection <code class="code highlight python docutils literal highlight-python"><span class="n">dexpr</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="n">sel</span><span class="p">]</span></code> is constructed using:</p>
 <ul class="simple">
@@ -2406,7 +2457,7 @@ retained from the prior dimension selection or added by the operation.</p></li>
 <a class="reference internal" href="api/tensorstore.Indexable.html" title="tensorstore.Indexable (Python class) — Abstract base class for types that support TensorStore indexing operations."><code class="xref any py py-class docutils literal notranslate"><span class="pre">tensorstore.Indexable</span></code></a> object and new dimension selection produced
 by each prior operation.</p></li>
 </ol>
-<h3 id="numpy-style-dimension-expression-indexing"><span id="python-dim-expression-numpy-indexing"></span>NumPy-style dimension expression indexing<a class="headerlink" href="#numpy-style-dimension-expression-indexing" title="Permalink to this heading">¶</a></h3>
+<h3 id="numpy-style-dimension-expression-indexing"><span id="python-dim-expression-numpy-indexing"></span>NumPy-style dimension expression indexing<a class="headerlink" href="#numpy-style-dimension-expression-indexing" title="Link to this heading">¶</a></h3>
 <p>The syntax <code class="code highlight python docutils literal highlight-python"><span class="n">dexpr</span><span class="p">[</span><span class="n">iexpr</span><span class="p">]</span></code>, <code class="code highlight python docutils literal highlight-python"><span class="n">dexpr</span><span class="o">.</span><span class="n">vindex</span><span class="p">[</span><span class="n">iexpr</span><span class="p">]</span></code>, and
 <code class="code highlight python docutils literal highlight-python"><span class="n">dexpr</span><span class="o">.</span><span class="n">oindex</span><span class="p">[</span><span class="n">iexpr</span><span class="p">]</span></code> chains a NumPy-style indexing operation to an
 existing <a class="reference internal" href="api/tensorstore.d.html" title="tensorstore.d (Python class) — Specifies a dimension selection, for starting a dimension expression."><code class="xref any py py-class docutils literal notranslate"><span class="pre">tensorstore.d</span></code></a> or <a class="reference internal" href="api/tensorstore.DimExpression.html" title="tensorstore.DimExpression (Python class) — Specifies an advanced indexing operation."><code class="xref any py py-class docutils literal notranslate"><span class="pre">tensorstore.DimExpression</span></code></a>.</p>
@@ -2541,9 +2592,9 @@ zero-rank boolean arrays are not permitted.</p></li>
     <script id="__config" type="application/json">{"base": "..", "features": ["navigation.expand", "navigation.sections", "navigation.top", "toc.follow", "toc.sticky"], "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "Search", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version.title": "Select version"}}</script>
     
       
-        <script src="../_static/sphinx_immaterial_theme.f9d9eeeb247ace16c.min.js"></script>
+        <script src="../_static/sphinx_immaterial_theme.f9d9eeeb247ace16c.min.js?v=8ec58cb5"></script>
         <script>window.MathJax = {"chtml": {"displayAlign": "left"}}</script>
-        <script id="MathJax-script" src="../_static/mathjax/tex-mml-chtml.js"></script>
+        <script id="MathJax-script" src="../_static/mathjax/tex-mml-chtml.js?v=cadf963e"></script>
     
   </body>
 </html>

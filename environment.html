@@ -32,7 +32,7 @@
         <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
       
     
-        <link rel="stylesheet" type="text/css" href="_static/sphinx_immaterial_theme.b454d0e296e565629.min.css" />
+        <link rel="stylesheet" type="text/css" href="_static/sphinx_immaterial_theme.4b4a8c74e2ff2ab5b.min.css?v=afa97f93" />
     <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
@@ -302,6 +302,57 @@
 
   
   
+  
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_2" type="checkbox" id="__nav_2" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_2">
+          <span class="md-ellipsis">C++ API</span>
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="C++ API" data-md-level="1">
+        <label class="md-nav__title" for="__nav_2">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">C++ API</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="cpp/api/index.html" class="md-nav__link">
+        <span class="md-ellipsis">API reference</span>
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+    
+      
+      
+      
+
+  
+  
     
   
   
@@ -311,17 +362,17 @@
     <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_2" type="checkbox" id="__nav_2" checked>
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_3" type="checkbox" id="__nav_3" checked>
       
       
       
-        <label class="md-nav__link" for="__nav_2">
+        <label class="md-nav__link" for="__nav_3">
           <span class="md-ellipsis">Setup</span>
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="Setup" data-md-level="1">
-        <label class="md-nav__title" for="__nav_2">
+        <label class="md-nav__title" for="__nav_3">
           <span class="md-nav__icon md-icon"></span>
           <span class="md-ellipsis">Setup</span>
         </label>
@@ -579,17 +630,17 @@
     <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_3" type="checkbox" id="__nav_3" checked>
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_4" type="checkbox" id="__nav_4" checked>
       
       
       
-        <label class="md-nav__link" for="__nav_3">
+        <label class="md-nav__link" for="__nav_4">
           <span class="md-ellipsis">JSON</span>
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="JSON" data-md-level="1">
-        <label class="md-nav__title" for="__nav_3">
+        <label class="md-nav__title" for="__nav_4">
           <span class="md-nav__icon md-icon"></span>
           <span class="md-ellipsis">JSON</span>
         </label>
@@ -900,14 +951,14 @@
                   
 
 
-<h1 id="environment-variables">Environment variables<a class="headerlink" href="#environment-variables" title="Permalink to this heading">¶</a></h1>
+<h1 id="environment-variables">Environment variables<a class="headerlink" href="#environment-variables" title="Link to this heading">¶</a></h1>
 <p>The following environment variables may be specified at runtime to configure the
 behavior of TensorStore.</p>
-<h2 id="http-requests"><span id="http-environment-variables"></span>HTTP requests<a class="headerlink" href="#http-requests" title="Permalink to this heading">¶</a></h2>
+<h2 id="http-requests"><span id="http-environment-variables"></span>HTTP requests<a class="headerlink" href="#http-requests" title="Link to this heading">¶</a></h2>
 <p>TensorStore uses <a class="reference external" href="https://curl.haxx.se">libcurl</a> to make HTTP requests
 (e.g. to the Google Cloud Storage API), and uses <a class="reference external" href="https://curl.haxx.se/docs/sslcerts.html">TLS</a> to secure connections to remote
 servers.</p>
-<h3 id="tls-ca-certificates">TLS CA certificates<a class="headerlink" href="#tls-ca-certificates" title="Permalink to this heading">¶</a></h3>
+<h3 id="tls-ca-certificates">TLS CA certificates<a class="headerlink" href="#tls-ca-certificates" title="Link to this heading">¶</a></h3>
 <p>On MS Windows and Mac OS, libcurl uses TLS facilities provided by the operating
 system and no additional configuration is necessary.</p>
 <p>On Linux and BSD, if TensorStore is built with a <em>bundled</em> version of libcurl,
@@ -921,7 +972,7 @@ the <span class="target" id="index-0"></span><a class="reference internal" href=
 variables:</p>
 <dl class="std envvar objdesc">
 <dt class="sig sig-object highlight std" id="envvar-TENSORSTORE_CA_BUNDLE">
-<span class="sig-name descname"><span class="pre">TENSORSTORE_CA_BUNDLE</span></span><a class="headerlink" href="#envvar-TENSORSTORE_CA_BUNDLE" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">TENSORSTORE_CA_BUNDLE</span></span><a class="headerlink" href="#envvar-TENSORSTORE_CA_BUNDLE" title="Link to this definition">¶</a></dt>
 <dd><p>Specifies the path to a local file containing one or more CA certificates
 concatenated into a single file in PEM format.  On many Linux distributions,
 the system certificate bundle is available at
@@ -932,7 +983,7 @@ more details.</p>
 
 <dl class="std envvar objdesc">
 <dt class="sig sig-object highlight std" id="envvar-TENSORSTORE_CA_PATH">
-<span class="sig-name descname"><span class="pre">TENSORSTORE_CA_PATH</span></span><a class="headerlink" href="#envvar-TENSORSTORE_CA_PATH" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">TENSORSTORE_CA_PATH</span></span><a class="headerlink" href="#envvar-TENSORSTORE_CA_PATH" title="Link to this definition">¶</a></dt>
 <dd><p>Specifies the path of a local directory containing one or more CA
 certificates in PEM format.  Each file in the directory must contain a single
 certificate, and the directory must be prepared using the OpenSSL
@@ -952,39 +1003,39 @@ this case, the default CA bundle path of
 default depends on how the system-provided libcurl was built, and most likely
 no additional configuration will be necessary.</p>
 </div>
-<h3 id="proxy-configuration">Proxy configuration<a class="headerlink" href="#proxy-configuration" title="Permalink to this heading">¶</a></h3>
+<h3 id="proxy-configuration">Proxy configuration<a class="headerlink" href="#proxy-configuration" title="Link to this heading">¶</a></h3>
 <dl class="std envvar objdesc">
 <dt class="sig sig-object highlight std" id="envvar-all_proxy">
-<span class="sig-name descname"><span class="pre">all_proxy</span></span><a class="headerlink" href="#envvar-all_proxy" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">all_proxy</span></span><a class="headerlink" href="#envvar-all_proxy" title="Link to this definition">¶</a></dt>
 <dd><p>Specifies a proxy server to use for making any HTTP or HTTPS request.  Refer
 to the <a class="reference external" href="https://curl.haxx.se/libcurl/c/CURLOPT_PROXY.html">libcurl documentation</a> for more details.</p>
 </dd></dl>
 
 <dl class="std envvar objdesc">
 <dt class="sig sig-object highlight std" id="envvar-http_proxy">
-<span class="sig-name descname"><span class="pre">http_proxy</span></span><a class="headerlink" href="#envvar-http_proxy" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">http_proxy</span></span><a class="headerlink" href="#envvar-http_proxy" title="Link to this definition">¶</a></dt>
 <dd><p>Specifies a proxy server to use for making HTTP (not HTTPS) requests.  Takes
 precedence over <span class="target" id="index-4"></span><a class="reference internal" href="#envvar-all_proxy" title="all_proxy (environment variable) — Specifies a proxy server to use for making any HTTP or HTTPS request.  Refer to the libcurl documentation for more details."><code class="xref std std-envvar docutils literal notranslate"><span class="pre">all_proxy</span></code></a>.  Refer to the <a class="reference external" href="https://curl.haxx.se/libcurl/c/CURLOPT_PROXY.html">libcurl documentation</a> for more details.</p>
 </dd></dl>
 
 <dl class="std envvar objdesc">
 <dt class="sig sig-object highlight std" id="envvar-https_proxy">
-<span class="sig-name descname"><span class="pre">https_proxy</span></span><a class="headerlink" href="#envvar-https_proxy" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">https_proxy</span></span><a class="headerlink" href="#envvar-https_proxy" title="Link to this definition">¶</a></dt>
 <dd><p>Specifies a proxy server to use for making HTTPS requests.  Takes precedence
 over <span class="target" id="index-5"></span><a class="reference internal" href="#envvar-all_proxy" title="all_proxy (environment variable) — Specifies a proxy server to use for making any HTTP or HTTPS request.  Refer to the libcurl documentation for more details."><code class="xref std std-envvar docutils literal notranslate"><span class="pre">all_proxy</span></code></a>.  Refer to the <a class="reference external" href="https://curl.haxx.se/libcurl/c/CURLOPT_PROXY.html">libcurl documentation</a> for more details.</p>
 </dd></dl>
 
 <dl class="std envvar objdesc">
 <dt class="sig sig-object highlight std" id="envvar-no_proxy">
-<span class="sig-name descname"><span class="pre">no_proxy</span></span><a class="headerlink" href="#envvar-no_proxy" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">no_proxy</span></span><a class="headerlink" href="#envvar-no_proxy" title="Link to this definition">¶</a></dt>
 <dd><p>Specifies a comma-separated list of hostnames or ip addresses for which
 proxying is disabled.  Refer to the <a class="reference external" href="https://curl.haxx.se/libcurl/c/CURLOPT_NOPROXY.html">libcurl documentation</a> for more details.</p>
 </dd></dl>
 
-<h3 id="debugging">Debugging<a class="headerlink" href="#debugging" title="Permalink to this heading">¶</a></h3>
+<h3 id="debugging">Debugging<a class="headerlink" href="#debugging" title="Link to this heading">¶</a></h3>
 <dl class="std envvar objdesc">
 <dt class="sig sig-object highlight std" id="envvar-TENSORSTORE_VERBOSE_LOGGING">
-<span class="sig-name descname"><span class="pre">TENSORSTORE_VERBOSE_LOGGING</span></span><a class="headerlink" href="#envvar-TENSORSTORE_VERBOSE_LOGGING" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">TENSORSTORE_VERBOSE_LOGGING</span></span><a class="headerlink" href="#envvar-TENSORSTORE_VERBOSE_LOGGING" title="Link to this definition">¶</a></dt>
 <dd><p>Enables debug logging for tensorstore internal subsystems.  Set to comma
 separated list of values, where each value is one of <code class="docutils literal notranslate"><span class="pre">name=int</span></code> or just
 <code class="docutils literal notranslate"><span class="pre">name</span></code>. When <code class="docutils literal notranslate"><span class="pre">all</span></code> is, present, then verbose logging will be enabled for
@@ -998,33 +1049,33 @@ the list.</p>
 
 <dl class="std envvar objdesc">
 <dt class="sig sig-object highlight std" id="envvar-TENSORSTORE_CURL_VERBOSE">
-<span class="sig-name descname"><span class="pre">TENSORSTORE_CURL_VERBOSE</span></span><a class="headerlink" href="#envvar-TENSORSTORE_CURL_VERBOSE" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">TENSORSTORE_CURL_VERBOSE</span></span><a class="headerlink" href="#envvar-TENSORSTORE_CURL_VERBOSE" title="Link to this definition">¶</a></dt>
 <dd><p>If set to any value, verbose debugging information will be printed to stderr
 for all HTTP requests.</p>
 </dd></dl>
 
 <dl class="std envvar objdesc">
 <dt class="sig sig-object highlight std" id="envvar-SSLKEYLOGFILE">
-<span class="sig-name descname"><span class="pre">SSLKEYLOGFILE</span></span><a class="headerlink" href="#envvar-SSLKEYLOGFILE" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">SSLKEYLOGFILE</span></span><a class="headerlink" href="#envvar-SSLKEYLOGFILE" title="Link to this definition">¶</a></dt>
 <dd><p>Specifies the path to a local file where information necessary to decrypt
 TensorStore’s TLS traffic will be saved in a format compatible with
 Wireshark.  Refer to the <a class="reference external" href="https://ec.haxx.se/usingcurl/usingcurl-tls/tls-sslkeylogfile">libcurl documentation</a> for more
 details.</p>
 </dd></dl>
 
-<h2 id="google-cloud-credentials">Google Cloud Credentials<a class="headerlink" href="#google-cloud-credentials" title="Permalink to this heading">¶</a></h2>
+<h2 id="google-cloud-credentials">Google Cloud Credentials<a class="headerlink" href="#google-cloud-credentials" title="Link to this heading">¶</a></h2>
 <dl class="std envvar objdesc">
 <dt class="sig sig-object highlight std" id="envvar-GOOGLE_APPLICATION_CREDENTIALS">
-<span class="sig-name descname"><span class="pre">GOOGLE_APPLICATION_CREDENTIALS</span></span><a class="headerlink" href="#envvar-GOOGLE_APPLICATION_CREDENTIALS" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">GOOGLE_APPLICATION_CREDENTIALS</span></span><a class="headerlink" href="#envvar-GOOGLE_APPLICATION_CREDENTIALS" title="Link to this definition">¶</a></dt>
 <dd><p>Specifies the local path to a <a class="reference external" href="https://cloud.google.com/docs/authentication/getting-started">Google Cloud JSON credentials file</a>.  Refer to
 the <a class="reference internal" href="kvstore/gcs/index.html#gcs-authentication"><span class="std std-ref">Google Cloud Storage Authentication</span></a> section
 for details.</p>
 </dd></dl>
 
-<h2 id="google-cloud-storage">Google Cloud Storage<a class="headerlink" href="#google-cloud-storage" title="Permalink to this heading">¶</a></h2>
+<h2 id="google-cloud-storage">Google Cloud Storage<a class="headerlink" href="#google-cloud-storage" title="Link to this heading">¶</a></h2>
 <dl class="std envvar objdesc">
 <dt class="sig sig-object highlight std" id="envvar-TENSORSTORE_GCS_HTTP_URL">
-<span class="sig-name descname"><span class="pre">TENSORSTORE_GCS_HTTP_URL</span></span><a class="headerlink" href="#envvar-TENSORSTORE_GCS_HTTP_URL" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">TENSORSTORE_GCS_HTTP_URL</span></span><a class="headerlink" href="#envvar-TENSORSTORE_GCS_HTTP_URL" title="Link to this definition">¶</a></dt>
 <dd><p>Specifies to connect to an alternative server in place of
 <code class="docutils literal notranslate"><span class="pre">https://storage.googleapis.com</span></code>.  Note that the normal Google oauth2
 credentials <em>are</em> included in requests, and therefore only trusted servers
@@ -1033,14 +1084,14 @@ should be used.</p>
 
 <dl class="std envvar objdesc">
 <dt class="sig sig-object highlight std" id="envvar-TENSORSTORE_GCS_REQUEST_CONCURRENCY">
-<span class="sig-name descname"><span class="pre">TENSORSTORE_GCS_REQUEST_CONCURRENCY</span></span><a class="headerlink" href="#envvar-TENSORSTORE_GCS_REQUEST_CONCURRENCY" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">TENSORSTORE_GCS_REQUEST_CONCURRENCY</span></span><a class="headerlink" href="#envvar-TENSORSTORE_GCS_REQUEST_CONCURRENCY" title="Link to this definition">¶</a></dt>
 <dd><p>Specifies the concurrency level used by the shared Context
 <a class="reference internal" href="kvstore/gcs/index.html#json-Context.gcs_request_concurrency" title="Context.gcs_request_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.gcs_request_concurrency</span></code></a> resource. Defaults to 32.</p>
 </dd></dl>
 
 <dl class="std envvar objdesc">
 <dt class="sig sig-object highlight std" id="envvar-TENSORSTORE_HTTP2_MAX_CONCURRENT_STREAMS">
-<span class="sig-name descname"><span class="pre">TENSORSTORE_HTTP2_MAX_CONCURRENT_STREAMS</span></span><a class="headerlink" href="#envvar-TENSORSTORE_HTTP2_MAX_CONCURRENT_STREAMS" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">TENSORSTORE_HTTP2_MAX_CONCURRENT_STREAMS</span></span><a class="headerlink" href="#envvar-TENSORSTORE_HTTP2_MAX_CONCURRENT_STREAMS" title="Link to this definition">¶</a></dt>
 <dd><p>Specifies the maximum number of concurrent streams per HTTP/2 connection,
 without limiting the total number of active connections.  When unset, a
 default of 4 concurrent streams are permitted.</p>
@@ -1119,7 +1170,7 @@ default of 4 concurrent streams are permitted.</p>
     <script id="__config" type="application/json">{"base": ".", "features": ["navigation.expand", "navigation.sections", "navigation.top", "toc.follow", "toc.sticky"], "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "Search", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version.title": "Select version"}}</script>
     
       
-        <script src="_static/sphinx_immaterial_theme.f9d9eeeb247ace16c.min.js"></script>
+        <script src="_static/sphinx_immaterial_theme.f9d9eeeb247ace16c.min.js?v=8ec58cb5"></script>
     
   </body>
 </html>

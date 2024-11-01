@@ -1,0 +1,1812 @@
+
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      <link rel="icon" href="../../_static/logo.svg">
+    
+    
+      
+        <title>tensorstore::Context - TensorStore</title>
+      
+    
+    
+      
+        
+        
+      
+      
+
+    
+    
+    
+      
+        
+        
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+        <link rel="stylesheet" type="text/css" href="../../_static/sphinx_immaterial_theme.4b4a8c74e2ff2ab5b.min.css?v=afa97f93" />
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="green" data-md-color-accent="light-blue">
+  
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&"object"==typeof palette.color)for(var key of Object.keys(palette.color))document.body.setAttribute("data-md-color-"+key,palette.color[key])</script>
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#types" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../index.html" title="TensorStore" class="md-header__button md-logo" aria-label="TensorStore" data-md-component="logo">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 132.0 132.0"><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="2.0" x2="130.8" y2="2.0"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="16.2" x2="130.8" y2="16.2"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="30.4" x2="130.8" y2="30.4"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="44.7" x2="130.8" y2="44.7"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="58.9" x2="130.8" y2="58.9"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="73.1" x2="130.8" y2="73.1"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="87.3" x2="130.8" y2="87.3"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="101.6" x2="130.8" y2="101.6"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="115.8" x2="130.8" y2="115.8"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="130.0" x2="130.8" y2="130.0"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="2.0" y2="130.0" x2="2.0"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="16.2" y2="130.0" x2="16.2"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="30.4" y2="130.0" x2="30.4"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="44.7" y2="130.0" x2="44.7"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="58.9" y2="130.0" x2="58.9"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="73.1" y2="130.0" x2="73.1"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="87.3" y2="130.0" x2="87.3"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="101.6" y2="130.0" x2="101.6"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="115.8" y2="130.0" x2="115.8"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="130.0" y2="130.0" x2="130.0"/><rect fill="currentColor" x="3.5" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="17.7" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="46.2" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="60.4" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="17.7" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="74.6" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="88.8" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="103.1" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="46.2" width="11.2" height="11.2"/><rect fill="currentColor" x="60.4" y="46.2" width="11.2" height="11.2"/><rect fill="currentColor" x="117.3" y="46.2" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="60.4" width="11.2" height="11.2"/><rect fill="currentColor" x="74.6" y="60.4" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="74.6" width="11.2" height="11.2"/><rect fill="currentColor" x="88.8" y="74.6" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="88.8" width="11.2" height="11.2"/><rect fill="currentColor" x="103.1" y="88.8" width="11.2" height="11.2"/><rect fill="currentColor" x="60.4" y="103.1" width="11.2" height="11.2"/><rect fill="currentColor" x="117.3" y="103.1" width="11.2" height="11.2"/><rect fill="currentColor" x="74.6" y="117.3" width="11.2" height="11.2"/><rect fill="currentColor" x="88.8" y="117.3" width="11.2" height="11.2"/><rect fill="currentColor" x="103.1" y="117.3" width="11.2" height="11.2"/></svg>
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            TensorStore
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              tensorstore::Context
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      <form class="md-header__option" data-md-component="palette">
+        
+          
+          
+          <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="green" data-md-color-accent="light-blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+          
+            <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_2" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7M9 21a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1H9v1Z"/></svg>
+            </label>
+          
+        
+          
+          
+          <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="green" data-md-color-accent="light-blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_2">
+          
+            <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7M9 21v-1h6v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1m3-17a5 5 0 0 0-5 5c0 2.05 1.23 3.81 3 4.58V16h4v-2.42c1.77-.77 3-2.53 3-4.58a5 5 0 0 0-5-5Z"/></svg>
+            </label>
+          
+        
+      </form>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/google/tensorstore/" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    tensorstore
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../index.html" title="TensorStore" class="md-nav__button md-logo" aria-label="TensorStore" data-md-component="logo">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 132.0 132.0"><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="2.0" x2="130.8" y2="2.0"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="16.2" x2="130.8" y2="16.2"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="30.4" x2="130.8" y2="30.4"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="44.7" x2="130.8" y2="44.7"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="58.9" x2="130.8" y2="58.9"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="73.1" x2="130.8" y2="73.1"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="87.3" x2="130.8" y2="87.3"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="101.6" x2="130.8" y2="101.6"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="115.8" x2="130.8" y2="115.8"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="130.0" x2="130.8" y2="130.0"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="2.0" y2="130.0" x2="2.0"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="16.2" y2="130.0" x2="16.2"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="30.4" y2="130.0" x2="30.4"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="44.7" y2="130.0" x2="44.7"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="58.9" y2="130.0" x2="58.9"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="73.1" y2="130.0" x2="73.1"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="87.3" y2="130.0" x2="87.3"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="101.6" y2="130.0" x2="101.6"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="115.8" y2="130.0" x2="115.8"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="130.0" y2="130.0" x2="130.0"/><rect fill="currentColor" x="3.5" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="17.7" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="46.2" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="60.4" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="17.7" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="74.6" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="88.8" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="103.1" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="46.2" width="11.2" height="11.2"/><rect fill="currentColor" x="60.4" y="46.2" width="11.2" height="11.2"/><rect fill="currentColor" x="117.3" y="46.2" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="60.4" width="11.2" height="11.2"/><rect fill="currentColor" x="74.6" y="60.4" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="74.6" width="11.2" height="11.2"/><rect fill="currentColor" x="88.8" y="74.6" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="88.8" width="11.2" height="11.2"/><rect fill="currentColor" x="103.1" y="88.8" width="11.2" height="11.2"/><rect fill="currentColor" x="60.4" y="103.1" width="11.2" height="11.2"/><rect fill="currentColor" x="117.3" y="103.1" width="11.2" height="11.2"/><rect fill="currentColor" x="74.6" y="117.3" width="11.2" height="11.2"/><rect fill="currentColor" x="88.8" y="117.3" width="11.2" height="11.2"/><rect fill="currentColor" x="103.1" y="117.3" width="11.2" height="11.2"/></svg>
+    </a>
+    TensorStore
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/google/tensorstore/" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    tensorstore
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+      
+
+  
+  
+  
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_1" type="checkbox" id="__nav_1" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_1">
+          <span class="md-ellipsis">Python API</span>
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Python API" data-md-level="1">
+        <label class="md-nav__title" for="__nav_1">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">Python API</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/tutorial.html" class="md-nav__link">
+        <span class="md-ellipsis">Tutorial</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/indexing.html" class="md-nav__link">
+        <span class="md-ellipsis">Indexing</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/api/index.html" class="md-nav__link">
+        <span class="md-ellipsis">API reference</span>
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+    
+      
+      
+      
+
+  
+  
+    
+  
+  
+    
+      
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_2" type="checkbox" id="__nav_2" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_2">
+          <span class="md-ellipsis">C++ API</span>
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="C++ API" data-md-level="1">
+        <label class="md-nav__title" for="__nav_2">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">C++ API</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_2_1" type="checkbox" id="__nav_2_1" checked>
+      
+      
+      
+        
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="index.html"><span class="md-ellipsis">API reference</span></a>
+          
+            <label for="__nav_2_1">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
+          
+        </div>
+      
+      <nav class="md-nav" aria-label="API reference" data-md-level="2">
+        <label class="md-nav__title" for="__nav_2_1">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">API reference</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_2_1_1" type="checkbox" id="__nav_2_1_1" checked>
+      
+      
+      
+        
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="index.html#core"><span class="md-ellipsis">Core</span></a>
+          
+            <label for="__nav_2_1_1">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
+          
+        </div>
+      
+      <nav class="md-nav" aria-label="Core" data-md-level="3">
+        <label class="md-nav__title" for="__nav_2_1_1">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">Core</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.Batch.html" class="md-nav__link">
+        <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span><span title="tensorstore::Batch (C++ class) — Batch provides a mechanism for defining a batch of asynchronous operations that will potentially be deferred until all references to the batch are released." class="md-ellipsis">Batch</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.Transaction.html" class="md-nav__link">
+        <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span><span title="tensorstore::Transaction (C++ class) — Shared handle to a transaction." class="md-ellipsis">Transaction</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+    
+  
+    
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__current-nested md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_2_1_1_3" type="checkbox" id="__nav_2_1_1_3" checked>
+      
+      
+      
+        
+        <div class="md-nav__link md-nav__link--index md-nav__link--active">
+          <a href="#"><span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span><span title="tensorstore::Context (C++ class) — Immutable collection of lazily-constructed &#34;resources&#34;." class="md-ellipsis">Context</span></a>
+          
+            <label for="__nav_2_1_1_3">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
+          
+        </div>
+      
+      <nav class="md-nav" aria-label="Context" data-md-level="4">
+        <label class="md-nav__title" for="__nav_2_1_1_3">
+          <span class="md-nav__icon md-icon"></span>
+          <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span><span title="tensorstore::Context (C++ class) — Immutable collection of lazily-constructed &#34;resources&#34;." class="md-ellipsis">Context</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_2_1_1_3_1" type="checkbox" id="__nav_2_1_1_3_1" checked>
+      
+      
+      
+        
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="#types"><span class="md-ellipsis">Types</span></a>
+          
+            <label for="__nav_2_1_1_3_1">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
+          
+        </div>
+      
+      <nav class="md-nav" aria-label="Types" data-md-level="5">
+        <label class="md-nav__title" for="__nav_2_1_1_3_1">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">Types</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.Context.ToJsonOptions.html" class="md-nav__link">
+        <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span><span title="tensorstore::Context::ToJsonOptions (C++ type) — JSON serialization options." class="md-ellipsis">To<wbr>Json<wbr>Options</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.Context.Spec.html" class="md-nav__link">
+        <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span><span title="tensorstore::Context::Spec (C++ class) — Parsed specification of a collection of context resources." class="md-ellipsis">Spec</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.Context.Resource.html" class="md-nav__link">
+        <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span><span title="tensorstore::Context::Resource (C++ class) — Variant type that either specifies an unresolved context resource, or holds a shared handle to a context resource." class="md-ellipsis">Resource</span>
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_2_1_1_3_2" type="checkbox" id="__nav_2_1_1_3_2" checked>
+      
+      
+      
+        
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="#constructors"><span class="md-ellipsis">Constructors</span></a>
+          
+            <label for="__nav_2_1_1_3_2">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
+          
+        </div>
+      
+      <nav class="md-nav" aria-label="Constructors" data-md-level="5">
+        <label class="md-nav__title" for="__nav_2_1_1_3_2">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">Constructors</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.Context.Context-null.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Context::Context (C++ function) — Constructs a null context." class="md-ellipsis">Context <wbr>[null]</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.Context.Context-spec-parent.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Context::Context (C++ function) — Constructs a context from a Spec." class="md-ellipsis">Context <wbr>[spec, parent]</span>
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_2_1_1_3_3" type="checkbox" id="__nav_2_1_1_3_3" checked>
+      
+      
+      
+        
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="#methods"><span class="md-ellipsis">Methods</span></a>
+          
+            <label for="__nav_2_1_1_3_3">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
+          
+        </div>
+      
+      <nav class="md-nav" aria-label="Methods" data-md-level="5">
+        <label class="md-nav__title" for="__nav_2_1_1_3_3">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">Methods</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.Context.Default.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Context::Default (C++ function) — Constructs a new default context." class="md-ellipsis">Default</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.Context.FromJson.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Context::FromJson (C++ function) — Constructs a context from a JSON spec." class="md-ellipsis">From<wbr>Json</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.Context.GetResource.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Context::GetResource (C++ function) — Returns a resource or the default resource for a given provider." class="md-ellipsis">Get<wbr>Resource</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.Context.spec.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Context::spec (C++ function) — Returns the Spec used to create this context." class="md-ellipsis">spec</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.Context.parent.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Context::parent (C++ function) — Returns the parent Context, if any." class="md-ellipsis">parent</span>
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_2_1_1_3_4" type="checkbox" id="__nav_2_1_1_3_4" checked>
+      
+      
+      
+        
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="#conversion-operators"><span class="md-ellipsis">Conversion operators</span></a>
+          
+            <label for="__nav_2_1_1_3_4">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
+          
+        </div>
+      
+      <nav class="md-nav" aria-label="Conversion operators" data-md-level="5">
+        <label class="md-nav__title" for="__nav_2_1_1_3_4">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">Conversion operators</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.Context.operator-cast-bool.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Context::operator bool (C++ function) — Returns true if this is not a null context." class="md-ellipsis">operator bool</span>
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_2_1_1_3_5" type="checkbox" id="__nav_2_1_1_3_5" checked>
+      
+      
+      
+        
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="#friend-functions"><span class="md-ellipsis">Friend functions</span></a>
+          
+            <label for="__nav_2_1_1_3_5">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
+          
+        </div>
+      
+      <nav class="md-nav" aria-label="Friend functions" data-md-level="5">
+        <label class="md-nav__title" for="__nav_2_1_1_3_5">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">Friend functions</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.Context.operator-equal_to.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Context::operator== (C++ function) — Returns true if the two context objects refer to the same underlying shared state." class="md-ellipsis">operator==</span>
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_2_1_1_3_6" type="checkbox" id="__nav_2_1_1_3_6" checked>
+      
+      
+      
+        
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="#related-types"><span class="md-ellipsis">Related Types</span></a>
+          
+            <label for="__nav_2_1_1_3_6">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
+          
+        </div>
+      
+      <nav class="md-nav" aria-label="Related Types" data-md-level="5">
+        <label class="md-nav__title" for="__nav_2_1_1_3_6">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">Related Types</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.ContextBindingMode.html" class="md-nav__link">
+        <span aria-label="C++ enum" class="objinfo-icon objinfo-icon__data" title="C++ enum">E</span><span title="tensorstore::ContextBindingMode (C++ enum) — Specifies how context bindings should be handled for Spec-like types, such as tensorstore::kvstore::Spec and tensorstore::Spec." class="md-ellipsis">Context<wbr>Binding<wbr>Mode</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.ContextBindingState.html" class="md-nav__link">
+        <span aria-label="C++ enum" class="objinfo-icon objinfo-icon__data" title="C++ enum">E</span><span title="tensorstore::ContextBindingState (C++ enum) — Indicates the binding state of context resources within a Spec-like type, such as tensorstore::Spec and tensorstore::kvstore::Spec." class="md-ellipsis">Context<wbr>Binding<wbr>State</span>
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+      
+    <li class="md-nav__item md-nav__item--active md-nav__current-toc">
+      
+      
+      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span><span title="tensorstore::Context (C++ class) — Immutable collection of lazily-constructed &#34;resources&#34;." class="md-ellipsis">Context</span>
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="#" class="md-nav__link md-nav__link--active">
+        <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span><span title="tensorstore::Context (C++ class) — Immutable collection of lazily-constructed &#34;resources&#34;." class="md-ellipsis">Context</span>
+      </a>
+      
+        
+
+  
+
+<nav class="md-nav md-nav--secondary">
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span><span title="tensorstore::Context (C++ class) — Immutable collection of lazily-constructed &#34;resources&#34;." class="md-ellipsis">Context</span>
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#types" class="md-nav__link">
+    <span class="md-ellipsis">Types</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Types">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="tensorstore.Context.ToJsonOptions.html" class="md-nav__link">
+    <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span><span title="tensorstore::Context::ToJsonOptions (C++ type) — JSON serialization options." class="md-ellipsis">To<wbr>Json<wbr>Options</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="tensorstore.Context.Spec.html" class="md-nav__link">
+    <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span><span title="tensorstore::Context::Spec (C++ class) — Parsed specification of a collection of context resources." class="md-ellipsis">Spec</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="tensorstore.Context.Resource.html" class="md-nav__link">
+    <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span><span title="tensorstore::Context::Resource (C++ class) — Variant type that either specifies an unresolved context resource, or holds a shared handle to a context resource." class="md-ellipsis">Resource</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#constructors" class="md-nav__link">
+    <span class="md-ellipsis">Constructors</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Constructors">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="tensorstore.Context.Context-null.html" class="md-nav__link">
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Context::Context (C++ function) — Constructs a null context." class="md-ellipsis">Context <wbr>[null]</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="tensorstore.Context.Context-spec-parent.html" class="md-nav__link">
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Context::Context (C++ function) — Constructs a context from a Spec." class="md-ellipsis">Context <wbr>[spec, parent]</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#methods" class="md-nav__link">
+    <span class="md-ellipsis">Methods</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Methods">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="tensorstore.Context.Default.html" class="md-nav__link">
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Context::Default (C++ function) — Constructs a new default context." class="md-ellipsis">Default</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="tensorstore.Context.FromJson.html" class="md-nav__link">
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Context::FromJson (C++ function) — Constructs a context from a JSON spec." class="md-ellipsis">From<wbr>Json</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="tensorstore.Context.GetResource.html" class="md-nav__link">
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Context::GetResource (C++ function) — Returns a resource or the default resource for a given provider." class="md-ellipsis">Get<wbr>Resource</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="tensorstore.Context.spec.html" class="md-nav__link">
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Context::spec (C++ function) — Returns the Spec used to create this context." class="md-ellipsis">spec</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="tensorstore.Context.parent.html" class="md-nav__link">
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Context::parent (C++ function) — Returns the parent Context, if any." class="md-ellipsis">parent</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conversion-operators" class="md-nav__link">
+    <span class="md-ellipsis">Conversion operators</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Conversion operators">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="tensorstore.Context.operator-cast-bool.html" class="md-nav__link">
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Context::operator bool (C++ function) — Returns true if this is not a null context." class="md-ellipsis">operator bool</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#friend-functions" class="md-nav__link">
+    <span class="md-ellipsis">Friend functions</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Friend functions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="tensorstore.Context.operator-equal_to.html" class="md-nav__link">
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Context::operator== (C++ function) — Returns true if the two context objects refer to the same underlying shared state." class="md-ellipsis">operator==</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-types" class="md-nav__link">
+    <span class="md-ellipsis">Related Types</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Related Types">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="tensorstore.ContextBindingMode.html" class="md-nav__link">
+    <span aria-label="C++ enum" class="objinfo-icon objinfo-icon__data" title="C++ enum">E</span><span title="tensorstore::ContextBindingMode (C++ enum) — Specifies how context bindings should be handled for Spec-like types, such as tensorstore::kvstore::Spec and tensorstore::Spec." class="md-ellipsis">Context<wbr>Binding<wbr>Mode</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="tensorstore.ContextBindingState.html" class="md-nav__link">
+    <span aria-label="C++ enum" class="objinfo-icon objinfo-icon__data" title="C++ enum">E</span><span title="tensorstore::ContextBindingState (C++ enum) — Indicates the binding state of context resources within a Spec-like type, such as tensorstore::Spec and tensorstore::kvstore::Spec." class="md-ellipsis">Context<wbr>Binding<wbr>State</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.Schema.html" class="md-nav__link">
+        <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span><span title="tensorstore::Schema (C++ class) — Collection of constraints for a TensorStore schema." class="md-ellipsis">Schema</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.Spec.html" class="md-nav__link">
+        <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span><span title="tensorstore::Spec (C++ class) — Specifies the parameters necessary to open or create a TensorStore." class="md-ellipsis">Spec</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.TensorStore.html" class="md-nav__link">
+        <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span><span title="tensorstore::TensorStore (C++ class) — Open handle to an asynchronous multi-dimensional array." class="md-ellipsis">Tensor<wbr>Store</span>
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="index.html#indexing" class="md-nav__link">
+        <span class="md-ellipsis">Indexing</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="index.html#data-types" class="md-nav__link">
+        <span class="md-ellipsis">Data types</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="index.html#array" class="md-nav__link">
+        <span class="md-ellipsis">Array</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="index.html#key-value-storage" class="md-nav__link">
+        <span class="md-ellipsis">Key-<wbr>value storage</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="index.html#downsampling" class="md-nav__link">
+        <span class="md-ellipsis">Downsampling</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="index.html#utilities" class="md-nav__link">
+        <span class="md-ellipsis">Utilities</span>
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_3" type="checkbox" id="__nav_3" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3">
+          <span class="md-ellipsis">Setup</span>
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Setup" data-md-level="1">
+        <label class="md-nav__title" for="__nav_3">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">Setup</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation.html" class="md-nav__link">
+        <span class="md-ellipsis">Building and Installing</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../environment.html" class="md-nav__link">
+        <span class="md-ellipsis">Environment variables</span>
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_4" type="checkbox" id="__nav_4" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_4">
+          <span class="md-ellipsis">JSON</span>
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="JSON" data-md-level="1">
+        <label class="md-nav__title" for="__nav_4">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">JSON</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../spec.html" class="md-nav__link">
+        <span class="md-ellipsis">JSON Spec</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../index_space.html" class="md-nav__link">
+        <span class="md-ellipsis">Index space</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../schema.html" class="md-nav__link">
+        <span class="md-ellipsis">Schema</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../context.html" class="md-nav__link">
+        <span class="md-ellipsis">Context framework</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../driver/index.html" class="md-nav__link">
+        <span class="md-ellipsis">Drivers</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../kvstore/index.html" class="md-nav__link">
+        <span class="md-ellipsis">Key-<wbr>Value Storage Layer</span>
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+  
+
+<nav class="md-nav md-nav--secondary">
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span><span title="tensorstore::Context (C++ class) — Immutable collection of lazily-constructed &#34;resources&#34;." class="md-ellipsis">Context</span>
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#types" class="md-nav__link">
+    <span class="md-ellipsis">Types</span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#constructors" class="md-nav__link">
+    <span class="md-ellipsis">Constructors</span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#methods" class="md-nav__link">
+    <span class="md-ellipsis">Methods</span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conversion-operators" class="md-nav__link">
+    <span class="md-ellipsis">Conversion operators</span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#friend-functions" class="md-nav__link">
+    <span class="md-ellipsis">Friend functions</span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-types" class="md-nav__link">
+    <span class="md-ellipsis">Related Types</span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset" role="main">
+                  
+
+
+<dl class="cpp class objdesc">
+<dt class="sig sig-object highlight api-include-path cpp">
+<div class="docutils container">
+<code class="cpp code highlight docutils literal highlight-cpp"><span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;tensorstore/context.h&quot;</span></code></div>
+</dt>
+<dt class="sig sig-object highlight cpp">
+<span class="k">class</span><span class="w">&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span></span><span class="sig-name descname"><span class="n">Context</span></span><span class="p">;</span></dt>
+<dd><p>Immutable collection of lazily-constructed “resources”.</p>
+<p>This is used as a holder for, among other things, shared thread pools, cache
+pools, and authentication credentials used by various components in
+TensorStore.</p>
+<p>A resource is an arbitrary C++ object that may be accessed using a
+<code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="#" title="tensorstore::Context (C++ class) — Immutable collection of lazily-constructed &quot;resources&quot;."><span class="n">Context</span></a><span class="p">::</span><a class="desctype reference internal" href="tensorstore.Context.Resource.html#c:&#64;N&#64;tensorstore&#64;S&#64;Context&#64;ST&gt;1#T&#64;Resource" title="tensorstore::Context::Resource (C++ class) — Variant type that either specifies an unresolved context resource, or holds a shared handle to a context resource."><span class="n">Resource</span></a></code> handle, which provides a const, reference counted view
+of the object.  Note that while the object itself is const, it may refer to
+mutable state, such as a cache.  Resources are constructed lazily within the
+<code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="#" title="tensorstore::Context (C++ class) — Immutable collection of lazily-constructed &quot;resources&quot;."><span class="n">Context</span></a></code> object from an unresolved <code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="tensorstore.Context.Resource.html#c:&#64;N&#64;tensorstore&#64;S&#64;Context&#64;ST&gt;1#T&#64;Resource" title="tensorstore::Context::Resource (C++ class) — Variant type that either specifies an unresolved context resource, or holds a shared handle to a context resource."><span class="n">Resource</span></a></code> spec (which is created from a
+JSON representation) when first accessed.</p>
+<p>Context resources are used with the TensorStore library to specify
+TensorStore driver and kvstore driver configuration options that do not
+affect the identity of the KvStore or TensorStore; in general, the contents
+of a KvStore or TensorStore should be identical for any valid context.
+For example, a file or bucket path for accessing data should not be
+specified as a context resource, while authentication credentials, caching,
+and concurrency options should be specified as context resources.</p>
+<p>Example usage:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><code><span class="k">auto</span><span class="w"> </span><span class="n">spec_result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Context</span><span class="o">::</span><span class="n">Spec</span><span class="o">::</span><span class="n">FromJson</span><span class="p">({</span>
+<span class="w">  </span><span class="p">{</span><span class="s">&quot;data_copy_concurrency&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">{{</span><span class="s">&quot;limit&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="p">}}},</span>
+<span class="w">  </span><span class="p">{</span><span class="s">&quot;data_copy_concurrency#a&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">{{</span><span class="s">&quot;limit&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="p">}}},</span>
+<span class="p">});</span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">spec_result</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// Handle error</span>
+<span class="p">}</span>
+<span class="k">auto</span><span class="w"> </span><span class="n">resource_spec_result</span><span class="w"> </span><span class="o">=</span>
+<span class="w">    </span><span class="n">Context</span><span class="o">::</span><span class="n">Resource</span><span class="o">&lt;</span><span class="n">internal</span><span class="o">::</span><span class="n">DataCopyConcurrencyResource</span><span class="o">&gt;</span>
+<span class="w">    </span><span class="o">::</span><span class="n">FromJson</span><span class="p">(</span><span class="s">&quot;data_copy_concurrency&quot;</span><span class="p">);</span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">resource_spec_result</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// Handle error</span>
+<span class="p">}</span>
+<span class="k">auto</span><span class="w"> </span><span class="n">context</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Context</span><span class="p">(</span><span class="o">*</span><span class="n">spec_result</span><span class="p">);</span>
+<span class="k">auto</span><span class="w"> </span><span class="n">resource_result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">context</span><span class="p">.</span><span class="n">GetResource</span><span class="p">(</span>
+<span class="w">    </span><span class="n">resource_spec_result</span><span class="o">-&gt;</span><span class="n">value</span><span class="p">());</span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">resource_result</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// Handle error</span>
+<span class="p">}</span>
+<span class="c1">// Can access executor member of context resource.</span>
+<span class="p">(</span><span class="o">*</span><span class="n">resource_result</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">executor</span><span class="p">([]</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// task body</span>
+<span class="p">});</span>
+<span class="c1">// Access other executor.</span>
+<span class="k">auto</span><span class="w"> </span><span class="n">resource2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">context</span><span class="p">.</span><span class="n">GetResource</span><span class="p">(</span>
+<span class="w">    </span><span class="n">Context</span><span class="o">::</span><span class="n">Resource</span><span class="o">&lt;</span><span class="n">internal</span><span class="o">::</span><span class="n">DataCopyConcurrencyResource</span><span class="o">&gt;</span>
+<span class="w">    </span><span class="o">::</span><span class="n">FromJson</span><span class="p">(</span><span class="s">&quot;data_copy_concurrency#a&quot;</span><span class="p">).</span><span class="n">value</span><span class="p">()).</span><span class="n">value</span><span class="p">();</span>
+<span class="n">resource2</span><span class="o">-&gt;</span><span class="n">executor</span><span class="p">([]</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* task body */</span><span class="w"> </span><span class="p">});</span>
+</code></pre></div>
+</div>
+<p><code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="#" title="tensorstore::Context (C++ class) — Immutable collection of lazily-constructed &quot;resources&quot;."><span class="n">Context</span></a><span class="p">::</span><a class="desctype reference internal" href="tensorstore.Context.Spec.html#c:&#64;N&#64;tensorstore&#64;S&#64;Context&#64;S&#64;Spec" title="tensorstore::Context::Spec (C++ class) — Parsed specification of a collection of context resources."><span class="n">Spec</span></a></code> and unresolved <code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="#" title="tensorstore::Context (C++ class) — Immutable collection of lazily-constructed &quot;resources&quot;."><span class="n">Context</span></a><span class="p">::</span><a class="desctype reference internal" href="tensorstore.Context.Resource.html#c:&#64;N&#64;tensorstore&#64;S&#64;Context&#64;ST&gt;1#T&#64;Resource" title="tensorstore::Context::Resource (C++ class) — Variant type that either specifies an unresolved context resource, or holds a shared handle to a context resource."><span class="n">Resource</span></a></code> instances serve as
+intermediate representations between JSON and the actual context and context
+resource, respectively.  This indirection makes it possible to validate a
+context or resource specification without actually constructing the
+resource; this is especially useful if one process/machine prepares a
+specification for use by another process/machine.  It also makes it possible
+to properly handle shared resources when serializing back to JSON.</p>
+<p>The <code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="#" title="tensorstore::Context (C++ class) — Immutable collection of lazily-constructed &quot;resources&quot;."><span class="n">Context</span></a><span class="p">::</span><a class="desctype reference internal" href="tensorstore.Context.Resource.html#c:&#64;N&#64;tensorstore&#64;S&#64;Context&#64;ST&gt;1#T&#64;Resource" title="tensorstore::Context::Resource (C++ class) — Variant type that either specifies an unresolved context resource, or holds a shared handle to a context resource."><span class="n">Resource</span></a></code> type is actually a variant type that can hold either
+a context resource or a context resource spec.
+<code class="code highlight cpp docutils literal highlight-cpp"><span class="n">Context</span><span class="o">::</span><span class="n">Resource</span><span class="o">&lt;</span><span class="n">Provider</span><span class="o">&gt;::</span><span class="n">FromJson</span></code> returns an unresolved context
+resource spec, which specifies any parameters of the context resource
+(e.g. memory limits for a cache pool) but does not represent a specific
+resource (e.g. the actual cache pool).  <em>Binding</em> the context resource spec
+with a <code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="#" title="tensorstore::Context (C++ class) — Immutable collection of lazily-constructed &quot;resources&quot;."><span class="n">Context</span></a></code> converts the context resource spec to an actual context
+resource.  <em>Unbinding</em> a context resource converts it back to a context
+resource spec.  These binding and unbinding operations can also be applied
+to data structures like <code class="cpp-expr sig sig-inline cpp highlight"><span class="n">tensorstore</span><span class="p">::</span><a class="desctype reference internal" href="tensorstore.Spec.html#c:&#64;N&#64;tensorstore&#64;S&#64;Spec" title="tensorstore::Spec (C++ class) — Specifies the parameters necessary to open or create a TensorStore."><span class="n">Spec</span></a></code> and <code class="cpp-expr sig sig-inline cpp highlight"><span class="n">tensorstore</span><span class="p">::</span><span class="n">kvstore</span><span class="p">::</span><a class="desctype reference internal" href="tensorstore.kvstore.Spec.html#c:&#64;N&#64;tensorstore&#64;N&#64;kvstore&#64;S&#64;Spec" title="tensorstore::kvstore::Spec (C++ class) — Combines a driver-specific kvstore spec with a string path that serves as a key prefix."><span class="n">Spec</span></a></code>
+that indirectly hold context resources.</p>
+<h2 id="types">Types<a class="headerlink" href="#types" title="Link to this heading">¶</a></h2>
+<dl class="cpp type summary objdesc">
+<dt class="sig sig-object highlight cpp">
+<span class="k">using</span><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.Context.ToJsonOptions.html"><span class="doc"><span class="pre">ToJsonOptions</span></span></a><span class="w">&nbsp;</span><span class="p">=</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.JsonSerializationOptions.html#c:&#64;N&#64;tensorstore&#64;S&#64;JsonSerializationOptions" title="tensorstore::JsonSerializationOptions (C++ class) — Defines options for conversion to/from JSON."><span class="n">JsonSerializationOptions</span></a><span class="p">;</span></dt>
+<dt class="sig sig-object highlight cpp">
+<span class="k">using</span><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.Context.ToJsonOptions.html"><span class="doc"><span class="pre">FromJsonOptions</span></span></a><span class="w">&nbsp;</span><span class="p">=</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.JsonSerializationOptions.html#c:&#64;N&#64;tensorstore&#64;S&#64;JsonSerializationOptions" title="tensorstore::JsonSerializationOptions (C++ class) — Defines options for conversion to/from JSON."><span class="n">JsonSerializationOptions</span></a><span class="p">;</span></dt>
+<dd><p>JSON serialization options.</p>
+</dd></dl>
+
+<dl class="cpp class summary objdesc">
+<dt class="sig sig-object highlight cpp">
+<span class="k">class</span><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.Context.Spec.html"><span class="doc"><span class="pre">Spec</span></span></a><span class="p">;</span></dt>
+<dd><p>Parsed specification of a collection of context resources.</p>
+</dd></dl>
+
+<dl class="cpp class summary objdesc">
+<dt class="sig sig-object highlight cpp">
+<span class="k">class</span><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.Context.Resource.html"><span class="doc"><span class="pre">Resource</span></span></a><span class="p">&lt;</span><a class="desctype reference internal" href="tensorstore.Context.Resource.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;Context&#64;ST&gt;1#T&#64;Resource" title="tensorstore::Context::Resource::Provider (C++ type template parameter)"><span class="n">Provider</span></a><span class="p">&gt;</span><span class="p">;</span></dt>
+<dd><p>Variant type that either specifies an unresolved context resource, or
+holds a shared handle to a context resource.</p>
+</dd></dl>
+
+<div class="toctree-wrapper compound">
+</div>
+<h2 id="constructors">Constructors<a class="headerlink" href="#constructors" title="Link to this heading">¶</a></h2>
+<dl class="cpp function summary objdesc">
+<dt class="sig sig-object highlight cpp">
+<a class="sig-name descname reference internal" href="tensorstore.Context.Context-null.html"><span class="doc"><span class="pre">Context</span></span></a><span class="p">(</span><span class="p">)</span><span class="p">;</span></dt>
+<dd><p>Constructs a null context.</p>
+</dd></dl>
+
+<dl class="cpp function summary objdesc">
+<dt class="sig sig-object highlight cpp">
+<span><span class="k">explicit</span></span><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.Context.Context-spec-parent.html"><span class="doc"><span class="pre">Context</span></span></a><span class="p">(</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.Context.Spec.html#c:&#64;N&#64;tensorstore&#64;S&#64;Context&#64;S&#64;Spec" title="tensorstore::Context::Spec (C++ class) — Parsed specification of a collection of context resources."><span class="n">Spec</span></a><span class="p">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.Context.Context-spec-parent.html#c:&#64;N&#64;tensorstore&#64;S&#64;Context&#64;F&#64;Context#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;Context&#64;S&#64;Spec#$&#64;N&#64;tensorstore&#64;S&#64;Context#-p-spec" title="tensorstore::Context::Context::spec (C++ function parameter) — The context spec."><span class="n sig-param">spec</span></a></span><span class="p">,&nbsp;</span><span><a class="reference internal" href="tensorstore.Context.Context-spec-parent.html#c:&#64;N&#64;tensorstore&#64;S&#64;Context&#64;F&#64;Context#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;Context&#64;S&#64;Spec#$&#64;N&#64;tensorstore&#64;S&#64;Context#" title="tensorstore::Context::Context (C++ function) — Constructs a context from a Spec."><span class="n">Context</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.Context.Context-spec-parent.html#c:&#64;N&#64;tensorstore&#64;S&#64;Context&#64;F&#64;Context#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;Context&#64;S&#64;Spec#$&#64;N&#64;tensorstore&#64;S&#64;Context#-p-parent" title="tensorstore::Context::Context::parent (C++ function parameter) — The parent context to extend."><span class="n sig-param">parent</span></a><span class="w">&nbsp;</span><span class="p">=</span><span class="w">&nbsp;</span><span class="p">{</span><span class="p">}</span></span><span class="p">)</span><span class="p">;</span></dt>
+<dd><p>Constructs a context from a <code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="tensorstore.Context.Spec.html#c:&#64;N&#64;tensorstore&#64;S&#64;Context&#64;S&#64;Spec" title="tensorstore::Context::Spec (C++ class) — Parsed specification of a collection of context resources."><span class="n">Spec</span></a></code>.</p>
+</dd></dl>
+
+<div class="toctree-wrapper compound">
+</div>
+<h2 id="methods">Methods<a class="headerlink" href="#methods" title="Link to this heading">¶</a></h2>
+<dl class="cpp function summary objdesc">
+<dt class="sig sig-object highlight cpp">
+<span class="k">static</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::Context (C++ class) — Immutable collection of lazily-constructed &quot;resources&quot;."><span class="n">Context</span></a><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.Context.Default.html"><span class="doc"><span class="pre">Default</span></span></a><span class="p">(</span><span class="p">)</span><span class="p">;</span></dt>
+<dd><p>Constructs a new default context.</p>
+</dd></dl>
+
+<dl class="cpp function summary objdesc">
+<dt class="sig sig-object highlight cpp">
+<span class="k">static</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result" title="tensorstore::Result (C++ class) — Result&lt;T&gt; implements a value-or-error concept providing a discriminated union of a usable value, T, or an absl::Status error describing why the value is not present. Result&lt;void&gt; is permitted, which becomes a wrapper for absl::Status, and which enables use of Result&lt;T&gt; in a wide variety of template contexts."><span class="n">Result</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="#" title="tensorstore::Context (C++ class) — Immutable collection of lazily-constructed &quot;resources&quot;."><span class="n">Context</span></a><span class="p">&gt;</span><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.Context.FromJson.html"><span class="doc"><span class="pre">FromJson</span></span></a><span class="p">(</span><span><span class="p">::</span><span class="n">nlohmann</span><span class="p">::</span><a class="desctype reference external" href="https://json.nlohmann.me/api/json/" title="C++ type alias"><span class="n">json</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.Context.FromJson.html#c:&#64;N&#64;tensorstore&#64;S&#64;Context&#64;F&#64;FromJson#$&#64;N&#64;nlohmann&#64;N&#64;json_abi_v3_11_3&#64;S&#64;basic_json&gt;#&#64;N&#64;std&#64;N&#64;__1&#64;ST&gt;4#T#T#T#T&#64;map#&#64;N&#64;std&#64;N&#64;__1&#64;ST&gt;2#T#T&#64;vector#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;basic_string&gt;#C#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;char_traits&gt;#C#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;allocator&gt;#C#b#L#l#d#&#64;N&#64;std&#64;N&#64;__1&#64;ST&gt;1#T&#64;allocator#&#64;N&#64;nlohmann&#64;N&#64;json_abi_v3_11_3&#64;ST&gt;2#T#T&#64;adl_serializer#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;vector&gt;#c#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;allocator&gt;#c#v#$&#64;N&#64;tensorstore&#64;S&#64;Context#$&#64;N&#64;tensorstore&#64;S&#64;JsonSerializationOptions#S-p-json_spec" title="tensorstore::Context::FromJson::json_spec (C++ function parameter) — The JSON spec."><span class="n sig-param">json_spec</span></a></span><span class="p">,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span><a class="desctype reference internal" href="#" title="tensorstore::Context (C++ class) — Immutable collection of lazily-constructed &quot;resources&quot;."><span class="n">Context</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.Context.FromJson.html#c:&#64;N&#64;tensorstore&#64;S&#64;Context&#64;F&#64;FromJson#$&#64;N&#64;nlohmann&#64;N&#64;json_abi_v3_11_3&#64;S&#64;basic_json&gt;#&#64;N&#64;std&#64;N&#64;__1&#64;ST&gt;4#T#T#T#T&#64;map#&#64;N&#64;std&#64;N&#64;__1&#64;ST&gt;2#T#T&#64;vector#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;basic_string&gt;#C#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;char_traits&gt;#C#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;allocator&gt;#C#b#L#l#d#&#64;N&#64;std&#64;N&#64;__1&#64;ST&gt;1#T&#64;allocator#&#64;N&#64;nlohmann&#64;N&#64;json_abi_v3_11_3&#64;ST&gt;2#T#T&#64;adl_serializer#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;vector&gt;#c#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;allocator&gt;#c#v#$&#64;N&#64;tensorstore&#64;S&#64;Context#$&#64;N&#64;tensorstore&#64;S&#64;JsonSerializationOptions#S-p-parent" title="tensorstore::Context::FromJson::parent (C++ function parameter) — The parent context to extend."><span class="n sig-param">parent</span></a><span class="w">&nbsp;</span><span class="p">=</span><span class="w">&nbsp;</span><span class="p">{</span><span class="p">}</span></span><span class="p">,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span><a class="desctype reference internal" href="tensorstore.Context.ToJsonOptions.html#c:&#64;N&#64;tensorstore&#64;S&#64;Context&#64;FromJsonOptions" title="tensorstore::Context::FromJsonOptions (C++ type) — JSON serialization options."><span class="n">FromJsonOptions</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.Context.FromJson.html#c:&#64;N&#64;tensorstore&#64;S&#64;Context&#64;F&#64;FromJson#$&#64;N&#64;nlohmann&#64;N&#64;json_abi_v3_11_3&#64;S&#64;basic_json&gt;#&#64;N&#64;std&#64;N&#64;__1&#64;ST&gt;4#T#T#T#T&#64;map#&#64;N&#64;std&#64;N&#64;__1&#64;ST&gt;2#T#T&#64;vector#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;basic_string&gt;#C#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;char_traits&gt;#C#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;allocator&gt;#C#b#L#l#d#&#64;N&#64;std&#64;N&#64;__1&#64;ST&gt;1#T&#64;allocator#&#64;N&#64;nlohmann&#64;N&#64;json_abi_v3_11_3&#64;ST&gt;2#T#T&#64;adl_serializer#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;vector&gt;#c#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;allocator&gt;#c#v#$&#64;N&#64;tensorstore&#64;S&#64;Context#$&#64;N&#64;tensorstore&#64;S&#64;JsonSerializationOptions#S-p-options" title="tensorstore::Context::FromJson::options (C++ function parameter) — Options for parsing json_spec."><span class="n sig-param">options</span></a><span class="w">&nbsp;</span><span class="p">=</span><span class="w">&nbsp;</span><span class="p">{</span><span class="p">}</span></span><span class="p">)</span><span class="p">;</span></dt>
+<dd><p>Constructs a context from a JSON spec.</p>
+</dd></dl>
+
+<dl class="cpp function summary objdesc">
+<dt class="sig sig-object highlight cpp">
+<a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result" title="tensorstore::Result (C++ class) — Result&lt;T&gt; implements a value-or-error concept providing a discriminated union of a usable value, T, or an absl::Status error describing why the value is not present. Result&lt;void&gt; is permitted, which becomes a wrapper for absl::Status, and which enables use of Result&lt;T&gt; in a wide variety of template contexts."><span class="n">Result</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="tensorstore.Context.Resource.html#c:&#64;N&#64;tensorstore&#64;S&#64;Context&#64;ST&gt;1#T&#64;Resource" title="tensorstore::Context::Resource (C++ class) — Variant type that either specifies an unresolved context resource, or holds a shared handle to a context resource."><span class="n">Resource</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="tensorstore.Context.GetResource.html#c:&#64;N&#64;tensorstore&#64;S&#64;Context&#64;FT&#64;&gt;1#TGetResource#&amp;1&gt;&#64;N&#64;tensorstore&#64;S&#64;Context&#64;ST&gt;1#T&#64;Resource1t0.0#&gt;&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result1S1_#1 Result&lt;Resource&lt;Provider&gt;&gt;-p-Provider" title="tensorstore::Context::GetResource::Provider (C++ type template parameter) — Context resource provider type."><span class="n">Provider</span></a><span class="p">&gt;</span><span class="p">&gt;</span><span class="w"><br></span><a class="sig-name descname reference internal" href="tensorstore.Context.GetResource.html"><span class="doc"><span class="pre">GetResource</span></span></a><span class="p">(</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.Context.Resource.html#c:&#64;N&#64;tensorstore&#64;S&#64;Context&#64;ST&gt;1#T&#64;Resource" title="tensorstore::Context::Resource (C++ class) — Variant type that either specifies an unresolved context resource, or holds a shared handle to a context resource."><span class="n">Resource</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="tensorstore.Context.GetResource.html#c:&#64;N&#64;tensorstore&#64;S&#64;Context&#64;FT&#64;&gt;1#TGetResource#&amp;1&gt;&#64;N&#64;tensorstore&#64;S&#64;Context&#64;ST&gt;1#T&#64;Resource1t0.0#&gt;&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result1S1_#1 Result&lt;Resource&lt;Provider&gt;&gt;-p-Provider" title="tensorstore::Context::GetResource::Provider (C++ type template parameter) — Context resource provider type."><span class="n">Provider</span></a><span class="p">&gt;</span><span class="p">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.Context.GetResource.html#c:&#64;N&#64;tensorstore&#64;S&#64;Context&#64;FT&#64;&gt;1#TGetResource#&amp;1&gt;&#64;N&#64;tensorstore&#64;S&#64;Context&#64;ST&gt;1#T&#64;Resource1t0.0#&gt;&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result1S1_#1 Result&lt;Resource&lt;Provider&gt;&gt;-p-resource_spec" title="tensorstore::Context::GetResource::resource_spec (C++ function parameter) — The resource spec."><span class="n sig-param">resource_spec</span></a></span><span class="p">)</span><span class="w">&nbsp;</span><span class="k">const</span><span class="p">;</span></dt>
+<dt class="sig sig-object highlight cpp">
+<a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result" title="tensorstore::Result (C++ class) — Result&lt;T&gt; implements a value-or-error concept providing a discriminated union of a usable value, T, or an absl::Status error describing why the value is not present. Result&lt;void&gt; is permitted, which becomes a wrapper for absl::Status, and which enables use of Result&lt;T&gt; in a wide variety of template contexts."><span class="n">Result</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="tensorstore.Context.Resource.html#c:&#64;N&#64;tensorstore&#64;S&#64;Context&#64;ST&gt;1#T&#64;Resource" title="tensorstore::Context::Resource (C++ class) — Variant type that either specifies an unresolved context resource, or holds a shared handle to a context resource."><span class="n">Resource</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="tensorstore.Context.GetResource.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;Context&#64;FT&#64;&gt;1#TGetResource#&amp;1$&#64;N&#64;nlohmann&#64;N&#64;json_abi_v3_11_3&#64;S&#64;basic_json&gt;#&#64;N&#64;std&#64;N&#64;__1&#64;ST&gt;4#T#T#T#T&#64;map#&#64;N&#64;std&#64;N&#64;__1&#64;ST&gt;2#T#T&#64;vector#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;basic_string&gt;#C#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;char_traits&gt;#C#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;allocator&gt;#C#b#L#l#d#&#64;N&#64;std&#64;N&#64;__1&#64;ST&gt;1#T&#64;allocator#&#64;N&#64;nlohmann&#64;N&#64;json_abi_v3_11_3&#64;ST&gt;2#T#T&#64;adl_serializer#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;vector&gt;#c#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;allocator&gt;#c#v#&gt;&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result1&gt;&#64;N&#64;tensorstore&#64;S&#64;Context&#64;ST&gt;1#T&#64;Resource1t0.0#1 Result&lt;Resource&lt;Provider&gt;&gt;" title="tensorstore::Context::GetResource::Provider (C++ type template parameter)"><span class="n">Provider</span></a><span class="p">&gt;</span><span class="p">&gt;</span><span class="w"><br></span><a class="sig-name descname reference internal" href="tensorstore.Context.GetResource.html"><span class="doc"><span class="pre">GetResource</span></span></a><span class="p">(</span><span><span class="k">const</span><span class="w">&nbsp;</span><span class="p">::</span><span class="n">nlohmann</span><span class="p">::</span><a class="desctype reference external" href="https://json.nlohmann.me/api/json/" title="C++ type alias"><span class="n">json</span></a><span class="p">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.Context.GetResource.html#c:&#64;N&#64;tensorstore&#64;S&#64;Context&#64;FT&#64;&gt;1#TGetResource#&amp;1$&#64;N&#64;nlohmann&#64;N&#64;json_abi_v3_11_3&#64;S&#64;basic_json&gt;#&#64;N&#64;std&#64;N&#64;__1&#64;ST&gt;4#T#T#T#T&#64;map#&#64;N&#64;std&#64;N&#64;__1&#64;ST&gt;2#T#T&#64;vector#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;basic_string&gt;#C#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;char_traits&gt;#C#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;allocator&gt;#C#b#L#l#d#&#64;N&#64;std&#64;N&#64;__1&#64;ST&gt;1#T&#64;allocator#&#64;N&#64;nlohmann&#64;N&#64;json_abi_v3_11_3&#64;ST&gt;2#T#T&#64;adl_serializer#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;vector&gt;#c#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;allocator&gt;#c#v#&gt;&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result1&gt;&#64;N&#64;tensorstore&#64;S&#64;Context&#64;ST&gt;1#T&#64;Resource1t0.0#1 Result&lt;Resource&lt;Provider&gt;&gt;-p-json_spec" title="tensorstore::Context::GetResource::json_spec (C++ function parameter) — The JSON resource spec."><span class="n sig-param">json_spec</span></a></span><span class="p">)</span><span class="w">&nbsp;</span><span class="k">const</span><span class="p">;</span></dt>
+<dt class="sig sig-object highlight cpp">
+<a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result" title="tensorstore::Result (C++ class) — Result&lt;T&gt; implements a value-or-error concept providing a discriminated union of a usable value, T, or an absl::Status error describing why the value is not present. Result&lt;void&gt; is permitted, which becomes a wrapper for absl::Status, and which enables use of Result&lt;T&gt; in a wide variety of template contexts."><span class="n">Result</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="tensorstore.Context.Resource.html#c:&#64;N&#64;tensorstore&#64;S&#64;Context&#64;ST&gt;1#T&#64;Resource" title="tensorstore::Context::Resource (C++ class) — Variant type that either specifies an unresolved context resource, or holds a shared handle to a context resource."><span class="n">Resource</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="tensorstore.Context.GetResource.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;Context&#64;FT&#64;&gt;1#TGetResource#&gt;&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result1&gt;&#64;N&#64;tensorstore&#64;S&#64;Context&#64;ST&gt;1#T&#64;Resource1t0.0#1 Result&lt;Resource&lt;Provider&gt;&gt;" title="tensorstore::Context::GetResource::Provider (C++ type template parameter)"><span class="n">Provider</span></a><span class="p">&gt;</span><span class="p">&gt;</span><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.Context.GetResource.html"><span class="doc"><span class="pre">GetResource</span></span></a><span class="p">(</span><span class="p">)</span><span class="w">&nbsp;</span><span class="k">const</span><span class="p">;</span></dt>
+<dd><p>Returns a resource or the default resource for a given provider.</p>
+</dd></dl>
+
+<dl class="cpp function summary objdesc">
+<dt class="sig sig-object highlight cpp">
+<a class="desctype reference internal" href="#" title="tensorstore::Context (C++ class) — Immutable collection of lazily-constructed &quot;resources&quot;."><span class="n">Context</span></a><span class="p">::</span><a class="desctype reference internal" href="tensorstore.Context.Spec.html#c:&#64;N&#64;tensorstore&#64;S&#64;Context&#64;S&#64;Spec" title="tensorstore::Context::Spec (C++ class) — Parsed specification of a collection of context resources."><span class="n">Spec</span></a><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.Context.spec.html"><span class="doc"><span class="pre">spec</span></span></a><span class="p">(</span><span class="p">)</span><span class="w">&nbsp;</span><span class="k">const</span><span class="p">;</span></dt>
+<dd><p>Returns the <code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="tensorstore.Context.Spec.html#c:&#64;N&#64;tensorstore&#64;S&#64;Context&#64;S&#64;Spec" title="tensorstore::Context::Spec (C++ class) — Parsed specification of a collection of context resources."><span class="n">Spec</span></a></code> used to create this context.</p>
+</dd></dl>
+
+<dl class="cpp function summary objdesc">
+<dt class="sig sig-object highlight cpp">
+<a class="desctype reference internal" href="#" title="tensorstore::Context (C++ class) — Immutable collection of lazily-constructed &quot;resources&quot;."><span class="n">Context</span></a><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.Context.parent.html"><span class="doc"><span class="pre">parent</span></span></a><span class="p">(</span><span class="p">)</span><span class="w">&nbsp;</span><span class="k">const</span><span class="p">;</span></dt>
+<dd><p>Returns the parent <code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="#" title="tensorstore::Context (C++ class) — Immutable collection of lazily-constructed &quot;resources&quot;."><span class="n">Context</span></a></code>, if any.</p>
+</dd></dl>
+
+<div class="toctree-wrapper compound">
+</div>
+<h2 id="conversion-operators">Conversion operators<a class="headerlink" href="#conversion-operators" title="Link to this heading">¶</a></h2>
+<dl class="cpp function summary objdesc">
+<dt class="sig sig-object highlight cpp">
+<span><span class="k">explicit</span></span><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.Context.operator-cast-bool.html"><span class="doc"><span class="pre">operator</span> <span class="pre">bool</span></span></a><span class="p">(</span><span class="p">)</span><span class="w">&nbsp;</span><span class="k">const</span><span class="p">;</span></dt>
+<dd><p>Returns <code class="cpp-expr sig sig-inline cpp highlight"><span class="k">true</span></code> if this is not a null context.</p>
+</dd></dl>
+
+<div class="toctree-wrapper compound">
+</div>
+<h2 id="friend-functions">Friend functions<a class="headerlink" href="#friend-functions" title="Link to this heading">¶</a></h2>
+<dl class="cpp function summary objdesc">
+<dt class="sig sig-object highlight cpp">
+<span class="k">friend</span><span class="w">&nbsp;</span><span class="kt">bool</span><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.Context.operator-equal_to.html"><span class="doc"><span class="pre">operator==</span></span></a><span class="p">(</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::Context (C++ class) — Immutable collection of lazily-constructed &quot;resources&quot;."><span class="n">Context</span></a><span class="p">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.Context.operator-equal_to.html#_CPPv4c:&#64;N&#64;tensorstore&#64;F&#64;operator==#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;Context#S0_#" title="tensorstore::Context::operator==::a (C++ function parameter)"><span class="n sig-param">a</span></a></span><span class="p">,&nbsp;</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::Context (C++ class) — Immutable collection of lazily-constructed &quot;resources&quot;."><span class="n">Context</span></a><span class="p">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.Context.operator-equal_to.html#_CPPv4c:&#64;N&#64;tensorstore&#64;F&#64;operator==#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;Context#S0_#" title="tensorstore::Context::operator==::b (C++ function parameter)"><span class="n sig-param">b</span></a></span><span class="p">)</span><span class="p">;</span></dt>
+<dt class="sig sig-object highlight cpp">
+<span class="k">friend</span><span class="w">&nbsp;</span><span class="kt">bool</span><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.Context.operator-equal_to.html"><span class="doc"><span class="pre">operator!=</span></span></a><span class="p">(</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::Context (C++ class) — Immutable collection of lazily-constructed &quot;resources&quot;."><span class="n">Context</span></a><span class="p">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.Context.operator-equal_to.html#_CPPv4c:&#64;N&#64;tensorstore&#64;F&#64;operator!=#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;Context#S0_#" title="tensorstore::Context::operator!=::a (C++ function parameter)"><span class="n sig-param">a</span></a></span><span class="p">,&nbsp;</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::Context (C++ class) — Immutable collection of lazily-constructed &quot;resources&quot;."><span class="n">Context</span></a><span class="p">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.Context.operator-equal_to.html#_CPPv4c:&#64;N&#64;tensorstore&#64;F&#64;operator!=#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;Context#S0_#" title="tensorstore::Context::operator!=::b (C++ function parameter)"><span class="n sig-param">b</span></a></span><span class="p">)</span><span class="p">;</span></dt>
+<dd><p>Returns <code class="cpp-expr sig sig-inline cpp highlight"><span class="k">true</span></code> if the two context objects refer to the same underlying
+shared state.</p>
+</dd></dl>
+
+<div class="toctree-wrapper compound">
+</div>
+</dd></dl>
+
+<h2 id="related-types">Related Types<a class="headerlink" href="#related-types" title="Link to this heading">¶</a></h2>
+<dl class="cpp enum-class summary objdesc">
+<dt class="sig sig-object highlight cpp">
+<span class="k">enum</span><span class="w">&nbsp;</span><span class="k">class</span><span class="w">&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span></span><a class="sig-name descname reference internal" href="tensorstore.ContextBindingMode.html"><span class="doc"><span class="pre">ContextBindingMode</span></span></a><span class="p">;</span></dt>
+<dd><p>Specifies how context bindings should be handled for Spec-like types, such
+as <code class="cpp-expr sig sig-inline cpp highlight"><span class="n">tensorstore</span><span class="p">::</span><span class="n">kvstore</span><span class="p">::</span><a class="desctype reference internal" href="tensorstore.kvstore.Spec.html#c:&#64;N&#64;tensorstore&#64;N&#64;kvstore&#64;S&#64;Spec" title="tensorstore::kvstore::Spec (C++ class) — Combines a driver-specific kvstore spec with a string path that serves as a key prefix."><span class="n">Spec</span></a></code> and <code class="cpp-expr sig sig-inline cpp highlight"><span class="n">tensorstore</span><span class="p">::</span><a class="desctype reference internal" href="tensorstore.Spec.html#c:&#64;N&#64;tensorstore&#64;S&#64;Spec" title="tensorstore::Spec (C++ class) — Specifies the parameters necessary to open or create a TensorStore."><span class="n">Spec</span></a></code>.</p>
+</dd></dl>
+
+<dl class="cpp enum-class summary objdesc">
+<dt class="sig sig-object highlight cpp">
+<span class="k">enum</span><span class="w">&nbsp;</span><span class="k">class</span><span class="w">&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span></span><a class="sig-name descname reference internal" href="tensorstore.ContextBindingState.html"><span class="doc"><span class="pre">ContextBindingState</span></span></a><span class="p">;</span></dt>
+<dd><p>Indicates the binding state of context resources within a Spec-like type,
+such as <code class="cpp-expr sig sig-inline cpp highlight"><span class="n">tensorstore</span><span class="p">::</span><a class="desctype reference internal" href="tensorstore.Spec.html#c:&#64;N&#64;tensorstore&#64;S&#64;Spec" title="tensorstore::Spec (C++ class) — Specifies the parameters necessary to open or create a TensorStore."><span class="n">Spec</span></a></code> and <code class="cpp-expr sig sig-inline cpp highlight"><span class="n">tensorstore</span><span class="p">::</span><span class="n">kvstore</span><span class="p">::</span><a class="desctype reference internal" href="tensorstore.kvstore.Spec.html#c:&#64;N&#64;tensorstore&#64;N&#64;kvstore&#64;S&#64;Spec" title="tensorstore::kvstore::Spec (C++ class) — Combines a driver-specific kvstore spec with a string path that serves as a key prefix."><span class="n">Spec</span></a></code>.</p>
+</dd></dl>
+
+<div class="toctree-wrapper compound">
+</div>
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+        </div>
+        
+          <a href="#" class="md-top md-icon" data-md-component="top" hidden>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12Z"/></svg>
+            Back to top
+          </a>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+    <nav class="md-footer__inner md-grid" aria-label="Footer" >
+      
+        
+        <a href="tensorstore.no_transaction.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: tensorstore::no_transaction" rel="prev">
+          <div class="md-footer__button md-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+          </div>
+          <div class="md-footer__title">
+            <div class="md-ellipsis">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              tensorstore::no_transaction
+            </div>
+          </div>
+        </a>
+      
+      
+        
+        <a href="tensorstore.Context.ToJsonOptions.html" class="md-footer__link md-footer__link--next" aria-label="Next: tensorstore::Context::ToJsonOptions" rel="next">
+          <div class="md-footer__title">
+            <div class="md-ellipsis">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              tensorstore::Context::ToJsonOptions
+            </div>
+          </div>
+          <div class="md-footer__button md-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4Z"/></svg>
+          </div>
+        </a>
+      
+    </nav>
+  
+  
+  
+  <div class="md-footer-meta md-typeset">
+    
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.expand", "navigation.sections", "navigation.top", "toc.follow", "toc.sticky"], "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "Search", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version.title": "Select version"}}</script>
+    
+      
+        <script src="../../_static/sphinx_immaterial_theme.f9d9eeeb247ace16c.min.js?v=8ec58cb5"></script>
+    
+  </body>
+</html>

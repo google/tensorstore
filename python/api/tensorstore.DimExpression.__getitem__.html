@@ -32,7 +32,7 @@
         <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
       
     
-        <link rel="stylesheet" type="text/css" href="../../_static/sphinx_immaterial_theme.b454d0e296e565629.min.css" />
+        <link rel="stylesheet" type="text/css" href="../../_static/sphinx_immaterial_theme.4b4a8c74e2ff2ab5b.min.css?v=afa97f93" />
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
@@ -976,12 +976,63 @@
       
       
         <label class="md-nav__link" for="__nav_2">
+          <span class="md-ellipsis">C++ API</span>
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="C++ API" data-md-level="1">
+        <label class="md-nav__title" for="__nav_2">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">C++ API</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cpp/api/index.html" class="md-nav__link">
+        <span class="md-ellipsis">API reference</span>
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_3" type="checkbox" id="__nav_3" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3">
           <span class="md-ellipsis">Setup</span>
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="Setup" data-md-level="1">
-        <label class="md-nav__title" for="__nav_2">
+        <label class="md-nav__title" for="__nav_3">
           <span class="md-nav__icon md-icon"></span>
           <span class="md-ellipsis">Setup</span>
         </label>
@@ -1037,17 +1088,17 @@
     <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_3" type="checkbox" id="__nav_3" checked>
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_4" type="checkbox" id="__nav_4" checked>
       
       
       
-        <label class="md-nav__link" for="__nav_3">
+        <label class="md-nav__link" for="__nav_4">
           <span class="md-ellipsis">JSON</span>
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="JSON" data-md-level="1">
-        <label class="md-nav__title" for="__nav_3">
+        <label class="md-nav__title" for="__nav_4">
           <span class="md-nav__icon md-icon"></span>
           <span class="md-ellipsis">JSON</span>
         </label>
@@ -1263,8 +1314,8 @@ addition of an <a class="reference external" href="https://docs.python.org/3/lib
 <dd class="field-odd"><p>Dimension expression with the indexing operation added.</p>
 </dd>
 </dl>
-<h2 id="examples">Examples<a class="headerlink" href="#examples" title="Permalink to this heading">¶</a></h2>
-<h3 id="integer-indexing"><a class="reference internal" href="../indexing.html#python-indexing-integer"><span class="std std-ref">Integer indexing</span></a><a class="headerlink" href="#integer-indexing" title="Permalink to this heading">¶</a></h3>
+<h2 id="examples">Examples<a class="headerlink" href="#examples" title="Link to this heading">¶</a></h2>
+<h3 id="integer-indexing"><a class="reference internal" href="../indexing.html#python-indexing-integer"><span class="std std-ref">Integer indexing</span></a><a class="headerlink" href="#integer-indexing" title="Link to this heading">¶</a></h3>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">IndexTransform</span><span class="p">(</span><span class="n">input_labels</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">])</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">][</span><span class="mi">5</span><span class="p">]]</span>
 <span class="go">Rank 2 -&gt; 3 index space transform:</span>
@@ -1300,7 +1351,7 @@ addition of an <a class="reference external" href="https://docs.python.org/3/lib
 <p class="admonition-title">See also</p>
 <p><a class="reference internal" href="../indexing.html#python-indexing-integer"><span class="std std-ref">Integer indexing</span></a></p>
 </div>
-<h3 id="interval-indexing"><a class="reference internal" href="../indexing.html#python-indexing-interval"><span class="std std-ref">Interval indexing</span></a><a class="headerlink" href="#interval-indexing" title="Permalink to this heading">¶</a></h3>
+<h3 id="interval-indexing"><a class="reference internal" href="../indexing.html#python-indexing-interval"><span class="std std-ref">Interval indexing</span></a><a class="headerlink" href="#interval-indexing" title="Link to this heading">¶</a></h3>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">IndexTransform</span><span class="p">(</span><span class="n">input_labels</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">])</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">][</span><span class="mi">5</span><span class="p">:</span><span class="mi">10</span><span class="p">]]</span>
 <span class="go">Rank 3 -&gt; 3 index space transform:</span>
@@ -1366,7 +1417,7 @@ dimensions:</p>
 <p class="admonition-title">See also</p>
 <p><a class="reference internal" href="../indexing.html#python-indexing-interval"><span class="std std-ref">Interval indexing</span></a></p>
 </div>
-<h3 id="adding-singleton-dimensions"><a class="reference internal" href="../indexing.html#python-indexing-newaxis"><span class="std std-ref">Adding singleton dimensions</span></a><a class="headerlink" href="#adding-singleton-dimensions" title="Permalink to this heading">¶</a></h3>
+<h3 id="adding-singleton-dimensions"><a class="reference internal" href="../indexing.html#python-indexing-newaxis"><span class="std std-ref">Adding singleton dimensions</span></a><a class="headerlink" href="#adding-singleton-dimensions" title="Link to this heading">¶</a></h3>
 <p>Specifying a value of <a class="reference internal" href="tensorstore.newaxis.html" title="tensorstore.newaxis (Python data) — Alias for None used in indexing expressions to specify a new singleton dimension."><code class="xref py py-obj docutils literal notranslate"><span class="pre">newaxis</span></code></a> (equal to <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>) adds a new
 inert/singleton dimension with <a class="reference internal" href="../../index_space.html#implicit-bounds"><span class="std std-ref">implicit bounds</span></a>
 <span class="math notranslate nohighlight">\([0, 1)\)</span>:</p>
@@ -1433,7 +1484,7 @@ label:</p>
 <p class="admonition-title">See also</p>
 <p><a class="reference internal" href="../indexing.html#python-indexing-newaxis"><span class="std std-ref">Adding singleton dimensions</span></a></p>
 </div>
-<h3 id="ellipsis"><a class="reference internal" href="../indexing.html#python-indexing-ellipsis"><span class="std std-ref">Ellipsis</span></a><a class="headerlink" href="#ellipsis" title="Permalink to this heading">¶</a></h3>
+<h3 id="ellipsis"><a class="reference internal" href="../indexing.html#python-indexing-ellipsis"><span class="std std-ref">Ellipsis</span></a><a class="headerlink" href="#ellipsis" title="Link to this heading">¶</a></h3>
 <p>Specifying the special <a class="reference external" href="https://docs.python.org/3/library/constants.html#Ellipsis" title="(in Python v3.11)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Ellipsis</span></code></a> value (<code class="code highlight python docutils literal highlight-python"><span class="o">...</span></code>) is equivalent to
 specifying as many full slices <code class="code highlight python docutils literal highlight-python"><span class="p">:</span></code> as needed to consume the remaining
 selected dimensions not consumed by other indexing terms:</p>
@@ -1469,7 +1520,7 @@ selected dimensions not consumed by other indexing terms:</p>
 <p class="admonition-title">See also</p>
 <p><a class="reference internal" href="../indexing.html#python-indexing-ellipsis"><span class="std std-ref">Ellipsis</span></a></p>
 </div>
-<h3 id="integer-array-indexing"><a class="reference internal" href="../indexing.html#python-indexing-integer-array"><span class="std std-ref">Integer array indexing</span></a><a class="headerlink" href="#integer-array-indexing" title="Permalink to this heading">¶</a></h3>
+<h3 id="integer-array-indexing"><a class="reference internal" href="../indexing.html#python-indexing-integer-array"><span class="std std-ref">Integer array indexing</span></a><a class="headerlink" href="#integer-array-indexing" title="Link to this heading">¶</a></h3>
 <p>Specifying an <a class="reference external" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.ArrayLike" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ArrayLike</span></code></a> <em>index array</em> of integer values selects
 the coordinates given by the elements of the array of the selected dimension:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
@@ -1520,7 +1571,7 @@ dimensions are not well-defined for dimension expressions:</p>
 <p class="admonition-title">See also</p>
 <p><a class="reference internal" href="../indexing.html#python-indexing-integer-array"><span class="std std-ref">Integer array indexing</span></a></p>
 </div>
-<h3 id="boolean-array-indexing"><a class="reference internal" href="../indexing.html#python-indexing-boolean-array"><span class="std std-ref">Boolean array indexing</span></a><a class="headerlink" href="#boolean-array-indexing" title="Permalink to this heading">¶</a></h3>
+<h3 id="boolean-array-indexing"><a class="reference internal" href="../indexing.html#python-indexing-boolean-array"><span class="std std-ref">Boolean array indexing</span></a><a class="headerlink" href="#boolean-array-indexing" title="Link to this heading">¶</a></h3>
 <p>Specifying an <a class="reference external" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.ArrayLike" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ArrayLike</span></code></a> of <a class="reference internal" href="tensorstore.bool.html" title="tensorstore.bool (Python data) — Boolean data type (0 or 1).  Corresponds to the python:bool type and numpy.bool_."><code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code></a> values is equivalent to
 specifying a sequence of integer index arrays containing the coordinates of
 <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.11)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a> values (in C order), e.g. as obtained from <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.nonzero.html#numpy.nonzero" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy.nonzero</span></code></a>:</p>
@@ -1676,9 +1727,9 @@ added to the beginning of the result domain, i.e. exactly the behavior of
     <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.expand", "navigation.sections", "navigation.top", "toc.follow", "toc.sticky"], "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "Search", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version.title": "Select version"}}</script>
     
       
-        <script src="../../_static/sphinx_immaterial_theme.f9d9eeeb247ace16c.min.js"></script>
+        <script src="../../_static/sphinx_immaterial_theme.f9d9eeeb247ace16c.min.js?v=8ec58cb5"></script>
         <script>window.MathJax = {"chtml": {"displayAlign": "left"}}</script>
-        <script id="MathJax-script" src="../../_static/mathjax/tex-mml-chtml.js"></script>
+        <script id="MathJax-script" src="../../_static/mathjax/tex-mml-chtml.js?v=cadf963e"></script>
     
   </body>
 </html>

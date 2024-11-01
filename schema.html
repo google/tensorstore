@@ -32,7 +32,7 @@
         <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
       
     
-        <link rel="stylesheet" type="text/css" href="_static/sphinx_immaterial_theme.b454d0e296e565629.min.css" />
+        <link rel="stylesheet" type="text/css" href="_static/sphinx_immaterial_theme.4b4a8c74e2ff2ab5b.min.css?v=afa97f93" />
     <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
@@ -314,12 +314,63 @@
       
       
         <label class="md-nav__link" for="__nav_2">
+          <span class="md-ellipsis">C++ API</span>
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="C++ API" data-md-level="1">
+        <label class="md-nav__title" for="__nav_2">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">C++ API</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="cpp/api/index.html" class="md-nav__link">
+        <span class="md-ellipsis">API reference</span>
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_3" type="checkbox" id="__nav_3" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3">
           <span class="md-ellipsis">Setup</span>
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="Setup" data-md-level="1">
-        <label class="md-nav__title" for="__nav_2">
+        <label class="md-nav__title" for="__nav_3">
           <span class="md-nav__icon md-icon"></span>
           <span class="md-ellipsis">Setup</span>
         </label>
@@ -377,17 +428,17 @@
     <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_3" type="checkbox" id="__nav_3" checked>
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4" type="checkbox" id="__nav_4" checked>
       
       
       
-        <label class="md-nav__link" for="__nav_3">
+        <label class="md-nav__link" for="__nav_4">
           <span class="md-ellipsis">JSON</span>
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="JSON" data-md-level="1">
-        <label class="md-nav__title" for="__nav_3">
+        <label class="md-nav__title" for="__nav_4">
           <span class="md-nav__icon md-icon"></span>
           <span class="md-ellipsis">JSON</span>
         </label>
@@ -1198,7 +1249,7 @@
                   
 
 
-<h1 id="schema"><span id="id1"></span>Schema<a class="headerlink" href="#schema" title="Permalink to this heading">¶</a></h1>
+<h1 id="schema"><span id="id1"></span>Schema<a class="headerlink" href="#schema" title="Link to this heading">¶</a></h1>
 <p>The <em>schema</em> of a TensorStore specifies key properties of the format in a
 uniform way that is independent of where and how the data is actually stored.
 When creating a TensorStore, schema constraints and preferences may be
@@ -1208,26 +1259,26 @@ existing TensorStore, its schema is validated against any constraints that are
 specified.</p>
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-Schema">
-<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">Schema</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-Schema" title="Permalink to this definition">¶</a></dt>
+<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">Schema</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-Schema" title="Link to this definition">¶</a></dt>
 <dd><dl class="field-list">
 <dt class="field-odd" id="optional-members-json-Schema">Optional members<span class="colon">:</span><a class="headerlink" href="#optional-members-json-Schema" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-Schema.rank">
-<span class="sig-name descname"><span class="pre">rank</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">0</span></code><span class="p"><span class="pre">,</span> </span><code class="code json docutils literal highlight highlight-json"><span class="mi">32</span></code><span class="p"><span class="pre">]</span></span></sub><a class="headerlink" href="#json-Schema.rank" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">rank</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">0</span></code><span class="p"><span class="pre">,</span> </span><code class="code json docutils literal highlight highlight-json"><span class="mi">32</span></code><span class="p"><span class="pre">]</span></span></sub><a class="headerlink" href="#json-Schema.rank" title="Link to this definition">¶</a></dt>
 <dd><span><p>Number of dimensions.</p>
   </span><p>The rank is always a hard constraint.</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-Schema.dtype">
-<span class="sig-name descname"><span class="pre">dtype</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="spec.html#json-dtype" title="dtype (JSON type) — Specifies a TensorStore data type."><span class="pre">dtype</span></a></span><a class="headerlink" href="#json-Schema.dtype" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">dtype</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="spec.html#json-dtype" title="dtype (JSON type) — Specifies a TensorStore data type."><span class="pre">dtype</span></a></span><a class="headerlink" href="#json-Schema.dtype" title="Link to this definition">¶</a></dt>
 <dd><span><p>Specifies the data type of the TensorStore.</p>
   </span><p>The data type is always a hard constraint.</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-Schema.domain">
-<span class="sig-name descname"><span class="pre">domain</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="index_space.html#json-IndexDomain" title="IndexDomain (JSON type)"><span class="pre">IndexDomain</span></a></span><a class="headerlink" href="#json-Schema.domain" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">domain</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="index_space.html#json-IndexDomain" title="IndexDomain (JSON type)"><span class="pre">IndexDomain</span></a></span><a class="headerlink" href="#json-Schema.domain" title="Link to this definition">¶</a></dt>
 <dd><span><p>Domain of the TensorStore, including bounds and optional dimension labels.</p>
   </span><p>The domain is always a hard constraint, except that a labeled dimension is
 allowed to match an unlabeled dimension, and an implicit, infinite bound
@@ -1242,7 +1293,7 @@ from the other domain is used.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-Schema.chunk_layout">
-<span class="sig-name descname"><span class="pre">chunk_layout</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="#json-ChunkLayout" title="ChunkLayout (JSON type)"><span class="pre">ChunkLayout</span></a></span><a class="headerlink" href="#json-Schema.chunk_layout" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">chunk_layout</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="#json-ChunkLayout" title="ChunkLayout (JSON type)"><span class="pre">ChunkLayout</span></a></span><a class="headerlink" href="#json-Schema.chunk_layout" title="Link to this definition">¶</a></dt>
 <dd><span><p>Data storage layout constraints.</p>
   </span><p>The rank of the chunk layout must match the <a class="reference internal" href="#json-Schema.rank" title="Schema.rank (JSON member) — Number of dimensions."><code class="xref json json-schema docutils literal notranslate"><span class="pre">rank</span></code></a> of the schema.  When
 merging schema constraints objects, the chunk layout constraints are
@@ -1251,7 +1302,7 @@ merged recursively.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-Schema.codec">
-<span class="sig-name descname"><span class="pre">codec</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="#json-Codec" title="Codec (JSON type)"><span class="pre">Codec</span></a></span><a class="headerlink" href="#json-Schema.codec" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">codec</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="#json-Codec" title="Codec (JSON type)"><span class="pre">Codec</span></a></span><a class="headerlink" href="#json-Schema.codec" title="Link to this definition">¶</a></dt>
 <dd><p>Driver-specific compression and other parameters for encoding/decoding
 data.  When merging schema constraints objects, the codec constraints are
 merged recursively.</p>
@@ -1259,7 +1310,7 @@ merged recursively.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-Schema.fill_value">
-<span class="sig-name descname"><span class="pre">fill_value</span></span><a class="headerlink" href="#json-Schema.fill_value" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">fill_value</span></span><a class="headerlink" href="#json-Schema.fill_value" title="Link to this definition">¶</a></dt>
 <dd><span><p>Fill value to use for missing data.</p>
   </span><p>Must be <a class="reference internal" href="index_space.html#index-domain-alignment"><span class="std std-ref">broadcast-compatible</span></a> with the
 <a class="reference internal" href="#json-Schema.domain" title="Schema.domain (JSON member) — Domain of the TensorStore, including bounds and optional dimension labels."><code class="xref json json-schema docutils literal notranslate"><span class="pre">domain</span></code></a>.</p>
@@ -1267,7 +1318,7 @@ merged recursively.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-Schema.dimension_units">
-<span class="sig-name descname"><span class="pre">dimension_units</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><a class="reference internal" href="#json-Unit" title="Unit (JSON type) — Specifies a physical quantity/unit."><span class="pre">Unit</span></a></span><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="kc">null</span></code><a class="headerlink" href="#json-Schema.dimension_units" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">dimension_units</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><a class="reference internal" href="#json-Unit" title="Unit (JSON type) — Specifies a physical quantity/unit."><span class="pre">Unit</span></a></span><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="kc">null</span></code><a class="headerlink" href="#json-Schema.dimension_units" title="Link to this definition">¶</a></dt>
 <dd><span><p>Physical units of each dimension.</p>
   </span><p>Specifies the physical quantity corresponding to an increment of 1 index
 along each dimension, i.e. the <em>resolution</em>.  The length must match the
@@ -1291,7 +1342,7 @@ equivalently, <code class="code highlight json docutils literal highlight-json">
 </dl>
 </dd></dl>
 
-<h2 id="chunk-layout"><span id="id2"></span>Chunk layout<a class="headerlink" href="#chunk-layout" title="Permalink to this heading">¶</a></h2>
+<h2 id="chunk-layout"><span id="id2"></span>Chunk layout<a class="headerlink" href="#chunk-layout" title="Link to this heading">¶</a></h2>
 <p>For <a class="reference internal" href="driver/index.html#chunked-drivers"><span class="std std-ref">chunked storage formats</span></a>, the data storage layout can
 be represented in a driver-independent way as a <em>chunk layout</em>.</p>
 <p>A chunk layout specifies a hierarchical regular grid with up to three levels:</p>
@@ -1326,12 +1377,12 @@ layout.)</p></li>
 specified without specifying the precise layout explicitly.</p>
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-ChunkLayout">
-<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">ChunkLayout</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-ChunkLayout" title="Permalink to this definition">¶</a></dt>
+<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">ChunkLayout</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-ChunkLayout" title="Link to this definition">¶</a></dt>
 <dd><dl class="field-list">
 <dt class="field-odd" id="optional-members-json-ChunkLayout">Optional members<span class="colon">:</span><a class="headerlink" href="#optional-members-json-ChunkLayout" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-ChunkLayout.rank">
-<span class="sig-name descname"><span class="pre">rank</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">0</span></code><span class="p"><span class="pre">,</span> </span><code class="code json docutils literal highlight highlight-json"><span class="mi">32</span></code><span class="p"><span class="pre">]</span></span></sub><a class="headerlink" href="#json-ChunkLayout.rank" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">rank</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">0</span></code><span class="p"><span class="pre">,</span> </span><code class="code json docutils literal highlight highlight-json"><span class="mi">32</span></code><span class="p"><span class="pre">]</span></span></sub><a class="headerlink" href="#json-ChunkLayout.rank" title="Link to this definition">¶</a></dt>
 <dd><span><p>Number of dimensions.</p>
   </span><p>The rank is always a hard constraint.  It is redundant to specify the rank
 if any other field that implicitly specifies the rank is included.</p>
@@ -1339,7 +1390,7 @@ if any other field that implicitly specifies the rank is included.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-ChunkLayout.grid_origin">
-<span class="sig-name descname"><span class="pre">grid_origin</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">integer</span></span><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="kc">null</span></code><a class="headerlink" href="#json-ChunkLayout.grid_origin" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">grid_origin</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">integer</span></span><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="kc">null</span></code><a class="headerlink" href="#json-ChunkLayout.grid_origin" title="Link to this definition">¶</a></dt>
 <dd><span><p>Specifies hard constraints on the origin of the chunk grid.</p>
   </span><p>The length must equal the rank of the index space.  Each element
 constrains the grid origin for the corresponding dimension.  A value of
@@ -1349,7 +1400,7 @@ constraint.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-ChunkLayout.grid_origin_soft_constraint">
-<span class="sig-name descname"><span class="pre">grid_origin_soft_constraint</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">integer</span></span><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="kc">null</span></code><a class="headerlink" href="#json-ChunkLayout.grid_origin_soft_constraint" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">grid_origin_soft_constraint</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">integer</span></span><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="kc">null</span></code><a class="headerlink" href="#json-ChunkLayout.grid_origin_soft_constraint" title="Link to this definition">¶</a></dt>
 <dd><span><p>Specifies preferred values for the origin of the chunk grid rather than
 hard constraints.</p>
   </span><p>If a non-<code class="code highlight json docutils literal highlight-json"><span class="kc">null</span></code> value is specified for a given dimension in both
@@ -1359,7 +1410,7 @@ value in <a class="reference internal" href="#json-ChunkLayout.grid_origin" titl
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-ChunkLayout.inner_order">
-<span class="sig-name descname"><span class="pre">inner_order</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">integer</span></span><a class="headerlink" href="#json-ChunkLayout.inner_order" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">inner_order</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">integer</span></span><a class="headerlink" href="#json-ChunkLayout.inner_order" title="Link to this definition">¶</a></dt>
 <dd><span><p>Permutation specifying the element storage order within the innermost
 chunks.</p>
   </span><p>This must be a permutation of <code class="code highlight python docutils literal highlight-python"><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="o">...</span><span class="p">,</span> <span class="n">rank</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span></code>.  Lexicographic
@@ -1370,7 +1421,7 @@ order) is specified as <code class="code highlight python docutils literal highl
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-ChunkLayout.inner_order_soft_constraint">
-<span class="sig-name descname"><span class="pre">inner_order_soft_constraint</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">integer</span></span><a class="headerlink" href="#json-ChunkLayout.inner_order_soft_constraint" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">inner_order_soft_constraint</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">integer</span></span><a class="headerlink" href="#json-ChunkLayout.inner_order_soft_constraint" title="Link to this definition">¶</a></dt>
 <dd><span><p>Specifies a preferred value for <a class="reference internal" href="#json-ChunkLayout.inner_order" title="ChunkLayout.inner_order (JSON member) — Permutation specifying the element storage order within the innermost chunks."><code class="xref json json-schema docutils literal notranslate"><span class="pre">inner_order</span></code></a> rather than a
 hard constraint.  If <a class="reference internal" href="#json-ChunkLayout.inner_order" title="ChunkLayout.inner_order (JSON member) — Permutation specifying the element storage order within the innermost chunks."><code class="xref json json-schema docutils literal notranslate"><span class="pre">inner_order</span></code></a> is also specified, it
 takes precedence.</p>
@@ -1378,27 +1429,27 @@ takes precedence.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-ChunkLayout.write_chunk">
-<span class="sig-name descname"><span class="pre">write_chunk</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="#json-ChunkLayout/Grid" title="ChunkLayout/Grid (JSON type) — Constraints on the write/read/codec chunk grids."><span class="pre">ChunkLayout/Grid</span></a></span><a class="headerlink" href="#json-ChunkLayout.write_chunk" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">write_chunk</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="#json-ChunkLayout/Grid" title="ChunkLayout/Grid (JSON type) — Constraints on the write/read/codec chunk grids."><span class="pre">ChunkLayout/Grid</span></a></span><a class="headerlink" href="#json-ChunkLayout.write_chunk" title="Link to this definition">¶</a></dt>
 <dd><span><p>Constraints on the chunk grid over which writes may be efficiently
 partitioned.</p>
   </span></dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-ChunkLayout.read_chunk">
-<span class="sig-name descname"><span class="pre">read_chunk</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="#json-ChunkLayout/Grid" title="ChunkLayout/Grid (JSON type) — Constraints on the write/read/codec chunk grids."><span class="pre">ChunkLayout/Grid</span></a></span><a class="headerlink" href="#json-ChunkLayout.read_chunk" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">read_chunk</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="#json-ChunkLayout/Grid" title="ChunkLayout/Grid (JSON type) — Constraints on the write/read/codec chunk grids."><span class="pre">ChunkLayout/Grid</span></a></span><a class="headerlink" href="#json-ChunkLayout.read_chunk" title="Link to this definition">¶</a></dt>
 <dd><span><p>Constraints on the chunk grid over which reads may be efficiently
 partitioned.</p>
   </span></dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-ChunkLayout.codec_chunk">
-<span class="sig-name descname"><span class="pre">codec_chunk</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="#json-ChunkLayout/Grid" title="ChunkLayout/Grid (JSON type) — Constraints on the write/read/codec chunk grids."><span class="pre">ChunkLayout/Grid</span></a></span><a class="headerlink" href="#json-ChunkLayout.codec_chunk" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">codec_chunk</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="#json-ChunkLayout/Grid" title="ChunkLayout/Grid (JSON type) — Constraints on the write/read/codec chunk grids."><span class="pre">ChunkLayout/Grid</span></a></span><a class="headerlink" href="#json-ChunkLayout.codec_chunk" title="Link to this definition">¶</a></dt>
 <dd><span><p>Constraints on the chunk grid used by the codec, if applicable.</p>
   </span></dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-ChunkLayout.chunk">
-<span class="sig-name descname"><span class="pre">chunk</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="#json-ChunkLayout/Grid" title="ChunkLayout/Grid (JSON type) — Constraints on the write/read/codec chunk grids."><span class="pre">ChunkLayout/Grid</span></a></span><a class="headerlink" href="#json-ChunkLayout.chunk" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">chunk</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="#json-ChunkLayout/Grid" title="ChunkLayout/Grid (JSON type) — Constraints on the write/read/codec chunk grids."><span class="pre">ChunkLayout/Grid</span></a></span><a class="headerlink" href="#json-ChunkLayout.chunk" title="Link to this definition">¶</a></dt>
 <dd><span><p>Combined constraints on write/read/codec chunks.</p>
   </span><p>If <a class="reference internal" href="#json-ChunkLayout/Grid.aspect_ratio" title="ChunkLayout/Grid.aspect_ratio (JSON member) — Aspect ratio of the chunk shape."><code class="xref json json-schema docutils literal notranslate"><span class="pre">aspect_ratio</span></code></a> is specified, it
 applies to <a class="reference internal" href="#json-ChunkLayout.write_chunk" title="ChunkLayout.write_chunk (JSON member) — Constraints on the chunk grid over which writes may be efficiently partitioned."><code class="xref json json-schema docutils literal notranslate"><span class="pre">write_chunk</span></code></a>, <a class="reference internal" href="#json-ChunkLayout.read_chunk" title="ChunkLayout.read_chunk (JSON member) — Constraints on the chunk grid over which reads may be efficiently partitioned."><code class="xref json json-schema docutils literal notranslate"><span class="pre">read_chunk</span></code></a>, and <a class="reference internal" href="#json-ChunkLayout.codec_chunk" title="ChunkLayout.codec_chunk (JSON member) — Constraints on the chunk grid used by the codec, if applicable."><code class="xref json json-schema docutils literal notranslate"><span class="pre">codec_chunk</span></code></a>.  If
@@ -1421,7 +1472,7 @@ precedence than any write/read-specific value that is also specified.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-ChunkLayout/Grid">
-<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">ChunkLayout/Grid</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-ChunkLayout/Grid" title="Permalink to this definition">¶</a></dt>
+<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">ChunkLayout/Grid</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-ChunkLayout/Grid" title="Link to this definition">¶</a></dt>
 <dd><span><p>Constraints on the write/read/codec chunk grids.</p>
   </span><p>When creating a new TensorStore, the chunk shape can be specified directly
 using the <a class="reference internal" href="#json-ChunkLayout/Grid.shape" title="ChunkLayout/Grid.shape (JSON member) — Hard constraints on the chunk size for each dimension."><code class="xref json json-schema docutils literal notranslate"><span class="pre">shape</span></code></a> and <a class="reference internal" href="#json-ChunkLayout/Grid.shape_soft_constraint" title="ChunkLayout/Grid.shape_soft_constraint (JSON member) — Preferred chunk sizes for each dimension."><code class="xref json json-schema docutils literal notranslate"><span class="pre">shape_soft_constraint</span></code></a> members,
@@ -1436,7 +1487,7 @@ serves as a constraint.</p>
 <dt class="field-odd" id="optional-members-json-ChunkLayout/Grid">Optional members<span class="colon">:</span><a class="headerlink" href="#optional-members-json-ChunkLayout/Grid" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-ChunkLayout/Grid.shape">
-<span class="sig-name descname"><span class="pre">shape</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">0</span></code><span class="p"><span class="pre">,</span> </span><span class="o"><span class="pre">+∞</span></span><span class="p"><span class="pre">)</span></span></sub><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="mi">-1</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="kc">null</span></code><a class="headerlink" href="#json-ChunkLayout/Grid.shape" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">shape</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">0</span></code><span class="p"><span class="pre">,</span> </span><span class="o"><span class="pre">+∞</span></span><span class="p"><span class="pre">)</span></span></sub><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="mi">-1</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="kc">null</span></code><a class="headerlink" href="#json-ChunkLayout/Grid.shape" title="Link to this definition">¶</a></dt>
 <dd><span><p>Hard constraints on the chunk size for each dimension.</p>
   </span><p>The length must equal the rank of the index space.  Each element
 constrains the chunk size for the corresponding dimension, and must be
@@ -1449,7 +1500,7 @@ domain, and is always treated as a soft constraint.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-ChunkLayout/Grid.shape_soft_constraint">
-<span class="sig-name descname"><span class="pre">shape_soft_constraint</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">0</span></code><span class="p"><span class="pre">,</span> </span><span class="o"><span class="pre">+∞</span></span><span class="p"><span class="pre">)</span></span></sub><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="mi">-1</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="kc">null</span></code><a class="headerlink" href="#json-ChunkLayout/Grid.shape_soft_constraint" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">shape_soft_constraint</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">0</span></code><span class="p"><span class="pre">,</span> </span><span class="o"><span class="pre">+∞</span></span><span class="p"><span class="pre">)</span></span></sub><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="mi">-1</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="kc">null</span></code><a class="headerlink" href="#json-ChunkLayout/Grid.shape_soft_constraint" title="Link to this definition">¶</a></dt>
 <dd><span><p>Preferred chunk sizes for each dimension.</p>
   </span><p>If a non-zero, non-<code class="code highlight json docutils literal highlight-json"><span class="kc">null</span></code> size for a given dimension is
 specified in both <a class="reference internal" href="#json-ChunkLayout/Grid.shape" title="ChunkLayout/Grid.shape (JSON member) — Hard constraints on the chunk size for each dimension."><code class="xref json json-schema docutils literal notranslate"><span class="pre">shape</span></code></a> and <a class="reference internal" href="#json-ChunkLayout/Grid.shape_soft_constraint" title="ChunkLayout/Grid.shape_soft_constraint (JSON member) — Preferred chunk sizes for each dimension."><code class="xref json json-schema docutils literal notranslate"><span class="pre">shape_soft_constraint</span></code></a>, <a class="reference internal" href="#json-ChunkLayout/Grid.shape" title="ChunkLayout/Grid.shape (JSON member) — Hard constraints on the chunk size for each dimension."><code class="xref json json-schema docutils literal notranslate"><span class="pre">shape</span></code></a> takes
@@ -1458,7 +1509,7 @@ precedence.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-ChunkLayout/Grid.aspect_ratio">
-<span class="sig-name descname"><span class="pre">aspect_ratio</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">number</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">0</span></code><span class="p"><span class="pre">,</span> </span><span class="o"><span class="pre">+∞</span></span><span class="p"><span class="pre">)</span></span></sub><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="kc">null</span></code><a class="headerlink" href="#json-ChunkLayout/Grid.aspect_ratio" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">aspect_ratio</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">number</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">0</span></code><span class="p"><span class="pre">,</span> </span><span class="o"><span class="pre">+∞</span></span><span class="p"><span class="pre">)</span></span></sub><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="kc">null</span></code><a class="headerlink" href="#json-ChunkLayout/Grid.aspect_ratio" title="Link to this definition">¶</a></dt>
 <dd><span><p>Aspect ratio of the chunk shape.</p>
   </span><p>Specifies the relative chunk size along each dimension.  The special
 value of <code class="code highlight json docutils literal highlight-json"><span class="mi">0</span></code> (or, equivalently, <code class="code highlight json docutils literal highlight-json"><span class="kc">null</span></code>) indicates no
@@ -1475,13 +1526,13 @@ times the chunk size along dimension 0.  If the target number of
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-ChunkLayout/Grid.aspect_ratio_soft_constraint">
-<span class="sig-name descname"><span class="pre">aspect_ratio_soft_constraint</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">number</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">0</span></code><span class="p"><span class="pre">,</span> </span><span class="o"><span class="pre">+∞</span></span><span class="p"><span class="pre">)</span></span></sub><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="kc">null</span></code><a class="headerlink" href="#json-ChunkLayout/Grid.aspect_ratio_soft_constraint" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">aspect_ratio_soft_constraint</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">number</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">0</span></code><span class="p"><span class="pre">,</span> </span><span class="o"><span class="pre">+∞</span></span><span class="p"><span class="pre">)</span></span></sub><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="kc">null</span></code><a class="headerlink" href="#json-ChunkLayout/Grid.aspect_ratio_soft_constraint" title="Link to this definition">¶</a></dt>
 <dd><span><p>Soft constraint on aspect ratio, lower precedence than <a class="reference internal" href="#json-ChunkLayout/Grid.aspect_ratio" title="ChunkLayout/Grid.aspect_ratio (JSON member) — Aspect ratio of the chunk shape."><code class="xref json json-schema docutils literal notranslate"><span class="pre">aspect_ratio</span></code></a>.</p>
   </span></dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-ChunkLayout/Grid.elements">
-<span class="sig-name descname"><span class="pre">elements</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">1</span></code><span class="p"><span class="pre">,</span> </span><span class="o"><span class="pre">+∞</span></span><span class="p"><span class="pre">)</span></span></sub><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="kc">null</span></code><a class="headerlink" href="#json-ChunkLayout/Grid.elements" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">elements</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">1</span></code><span class="p"><span class="pre">,</span> </span><span class="o"><span class="pre">+∞</span></span><span class="p"><span class="pre">)</span></span></sub><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="kc">null</span></code><a class="headerlink" href="#json-ChunkLayout/Grid.elements" title="Link to this definition">¶</a></dt>
 <dd><span><p>Preferred number of elements per chunk.</p>
   </span><p>Used in conjunction with <a class="reference internal" href="#json-ChunkLayout/Grid.aspect_ratio" title="ChunkLayout/Grid.aspect_ratio (JSON member) — Aspect ratio of the chunk shape."><code class="xref json json-schema docutils literal notranslate"><span class="pre">aspect_ratio</span></code></a> to determine the
 chunk size for dimensions that are not otherwise constrained.  The
@@ -1491,7 +1542,7 @@ driver-specific default may be used.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-ChunkLayout/Grid.elements_soft_constraint">
-<span class="sig-name descname"><span class="pre">elements_soft_constraint</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">1</span></code><span class="p"><span class="pre">,</span> </span><span class="o"><span class="pre">+∞</span></span><span class="p"><span class="pre">)</span></span></sub><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="kc">null</span></code><a class="headerlink" href="#json-ChunkLayout/Grid.elements_soft_constraint" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">elements_soft_constraint</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">1</span></code><span class="p"><span class="pre">,</span> </span><span class="o"><span class="pre">+∞</span></span><span class="p"><span class="pre">)</span></span></sub><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="kc">null</span></code><a class="headerlink" href="#json-ChunkLayout/Grid.elements_soft_constraint" title="Link to this definition">¶</a></dt>
 <dd><span><p>Preferred number of elements per chunk, lower precedence than
 <a class="reference internal" href="#json-ChunkLayout/Grid.elements" title="ChunkLayout/Grid.elements (JSON member) — Preferred number of elements per chunk."><code class="xref json json-schema docutils literal notranslate"><span class="pre">elements</span></code></a>.</p>
   </span></dd></dl>
@@ -1500,10 +1551,10 @@ driver-specific default may be used.</p>
 </dl>
 </dd></dl>
 
-<h2 id="codec"><span id="id3"></span>Codec<a class="headerlink" href="#codec" title="Permalink to this heading">¶</a></h2>
+<h2 id="codec"><span id="id3"></span>Codec<a class="headerlink" href="#codec" title="Link to this heading">¶</a></h2>
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-Codec">
-<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">Codec</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-Codec" title="Permalink to this definition">¶</a></dt>
+<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">Codec</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-Codec" title="Link to this definition">¶</a></dt>
 <dd><p>Codecs are specified by a required <a class="reference internal" href="#json-Codec.driver" title="Codec.driver (JSON member) — Driver identifier"><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver</span></code></a> property that
 identifies the driver.  All other properties are driver-specific.  Refer to
 the driver documentation for the supported codec drivers and the
@@ -1522,7 +1573,7 @@ driver-specific properties.</p>
 <dt class="field-odd" id="required-members-json-Codec">Required members<span class="colon">:</span><a class="headerlink" href="#required-members-json-Codec" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-Codec.driver">
-<span class="sig-name descname"><span class="pre">driver</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><a class="headerlink" href="#json-Codec.driver" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">driver</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><a class="headerlink" href="#json-Codec.driver" title="Link to this definition">¶</a></dt>
 <dd><span><p>Driver identifier</p>
   </span><p>Specifies the <a class="reference internal" href="driver/index.html#tensorstore-drivers"><span class="std std-ref">TensorStore driver</span></a> to which this
 codec is applicable.</p>
@@ -1551,10 +1602,10 @@ codec is applicable.</p>
 </div>
 </dd></dl>
 
-<h2 id="dimension-units">Dimension units<a class="headerlink" href="#dimension-units" title="Permalink to this heading">¶</a></h2>
+<h2 id="dimension-units">Dimension units<a class="headerlink" href="#dimension-units" title="Link to this heading">¶</a></h2>
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-Unit">
-<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">Unit</span></span><span class="p"> <span class="pre">:</span> </span><span class="p"><span class="pre">[</span></span><span class="desctype"><span class="pre">number</span></span><span class="p"><span class="pre">,</span></span> <span class="desctype"><span class="pre">string</span></span><span class="p"><span class="pre">]</span></span><span class="p"> <span class="pre">|</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">|</span> </span><span class="desctype"><span class="pre">number</span></span><a class="headerlink" href="#json-Unit" title="Permalink to this definition">¶</a></dt>
+<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">Unit</span></span><span class="p"> <span class="pre">:</span> </span><span class="p"><span class="pre">[</span></span><span class="desctype"><span class="pre">number</span></span><span class="p"><span class="pre">,</span></span> <span class="desctype"><span class="pre">string</span></span><span class="p"><span class="pre">]</span></span><span class="p"> <span class="pre">|</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">|</span> </span><span class="desctype"><span class="pre">number</span></span><a class="headerlink" href="#json-Unit" title="Link to this definition">¶</a></dt>
 <dd><span><p>Specifies a physical quantity/unit.</p>
   </span><p>The quantity is specified as the combination of:</p>
 <ul class="simple">
@@ -1669,7 +1720,7 @@ equivalent.</p></li>
     <script id="__config" type="application/json">{"base": ".", "features": ["navigation.expand", "navigation.sections", "navigation.top", "toc.follow", "toc.sticky"], "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "Search", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version.title": "Select version"}}</script>
     
       
-        <script src="_static/sphinx_immaterial_theme.f9d9eeeb247ace16c.min.js"></script>
+        <script src="_static/sphinx_immaterial_theme.f9d9eeeb247ace16c.min.js?v=8ec58cb5"></script>
     
   </body>
 </html>

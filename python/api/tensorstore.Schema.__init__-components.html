@@ -32,7 +32,7 @@
         <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
       
     
-        <link rel="stylesheet" type="text/css" href="../../_static/sphinx_immaterial_theme.b454d0e296e565629.min.css" />
+        <link rel="stylesheet" type="text/css" href="../../_static/sphinx_immaterial_theme.4b4a8c74e2ff2ab5b.min.css?v=afa97f93" />
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
@@ -870,12 +870,63 @@
       
       
         <label class="md-nav__link" for="__nav_2">
+          <span class="md-ellipsis">C++ API</span>
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="C++ API" data-md-level="1">
+        <label class="md-nav__title" for="__nav_2">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">C++ API</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cpp/api/index.html" class="md-nav__link">
+        <span class="md-ellipsis">API reference</span>
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_3" type="checkbox" id="__nav_3" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3">
           <span class="md-ellipsis">Setup</span>
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="Setup" data-md-level="1">
-        <label class="md-nav__title" for="__nav_2">
+        <label class="md-nav__title" for="__nav_3">
           <span class="md-nav__icon md-icon"></span>
           <span class="md-ellipsis">Setup</span>
         </label>
@@ -931,17 +982,17 @@
     <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_3" type="checkbox" id="__nav_3" checked>
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_4" type="checkbox" id="__nav_4" checked>
       
       
       
-        <label class="md-nav__link" for="__nav_3">
+        <label class="md-nav__link" for="__nav_4">
           <span class="md-ellipsis">JSON</span>
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="JSON" data-md-level="1">
-        <label class="md-nav__title" for="__nav_3">
+        <label class="md-nav__title" for="__nav_4">
           <span class="md-nav__icon md-icon"></span>
           <span class="md-ellipsis">JSON</span>
         </label>
@@ -1179,13 +1230,13 @@
 <dl class="field-list simple">
 <dt class="field-odd" id="parameters">Parameters<span class="colon">:</span><a class="headerlink" href="#parameters" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd"><dl class="simple api-field highlight">
-<dt id="p-rank"><span class="n sig-name">rank</span><span class="p">:</span><span class="w">   </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a><span class="w">   </span><span class="p">|</span><span class="w">   </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)">None</a></span></span><span class="w">   </span><span class="o">=</span><span class="w">   </span><code class="code python default_value docutils literal highlight highlight-python"><span class="kc">None</span></code><a class="headerlink" href="#p-rank" title="Permalink to this definition">¶</a></dt><dd><p>Constrains the rank of the TensorStore.  If there is an index transform, the
+<dt id="p-rank"><span class="n sig-name">rank</span><span class="p">:</span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a><span class="w"> </span><span class="p">|</span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)">None</a></span></span><span class="w"> </span><span class="o">=</span><span class="w"> </span><code class="code python default_value docutils literal highlight highlight-python"><span class="kc">None</span></code><a class="headerlink" href="#p-rank" title="Permalink to this definition">¶</a></dt><dd><p>Constrains the rank of the TensorStore.  If there is an index transform, the
 rank constraint must match the rank of the <em>input</em> space.</p>
 </dd>
-<dt id="p-dtype"><span class="n sig-name">dtype</span><span class="p">:</span><span class="w">   </span><span class="n"><span class="desctype"><a class="reference internal" href="tensorstore.dtype.html" title="tensorstore.dtype (Python class) — TensorStore data type representation.">dtype</a><span class="w">   </span><span class="p">|</span><span class="w">   </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)">None</a></span></span><span class="w">   </span><span class="o">=</span><span class="w">   </span><code class="code python default_value docutils literal highlight highlight-python"><span class="kc">None</span></code><a class="headerlink" href="#p-dtype" title="Permalink to this definition">¶</a></dt><dd><p>Constrains the data type of the TensorStore.  If a data type has already been
+<dt id="p-dtype"><span class="n sig-name">dtype</span><span class="p">:</span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference internal" href="tensorstore.dtype.html" title="tensorstore.dtype (Python class) — TensorStore data type representation.">dtype</a><span class="w"> </span><span class="p">|</span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)">None</a></span></span><span class="w"> </span><span class="o">=</span><span class="w"> </span><code class="code python default_value docutils literal highlight highlight-python"><span class="kc">None</span></code><a class="headerlink" href="#p-dtype" title="Permalink to this definition">¶</a></dt><dd><p>Constrains the data type of the TensorStore.  If a data type has already been
 set, it is an error to specify a different data type.</p>
 </dd>
-<dt id="p-domain"><span class="n sig-name">domain</span><span class="p">:</span><span class="w">   </span><span class="n"><span class="desctype"><a class="reference internal" href="tensorstore.IndexDomain.html" title="tensorstore.IndexDomain (Python class) — Domain (including bounds and optional dimension labels) of an N-dimensional index space.">IndexDomain</a><span class="w">   </span><span class="p">|</span><span class="w">   </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)">None</a></span></span><span class="w">   </span><span class="o">=</span><span class="w">   </span><code class="code python default_value docutils literal highlight highlight-python"><span class="kc">None</span></code><a class="headerlink" href="#p-domain" title="Permalink to this definition">¶</a></dt><dd><p><p>Constrains the domain of the TensorStore.  If there is an existing
+<dt id="p-domain"><span class="n sig-name">domain</span><span class="p">:</span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference internal" href="tensorstore.IndexDomain.html" title="tensorstore.IndexDomain (Python class) — Domain (including bounds and optional dimension labels) of an N-dimensional index space.">IndexDomain</a><span class="w"> </span><span class="p">|</span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)">None</a></span></span><span class="w"> </span><span class="o">=</span><span class="w"> </span><code class="code python default_value docutils literal highlight highlight-python"><span class="kc">None</span></code><a class="headerlink" href="#p-domain" title="Permalink to this definition">¶</a></dt><dd><p><p>Constrains the domain of the TensorStore.  If there is an existing
 domain, the specified domain is merged with it as follows:</p>
 <ol class="arabic simple">
 <li><p>The rank must match the existing rank.</p></li>
@@ -1199,7 +1250,7 @@ label for a dimension, the non-empty label takes precedence.</p></li>
 space, not the output space.</p>
 </p>
 </dd>
-<dt id="p-shape"><span class="n sig-name">shape</span><span class="p">:</span><span class="w">   </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.11)">Sequence</a><span class="p">[</span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a><span class="p">]</span><span class="w">   </span><span class="p">|</span><span class="w">   </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)">None</a></span></span><span class="w">   </span><span class="o">=</span><span class="w">   </span><code class="code python default_value docutils literal highlight highlight-python"><span class="kc">None</span></code><a class="headerlink" href="#p-shape" title="Permalink to this definition">¶</a></dt><dd><p><p>Constrains the shape and origin of the TensorStore.  Equivalent to specifying a
+<dt id="p-shape"><span class="n sig-name">shape</span><span class="p">:</span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.11)">Sequence</a><span class="p">[</span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a><span class="p">]</span><span class="w"> </span><span class="p">|</span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)">None</a></span></span><span class="w"> </span><span class="o">=</span><span class="w"> </span><code class="code python default_value docutils literal highlight highlight-python"><span class="kc">None</span></code><a class="headerlink" href="#p-shape" title="Permalink to this definition">¶</a></dt><dd><p><p>Constrains the shape and origin of the TensorStore.  Equivalent to specifying a
 <a class="reference internal" href="#p-domain" title="tensorstore.Schema.__init__(components).domain (Python parameter) — Constrains the domain of the TensorStore."><code class="xref py py-param docutils literal notranslate"><span class="pre">domain</span></code></a> of <code class="code highlight python docutils literal highlight-python"><span class="n">ts</span><span class="o">.</span><span class="n">IndexDomain</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="n">shape</span><span class="p">)</span></code>.</p>
 <div class="note admonition">
 <p class="admonition-title">Note</p>
@@ -1207,14 +1258,14 @@ space, not the output space.</p>
 </div>
 </p>
 </dd>
-<dt id="p-chunk_layout"><span class="n sig-name">chunk_layout</span><span class="p">:</span><span class="w">   </span><span class="n"><span class="desctype"><a class="reference internal" href="tensorstore.ChunkLayout.html" title="tensorstore.ChunkLayout (Python class) — Describes the storage layout of a tensorstore.TensorStore.">ChunkLayout</a><span class="w">   </span><span class="p">|</span><span class="w">   </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)">None</a></span></span><span class="w">   </span><span class="o">=</span><span class="w">   </span><code class="code python default_value docutils literal highlight highlight-python"><span class="kc">None</span></code><a class="headerlink" href="#p-chunk_layout" title="Permalink to this definition">¶</a></dt><dd><p>Constrains the chunk layout.  If there is an existing chunk layout constraint,
+<dt id="p-chunk_layout"><span class="n sig-name">chunk_layout</span><span class="p">:</span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference internal" href="tensorstore.ChunkLayout.html" title="tensorstore.ChunkLayout (Python class) — Describes the storage layout of a tensorstore.TensorStore.">ChunkLayout</a><span class="w"> </span><span class="p">|</span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)">None</a></span></span><span class="w"> </span><span class="o">=</span><span class="w"> </span><code class="code python default_value docutils literal highlight highlight-python"><span class="kc">None</span></code><a class="headerlink" href="#p-chunk_layout" title="Permalink to this definition">¶</a></dt><dd><p>Constrains the chunk layout.  If there is an existing chunk layout constraint,
 the constraints are merged.  If the constraints are incompatible, an error
 is raised.</p>
 </dd>
-<dt id="p-codec"><span class="n sig-name">codec</span><span class="p">:</span><span class="w">   </span><span class="n"><span class="desctype"><a class="reference internal" href="tensorstore.CodecSpec.html" title="tensorstore.CodecSpec (Python class) — Specifies driver-specific encoding/decoding parameters.">CodecSpec</a><span class="w">   </span><span class="p">|</span><span class="w">   </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)">None</a></span></span><span class="w">   </span><span class="o">=</span><span class="w">   </span><code class="code python default_value docutils literal highlight highlight-python"><span class="kc">None</span></code><a class="headerlink" href="#p-codec" title="Permalink to this definition">¶</a></dt><dd><p>Constrains the codec.  If there is an existing codec constraint, the constraints
+<dt id="p-codec"><span class="n sig-name">codec</span><span class="p">:</span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference internal" href="tensorstore.CodecSpec.html" title="tensorstore.CodecSpec (Python class) — Specifies driver-specific encoding/decoding parameters.">CodecSpec</a><span class="w"> </span><span class="p">|</span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)">None</a></span></span><span class="w"> </span><span class="o">=</span><span class="w"> </span><code class="code python default_value docutils literal highlight highlight-python"><span class="kc">None</span></code><a class="headerlink" href="#p-codec" title="Permalink to this definition">¶</a></dt><dd><p>Constrains the codec.  If there is an existing codec constraint, the constraints
 are merged.  If the constraints are incompatible, an error is raised.</p>
 </dd>
-<dt id="p-fill_value"><span class="n sig-name">fill_value</span><span class="p">:</span><span class="w">   </span><span class="n"><span class="desctype"><a class="reference external" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.ArrayLike" title="(in NumPy v1.24)">ArrayLike</a><span class="w">   </span><span class="p">|</span><span class="w">   </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)">None</a></span></span><span class="w">   </span><span class="o">=</span><span class="w">   </span><code class="code python default_value docutils literal highlight highlight-python"><span class="kc">None</span></code><a class="headerlink" href="#p-fill_value" title="Permalink to this definition">¶</a></dt><dd><p><p>Specifies the fill value for positions that have not been written.</p>
+<dt id="p-fill_value"><span class="n sig-name">fill_value</span><span class="p">:</span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference external" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.ArrayLike" title="(in NumPy v1.24)">ArrayLike</a><span class="w"> </span><span class="p">|</span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)">None</a></span></span><span class="w"> </span><span class="o">=</span><span class="w"> </span><code class="code python default_value docutils literal highlight highlight-python"><span class="kc">None</span></code><a class="headerlink" href="#p-fill_value" title="Permalink to this definition">¶</a></dt><dd><p><p>Specifies the fill value for positions that have not been written.</p>
 <p>The fill value data type must be convertible to the actual data type, and the
 shape must be <a class="reference internal" href="../../index_space.html#index-domain-alignment"><span class="std std-ref">broadcast-compatible</span></a> with the
 domain.</p>
@@ -1223,14 +1274,14 @@ error to specify a different fill value (where the comparison is done after
 normalization by broadcasting).</p>
 </p>
 </dd>
-<dt id="p-dimension_units"><span class="n sig-name">dimension_units</span><span class="p">:</span><span class="w">   </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.11)">Sequence</a><span class="p">[</span><a class="reference internal" href="tensorstore.Unit.html" title="tensorstore.Unit (Python class) — Specifies a physical quantity/unit.">Unit</a><span class="w">   </span><span class="p">|</span><span class="w">   </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)">str</a><span class="w">   </span><span class="p">|</span><span class="w">   </span><a class="reference external" href="https://docs.python.org/3/library/numbers.html#numbers.Real" title="(in Python v3.11)">Real</a><span class="w">   </span><span class="p">|</span><span class="w">   </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)">tuple</a><span class="p">[</span><a class="reference external" href="https://docs.python.org/3/library/numbers.html#numbers.Real" title="(in Python v3.11)">Real</a><span class="p">,</span><span class="w">   </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)">str</a><span class="p">]</span><span class="w">   </span><span class="p">|</span><span class="w">   </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)">None</a><span class="p">]</span><span class="w">   </span><span class="p">|</span><span class="w">   </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)">None</a></span></span><span class="w">   </span><span class="o">=</span><span class="w">   </span><code class="code python default_value docutils literal highlight highlight-python"><span class="kc">None</span></code><a class="headerlink" href="#p-dimension_units" title="Permalink to this definition">¶</a></dt><dd><p><p>Specifies the physical units of each dimension of the domain.</p>
+<dt id="p-dimension_units"><span class="n sig-name">dimension_units</span><span class="p">:</span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.11)">Sequence</a><span class="p">[</span><a class="reference internal" href="tensorstore.Unit.html" title="tensorstore.Unit (Python class) — Specifies a physical quantity/unit.">Unit</a><span class="w"> </span><span class="p">|</span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)">str</a><span class="w"> </span><span class="p">|</span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/numbers.html#numbers.Real" title="(in Python v3.11)">Real</a><span class="w"> </span><span class="p">|</span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)">tuple</a><span class="p">[</span><a class="reference external" href="https://docs.python.org/3/library/numbers.html#numbers.Real" title="(in Python v3.11)">Real</a><span class="p">,</span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)">str</a><span class="p">]</span><span class="w"> </span><span class="p">|</span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)">None</a><span class="p">]</span><span class="w"> </span><span class="p">|</span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)">None</a></span></span><span class="w"> </span><span class="o">=</span><span class="w"> </span><code class="code python default_value docutils literal highlight highlight-python"><span class="kc">None</span></code><a class="headerlink" href="#p-dimension_units" title="Permalink to this definition">¶</a></dt><dd><p><p>Specifies the physical units of each dimension of the domain.</p>
 <p>The <em>physical unit</em> for a dimension is the physical quantity corresponding to a
 single index increment along each dimension.</p>
 <p>A value of <code class="code highlight python docutils literal highlight-python"><span class="kc">None</span></code> indicates that the unit is unknown.  A dimension-less
 quantity can be indicated by a unit of <code class="code highlight python docutils literal highlight-python"><span class="s2">&quot;&quot;</span></code>.</p>
 </p>
 </dd>
-<dt id="p-schema"><span class="n sig-name">schema</span><span class="p">:</span><span class="w">   </span><span class="n"><span class="desctype"><a class="reference internal" href="tensorstore.Schema.html" title="tensorstore.Schema (Python class) — Driver-independent options for defining a TensorStore schema.">Schema</a><span class="w">   </span><span class="p">|</span><span class="w">   </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)">None</a></span></span><span class="w">   </span><span class="o">=</span><span class="w">   </span><code class="code python default_value docutils literal highlight highlight-python"><span class="kc">None</span></code><a class="headerlink" href="#p-schema" title="Permalink to this definition">¶</a></dt><dd><p>Additional schema constraints to merge with existing constraints.</p>
+<dt id="p-schema"><span class="n sig-name">schema</span><span class="p">:</span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference internal" href="tensorstore.Schema.html" title="tensorstore.Schema (Python class) — Driver-independent options for defining a TensorStore schema.">Schema</a><span class="w"> </span><span class="p">|</span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)">None</a></span></span><span class="w"> </span><span class="o">=</span><span class="w"> </span><code class="code python default_value docutils literal highlight highlight-python"><span class="kc">None</span></code><a class="headerlink" href="#p-schema" title="Permalink to this definition">¶</a></dt><dd><p>Additional schema constraints to merge with existing constraints.</p>
 </dd>
 </dl>
 </dd>
@@ -1310,7 +1361,7 @@ quantity can be indicated by a unit of <code class="code highlight python docuti
     <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.expand", "navigation.sections", "navigation.top", "toc.follow", "toc.sticky"], "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "Search", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version.title": "Select version"}}</script>
     
       
-        <script src="../../_static/sphinx_immaterial_theme.f9d9eeeb247ace16c.min.js"></script>
+        <script src="../../_static/sphinx_immaterial_theme.f9d9eeeb247ace16c.min.js?v=8ec58cb5"></script>
     
   </body>
 </html>

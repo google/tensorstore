@@ -32,7 +32,7 @@
         <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
       
     
-        <link rel="stylesheet" type="text/css" href="_static/sphinx_immaterial_theme.b454d0e296e565629.min.css" />
+        <link rel="stylesheet" type="text/css" href="_static/sphinx_immaterial_theme.4b4a8c74e2ff2ab5b.min.css?v=afa97f93" />
     <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
@@ -314,12 +314,63 @@
       
       
         <label class="md-nav__link" for="__nav_2">
+          <span class="md-ellipsis">C++ API</span>
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="C++ API" data-md-level="1">
+        <label class="md-nav__title" for="__nav_2">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">C++ API</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="cpp/api/index.html" class="md-nav__link">
+        <span class="md-ellipsis">API reference</span>
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_3" type="checkbox" id="__nav_3" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3">
           <span class="md-ellipsis">Setup</span>
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="Setup" data-md-level="1">
-        <label class="md-nav__title" for="__nav_2">
+        <label class="md-nav__title" for="__nav_3">
           <span class="md-nav__icon md-icon"></span>
           <span class="md-ellipsis">Setup</span>
         </label>
@@ -377,17 +428,17 @@
     <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_3" type="checkbox" id="__nav_3" checked>
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4" type="checkbox" id="__nav_4" checked>
       
       
       
-        <label class="md-nav__link" for="__nav_3">
+        <label class="md-nav__link" for="__nav_4">
           <span class="md-ellipsis">JSON</span>
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="JSON" data-md-level="1">
-        <label class="md-nav__title" for="__nav_3">
+        <label class="md-nav__title" for="__nav_4">
           <span class="md-nav__icon md-icon"></span>
           <span class="md-ellipsis">JSON</span>
         </label>
@@ -1154,12 +1205,12 @@
                   
 
 
-<h1 id="json-spec">JSON Spec<a class="headerlink" href="#json-spec" title="Permalink to this heading">¶</a></h1>
+<h1 id="json-spec">JSON Spec<a class="headerlink" href="#json-spec" title="Link to this heading">¶</a></h1>
 <p>TensorStore relies on a JSON <code class="docutils literal notranslate"><span class="pre">Spec</span></code> format for specifying all
 parameters necessary for opening or creating a TensorStore.</p>
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-TensorStore">
-<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">TensorStore</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-TensorStore" title="Permalink to this definition">¶</a></dt>
+<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">TensorStore</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-TensorStore" title="Link to this definition">¶</a></dt>
 <dd><span><p>Specifies a TensorStore to open/create.</p>
   </span><p>The following properties are supported by all TensorStore drivers.  Refer to
 the <a class="reference internal" href="driver/index.html#tensorstore-drivers"><span class="std std-ref">driver documentation</span></a> for the supported
@@ -1186,7 +1237,7 @@ the <a class="reference internal" href="driver/index.html#tensorstore-drivers"><
 <dt class="field-odd" id="required-members-json-TensorStore">Required members<span class="colon">:</span><a class="headerlink" href="#required-members-json-TensorStore" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-TensorStore.driver">
-<span class="sig-name descname"><span class="pre">driver</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><a class="headerlink" href="#json-TensorStore.driver" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">driver</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><a class="headerlink" href="#json-TensorStore.driver" title="Link to this definition">¶</a></dt>
 <dd><span><p>Driver identifier</p>
   </span><p>Specifies the <a class="reference internal" href="driver/index.html#tensorstore-drivers"><span class="std std-ref">TensorStore driver</span></a>.</p>
 </dd></dl>
@@ -1197,19 +1248,19 @@ the <a class="reference internal" href="driver/index.html#tensorstore-drivers"><
 <dt class="field-odd" id="optional-members-json-TensorStore">Optional members<span class="colon">:</span><a class="headerlink" href="#optional-members-json-TensorStore" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-TensorStore.context">
-<span class="sig-name descname"><span class="pre">context</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="context.html#json-Context" title="Context (JSON type)"><span class="pre">Context</span></a></span><a class="headerlink" href="#json-TensorStore.context" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">context</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="context.html#json-Context" title="Context (JSON type)"><span class="pre">Context</span></a></span><a class="headerlink" href="#json-TensorStore.context" title="Link to this definition">¶</a></dt>
 <dd><span><p>Specifies context resources that augment/override the parent context.</p>
   </span></dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-TensorStore.dtype">
-<span class="sig-name descname"><span class="pre">dtype</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="#json-dtype" title="dtype (JSON type) — Specifies a TensorStore data type."><span class="pre">dtype</span></a></span><a class="headerlink" href="#json-TensorStore.dtype" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">dtype</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="#json-dtype" title="dtype (JSON type) — Specifies a TensorStore data type."><span class="pre">dtype</span></a></span><a class="headerlink" href="#json-TensorStore.dtype" title="Link to this definition">¶</a></dt>
 <dd><span><p>Specifies the data type.</p>
   </span></dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-TensorStore.rank">
-<span class="sig-name descname"><span class="pre">rank</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">0</span></code><span class="p"><span class="pre">,</span> </span><code class="code json docutils literal highlight highlight-json"><span class="mi">32</span></code><span class="p"><span class="pre">]</span></span></sub><a class="headerlink" href="#json-TensorStore.rank" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">rank</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">0</span></code><span class="p"><span class="pre">,</span> </span><code class="code json docutils literal highlight highlight-json"><span class="mi">32</span></code><span class="p"><span class="pre">]</span></span></sub><a class="headerlink" href="#json-TensorStore.rank" title="Link to this definition">¶</a></dt>
 <dd><span><p>Specifies the rank of the TensorStore.</p>
   </span><p>If <a class="reference internal" href="#json-TensorStore.transform" title="TensorStore.transform (JSON member) — Specifies a transform."><code class="xref json json-schema docutils literal notranslate"><span class="pre">transform</span></code></a> is also specified, the input rank must match.  Otherwise,
 the rank constraint applies to the driver directly.</p>
@@ -1217,13 +1268,13 @@ the rank constraint applies to the driver directly.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-TensorStore.transform">
-<span class="sig-name descname"><span class="pre">transform</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="index_space.html#json-IndexTransform" title="IndexTransform (JSON type)"><span class="pre">IndexTransform</span></a></span><a class="headerlink" href="#json-TensorStore.transform" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">transform</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="index_space.html#json-IndexTransform" title="IndexTransform (JSON type)"><span class="pre">IndexTransform</span></a></span><a class="headerlink" href="#json-TensorStore.transform" title="Link to this definition">¶</a></dt>
 <dd><span><p>Specifies a transform.</p>
   </span></dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-TensorStore.schema">
-<span class="sig-name descname"><span class="pre">schema</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="schema.html#json-Schema" title="Schema (JSON type)"><span class="pre">Schema</span></a></span><a class="headerlink" href="#json-TensorStore.schema" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">schema</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="schema.html#json-Schema" title="Schema (JSON type)"><span class="pre">Schema</span></a></span><a class="headerlink" href="#json-TensorStore.schema" title="Link to this definition">¶</a></dt>
 <dd><span><p>Specifies constraints on the schema.</p>
   </span><p>When opening an existing array, specifies constraints on the existing
 schema; opening will fail if the constraints do not match.  Any soft
@@ -1239,7 +1290,7 @@ with any driver-specific constraints.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight sig-wrap json" id="json-dtype">
-<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">dtype</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;bool&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;char&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;byte&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;int4&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;int8&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;uint8&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;int16&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;uint16&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;int32&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;uint32&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;int64&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;uint64&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;float8_e4m3fn&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;float8_e4m3fnuz&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;float8_e4m3b11fnuz&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;float8_e5m2&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;float8_e5m2fnuz&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;float16&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;bfloat16&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;float32&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;float64&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;complex64&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;complex128&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;string&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;ustring&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;json&quot;</span></code><a class="headerlink" href="#json-dtype" title="Permalink to this definition">¶</a></dt>
+<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">dtype</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;bool&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;char&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;byte&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;int4&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;int8&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;uint8&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;int16&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;uint16&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;int32&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;uint32&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;int64&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;uint64&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;float8_e4m3fn&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;float8_e4m3fnuz&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;float8_e4m3b11fnuz&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;float8_e5m2&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;float8_e5m2fnuz&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;float16&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;bfloat16&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;float32&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;float64&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;complex64&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;complex128&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;string&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;ustring&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;json&quot;</span></code><a class="headerlink" href="#json-dtype" title="Link to this definition">¶</a></dt>
 <dd><span><p>Specifies a TensorStore data type.</p>
   </span><p>TensorStore data types correspond to the logical data representation, not
 the precise encoding.  There are not separate data types for little endian
@@ -1248,7 +1299,7 @@ and big endian byte order.</p>
 <dt class="field-odd" id="one-of-json-dtype">One of<span class="colon">:</span><a class="headerlink" href="#one-of-json-dtype" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-dtype.bool">
-<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;bool&quot;</span></code><a class="headerlink" href="#json-dtype.bool" title="Permalink to this definition">¶</a></dt>
+<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;bool&quot;</span></code><a class="headerlink" href="#json-dtype.bool" title="Link to this definition">¶</a></dt>
 <dd><span><p>Boolean value (0 or 1).</p>
   </span><p>Each value occupies an entire byte in memory, but depending on the
 format may be encoded more efficiently.</p>
@@ -1256,156 +1307,156 @@ format may be encoded more efficiently.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-dtype.char">
-<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;char&quot;</span></code><a class="headerlink" href="#json-dtype.char" title="Permalink to this definition">¶</a></dt>
+<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;char&quot;</span></code><a class="headerlink" href="#json-dtype.char" title="Link to this definition">¶</a></dt>
 <dd><span><p>Single byte, interpreted as an ASCII character.</p>
   </span></dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-dtype.byte">
-<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;byte&quot;</span></code><a class="headerlink" href="#json-dtype.byte" title="Permalink to this definition">¶</a></dt>
+<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;byte&quot;</span></code><a class="headerlink" href="#json-dtype.byte" title="Link to this definition">¶</a></dt>
 <dd><span><p>Single byte.</p>
   </span></dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-dtype.int4">
-<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;int4&quot;</span></code><a class="headerlink" href="#json-dtype.int4" title="Permalink to this definition">¶</a></dt>
+<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;int4&quot;</span></code><a class="headerlink" href="#json-dtype.int4" title="Link to this definition">¶</a></dt>
 <dd><span><p>4-bit signed <a class="reference external" href="https://en.wikipedia.org/wiki/Two%27s_complement">two’s-complement</a> integer, internally stored as its 8-bit signed integer equivalent (i.e. sign-extended).</p>
   </span></dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-dtype.int8">
-<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;int8&quot;</span></code><a class="headerlink" href="#json-dtype.int8" title="Permalink to this definition">¶</a></dt>
+<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;int8&quot;</span></code><a class="headerlink" href="#json-dtype.int8" title="Link to this definition">¶</a></dt>
 <dd><span><p>8-bit signed <a class="reference external" href="https://en.wikipedia.org/wiki/Two%27s_complement">two’s-complement</a> integer.</p>
   </span></dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-dtype.uint8">
-<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;uint8&quot;</span></code><a class="headerlink" href="#json-dtype.uint8" title="Permalink to this definition">¶</a></dt>
+<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;uint8&quot;</span></code><a class="headerlink" href="#json-dtype.uint8" title="Link to this definition">¶</a></dt>
 <dd><span><p>8-bit unsigned integer.</p>
   </span></dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-dtype.int16">
-<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;int16&quot;</span></code><a class="headerlink" href="#json-dtype.int16" title="Permalink to this definition">¶</a></dt>
+<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;int16&quot;</span></code><a class="headerlink" href="#json-dtype.int16" title="Link to this definition">¶</a></dt>
 <dd><span><p>16-bit signed <a class="reference external" href="https://en.wikipedia.org/wiki/Two%27s_complement">two’s-complement</a> integer.</p>
   </span></dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-dtype.uint16">
-<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;uint16&quot;</span></code><a class="headerlink" href="#json-dtype.uint16" title="Permalink to this definition">¶</a></dt>
+<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;uint16&quot;</span></code><a class="headerlink" href="#json-dtype.uint16" title="Link to this definition">¶</a></dt>
 <dd><span><p>16-bit unsigned integer.</p>
   </span></dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-dtype.int32">
-<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;int32&quot;</span></code><a class="headerlink" href="#json-dtype.int32" title="Permalink to this definition">¶</a></dt>
+<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;int32&quot;</span></code><a class="headerlink" href="#json-dtype.int32" title="Link to this definition">¶</a></dt>
 <dd><span><p>32-bit signed <a class="reference external" href="https://en.wikipedia.org/wiki/Two%27s_complement">two’s-complement</a> integer.</p>
   </span></dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-dtype.uint32">
-<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;uint32&quot;</span></code><a class="headerlink" href="#json-dtype.uint32" title="Permalink to this definition">¶</a></dt>
+<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;uint32&quot;</span></code><a class="headerlink" href="#json-dtype.uint32" title="Link to this definition">¶</a></dt>
 <dd><span><p>32-bit unsigned integer.</p>
   </span></dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-dtype.int64">
-<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;int64&quot;</span></code><a class="headerlink" href="#json-dtype.int64" title="Permalink to this definition">¶</a></dt>
+<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;int64&quot;</span></code><a class="headerlink" href="#json-dtype.int64" title="Link to this definition">¶</a></dt>
 <dd><span><p>64-bit signed <a class="reference external" href="https://en.wikipedia.org/wiki/Two%27s_complement">two’s-complement</a> integer.</p>
   </span></dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-dtype.uint64">
-<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;uint64&quot;</span></code><a class="headerlink" href="#json-dtype.uint64" title="Permalink to this definition">¶</a></dt>
+<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;uint64&quot;</span></code><a class="headerlink" href="#json-dtype.uint64" title="Link to this definition">¶</a></dt>
 <dd><span><p>64-bit unsigned integer.</p>
   </span></dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-dtype.float8_e4m3fn">
-<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;float8_e4m3fn&quot;</span></code><a class="headerlink" href="#json-dtype.float8_e4m3fn" title="Permalink to this definition">¶</a></dt>
+<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;float8_e4m3fn&quot;</span></code><a class="headerlink" href="#json-dtype.float8_e4m3fn" title="Link to this definition">¶</a></dt>
 <dd><span><p><a class="reference external" href="https://github.com/jax-ml/ml_dtypes#float8_e4m3fn">8-bit floating point - Exponent: 4, Mantissa: 3, bias: 7, with NaN,  without infinities</a> .</p>
   </span></dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-dtype.float8_e4m3fnuz">
-<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;float8_e4m3fnuz&quot;</span></code><a class="headerlink" href="#json-dtype.float8_e4m3fnuz" title="Permalink to this definition">¶</a></dt>
+<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;float8_e4m3fnuz&quot;</span></code><a class="headerlink" href="#json-dtype.float8_e4m3fnuz" title="Link to this definition">¶</a></dt>
 <dd><span><p><a class="reference external" href="https://github.com/jax-ml/ml_dtypes#float8_e4m3fnuz">8-bit floating point - Exponent: 4, Mantissa: 3, bias: 8, with NaN,  without infinities</a> .</p>
   </span></dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-dtype.float8_e4m3b11fnuz">
-<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;float8_e4m3b11fnuz&quot;</span></code><a class="headerlink" href="#json-dtype.float8_e4m3b11fnuz" title="Permalink to this definition">¶</a></dt>
+<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;float8_e4m3b11fnuz&quot;</span></code><a class="headerlink" href="#json-dtype.float8_e4m3b11fnuz" title="Link to this definition">¶</a></dt>
 <dd><span><p><a class="reference external" href="https://github.com/jax-ml/ml_dtypes#float8_e4m3b11fnuz">8-bit floating point - Exponent: 4, Mantissa: 3, bias: 11, with NaN,  without infinities</a> .</p>
   </span></dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-dtype.float8_e5m2">
-<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;float8_e5m2&quot;</span></code><a class="headerlink" href="#json-dtype.float8_e5m2" title="Permalink to this definition">¶</a></dt>
+<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;float8_e5m2&quot;</span></code><a class="headerlink" href="#json-dtype.float8_e5m2" title="Link to this definition">¶</a></dt>
 <dd><span><p><a class="reference external" href="https://github.com/jax-ml/ml_dtypes#float8_e5m2">8-bit floating point - Exponent: 5, Mantissa: 2, bias: 15, IEEE 754, with NaN and infinities.</a> .</p>
   </span></dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-dtype.float8_e5m2fnuz">
-<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;float8_e5m2fnuz&quot;</span></code><a class="headerlink" href="#json-dtype.float8_e5m2fnuz" title="Permalink to this definition">¶</a></dt>
+<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;float8_e5m2fnuz&quot;</span></code><a class="headerlink" href="#json-dtype.float8_e5m2fnuz" title="Link to this definition">¶</a></dt>
 <dd><span><p><a class="reference external" href="https://github.com/jax-ml/ml_dtypes#float8_e5m2fnuz">8-bit floating point - Exponent: 5, Mantissa: 2, bias: 16, with NaN, without infinities.</a> .</p>
   </span></dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-dtype.float16">
-<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;float16&quot;</span></code><a class="headerlink" href="#json-dtype.float16" title="Permalink to this definition">¶</a></dt>
+<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;float16&quot;</span></code><a class="headerlink" href="#json-dtype.float16" title="Link to this definition">¶</a></dt>
 <dd><span><p><a class="reference external" href="https://en.wikipedia.org/wiki/Half-precision_floating-point_format">IEEE 754 binary16</a>
 half-precision floating-point number.</p>
   </span></dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-dtype.bfloat16">
-<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;bfloat16&quot;</span></code><a class="headerlink" href="#json-dtype.bfloat16" title="Permalink to this definition">¶</a></dt>
+<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;bfloat16&quot;</span></code><a class="headerlink" href="#json-dtype.bfloat16" title="Link to this definition">¶</a></dt>
 <dd><span><p><a class="reference external" href="https://en.wikipedia.org/wiki/Bfloat16_floating-point_format">bfloat16 floating-point format</a> number.</p>
   </span></dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-dtype.float32">
-<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;float32&quot;</span></code><a class="headerlink" href="#json-dtype.float32" title="Permalink to this definition">¶</a></dt>
+<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;float32&quot;</span></code><a class="headerlink" href="#json-dtype.float32" title="Link to this definition">¶</a></dt>
 <dd><span><p><a class="reference external" href="https://en.wikipedia.org/wiki/Single-precision_floating-point_format">IEEE 754 binary32</a>
 single-precision floating-point number.</p>
   </span></dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-dtype.float64">
-<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;float64&quot;</span></code><a class="headerlink" href="#json-dtype.float64" title="Permalink to this definition">¶</a></dt>
+<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;float64&quot;</span></code><a class="headerlink" href="#json-dtype.float64" title="Link to this definition">¶</a></dt>
 <dd><span><p><a class="reference external" href="https://en.wikipedia.org/wiki/Double-precision_floating-point_format">IEEE 754 binary64</a>
 double-precision floating-point number.</p>
   </span></dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-dtype.complex64">
-<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;complex64&quot;</span></code><a class="headerlink" href="#json-dtype.complex64" title="Permalink to this definition">¶</a></dt>
+<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;complex64&quot;</span></code><a class="headerlink" href="#json-dtype.complex64" title="Link to this definition">¶</a></dt>
 <dd><span><p>Complex number, where the real and imaginary components are each
 represented by a <a class="reference internal" href="#json-dtype.float32" title="dtype.float32 (JSON member) — IEEE 754 binary32 single-precision floating-point number."><code class="xref json json-schema docutils literal notranslate"><span class="pre">float32</span></code></a>.</p>
   </span></dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-dtype.complex128">
-<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;complex128&quot;</span></code><a class="headerlink" href="#json-dtype.complex128" title="Permalink to this definition">¶</a></dt>
+<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;complex128&quot;</span></code><a class="headerlink" href="#json-dtype.complex128" title="Link to this definition">¶</a></dt>
 <dd><span><p>Complex number, where the real and imaginary components are each
 represented by a <a class="reference internal" href="#json-dtype.float64" title="dtype.float64 (JSON member) — IEEE 754 binary64 double-precision floating-point number."><code class="xref json json-schema docutils literal notranslate"><span class="pre">float64</span></code></a>.</p>
   </span></dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-dtype.string">
-<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;string&quot;</span></code><a class="headerlink" href="#json-dtype.string" title="Permalink to this definition">¶</a></dt>
+<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;string&quot;</span></code><a class="headerlink" href="#json-dtype.string" title="Link to this definition">¶</a></dt>
 <dd><span><p>Byte string.</p>
   </span></dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-dtype.ustring">
-<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;ustring&quot;</span></code><a class="headerlink" href="#json-dtype.ustring" title="Permalink to this definition">¶</a></dt>
+<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;ustring&quot;</span></code><a class="headerlink" href="#json-dtype.ustring" title="Link to this definition">¶</a></dt>
 <dd><span><p>Unicode string (represented in memory as UTF-8).</p>
   </span></dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-dtype.json">
-<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;json&quot;</span></code><a class="headerlink" href="#json-dtype.json" title="Permalink to this definition">¶</a></dt>
+<code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;json&quot;</span></code><a class="headerlink" href="#json-dtype.json" title="Link to this definition">¶</a></dt>
 <dd><span><p><a class="reference external" href="https://en.wikipedia.org/wiki/JSON">JSON</a> value.</p>
   </span></dd></dl>
 
@@ -1486,7 +1537,7 @@ represented by a <a class="reference internal" href="#json-dtype.float64" title=
     <script id="__config" type="application/json">{"base": ".", "features": ["navigation.expand", "navigation.sections", "navigation.top", "toc.follow", "toc.sticky"], "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "Search", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version.title": "Select version"}}</script>
     
       
-        <script src="_static/sphinx_immaterial_theme.f9d9eeeb247ace16c.min.js"></script>
+        <script src="_static/sphinx_immaterial_theme.f9d9eeeb247ace16c.min.js?v=8ec58cb5"></script>
     
   </body>
 </html>

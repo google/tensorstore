@@ -1,0 +1,1824 @@
+
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      <link rel="icon" href="../../_static/logo.svg">
+    
+    
+      
+        <title>tensorstore::DimExpression<Op...>::SizedInterval - TensorStore</title>
+      
+    
+    
+      
+        
+        
+      
+      
+
+    
+    
+    
+      
+        
+        
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+        <link rel="stylesheet" type="text/css" href="../../_static/sphinx_immaterial_theme.4b4a8c74e2ff2ab5b.min.css?v=afa97f93" />
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="green" data-md-color-accent="light-blue">
+  
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&"object"==typeof palette.color)for(var key of Object.keys(palette.color))document.body.setAttribute("data-md-color-"+key,palette.color[key])</script>
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#requires" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../index.html" title="TensorStore" class="md-header__button md-logo" aria-label="TensorStore" data-md-component="logo">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 132.0 132.0"><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="2.0" x2="130.8" y2="2.0"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="16.2" x2="130.8" y2="16.2"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="30.4" x2="130.8" y2="30.4"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="44.7" x2="130.8" y2="44.7"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="58.9" x2="130.8" y2="58.9"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="73.1" x2="130.8" y2="73.1"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="87.3" x2="130.8" y2="87.3"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="101.6" x2="130.8" y2="101.6"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="115.8" x2="130.8" y2="115.8"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="130.0" x2="130.8" y2="130.0"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="2.0" y2="130.0" x2="2.0"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="16.2" y2="130.0" x2="16.2"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="30.4" y2="130.0" x2="30.4"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="44.7" y2="130.0" x2="44.7"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="58.9" y2="130.0" x2="58.9"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="73.1" y2="130.0" x2="73.1"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="87.3" y2="130.0" x2="87.3"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="101.6" y2="130.0" x2="101.6"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="115.8" y2="130.0" x2="115.8"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="130.0" y2="130.0" x2="130.0"/><rect fill="currentColor" x="3.5" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="17.7" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="46.2" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="60.4" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="17.7" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="74.6" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="88.8" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="103.1" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="46.2" width="11.2" height="11.2"/><rect fill="currentColor" x="60.4" y="46.2" width="11.2" height="11.2"/><rect fill="currentColor" x="117.3" y="46.2" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="60.4" width="11.2" height="11.2"/><rect fill="currentColor" x="74.6" y="60.4" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="74.6" width="11.2" height="11.2"/><rect fill="currentColor" x="88.8" y="74.6" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="88.8" width="11.2" height="11.2"/><rect fill="currentColor" x="103.1" y="88.8" width="11.2" height="11.2"/><rect fill="currentColor" x="60.4" y="103.1" width="11.2" height="11.2"/><rect fill="currentColor" x="117.3" y="103.1" width="11.2" height="11.2"/><rect fill="currentColor" x="74.6" y="117.3" width="11.2" height="11.2"/><rect fill="currentColor" x="88.8" y="117.3" width="11.2" height="11.2"/><rect fill="currentColor" x="103.1" y="117.3" width="11.2" height="11.2"/></svg>
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            TensorStore
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              tensorstore::DimExpression&lt;Op...&gt;::SizedInterval
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      <form class="md-header__option" data-md-component="palette">
+        
+          
+          
+          <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="green" data-md-color-accent="light-blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+          
+            <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_2" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7M9 21a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1H9v1Z"/></svg>
+            </label>
+          
+        
+          
+          
+          <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="green" data-md-color-accent="light-blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_2">
+          
+            <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7M9 21v-1h6v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1m3-17a5 5 0 0 0-5 5c0 2.05 1.23 3.81 3 4.58V16h4v-2.42c1.77-.77 3-2.53 3-4.58a5 5 0 0 0-5-5Z"/></svg>
+            </label>
+          
+        
+      </form>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/google/tensorstore/" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    tensorstore
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../index.html" title="TensorStore" class="md-nav__button md-logo" aria-label="TensorStore" data-md-component="logo">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 132.0 132.0"><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="2.0" x2="130.8" y2="2.0"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="16.2" x2="130.8" y2="16.2"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="30.4" x2="130.8" y2="30.4"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="44.7" x2="130.8" y2="44.7"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="58.9" x2="130.8" y2="58.9"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="73.1" x2="130.8" y2="73.1"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="87.3" x2="130.8" y2="87.3"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="101.6" x2="130.8" y2="101.6"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="115.8" x2="130.8" y2="115.8"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="130.0" x2="130.8" y2="130.0"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="2.0" y2="130.0" x2="2.0"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="16.2" y2="130.0" x2="16.2"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="30.4" y2="130.0" x2="30.4"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="44.7" y2="130.0" x2="44.7"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="58.9" y2="130.0" x2="58.9"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="73.1" y2="130.0" x2="73.1"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="87.3" y2="130.0" x2="87.3"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="101.6" y2="130.0" x2="101.6"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="115.8" y2="130.0" x2="115.8"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="130.0" y2="130.0" x2="130.0"/><rect fill="currentColor" x="3.5" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="17.7" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="46.2" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="60.4" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="17.7" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="74.6" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="88.8" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="103.1" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="46.2" width="11.2" height="11.2"/><rect fill="currentColor" x="60.4" y="46.2" width="11.2" height="11.2"/><rect fill="currentColor" x="117.3" y="46.2" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="60.4" width="11.2" height="11.2"/><rect fill="currentColor" x="74.6" y="60.4" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="74.6" width="11.2" height="11.2"/><rect fill="currentColor" x="88.8" y="74.6" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="88.8" width="11.2" height="11.2"/><rect fill="currentColor" x="103.1" y="88.8" width="11.2" height="11.2"/><rect fill="currentColor" x="60.4" y="103.1" width="11.2" height="11.2"/><rect fill="currentColor" x="117.3" y="103.1" width="11.2" height="11.2"/><rect fill="currentColor" x="74.6" y="117.3" width="11.2" height="11.2"/><rect fill="currentColor" x="88.8" y="117.3" width="11.2" height="11.2"/><rect fill="currentColor" x="103.1" y="117.3" width="11.2" height="11.2"/></svg>
+    </a>
+    TensorStore
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/google/tensorstore/" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    tensorstore
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+      
+
+  
+  
+  
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_1" type="checkbox" id="__nav_1" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_1">
+          <span class="md-ellipsis">Python API</span>
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Python API" data-md-level="1">
+        <label class="md-nav__title" for="__nav_1">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">Python API</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/tutorial.html" class="md-nav__link">
+        <span class="md-ellipsis">Tutorial</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/indexing.html" class="md-nav__link">
+        <span class="md-ellipsis">Indexing</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/api/index.html" class="md-nav__link">
+        <span class="md-ellipsis">API reference</span>
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+    
+      
+      
+      
+
+  
+  
+    
+  
+  
+    
+      
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_2" type="checkbox" id="__nav_2" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_2">
+          <span class="md-ellipsis">C++ API</span>
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="C++ API" data-md-level="1">
+        <label class="md-nav__title" for="__nav_2">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">C++ API</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_2_1" type="checkbox" id="__nav_2_1" checked>
+      
+      
+      
+        
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="index.html"><span class="md-ellipsis">API reference</span></a>
+          
+            <label for="__nav_2_1">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
+          
+        </div>
+      
+      <nav class="md-nav" aria-label="API reference" data-md-level="2">
+        <label class="md-nav__title" for="__nav_2_1">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">API reference</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="index.html#core" class="md-nav__link">
+        <span class="md-ellipsis">Core</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_2_1_2" type="checkbox" id="__nav_2_1_2" checked>
+      
+      
+      
+        
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="index.html#indexing"><span class="md-ellipsis">Indexing</span></a>
+          
+            <label for="__nav_2_1_2">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
+          
+        </div>
+      
+      <nav class="md-nav" aria-label="Indexing" data-md-level="3">
+        <label class="md-nav__title" for="__nav_2_1_2">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">Indexing</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.Index.html" class="md-nav__link">
+        <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span><span title="tensorstore::Index (C++ type) — Type for representing a coordinate in, or a extent of, a multi-dimensional array." class="md-ellipsis">Index</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.DimensionIndex.html" class="md-nav__link">
+        <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span><span title="tensorstore::DimensionIndex (C++ type) — Type for representing a dimension index or rank." class="md-ellipsis">Dimension<wbr>Index</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.IndexInterval.html" class="md-nav__link">
+        <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span><span title="tensorstore::IndexInterval (C++ class) — Represents an interval of index values, with support for +/-inf bounds." class="md-ellipsis">Index<wbr>Interval</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.OptionallyImplicitIndexInterval.html" class="md-nav__link">
+        <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span><span title="tensorstore::OptionallyImplicitIndexInterval (C++ class) — Represents an IndexInterval where the lower/upper bounds may be &#34;implicit&#34;." class="md-ellipsis">Optionally<wbr>Implicit<wbr>Index<wbr>Interval</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.IndexDomainDimension.html" class="md-nav__link">
+        <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span><span title="tensorstore::IndexDomainDimension (C++ class) — Represents an index interval with optionally-implicit bounds and an optionally dimension label." class="md-ellipsis">Index<wbr>Domain<wbr>Dimension</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.InlineRank.html" class="md-nav__link">
+        <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span><span title="tensorstore::InlineRank (C++ type) — Specifies a fixed compile-time rank, or a run-time rank with an optional inline storage limit." class="md-ellipsis">Inline<wbr>Rank</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.RankConstraint.html" class="md-nav__link">
+        <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span><span title="tensorstore::RankConstraint (C++ class) — Represents an optional rank value and provides related operations." class="md-ellipsis">Rank<wbr>Constraint</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.Box.html" class="md-nav__link">
+        <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span><span title="tensorstore::Box (C++ class) — Value type representing an n-dimensional hyperrectangle." class="md-ellipsis">Box</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.DimensionSet.html" class="md-nav__link">
+        <span aria-label="C++ type" class="objinfo-icon objinfo-icon__alias" title="C++ type">T</span><span title="tensorstore::DimensionSet (C++ type) — Represents a set of dimension indices." class="md-ellipsis">Dimension<wbr>Set</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.IndexDomain.html" class="md-nav__link">
+        <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span><span title="tensorstore::IndexDomain (C++ class) — Represents an index domain." class="md-ellipsis">Index<wbr>Domain</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.IndexTransform.html" class="md-nav__link">
+        <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span><span title="tensorstore::IndexTransform (C++ class) — Transform from an input index space to an output index space." class="md-ellipsis">Index<wbr>Transform</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.IsIndexArray.html" class="md-nav__link">
+        <span aria-label="C++ member" class="objinfo-icon objinfo-icon__alias" title="C++ member">V</span><span title="tensorstore::IsIndexArray (C++ member) — Bool-valued metafunction that evaluates to true if T is an array type convertible to SharedArrayView&lt;const Index&gt;." class="md-ellipsis">Is<wbr>Index<wbr>Array</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_2_1_2_13" type="checkbox" id="__nav_2_1_2_13" checked>
+      
+      
+      
+        
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="tensorstore.DimExpression.html"><span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span><span title="tensorstore::DimExpression (C++ class) — A DimExpression represents an ordered &#34;selection&#34; of dimensions of an index space and a sequence of &#34;operations&#34; to apply to those dimensions." class="md-ellipsis">Dim<wbr>Expression</span></a>
+          
+            <label for="__nav_2_1_2_13">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
+          
+        </div>
+      
+      <nav class="md-nav" aria-label="DimExpression" data-md-level="4">
+        <label class="md-nav__title" for="__nav_2_1_2_13">
+          <span class="md-nav__icon md-icon"></span>
+          <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span><span title="tensorstore::DimExpression (C++ class) — A DimExpression represents an ordered &#34;selection&#34; of dimensions of an index space and a sequence of &#34;operations&#34; to apply to those dimensions." class="md-ellipsis">Dim<wbr>Expression</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_2_1_2_13_1" type="checkbox" id="__nav_2_1_2_13_1" checked>
+      
+      
+      
+        
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="tensorstore.DimExpression.html#methods"><span class="md-ellipsis">Methods</span></a>
+          
+            <label for="__nav_2_1_2_13_1">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
+          
+        </div>
+      
+      <nav class="md-nav" aria-label="Methods" data-md-level="5">
+        <label class="md-nav__title" for="__nav_2_1_2_13_1">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">Methods</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.DimExpression.TranslateBy.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::DimExpression::TranslateBy (C++ function) — Translates (shifts) the domains of the selected input dimensions by the specified offsets vector; the output range remains the same." class="md-ellipsis">Translate<wbr>By</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.DimExpression.TranslateBackwardBy.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::DimExpression::TranslateBackwardBy (C++ function) — Translates (shifts) the domains of the selected input dimensions backwards by the specified offsets vector; the output range remains the same." class="md-ellipsis">Translate<wbr>Backward<wbr>By</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.DimExpression.TranslateTo.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::DimExpression::TranslateTo (C++ function) — Translates the domain of the selected input dimensions to the specified origin vector without affecting the output range." class="md-ellipsis">Translate<wbr>To</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.DimExpression.IndexSlice.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::DimExpression::IndexSlice (C++ function) — Extracts a single-index slice of the selected dimensions using the specified index vector." class="md-ellipsis">Index<wbr>Slice</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.DimExpression.BoxSlice.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::DimExpression::BoxSlice (C++ function) — Extracts a box from the selected dimensions." class="md-ellipsis">Box<wbr>Slice</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.DimExpression.TranslateBoxSlice.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::DimExpression::TranslateBoxSlice (C++ function) — Extracts a box from the selected dimensions, and translates its origin to 0." class="md-ellipsis">Translate<wbr>Box<wbr>Slice</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.DimExpression.ClosedInterval.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::DimExpression::ClosedInterval (C++ function) — Extracts a closed interval from the selected dimensions with optional striding." class="md-ellipsis">Closed<wbr>Interval</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.DimExpression.HalfOpenInterval.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::DimExpression::HalfOpenInterval (C++ function) — Extracts a half-open interval from the selected dimensions with optional striding." class="md-ellipsis">Half<wbr>Open<wbr>Interval</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+    
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::DimExpression::SizedInterval (C++ function) — Extracts a sized interval from the selected dimensions with optional striding." class="md-ellipsis">Sized<wbr>Interval</span>
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="#" class="md-nav__link md-nav__link--active">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::DimExpression::SizedInterval (C++ function) — Extracts a sized interval from the selected dimensions with optional striding." class="md-ellipsis">Sized<wbr>Interval</span>
+      </a>
+      
+        
+
+  
+
+<nav class="md-nav md-nav--secondary">
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::DimExpression::SizedInterval (C++ function) — Extracts a sized interval from the selected dimensions with optional striding." class="md-ellipsis">Sized<wbr>Interval</span>
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#requires" class="md-nav__link">
+    <span class="md-ellipsis">Requires</span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#parameters" class="md-nav__link">
+    <span class="md-ellipsis">Parameters</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Parameters">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#p-start" class="md-nav__link">
+    <span aria-label="C++ function parameter" class="objinfo-icon objinfo-icon__sub-data" title="C++ function parameter">p</span><span title="tensorstore::DimExpression::SizedInterval::start (C++ function parameter) — The index vector specifying the start indices for each selected dimension." class="md-ellipsis">start</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#p-size" class="md-nav__link">
+    <span aria-label="C++ function parameter" class="objinfo-icon objinfo-icon__sub-data" title="C++ function parameter">p</span><span title="tensorstore::DimExpression::SizedInterval::size (C++ function parameter) — The size vector specifying the size of the domain for each selected dimension." class="md-ellipsis">size</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#p-strides" class="md-nav__link">
+    <span aria-label="C++ function parameter" class="objinfo-icon objinfo-icon__sub-data" title="C++ function parameter">p</span><span title="tensorstore::DimExpression::SizedInterval::strides (C++ function parameter) — The index vector specifying the stride value for each selected dimension." class="md-ellipsis">strides</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#error-absl-statuscode-kinvalidargument" class="md-nav__link">
+    <span class="md-ellipsis">Error absl::<wbr>Status<wbr>Code::<wbr>k<wbr>Invalid<wbr>Argument</span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#error-absl-statuscode-kinvalidargument" class="md-nav__link">
+    <span class="md-ellipsis">Error absl::<wbr>Status<wbr>Code::<wbr>k<wbr>Invalid<wbr>Argument</span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#error-absl-statuscode-kinvalidargument" class="md-nav__link">
+    <span class="md-ellipsis">Error absl::<wbr>Status<wbr>Code::<wbr>k<wbr>Invalid<wbr>Argument</span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.DimExpression.TranslateClosedInterval.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::DimExpression::TranslateClosedInterval (C++ function) — Equivalent to ClosedInterval(start, stop, strides).TranslateTo(0)." class="md-ellipsis">Translate<wbr>Closed<wbr>Interval</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.DimExpression.TranslateHalfOpenInterval.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::DimExpression::TranslateHalfOpenInterval (C++ function) — Equivalent to HalfOpenInterval(start, stop, strides).TranslateTo(0)." class="md-ellipsis">Translate<wbr>Half<wbr>Open<wbr>Interval</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.DimExpression.TranslateSizedInterval.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::DimExpression::TranslateSizedInterval (C++ function) — Equivalent to SizedInterval(start, size, strides).TranslateTo(0)." class="md-ellipsis">Translate<wbr>Sized<wbr>Interval</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.DimExpression.IndexArraySlice.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::DimExpression::IndexArraySlice (C++ function) — Jointly slices the selected dimensions using index arrays." class="md-ellipsis">Index<wbr>Array<wbr>Slice</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.DimExpression.IndexVectorArraySlice.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::DimExpression::IndexVectorArraySlice (C++ function) — Jointly slices the selected dimensions using the specified array of index vectors." class="md-ellipsis">Index<wbr>Vector<wbr>Array<wbr>Slice</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.DimExpression.OuterIndexArraySlice.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::DimExpression::OuterIndexArraySlice (C++ function) — Independently slices the selected dimensions using index arrays." class="md-ellipsis">Outer<wbr>Index<wbr>Array<wbr>Slice</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.DimExpression.Label.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::DimExpression::Label (C++ function) — Sets (or changes) the labels of the selected dimensions." class="md-ellipsis">Label</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.DimExpression.MoveTo.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::DimExpression::MoveTo (C++ function) — Transposes the input dimensions such that the selected dimensions are consecutive starting or ending at the specified target position." class="md-ellipsis">Move<wbr>To</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.DimExpression.MoveToFront.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::DimExpression::MoveToFront (C++ function) — Equivalent to MoveTo(0)." class="md-ellipsis">Move<wbr>To<wbr>Front</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.DimExpression.MoveToBack.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::DimExpression::MoveToBack (C++ function) — Equivalent to MoveTo(-1)." class="md-ellipsis">Move<wbr>To<wbr>Back</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.DimExpression.Diagonal.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::DimExpression::Diagonal (C++ function) — Extracts the diagonal of the selected dimensions." class="md-ellipsis">Diagonal</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.DimExpression.AddNew.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::DimExpression::AddNew (C++ function) — Adds new inert input dimensions that have no effect on the output indices." class="md-ellipsis">Add<wbr>New</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.DimExpression.Transpose-consecutive.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::DimExpression::Transpose (C++ function) — Transposes the input dimensions such that the selected dimensions are consecutive." class="md-ellipsis">Transpose <wbr>[consecutive]</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.DimExpression.Transpose-target_dimensions.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::DimExpression::Transpose (C++ function) — Transposes the input dimensions such that the selected dimensions have the specified indices.  Dimensions not in the selection retain their relative order and fill in the dimension indices not in target_dimensions." class="md-ellipsis">Transpose <wbr>[target_<wbr>dimensions]</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.DimExpression.MarkBoundsExplicit.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::DimExpression::MarkBoundsExplicit (C++ function) — Marks the lower and/or upper bounds of the selected dimensions as explicit." class="md-ellipsis">Mark<wbr>Bounds<wbr>Explicit</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.DimExpression.UnsafeMarkBoundsImplicit.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::DimExpression::UnsafeMarkBoundsImplicit (C++ function) — Marks the lower and/or upper bounds of the selected dimensions as implicit." class="md-ellipsis">Unsafe<wbr>Mark<wbr>Bounds<wbr>Implicit</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.DimExpression.Stride.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::DimExpression::Stride (C++ function) — Strides the domains of the selected input dimensions by the specified strides vector." class="md-ellipsis">Stride</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.DimExpression.operator-call-transform.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::DimExpression::operator() (C++ function) — Applies this DimExpression to the specified index transform." class="md-ellipsis">operator<wbr>() <wbr>[transform]</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.DimExpression.operator-call-domain.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::DimExpression::operator() (C++ function) — Applies this DimExpression to the specified index domain." class="md-ellipsis">operator<wbr>() <wbr>[domain]</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.DimExpression.operator-call-transformable.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::DimExpression::operator() (C++ function) — Applies this DimExpression to an object with an associated index space that supports ApplyIndexTransform." class="md-ellipsis">operator<wbr>() <wbr>[transformable]</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.DimExpression.Resolve.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::DimExpression::Resolve (C++ function) — Resolves a dimension selection to dimension indices." class="md-ellipsis">Resolve</span>
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.DimExpression.html#related-types" class="md-nav__link">
+        <span class="md-ellipsis">Related Types</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.DimExpression.html#related-functions" class="md-nav__link">
+        <span class="md-ellipsis">Related Functions</span>
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="index.html#alignment" class="md-nav__link">
+        <span class="md-ellipsis">Alignment</span>
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="index.html#data-types" class="md-nav__link">
+        <span class="md-ellipsis">Data types</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="index.html#array" class="md-nav__link">
+        <span class="md-ellipsis">Array</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="index.html#key-value-storage" class="md-nav__link">
+        <span class="md-ellipsis">Key-<wbr>value storage</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="index.html#downsampling" class="md-nav__link">
+        <span class="md-ellipsis">Downsampling</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="index.html#utilities" class="md-nav__link">
+        <span class="md-ellipsis">Utilities</span>
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_3" type="checkbox" id="__nav_3" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3">
+          <span class="md-ellipsis">Setup</span>
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Setup" data-md-level="1">
+        <label class="md-nav__title" for="__nav_3">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">Setup</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation.html" class="md-nav__link">
+        <span class="md-ellipsis">Building and Installing</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../environment.html" class="md-nav__link">
+        <span class="md-ellipsis">Environment variables</span>
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_4" type="checkbox" id="__nav_4" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_4">
+          <span class="md-ellipsis">JSON</span>
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="JSON" data-md-level="1">
+        <label class="md-nav__title" for="__nav_4">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">JSON</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../spec.html" class="md-nav__link">
+        <span class="md-ellipsis">JSON Spec</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../index_space.html" class="md-nav__link">
+        <span class="md-ellipsis">Index space</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../schema.html" class="md-nav__link">
+        <span class="md-ellipsis">Schema</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../context.html" class="md-nav__link">
+        <span class="md-ellipsis">Context framework</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../driver/index.html" class="md-nav__link">
+        <span class="md-ellipsis">Drivers</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../kvstore/index.html" class="md-nav__link">
+        <span class="md-ellipsis">Key-<wbr>Value Storage Layer</span>
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+  
+
+<nav class="md-nav md-nav--secondary">
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::DimExpression::SizedInterval (C++ function) — Extracts a sized interval from the selected dimensions with optional striding." class="md-ellipsis">Sized<wbr>Interval</span>
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#requires" class="md-nav__link">
+    <span class="md-ellipsis">Requires</span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#parameters" class="md-nav__link">
+    <span class="md-ellipsis">Parameters</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Parameters">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#p-start" class="md-nav__link">
+    <span aria-label="C++ function parameter" class="objinfo-icon objinfo-icon__sub-data" title="C++ function parameter">p</span><span title="tensorstore::DimExpression::SizedInterval::start (C++ function parameter) — The index vector specifying the start indices for each selected dimension." class="md-ellipsis">start</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#p-size" class="md-nav__link">
+    <span aria-label="C++ function parameter" class="objinfo-icon objinfo-icon__sub-data" title="C++ function parameter">p</span><span title="tensorstore::DimExpression::SizedInterval::size (C++ function parameter) — The size vector specifying the size of the domain for each selected dimension." class="md-ellipsis">size</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#p-strides" class="md-nav__link">
+    <span aria-label="C++ function parameter" class="objinfo-icon objinfo-icon__sub-data" title="C++ function parameter">p</span><span title="tensorstore::DimExpression::SizedInterval::strides (C++ function parameter) — The index vector specifying the stride value for each selected dimension." class="md-ellipsis">strides</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#error-absl-statuscode-kinvalidargument" class="md-nav__link">
+    <span class="md-ellipsis">Error absl::<wbr>Status<wbr>Code::<wbr>k<wbr>Invalid<wbr>Argument</span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#error-absl-statuscode-kinvalidargument" class="md-nav__link">
+    <span class="md-ellipsis">Error absl::<wbr>Status<wbr>Code::<wbr>k<wbr>Invalid<wbr>Argument</span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#error-absl-statuscode-kinvalidargument" class="md-nav__link">
+    <span class="md-ellipsis">Error absl::<wbr>Status<wbr>Code::<wbr>k<wbr>Invalid<wbr>Argument</span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset" role="main">
+                  
+
+
+<dl class="cpp function objdesc">
+<dt class="sig sig-object highlight api-include-path cpp">
+<div class="docutils container">
+<code class="cpp code highlight docutils literal highlight-cpp"><span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;tensorstore/index_space/dim_expression.h&quot;</span></code></div>
+</dt>
+<dt class="sig sig-object highlight cpp">
+<span class="k">template&nbsp;</span><span class="p">&lt;</span><span><span class="k">typename</span><span class="w">&nbsp;</span><span class="sig-name descname sig-name-nonprimary"><a class="desctype n reference internal" href="#" title="tensorstore::DimExpression::SizedInterval::Start (C++ type template parameter)"><span class="n">Start</span></a></span></span><span class="p">,</span><span class="w">&nbsp;</span><span><span class="k">typename</span><span class="w">&nbsp;</span><span class="sig-name descname sig-name-nonprimary"><a class="desctype n reference internal" href="#" title="tensorstore::DimExpression::SizedInterval::Size (C++ type template parameter)"><span class="n">Size</span></a></span></span><span class="p">,</span><span class="w">&nbsp;</span><span><span class="k">typename</span><span class="w">&nbsp;</span><span class="sig-name descname sig-name-nonprimary"><a class="desctype n reference internal" href="#" title="tensorstore::DimExpression::SizedInterval::Strides (C++ type template parameter)"><span class="n">Strides</span></a></span><span class="w">&nbsp;</span><span class="p">=</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.Index.html#c:&#64;N&#64;tensorstore&#64;Index" title="tensorstore::Index (C++ type) — Type for representing a coordinate in, or a extent of, a multi-dimensional array."><span class="n">Index</span></a></span><span class="p">&gt;<br></span><span class="kt">auto</span><span class="w">&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span><a class="desctype reference internal" href="tensorstore.DimExpression.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#pT&#64;DimExpression" title="tensorstore::DimExpression (C++ class) — A DimExpression represents an ordered &quot;selection&quot; of dimensions of an index space and a sequence of &quot;operations&quot; to apply to those dimensions."><span class="n">DimExpression</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="tensorstore.DimExpression.html#_CPPv4c:&#64;N&#64;tensorstore&#64;ST&gt;1#pT&#64;DimExpression" title="tensorstore::DimExpression::Op (C++ type template parameter)"><span class="n">Op</span></a><span class="p">...</span><span class="p">&gt;</span><span class="p">::</span></span><span class="sig-name descname"><span class="n">SizedInterval</span></span><span class="p">(<br>&nbsp;&nbsp;&nbsp;&nbsp;</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::DimExpression::SizedInterval::Start (C++ type template parameter)"><span class="n">Start</span></a><span class="p">&amp;&nbsp;</span><a class="n sig-param reference internal" href="#p-start" title="tensorstore::DimExpression::SizedInterval::start (C++ function parameter) — The index vector specifying the start indices for each selected dimension."><span class="n sig-param">start</span></a></span><span class="p">,<br>&nbsp;&nbsp;&nbsp;&nbsp;</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::DimExpression::SizedInterval::Size (C++ type template parameter)"><span class="n">Size</span></a><span class="p">&amp;&nbsp;</span><a class="n sig-param reference internal" href="#p-size" title="tensorstore::DimExpression::SizedInterval::size (C++ function parameter) — The size vector specifying the size of the domain for each selected dimension."><span class="n sig-param">size</span></a></span><span class="p">,<br>&nbsp;&nbsp;&nbsp;&nbsp;</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::DimExpression::SizedInterval::Strides (C++ type template parameter)"><span class="n">Strides</span></a><span class="p">&amp;&nbsp;</span><a class="n sig-param reference internal" href="#p-strides" title="tensorstore::DimExpression::SizedInterval::strides (C++ function parameter) — The index vector specifying the stride value for each selected dimension."><span class="n sig-param">strides</span></a><span class="w">&nbsp;</span><span class="p">=</span><span class="w">&nbsp;</span><span class="m">1</span></span><span class="p">)</span><span class="w">&nbsp;</span><span class="k">const</span><span class="p">;</span></dt>
+<dd><p>Extracts a sized interval from the selected dimensions with optional
+striding.</p>
+<p>The domain of each selected dimension is transformed by
+ExtractSizedStridedSlice using the corresponding components of the
+<code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="#p-start" title="tensorstore::DimExpression::SizedInterval::start (C++ function parameter) — The index vector specifying the start indices for each selected dimension."><span class="n">start</span></a></code>, <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="#p-size" title="tensorstore::DimExpression::SizedInterval::size (C++ function parameter) — The size vector specifying the size of the domain for each selected dimension."><span class="n">size</span></a></code>, and <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="#p-strides" title="tensorstore::DimExpression::SizedInterval::strides (C++ function parameter) — The index vector specifying the stride value for each selected dimension."><span class="n">strides</span></a></code> vectors.  In the simple case that the
+stride component is <code class="cpp-expr sig sig-inline cpp highlight"><span class="m">1</span></code>, the new domain is simply restricted to the
+specified interval, with the new origin equal to the specified <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="#p-start" title="tensorstore::DimExpression::SizedInterval::start (C++ function parameter) — The index vector specifying the start indices for each selected dimension."><span class="n">start</span></a></code>
+component. In the general case with a stide component not equal to <code class="cpp-expr sig sig-inline cpp highlight"><span class="m">1</span></code>,
+the new origin is equal to the <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="#p-start" title="tensorstore::DimExpression::SizedInterval::start (C++ function parameter) — The index vector specifying the start indices for each selected dimension."><span class="n">start</span></a></code> component divided by the <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="#p-strides" title="tensorstore::DimExpression::SizedInterval::strides (C++ function parameter) — The index vector specifying the stride value for each selected dimension."><span class="n">strides</span></a></code>
+component, rounded towards zero; in this case, the
+<code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.DimExpression.TranslateSizedInterval.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#pT&#64;DimExpression&#64;FT&#64;&gt;3#T#T#TTranslateSizedInterval#&amp;1t1.0#&amp;1t1.1#&amp;1t1.2#&gt;&#64;N&#64;tensorstore&#64;ST&gt;1#pT&#64;DimExpression1p2^enable_if&lt;IndexVectorsCompatible&lt;static_selection_rank::value, void, type-parameter-1-0, type-parameter-1-1, type-parameter-1-2&gt;, IntervalSliceOp&lt;typename IsIndexVectorOrScalar&lt;type-parameter-1-0, integral_constant&lt;bool, true&gt;&gt;::normalized_type, typename IsIndexVectorOrScalar&lt;type-parameter-1-1, integral_constant&lt;bool, true&gt;&gt;::normalized_type, typename IsIndexVectorOrScalar&lt;type-parameter-1-2, integral_constant&lt;bool, true&gt;&gt;::normalized_type&gt;&gt;:::typePt0.0#1 IntervalSliceOpExprImpl&lt;Start, Size, Strides&gt;" title="tensorstore::DimExpression::TranslateSizedInterval (C++ function) — Equivalent to SizedInterval(start, size, strides).TranslateTo(0)."><span class="n">TranslateSizedInterval</span></a></code> operation, which ensures an origin of 0, may be
+more convenient.</p>
+<p>The new dimension selection is the same as the prior dimension selection,
+with a static rank equal to the merged static rank of the prior dimension
+selection and the static extents of the <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="#p-start" title="tensorstore::DimExpression::SizedInterval::start (C++ function parameter) — The index vector specifying the start indices for each selected dimension."><span class="n">start</span></a></code>, <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="#p-size" title="tensorstore::DimExpression::SizedInterval::size (C++ function parameter) — The size vector specifying the size of the domain for each selected dimension."><span class="n">size</span></a></code>, and <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="#p-strides" title="tensorstore::DimExpression::SizedInterval::strides (C++ function parameter) — The index vector specifying the stride value for each selected dimension."><span class="n">strides</span></a></code>
+vectors.</p>
+<p>For example: <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.Dims.html#c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;1#TDims#&amp;1t0.0#&gt;&#64;N&#64;tensorstore&#64;ST&gt;1#pT&#64;DimExpression1p1^enable_if&lt;IsDimensionIdentifier&lt;typename span&lt;const typename SpanTypeHelper&lt;typename remove_reference&lt;type-parameter-0-0&gt;::type, void&gt;::element_type, internal_span::SpanTypeHelper&lt;std::remove_reference_t&lt;X&gt;&gt;::extent&gt;::value_type&gt;, DimensionList&lt;span&lt;const typename SpanTypeHelper&lt;typename remove_reference&lt;type-parameter-0-0&gt;::type, void&gt;::element_type, internal_span::SpanTypeHelper&lt;std::remove_reference_t&lt;X&gt;&gt;::extent&gt;&gt;&gt;:::type# DimExpression&lt;internal_index_space::DimensionListFromSpanType&lt;Dimensions&gt;&gt;" title="tensorstore::Dims (C++ function) — Starts a DimExpression with the specified dimensions selected (and no operations)."><span class="n">Dims</span></a><span class="p">(</span><span class="m">0</span><span class="p">,</span><span class="w"> </span><span class="m">2</span><span class="p">)</span><span class="p">.</span><span class="n">SizedInterval</span><span class="p">(</span><span class="p">{</span><span class="m">1</span><span class="p">,</span><span class="w"> </span><span class="m">8</span><span class="p">}</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="m">3</span><span class="p">,</span><span class="w"> </span><span class="m">2</span><span class="p">}</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="m">1</span><span class="p">,</span><span class="w"> </span><span class="o">-</span><span class="m">2</span><span class="p">}</span><span class="p">)</span></code> has the
+following effects:</p>
+<table class="docutils data align-default">
+<thead>
+<tr class="row-odd"><th class="head"></th>
+<th class="head"><p>Before</p></th>
+<th class="head"><p>After</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Dimension selection</p></td>
+<td><p><code class="code highlight cpp docutils literal highlight-cpp"><span class="p">{</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">}</span></code></p></td>
+<td><p><code class="code highlight cpp docutils literal highlight-cpp"><span class="p">{</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">}</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Input domain</p></td>
+<td><p><code class="code highlight cpp docutils literal highlight-cpp"><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">6</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">9</span><span class="p">]</span></code></p></td>
+<td><p><code class="code highlight cpp docutils literal highlight-cpp"><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mi">-4</span><span class="p">,</span><span class="w"> </span><span class="mi">-3</span><span class="p">]</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Labels</p></td>
+<td><p><code class="code highlight cpp docutils literal highlight-cpp"><span class="p">{</span><span class="s">&quot;x&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;y&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;z&quot;</span><span class="p">}</span></code></p></td>
+<td><p><code class="code highlight cpp docutils literal highlight-cpp"><span class="p">{</span><span class="s">&quot;x&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;y&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;z&quot;</span><span class="p">}</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Equivalent input indices</p></td>
+<td><p><code class="code highlight cpp docutils literal highlight-cpp"><span class="p">{</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">6</span><span class="p">}</span></code></p></td>
+<td><p><code class="code highlight cpp docutils literal highlight-cpp"><span class="p">{</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">-3</span><span class="p">}</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Equivalent input indices</p></td>
+<td><p><code class="code highlight cpp docutils literal highlight-cpp"><span class="p">{</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">,</span><span class="w"> </span><span class="n">z</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">-2</span><span class="p">}</span></code></p></td>
+<td><p><code class="code highlight cpp docutils literal highlight-cpp"><span class="p">{</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">,</span><span class="w"> </span><span class="n">z</span><span class="p">}</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<p>where <code class="code highlight cpp docutils literal highlight-cpp"><span class="n">x</span></code> is any index in <code class="code highlight cpp docutils literal highlight-cpp"><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">]</span></code>, <code class="code highlight cpp docutils literal highlight-cpp"><span class="n">y</span></code> is any index in
+<code class="code highlight cpp docutils literal highlight-cpp"><span class="p">[</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="p">]</span></code>, and <code class="code highlight cpp docutils literal highlight-cpp"><span class="n">z</span></code> is any index in <code class="code highlight cpp docutils literal highlight-cpp"><span class="p">[</span><span class="mi">-4</span><span class="p">,</span><span class="w"> </span><span class="mi">-3</span><span class="p">]</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd" id="requires">Requires<span class="colon">:</span><a class="headerlink" href="#requires" title="Permalink to this headline">¶</a></dt>
+<dd class="field-odd"><p><code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="#" title="tensorstore::DimExpression::SizedInterval::Start (C++ type template parameter)"><span class="n">Start</span></a></code>, <code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="#" title="tensorstore::DimExpression::SizedInterval::Size (C++ type template parameter)"><span class="n">Size</span></a></code>, and <code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="#" title="tensorstore::DimExpression::SizedInterval::Strides (C++ type template parameter)"><span class="n">Strides</span></a></code> satisfy the IsIndexVectorOrScalar
+concept with static extents compatible with each other and with the
+static rank of the dimension selection.</p>
+</dd>
+<dt class="field-even" id="parameters">Parameters<span class="colon">:</span><a class="headerlink" href="#parameters" title="Permalink to this headline">¶</a></dt>
+<dd class="field-even"><dl class="simple api-field highlight">
+<dt id="p-start"><span class="k">const</span><span class="w"> </span><a class="desctype reference internal" href="#" title="tensorstore::DimExpression::SizedInterval::Start (C++ type template parameter)"><span class="n">Start</span></a><span class="w"> </span><span class="p">&amp;</span><span class="n sig-param sig-name">start</span><a class="headerlink" href="#p-start" title="Permalink to this definition">¶</a></dt><dd><p>The index vector specifying the start indices for each
+selected dimension.  May be a braced list, e.g. <code class="code highlight cpp docutils literal highlight-cpp"><span class="p">{</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">}</span></code>.
+May also be a scalar, e.g. <code class="cpp-expr sig sig-inline cpp highlight"><span class="m">5</span></code>, in which case the same start index is
+used for all selected dimensions.</p>
+</dd>
+<dt id="p-size"><span class="k">const</span><span class="w"> </span><a class="desctype reference internal" href="#" title="tensorstore::DimExpression::SizedInterval::Size (C++ type template parameter)"><span class="n">Size</span></a><span class="w"> </span><span class="p">&amp;</span><span class="n sig-param sig-name">size</span><a class="headerlink" href="#p-size" title="Permalink to this definition">¶</a></dt><dd><p>The size vector specifying the size of the domain for each
+selected dimension.  May be a braced list or scalar.</p>
+</dd>
+<dt id="p-strides"><span class="k">const</span><span class="w"> </span><a class="desctype reference internal" href="#" title="tensorstore::DimExpression::SizedInterval::Strides (C++ type template parameter)"><span class="n">Strides</span></a><span class="w"> </span><span class="p">&amp;</span><span class="n sig-param sig-name">strides</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="m">1</span><a class="headerlink" href="#p-strides" title="Permalink to this definition">¶</a></dt><dd><p>The index vector specifying the stride value for each
+selected dimension.  May be a braced list or scalar.  If not
+specified, defaults to 1.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-odd" id="error-absl-statuscode-kinvalidargument">Error absl::StatusCode::kInvalidArgument<span class="colon">:</span><a class="headerlink" href="#error-absl-statuscode-kinvalidargument" title="Permalink to this headline">¶</a></dt>
+<dd class="field-odd"><p>if the extents of the <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="#p-start" title="tensorstore::DimExpression::SizedInterval::start (C++ function parameter) — The index vector specifying the start indices for each selected dimension."><span class="n">start</span></a></code>,
+<code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="#p-size" title="tensorstore::DimExpression::SizedInterval::size (C++ function parameter) — The size vector specifying the size of the domain for each selected dimension."><span class="n">size</span></a></code>, or <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="#p-strides" title="tensorstore::DimExpression::SizedInterval::strides (C++ function parameter) — The index vector specifying the stride value for each selected dimension."><span class="n">strides</span></a></code> vectors do not match the number of selected
+dimensions.</p>
+</dd>
+<dt class="field-even" id="error-absl-statuscode-kinvalidargument">Error absl::StatusCode::kInvalidArgument<span class="colon">:</span><a class="headerlink" href="#error-absl-statuscode-kinvalidargument" title="Permalink to this headline">¶</a></dt>
+<dd class="field-even"><p>or
+<code class="cpp-expr sig sig-inline cpp highlight"><span class="n">absl</span><span class="p">::</span><a class="desctype reference external" href="https://abseil.io/docs/cpp/guides/status-codes" title="C++ enumeration"><span class="n">StatusCode</span></a><span class="p">::</span><a class="reference external" href="https://abseil.io/docs/cpp/guides/status-codes" title="C++ enumerator"><span class="n">kOutOfRange</span></a></code> if the <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="#p-start" title="tensorstore::DimExpression::SizedInterval::start (C++ function parameter) — The index vector specifying the start indices for each selected dimension."><span class="n">start</span></a></code>, <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="#p-size" title="tensorstore::DimExpression::SizedInterval::size (C++ function parameter) — The size vector specifying the size of the domain for each selected dimension."><span class="n">size</span></a></code>, and
+<code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="#p-strides" title="tensorstore::DimExpression::SizedInterval::strides (C++ function parameter) — The index vector specifying the stride value for each selected dimension."><span class="n">strides</span></a></code> values are invalid or specify a slice outside the effective
+bounds for a given dimension (implicit lower/upper bounds are treated
+as -/+inf).</p>
+</dd>
+<dt class="field-odd" id="error-absl-statuscode-kinvalidargument">Error absl::StatusCode::kInvalidArgument<span class="colon">:</span><a class="headerlink" href="#error-absl-statuscode-kinvalidargument" title="Permalink to this headline">¶</a></dt>
+<dd class="field-odd"><p>if integer overflow occurs
+when computing the resultant transform.</p>
+</dd>
+</dl>
+</dd></dl>
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+        </div>
+        
+          <a href="#" class="md-top md-icon" data-md-component="top" hidden>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12Z"/></svg>
+            Back to top
+          </a>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+    <nav class="md-footer__inner md-grid" aria-label="Footer" >
+      
+        
+        <a href="tensorstore.DimExpression.HalfOpenInterval.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: tensorstore::DimExpression&lt;Op...&gt;::HalfOpenInterval" rel="prev">
+          <div class="md-footer__button md-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+          </div>
+          <div class="md-footer__title">
+            <div class="md-ellipsis">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              tensorstore::DimExpression&lt;Op...&gt;::HalfOpenInterval
+            </div>
+          </div>
+        </a>
+      
+      
+        
+        <a href="tensorstore.DimExpression.TranslateClosedInterval.html" class="md-footer__link md-footer__link--next" aria-label="Next: tensorstore::DimExpression&lt;Op...&gt;::TranslateClosedInterval" rel="next">
+          <div class="md-footer__title">
+            <div class="md-ellipsis">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              tensorstore::DimExpression&lt;Op...&gt;::TranslateClosedInterval
+            </div>
+          </div>
+          <div class="md-footer__button md-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4Z"/></svg>
+          </div>
+        </a>
+      
+    </nav>
+  
+  
+  
+  <div class="md-footer-meta md-typeset">
+    
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.expand", "navigation.sections", "navigation.top", "toc.follow", "toc.sticky"], "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "Search", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version.title": "Select version"}}</script>
+    
+      
+        <script src="../../_static/sphinx_immaterial_theme.f9d9eeeb247ace16c.min.js?v=8ec58cb5"></script>
+    
+  </body>
+</html>

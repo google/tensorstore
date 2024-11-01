@@ -32,7 +32,7 @@
         <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
       
     
-        <link rel="stylesheet" type="text/css" href="_static/sphinx_immaterial_theme.b454d0e296e565629.min.css" />
+        <link rel="stylesheet" type="text/css" href="_static/sphinx_immaterial_theme.4b4a8c74e2ff2ab5b.min.css?v=afa97f93" />
     <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
@@ -314,12 +314,63 @@
       
       
         <label class="md-nav__link" for="__nav_2">
+          <span class="md-ellipsis">C++ API</span>
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="C++ API" data-md-level="1">
+        <label class="md-nav__title" for="__nav_2">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">C++ API</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="cpp/api/index.html" class="md-nav__link">
+        <span class="md-ellipsis">API reference</span>
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_3" type="checkbox" id="__nav_3" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3">
           <span class="md-ellipsis">Setup</span>
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="Setup" data-md-level="1">
-        <label class="md-nav__title" for="__nav_2">
+        <label class="md-nav__title" for="__nav_3">
           <span class="md-nav__icon md-icon"></span>
           <span class="md-ellipsis">Setup</span>
         </label>
@@ -377,17 +428,17 @@
     <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_3" type="checkbox" id="__nav_3" checked>
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4" type="checkbox" id="__nav_4" checked>
       
       
       
-        <label class="md-nav__link" for="__nav_3">
+        <label class="md-nav__link" for="__nav_4">
           <span class="md-ellipsis">JSON</span>
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="JSON" data-md-level="1">
-        <label class="md-nav__title" for="__nav_3">
+        <label class="md-nav__title" for="__nav_4">
           <span class="md-nav__icon md-icon"></span>
           <span class="md-ellipsis">JSON</span>
         </label>
@@ -1050,7 +1101,7 @@
                   
 
 
-<h1 id="index-space"><span id="id1"></span>Index space<a class="headerlink" href="#index-space" title="Permalink to this heading">¶</a></h1>
+<h1 id="index-space"><span id="id1"></span>Index space<a class="headerlink" href="#index-space" title="Link to this heading">¶</a></h1>
 <p>TensorStore defines an <em>index space</em> as an <span class="math notranslate nohighlight">\(n\)</span>-dimensional
 space, where <span class="math notranslate nohighlight">\(n\)</span> is the <em>rank</em> of the space and each
 index is an integer in the closed interval <span class="math notranslate nohighlight">\([-(2^{62}-2),
@@ -1068,7 +1119,7 @@ is the same constraint imposed by NumPy.</p>
 <p id="dimension-labels">Each of the <span class="math notranslate nohighlight">\(n\)</span> dimensions may optionally be identified by a unique
 string <em>label</em>, such as <code class="docutils literal notranslate"><span class="pre">&quot;x&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;y&quot;</span></code>, or <code class="docutils literal notranslate"><span class="pre">&quot;z&quot;</span></code>.  Unlabeled
 dimensions are indicated by an empty string as the label.</p>
-<h2 id="index-domain"><span id="implicit-bounds"></span><span id="id2"></span>Index domain<a class="headerlink" href="#index-domain" title="Permalink to this heading">¶</a></h2>
+<h2 id="index-domain"><span id="implicit-bounds"></span><span id="id2"></span>Index domain<a class="headerlink" href="#index-domain" title="Link to this heading">¶</a></h2>
 <p>An <em>index domain</em> is a rectangular region of an index space.</p>
 <ul class="simple">
 <li><p>The inclusive lower bound of each dimensions is specified as an
@@ -1100,7 +1151,7 @@ error.</p>
 </div>
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-IndexDomain">
-<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">IndexDomain</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-IndexDomain" title="Permalink to this definition">¶</a></dt>
+<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">IndexDomain</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-IndexDomain" title="Link to this definition">¶</a></dt>
 <dd><p><a class="reference internal" href="#index-domain"><span class="std std-ref">Index domains</span></a> may be serialized to/from JSON using
 the following schema.</p>
 <p>If neither <a class="reference internal" href="#json-IndexDomain.inclusive_min" title="IndexDomain.inclusive_min (JSON member) — Inclusive lower bounds of the domain."><code class="xref json json-schema docutils literal notranslate"><span class="pre">inclusive_min</span></code></a> nor <a class="reference internal" href="#json-IndexDomain.shape" title="IndexDomain.shape (JSON member) — Extent of each dimension of the domain."><code class="xref json json-schema docutils literal notranslate"><span class="pre">shape</span></code></a> is specified,
@@ -1114,7 +1165,7 @@ receive an implicit upper bound of <span class="math notranslate nohighlight">\(
 <dt class="field-odd" id="optional-members-json-IndexDomain">Optional members<span class="colon">:</span><a class="headerlink" href="#optional-members-json-IndexDomain" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-IndexDomain.rank">
-<span class="sig-name descname"><span class="pre">rank</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">0</span></code><span class="p"><span class="pre">,</span> </span><code class="code json docutils literal highlight highlight-json"><span class="mi">32</span></code><span class="p"><span class="pre">]</span></span></sub><a class="headerlink" href="#json-IndexDomain.rank" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">rank</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">0</span></code><span class="p"><span class="pre">,</span> </span><code class="code json docutils literal highlight highlight-json"><span class="mi">32</span></code><span class="p"><span class="pre">]</span></span></sub><a class="headerlink" href="#json-IndexDomain.rank" title="Link to this definition">¶</a></dt>
 <dd><span><p>Number of dimensions.</p>
   </span><p>The rank must be specified either directly, or implicitly by the number of
 dimensions specified for <a class="reference internal" href="#json-IndexDomain.inclusive_min" title="IndexDomain.inclusive_min (JSON member) — Inclusive lower bounds of the domain."><code class="xref json json-schema docutils literal notranslate"><span class="pre">inclusive_min</span></code></a>,
@@ -1124,7 +1175,7 @@ dimensions specified for <a class="reference internal" href="#json-IndexDomain.i
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-IndexDomain.inclusive_min">
-<span class="sig-name descname"><span class="pre">inclusive_min</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">integer</span></span><span class="p"> <span class="pre">|</span> </span><span class="p"><span class="pre">[</span></span><span class="desctype"><span class="pre">integer</span></span><span class="p"><span class="pre">]</span></span><a class="headerlink" href="#json-IndexDomain.inclusive_min" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">inclusive_min</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">integer</span></span><span class="p"> <span class="pre">|</span> </span><span class="p"><span class="pre">[</span></span><span class="desctype"><span class="pre">integer</span></span><span class="p"><span class="pre">]</span></span><a class="headerlink" href="#json-IndexDomain.inclusive_min" title="Link to this definition">¶</a></dt>
 <dd><span><p>Inclusive lower bounds of the domain.</p>
   </span><p>Length must equal the <a class="reference internal" href="#json-IndexDomain.rank" title="IndexDomain.rank (JSON member) — Number of dimensions."><code class="xref json json-schema docutils literal notranslate"><span class="pre">rank</span></code></a>.  Bounds specified as
 <code class="samp docutils literal notranslate"><em><span class="pre">n</span></em></code> indicate normal, explicit bounds, while bounds specified as
@@ -1136,7 +1187,7 @@ dimension.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-IndexDomain.exclusive_max">
-<span class="sig-name descname"><span class="pre">exclusive_max</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">integer</span></span><span class="p"> <span class="pre">|</span> </span><span class="p"><span class="pre">[</span></span><span class="desctype"><span class="pre">integer</span></span><span class="p"><span class="pre">]</span></span><a class="headerlink" href="#json-IndexDomain.exclusive_max" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">exclusive_max</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">integer</span></span><span class="p"> <span class="pre">|</span> </span><span class="p"><span class="pre">[</span></span><span class="desctype"><span class="pre">integer</span></span><span class="p"><span class="pre">]</span></span><a class="headerlink" href="#json-IndexDomain.exclusive_max" title="Link to this definition">¶</a></dt>
 <dd><span><p>Exclusive upper bounds of the domain.</p>
   </span><p>Length must equal the <a class="reference internal" href="#json-IndexDomain.rank" title="IndexDomain.rank (JSON member) — Number of dimensions."><code class="xref json json-schema docutils literal notranslate"><span class="pre">rank</span></code></a>.  As for
 <a class="reference internal" href="#json-IndexDomain.inclusive_min" title="IndexDomain.inclusive_min (JSON member) — Inclusive lower bounds of the domain."><code class="xref json json-schema docutils literal notranslate"><span class="pre">inclusive_min</span></code></a>, bounds specified as <code class="samp docutils literal notranslate"><em><span class="pre">n</span></em></code>
@@ -1148,7 +1199,7 @@ and an implicit bound of <span class="math notranslate nohighlight">\(x &lt; 7\)
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-IndexDomain.inclusive_max">
-<span class="sig-name descname"><span class="pre">inclusive_max</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">integer</span></span><span class="p"> <span class="pre">|</span> </span><span class="p"><span class="pre">[</span></span><span class="desctype"><span class="pre">integer</span></span><span class="p"><span class="pre">]</span></span><a class="headerlink" href="#json-IndexDomain.inclusive_max" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">inclusive_max</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">integer</span></span><span class="p"> <span class="pre">|</span> </span><span class="p"><span class="pre">[</span></span><span class="desctype"><span class="pre">integer</span></span><span class="p"><span class="pre">]</span></span><a class="headerlink" href="#json-IndexDomain.inclusive_max" title="Link to this definition">¶</a></dt>
 <dd><span><p>Inclusive upper bounds of the domain.</p>
   </span><p>Length must equal the <a class="reference internal" href="#json-IndexDomain.rank" title="IndexDomain.rank (JSON member) — Number of dimensions."><code class="xref json json-schema docutils literal notranslate"><span class="pre">rank</span></code></a>.  As for
 <a class="reference internal" href="#json-IndexDomain.inclusive_min" title="IndexDomain.inclusive_min (JSON member) — Inclusive lower bounds of the domain."><code class="xref json json-schema docutils literal notranslate"><span class="pre">inclusive_min</span></code></a>, bounds specified as <code class="samp docutils literal notranslate"><em><span class="pre">n</span></em></code>
@@ -1161,7 +1212,7 @@ dimension.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-IndexDomain.shape">
-<span class="sig-name descname"><span class="pre">shape</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">integer</span></span><span class="p"> <span class="pre">|</span> </span><span class="p"><span class="pre">[</span></span><span class="desctype"><span class="pre">integer</span></span><span class="p"><span class="pre">]</span></span><a class="headerlink" href="#json-IndexDomain.shape" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">shape</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">integer</span></span><span class="p"> <span class="pre">|</span> </span><span class="p"><span class="pre">[</span></span><span class="desctype"><span class="pre">integer</span></span><span class="p"><span class="pre">]</span></span><a class="headerlink" href="#json-IndexDomain.shape" title="Link to this definition">¶</a></dt>
 <dd><span><p>Extent of each dimension of the domain.</p>
   </span><p>Length must equal the <a class="reference internal" href="#json-IndexDomain.rank" title="IndexDomain.rank (JSON member) — Number of dimensions."><code class="xref json json-schema docutils literal notranslate"><span class="pre">rank</span></code></a>.  As for
 <a class="reference internal" href="#json-IndexDomain.inclusive_min" title="IndexDomain.inclusive_min (JSON member) — Inclusive lower bounds of the domain."><code class="xref json json-schema docutils literal notranslate"><span class="pre">inclusive_min</span></code></a>, bounds specified as <code class="samp docutils literal notranslate"><em><span class="pre">n</span></em></code>
@@ -1175,7 +1226,7 @@ of <span class="math notranslate nohighlight">\(x &lt; 6\)</span> for the first 
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-IndexDomain.labels">
-<span class="sig-name descname"><span class="pre">labels</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">string</span></span><a class="headerlink" href="#json-IndexDomain.labels" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">labels</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">string</span></span><a class="headerlink" href="#json-IndexDomain.labels" title="Link to this definition">¶</a></dt>
 <dd><span><p><a class="reference internal" href="#dimension-labels"><span class="std std-ref">Dimension labels</span></a> for each dimension.</p>
   </span><p>Length must equal the <a class="reference internal" href="#json-IndexDomain.rank" title="IndexDomain.rank (JSON member) — Number of dimensions."><code class="xref json json-schema docutils literal notranslate"><span class="pre">rank</span></code></a>.  An empty string
 indicates an unlabeled dimension.  Non-empty strings must not occur more
@@ -1186,7 +1237,7 @@ than once.  By default, all dimensions are unlabeled.</p>
 </dl>
 </dd></dl>
 
-<h2 id="index-transform"><span id="id3"></span>Index transform<a class="headerlink" href="#index-transform" title="Permalink to this heading">¶</a></h2>
+<h2 id="index-transform"><span id="id3"></span>Index transform<a class="headerlink" href="#index-transform" title="Link to this heading">¶</a></h2>
 <p>An <em>index transform</em> from rank <span class="math notranslate nohighlight">\(m\)</span> to rank <span class="math notranslate nohighlight">\(n\)</span> maps every
 <span class="math notranslate nohighlight">\(m\)</span>-dimensional index vector in a rank-<span class="math notranslate nohighlight">\(m\)</span> <a class="reference internal" href="#index-domain"><span class="std std-ref">index
 domain</span></a> to an <span class="math notranslate nohighlight">\(n\)</span>-dimensional index vector in the
@@ -1195,7 +1246,7 @@ output space.</p>
 maps</em>, one for each dimension <span class="math notranslate nohighlight">\(j\)</span> of the output space, each of
 one of the following three forms:</p>
 <table class="docutils data align-default" id="output-index-methods">
-<caption><span class="caption-text">Output index methods</span><a class="headerlink" href="#output-index-methods" title="Permalink to this table">¶</a></caption>
+<caption><span class="caption-text">Output index methods</span><a class="headerlink" href="#output-index-methods" title="Link to this table">¶</a></caption>
 <tbody>
 <tr class="row-odd"><td><p id="index-transform-constant-map">constant</p>
 </td>
@@ -1264,7 +1315,7 @@ modified.</p></td>
 </table>
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-IndexTransform">
-<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">IndexTransform</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-IndexTransform" title="Permalink to this definition">¶</a></dt>
+<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">IndexTransform</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-IndexTransform" title="Link to this definition">¶</a></dt>
 <dd><p><a class="reference internal" href="#index-transform"><span class="std std-ref">Index transforms</span></a> may be serialized to/from JSON using
 the following schema.</p>
 <p>The input domain is specified by <a class="reference internal" href="#json-IndexTransform.input_rank" title="IndexTransform.input_rank (JSON member) — Number of input dimensions."><code class="xref json json-schema docutils literal notranslate"><span class="pre">input_rank</span></code></a>,
@@ -1285,7 +1336,7 @@ bound of <span class="math notranslate nohighlight">\(+\infty\)</span>.</p>
 <dt class="field-odd" id="optional-members-json-IndexTransform">Optional members<span class="colon">:</span><a class="headerlink" href="#optional-members-json-IndexTransform" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-IndexTransform.input_rank">
-<span class="sig-name descname"><span class="pre">input_rank</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">0</span></code><span class="p"><span class="pre">,</span> </span><code class="code json docutils literal highlight highlight-json"><span class="mi">32</span></code><span class="p"><span class="pre">]</span></span></sub><a class="headerlink" href="#json-IndexTransform.input_rank" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">input_rank</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">0</span></code><span class="p"><span class="pre">,</span> </span><code class="code json docutils literal highlight highlight-json"><span class="mi">32</span></code><span class="p"><span class="pre">]</span></span></sub><a class="headerlink" href="#json-IndexTransform.input_rank" title="Link to this definition">¶</a></dt>
 <dd><span><p>Number of input dimensions.</p>
   </span><p>The input rank must be specified either directly, or implicitly by the
 number of dimensions specified for <a class="reference internal" href="#json-IndexTransform.input_inclusive_min" title="IndexTransform.input_inclusive_min (JSON member) — Inclusive lower bounds of the input domain."><code class="xref json json-schema docutils literal notranslate"><span class="pre">input_inclusive_min</span></code></a>,
@@ -1295,7 +1346,7 @@ number of dimensions specified for <a class="reference internal" href="#json-Ind
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-IndexTransform.input_inclusive_min">
-<span class="sig-name descname"><span class="pre">input_inclusive_min</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">integer</span></span><span class="p"> <span class="pre">|</span> </span><span class="p"><span class="pre">[</span></span><span class="desctype"><span class="pre">integer</span></span><span class="p"><span class="pre">]</span></span><a class="headerlink" href="#json-IndexTransform.input_inclusive_min" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">input_inclusive_min</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">integer</span></span><span class="p"> <span class="pre">|</span> </span><span class="p"><span class="pre">[</span></span><span class="desctype"><span class="pre">integer</span></span><span class="p"><span class="pre">]</span></span><a class="headerlink" href="#json-IndexTransform.input_inclusive_min" title="Link to this definition">¶</a></dt>
 <dd><span><p>Inclusive lower bounds of the input domain.</p>
   </span><p>Length must equal the <a class="reference internal" href="#json-IndexTransform.input_rank" title="IndexTransform.input_rank (JSON member) — Number of input dimensions."><code class="xref json json-schema docutils literal notranslate"><span class="pre">input_rank</span></code></a>.  Bounds specified as
 <code class="samp docutils literal notranslate"><em><span class="pre">n</span></em></code> indicate normal, explicit bounds, while bounds specified as
@@ -1307,7 +1358,7 @@ dimension.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-IndexTransform.input_exclusive_max">
-<span class="sig-name descname"><span class="pre">input_exclusive_max</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">integer</span></span><span class="p"> <span class="pre">|</span> </span><span class="p"><span class="pre">[</span></span><span class="desctype"><span class="pre">integer</span></span><span class="p"><span class="pre">]</span></span><a class="headerlink" href="#json-IndexTransform.input_exclusive_max" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">input_exclusive_max</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">integer</span></span><span class="p"> <span class="pre">|</span> </span><span class="p"><span class="pre">[</span></span><span class="desctype"><span class="pre">integer</span></span><span class="p"><span class="pre">]</span></span><a class="headerlink" href="#json-IndexTransform.input_exclusive_max" title="Link to this definition">¶</a></dt>
 <dd><span><p>Exclusive upper bounds of the input domain.</p>
   </span><p>Length must equal the <a class="reference internal" href="#json-IndexTransform.input_rank" title="IndexTransform.input_rank (JSON member) — Number of input dimensions."><code class="xref json json-schema docutils literal notranslate"><span class="pre">input_rank</span></code></a>.  As for
 <a class="reference internal" href="#json-IndexTransform.input_inclusive_min" title="IndexTransform.input_inclusive_min (JSON member) — Inclusive lower bounds of the input domain."><code class="xref json json-schema docutils literal notranslate"><span class="pre">input_inclusive_min</span></code></a>, bounds specified as <code class="samp docutils literal notranslate"><em><span class="pre">n</span></em></code>
@@ -1319,7 +1370,7 @@ and an implicit bound of <span class="math notranslate nohighlight">\(x &lt; 7\)
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-IndexTransform.input_inclusive_max">
-<span class="sig-name descname"><span class="pre">input_inclusive_max</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">integer</span></span><span class="p"> <span class="pre">|</span> </span><span class="p"><span class="pre">[</span></span><span class="desctype"><span class="pre">integer</span></span><span class="p"><span class="pre">]</span></span><a class="headerlink" href="#json-IndexTransform.input_inclusive_max" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">input_inclusive_max</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">integer</span></span><span class="p"> <span class="pre">|</span> </span><span class="p"><span class="pre">[</span></span><span class="desctype"><span class="pre">integer</span></span><span class="p"><span class="pre">]</span></span><a class="headerlink" href="#json-IndexTransform.input_inclusive_max" title="Link to this definition">¶</a></dt>
 <dd><span><p>Inclusive upper bounds of the input domain.</p>
   </span><p>Length must equal the <a class="reference internal" href="#json-IndexTransform.input_rank" title="IndexTransform.input_rank (JSON member) — Number of input dimensions."><code class="xref json json-schema docutils literal notranslate"><span class="pre">input_rank</span></code></a>.  As for
 <a class="reference internal" href="#json-IndexTransform.input_inclusive_min" title="IndexTransform.input_inclusive_min (JSON member) — Inclusive lower bounds of the input domain."><code class="xref json json-schema docutils literal notranslate"><span class="pre">input_inclusive_min</span></code></a>, bounds specified as <code class="samp docutils literal notranslate"><em><span class="pre">n</span></em></code>
@@ -1332,7 +1383,7 @@ dimension.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-IndexTransform.input_shape">
-<span class="sig-name descname"><span class="pre">input_shape</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">integer</span></span><span class="p"> <span class="pre">|</span> </span><span class="p"><span class="pre">[</span></span><span class="desctype"><span class="pre">integer</span></span><span class="p"><span class="pre">]</span></span><a class="headerlink" href="#json-IndexTransform.input_shape" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">input_shape</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">integer</span></span><span class="p"> <span class="pre">|</span> </span><span class="p"><span class="pre">[</span></span><span class="desctype"><span class="pre">integer</span></span><span class="p"><span class="pre">]</span></span><a class="headerlink" href="#json-IndexTransform.input_shape" title="Link to this definition">¶</a></dt>
 <dd><span><p>Extent of each dimension of the input domain.</p>
   </span><p>Length must equal the <a class="reference internal" href="#json-IndexTransform.input_rank" title="IndexTransform.input_rank (JSON member) — Number of input dimensions."><code class="xref json json-schema docutils literal notranslate"><span class="pre">input_rank</span></code></a>.  As for
 <a class="reference internal" href="#json-IndexTransform.input_inclusive_min" title="IndexTransform.input_inclusive_min (JSON member) — Inclusive lower bounds of the input domain."><code class="xref json json-schema docutils literal notranslate"><span class="pre">input_inclusive_min</span></code></a>, bounds specified as <code class="samp docutils literal notranslate"><em><span class="pre">n</span></em></code>
@@ -1346,7 +1397,7 @@ of <span class="math notranslate nohighlight">\(x &lt; 6\)</span> for the first 
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-IndexTransform.input_labels">
-<span class="sig-name descname"><span class="pre">input_labels</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">string</span></span><a class="headerlink" href="#json-IndexTransform.input_labels" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">input_labels</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">string</span></span><a class="headerlink" href="#json-IndexTransform.input_labels" title="Link to this definition">¶</a></dt>
 <dd><span><p><a class="reference internal" href="#dimension-labels"><span class="std std-ref">Dimension labels</span></a> for each input domain dimension.</p>
   </span><p>Length must equal the <a class="reference internal" href="#json-IndexTransform.input_rank" title="IndexTransform.input_rank (JSON member) — Number of input dimensions."><code class="xref json json-schema docutils literal notranslate"><span class="pre">input_rank</span></code></a>.  An empty string
 indicates an unlabeled dimension.  Non-empty strings must not occur more
@@ -1355,7 +1406,7 @@ than once.  By default, all dimensions are unlabeled.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-IndexTransform.output">
-<span class="sig-name descname"><span class="pre">output</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><a class="reference internal" href="#json-OutputIndexMap" title="OutputIndexMap (JSON type) — Specifies a transform from an input space to a single output index."><span class="pre">OutputIndexMap</span></a></span><a class="headerlink" href="#json-IndexTransform.output" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">output</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><a class="reference internal" href="#json-OutputIndexMap" title="OutputIndexMap (JSON type) — Specifies a transform from an input space to a single output index."><span class="pre">OutputIndexMap</span></a></span><a class="headerlink" href="#json-IndexTransform.output" title="Link to this definition">¶</a></dt>
 <dd><span><p>Specifies the output index map for each output dimension.</p>
   </span><p>If not specified, defaults to an identity transform over the input domain.
 Otherwise, the length determines the output rank of the transform.</p>
@@ -1367,7 +1418,7 @@ Otherwise, the length determines the output rank of the transform.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-OutputIndexMap">
-<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">OutputIndexMap</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-OutputIndexMap" title="Permalink to this definition">¶</a></dt>
+<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">OutputIndexMap</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-OutputIndexMap" title="Link to this definition">¶</a></dt>
 <dd><span><p>Specifies a transform from an input space to a single output index.</p>
   </span><p>Logically, an output index map is a function that maps <code class="code highlight json docutils literal highlight-json"><span class="kc">n</span></code>-dimensional
 input index vectors to a single output index, using one of the supported
@@ -1378,7 +1429,7 @@ dimension of an <a class="reference internal" href="#json-IndexTransform" title=
 <dt class="field-odd" id="optional-members-json-OutputIndexMap">Optional members<span class="colon">:</span><a class="headerlink" href="#optional-members-json-OutputIndexMap" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-OutputIndexMap.offset">
-<span class="sig-name descname"><span class="pre">offset</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><a class="headerlink" href="#json-OutputIndexMap.offset" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">offset</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><a class="headerlink" href="#json-OutputIndexMap.offset" title="Link to this definition">¶</a></dt>
 <dd><span><p>Specifies an offset for this output dimension.  If neither
 <a class="reference internal" href="#json-OutputIndexMap.input_dimension" title="OutputIndexMap.input_dimension (JSON member) — If present, indicates that this output dimension uses a single input dimension map with the specified input dimension.  Must not be specified in conjunction with index_array."><code class="xref json json-schema docutils literal notranslate"><span class="pre">input_dimension</span></code></a> nor <a class="reference internal" href="#json-OutputIndexMap.index_array" title="OutputIndexMap.index_array (JSON member) — If present, indicates that this output dimension uses an index array map, with the index array specified as a nested list of rank equal to the input_rank."><code class="xref json json-schema docutils literal notranslate"><span class="pre">index_array</span></code></a> is
 specified, this specifies the <strong>constant</strong> value to which this output
@@ -1387,7 +1438,7 @@ dimension maps.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-OutputIndexMap.stride">
-<span class="sig-name descname"><span class="pre">stride</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><a class="headerlink" href="#json-OutputIndexMap.stride" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">stride</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><a class="headerlink" href="#json-OutputIndexMap.stride" title="Link to this definition">¶</a></dt>
 <dd><span><p>Multiplier for the input index specified by
 <a class="reference internal" href="#json-OutputIndexMap.input_dimension" title="OutputIndexMap.input_dimension (JSON member) — If present, indicates that this output dimension uses a single input dimension map with the specified input dimension.  Must not be specified in conjunction with index_array."><code class="xref json json-schema docutils literal notranslate"><span class="pre">input_dimension</span></code></a> or the index array value specified by
 <a class="reference internal" href="#json-OutputIndexMap.index_array" title="OutputIndexMap.index_array (JSON member) — If present, indicates that this output dimension uses an index array map, with the index array specified as a nested list of rank equal to the input_rank."><code class="xref json json-schema docutils literal notranslate"><span class="pre">index_array</span></code></a>.</p>
@@ -1397,7 +1448,7 @@ dimension maps.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-OutputIndexMap.input_dimension">
-<span class="sig-name descname"><span class="pre">input_dimension</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">0</span></code><span class="p"><span class="pre">,</span> </span><span class="o"><span class="pre">+∞</span></span><span class="p"><span class="pre">)</span></span></sub><a class="headerlink" href="#json-OutputIndexMap.input_dimension" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">input_dimension</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">0</span></code><span class="p"><span class="pre">,</span> </span><span class="o"><span class="pre">+∞</span></span><span class="p"><span class="pre">)</span></span></sub><a class="headerlink" href="#json-OutputIndexMap.input_dimension" title="Link to this definition">¶</a></dt>
 <dd><span><p>If present, indicates that this output dimension uses a <strong>single
 input dimension</strong> map with the specified input dimension.  Must not
 be specified in conjunction with <a class="reference internal" href="#json-OutputIndexMap.index_array" title="OutputIndexMap.index_array (JSON member) — If present, indicates that this output dimension uses an index array map, with the index array specified as a nested list of rank equal to the input_rank."><code class="xref json json-schema docutils literal notranslate"><span class="pre">index_array</span></code></a>.</p>
@@ -1405,7 +1456,7 @@ be specified in conjunction with <a class="reference internal" href="#json-Outpu
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-OutputIndexMap.index_array">
-<span class="sig-name descname"><span class="pre">index_array</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><span class="p"> <span class="pre">|</span> </span><span class="desctype"><span class="pre">integer</span></span><a class="headerlink" href="#json-OutputIndexMap.index_array" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">index_array</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><span class="p"> <span class="pre">|</span> </span><span class="desctype"><span class="pre">integer</span></span><a class="headerlink" href="#json-OutputIndexMap.index_array" title="Link to this definition">¶</a></dt>
 <dd><span><p>If present, indicates that this output dimension uses an <strong>index
 array</strong> map, with the index array specified as a nested list of rank
 equal to the <a class="reference internal" href="#json-IndexTransform.input_rank" title="IndexTransform.input_rank (JSON member) — Number of input dimensions."><code class="xref json json-schema docutils literal notranslate"><span class="pre">input_rank</span></code></a>.</p>
@@ -1414,7 +1465,7 @@ equal to the <a class="reference internal" href="#json-IndexTransform.input_rank
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-OutputIndexMap.index_array_bounds">
-<span class="sig-name descname"><span class="pre">index_array_bounds</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="#json-IndexInterval" title="IndexInterval (JSON type) — Specifies a closed interval of integer index values."><span class="pre">IndexInterval</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="p">[</span><span class="s2">&quot;-inf&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;+inf&quot;</span><span class="p">]</span></code><a class="headerlink" href="#json-OutputIndexMap.index_array_bounds" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">index_array_bounds</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="#json-IndexInterval" title="IndexInterval (JSON type) — Specifies a closed interval of integer index values."><span class="pre">IndexInterval</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="p">[</span><span class="s2">&quot;-inf&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;+inf&quot;</span><span class="p">]</span></code><a class="headerlink" href="#json-OutputIndexMap.index_array_bounds" title="Link to this definition">¶</a></dt>
 <dd><p>If present, specifies constraints on the values within
 <a class="reference internal" href="#json-OutputIndexMap.index_array" title="OutputIndexMap.index_array (JSON member) — If present, indicates that this output dimension uses an index array map, with the index array specified as a nested list of rank equal to the input_rank."><code class="xref json json-schema docutils literal notranslate"><span class="pre">index_array</span></code></a> (which must also be specified).  If
 <a class="reference internal" href="#json-OutputIndexMap.index_array" title="OutputIndexMap.index_array (JSON member) — If present, indicates that this output dimension uses an index array map, with the index array specified as a nested list of rank equal to the input_rank."><code class="xref json json-schema docutils literal notranslate"><span class="pre">index_array</span></code></a> contains an out-of-bounds index, an error
@@ -1450,11 +1501,11 @@ JSON, but normally need not be specified manually.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-IndexInterval">
-<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">IndexInterval</span></span><span class="p"> <span class="pre">:</span> </span><span class="p"><span class="pre">[</span></span><span class="desctype"><span class="pre">integer</span></span><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;-inf&quot;</span></code><span class="p"><span class="pre">,</span></span> <span class="desctype"><span class="pre">integer</span></span><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;+inf&quot;</span></code><span class="p"><span class="pre">]</span></span><a class="headerlink" href="#json-IndexInterval" title="Permalink to this definition">¶</a></dt>
+<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">IndexInterval</span></span><span class="p"> <span class="pre">:</span> </span><span class="p"><span class="pre">[</span></span><span class="desctype"><span class="pre">integer</span></span><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;-inf&quot;</span></code><span class="p"><span class="pre">,</span></span> <span class="desctype"><span class="pre">integer</span></span><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;+inf&quot;</span></code><span class="p"><span class="pre">]</span></span><a class="headerlink" href="#json-IndexInterval" title="Link to this definition">¶</a></dt>
 <dd><span><p>Specifies a closed interval of integer index values.</p>
   </span></dd></dl>
 
-<h2 id="alignment-and-broadcasting"><span id="index-domain-alignment"></span>Alignment and broadcasting<a class="headerlink" href="#alignment-and-broadcasting" title="Permalink to this heading">¶</a></h2>
+<h2 id="alignment-and-broadcasting"><span id="index-domain-alignment"></span>Alignment and broadcasting<a class="headerlink" href="#alignment-and-broadcasting" title="Link to this heading">¶</a></h2>
 <p>Many operations in TensorStore involving two <a class="reference internal" href="#index-domain"><span class="std std-ref">index domains</span></a>,
 such as read, write, and copy operations, automatically <em>align</em> the <code class="docutils literal notranslate"><span class="pre">source</span></code>
 domain to the <code class="docutils literal notranslate"><span class="pre">target</span></code> domain.</p>
@@ -1676,9 +1727,9 @@ to support non-zero origins and labeled dimensions.</p>
     <script id="__config" type="application/json">{"base": ".", "features": ["navigation.expand", "navigation.sections", "navigation.top", "toc.follow", "toc.sticky"], "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "Search", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version.title": "Select version"}}</script>
     
       
-        <script src="_static/sphinx_immaterial_theme.f9d9eeeb247ace16c.min.js"></script>
+        <script src="_static/sphinx_immaterial_theme.f9d9eeeb247ace16c.min.js?v=8ec58cb5"></script>
         <script>window.MathJax = {"chtml": {"displayAlign": "left"}}</script>
-        <script id="MathJax-script" src="_static/mathjax/tex-mml-chtml.js"></script>
+        <script id="MathJax-script" src="_static/mathjax/tex-mml-chtml.js?v=cadf963e"></script>
     
   </body>
 </html>

@@ -1,0 +1,1183 @@
+
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      <link rel="icon" href="../../_static/logo.svg">
+    
+    
+      
+        <title>tensorstore::IsStridedLayout - TensorStore</title>
+      
+    
+    
+      
+        
+        
+      
+      
+
+    
+    
+    
+      
+        
+        
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+        <link rel="stylesheet" type="text/css" href="../../_static/sphinx_immaterial_theme.4b4a8c74e2ff2ab5b.min.css?v=afa97f93" />
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="green" data-md-color-accent="light-blue">
+  
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&"object"==typeof palette.color)for(var key of Object.keys(palette.color))document.body.setAttribute("data-md-color-"+key,palette.color[key])</script>
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../index.html" title="TensorStore" class="md-header__button md-logo" aria-label="TensorStore" data-md-component="logo">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 132.0 132.0"><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="2.0" x2="130.8" y2="2.0"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="16.2" x2="130.8" y2="16.2"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="30.4" x2="130.8" y2="30.4"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="44.7" x2="130.8" y2="44.7"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="58.9" x2="130.8" y2="58.9"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="73.1" x2="130.8" y2="73.1"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="87.3" x2="130.8" y2="87.3"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="101.6" x2="130.8" y2="101.6"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="115.8" x2="130.8" y2="115.8"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="130.0" x2="130.8" y2="130.0"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="2.0" y2="130.0" x2="2.0"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="16.2" y2="130.0" x2="16.2"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="30.4" y2="130.0" x2="30.4"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="44.7" y2="130.0" x2="44.7"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="58.9" y2="130.0" x2="58.9"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="73.1" y2="130.0" x2="73.1"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="87.3" y2="130.0" x2="87.3"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="101.6" y2="130.0" x2="101.6"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="115.8" y2="130.0" x2="115.8"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="130.0" y2="130.0" x2="130.0"/><rect fill="currentColor" x="3.5" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="17.7" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="46.2" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="60.4" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="17.7" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="74.6" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="88.8" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="103.1" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="46.2" width="11.2" height="11.2"/><rect fill="currentColor" x="60.4" y="46.2" width="11.2" height="11.2"/><rect fill="currentColor" x="117.3" y="46.2" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="60.4" width="11.2" height="11.2"/><rect fill="currentColor" x="74.6" y="60.4" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="74.6" width="11.2" height="11.2"/><rect fill="currentColor" x="88.8" y="74.6" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="88.8" width="11.2" height="11.2"/><rect fill="currentColor" x="103.1" y="88.8" width="11.2" height="11.2"/><rect fill="currentColor" x="60.4" y="103.1" width="11.2" height="11.2"/><rect fill="currentColor" x="117.3" y="103.1" width="11.2" height="11.2"/><rect fill="currentColor" x="74.6" y="117.3" width="11.2" height="11.2"/><rect fill="currentColor" x="88.8" y="117.3" width="11.2" height="11.2"/><rect fill="currentColor" x="103.1" y="117.3" width="11.2" height="11.2"/></svg>
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            TensorStore
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              tensorstore::IsStridedLayout
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      <form class="md-header__option" data-md-component="palette">
+        
+          
+          
+          <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="green" data-md-color-accent="light-blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+          
+            <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_2" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7M9 21a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1H9v1Z"/></svg>
+            </label>
+          
+        
+          
+          
+          <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="green" data-md-color-accent="light-blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_2">
+          
+            <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7M9 21v-1h6v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1m3-17a5 5 0 0 0-5 5c0 2.05 1.23 3.81 3 4.58V16h4v-2.42c1.77-.77 3-2.53 3-4.58a5 5 0 0 0-5-5Z"/></svg>
+            </label>
+          
+        
+      </form>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/google/tensorstore/" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    tensorstore
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../index.html" title="TensorStore" class="md-nav__button md-logo" aria-label="TensorStore" data-md-component="logo">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 132.0 132.0"><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="2.0" x2="130.8" y2="2.0"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="16.2" x2="130.8" y2="16.2"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="30.4" x2="130.8" y2="30.4"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="44.7" x2="130.8" y2="44.7"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="58.9" x2="130.8" y2="58.9"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="73.1" x2="130.8" y2="73.1"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="87.3" x2="130.8" y2="87.3"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="101.6" x2="130.8" y2="101.6"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="115.8" x2="130.8" y2="115.8"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="130.0" x2="130.8" y2="130.0"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="2.0" y2="130.0" x2="2.0"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="16.2" y2="130.0" x2="16.2"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="30.4" y2="130.0" x2="30.4"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="44.7" y2="130.0" x2="44.7"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="58.9" y2="130.0" x2="58.9"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="73.1" y2="130.0" x2="73.1"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="87.3" y2="130.0" x2="87.3"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="101.6" y2="130.0" x2="101.6"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="115.8" y2="130.0" x2="115.8"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="130.0" y2="130.0" x2="130.0"/><rect fill="currentColor" x="3.5" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="17.7" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="46.2" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="60.4" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="17.7" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="74.6" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="88.8" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="103.1" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="46.2" width="11.2" height="11.2"/><rect fill="currentColor" x="60.4" y="46.2" width="11.2" height="11.2"/><rect fill="currentColor" x="117.3" y="46.2" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="60.4" width="11.2" height="11.2"/><rect fill="currentColor" x="74.6" y="60.4" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="74.6" width="11.2" height="11.2"/><rect fill="currentColor" x="88.8" y="74.6" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="88.8" width="11.2" height="11.2"/><rect fill="currentColor" x="103.1" y="88.8" width="11.2" height="11.2"/><rect fill="currentColor" x="60.4" y="103.1" width="11.2" height="11.2"/><rect fill="currentColor" x="117.3" y="103.1" width="11.2" height="11.2"/><rect fill="currentColor" x="74.6" y="117.3" width="11.2" height="11.2"/><rect fill="currentColor" x="88.8" y="117.3" width="11.2" height="11.2"/><rect fill="currentColor" x="103.1" y="117.3" width="11.2" height="11.2"/></svg>
+    </a>
+    TensorStore
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/google/tensorstore/" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    tensorstore
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+      
+
+  
+  
+  
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_1" type="checkbox" id="__nav_1" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_1">
+          <span class="md-ellipsis">Python API</span>
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Python API" data-md-level="1">
+        <label class="md-nav__title" for="__nav_1">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">Python API</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/tutorial.html" class="md-nav__link">
+        <span class="md-ellipsis">Tutorial</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/indexing.html" class="md-nav__link">
+        <span class="md-ellipsis">Indexing</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/api/index.html" class="md-nav__link">
+        <span class="md-ellipsis">API reference</span>
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+    
+      
+      
+      
+
+  
+  
+    
+  
+  
+    
+      
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_2" type="checkbox" id="__nav_2" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_2">
+          <span class="md-ellipsis">C++ API</span>
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="C++ API" data-md-level="1">
+        <label class="md-nav__title" for="__nav_2">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">C++ API</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_2_1" type="checkbox" id="__nav_2_1" checked>
+      
+      
+      
+        
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="index.html"><span class="md-ellipsis">API reference</span></a>
+          
+            <label for="__nav_2_1">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
+          
+        </div>
+      
+      <nav class="md-nav" aria-label="API reference" data-md-level="2">
+        <label class="md-nav__title" for="__nav_2_1">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">API reference</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="index.html#core" class="md-nav__link">
+        <span class="md-ellipsis">Core</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="index.html#indexing" class="md-nav__link">
+        <span class="md-ellipsis">Indexing</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="index.html#data-types" class="md-nav__link">
+        <span class="md-ellipsis">Data types</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_2_1_4" type="checkbox" id="__nav_2_1_4" checked>
+      
+      
+      
+        
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="index.html#array"><span class="md-ellipsis">Array</span></a>
+          
+            <label for="__nav_2_1_4">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
+          
+        </div>
+      
+      <nav class="md-nav" aria-label="Array" data-md-level="3">
+        <label class="md-nav__title" for="__nav_2_1_4">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">Array</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.ContainerKind.html" class="md-nav__link">
+        <span aria-label="C++ enum" class="objinfo-icon objinfo-icon__data" title="C++ enum">E</span><span title="tensorstore::ContainerKind (C++ enum) — Specifies whether an object (e.g. strided layout) is stored by value or view/reference." class="md-ellipsis">Container<wbr>Kind</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.ByteStridedPointer.html" class="md-nav__link">
+        <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span><span title="tensorstore::ByteStridedPointer (C++ class) — Wrapper type for a raw pointer for which pointer arithmetic operates with a stride of 1 byte, rather than a stride of sizeof(T) bytes." class="md-ellipsis">Byte<wbr>Strided<wbr>Pointer</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_2_1_4_3" type="checkbox" id="__nav_2_1_4_3" checked>
+      
+      
+      
+        
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="tensorstore.StridedLayout.html"><span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span><span title="tensorstore::StridedLayout (C++ class) — A StridedLayout specifies the layout of a multi-dimensional array in terms of an origin vector, a shape vector, and a byte_strides vector, all of length equal to the rank of the multi-dimensional array.  The origin and shape vectors specify the domain of the array, and the byte_strides vector specifies the offset in bytes between consecutive elements in each dimension." class="md-ellipsis">Strided<wbr>Layout</span></a>
+          
+            <label for="__nav_2_1_4_3">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
+          
+        </div>
+      
+      <nav class="md-nav" aria-label="StridedLayout" data-md-level="4">
+        <label class="md-nav__title" for="__nav_2_1_4_3">
+          <span class="md-nav__icon md-icon"></span>
+          <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span><span title="tensorstore::StridedLayout (C++ class) — A StridedLayout specifies the layout of a multi-dimensional array in terms of an origin vector, a shape vector, and a byte_strides vector, all of length equal to the rank of the multi-dimensional array.  The origin and shape vectors specify the domain of the array, and the byte_strides vector specifies the offset in bytes between consecutive elements in each dimension." class="md-ellipsis">Strided<wbr>Layout</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.StridedLayout.html#data-members" class="md-nav__link">
+        <span class="md-ellipsis">Data members</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.StridedLayout.html#types" class="md-nav__link">
+        <span class="md-ellipsis">Types</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.StridedLayout.html#methods" class="md-nav__link">
+        <span class="md-ellipsis">Methods</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.StridedLayout.html#constructors" class="md-nav__link">
+        <span class="md-ellipsis">Constructors</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.StridedLayout.html#assignment" class="md-nav__link">
+        <span class="md-ellipsis">Assignment</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.StridedLayout.html#accessors" class="md-nav__link">
+        <span class="md-ellipsis">Accessors</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.StridedLayout.html#indexing" class="md-nav__link">
+        <span class="md-ellipsis">Indexing</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.StridedLayout.html#friend-functions" class="md-nav__link">
+        <span class="md-ellipsis">Friend functions</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.StridedLayout.html#related-types" class="md-nav__link">
+        <span class="md-ellipsis">Related Types</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_2_1_4_3_10" type="checkbox" id="__nav_2_1_4_3_10" checked>
+      
+      
+      
+        
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="tensorstore.StridedLayout.html#related-constants"><span class="md-ellipsis">Related Constants</span></a>
+          
+            <label for="__nav_2_1_4_3_10">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
+          
+        </div>
+      
+      <nav class="md-nav" aria-label="Related Constants" data-md-level="5">
+        <label class="md-nav__title" for="__nav_2_1_4_3_10">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">Related Constants</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+    
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      
+      <a href="#" class="md-nav__link md-nav__link--active">
+        <span aria-label="C++ member" class="objinfo-icon objinfo-icon__alias" title="C++ member">V</span><span title="tensorstore::IsStridedLayout (C++ member) — Metafunction that checks whether a given type is convertible to StridedLayoutView." class="md-ellipsis">Is<wbr>Strided<wbr>Layout</span>
+      </a>
+      
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.StridedLayout.html#related-functions" class="md-nav__link">
+        <span class="md-ellipsis">Related Functions</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.StridedLayout.html#broadcasting" class="md-nav__link">
+        <span class="md-ellipsis">Broadcasting</span>
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.ElementPointer.html" class="md-nav__link">
+        <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span><span title="tensorstore::ElementPointer (C++ class) — Pairs an array base pointer (either an Element* or an std::shared_ptr&lt;Element&gt;) with a DataType in order to support a dynamic element type determined at run time." class="md-ellipsis">Element<wbr>Pointer</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.Array.html" class="md-nav__link">
+        <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span><span title="tensorstore::Array (C++ class) — Represents a pointer to an in-memory multi-dimensional array with an arbitrary strided layout." class="md-ellipsis">Array</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.TransformedArray.html" class="md-nav__link">
+        <span aria-label="C++ class" class="objinfo-icon objinfo-icon__data" title="C++ class">C</span><span title="tensorstore::TransformedArray (C++ class) — View through an index transform of an in-memory array." class="md-ellipsis">Transformed<wbr>Array</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="index.html#transformation" class="md-nav__link">
+        <span class="md-ellipsis">Transformation</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="index.html#iteration" class="md-nav__link">
+        <span class="md-ellipsis">Iteration</span>
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="index.html#key-value-storage" class="md-nav__link">
+        <span class="md-ellipsis">Key-<wbr>value storage</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="index.html#downsampling" class="md-nav__link">
+        <span class="md-ellipsis">Downsampling</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="index.html#utilities" class="md-nav__link">
+        <span class="md-ellipsis">Utilities</span>
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_3" type="checkbox" id="__nav_3" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3">
+          <span class="md-ellipsis">Setup</span>
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Setup" data-md-level="1">
+        <label class="md-nav__title" for="__nav_3">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">Setup</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation.html" class="md-nav__link">
+        <span class="md-ellipsis">Building and Installing</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../environment.html" class="md-nav__link">
+        <span class="md-ellipsis">Environment variables</span>
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_4" type="checkbox" id="__nav_4" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_4">
+          <span class="md-ellipsis">JSON</span>
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="JSON" data-md-level="1">
+        <label class="md-nav__title" for="__nav_4">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">JSON</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../spec.html" class="md-nav__link">
+        <span class="md-ellipsis">JSON Spec</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../index_space.html" class="md-nav__link">
+        <span class="md-ellipsis">Index space</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../schema.html" class="md-nav__link">
+        <span class="md-ellipsis">Schema</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../context.html" class="md-nav__link">
+        <span class="md-ellipsis">Context framework</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../driver/index.html" class="md-nav__link">
+        <span class="md-ellipsis">Drivers</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../kvstore/index.html" class="md-nav__link">
+        <span class="md-ellipsis">Key-<wbr>Value Storage Layer</span>
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary">
+  
+  
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset" role="main">
+                  
+
+
+<dl class="cpp var objdesc">
+<dt class="sig sig-object highlight api-include-path cpp">
+<div class="docutils container">
+<code class="cpp code highlight docutils literal highlight-cpp"><span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;tensorstore/strided_layout.h&quot;</span></code></div>
+</dt>
+<dt class="sig sig-object highlight cpp">
+<span class="k">template&nbsp;</span><span class="p">&lt;</span><span><span class="k">typename</span><span class="w">&nbsp;</span><span class="sig-name descname sig-name-nonprimary"><a class="desctype n reference internal" href="#" title="tensorstore::IsStridedLayout::X (C++ type template parameter)"><span class="n">X</span></a></span></span><span class="p">&gt;<br></span><span class="k">constexpr</span><span class="w">&nbsp;</span><span class="kt">bool</span><span class="w">&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span></span><span class="sig-name descname"><span class="n">IsStridedLayout</span></span><span class="p">;</span></dt>
+<dd><p>Metafunction that checks whether a given type is convertible to
+StridedLayoutView.</p>
+</dd></dl>
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+        </div>
+        
+          <a href="#" class="md-top md-icon" data-md-component="top" hidden>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12Z"/></svg>
+            Back to top
+          </a>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+    <nav class="md-footer__inner md-grid" aria-label="Footer" >
+      
+        
+        <a href="tensorstore.StridedLayoutView.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: tensorstore::StridedLayoutView" rel="prev">
+          <div class="md-footer__button md-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+          </div>
+          <div class="md-footer__title">
+            <div class="md-ellipsis">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              tensorstore::StridedLayoutView
+            </div>
+          </div>
+        </a>
+      
+      
+        
+        <a href="tensorstore.IndexInnerProduct.html" class="md-footer__link md-footer__link--next" aria-label="Next: tensorstore::IndexInnerProduct" rel="next">
+          <div class="md-footer__title">
+            <div class="md-ellipsis">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              tensorstore::IndexInnerProduct
+            </div>
+          </div>
+          <div class="md-footer__button md-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4Z"/></svg>
+          </div>
+        </a>
+      
+    </nav>
+  
+  
+  
+  <div class="md-footer-meta md-typeset">
+    
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.expand", "navigation.sections", "navigation.top", "toc.follow", "toc.sticky"], "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "Search", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version.title": "Select version"}}</script>
+    
+      
+        <script src="../../_static/sphinx_immaterial_theme.f9d9eeeb247ace16c.min.js?v=8ec58cb5"></script>
+    
+  </body>
+</html>

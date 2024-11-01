@@ -32,7 +32,7 @@
         <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
       
     
-        <link rel="stylesheet" type="text/css" href="../../_static/sphinx_immaterial_theme.b454d0e296e565629.min.css" />
+        <link rel="stylesheet" type="text/css" href="../../_static/sphinx_immaterial_theme.4b4a8c74e2ff2ab5b.min.css?v=afa97f93" />
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
@@ -314,12 +314,63 @@
       
       
         <label class="md-nav__link" for="__nav_2">
+          <span class="md-ellipsis">C++ API</span>
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="C++ API" data-md-level="1">
+        <label class="md-nav__title" for="__nav_2">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">C++ API</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cpp/api/index.html" class="md-nav__link">
+        <span class="md-ellipsis">API reference</span>
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_3" type="checkbox" id="__nav_3" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3">
           <span class="md-ellipsis">Setup</span>
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="Setup" data-md-level="1">
-        <label class="md-nav__title" for="__nav_2">
+        <label class="md-nav__title" for="__nav_3">
           <span class="md-nav__icon md-icon"></span>
           <span class="md-ellipsis">Setup</span>
         </label>
@@ -377,17 +428,17 @@
     <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_3" type="checkbox" id="__nav_3" checked>
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4" type="checkbox" id="__nav_4" checked>
       
       
       
-        <label class="md-nav__link" for="__nav_3">
+        <label class="md-nav__link" for="__nav_4">
           <span class="md-ellipsis">JSON</span>
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="JSON" data-md-level="1">
-        <label class="md-nav__title" for="__nav_3">
+        <label class="md-nav__title" for="__nav_4">
           <span class="md-nav__icon md-icon"></span>
           <span class="md-ellipsis">JSON</span>
         </label>
@@ -464,7 +515,7 @@
     <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_3_5" type="checkbox" id="__nav_3_5" checked>
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4_5" type="checkbox" id="__nav_4_5" checked>
       
       
       
@@ -472,14 +523,14 @@
         <div class="md-nav__link md-nav__link--index ">
           <a href="../index.html"><span class="md-ellipsis">Drivers</span></a>
           
-            <label for="__nav_3_5">
+            <label for="__nav_4_5">
               <span class="md-nav__icon md-icon"></span>
             </label>
           
         </div>
       
       <nav class="md-nav" aria-label="Drivers" data-md-level="2">
-        <label class="md-nav__title" for="__nav_3_5">
+        <label class="md-nav__title" for="__nav_4_5">
           <span class="md-nav__icon md-icon"></span>
           <span class="md-ellipsis">Drivers</span>
         </label>
@@ -1045,7 +1096,7 @@
                   
 
 
-<h1 id="stack-driver"><span id="id1"></span><code class="docutils literal notranslate"><span class="pre">stack</span></code> Driver<a class="headerlink" href="#stack-driver" title="Permalink to this heading">¶</a></h1>
+<h1 id="stack-driver"><span id="id1"></span><code class="docutils literal notranslate"><span class="pre">stack</span></code> Driver<a class="headerlink" href="#stack-driver" title="Link to this heading">¶</a></h1>
 <p>The <code class="docutils literal notranslate"><span class="pre">stack</span></code> driver specifies a TensorStore virtually overlays a sequence of
 TensorStore <em>layers</em> within a common domain.</p>
 <ul class="simple">
@@ -1058,7 +1109,7 @@ virtually stack a sequence of TensorStores along a new dimension, or to
 concatenate a sequence of TensorStores along an existing dimension.  For these
 use cases, the layer domains do not overlap.</p></li>
 </ul>
-<h2 id="python-api">Python API<a class="headerlink" href="#python-api" title="Permalink to this heading">¶</a></h2>
+<h2 id="python-api">Python API<a class="headerlink" href="#python-api" title="Link to this heading">¶</a></h2>
 <p>Python APIs are provided for constructing a stack-driver-backed TensorStore
 based on a sequence of <a class="reference internal" href="../../python/api/tensorstore.Spec.html" title="tensorstore.Spec (Python class) — Specification for opening or creating a TensorStore."><code class="xref py py-obj docutils literal notranslate"><span class="pre">Spec</span></code></a> or already-open
 <a class="reference internal" href="../../python/api/tensorstore.TensorStore.html" title="tensorstore.TensorStore (Python class) — Asynchronous multi-dimensional array handle."><code class="xref py py-obj docutils literal notranslate"><span class="pre">TensorStore</span></code></a> objects.</p>
@@ -1068,7 +1119,7 @@ based on a sequence of <a class="reference internal" href="../../python/api/tens
 <li><p><a class="reference internal" href="../../python/api/tensorstore.concat.html" title="tensorstore.concat (Python function) — Virtually concatenates a sequence of TensorStore layers along an existing dimension."><code class="xref py py-obj docutils literal notranslate"><span class="pre">tensorstore.concat</span></code></a> concatenates a sequence of layers along an
 existing dimension.</p></li>
 </ul>
-<h2 id="supported-operations">Supported operations<a class="headerlink" href="#supported-operations" title="Permalink to this heading">¶</a></h2>
+<h2 id="supported-operations">Supported operations<a class="headerlink" href="#supported-operations" title="Link to this heading">¶</a></h2>
 <p>Opening the stack driver itself does not open any of the layers.  Instead,
 layers are opened on demand as needed to satisfy read and write operations.</p>
 <p>Reading or writing at a given position is supported, if any only if, the backing
@@ -1076,7 +1127,7 @@ layer supports reading or writing, respectively.  Reading or writing at a
 position that has no backing layer results in an error.</p>
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/stack">
-<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">driver/stack</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-driver/stack" title="Permalink to this definition">¶</a></dt>
+<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">driver/stack</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-driver/stack" title="Link to this definition">¶</a></dt>
 <dd><dl class="field-list simple">
 <dt class="field-odd" id="extends-json-driver/stack">Extends<span class="colon">:</span><a class="headerlink" href="#extends-json-driver/stack" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><ul class="simple">
@@ -1088,12 +1139,12 @@ position that has no backing layer results in an error.</p>
 <dt class="field-odd" id="required-members-json-driver/stack">Required members<span class="colon">:</span><a class="headerlink" href="#required-members-json-driver/stack" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/stack.driver">
-<span class="sig-name descname"><span class="pre">driver</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;stack&quot;</span></code><a class="headerlink" href="#json-driver/stack.driver" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">driver</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;stack&quot;</span></code><a class="headerlink" href="#json-driver/stack.driver" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/stack.layers">
-<span class="sig-name descname"><span class="pre">layers</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><a class="reference internal" href="../../spec.html#json-TensorStore" title="TensorStore (JSON type) — Specifies a TensorStore to open/create."><span class="pre">TensorStore</span></a></span><a class="headerlink" href="#json-driver/stack.layers" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">layers</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><a class="reference internal" href="../../spec.html#json-TensorStore" title="TensorStore (JSON type) — Specifies a TensorStore to open/create."><span class="pre">TensorStore</span></a></span><a class="headerlink" href="#json-driver/stack.layers" title="Link to this definition">¶</a></dt>
 <dd><span><p>Array of layered tensorstore drivers.</p>
   </span><p>The stack driver maps each nested driver in <a class="reference internal" href="#json-driver/stack.layers" title="driver/stack.layers (JSON member) — Array of layered tensorstore drivers."><code class="xref json json-schema docutils literal notranslate"><span class="pre">layers</span></code></a> to the  position
 described by the layer transform. All layers must have the same <a class="reference internal" href="../../spec.html#json-dtype" title="dtype (JSON type) — Specifies a TensorStore data type."><code class="xref json json-schema docutils literal notranslate"><span class="pre">dtype</span></code></a>
@@ -1106,19 +1157,19 @@ as well as compatible domains.</p>
 <dt class="field-odd" id="optional-members-json-driver/stack">Optional members<span class="colon">:</span><a class="headerlink" href="#optional-members-json-driver/stack" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/stack.context">
-<span class="sig-name descname"><span class="pre">context</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-Context" title="Context (JSON type)"><span class="pre">Context</span></a></span><a class="headerlink" href="#json-driver/stack.context" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">context</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-Context" title="Context (JSON type)"><span class="pre">Context</span></a></span><a class="headerlink" href="#json-driver/stack.context" title="Link to this definition">¶</a></dt>
 <dd><span><p>Specifies context resources that augment/override the parent context.</p>
   </span></dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/stack.dtype">
-<span class="sig-name descname"><span class="pre">dtype</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../spec.html#json-dtype" title="dtype (JSON type) — Specifies a TensorStore data type."><span class="pre">dtype</span></a></span><a class="headerlink" href="#json-driver/stack.dtype" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">dtype</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../spec.html#json-dtype" title="dtype (JSON type) — Specifies a TensorStore data type."><span class="pre">dtype</span></a></span><a class="headerlink" href="#json-driver/stack.dtype" title="Link to this definition">¶</a></dt>
 <dd><span><p>Specifies the data type.</p>
   </span></dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/stack.rank">
-<span class="sig-name descname"><span class="pre">rank</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">0</span></code><span class="p"><span class="pre">,</span> </span><code class="code json docutils literal highlight highlight-json"><span class="mi">32</span></code><span class="p"><span class="pre">]</span></span></sub><a class="headerlink" href="#json-driver/stack.rank" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">rank</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">0</span></code><span class="p"><span class="pre">,</span> </span><code class="code json docutils literal highlight highlight-json"><span class="mi">32</span></code><span class="p"><span class="pre">]</span></span></sub><a class="headerlink" href="#json-driver/stack.rank" title="Link to this definition">¶</a></dt>
 <dd><span><p>Specifies the rank of the TensorStore.</p>
   </span><p>If <a class="reference internal" href="#json-driver/stack.transform" title="driver/stack.transform (JSON member) — Specifies a transform."><code class="xref json json-schema docutils literal notranslate"><span class="pre">transform</span></code></a> is also specified, the input rank must match.  Otherwise,
 the rank constraint applies to the driver directly.</p>
@@ -1126,13 +1177,13 @@ the rank constraint applies to the driver directly.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/stack.transform">
-<span class="sig-name descname"><span class="pre">transform</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../index_space.html#json-IndexTransform" title="IndexTransform (JSON type)"><span class="pre">IndexTransform</span></a></span><a class="headerlink" href="#json-driver/stack.transform" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">transform</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../index_space.html#json-IndexTransform" title="IndexTransform (JSON type)"><span class="pre">IndexTransform</span></a></span><a class="headerlink" href="#json-driver/stack.transform" title="Link to this definition">¶</a></dt>
 <dd><span><p>Specifies a transform.</p>
   </span></dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/stack.schema">
-<span class="sig-name descname"><span class="pre">schema</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../schema.html#json-Schema" title="Schema (JSON type)"><span class="pre">Schema</span></a></span><a class="headerlink" href="#json-driver/stack.schema" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">schema</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../schema.html#json-Schema" title="Schema (JSON type)"><span class="pre">Schema</span></a></span><a class="headerlink" href="#json-driver/stack.schema" title="Link to this definition">¶</a></dt>
 <dd><span><p>Specifies constraints on the schema.</p>
   </span><p>When opening an existing array, specifies constraints on the existing
 schema; opening will fail if the constraints do not match.  Any soft
@@ -1144,10 +1195,10 @@ with any driver-specific constraints.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/stack.data_copy_concurrency">
-<span class="sig-name descname"><span class="pre">data_copy_concurrency</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;data_copy_concurrency&quot;</span></code><a class="headerlink" href="#json-driver/stack.data_copy_concurrency" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">data_copy_concurrency</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;data_copy_concurrency&quot;</span></code><a class="headerlink" href="#json-driver/stack.data_copy_concurrency" title="Link to this definition">¶</a></dt>
 <dd><p>Specifies or references a previously defined
-<a class="reference internal" href="../../kvstore/tsgrpc/index.html#json-Context.data_copy_concurrency" title="Context.data_copy_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.data_copy_concurrency</span></code></a>.  It is normally more convenient to
-specify a default <a class="reference internal" href="../../kvstore/tsgrpc/index.html#json-Context.data_copy_concurrency" title="Context.data_copy_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">data_copy_concurrency</span></code></a> in the <a class="reference internal" href="#json-driver/stack.context" title="driver/stack.context (JSON member) — Specifies context resources that augment/override the parent context."><code class="xref json json-schema docutils literal notranslate"><span class="pre">context</span></code></a>.</p>
+<a class="reference internal" href="../../context.html#json-Context.data_copy_concurrency" title="Context.data_copy_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.data_copy_concurrency</span></code></a>.  It is normally more convenient to
+specify a default <a class="reference internal" href="../../context.html#json-Context.data_copy_concurrency" title="Context.data_copy_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">data_copy_concurrency</span></code></a> in the <a class="reference internal" href="#json-driver/stack.context" title="driver/stack.context (JSON member) — Specifies context resources that augment/override the parent context."><code class="xref json json-schema docutils literal notranslate"><span class="pre">context</span></code></a>.</p>
 </dd></dl>
 
 </dd>
@@ -1172,7 +1223,7 @@ specify a default <a class="reference internal" href="../../kvstore/tsgrpc/index
 </div>
 </dd></dl>
 
-<h2 id="example">Example<a class="headerlink" href="#example" title="Permalink to this heading">¶</a></h2>
+<h2 id="example">Example<a class="headerlink" href="#example" title="Link to this heading">¶</a></h2>
 <div class="example admonition">
 <p class="admonition-title">Example of stack driver</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">({</span>
@@ -1203,12 +1254,12 @@ specify a default <a class="reference internal" href="../../kvstore/tsgrpc/index
 </code></pre></div>
 </div>
 </div>
-<h2 id="tensorstore-schema">TensorStore Schema<a class="headerlink" href="#tensorstore-schema" title="Permalink to this heading">¶</a></h2>
-<h3 id="data-type">Data type<a class="headerlink" href="#data-type" title="Permalink to this heading">¶</a></h3>
+<h2 id="tensorstore-schema">TensorStore Schema<a class="headerlink" href="#tensorstore-schema" title="Link to this heading">¶</a></h2>
+<h3 id="data-type">Data type<a class="headerlink" href="#data-type" title="Link to this heading">¶</a></h3>
 <p>The <a class="reference internal" href="../../schema.html#json-Schema.dtype" title="Schema.dtype (JSON member) — Specifies the data type of the TensorStore."><code class="xref json json-schema docutils literal notranslate"><span class="pre">dtype</span></code></a> must be specified for at least one layer, or in
 the top-level <a class="reference internal" href="#json-driver/stack.schema" title="driver/stack.schema (JSON member) — Specifies constraints on the schema."><code class="xref json json-schema docutils literal notranslate"><span class="pre">schema</span></code></a>.  All specified data types
 must match.</p>
-<h3 id="domain">Domain<a class="headerlink" href="#domain" title="Permalink to this heading">¶</a></h3>
+<h3 id="domain">Domain<a class="headerlink" href="#domain" title="Link to this heading">¶</a></h3>
 <p>The bounds of a stack driver-backed TensorStore, and of each layer, are fixed
 when it is opened, based on the domains specified for each of the
 <a class="reference internal" href="#json-driver/stack.layers" title="driver/stack.layers (JSON member) — Array of layered tensorstore drivers."><code class="xref json json-schema docutils literal notranslate"><span class="pre">layers</span></code></a>, and the <a class="reference internal" href="../../schema.html#json-Schema.domain" title="Schema.domain (JSON member) — Domain of the TensorStore, including bounds and optional dimension labels."><code class="xref json json-schema docutils literal notranslate"><span class="pre">domain</span></code></a>
@@ -1223,7 +1274,7 @@ determined from the hull.</p>
 <p>Note that it is valid for the domain to include positions that are not backed by
 any layer, but any attempt to read or write such positions results in an error.</p>
 <p>The <a class="reference internal" href="../../index_space.html#dimension-labels"><span class="std std-ref">dimension labels</span></a> are merged and must be compatible.</p>
-<h3 id="dimension-units">Dimension units<a class="headerlink" href="#dimension-units" title="Permalink to this heading">¶</a></h3>
+<h3 id="dimension-units">Dimension units<a class="headerlink" href="#dimension-units" title="Link to this heading">¶</a></h3>
 <p>For each dimension, the corresponding dimension unit is determined as follows:</p>
 <ol class="arabic simple">
 <li><p>If a unit for the dimension is specified directly in the top-level stack-driver
@@ -1232,11 +1283,11 @@ any layer, but any attempt to read or write such positions results in an error.<
 the dimension, the common unit is assigned.</p></li>
 <li><p>Otherwise, the unit is unassigned (<code class="code highlight json docutils literal highlight-json"><span class="kc">null</span></code>).</p></li>
 </ol>
-<h3 id="fill-value">Fill value<a class="headerlink" href="#fill-value" title="Permalink to this heading">¶</a></h3>
+<h3 id="fill-value">Fill value<a class="headerlink" href="#fill-value" title="Link to this heading">¶</a></h3>
 <p>Fill values are not supported.</p>
-<h3 id="codec">Codec<a class="headerlink" href="#codec" title="Permalink to this heading">¶</a></h3>
+<h3 id="codec">Codec<a class="headerlink" href="#codec" title="Link to this heading">¶</a></h3>
 <p>Codecs are not supported.</p>
-<h3 id="chunk-layout">Chunk layout<a class="headerlink" href="#chunk-layout" title="Permalink to this heading">¶</a></h3>
+<h3 id="chunk-layout">Chunk layout<a class="headerlink" href="#chunk-layout" title="Link to this heading">¶</a></h3>
 <p>Chunk layouts are not supported.</p>
 
 
@@ -1311,7 +1362,7 @@ the dimension, the common unit is assigned.</p></li>
     <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.expand", "navigation.sections", "navigation.top", "toc.follow", "toc.sticky"], "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "Search", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version.title": "Select version"}}</script>
     
       
-        <script src="../../_static/sphinx_immaterial_theme.f9d9eeeb247ace16c.min.js"></script>
+        <script src="../../_static/sphinx_immaterial_theme.f9d9eeeb247ace16c.min.js?v=8ec58cb5"></script>
     
   </body>
 </html>
