@@ -51,11 +51,11 @@ jobs:
         shell: bash
         run: |
           echo "dir=$(pip cache dir)" >> $GITHUB_OUTPUT
-      - uses: actions/cache@v2
+      - uses: actions/cache@v4
         with:
           path: ${{ steps.pip-cache.outputs.dir }}
           key: pip-${{ runner.os }}-buildwheel-${{ hashFiles('tools/ci/*_requirements.txt', 'third_party/pypa/*_requirements_frozen.txt') }}
-      - uses: actions/cache@v2
+      - uses: actions/cache@v4
         with:
           path: |
             ~/.cache/cibuildwheel_bazel_cache/cache/repos
