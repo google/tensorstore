@@ -120,6 +120,7 @@ pytype_strict_binary(
     ],
 )
 
+# On windows conftest.py adds DLL import paths necessary for pytest to run.
 py_library(
     name = "conftest",
     testonly = True,
@@ -133,6 +134,7 @@ tensorstore_pytest_test(
     size = "small",
     srcs = ["tests/dim_test.py"],
     deps = [
+        ":conftest",
         ":tensorstore",
     ],
 )
@@ -142,6 +144,7 @@ tensorstore_pytest_test(
     size = "small",
     srcs = ["tests/index_domain_test.py"],
     deps = [
+        ":conftest",
         ":tensorstore",
         "@pypa_numpy//:numpy",
     ],
@@ -152,6 +155,7 @@ tensorstore_pytest_test(
     size = "small",
     srcs = ["tests/dim_expression_test.py"],
     deps = [
+        ":conftest",
         ":tensorstore",
         "@pypa_numpy//:numpy",
     ],
@@ -162,6 +166,7 @@ tensorstore_pytest_test(
     size = "small",
     srcs = ["tests/indexing_test.py"],
     deps = [
+        ":conftest",
         ":tensorstore",
         "@pypa_numpy//:numpy",
     ],
@@ -172,6 +177,7 @@ tensorstore_pytest_test(
     size = "small",
     srcs = ["tests/index_transform_test.py"],
     deps = [
+        ":conftest",
         ":tensorstore",
         "@pypa_numpy//:numpy",
     ],
@@ -182,6 +188,7 @@ tensorstore_pytest_test(
     size = "small",
     srcs = ["tests/downsample_test.py"],
     deps = [
+        ":conftest",
         ":tensorstore",
         "@pypa_numpy//:numpy",
     ],
@@ -192,6 +199,7 @@ tensorstore_pytest_test(
     size = "small",
     srcs = ["tests/stack_test.py"],
     deps = [
+        ":conftest",
         ":tensorstore",
         "@pypa_numpy//:numpy",
     ],
@@ -316,6 +324,7 @@ tensorstore_pytest_test(
     size = "small",
     srcs = ["tests/exit_test.py"],
     deps = [
+        ":conftest",
         ":tensorstore",
     ],
 )
@@ -723,6 +732,7 @@ tensorstore_pytest_test(
     size = "small",
     srcs = ["tests/context_test.py"],
     deps = [
+        ":conftest",
         ":tensorstore",
     ],
 )
@@ -732,6 +742,7 @@ tensorstore_pytest_test(
     size = "small",
     srcs = ["tests/spec_test.py"],
     deps = [
+        ":conftest",
         ":tensorstore",
         "@pypa_numpy//:numpy",
     ],
@@ -742,6 +753,7 @@ tensorstore_pytest_test(
     size = "small",
     srcs = ["tests/data_type_test.py"],
     deps = [
+        ":conftest",
         ":tensorstore",
         "@pypa_numpy//:numpy",
     ],
@@ -752,6 +764,7 @@ tensorstore_pytest_test(
     size = "small",
     srcs = ["tests/tensorstore_test.py"],
     deps = [
+        ":conftest",
         ":tensorstore",
         "@pypa_numpy//:numpy",
     ],
@@ -762,6 +775,7 @@ tensorstore_pytest_test(
     size = "small",
     srcs = ["tests/transaction_test.py"],
     deps = [
+        ":conftest",
         ":tensorstore",
         "@pypa_numpy//:numpy",
     ],
@@ -782,6 +796,7 @@ tensorstore_pytest_test(
     size = "small",
     srcs = ["tests/chunk_layout_test.py"],
     deps = [
+        ":conftest",
         ":tensorstore",
         "@pypa_numpy//:numpy",
     ],
@@ -803,6 +818,7 @@ tensorstore_pytest_test(
     size = "small",
     srcs = ["tests/bfloat16_test.py"],
     deps = [
+        ":conftest",
         ":tensorstore",
         "@pypa_numpy//:numpy",
     ],
@@ -813,6 +829,7 @@ tensorstore_pytest_test(
     size = "small",
     srcs = ["tests/int4_test.py"],
     deps = [
+        ":conftest",
         ":tensorstore",
         "@pypa_numpy//:numpy",
     ],
@@ -1089,6 +1106,7 @@ tensorstore_pytest_test(
     size = "small",
     srcs = ["tests/kvstore_test.py"],
     deps = [
+        ":conftest",
         ":tensorstore",
     ],
 )
@@ -1211,6 +1229,7 @@ tensorstore_pytest_test(
     size = "small",
     srcs = ["tests/experimental_test.py"],
     deps = [
+        ":conftest",
         ":tensorstore",
     ],
 )
@@ -1219,6 +1238,7 @@ tensorstore_pytest_test(
     name = "tests/custom_dtypes_test",
     srcs = ["tests/custom_dtypes_test.py"],
     deps = [
+        ":conftest",
         ":tensorstore",
         "@pypa_ml_dtypes//:ml_dtypes",
         "@pypa_numpy//:numpy",
