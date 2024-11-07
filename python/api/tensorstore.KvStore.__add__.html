@@ -1044,13 +1044,21 @@ ensure there is a <code class="code highlight python docutils literal highlight-
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">store</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">KvStore</span><span class="o">.</span><span class="n">open</span><span class="p">({</span><span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;file&#39;</span><span class="p">,</span> <span class="s1">&#39;path&#39;</span><span class="p">:</span> <span class="s1">&#39;tmp/data&#39;</span><span class="p">})</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">store</span> <span class="o">+</span> <span class="s1">&#39;/abc&#39;</span>
 <span class="go">KvStore({</span>
-<span class="go">  &#39;context&#39;: {&#39;file_io_concurrency&#39;: {}, &#39;file_io_sync&#39;: True},</span>
+<span class="go">  &#39;context&#39;: {</span>
+<span class="go">    &#39;file_io_concurrency&#39;: {},</span>
+<span class="go">    &#39;file_io_locking&#39;: {},</span>
+<span class="go">    &#39;file_io_sync&#39;: True,</span>
+<span class="go">  },</span>
 <span class="go">  &#39;driver&#39;: &#39;file&#39;,</span>
 <span class="go">  &#39;path&#39;: &#39;tmp/data/abc&#39;,</span>
 <span class="go">})</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">store</span> <span class="o">+</span> <span class="s1">&#39;abc&#39;</span>
 <span class="go">KvStore({</span>
-<span class="go">  &#39;context&#39;: {&#39;file_io_concurrency&#39;: {}, &#39;file_io_sync&#39;: True},</span>
+<span class="go">  &#39;context&#39;: {</span>
+<span class="go">    &#39;file_io_concurrency&#39;: {},</span>
+<span class="go">    &#39;file_io_locking&#39;: {},</span>
+<span class="go">    &#39;file_io_sync&#39;: True,</span>
+<span class="go">  },</span>
 <span class="go">  &#39;driver&#39;: &#39;file&#39;,</span>
 <span class="go">  &#39;path&#39;: &#39;tmp/dataabc&#39;,</span>
 <span class="go">})</span>

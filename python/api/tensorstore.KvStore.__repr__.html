@@ -1030,7 +1030,11 @@
 <span class="gp">... </span><span class="p">})</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">kvstore</span>
 <span class="go">KvStore({</span>
-<span class="go">  &#39;context&#39;: {&#39;file_io_concurrency&#39;: {}, &#39;file_io_sync&#39;: True},</span>
+<span class="go">  &#39;context&#39;: {</span>
+<span class="go">    &#39;file_io_concurrency&#39;: {},</span>
+<span class="go">    &#39;file_io_locking&#39;: {},</span>
+<span class="go">    &#39;file_io_sync&#39;: True,</span>
+<span class="go">  },</span>
 <span class="go">  &#39;driver&#39;: &#39;file&#39;,</span>
 <span class="go">  &#39;path&#39;: &#39;tmp/data/&#39;,</span>
 <span class="go">})</span>
