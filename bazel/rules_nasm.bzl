@@ -61,6 +61,7 @@ def _nasm_one_file(ctx):
         arguments = [args],
         mnemonic = "NasmCompile",
         progress_message = "Assembling " + src.short_path + " to create " + out.path,
+        use_default_shell_env = True,
     )
 
 nasm_one_file = rule(
