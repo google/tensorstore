@@ -52,7 +52,8 @@ std::string GetOsErrorMessage(OsErrorCode error);
 /// catenation of the provided string parts.
 absl::Status StatusFromOsError(
     OsErrorCode error_code, std::string_view a = {}, std::string_view b = {},
-    std::string_view c = {}, std::string_view d = {},
+    std::string_view c = {}, std::string_view d = {}, std::string_view e = {},
+    std::string_view f = {},
     SourceLocation loc = tensorstore::SourceLocation::current());
 
 }  // namespace internal

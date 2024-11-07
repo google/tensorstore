@@ -1072,6 +1072,7 @@ pybind11_cc_library(
     deps = [
         ":batch",
         ":context",
+        ":define_heap_type",
         ":future",
         ":garbage_collection",
         ":json_type_caster",
@@ -1084,6 +1085,8 @@ pybind11_cc_library(
         ":transaction",
         "//tensorstore:batch",
         "//tensorstore:context",
+        "//tensorstore:json_serialization_options",
+        "//tensorstore:json_serialization_options_base",
         "//tensorstore:transaction",
         "//tensorstore/internal:global_initializer",
         "//tensorstore/internal/json:pprint_python",

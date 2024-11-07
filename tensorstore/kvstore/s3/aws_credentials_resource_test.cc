@@ -40,11 +40,10 @@ TEST(AwsCredentialsResourceTest, InvalidDirectSpec) {
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Expected object, but received: 3"));
 
-  EXPECT_THAT(
-      Context::Resource<AwsCredentialsResource>::FromJson("anonymous"),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          "Invalid reference to \"aws_credentials\" resource: \"anonymous\""));
+  EXPECT_THAT(Context::Resource<AwsCredentialsResource>::FromJson("anonymous"),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Invalid spec or reference to \"aws_credentials\" "
+                            "resource: \"anonymous\".*"));
 }
 
 TEST(AwsCredentialsResourceTest, Default) {

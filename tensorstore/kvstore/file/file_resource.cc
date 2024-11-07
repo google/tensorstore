@@ -15,11 +15,17 @@
 #include "tensorstore/kvstore/file/file_resource.h"
 
 #include "tensorstore/context_resource_provider.h"
+#include "tensorstore/internal/cache_key/absl_time.h"
+#include "tensorstore/internal/cache_key/cache_key.h"
 
 namespace {
 
 const tensorstore::internal::ContextResourceRegistration<
     tensorstore::internal_file_kvstore::FileIoSyncResource>
     file_io_sync_registration;
+
+const tensorstore::internal::ContextResourceRegistration<
+    tensorstore::internal_file_kvstore::FileIoLockingResource>
+    file_io_registration;
 
 }  // namespace

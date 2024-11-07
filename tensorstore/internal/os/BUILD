@@ -73,6 +73,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
+        "//tensorstore/util:status",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:inlined_vector",
         "@com_google_absl//absl/log:absl_check",
@@ -81,6 +82,38 @@ tensorstore_cc_library(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/time",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "file_lock",
+    srcs = ["file_lock.cc"],
+    hdrs = ["file_lock.h"],
+    deps = [
+        ":file_util",
+        "//tensorstore/internal/metrics",
+        "//tensorstore/internal/metrics:metadata",
+        "//tensorstore/util:quote_string",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "@com_google_absl//absl/log:absl_log",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "file_lock_test",
+    srcs = ["file_lock_test.cc"],
+    deps = [
+        ":file_lock",
+        ":file_util",
+        "//tensorstore/internal/testing:scoped_directory",
+        "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/time",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 

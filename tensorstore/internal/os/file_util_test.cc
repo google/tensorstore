@@ -43,15 +43,17 @@ using ::tensorstore::internal_os::GetSize;
 using ::tensorstore::internal_os::IsDirSeparator;
 using ::tensorstore::internal_os::IsRegularFile;
 using ::tensorstore::internal_os::OpenExistingFileForReading;
-using ::tensorstore::internal_os::OpenFileForWriting;
+using ::tensorstore::internal_os::OpenFileWrapper;
+using ::tensorstore::internal_os::OpenFlags;
 using ::tensorstore::internal_os::ReadFromFile;
 using ::tensorstore::internal_os::RenameOpenFile;
 using ::tensorstore::internal_os::TruncateFile;
 using ::tensorstore::internal_os::WriteCordToFile;
 using ::tensorstore::internal_os::WriteToFile;
+using ::tensorstore::internal_testing::ScopedTemporaryDirectory;
 
 TEST(FileUtilTest, Basics) {
-  tensorstore::internal_testing::ScopedTemporaryDirectory tempdir;
+  ScopedTemporaryDirectory tempdir;
   std::string foo_txt = tempdir.path() + "/foo.txt";
   std::string renamed_txt = tempdir.path() + "/renamed.txt";
 
@@ -70,7 +72,8 @@ TEST(FileUtilTest, Basics) {
 
   // Write a file:
   {
-    auto f = OpenFileForWriting(foo_txt);
+    auto f = OpenFileWrapper(foo_txt, OpenFlags::DefaultWrite);
+
     EXPECT_THAT(f, IsOk());
     EXPECT_THAT(TruncateFile(f->get()), IsOk());
 
@@ -115,19 +118,42 @@ TEST(FileUtilTest, Basics) {
   // Delete an open file.
   {
     std::string bar_txt = tempdir.path() + "/bar.txt";
-    auto f = OpenFileForWriting(bar_txt);
+    auto f = OpenFileWrapper(bar_txt, OpenFlags::DefaultWrite);
     EXPECT_THAT(WriteToFile(f->get(), "bar", 3), IsOkAndHolds(3));
     EXPECT_THAT(DeleteOpenFile(f->get(), bar_txt), IsOk());
   }
 }
 
-TEST(FileUtilTest, LockFile) {
-  tensorstore::internal_testing::ScopedTemporaryDirectory tempdir;
+TEST(FileUtilTest, ExclusiveFile) {
+  ScopedTemporaryDirectory tempdir;
   std::string foo_txt = absl::StrCat(tempdir.path(), "/foo.txt",
                                      tensorstore::internal_os::kLockSuffix);
 
   // Create
-  auto f = OpenFileForWriting(foo_txt);
+  {
+    auto f = OpenFileWrapper(foo_txt, OpenFlags::Create | OpenFlags::Exclusive |
+                                          OpenFlags::OpenWriteOnly);
+
+    EXPECT_THAT(f, IsOk());
+    EXPECT_THAT(WriteCordToFile(f->get(), absl::Cord("foo")), IsOkAndHolds(3));
+  }
+
+  // Create again
+  {
+    auto f = OpenFileWrapper(foo_txt, OpenFlags::Create | OpenFlags::Exclusive |
+                                          OpenFlags::OpenReadWrite);
+    EXPECT_THAT(f.status(),
+                ::testing::AnyOf(StatusIs(absl::StatusCode::kAlreadyExists)));
+  }
+}
+
+TEST(FileUtilTest, LockFile) {
+  ScopedTemporaryDirectory tempdir;
+  std::string foo_txt = absl::StrCat(tempdir.path(), "/foo.txt",
+                                     tensorstore::internal_os::kLockSuffix);
+
+  // Create
+  auto f = OpenFileWrapper(foo_txt, OpenFlags::DefaultWrite);
   EXPECT_THAT(f, IsOk());
 
   // Lock

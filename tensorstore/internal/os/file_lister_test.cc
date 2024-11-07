@@ -40,7 +40,8 @@ using ::tensorstore::internal_os::FsyncFile;
 using ::tensorstore::internal_os::MakeDirectory;
 using ::tensorstore::internal_os::OpenDirectoryDescriptor;
 using ::tensorstore::internal_os::OpenExistingFileForReading;
-using ::tensorstore::internal_os::OpenFileForWriting;
+using ::tensorstore::internal_os::OpenFileWrapper;
+using ::tensorstore::internal_os::OpenFlags;
 using ::tensorstore::internal_os::ReadFromFile;
 using ::tensorstore::internal_os::RecursiveFileList;
 using ::tensorstore::internal_os::WriteToFile;
@@ -57,11 +58,13 @@ void AddFiles(std::string_view root) {
   std::string fname = "/a.txt";
   for (; fname[1] < 'd'; fname[1] += 1) {
     TENSORSTORE_CHECK_OK_AND_ASSIGN(
-        auto f, OpenFileForWriting(absl::StrCat(root, fname)));
+        auto f,
+        OpenFileWrapper(absl::StrCat(root, fname), OpenFlags::DefaultWrite));
     TENSORSTORE_CHECK_OK(FsyncFile(f.get()));
 
     TENSORSTORE_CHECK_OK_AND_ASSIGN(
-        auto g, OpenFileForWriting(absl::StrCat(root, "/xyz", fname)));
+        auto g, OpenFileWrapper(absl::StrCat(root, "/xyz", fname),
+                                OpenFlags::DefaultWrite));
     TENSORSTORE_CHECK_OK(FsyncFile(g.get()));
   }
 
@@ -180,7 +183,8 @@ TEST(RecursiveFileListEntryTest, DeleteWithOpenFile) {
   AddFiles(tmpdir.path());
 
   {
-    auto f = OpenFileForWriting(absl::StrCat(tmpdir.path(), "/read.txt"));
+    auto f = OpenFileWrapper(absl::StrCat(tmpdir.path(), "/read.txt"),
+                             OpenFlags::DefaultWrite);
     EXPECT_THAT(f, IsOk());
     EXPECT_THAT(WriteToFile(f->get(), "bar", 3), IsOkAndHolds(3));
   }
