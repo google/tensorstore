@@ -31,8 +31,12 @@
 /// are local to a particular source file, it is simpler for the `Provider` type
 /// to also serve as the `Traits` type.
 
+#include <memory>
+#include <utility>
+
 #include "tensorstore/context.h"
 #include "tensorstore/internal/json_binding/bindable.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace internal {

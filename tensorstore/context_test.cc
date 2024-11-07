@@ -188,8 +188,9 @@ TEST(IntResourceTest, InvalidDirectSpec) {
 
   EXPECT_THAT(
       Context::Resource<IntResource>::FromJson("foo"),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "Invalid reference to \"int_resource\" resource: \"foo\""));
+      MatchesStatus(
+          absl::StatusCode::kInvalidArgument,
+          "Invalid spec or reference to \"int_resource\" resource: \"foo\".*"));
 }
 
 TEST(IntResourceTest, Default) {

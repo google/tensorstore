@@ -19,6 +19,10 @@ allOf:
       $ref: ContextResource
       description: |-
         Specifies or references a previously defined `Context.file_io_sync`.
+    file_io_locking:
+      $ref: ContextResource
+      description: |-
+        Specifies or references a previously defined `Context.file_io_locking`.
   required:
   - path
 definitions:
@@ -84,3 +88,39 @@ definitions:
       make write operations faster.
     type: boolean
     default: true
+  file_io_locking:
+    $id: Context.file_io_locking
+    title: |
+      Specifies locking strategy to use for file writes.
+    type: object
+    properties:
+      mode:
+        type: string
+        enum:
+        - "os"
+        - "none"
+        - "lockfile"
+        default: "os"
+        title: Selects the locking mode.
+        description: |
+          When set to ``"os"``, os locking such as :literal:`flock` is used.  Stale lock files with
+          the suffix ``".__lock"`` may remain if a failure occurs while a write is in progress, but
+          these files will be cleaned up automatically by any subsequent write to the same key.
+
+          When set to ``"lockfile"``, lockfiles are used. Stale lock files with the suffix 
+          ``".__lock"`` may remain if a failure occurs while a write is in progress, and these files
+          will need to be deleted manually to unblock any subsequent writes.
+
+          When set to ``"none"``, no locking is used. Conditional writes, as used for 
+          read-modify-write operations, such as partial array chunk writes, are not atomic. In the 
+          case of concurrent writes to the same key, the conditions may not be respected and updates
+          may be lost. Partial writes will not be observed; unconditional writes are still atomic.
+          If a failure occurs while a write is in progress, stale temporary files with the suffix
+          ``".__lock"`` may remain. These files will not impact subsequent operations but will need
+          to be cleaned up manually to reclaim space.
+      acquire_timeout:
+        type: duration
+        default: 60s
+        description: |
+          Timeout for acquiring a lock when using ``"lockfile"`` locking.
+

@@ -14,12 +14,11 @@
 
 #include "tensorstore/spec.h"
 
-#include <cstddef>
-
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include <nlohmann/json_fwd.hpp>
+#include "tensorstore/box.h"
 #include "tensorstore/context.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
@@ -304,6 +303,7 @@ TEST(SpecTest, SetContextAndKvstore) {
                {"path", "/tmp/"},
                {"file_io_concurrency", {"file_io_concurrency#a"}},
                {"file_io_sync", {"file_io_sync"}},
+               {"file_io_locking", {"file_io_locking"}},
            }},
           {"dtype", "uint8"},
           {"cache_pool", {"cache_pool"}},
@@ -318,6 +318,7 @@ TEST(SpecTest, SetContextAndKvstore) {
                {"cache_pool", ::nlohmann::json::object_t()},
                {"file_io_concurrency#a", {{"limit", 5}}},
                {"file_io_sync", true},
+               {"file_io_locking", ::nlohmann::json::object_t()},
            }},
       })));
 }

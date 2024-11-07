@@ -14,10 +14,9 @@
 
 #include "tensorstore/context.h"
 
-#include <stddef.h>
-
 #include <algorithm>
 #include <cassert>
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -44,6 +43,7 @@
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/riegeli/delimited.h"
 #include "tensorstore/json_serialization_options.h"
+#include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/serialization/json.h"
 #include "tensorstore/serialization/json_bindable.h"
@@ -454,13 +454,18 @@ Result<ResourceSpecImplPtr> ResourceSpecFromJson(
     // Refers to default value in parent.
     impl.reset(new ResourceReference(""));
   } else if (auto* s = j.get_ptr<const std::string*>()) {
+    // When the value is a string, see if it is a reference to a resource.
     auto provider_id = ParseResourceProvider(*s);
-    if (provider_id != provider.id_) {
+    if (provider_id == provider.id_) {
+      impl.reset(new ResourceReference(*s));
+    } else if (auto result = provider.FromJson(j, options); result.ok()) {
+      impl = std::move(result).value();
+    } else {
       return absl::InvalidArgumentError(tensorstore::StrCat(
-          "Invalid reference to ", QuoteString(provider.id_),
-          " resource: ", QuoteString(*s)));
+          "Invalid spec or reference to ", QuoteString(provider.id_),
+          " resource: ", QuoteString(*s), " (", result.status().message(),
+          ")"));
     }
-    impl.reset(new ResourceReference(*s));
   } else {
     TENSORSTORE_ASSIGN_OR_RETURN(impl, provider.FromJson(j, options));
   }

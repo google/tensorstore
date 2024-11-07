@@ -15,9 +15,14 @@
 #ifndef TENSORSTORE_KVSTORE_FILE_FILE_RESOURCE_H_
 #define TENSORSTORE_KVSTORE_FILE_FILE_RESOURCE_H_
 
+#include <string_view>
+
+#include "absl/time/time.h"
 #include "tensorstore/context.h"
 #include "tensorstore/context_resource_provider.h"
+#include "tensorstore/internal/json_binding/absl_time.h"
 #include "tensorstore/internal/json_binding/bindable.h"
+#include "tensorstore/internal/json_binding/enum.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/util/result.h"
 
@@ -43,6 +48,65 @@ struct FileIoSyncResource
       Spec v, internal::ContextResourceCreationContext context) {
     return v;
   }
+  static Spec GetSpec(Resource v, const internal::ContextSpecBuilder& builder) {
+    return v;
+  }
+};
+
+/// When set, the "file" kvstore uses file locks to ensure that only one
+/// process is writing to a given key at a time.
+struct FileIoLockingResource
+    : public internal::ContextResourceTraits<FileIoLockingResource> {
+  constexpr static bool config_only = true;
+  static constexpr char id[] = "file_io_locking";
+
+  enum class LockingMode : unsigned char {
+    /// Use os advisory locks such as fcntl(F_SETLK) to lock files.
+    os,
+
+    /// Use lockfiles, that is, files openeded with O_CREAT | O_EXCL.
+    lockfile,
+
+    /// Do not use locking.
+    none,
+  };
+
+  struct Spec {
+    LockingMode mode;
+    absl::Duration acquire_timeout;
+
+    constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+      return f(x.mode, x.acquire_timeout);
+    };
+  };
+
+  using Resource = Spec;
+  static Spec Default() { return Spec{LockingMode::os, absl::Seconds(60)}; }
+  static constexpr auto JsonBinder() {
+    namespace jb = internal_json_binding;
+
+    return jb::Object(
+        jb::Member("mode", jb::Projection<&Spec::mode>(
+                               jb::DefaultValue<jb::kNeverIncludeDefaults>(
+                                   [](auto* obj) { *obj = Default().mode; },
+                                   jb::Enum<LockingMode, std::string_view>({
+                                       {LockingMode::os, "os"},
+                                       {LockingMode::lockfile, "lockfile"},
+                                       {LockingMode::none, "none"},
+                                   })))),
+        jb::Member(
+            "acquire_timeout",
+            jb::Projection<&Spec::acquire_timeout>(
+                jb::DefaultValue<jb::kNeverIncludeDefaults>(
+                    [](auto* obj) { *obj = Default().acquire_timeout; })))
+        /**/);
+  }
+
+  static Result<Resource> Create(
+      Spec v, internal::ContextResourceCreationContext context) {
+    return v;
+  }
+
   static Spec GetSpec(Resource v, const internal::ContextSpecBuilder& builder) {
     return v;
   }

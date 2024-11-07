@@ -15,6 +15,18 @@
 #include <errno.h>
 #include <stddef.h>
 
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
+
+#ifdef _WIN32
+#include <sys/utime.h>
+#include <time.h>
+#define utimbuf _utimbuf
+#define utime _utime
+#else
+#include <utime.h>
+#endif
+
 #include <cstring>
 #include <fstream>
 #include <string>
@@ -73,6 +85,42 @@ TEST(FileKeyValueStoreTest, Basic) {
   ScopedTemporaryDirectory tempdir;
   std::string root = tempdir.path() + "/root";
   auto store = GetStore(root);
+  tensorstore::internal::TestKeyValueReadWriteOps(store);
+}
+
+TEST(FileKeyValueStoreTest, BasiclockfileLocking) {
+  ScopedTemporaryDirectory tempdir;
+  std::string root = tempdir.path() + "/root";
+  auto store = kvstore::Open({
+                                 {"driver", "file"},
+                                 {"path", root + "/"},
+                                 {"file_io_locking", {{"mode", "lockfile"}}},
+                             })
+                   .value();
+  tensorstore::internal::TestKeyValueReadWriteOps(store);
+}
+
+TEST(FileKeyValueStoreTest, BasicNoLocking) {
+  ScopedTemporaryDirectory tempdir;
+  std::string root = tempdir.path() + "/root";
+  auto store = kvstore::Open({
+                                 {"driver", "file"},
+                                 {"path", root + "/"},
+                                 {"file_io_locking", {{"mode", "none"}}},
+                             })
+                   .value();
+  tensorstore::internal::TestKeyValueReadWriteOps(store);
+}
+
+TEST(FileKeyValueStoreTest, BasicNoSync) {
+  ScopedTemporaryDirectory tempdir;
+  std::string root = tempdir.path() + "/root";
+  auto store = kvstore::Open({
+                                 {"driver", "file"},
+                                 {"path", root + "/"},
+                                 {"file_io_sync", false},
+                             })
+                   .value();
   tensorstore::internal::TestKeyValueReadWriteOps(store);
 }
 
@@ -143,7 +191,17 @@ TEST(FileKeyValueStoreTest, LockFiles) {
 
   // Create a lock file to simulate a stale lock file left by a process that
   // crashes in the middle of a Write/Delete operation.
-  { std::ofstream x(root + "/a/foo.__lock"); }
+  {
+    std::string lock_path = root + "/a/foo.__lock";
+    std::ofstream x(lock_path);
+
+    // Set the mtime to be stale.
+    auto now = absl::Now();
+    utimbuf times;
+    times.actime = absl::ToTimeT(now - absl::Minutes(60));
+    times.modtime = absl::ToTimeT(now - absl::Minutes(60));
+    utime(lock_path.c_str(), &times);
+  }
   EXPECT_THAT(GetDirectoryContents(root),
               ::testing::UnorderedElementsAre("a", "a/foo", "a/foo.__lock"));
 
@@ -157,7 +215,17 @@ TEST(FileKeyValueStoreTest, LockFiles) {
       kvstore::Write(store, "a/foo", absl::Cord("xyz")).result());
 
   // Recreate the lock file.
-  { std::ofstream x(root + "/a/foo.__lock"); }
+  {
+    std::string lock_path = root + "/a/foo.__lock";
+    std::ofstream x(lock_path);
+
+    // Set the mtime to be stale.
+    auto now = absl::Now();
+    utimbuf times;
+    times.actime = absl::ToTimeT(now - absl::Minutes(60));
+    times.modtime = absl::ToTimeT(now - absl::Minutes(60));
+    utime(lock_path.c_str(), &times);
+  }
 
   // Test that the "a" prefix can be deleted despite the presence of the lock
   // file.  Only a single key, "a/foo" is removed.  The lock file should not be
@@ -187,6 +255,21 @@ TEST(FileKeyValueStoreTest, ConcurrentWrites) {
   std::string root = tempdir.path() + "/root";
   tensorstore::internal::TestConcurrentWritesOptions options;
   options.get_store = [&] { return GetStore(root); };
+  tensorstore::internal::TestConcurrentWrites(options);
+}
+
+TEST(FileKeyValueStoreTest, ConcurrentWritesNoLocks) {
+  ScopedTemporaryDirectory tempdir;
+  std::string root = tempdir.path() + "/root";
+  tensorstore::internal::TestConcurrentWritesOptions options;
+  options.get_store = [&] {
+    return kvstore::Open({
+                             {"driver", "file"},
+                             {"path", root + "/"},
+                             {"file_io_locking", {{"mode", "lockfile"}}},
+                         })
+        .value();
+  };
   tensorstore::internal::TestConcurrentWrites(options);
 }
 
@@ -336,6 +419,7 @@ TEST(FileKeyValueStoreTest, SpecRoundtripSync) {
       {"context",
        {
            {"file_io_concurrency", ::nlohmann::json::object_t()},
+           {"file_io_locking", {{"mode", "lockfile"}}},
        }},
   };
   options.spec_request_options.Set(tensorstore::retain_context).IgnoreError();

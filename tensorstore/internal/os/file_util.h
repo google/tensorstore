@@ -70,7 +70,7 @@ using FileDescriptor = int;
 /// File descriptor traits for use with `UniqueHandle`.
 struct FileDescriptorTraits {
   static FileDescriptor Invalid() { return -1; }
-  static void Close(FileDescriptor fd) { ::close(fd); }
+  static void Close(FileDescriptor fd);
 };
 
 /// Representation of file metadata.
@@ -90,16 +90,35 @@ using UniqueFileDescriptor = UniqueHandle<FileDescriptor, FileDescriptorTraits>;
 
 /// --------------------------------------------------------------------------
 
-/// Opens an file that must already exist for reading.
-///
-/// \returns The open file descriptor or a failure absl::Status code.
-Result<UniqueFileDescriptor> OpenExistingFileForReading(
-    const std::string& path);
+// Restricted subset of POSIX open flags.
+enum class OpenFlags : int {
+  OpenReadOnly = O_RDONLY,
+  OpenWriteOnly = O_WRONLY,
+  OpenReadWrite = O_RDWR,
+  Create = O_CREAT,
+  Append = O_APPEND,
+  Exclusive = O_EXCL,
 
-/// Opens a file for writing.  If there is an existing file, it is truncated.
+  DefaultWrite = O_CREAT | O_WRONLY,
+};
+
+inline OpenFlags operator|(OpenFlags a, OpenFlags b) {
+  return static_cast<OpenFlags>(static_cast<int>(a) | static_cast<int>(b));
+}
+inline OpenFlags operator&(OpenFlags a, OpenFlags b) {
+  return static_cast<OpenFlags>(static_cast<int>(a) & static_cast<int>(b));
+}
+
+/// Wrapper around ::open or the equivalent CreateFileEx call in windows.
 ///
 /// \returns The open file descriptor or a failure absl::Status code.
-Result<UniqueFileDescriptor> OpenFileForWriting(const std::string& path);
+Result<UniqueFileDescriptor> OpenFileWrapper(const std::string& path,
+                                             OpenFlags flags);
+
+inline Result<UniqueFileDescriptor> OpenExistingFileForReading(
+    const std::string& path) {
+  return OpenFileWrapper(path, OpenFlags::OpenReadOnly);
+}
 
 /// Reads from an open file.
 ///

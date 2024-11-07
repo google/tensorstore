@@ -20,6 +20,8 @@ machines to a network filesystem is also safe.
 
 .. json:schema:: Context.file_io_sync
 
+.. json:schema:: Context.file_io_locking
+
 Durability of writes
 --------------------
 

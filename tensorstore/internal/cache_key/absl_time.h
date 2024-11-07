@@ -15,6 +15,8 @@
 #ifndef TENSORSTORE_INTERNAL_CACHE_KEY_ABSL_TIME_H_
 #define TENSORSTORE_INTERNAL_CACHE_KEY_ABSL_TIME_H_
 
+#include <string>
+
 #include "absl/time/time.h"
 #include "tensorstore/internal/cache_key/cache_key.h"
 

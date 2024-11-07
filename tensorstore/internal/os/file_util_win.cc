@@ -80,13 +80,14 @@
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
-#include "absl/strings/str_cat.h"
+#include "absl/strings/str_cat.h"  // IWYU pragma: keep
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/os/error_code.h"
 #include "tensorstore/internal/os/potentially_blocking_region.h"
 #include "tensorstore/internal/os/wstring.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/status.h"
 
 // Not your standard include order.
 #include "tensorstore/internal/os/file_util.h"
@@ -182,6 +183,44 @@ void UnlockWin32Lock(FileDescriptor fd) {
   TS_DETAIL_LOG_END << " handle=" << fd;
 }
 
+FileDescriptor OpenFileImpl(const std::wstring& wpath, OpenFlags flags) {
+  // Setup Win32 flags to somewhat mimic the POSIX flags.
+  DWORD access = 0;
+  if ((flags & OpenFlags::OpenReadOnly) == OpenFlags::OpenReadOnly) {
+    access = GENERIC_READ;
+  } else if ((flags & OpenFlags::OpenWriteOnly) == OpenFlags::OpenWriteOnly) {
+    access = GENERIC_WRITE | DELETE;
+  } else if ((flags & OpenFlags::OpenReadWrite) == OpenFlags::OpenReadWrite) {
+    access = GENERIC_READ | GENERIC_WRITE | DELETE;
+  }
+  if ((flags & OpenFlags::Create) == OpenFlags::Create) {
+    access |= GENERIC_WRITE | DELETE;
+  }
+  if ((flags & OpenFlags::Append) == OpenFlags::Append) {
+    access ^= GENERIC_WRITE;
+    access |= FILE_APPEND_DATA;
+  }
+
+  DWORD createmode = 0;
+  if ((flags & OpenFlags::Create) == OpenFlags::Create) {
+    if ((flags & OpenFlags::Exclusive) == OpenFlags::Exclusive) {
+      createmode = CREATE_NEW;
+    } else {
+      createmode = OPEN_ALWAYS;
+    }
+  } else {
+    createmode = OPEN_EXISTING;
+  }
+
+  return ::CreateFileW(
+      wpath.c_str(), /*dwDesiredAccess=*/access,
+      /*dwShareMode=*/FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE,
+      /*lpSecurityAttributes=*/nullptr,
+      /*dwCreationDisposition=*/createmode,
+      /*dwFlagsAndAttributes=*/0,
+      /*hTemplateFile=*/nullptr);
+}
+
 }  // namespace
 
 void FileDescriptorTraits::Close(FileDescriptor fd) {
@@ -205,50 +244,18 @@ Result<UnlockFn> AcquireFdLock(FileDescriptor fd) {
   return StatusFromOsError(::GetLastError(), "Failed to lock file");
 }
 
-Result<UniqueFileDescriptor> OpenExistingFileForReading(
-    const std::string& path) {
+Result<UniqueFileDescriptor> OpenFileWrapper(const std::string& path,
+                                             OpenFlags flags) {
   TS_DETAIL_LOG_BEGIN << " path=" << QuoteString(path);
   std::wstring wpath;
   TENSORSTORE_RETURN_IF_ERROR(ConvertUTF8ToWindowsWide(path, wpath));
 
-  FileDescriptor fd = ::CreateFileW(
-      wpath.c_str(), /*dwDesiredAccess=*/GENERIC_READ,
-      /*dwShareMode=*/FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE,
-      /*lpSecurityAttributes=*/nullptr,
-      /*dwCreationDisposition=*/OPEN_EXISTING,
-      /*dwFlagsAndAttributes=*/0,
-      /*hTemplateFile=*/nullptr);
+  FileDescriptor fd = OpenFileImpl(wpath, flags);
 
   if (fd == FileDescriptorTraits::Invalid()) {
-    TS_DETAIL_LOG_ERROR << " path=" << QuoteString(path);
+    TS_DETAIL_LOG_ERROR << " path=\"" << path << "\"";
     return StatusFromOsError(::GetLastError(),
                              "Failed to open: ", QuoteString(path));
-  }
-  TS_DETAIL_LOG_END << " path=" << QuoteString(path) << ", handle=" << fd;
-  return UniqueFileDescriptor(fd);
-}
-
-Result<UniqueFileDescriptor> OpenFileForWriting(const std::string& path) {
-  TS_DETAIL_LOG_BEGIN << " path=" << QuoteString(path);
-  std::wstring wpath;
-  TENSORSTORE_RETURN_IF_ERROR(ConvertUTF8ToWindowsWide(path, wpath));
-
-  FileDescriptor fd = ::CreateFileW(
-      wpath.c_str(),
-      // Even though we only need write access, the `CreateFile`
-      // documentation recommends specifying GENERIC_READ as well for better
-      // performance if the file is on a network share.
-      /*dwDesiredAccess=*/GENERIC_READ | GENERIC_WRITE | DELETE,
-      /*dwShareMode=*/FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE,
-      /*lpSecurityAttributes=*/nullptr,
-      /*dwCreationDisposition=*/OPEN_ALWAYS,
-      /*dwFlagsAndAttributes=*/0,
-      /*hTemplateFile=*/nullptr);
-
-  if (fd == FileDescriptorTraits::Invalid()) {
-    TS_DETAIL_LOG_ERROR << " path=" << QuoteString(path);
-    return StatusFromOsError(::GetLastError(),
-                             "Failed to create: ", QuoteString(path));
   }
   TS_DETAIL_LOG_END << " path=" << QuoteString(path) << ", handle=" << fd;
   return UniqueFileDescriptor(fd);

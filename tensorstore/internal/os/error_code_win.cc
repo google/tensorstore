@@ -139,7 +139,8 @@ std::string GetOsErrorMessage(OsErrorCode error) {
 
 absl::Status StatusFromOsError(OsErrorCode error_code, std::string_view a,
                                std::string_view b, std::string_view c,
-                               std::string_view d, SourceLocation loc) {
+                               std::string_view d, std::string_view e,
+                               std::string_view f, SourceLocation loc) {
   absl::Status status(GetOsErrorStatusCode(error_code),
                       tensorstore::StrCat(a, b, c, d, " [OS error ", error_code,
                                           ": ", OsErrorToCString(error_code),

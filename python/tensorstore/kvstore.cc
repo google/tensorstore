@@ -33,6 +33,7 @@
 #include "absl/strings/cord.h"
 #include "python/tensorstore/batch.h"
 #include "python/tensorstore/context.h"
+#include "python/tensorstore/define_heap_type.h"
 #include "python/tensorstore/future.h"
 #include "python/tensorstore/garbage_collection.h"
 #include "python/tensorstore/json_type_caster.h"
@@ -47,6 +48,8 @@
 #include "tensorstore/context.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/json/pprint_python.h"
+#include "tensorstore/json_serialization_options.h"
+#include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -326,13 +329,21 @@ Example:
     >>> store = await ts.KvStore.open({'driver': 'file', 'path': 'tmp/data'})
     >>> store + '/abc'
     KvStore({
-      'context': {'file_io_concurrency': {}, 'file_io_sync': True},
+      'context': {
+        'file_io_concurrency': {},
+        'file_io_locking': {},
+        'file_io_sync': True,
+      },
       'driver': 'file',
       'path': 'tmp/data/abc',
     })
     >>> store + 'abc'
     KvStore({
-      'context': {'file_io_concurrency': {}, 'file_io_sync': True},
+      'context': {
+        'file_io_concurrency': {},
+        'file_io_locking': {},
+        'file_io_sync': True,
+      },
       'driver': 'file',
       'path': 'tmp/dataabc',
     })
@@ -356,13 +367,21 @@ Example:
     >>> store = await ts.KvStore.open({'driver': 'file', 'path': 'tmp/data'})
     >>> store / 'abc'
     KvStore({
-      'context': {'file_io_concurrency': {}, 'file_io_sync': True},
+      'context': {
+        'file_io_concurrency': {},
+        'file_io_locking': {},
+        'file_io_sync': True,
+      },
       'driver': 'file',
       'path': 'tmp/data/abc',
     })
     >>> store / '/abc'
     KvStore({
-      'context': {'file_io_concurrency': {}, 'file_io_sync': True},
+      'context': {
+        'file_io_concurrency': {},
+        'file_io_locking': {},
+        'file_io_sync': True,
+      },
       'driver': 'file',
       'path': 'tmp/data/abc',
     })
@@ -1098,7 +1117,11 @@ Example:
     ... })
     >>> kvstore
     KvStore({
-      'context': {'file_io_concurrency': {}, 'file_io_sync': True},
+      'context': {
+        'file_io_concurrency': {},
+        'file_io_locking': {},
+        'file_io_sync': True,
+      },
       'driver': 'file',
       'path': 'tmp/data/',
     })
@@ -1115,13 +1138,21 @@ Example:
   >>> a.path = 'tmp/data/abc/'
   >>> a
   KvStore({
-    'context': {'file_io_concurrency': {}, 'file_io_sync': True},
+    'context': {
+      'file_io_concurrency': {},
+      'file_io_locking': {},
+      'file_io_sync': True,
+    },
     'driver': 'file',
     'path': 'tmp/data/abc/',
   })
   >>> b
   KvStore({
-    'context': {'file_io_concurrency': {}, 'file_io_sync': True},
+    'context': {
+      'file_io_concurrency': {},
+      'file_io_locking': {},
+      'file_io_sync': True,
+    },
     'driver': 'file',
     'path': 'tmp/data/',
   })
@@ -1329,6 +1360,7 @@ Example:
   {'context': {},
    'driver': 'file',
    'file_io_concurrency': 'file_io_concurrency',
+   'file_io_locking': 'file_io_locking',
    'file_io_sync': 'file_io_sync',
    'path': 'tmp/dataset/abc/'}
 

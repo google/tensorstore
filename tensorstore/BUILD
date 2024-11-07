@@ -326,6 +326,7 @@ tensorstore_cc_library(
     ],
     deps = [
         ":json_serialization_options",
+        ":json_serialization_options_base",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:mutex",
         "//tensorstore/internal:tagged_ptr",
@@ -723,6 +724,7 @@ tensorstore_cc_test(
     size = "small",
     srcs = ["spec_test.cc"],
     deps = [
+        ":box",
         ":context",
         ":index",
         ":json_serialization_options",

@@ -48,6 +48,7 @@
 #include "tensorstore/internal/os/potentially_blocking_region.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/status.h"
 
 // Most modern unix allow 1024 iovs.
 #if defined(UIO_MAXIOV)
@@ -97,7 +98,7 @@ ABSL_CONST_INIT internal_log::VerboseFlag detail_logging("file_detail");
 
 #define TS_DETAIL_LOG_ERROR                  \
   ABSL_LOG_IF(INFO, detail_logging.Level(1)) \
-      << "Error: " << __func__ << " " << errno
+      << "Error: " << __func__ << " " << static_cast<int>(errno)
 
 #if defined(F_OFD_SETLKW)
 void UnlockFcntlLock(FileDescriptor fd) {
@@ -116,11 +117,12 @@ void UnlockFcntlLock(FileDescriptor fd) {
     {
       PotentiallyBlockingRegion region;
       if (::fcntl(fd, F_OFD_SETLK, &lock) != -1) {
+        TS_DETAIL_LOG_END << " fd=" << fd;
         return;
       }
     }
-    if (errno == EINTR) continue;
     TS_DETAIL_LOG_ERROR << " fd=" << fd;
+    if (errno == EINTR) continue;
     return;
   }
   ABSL_UNREACHABLE();
@@ -133,6 +135,7 @@ void UnlockFlockLock(FileDescriptor fd) {
     {
       PotentiallyBlockingRegion region;
       if (::flock(fd, LOCK_UN) != -1) {
+        TS_DETAIL_LOG_END << " fd=" << fd;
         return;
       }
     }
@@ -144,6 +147,19 @@ void UnlockFlockLock(FileDescriptor fd) {
 }
 
 }  // namespace
+
+void FileDescriptorTraits::Close(FileDescriptor fd) {
+  TS_DETAIL_LOG_BEGIN << " fd=" << fd;
+  while (true) {
+    if (::close(fd) == 0) {
+      TS_DETAIL_LOG_END << " fd=" << fd;
+      return;
+    }
+    if (errno == EINTR) continue;
+    TS_DETAIL_LOG_ERROR << " fd=" << fd;
+    return;
+  }
+}
 
 Result<UnlockFn> AcquireFdLock(FileDescriptor fd) {
   TS_DETAIL_LOG_BEGIN << " fd=" << fd;
@@ -191,28 +207,13 @@ Result<UnlockFn> AcquireFdLock(FileDescriptor fd) {
   ABSL_UNREACHABLE();
 }
 
-Result<UniqueFileDescriptor> OpenExistingFileForReading(
-    const std::string& path) {
-  TS_DETAIL_LOG_BEGIN << " path=" << QuoteString(path);
-  FileDescriptor fd;
-  {
-    PotentiallyBlockingRegion region;
-    fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC);
-  }
-  if (fd == FileDescriptorTraits::Invalid()) {
-    TS_DETAIL_LOG_ERROR << " path=" << QuoteString(path);
-    return StatusFromOsError(errno, "Failed to open: ", QuoteString(path));
-  }
-  TS_DETAIL_LOG_END << " path=" << QuoteString(path) << ", fd=" << fd;
-  return UniqueFileDescriptor(fd);
-}
-
-Result<UniqueFileDescriptor> OpenFileForWriting(const std::string& path) {
+Result<UniqueFileDescriptor> OpenFileWrapper(const std::string& path,
+                                             OpenFlags flags) {
   TS_DETAIL_LOG_BEGIN << " path=" << QuoteString(path);
   FileDescriptor fd = FileDescriptorTraits::Invalid();
   const auto attempt_open = [&] {
     PotentiallyBlockingRegion region;
-    fd = ::open(path.c_str(), O_WRONLY | O_CREAT | O_CLOEXEC, 0666);
+    fd = ::open(path.c_str(), static_cast<int>(flags) | O_CLOEXEC, 0660);
   };
 #ifndef __APPLE__
   attempt_open();
@@ -222,7 +223,7 @@ Result<UniqueFileDescriptor> OpenFileForWriting(const std::string& path) {
   // with the call to `open`.  Mitigate this race condition by retrying,
   // limiting the number of retries to avoid getting stuck in an infinite
   // loop if the error is due to a parent directory having been deleted.
-  constexpr int kMaxAttempts = 100;
+  constexpr int kMaxAttempts = 10;
   for (int attempt = 0; attempt < kMaxAttempts; ++attempt) {
     attempt_open();
     if (fd != FileDescriptorTraits::Invalid() ||
@@ -230,9 +231,10 @@ Result<UniqueFileDescriptor> OpenFileForWriting(const std::string& path) {
       break;
   }
 #endif
+
   if (fd == FileDescriptorTraits::Invalid()) {
     TS_DETAIL_LOG_ERROR << " path=" << QuoteString(path);
-    return StatusFromOsError(errno, "Failed to create: ", QuoteString(path));
+    return StatusFromOsError(errno, "Failed to open: ", QuoteString(path));
   }
   TS_DETAIL_LOG_END << " path=" << QuoteString(path) << ", fd=" << fd;
   return UniqueFileDescriptor(fd);
@@ -311,6 +313,7 @@ absl::Status RenameOpenFile(FileDescriptor fd, const std::string& old_name,
                             const std::string& new_name) {
   TS_DETAIL_LOG_BEGIN << " fd=" << fd << ", old_name=" << QuoteString(old_name)
                       << ", new_name=" << QuoteString(new_name);
+
   PotentiallyBlockingRegion region;
   if (::rename(old_name.c_str(), new_name.c_str()) == 0) {
     TS_DETAIL_LOG_END << " fd=" << fd << ", old_name=" << QuoteString(old_name)
@@ -319,7 +322,8 @@ absl::Status RenameOpenFile(FileDescriptor fd, const std::string& old_name,
   }
   TS_DETAIL_LOG_ERROR << " fd=" << fd << ", old_name=" << QuoteString(old_name)
                       << ", new_name=" << QuoteString(new_name);
-  return StatusFromOsError(errno, "Failed to rename: ", QuoteString(old_name),
+  return StatusFromOsError(errno, "Failed to rename fd: ", absl::StrCat(fd),
+                           " ", QuoteString(old_name),
                            " to: ", QuoteString(new_name));
 }
 
