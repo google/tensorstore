@@ -19,7 +19,8 @@
 #include "python/tensorstore/serialization.h"
 
 // Other headers
-#include <cstddef>
+#include <stddef.h>
+
 #include <memory>
 #include <string_view>
 #include <typeinfo>

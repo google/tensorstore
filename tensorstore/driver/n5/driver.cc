@@ -14,9 +14,10 @@
 
 #include "tensorstore/driver/driver.h"
 
+#include <stddef.h>
+
 #include <algorithm>
 #include <cassert>
-#include <cstddef>
 #include <memory>
 #include <string>
 #include <string_view>

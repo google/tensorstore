@@ -15,9 +15,10 @@
 #ifndef TENSORSTORE_UTIL_BIT_VEC_H_
 #define TENSORSTORE_UTIL_BIT_VEC_H_
 
+#include <stddef.h>
+
 #include <algorithm>
 #include <cassert>
-#include <cstddef>
 #include <cstring>
 #include <type_traits>
 

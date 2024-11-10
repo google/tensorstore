@@ -14,8 +14,9 @@
 
 #include "tensorstore/internal/lock_collection.h"
 
+#include <stddef.h>
+
 #include <array>
-#include <cstddef>
 #include <mutex>
 #include <utility>
 #include <vector>

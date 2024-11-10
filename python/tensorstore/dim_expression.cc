@@ -20,7 +20,8 @@
 #include "python/tensorstore/dim_expression.h"
 
 // Other headers
-#include <cstddef>
+#include <stddef.h>
+
 #include <iterator>
 #include <memory>
 #include <optional>

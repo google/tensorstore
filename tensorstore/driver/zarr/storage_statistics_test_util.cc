@@ -14,7 +14,7 @@
 
 #include "tensorstore/driver/zarr/storage_statistics_test_util.h"
 
-#include <cstdint>
+#include <stdint.h>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>

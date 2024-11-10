@@ -15,10 +15,10 @@
 #ifndef TENSORSTORE_INTERNAL_REF_COUNTED_STRING_H_
 #define TENSORSTORE_INTERNAL_REF_COUNTED_STRING_H_
 
-#include <assert.h>
 #include <stddef.h>
 
 #include <atomic>
+#include <cassert>
 #include <new>
 #include <string_view>
 #include <utility>

@@ -189,7 +189,7 @@ tensorstore_cc_library(
     ],
 )
 
-cc_test(
+tensorstore_cc_test(
     name = "prometheus_test",
     srcs = ["prometheus_test.cc"],
     deps = [
@@ -200,7 +200,7 @@ cc_test(
     ],
 )
 
-cc_test(
+tensorstore_cc_test(
     name = "protobuf_test",
     srcs = ["protobuf_test.cc"],
     deps = [
@@ -242,7 +242,7 @@ tensorstore_cc_test(
     ],
 )
 
-cc_library(
+tensorstore_cc_library(
     name = "histogram",
     srcs = ["histogram.cc"],
     hdrs = ["histogram.h"],

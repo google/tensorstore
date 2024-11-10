@@ -135,8 +135,9 @@
 /// `&wrapper_context` to invoke `orig_function` with an extra pointer to a
 /// `absl::Status`.
 
+#include <stddef.h>
+
 #include <array>
-#include <cstddef>
 #include <type_traits>
 #include <utility>
 

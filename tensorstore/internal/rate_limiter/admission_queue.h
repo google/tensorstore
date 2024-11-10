@@ -15,7 +15,7 @@
 #ifndef TENSORSTORE_INTERNAL_RATE_LIMITER_ADMISSION_QUEUE_H_
 #define TENSORSTORE_INTERNAL_RATE_LIMITER_ADMISSION_QUEUE_H_
 
-#include <cstddef>
+#include <stddef.h>
 
 #include "absl/base/thread_annotations.h"
 #include "absl/synchronization/mutex.h"

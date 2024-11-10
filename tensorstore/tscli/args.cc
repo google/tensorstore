@@ -14,8 +14,9 @@
 
 #include "tensorstore/tscli/args.h"
 
+#include <stdint.h>
+
 #include <cassert>
-#include <cstdint>
 #include <functional>
 #include <string>
 #include <string_view>

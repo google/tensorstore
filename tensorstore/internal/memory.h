@@ -15,7 +15,9 @@
 #ifndef TENSORSTORE_INTERNAL_MEMORY_H_
 #define TENSORSTORE_INTERNAL_MEMORY_H_
 
-#include <cstddef>
+#include <stddef.h>
+
+#include <cstddef>  // std::nullptr_t
 #include <cstdlib>
 #include <iterator>
 #include <memory>

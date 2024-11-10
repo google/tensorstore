@@ -24,9 +24,10 @@
 
 // This is extracted from json.h to avoid circular/excessive dependencies.
 
+#include <stddef.h>
 #include <stdint.h>
 
-#include <cstddef>
+#include <cstddef>  // std::nullptr_t
 #include <limits>
 #include <optional>
 #include <string>

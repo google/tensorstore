@@ -15,8 +15,9 @@
 #ifndef TENSORSTORE_INTERNAL_IMAGE_AVIF_COMMON_H_
 #define TENSORSTORE_INTERNAL_IMAGE_AVIF_COMMON_H_
 
-#include <cstddef>
-#include <cstdint>
+#include <stddef.h>
+#include <stdint.h>
+
 #include <cstring>
 
 // Forward declare to avoid include issues.

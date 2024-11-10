@@ -14,7 +14,8 @@
 
 #include "tensorstore/util/extents.h"
 
-#include <cstdint>
+#include <stdint.h>
+
 #include <limits>
 #include <type_traits>
 #include <vector>
@@ -111,9 +112,9 @@ TEST(ProductOfExtentsTest, Overflow) {
   EXPECT_EQ(std::numeric_limits<int>::max(),
             ProductOfExtents(
                 span<const int>({5, std::numeric_limits<int>::max() - 1})));
-  EXPECT_EQ(std::numeric_limits<std::int64_t>::max(),
+  EXPECT_EQ(std::numeric_limits<int64_t>::max(),
             ProductOfExtents(
-                span<const std::int64_t>({32768, 32768, 32768, 32768, 32768})));
+                span<const int64_t>({32768, 32768, 32768, 32768, 32768})));
   EXPECT_EQ(0, ProductOfExtents(span<const int>(
                    {5, std::numeric_limits<int>::max() - 1, 0})));
 }

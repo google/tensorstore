@@ -173,8 +173,8 @@ Result<SharedElementPointer<const void>> TransformArraySubRegion(
   SimplifiedDimensionIterationOrder layout = SimplifyDimensionIterationOrder<2>(
       base_layout, span(result_shape, input_rank), single_array_states);
 
-  const std::array<std::ptrdiff_t, 2> element_sizes{array.dtype()->size,
-                                                    array.dtype()->size};
+  const std::array<ptrdiff_t, 2> element_sizes{array.dtype()->size,
+                                               array.dtype()->size};
 
   [[maybe_unused]] const bool success = IterateUsingSimplifiedLayout<2>(
       layout, span(result_shape, input_rank),

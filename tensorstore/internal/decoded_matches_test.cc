@@ -14,7 +14,8 @@
 
 #include "tensorstore/internal/decoded_matches.h"
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <sstream>
 #include <string>
 #include <string_view>

@@ -13,9 +13,9 @@
 // limitations under the License.
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <array>
-#include <cstdint>
 
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"

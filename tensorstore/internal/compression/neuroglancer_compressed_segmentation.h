@@ -58,8 +58,9 @@
 /// If multiple blocks have exactly the same set of encoded values, the same
 /// value table will be shared by both blocks.
 
-#include <cstddef>
-#include <cstdint>
+#include <stddef.h>
+#include <stdint.h>
+
 #include <string>
 #include <string_view>
 #include <vector>

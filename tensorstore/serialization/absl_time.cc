@@ -14,7 +14,8 @@
 
 #include "tensorstore/serialization/absl_time.h"
 
-#include <cstdint>
+#include <stdint.h>
+
 #include <limits>
 
 #include "absl/time/time.h"

@@ -14,10 +14,10 @@
 
 #include "tensorstore/util/stop_token_impl.h"
 
-#include <assert.h>
 #include <stdint.h>
 
 #include <atomic>
+#include <cassert>
 #include <thread>
 
 #include "absl/synchronization/mutex.h"

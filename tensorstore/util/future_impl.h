@@ -17,12 +17,12 @@
 
 // IWYU pragma: private, include "third_party/tensorstore/util/future.h"
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include <algorithm>
 #include <atomic>
 #include <cassert>
-#include <cstddef>
 #include <thread>  // NOLINT
 #include <type_traits>
 #include <utility>

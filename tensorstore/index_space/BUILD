@@ -509,8 +509,8 @@ tensorstore_cc_test(
         ":index_vector_or_scalar",
         "//tensorstore:index",
         "//tensorstore/util:span",
-        "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
     ],
 )

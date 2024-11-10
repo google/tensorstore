@@ -22,7 +22,8 @@
 
 // IWYU pragma: private, include "third_party/tensorstore/context.h"
 
-#include <cstdint>
+#include <stdint.h>
+
 #include <memory>
 #include <string>
 #include <string_view>
@@ -390,7 +391,7 @@ class ResourceProviderImpl : public ResourceProviderImplBase {
                                  this->value_);
       } else {
         internal::EncodeCacheKey(out, ResourceSpecImplBase::kResource,
-                                 reinterpret_cast<std::uintptr_t>(this));
+                                 reinterpret_cast<uintptr_t>(this));
       }
     }
   };

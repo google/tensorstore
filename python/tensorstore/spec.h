@@ -23,7 +23,8 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <optional>
 #include <utility>
 #include <vector>

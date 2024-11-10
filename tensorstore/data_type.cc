@@ -14,12 +14,12 @@
 
 #include "tensorstore/data_type.h"
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include <array>
 #include <cassert>
 #include <complex>
-#include <cstddef>
 #include <cstring>
 #include <memory>
 #include <new>
@@ -59,8 +59,8 @@ std::ostream& operator<<(std::ostream& os, DataType r) {
   return os << "<unspecified>";
 }
 
-void* AllocateAndConstruct(std::ptrdiff_t n,
-                           ElementInitialization initialization, DataType r) {
+void* AllocateAndConstruct(ptrdiff_t n, ElementInitialization initialization,
+                           DataType r) {
   assert(n >= 0);
   assert(n < kInfSize);
   size_t alignment =
@@ -87,10 +87,9 @@ void* AllocateAndConstruct(std::ptrdiff_t n,
   return ptr.release();
 }
 
-void DestroyAndFree(std::ptrdiff_t n, DataType r, void* ptr) {
+void DestroyAndFree(ptrdiff_t n, DataType r, void* ptr) {
   r->destroy(n, ptr);
-  if (r->alignment >
-      static_cast<std::ptrdiff_t>(__STDCPP_DEFAULT_NEW_ALIGNMENT__)) {
+  if (r->alignment > static_cast<ptrdiff_t>(__STDCPP_DEFAULT_NEW_ALIGNMENT__)) {
     ::operator delete(ptr, std::align_val_t(r->alignment));
   } else {
     ::operator delete(ptr);
@@ -99,7 +98,7 @@ void DestroyAndFree(std::ptrdiff_t n, DataType r, void* ptr) {
 
 template <>
 std::shared_ptr<void> AllocateAndConstructShared<void>(
-    std::ptrdiff_t n, ElementInitialization initialization, DataType r) {
+    ptrdiff_t n, ElementInitialization initialization, DataType r) {
   if (void* ptr = AllocateAndConstruct(n, initialization, r)) {
     return std::shared_ptr<void>(ptr,
                                  [r, n](void* x) { DestroyAndFree(n, r, x); });

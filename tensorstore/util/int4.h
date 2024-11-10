@@ -15,8 +15,10 @@
 #ifndef TENSORSTORE_UTIL_INT4_H_
 #define TENSORSTORE_UTIL_INT4_H_
 
+#include <stdint.h>
+
 #include <cmath>
-#include <cstdint>
+#include <cstdint>  // IWYU pragma: keep
 #include <limits>
 #include <type_traits>
 
@@ -294,17 +296,18 @@ class Int4Padded {
   // provided automatically by the implicit conversion to `int8_t`.
 
   // Conversion to `::nlohmann::json`.
-  template <template <typename U, typename V, typename... Args>
-            class ObjectType /* = std::map*/,
-            template <typename U, typename... Args>
-            class ArrayType /* = std::vector*/,
+  template <template <typename U, typename V,
+                      typename... Args> class ObjectType /* = std::map*/,
+            template <typename U,
+                      typename... Args> class ArrayType /* = std::vector*/,
             class StringType /*= std::string*/, class BooleanType /* = bool*/,
             class NumberIntegerType /* = std::int64_t*/,
             class NumberUnsignedType /* = std::uint64_t*/,
             class NumberFloatType /* = double*/,
             template <typename U> class AllocatorType /* = std::allocator*/,
-            template <typename T, typename SFINAE = void>
-            class JSONSerializer /* = adl_serializer*/,
+            template <typename T,
+                      typename SFINAE =
+                          void> class JSONSerializer /* = adl_serializer*/,
             class BinaryType /* = std::vector<std::uint8_t>*/>
   friend void to_json(
       ::nlohmann::basic_json<ObjectType, ArrayType, StringType, BooleanType,

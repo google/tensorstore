@@ -20,8 +20,11 @@
 /// Internal codecs for b+tree-node related data structures, used by the b+tree,
 /// version tree and manifest codecs.
 
-#include <cstdint>
+#include <stddef.h>
+#include <stdint.h>
+
 #include <variant>
+#include <vector>
 
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
@@ -34,6 +37,7 @@
 #include "tensorstore/kvstore/ocdbt/format/data_file_id_codec.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference_codec.h"
+#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {

@@ -14,7 +14,8 @@
 
 #include "tensorstore/util/constant_bit_vector.h"
 
-#include <cstdint>
+#include <stdint.h>
+
 #include <type_traits>
 #include <vector>
 

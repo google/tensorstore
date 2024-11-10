@@ -15,8 +15,10 @@
 #ifndef TENSORSTORE_UTIL_STOP_TOKEN_H_
 #define TENSORSTORE_UTIL_STOP_TOKEN_H_
 
+#include <stddef.h>
+
 #include <atomic>
-#include <cstddef>
+#include <cstddef>  // std::nullptr_t
 #include <type_traits>
 #include <utility>
 

@@ -15,7 +15,6 @@
 #ifndef TENSORSTORE_SERIALIZATION_JSON_BINDABLE_H_
 #define TENSORSTORE_SERIALIZATION_JSON_BINDABLE_H_
 
-#include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/serialization/json.h"
 #include "tensorstore/serialization/serialization.h"

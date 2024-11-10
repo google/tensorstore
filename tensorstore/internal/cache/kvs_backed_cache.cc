@@ -14,7 +14,8 @@
 
 #include "tensorstore/internal/cache/kvs_backed_cache.h"
 
-#include <cstdint>
+#include <stdint.h>
+
 #include <string>
 
 #include "tensorstore/internal/metrics/counter.h"

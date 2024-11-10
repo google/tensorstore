@@ -15,9 +15,9 @@
 #include "tensorstore/kvstore/ocdbt/format/codec_util.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <algorithm>
-#include <cstdint>
 #include <limits>
 #include <string_view>
 #include <variant>

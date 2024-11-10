@@ -14,7 +14,7 @@
 
 #include "tensorstore/util/division.h"
 
-#include <cstdint>
+#include <stdint.h>
 
 namespace {
 

@@ -14,9 +14,10 @@
 
 #include "tensorstore/util/bit_span.h"
 
+#include <stdint.h>
+
 #include <algorithm>
 #include <array>
-#include <cstdint>
 #include <type_traits>
 
 #include <gmock/gmock.h>

@@ -17,7 +17,8 @@
 
 /// \file Defines a Zstd JsonSpecifiedCompressor.
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <memory>
 
 #include "riegeli/bytes/reader.h"

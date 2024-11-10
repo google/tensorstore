@@ -14,8 +14,9 @@
 
 #include "tensorstore/internal/compression/blosc.h"
 
+#include <stddef.h>
+
 #include <cassert>
-#include <cstddef>
 #include <limits>
 #include <string>
 #include <string_view>

@@ -15,9 +15,9 @@
 #include "tensorstore/internal/image/image_reader.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <array>
-#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>

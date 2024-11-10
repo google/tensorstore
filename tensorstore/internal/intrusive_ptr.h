@@ -112,10 +112,12 @@
 ///     IntrusivePtr<Y, XTraits> y3 = dynamic_pointer_cast<Y>(y2);
 ///
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <atomic>
 #include <cassert>
-#include <cstddef>
-#include <cstdint>
+#include <cstddef>  // std::nullptr_t
 #include <memory>
 #include <type_traits>
 #include <utility>

@@ -7,7 +7,7 @@ package(default_visibility = ["//tensorstore:internal_packages"])
 
 licenses(["notice"])
 
-cc_library(
+tensorstore_cc_library(
     name = "coalesce_kvstore",
     srcs = ["coalesce_kvstore.cc"],
     hdrs = ["coalesce_kvstore.h"],

@@ -228,22 +228,22 @@ Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value) {
   out.has_fields = true;
   auto parse_result = internal_json::JsonParseArray(
       value,
-      [&](std::ptrdiff_t size) {
+      [&](ptrdiff_t size) {
         out.fields.resize(size);
         return absl::OkStatus();
       },
-      [&](const ::nlohmann::json& x, std::ptrdiff_t field_i) {
+      [&](const ::nlohmann::json& x, ptrdiff_t field_i) {
         auto& field = out.fields[field_i];
         return internal_json::JsonParseArray(
             x,
-            [&](std::ptrdiff_t size) {
+            [&](ptrdiff_t size) {
               if (size < 2 || size > 3) {
                 return absl::InvalidArgumentError(tensorstore::StrCat(
                     "Expected array of size 2 or 3, but received: ", x.dump()));
               }
               return absl::OkStatus();
             },
-            [&](const ::nlohmann::json& v, std::ptrdiff_t i) {
+            [&](const ::nlohmann::json& v, ptrdiff_t i) {
               switch (i) {
                 case 0:
                   if (internal_json::JsonRequireValueAs(v, &field.name).ok()) {
@@ -263,11 +263,11 @@ Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value) {
                 case 2: {
                   return internal_json::JsonParseArray(
                       v,
-                      [&](std::ptrdiff_t size) {
+                      [&](ptrdiff_t size) {
                         field.outer_shape.resize(size);
                         return absl::OkStatus();
                       },
-                      [&](const ::nlohmann::json& x, std::ptrdiff_t j) {
+                      [&](const ::nlohmann::json& x, ptrdiff_t j) {
                         return internal_json::JsonRequireInteger(
                             x, &field.outer_shape[j], /*strict=*/true, 1,
                             kInfIndex);

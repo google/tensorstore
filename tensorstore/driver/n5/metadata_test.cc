@@ -14,32 +14,32 @@
 
 #include "tensorstore/driver/n5/metadata.h"
 
-#include <cstdint>
+#include <stdint.h>
+
+#include <string>
 #include <string_view>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include "absl/strings/cord.h"
+#include <nlohmann/json_fwd.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/codec_spec.h"
 #include "tensorstore/data_type.h"
+#include "tensorstore/index.h"
 #include "tensorstore/internal/json_binding/gtest.h"
 #include "tensorstore/internal/json_gtest.h"
-#include "tensorstore/util/result.h"
-#include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
 
 using ::tensorstore::ArrayView;
 using ::tensorstore::CodecSpec;
-using ::tensorstore::fortran_order;
 using ::tensorstore::Index;
 using ::tensorstore::MakeArray;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
-using ::tensorstore::span;
-using ::tensorstore::StridedLayout;
 using ::tensorstore::internal_n5::DecodeChunk;
 using ::tensorstore::internal_n5::N5Metadata;
 

@@ -15,7 +15,8 @@
 #ifndef TENSORSTORE_INTERNAL_JSON_BINDING_RAW_BYTES_HEX_H_
 #define TENSORSTORE_INTERNAL_JSON_BINDING_RAW_BYTES_HEX_H_
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <type_traits>
 
 #include "absl/meta/type_traits.h"

@@ -15,7 +15,8 @@
 #ifndef TENSORSTORE_UTIL_CONSTANT_BIT_VECTOR_H_
 #define TENSORSTORE_UTIL_CONSTANT_BIT_VECTOR_H_
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <type_traits>
 
 #include "tensorstore/util/bit_span.h"
@@ -25,9 +26,9 @@ namespace tensorstore {
 
 /// Returns a constant `BitSpan` with unsigned integer block type `Block`
 /// containing `value` of compile-time length `Length`.
-template <typename Block, bool value, std::ptrdiff_t Length>
+template <typename Block, bool value, ptrdiff_t Length>
 constexpr BitSpan<const Block, Length> GetConstantBitVector(
-    std::integral_constant<std::ptrdiff_t, Length> = {}) {
+    std::integral_constant<ptrdiff_t, Length> = {}) {
   return {GetConstantVector<
               Block, (value ? ~static_cast<Block>(0) : static_cast<Block>(0)),
               BitVectorSizeInBlocks<Block>(Length)>()
@@ -38,7 +39,7 @@ constexpr BitSpan<const Block, Length> GetConstantBitVector(
 /// Returns a constant `BitSpan` with unsigned integer block type `Block`
 /// containing `value` of run-time length `length`.
 template <typename Block, bool value>
-BitSpan<const Block> GetConstantBitVector(std::ptrdiff_t length) {
+BitSpan<const Block> GetConstantBitVector(ptrdiff_t length) {
   return {GetConstantVector<Block, (value ? ~static_cast<Block>(0)
                                           : static_cast<Block>(0))>(
               BitVectorSizeInBlocks<Block>(length))

@@ -133,7 +133,6 @@ tensorstore_cc_library(
         "//tensorstore/index_space:output_index_method",
         "//tensorstore/internal/json:array",
         "//tensorstore/internal/json_binding",
-        "//tensorstore/internal/json_binding:dimension_indexed",
         "//tensorstore/util:element_pointer",
         "//tensorstore/util:result",
         "//tensorstore/util:str_cat",

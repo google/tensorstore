@@ -15,7 +15,11 @@
 #ifndef TENSORSTORE_DRIVER_DRIVER_HANDLE_H_
 #define TENSORSTORE_DRIVER_DRIVER_HANDLE_H_
 
-#include <cstdint>
+#include <stddef.h>
+#include <stdint.h>
+
+#include <cstddef>  // std::nullptr_t
+#include <type_traits>
 
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/intrusive_ptr.h"

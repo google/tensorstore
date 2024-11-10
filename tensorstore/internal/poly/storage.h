@@ -35,10 +35,9 @@
 
 // IWYU pragma: private, include "third_party/tensorstore/internal/poly/poly.h"
 
+#include <stddef.h>
+
 #include <cassert>
-#include <cstddef>
-#include <limits>
-#include <memory>
 #include <new>
 #include <type_traits>
 #include <typeinfo>
@@ -47,7 +46,7 @@
 namespace tensorstore {
 namespace internal_poly_storage {
 
-constexpr static inline size_t kAlignment = alignof(std::max_align_t);
+constexpr static inline size_t kAlignment = alignof(max_align_t);
 
 /// Indicates whether a type T is eligible to be stored inline based on
 /// alignment and other requirements.

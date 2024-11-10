@@ -15,9 +15,10 @@
 #ifndef TENSORSTORE_INTERNAL_MULTI_VECTOR_H_
 #define TENSORSTORE_INTERNAL_MULTI_VECTOR_H_
 
+#include <stddef.h>
+
 #include <algorithm>
 #include <cassert>
-#include <cstddef>
 #include <cstring>
 #include <type_traits>
 #include <utility>

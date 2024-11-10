@@ -19,7 +19,7 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
-#include <cstddef>
+#include <stddef.h>
 
 #include "python/tensorstore/type_name_override.h"
 #include "tensorstore/util/span.h"

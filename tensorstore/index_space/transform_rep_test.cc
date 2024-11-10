@@ -14,7 +14,8 @@
 
 #include "tensorstore/index_space/internal/transform_rep.h"
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <limits>
 #include <memory>
 #include <utility>

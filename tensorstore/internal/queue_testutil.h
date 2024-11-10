@@ -15,7 +15,8 @@
 #ifndef TENSORSTORE_INTERNAL_QUEUE_TESTUTIL_H_
 #define TENSORSTORE_INTERNAL_QUEUE_TESTUTIL_H_
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <deque>
 #include <optional>
 #include <utility>

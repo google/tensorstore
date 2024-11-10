@@ -19,8 +19,9 @@
 #include "python/tensorstore/status.h"
 
 // Other headers
+#include <stddef.h>
+
 #include <cassert>
-#include <cstddef>
 #include <string>
 #include <string_view>
 

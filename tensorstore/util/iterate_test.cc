@@ -14,8 +14,9 @@
 
 #include "tensorstore/util/internal/iterate.h"
 
+#include <stddef.h>
+
 #include <array>
-#include <cstddef>
 #include <tuple>
 #include <type_traits>
 #include <vector>

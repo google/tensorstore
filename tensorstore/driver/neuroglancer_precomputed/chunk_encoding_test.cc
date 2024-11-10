@@ -16,8 +16,9 @@
 
 #include "tensorstore/driver/neuroglancer_precomputed/chunk_encoding.h"
 
-#include <cstddef>
-#include <cstdint>
+#include <stddef.h>
+#include <stdint.h>
+
 #include <string>
 #include <vector>
 

@@ -14,10 +14,11 @@
 
 #include "tensorstore/internal/json/value_as.h"
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include <cmath>
-#include <cstddef>
+#include <cstddef>  // std::nullptr_t
 #include <limits>
 #include <optional>
 #include <string>

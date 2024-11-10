@@ -15,8 +15,9 @@
 #ifndef TENSORSTORE_UTIL_EXTENTS_H_
 #define TENSORSTORE_UTIL_EXTENTS_H_
 
+#include <stddef.h>
+
 #include <cassert>
-#include <cstddef>
 #include <limits>
 #include <type_traits>
 

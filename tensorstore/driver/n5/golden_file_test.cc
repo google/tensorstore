@@ -16,8 +16,8 @@
 ///
 /// Verifies compatibility with the zarr n5 library.
 
-#include <cstdint>
-#include <cstdlib>
+#include <stdint.h>
+
 #include <string>
 #include <vector>
 
@@ -26,12 +26,12 @@
 #include "absl/flags/flag.h"
 #include "absl/log/absl_log.h"
 #include "tensorstore/array.h"
-#include "tensorstore/array_testutil.h"
 #include "tensorstore/context.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/open.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/open_mode.h"
+#include "tensorstore/tensorstore.h"
 #include "tensorstore/util/status_testutil.h"
 
 ABSL_FLAG(std::string, tensorstore_test_data_dir, ".",

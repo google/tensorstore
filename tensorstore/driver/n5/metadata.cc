@@ -15,11 +15,11 @@
 #include "tensorstore/driver/n5/metadata.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <algorithm>
 #include <array>
 #include <cassert>
-#include <cstdint>
 #include <memory>
 #include <optional>
 #include <string>

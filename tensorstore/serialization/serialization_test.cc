@@ -14,7 +14,8 @@
 
 #include "tensorstore/serialization/serialization.h"
 
-#include <cstdint>
+#include <stdint.h>
+
 #include <map>
 #include <set>
 #include <string>

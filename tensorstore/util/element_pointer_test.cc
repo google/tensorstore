@@ -301,12 +301,12 @@ TEST(ElementPointerTest, DynamicType) {
 
 TEST(ElementPointerTest, StaticDataTypeCast) {
   float value;
-  EXPECT_THAT(StaticDataTypeCast<std::int32_t>(ElementPointer<void>(&value)),
+  EXPECT_THAT(StaticDataTypeCast<int32_t>(ElementPointer<void>(&value)),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Cannot cast pointer with data type of float32 to "
                             "pointer with data type of int32"));
 
-  EXPECT_THAT(StaticDataTypeCast<std::int32_t>(
+  EXPECT_THAT(StaticDataTypeCast<int32_t>(
                   SharedElementPointer<void>(std::make_shared<float>())),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Cannot cast pointer with data type of float32 to "

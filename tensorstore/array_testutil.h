@@ -18,7 +18,8 @@
 /// \file
 /// Define a GMock matcher for `tensorstore::Array`.
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <ostream>
 #include <string>
 #include <vector>
@@ -209,7 +210,7 @@ ArrayMatcher MatchesArray(
 ///
 /// \param origin The expected origin vector of the array.
 /// \param element_matchers The matchers for each element of the array.
-template <typename Element, Index N0, std::ptrdiff_t OriginRank>
+template <typename Element, Index N0, ptrdiff_t OriginRank>
 ArrayMatcher MatchesArray(
     const Index (&origin)[OriginRank],
     const ::testing::Matcher<Element> (&element_matchers)[N0]) {

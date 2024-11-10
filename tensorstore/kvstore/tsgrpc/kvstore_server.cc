@@ -15,10 +15,10 @@
 #include "tensorstore/kvstore/tsgrpc/kvstore_server.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <atomic>
 #include <cassert>
-#include <cstdint>
 #include <memory>
 #include <optional>
 #include <string>

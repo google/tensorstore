@@ -126,10 +126,9 @@ std::string BuildJWTHeader(std::string_view key_id) {
 std::string BuildJWTClaimBody(std::string_view client_email,
                               std::string_view scope,  //
                               std::string_view audience, absl::Time now,
-                              std::int64_t lifetime) {
-  const std::int64_t request_timestamp_sec = absl::ToUnixSeconds(now);
-  const std::int64_t expiration_timestamp_sec =
-      request_timestamp_sec + lifetime;
+                              int64_t lifetime) {
+  const int64_t request_timestamp_sec = absl::ToUnixSeconds(now);
+  const int64_t expiration_timestamp_sec = request_timestamp_sec + lifetime;
 
   // 2. Create the assertion payload.
   ::nlohmann::json assertion_payload = {

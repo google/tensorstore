@@ -15,7 +15,8 @@
 #ifndef TENSORSTORE_INTERNAL_CHUNK_GRID_SPECIFICATION_H_
 #define TENSORSTORE_INTERNAL_CHUNK_GRID_SPECIFICATION_H_
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <string_view>
 #include <vector>
 

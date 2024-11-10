@@ -18,10 +18,10 @@
 
 #include <cmath>
 #include <complex>
+#include <cstddef>  // for std::byte
 #include <limits>
 #include <string>
 #include <string_view>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -208,19 +208,18 @@ TEST(ParseFillValueTest, IntegerSuccess) {
   TestFillValueRoundTrip("int4", 1,
                          {MakeScalarArray<int4_t>(static_cast<int4_t>(1))});
 
-  TestFillValueRoundTrip("|i1", -124, {MakeScalarArray<std::int8_t>(-124)});
-  TestFillValueRoundTrip("|i1", 124, {MakeScalarArray<std::int8_t>(124)});
-  TestFillValueRoundTrip("<i2", -31000,
-                         {MakeScalarArray<std::int16_t>(-31000)});
-  TestFillValueRoundTrip("<i2", 31000, {MakeScalarArray<std::int16_t>(31000)});
+  TestFillValueRoundTrip("|i1", -124, {MakeScalarArray<int8_t>(-124)});
+  TestFillValueRoundTrip("|i1", 124, {MakeScalarArray<int8_t>(124)});
+  TestFillValueRoundTrip("<i2", -31000, {MakeScalarArray<int16_t>(-31000)});
+  TestFillValueRoundTrip("<i2", 31000, {MakeScalarArray<int16_t>(31000)});
   TestFillValueRoundTrip("<i4", -310000000,
-                         {MakeScalarArray<std::int32_t>(-310000000)});
+                         {MakeScalarArray<int32_t>(-310000000)});
   TestFillValueRoundTrip("<i4", 310000000,
-                         {MakeScalarArray<std::int32_t>(310000000)});
+                         {MakeScalarArray<int32_t>(310000000)});
   TestFillValueRoundTrip("<i8", -31000000000,
-                         {MakeScalarArray<std::int64_t>(-31000000000)});
+                         {MakeScalarArray<int64_t>(-31000000000)});
   TestFillValueRoundTrip("<i8", 31000000000,
-                         {MakeScalarArray<std::int64_t>(31000000000)});
+                         {MakeScalarArray<int64_t>(31000000000)});
 
   TestFillValueRoundTrip("|u1", 124, {MakeScalarArray<uint8_t>(124)});
   TestFillValueRoundTrip("<u2", 31000, {MakeScalarArray<uint16_t>(31000)});
@@ -290,7 +289,7 @@ TEST(ParseFillValueTest, Base64Success) {
   TestFillValueRoundTrip(
       ::nlohmann::json::array_t{{"x", "<i2", {2}}, {"y", ">u4", {3}}},
       "x8/3X0mWAtIbOgwUzgpqFA==",
-      {MakeArray<std::int16_t>({-12345, 24567}),
+      {MakeArray<int16_t>({-12345, 24567}),
        MakeArray<uint32_t>({1234567890, 456789012, 3456789012})});
 }
 
@@ -407,9 +406,9 @@ TEST(EncodeDecodeMetadataTest, Array2) {
   EXPECT_THAT(metadata.chunks, ElementsAre(10, 10));
   EXPECT_TRUE(metadata.dtype.has_fields);
   EXPECT_EQ(2, metadata.dtype.fields.size());
-  EXPECT_EQ(dtype_v<std::int32_t>, metadata.dtype.fields[0].dtype);
+  EXPECT_EQ(dtype_v<int32_t>, metadata.dtype.fields[0].dtype);
   EXPECT_TRUE(metadata.fill_value[0].valid());
-  EXPECT_EQ(metadata.fill_value[0], MakeScalarArray<std::int32_t>(0));
+  EXPECT_EQ(metadata.fill_value[0], MakeScalarArray<int32_t>(0));
   EXPECT_EQ(tensorstore::endian::little, metadata.dtype.fields[0].endian);
   EXPECT_THAT(metadata.dtype.fields[0].field_shape, ElementsAre());
   EXPECT_EQ(0, metadata.dtype.fields[0].byte_offset);
@@ -471,9 +470,9 @@ TEST(EncodeDecodeMetadataTest, Array2Modified) {
   EXPECT_THAT(metadata.chunks, ElementsAre(10, 10));
   EXPECT_TRUE(metadata.dtype.has_fields);
   EXPECT_EQ(2, metadata.dtype.fields.size());
-  EXPECT_EQ(dtype_v<std::int32_t>, metadata.dtype.fields[0].dtype);
+  EXPECT_EQ(dtype_v<int32_t>, metadata.dtype.fields[0].dtype);
   EXPECT_TRUE(metadata.fill_value[0].valid());
-  EXPECT_EQ(metadata.fill_value[0], MakeScalarArray<std::int32_t>(123456789));
+  EXPECT_EQ(metadata.fill_value[0], MakeScalarArray<int32_t>(123456789));
   EXPECT_EQ(tensorstore::endian::little, metadata.dtype.fields[0].endian);
   EXPECT_THAT(metadata.dtype.fields[0].field_shape, ElementsAre());
   EXPECT_EQ(0, metadata.dtype.fields[0].byte_offset);
@@ -529,7 +528,7 @@ TEST(EncodeDecodeMetadataTest, ArrayStructured) {
   EXPECT_THAT(metadata.chunks, ElementsAre(10));
   EXPECT_TRUE(metadata.dtype.has_fields);
   EXPECT_EQ(3, metadata.dtype.fields.size());
-  EXPECT_EQ(dtype_v<std::int64_t>, metadata.dtype.fields[0].dtype);
+  EXPECT_EQ(dtype_v<int64_t>, metadata.dtype.fields[0].dtype);
   EXPECT_FALSE(metadata.fill_value[0].valid());
   EXPECT_EQ(tensorstore::endian::little, metadata.dtype.fields[0].endian);
   EXPECT_THAT(metadata.dtype.fields[0].field_shape, ElementsAre());
@@ -710,7 +709,7 @@ TEST(ParseMetadataTest, Simple) {
   EXPECT_THAT(metadata.shape, ElementsAre(1111));
   EXPECT_THAT(metadata.chunks, ElementsAre(100));
   EXPECT_EQ(1, metadata.dtype.fields.size());
-  EXPECT_EQ(dtype_v<std::int8_t>, metadata.dtype.fields[0].dtype);
+  EXPECT_EQ(dtype_v<int8_t>, metadata.dtype.fields[0].dtype);
   EXPECT_EQ(tensorstore::endian::native, metadata.dtype.fields[0].endian);
   EXPECT_THAT(metadata.dtype.fields[0].field_shape, ElementsAre());
   EXPECT_EQ(0, metadata.dtype.fields[0].byte_offset);

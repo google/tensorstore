@@ -14,6 +14,9 @@
 
 #include "tensorstore/internal/riegeli/json_input.h"
 
+#include <string>
+
+#include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "riegeli/bytes/reader.h"
 

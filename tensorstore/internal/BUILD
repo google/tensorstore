@@ -785,7 +785,6 @@ tensorstore_cc_test(
     deps = [
         ":json_gtest",
         ":json_pointer",
-        "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
         "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/status",
@@ -1860,7 +1859,7 @@ tensorstore_cc_library(
     deps = ["@com_google_absl//absl/types:compare"],
 )
 
-cc_test(
+tensorstore_cc_test(
     name = "regular_grid_test",
     srcs = ["regular_grid_test.cc"],
     deps = [

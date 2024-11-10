@@ -14,7 +14,9 @@
 
 #include "tensorstore/internal/json_binding/json_binding.h"
 
-#include <cstdint>
+#include <stdint.h>
+
+#include <cstddef>  // std::nullptr_t
 #include <optional>
 #include <string>
 #include <type_traits>
@@ -62,20 +64,19 @@ TEST(JsonTest, SimpleParse) {
 
 TEST(JsonParseArrayTest, Basic) {
   bool size_received = false;
-  std::vector<std::pair<::nlohmann::json, std::ptrdiff_t>> elements;
-  EXPECT_EQ(absl::OkStatus(),
-            JsonParseArray(
-                ::nlohmann::json{1, 2, 3},
-                [&](std::ptrdiff_t s) {
-                  EXPECT_EQ(3, s);
-                  size_received = true;
-                  return JsonValidateArrayLength(s, 3);
-                },
-                [&](const ::nlohmann::json& j, std::ptrdiff_t i) {
-                  EXPECT_TRUE(size_received);
-                  elements.emplace_back(j, i);
-                  return absl::OkStatus();
-                }));
+  std::vector<std::pair<::nlohmann::json, ptrdiff_t>> elements;
+  EXPECT_EQ(absl::OkStatus(), JsonParseArray(
+                                  ::nlohmann::json{1, 2, 3},
+                                  [&](ptrdiff_t s) {
+                                    EXPECT_EQ(3, s);
+                                    size_received = true;
+                                    return JsonValidateArrayLength(s, 3);
+                                  },
+                                  [&](const ::nlohmann::json& j, ptrdiff_t i) {
+                                    EXPECT_TRUE(size_received);
+                                    elements.emplace_back(j, i);
+                                    return absl::OkStatus();
+                                  }));
   EXPECT_TRUE(size_received);
   EXPECT_THAT(elements, ::testing::ElementsAre(::testing::Pair(1, 0),
                                                ::testing::Pair(2, 1),
@@ -83,14 +84,14 @@ TEST(JsonParseArrayTest, Basic) {
 }
 
 TEST(JsonParseArrayTest, NotArray) {
-  EXPECT_THAT(JsonParseArray(
-                  ::nlohmann::json(3),
-                  [&](std::ptrdiff_t s) { return absl::OkStatus(); },
-                  [&](const ::nlohmann::json& j, std::ptrdiff_t i) {
-                    return absl::OkStatus();
-                  }),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Expected array, but received: 3"));
+  EXPECT_THAT(
+      JsonParseArray(
+          ::nlohmann::json(3), [&](ptrdiff_t s) { return absl::OkStatus(); },
+          [&](const ::nlohmann::json& j, ptrdiff_t i) {
+            return absl::OkStatus();
+          }),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    "Expected array, but received: 3"));
 }
 
 TEST(JsonValidateArrayLength, Success) {
@@ -107,8 +108,8 @@ TEST(JsonParseArrayTest, SizeCallbackError) {
   EXPECT_THAT(
       JsonParseArray(
           ::nlohmann::json{1, 2, 3},
-          [&](std::ptrdiff_t s) { return absl::UnknownError("size_callback"); },
-          [&](const ::nlohmann::json& j, std::ptrdiff_t i) {
+          [&](ptrdiff_t s) { return absl::UnknownError("size_callback"); },
+          [&](const ::nlohmann::json& j, ptrdiff_t i) {
             return absl::OkStatus();
           }),
       MatchesStatus(absl::StatusCode::kUnknown, "size_callback"));
@@ -117,8 +118,8 @@ TEST(JsonParseArrayTest, SizeCallbackError) {
 TEST(JsonParseArrayTest, ElementCallbackError) {
   EXPECT_THAT(JsonParseArray(
                   ::nlohmann::json{1, 2, 3},
-                  [&](std::ptrdiff_t s) { return absl::OkStatus(); },
-                  [&](const ::nlohmann::json& j, std::ptrdiff_t i) {
+                  [&](ptrdiff_t s) { return absl::OkStatus(); },
+                  [&](const ::nlohmann::json& j, ptrdiff_t i) {
                     if (i == 0) return absl::OkStatus();
                     return absl::UnknownError("element");
                   }),
@@ -183,7 +184,7 @@ TEST(JsonBindingTest, ValueAsBinder) {
           {true, ::nlohmann::json(true)},
       },
       jb::ValueAsBinder);
-  tensorstore::TestJsonBinderRoundTrip<std::int64_t>(
+  tensorstore::TestJsonBinderRoundTrip<int64_t>(
       {
           {3, ::nlohmann::json(3)},
       },
@@ -216,7 +217,7 @@ TEST(JsonBindingTest, LooseValueAsBinder) {
           {::nlohmann::json("true"), Eq(true)},
       },
       jb::LooseValueAsBinder);
-  tensorstore::TestJsonBinderFromJson<std::int64_t>(
+  tensorstore::TestJsonBinderFromJson<int64_t>(
       {
           {::nlohmann::json(3), Eq(3)},
           {::nlohmann::json(3.0), Eq(3)},

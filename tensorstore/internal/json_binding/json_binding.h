@@ -88,6 +88,10 @@
 #ifndef TENSORSTORE_INTERNAL_JSON_BINDING_JSON_H_
 #define TENSORSTORE_INTERNAL_JSON_BINDING_JSON_H_
 
+#include <stddef.h>
+#include <stdint.h>
+
+#include <cstddef>  // std::nullptr_t
 #include <functional>
 #include <limits>
 #include <map>
@@ -173,7 +177,7 @@ using value_as_binder::ValueAsBinder;
 template <>
 constexpr inline auto DefaultBinder<bool> = ValueAsBinder;
 template <>
-constexpr inline auto DefaultBinder<std::int64_t> = ValueAsBinder;
+constexpr inline auto DefaultBinder<int64_t> = ValueAsBinder;
 template <>
 constexpr inline auto DefaultBinder<std::string> = ValueAsBinder;
 template <>

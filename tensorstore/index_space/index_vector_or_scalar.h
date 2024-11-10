@@ -15,7 +15,8 @@
 #ifndef TENSORSTORE_INDEX_SPACE_INDEX_VECTOR_OR_SCALAR_H_
 #define TENSORSTORE_INDEX_SPACE_INDEX_VECTOR_OR_SCALAR_H_
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <type_traits>
 #include <variant>
 #include <vector>

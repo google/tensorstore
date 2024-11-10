@@ -27,7 +27,8 @@
 /// `nditerable_elementwise_{input,output}_transform.h` for obtaining an
 /// NDIterable objects that are elementwise-transformed views.
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <cstdlib>
 #include <memory>
 

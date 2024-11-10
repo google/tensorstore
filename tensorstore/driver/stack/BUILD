@@ -109,6 +109,7 @@ tensorstore_cc_test(
         "//tensorstore/kvstore",
         "//tensorstore/kvstore/memory",
         "//tensorstore/util:result",
+        "//tensorstore/util:span",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:unit",
         "@com_github_nlohmann_json//:json",

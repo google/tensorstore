@@ -186,7 +186,8 @@
 //   // the type of the protobuf.
 //   // EXPECT_THAT(data, WhenDeserialized(EqualsProto("foo: 1")));
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <cstring>
 #include <initializer_list>
 #include <iomanip>

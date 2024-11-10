@@ -15,7 +15,7 @@
 #ifndef TENSORSTORE_INTERNAL_CACHE_CACHE_POOL_LIMITS_H_
 #define TENSORSTORE_INTERNAL_CACHE_CACHE_POOL_LIMITS_H_
 
-#include <cstddef>
+#include <stddef.h>
 
 namespace tensorstore {
 namespace internal {

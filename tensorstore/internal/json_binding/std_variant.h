@@ -15,7 +15,8 @@
 #ifndef TENSORSTORE_INTERNAL_JSON_BINDING_STD_VARIANT_H_
 #define TENSORSTORE_INTERNAL_JSON_BINDING_STD_VARIANT_H_
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <type_traits>
 #include <utility>
 #include <variant>

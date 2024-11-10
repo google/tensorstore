@@ -68,7 +68,7 @@ ComputeStridedLayoutDimensionIterationOrder(IterationConstraints constraints,
       // values are 0.
       if (size != 0 && constraints.repeated_elements_constraint() ==
                            skip_repeated_elements) {
-        for (std::ptrdiff_t i = 0; i < strides.size(); ++i) {
+        for (ptrdiff_t i = 0; i < strides.size(); ++i) {
           if (strides[i][dim_i] != 0) goto cannot_skip_dimension;
         }
         continue;
@@ -108,7 +108,7 @@ static SpecializedElementwiseFunctionPointer<Arity, void*>
 PickElementwiseFunction(
     const internal_iterate::InnerShapeAndStrides<Arity, 2>& inner_layout,
     const ElementwiseFunction<Arity, void*>& function,
-    std::array<std::ptrdiff_t, Arity> element_sizes) {
+    std::array<ptrdiff_t, Arity> element_sizes) {
   return function[internal_iterate::AreStridesContiguous(inner_layout,
                                                          element_sizes)
                       ? IterationBufferKind::kContiguous
@@ -119,7 +119,7 @@ template <size_t Arity>
 StridedLayoutFunctionApplyer<Arity>::StridedLayoutFunctionApplyer(
     span<const Index> shape, std::array<const Index*, Arity> strides,
     IterationConstraints constraints, ElementwiseClosure<Arity, void*> closure,
-    std::array<std::ptrdiff_t, Arity> element_sizes)
+    std::array<ptrdiff_t, Arity> element_sizes)
     : iteration_layout_(internal_iterate::SimplifyStridedIterationLayout(
           constraints, shape, strides)),
       inner_layout_(
@@ -133,7 +133,7 @@ StridedLayoutFunctionApplyer<Arity>::StridedLayoutFunctionApplyer(
     const Index* shape, span<const DimensionIndex> dimension_order,
     std::array<const Index*, Arity> strides,
     ElementwiseClosure<Arity, void*> closure,
-    std::array<std::ptrdiff_t, Arity> element_sizes)
+    std::array<ptrdiff_t, Arity> element_sizes)
     : iteration_layout_(
           internal_iterate::PermuteAndSimplifyStridedIterationLayout(
               shape, dimension_order, strides)),
@@ -187,7 +187,7 @@ bool IterateOverStridedLayouts(
     span<const Index> shape,
     std::array<ByteStridedPointer<void>, Arity> pointers,
     std::array<const Index*, Arity> strides, IterationConstraints constraints,
-    std::array<std::ptrdiff_t, Arity> element_sizes) {
+    std::array<ptrdiff_t, Arity> element_sizes) {
   return StridedLayoutFunctionApplyer<Arity>(
       shape, strides, constraints, closure, element_sizes)(pointers, arg);
 }
@@ -200,7 +200,7 @@ bool IterateOverStridedLayouts(
       std::array<ByteStridedPointer<void>, Arity> pointers, \
       std::array<const Index*, Arity> strides,              \
       IterationConstraints constraints,                     \
-      std::array<std::ptrdiff_t, Arity> element_sizes);
+      std::array<ptrdiff_t, Arity> element_sizes);
 
 /**/
 

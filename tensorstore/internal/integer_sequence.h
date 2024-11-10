@@ -66,7 +66,8 @@ using std::make_integer_sequence;
 //   * index_sequence_for<Ts...>     == std::index_sequence_for<Ts...>
 //
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <cstdlib>
 
 namespace tensorstore {

@@ -15,8 +15,9 @@
 #ifndef TENSORSTORE_UTIL_APPLY_MEMBERS_STD_ARRAY_H_
 #define TENSORSTORE_UTIL_APPLY_MEMBERS_STD_ARRAY_H_
 
+#include <stddef.h>
+
 #include <array>
-#include <cstddef>
 #include <utility>
 
 #include "tensorstore/util/apply_members/apply_members.h"

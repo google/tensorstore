@@ -112,7 +112,7 @@ IndexArrayData& OutputIndexMap::SetArrayIndexing(DimensionIndex rank) {
     new (data) IndexArrayData;
     data->rank_capacity = rank;
   }
-  value_ = reinterpret_cast<std::uintptr_t>(data);
+  value_ = reinterpret_cast<uintptr_t>(data);
   return *data;
 }
 

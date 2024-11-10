@@ -18,9 +18,11 @@
 /// \file
 /// C++17-compatible implementation of C++20 span type.
 
+#include <stddef.h>
+
 #include <array>
 #include <cassert>
-#include <cstddef>
+#include <cstddef>  // IWYU pragma: keep
 #include <iterator>
 #include <type_traits>
 

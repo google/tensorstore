@@ -14,8 +14,9 @@
 
 #include "tensorstore/index_space/internal/transpose.h"
 
+#include <stddef.h>
+
 #include <cassert>
-#include <cstddef>
 #include <cstring>
 #include <utility>
 
@@ -42,7 +43,7 @@ void PermuteArray(Source orig_array, Dest new_array,
                   span<const DimensionIndex> new_to_orig_map) {
   assert(orig_array.size() == new_array.size());
   assert(orig_array.size() == new_to_orig_map.size());
-  for (std::ptrdiff_t i = 0; i < orig_array.size(); ++i) {
+  for (ptrdiff_t i = 0; i < orig_array.size(); ++i) {
     new_array[i] = orig_array[new_to_orig_map[i]];
   }
 }

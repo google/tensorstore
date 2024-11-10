@@ -181,7 +181,7 @@ constexpr inline auto DefaultBinder<std::array<T, N>> = FixedSizeArrayBinder;
 ///
 /// Note that the user is responsible for ensuring that the `span` refers to
 /// valid memory both when loading and saving.
-template <typename T, std::ptrdiff_t Extent>
+template <typename T, ptrdiff_t Extent>
 constexpr inline auto DefaultBinder<tensorstore::span<T, Extent>> =
     FixedSizeArrayBinder;
 

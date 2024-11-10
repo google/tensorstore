@@ -47,7 +47,6 @@
 
 #include <algorithm>
 #include <array>
-#include <cstddef>
 
 #include "tensorstore/internal/meta.h"
 #include "tensorstore/util/division.h"
@@ -61,9 +60,9 @@ namespace internal_multi_vector {
 /// The seemingly unnecessary `prev_alignment` parameter allows better code
 /// generation since the compiler may be unable to optimize out the RoundUpTo
 /// operation otherwise.
-inline constexpr std::ptrdiff_t GetAlignedOffset(
-    std::ptrdiff_t offset, std::ptrdiff_t prev_alignment,
-    std::ptrdiff_t next_alignment) {
+inline constexpr ptrdiff_t GetAlignedOffset(ptrdiff_t offset,
+                                            ptrdiff_t prev_alignment,
+                                            ptrdiff_t next_alignment) {
   return prev_alignment >= next_alignment ? offset
                                           : RoundUpTo(offset, next_alignment);
 }
@@ -80,9 +79,9 @@ inline constexpr std::ptrdiff_t GetAlignedOffset(
 ///     compute the starting offset.  If set to the total number of vectors, and
 ///     a `0` is appended to the `alignments` array, the return value is equal
 ///     to the total storage required by the multi vector.
-inline constexpr std::ptrdiff_t GetVectorOffset(
-    const std::ptrdiff_t sizes[], const std::ptrdiff_t alignments[],
-    std::ptrdiff_t extent, size_t array_i) {
+inline constexpr ptrdiff_t GetVectorOffset(const ptrdiff_t sizes[],
+                                           const ptrdiff_t alignments[],
+                                           ptrdiff_t extent, size_t array_i) {
   if (array_i == 0) return 0;
   return GetAlignedOffset(
       GetVectorOffset(sizes, alignments, extent, array_i - 1) +
@@ -97,10 +96,10 @@ template <typename... Ts>
 struct PackStorageOffsets {
   /// The alignments of `Ts...`.  An extra `0` is appended as required by
   /// `GetVectorOffset`.
-  constexpr static std::ptrdiff_t kAlignments[] = {alignof(Ts)..., 0};
+  constexpr static ptrdiff_t kAlignments[] = {alignof(Ts)..., 0};
 
   /// The sizes of `Ts...`.
-  constexpr static std::ptrdiff_t kSizes[] = {sizeof(Ts)...};
+  constexpr static ptrdiff_t kSizes[] = {sizeof(Ts)...};
 
   /// Alignment required for the multi vector, equal to the maximum alignment of
   /// the element types `Ts...`.
@@ -108,14 +107,13 @@ struct PackStorageOffsets {
       *std::max_element(std::begin(kAlignments), std::end(kAlignments));
 
   /// Returns the byte offset of vector `array_i`.
-  static constexpr std::ptrdiff_t GetVectorOffset(std::ptrdiff_t extent,
-                                                  size_t array_i) {
+  static constexpr ptrdiff_t GetVectorOffset(ptrdiff_t extent, size_t array_i) {
     return internal_multi_vector::GetVectorOffset(kSizes, kAlignments, extent,
                                                   array_i);
   }
 
   /// Returns the total number of bytes required for the multi vector.
-  static constexpr std::ptrdiff_t GetTotalSize(std::ptrdiff_t extent) {
+  static constexpr ptrdiff_t GetTotalSize(ptrdiff_t extent) {
     return GetVectorOffset(extent, sizeof...(Ts));
   }
 };

@@ -14,7 +14,8 @@
 
 #include "tensorstore/internal/nditerable_array.h"
 
-#include <cstdint>
+#include <stdint.h>
+
 #include <memory>
 #include <vector>
 

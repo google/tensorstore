@@ -66,12 +66,14 @@ tensorstore_cc_test(
     ],
     deps = [
         "//tensorstore",
+        "//tensorstore:array",
+        "//tensorstore:box",
         "//tensorstore:context",
         "//tensorstore:index",
         "//tensorstore:open",
-        "//tensorstore:open_options",
-        "//tensorstore:progress",
+        "//tensorstore:open_mode",
         "//tensorstore:strided_layout",
+        "//tensorstore:transaction",
         "//tensorstore/driver/image/avif",  # build_cleaner: keep
         "//tensorstore/driver/image/bmp",  # build_cleaner: keep
         "//tensorstore/driver/image/jpeg",  # build_cleaner: keep
@@ -82,11 +84,12 @@ tensorstore_cc_test(
         "//tensorstore/internal:json_gtest",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore/memory",  # build_cleaner: keep
-        "//tensorstore/util:future",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
+        "//tensorstore/util:str_cat",
         "@com_github_nlohmann_json//:json",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
         "@com_google_googletest//:gtest_main",

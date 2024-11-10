@@ -14,9 +14,10 @@
 
 #include "tensorstore/driver/downsample/grid_occupancy_map.h"
 
+#include <stddef.h>
+
 #include <algorithm>
 #include <cassert>
-#include <cstddef>
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"

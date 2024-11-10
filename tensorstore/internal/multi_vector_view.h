@@ -15,8 +15,9 @@
 #ifndef TENSORSTORE_INTERNAL_MULTI_VECTOR_VIEW_H_
 #define TENSORSTORE_INTERNAL_MULTI_VECTOR_VIEW_H_
 
+#include <stddef.h>
+
 #include <cassert>
-#include <cstddef>
 
 #include "tensorstore/index.h"
 #include "tensorstore/internal/gdb_scripting.h"

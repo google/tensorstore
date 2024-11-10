@@ -23,11 +23,13 @@
 /// Most users should #include  "third_party/tensorstore/index_space.h" instead.
 
 #include <array>
+#include <optional>
 #include <string_view>
 #include <type_traits>
 #include <utility>
 
 #include "absl/meta/type_traits.h"
+#include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/container_kind.h"
 #include "tensorstore/index.h"

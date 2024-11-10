@@ -15,9 +15,9 @@
 #include "tensorstore/driver/neuroglancer_precomputed/metadata.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <array>
-#include <cstdint>
 #include <string>
 #include <utility>
 #include <variant>
@@ -1015,7 +1015,7 @@ TEST(ValidateMetadataCompatibilityTest, Basic) {
   {
     SCOPED_TRACE("`data_type` cannot change");
     auto b = a;
-    b.dtype = dtype_v<std::int16_t>;
+    b.dtype = dtype_v<int16_t>;
     EXPECT_THAT(Validate(a, b, 0, {{64, 65, 66}}),
                 MatchesStatus(absl::StatusCode::kFailedPrecondition,
                               ".*\"data_type\".*"));

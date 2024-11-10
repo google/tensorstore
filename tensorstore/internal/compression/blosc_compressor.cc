@@ -14,7 +14,8 @@
 
 #include "tensorstore/internal/compression/blosc_compressor.h"
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <memory>
 #include <utility>
 

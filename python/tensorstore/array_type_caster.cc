@@ -24,9 +24,10 @@
 #include "python/tensorstore/array_type_caster.h"
 
 // Other headers
+#include <stddef.h>
+
 #include <algorithm>
 #include <cassert>
-#include <cstddef>
 #include <exception>
 #include <memory>
 #include <optional>

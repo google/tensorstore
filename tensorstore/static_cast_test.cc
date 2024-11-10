@@ -14,7 +14,8 @@
 
 #include "tensorstore/static_cast.h"
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <string>
 #include <type_traits>
 #include <utility>

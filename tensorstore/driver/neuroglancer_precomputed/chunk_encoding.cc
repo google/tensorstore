@@ -14,10 +14,11 @@
 
 #include "tensorstore/driver/neuroglancer_precomputed/chunk_encoding.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <algorithm>
 #include <array>
-#include <cstddef>
-#include <cstdint>
 #include <limits>
 #include <string>
 #include <utility>
@@ -179,11 +180,11 @@ Result<SharedArray<const void>> DecodeCompressedSegmentationChunk(
       internal::AllocateAndConstructSharedElements(chunk_layout.num_elements(),
                                                    default_init, dtype),
       chunk_layout);
-  std::ptrdiff_t output_shape_ptrdiff_t[4] = {shape[0], shape[1], shape[2],
-                                              shape[3]};
-  std::ptrdiff_t block_shape_ptrdiff_t[3] = {block_size[2], block_size[1],
-                                             block_size[0]};
-  std::ptrdiff_t output_byte_strides[4] = {
+  ptrdiff_t output_shape_ptrdiff_t[4] = {shape[0], shape[1], shape[2],
+                                         shape[3]};
+  ptrdiff_t block_shape_ptrdiff_t[3] = {block_size[2], block_size[1],
+                                        block_size[0]};
+  ptrdiff_t output_byte_strides[4] = {
       chunk_layout.byte_strides()[0], chunk_layout.byte_strides()[1],
       chunk_layout.byte_strides()[2], chunk_layout.byte_strides()[3]};
   bool success = false;
@@ -321,12 +322,11 @@ Result<absl::Cord> EncodePngChunk(DataType dtype, int compression_level,
 Result<absl::Cord> EncodeCompressedSegmentationChunk(
     DataType dtype, span<const Index, 4> shape, ArrayView<const void> array,
     std::array<Index, 3> block_size) {
-  std::ptrdiff_t input_shape_ptrdiff_t[4] = {shape[0], shape[1], shape[2],
-                                             shape[3]};
-  std::ptrdiff_t block_shape_ptrdiff_t[3] = {block_size[2], block_size[1],
-                                             block_size[0]};
+  ptrdiff_t input_shape_ptrdiff_t[4] = {shape[0], shape[1], shape[2], shape[3]};
+  ptrdiff_t block_shape_ptrdiff_t[3] = {block_size[2], block_size[1],
+                                        block_size[0]};
   std::string out;
-  std::ptrdiff_t input_byte_strides[4] = {
+  ptrdiff_t input_byte_strides[4] = {
       array.byte_strides()[0], array.byte_strides()[1], array.byte_strides()[2],
       array.byte_strides()[3]};
   switch (dtype.id()) {

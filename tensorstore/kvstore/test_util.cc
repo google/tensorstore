@@ -43,8 +43,8 @@
 #include "absl/strings/str_format.h"
 #include "absl/synchronization/notification.h"
 #include "absl/time/clock.h"
-#include <nlohmann/json_fwd.hpp>
 #include <nlohmann/json.hpp>
+#include <nlohmann/json_fwd.hpp>
 #include "tensorstore/batch.h"
 #include "tensorstore/context.h"
 #include "tensorstore/internal/json_gtest.h"

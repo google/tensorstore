@@ -139,7 +139,7 @@ TEST(TransactionTest, OpenPtrRetainsFuture) {
 using NodeLog = std::vector<std::string>;
 
 struct TestNode : public TransactionState::Node {
-  TestNode(NodeLog* log, std::uintptr_t associated_data)
+  TestNode(NodeLog* log, uintptr_t associated_data)
       : TransactionState::Node(reinterpret_cast<void*>(associated_data)),
         log(log) {}
 

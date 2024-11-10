@@ -125,7 +125,6 @@ tensorstore_cc_library(
         "//tensorstore/internal/json_binding:bindable",
         "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/log:absl_log",
-        "@com_google_absl//absl/strings",
         "@com_google_riegeli//riegeli/bytes:fd_reader",
         "@com_google_riegeli//riegeli/bytes:read_all",
     ],

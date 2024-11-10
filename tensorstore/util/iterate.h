@@ -15,9 +15,10 @@
 #ifndef TENSORSTORE_UTIL_ITERATE_H_
 #define TENSORSTORE_UTIL_ITERATE_H_
 
+#include <stddef.h>
+
 #include <array>
 #include <cassert>
-#include <cstddef>
 #include <iosfwd>
 
 #include "tensorstore/contiguous_layout.h"

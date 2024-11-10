@@ -14,8 +14,9 @@
 
 #include "tensorstore/util/bfloat16.h"
 
+#include <stdint.h>
+
 #include <cmath>
-#include <cstdint>
 #include <cstring>
 #include <limits>
 

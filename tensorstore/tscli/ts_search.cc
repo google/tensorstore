@@ -22,8 +22,8 @@
 #include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
-#include <nlohmann/json_fwd.hpp>
 #include <nlohmann/json.hpp>
+#include <nlohmann/json_fwd.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/internal/json_binding/box.h"  // IWYU pragma: keep
 #include "tensorstore/internal/json_binding/json_binding.h"  // IWYU pragma: keep

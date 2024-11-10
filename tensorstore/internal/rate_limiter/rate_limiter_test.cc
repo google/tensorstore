@@ -14,8 +14,9 @@
 
 #include "tensorstore/internal/rate_limiter/rate_limiter.h"
 
+#include <stddef.h>
+
 #include <atomic>
-#include <cstddef>
 #include <type_traits>
 
 #include <gtest/gtest.h>

@@ -16,8 +16,7 @@
 #define TENSORSTORE_INTERNAL_IMAGE_IMAGE_VIEW_H_
 
 #include <assert.h>
-
-#include <cstddef>
+#include <stddef.h>
 
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/image/image_info.h"
@@ -30,7 +29,7 @@ namespace internal_image {
 /// Used as an implementation detail to aid in strided buffer access.
 class ImageView {
  public:
-  using index_type = std::ptrdiff_t;
+  using index_type = ptrdiff_t;
 
   /// Construct an image which references the data (unowned);
   ImageView(const ImageInfo& info, tensorstore::span<unsigned char> data);

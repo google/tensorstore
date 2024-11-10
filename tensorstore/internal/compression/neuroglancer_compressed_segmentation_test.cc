@@ -14,8 +14,9 @@
 
 #include "tensorstore/internal/compression/neuroglancer_compressed_segmentation.h"
 
-#include <cstddef>
-#include <cstdint>
+#include <stddef.h>
+#include <stdint.h>
+
 #include <string>
 #include <string_view>
 #include <vector>
@@ -53,9 +54,8 @@ std::string FromVec(std::vector<uint32_t> v) {
 }
 
 template <typename T>
-void TestBlockRoundTrip(std::vector<T> input,
-                        const std::ptrdiff_t (&input_shape)[3],
-                        const std::ptrdiff_t (&block_shape)[3],
+void TestBlockRoundTrip(std::vector<T> input, const ptrdiff_t (&input_shape)[3],
+                        const ptrdiff_t (&block_shape)[3],
                         size_t expected_encoded_bits,
                         size_t expected_table_offset,
                         std::vector<uint32_t> expected_output,
@@ -63,9 +63,9 @@ void TestBlockRoundTrip(std::vector<T> input,
   // Use non-empty `output` to test that existing contents are preserved.
   std::string output{1, 2, 3};
   ASSERT_EQ(input_shape[0] * input_shape[1] * input_shape[2], input.size());
-  constexpr std::ptrdiff_t s = sizeof(T);
-  const std::ptrdiff_t input_byte_strides[3] = {
-      input_shape[1] * input_shape[2] * s, input_shape[2] * s, s};
+  constexpr ptrdiff_t s = sizeof(T);
+  const ptrdiff_t input_byte_strides[3] = {input_shape[1] * input_shape[2] * s,
+                                           input_shape[2] * s, s};
   size_t encoded_bits;
   size_t table_offset;
   EncodedValueCache<uint64_t> cache;
@@ -88,15 +88,15 @@ void TestBlockRoundTrip(std::vector<T> input,
 
 template <typename T>
 void TestSingleChannelRoundTrip(std::vector<T> input,
-                                const std::ptrdiff_t (&input_shape)[3],
-                                const std::ptrdiff_t (&block_shape)[3],
+                                const ptrdiff_t (&input_shape)[3],
+                                const ptrdiff_t (&block_shape)[3],
                                 std::vector<uint32_t> expected_output) {
   // Use non-empty `output` to test that existing contents are preserved.
   std::string output{1, 2, 3};
   ASSERT_EQ(input_shape[0] * input_shape[1] * input_shape[2], input.size());
-  constexpr std::ptrdiff_t s = sizeof(T);
-  const std::ptrdiff_t input_byte_strides[3] = {
-      input_shape[1] * input_shape[2] * s, input_shape[2] * s, s};
+  constexpr ptrdiff_t s = sizeof(T);
+  const ptrdiff_t input_byte_strides[3] = {input_shape[1] * input_shape[2] * s,
+                                           input_shape[2] * s, s};
   const size_t initial_offset = output.size();
   EncodeChannel(input.data(), input_shape, input_byte_strides, block_shape,
                 &output);
@@ -115,11 +115,11 @@ void TestSingleChannelRoundTrip(std::vector<T> input,
 
 template <typename T>
 void TestDecodeChannelError(std::string_view input,
-                            const std::ptrdiff_t (&block_shape)[3],
-                            const std::ptrdiff_t (&input_shape)[3]) {
-  constexpr std::ptrdiff_t s = sizeof(T);
-  const std::ptrdiff_t input_byte_strides[3] = {
-      input_shape[1] * input_shape[2] * s, input_shape[2] * s, s};
+                            const ptrdiff_t (&block_shape)[3],
+                            const ptrdiff_t (&input_shape)[3]) {
+  constexpr ptrdiff_t s = sizeof(T);
+  const ptrdiff_t input_byte_strides[3] = {input_shape[1] * input_shape[2] * s,
+                                           input_shape[2] * s, s};
   std::vector<T> decoded_output(input_shape[0] * input_shape[1] *
                                 input_shape[2]);
   EXPECT_FALSE(DecodeChannel(input, block_shape, input_shape,
@@ -128,15 +128,15 @@ void TestDecodeChannelError(std::string_view input,
 
 template <typename T>
 void TestMultipleChannelsRoundTripBytes(
-    std::vector<T> input, const std::ptrdiff_t (&input_shape)[4],
-    const std::ptrdiff_t (&block_shape)[4],
+    std::vector<T> input, const ptrdiff_t (&input_shape)[4],
+    const ptrdiff_t (&block_shape)[4],
     std::vector<unsigned char> expected_output) {
   // Use non-empty `output` to test that existing contents are preserved.
   std::string output{1, 2, 3};
   ASSERT_EQ(input_shape[0] * input_shape[1] * input_shape[2] * input_shape[3],
             input.size());
-  constexpr std::ptrdiff_t s = sizeof(T);
-  const std::ptrdiff_t input_byte_strides[4] = {
+  constexpr ptrdiff_t s = sizeof(T);
+  const ptrdiff_t input_byte_strides[4] = {
       input_shape[1] * input_shape[2] * input_shape[3] * s,
       input_shape[2] * input_shape[3] * s, input_shape[3] * s, s};
   const size_t initial_offset = output.size();
@@ -402,8 +402,8 @@ void RandomRoundTrip(size_t max_block_size, size_t max_input_size,
                      size_t num_iterations) {
   absl::BitGen gen;
   for (size_t iter = 0; iter < num_iterations; ++iter) {
-    std::ptrdiff_t block_shape[3];
-    std::ptrdiff_t input_shape[4];
+    ptrdiff_t block_shape[3];
+    ptrdiff_t input_shape[4];
     input_shape[0] = absl::Uniform(gen, 1u, max_channels + 1);
     for (int i = 0; i < 3; ++i) {
       block_shape[i] = absl::Uniform(gen, 1u, max_block_size + 1);
@@ -418,8 +418,8 @@ void RandomRoundTrip(size_t max_block_size, size_t max_input_size,
     for (auto& label : input) {
       label = labels[absl::Uniform(gen, 0u, labels.size())];
     }
-    constexpr std::ptrdiff_t s = sizeof(T);
-    const std::ptrdiff_t input_byte_strides[4] = {
+    constexpr ptrdiff_t s = sizeof(T);
+    const ptrdiff_t input_byte_strides[4] = {
         input_shape[1] * input_shape[2] * input_shape[3] * s,
         input_shape[2] * input_shape[3] * s, input_shape[3] * s, s};
     std::string output;

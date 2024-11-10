@@ -14,7 +14,8 @@
 
 #include "tensorstore/internal/utf8.h"
 
-#include <cstdint>
+#include <stdint.h>
+
 #include <string_view>
 
 namespace tensorstore {

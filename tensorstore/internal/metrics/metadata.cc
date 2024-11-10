@@ -14,7 +14,8 @@
 
 #include "tensorstore/internal/metrics/metadata.h"
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <string_view>
 
 #include "absl/base/optimization.h"

@@ -14,7 +14,7 @@
 
 #include "tensorstore/kvstore/neuroglancer_uint64_sharded/murmurhash3.h"
 
-#include <cstdint>
+#include <stdint.h>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>

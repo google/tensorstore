@@ -14,12 +14,13 @@
 
 #include "tensorstore/array.h"
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include <algorithm>
 #include <cmath>
 #include <complex>
-#include <cstddef>
+#include <cstddef>  // for std::byte
 #include <limits>
 #include <memory>
 #include <random>
@@ -31,9 +32,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/random/bit_gen_ref.h"
-#include "absl/random/random.h"
 #include "absl/status/status.h"
-#include <nlohmann/json.hpp>
 #include "tensorstore/box.h"
 #include "tensorstore/container_kind.h"
 #include "tensorstore/contiguous_layout.h"

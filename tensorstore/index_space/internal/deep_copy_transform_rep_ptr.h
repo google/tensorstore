@@ -15,6 +15,7 @@
 #ifndef TENSORSTORE_INDEX_SPACE_INTERNAL_DEEP_COPY_TRANSFORM_REP_PTR_H_
 #define TENSORSTORE_INDEX_SPACE_INTERNAL_DEEP_COPY_TRANSFORM_REP_PTR_H_
 
+#include <cstddef>  // std::nullptr_t
 #include <utility>
 
 #include "tensorstore/index_space/internal/transform_rep.h"

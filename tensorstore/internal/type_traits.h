@@ -17,7 +17,8 @@
 #ifndef TENSORSTORE_INTERNAL_TYPE_TRAITS_H_
 #define TENSORSTORE_INTERNAL_TYPE_TRAITS_H_
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <initializer_list>
 #include <iosfwd>
 #include <type_traits>
@@ -230,7 +231,7 @@ template <size_t I, typename... Ts>
 using TypePackElement = __type_pack_element<I, Ts...>;
 #else
 //  GCC does not allow  __type_pack_element to be used as a return type.
-template <std::size_t I, typename... Ts>
+template <size_t I, typename... Ts>
 struct TypePackElementImpl {
   using type = __type_pack_element<I, Ts...>;
 };

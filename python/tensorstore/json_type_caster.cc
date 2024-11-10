@@ -20,7 +20,8 @@
 #include "python/tensorstore/json_type_caster.h"
 
 // Other headers
-#include <cstdint>
+#include <stdint.h>
+
 #include <string>
 #include <utility>
 #include <vector>
@@ -105,7 +106,7 @@ namespace {
   PyErr_Clear();
   if (auto v = PyLong_AsLongLong(h.ptr());
       v != static_cast<decltype(v)>(-1) || !PyErr_Occurred()) {
-    return static_cast<std::int64_t>(v);
+    return static_cast<int64_t>(v);
   }
   throw py::error_already_set();
 }

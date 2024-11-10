@@ -15,10 +15,10 @@
 #include "tensorstore/internal/cache/chunk_cache.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <atomic>
 #include <cassert>
-#include <cstdint>
 #include <memory>
 #include <mutex>  // NOLINT
 #include <string_view>

@@ -15,8 +15,9 @@
 #ifndef TENSORSTORE_KVSTORE_OCDBT_CONFIG_H_
 #define TENSORSTORE_KVSTORE_OCDBT_CONFIG_H_
 
+#include <stdint.h>
+
 #include <atomic>
-#include <cstdint>
 #include <optional>
 
 #include "absl/status/status.h"

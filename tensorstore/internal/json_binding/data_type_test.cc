@@ -36,7 +36,7 @@ namespace {
 struct X {};
 
 TEST(DataTypeJsonBinderTest, ToJson) {
-  EXPECT_THAT(jb::ToJson(DataType(dtype_v<std::int32_t>)),
+  EXPECT_THAT(jb::ToJson(DataType(dtype_v<int32_t>)),
               ::testing::Optional(::nlohmann::json("int32")));
   EXPECT_THAT(jb::ToJson(DataType(dtype_v<bool>)),
               ::testing::Optional(::nlohmann::json("bool")));
@@ -50,7 +50,7 @@ TEST(DataTypeJsonBinderTest, ToJson) {
 
 TEST(DataTypeJsonBinderTest, FromJson) {
   EXPECT_THAT(jb::FromJson<DataType>(::nlohmann::json("int32")),
-              ::testing::Optional(dtype_v<std::int32_t>));
+              ::testing::Optional(dtype_v<int32_t>));
   EXPECT_THAT(jb::FromJson<DataType>(::nlohmann::json("bool")),
               ::testing::Optional(dtype_v<bool>));
   EXPECT_THAT(jb::FromJson<DataType>(::nlohmann::json("invalid")),

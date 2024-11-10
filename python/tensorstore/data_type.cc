@@ -25,9 +25,10 @@
 #include "python/tensorstore/data_type.h"
 
 // Other headers
+#include <stddef.h>
+
 #include <array>
 #include <cassert>
-#include <cstddef>
 #include <string>
 #include <string_view>
 #include <utility>

@@ -90,7 +90,6 @@ tensorstore_cc_test(
         "//tensorstore:open_options",
         "//tensorstore:progress",
         "//tensorstore:spec",
-        "//tensorstore:strided_layout",
         "//tensorstore/driver",
         "//tensorstore/driver:driver_testutil",
         "//tensorstore/index_space:dim_expression",

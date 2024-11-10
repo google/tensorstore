@@ -509,31 +509,31 @@ TEST(JsonRequireValueAs, Failure) {
 
 TEST(JsonRequireIntegerTest, Success) {
   {
-    std::int32_t result_int32 = 42;
-    EXPECT_EQ(absl::OkStatus(), JsonRequireInteger<std::int32_t>(
-                                    ::nlohmann::json(-5), &result_int32,
-                                    /*strict=*/true, -7, -3));
+    int32_t result_int32 = 42;
+    EXPECT_EQ(absl::OkStatus(),
+              JsonRequireInteger<int32_t>(::nlohmann::json(-5), &result_int32,
+                                          /*strict=*/true, -7, -3));
     EXPECT_EQ(-5, result_int32);
   }
   {
-    std::int32_t result_int32 = 42;
-    EXPECT_EQ(absl::OkStatus(), JsonRequireInteger<std::int32_t>(
-                                    ::nlohmann::json(-7), &result_int32,
-                                    /*strict=*/true, -7, -3));
+    int32_t result_int32 = 42;
+    EXPECT_EQ(absl::OkStatus(),
+              JsonRequireInteger<int32_t>(::nlohmann::json(-7), &result_int32,
+                                          /*strict=*/true, -7, -3));
     EXPECT_EQ(-7, result_int32);
   }
   {
-    std::int32_t result_int32 = 42;
-    EXPECT_EQ(absl::OkStatus(), JsonRequireInteger<std::int32_t>(
-                                    ::nlohmann::json("-7"), &result_int32,
-                                    /*strict=*/false, -7, -3));
+    int32_t result_int32 = 42;
+    EXPECT_EQ(absl::OkStatus(),
+              JsonRequireInteger<int32_t>(::nlohmann::json("-7"), &result_int32,
+                                          /*strict=*/false, -7, -3));
     EXPECT_EQ(-7, result_int32);
   }
   {
-    std::int32_t result_int32 = 42;
-    EXPECT_EQ(absl::OkStatus(), JsonRequireInteger<std::int32_t>(
-                                    ::nlohmann::json(-3), &result_int32,
-                                    /*strict=*/true, -7, -3));
+    int32_t result_int32 = 42;
+    EXPECT_EQ(absl::OkStatus(),
+              JsonRequireInteger<int32_t>(::nlohmann::json(-3), &result_int32,
+                                          /*strict=*/true, -7, -3));
     EXPECT_EQ(-3, result_int32);
   }
   {
@@ -544,7 +544,7 @@ TEST(JsonRequireIntegerTest, Success) {
     EXPECT_EQ(5u, result_uint32);
   }
   {
-    std::int16_t result_int16 = 42;
+    int16_t result_int16 = 42;
     EXPECT_EQ(absl::OkStatus(),
               JsonRequireInteger(::nlohmann::json(5), &result_int16,
                                  /*strict=*/true, 2, 7));
@@ -554,7 +554,7 @@ TEST(JsonRequireIntegerTest, Success) {
 
 TEST(JsonRequireIntegerTest, Failure) {
   {
-    std::int32_t result_int32 = 42;
+    int32_t result_int32 = 42;
     EXPECT_THAT(
         JsonRequireInteger(::nlohmann::json(-2), &result_int32, /*strict=*/true,
                            -7, -3),
@@ -564,7 +564,7 @@ TEST(JsonRequireIntegerTest, Failure) {
     EXPECT_EQ(42, result_int32);
   }
   {
-    std::int32_t result_int32 = 42;
+    int32_t result_int32 = 42;
     EXPECT_THAT(JsonRequireInteger(::nlohmann::json(true), &result_int32,
                                    /*strict=*/true, -7, -3),
                 MatchesStatus(absl::StatusCode::kInvalidArgument,

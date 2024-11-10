@@ -55,6 +55,7 @@
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/util/dimension_set.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
 

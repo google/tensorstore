@@ -19,8 +19,9 @@
 #ifndef TENSORSTORE_INTERNAL_ITERATE_IMPL_H_
 #define TENSORSTORE_INTERNAL_ITERATE_IMPL_H_
 
+#include <stddef.h>
+
 #include <array>
-#include <cstddef>
 #include <type_traits>
 #include <utility>
 

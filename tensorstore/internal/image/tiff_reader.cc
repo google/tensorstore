@@ -16,10 +16,10 @@
 
 #include <assert.h>
 #include <errno.h>
+#include <stddef.h>
 #include <stdio.h>
 
 #include <algorithm>
-#include <cstddef>
 #include <cstring>
 #include <memory>
 #include <optional>

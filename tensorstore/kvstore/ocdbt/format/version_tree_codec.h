@@ -20,9 +20,10 @@
 /// Internal codecs for version tree related data structures, used by the
 /// version tree and manifest codec.
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <cassert>
-#include <cstdint>
-#include <string>
 #include <vector>
 
 #include "absl/status/status.h"
