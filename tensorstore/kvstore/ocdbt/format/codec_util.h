@@ -26,7 +26,7 @@
 ///   bool (riegeli::Reader &reader, T& value);
 ///   bool (riegeli::Writer &writer, const T& value);
 
-#include <cstdint>
+#include <stdint.h>
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/functional/function_ref.h"

@@ -14,15 +14,17 @@
 
 #include "tensorstore/index_space/index_vector_or_scalar.h"
 
-#include <cstdint>
+#include <stdint.h>
+
 #include <system_error>  // NOLINT
+#include <type_traits>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "tensorstore/index.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -30,7 +32,6 @@ namespace {
 using ::tensorstore::dynamic_extent;
 using ::tensorstore::Index;
 using ::tensorstore::IsIndexVectorOrScalar;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::span;
 using ::tensorstore::internal_index_space::CheckIndexVectorSize;
 using ::tensorstore::internal_index_space::IndexVectorOrScalarView;
@@ -38,15 +39,14 @@ using ::tensorstore::internal_index_space::IndexVectorOrScalarView;
 static_assert(IsIndexVectorOrScalar<Index>::value == true);
 
 // Scalar types permit conversions.
-static_assert(IsIndexVectorOrScalar<std::int32_t>::value == true);
+static_assert(IsIndexVectorOrScalar<int32_t>::value == true);
 static_assert(IsIndexVectorOrScalar<float>::value == false);
-static_assert(
-    std::is_same_v<
-        typename IsIndexVectorOrScalar<std::int32_t>::normalized_type, Index>);
-static_assert(IsIndexVectorOrScalar<std::int32_t>::extent == dynamic_extent);
+static_assert(std::is_same_v<
+              typename IsIndexVectorOrScalar<int32_t>::normalized_type, Index>);
+static_assert(IsIndexVectorOrScalar<int32_t>::extent == dynamic_extent);
 
-// std::vector<std::int32_t> is not convertible to span<Index>.
-static_assert(IsIndexVectorOrScalar<std::vector<std::int32_t>>::value == false);
+// std::vector<int32_t> is not convertible to span<Index>.
+static_assert(IsIndexVectorOrScalar<std::vector<int32_t>>::value == false);
 static_assert(IsIndexVectorOrScalar<const std::vector<Index>>::value == true);
 static_assert(std::is_same_v<typename IsIndexVectorOrScalar<
                                  const std::vector<Index>>::normalized_type,

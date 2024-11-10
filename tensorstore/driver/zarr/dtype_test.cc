@@ -14,10 +14,10 @@
 
 #include "tensorstore/driver/zarr/dtype.h"
 
+#include <stddef.h>
 #include <stdint.h>
 
-#include <cstddef>
-#include <cstdint>
+#include <cstddef>  // for std::byte
 #include <string>
 #include <vector>
 
@@ -65,25 +65,25 @@ TEST(ParseBaseDType, Success) {
   CheckBaseDType("|V150", dtype_v<std::byte>, endian::native, {150});
   CheckBaseDType("<V150", dtype_v<std::byte>, endian::native, {150});
   CheckBaseDType(">V150", dtype_v<std::byte>, endian::native, {150});
-  CheckBaseDType("|i1", dtype_v<std::int8_t>, endian::native, {});
-  CheckBaseDType("<i1", dtype_v<std::int8_t>, endian::native, {});
-  CheckBaseDType(">i1", dtype_v<std::int8_t>, endian::native, {});
-  CheckBaseDType("|u1", dtype_v<std::uint8_t>, endian::native, {});
-  CheckBaseDType("<u1", dtype_v<std::uint8_t>, endian::native, {});
-  CheckBaseDType(">u1", dtype_v<std::uint8_t>, endian::native, {});
-  CheckBaseDType("<i2", dtype_v<std::int16_t>, endian::little, {});
-  CheckBaseDType("<i4", dtype_v<std::int32_t>, endian::little, {});
-  CheckBaseDType("<i8", dtype_v<std::int64_t>, endian::little, {});
-  CheckBaseDType("<u2", dtype_v<std::uint16_t>, endian::little, {});
-  CheckBaseDType("<u4", dtype_v<std::uint32_t>, endian::little, {});
-  CheckBaseDType("<u8", dtype_v<std::uint64_t>, endian::little, {});
+  CheckBaseDType("|i1", dtype_v<int8_t>, endian::native, {});
+  CheckBaseDType("<i1", dtype_v<int8_t>, endian::native, {});
+  CheckBaseDType(">i1", dtype_v<int8_t>, endian::native, {});
+  CheckBaseDType("|u1", dtype_v<uint8_t>, endian::native, {});
+  CheckBaseDType("<u1", dtype_v<uint8_t>, endian::native, {});
+  CheckBaseDType(">u1", dtype_v<uint8_t>, endian::native, {});
+  CheckBaseDType("<i2", dtype_v<int16_t>, endian::little, {});
+  CheckBaseDType("<i4", dtype_v<int32_t>, endian::little, {});
+  CheckBaseDType("<i8", dtype_v<int64_t>, endian::little, {});
+  CheckBaseDType("<u2", dtype_v<uint16_t>, endian::little, {});
+  CheckBaseDType("<u4", dtype_v<uint32_t>, endian::little, {});
+  CheckBaseDType("<u8", dtype_v<uint64_t>, endian::little, {});
 
-  CheckBaseDType(">i2", dtype_v<std::int16_t>, endian::big, {});
-  CheckBaseDType(">i4", dtype_v<std::int32_t>, endian::big, {});
-  CheckBaseDType(">i8", dtype_v<std::int64_t>, endian::big, {});
-  CheckBaseDType(">u2", dtype_v<std::uint16_t>, endian::big, {});
-  CheckBaseDType(">u4", dtype_v<std::uint32_t>, endian::big, {});
-  CheckBaseDType(">u8", dtype_v<std::uint64_t>, endian::big, {});
+  CheckBaseDType(">i2", dtype_v<int16_t>, endian::big, {});
+  CheckBaseDType(">i4", dtype_v<int32_t>, endian::big, {});
+  CheckBaseDType(">i8", dtype_v<int64_t>, endian::big, {});
+  CheckBaseDType(">u2", dtype_v<uint16_t>, endian::big, {});
+  CheckBaseDType(">u4", dtype_v<uint32_t>, endian::big, {});
+  CheckBaseDType(">u8", dtype_v<uint64_t>, endian::big, {});
 
   CheckBaseDType("float8_e4m3fn", dtype_v<tensorstore::dtypes::float8_e4m3fn_t>,
                  endian::little, {});
@@ -240,7 +240,7 @@ TEST(ParseDType, TwoNamedFieldsCharAndInt) {
               {{
                    /*.encoded_dtype=*/"<i2",
                    /*.dtype=*/
-                   dtype_v<std::int16_t>,
+                   dtype_v<int16_t>,
                    /*.endian=*/endian::little,
                    /*.flexible_shape=*/{},
                },

@@ -116,7 +116,8 @@
 /// http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2022/p2300r4.html
 /// https://github.com/brycelelbach/wg21_p2300_std_execution
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <tuple>
 #include <utility>
 

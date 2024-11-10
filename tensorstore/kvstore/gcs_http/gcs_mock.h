@@ -15,8 +15,9 @@
 #ifndef TENSORSTORE_KVSTORE_GCS_HTTP_GCS_MOCK_H_
 #define TENSORSTORE_KVSTORE_GCS_HTTP_GCS_MOCK_H_
 
+#include <stdint.h>
+
 #include <cassert>
-#include <cstdint>
 #include <functional>
 #include <map>
 #include <optional>

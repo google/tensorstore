@@ -137,8 +137,7 @@ TEST(ByteStridedPointerTest, Subtract) {
 TEST(ByteStridedPointerTest, AddWrapOnOverflow) {
   int arr[] = {1, 2, 3};
   ByteStridedPointer<int> x(&arr[0]);
-  const std::uintptr_t base_index =
-      std::numeric_limits<std::uintptr_t>::max() - 99;
+  const uintptr_t base_index = std::numeric_limits<uintptr_t>::max() - 99;
   x -= base_index;
   x += (base_index + sizeof(int));
   EXPECT_EQ(x, ByteStridedPointer<int>(&arr[0]) + sizeof(int));

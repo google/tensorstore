@@ -15,8 +15,9 @@
 #ifndef TENSORSTORE_KVSTORE_OCDBT_FORMAT_CONFIG_H_
 #define TENSORSTORE_KVSTORE_OCDBT_FORMAT_CONFIG_H_
 
+#include <stdint.h>
+
 #include <array>
-#include <cstdint>
 #include <iosfwd>
 #include <variant>
 

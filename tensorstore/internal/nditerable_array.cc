@@ -225,7 +225,7 @@ class ArrayIterableImpl : public NDIterable::Base<ArrayIterableImpl> {
             /*.external=*/false};
   }
 
-  std::ptrdiff_t GetWorkingMemoryBytesPerElement(
+  ptrdiff_t GetWorkingMemoryBytesPerElement(
       IterationLayoutView layout,
       IterationBufferKind buffer_kind) const override {
     return buffer_kind == IterationBufferKind::kIndexed ? sizeof(Index) : 0;

@@ -17,7 +17,8 @@
 
 /// Convenience interface to the blosc library.
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <memory>
 #include <string>
 #include <string_view>

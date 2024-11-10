@@ -91,7 +91,6 @@ tensorstore_cc_library(
         "//tensorstore/internal/riegeli:json_input",
         "//tensorstore/internal/riegeli:json_output",
         "//tensorstore/util:result",
-        "//tensorstore/util:status",
         "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/status",
     ],

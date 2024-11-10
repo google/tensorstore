@@ -14,19 +14,21 @@
 
 #include "tensorstore/cast.h"
 
-#include <cstddef>
-#include <cstdint>
+#include <stddef.h>
+#include <stdint.h>
+
+#include <cstddef>  // for std::byte
 #include <string>
 #include <utility>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
+#include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/codec_spec.h"
-#include "tensorstore/context.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/cast/cast.h"
 #include "tensorstore/driver/driver_testutil.h"
@@ -88,67 +90,67 @@ static_assert(!TENSORSTORE_IS_CONSTEXPR(
 #endif  // !defined(_MSC_VER)
 
 // Read/write supported
-static_assert(GetCastMode<std::int32_t, float>(ReadWriteMode::dynamic) ==
+static_assert(GetCastMode<int32_t, float>(ReadWriteMode::dynamic) ==
               ReadWriteMode::dynamic);
-static_assert(GetCastMode<std::int32_t, float>(ReadWriteMode::read) ==
+static_assert(GetCastMode<int32_t, float>(ReadWriteMode::read) ==
               ReadWriteMode::read);
-static_assert(GetCastMode<std::int32_t, float>(ReadWriteMode::write) ==
+static_assert(GetCastMode<int32_t, float>(ReadWriteMode::write) ==
               ReadWriteMode::write);
-static_assert(GetCastMode<std::int32_t, float>(ReadWriteMode::read_write) ==
+static_assert(GetCastMode<int32_t, float>(ReadWriteMode::read_write) ==
               ReadWriteMode::read_write);
 
 // Read supported
-static_assert(GetCastMode<std::int32_t, std::string>(ReadWriteMode::dynamic) ==
+static_assert(GetCastMode<int32_t, std::string>(ReadWriteMode::dynamic) ==
               ReadWriteMode::read);
-static_assert(GetCastMode<std::int32_t, std::string>(ReadWriteMode::read) ==
+static_assert(GetCastMode<int32_t, std::string>(ReadWriteMode::read) ==
               ReadWriteMode::read);
 #ifndef _MSC_VER
 static_assert(!TENSORSTORE_IS_CONSTEXPR(
-    GetCastMode<std::int32_t, std::string>(ReadWriteMode::write)));
+    GetCastMode<int32_t, std::string>(ReadWriteMode::write)));
 #endif  // !defined(_MSC_VER)
-static_assert(GetCastMode<std::int32_t, std::string>(
-                  ReadWriteMode::read_write) == ReadWriteMode::read);
+static_assert(GetCastMode<int32_t, std::string>(ReadWriteMode::read_write) ==
+              ReadWriteMode::read);
 
 // Write supported
-static_assert(GetCastMode<std::string, std::int32_t>(ReadWriteMode::dynamic) ==
+static_assert(GetCastMode<std::string, int32_t>(ReadWriteMode::dynamic) ==
               ReadWriteMode::write);
-static_assert(GetCastMode<std::string, std::int32_t>(ReadWriteMode::write) ==
+static_assert(GetCastMode<std::string, int32_t>(ReadWriteMode::write) ==
               ReadWriteMode::write);
 #ifndef _MSC_VER
 static_assert(!TENSORSTORE_IS_CONSTEXPR(
-    GetCastMode<std::string, std::int32_t>(ReadWriteMode::read)));
+    GetCastMode<std::string, int32_t>(ReadWriteMode::read)));
 #endif  // !defined(_MSC_VER)
-static_assert(GetCastMode<std::string, std::int32_t>(
-                  ReadWriteMode::read_write) == ReadWriteMode::write);
+static_assert(GetCastMode<std::string, int32_t>(ReadWriteMode::read_write) ==
+              ReadWriteMode::write);
 
 // Read/write supported (no-op)
-static_assert(GetCastMode<std::int32_t, std::int32_t>(
-                  ReadWriteMode::read_write) == ReadWriteMode::read_write);
-static_assert(GetCastMode<std::int32_t, std::int32_t>(ReadWriteMode::dynamic) ==
+static_assert(GetCastMode<int32_t, int32_t>(ReadWriteMode::read_write) ==
+              ReadWriteMode::read_write);
+static_assert(GetCastMode<int32_t, int32_t>(ReadWriteMode::dynamic) ==
               ReadWriteMode::dynamic);
-static_assert(GetCastMode<std::int32_t, std::int32_t>(ReadWriteMode::read) ==
+static_assert(GetCastMode<int32_t, int32_t>(ReadWriteMode::read) ==
               ReadWriteMode::read);
-static_assert(GetCastMode<std::int32_t, std::int32_t>(ReadWriteMode::write) ==
+static_assert(GetCastMode<int32_t, int32_t>(ReadWriteMode::write) ==
               ReadWriteMode::write);
 
 // Dynamic target type
-static_assert(GetCastMode<std::int32_t, void>(ReadWriteMode::write) ==
+static_assert(GetCastMode<int32_t, void>(ReadWriteMode::write) ==
               ReadWriteMode::write);
-static_assert(GetCastMode<std::int32_t, void>(ReadWriteMode::read) ==
+static_assert(GetCastMode<int32_t, void>(ReadWriteMode::read) ==
               ReadWriteMode::read);
-static_assert(GetCastMode<std::int32_t, void>(ReadWriteMode::dynamic) ==
+static_assert(GetCastMode<int32_t, void>(ReadWriteMode::dynamic) ==
               ReadWriteMode::dynamic);
-static_assert(GetCastMode<std::int32_t, void>(ReadWriteMode::read_write) ==
+static_assert(GetCastMode<int32_t, void>(ReadWriteMode::read_write) ==
               ReadWriteMode::dynamic);
 
 // Dynamic source type
-static_assert(GetCastMode<void, std::int32_t>(ReadWriteMode::write) ==
+static_assert(GetCastMode<void, int32_t>(ReadWriteMode::write) ==
               ReadWriteMode::write);
-static_assert(GetCastMode<void, std::int32_t>(ReadWriteMode::read) ==
+static_assert(GetCastMode<void, int32_t>(ReadWriteMode::read) ==
               ReadWriteMode::read);
-static_assert(GetCastMode<void, std::int32_t>(ReadWriteMode::dynamic) ==
+static_assert(GetCastMode<void, int32_t>(ReadWriteMode::dynamic) ==
               ReadWriteMode::dynamic);
-static_assert(GetCastMode<void, std::int32_t>(ReadWriteMode::read_write) ==
+static_assert(GetCastMode<void, int32_t>(ReadWriteMode::read_write) ==
               ReadWriteMode::dynamic);
 
 // Dynamic source and target type
@@ -198,8 +200,7 @@ TEST(GetCastDataTypeConversions, Basic) {
 
   for (const auto existing_mode : {read, write, read_write}) {
     for (const auto required_mode : {existing_mode, dynamic}) {
-      EXPECT_THAT(GetCastDataTypeConversions(dtype_v<std::int32_t>,
-                                             dtype_v<std::int32_t>,
+      EXPECT_THAT(GetCastDataTypeConversions(dtype_v<int32_t>, dtype_v<int32_t>,
                                              existing_mode, required_mode),
                   MatchesCastDataTypeConversions(
                       /*input_flags=*/IfMode(existing_mode, read, kAll),
@@ -210,77 +211,75 @@ TEST(GetCastDataTypeConversions, Basic) {
 
   for (const auto existing_mode : {read, write, read_write}) {
     for (const auto required_mode : {existing_mode, dynamic}) {
-      EXPECT_THAT(
-          GetCastDataTypeConversions(dtype_v<std::int32_t>, dtype_v<float>,
-                                     existing_mode, required_mode),
-          MatchesCastDataTypeConversions(
-              /*input_flags=*/IfMode(existing_mode, read, kSupported),
-              /*output_flags=*/IfMode(existing_mode, write, kSupported),
-              /*mode=*/existing_mode));
+      EXPECT_THAT(GetCastDataTypeConversions(dtype_v<int32_t>, dtype_v<float>,
+                                             existing_mode, required_mode),
+                  MatchesCastDataTypeConversions(
+                      /*input_flags=*/IfMode(existing_mode, read, kSupported),
+                      /*output_flags=*/IfMode(existing_mode, write, kSupported),
+                      /*mode=*/existing_mode));
     }
   }
 
   for (const auto existing_mode : {read, write, read_write}) {
     for (const auto required_mode : {existing_mode, dynamic}) {
-      EXPECT_THAT(
-          GetCastDataTypeConversions(dtype_v<std::int16_t>, dtype_v<float>,
-                                     existing_mode, required_mode),
-          MatchesCastDataTypeConversions(
-              /*input_flags=*/IfMode(existing_mode, read,
-                                     kSupported | kSafeAndImplicit),
-              /*output_flags=*/IfMode(existing_mode, write, kSupported),
-              /*mode=*/existing_mode));
+      EXPECT_THAT(GetCastDataTypeConversions(dtype_v<int16_t>, dtype_v<float>,
+                                             existing_mode, required_mode),
+                  MatchesCastDataTypeConversions(
+                      /*input_flags=*/IfMode(existing_mode, read,
+                                             kSupported | kSafeAndImplicit),
+                      /*output_flags=*/IfMode(existing_mode, write, kSupported),
+                      /*mode=*/existing_mode));
     }
   }
 
   for (const auto existing_mode : {read, read_write}) {
     for (const auto required_mode : {read, dynamic}) {
-      EXPECT_THAT(GetCastDataTypeConversions(dtype_v<std::int32_t>,
-                                             dtype_v<std::string>,
-                                             existing_mode, required_mode),
-                  MatchesCastDataTypeConversions(
-                      /*input_flags=*/kSupported,
-                      /*output_flags=*/kNone,
-                      /*mode=*/read));
+      EXPECT_THAT(
+          GetCastDataTypeConversions(dtype_v<int32_t>, dtype_v<std::string>,
+                                     existing_mode, required_mode),
+          MatchesCastDataTypeConversions(
+              /*input_flags=*/kSupported,
+              /*output_flags=*/kNone,
+              /*mode=*/read));
     }
   }
 
   for (const auto required_mode : {write, read_write}) {
     EXPECT_THAT(
-        GetCastDataTypeConversions(dtype_v<std::int32_t>, dtype_v<std::string>,
+        GetCastDataTypeConversions(dtype_v<int32_t>, dtype_v<std::string>,
                                    read_write, required_mode),
         MatchesStatus(absl::StatusCode::kInvalidArgument));
   }
 
   for (const auto required_mode : {write, dynamic}) {
     EXPECT_THAT(
-        GetCastDataTypeConversions(dtype_v<std::int32_t>, dtype_v<std::string>,
+        GetCastDataTypeConversions(dtype_v<int32_t>, dtype_v<std::string>,
                                    write, required_mode),
         MatchesStatus(absl::StatusCode::kInvalidArgument));
   }
 
   for (const auto existing_mode : {write, read_write}) {
     for (const auto required_mode : {write, dynamic}) {
-      EXPECT_THAT(GetCastDataTypeConversions(dtype_v<std::string>,
-                                             dtype_v<std::int32_t>,
-                                             existing_mode, required_mode),
-                  MatchesCastDataTypeConversions(
-                      /*input_flags=*/kNone,
-                      /*output_flags=*/kSupported,
-                      /*mode=*/write));
+      EXPECT_THAT(
+          GetCastDataTypeConversions(dtype_v<std::string>, dtype_v<int32_t>,
+                                     existing_mode, required_mode),
+          MatchesCastDataTypeConversions(
+              /*input_flags=*/kNone,
+              /*output_flags=*/kSupported,
+              /*mode=*/write));
     }
   }
 
   for (const auto required_mode : {read, dynamic}) {
     EXPECT_THAT(
-        GetCastDataTypeConversions(dtype_v<std::string>, dtype_v<std::int32_t>,
-                                   read, required_mode),
+        GetCastDataTypeConversions(dtype_v<std::string>, dtype_v<int32_t>, read,
+                                   required_mode),
         MatchesStatus(absl::StatusCode::kInvalidArgument));
   }
 
   for (const auto required_mode : {read, read_write}) {
     EXPECT_THAT(
-        GetCastDataTypeConversions(dtype_v<std::string>, dtype_v<std::int32_t>,
+        GetCastDataTypeConversions(dtype_v<std::string>, dtype_v<int32_t>,
                                    read_write, required_mode),
         MatchesStatus(absl::StatusCode::kInvalidArgument));
   }
@@ -330,10 +329,10 @@ TEST(CastTest, StringToInt32Dynamic) {
                                      {"dtype", "string"}})
                       .result());
   EXPECT_EQ(store.read_write_mode(), ReadWriteMode::read_write);
-  auto cast_store = Cast(store, dtype_v<std::int32_t>).value();
+  auto cast_store = Cast(store, dtype_v<int32_t>).value();
   EXPECT_EQ(cast_store.read_write_mode(), ReadWriteMode::write);
   TENSORSTORE_EXPECT_OK(
-      tensorstore::Write(MakeArray<std::int32_t>({1, 2, 3}), cast_store));
+      tensorstore::Write(MakeArray<int32_t>({1, 2, 3}), cast_store));
   EXPECT_EQ(tensorstore::Read<zero_origin>(store).result(),
             MakeArray<std::string>({"1", "2", "3"}));
 }
@@ -349,11 +348,11 @@ TEST(CastTest, OpenInt32ToInt64) {
           .result());
   EXPECT_EQ(store.read_write_mode(), ReadWriteMode::read_write);
   EXPECT_EQ(tensorstore::Read<zero_origin>(store).result(),
-            MakeArray<std::int64_t>({1, 2, 3}));
-  TENSORSTORE_EXPECT_OK(tensorstore::Write(
-      tensorstore::MakeScalarArray<std::int64_t>(10), store));
+            MakeArray<int64_t>({1, 2, 3}));
+  TENSORSTORE_EXPECT_OK(
+      tensorstore::Write(tensorstore::MakeScalarArray<int64_t>(10), store));
   EXPECT_EQ(tensorstore::Read<zero_origin>(store).result(),
-            MakeArray<std::int64_t>({10, 10, 10}));
+            MakeArray<int64_t>({10, 10, 10}));
 }
 
 TEST(CastTest, OpenInputConversionError) {

@@ -14,8 +14,9 @@
 
 #include "tensorstore/context.h"
 
-#include <cstddef>
-#include <cstdint>
+#include <stddef.h>
+#include <stdint.h>
+
 #include <optional>
 #include <string>
 #include <tuple>
@@ -72,12 +73,12 @@ using ::tensorstore::serialization::SerializationRoundTrip;
 
 struct IntResource : public ContextResourceTraits<IntResource> {
   struct Spec {
-    std::int64_t value;
+    int64_t value;
     constexpr static auto ApplyMembers = [](auto&& x, auto f) {
       return f(x.value);
     };
   };
-  using Resource = std::int64_t;
+  using Resource = int64_t;
   static constexpr char id[] = "int_resource";
   static Spec Default() { return {42}; }
   static constexpr auto JsonBinder() {
@@ -97,12 +98,12 @@ struct IntResource : public ContextResourceTraits<IntResource> {
 struct IntConfigResource : public ContextResourceTraits<IntConfigResource> {
   constexpr static bool config_only = true;
   struct Spec {
-    std::int64_t value;
+    int64_t value;
     constexpr static auto ApplyMembers = [](auto&& x, auto f) {
       return f(x.value);
     };
   };
-  using Resource = std::int64_t;
+  using Resource = int64_t;
   static constexpr char id[] = "int_config_resource";
   static Spec Default() { return {42}; }
   static constexpr auto JsonBinder() { return jb::Projection(&Spec::value); }
@@ -117,7 +118,7 @@ struct IntConfigResource : public ContextResourceTraits<IntConfigResource> {
 
 struct StrongRefResource : public ContextResourceTraits<StrongRefResource> {
   struct Spec {
-    std::int64_t value;
+    int64_t value;
     constexpr static auto ApplyMembers = [](auto&& x, auto f) {
       return f(x.value);
     };

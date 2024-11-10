@@ -14,10 +14,10 @@
 
 #include "tensorstore/internal/irregular_grid.h"
 
-#include <assert.h>
 #include <stddef.h>
 
 #include <algorithm>
+#include <cassert>
 #include <utility>
 #include <vector>
 

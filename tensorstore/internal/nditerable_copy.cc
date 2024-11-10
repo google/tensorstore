@@ -14,10 +14,11 @@
 
 #include "tensorstore/internal/nditerable_copy.h"
 
+#include <stddef.h>
+
 #include <algorithm>
 #include <array>
 #include <cassert>
-#include <cstddef>
 #include <memory>
 #include <utility>
 
@@ -72,10 +73,10 @@ NDIterableCopyManager::GetBufferParameters(
   return result;
 }
 
-std::ptrdiff_t NDIterableCopyManager::GetWorkingMemoryBytesPerElement(
+ptrdiff_t NDIterableCopyManager::GetWorkingMemoryBytesPerElement(
     NDIterable::IterationLayoutView layout) const {
   auto buffer_parameters = GetBufferParameters(layout);
-  std::ptrdiff_t num_bytes = 0;
+  ptrdiff_t num_bytes = 0;
   num_bytes += input()->GetWorkingMemoryBytesPerElement(
       layout, buffer_parameters.input_buffer_kind);
   num_bytes += output()->GetWorkingMemoryBytesPerElement(

@@ -31,7 +31,7 @@ using ::tensorstore::MatchesScalarArray;
 
 TEST(MatchesArrayTest, Describe) {
   std::ostringstream ss;
-  MatchesArray<std::int32_t>({1, 2}).DescribeTo(&ss);
+  MatchesArray<int32_t>({1, 2}).DescribeTo(&ss);
   EXPECT_EQ(
       R"(has a data type of int32 and a domain of {origin={0}, shape={2}} where
 element at {0} is equal to 1,
@@ -41,7 +41,7 @@ element at {1} is equal to 2)",
 
 TEST(MatchesArrayTest, DescribeNegation) {
   std::ostringstream ss;
-  MatchesArray<std::int32_t>({1, 2}).DescribeNegationTo(&ss);
+  MatchesArray<int32_t>({1, 2}).DescribeNegationTo(&ss);
   EXPECT_EQ(R"(doesn't have a data type of int32, or
 doesn't have a domain of {origin={0}, shape={2}}, or
 element at {0} isn't equal to 1, or
@@ -51,7 +51,7 @@ element at {1} isn't equal to 2)",
 
 TEST(MatchesArrayTest, ExplainDataTypeMismatch) {
   ::testing::StringMatchResultListener listener;
-  ::testing::ExplainMatchResult(MatchesArray<std::int32_t>({1, 2, 3}),
+  ::testing::ExplainMatchResult(MatchesArray<int32_t>({1, 2, 3}),
                                 MakeArray<float>({1, 2}), &listener);
   EXPECT_EQ("which has a data type of float32", listener.str());
 }

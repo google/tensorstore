@@ -19,7 +19,9 @@
 /// Support for encoding/decoding the JSON metadata for zarr arrays
 /// See: https://zarr.readthedocs.io/en/stable/spec/v2.html
 
-#include <cstddef>
+#include <stddef.h>
+
+#include <cstddef>  // std::nullptr_t
 #include <memory>
 #include <optional>
 #include <string>

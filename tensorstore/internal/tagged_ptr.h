@@ -15,9 +15,11 @@
 #ifndef TENSORSTORE_INTERNAL_TAGGED_PTR_H_
 #define TENSORSTORE_INTERNAL_TAGGED_PTR_H_
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <cassert>
-#include <cstddef>
-#include <cstdint>
+#include <cstddef>  // std::nullptr_t
 #include <type_traits>
 #include <utility>
 
@@ -50,9 +52,9 @@ namespace internal {
 ///
 template <typename T, int TagBits>
 class TaggedPtr {
-  constexpr static std::uintptr_t kTagMask =
-      (static_cast<std::uintptr_t>(1) << TagBits) - 1;
-  constexpr static std::uintptr_t kPointerMask = ~kTagMask;
+  constexpr static uintptr_t kTagMask =
+      (static_cast<uintptr_t>(1) << TagBits) - 1;
+  constexpr static uintptr_t kPointerMask = ~kTagMask;
 
  public:
   using element_type = T;
@@ -70,8 +72,7 @@ class TaggedPtr {
   /// \dchecks `(tag >> TagBits) == 0`.
   /// \post `this->get() == nullptr`.
   /// \post `this->tag() == tag`.
-  constexpr TaggedPtr(std::nullptr_t, std::uintptr_t tag) noexcept
-      : value_(tag) {
+  constexpr TaggedPtr(std::nullptr_t, uintptr_t tag) noexcept : value_(tag) {
     assert((tag & kPointerMask) == 0);
   }
 
@@ -82,11 +83,11 @@ class TaggedPtr {
   /// \post `this->tag() == tag`.
   template <typename U,
             std::enable_if_t<std::is_convertible_v<U*, T*>>* = nullptr>
-  TaggedPtr(U* ptr, std::uintptr_t tag = 0) noexcept {
-    assert((reinterpret_cast<std::uintptr_t>(static_cast<T*>(ptr)) &
-            kTagMask) == 0 &&
+  TaggedPtr(U* ptr, uintptr_t tag = 0) noexcept {
+    assert((reinterpret_cast<uintptr_t>(static_cast<T*>(ptr)) & kTagMask) ==
+               0 &&
            (tag & kPointerMask) == 0);
-    value_ = reinterpret_cast<std::uintptr_t>(static_cast<T*>(ptr)) | tag;
+    value_ = reinterpret_cast<uintptr_t>(static_cast<T*>(ptr)) | tag;
   }
 
   /// Implicitly constructs from another tagged pointer.
@@ -138,7 +139,7 @@ class TaggedPtr {
   operator T*() const noexcept { return get(); }
 
   /// Returns the tag value.
-  std::uintptr_t tag() const noexcept { return value_ & kTagMask; }
+  uintptr_t tag() const noexcept { return value_ & kTagMask; }
 
   /// Returns the specified bit of the tag value.
   template <int Bit>
@@ -150,12 +151,12 @@ class TaggedPtr {
   template <int Bit>
   std::enable_if_t<(Bit >= 0 && Bit < TagBits), void> set_tag(
       bool value) noexcept {
-    constexpr std::uintptr_t mask = (static_cast<std::uintptr_t>(1) << Bit);
-    value_ = (value_ & ~mask) | (static_cast<std::uintptr_t>(value) << Bit);
+    constexpr uintptr_t mask = (static_cast<uintptr_t>(1) << Bit);
+    value_ = (value_ & ~mask) | (static_cast<uintptr_t>(value) << Bit);
   }
 
   /// Sets the tag value to the specified value.
-  void set_tag(std::uintptr_t tag) noexcept {
+  void set_tag(uintptr_t tag) noexcept {
     assert((tag & kPointerMask) == 0);
     value_ = (value_ & kPointerMask) | tag;
   }
@@ -187,7 +188,7 @@ class TaggedPtr {
   }
 
  private:
-  std::uintptr_t value_;
+  uintptr_t value_;
 };
 
 /// Converts a `TaggedPtr` to a raw pointer.

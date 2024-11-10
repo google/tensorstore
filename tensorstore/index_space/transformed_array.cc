@@ -206,7 +206,7 @@ Result<bool> IterateOverTransformedArrays(
     }
   }
 
-  std::array<std::ptrdiff_t, Arity> element_sizes;
+  std::array<ptrdiff_t, Arity> element_sizes;
   for (size_t i = 0; i < Arity; ++i) {
     element_sizes[i] = transformed_arrays[i].dtype()->size;
   }

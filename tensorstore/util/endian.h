@@ -15,7 +15,8 @@
 #ifndef TENSORSTORE_UTIL_ENDIAN_H_
 #define TENSORSTORE_UTIL_ENDIAN_H_
 
-#include <cstdint>
+#include <stdint.h>
+
 #include <cstring>
 #include <ostream>
 

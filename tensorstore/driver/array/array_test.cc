@@ -45,7 +45,6 @@
 #include "tensorstore/progress.h"
 #include "tensorstore/serialization/test_util.h"
 #include "tensorstore/spec.h"
-#include "tensorstore/strided_layout.h"
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
@@ -63,7 +62,6 @@ using ::tensorstore::DimensionUnitsVector;
 using ::tensorstore::Index;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
-using ::tensorstore::offset_origin;
 using ::tensorstore::OpenMode;
 using ::tensorstore::ReadProgress;
 using ::tensorstore::ReadProgressFunction;
@@ -72,7 +70,6 @@ using ::tensorstore::SharedArray;
 using ::tensorstore::TensorStore;
 using ::tensorstore::WriteProgress;
 using ::tensorstore::WriteProgressFunction;
-using ::tensorstore::zero_origin;
 using ::tensorstore::internal::TestSpecSchema;
 using ::tensorstore::internal::TestTensorStoreCreateCheckSchema;
 

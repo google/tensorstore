@@ -15,9 +15,10 @@
 #ifndef TENSORSTORE_UTIL_BYTE_STRIDED_POINTER_H_
 #define TENSORSTORE_UTIL_BYTE_STRIDED_POINTER_H_
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <cassert>
-#include <cstddef>
-#include <cstdint>
 #include <type_traits>
 
 #include "tensorstore/internal/integer_overflow.h"
@@ -42,7 +43,7 @@ class ByteStridedPointer {
   using element_type = T;
 
   /// Pointer difference type, in bytes.
-  using difference_type = std::ptrdiff_t;
+  using difference_type = ptrdiff_t;
 
   /// Alignment required by `T`, or `1` if `T` is `void`.
   constexpr static size_t alignment =
@@ -62,15 +63,14 @@ class ByteStridedPointer {
   template <
       typename U,
       std::enable_if_t<IsElementTypeImplicitlyConvertible<U, T>>* = nullptr>
-  ByteStridedPointer(U* value)
-      : value_(reinterpret_cast<std::uintptr_t>(value)) {
+  ByteStridedPointer(U* value) : value_(reinterpret_cast<uintptr_t>(value)) {
     assert(value_ % alignment == 0);
   }
   template <
       typename U,
       std::enable_if_t<IsElementTypeOnlyExplicitlyConvertible<U, T>>* = nullptr>
   explicit ByteStridedPointer(U* value)
-      : value_(reinterpret_cast<std::uintptr_t>(value)) {
+      : value_(reinterpret_cast<uintptr_t>(value)) {
     assert(value_ % alignment == 0);
   }
 
@@ -83,14 +83,14 @@ class ByteStridedPointer {
       typename U,
       std::enable_if_t<IsElementTypeImplicitlyConvertible<U, T>>* = nullptr>
   ByteStridedPointer(ByteStridedPointer<U> value)
-      : value_(reinterpret_cast<std::uintptr_t>(value.get())) {
+      : value_(reinterpret_cast<uintptr_t>(value.get())) {
     assert(value_ % alignment == 0);
   }
   template <
       typename U,
       std::enable_if_t<IsElementTypeOnlyExplicitlyConvertible<U, T>>* = nullptr>
   explicit ByteStridedPointer(ByteStridedPointer<U> value)
-      : value_(reinterpret_cast<std::uintptr_t>(value.get())) {
+      : value_(reinterpret_cast<uintptr_t>(value.get())) {
     assert(value_ % alignment == 0);
   }
 
@@ -135,7 +135,7 @@ class ByteStridedPointer {
   std::enable_if_t<std::is_integral_v<Integer>, ByteStridedPointer&> operator+=(
       Integer byte_offset) {
     value_ = internal::wrap_on_overflow::Add(
-        value_, static_cast<std::uintptr_t>(byte_offset));
+        value_, static_cast<uintptr_t>(byte_offset));
     assert(value_ % alignment == 0);
     return *this;
   }
@@ -147,7 +147,7 @@ class ByteStridedPointer {
   std::enable_if_t<std::is_integral_v<Integer>, ByteStridedPointer&> operator-=(
       Integer byte_offset) {
     value_ = internal::wrap_on_overflow::Subtract(
-        value_, static_cast<std::uintptr_t>(byte_offset));
+        value_, static_cast<uintptr_t>(byte_offset));
     assert(value_ % alignment == 0);
     return *this;
   }
@@ -170,8 +170,7 @@ class ByteStridedPointer {
   /// \membergroup Arithmetic operations
   /// \id pointer
   template <typename U>
-  friend std::ptrdiff_t operator-(ByteStridedPointer<T> a,
-                                  ByteStridedPointer<U> b) {
+  friend ptrdiff_t operator-(ByteStridedPointer<T> a, ByteStridedPointer<U> b) {
     return reinterpret_cast<const char*>(a.get()) -
            reinterpret_cast<const char*>(b.get());
   }
@@ -182,14 +181,14 @@ class ByteStridedPointer {
   template <typename Integer>
   friend std::enable_if_t<std::is_integral_v<Integer>, ByteStridedPointer<T>>
   operator+(ByteStridedPointer<T> ptr, Integer byte_offset) {
-    ptr += static_cast<std::uintptr_t>(byte_offset);
+    ptr += static_cast<uintptr_t>(byte_offset);
     return ptr;
   }
   template <typename Integer>
   friend inline std::enable_if_t<std::is_integral_v<Integer>,
                                  ByteStridedPointer<T>>
   operator+(Integer byte_offset, ByteStridedPointer<T> ptr) {
-    ptr += static_cast<std::uintptr_t>(byte_offset);
+    ptr += static_cast<uintptr_t>(byte_offset);
     return ptr;
   }
 
@@ -201,12 +200,12 @@ class ByteStridedPointer {
   friend inline std::enable_if_t<std::is_integral_v<Integer>,
                                  ByteStridedPointer<T>>
   operator-(ByteStridedPointer<T> ptr, Integer byte_offset) {
-    ptr -= static_cast<std::uintptr_t>(byte_offset);
+    ptr -= static_cast<uintptr_t>(byte_offset);
     return ptr;
   }
 
  private:
-  std::uintptr_t value_;
+  uintptr_t value_;
 };
 
 // We don't explicitly define comparison operators, because comparison

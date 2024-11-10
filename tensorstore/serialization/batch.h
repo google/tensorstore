@@ -25,7 +25,8 @@
 /// This is used by tensorstore.distributed to serialize/deserialize task
 /// results, and also for testing.
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <memory>
 #include <string>
 #include <string_view>

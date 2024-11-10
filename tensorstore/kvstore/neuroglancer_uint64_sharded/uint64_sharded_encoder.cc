@@ -114,7 +114,7 @@ Result<absl::Cord> ShardEncoder::Finalize() {
   return EncodeShardIndex(shard_index_);
 }
 
-Result<ByteRange> ShardEncoder::WriteUnindexedEntry(std::uint64_t minishard,
+Result<ByteRange> ShardEncoder::WriteUnindexedEntry(uint64_t minishard,
                                                     const absl::Cord& data,
                                                     bool compress) {
   if (minishard != cur_minishard_) {

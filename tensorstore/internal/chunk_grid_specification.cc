@@ -15,9 +15,9 @@
 #include "tensorstore/internal/chunk_grid_specification.h"
 
 #include <assert.h>
+#include <stddef.h>
 
 #include <algorithm>
-#include <cstddef>
 #include <utility>
 #include <vector>
 

@@ -15,8 +15,9 @@
 #ifndef TENSORSTORE_KVSTORE_GCS_GRPC_STORAGE_STUB_POOL_H_
 #define TENSORSTORE_KVSTORE_GCS_GRPC_STORAGE_STUB_POOL_H_
 
+#include <stddef.h>
+
 #include <atomic>
-#include <cstddef>
 #include <memory>
 #include <string>
 #include <vector>

@@ -15,7 +15,7 @@
 #ifndef TENSORSTORE_KVSTORE_NEUROGLANCER_UINT64_SHARDED_MURMURHASH3_H_
 #define TENSORSTORE_KVSTORE_NEUROGLANCER_UINT64_SHARDED_MURMURHASH3_H_
 
-#include <cstdint>
+#include <stdint.h>
 
 namespace tensorstore {
 namespace neuroglancer_uint64_sharded {

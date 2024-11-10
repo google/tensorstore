@@ -318,7 +318,7 @@ filegroup(
     ),
 )
 
-cc_library(
+tensorstore_cc_library(
     name = "webp",
     srcs = [
         "webp_reader.cc",
@@ -344,7 +344,7 @@ cc_library(
     ],
 )
 
-cc_test(
+tensorstore_cc_test(
     name = "webp_test",
     srcs = ["webp_test.cc"],
     deps = [

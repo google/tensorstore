@@ -15,9 +15,10 @@
 #ifndef TENSORSTORE_UTIL_BFLOAT16_H_
 #define TENSORSTORE_UTIL_BFLOAT16_H_
 
+#include <stdint.h>
+
 #include <cassert>
 #include <cmath>
-#include <cstdint>
 #include <cstring>
 #include <limits>
 #include <type_traits>
@@ -252,18 +253,19 @@ class BFloat16 {
   // provided automatically by the implicit conversion to `float`.
 
   // Conversion to `::nlohmann::json`.
-  template <template <typename U, typename V, typename... Args>
-            class ObjectType /* = std::map*/,
-            template <typename U, typename... Args>
-            class ArrayType /* = std::vector*/,
+  template <template <typename U, typename V,
+                      typename... Args> class ObjectType /* = std::map*/,
+            template <typename U,
+                      typename... Args> class ArrayType /* = std::vector*/,
             class StringType /*= std::string*/, class BooleanType /* = bool*/,
-            class NumberIntegerType /* = std::int64_t*/,
-            class NumberUnsignedType /* = std::uint64_t*/,
+            class NumberIntegerType /* = int64_t*/,
+            class NumberUnsignedType /* = uint64_t*/,
             class NumberFloatType /* = double*/,
             template <typename U> class AllocatorType /* = std::allocator*/,
-            template <typename T, typename SFINAE = void>
-            class JSONSerializer /* = adl_serializer*/,
-            class BinaryType /* = std::vector<std::uint8_t>*/>
+            template <typename T,
+                      typename SFINAE =
+                          void> class JSONSerializer /* = adl_serializer*/,
+            class BinaryType /* = std::vector<uint8_t>*/>
   friend void to_json(
       ::nlohmann::basic_json<ObjectType, ArrayType, StringType, BooleanType,
                              NumberIntegerType, NumberUnsignedType,

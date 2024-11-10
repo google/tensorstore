@@ -19,11 +19,12 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
-#include <cstddef>
+#include <pybind11/stl.h>
+#include <stddef.h>
+
 #include <vector>
 
 #include "python/tensorstore/type_name_override.h"
-#include <pybind11/stl.h>
 
 namespace tensorstore {
 namespace internal_python {

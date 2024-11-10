@@ -15,7 +15,8 @@
 #ifndef TENSORSTORE_SERIALIZATION_SPAN_H_
 #define TENSORSTORE_SERIALIZATION_SPAN_H_
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <type_traits>
 
 #include "absl/base/attributes.h"

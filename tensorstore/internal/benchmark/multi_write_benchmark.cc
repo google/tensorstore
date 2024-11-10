@@ -34,10 +34,11 @@ bazel run -c opt \
   --write_config=config.json
 */
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <algorithm>
 #include <atomic>
-#include <cstddef>
-#include <cstdint>
 #include <iostream>
 #include <optional>
 #include <string>

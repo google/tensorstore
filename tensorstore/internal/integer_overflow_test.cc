@@ -14,7 +14,7 @@
 
 #include "tensorstore/internal/integer_overflow.h"
 
-#include <cstdint>
+#include <stdint.h>
 
 #include <gtest/gtest.h>
 #include "tensorstore/index.h"
@@ -31,13 +31,12 @@ using ::tensorstore::internal::wrap_on_overflow::InnerProduct;
 using ::tensorstore::internal::wrap_on_overflow::Multiply;
 
 TEST(AddTest, Overflow) {
-  EXPECT_EQ(std::int32_t{-0x80000000LL},
-            Add(std::int32_t{0x40000000}, std::int32_t{0x40000000}));
+  EXPECT_EQ(int32_t{-0x80000000LL},
+            Add(int32_t{0x40000000}, int32_t{0x40000000}));
 }
 
 TEST(MultiplyTest, Overflow) {
-  EXPECT_EQ(std::int32_t{-0x80000000LL},
-            Multiply(std::int32_t{0x40000000}, std::int32_t{2}));
+  EXPECT_EQ(int32_t{-0x80000000LL}, Multiply(int32_t{0x40000000}, int32_t{2}));
 }
 
 TEST(InnerProductTest, Basic) {
@@ -83,21 +82,21 @@ TEST(MulOverflow, Uint32) {
 }
 
 TEST(MulOverflow, Int32) {
-  std::int32_t a, b, c;
+  int32_t a, b, c;
 
   a = -0x40000000;
   b = 2;
   EXPECT_EQ(false, MulOverflow(a, b, &c));
-  EXPECT_EQ(std::int32_t{-0x80000000LL}, c);
+  EXPECT_EQ(int32_t{-0x80000000LL}, c);
   EXPECT_EQ(false, MulOverflow(b, a, &c));
-  EXPECT_EQ(std::int32_t{-0x80000000LL}, c);
+  EXPECT_EQ(int32_t{-0x80000000LL}, c);
 
   a = 0x40000000;
   c = 2;
   EXPECT_EQ(true, MulOverflow(a, b, &c));
-  EXPECT_EQ(std::int32_t{-0x80000000LL}, c);
+  EXPECT_EQ(int32_t{-0x80000000LL}, c);
   EXPECT_EQ(true, MulOverflow(b, a, &c));
-  EXPECT_EQ(std::int32_t{-0x80000000LL}, c);
+  EXPECT_EQ(int32_t{-0x80000000LL}, c);
 }
 
 TEST(AddOverflow, Uint32) {
@@ -117,24 +116,24 @@ TEST(AddOverflow, Uint32) {
 }
 
 TEST(AddOverflow, Int32) {
-  std::int32_t a, b, c;
+  int32_t a, b, c;
 
   a = 0x40000000;
   b = 0x3fffffff;
   EXPECT_EQ(false, AddOverflow(a, b, &c));
-  EXPECT_EQ(std::int32_t{0x7fffffff}, c);
+  EXPECT_EQ(int32_t{0x7fffffff}, c);
   EXPECT_EQ(false, AddOverflow(b, a, &c));
-  EXPECT_EQ(std::int32_t{0x7fffffff}, c);
+  EXPECT_EQ(int32_t{0x7fffffff}, c);
 
   a = -0x40000000;
   b = -0x40000000;
   EXPECT_EQ(false, AddOverflow(a, b, &c));
-  EXPECT_EQ(std::int32_t{-0x80000000LL}, c);
+  EXPECT_EQ(int32_t{-0x80000000LL}, c);
 
   a = 0x40000000;
   b = 0x40000000;
   EXPECT_EQ(true, AddOverflow(a, b, &c));
-  EXPECT_EQ(std::int32_t{-0x80000000LL}, c);
+  EXPECT_EQ(int32_t{-0x80000000LL}, c);
 }
 
 TEST(AddSaturate, Int32) {
@@ -159,22 +158,22 @@ TEST(SubOverflow, Uint32) {
 }
 
 TEST(SubOverflow, Int32) {
-  std::int32_t a, b, c;
+  int32_t a, b, c;
 
   a = -0x40000000;
   b = 0x40000000;
   EXPECT_EQ(false, SubOverflow(a, b, &c));
-  EXPECT_EQ(std::int32_t{-0x80000000LL}, c);
+  EXPECT_EQ(int32_t{-0x80000000LL}, c);
 
   a = 0x40000000;
   b = -0x40000000;
   EXPECT_EQ(true, SubOverflow(a, b, &c));
-  EXPECT_EQ(std::int32_t{-0x80000000LL}, c);
+  EXPECT_EQ(int32_t{-0x80000000LL}, c);
 
   a = -0x40000001;
   b = 0x40000000;
   EXPECT_EQ(true, SubOverflow(a, b, &c));
-  EXPECT_EQ(std::int32_t{0x7fffffff}, c);
+  EXPECT_EQ(int32_t{0x7fffffff}, c);
 }
 
 }  // namespace

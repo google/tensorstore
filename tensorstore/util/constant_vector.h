@@ -19,9 +19,10 @@
 /// Facilities for obtaining a `tensorstore::span<const T>` of a given length
 /// containing specific constant values.
 
+#include <stddef.h>
+
 #include <array>
 #include <cassert>
-#include <cstddef>
 #include <string>
 #include <type_traits>
 

@@ -14,7 +14,8 @@
 
 #include "tensorstore/internal/unique_with_intrusive_allocator.h"
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <memory>
 #include <vector>
 

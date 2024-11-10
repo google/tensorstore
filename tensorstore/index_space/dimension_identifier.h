@@ -15,7 +15,9 @@
 #ifndef TENSORSTORE_INDEX_SPACE_DIMENSION_IDENTIFIER_H_
 #define TENSORSTORE_INDEX_SPACE_DIMENSION_IDENTIFIER_H_
 
-#include <cstddef>
+#include <stddef.h>
+
+#include <cstddef>  // std::nullptr_t
 #include <optional>
 #include <string>
 #include <string_view>

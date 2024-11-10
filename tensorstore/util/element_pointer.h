@@ -20,7 +20,9 @@
 /// a raw pointer or shared_ptr to an `Element` with a
 /// `dtype_t<Element>` value.
 
-#include <cstddef>
+#include <stddef.h>
+
+#include <cstddef>  // std::nullptr_t
 #include <memory>
 #include <string>
 #include <type_traits>

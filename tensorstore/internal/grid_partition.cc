@@ -14,10 +14,11 @@
 
 #include "tensorstore/internal/grid_partition.h"
 
+#include <stddef.h>
+
 #include <algorithm>
 #include <array>
 #include <cassert>
-#include <cstddef>
 #include <utility>
 #include <vector>
 

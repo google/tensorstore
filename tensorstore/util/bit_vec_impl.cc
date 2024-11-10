@@ -22,13 +22,12 @@ namespace tensorstore {
 
 namespace internal_bitvec {
 
-void BitVecStorage<dynamic_extent>::resize(std::ptrdiff_t new_size,
-                                           bool value) {
+void BitVecStorage<dynamic_extent>::resize(ptrdiff_t new_size, bool value) {
   assert(new_size >= 0);
-  const std::ptrdiff_t existing_size = size_;
-  const std::ptrdiff_t existing_num_blocks = num_blocks();
-  const std::ptrdiff_t new_num_blocks = BitVectorSizeInBlocks<Block>(new_size);
-  constexpr std::ptrdiff_t block_offset_mask = 8 * sizeof(Block) - 1;
+  const ptrdiff_t existing_size = size_;
+  const ptrdiff_t existing_num_blocks = num_blocks();
+  const ptrdiff_t new_num_blocks = BitVectorSizeInBlocks<Block>(new_size);
+  constexpr ptrdiff_t block_offset_mask = 8 * sizeof(Block) - 1;
   if (new_num_blocks != existing_num_blocks) {
     BitVecStorage temp(new_size);
     std::memcpy(temp.data(), data(),

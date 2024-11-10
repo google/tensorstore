@@ -15,7 +15,8 @@
 #ifndef TENSORSTORE_KVSTORE_OCDBT_FORMAT_INDIRECT_DATA_REFERENCE_H_
 #define TENSORSTORE_KVSTORE_OCDBT_FORMAT_INDIRECT_DATA_REFERENCE_H_
 
-#include <cstdint>
+#include <stdint.h>
+
 #include <iosfwd>
 #include <limits>
 #include <string>

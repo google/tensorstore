@@ -15,8 +15,9 @@
 #ifndef TENSORSTORE_INTERNAL_STRING_LIKE_H_
 #define TENSORSTORE_INTERNAL_STRING_LIKE_H_
 
+#include <stddef.h>
+
 #include <cassert>
-#include <cstddef>
 #include <string>
 #include <string_view>
 

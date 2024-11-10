@@ -14,7 +14,8 @@
 
 #include "tensorstore/internal/path.h"
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <initializer_list>
 #include <string>
 #include <string_view>

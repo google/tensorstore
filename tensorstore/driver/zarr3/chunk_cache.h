@@ -17,7 +17,6 @@
 
 #include <stddef.h>
 
-#include <cstddef>
 #include <memory>
 #include <string>
 #include <utility>
@@ -224,7 +223,7 @@ class ZarrShardedChunkCache : public internal::Cache, public ZarrChunkCache {
     /// Returns the grid cell index vector corresponding to this cache entry.
     span<const Index> cell_indices() {
       return {reinterpret_cast<const Index*>(key().data()),
-              static_cast<std::ptrdiff_t>(key().size() / sizeof(Index))};
+              static_cast<ptrdiff_t>(key().size() / sizeof(Index))};
     }
 
     void DoInitialize() override;

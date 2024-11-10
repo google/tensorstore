@@ -370,7 +370,7 @@ bool IterateUsingSimplifiedLayout(
     span<const Index> input_shape,
     internal::ElementwiseClosure<Arity, void*> closure, void* arg,
     span<const SingleArrayIterationState, Arity> single_array_states,
-    std::array<std::ptrdiff_t, Arity> element_sizes);
+    std::array<ptrdiff_t, Arity> element_sizes);
 
 }  // namespace internal_index_space
 }  // namespace tensorstore

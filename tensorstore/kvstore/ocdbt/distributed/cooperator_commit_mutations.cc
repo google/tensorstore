@@ -15,9 +15,10 @@
 #include "tensorstore/kvstore/ocdbt/distributed/cooperator.h"
 // Part of the Cooperator interface
 
+#include <stddef.h>
+
 #include <algorithm>
 #include <cassert>
-#include <cstddef>
 #include <memory>
 #include <optional>
 #include <string>

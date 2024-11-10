@@ -23,8 +23,9 @@
 #include "python/tensorstore/numpy_indexing_spec.h"
 
 // Other headers
+#include <stddef.h>
+
 #include <algorithm>
-#include <cstddef>
 #include <string>
 #include <string_view>
 #include <utility>

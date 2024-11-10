@@ -15,9 +15,9 @@
 #ifndef TENSORSTORE_INTERNAL_IRREGULAR_GRID_H_
 #define TENSORSTORE_INTERNAL_IRREGULAR_GRID_H_
 
-#include <assert.h>
+#include <stddef.h>
 
-#include <cstddef>
+#include <cassert>
 #include <vector>
 
 #include "tensorstore/index.h"

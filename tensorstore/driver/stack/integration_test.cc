@@ -306,7 +306,7 @@ TEST(IntegrationTest, NeuroglancerPrecomputed_InferredDTypeAndDomain) {
       auto store, (tensorstore::Open(spec, context, tensorstore::OpenMode::open,
                                      tensorstore::ReadWriteMode::read)
                        .result()));
-  EXPECT_EQ(store.dtype(), tensorstore::dtype_t<std::int32_t>());
+  EXPECT_EQ(store.dtype(), tensorstore::dtype_t<int32_t>());
   EXPECT_THAT(store.domain().origin(), ::testing::ElementsAre(0, 0, 0, 0));
   EXPECT_THAT(store.domain().shape(), ::testing::ElementsAre(16, 16, 1, 3));
 }

@@ -20,9 +20,10 @@
 
 // IWYU pragma: private, include "third_party/tensorstore/util/bit_vec.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <cassert>
-#include <cstddef>
-#include <cstdint>
 #include <cstring>
 #include <type_traits>
 #include <utility>
@@ -35,15 +36,14 @@ namespace tensorstore {
 namespace internal_bitvec {
 using Block = uint64_t;
 
-template <std::ptrdiff_t Extent = dynamic_extent>
+template <ptrdiff_t Extent = dynamic_extent>
 class BitVecStorage {
   static_assert(Extent >= 0, "Extent must be non-negative.");
 
  public:
-  using ExtentType = std::integral_constant<std::ptrdiff_t, Extent>;
-  constexpr static std::ptrdiff_t kNumBlocks =
-      BitVectorSizeInBlocks<Block>(Extent);
-  using BlockExtentType = std::integral_constant<std::ptrdiff_t, kNumBlocks>;
+  using ExtentType = std::integral_constant<ptrdiff_t, Extent>;
+  constexpr static ptrdiff_t kNumBlocks = BitVectorSizeInBlocks<Block>(Extent);
+  using BlockExtentType = std::integral_constant<ptrdiff_t, kNumBlocks>;
 
   constexpr BitVecStorage(ExtentType size) {}
   constexpr static ExtentType size() { return {}; }
@@ -58,11 +58,11 @@ class BitVecStorage {
 
 template <>
 class BitVecStorage<dynamic_extent> {
-  constexpr static std::ptrdiff_t kMaxInlineSize = sizeof(Block) * 8;
+  constexpr static ptrdiff_t kMaxInlineSize = sizeof(Block) * 8;
 
  public:
-  using BlockExtentType = std::ptrdiff_t;
-  using ExtentType = std::ptrdiff_t;
+  using BlockExtentType = ptrdiff_t;
+  using ExtentType = ptrdiff_t;
 
   BitVecStorage(ExtentType size) : size_(size) {
     assert(size >= 0);
@@ -102,12 +102,10 @@ class BitVecStorage<dynamic_extent> {
     std::swap(other.size_, size_);
   }
 
-  void resize(std::ptrdiff_t new_size, bool value);
+  void resize(ptrdiff_t new_size, bool value);
 
   ExtentType size() const { return size_; }
-  std::ptrdiff_t num_blocks() const {
-    return BitVectorSizeInBlocks<Block>(size_);
-  }
+  ptrdiff_t num_blocks() const { return BitVectorSizeInBlocks<Block>(size_); }
 
   Block* data() {
     return size_ <= kMaxInlineSize ? &data_.inline_data : data_.ptr;
@@ -119,7 +117,7 @@ class BitVecStorage<dynamic_extent> {
   }
 
  private:
-  std::ptrdiff_t size_;
+  ptrdiff_t size_;
   union Data {
     Block inline_data;
     Block* ptr;

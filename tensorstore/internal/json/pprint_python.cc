@@ -14,7 +14,8 @@
 
 #include "tensorstore/internal/json/pprint_python.h"
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <string>
 #include <string_view>
 
@@ -146,7 +147,7 @@ void PrettyPrintJsonAsPython(std::string* out, const ::nlohmann::json& j,
                              const PrettyPrintJsonAsPythonOptions& options) {
   size_t existing_size = out->size();
   FormatAsSingleLineForPython(out, j);
-  std::ptrdiff_t added_size = out->size() - existing_size;
+  ptrdiff_t added_size = out->size() - existing_size;
   int max_width = options.width - options.cur_line_indent;
   if (added_size > max_width) {
     if (const auto* obj = j.get_ptr<const ::nlohmann::json::object_t*>()) {

@@ -18,7 +18,9 @@
 /// \file
 /// Provides generic conversion to string representation.
 
-#include <cstddef>
+#include <stddef.h>
+
+#include <cstddef>  // std::nullptr_t
 #include <ostream>
 #include <sstream>
 #include <string>
@@ -128,12 +130,12 @@ auto ToAlphaNumOrString(const T& x) {
 /// \requires `Element` supports ostream insertion.
 /// \relates span
 /// \id span
-template <typename Element, std::ptrdiff_t N>
+template <typename Element, ptrdiff_t N>
 std::enable_if_t<internal::IsOstreamable<Element>, std::ostream&> operator<<(
     std::ostream& os, ::tensorstore::span<Element, N> s) {
   os << "{";
-  std::ptrdiff_t size = s.size();
-  for (std::ptrdiff_t i = 0; i < size; ++i) {
+  ptrdiff_t size = s.size();
+  for (ptrdiff_t i = 0; i < size; ++i) {
     if (i != 0) os << ", ";
     os << s[i];
   }

@@ -14,7 +14,8 @@
 
 #include "tensorstore/internal/multi_vector.h"
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <type_traits>
 #include <utility>
 

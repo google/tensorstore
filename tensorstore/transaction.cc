@@ -18,7 +18,6 @@
 
 #include <atomic>
 #include <cassert>
-#include <cstddef>
 #include <ostream>
 #include <string>
 #include <string_view>

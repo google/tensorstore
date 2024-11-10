@@ -256,7 +256,6 @@ tensorstore_cc_library(
         "//tensorstore/internal/container:intrusive_linked_list",
         "//tensorstore/internal/metrics",
         "//tensorstore/internal/metrics:metadata",
-        "//tensorstore/internal/poly",
         "@com_google_absl//absl/base",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:flat_hash_set",

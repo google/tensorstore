@@ -60,8 +60,9 @@
 
 // IWYU pragma: private, include "third_party/tensorstore/internal/poly/poly.h"
 
+#include <stddef.h>
+
 #include <cassert>
-#include <cstddef>
 #include <limits>
 #include <type_traits>
 #include <typeinfo>

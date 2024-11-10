@@ -14,7 +14,7 @@
 
 #include "tensorstore/internal/source_location.h"
 
-#include <cstdint>
+#include <stdint.h>
 
 #include <gtest/gtest.h>
 

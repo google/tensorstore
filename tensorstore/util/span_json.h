@@ -15,7 +15,7 @@
 #ifndef TENSORSTORE_UTIL_SPAN_JSON_H_
 #define TENSORSTORE_UTIL_SPAN_JSON_H_
 
-#include <cstddef>
+#include <stddef.h>
 
 #include <nlohmann/json.hpp>
 #include "tensorstore/util/span.h"

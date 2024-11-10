@@ -15,13 +15,20 @@
 #ifndef TENSORSTORE_INDEX_SPACE_INDEX_DOMAIN_BUILDER_H_
 #define TENSORSTORE_INDEX_SPACE_INDEX_DOMAIN_BUILDER_H_
 
-#include <cstdint>
+#include <stddef.h>
+
+#include <cstddef>  // std::nullptr_t
+#include <string>
+#include <string_view>
 #include <type_traits>
 
+#include "tensorstore/box.h"
 #include "tensorstore/index.h"
-#include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/rank.h"
+#include "tensorstore/util/dimension_set.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 
 namespace tensorstore {

@@ -19,7 +19,8 @@
 #include "python/tensorstore/index.h"
 
 // Other headers
-#include <cstddef>
+#include <stddef.h>
+
 #include <string>
 #include <variant>
 #include <vector>

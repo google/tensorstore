@@ -14,7 +14,8 @@
 
 #include "tensorstore/internal/compression/bzip2_compressor.h"
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <memory>
 #include <utility>
 

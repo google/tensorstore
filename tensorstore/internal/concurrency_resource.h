@@ -15,7 +15,8 @@
 #ifndef TENSORSTORE_INTERNAL_CONCURRENCY_RESOURCE_H_
 #define TENSORSTORE_INTERNAL_CONCURRENCY_RESOURCE_H_
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <optional>
 
 #include "tensorstore/util/executor.h"

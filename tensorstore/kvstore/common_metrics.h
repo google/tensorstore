@@ -15,7 +15,7 @@
 #ifndef TENSORSTORE_KVSTORE_COMMON_METRICS_H_
 #define TENSORSTORE_KVSTORE_COMMON_METRICS_H_
 
-#include <cstdint>
+#include <stdint.h>
 
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/histogram.h"

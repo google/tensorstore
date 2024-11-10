@@ -14,9 +14,9 @@
 
 #include "tensorstore/driver/zarr3/codec/bytes.h"
 
-#include <assert.h>
 #include <stdint.h>
 
+#include <cassert>
 #include <optional>
 #include <string_view>
 #include <utility>

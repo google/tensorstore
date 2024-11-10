@@ -27,7 +27,6 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_format.h"
-#include <nlohmann/json_fwd.hpp>
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/internal/cache/kvs_backed_cache_testutil.h"

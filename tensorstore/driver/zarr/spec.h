@@ -18,7 +18,9 @@
 /// \file
 /// Facilities related to parsing a zarr array DriverSpec.
 
-#include <cstddef>
+#include <stddef.h>
+
+#include <cstddef>  // std::nullptr_t
 #include <optional>
 #include <string>
 

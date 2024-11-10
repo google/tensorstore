@@ -18,9 +18,8 @@
 
 #include "tensorstore/internal/compression/xz_compressor.h"
 
-#include <cstdint>
+#include <stdint.h>
 
-#include "tensorstore/driver/n5/compressor.h"
 #include "tensorstore/driver/n5/compressor_registry.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 

@@ -14,7 +14,8 @@
 
 #include "tensorstore/internal/compression/json_specified_compressor.h"
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <memory>
 #include <utility>
 

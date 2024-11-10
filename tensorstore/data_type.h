@@ -51,11 +51,13 @@
 //
 // #define TENSORSTORE_DATA_TYPE_DISABLE_MEMSET_OPTIMIZATION
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <algorithm>
 #include <array>
 #include <complex>
-#include <cstddef>
-#include <cstdint>
+#include <cstddef>  // for std::byte
 #include <cstring>
 #include <iosfwd>
 #include <memory>
@@ -113,35 +115,35 @@ using int4_t = ::tensorstore::Int4Padded;
 // using uint4_t = ::tensorstore::UInt4Padded;
 ///
 /// \ingroup data types
-using int8_t = ::std::int8_t;
+using int8_t = ::int8_t;
 
 ///
 /// \ingroup data types
-using uint8_t = ::std::uint8_t;
+using uint8_t = ::uint8_t;
 
 ///
 /// \ingroup data types
-using int16_t = ::std::int16_t;
+using int16_t = ::int16_t;
 
 ///
 /// \ingroup data types
-using uint16_t = ::std::uint16_t;
+using uint16_t = ::uint16_t;
 
 ///
 /// \ingroup data types
-using int32_t = ::std::int32_t;
+using int32_t = ::int32_t;
 
 ///
 /// \ingroup data types
-using uint32_t = ::std::uint32_t;
+using uint32_t = ::uint32_t;
 
 ///
 /// \ingroup data types
-using int64_t = ::std::int64_t;
+using int64_t = ::int64_t;
 
 ///
 /// \ingroup data types
-using uint64_t = ::std::uint64_t;
+using uint64_t = ::uint64_t;
 
 // TODO(jbms): consider adding 128-bit integer types
 ///
@@ -549,10 +551,10 @@ struct DataTypeOperations {
   TypeInfo type;
 
   /// The size in bytes of this type.
-  std::ptrdiff_t size;
+  ptrdiff_t size;
 
   /// The alignment in bytes of this type.
-  std::ptrdiff_t alignment;
+  ptrdiff_t alignment;
 
   /// Default initialize an array of `count` elements.
   ///
@@ -688,10 +690,10 @@ class DataType {
   constexpr std::string_view name() const { return operations_->name; }
 
   /// Returns the size in bytes of the data type.
-  constexpr std::ptrdiff_t size() const { return operations_->size; }
+  constexpr ptrdiff_t size() const { return operations_->size; }
 
   /// Returns the alignment required by the data type.
-  constexpr std::ptrdiff_t alignment() const { return operations_->alignment; }
+  constexpr ptrdiff_t alignment() const { return operations_->alignment; }
 
   constexpr Ops::ConstructFunction construct_function() const {
     return operations_->construct;
@@ -1188,9 +1190,9 @@ class StaticDataType {
     return internal_data_type::GetTypeName<T>();
   }
 
-  constexpr std::ptrdiff_t size() const { return sizeof(T); }
+  constexpr ptrdiff_t size() const { return sizeof(T); }
 
-  constexpr std::ptrdiff_t alignment() const { return alignof(T); }
+  constexpr ptrdiff_t alignment() const { return alignof(T); }
 
   constexpr Ops::ConstructFunction construct_function() const {
     return &SimpleOps::Construct;
@@ -1364,8 +1366,8 @@ constexpr ElementInitialization value_init = ElementInitialization::value_init;
 ///
 /// \relates DataType
 /// \membergroup Allocation
-void* AllocateAndConstruct(std::ptrdiff_t n,
-                           ElementInitialization initialization, DataType r);
+void* AllocateAndConstruct(ptrdiff_t n, ElementInitialization initialization,
+                           DataType r);
 
 /// Frees memory allocated by AllocateAndConsruct.
 ///
@@ -1379,7 +1381,7 @@ void* AllocateAndConstruct(std::ptrdiff_t n,
 /// \params ptr Pointer to the allocated array of `n` elements.
 /// \relates DataType
 /// \membergroup Allocation
-void DestroyAndFree(std::ptrdiff_t n, DataType r, void* ptr);
+void DestroyAndFree(ptrdiff_t n, DataType r, void* ptr);
 
 /// Returns a shared_ptr that manages the memory returned by
 /// `AllocateAndConstruct`.
@@ -1393,7 +1395,7 @@ void DestroyAndFree(std::ptrdiff_t n, DataType r, void* ptr);
 /// \membergroup Allocation
 template <typename T = void>
 std::shared_ptr<T> AllocateAndConstructShared(
-    std::ptrdiff_t n, ElementInitialization initialization = default_init,
+    ptrdiff_t n, ElementInitialization initialization = default_init,
     dtype_t<T> r = dtype_v<T>) {
   static_assert(std::is_same_v<std::remove_cv_t<T>, T>,
                 "Element type T must not have cv qualifiers.");
@@ -1403,7 +1405,7 @@ std::shared_ptr<T> AllocateAndConstructShared(
 
 template <>
 std::shared_ptr<void> AllocateAndConstructShared<void>(
-    std::ptrdiff_t n, ElementInitialization initialization, DataType r);
+    ptrdiff_t n, ElementInitialization initialization, DataType r);
 
 /// Checks if both data types are equal or at least one is unspecified.
 ///
@@ -1535,7 +1537,7 @@ struct StaticCastTraits<StaticDataType<T>>
 ///
 /// Example::
 ///
-///     EXPECT_EQ(dtype_v<std::int32_t>, GetDataType("int32"));
+///     EXPECT_EQ(dtype_v<int32_t>, GetDataType("int32"));
 ///     EXPECT_EQ(dtype_v<float>, GetDataType("float32"));
 ///
 /// \relates DataType

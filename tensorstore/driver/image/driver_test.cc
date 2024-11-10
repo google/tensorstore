@@ -12,16 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <assert.h>
+#include <stdint.h>
 
+#include <cassert>
 #include <string>
 #include <type_traits>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/string_view.h"
 #include <nlohmann/json.hpp>
+#include "tensorstore/array.h"
+#include "tensorstore/box.h"
 #include "tensorstore/context.h"
 #include "tensorstore/driver/image/test_image.h"
 #include "tensorstore/index.h"
@@ -30,24 +34,22 @@
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/open.h"
-#include "tensorstore/open_options.h"
-#include "tensorstore/progress.h"
+#include "tensorstore/open_mode.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/tensorstore.h"
-#include "tensorstore/util/future.h"
+#include "tensorstore/transaction.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace {
 
 using ::tensorstore::Context;
-using ::tensorstore::CopyProgressFunction;
 using ::tensorstore::DimensionIndex;
 using ::tensorstore::Index;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
-using ::tensorstore::ReadProgressFunction;
 
 struct P {
   std::string driver;

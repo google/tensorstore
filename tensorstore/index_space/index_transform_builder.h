@@ -18,6 +18,7 @@
 #include <stddef.h>
 
 #include <algorithm>
+#include <cstddef>  // std::nullptr_t
 #include <optional>
 #include <string>
 #include <string_view>
@@ -120,10 +121,10 @@ void AssignRange(const Range& range, span<Element> dest);
 /// Bool-valued metafunction that evaluates to `true` if `Range` is not
 /// `span`-compatible, or `Range` is `span`-compatible with a static
 /// extent compatible with `StaticExtent`.
-template <std::ptrdiff_t StaticExtent, typename Range, typename = void>
+template <ptrdiff_t StaticExtent, typename Range, typename = void>
 constexpr inline bool IsStaticExtentCompatibleWithRange = true;
 
-template <std::ptrdiff_t StaticExtent, typename Range>
+template <ptrdiff_t StaticExtent, typename Range>
 constexpr inline bool IsStaticExtentCompatibleWithRange<
     StaticExtent, Range, std::void_t<internal::ConstSpanType<Range>>> =
     RankConstraint::EqualOrUnspecified(StaticExtent,
@@ -845,7 +846,7 @@ void AssignRange(const Range& range, span<Element> dest) {
   using std::end;
   auto it = begin(range);
   auto last = end(range);
-  for (std::ptrdiff_t i = 0; i < dest.size(); ++i) {
+  for (ptrdiff_t i = 0; i < dest.size(); ++i) {
     ABSL_CHECK(it != last) << "range size mismatch";
     dest[i] = static_cast<Element>(*it);
     ++it;

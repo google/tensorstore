@@ -49,7 +49,7 @@ TEST(ArenaTest, Alignment) {
     EXPECT_EQ(&buffer[0], ptr1);
     // Always aligned to `x`.
     unsigned char* ptr2 = arena.allocate(1, x);
-    EXPECT_EQ(0u, reinterpret_cast<std::uintptr_t>(ptr2) % x);
+    EXPECT_EQ(0u, reinterpret_cast<uintptr_t>(ptr2) % x);
     EXPECT_EQ(&buffer[x], ptr2);
     arena.deallocate(ptr1, 1, 1);
     arena.deallocate(ptr2, 1, x);
@@ -58,7 +58,7 @@ TEST(ArenaTest, Alignment) {
   {
     Arena arena(buffer);
     unsigned char* ptr = arena.allocate(2000, 16);
-    EXPECT_EQ(0u, reinterpret_cast<std::uintptr_t>(ptr) % 16);
+    EXPECT_EQ(0u, reinterpret_cast<uintptr_t>(ptr) % 16);
     arena.deallocate(ptr, 2000, 16);
   }
 }
@@ -75,31 +75,27 @@ TEST(ArenaTest, Large) {
 TEST(ArenaTest, MultipleSmall) {
   unsigned char buffer[1024];
   Arena arena(buffer);
-  std::vector<std::int32_t, ArenaAllocator<int>> vec(100, &arena);
+  std::vector<int32_t, ArenaAllocator<int>> vec(100, &arena);
   EXPECT_EQ(&arena, vec.get_allocator().arena());
   std::fill(vec.begin(), vec.end(), 5);
   EXPECT_TRUE(Contains(buffer, vec.data()));
 
-  std::vector<std::int32_t, ArenaAllocator<int>> vec2(100, &arena);
+  std::vector<int32_t, ArenaAllocator<int>> vec2(100, &arena);
   std::fill(vec2.begin(), vec2.end(), 6);
   EXPECT_TRUE(Contains(buffer, vec2.data()));
 
-  std::vector<std::int32_t, ArenaAllocator<int>> vec3(100, &arena);
+  std::vector<int32_t, ArenaAllocator<int>> vec3(100, &arena);
   std::fill(vec3.begin(), vec3.end(), 7);
   EXPECT_FALSE(Contains(buffer, vec3.data()));
 
-  std::vector<std::int32_t, ArenaAllocator<int>> vec4(5, &arena);
+  std::vector<int32_t, ArenaAllocator<int>> vec4(5, &arena);
   std::fill(vec4.begin(), vec4.end(), 8);
   EXPECT_TRUE(Contains(buffer, vec4.data()));
 
-  EXPECT_THAT(vec,
-              ::testing::ElementsAreArray(std::vector<std::int32_t>(100, 5)));
-  EXPECT_THAT(vec2,
-              ::testing::ElementsAreArray(std::vector<std::int32_t>(100, 6)));
-  EXPECT_THAT(vec3,
-              ::testing::ElementsAreArray(std::vector<std::int32_t>(100, 7)));
-  EXPECT_THAT(vec4,
-              ::testing::ElementsAreArray(std::vector<std::int32_t>(5, 8)));
+  EXPECT_THAT(vec, ::testing::ElementsAreArray(std::vector<int32_t>(100, 5)));
+  EXPECT_THAT(vec2, ::testing::ElementsAreArray(std::vector<int32_t>(100, 6)));
+  EXPECT_THAT(vec3, ::testing::ElementsAreArray(std::vector<int32_t>(100, 7)));
+  EXPECT_THAT(vec4, ::testing::ElementsAreArray(std::vector<int32_t>(5, 8)));
 }
 
 }  // namespace

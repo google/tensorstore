@@ -14,8 +14,9 @@
 
 #include "tensorstore/internal/nditerable_transformed_array.h"
 
+#include <stddef.h>
+
 #include <cassert>
-#include <cstddef>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -178,7 +179,7 @@ class IterableImpl : public NDIterable::Base<IterableImpl> {
     }
   }
 
-  std::ptrdiff_t GetWorkingMemoryBytesPerElement(
+  ptrdiff_t GetWorkingMemoryBytesPerElement(
       IterationLayoutView layout,
       IterationBufferKind buffer_kind) const override {
     return buffer_kind == IterationBufferKind::kIndexed ? sizeof(Index) : 0;

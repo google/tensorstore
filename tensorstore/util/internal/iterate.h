@@ -17,8 +17,9 @@
 #ifndef TENSORSTORE_INTERNAL_ITERATE_H_
 #define TENSORSTORE_INTERNAL_ITERATE_H_
 
+#include <stddef.h>
+
 #include <array>
-#include <cstddef>
 
 #include "absl/container/inlined_vector.h"
 #include "tensorstore/index.h"
@@ -83,7 +84,7 @@ class StridedLayoutFunctionApplyer {
       span<const Index> shape, std::array<const Index*, Arity> strides,
       IterationConstraints constraints,
       ElementwiseClosure<Arity, void*> function,
-      std::array<std::ptrdiff_t, Arity> element_sizes);
+      std::array<ptrdiff_t, Arity> element_sizes);
 
   /// Precomputes an iteration layout using the specified dimension order.
   /// \param shape The multi-dimensional shape over which to iterate.
@@ -95,7 +96,7 @@ class StridedLayoutFunctionApplyer {
       const Index* shape, span<const DimensionIndex> dimension_order,
       std::array<const Index*, Arity> strides,
       ElementwiseClosure<Arity, void*> function,
-      std::array<std::ptrdiff_t, Arity> element_sizes);
+      std::array<ptrdiff_t, Arity> element_sizes);
 
   /// Invokes the element-wise function for each tuple of elements, using the
   /// specified base pointers.

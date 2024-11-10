@@ -29,9 +29,10 @@ bazel run //tensorstore/internal/benchmark:multi_genspec -- \
 
 */
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <algorithm>
-#include <cstddef>
-#include <cstdint>
 #include <iostream>
 #include <optional>
 #include <string>

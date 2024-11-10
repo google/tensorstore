@@ -16,9 +16,10 @@
 
 #include "tensorstore/data_type.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <cmath>
-#include <cstddef>
-#include <cstdint>
 #include <memory>
 #include <string>
 #include <type_traits>
@@ -494,7 +495,7 @@ TEST(DataTypeTest, Name) {
 }
 
 TEST(DataTypeTest, PrintToOstream) {
-  EXPECT_EQ("int64", StrCat(dtype_v<std::int64_t>));
+  EXPECT_EQ("int64", StrCat(dtype_v<int64_t>));
   EXPECT_EQ("<unspecified>", StrCat(DataType()));
 }
 
@@ -528,7 +529,7 @@ TEST(DataTypeCastTest, Basic) {
   EXPECT_THAT(StaticDataTypeCast<int>(DataType()),
               ::testing::Optional(dtype_v<int>));
   EXPECT_THAT(
-      StaticDataTypeCast<std::int32_t>(DataType(dtype_v<float>)),
+      StaticDataTypeCast<int32_t>(DataType(dtype_v<float>)),
       MatchesStatus(absl::StatusCode::kInvalidArgument,
                     "Cannot cast data type of float32 to data type of int32"));
 }

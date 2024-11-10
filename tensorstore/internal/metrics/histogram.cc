@@ -14,8 +14,9 @@
 
 #include "tensorstore/internal/metrics/histogram.h"
 
+#include <stddef.h>
+
 #include <cassert>
-#include <cstddef>
 #include <string>
 #include <string_view>
 #include <vector>

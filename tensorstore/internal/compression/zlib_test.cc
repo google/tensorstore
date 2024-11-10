@@ -14,7 +14,8 @@
 
 #include "tensorstore/internal/compression/zlib.h"
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <string>
 #include <vector>
 

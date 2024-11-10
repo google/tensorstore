@@ -62,7 +62,7 @@ MATCHER_P(SizeIs, size,
 }
 
 template <typename T>
-auto SpanIs(T data, std::ptrdiff_t size)
+auto SpanIs(T data, ptrdiff_t size)
     -> decltype(testing::AllOf(DataIs(data), SizeIs(size))) {
   return testing::AllOf(DataIs(data), SizeIs(size));
 }
@@ -639,14 +639,14 @@ namespace static_or_dynamic_extent_tests {
 TEST(GetStaticOrDynamicExtentTest, Static) {
   int arr[] = {1, 2, 3};
   auto extent = GetStaticOrDynamicExtent(span(arr));
-  static_assert(std::is_same_v<decltype(extent),
-                               std::integral_constant<std::ptrdiff_t, 3>>);
+  static_assert(
+      std::is_same_v<decltype(extent), std::integral_constant<ptrdiff_t, 3>>);
   EXPECT_EQ(3, extent);
 }
 TEST(GetStaticOrDynamicExtentTest, Dynamic) {
   int arr[] = {1, 2, 3};
   auto extent = GetStaticOrDynamicExtent(span<const int>(arr));
-  static_assert(std::is_same_v<decltype(extent), std::ptrdiff_t>);
+  static_assert(std::is_same_v<decltype(extent), ptrdiff_t>);
   EXPECT_EQ(3, extent);
 }
 }  // namespace static_or_dynamic_extent_tests

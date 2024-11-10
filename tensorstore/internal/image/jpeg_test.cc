@@ -13,8 +13,8 @@
 // limitations under the License.
 
 #include <stddef.h>
+#include <stdint.h>
 
-#include <cstdint>
 #include <vector>
 
 #include <gmock/gmock.h>

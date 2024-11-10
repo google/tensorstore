@@ -14,9 +14,10 @@
 
 #include "tensorstore/internal/cord_util.h"
 
+#include <stddef.h>
+
 #include <algorithm>
 #include <cassert>
-#include <cstddef>
 #include <cstring>
 
 #include "absl/strings/cord.h"

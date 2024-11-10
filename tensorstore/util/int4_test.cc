@@ -14,8 +14,9 @@
 
 #include "tensorstore/util/int4.h"
 
+#include <stdint.h>
+
 #include <cmath>
-#include <cstdint>
 #include <cstring>
 #include <limits>
 #include <utility>

@@ -14,8 +14,10 @@
 
 #include "tensorstore/internal/json/array.h"
 
-#include <cstddef>
-#include <cstdint>
+#include <stddef.h>
+#include <stdint.h>
+
+#include <cstddef>  // for std::byte
 #include <string>
 
 #include <gmock/gmock.h>

@@ -15,8 +15,9 @@
 #ifndef TENSORSTORE_INDEX_SPACE_INTERNAL_TRANSFORM_REP_H_
 #define TENSORSTORE_INDEX_SPACE_INTERNAL_TRANSFORM_REP_H_
 
+#include <stddef.h>
+
 #include <atomic>
-#include <cstddef>
 #include <iosfwd>
 #include <memory>
 #include <string>
@@ -171,7 +172,7 @@ class OutputIndexMap {
   ///   value_ is a pointer to dynamically-allocated IndexArrayData instance.
   ///   The lowest bit of the pointer is guaranteed to be 0 since IndexArrayData
   ///   must have an alignment >= 2.
-  std::uintptr_t value_ = 0;
+  uintptr_t value_ = 0;
   Index offset_, stride_;
 };
 
@@ -204,23 +205,23 @@ class InputDimensionRef;
 struct TransformRep {
   /// The input rank.
   /// \invariant `0 <= input_rank && input_rank <= input_rank_capacity`.
-  std::int16_t input_rank;
+  int16_t input_rank;
 
   /// The output rank.
   /// \invariant `0 <= output_rank && output_rank <= output_rank_capacity`.
-  std::int16_t output_rank;
+  int16_t output_rank;
 
   /// The length of the `input_origin`, `input_shape`, and `input_labels` arrays
   /// that immediately follow this TransformRep header in memory.
   ///
   /// \invariant `0 <= input_rank_capacity <= kMaxRank`.
-  std::int16_t input_rank_capacity;
+  int16_t input_rank_capacity;
 
   /// The length of the `output_index_maps` array that precedes this
   /// TransformRep header in memory.
   ///
   /// \invariant `0 <= output_rank_capacity <= kMaxRank`.
-  std::int16_t output_rank_capacity;
+  int16_t output_rank_capacity;
 
   /// Set of dimensions with implicit lower/upper bounds.
   DimensionSet implicit_lower_bounds;
@@ -236,7 +237,7 @@ struct TransformRep {
   /// Reference count.
   ///
   /// \invariant `0 <= ref_count`.
-  std::atomic<std::uint64_t> reference_count;
+  std::atomic<uint64_t> reference_count;
 
   /// Returns `true` if there is only one reference to this representation.
   bool is_unique() const {

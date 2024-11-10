@@ -409,7 +409,7 @@ tensorstore_cc_library(
     ],
 )
 
-cc_library(
+tensorstore_cc_library(
     name = "common_metrics",
     hdrs = ["common_metrics.h"],
     deps = [

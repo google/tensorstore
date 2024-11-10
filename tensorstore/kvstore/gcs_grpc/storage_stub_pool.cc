@@ -18,7 +18,6 @@
 #include <stdint.h>
 
 #include <algorithm>
-#include <cstddef>
 #include <memory>
 #include <optional>
 #include <string>

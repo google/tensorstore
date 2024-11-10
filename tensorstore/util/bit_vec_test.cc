@@ -14,9 +14,10 @@
 
 #include "tensorstore/util/bit_vec.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <algorithm>
-#include <cstddef>
-#include <cstdint>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -338,11 +339,11 @@ TEST(BitVecTest, ResizeStatic) {
     b[i] = true;
   }
   EXPECT_THAT(b, ::testing::ElementsAreArray(expected));
-  b.resize(std::integral_constant<std::ptrdiff_t, 65>{});
+  b.resize(std::integral_constant<ptrdiff_t, 65>{});
   EXPECT_THAT(b, ::testing::ElementsAreArray(expected));
 }
 
-void TestResizeDynamic(std::ptrdiff_t orig_size, std::ptrdiff_t new_size,
+void TestResizeDynamic(ptrdiff_t orig_size, ptrdiff_t new_size,
                        std::vector<int> bits) {
   SCOPED_TRACE(tensorstore::StrCat("orig_size=", orig_size,
                                    ", new_size=", new_size,

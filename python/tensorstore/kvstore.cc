@@ -20,7 +20,8 @@
 #include "python/tensorstore/kvstore.h"
 
 // Other headers
-#include <cstddef>
+#include <stddef.h>
+
 #include <limits>
 #include <optional>
 #include <string>
@@ -31,6 +32,7 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include <nlohmann/json_fwd.hpp>
 #include "python/tensorstore/batch.h"
 #include "python/tensorstore/context.h"
 #include "python/tensorstore/define_heap_type.h"

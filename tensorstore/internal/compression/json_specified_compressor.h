@@ -15,7 +15,8 @@
 #ifndef TENSORSTORE_INTERNAL_COMPRESSION_JSON_SPECIFIED_COMPRESSOR_H_
 #define TENSORSTORE_INTERNAL_COMPRESSION_JSON_SPECIFIED_COMPRESSOR_H_
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <memory>
 
 #include "absl/base/attributes.h"

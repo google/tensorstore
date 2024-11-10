@@ -18,9 +18,10 @@
 /// \file
 /// Utilities for consuming and composing NDIterable objects.
 
+#include <stddef.h>
+
 #include <algorithm>
 #include <cassert>
-#include <cstddef>
 #include <cstdlib>
 #include <type_traits>
 #include <utility>
@@ -155,7 +156,7 @@ struct NDIterationBufferInfo {
 /// \returns The block shape, less than or equal to
 ///     `{iteration_shape[rank-2], iteration_shape[rank-1]}`.
 IterationBufferShape GetNDIterationBlockShape(
-    std::ptrdiff_t working_memory_bytes_per_element,
+    ptrdiff_t working_memory_bytes_per_element,
     tensorstore::span<const Index> iteration_shape);
 
 /// Computes the block shape to use for iteration, based on

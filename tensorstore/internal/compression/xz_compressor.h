@@ -17,7 +17,8 @@
 
 /// \file Define an XZ-format JsonSpecifiedCompressor.
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <memory>
 
 #include <lzma.h>

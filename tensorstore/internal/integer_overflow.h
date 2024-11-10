@@ -68,9 +68,9 @@ TENSORSTORE_INTERNAL_DEFINE_WRAP_ON_OVERFLOW_OP(*, Multiply)
 /// \params a Pointer to an array of length `n`.
 /// \params b Pointer to an array of length `n`.
 template <typename AccumType, typename T0, typename T1>
-inline AccumType InnerProduct(std::ptrdiff_t n, const T0* a, const T1* b) {
+inline AccumType InnerProduct(ptrdiff_t n, const T0* a, const T1* b) {
   AccumType sum = 0;
-  for (std::ptrdiff_t i = 0; i < n; ++i) {
+  for (ptrdiff_t i = 0; i < n; ++i) {
     sum = Add(sum, Multiply(static_cast<AccumType>(a[i]),
                             static_cast<AccumType>(b[i])));
   }
@@ -79,7 +79,7 @@ inline AccumType InnerProduct(std::ptrdiff_t n, const T0* a, const T1* b) {
 template <ptrdiff_t N, typename AccumType, typename T0, typename T1>
 inline AccumType InnerProduct(const T0* a, const T1* b) {
   AccumType sum = 0;
-  for (std::ptrdiff_t i = 0; i < N; ++i) {
+  for (ptrdiff_t i = 0; i < N; ++i) {
     sum = Add(sum, Multiply(static_cast<AccumType>(a[i]),
                             static_cast<AccumType>(b[i])));
   }

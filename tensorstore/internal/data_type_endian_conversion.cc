@@ -96,8 +96,7 @@ void DecodeArray(SharedArrayView<void>* source, endian source_endian,
   const auto& functions =
       kUnalignedDataTypeFunctions[static_cast<size_t>(dtype.id())];
   assert(functions.copy != nullptr);  // fail on non-trivial types
-  if ((reinterpret_cast<std::uintptr_t>(source->data()) % dtype->alignment) ==
-          0 &&
+  if ((reinterpret_cast<uintptr_t>(source->data()) % dtype->alignment) == 0 &&
       std::all_of(source->byte_strides().begin(), source->byte_strides().end(),
                   [&](Index byte_stride) {
                     return (byte_stride % dtype->alignment) == 0;
@@ -161,7 +160,7 @@ SharedArrayView<const void> TryViewCordAsArray(const absl::Cord& source,
   ByteStridedPointer<const void> ptr = maybe_flat->data();
   ptr += offset;
 
-  if ((reinterpret_cast<std::uintptr_t>(ptr.get()) % dtype->alignment) != 0 ||
+  if ((reinterpret_cast<uintptr_t>(ptr.get()) % dtype->alignment) != 0 ||
       !std::all_of(layout.byte_strides().begin(), layout.byte_strides().end(),
                    [&](Index byte_stride) {
                      return (byte_stride % dtype->alignment) == 0;

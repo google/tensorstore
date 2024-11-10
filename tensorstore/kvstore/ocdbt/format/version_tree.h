@@ -24,7 +24,8 @@
 /// - other version tree nodes (represented by `VersionTreeNode`), and
 /// - root b+tree node (represented by `BtreeNode`).
 
-#include <cstdint>
+#include <stdint.h>
+
 #include <limits>
 #include <ostream>
 #include <utility>

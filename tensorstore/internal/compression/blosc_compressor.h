@@ -17,7 +17,8 @@
 
 /// \file Define a blosc JsonSpecifiedCompressor.
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <memory>
 #include <string>
 

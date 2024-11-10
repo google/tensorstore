@@ -15,7 +15,8 @@
 #ifndef TENSORSTORE_KVSTORE_OCDBT_DISTRIBUTED_LEASE_CACHE_FOR_COOPERATOR_H_
 #define TENSORSTORE_KVSTORE_OCDBT_DISTRIBUTED_LEASE_CACHE_FOR_COOPERATOR_H_
 
-#include <cstdint>
+#include <stdint.h>
+
 #include <functional>
 #include <memory>
 #include <string>

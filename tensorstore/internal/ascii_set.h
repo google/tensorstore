@@ -16,7 +16,8 @@
 #ifndef TENSORSTORE_INTERNAL_ASCII_SET_H_
 #define TENSORSTORE_INTERNAL_ASCII_SET_H_
 
-#include <cstdint>
+#include <stdint.h>
+
 #include <string_view>
 
 namespace tensorstore {

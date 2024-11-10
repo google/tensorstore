@@ -74,8 +74,8 @@ namespace tensorstore {
 /// Indexing may be performed using the `DimExpression` facilities.  For
 /// example::
 ///
-///     TensorStore<std::int32_t, 3> store = ...;
-///     Result<TensorStore<std::int32_t, 2>> sub_store =
+///     TensorStore<int32_t, 3> store = ...;
+///     Result<TensorStore<int32_t, 2>> sub_store =
 ///         store | Dims(0).IndexSlice(5);
 ///
 /// Typically a `TensorStore` object is obtained by calling `tensorstore::Open`.
@@ -481,7 +481,7 @@ using TensorWriter = TensorStore<Element, Rank, ReadWriteMode::write>;
 ///
 /// Example::
 ///
-///     TensorStore<std::int32_t, 3> store = ...;
+///     TensorStore<int32_t, 3> store = ...;
 ///     store = ResolveBounds(store).value();
 ///
 /// \param store The TensorStore to resolve.  May be `Result`-wrapped.
@@ -540,7 +540,7 @@ ResolveBounds(StoreResult store, Option&&... option) {
 ///
 /// Example::
 ///
-///     TensorStore<std::int32_t, 3> store = ...;
+///     TensorStore<int32_t, 3> store = ...;
 ///     store = Resize(
 ///         store,
 ///         tensorstore::span<const Index, 3>({kImplicit, 5, 3}),
@@ -654,8 +654,8 @@ constexpr inline bool CanReadTensorstoreToArray =
 ///
 /// Example::
 ///
-///     TensorReader<std::int32_t, 3> store = ...;
-///     auto array = AllocateArray<std::int32_t>({25, 30});
+///     TensorReader<int32_t, 3> store = ...;
+///     auto array = AllocateArray<int32_t>({25, 30});
 ///     Read(store | AllDims().TranslateSizedInterval({100, 200},
 ///                                                   {25, 30})),
 ///          array).value();
@@ -716,7 +716,7 @@ Read(SourceTensorstore&& source, TargetArray&& target, Option&&... option) {
 ///
 /// Example::
 ///
-///     TensorReader<std::int32_t, 3> store = ...;
+///     TensorReader<int32_t, 3> store = ...;
 ///     auto array = Read(
 ///         store | AllDims().SizedInterval({100, 200}, {25, 30}))
 ///         .value();
@@ -810,8 +810,8 @@ constexpr inline bool CanWriteArrayToTensorStore =
 ///
 /// Example::
 ///
-///     TensorWriter<std::int32_t, 3> store = ...;
-///     SharedArray<std::int32_t, 3> array = ...;
+///     TensorWriter<int32_t, 3> store = ...;
+///     SharedArray<int32_t, 3> array = ...;
 ///     Write(store | AllDims().TranslateSizedInterval({100, 200},
 ///                                                    {25, 30}),
 ///          array).commit_future.value();
@@ -889,8 +889,8 @@ constexpr inline bool CanCopyTensorStoreToTensorStore =
 ///
 /// Example::
 ///
-///     TensorReader<std::int32_t, 3> source = ...;
-///     TensorWriter<std::int32_t, 3> target = ...;
+///     TensorReader<int32_t, 3> source = ...;
+///     TensorWriter<int32_t, 3> target = ...;
 ///     Copy(
 ///         store | AllDims().SizedInterval({100, 200}, {25, 30}),
 ///         store | AllDims().SizedInterval({400, 500}, {25, 30})).

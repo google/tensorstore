@@ -149,6 +149,7 @@ tensorstore_cc_library(
     hdrs = ["json_input.h"],
     deps = [
         "@com_github_nlohmann_json//:json",
+        "@com_google_absl//absl/status",
         "@com_google_riegeli//riegeli/bytes:reader",
     ],
 )

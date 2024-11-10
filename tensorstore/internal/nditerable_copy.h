@@ -23,8 +23,9 @@
 /// `NDIterableCopyManager` and `NDIteratorCopyManager` classes can be used for
 /// to perform partial copies or for greater control over the iteration order.
 
+#include <stddef.h>
+
 #include <array>
-#include <cstddef>
 
 #include "absl/status/status.h"
 #include "tensorstore/index.h"

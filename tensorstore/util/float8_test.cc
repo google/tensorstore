@@ -14,8 +14,9 @@
 
 #include "tensorstore/util/float8.h"
 
+#include <stdint.h>
+
 #include <cmath>
-#include <cstdint>
 #include <limits>
 #include <string>
 #include <utility>

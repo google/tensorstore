@@ -14,8 +14,9 @@
 
 #include "tensorstore/internal/os/file_lock.h"
 
+#include <stdint.h>
+
 #include <cassert>
-#include <cstdint>
 #include <optional>
 #include <string>
 #include <utility>

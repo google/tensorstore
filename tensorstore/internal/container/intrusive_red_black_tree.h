@@ -33,9 +33,10 @@
 /// 5. All paths from the root to any descendant leaf node includes the same
 ///    number of black nodes.
 
+#include <stddef.h>
+
 #include <array>
 #include <cassert>
-#include <cstddef>
 #include <iterator>
 #include <utility>
 
@@ -124,7 +125,7 @@ class Iterator {
   using value_type = Node;
   using reference = Node&;
   using pointer = Node*;
-  using difference_type = std::ptrdiff_t;
+  using difference_type = ptrdiff_t;
   using iterator_category = std::bidirectional_iterator_tag;
 
   Iterator(Node* node = nullptr) : node_(node) {}
@@ -195,7 +196,7 @@ class Range {
   using value_type = Node;
   using reference = Node&;
   using pointer = Node*;
-  using difference_type = std::ptrdiff_t;
+  using difference_type = ptrdiff_t;
   using iterator = Iterator<Node, Tag, Dir>;
 
   explicit Range(Node* begin, Node* end) : begin_(begin), end_(end) {}

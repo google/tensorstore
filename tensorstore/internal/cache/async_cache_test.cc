@@ -14,7 +14,8 @@
 
 #include "tensorstore/internal/cache/async_cache.h"
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <memory>
 #include <utility>
 #include <vector>

@@ -28,9 +28,10 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
+#include <stddef.h>
+
 #include <array>
 #include <complex>
-#include <cstddef>
 #include <string_view>
 
 #include "tensorstore/data_type.h"

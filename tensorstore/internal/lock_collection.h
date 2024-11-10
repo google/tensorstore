@@ -15,8 +15,9 @@
 #ifndef TENSORSTORE_INTERNAL_LOCK_COLLECTION_H_
 #define TENSORSTORE_INTERNAL_LOCK_COLLECTION_H_
 
+#include <stdint.h>
+
 #include <cassert>
-#include <cstdint>
 
 #include "absl/base/thread_annotations.h"
 #include "absl/container/inlined_vector.h"
@@ -100,17 +101,17 @@ class ABSL_LOCKABLE LockCollection {
   void clear() ABSL_LOCKS_EXCLUDED(this);
 
  private:
-  constexpr static std::uintptr_t kTagMask = 1;
-  constexpr static std::uintptr_t kDataPointerMask = ~kTagMask;
+  constexpr static uintptr_t kTagMask = 1;
+  constexpr static uintptr_t kDataPointerMask = ~kTagMask;
 
   static bool MutexSharedLockFunction(void* mutex, bool lock);
   static bool MutexExclusiveLockFunction(void* mutex, bool lock);
 
   struct Entry {
     explicit Entry(void* data, TryLockFunction lock_function, bool shared) {
-      tagged_pointer = reinterpret_cast<std::uintptr_t>(data);
+      tagged_pointer = reinterpret_cast<uintptr_t>(data);
       assert(!(tagged_pointer & kTagMask));
-      tagged_pointer |= static_cast<std::uintptr_t>(shared);
+      tagged_pointer |= static_cast<uintptr_t>(shared);
       this->lock_function = lock_function;
     }
 
@@ -118,7 +119,7 @@ class ABSL_LOCKABLE LockCollection {
       return reinterpret_cast<void*>(tagged_pointer & kDataPointerMask);
     }
 
-    std::uintptr_t tagged_pointer;
+    uintptr_t tagged_pointer;
     TryLockFunction lock_function;
   };
   absl::InlinedVector<Entry, 4> locks_;

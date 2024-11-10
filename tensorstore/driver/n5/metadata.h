@@ -15,15 +15,25 @@
 #ifndef TENSORSTORE_DRIVER_N5_METADATA_H_
 #define TENSORSTORE_DRIVER_N5_METADATA_H_
 
+#include <memory>
+#include <optional>
 #include <string>
+#include <vector>
 
 #include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
+#include "tensorstore/chunk_layout.h"
 #include "tensorstore/codec_spec.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/n5/compressor.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_space/dimension_units.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/internal/json_binding/bindable.h"
+#include "tensorstore/json_serialization_options_base.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/util/garbage_collection/fwd.h"

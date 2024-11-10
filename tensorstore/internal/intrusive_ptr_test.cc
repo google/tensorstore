@@ -16,7 +16,8 @@
 
 #include "tensorstore/internal/intrusive_ptr.h"
 
-#include <cstdint>
+#include <stdint.h>
+
 #include <memory>
 #include <utility>
 

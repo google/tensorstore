@@ -14,9 +14,10 @@
 
 #include "tensorstore/internal/cache/kvs_backed_chunk_cache.h"
 
+#include <stddef.h>
+
 #include <algorithm>
 #include <cassert>
-#include <cstddef>
 #include <memory>
 #include <optional>
 #include <string>

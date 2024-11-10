@@ -14,10 +14,11 @@
 
 #include "tensorstore/internal/cache/async_cache.h"
 
+#include <stddef.h>
+
 #include <algorithm>
 #include <atomic>
 #include <cassert>
-#include <cstddef>
 #include <functional>
 #include <mutex>  // NOLINT
 #include <type_traits>

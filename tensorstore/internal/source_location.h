@@ -15,8 +15,7 @@
 #ifndef TENSORSTORE_INTERNAL_SOURCE_LOCATION_H_
 #define TENSORSTORE_INTERNAL_SOURCE_LOCATION_H_
 
-#include <cstdint>
-#include <utility>
+#include <cstdint>  // IWYU pragma: keep
 
 #include "absl/base/config.h"
 

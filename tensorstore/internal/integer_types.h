@@ -18,8 +18,8 @@
 /// \file
 /// Defines `int_t<Bits>` and `uint_t<Bits>` type aliases.
 
-#include <cstddef>
-#include <cstdint>
+#include <stddef.h>
+#include <stdint.h>
 
 namespace tensorstore {
 namespace internal {
@@ -32,22 +32,22 @@ using int_t = typename int_type<Bits>::type;
 
 template <>
 struct int_type<8> {
-  using type = std::int8_t;
+  using type = int8_t;
 };
 
 template <>
 struct int_type<16> {
-  using type = std::int16_t;
+  using type = int16_t;
 };
 
 template <>
 struct int_type<32> {
-  using type = std::int32_t;
+  using type = int32_t;
 };
 
 template <>
 struct int_type<64> {
-  using type = std::int64_t;
+  using type = int64_t;
 };
 
 template <size_t Bits>
@@ -58,22 +58,22 @@ using uint_t = typename uint_type<Bits>::type;
 
 template <>
 struct uint_type<8> {
-  using type = std::uint8_t;
+  using type = uint8_t;
 };
 
 template <>
 struct uint_type<16> {
-  using type = std::uint16_t;
+  using type = uint16_t;
 };
 
 template <>
 struct uint_type<32> {
-  using type = std::uint32_t;
+  using type = uint32_t;
 };
 
 template <>
 struct uint_type<64> {
-  using type = std::uint64_t;
+  using type = uint64_t;
 };
 
 }  // namespace internal

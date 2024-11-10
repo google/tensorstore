@@ -14,11 +14,13 @@
 
 #include "tensorstore/internal/data_type_random_generator.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <array>
 #include <cassert>
 #include <complex>
-#include <cstddef>
-#include <cstdint>
+#include <cstddef>  // for std::byte
 #include <limits>
 #include <random>
 #include <string>
@@ -105,9 +107,9 @@ struct SampleRandomValue<::tensorstore::dtypes::json_t> {
       case 1:
         return SampleRandomValue<bool>()(gen);
       case 2:
-        return SampleRandomValue<std::uint64_t>()(gen);
+        return SampleRandomValue<uint64_t>()(gen);
       case 3:
-        return SampleRandomValue<std::int64_t>()(gen);
+        return SampleRandomValue<int64_t>()(gen);
       case 4:
         return SampleRandomValue<double>()(gen);
       case 5:

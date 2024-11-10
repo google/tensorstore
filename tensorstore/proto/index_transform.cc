@@ -14,8 +14,10 @@
 
 #include "tensorstore/proto/index_transform.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <algorithm>
-#include <cstddef>
 #include <vector>
 
 #include "absl/status/status.h"
@@ -30,7 +32,6 @@
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/output_index_method.h"
 #include "tensorstore/internal/json/array.h"
-#include "tensorstore/internal/json_binding/dimension_indexed.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/proto/index_transform.pb.h"

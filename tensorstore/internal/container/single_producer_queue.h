@@ -15,12 +15,13 @@
 #ifndef TENSORSTORE_INTERNAL_THREAD_SINGLE_PRODUCER_QUEUE_H_
 #define TENSORSTORE_INTERNAL_THREAD_SINGLE_PRODUCER_QUEUE_H_
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include <algorithm>
 #include <atomic>
 #include <cassert>
-#include <cstddef>
+#include <cstddef>  // std::nullptr_t
 #include <memory>
 #include <optional>
 #include <type_traits>

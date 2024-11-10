@@ -67,7 +67,7 @@ class NDIterableAdapter : public NDIterable::Base<Derived> {
     return base_->GetIterationBufferConstraint(layout);
   }
 
-  std::ptrdiff_t GetWorkingMemoryBytesPerElement(
+  ptrdiff_t GetWorkingMemoryBytesPerElement(
       NDIterable::IterationLayoutView layout,
       IterationBufferKind buffer_kind) const override {
     return base_->GetWorkingMemoryBytesPerElement(layout, buffer_kind);

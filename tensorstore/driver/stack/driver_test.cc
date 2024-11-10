@@ -44,19 +44,18 @@
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/unit.h"
 
 namespace {
 
-using ::tensorstore::CopyProgressFunction;
 using ::tensorstore::DimensionIndex;
 using ::tensorstore::Index;
 using ::tensorstore::MatchesArray;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::OpenMode;
-using ::tensorstore::ReadProgressFunction;
 using ::tensorstore::ReadWriteMode;
 using ::tensorstore::span;
 
