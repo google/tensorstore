@@ -41,6 +41,7 @@
 #include "tensorstore/internal/chunk_grid_specification.h"
 #include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/internal/grid_partition.h"
+#include "tensorstore/internal/grid_partition_iterator.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/lock_collection.h"
 #include "tensorstore/internal/memory.h"

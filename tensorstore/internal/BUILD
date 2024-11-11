@@ -491,13 +491,16 @@ tensorstore_cc_test(
 
 tensorstore_cc_library(
     name = "grid_partition",
-    srcs = ["grid_partition.cc"],
+    srcs = [
+        "grid_partition.cc",
+        "grid_partition_iterator.cc",
+    ],
     hdrs = [
         "grid_partition.h",
+        "grid_partition_iterator.h",
     ],
     deps = [
         ":grid_partition_impl",
-        ":intrusive_ptr",
         "//tensorstore:box",
         "//tensorstore:index",
         "//tensorstore:index_interval",
@@ -512,6 +515,7 @@ tensorstore_cc_library(
         "@com_google_absl//absl/container:fixed_array",
         "@com_google_absl//absl/container:inlined_vector",
         "@com_google_absl//absl/functional:function_ref",
+        "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/status",
     ],
 )
@@ -1866,6 +1870,25 @@ tensorstore_cc_test(
         ":regular_grid",
         "//tensorstore:index",
         "//tensorstore:index_interval",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "grid_partition_iterator_test",
+    srcs = ["grid_partition_iterator_test.cc"],
+    deps = [
+        ":grid_partition",
+        ":grid_partition_impl",
+        ":regular_grid",
+        "//tensorstore:array",
+        "//tensorstore:index",
+        "//tensorstore:index_interval",
+        "//tensorstore/index_space:index_transform",
+        "//tensorstore/util:result",
+        "//tensorstore/util:span",
+        "//tensorstore/util:status",
+        "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
     ],
 )

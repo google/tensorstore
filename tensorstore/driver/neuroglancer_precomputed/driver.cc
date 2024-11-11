@@ -66,6 +66,7 @@
 #include "tensorstore/internal/chunk_grid_specification.h"
 #include "tensorstore/internal/grid_chunk_key_ranges_base10.h"
 #include "tensorstore/internal/grid_partition.h"
+#include "tensorstore/internal/grid_partition_iterator.h"
 #include "tensorstore/internal/grid_storage_statistics.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
