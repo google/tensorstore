@@ -113,40 +113,6 @@ namespace internal {
 using OutputToGridCellFn = absl::FunctionRef<Index(
     DimensionIndex grid_dim, Index output_index, IndexInterval* cell_bounds)>;
 
-/// Partitions the input domain of a given `transform` from an input space
-/// "full" to an output space "output" based on the grid (potentially irregular)
-/// specified by `output_to_grid_cell`, which maps from a given dimension and
-/// output_index to a grid cell and optional cell bounds.
-///
-/// For each grid cell index vector `h` in `H`, calls
-///   `func(h, cell_transform[h])`.
-///
-/// To partition over a regular grid, `output_to_grid_cell` can be
-///   internal_grid_partition::RegularGridRef.
-///
-/// \param grid_output_dimensions The sequence of dimensions of the index space
-///     "output" corresponding to the grid by which to partition "full".
-/// \param output_to_grid_cell    Function returning, for the provided grid
-///     dimension, the cell index corresponding to output_index, optionally
-///     filling the bounds for the cell.
-/// \param transform The index transform from "full" to "output".  Must be
-///     valid.
-/// \param func The function to be called for each partition.  May return an
-///     error `absl::Status` to abort the iteration.
-/// \returns `absl::Status()` on success, or the last error returned by `func`.
-/// \error `absl::StatusCode::kInvalidArgument` if any input dimension of
-///     `transform` has an unbounded domain.
-/// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs.
-/// \error `absl::StatusCode::kOutOfRange` if an index array contains an
-///     out-of-bounds index.
-absl::Status PartitionIndexTransformOverGrid(
-    tensorstore::span<const DimensionIndex> grid_output_dimensions,
-    OutputToGridCellFn output_to_grid_cell, IndexTransformView<> transform,
-    absl::FunctionRef<
-        absl::Status(tensorstore::span<const Index> grid_cell_indices,
-                     IndexTransformView<> cell_transform)>
-        func);
-
 absl::Status GetGridCellRanges(
     tensorstore::span<const DimensionIndex> grid_output_dimensions,
     BoxView<> grid_bounds, OutputToGridCellFn output_to_grid_cell,

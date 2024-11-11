@@ -14,10 +14,10 @@
 
 #include "tensorstore/driver/driver.h"
 
-#include <assert.h>
 #include <stddef.h>
 
 #include <algorithm>
+#include <cassert>
 #include <numeric>
 #include <optional>
 #include <string_view>
@@ -52,6 +52,7 @@
 #include "tensorstore/internal/concurrency_resource.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/grid_partition.h"
+#include "tensorstore/internal/grid_partition_iterator.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/irregular_grid.h"
 #include "tensorstore/internal/json_binding/json_binding.h"

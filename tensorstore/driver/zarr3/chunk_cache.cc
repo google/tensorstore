@@ -44,6 +44,7 @@
 #include "tensorstore/internal/cache/kvs_backed_chunk_cache.h"
 #include "tensorstore/internal/chunk_grid_specification.h"
 #include "tensorstore/internal/grid_partition.h"
+#include "tensorstore/internal/grid_partition_iterator.h"
 #include "tensorstore/internal/grid_storage_statistics.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/lexicographical_grid_index_key.h"
