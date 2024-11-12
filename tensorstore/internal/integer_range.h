@@ -15,6 +15,8 @@
 #ifndef TENSORSTORE_INTERNAL_INTEGER_RANGE_H_
 #define TENSORSTORE_INTERNAL_INTEGER_RANGE_H_
 
+#include <stddef.h>
+
 #include <type_traits>
 
 namespace tensorstore {
