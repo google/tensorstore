@@ -27,15 +27,11 @@
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/index_transform.h"
-#include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/internal/arena.h"
 #include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/internal/integer_overflow.h"
-#include "tensorstore/internal/memory.h"
-#include "tensorstore/internal/nditerable.h"
 #include "tensorstore/internal/nditerable_buffer_management.h"
 #include "tensorstore/internal/nditerable_transformed_array.h"
-#include "tensorstore/internal/nditerable_util.h"
 #include "tensorstore/internal/unowned_to_shared.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/strided_layout.h"
@@ -123,7 +119,7 @@ Index GetRelativeOffset(tensorstore::span<const Index> base,
 
 void RemoveMaskArrayIfNotNeeded(MaskData* mask) {
   if (mask->num_masked_elements == mask->region.num_elements()) {
-    mask->mask_array.reset();
+    mask->mask_array.element_pointer() = {};
   }
 }
 }  // namespace
@@ -132,29 +128,30 @@ MaskData::MaskData(DimensionIndex rank) : region(rank) {
   region.Fill(IndexInterval::UncheckedSized(0, 0));
 }
 
-std::unique_ptr<bool[], FreeDeleter> CreateMaskArray(
-    BoxView<> box, BoxView<> mask_region,
-    tensorstore::span<const Index> byte_strides) {
-  std::unique_ptr<bool[], FreeDeleter> result(
-      static_cast<bool*>(std::calloc(box.num_elements(), sizeof(bool))));
-  ByteStridedPointer<bool> start = result.get();
-  start += GetRelativeOffset(box.origin(), mask_region.origin(), byte_strides);
+SharedArray<bool> CreateMaskArray(BoxView<> box, BoxView<> mask_region,
+                                  ContiguousLayoutPermutation<> layout_order) {
+  auto array = AllocateArray<bool>(box.shape(), layout_order, value_init);
+  ByteStridedPointer<bool> start = array.data();
+  start += GetRelativeOffset(box.origin(), mask_region.origin(),
+                             array.byte_strides());
   internal::IterateOverArrays(
       internal::SimpleElementwiseFunction<SetMask(bool), void*>{},
       /*arg=*/nullptr,
       /*constraints=*/skip_repeated_elements,
-      ArrayView<bool>(start.get(),
-                      StridedLayoutView<>(mask_region.shape(), byte_strides)));
-  return result;
+      ArrayView<bool>(start.get(), StridedLayoutView<>(mask_region.shape(),
+                                                       array.byte_strides())));
+  return array;
 }
 
 void CreateMaskArrayFromRegion(BoxView<> box, MaskData* mask,
-                               tensorstore::span<const Index> byte_strides) {
+                               ContiguousLayoutPermutation<> layout_order) {
   assert(mask->num_masked_elements == mask->region.num_elements());
-  mask->mask_array = CreateMaskArray(box, mask->region, byte_strides);
+  assert(layout_order.size() == mask->region.rank());
+  mask->mask_array = CreateMaskArray(box, mask->region, layout_order);
 }
 
-void UnionMasks(BoxView<> box, MaskData* mask_a, MaskData* mask_b) {
+void UnionMasks(BoxView<> box, MaskData* mask_a, MaskData* mask_b,
+                ContiguousLayoutPermutation<> layout_order) {
   assert(mask_a != mask_b);  // May work but not supported.
   if (mask_a->num_masked_elements == 0) {
     std::swap(*mask_a, *mask_b);
@@ -162,54 +159,52 @@ void UnionMasks(BoxView<> box, MaskData* mask_a, MaskData* mask_b) {
   } else if (mask_b->num_masked_elements == 0) {
     return;
   }
-  const DimensionIndex rank = box.rank();
-  assert(mask_a->region.rank() == rank);
-  assert(mask_b->region.rank() == rank);
+  assert(mask_a->region.rank() == box.rank());
+  assert(mask_b->region.rank() == box.rank());
 
-  if (mask_a->mask_array && mask_b->mask_array) {
-    const Index size = box.num_elements();
-    mask_a->num_masked_elements = 0;
-    for (Index i = 0; i < size; ++i) {
-      if ((mask_a->mask_array[i] |= mask_b->mask_array[i])) {
-        ++mask_a->num_masked_elements;
-      }
-    }
+  if (mask_a->mask_array.valid() && mask_b->mask_array.valid()) {
+    Index num_masked_elements = 0;
+    IterateOverArrays(
+        [&](bool* a, bool* b) {
+          if ((*a |= *b) == true) {
+            ++num_masked_elements;
+          }
+        },
+        /*constraints=*/{}, mask_a->mask_array, mask_b->mask_array);
+    mask_a->num_masked_elements = num_masked_elements;
     Hull(mask_a->region, mask_b->region, mask_a->region);
     RemoveMaskArrayIfNotNeeded(mask_a);
     return;
   }
 
-  if (!mask_a->mask_array && !mask_b->mask_array) {
+  if (!mask_a->mask_array.valid() && !mask_b->mask_array.valid()) {
     if (IsHullEqualToUnion(mask_a->region, mask_b->region)) {
       // The combined mask can be specified by the region alone.
       Hull(mask_a->region, mask_b->region, mask_a->region);
       mask_a->num_masked_elements = mask_a->region.num_elements();
       return;
     }
-  } else if (!mask_a->mask_array) {
+  } else if (!mask_a->mask_array.valid()) {
     std::swap(*mask_a, *mask_b);
   }
 
-  Index byte_strides[kMaxRank];  // Only first `rank` elements are used.
-  const tensorstore::span<Index> byte_strides_span(&byte_strides[0], rank);
-  ComputeStrides(ContiguousLayoutOrder::c, sizeof(bool), box.shape(),
-                 byte_strides_span);
-  if (!mask_a->mask_array) {
-    CreateMaskArrayFromRegion(box, mask_a, byte_strides_span);
+  if (!mask_a->mask_array.valid()) {
+    CreateMaskArrayFromRegion(box, mask_a, layout_order);
   }
 
   // Copy in mask_b.
-  ByteStridedPointer<bool> start = mask_a->mask_array.get();
+  ByteStridedPointer<bool> start = mask_a->mask_array.data();
   start += GetRelativeOffset(box.origin(), mask_b->region.origin(),
-                             byte_strides_span);
+                             mask_a->mask_array.byte_strides());
   IterateOverArrays(
       [&](bool* ptr) {
         if (!*ptr) ++mask_a->num_masked_elements;
         *ptr = true;
       },
       /*constraints=*/{},
-      ArrayView<bool>(start.get(), StridedLayoutView<>(mask_b->region.shape(),
-                                                       byte_strides_span)));
+      ArrayView<bool>(start.get(),
+                      StridedLayoutView<>(mask_b->region.shape(),
+                                          mask_a->mask_array.byte_strides())));
   Hull(mask_a->region, mask_b->region, mask_a->region);
   RemoveMaskArrayIfNotNeeded(mask_a);
 }
@@ -229,29 +224,30 @@ void RebaseMaskedArray(BoxView<> box, ArrayView<const void> source,
     assert(success);
     return;
   }
-  Index mask_byte_strides_storage[kMaxRank];
-  const tensorstore::span<Index> mask_byte_strides(
-      &mask_byte_strides_storage[0], box.rank());
-  ComputeStrides(ContiguousLayoutOrder::c, sizeof(bool), box.shape(),
-                 mask_byte_strides);
-  std::unique_ptr<bool[], FreeDeleter> mask_owner;
-  bool* mask_array_ptr;
-  if (!mask.mask_array) {
-    mask_owner = CreateMaskArray(box, mask.region, mask_byte_strides);
-    mask_array_ptr = mask_owner.get();
+
+  // Materialize mask array.
+  ArrayView<bool> mask_array_view;
+  SharedArray<bool> mask_array;
+  if (mask.mask_array.valid()) {
+    mask_array_view = mask.mask_array;
   } else {
-    mask_array_ptr = mask.mask_array.get();
+    DimensionIndex layout_order[kMaxRank];
+    tensorstore::span<DimensionIndex> layout_order_span(layout_order,
+                                                        dest.rank());
+    SetPermutationFromStrides(dest.byte_strides(), layout_order_span);
+    mask_array = CreateMaskArray(
+        box, mask.region, ContiguousLayoutPermutation<>(layout_order_span));
+    mask_array_view = mask_array;
   }
-  ArrayView<const bool> mask_array(
-      mask_array_ptr, StridedLayoutView<>(box.shape(), mask_byte_strides));
   [[maybe_unused]] const auto success = internal::IterateOverArrays(
       {&dtype->copy_assign_unmasked, /*context=*/nullptr},
-      /*arg=*/nullptr, skip_repeated_elements, source, dest, mask_array);
+      /*arg=*/nullptr, skip_repeated_elements, source, dest, mask_array_view);
   assert(success);
 }
 
 void WriteToMask(MaskData* mask, BoxView<> output_box,
-                 IndexTransformView<> input_to_output, Arena* arena) {
+                 IndexTransformView<> input_to_output,
+                 ContiguousLayoutPermutation<> layout_order, Arena* arena) {
   assert(input_to_output.output_rank() == output_box.rank());
 
   if (input_to_output.domain().box().is_empty()) {
@@ -265,35 +261,28 @@ void WriteToMask(MaskData* mask, BoxView<> output_box,
       GetOutputRange(input_to_output, output_range).value();
   Intersect(output_range, output_box, output_range);
 
-  Index mask_byte_strides_storage[kMaxRank];
-  const tensorstore::span<Index> mask_byte_strides(
-      &mask_byte_strides_storage[0], output_rank);
-  ComputeStrides(ContiguousLayoutOrder::c, sizeof(bool), output_box.shape(),
-                 mask_byte_strides);
-  StridedLayoutView<dynamic_rank, offset_origin> mask_layout(output_box,
-                                                             mask_byte_strides);
-
   const bool use_mask_array =
       output_box.rank() != 0 &&
       mask->num_masked_elements != output_box.num_elements() &&
-      (static_cast<bool>(mask->mask_array) ||
+      (mask->mask_array.valid() ||
        (!Contains(mask->region, output_range) &&
         (!range_is_exact || !IsHullEqualToUnion(mask->region, output_range))));
-  if (use_mask_array && !mask->mask_array) {
-    CreateMaskArrayFromRegion(output_box, mask, mask_byte_strides);
+  if (use_mask_array && !mask->mask_array.valid()) {
+    CreateMaskArrayFromRegion(output_box, mask, layout_order);
   }
   Hull(mask->region, output_range, mask->region);
 
   if (use_mask_array) {
     // Cannot fail, because `input_to_output` must have already been validated.
+    StridedLayoutView<dynamic_rank, offset_origin> mask_layout(
+        output_box, mask->mask_array.byte_strides());
     auto mask_iterable =
         GetTransformedArrayNDIterable(
             ArrayView<Shared<bool>, dynamic_rank, offset_origin>(
-                AddByteOffset(
-                    SharedElementPointer<bool>(
-                        UnownedToShared(mask->mask_array.get())),
-                    -IndexInnerProduct(output_box.origin(),
-                                       tensorstore::span(mask_byte_strides))),
+                AddByteOffset(SharedElementPointer<bool>(
+                                  UnownedToShared(mask->mask_array.data())),
+                              -IndexInnerProduct(output_box.origin(),
+                                                 mask_layout.byte_strides())),
                 mask_layout),
             input_to_output, arena)
             .value();

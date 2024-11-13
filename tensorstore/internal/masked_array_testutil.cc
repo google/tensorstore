@@ -21,7 +21,6 @@
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/contiguous_layout.h"
-#include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/transformed_array.h"
@@ -33,8 +32,6 @@
 #include "tensorstore/internal/nditerable_elementwise_input_transform.h"
 #include "tensorstore/internal/nditerable_transformed_array.h"
 #include "tensorstore/rank.h"
-#include "tensorstore/strided_layout.h"
-#include "tensorstore/util/element_pointer.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
@@ -42,37 +39,28 @@
 namespace tensorstore {
 namespace internal {
 
-absl::Status WriteToMaskedArray(ElementPointer<void> output_ptr, MaskData* mask,
-                                BoxView<> output_box,
+absl::Status WriteToMaskedArray(SharedOffsetArray<void> output, MaskData* mask,
                                 IndexTransformView<> input_to_output,
                                 const NDIterable& source, Arena* arena) {
-  const DimensionIndex output_rank = output_box.rank();
-  Index data_byte_strides_storage[kMaxRank];
-  const tensorstore::span<Index> data_byte_strides(
-      &data_byte_strides_storage[0], output_rank);
-  ComputeStrides(ContiguousLayoutOrder::c, output_ptr.dtype()->size,
-                 output_box.shape(), data_byte_strides);
+  const DimensionIndex output_rank = output.rank();
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto dest_iterable,
-      GetTransformedArrayNDIterable(
-          {UnownedToShared(AddByteOffset(
-               output_ptr,
-               -IndexInnerProduct(output_box.origin(),
-                                  tensorstore::span(data_byte_strides)))),
-           StridedLayoutView<dynamic_rank, offset_origin>(output_box,
-                                                          data_byte_strides)},
-          input_to_output, arena));
+      GetTransformedArrayNDIterable(output, input_to_output, arena));
 
   TENSORSTORE_RETURN_IF_ERROR(NDIterableCopier(source, *dest_iterable,
                                                input_to_output.input_shape(),
                                                arena)
                                   .Copy());
-  WriteToMask(mask, output_box, input_to_output, arena);
+  DimensionIndex layout_order[kMaxRank];
+  tensorstore::span<DimensionIndex> layout_order_span(layout_order,
+                                                      output_rank);
+  SetPermutationFromStrides(output.byte_strides(), layout_order_span);
+  WriteToMask(mask, output.domain(), input_to_output,
+              ContiguousLayoutPermutation<>(layout_order_span), arena);
   return absl::OkStatus();
 }
 
-absl::Status WriteToMaskedArray(ElementPointer<void> output_ptr, MaskData* mask,
-                                BoxView<> output_box,
+absl::Status WriteToMaskedArray(SharedOffsetArray<void> output, MaskData* mask,
                                 IndexTransformView<> input_to_output,
                                 TransformedArray<const void> source,
                                 ElementCopyFunction::Closure copy_function) {
@@ -87,9 +75,8 @@ absl::Status WriteToMaskedArray(ElementPointer<void> output_ptr, MaskData* mask,
       auto source_iterable,
       GetTransformedArrayNDIterable(UnownedToShared(source), &arena));
   auto transformed_source_iterable = GetElementwiseInputTransformNDIterable(
-      {{std::move(source_iterable)}}, output_ptr.dtype(), copy_function,
-      &arena);
-  return WriteToMaskedArray(output_ptr, mask, output_box, input_to_output,
+      {{std::move(source_iterable)}}, output.dtype(), copy_function, &arena);
+  return WriteToMaskedArray(std::move(output), mask, input_to_output,
                             *transformed_source_iterable, &arena);
 }
 

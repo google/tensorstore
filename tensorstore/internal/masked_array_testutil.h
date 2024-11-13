@@ -16,12 +16,12 @@
 #define TENSORSTORE_INTERNAL_MASKED_ARRAY_TESTUTIL_H_
 
 #include "absl/status/status.h"
+#include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/internal/element_copy_function.h"
 #include "tensorstore/internal/masked_array.h"
-#include "tensorstore/util/element_pointer.h"
 #include "tensorstore/util/status.h"
 
 namespace tensorstore {
@@ -30,9 +30,8 @@ namespace internal {
 /// Copies the contents of `source` to an "output" array, and updates `*mask` to
 /// include all positions that were modified.
 ///
-/// \param output_ptr[out] Pointer to the origin (not the zero position) of a
-///     C-order contiguous "output" array with domain `output_box`.
-/// \param mask[in,out] Non-null pointer to mask with domain `output_box`.
+/// \param output[out] Output array.
+/// \param mask[in,out] Non-null pointer to mask with domain `output.domain()`.
 /// \param input_to_output Transform to apply to the "output" array.  Must be
 ///     valid.
 /// \param source Source array to copy to the transformed output array.
@@ -47,8 +46,7 @@ namespace internal {
 ///     out-of-bounds index.
 /// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs
 ///     computing output indices.
-absl::Status WriteToMaskedArray(ElementPointer<void> output_ptr, MaskData* mask,
-                                BoxView<> output_box,
+absl::Status WriteToMaskedArray(SharedOffsetArray<void> output, MaskData* mask,
                                 IndexTransformView<> input_to_output,
                                 TransformedArray<const void> source,
                                 ElementCopyFunction::Closure copy_function);

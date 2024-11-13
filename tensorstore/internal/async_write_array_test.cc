@@ -210,7 +210,7 @@ TEST(MaskedArrayTest, Basic) {
   EXPECT_EQ(MakeArray<int32_t>({{9, 0, 0}, {0, 7, 8}}),
             write_state.shared_array_view(spec));
   EXPECT_EQ(MakeArray<bool>({{1, 0, 0}, {0, 1, 1}}),
-            tensorstore::Array(write_state.mask.mask_array.get(), {2, 3}));
+            write_state.mask.mask_array);
   EXPECT_FALSE(write_state.IsUnmodified());
   EXPECT_FALSE(write_state.IsFullyOverwritten(spec, domain));
   // Both data array and mask array have been allocated.

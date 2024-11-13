@@ -92,6 +92,12 @@ Result<NDIterable::Ptr> AsyncWriteArray::Spec::GetReadNDIterable(
       arena);
 }
 
+SharedArray<void> AsyncWriteArray::Spec::AllocateArray(
+    span<const Index> shape) const {
+  return tensorstore::AllocateArray(shape, layout_order(), default_init,
+                                    this->dtype());
+}
+
 AsyncWriteArray::MaskedArray::MaskedArray(DimensionIndex rank) : mask(rank) {}
 
 void AsyncWriteArray::MaskedArray::WriteFillValue(const Spec& spec,
@@ -211,7 +217,7 @@ size_t AsyncWriteArray::MaskedArray::EstimateSizeInBytes(
   if (array.valid()) {
     total += GetByteExtent(array);
   }
-  if (mask.mask_array) {
+  if (mask.mask_array.valid()) {
     const Index num_elements = ProductOfExtents(shape);
     total += num_elements * sizeof(bool);
   }
@@ -220,9 +226,7 @@ size_t AsyncWriteArray::MaskedArray::EstimateSizeInBytes(
 
 void AsyncWriteArray::MaskedArray::EnsureWritable(const Spec& spec) {
   assert(array.valid());
-  auto new_array =
-      tensorstore::AllocateArray(array.shape(), tensorstore::c_order,
-                                 tensorstore::default_init, spec.dtype());
+  auto new_array = spec.AllocateArray(array.shape());
   CopyArray(array, new_array);
   array = std::move(new_array);
   array_capabilities = kMutableArray;
@@ -234,9 +238,7 @@ AsyncWriteArray::MaskedArray::GetWritableTransformedArray(
   // TODO(jbms): Could avoid copies when the output range of `chunk_transform`
   // is known to fully cover ``domain`.
   if (!array.valid()) {
-    this->array =
-        tensorstore::AllocateArray(domain.shape(), tensorstore::c_order,
-                                   tensorstore::default_init, spec.dtype());
+    this->array = spec.AllocateArray(domain.shape());
     array_capabilities = kMutableArray;
     if (IsFullyOverwritten(spec, domain)) {
       // Previously, there was no data array allocated for the array but it
@@ -276,7 +278,7 @@ Result<NDIterable::Ptr> AsyncWriteArray::MaskedArray::BeginWrite(
 void AsyncWriteArray::MaskedArray::EndWrite(
     const Spec& spec, BoxView<> domain, IndexTransformView<> chunk_transform,
     Arena* arena) {
-  WriteToMask(&mask, domain, chunk_transform, arena);
+  WriteToMask(&mask, domain, chunk_transform, spec.layout_order(), arena);
 }
 
 void AsyncWriteArray::MaskedArray::Clear() {
