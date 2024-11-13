@@ -694,6 +694,13 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#json-kvstore/file.file_io_memmap" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/file.file_io_memmap (JSON member)" class="md-ellipsis">file_<wbr>io_<wbr>memmap</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#json-kvstore/file.file_io_locking" class="md-nav__link">
     <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/file.file_io_locking (JSON member)" class="md-ellipsis">file_<wbr>io_<wbr>locking</span>
   </a>
@@ -807,6 +814,13 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#json-Context.file_io_memmap" class="md-nav__link">
+    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="Context.file_io_memmap (JSON type) — Specifies use of memory-mapped I/O for reads." class="md-ellipsis">Context.<wbr>file_<wbr>io_<wbr>memmap</span>
+  </a>
   
 </li>
       
@@ -1103,6 +1117,13 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#json-kvstore/file.file_io_memmap" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/file.file_io_memmap (JSON member)" class="md-ellipsis">file_<wbr>io_<wbr>memmap</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#json-kvstore/file.file_io_locking" class="md-nav__link">
     <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/file.file_io_locking (JSON member)" class="md-ellipsis">file_<wbr>io_<wbr>locking</span>
   </a>
@@ -1220,6 +1241,13 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#json-Context.file_io_memmap" class="md-nav__link">
+    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="Context.file_io_memmap (JSON type) — Specifies use of memory-mapped I/O for reads." class="md-ellipsis">Context.<wbr>file_<wbr>io_<wbr>memmap</span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#durability-of-writes" class="md-nav__link">
     <span class="md-ellipsis">Durability of writes</span>
   </a>
@@ -1300,6 +1328,12 @@ machines to a network filesystem is also safe.</p>
 <dt class="sig sig-object highlight json" id="json-kvstore/file.file_io_sync">
 <span class="sig-name descname"><span class="pre">file_io_sync</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><a class="headerlink" href="#json-kvstore/file.file_io_sync" title="Link to this definition">¶</a></dt>
 <dd><p>Specifies or references a previously defined <a class="reference internal" href="#json-Context.file_io_sync" title="Context.file_io_sync (JSON type) — Specifies durability of writes."><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.file_io_sync</span></code></a>.</p>
+</dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-kvstore/file.file_io_memmap">
+<span class="sig-name descname"><span class="pre">file_io_memmap</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><a class="headerlink" href="#json-kvstore/file.file_io_memmap" title="Link to this definition">¶</a></dt>
+<dd><p>Specifies or references a previously defined <a class="reference internal" href="#json-Context.file_io_memmap" title="Context.file_io_memmap (JSON type) — Specifies use of memory-mapped I/O for reads."><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.file_io_memmap</span></code></a>.</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
@@ -1417,6 +1451,24 @@ to be cleaned up manually to reclaim space.</p>
 
 </dd>
 </dl>
+</dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-Context.file_io_memmap">
+<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">Context.file_io_memmap</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">boolean</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="kc">false</span></code><a class="headerlink" href="#json-Context.file_io_memmap" title="Link to this definition">¶</a></dt>
+<dd><span><p>Specifies use of memory-mapped I/O for reads.</p>
+  </span><p>If <code class="code highlight json docutils literal highlight-json"><span class="kc">true</span></code>, the file system uses memory-mapped io on reads.  This may improve performance
+for large read with the following caveats:</p>
+<ul class="simple">
+<li><p>TensorStore may retain references to memory-mapped buffers, which due to batching may cover
+a larger region of the file than an individual read request, even after the read competes,
+depending on the cache and codec configuration, leading to higher-than-expected virtual
+memory usage.</p></li>
+<li><p>If a file is truncated or otherwise modified in-place by a non-TensorStore process while
+it is memory-mapped, the TensorStore process may crash, or some combination of the old
+and new data may be observed by TensorStore.  Overwriting the entire file via rename, as
+TenosrStore itself does, is safe.</p></li>
+</ul>
 </dd></dl>
 
 <h2 id="durability-of-writes">Durability of writes<a class="headerlink" href="#durability-of-writes" title="Link to this heading">¶</a></h2>
