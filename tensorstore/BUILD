@@ -230,6 +230,7 @@ tensorstore_cc_library(
     hdrs = ["chunk_layout.h"],
     deps = [
         ":box",
+        ":contiguous_layout",
         ":index",
         ":index_interval",
         ":json_serialization_options",
@@ -389,7 +390,10 @@ tensorstore_cc_library(
     hdrs = ["contiguous_layout.h"],
     deps = [
         ":index",
+        ":rank",
+        "//tensorstore/util:dimension_set",
         "//tensorstore/util:span",
+        "@com_google_absl//absl/log:absl_check",
     ],
 )
 

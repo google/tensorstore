@@ -17,6 +17,7 @@
 #include <stddef.h>
 
 #include <algorithm>
+#include <cassert>
 #include <cstdlib>
 #include <ostream>
 #include <string>
@@ -83,6 +84,23 @@ bool IsContiguousLayout(DimensionIndex rank, const Index* shape,
       }
     }
     if (byte_strides[rank - 1] != stride) return false;
+  }
+  return true;
+}
+
+bool IsContiguousLayout(DimensionIndex rank, const Index* shape,
+                        const Index* byte_strides,
+                        ContiguousLayoutPermutation<> order,
+                        Index element_size) {
+  assert(order.size() == rank);
+  Index stride = element_size;
+  for (DimensionIndex j = rank; j--;) {
+    DimensionIndex i = order[j];
+    assert(i >= 0 && i < rank);
+    if (byte_strides[i] != stride) return false;
+    if (internal::MulOverflow(stride, shape[i], &stride)) {
+      return false;
+    }
   }
   return true;
 }

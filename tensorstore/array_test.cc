@@ -1553,6 +1553,34 @@ TEST(SharedArrayTest, AllocateArrayFromDomain) {
             ToString(array));
 }
 
+TEST(SharedArrayTest, AllocateArrayWithLayoutPermutation) {
+  Index shape[] = {2, 3, 4};
+  DimensionIndex permutation[] = {2, 0, 1};
+  auto array = tensorstore::AllocateArray<int>(
+      shape, tensorstore::ContiguousLayoutPermutation(permutation),
+      tensorstore::value_init);
+  EXPECT_THAT(array.shape(), ::testing::ElementsAre(2, 3, 4));
+  EXPECT_THAT(array.byte_strides(),
+              ::testing::ElementsAre(3 * sizeof(int), sizeof(int),
+                                     2 * 3 * sizeof(int)));
+  array(0, 2, 3) = 10;
+  array(1, 1, 0) = 5;
+  EXPECT_EQ(
+      "{{{0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 10}}, "
+      "{{0, 0, 0, 0}, {5, 0, 0, 0}, {0, 0, 0, 0}}}",
+      ToString(array));
+}
+
+TEST(SharedArrayDeathTest, AllocateArrayWithInvalidLayoutPermutation) {
+  Index shape[] = {2, 3, 4};
+  DimensionIndex permutation[] = {2, 0, 2};
+
+  EXPECT_DEATH((tensorstore::AllocateArray<int>(
+                   shape, tensorstore::ContiguousLayoutPermutation(permutation),
+                   tensorstore::value_init)),
+               "IsValidPermutation");
+}
+
 template <ContainerKind SourceLayoutCKind, ContainerKind TargetLayoutCKind>
 void TestArrayOriginCastOffsetOriginToZeroOrigin() {
   auto source = MakeOffsetArray<int>({2, 3}, {{1, 2, 3}, {4, 5, 6}});

@@ -143,17 +143,15 @@ inline std::enable_if_t<internal::IsIndexPack<T0, T1>, Index> IndexInnerProduct(
 ///
 /// \param order The layout order to use.  If `layout->rank() == 0`, this has no
 ///     effect.
-/// \param element_stride The byte stride for the last dimension if
-///     `order == c_order`, or for the first dimension if
-///     `order == fortran_order`.  Typically this is equal to the size of the
-///     data type.  If `layout->rank() == 0`, this has no effect.
+/// \param element_stride The byte stride for the innermost dimension.  If
+///     `layout->rank() == 0`, this has no effect.
 /// \param layout[in,out] The layout to update.
 /// \relates StridedLayout
 /// \id layout
-template <DimensionIndex Rank, ArrayOriginKind OriginKind>
-void InitializeContiguousLayout(ContiguousLayoutOrder order,
-                                Index element_stride,
-                                StridedLayout<Rank, OriginKind>* layout) {
+template <typename LayoutOrder, DimensionIndex Rank, ArrayOriginKind OriginKind>
+std::enable_if_t<IsContiguousLayoutOrder<LayoutOrder, Rank>>
+InitializeContiguousLayout(LayoutOrder order, Index element_stride,
+                           StridedLayout<Rank, OriginKind>* layout) {
   ComputeStrides(order, element_stride, layout->shape(),
                  layout->byte_strides());
 }
@@ -161,21 +159,19 @@ void InitializeContiguousLayout(ContiguousLayoutOrder order,
 /// Initializes `*layout` to a contiguous layout over the specified `domain`.
 ///
 /// \param order The layout order to use.
-/// \param element_stride The byte stride for the last dimension if
-///     `order == c_order`, or for the first dimension if
-///     `order == fortran_order`.  Typically this is equal to the size of the
-///     data type.  If `domain.rank() == 0`, this has no effect.
+/// \param element_stride The byte stride for the innermost dimension.  If
+///     `domain.rank() == 0`, this has no effect.
 /// \param domain The domain to assign to `*layout`.  The origin is simply
 ///     copied but does not affect the resultant byte strides.
 /// \param layout[out] Layout to update.  The rank will be set to
 ///     `domain.rank()`, and any existing value is ignored.
 /// \relates StridedLayout
 /// \id domain, layout
-template <DimensionIndex Rank>
-void InitializeContiguousLayout(
-    ContiguousLayoutOrder order, Index element_stride,
-    BoxView<RankConstraint::FromInlineRank(Rank)> domain,
-    StridedLayout<Rank, offset_origin>* layout) {
+template <typename LayoutOrder, DimensionIndex Rank>
+std::enable_if_t<IsContiguousLayoutOrder<LayoutOrder, Rank>>
+InitializeContiguousLayout(LayoutOrder order, Index element_stride,
+                           BoxView<RankConstraint::FromInlineRank(Rank)> domain,
+                           StridedLayout<Rank, offset_origin>* layout) {
   const auto rank = domain.rank();
   layout->set_rank(rank);
   std::copy_n(domain.origin().begin(), rank, layout->origin().begin());
@@ -197,9 +193,10 @@ void InitializeContiguousLayout(
 ///     `std::size(shape)`, and any existing value is ignored.
 /// \relates StridedLayout
 /// \id shape, layout
-template <DimensionIndex Rank, ArrayOriginKind OriginKind>
-void InitializeContiguousLayout(
-    ContiguousLayoutOrder order, Index element_stride,
+template <typename LayoutOrder, DimensionIndex Rank, ArrayOriginKind OriginKind>
+std::enable_if_t<IsContiguousLayoutOrder<LayoutOrder, Rank>>
+InitializeContiguousLayout(
+    LayoutOrder order, Index element_stride,
     internal::type_identity_t<
         tensorstore::span<const Index, RankConstraint::FromInlineRank(Rank)>>
         shape,
@@ -593,26 +590,35 @@ class StridedLayout
   /// Refer to the documentation of `InitializeContiguousLayout`.
   ///
   /// \id order
-  template <ArrayOriginKind SfinaeOKind = array_origin_kind,
-            typename = std::enable_if_t<(SfinaeOKind == offset_origin &&
-                                         container_kind == container)>>
-  explicit StridedLayout(ContiguousLayoutOrder order, Index element_stride,
+  template <typename LayoutOrder,
+            ArrayOriginKind SfinaeOKind = array_origin_kind,
+            typename = std::enable_if_t<(
+                IsContiguousLayoutOrder<LayoutOrder,
+                                        RankConstraint::FromInlineRank(Rank)> &&
+                SfinaeOKind == offset_origin && container_kind == container)>>
+  explicit StridedLayout(LayoutOrder order, Index element_stride,
                          BoxView<RankConstraint::FromInlineRank(Rank)> domain) {
     InitializeContiguousLayout(order, element_stride, domain, this);
   }
-  template <ContainerKind SfinaeC = container_kind,
-            typename = std::enable_if_t<(SfinaeC == container)>>
+  template <typename LayoutOrder, ContainerKind SfinaeC = container_kind,
+            typename = std::enable_if_t<(
+                IsContiguousLayoutOrder<LayoutOrder,
+                                        RankConstraint::FromInlineRank(Rank)> &&
+                SfinaeC == container)>>
   explicit StridedLayout(
-      ContiguousLayoutOrder order, Index element_stride,
+      LayoutOrder order, Index element_stride,
       tensorstore::span<const Index, RankConstraint::FromInlineRank(Rank)>
           shape) {
     InitializeContiguousLayout(order, element_stride, shape, this);
   }
-  template <
-      DimensionIndex R, ContainerKind SfinaeC = CKind,
-      typename = std::enable_if_t<(SfinaeC == container &&
-                                   RankConstraint::Implies(R, static_rank))>>
-  explicit StridedLayout(ContiguousLayoutOrder order, Index element_stride,
+  template <typename LayoutOrder, DimensionIndex R,
+            ContainerKind SfinaeC = CKind,
+            typename = std::enable_if_t<(
+                SfinaeC == container &&
+                IsContiguousLayoutOrder<LayoutOrder,
+                                        RankConstraint::FromInlineRank(Rank)> &&
+                RankConstraint::Implies(R, static_rank))>>
+  explicit StridedLayout(LayoutOrder order, Index element_stride,
                          const Index (&shape)[R]) {
     InitializeContiguousLayout(order, element_stride, tensorstore::span(shape),
                                this);
@@ -836,19 +842,23 @@ explicit StridedLayout(const BoxLike& domain, const ByteStrides& byte_strides)
         SpanStaticExtent<tensorstore::span<const Index, BoxLike::static_rank>,
                          ByteStrides>::value>;
 
-template <typename BoxLike, std::enable_if_t<IsBoxLike<BoxLike>>* = nullptr>
-explicit StridedLayout(ContiguousLayoutOrder order, Index element_stride,
+template <typename LayoutOrder, typename BoxLike,
+          std::enable_if_t<(IsContiguousLayoutOrder<LayoutOrder> &&
+                            IsBoxLike<BoxLike>)>* = nullptr>
+explicit StridedLayout(LayoutOrder order, Index element_stride,
                        const BoxLike& domain)
     -> StridedLayout<BoxLike::static_rank, offset_origin>;
 
-template <typename Shape,
-          std::enable_if_t<IsIndexConvertibleVector<Shape>>* = nullptr>
-explicit StridedLayout(ContiguousLayoutOrder order, Index element_stride,
+template <typename LayoutOrder, typename Shape,
+          std::enable_if_t<(IsContiguousLayoutOrder<LayoutOrder> &&
+                            IsIndexConvertibleVector<Shape>)>* = nullptr>
+explicit StridedLayout(LayoutOrder order, Index element_stride,
                        const Shape& shape)
     -> StridedLayout<SpanStaticExtent<Shape>::value>;
 
-template <DimensionIndex Rank>
-explicit StridedLayout(ContiguousLayoutOrder order, Index element_stride,
+template <typename LayoutOrder, DimensionIndex Rank,
+          std::enable_if_t<IsContiguousLayoutOrder<LayoutOrder>>* = nullptr>
+explicit StridedLayout(LayoutOrder order, Index element_stride,
                        const Index (&shape)[Rank]) -> StridedLayout<Rank>;
 
 // Specialization of `StaticCastTraits` for `StridedLayout`, which enables
@@ -956,6 +966,10 @@ namespace internal_strided_layout {
 bool IsContiguousLayout(DimensionIndex rank, const Index* shape,
                         const Index* byte_strides, ContiguousLayoutOrder order,
                         Index element_size);
+bool IsContiguousLayout(DimensionIndex rank, const Index* shape,
+                        const Index* byte_strides,
+                        ContiguousLayoutPermutation<> order,
+                        Index element_size);
 }  // namespace internal_strided_layout
 
 /// Checks if `layout` is a contiguous layout with the specified order and
@@ -963,9 +977,13 @@ bool IsContiguousLayout(DimensionIndex rank, const Index* shape,
 ///
 /// \relates StridedLayout
 /// \id strided_layout
-template <DimensionIndex Rank, ArrayOriginKind OriginKind, ContainerKind CKind>
-bool IsContiguousLayout(const StridedLayout<Rank, OriginKind, CKind>& layout,
-                        ContiguousLayoutOrder order, Index element_size) {
+template <DimensionIndex Rank, ArrayOriginKind OriginKind, ContainerKind CKind,
+          typename LayoutOrder>
+std::enable_if_t<
+    IsContiguousLayoutOrder<LayoutOrder, RankConstraint::FromInlineRank(Rank)>,
+    bool>
+IsContiguousLayout(const StridedLayout<Rank, OriginKind, CKind>& layout,
+                   LayoutOrder order, Index element_size) {
   return internal_strided_layout::IsContiguousLayout(
       layout.rank(), layout.shape().data(), layout.byte_strides().data(), order,
       element_size);

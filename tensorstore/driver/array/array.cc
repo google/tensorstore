@@ -25,6 +25,7 @@
 #include "tensorstore/codec_spec.h"
 #include "tensorstore/container_kind.h"
 #include "tensorstore/context.h"
+#include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/chunk.h"
 #include "tensorstore/driver/driver.h"
@@ -33,7 +34,6 @@
 #include "tensorstore/driver/registry.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
-#include "tensorstore/index_space/dimension_permutation.h"
 #include "tensorstore/index_space/dimension_units.h"
 #include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_transform.h"
@@ -41,10 +41,12 @@
 #include "tensorstore/index_space/transform_array_constraints.h"
 #include "tensorstore/internal/arena.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
+#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/array.h"  // IWYU pragma: keep
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/std_array.h"  // IWYU pragma: keep
 #include "tensorstore/internal/lock_collection.h"
+#include "tensorstore/internal/nditerable.h"
 #include "tensorstore/internal/nditerable_transformed_array.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/open_mode.h"
@@ -120,7 +122,8 @@ Result<ChunkLayout> GetChunkLayoutFromStridedLayout(
   const DimensionIndex rank = strided_layout.rank();
   layout.Set(RankConstraint(rank)).IgnoreError();
   DimensionIndex inner_order[kMaxRank];
-  SetPermutationFromStridedLayout(strided_layout, span(inner_order, rank));
+  SetPermutationFromStrides(strided_layout.byte_strides(),
+                            span(inner_order, rank));
   TENSORSTORE_RETURN_IF_ERROR(
       layout.Set(ChunkLayout::InnerOrder(span(inner_order, rank))));
   TENSORSTORE_RETURN_IF_ERROR(

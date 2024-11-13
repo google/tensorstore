@@ -570,25 +570,32 @@ class Array {
   ///   The caller is responsible for ensuring that `shape` and `order` are
   ///   valid for `element_pointer`.  This function does not check them in any
   ///   way.
-  template <typename SourcePointer = ElementPointer, typename Shape,
-            std::enable_if_t<
-                (std::is_convertible_v<SourcePointer, ElementPointer> &&
-                 LayoutContainerKind == container &&
-                 IsImplicitlyCompatibleFullIndexVector<static_rank, Shape>)>* =
-                nullptr>
+  template <
+      typename SourcePointer = ElementPointer, typename Shape,
+      typename LayoutOrder = ContiguousLayoutOrder,
+      std::enable_if_t<
+          (std::is_convertible_v<SourcePointer, ElementPointer> &&
+           LayoutContainerKind == container &&
+           IsImplicitlyCompatibleFullIndexVector<static_rank, Shape> &&
+           IsContiguousLayoutOrder<
+               LayoutOrder, RankConstraint::FromInlineRank(Rank)>)>* = nullptr>
   Array(SourcePointer element_pointer, const Shape& shape,
-        ContiguousLayoutOrder order = c_order) {
+        LayoutOrder order = c_order) {
     this->element_pointer() = std::move(element_pointer);
     InitializeContiguousLayout(order, this->dtype().size(),
                                tensorstore::span(shape), &this->layout());
   }
-  template <typename SourcePointer = ElementPointer, DimensionIndex ShapeRank,
-            std::enable_if_t<
-                (std::is_convertible_v<SourcePointer, ElementPointer> &&
-                 LayoutContainerKind == container &&
-                 RankConstraint::Implies(ShapeRank, static_rank))>* = nullptr>
+  template <
+      typename SourcePointer = ElementPointer, DimensionIndex ShapeRank,
+      typename LayoutOrder = ContiguousLayoutOrder,
+      std::enable_if_t<
+          (std::is_convertible_v<SourcePointer, ElementPointer> &&
+           LayoutContainerKind == container &&
+           RankConstraint::Implies(ShapeRank, static_rank) &&
+           IsContiguousLayoutOrder<
+               LayoutOrder, RankConstraint::FromInlineRank(Rank)>)>* = nullptr>
   Array(SourcePointer element_pointer, const Index (&shape)[ShapeRank],
-        ContiguousLayoutOrder order = c_order) {
+        LayoutOrder order = c_order) {
     this->element_pointer() = std::move(element_pointer);
     InitializeContiguousLayout(order, this->dtype().size(),
                                tensorstore::span(shape), &this->layout());
@@ -620,11 +627,14 @@ class Array {
   /// \id element_pointer, domain, order
   template <
       typename SourcePointer = ElementPointer,
-      std::enable_if_t<(std::is_convertible_v<SourcePointer, ElementPointer> &&
-                        LayoutContainerKind == container &&
-                        OriginKind == offset_origin)>* = nullptr>
+      typename LayoutOrder = ContiguousLayoutOrder,
+      std::enable_if_t<
+          (std::is_convertible_v<SourcePointer, ElementPointer> &&
+           LayoutContainerKind == container && OriginKind == offset_origin &&
+           IsContiguousLayoutOrder<
+               LayoutOrder, RankConstraint::FromInlineRank(Rank)>)>* = nullptr>
   Array(SourcePointer element_pointer, BoxView<static_rank> domain,
-        ContiguousLayoutOrder order = c_order) {
+        LayoutOrder order = c_order) {
     this->element_pointer() = std::move(element_pointer);
     InitializeContiguousLayout(order, this->dtype().size(), domain,
                                &this->layout());
@@ -985,20 +995,23 @@ Array(Pointer pointer,
     -> Array<DeducedElementTag<Pointer>, Rank, OriginKind, LayoutContainerKind>;
 
 template <typename Pointer, typename Shape,
-          std::enable_if_t<IsIndexConvertibleVector<Shape>>* = nullptr>
-Array(Pointer pointer, const Shape& shape,
-      ContiguousLayoutOrder order = c_order)
+          typename LayoutOrder = ContiguousLayoutOrder,
+          std::enable_if_t<(IsIndexConvertibleVector<Shape> &&
+                            IsContiguousLayoutOrder<LayoutOrder>)>* = nullptr>
+Array(Pointer pointer, const Shape& shape, LayoutOrder order = c_order)
     -> Array<DeducedElementTag<Pointer>, SpanStaticExtent<Shape>::value>;
 
-template <typename Pointer, DimensionIndex Rank>
-Array(Pointer pointer, const Index (&shape)[Rank],
-      ContiguousLayoutOrder order = c_order)
+template <typename Pointer, DimensionIndex Rank,
+          typename LayoutOrder = ContiguousLayoutOrder,
+          std::enable_if_t<IsContiguousLayoutOrder<LayoutOrder>>* = nullptr>
+Array(Pointer pointer, const Index (&shape)[Rank], LayoutOrder order = c_order)
     -> Array<DeducedElementTag<Pointer>, Rank>;
 
 template <typename Pointer, typename BoxLike,
-          std::enable_if_t<IsBoxLike<BoxLike>>* = nullptr>
-Array(Pointer pointer, const BoxLike& domain,
-      ContiguousLayoutOrder order = c_order)
+          typename LayoutOrder = ContiguousLayoutOrder,
+          std::enable_if_t<(IsBoxLike<BoxLike> &&
+                            IsContiguousLayoutOrder<LayoutOrder>)>* = nullptr>
+Array(Pointer pointer, const BoxLike& domain, LayoutOrder order = c_order)
     -> Array<DeducedElementTag<Pointer>, BoxLike::static_rank, offset_origin>;
 
 // Specialization of `StaticCastTraits` for `Array`, which enables
@@ -1516,12 +1529,15 @@ void InitializeArray(const ArrayView<void, dynamic_rank, offset_origin>& array);
 ///     specified if `Element` is `void`.
 /// \relates Array
 /// \membergroup Creation functions
-template <typename Element = void, typename Extents>
-SharedArray<Element, internal::ConstSpanType<Extents>::extent> AllocateArray(
-    const Extents& extents,
-    ContiguousLayoutOrder layout_order = ContiguousLayoutOrder::c,
-    ElementInitialization initialization = default_init,
-    dtype_t<Element> dtype = dtype_v<Element>) {
+template <typename Element = void, typename Extents,
+          typename LayoutOrder = ContiguousLayoutOrder>
+std::enable_if_t<IsContiguousLayoutOrder<
+                     LayoutOrder, internal::ConstSpanType<Extents>::extent>,
+                 SharedArray<Element, internal::ConstSpanType<Extents>::extent>>
+AllocateArray(const Extents& extents,
+              LayoutOrder layout_order = ContiguousLayoutOrder::c,
+              ElementInitialization initialization = default_init,
+              dtype_t<Element> dtype = dtype_v<Element>) {
   static_assert(internal::IsIndexPack<
                     typename internal::ConstSpanType<Extents>::value_type>,
                 "Extent type must be convertible without narrowing to Index.");
@@ -1530,12 +1546,14 @@ SharedArray<Element, internal::ConstSpanType<Extents>::extent> AllocateArray(
               layout.num_elements(), initialization, dtype),
           std::move(layout)};
 }
-template <typename Element = void, typename BoxType>
-std::enable_if_t<IsBoxLike<BoxType>,
+template <typename Element = void, typename BoxType,
+          typename LayoutOrder = ContiguousLayoutOrder>
+std::enable_if_t<(IsBoxLike<BoxType> &&
+                  IsContiguousLayoutOrder<LayoutOrder, BoxType::static_rank>),
                  SharedArray<Element, BoxType::static_rank,
                              offset_origin>>  // NONITPICK: BoxType::static_rank
 AllocateArray(const BoxType& domain,
-              ContiguousLayoutOrder layout_order = ContiguousLayoutOrder::c,
+              LayoutOrder layout_order = ContiguousLayoutOrder::c,
               ElementInitialization initialization = default_init,
               dtype_t<Element> dtype = dtype_v<Element>) {
   StridedLayout<BoxType::static_rank, offset_origin> layout(
@@ -1550,12 +1568,14 @@ AllocateArray(const BoxType& domain,
 
 // Same as more general overload defined above, but can be called using a braced
 // list to specify the extents.
-template <typename Element = void, DimensionIndex Rank>
-SharedArray<Element, Rank> AllocateArray(
-    const Index (&extents)[Rank],
-    ContiguousLayoutOrder layout_order = ContiguousLayoutOrder::c,
-    ElementInitialization initialization = default_init,
-    dtype_t<Element> representation = dtype_v<Element>) {
+template <typename Element = void, DimensionIndex Rank,
+          typename LayoutOrder = ContiguousLayoutOrder>
+std::enable_if_t<IsContiguousLayoutOrder<LayoutOrder, Rank>,
+                 SharedArray<Element, Rank>>
+AllocateArray(const Index (&extents)[Rank],
+              LayoutOrder layout_order = ContiguousLayoutOrder::c,
+              ElementInitialization initialization = default_init,
+              dtype_t<Element> representation = dtype_v<Element>) {
   return AllocateArray<Element, tensorstore::span<const Index, Rank>>(
       extents, layout_order, initialization, representation);
 }
@@ -2058,10 +2078,13 @@ UnbroadcastArrayPreserveRank(
 /// \relates Array
 /// \id array
 template <typename ElementTag, DimensionIndex Rank, ArrayOriginKind OriginKind,
-          ContainerKind LayoutCKind>
-bool IsContiguousLayout(
+          ContainerKind LayoutCKind, typename LayoutOrder>
+std::enable_if_t<
+    IsContiguousLayoutOrder<LayoutOrder, RankConstraint::FromInlineRank(Rank)>,
+    bool>
+IsContiguousLayout(
     const Array<ElementTag, Rank, OriginKind, LayoutCKind>& array,
-    ContiguousLayoutOrder order) {
+    LayoutOrder order) {
   return tensorstore::IsContiguousLayout(array.layout(), order,
                                          array.dtype().size());
 }
