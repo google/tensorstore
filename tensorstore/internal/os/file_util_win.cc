@@ -67,6 +67,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <cassert>
 #include <cstdio>
 #include <cstring>
 #include <limits>
@@ -81,7 +82,11 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"  // IWYU pragma: keep
+#include "absl/strings/string_view.h"
 #include "tensorstore/internal/log/verbose_flag.h"
+#include "tensorstore/internal/metrics/counter.h"
+#include "tensorstore/internal/metrics/gauge.h"
+#include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/os/error_code.h"
 #include "tensorstore/internal/os/potentially_blocking_region.h"
 #include "tensorstore/internal/os/wstring.h"
@@ -102,6 +107,18 @@ using ::tensorstore::internal::StatusFromOsError;
 namespace tensorstore {
 namespace internal_os {
 namespace {
+
+auto& mmap_count = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/file/mmap_count",
+    internal_metrics::MetricMetadata("Count of total mmap files"));
+
+auto& mmap_bytes = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/file/mmap_bytes",
+    internal_metrics::MetricMetadata("Count of total mmap bytes"));
+
+auto& mmap_active = internal_metrics::Gauge<int64_t>::New(
+    "/tensorstore/file/mmap_active",
+    internal_metrics::MetricMetadata("Count of active mmap files"));
 
 ABSL_CONST_INIT internal_log::VerboseFlag detail_logging("file_detail");
 
@@ -430,6 +447,76 @@ absl::Status DeleteFile(const std::string& path) {
                            "Failed to delete: ", QuoteString(path));
 }
 
+uint32_t GetDefaultPageSize() {
+  static const uint32_t kDefaultPageSize = []() {
+    SYSTEM_INFO sysinfo;
+    GetSystemInfo(&sysinfo);
+    return sysinfo.dwAllocationGranularity;
+  }();
+  return kDefaultPageSize;
+}
+
+Result<MappedRegion> MemmapFileReadOnly(FileDescriptor fd, size_t offset,
+                                        size_t size) {
+  if (offset > 0 && offset % GetDefaultPageSize() != 0) {
+    return absl::InvalidArgumentError(
+        "Offset must be a multiple of the default page size.");
+  }
+  if (size == 0) {
+    ::BY_HANDLE_FILE_INFORMATION info;
+    if (!::GetFileInformationByHandle(fd, &info)) {
+      TS_DETAIL_LOG_ERROR << " handle=" << fd;
+      return StatusFromOsError(::GetLastError(),
+                               "Failed in GetFileInformationByHandle");
+    }
+
+    uint64_t file_size = GetSize(info);
+    if (offset + size > file_size) {
+      return absl::OutOfRangeError(
+          absl::StrCat("Requested offset ", offset, " + size ", size,
+                       " exceeds file size ", file_size));
+    } else if (size == 0) {
+      size = file_size - offset;
+    }
+  }
+
+  UniqueFileDescriptor map_fd(
+      ::CreateFileMappingA(fd, NULL, PAGE_READONLY, 0, 0, nullptr));
+  if (!map_fd.valid()) {
+    TS_DETAIL_LOG_ERROR << " handle=" << fd;
+    return StatusFromOsError(::GetLastError(), "Failed in CreateFileMappingA");
+  }
+
+  void* address = ::MapViewOfFile(
+      map_fd.get(), FILE_MAP_READ, static_cast<DWORD>(offset >> 32),
+      static_cast<DWORD>(offset & 0xffffffff), size);
+  if (!address) {
+    TS_DETAIL_LOG_ERROR << " handle=" << fd;
+    return StatusFromOsError(::GetLastError(), "Failed in MapViewOfFile");
+  }
+
+  {
+    WIN32_MEMORY_RANGE_ENTRY entry{address, size};
+    PrefetchVirtualMemory(GetCurrentProcess(), 1, &entry, 0);
+  }
+
+  TS_DETAIL_LOG_END << " handle=" << fd;
+  mmap_count.Increment();
+  mmap_bytes.IncrementBy(size);
+  mmap_active.Increment();
+  return MappedRegion(static_cast<const char*>(address), size);
+}
+
+MappedRegion::~MappedRegion() {
+  if (data_) {
+    if (!::UnmapViewOfFile(const_cast<char*>(data_))) {
+      ABSL_LOG(FATAL) << StatusFromOsError(::GetLastError(),
+                                           "Failed in UnmapViewOfFile");
+    }
+    mmap_active.Decrement();
+  }
+}
+
 absl::Status FsyncFile(FileDescriptor fd) {
   TS_DETAIL_LOG_BEGIN << " handle=" << fd;
   if (::FlushFileBuffers(fd)) {
@@ -471,7 +558,8 @@ absl::Status GetFileInfo(const std::string& path, FileInfo* info) {
     }
   }
   TS_DETAIL_LOG_ERROR << " path=" << QuoteString(path);
-  return StatusFromOsError(::GetLastError());
+  return StatusFromOsError(::GetLastError(),
+                           "Failed to stat file: ", QuoteString(path));
 }
 
 Result<UniqueFileDescriptor> OpenDirectoryDescriptor(const std::string& path) {

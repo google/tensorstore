@@ -15,6 +15,8 @@
 #ifndef TENSORSTORE_KVSTORE_TEST_UTIL_H_
 #define TENSORSTORE_KVSTORE_TEST_UTIL_H_
 
+#include <stddef.h>
+
 #include <functional>
 #include <map>
 #include <string>
@@ -61,10 +63,10 @@ void TestKeyValueStoreReadOps(const KvStore& store, std::string key,
 ///     to the same output key, and distinct input keys always map to distinct
 ///     output keys.
 void TestKeyValueReadWriteOps(
-    const KvStore& store,
+    const KvStore& store, size_t value_size,
     absl::FunctionRef<std::string(std::string key)> get_key);
 
-void TestKeyValueReadWriteOps(const KvStore& store);
+void TestKeyValueReadWriteOps(const KvStore& store, size_t value_size = 0);
 
 /// Tests DeleteRange on `store`, which should be empty.
 void TestKeyValueStoreDeleteRange(const KvStore& store);

@@ -29,6 +29,7 @@
 #include <sys/uio.h>
 #include <unistd.h>
 
+#include <cassert>
 #include <cerrno>
 #include <cstdio>
 #include <cstring>
@@ -36,6 +37,7 @@
 #include <string_view>
 
 #include "absl/base/attributes.h"
+#include "absl/base/config.h"
 #include "absl/base/optimization.h"
 #include "absl/container/inlined_vector.h"
 #include "absl/log/absl_check.h"
@@ -43,12 +45,20 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"  // IWYU pragma: keep
+#include "absl/strings/string_view.h"
 #include "tensorstore/internal/log/verbose_flag.h"
+#include "tensorstore/internal/metrics/counter.h"
+#include "tensorstore/internal/metrics/gauge.h"
+#include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/os/error_code.h"
 #include "tensorstore/internal/os/potentially_blocking_region.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
+
+#if ABSL_HAVE_MMAP
+#include <sys/mman.h>
+#endif
 
 // Most modern unix allow 1024 iovs.
 #if defined(UIO_MAXIOV)
@@ -85,8 +95,19 @@ using ::tensorstore::internal::StatusFromOsError;
 
 namespace tensorstore {
 namespace internal_os {
-
 namespace {
+
+auto& mmap_count = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/file/mmap_count",
+    internal_metrics::MetricMetadata("Count of total mmap files"));
+
+auto& mmap_bytes = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/file/mmap_bytes",
+    internal_metrics::MetricMetadata("Count of total mmap bytes"));
+
+auto& mmap_active = internal_metrics::Gauge<int64_t>::New(
+    "/tensorstore/file/mmap_active",
+    internal_metrics::MetricMetadata("Count of active mmap files"));
 
 ABSL_CONST_INIT internal_log::VerboseFlag detail_logging("file_detail");
 
@@ -347,6 +368,71 @@ absl::Status DeleteFile(const std::string& path) {
   }
   TS_DETAIL_LOG_ERROR << " path=" << QuoteString(path);
   return StatusFromOsError(errno, "Failed to delete: ", QuoteString(path));
+}
+
+uint32_t GetDefaultPageSize() {
+  static const uint32_t kDefaultPageSize = []() {
+    return sysconf(_SC_PAGE_SIZE);
+  }();
+  return kDefaultPageSize;
+}
+
+Result<MappedRegion> MemmapFileReadOnly(FileDescriptor fd, size_t offset,
+                                        size_t size) {
+  TS_DETAIL_LOG_BEGIN << " fd=" << fd << ", offset=" << offset
+                      << ", size=" << size;
+#if ABSL_HAVE_MMAP
+  if (offset > 0 && offset % GetDefaultPageSize() != 0) {
+    return absl::InvalidArgumentError(
+        "Offset must be a multiple of the default page size.");
+  }
+  if (size == 0) {
+    struct ::stat info;
+    if (::fstat(fd, &info) != 0) {
+      TS_DETAIL_LOG_ERROR << " fd=" << fd;
+      return StatusFromOsError(errno, "Failed to stat");
+    }
+
+    uint64_t file_size = GetSize(info);
+    if (offset + size > file_size) {
+      TS_DETAIL_LOG_ERROR << " fd=" << fd;
+      return absl::OutOfRangeError(
+          absl::StrCat("Requested offset ", offset, " + size ", size,
+                       " exceeds file size ", file_size));
+    } else if (size == 0) {
+      size = file_size - offset;
+    }
+    if (size == 0) {
+      TS_DETAIL_LOG_END << " fd=" << fd;
+      return MappedRegion(nullptr, 0);
+    }
+  }
+
+  void* address = ::mmap(nullptr, size, PROT_READ, MAP_PRIVATE, fd, 0);
+  if (address == MAP_FAILED) {
+    TS_DETAIL_LOG_ERROR << " fd=" << fd;
+    return StatusFromOsError(errno, "Failed to mmap");
+  }
+  ::madvise(address, size, MADV_WILLNEED);
+
+  mmap_count.Increment();
+  mmap_bytes.IncrementBy(size);
+  mmap_active.Increment();
+  TS_DETAIL_LOG_END << " fd=" << fd;
+  return MappedRegion(static_cast<const char*>(address), size);
+#else
+  return absl::UnimplementedError("::mmap not supported");
+#endif
+}
+
+MappedRegion::~MappedRegion() {
+  if (data_) {
+    TS_DETAIL_LOG_BEGIN;
+    if (::munmap(const_cast<char*>(data_), size_) != 0) {
+      ABSL_LOG(FATAL) << StatusFromOsError(errno, "Failed to unmap file");
+    }
+    mmap_active.Decrement();
+  }
 }
 
 absl::Status FsyncFile(FileDescriptor fd) {

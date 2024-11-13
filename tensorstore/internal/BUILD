@@ -143,7 +143,6 @@ tensorstore_cc_library(
         "concurrency_resource_provider.h",
     ],
     deps = [
-        ":type_traits",
         "//tensorstore:context",
         "//tensorstore/internal/cache_key",
         "//tensorstore/internal/json_binding",

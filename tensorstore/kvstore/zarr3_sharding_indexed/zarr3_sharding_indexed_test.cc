@@ -189,7 +189,7 @@ TEST(ShardedKeyValueStoreTest, BasicFunctionality) {
       auto store = GetDefaultStore(base_kv_store, "shard_path", executor,
                                    cache_pool, {num_entries});
       GetKey get_key_fn(sequential_ids, {num_entries});
-      tensorstore::internal::TestKeyValueReadWriteOps(store, get_key_fn);
+      tensorstore::internal::TestKeyValueReadWriteOps(store, 0, get_key_fn);
     }
   }
 }

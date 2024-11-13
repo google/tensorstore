@@ -84,8 +84,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <algorithm>
 #include <atomic>
 #include <cassert>
+#include <limits>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -161,6 +163,7 @@ using ::tensorstore::internal_os::AcquireFileLock;
 using ::tensorstore::internal_os::FileDescriptor;
 using ::tensorstore::internal_os::FileInfo;
 using ::tensorstore::internal_os::kLockSuffix;
+using ::tensorstore::internal_os::MemmapFileReadOnly;
 using ::tensorstore::internal_os::UniqueFileDescriptor;
 using ::tensorstore::kvstore::ListEntry;
 using ::tensorstore::kvstore::ListReceiver;
@@ -200,10 +203,12 @@ bool IsFileKvstorePathValid(std::string_view path) {
 struct FileKeyValueStoreSpecData {
   Context::Resource<internal::FileIoConcurrencyResource> file_io_concurrency;
   Context::Resource<FileIoSyncResource> file_io_sync;
+  Context::Resource<FileIoMemmapResource> file_io_memmap;
   Context::Resource<FileIoLockingResource> file_io_locking;
 
   constexpr static auto ApplyMembers = [](auto& x, auto f) {
-    return f(x.file_io_concurrency, x.file_io_sync, x.file_io_locking);
+    return f(x.file_io_concurrency, x.file_io_sync, x.file_io_memmap,
+             x.file_io_locking);
   };
 
   // TODO(jbms): Storing a UNIX path as a JSON string presents a challenge
@@ -227,6 +232,8 @@ struct FileKeyValueStoreSpecData {
           jb::Projection<&FileKeyValueStoreSpecData::file_io_concurrency>()),
       jb::Member(FileIoSyncResource::id,
                  jb::Projection<&FileKeyValueStoreSpecData::file_io_sync>()),
+      jb::Member(FileIoMemmapResource::id,
+                 jb::Projection<&FileKeyValueStoreSpecData::file_io_memmap>()),
       jb::Member(FileIoLockingResource::id,
                  jb::Projection<&FileKeyValueStoreSpecData::file_io_locking>())
       //
@@ -287,6 +294,8 @@ class FileKeyValueStore
   }
 
   bool sync() const { return *spec_.file_io_sync; }
+  bool memmap() const { return *spec_.file_io_memmap; }
+
   FileIoLockingResource::Spec file_io_locking() const {
     return *spec_.file_io_locking;
   }
@@ -485,6 +494,54 @@ class BatchReadTask final
                                                              size_);
 
     if (requests.empty()) return;
+
+    if (driver().memmap()) {
+      // Extract the bounds for all requests.
+      int64_t exclusive_max = 0;
+      int64_t inclusive_min = std::numeric_limits<int64_t>::max();
+      int64_t total_size = 0;
+      for (const auto& req : requests) {
+        const auto byte_range =
+            std::get<internal_kvstore_batch::ByteRangeReadRequest>(req)
+                .byte_range.AsByteRange();
+        inclusive_min = std::min(inclusive_min, byte_range.inclusive_min);
+        exclusive_max = std::max(exclusive_max, byte_range.exclusive_max);
+        total_size += byte_range.size();
+      }
+      // Normalize the minium bound to be a multiple of the page size.
+      if (inclusive_min < internal_os::GetDefaultPageSize()) {
+        inclusive_min = 0;
+      } else {
+        inclusive_min = (inclusive_min / internal_os::GetDefaultPageSize()) *
+                        internal_os::GetDefaultPageSize();
+      }
+      static constexpr int64_t kMMapThreshold = 256 * 1024;
+      if (total_size >= kMMapThreshold) {
+        auto mapped_result = MemmapFileReadOnly(fd_.get(), inclusive_min,
+                                                exclusive_max - inclusive_min);
+        if (!mapped_result.ok() &&
+            !absl::IsUnimplemented(mapped_result.status())) {
+          internal_kvstore_batch::SetCommonResult(
+              requests, std::move(mapped_result).status());
+          return;
+        } else if (mapped_result.ok()) {
+          absl::Cord file_contents = std::move(mapped_result).value().as_cord();
+          for (const auto& req : requests) {
+            auto& byte_range_request =
+                std::get<internal_kvstore_batch::ByteRangeReadRequest>(req);
+            ByteRange byte_range = byte_range_request.byte_range.AsByteRange();
+            assert(byte_range.inclusive_min >= inclusive_min);
+            absl::Cord subcord = file_contents.Subcord(
+                byte_range.inclusive_min - inclusive_min, byte_range.size());
+            byte_range_request.promise.SetResult(
+                kvstore::ReadResult::Value(std::move(subcord), stamp_));
+          }
+          return;
+        }
+      }
+      // Otherwise, fall back to the ::read path.
+    }
+
     if (requests.size() == 1) {
       auto& byte_range_request =
           std::get<internal_kvstore_batch::ByteRangeReadRequest>(requests[0]);
@@ -863,6 +920,8 @@ Result<kvstore::Spec> ParseFileUrl(std::string_view url) {
       Context::Resource<internal::FileIoConcurrencyResource>::DefaultSpec();
   driver_spec->data_.file_io_sync =
       Context::Resource<FileIoSyncResource>::DefaultSpec();
+  driver_spec->data_.file_io_memmap =
+      Context::Resource<FileIoMemmapResource>::DefaultSpec();
   driver_spec->data_.file_io_locking =
       Context::Resource<FileIoLockingResource>::DefaultSpec();
 

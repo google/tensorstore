@@ -15,6 +15,7 @@
 #include "tensorstore/internal/os/file_util.h"
 
 #include <string>
+#include <utility>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -42,6 +43,7 @@ using ::tensorstore::internal_os::GetMTime;
 using ::tensorstore::internal_os::GetSize;
 using ::tensorstore::internal_os::IsDirSeparator;
 using ::tensorstore::internal_os::IsRegularFile;
+using ::tensorstore::internal_os::MemmapFileReadOnly;
 using ::tensorstore::internal_os::OpenExistingFileForReading;
 using ::tensorstore::internal_os::OpenFileWrapper;
 using ::tensorstore::internal_os::OpenFlags;
@@ -162,6 +164,36 @@ TEST(FileUtilTest, LockFile) {
 
   // Unlock
   lock(f->get());
+}
+
+TEST(FileUtilTest, MemmapFileReadOnly) {
+  tensorstore::internal_testing::ScopedTemporaryDirectory tempdir;
+  std::string foo_txt = absl::StrCat(tempdir.path(), "/baz.txt",
+                                     tensorstore::internal_os::kLockSuffix);
+
+  // Write a file:
+  {
+    auto f = OpenFileWrapper(foo_txt, OpenFlags::DefaultWrite);
+    EXPECT_THAT(f, IsOk());
+
+    EXPECT_THAT(WriteToFile(f->get(), "abcdefghijklmnopqrstuvwxyz", 26),
+                IsOkAndHolds(26));
+  }
+
+  // Read
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto fd, OpenFileWrapper(foo_txt, OpenFlags::OpenReadOnly));
+
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto data,
+                                     MemmapFileReadOnly(fd.get(), 0, 0));
+    EXPECT_EQ(data.as_string_view().size(), 26);
+    EXPECT_THAT(data.as_string_view(), "abcdefghijklmnopqrstuvwxyz");
+
+    auto cord_data = std::move(data).as_cord();
+    EXPECT_EQ(cord_data.size(), 26);
+    EXPECT_THAT(cord_data, "abcdefghijklmnopqrstuvwxyz");
+  }
 }
 
 }  // namespace

@@ -19,11 +19,15 @@
 #include "tensorstore/internal/os/file_lister.h"
 // Maintain include ordering here:
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <cassert>
 #include <cstdio>
 #include <cstring>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"

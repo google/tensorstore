@@ -652,16 +652,23 @@ void TestKeyValueStoreBatchReadOps(const KvStore& store, std::string key,
   }
 }
 
-void TestKeyValueReadWriteOps(const KvStore& store) {
-  return TestKeyValueReadWriteOps(
-      store, [](std::string key) { return absl::StrCat("key_", key); });
+void TestKeyValueReadWriteOps(const KvStore& store, size_t value_size) {
+  return TestKeyValueReadWriteOps(store, value_size, [](std::string key) {
+    return absl::StrCat("key_", key);
+  });
 }
 
 void TestKeyValueReadWriteOps(
-    const KvStore& store,
+    const KvStore& store, size_t value_size,
     absl::FunctionRef<std::string(std::string key)> get_key) {
   absl::Cord expected_value("_kvstore_value_");
+  if (value_size > expected_value.size()) {
+    expected_value.Append(std::string(value_size - expected_value.size(), '*'));
+  }
   absl::Cord other_value("._-=+=-_.");
+  if (value_size > other_value.size()) {
+    other_value.Append(std::string(value_size - other_value.size(), '*'));
+  }
 
   // Test read operations.
   {
