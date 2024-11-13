@@ -543,7 +543,7 @@
   
     <li class="md-nav__item">
       <a href="tensorstore.TensorStore.StorageStatistics.fully_stored.html" class="md-nav__link">
-        <span aria-label="Python property" class="objinfo-icon objinfo-icon__alias" title="Python property">P</span><span title="tensorstore.TensorStore.StorageStatistics.fully_stored (Python property) — py:obj:~TensorStore.domain`." class="md-ellipsis">fully_<wbr>stored</span>
+        <span aria-label="Python property" class="objinfo-icon objinfo-icon__alias" title="Python property">P</span><span title="tensorstore.TensorStore.StorageStatistics.fully_stored (Python property) — Indicates whether data is stored for all elements of the specified domain." class="md-ellipsis">fully_<wbr>stored</span>
       </a>
     </li>
   
@@ -631,7 +631,7 @@
         
           <li class="md-nav__item">
   <a href="tensorstore.TensorStore.StorageStatistics.fully_stored.html" class="md-nav__link">
-    <span aria-label="Python property" class="objinfo-icon objinfo-icon__alias" title="Python property">P</span><span title="tensorstore.TensorStore.StorageStatistics.fully_stored (Python property) — py:obj:~TensorStore.domain`." class="md-ellipsis">fully_<wbr>stored</span>
+    <span aria-label="Python property" class="objinfo-icon objinfo-icon__alias" title="Python property">P</span><span title="tensorstore.TensorStore.StorageStatistics.fully_stored (Python property) — Indicates whether data is stored for all elements of the specified domain." class="md-ellipsis">fully_<wbr>stored</span>
   </a>
   
 </li>
@@ -1426,7 +1426,7 @@ determine which elements of the chunk were explicitly written.  If any chunk
 corresponding to a region that intersects the domain is stored, then
 <a class="reference internal" href="tensorstore.TensorStore.StorageStatistics.not_stored.html" title="tensorstore.TensorStore.StorageStatistics.not_stored (Python property) — Indicates whether no data is stored for the specified domain."><code class="xref py py-obj docutils literal notranslate"><span class="pre">not_stored</span></code></a> will be <code class="code highlight python docutils literal highlight-python"><span class="kc">False</span></code>, even if no element actually within
 the domain was explicitly written.  Similarly, if at least one element of each
-chunk that intersects the domain is stored, then <a class="reference internal" href="tensorstore.TensorStore.StorageStatistics.fully_stored.html" title="tensorstore.TensorStore.StorageStatistics.fully_stored (Python property) — py:obj:~TensorStore.domain`."><code class="xref py py-obj docutils literal notranslate"><span class="pre">fully_stored</span></code></a> will be
+chunk that intersects the domain is stored, then <a class="reference internal" href="tensorstore.TensorStore.StorageStatistics.fully_stored.html" title="tensorstore.TensorStore.StorageStatistics.fully_stored (Python property) — Indicates whether data is stored for all elements of the specified domain."><code class="xref py py-obj docutils literal notranslate"><span class="pre">fully_stored</span></code></a> will be
 <code class="code highlight python docutils literal highlight-python"><span class="kc">True</span></code>, even if no element of the domain was every explicitly written.</p></li>
 <li><p>Some drivers may not store chunks that are entirely equal to the
 <a class="reference internal" href="tensorstore.TensorStore.fill_value.html" title="tensorstore.TensorStore.fill_value (Python property) — Fill value for positions not yet written."><code class="xref py py-obj docutils literal notranslate"><span class="pre">TensorStore.fill_value</span></code></a>.  With such drivers, if all elements of the
@@ -1451,8 +1451,8 @@ been explicitly written, <a class="reference internal" href="tensorstore.TensorS
 
 <dl class="py property summary objdesc">
 <dt class="sig sig-object highlight py">
-<a class="sig-name descname pseudo-toc-entry reference internal" href="tensorstore.TensorStore.StorageStatistics.fully_stored.html" title="tensorstore.TensorStore.StorageStatistics.fully_stored (Python property) — py:obj:~TensorStore.domain`."><span class="sig-name descname pseudo-toc-entry"><span class="pre">fully_stored</span></span></a><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><span class="pre">bool</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a></span></dt>
-<dd><p>py:obj:~TensorStore.domain`.</p>
+<a class="sig-name descname pseudo-toc-entry reference internal" href="tensorstore.TensorStore.StorageStatistics.fully_stored.html" title="tensorstore.TensorStore.StorageStatistics.fully_stored (Python property) — Indicates whether data is stored for all elements of the specified domain."><span class="sig-name descname pseudo-toc-entry"><span class="pre">fully_stored</span></span></a><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><span class="pre">bool</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a></span></dt>
+<dd><p>Indicates whether data is stored for <em>all</em> elements of the specified <a class="reference internal" href="tensorstore.TensorStore.domain.html" title="tensorstore.TensorStore.domain (Python property) — Domain of the array."><code class="xref py py-obj docutils literal notranslate"><span class="pre">domain</span></code></a>.</p>
 </dd></dl>
 
 <div class="toctree-wrapper compound">
