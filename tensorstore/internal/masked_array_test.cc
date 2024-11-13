@@ -17,6 +17,7 @@
 #include <memory>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -67,25 +68,28 @@ using ::tensorstore::internal::SimpleElementwiseFunction;
 /// and a StridedLayout representing the mask array layout.
 class MaskedArrayTester {
  public:
-  explicit MaskedArrayTester(BoxView<> box)
-      : box_(box),
-        mask_(box.rank()),
-        mask_layout_zero_origin_(tensorstore::ContiguousLayoutOrder::c,
-                                 sizeof(bool), box.shape()) {}
-
-  ArrayView<const bool> mask_array() const {
-    if (!mask_.mask_array) return {};
-    return ArrayView<const bool>(mask_.mask_array.get(),
-                                 mask_layout_zero_origin_);
+  template <typename LayoutOrder = tensorstore::ContiguousLayoutOrder>
+  explicit MaskedArrayTester(BoxView<> box,
+                             LayoutOrder layout_order = tensorstore::c_order)
+      : box_(box), mask_(box.rank()) {
+    layout_order_.resize(box.rank());
+    tensorstore::ConvertToContiguousLayoutPermutation(
+        layout_order, tensorstore::span(layout_order_));
   }
+
+  ArrayView<const bool> mask_array() const { return mask_.mask_array; }
 
   Index num_masked_elements() const { return mask_.num_masked_elements; }
   BoxView<> mask_region() const { return mask_.region; }
   const MaskData& mask() const { return mask_; }
   BoxView<> domain() const { return box_; }
 
+  tensorstore::ContiguousLayoutPermutation<> layout_order() const {
+    return tensorstore::ContiguousLayoutPermutation<>(layout_order_);
+  }
+
   void Combine(MaskedArrayTester&& other) {
-    UnionMasks(box_, &mask_, &other.mask_);
+    UnionMasks(box_, &mask_, &other.mask_, layout_order());
   }
 
   void Reset() { mask_.Reset(); }
@@ -93,7 +97,7 @@ class MaskedArrayTester {
  protected:
   Box<> box_;
   MaskData mask_;
-  StridedLayout<> mask_layout_zero_origin_;
+  std::vector<tensorstore::DimensionIndex> layout_order_;
 };
 
 /// Extends MaskedArrayTester to also include an array of type T defined over
@@ -103,12 +107,13 @@ class MaskedArrayTester {
 template <typename T>
 class MaskedArrayWriteTester : public MaskedArrayTester {
  public:
-  explicit MaskedArrayWriteTester(BoxView<> box)
-      : MaskedArrayTester(box),
-        dest_(tensorstore::AllocateArray<T>(box, tensorstore::c_order,
+  template <typename LayoutOrder = tensorstore::ContiguousLayoutOrder>
+  explicit MaskedArrayWriteTester(
+      BoxView<> box, LayoutOrder layout_order = tensorstore::c_order)
+      : MaskedArrayTester(box, layout_order),
+        dest_(tensorstore::AllocateArray<T>(box, layout_order,
                                             tensorstore::value_init)),
-        dest_layout_zero_origin_(tensorstore::ContiguousLayoutOrder::c,
-                                 sizeof(T), box.shape()) {}
+        dest_layout_zero_origin_(dest_.shape(), dest_.byte_strides()) {}
 
   template <typename CopyFunc>
   absl::Status Write(IndexTransformView<> dest_transform,
@@ -116,8 +121,7 @@ class MaskedArrayWriteTester : public MaskedArrayTester {
     ElementCopyFunction copy_function =
         SimpleElementwiseFunction<std::remove_reference_t<CopyFunc>(const T, T),
                                   void*>();
-    return WriteToMaskedArray(dest_.byte_strided_origin_pointer().get(), &mask_,
-                              dest_.domain(), dest_transform, source,
+    return WriteToMaskedArray(dest_, &mask_, dest_transform, source,
                               {&copy_function, &copy_func});
   }
 
@@ -150,7 +154,7 @@ class MaskedArrayWriteTester : public MaskedArrayTester {
 
 TEST(MaskDataTest, Construct) {
   MaskData mask(3);
-  EXPECT_FALSE(mask.mask_array);
+  EXPECT_FALSE(mask.mask_array.valid());
   EXPECT_EQ(0, mask.num_masked_elements);
   EXPECT_EQ(0, mask.region.num_elements());
 }

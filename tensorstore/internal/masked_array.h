@@ -53,18 +53,18 @@ struct MaskData {
 
   void Reset() {
     num_masked_elements = 0;
-    mask_array.reset();
+    mask_array.element_pointer() = {};
     region.Fill(IndexInterval::UncheckedSized(0, 0));
   }
 
-  /// If not `nullptr`, stores a mask array of size `mask_box.shape()` in C
-  /// order, where all elements outside `region` are `false`.  If `nullptr`,
+  /// If `mask_array.valid()`, stores a mask array of size `mask_box.shape()`,
+  /// where all elements outside `region` are `false`. If `!mask_array.valid()`,
   /// indicates that all elements within `region` are masked.
-  std::unique_ptr<bool[], FreeDeleter> mask_array;
+  SharedArray<bool> mask_array;
 
   /// Number of `true` values in `mask_array`, or `region.num_elements()` if
-  /// `mask_array` is `nullptr`.  As a special case, if `region.rank() == 0`,
-  /// `num_masked_elements` may equal `0` even if `mask_array` is `nullptr` to
+  /// `!mask_array.valid()`.  As a special case, if `region.rank() == 0`,
+  /// `num_masked_elements` may equal `0` even if `!mask_array.valid()` to
   /// indicate that the singleton element is not included in the mask.
   Index num_masked_elements = 0;
 
@@ -79,9 +79,12 @@ struct MaskData {
 /// \param output_box Domain of the `mask`.
 /// \param input_to_output Transform that specifies the mapping to `output_box`.
 ///     Must be valid.
+/// \param Permutation of length `output_box.rank()` specifying the layout order
+///     for any newly-allocated mask array.
 /// \param arena Allocation arena that may be used.
 void WriteToMask(MaskData* mask, BoxView<> output_box,
-                 IndexTransformView<> input_to_output, Arena* arena);
+                 IndexTransformView<> input_to_output,
+                 ContiguousLayoutPermutation<> layout_order, Arena* arena);
 
 /// Copies unmasked elements from `source_data` to `data_ptr`.
 ///
@@ -100,7 +103,10 @@ void RebaseMaskedArray(BoxView<> box, ArrayView<const void> source,
 /// May modify `*mask_b`.
 ///
 /// \param box The region over which the two masks are defined.
-void UnionMasks(BoxView<> box, MaskData* mask_a, MaskData* mask_b);
+/// \param Permutation of length `box.rank()` specifying the layout order
+///     for any newly-allocated mask array.
+void UnionMasks(BoxView<> box, MaskData* mask_a, MaskData* mask_b,
+                ContiguousLayoutPermutation<> layout_order);
 
 }  // namespace internal
 }  // namespace tensorstore

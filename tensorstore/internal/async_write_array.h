@@ -28,6 +28,7 @@
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
+#include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
@@ -65,6 +66,18 @@ struct AsyncWriteArray {
         read_generation(std::move(other.read_generation)) {}
 
   struct Spec {
+    Spec() = default;
+
+    template <typename LayoutOrder = ContiguousLayoutOrder,
+              typename = std::enable_if_t<IsContiguousLayoutOrder<LayoutOrder>>>
+    explicit Spec(SharedOffsetArray<const void> overall_fill_value,
+                  Box<> valid_data_bounds, LayoutOrder order = c_order)
+        : overall_fill_value(std::move(overall_fill_value)),
+          valid_data_bounds(std::move(valid_data_bounds)) {
+      ConvertToContiguousLayoutPermutation(
+          order, span(layout_order_buffer, this->rank()));
+    }
+
     /// The overall fill value.  Every individual chunk must be contained within
     /// `overall_fill_value.domain()`.
     SharedOffsetArray<const void> overall_fill_value;
@@ -75,6 +88,18 @@ struct AsyncWriteArray {
     /// `valid_data_bounds` are neither read nor written and do not need to be
     /// preserved.
     Box<> valid_data_bounds;
+
+    /// Buffer containing permutation specifying the storage order to use when
+    /// allocating a new array.
+    ///
+    /// Note that this order is used when allocating a new order but does not
+    /// apply when the zero-copy `WriteArray` method is called.
+    ///
+    /// Only the first `rank()` elements are meaningful.
+    ///
+    /// For example, ``0, 1, 2`` denotes C order for rank 3, while ``2, 1, 0``
+    /// denotes F order.
+    DimensionIndex layout_order_buffer[kMaxRank];
 
     /// If `true`, indicates that the array should be stored even if it equals
     /// the fill value.  By default (when set to `false`), when preparing a
@@ -102,6 +127,11 @@ struct AsyncWriteArray {
     /// `domain`, translated to have a zero origin.
     SharedArrayView<const void> GetFillValueForDomain(BoxView<> domain) const;
 
+    /// Storage order to use when allocating a new array.
+    ContiguousLayoutPermutation<> layout_order() const {
+      return ContiguousLayoutPermutation<>(span(layout_order_buffer, rank()));
+    }
+
     /// Returns an `NDIterable` for that may be used for reading the specified
     /// `array`, using the specified `chunk_transform`.
     ///
@@ -120,6 +150,10 @@ struct AsyncWriteArray {
       if (!valid) return 0;
       return ProductOfExtents(shape) * dtype()->size;
     }
+
+    /// Allocates an array of the specified `shape`, for `this->dtype()` and
+    /// `this->layout_order`.
+    SharedArray<void> AllocateArray(span<const Index> shape) const;
   };
 
   /// Return type of `GetArrayForWriteback`.
