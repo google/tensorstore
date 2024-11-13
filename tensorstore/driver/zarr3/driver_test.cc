@@ -26,7 +26,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_format.h"
-#include "absl/time/time.h"
+#include "absl/time/clock.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
@@ -49,6 +49,7 @@
 #include "tensorstore/kvstore/memory/memory_key_value_store.h"
 #include "tensorstore/kvstore/mock_kvstore.h"
 #include "tensorstore/kvstore/operations.h"
+#include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/read_write_options.h"
@@ -60,6 +61,7 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -73,6 +75,7 @@ using ::tensorstore::Result;
 using ::tensorstore::Schema;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::TimestampedStorageGeneration;
+using ::tensorstore::internal::GetMap;
 using ::tensorstore::internal::TestSpecSchema;
 using ::tensorstore::internal::TestTensorStoreCreateCheckSchema;
 using ::tensorstore::internal::TestTensorStoreCreateWithSchema;
@@ -1488,6 +1491,136 @@ TEST(ZarrDriverTest, SeparateMetadataCache) {
         auto store,
         tensorstore::Open(spec, context, tensorstore::OpenMode::open).result());
     EXPECT_THAT(mock_kvstore->request_log.pop_all(), ::testing::SizeIs(0));
+  }
+}
+
+TEST(DriverTest, FillMissingDataReads) {
+  for (bool fill_missing_data_reads : {false, true}) {
+    SCOPED_TRACE(tensorstore::StrCat("fill_missing_data_reads=",
+                                     fill_missing_data_reads));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open(
+            {
+                {"driver", "zarr3"},
+                {"kvstore", "memory://"},
+                {"fill_missing_data_reads", fill_missing_data_reads},
+            },
+            dtype_v<int16_t>, Schema::Shape({1}), tensorstore::OpenMode::create)
+            .result());
+    {
+      auto read_result = tensorstore::Read(store).result();
+      if (fill_missing_data_reads) {
+        EXPECT_THAT(read_result,
+                    ::testing::Optional(tensorstore::MakeArray<int16_t>({0})));
+      } else {
+        EXPECT_THAT(
+            read_result,
+            MatchesStatus(absl::StatusCode::kNotFound,
+                          "chunk \\{0\\} stored at \"c/0\" is missing"));
+      }
+    }
+    TENSORSTORE_ASSERT_OK(
+        tensorstore::Write(tensorstore::MakeArray<int16_t>({1}), store)
+            .result());
+    EXPECT_THAT(tensorstore::Read(store).result(),
+                ::testing::Optional(tensorstore::MakeArray<int16_t>({1})));
+  }
+}
+
+TEST(DriverTest, FillMissingDataReadsSharding) {
+  for (bool fill_missing_data_reads : {false, true}) {
+    SCOPED_TRACE(tensorstore::StrCat("fill_missing_data_reads=",
+                                     fill_missing_data_reads));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open(
+            {
+                {"driver", "zarr3"},
+                {"kvstore", "memory://"},
+                {"fill_missing_data_reads", fill_missing_data_reads},
+            },
+            dtype_v<int16_t>, Schema::Shape({2}),
+            tensorstore::ChunkLayout::ReadChunkShape({1}),
+            tensorstore::ChunkLayout::WriteChunkShape({2}),
+            tensorstore::OpenMode::create)
+            .result());
+    {
+      auto read_result = tensorstore::Read(store).result();
+      if (fill_missing_data_reads) {
+        EXPECT_THAT(read_result, ::testing::Optional(
+                                     tensorstore::MakeArray<int16_t>({0, 0})));
+      } else {
+        EXPECT_THAT(read_result, MatchesStatus(absl::StatusCode::kNotFound,
+                                               "chunk .* is missing"));
+      }
+    }
+    TENSORSTORE_ASSERT_OK(
+        tensorstore::Write(tensorstore::MakeArray<int16_t>({1}), store)
+            .result());
+    EXPECT_THAT(tensorstore::Read(store).result(),
+                ::testing::Optional(tensorstore::MakeArray<int16_t>({1, 1})));
+  }
+}
+
+// Tests that all-zero chunks are written if
+// `store_data_equal_to_fill_value=true`.
+TEST(DriverTest, StoreDataEqualToFillValue) {
+  for (bool store_data_equal_to_fill_value : {false, true}) {
+    SCOPED_TRACE(tensorstore::StrCat("store_data_equal_to_fill_value=",
+                                     store_data_equal_to_fill_value));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store, tensorstore::Open({{"driver", "zarr3"},
+                                       {"kvstore", "memory://"},
+                                       {"store_data_equal_to_fill_value",
+                                        store_data_equal_to_fill_value}},
+                                      tensorstore::dtype_v<uint8_t>,
+                                      tensorstore::RankConstraint{0},
+                                      tensorstore::OpenMode::create)
+                        .result());
+    TENSORSTORE_ASSERT_OK(
+        tensorstore::Write(tensorstore::MakeScalarArray<uint8_t>(0), store));
+    if (store_data_equal_to_fill_value) {
+      EXPECT_THAT(GetMap(store.kvstore()),
+                  ::testing::Optional(::testing::UnorderedElementsAre(
+                      ::testing::Pair("zarr.json", ::testing::_),
+                      ::testing::Pair("c", ::testing::_))));
+    } else {
+      EXPECT_THAT(GetMap(store.kvstore()),
+                  ::testing::Optional(::testing::UnorderedElementsAre(
+                      ::testing::Pair("zarr.json", ::testing::_))));
+    }
+  }
+}
+
+TEST(DriverTest, StoreDataEqualToFillValueSharding) {
+  for (bool store_data_equal_to_fill_value : {false, true}) {
+    SCOPED_TRACE(tensorstore::StrCat("store_data_equal_to_fill_value=",
+                                     store_data_equal_to_fill_value));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open({{"driver", "zarr3"},
+                           {"kvstore", "memory://"},
+                           {"store_data_equal_to_fill_value",
+                            store_data_equal_to_fill_value}},
+                          tensorstore::dtype_v<uint8_t>,
+                          tensorstore::Schema::Shape({2}),
+                          tensorstore::ChunkLayout::ReadChunkShape({1}),
+                          tensorstore::ChunkLayout::WriteChunkShape({2}),
+                          tensorstore::OpenMode::create)
+            .result());
+    TENSORSTORE_ASSERT_OK(
+        tensorstore::Write(tensorstore::MakeScalarArray<uint8_t>(0), store));
+    if (store_data_equal_to_fill_value) {
+      EXPECT_THAT(GetMap(store.kvstore()),
+                  ::testing::Optional(::testing::UnorderedElementsAre(
+                      ::testing::Pair("zarr.json", ::testing::_),
+                      ::testing::Pair("c/0", ::testing::_))));
+    } else {
+      EXPECT_THAT(GetMap(store.kvstore()),
+                  ::testing::Optional(::testing::UnorderedElementsAre(
+                      ::testing::Pair("zarr.json", ::testing::_))));
+    }
   }
 }
 

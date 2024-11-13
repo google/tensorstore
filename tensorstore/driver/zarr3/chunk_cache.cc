@@ -79,7 +79,8 @@ void ZarrLeafChunkCache::Read(ZarrChunkCache::ReadRequest request,
                                               IndexTransform<>>&& receiver) {
   return internal::ChunkCache::Read(
       {static_cast<internal::DriverReadRequest&&>(request),
-       /*component_index=*/0, request.staleness_bound},
+       /*component_index=*/0, request.staleness_bound,
+       request.fill_missing_data_reads},
       std::move(receiver));
 }
 
@@ -89,7 +90,7 @@ void ZarrLeafChunkCache::Write(
         receiver) {
   return internal::ChunkCache::Write(
       {static_cast<internal::DriverWriteRequest&&>(request),
-       /*component_index=*/0},
+       /*component_index=*/0, request.store_data_equal_to_fill_value},
       std::move(receiver));
 }
 
@@ -316,7 +317,8 @@ void ZarrShardedChunkCache::Read(
       *this, std::move(request.transform), std::move(receiver),
       [transaction = std::move(request.transaction),
        batch = std::move(request.batch),
-       staleness_bound = request.staleness_bound](auto entry) {
+       staleness_bound = request.staleness_bound,
+       fill_missing_data_reads = request.fill_missing_data_reads](auto entry) {
         Batch shard_batch = batch;
         if (!shard_batch) {
           shard_batch = Batch::New();
@@ -328,7 +330,8 @@ void ZarrShardedChunkCache::Read(
                                 IndexTransform<>>&& receiver) {
               entry->sub_chunk_cache.get()->Read(
                   {{transaction, std::move(transform), shard_batch},
-                   staleness_bound},
+                   staleness_bound,
+                   fill_missing_data_reads},
                   std::move(receiver));
             };
       });
@@ -341,7 +344,9 @@ void ZarrShardedChunkCache::Write(
   ShardedReadOrWrite<internal::WriteChunk,
                      &ZarrArrayToArrayCodec::PreparedState::Write>(
       *this, std::move(request.transform), std::move(receiver),
-      [transaction = std::move(request.transaction)](auto entry) {
+      [transaction = std::move(request.transaction),
+       store_data_equal_to_fill_value =
+           request.store_data_equal_to_fill_value](auto entry) {
         internal::OpenTransactionPtr shard_transaction = transaction;
         if (!shard_transaction) {
           shard_transaction = internal::TransactionState::MakeImplicit();
@@ -352,7 +357,9 @@ void ZarrShardedChunkCache::Write(
                    AnyFlowReceiver<absl::Status, internal::WriteChunk,
                                    IndexTransform<>>&& receiver) {
           entry->sub_chunk_cache.get()->Write(
-              {shard_transaction, std::move(transform)}, std::move(receiver));
+              {{shard_transaction, std::move(transform)},
+               store_data_equal_to_fill_value},
+              std::move(receiver));
         };
       });
 }

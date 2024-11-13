@@ -3026,4 +3026,71 @@ TEST(DriverTest, SeparateMetadataCache) {
   }
 }
 
+TEST(DriverTest, FillMissingDataReads) {
+  for (bool fill_missing_data_reads : {false, true}) {
+    SCOPED_TRACE(tensorstore::StrCat("fill_missing_data_reads=",
+                                     fill_missing_data_reads));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open(
+            {
+                {"driver", "neuroglancer_precomputed"},
+                {"kvstore", "memory://"},
+                {"fill_missing_data_reads", fill_missing_data_reads},
+            },
+            dtype_v<int16_t>, Schema::Shape({1, 1, 1, 1}),
+            tensorstore::OpenMode::create)
+            .result());
+    {
+      auto read_result = tensorstore::Read(store).result();
+      if (fill_missing_data_reads) {
+        EXPECT_THAT(
+            read_result,
+            ::testing::Optional(tensorstore::MakeArray<int16_t>({{{{0}}}})));
+      } else {
+        EXPECT_THAT(read_result,
+                    MatchesStatus(absl::StatusCode::kNotFound,
+                                  "chunk \\{0, 0, 0\\} stored at "
+                                  "\"1_1_1/0-1_0-1_0-1\" is missing"));
+      }
+    }
+    TENSORSTORE_ASSERT_OK(
+        tensorstore::Write(tensorstore::MakeArray<int16_t>({1}), store)
+            .result());
+    EXPECT_THAT(
+        tensorstore::Read(store).result(),
+        ::testing::Optional(tensorstore::MakeArray<int16_t>({{{{1}}}})));
+  }
+}
+
+// Tests that all-zero chunks are written if
+// `store_data_equal_to_fill_value=true`.
+TEST(DriverTest, StoreDataEqualToFillValue) {
+  for (bool store_data_equal_to_fill_value : {false, true}) {
+    SCOPED_TRACE(tensorstore::StrCat("store_data_equal_to_fill_value=",
+                                     store_data_equal_to_fill_value));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store, tensorstore::Open({{"driver", "neuroglancer_precomputed"},
+                                       {"kvstore", "memory://"},
+                                       {"store_data_equal_to_fill_value",
+                                        store_data_equal_to_fill_value}},
+                                      tensorstore::dtype_v<uint8_t>,
+                                      tensorstore::Schema::Shape({1, 1, 1, 1}),
+                                      tensorstore::OpenMode::create)
+                        .result());
+    TENSORSTORE_ASSERT_OK(
+        tensorstore::Write(tensorstore::MakeScalarArray<uint8_t>(0), store));
+    if (store_data_equal_to_fill_value) {
+      EXPECT_THAT(GetMap(store.kvstore()),
+                  ::testing::Optional(::testing::UnorderedElementsAre(
+                      Pair("info", ::testing::_),
+                      Pair("1_1_1/0-1_0-1_0-1", ::testing::_))));
+    } else {
+      EXPECT_THAT(GetMap(store.kvstore()),
+                  ::testing::Optional(::testing::UnorderedElementsAre(
+                      Pair("info", ::testing::_))));
+    }
+  }
+}
+
 }  // namespace

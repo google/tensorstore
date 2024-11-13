@@ -871,6 +871,8 @@ TENSORSTORE_GLOBAL_INITIALIZER {
   tensorstore::internal::TestTensorStoreDriverSpecRoundtripOptions options;
   options.test_name = "n5";
   options.create_spec = GetJsonSpec();
+  options.create_spec["fill_missing_data_reads"] = false;
+  options.create_spec["store_data_equal_to_fill_value"] = true;
   options.full_spec = {
       {"dtype", "int16"},
       {"driver", "n5"},
@@ -887,6 +889,8 @@ TENSORSTORE_GLOBAL_INITIALIZER {
            {"driver", "file"},
            {"path", "${TEMPDIR}/prefix/"},
        }},
+      {"fill_missing_data_reads", false},
+      {"store_data_equal_to_fill_value", true},
       {"transform",
        {{"input_labels", {"x", "y"}},
         {"input_exclusive_max", {{10}, {11}}},
@@ -901,6 +905,8 @@ TENSORSTORE_GLOBAL_INITIALIZER {
            {"driver", "file"},
            {"path", "${TEMPDIR}/prefix/"},
        }},
+      {"fill_missing_data_reads", false},
+      {"store_data_equal_to_fill_value", true},
       {"transform",
        {{"input_labels", {"x", "y"}},
         {"input_exclusive_max", {{10}, {11}}},
@@ -1812,6 +1818,69 @@ TEST(DriverTest, ResolutionOnlyMetadataMismatch) {
                         context)
           .result(),
       MatchesStatus(absl::StatusCode::kFailedPrecondition, ".*\"units\".*"));
+}
+
+TEST(DriverTest, FillMissingDataReads) {
+  for (bool fill_missing_data_reads : {false, true}) {
+    SCOPED_TRACE(tensorstore::StrCat("fill_missing_data_reads=",
+                                     fill_missing_data_reads));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open(
+            {
+                {"driver", "n5"},
+                {"kvstore", "memory://"},
+                {"fill_missing_data_reads", fill_missing_data_reads},
+            },
+            dtype_v<int16_t>, Schema::Shape({1}), tensorstore::OpenMode::create)
+            .result());
+    {
+      auto read_result = tensorstore::Read(store).result();
+      if (fill_missing_data_reads) {
+        EXPECT_THAT(read_result,
+                    ::testing::Optional(tensorstore::MakeArray<int16_t>({0})));
+      } else {
+        EXPECT_THAT(read_result,
+                    MatchesStatus(absl::StatusCode::kNotFound,
+                                  "chunk \\{0\\} stored at \"0\" is missing"));
+      }
+    }
+    TENSORSTORE_ASSERT_OK(
+        tensorstore::Write(tensorstore::MakeArray<int16_t>({1}), store)
+            .result());
+    EXPECT_THAT(tensorstore::Read(store).result(),
+                ::testing::Optional(tensorstore::MakeArray<int16_t>({1})));
+  }
+}
+
+// Tests that all-zero chunks are written if
+// `store_data_equal_to_fill_value=true`.
+TEST(DriverTest, StoreDataEqualToFillValue) {
+  for (bool store_data_equal_to_fill_value : {false, true}) {
+    SCOPED_TRACE(tensorstore::StrCat("store_data_equal_to_fill_value=",
+                                     store_data_equal_to_fill_value));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store, tensorstore::Open({{"driver", "n5"},
+                                       {"kvstore", "memory://"},
+                                       {"store_data_equal_to_fill_value",
+                                        store_data_equal_to_fill_value}},
+                                      tensorstore::dtype_v<uint8_t>,
+                                      tensorstore::RankConstraint{0},
+                                      tensorstore::OpenMode::create)
+                        .result());
+    TENSORSTORE_ASSERT_OK(
+        tensorstore::Write(tensorstore::MakeScalarArray<uint8_t>(0), store));
+    if (store_data_equal_to_fill_value) {
+      EXPECT_THAT(
+          GetMap(store.kvstore()),
+          ::testing::Optional(::testing::UnorderedElementsAre(
+              Pair("attributes.json", ::testing::_), Pair("0", ::testing::_))));
+    } else {
+      EXPECT_THAT(GetMap(store.kvstore()),
+                  ::testing::Optional(::testing::UnorderedElementsAre(
+                      Pair("attributes.json", ::testing::_))));
+    }
+  }
 }
 
 }  // namespace

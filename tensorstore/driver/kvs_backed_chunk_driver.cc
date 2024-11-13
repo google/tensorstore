@@ -730,6 +730,7 @@ Result<IndexTransform<>> KvsMetadataDriverBase::GetBoundSpecData(
   spec.store.path = cache->GetBaseKvstorePath();
   spec.data_copy_concurrency = metadata_cache->data_copy_concurrency_;
   spec.cache_pool = cache->cache_pool_;
+  spec.fill_value_mode = fill_value_mode_;
   if (spec.cache_pool != metadata_cache->metadata_cache_pool_) {
     spec.metadata_cache_pool = metadata_cache->metadata_cache_pool_;
   }
@@ -906,6 +907,7 @@ Result<internal::Driver::Handle> CreateTensorStoreFromMetadata(
       state->AllocateDriver(std::move(initializer)), read_write_mode);
   driver->metadata_staleness_bound_ =
       base.spec_->staleness.metadata.BoundAtOpen(base.request_time_);
+  driver->fill_value_mode_ = base.spec_->fill_value_mode;
   if (base.spec_->assume_metadata || base.spec_->assume_cached_metadata) {
     driver->assumed_metadata_ = metadata;
     driver->assumed_metadata_time_ = base.spec_->assume_cached_metadata
@@ -1486,6 +1488,14 @@ TENSORSTORE_DEFINE_JSON_BINDER(
             jb::Member("recheck_cached_data",
                        jb::Projection(&StalenessBounds::data,
                                       jb::DefaultInitializedValue())))),
+        jb::Projection<&KvsDriverSpec::fill_value_mode>(jb::Sequence(
+            jb::Member("fill_missing_data_reads",
+                       jb::Projection<&FillValueMode::fill_missing_data_reads>(
+                           jb::DefaultValue([](auto* obj) { *obj = true; }))),
+            jb::Member(
+                "store_data_equal_to_fill_value",
+                jb::Projection<&FillValueMode::store_data_equal_to_fill_value>(
+                    jb::DefaultInitializedValue())))),
         internal::OpenModeSpecJsonBinder));
 
 }  // namespace internal_kvs_backed_chunk_driver

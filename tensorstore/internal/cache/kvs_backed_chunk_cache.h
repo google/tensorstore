@@ -75,6 +75,7 @@ class KvsBackedChunkCache
     void DoEncode(std::shared_ptr<const ReadData> data,
                   EncodeReceiver receiver) override;
     std::string GetKeyValueStoreKey() override;
+    std::string DescribeChunk() override;
   };
 
   Entry* DoAllocateEntry() override { return new Entry; }

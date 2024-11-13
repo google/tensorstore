@@ -49,6 +49,7 @@
 
 #include <atomic>
 #include <memory>
+#include <string>
 #include <string_view>
 
 #include "absl/container/inlined_vector.h"
@@ -103,6 +104,8 @@ class ChunkCache : public AsyncCache {
     Future<const void> Delete(internal::OpenTransactionPtr transaction);
 
     size_t ComputeReadDataSizeInBytes(const void* read_data) override;
+
+    virtual std::string DescribeChunk();
   };
 
   class TransactionNode : public AsyncCache::TransactionNode {
@@ -209,6 +212,10 @@ class ChunkCache : public AsyncCache {
     /// Cached data older than `staleness_bound` will not be returned without
     /// being rechecked.
     absl::Time staleness_bound;
+
+    /// Use fill value for missing chunks. If `false`, return an error in the
+    /// case of a missing chunk.
+    bool fill_missing_data_reads = true;
   };
 
   /// Implements the behavior of `Driver::Read` for a given component array.
@@ -221,6 +228,9 @@ class ChunkCache : public AsyncCache {
   struct WriteRequest : public internal::DriverWriteRequest {
     /// Component array index in the range `[0, grid().components.size())`.
     size_t component_index;
+
+    /// Store chunks even if they are equal to the fill value.
+    bool store_data_equal_to_fill_value = false;
   };
 
   /// Implements the behavior of `Driver::Write` for a given component array.

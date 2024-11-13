@@ -58,6 +58,14 @@
 namespace tensorstore {
 namespace internal_kvs_backed_chunk_driver {
 
+struct FillValueMode {
+  bool fill_missing_data_reads;
+  bool store_data_equal_to_fill_value;
+  static constexpr auto ApplyMembers = [](auto& x, auto f) {
+    return f(x.fill_missing_data_reads, x.store_data_equal_to_fill_value);
+  };
+};
+
 /// Base class for specification representations used by drivers, for use with
 /// the driver registry.
 ///
@@ -71,12 +79,13 @@ struct KvsDriverSpec : public internal::DriverSpec,
   std::optional<Context::Resource<internal::CachePoolResource>>
       metadata_cache_pool;
   StalenessBounds staleness;
+  FillValueMode fill_value_mode;
 
   static constexpr auto ApplyMembers = [](auto& x, auto f) {
     return f(internal::BaseCast<internal::DriverSpec>(x),
              internal::BaseCast<internal::OpenModeSpec>(x), x.store,
              x.data_copy_concurrency, x.cache_pool, x.metadata_cache_pool,
-             x.staleness);
+             x.staleness, x.fill_value_mode);
   };
 
   kvstore::Spec GetKvstore() const override;
@@ -567,6 +576,15 @@ class KvsMetadataDriverBase : public internal::Driver {
 
   virtual const StalenessBound& data_staleness_bound() const = 0;
 
+  // Accessors for use by ChunkCacheReadWriteDriverMixin, if the derived class
+  // happens to use it.
+  bool fill_missing_data_reads() const {
+    return fill_value_mode_.fill_missing_data_reads;
+  }
+  bool store_data_equal_to_fill_value() const {
+    return fill_value_mode_.store_data_equal_to_fill_value;
+  }
+
   // Treat as private:
 
   StalenessBound metadata_staleness_bound_;
@@ -579,6 +597,8 @@ class KvsMetadataDriverBase : public internal::Driver {
   /// the open request.  If `OpenMode::assume_metadata` was specified, set to
   /// `absl::InfiniteFuture()`.  Otherwise, set to `absl::InfinitePast()`.
   absl::Time assumed_metadata_time_ = absl::InfinitePast();
+
+  FillValueMode fill_value_mode_;
 };
 
 /// Abstract driver base class for use with `ChunkedDataCacheBase`.

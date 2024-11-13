@@ -302,7 +302,6 @@ internal::ChunkGridSpecification DataCache::GetChunkGridSpecification(
     const auto& field = metadata.dtype.fields[field_i];
     const auto& field_layout = metadata.chunk_layout.fields[field_i];
     auto fill_value = metadata.fill_value[field_i];
-    const bool fill_value_specified = fill_value.valid();
     if (!fill_value.valid()) {
       // Use value-initialized rank-0 fill value.
       fill_value = AllocateArray(span<const Index, 0>{}, c_order, value_init,
@@ -327,8 +326,6 @@ internal::ChunkGridSpecification DataCache::GetChunkGridSpecification(
                                         ContiguousLayoutPermutation<>(span(
                                             layout_order_buffer, cell_rank))},
         std::move(cell_chunk_shape), chunked_to_cell_dimensions);
-    components.back().array_spec.store_if_equal_to_fill_value =
-        !fill_value_specified;
   }
   return internal::ChunkGridSpecification{std::move(components)};
 }

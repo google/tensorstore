@@ -73,13 +73,16 @@ class ZarrChunkCache {
 
   struct ReadRequest : internal::DriverReadRequest {
     absl::Time staleness_bound;
+    bool fill_missing_data_reads;
   };
 
   virtual void Read(ReadRequest request,
                     AnyFlowReceiver<absl::Status, internal::ReadChunk,
                                     IndexTransform<>>&& receiver) = 0;
 
-  using WriteRequest = internal::DriverWriteRequest;
+  struct WriteRequest : internal::DriverWriteRequest {
+    bool store_data_equal_to_fill_value;
+  };
 
   virtual void Write(WriteRequest request,
                      AnyFlowReceiver<absl::Status, internal::WriteChunk,

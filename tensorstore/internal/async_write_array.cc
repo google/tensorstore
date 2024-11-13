@@ -116,7 +116,7 @@ AsyncWriteArray::MaskedArray::GetArrayForWriteback(
   assert(domain.rank() == spec.rank());
 
   const auto must_store = [&](ArrayView<const void> array) {
-    if (spec.store_if_equal_to_fill_value) return true;
+    if (this->store_if_equal_to_fill_value) return true;
     return !AreArraysEqual(array, spec.GetFillValueForDomain(domain),
                            spec.fill_value_comparison_kind);
   };

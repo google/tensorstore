@@ -135,6 +135,23 @@ allOf:
           a `~Context.cache_pool` with a non-zero
           `~Context.cache_pool.total_bytes_limit` and also specify ``false``,
           ``"open"``, or an explicit time bound for `.recheck_cached_data`.
+      fill_missing_data_reads:
+        default: true
+        title: Replace missing chunks with the fill value when reading.
+        description: |
+          If disabled, reading a missing chunk will result in an error. Note
+          that the fill value may still be used when writing a partial chunk.
+          Typically this should only be set to ``false`` in the case that
+          `.store_data_equal_to_fill_value` was enabled when writing.
+      store_data_equal_to_fill_value:
+        default: false
+        title: |
+          Store all explicitly written data, even if it is equal to the fill
+          value.
+        description: |
+          This ensures that explicitly written data, even if it is equal to the
+          fill value, can be distinguished from missing data. If disabled,
+          chunks equal to the fill value may be represented as missing chunks.
     required:
       - kvstore
 definitions:

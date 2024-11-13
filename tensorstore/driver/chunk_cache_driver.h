@@ -47,7 +47,8 @@ class ChunkCacheReadWriteDriverMixin : public Parent {
   void Read(Driver::ReadRequest request, ReadChunkReceiver receiver) override {
     static_cast<Derived*>(this)->cache()->Read(
         {std::move(request), static_cast<Derived*>(this)->component_index(),
-         static_cast<Derived*>(this)->data_staleness_bound().time},
+         static_cast<Derived*>(this)->data_staleness_bound().time,
+         static_cast<Derived*>(this)->fill_missing_data_reads()},
         std::move(receiver));
   }
 
@@ -55,7 +56,8 @@ class ChunkCacheReadWriteDriverMixin : public Parent {
   void Write(Driver::WriteRequest request,
              WriteChunkReceiver receiver) override {
     static_cast<Derived*>(this)->cache()->Write(
-        {std::move(request), static_cast<Derived*>(this)->component_index()},
+        {std::move(request), static_cast<Derived*>(this)->component_index(),
+         static_cast<Derived*>(this)->store_data_equal_to_fill_value()},
         std::move(receiver));
   }
 };
@@ -144,6 +146,9 @@ class ChunkCacheDriver
 
  public:
   using Base::Base;
+
+  bool fill_missing_data_reads() const { return true; }
+  bool store_data_equal_to_fill_value() const { return false; }
 };
 
 }  // namespace internal
