@@ -481,7 +481,8 @@ class ZarrDriver : public ZarrDriverBase {
             AnyFlowReceiver<absl::Status, internal::ReadChunk, IndexTransform<>>
                 receiver) override {
     return cache()->zarr_chunk_cache().Read(
-        {std::move(request), GetCurrentDataStalenessBound()},
+        {std::move(request), GetCurrentDataStalenessBound(),
+         this->fill_value_mode_.fill_missing_data_reads},
         std::move(receiver));
   }
 
@@ -489,8 +490,10 @@ class ZarrDriver : public ZarrDriverBase {
       WriteRequest request,
       AnyFlowReceiver<absl::Status, internal::WriteChunk, IndexTransform<>>
           receiver) override {
-    return cache()->zarr_chunk_cache().Write(std::move(request),
-                                             std::move(receiver));
+    return cache()->zarr_chunk_cache().Write(
+        {std::move(request),
+         this->fill_value_mode_.store_data_equal_to_fill_value},
+        std::move(receiver));
   }
 
   absl::Time GetCurrentDataStalenessBound() {

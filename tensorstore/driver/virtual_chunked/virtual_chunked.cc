@@ -463,6 +463,11 @@ class VirtualChunkedDriver : public VirtualChunkedDriverBase {
     return internal::GetChunkLayoutFromGrid(cache()->grid().components[0]) |
            transform;
   }
+
+  // Not applicable.
+  bool fill_missing_data_reads() const { return true; }
+
+  bool store_data_equal_to_fill_value() const { return true; }
 };
 
 Result<internal::TransformedDriverSpec> VirtualChunkedDriver::GetBoundSpec(

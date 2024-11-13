@@ -307,6 +307,8 @@ TEST(SpecTest, SetContextAndKvstoreIncludeDefaults) {
           {"metadata", ::nlohmann::json::object_t()},
           {"recheck_cached_data", true},
           {"recheck_cached_metadata", "open"},
+          {"fill_missing_data_reads", true},
+          {"store_data_equal_to_fill_value", false},
           {"kvstore",
            {
                {"context", ::nlohmann::json::object_t()},

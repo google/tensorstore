@@ -166,6 +166,15 @@ class ZarrDriver : public ZarrDriverBase {
 
   Future<ArrayStorageStatistics> GetStorageStatistics(
       GetStorageStatisticsRequest request) override;
+
+  // Used by `ChunkCacheReadWriteDriverMixin`.
+  bool store_data_equal_to_fill_value() const {
+    // If fill value was specified as `null`, always store explicitly-written
+    // chunks entirely equal to 0, since zarr-python fills with unspecified data
+    // in that case.
+    return this->fill_value_mode_.store_data_equal_to_fill_value ||
+           !metadata().fill_value[0].valid();
+  }
 };
 
 }  // namespace internal_zarr

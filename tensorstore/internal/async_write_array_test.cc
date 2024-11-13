@@ -331,8 +331,8 @@ TEST(MaskedArrayTest, StoreIfEqualToFillValue) {
   auto overall_fill_value = MakeScalarArray<int32_t>(42);
   tensorstore::Box<> component_bounds;
   Spec spec{overall_fill_value, component_bounds};
-  spec.store_if_equal_to_fill_value = true;
   MaskedArray write_state(0);
+  write_state.store_if_equal_to_fill_value = true;
   // Fully overwrite the portion within `component_bounds`.
   TestWrite(&write_state, spec, {}, tensorstore::MakeScalarArray<int32_t>(42));
   {

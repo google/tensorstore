@@ -101,14 +101,6 @@ struct AsyncWriteArray {
     /// denotes F order.
     DimensionIndex layout_order_buffer[kMaxRank];
 
-    /// If `true`, indicates that the array should be stored even if it equals
-    /// the fill value.  By default (when set to `false`), when preparing a
-    /// writeback snapshot, if the value of the array is equal to the fill
-    /// value, a null array is substituted.  Note that even if set to `true`, if
-    /// the array is never written, or explicitly set to the fill value via a
-    /// call to `WriteFillValue`, then it won't be stored.
-    bool store_if_equal_to_fill_value = false;
-
     /// Comparison kind to use for fill value.
     EqualityComparisonKind fill_value_comparison_kind =
         EqualityComparisonKind::identical;
@@ -216,6 +208,14 @@ struct AsyncWriteArray {
     /// Specifies how `array` may be used.  Only meaningful if
     /// `array.data() != nullptr`.
     ArrayCapabilities array_capabilities;
+
+    /// If `true`, indicates that the array should be stored even if it equals
+    /// the fill value. By default (when set to `false`), when preparing a
+    /// writeback snapshot, if the value of the array is equal to the fill
+    /// value, a null array is substituted. Note that even if set to `true`, if
+    /// the array is never written, or explicitly set to the fill value via a
+    /// call to `WriteFillValue`, then it won't be stored.
+    bool store_if_equal_to_fill_value = false;
 
     SharedArrayView<const void> shared_array_view(const Spec& spec) {
       return array;

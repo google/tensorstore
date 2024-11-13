@@ -21,6 +21,7 @@
 #include <cassert>
 #include <memory>
 #include <mutex>  // NOLINT
+#include <string>
 #include <string_view>
 #include <utility>
 
@@ -39,8 +40,6 @@
 #include "tensorstore/internal/cache/async_cache.h"
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/chunk_grid_specification.h"
-#include "tensorstore/internal/elementwise_function.h"
-#include "tensorstore/internal/grid_partition.h"
 #include "tensorstore/internal/grid_partition_iterator.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/lock_collection.h"
@@ -60,6 +59,7 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
 
 using ::tensorstore::internal_metrics::MetricMetadata;
 
@@ -143,6 +143,7 @@ bool IsFullyOverwritten(ChunkCache::TransactionNode& node) {
 struct ReadChunkImpl {
   size_t component_index;
   PinnedCacheEntry<ChunkCache> entry;
+  bool fill_missing_data_reads;
 
   absl::Status operator()(internal::LockCollection& lock_collection) const {
     // No locks need to be held throughout read operation.  A temporary lock is
@@ -160,6 +161,10 @@ struct ReadChunkImpl {
         ChunkCache::GetReadComponent(
             AsyncCache::ReadLock<ChunkCache::ReadData>(*entry).data(),
             component_index)};
+    if (!fill_missing_data_reads && !read_array.valid()) {
+      return absl::NotFoundError(
+          tensorstore::StrCat(entry->DescribeChunk(), " is missing"));
+    }
     return grid.components[component_index].array_spec.GetReadNDIterable(
         std::move(read_array), domain, std::move(chunk_transform), arena);
   }
@@ -184,6 +189,7 @@ struct ReadChunkImpl {
 struct ReadChunkTransactionImpl {
   size_t component_index;
   OpenTransactionNodePtr<ChunkCache::TransactionNode> node;
+  bool fill_missing_data_reads;
 
   absl::Status operator()(internal::LockCollection& lock_collection) const {
     constexpr auto lock_chunk = [](void* data, bool lock)
@@ -229,6 +235,10 @@ struct ReadChunkTransactionImpl {
         TENSORSTORE_RETURN_IF_ERROR(
             node->RequireRepeatableRead(read_generation));
       }
+    }
+    if (!fill_missing_data_reads && !read_array.valid()) {
+      return absl::NotFoundError(
+          tensorstore::StrCat(entry.DescribeChunk(), " is missing"));
     }
     return component.GetReadNDIterable(component_spec.array_spec, domain,
                                        std::move(read_array), read_generation,
@@ -303,6 +313,7 @@ struct ReadChunkTransactionImpl {
 struct WriteChunkImpl {
   size_t component_index;
   OpenTransactionNodePtr<ChunkCache::TransactionNode> node;
+  bool store_data_equal_to_fill_value;
 
   absl::Status operator()(internal::LockCollection& lock_collection) {
     constexpr auto lock_chunk = [](void* data, bool lock)
@@ -332,8 +343,12 @@ struct WriteChunkImpl {
     const auto& component_spec = grid.components[component_index];
     auto domain = grid.GetCellDomain(component_index, entry.cell_indices());
     node->MarkSizeUpdated();
-    return node->components()[component_index].BeginWrite(
-        component_spec.array_spec, domain, std::move(chunk_transform), arena);
+    auto& async_write_array = node->components()[component_index];
+    if (store_data_equal_to_fill_value) {
+      async_write_array.write_state.store_if_equal_to_fill_value = true;
+    }
+    return async_write_array.BeginWrite(component_spec.array_spec, domain,
+                                        std::move(chunk_transform), arena);
   }
 
   WriteChunk::EndWriteResult operator()(WriteChunk::EndWrite,
@@ -362,7 +377,11 @@ struct WriteChunkImpl {
     auto domain = grid.GetCellDomain(component_index, entry.cell_indices());
     using WriteArraySourceCapabilities =
         AsyncWriteArray::WriteArraySourceCapabilities;
-    auto status = node->components()[component_index].WriteArray(
+    auto& async_write_array = node->components()[component_index];
+    if (store_data_equal_to_fill_value) {
+      async_write_array.write_state.store_if_equal_to_fill_value = true;
+    }
+    auto status = async_write_array.WriteArray(
         component_spec.array_spec, domain, chunk_transform,
         [&]() -> Result<std::pair<TransformedSharedArray<const void>,
                                   WriteArraySourceCapabilities>> {
@@ -439,11 +458,13 @@ void ChunkCache::Read(ReadRequest request, ReadChunkReceiver receiver) {
           read_future = node->IsUnconditional()
                             ? MakeReadyFuture()
                             : node->Read(get_cache_read_request());
-          chunk.impl = ReadChunkTransactionImpl{request.component_index,
-                                                std::move(node)};
+          chunk.impl =
+              ReadChunkTransactionImpl{request.component_index, std::move(node),
+                                       request.fill_missing_data_reads};
         } else {
           read_future = entry->Read(get_cache_read_request());
-          chunk.impl = ReadChunkImpl{request.component_index, std::move(entry)};
+          chunk.impl = ReadChunkImpl{request.component_index, std::move(entry),
+                                     request.fill_missing_data_reads};
         }
         LinkValue(
             [state, chunk = std::move(chunk),
@@ -491,7 +512,8 @@ void ChunkCache::Write(WriteRequest request, WriteChunkReceiver receiver) {
             auto node, GetTransactionNode(*entry, transaction_copy));
         execution::set_value(
             receiver,
-            WriteChunk{WriteChunkImpl{request.component_index, std::move(node)},
+            WriteChunk{WriteChunkImpl{request.component_index, std::move(node),
+                                      request.store_data_equal_to_fill_value},
                        std::move(cell_to_dest)},
             IndexTransform<>(cell_transform));
         return absl::OkStatus();
@@ -652,6 +674,10 @@ void ChunkCache::TransactionNode::InvalidateReadState() {
   for (auto& component : components()) {
     component.InvalidateReadState();
   }
+}
+
+std::string ChunkCache::Entry::DescribeChunk() {
+  return tensorstore::StrCat("chunk ", this->cell_indices());
 }
 
 }  // namespace internal

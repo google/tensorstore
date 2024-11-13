@@ -2663,40 +2663,92 @@ TEST(DriverTest, FillValueFieldShape) {
                   tensorstore::MakeArray<int16_t>({{1, 3, 2}, {4, 6, 5}})));
 }
 
-// Tests that all-zero chunks are written if the fill value is unspecified.
-TEST(DriverTest, FillValueUnspecifiedWriteTest) {
-  ::nlohmann::json json_spec{{"driver", "zarr"},
-                             {"metadata", {{"compressor", nullptr}}},
-                             {"kvstore", {{"driver", "memory"}}}};
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store, tensorstore::Open(json_spec, tensorstore::dtype_v<uint8_t>,
-                                    tensorstore::RankConstraint{0},
-                                    tensorstore::OpenMode::create)
-                      .result());
-  TENSORSTORE_ASSERT_OK(
-      tensorstore::Write(tensorstore::MakeScalarArray<uint8_t>(0), store));
-  EXPECT_THAT(GetMap(store.kvstore()),
-              ::testing::Optional(::testing::UnorderedElementsAre(
-                  Pair(".zarray", ::testing::_), Pair("0", Bytes({0})))));
+// Tests that the fill value is used for missing chunks if
+// `fill_missing_data_reads=true`.
+TEST(DriverTest, FillMissingDataReads) {
+  for (bool fill_missing_data_reads : {false, true}) {
+    SCOPED_TRACE(tensorstore::StrCat("fill_missing_data_reads=",
+                                     fill_missing_data_reads));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open({{"driver", "zarr"},
+                           {"kvstore", "memory://"},
+                           {"fill_missing_data_reads", fill_missing_data_reads},
+                           {"metadata",
+                            {
+                                {"compressor", nullptr},
+                                {"dtype", "<i2"},
+                                {"shape", {1}},
+                                {"chunks", {1}},
+                                {"order", "C"},
+                                {"fill_value", 42},
+                            }}},
+                          tensorstore::OpenMode::create)
+            .result());
+    {
+      auto read_result = tensorstore::Read(store).result();
+      if (fill_missing_data_reads) {
+        EXPECT_THAT(read_result,
+                    ::testing::Optional(tensorstore::MakeArray<int16_t>({42})));
+      } else {
+        EXPECT_THAT(read_result,
+                    MatchesStatus(absl::StatusCode::kNotFound,
+                                  "chunk \\{0\\} stored at \"0\" is missing"));
+      }
+    }
+    TENSORSTORE_ASSERT_OK(
+        tensorstore::Write(tensorstore::MakeArray<int16_t>({1}), store)
+            .result());
+    EXPECT_THAT(tensorstore::Read(store).result(),
+                ::testing::Optional(tensorstore::MakeArray<int16_t>({1})));
+  }
 }
 
-// Tests that all-zero chunks are not written if the fill value is specified as
-// 0.
-TEST(DriverTest, FillValueSpecifiedWriteTest) {
-  ::nlohmann::json json_spec{
-      {"driver", "zarr"},
-      {"metadata",
-       {{"compressor", nullptr}, {"dtype", "|u1"}, {"fill_value", 0}}},
-      {"kvstore", {{"driver", "memory"}}}};
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store, tensorstore::Open(json_spec, tensorstore::RankConstraint{0},
-                                    tensorstore::OpenMode::create)
-                      .result());
-  TENSORSTORE_ASSERT_OK(
-      tensorstore::Write(tensorstore::MakeScalarArray<uint8_t>(0), store));
-  EXPECT_THAT(GetMap(store.kvstore()),
-              ::testing::Optional(::testing::UnorderedElementsAre(
-                  Pair(".zarray", ::testing::_))));
+// Tests that all-zero chunks are written if the fill value is unspecified or
+// `store_data_equal_to_fill_value=true`.
+TEST(DriverTest, StoreDataEqualToFillValue) {
+  for (bool fill_value_specified : {false, true}) {
+    for (bool store_data_equal_to_fill_value : {false, true}) {
+      SCOPED_TRACE(tensorstore::StrCat(
+          "store_data_equal_to_fill_value=", store_data_equal_to_fill_value,
+          ", fill_value_specified=", fill_value_specified));
+      ::nlohmann::json fill_value_json;
+      if (fill_value_specified) {
+        fill_value_json = 0;
+      } else {
+        fill_value_json = nullptr;
+      }
+      ::nlohmann::json json_spec{
+          {"driver", "zarr"},
+          {"metadata",
+           {
+               {"compressor", nullptr},
+               {"dtype", "|u1"},
+               {"fill_value", fill_value_json},
+           }},
+          {"kvstore", {{"driver", "memory"}}},
+          {"store_data_equal_to_fill_value", store_data_equal_to_fill_value}};
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+          auto store,
+          tensorstore::Open(json_spec, tensorstore::dtype_v<uint8_t>,
+                            tensorstore::RankConstraint{0},
+                            tensorstore::OpenMode::create)
+              .result());
+      TENSORSTORE_ASSERT_OK(
+          tensorstore::Write(tensorstore::MakeScalarArray<uint8_t>(0), store));
+      bool chunk_is_stored =
+          !fill_value_specified || store_data_equal_to_fill_value;
+      if (chunk_is_stored) {
+        EXPECT_THAT(GetMap(store.kvstore()),
+                    ::testing::Optional(::testing::UnorderedElementsAre(
+                        Pair(".zarray", ::testing::_), Pair("0", Bytes({0})))));
+      } else {
+        EXPECT_THAT(GetMap(store.kvstore()),
+                    ::testing::Optional(::testing::UnorderedElementsAre(
+                        Pair(".zarray", ::testing::_))));
+      }
+    }
+  }
 }
 
 TEST(DriverTest, InvalidCodec) {

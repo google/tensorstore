@@ -37,6 +37,7 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal {
@@ -104,6 +105,14 @@ void KvsBackedChunkCache::Entry::DoEncode(std::shared_ptr<const ReadData> data,
     return;
   }
   execution::set_value(receiver, *std::move(encoded_result));
+}
+
+std::string KvsBackedChunkCache::Entry::DescribeChunk() {
+  auto& cache = GetOwningCache(*this);
+  auto cell_indices = this->cell_indices();
+  return tensorstore::StrCat("chunk ", cell_indices, " stored at ",
+                             cache.kvstore_driver()->DescribeKey(
+                                 cache.GetChunkStorageKey(cell_indices)));
 }
 
 }  // namespace internal
