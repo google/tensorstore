@@ -2805,7 +2805,7 @@ Group:
 )");
 }
 
-template <bool ArrayStorageStatistics::*Member,
+template <bool ArrayStorageStatistics::* Member,
           ArrayStorageStatistics::Mask MaskEntry>
 struct ArrayStorageStatisticsAccessor {
   constexpr static inline auto Get =
@@ -2861,7 +2861,7 @@ to the :py:obj:`~TensorStore.fill_value`.
 
   cls.def_property("fully_stored", FullyStored::Get, FullyStored::Set,
                    R"(
-Indicates whether data is stored for *all* elements of the specified :py:obj:~TensorStore.domain`.
+Indicates whether data is stored for *all* elements of the specified :py:obj:`~TensorStore.domain`.
 
 For the statistics returned by :py:obj:`TensorStore.storage_statistics`, if
 :py:param:`~TensorStore.storage_statistics.query_fully_stored` is not set to
