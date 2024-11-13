@@ -27,6 +27,7 @@
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include "tensorstore/box.h"
+#include "tensorstore/contiguous_layout.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/integer_range.h"
@@ -619,7 +620,7 @@ class ChunkLayout {
   ///     EXPECT_THAT(constraints.inner_order(),
   ///                 ::testing::ElementsAre(1, 0, 2));
   ///     EXPECT_EQ(true, constraints.inner_order().hard_constraint);
-  struct InnerOrder : public tensorstore::span<const DimensionIndex> {
+  struct InnerOrder : public ContiguousLayoutPermutation<> {
     /// Constructs an unspecified order.
     ///
     /// \id default
@@ -630,13 +631,11 @@ class ChunkLayout {
     /// \id order
     explicit InnerOrder(tensorstore::span<const DimensionIndex> s,
                         bool hard_constraint = true)
-        : tensorstore::span<const DimensionIndex>(s),
-          hard_constraint(hard_constraint) {}
+        : ContiguousLayoutPermutation<>(s), hard_constraint(hard_constraint) {}
     template <size_t N>
     explicit InnerOrder(const DimensionIndex (&s)[N],
                         bool hard_constraint = true)
-        : tensorstore::span<const DimensionIndex>(s),
-          hard_constraint(hard_constraint) {}
+        : ContiguousLayoutPermutation<>(s), hard_constraint(hard_constraint) {}
 
     /// Returns `true` if this specifies an order constraint.
     bool valid() const { return !this->empty(); }
@@ -1033,6 +1032,9 @@ constexpr bool ChunkLayout::IsOption<RankConstraint> = true;
 
 template <>
 constexpr bool ChunkLayout::IsOption<ChunkLayout::InnerOrder> = true;
+
+template <DimensionIndex Rank>
+constexpr bool ChunkLayout::IsOption<ContiguousLayoutPermutation<Rank>> = true;
 
 template <>
 constexpr bool ChunkLayout::IsOption<ChunkLayout::GridOrigin> = true;

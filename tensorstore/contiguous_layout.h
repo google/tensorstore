@@ -19,8 +19,10 @@
 
 #include <cassert>
 #include <iosfwd>
+#include <type_traits>
 
 #include "tensorstore/index.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/util/span.h"
 
 namespace tensorstore {
@@ -51,19 +53,131 @@ constexpr ContiguousLayoutOrder fortran_order = ContiguousLayoutOrder::fortran;
 constexpr ContiguousLayoutOrder column_major_order =
     ContiguousLayoutOrder::column_major;
 
-/// \brief Computes strides for the specified `ContiguousLayoutOrder`.
+/// Specifies a contiguous layout order as a permutation.
+///
+/// The first element specifies the outermost dimension and the last element
+/// specifies the innermost dimension.
+///
+/// `ContiguousLayoutOrder::c` corresponds to ``{0, 1, 2, ...}`` while
+/// `ContiguousLayoutOrder::fortran` corresponds to ``{..., 2, 1, 0}``.
+///
+/// \relates StridedLayout
+template <DimensionIndex Rank = dynamic_rank>
+struct ContiguousLayoutPermutation
+    : public tensorstore::span<const DimensionIndex, Rank> {
+  /// Constructs a rank-0 (empty) permutation.
+  ContiguousLayoutPermutation() = default;
+
+  /// Converts from another `ContiguousLayoutPermutation` with compatible rank.
+  ///
+  /// \id convert
+  template <DimensionIndex R,
+            typename =
+                std::enable_if_t<R != Rank && RankConstraint::Implies(R, Rank)>>
+  ContiguousLayoutPermutation(ContiguousLayoutPermutation<R> other)
+      : tensorstore::span<const DimensionIndex, Rank>(other) {}
+
+  /// Constructs from a span.
+  ///
+  /// \id span
+  explicit ContiguousLayoutPermutation(
+      tensorstore::span<const DimensionIndex, Rank> permutation)
+      : tensorstore::span<const DimensionIndex, Rank>(permutation) {}
+};
+
+template <DimensionIndex Rank>
+ContiguousLayoutPermutation(
+    tensorstore::span<const DimensionIndex, Rank> permutation)
+    -> ContiguousLayoutPermutation<Rank>;
+
+template <DimensionIndex Rank>
+ContiguousLayoutPermutation(const DimensionIndex (&permutation)[Rank])
+    -> ContiguousLayoutPermutation<Rank>;
+
+/// Bool-valued metafunction that is true if `T` is `ContiguousLayoutOrder` or
+/// `ContiguousLayoutPermutation` compatible with `Rank`.
+///
+/// \tparam Rank Rank with which the order must be compatible, or `dynamic_rank`
+///     for no constraint.
+///
+/// \relates StridedLayout
+template <typename T, DimensionIndex Rank = dynamic_rank>
+constexpr inline bool IsContiguousLayoutOrder = false;
+
+template <DimensionIndex Rank>
+constexpr inline bool IsContiguousLayoutOrder<ContiguousLayoutOrder, Rank> =
+    true;
+
+template <DimensionIndex R, DimensionIndex Rank>
+constexpr inline bool
+    IsContiguousLayoutOrder<ContiguousLayoutPermutation<R>, Rank> =
+        RankConstraint::Implies(R, Rank);
+
+/// Sets `permutation` to ascending or descending order.
+///
+/// If `order == c_order`, sets `permutation` to
+/// ``{0, 1, ..., permutation.size()-1}``.
+///
+/// Otherwise, sets `permutation` to ``{permutation.size()-1, ..., 1, 0}``.
+///
+/// \relates ContiguousLayoutPermutation
+void SetPermutation(ContiguousLayoutOrder order,
+                    span<DimensionIndex> permutation);
+
+/// Returns `true` if `permutation` is a valid permutation of
+/// ``{0, 1, ..., permutation.size()-1}``.
+///
+/// \relates ContiguousLayoutPermutation
+bool IsValidPermutation(span<const DimensionIndex> permutation);
+
+/// Returns `true` if `permutation` is ``{0, 1, ..., permutation.size()-1}`` if
+/// `order == c_order`, or ``{permutation.size() - 1, ..., 1, 0}`` if
+/// `order == fortran_order`.
+///
+/// \relates ContiguousLayoutPermutation
+bool PermutationMatchesOrder(span<const DimensionIndex> permutation,
+                             ContiguousLayoutOrder order);
+
+/// Sets `inverse_perm` to the inverse permutation of `perm`.
+///
+/// \param perm[in] Pointer to array of length `rank`.
+/// \param inverse_perm[out] Pointer to array of length `rank`.
+///
+/// \dchecks `IsValidPermutation({perm, rank})`.
+/// \relates ContiguousLayoutPermutation
+void InvertPermutation(DimensionIndex rank, const DimensionIndex* perm,
+                       DimensionIndex* inverse_perm);
+
+/// Normalizes `source` to a permutation if it is not already a permuation.
+///
+/// \relates ContiguousLayoutPermutation
+template <typename LayoutOrder, DimensionIndex Rank>
+std::enable_if_t<IsContiguousLayoutOrder<LayoutOrder, Rank>>
+ConvertToContiguousLayoutPermutation(LayoutOrder source,
+                                     span<DimensionIndex, Rank> target) {
+  if constexpr (std::is_same_v<LayoutOrder, ContiguousLayoutOrder>) {
+    SetPermutation(source, target);
+  } else {
+    assert(source.size() == target.size());
+    assert(IsValidPermutation(source));
+    for (DimensionIndex i = 0; i < target.size(); ++i) {
+      target[i] = source[i];
+    }
+  }
+}
+
+/// Computes strides for the specified layout order.
 ///
 /// \param order The layout order.
 /// \param element_stride The stride of the innermost dimension.
 /// \param shape The extents of the array.
 /// \param strides The output strides array.
-/// \pre strides.size() == shape.size()
-/// \post If order == ContiguousLayoutOrder::left, strides[0] = element_stride
-///     and strides[i+1] = strides[i] * shape[i].  If order ==
-///     ContiguousLayoutOrder::right, strides[shape.size()-1] = element_stride
-///     and strides[i] = strides[i+1] * shape[i+1].
-/// \relates ContiguousLayoutOrder
+/// \relates StridedLayout
 void ComputeStrides(ContiguousLayoutOrder order, ptrdiff_t element_stride,
+                    tensorstore::span<const Index> shape,
+                    tensorstore::span<Index> strides);
+void ComputeStrides(ContiguousLayoutPermutation<> permutation,
+                    ptrdiff_t element_stride,
                     tensorstore::span<const Index> shape,
                     tensorstore::span<Index> strides);
 
@@ -116,6 +230,16 @@ inline void GetContiguousIndices(I offset, tensorstore::span<const I> shape,
   }
   assert(offset == 0);
 }
+
+/// Sets `permutation` to a permutation that matches the dimension order of
+/// `strides`.
+///
+/// Specifically, `permutation` is ordered by descending stride magnitude,
+/// and then ascending dimension index.
+///
+/// \relates ContiguousLayoutPermutation
+void SetPermutationFromStrides(span<const Index> strides,
+                               span<DimensionIndex> permutation);
 
 }  // namespace tensorstore
 

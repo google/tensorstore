@@ -23,48 +23,6 @@
 
 namespace tensorstore {
 
-/// Sets `permutation` to ascending or descending order.
-///
-/// If `order == c_order`, sets `permutation` to
-/// ``{0, 1, ..., permutation.size()-1}``.
-///
-/// Otherwise, sets `permutation` to ``{permutation.size()-1, ..., 1, 0}``.
-///
-/// \relates ChunkLayout
-void SetPermutation(ContiguousLayoutOrder order,
-                    span<DimensionIndex> permutation);
-
-/// Returns `true` if `permutation` is a valid permutation of
-/// ``{0, 1, ..., permutation.size()-1}``.
-///
-/// \relates ChunkLayout
-bool IsValidPermutation(span<const DimensionIndex> permutation);
-
-/// Returns `true` if `permutation` is `{0, 1, ..., permutation.size()-1}` if
-/// `order == c_order`, or `{permutation.size() - 1, ..., 1, 0}` if
-/// `order == fortran_order`..
-bool PermutationMatchesOrder(span<const DimensionIndex> permutation,
-                             ContiguousLayoutOrder order);
-
-/// Sets `inverse_perm` to the inverse permutation of `perm`.
-///
-/// \param perm[in] Pointer to array of length `rank`.
-/// \param inverse_perm[out] Pointer to array of length `rank`.
-/// \dchecks `IsValidPermutation({perm, rank})`.
-/// \relates ChunkLayout
-void InvertPermutation(DimensionIndex rank, const DimensionIndex* perm,
-                       DimensionIndex* inverse_perm);
-
-/// Sets `permutation` to a permutation that matches the dimension order of
-/// `layout`.
-///
-/// Specifically, `permutation` is ordered by descending byte stride magnitude,
-/// and then ascending dimension index.
-///
-/// \relates ChunkLayout
-void SetPermutationFromStridedLayout(StridedLayoutView<> layout,
-                                     span<DimensionIndex> permutation);
-
 /// Transforms a dimension order for the output space of `transform` to a
 /// corresponding dimension order for the input space of `transform`.
 ///
