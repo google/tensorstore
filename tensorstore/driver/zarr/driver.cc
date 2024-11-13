@@ -318,9 +318,14 @@ internal::ChunkGridSpecification DataCache::GetChunkGridSpecification(
         BroadcastArray(fill_value, valid_data_bounds).value();
     std::vector<Index> cell_chunk_shape(field_layout.full_chunk_shape().begin(),
                                         field_layout.full_chunk_shape().end());
+    DimensionIndex layout_order_buffer[kMaxRank];
+    GetChunkInnerOrder(metadata.rank, metadata.order,
+                       span(layout_order_buffer, cell_rank));
     components.emplace_back(
         internal::AsyncWriteArray::Spec{std::move(chunk_fill_value),
-                                        std::move(valid_data_bounds)},
+                                        std::move(valid_data_bounds),
+                                        ContiguousLayoutPermutation<>(span(
+                                            layout_order_buffer, cell_rank))},
         std::move(cell_chunk_shape), chunked_to_cell_dimensions);
     components.back().array_spec.store_if_equal_to_fill_value =
         !fill_value_specified;

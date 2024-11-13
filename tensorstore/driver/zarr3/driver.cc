@@ -36,6 +36,7 @@
 #include "tensorstore/box.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/codec_spec.h"
+#include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/chunk.h"
 #include "tensorstore/driver/driver_spec.h"
@@ -272,7 +273,9 @@ class DataCacheBase
             std::move(fill_value),
             // Since all dimensions are resizable, just
             // specify unbounded `valid_data_bounds`.
-            Box<>(metadata.rank)},
+            Box<>(metadata.rank),
+            ContiguousLayoutPermutation<>(
+                span(metadata.inner_order.data(), metadata.rank))},
         metadata.chunk_shape);
     component.array_spec.fill_value_comparison_kind =
         EqualityComparisonKind::identical;

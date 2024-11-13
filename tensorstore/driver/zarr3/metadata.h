@@ -108,6 +108,7 @@ struct ZarrMetadata {
 
   ZarrCodecChain::Ptr codecs;
   ZarrCodecChain::PreparedState::Ptr codec_state;
+  std::array<DimensionIndex, kMaxRank> inner_order;
 
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(ZarrMetadata,
                                           internal_json_binding::NoOptions,

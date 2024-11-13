@@ -236,6 +236,7 @@ tensorstore_cc_library(
         ":crc32c",
         "//tensorstore:array",
         "//tensorstore:box",
+        "//tensorstore:contiguous_layout",
         "//tensorstore:data_type",
         "//tensorstore:index",
         "//tensorstore:index_interval",
