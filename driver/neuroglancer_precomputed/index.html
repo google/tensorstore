@@ -890,6 +890,20 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#json-driver/neuroglancer_precomputed.fill_missing_data_reads" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/neuroglancer_precomputed.fill_missing_data_reads (JSON member) — Replace missing chunks with the fill value when reading." class="md-ellipsis">fill_<wbr>missing_<wbr>data_<wbr>reads</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-driver/neuroglancer_precomputed.store_data_equal_to_fill_value" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/neuroglancer_precomputed.store_data_equal_to_fill_value (JSON member) — Store all explicitly written data, even if it is equal to the fill value." class="md-ellipsis">store_<wbr>data_<wbr>equal_<wbr>to_<wbr>fill_<wbr>value</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#json-driver/neuroglancer_precomputed.scale_index" class="md-nav__link">
     <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/neuroglancer_precomputed.scale_index (JSON member) — Zero-based index of the scale to open or create." class="md-ellipsis">scale_<wbr>index</span>
   </a>
@@ -1453,6 +1467,20 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#json-driver/neuroglancer_precomputed.fill_missing_data_reads" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/neuroglancer_precomputed.fill_missing_data_reads (JSON member) — Replace missing chunks with the fill value when reading." class="md-ellipsis">fill_<wbr>missing_<wbr>data_<wbr>reads</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-driver/neuroglancer_precomputed.store_data_equal_to_fill_value" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/neuroglancer_precomputed.store_data_equal_to_fill_value (JSON member) — Store all explicitly written data, even if it is equal to the fill value." class="md-ellipsis">store_<wbr>data_<wbr>equal_<wbr>to_<wbr>fill_<wbr>value</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#json-driver/neuroglancer_precomputed.scale_index" class="md-nav__link">
     <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/neuroglancer_precomputed.scale_index (JSON member) — Zero-based index of the scale to open or create." class="md-ellipsis">scale_<wbr>index</span>
   </a>
@@ -1999,6 +2027,26 @@ on every read.  To enable in-memory data caching, you must both specify
 a <a class="reference internal" href="../../context.html#json-Context.cache_pool" title="Context.cache_pool (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">cache_pool</span></code></a> with a non-zero
 <a class="reference internal" href="../../context.html#json-Context.cache_pool.total_bytes_limit" title="Context.cache_pool.total_bytes_limit (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">total_bytes_limit</span></code></a> and also specify <code class="code highlight json docutils literal highlight-json"><span class="kc">false</span></code>,
 <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;open&quot;</span></code>, or an explicit time bound for <a class="reference internal" href="#json-driver/neuroglancer_precomputed.recheck_cached_data" title="driver/neuroglancer_precomputed.recheck_cached_data (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">recheck_cached_data</span></code></a>.</p>
+</dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-driver/neuroglancer_precomputed.fill_missing_data_reads">
+<span class="sig-name descname"><span class="pre">fill_missing_data_reads</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="kc">true</span></code><a class="headerlink" href="#json-driver/neuroglancer_precomputed.fill_missing_data_reads" title="Link to this definition">¶</a></dt>
+<dd><span><p>Replace missing chunks with the fill value when reading.</p>
+  </span><p>If disabled, reading a missing chunk will result in an error. Note
+that the fill value may still be used when writing a partial chunk.
+Typically this should only be set to <code class="code highlight json docutils literal highlight-json"><span class="kc">false</span></code> in the case that
+<a class="reference internal" href="#json-driver/neuroglancer_precomputed.store_data_equal_to_fill_value" title="driver/neuroglancer_precomputed.store_data_equal_to_fill_value (JSON member) — Store all explicitly written data, even if it is equal to the fill value."><code class="xref json json-schema docutils literal notranslate"><span class="pre">store_data_equal_to_fill_value</span></code></a> was enabled when writing.</p>
+</dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-driver/neuroglancer_precomputed.store_data_equal_to_fill_value">
+<span class="sig-name descname"><span class="pre">store_data_equal_to_fill_value</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="kc">false</span></code><a class="headerlink" href="#json-driver/neuroglancer_precomputed.store_data_equal_to_fill_value" title="Link to this definition">¶</a></dt>
+<dd><span><p>Store all explicitly written data, even if it is equal to the fill
+value.</p>
+  </span><p>This ensures that explicitly written data, even if it is equal to the
+fill value, can be distinguished from missing data. If disabled,
+chunks equal to the fill value may be represented as missing chunks.</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
