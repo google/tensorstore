@@ -260,7 +260,7 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
             std::move(fill_value),
             // Since all dimensions are resizable, just specify
             // unbounded `component_bounds`.
-            Box<>(metadata.rank)},
+            Box<>(metadata.rank), fortran_order},
         metadata.chunk_shape);
     return internal::ChunkGridSpecification(std::move(components));
   }

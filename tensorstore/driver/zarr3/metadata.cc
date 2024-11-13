@@ -15,7 +15,6 @@
 #include "tensorstore/driver/zarr3/metadata.h"
 
 #include <stddef.h>
-#include <stdint.h>
 
 #include <algorithm>
 #include <array>
@@ -23,6 +22,7 @@
 #include <charconv>
 #include <limits>
 #include <memory>
+#include <numeric>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -74,7 +74,6 @@
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/serialization/json_bindable.h"
 #include "tensorstore/util/constant_vector.h"
-#include "tensorstore/util/float8.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
@@ -486,6 +485,25 @@ absl::Status ValidateMetadata(ZarrMetadata& metadata) {
         metadata.codecs,
         metadata.codec_specs.Resolve(std::move(decoded), encoded));
   }
+
+  // Get codec chunk layout info.
+  ArrayDataTypeAndShapeInfo array_info;
+  array_info.dtype = metadata.data_type;
+  array_info.rank = metadata.rank;
+  std::copy_n(metadata.chunk_shape.begin(), metadata.rank,
+              array_info.shape.emplace().begin());
+  ArrayCodecChunkLayoutInfo layout_info;
+  TENSORSTORE_RETURN_IF_ERROR(
+      metadata.codec_specs.GetDecodedChunkLayout(array_info, layout_info));
+  if (layout_info.inner_order) {
+    std::copy_n(layout_info.inner_order->begin(), metadata.rank,
+                metadata.inner_order.begin());
+  } else {
+    std::iota(metadata.inner_order.begin(),
+              metadata.inner_order.begin() + metadata.rank,
+              static_cast<DimensionIndex>(0));
+  }
+
   TENSORSTORE_ASSIGN_OR_RETURN(metadata.codec_state,
                                metadata.codecs->Prepare(metadata.chunk_shape));
   return absl::OkStatus();

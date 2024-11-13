@@ -17,6 +17,7 @@
 #include <stdint.h>
 
 #include <algorithm>
+#include <numeric>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -27,6 +28,7 @@
 #include "riegeli/bytes/writer.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
+#include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/zarr3/codec/bytes.h"
 #include "tensorstore/driver/zarr3/codec/codec.h"
@@ -255,30 +257,13 @@ Result<ZarrArrayToBytesCodec::Ptr> ShardingIndexedCodecSpec::Resolve(
   if (sub_chunk_shape.size() != decoded.rank) {
     return SubChunkRankMismatch(sub_chunk_shape, decoded.rank);
   }
-  internal::ChunkGridSpecification::ComponentList components;
-  TENSORSTORE_ASSIGN_OR_RETURN(
-      auto broadcast_fill_value,
-      BroadcastArray(decoded.fill_value, BoxView<>(sub_chunk_shape.size())));
-  components.emplace_back(
-      internal::AsyncWriteArray::Spec{std::move(broadcast_fill_value),
-                                      Box<>(sub_chunk_shape.size())},
-      std::vector<Index>(sub_chunk_shape.begin(), sub_chunk_shape.end()));
-  components.back().array_spec.fill_value_comparison_kind =
-      EqualityComparisonKind::identical;
-  auto codec = internal::MakeIntrusivePtr<ShardingIndexedCodec>(
-      internal::ChunkGridSpecification(std::move(components)));
-  codec->index_location_ =
-      options.index_location.value_or(ShardIndexLocation::kEnd);
-  if (resolved_options) {
-    resolved_options->sub_chunk_shape = codec->sub_chunk_grid_.chunk_shape;
-    resolved_options->index_location = codec->index_location_;
-  }
+  internal::IntrusivePtr<ShardingIndexedCodec> codec;
   auto set_up_codecs =
       [&](const ZarrCodecChainSpec& sub_chunk_codecs) -> absl::Status {
     ArrayCodecResolveParameters sub_chunk_decoded;
     sub_chunk_decoded.dtype = decoded.dtype;
     sub_chunk_decoded.rank = decoded.rank;
-    sub_chunk_decoded.fill_value = std::move(decoded.fill_value);
+    sub_chunk_decoded.fill_value = decoded.fill_value;
     if (decoded.read_chunk_shape) {
       std::copy_n(decoded.read_chunk_shape->begin(), decoded.rank,
                   sub_chunk_decoded.read_chunk_shape.emplace().begin());
@@ -292,11 +277,47 @@ Result<ZarrArrayToBytesCodec::Ptr> ShardingIndexedCodecSpec::Resolve(
                   sub_chunk_decoded.inner_order.emplace().begin());
     }
     TENSORSTORE_ASSIGN_OR_RETURN(
-        codec->sub_chunk_codec_chain_,
+        auto sub_chunk_codec_chain,
         sub_chunk_codecs.Resolve(
             std::move(sub_chunk_decoded), encoded,
             resolved_options ? &resolved_options->sub_chunk_codecs.emplace()
                              : nullptr));
+    // Get sub-chunk codec chunk layout info.
+    ArrayDataTypeAndShapeInfo array_info;
+    array_info.dtype = decoded.dtype;
+    array_info.rank = decoded.rank;
+    ArrayCodecChunkLayoutInfo layout_info;
+    TENSORSTORE_RETURN_IF_ERROR(
+        (resolved_options ? *resolved_options->sub_chunk_codecs
+                          : sub_chunk_codecs)
+            .GetDecodedChunkLayout(array_info, layout_info));
+    if (!layout_info.inner_order) {
+      layout_info.inner_order.emplace();
+      std::iota(layout_info.inner_order->begin(),
+                layout_info.inner_order->begin() + decoded.rank,
+                static_cast<DimensionIndex>(0));
+    }
+    internal::ChunkGridSpecification::ComponentList components;
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto broadcast_fill_value,
+        BroadcastArray(decoded.fill_value, BoxView<>(sub_chunk_shape.size())));
+    auto& component = components.emplace_back(
+        internal::AsyncWriteArray::Spec{
+            std::move(broadcast_fill_value), Box<>(sub_chunk_shape.size()),
+            ContiguousLayoutPermutation<>(tensorstore::span(
+                layout_info.inner_order->data(), decoded.rank))},
+        std::vector<Index>(sub_chunk_shape.begin(), sub_chunk_shape.end()));
+    component.array_spec.fill_value_comparison_kind =
+        EqualityComparisonKind::identical;
+    codec = internal::MakeIntrusivePtr<ShardingIndexedCodec>(
+        internal::ChunkGridSpecification(std::move(components)));
+    codec->index_location_ =
+        options.index_location.value_or(ShardIndexLocation::kEnd);
+    codec->sub_chunk_codec_chain_ = std::move(sub_chunk_codec_chain);
+    if (resolved_options) {
+      resolved_options->sub_chunk_shape = codec->sub_chunk_grid_.chunk_shape;
+      resolved_options->index_location = codec->index_location_;
+    }
     return absl::OkStatus();
   };
   TENSORSTORE_RETURN_IF_ERROR(
