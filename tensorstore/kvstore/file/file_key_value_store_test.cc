@@ -124,6 +124,18 @@ TEST(FileKeyValueStoreTest, BasicNoSync) {
   tensorstore::internal::TestKeyValueReadWriteOps(store);
 }
 
+TEST(FileKeyValueStoreTest, BasicMemmap) {
+  ScopedTemporaryDirectory tempdir;
+  std::string root = tempdir.path() + "/root";
+  auto store = kvstore::Open({
+                                 {"driver", "file"},
+                                 {"path", root + "/"},
+                                 {"file_io_memmap", true},
+                             })
+                   .value();
+  tensorstore::internal::TestKeyValueReadWriteOps(store, 256 * 1024);
+}
+
 TEST(FileKeyValueStoreTest, InvalidKey) {
   ScopedTemporaryDirectory tempdir;
   std::string root = tempdir.path() + "/root";
@@ -419,6 +431,7 @@ TEST(FileKeyValueStoreTest, SpecRoundtripSync) {
       {"context",
        {
            {"file_io_concurrency", ::nlohmann::json::object_t()},
+           {"file_io_memmap", false},
            {"file_io_locking", {{"mode", "lockfile"}}},
        }},
   };
@@ -501,5 +514,25 @@ TEST(FileKeyValueStoreTest, BatchRead) {
   options.has_file_open_metric = true;
   tensorstore::internal::TestBatchReadGenericCoalescing(store, options);
 }
+
+#if 0
+// TODO: Make this test reasonable for mmap cases.
+TEST(FileKeyValueStoreTest, BatchReadMemmap) {
+  ScopedTemporaryDirectory tempdir;
+  std::string root = tempdir.path() + "/root";
+  auto store = kvstore::Open({
+                                 {"driver", "file"},
+                                 {"path", root + "/"},
+                                 {"file_io_memmap", true},
+                             })
+                   .value();
+
+  tensorstore::internal::BatchReadGenericCoalescingTestOptions options;
+  options.coalescing_options.max_extra_read_bytes = 255;
+  options.metric_prefix = "/tensorstore/file/";
+  options.has_file_open_metric = true;
+  tensorstore::internal::TestBatchReadGenericCoalescing(store, options);
+}
+#endif
 
 }  // namespace

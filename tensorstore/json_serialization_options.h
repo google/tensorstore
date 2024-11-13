@@ -15,10 +15,12 @@
 #ifndef TENSORSTORE_JSON_SERIALIZATION_OPTIONS_H_
 #define TENSORSTORE_JSON_SERIALIZATION_OPTIONS_H_
 
+#include <stdint.h>
+
+#include <cassert>
 #include <type_traits>
 
 #include "tensorstore/data_type.h"
-#include "tensorstore/index.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/rank.h"
 

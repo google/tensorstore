@@ -20,9 +20,11 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <sys/types.h>
 
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
@@ -87,6 +89,61 @@ inline constexpr std::string_view kLockSuffix = ".__lock";
 ///
 /// The file descriptor is closed automatically by the destructor.
 using UniqueFileDescriptor = UniqueHandle<FileDescriptor, FileDescriptorTraits>;
+
+/// --------------------------------------------------------------------------
+
+class MappedRegion;
+
+/// Returns the default page size for MemmapFileReadOnly; offset must be a
+/// multiple of this value.
+uint32_t GetDefaultPageSize();
+
+/// Returns a Cord containing the contents of the file.
+///
+/// \param fd File descriptor opened with `OpenFlags::OpenReadOnly`. The
+///     FileDescriptor may be closed after calling this function.
+/// \param offset Byte offset within file at which to start reading.
+/// \param size Number of bytes to read, or 0 to read the entire file.
+/// \returns The contents of the file or a failure absl::Status code.
+Result<MappedRegion> MemmapFileReadOnly(FileDescriptor fd, size_t offset,
+                                        size_t size);
+
+class MappedRegion {
+ public:
+  // ::munmap happens when the MappedRegion destructor runs.
+  ~MappedRegion();
+
+  MappedRegion(const MappedRegion&) = delete;
+  MappedRegion& operator=(const MappedRegion&) = delete;
+
+  MappedRegion(MappedRegion&& other) { *this = std::move(other); }
+  MappedRegion& operator=(MappedRegion&& other) {
+    data_ = std::exchange(other.data_, nullptr);
+    size_ = std::exchange(other.size_, 0);
+    return *this;
+  }
+
+  std::string_view as_string_view() const {
+    return std::string_view(data_, size_);
+  }
+
+  absl::Cord as_cord() && {
+    std::string_view string_view = as_string_view();
+    data_ = nullptr;
+    size_ = 0;
+    return absl::MakeCordFromExternal(
+        string_view, [](auto s) { MappedRegion cleanup(s.data(), s.size()); });
+  }
+
+ private:
+  MappedRegion(const char* data, size_t size) : data_(data), size_(size) {}
+
+  friend Result<MappedRegion> MemmapFileReadOnly(FileDescriptor fd, size_t,
+                                                 size_t);
+
+  const char* data_;
+  size_t size_;
+};
 
 /// --------------------------------------------------------------------------
 

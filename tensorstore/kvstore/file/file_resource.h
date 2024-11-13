@@ -53,8 +53,29 @@ struct FileIoSyncResource
   }
 };
 
-/// When set, the "file" kvstore uses file locks to ensure that only one
-/// process is writing to a given key at a time.
+/// When set, the "file" kvstore uses ::mmap to read files.
+struct FileIoMemmapResource
+    : public internal::ContextResourceTraits<FileIoMemmapResource> {
+  constexpr static bool config_only = true;
+  static constexpr char id[] = "file_io_memmap";
+
+  using Spec = bool;
+  using Resource = Spec;
+  static Spec Default() { return false; }
+  static constexpr auto JsonBinder() {
+    return internal_json_binding::DefaultBinder<>;
+  }
+  static Result<Resource> Create(
+      Spec v, internal::ContextResourceCreationContext context) {
+    return v;
+  }
+  static Spec GetSpec(Resource v, const internal::ContextSpecBuilder& builder) {
+    return v;
+  }
+};
+
+/// When set, allows choosing how the "file" kvstore uses file locking, which
+/// ensures that only one process is writing to a kvstore key at a time.
 struct FileIoLockingResource
     : public internal::ContextResourceTraits<FileIoLockingResource> {
   constexpr static bool config_only = true;

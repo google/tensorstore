@@ -17,7 +17,7 @@
 
 #include "tensorstore/internal/concurrency_resource.h"
 
-#include <optional>
+#include <stddef.h>
 
 #include "absl/base/call_once.h"
 #include "tensorstore/context.h"
@@ -27,7 +27,6 @@
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/std_optional.h"
 #include "tensorstore/internal/thread/thread_pool.h"
-#include "tensorstore/internal/type_traits.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/result.h"
 

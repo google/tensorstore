@@ -159,7 +159,7 @@ void TestReadWriteOps(BasicFunctionalityTestOptions options) {
       base_kv_store, GetExecutor(options.executor_name), "prefix",
       sharding_spec, CachePool::WeakPtr(cache_pool));
   GetUint64Key get_key_fn(options.sequential_ids);
-  tensorstore::internal::TestKeyValueReadWriteOps(store, get_key_fn);
+  tensorstore::internal::TestKeyValueReadWriteOps(store, 0, get_key_fn);
 }
 
 TEST(Uint64ShardedKeyValueStoreTest, BasicFunctionality) {

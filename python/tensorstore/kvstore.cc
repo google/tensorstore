@@ -334,6 +334,7 @@ Example:
       'context': {
         'file_io_concurrency': {},
         'file_io_locking': {},
+        'file_io_memmap': False,
         'file_io_sync': True,
       },
       'driver': 'file',
@@ -344,6 +345,7 @@ Example:
       'context': {
         'file_io_concurrency': {},
         'file_io_locking': {},
+        'file_io_memmap': False,
         'file_io_sync': True,
       },
       'driver': 'file',
@@ -372,6 +374,7 @@ Example:
       'context': {
         'file_io_concurrency': {},
         'file_io_locking': {},
+        'file_io_memmap': False,
         'file_io_sync': True,
       },
       'driver': 'file',
@@ -382,6 +385,7 @@ Example:
       'context': {
         'file_io_concurrency': {},
         'file_io_locking': {},
+        'file_io_memmap': False,
         'file_io_sync': True,
       },
       'driver': 'file',
@@ -1122,6 +1126,7 @@ Example:
       'context': {
         'file_io_concurrency': {},
         'file_io_locking': {},
+        'file_io_memmap': False,
         'file_io_sync': True,
       },
       'driver': 'file',
@@ -1143,6 +1148,7 @@ Example:
     'context': {
       'file_io_concurrency': {},
       'file_io_locking': {},
+      'file_io_memmap': False,
       'file_io_sync': True,
     },
     'driver': 'file',
@@ -1153,6 +1159,7 @@ Example:
     'context': {
       'file_io_concurrency': {},
       'file_io_locking': {},
+      'file_io_memmap': False,
       'file_io_sync': True,
     },
     'driver': 'file',
@@ -1363,6 +1370,7 @@ Example:
    'driver': 'file',
    'file_io_concurrency': 'file_io_concurrency',
    'file_io_locking': 'file_io_locking',
+   'file_io_memmap': 'file_io_memmap',
    'file_io_sync': 'file_io_sync',
    'path': 'tmp/dataset/abc/'}
 

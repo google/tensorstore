@@ -274,6 +274,67 @@ TEST(SpecTest, PreserveBoundContextResources) {
 
 // Tests that when `Spec::Set` is called with both a `kvstore::Spec` and a
 // `Context`, the context is also bound to the kvstore spec.
+TEST(SpecTest, SetContextAndKvstoreIncludeDefaults) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto spec, Spec::FromJson({
+                     {"driver", "zarr"},
+                     {"schema", {{"domain", {{"shape", {10}}}}}},
+                     {"dtype", "uint8"},
+                 }));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto kvstore_spec,
+      tensorstore::kvstore::Spec::FromJson(
+          {{"driver", "file"},
+           {"path", "/tmp/"},
+           {"file_io_concurrency", "file_io_concurrency#a"}}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto context, tensorstore::Context::FromJson(
+                        {{"file_io_concurrency#a", {{"limit", 5}}}}));
+  TENSORSTORE_EXPECT_OK(spec.Set(context, kvstore_spec));
+  tensorstore::JsonSerializationOptions json_serialization_options;
+  json_serialization_options.Set(tensorstore::IncludeDefaults{true});
+  json_serialization_options.preserve_bound_context_resources_ = true;
+  EXPECT_THAT(
+      spec.ToJson(json_serialization_options),
+      ::testing::Optional(MatchesJson({
+          {"driver", "zarr"},
+          {"dtype", "uint8"},
+          {"assume_cached_metadata", false},
+          {"assume_metadata", false},
+          {"cache_pool", {"cache_pool"}},
+          {"data_copy_concurrency", {"data_copy_concurrency"}},
+          {"delete_existing", false},
+          {"metadata", ::nlohmann::json::object_t()},
+          {"recheck_cached_data", true},
+          {"recheck_cached_metadata", "open"},
+          {"kvstore",
+           {
+               {"context", ::nlohmann::json::object_t()},
+               {"driver", "file"},
+               {"path", "/tmp/"},
+               {"file_io_concurrency", {"file_io_concurrency#a"}},
+               {"file_io_sync", {"file_io_sync"}},
+               {"file_io_locking", {"file_io_locking"}},
+               {"file_io_memmap", {"file_io_memmap"}},
+           }},
+          {"schema",
+           {{"dtype", "uint8"},
+            {"rank", 1},
+            {"domain", {{"inclusive_min", {0}}, {"exclusive_max", {10}}}}}},
+          {"transform",
+           {{"input_inclusive_min", {0}}, {"input_exclusive_max", {{10}}}}},
+          {"context",
+           {
+               {"data_copy_concurrency", {{"limit", "shared"}}},
+               {"cache_pool", {{"total_bytes_limit", 0}}},
+               {"file_io_concurrency#a", {{"limit", 5}}},
+               {"file_io_locking", ::nlohmann::json::object_t()},
+               {"file_io_memmap", false},
+               {"file_io_sync", true},
+           }},
+      })));
+}
+
 TEST(SpecTest, SetContextAndKvstore) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto spec, Spec::FromJson({
@@ -304,6 +365,7 @@ TEST(SpecTest, SetContextAndKvstore) {
                {"file_io_concurrency", {"file_io_concurrency#a"}},
                {"file_io_sync", {"file_io_sync"}},
                {"file_io_locking", {"file_io_locking"}},
+               {"file_io_memmap", {"file_io_memmap"}},
            }},
           {"dtype", "uint8"},
           {"cache_pool", {"cache_pool"}},
@@ -317,8 +379,9 @@ TEST(SpecTest, SetContextAndKvstore) {
                {"data_copy_concurrency", ::nlohmann::json::object_t()},
                {"cache_pool", ::nlohmann::json::object_t()},
                {"file_io_concurrency#a", {{"limit", 5}}},
-               {"file_io_sync", true},
                {"file_io_locking", ::nlohmann::json::object_t()},
+               {"file_io_sync", true},
+               {"file_io_memmap", false},
            }},
       })));
 }

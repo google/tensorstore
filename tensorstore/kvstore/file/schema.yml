@@ -19,6 +19,10 @@ allOf:
       $ref: ContextResource
       description: |-
         Specifies or references a previously defined `Context.file_io_sync`.
+    file_io_memmap:
+      $ref: ContextResource
+      description: |-
+        Specifies or references a previously defined `Context.file_io_memmap`.
     file_io_locking:
       $ref: ContextResource
       description: |-
@@ -88,6 +92,25 @@ definitions:
       make write operations faster.
     type: boolean
     default: true
+  file_io_memmap:
+    $id: Context.file_io_memmap
+    title: |
+      Specifies use of memory-mapped I/O for reads.
+    description: |-
+      If ``true``, the file system uses memory-mapped io on reads.  This may improve performance
+      for large read with the following caveats:
+
+      * TensorStore may retain references to memory-mapped buffers, which due to batching may cover
+        a larger region of the file than an individual read request, even after the read competes,
+        depending on the cache and codec configuration, leading to higher-than-expected virtual
+        memory usage.
+
+      * If a file is truncated or otherwise modified in-place by a non-TensorStore process while
+        it is memory-mapped, the TensorStore process may crash, or some combination of the old
+        and new data may be observed by TensorStore.  Overwriting the entire file via rename, as
+        TenosrStore itself does, is safe.
+    type: boolean
+    default: false
   file_io_locking:
     $id: Context.file_io_locking
     title: |
