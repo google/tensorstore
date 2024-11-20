@@ -234,9 +234,6 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
         bazelisk = os.getenv('TENSORSTORE_BAZELISK', 'bazelisk.py')
         # Controlled via `setup.py build_ext --debug` flag.
         default_compilation_mode = 'dbg' if self.debug else 'opt'
-        compilation_mode = os.getenv(
-            'TENSORSTORE_BAZEL_COMPILATION_MODE', default_compilation_mode
-        )
         startup_options = shlex.split(
             os.getenv('TENSORSTORE_BAZEL_STARTUP_OPTIONS', '')
         )
@@ -244,13 +241,24 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
             os.getenv('TENSORSTORE_BAZEL_BUILD_OPTIONS', '')
         )
 
+        # Build with a specific compilation mode.
+        # When in opt mode also set -O3 optimizations to override bazel -O2.
+        compilation_mode = os.getenv(
+            'TENSORSTORE_BAZEL_COMPILATION_MODE', default_compilation_mode
+        )
+        build_flags = ['build', '-c', compilation_mode]
+        if compilation_mode == 'opt':
+          if 'win32' in sys.platform:
+            # Assumes MSVC compiler.
+            build_flags.append('--copt=/Ox')
+          else:
+            build_flags.append('--copt=-O3')
+
         build_command = (
             [sys.executable, '-u', bazelisk]
             + startup_options
+            + build_flags
             + [
-                'build',
-                '-c',
-                compilation_mode,
                 '//python/tensorstore:_tensorstore__shared_objects',
                 '--verbose_failures',
                 # Bazel does not seem to download these files by default when
