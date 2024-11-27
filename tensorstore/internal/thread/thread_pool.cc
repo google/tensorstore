@@ -23,17 +23,30 @@
 #include <utility>
 
 #include "absl/base/no_destructor.h"
-#include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/thread/pool_impl.h"
 #include "tensorstore/internal/thread/task.h"
 #include "tensorstore/internal/thread/task_group_impl.h"
+#include "tensorstore/internal/tracing/trace_context.h"
 #include "tensorstore/util/executor.h"
 
 namespace tensorstore {
 namespace internal {
 namespace {
+
+struct DetachedPoolImpl {
+  internal::IntrusivePtr<internal_thread_impl::TaskGroup> task_group;
+
+  void operator()(ExecutorTask task, internal_tracing::TraceContext tc) const {
+    task_group->AddTask(std::make_unique<internal_thread_impl::InFlightTask>(
+        std::move(task), std::move(tc)));
+  }
+  void operator()(ExecutorTask task) const {
+    operator()(std::move(task), internal_tracing::TraceContext(
+                                    internal_tracing::TraceContext::kThread));
+  }
+};
 
 Executor DefaultThreadPool(size_t num_threads) {
   static absl::NoDestructor<internal_thread_impl::SharedThreadPool> pool_;
@@ -47,14 +60,10 @@ Executor DefaultThreadPool(size_t num_threads) {
         << num_threads;
   }
 
-  auto task_group = internal_thread_impl::TaskGroup::Make(
+  return DetachedPoolImpl{internal_thread_impl::TaskGroup::Make(
       internal::IntrusivePtr<internal_thread_impl::SharedThreadPool>(
           pool_.get()),
-      num_threads);
-  return [task_group = std::move(task_group)](ExecutorTask task) {
-    task_group->AddTask(
-        std::make_unique<internal_thread_impl::InFlightTask>(std::move(task)));
-  };
+      num_threads)};
 }
 
 }  // namespace

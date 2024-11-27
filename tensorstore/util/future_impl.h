@@ -36,7 +36,7 @@
 #include "tensorstore/internal/integer_sequence.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/tagged_ptr.h"
-#include "tensorstore/internal/tracing/tracing.h"
+#include "tensorstore/internal/tracing/trace_context.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/util/result.h"
 
@@ -528,10 +528,16 @@ class CallbackBase : public CallbackListNode {
       /// kForceCallback and kResultNotNeededCallback.
       kLinkCallback = 3;
 
-  explicit CallbackBase(SharedStatePointer shared_state)
+  CallbackBase(SharedStatePointer shared_state,
+               internal_tracing::TraceContext trace_context)
       : shared_state_(shared_state),
         reference_count_(2),
-        trace_context_(internal_tracing::TraceContext::kThread) {}
+        trace_context_(std::move(trace_context)) {}
+
+  explicit CallbackBase(SharedStatePointer shared_state)
+      : CallbackBase(std::move(shared_state),
+                     internal_tracing::TraceContext(
+                         internal_tracing::TraceContext::kThread)) {}
 
   virtual ~CallbackBase();
 

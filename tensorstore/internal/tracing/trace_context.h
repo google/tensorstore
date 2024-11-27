@@ -23,8 +23,14 @@ namespace internal_tracing {
 struct TraceContext {
   struct ThreadInitType {};
   inline static constexpr ThreadInitType kThread{};
-  explicit TraceContext(ThreadInitType) {}
+
   TraceContext() = delete;
+  explicit TraceContext(ThreadInitType) {}
+
+  TraceContext(TraceContext&&) = default;
+  TraceContext& operator=(TraceContext&&) = default;
+  TraceContext(const TraceContext&) = default;
+  TraceContext& operator=(const TraceContext&) = default;
 };
 
 inline void SwapCurrentTraceContext(TraceContext* context) {}

@@ -22,17 +22,17 @@
 #include "absl/base/attributes.h"
 #include "absl/functional/any_invocable.h"
 #include "absl/time/clock.h"
-#include "tensorstore/internal/tracing/tracing.h"
+#include "tensorstore/internal/tracing/trace_context.h"
 
 namespace tensorstore {
 namespace internal_thread_impl {
 
 /// An in-flight task. Implementation detail of thread_pool.
 struct InFlightTask {
-  InFlightTask(absl::AnyInvocable<void() &&> callback)
+  InFlightTask(absl::AnyInvocable<void() &&> callback,
+               internal_tracing::TraceContext tc)
       : callback_(std::move(callback)),
-        tc_(internal_tracing::TraceContext(
-            internal_tracing::TraceContext::kThread)),
+        tc_(std::move(tc)),
         start_nanos(absl::GetCurrentTimeNanos()) {}
 
   void Run() {

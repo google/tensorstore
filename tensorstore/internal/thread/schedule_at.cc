@@ -38,7 +38,7 @@
 #include "tensorstore/internal/metrics/value.h"
 #include "tensorstore/internal/tagged_ptr.h"
 #include "tensorstore/internal/thread/thread.h"
-#include "tensorstore/internal/tracing/tracing.h"
+#include "tensorstore/internal/tracing/trace_context.h"
 #include "tensorstore/util/stop_token.h"
 
 using ::tensorstore::internal_metrics::MetricMetadata;

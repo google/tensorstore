@@ -73,6 +73,7 @@
 #include <limits>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include "absl/base/attributes.h"
 #include "absl/base/optimization.h"
@@ -90,6 +91,7 @@
 #include "tensorstore/internal/os/error_code.h"
 #include "tensorstore/internal/os/potentially_blocking_region.h"
 #include "tensorstore/internal/os/wstring.h"
+#include "tensorstore/internal/tracing/logged_trace_span.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
@@ -103,6 +105,7 @@
 using ::tensorstore::internal::ConvertUTF8ToWindowsWide;
 using ::tensorstore::internal::ConvertWindowsWideToUTF8;
 using ::tensorstore::internal::StatusFromOsError;
+using ::tensorstore::internal_tracing::LoggedTraceSpan;
 
 namespace tensorstore {
 namespace internal_os {
@@ -121,16 +124,6 @@ auto& mmap_active = internal_metrics::Gauge<int64_t>::New(
     internal_metrics::MetricMetadata("Count of active mmap files"));
 
 ABSL_CONST_INIT internal_log::VerboseFlag detail_logging("file_detail");
-
-#define TS_DETAIL_LOG_BEGIN \
-  ABSL_LOG_IF(INFO, detail_logging.Level(1)) << "Begin: " << __func__
-
-#define TS_DETAIL_LOG_END \
-  ABSL_LOG_IF(INFO, detail_logging.Level(1)) << "End: " << __func__
-
-#define TS_DETAIL_LOG_ERROR                  \
-  ABSL_LOG_IF(INFO, detail_logging.Level(1)) \
-      << "Error: " << __func__ << " " << ::GetLastError()
 
 /// Maximum length of Windows path, including terminating NUL.
 constexpr size_t kMaxWindowsPathSize = 32768;
@@ -152,6 +145,7 @@ inline ::OVERLAPPED GetLockOverlapped() {
 }
 
 bool RenameFilePosix(FileDescriptor fd, const std::wstring& new_name) {
+  LoggedTraceSpan tspan(__func__, detail_logging.Level(1));
   alignas(::FILE_RENAME_INFO) char
       file_rename_info_buffer[sizeof(::FILE_RENAME_INFO) + kMaxWindowsPathSize -
                               1];
@@ -167,6 +161,8 @@ bool RenameFilePosix(FileDescriptor fd, const std::wstring& new_name) {
 }
 
 bool DeleteFilePosix(FileDescriptor fd) {
+  LoggedTraceSpan tspan(__func__, detail_logging.Level(1), {{"handle", fd}});
+
   FileDispositionInfoExData disposition_info;
   disposition_info.Flags = 0x00000001 /*FILE_DISPOSITION_DELETE*/ |
                            0x00000002 /*FILE_DISPOSITION_POSIX_SEMANTICS*/;
@@ -191,16 +187,17 @@ Result<DWORD> GetFileAttributes(const std::wstring& filename) {
 #endif
 
 void UnlockWin32Lock(FileDescriptor fd) {
-  TS_DETAIL_LOG_BEGIN << " handle=" << fd;
+  LoggedTraceSpan tspan(__func__, detail_logging.Level(1), {{"handle", fd}});
+
   auto lock_offset = GetLockOverlapped();
   // Ignore any errors.
   ::UnlockFileEx(fd, /*dwReserved=*/0, /*nNumberOfBytesToUnlockLow=*/1,
                  /*nNumberOfBytesToUnlockHigh=*/0,
                  /*lpOverlapped=*/&lock_offset);
-  TS_DETAIL_LOG_END << " handle=" << fd;
 }
 
 FileDescriptor OpenFileImpl(const std::wstring& wpath, OpenFlags flags) {
+  LoggedTraceSpan tspan(__func__, detail_logging.Level(1));
   // Setup Win32 flags to somewhat mimic the POSIX flags.
   DWORD access = 0;
   if ((flags & OpenFlags::OpenReadOnly) == OpenFlags::OpenReadOnly) {
@@ -241,46 +238,49 @@ FileDescriptor OpenFileImpl(const std::wstring& wpath, OpenFlags flags) {
 }  // namespace
 
 void FileDescriptorTraits::Close(FileDescriptor fd) {
-  TS_DETAIL_LOG_BEGIN << " handle=" << fd;
+  LoggedTraceSpan tspan(__func__, detail_logging.Level(1), {{"handle", fd}});
+
   ::CloseHandle(fd);
-  TS_DETAIL_LOG_END << " handle=" << fd;
 }
 
 Result<UnlockFn> AcquireFdLock(FileDescriptor fd) {
-  TS_DETAIL_LOG_BEGIN << " handle=" << fd;
+  LoggedTraceSpan tspan(__func__, detail_logging.Level(1), {{"handle", fd}});
+
   auto lock_offset = GetLockOverlapped();
   if (::LockFileEx(fd, /*dwFlags=*/LOCKFILE_EXCLUSIVE_LOCK,
                    /*dwReserved=*/0,
                    /*nNumberOfBytesToLockLow=*/1,
                    /*nNumberOfBytesToLockHigh=*/0,
                    /*lpOverlapped=*/&lock_offset)) {
-    TS_DETAIL_LOG_END << " handle=" << fd;
     return UnlockWin32Lock;
   }
-  TS_DETAIL_LOG_ERROR << " handle=" << fd;
-  return StatusFromOsError(::GetLastError(), "Failed to lock file");
+  auto status = StatusFromOsError(::GetLastError(), "Failed to lock file");
+  return std::move(tspan).EndWithStatus(std::move(status));
 }
 
 Result<UniqueFileDescriptor> OpenFileWrapper(const std::string& path,
                                              OpenFlags flags) {
-  TS_DETAIL_LOG_BEGIN << " path=" << QuoteString(path);
+  LoggedTraceSpan tspan(__func__, detail_logging.Level(1), {{"path", path}});
+
   std::wstring wpath;
   TENSORSTORE_RETURN_IF_ERROR(ConvertUTF8ToWindowsWide(path, wpath));
 
   FileDescriptor fd = OpenFileImpl(wpath, flags);
 
   if (fd == FileDescriptorTraits::Invalid()) {
-    TS_DETAIL_LOG_ERROR << " path=\"" << path << "\"";
-    return StatusFromOsError(::GetLastError(),
-                             "Failed to open: ", QuoteString(path));
+    auto status = StatusFromOsError(::GetLastError(),
+                                    "Failed to open: ", QuoteString(path));
+    return std::move(tspan).EndWithStatus(std::move(status));
   }
-  TS_DETAIL_LOG_END << " path=" << QuoteString(path) << ", handle=" << fd;
+  tspan.Log("fd", fd);
   return UniqueFileDescriptor(fd);
 }
 
 Result<ptrdiff_t> ReadFromFile(FileDescriptor fd, void* buf, size_t count,
                                int64_t offset) {
-  TS_DETAIL_LOG_BEGIN << " handle=" << fd;
+  LoggedTraceSpan tspan(__func__, detail_logging.Level(1),
+                        {{"handle", fd}, {"size", count}});
+
   auto overlapped = GetOverlappedWithOffset(static_cast<uint64_t>(offset));
   if (count > std::numeric_limits<DWORD>::max()) {
     count = std::numeric_limits<DWORD>::max();
@@ -288,30 +288,33 @@ Result<ptrdiff_t> ReadFromFile(FileDescriptor fd, void* buf, size_t count,
   DWORD bytes_read;
   if (::ReadFile(fd, buf, static_cast<DWORD>(count), &bytes_read,
                  &overlapped)) {
-    TS_DETAIL_LOG_END << " handle=" << fd << ", bytes_read=" << bytes_read;
     return static_cast<ptrdiff_t>(bytes_read);
   }
-  TS_DETAIL_LOG_ERROR << " handle=" << fd;
-  return StatusFromOsError(::GetLastError(), "Failed to read from file");
+  auto status = StatusFromOsError(::GetLastError(), "Failed to read from file");
+  return std::move(tspan).EndWithStatus(std::move(status));
 }
 
 Result<ptrdiff_t> WriteToFile(FileDescriptor fd, const void* buf,
                               size_t count) {
-  TS_DETAIL_LOG_BEGIN << " handle=" << fd << ", count=" << count;
+  LoggedTraceSpan tspan(__func__, detail_logging.Level(1),
+                        {{"handle", fd}, {"size", count}});
+
   if (count > std::numeric_limits<DWORD>::max()) {
     count = std::numeric_limits<DWORD>::max();
   }
   DWORD num_written;
   if (::WriteFile(fd, buf, static_cast<DWORD>(count), &num_written,
                   /*lpOverlapped=*/nullptr)) {
-    TS_DETAIL_LOG_END << " handle=" << fd;
     return static_cast<size_t>(num_written);
   }
-  TS_DETAIL_LOG_ERROR << " handle=" << fd;
-  return StatusFromOsError(::GetLastError(), "Failed to write to file");
+  auto status = StatusFromOsError(::GetLastError(), "Failed to write to file");
+  return std::move(tspan).EndWithStatus(std::move(status));
 }
 
 Result<ptrdiff_t> WriteCordToFile(FileDescriptor fd, absl::Cord value) {
+  LoggedTraceSpan tspan(__func__, detail_logging.Level(1),
+                        {{"handle", fd}, {"size", value.size()}});
+
   // If we switched to OVERLAPPED io on Windows, then using WriteFileGather
   // would be similar to the unix ::writev call.
   size_t value_remaining = value.size();
@@ -329,23 +332,26 @@ Result<ptrdiff_t> WriteCordToFile(FileDescriptor fd, absl::Cord value) {
 }
 
 absl::Status TruncateFile(FileDescriptor fd) {
+  LoggedTraceSpan tspan(__func__, detail_logging.Level(1), {{"handle", fd}});
+
   if (::SetEndOfFile(fd)) {
     return absl::OkStatus();
   }
-  return StatusFromOsError(::GetLastError(), "Failed to truncate file");
+  auto status = StatusFromOsError(::GetLastError(), "Failed to truncate file");
+  return std::move(tspan).EndWithStatus(std::move(status));
 }
 
 absl::Status RenameOpenFile(FileDescriptor fd, const std::string& old_name,
                             const std::string& new_name) {
-  TS_DETAIL_LOG_BEGIN << " handle=" << fd
-                      << ", old_name=" << QuoteString(old_name)
-                      << ", new_name=" << QuoteString(new_name);
+  LoggedTraceSpan tspan(
+      __func__, detail_logging.Level(1),
+      {{"handle", fd}, {"old_name", old_name}, {"new_name", new_name}});
+
   std::wstring wpath_new;
   TENSORSTORE_RETURN_IF_ERROR(ConvertUTF8ToWindowsWide(new_name, wpath_new));
 
   // Try using Posix semantics.
   if (RenameFilePosix(fd, wpath_new)) {
-    TS_DETAIL_LOG_END << " handle=" << fd;
     return absl::OkStatus();
   }
 
@@ -361,17 +367,19 @@ absl::Status RenameOpenFile(FileDescriptor fd, const std::string& old_name,
   // Try using MoveFileEx, which may not be atomic.
   if (::MoveFileExW(wpath_old.c_str(), wpath_new.c_str(),
                     MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
-    TS_DETAIL_LOG_END << " handle=" << fd;
     return absl::OkStatus();
   }
 
-  TS_DETAIL_LOG_ERROR << " handle=" << fd;
-  return StatusFromOsError(::GetLastError(),
-                           "Failed to rename: ", QuoteString(old_name),
-                           " to: ", QuoteString(new_name));
+  auto status = StatusFromOsError(::GetLastError(),
+                                  "Failed to rename: ", QuoteString(old_name),
+                                  " to: ", QuoteString(new_name));
+  return std::move(tspan).EndWithStatus(std::move(status));
 }
 
 absl::Status DeleteOpenFile(FileDescriptor fd, const std::string& path) {
+  LoggedTraceSpan tspan(__func__, detail_logging.Level(1),
+                        {{"handle", fd}, {"path", path}});
+
   // This relies on the "POSIX Semantics" flag supported by Windows 10 in
   // order to remove the file from its containing directory as soon as the
   // handle is closed.  However, after the call to
@@ -380,7 +388,7 @@ absl::Status DeleteOpenFile(FileDescriptor fd, const std::string& path) {
   // result in the normal read/write paths failing with an error.  To avoid
   // that problem, we first rename the file to a random name, with a suffix of
   // `kLockSuffix` to prevent it from being included in List results.
-  TS_DETAIL_LOG_BEGIN << " handle=" << fd << ", path=" << QuoteString(path);
+
   unsigned int buf[5];
   for (int i = 0; i < 5; ++i) {
     ::rand_s(&buf[i]);
@@ -408,7 +416,6 @@ absl::Status DeleteOpenFile(FileDescriptor fd, const std::string& path) {
   }
   // Attempt to delete the open handle using posix semantics?
   if (DeleteFilePosix(fd)) {
-    TS_DETAIL_LOG_END << " handle=" << fd;
     return absl::OkStatus();
   }
 #ifndef NDEBUG
@@ -418,15 +425,16 @@ absl::Status DeleteOpenFile(FileDescriptor fd, const std::string& path) {
 #endif
   // The file has been renamed, so delete the renamed file.
   if (::DeleteFileW(wpath_temp.c_str())) {
-    TS_DETAIL_LOG_END << " handle=" << fd;
     return absl::OkStatus();
   }
-  TS_DETAIL_LOG_ERROR << " handle=" << fd;
-  return StatusFromOsError(::GetLastError(),
-                           "Failed to delete: ", QuoteString(path));
+  auto status = StatusFromOsError(::GetLastError(),
+                                  "Failed to delete: ", QuoteString(path));
+  return std::move(tspan).EndWithStatus(std::move(status));
 }
 
 absl::Status DeleteFile(const std::string& path) {
+  LoggedTraceSpan tspan(__func__, detail_logging.Level(1), {{"path", path}});
+
   std::wstring wpath;
   TENSORSTORE_RETURN_IF_ERROR(ConvertUTF8ToWindowsWide(path, wpath));
   UniqueFileDescriptor delete_fd(::CreateFileW(
@@ -443,8 +451,8 @@ absl::Status DeleteFile(const std::string& path) {
   if (delete_fd.valid()) {
     return DeleteOpenFile(delete_fd.get(), path);
   }
-  return StatusFromOsError(::GetLastError(),
-                           "Failed to delete: ", QuoteString(path));
+  return std::move(tspan).EndWithStatus(StatusFromOsError(
+      ::GetLastError(), "Failed to delete: ", QuoteString(path)));
 }
 
 uint32_t GetDefaultPageSize() {
@@ -462,19 +470,21 @@ Result<MappedRegion> MemmapFileReadOnly(FileDescriptor fd, size_t offset,
     return absl::InvalidArgumentError(
         "Offset must be a multiple of the default page size.");
   }
+  LoggedTraceSpan tspan(__func__, detail_logging.Level(1),
+                        {{"handle", fd}, {"offset", offset}, {"size", size}});
+
   if (size == 0) {
     ::BY_HANDLE_FILE_INFORMATION info;
     if (!::GetFileInformationByHandle(fd, &info)) {
-      TS_DETAIL_LOG_ERROR << " handle=" << fd;
-      return StatusFromOsError(::GetLastError(),
-                               "Failed in GetFileInformationByHandle");
+      return std::move(tspan).EndWithStatus(StatusFromOsError(
+          ::GetLastError(), "Failed in GetFileInformationByHandle"));
     }
 
     uint64_t file_size = GetSize(info);
     if (offset + size > file_size) {
-      return absl::OutOfRangeError(
+      return std::move(tspan).EndWithStatus(absl::OutOfRangeError(
           absl::StrCat("Requested offset ", offset, " + size ", size,
-                       " exceeds file size ", file_size));
+                       " exceeds file size ", file_size)));
     } else if (size == 0) {
       size = file_size - offset;
     }
@@ -483,16 +493,16 @@ Result<MappedRegion> MemmapFileReadOnly(FileDescriptor fd, size_t offset,
   UniqueFileDescriptor map_fd(
       ::CreateFileMappingA(fd, NULL, PAGE_READONLY, 0, 0, nullptr));
   if (!map_fd.valid()) {
-    TS_DETAIL_LOG_ERROR << " handle=" << fd;
-    return StatusFromOsError(::GetLastError(), "Failed in CreateFileMappingA");
+    return std::move(tspan).EndWithStatus(
+        StatusFromOsError(::GetLastError(), "Failed in CreateFileMappingA"));
   }
 
   void* address = ::MapViewOfFile(
       map_fd.get(), FILE_MAP_READ, static_cast<DWORD>(offset >> 32),
       static_cast<DWORD>(offset & 0xffffffff), size);
   if (!address) {
-    TS_DETAIL_LOG_ERROR << " handle=" << fd;
-    return StatusFromOsError(::GetLastError(), "Failed in MapViewOfFile");
+    return std::move(tspan).EndWithStatus(
+        StatusFromOsError(::GetLastError(), "Failed in MapViewOfFile"));
   }
 
   {
@@ -500,7 +510,6 @@ Result<MappedRegion> MemmapFileReadOnly(FileDescriptor fd, size_t offset,
     PrefetchVirtualMemory(GetCurrentProcess(), 1, &entry, 0);
   }
 
-  TS_DETAIL_LOG_END << " handle=" << fd;
   mmap_count.Increment();
   mmap_bytes.IncrementBy(size);
   mmap_active.Increment();
@@ -518,27 +527,27 @@ MappedRegion::~MappedRegion() {
 }
 
 absl::Status FsyncFile(FileDescriptor fd) {
-  TS_DETAIL_LOG_BEGIN << " handle=" << fd;
+  LoggedTraceSpan tspan(__func__, detail_logging.Level(1), {{"handle", fd}});
+
   if (::FlushFileBuffers(fd)) {
-    TS_DETAIL_LOG_END << " handle=" << fd;
     return absl::OkStatus();
   }
-  TS_DETAIL_LOG_ERROR << " handle=" << fd;
-  return StatusFromOsError(::GetLastError());
+  auto status = StatusFromOsError(::GetLastError());
+  return std::move(tspan).EndWithStatus(std::move(status));
 }
 
 absl::Status GetFileInfo(FileDescriptor fd, FileInfo* info) {
-  TS_DETAIL_LOG_BEGIN << " handle=" << fd;
+  LoggedTraceSpan tspan(__func__, detail_logging.Level(1), {{"handle", fd}});
+
   if (::GetFileInformationByHandle(fd, info)) {
-    TS_DETAIL_LOG_END << " handle=" << fd;
     return absl::OkStatus();
   }
-  TS_DETAIL_LOG_ERROR << " handle=" << fd;
-  return StatusFromOsError(::GetLastError());
+  auto status = StatusFromOsError(::GetLastError());
+  return std::move(tspan).EndWithStatus(std::move(status));
 }
 
 absl::Status GetFileInfo(const std::string& path, FileInfo* info) {
-  TS_DETAIL_LOG_BEGIN << " path=" << QuoteString(path);
+  LoggedTraceSpan tspan(__func__, detail_logging.Level(1), {{"path", path}});
 
   // The typedef uses BY_HANDLE_FILE_INFO, which includes device and index
   // metadata, and requires an open handle.
@@ -553,16 +562,16 @@ absl::Status GetFileInfo(const std::string& path, FileInfo* info) {
       /*hTemplateFile=*/nullptr));
   if (stat_fd.valid()) {
     if (::GetFileInformationByHandle(stat_fd.get(), info)) {
-      TS_DETAIL_LOG_END << " path=" << QuoteString(path);
       return absl::OkStatus();
     }
   }
-  TS_DETAIL_LOG_ERROR << " path=" << QuoteString(path);
-  return StatusFromOsError(::GetLastError(),
-                           "Failed to stat file: ", QuoteString(path));
+  auto status = StatusFromOsError(::GetLastError(),
+                                  "Failed to stat file: ", QuoteString(path));
+  return std::move(tspan).EndWithStatus(std::move(status));
 }
 
 Result<UniqueFileDescriptor> OpenDirectoryDescriptor(const std::string& path) {
+  LoggedTraceSpan tspan(__func__, detail_logging.Level(1), {{"path", path}});
   std::wstring wpath;
   TENSORSTORE_RETURN_IF_ERROR(ConvertUTF8ToWindowsWide(path, wpath));
   FileDescriptor fd = ::CreateFileW(
@@ -573,13 +582,16 @@ Result<UniqueFileDescriptor> OpenDirectoryDescriptor(const std::string& path) {
       /*dwFlagsAndAttributes=*/FILE_FLAG_BACKUP_SEMANTICS,
       /*hTemplateFile=*/nullptr);
   if (fd == FileDescriptorTraits::Invalid()) {
-    return StatusFromOsError(::GetLastError(),
-                             "Failed to open directory: ", QuoteString(path));
+    auto status = StatusFromOsError(
+        ::GetLastError(), "Failed to open directory: ", QuoteString(path));
+    return std::move(tspan).EndWithStatus(std::move(status));
   }
+  tspan.Log("fd", fd);
   return UniqueFileDescriptor(fd);
 }
 
 absl::Status MakeDirectory(const std::string& path) {
+  LoggedTraceSpan tspan(__func__, detail_logging.Level(1), {{"path", path}});
   std::wstring wpath;
   TENSORSTORE_RETURN_IF_ERROR(ConvertUTF8ToWindowsWide(path, wpath));
   if (::CreateDirectoryW(wpath.c_str(),
@@ -587,8 +599,9 @@ absl::Status MakeDirectory(const std::string& path) {
       ::GetLastError() == ERROR_ALREADY_EXISTS) {
     return absl::OkStatus();
   }
-  return StatusFromOsError(::GetLastError(),
-                           "Failed to create directory: ", QuoteString(path));
+  auto status = StatusFromOsError(
+      ::GetLastError(), "Failed to create directory: ", QuoteString(path));
+  return std::move(tspan).EndWithStatus(std::move(status));
 }
 
 absl::Status FsyncDirectory(FileDescriptor fd) {

@@ -36,6 +36,7 @@
 #include "tensorstore/internal/nditerable_transformed_array.h"
 #include "tensorstore/internal/nditerable_util.h"
 #include "tensorstore/internal/tagged_ptr.h"
+#include "tensorstore/internal/tracing/trace_span.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/progress.h"
@@ -43,6 +44,7 @@
 #include "tensorstore/resize_options.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/element_pointer.h"
+#include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/sender.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
@@ -125,6 +127,7 @@ struct WriteState : public internal::AtomicReferenceCount<WriteState> {
   Promise<void> copy_promise;
   Promise<void> commit_promise;
   IntrusivePtr<CommitState> commit_state{new CommitState};
+  internal_tracing::TraceSpan tspan{"tensorstore.Write"};
 
   void SetError(absl::Status error) {
     SetDeferredResult(copy_promise, std::move(error));
