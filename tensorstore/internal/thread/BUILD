@@ -71,9 +71,9 @@ tensorstore_cc_library(
         ":task",
         ":task_group_impl",
         "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/internal/tracing",
         "//tensorstore/util:executor",
         "@com_google_absl//absl/base:no_destructor",
-        "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/log:absl_log",
     ],
 )
@@ -179,6 +179,7 @@ tensorstore_cc_test(
         ":task",
         ":task_provider",
         "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/internal/tracing",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/synchronization",
         "@com_google_googletest//:gtest_main",

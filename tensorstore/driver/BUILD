@@ -151,6 +151,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/internal/json_binding:data_type",
+        "//tensorstore/internal/tracing",
         "//tensorstore/kvstore",
         "//tensorstore/serialization",
         "//tensorstore/serialization:registry",

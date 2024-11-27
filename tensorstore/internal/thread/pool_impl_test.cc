@@ -30,6 +30,7 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/thread/task.h"
 #include "tensorstore/internal/thread/task_provider.h"
+#include "tensorstore/internal/tracing/trace_context.h"
 
 namespace {
 
@@ -38,6 +39,7 @@ using ::tensorstore::internal::MakeIntrusivePtr;
 using ::tensorstore::internal_thread_impl::InFlightTask;
 using ::tensorstore::internal_thread_impl::SharedThreadPool;
 using ::tensorstore::internal_thread_impl::TaskProvider;
+using TC = ::tensorstore::internal_tracing::TraceContext;
 
 struct SingleTaskProvider : public TaskProvider {
   struct private_t {};
@@ -99,7 +101,8 @@ TEST(SharedThreadPoolTest, Basic) {
   {
     absl::Notification notification;
     auto provider = SingleTaskProvider::Make(
-        pool, std::make_unique<InFlightTask>([&] { notification.Notify(); }));
+        pool, std::make_unique<InFlightTask>([&] { notification.Notify(); },
+                                             TC(TC::kThread)));
 
     provider->Trigger();
     provider->Trigger();
@@ -119,7 +122,8 @@ TEST(SharedThreadPoolTest, LotsOfProviders) {
     absl::BlockingCounter a(i);
     for (int j = 0; j < i; j++) {
       providers.push_back(SingleTaskProvider::Make(
-          pool, std::make_unique<InFlightTask>([&] { a.DecrementCount(); })));
+          pool, std::make_unique<InFlightTask>([&] { a.DecrementCount(); },
+                                               TC(TC::kThread))));
     }
     for (auto& p : providers) p->Trigger();
     a.Wait();

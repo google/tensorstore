@@ -267,8 +267,8 @@ tensorstore_cc_library(
     name = "executor",
     hdrs = ["executor.h"],
     deps = [
-        "//tensorstore/internal:type_traits",
         "//tensorstore/internal/poly",
+        "//tensorstore/internal/tracing",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/functional:any_invocable",
         "@com_google_absl//absl/meta:type_traits",

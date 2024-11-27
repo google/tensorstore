@@ -26,7 +26,7 @@
 #include "absl/functional/any_invocable.h"
 #include "absl/meta/type_traits.h"
 #include "tensorstore/internal/poly/poly.h"
-#include "tensorstore/internal/type_traits.h"
+#include "tensorstore/internal/tracing/trace_context.h"
 
 namespace tensorstore {
 
@@ -79,12 +79,16 @@ class ExecutorBoundFunction {
   template <typename... T>
   std::enable_if_t<std::is_invocable_v<Function&, T...>>  //
   operator()(T&&... arg) {
+    internal_tracing::SwapCurrentTraceContext(&tc_);
     executor(std::bind(std::move(function), std::forward<T>(arg)...));
+    internal_tracing::SwapCurrentTraceContext(&tc_);
   }
   template <typename... T>
   std::enable_if_t<std::is_invocable_v<const Function&, T...>> operator()(
       T&&... arg) const {
+    internal_tracing::SwapCurrentTraceContext(&tc_);
     executor(std::bind(function, std::forward<T>(arg)...));
+    internal_tracing::SwapCurrentTraceContext(&tc_);
   }
 
   /// Executor object.
@@ -92,6 +96,9 @@ class ExecutorBoundFunction {
 
   /// Function object.
   ABSL_ATTRIBUTE_NO_UNIQUE_ADDRESS Function function;
+
+  /// Trace context.
+  ABSL_ATTRIBUTE_NO_UNIQUE_ADDRESS mutable internal_tracing::TraceContext tc_;
 };
 
 /// Returns an instance of `ExecutorBoundFunction` that invokes the given
@@ -106,7 +113,9 @@ std::enable_if_t<
     ExecutorBoundFunction<absl::remove_cvref_t<Executor>,
                           absl::remove_cvref_t<Function>>>
 WithExecutor(Executor&& executor, Function&& function) {
-  return {std::forward<Executor>(executor), std::forward<Function>(function)};
+  return {
+      std::forward<Executor>(executor), std::forward<Function>(function),
+      internal_tracing::TraceContext(internal_tracing::TraceContext::kThread)};
 }
 template <typename Executor, typename Function>
 std::enable_if_t<std::is_same_v<absl::remove_cvref_t<Executor>, InlineExecutor>,
