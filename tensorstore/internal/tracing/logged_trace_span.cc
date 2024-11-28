@@ -14,13 +14,36 @@
 
 #include "tensorstore/internal/tracing/logged_trace_span.h"
 
+#include <stdint.h>
+
+#include <atomic>
 #include <ostream>
 #include <string_view>
 
 #include "absl/strings/str_format.h"
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
 
 namespace tensorstore {
 namespace internal_tracing {
+
+/* static */
+uint64_t LoggedTraceSpan::random_id() {
+  static std::atomic<int64_t> base{absl::ToUnixNanos(absl::Now())};
+
+  thread_local uint64_t id =
+      static_cast<uint64_t>(base.fetch_add(1, std::memory_order_relaxed));
+
+  // Apply xorshift64, which has a period of 2^64-1, to the per-thread id
+  // to generate the next id.
+  uint64_t x = id;
+  do {
+    x ^= x << 13;
+    x ^= x >> 7;
+    x ^= x << 17;
+  } while (x == 0);
+  return id = x;
+}
 
 void LoggedTraceSpan::BeginLog(std::ostream& stream) {
   stream << absl::StreamFormat("%x: Start %s", id_, method());

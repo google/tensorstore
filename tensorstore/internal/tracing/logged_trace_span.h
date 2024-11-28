@@ -26,8 +26,6 @@
 #include "absl/log/log_streamer.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
-#include "absl/time/clock.h"
-#include "absl/time/time.h"
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/tracing/span_attribute.h"
 #include "tensorstore/internal/tracing/trace_span.h"
@@ -39,18 +37,7 @@ namespace internal_tracing {
 /// A TraceSpan which optionally includes scoped logging to ABSL INFO.
 class LoggedTraceSpan : public TraceSpan {
   // Generates a random ID for logging the Begin/End log messages.
-  inline uint64_t random_id() {
-    thread_local uint64_t id = absl::ToUnixNanos(absl::Now());
-    // Apply xorshift64, which has a period of 2^64-1, to the per-thread id
-    // to generate the next id.
-    uint64_t x = id;
-    do {
-      x ^= x << 13;
-      x ^= x >> 7;
-      x ^= x << 17;
-    } while (x == 0);
-    return id = x;
-  }
+  static uint64_t random_id();
 
  public:
   LoggedTraceSpan(std::string_view method, bool log,
