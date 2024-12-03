@@ -78,7 +78,7 @@ class ASTTransformer(ast.NodeTransformer):
     # variable named `dict`.  This global is defined in `bazel_globals.py` as an
     # alias for the `DictWithUnion` class defined above.
     return ast.copy_location(
-        ast.Call(
+        ast.Call(  # pytype: disable=wrong-arg-types
             ast.Name('__DictWithUnion', ctx=ast.Load()),
             args=[self.generic_visit(node)],
             keywords=[],
