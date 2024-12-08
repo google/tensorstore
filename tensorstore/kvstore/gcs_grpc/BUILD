@@ -10,10 +10,15 @@ licenses(["notice"])
 
 tensorstore_cc_library(
     name = "gcs_grpc",
-    srcs = ["gcs_grpc.cc"],
+    srcs = [
+        "gcs_grpc.cc",
+        "state.cc",
+    ],
+    hdrs = ["state.h"],
     deps = [
         ":get_credentials",
         ":storage_stub_pool",
+        ":use_directpath",
         "//tensorstore:context",
         "//tensorstore/internal:context_binding",
         "//tensorstore/internal:data_copy_concurrency_resource",
@@ -30,7 +35,6 @@ tensorstore_cc_library(
         "//tensorstore/internal/thread:schedule_at",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:batch_util",
-        "//tensorstore/kvstore:byte_range",
         "//tensorstore/kvstore:common_metrics",
         "//tensorstore/kvstore:generation",
         "//tensorstore/kvstore:key_range",
@@ -59,6 +63,7 @@ tensorstore_cc_library(
         "@com_google_googleapis//google/storage/v2:storage_cc_grpc",
         "@com_google_googleapis//google/storage/v2:storage_cc_proto",
         "@com_google_protobuf//:protobuf",
+        "@com_google_riegeli//riegeli/bytes:cord_writer",
     ],
     alwayslink = 1,
 )
@@ -184,5 +189,18 @@ tensorstore_cc_library(
         "@com_google_googleapis//google/storage/v2:storage_cc_grpc",
         "@com_google_googleapis//google/storage/v2:storage_cc_proto",
         "@com_google_protobuf//:protobuf",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "use_directpath",
+    srcs = ["use_directpath.cc"],
+    hdrs = ["use_directpath.h"],
+    deps = [
+        "//tensorstore/internal:env",
+        "//tensorstore/internal/os:get_bios_info",
+        "//tensorstore/util:result",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/strings",
     ],
 )

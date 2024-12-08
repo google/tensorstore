@@ -16,6 +16,7 @@
 #define TENSORSTORE_KVSTORE_GCS_GRPC_STORAGE_STUB_POOL_H_
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <atomic>
 #include <memory>
@@ -64,7 +65,8 @@ class StorageStubPool {
 // to use the same credentials for the same address.
 std::shared_ptr<StorageStubPool> GetSharedStorageStubPool(
     std::string address, uint32_t size,
-    std::shared_ptr<::grpc::ChannelCredentials> creds);
+    std::shared_ptr<::grpc::ChannelCredentials> creds,
+    absl::Duration wait_for_connected);
 
 }  // namespace internal_gcs_grpc
 }  // namespace tensorstore
