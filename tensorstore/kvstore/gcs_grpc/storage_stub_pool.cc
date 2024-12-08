@@ -55,11 +55,6 @@
 #include "google/storage/v2/storage.grpc.pb.h"
 #include "google/storage/v2/storage.pb.h"
 
-ABSL_FLAG(std::optional<bool>, tensorstore_gcs_grpc_use_local_subchannel_pool,
-          std::nullopt,
-          "Whether to use gRPC subchannel pools in the gcs_grpc driver. "
-          "Overrides TENSORSTORE_GCS_GRPC_USE_LOCAL_SUBCHANNEL_POOL.");
-
 ABSL_FLAG(std::optional<uint32_t>, tensorstore_gcs_grpc_channels, std::nullopt,
           "Default (and maximum) channels to use in gcs_grpc driver. "
           "Overrides TENSORSTORE_GCS_GRPC_CHANNELS.");
@@ -186,6 +181,12 @@ class LoggingInterceptorFactory : public ClientInterceptorFactoryInterface {
   }
 };
 
+bool IsDirectPathAddress(std::string_view address) {
+  return absl::StartsWith(address, "google:///") ||
+         absl::StartsWith(address, "google-c2p:///") ||
+         absl::StartsWith(address, "google-c2p-experimental:///");
+}
+
 /// Returns the number of channels to use.
 /// See also the channel construction in googleapis/google-cloud-cpp repository:
 /// https://github.com/googleapis/google-cloud-cpp/blob/main/google/cloud/storage/internal/grpc_client.cc#L188
@@ -194,6 +195,13 @@ uint32_t ChannelsForAddress(std::string_view address, uint32_t num_channels) {
   if (num_channels != 0) {
     return num_channels;
   }
+
+  if (IsDirectPathAddress(address)) {
+    // google-c2p are direct-path addresses; multiple channels are handled
+    // internally in gRPC.
+    return 1;
+  }
+
   // Use the flag --tensorstore_gcs_grpc_channels if present.
   // Use the environment variable TENSORSTORE_GCS_GRPC_CHANNELS if present.
   auto opt = GetFlagOrEnvValue(FLAGS_tensorstore_gcs_grpc_channels,
@@ -202,16 +210,38 @@ uint32_t ChannelsForAddress(std::string_view address, uint32_t num_channels) {
     return *opt;
   }
 
-  if (absl::StartsWith(address, "google-c2p:///") ||
-      absl::StartsWith(address, "google-c2p-experimental:///") ||
-      absl::EndsWith(address, ".googleprod.com")) {
-    // google-c2p are direct-path addresses; multiple channels are handled
-    // internally in gRPC.
-    return 1;
+  // Otherwise multiplex over a multiple channels.
+  return std::max(4u, std::thread::hardware_concurrency());
+}
+
+// Create a gRPC channel. See google cloud storage client in:
+// https://github.com/googleapis/google-cloud-cpp/blob/main/google/cloud/storage/internal/storage_stub_factory.cc
+std::shared_ptr<grpc::Channel> CreateChannel(
+    const std::string& address,
+    const std::shared_ptr<grpc::ChannelCredentials>& creds, int channel_id) {
+  grpc::ChannelArguments args;
+
+  if (!IsDirectPathAddress(address)) {
+    args.SetInt(GRPC_ARG_USE_LOCAL_SUBCHANNEL_POOL, 1);
+    args.SetInt(GRPC_ARG_CHANNEL_ID, channel_id);
+    args.SetInt(GRPC_ARG_DNS_ENABLE_SRV_QUERIES, 0);
+
+    args.SetInt(GRPC_ARG_KEEPALIVE_TIME_MS,
+                absl::ToInt64Milliseconds(absl::Minutes(5)));
   }
 
-  // Otherwise multiplex over a multiple channels.
-  return std::max(4u, std::thread::hardware_concurrency() / 2);
+  // TODO: Consider adding the following gcp API flags:
+  // args.SetInt(GRPC_ARG_TCP_TX_ZEROCOPY_ENABLED, 1);
+  // args.SetCompressionAlgorithm(GRPC_COMPRESS_NONE);
+
+  // The gRPC interceptor implements detailed logging.
+  std::vector<
+      std::unique_ptr<grpc::experimental::ClientInterceptorFactoryInterface>>
+      interceptors;
+  interceptors.push_back(std::make_unique<LoggingInterceptorFactory>());
+
+  return grpc::experimental::CreateCustomChannelWithInterceptors(
+      address, creds, args, std::move(interceptors));
 }
 
 }  // namespace
@@ -227,28 +257,10 @@ StorageStubPool::StorageStubPool(
   ABSL_LOG_IF(INFO, gcs_grpc_logging)
       << "Connecting to " << address_ << " with " << size << " channels";
 
-  bool use_subchannel_pool =
-      GetFlagOrEnvValue(FLAGS_tensorstore_gcs_grpc_use_local_subchannel_pool,
-                        "TENSORSTORE_GCS_GRPC_USE_LOCAL_SUBCHANNEL_POOL")
-          .value_or(false);
   for (int id = 0; id < channels_.size(); id++) {
     // See google cloud storage client in:
     // https://github.com/googleapis/google-cloud-cpp/blob/main/google/cloud/storage/internal/storage_stub_factory.cc
-    auto args = grpc::ChannelArguments();
-    if (size > 1 && use_subchannel_pool) {
-      args.SetInt(GRPC_ARG_USE_LOCAL_SUBCHANNEL_POOL, 1);
-      args.SetInt(GRPC_ARG_CHANNEL_ID, id);
-      args.SetInt(GRPC_ARG_DNS_ENABLE_SRV_QUERIES, 0);
-    }
-
-    // The gRPC interceptor implements detailed logging.
-    std::vector<
-        std::unique_ptr<grpc::experimental::ClientInterceptorFactoryInterface>>
-        interceptors;
-    interceptors.push_back(std::make_unique<LoggingInterceptorFactory>());
-
-    channels_[id] = grpc::experimental::CreateCustomChannelWithInterceptors(
-        address_, creds, args, std::move(interceptors));
+    channels_[id] = CreateChannel(address_, creds, id);
     stubs_[id] = Storage::NewStub(channels_[id]);
   }
 }
@@ -270,7 +282,8 @@ void StorageStubPool::WaitForConnected(absl::Duration duration) {
 
 std::shared_ptr<StorageStubPool> GetSharedStorageStubPool(
     std::string address, uint32_t size,
-    std::shared_ptr<::grpc::ChannelCredentials> creds) {
+    std::shared_ptr<::grpc::ChannelCredentials> creds,
+    absl::Duration wait_for_connected) {
   static absl::NoDestructor<
       absl::flat_hash_map<std::string, std::shared_ptr<StorageStubPool>>>
       shared_pool;
@@ -282,6 +295,7 @@ std::shared_ptr<StorageStubPool> GetSharedStorageStubPool(
   if (pool == nullptr) {
     pool = std::make_shared<StorageStubPool>(std::move(address), size,
                                              std::move(creds));
+    pool->WaitForConnected(wait_for_connected);
   }
   return pool;
 }

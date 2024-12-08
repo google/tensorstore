@@ -257,3 +257,24 @@ tensorstore_cc_library(
         "@com_google_absl//absl/status",
     ],
 )
+
+tensorstore_cc_library(
+    name = "get_bios_info",
+    srcs = select({
+        "@platforms//os:windows": [
+            "get_bios_info_win.cc",
+        ],
+        "//conditions:default": [
+            "get_bios_info_linux.cc",
+        ],
+    }),
+    hdrs = ["get_bios_info.h"],
+    deps = [
+        ":error_code",
+        ":potentially_blocking_region",
+        "//tensorstore/util:quote_string",
+        "//tensorstore/util:result",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+    ],
+)

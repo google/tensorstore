@@ -32,7 +32,6 @@
 
 #include "absl/base/attributes.h"
 #include "absl/base/thread_annotations.h"
-#include "absl/crc/crc32c.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
@@ -56,13 +55,14 @@
 #include "tensorstore/internal/thread/schedule_at.h"
 #include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/batch_util.h"
-#include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/common_metrics.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/gcs/gcs_resource.h"
 #include "tensorstore/kvstore/gcs/validate.h"
 #include "tensorstore/kvstore/gcs_grpc/get_credentials.h"
+#include "tensorstore/kvstore/gcs_grpc/state.h"
 #include "tensorstore/kvstore/gcs_grpc/storage_stub_pool.h"
+#include "tensorstore/kvstore/gcs_grpc/use_directpath.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/generic_coalescing_batch_util.h"
 #include "tensorstore/kvstore/key_range.h"
@@ -334,34 +334,27 @@ class GcsGrpcKeyValueStore
 
 ////////////////////////////////////////////////////
 
-/// Abseil has a convenient crc32_t type, but it doesn't handle cord.
-absl::crc32c_t ComputeCrc32c(const absl::Cord& cord) {
-  absl::crc32c_t crc{0};
-  for (auto chunk : cord.Chunks()) {
-    crc = absl::ExtendCrc32c(crc, chunk);
-  }
-  return crc;
-}
-
 // Implements GcsGrpcKeyValueStore::Read
 // rpc ReadObject(ReadObjectRequest) returns (stream ReadObjectResponse) {}
 struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
                   public grpc::ClientReadReactor<ReadObjectResponse> {
   internal::IntrusivePtr<GcsGrpcKeyValueStore> driver_;
-  kvstore::ReadOptions options_;
+  internal_gcs_grpc::ReadState state_;
   Promise<kvstore::ReadResult> promise_;
 
   // working state.
-  Storage::StubInterface* stub_ = nullptr;
   ReadObjectRequest request_;
   ReadObjectResponse response_;
-  std::optional<absl::crc32c_t> crc32c_;
-  TimestampedStorageGeneration storage_generation_;
-  absl::Cord value_;
 
   int attempt_ = 0;
   absl::Mutex mutex_;
   std::unique_ptr<grpc::ClientContext> context_ ABSL_GUARDED_BY(mutex_);
+
+  ReadTask(internal::IntrusivePtr<GcsGrpcKeyValueStore> driver,
+           kvstore::ReadOptions options, Promise<kvstore::ReadResult> promise)
+      : driver_(std::move(driver)),
+        state_(std::move(options)),
+        promise_(std::move(promise)) {}
 
   void TryCancel() ABSL_LOCKS_EXCLUDED(mutex_) {
     absl::MutexLock lock(&mutex_);
@@ -371,41 +364,12 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
   void Start(const std::string& object_name) {
     ABSL_LOG_IF(INFO, gcs_grpc_logging) << "ReadTask " << object_name;
 
-    stub_ = driver_->get_stub().get();
     promise_.ExecuteWhenNotNeeded(
         [self = internal::IntrusivePtr<ReadTask>(this)] { self->TryCancel(); });
 
     request_.set_bucket(driver_->bucket_name());
     request_.set_object(object_name);
-
-    if (!StorageGeneration::IsUnknown(
-            options_.generation_conditions.if_equal)) {
-      uint64_t gen =
-          StorageGeneration::IsNoValue(options_.generation_conditions.if_equal)
-              ? 0
-              : StorageGeneration::ToUint64(
-                    options_.generation_conditions.if_equal);
-      request_.set_if_generation_match(gen);
-    }
-    if (!StorageGeneration::IsUnknown(
-            options_.generation_conditions.if_not_equal)) {
-      uint64_t gen = StorageGeneration::IsNoValue(
-                         options_.generation_conditions.if_not_equal)
-                         ? 0
-                         : StorageGeneration::ToUint64(
-                               options_.generation_conditions.if_not_equal);
-      request_.set_if_generation_not_match(gen);
-    }
-    if (options_.byte_range.inclusive_min != 0) {
-      request_.set_read_offset(options_.byte_range.inclusive_min);
-    }
-    if (options_.byte_range.exclusive_max != -1) {
-      auto target_size = options_.byte_range.size();
-      assert(target_size >= 0);
-      // read_limit == 0 reads the entire object; instead just read a single
-      // byte.
-      request_.set_read_limit(target_size == 0 ? 1 : target_size);
-    }
+    state_.SetupRequest(request_);
 
     Retry();
   }
@@ -416,18 +380,17 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
     }
 
     // Retry always starts from a "clean" request, so clear the value.
-    value_.Clear();
-    storage_generation_ =
-        TimestampedStorageGeneration{StorageGeneration::Unknown(), absl::Now()};
+    state_.ResetWorkingState();
 
     {
       absl::MutexLock lock(&mutex_);
       assert(context_ == nullptr);
       context_ = driver_->AllocateContext();
+      auto stub = driver_->get_stub();
 
       // Start a call.
       intrusive_ptr_increment(this);  // adopted in OnDone.
-      stub_->async()->ReadObject(context_.get(), &request_, this);
+      stub->async()->ReadObject(context_.get(), &request_, this);
     }
 
     StartRead(&response_);
@@ -440,56 +403,14 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
       TryCancel();
       return;
     }
-    if (response_.has_metadata()) {
-      storage_generation_.generation =
-          StorageGeneration::FromUint64(response_.metadata().generation());
-    }
-    if (response_.has_object_checksums() &&
-        response_.object_checksums().crc32c() != 0 &&
-        options_.byte_range.inclusive_min == 0 &&
-        !options_.byte_range.exclusive_max) {
-      // Do not validate byte-range requests.
-      crc32c_ = absl::crc32c_t(response_.object_checksums().crc32c());
-    }
-    if (response_.has_content_range()) {
-      // The content-range request indicates the expected data. If it does not
-      // satisfy the byte range request, cancel the read with an error. Allow
-      // the returned size to exceed the requested size.
-      auto returned_size =
-          response_.content_range().end() - response_.content_range().start();
-      if (auto size = options_.byte_range.size();
-          (size > 0 && size != returned_size) ||
-          (options_.byte_range.inclusive_min >= 0 &&
-           response_.content_range().start() !=
-               options_.byte_range.inclusive_min)) {
-        promise_.SetResult(absl::OutOfRangeError(
-            tensorstore::StrCat("Requested byte range ", options_.byte_range,
-                                " was not satisfied by GCS object with size ",
-                                response_.content_range().complete_length())));
-        TryCancel();
-        return;
-      }
-    }
-    if (response_.has_checksummed_data() &&
-        response_.checksummed_data().has_crc32c() &&
-        response_.checksummed_data().crc32c() != 0) {
-      // Validate the content checksum.
-      auto content_crc32c =
-          ComputeCrc32c(response_.checksummed_data().content());
-      if (content_crc32c !=
-          absl::crc32c_t(response_.checksummed_data().crc32c())) {
-        promise_.SetResult(absl::DataLossError(absl::StrFormat(
-            "Object fragment crc32c %08x does not match expected crc32c %08x",
-            static_cast<uint32_t>(content_crc32c),
-            response_.checksummed_data().crc32c())));
-        TryCancel();
-        return;
-      }
-    }
     if (response_.has_checksummed_data()) {
       gcs_grpc_metrics.bytes_read.IncrementBy(
           response_.checksummed_data().content().size());
-      value_.Append(response_.checksummed_data().content());
+    }
+    if (auto status = state_.HandleResponse(response_); !status.ok()) {
+      promise_.SetResult(status);
+      TryCancel();
+      return;
     }
 
     // Issue next request, if necessary.
@@ -514,6 +435,10 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
       context_ = nullptr;
     }
 
+    auto latency = state_.GetLatency();
+    gcs_grpc_metrics.read_latency_ms.Observe(
+        absl::ToInt64Milliseconds(latency));
+
     if (!status.ok() && attempt_ == 0 &&
         status.code() == absl::StatusCode::kUnauthenticated) {
       // Allow a single unauthenticated error.
@@ -529,49 +454,7 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
       }
     }
 
-    auto latency = absl::Now() - storage_generation_.time;
-    gcs_grpc_metrics.read_latency_ms.Observe(
-        absl::ToInt64Milliseconds(latency));
-
-    if (!status.ok()) {
-      if (absl::IsFailedPrecondition(status) || absl::IsAborted(status)) {
-        // Failed precondition is set when either the if_generation_match or
-        // the if_generation_not_match fails.
-        if (!StorageGeneration::IsUnknown(
-                options_.generation_conditions.if_equal)) {
-          storage_generation_.generation = StorageGeneration::Unknown();
-        } else {
-          storage_generation_.generation =
-              options_.generation_conditions.if_not_equal;
-        }
-        promise_.SetResult(
-            kvstore::ReadResult::Unspecified(std::move(storage_generation_)));
-        return;
-      }
-      if (absl::IsNotFound(status)) {
-        promise_.SetResult(
-            kvstore::ReadResult::Missing(storage_generation_.time));
-        return;
-      }
-      promise_.SetResult(std::move(status));
-      return;
-    }
-    if (StorageGeneration::IsUnknown(storage_generation_.generation)) {
-      // Bad metadata was returned by BlobService; this is unexpected, and
-      // usually indicates a bug in our testing.
-      promise_.SetResult(
-          absl::InternalError("Object missing a valid generation"));
-      return;
-    }
-    if (options_.byte_range.size() == 0) {
-      value_.Clear();
-    } else if (crc32c_.has_value() && ComputeCrc32c(value_) != *crc32c_) {
-      promise_.SetResult(
-          absl::DataLossError("Object crc32c does not match expected crc32c"));
-      return;
-    }
-    promise_.SetResult(kvstore::ReadResult::Value(
-        std::move(value_), std::move(storage_generation_)));
+    promise_.SetResult(state_.HandleFinalStatus(status));
   }
 };
 
@@ -582,76 +465,34 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
 struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
                    public grpc::ClientWriteReactor<WriteObjectRequest> {
   internal::IntrusivePtr<GcsGrpcKeyValueStore> driver_;
-  kvstore::WriteOptions options_;
+  internal_gcs_grpc::WriteState state_;
   Promise<TimestampedStorageGeneration> promise_;
   std::string object_name_;
-  absl::Cord value_;
-  Storage::StubInterface* stub_ = nullptr;
 
   // working state.
   WriteObjectRequest request_;
   WriteObjectResponse response_;
-  TimestampedStorageGeneration write_result_;
-  size_t write_offset_;
-  absl::crc32c_t crc32c_;
 
   int attempt_ = 0;
   absl::Mutex mutex_;
   std::unique_ptr<grpc::ClientContext> context_ ABSL_GUARDED_BY(mutex_);
+
+  WriteTask(internal::IntrusivePtr<GcsGrpcKeyValueStore> driver,
+            kvstore::WriteOptions options, absl::Cord data,
+            Promise<TimestampedStorageGeneration> promise)
+      : driver_(std::move(driver)),
+        state_(std::move(options), std::move(data)),
+        promise_(std::move(promise)) {}
 
   void TryCancel() ABSL_LOCKS_EXCLUDED(mutex_) {
     absl::MutexLock lock(&mutex_);
     if (context_) context_->TryCancel();
   }
 
-  void UpdateRequestForNextWrite() ABSL_LOCKS_EXCLUDED(mutex_) {
-    absl::MutexLock lock(&mutex_);
-    if (write_offset_ == 0) {
-      write_result_.time = absl::Now();
-      // First request, make sure that the spec is setup correctly.
-      auto& resource =
-          *request_.mutable_write_object_spec()->mutable_resource();
-      resource.set_bucket(driver_->bucket_name());
-      resource.set_name(object_name_);
-      request_.mutable_write_object_spec()->set_object_size(value_.size());
-      if (!StorageGeneration::IsUnknown(
-              options_.generation_conditions.if_equal)) {
-        auto gen = StorageGeneration::ToUint64(
-            options_.generation_conditions.if_equal);
-        request_.mutable_write_object_spec()->set_if_generation_match(gen);
-      }
-    } else {
-      // After the first request, clear the spec.
-      request_.clear_write_object_spec();
-    }
-
-    request_.set_write_offset(write_offset_);
-    size_t next_write_offset =
-        std::min(write_offset_ + kMaxWriteBytes, value_.size());
-
-    auto& checksummed_data = *request_.mutable_checksummed_data();
-    checksummed_data.set_content(
-        value_.Subcord(write_offset_, next_write_offset - write_offset_));
-    auto chunk_crc32c = ComputeCrc32c(checksummed_data.content());
-    checksummed_data.set_crc32c(static_cast<uint32_t>(chunk_crc32c));
-    crc32c_ = absl::ConcatCrc32c(crc32c_, chunk_crc32c,
-                                 checksummed_data.content().size());
-    write_offset_ = next_write_offset;
-
-    if (write_offset_ == value_.size()) {
-      /// This is the last request.
-      request_.mutable_object_checksums()->set_crc32c(
-          static_cast<uint32_t>(crc32c_));
-      request_.set_finish_write(true);
-    }
-  }
-
-  void Start(std::string object_name, absl::Cord value) {
+  void Start(std::string object_name) {
     ABSL_LOG_IF(INFO, gcs_grpc_logging) << "WriteTask " << object_name;
 
     object_name_ = std::move(object_name);
-    value_ = std::move(value);
-    stub_ = driver_->get_stub().get();
     promise_.ExecuteWhenNotNeeded([self = internal::IntrusivePtr<WriteTask>(
                                        this)] { self->TryCancel(); });
     Retry();
@@ -663,22 +504,26 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
       return;
     }
 
-    // Clear the working state on retries.
-    write_offset_ = 0;
-    crc32c_ = absl::crc32c_t{0};
+    // Retry always starts from a "clean" request, so clear the value.
     request_.Clear();
+    state_.ResetWorkingState();
+
+    // First request, make sure that the spec is setup correctly.
+    auto& resource = *request_.mutable_write_object_spec()->mutable_resource();
+    resource.set_bucket(driver_->bucket_name());
+    resource.set_name(object_name_);
 
     {
       absl::MutexLock lock(&mutex_);
       assert(context_ == nullptr);
       context_ = driver_->AllocateContext();
-
+      auto stub = driver_->get_stub();
       // Initiate the write.
       intrusive_ptr_increment(this);
-      stub_->async()->WriteObject(context_.get(), &response_, this);
+      stub->async()->WriteObject(context_.get(), &response_, this);
     }
 
-    UpdateRequestForNextWrite();
+    state_.UpdateRequestForNextWrite(request_);
 
     auto options = grpc::WriteOptions();
     if (request_.finish_write()) {
@@ -693,7 +538,7 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
     if (!ok) return;
     if (request_.finish_write()) return;
 
-    UpdateRequestForNextWrite();
+    state_.UpdateRequestForNextWrite(request_);
 
     auto options = grpc::WriteOptions();
     if (request_.finish_write()) {
@@ -715,7 +560,7 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
       return;
     }
 
-    auto latency = absl::Now() - write_result_.time;
+    auto latency = state_.GetLatency();
     gcs_grpc_metrics.write_latency_ms.Observe(
         absl::ToInt64Milliseconds(latency));
     {
@@ -739,25 +584,7 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
       }
     }
 
-    if (response_.has_resource()) {
-      write_result_.generation =
-          StorageGeneration::FromUint64(response_.resource().generation());
-    }
-    if (absl::IsFailedPrecondition(status) || absl::IsAlreadyExists(status)) {
-      // if_equal condition did not match.
-      write_result_.generation = StorageGeneration::Unknown();
-      promise_.SetResult(std::move(write_result_));
-    } else if (absl::IsNotFound(status) &&
-               !StorageGeneration::IsUnknown(
-                   options_.generation_conditions.if_equal)) {
-      // precondition did not match.
-      write_result_.generation = StorageGeneration::Unknown();
-      promise_.SetResult(std::move(write_result_));
-    } else if (!status.ok()) {
-      promise_.SetResult(status);
-    } else {
-      promise_.SetResult(std::move(write_result_));
-    }
+    promise_.SetResult(state_.HandleFinalStatus(status, response_));
   }
 };
 
@@ -769,7 +596,6 @@ struct DeleteTask : public internal::AtomicReferenceCount<DeleteTask> {
   Promise<TimestampedStorageGeneration> promise_;
 
   // Working state
-  Storage::StubInterface* stub_ = nullptr;
   absl::Time start_time_;
   DeleteObjectRequest request_;
   ::google::protobuf::Empty response_;
@@ -785,7 +611,6 @@ struct DeleteTask : public internal::AtomicReferenceCount<DeleteTask> {
   void Start(const std::string& object_name) {
     ABSL_LOG_IF(INFO, gcs_grpc_logging) << "DeleteTask " << object_name;
 
-    stub_ = driver_->get_stub().get();
     promise_.ExecuteWhenNotNeeded([self = internal::IntrusivePtr<DeleteTask>(
                                        this)] { self->TryCancel(); });
 
@@ -810,9 +635,10 @@ struct DeleteTask : public internal::AtomicReferenceCount<DeleteTask> {
       absl::MutexLock lock(&mutex_);
       assert(context_ == nullptr);
       context_ = driver_->AllocateContext();
+      auto stub = driver_->get_stub();
 
       intrusive_ptr_increment(this);  // Adopted by OnDone
-      stub_->async()->DeleteObject(
+      stub->async()->DeleteObject(
           context_.get(), &request_, &response_,
           WithExecutor(driver_->executor(), [this](::grpc::Status s) {
             internal::IntrusivePtr<DeleteTask> self(this,
@@ -874,7 +700,7 @@ struct ListTask : public internal::AtomicReferenceCount<ListTask> {
   ListReceiver receiver_;
 
   // working state.
-  Storage::StubInterface* stub_ = nullptr;
+  std::shared_ptr<Storage::StubInterface> stub_;
   ListObjectsRequest request;
   ListObjectsResponse response;
 
@@ -917,7 +743,6 @@ struct ListTask : public internal::AtomicReferenceCount<ListTask> {
   void Start() {
     ABSL_LOG_IF(INFO, gcs_grpc_logging) << "ListTask " << options_.range;
 
-    stub_ = driver_->get_stub().get();
     request.set_lexicographic_start(options_.range.inclusive_min);
     request.set_lexicographic_end(options_.range.exclusive_max);
     request.set_parent(driver_->bucket_name());
@@ -936,6 +761,7 @@ struct ListTask : public internal::AtomicReferenceCount<ListTask> {
     {
       absl::MutexLock lock(&mutex_);
       context_ = driver_->AllocateContext();
+      stub_ = driver_->get_stub();
 
       intrusive_ptr_increment(this);
       stub_->async()->ListObjects(
@@ -1055,10 +881,9 @@ Future<kvstore::ReadResult> GcsGrpcKeyValueStore::ReadImpl(
   gcs_grpc_metrics.batch_read.Increment();
   auto op = PromiseFuturePair<ReadResult>::Make();
 
-  auto task = internal::MakeIntrusivePtr<ReadTask>();
-  task->driver_ = internal::IntrusivePtr<GcsGrpcKeyValueStore>(this);
-  task->options_ = std::move(options);
-  task->promise_ = std::move(op.promise);
+  auto task = internal::MakeIntrusivePtr<ReadTask>(
+      internal::IntrusivePtr<GcsGrpcKeyValueStore>(this), std::move(options),
+      std::move(op.promise));
   task->Start(key);
   return std::move(op.future);
 }
@@ -1081,11 +906,10 @@ Future<TimestampedStorageGeneration> GcsGrpcKeyValueStore::Write(
     task->promise_ = std::move(op.promise);
     task->Start(key);
   } else {
-    auto task = internal::MakeIntrusivePtr<WriteTask>();
-    task->driver_ = internal::IntrusivePtr<GcsGrpcKeyValueStore>(this);
-    task->options_ = std::move(options);
-    task->promise_ = std::move(op.promise);
-    task->Start(key, *std::move(value));
+    auto task = internal::MakeIntrusivePtr<WriteTask>(
+        internal::IntrusivePtr<GcsGrpcKeyValueStore>(this), std::move(options),
+        *std::move(value), std::move(op.promise));
+    task->Start(key);
   }
   return std::move(op.future);
 }
@@ -1127,23 +951,23 @@ Future<kvstore::DriverPtr> GcsGrpcKeyValueStoreSpec::DoOpen() const {
   driver->spec_ = data_;
   driver->bucket_ = absl::StrFormat("projects/_/buckets/%s", data_.bucket);
 
+  // Use direct path endpoint by default when running on a GCP machine.
+  // https://github.com/googleapis/google-cloud-cpp/google/cloud/storage/internal/grpc/default_options.cc
   std::string endpoint = data_.endpoint;
   if (endpoint.empty()) {
-    endpoint = "dns:///storage.googleapis.com";
+    if (internal_gcs_grpc::UseDirectPathGcsEndpointByDefault()) {
+      endpoint = "google-c2p:///storage.googleapis.com";
+    } else {
+      endpoint = "dns:///storage.googleapis.com";
+    }
   }
 
-  // TODO(laramiel): Introduce a common mechanism for gRPC credentials, to the extent
-  // possible.
   auto channel_credentials =
       GetCredentialsForEndpoint(endpoint, driver->call_credentials_fn_);
   driver->storage_stub_pool_ = GetSharedStorageStubPool(
-      endpoint, data_.num_channels, std::move(channel_credentials));
+      endpoint, data_.num_channels, std::move(channel_credentials),
+      driver->spec_.wait_for_connection);
 
-  // Maybe wait for the channels to be connected.
-  if (driver->spec_.wait_for_connection > absl::ZeroDuration()) {
-    driver->storage_stub_pool_->WaitForConnected(
-        driver->spec_.wait_for_connection);
-  }
   return driver;
 }
 
