@@ -96,7 +96,7 @@ def run(args, extra_args):
 
   env["CIBW_ARCHS_MACOS"] = "x86_64 arm64"
   env["CIBW_SKIP"] = (
-      "cp27-* cp35-* cp36-* cp37-* cp38-* cp313-* pp* *_i686 *-win32"
+      "cp27-* cp35-* cp36-* cp37-* cp38-* cp39-* pp* *_i686 *-win32"
       " *-musllinux*"
   )
   env["CIBW_TEST_COMMAND"] = (
@@ -143,7 +143,11 @@ def run(args, extra_args):
   )
 
   env["CIBW_BEFORE_BUILD"] = " && ".join([
-      "pip install -r {package}/tools/ci/build_requirements.txt",
+      (
+          "pip install "
+          "-r {package}/third_party/pypa/build_requirements_frozen.txt "
+          "-r {package}/third_party/pypa/wheel_requirements_frozen.txt"
+      ),
   ])
   bazel_cache_dir = os.getenv(
       "CIBUILDWHEEL_BAZEL_CACHE",

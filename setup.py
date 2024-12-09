@@ -18,8 +18,8 @@ This invokes bazel via the included `bazelisk.py` wrapper script.
 
 import sys
 
-if sys.version_info < (3, 9):
-  print('Python >= 3.9 is required to build')
+if sys.version_info < (3, 10):
+  print('Python >= 3.10 is required to build')
   sys.exit(1)
 
 # Import setuptools before distutils because setuptools monkey patches
@@ -342,31 +342,7 @@ class InstallCommand(setuptools.command.install.install):
     super().run()
 
 
-with open(
-    os.path.join(os.path.dirname(__file__), 'README.md'),
-    mode='r',
-    encoding='utf-8',
-) as f:
-  long_description = f.read()
-
 setuptools.setup(
-    name='tensorstore',
-    use_scm_version={
-        # It would be nice to include the commit hash in the version, but that
-        # can't be done in a PEP 440-compatible way.
-        'version_scheme': 'no-guess-dev',
-        # Test PyPI does not support local versions.
-        'local_scheme': 'no-local-version',
-        'fallback_version': '0.0.0',
-    },
-    description='Read and write large, multi-dimensional arrays',
-    long_description=long_description,
-    long_description_content_type='text/markdown',
-    author='Google Inc.',
-    author_email='jbms@google.com',
-    url='https://github.com/google/tensorstore',
-    license='Apache License 2.0',
-    python_requires='>=3.9',
     packages=setuptools.find_packages('python'),
     package_dir={'': 'python'},
     ext_modules=[setuptools.Extension('tensorstore/_tensorstore', sources=[])],
@@ -378,8 +354,4 @@ setuptools.setup(
         'build_ext': BuildExtCommand,
         'install': InstallCommand,
     },
-    install_requires=[
-        'numpy>=1.22.0',
-        'ml_dtypes>=0.3.1',
-    ],
 )

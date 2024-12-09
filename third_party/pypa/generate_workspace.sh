@@ -15,39 +15,7 @@
 # limitations under the License.
 
 # This script regenerates the workspace.bzl and requirements_frozen.txt files
-# Additional parameters to pypi_solver may be passed as script args.
+# Additional parameters to generate_workspace.py may be passed as script args.
 
-PYPA_DIR=$(dirname "${BASH_SOURCE[0]}")
-VENV_DIR=$(mktemp -d)
-
-if [[ ! "$VENV_DIR" || ! -d "$VENV_DIR" ]]; then
-  echo "Could not create temp dir"
-  exit 1
-fi
-
-function cleanup {
-  rm -rf "$VENV_DIR"
-  echo "Deleted temp working directory $VENV_DIR"
-}
-
-# register the cleanup function to be called on the EXIT signal
-trap cleanup EXIT
-
-echo "Setting up pip environment in ${VENV_DIR}"
-echo
-
-# implementation of script starts here
-python3 -m venv ${VENV_DIR}
-
-${VENV_DIR}/bin/pip install google-cloud-bigquery ortools pandas requests
-
-echo
-echo "Resolving workspace dependencies"
-
-${VENV_DIR}/bin/python3 \
-  ${PYPA_DIR}/../../tools/pypi_solver/main.py \
-  --workspace=${PYPA_DIR}/workspace.bzl \
-  --project=tensorstore \
-  ${PYPA_DIR}/*_requirements.txt \
-  "$@"
-
+cd "$(dirname "$0")"
+exec ./generate_workspace.py *_requirements.txt --workspace workspace.bzl "$@"
