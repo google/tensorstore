@@ -52,6 +52,14 @@
 #include <semaphore.h>
 #endif
 
+#ifdef _WIN32
+// This declaration was removed from the public headers in Python 3.13.
+// https://github.com/python/cpython/pull/108605
+extern "C" {
+PyAPI_FUNC(void*) _PyOS_SigintEvent(void);
+}
+#endif
+
 namespace tensorstore {
 namespace internal_python {
 namespace py = ::pybind11;

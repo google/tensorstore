@@ -1,7 +1,41 @@
+[project]
+name = "tensorstore"
+requires-python = ">= 3.10"
+dynamic = ["version"]
+dependencies = [
+  "numpy>=1.22.0",
+  "ml_dtypes>=0.3.1",
+]
+description = "Read and write large, multi-dimensional arrays"
+readme = "README.md"
+authors = [
+  { name = "TensorStore Team", email = "tensorstore-team@google.com" },
+]
+license = { file = "LICENSE" }
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "License :: OSI Approved :: Apache Software License",
+  "Topic :: Software Development :: Libraries",
+]
+
+[project.urls]
+Repository = "https://github.com/google/tensorstore"
+Issues = "https://github.com/google/tensorstore/issues"
+Documentation = "https://google.github.io/tensorstore"
+
 [build-system]
 requires = [
-    "setuptools>=30.3.0",
-    "wheel",
-    "setuptools_scm>=8.1.0",
-    "numpy>=2.0.0",
+  "setuptools>=64",
+  "wheel",
+  "setuptools_scm>=8.1.0",
+  "numpy>=2.0.0",
 ]
+build-backend = "setuptools.build_meta"
+
+[tools.setuptools_scm]
+# It would be nice to include the commit hash in the version, but that
+# can't be done in a PEP 440-compatible way.
+version_scheme = "no-guess-dev"
+# Test PyPI does not support local versions.
+local_scheme = "no-local-version"
+fallback_version = "0.0.0"

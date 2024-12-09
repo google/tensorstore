@@ -52,6 +52,14 @@
 #define PY_ARRAY_UNIQUE_SYMBOL _tensorstore_numpy_array_api
 #define PY_UFUNC_UNIQUE_SYMBOL _tensorstore_numpy_ufunc_api
 
+// Eliminate the default hidden visibility attribute that NumPy applies to the
+// symbols corresponding to `PY_{ARRAY,UFUNC}_UNIQUE_SYMBOL`. It has no effect
+// and is harmless when building the TensorStore extension module normally,
+// because everything is statically linked and hidden visibility is enabled
+// globally, but creates build failures when building Python-related tests in
+// Bazel that sometimes use dynamic linking.
+#define NPY_API_SYMBOL_ATTRIBUTE
+
 // This is defined only in `numpy.cc` in order to ensure there is a single
 // definition of the symbol table global variables.
 #ifndef TENSORSTORE_INTERNAL_PYTHON_IMPORT_NUMPY_API
@@ -59,8 +67,8 @@
 #define NO_IMPORT_UFUNC
 #endif
 
-#include "numpy/numpyconfig.h"  // IWYU pragma: keep
 #include "numpy/arrayobject.h"  // IWYU pragma: export
+#include "numpy/numpyconfig.h"  // IWYU pragma: keep
 #include "numpy/ufuncobject.h"  // IWYU pragma: export
 
 #undef NO_IMPORT_ARRAY

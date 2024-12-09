@@ -181,16 +181,26 @@ cc_library(
 """ + get_numpy_include_rule(ctx, get_python_bin(ctx))
 
     else:
+        # Write requirements to a temporary file because pip does not support `--hash` on
+        # the command-line.
+        temp_requirements_filename = "_requirements.txt"
+        ctx.file(
+            temp_requirements_filename,
+            content = " ".join(ctx.attr.requirement) + "\n",
+            executable = False,
+        )
         result = ctx.execute([
             get_python_bin(ctx),
             "-m",
             "pip",
             "install",
             "--no-deps",
-            ctx.attr.requirement,
+            "-r",
+            temp_requirements_filename,
             "-t",
             ".",
         ])
+        ctx.delete(temp_requirements_filename)
         if result.return_code != 0:
             fail("Failed to install Python package: %s\n%s%s" % (
                 ctx.attr.requirement,
@@ -263,7 +273,7 @@ cc_library(
 # Select is not permitted, so build pypi conditionals from input variables win32, not_win32, etc.
 
 _third_party_python_package_attrs = {
-    "requirement": attr.string(),
+    "requirement": attr.string_list(),
     "target": attr.string(),
     "deps": attr.string_list(),
     "win32": attr.string_list(),
