@@ -21,6 +21,7 @@
 
 bazel run -c opt \
   //tensorstore/internal/benchmark:kvstore_benchmark -- \
+  --context_spec='{"file_io_concurrency": {"limit": 128}}' \
   --kvstore_spec='"file:///tmp/tensorstore_kvstore_benchmark"' \
   --clean_before_write \
   --repeat_writes=10 \
@@ -95,14 +96,13 @@ bazel run -c opt \
 
 ABSL_FLAG(tensorstore::JsonAbslFlag<tensorstore::kvstore::Spec>, kvstore_spec,
           {},
-          "KvStore spec for reading data.  See examples at the start of the "
-          "source file.");
+          "KvStore spec for reading and writing data.  See examples at the "
+          "start of the source file.");
 
-ABSL_FLAG(tensorstore::JsonAbslFlag<tensorstore::Context::Spec>, context_spec,
-          {},
-          "Context spec for writing data.  This can be used to control the "
-          "number of concurrent write operations of the underlying key-value "
-          "store.");
+ABSL_FLAG(
+    tensorstore::JsonAbslFlag<tensorstore::Context::Spec>, context_spec, {},
+    "Context spec for reading and writing data.  This can be used to control "
+    "the number of concurrent file operations, for example.");
 
 ABSL_FLAG(int64_t, repeat_reads, 1,
           "Number of times to repeat read benchmark.");
@@ -206,6 +206,27 @@ struct Prepared {
   size_t write_size;
 };
 
+Prepared MaybeListKeys(Context context, kvstore::Spec kvstore_spec,
+                       Prepared input) {
+  // If data was written, then re-read that data. Otherwise list the available
+  // keys and read that dataset.
+  if (input.keys.empty()) {
+    std::cout << "Retrieving keys for read benchmark." << std::endl;
+    TENSORSTORE_CHECK_OK_AND_ASSIGN(
+        auto kvstore, kvstore::Open(kvstore_spec, context).result());
+
+    TENSORSTORE_CHECK_OK_AND_ASSIGN(auto entries,
+                                    kvstore::ListFuture(kvstore).result());
+    ABSL_LOG(INFO) << "Read " << entries.size() << " keys from kvstore";
+
+    input.keys.reserve(entries.size());
+    for (auto& entry : entries) {
+      input.keys.push_back(std::move(entry.key));
+    }
+  }
+  return input;
+}
+
 Prepared DoWriteBenchmark(Context context, kvstore::Spec kvstore_spec,
                           ::nlohmann::json* all_metrics) {
   Prepared result;
@@ -303,26 +324,14 @@ void DoReadBenchmark(Context context, kvstore::Spec kvstore_spec,
                      Prepared input, ::nlohmann::json* all_metrics) {
   if (absl::GetFlag(FLAGS_repeat_reads) == 0) {
     return;
+  } else if (input.keys.empty()) {
+    std::cerr << "No keys to read." << std::endl;
+    return;
   }
   std::cout << "Starting read benchmark." << std::endl;
   const bool clear_metrics_before_run =
       absl::GetFlag(FLAGS_per_operation_metrics);
 
-  // If data was written, then re-read that data. Otherwise list the available
-  // keys and read that dataset.
-  if (input.keys.empty()) {
-    TENSORSTORE_CHECK_OK_AND_ASSIGN(
-        auto kvstore, kvstore::Open(kvstore_spec, context).result());
-
-    TENSORSTORE_CHECK_OK_AND_ASSIGN(auto entries,
-                                    kvstore::ListFuture(kvstore).result());
-    ABSL_LOG(INFO) << "Read " << entries.size() << " keys from kvstore";
-
-    input.keys.reserve(entries.size());
-    for (auto& entry : entries) {
-      input.keys.push_back(std::move(entry.key));
-    }
-  }
   absl::InsecureBitGen gen;
 
   // Repeat the benchmark `--repeat_reads` times using the same source arrays.
@@ -392,6 +401,7 @@ void DoKvstoreBenchmark() {
   auto all_metrics = StartMetrics();
 
   auto prepared = DoWriteBenchmark(context, kvstore_spec, &all_metrics);
+  prepared = MaybeListKeys(context, kvstore_spec, std::move(prepared));
   DoReadBenchmark(context, kvstore_spec, std::move(prepared), &all_metrics);
 
   auto written = internal::WriteMetricCollectionToKvstore(
