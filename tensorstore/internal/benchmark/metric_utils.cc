@@ -17,16 +17,21 @@
 #include <algorithm>
 #include <iostream>
 #include <string>
+#include <string_view>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 #include "absl/status/status.h"
+#include "absl/strings/cord.h"
+#include <nlohmann/json.hpp>
 #include "tensorstore/internal/json/json.h"
 #include "tensorstore/internal/metrics/collect.h"
 #include "tensorstore/internal/metrics/registry.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/spec.h"
+#include "tensorstore/util/result.h"
 
 using ::tensorstore::internal_metrics::CollectedMetric;
 

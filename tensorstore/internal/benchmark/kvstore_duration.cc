@@ -19,6 +19,7 @@
 
 bazel run -c opt \
   //tensorstore/internal/benchmark:kvstore_duration -- \
+  --context_spec='{"file_io_concurrency": {"limit": 128}}' \
   --kvstore_spec='"file:///tmp/kvstore"' --duration=1m
 */
 
@@ -44,7 +45,6 @@ bazel run -c opt \
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
-#include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "absl/flags/parse.h"
 #include "tensorstore/internal/benchmark/metric_utils.h"
@@ -68,9 +68,8 @@ ABSL_FLAG(tensorstore::JsonAbslFlag<tensorstore::kvstore::Spec>, kvstore_spec,
 
 ABSL_FLAG(tensorstore::JsonAbslFlag<tensorstore::Context::Spec>, context_spec,
           {},
-          "Context spec for writing data.  This can be used to control the "
-          "number of concurrent write operations of the underlying key-value "
-          "store.");
+          "Context spec for reading data.  This can be used to control "
+          "the number of concurrent file operations, for example.");
 
 ABSL_FLAG(absl::Duration, duration, absl::Seconds(20), "Duration of read loop");
 

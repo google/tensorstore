@@ -13,8 +13,10 @@ tensorstore_cc_library(
         "//tensorstore/internal/metrics:collect",
         "//tensorstore/internal/metrics:registry",
         "//tensorstore/kvstore",
+        "//tensorstore/util:result",
         "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:cord",
     ],
 )
 
@@ -100,7 +102,6 @@ tensorstore_cc_binary(
         "//tensorstore/util:json_absl_flag",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
-        "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/flags:parse",
         "@com_google_absl//absl/log:absl_check",
