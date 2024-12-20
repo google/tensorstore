@@ -30,6 +30,7 @@
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/internal/image/image_view.h"
+#include "tensorstore/util/endian.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 
@@ -140,7 +141,7 @@ absl::Status PngWriter::Context::Encode(
     if (info.dtype == dtype_v<uint8_t>) {
       png_set_packing(png_ptr_);
     }
-    if (info.dtype == dtype_v<uint16_t>) {
+    if (info.dtype == dtype_v<uint16_t> && endian::native == endian::little) {
       png_set_swap(png_ptr_);
     }
     if (options_.compression_level >= 0 && options_.compression_level <= 9) {
@@ -191,14 +192,9 @@ absl::Status PngWriter::IsSupported(const ImageInfo& info) {
         "PNG image only supports uint8 and uint16 dtypes, but received: %s",
         info.dtype.name()));
   }
-  if (info.dtype == dtype_v<uint8_t> &&
-      (info.num_components == 0 || info.num_components > 4)) {
+  if (info.num_components == 0 || info.num_components > 4) {
     return absl::DataLossError(absl::StrFormat(
-        "PNG uint8 image expected 1 to 4 components, but received: %d",
-        info.num_components));
-  } else if (info.dtype == dtype_v<uint16_t> && info.num_components != 1) {
-    return absl::DataLossError(absl::StrFormat(
-        "PNG uint16 image expected 1 component, but received: %d",
+        "PNG image expected 1 to 4 components, but received: %d",
         info.num_components));
   }
   return absl::OkStatus();

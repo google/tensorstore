@@ -123,19 +123,14 @@ absl::Status ValidateEncodingDataType(ScaleMetadata::Encoding encoding,
     case ScaleMetadata::Encoding::raw:
       break;
     case ScaleMetadata::Encoding::png:
-      if (dtype.valid() && dtype.id() != DataTypeId::uint8_t &&
-          dtype.id() != DataTypeId::uint16_t) {
+      if (dtype.valid() && (dtype != dtype_v<uint8_t>) &&
+          (dtype != dtype_v<uint16_t>)) {
         return absl::InvalidArgumentError(tensorstore::StrCat(
             "\"png\" encoding only supported for uint8 and uint16, not for ",
             dtype));
       }
       if (num_channels) {
-        if (dtype.valid() && dtype.id() == DataTypeId::uint16_t &&
-            *num_channels != 1) {
-          return absl::InvalidArgumentError(tensorstore::StrCat(
-              "\"png\" encoding for uint16 only supports 1 channel, not ",
-              *num_channels));
-        } else if (*num_channels == 0 || *num_channels > 4) {
+        if (*num_channels == 0 || *num_channels > 4) {
           return absl::InvalidArgumentError(tensorstore::StrCat(
               "\"png\" encoding only supports 1 to 4 channels, not ",
               *num_channels));
@@ -143,7 +138,7 @@ absl::Status ValidateEncodingDataType(ScaleMetadata::Encoding encoding,
       }
       break;
     case ScaleMetadata::Encoding::jpeg:
-      if (dtype.valid() && dtype.id() != DataTypeId::uint8_t) {
+      if (dtype.valid() && dtype != dtype_v<uint8_t>) {
         return absl::InvalidArgumentError(tensorstore::StrCat(
             "\"jpeg\" encoding only supported for uint8, not for ", dtype));
       }
@@ -155,8 +150,7 @@ absl::Status ValidateEncodingDataType(ScaleMetadata::Encoding encoding,
       break;
     case ScaleMetadata::Encoding::compressed_segmentation:
       if (!dtype.valid()) break;
-      if (dtype.id() != DataTypeId::uint32_t &&
-          dtype.id() != DataTypeId::uint64_t) {
+      if (dtype != dtype_v<uint32_t> && dtype != dtype_v<uint64_t>) {
         return absl::InvalidArgumentError(tensorstore::StrCat(
             "compressed_segmentation encoding only supported for "
             "uint32 and uint64, not for ",

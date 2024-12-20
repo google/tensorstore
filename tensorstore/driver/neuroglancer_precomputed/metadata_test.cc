@@ -442,8 +442,7 @@ TEST(MetadataTest, ParseEncodingsAndDataTypes) {
     EXPECT_EQ(ScaleMetadata::Encoding::png, m.scales[0].encoding);
   }
 
-  {
-    int num_channels = 1;
+  for (int num_channels : {1, 2, 3, 4}) {
     const auto dtype = ::tensorstore::dtype_v<uint16_t>;
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto m, MultiscaleMetadata::FromJson(GetMetadata(
@@ -465,7 +464,7 @@ TEST(MetadataTest, ParseEncodingsAndDataTypes) {
                               ::nlohmann::json::value_t::discarded, 10)),
               MatchesStatus(absl::StatusCode::kInvalidArgument, ".*10.*"));
 
-  // Test that jpeg_quality is valid for `png` encoding.
+  // Test that png_level is valid for `png` encoding.
   for (int png_level : {0, 6, 9}) {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto m, MultiscaleMetadata::FromJson(GetMetadata(

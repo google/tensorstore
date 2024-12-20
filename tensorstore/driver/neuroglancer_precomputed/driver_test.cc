@@ -979,7 +979,7 @@ TEST(DriverTest, Jpeg1Channel) {
             tensorstore::StaticDataTypeCast<const uint8_t,
                                             tensorstore::unchecked>(read_array),
             array),
-        5);
+        3);
 
     // Test corrupt "jpeg" chunk handling
     ::nlohmann::json storage_spec{{"driver", "memory"}};
