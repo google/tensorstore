@@ -66,7 +66,11 @@ tensorstore_cc_test(
         "//tensorstore:contiguous_layout",
         "//tensorstore:data_type",
         "//tensorstore:index",
+        "//tensorstore:static_cast",
         "//tensorstore:strided_layout",
+        "//tensorstore/internal/image",
+        "//tensorstore/internal/image:jpeg",
+        "//tensorstore/internal/image:png",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",
         "@com_github_nlohmann_json//:json",
@@ -74,6 +78,7 @@ tensorstore_cc_test(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:cord",
         "@com_google_googletest//:gtest_main",
+        "@com_google_riegeli//riegeli/bytes:cord_reader",
     ],
 )
 

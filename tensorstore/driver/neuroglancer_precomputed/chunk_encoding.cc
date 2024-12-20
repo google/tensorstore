@@ -95,7 +95,8 @@ template <typename ImageReader>
 Result<SharedArray<const void>> DecodeImageChunk(
     DataType dtype, span<const Index, 4> partial_shape,
     StridedLayoutView<4> chunk_layout, absl::Cord encoded_input) {
-  // `array` will contain decoded jpeg with C-order `(z, y, x, channel)` layout.
+  // `array` will contain decoded image with C-order `(z, y, x, channel)`
+  // layout.
   //
   // If number of channels is 1, then this is equivalent to the
   // `(channel, z, y, x)` layout in `chunk_layout`.
@@ -140,7 +141,7 @@ Result<SharedArray<const void>> DecodeImageChunk(
   // Partial chunk, or number of channels is not 1.  Must copy to obtain the
   // expected `chunk_layout`.
   //
-  // It is safe to value initialize because the out-of-bounds positions will
+  // It is safe to default initialize because the out-of-bounds positions will
   // never be read.  If resize is supported, this must change, however.
   SharedArray<void> full_decoded_array(
       internal::AllocateAndConstructSharedElements(chunk_layout.num_elements(),
@@ -275,6 +276,7 @@ template <typename ImageWriter, typename Options>
 Result<absl::Cord> EncodeImageChunk(Options options, DataType dtype,
                                     span<const Index, 4> shape,
                                     ArrayView<const void> array) {
+  // czyx
   Array<const void, 4> partial_source(
       array.element_pointer(),
       StridedLayout<4>({shape[1], shape[2], shape[3], shape[0]},
@@ -287,10 +289,11 @@ Result<absl::Cord> EncodeImageChunk(Options options, DataType dtype,
     ImageWriter writer;
     riegeli::CordWriter<> cord_writer(&buffer);
     TENSORSTORE_RETURN_IF_ERROR(writer.Initialize(&cord_writer, options));
-    ImageInfo info{/*.height =*/static_cast<int32_t>(shape[3]),
-                   /*.width =*/static_cast<int32_t>(shape[1] * shape[2]),
-                   /*.num_components =*/static_cast<int32_t>(shape[0]),
-                   /*.data_type =*/dtype};
+    ImageInfo info{
+        /*.height =*/static_cast<int32_t>(shape[1] * shape[2]),  // z * y
+        /*.width =*/static_cast<int32_t>(shape[3]),              // x
+        /*.num_components =*/static_cast<int32_t>(shape[0]),     // c
+        /*.data_type =*/dtype};
     TENSORSTORE_RETURN_IF_ERROR(writer.Encode(
         info, tensorstore::span(reinterpret_cast<const unsigned char*>(
                                     contiguous_array.data()),
