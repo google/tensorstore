@@ -518,31 +518,6 @@ add_custom_target(CMakeProject_aspect_upb__84819b61 DEPENDS
     "${PROJECT_BINARY_DIR}/_gen_upb/c.upb.h"
     "${PROJECT_BINARY_DIR}/_gen_upb/c.upb.c")
 
-# @rules_proto_test_repo//:aspect_upb__ae7c401d
-# genproto upb @rules_proto_test_repo//:d.proto
-file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_upb")
-add_custom_command(
-OUTPUT
-    "${TEST_BINDIR}/_gen_upb/d.upb.c"
-    "${TEST_BINDIR}/_gen_upb/d.upb.h"
-COMMAND $<TARGET_FILE:protobuf::protoc>
-    --experimental_allow_proto3_optional
-    --plugin=protoc-gen-upb=$<TARGET_FILE:protobuf::protoc_gen_upb>
-    "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_d_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
-    "--upb_out=${PROJECT_BINARY_DIR}/_gen_upb"
-    "${TEST_SRCDIR}/d.proto"
-DEPENDS
-    "${TEST_SRCDIR}/d.proto"
-    "protobuf::protoc"
-    "protobuf::protoc_gen_upb"
-COMMENT "Running protoc upb on ${TEST_SRCDIR}/d.proto"
-COMMAND_EXPAND_LISTS
-VERBATIM
-)
-add_custom_target(CMakeProject_aspect_upb__ae7c401d DEPENDS
-    "${PROJECT_BINARY_DIR}/_gen_upb/d.upb.h"
-    "${PROJECT_BINARY_DIR}/_gen_upb/d.upb.c")
-
 # @rules_proto_test_repo//:aspect_upb_minitable__ae7c401d
 # genproto upb_minitable @rules_proto_test_repo//:d.proto
 file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_upb_minitable")
@@ -585,25 +560,6 @@ target_sources(CMakeProject_d_proto__minitable_library PUBLIC
 target_sources(CMakeProject_d_proto__minitable_library PRIVATE
         "${PROJECT_BINARY_DIR}/_gen_upb_minitable/d.upb_minitable.c")
 add_library(CMakeProject::d_proto__minitable_library ALIAS CMakeProject_d_proto__minitable_library)
-
-# @rules_proto_test_repo//:d_proto__upb_library
-# aspect upb @rules_proto_test_repo//:d_proto
-add_library(CMakeProject_d_proto__upb_library)
-set_property(TARGET CMakeProject_d_proto__upb_library PROPERTY LINKER_LANGUAGE "CXX")
-target_link_libraries(CMakeProject_d_proto__upb_library PUBLIC
-        "CMakeProject::d_proto__minitable_library"
-        "Threads::Threads"
-        "m"
-        "protobuf::upb_generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me")
-target_include_directories(CMakeProject_d_proto__upb_library PUBLIC
-        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upb>")
-target_compile_features(CMakeProject_d_proto__upb_library PUBLIC cxx_std_17)
-add_dependencies(CMakeProject_d_proto__upb_library "CMakeProject_aspect_upb__ae7c401d")
-target_sources(CMakeProject_d_proto__upb_library PUBLIC
-        "${PROJECT_BINARY_DIR}/_gen_upb/d.upb.h")
-target_sources(CMakeProject_d_proto__upb_library PRIVATE
-        "${PROJECT_BINARY_DIR}/_gen_upb/d.upb.c")
-add_library(CMakeProject::d_proto__upb_library ALIAS CMakeProject_d_proto__upb_library)
 
 # @rules_proto_test_repo//:aspect_upb_minitable__84819b61
 # genproto upb_minitable @rules_proto_test_repo//:c.proto
@@ -651,6 +607,50 @@ target_sources(CMakeProject_abcd_proto__minitable_library PUBLIC
 target_sources(CMakeProject_abcd_proto__minitable_library PRIVATE
         "${PROJECT_BINARY_DIR}/_gen_upb_minitable/c.upb_minitable.c")
 add_library(CMakeProject::abcd_proto__minitable_library ALIAS CMakeProject_abcd_proto__minitable_library)
+
+# @rules_proto_test_repo//:aspect_upb__ae7c401d
+# genproto upb @rules_proto_test_repo//:d.proto
+file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_upb")
+add_custom_command(
+OUTPUT
+    "${TEST_BINDIR}/_gen_upb/d.upb.c"
+    "${TEST_BINDIR}/_gen_upb/d.upb.h"
+COMMAND $<TARGET_FILE:protobuf::protoc>
+    --experimental_allow_proto3_optional
+    --plugin=protoc-gen-upb=$<TARGET_FILE:protobuf::protoc_gen_upb>
+    "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_d_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
+    "--upb_out=${PROJECT_BINARY_DIR}/_gen_upb"
+    "${TEST_SRCDIR}/d.proto"
+DEPENDS
+    "${TEST_SRCDIR}/d.proto"
+    "protobuf::protoc"
+    "protobuf::protoc_gen_upb"
+COMMENT "Running protoc upb on ${TEST_SRCDIR}/d.proto"
+COMMAND_EXPAND_LISTS
+VERBATIM
+)
+add_custom_target(CMakeProject_aspect_upb__ae7c401d DEPENDS
+    "${PROJECT_BINARY_DIR}/_gen_upb/d.upb.h"
+    "${PROJECT_BINARY_DIR}/_gen_upb/d.upb.c")
+
+# @rules_proto_test_repo//:d_proto__upb_library
+# aspect upb @rules_proto_test_repo//:d_proto
+add_library(CMakeProject_d_proto__upb_library)
+set_property(TARGET CMakeProject_d_proto__upb_library PROPERTY LINKER_LANGUAGE "CXX")
+target_link_libraries(CMakeProject_d_proto__upb_library PUBLIC
+        "CMakeProject::d_proto__minitable_library"
+        "Threads::Threads"
+        "m"
+        "protobuf::upb_generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me")
+target_include_directories(CMakeProject_d_proto__upb_library PUBLIC
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upb>")
+target_compile_features(CMakeProject_d_proto__upb_library PUBLIC cxx_std_17)
+add_dependencies(CMakeProject_d_proto__upb_library "CMakeProject_aspect_upb__ae7c401d")
+target_sources(CMakeProject_d_proto__upb_library PUBLIC
+        "${PROJECT_BINARY_DIR}/_gen_upb/d.upb.h")
+target_sources(CMakeProject_d_proto__upb_library PRIVATE
+        "${PROJECT_BINARY_DIR}/_gen_upb/d.upb.c")
+add_library(CMakeProject::d_proto__upb_library ALIAS CMakeProject_d_proto__upb_library)
 
 # @rules_proto_test_repo//:abcd_proto__upb_library
 # aspect upb @rules_proto_test_repo//:abcd_proto

@@ -15,6 +15,7 @@
 #ifndef TENSORSTORE_INTERNAL_CACHE_KEY_STD_VECTOR_H_
 #define TENSORSTORE_INTERNAL_CACHE_KEY_STD_VECTOR_H_
 
+#include <string>
 #include <vector>
 
 #include "tensorstore/internal/cache_key/cache_key.h"

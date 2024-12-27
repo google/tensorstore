@@ -1,4 +1,4 @@
-// Copyright 2023 The TensorStore Authors
+// Copyright 2024 The TensorStore Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,33 +12,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <functional>
+#include "tensorstore/kvstore/gcs_grpc/default_strategy.h"
+
 #include <memory>
 #include <string_view>
 
 #include "absl/log/absl_log.h"
 #include "absl/strings/match.h"
-#include "grpcpp/security/credentials.h"  // third_party
+#include "tensorstore/internal/grpc/clientauth/authentication_strategy.h"
+#include "tensorstore/internal/grpc/clientauth/channel_authentication.h"
 
 namespace tensorstore {
 namespace internal_gcs_grpc {
 
-std::shared_ptr<::grpc::ChannelCredentials> GetCredentialsForEndpoint(
-    std::string_view endpoint,
-    std::function<std::shared_ptr<grpc::CallCredentials>()>&
-        call_credentials_fn) {
-  if (absl::EndsWith(endpoint, ".googleapis.com") ||
-      absl::EndsWith(endpoint, ".googleprod.com")) {
+std::shared_ptr<internal_grpc::GrpcAuthenticationStrategy>
+CreateDefaultGrpcAuthenticationStrategy(std::string_view endpoint) {
+
+  if (absl::EndsWith(endpoint, ".googleapis.com")) {
     // Only send `GoogleDefautCredentials` to a Google backend.
     // These are the credentials acquired from the environment variable
     // "GOOGLE_APPLICATION_CREDENTIALS"  or by using the gcloud tool:
     // `gcloud application-default login`.
-    ABSL_LOG_FIRST_N(INFO, 1)
-        << "Using GoogleDefaultCredentials for " << endpoint;
-    return grpc::GoogleDefaultCredentials();
+    return internal_grpc::CreateGoogleDefaultAuthenticationStrategy();
   }
 
-  return grpc::InsecureChannelCredentials();
+  // Otherwise default to insecure credentials.
+  return internal_grpc::CreateInsecureAuthenticationStrategy();
 }
 
 }  // namespace internal_gcs_grpc

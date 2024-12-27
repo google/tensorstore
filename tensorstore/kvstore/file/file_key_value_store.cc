@@ -96,6 +96,7 @@
 #include <utility>
 
 #include "absl/base/attributes.h"
+#include "absl/base/optimization.h"
 #include "absl/functional/function_ref.h"
 #include "absl/log/absl_check.h"  // IWYU pragma: keep
 #include "absl/log/absl_log.h"
@@ -646,6 +647,7 @@ struct WriteTask {
               return AcquireExclusiveFile(absl::StrCat(full_path, kLockSuffix),
                                           file_io_locking.acquire_timeout);
           }
+          ABSL_UNREACHABLE();
         }());
 
     bool delete_lock_file = true;

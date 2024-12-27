@@ -61,6 +61,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/cache_key",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
+        "//tensorstore/util:result",
     ],
     alwayslink = 1,
 )
@@ -89,5 +90,59 @@ tensorstore_cc_library(
         "@com_google_absl//absl/time",
         "@com_google_googleapis//google/storage/v2:storage_cc_grpc",
         "@com_google_googleapis//google/storage/v2:storage_cc_proto",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "exp_credentials_resource",
+    srcs = ["exp_credentials_resource.cc"],
+    hdrs = ["exp_credentials_resource.h"],
+    deps = [
+        ":exp_credentials_spec",
+        "//tensorstore:context",
+        "//tensorstore/internal/cache_key",
+        "//tensorstore/internal/cache_key:json",
+        "//tensorstore/internal/json_binding",
+        "//tensorstore/serialization",
+        "//tensorstore/util:result",
+    ],
+    alwayslink = 1,
+)
+
+tensorstore_cc_library(
+    name = "exp_credentials_spec",
+    srcs = ["exp_credentials_spec.cc"],
+    hdrs = ["exp_credentials_spec.h"],
+    deps = [
+        "//tensorstore:json_serialization_options_base",
+        "//tensorstore/internal:type_traits",
+        "//tensorstore/internal/grpc/clientauth:authentication_strategy",
+        "//tensorstore/internal/grpc/clientauth:call_authentication",
+        "//tensorstore/internal/grpc/clientauth:channel_authentication",
+        "//tensorstore/internal/grpc/clientauth:impersonate_service_account",
+        "//tensorstore/internal/json_binding",
+        "//tensorstore/internal/json_binding:absl_time",
+        "//tensorstore/internal/json_binding:bindable",
+        "//tensorstore/internal/os:file_util",
+        "//tensorstore/util:quote_string",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "//tensorstore/util:str_cat",
+        "@com_github_nlohmann_json//:json",
+        "@com_google_absl//absl/status",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "exp_credentials_spec_test",
+    srcs = ["exp_credentials_spec_test.cc"],
+    deps = [
+        ":exp_credentials_spec",
+        "//tensorstore:json_serialization_options_base",
+        "//tensorstore/internal:json_gtest",
+        "//tensorstore/util:status_testutil",
+        "@com_github_grpc_grpc//:grpc++",
+        "@com_github_nlohmann_json//:json",
+        "@com_google_googletest//:gtest_main",
     ],
 )

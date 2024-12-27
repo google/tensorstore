@@ -16,9 +16,9 @@ tensorstore_cc_library(
     ],
     hdrs = ["state.h"],
     deps = [
-        ":get_credentials",
+        ":default_endpoint",
+        ":default_strategy",
         ":storage_stub_pool",
-        ":use_directpath",
         "//tensorstore:context",
         "//tensorstore/internal:context_binding",
         "//tensorstore/internal:data_copy_concurrency_resource",
@@ -27,6 +27,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:uri_utils",
         "//tensorstore/internal/cache_key",
         "//tensorstore/internal/grpc:utils",
+        "//tensorstore/internal/grpc/clientauth:authentication_strategy",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:absl_time",
         "//tensorstore/internal/json_binding:bindable",
@@ -38,6 +39,8 @@ tensorstore_cc_library(
         "//tensorstore/kvstore:common_metrics",
         "//tensorstore/kvstore:generation",
         "//tensorstore/kvstore:key_range",
+        "//tensorstore/kvstore/gcs:exp_credentials_resource",
+        "//tensorstore/kvstore/gcs:exp_credentials_spec",
         "//tensorstore/kvstore/gcs:gcs_resource",
         "//tensorstore/kvstore/gcs:validate",
         "//tensorstore/serialization",
@@ -154,18 +157,6 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
-    name = "get_credentials",
-    srcs = ["get_credentials.cc"],
-    hdrs = ["get_credentials.h"],
-    visibility = ["//visibility:private"],
-    deps = [
-        "@com_github_grpc_grpc//:grpc++",
-        "@com_google_absl//absl/log:absl_log",
-        "@com_google_absl//absl/strings",
-    ],
-)
-
-tensorstore_cc_library(
     name = "storage_stub_pool",
     srcs = ["storage_stub_pool.cc"],
     hdrs = ["storage_stub_pool.h"],
@@ -173,6 +164,7 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore/internal:env",
         "//tensorstore/internal/grpc:utils",
+        "//tensorstore/internal/grpc/clientauth:authentication_strategy",
         "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/proto:proto_util",
         "@com_github_grpc_grpc//:grpc++",
@@ -193,14 +185,27 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
-    name = "use_directpath",
-    srcs = ["use_directpath.cc"],
-    hdrs = ["use_directpath.h"],
+    name = "default_endpoint",
+    srcs = ["default_endpoint.cc"],
+    hdrs = ["default_endpoint.h"],
     deps = [
         "//tensorstore/internal:env",
+        "//tensorstore/internal/os:file_util",
         "//tensorstore/internal/os:get_bios_info",
         "//tensorstore/util:result",
         "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "default_strategy",
+    srcs = ["default_strategy.cc"],
+    hdrs = ["default_strategy.h"],
+    deps = [
+        "//tensorstore/internal/grpc/clientauth:authentication_strategy",
+        "//tensorstore/internal/grpc/clientauth:channel_authentication",
+        "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/strings",
     ],
 )

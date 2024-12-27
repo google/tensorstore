@@ -12,14 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/kvstore/gcs_grpc/use_directpath.h"
+#include "tensorstore/kvstore/gcs_grpc/default_endpoint.h"
 
 #include <optional>
+#include <string>
 #include <string_view>
 
 #include "absl/flags/flag.h"
 #include "absl/strings/ascii.h"
+#include "absl/strings/match.h"
 #include "tensorstore/internal/env.h"
+#include "tensorstore/internal/os/file_util.h"
 #include "tensorstore/internal/os/get_bios_info.h"
 #include "tensorstore/util/result.h"
 
@@ -50,21 +53,26 @@ bool UseDirectPathGcsEndpointByDefaultImpl() {
   std::string_view product_name_str = product_name.value();
   product_name_str = absl::StripAsciiWhitespace(product_name_str);
 
-  // If the machine is not a GCP machine default to false.
+  // If the machine is not a GCE machine default to false.
   if (product_name_str != "Google" &&
       product_name_str != "Google Compute Engine") {
     return false;
   }
 
-  // directpath is generally available on GCP machines, so default to true.
+  // directpath is generally available on GCE machines, so default to true.
   return true;
 }
 
 }  // namespace
 
-bool UseDirectPathGcsEndpointByDefault() {
+std::string GetDefaultGcsGrpcEndpoint() {
   static bool cached_use_direct_path = UseDirectPathGcsEndpointByDefaultImpl();
-  return cached_use_direct_path;
+  if (cached_use_direct_path) {
+    // When running on a GCE VM, use the directpath endpoint by default.
+    return "google-c2p:///storage.googleapis.com";
+  }
+
+  return "dns:///storage.googleapis.com";
 }
 
 }  // namespace internal_gcs_grpc

@@ -45,6 +45,7 @@
 #include "grpcpp/support/status.h"  // third_party
 #include "tensorstore/context.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
+#include "tensorstore/internal/grpc/clientauth/authentication_strategy.h"
 #include "tensorstore/internal/grpc/utils.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
@@ -57,12 +58,14 @@
 #include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/common_metrics.h"
 #include "tensorstore/kvstore/driver.h"
+#include "tensorstore/kvstore/gcs/exp_credentials_resource.h"
+#include "tensorstore/kvstore/gcs/exp_credentials_spec.h"
 #include "tensorstore/kvstore/gcs/gcs_resource.h"
 #include "tensorstore/kvstore/gcs/validate.h"
-#include "tensorstore/kvstore/gcs_grpc/get_credentials.h"
+#include "tensorstore/kvstore/gcs_grpc/default_endpoint.h"
+#include "tensorstore/kvstore/gcs_grpc/default_strategy.h"
 #include "tensorstore/kvstore/gcs_grpc/state.h"
 #include "tensorstore/kvstore/gcs_grpc/storage_stub_pool.h"
-#include "tensorstore/kvstore/gcs_grpc/use_directpath.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/generic_coalescing_batch_util.h"
 #include "tensorstore/kvstore/key_range.h"
@@ -100,9 +103,9 @@
 using ::tensorstore::internal::DataCopyConcurrencyResource;
 using ::tensorstore::internal::GrpcStatusToAbslStatus;
 using ::tensorstore::internal::ScheduleAt;
-using ::tensorstore::internal_gcs_grpc::GetCredentialsForEndpoint;
 using ::tensorstore::internal_gcs_grpc::GetSharedStorageStubPool;
 using ::tensorstore::internal_gcs_grpc::StorageStubPool;
+using ::tensorstore::internal_storage_gcs::ExperimentalGcsGrpcCredentials;
 using ::tensorstore::internal_storage_gcs::GcsUserProjectResource;
 using ::tensorstore::internal_storage_gcs::IsRetriable;
 using ::tensorstore::internal_storage_gcs::IsValidBucketName;
@@ -156,11 +159,12 @@ struct GcsGrpcKeyValueStoreSpecData {
   Context::Resource<GcsUserProjectResource> user_project;
   Context::Resource<internal_storage_gcs::GcsRequestRetries> retries;
   Context::Resource<DataCopyConcurrencyResource> data_copy_concurrency;
+  Context::Resource<ExperimentalGcsGrpcCredentials> credentials;
 
   constexpr static auto ApplyMembers = [](auto&& x, auto f) {
     return f(x.bucket, x.endpoint, x.num_channels, x.timeout,
              x.wait_for_connection, x.user_project, x.retries,
-             x.data_copy_concurrency);
+             x.data_copy_concurrency, x.credentials);
   };
 
   constexpr static auto default_json_binder = jb::Object(
@@ -193,10 +197,12 @@ struct GcsGrpcKeyValueStoreSpecData {
                  jb::Projection<&GcsGrpcKeyValueStoreSpecData::user_project>()),
       jb::Member(internal_storage_gcs::GcsRequestRetries::id,
                  jb::Projection<&GcsGrpcKeyValueStoreSpecData::retries>()),
+      jb::Member(DataCopyConcurrencyResource::id,
+                 jb::Projection<
+                     &GcsGrpcKeyValueStoreSpecData::data_copy_concurrency>()),
       jb::Member(
-          DataCopyConcurrencyResource::id,
-          jb::Projection<
-              &GcsGrpcKeyValueStoreSpecData::data_copy_concurrency>()), /**/
+          ExperimentalGcsGrpcCredentials::id,
+          jb::Projection<&GcsGrpcKeyValueStoreSpecData::credentials>()), /**/
       jb::DiscardExtraMembers);
 };
 
@@ -270,8 +276,8 @@ class GcsGrpcKeyValueStore
     return storage_stub_pool_->get_next_stub();
   }
 
-  std::unique_ptr<grpc::ClientContext> AllocateContext() {
-    auto context = std::make_unique<grpc::ClientContext>();
+  Future<std::shared_ptr<grpc::ClientContext>> AllocateContext() {
+    auto context = std::make_shared<grpc::ClientContext>();
 
     // For a requestor-pays bucket we need to set x-goog-user-project.
     if (spec_.user_project->project_id &&
@@ -291,15 +297,10 @@ class GcsGrpcKeyValueStore
       context->set_deadline(absl::ToChronoTime(absl::Now() + spec_.timeout));
     }
 
-    if (call_credentials_fn_) {
-      // The gRPC credentials model includes per-channel credentials,
-      // `ChannelCredentials`, and per-request credentials,
-      // `CallCredentials`. Instead of using a composite credentials object,
-      // set the CallCredentials on each request which allows using a shared
-      // channel pool.
-      context->set_credentials(call_credentials_fn_());
+    if (!auth_strategy_->RequiresConfigureContext()) {
+      return std::move(context);
     }
-    return context;
+    return auth_strategy_->ConfigureContext(std::move(context));
   }
 
   // Apply default backoff/retry logic to the task.
@@ -328,8 +329,8 @@ class GcsGrpcKeyValueStore
 
   SpecData spec_;
   std::string bucket_;
+  std::shared_ptr<internal_grpc::GrpcAuthenticationStrategy> auth_strategy_;
   std::shared_ptr<StorageStubPool> storage_stub_pool_;
-  std::function<std::shared_ptr<grpc::CallCredentials>()> call_credentials_fn_;
 };
 
 ////////////////////////////////////////////////////
@@ -348,7 +349,7 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
 
   int attempt_ = 0;
   absl::Mutex mutex_;
-  std::unique_ptr<grpc::ClientContext> context_ ABSL_GUARDED_BY(mutex_);
+  std::shared_ptr<grpc::ClientContext> context_ ABSL_GUARDED_BY(mutex_);
 
   ReadTask(internal::IntrusivePtr<GcsGrpcKeyValueStore> driver,
            kvstore::ReadOptions options, Promise<kvstore::ReadResult> promise)
@@ -379,13 +380,24 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
       return;
     }
 
-    // Retry always starts from a "clean" request, so clear the value.
-    state_.ResetWorkingState();
+    auto context_future = driver_->AllocateContext();
+    context_future.ExecuteWhenReady(
+        [self = internal::IntrusivePtr<ReadTask>(this),
+         context_future](ReadyFuture<std::shared_ptr<grpc::ClientContext>> f) {
+          self->RetryWithContext(std::move(f).value());
+        });
+    context_future.Force();
+  }
+
+  void RetryWithContext(std::shared_ptr<grpc::ClientContext> context) {
+    if (!promise_.result_needed()) {
+      return;
+    }
 
     {
       absl::MutexLock lock(&mutex_);
       assert(context_ == nullptr);
-      context_ = driver_->AllocateContext();
+      context_ = std::move(context);
       auto stub = driver_->get_stub();
 
       // Start a call.
@@ -475,7 +487,7 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
 
   int attempt_ = 0;
   absl::Mutex mutex_;
-  std::unique_ptr<grpc::ClientContext> context_ ABSL_GUARDED_BY(mutex_);
+  std::shared_ptr<grpc::ClientContext> context_ ABSL_GUARDED_BY(mutex_);
 
   WriteTask(internal::IntrusivePtr<GcsGrpcKeyValueStore> driver,
             kvstore::WriteOptions options, absl::Cord data,
@@ -513,10 +525,20 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
     resource.set_bucket(driver_->bucket_name());
     resource.set_name(object_name_);
 
+    auto context_future = driver_->AllocateContext();
+    context_future.ExecuteWhenReady(
+        [self = internal::IntrusivePtr<WriteTask>(this),
+         context_future](ReadyFuture<std::shared_ptr<grpc::ClientContext>> f) {
+          self->RetryWithContext(std::move(f).value());
+        });
+    context_future.Force();
+  }
+
+  void RetryWithContext(std::shared_ptr<grpc::ClientContext> context) {
     {
       absl::MutexLock lock(&mutex_);
       assert(context_ == nullptr);
-      context_ = driver_->AllocateContext();
+      context_ = std::move(context);
       auto stub = driver_->get_stub();
       // Initiate the write.
       intrusive_ptr_increment(this);
@@ -601,7 +623,7 @@ struct DeleteTask : public internal::AtomicReferenceCount<DeleteTask> {
   ::google::protobuf::Empty response_;
   int attempt_ = 0;
   absl::Mutex mutex_;
-  std::unique_ptr<grpc::ClientContext> context_ ABSL_GUARDED_BY(mutex_);
+  std::shared_ptr<grpc::ClientContext> context_ ABSL_GUARDED_BY(mutex_);
 
   void TryCancel() ABSL_LOCKS_EXCLUDED(mutex_) {
     absl::MutexLock lock(&mutex_);
@@ -630,11 +652,21 @@ struct DeleteTask : public internal::AtomicReferenceCount<DeleteTask> {
       return;
     }
 
+    auto context_future = driver_->AllocateContext();
+    context_future.ExecuteWhenReady(
+        [self = internal::IntrusivePtr<DeleteTask>(this),
+         context_future](ReadyFuture<std::shared_ptr<grpc::ClientContext>> f) {
+          self->RetryWithContext(std::move(f).value());
+        });
+    context_future.Force();
+  }
+
+  void RetryWithContext(std::shared_ptr<grpc::ClientContext> context) {
     start_time_ = absl::Now();
     {
       absl::MutexLock lock(&mutex_);
       assert(context_ == nullptr);
-      context_ = driver_->AllocateContext();
+      context_ = std::move(context);
       auto stub = driver_->get_stub();
 
       intrusive_ptr_increment(this);  // Adopted by OnDone
@@ -706,7 +738,7 @@ struct ListTask : public internal::AtomicReferenceCount<ListTask> {
 
   int attempt_ = 0;
   absl::Mutex mutex_;
-  std::unique_ptr<grpc::ClientContext> context_ ABSL_GUARDED_BY(mutex_);
+  std::shared_ptr<grpc::ClientContext> context_ ABSL_GUARDED_BY(mutex_);
   bool cancelled_ ABSL_GUARDED_BY(mutex_) = false;
 
   ListTask(internal::IntrusivePtr<GcsGrpcKeyValueStore>&& driver,
@@ -758,9 +790,20 @@ struct ListTask : public internal::AtomicReferenceCount<ListTask> {
       return;
     }
 
+    auto context_future = driver_->AllocateContext();
+    context_future.ExecuteWhenReady(
+        [self = internal::IntrusivePtr<ListTask>(this),
+         context_future](ReadyFuture<std::shared_ptr<grpc::ClientContext>> f) {
+          self->RetryWithContext(std::move(f).value());
+        });
+    context_future.Force();
+  }
+
+  void RetryWithContext(std::shared_ptr<grpc::ClientContext> context)
+      ABSL_LOCKS_EXCLUDED(mutex_) {
     {
       absl::MutexLock lock(&mutex_);
-      context_ = driver_->AllocateContext();
+      context_ = std::move(context);
       stub_ = driver_->get_stub();
 
       intrusive_ptr_increment(this);
@@ -955,17 +998,21 @@ Future<kvstore::DriverPtr> GcsGrpcKeyValueStoreSpec::DoOpen() const {
   // https://github.com/googleapis/google-cloud-cpp/google/cloud/storage/internal/grpc/default_options.cc
   std::string endpoint = data_.endpoint;
   if (endpoint.empty()) {
-    if (internal_gcs_grpc::UseDirectPathGcsEndpointByDefault()) {
-      endpoint = "google-c2p:///storage.googleapis.com";
-    } else {
-      endpoint = "dns:///storage.googleapis.com";
-    }
+    endpoint = internal_gcs_grpc::GetDefaultGcsGrpcEndpoint();
   }
 
-  auto channel_credentials =
-      GetCredentialsForEndpoint(endpoint, driver->call_credentials_fn_);
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      driver->auth_strategy_,
+      internal_storage_gcs::MakeGrpcAuthenticationStrategy(*data_.credentials,
+                                                           {}));
+  if (!driver->auth_strategy_) {
+    // Use default authentication strategy.
+    driver->auth_strategy_ =
+        internal_gcs_grpc::CreateDefaultGrpcAuthenticationStrategy(endpoint);
+  }
+
   driver->storage_stub_pool_ = GetSharedStorageStubPool(
-      endpoint, data_.num_channels, std::move(channel_credentials),
+      endpoint, data_.num_channels, driver->auth_strategy_,
       driver->spec_.wait_for_connection);
 
   return driver;
@@ -996,6 +1043,8 @@ Result<kvstore::Spec> ParseGcsGrpcUrl(std::string_view url) {
       Context::Resource<internal_storage_gcs::GcsRequestRetries>::DefaultSpec();
   driver_spec->data_.data_copy_concurrency =
       Context::Resource<DataCopyConcurrencyResource>::DefaultSpec();
+  driver_spec->data_.credentials =
+      Context::Resource<ExperimentalGcsGrpcCredentials>::DefaultSpec();
   return {std::in_place, std::move(driver_spec), std::move(decoded_path)};
 }
 
