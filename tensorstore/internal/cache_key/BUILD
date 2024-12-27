@@ -30,3 +30,12 @@ tensorstore_cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+tensorstore_cc_library(
+    name = "json",
+    hdrs = ["json.h"],
+    deps = [
+        ":cache_key",
+        "@com_github_nlohmann_json//:json",
+    ],
+)

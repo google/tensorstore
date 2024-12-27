@@ -187,6 +187,11 @@ inline Result<UniqueFileDescriptor> OpenExistingFileForReading(
 Result<ptrdiff_t> ReadFromFile(FileDescriptor fd, void* buf, size_t count,
                                int64_t offset);
 
+/// Reads the entire file into a string.
+///
+/// \param fd Open file descriptor.
+Result<std::string> ReadAllToString(const std::string& path);
+
 /// Writes to an open file.
 ///
 /// \param fd Open file descriptor.

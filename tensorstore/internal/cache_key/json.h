@@ -12,26 +12,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_CACHE_KEY_STD_VARIANT_H_
-#define TENSORSTORE_INTERNAL_CACHE_KEY_STD_VARIANT_H_
+#ifndef TENSORSTORE_INTERNAL_CACHE_KEY_JSON_H_
+#define TENSORSTORE_INTERNAL_CACHE_KEY_JSON_H_
 
 #include <string>
-#include <variant>
 
+#include <nlohmann/json.hpp>
 #include "tensorstore/internal/cache_key/cache_key.h"
 
 namespace tensorstore {
 namespace internal {
 
-template <typename... T>
-struct CacheKeyEncoder<std::variant<T...>> {
-  static void Encode(std::string* out, const std::variant<T...>& v) {
-    internal::EncodeCacheKey(out, v.index());
-    std::visit([out](auto& x) { internal::EncodeCacheKey(out, x); }, v);
+template <>
+struct CacheKeyEncoder<::nlohmann::json> {
+  static void Encode(std::string* out, const ::nlohmann::json& v) {
+    internal::EncodeCacheKey(out, v.dump());
+  }
+};
+
+template <>
+struct CacheKeyEncoder<::nlohmann::json::object_t> {
+  static void Encode(std::string* out, const ::nlohmann::json::object_t& v) {
+    internal::EncodeCacheKey(out, ::nlohmann::json(v).dump());
   }
 };
 
 }  // namespace internal
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_CACHE_KEY_STD_VARIANT_H_
+#endif  // TENSORSTORE_INTERNAL_CACHE_KEY_JSON_H_

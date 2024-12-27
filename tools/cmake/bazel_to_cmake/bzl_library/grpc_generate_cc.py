@@ -19,7 +19,8 @@ from typing import Any, List, Optional, cast
 
 from ..cmake_builder import CMakeBuilder
 from ..cmake_provider import CMakeAddDependenciesProvider
-from ..cmake_provider import default_providers
+from ..cmake_provider import CMakePackageDepsProvider
+from ..cmake_provider import make_providers
 from ..evaluation import EvaluationState
 from ..native_aspect_proto import btc_protobuf
 from ..native_aspect_proto import plugin_generated_files
@@ -124,6 +125,15 @@ def _generate_grpc_cc_impl(
   proto_library_provider = proto_target_info.get(ProtoLibraryProvider)
   assert proto_library_provider is not None
 
+  # Only generate code for proto files that contain a service.
+  srcs_with_service = []
+  for src in proto_library_provider.srcs:
+    with open(_context.get_source_file_path(src), "r") as f:
+      for line in f:
+        if line.startswith("service "):
+          srcs_with_service.append(src)
+          break
+
   cmake_target_pair = state.generate_cmake_target_pair(_target, alias=False)
 
   # Construct the generated paths, installing this rule as a dependency.
@@ -140,7 +150,7 @@ def _generate_grpc_cc_impl(
   # Emit the generated files.
   # See also native_aspect_proto.py
   generated_files = []
-  for src in proto_library_provider.srcs:
+  for src in srcs_with_service:
     for t in plugin_generated_files(
         src,
         plugin_settings,
@@ -157,13 +167,17 @@ def _generate_grpc_cc_impl(
   _context.add_analyzed_target(
       _target,
       TargetInfo(
-          *default_providers(cmake_target_pair),
+          *make_providers(
+              cmake_target_pair,
+              CMakePackageDepsProvider,
+              CMakeAddDependenciesProvider,
+          ),
           FilesProvider(generated_files),
       ),
   )
 
-  src_collector = state.collect_targets(proto_library_provider.srcs)
-  state.collect_deps(UPB_PLUGIN.aspectdeps(resolved_srcs[0]))
+  src_collector = state.collect_targets(srcs_with_service)
+  state.collect_deps(UPB_PLUGIN.aspectdeps(srcs_with_service[0]))
 
   # Augment output with strip import prefix
   output_dir = repo.replace_with_cmake_macro_dirs([
@@ -174,7 +188,12 @@ def _generate_grpc_cc_impl(
 
   # Emit.
   out = io.StringIO()
-  out.write(f"\n# {_target.as_label()}")
+  out.write(f"\n# {_target.as_label()}\n")
+
+  if not generated_files:
+    out.write(f"add_custom_target({cmake_target_pair.target})\n")
+    _context.access(CMakeBuilder).addtext(out.getvalue())
+    return
 
   btc_protobuf(
       _context,

@@ -16,6 +16,7 @@
 #define TENSORSTORE_INTERNAL_CACHE_KEY_STD_OPTIONAL_H_
 
 #include <optional>
+#include <string>
 
 #include "tensorstore/internal/cache_key/cache_key.h"
 

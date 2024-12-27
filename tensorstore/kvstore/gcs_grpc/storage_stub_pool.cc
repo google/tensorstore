@@ -46,6 +46,7 @@
 #include "grpcpp/support/status.h"  // third_party
 #include "google/protobuf/message.h"
 #include "tensorstore/internal/env.h"
+#include "tensorstore/internal/grpc/clientauth/authentication_strategy.h"
 #include "tensorstore/internal/grpc/utils.h"
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/proto/proto_util.h"
@@ -218,7 +219,7 @@ uint32_t ChannelsForAddress(std::string_view address, uint32_t num_channels) {
 // https://github.com/googleapis/google-cloud-cpp/blob/main/google/cloud/storage/internal/storage_stub_factory.cc
 std::shared_ptr<grpc::Channel> CreateChannel(
     const std::string& address,
-    const std::shared_ptr<grpc::ChannelCredentials>& creds, int channel_id) {
+    internal_grpc::GrpcAuthenticationStrategy& auth_strategy, int channel_id) {
   grpc::ChannelArguments args;
 
   if (!IsDirectPathAddress(address)) {
@@ -240,28 +241,21 @@ std::shared_ptr<grpc::Channel> CreateChannel(
       interceptors;
   interceptors.push_back(std::make_unique<LoggingInterceptorFactory>());
 
+  auto channel_creds = auth_strategy.GetChannelCredentials(address, args);
   return grpc::experimental::CreateCustomChannelWithInterceptors(
-      address, creds, args, std::move(interceptors));
+      address, std::move(channel_creds), args, std::move(interceptors));
 }
 
 }  // namespace
 
 StorageStubPool::StorageStubPool(
-    std::string address, uint32_t size,
-    std::shared_ptr<::grpc::ChannelCredentials> creds)
-    : address_(std::move(address)) {
-  size = ChannelsForAddress(address_, size);
-  channels_.resize(size);
-  stubs_.resize(size);
-
-  ABSL_LOG_IF(INFO, gcs_grpc_logging)
-      << "Connecting to " << address_ << " with " << size << " channels";
-
-  for (int id = 0; id < channels_.size(); id++) {
+    std::string address, std::vector<std::shared_ptr<grpc::Channel>> channels)
+    : address_(std::move(address)), channels_(std::move(channels)) {
+  stubs_.reserve(channels_.size());
+  for (auto& channel : channels_) {
     // See google cloud storage client in:
     // https://github.com/googleapis/google-cloud-cpp/blob/main/google/cloud/storage/internal/storage_stub_factory.cc
-    channels_[id] = CreateChannel(address_, creds, id);
-    stubs_[id] = Storage::NewStub(channels_[id]);
+    stubs_.push_back(Storage::NewStub(channel));
   }
 }
 
@@ -282,7 +276,7 @@ void StorageStubPool::WaitForConnected(absl::Duration duration) {
 
 std::shared_ptr<StorageStubPool> GetSharedStorageStubPool(
     std::string address, uint32_t size,
-    std::shared_ptr<::grpc::ChannelCredentials> creds,
+    std::shared_ptr<internal_grpc::GrpcAuthenticationStrategy> auth_strategy,
     absl::Duration wait_for_connected) {
   static absl::NoDestructor<
       absl::flat_hash_map<std::string, std::shared_ptr<StorageStubPool>>>
@@ -293,8 +287,18 @@ std::shared_ptr<StorageStubPool> GetSharedStorageStubPool(
   absl::MutexLock lock(&global_mu);
   auto& pool = (*shared_pool)[key];
   if (pool == nullptr) {
-    pool = std::make_shared<StorageStubPool>(std::move(address), size,
-                                             std::move(creds));
+    ABSL_LOG_IF(INFO, gcs_grpc_logging)
+        << "Connecting to " << address << " with " << size << " channels";
+
+    std::vector<std::shared_ptr<grpc::Channel>> channels;
+    channels.reserve(size);
+    for (int id = 0; id < size; id++) {
+      // See google cloud storage client in:
+      // https://github.com/googleapis/google-cloud-cpp/blob/main/google/cloud/storage/internal/storage_stub_factory.cc
+      channels.push_back(CreateChannel(address, *auth_strategy, id));
+    }
+    pool = std::make_shared<StorageStubPool>(std::move(address),
+                                             std::move(channels));
     pool->WaitForConnected(wait_for_connected);
   }
   return pool;

@@ -12,16 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_KVSTORE_GCS_GRPC_USE_DIRECTPATH_H_
-#define TENSORSTORE_KVSTORE_GCS_GRPC_USE_DIRECTPATH_H_
+#ifndef TENSORSTORE_KVSTORE_GCS_GRPC_DEFAULT_ENDPOINT_H_
+#define TENSORSTORE_KVSTORE_GCS_GRPC_DEFAULT_ENDPOINT_H_
+
+#include <string>
 
 namespace tensorstore {
 namespace internal_gcs_grpc {
 
-/// Returns whether to use the directpath GCS endpoint by default.
-bool UseDirectPathGcsEndpointByDefault();
+/// Returns the default gRPC endpoint to use for GCS.
+std::string GetDefaultGcsGrpcEndpoint();
 
 }  // namespace internal_gcs_grpc
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_KVSTORE_GCS_GRPC_USE_DIRECTPATH_H_
+#endif  // TENSORSTORE_KVSTORE_GCS_GRPC_DEFAULT_ENDPOINT_H_

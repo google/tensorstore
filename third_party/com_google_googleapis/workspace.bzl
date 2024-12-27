@@ -38,6 +38,7 @@ def repo():
                 "--target=//google/api/expr/v1alpha1:all",
                 "--target=//google/rpc:all",
                 "--target=//google/storage/v2:all",
+                "--target=//google/iam/credentials/v1:all",
             ],
         },
     )

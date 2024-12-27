@@ -1,4 +1,4 @@
-// Copyright 2022 The TensorStore Authors
+// Copyright 2024 The TensorStore Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,60 +12,50 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_KVSTORE_GCS_GCS_RESOURCE_H_
-#define TENSORSTORE_KVSTORE_GCS_GCS_RESOURCE_H_
-
-#include <optional>
-#include <string>
+#ifndef TENSORSTORE_KVSTORE_GCS_EXP_CREDENTIALS_RESOURCE_H_
+#define TENSORSTORE_KVSTORE_GCS_EXP_CREDENTIALS_RESOURCE_H_
 
 #include "tensorstore/context.h"
 #include "tensorstore/context_resource_provider.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/retries_context_resource.h"
+#include "tensorstore/kvstore/gcs/exp_credentials_spec.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace internal_storage_gcs {
 
-/// Optionally specifies a project to which all requests are billed.
+/// Context resource for gcs_grpc credentials  allows setting non-default
+/// credentials for the gcs_grpc kvstore driver, such as external_account
+/// credentials.
+/// NOTE: This is experimental and may change without notice.
 ///
-/// If not specified, requests to normal buckets are billed to the project
-/// that owns the bucket, and requests to "requestor pays"-enabled buckets
-/// fail.
-struct GcsUserProjectResource
-    : public internal::ContextResourceTraits<GcsUserProjectResource> {
-  static constexpr char id[] = "gcs_user_project";
+/// See exp_credentials_spec.h for supported spec examples.
+struct ExperimentalGcsGrpcCredentials final
+    : public internal::ContextResourceTraits<ExperimentalGcsGrpcCredentials> {
+  static constexpr char id[] = "experimental_gcs_grpc_credentials";
   constexpr static bool config_only = true;
-  struct Spec {
-    std::optional<std::string> project_id;
-    constexpr static auto ApplyMembers = [](auto&& x, auto f) {
-      return f(x.project_id);
-    };
-  };
+
+  using Spec = ExperimentalGcsGrpcCredentialsSpec;
   using Resource = Spec;
 
-  static Spec Default() { return {}; }
+  static Spec Default() { return Spec{}; }
   static constexpr auto JsonBinder() {
-    namespace jb = tensorstore::internal_json_binding;
-    return jb::Object(
-        jb::Member("project_id", jb::Projection(&Spec::project_id)));
+    return internal_json_binding::Object(
+        ExperimentalGcsGrpcCredentialsSpec::PartialBinder{});
   }
+
   static Result<Resource> Create(
       const Spec& spec, internal::ContextResourceCreationContext context) {
     return spec;
   }
+
   static Spec GetSpec(const Resource& resource,
                       const internal::ContextSpecBuilder& builder) {
     return resource;
   }
 };
 
-/// Specifies a limit on the number of retries.
-struct GcsRequestRetries : public internal::RetriesResource<GcsRequestRetries> {
-  static constexpr char id[] = "gcs_request_retries";
-};
-
 }  // namespace internal_storage_gcs
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_KVSTORE_GCS_GCS_RESOURCE_H_
+#endif  // TENSORSTORE_KVSTORE_GCS_EXP_CREDENTIALS_RESOURCE_H_

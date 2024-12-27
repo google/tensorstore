@@ -55,7 +55,7 @@ tensorstore_cc_library(
 
 tensorstore_cc_library(
     name = "file_util",
-    srcs = select({
+    srcs = ["file_util.cc"] + select({
         "@platforms//os:windows": [
             "file_util_win.cc",
         ],

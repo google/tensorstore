@@ -26,7 +26,7 @@
 #include "google/storage/v2/storage.grpc.pb.h"
 #include "absl/time/time.h"
 #include "grpcpp/channel.h"  // third_party
-#include "grpcpp/security/credentials.h"  // third_party
+#include "tensorstore/internal/grpc/clientauth/authentication_strategy.h"
 
 namespace tensorstore {
 namespace internal_gcs_grpc {
@@ -36,8 +36,8 @@ class StorageStubPool {
   using Storage = ::google::storage::v2::Storage;
 
  public:
-  StorageStubPool(std::string address, uint32_t size,
-                  std::shared_ptr<::grpc::ChannelCredentials> creds);
+  StorageStubPool(std::string address,
+                  std::vector<std::shared_ptr<grpc::Channel>> channels);
 
   // Accessors
   const std::string& address() const { return address_; }
@@ -65,7 +65,7 @@ class StorageStubPool {
 // to use the same credentials for the same address.
 std::shared_ptr<StorageStubPool> GetSharedStorageStubPool(
     std::string address, uint32_t size,
-    std::shared_ptr<::grpc::ChannelCredentials> creds,
+    std::shared_ptr<internal_grpc::GrpcAuthenticationStrategy> auth_strategy,
     absl::Duration wait_for_connected);
 
 }  // namespace internal_gcs_grpc

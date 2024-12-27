@@ -17,6 +17,7 @@
 
 #include <memory>
 #include <mutex>  // NOLINT
+#include <type_traits>
 
 #include "absl/base/thread_annotations.h"
 #include "absl/synchronization/mutex.h"

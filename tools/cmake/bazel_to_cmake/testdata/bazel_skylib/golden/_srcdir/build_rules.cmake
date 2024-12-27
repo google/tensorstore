@@ -8,7 +8,7 @@ COMMAND ${Python3_EXECUTABLE} "${SCRIPT_DIRECTORY}/bzl_library/expand_template.p
         "${TEST_BINDIR}/config.h"
         "${TEST_BINDIR}/CMakeProject_config2_h.subs.json"
         "${TEST_BINDIR}/config2.h"
-DEPENDS "${TEST_BINDIR}/CMakeProject_config2_h.subs.json" "${TEST_BINDIR}/config.h" "${SCRIPT_DIRECTORY}/bzl_library/expand_template.py"
+DEPENDS "${SCRIPT_DIRECTORY}/bzl_library/expand_template.py" "${TEST_BINDIR}/CMakeProject_config2_h.subs.json" "${TEST_BINDIR}/config.h"
 VERBATIM
 )
 add_custom_target(CMakeProject_config2_h DEPENDS "${TEST_BINDIR}/config2.h")
