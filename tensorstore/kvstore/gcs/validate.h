@@ -35,15 +35,6 @@ bool IsValidObjectName(std::string_view name);
 // Returns whether the StorageGeneration is valid for GCS.
 bool IsValidStorageGeneration(const StorageGeneration& gen);
 
-/// Returns whether the absl::Status is a retriable request.
-/// https://github.com/googleapis/google-cloud-cpp/blob/main/google/cloud/storage/retry_policy.h
-inline bool IsRetriable(const absl::Status& status) {
-  // Exclude InternalError until instances are encountered.
-  return (status.code() == absl::StatusCode::kDeadlineExceeded ||
-          status.code() == absl::StatusCode::kResourceExhausted ||
-          status.code() == absl::StatusCode::kUnavailable);
-}
-
 /// Constructs an absl::Status from an Aws HttpResponse.
 absl::Status GcsHttpResponseToStatus(
     const internal_http::HttpResponse& response, bool& retryable,

@@ -107,7 +107,6 @@ using ::tensorstore::internal_gcs_grpc::GetSharedStorageStubPool;
 using ::tensorstore::internal_gcs_grpc::StorageStubPool;
 using ::tensorstore::internal_storage_gcs::ExperimentalGcsGrpcCredentials;
 using ::tensorstore::internal_storage_gcs::GcsUserProjectResource;
-using ::tensorstore::internal_storage_gcs::IsRetriable;
 using ::tensorstore::internal_storage_gcs::IsValidBucketName;
 using ::tensorstore::internal_storage_gcs::IsValidObjectName;
 using ::tensorstore::internal_storage_gcs::IsValidStorageGeneration;
@@ -120,15 +119,12 @@ using ::google::storage::v2::ListObjectsRequest;
 using ::google::storage::v2::ListObjectsResponse;
 using ::google::storage::v2::ReadObjectRequest;
 using ::google::storage::v2::ReadObjectResponse;
-using ::google::storage::v2::ServiceConstants;
 using ::google::storage::v2::WriteObjectRequest;
 using ::google::storage::v2::WriteObjectResponse;
 using ::google::storage::v2::Storage;
 
 namespace {
 static constexpr char kUriScheme[] = "gcs_grpc";
-static constexpr size_t kMaxWriteBytes =
-    ServiceConstants::MAX_WRITE_CHUNK_BYTES;
 }  // namespace
 
 namespace tensorstore {
@@ -149,6 +145,15 @@ auto gcs_grpc_metrics = []() -> GcsMetrics {
 }();
 
 ABSL_CONST_INIT internal_log::VerboseFlag gcs_grpc_logging("gcs_grpc");
+
+/// Returns whether the absl::Status is a retriable request.
+/// https://github.com/googleapis/google-cloud-cpp/blob/main/google/cloud/storage/retry_policy.h
+inline bool IsRetriable(const absl::Status& status) {
+  return (status.code() == absl::StatusCode::kDeadlineExceeded ||
+          status.code() == absl::StatusCode::kResourceExhausted ||
+          status.code() == absl::StatusCode::kUnavailable ||
+          status.code() == absl::StatusCode::kInternal);
+}
 
 struct GcsGrpcKeyValueStoreSpecData {
   std::string bucket;
