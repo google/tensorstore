@@ -129,7 +129,6 @@ using ::tensorstore::internal_kvstore_gcs_http::ParseObjectMetadata;
 using ::tensorstore::internal_storage_gcs::GcsHttpResponseToStatus;
 using ::tensorstore::internal_storage_gcs::GcsRequestRetries;
 using ::tensorstore::internal_storage_gcs::GcsUserProjectResource;
-using ::tensorstore::internal_storage_gcs::IsRetriable;
 using ::tensorstore::internal_storage_gcs::IsValidBucketName;
 using ::tensorstore::internal_storage_gcs::IsValidObjectName;
 using ::tensorstore::internal_storage_gcs::IsValidStorageGeneration;
@@ -161,6 +160,15 @@ auto gcs_metrics = []() -> GcsMetrics {
 }();
 
 ABSL_CONST_INIT internal_log::VerboseFlag gcs_http_logging("gcs_http");
+
+/// Returns whether the absl::Status is a retriable request.
+/// https://github.com/googleapis/google-cloud-cpp/blob/main/google/cloud/storage/retry_policy.h
+inline bool IsRetriable(const absl::Status& status) {
+  /// For HTTP, disallow internal errors.
+  return (status.code() == absl::StatusCode::kDeadlineExceeded ||
+          status.code() == absl::StatusCode::kResourceExhausted ||
+          status.code() == absl::StatusCode::kUnavailable);
+}
 
 std::string GetGcsBaseUrl() {
   return GetFlagOrEnvValue(FLAGS_tensorstore_gcs_http_url,
