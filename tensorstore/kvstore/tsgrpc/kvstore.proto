@@ -22,10 +22,10 @@ import "tensorstore/kvstore/tsgrpc/common.proto";
 // Proto-api for a remote key-value store
 service KvStoreService {
   /// Attempts to read the specified key.
-  rpc Read(ReadRequest) returns (ReadResponse);
+  rpc Read(ReadRequest) returns (stream ReadResponse);
 
   /// Performs an optionally-conditional write.
-  rpc Write(WriteRequest) returns (WriteResponse);
+  rpc Write(stream WriteRequest) returns (WriteResponse);
 
   /// Performs an optionally-conditional delete.
   rpc Delete(DeleteRequest) returns (DeleteResponse);
@@ -73,6 +73,11 @@ message ReadRequest {
 }
 
 message ReadResponse {
+  // When multiple ReadResponse messages are received, all messages after the
+  // initial message are partial responses, and only the value_part field is
+  // meaningful. In such a case, the value is the catenation of all value_parts
+  // in order.
+
   /// Optionally, a non-ok status message may be returned.
   StatusMessage status = 1;
 
@@ -92,14 +97,22 @@ message ReadResponse {
     /// Indicates a value is present.
     VALUE = 2;
   }
-
   State state = 3;
-  bytes value = 4 [ctype = CORD];
+
+  // Partial value. Only meaningful when state is VALUE.
+  // The actaual value is the catenation of all value_part fields in order.
+  bytes value_part = 4 [ctype = CORD];
 }
 
 /// See tensorstore/kvstore/operations.h
 ///   kvstore::WriteOptions
 message WriteRequest {
+  // When multiple WriteRequest messages are sent, all messages after the
+  // initial message are partial requests, and only the value_part field
+  // is meaningful. In such a case, the value is the catenation of all
+  // value_parts in order.
+
+  /// The key to write.
   bytes key = 1;
 
   /// The write is aborted if the existing generation associated with the
@@ -111,7 +124,10 @@ message WriteRequest {
   /// - The special value of `StorageGeneration::NoValue()` specifies a
   ///   condition that the `key` does not have an existing value.
   bytes generation_if_equal = 2;
-  bytes value = 3 [ctype = CORD];
+
+  // Partial value.
+  // The actaual value is the catenation of all value_part fields in order.
+  bytes value_part = 3 [ctype = CORD];
 }
 
 message WriteResponse {
@@ -125,8 +141,12 @@ message WriteResponse {
 /// See tensorstore/kvstore/operations.h
 ///   kvstore::WriteOptions
 message DeleteRequest {
+  // The key to delete.
   bytes key = 1;
   KeyRange range = 2;
+
+  /// The delete is aborted if the existing generation associated with the
+  /// stored `key` does not match `if_equal`.
   bytes generation_if_equal = 3;
 }
 

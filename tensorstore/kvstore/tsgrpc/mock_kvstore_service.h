@@ -34,10 +34,12 @@ class MockKvStoreService : public kvstore::grpc_gen::KvStoreService::Service {
  public:
   using ServiceType = ::tensorstore_grpc::kvstore::grpc_gen::KvStoreService;
 
-  TENSORSTORE_GRPC_MOCK(Read, ::tensorstore_grpc::kvstore::ReadRequest,
-                        ::tensorstore_grpc::kvstore::ReadResponse);
-  TENSORSTORE_GRPC_MOCK(Write, ::tensorstore_grpc::kvstore::WriteRequest,
-                        ::tensorstore_grpc::kvstore::WriteResponse);
+  TENSORSTORE_GRPC_SERVER_STREAMING_MOCK(
+      Read, ::tensorstore_grpc::kvstore::ReadRequest,
+      ::tensorstore_grpc::kvstore::ReadResponse);
+  TENSORSTORE_GRPC_CLIENT_STREAMING_MOCK(
+      Write, ::tensorstore_grpc::kvstore::WriteRequest,
+      ::tensorstore_grpc::kvstore::WriteResponse);
   TENSORSTORE_GRPC_MOCK(Delete, ::tensorstore_grpc::kvstore::DeleteRequest,
                         ::tensorstore_grpc::kvstore::DeleteResponse);
   TENSORSTORE_GRPC_SERVER_STREAMING_MOCK(
