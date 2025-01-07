@@ -17,6 +17,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <algorithm>
 #include <atomic>
 #include <cassert>
 #include <memory>
@@ -74,7 +75,8 @@ using ::tensorstore::internal_metrics::MetricMetadata;
 using ::tensorstore::kvstore::ListEntry;
 using ::tensorstore_grpc::EncodeGenerationAndTimestamp;
 using ::tensorstore_grpc::Handler;
-using ::tensorstore_grpc::StreamHandler;
+using ::tensorstore_grpc::StreamClientRequestHandler;
+using ::tensorstore_grpc::StreamServerResponseHandler;
 using ::tensorstore_grpc::kvstore::DeleteRequest;
 using ::tensorstore_grpc::kvstore::DeleteResponse;
 using ::tensorstore_grpc::kvstore::ListRequest;
@@ -108,13 +110,16 @@ auto& list_metric = internal_metrics::Counter<int64_t>::New(
 
 ABSL_CONST_INIT internal_log::VerboseFlag verbose_logging("tsgrpc_kvstore");
 
-class ReadHandler final : public Handler<ReadRequest, ReadResponse> {
-  using Base = Handler<ReadRequest, ReadResponse>;
+constexpr size_t kMaxReadChunkSize = 1 << 20;
+
+class ReadHandler final
+    : public StreamServerResponseHandler<ReadRequest, ReadResponse> {
+  using Base = StreamServerResponseHandler<ReadRequest, ReadResponse>;
 
  public:
   ReadHandler(CallbackServerContext* grpc_context, const Request* request,
-              Response* response, KvStore kvstore)
-      : Base(grpc_context, request, response), kvstore_(std::move(kvstore)) {}
+              KvStore kvstore)
+      : Base(grpc_context, request), kvstore_(std::move(kvstore)) {}
 
   void Run() {
     ABSL_LOG_IF(INFO, verbose_logging)
@@ -142,15 +147,36 @@ class ReadHandler final : public Handler<ReadRequest, ReadResponse> {
     }
 
     internal::IntrusivePtr<ReadHandler> self{this};
-    future_ =
-        PromiseFuturePair<void>::Link(
-            [self = std::move(self)](tensorstore::Promise<void> promise,
-                                     auto read_result) {
-              if (!promise.result_needed()) return;
-              promise.SetResult(self->HandleResult(read_result.result()));
-            },
-            tensorstore::kvstore::Read(kvstore_, request()->key(), options))
-            .future;
+    future_ = tensorstore::kvstore::Read(kvstore_, request()->key(), options);
+    future_.ExecuteWhenReady(
+        [self = std::move(self)](ReadyFuture<kvstore::ReadResult> ready) {
+          self->HandleInitialResult(std::move(ready).result());
+        });
+  }
+
+  void HandleInitialResult(Result<kvstore::ReadResult> result) {
+    auto status = result.status();
+    if (!status.ok()) {
+      // Consider setting the status in the response instead.
+      Finish(status);
+      return;
+    }
+
+    auto& r = result.value();
+    response_.set_state(static_cast<ReadResponse::State>(r.state));
+    EncodeGenerationAndTimestamp(r.stamp, &response_);
+
+    value_ = std::move(r.value);
+    value_offset_ = 0;
+
+    SetNextPart();
+    StartWrite(&response_);
+  }
+
+  void SetNextPart() {
+    auto next_part = value_.Subcord(value_offset_, kMaxReadChunkSize);
+    value_offset_ = std::min(value_.size(), value_offset_ + next_part.size());
+    response_.set_value_part(std::move(next_part));
   }
 
   void OnCancel() final {
@@ -159,50 +185,75 @@ class ReadHandler final : public Handler<ReadRequest, ReadResponse> {
     Finish(::grpc::Status(::grpc::StatusCode::CANCELLED, ""));
   }
 
-  absl::Status HandleResult(const Result<kvstore::ReadResult>& result) {
-    auto status = result.status();
-    if (status.ok()) {
-      auto& r = result.value();
-      response()->set_state(static_cast<ReadResponse::State>(r.state));
-      EncodeGenerationAndTimestamp(r.stamp, response());
-      if (r.has_value()) {
-        response()->set_value(r.value);
-      }
+  void OnWriteDone(bool ok) final {
+    if (!ok) {
+      // OnDone is going to be called after we return from this method.
+      Finish(::grpc::Status(::grpc::StatusCode::UNKNOWN, "Write failed"));
+      return;
     }
-    Finish(status);
-    return status;
+    if (value_offset_ == value_.size()) {
+      Finish(::grpc::Status::OK);
+      return;
+    }
+    response_.Clear();
+    SetNextPart();
+    StartWrite(&response_);
   }
 
  private:
   KvStore kvstore_;
-  Future<void> future_;
+  Future<kvstore::ReadResult> future_;
+
+  ReadResponse response_;
+  absl::Cord value_;
+  size_t value_offset_ = 0;
 };
 
-class WriteHandler final : public Handler<WriteRequest, WriteResponse> {
-  using Base = Handler<WriteRequest, WriteResponse>;
+class WriteHandler final
+    : public StreamClientRequestHandler<WriteRequest, WriteResponse> {
+  using Base = StreamClientRequestHandler<WriteRequest, WriteResponse>;
 
  public:
-  WriteHandler(CallbackServerContext* grpc_context, const Request* request,
-               Response* response, KvStore kvstore)
-      : Base(grpc_context, request, response), kvstore_(std::move(kvstore)) {}
+  WriteHandler(CallbackServerContext* grpc_context, Response* response,
+               KvStore kvstore)
+      : Base(grpc_context, response), kvstore_(std::move(kvstore)) {}
 
-  void Run() {
-    ABSL_LOG_IF(INFO, verbose_logging)
-        << "WriteHandler " << ConciseDebugString(*request());
-    tensorstore::kvstore::WriteOptions options{};
-    options.generation_conditions.if_equal.value =
-        request()->generation_if_equal();
+  void Run() { StartRead(&request_); }
 
+  void OnReadDone(bool ok) override {
+    if (grpc_context()->IsCancelled()) {
+      // OnCancelled is going to be called and will invoke Finish, thus just
+      // stop reading sequence here.
+      return;
+    }
+    if (ok) {
+      ABSL_LOG_IF(INFO, verbose_logging)
+          << "WriteHandler " << ConciseDebugString(request_);
+      // One read chunk has completed, but not everything.
+      // According to protocol, state, generation and timestamp must be taken
+      // from the first message in the stream.
+      if (!first_request_received_) {
+        first_request_received_ = true;
+        options_.generation_conditions.if_equal.value =
+            request_.generation_if_equal();
+        key_ = request_.key();
+      }
+
+      value_.Append(request_.value_part());
+      StartRead(&request_);
+      return;
+    }
+
+    ABSL_LOG_IF(INFO, verbose_logging) << "WriteHandler starting write";
+
+    // Setup the response.
     internal::IntrusivePtr<WriteHandler> self{this};
-    future_ =
-        PromiseFuturePair<void>::Link(
-            [self = std::move(self)](Promise<void> promise, auto write_result) {
-              if (!promise.result_needed()) return;
-              promise.SetResult(self->HandleResult(write_result.result()));
-            },
-            kvstore::Write(kvstore_, request()->key(),
-                           absl::Cord(request()->value()), options))
-            .future;
+    future_ = tensorstore::kvstore::Write(kvstore_, key_, value_, options_);
+    future_.ExecuteWhenReady(
+        [self =
+             std::move(self)](ReadyFuture<TimestampedStorageGeneration> ready) {
+          self->HandleResult(std::move(ready).result());
+        });
   }
 
   void OnCancel() final {
@@ -211,19 +262,24 @@ class WriteHandler final : public Handler<WriteRequest, WriteResponse> {
     Finish(::grpc::Status(::grpc::StatusCode::CANCELLED, ""));
   }
 
-  absl::Status HandleResult(
-      const tensorstore::Result<TimestampedStorageGeneration>& result) {
+  void HandleResult(tensorstore::Result<TimestampedStorageGeneration>& result) {
     auto status = result.status();
     if (status.ok()) {
       EncodeGenerationAndTimestamp(result.value(), response());
     }
     Finish(status);
-    return status;
   }
 
  private:
   KvStore kvstore_;
-  Future<void> future_;
+  tensorstore::kvstore::WriteOptions options_;
+
+  Future<TimestampedStorageGeneration> future_;
+  WriteRequest request_;
+
+  std::string key_;
+  absl::Cord value_;
+  bool first_request_received_ = false;
 };
 
 class DeleteHandler final : public Handler<DeleteRequest, DeleteResponse> {
@@ -294,8 +350,9 @@ class DeleteHandler final : public Handler<DeleteRequest, DeleteResponse> {
   tensorstore::Future<void> future_;
 };
 
-class ListHandler final : public StreamHandler<ListRequest, ListResponse> {
-  using Base = StreamHandler<ListRequest, ListResponse>;
+class ListHandler final
+    : public StreamServerResponseHandler<ListRequest, ListResponse> {
+  using Base = StreamServerResponseHandler<ListRequest, ListResponse>;
 
  public:
   ListHandler(CallbackServerContext* grpc_context, const Request* request,
@@ -457,12 +514,12 @@ class KvStoreServer::Impl final : public KvStoreService::CallbackService {
  public:
   Impl(KvStore kvstore) : kvstore_(std::move(kvstore)) {}
 
-  ::grpc::ServerUnaryReactor* Read(::grpc::CallbackServerContext* context,
-                                   const ReadRequest* request,
-                                   ReadResponse* response) override {
+  ::grpc::ServerWriteReactor<::tensorstore_grpc::kvstore::ReadResponse>* Read(
+      ::grpc::CallbackServerContext* context,
+      const ReadRequest* request) override {
     read_metric.Increment();
     internal::IntrusivePtr<ReadHandler> handler(
-        new ReadHandler(context, request, response, kvstore_));
+        new ReadHandler(context, request, kvstore_));
     assert(handler->use_count() == 2);
     handler->Run();
     assert(handler->use_count() > 0);
@@ -470,12 +527,12 @@ class KvStoreServer::Impl final : public KvStoreService::CallbackService {
     return handler.get();
   }
 
-  ::grpc::ServerUnaryReactor* Write(::grpc::CallbackServerContext* context,
-                                    const WriteRequest* request,
-                                    WriteResponse* response) override {
+  ::grpc::ServerReadReactor<::tensorstore_grpc::kvstore::WriteRequest>* Write(
+      ::grpc::CallbackServerContext* context,
+      WriteResponse* response) override {
     write_metric.Increment();
     internal::IntrusivePtr<WriteHandler> handler(
-        new WriteHandler(context, request, response, kvstore_));
+        new WriteHandler(context, response, kvstore_));
     assert(handler->use_count() == 2);
     handler->Run();
     assert(handler->use_count() > 0);
@@ -496,7 +553,7 @@ class KvStoreServer::Impl final : public KvStoreService::CallbackService {
     return handler.get();
   }
 
-  ::grpc::ServerWriteReactor< ::tensorstore_grpc::kvstore::ListResponse>* List(
+  ::grpc::ServerWriteReactor<::tensorstore_grpc::kvstore::ListResponse>* List(
       ::grpc::CallbackServerContext* context,
       const ListRequest* request) override {
     list_metric.Increment();

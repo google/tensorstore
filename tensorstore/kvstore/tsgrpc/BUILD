@@ -71,7 +71,6 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "@com_github_grpc_grpc//:grpc++",
         "@com_github_grpc_grpc//:grpc++_public_hdrs",
-        "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/time",
     ],
@@ -215,6 +214,7 @@ tensorstore_cc_test(
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/synchronization",
+        "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest_main",
     ],
 )

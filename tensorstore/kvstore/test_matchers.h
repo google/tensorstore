@@ -15,6 +15,8 @@
 #ifndef TENSORSTORE_KVSTORE_TEST_MATCHERS_H_
 #define TENSORSTORE_KVSTORE_TEST_MATCHERS_H_
 
+#include <stdint.h>
+
 #include <string>
 #include <type_traits>
 

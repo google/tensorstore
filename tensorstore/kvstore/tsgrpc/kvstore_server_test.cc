@@ -23,6 +23,7 @@
 #include "absl/strings/cord.h"
 #include "absl/strings/str_format.h"
 #include "absl/synchronization/notification.h"
+#include "absl/time/clock.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/kvstore/key_range.h"
@@ -43,7 +44,9 @@ namespace {
 namespace kvstore = ::tensorstore::kvstore;
 using ::tensorstore::KeyRange;
 using ::tensorstore::grpc_kvstore::KvStoreServer;
+using ::tensorstore::internal::IsRegularStorageGeneration;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
+using ::tensorstore::internal::MatchesTimestampedStorageGeneration;
 
 class KvStoreSingleton {
  public:
@@ -215,6 +218,37 @@ TEST_F(KvStoreTest, List) {
                                      "set_value: a/c/x", "set_value: a/b"),
                     "set_done", "set_stopping"));
   }
+}
+
+TEST_F(KvStoreTest, MultiPartReadWrite) {
+  absl::Cord value;
+  char x = ' ';
+  while (value.size() < (2 << 20)) {
+    value.Append(std::string(1 << 12, x));
+    x++;
+    if (static_cast<int>(x) > 126) x = ' ';
+  }
+
+  auto context = tensorstore::Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::kvstore::Open({{"driver", "tsgrpc_kvstore"},
+                                              {"address", address()},
+                                              {"path", "large/"}},
+                                             context)
+                      .result());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto generation, kvstore::Write(store, "large_value", value).result());
+  EXPECT_THAT(generation.generation, IsRegularStorageGeneration());
+
+  // memory kvstore driver returns the current time as the timestamp.
+  auto now = absl::Now();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto result, kvstore::Read(store, "large_value").result());
+
+  EXPECT_EQ(value, result.value);
+  EXPECT_THAT(result.stamp, MatchesTimestampedStorageGeneration(
+                                generation.generation, testing::Ge(now)));
 }
 
 }  // namespace
