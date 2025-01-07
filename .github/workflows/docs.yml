@@ -39,7 +39,7 @@ jobs:
             ~/.cache/bazelisk
           key: bazel-docs-${{ hashFiles('.bazelversion', 'WORKSPACE', 'external.bzl', 'third_party/**') }}
       - name: Build documentation
-        run: CC=gcc-10 python -u bazelisk.py --bazelrc ~/ci_bazelrc run --announce_rc --show_timestamps --keep_going --color=yes --verbose_failures //docs:build_docs -- --output docs_output
+        run: python -u bazelisk.py --bazelrc ~/ci_bazelrc run --announce_rc --show_timestamps --keep_going --color=yes --verbose_failures //docs:build_docs -- --output docs_output
         shell: bash
       - run: zip -r docs_output.zip docs_output
       - name: Upload docs as artifact
