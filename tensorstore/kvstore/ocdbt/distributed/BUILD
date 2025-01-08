@@ -1,8 +1,8 @@
 # Distributed write support for Optionally-cooperative Distributed B+tree driver
 
-load("//bazel:cc_grpc_library.bzl", "cc_grpc_library")
 load(
     "//bazel:tensorstore.bzl",
+    "tensorstore_cc_grpc_library",
     "tensorstore_cc_library",
     "tensorstore_cc_proto_library",
     "tensorstore_cc_test",
@@ -84,7 +84,7 @@ tensorstore_cc_proto_library(
     deps = [":coordinator_proto"],
 )
 
-cc_grpc_library(
+tensorstore_cc_grpc_library(
     name = "coordinator_cc_grpc",
     srcs = [":coordinator_proto"],
     deps = [
@@ -103,7 +103,7 @@ tensorstore_cc_proto_library(
     deps = [":cooperator_proto"],
 )
 
-cc_grpc_library(
+tensorstore_cc_grpc_library(
     name = "cooperator_cc_grpc",
     srcs = [":cooperator_proto"],
     deps = [

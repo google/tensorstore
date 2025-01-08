@@ -198,11 +198,16 @@ tensorstore_cc_library(
     ],
 )
 
+DEFAULT_STRATEGY_DEPS = []
+
+DEFAULT_STRATEGY_DEFINES = []
+
 tensorstore_cc_library(
     name = "default_strategy",
     srcs = ["default_strategy.cc"],
     hdrs = ["default_strategy.h"],
-    deps = [
+    local_defines = DEFAULT_STRATEGY_DEFINES,
+    deps = DEFAULT_STRATEGY_DEPS + [
         "//tensorstore/internal/grpc/clientauth:authentication_strategy",
         "//tensorstore/internal/grpc/clientauth:channel_authentication",
         "@com_google_absl//absl/log:absl_log",

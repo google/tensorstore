@@ -1,7 +1,7 @@
-load("//bazel:cc_grpc_library.bzl", "cc_grpc_library")
 load(
     "//bazel:tensorstore.bzl",
     "tensorstore_cc_binary",
+    "tensorstore_cc_grpc_library",
     "tensorstore_cc_library",
     "tensorstore_cc_proto_library",
     "tensorstore_cc_test",
@@ -48,7 +48,7 @@ tensorstore_cc_proto_library(
     deps = [":kvstore_proto"],
 )
 
-cc_grpc_library(
+tensorstore_cc_grpc_library(
     name = "kvstore_cc_grpc",
     srcs = [":kvstore_proto"],
     service_namespace = "grpc_gen",

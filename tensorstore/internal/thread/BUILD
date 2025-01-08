@@ -62,11 +62,16 @@ tensorstore_cc_test(
     ],
 )
 
+THREAD_POOL_DEFINES = []
+
+THREAD_POOL_DEPS = []
+
 tensorstore_cc_library(
     name = "thread_pool",
     srcs = ["thread_pool.cc"],
     hdrs = ["thread_pool.h"],
-    deps = [
+    local_defines = THREAD_POOL_DEFINES,
+    deps = THREAD_POOL_DEPS + [
         ":pool_impl",
         ":task",
         ":task_group_impl",
