@@ -11,6 +11,10 @@ tensorstore_cc_library(
     ],
 )
 
+TRACING_DEFINES = []
+
+TRACING_DEPS = []
+
 tensorstore_cc_library(
     name = "tracing",
     srcs = [
@@ -22,7 +26,8 @@ tensorstore_cc_library(
         "trace_context.h",
         "trace_span.h",
     ],
-    deps = [
+    defines = TRACING_DEFINES,
+    deps = TRACING_DEPS + [
         ":span_attribute",
         "//tensorstore/internal:source_location",
         "//tensorstore/util:span",

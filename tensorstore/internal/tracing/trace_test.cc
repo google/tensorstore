@@ -24,6 +24,7 @@
 #include "absl/status/status.h"
 #include "tensorstore/internal/tracing/logged_trace_span.h"
 #include "tensorstore/internal/tracing/span_attribute.h"
+#include "tensorstore/internal/tracing/trace_context.h"
 #include "tensorstore/internal/tracing/trace_span.h"
 
 namespace {
@@ -33,6 +34,13 @@ using ::tensorstore::internal_tracing::SpanAttribute;
 using ::tensorstore::internal_tracing::TraceSpan;
 using ::testing::_;
 using ::testing::HasSubstr;
+
+TEST(TraceTest, SwapContext) {
+  tensorstore::internal_tracing::TraceContext tc(
+      tensorstore::internal_tracing::TraceContext::kThread);
+
+  tensorstore::internal_tracing::SwapCurrentTraceContext(&tc);
+}
 
 TEST(TraceTest, Span) {
   TraceSpan span("TraceSpan",

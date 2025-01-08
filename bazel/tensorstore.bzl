@@ -15,6 +15,10 @@
 """Rule definitions for TensorStore targets."""
 
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load(
+    "//bazel:cc_grpc_library.bzl",
+    _cc_grpc_library = "cc_grpc_library",
+)
 
 def _get_tensorstore_copts(copts):
     return (copts or []) + []
@@ -53,3 +57,5 @@ def tensorstore_proto_library(has_services = None, **kwargs):
     native.proto_library(**kwargs)
 
 tensorstore_cc_proto_library = native.cc_proto_library
+
+tensorstore_cc_grpc_library = _cc_grpc_library

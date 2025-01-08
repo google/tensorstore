@@ -109,11 +109,16 @@ tensorstore_cc_library(
     alwayslink = 1,
 )
 
+GCS_CREDENTIALS_DEPS = []
+
+GCS_CREDENTIALS_DEFINES = []
+
 tensorstore_cc_library(
     name = "exp_credentials_spec",
     srcs = ["exp_credentials_spec.cc"],
     hdrs = ["exp_credentials_spec.h"],
-    deps = [
+    defines = GCS_CREDENTIALS_DEFINES,
+    deps = GCS_CREDENTIALS_DEPS + [
         "//tensorstore:json_serialization_options_base",
         "//tensorstore/internal:type_traits",
         "//tensorstore/internal/grpc/clientauth:authentication_strategy",
