@@ -383,6 +383,7 @@ tensorstore_cc_binary(
         "//tensorstore/util:json_absl_flag",
         "//tensorstore/util:status_testutil",
         "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/flags:parse",  # buildcleaner: keep
         "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest",
     ],
