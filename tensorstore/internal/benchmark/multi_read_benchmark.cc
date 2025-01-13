@@ -46,12 +46,13 @@ bazel run -c opt \
 #include "absl/log/absl_log.h"
 #include "absl/log/log.h"
 #include "absl/status/status.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
-#include <nlohmann/json_fwd.hpp>
+#include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/context.h"
 #include "absl/flags/parse.h"
@@ -60,6 +61,7 @@ bazel run -c opt \
 #include "tensorstore/internal/json_binding/std_array.h"  // IWYU pragma: keep
 #include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/metrics/value.h"
+#include "tensorstore/internal/os/file_util.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/spec.h"
@@ -304,6 +306,26 @@ void RunBenchmark(tensorstore::Context::Spec context_spec,
     }
   }
 }
+void CheckTransparentHugePages() {
+#if defined(__linux__)
+  auto hugepages = internal_os::ReadAllToString(
+      "/sys/kernel/mm/transparent_hugepage/enabled");
+  if (hugepages.ok() && absl::StrContains(hugepages.value(), "[always]")) {
+    return;
+  } else if (hugepages.ok()) {
+    ABSL_LOG(WARNING)
+        << "See https://docs.kernel.org/admin-guide/mm/transhuge.html\n"
+           "Transparent huge pages should be set to \"always\"; the current "
+           "setting of \""
+        << hugepages.value() << "\" may cause reduced read performance.";
+  } else {
+    ABSL_LOG(INFO)
+        << "See https://docs.kernel.org/admin-guide/mm/transhuge.html\n"
+           "Transparent huge page settings are unknown; "
+           "/sys/kernel/mm/transparent_hugepage/enabled is not readable.";
+  }
+#endif
+}
 
 void Run(int argc, char** argv) {
   ABSL_CHECK(absl::GetFlag(FLAGS_repeat_reads) > 0);
@@ -321,6 +343,8 @@ void Run(int argc, char** argv) {
 
   ABSL_QCHECK(!specs.empty()) << "Empty config; supply non-empty --read_config "
                                  "or pass specs on the command line.";
+
+  CheckTransparentHugePages();
 
   if (absl::GetFlag(FLAGS_ith_spec) >= 0) {
     ABSL_LOG(INFO) << "Reading only spec #" << absl::GetFlag(FLAGS_ith_spec);
