@@ -89,6 +89,7 @@
 #include "tensorstore/internal/metrics/gauge.h"
 #include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/os/error_code.h"
+#include "tensorstore/internal/os/memory_region.h"
 #include "tensorstore/internal/os/potentially_blocking_region.h"
 #include "tensorstore/internal/os/wstring.h"
 #include "tensorstore/internal/tracing/logged_trace_span.h"
@@ -464,7 +465,17 @@ uint32_t GetDefaultPageSize() {
   return kDefaultPageSize;
 }
 
-Result<MappedRegion> MemmapFileReadOnly(FileDescriptor fd, size_t offset,
+namespace {
+void UnmapFileWin32(char* data, size_t size) {
+  if (!::UnmapViewOfFile(data)) {
+    ABSL_LOG(FATAL) << StatusFromOsError(::GetLastError(),
+                                         "Failed in UnmapViewOfFile");
+  }
+  mmap_active.Decrement();
+}
+}  // namespace
+
+Result<MemoryRegion> MemmapFileReadOnly(FileDescriptor fd, size_t offset,
                                         size_t size) {
   if (offset > 0 && offset % GetDefaultPageSize() != 0) {
     return absl::InvalidArgumentError(
@@ -513,17 +524,7 @@ Result<MappedRegion> MemmapFileReadOnly(FileDescriptor fd, size_t offset,
   mmap_count.Increment();
   mmap_bytes.IncrementBy(size);
   mmap_active.Increment();
-  return MappedRegion(static_cast<const char*>(address), size);
-}
-
-MappedRegion::~MappedRegion() {
-  if (data_) {
-    if (!::UnmapViewOfFile(const_cast<char*>(data_))) {
-      ABSL_LOG(FATAL) << StatusFromOsError(::GetLastError(),
-                                           "Failed in UnmapViewOfFile");
-    }
-    mmap_active.Decrement();
-  }
+  return MemoryRegion(static_cast<char*>(address), size, UnmapFileWin32);
 }
 
 absl::Status FsyncFile(FileDescriptor fd) {

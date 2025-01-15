@@ -52,6 +52,7 @@
 #include "tensorstore/internal/metrics/gauge.h"
 #include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/os/error_code.h"
+#include "tensorstore/internal/os/memory_region.h"
 #include "tensorstore/internal/os/potentially_blocking_region.h"
 #include "tensorstore/internal/tracing/logged_trace_span.h"
 #include "tensorstore/util/quote_string.h"
@@ -376,7 +377,16 @@ uint32_t GetDefaultPageSize() {
   return kDefaultPageSize;
 }
 
-Result<MappedRegion> MemmapFileReadOnly(FileDescriptor fd, size_t offset,
+namespace {
+void UnmapFilePosix(char* data, size_t size) {
+  if (::munmap(data, size) != 0) {
+    ABSL_LOG(FATAL) << StatusFromOsError(errno, "Failed to unmap file");
+  }
+  mmap_active.Decrement();
+}
+}  // namespace
+
+Result<MemoryRegion> MemmapFileReadOnly(FileDescriptor fd, size_t offset,
                                         size_t size) {
 #if ABSL_HAVE_MMAP
   LoggedTraceSpan tspan(__func__, detail_logging.Level(1),
@@ -402,7 +412,7 @@ Result<MappedRegion> MemmapFileReadOnly(FileDescriptor fd, size_t offset,
       size = file_size - offset;
     }
     if (size == 0) {
-      return MappedRegion(nullptr, 0);
+      return MemoryRegion(nullptr, 0, UnmapFilePosix);
     }
   }
 
@@ -416,19 +426,10 @@ Result<MappedRegion> MemmapFileReadOnly(FileDescriptor fd, size_t offset,
   mmap_count.Increment();
   mmap_bytes.IncrementBy(size);
   mmap_active.Increment();
-  return MappedRegion(static_cast<const char*>(address), size);
+  return MemoryRegion(static_cast<char*>(address), size, UnmapFilePosix);
 #else
   return absl::UnimplementedError("::mmap not supported");
 #endif
-}
-
-MappedRegion::~MappedRegion() {
-  if (data_) {
-    if (::munmap(const_cast<char*>(data_), size_) != 0) {
-      ABSL_LOG(FATAL) << StatusFromOsError(errno, "Failed to unmap file");
-    }
-    mmap_active.Decrement();
-  }
 }
 
 absl::Status FsyncFile(FileDescriptor fd) {

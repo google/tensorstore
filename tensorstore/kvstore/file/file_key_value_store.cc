@@ -412,7 +412,8 @@ Result<absl::Cord> ReadFromFileDescriptor(FileDescriptor fd,
   assert(fd != internal_os::FileDescriptorTraits::Invalid());
   file_metrics.batch_read.Increment();
   absl::Time start_time = absl::Now();
-  internal::FlatCordBuilder buffer(byte_range.size(), false);
+  // Large reads could use hugepage-aware memory allocations.
+  internal::FlatCordBuilder buffer(byte_range.size(), 0);
   size_t offset = 0;
   while (offset < buffer.size()) {
     TENSORSTORE_ASSIGN_OR_RETURN(

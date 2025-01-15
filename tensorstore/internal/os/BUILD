@@ -67,6 +67,7 @@ tensorstore_cc_library(
     deps = [
         ":error_code",
         ":include_windows",
+        ":memory_region",
         ":potentially_blocking_region",
         ":unique_handle",
         ":wstring",  # build_cleaner: keep
@@ -276,5 +277,26 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "memory_region",
+    srcs = ["memory_region.cc"],
+    hdrs = ["memory_region.h"],
+    deps = [
+        "//tensorstore/util:result",
+        "@com_google_absl//absl/log:absl_check",
+        "@com_google_absl//absl/log:absl_log",
+        "@com_google_absl//absl/strings:cord",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "memory_region_test",
+    srcs = ["memory_region_test.cc"],
+    deps = [
+        ":memory_region",
+        "@com_google_googletest//:gtest_main",
     ],
 )

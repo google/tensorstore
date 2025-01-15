@@ -417,9 +417,9 @@ tensorstore_cc_library(
     name = "flat_cord_builder",
     hdrs = ["flat_cord_builder.h"],
     deps = [
+        "//tensorstore/internal/os:memory_region",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
     ],
 )

@@ -68,7 +68,7 @@ absl::Cord DeepCopyCord(const absl::Cord& cord) {
       flat.has_value()) {
     return absl::Cord(*flat);
   }
-  internal::FlatCordBuilder builder(cord.size(), false);
+  internal::FlatCordBuilder builder(cord.size(), 0);
   for (absl::string_view s : cord.Chunks()) {
     builder.Append(s);
   }
