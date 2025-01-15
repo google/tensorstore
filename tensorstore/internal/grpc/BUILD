@@ -10,6 +10,8 @@ tensorstore_cc_library(
     hdrs = ["client_credentials.h"],
     deps = [
         "//tensorstore:context",
+        "//tensorstore/internal/grpc/clientauth:authentication_strategy",
+        "//tensorstore/internal/grpc/clientauth:channel_authentication",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/util:result",
@@ -27,7 +29,23 @@ tensorstore_cc_test(
         "//tensorstore:context",
         "//tensorstore/util:result",
         "@com_github_grpc_grpc//:grpc++",
+        "@com_github_grpc_grpc//:grpc_security_base",
         "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "logging_interceptor",
+    srcs = ["logging_interceptor.cc"],
+    hdrs = ["logging_interceptor.h"],
+    deps = [
+        ":utils",
+        "//tensorstore/internal/log:verbose_flag",
+        "//tensorstore/proto:proto_util",
+        "@com_github_grpc_grpc//:grpc++",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/log:absl_log",
+        "@com_google_protobuf//:protobuf",
     ],
 )
 

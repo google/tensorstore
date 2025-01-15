@@ -163,10 +163,9 @@ tensorstore_cc_library(
     visibility = ["//visibility:private"],
     deps = [
         "//tensorstore/internal:env",
-        "//tensorstore/internal/grpc:utils",
         "//tensorstore/internal/grpc/clientauth:authentication_strategy",
+        "//tensorstore/internal/grpc/clientauth:create_channel",
         "//tensorstore/internal/log:verbose_flag",
-        "//tensorstore/proto:proto_util",
         "@com_github_grpc_grpc//:grpc++",
         "@com_github_grpc_grpc//:grpc_security_base",
         "@com_google_absl//absl/base:core_headers",

@@ -22,10 +22,9 @@
 #include <vector>
 
 #include "absl/time/clock.h"
-#include "grpcpp/create_channel.h"  // third_party
-#include "grpcpp/security/credentials.h"  // third_party
-#include "grpcpp/security/server_credentials.h"  // third_party
 #include "grpcpp/server_builder.h"  // third_party
+#include "grpcpp/support/channel_arguments.h"  // third_party
+#include "tensorstore/internal/grpc/clientauth/create_channel.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/kvstore/ocdbt/distributed/cooperator_impl.h"
 #include "tensorstore/kvstore/ocdbt/distributed/coordinator.grpc.pb.h"
@@ -61,15 +60,19 @@ Result<CooperatorPtr> Start(Options&& options) {
   impl->server_ = builder.BuildAndStart();
   impl->storage_identifier_ = std::move(options.storage_identifier);
 
+  auto auth_strategy = impl->security_->GetClientAuthenticationStrategy();
+
+  grpc::ChannelArguments args;
+  auto channel = internal_grpc::CreateChannel(
+      *auth_strategy, options.coordinator_address, args);
+
   // Create the lease cache
   {
     LeaseCacheForCooperator::Options cache_options;
     cache_options.clock = impl->clock_;
     cache_options.coordinator_stub =
-        tensorstore::internal_ocdbt::grpc_gen::Coordinator::NewStub(
-            grpc::CreateChannel(options.coordinator_address,
-                                options.security->GetClientCredentials()));
-    cache_options.security = options.security;
+        tensorstore::internal_ocdbt::grpc_gen::Coordinator::NewStub(channel);
+    cache_options.auth_strategy = std::move(auth_strategy);
     cache_options.cooperator_port = impl->listening_port_;
     cache_options.lease_duration = options.lease_duration;
     impl->lease_cache_ = LeaseCacheForCooperator(std::move(cache_options));

@@ -20,6 +20,7 @@
 #include <string>
 #include <vector>
 
+#include "tensorstore/context.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/kvstore/spec.h"

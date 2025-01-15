@@ -92,6 +92,8 @@ tensorstore_cc_library(
         "//tensorstore/internal/cache_key",
         "//tensorstore/internal/grpc:client_credentials",
         "//tensorstore/internal/grpc:utils",
+        "//tensorstore/internal/grpc/clientauth:authentication_strategy",
+        "//tensorstore/internal/grpc/clientauth:create_channel",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:absl_time",
         "//tensorstore/internal/json_binding:bindable",

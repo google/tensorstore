@@ -14,6 +14,8 @@
 
 #include "tensorstore/kvstore/ocdbt/distributed/lease_cache_for_cooperator.h"
 
+#include <stdint.h>
+
 #include <cassert>
 #include <functional>
 #include <memory>
@@ -30,11 +32,12 @@
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "grpc/grpc.h"
+#include "grpcpp/channel.h"  // third_party
 #include "grpcpp/client_context.h"  // third_party
-#include "grpcpp/create_channel.h"  // third_party
-#include "grpcpp/security/credentials.h"  // third_party
 #include "grpcpp/support/channel_arguments.h"  // third_party
 #include "grpcpp/support/status.h"  // third_party
+#include "tensorstore/internal/grpc/clientauth/authentication_strategy.h"
+#include "tensorstore/internal/grpc/clientauth/create_channel.h"
 #include "tensorstore/internal/grpc/utils.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/log/verbose_flag.h"
@@ -75,7 +78,7 @@ class LeaseCacheForCooperator::Impl
   // LeaseTree leases_by_expiration_time_ ABSL_GUARDED_BY(mutex_);
 
   std::shared_ptr<grpc_gen::Coordinator::StubInterface> coordinator_stub_;
-  RpcSecurityMethod::Ptr security_;
+  std::shared_ptr<internal_grpc::GrpcAuthenticationStrategy> auth_strategy_;
   int32_t cooperator_port_;
   absl::Duration lease_duration_;
 };
@@ -89,10 +92,10 @@ LeaseCacheForCooperator::Impl::GetCooperatorStub(const std::string& address) {
   // and in that case we must invalidate the lease rather than retry.
   grpc::ChannelArguments args;
   args.SetInt(GRPC_ARG_ENABLE_RETRIES, 0);
-  stub = tensorstore::internal_ocdbt::grpc_gen::Cooperator::NewStub(
-      grpc::CreateCustomChannel(address, security_->GetClientCredentials(),
-                                args));
-  return stub;
+  std::shared_ptr<::grpc::Channel> channel =
+      ::tensorstore::internal_grpc::CreateChannel(*auth_strategy_, address,
+                                                  args);
+  return tensorstore::internal_ocdbt::grpc_gen::Cooperator::NewStub(channel);
 }
 
 Future<const LeaseCacheForCooperator::LeaseNode::Ptr>
@@ -111,12 +114,62 @@ namespace {
 struct LeaseRequestState
     : public internal::AtomicReferenceCount<LeaseRequestState> {
   internal::IntrusivePtr<LeaseCacheForCooperator::Impl> owner;
-  grpc::ClientContext client_context;
+  std::shared_ptr<grpc::ClientContext> client_context;
   BtreeNodeIdentifier node_identifier;
   Promise<LeaseCacheForCooperator::LeaseNode::Ptr> promise;
   grpc_gen::LeaseRequest request;
   grpc_gen::LeaseResponse response;
 };
+
+void FinishLeaseRequest(internal::IntrusivePtr<LeaseRequestState> state,
+                        ::grpc::Status s) {
+  auto status = internal::GrpcStatusToAbslStatus(std::move(s));
+  ABSL_LOG_IF(INFO, ocdbt_logging)
+      << "GetLease: " << state->node_identifier << ": got lease: " << status;
+  absl::Time expiration_time;
+  if (status.ok()) {
+    auto expiration_time_result =
+        internal::ProtoToAbslTime(state->response.expiration_time());
+    if (expiration_time_result.ok()) {
+      expiration_time = *expiration_time_result;
+    } else {
+      status = MaybeAnnotateStatus(std::move(expiration_time_result).status(),
+                                   "Invalid expiration_time");
+    }
+  }
+  if (!status.ok()) {
+    state->promise.SetResult(status);
+    // Remove from cache due to error.
+    auto& owner = *state->owner;
+    absl::MutexLock lock(&owner.mutex_);
+    auto it = owner.leases_by_key_.find(state->request.key());
+    if (it != owner.leases_by_key_.end() &&
+        HaveSameSharedState(state->promise, it->second)) {
+      owner.leases_by_key_.erase(it);
+    }
+    return;
+  }
+  auto lease_node =
+      internal::MakeIntrusivePtr<LeaseCacheForCooperator::LeaseNode>();
+  lease_node->key = std::move(*state->request.mutable_key());
+  lease_node->node_identifier = std::move(state->node_identifier);
+  lease_node->lease_id = state->response.lease_id();
+  lease_node->peer_address = state->response.owner();
+  if (!state->response.is_owner()) {
+    lease_node->peer_stub =
+        state->owner->GetCooperatorStub(state->response.owner());
+    ABSL_CHECK(lease_node->peer_stub);
+    ABSL_LOG_IF(INFO, ocdbt_logging)
+        << "GetLease: " << state->node_identifier << ": owner is "
+        << state->response.owner();
+  } else {
+    ABSL_LOG_IF(INFO, ocdbt_logging) << "GetLease: " << state->node_identifier
+                                     << ": current cooperator is owner";
+  }
+
+  lease_node->expiration_time = expiration_time;
+  state->promise.SetResult(std::move(lease_node));
+}
 
 }  // namespace
 
@@ -184,59 +237,23 @@ LeaseCacheForCooperator::GetLease(std::string_view key,
                                 state->request.mutable_lease_duration());
   state->promise = std::move(promise_future.promise);
   state->owner = impl_;
-  auto* state_ptr = state.get();
+
   ABSL_LOG_IF(INFO, ocdbt_logging)
       << "GetLease: " << node_identifier << ": requesting lease";
-  impl_->coordinator_stub_->async()->RequestLease(
-      &state_ptr->client_context, &state_ptr->request, &state_ptr->response,
-      [state = std::move(state)](::grpc::Status s) {
-        auto status = internal::GrpcStatusToAbslStatus(std::move(s));
-        ABSL_LOG_IF(INFO, ocdbt_logging)
-            << "GetLease: " << state->node_identifier
-            << ": got lease: " << status;
-        absl::Time expiration_time;
-        if (status.ok()) {
-          auto expiration_time_result =
-              internal::ProtoToAbslTime(state->response.expiration_time());
-          if (expiration_time_result.ok()) {
-            expiration_time = *expiration_time_result;
-          } else {
-            status = tensorstore::MaybeAnnotateStatus(
-                expiration_time_result.status(), "Invalid expiration_time");
-          }
-        }
-        if (!status.ok()) {
-          state->promise.SetResult(status);
-          // Remove from cache due to error.
-          auto& owner = *state->owner;
-          absl::MutexLock lock(&owner.mutex_);
-          auto it = owner.leases_by_key_.find(state->request.key());
-          if (it != owner.leases_by_key_.end() &&
-              HaveSameSharedState(state->promise, it->second)) {
-            owner.leases_by_key_.erase(it);
-          }
-          return;
-        }
-        auto lease_node = internal::MakeIntrusivePtr<LeaseNode>();
-        lease_node->key = std::move(*state->request.mutable_key());
-        lease_node->node_identifier = std::move(state->node_identifier);
-        lease_node->lease_id = state->response.lease_id();
-        lease_node->peer_address = state->response.owner();
-        if (!state->response.is_owner()) {
-          lease_node->peer_stub =
-              state->owner->GetCooperatorStub(state->response.owner());
-          ABSL_CHECK(lease_node->peer_stub);
-          ABSL_LOG_IF(INFO, ocdbt_logging)
-              << "GetLease: " << state->node_identifier << ": owner is "
-              << state->response.owner();
-        } else {
-          ABSL_LOG_IF(INFO, ocdbt_logging)
-              << "GetLease: " << state->node_identifier
-              << ": current cooperator is owner";
-        }
 
-        lease_node->expiration_time = expiration_time;
-        state->promise.SetResult(std::move(lease_node));
+  auto context_future = impl_->auth_strategy_->ConfigureContext(
+      std::make_shared<grpc::ClientContext>());
+  context_future.ExecuteWhenReady(
+      [impl = impl_, state = std::move(state)](
+          ReadyFuture<std::shared_ptr<grpc::ClientContext>>
+              context_result) mutable {
+        state->client_context = std::move(context_result).value();
+        auto* state_ptr = state.get();
+        impl->coordinator_stub_->async()->RequestLease(
+            state_ptr->client_context.get(), &state_ptr->request,
+            &state_ptr->response, [state = std::move(state)](grpc::Status s) {
+              FinishLeaseRequest(std::move(state), s);
+            });
       });
 
   return std::move(promise_future.future);
@@ -255,7 +272,7 @@ LeaseCacheForCooperator::LeaseCacheForCooperator(Options&& options) {
   impl_.reset(new Impl);
   impl_->clock_ = std::move(options.clock);
   impl_->coordinator_stub_ = std::move(options.coordinator_stub);
-  impl_->security_ = std::move(options.security);
+  impl_->auth_strategy_ = std::move(options.auth_strategy);
   impl_->cooperator_port_ = options.cooperator_port;
   impl_->lease_duration_ = options.lease_duration;
 }

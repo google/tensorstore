@@ -37,36 +37,30 @@
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
-// bindings
+// specializations
 #include "tensorstore/internal/json_binding/absl_time.h"  // IWYU pragma: keep
 #include "tensorstore/internal/json_binding/std_array.h"  // IWYU pragma: keep
 #include "tensorstore/internal/json_binding/std_optional.h"  // IWYU pragma: keep
 
+namespace jb = ::tensorstore::internal_json_binding;
+
 using ::tensorstore::internal_grpc::CaInfo;
 using ::tensorstore::internal_os::ReadAllToString;
+using Spec =
+    ::tensorstore::internal_storage_gcs::ExperimentalGcsGrpcCredentialsSpec;
 
 namespace tensorstore {
 namespace internal_storage_gcs {
 
 struct ExperimentalGcsGrpcCredentialsSpec::Access {
-  using Config = ExperimentalGcsGrpcCredentialsSpec::Config;
-  Config& operator()(ExperimentalGcsGrpcCredentialsSpec& spec) {
-    return spec.config;
-  }
-  const Config& operator()(const ExperimentalGcsGrpcCredentialsSpec& spec) {
-    return spec.config;
-  }
-  Config& operator()(ExperimentalGcsGrpcCredentialsSpec* spec) {
-    return spec->config;
-  }
-  const Config& operator()(const ExperimentalGcsGrpcCredentialsSpec* spec) {
-    return spec->config;
-  }
+  using Config = Spec::Config;
+  Config& operator()(Spec& spec) { return spec.config; }
+  const Config& operator()(const Spec& spec) { return spec.config; }
+  Config& operator()(Spec* spec) { return spec->config; }
+  const Config& operator()(const Spec* spec) { return spec->config; }
 };
 
 namespace {
-namespace jb = ::tensorstore::internal_json_binding;
-using Self = ExperimentalGcsGrpcCredentialsSpec;
 
 // Returns true if the credential is one of the known credentials.
 bool IsKnownCredential(std::string_view credential) {
@@ -91,8 +85,7 @@ using MaybeConst =
                        internal::type_identity_t<T>, std::add_const_t<T>>;
 
 // The PartialBinder for ExperimentalGcsGrpcCredentialsSpec looks at the
-// "credentials" member and then calls the PartialBinder for the specific
-// credential.
+// "type" member and then invokes the credential-specific binder.
 const auto kPartialBinder = [](auto is_loading, const auto& options, auto* obj,
                                nlohmann::json::object_t* j) {
   // This uses a custom variant binder, so extract the credential type
@@ -111,19 +104,19 @@ const auto kPartialBinder = [](auto is_loading, const auto& options, auto* obj,
         "Invalid credentials : ", QuoteString(credentials)));
   }
 
-  ExperimentalGcsGrpcCredentialsSpec::Access config;
+  Spec::Access config;
 
   if constexpr (is_loading) {
     // On load, install the default value for the loading credential type
     // so that std::visit will invoke the correct binding.
     if (credentials == "access_token") {
-      config(obj) = Self::AccessToken{};
+      config(obj) = Spec::AccessToken{};
     } else if (credentials == "service_account") {
-      config(obj) = Self::ServiceAccount{};
+      config(obj) = Spec::ServiceAccount{};
     } else if (credentials == "external_account") {
-      config(obj) = Self::ExternalAccount{};
+      config(obj) = Spec::ExternalAccount{};
     } else if (credentials == "impersonate_service_account") {
-      config(obj) = Self::ImpersonateServiceAccount{};
+      config(obj) = Spec::ImpersonateServiceAccount{};
     } else {
       config(obj) = credentials;
     }
@@ -142,12 +135,12 @@ const auto kPartialBinder = [](auto is_loading, const auto& options, auto* obj,
     nlohmann::json::object_t* j;
 
     absl::Status operator()(const std::string& v) { return absl::OkStatus(); }
-    absl::Status operator()(MaybeConst<L, Self::AccessToken>& spec) {
+    absl::Status operator()(MaybeConst<L, Spec::AccessToken>& spec) {
       return jb::Member("access_token",
-                        jb::Projection<&Self::AccessToken::access_token>())(
+                        jb::Projection<&Spec::AccessToken::access_token>())(
           is_loading, options, &spec, j);
     }
-    absl::Status operator()(MaybeConst<L, Self::ServiceAccount>& spec) {
+    absl::Status operator()(MaybeConst<L, Spec::ServiceAccount>& spec) {
       bool clear = false;
       if constexpr (std::is_same_v<L, std::true_type>) {
         // Loading.
@@ -163,7 +156,7 @@ const auto kPartialBinder = [](auto is_loading, const auto& options, auto* obj,
       }
       TENSORSTORE_RETURN_IF_ERROR(jb::OptionalMember(
           "path",
-          jb::Projection<&Self::ServiceAccount::path>(
+          jb::Projection<&Spec::ServiceAccount::path>(
               jb::DefaultInitializedValue<jb::kNeverIncludeDefaults>()))(
           is_loading, options, &spec, j));
 
@@ -172,7 +165,7 @@ const auto kPartialBinder = [](auto is_loading, const auto& options, auto* obj,
       }
       return absl::OkStatus();
     }
-    absl::Status operator()(MaybeConst<L, Self::ExternalAccount>& spec) {
+    absl::Status operator()(MaybeConst<L, Spec::ExternalAccount>& spec) {
       bool clear = false;
       if constexpr (std::is_same_v<L, std::true_type>) {
         // Loading.
@@ -191,11 +184,11 @@ const auto kPartialBinder = [](auto is_loading, const auto& options, auto* obj,
       TENSORSTORE_RETURN_IF_ERROR(jb::Sequence(
           jb::OptionalMember(
               "scopes",
-              jb::Projection<&Self::ExternalAccount::scopes>(
+              jb::Projection<&Spec::ExternalAccount::scopes>(
                   jb::DefaultInitializedValue<jb::kNeverIncludeDefaults>())),
           jb::OptionalMember(
               "path",
-              jb::Projection<&Self::ExternalAccount::path>(
+              jb::Projection<&Spec::ExternalAccount::path>(
                   jb::DefaultInitializedValue<jb::kNeverIncludeDefaults>())))(
           is_loading, options, &spec, j));
 
@@ -206,7 +199,7 @@ const auto kPartialBinder = [](auto is_loading, const auto& options, auto* obj,
     }
 
     absl::Status operator()(
-        MaybeConst<L, Self::ImpersonateServiceAccount>& spec) {
+        MaybeConst<L, Spec::ImpersonateServiceAccount>& spec) {
       return jb::Validate(
           [](const auto&, auto* spec) {
             if (spec->base.empty()) {
@@ -217,20 +210,20 @@ const auto kPartialBinder = [](auto is_loading, const auto& options, auto* obj,
           },
           jb::Sequence(
               jb::Member("target_service_account",
-                         jb::Projection<&Self::ImpersonateServiceAccount::
+                         jb::Projection<&Spec::ImpersonateServiceAccount::
                                             target_service_account>()),
               jb::OptionalMember(
                   "scopes",
-                  jb::Projection<&Self::ImpersonateServiceAccount::scopes>(
+                  jb::Projection<&Spec::ImpersonateServiceAccount::scopes>(
                       jb::DefaultInitializedValue<
                           jb::kNeverIncludeDefaults>())),
               jb::OptionalMember(
                   "delegates",
-                  jb::Projection<&Self::ImpersonateServiceAccount::delegates>(
+                  jb::Projection<&Spec::ImpersonateServiceAccount::delegates>(
                       jb::DefaultInitializedValue<
                           jb::kNeverIncludeDefaults>())),
               jb::Member("base",
-                         jb::Projection<&Self::ImpersonateServiceAccount::base>(
+                         jb::Projection<&Spec::ImpersonateServiceAccount::base>(
                              jb::DefaultInitializedValue<
                                  jb::kNeverIncludeDefaults>()))))(
           is_loading, options, &spec, j);
@@ -285,33 +278,28 @@ std::string ExperimentalGcsGrpcCredentialsSpec::GetType() const {
 
 absl::Status ExperimentalGcsGrpcCredentialsSpec::PartialBinder::operator()(
     std::true_type is_loading, const internal_json_binding::NoOptions& options,
-    ExperimentalGcsGrpcCredentialsSpec* value,
-    ::nlohmann::json::object_t* j) const {
+    Spec* value, ::nlohmann::json::object_t* j) const {
   TENSORSTORE_RETURN_IF_ERROR(kPartialBinder(is_loading, options, value, j));
 
   if (const auto* impersonate =
           std::get_if<ImpersonateServiceAccount>(&value->config);
       impersonate != nullptr) {
     ::nlohmann::json::object_t j_copy = impersonate->base;
-    ExperimentalGcsGrpcCredentialsSpec base;
+    Spec base;
     return kPartialBinder(is_loading, options, &base, &j_copy);
   }
   return absl::OkStatus();
 }
 absl::Status ExperimentalGcsGrpcCredentialsSpec::PartialBinder::operator()(
     std::false_type is_loading, const tensorstore::IncludeDefaults& options,
-    const ExperimentalGcsGrpcCredentialsSpec* value,
-    ::nlohmann::json::object_t* j) const {
+    const Spec* value, ::nlohmann::json::object_t* j) const {
   return kPartialBinder(is_loading, options, value, j);
 }
 
-bool ExperimentalGcsGrpcCredentialsSpec::IsDefault() const {
-  return *this == ExperimentalGcsGrpcCredentialsSpec{};
-}
+bool Spec::IsDefault() const { return *this == Spec{}; }
 
 Result<std::shared_ptr<internal_grpc::GrpcAuthenticationStrategy>>
-MakeGrpcAuthenticationStrategy(const ExperimentalGcsGrpcCredentialsSpec& spec,
-                               CaInfo ca_info) {
+MakeGrpcAuthenticationStrategy(const Spec& spec, CaInfo ca_info) {
   using R = Result<std::shared_ptr<internal_grpc::GrpcAuthenticationStrategy>>;
 
   struct Visitor {
@@ -330,11 +318,11 @@ MakeGrpcAuthenticationStrategy(const ExperimentalGcsGrpcCredentialsSpec& spec,
           tensorstore::StrCat("Unknown credentials : ", QuoteString(spec)));
     }
 
-    R operator()(const Self::AccessToken& spec) {
+    R operator()(const Spec::AccessToken& spec) {
       return internal_grpc::CreateAccessTokenAuthenticationStrategy(
           spec.access_token, ca_info);
     }
-    R operator()(const Self::ServiceAccount& spec) {
+    R operator()(const Spec::ServiceAccount& spec) {
       std::string json_string;
       if (!spec.path.empty()) {
         TENSORSTORE_ASSIGN_OR_RETURN(json_string, ReadAllToString(spec.path));
@@ -347,7 +335,7 @@ MakeGrpcAuthenticationStrategy(const ExperimentalGcsGrpcCredentialsSpec& spec,
       return internal_grpc::CreateServiceAccountAuthenticationStrategy(
           json_string, ca_info);
     }
-    R operator()(const Self::ExternalAccount& spec) {
+    R operator()(const Spec::ExternalAccount& spec) {
       std::string json_string;
       if (!spec.path.empty()) {
         TENSORSTORE_ASSIGN_OR_RETURN(json_string, ReadAllToString(spec.path));
@@ -361,13 +349,13 @@ MakeGrpcAuthenticationStrategy(const ExperimentalGcsGrpcCredentialsSpec& spec,
       return internal_grpc::CreateExternalAccountAuthenticationStrategy(
           json_string, spec.scopes, ca_info);
     }
-    R operator()(const Self::ImpersonateServiceAccount& spec) {
+    R operator()(const Spec::ImpersonateServiceAccount& spec) {
       if (spec.base.empty()) {
         return absl::InvalidArgumentError(
             "ImpersonateServiceAccount must have a base credential");
       }
       ::nlohmann::json::object_t j_copy = spec.base;
-      ExperimentalGcsGrpcCredentialsSpec base;
+      Spec base;
       TENSORSTORE_RETURN_IF_ERROR(
           kPartialBinder(std::true_type{}, jb::NoOptions{}, &base, &j_copy));
       TENSORSTORE_ASSIGN_OR_RETURN(
@@ -383,7 +371,7 @@ MakeGrpcAuthenticationStrategy(const ExperimentalGcsGrpcCredentialsSpec& spec,
     }
   };
 
-  ExperimentalGcsGrpcCredentialsSpec::Access config;
+  Spec::Access config;
   return std::visit(Visitor{ca_info}, config(spec));
 }
 

@@ -20,6 +20,7 @@
 #include "grpcpp/security/credentials.h"  // third_party
 #include "tensorstore/context.h"
 #include "tensorstore/context_resource_provider.h"
+#include "tensorstore/internal/grpc/clientauth/authentication_strategy.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/util/result.h"
@@ -48,14 +49,15 @@ struct GrpcClientCredentials final
 
   struct Resource {
     // Returns either the owned credentials or a new default credential.
-    std::shared_ptr<::grpc::ChannelCredentials> GetCredentials();
+    std::shared_ptr<internal_grpc::GrpcAuthenticationStrategy>
+    GetAuthenticationStrategy();
 
    private:
     friend struct GrpcClientCredentials;
-    std::shared_ptr<::grpc::ChannelCredentials> credentials_;
+    std::shared_ptr<internal_grpc::GrpcAuthenticationStrategy> auth_strategy_;
   };
 
-  static constexpr Spec Default() { return {}; }
+  static Spec Default() { return Spec{}; }
   static constexpr auto JsonBinder() { return internal_json_binding::Object(); }
 
   static Result<Resource> Create(
@@ -72,6 +74,9 @@ struct GrpcClientCredentials final
   /// Returns true when prior credentials were nullptr.
   static bool Use(tensorstore::Context context,
                   std::shared_ptr<::grpc::ChannelCredentials> credentials);
+  static bool Use(
+      tensorstore::Context context,
+      std::shared_ptr<internal_grpc::GrpcAuthenticationStrategy> auth_strategy);
 };
 
 }  // namespace tensorstore

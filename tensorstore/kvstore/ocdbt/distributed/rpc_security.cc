@@ -20,10 +20,12 @@
 #include "absl/base/no_destructor.h"
 #include "absl/base/optimization.h"
 #include "absl/status/status.h"
-#include "grpcpp/security/credentials.h"  // third_party
 #include "grpcpp/security/server_credentials.h"  // third_party
 #include "grpcpp/server_context.h"  // third_party
+#include <nlohmann/json.hpp>
 #include "tensorstore/internal/cache_key/cache_key.h"
+#include "tensorstore/internal/grpc/clientauth/authentication_strategy.h"
+#include "tensorstore/internal/grpc/clientauth/channel_authentication.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
@@ -48,13 +50,15 @@ namespace {
 class InsecureRpcSecurityMethod : public RpcSecurityMethod {
  public:
   InsecureRpcSecurityMethod() { intrusive_ptr_increment(this); }
+
+  std::shared_ptr<internal_grpc::GrpcAuthenticationStrategy>
+  GetClientAuthenticationStrategy() const override {
+    return internal_grpc::CreateInsecureAuthenticationStrategy();
+  }
+
   std::shared_ptr<grpc::ServerCredentials> GetServerCredentials()
       const override {
     return grpc::InsecureServerCredentials();
-  }
-  std::shared_ptr<grpc::ChannelCredentials> GetClientCredentials()
-      const override {
-    return grpc::InsecureChannelCredentials();
   }
   void EncodeCacheKey(std::string* out) const override {
     // This should never be called.  In the `OcdbtCoordinatorResource`, this

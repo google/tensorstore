@@ -33,7 +33,7 @@
 #include "absl/time/time.h"
 #include "grpcpp/channel.h"  // third_party
 #include "grpcpp/client_context.h"  // third_party
-#include "grpcpp/create_channel.h"  // third_party
+#include "grpcpp/support/channel_arguments.h"  // third_party
 #include "grpcpp/support/client_callback.h"  // third_party
 #include "grpcpp/support/status.h"  // third_party
 #include "grpcpp/support/sync_stream.h"  // third_party
@@ -42,6 +42,8 @@
 #include "tensorstore/internal/context_binding.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/grpc/client_credentials.h"
+#include "tensorstore/internal/grpc/clientauth/authentication_strategy.h"
+#include "tensorstore/internal/grpc/clientauth/create_channel.h"
 #include "tensorstore/internal/grpc/utils.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
@@ -82,6 +84,7 @@ using ::tensorstore::GrpcClientCredentials;
 using ::tensorstore::internal::AbslTimeToProto;
 using ::tensorstore::internal::DataCopyConcurrencyResource;
 using ::tensorstore::internal::GrpcStatusToAbslStatus;
+using ::tensorstore::internal_grpc::GrpcAuthenticationStrategy;
 using ::tensorstore::kvstore::ListEntry;
 using ::tensorstore::kvstore::ListReceiver;
 using ::tensorstore_grpc::DecodeGenerationAndTimestamp;
@@ -159,13 +162,6 @@ class TsGrpcKeyValueStore
  public:
   TsGrpcKeyValueStore(const TsGrpcKeyValueStoreSpecData& spec) : spec_(spec) {}
 
-  void MaybeSetDeadline(grpc::ClientContext& context) {
-    if (spec_.timeout > absl::ZeroDuration() &&
-        spec_.timeout != absl::InfiniteDuration()) {
-      context.set_deadline(absl::ToChronoTime(absl::Now() + spec_.timeout));
-    }
-  }
-
   const Executor& executor() const {
     return spec_.data_copy_concurrency->executor;
   }
@@ -189,9 +185,16 @@ class TsGrpcKeyValueStore
   void ListImpl(ListOptions options, ListReceiver receiver) override;
 
   TsGrpcKeyValueStoreSpecData spec_;
+  std::shared_ptr<internal_grpc::GrpcAuthenticationStrategy> auth_strategy_;
   std::shared_ptr<grpc::Channel> channel_;
   std::unique_ptr<KvStoreService::StubInterface> stub_;
 };
+
+void MaybeSetDeadline(grpc::ClientContext& context, absl::Duration timeout) {
+  if (timeout > absl::ZeroDuration() && timeout != absl::InfiniteDuration()) {
+    context.set_deadline(absl::ToChronoTime(absl::Now() + timeout));
+  }
+}
 
 ////////////////////////////////////////////////////
 
@@ -203,7 +206,7 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
   Promise<kvstore::ReadResult> promise_;
 
   // working state.
-  grpc::ClientContext context_;
+  std::shared_ptr<grpc::ClientContext> context_;
   kvstore::ReadOptions options_;
   ReadRequest request_;
   ReadResponse response_;
@@ -212,11 +215,27 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
   ReadTask(Executor executor, Promise<kvstore::ReadResult> promise)
       : executor_(std::move(executor)), promise_(std::move(promise)) {}
 
-  void TryCancel() { context_.TryCancel(); }
+  void TryCancel() { context_->TryCancel(); }
 
-  void Start(KvStoreService::StubInterface* stub) {
+  void Start(GrpcAuthenticationStrategy& auth_strategy, absl::Duration timeout,
+             KvStoreService::StubInterface* stub) {
+    context_ = std::make_shared<grpc::ClientContext>();
+    MaybeSetDeadline(*context_, timeout);
+    auto context_future = auth_strategy.ConfigureContext(context_);
+
+    context_future.ExecuteWhenReady(
+        [stub, self = internal::IntrusivePtr<ReadTask>(this)](
+            ReadyFuture<std::shared_ptr<grpc::ClientContext>> f) {
+          self->StartImpl(stub);
+        });
+  }
+
+  void StartImpl(KvStoreService::StubInterface* stub) {
+    promise_.ExecuteWhenNotNeeded(
+        [self = internal::IntrusivePtr<ReadTask>(this)] { self->TryCancel(); });
+
     intrusive_ptr_increment(this);  // adopted in OnDone.
-    stub->async()->Read(&context_, &request_, this);
+    stub->async()->Read(context_.get(), &request_, this);
 
     StartRead(&response_);
     StartCall();
@@ -288,8 +307,6 @@ Future<kvstore::ReadResult> TsGrpcKeyValueStore::Read(Key key,
 
   auto task =
       internal::MakeIntrusivePtr<ReadTask>(executor(), std::move(pair.promise));
-  MaybeSetDeadline(task->context_);
-
   auto& request = task->request_;
   request.set_key(std::move(key));
   request.set_generation_if_equal(options.generation_conditions.if_equal.value);
@@ -305,8 +322,7 @@ Future<kvstore::ReadResult> TsGrpcKeyValueStore::Read(Key key,
     AbslTimeToProto(options.staleness_bound, request.mutable_staleness_bound());
   }
 
-  task->Start(stub_.get());
-  task->promise_.ExecuteWhenNotNeeded([t = task] { t->TryCancel(); });
+  task->Start(*auth_strategy_, spec_.timeout, stub_.get());
   return std::move(pair.future);
 }
 
@@ -321,7 +337,7 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
   absl::Cord value_;
 
   // working state.
-  grpc::ClientContext context_;
+  std::shared_ptr<grpc::ClientContext> context_;
   WriteRequest request_;
   WriteResponse response_;
   size_t value_offset_ = 0;
@@ -338,11 +354,27 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
     request_.set_value_part(std::move(next_part));
   }
 
-  void TryCancel() { context_.TryCancel(); }
+  void TryCancel() { context_->TryCancel(); }
 
-  void Start(KvStoreService::StubInterface* stub) {
+  void Start(GrpcAuthenticationStrategy& auth_strategy, absl::Duration timeout,
+             KvStoreService::StubInterface* stub) {
+    context_ = std::make_shared<grpc::ClientContext>();
+    MaybeSetDeadline(*context_, timeout);
+    auto context_future = auth_strategy.ConfigureContext(context_);
+
+    context_future.ExecuteWhenReady(
+        [stub, self = internal::IntrusivePtr<WriteTask>(this)](
+            ReadyFuture<std::shared_ptr<grpc::ClientContext>> f) {
+          self->StartImpl(stub);
+        });
+  }
+
+  void StartImpl(KvStoreService::StubInterface* stub) {
+    promise_.ExecuteWhenNotNeeded([self = internal::IntrusivePtr<WriteTask>(
+                                       this)] { self->TryCancel(); });
+
     intrusive_ptr_increment(this);  // adopted in OnDone.
-    stub->async()->Write(&context_, &response_, this);
+    stub->async()->Write(context_.get(), &response_, this);
 
     UpdateForNextWrite();
 
@@ -393,17 +425,56 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
 
 //////////////////////////////////////////////////////////////////////////
 
-struct DeleteCallbackState {
-  grpc::ClientContext context;
-  DeleteResponse response;
+struct DeleteCallbackState
+    : public internal::AtomicReferenceCount<DeleteCallbackState> {
+  Executor executor_;
+  Promise<TimestampedStorageGeneration> promise_;
+  std::shared_ptr<grpc::ClientContext> context_;
+  DeleteRequest request_;
+  DeleteResponse response_;
+
+  DeleteCallbackState(Executor executor,
+                      Promise<TimestampedStorageGeneration> promise)
+      : executor_(std::move(executor)), promise_(std::move(promise)) {}
+
+  void TryCancel() { context_->TryCancel(); }
+
+  void Start(GrpcAuthenticationStrategy& auth_strategy, absl::Duration timeout,
+             KvStoreService::StubInterface* stub) {
+    context_ = std::make_shared<grpc::ClientContext>();
+    MaybeSetDeadline(*context_, timeout);
+    auto context_future = auth_strategy.ConfigureContext(context_);
+
+    context_future.ExecuteWhenReady(
+        [stub, self = internal::IntrusivePtr<DeleteCallbackState>(this)](
+            ReadyFuture<std::shared_ptr<grpc::ClientContext>> f) {
+          self->StartImpl(stub);
+        });
+  }
+
+  void StartImpl(KvStoreService::StubInterface* stub) {
+    promise_.ExecuteWhenNotNeeded(
+        [self = internal::IntrusivePtr<DeleteCallbackState>(this)] {
+          self->TryCancel();
+        });
+
+    stub->async()->Delete(
+        context_.get(), &request_, &response_,
+        WithExecutor(
+            executor_, [self = internal::IntrusivePtr<DeleteCallbackState>(
+                            this)](::grpc::Status s) {
+              if (!self->promise_.result_needed()) return;
+              self->promise_.SetResult(self->Ready(GrpcStatusToAbslStatus(s)));
+            }));
+  }
 
   Result<TimestampedStorageGeneration> Ready(absl::Status status) {
     ABSL_LOG_IF(INFO, verbose_logging)
-        << "DeleteCallbackState " << ConciseDebugString(response) << " "
+        << "DeleteCallbackState " << ConciseDebugString(response_) << " "
         << status;
     TENSORSTORE_RETURN_IF_ERROR(status);
-    TENSORSTORE_RETURN_IF_ERROR(GetMessageStatus(response));
-    return DecodeGenerationAndTimestamp(response);
+    TENSORSTORE_RETURN_IF_ERROR(GetMessageStatus(response_));
+    return DecodeGenerationAndTimestamp(response_);
   }
 };
 
@@ -415,81 +486,56 @@ Future<TimestampedStorageGeneration> TsGrpcKeyValueStore::Write(
     // empty value is delete.
     tsgrpc_metrics.delete_calls.Increment();
 
-    DeleteRequest request;
+    auto task = internal::MakeIntrusivePtr<DeleteCallbackState>(
+        executor(), std::move(pair.promise));
+    auto& request = task->request_;
     request.set_key(std::move(key));
     request.set_generation_if_equal(
         options.generation_conditions.if_equal.value);
 
-    auto callback = std::make_shared<DeleteCallbackState>();
-    MaybeSetDeadline(callback->context);
-    pair.promise.ExecuteWhenNotNeeded(
-        [callback] { callback->context.TryCancel(); });
-
-    auto* callback_ptr = callback.get();
-    stub()->async()->Delete(
-        &callback_ptr->context, &request, &callback_ptr->response,
-        WithExecutor(
-            executor(), [callback = std::move(callback),
-                         promise = std::move(pair.promise)](::grpc::Status s) {
-              if (!promise.result_needed()) return;
-              promise.SetResult(callback->Ready(GrpcStatusToAbslStatus(s)));
-            }));
+    task->Start(*auth_strategy_, spec_.timeout, stub_.get());
     return std::move(pair.future);
   }
 
   tsgrpc_metrics.write.Increment();
 
-  auto state = internal::MakeIntrusivePtr<WriteTask>(
+  auto task = internal::MakeIntrusivePtr<WriteTask>(
       executor(), std::move(pair.promise), *std::move(value));
-  MaybeSetDeadline(state->context_);
 
-  auto& request = state->request_;
+  auto& request = task->request_;
   request.set_key(std::move(key));
   request.set_generation_if_equal(options.generation_conditions.if_equal.value);
 
-  state->Start(stub_.get());
-  state->promise_.ExecuteWhenNotNeeded([state] { state->TryCancel(); });
+  task->Start(*auth_strategy_, spec_.timeout, stub_.get());
   return std::move(pair.future);
 }
 
 Future<const void> TsGrpcKeyValueStore::DeleteRange(KeyRange range) {
   if (range.empty()) return absl::OkStatus();
   tsgrpc_metrics.delete_range.Increment();
+  auto pair = PromiseFuturePair<TimestampedStorageGeneration>::Make();
 
-  DeleteRequest request;
+  auto task = internal::MakeIntrusivePtr<DeleteCallbackState>(
+      executor(), std::move(pair.promise));
+  auto& request = task->request_;
   request.mutable_range()->set_inclusive_min(range.inclusive_min);
   request.mutable_range()->set_exclusive_max(range.exclusive_max);
 
-  auto callback = std::make_shared<DeleteCallbackState>();
-  MaybeSetDeadline(callback->context);
+  task->Start(*auth_strategy_, spec_.timeout, stub_.get());
 
-  auto pair = PromiseFuturePair<void>::Make(absl::OkStatus());
-  pair.promise.ExecuteWhenNotNeeded(
-      [callback] { callback->context.TryCancel(); });
-
-  auto* callback_ptr = callback.get();
-  stub()->async()->Delete(
-      &callback_ptr->context, &request, &callback_ptr->response,
-      WithExecutor(
-          executor(), [callback = std::move(callback),
-                       promise = std::move(pair.promise)](::grpc::Status s) {
-            if (!promise.result_needed()) return;
-            if (auto result = callback->Ready(GrpcStatusToAbslStatus(s));
-                !result.ok()) {
-              promise.SetResult(std::move(result).status());
-            }
-          }));
-
-  return std::move(pair.future);
+  return MapFutureValue(
+      InlineExecutor{},
+      [](auto& f) -> Result<void> { return absl::OkStatus(); },
+      std::move(pair.future));
 }
 
 // Implements TsGrpcKeyValueStore::List
 // NOTE: Convert to async().
-struct ListTask {
+struct ListTask : public internal::AtomicReferenceCount<ListTask> {
   internal::IntrusivePtr<TsGrpcKeyValueStore> driver;
   ListReceiver receiver;
 
-  grpc::ClientContext context;
+  std::shared_ptr<grpc::ClientContext> context_;
   std::atomic<bool> cancelled = false;
   ListRequest request;
 
@@ -502,16 +548,26 @@ struct ListTask {
   void try_cancel() {
     if (!cancelled.load()) {
       cancelled.store(true, std::memory_order_relaxed);
-      context.TryCancel();
+      context_->TryCancel();
     }
   }
 
-  void Run() {
-    // NOTE: Revisit deadline on list vs. read, etc.
-    driver->MaybeSetDeadline(context);
+  void Start() {
+    context_ = std::make_shared<grpc::ClientContext>();
+    MaybeSetDeadline(*context_, driver->spec_.timeout);
 
+    auto context_future = driver->auth_strategy_->ConfigureContext(context_);
+    context_future.ExecuteWhenReady(
+        WithExecutor(driver->executor(),
+                     [self = internal::IntrusivePtr<ListTask>(this)](
+                         ReadyFuture<std::shared_ptr<grpc::ClientContext>> f) {
+                       self->Run();
+                     }));
+  }
+
+  void Run() {
     // Start a call.
-    auto reader = driver->stub()->List(&context, request);
+    auto reader = driver->stub()->List(context_.get(), request);
 
     execution::set_starting(receiver, [this] { try_cancel(); });
 
@@ -550,17 +606,17 @@ void TsGrpcKeyValueStore::ListImpl(ListOptions options, ListReceiver receiver) {
     return;
   }
   tsgrpc_metrics.list.Increment();
-  auto task = std::make_unique<ListTask>(
+  auto task = internal::MakeIntrusivePtr<ListTask>(
       internal::IntrusivePtr<TsGrpcKeyValueStore>(this), std::move(receiver));
-  task->request.mutable_range()->set_inclusive_min(options.range.inclusive_min);
-  task->request.mutable_range()->set_exclusive_max(options.range.exclusive_max);
-  task->request.set_strip_prefix_length(options.strip_prefix_length);
+  auto& request = task->request;
+  request.mutable_range()->set_inclusive_min(options.range.inclusive_min);
+  request.mutable_range()->set_exclusive_max(options.range.exclusive_max);
+  request.set_strip_prefix_length(options.strip_prefix_length);
   if (options.staleness_bound != absl::InfiniteFuture()) {
-    AbslTimeToProto(options.staleness_bound,
-                    task->request.mutable_staleness_bound());
+    AbslTimeToProto(options.staleness_bound, request.mutable_staleness_bound());
   }
 
-  executor()([task = std::move(task)] { task->Run(); });
+  task->Start();
 }
 
 Future<kvstore::DriverPtr> TsGrpcKeyValueStoreSpec::DoOpen() const {
@@ -576,9 +632,11 @@ Future<kvstore::DriverPtr> TsGrpcKeyValueStoreSpec::DoOpen() const {
   ABSL_LOG_IF(INFO, verbose_logging)
       << "tsgrpc_kvstore address=" << data_.address;
 
-  driver->channel_ =
-      grpc::CreateChannel(data_.address, data_.credentials->GetCredentials());
+  driver->auth_strategy_ = data_.credentials->GetAuthenticationStrategy();
 
+  grpc::ChannelArguments args;
+  driver->channel_ = internal_grpc::CreateChannel(*driver->auth_strategy_,
+                                                  data_.address, args);
   driver->stub_ = KvStoreService::NewStub(driver->channel_);
   return driver;
 }

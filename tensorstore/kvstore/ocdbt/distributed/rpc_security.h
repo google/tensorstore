@@ -16,10 +16,10 @@
 #include <string>
 
 #include "absl/status/status.h"
-#include "grpcpp/security/credentials.h"  // third_party
 #include "grpcpp/security/server_credentials.h"  // third_party
 #include "grpcpp/server_context.h"  // third_party
 #include "tensorstore/internal/cache_key/fwd.h"
+#include "tensorstore/internal/grpc/clientauth/authentication_strategy.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 
 #ifndef TENSORSTORE_KVSTORE_OCDBT_DISTRIBUTED_RPC_SECURITY_H_
@@ -33,9 +33,10 @@ class RpcSecurityMethod
  public:
   using Ptr = internal::IntrusivePtr<const RpcSecurityMethod>;
 
+  virtual std::shared_ptr<internal_grpc::GrpcAuthenticationStrategy>
+  GetClientAuthenticationStrategy() const = 0;
+
   virtual std::shared_ptr<grpc::ServerCredentials> GetServerCredentials()
-      const = 0;
-  virtual std::shared_ptr<grpc::ChannelCredentials> GetClientCredentials()
       const = 0;
 
   // Returns `absl::OkStatus()` by default.

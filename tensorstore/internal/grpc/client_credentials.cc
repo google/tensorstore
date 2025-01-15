@@ -23,6 +23,9 @@
 #include "grpcpp/security/credentials.h"  // third_party
 #include "tensorstore/context.h"
 #include "tensorstore/context_resource_provider.h"
+#include "tensorstore/internal/grpc/clientauth/authentication_strategy.h"
+#include "tensorstore/internal/grpc/clientauth/channel_authentication.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace {
@@ -42,19 +45,29 @@ const internal::ContextResourceRegistration<GrpcClientCredentials>
 /* static */
 bool GrpcClientCredentials::Use(
     tensorstore::Context context,
-    std::shared_ptr<::grpc::ChannelCredentials> credentials) {
+    std::shared_ptr<internal_grpc::GrpcAuthenticationStrategy> auth_strategy) {
   auto resource = context.GetResource<GrpcClientCredentials>().value();
   absl::MutexLock l(&credentials_mu);
-  bool result = (resource->credentials_ == nullptr);
-  resource->credentials_ = std::move(credentials);
+  bool result = (resource->auth_strategy_ == nullptr);
+  resource->auth_strategy_ = std::move(auth_strategy);
   return result;
 }
 
-std::shared_ptr<::grpc::ChannelCredentials>
-GrpcClientCredentials::Resource::GetCredentials() {
+/* static */
+bool GrpcClientCredentials::Use(
+    tensorstore::Context context,
+    std::shared_ptr<::grpc::ChannelCredentials> credentials) {
+  return Use(
+      context,
+      std::make_shared<internal_grpc::GrpcChannelCredentialsAuthentication>(
+          credentials));
+}
+
+std::shared_ptr<internal_grpc::GrpcAuthenticationStrategy>
+GrpcClientCredentials::Resource::GetAuthenticationStrategy() {
   absl::MutexLock l(&credentials_mu);
-  if (credentials_) return credentials_;
-  return grpc::InsecureChannelCredentials();
+  if (auth_strategy_) return auth_strategy_;
+  return internal_grpc::CreateInsecureAuthenticationStrategy();
 }
 
 }  // namespace tensorstore
