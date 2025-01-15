@@ -130,6 +130,7 @@ tensorstore_cc_library(
     hdrs = ["create_channel.h"],
     deps = [
         ":authentication_strategy",
+        "//tensorstore/internal/grpc:logging_interceptor",
         "@com_github_grpc_grpc//:grpc++",
     ],
 )

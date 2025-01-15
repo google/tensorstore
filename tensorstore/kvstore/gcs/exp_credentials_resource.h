@@ -40,8 +40,7 @@ struct ExperimentalGcsGrpcCredentials final
 
   static Spec Default() { return Spec{}; }
   static constexpr auto JsonBinder() {
-    return internal_json_binding::Object(
-        ExperimentalGcsGrpcCredentialsSpec::PartialBinder{});
+    return internal_json_binding::Object(Spec::PartialBinder{});
   }
 
   static Result<Resource> Create(

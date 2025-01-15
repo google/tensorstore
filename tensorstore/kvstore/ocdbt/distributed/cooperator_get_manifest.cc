@@ -15,10 +15,15 @@
 #include "tensorstore/kvstore/ocdbt/distributed/cooperator.h"
 // Part of the Cooperator interface
 
+#include <cassert>
+#include <memory>
 #include <utility>
 
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
+#include "grpcpp/client_context.h"  // third_party
+#include "grpcpp/support/server_callback.h"  // third_party
+#include "grpcpp/support/status.h"  // third_party
 #include "tensorstore/internal/grpc/utils.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/kvstore/driver.h"
@@ -42,36 +47,45 @@ void GetManifestForWritingFromPeer(
     Promise<absl::Time> promise, internal::IntrusivePtr<Cooperator> server,
     LeaseCacheForCooperator::LeaseNode::Ptr lease) {
   struct RequestState : public internal::AtomicReferenceCount<RequestState> {
-    grpc::ClientContext client_context;
+    std::shared_ptr<grpc::ClientContext> client_context;
     internal::IntrusivePtr<Cooperator> server;
     LeaseCacheForCooperator::LeaseNode::Ptr lease;
-    Promise<absl::Time> promise;
     grpc_gen::GetOrCreateManifestRequest request;
     grpc_gen::GetOrCreateManifestResponse response;
   };
-  auto executor = server->io_handle_->executor;
 
   auto state = internal::MakeIntrusivePtr<RequestState>();
-  state->promise = std::move(promise);
+  state->client_context = std::make_shared<grpc::ClientContext>();
   state->server = std::move(server);
   state->lease = std::move(lease);
-  auto* state_ptr = state.get();
 
-  state_ptr->lease->peer_stub->async()->GetOrCreateManifest(
-      &state_ptr->client_context, &state_ptr->request, &state_ptr->response,
-      WithExecutor(std::move(executor),
-                   [state = std::move(state)](::grpc::Status s) {
-                     auto status = internal::GrpcStatusToAbslStatus(s);
-                     if (ShouldRevokeLeaseAndRetryAfterError(status)) {
-                       StartGetManifestForWriting(std::move(state->promise),
-                                                  std::move(state->server),
-                                                  std::move(state->lease));
-                     } else if (!status.ok()) {
-                       state->promise.SetResult(std::move(status));
-                     } else {
-                       state->promise.SetResult(state->server->clock_());
-                     }
-                   }));
+  auto state_ptr = state.get();
+  LinkValue(
+      [state = std::move(state)](
+          Promise<absl::Time> promise,
+          ReadyFuture<std::shared_ptr<grpc::ClientContext>> context_result) {
+        auto state_ptr = state.get();
+        state_ptr->lease->peer_stub->async()->GetOrCreateManifest(
+            state_ptr->client_context.get(), &state_ptr->request,
+            &state_ptr->response,
+            WithExecutor(state_ptr->server->io_handle_->executor,
+                         [state = std::move(state),
+                          promise = std::move(promise)](::grpc::Status s) {
+                           auto status = internal::GrpcStatusToAbslStatus(s);
+                           if (ShouldRevokeLeaseAndRetryAfterError(status)) {
+                             StartGetManifestForWriting(
+                                 std::move(promise), std::move(state->server),
+                                 std::move(state->lease));
+                           } else if (!status.ok()) {
+                             promise.SetResult(std::move(status));
+                           } else {
+                             promise.SetResult(state->server->clock_());
+                           }
+                         }));
+      },
+      std::move(promise),
+      state_ptr->server->security_->GetClientAuthenticationStrategy()
+          ->ConfigureContext(state_ptr->client_context));
 }
 
 Future<const absl::Time> GetManifestAvailableFuture(

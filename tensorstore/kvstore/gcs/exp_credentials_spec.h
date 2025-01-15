@@ -63,14 +63,11 @@ namespace internal_storage_gcs {
 ///     "base": { "type": ... }
 ///   }
 ///
-class ExperimentalGcsGrpcCredentialsSpec {
+class ExperimentalGcsGrpcCredentialsSpec final {
  public:
-  /// Access is used to allow the variant to be used in std::visit.
-  struct Access;
-
-  struct Insecure {};
-  struct GoogleDefault {};
-  struct AccessToken {
+  struct Insecure final {};
+  struct GoogleDefault final {};
+  struct AccessToken final {
     std::string access_token;
     constexpr static auto ApplyMembers = [](auto&& x, auto f) {
       return f(x.access_token);
@@ -79,7 +76,7 @@ class ExperimentalGcsGrpcCredentialsSpec {
       return a.access_token == b.access_token;
     };
   };
-  struct ServiceAccount {
+  struct ServiceAccount final {
     std::string path;
     ::nlohmann::json::object_t json;
     constexpr static auto ApplyMembers = [](auto&& x, auto f) {
@@ -89,7 +86,7 @@ class ExperimentalGcsGrpcCredentialsSpec {
       return a.path == b.path && a.json == b.json;
     };
   };
-  struct ExternalAccount {
+  struct ExternalAccount final {
     std::string path;
     std::vector<std::string> scopes;
     ::nlohmann::json::object_t json;
@@ -100,7 +97,7 @@ class ExperimentalGcsGrpcCredentialsSpec {
       return a.path == b.path && a.scopes == b.scopes && a.json == b.json;
     };
   };
-  struct ImpersonateServiceAccount {
+  struct ImpersonateServiceAccount final {
     std::string target_service_account;
     std::vector<std::string> scopes;
     std::vector<std::string> delegates;
@@ -160,10 +157,13 @@ class ExperimentalGcsGrpcCredentialsSpec {
                             ::nlohmann::json::object_t* j) const;
   };
 
+  /// Access is used to allow the variant to be used in std::visit.
+  struct Access;
+
  private:
   friend struct Access;
-  /// The credential implementation is opaque to allow changes to the
-  /// implementation without breaking the JSON binding.
+  // The credential implementation is opaque to allow changes to the
+  // implementation without breaking the JSON binding.
   using Config = std::variant<std::string, AccessToken, ServiceAccount,
                               ExternalAccount, ImpersonateServiceAccount>;
   Config config;

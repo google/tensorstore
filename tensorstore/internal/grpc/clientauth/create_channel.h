@@ -18,6 +18,7 @@
 #include <memory>
 #include <string>
 
+#include "grpcpp/channel.h"  // third_party
 #include "grpcpp/client_context.h"  // third_party
 #include "grpcpp/support/channel_arguments.h"  // third_party
 #include "tensorstore/internal/grpc/clientauth/authentication_strategy.h"

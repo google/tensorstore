@@ -16,7 +16,9 @@
 
 #include <memory>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "grpc/grpc_security_constants.h"
 #include "grpcpp/security/credentials.h"  // third_party
 #include "tensorstore/context.h"
 #include "tensorstore/util/result.h"
@@ -30,14 +32,20 @@ TEST(GrpcClientCredentials, Use) {
   auto ctx = tensorstore::Context::Default();
 
   EXPECT_TRUE(GrpcClientCredentials::Use(ctx, use));
-  auto a = ctx.GetResource<GrpcClientCredentials>().value()->GetCredentials();
-  EXPECT_EQ(a.get(), use.get());
+  auto a = ctx.GetResource<GrpcClientCredentials>()
+               .value()
+               ->GetAuthenticationStrategy();
+  EXPECT_THAT(a, ::testing::NotNull());
 }
 
 TEST(GrpcClientCredentials, Default) {
   auto ctx = tensorstore::Context::Default();
-  auto a = ctx.GetResource<GrpcClientCredentials>().value()->GetCredentials();
-  auto b = ctx.GetResource<GrpcClientCredentials>().value()->GetCredentials();
+  auto a = ctx.GetResource<GrpcClientCredentials>()
+               .value()
+               ->GetAuthenticationStrategy();
+  auto b = ctx.GetResource<GrpcClientCredentials>()
+               .value()
+               ->GetAuthenticationStrategy();
   EXPECT_NE(a.get(), b.get());
 }
 

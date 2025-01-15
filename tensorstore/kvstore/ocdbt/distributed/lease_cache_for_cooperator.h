@@ -24,6 +24,7 @@
 
 #include "absl/time/time.h"
 #include "tensorstore/internal/container/intrusive_red_black_tree.h"
+#include "tensorstore/internal/grpc/clientauth/authentication_strategy.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/kvstore/ocdbt/distributed/btree_node_identifier.h"
 #include "tensorstore/kvstore/ocdbt/distributed/cooperator.grpc.pb.h"
@@ -69,7 +70,7 @@ class LeaseCacheForCooperator {
   struct Options {
     Clock clock;
     std::shared_ptr<grpc_gen::Coordinator::StubInterface> coordinator_stub;
-    RpcSecurityMethod::Ptr security;
+    std::shared_ptr<internal_grpc::GrpcAuthenticationStrategy> auth_strategy;
     int32_t cooperator_port;
     absl::Duration lease_duration;
   };
