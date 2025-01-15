@@ -15,6 +15,8 @@
 #ifndef TENSORSTORE_INTERNAL_FLAT_CORD_BUILDER_H_
 #define TENSORSTORE_INTERNAL_FLAT_CORD_BUILDER_H_
 
+#include <stddef.h>
+
 #include <cstdlib>
 #include <cstring>
 #include <string_view>
@@ -23,7 +25,7 @@
 #include "absl/base/optimization.h"
 #include "absl/log/absl_check.h"
 #include "absl/strings/cord.h"
-#include "absl/strings/string_view.h"
+#include "tensorstore/internal/os/memory_region.h"
 
 namespace tensorstore {
 namespace internal {
@@ -39,67 +41,53 @@ class FlatCordBuilder {
   FlatCordBuilder() = default;
   explicit FlatCordBuilder(size_t size) : FlatCordBuilder(size, size) {}
 
+  explicit FlatCordBuilder(internal_os::MemoryRegion region)
+      : region_(std::move(region)), inuse_(region_.size()) {}
+
   FlatCordBuilder(size_t size, size_t inuse)
-      : data_(static_cast<char*>(::malloc(size))),
-        size_(size),
-        inuse_(inuse <= size ? inuse : size) {
-    ABSL_CHECK(size == 0 || data_);
+      : FlatCordBuilder(internal_os::AllocateHeapRegion(size), inuse) {}
+
+  FlatCordBuilder(internal_os::MemoryRegion region, size_t inuse)
+      : region_(std::move(region)), inuse_(inuse) {
+    ABSL_CHECK(inuse <= region_.size());
   }
 
   FlatCordBuilder(const FlatCordBuilder&) = delete;
   FlatCordBuilder& operator=(const FlatCordBuilder&) = delete;
   FlatCordBuilder(FlatCordBuilder&& other)
-      : data_(std::exchange(other.data_, nullptr)),
-        size_(std::exchange(other.size_, 0)),
+      : region_(std::move(other.region_)),
         inuse_(std::exchange(other.inuse_, 0)) {}
+
   FlatCordBuilder& operator=(FlatCordBuilder&& other) {
-    std::swap(data_, other.data_);
-    std::swap(size_, other.size_);
-    std::swap(inuse_, other.inuse_);
+    region_ = std::move(other.region_);
+    inuse_ = std::exchange(other.inuse_, 0);
     return *this;
   }
-  ~FlatCordBuilder() {
-    if (data_) {
-      ::free(data_);
-    }
-  }
 
-  const char* data() const { return data_; }
-  char* data() { return data_; }
-  size_t size() const { return size_; }
-  size_t available() const { return size_ - inuse_; }
+  ~FlatCordBuilder() = default;
+
+  const char* data() const { return region_.data(); }
+  char* data() { return region_.data(); }
+  size_t size() const { return region_.size(); }
+  size_t available() const { return region_.size() - inuse_; }
 
   void set_inuse(size_t size) {
-    ABSL_CHECK(size <= size_);
+    ABSL_CHECK(size <= region_.size());
     inuse_ = size;
   }
 
   /// Append data to the builder.
-  void Append(absl::string_view sv) {
+  void Append(std::string_view sv) {
     if (ABSL_PREDICT_FALSE(sv.empty())) return;
     ABSL_CHECK(sv.size() <= available());
-    ::memcpy(data_ + inuse_, sv.data(), sv.size());
+    ::memcpy(region_.data() + inuse_, sv.data(), sv.size());
     inuse_ += sv.size();
   }
 
-  absl::Cord Build() && {
-    return absl::MakeCordFromExternal(release(), [](absl::string_view s) {
-      ::free(const_cast<char*>(s.data()));
-    });
-  }
+  absl::Cord Build() && { return std::move(region_).as_cord(); }
 
  private:
-  /// Releases ownership of the buffer.  The caller must call `::free`.
-  absl::string_view release() {
-    absl::string_view view(data_, inuse_);
-    data_ = nullptr;
-    size_ = 0;
-    inuse_ = 0;
-    return view;
-  }
-
-  char* data_ = nullptr;
-  size_t size_ = 0;
+  internal_os::MemoryRegion region_;
   size_t inuse_ = 0;
 };
 
