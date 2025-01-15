@@ -28,9 +28,17 @@ def _compilation_flags_aspect_impl(target, ctx):
 
 compilation_flags_aspect = aspect(
     attrs = {
-        "_xcode_config": attr.label(default = Label("@bazel_tools//tools/osx:current_xcode_config")),
+        "_xcode_config": attr.label(
+            default = configuration_field(
+                name = "xcode_config_label",
+                fragment = "apple",
+            ),
+        ),
     },
-    fragments = ["cpp"],
+    fragments = [
+        "apple",
+        "cpp",
+    ],
     provides = [CompilationAspect],
     toolchains = ["@bazel_tools//tools/cpp:toolchain_type"],
     implementation = _compilation_flags_aspect_impl,
