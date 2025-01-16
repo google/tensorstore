@@ -89,7 +89,7 @@ inline void MaybeAddSourceLocation(
     absl::Status& status,
     SourceLocation loc = tensorstore::SourceLocation::current()) {
   // Don't add locations to purely control flow status OBJECTS.
-  if (status.message().empty()) return;
+  if (status.ok() || status.message().empty()) return;
   internal::MaybeAddSourceLocationImpl(status, loc);
 }
 

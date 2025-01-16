@@ -14,7 +14,11 @@
 
 #include "tensorstore/internal/os/file_util.h"
 
+#include <stdint.h>
+
+#include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include <gmock/gmock.h>
@@ -36,6 +40,7 @@ using ::tensorstore::internal_os::DeleteFile;
 using ::tensorstore::internal_os::DeleteOpenFile;
 using ::tensorstore::internal_os::FileInfo;
 using ::tensorstore::internal_os::FsyncFile;
+using ::tensorstore::internal_os::GetDefaultPageSize;
 using ::tensorstore::internal_os::GetDeviceId;
 using ::tensorstore::internal_os::GetFileId;
 using ::tensorstore::internal_os::GetFileInfo;
@@ -171,28 +176,53 @@ TEST(FileUtilTest, MemmapFileReadOnly) {
   std::string foo_txt = absl::StrCat(tempdir.path(), "/baz.txt",
                                      tensorstore::internal_os::kLockSuffix);
 
+  // Allocate two pages and fill them with a-z.
+  uint32_t size = GetDefaultPageSize() * 2;
+  std::unique_ptr<char[]> buffer;
+  buffer.reset(new char[size]);
+  for (uint32_t i = 0; i < size; ++i) {
+    buffer[i] = 'a' + (i % 26);
+  }
+  std::string_view expected(buffer.get(), size);
+
   // Write a file:
   {
     auto f = OpenFileWrapper(foo_txt, OpenFlags::DefaultWrite);
     EXPECT_THAT(f, IsOk());
 
-    EXPECT_THAT(WriteToFile(f->get(), "abcdefghijklmnopqrstuvwxyz", 26),
-                IsOkAndHolds(26));
+    EXPECT_THAT(WriteToFile(f->get(), expected.data(), expected.size()),
+                IsOkAndHolds(expected.size()));
   }
 
-  // Read
+  // Read with bad offset => error.
   {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto fd, OpenFileWrapper(foo_txt, OpenFlags::OpenReadOnly));
+    auto result = MemmapFileReadOnly(fd.get(), /*offset=*/4, 0);
+    EXPECT_THAT(result.status(), StatusIs(absl::StatusCode::kInvalidArgument));
+  }
+
+  // Read w/offset
+  for (uint32_t offset : {uint32_t{0}, GetDefaultPageSize(), size}) {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto fd, OpenFileWrapper(foo_txt, OpenFlags::OpenReadOnly));
 
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto data,
-                                     MemmapFileReadOnly(fd.get(), 0, 0));
-    EXPECT_EQ(data.as_string_view().size(), 26);
-    EXPECT_THAT(data.as_string_view(), "abcdefghijklmnopqrstuvwxyz");
+                                     MemmapFileReadOnly(fd.get(), offset, 0));
+    EXPECT_EQ(data.as_string_view().size(), expected.size() - offset);
+    EXPECT_THAT(data.as_string_view(), expected.substr(offset));
 
     auto cord_data = std::move(data).as_cord();
-    EXPECT_EQ(cord_data.size(), 26);
-    EXPECT_THAT(cord_data, "abcdefghijklmnopqrstuvwxyz");
+    EXPECT_EQ(cord_data.size(), expected.size() - offset);
+    EXPECT_THAT(cord_data, expected.substr(offset));
+
+    // Read a subset of the file.
+    if (offset < size) {
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+          data, MemmapFileReadOnly(fd.get(), offset, 128));
+      EXPECT_EQ(data.as_string_view().size(), 128);
+      EXPECT_THAT(data.as_string_view(), expected.substr(offset, 128));
+    }
   }
 }
 

@@ -484,28 +484,30 @@ Result<MemoryRegion> MemmapFileReadOnly(FileDescriptor fd, size_t offset,
   LoggedTraceSpan tspan(__func__, detail_logging.Level(1),
                         {{"handle", fd}, {"offset", offset}, {"size", size}});
 
-  if (size == 0) {
-    ::BY_HANDLE_FILE_INFORMATION info;
-    if (!::GetFileInformationByHandle(fd, &info)) {
-      return std::move(tspan).EndWithStatus(StatusFromOsError(
-          ::GetLastError(), "Failed in GetFileInformationByHandle"));
-    }
+  ::BY_HANDLE_FILE_INFORMATION info;
+  if (!::GetFileInformationByHandle(fd, &info)) {
+    return std::move(tspan).EndWithStatus(StatusFromOsError(
+        ::GetLastError(), "Failed in GetFileInformationByHandle"));
+  }
 
-    uint64_t file_size = GetSize(info);
-    if (offset + size > file_size) {
-      return std::move(tspan).EndWithStatus(absl::OutOfRangeError(
-          absl::StrCat("Requested offset ", offset, " + size ", size,
-                       " exceeds file size ", file_size)));
-    } else if (size == 0) {
-      size = file_size - offset;
+  uint64_t file_size = GetSize(info);
+  if (offset + size > file_size) {
+    return std::move(tspan).EndWithStatus(absl::OutOfRangeError(
+        absl::StrCat("Requested offset ", offset, " + size ", size,
+                     " exceeds file size ", file_size)));
+  }
+  if (size == 0) {
+    size = file_size - offset;
+    if (size == 0) {
+      return MemoryRegion(nullptr, 0, UnmapFileWin32);
     }
   }
 
   UniqueFileDescriptor map_fd(
-      ::CreateFileMappingA(fd, NULL, PAGE_READONLY, 0, 0, nullptr));
+      ::CreateFileMappingW(fd, nullptr, PAGE_READONLY, 0, 0, nullptr));
   if (!map_fd.valid()) {
     return std::move(tspan).EndWithStatus(
-        StatusFromOsError(::GetLastError(), "Failed in CreateFileMappingA"));
+        StatusFromOsError(::GetLastError(), "Failed in CreateFileMappingW"));
   }
 
   void* address = ::MapViewOfFile(
