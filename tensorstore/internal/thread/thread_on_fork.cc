@@ -1,4 +1,4 @@
-// Copyright 2022 The TensorStore Authors
+// Copyright 2025 The TensorStore Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,29 +12,40 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#if !defined(_WIN32)
 #if defined(__has_include)
 #if __has_include(<pthread.h>)
 #define TENSORSTORE_INTERNAL_USE_PTHREAD
 #include <pthread.h>
 #endif
 #endif
+#endif
 
-#include <thread>  // NOLINT
-#include <type_traits>
+#include <cstdio>
+#include <cstdlib>
+
+#include "absl/base/call_once.h"
 
 namespace tensorstore {
 namespace internal {
+namespace {
 
-void TrySetCurrentThreadName(const char* name) {
-  if (name == nullptr) return;
+[[noreturn]] void LogFatalOnFork() {
+  std::fprintf(stderr,
+               "aborting: fork() is not allowed since tensorstore uses "
+               "internal threading\n");
+  std::fflush(stderr);
+  std::abort();
+}
+
+}  // namespace
+
+void SetupLogFatalOnFork() {
 #if defined(TENSORSTORE_INTERNAL_USE_PTHREAD)
-#if defined(__APPLE__)
-  pthread_setname_np(name);
-#else
-  pthread_setname_np(pthread_self(), name);
+  static absl::once_flag g_setup_pthread;
+  absl::call_once(g_setup_pthread, &pthread_atfork, LogFatalOnFork, nullptr,
+                  nullptr);
 #endif
-#endif
-  // TODO: Add windows via SetThreadDescription()
 }
 
 }  // namespace internal

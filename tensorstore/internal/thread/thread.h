@@ -29,6 +29,9 @@ namespace internal {
 /// Helper functions to set the thread name.
 void TrySetCurrentThreadName(const char* name);
 
+/// Helper function to log a fatal error if fork() is called.
+void SetupLogFatalOnFork();
+
 // Tensorstore-specific Thread class to be used instead of std::thread.
 // This exposes a limited subset of the std::thread api.
 class Thread {
@@ -89,12 +92,13 @@ class Thread {
   // factory method.
   template <class Function, class... Args>
   Thread(private_t, Options options, Function&& f, Args&&... args)
-      : thread_(
+      : thread_((
+            SetupLogFatalOnFork(),
             [name = options.name, fn = std::bind(std::forward<Function>(f),
                                                  std::forward<Args>(args)...)] {
               TrySetCurrentThreadName(name);
               std::move(fn)();
-            }) {}
+            })) {}
 
   std::thread thread_;
 };
