@@ -90,6 +90,7 @@ absl::Status MaybeAnnotateStatusImpl(absl::Status source,
                               SourceLocation loc) {
   std::fprintf(stderr, "%s:%d: %s: %s\n", loc.file_name(), loc.line(), message,
                status.ToString().c_str());
+  std::fflush(stderr);
   std::terminate();
 }
 

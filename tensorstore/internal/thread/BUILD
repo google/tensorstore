@@ -45,9 +45,13 @@ tensorstore_cc_test(
 
 tensorstore_cc_library(
     name = "thread",
-    srcs = ["thread.cc"],
+    srcs = [
+        "thread.cc",
+        "thread_on_fork.cc",
+    ],
     hdrs = ["thread.h"],
     deps = [
+        "@com_google_absl//absl/base",
         "@com_google_absl//absl/functional:any_invocable",
         "@com_google_absl//absl/log:absl_check",
     ],
@@ -56,6 +60,15 @@ tensorstore_cc_library(
 tensorstore_cc_test(
     name = "thread_test",
     srcs = ["thread_test.cc"],
+    deps = [
+        ":thread",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "thread_death_test",
+    srcs = ["thread_death_test.cc"],
     deps = [
         ":thread",
         "@com_google_googletest//:gtest_main",
