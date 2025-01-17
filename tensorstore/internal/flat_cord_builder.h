@@ -38,7 +38,6 @@ namespace internal {
 /// likely to be retained.
 class FlatCordBuilder {
  public:
-  FlatCordBuilder() = default;
   explicit FlatCordBuilder(size_t size) : FlatCordBuilder(size, size) {}
 
   explicit FlatCordBuilder(internal_os::MemoryRegion region)

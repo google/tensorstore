@@ -16,15 +16,35 @@
 
 #include <stddef.h>
 
+#include <utility>
+
 #include <gtest/gtest.h>
+#include "absl/strings/cord.h"
 
 using ::tensorstore::internal_os::AllocateHeapRegion;
 
 namespace {
 
+TEST(MemoryRegionTest, EmptyRegion) {
+  auto region = AllocateHeapRegion(0);
+  EXPECT_EQ(region.as_string_view().size(), 0);
+  absl::Cord a = std::move(region).as_cord();
+}
+
+TEST(MemoryRegionTest, Assignment) {
+  auto region = AllocateHeapRegion(0);
+  for (int i = 0; i < 10; ++i) region = AllocateHeapRegion(i);
+}
+
 TEST(MemoryRegionTest, AllocateHeapRegion) {
   auto region = AllocateHeapRegion(16 * 1024 * 1024);
   EXPECT_EQ(region.as_string_view().size(), 16 * 1024 * 1024);
+
+  // Verify that assignment doesn't leak.
+  region = AllocateHeapRegion(16);
+  EXPECT_EQ(region.as_string_view().size(), 16);
+
+  absl::Cord a = std::move(region).as_cord();
 }
 
 }  // namespace

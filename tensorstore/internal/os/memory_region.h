@@ -40,16 +40,21 @@ class MemoryRegion {
   MemoryRegion(const MemoryRegion&) = delete;
   MemoryRegion& operator=(const MemoryRegion&) = delete;
 
-  MemoryRegion(MemoryRegion&& other) { *this = std::move(other); }
+  MemoryRegion(MemoryRegion&& other)
+      : data_(std::exchange(other.data_, nullptr)),
+        size_(std::exchange(other.size_, 0)),
+        unmap_fn_(other.unmap_fn_) {}
+
   MemoryRegion& operator=(MemoryRegion&& other) {
-    data_ = std::exchange(other.data_, nullptr);
-    size_ = std::exchange(other.size_, 0);
-    unmap_fn_ = std::exchange(other.unmap_fn_, nullptr);
+    std::swap(data_, other.data_);
+    std::swap(size_, other.size_);
+    std::swap(unmap_fn_, other.unmap_fn_);
     return *this;
   }
 
   size_t size() const { return size_; }
-  char* data() const { return data_; }
+  const char* data() const { return data_; }
+  char* data() { return data_; }
 
   std::string_view as_string_view() const {
     return std::string_view(data_, size_);
