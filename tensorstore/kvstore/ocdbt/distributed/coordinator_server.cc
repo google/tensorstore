@@ -40,10 +40,12 @@
 #include "grpcpp/server_builder.h"  // third_party
 #include "grpcpp/server_context.h"  // third_party
 #include "grpcpp/support/server_callback.h"  // third_party
+#include "grpcpp/support/status.h"  // third_party
 #include "tensorstore/internal/container/heterogeneous_container.h"
 #include "tensorstore/internal/container/intrusive_red_black_tree.h"
 #include "tensorstore/internal/grpc/peer_address.h"
-#include "tensorstore/internal/grpc/utils.h"
+#include "tensorstore/internal/grpc/serverauth/default_strategy.h"
+#include "tensorstore/internal/grpc/serverauth/strategy.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/std_array.h"
@@ -96,7 +98,6 @@ class CoordinatorServer::Impl
  public:
   std::vector<int> listening_ports_;
   std::unique_ptr<grpc::Server> server_;
-  internal_ocdbt::RpcSecurityMethod::Ptr security_;
   Clock clock_;
 
   grpc::ServerUnaryReactor* RequestLease(
@@ -136,10 +137,6 @@ grpc::ServerUnaryReactor* CoordinatorServer::Impl::RequestLease(
     const internal_ocdbt::grpc_gen::LeaseRequest* request,
     internal_ocdbt::grpc_gen::LeaseResponse* response) {
   auto* reactor = context->DefaultReactor();
-  if (auto status = security_->ValidateServerRequest(context); !status.ok()) {
-    reactor->Finish(internal::AbslStatusToGrpcStatus(status));
-    return reactor;
-  }
   auto peer_address = internal::GetGrpcPeerAddressAndPort(context);
   if (!peer_address.ok()) {
     reactor->Finish(grpc::Status(grpc::StatusCode::INTERNAL,
@@ -222,17 +219,22 @@ Result<CoordinatorServer> CoordinatorServer::Start(Options options) {
   } else {
     impl->clock_ = [] { return absl::Now(); };
   }
-  impl->security_ = options.spec.security;
-  if (!impl->security_) {
-    impl->security_ = internal_ocdbt::GetInsecureRpcSecurityMethod();
+  std::shared_ptr<internal_grpc::ServerAuthenticationStrategy> strategy;
+  if (options.spec.security) {
+    strategy = options.spec.security->GetServerAuthenticationStrategy();
   }
+  if (!strategy) {
+    strategy = internal_grpc::CreateInsecureServerAuthenticationStrategy();
+  }
+
   grpc::ServerBuilder builder;
   builder.RegisterService(impl.get());
-  auto creds = impl->security_->GetServerCredentials();
+  strategy->AddBuilderParameters(builder);
   if (options.spec.bind_addresses.empty()) {
     options.spec.bind_addresses.push_back("[::]:0");
   }
   impl->listening_ports_.resize(options.spec.bind_addresses.size());
+  auto creds = strategy->GetServerCredentials();
   for (size_t i = 0; i < options.spec.bind_addresses.size(); ++i) {
     builder.AddListeningPort(options.spec.bind_addresses[i], creds,
                              &impl->listening_ports_[i]);

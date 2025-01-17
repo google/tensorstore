@@ -12,15 +12,44 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <stddef.h>
+
+#include <cassert>
+#include <optional>
+#include <string_view>
+#include <utility>
+#include <vector>
+
 #include "absl/base/attributes.h"
 #include "absl/log/absl_log.h"
+#include "absl/status/status.h"
+#include "absl/time/time.h"
+#include "grpcpp/client_context.h"  // third_party
+#include "grpcpp/server_context.h"  // third_party
+#include "grpcpp/support/server_callback.h"  // third_party
+#include "grpcpp/support/status.h"  // third_party
 #include "riegeli/bytes/string_reader.h"
 #include "riegeli/bytes/string_writer.h"
 #include "tensorstore/internal/grpc/utils.h"
+#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/log/verbose_flag.h"
+#include "tensorstore/internal/mutex.h"
+#include "tensorstore/kvstore/ocdbt/distributed/btree_node_identifier.h"
+#include "tensorstore/kvstore/ocdbt/distributed/btree_node_write_mutation.h"
+#include "tensorstore/kvstore/ocdbt/distributed/cooperator.h"
 #include "tensorstore/kvstore/ocdbt/distributed/cooperator_impl.h"
+#include "tensorstore/kvstore/ocdbt/distributed/lease_cache_for_cooperator.h"
+#include "tensorstore/kvstore/ocdbt/format/version_tree.h"
+#include "tensorstore/kvstore/ocdbt/io_handle.h"
+#include "tensorstore/util/bit_span.h"
+#include "tensorstore/util/bit_vec.h"
 #include "tensorstore/util/division.h"
+#include "tensorstore/util/executor.h"
+#include "tensorstore/util/future.h"
 #include "tensorstore/util/quote_string.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_ocdbt_cooperator {
@@ -330,10 +359,6 @@ grpc::ServerUnaryReactor* Cooperator::Write(
     grpc::CallbackServerContext* context, const grpc_gen::WriteRequest* request,
     grpc_gen::WriteResponse* response) {
   auto* reactor = context->DefaultReactor();
-  if (auto status = security_->ValidateServerRequest(context); !status.ok()) {
-    reactor->Finish(internal::AbslStatusToGrpcStatus(status));
-    return reactor;
-  }
   if (!internal::IncrementReferenceCountIfNonZero(*this)) {
     // Shutting down
     reactor->Finish(

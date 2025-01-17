@@ -15,6 +15,8 @@
 #ifndef TENSORSTORE_KVSTORE_OCDBT_DISTRIBUTED_RPC_SECURITY_REGISTRY_H_
 #define TENSORSTORE_KVSTORE_OCDBT_DISTRIBUTED_RPC_SECURITY_REGISTRY_H_
 
+#include <string_view>
+
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_registry.h"
 #include "tensorstore/json_serialization_options.h"

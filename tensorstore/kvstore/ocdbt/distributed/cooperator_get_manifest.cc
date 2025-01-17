@@ -194,10 +194,7 @@ grpc::ServerUnaryReactor* Cooperator::GetOrCreateManifest(
     const grpc_gen::GetOrCreateManifestRequest* request,
     grpc_gen::GetOrCreateManifestResponse* response) {
   auto* reactor = context->DefaultReactor();
-  if (auto status = security_->ValidateServerRequest(context); !status.ok()) {
-    reactor->Finish(internal::AbslStatusToGrpcStatus(status));
-    return reactor;
-  }
+
   if (!internal::IncrementReferenceCountIfNonZero(*this)) {
     // Shutting down
     reactor->Finish(

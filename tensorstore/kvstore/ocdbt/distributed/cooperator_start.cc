@@ -42,10 +42,15 @@ Result<CooperatorPtr> Start(Options&& options) {
     impl->clock_ = [] { return absl::Now(); };
   }
   impl->io_handle_ = std::move(options.io_handle);
+  impl->security_ = options.security;
+  impl->storage_identifier_ = std::move(options.storage_identifier);
+
+  auto server_auth = impl->security_->GetServerAuthenticationStrategy();
 
   grpc::ServerBuilder builder;
   builder.RegisterService(impl.get());
-  auto creds = options.security->GetServerCredentials();
+  server_auth->AddBuilderParameters(builder);
+  auto creds = server_auth->GetServerCredentials();
   const auto add_listening_port = [&](const std::string& address) {
     builder.AddListeningPort(address, creds, &impl->listening_port_);
   };
@@ -56,9 +61,7 @@ Result<CooperatorPtr> Start(Options&& options) {
       add_listening_port(bind_address);
     }
   }
-  impl->security_ = options.security;
   impl->server_ = builder.BuildAndStart();
-  impl->storage_identifier_ = std::move(options.storage_identifier);
 
   auto auth_strategy = impl->security_->GetClientAuthenticationStrategy();
 

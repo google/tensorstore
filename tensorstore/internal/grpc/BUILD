@@ -55,6 +55,8 @@ tensorstore_cc_library(
     hdrs = ["server_credentials.h"],
     deps = [
         "//tensorstore:context",
+        "//tensorstore/internal/grpc/serverauth:default_strategy",
+        "//tensorstore/internal/grpc/serverauth:strategy",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/util:result",

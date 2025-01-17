@@ -20,6 +20,7 @@
 #include "grpcpp/security/server_credentials.h"  // third_party
 #include "tensorstore/context.h"
 #include "tensorstore/context_resource_provider.h"
+#include "tensorstore/internal/grpc/serverauth/strategy.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/util/result.h"
@@ -48,11 +49,12 @@ struct GrpcServerCredentials final
 
   struct Resource {
     // Returns either the owned credentials or a new default credential.
-    std::shared_ptr<::grpc::ServerCredentials> GetCredentials();
+    std::shared_ptr<internal_grpc::ServerAuthenticationStrategy>
+    GetAuthenticationStrategy();
 
    private:
     friend struct GrpcServerCredentials;
-    std::shared_ptr<::grpc::ServerCredentials> credentials_;
+    std::shared_ptr<internal_grpc::ServerAuthenticationStrategy> strategy_;
   };
 
   static constexpr Spec Default() { return {}; }
@@ -72,6 +74,9 @@ struct GrpcServerCredentials final
   /// Returns true when prior credentials were nullptr.
   static bool Use(tensorstore::Context context,
                   std::shared_ptr<::grpc::ServerCredentials> credentials);
+  static bool Use(
+      tensorstore::Context context,
+      std::shared_ptr<internal_grpc::ServerAuthenticationStrategy> credentials);
 };
 
 }  // namespace tensorstore

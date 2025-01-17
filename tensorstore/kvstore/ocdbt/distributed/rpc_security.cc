@@ -20,12 +20,12 @@
 #include "absl/base/no_destructor.h"
 #include "absl/base/optimization.h"
 #include "absl/status/status.h"
-#include "grpcpp/security/server_credentials.h"  // third_party
-#include "grpcpp/server_context.h"  // third_party
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/cache_key/cache_key.h"
 #include "tensorstore/internal/grpc/clientauth/authentication_strategy.h"
 #include "tensorstore/internal/grpc/clientauth/channel_authentication.h"
+#include "tensorstore/internal/grpc/serverauth/default_strategy.h"
+#include "tensorstore/internal/grpc/serverauth/strategy.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
@@ -39,32 +39,36 @@ RpcSecurityMethodRegistry& GetRpcSecurityMethodRegistry() {
   return *registry;
 }
 
-absl::Status RpcSecurityMethod::ValidateServerRequest(
-    grpc::ServerContextBase* context) const {
-  return absl::OkStatus();
-}
-
 namespace {
 
 // No-op RPC security method.
 class InsecureRpcSecurityMethod : public RpcSecurityMethod {
  public:
-  InsecureRpcSecurityMethod() { intrusive_ptr_increment(this); }
+  InsecureRpcSecurityMethod()
+      : client_strategy_(internal_grpc::CreateInsecureAuthenticationStrategy()),
+        server_strategy_(
+            internal_grpc::CreateInsecureServerAuthenticationStrategy()) {
+    intrusive_ptr_increment(this);
+  }
 
   std::shared_ptr<internal_grpc::GrpcAuthenticationStrategy>
   GetClientAuthenticationStrategy() const override {
-    return internal_grpc::CreateInsecureAuthenticationStrategy();
+    return client_strategy_;
   }
 
-  std::shared_ptr<grpc::ServerCredentials> GetServerCredentials()
-      const override {
-    return grpc::InsecureServerCredentials();
+  std::shared_ptr<internal_grpc::ServerAuthenticationStrategy>
+  GetServerAuthenticationStrategy() const override {
+    return server_strategy_;
   }
+
   void EncodeCacheKey(std::string* out) const override {
     // This should never be called.  In the `OcdbtCoordinatorResource`, this
     // security method is represented by a null pointer.
     ABSL_UNREACHABLE();
   }
+
+  std::shared_ptr<internal_grpc::GrpcAuthenticationStrategy> client_strategy_;
+  std::shared_ptr<internal_grpc::ServerAuthenticationStrategy> server_strategy_;
 };
 
 const RpcSecurityMethod& GetInsecureRpcSecurityMethodSingleton() {
