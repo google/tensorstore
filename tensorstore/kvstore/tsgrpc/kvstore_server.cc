@@ -597,16 +597,18 @@ tensorstore::Result<KvStoreServer> KvStoreServer::Start(Spec spec,
   auto impl = std::make_unique<KvStoreServer::Impl>(std::move(kv));
 
   /// FIXME: Use a bound spec for credentials.
-  auto creds = context.GetResource<tensorstore::GrpcServerCredentials>()
-                   .value()
-                   ->GetCredentials();
+  auto strategy = context.GetResource<tensorstore::GrpcServerCredentials>()
+                      .value()
+                      ->GetAuthenticationStrategy();
 
   grpc::ServerBuilder builder;
   builder.RegisterService(impl.get());
+  strategy->AddBuilderParameters(builder);
   if (spec.bind_addresses.empty()) {
     spec.bind_addresses.push_back("[::]:0");
   }
   impl->listening_ports_.resize(spec.bind_addresses.size());
+  auto creds = strategy->GetServerCredentials();
   for (size_t i = 0; i < spec.bind_addresses.size(); ++i) {
     builder.AddListeningPort(spec.bind_addresses[i], creds,
                              &impl->listening_ports_[i]);

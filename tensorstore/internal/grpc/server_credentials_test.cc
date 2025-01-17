@@ -14,6 +14,7 @@
 
 #include "tensorstore/internal/grpc/server_credentials.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "grpcpp/security/server_credentials.h"  // third_party
 #include "tensorstore/context.h"
@@ -22,21 +23,29 @@
 namespace {
 
 using ::tensorstore::GrpcServerCredentials;
+using ::testing::Eq;
+using ::testing::Ne;
 
 TEST(GrpcServerCredentials, Use) {
   auto use = grpc::experimental::LocalServerCredentials(LOCAL_TCP);
   auto ctx = tensorstore::Context::Default();
 
   EXPECT_TRUE(GrpcServerCredentials::Use(ctx, use));
-  auto a = ctx.GetResource<GrpcServerCredentials>().value()->GetCredentials();
-  EXPECT_EQ(a.get(), use.get());
+  auto a = ctx.GetResource<GrpcServerCredentials>()
+               .value()
+               ->GetAuthenticationStrategy();
+  EXPECT_THAT(a->GetServerCredentials().get(), Eq(use.get()));
 }
 
 TEST(GrpcServerCredentials, Default) {
   auto ctx = tensorstore::Context::Default();
-  auto a = ctx.GetResource<GrpcServerCredentials>().value()->GetCredentials();
-  auto b = ctx.GetResource<GrpcServerCredentials>().value()->GetCredentials();
-  EXPECT_NE(a.get(), b.get());
+  auto a = ctx.GetResource<GrpcServerCredentials>()
+               .value()
+               ->GetAuthenticationStrategy();
+  auto b = ctx.GetResource<GrpcServerCredentials>()
+               .value()
+               ->GetAuthenticationStrategy();
+  EXPECT_THAT(a.get(), Ne(b.get()));
 }
 
 }  // namespace

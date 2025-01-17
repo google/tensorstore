@@ -20,8 +20,11 @@
 #include "absl/base/attributes.h"
 #include "absl/base/const_init.h"
 #include "absl/synchronization/mutex.h"
+#include "grpcpp/security/server_credentials.h"  // third_party
 #include "tensorstore/context.h"
 #include "tensorstore/context_resource_provider.h"
+#include "tensorstore/internal/grpc/serverauth/default_strategy.h"
+#include "tensorstore/internal/grpc/serverauth/strategy.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
@@ -37,23 +40,32 @@ const internal::ContextResourceRegistration<GrpcServerCredentials>
 // of grpc credentials. See grpcpp/security/credentials.h for options, such as:
 //   ::grpc::experimental::LocalServerCredentials(LOCAL_TCP);
 
+std::shared_ptr<internal_grpc::ServerAuthenticationStrategy>
+GrpcServerCredentials::Resource::GetAuthenticationStrategy() {
+  absl::MutexLock l(&credentials_mu);
+  if (strategy_) return strategy_;
+  return internal_grpc::CreateInsecureServerAuthenticationStrategy();
+}
+
 /* static */
 bool GrpcServerCredentials::Use(
     tensorstore::Context context,
     std::shared_ptr<::grpc::ServerCredentials> credentials) {
-  auto resource = context.GetResource<GrpcServerCredentials>().value();
-  // NOTE: We really want std::atomic<std::shared_ptr<>>.
-  absl::MutexLock l(&credentials_mu);
-  bool result = (resource->credentials_ == nullptr);
-  resource->credentials_ = std::move(credentials);
-  return result;
+  return Use(
+      context,
+      std::make_shared<internal_grpc::DefaultServerAuthenticationStrategy>(
+          std::move(credentials)));
 }
 
-std::shared_ptr<::grpc::ServerCredentials>
-GrpcServerCredentials::Resource::GetCredentials() {
+/* static */
+bool GrpcServerCredentials::Use(
+    tensorstore::Context context,
+    std::shared_ptr<internal_grpc::ServerAuthenticationStrategy> credentials) {
+  auto resource = context.GetResource<GrpcServerCredentials>().value();
   absl::MutexLock l(&credentials_mu);
-  if (credentials_) return credentials_;
-  return grpc::InsecureServerCredentials();
+  bool result = (resource->strategy_ == nullptr);
+  resource->strategy_ = std::move(credentials);
+  return result;
 }
 
 }  // namespace tensorstore

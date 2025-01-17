@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#ifndef TENSORSTORE_KVSTORE_OCDBT_DISTRIBUTED_RPC_SECURITY_H_
+#define TENSORSTORE_KVSTORE_OCDBT_DISTRIBUTED_RPC_SECURITY_H_
+
 #include <memory>
 #include <string>
 
@@ -20,10 +23,8 @@
 #include "grpcpp/server_context.h"  // third_party
 #include "tensorstore/internal/cache_key/fwd.h"
 #include "tensorstore/internal/grpc/clientauth/authentication_strategy.h"
+#include "tensorstore/internal/grpc/serverauth/strategy.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-
-#ifndef TENSORSTORE_KVSTORE_OCDBT_DISTRIBUTED_RPC_SECURITY_H_
-#define TENSORSTORE_KVSTORE_OCDBT_DISTRIBUTED_RPC_SECURITY_H_
 
 namespace tensorstore {
 namespace internal_ocdbt {
@@ -36,12 +37,8 @@ class RpcSecurityMethod
   virtual std::shared_ptr<internal_grpc::GrpcAuthenticationStrategy>
   GetClientAuthenticationStrategy() const = 0;
 
-  virtual std::shared_ptr<grpc::ServerCredentials> GetServerCredentials()
-      const = 0;
-
-  // Returns `absl::OkStatus()` by default.
-  virtual absl::Status ValidateServerRequest(
-      grpc::ServerContextBase* context) const;
+  virtual std::shared_ptr<internal_grpc::ServerAuthenticationStrategy>
+  GetServerAuthenticationStrategy() const = 0;
 
   // Implementation should start with a call to `internal::EncodeCacheKey(out,
   // id);`, where `id` is the identifier used for JSON.

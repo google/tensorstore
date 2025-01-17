@@ -15,6 +15,8 @@
 #ifndef TENSORSTORE_KVSTORE_OCDBT_DISTRIBUTED_COOPERATOR_IMPL_H_
 #define TENSORSTORE_KVSTORE_OCDBT_DISTRIBUTED_COOPERATOR_IMPL_H_
 
+#include <stddef.h>
+
 #include <atomic>
 #include <memory>
 #include <string>
@@ -39,6 +41,7 @@
 #include "tensorstore/kvstore/ocdbt/distributed/cooperator.h"
 #include "tensorstore/kvstore/ocdbt/distributed/cooperator.pb.h"
 #include "tensorstore/kvstore/ocdbt/distributed/lease_cache_for_cooperator.h"
+#include "tensorstore/kvstore/ocdbt/distributed/rpc_security.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
 #include "tensorstore/kvstore/ocdbt/format/version_tree.h"
 #include "tensorstore/kvstore/ocdbt/io_handle.h"
