@@ -297,6 +297,7 @@ tensorstore_cc_test(
     srcs = ["memory_region_test.cc"],
     deps = [
         ":memory_region",
+        "@com_google_absl//absl/strings:cord",
         "@com_google_googletest//:gtest_main",
     ],
 )
