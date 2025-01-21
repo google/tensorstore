@@ -58,7 +58,6 @@ def repo():
                 "--target=//:grpc",
                 "--target=//:grpc++",
                 "--target=//:grpc++_codegen_proto",
-                "--target=//:grpc++_public_hdrs",
                 "--target=//:grpc++_test",
                 "--target=//src/compiler:grpc_cpp_plugin",
             ] + [

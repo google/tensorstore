@@ -97,7 +97,6 @@ tensorstore_cc_test(
     deps = [
         ":utils",
         "@com_github_grpc_grpc//:grpc++",
-        "@com_github_grpc_grpc//:grpc++_public_hdrs",
         "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
     ],
