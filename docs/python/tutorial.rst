@@ -236,7 +236,7 @@ Wait for the read to complete:
           [1132030694, 1132030694, 1132030694, ..., 5813054053, 5813054053,
            5813054053],
           [1132030694, 1132030694, 1132030694, ..., 5813054053, 5813054053,
-           5813054053]], dtype=uint64)
+           5813054053]], shape=(100, 100), dtype=uint64)
 
 Conversion to an :py:obj:`numpy.ndarray` also implicitly performs a synchronous
 read (which hits the in-memory cache since the same region was just retrieved):
@@ -256,4 +256,4 @@ read (which hits the in-memory cache since the same region was just retrieved):
           [1132030694, 1132030694, 1132030694, ..., 5813054053, 5813054053,
            5813054053],
           [1132030694, 1132030694, 1132030694, ..., 5813054053, 5813054053,
-           5813054053]], dtype=uint64)
+           5813054053]], shape=(100, 100), dtype=uint64)

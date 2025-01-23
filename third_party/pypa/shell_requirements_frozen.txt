@@ -21,13 +21,13 @@ exceptiongroup==1.2.2 ; python_full_version < '3.11' \
     --hash=sha256:3111b9d131c238bec2f8f516e123e14ba243563fb135d3fe885990585aa7795b \
     --hash=sha256:47c2edf7c6738fafb49fd34290706d1a1a2f4d1c6df275526b62cbb4aa5393cc
     # via ipython, -c /dev/stdin
-executing==2.1.0 \
-    --hash=sha256:8d63781349375b5ebccc3142f4b30350c0cd9c79f921cde38be2be4637e98eaf \
-    --hash=sha256:8ea27ddd260da8150fa5a708269c4a10e76161e2496ec3e587da9e3c0fe4b9ab
+executing==2.2.0 \
+    --hash=sha256:11387150cad388d62750327a53d3339fad4888b39a6fe233c3afbb54ecffd3aa \
+    --hash=sha256:5d108c028108fe2551d1a7b2e8b713341e2cb4fc0aa7dcf966fa4327a5226755
     # via stack-data, -c /dev/stdin
-ipython==8.30.0 \
-    --hash=sha256:85ec56a7e20f6c38fce7727dcca699ae4ffc85985aa7b23635a8008f918ae321 \
-    --hash=sha256:cb0a405a306d2995a5cbb9901894d240784a9f341394c6ba3f4fe8c6eb89ff6e
+ipython==8.31.0 \
+    --hash=sha256:46ec58f8d3d076a61d128fe517a51eb730e3aaf0c184ea8c17d16e366660c6a6 \
+    --hash=sha256:b6a2274606bec6166405ff05e54932ed6e5cfecaca1fc05f2cacde7bb074d70b
     # via -c /dev/stdin, -r shell_requirements.txt
 jedi==0.19.2 \
     --hash=sha256:4770dc3de41bde3966b02eb84fbcf557fb33cce26ad23da12c742fb50ecb11f0 \
@@ -45,9 +45,9 @@ pexpect==4.9.0 ; sys_platform != 'emscripten' and sys_platform != 'win32' \
     --hash=sha256:7236d1e080e4936be2dc3e326cec0af72acf9212a7e1d060210e70a47e253523 \
     --hash=sha256:ee7d41123f3c9911050ea2c2dac107568dc43b2d3b0c7557a33212c398ead30f
     # via ipython, -c /dev/stdin
-prompt-toolkit==3.0.48 \
-    --hash=sha256:d6623ab0477a80df74e646bdbc93621143f5caf104206aa29294d53de1a03d90 \
-    --hash=sha256:f49a827f90062e411f1ce1f854f2aedb3c23353244f8108b89283587397ac10e
+prompt-toolkit==3.0.50 \
+    --hash=sha256:544748f3860a2623ca5cd6d2795e7a14f3d0e1c3c9728359013f79877fc89bab \
+    --hash=sha256:9b6427eb19e479d98acff65196a307c555eb567989e6d88ebbb1b509d9779198
     # via ipython, -c /dev/stdin
 ptyprocess==0.7.0 ; sys_platform != 'emscripten' and sys_platform != 'win32' \
     --hash=sha256:4b41f3967fce3af57cc7e94b888626c18bf37a083e3651ca8feeb66d492fef35 \
@@ -57,9 +57,9 @@ pure-eval==0.2.3 \
     --hash=sha256:1db8e35b67b3d218d818ae653e27f06c3aa420901fa7b081ca98cbedc874e0d0 \
     --hash=sha256:5f4e983f40564c576c7c8635ae88db5956bb2229d7e9237d03b3c0b0190eaf42
     # via stack-data, -c /dev/stdin
-pygments==2.18.0 \
-    --hash=sha256:786ff802f32e91311bff3889f6e9a86e81505fe99f2735bb6d60ae0c5004f199 \
-    --hash=sha256:b8e6aca0523f3ab76fee51799c488e38782ac06eafcf95e7ba832985c8e7b13a
+pygments==2.19.1 \
+    --hash=sha256:61c16d2a8576dc0649d9f39e089b5f02bcd27fba10d8fb4dcc28173f7a45151f \
+    --hash=sha256:9ea1544ad55cecf4b8242fab6dd35a93bbce657034b0611ee383099054ab6d8c
     # via ipython, -c /dev/stdin
 stack-data==0.6.3 \
     --hash=sha256:836a778de4fec4dcd1dcd89ed8abff8a221f58308462e1c4aa2a3cf30148f0b9 \
