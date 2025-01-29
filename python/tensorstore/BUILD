@@ -91,7 +91,6 @@ pybind11_cc_library(
 py_library(
     name = "core",
     srcs = ["__init__.py"],
-    srcs_version = "PY3ONLY",
     visibility = ["//visibility:public"],
     deps = [
         ":_tensorstore",
@@ -102,7 +101,6 @@ py_library(
 
 py_library(
     name = "tensorstore",
-    srcs_version = "PY3ONLY",
     visibility = ["//visibility:public"],
     deps = [":core"],
 )
@@ -110,7 +108,6 @@ py_library(
 pytype_strict_binary(
     name = "shell",
     srcs = ["shell.py"],
-    python_version = "PY3",
     tags = ["manual"],
     deps = [
         ":tensorstore",
@@ -125,7 +122,6 @@ py_library(
     name = "conftest",
     testonly = True,
     srcs = ["tests/conftest.py"],
-    srcs_version = "PY3ONLY",
     deps = ["@pypa_pytest//:pytest"],
 )
 
