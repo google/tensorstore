@@ -159,7 +159,6 @@ tensorstore_cc_test(
     ],
     deps = [
         ":http",
-        "//tensorstore/util:status_testutil",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
@@ -258,11 +257,10 @@ tensorstore_cc_library(
     deps = [
         ":http",
         "//tensorstore/util:result",
-        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/synchronization",
-        "@com_google_absl//absl/time",
     ],
 )

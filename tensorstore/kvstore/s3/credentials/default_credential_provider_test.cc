@@ -72,8 +72,7 @@ class DefaultCredentialProviderTest : public ::testing::Test {
 };
 
 TEST_F(DefaultCredentialProviderTest, AnonymousCredentials) {
-  auto mock_transport = std::make_shared<DefaultMockHttpTransport>(
-      absl::flat_hash_map<std::string, HttpResponse>());
+  auto mock_transport = std::make_shared<DefaultMockHttpTransport>();
   auto provider = std::make_unique<DefaultAwsCredentialsProvider>(
       Options{{}, {}, {}, mock_transport});
 
@@ -156,7 +155,7 @@ TEST_F(DefaultCredentialProviderTest, ConfigureEC2ProviderFromOptions) {
   EXPECT_EQ(credentials.expires_at, expiry - absl::Seconds(60));
 
   /// Force failure on credential retrieval
-  mock_transport->Reset(absl::flat_hash_map<std::string, HttpResponse>{
+  mock_transport->Reset({
       {"POST http://endpoint/latest/api/token",
        HttpResponse{404, absl::Cord{""}}},
   });
@@ -182,7 +181,7 @@ TEST_F(DefaultCredentialProviderTest, ConfigureEC2ProviderFromOptions) {
   EXPECT_EQ(credentials.expires_at, expiry - absl::Seconds(60));
 
   /// Force failure on credential retrieval
-  mock_transport->Reset(absl::flat_hash_map<std::string, HttpResponse>{
+  mock_transport->Reset({
       {"POST http://endpoint/latest/api/token",
        HttpResponse{404, absl::Cord{""}}},
   });

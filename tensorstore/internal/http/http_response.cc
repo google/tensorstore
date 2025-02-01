@@ -19,7 +19,6 @@
 
 #include <limits>
 #include <optional>
-#include <string>
 #include <utility>
 
 #include "absl/status/status.h"
@@ -168,6 +167,12 @@ absl::StatusCode HttpResponseCodeToStatusCode(const HttpResponse& response) {
       // body.)
       return absl::StatusCode::kOutOfRange;
 
+    case 409:  // Conflict, such as a concurrent request.
+      return absl::StatusCode::kAborted;
+
+    case 501:  // Not Implemented
+      return absl::StatusCode::kUnimplemented;
+
     // UNAVAILABLE indicates a problem that can go away if the request
     // is just retried without any modification. 308 return codes are intended
     // for write requests that can be retried. See the documentation and the
@@ -177,7 +182,6 @@ absl::StatusCode HttpResponseCodeToStatusCode(const HttpResponse& response) {
     // https://cloud.google.com/storage/docs/request-rate
     case 308:  // Resume Incomplete
     case 408:  // Request Timeout
-    case 409:  // Conflict
     case 429:  // Too Many Requests
     case 500:  // Internal Server Error
     case 502:  // Bad Gateway

@@ -6,6 +6,20 @@
 The ``s3`` driver provides access to Amazon S3 and S3-compatible object stores.
 Keys directly correspond to paths within an S3 bucket.
 
+.. warning::
+
+   The ``s3`` key-value store driver does not provide all the atomicity
+   guarantees required by tensorstore.  On AWS, specfically, DELETE is not
+   atomic, which leads to race conditions.  On other S3-compatible object
+   stores even PUT may not be atomic.
+
+   This non-atomicity can lead to unexpected behavior when writing to an
+   S3-backed TensorStore. For example, writing to a zarr array can in some
+   cases lead to a delete rather than a write (if it happens to match the fill
+   value), and therefore a write operation that might be atomic and safe
+   when writing to other key-value store implementations might be unsafe
+   when using ``s3``.
+
 .. json:schema:: kvstore/s3
 
 .. json:schema:: Context.s3_request_concurrency
@@ -87,3 +101,7 @@ without credentials.  Otherwise amazon credentials are required:
    Specifies the concurrency level used by the shared Context
    :json:schema:`Context.s3_request_concurrency` resource. Defaults to 32.
 
+.. envvar:: TENSORSTORE_S3_USE_CONDITIONAL_WRITE
+
+   Enables conditional writes for the S3 driver.  This is experimental and
+   may be changed or removed in the future.

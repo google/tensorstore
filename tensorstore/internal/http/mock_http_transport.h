@@ -19,11 +19,8 @@
 #include <utility>
 #include <vector>
 
-#include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
-#include "absl/strings/cord.h"
 #include "absl/synchronization/mutex.h"
-#include "absl/time/time.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
@@ -45,20 +42,27 @@ void ApplyResponseToHandler(const Result<HttpResponse>& response,
 
 /// Mocks an HttpTransport by overriding the IssueRequest method to
 /// respond with a predefined set of request-response pairs supplied
-/// to the constructor
+/// to the constructor.
+/// The first matching pair will be returned for each call, then expired.
 class DefaultMockHttpTransport : public internal_http::HttpTransport {
  public:
-  DefaultMockHttpTransport(
-      absl::flat_hash_map<std::string, internal_http::HttpResponse>
-          url_to_response,
-      bool add_headers = true) {
+  using Responses =
+      std::vector<std::pair<std::string, internal_http::HttpResponse>>;
+
+  /// Construct a DefaultMockHttpTransport that returns 404 for all requests.
+  DefaultMockHttpTransport() = default;
+
+  explicit DefaultMockHttpTransport(Responses url_to_response) {
+    Reset(std::move(url_to_response), true);
+  }
+  DefaultMockHttpTransport(Responses url_to_response, bool add_headers) {
     Reset(std::move(url_to_response), add_headers);
   }
   virtual ~DefaultMockHttpTransport() = default;
 
-  void Reset(absl::flat_hash_map<std::string, internal_http::HttpResponse>
-                 url_to_response,
-             bool add_headers = true);
+  /// Initializes the list of request-response pairs.
+  /// The first matching pair will be returned for each call, then expired.
+  void Reset(Responses url_to_response, bool add_headers = true);
 
   const std::vector<HttpRequest>& requests() const { return requests_; }
 
@@ -69,8 +73,7 @@ class DefaultMockHttpTransport : public internal_http::HttpTransport {
  private:
   absl::Mutex mutex_;
   std::vector<HttpRequest> requests_;
-  absl::flat_hash_map<std::string, internal_http::HttpResponse>
-      url_to_response_;
+  Responses url_to_response_;
 };
 
 }  // namespace internal_http

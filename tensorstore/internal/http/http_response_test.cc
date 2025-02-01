@@ -14,20 +14,11 @@
 
 #include "tensorstore/internal/http/http_response.h"
 
-#include <set>
-#include <utility>
-
-#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
-#include "tensorstore/util/status_testutil.h"
 
 namespace {
-
-using ::tensorstore::IsOkAndHolds;
-using ::tensorstore::internal_http::HttpResponse;
-
 
 TEST(HttpResponseCodeToStatusTest, AllCodes) {
   using ::tensorstore::internal_http::HttpResponseCodeToStatus;
@@ -68,9 +59,21 @@ TEST(HttpResponseCodeToStatusTest, AllCodes) {
               HttpResponseCodeToStatus({code, {}, {}}).code())
         << code;
   }
-  for (auto code : {308, 408, 409, 429, 500, 502, 503, 504}) {
+  for (auto code : {308, 408, 429, 500, 502, 503, 504}) {
     seen.insert(code);
     EXPECT_EQ(absl::StatusCode::kUnavailable,
+              HttpResponseCodeToStatus({code, {}, {}}).code())
+        << code;
+  }
+  for (auto code : {409}) {
+    seen.insert(code);
+    EXPECT_EQ(absl::StatusCode::kAborted,
+              HttpResponseCodeToStatus({code, {}, {}}).code())
+        << code;
+  }
+  for (auto code : {501}) {
+    seen.insert(code);
+    EXPECT_EQ(absl::StatusCode::kUnimplemented,
               HttpResponseCodeToStatus({code, {}, {}}).code())
         << code;
   }
@@ -83,6 +86,5 @@ TEST(HttpResponseCodeToStatusTest, AllCodes) {
         << i;
   }
 }
-
 
 }  // namespace

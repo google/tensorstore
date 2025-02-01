@@ -16,8 +16,9 @@
 #define TENSORSTORE_KVSTORE_S3_CREDENTIALS_TEST_UTILS_H_
 
 #include <string>
+#include <utility>
+#include <vector>
 
-#include "absl/container/flat_hash_map.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/http/http_response.h"
 
@@ -26,7 +27,7 @@ namespace internal_kvstore_s3 {
 
 /// Return a Default EC2 Metadata Credential Retrieval Flow, suitable
 /// for passing to EC2MetadataMockTransport
-absl::flat_hash_map<std::string, internal_http::HttpResponse>
+std::vector<std::pair<std::string, internal_http::HttpResponse>>
 DefaultEC2MetadataFlow(const std::string& endpoint,
                        const std::string& api_token,
                        const std::string& access_key,

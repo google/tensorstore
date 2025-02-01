@@ -19,12 +19,10 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/mock_http_transport.h"
-#include "tensorstore/util/future.h"
 #include "tensorstore/util/status_testutil.h"
 
 using ::tensorstore::internal_http::DefaultMockHttpTransport;
@@ -77,7 +75,8 @@ TEST(ValidateEndpointTest, Basic) {
 // Mock-based tests for s3.
 
 TEST(ResolveEndpointRegion, Basic) {
-  absl::flat_hash_map<std::string, HttpResponse> url_to_response{
+  auto mock_transport = std::make_shared<
+      DefaultMockHttpTransport>(DefaultMockHttpTransport::Responses{
       // initial HEAD request responds with an x-amz-bucket-region header.
       {"HEAD https://testbucket.s3.amazonaws.com",
        HttpResponse{200, absl::Cord(), {{"x-amz-bucket-region", "us-east-1"}}}},
@@ -89,10 +88,8 @@ TEST(ResolveEndpointRegion, Basic) {
        HttpResponse{200, absl::Cord(), {{"x-amz-bucket-region", "us-east-1"}}}},
 
       // DELETE 404 => absl::OkStatus()
-  };
+  });
 
-  auto mock_transport =
-      std::make_shared<DefaultMockHttpTransport>(url_to_response);
   S3EndpointRegion ehr;
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       ehr,
