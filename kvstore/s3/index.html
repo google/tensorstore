@@ -1122,6 +1122,13 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#envvar-TENSORSTORE_S3_USE_CONDITIONAL_WRITE" class="md-nav__link">
+    <span aria-label="environment variable" class="objinfo-icon objinfo-icon__alias" title="environment variable">$</span><span title="TENSORSTORE_S3_USE_CONDITIONAL_WRITE (environment variable) — Enables conditional writes for the S3 driver.  This is experimental and may be changed or removed in the future." class="md-ellipsis">TENSORSTORE_<wbr>S3_<wbr>USE_<wbr>CONDITIONAL_<wbr>WRITE</span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1624,6 +1631,13 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#envvar-TENSORSTORE_S3_USE_CONDITIONAL_WRITE" class="md-nav__link">
+    <span aria-label="environment variable" class="objinfo-icon objinfo-icon__alias" title="environment variable">$</span><span title="TENSORSTORE_S3_USE_CONDITIONAL_WRITE (environment variable) — Enables conditional writes for the S3 driver.  This is experimental and may be changed or removed in the future." class="md-ellipsis">TENSORSTORE_<wbr>S3_<wbr>USE_<wbr>CONDITIONAL_<wbr>WRITE</span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1646,6 +1660,19 @@
 <h1 id="s3-key-value-store-driver"><span id="s3-kvstore-driver"></span><code class="docutils literal notranslate"><span class="pre">s3</span></code> Key-Value Store driver<a class="headerlink" href="#s3-key-value-store-driver" title="Link to this heading">¶</a></h1>
 <p>The <code class="docutils literal notranslate"><span class="pre">s3</span></code> driver provides access to Amazon S3 and S3-compatible object stores.
 Keys directly correspond to paths within an S3 bucket.</p>
+<div class="warning admonition">
+<p class="admonition-title">Warning</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">s3</span></code> key-value store driver does not provide all the atomicity
+guarantees required by tensorstore.  On AWS, specfically, DELETE is not
+atomic, which leads to race conditions.  On other S3-compatible object
+stores even PUT may not be atomic.</p>
+<p>This non-atomicity can lead to unexpected behavior when writing to an
+S3-backed TensorStore. For example, writing to a zarr array can in some
+cases lead to a delete rather than a write (if it happens to match the fill
+value), and therefore a write operation that might be atomic and safe
+when writing to other key-value store implementations might be unsafe
+when using <code class="docutils literal notranslate"><span class="pre">s3</span></code>.</p>
+</div>
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-kvstore/s3">
 <em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">kvstore/s3</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-kvstore/s3" title="Link to this definition">¶</a></dt>
@@ -1998,6 +2025,13 @@ See &lt;<a class="reference external" href="https://docs.aws.amazon.com/sdkref/l
 <span class="sig-name descname"><span class="pre">TENSORSTORE_S3_REQUEST_CONCURRENCY</span></span><a class="headerlink" href="#envvar-TENSORSTORE_S3_REQUEST_CONCURRENCY" title="Link to this definition">¶</a></dt>
 <dd><p>Specifies the concurrency level used by the shared Context
 <a class="reference internal" href="#json-Context.s3_request_concurrency" title="Context.s3_request_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.s3_request_concurrency</span></code></a> resource. Defaults to 32.</p>
+</dd></dl>
+
+<dl class="std envvar objdesc">
+<dt class="sig sig-object highlight std" id="envvar-TENSORSTORE_S3_USE_CONDITIONAL_WRITE">
+<span class="sig-name descname"><span class="pre">TENSORSTORE_S3_USE_CONDITIONAL_WRITE</span></span><a class="headerlink" href="#envvar-TENSORSTORE_S3_USE_CONDITIONAL_WRITE" title="Link to this definition">¶</a></dt>
+<dd><p>Enables conditional writes for the S3 driver.  This is experimental and
+may be changed or removed in the future.</p>
 </dd></dl>
 
 
