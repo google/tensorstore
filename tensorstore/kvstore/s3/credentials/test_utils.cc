@@ -15,8 +15,9 @@
 #include "tensorstore/kvstore/s3/credentials/test_utils.h"
 
 #include <string>
+#include <utility>
+#include <vector>
 
-#include "absl/container/flat_hash_map.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_format.h"
 #include "absl/time/time.h"
@@ -25,14 +26,14 @@
 namespace tensorstore {
 namespace internal_kvstore_s3 {
 
-absl::flat_hash_map<std::string, internal_http::HttpResponse>
+std::vector<std::pair<std::string, internal_http::HttpResponse>>
 DefaultEC2MetadataFlow(const std::string& endpoint,
                        const std::string& api_token,
                        const std::string& access_key,
                        const std::string& secret_key,
                        const std::string& session_token,
                        const absl::Time& expires_at) {
-  return absl::flat_hash_map<std::string, internal_http::HttpResponse>{
+  return std::vector<std::pair<std::string, internal_http::HttpResponse>>{
       {absl::StrFormat("POST %s/latest/api/token", endpoint),
        internal_http::HttpResponse{200, absl::Cord{api_token}}},
       {absl::StrFormat("GET %s/latest/meta-data/iam/", endpoint),

@@ -25,10 +25,12 @@
 #include <variant>
 
 #include "absl/base/attributes.h"
+#include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/escaping.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/synchronization/mutex.h"
@@ -67,6 +69,7 @@
 #include "tensorstore/kvstore/s3/s3_request_builder.h"
 #include "tensorstore/kvstore/s3/s3_resource.h"
 #include "tensorstore/kvstore/s3/s3_uri_utils.h"
+#include "tensorstore/kvstore/s3/use_conditional_write.h"
 #include "tensorstore/kvstore/s3/validate.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/url_registry.h"
@@ -113,6 +116,7 @@ using ::tensorstore::internal_kvstore_s3::S3RequestBuilder;
 using ::tensorstore::internal_kvstore_s3::S3RequestRetries;
 using ::tensorstore::internal_kvstore_s3::S3UriEncode;
 using ::tensorstore::internal_kvstore_s3::StorageGenerationFromHeaders;
+using ::tensorstore::internal_kvstore_s3::UseConditionalWrite;
 using ::tensorstore::kvstore::Key;
 using ::tensorstore::kvstore::ListEntry;
 using ::tensorstore::kvstore::ListOptions;
@@ -144,9 +148,6 @@ static constexpr char kUriScheme[] = "s3";
 static constexpr char kEmptySha256[] =
     "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
-/// An empty etag which should not collide with an actual payload hash
-static constexpr char kEmptyEtag[] = "\"\"";
-
 static constexpr size_t kMaxS3PutSize = size_t{5} * 1024 * 1024 * 1024;  // 5GB
 
 /// Adds the generation header to the provided builder.
@@ -156,12 +157,15 @@ bool AddGenerationHeader(S3RequestBuilder* builder, std::string_view header,
     // Unconditional.
     return false;
   }
+  if (StorageGeneration::IsNoValue(gen)) {
+    // If no generation is provided, provide an empty etag
+    builder->AddHeader(absl::StrCat(header, ": \"\""));
+    return true;
+  }
 
-  // If no generation is provided, we still need to provide an empty etag
-  auto etag = StorageGeneration::IsNoValue(gen)
-                  ? kEmptyEtag
-                  : StorageGeneration::DecodeString(gen);
-
+  auto etag = StorageGeneration::DecodeString(gen);
+  ABSL_DCHECK(absl::StartsWith(etag, "\""));
+  ABSL_DCHECK(absl::EndsWith(etag, "\""));
   builder->AddHeader(absl::StrCat(header, ": ", etag));
   return true;
 }
@@ -178,7 +182,8 @@ std::string payload_sha256(const absl::Cord& cord = absl::Cord()) {
 
 bool DefaultIsRetryableCode(absl::StatusCode code) {
   return code == absl::StatusCode::kDeadlineExceeded ||
-         code == absl::StatusCode::kUnavailable;
+         code == absl::StatusCode::kUnavailable ||
+         code == absl::StatusCode::kAborted;
 }
 
 struct S3KeyValueStoreSpecData {
@@ -543,95 +548,22 @@ Future<kvstore::ReadResult> S3KeyValueStore::ReadImpl(Key&& key,
   return std::move(op.future);
 }
 
-// S3 doesn't support conditional PUT, so we use a HEAD request
-// to test the if-match condition; unfortunately this still has races.
-// Base must provide the following methods:
-//   bool IsCancelled()
-//   void Fail(absl::Status)
-//   void OnHeadResponse(const Result<HttpResponse>& response)
-//   void AfterHeadRequest()
+// WriteTask is a function object used to satisfy S3KeyValueStore::Write.
+// https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObject.html
 //
-template <typename Base>
-struct ConditionTask : public RateLimiterNode,
-                       public internal::AtomicReferenceCount<Base> {
-  using Self = ConditionTask<Base>;
-
+// Not all S3-compatible object stores (such as moto) fully support the
+// conditional put operations required for atomic writes. For these cases
+// a HEAD request is used to determine if the write is necessary.
+struct WriteTask : public RateLimiterNode,
+                   public internal::AtomicReferenceCount<WriteTask> {
   IntrusivePtr<S3KeyValueStore> owner;
   kvstore::WriteOptions options_;
   ReadyFuture<const S3EndpointRegion> endpoint_region_;
   std::string object_url_;
-
-  AwsCredentials credentials_;
-
-  ConditionTask(IntrusivePtr<S3KeyValueStore> owner,
-                kvstore::WriteOptions options,
-                ReadyFuture<const S3EndpointRegion> endpoint_region,
-                std::string object_url)
-      : owner(std::move(owner)),
-        options_(std::move(options)),
-        endpoint_region_(std::move(endpoint_region)),
-        object_url_(std::move(object_url)) {}
-
-  static void Start(RateLimiterNode* task) {
-    auto* self = static_cast<Base*>(task);
-    self->owner->write_rate_limiter().Finish(self);
-    self->owner->admission_queue().Admit(self, &Base::Admit);
-  }
-
-  static void Admit(RateLimiterNode* task) {
-    auto* self = static_cast<Base*>(task);
-    self->owner->executor()(
-        [state = IntrusivePtr<Base>(self, internal::adopt_object_ref)] {
-          state->Retry();
-        });
-  }
-
-  void Retry() {
-    if (static_cast<Base*>(this)->IsCancelled()) {
-      return;
-    }
-    if (auto maybe_credentials = owner->GetCredentials();
-        !maybe_credentials.ok()) {
-      static_cast<Base*>(this)->Fail(maybe_credentials.status());
-      return;
-    } else if (maybe_credentials.value().has_value()) {
-      credentials_ = std::move(*maybe_credentials.value());
-    }
-
-    if (StorageGeneration::IsUnknown(options_.generation_conditions.if_equal)) {
-      static_cast<Base*>(this)->AfterHeadRequest();
-      return;
-    }
-
-    auto builder = S3RequestBuilder("HEAD", object_url_);
-    AddGenerationHeader(&builder, "if-match",
-                        options_.generation_conditions.if_equal);
-
-    auto now = absl::Now();
-    const auto& ehr = endpoint_region_.value();
-    auto request = builder.MaybeAddRequesterPayer(owner->spec_.requester_pays)
-                       .BuildRequest(owner->host_header_, credentials_,
-                                     ehr.aws_region, kEmptySha256, now);
-
-    ABSL_LOG_IF(INFO, s3_logging) << "Peek: " << request;
-
-    auto future = owner->transport_->IssueRequest(request, {});
-    future.ExecuteWhenReady([self = IntrusivePtr<Base>(static_cast<Base*>(
-                                 this))](ReadyFuture<HttpResponse> response) {
-      ABSL_LOG_IF(INFO, s3_logging.Level(1) && response.result().ok())
-          << "Peek (Response): " << response.value();
-      if (self->IsCancelled()) return;
-      self->OnHeadResponse(response.result());
-    });
-  }
-};
-
-// A WriteTask is a function object used to satisfy S3KeyValueStore::Write.
-struct WriteTask : public ConditionTask<WriteTask> {
-  using Base = ConditionTask<WriteTask>;
-
   absl::Cord value_;
   Promise<TimestampedStorageGeneration> promise;
+
+  AwsCredentials credentials_;
 
   int attempt_ = 0;
   absl::Time start_time_;
@@ -640,43 +572,107 @@ struct WriteTask : public ConditionTask<WriteTask> {
             ReadyFuture<const S3EndpointRegion> endpoint_region,
             std::string object_url, absl::Cord value,
             Promise<TimestampedStorageGeneration> promise)
-      : Base(std::move(o), std::move(options), std::move(endpoint_region),
-             std::move(object_url)),
+      : owner(std::move(o)),
+        options_(std::move(options)),
+        endpoint_region_(std::move(endpoint_region)),
+        object_url_(std::move(object_url)),
         value_(std::move(value)),
         promise(std::move(promise)) {}
 
   ~WriteTask() { owner->admission_queue().Finish(this); }
 
+  static void Start(RateLimiterNode* task) {
+    auto* self = static_cast<WriteTask*>(task);
+    self->owner->write_rate_limiter().Finish(self);
+    self->owner->admission_queue().Admit(self, &WriteTask::Admit);
+  }
+
+  static void Admit(RateLimiterNode* task) {
+    auto* self = static_cast<WriteTask*>(task);
+    self->owner->executor()(
+        [state = IntrusivePtr<WriteTask>(self, internal::adopt_object_ref)] {
+          state->Retry();
+        });
+  }
+
   bool IsCancelled() { return !promise.result_needed(); }
-  void Fail(absl::Status status) { promise.SetResult(std::move(status)); }
+  void Fail(absl::Status status) {
+    ABSL_LOG_IF(INFO, s3_logging.Level(2)) << "WriteTask Fail " << status;
+    promise.SetResult(std::move(status));
+  }
+
+  void Success(StorageGeneration g) {
+    ABSL_LOG_IF(INFO, s3_logging.Level(1)) << "WriteTask Success " << g;
+    promise.SetResult(std::in_place, std::move(g), start_time_);
+  }
+
+  void Retry() {
+    if (IsCancelled()) {
+      return;
+    }
+    if (auto maybe_credentials = owner->GetCredentials();
+        !maybe_credentials.ok()) {
+      Fail(maybe_credentials.status());
+      return;
+    } else if (maybe_credentials.value().has_value()) {
+      credentials_ = std::move(*maybe_credentials.value());
+    }
+
+    if (UseConditionalWrite(endpoint_region_.value().endpoint) ||
+        StorageGeneration::IsUnknown(options_.generation_conditions.if_equal)) {
+      AfterHeadRequest();
+      return;
+    }
+
+    start_time_ = absl::Now();
+    const auto& ehr = endpoint_region_.value();
+
+    auto builder = S3RequestBuilder("HEAD", object_url_);
+    AddGenerationHeader(&builder, "if-match",
+                        options_.generation_conditions.if_equal);
+    auto request = builder.MaybeAddRequesterPayer(owner->spec_.requester_pays)
+                       .BuildRequest(owner->host_header_, credentials_,
+                                     ehr.aws_region, kEmptySha256, start_time_);
+
+    ABSL_LOG_IF(INFO, s3_logging) << "Peek: " << request;
+
+    auto future = owner->transport_->IssueRequest(request, {});
+    future.ExecuteWhenReady([self = IntrusivePtr<WriteTask>(this)](
+                                ReadyFuture<HttpResponse> response) {
+      self->OnHeadResponse(response.result());
+    });
+  }
 
   void OnHeadResponse(const Result<HttpResponse>& response) {
-    // TODO: Retry these.
+    if (IsCancelled()) {
+      return;
+    }
+    if (!response.ok() && DefaultIsRetryableCode(response.status().code())) {
+      if (owner->BackoffForAttemptAsync(response.status(), attempt_++, this)
+              .ok()) {
+        return;
+      }
+    }
     if (!response.ok()) {
       Fail(response.status());
       return;
     }
 
-    TimestampedStorageGeneration r;
-    r.time = absl::Now();
-    switch (response.value().status_code) {
-      case 304:
-        // Not modified implies that the generation did not match.
-        [[fallthrough]];
-      case 412:
-        // Failed precondition implies the generation did not match.
-        r.generation = StorageGeneration::Unknown();
-        promise.SetResult(r);
-        return;
-      case 404:
-        if (!options_.generation_conditions.MatchesNoValue()) {
-          r.generation = StorageGeneration::Unknown();
-          promise.SetResult(r);
-          return;
-        }
-        break;
-      default:
-        break;
+    ABSL_LOG_IF(INFO, s3_logging.Level(1))
+        << "Peek (Response): " << response.value() << "\n"
+        << response.value().payload;
+
+    if (response.value().status_code == 412) {
+      // Failed precondition implies the generation did not match, perhaps
+      // because the object does not exist.
+      Success(StorageGeneration::Unknown());
+      return;
+    } else if (response.value().status_code == 404 &&
+               !options_.generation_conditions.MatchesNoValue()) {
+      // If the object does not exist and the if-match condition is not NoValue,
+      // then the write fails.
+      Success(StorageGeneration::Unknown());
+      return;
     }
 
     AfterHeadRequest();
@@ -691,13 +687,19 @@ struct WriteTask : public ConditionTask<WriteTask> {
     auto content_sha256 = payload_sha256(value_);
 
     const auto& ehr = endpoint_region_.value();
+    auto builder = S3RequestBuilder("PUT", object_url_);
+    builder.AddHeader("Content-Type: application/octet-stream")
+        .AddHeader(absl::StrCat("Content-Length: ", value_.size()))
+        .MaybeAddRequesterPayer(owner->spec_.requester_pays);
+    if (StorageGeneration::IsNoValue(options_.generation_conditions.if_equal)) {
+      builder.AddHeader("if-none-match: *");
+    } else {
+      AddGenerationHeader(&builder, "if-match",
+                          options_.generation_conditions.if_equal);
+    }
     auto request =
-        S3RequestBuilder("PUT", object_url_)
-            .AddHeader("Content-Type: application/octet-stream")
-            .AddHeader(absl::StrCat("Content-Length: ", value_.size()))
-            .MaybeAddRequesterPayer(owner->spec_.requester_pays)
-            .BuildRequest(owner->host_header_, credentials_, ehr.aws_region,
-                          content_sha256, start_time_);
+        builder.BuildRequest(owner->host_header_, credentials_, ehr.aws_region,
+                             content_sha256, start_time_);
 
     ABSL_LOG_IF(INFO, s3_logging)
         << "WriteTask: " << request << " size=" << value_.size();
@@ -717,56 +719,71 @@ struct WriteTask : public ConditionTask<WriteTask> {
     ABSL_LOG_IF(INFO, s3_logging.Level(1) && response.ok())
         << "WriteTask " << *response;
 
-    bool is_retryable = false;
-    absl::Status status = [&]() -> absl::Status {
-      if (!response.ok()) {
-        is_retryable = DefaultIsRetryableCode(response.status().code());
-        return response.status();
-      }
-      return AwsHttpResponseToStatus(response.value(), is_retryable);
-    }();
-    if (!status.ok() && is_retryable) {
-      status =
-          owner->BackoffForAttemptAsync(std::move(status), attempt_++, this);
-      if (status.ok()) {
+    if (!response.ok() && DefaultIsRetryableCode(response.status().code())) {
+      if (owner->BackoffForAttemptAsync(response.status(), attempt_++, this)
+              .ok()) {
         return;
       }
     }
-    if (!status.ok()) {
-      promise.SetResult(status);
+    if (!response.ok()) {
+      Fail(response.status());
       return;
     }
 
-    promise.SetResult(FinishResponse(response.value()));
-  }
-
-  Result<TimestampedStorageGeneration> FinishResponse(
-      const HttpResponse& response) {
-    TimestampedStorageGeneration r;
-    r.time = start_time_;
-    switch (response.status_code) {
-      case 404:
-        if (!StorageGeneration::IsUnknown(
-                options_.generation_conditions.if_equal)) {
-          r.generation = StorageGeneration::Unknown();
-          return r;
-        }
-    }
-
     auto latency = absl::Now() - start_time_;
+    bool is_retryable = false;
+    auto status = AwsHttpResponseToStatus(response.value(), is_retryable);
+    if (response.value().status_code == 409) {
+      // Conflict implies that there was a conflict in the concurrent operation.
+      if (owner->BackoffForAttemptAsync(status, attempt_++, this).ok()) {
+        return;
+      }
+      Fail(std::move(status));
+    } else if (response.value().status_code == 304 ||
+               response.value().status_code == 412) {
+      // Not modified implies that the generation did not match.
+      // Failed precondition implies the generation did not match.
+      Success(StorageGeneration::Unknown());
+    } else if (response.value().status_code == 404 &&
+               !StorageGeneration::IsUnknown(
+                   options_.generation_conditions.if_equal)) {
+      Success(StorageGeneration::Unknown());
+    } else if (!status.ok()) {
+      if (is_retryable &&
+          owner->BackoffForAttemptAsync(status, attempt_++, this).ok()) {
+        return;
+      }
+      Fail(std::move(status));
+    } else {
+      auto generation = StorageGenerationFromHeaders(response.value().headers);
+      if (!generation.ok()) {
+        Fail(std::move(generation).status());
+      } else {
+        Success(std::move(generation).value());
+        s3_metrics.bytes_written.IncrementBy(value_.size());
+      }
+    }
     s3_metrics.write_latency_ms.Observe(absl::ToInt64Milliseconds(latency));
-    s3_metrics.bytes_written.IncrementBy(value_.size());
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        r.generation, StorageGenerationFromHeaders(response.headers));
-    return r;
   }
 };
 
-/// A DeleteTask is a function object used to satisfy S3KeyValueStore::Delete.
-struct DeleteTask : public ConditionTask<DeleteTask> {
-  using Base = ConditionTask<DeleteTask>;
-
+// DeleteTask is a function object used to satisfy S3KeyValueStore::Delete.
+// https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObject.html
+//
+// S3 conditional delete API doesn't support the full range of conditions
+// required by tensorstore. In particular, when using an if-match condition,
+// if the object does not exist *or* if the generation matches, a 204 No
+// Content is returned, so a HEAD request is required to distinguish between
+// the two cases.  Furthermore, if-match is only supported on directory buckets.
+struct DeleteTask : public RateLimiterNode,
+                    public internal::AtomicReferenceCount<DeleteTask> {
+  IntrusivePtr<S3KeyValueStore> owner;
+  kvstore::WriteOptions options_;
+  ReadyFuture<const S3EndpointRegion> endpoint_region_;
+  std::string object_url_;
   Promise<TimestampedStorageGeneration> promise;
+
+  AwsCredentials credentials_;
 
   int attempt_ = 0;
   absl::Time start_time_;
@@ -775,39 +792,107 @@ struct DeleteTask : public ConditionTask<DeleteTask> {
              ReadyFuture<const S3EndpointRegion> endpoint_region,
              std::string object_url,
              Promise<TimestampedStorageGeneration> promise)
-      : Base(std::move(o), std::move(options), std::move(endpoint_region),
-             std::move(object_url)),
+      : owner(std::move(o)),
+        options_(std::move(options)),
+        endpoint_region_(std::move(endpoint_region)),
+        object_url_(std::move(object_url)),
         promise(std::move(promise)) {}
 
   ~DeleteTask() { owner->admission_queue().Finish(this); }
 
-  bool IsCancelled() { return !promise.result_needed(); }
-  void Fail(absl::Status status) { promise.SetResult(std::move(status)); }
+  static void Start(RateLimiterNode* task) {
+    auto* self = static_cast<DeleteTask*>(task);
+    self->owner->write_rate_limiter().Finish(self);
+    self->owner->admission_queue().Admit(self, &DeleteTask::Admit);
+  }
 
-  void OnHeadResponse(const Result<HttpResponse>& response) {
-    // TODO: Retry these.
-    if (!response.ok()) {
-      promise.SetResult(response.status());
+  static void Admit(RateLimiterNode* task) {
+    auto* self = static_cast<DeleteTask*>(task);
+    self->owner->executor()(
+        [state = IntrusivePtr<DeleteTask>(self, internal::adopt_object_ref)] {
+          state->Retry();
+        });
+  }
+
+  bool IsCancelled() { return !promise.result_needed(); }
+  void Fail(absl::Status status) {
+    ABSL_LOG_IF(INFO, s3_logging.Level(2)) << "DeleteTask Fail " << status;
+    promise.SetResult(std::move(status));
+  }
+
+  void Success(StorageGeneration g) {
+    ABSL_LOG_IF(INFO, s3_logging.Level(1)) << "DeleteTask Success " << g;
+    promise.SetResult(std::in_place, std::move(g), start_time_);
+  }
+
+  void Retry() {
+    if (IsCancelled()) {
+      return;
+    }
+    if (auto maybe_credentials = owner->GetCredentials();
+        !maybe_credentials.ok()) {
+      Fail(maybe_credentials.status());
+      return;
+    } else if (maybe_credentials.value().has_value()) {
+      credentials_ = std::move(*maybe_credentials.value());
+    }
+
+    if (StorageGeneration::IsUnknown(options_.generation_conditions.if_equal)) {
+      AfterHeadRequest();
       return;
     }
 
-    TimestampedStorageGeneration r;
-    r.time = absl::Now();
-    switch (response.value().status_code) {
-      case 412:
-        // Failed precondition implies the generation did not match.
-        r.generation = StorageGeneration::Unknown();
-        promise.SetResult(std::move(r));
+    start_time_ = absl::Now();
+    const auto& ehr = endpoint_region_.value();
+
+    auto builder = S3RequestBuilder("HEAD", object_url_);
+    AddGenerationHeader(&builder, "if-match",
+                        options_.generation_conditions.if_equal);
+    auto request = builder.MaybeAddRequesterPayer(owner->spec_.requester_pays)
+                       .BuildRequest(owner->host_header_, credentials_,
+                                     ehr.aws_region, kEmptySha256, start_time_);
+
+    ABSL_LOG_IF(INFO, s3_logging) << "Peek: " << request;
+
+    auto future = owner->transport_->IssueRequest(request, {});
+    future.ExecuteWhenReady([self = IntrusivePtr<DeleteTask>(this)](
+                                ReadyFuture<HttpResponse> response) {
+      self->OnHeadResponse(response.result());
+    });
+  }
+
+  void OnHeadResponse(const Result<HttpResponse>& response) {
+    if (IsCancelled()) {
+      return;
+    }
+    ABSL_LOG_IF(INFO, s3_logging.Level(1) && response.ok())
+        << "Peek (Response): " << response.value() << "\n"
+        << response.value().payload;
+
+    if (!response.ok() && DefaultIsRetryableCode(response.status().code())) {
+      if (owner->BackoffForAttemptAsync(response.status(), attempt_++, this)
+              .ok()) {
         return;
-      case 404:
-        if (!options_.generation_conditions.MatchesNoValue()) {
-          r.generation = StorageGeneration::Unknown();
-          promise.SetResult(std::move(r));
-          return;
-        }
-        break;
-      default:
-        break;
+      }
+    }
+    if (!response.ok()) {
+      Fail(response.status());
+      return;
+    }
+
+    if (response.value().status_code == 412) {
+      // Failed precondition implies the generation did not match.
+      Success(StorageGeneration::Unknown());
+      return;
+    } else if (response.value().status_code == 404) {
+      // If the object does not exist, then the delete succeeded, but
+      // the return depends on the generation condition.
+      if (options_.generation_conditions.MatchesNoValue()) {
+        Success(StorageGeneration::NoValue());
+      } else {
+        Success(StorageGeneration::Unknown());
+      }
+      return;
     }
 
     AfterHeadRequest();
@@ -817,8 +902,14 @@ struct DeleteTask : public ConditionTask<DeleteTask> {
     start_time_ = absl::Now();
 
     const auto& ehr = endpoint_region_.value();
-    auto request = S3RequestBuilder("DELETE", object_url_)
-                       .MaybeAddRequesterPayer(owner->spec_.requester_pays)
+    S3RequestBuilder builder("DELETE", object_url_);
+#if 0
+    // NOPTE: AWS only allows conditional deletes in directory buckets, so add
+    // this in when bucket detection is implemented.
+    AddGenerationHeader(&builder, "if-match",
+                        options_.generation_conditions.if_equal);
+#endif
+    auto request = builder.MaybeAddRequesterPayer(owner->spec_.requester_pays)
                        .BuildRequest(owner->host_header_, credentials_,
                                      ehr.aws_region, kEmptySha256, start_time_);
 
@@ -836,52 +927,43 @@ struct DeleteTask : public ConditionTask<DeleteTask> {
       return;
     }
     ABSL_LOG_IF(INFO, s3_logging.Level(1) && response.ok())
-        << "DeleteTask " << *response;
+        << "DeleteTask " << response.value() << "\n"
+        << response.value().payload;
 
-    bool is_retryable = false;
-    absl::Status status = [&]() -> absl::Status {
-      if (!response.ok()) {
-        is_retryable = DefaultIsRetryableCode(response.status().code());
-        return response.status();
-      }
-      switch (response.value().status_code) {
-        case 404:
-          return absl::OkStatus();
-        default:
-          break;
-      }
-      return AwsHttpResponseToStatus(response.value(), is_retryable);
-    }();
-    if (!status.ok() && is_retryable) {
-      status =
-          owner->BackoffForAttemptAsync(std::move(status), attempt_++, this);
-      if (status.ok()) {
+    if (!response.ok() && DefaultIsRetryableCode(response.status().code())) {
+      if (owner->BackoffForAttemptAsync(response.status(), attempt_++, this)
+              .ok()) {
         return;
       }
     }
-    if (!status.ok()) {
-      promise.SetResult(status);
+    if (!response.ok()) {
+      Fail(response.status());
       return;
     }
 
-    TimestampedStorageGeneration r;
-    r.time = start_time_;
-    switch (response.value().status_code) {
-      case 404:
-        // 404 Not Found means aborted when a StorageGeneration was specified.
-        if (!StorageGeneration::IsNoValue(
-                options_.generation_conditions.if_equal) &&
-            !StorageGeneration::IsUnknown(
-                options_.generation_conditions.if_equal)) {
-          r.generation = StorageGeneration::Unknown();
-          break;
-        }
-        [[fallthrough]];
-      default:
-        r.generation = StorageGeneration::NoValue();
-        break;
+    bool is_retryable = false;
+    auto status = AwsHttpResponseToStatus(response.value(), is_retryable);
+
+    if (response.value().status_code == 412) {
+      // Failed precondition implies the generation did not match.
+      Success(StorageGeneration::Unknown());
+    } else if (response.value().status_code == 404) {
+      // If the object does not exist, then the delete succeeded, but
+      // the return depends on the generation condition.
+      if (options_.generation_conditions.MatchesNoValue()) {
+        Success(StorageGeneration::NoValue());
+      } else {
+        Success(StorageGeneration::Unknown());
+      }
+    } else if (!status.ok()) {
+      if (is_retryable &&
+          owner->BackoffForAttemptAsync(status, attempt_++, this).ok()) {
+        return;
+      }
+      Fail(std::move(status));
+    } else {
+      Success(StorageGeneration::NoValue());
     }
-    promise.SetResult(std::move(r));
   }
 };
 

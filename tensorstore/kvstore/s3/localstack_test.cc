@@ -25,6 +25,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/match.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
@@ -42,6 +43,7 @@
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/s3/credentials/environment_credential_provider.h"
 #include "tensorstore/kvstore/s3/s3_request_builder.h"
+#include "tensorstore/kvstore/s3/use_conditional_write.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/util/future.h"
@@ -54,6 +56,12 @@
 //
 // When provided with --localstack_endpoint, localstack_test will connect
 // to a running localstack instance.
+//
+// To run directly against an Amazon S3 endpoint, run with
+//   --aws_region=us-west-2
+//   --aws_bucket=...
+//   --localstack_endpoint=https://s3.us-west-2.amazonaws.com
+
 ABSL_FLAG(std::string, localstack_endpoint, "", "Localstack endpoint");
 ABSL_FLAG(std::string, localstack_binary, "", "Path to the localstack");
 
@@ -94,6 +102,7 @@ using ::tensorstore::internal_http::GetDefaultHttpTransport;
 using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_http::IssueRequestOptions;
 using ::tensorstore::internal_kvstore_s3::EnvironmentCredentialProvider;
+using ::tensorstore::internal_kvstore_s3::IsAwsS3Endpoint;
 using ::tensorstore::internal_kvstore_s3::S3RequestBuilder;
 using ::tensorstore::transport_test_utils::TryPickUnusedPort;
 
@@ -224,8 +233,15 @@ class LocalStackFixture : public ::testing::Test {
   static LocalStackProcess process;
 
   static void SetUpTestSuite() {
-    // Ensure that environment credentials are installed.
-    if (!EnvironmentCredentialProvider{}.GetCredentials().ok()) {
+    bool is_aws_endpoint =
+        IsAwsS3Endpoint(absl::GetFlag(FLAGS_localstack_endpoint));
+    ABSL_LOG_IF(INFO, is_aws_endpoint)
+        << "localstack_test connecting to Amazon using bucket: " << Bucket();
+
+    // Ensure that environment credentials are installed except when
+    // connecting to an aws endpoint.
+    if (!is_aws_endpoint &&
+        !EnvironmentCredentialProvider{}.GetCredentials().ok()) {
       ABSL_LOG(INFO) << "Installing environment credentials AWS_ACCESS_KEY_ID="
                      << kAwsAccessKeyId
                      << " AWS_SECRET_ACCESS_KEY=" << kAwsSecretKeyId;
@@ -241,14 +257,10 @@ class LocalStackFixture : public ::testing::Test {
       process.SpawnProcess();
     }
 
-    if (!absl::StrContains(absl::GetFlag(FLAGS_localstack_endpoint),
-                           "amazonaws.com")) {
-      // Only try to create the bucket when not connecting to aws.
+    if (!is_aws_endpoint) {
+      // Avoid creating the bucket when connecting directly to aws.
       ABSL_CHECK(!Region().empty());
       MaybeCreateBucket();
-    } else {
-      ABSL_LOG(INFO) << "localstack_test connecting to Amazon using bucket:"
-                     << Bucket();
     }
   }
 
@@ -310,6 +322,24 @@ class LocalStackFixture : public ::testing::Test {
                      << response.value().payload;
     }
   }
+
+  tensorstore::KvStore OpenStore(tensorstore::Context context,
+                                 std::string path = "") {
+    ::nlohmann::json json_spec{
+        {"driver", "s3"},                      //
+        {"bucket", Bucket()},                  //
+        {"endpoint", endpoint_url()},          //
+        {"path", absl::StrCat(Path(), path)},  //
+    };
+    if (!Region().empty()) {
+      json_spec["aws_region"] = Region();
+    }
+    if (!absl::GetFlag(FLAGS_host_header).empty()) {
+      json_spec["host_header"] = absl::GetFlag(FLAGS_host_header);
+    }
+
+    return kvstore::Open(json_spec, context).value();
+  }
 };
 
 LocalStackProcess LocalStackFixture::process;
@@ -323,13 +353,6 @@ TEST_F(LocalStackFixture, Basic) {
       {"path", Path()},              //
   };
 
-  if (!Region().empty()) {
-    json_spec["aws_region"] = Region();
-  }
-  if (!absl::GetFlag(FLAGS_host_header).empty()) {
-    json_spec["host_header"] = absl::GetFlag(FLAGS_host_header);
-  }
-
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
                                    kvstore::Open(json_spec, context).result());
 
@@ -342,28 +365,30 @@ TEST_F(LocalStackFixture, Basic) {
 
 TEST_F(LocalStackFixture, BatchRead) {
   auto context = DefaultTestContext();
-  ::nlohmann::json json_spec{
-      {"driver", "s3"},              //
-      {"bucket", Bucket()},          //
-      {"endpoint", endpoint_url()},  //
-      {"path", Path()},              //
-  };
-
-  if (!Region().empty()) {
-    json_spec["aws_region"] = Region();
-  }
-  if (!absl::GetFlag(FLAGS_host_header).empty()) {
-    json_spec["host_header"] = absl::GetFlag(FLAGS_host_header);
-  }
-
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
-                                   kvstore::Open(json_spec, context).result());
+  auto store = OpenStore(context, "batch_read/");
 
   tensorstore::internal::BatchReadGenericCoalescingTestOptions options;
   options.coalescing_options = tensorstore::internal_kvstore_batch::
       kDefaultRemoteStorageCoalescingOptions;
   options.metric_prefix = "/tensorstore/kvstore/s3/";
   tensorstore::internal::TestBatchReadGenericCoalescing(store, options);
+}
+
+TEST_F(LocalStackFixture, ConcurrentWrites) {
+  // NOTE: Some S3-compatible object stores don't support if-match,
+  // so only enable the concurrent test when the UseConditionalWrite heuristic
+  // is true.
+  if (!tensorstore::internal_kvstore_s3::UseConditionalWrite(endpoint_url())) {
+    GTEST_SKIP() << "Concurrent writes test skipped for " << endpoint_url();
+    return;
+  }
+
+  tensorstore::internal::TestConcurrentWritesOptions options;
+  auto context = DefaultTestContext();
+  auto store = OpenStore(context, "concurrent_writes/");
+  options.get_store = [&] { return store; };
+  options.num_iterations = 0x7f;
+  tensorstore::internal::TestConcurrentWrites(options);
 }
 
 }  // namespace

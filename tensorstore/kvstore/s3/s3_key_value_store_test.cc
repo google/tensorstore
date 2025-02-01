@@ -17,7 +17,6 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/match.h"
@@ -130,25 +129,26 @@ struct DefaultHttpTransportSetter {
 // TODO: Add tests for various responses
 TEST(S3KeyValueStoreTest, SimpleMock_VirtualHost) {
   // Mocks for s3
-  absl::flat_hash_map<std::string, HttpResponse> url_to_response{
-      // initial HEAD request responds with an x-amz-bucket-region header.
-      {"HEAD https://my-bucket.s3.amazonaws.com",
-       HttpResponse{200, absl::Cord(), {{"x-amz-bucket-region", "us-east-1"}}}},
+  auto mock_transport = std::make_shared<DefaultMockHttpTransport>(
+      DefaultMockHttpTransport::Responses{
+          // initial HEAD request responds with an x-amz-bucket-region header.
+          {"HEAD https://my-bucket.s3.amazonaws.com",
+           HttpResponse{
+               200, absl::Cord(), {{"x-amz-bucket-region", "us-east-1"}}}},
 
-      {"GET https://my-bucket.s3.us-east-1.amazonaws.com/tmp:1/key_read",
-       HttpResponse{200,
-                    absl::Cord("abcd"),
-                    {{"etag", "900150983cd24fb0d6963f7d28e17f72"}}}},
+          {"GET https://my-bucket.s3.us-east-1.amazonaws.com/tmp:1/key_read",
+           HttpResponse{200,
+                        absl::Cord("abcd"),
+                        {{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}}},
 
-      {"PUT https://my-bucket.s3.us-east-1.amazonaws.com/tmp:1/key_write",
-       HttpResponse{
-           200, absl::Cord(), {{"etag", "900150983cd24fb0d6963f7d28e17f72"}}}},
+          {"PUT https://my-bucket.s3.us-east-1.amazonaws.com/tmp:1/key_write",
+           HttpResponse{200,
+                        absl::Cord(),
+                        {{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}}},
 
-      // DELETE 404 => absl::OkStatus()
-  };
+          // DELETE 404 => absl::OkStatus()
+      });
 
-  auto mock_transport =
-      std::make_shared<DefaultMockHttpTransport>(url_to_response);
   DefaultHttpTransportSetter mock_transport_setter{mock_transport};
 
   // Opens the s3 driver with small exponential backoff values.
@@ -162,14 +162,14 @@ TEST(S3KeyValueStoreTest, SimpleMock_VirtualHost) {
           .result());
 
   auto read_result = kvstore::Read(store, "key_read").result();
-  EXPECT_THAT(read_result,
-              MatchesKvsReadResult(absl::Cord("abcd"),
-                                   StorageGeneration::FromString(
-                                       "900150983cd24fb0d6963f7d28e17f72")));
+  EXPECT_THAT(read_result, MatchesKvsReadResult(
+                               absl::Cord("abcd"),
+                               StorageGeneration::FromString(
+                                   "\"900150983cd24fb0d6963f7d28e17f72\"")));
 
   EXPECT_THAT(kvstore::Write(store, "key_write", absl::Cord("xyz")).result(),
               MatchesTimestampedStorageGeneration(StorageGeneration::FromString(
-                  "900150983cd24fb0d6963f7d28e17f72")));
+                  "\"900150983cd24fb0d6963f7d28e17f72\"")));
 
   TENSORSTORE_EXPECT_OK(kvstore::Delete(store, "key_delete"));
 
@@ -187,25 +187,25 @@ TEST(S3KeyValueStoreTest, SimpleMock_VirtualHost) {
 }
 
 TEST(S3KeyValueStoreTest, SimpleMock_NoVirtualHost) {
-  absl::flat_hash_map<std::string, HttpResponse> url_to_response{
-      // initial HEAD request responds with an x-amz-bucket-region header.
-      {"HEAD https://s3.amazonaws.com/my.bucket",
-       HttpResponse{200, absl::Cord(), {{"x-amz-bucket-region", "us-east-1"}}}},
+  auto mock_transport = std::make_shared<DefaultMockHttpTransport>(
+      DefaultMockHttpTransport::Responses{
+          // initial HEAD request responds with an x-amz-bucket-region header.
+          {"HEAD https://s3.amazonaws.com/my.bucket",
+           HttpResponse{
+               200, absl::Cord(), {{"x-amz-bucket-region", "us-east-1"}}}},
 
-      {"GET https://s3.us-east-1.amazonaws.com/my.bucket/key_read",
-       HttpResponse{200,
-                    absl::Cord("abcd"),
-                    {{"etag", "900150983cd24fb0d6963f7d28e17f72"}}}},
+          {"GET https://s3.us-east-1.amazonaws.com/my.bucket/key_read",
+           HttpResponse{200,
+                        absl::Cord("abcd"),
+                        {{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}}},
 
-      {"PUT https://s3.us-east-1.amazonaws.com/my.bucket/key_write",
-       HttpResponse{
-           200, absl::Cord(), {{"etag", "900150983cd24fb0d6963f7d28e17f72"}}}},
+          {"PUT https://s3.us-east-1.amazonaws.com/my.bucket/key_write",
+           HttpResponse{200,
+                        absl::Cord(),
+                        {{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}}},
 
-      // DELETE 404 => absl::OkStatus()
-  };
-
-  auto mock_transport =
-      std::make_shared<DefaultMockHttpTransport>(url_to_response);
+          // DELETE 404 => absl::OkStatus()
+      });
   DefaultHttpTransportSetter mock_transport_setter{mock_transport};
 
   // Opens the s3 driver with small exponential backoff values.
@@ -219,14 +219,65 @@ TEST(S3KeyValueStoreTest, SimpleMock_NoVirtualHost) {
                                        .result());
 
   auto read_result = kvstore::Read(store, "key_read").result();
-  EXPECT_THAT(read_result,
-              MatchesKvsReadResult(absl::Cord("abcd"),
-                                   StorageGeneration::FromString(
-                                       "900150983cd24fb0d6963f7d28e17f72")));
+  EXPECT_THAT(read_result, MatchesKvsReadResult(
+                               absl::Cord("abcd"),
+                               StorageGeneration::FromString(
+                                   "\"900150983cd24fb0d6963f7d28e17f72\"")));
 
   EXPECT_THAT(kvstore::Write(store, "key_write", absl::Cord("xyz")).result(),
               MatchesTimestampedStorageGeneration(StorageGeneration::FromString(
-                  "900150983cd24fb0d6963f7d28e17f72")));
+                  "\"900150983cd24fb0d6963f7d28e17f72\"")));
+
+  TENSORSTORE_EXPECT_OK(kvstore::Delete(store, "key_delete"));
+
+  int host_header_validated = 0;
+  for (const auto& request : mock_transport->requests()) {
+    if (absl::StartsWith(request.url, "https://s3.us-east-1.amazonaws.com/")) {
+      host_header_validated++;
+      EXPECT_THAT(request.headers,
+                  testing::Contains("host: s3.us-east-1.amazonaws.com"));
+    }
+  }
+  EXPECT_THAT(host_header_validated, testing::Ge(2));
+}
+
+TEST(S3KeyValueStoreTest, MockWrite_Conflict) {
+  auto mock_transport = std::make_shared<DefaultMockHttpTransport>(
+      DefaultMockHttpTransport::Responses{
+          // initial HEAD request responds with an x-amz-bucket-region header.
+          {"HEAD https://s3.amazonaws.com/my.bucket",
+           HttpResponse{
+               200, absl::Cord(), {{"x-amz-bucket-region", "us-east-1"}}}},
+
+          {"PUT https://s3.us-east-1.amazonaws.com/my.bucket/key_write",
+           HttpResponse{409, absl::Cord(), {}}},
+
+          {"PUT https://s3.us-east-1.amazonaws.com/my.bucket/key_write",
+           HttpResponse{200,
+                        absl::Cord(),
+                        {{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}}},
+
+          // DELETE 404 => absl::OkStatus()
+      });
+
+  DefaultHttpTransportSetter mock_transport_setter{mock_transport};
+
+  // Opens the s3 driver with small exponential backoff values.
+  auto context = DefaultTestContext();
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
+                                   kvstore::Open({{"driver", "s3"},
+                                                  {"bucket", "my.bucket"},
+                                                  {"aws_region", "us-east-1"}},
+                                                 context)
+                                       .result());
+
+  EXPECT_THAT(kvstore::Write(store, "key_write", absl::Cord("xyz"),
+                             {StorageGeneration::FromString(
+                                 "\"11111111111111111111111111111111\"")})
+                  .result(),
+              MatchesTimestampedStorageGeneration(StorageGeneration::FromString(
+                  "\"900150983cd24fb0d6963f7d28e17f72\"")));
 
   TENSORSTORE_EXPECT_OK(kvstore::Delete(store, "key_delete"));
 
@@ -244,25 +295,26 @@ TEST(S3KeyValueStoreTest, SimpleMock_NoVirtualHost) {
 // TODO: Add tests for various responses
 TEST(S3KeyValueStoreTest, SimpleMock_Endpoint) {
   // Mocks for s3
-  absl::flat_hash_map<std::string, HttpResponse> url_to_response{
-      // initial HEAD request responds with an x-amz-bucket-region header.
-      {"HEAD https://localhost:1234/base/my-bucket",
-       HttpResponse{200, absl::Cord(), {{"x-amz-bucket-region", "us-east-1"}}}},
+  auto mock_transport = std::make_shared<DefaultMockHttpTransport>(
+      DefaultMockHttpTransport::Responses{
+          // initial HEAD request responds with an x-amz-bucket-region header.
+          {"HEAD https://localhost:1234/base/my-bucket",
+           HttpResponse{
+               200, absl::Cord(), {{"x-amz-bucket-region", "us-east-1"}}}},
 
-      {"GET https://localhost:1234/base/my-bucket/tmp:1/key_read",
-       HttpResponse{200,
-                    absl::Cord("abcd"),
-                    {{"etag", "900150983cd24fb0d6963f7d28e17f72"}}}},
+          {"GET https://localhost:1234/base/my-bucket/tmp:1/key_read",
+           HttpResponse{200,
+                        absl::Cord("abcd"),
+                        {{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}}},
 
-      {"PUT https://localhost:1234/base/my-bucket/tmp:1/key_write",
-       HttpResponse{
-           200, absl::Cord(), {{"etag", "900150983cd24fb0d6963f7d28e17f72"}}}},
+          {"PUT https://localhost:1234/base/my-bucket/tmp:1/key_write",
+           HttpResponse{200,
+                        absl::Cord(),
+                        {{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}}},
 
-      // DELETE 404 => absl::OkStatus()
-  };
+          // DELETE 404 => absl::OkStatus()
+      });
 
-  auto mock_transport =
-      std::make_shared<DefaultMockHttpTransport>(url_to_response);
   DefaultHttpTransportSetter mock_transport_setter{mock_transport};
 
   // Opens the s3 driver with small exponential backoff values.
@@ -278,14 +330,14 @@ TEST(S3KeyValueStoreTest, SimpleMock_Endpoint) {
                       .result());
 
   auto read_result = kvstore::Read(store, "key_read").result();
-  EXPECT_THAT(read_result,
-              MatchesKvsReadResult(absl::Cord("abcd"),
-                                   StorageGeneration::FromString(
-                                       "900150983cd24fb0d6963f7d28e17f72")));
+  EXPECT_THAT(read_result, MatchesKvsReadResult(
+                               absl::Cord("abcd"),
+                               StorageGeneration::FromString(
+                                   "\"900150983cd24fb0d6963f7d28e17f72\"")));
 
   EXPECT_THAT(kvstore::Write(store, "key_write", absl::Cord("xyz")).result(),
               MatchesTimestampedStorageGeneration(StorageGeneration::FromString(
-                  "900150983cd24fb0d6963f7d28e17f72")));
+                  "\"900150983cd24fb0d6963f7d28e17f72\"")));
 
   TENSORSTORE_EXPECT_OK(kvstore::Delete(store, "key_delete"));
 
@@ -342,22 +394,22 @@ TEST(S3KeyValueStoreTest, SimpleMock_List) {
       "</ListBucketResult>";
 
   // Mocks for s3
-  absl::flat_hash_map<std::string, HttpResponse> url_to_response{
-      // initial HEAD request responds with an x-amz-bucket-region header.
-      {"HEAD https://my-bucket.s3.amazonaws.com",
-       HttpResponse{200, absl::Cord(), {{"x-amz-bucket-region", "us-east-1"}}}},
+  auto mock_transport = std::make_shared<DefaultMockHttpTransport>(
+      DefaultMockHttpTransport::Responses{
+          // initial HEAD request responds with an x-amz-bucket-region header.
+          {"HEAD https://my-bucket.s3.amazonaws.com",
+           HttpResponse{
+               200, absl::Cord(), {{"x-amz-bucket-region", "us-east-1"}}}},
 
-      {"GET https://my-bucket.s3.us-east-1.amazonaws.com/?list-type=2",
-       HttpResponse{200, absl::Cord(kListResultA), {}}},
+          {"GET https://my-bucket.s3.us-east-1.amazonaws.com/?list-type=2",
+           HttpResponse{200, absl::Cord(kListResultA), {}}},
 
-      {"GET "
-       "https://my-bucket.s3.us-east-1.amazonaws.com/"
-       "?continuation-token=CONTINUE&list-type=2",
-       HttpResponse{200, absl::Cord(kListResultB), {}}},
-  };
+          {"GET "
+           "https://my-bucket.s3.us-east-1.amazonaws.com/"
+           "?continuation-token=CONTINUE&list-type=2",
+           HttpResponse{200, absl::Cord(kListResultB), {}}},
+      });
 
-  auto mock_transport =
-      std::make_shared<DefaultMockHttpTransport>(url_to_response);
   DefaultHttpTransportSetter mock_transport_setter{mock_transport};
 
   // Opens the s3 driver with small exponential backoff values.
@@ -404,21 +456,20 @@ TEST(S3KeyValueStoreTest, SimpleMock_ListPrefix) {
       "</ListBucketResult>";
 
   // Mocks for s3
-  absl::flat_hash_map<std::string, HttpResponse> url_to_response{
-      // initial HEAD request responds with an x-amz-bucket-region header.
-      {"HEAD https://my-bucket.s3.amazonaws.com",
-       HttpResponse{200, absl::Cord(), {{"x-amz-bucket-region", "us-east-1"}}}},
+  auto mock_transport = std::make_shared<DefaultMockHttpTransport>(
+      DefaultMockHttpTransport::Responses{
+          // initial HEAD request responds with an x-amz-bucket-region header.
+          {"HEAD https://my-bucket.s3.amazonaws.com",
+           HttpResponse{
+               200, absl::Cord(), {{"x-amz-bucket-region", "us-east-1"}}}},
 
-      {"GET "
-       "https://my-bucket.s3.us-east-1.amazonaws.com/"
-       "?list-type=2&prefix=b",
-       HttpResponse{200,
-                    absl::Cord(kListResult),
-                    {{"etag", "900150983cd24fb0d6963f7d28e17f72"}}}},
-  };
-
-  auto mock_transport =
-      std::make_shared<DefaultMockHttpTransport>(url_to_response);
+          {"GET "
+           "https://my-bucket.s3.us-east-1.amazonaws.com/"
+           "?list-type=2&prefix=b",
+           HttpResponse{200,
+                        absl::Cord(kListResult),
+                        {{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}}},
+      });
   DefaultHttpTransportSetter mock_transport_setter{mock_transport};
 
   // Opens the s3 driver with small exponential backoff values.
@@ -440,27 +491,32 @@ TEST(S3KeyValueStoreTest, SimpleMock_ListPrefix) {
 
 // TODO: Add tests for various responses
 TEST(S3KeyValueStoreTest, SimpleMock_RetryTimesOut) {
-  // Mocks for s3
-  absl::flat_hash_map<std::string, HttpResponse> url_to_response{
-      // initial HEAD request responds with an x-amz-bucket-region header.
-      {"HEAD https://localhost:1234/base/my-bucket",
-       HttpResponse{200, absl::Cord(), {{"x-amz-bucket-region", "us-east-1"}}}},
-
-      {"GET https://localhost:1234/base/my-bucket/tmp:1/key_read",
-       HttpResponse{400,
-                    absl::Cord(R"(<?xml version="1.0" encoding="UTF-8"?>
+  absl::Cord retry(R"(<?xml version="1.0" encoding="UTF-8"?>
 <Error>
   <Code>ThrottledException</Code>
   <Message>Endless retry</Message>
   <Resource>/my-bucket/tmp:1/key_read</Resource>
   <RequestId>4442587FB7D0A2F9</RequestId>
 </Error>
-)"),
-                    {{"etag", "900150983cd24fb0d6963f7d28e17f72"}}}},
-  };
+)");
 
-  auto mock_transport =
-      std::make_shared<DefaultMockHttpTransport>(url_to_response);
+  // Mocks for s3
+  auto mock_transport = std::make_shared<DefaultMockHttpTransport>(
+      DefaultMockHttpTransport::Responses{
+          // initial HEAD request responds with an x-amz-bucket-region header.
+          {"HEAD https://localhost:1234/base/my-bucket",
+           HttpResponse{
+               200, absl::Cord(), {{"x-amz-bucket-region", "us-east-1"}}}},
+
+          // 400 => retry
+          {"GET https://localhost:1234/base/my-bucket/tmp:1/key_read",
+           HttpResponse{400, retry, {}}},
+          {"GET https://localhost:1234/base/my-bucket/tmp:1/key_read",
+           HttpResponse{400, retry, {}}},
+          {"GET https://localhost:1234/base/my-bucket/tmp:1/key_read",
+           HttpResponse{400, retry, {}}},
+      });
+
   DefaultHttpTransportSetter mock_transport_setter{mock_transport};
 
   // Opens the s3 driver with small exponential backoff values.

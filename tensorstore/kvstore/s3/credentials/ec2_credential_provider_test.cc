@@ -16,11 +16,9 @@
 
 #include <memory>
 #include <string>
-#include <utility>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/time/clock.h"
@@ -108,16 +106,21 @@ TEST_F(EC2MetadataCredentialProviderTest, InjectedMetadataServer) {
 }
 
 TEST_F(EC2MetadataCredentialProviderTest, NoIamRolesInSecurityCredentials) {
-  auto url_to_response = absl::flat_hash_map<std::string, HttpResponse>{
+  auto mock_transport = std::make_shared<
+      DefaultMockHttpTransport>(DefaultMockHttpTransport::Responses{
       {"POST http://169.254.169.254/latest/api/token",
        HttpResponse{200, absl::Cord{kApiToken}}},
       {"GET http://169.254.169.254/latest/meta-data/iam/security-credentials/",
        HttpResponse{
            200, absl::Cord{""}, {{"x-aws-ec2-metadata-token", kApiToken}}}},
-  };
+      // seccond call to GetCredentials()
+      {"POST http://169.254.169.254/latest/api/token",
+       HttpResponse{200, absl::Cord{kApiToken}}},
+      {"GET http://169.254.169.254/latest/meta-data/iam/security-credentials/",
+       HttpResponse{
+           200, absl::Cord{""}, {{"x-aws-ec2-metadata-token", kApiToken}}}},
+  });
 
-  auto mock_transport =
-      std::make_shared<DefaultMockHttpTransport>(std::move(url_to_response));
   auto provider =
       std::make_shared<EC2MetadataCredentialProvider>("", mock_transport);
   ASSERT_FALSE(provider->GetCredentials());
@@ -128,7 +131,8 @@ TEST_F(EC2MetadataCredentialProviderTest, NoIamRolesInSecurityCredentials) {
 
 TEST_F(EC2MetadataCredentialProviderTest, UnsuccessfulJsonResponse) {
   // Test that "Code" != "Success" parsing succeeds
-  auto url_to_response = absl::flat_hash_map<std::string, HttpResponse>{
+  auto mock_transport = std::make_shared<
+      DefaultMockHttpTransport>(DefaultMockHttpTransport::Responses{
       {"POST http://169.254.169.254/latest/api/token",
        HttpResponse{200, absl::Cord{kApiToken}}},
       {"GET http://169.254.169.254/latest/meta-data/iam/",
@@ -143,10 +147,8 @@ TEST_F(EC2MetadataCredentialProviderTest, UnsuccessfulJsonResponse) {
        "mock-iam-role",
        HttpResponse{200,
                     absl::Cord(R"({"Code": "EntirelyUnsuccessful"})"),
-                    {{"x-aws-ec2-metadata-token", kApiToken}}}}};
+                    {{"x-aws-ec2-metadata-token", kApiToken}}}}});
 
-  auto mock_transport =
-      std::make_shared<DefaultMockHttpTransport>(std::move(url_to_response));
   auto provider =
       std::make_shared<EC2MetadataCredentialProvider>("", mock_transport);
   auto credentials = provider->GetCredentials();
@@ -159,15 +161,13 @@ TEST_F(EC2MetadataCredentialProviderTest, UnsuccessfulJsonResponse) {
 
 TEST_F(EC2MetadataCredentialProviderTest, IMDSv2AfterFailure) {
   // Test that IMDSv1 falls back to IMDSv2
-  auto url_to_response = absl::flat_hash_map<std::string, HttpResponse>{
-      {"POST http://169.254.169.254/latest/api/token",
-       HttpResponse{405, absl::Cord()}},
-      {"PUT http://169.254.169.254/latest/api/token",
-       HttpResponse{401, absl::Cord{}}},
-  };
-
-  auto mock_transport =
-      std::make_shared<DefaultMockHttpTransport>(std::move(url_to_response));
+  auto mock_transport = std::make_shared<DefaultMockHttpTransport>(
+      DefaultMockHttpTransport::Responses{
+          {"POST http://169.254.169.254/latest/api/token",
+           HttpResponse{405, absl::Cord()}},
+          {"PUT http://169.254.169.254/latest/api/token",
+           HttpResponse{401, absl::Cord{}}},
+      });
   auto provider =
       std::make_shared<EC2MetadataCredentialProvider>("", mock_transport);
   auto credentials = provider->GetCredentials();

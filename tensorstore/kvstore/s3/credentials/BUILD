@@ -103,7 +103,6 @@ tensorstore_cc_library(
     hdrs = ["test_utils.h"],
     deps = [
         "//tensorstore/internal/http",
-        "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/time",
@@ -169,7 +168,6 @@ tensorstore_cc_test(
         "//tensorstore/internal/http:mock_http_transport",
         "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
-        "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/time",

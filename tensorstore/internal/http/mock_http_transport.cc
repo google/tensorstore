@@ -16,8 +16,9 @@
 
 #include <string>
 #include <utility>
+#include <vector>
 
-#include "absl/container/flat_hash_map.h"
+#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
@@ -70,10 +71,8 @@ void ApplyResponseToHandler(const Result<HttpResponse>& response,
   }
 }
 
-void DefaultMockHttpTransport::Reset(
-    absl::flat_hash_map<std::string, internal_http::HttpResponse>
-        url_to_response,
-    bool add_headers) {
+void DefaultMockHttpTransport::Reset(Responses url_to_response,
+                                     bool add_headers) {
   if (add_headers) {
     // Add additional headers to the response.
     for (auto& kv : url_to_response) {
@@ -90,15 +89,21 @@ void DefaultMockHttpTransport::IssueRequestWithHandler(
     const HttpRequest& request, IssueRequestOptions options,
     HttpResponseHandler* response_handler) {
   std::string key = absl::StrCat(request.method, " ", request.url);
+  ABSL_LOG(INFO) << key;
   absl::MutexLock l(&mutex_);
   requests_.push_back(request);
-  if (auto it =
-          url_to_response_.find(absl::StrCat(request.method, " ", request.url));
-      it != url_to_response_.end()) {
-    return ApplyResponseToHandler(it->second, response_handler);
+
+  for (auto& kv : url_to_response_) {
+    if (!kv.first.empty() && kv.first == key) {
+      ApplyResponseToHandler(kv.second, response_handler);
+      kv.first.clear();
+      return;
+    }
   }
+
+  ABSL_LOG(INFO) << "Returning 404 for: " << request;
   return ApplyResponseToHandler(
-      internal_http::HttpResponse{404, absl::Cord(), {}}, response_handler);
+      internal_http::HttpResponse{404, absl::Cord(key), {}}, response_handler);
 }
 
 }  // namespace internal_http

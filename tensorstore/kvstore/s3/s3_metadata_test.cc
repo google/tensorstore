@@ -20,20 +20,24 @@
 #include "absl/strings/cord.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/http/http_response.h"
+#include "tensorstore/kvstore/generation.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tinyxml2.h"
 
 namespace {
 
 using ::tensorstore::StatusIs;
+using ::tensorstore::StorageGeneration;
 using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_kvstore_s3::AwsHttpResponseToStatus;
 using ::tensorstore::internal_kvstore_s3::GetNodeInt;
 using ::tensorstore::internal_kvstore_s3::GetNodeText;
 using ::tensorstore::internal_kvstore_s3::GetNodeTimestamp;
+using ::tensorstore::internal_kvstore_s3::StorageGenerationFromHeaders;
+using ::testing::Eq;
 
-/// Exemplar ListObjects v2 Response
-/// https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjectsV2.html#API_ListObjectsV2_ResponseSyntax
+// Exemplar ListObjects v2 Response
+// https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjectsV2.html#API_ListObjectsV2_ResponseSyntax
 static constexpr char kListXml[] =
     R"(<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">)"
     R"(<Name>i-dont-exist</Name>)"
@@ -160,6 +164,15 @@ TEST(S3MetadataTest, AwsHttpResponseToStatus) {
                 StatusIs(absl::StatusCode::kInvalidArgument));
     EXPECT_TRUE(retryable);
   }
+}
+
+TEST(S3MetadataTest, StorageGenerationFromHeaders) {
+  // The etag is quoted in the headers, and the quotes are forwarded to the
+  // StorageGeneration.
+  EXPECT_THAT(StorageGenerationFromHeaders(
+                  {{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}),
+              Eq(StorageGeneration::FromString(
+                  "\"900150983cd24fb0d6963f7d28e17f72\"")));
 }
 
 }  // namespace
