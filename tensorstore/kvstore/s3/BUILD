@@ -368,16 +368,6 @@ tensorstore_cc_test(
     ],
 )
 
-tensorstore_cc_test(
-    name = "aws_api_test",
-    size = "small",
-    srcs = ["aws_api_test.cc"],
-    deps = [
-        "@aws_crt_cpp",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
 tensorstore_cc_library(
     name = "use_conditional_write",
     srcs = ["use_conditional_write.cc"],
@@ -390,11 +380,42 @@ tensorstore_cc_library(
     ],
 )
 
-cc_test(
+tensorstore_cc_test(
     name = "use_conditional_write_test",
     srcs = ["use_conditional_write_test.cc"],
     deps = [
         ":use_conditional_write",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "aws_api",
+    srcs = [
+        "aws_api.cc",
+    ],
+    hdrs = ["aws_api.h"],
+    deps = [
+        "//tensorstore/internal/log:verbose_flag",
+        "@aws_c_auth",
+        "@aws_c_common",
+        "@aws_c_io",
+        "@com_google_absl//absl/base",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/base:log_severity",
+        "@com_google_absl//absl/debugging:leak_check",
+        "@com_google_absl//absl/log:absl_log",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "aws_api_test",
+    size = "small",
+    srcs = ["aws_api_test.cc"],
+    # args = ["--tensorstore_verbose_logging=aws"],
+    deps = [
+        ":aws_api",
+        "@aws_c_common",
         "@com_google_googletest//:gtest_main",
     ],
 )
