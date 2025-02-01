@@ -12,11 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <gmock/gmock.h>
+#include "tensorstore/kvstore/s3/aws_api.h"
+
 #include <gtest/gtest.h>
-#include <aws/crt/Api.h>
+#include <aws/common/logging.h>
+
+using ::tensorstore::internal_kvstore_s3::GetAwsApiContext;
+
+namespace {
 
 TEST(AwsApiTest, Basic) {
-  ::Aws::Crt::ApiHandle api_handle;
-  EXPECT_THAT(api_handle.GetCrtVersion().major, ::testing::Eq(0));
+  // This does not validate anything; it just initializes the AWS API and
+  // verifies that it doesn't crash, and then leaks the library setup.
+  auto context = GetAwsApiContext();
+  AWS_LOGF_INFO(AWS_LS_COMMON_GENERAL, "info log call");
+  AWS_LOGF_WARN(AWS_LS_COMMON_GENERAL, "warn log call");
 }
+
+}  // namespace
