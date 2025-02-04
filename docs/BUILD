@@ -49,7 +49,6 @@ filegroup(
 pytype_strict_binary(
     name = "generate_logo",
     srcs = ["generate_logo.py"],
-    python_version = "PY3",
     deps = [
         "@pypa_numpy//:numpy",
     ],
@@ -86,7 +85,6 @@ pytype_strict_test(
         "TENSORSTORE_SPECIAL_CPU_USER_LIMITS": "forge-00=4",
         "SPHINX_CLANG_FORMAT": "$(location @pypa_clang_format//:clang-format_binary)",
     },
-    python_version = "PY3",
     tags = [
         "cpu:4",
         "manual",
@@ -111,8 +109,6 @@ pytype_strict_binary(
     srcs = ["doctest_test.py"],
     args = ["--"],
     main = "doctest_test.py",
-    python_version = "PY3",
-    srcs_version = "PY3",
     deps = [
         "//docs/tensorstore_sphinx_ext:json_pprint",
         "//python/tensorstore",
