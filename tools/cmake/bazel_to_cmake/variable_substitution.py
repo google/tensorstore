@@ -108,12 +108,6 @@ def _get_location_replacement(
 ) -> str:
   """Returns a $(location) replacement for the given key and label."""
 
-  def _get_relpath(path: str):
-    rel_path = os.path.relpath(path, relative_to)
-    if os.sep != "/":
-      rel_path = rel_path.replace(os.sep, "/")
-    return rel_path
-
   target = _context.resolve_target(label)
   state = _context.access(EvaluationState)
 
@@ -132,7 +126,13 @@ def _get_location_replacement(
 
   files_provider = info.get(FilesProvider)
   if files_provider is not None:
-    rel_paths = [_get_relpath(path) for path in files_provider.paths]
+    if relative_to is not None:
+      rel_paths = [
+          make_relative_path(path, (None, relative_to))[1].as_posix()
+          for path in files_provider.paths
+      ]
+    else:
+      rel_paths = [str(path) for path in files_provider.paths]
     if not key.endswith("s"):
       if len(rel_paths) != 1:
         raise ValueError(f"Expected single file but received: {rel_paths}")

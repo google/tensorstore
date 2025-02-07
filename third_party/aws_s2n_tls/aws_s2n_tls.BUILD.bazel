@@ -7,6 +7,13 @@ licenses(["notice"])  # Apache 2.0
 
 cc_library(
     name = "s2n_tls",
+    hdrs = glob(["api/**/*.h"]),
+    includes = ["api"],
+    deps = [":s2n_tls_impl"],
+)
+
+cc_library(
+    name = "s2n_tls_impl",
     srcs = glob([
         "crypto/*.h",
         "crypto/*.c",
@@ -20,6 +27,25 @@ cc_library(
         "utils/*.c",
     ]),
     hdrs = glob(["api/**/*.h"]),
-    includes = ["api"],
+    includes = ["api", "."],
+    copts = select({
+        ":compiler_msvc": ["/FI$(location :utils/s2n_prelude.h)"],
+        "//conditions:default": [
+            "-include$(location :utils/s2n_prelude.h)",
+        ],
+    }),
+    visibility = ["//visibility:private"],
     deps = ["@com_google_boringssl//:crypto"],
 )
+
+exports_files(["utils/s2n_prelude.h"])
+
+[
+    alias(
+        name = name,
+        actual = "@tensorstore//:{target}".format(target = name),
+    )
+    for name in [
+        "compiler_msvc",
+    ]
+]

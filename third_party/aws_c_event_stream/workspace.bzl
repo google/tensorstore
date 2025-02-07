@@ -21,10 +21,10 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "aws_c_event_stream",
-        sha256 = "d7d82c38bae68d2287ac59972a76b2b6159e7a3d7c9b7edb1357495aa4d0c0de",
-        strip_prefix = "aws-c-event-stream-0.4.3",
+        sha256 = "22ce7a695b82debe118c9ecc641ea8bc7e59c9843f92d5acf8401fc86cac847a",
+        strip_prefix = "aws-c-event-stream-0.5.1",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/awslabs/aws-c-event-stream/archive/v0.4.3.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/awslabs/aws-c-event-stream/archive/v0.5.1.tar.gz",
         ],
         build_file = Label("//third_party:aws_c_event_stream/aws_c_event_stream.BUILD.bazel"),
         cmake_name = "aws_c_event_stream",

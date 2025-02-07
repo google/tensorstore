@@ -31,7 +31,6 @@ from .starlark.bazel_target import PackageId
 from .starlark.bazel_target import TargetId
 from .starlark.invocation_context import InvocationContext
 from .starlark.provider import ProviderTuple
-from .starlark.select import Configurable
 from .util import is_relative_to
 from .util import make_relative_path
 from .util import partition_by
@@ -39,6 +38,7 @@ from .util import PathCollection
 from .util import quote_list
 from .util import quote_path_list
 from .util import quote_unescaped_list
+from .variable_substitution import apply_location_substitutions
 from .workspace import Workspace
 
 _SEP = "\n        "
@@ -183,7 +183,7 @@ def construct_cc_includes(
     *,
     source_directory: pathlib.PurePath,
     cmake_binary_dir: pathlib.PurePath,
-    includes: Optional[Configurable[List[str]]] = None,
+    includes: Optional[Collection[str]] = None,
     include_prefix: Optional[str] = None,
     strip_include_prefix: Optional[str] = None,
     known_include_files: Optional[PathCollection] = None,
@@ -332,7 +332,7 @@ def handle_cc_common_options(
     srcs: Optional[Collection[TargetId]] = None,
     deps: Optional[Collection[TargetId]] = None,
     implementation_deps: Optional[Collection[TargetId]] = None,
-    includes: Optional[Collection[TargetId]] = None,
+    includes: Optional[Collection[str]] = None,
     include_prefix: Optional[str] = None,
     strip_include_prefix: Optional[str] = None,
     hdrs_file_paths: Optional[Collection[str]] = None,
@@ -388,6 +388,23 @@ def handle_cc_common_options(
   add_compile_options("C,CXX", state.workspace.copts)
   add_compile_options("CXX", state.workspace.cxxopts)
 
+  # https://bazel.build/reference/be/make-variables
+  # https://bazel.build/reference/be/c-cpp
+  # Make variable substitutions apply to the following options:
+  # copts, conlyopts, cxxopts, defines
+  # includes, linkopts, local_defines
+  # For most variables, CMAKE will expand them in the command line, however for
+  # $(location) and a few other constructs they need to be handled here.
+  def apply_substitutions(k: str, value: Any):
+    if not value:
+      return value
+    new_value = [
+        apply_location_substitutions(_context, v, relative_to="") for v in value
+    ]
+    if new_value != value:
+      print(f"Substituted {k}: {value} to {new_value}")
+    return new_value
+
   result: Dict[str, Any] = {
       "srcs": repo.replace_with_cmake_macro_dirs(sorted(set(srcs_file_paths))),
       "link_libraries": link_libraries,
@@ -403,8 +420,10 @@ def handle_cc_common_options(
   for k in ["copts", "linkopts", "defines", "local_defines"]:
     value = kwargs.get(k)
     if value is None:
-      value = []
-    result[k] = _context.evaluate_configurable_list(cast(Any, value))
+      result[k] = []
+    else:
+      resolved = _context.evaluate_configurable_list(cast(Any, value))
+      result[k] = apply_substitutions(k, resolved)
 
   result["defines"].extend(state.workspace.cdefines)
 
@@ -421,6 +440,7 @@ def handle_cc_common_options(
       + (textual_hdrs_file_paths or [])
   )
 
+  includes = apply_substitutions("includes", includes)
   result["includes"] = repo.replace_with_cmake_macro_dirs(
       construct_cc_includes(
           _context.caller_package_id,

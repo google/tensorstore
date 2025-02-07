@@ -69,15 +69,15 @@ cc_library(
         ],
         "//conditions:default": [],
     }),
-    local_defines = select({
+    local_defines = ["AWS_S2N_INSOURCE_PATH"] + select({
         "@platforms//os:windows": [
-            "AWS_USE_IO_COMPLETION_PORTS",
+            "AWS_ENABLE_IO_COMPLETION_PORTS",
         ],
         "@platforms//os:osx": [
-            "AWS_USE_KQUEUE",
+            "AWS_ENABLE_KQUEUE",
         ],
         "//conditions:default": [
-            "AWS_USE_EPOLL",
+            "AWS_ENABLE_EPOLL",
             "USE_S2N",
         ],
     }),
