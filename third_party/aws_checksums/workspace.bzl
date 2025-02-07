@@ -21,10 +21,10 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "aws_checksums",
-        sha256 = "12f80085993662b6d2cbd2d090b49b4350d19396b1d218d52323712cc8dee252",
-        strip_prefix = "aws-checksums-0.1.20",
+        sha256 = "c688f311db8a1b70bb6d22f6e8f2817b39e1419546e339cf753d61340969eeb4",
+        strip_prefix = "aws-checksums-0.2.3",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/awslabs/aws-checksums/archive/v0.1.20.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/awslabs/aws-checksums/archive/v0.2.3.tar.gz",
         ],
         build_file = Label("//third_party:aws_checksums/aws_checksums.BUILD.bazel"),
         cmake_name = "aws_checksums",

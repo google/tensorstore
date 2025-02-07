@@ -21,10 +21,10 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "aws_c_compression",
-        sha256 = "51796f98a29a0d6e257c02e1f842bbc41db324758939093e6d46ec28337a3272",
-        strip_prefix = "aws-c-compression-0.2.19",
+        sha256 = "d89fca17a37de762dc34f332d2da402343078da8dbd2224c46a11a88adddf754",
+        strip_prefix = "aws-c-compression-0.3.1",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/awslabs/aws-c-compression/archive/v0.2.19.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/awslabs/aws-c-compression/archive/v0.3.1.tar.gz",
         ],
         build_file = Label("//third_party:aws_c_compression/aws_c_compression.BUILD.bazel"),
         cmake_name = "aws_c_compression",
