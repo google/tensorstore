@@ -30,6 +30,18 @@ Keys directly correspond to paths within an S3 bucket.
 
 .. json:schema:: Context.aws_credentials
 
+.. json:schema:: Context.aws_credentials/anonymous
+
+.. json:schema:: Context.aws_credentials/default
+
+.. json:schema:: Context.aws_credentials/profile
+
+.. json:schema:: Context.aws_credentials/ecs
+
+.. json:schema:: Context.aws_credentials/environment
+
+.. json:schema:: Context.aws_credentials/imds
+
 .. json:schema:: KvStoreUrl/s3
 
 
@@ -73,12 +85,6 @@ without credentials.  Otherwise amazon credentials are required:
    security credentials that you retrieved directly from AWS STS operations.
    See <https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html>
 
-.. envvar:: AWS_SHARED_CREDENTIALS_FILE
-
-   Specifies the location of the file that the AWS CLI uses to store access keys.
-   The default path is :file:`~/.aws/credentials`.
-   See <https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html>
-
 .. envvar:: AWS_PROFILE
 
   Specifies the name of the AWS CLI profile with the credentials and options to
@@ -88,6 +94,18 @@ without credentials.  Otherwise amazon credentials are required:
   If defined, this environment variable overrides the behavior of using the
   profile named ``[default]`` in the credentials file.
   See <https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html>
+
+.. envvar:: AWS_SHARED_CREDENTIALS_FILE
+
+   Specifies the location of the file that the AWS CLI uses to store access keys.
+   The default path is :file:`~/.aws/credentials`.
+   See <https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html>
+
+.. envvar:: AWS_CONFIG_FILE
+
+   Specifies the location of the file that the AWS CLI uses to store config.
+   The default path is :file:`~/.aws/config`.
+   See <https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html>
 
 .. envvar:: AWS_EC2_METADATA_SERVICE_ENDPOINT
 

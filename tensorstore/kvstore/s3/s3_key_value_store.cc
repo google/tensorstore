@@ -62,8 +62,9 @@
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/registry.h"
+#include "tensorstore/kvstore/s3/aws_credentials.h"
 #include "tensorstore/kvstore/s3/aws_credentials_resource.h"
-#include "tensorstore/kvstore/s3/credentials/aws_credentials.h"
+#include "tensorstore/kvstore/s3/aws_credentials_spec.h"
 #include "tensorstore/kvstore/s3/s3_endpoint.h"
 #include "tensorstore/kvstore/s3/s3_metadata.h"
 #include "tensorstore/kvstore/s3/s3_request_builder.h"
@@ -102,13 +103,16 @@ using ::tensorstore::internal_http::HttpRequest;
 using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_http::HttpTransport;
 using ::tensorstore::internal_kvstore_s3::AwsCredentials;
+using ::tensorstore::internal_kvstore_s3::AwsCredentialsProvider;
 using ::tensorstore::internal_kvstore_s3::AwsCredentialsResource;
 using ::tensorstore::internal_kvstore_s3::AwsHttpResponseToStatus;
+using ::tensorstore::internal_kvstore_s3::GetAwsCredentials;
 using ::tensorstore::internal_kvstore_s3::GetNodeInt;
 using ::tensorstore::internal_kvstore_s3::GetNodeText;
 using ::tensorstore::internal_kvstore_s3::IsValidBucketName;
 using ::tensorstore::internal_kvstore_s3::IsValidObjectName;
 using ::tensorstore::internal_kvstore_s3::IsValidStorageGeneration;
+using ::tensorstore::internal_kvstore_s3::MakeAwsCredentialsProvider;
 using ::tensorstore::internal_kvstore_s3::S3ConcurrencyResource;
 using ::tensorstore::internal_kvstore_s3::S3EndpointRegion;
 using ::tensorstore::internal_kvstore_s3::S3RateLimiterResource;
@@ -264,10 +268,11 @@ class S3KeyValueStore
                                                 S3KeyValueStoreSpec> {
  public:
   S3KeyValueStore(std::shared_ptr<HttpTransport> transport,
-                  S3KeyValueStoreSpecData spec)
+                  S3KeyValueStoreSpecData spec, AwsCredentialsProvider provider)
       : transport_(std::move(transport)),
         spec_(std::move(spec)),
-        host_header_(spec_.host_header.value_or(std::string())) {}
+        host_header_(spec_.host_header.value_or(std::string())),
+        provider_(std::move(provider)) {}
 
   internal_kvstore_batch::CoalescingOptions GetBatchReadCoalescingOptions()
       const {
@@ -313,8 +318,8 @@ class S3KeyValueStore
 
   RateLimiter& admission_queue() { return *spec_.request_concurrency->queue; }
 
-  Result<std::optional<AwsCredentials>> GetCredentials() {
-    return spec_.aws_credentials->GetCredentials();
+  Future<AwsCredentials> GetCredentials() {
+    return GetAwsCredentials(provider_.get());
   }
 
   // Resolves the region endpoint for the bucket.
@@ -349,6 +354,7 @@ class S3KeyValueStore
   std::shared_ptr<HttpTransport> transport_;
   S3KeyValueStoreSpecData spec_;
   std::string host_header_;
+  AwsCredentialsProvider provider_;
 
   absl::Mutex mutex_;  // Guards resolve_ehr_ creation.
   Future<const S3EndpointRegion> resolve_ehr_;
@@ -361,19 +367,25 @@ struct ReadTask : public RateLimiterNode,
   IntrusivePtr<S3KeyValueStore> owner;
   std::string object_name;
   kvstore::ReadOptions options;
-  Promise<kvstore::ReadResult> promise;
-
-  std::string read_url_;  // the url to read from
+  std::string read_url_;
+  AwsCredentials credentials_;
   ReadyFuture<const S3EndpointRegion> endpoint_region_;
+  Promise<kvstore::ReadResult> promise;
 
   int attempt_ = 0;
   absl::Time start_time_;
 
   ReadTask(IntrusivePtr<S3KeyValueStore> owner, std::string object_name,
-           kvstore::ReadOptions options, Promise<kvstore::ReadResult> promise)
+           kvstore::ReadOptions options, std::string read_url,
+           AwsCredentials credentials,
+           ReadyFuture<const S3EndpointRegion> endpoint_region,
+           Promise<kvstore::ReadResult> promise)
       : owner(std::move(owner)),
         object_name(std::move(object_name)),
         options(std::move(options)),
+        read_url_(std::move(read_url)),
+        credentials_(std::move(credentials)),
+        endpoint_region_(std::move(endpoint_region)),
         promise(std::move(promise)) {}
 
   ~ReadTask() { owner->admission_queue().Finish(this); }
@@ -396,16 +408,6 @@ struct ReadTask : public RateLimiterNode,
     if (!promise.result_needed()) {
       return;
     }
-
-    AwsCredentials credentials;
-    if (auto maybe_credentials = owner->GetCredentials();
-        !maybe_credentials.ok()) {
-      promise.SetResult(maybe_credentials.status());
-      return;
-    } else if (maybe_credentials.value().has_value()) {
-      credentials = std::move(*maybe_credentials.value());
-    }
-
     auto request_builder = S3RequestBuilder(
         options.byte_range.size() == 0 ? "HEAD" : "GET", read_url_);
 
@@ -422,7 +424,7 @@ struct ReadTask : public RateLimiterNode,
     start_time_ = absl::Now();
     auto request = request_builder.EnableAcceptEncoding()
                        .MaybeAddRequesterPayer(owner->spec_.requester_pays)
-                       .BuildRequest(owner->host_header_, credentials,
+                       .BuildRequest(owner->host_header_, credentials_,
                                      ehr.aws_region, kEmptySha256, start_time_);
 
     ABSL_LOG_IF(INFO, s3_logging) << "ReadTask: " << request;
@@ -530,21 +532,23 @@ Future<kvstore::ReadResult> S3KeyValueStore::ReadImpl(Key&& key,
                                                       ReadOptions&& options) {
   s3_metrics.batch_read.Increment();
   auto op = PromiseFuturePair<ReadResult>::Make();
-  auto state = internal::MakeIntrusivePtr<ReadTask>(
-      internal::IntrusivePtr<S3KeyValueStore>(this), key, std::move(options),
-      std::move(op.promise));
-  MaybeResolveRegion().ExecuteWhenReady(
-      [state = std::move(state)](ReadyFuture<const S3EndpointRegion> ready) {
-        if (!ready.status().ok()) {
-          state->promise.SetResult(ready.status());
-          return;
-        }
-        state->read_url_ = tensorstore::StrCat(ready.value().endpoint, "/",
-                                               state->object_name);
-        state->endpoint_region_ = std::move(ready);
+
+  LinkValue(
+      [self = IntrusivePtr<S3KeyValueStore>(this), key = std::move(key),
+       options = std::move(options)](auto promise,
+                                     ReadyFuture<const S3EndpointRegion> ready,
+                                     ReadyFuture<AwsCredentials> credentials) {
+        auto read_url = tensorstore::StrCat(ready.value().endpoint, "/", key);
+
+        auto state = internal::MakeIntrusivePtr<ReadTask>(
+            std::move(self), std::move(key), std::move(options),
+            std::move(read_url), std::move(credentials.value()),
+            std::move(ready), std::move(promise));
         intrusive_ptr_increment(state.get());  // adopted by ReadTask::Start.
         state->owner->read_rate_limiter().Admit(state.get(), &ReadTask::Start);
-      });
+      },
+      std::move(op.promise), MaybeResolveRegion(), GetCredentials());
+
   return std::move(op.future);
 }
 
@@ -561,9 +565,8 @@ struct WriteTask : public RateLimiterNode,
   ReadyFuture<const S3EndpointRegion> endpoint_region_;
   std::string object_url_;
   absl::Cord value_;
-  Promise<TimestampedStorageGeneration> promise;
-
   AwsCredentials credentials_;
+  Promise<TimestampedStorageGeneration> promise;
 
   int attempt_ = 0;
   absl::Time start_time_;
@@ -571,12 +574,14 @@ struct WriteTask : public RateLimiterNode,
   WriteTask(IntrusivePtr<S3KeyValueStore> o, kvstore::WriteOptions options,
             ReadyFuture<const S3EndpointRegion> endpoint_region,
             std::string object_url, absl::Cord value,
+            AwsCredentials credentials,
             Promise<TimestampedStorageGeneration> promise)
       : owner(std::move(o)),
         options_(std::move(options)),
         endpoint_region_(std::move(endpoint_region)),
         object_url_(std::move(object_url)),
         value_(std::move(value)),
+        credentials_(std::move(credentials)),
         promise(std::move(promise)) {}
 
   ~WriteTask() { owner->admission_queue().Finish(this); }
@@ -610,14 +615,6 @@ struct WriteTask : public RateLimiterNode,
     if (IsCancelled()) {
       return;
     }
-    if (auto maybe_credentials = owner->GetCredentials();
-        !maybe_credentials.ok()) {
-      Fail(maybe_credentials.status());
-      return;
-    } else if (maybe_credentials.value().has_value()) {
-      credentials_ = std::move(*maybe_credentials.value());
-    }
-
     if (UseConditionalWrite(endpoint_region_.value().endpoint) ||
         StorageGeneration::IsUnknown(options_.generation_conditions.if_equal)) {
       AfterHeadRequest();
@@ -781,21 +778,21 @@ struct DeleteTask : public RateLimiterNode,
   kvstore::WriteOptions options_;
   ReadyFuture<const S3EndpointRegion> endpoint_region_;
   std::string object_url_;
-  Promise<TimestampedStorageGeneration> promise;
-
   AwsCredentials credentials_;
+  Promise<TimestampedStorageGeneration> promise;
 
   int attempt_ = 0;
   absl::Time start_time_;
 
   DeleteTask(IntrusivePtr<S3KeyValueStore> o, kvstore::WriteOptions options,
              ReadyFuture<const S3EndpointRegion> endpoint_region,
-             std::string object_url,
+             std::string object_url, AwsCredentials credentials,
              Promise<TimestampedStorageGeneration> promise)
       : owner(std::move(o)),
         options_(std::move(options)),
         endpoint_region_(std::move(endpoint_region)),
         object_url_(std::move(object_url)),
+        credentials_(std::move(credentials)),
         promise(std::move(promise)) {}
 
   ~DeleteTask() { owner->admission_queue().Finish(this); }
@@ -828,13 +825,6 @@ struct DeleteTask : public RateLimiterNode,
   void Retry() {
     if (IsCancelled()) {
       return;
-    }
-    if (auto maybe_credentials = owner->GetCredentials();
-        !maybe_credentials.ok()) {
-      Fail(maybe_credentials.status());
-      return;
-    } else if (maybe_credentials.value().has_value()) {
-      credentials_ = std::move(*maybe_credentials.value());
     }
 
     if (StorageGeneration::IsUnknown(options_.generation_conditions.if_equal)) {
@@ -986,15 +976,11 @@ Future<TimestampedStorageGeneration> S3KeyValueStore::Write(
 
   auto op = PromiseFuturePair<TimestampedStorageGeneration>::Make();
 
-  MaybeResolveRegion().ExecuteWhenReady(
-      [self = IntrusivePtr<S3KeyValueStore>(this),
-       promise = std::move(op.promise), key = std::move(key),
+  LinkValue(
+      [self = IntrusivePtr<S3KeyValueStore>(this), key = std::move(key),
        value = std::move(value), options = std::move(options)](
-          ReadyFuture<const S3EndpointRegion> ready) {
-        if (!ready.status().ok()) {
-          promise.SetResult(ready.status());
-          return;
-        }
+          auto promise, ReadyFuture<const S3EndpointRegion> ready,
+          ReadyFuture<AwsCredentials> credentials) {
         std::string object_url =
             tensorstore::StrCat(ready.value().endpoint, "/", key);
 
@@ -1002,7 +988,8 @@ Future<TimestampedStorageGeneration> S3KeyValueStore::Write(
           // Write with a std::nullopt value is a delete.
           auto state = internal::MakeIntrusivePtr<DeleteTask>(
               std::move(self), std::move(options), std::move(ready),
-              std::move(object_url), std::move(promise));
+              std::move(object_url), std::move(credentials.value()),
+              std::move(promise));
 
           intrusive_ptr_increment(
               state.get());  // adopted by DeleteTask::Admit.
@@ -1013,12 +1000,14 @@ Future<TimestampedStorageGeneration> S3KeyValueStore::Write(
 
         auto state = internal::MakeIntrusivePtr<WriteTask>(
             std::move(self), std::move(options), std::move(ready),
-            std::move(object_url), *std::move(value), std::move(promise));
+            std::move(object_url), *std::move(value),
+            std::move(credentials.value()), std::move(promise));
 
         intrusive_ptr_increment(state.get());  // adopted by WriteTask::Admit.
         state->owner->write_rate_limiter().Admit(state.get(),
                                                  &WriteTask::Start);
-      });
+      },
+      std::move(op.promise), MaybeResolveRegion(), GetCredentials());
 
   return std::move(op.future);
 }
@@ -1032,6 +1021,7 @@ struct ListTask : public RateLimiterNode,
 
   std::string resource_;
   ReadyFuture<const S3EndpointRegion> endpoint_region_;
+  AwsCredentials credentials_;
 
   std::string continuation_token_;
   absl::Time start_time_;
@@ -1043,7 +1033,8 @@ struct ListTask : public RateLimiterNode,
            ListOptions&& options, ListReceiver&& receiver)
       : owner_(std::move(owner)),
         options_(std::move(options)),
-        receiver_(std::move(receiver)) {
+        receiver_(std::move(receiver)),
+        credentials_(nullptr) {
     execution::set_starting(receiver_, [this] {
       cancelled_.store(true, std::memory_order_relaxed);
     });
@@ -1092,20 +1083,11 @@ struct ListTask : public RateLimiterNode,
                                         continuation_token_);
     }
 
-    AwsCredentials credentials;
-    if (auto maybe_credentials = owner_->GetCredentials();
-        !maybe_credentials.ok()) {
-      execution::set_error(receiver_, std::move(maybe_credentials).status());
-      return;
-    } else if (maybe_credentials.value().has_value()) {
-      credentials = std::move(*maybe_credentials.value());
-    }
-
     const auto& ehr = endpoint_region_.value();
     start_time_ = absl::Now();
 
     auto request =
-        request_builder.BuildRequest(owner_->host_header_, credentials,
+        request_builder.BuildRequest(owner_->host_header_, credentials_,
                                      ehr.aws_region, kEmptySha256, start_time_);
 
     ABSL_LOG_IF(INFO, s3_logging) << "List: " << request;
@@ -1245,8 +1227,20 @@ void S3KeyValueStore::ListImpl(ListOptions options, ListReceiver receiver) {
         }
         state->resource_ = tensorstore::StrCat(ready.value().endpoint, "/");
         state->endpoint_region_ = std::move(ready);
-        intrusive_ptr_increment(state.get());
-        state->owner_->read_rate_limiter().Admit(state.get(), &ListTask::Start);
+
+        auto credentials_future = state->owner_->GetCredentials();
+        credentials_future.ExecuteWhenReady(
+            [state =
+                 std::move(state)](ReadyFuture<AwsCredentials> credentials) {
+              if (!credentials.status().ok()) {
+                execution::set_error(state->receiver_, credentials.status());
+                return;
+              }
+              state->credentials_ = std::move(credentials.value());
+              intrusive_ptr_increment(state.get());
+              state->owner_->read_rate_limiter().Admit(state.get(),
+                                                       &ListTask::Start);
+            });
       });
 }
 
@@ -1320,8 +1314,11 @@ Future<const S3EndpointRegion> S3KeyValueStore::MaybeResolveRegion() {
 Future<kvstore::DriverPtr> S3KeyValueStoreSpec::DoOpen() const {
   // TODO: The transport should support the AWS_CA_BUNDLE environment
   // variable.
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto provider, MakeAwsCredentialsProvider(*data_.aws_credentials));
+
   auto driver = internal::MakeIntrusivePtr<S3KeyValueStore>(
-      internal_http::GetDefaultHttpTransport(), data_);
+      internal_http::GetDefaultHttpTransport(), data_, std::move(provider));
 
   // NOTE: Remove temporary logging use of experimental feature.
   if (data_.rate_limiter.has_value()) {

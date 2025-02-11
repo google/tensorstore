@@ -53,13 +53,15 @@ namespace {
 
 Context DefaultTestContext() {
   // Opens the s3 driver with small exponential backoff values.
-  return Context{Context::Spec::FromJson({
-                                             {"s3_request_retries",
-                                              {{"max_retries", 2},
-                                               {"initial_delay", "1ms"},
-                                               {"max_delay", "2ms"}}},
-                                         })
-                     .value()};
+  return Context{
+      Context::Spec::FromJson({
+                                  {"s3_request_retries",
+                                   {{"max_retries", 2},
+                                    {"initial_delay", "1ms"},
+                                    {"max_delay", "2ms"}}},
+                                  {"aws_credentials", {{"type", "anonymous"}}},
+                              })
+          .value()};
 }
 
 TEST(S3KeyValueStoreTest, BadBucketNames) {
@@ -324,7 +326,7 @@ TEST(S3KeyValueStoreTest, SimpleMock_Endpoint) {
       auto store, kvstore::Open({{"driver", "s3"},
                                  {"bucket", "my-bucket"},
                                  {"endpoint", "https://localhost:1234/base"},
-                                 {"aws_credentials", {{"anonymous", true}}},
+                                 {"aws_credentials", {{"type", "anonymous"}}},
                                  {"path", "tmp:1/"}},
                                 context)
                       .result());

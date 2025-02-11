@@ -18,74 +18,40 @@
 #include <stddef.h>
 
 #include <cassert>
-#include <memory>
-#include <optional>
-#include <string>
 
-#include "absl/status/status.h"
-#include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/context_resource_provider.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/json_serialization_options.h"
-#include "tensorstore/kvstore/s3/credentials/aws_credentials.h"
+#include "tensorstore/kvstore/s3/aws_credentials_spec.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace internal_kvstore_s3 {
 
-/// Specifies the AWS profile name.
-/// TODO: Allow more complex credential specification, which could be any of:
-///  {"profile", "filename"} or { "access_key", "secret_key", "session_token" }
-///
+/// Specifies credentials for AWS.
 struct AwsCredentialsResource
     : public internal::ContextResourceTraits<AwsCredentialsResource> {
   static constexpr char id[] = "aws_credentials";
+  constexpr static bool config_only = true;
 
-  struct Spec {
-    std::string profile;
-    std::string filename;
-    std::string metadata_endpoint;
-    bool anonymous = false;
-
-    constexpr static auto ApplyMembers = [](auto&& x, auto f) {
-      return f(x.profile, x.filename, x.metadata_endpoint, x.anonymous);
-    };
-  };
-
-  struct Resource {
-    Spec spec;
-    std::shared_ptr<AwsCredentialProvider> credential_provider_;
-
-    Result<std::optional<AwsCredentials>> GetCredentials();
-  };
+  using Spec = AwsCredentialsSpec;
+  using Resource = Spec;
 
   static Spec Default() { return Spec{}; }
-
   static constexpr auto JsonBinder() {
-    return [](auto is_loading, const auto& options, auto* obj,
-              auto* j) -> absl::Status {
-      if constexpr (is_loading) {
-        return AwsCredentialsResource::FromJsonImpl(options, obj, j);
-      } else {
-        return AwsCredentialsResource::ToJsonImpl(options, obj, j);
-      }
-    };
+    return internal_json_binding::Object(Spec::PartialBinder{});
   }
 
-  Result<Resource> Create(
-      const Spec& spec, internal::ContextResourceCreationContext context) const;
-
-  Spec GetSpec(const Resource& resource,
-               const internal::ContextSpecBuilder& builder) const {
-    return resource.spec;
+  static Result<Resource> Create(
+      const Spec& spec, internal::ContextResourceCreationContext context) {
+    return spec;
   }
 
- private:
-  static absl::Status FromJsonImpl(const JsonSerializationOptions& options,
-                                   Spec* spec, ::nlohmann::json* j);
-
-  static absl::Status ToJsonImpl(const JsonSerializationOptions& options,
-                                 const Spec* spec, ::nlohmann::json* j);
+  static Spec GetSpec(const Resource& resource,
+                      const internal::ContextSpecBuilder& builder) {
+    return resource;
+  }
 };
 
 }  // namespace internal_kvstore_s3

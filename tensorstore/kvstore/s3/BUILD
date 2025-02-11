@@ -17,7 +17,9 @@ tensorstore_cc_library(
     name = "s3",
     srcs = ["s3_key_value_store.cc"],
     deps = [
+        ":aws_credentials",
         ":aws_credentials_resource",
+        ":aws_credentials_spec",
         ":s3_endpoint",
         ":s3_metadata",
         ":s3_request_builder",
@@ -46,7 +48,6 @@ tensorstore_cc_library(
         "//tensorstore/kvstore:generation",
         "//tensorstore/kvstore:key_range",
         "//tensorstore/kvstore/http:byte_range_util",
-        "//tensorstore/kvstore/s3/credentials:aws_credentials",
         "//tensorstore/serialization",
         "//tensorstore/util:executor",
         "//tensorstore/util:future",
@@ -76,18 +77,16 @@ tensorstore_cc_library(
     srcs = ["aws_credentials_resource.cc"],
     hdrs = ["aws_credentials_resource.h"],
     deps = [
+        ":aws_credentials_spec",
         ":s3_resource",
         "//tensorstore:context",
         "//tensorstore:json_serialization_options",
         "//tensorstore/internal:data_copy_concurrency_resource",
-        "//tensorstore/internal/http:curl_transport",
+        "//tensorstore/internal/cache_key",
+        "//tensorstore/internal/cache_key:json",
         "//tensorstore/internal/json_binding",
-        "//tensorstore/kvstore/s3/credentials:aws_credentials",
-        "//tensorstore/kvstore/s3/credentials:default_credential_provider",
+        "//tensorstore/serialization",
         "//tensorstore/util:result",
-        "//tensorstore/util:status",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_absl//absl/status",
     ],
     alwayslink = 1,
 )
@@ -193,13 +192,13 @@ tensorstore_cc_library(
         "s3_request_builder.h",
     ],
     deps = [
+        ":aws_credentials",
         ":s3_uri_utils",
         "//tensorstore/internal:uri_utils",
         "//tensorstore/internal/digest:sha256",
         "//tensorstore/internal/http",
         "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/kvstore:byte_range",
-        "//tensorstore/kvstore/s3/credentials:aws_credentials",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/log:absl_log",
@@ -215,9 +214,9 @@ tensorstore_cc_test(
     size = "small",
     srcs = ["s3_request_builder_test.cc"],
     deps = [
+        ":aws_credentials",
         ":s3_request_builder",
         "//tensorstore/internal/http",
-        "//tensorstore/kvstore/s3/credentials:aws_credentials",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/time",
@@ -336,6 +335,7 @@ tensorstore_cc_test(
         "skip-cmake",
     ],
     deps = [
+        ":aws_credentials",
         ":s3",
         ":s3_request_builder",
         ":use_conditional_write",
@@ -350,10 +350,9 @@ tensorstore_cc_test(
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:batch_util",
         "//tensorstore/kvstore:test_util",
-        "//tensorstore/kvstore/s3/credentials:environment_credential_provider",
+        "//tensorstore/kvstore/s3/credentials:common",
         "//tensorstore/util:future",
         "//tensorstore/util:result",
-        "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
         "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/flags:flag",
@@ -417,5 +416,91 @@ tensorstore_cc_test(
         ":aws_api",
         "@aws_c_common",
         "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "aws_credentials",
+    srcs = ["aws_credentials.cc"],
+    hdrs = ["aws_credentials.h"],
+    deps = [
+        ":aws_api",
+        "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/util:future",
+        "@aws_c_auth",
+        "@aws_c_common",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "aws_credentials_test",
+    srcs = ["aws_credentials_test.cc"],
+    args = ["--tensorstore_verbose_logging=aws"],
+    deps = [
+        ":aws_credentials",
+        "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/time",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "aws_credentials_spec",
+    srcs = ["aws_credentials_spec.cc"],
+    hdrs = ["aws_credentials_spec.h"],
+    deps = [
+        ":aws_credentials",
+        "//tensorstore:json_serialization_options_base",
+        "//tensorstore/internal:type_traits",
+        "//tensorstore/internal:uri_utils",
+        "//tensorstore/internal/json_binding",
+        "//tensorstore/internal/json_binding:absl_time",
+        "//tensorstore/internal/json_binding:bindable",
+        "//tensorstore/kvstore/s3/credentials:common",
+        "//tensorstore/util:quote_string",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "//tensorstore/util:str_cat",
+        "@aws_c_common",
+        "@com_github_nlohmann_json//:json",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "aws_credentials_spec_test",
+    srcs = ["aws_credentials_spec_test.cc"],
+    deps = [
+        ":aws_credentials_spec",
+        "//tensorstore:json_serialization_options_base",
+        "//tensorstore/internal:json_gtest",
+        "//tensorstore/util:status_testutil",
+        "@com_github_nlohmann_json//:json",
+        "@com_google_absl//absl/status",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "aws_http_mocking",
+    srcs = ["aws_http_mocking.cc"],
+    hdrs = ["aws_http_mocking.h"],
+    deps = [
+        ":aws_api",
+        "//tensorstore/internal/http",
+        "//tensorstore/internal/log:verbose_flag",
+        "@aws_c_auth",
+        "@aws_c_common",
+        "@aws_c_http",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/debugging:leak_check",
+        "@com_google_absl//absl/log:absl_log",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/synchronization",
     ],
 )

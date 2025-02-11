@@ -1846,6 +1846,7 @@ tensorstore_cc_test(
     name = "uri_utils_test",
     srcs = ["uri_utils_test.cc"],
     deps = [
+        ":ascii_set",
         ":uri_utils",
         "@com_google_googletest//:gtest_main",
     ],

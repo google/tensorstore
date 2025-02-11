@@ -19,7 +19,6 @@
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
-#include <memory>
 #include <string_view>
 
 #include "absl/base/attributes.h"
@@ -132,11 +131,10 @@ static aws_logger s_absl_logger = {
 };
 
 // AWS apis rely on global initialization; do that here.
-absl::once_flag g_init_once;
+absl::once_flag g_init_global;
 aws_allocator *g_allocator = nullptr;
-struct aws_event_loop_group *g_event_loop_group = nullptr;
 
-void InitAwsGlobals() {
+void InitAwsGlobal() {
   absl::LeakCheckDisabler disabler;
   aws_logger_set(&s_absl_logger);
   g_allocator = aws_default_allocator();
@@ -145,39 +143,36 @@ void InitAwsGlobals() {
   aws_common_library_init(g_allocator);
   aws_io_library_init(g_allocator);
   aws_auth_library_init(g_allocator);
+}
 
+// Also initialize a global client bootstrap and TLS context.
+absl::once_flag g_init_tls;
+aws_event_loop_group *g_event_loop_group = nullptr;
+aws_host_resolver *g_resolver = nullptr;
+aws_client_bootstrap *g_client_bootstrap = nullptr;
+aws_tls_ctx *g_tls_ctx = nullptr;
+
+void InitAwsTls() {
+  absl::LeakCheckDisabler disabler;
   /* event loop */
   g_event_loop_group =
       aws_event_loop_group_new_default(g_allocator, 0, nullptr);
-}
-
-}  // namespace
-
-AwsApiContext::~AwsApiContext() {
-  aws_tls_ctx_release(tls_ctx);
-  aws_client_bootstrap_release(client_bootstrap);
-  aws_host_resolver_release(resolver);
-}
-
-std::shared_ptr<AwsApiContext> GetAwsApiContext() {
-  absl::call_once(g_init_once, InitAwsGlobals);
 
   /* resolver */
   aws_host_resolver_default_options resolver_options;
   AWS_ZERO_STRUCT(resolver_options);
   resolver_options.el_group = g_event_loop_group;
   resolver_options.max_entries = 32;  // defaults to 8?
-  aws_host_resolver *resolver =
-      aws_host_resolver_new_default(g_allocator, &resolver_options);
+  g_resolver = aws_host_resolver_new_default(g_allocator, &resolver_options);
 
   /* client bootstrap */
   aws_client_bootstrap_options bootstrap_options;
   AWS_ZERO_STRUCT(bootstrap_options);
   bootstrap_options.event_loop_group = g_event_loop_group;
-  bootstrap_options.host_resolver = resolver;
-  auto *client_bootstrap =
+  bootstrap_options.host_resolver = g_resolver;
+  g_client_bootstrap =
       aws_client_bootstrap_new(g_allocator, &bootstrap_options);
-  if (client_bootstrap == nullptr) {
+  if (g_client_bootstrap == nullptr) {
     ABSL_LOG(FATAL) << "ERROR initializing client bootstrap: "
                     << aws_error_debug_str(aws_last_error());
   }
@@ -190,13 +185,26 @@ std::shared_ptr<AwsApiContext> GetAwsApiContext() {
     ABSL_LOG(FATAL) << "ERROR initializing TLS context: "
                     << aws_error_debug_str(aws_last_error());
   }
+  g_tls_ctx = tls_ctx;
+}
 
-  auto result = std::make_shared<AwsApiContext>();
-  result->allocator = g_allocator;
-  result->resolver = resolver;
-  result->client_bootstrap = client_bootstrap;
-  result->tls_ctx = tls_ctx;
-  return result;
+}  // namespace
+
+aws_allocator *GetAwsAllocator() {
+  absl::call_once(g_init_global, InitAwsGlobal);
+  return g_allocator;
+}
+
+aws_client_bootstrap *GetAwsClientBootstrap() {
+  absl::call_once(g_init_global, InitAwsGlobal);
+  absl::call_once(g_init_tls, InitAwsTls);
+  return g_client_bootstrap;
+}
+
+aws_tls_ctx *GetAwsTlsCtx() {
+  absl::call_once(g_init_global, InitAwsGlobal);
+  absl::call_once(g_init_tls, InitAwsTls);
+  return g_tls_ctx;
 }
 
 }  // namespace internal_kvstore_s3

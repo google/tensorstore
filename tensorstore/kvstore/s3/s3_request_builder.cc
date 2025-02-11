@@ -43,7 +43,7 @@
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/uri_utils.h"
-#include "tensorstore/kvstore/s3/credentials/aws_credentials.h"
+#include "tensorstore/kvstore/s3/aws_credentials.h"
 #include "tensorstore/kvstore/s3/s3_uri_utils.h"
 
 using ::tensorstore::internal::ParseGenericUri;
@@ -189,9 +189,9 @@ HttpRequest S3RequestBuilder::BuildRequest(std::string_view host_header,
 
   // Add AWS Session Token, if available
   // https://docs.aws.amazon.com/AmazonS3/latest/userguide/RESTAuthentication.html#UsingTemporarySecurityCredentials
-  if (!credentials.session_token.empty()) {
-    builder_.AddHeader(
-        absl::StrCat(kAmzSecurityTokenHeader, credentials.session_token));
+  if (auto session_token = credentials.GetSessionToken();
+      !session_token.empty()) {
+    builder_.AddHeader(absl::StrCat(kAmzSecurityTokenHeader, session_token));
   }
 
   auto request = builder_.BuildRequest();
@@ -223,15 +223,16 @@ HttpRequest S3RequestBuilder::BuildRequest(std::string_view host_header,
   signing_string_ = SigningString(canonical_request_, time, scope);
 
   unsigned char signing_key[kHmacSize];
-  GetSigningKey(credentials.secret_key, aws_region, time, signing_key);
+  GetSigningKey(credentials.GetSecretAccessKey(), aws_region, time,
+                signing_key);
 
   unsigned char signature[kHmacSize];
   ComputeHmac(signing_key, signing_string_, signature);
   signature_ = absl::BytesToHexString(
       std::string_view(reinterpret_cast<char*>(&signature[0]), kHmacSize));
 
-  std::string auth_header = AuthorizationHeader(credentials.access_key, scope,
-                                                signature_, signed_headers);
+  std::string auth_header = AuthorizationHeader(
+      credentials.GetAccessKeyId(), scope, signature_, signed_headers);
 
   ABSL_LOG_IF(INFO, s3_logging.Level(1))  //
       << "Canonical Request\n"

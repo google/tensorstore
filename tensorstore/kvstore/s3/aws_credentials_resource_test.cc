@@ -14,7 +14,6 @@
 
 #include "tensorstore/kvstore/s3/aws_credentials_resource.h"
 
-#include <optional>
 #include <string>
 
 #include <gmock/gmock.h>
@@ -53,64 +52,43 @@ TEST(AwsCredentialsResourceTest, Default) {
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto resource,
                                    context.GetResource(resource_spec));
-
-  EXPECT_THAT(resource->spec.filename, ::testing::IsEmpty());
-  EXPECT_THAT(resource->spec.profile, ::testing::IsEmpty());
-  EXPECT_THAT(resource->spec.metadata_endpoint, ::testing::IsEmpty());
-  EXPECT_THAT(resource->spec.anonymous, false);
 }
 
 TEST(AwsCredentialsResourceTest, ExplicitDefault) {
   auto context = Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto resource_spec, Context::Resource<AwsCredentialsResource>::FromJson(
-                              ::nlohmann::json::object_t()));
+      auto resource_spec,
+      Context::Resource<AwsCredentialsResource>::FromJson(
+          ::nlohmann::json::object_t({{"type", "default"}})));
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto resource,
                                    context.GetResource(resource_spec));
-
-  EXPECT_THAT(resource->spec.filename, ::testing::IsEmpty());
-  EXPECT_THAT(resource->spec.profile, ::testing::IsEmpty());
-  EXPECT_THAT(resource->spec.metadata_endpoint, ::testing::IsEmpty());
-  EXPECT_THAT(resource->spec.anonymous, false);
 }
 
 TEST(AwsCredentialsResourceTest, ValidSpec) {
   auto context = Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto resource_spec, Context::Resource<AwsCredentialsResource>::FromJson(
-                              {{"profile", "my_profile"}}));
+      auto resource_spec,
+      Context::Resource<AwsCredentialsResource>::FromJson(
+          {{"type", "profile"}, {"profile", "my_profile"}}));
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto resource,
                                    context.GetResource(resource_spec));
-
-  EXPECT_THAT(resource->spec.filename, ::testing::IsEmpty());
-  EXPECT_THAT(resource->spec.profile, "my_profile");
-  EXPECT_THAT(resource->spec.metadata_endpoint, ::testing::IsEmpty());
-  EXPECT_THAT(resource->spec.anonymous, false);
 }
 
 TEST(AwsCredentialsResourceTest, ValidAnonymousSpec) {
   auto context = Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto resource_spec, Context::Resource<AwsCredentialsResource>::FromJson(
-                              {{"anonymous", true}}));
+                              {{"type", "anonymous"}}));
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto resource,
                                    context.GetResource(resource_spec));
-
-  EXPECT_THAT(resource->spec.filename, ::testing::IsEmpty());
-  EXPECT_THAT(resource->spec.profile, ::testing::IsEmpty());
-  EXPECT_THAT(resource->spec.metadata_endpoint, ::testing::IsEmpty());
-  EXPECT_THAT(resource->spec.anonymous, true);
-
-  EXPECT_THAT(resource->GetCredentials(),
-              tensorstore::IsOkAndHolds(::testing::Eq(std::nullopt)));
 }
 
 TEST(AwsCredentialsResourceTest, InvalidSpecs) {
   EXPECT_THAT(Context::Resource<AwsCredentialsResource>::FromJson({
-                  {"anonymous", true},
+                  {"type", "bad_type"},
                   {"profile", "xyz"},
               }),
               MatchesStatus(absl::StatusCode::kInvalidArgument));

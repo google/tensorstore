@@ -105,32 +105,6 @@ definitions:
         description: |-
           Maximum backoff delay for transient errors.
         default: "32s"
-  aws_credentials:
-    $id: Context.aws_credentials
-    description: |-
-      Specifies parameters to provide AWS credentials.
-    type: object
-    properties:
-      anonymous:
-        type: boolean
-        description: |-
-          Must be true, if present, and forces anonymous credentials.
-        default: false
-      profile:
-        type: string
-        description: |-
-          The profile name in the :file:`~/.aws/credentials` file, when used.
-          Overrides the :envvar:`AWS_PROFILE` environment variables.
-      filename:
-        type: string
-        description: |-
-          The filename containing credentials.
-          Overrides the :envvar:`AWS_SHARED_CREDENTIALS_FILE` environment variable.
-      metadata_endpoint:
-        type: string
-        description: |-
-          The endpoint of the metadata server.
-          Overrides the :envvar:`AWS_EC2_METADATA_SERVICE_ENDPOINT` environment variable.
   experimental_s3_rate_limiter:
     $id: Context.experimental_s3_rate_limiter
     description: |-
@@ -182,3 +156,116 @@ definitions:
                    {"driver": "s3",
                     "bucket": "my-bucket",
                     "path": "path/to/dataset"}
+  aws_credentials:
+    $id: Context.aws_credentials
+    type: object
+    description: |
+      The `.type` member identifies the credentials provider.
+      The remaining members are specific to the credentials provider.
+    properties:
+      type:
+        type: string
+        description: Specifies the credentials provider.
+    required:
+    - type
+  aws_credentials-anonymous:
+    $id: Context.aws_credentials/anonymous
+    description: Uses anonymous credentials.
+    allOf:
+    - $ref: Context.aws_credentials
+    - type: object
+      properties:
+        type:
+          const: anonymous
+  aws_credentials-environment:
+    $id: Context.aws_credentials/environment
+    description: |-
+      Source credentials from the Environment variables:
+        * :envvar:`AWS_ACCESS_KEY_ID` for the access key ID.
+        * :envvar:`AWS_SECRET_ACCESS_KEY` for the secret access key.
+        * :envvar:`AWS_SESSION_TOKEN` for the session token.
+    allOf:
+    - $ref: Context.aws_credentials
+    - type: object
+      properties:
+        type:
+          const: environment
+  aws_credentials-imds:
+    $id: Context.aws_credentials/imds
+    description: Source credentials from the EC2 instance metadata service (IMDS).
+    allOf:
+    - $ref: Context.aws_credentials
+    - type: object
+      properties:
+        type:
+          const: imds
+  aws_credentials-default:
+    $id: Context.aws_credentials/default
+    description: |-
+      Source credentials using the `default AWS credentials chain
+      <https://github.com/aws/aws-sdk-cpp/blob/main/docs/Credentials_Providers.md>`__.
+    allOf:
+    - $ref: Context.aws_credentials
+    - type: object
+      properties:
+        type:
+          const: default
+        profile:
+          type: string
+          title: |-
+            The profile name in the :file:`~/.aws/credentials` file.
+          description: |-
+            When unset, AWS credentials also examines the :envvar:`AWS_PROFILE` environment variable.
+          default: "default"
+  aws_credentials-profile:
+    $id: Context.aws_credentials/profile
+    description: Sources credentials from the AWS config and credentials files.
+    allOf:
+    - $ref: Context.aws_credentials
+    - type: object
+      properties:
+        type:
+          const: profile
+        profile:
+          type: string
+          title: |-
+            The profile name in the :file:`~/.aws/credentials` file.
+          description: |-
+            When unset, AWS credentials also examines the :envvar:`AWS_PROFILE` environment variable.
+          default: "default"
+        config_file:
+          type: string
+          title: The path to the AWS config file.
+          description: |-
+            When unset, AWS credentials also examines the :envvar:`AWS_CONFIG_FILE` environment
+            variable.
+          default: "${HOME}/.aws/config"
+        credentials_file:
+          type: string
+          title: The path to the AWS credentials file.
+          description: |-
+            When unset, AWS credentials also examines the :envvar:`AWS_SHARED_CREDENTIALS_FILE`
+            environment variable.
+          default: "${HOME}/.aws/credentials"
+  aws_credentials-ecs:
+    $id: Context.aws_credentials/ecs
+    description: Sources credentials from ECS container metadata.
+    allOf:
+    - $ref: Context.aws_credentials
+    - type: object
+      properties:
+        type:
+          const: ecs
+        endpoint:
+          type: string
+          title: |-
+            URL used to request credentials from the ECS container metadata service.
+          description: |-
+            When unset, ECS credentials are sourced from the environment.
+        auth_token_file:
+          type: string
+          title: |-
+            File path containing the Authorization token to include in an ECS credentials query.
+          description: |-
+            This file contains an authorization token to include in an ECS credentials query. The
+            file will be read each time the credentials are requested.

@@ -16,6 +16,9 @@
 #ifndef TENSORSTORE_INTERNAL_URI_UTILS_H_
 #define TENSORSTORE_INTERNAL_URI_UTILS_H_
 
+#include <stdint.h>
+
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -120,6 +123,15 @@ struct ParsedGenericUri {
 /// `<scheme>://<authority-and-path>?<query>#<fragment>` where the `?<query>`
 /// and `#<fragment>` portions are optional.
 ParsedGenericUri ParseGenericUri(std::string_view uri);
+
+struct HostPort {
+  std::string_view host;
+  std::string_view port;
+};
+
+/// Splits an authority, or host:port string into host and port.
+/// Only minimal validation is performed.
+std::optional<HostPort> SplitHostPort(std::string_view host_port);
 
 }  // namespace internal
 }  // namespace tensorstore

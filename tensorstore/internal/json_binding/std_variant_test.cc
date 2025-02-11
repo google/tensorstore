@@ -19,6 +19,7 @@
 #include <utility>
 #include <variant>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
@@ -60,6 +61,36 @@ TEST(JsonBindingTest, VariantExplicitBinder) {
           {"abc", {{"b", "abc"}}},
       },
       binder);
+}
+
+TEST(JsonBindingTest, TaggedVariantBinder) {
+  using V = std::variant<int, std::string, double>;
+
+  auto binder = jb::Object(jb::TaggedVariantBinder<int, 3>(
+      jb::Member("foo"), {1, 2, 3}, jb::Member("a"), jb::Member("b"),
+      jb::Member("c")));
+
+  tensorstore::TestJsonBinderRoundTrip<V>(
+      {
+          {int{3}, {{"foo", 1}, {"a", 3}}},
+          {std::string("abc"), {{"foo", 2}, {"b", "abc"}}},
+          {double{3.14}, {{"foo", 3}, {"c", 3.14}}},
+      },
+      binder);
+}
+
+TEST(JsonBindingTest, TaggedVariantBinderError) {
+  using V = std::variant<int, std::string, double>;
+
+  auto binder = jb::Object(jb::TaggedVariantBinder<int, 3>(
+      jb::Member("foo"), {1, 2, 3}, jb::Member("a"), jb::Member("b"),
+      jb::Member("c")));
+
+  EXPECT_THAT(
+      (jb::FromJson<V>(::nlohmann::json({{"foo", 4}, {"d", 3}}), binder)),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    "Failed to parse tag name, expected one of: 1, 2, 3, but "
+                    "received: 4"));
 }
 
 }  // namespace

@@ -17,16 +17,21 @@
 
 #include <stddef.h>
 
+#include <array>
+#include <cassert>
 #include <type_traits>
 #include <utility>
 #include <variant>
 
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
 #include <nlohmann/json_fwd.hpp>
 #include "tensorstore/internal/json/json.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal_json_binding {
@@ -95,6 +100,81 @@ absl::Status VariantDefaultBinderImpl(std::index_sequence<Is...>,
     return absl::OkStatus();
   }
   return status;
+}
+
+template <typename TagBinder, typename Options, typename Obj, typename Json,
+          size_t... Is, typename T, size_t N, typename... ValueBinder>
+absl::Status TaggedVariantBinderImpl(std::true_type is_loading,
+                                     TagBinder tag_binder,
+                                     const Options& options, Obj* obj, Json* j,
+                                     std::index_sequence<Is...>,
+                                     std::array<T, N> tags,
+                                     ValueBinder... value_binder) {
+  T tag;
+  TENSORSTORE_RETURN_IF_ERROR(tag_binder(is_loading, options, &tag, j));
+  if (!((tags[Is] == tag) || ...)) {
+    return absl::InvalidArgumentError(absl::StrCat(
+        "Failed to parse tag name, expected one of: ",
+        absl::StrJoin(tags, ", "), ", but received: ", absl::StrCat(tag)));
+  }
+  absl::Status s;
+  ((tags[Is] == tag &&
+    ((s = value_binder(is_loading, options, &obj->template emplace<Is>(), j)),
+     true)) ||
+   ...);  // NOLINT
+  return s;
+}
+
+template <typename TagBinder, typename Options, typename Obj, typename Json,
+          size_t... Is, typename T, size_t N, typename... ValueBinder>
+absl::Status TaggedVariantBinderImpl(std::false_type is_loading,
+                                     TagBinder tag_binder,
+                                     const Options& options, Obj* obj, Json* j,
+                                     std::index_sequence<Is...>,
+                                     std::array<T, N> tags,
+                                     ValueBinder... value_binder) {
+  size_t index = obj->index();
+  if (index >= N) {
+    // This should never happen.
+    return absl::InternalError("Variant is valueless_by_exception");
+  }
+  T tag = tags[index];
+  TENSORSTORE_RETURN_IF_ERROR(tag_binder(is_loading, options, &tag, j));
+  absl::Status s;
+  ((Is == index &&
+    ((s = value_binder(is_loading, options, &std::get<Is>(*obj), j)),
+     true)) ||
+   ...);  // NOLINT
+  return s;
+}
+
+/// Returns a tagged `Binder` for a std::variant type.
+///
+/// The size of the variant must match `sizeof...(value_binder)` and the size
+/// of `tags`.
+///
+/// When loading, the first matching tag from the tags array is used to select
+/// the variant index (type).
+///
+/// When saving, the `value_binder` corresponding to the variant index is used.
+///
+/// \param tag_binder `Binder` for the tag.
+/// \param tags The tags for the variant.
+/// \param value_binder `Binder` for each type in the variant.
+template <typename T, size_t N, typename TagBinder, typename... ValueBinder>
+auto TaggedVariantBinder(TagBinder tag_binder, std::array<T, N> tags,
+                         ValueBinder... value_binder) {
+  static_assert(N == sizeof...(value_binder));
+  return [=](auto is_loading, const auto& options, auto* obj,
+             auto* j) -> absl::Status {
+    static_assert(sizeof...(value_binder) ==
+                      std::variant_size_v<absl::remove_cvref_t<decltype(*obj)>>,
+                  "value_binder pack must have the same size as the variant");
+    return TaggedVariantBinderImpl(
+        is_loading, tag_binder, options, obj, j,
+        std::make_index_sequence<sizeof...(value_binder)>(), tags,
+        value_binder...);
+  };
 }
 
 /// Returns a `Binder` for `std::variant`.

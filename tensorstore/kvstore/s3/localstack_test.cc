@@ -24,7 +24,6 @@
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
-#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
@@ -41,14 +40,14 @@
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/kvstore.h"
-#include "tensorstore/kvstore/s3/credentials/environment_credential_provider.h"
+#include "tensorstore/kvstore/s3/aws_credentials.h"
+#include "tensorstore/kvstore/s3/credentials/common.h"
 #include "tensorstore/kvstore/s3/s3_request_builder.h"
 #include "tensorstore/kvstore/s3/use_conditional_write.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
 // When provided with --localstack_binary, localstack_test will start
@@ -93,6 +92,7 @@ namespace kvstore = ::tensorstore::kvstore;
 
 using ::tensorstore::Context;
 using ::tensorstore::MatchesJson;
+using ::tensorstore::internal::GetEnv;
 using ::tensorstore::internal::GetEnvironmentMap;
 using ::tensorstore::internal::SetEnv;
 using ::tensorstore::internal::SpawnSubprocess;
@@ -101,7 +101,8 @@ using ::tensorstore::internal::SubprocessOptions;
 using ::tensorstore::internal_http::GetDefaultHttpTransport;
 using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_http::IssueRequestOptions;
-using ::tensorstore::internal_kvstore_s3::EnvironmentCredentialProvider;
+using ::tensorstore::internal_kvstore_s3::AwsCredentials;
+using ::tensorstore::internal_kvstore_s3::GetAwsCredentials;
 using ::tensorstore::internal_kvstore_s3::IsAwsS3Endpoint;
 using ::tensorstore::internal_kvstore_s3::S3RequestBuilder;
 using ::tensorstore::transport_test_utils::TryPickUnusedPort;
@@ -221,11 +222,17 @@ class LocalStackProcess {
 
 Context DefaultTestContext() {
   // Opens the s3 driver with small exponential backoff values.
-  return Context{Context::Spec::FromJson({{"s3_request_retries",
-                                           {{"max_retries", 3},
-                                            {"initial_delay", "1ms"},
-                                            {"max_delay", "10ms"}}}})
-                     .value()};
+  ::nlohmann::json json_spec{
+      {"s3_request_retries",
+       {{"max_retries", 3}, {"initial_delay", "1ms"}, {"max_delay", "10ms"}}}};
+
+  if (!IsAwsS3Endpoint(absl::GetFlag(FLAGS_localstack_endpoint))) {
+    ::nlohmann::json environment_spec{
+        {"type", "environment"},  //
+    };
+    json_spec["aws_credentials"] = environment_spec;
+  }
+  return Context{Context::Spec::FromJson(json_spec).value()};
 }
 
 class LocalStackFixture : public ::testing::Test {
@@ -240,14 +247,13 @@ class LocalStackFixture : public ::testing::Test {
 
     // Ensure that environment credentials are installed except when
     // connecting to an aws endpoint.
-    if (!is_aws_endpoint &&
-        !EnvironmentCredentialProvider{}.GetCredentials().ok()) {
+    if (!is_aws_endpoint && (!GetEnv("AWS_ACCESS_KEY_ID").has_value() ||
+                             !GetEnv("AWS_SECRET_ACCESS_KEY").has_value())) {
       ABSL_LOG(INFO) << "Installing environment credentials AWS_ACCESS_KEY_ID="
                      << kAwsAccessKeyId
                      << " AWS_SECRET_ACCESS_KEY=" << kAwsSecretKeyId;
       SetEnv("AWS_ACCESS_KEY_ID", kAwsAccessKeyId);
       SetEnv("AWS_SECRET_ACCESS_KEY", kAwsSecretKeyId);
-      TENSORSTORE_CHECK_OK(EnvironmentCredentialProvider{}.GetCredentials());
     }
 
     ABSL_CHECK(!Bucket().empty());
@@ -262,6 +268,14 @@ class LocalStackFixture : public ::testing::Test {
       ABSL_CHECK(!Region().empty());
       MaybeCreateBucket();
     }
+  }
+
+  static AwsCredentials GetEnvironmentCredentials() {
+    auto provider = tensorstore::internal_kvstore_s3::MakeEnvironment();
+    auto credentials_future = GetAwsCredentials(provider.get());
+    ABSL_CHECK(credentials_future.status().ok());
+
+    return std::move(credentials_future.result()).value();
   }
 
   static void TearDownTestSuite() { process.StopProcess(); }
@@ -290,10 +304,9 @@ class LocalStackFixture : public ::testing::Test {
     auto request =
         S3RequestBuilder("PUT",
                          absl::StrFormat("%s/%s", endpoint_url(), Bucket()))
-            .BuildRequest(
-                absl::GetFlag(FLAGS_host_header),
-                EnvironmentCredentialProvider{}.GetCredentials().value(),
-                Region(), kEmptySha256, absl::Now());
+            .BuildRequest(absl::GetFlag(FLAGS_host_header),
+                          GetEnvironmentCredentials(), Region(), kEmptySha256,
+                          absl::Now());
 
     ABSL_LOG(INFO) << "Create bucket request: " << request;
 
