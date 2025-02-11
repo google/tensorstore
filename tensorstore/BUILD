@@ -55,6 +55,7 @@ cc_with_non_compile_test(
     name = "array_nc_test",
     srcs = ["array_nc_test.cc"],
     nc_test_shard_count = 1,
+    tags = ["nctest"],
     deps = [
         ":array",
         ":index",
