@@ -124,7 +124,7 @@ constexpr inline auto EmptyBinder = [](auto is_loading, const auto& options,
                                        auto* obj, auto* j) -> absl::Status {
   return absl::OkStatus();
 };
-}
+}  // namespace empty_binder
 using empty_binder::EmptyBinder;
 
 /// Binders for natively supported types. These binders come in
@@ -855,9 +855,17 @@ struct MemberBinderImpl {
   template <typename Options, typename Obj>
   absl::Status operator()(std::true_type is_loading, const Options& options,
                           Obj* obj, ::nlohmann::json::object_t* j_obj) const {
-    ::nlohmann::json j_member = internal_json::JsonExtractMember(j_obj, name);
-    if constexpr (kDropDiscarded) {
-      if (j_member.is_discarded()) return absl::OkStatus();
+    ::nlohmann::json j_member(::nlohmann::json::value_t::discarded);
+    if (auto it = j_obj->find(name); it == j_obj->end()) {
+      if constexpr (kDropDiscarded) return absl::OkStatus();
+    } else {
+      // Member binder extracts the member from the object because jb::Object
+      // expects to find no extra members after loading has completed.
+      auto j_extract = j_obj->extract(it);
+      if constexpr (kDropDiscarded) {
+        if (j_extract.mapped().is_discarded()) return absl::OkStatus();
+      }
+      j_member = std::move(j_extract.mapped());
     }
     auto status = binder(is_loading, options, obj, &j_member);
     return status.ok()
@@ -939,6 +947,20 @@ constexpr auto OptionalMember(MemberName name,
                               Binder binder = DefaultBinder<>) {
   return MemberBinderImpl<true, MemberName, Binder>{std::move(name),
                                                     std::move(binder)};
+}
+
+/// Reads a member without modifying the original object.
+template <typename MemberName, typename Binder = decltype(DefaultBinder<>)>
+constexpr auto ReadMember(MemberName name, Binder binder = DefaultBinder<>) {
+  return [=](auto is_loading, const auto& options, auto* obj,
+             ::nlohmann::json::object_t* j) -> absl::Status {
+    if constexpr (!is_loading) return absl::OkStatus();
+    ::nlohmann::json j_copy(::nlohmann::json::value_t::discarded);
+    if (auto it = j->find(name); it != j->end()) {
+      j_copy = it->second;
+    }
+    return binder(is_loading, options, obj, &j_copy);
+  };
 }
 
 /// Used in conjunction with jb::Object, returns an error when more than one of

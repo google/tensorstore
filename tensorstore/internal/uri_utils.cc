@@ -15,13 +15,17 @@
 #include "tensorstore/internal/uri_utils.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <algorithm>
 #include <cassert>
+#include <optional>
 #include <string>
 #include <string_view>
 
 #include "absl/strings/ascii.h"
+#include "absl/strings/match.h"
+#include "tensorstore/internal/ascii_set.h"
 
 namespace tensorstore {
 namespace internal {
@@ -124,6 +128,45 @@ ParsedGenericUri ParseGenericUri(std::string_view uri) {
   return result;
 }
 
+std::optional<HostPort> SplitHostPort(std::string_view host_port) {
+  if (host_port.empty()) return std::nullopt;
+  if (host_port[0] == '[') {
+    // Parse a bracketed host, typically an IPv6 literal.
+    const size_t rbracket = host_port.find(']', 1);
+    if (rbracket == std::string_view::npos) {
+      // Invalid: Unmatched [
+      return std::nullopt;
+    }
+    if (!absl::StrContains(host_port.substr(1, rbracket - 1), ':')) {
+      // Invalid: No colons in IPv6 literal
+      return std::nullopt;
+    }
+    if (rbracket == host_port.size() - 1) {
+      // [...]
+      return HostPort{host_port, {}};
+    }
+    if (host_port[rbracket + 1] == ':') {
+      if (host_port.rfind(':') != rbracket + 1) {
+        // Invalid: multiple colons
+        return std::nullopt;
+      }
+      // [...]:port
+      return HostPort{host_port.substr(0, rbracket + 1),
+                      host_port.substr(rbracket + 2)};
+    }
+    return std::nullopt;
+  }
+
+  // IPv4 or bare hostname.
+  size_t colon = host_port.find(':');
+  if (colon == std::string_view::npos ||
+      host_port.find(':', colon + 1) != std::string_view::npos) {
+    // 0 or 2 colons, assume a hostname.
+    return HostPort{host_port, {}};
+  }
+
+  return HostPort{host_port.substr(0, colon), host_port.substr(colon + 1)};
+}
 
 }  // namespace internal
 }  // namespace tensorstore

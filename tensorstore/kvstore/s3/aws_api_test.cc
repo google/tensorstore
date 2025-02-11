@@ -14,17 +14,23 @@
 
 #include "tensorstore/kvstore/s3/aws_api.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <aws/common/logging.h>
 
-using ::tensorstore::internal_kvstore_s3::GetAwsApiContext;
+using ::tensorstore::internal_kvstore_s3::GetAwsAllocator;
+using ::tensorstore::internal_kvstore_s3::GetAwsClientBootstrap;
+using ::tensorstore::internal_kvstore_s3::GetAwsTlsCtx;
 
 namespace {
 
 TEST(AwsApiTest, Basic) {
   // This does not validate anything; it just initializes the AWS API and
   // verifies that it doesn't crash, and then leaks the library setup.
-  auto context = GetAwsApiContext();
+  EXPECT_THAT(GetAwsAllocator(), ::testing::NotNull());
+  EXPECT_THAT(GetAwsClientBootstrap(), ::testing::NotNull());
+  EXPECT_THAT(GetAwsTlsCtx(), ::testing::NotNull());
+
   AWS_LOGF_INFO(AWS_LS_COMMON_GENERAL, "info log call");
   AWS_LOGF_WARN(AWS_LS_COMMON_GENERAL, "warn log call");
 }

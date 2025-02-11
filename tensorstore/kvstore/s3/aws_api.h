@@ -15,28 +15,49 @@
 #ifndef TENSORSTORE_KVSTORE_S3_AWS_API_H_
 #define TENSORSTORE_KVSTORE_S3_AWS_API_H_
 
-#include <memory>
+#include <stdint.h>
+
+#include <string_view>
 
 #include <aws/common/allocator.h>
+#include <aws/common/byte_buf.h>
+#include <aws/common/string.h>
+#include <aws/common/zero.h>
 #include <aws/io/channel_bootstrap.h>
-#include <aws/io/host_resolver.h>
 #include <aws/io/tls_channel_handler.h>
 
 namespace tensorstore {
 namespace internal_kvstore_s3 {
 
-/// Context class for using the AWS apis.
-class AwsApiContext {
- public:
-  ~AwsApiContext();
+/// Returns the global AWS allocator.
+aws_allocator *GetAwsAllocator();
 
-  aws_allocator *allocator;  // global
-  aws_host_resolver *resolver;
-  aws_client_bootstrap *client_bootstrap;
-  aws_tls_ctx *tls_ctx;
-};
+/// Returns the global AWS client bootstrap.
+aws_client_bootstrap *GetAwsClientBootstrap();
 
-std::shared_ptr<AwsApiContext> GetAwsApiContext();
+/// Returns the global AWS TLS context.
+aws_tls_ctx *GetAwsTlsCtx();
+
+/// Converts aws_byte_cursor to std::string_view
+inline std::string_view AwsByteCursorToStringView(const aws_byte_cursor &c) {
+  return std::string_view(reinterpret_cast<const char *>(c.ptr), c.len);
+}
+
+/// Converts aws_string to std::string_view
+inline std::string_view AwsStringToStringView(const aws_string &s) {
+  return std::string_view(reinterpret_cast<const char *>(s.bytes), s.len);
+}
+
+/// Converts std::string_view to aws_byte_cursor
+inline aws_byte_cursor StringViewToAwsByteCursor(std::string_view s) {
+  aws_byte_cursor c;
+  AWS_ZERO_STRUCT(c);
+  if (!s.empty()) {
+    c.ptr = reinterpret_cast<uint8_t *>(const_cast<char *>(s.data()));
+    c.len = s.size();
+  }
+  return c;
+}
 
 }  // namespace internal_kvstore_s3
 }  // namespace tensorstore

@@ -14,18 +14,32 @@
 
 #include "tensorstore/internal/uri_utils.h"
 
+#include <optional>
 #include <string_view>
+#include <tuple>
 #include <utility>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "tensorstore/internal/ascii_set.h"
 
 using ::tensorstore::internal::AsciiSet;
+using ::tensorstore::internal::HostPort;
 using ::tensorstore::internal::ParseGenericUri;
 using ::tensorstore::internal::PercentDecode;
 using ::tensorstore::internal::PercentEncodeReserved;
 using ::tensorstore::internal::PercentEncodeUriComponent;
 using ::tensorstore::internal::PercentEncodeUriPath;
+using ::tensorstore::internal::SplitHostPort;
+
+namespace tensorstore::internal {
+
+// Avoid a public implementation operator==.
+inline bool operator==(const HostPort& a, const HostPort& b) {
+  return std::tie(a.host, a.port) == std::tie(b.host, b.port);
+}
+
+}  // namespace tensorstore::internal
 
 namespace {
 
@@ -203,6 +217,32 @@ TEST(ParseGenericUriTest, Basic) {
   for (const auto& [uri, authority] : kCases) {
     EXPECT_THAT(ParseGenericUri(uri).authority, ::testing::Eq(authority));
   }
+}
+
+TEST(ParseHostPortTest, Basic) {
+  // Non-IPv6 literals
+  EXPECT_THAT(SplitHostPort("127.0.0.1"),
+              ::testing::Optional(HostPort{"127.0.0.1"}));
+  EXPECT_THAT(SplitHostPort("127.0.0.1:1"),
+              ::testing::Optional(HostPort{"127.0.0.1", "1"}));
+
+  EXPECT_THAT(SplitHostPort("host.without.port"),
+              ::testing::Optional(HostPort{"host.without.port"}));
+  EXPECT_THAT(SplitHostPort("host.without.port::1"),
+              ::testing::Optional(HostPort{"host.without.port::1"}));
+
+  EXPECT_THAT(SplitHostPort("host.with.port:1234"),
+              ::testing::Optional(HostPort{"host.with.port", "1234"}));
+  EXPECT_THAT(SplitHostPort("localhost:1234"),
+              ::testing::Optional(HostPort{"localhost", "1234"}));
+  EXPECT_THAT(SplitHostPort("localhost"),
+              ::testing::Optional(HostPort{"localhost"}));
+  // IPv6 literals
+  EXPECT_THAT(SplitHostPort("::1"), ::testing::Optional(HostPort{"::1"}));
+  EXPECT_THAT(SplitHostPort("[::1]:1"),
+              ::testing::Optional(HostPort{"[::1]", "1"}));
+  EXPECT_THAT(SplitHostPort("[::1"), ::testing::Eq(std::nullopt));
+  EXPECT_THAT(SplitHostPort("[::1]::1"), ::testing::Eq(std::nullopt));
 }
 
 }  // namespace

@@ -1,4 +1,4 @@
-// Copyright 2023 The TensorStore Authors
+// Copyright 2025 The TensorStore Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,52 +12,41 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "tensorstore/kvstore/s3/aws_credentials.h"
+
 #include <utility>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/time/time.h"
-#include "tensorstore/internal/env.h"
-#include "tensorstore/kvstore/s3/aws_credentials.h"
-#include "tensorstore/kvstore/s3/credentials/common.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
 
 using ::tensorstore::IsOk;
-using ::tensorstore::internal::SetEnv;
-using ::tensorstore::internal::UnsetEnv;
+using ::tensorstore::internal_kvstore_s3::AwsCredentials;
 using ::tensorstore::internal_kvstore_s3::AwsCredentialsProvider;
 using ::tensorstore::internal_kvstore_s3::GetAwsCredentials;
-using ::tensorstore::internal_kvstore_s3::MakeEnvironment;
 
-class EnvironmentCredentialProviderTest : public ::testing::Test {
- protected:
-  void SetUp() override {
-    // Make sure that env vars are not set.
-    for (const char* var : {
-             "AWS_ACCESS_KEY_ID",
-             "AWS_SECRET_ACCESS_KEY",
-             "AWS_SESSION_TOKEN",
-         }) {
-      UnsetEnv(var);
-    }
-  }
-};
+TEST(CredentialsProviderTest, Nullptr) {
+  AwsCredentialsProvider provider;
 
-TEST_F(EnvironmentCredentialProviderTest, Basic) {
-  SetEnv("AWS_ACCESS_KEY_ID", "foo");
-  SetEnv("AWS_SECRET_ACCESS_KEY", "bar");
-  SetEnv("AWS_SESSION_TOKEN", "qux");
-
-  AwsCredentialsProvider provider = MakeEnvironment();
   auto credentials_future = GetAwsCredentials(provider.get());
   ASSERT_THAT(credentials_future, IsOk());
 
   auto credentials = std::move(credentials_future.result()).value();
-  ASSERT_EQ(credentials.GetAccessKeyId(), "foo");
-  ASSERT_EQ(credentials.GetSecretAccessKey(), "bar");
-  ASSERT_EQ(credentials.GetSessionToken(), "qux");
+  ASSERT_EQ(credentials.GetAccessKeyId(), "");
+  ASSERT_EQ(credentials.GetSecretAccessKey(), "");
+  ASSERT_EQ(credentials.GetSessionToken(), "");
+  ASSERT_EQ(credentials.GetExpiration(), absl::InfiniteFuture());
+}
+
+TEST(CredentialsTest, Basic) {
+  AwsCredentials credentials;
+
+  ASSERT_EQ(credentials.GetAccessKeyId(), "");
+  ASSERT_EQ(credentials.GetSecretAccessKey(), "");
+  ASSERT_EQ(credentials.GetSessionToken(), "");
   ASSERT_EQ(credentials.GetExpiration(), absl::InfiniteFuture());
 }
 

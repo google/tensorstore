@@ -24,15 +24,13 @@
 #include "absl/time/civil_time.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/http/http_request.h"
-#include "tensorstore/kvstore/s3/credentials/aws_credentials.h"
+#include "tensorstore/kvstore/s3/aws_credentials.h"
 
 using ::tensorstore::internal_kvstore_s3::AwsCredentials;
 using ::tensorstore::internal_kvstore_s3::S3RequestBuilder;
 
 namespace {
 
-static const AwsCredentials credentials{
-    "AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", ""};
 static const absl::TimeZone utc = absl::UTCTimeZone();
 static constexpr char aws_region[] = "us-east-1";
 static constexpr char bucket[] = "examplebucket";
@@ -73,7 +71,8 @@ e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
   /* Signature:
   965b152573a180873c98bb6678ab50047fc24a06039de0874583298c7202bf0e
   */
-
+  const auto credentials = AwsCredentials::Make(
+      "AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", "");
   const auto now =
       absl::FromCivil(absl::CivilSecond(2024, 2, 21, 03, 02, 05), utc);
 
@@ -119,6 +118,9 @@ e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
 TEST(S3RequestBuilderTest, AWS4SignatureGetExample) {
   // https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
   // These values from worked exapmle in "Example: GET Object" Section
+  const auto credentials = AwsCredentials::Make(
+      "AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", "");
+
   auto url = absl::StrFormat("https://%s.s3.amazonaws.com/test.txt", bucket);
   auto builder = S3RequestBuilder("GET", url).AddHeader("range: bytes=0-9");
   auto request = builder.BuildRequest(
@@ -171,6 +173,9 @@ TEST(S3RequestBuilderTest, AWS4SignatureGetExample) {
 TEST(S3RequestBuilderTest, AWS4SignaturePutExample) {
   // https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
   // These values from worked example in "Example: PUT Object" Section
+  const auto credentials = AwsCredentials::Make(
+      "AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", "");
+
   auto url = absl::StrFormat("s3://%s/test$file.text", bucket);
   auto builder = S3RequestBuilder("PUT", url)
                      .AddHeader("date: Fri, 24 May 2013 00:00:00 GMT")
@@ -230,6 +235,9 @@ TEST(S3RequestBuilderTest, AWS4SignaturePutExample) {
 TEST(S3RequestBuilderTest, AWS4SignatureListObjectsExample) {
   // https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
   // These values from worked example in "Example: GET Object" Section
+  const auto credentials = AwsCredentials::Make(
+      "AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", "");
+
   auto url = absl::StrFormat("https://%s.s3.amazonaws.com/", bucket);
   auto builder = S3RequestBuilder("GET", url)
                      .AddQueryParameter("prefix", "J")
@@ -283,11 +291,12 @@ TEST(S3RequestBuilderTest, AWS4SignatureListObjectsExample) {
 
 TEST(S3RequestBuilderTest, AnonymousCredentials) {
   // No Authorization header added for anonymous credentials
+  const auto credentials = AwsCredentials(nullptr);
+
   auto url = absl::StrFormat("https://%s/test.txt", bucket);
   auto builder = S3RequestBuilder("GET", url).AddQueryParameter("test", "this");
   auto request = builder.BuildRequest(
-      absl::StrFormat("%s.s3.amazonaws.com", bucket), AwsCredentials{},
-      aws_region,
+      absl::StrFormat("%s.s3.amazonaws.com", bucket), credentials, aws_region,
       "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       absl::FromCivil(absl::CivilSecond(2013, 5, 24, 0, 0, 0), utc));
 
@@ -307,8 +316,10 @@ TEST(S3RequestBuilderTest, AnonymousCredentials) {
 TEST(S3RequestBuilderTest, AwsSessionTokenHeaderAdded) {
   /// Only test that x-amz-security-token is added if present on AwsCredentials
   auto token = "abcdef1234567890";
-  auto sts_credentials =
-      AwsCredentials{credentials.access_key, credentials.secret_key, token};
+  const auto sts_credentials =
+      AwsCredentials::Make("AKIAIOSFODNN7EXAMPLE",
+                           "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", token);
+
   auto builder =
       S3RequestBuilder("GET", absl::StrFormat("https://%s/test.txt", bucket));
   auto request = builder.BuildRequest(
@@ -326,6 +337,8 @@ TEST(S3RequestBuilderTest, AwsSessionTokenHeaderAdded) {
 
 TEST(S3RequestBuilderTest, AwsRequesterPaysHeaderAdded) {
   /// Test that x-amz-requester-payer: requester is added if true
+  const auto credentials = AwsCredentials::Make(
+      "AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", "");
   auto request =
       S3RequestBuilder("GET", absl::StrFormat("https://%s/test.txt", bucket))
           .MaybeAddRequesterPayer(false)

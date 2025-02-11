@@ -1,4 +1,4 @@
-// Copyright 2023 The TensorStore Authors
+// Copyright 2025 The TensorStore Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,29 +12,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_KVSTORE_S3_CREDENTIALS_TEST_UTILS_H_
-#define TENSORSTORE_KVSTORE_S3_CREDENTIALS_TEST_UTILS_H_
+#ifndef TENSORSTORE_KVSTORE_S3_AWS_HTTP_MOCKING_H_
+#define TENSORSTORE_KVSTORE_S3_AWS_HTTP_MOCKING_H_
 
 #include <string>
 #include <utility>
 #include <vector>
 
-#include "absl/time/time.h"
+#include <aws/auth/credentials.h>
 #include "tensorstore/internal/http/http_response.h"
 
 namespace tensorstore {
 namespace internal_kvstore_s3 {
 
-/// Return a Default EC2 Metadata Credential Retrieval Flow, suitable
-/// for passing to EC2MetadataMockTransport
-std::vector<std::pair<std::string, internal_http::HttpResponse>>
-DefaultImdsCredentialFlow(const std::string& api_token,
-                          const std::string& access_key,
-                          const std::string& secret_key,
-                          const std::string& session_token,
-                          const absl::Time& expires_at);
+aws_auth_http_system_vtable* GetAwsHttpMockingIfEnabled();
+
+using AwsHttpMockingResponses =
+    std::vector<std::pair<std::string, internal_http::HttpResponse>>;
+
+/// Enables mocking of AWS HTTP requests.
+///
+/// The first matching pair will be returned for each call, then expired.
+void EnableAwsHttpMocking(AwsHttpMockingResponses responses);
+
+/// Disables mocking of AWS HTTP requests.
+void DisableAwsHttpMocking();
 
 }  // namespace internal_kvstore_s3
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_KVSTORE_S3_CREDENTIALS_TEST_UTILS_H_
+#endif  // TENSORSTORE_KVSTORE_S3_AWS_HTTP_MOCKING_H_
