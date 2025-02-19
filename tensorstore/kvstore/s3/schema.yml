@@ -162,18 +162,20 @@ definitions:
     description: |
       The `.type` member identifies the credentials provider.
       The remaining members are specific to the credentials provider.
+    required:
+    - type
     properties:
       type:
         type: string
         description: Specifies the credentials provider.
-    required:
-    - type
   aws_credentials-anonymous:
     $id: Context.aws_credentials/anonymous
     description: Uses anonymous credentials.
     allOf:
     - $ref: Context.aws_credentials
     - type: object
+      required:
+      - type
       properties:
         type:
           const: anonymous
@@ -187,6 +189,8 @@ definitions:
     allOf:
     - $ref: Context.aws_credentials
     - type: object
+      required:
+      - type
       properties:
         type:
           const: environment
@@ -196,6 +200,8 @@ definitions:
     allOf:
     - $ref: Context.aws_credentials
     - type: object
+      required:
+      - type
       properties:
         type:
           const: imds
@@ -207,6 +213,8 @@ definitions:
     allOf:
     - $ref: Context.aws_credentials
     - type: object
+      required:
+      - type
       properties:
         type:
           const: default
@@ -223,6 +231,8 @@ definitions:
     allOf:
     - $ref: Context.aws_credentials
     - type: object
+      required:
+      - type
       properties:
         type:
           const: profile
@@ -253,6 +263,8 @@ definitions:
     allOf:
     - $ref: Context.aws_credentials
     - type: object
+      required:
+      - type
       properties:
         type:
           const: ecs
