@@ -345,6 +345,7 @@ class InstallCommand(setuptools.command.install.install):
 setuptools.setup(
     packages=setuptools.find_packages('python'),
     package_dir={'': 'python'},
+    exclude_package_data={'': ['*.h', '*.cc', '*.py', 'BUILD*']},
     ext_modules=[setuptools.Extension('tensorstore/_tensorstore', sources=[])],
     setup_requires=['setuptools_scm>=8.1.0'],
     cmdclass={
