@@ -18,6 +18,7 @@
 #include <type_traits>
 
 #include "absl/status/status.h"
+#include <nlohmann/json_fwd.hpp>
 #include "google/protobuf/message.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/json_serialization_options_base.h"

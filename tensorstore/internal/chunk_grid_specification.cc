@@ -18,19 +18,20 @@
 #include <stddef.h>
 
 #include <algorithm>
+#include <numeric>
 #include <utility>
 #include <vector>
 
-#include "absl/container/inlined_vector.h"
-#include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
-#include "tensorstore/index_space/dimension_permutation.h"
 #include "tensorstore/internal/async_write_array.h"
 #include "tensorstore/rank.h"
+#include "tensorstore/util/constant_vector.h"
+#include "tensorstore/util/dimension_set.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 
