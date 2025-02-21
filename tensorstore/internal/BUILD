@@ -118,7 +118,6 @@ tensorstore_cc_library(
     hdrs = ["chunk_grid_specification.h"],
     deps = [
         ":async_write_array",
-        "//tensorstore:array",
         "//tensorstore:box",
         "//tensorstore:chunk_layout",
         "//tensorstore:contiguous_layout",
@@ -126,8 +125,9 @@ tensorstore_cc_library(
         "//tensorstore:index",
         "//tensorstore:index_interval",
         "//tensorstore:rank",
-        "//tensorstore/index_space:index_transform",
         "//tensorstore/internal/cache",
+        "//tensorstore/util:constant_vector",
+        "//tensorstore/util:dimension_set",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
