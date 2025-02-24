@@ -131,25 +131,40 @@ struct DefaultHttpTransportSetter {
 // TODO: Add tests for various responses
 TEST(S3KeyValueStoreTest, SimpleMock_VirtualHost) {
   // Mocks for s3
-  auto mock_transport = std::make_shared<DefaultMockHttpTransport>(
-      DefaultMockHttpTransport::Responses{
-          // initial HEAD request responds with an x-amz-bucket-region header.
-          {"HEAD https://my-bucket.s3.amazonaws.com",
-           HttpResponse{
-               200, absl::Cord(), {{"x-amz-bucket-region", "us-east-1"}}}},
+  auto mock_transport = std::make_shared<
+      DefaultMockHttpTransport>(DefaultMockHttpTransport::Responses{
+      // initial HEAD request responds with an x-amz-bucket-region header.
+      {"HEAD https://my-bucket.s3.amazonaws.com",
+       HttpResponse{200, absl::Cord(), {{"x-amz-bucket-region", "us-east-1"}}}},
 
-          {"GET https://my-bucket.s3.us-east-1.amazonaws.com/tmp:1/key_read",
-           HttpResponse{200,
-                        absl::Cord("abcd"),
-                        {{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}}},
+      {"GET https://my-bucket.s3.us-east-1.amazonaws.com/tmp:1/key_read",
+       HttpResponse{200,
+                    absl::Cord("abcd"),
+                    {{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""},
+                     {"x-amz-checksum-sha256",
+                      "iNQmb9TmM40TuEX88olXnSCciXgjuSF9o+Fhk28DFYk="}}}},
 
-          {"PUT https://my-bucket.s3.us-east-1.amazonaws.com/tmp:1/key_write",
-           HttpResponse{200,
-                        absl::Cord(),
-                        {{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}}},
+      {"GET https://my-bucket.s3.us-east-1.amazonaws.com/tmp:1/empty_read",
+       HttpResponse{200,
+                    absl::Cord(),
+                    {{"etag", "\"900150983cd24fb0d6963f7d28e17f73\""},
+                     {"x-amz-checksum-sha256",
+                      "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="}}}},
 
-          // DELETE 404 => absl::OkStatus()
-      });
+      {"GET https://my-bucket.s3.us-east-1.amazonaws.com/tmp:1/sha_mismatch",
+       HttpResponse{200,
+                    absl::Cord("xyz"),
+                    {{"etag", "\"900150983cd24fb0d6963f7d28e17f73\""},
+                     {"x-amz-checksum-sha256",
+                      "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="}}}},
+
+      {"PUT https://my-bucket.s3.us-east-1.amazonaws.com/tmp:1/key_write",
+       HttpResponse{200,
+                    absl::Cord(),
+                    {{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}}},
+
+      // DELETE 404 => absl::OkStatus()
+  });
 
   DefaultHttpTransportSetter mock_transport_setter{mock_transport};
 
@@ -163,11 +178,19 @@ TEST(S3KeyValueStoreTest, SimpleMock_VirtualHost) {
           context)
           .result());
 
-  auto read_result = kvstore::Read(store, "key_read").result();
-  EXPECT_THAT(read_result, MatchesKvsReadResult(
-                               absl::Cord("abcd"),
-                               StorageGeneration::FromString(
-                                   "\"900150983cd24fb0d6963f7d28e17f72\"")));
+  EXPECT_THAT(
+      kvstore::Read(store, "key_read").result(),
+      MatchesKvsReadResult(absl::Cord("abcd"),
+                           StorageGeneration::FromString(
+                               "\"900150983cd24fb0d6963f7d28e17f72\"")));
+
+  EXPECT_THAT(kvstore::Read(store, "empty_read").result(),
+              MatchesKvsReadResult(
+                  absl::Cord(), StorageGeneration::FromString(
+                                    "\"900150983cd24fb0d6963f7d28e17f73\"")));
+
+  EXPECT_THAT(kvstore::Read(store, "sha_mismatch").result(),
+              MatchesStatus(absl::StatusCode::kDataLoss));
 
   EXPECT_THAT(kvstore::Write(store, "key_write", absl::Cord("xyz")).result(),
               MatchesTimestampedStorageGeneration(StorageGeneration::FromString(
@@ -183,6 +206,17 @@ TEST(S3KeyValueStoreTest, SimpleMock_VirtualHost) {
       EXPECT_THAT(
           request.headers,
           testing::Contains("host: my-bucket.s3.us-east-1.amazonaws.com"));
+    }
+    if (request.method == "GET") {
+      EXPECT_THAT(request.headers,
+                  testing::Contains("x-amz-checksum-mode: ENABLED"));
+    }
+    if (request.method == "PUT" &&
+        absl::StrContains(request.url, "key_write")) {
+      EXPECT_THAT(request.headers,
+                  testing::Contains("x-amz-content-sha256: "
+                                    "3608bca1e44ea6c4d268eb6db02260269892c0b42b"
+                                    "86bbf1e77a6fa16c3c9282"));
     }
   }
   EXPECT_THAT(host_header_validated, testing::Ge(2));

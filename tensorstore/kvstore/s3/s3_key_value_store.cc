@@ -174,14 +174,24 @@ bool AddGenerationHeader(S3RequestBuilder* builder, std::string_view header,
   return true;
 }
 
-std::string payload_sha256(const absl::Cord& cord = absl::Cord()) {
+std::string PayloadSha256Hex(const absl::Cord& cord = absl::Cord()) {
   SHA256Digester sha256;
   sha256.Write(cord);
   auto digest = sha256.Digest();
   auto digest_sv = std::string_view(reinterpret_cast<const char*>(&digest[0]),
                                     digest.size());
-
   return absl::BytesToHexString(digest_sv);
+}
+
+std::string PayloadSha256Base64(const absl::Cord& cord = absl::Cord()) {
+  // https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetObject.html#API_GetObject_ResponseSyntax
+  // The header is base64 encoded.
+  SHA256Digester sha256;
+  sha256.Write(cord);
+  auto digest = sha256.Digest();
+  auto digest_sv = std::string_view(reinterpret_cast<const char*>(&digest[0]),
+                                    digest.size());
+  return absl::Base64Escape(digest_sv);
 }
 
 bool DefaultIsRetryableCode(absl::StatusCode code) {
@@ -419,6 +429,7 @@ struct ReadTask : public RateLimiterNode,
     if (options.byte_range.size() != 0) {
       request_builder.MaybeAddRangeHeader(options.byte_range);
     }
+    request_builder.AddHeader("x-amz-checksum-mode: ENABLED");
 
     const auto& ehr = endpoint_region_.value();
     start_time_ = absl::Now();
@@ -493,6 +504,16 @@ struct ReadTask : public RateLimiterNode,
         // did not hold.
         return kvstore::ReadResult::Unspecified(TimestampedStorageGeneration{
             options.generation_conditions.if_not_equal, start_time_});
+    }
+
+    // Validate checksum if present.
+    if (auto it = httpresponse.headers.find("x-amz-checksum-sha256");
+        it != httpresponse.headers.end()) {
+      auto payload_sha256 = PayloadSha256Base64(httpresponse.payload);
+      if (payload_sha256 != it->second) {
+        return absl::DataLossError(absl::StrFormat(
+            "Content hash mismatch: %s vs %s", payload_sha256, it->second));
+      }
     }
 
     absl::Cord value;
@@ -681,7 +702,7 @@ struct WriteTask : public RateLimiterNode,
     // https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-authentication-HTTPPOST.html
 
     start_time_ = absl::Now();
-    auto content_sha256 = payload_sha256(value_);
+    auto content_sha256_hex = PayloadSha256Hex(value_);
 
     const auto& ehr = endpoint_region_.value();
     auto builder = S3RequestBuilder("PUT", object_url_);
@@ -696,7 +717,7 @@ struct WriteTask : public RateLimiterNode,
     }
     auto request =
         builder.BuildRequest(owner->host_header_, credentials_, ehr.aws_region,
-                             content_sha256, start_time_);
+                             content_sha256_hex, start_time_);
 
     ABSL_LOG_IF(INFO, s3_logging)
         << "WriteTask: " << request << " size=" << value_.size();
