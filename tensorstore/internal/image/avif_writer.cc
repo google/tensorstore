@@ -66,6 +66,7 @@ void FillYUVImage(const ImageInfo& info,
 
   if (info.num_components == 1) {
     image->yuvFormat = AVIF_PIXEL_FORMAT_YUV400;
+    image->matrixCoefficients = AVIF_MATRIX_COEFFICIENTS_BT601;
     image->yuvPlanes[AVIF_CHAN_Y] = source_view.data().data();
     image->yuvRowBytes[AVIF_CHAN_Y] = info.width;
     image->imageOwnsYUVPlanes = AVIF_FALSE;
@@ -74,6 +75,7 @@ void FillYUVImage(const ImageInfo& info,
 
   if (info.num_components == 2) {
     image->yuvFormat = AVIF_PIXEL_FORMAT_YUV400;
+    image->matrixCoefficients = AVIF_MATRIX_COEFFICIENTS_BT601;
 #if AVIF_VERSION_MAJOR >= 1
     ABSL_CHECK_EQ(avifImageAllocatePlanes(image, AVIF_PLANES_ALL),
                   AVIF_RESULT_OK)
@@ -84,6 +86,7 @@ void FillYUVImage(const ImageInfo& info,
     assert(image->alphaRowBytes > 0);
   } else if (info.num_components == 3) {
     image->yuvFormat = AVIF_PIXEL_FORMAT_YUV444;
+    image->matrixCoefficients = AVIF_MATRIX_COEFFICIENTS_IDENTITY;
 #if AVIF_VERSION_MAJOR >= 1
     ABSL_CHECK_EQ(avifImageAllocatePlanes(image, AVIF_PLANES_YUV),
                   AVIF_RESULT_OK)
@@ -93,6 +96,7 @@ void FillYUVImage(const ImageInfo& info,
 #endif
   } else if (info.num_components == 4) {
     image->yuvFormat = AVIF_PIXEL_FORMAT_YUV444;
+    image->matrixCoefficients = AVIF_MATRIX_COEFFICIENTS_IDENTITY;
 #if AVIF_VERSION_MAJOR >= 1
     ABSL_CHECK_EQ(avifImageAllocatePlanes(image, AVIF_PLANES_ALL),
                   AVIF_RESULT_OK)
@@ -184,11 +188,12 @@ absl::Status AvifAddImage(avifEncoder* encoder,
   // CICP (CP/TC/MC): https://github.com/AOMediaCodec/libavif/wiki/CICP
   image->colorPrimaries = AVIF_COLOR_PRIMARIES_UNSPECIFIED;
   image->transferCharacteristics = AVIF_TRANSFER_CHARACTERISTICS_UNSPECIFIED;
-  image->matrixCoefficients = AVIF_MATRIX_COEFFICIENTS_IDENTITY;
 
   const bool lossless = (options.quantizer == 0);
   if (info.num_components >= 3 && options.input_is_rgb) {
-    if (!lossless) {
+    if (lossless) {
+      image->matrixCoefficients = AVIF_MATRIX_COEFFICIENTS_IDENTITY;
+    } else {
       image->matrixCoefficients = AVIF_MATRIX_COEFFICIENTS_BT601;
     }
 
