@@ -37,12 +37,15 @@
 #include "absl/strings/substitute.h"
 #include "absl/synchronization/mutex.h"
 #include "re2/re2.h"
+#include "tensorstore/internal/http/http_header.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/str_cat.h"
+
+using ::tensorstore::internal_http::HeaderMap;
 
 namespace tensorstore {
 namespace {
@@ -318,9 +321,9 @@ GCSMockStorageBucket::HandleInsertRequest(std::string_view path,
   return HttpResponse{404, absl::Cord()};
 }
 
-std::optional<OptionalByteRangeRequest> ParseRangeHeader(
+std::optional<OptionalByteRangeRequest> ParseRangeFieldValue(
     std::string_view header) {
-  static LazyRE2 kRange = {R"((?i)range: bytes=(\d+)?-(\d+)?)"};
+  static LazyRE2 kRange = {R"((?i)bytes=(\d+)?-(\d+)?)"};
   std::optional<int64_t> a, b;
   if (!RE2::FullMatch(header, *kRange, &a, &b)) return std::nullopt;
   if (!a && !b) {
@@ -337,13 +340,10 @@ std::optional<OptionalByteRangeRequest> ParseRangeHeader(
 }
 
 std::optional<OptionalByteRangeRequest> ParseRangeHeader(
-    const std::vector<std::string>& headers) {
-  for (const auto& header : headers) {
-    if (auto byte_range = ParseRangeHeader(header)) {
-      return byte_range;
-    }
-  }
-  return std::nullopt;
+    const HeaderMap& headers) {
+  auto it = headers.find("range");
+  if (it == headers.end()) return std::nullopt;
+  return ParseRangeFieldValue(it->second);
 }
 
 std::variant<std::monostate, HttpResponse, absl::Status>
@@ -443,9 +443,9 @@ HttpResponse GCSMockStorageBucket::ObjectMetadataResponse(
     const Object& object) {
   std::string data = ObjectMetadata(object).dump();
   HttpResponse response{200, absl::Cord(std::move(data))};
-  response.headers.insert(
-      {"content-length", tensorstore::StrCat(response.payload.size())});
-  response.headers.insert({"content-type", "application/json"});
+  response.headers.SetHeader("content-length",
+                             tensorstore::StrCat(response.payload.size()));
+  response.headers.SetHeader("content-type", "application/json");
   return response;
 }
 
@@ -507,19 +507,19 @@ HttpResponse GCSMockStorageBucket::ObjectMediaResponse(
   }
   response.status_code = value.size() < object.data.size() ? 206 : 200;
   response.payload = value;
+  response.headers = HeaderMap(
+      {{"content-length", tensorstore::StrCat(response.payload.size())},
+       {"content-type", "application/octet-stream"},
+       {"x-goog-generation", tensorstore::StrCat(object.generation)},
+       {"x-goog-metageneration", "1"},
+       {"x-goog-storage-class", "MULTI_REGIONAL"}});
+
   if (response.status_code == 206) {
-    response.headers.insert(
-        {"content-range", tensorstore::StrCat("bytes ", inclusive_min, "-",
-                                              inclusive_min + value.size() - 1,
-                                              "/", object.data.size())});
+    response.headers.SetHeader(
+        "content-range", tensorstore::StrCat("bytes ", inclusive_min, "-",
+                                             inclusive_min + value.size() - 1,
+                                             "/", object.data.size()));
   }
-  response.headers.insert(
-      {"content-length", tensorstore::StrCat(response.payload.size())});
-  response.headers.insert({"content-type", "application/octet-stream"});
-  response.headers.insert(
-      {"x-goog-generation", tensorstore::StrCat(object.generation)});
-  response.headers.insert({"x-goog-metageneration", "1"});
-  response.headers.insert({"x-goog-storage-class", "MULTI_REGIONAL"});
   // todo: x-goog-hash
   return response;
 }

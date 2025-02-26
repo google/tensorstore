@@ -19,6 +19,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/time/time.h"
+#include "tensorstore/internal/http/http_header.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/util/status_testutil.h"
@@ -28,6 +29,7 @@ namespace {
 
 using ::tensorstore::StatusIs;
 using ::tensorstore::StorageGeneration;
+using ::tensorstore::internal_http::HeaderMap;
 using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_kvstore_s3::AwsHttpResponseToStatus;
 using ::tensorstore::internal_kvstore_s3::GetNodeInt;
@@ -148,7 +150,7 @@ TEST(S3MetadataTest, AwsHttpResponseToStatus) {
   // header and payload.
   {
     response.status_code = 400;
-    response.headers.emplace("x-amzn-errortype", "UnknownError");
+    response.headers = HeaderMap{{"x-amzn-errortype", "UnknownError"}};
     bool retryable = false;
     EXPECT_THAT(AwsHttpResponseToStatus(response, retryable),
                 StatusIs(absl::StatusCode::kInvalidArgument));
@@ -157,8 +159,7 @@ TEST(S3MetadataTest, AwsHttpResponseToStatus) {
 
   {
     response.status_code = 400;
-    response.headers.clear();
-    response.headers.emplace("x-amzn-errortype", "ThrottledException");
+    response.headers = HeaderMap{{"x-amzn-errortype", "ThrottledException"}};
     bool retryable = false;
     EXPECT_THAT(AwsHttpResponseToStatus(response, retryable),
                 StatusIs(absl::StatusCode::kInvalidArgument));
@@ -170,7 +171,7 @@ TEST(S3MetadataTest, StorageGenerationFromHeaders) {
   // The etag is quoted in the headers, and the quotes are forwarded to the
   // StorageGeneration.
   EXPECT_THAT(StorageGenerationFromHeaders(
-                  {{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}),
+                  HeaderMap{{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}),
               Eq(StorageGeneration::FromString(
                   "\"900150983cd24fb0d6963f7d28e17f72\"")));
 }

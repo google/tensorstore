@@ -37,6 +37,7 @@
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
@@ -182,7 +183,8 @@ struct CurlRequestState {
     // Convert headers to a curl slist
     curl_slist* head = nullptr;
     size_t header_bytes_ = 0;
-    for (const std::string& h : request.headers) {
+    for (const auto& [k, v] : request.headers) {
+      std::string h = absl::StrCat(k, ": ", v);
       head = curl_slist_append(head, h.c_str());
       header_bytes_ += h.size();
     }

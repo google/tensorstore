@@ -15,7 +15,6 @@
 #include "tensorstore/kvstore/s3/s3_request_builder.h"
 
 #include <string>
-#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -28,6 +27,10 @@
 
 using ::tensorstore::internal_kvstore_s3::AwsCredentials;
 using ::tensorstore::internal_kvstore_s3::S3RequestBuilder;
+using ::testing::Contains;
+using ::testing::Not;
+using ::testing::Pair;
+using ::testing::UnorderedElementsAre;
 
 namespace {
 
@@ -79,8 +82,8 @@ e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
   auto builder =
       S3RequestBuilder(
           "PUT", "https://host/bucket/tensorstore/a-_.~$&,:=@z/b/file.txt")
-          .AddHeader("content-md5: 1B2M2Y8AsgTpgAmY7PhCfg==")
-          .AddHeader("content-type: text/plain");
+          .AddHeader("content-md5", "1B2M2Y8AsgTpgAmY7PhCfg==")
+          .AddHeader("content-type", "text/plain");
 
   // NOTE: In a proper vhost request, `bucket/` would be omitted from the path.
   auto request = builder.BuildRequest(
@@ -122,7 +125,7 @@ TEST(S3RequestBuilderTest, AWS4SignatureGetExample) {
       "AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", "");
 
   auto url = absl::StrFormat("https://%s.s3.amazonaws.com/test.txt", bucket);
-  auto builder = S3RequestBuilder("GET", url).AddHeader("range: bytes=0-9");
+  auto builder = S3RequestBuilder("GET", url).AddHeader("range", "bytes=0-9");
   auto request = builder.BuildRequest(
       "", credentials, aws_region,
       "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
@@ -151,7 +154,7 @@ TEST(S3RequestBuilderTest, AWS4SignatureGetExample) {
       "f0e8bdb87c964420e857bd35b5d6ed310bd44f0170aba48dd91039c6036bdb41";
 
   auto expected_auth_header =
-      "Authorization: AWS4-HMAC-SHA256 "
+      "AWS4-HMAC-SHA256 "
       "Credential=AKIAIOSFODNN7EXAMPLE/20130524/us-east-1/s3/aws4_request, "
       "SignedHeaders=host;range;x-amz-content-sha256;x-amz-date, "
       "Signature="
@@ -163,11 +166,14 @@ TEST(S3RequestBuilderTest, AWS4SignatureGetExample) {
   EXPECT_EQ(request.url, url);
   EXPECT_THAT(
       request.headers,
-      ::testing::UnorderedElementsAre(
-          expected_auth_header, "host: examplebucket.s3.amazonaws.com",
-          "x-amz-content-sha256: "
-          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-          "x-amz-date: 20130524T000000Z", "range: bytes=0-9"));
+      UnorderedElementsAre(
+          Pair("authorization", expected_auth_header),
+          Pair("host", "examplebucket.s3.amazonaws.com"),
+          Pair("x-amz-date", "20130524T000000Z"),
+          Pair("x-amz-content-sha256",
+               "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85"
+               "5"),
+          Pair("range", "bytes=0-9")));
 }
 
 TEST(S3RequestBuilderTest, AWS4SignaturePutExample) {
@@ -178,8 +184,8 @@ TEST(S3RequestBuilderTest, AWS4SignaturePutExample) {
 
   auto url = absl::StrFormat("s3://%s/test$file.text", bucket);
   auto builder = S3RequestBuilder("PUT", url)
-                     .AddHeader("date: Fri, 24 May 2013 00:00:00 GMT")
-                     .AddHeader("x-amz-storage-class: REDUCED_REDUNDANCY");
+                     .AddHeader("date", "Fri, 24 May 2013 00:00:00 GMT")
+                     .AddHeader("x-amz-storage-class", "REDUCED_REDUNDANCY");
   auto request = builder.BuildRequest(
       absl::StrFormat("%s.s3.amazonaws.com", bucket), credentials, aws_region,
       "44ce7dd67c959e0d3524ffac1771dfbba87d2b6b4b4e99e42034a8b803f8b072",
@@ -209,7 +215,7 @@ TEST(S3RequestBuilderTest, AWS4SignaturePutExample) {
       "98ad721746da40c64f1a55b78f14c238d841ea1380cd77a1b5971af0ece108bd";
 
   auto expected_auth_header =
-      "Authorization: AWS4-HMAC-SHA256 "
+      "AWS4-HMAC-SHA256 "
       "Credential=AKIAIOSFODNN7EXAMPLE/20130524/us-east-1/s3/aws4_request, "
       "SignedHeaders=date;host;x-amz-content-sha256;x-amz-date;x-amz-storage-"
       "class, "
@@ -223,13 +229,14 @@ TEST(S3RequestBuilderTest, AWS4SignaturePutExample) {
   EXPECT_EQ(request.headers.size(), 6);
   EXPECT_THAT(
       request.headers,
-      ::testing::UnorderedElementsAre(
-          expected_auth_header, "date: Fri, 24 May 2013 00:00:00 GMT",
-          "host: examplebucket.s3.amazonaws.com",
-          "x-amz-content-sha256: "
-          "44ce7dd67c959e0d3524ffac1771dfbba87d2b6b4b4e99e42034a8b803f8b072",
-          "x-amz-date: 20130524T000000Z",
-          "x-amz-storage-class: REDUCED_REDUNDANCY"));
+      UnorderedElementsAre(Pair("authorization", expected_auth_header),
+                           Pair("host", "examplebucket.s3.amazonaws.com"),
+                           Pair("date", "Fri, 24 May 2013 00:00:00 GMT"),
+                           Pair("x-amz-date", "20130524T000000Z"),
+                           Pair("x-amz-storage-class", "REDUCED_REDUNDANCY"),
+                           Pair("x-amz-content-sha256",
+                                "44ce7dd67c959e0d3524ffac1771dfbba87d2b6b4b4e99"
+                                "e42034a8b803f8b072")));
 }
 
 TEST(S3RequestBuilderTest, AWS4SignatureListObjectsExample) {
@@ -269,7 +276,7 @@ TEST(S3RequestBuilderTest, AWS4SignatureListObjectsExample) {
       "34b48302e7b5fa45bde8084f4b7868a86f0a534bc59db6670ed5711ef69dc6f7";
 
   auto expected_auth_header =
-      "Authorization: AWS4-HMAC-SHA256 "
+      "AWS4-HMAC-SHA256 "
       "Credential=AKIAIOSFODNN7EXAMPLE/20130524/us-east-1/s3/aws4_request, "
       "SignedHeaders=host;x-amz-content-sha256;x-amz-date, "
       "Signature="
@@ -280,13 +287,15 @@ TEST(S3RequestBuilderTest, AWS4SignatureListObjectsExample) {
   EXPECT_EQ(builder.GetSignature(), expected_signature);
   EXPECT_EQ(request.url, absl::StrCat(url, "?max-keys=2&prefix=J"));
   EXPECT_EQ(request.headers.size(), 4);
+
   EXPECT_THAT(
       request.headers,
-      ::testing::UnorderedElementsAre(
-          expected_auth_header, "host: examplebucket.s3.amazonaws.com",
-          "x-amz-content-sha256: "
-          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-          "x-amz-date: 20130524T000000Z"));
+      UnorderedElementsAre(Pair("authorization", expected_auth_header),
+                           Pair("host", "examplebucket.s3.amazonaws.com"),
+                           Pair("x-amz-date", "20130524T000000Z"),
+                           Pair("x-amz-content-sha256",
+                                "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b93"
+                                "4ca495991b7852b855")));
 }
 
 TEST(S3RequestBuilderTest, AnonymousCredentials) {
@@ -302,15 +311,15 @@ TEST(S3RequestBuilderTest, AnonymousCredentials) {
 
   EXPECT_EQ(request.url, absl::StrCat(url, "?test=this"));
   EXPECT_EQ(request.headers.size(), 3);
-  EXPECT_THAT(request.headers, ::testing::Not(::testing::Contains(
-                                   ::testing::HasSubstr("Authorization:"))));
+  EXPECT_THAT(request.headers, Not(Contains(::testing::Key("authorization"))));
+
   EXPECT_THAT(
       request.headers,
-      ::testing::UnorderedElementsAre(
-          "host: examplebucket.s3.amazonaws.com",
-          "x-amz-content-sha256: "
-          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-          "x-amz-date: 20130524T000000Z"));
+      UnorderedElementsAre(Pair("host", "examplebucket.s3.amazonaws.com"),
+                           Pair("x-amz-date", "20130524T000000Z"),
+                           Pair("x-amz-content-sha256",
+                                "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b93"
+                                "4ca495991b7852b855")));
 }
 
 TEST(S3RequestBuilderTest, AwsSessionTokenHeaderAdded) {
@@ -329,10 +338,8 @@ TEST(S3RequestBuilderTest, AwsSessionTokenHeaderAdded) {
       absl::FromCivil(absl::CivilSecond(2013, 5, 24, 0, 0, 0), utc));
 
   EXPECT_EQ(request.headers.size(), 5);
-  EXPECT_THAT(request.headers,
-              ::testing::Contains(::testing::HasSubstr("Authorization: ")));
-  EXPECT_THAT(request.headers, ::testing::Contains(absl::StrCat(
-                                   "x-amz-security-token: ", token)));
+  EXPECT_THAT(request.headers, Contains(::testing::Key("authorization")));
+  EXPECT_THAT(request.headers, Contains(Pair("x-amz-security-token", token)));
 }
 
 TEST(S3RequestBuilderTest, AwsRequesterPaysHeaderAdded) {
@@ -350,8 +357,7 @@ TEST(S3RequestBuilderTest, AwsRequesterPaysHeaderAdded) {
               absl::FromCivil(absl::CivilSecond(2013, 5, 24, 0, 0, 0), utc));
 
   EXPECT_THAT(request.headers,
-              ::testing::Not(::testing::Contains(
-                  ::testing::HasSubstr("x-amz-requester-payer"))));
+              Not(Contains(::testing::Key("x-amz-requester-payer"))));
 
   request =
       S3RequestBuilder("GET", absl::StrFormat("https://%s/test.txt", bucket))
@@ -364,7 +370,7 @@ TEST(S3RequestBuilderTest, AwsRequesterPaysHeaderAdded) {
               absl::FromCivil(absl::CivilSecond(2013, 5, 24, 0, 0, 0), utc));
 
   EXPECT_THAT(request.headers,
-              ::testing::Contains("x-amz-requester-payer: requester"));
+              Contains(Pair("x-amz-requester-payer", "requester")));
 }
 
 }  // namespace

@@ -17,17 +17,118 @@
 
 #include <stddef.h>
 
+#include <initializer_list>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <tuple>
+#include <type_traits>
+#include <utility>
 
 #include "absl/container/btree_map.h"
-#include "absl/status/status.h"
+#include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace internal_http {
+
+/// A case-insensitive map of HTTP headers.
+class HeaderMap {
+ public:
+  HeaderMap() = default;
+  HeaderMap(const HeaderMap&) = default;
+  HeaderMap& operator=(const HeaderMap&) = default;
+  HeaderMap(HeaderMap&&) = default;
+  HeaderMap& operator=(HeaderMap&&) = default;
+
+  explicit HeaderMap(
+      std::initializer_list<std::pair<std::string_view, std::string_view>> il)
+      : headers_(il.begin(), il.end()) {}
+
+  using const_iterator =
+      absl::btree_map<std::string, std::string>::const_iterator;
+
+  using value_type = absl::btree_map<std::string, std::string>::value_type;
+
+  const_iterator begin() const { return headers_.begin(); }
+  const_iterator end() const { return headers_.end(); }
+
+  bool empty() const { return headers_.empty(); }
+  size_t size() const { return headers_.size(); }
+
+  template <typename T>
+  const_iterator find(T&& key) const {
+    return headers_.find(std::forward<T>(key));
+  }
+
+  /// Sets a header in `headers`. Overwrites existing headers.
+  void SetHeader(std::string_view field_name, std::string_view field_value);
+  void SetHeader(std::string_view field_name, std::string field_value);
+  void SetHeader(std::string_view field_name, const char* field_value) {
+    SetHeader(field_name, std::string_view(field_value));
+  }
+
+  /// Sets a header in `headers` and combines duplicate headers using
+  /// https://www.rfc-editor.org/rfc/rfc7230.
+  void CombineHeader(std::string_view field_name, std::string_view field_value);
+
+  /// Clears a header in `headers`.
+  void ClearHeader(std::string_view field_name);
+
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const HeaderMap& headers) {
+    absl::Format(&sink, "<");
+    const char* sep = "";
+    for (const auto& kv : headers.headers_) {
+      sink.Append(sep);
+      sink.Append(kv.first);
+      sink.Append(": ");
+#ifndef NDEBUG
+      // Redact auth_token in response logging.
+      if (absl::StrContainsIgnoreCase(kv.first, "auth_token")) {
+        sink.Append("#####");
+      } else if (absl::StrContainsIgnoreCase(kv.first, "authorization")) {
+        sink.Append("#####");
+      } else
+#endif
+      {
+        sink.Append(kv.second);
+      }
+      sep = "  ";
+    }
+    sink.Append(">}");
+  }
+
+  /// Attempts to parse a header using SimpleAtoi.
+  template <typename T>
+  std::optional<T> TryParseIntHeader(std::string_view field_name) const {
+    static_assert(std::is_integral_v<T>);
+    auto it = headers_.find(field_name);
+    if (it != headers_.end()) {
+      T result;
+      if (absl::SimpleAtoi(it->second, &result)) {
+        return result;
+      }
+    }
+    return std::nullopt;
+  }
+
+  /// Attempts to parse a header using SimpleAtob.
+  std::optional<bool> TryParseBoolHeader(std::string_view field_name) const {
+    auto it = headers_.find(field_name);
+    if (it != headers_.end()) {
+      bool result;
+      if (absl::SimpleAtob(it->second, &result)) {
+        return result;
+      }
+    }
+    return std::nullopt;
+  }
+
+ private:
+  absl::btree_map<std::string, std::string> headers_;
+};
 
 /// `strptime`-compatible format string for the HTTP date header.
 ///
@@ -54,40 +155,23 @@ constexpr const char kHttpTimeFormat[] = "%a, %d %b %E4Y %H:%M:%S GMT";
 ///
 /// This function differs from the spec in that it does not accept `obs-fold`
 /// (obsolete line folding) syntax.
-absl::Status ValidateHttpHeader(std::string_view header);
+Result<std::pair<std::string_view, std::string_view>> ValidateHttpHeader(
+    std::string_view field_name, std::string_view field_value);
+Result<std::pair<std::string_view, std::string_view>> ValidateHttpHeader(
+    std::string_view header);
 
 /// AppendHeaderData parses `data` as a header and append to the set of
 /// `headers`.
-size_t AppendHeaderData(absl::btree_multimap<std::string, std::string>& headers,
-                        std::string_view data);
+size_t AppendHeaderData(HeaderMap& headers, std::string_view data);
 
 /// Parses the "content-range" header, which can be used to determine the
 /// portion of an object returned by an HTTP request (with status code 206).
 /// Returned tuple fields are {start, end, total_length}
 std::optional<std::tuple<size_t, size_t, size_t>> TryParseContentRangeHeader(
-    const absl::btree_multimap<std::string, std::string>& headers);
-
-/// Attempts to parse a header using SimpleAtoi.
-template <typename T>
-std::optional<T> TryParseIntHeader(
-    const absl::btree_multimap<std::string, std::string>& headers,
-    std::string_view header) {
-  auto it = headers.find(header);
-  T result;
-  if (it != headers.end() && absl::SimpleAtoi(it->second, &result)) {
-    return result;
-  }
-  return std::nullopt;
-}
-
-/// Attempts to parse a header using SimpleAtob.
-std::optional<bool> TryParseBoolHeader(
-    const absl::btree_multimap<std::string, std::string>& headers,
-    std::string_view header);
+    const HeaderMap& headers);
 
 /// Try to get the content length from the headers.
-std::optional<size_t> TryGetContentLength(
-    const absl::btree_multimap<std::string, std::string>& headers);
+std::optional<size_t> TryGetContentLength(const HeaderMap& headers);
 
 }  // namespace internal_http
 }  // namespace tensorstore

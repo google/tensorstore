@@ -19,7 +19,6 @@
 #include <string>
 #include <string_view>
 #include <utility>
-#include <vector>
 
 #include "absl/functional/function_ref.h"
 #include "absl/strings/ascii.h"
@@ -27,8 +26,10 @@
 #include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "tensorstore/internal/http/http_header.h"
 #include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/byte_range.h"
+#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal_http {
@@ -42,14 +43,14 @@ std::optional<std::string> FormatRangeHeader(
   if (byte_range.IsRange() &&
       byte_range.exclusive_max > byte_range.inclusive_min) {
     // The range header is inclusive; `Range: 1-0` is invalid.
-    return absl::StrFormat("Range: bytes=%d-%d", byte_range.inclusive_min,
+    return absl::StrFormat("bytes=%d-%d", byte_range.inclusive_min,
                            byte_range.exclusive_max - 1);
   }
   if (byte_range.IsSuffix()) {
-    return absl::StrFormat("Range: bytes=%d-", byte_range.inclusive_min);
+    return absl::StrFormat("bytes=%d-", byte_range.inclusive_min);
   }
   if (byte_range.IsSuffixLength()) {
-    return absl::StrFormat("Range: bytes=%d", byte_range.inclusive_min);
+    return absl::StrFormat("bytes=%d", byte_range.inclusive_min);
   }
   return std::nullopt;
 }
@@ -66,9 +67,9 @@ std::optional<std::string> FormatCacheControlMaxAgeHeader(
   // round down to ensure our requirement is met.
   auto max_age_seconds = absl::ToInt64Seconds(max_age);
   if (max_age_seconds > 0) {
-    return absl::StrFormat("cache-control: max-age=%d", max_age_seconds);
+    return absl::StrFormat("max-age=%d", max_age_seconds);
   } else {
-    return "cache-control: no-cache";
+    return "no-cache";
   }
 }
 
@@ -107,13 +108,6 @@ HttpRequestBuilder::HttpRequestBuilder(
 
 HttpRequest HttpRequestBuilder::BuildRequest() { return std::move(request_); }
 
-HttpRequestBuilder& HttpRequestBuilder::AddHeader(std::string header) {
-  if (!header.empty()) {
-    request_.headers.push_back(std::move(header));
-  }
-  return *this;
-}
-
 HttpRequestBuilder& HttpRequestBuilder::AddQueryParameter(
     std::string_view key, std::string_view value) {
   assert(!key.empty());
@@ -134,27 +128,47 @@ HttpRequestBuilder& HttpRequestBuilder::EnableAcceptEncoding() {
   return *this;
 }
 
+HttpRequestBuilder& HttpRequestBuilder::AddHeader(
+    std::string_view field_name, std::string_view field_value) {
+  auto result = ValidateHttpHeader(field_name, field_value);
+  TENSORSTORE_CHECK_OK(result);
+  request_.headers.SetHeader(result->first, result->second);
+  return *this;
+}
+
+HttpRequestBuilder& HttpRequestBuilder::ParseAndAddHeader(
+    std::string_view header) {
+  auto result = ValidateHttpHeader(header);
+  TENSORSTORE_CHECK_OK(result);
+  request_.headers.SetHeader(absl::AsciiStrToLower(result->first),
+                             result->second);
+  return *this;
+}
+
 HttpRequestBuilder& HttpRequestBuilder::MaybeAddRangeHeader(
     OptionalByteRangeRequest byte_range) {
-  return AddHeader(FormatRangeHeader(std::move(byte_range)));
+  auto field_value = FormatRangeHeader(std::move(byte_range));
+  return field_value ? AddHeader("range", *field_value) : *this;
 }
 
 HttpRequestBuilder& HttpRequestBuilder::MaybeAddCacheControlMaxAgeHeader(
     absl::Duration max_age) {
-  return AddHeader(FormatCacheControlMaxAgeHeader(max_age));
+  auto field_value = FormatCacheControlMaxAgeHeader(max_age);
+  return field_value ? AddHeader("cache-control", *field_value) : *this;
 }
 
 HttpRequestBuilder&
 HttpRequestBuilder::MaybeAddStalenessBoundCacheControlHeader(
     absl::Time staleness_bound) {
-  return AddHeader(FormatStalenessBoundCacheControlHeader(staleness_bound));
+  auto field_value = FormatStalenessBoundCacheControlHeader(staleness_bound);
+  return field_value ? AddHeader("cache-control", *field_value) : *this;
 }
 
 HttpRequestBuilder& HttpRequestBuilder::AddHostHeader(std::string_view host) {
   if (host.empty()) {
     host = internal::ParseGenericUri(request_.url).authority;
   }
-  return AddHeader(absl::StrFormat("host: %s", host));
+  return AddHeader("host", host);
 }
 
 }  // namespace internal_http

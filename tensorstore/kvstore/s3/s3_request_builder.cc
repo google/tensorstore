@@ -134,7 +134,7 @@ std::string AuthorizationHeader(
     std::string_view signature_hex,
     const std::vector<std::pair<std::string, std::string_view>>& headers) {
   return absl::StrFormat(
-      "Authorization: AWS4-HMAC-SHA256 "
+      "AWS4-HMAC-SHA256 "
       "Credential=%s/%s, "
       "SignedHeaders=%s, "
       "Signature=%s",
@@ -146,20 +146,18 @@ std::string AuthorizationHeader(
       signature_hex);
 }
 
-static constexpr char kAmzContentSha256Header[] = "x-amz-content-sha256: ";
-static constexpr char kAmzSecurityTokenHeader[] = "x-amz-security-token: ";
-/// https://docs.aws.amazon.com/AmazonS3/latest/userguide/ObjectsinRequesterPaysBuckets.html
-/// For DELETE, GET, HEAD, POST, and PUT requests, include x-amz-request-payer :
-/// requester in the header
-static constexpr char kAmzRequesterPayerHeader[] =
-    "x-amz-requester-payer: requester";
+static constexpr char kAmzContentSha256Header[] = "x-amz-content-sha256";
+static constexpr char kAmzSecurityTokenHeader[] = "x-amz-security-token";
 
 }  // namespace
 
+// https://docs.aws.amazon.com/AmazonS3/latest/userguide/ObjectsinRequesterPaysBuckets.html
+// For DELETE, GET, HEAD, POST, and PUT requests, include
+// x-amz-request-payer : requester in the header
 S3RequestBuilder& S3RequestBuilder::MaybeAddRequesterPayer(
     bool requester_payer) {
   if (requester_payer) {
-    builder_.AddHeader(kAmzRequesterPayerHeader);
+    builder_.AddHeader("x-amz-requester-payer", "requester");
   }
   return *this;
 }
@@ -170,10 +168,9 @@ HttpRequest S3RequestBuilder::BuildRequest(std::string_view host_header,
                                            std::string_view payload_sha256_hash,
                                            const absl::Time& time) {
   builder_.AddHostHeader(host_header);
-  builder_.AddHeader(
-      absl::StrCat(kAmzContentSha256Header, payload_sha256_hash));
-  builder_.AddHeader(absl::FormatTime("x-amz-date: %Y%m%dT%H%M%SZ", time,
-                                      absl::UTCTimeZone()));
+  builder_.AddHeader(kAmzContentSha256Header, payload_sha256_hash);
+  builder_.AddHeader("x-amz-date", absl::FormatTime("%Y%m%dT%H%M%SZ", time,
+                                                    absl::UTCTimeZone()));
 
   // Add deferred query parameters in sorted order for AWS4 signature
   // requirements
@@ -191,7 +188,7 @@ HttpRequest S3RequestBuilder::BuildRequest(std::string_view host_header,
   // https://docs.aws.amazon.com/AmazonS3/latest/userguide/RESTAuthentication.html#UsingTemporarySecurityCredentials
   if (auto session_token = credentials.GetSessionToken();
       !session_token.empty()) {
-    builder_.AddHeader(absl::StrCat(kAmzSecurityTokenHeader, session_token));
+    builder_.AddHeader(kAmzSecurityTokenHeader, session_token);
   }
 
   auto request = builder_.BuildRequest();
@@ -199,16 +196,11 @@ HttpRequest S3RequestBuilder::BuildRequest(std::string_view host_header,
   // Create sorted AWS4 signing headers
   std::vector<std::pair<std::string, std::string_view>> signed_headers;
   signed_headers.reserve(request.headers.size());
-  for (const auto& header_str : request.headers) {
-    std::string_view header = header_str;
-    auto pos = header.find(':');
-    assert(pos != std::string::npos);
-    auto key = absl::AsciiStrToLower(
-        absl::StripAsciiWhitespace(header.substr(0, pos)));
-    auto value = absl::StripAsciiWhitespace(header.substr(pos + 1));
+  for (const auto& kv : request.headers) {
+    std::string key = absl::AsciiStrToLower(kv.first);
+    std::string_view value = absl::StripAsciiWhitespace(kv.second);
     signed_headers.push_back({std::move(key), std::move(value)});
   }
-  std::stable_sort(std::begin(signed_headers), std::end(signed_headers));
 
   auto parsed_uri = ParseGenericUri(request.url);
   assert(!parsed_uri.path.empty());
@@ -245,7 +237,7 @@ HttpRequest S3RequestBuilder::BuildRequest(std::string_view host_header,
       << "\n\nAuthorization Header\n"
       << auth_header;
 
-  request.headers.emplace_back(std::move(auth_header));
+  request.headers.SetHeader("authorization", auth_header);
   return request;
 }
 

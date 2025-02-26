@@ -100,7 +100,7 @@ Result<HttpResponse> GceAuthProvider::IssueRequest(std::string path,
                                                    bool recursive) {
   HttpRequestBuilder request_builder(
       "GET", internal::JoinPath("http://", GceMetadataHostname(), path));
-  request_builder.AddHeader("Metadata-Flavor: Google");
+  request_builder.AddHeader("metadata-flavor", "Google");
   if (recursive) {
     request_builder.AddQueryParameter("recursive", "true");
   }
@@ -119,7 +119,7 @@ GceAuthProvider::GetDefaultServiceAccountInfoIfRunningOnGce(
                   internal::JoinPath(
                       "http://", GceMetadataHostname(),
                       "/computeMetadata/v1/instance/service-accounts/default/"))
-                  .AddHeader("Metadata-Flavor: Google")
+                  .AddHeader("metadata-flavor", "Google")
                   .AddQueryParameter("recursive", "true")
                   .BuildRequest(),
               {})

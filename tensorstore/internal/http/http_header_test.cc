@@ -17,12 +17,10 @@
 #include <stddef.h>
 
 #include <optional>
-#include <string>
 #include <tuple>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "absl/container/btree_map.h"
 #include "absl/status/status.h"
 #include "tensorstore/util/status_testutil.h"
 
@@ -30,13 +28,20 @@ namespace {
 
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::internal_http::AppendHeaderData;
-using ::tensorstore::internal_http::TryParseBoolHeader;
+using ::tensorstore::internal_http::HeaderMap;
 using ::tensorstore::internal_http::TryParseContentRangeHeader;
-using ::tensorstore::internal_http::TryParseIntHeader;
 using ::tensorstore::internal_http::ValidateHttpHeader;
+using ::testing::ElementsAre;
+using ::testing::Eq;
+using ::testing::Optional;
+using ::testing::Pair;
 
 TEST(ValidateHttpHeaderTest, Valid) {
-  TENSORSTORE_EXPECT_OK(ValidateHttpHeader("a!#$%&'*+-.^_`|~3X: b\xfe"));
+  EXPECT_THAT(ValidateHttpHeader("a!#$%&'*+-.^_`|~3X: b\xfe"),
+              Optional(Pair("a!#$%&'*+-.^_`|~3X", "b\xfe")));
+  EXPECT_THAT(ValidateHttpHeader("host: foo-bar.example.com"),
+              Optional(Pair("host", "foo-bar.example.com")));
+  EXPECT_THAT(ValidateHttpHeader("empty:"), Optional(Pair("empty", "")));
 }
 
 TEST(ValidateHttpHeaderTest, Invalid) {
@@ -44,10 +49,32 @@ TEST(ValidateHttpHeaderTest, Invalid) {
               MatchesStatus(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ValidateHttpHeader("a: \n"),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(ValidateHttpHeader(": b\n"),
+              MatchesStatus(absl::StatusCode::kInvalidArgument));
+}
+
+TEST(SetHeaderTest, Basic) {
+  HeaderMap headers;
+  headers.SetHeader("x", "a");
+  EXPECT_THAT(headers, ElementsAre(Pair("x", "a")));
+
+  headers.SetHeader("x", "b");
+  headers.SetHeader("x", "c");
+  EXPECT_THAT(headers, ElementsAre(Pair("x", "c")));
+}
+
+TEST(CombineHeaderTest, Basic) {
+  HeaderMap headers;
+  headers.CombineHeader("x", "a");
+  EXPECT_THAT(headers, ElementsAre(Pair("x", "a")));
+
+  headers.CombineHeader("x", "b");
+  headers.CombineHeader("x", "c");
+  EXPECT_THAT(headers, ElementsAre(Pair("x", "a,b,c")));
 }
 
 TEST(AppendHeaderData, BadHeaders) {
-  absl::btree_multimap<std::string, std::string> headers;
+  HeaderMap headers;
 
   EXPECT_EQ(0, AppendHeaderData(headers, ""));           // empty
   EXPECT_EQ(2, AppendHeaderData(headers, "\r\n"));       // empty
@@ -61,77 +88,62 @@ TEST(AppendHeaderData, BadHeaders) {
 TEST(AppendHeaderData, GoodHeaders) {
   // Default
   {
-    absl::btree_multimap<std::string, std::string> headers;
+    HeaderMap headers;
     EXPECT_EQ(10, AppendHeaderData(headers, "bar: baz\r\n"));
-    EXPECT_FALSE(headers.empty());
-    ASSERT_EQ(1, headers.count("bar"));
 
-    auto range = headers.equal_range("bar");
-    EXPECT_EQ("baz", range.first->second);
+    EXPECT_THAT(headers, ElementsAre(Pair("bar", "baz")));
   }
 
   // No value is fine, too.
   {
-    absl::btree_multimap<std::string, std::string> headers;
+    HeaderMap headers;
     EXPECT_EQ(6, AppendHeaderData(headers, "foo:\r\n"));
-    ASSERT_EQ(1, headers.count("foo"));
 
-    auto range = headers.equal_range("foo");
-    EXPECT_EQ("", range.first->second);
+    EXPECT_THAT(headers, ElementsAre(Pair("foo", "")));
   }
 
   // Remove OWS in field-value.
   {
-    absl::btree_multimap<std::string, std::string> headers;
+    HeaderMap headers;
     EXPECT_EQ(16, AppendHeaderData(headers, "bAr: \t  baz  \t\r\n"));
-    ASSERT_EQ(1, headers.count("bar"));
 
-    auto range = headers.equal_range("bar");
-    EXPECT_EQ("baz", range.first->second);
+    EXPECT_THAT(headers, ElementsAre(Pair("bar", "baz")));
   }
 
   // Order is preserved.
   {
-    absl::btree_multimap<std::string, std::string> headers;
+    HeaderMap headers;
     EXPECT_EQ(16, AppendHeaderData(headers, "bAr: \t  one  \t\r\n"));
     EXPECT_EQ(10, AppendHeaderData(headers, "bar: two\r\n"));
 
-    ASSERT_EQ(2, headers.count("bar"));
-
-    auto range = headers.equal_range("bar");
-    EXPECT_EQ("one", range.first->second);
-    ++range.first;
-    EXPECT_EQ("two", range.first->second);
+    EXPECT_THAT(headers, ElementsAre(Pair("bar", "one,two")));
   }
 }
 
 TEST(TryParse, ContentRangeHeader) {
-  EXPECT_THAT(
-      TryParseContentRangeHeader({{"content-range", "bytes 10-20/100"}}),
-      ::testing::Optional(
-          testing::Eq(std::tuple<size_t, size_t, size_t>(10, 20, 100))));
-
-  EXPECT_THAT(TryParseContentRangeHeader({{"content-range", "bytes 10-20/*"}}),
-              ::testing::Optional(
-                  testing::Eq(std::tuple<size_t, size_t, size_t>(10, 20, 0))));
-
-  EXPECT_THAT(TryParseContentRangeHeader({{"content-range", "bytes 10-20"}}),
-              ::testing::Optional(
-                  testing::Eq(std::tuple<size_t, size_t, size_t>(10, 20, 0))));
+  EXPECT_THAT(TryParseContentRangeHeader(
+                  HeaderMap{{"content-range", "bytes 10-20/100"}}),
+              Optional(Eq(std::tuple<size_t, size_t, size_t>(10, 20, 100))));
 
   EXPECT_THAT(
-      TryParseContentRangeHeader({{"content-range", "bytes 1-abc/100"}}),
-      ::testing::Eq(std::nullopt));
+      TryParseContentRangeHeader(HeaderMap{{"content-range", "bytes 10-20/*"}}),
+      Optional(Eq(std::tuple<size_t, size_t, size_t>(10, 20, 0))));
+
+  EXPECT_THAT(
+      TryParseContentRangeHeader(HeaderMap{{"content-range", "bytes 10-20"}}),
+      Optional(Eq(std::tuple<size_t, size_t, size_t>(10, 20, 0))));
+
+  EXPECT_THAT(TryParseContentRangeHeader(
+                  HeaderMap{{"content-range", "bytes 1-abc/100"}}),
+              Eq(std::nullopt));
 }
 
 TEST(TryParse, BoolHeader) {
-  EXPECT_THAT(TryParseBoolHeader({{"bool-header", "true"}}, "bool-header"),
-              ::testing::Optional(testing::Eq(true)));
-}
+  HeaderMap headers{{"false-header", "0"}, {"true-header", "true"}};
 
-TEST(TryParse, IntHeader) {
-  EXPECT_THAT(TryParseIntHeader<size_t>({{"int-header", "100"}}, "int-header"),
-              ::testing::Optional(testing::Eq(100)));
+  EXPECT_THAT(headers.TryParseBoolHeader("true-header"), Optional(Eq(true)));
+  EXPECT_THAT(headers.TryParseBoolHeader("false-header"), Optional(Eq(false)));
+  EXPECT_THAT(headers.TryParseBoolHeader("missing-header"), Eq(std::nullopt));
 }
 
 }  // namespace

@@ -172,7 +172,9 @@ struct HttpKeyValueStoreSpecData {
                  jb::Projection<&HttpKeyValueStoreSpecData::headers>(
                      jb::DefaultInitializedValue(jb::Array(jb::Validate(
                          [](const auto& options, const std::string* x) {
-                           return internal_http::ValidateHttpHeader(*x);
+                           TENSORSTORE_RETURN_IF_ERROR(
+                               internal_http::ValidateHttpHeader(*x));
+                           return absl::OkStatus();
                          }))))),
       jb::Member(
           HttpRequestConcurrencyResource::id,
@@ -271,7 +273,7 @@ struct ReadTask {
     HttpRequestBuilder request_builder(
         options.byte_range.size() == 0 ? "HEAD" : "GET", url);
     for (const auto& header : owner->spec_.headers) {
-      request_builder.AddHeader(header);
+      request_builder.ParseAndAddHeader(header);
     }
     if (options.byte_range.size() != 0) {
       request_builder.MaybeAddRangeHeader(options.byte_range);
@@ -283,16 +285,15 @@ struct ReadTask {
 
     if (StorageGeneration::IsCleanValidValue(
             options.generation_conditions.if_equal)) {
-      request_builder.AddHeader(absl::StrFormat(
-          "if-match: \"%s\"", StorageGeneration::DecodeString(
-                                  options.generation_conditions.if_equal)));
+      request_builder.AddHeader("if-match",
+                                QuoteString(StorageGeneration::DecodeString(
+                                    options.generation_conditions.if_equal)));
     }
     if (StorageGeneration::IsCleanValidValue(
             options.generation_conditions.if_not_equal)) {
       request_builder.AddHeader(
-          absl::StrFormat("if-none-match: \"%s\"",
-                          StorageGeneration::DecodeString(
-                              options.generation_conditions.if_not_equal)));
+          "if-none-match", QuoteString(StorageGeneration::DecodeString(
+                               options.generation_conditions.if_not_equal)));
     }
 
     auto request = request_builder.BuildRequest();

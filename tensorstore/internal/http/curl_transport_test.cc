@@ -29,6 +29,7 @@
 #include "absl/log/absl_log.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
+#include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/http/transport_test_utils.h"
 #include "tensorstore/internal/thread/thread.h"
@@ -82,7 +83,7 @@ TEST_F(CurlTransportTest, Http1) {
   // Issue a request.
   auto response = transport->IssueRequest(
       HttpRequestBuilder("POST", absl::StrCat("http://", hostport, "/"))
-          .AddHeader("X-foo: bar")
+          .AddHeader("x-foo", "bar")
           .AddQueryParameter("name", "dragon")
           .AddQueryParameter("age", "1234")
           .EnableAcceptEncoding()
@@ -101,7 +102,7 @@ TEST_F(CurlTransportTest, Http1) {
 
   // User-Agent versions change based on zlib, nghttp2, and curl versions.
   EXPECT_THAT(initial_request, HasSubstr("Accept: */*\r\n"));
-  EXPECT_THAT(initial_request, HasSubstr("X-foo: bar\r\n"));
+  EXPECT_THAT(initial_request, HasSubstr("x-foo: bar\r\n"));
   EXPECT_THAT(initial_request, HasSubstr("Content-Length: 5"));
   EXPECT_THAT(initial_request,
               HasSubstr("Content-Type: application/x-www-form-urlencoded\r\n"));
@@ -175,7 +176,7 @@ TEST_F(CurlTransportTest, Http1Resend) {
 
     auto future = transport->IssueRequest(
         HttpRequestBuilder("POST", absl::StrCat("http://", hostport, "/"))
-            .AddHeader("X-foo: bar")
+            .AddHeader("x-foo", "bar")
             .AddQueryParameter("name", "dragon")
             .AddQueryParameter("age", "1234")
             .EnableAcceptEncoding()
@@ -201,7 +202,7 @@ TEST_F(CurlTransportTest, Http1Resend) {
     // User-Agent versions change based on zlib, nghttp2, and curl versions.
 
     EXPECT_THAT(request, HasSubstr("Accept: */*\r\n"));
-    EXPECT_THAT(request, HasSubstr("X-foo: bar\r\n"));
+    EXPECT_THAT(request, HasSubstr("x-foo: bar\r\n"));
     EXPECT_THAT(request, HasSubstr("Content-Length: 5"));
     EXPECT_THAT(
         request,

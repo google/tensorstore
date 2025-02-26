@@ -37,7 +37,7 @@
 namespace tensorstore {
 namespace internal_kvstore_gcs_http {
 
-using ::tensorstore::internal_http::TryParseIntHeader;
+using ::tensorstore::internal_http::HeaderMap;
 using ::tensorstore::internal_json_binding::DefaultInitializedValue;
 
 namespace jb = tensorstore::internal_json_binding;
@@ -80,15 +80,14 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(ObjectMetadata,
                                              is_loading, options, obj, j);
                                        })
 
-void SetObjectMetadataFromHeaders(
-    const absl::btree_multimap<std::string, std::string>& headers,
-    ObjectMetadata* result) {
+void SetObjectMetadataFromHeaders(const HeaderMap& headers,
+                                  ObjectMetadata* result) {
   result->size =
-      TryParseIntHeader<uint64_t>(headers, "content-length").value_or(0);
+      headers.TryParseIntHeader<uint64_t>("content-length").value_or(0);
   result->generation =
-      TryParseIntHeader<int64_t>(headers, "x-goog-generation").value_or(0);
+      headers.TryParseIntHeader<int64_t>("x-goog-generation").value_or(0);
   result->metageneration =
-      TryParseIntHeader<uint64_t>(headers, "x-goog-metageneration").value_or(0);
+      headers.TryParseIntHeader<uint64_t>("x-goog-metageneration").value_or(0);
 
   // Ignore: content-type, x-goog-storage-class
 

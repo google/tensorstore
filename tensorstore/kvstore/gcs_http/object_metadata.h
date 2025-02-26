@@ -24,9 +24,9 @@
 #include <string>
 #include <string_view>
 
-#include "absl/container/btree_map.h"
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
+#include "tensorstore/internal/http/http_header.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/util/result.h"
@@ -69,9 +69,8 @@ struct ObjectMetadata {
 
 Result<ObjectMetadata> ParseObjectMetadata(std::string_view source);
 
-void SetObjectMetadataFromHeaders(
-    const absl::btree_multimap<std::string, std::string>& headers,
-    ObjectMetadata* result);
+void SetObjectMetadataFromHeaders(const internal_http::HeaderMap& headers,
+                                  ObjectMetadata* result);
 
 }  // namespace internal_kvstore_gcs_http
 }  // namespace tensorstore

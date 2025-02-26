@@ -21,11 +21,13 @@
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "tensorstore/internal/http/http_header.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/mock_http_transport.h"
 #include "tensorstore/util/status_testutil.h"
 
 using ::tensorstore::internal_http::DefaultMockHttpTransport;
+using ::tensorstore::internal_http::HeaderMap;
 using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_kvstore_s3::ResolveEndpointRegion;
 using ::tensorstore::internal_kvstore_s3::S3EndpointRegion;
@@ -75,20 +77,23 @@ TEST(ValidateEndpointTest, Basic) {
 // Mock-based tests for s3.
 
 TEST(ResolveEndpointRegion, Basic) {
-  auto mock_transport = std::make_shared<
-      DefaultMockHttpTransport>(DefaultMockHttpTransport::Responses{
-      // initial HEAD request responds with an x-amz-bucket-region header.
-      {"HEAD https://testbucket.s3.amazonaws.com",
-       HttpResponse{200, absl::Cord(), {{"x-amz-bucket-region", "us-east-1"}}}},
+  auto mock_transport = std::make_shared<DefaultMockHttpTransport>(
+      DefaultMockHttpTransport::Responses{
+          // initial HEAD request responds with an x-amz-bucket-region header.
+          {"HEAD https://testbucket.s3.amazonaws.com",
+           HttpResponse{200, absl::Cord(),
+                        HeaderMap{{"x-amz-bucket-region", "us-east-1"}}}},
 
-      {"HEAD https://s3.us-east-1.amazonaws.com/test.bucket",
-       HttpResponse{200, absl::Cord(), {{"x-amz-bucket-region", "us-east-1"}}}},
+          {"HEAD https://s3.us-east-1.amazonaws.com/test.bucket",
+           HttpResponse{200, absl::Cord(),
+                        HeaderMap{{"x-amz-bucket-region", "us-east-1"}}}},
 
-      {"HEAD http://localhost:1234/test.bucket",
-       HttpResponse{200, absl::Cord(), {{"x-amz-bucket-region", "us-east-1"}}}},
+          {"HEAD http://localhost:1234/test.bucket",
+           HttpResponse{200, absl::Cord(),
+                        HeaderMap{{"x-amz-bucket-region", "us-east-1"}}}},
 
-      // DELETE 404 => absl::OkStatus()
-  });
+          // DELETE 404 => absl::OkStatus()
+      });
 
   S3EndpointRegion ehr;
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(

@@ -18,13 +18,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <string>
-
-#include "absl/container/btree_map.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
-#include "absl/strings/match.h"
 #include "absl/strings/str_format.h"
+#include "tensorstore/internal/http/http_header.h"
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/util/result.h"
 
@@ -35,32 +32,17 @@ namespace internal_http {
 struct HttpResponse {
   int32_t status_code;
   absl::Cord payload;
-  absl::btree_multimap<std::string, std::string> headers;
+  HeaderMap headers;
 
   template <typename Sink>
   friend void AbslStringify(Sink& sink, const HttpResponse& response) {
-    absl::Format(&sink, "HttpResponse{code=%d, headers=<",
-                 response.status_code);
-    const char* sep = "";
-    for (const auto& kv : response.headers) {
-      sink.Append(sep);
-      sink.Append(kv.first);
-      sink.Append(": ");
-#ifndef NDEBUG
-      // Redact auth_token in response logging.
-      if (absl::StrContainsIgnoreCase(kv.first, "auth_token")) {
-        sink.Append("#####");
-      } else
-#endif
-      {
-        sink.Append(kv.second);
-      }
-      sep = "  ";
-    }
+    absl::Format(&sink, "HttpResponse{code=%d, headers=%v, payload.size=%d",
+                 response.status_code, response.headers,
+                 response.payload.size());
     if (response.payload.size() <= 64) {
-      absl::Format(&sink, ">, payload=%v}", response.payload);
+      absl::Format(&sink, ", payload=%v}", response.payload);
     } else {
-      absl::Format(&sink, ">, payload.size=%d}", response.payload.size());
+      absl::Format(&sink, "}");
     }
   }
 };

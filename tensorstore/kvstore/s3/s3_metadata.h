@@ -25,9 +25,9 @@
 #include <optional>
 #include <string>
 
-#include "absl/container/btree_map.h"
 #include "absl/status/status.h"
 #include "absl/time/time.h"
+#include "tensorstore/internal/http/http_header.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/kvstore/generation.h"
@@ -57,7 +57,7 @@ std::optional<absl::Time> GetNodeTimestamp(tinyxml2::XMLNode* node);
 /// This may or may not be an MD5 digest of the data
 /// https://docs.aws.amazon.com/AmazonS3/latest/API/API_Object.html
 Result<StorageGeneration> StorageGenerationFromHeaders(
-    const absl::btree_multimap<std::string, std::string>& headers);
+    const internal_http::HeaderMap& headers);
 
 /// Constructs an absl::Status from an Aws HttpResponse.
 absl::Status AwsHttpResponseToStatus(
