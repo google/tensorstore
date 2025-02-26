@@ -39,6 +39,7 @@
 #include <aws/common/zero.h>
 #include <aws/http/connection_manager.h>
 #include <aws/http/request_response.h>
+#include "tensorstore/internal/http/http_header.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/log/verbose_flag.h"
@@ -184,9 +185,8 @@ internal_http::HttpRequest BuildHttpRequest(
     aws_http_header header;
     AWS_ZERO_STRUCT(header);
     aws_http_headers_get_index(headers, i, &header);
-    request.headers.push_back(
-        absl::StrCat(AwsByteCursorToStringView(header.name), ": ",
-                     AwsByteCursorToStringView(header.value)));
+    request.headers.SetHeader(AwsByteCursorToStringView(header.name),
+                              AwsByteCursorToStringView(header.value));
   }
   return request;
 }

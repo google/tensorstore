@@ -65,7 +65,7 @@ Result<HttpResponse> GoogleServiceAccountAuthProvider::IssueRequest(
   return transport_
       ->IssueRequest(
           HttpRequestBuilder(method, std::string{uri})
-              .AddHeader("Content-Type: application/x-www-form-urlencoded")
+              .AddHeader("content-type", "application/x-www-form-urlencoded")
               .BuildRequest(),
           internal_http::IssueRequestOptions(std::move(payload)))
       .result();

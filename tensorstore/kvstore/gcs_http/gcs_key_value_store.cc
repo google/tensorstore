@@ -562,7 +562,7 @@ struct ReadTask : public RateLimiterNode,
 
     HttpRequestBuilder request_builder("GET", media_url);
     if (maybe_auth_header.value().has_value()) {
-      request_builder.AddHeader(*maybe_auth_header.value());
+      request_builder.ParseAndAddHeader(*maybe_auth_header.value());
     }
     if (options.byte_range.size() != 0) {
       request_builder.MaybeAddRangeHeader(options.byte_range);
@@ -761,11 +761,11 @@ struct WriteTask : public RateLimiterNode,
     }
     HttpRequestBuilder request_builder("POST", upload_url);
     if (maybe_auth_header.value().has_value()) {
-      request_builder.AddHeader(*maybe_auth_header.value());
+      request_builder.ParseAndAddHeader(*maybe_auth_header.value());
     }
     auto request =
-        request_builder.AddHeader("Content-Type: application/octet-stream")
-            .AddHeader(absl::StrCat("Content-Length: ", value.size()))
+        request_builder.AddHeader("content-type", "application/octet-stream")
+            .AddHeader("content-length", absl::StrCat(value.size()))
             .BuildRequest();
     start_time_ = absl::Now();
 
@@ -916,7 +916,8 @@ struct DeleteTask : public RateLimiterNode,
     }
     HttpRequestBuilder request_builder("DELETE", delete_url);
     if (maybe_auth_header.value().has_value()) {
-      request_builder.AddHeader(*maybe_auth_header.value());
+      // TODO: PARSE.
+      request_builder.ParseAndAddHeader(*maybe_auth_header.value());
     }
 
     auto request = request_builder.BuildRequest();
@@ -1124,7 +1125,7 @@ struct ListTask : public RateLimiterNode,
 
     HttpRequestBuilder request_builder("GET", list_url);
     if (auth_header->has_value()) {
-      request_builder.AddHeader(auth_header->value());
+      request_builder.ParseAndAddHeader(auth_header->value());
     }
 
     auto request = request_builder.BuildRequest();

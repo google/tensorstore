@@ -34,10 +34,10 @@ namespace internal_http {
 void AddDefaultHeaders(HttpResponse& response) {
   auto& headers = response.headers;
   if (headers.find("content-length") == headers.end()) {
-    headers.emplace("content-length", absl::StrCat(response.payload.size()));
+    headers.SetHeader("content-length", absl::StrCat(response.payload.size()));
   }
   if (headers.find("content-type") == headers.end()) {
-    headers.emplace("content-type", "application/octet-stream");
+    headers.SetHeader("content-type", "application/octet-stream");
   }
 }
 

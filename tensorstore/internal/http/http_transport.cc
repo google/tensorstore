@@ -18,12 +18,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <string>
 #include <string_view>
 #include <utility>
 
 #include "absl/base/attributes.h"
-#include "absl/container/btree_map.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
@@ -59,7 +57,7 @@ class LegacyHttpResponseHandler : public HttpResponseHandler {
   absl::Cord data_;
   riegeli::CordWriter<absl::Cord*> writer_;
   int32_t status_code_ = 0;
-  absl::btree_multimap<std::string, std::string> headers_;
+  HeaderMap headers_;
 };
 
 LegacyHttpResponseHandler::LegacyHttpResponseHandler(Promise<HttpResponse> p)

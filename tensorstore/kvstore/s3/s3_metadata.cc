@@ -25,13 +25,13 @@
 #include <utility>
 
 #include "absl/base/no_destructor.h"
-#include "absl/container/btree_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_format.h"
 #include "absl/time/time.h"
 #include "re2/re2.h"
+#include "tensorstore/internal/http/http_header.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/kvstore/generation.h"
@@ -39,6 +39,7 @@
 #include "tensorstore/util/status.h"
 #include "tinyxml2.h"
 
+using ::tensorstore::internal_http::HeaderMap;
 using ::tensorstore::internal_http::HttpResponse;
 
 namespace tensorstore {
@@ -208,7 +209,7 @@ std::string GetNodeText(tinyxml2::XMLNode* node) {
 }
 
 Result<StorageGeneration> StorageGenerationFromHeaders(
-    const absl::btree_multimap<std::string, std::string>& headers) {
+    const HeaderMap& headers) {
   if (auto it = headers.find(kEtag); it != headers.end()) {
     return StorageGeneration::FromString(it->second);
   }

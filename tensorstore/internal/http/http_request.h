@@ -18,13 +18,11 @@
 #include <optional>
 #include <string>
 #include <string_view>
-#include <utility>
-#include <vector>
 
 #include "absl/functional/function_ref.h"
-#include "absl/strings/match.h"
 #include "absl/strings/str_format.h"
 #include "absl/time/time.h"
+#include "tensorstore/internal/http/http_header.h"
 #include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/byte_range.h"
 
@@ -36,29 +34,14 @@ struct HttpRequest {
   std::string method;
   std::string url;
   std::string user_agent = {};
-  std::vector<std::string> headers = {};
+  HeaderMap headers;
   bool accept_encoding = false;
 
   template <typename Sink>
   friend void AbslStringify(Sink& sink, const HttpRequest& request) {
-    absl::Format(&sink, "HttpRequest{%s %s user_agent=%s, headers=<",
-                 request.method, request.url, request.user_agent);
-    const char* sep = "";
-    for (const auto& v : request.headers) {
-      sink.Append(sep);
-#ifndef NDEBUG
-      // Redact authorization token in request logging.
-      if (absl::StartsWithIgnoreCase(v, "authorization:")) {
-        sink.Append(std::string_view(v).substr(0, 25));
-        sink.Append("#####");
-      } else
-#endif
-      {
-        sink.Append(v);
-      }
-      sep = "  ";
-    }
-    sink.Append(">}");
+    absl::Format(&sink, "HttpRequest{%s %s user_agent=%s, headers=%v}",
+                 request.method, request.url, request.user_agent,
+                 request.headers);
   }
 };
 
@@ -105,17 +88,13 @@ class HttpRequestBuilder {
   /// response.
   HttpRequestBuilder& EnableAcceptEncoding();
 
-  /// Adds request headers.
-  HttpRequestBuilder& AddHeader(std::string header);
-  HttpRequestBuilder& AddHeader(std::string_view header) {
-    return header.empty() ? *this : AddHeader(std::string(header));
-  }
-  HttpRequestBuilder& AddHeader(const char* header) {
-    return AddHeader(std::string_view(header));
-  }
-  HttpRequestBuilder& AddHeader(std::optional<std::string> header) {
-    return header ? AddHeader(*std::move(header)) : *this;
-  }
+  /// Adds a request header.
+  /// `field_name` must be a lowercase HTTP header name.
+  HttpRequestBuilder& AddHeader(std::string_view field_name,
+                                std::string_view field_value);
+
+  /// Parses a header and adds it to the request.
+  HttpRequestBuilder& ParseAndAddHeader(std::string_view header);
 
   /// Adds a `range` header to the http request if the byte_range
   /// is specified.

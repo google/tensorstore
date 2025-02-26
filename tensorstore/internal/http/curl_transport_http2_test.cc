@@ -410,7 +410,7 @@ TEST_F(CurlTransportTest, Http2) {
   {
     auto response = transport->IssueRequest(
         HttpRequestBuilder("POST", absl::StrCat("http://", hostport, "/"))
-            .AddHeader("X-foo: bar")
+            .AddHeader("x-foo", "bar")
             .AddQueryParameter("name", "dragon")
             .AddQueryParameter("age", "1234")
             .EnableAcceptEncoding()
@@ -428,7 +428,7 @@ TEST_F(CurlTransportTest, Http2) {
     // User-Agent versions change based on zlib, nghttp2, and curl versions.
 
     EXPECT_THAT(initial_request, HasSubstr("Accept: */*\r\n"));
-    EXPECT_THAT(initial_request, HasSubstr("X-foo: bar\r\n"));
+    EXPECT_THAT(initial_request, HasSubstr("x-foo: bar\r\n"));
     EXPECT_THAT(initial_request, HasSubstr("Content-Length: 5"));
     EXPECT_THAT(
         initial_request,

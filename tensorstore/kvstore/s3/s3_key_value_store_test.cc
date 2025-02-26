@@ -22,6 +22,7 @@
 #include "absl/strings/match.h"
 #include "tensorstore/context.h"
 #include "tensorstore/internal/http/curl_transport.h"
+#include "tensorstore/internal/http/http_header.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
@@ -45,9 +46,12 @@ using ::tensorstore::internal::MatchesKvsReadResult;
 using ::tensorstore::internal::MatchesListEntry;
 using ::tensorstore::internal::MatchesTimestampedStorageGeneration;
 using ::tensorstore::internal_http::DefaultMockHttpTransport;
+using ::tensorstore::internal_http::HeaderMap;
 using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_http::HttpTransport;
 using ::tensorstore::internal_http::SetDefaultHttpTransport;
+using ::testing::Contains;
+using ::testing::Pair;
 
 namespace {
 
@@ -135,33 +139,34 @@ TEST(S3KeyValueStoreTest, SimpleMock_VirtualHost) {
       DefaultMockHttpTransport>(DefaultMockHttpTransport::Responses{
       // initial HEAD request responds with an x-amz-bucket-region header.
       {"HEAD https://my-bucket.s3.amazonaws.com",
-       HttpResponse{200, absl::Cord(), {{"x-amz-bucket-region", "us-east-1"}}}},
+       HttpResponse{200, absl::Cord(),
+                    HeaderMap{{"x-amz-bucket-region", "us-east-1"}}}},
 
       {"GET https://my-bucket.s3.us-east-1.amazonaws.com/tmp:1/key_read",
-       HttpResponse{200,
-                    absl::Cord("abcd"),
-                    {{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""},
+       HttpResponse{
+           200, absl::Cord("abcd"),
+           HeaderMap{{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""},
                      {"x-amz-checksum-sha256",
                       "iNQmb9TmM40TuEX88olXnSCciXgjuSF9o+Fhk28DFYk="}}}},
 
       {"GET https://my-bucket.s3.us-east-1.amazonaws.com/tmp:1/empty_read",
-       HttpResponse{200,
-                    absl::Cord(),
-                    {{"etag", "\"900150983cd24fb0d6963f7d28e17f73\""},
+       HttpResponse{
+           200, absl::Cord(),
+           HeaderMap{{"etag", "\"900150983cd24fb0d6963f7d28e17f73\""},
                      {"x-amz-checksum-sha256",
                       "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="}}}},
 
       {"GET https://my-bucket.s3.us-east-1.amazonaws.com/tmp:1/sha_mismatch",
-       HttpResponse{200,
-                    absl::Cord("xyz"),
-                    {{"etag", "\"900150983cd24fb0d6963f7d28e17f73\""},
+       HttpResponse{
+           200, absl::Cord("xyz"),
+           HeaderMap{{"etag", "\"900150983cd24fb0d6963f7d28e17f73\""},
                      {"x-amz-checksum-sha256",
                       "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="}}}},
 
       {"PUT https://my-bucket.s3.us-east-1.amazonaws.com/tmp:1/key_write",
-       HttpResponse{200,
-                    absl::Cord(),
-                    {{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}}},
+       HttpResponse{
+           200, absl::Cord(),
+           HeaderMap{{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}}},
 
       // DELETE 404 => absl::OkStatus()
   });
@@ -205,18 +210,18 @@ TEST(S3KeyValueStoreTest, SimpleMock_VirtualHost) {
       host_header_validated++;
       EXPECT_THAT(
           request.headers,
-          testing::Contains("host: my-bucket.s3.us-east-1.amazonaws.com"));
+          Contains(Pair("host", "my-bucket.s3.us-east-1.amazonaws.com")));
     }
     if (request.method == "GET") {
       EXPECT_THAT(request.headers,
-                  testing::Contains("x-amz-checksum-mode: ENABLED"));
+                  Contains(Pair("x-amz-checksum-mode", "ENABLED")));
     }
     if (request.method == "PUT" &&
         absl::StrContains(request.url, "key_write")) {
       EXPECT_THAT(request.headers,
-                  testing::Contains("x-amz-content-sha256: "
-                                    "3608bca1e44ea6c4d268eb6db02260269892c0b42b"
-                                    "86bbf1e77a6fa16c3c9282"));
+                  Contains(Pair("x-amz-content-sha256",
+                                "3608bca1e44ea6c4d268eb6db02260269892c0b42b"
+                                "86bbf1e77a6fa16c3c9282")));
     }
   }
   EXPECT_THAT(host_header_validated, testing::Ge(2));
@@ -227,18 +232,18 @@ TEST(S3KeyValueStoreTest, SimpleMock_NoVirtualHost) {
       DefaultMockHttpTransport::Responses{
           // initial HEAD request responds with an x-amz-bucket-region header.
           {"HEAD https://s3.amazonaws.com/my.bucket",
-           HttpResponse{
-               200, absl::Cord(), {{"x-amz-bucket-region", "us-east-1"}}}},
+           HttpResponse{200, absl::Cord(),
+                        HeaderMap{{"x-amz-bucket-region", "us-east-1"}}}},
 
           {"GET https://s3.us-east-1.amazonaws.com/my.bucket/key_read",
-           HttpResponse{200,
-                        absl::Cord("abcd"),
-                        {{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}}},
+           HttpResponse{
+               200, absl::Cord("abcd"),
+               HeaderMap{{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}}},
 
           {"PUT https://s3.us-east-1.amazonaws.com/my.bucket/key_write",
-           HttpResponse{200,
-                        absl::Cord(),
-                        {{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}}},
+           HttpResponse{
+               200, absl::Cord(),
+               HeaderMap{{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}}},
 
           // DELETE 404 => absl::OkStatus()
       });
@@ -271,7 +276,7 @@ TEST(S3KeyValueStoreTest, SimpleMock_NoVirtualHost) {
     if (absl::StartsWith(request.url, "https://s3.us-east-1.amazonaws.com/")) {
       host_header_validated++;
       EXPECT_THAT(request.headers,
-                  testing::Contains("host: s3.us-east-1.amazonaws.com"));
+                  Contains(Pair("host", "s3.us-east-1.amazonaws.com")));
     }
   }
   EXPECT_THAT(host_header_validated, testing::Ge(2));
@@ -282,16 +287,16 @@ TEST(S3KeyValueStoreTest, MockWrite_Conflict) {
       DefaultMockHttpTransport::Responses{
           // initial HEAD request responds with an x-amz-bucket-region header.
           {"HEAD https://s3.amazonaws.com/my.bucket",
-           HttpResponse{
-               200, absl::Cord(), {{"x-amz-bucket-region", "us-east-1"}}}},
+           HttpResponse{200, absl::Cord(),
+                        HeaderMap{{"x-amz-bucket-region", "us-east-1"}}}},
 
           {"PUT https://s3.us-east-1.amazonaws.com/my.bucket/key_write",
            HttpResponse{409, absl::Cord(), {}}},
 
           {"PUT https://s3.us-east-1.amazonaws.com/my.bucket/key_write",
-           HttpResponse{200,
-                        absl::Cord(),
-                        {{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}}},
+           HttpResponse{
+               200, absl::Cord(),
+               HeaderMap{{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}}},
 
           // DELETE 404 => absl::OkStatus()
       });
@@ -321,8 +326,8 @@ TEST(S3KeyValueStoreTest, MockWrite_Conflict) {
   for (const auto& request : mock_transport->requests()) {
     if (absl::StartsWith(request.url, "https://s3.us-east-1.amazonaws.com/")) {
       host_header_validated++;
-      EXPECT_THAT(request.headers,
-                  testing::Contains("host: s3.us-east-1.amazonaws.com"));
+      EXPECT_THAT(request.headers, testing::Contains(Pair(
+                                       "host", "s3.us-east-1.amazonaws.com")));
     }
   }
   EXPECT_THAT(host_header_validated, testing::Ge(2));
@@ -335,18 +340,18 @@ TEST(S3KeyValueStoreTest, SimpleMock_Endpoint) {
       DefaultMockHttpTransport::Responses{
           // initial HEAD request responds with an x-amz-bucket-region header.
           {"HEAD https://localhost:1234/base/my-bucket",
-           HttpResponse{
-               200, absl::Cord(), {{"x-amz-bucket-region", "us-east-1"}}}},
+           HttpResponse{200, absl::Cord(),
+                        HeaderMap{{"x-amz-bucket-region", "us-east-1"}}}},
 
           {"GET https://localhost:1234/base/my-bucket/tmp:1/key_read",
-           HttpResponse{200,
-                        absl::Cord("abcd"),
-                        {{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}}},
+           HttpResponse{
+               200, absl::Cord("abcd"),
+               HeaderMap{{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}}},
 
           {"PUT https://localhost:1234/base/my-bucket/tmp:1/key_write",
-           HttpResponse{200,
-                        absl::Cord(),
-                        {{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}}},
+           HttpResponse{
+               200, absl::Cord(),
+               HeaderMap{{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}}},
 
           // DELETE 404 => absl::OkStatus()
       });
@@ -381,7 +386,8 @@ TEST(S3KeyValueStoreTest, SimpleMock_Endpoint) {
   for (const auto& request : mock_transport->requests()) {
     if (absl::StartsWith(request.url, "https://localhost:1234/")) {
       host_header_validated++;
-      EXPECT_THAT(request.headers, testing::Contains("host: localhost:1234"));
+      EXPECT_THAT(request.headers,
+                  testing::Contains(Pair("host", "localhost:1234")));
     }
   }
   EXPECT_THAT(host_header_validated, testing::Ge(2));
@@ -434,8 +440,8 @@ TEST(S3KeyValueStoreTest, SimpleMock_List) {
       DefaultMockHttpTransport::Responses{
           // initial HEAD request responds with an x-amz-bucket-region header.
           {"HEAD https://my-bucket.s3.amazonaws.com",
-           HttpResponse{
-               200, absl::Cord(), {{"x-amz-bucket-region", "us-east-1"}}}},
+           HttpResponse{200, absl::Cord(),
+                        HeaderMap{{"x-amz-bucket-region", "us-east-1"}}}},
 
           {"GET https://my-bucket.s3.us-east-1.amazonaws.com/?list-type=2",
            HttpResponse{200, absl::Cord(kListResultA), {}}},
@@ -496,15 +502,15 @@ TEST(S3KeyValueStoreTest, SimpleMock_ListPrefix) {
       DefaultMockHttpTransport::Responses{
           // initial HEAD request responds with an x-amz-bucket-region header.
           {"HEAD https://my-bucket.s3.amazonaws.com",
-           HttpResponse{
-               200, absl::Cord(), {{"x-amz-bucket-region", "us-east-1"}}}},
+           HttpResponse{200, absl::Cord(),
+                        HeaderMap{{"x-amz-bucket-region", "us-east-1"}}}},
 
           {"GET "
            "https://my-bucket.s3.us-east-1.amazonaws.com/"
            "?list-type=2&prefix=b",
-           HttpResponse{200,
-                        absl::Cord(kListResult),
-                        {{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}}},
+           HttpResponse{
+               200, absl::Cord(kListResult),
+               HeaderMap{{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}}},
       });
   DefaultHttpTransportSetter mock_transport_setter{mock_transport};
 
@@ -541,8 +547,8 @@ TEST(S3KeyValueStoreTest, SimpleMock_RetryTimesOut) {
       DefaultMockHttpTransport::Responses{
           // initial HEAD request responds with an x-amz-bucket-region header.
           {"HEAD https://localhost:1234/base/my-bucket",
-           HttpResponse{
-               200, absl::Cord(), {{"x-amz-bucket-region", "us-east-1"}}}},
+           HttpResponse{200, absl::Cord(),
+                        HeaderMap{{"x-amz-bucket-region", "us-east-1"}}}},
 
           // 400 => retry
           {"GET https://localhost:1234/base/my-bucket/tmp:1/key_read",

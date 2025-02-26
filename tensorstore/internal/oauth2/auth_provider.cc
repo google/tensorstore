@@ -14,6 +14,10 @@
 
 #include "tensorstore/internal/oauth2/auth_provider.h"
 
+#include <string>
+
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {

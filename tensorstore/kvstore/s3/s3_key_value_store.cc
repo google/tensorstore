@@ -163,14 +163,14 @@ bool AddGenerationHeader(S3RequestBuilder* builder, std::string_view header,
   }
   if (StorageGeneration::IsNoValue(gen)) {
     // If no generation is provided, provide an empty etag
-    builder->AddHeader(absl::StrCat(header, ": \"\""));
+    builder->AddHeader(header, "\"\"");
     return true;
   }
 
   auto etag = StorageGeneration::DecodeString(gen);
   ABSL_DCHECK(absl::StartsWith(etag, "\""));
   ABSL_DCHECK(absl::EndsWith(etag, "\""));
-  builder->AddHeader(absl::StrCat(header, ": ", etag));
+  builder->AddHeader(header, etag);
   return true;
 }
 
@@ -429,7 +429,7 @@ struct ReadTask : public RateLimiterNode,
     if (options.byte_range.size() != 0) {
       request_builder.MaybeAddRangeHeader(options.byte_range);
     }
-    request_builder.AddHeader("x-amz-checksum-mode: ENABLED");
+    request_builder.AddHeader("x-amz-checksum-mode", "ENABLED");
 
     const auto& ehr = endpoint_region_.value();
     start_time_ = absl::Now();
@@ -706,11 +706,11 @@ struct WriteTask : public RateLimiterNode,
 
     const auto& ehr = endpoint_region_.value();
     auto builder = S3RequestBuilder("PUT", object_url_);
-    builder.AddHeader("Content-Type: application/octet-stream")
-        .AddHeader(absl::StrCat("Content-Length: ", value_.size()))
+    builder.AddHeader("content-type", "application/octet-stream")
+        .AddHeader("content-length", absl::StrCat(value_.size()))
         .MaybeAddRequesterPayer(owner->spec_.requester_pays);
     if (StorageGeneration::IsNoValue(options_.generation_conditions.if_equal)) {
-      builder.AddHeader("if-none-match: *");
+      builder.AddHeader("if-none-match", "*");
     } else {
       AddGenerationHeader(&builder, "if-match",
                           options_.generation_conditions.if_equal);

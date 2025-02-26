@@ -27,6 +27,7 @@ tensorstore_cc_library(
     hdrs = ["test_utils.h"],
     deps = [
         "//tensorstore/internal/http",
+        "//tensorstore/internal/http:http_header",
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/time",
@@ -94,6 +95,7 @@ tensorstore_cc_test(
         ":test_utils",
         "//tensorstore/internal:env",
         "//tensorstore/internal/http",
+        "//tensorstore/internal/http:http_header",
         "//tensorstore/kvstore/s3:aws_credentials",
         "//tensorstore/kvstore/s3:aws_http_mocking",
         "//tensorstore/util:status_testutil",

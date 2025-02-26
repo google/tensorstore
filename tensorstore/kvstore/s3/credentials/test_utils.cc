@@ -21,10 +21,13 @@
 #include "absl/strings/cord.h"
 #include "absl/strings/str_format.h"
 #include "absl/time/time.h"
+#include "tensorstore/internal/http/http_header.h"
 #include "tensorstore/internal/http/http_response.h"
 
 namespace tensorstore {
 namespace internal_kvstore_s3 {
+
+using ::tensorstore::internal_http::HeaderMap;
 
 std::vector<std::pair<std::string, internal_http::HttpResponse>>
 DefaultImdsCredentialFlow(const std::string& api_token,
@@ -38,12 +41,13 @@ DefaultImdsCredentialFlow(const std::string& api_token,
        internal_http::HttpResponse{200, absl::Cord{api_token}}},
       {absl::StrFormat("GET %s/latest/meta-data/iam/", kDefaultEndpoint),
        internal_http::HttpResponse{
-           200, absl::Cord{"info"}, {{"x-aws-ec2-metadata-token", api_token}}}},
+           200, absl::Cord{"info"},
+           HeaderMap{{"x-aws-ec2-metadata-token", api_token}}}},
       {absl::StrFormat("GET %s/latest/meta-data/iam/security-credentials/",
                        kDefaultEndpoint),
-       internal_http::HttpResponse{200,
-                                   absl::Cord{"mock-iam-role"},
-                                   {{"x-aws-ec2-metadata-token", api_token}}}},
+       internal_http::HttpResponse{
+           200, absl::Cord{"mock-iam-role"},
+           HeaderMap{{"x-aws-ec2-metadata-token", api_token}}}},
       {absl::StrFormat(
            "GET %s/latest/meta-data/iam/security-credentials/mock-iam-role",
            kDefaultEndpoint),
@@ -60,7 +64,7 @@ DefaultImdsCredentialFlow(const std::string& api_token,
                access_key, secret_key, session_token,
                absl::FormatTime("%Y-%m-%d%ET%H:%M:%E*S%Ez", expires_at,
                                 absl::UTCTimeZone()))),
-           {{"x-aws-ec2-metadata-token", api_token}}}}};
+           HeaderMap{{"x-aws-ec2-metadata-token", api_token}}}}};
 }
 
 }  // namespace internal_kvstore_s3

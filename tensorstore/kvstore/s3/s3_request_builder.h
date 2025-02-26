@@ -62,9 +62,11 @@ class S3RequestBuilder {
   S3RequestBuilder(std::string_view method, std::string endpoint_url)
       : builder_(method, std::move(endpoint_url), S3UriEncode) {}
 
-  /// Adds request headers.
-  S3RequestBuilder& AddHeader(std::string_view header) {
-    builder_.AddHeader(header);
+  /// Adds a request header.
+  /// `field_name` must be a lowercase HTTP header name.
+  S3RequestBuilder& AddHeader(std::string_view field_name,
+                              std::string_view field_value) {
+    builder_.AddHeader(field_name, field_value);
     return *this;
   }
 

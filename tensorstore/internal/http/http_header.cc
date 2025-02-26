@@ -24,13 +24,15 @@
 #include <utility>
 
 #include "absl/container/btree_map.h"
+#include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "absl/strings/ascii.h"
-#include "absl/strings/numbers.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
 #include "re2/re2.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/ascii_set.h"
 #include "tensorstore/util/quote_string.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -55,32 +57,85 @@ static inline constexpr internal::AsciiSet kTChar{
     "abcdefghijklmnopqrstuvwxyz"
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     "0123456789"
-    R"(!#$%&'*+-.)"};
+    R"(!#$%&'*+-.^_`|~)"};
 
 inline bool IsTchar(char ch) { return kTChar.Test(ch); }
 
 inline bool IsOWS(char ch) { return ch == ' ' || ch == '\t'; }
+
+bool IsLowercase(std::string_view s) {
+  for (char c : s) {
+    if (c >= 'A' && c <= 'Z') return false;
+  }
+  return true;
+}
+
 }  // namespace
 
-absl::Status ValidateHttpHeader(std::string_view header) {
-  static LazyRE2 kHeaderPattern = {// field-name
-                                   "[!#\\$%&'*+\\-\\.\\^_`|~0-9a-zA-Z]+"
-                                   ":"
-                                   // OWS field-content OWS
-                                   "[\t\x20-\x7e\x80-\xff]*",
-                                   // Use Latin1 because the pattern applies to
-                                   // raw bytes, not UTF-8.
-                                   RE2::Latin1};
+void HeaderMap::ClearHeader(std::string_view field_name) {
+  ABSL_DCHECK(IsLowercase(field_name));
+  headers_.erase(field_name);
+}
 
-  if (!RE2::FullMatch(header, *kHeaderPattern)) {
+void HeaderMap::SetHeader(std::string_view field_name,
+                          std::string_view field_value) {
+  ABSL_DCHECK(IsLowercase(field_name));
+  headers_.insert_or_assign(field_name, field_value);
+}
+
+void HeaderMap::SetHeader(std::string_view field_name,
+                          std::string field_value) {
+  ABSL_DCHECK(IsLowercase(field_name));
+  headers_.insert_or_assign(field_name, std::move(field_value));
+}
+
+void HeaderMap::CombineHeader(std::string_view field_name,
+                              std::string_view field_value) {
+  ABSL_DCHECK(IsLowercase(field_name));
+  if (auto it = headers_.find(field_name); it != headers_.end()) {
+    if (!field_value.empty() && field_value != it->second) {
+      it->second =
+          absl::StrCat(it->second, it->second.empty() ? "" : ",", field_value);
+    }
+  } else {
+    headers_.emplace(field_name, std::string(field_value));
+  }
+}
+
+Result<std::pair<std::string_view, std::string_view>> ValidateHttpHeader(
+    std::string_view field_name, std::string_view field_value) {
+  // Check the header field name.
+  if (field_name.empty()) {
+    return absl::InvalidArgumentError("Empty HTTP header field name");
+  }
+  for (char c : field_name) {
+    if (!IsTchar(c)) {
+      return absl::InvalidArgumentError(tensorstore::StrCat(
+          "Invalid HTTP char ", c,
+          " in header field name: ", tensorstore::QuoteString(field_name)));
+    }
+  }
+  // Check the header field value.
+  static LazyRE2 kFieldPattern = {"([\t\x20-\x7e\x80-\xff]*)", RE2::Latin1};
+  if (!RE2::FullMatch(field_value, *kFieldPattern)) {
+    return absl::InvalidArgumentError(
+        tensorstore::StrCat("Invalid HTTP header field value: ",
+                            tensorstore::QuoteString(field_value)));
+  }
+  return std::make_pair(field_name, absl::StripAsciiWhitespace(field_value));
+}
+
+Result<std::pair<std::string_view, std::string_view>> ValidateHttpHeader(
+    std::string_view header) {
+  size_t idx = header.find(':');
+  if (idx == std::string_view::npos) {
     return absl::InvalidArgumentError(tensorstore::StrCat(
         "Invalid HTTP header: ", tensorstore::QuoteString(header)));
   }
-  return absl::OkStatus();
+  return ValidateHttpHeader(header.substr(0, idx), header.substr(idx + 1));
 }
 
-size_t AppendHeaderData(absl::btree_multimap<std::string, std::string>& headers,
-                        std::string_view data) {
+size_t AppendHeaderData(HeaderMap& headers, std::string_view data) {
   // Header fields must be separated in CRLF; thus data must end in LF,
   // and the individual fields are split on LF.
   if (data.empty() || *data.rbegin() != '\n') return data.size();
@@ -101,20 +156,18 @@ size_t AppendHeaderData(absl::btree_multimap<std::string, std::string>& headers,
       // Invalid header: empty token, not split by :, or no :
       continue;
     }
-
-    std::string field_name = absl::AsciiStrToLower(
-        std::string_view(field.data(), std::distance(field.begin(), it)));
+    std::string_view field_name = field.substr(0, it - field.begin());
 
     // Transform the value by dropping OWS in the field value prefix.
     field.remove_prefix(field_name.size() + 1);
     while (!field.empty() && IsOWS(*field.begin())) field.remove_prefix(1);
-    headers.emplace(std::move(field_name), std::string(field));
+    headers.CombineHeader(absl::AsciiStrToLower(field_name), field);
   }
   return data.size();
 }
 
 std::optional<std::tuple<size_t, size_t, size_t>> TryParseContentRangeHeader(
-    const absl::btree_multimap<std::string, std::string>& headers) {
+    const HeaderMap& headers) {
   auto it = headers.find("content-range");
   if (it == headers.end()) {
     return std::nullopt;
@@ -137,24 +190,12 @@ std::optional<std::tuple<size_t, size_t, size_t>> TryParseContentRangeHeader(
   return std::nullopt;
 }
 
-std::optional<bool> TryParseBoolHeader(
-    const absl::btree_multimap<std::string, std::string>& headers,
-    std::string_view header) {
-  auto it = headers.find(header);
-  bool result;
-  if (it != headers.end() && absl::SimpleAtob(it->second, &result)) {
-    return result;
-  }
-  return std::nullopt;
-}
-
-std::optional<size_t> TryGetContentLength(
-    const absl::btree_multimap<std::string, std::string>& headers) {
+std::optional<size_t> TryGetContentLength(const HeaderMap& headers) {
   std::optional<size_t> content_length;
   // Extract the size of the returned content.
   if (headers.find("transfer-encoding") == headers.end() &&
       headers.find("content-encoding") == headers.end()) {
-    content_length = TryParseIntHeader<size_t>(headers, "content-length");
+    content_length = headers.TryParseIntHeader<size_t>("content-length");
   }
   if (!content_length) {
     auto content_range = TryParseContentRangeHeader(headers);

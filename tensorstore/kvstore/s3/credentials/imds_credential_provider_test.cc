@@ -21,6 +21,7 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/env.h"
+#include "tensorstore/internal/http/http_header.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/kvstore/s3/aws_credentials.h"
 #include "tensorstore/kvstore/s3/aws_http_mocking.h"
@@ -32,6 +33,7 @@ using ::tensorstore::IsOk;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::internal::SetEnv;
 using ::tensorstore::internal::UnsetEnv;
+using ::tensorstore::internal_http::HeaderMap;
 using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_kvstore_s3::AwsCredentialsProvider;
 using ::tensorstore::internal_kvstore_s3::DefaultImdsCredentialFlow;
@@ -99,15 +101,15 @@ TEST_F(ImdsCredentialsProviderTest, NoIamRolesInSecurityCredentials) {
        HttpResponse{200, absl::Cord{kApiToken}}},
       {"GET "
        "http://169.254.169.254:80/latest/meta-data/iam/security-credentials/",
-       HttpResponse{
-           200, absl::Cord{""}, {{"x-aws-ec2-metadata-token", kApiToken}}}},
-      // seccond call to GetAwsCredentials()
+       HttpResponse{200, absl::Cord{""},
+                    HeaderMap{{"x-aws-ec2-metadata-token", kApiToken}}}},
+      // second call to GetAwsCredentials()
       {"PUT http://169.254.169.254:80/latest/api/token",
        HttpResponse{200, absl::Cord{kApiToken}}},
       {"GET "
        "http://169.254.169.254:80/latest/meta-data/iam/security-credentials/",
-       HttpResponse{
-           200, absl::Cord{""}, {{"x-aws-ec2-metadata-token", kApiToken}}}},
+       HttpResponse{200, absl::Cord{""},
+                    HeaderMap{{"x-aws-ec2-metadata-token", kApiToken}}}},
   });
 
   AwsCredentialsProvider provider = MakeImds();
@@ -122,20 +124,17 @@ TEST_F(ImdsCredentialsProviderTest, UnsuccessfulJsonResponse) {
       {{"PUT http://169.254.169.254:80/latest/api/token",
         HttpResponse{200, absl::Cord{kApiToken}}},
        {"GET http://169.254.169.254:80/latest/meta-data/iam/",
-        HttpResponse{200,
-                     absl::Cord{"info"},
-                     {{"x-aws-ec2-metadata-token", kApiToken}}}},
+        HttpResponse{200, absl::Cord{"info"},
+                     HeaderMap{{"x-aws-ec2-metadata-token", kApiToken}}}},
        {"GET "
         "http://169.254.169.254:80/latest/meta-data/iam/security-credentials/",
-        HttpResponse{200,
-                     absl::Cord{"mock-iam-role"},
-                     {{"x-aws-ec2-metadata-token", kApiToken}}}},
+        HttpResponse{200, absl::Cord{"mock-iam-role"},
+                     HeaderMap{{"x-aws-ec2-metadata-token", kApiToken}}}},
        {"GET "
         "http://169.254.169.254:80/latest/meta-data/iam/security-credentials/"
         "mock-iam-role",
-        HttpResponse{200,
-                     absl::Cord(R"({"Code": "EntirelyUnsuccessful"})"),
-                     {{"x-aws-ec2-metadata-token", kApiToken}}}}});
+        HttpResponse{200, absl::Cord(R"({"Code": "EntirelyUnsuccessful"})"),
+                     HeaderMap{{"x-aws-ec2-metadata-token", kApiToken}}}}});
 
   AwsCredentialsProvider provider = MakeImds();
   auto credentials_future = GetAwsCredentials(provider.get());

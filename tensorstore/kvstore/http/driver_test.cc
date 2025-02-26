@@ -54,12 +54,16 @@ using ::tensorstore::StorageGeneration;
 using ::tensorstore::internal::MatchesKvsReadResult;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
 using ::tensorstore::internal_http::ApplyResponseToHandler;
+using ::tensorstore::internal_http::HeaderMap;
 using ::tensorstore::internal_http::HttpRequest;
 using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_http::HttpResponseHandler;
 using ::tensorstore::internal_http::HttpTransport;
 using ::tensorstore::internal_http::IssueRequestOptions;
 using ::tensorstore::internal_http::SetDefaultHttpTransport;
+using ::testing::ElementsAre;
+using ::testing::Pair;
+using ::testing::UnorderedElementsAre;
 
 class MyMockTransport : public HttpTransport {
  public:
@@ -109,9 +113,9 @@ TEST_F(HttpKeyValueStoreTest, UnconditionalReadUncachedWithEtag) {
   auto request = mock_transport->requests_.pop();
   EXPECT_EQ("https://example.com/my/path/abc", request.request.url);
   EXPECT_THAT(request.request.headers,
-              ::testing::ElementsAre("cache-control: no-cache"));
+              ElementsAre(Pair("cache-control", "no-cache")));
   request.set_result(
-      HttpResponse{200, absl::Cord("value"), {{"etag", "\"xyz\""}}});
+      HttpResponse{200, absl::Cord("value"), HeaderMap{{"etag", "\"xyz\""}}});
   EXPECT_THAT(read_future.result(),
               MatchesKvsReadResult(absl::Cord("value"),
                                    StorageGeneration::FromString("xyz")));
@@ -124,7 +128,7 @@ TEST_F(HttpKeyValueStoreTest, ReadNotFound) {
   auto request = mock_transport->requests_.pop();
   EXPECT_EQ("https://example.com/my/path/abc", request.request.url);
   EXPECT_THAT(request.request.headers,
-              ::testing::ElementsAre("cache-control: no-cache"));
+              ElementsAre(Pair("cache-control", "no-cache")));
   request.set_result(HttpResponse{404, absl::Cord()});
   EXPECT_THAT(read_future.result(), MatchesKvsReadResultNotFound());
 }
@@ -136,9 +140,9 @@ TEST_F(HttpKeyValueStoreTest, UnconditionalReadWeakEtag) {
   auto request = mock_transport->requests_.pop();
   EXPECT_EQ("https://example.com/my/path/abc", request.request.url);
   EXPECT_THAT(request.request.headers,
-              ::testing::ElementsAre("cache-control: no-cache"));
+              ElementsAre(Pair("cache-control", "no-cache")));
   request.set_result(
-      HttpResponse{200, absl::Cord("value"), {{"etag", "W/\"xyz\""}}});
+      HttpResponse{200, absl::Cord("value"), HeaderMap{{"etag", "W/\"xyz\""}}});
   EXPECT_THAT(
       read_future.result(),
       MatchesKvsReadResult(absl::Cord("value"), StorageGeneration::Invalid()));
@@ -155,10 +159,11 @@ TEST_F(HttpKeyValueStoreTest, ReadByteRange) {
   EXPECT_EQ("https://example.com/my/path/abc", request.request.url);
   EXPECT_THAT(request.request.method, "GET");
   EXPECT_THAT(request.request.headers,
-              ::testing::UnorderedElementsAre("cache-control: no-cache",
-                                              "Range: bytes=10-19"));
-  request.set_result(HttpResponse{
-      206, absl::Cord("valueabcde"), {{"content-range", "bytes 10-19/50"}}});
+              ElementsAre(Pair("cache-control", "no-cache"),
+                          Pair("range", "bytes=10-19")));
+  request.set_result(
+      HttpResponse{206, absl::Cord("valueabcde"),
+                   HeaderMap{{"content-range", "bytes 10-19/50"}}});
   EXPECT_THAT(read_future.result(),
               MatchesKvsReadResult(absl::Cord("valueabcde"),
                                    StorageGeneration::Invalid()));
@@ -189,11 +194,11 @@ TEST_F(HttpKeyValueStoreTest, ReadBatch) {
   EXPECT_EQ("https://example.com/my/path/abc", request.request.url);
   EXPECT_THAT(request.request.method, "GET");
   EXPECT_THAT(request.request.headers,
-              ::testing::UnorderedElementsAre("cache-control: no-cache",
-                                              "Range: bytes=10-24"));
-  request.set_result(HttpResponse{206,
-                                  absl::Cord("valueabcde01234"),
-                                  {{"content-range", "bytes 10-24/50"}}});
+              ElementsAre(Pair("cache-control", "no-cache"),
+                          Pair("range", "bytes=10-24")));
+  request.set_result(
+      HttpResponse{206, absl::Cord("valueabcde01234"),
+                   HeaderMap{{"content-range", "bytes 10-24/50"}}});
   EXPECT_THAT(futures[0].result(),
               MatchesKvsReadResult(absl::Cord("valueabcde"),
                                    StorageGeneration::Invalid()));
@@ -212,7 +217,8 @@ TEST_F(HttpKeyValueStoreTest, ReadZeroByteRange) {
   auto request = mock_transport->requests_.pop();
   EXPECT_EQ("https://example.com/my/path/abc", request.request.url);
   EXPECT_THAT(request.request.headers,
-              ::testing::ElementsAre("cache-control: no-cache"));
+              ElementsAre(Pair("cache-control", "no-cache")));
+
   request.set_result(HttpResponse{200, absl::Cord(), {}});
   EXPECT_THAT(read_future.result(),
               MatchesKvsReadResult(absl::Cord(), StorageGeneration::Invalid()));
@@ -227,9 +233,9 @@ TEST_F(HttpKeyValueStoreTest, ReadWithStalenessBound) {
   auto request = mock_transport->requests_.pop();
   EXPECT_EQ("https://example.com/my/path/abc", request.request.url);
   EXPECT_THAT(request.request.headers,
-              ::testing::ElementsAre(::testing::AnyOf(
-                  "cache-control: max-age=5", "cache-control: max-age=4",
-                  "cache-control: max-age=3")));
+              ElementsAre(Pair(
+                  "cache-control",
+                  ::testing::AnyOf("max-age=5", "max-age=4", "max-age=3"))));
   request.set_result(HttpResponse{200, absl::Cord("value")});
   EXPECT_THAT(
       read_future.result(),
@@ -244,9 +250,9 @@ TEST_F(HttpKeyValueStoreTest, IfEqualSatisfied) {
   auto read_future = kvstore::Read(store, "abc", options);
   auto request = mock_transport->requests_.pop();
   EXPECT_EQ("https://example.com/my/path/abc", request.request.url);
-  EXPECT_THAT(
-      request.request.headers,
-      ::testing::ElementsAre("cache-control: no-cache", "if-match: \"xyz\""));
+  EXPECT_THAT(request.request.headers,
+              ElementsAre(Pair("cache-control", "no-cache"),
+                          Pair("if-match", "\"xyz\"")));
   request.set_result(HttpResponse{200, absl::Cord("value")});
   EXPECT_THAT(read_future.result(), MatchesKvsReadResult(absl::Cord("value")));
 }
@@ -259,9 +265,9 @@ TEST_F(HttpKeyValueStoreTest, IfEqualNotSatisfied) {
   auto read_future = kvstore::Read(store, "abc", options);
   auto request = mock_transport->requests_.pop();
   EXPECT_EQ("https://example.com/my/path/abc", request.request.url);
-  EXPECT_THAT(
-      request.request.headers,
-      ::testing::ElementsAre("cache-control: no-cache", "if-match: \"xyz\""));
+  EXPECT_THAT(request.request.headers,
+              ElementsAre(Pair("cache-control", "no-cache"),
+                          Pair("if-match", "\"xyz\"")));
   request.set_result(HttpResponse{412});
   EXPECT_THAT(read_future.result(),
               MatchesKvsReadResult(kvstore::ReadResult::kUnspecified,
@@ -278,8 +284,8 @@ TEST_F(HttpKeyValueStoreTest, IfNotEqualSatisfied) {
   auto request = mock_transport->requests_.pop();
   EXPECT_EQ("https://example.com/my/path/abc", request.request.url);
   EXPECT_THAT(request.request.headers,
-              ::testing::ElementsAre("cache-control: no-cache",
-                                     "if-none-match: \"xyz\""));
+              ElementsAre(Pair("cache-control", "no-cache"),
+                          Pair("if-none-match", "\"xyz\"")));
   request.set_result(HttpResponse{200, absl::Cord("value")});
   EXPECT_THAT(
       read_future.result(),
@@ -296,8 +302,8 @@ TEST_F(HttpKeyValueStoreTest, IfNotEqualNotSatisfied) {
   auto request = mock_transport->requests_.pop();
   EXPECT_EQ("https://example.com/my/path/abc", request.request.url);
   EXPECT_THAT(request.request.headers,
-              ::testing::ElementsAre("cache-control: no-cache",
-                                     "if-none-match: \"xyz\""));
+              ElementsAre(Pair("cache-control", "no-cache"),
+                          Pair("if-none-match", "\"xyz\"")));
   request.set_result(HttpResponse{304});
   EXPECT_THAT(read_future.result(),
               MatchesKvsReadResult(kvstore::ReadResult::kUnspecified,
@@ -313,16 +319,16 @@ TEST_F(HttpKeyValueStoreTest, Retry) {
     auto request = mock_transport->requests_.pop();
     EXPECT_EQ("https://example.com/my/path/abc", request.request.url);
     EXPECT_THAT(request.request.headers,
-                ::testing::ElementsAre("cache-control: no-cache"));
+                ElementsAre(Pair("cache-control", "no-cache")));
     request.set_result(HttpResponse{503, absl::Cord()});
   }
   {
     auto request = mock_transport->requests_.pop();
     EXPECT_EQ("https://example.com/my/path/abc", request.request.url);
     EXPECT_THAT(request.request.headers,
-                ::testing::ElementsAre("cache-control: no-cache"));
+                ElementsAre(Pair("cache-control", "no-cache")));
     request.set_result(
-        HttpResponse{200, absl::Cord("value"), {{"etag", "\"xyz\""}}});
+        HttpResponse{200, absl::Cord("value"), HeaderMap{{"etag", "\"xyz\""}}});
   }
   EXPECT_THAT(read_future.result(),
               MatchesKvsReadResult(absl::Cord("value"),
@@ -343,7 +349,7 @@ TEST_F(HttpKeyValueStoreTest, RetryMax) {
     auto request = mock_transport->requests_.pop();
     EXPECT_EQ("https://example.com/my/path/abc", request.request.url);
     EXPECT_THAT(request.request.headers,
-                ::testing::ElementsAre("cache-control: no-cache"));
+                ElementsAre(Pair("cache-control", "no-cache")));
     request.set_result(HttpResponse{503, absl::Cord()});
   }
   EXPECT_THAT(read_future.result(), MatchesStatus(absl::StatusCode::kAborted));
@@ -359,12 +365,12 @@ TEST_F(HttpKeyValueStoreTest, Date) {
   auto response_date = absl::UnixEpoch() + absl::Seconds(100);
   auto request = mock_transport->requests_.pop();
   EXPECT_EQ("https://example.com/my/path/abc", request.request.url);
-  EXPECT_THAT(request.request.headers, ::testing::ElementsAre());
+  EXPECT_THAT(request.request.headers, ElementsAre());
   request.set_result(HttpResponse{
-      200,
-      absl::Cord("value"),
-      {{"date", absl::FormatTime(tensorstore::internal_http::kHttpTimeFormat,
-                                 response_date, absl::UTCTimeZone())}}});
+      200, absl::Cord("value"),
+      HeaderMap{
+          {"date", absl::FormatTime(tensorstore::internal_http::kHttpTimeFormat,
+                                    response_date, absl::UTCTimeZone())}}});
   EXPECT_THAT(
       read_future.result(),
       MatchesKvsReadResult(absl::Cord("value"), StorageGeneration::Invalid(),
@@ -382,13 +388,13 @@ TEST_F(HttpKeyValueStoreTest, DateSkew) {
   auto request = mock_transport->requests_.pop();
   EXPECT_EQ("https://example.com/my/path/abc", request.request.url);
   EXPECT_THAT(request.request.headers,
-              ::testing::ElementsAre(::testing::AnyOf(
-                  "cache-control: max-age=5", "cache-control: max-age=4")));
+              ElementsAre(Pair("cache-control",
+                               ::testing::AnyOf("max-age=5", "max-age=4"))));
   request.set_result(HttpResponse{
-      200,
-      absl::Cord("value"),
-      {{"date", absl::FormatTime(tensorstore::internal_http::kHttpTimeFormat,
-                                 response_date, absl::UTCTimeZone())}}});
+      200, absl::Cord("value"),
+      HeaderMap{
+          {"date", absl::FormatTime(tensorstore::internal_http::kHttpTimeFormat,
+                                    response_date, absl::UTCTimeZone())}}});
   EXPECT_THAT(
       read_future.result(),
       MatchesKvsReadResult(absl::Cord("value"), StorageGeneration::Invalid(),
@@ -403,7 +409,8 @@ TEST_F(HttpKeyValueStoreTest, Query) {
   auto request = mock_transport->requests_.pop();
   EXPECT_EQ("https://example.com/my/path/abc?query=value", request.request.url);
   EXPECT_THAT(request.request.headers,
-              ::testing::ElementsAre("cache-control: no-cache"));
+              ElementsAre(Pair("cache-control", "no-cache")));
+
   request.set_result(HttpResponse{200, absl::Cord("value")});
   EXPECT_THAT(read_future.result(), MatchesKvsReadResult(absl::Cord("value")));
 }
@@ -416,8 +423,10 @@ TEST_F(HttpKeyValueStoreTest, InvalidDate) {
   auto request = mock_transport->requests_.pop();
   EXPECT_EQ("https://example.com/my/path/abc", request.request.url);
   EXPECT_THAT(request.request.headers,
-              ::testing::ElementsAre("cache-control: no-cache"));
-  request.set_result(HttpResponse{200, absl::Cord("value"), {{"date", "xyz"}}});
+              ElementsAre(Pair("cache-control", "no-cache")));
+
+  request.set_result(
+      HttpResponse{200, absl::Cord("value"), HeaderMap{{"date", "xyz"}}});
   EXPECT_THAT(read_future.result(),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Invalid \"date\" response header: \"xyz\""));
@@ -428,14 +437,14 @@ TEST_F(HttpKeyValueStoreTest, ExtraHeaders) {
       auto store,
       kvstore::Open({{"driver", "http"},
                      {"base_url", "https://example.com/my/path/?query=value"},
-                     {"headers", {"a!#$%&'*+-.^_`|~3X: b\xfe"}}})
+                     {"headers", {"a!#$%&'*+-.^_`|~3x: b\xfe"}}})
           .result());
   auto read_future = kvstore::Read(store, "abc");
   auto request = mock_transport->requests_.pop();
   EXPECT_EQ("https://example.com/my/path/abc?query=value", request.request.url);
   EXPECT_THAT(request.request.headers,
-              ::testing::ElementsAre("a!#$%&'*+-.^_`|~3X: b\xfe",
-                                     "cache-control: no-cache"));
+              UnorderedElementsAre(Pair("cache-control", "no-cache"),
+                                   Pair("a!#$%&'*+-.^_`|~3x", "b\xfe")));
   request.set_result(HttpResponse{200, absl::Cord("value")});
   EXPECT_THAT(read_future.result(), MatchesKvsReadResult(absl::Cord("value")));
 }
