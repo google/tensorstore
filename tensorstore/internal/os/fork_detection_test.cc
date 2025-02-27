@@ -12,35 +12,50 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#if !defined(_WIN32) && !defined(__APPLE__) && defined(__has_include)
-#if __has_include(<pthread.h>)
+#if !defined(_WIN32)
 #define TENSORSTORE_INTERNAL_ENABLE_FORK_TEST 1
-// In order to run the death test, both pthreads and fork are required,
-// and the test must be run in gunit's thread-safe mode.
-#endif
 #endif
 
 #if defined(TENSORSTORE_INTERNAL_ENABLE_FORK_TEST)
 
+#include "tensorstore/internal/os/fork_detection.h"
+
 #include <pthread.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "tensorstore/internal/thread/thread.h"
+
+using ::tensorstore::internal_os::AbortIfForkDetected;
+using ::tensorstore::internal_os::SetupForkDetection;
+using ::testing::Gt;
 
 namespace {
 
-TEST(ThreadDeathTest, Fork) {
-  GTEST_FLAG_SET(death_test_style, "threadsafe");
-  // Span a thread and join it; this should register pthread_at_fork()
-  // handler which will crash if fork() is called.
-  int x = 0;
-  tensorstore::internal::Thread my_thread({}, [&x]() { x = 1; });
-  my_thread.Join();
-  EXPECT_EQ(1, x);
+int DoFork() {
+  int status = 0;
 
-  // fork()-ing after starting a thread is not supported; forcibly crash.
-  EXPECT_DEATH(fork(), "");
+  pid_t p = fork();
+  if (p < 0) {
+    return -1;
+  } else if (p == 0) {
+    // child process aborts here.
+    AbortIfForkDetected();
+  } else {
+    // Wait for the child process to exit and return its status.
+    waitpid(p, &status, 0);
+  }
+  return status;
+}
+
+TEST(ForkDetectionDeathTest, Fork) {
+  // The test must be run in gunit's thread-safe mode.
+  GTEST_FLAG_SET(death_test_style, "threadsafe");
+
+  SetupForkDetection();
+
+  EXPECT_THAT(DoFork(), Gt(0));
 }
 
 }  // namespace

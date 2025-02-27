@@ -1244,3 +1244,12 @@ tensorstore_pytest_test(
         "@pypa_numpy//:numpy",
     ],
 )
+
+tensorstore_pytest_test(
+    name = "tests/fork_test",
+    srcs = ["tests/fork_test.py"],
+    deps = [
+        ":conftest",
+        ":tensorstore",
+    ],
+)

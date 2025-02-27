@@ -286,6 +286,7 @@ tensorstore_cc_library(
     hdrs = ["memory_region.h"],
     deps = [
         "//tensorstore/util:result",
+        "@com_google_absl//absl/debugging:leak_check",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/strings:cord",
@@ -298,6 +299,22 @@ tensorstore_cc_test(
     deps = [
         ":memory_region",
         "@com_google_absl//absl/strings:cord",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "fork_detection",
+    srcs = ["fork_detection.cc"],
+    hdrs = ["fork_detection.h"],
+    deps = ["@com_google_absl//absl/base"],
+)
+
+tensorstore_cc_test(
+    name = "fork_detection_test",
+    srcs = ["fork_detection_test.cc"],
+    deps = [
+        ":fork_detection",
         "@com_google_googletest//:gtest_main",
     ],
 )
