@@ -31,6 +31,7 @@
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/gauge.h"
 #include "tensorstore/internal/metrics/metadata.h"
+#include "tensorstore/internal/os/fork_detection.h"
 #include "tensorstore/internal/thread/pool_impl.h"
 #include "tensorstore/internal/thread/task.h"
 #include "tensorstore/internal/thread/task_provider.h"
@@ -301,6 +302,11 @@ void TaskGroup::AddTask(std::unique_ptr<InFlightTask> task) {
     }
   }
 
+  if (state == 2) {
+    // This is not from the current thread, so do fork detection.
+    internal_os::AbortIfForkDetected();
+  }
+
   if (state != 0) {
     absl::MutexLock lock(&mutex_);
 
@@ -327,6 +333,7 @@ void TaskGroup::AddTask(std::unique_ptr<InFlightTask> task) {
 
 void TaskGroup::BulkAddTask(
     tensorstore::span<std::unique_ptr<InFlightTask>> tasks) {
+  internal_os::AbortIfForkDetected();
   {
     absl::MutexLock lock(&mutex_);
     for (auto& t : tasks) {

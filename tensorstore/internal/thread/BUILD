@@ -19,6 +19,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/container:intrusive_red_black_tree",
         "//tensorstore/internal/metrics",
         "//tensorstore/internal/metrics:metadata",
+        "//tensorstore/internal/os:fork_detection",
         "//tensorstore/internal/tracing",
         "//tensorstore/util:stop_token",
         "@com_google_absl//absl/base:core_headers",
@@ -47,11 +48,10 @@ tensorstore_cc_library(
     name = "thread",
     srcs = [
         "thread.cc",
-        "thread_on_fork.cc",
     ],
     hdrs = ["thread.h"],
     deps = [
-        "@com_google_absl//absl/base",
+        "//tensorstore/internal/os:fork_detection",
         "@com_google_absl//absl/functional:any_invocable",
         "@com_google_absl//absl/log:absl_check",
     ],
@@ -60,15 +60,6 @@ tensorstore_cc_library(
 tensorstore_cc_test(
     name = "thread_test",
     srcs = ["thread_test.cc"],
-    deps = [
-        ":thread",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "thread_death_test",
-    srcs = ["thread_death_test.cc"],
     deps = [
         ":thread",
         "@com_google_googletest//:gtest_main",
@@ -89,6 +80,7 @@ tensorstore_cc_library(
         ":task",
         ":task_group_impl",
         "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/internal/os:fork_detection",
         "//tensorstore/internal/tracing",
         "//tensorstore/util:executor",
         "@com_google_absl//absl/base:no_destructor",
@@ -217,6 +209,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/container:single_producer_queue",
         "//tensorstore/internal/metrics",
         "//tensorstore/internal/metrics:metadata",
+        "//tensorstore/internal/os:fork_detection",
         "//tensorstore/util:span",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/synchronization",

@@ -15,22 +15,20 @@
 #ifndef TENSORSTORE_INTERNAL_THREAD_H_
 #define TENSORSTORE_INTERNAL_THREAD_H_
 
-#include <climits>
-#include <cstring>
+#include <stdint.h>
+
 #include <functional>
 #include <thread>  // NOLINT
 #include <utility>
 
 #include "absl/log/absl_check.h"
+#include "tensorstore/internal/os/fork_detection.h"
 
 namespace tensorstore {
 namespace internal {
 
 /// Helper functions to set the thread name.
 void TrySetCurrentThreadName(const char* name);
-
-/// Helper function to log a fatal error if fork() is called.
-void SetupLogFatalOnFork();
 
 // Tensorstore-specific Thread class to be used instead of std::thread.
 // This exposes a limited subset of the std::thread api.
@@ -93,7 +91,7 @@ class Thread {
   template <class Function, class... Args>
   Thread(private_t, Options options, Function&& f, Args&&... args)
       : thread_((
-            SetupLogFatalOnFork(),
+            internal_os::SetupForkDetection(),
             [name = options.name, fn = std::bind(std::forward<Function>(f),
                                                  std::forward<Args>(args)...)] {
               TrySetCurrentThreadName(name);

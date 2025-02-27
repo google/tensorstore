@@ -36,6 +36,7 @@
 #include "tensorstore/internal/metrics/histogram.h"
 #include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/metrics/value.h"
+#include "tensorstore/internal/os/fork_detection.h"
 #include "tensorstore/internal/tagged_ptr.h"
 #include "tensorstore/internal/thread/thread.h"
 #include "tensorstore/internal/tracing/trace_context.h"
@@ -156,6 +157,8 @@ void DeadlineTaskQueue::ScheduleAt(absl::Time target_time, ScheduleAtTask task,
   schedule_at_queued_ops.Increment();
   schedule_at_insert_histogram_ms.Observe(
       absl::ToInt64Milliseconds(target_time - absl::Now()));
+
+  internal_os::AbortIfForkDetected();
 
   auto node = std::make_unique<DeadlineTaskNode>(target_time, std::move(task),
                                                  stop_token);
