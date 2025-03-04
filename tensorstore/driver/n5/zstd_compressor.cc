@@ -40,7 +40,7 @@ struct Registration {
             jb::Projection(
                 &ZstdCompressor::level,
                 jb::DefaultValue<jb::kAlwaysIncludeDefaults>(
-                    [](auto* v) { *v = 1; },
+                    [](auto* v) { *v = 0; },
                     jb::Integer<int>(
                         ZstdWriterBase::Options::kMinCompressionLevel,
                         ZstdWriterBase::Options::kMaxCompressionLevel))))));
