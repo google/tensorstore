@@ -14,9 +14,10 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include "absl/strings/cord.h"
+#include <nlohmann/json.hpp>
 #include "tensorstore/driver/n5/compressor.h"
-#include "tensorstore/internal/json_gtest.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -24,35 +25,64 @@ namespace {
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::internal_n5::Compressor;
 
+absl::Cord GetInput() {
+  return absl::Cord(
+      "Sed ut perspiciatis unde omnis iste natus error sit voluptatem "
+      "accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae "
+      "ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt "
+      "explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut "
+      "odit aut fugit, sed quia consequuntur magni dolores eos qui ratione "
+      "voluptatem sequi nesciunt. Neque porro quisquam est, qui dolorem ipsum "
+      "quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam "
+      "eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat "
+      "voluptatem. Ut enim ad minima veniam, quis nostrum exercitationem ullam "
+      "corporis suscipit laboriosam, nisi ut aliquid ex ea commodi "
+      "consequatur? Quis autem vel eum iure reprehenderit qui in ea voluptate "
+      "velit esse quam nihil molestiae consequatur, vel illum qui dolorem eum "
+      "fugiat quo voluptas nulla pariatur?");
+}
+
 // Tests that a small input round trips.
 TEST(ZstdCompressorTest, SmallRoundtrip) {
   auto compressor =
       Compressor::FromJson({{"type", "zstd"}, {"level", 6}}).value();
-  const absl::Cord input("The quick brown fox jumped over the lazy dog.");
+  const absl::Cord input = GetInput();
   absl::Cord encode_result, decode_result;
-  TENSORSTORE_ASSERT_OK(compressor->Encode(input, &encode_result, 1));
+  TENSORSTORE_ASSERT_OK(compressor->Encode(GetInput(), &encode_result, 1));
   TENSORSTORE_ASSERT_OK(compressor->Decode(encode_result, &decode_result, 1));
   EXPECT_EQ(input, decode_result);
 }
 
-// Tests that specifying a level of 1 gives the same result as not specifying a
+// Tests that specifying a level of 3 gives the same result as not specifying a
 // level.
 TEST(ZstdCompressorTest, DefaultLevel) {
   auto compressor1 = Compressor::FromJson({{"type", "zstd"}}).value();
   auto compressor2 =
-      Compressor::FromJson({{"type", "zstd"}, {"level", 1}}).value();
-  const absl::Cord input("The quick brown fox jumped over the lazy dog.");
+      Compressor::FromJson({{"type", "zstd"}, {"level", 3}}).value();
+  const absl::Cord input = GetInput();
   absl::Cord encode_result1, encode_result2;
   TENSORSTORE_ASSERT_OK(compressor1->Encode(input, &encode_result1, 1));
   TENSORSTORE_ASSERT_OK(compressor2->Encode(input, &encode_result2, 1));
   EXPECT_EQ(encode_result1, encode_result2);
 }
 
-// Tests that specifying a level of 9 works.
+// Tests that the default level is different from level 1.
 TEST(ZstdCompressorTest, NonDefaultLevel) {
+  auto compressor1 = Compressor::FromJson({{"type", "zstd"}}).value();
+  auto compressor2 =
+      Compressor::FromJson({{"type", "zstd"}, {"level", 1}}).value();
+  const absl::Cord input = GetInput();
+  absl::Cord encode_result1, encode_result2;
+  TENSORSTORE_ASSERT_OK(compressor1->Encode(input, &encode_result1, 1));
+  TENSORSTORE_ASSERT_OK(compressor2->Encode(input, &encode_result2, 1));
+  EXPECT_NE(encode_result1, encode_result2);
+}
+
+// Tests that specifying a level 22 works.
+TEST(ZstdCompressorTest, Level22) {
   auto compressor =
-      Compressor::FromJson({{"type", "zstd"}, {"level", 9}}).value();
-  const absl::Cord input("The quick brown fox jumped over the lazy dog.");
+      Compressor::FromJson({{"type", "zstd"}, {"level", 22}}).value();
+  const absl::Cord input = GetInput();
   absl::Cord encode_result;
   TENSORSTORE_ASSERT_OK(compressor->Encode(input, &encode_result, 1));
   absl::Cord decode_result;

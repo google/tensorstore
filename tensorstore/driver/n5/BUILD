@@ -400,9 +400,10 @@ tensorstore_cc_test(
     deps = [
         ":compressor",
         ":zstd_compressor",
-        "//tensorstore/internal:json_gtest",
-        "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
+        "@com_github_nlohmann_json//:json",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:cord",
         "@com_google_googletest//:gtest_main",
     ],
 )

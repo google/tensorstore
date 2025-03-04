@@ -21,6 +21,7 @@ The following compression methods are supported:
 .. json:schema:: driver/n5/Compression/bzip2
 .. json:schema:: driver/n5/Compression/xz
 .. json:schema:: driver/n5/Compression/blosc
+.. json:schema:: driver/n5/Compression/zstd
 
 Mapping to TensorStore Schema
 -----------------------------

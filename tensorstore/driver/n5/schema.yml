@@ -206,6 +206,24 @@ definitions:
             compression with the worst compression ratio, while preset 9
             corresponds to the slowest compression with the best compression
             ratio.
+  compression-zstd:
+    $id: 'driver/n5/Compression/zstd'
+    description: Specifies `zstd <https://github.com/facebook/zstd>`_ compression.
+    allOf:
+    - $ref: driver/n5/Compression
+    - type: object
+      properties:
+        type:
+          const: zstd
+        level:
+          type: integer
+          maximum: 22
+          default: 0
+          description: |
+            Specifies the zstd compression level to use. Level 1 is the fastest compression with
+            the worst compression ratio, while level 22 is the slowest compression with the best
+            compression ratio. Level 0 uses the zstd default compression level (equal to 3).
+            Negative values are also supported per the zstd specification.
   compression-blosc:
     $id: 'driver/n5/Compression/blosc'
     description: Specifies `Blosc <https://github.com/Blosc/c-blosc>`_ compression.
