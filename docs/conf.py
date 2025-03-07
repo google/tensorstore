@@ -182,6 +182,10 @@ nitpick_ignore = [
     ('cpp:identifier', '::nlohmann'),
     ('cpp:identifier', 'half_float'),
     ('cpp:identifier', '::half_float'),
+    # Redundant with the NONITPICK comment in index_space/index_transform.h, but
+    # file/line information seems to get lost due to a Sphinx or
+    # sphinx-immaterial bug.
+    ('cpp:identifier', 'Array::Pointer'),
 ]
 
 default_role = 'any'
