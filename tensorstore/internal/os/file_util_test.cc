@@ -40,10 +40,12 @@ using ::tensorstore::internal_os::DeleteFile;
 using ::tensorstore::internal_os::DeleteOpenFile;
 using ::tensorstore::internal_os::FileInfo;
 using ::tensorstore::internal_os::FsyncFile;
+using ::tensorstore::internal_os::GetCTime;
 using ::tensorstore::internal_os::GetDefaultPageSize;
 using ::tensorstore::internal_os::GetDeviceId;
 using ::tensorstore::internal_os::GetFileId;
 using ::tensorstore::internal_os::GetFileInfo;
+using ::tensorstore::internal_os::GetMode;
 using ::tensorstore::internal_os::GetMTime;
 using ::tensorstore::internal_os::GetSize;
 using ::tensorstore::internal_os::IsDirSeparator;
@@ -86,7 +88,6 @@ TEST(FileUtilTest, Basics) {
 
     EXPECT_THAT(WriteCordToFile(f->get(), absl::Cord("foo")), IsOkAndHolds(3));
     EXPECT_THAT(WriteToFile(f->get(), "bar", 3), IsOkAndHolds(3));
-
     EXPECT_THAT(FsyncFile(f->get()), IsOk());
   }
 
@@ -95,6 +96,7 @@ TEST(FileUtilTest, Basics) {
     char buf[16];
     auto f = OpenExistingFileForReading(foo_txt);
     EXPECT_THAT(f, IsOk());
+
     EXPECT_THAT(ReadFromFile(f->get(), buf, 3, 0), IsOkAndHolds(3));
 
     // Check the file info
@@ -106,6 +108,8 @@ TEST(FileUtilTest, Basics) {
     EXPECT_THAT(GetFileId(info), ::testing::Ne(0));
     EXPECT_THAT(GetDeviceId(info), ::testing::Ne(0));
     EXPECT_THAT(GetMTime(info), ::testing::Ge(now));
+    EXPECT_THAT(GetCTime(info), ::testing::Ge(now));
+    EXPECT_THAT(GetMode(info) & 0600, ::testing::Eq(0600));
 
     EXPECT_THAT(RenameOpenFile(f->get(), foo_txt, renamed_txt), IsOk());
   }

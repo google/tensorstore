@@ -228,7 +228,7 @@ Result<UniqueFileDescriptor> OpenFileWrapper(const std::string& path,
   FileDescriptor fd = FileDescriptorTraits::Invalid();
   const auto attempt_open = [&] {
     PotentiallyBlockingRegion region;
-    fd = ::open(path.c_str(), static_cast<int>(flags) | O_CLOEXEC, 0660);
+    fd = ::open(path.c_str(), static_cast<int>(flags) | O_CLOEXEC, 0666);
   };
 #ifndef __APPLE__
   attempt_open();
