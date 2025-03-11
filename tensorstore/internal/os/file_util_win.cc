@@ -177,16 +177,6 @@ std::string_view GetDirName(std::string_view path) {
   return path.substr(0, i);
 }
 
-#if 0
-Result<DWORD> GetFileAttributes(const std::wstring& filename) {
-  if (const DWORD attrs = ::GetFileAttributesW(filename.c_str());
-      attrs != INVALID_FILE_ATTRIBUTES) {
-    return attrs;
-  }
-  return StatusFromOsError(::GetLastError(), "GetFileAttributesW failed");
-}
-#endif
-
 void UnlockWin32Lock(FileDescriptor fd) {
   LoggedTraceSpan tspan(__func__, detail_logging.Level(1), {{"handle", fd}});
 

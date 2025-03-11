@@ -293,6 +293,42 @@ inline absl::Time GetMTime(const FileInfo& info) {
 #endif
 }
 
+/// Returns the creation time.
+inline absl::Time GetCTime(const FileInfo& info) {
+#ifdef _WIN32
+  // Windows FILETIME is the number of 100-nanosecond intervals since the
+  // Windows epoch (1601-01-01) which is 11644473600 seconds before the unix
+  // epoch (1970-01-01).
+  uint64_t windowsTicks =
+      (static_cast<uint64_t>(info.ftCreationTime.dwHighDateTime) << 32) |
+      static_cast<uint64_t>(info.ftCreationTime.dwLowDateTime);
+
+  return absl::UnixEpoch() +
+         absl::Seconds((windowsTicks / 10000000) - 11644473600ULL) +
+         absl::Nanoseconds(windowsTicks % 10000000);
+#else
+#if defined(__APPLE__)
+  const struct ::timespec t = info.st_ctimespec;
+#else
+  const struct ::timespec t = info.st_ctim;
+#endif
+  return absl::FromTimeT(t.tv_sec) + absl::Nanoseconds(t.tv_nsec);
+#endif
+}
+
+/// Returns the mode bits.
+inline uint32_t GetMode(const FileInfo& info) {
+#ifdef _WIN32
+  if (info.dwFileAttributes & FILE_ATTRIBUTE_READONLY) {
+    return 0444;  // read-only
+  } else {
+    return 0666;  // read/write
+  }
+#else
+  return info.st_mode;
+#endif
+}
+
 /// --------------------------------------------------------------------------
 
 /// Opens a directory.
