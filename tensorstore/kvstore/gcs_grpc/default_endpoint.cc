@@ -32,6 +32,10 @@ ABSL_FLAG(std::optional<bool>, tensorstore_disable_direct_path, std::nullopt,
           "is not used by default on GCE VMs. "
           "Overrides GOOGLE_CLOUD_DISABLE_DIRECT_PATH.");
 
+ABSL_FLAG(std::optional<std::string>, tensorstore_gcs_grpc_endpoint, std::nullopt,
+          "Endpoint to use for gRPC access to Google Cloud Storage. "
+          "Overrides TENSORSTORE_GCS_GRPC_ENDPOINT.");
+
 namespace tensorstore {
 namespace internal_gcs_grpc {
 namespace {
@@ -66,6 +70,13 @@ bool UseDirectPathGcsEndpointByDefaultImpl() {
 }  // namespace
 
 std::string GetDefaultGcsGrpcEndpoint() {
+  // Check for an explicitly specified endpoint in the environment variable or flag
+  auto endpoint = internal::GetFlagOrEnvValue(FLAGS_tensorstore_gcs_grpc_endpoint,
+                                            "TENSORSTORE_GCS_GRPC_ENDPOINT");
+  if (endpoint && !endpoint->empty()) {
+    return *endpoint;
+  }
+
   static bool cached_use_direct_path = UseDirectPathGcsEndpointByDefaultImpl();
   if (cached_use_direct_path) {
     // When running on a GCE VM, use the directpath endpoint by default.
