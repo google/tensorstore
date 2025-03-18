@@ -15,15 +15,18 @@
 #include "tensorstore/internal/oauth2/oauth2_auth_provider.h"
 
 #include <memory>
+#include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
 #include "absl/container/flat_hash_map.h"
+#include "absl/strings/cord.h"
 #include "absl/time/clock.h"
-#include "tensorstore/internal/http/curl_transport.h"
+#include "absl/time/time.h"
+#include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
 
 namespace {
 

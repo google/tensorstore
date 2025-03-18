@@ -18,11 +18,13 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <cassert>
 #include <string_view>
 #include <utility>
 
 #include "absl/base/attributes.h"
 #include "absl/log/absl_log.h"
+#include "absl/log/check.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "riegeli/bytes/cord_writer.h"

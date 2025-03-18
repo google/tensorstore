@@ -491,7 +491,7 @@ void TestKeyValueStoreReadOps(const KvStore& store, std::string key,
         MatchesKvsReadResult(expected_value, read_result->stamp.generation));
   }
 
-  /// if_equal tests
+  // if_equal tests
   ABSL_LOG(INFO) << kSep << "Test conditional read, if_equal matching "
                  << read_result->stamp.generation;
   {
@@ -566,10 +566,9 @@ void TestKeyValueStoreReadOps(const KvStore& store, std::string key,
   {
     kvstore::ReadOptions options;
     options.generation_conditions.if_equal = mismatch_generation;
-    EXPECT_THAT(
-        kvstore::Read(store, missing_key, options).result(),
-        testing::AnyOf(MatchesKvsReadResultNotFound(),   /// Common result
-                       MatchesKvsReadResultAborted()));  /// GCS result
+    EXPECT_THAT(kvstore::Read(store, missing_key, options).result(),
+                testing::AnyOf(MatchesKvsReadResultNotFound(),  // Common result
+                               MatchesKvsReadResultAborted()));  // GCS result
   }
 
   // Test conditional read of a non-existent object using
@@ -728,7 +727,7 @@ void TestKeyValueReadWriteOps(
                                      other_value);
 }
 
-/// Tests List on `store`, which should be empty.
+// Tests List on `store`, which should be empty.
 void TestKeyValueStoreList(const KvStore& store, bool match_size) {
   ABSL_LOG(INFO) << "Test list, empty";
   {
@@ -948,7 +947,7 @@ void TestKeyValueStoreSpecRoundtrip(
   SCOPED_TRACE(tensorstore::StrCat("create_spec=", create_spec.dump()));
   SCOPED_TRACE(
       tensorstore::StrCat("minimal_spec=", expected_minimal_spec.dump()));
-  auto context = Context::Default();
+  auto context = options.context;
 
   ASSERT_TRUE(options.check_write_read || !options.check_data_persists);
   ASSERT_TRUE(options.check_write_read ||

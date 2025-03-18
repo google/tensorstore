@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/http/curl_transport.h"
+#include "tensorstore/internal/curl/curl_transport.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -31,8 +31,6 @@
 #include <utility>
 #include <vector>
 
-#include "absl/base/attributes.h"
-#include "absl/base/const_init.h"
 #include "absl/flags/flag.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
@@ -44,10 +42,11 @@
 #include <curl/curl.h>
 #include "tensorstore/internal/container/circular_queue.h"
 #include "tensorstore/internal/cord_util.h"
+#include "tensorstore/internal/curl/curl_factory.h"
+#include "tensorstore/internal/curl/curl_handle.h"
+#include "tensorstore/internal/curl/curl_wrappers.h"
+#include "tensorstore/internal/curl/default_factory.h"
 #include "tensorstore/internal/env.h"
-#include "tensorstore/internal/http/curl_factory.h"
-#include "tensorstore/internal/http/curl_handle.h"
-#include "tensorstore/internal/http/curl_wrappers.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/metrics/counter.h"
@@ -464,7 +463,7 @@ void MultiTransportImpl::FinishRequest(std::unique_ptr<CurlRequestState> state,
   }
 
   if (code != CURLE_OK) {
-    /// Transfer failed; set the status
+    // Transfer failed; set the status
     state->response_handler_->OnFailure(
         CurlCodeToStatus(code, state->error_buffer_));
     return;
@@ -599,41 +598,10 @@ void CurlTransport::IssueRequestWithHandler(
   impl_->EnqueueRequest(request, std::move(options), response_handler);
 }
 
-namespace {
-struct GlobalTransport {
-  std::shared_ptr<HttpTransport> transport_;
-
-  std::shared_ptr<HttpTransport> Get() {
-    if (!transport_) {
-      transport_ =
-          std::make_shared<CurlTransport>(GetDefaultCurlHandleFactory());
-    }
-    return transport_;
-  }
-
-  void Set(std::shared_ptr<HttpTransport> transport) {
-    transport_ = std::move(transport);
-  }
-};
-
-ABSL_CONST_INIT absl::Mutex global_mu(absl::kConstInit);
-
-static GlobalTransport& GetGlobalTransport() {
-  static auto* g = new GlobalTransport();
-  return *g;
-}
-
-}  // namespace
-
-std::shared_ptr<HttpTransport> GetDefaultHttpTransport() {
-  absl::MutexLock l(&global_mu);
-  return GetGlobalTransport().Get();
-}
-
-/// Sets the default CurlMultiTransport. Exposed for test mocking.
-void SetDefaultHttpTransport(std::shared_ptr<HttpTransport> t) {
-  absl::MutexLock l(&global_mu);
-  return GetGlobalTransport().Set(std::move(t));
+std::shared_ptr<HttpTransport> GetDefaultCurlTransport() {
+  static std::shared_ptr<HttpTransport> transport =
+      std::make_shared<CurlTransport>(GetDefaultCurlHandleFactory());
+  return transport;
 }
 
 }  // namespace internal_http

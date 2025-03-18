@@ -1,5 +1,6 @@
 # Packages required to run the C++ tests.
 moto[s3,server]
+h2
 
 # From storage-testbench/setup.py
 # gunicorn

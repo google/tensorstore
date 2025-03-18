@@ -20,9 +20,9 @@
 #include "absl/flags/flag.h"
 #include "absl/log/absl_check.h"
 #include <curl/curl.h>  // IWYU pragma: keep
+#include "tensorstore/internal/curl/curl_factory.h"
+#include "tensorstore/internal/curl/curl_wrappers.h"
 #include "tensorstore/internal/env.h"
-#include "tensorstore/internal/http/curl_factory.h"
-#include "tensorstore/internal/http/curl_wrappers.h"
 #include "tensorstore/internal/os/file_util.h"
 
 #ifndef _WIN32

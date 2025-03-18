@@ -33,7 +33,7 @@
 #include "grpcpp/security/credentials.h"  // third_party
 #include "grpcpp/support/status.h"  // third_party
 #include "tensorstore/internal/grpc/utils.h"
-#include "tensorstore/internal/http/curl_transport.h"
+#include "tensorstore/internal/http/default_transport.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/http/transport_test_utils.h"

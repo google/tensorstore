@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_HTTP_CURL_WRAPPERS_H_
-#define TENSORSTORE_INTERNAL_HTTP_CURL_WRAPPERS_H_
+#ifndef TENSORSTORE_INTERNAL_CURL_CURL_WRAPPERS_H_
+#define TENSORSTORE_INTERNAL_CURL_CURL_WRAPPERS_H_
 
 #include <memory>
 #include <string>
@@ -59,7 +59,14 @@ absl::Status CurlMCodeToStatus(
     CURLMcode code, std::string_view,
     SourceLocation loc = tensorstore::SourceLocation::current());
 
+/// Logs curl data to absl::Log.
+void SetLogToAbseil(CURL* handle);
+
+/// Initializes the curl library.
+/// Should be called before any other curl functions.
+void CurlInit();
+
 }  // namespace internal_http
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_HTTP_CURL_WRAPPERS_H_
+#endif  // TENSORSTORE_INTERNAL_CURL_CURL_WRAPPERS_H_

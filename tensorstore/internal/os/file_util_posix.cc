@@ -24,6 +24,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <sys/file.h>
+#include <sys/poll.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/uio.h>
@@ -47,6 +48,8 @@
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"  // IWYU pragma: keep
 #include "absl/strings/string_view.h"
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/gauge.h"
@@ -462,6 +465,27 @@ absl::Status FsyncFile(FileDescriptor fd) {
   }
   auto status = StatusFromOsError(errno, "Failed to fsync file");
   return std::move(tspan).EndWithStatus(std::move(status));
+}
+
+absl::Status AwaitReadablePipe(FileDescriptor fd, absl::Time deadline) {
+  if (deadline == absl::InfiniteFuture()) return absl::OkStatus();
+
+  int64_t timeout_ms =
+      (deadline > absl::Now() && deadline != absl::InfiniteFuture())
+          ? absl::ToInt64Milliseconds(deadline - absl::Now())
+          : 0;
+
+  ::pollfd pfd;
+  pfd.fd = fd;
+  pfd.events = POLLIN;
+  pfd.revents = 0;
+  int n = ::poll(&pfd, 1, timeout_ms);
+  if (n == 0) {
+    return absl::DeadlineExceededError("Timeout reading from file");
+  } else if (n < 0) {
+    return StatusFromOsError(errno, "Failed to poll file");
+  }
+  return absl::OkStatus();
 }
 
 absl::Status GetFileInfo(FileDescriptor fd, FileInfo* info) {

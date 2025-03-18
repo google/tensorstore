@@ -72,9 +72,10 @@ tensorstore_cc_library(
     srcs = ["gcs_testbench.cc"],
     hdrs = ["gcs_testbench.h"],
     deps = [
+        "//tensorstore/internal/curl:curl_transport",
         "//tensorstore/internal/grpc:utils",
         "//tensorstore/internal/http",
-        "//tensorstore/internal/http:curl_transport",
+        "//tensorstore/internal/http:default_transport",
         "//tensorstore/internal/http:transport_test_utils",
         "//tensorstore/internal/os:subprocess",
         "//tensorstore/proto:parse_text_proto_or_die",

@@ -17,7 +17,7 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 
-#include "tensorstore/internal/http/curl_transport.h"
+#include "tensorstore/internal/curl/curl_transport.h"
 
 #include <optional>
 #include <string>
@@ -52,7 +52,7 @@ class CurlTransportTest : public ::testing::Test {
 };
 
 TEST_F(CurlTransportTest, Http1) {
-  auto transport = ::tensorstore::internal_http::GetDefaultHttpTransport();
+  auto transport = ::tensorstore::internal_http::GetDefaultCurlTransport();
 
   // This test sets up a simple single-request tcp/ip service which allows
   // us to mock a simple http server.
@@ -115,7 +115,7 @@ TEST_F(CurlTransportTest, Http1) {
 
 // Tests that resending (using CURL_SEEKFUNCTION) works correctly.
 TEST_F(CurlTransportTest, Http1Resend) {
-  auto transport = ::tensorstore::internal_http::GetDefaultHttpTransport();
+  auto transport = ::tensorstore::internal_http::GetDefaultCurlTransport();
 
   auto socket = CreateBoundSocket();
   ABSL_CHECK(socket.has_value());

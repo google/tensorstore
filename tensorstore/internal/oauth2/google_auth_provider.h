@@ -18,7 +18,6 @@
 #include <functional>
 #include <memory>
 
-#include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/oauth2/auth_provider.h"
 #include "tensorstore/util/result.h"
@@ -38,21 +37,9 @@ namespace internal_oauth2 {
 ///   4. Otherwise fail.
 ///
 Result<std::unique_ptr<AuthProvider>> GetGoogleAuthProvider(
-    std::shared_ptr<internal_http::HttpTransport> transport =
-        internal_http::GetDefaultHttpTransport());
+    std::shared_ptr<internal_http::HttpTransport> transport);
 
-/// Returns a shared AuthProvider for Google Cloud credentials.
-///
-/// Repeated calls will return the same instance unless
-/// `ResetSharedGoogleAuthProvider` is called.
-Result<std::shared_ptr<AuthProvider>> GetSharedGoogleAuthProvider();
-
-/// Ensures that the next call to `GetSharedGoogleAuthProvider` will return a
-/// new instance rather than the previously-obtained auth provider.
-///
-/// This is primarily useful for unit tests where a mock HTTP transport is used.
-void ResetSharedGoogleAuthProvider();
-
+/// Register a GoogleAuthProvider.
 using GoogleAuthProvider =
     std::function<Result<std::unique_ptr<AuthProvider>>()>;
 void RegisterGoogleAuthProvider(GoogleAuthProvider provider, int priority);

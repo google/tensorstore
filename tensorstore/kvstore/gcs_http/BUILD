@@ -13,6 +13,7 @@ tensorstore_cc_library(
     hdrs = ["object_metadata.h"],
     deps = [
         ":gcs_resource",
+        ":shared_auth_provider",
         "//tensorstore:context",
         "//tensorstore:json_serialization_options_base",
         "//tensorstore/internal:concurrency_resource",
@@ -25,7 +26,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:uri_utils",
         "//tensorstore/internal/cache_key",
         "//tensorstore/internal/http",
-        "//tensorstore/internal/http:curl_transport",
+        "//tensorstore/internal/http:default_transport",
         "//tensorstore/internal/http:http_header",
         "//tensorstore/internal/json",
         "//tensorstore/internal/json_binding",
@@ -34,7 +35,6 @@ tensorstore_cc_library(
         "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/internal/metrics",
         "//tensorstore/internal/oauth2",
-        "//tensorstore/internal/oauth2:google_auth_provider",
         "//tensorstore/internal/rate_limiter",
         "//tensorstore/internal/thread:schedule_at",
         "//tensorstore/kvstore",
@@ -88,7 +88,7 @@ tensorstore_cc_test(
         "//tensorstore/internal:json_gtest",
         "//tensorstore/internal:uri_utils",
         "//tensorstore/internal/http",
-        "//tensorstore/internal/http:curl_transport",
+        "//tensorstore/internal/http:default_transport",
         "//tensorstore/internal/http:http_header",
         "//tensorstore/internal/http:mock_http_transport",
         "//tensorstore/internal/oauth2:google_auth_provider",
@@ -160,6 +160,20 @@ tensorstore_cc_library(
         "@com_google_absl//absl/time",
     ],
     alwayslink = 1,
+)
+
+tensorstore_cc_library(
+    name = "shared_auth_provider",
+    srcs = ["shared_auth_provider.cc"],
+    hdrs = ["shared_auth_provider.h"],
+    deps = [
+        "//tensorstore/internal/http",
+        "//tensorstore/internal/oauth2",
+        "//tensorstore/internal/oauth2:google_auth_provider",
+        "//tensorstore/util:result",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/synchronization",
+    ],
 )
 
 tensorstore_cc_test(

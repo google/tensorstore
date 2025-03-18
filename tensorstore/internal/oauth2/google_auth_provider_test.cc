@@ -26,7 +26,6 @@
 #include "absl/strings/escaping.h"
 #include "absl/strings/match.h"
 #include "tensorstore/internal/env.h"
-#include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
@@ -56,7 +55,6 @@ using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_http::HttpResponseHandler;
 using ::tensorstore::internal_http::HttpTransport;
 using ::tensorstore::internal_http::IssueRequestOptions;
-using ::tensorstore::internal_http::SetDefaultHttpTransport;
 using ::tensorstore::internal_oauth2::AuthProvider;
 using ::tensorstore::internal_oauth2::GetFakePrivateKey;
 using ::tensorstore::internal_oauth2::GetGoogleAuthProvider;
@@ -159,16 +157,6 @@ class GoogleAuthProviderTest : public ::testing::Test {
  public:
   GoogleAuthTestScope google_auth_test_scope;
 
-  static void SetUpTestSuite() {
-    SetDefaultHttpTransport(mock_transport);
-    tensorstore::internal_oauth2::ResetSharedGoogleAuthProvider();
-  }
-
-  static void TearDownTestSuite() {
-    tensorstore::internal_oauth2::ResetSharedGoogleAuthProvider();
-    SetDefaultHttpTransport(nullptr);
-  }
-
   static std::shared_ptr<MetadataMockTransport> mock_transport;
 };
 
@@ -182,7 +170,7 @@ TEST_F(GoogleAuthProviderTest, Invalid) {
   // Set GCE_METADATA_ROOT to placeholder value to ensure GCE detection fails
   // even if the test is really being run on GCE.
   SetEnv("GCE_METADATA_ROOT", "invalidmetadata.google.internal");
-  auto auth_provider = GetGoogleAuthProvider();
+  auto auth_provider = GetGoogleAuthProvider(mock_transport);
   EXPECT_FALSE(auth_provider.ok());
   UnsetEnv("GCE_METADATA_ROOT");
 }
@@ -192,7 +180,7 @@ TEST_F(GoogleAuthProviderTest, AuthTokenForTesting) {
 
   // GOOGLE_AUTH_TOKEN_FOR_TESTING, so a FixedTokenAuthProvider
   // with the provided token will be returned.
-  auto auth_provider = GetGoogleAuthProvider();
+  auto auth_provider = GetGoogleAuthProvider(mock_transport);
   ASSERT_TRUE(auth_provider.ok()) << auth_provider.status();
 
   // Expect an instance of FixedTokenAuthProvider.
@@ -219,7 +207,7 @@ TEST_F(GoogleAuthProviderTest, GoogleOAuth2AccountCredentialsFromSDKConfig) {
   // CLOUDSDK_CONFIG has been set to the path of the credentials file.
   // We will attempt to parse the "application_default_credentials.json"
   // file in that location, which happens to be an OAuth2 token.
-  auto auth_provider = GetGoogleAuthProvider();
+  auto auth_provider = GetGoogleAuthProvider(mock_transport);
   ASSERT_TRUE(auth_provider.ok()) << auth_provider.status();
 
   // Expect an instance of OAuth2AuthProvider
@@ -231,7 +219,7 @@ TEST_F(GoogleAuthProviderTest, GoogleOAuth2AccountCredentialsFromSDKConfig) {
   }
 }
 
-/// GOOGLE_APPLICATION_CREDENTIALS
+// GOOGLE_APPLICATION_CREDENTIALS
 TEST_F(GoogleAuthProviderTest, GoogleOAuth2AccountCredentials) {
   TestData test_data;
   SetEnv("GOOGLE_APPLICATION_CREDENTIALS",
@@ -239,7 +227,7 @@ TEST_F(GoogleAuthProviderTest, GoogleOAuth2AccountCredentials) {
 
   // GOOGLE_APPLICATION_CREDENTIALS has been set to the path of the
   // application_default_credentials.json file, which is an OAuth2 token.
-  auto auth_provider = GetGoogleAuthProvider();
+  auto auth_provider = GetGoogleAuthProvider(mock_transport);
   ASSERT_TRUE(auth_provider.ok()) << auth_provider.status();
 
   // Expect an instance of OAuth2AuthProvider
@@ -259,7 +247,7 @@ TEST_F(GoogleAuthProviderTest, GoogleServiceAccountCredentials) {
   // GOOGLE_APPLICATION_CREDENTIALS has been set to the path of the
   // service_account_credentials.json file, which is an Google Service Account
   // credentials token.
-  auto auth_provider = GetGoogleAuthProvider();
+  auto auth_provider = GetGoogleAuthProvider(mock_transport);
   ASSERT_TRUE(auth_provider.ok()) << auth_provider.status();
 
   // Expect an instance of GoogleServiceAccountAuthProvider
@@ -274,7 +262,8 @@ TEST_F(GoogleAuthProviderTest, GoogleServiceAccountCredentials) {
 TEST_F(GoogleAuthProviderTest, GceWithServiceAccount) {
   mock_transport->set_has_service_account(true);
 
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto auth_provider, GetGoogleAuthProvider());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto auth_provider,
+                                   GetGoogleAuthProvider(mock_transport));
 
   // Expect an instance of GceAuthProvider
   {
@@ -291,7 +280,7 @@ TEST_F(GoogleAuthProviderTest, GceWithServiceAccount) {
 TEST_F(GoogleAuthProviderTest, GceWithoutServiceAccount) {
   mock_transport->set_has_service_account(false);
 
-  EXPECT_THAT(GetGoogleAuthProvider(),
+  EXPECT_THAT(GetGoogleAuthProvider(mock_transport),
               tensorstore::MatchesStatus(absl::StatusCode::kNotFound));
 }
 

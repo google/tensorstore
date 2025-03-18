@@ -12,11 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/http/curl_wrappers.h"
+#include "tensorstore/internal/curl/curl_wrappers.h"
+
+#include <stddef.h>
 
 #include <string>
 #include <string_view>
 
+#include "absl/base/call_once.h"
+#include "absl/log/absl_check.h"
+#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include <curl/curl.h>
@@ -26,6 +31,37 @@
 
 namespace tensorstore {
 namespace internal_http {
+namespace {
+
+static absl::once_flag g_init;
+
+// See curl:src/lib/curl_trc.c
+static constexpr const char* kCurlTypeStrings[] = {
+    ": * ",  // CURLINFO_TEXT,
+    ": < ",  // CURLINFO_HEADER_IN,
+    ": > ",  // CURLINFO_HEADER_OUT,
+    ": ",    // CURLINFO_DATA_IN,
+    ": ",    // CURLINFO_DATA_OUT,
+    ": ",    // CURLINFO_SSL_DATA_IN,
+    ": ",    // CURLINFO_SSL_DATA_OUT,
+};
+
+int CurlLogToAbseil(CURL* handle, curl_infotype type, char* data, size_t size,
+                    void* userp) {
+  switch (type) {
+    case CURLINFO_TEXT:
+    case CURLINFO_HEADER_OUT:
+    case CURLINFO_HEADER_IN:
+      break;
+    default: /* nada */
+      return 0;
+  }
+  ABSL_LOG(INFO) << handle << kCurlTypeStrings[type]
+                 << std::string_view(data, size);
+  return 0;
+}
+
+}  // namespace
 
 void CurlPtrCleanup::operator()(CURL* c) { curl_easy_cleanup(c); }
 void CurlMultiCleanup::operator()(CURLM* m) { curl_multi_cleanup(m); }
@@ -128,6 +164,22 @@ absl::Status CurlMCodeToStatus(CURLMcode code, std::string_view detail,
   status.SetPayload("curlm_code", absl::Cord(tensorstore::StrCat(code)));
   MaybeAddSourceLocation(status, loc);
   return status;
+}
+
+void SetLogToAbseil(CURL* handle) {
+  ABSL_CHECK_EQ(CURLE_OK, curl_easy_setopt(handle, CURLOPT_DEBUGFUNCTION,
+                                           CurlLogToAbseil));
+}
+
+void CurlInit() {
+  // libcurl depends on many different SSL libraries, depending on the library
+  // the library might not be thread safe. We defer such considerations for
+  // now. https://curl.haxx.se/libcurl/c/threadsafe.html
+  //
+  // Automatically initialize the libcurl library.
+  // Don't call `curl_global_cleanup()` since it is pointless anyway and
+  // potentially leads to order of destruction race conditions.
+  absl::call_once(g_init, [] { curl_global_init(CURL_GLOBAL_ALL); });
 }
 
 }  // namespace internal_http

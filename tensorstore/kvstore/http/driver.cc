@@ -34,7 +34,7 @@
 #include "tensorstore/context_resource_provider.h"
 #include "tensorstore/internal/concurrency_resource.h"
 #include "tensorstore/internal/concurrency_resource_provider.h"
-#include "tensorstore/internal/http/curl_transport.h"
+#include "tensorstore/internal/http/default_transport.h"
 #include "tensorstore/internal/http/http_header.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
@@ -180,7 +180,9 @@ struct HttpKeyValueStoreSpecData {
           HttpRequestConcurrencyResource::id,
           jb::Projection<&HttpKeyValueStoreSpecData::request_concurrency>()),
       jb::Member(HttpRequestRetries::id,
-                 jb::Projection<&HttpKeyValueStoreSpecData::retries>()));
+                 jb::Projection<&HttpKeyValueStoreSpecData::retries>())
+      /**/
+  );
 
   std::string GetUrl(std::string_view path) const {
     auto parsed = internal::ParseGenericUri(base_url);
@@ -455,6 +457,7 @@ Result<kvstore::Spec> ParseHttpUrl(std::string_view url) {
       Context::Resource<HttpRequestConcurrencyResource>::DefaultSpec();
   driver_spec->data_.retries =
       Context::Resource<HttpRequestRetries>::DefaultSpec();
+
   return {std::in_place, std::move(driver_spec), std::move(path)};
 }
 

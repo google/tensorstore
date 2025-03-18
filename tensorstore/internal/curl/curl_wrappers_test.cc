@@ -12,9 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/http/curl_wrappers.h"
+#include "tensorstore/internal/curl/curl_wrappers.h"
 
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include <curl/curl.h>
 
 namespace {
 

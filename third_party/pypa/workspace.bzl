@@ -48,6 +48,9 @@ def repo():
     repo_pypa_googleapis_common_protos()
     repo_pypa_graphql_core()
     repo_pypa_grpcio()
+    repo_pypa_h2()
+    repo_pypa_hpack()
+    repo_pypa_hyperframe()
     repo_pypa_idna()
     repo_pypa_imagesize()
     repo_pypa_importlib_metadata()
@@ -1129,6 +1132,48 @@ def repo_pypa_grpcio():
             "--hash=sha256:f32090238b720eb585248654db8e3afc87b48d26ac423c8dde8334a232ff53c9",
             "--hash=sha256:fe9dbd916df3b60e865258a8c72ac98f3ac9e2a9542dcb72b7a34d236242a5ce",
             "--hash=sha256:ff4a8112a79464919bb21c18e956c54add43ec9a4850e3949da54f61c241a4a6",
+        ],
+    )
+
+def repo_pypa_h2():
+    repo_pypa_hpack()
+    repo_pypa_hyperframe()
+    maybe(
+        third_party_python_package,
+        name = "pypa_h2",
+        target = "h2",
+        requirement = [
+            "h2==4.2.0",
+            "--hash=sha256:479a53ad425bb29af087f3458a61d30780bc818e4ebcf01f0b536ba916462ed0",
+            "--hash=sha256:c8a52129695e88b1a0578d8d2cc6842bbd79128ac685463b887ee278126ad01f",
+        ],
+        deps = [
+            "@pypa_hpack//:hpack",
+            "@pypa_hyperframe//:hyperframe",
+        ],
+    )
+
+def repo_pypa_hpack():
+    maybe(
+        third_party_python_package,
+        name = "pypa_hpack",
+        target = "hpack",
+        requirement = [
+            "hpack==4.1.0",
+            "--hash=sha256:157ac792668d995c657d93111f46b4535ed114f0c9c8d672271bbec7eae1b496",
+            "--hash=sha256:ec5eca154f7056aa06f196a557655c5b009b382873ac8d1e66e79e87535f1dca",
+        ],
+    )
+
+def repo_pypa_hyperframe():
+    maybe(
+        third_party_python_package,
+        name = "pypa_hyperframe",
+        target = "hyperframe",
+        requirement = [
+            "hyperframe==6.1.0",
+            "--hash=sha256:b03380493a519fce58ea5af42e4a42317bf9bd425596f7a0835ffce80f1a42e5",
+            "--hash=sha256:f630908a00854a7adeabd6382b43923a4c4cd4b821fcb527e6ab9e15382a3b08",
         ],
     )
 

@@ -36,7 +36,7 @@
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
-#include "tensorstore/internal/http/curl_transport.h"
+#include "tensorstore/internal/http/default_transport.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
@@ -154,13 +154,10 @@ class MyMockTransport : public HttpTransport {
 
 struct DefaultHttpTransportSetter {
   DefaultHttpTransportSetter(std::shared_ptr<HttpTransport> transport) {
-    SetDefaultHttpTransport(transport);
-    tensorstore::internal_oauth2::ResetSharedGoogleAuthProvider();
+    old_transport = SetDefaultHttpTransport(transport);
   }
-  ~DefaultHttpTransportSetter() {
-    tensorstore::internal_oauth2::ResetSharedGoogleAuthProvider();
-    SetDefaultHttpTransport(nullptr);
-  }
+  ~DefaultHttpTransportSetter() { SetDefaultHttpTransport(old_transport); }
+  std::shared_ptr<HttpTransport> old_transport;
 };
 
 Context DefaultTestContext() {
@@ -414,6 +411,7 @@ TEST(GcsKeyValueStoreTest, SpecRoundtrip) {
 
   tensorstore::internal::KeyValueStoreSpecRoundtripOptions options;
   options.full_spec = {{"driver", kDriver}, {"bucket", "my-bucket"}};
+
   tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
 }
 
@@ -648,7 +646,7 @@ class MyConcurrentMockTransport : public MyMockTransport {
           std::max(max_concurrent_requests_, cur_concurrent_requests_);
     }
 
-    /// Schedule the completion 5ms in the future.
+    // Schedule the completion 5ms in the future.
     auto op = tensorstore::PromiseFuturePair<HttpResponse>::Make();
     ScheduleAt(absl::Now() + absl::Milliseconds(5),
                [this, r = request, o = std::move(options), response_handler] {
