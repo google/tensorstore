@@ -71,6 +71,7 @@
 #include <cstdio>
 #include <cstring>
 #include <limits>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -95,6 +96,7 @@
 #include "tensorstore/internal/tracing/logged_trace_span.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 
 // Not your standard include order.
@@ -126,7 +128,7 @@ auto& mmap_active = internal_metrics::Gauge<int64_t>::New(
 
 ABSL_CONST_INIT internal_log::VerboseFlag detail_logging("file_detail");
 
-/// Maximum length of Windows path, including terminating NUL.
+// Maximum length of Windows path, including terminating NUL.
 constexpr size_t kMaxWindowsPathSize = 32768;
 
 inline ::OVERLAPPED GetOverlappedWithOffset(uint64_t offset) {
@@ -136,7 +138,7 @@ inline ::OVERLAPPED GetOverlappedWithOffset(uint64_t offset) {
   return overlapped;
 }
 
-/// Returns an OVERLAPPED with the lock offset used for the lock files.
+// Returns an OVERLAPPED with the lock offset used for the lock files.
 inline ::OVERLAPPED GetLockOverlapped() {
   // Use a very high lock offset to ensure it does not conflict with any valid
   // byte range in the file.  This is important because we rename the lock file
@@ -267,21 +269,46 @@ Result<UniqueFileDescriptor> OpenFileWrapper(const std::string& path,
   return UniqueFileDescriptor(fd);
 }
 
-Result<ptrdiff_t> ReadFromFile(FileDescriptor fd, void* buf, size_t count,
-                               int64_t offset) {
+Result<ptrdiff_t> ReadFromFile(FileDescriptor fd,
+                               tensorstore::span<char> buffer) {
   LoggedTraceSpan tspan(__func__, detail_logging.Level(1),
-                        {{"handle", fd}, {"size", count}});
+                        {{"handle", fd}, {"size", buffer.size()}});
 
-  auto overlapped = GetOverlappedWithOffset(static_cast<uint64_t>(offset));
-  if (count > std::numeric_limits<DWORD>::max()) {
-    count = std::numeric_limits<DWORD>::max();
-  }
+  DWORD count = (buffer.size() > std::numeric_limits<DWORD>::max())
+                    ? std::numeric_limits<DWORD>::max()
+                    : static_cast<DWORD>(buffer.size());
   DWORD bytes_read;
-  if (::ReadFile(fd, buf, static_cast<DWORD>(count), &bytes_read,
-                 &overlapped)) {
+  if (::ReadFile(fd, buffer.data(), count, &bytes_read, nullptr)) {
     return static_cast<ptrdiff_t>(bytes_read);
   }
-  auto status = StatusFromOsError(::GetLastError(), "Failed to read from file");
+  auto err = ::GetLastError();
+  if (err == ERROR_HANDLE_EOF || err == ERROR_NO_DATA) {
+    return 0;
+  }
+  auto status = StatusFromOsError(err, "Failed to read from file");
+  return std::move(tspan).EndWithStatus(std::move(status));
+}
+
+Result<ptrdiff_t> PReadFromFile(FileDescriptor fd,
+                                tensorstore::span<char> buffer,
+                                int64_t offset) {
+  LoggedTraceSpan tspan(
+      __func__, detail_logging.Level(1),
+      {{"handle", fd}, {"size", buffer.size()}, {"offset", offset}});
+
+  DWORD count = (buffer.size() > std::numeric_limits<DWORD>::max())
+                    ? std::numeric_limits<DWORD>::max()
+                    : static_cast<DWORD>(buffer.size());
+  DWORD bytes_read;
+  auto overlapped = GetOverlappedWithOffset(static_cast<uint64_t>(offset));
+  if (::ReadFile(fd, buffer.data(), count, &bytes_read, &overlapped)) {
+    return static_cast<ptrdiff_t>(bytes_read);
+  }
+  auto err = ::GetLastError();
+  if (err == ERROR_HANDLE_EOF) {
+    return 0;
+  }
+  auto status = StatusFromOsError(err, "Failed to read from file");
   return std::move(tspan).EndWithStatus(std::move(status));
 }
 

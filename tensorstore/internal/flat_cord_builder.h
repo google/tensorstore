@@ -26,6 +26,7 @@
 #include "absl/log/absl_check.h"
 #include "absl/strings/cord.h"
 #include "tensorstore/internal/os/memory_region.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 namespace internal {
@@ -75,6 +76,10 @@ class FlatCordBuilder {
     inuse_ = size;
   }
 
+  tensorstore::span<char> available_span() {
+    return tensorstore::span(region_.data() + inuse_, available());
+  }
+
   /// Append data to the builder.
   void Append(std::string_view sv) {
     if (ABSL_PREDICT_FALSE(sv.empty())) return;
@@ -83,7 +88,12 @@ class FlatCordBuilder {
     inuse_ += sv.size();
   }
 
-  absl::Cord Build() && { return std::move(region_).as_cord(); }
+  absl::Cord Build() && {
+    if (inuse_ == region_.size()) {
+      return std::move(region_).as_cord();
+    }
+    return std::move(region_).as_cord().Subcord(0, inuse_);
+  }
 
  private:
   internal_os::MemoryRegion region_;

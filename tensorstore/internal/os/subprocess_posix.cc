@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/os/subprocess.h"
-
 #ifdef _WIN32
 #error "Use subprocess_win.cc instead."
 #endif
+
+#include "tensorstore/internal/os/subprocess.h"
+// Normal include order here.
 
 #include <fcntl.h>
 #include <poll.h>
@@ -31,23 +32,33 @@
 #include <cassert>
 #include <cerrno>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <variant>
 #include <vector>
 
-#include "absl/container/flat_hash_map.h"
-#include "absl/container/inlined_vector.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "tensorstore/internal/os/error_code.h"
-#include "tensorstore/internal/os/wstring.h"  // IWYU pragma: keep
+#include "tensorstore/internal/os/file_util.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"  // IWYU pragma: keep
+#include "tensorstore/util/status.h"
+
+// IWYU pragma keep: Used by the windows version.
+#include "absl/container/flat_hash_map.h"
+#include "tensorstore/internal/os/wstring.h"
 
 extern char** environ;
+
+using ::tensorstore::internal_os::FileDescriptor;
+using ::tensorstore::internal_os::OpenFileWrapper;
+using ::tensorstore::internal_os::OpenFlags;
+using ::tensorstore::internal_os::UniqueFileDescriptor;
 
 namespace tensorstore {
 namespace internal {
@@ -57,15 +68,22 @@ bool retry(int e) {
   return ((e == EINTR) || (e == EAGAIN) || (e == EWOULDBLOCK));
 }
 
-Result<int> open_with_retry(const char* path, int mode) {
-  int ret;
-  do {
-    ret = ::open(path, mode, 0666);
-  } while (ret < 0 && errno == EINTR);
-  if (ret < 0) {
-    return StatusFromOsError(errno, "While opening ", path);
+absl::Status SetCloseOnExec(FileDescriptor fd, bool close_on_exec) {
+  int flags = fcntl(fd, F_GETFD, 0);
+  if (flags != -1) {
+    if (static_cast<bool>(flags & FD_CLOEXEC) == close_on_exec) {
+      return absl::OkStatus();
+    }
+    if (close_on_exec) {
+      flags |= FD_CLOEXEC;
+    } else {
+      flags &= ~FD_CLOEXEC;
+    }
+    if (fcntl(fd, F_SETFD, flags) != -1) {
+      return absl::OkStatus();
+    }
   }
-  return ret;
+  return StatusFromOsError(errno, "fcntl");
 }
 
 // Open all the files used in spawn-process stdin/stdout/stderr
@@ -73,62 +91,120 @@ Result<int> open_with_retry(const char* path, int mode) {
 // can open files, the precise cause on failure is harder to determine.
 absl::Status AddPosixFileActions(const SubprocessOptions& options,
                                  posix_spawn_file_actions_t* file_actions,
-                                 absl::InlinedVector<int, 3>& fds_to_close) {
-  int fds[3] = {-1, -1, -1};
-  {
-    const char* stdin_filename = "/dev/null";
-    if (auto* redir =
-            std::get_if<SubprocessOptions::Redirect>(&options.stdin_action);
-        redir != nullptr) {
-      stdin_filename = redir->filename.c_str();
+                                 absl::flat_hash_set<int>& fds_to_close,
+                                 UniqueFileDescriptor& stdout_pipe_read,
+                                 UniqueFileDescriptor& stderr_pipe_read) {
+  absl::flat_hash_set<int> close_added;
+
+  auto add_close_action = [&](int fd) {
+    if (fd == -1 || close_added.contains(fd)) return;
+    if (fd == STDIN_FILENO || fd == STDOUT_FILENO || fd == STDERR_FILENO)
+      return;
+    close_added.insert(fd);
+    posix_spawn_file_actions_addclose(file_actions, fd);
+  };
+
+  // Set up a pipe for output.
+  auto output_via_pipe = [&](int& write_fd,
+                             UniqueFileDescriptor& read_fd) -> absl::Status {
+    int pipefd[2];
+    if (pipe(pipefd) != 0) {
+      return StatusFromOsError(errno, "pipe");
     }
+    // TENSORSTORE_RETURN_IF_ERROR(SetNonblock(pipefd[0]));
+    // TENSORSTORE_RETURN_IF_ERROR(SetNonblock(pipefd[1]));
+    fds_to_close.insert(pipefd[1]);
+    add_close_action(pipefd[0]);
+    read_fd = UniqueFileDescriptor(pipefd[0]);
+    write_fd = pipefd[1];
+    return absl::OkStatus();
+  };
+
+  const std::string dev_null = "/dev/null";
+
+  int fds[3] = {-1, -1, -1};
+
+  // stdin
+  const std::string* stdin_filename = nullptr;
+  if (auto* fd =
+          std::get_if<SubprocessOptions::RedirectFd>(&options.stdin_action)) {
+    fds[STDERR_FILENO] = fd->fd;
+    TENSORSTORE_RETURN_IF_ERROR(SetCloseOnExec(fd->fd, false));
+  } else if (auto* redir = std::get_if<SubprocessOptions::Redirect>(
+                 &options.stdin_action);
+             redir != nullptr) {
+    stdin_filename = &redir->filename;
+  } else {
+    stdin_filename = &dev_null;
+  }
+  if (stdin_filename) {
     TENSORSTORE_ASSIGN_OR_RETURN(
-        int fd, open_with_retry(stdin_filename, O_RDONLY | O_CLOEXEC));
-    fds_to_close.push_back(fd);
-    fds[STDIN_FILENO] = fd;
+        auto unique_fd,
+        OpenFileWrapper(*stdin_filename, OpenFlags::DefaultRead));
+    fds_to_close.insert(unique_fd.get());
+    fds[STDIN_FILENO] = unique_fd.release();
   }
 
-  const char* stdout_filename = nullptr;
+  // stdout
+  const std::string* stdout_filename = nullptr;
   if (std::holds_alternative<SubprocessOptions::Inherit>(
           options.stdout_action)) {
     fds[STDOUT_FILENO] = STDOUT_FILENO;
+  } else if (std::holds_alternative<SubprocessOptions::Pipe>(
+                 options.stdout_action)) {
+    TENSORSTORE_RETURN_IF_ERROR(
+        output_via_pipe(fds[STDOUT_FILENO], stdout_pipe_read));
+  } else if (auto* fd = std::get_if<SubprocessOptions::RedirectFd>(
+                 &options.stdout_action)) {
+    fds[STDOUT_FILENO] = fd->fd;
+    TENSORSTORE_RETURN_IF_ERROR(SetCloseOnExec(fd->fd, false));
   } else if (auto* redir = std::get_if<SubprocessOptions::Redirect>(
                  &options.stdout_action);
              redir != nullptr) {
-    stdout_filename = redir->filename.c_str();
+    stdout_filename = &redir->filename;
   } else {  // Ignore
-    stdout_filename = "/dev/null";
+    stdout_filename = &dev_null;
   }
 
-  const char* stderr_filename = nullptr;
+  // stderr
+  const std::string* stderr_filename = nullptr;
   if (std::holds_alternative<SubprocessOptions::Inherit>(
           options.stderr_action)) {
     fds[STDERR_FILENO] = STDERR_FILENO;
+  } else if (std::holds_alternative<SubprocessOptions::Pipe>(
+                 options.stderr_action)) {
+    TENSORSTORE_RETURN_IF_ERROR(
+        output_via_pipe(fds[STDERR_FILENO], stderr_pipe_read));
+  } else if (auto* fd = std::get_if<SubprocessOptions::RedirectFd>(
+                 &options.stderr_action)) {
+    fds[STDERR_FILENO] = fd->fd;
+    TENSORSTORE_RETURN_IF_ERROR(SetCloseOnExec(fd->fd, false));
   } else if (auto* redir = std::get_if<SubprocessOptions::Redirect>(
                  &options.stderr_action);
              redir != nullptr) {
-    stderr_filename = redir->filename.c_str();
+    stderr_filename = &redir->filename;
   } else {  // Ignore
-    stderr_filename = "/dev/null";
+    stderr_filename = &dev_null;
   }
 
   if (stdout_filename) {
     TENSORSTORE_ASSIGN_OR_RETURN(
-        int fd,
-        open_with_retry(stdout_filename, O_WRONLY | O_CREAT | O_CLOEXEC));
-    fds_to_close.push_back(fd);
-    fds[STDOUT_FILENO] = fd;
+        auto unique_fd,
+        OpenFileWrapper(*stdout_filename,
+                        OpenFlags::Create | OpenFlags::OpenWriteOnly));
+    fds[STDOUT_FILENO] = unique_fd.get();
+    fds_to_close.insert(unique_fd.release());
   }
   if (stderr_filename) {
-    if (std::string_view(stdout_filename) ==
-        std::string_view(stderr_filename)) {
+    if (stdout_filename && *stdout_filename == *stderr_filename) {
       fds[STDERR_FILENO] = fds[STDOUT_FILENO];
     } else {
       TENSORSTORE_ASSIGN_OR_RETURN(
-          int fd,
-          open_with_retry(stderr_filename, O_WRONLY | O_CREAT | O_CLOEXEC));
-      fds_to_close.push_back(fd);
-      fds[STDOUT_FILENO] = fd;
+          auto unique_fd,
+          OpenFileWrapper(*stderr_filename,
+                          OpenFlags::Create | OpenFlags::OpenWriteOnly));
+      fds[STDERR_FILENO] = unique_fd.get();
+      fds_to_close.insert(unique_fd.release());
     }
   }
 
@@ -150,13 +226,24 @@ absl::Status AddPosixFileActions(const SubprocessOptions& options,
   if (r != 0) {
     return StatusFromOsError(r, "posix_spawn_file_actions_adddup2");
   }
+
+  // Add close actions.
+  add_close_action(fds[STDIN_FILENO]);
+  add_close_action(fds[STDOUT_FILENO]);
+  add_close_action(fds[STDERR_FILENO]);
   return absl::OkStatus();
 }
 
 }  // namespace
 
 struct Subprocess::Impl {
-  Impl(pid_t pid) : child_pid_(pid), exit_code_(-1) {}
+  Impl(pid_t pid, UniqueFileDescriptor stdout_pipe_read,
+       UniqueFileDescriptor stderr_pipe_read)
+      : child_pid_(pid),
+        exit_code_(-1),
+        stdout_pipe_read_(std::move(stdout_pipe_read)),
+        stderr_pipe_read_(std::move(stderr_pipe_read)) {}
+
   ~Impl();
 
   absl::Status Kill(int signal);
@@ -164,6 +251,9 @@ struct Subprocess::Impl {
 
   std::atomic<pid_t> child_pid_;
   std::atomic<int> exit_code_;
+
+  UniqueFileDescriptor stdout_pipe_read_;
+  UniqueFileDescriptor stderr_pipe_read_;
 };
 
 Subprocess::Impl::~Impl() {
@@ -188,7 +278,7 @@ absl::Status Subprocess::Impl::Kill(int signal) {
 Result<int> Subprocess::Impl::Join(bool block) {
   // If stdin were a pipe, close it here.
   int status;
-  for (;;) {
+  while (true) {
     auto pid = child_pid_.load();
     if (pid == -1) {
       // Already joined. NOTE: This races with setting the pid to -1, so it
@@ -248,16 +338,19 @@ Result<Subprocess> SpawnSubprocess(const SubprocessOptions& options) {
     envp.push_back(nullptr);
   }
 
-  /// Add posix file actions; specifically, redirect stdin/stdout/sterr to
-  /// /dev/null to ensure that the file descriptors are not reused.
+  // Add posix file actions; specifically, redirect stdin/stdout/sterr to
+  // /dev/null to ensure that the file descriptors are not reused.
   posix_spawn_file_actions_t file_actions;
   if (0 != posix_spawn_file_actions_init(&file_actions)) {
     return absl::InternalError("posix_spawn failure");
   }
+  UniqueFileDescriptor stdout_pipe_read;
+  UniqueFileDescriptor stderr_pipe_read;
 
   pid_t child_pid = 0;
-  absl::InlinedVector<int, 3> fds_to_close;
-  auto status = AddPosixFileActions(options, &file_actions, fds_to_close);
+  absl::flat_hash_set<int> fds_to_close;
+  auto status = AddPosixFileActions(options, &file_actions, fds_to_close,
+                                    stdout_pipe_read, stderr_pipe_read);
   if (status.ok()) {
     // File
     int err = posix_spawn(&child_pid, argv[0], &file_actions, nullptr,
@@ -284,7 +377,8 @@ Result<Subprocess> SpawnSubprocess(const SubprocessOptions& options) {
   }
 
   ABSL_CHECK_GT(child_pid, 0);
-  return Subprocess(std::make_shared<Subprocess::Impl>(child_pid));
+  return Subprocess(std::make_shared<Subprocess::Impl>(
+      child_pid, std::move(stdout_pipe_read), std::move(stderr_pipe_read)));
 }
 
 Subprocess::~Subprocess() = default;
@@ -297,6 +391,13 @@ absl::Status Subprocess::Kill(int signal) const {
 Result<int> Subprocess::Join(bool block) const {
   assert(impl_);
   return impl_->Join(block);
+}
+
+internal_os::FileDescriptor Subprocess::stdout_pipe() const {
+  return impl_->stdout_pipe_read_.get();
+}
+internal_os::FileDescriptor Subprocess::stderr_pipe() const {
+  return impl_->stderr_pipe_read_.get();
 }
 
 }  // namespace internal

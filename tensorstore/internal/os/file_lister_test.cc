@@ -28,6 +28,7 @@
 #include "tensorstore/internal/os/file_util.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
@@ -39,10 +40,9 @@ using ::tensorstore::internal_os::FsyncDirectory;
 using ::tensorstore::internal_os::FsyncFile;
 using ::tensorstore::internal_os::MakeDirectory;
 using ::tensorstore::internal_os::OpenDirectoryDescriptor;
-using ::tensorstore::internal_os::OpenExistingFileForReading;
 using ::tensorstore::internal_os::OpenFileWrapper;
 using ::tensorstore::internal_os::OpenFlags;
-using ::tensorstore::internal_os::ReadFromFile;
+using ::tensorstore::internal_os::PReadFromFile;
 using ::tensorstore::internal_os::RecursiveFileList;
 using ::tensorstore::internal_os::WriteToFile;
 using ::tensorstore::internal_testing::ScopedTemporaryDirectory;
@@ -191,8 +191,8 @@ TEST(RecursiveFileListEntryTest, DeleteWithOpenFile) {
 
   {
     // Open file; it should be deleted.
-    auto f =
-        OpenExistingFileForReading(absl::StrCat(tmpdir.path(), "/read.txt"));
+    auto f = OpenFileWrapper(absl::StrCat(tmpdir.path(), "/read.txt"),
+                             OpenFlags::DefaultRead);
     EXPECT_THAT(f, IsOk());
 
     std::vector<std::string> files;
@@ -213,7 +213,8 @@ TEST(RecursiveFileListEntryTest, DeleteWithOpenFile) {
                 IsOk());
 
     char buf[16];
-    EXPECT_THAT(ReadFromFile(f->get(), buf, 3, 0), IsOkAndHolds(3));
+    EXPECT_THAT(PReadFromFile(f->get(), tensorstore::span(buf, 3), 0),
+                IsOkAndHolds(3));
   }
 
   std::vector<std::string> files;

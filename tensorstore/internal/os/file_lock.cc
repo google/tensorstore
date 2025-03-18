@@ -53,7 +53,7 @@ absl::Status FileLock::Delete() && {
   assert(fd_ != FileDescriptorTraits::Invalid());
 
   auto fd = std::exchange(fd_, FileDescriptorTraits::Invalid());
-  auto status = internal_os::DeleteOpenFile(fd, lock_path_);
+  auto status = DeleteOpenFile(fd, lock_path_);
   Unlock(fd);
   FileDescriptorTraits::Close(fd);
   return MaybeAnnotateStatus(std::move(status), "Failed to clean lock file");
@@ -70,13 +70,13 @@ Result<FileLock> AcquireFileLock(std::string lock_path) {
   using private_t = FileLock::private_t;
   TENSORSTORE_ASSIGN_OR_RETURN(
       UniqueFileDescriptor fd,
-      internal_os::OpenFileWrapper(lock_path, OpenFlags::DefaultWrite));
+      OpenFileWrapper(lock_path, OpenFlags::DefaultWrite));
   FileInfo a, b;
   FileInfo* info = &a;
 
   // Is this a network filesystem?
-  TENSORSTORE_RETURN_IF_ERROR(internal_os::GetFileInfo(fd.get(), info));
-  if (!internal_os::IsRegularFile(*info)) {
+  TENSORSTORE_RETURN_IF_ERROR(GetFileInfo(fd.get(), info));
+  if (!IsRegularFile(*info)) {
     return absl::FailedPreconditionError(
         absl::StrCat("Not a regular file: ", lock_path));
   }
@@ -85,20 +85,19 @@ Result<FileLock> AcquireFileLock(std::string lock_path) {
   while (true) {
     // Acquire lock.
     TENSORSTORE_ASSIGN_OR_RETURN(
-        auto unlock_fn, internal_os::AcquireFdLock(fd.get()),
+        auto unlock_fn, AcquireFdLock(fd.get()),
         MaybeAnnotateStatus(_, absl::StrCat("Failed to acquire lock on file: ",
                                             QuoteString(lock_path))));
 
     // Reopening the file should give the same value since the lock is held.
     TENSORSTORE_ASSIGN_OR_RETURN(
         UniqueFileDescriptor other_fd,
-        internal_os::OpenFileWrapper(lock_path, OpenFlags::DefaultWrite));
+        OpenFileWrapper(lock_path,
+                        OpenFlags::DefaultWrite | OpenFlags::CloseOnExec));
 
     FileInfo* other_info = info == &a ? &b : &a;
-    TENSORSTORE_RETURN_IF_ERROR(
-        internal_os::GetFileInfo(other_fd.get(), other_info));
-    if (internal_os::GetDeviceId(a) == internal_os::GetDeviceId(b) &&
-        internal_os::GetFileId(a) == internal_os::GetFileId(b)) {
+    TENSORSTORE_RETURN_IF_ERROR(GetFileInfo(other_fd.get(), other_info));
+    if (GetDeviceId(a) == GetDeviceId(b) && GetFileId(a) == GetFileId(b)) {
       // Lock was acquired successfully.
       return FileLock(private_t(), std::move(lock_path), fd.release(),
                       std::move(unlock_fn));
@@ -122,10 +121,11 @@ Result<FileLock> AcquireExclusiveFile(std::string lock_path,
 
   // Determine whether the lock file is stale.
   auto detect_stale_lock = [&]() mutable {
-    auto read_fd = OpenFileWrapper(lock_path, OpenFlags::OpenReadOnly);
+    auto read_fd = OpenFileWrapper(
+        lock_path, OpenFlags::OpenReadOnly | OpenFlags::CloseOnExec);
     if (read_fd.ok()) {
       TENSORSTORE_RETURN_IF_ERROR(GetFileInfo(read_fd->get(), &info));
-      if (!internal_os::IsRegularFile(info)) {
+      if (!IsRegularFile(info)) {
         // A lock file must be a regular file, not a symlink or directory.
         return absl::FailedPreconditionError(
             absl::StrCat("Not a regular file: ", lock_path));
@@ -148,11 +148,11 @@ Result<FileLock> AcquireExclusiveFile(std::string lock_path,
     n++;
     if (m > 1000) m = 1000;
 
-    auto fd = internal_os::OpenFileWrapper(
-        lock_path,
-        OpenFlags::Create | OpenFlags::Exclusive | OpenFlags::OpenReadWrite);
+    auto fd = OpenFileWrapper(
+        lock_path, OpenFlags::Create | OpenFlags::Exclusive |
+                       OpenFlags::OpenReadWrite | OpenFlags::CloseOnExec);
     if (fd.ok()) {
-      TENSORSTORE_RETURN_IF_ERROR(internal_os::GetFileInfo(fd->get(), &info));
+      TENSORSTORE_RETURN_IF_ERROR(GetFileInfo(fd->get(), &info));
       return FileLock(private_t{}, std::move(lock_path), fd->release(),
                       std::nullopt);
     }

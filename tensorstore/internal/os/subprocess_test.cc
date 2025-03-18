@@ -27,20 +27,24 @@
 #include "absl/strings/match.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
-#include "riegeli/bytes/fd_reader.h"
-#include "riegeli/bytes/read_all.h"
 #include "tensorstore/internal/env.h"
+#include "tensorstore/internal/os/file_util.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
 
+using ::tensorstore::internal::GetEnvironmentMap;
 using ::tensorstore::internal::JoinPath;
 using ::tensorstore::internal::SpawnSubprocess;
 using ::tensorstore::internal::SubprocessOptions;
+using ::tensorstore::internal_os::OpenFileWrapper;
+using ::tensorstore::internal_os::OpenFlags;
+using ::tensorstore::internal_os::ReadAllToString;
+using ::tensorstore::internal_os::ReadFromFile;
 
 static std::string* program_name = nullptr;
 const char kSubprocessArg[] = "--is_subprocess";
@@ -77,6 +81,26 @@ TEST(SubprocessTest, Kill) {
   EXPECT_NE(exit_code, 33);
 }
 
+TEST(SubprocessTest, Pipe) {
+  // Should be able to spawn and just discard the process.
+  SubprocessOptions opts;
+  opts.executable = *program_name;
+  opts.args = {kSubprocessArg};
+  opts.stdout_action = SubprocessOptions::Pipe{};
+
+  auto child = SpawnSubprocess(opts);
+  TENSORSTORE_ASSERT_OK(child.status());
+
+  int exit_code;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(exit_code, child->Join());
+  EXPECT_EQ(exit_code, 33);
+
+  char buf[1024];
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto n, ReadFromFile(child->stdout_pipe(), tensorstore::span(buf)));
+  EXPECT_THAT(std::string_view(buf, n), ::testing::HasSubstr("PASS"));
+}
+
 TEST(SubprocessTest, DontInherit) {
   SubprocessOptions opts;
   opts.executable = *program_name;
@@ -96,11 +120,11 @@ TEST(SubprocessTest, Redirects) {
   ::tensorstore::internal_testing::ScopedTemporaryDirectory temp_dir;
   std::string out_file = JoinPath(temp_dir.path(), "stdout");
 
-  /// Should be able to spawn and just discard the process.
+  // Should be able to spawn and just discard the process.
   SubprocessOptions opts;
   opts.executable = *program_name;
   opts.args = {kSubprocessArg};
-  opts.env.emplace(::tensorstore::internal::GetEnvironmentMap());
+  opts.env.emplace(GetEnvironmentMap());
   opts.env->insert_or_assign("SUBPROCESS_TEST_ENV", "1");
   opts.stdout_action = SubprocessOptions::Redirect{out_file};
   opts.stderr_action = SubprocessOptions::Redirect{out_file};
@@ -113,13 +137,42 @@ TEST(SubprocessTest, Redirects) {
   EXPECT_EQ(exit_code, 33);
 
   // Expect that the file exists.
-  std::string filedata;
-  TENSORSTORE_CHECK_OK(riegeli::ReadAll(riegeli::FdReader(out_file), filedata));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto filedata, ReadAllToString(out_file));
+  EXPECT_THAT(filedata, ::testing::HasSubstr("PASS"));
+}
+
+TEST(SubprocessTest, RedirectFd) {
+  ::tensorstore::internal_testing::ScopedTemporaryDirectory temp_dir;
+  std::string out_file = JoinPath(temp_dir.path(), "stdout");
+
+  auto fd = OpenFileWrapper(out_file, OpenFlags::DefaultWrite);
+  TENSORSTORE_ASSERT_OK(fd.status());
+
+  // Should be able to spawn and just discard the process.
+  SubprocessOptions opts;
+  opts.executable = *program_name;
+  opts.args = {kSubprocessArg};
+  opts.env.emplace(GetEnvironmentMap());
+  opts.env->insert_or_assign("SUBPROCESS_TEST_ENV", "1");
+  opts.stdout_action = SubprocessOptions::RedirectFd{fd->get()};
+  opts.stderr_action = SubprocessOptions::RedirectFd{fd->get()};
+
+  auto child = SpawnSubprocess(opts);
+  TENSORSTORE_ASSERT_OK(child.status());
+
+  int exit_code;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(exit_code, child->Join());
+  EXPECT_EQ(exit_code, 33);
+
+  // Expect that the file exists.
+  fd->reset();
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto filedata, ReadAllToString(out_file));
   EXPECT_THAT(filedata, ::testing::HasSubstr("PASS"));
 }
 
 TEST(SubprocessTest, Drop) {
-  /// Should be able to spawn and just discard the process.
+  // Should be able to spawn and just discard the process.
   SubprocessOptions opts;
   opts.executable = *program_name;
   opts.args = {kSubprocessArg};
@@ -132,7 +185,7 @@ TEST(SubprocessTest, Drop) {
 }
 
 TEST(SubprocessTest, Env) {
-  /// Should be able to spawn and just discard the process.
+  // Should be able to spawn and just discard the process.
   SubprocessOptions opts;
   opts.executable = *program_name;
   opts.args = {"--env=SUBPROCESS_TEST_ENV"};

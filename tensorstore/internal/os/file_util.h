@@ -24,7 +24,6 @@
 
 #include <string>
 #include <string_view>
-#include <utility>
 
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
@@ -32,6 +31,7 @@
 #include "tensorstore/internal/os/memory_region.h"
 #include "tensorstore/internal/os/unique_handle.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 
 // Include system headers last to reduce impact of macros.
 #ifndef _WIN32
@@ -119,8 +119,10 @@ enum class OpenFlags : int {
   Create = O_CREAT,
   Append = O_APPEND,
   Exclusive = O_EXCL,
+  CloseOnExec = O_CLOEXEC,
 
-  DefaultWrite = O_CREAT | O_WRONLY,
+  DefaultRead = O_RDONLY | O_CLOEXEC,
+  DefaultWrite = O_CREAT | O_WRONLY | O_CLOEXEC,
 };
 
 inline OpenFlags operator|(OpenFlags a, OpenFlags b) {
@@ -136,20 +138,22 @@ inline OpenFlags operator&(OpenFlags a, OpenFlags b) {
 Result<UniqueFileDescriptor> OpenFileWrapper(const std::string& path,
                                              OpenFlags flags);
 
-inline Result<UniqueFileDescriptor> OpenExistingFileForReading(
-    const std::string& path) {
-  return OpenFileWrapper(path, OpenFlags::OpenReadOnly);
-}
+/// Reads from an open file.
+///
+/// \param fd Open file descriptor.
+/// \param buffer[out] Pointer to memory where data will be stored.
+/// \returns Number of bytes read or a failure absl::Status code.
+Result<ptrdiff_t> ReadFromFile(FileDescriptor fd,
+                               tensorstore::span<char> buffer);
 
 /// Reads from an open file.
 ///
 /// \param fd Open file descriptor.
-/// \param buf[out] Pointer to memory where data will be stored.
-/// \param count Maximum number of bytes to read.
+/// \param buffer[out] Pointer to memory where data will be stored.
 /// \param offset Byte offset within file at which to start reading.
 /// \returns Number of bytes read or a failure absl::Status code.
-Result<ptrdiff_t> ReadFromFile(FileDescriptor fd, void* buf, size_t count,
-                               int64_t offset);
+Result<ptrdiff_t> PReadFromFile(FileDescriptor fd,
+                                tensorstore::span<char> buffer, int64_t offset);
 
 /// Reads the entire file into a string.
 ///
