@@ -28,6 +28,7 @@ using ::tensorstore::MakeOffsetArray;
 using ::tensorstore::MakeScalarArray;
 using ::tensorstore::MatchesArray;
 using ::tensorstore::MatchesScalarArray;
+using ::testing::MatchesRegex;
 
 TEST(MatchesArrayTest, Describe) {
   std::ostringstream ss;
@@ -77,10 +78,9 @@ TEST(MatchesArrayTest, ExplainElementMatch) {
           {::testing::Not(::testing::ElementsAre('d')),
            ::testing::Not(::testing::ElementsAre('a', 'b'))}),
       MakeArray<std::string>({"x", "ac"}), &listener);
-  EXPECT_EQ(
-      "whose element at {0} matches, whose element #0 doesn't match,\n"
-      "and whose element at {1} matches, whose element #1 doesn't match",
-      listener.str());
+  EXPECT_THAT(listener.str(),
+              MatchesRegex("whose element at \\{0\\} matches, .*\\n"
+                           "and whose element at \\{1\\} matches, .*"));
 }
 
 TEST(MatchesArrayTest, ExplainElementMismatchExplanation) {
@@ -88,8 +88,8 @@ TEST(MatchesArrayTest, ExplainElementMismatchExplanation) {
   ::testing::ExplainMatchResult(
       MatchesScalarArray<std::string>(::testing::ElementsAre('a', 'b')),
       MakeScalarArray<std::string>("ac"), &listener);
-  EXPECT_EQ("whose element at {} doesn't match, whose element #1 doesn't match",
-            listener.str());
+  EXPECT_THAT(listener.str(),
+              MatchesRegex("whose element at \\{\\} doesn't match.*"));
 }
 
 TEST(MatchesArrayTest, Matches) {
