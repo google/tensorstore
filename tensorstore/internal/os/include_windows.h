@@ -52,6 +52,9 @@ struct FileDispositionInfoExData {
 #if !defined(O_APPEND)
 #define O_APPEND 0x400
 #endif
+#if !defined(O_CLOEXEC)
+#define O_CLOEXEC 0x80000
+#endif
 
 }  // namespace internal_os
 }  // namespace tensorstore

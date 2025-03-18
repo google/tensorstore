@@ -165,6 +165,7 @@ using ::tensorstore::internal_os::FileDescriptor;
 using ::tensorstore::internal_os::FileInfo;
 using ::tensorstore::internal_os::kLockSuffix;
 using ::tensorstore::internal_os::MemmapFileReadOnly;
+using ::tensorstore::internal_os::OpenFlags;
 using ::tensorstore::internal_os::UniqueFileDescriptor;
 using ::tensorstore::kvstore::ListEntry;
 using ::tensorstore::kvstore::ListReceiver;
@@ -387,7 +388,7 @@ Result<UniqueFileDescriptor> OpenParentDirectory(std::string path) {
 Result<UniqueFileDescriptor> OpenValueFile(const std::string& path,
                                            StorageGeneration* generation,
                                            int64_t* size = nullptr) {
-  auto fd = internal_os::OpenExistingFileForReading(path);
+  auto fd = internal_os::OpenFileWrapper(path, OpenFlags::DefaultRead);
   if (!fd.ok()) {
     // Map not found to an empty file.
     if (absl::IsNotFound(fd.status())) {
@@ -415,11 +416,10 @@ Result<absl::Cord> ReadFromFileDescriptor(FileDescriptor fd,
   // Large reads could use hugepage-aware memory allocations.
   internal::FlatCordBuilder buffer(byte_range.size(), 0);
   size_t offset = 0;
-  while (offset < buffer.size()) {
+  while (buffer.available() > 0) {
     TENSORSTORE_ASSIGN_OR_RETURN(
-        auto n, internal_os::ReadFromFile(fd, buffer.data() + offset,
-                                          buffer.size() - offset,
-                                          byte_range.inclusive_min + offset));
+        auto n, internal_os::PReadFromFile(fd, buffer.available_span(),
+                                           byte_range.inclusive_min + offset));
     if (n > 0) {
       file_metrics.bytes_read.IncrementBy(n);
       offset += n;

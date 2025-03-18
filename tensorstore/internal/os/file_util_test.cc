@@ -29,6 +29,7 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -51,9 +52,10 @@ using ::tensorstore::internal_os::GetSize;
 using ::tensorstore::internal_os::IsDirSeparator;
 using ::tensorstore::internal_os::IsRegularFile;
 using ::tensorstore::internal_os::MemmapFileReadOnly;
-using ::tensorstore::internal_os::OpenExistingFileForReading;
 using ::tensorstore::internal_os::OpenFileWrapper;
 using ::tensorstore::internal_os::OpenFlags;
+using ::tensorstore::internal_os::PReadFromFile;
+using ::tensorstore::internal_os::ReadAllToString;
 using ::tensorstore::internal_os::ReadFromFile;
 using ::tensorstore::internal_os::RenameOpenFile;
 using ::tensorstore::internal_os::TruncateFile;
@@ -73,7 +75,7 @@ TEST(FileUtilTest, Basics) {
 
   // Missing files:
   {
-    auto f = OpenExistingFileForReading(foo_txt);
+    auto f = OpenFileWrapper(foo_txt, OpenFlags::DefaultRead);
     EXPECT_THAT(f, StatusIs(absl::StatusCode::kNotFound));
 
     EXPECT_THAT(DeleteFile(foo_txt), StatusIs(absl::StatusCode::kNotFound));
@@ -91,13 +93,18 @@ TEST(FileUtilTest, Basics) {
     EXPECT_THAT(FsyncFile(f->get()), IsOk());
   }
 
+  EXPECT_THAT(ReadAllToString(foo_txt), IsOkAndHolds(std::string("foobar")));
+
   // Read a file:
   {
     char buf[16];
-    auto f = OpenExistingFileForReading(foo_txt);
+    auto f = OpenFileWrapper(foo_txt, OpenFlags::DefaultRead);
     EXPECT_THAT(f, IsOk());
 
-    EXPECT_THAT(ReadFromFile(f->get(), buf, 3, 0), IsOkAndHolds(3));
+    EXPECT_THAT(ReadFromFile(f->get(), tensorstore::span(buf, 3)),
+                IsOkAndHolds(3));
+    EXPECT_THAT(PReadFromFile(f->get(), tensorstore::span(buf, 3), 0),
+                IsOkAndHolds(3));
 
     // Check the file info
     FileInfo info;
@@ -116,7 +123,7 @@ TEST(FileUtilTest, Basics) {
 
   // Truncate a read-only file.
   {
-    auto f = OpenExistingFileForReading(renamed_txt);
+    auto f = OpenFileWrapper(renamed_txt, OpenFlags::DefaultRead);
     EXPECT_THAT(f, IsOk());
 
     // Can't truncate a read-only file.

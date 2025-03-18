@@ -21,17 +21,18 @@
 #include <string>
 
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal_os {
 
 Result<std::string> ReadAllToString(const std::string& path) {
-  TENSORSTORE_ASSIGN_OR_RETURN(
-      auto fd, OpenFileWrapper(path, internal_os::OpenFlags::OpenReadOnly));
+  TENSORSTORE_ASSIGN_OR_RETURN(auto fd,
+                               OpenFileWrapper(path, OpenFlags::OpenReadOnly));
 
-  internal_os::FileInfo info;
-  TENSORSTORE_RETURN_IF_ERROR(internal_os::GetFileInfo(fd.get(), &info));
+  FileInfo info;
+  TENSORSTORE_RETURN_IF_ERROR(GetFileInfo(fd.get(), &info));
 
   // Handle the case where the file is empty.
   std::string result(internal_os::GetSize(info), 0);
@@ -42,7 +43,8 @@ Result<std::string> ReadAllToString(const std::string& path) {
   size_t offset = 0;
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto read,
-      internal_os::ReadFromFile(fd.get(), &result[0], result.size(), 0));
+      PReadFromFile(fd.get(), tensorstore::span(&result[0], result.size()),
+                    offset));
   offset += read;
 
   while (true) {
@@ -53,7 +55,8 @@ Result<std::string> ReadAllToString(const std::string& path) {
       char buffer[4096];
       TENSORSTORE_ASSIGN_OR_RETURN(
           read,
-          internal_os::ReadFromFile(fd.get(), buffer, sizeof(buffer), offset));
+          PReadFromFile(fd.get(), tensorstore::span(buffer, sizeof(buffer)),
+                        offset));
       if (read > 0) {
         // Amortized resize; double the size of the buffer.
         if (read > result.size()) {
@@ -63,8 +66,10 @@ Result<std::string> ReadAllToString(const std::string& path) {
       }
     } else {
       TENSORSTORE_ASSIGN_OR_RETURN(
-          read, internal_os::ReadFromFile(fd.get(), &result[offset],
-                                          result.size() - offset, offset));
+          read, PReadFromFile(
+                    fd.get(),
+                    tensorstore::span(&result[offset], result.size() - offset),
+                    offset));
     }
     if (read == 0) {
       result.resize(offset);

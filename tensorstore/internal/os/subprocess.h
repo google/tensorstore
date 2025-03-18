@@ -24,6 +24,7 @@
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
+#include "tensorstore/internal/os/file_util.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
@@ -48,10 +49,16 @@ struct SubprocessOptions {
   struct Redirect {
     std::string filename;
   };
+  struct RedirectFd {
+    internal_os::FileDescriptor fd;
+  };
 
-  std::variant<Ignore, Redirect> stdin_action = Ignore{};
-  std::variant<Inherit, Ignore, Redirect> stdout_action = Inherit{};
-  std::variant<Inherit, Ignore, Redirect> stderr_action = Inherit{};
+  // Child handle is captured to a pipe.
+  struct Pipe {};
+
+  std::variant<Ignore, Redirect, RedirectFd> stdin_action;
+  std::variant<Inherit, Ignore, Redirect, RedirectFd, Pipe> stdout_action;
+  std::variant<Inherit, Ignore, Redirect, RedirectFd, Pipe> stderr_action;
 };
 
 /// Spawn a subprocess. On success, a Subprocess object is returned.
@@ -78,6 +85,11 @@ class Subprocess {
   /// If `block` is `false`, return immediately with
   /// `absl::StatusCode::kUnavailable` if the process has not already exited.
   Result<int> Join(bool block = true) const;
+
+  /// When created with `SubprocessOptions::Pipe`, return the read end of the
+  /// pipe for the subprocess's stdout/stderr.
+  internal_os::FileDescriptor stdout_pipe() const;
+  internal_os::FileDescriptor stderr_pipe() const;
 
  private:
   friend Result<Subprocess> SpawnSubprocess(const SubprocessOptions& options);

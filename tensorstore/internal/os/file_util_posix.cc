@@ -57,6 +57,7 @@
 #include "tensorstore/internal/tracing/logged_trace_span.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 
 #if ABSL_HAVE_MMAP
@@ -257,15 +258,36 @@ Result<UniqueFileDescriptor> OpenFileWrapper(const std::string& path,
   }
 }
 
-Result<ptrdiff_t> ReadFromFile(FileDescriptor fd, void* buf, size_t count,
-                               int64_t offset) {
+Result<ptrdiff_t> ReadFromFile(FileDescriptor fd,
+                               tensorstore::span<char> buffer) {
   LoggedTraceSpan tspan(__func__, detail_logging.Level(1),
-                        {{"fd", fd}, {"count", count}, {"offset", offset}});
+                        {{"fd", fd}, {"count", buffer.size()}});
   ssize_t n;
   do {
     PotentiallyBlockingRegion region;
-    n = ::pread(fd, buf, count, static_cast<off_t>(offset));
-  } while ((n < 0) && (errno == EINTR || errno == EAGAIN));
+    n = ::read(fd, buffer.data(), buffer.size());
+  } while ((n < 0) && (errno == EINTR));
+  if (n >= 0) {
+    return n;
+  } else if (errno == EAGAIN || errno == EWOULDBLOCK) {
+    return 0;
+  }
+  auto status = StatusFromOsError(errno, "Failed to read from file");
+  return std::move(tspan).EndWithStatus(std::move(status));
+}
+
+Result<ptrdiff_t> PReadFromFile(FileDescriptor fd,
+                                tensorstore::span<char> buffer,
+                                int64_t offset) {
+  LoggedTraceSpan tspan(
+      __func__, detail_logging.Level(1),
+      {{"fd", fd}, {"count", buffer.size()}, {"offset", offset}});
+  ssize_t n;
+  do {
+    PotentiallyBlockingRegion region;
+    n = ::pread(fd, buffer.data(), buffer.size(), static_cast<off_t>(offset));
+  } while ((n < 0) &&
+           (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK));
   if (n >= 0) {
     return n;
   }
