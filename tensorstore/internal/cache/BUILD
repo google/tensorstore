@@ -149,7 +149,6 @@ tensorstore_cc_test(
         ":kvs_backed_cache_testutil",
         "//tensorstore:transaction",
         "//tensorstore/internal:global_initializer",
-        "//tensorstore/kvstore",
         "//tensorstore/kvstore:generation",
         "//tensorstore/kvstore:key_range",
         "//tensorstore/kvstore:mock_kvstore",

@@ -41,7 +41,7 @@
 #include "tensorstore/internal/concurrency_resource.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/env.h"
-#include "tensorstore/internal/http/curl_transport.h"
+#include "tensorstore/internal/http/default_transport.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
@@ -53,7 +53,6 @@
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/histogram.h"
 #include "tensorstore/internal/oauth2/auth_provider.h"
-#include "tensorstore/internal/oauth2/google_auth_provider.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/rate_limiter/rate_limiter.h"
 #include "tensorstore/internal/retries_context_resource.h"
@@ -68,6 +67,7 @@
 #include "tensorstore/kvstore/gcs/validate.h"
 #include "tensorstore/kvstore/gcs_http/gcs_resource.h"
 #include "tensorstore/kvstore/gcs_http/object_metadata.h"
+#include "tensorstore/kvstore/gcs_http/shared_auth_provider.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/generic_coalescing_batch_util.h"
 #include "tensorstore/kvstore/http/byte_range_util.h"
@@ -87,7 +87,7 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
-/// specializations
+// specializations
 #include "tensorstore/internal/cache_key/std_optional.h"  // IWYU pragma: keep
 #include "tensorstore/internal/json_binding/std_array.h"  // IWYU pragma: keep
 #include "tensorstore/internal/json_binding/std_optional.h"  // IWYU pragma: keep
@@ -124,6 +124,7 @@ using ::tensorstore::internal_http::HttpTransport;
 using ::tensorstore::internal_http::IssueRequestOptions;
 using ::tensorstore::internal_kvstore_gcs_http::GcsConcurrencyResource;
 using ::tensorstore::internal_kvstore_gcs_http::GcsRateLimiterResource;
+using ::tensorstore::internal_kvstore_gcs_http::GetSharedGoogleAuthProvider;
 using ::tensorstore::internal_kvstore_gcs_http::ObjectMetadata;
 using ::tensorstore::internal_kvstore_gcs_http::ParseObjectMetadata;
 using ::tensorstore::internal_storage_gcs::GcsHttpResponseToStatus;
@@ -161,10 +162,10 @@ auto gcs_metrics = []() -> GcsMetrics {
 
 ABSL_CONST_INIT internal_log::VerboseFlag gcs_http_logging("gcs_http");
 
-/// Returns whether the absl::Status is a retriable request.
-/// https://github.com/googleapis/google-cloud-cpp/blob/main/google/cloud/storage/retry_policy.h
+// Returns whether the absl::Status is a retriable request.
+// https://github.com/googleapis/google-cloud-cpp/blob/main/google/cloud/storage/retry_policy.h
 inline bool IsRetriable(const absl::Status& status) {
-  /// For HTTP, disallow internal errors.
+  // For HTTP, disallow internal errors.
   return (status.code() == absl::StatusCode::kDeadlineExceeded ||
           status.code() == absl::StatusCode::kResourceExhausted ||
           status.code() == absl::StatusCode::kUnavailable);
@@ -199,7 +200,7 @@ IssueRequestOptions::HttpVersion GetHttpVersion() {
   return http_version;
 }
 
-/// Adds the generation query parameter to the provided url.
+// Adds the generation query parameter to the provided url.
 bool AddGenerationParam(std::string* url, const bool has_query,
                         std::string_view param_name,
                         const StorageGeneration& gen) {
@@ -224,7 +225,7 @@ bool AddGenerationParam(std::string* url, const bool has_query,
   }
 }
 
-/// Adds the userProject query parameter to the provided url.
+// Adds the userProject query parameter to the provided url.
 bool AddUserProjectParam(std::string* url, const bool has_query,
                          std::string_view encoded_user_project) {
   if (!encoded_user_project.empty()) {
@@ -235,15 +236,15 @@ bool AddUserProjectParam(std::string* url, const bool has_query,
   return false;
 }
 
-/// Composes the resource root uri for the GCS API using the bucket
-/// and constants for the host, api-version, etc.
+// Composes the resource root uri for the GCS API using the bucket
+// and constants for the host, api-version, etc.
 std::string BucketResourceRoot(std::string_view bucket) {
   const char kVersion[] = "v1";
   return absl::StrCat(GetGcsBaseUrl(), "/storage/", kVersion, "/b/", bucket);
 }
 
-/// Composes the resource upload root uri for the GCS API using the bucket
-/// and constants for the host, api-version, etc.
+// Composes the resource upload root uri for the GCS API using the bucket
+// and constants for the host, api-version, etc.
 std::string BucketUploadRoot(std::string_view bucket) {
   const char kVersion[] = "v1";
   return absl::StrCat(GetGcsBaseUrl(), "/upload/storage/", kVersion, "/b/",
@@ -321,20 +322,20 @@ class GcsKeyValueStoreSpec
   }
 };
 
-/// Implements the KeyValueStore interface for storing tensorstore data into a
-/// GCS storage bucket.
+// Implements the KeyValueStore interface for storing tensorstore data into a
+// GCS storage bucket.
 class GcsKeyValueStore
     : public internal_kvstore::RegisteredDriver<GcsKeyValueStore,
                                                 GcsKeyValueStoreSpec> {
  public:
-  /// The resource_root is the url used to read data and metadata from the GCS
-  /// bucket.
+  // The resource_root is the url used to read data and metadata from the GCS
+  // bucket.
   const std::string& resource_root() const { return resource_root_; }
 
-  /// The upload_root is the url used to upload data to the GCS bucket.
+  // The upload_root is the url used to upload data to the GCS bucket.
   const std::string& upload_root() const { return upload_root_; }
 
-  /// The userProject field, or empty.
+  // The userProject field, or empty.
   const std::string& encoded_user_project() const {
     return encoded_user_project_;
   }
@@ -356,11 +357,11 @@ class GcsKeyValueStore
 
   Future<const void> DeleteRange(KeyRange range) override;
 
-  /// Returns the Auth header for a GCS request.
+  // Returns the Auth header for a GCS request.
   Result<std::optional<std::string>> GetAuthHeader() {
     absl::MutexLock lock(&auth_provider_mutex_);
     if (!auth_provider_) {
-      auto result = tensorstore::internal_oauth2::GetSharedGoogleAuthProvider();
+      auto result = GetSharedGoogleAuthProvider(transport_);
       if (!result.ok() && absl::IsNotFound(result.status())) {
         auth_provider_ = nullptr;
       } else {
@@ -444,7 +445,6 @@ class GcsKeyValueStore
   NoRateLimiter no_rate_limiter_;
 
   std::shared_ptr<HttpTransport> transport_;
-
   absl::Mutex auth_provider_mutex_;
   // Optional state indicates whether the provider has been obtained.  A
   // nullptr provider is valid and indicates to use anonymous access.
@@ -498,8 +498,8 @@ void AddUniqueQueryParameterToDisableCaching(std::string& url) {
 
 ////////////////////////////////////////////////////
 
-/// A ReadTask is a function object used to satisfy a
-/// GcsKeyValueStore::Read request.
+// A ReadTask is a function object used to satisfy a
+// GcsKeyValueStore::Read request.
 struct ReadTask : public RateLimiterNode,
                   public internal::AtomicReferenceCount<ReadTask> {
   IntrusivePtr<GcsKeyValueStore> owner;
@@ -537,7 +537,7 @@ struct ReadTask : public RateLimiterNode,
     if (!promise.result_needed()) {
       return;
     }
-    /// Reads contents of a GCS object.
+    // Reads contents of a GCS object.
     std::string media_url = absl::StrCat(
         resource, options.byte_range.size() == 0 ? "?alt=json" : "?alt=media");
 
@@ -697,8 +697,8 @@ Future<kvstore::ReadResult> GcsKeyValueStore::ReadImpl(Key&& key,
   return std::move(op.future);
 }
 
-/// A WriteTask is a function object used to satisfy a
-/// GcsKeyValueStore::Write request.
+// A WriteTask is a function object used to satisfy a
+// GcsKeyValueStore::Write request.
 struct WriteTask : public RateLimiterNode,
                    public internal::AtomicReferenceCount<WriteTask> {
   IntrusivePtr<GcsKeyValueStore> owner;
@@ -735,7 +735,7 @@ struct WriteTask : public RateLimiterNode,
         });
   }
 
-  /// Writes an object to GCS.
+  // Writes an object to GCS.
   void Retry() {
     if (!promise.result_needed()) {
       return;
@@ -858,8 +858,8 @@ struct WriteTask : public RateLimiterNode,
   }
 };
 
-/// A DeleteTask is a function object used to satisfy a
-/// GcsKeyValueStore::Delete request.
+// A DeleteTask is a function object used to satisfy a
+// GcsKeyValueStore::Delete request.
 struct DeleteTask : public RateLimiterNode,
                     public internal::AtomicReferenceCount<DeleteTask> {
   IntrusivePtr<GcsKeyValueStore> owner;
@@ -894,7 +894,7 @@ struct DeleteTask : public RateLimiterNode,
         });
   }
 
-  /// Removes an object from GCS.
+  // Removes an object from GCS.
   void Retry() {
     if (!promise.result_needed()) {
       return;
@@ -1037,7 +1037,7 @@ constexpr static auto GcsListResponsePayloadBinder = jb::Object(
                                        jb::DefaultInitializedValue())),
     jb::DiscardExtraMembers);
 
-/// ListTask implements the ListImpl execution flow.
+// ListTask implements the ListImpl execution flow.
 struct ListTask : public RateLimiterNode,
                   public internal::AtomicReferenceCount<ListTask> {
   internal::IntrusivePtr<GcsKeyValueStore> owner_;

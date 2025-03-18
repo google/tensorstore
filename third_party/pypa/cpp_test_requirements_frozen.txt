@@ -427,6 +427,18 @@ grpcio==1.70.0 \
     --hash=sha256:fe9dbd916df3b60e865258a8c72ac98f3ac9e2a9542dcb72b7a34d236242a5ce \
     --hash=sha256:ff4a8112a79464919bb21c18e956c54add43ec9a4850e3949da54f61c241a4a6
     # via -c /dev/stdin, -r cpp_test_requirements.txt
+h2==4.2.0 \
+    --hash=sha256:479a53ad425bb29af087f3458a61d30780bc818e4ebcf01f0b536ba916462ed0 \
+    --hash=sha256:c8a52129695e88b1a0578d8d2cc6842bbd79128ac685463b887ee278126ad01f
+    # via -c /dev/stdin, -r cpp_test_requirements.txt
+hpack==4.1.0 \
+    --hash=sha256:157ac792668d995c657d93111f46b4535ed114f0c9c8d672271bbec7eae1b496 \
+    --hash=sha256:ec5eca154f7056aa06f196a557655c5b009b382873ac8d1e66e79e87535f1dca
+    # via h2, -c /dev/stdin
+hyperframe==6.1.0 \
+    --hash=sha256:b03380493a519fce58ea5af42e4a42317bf9bd425596f7a0835ffce80f1a42e5 \
+    --hash=sha256:f630908a00854a7adeabd6382b43923a4c4cd4b821fcb527e6ab9e15382a3b08
+    # via h2, -c /dev/stdin
 idna==3.10 \
     --hash=sha256:12f65c9b470abda6dc35cf8e63cc574b1c52b11df2c86030af0ac09b01b13ea9 \
     --hash=sha256:946d195a0d259cbba61165e88e65941f16e9b36ea6ddb97f00452bae8b1287d3

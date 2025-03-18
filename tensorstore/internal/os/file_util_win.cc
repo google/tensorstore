@@ -85,6 +85,8 @@
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"  // IWYU pragma: keep
 #include "absl/strings/string_view.h"
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/gauge.h"
@@ -404,8 +406,8 @@ absl::Status DeleteOpenFile(FileDescriptor fd, const std::string& path) {
   // `SetFileInformationByHandle` but before the file handle is closed, the
   // file still exists in the directory but cannot be opened, which would
   // result in the normal read/write paths failing with an error.  To avoid
-  // that problem, we first rename the file to a random name, with a suffix of
-  // `kLockSuffix` to prevent it from being included in List results.
+  // that problem, we first rename the file to a random name, with a suffix
+  // of `kLockSuffix` to prevent it from being included in List results.
 
   unsigned int buf[5];
   for (int i = 0; i < 5; ++i) {
@@ -554,6 +556,34 @@ absl::Status FsyncFile(FileDescriptor fd) {
   }
   auto status = StatusFromOsError(::GetLastError());
   return std::move(tspan).EndWithStatus(std::move(status));
+}
+
+absl::Status AwaitReadablePipe(FileDescriptor fd, absl::Time deadline) {
+  if (deadline == absl::InfiniteFuture()) return absl::OkStatus();
+
+  // Waiting on HANDLES in Windows is a bit of a pain; the way it should
+  // be done is to use OVERLAPPED IO, but that isn't supported by
+  // anonymous pipes, and would require additional work for most files.
+  // Thus the best we can do for anonymous pipes is a sleep loop, and there
+  // is no equivalnt for file handles.
+  auto file_type = ::GetFileType(fd);
+  if (file_type != FILE_TYPE_PIPE) {
+    return absl::UnavailableError("Only pipes can be waited on (WIN32)");
+  }
+
+  while (true) {
+    DWORD bytes_avail = 0;
+    if (!::PeekNamedPipe(fd, NULL, 0, NULL, &bytes_avail, NULL)) {
+      return StatusFromOsError(::GetLastError(), "Failed to peek pipe");
+    }
+    if (bytes_avail > 0) {
+      return absl::OkStatus();
+    }
+    if (absl::Now() >= deadline) {
+      return absl::DeadlineExceededError("Timeout reading from pipe");
+    }
+    absl::SleepFor(absl::Milliseconds(10));
+  }
 }
 
 absl::Status GetFileInfo(FileDescriptor fd, FileInfo* info) {

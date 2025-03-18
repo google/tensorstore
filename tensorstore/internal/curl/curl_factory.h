@@ -12,12 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_HTTP_CURL_FACTORY_H_
-#define TENSORSTORE_INTERNAL_HTTP_CURL_FACTORY_H_
+#ifndef TENSORSTORE_INTERNAL_CURL_CURL_FACTORY_H_
+#define TENSORSTORE_INTERNAL_CURL_CURL_FACTORY_H_
 
-#include <memory>
-
-#include "tensorstore/internal/http/curl_wrappers.h"
+#include "tensorstore/internal/curl/curl_wrappers.h"
 
 namespace tensorstore {
 namespace internal_http {
@@ -38,13 +36,10 @@ class CurlHandleFactory {
   virtual void CleanupMultiHandle(CurlMulti&&) = 0;
 };
 
-/// Returns the default CurlHandleFactory.
-std::shared_ptr<CurlHandleFactory> GetDefaultCurlHandleFactory();
-
 /// Extensibility hooks for libcurl handles.
 void CurlPtrHook(CurlPtr& handle);
 
 }  // namespace internal_http
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_HTTP_CURL_FACTORY_H_
+#endif  // TENSORSTORE_INTERNAL_CURL_CURL_FACTORY_H_

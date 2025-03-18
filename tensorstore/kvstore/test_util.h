@@ -27,6 +27,7 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
+#include "tensorstore/context.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -103,6 +104,8 @@ struct KeyValueStoreSpecRoundtripOptions {
   ::nlohmann::json minimal_spec = ::nlohmann::json::value_t::discarded;
   kvstore::SpecRequestOptions spec_request_options;
   JsonSerializationOptions json_serialization_options;
+
+  Context context = Context::Default();
 
   // Checks reading and writing.
   bool check_write_read = true;

@@ -31,7 +31,7 @@
 #include "python/tensorstore/json_type_caster.h"
 #include "python/tensorstore/tensorstore_module_components.h"
 #include "tensorstore/internal/global_initializer.h"
-#include "tensorstore/internal/http/curl_transport.h"
+#include "tensorstore/internal/http/default_transport.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/log/verbose_flag.h"

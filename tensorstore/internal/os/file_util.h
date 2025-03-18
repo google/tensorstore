@@ -213,6 +213,13 @@ absl::Status FsyncFile(FileDescriptor fd);
 using UnlockFn = void (*)(FileDescriptor fd);
 Result<UnlockFn> AcquireFdLock(FileDescriptor fd);
 
+/// Waits for a pipe to be readable.
+///
+/// \param fd Open file descriptor.
+/// \param deadline When not absl::InfiniteFuture(), if supported, waits util
+///     deadline for a read.
+absl::Status AwaitReadablePipe(FileDescriptor fd, absl::Time deadline);
+
 /// --------------------------------------------------------------------------
 
 /// Retrieves the metadata for an open file.

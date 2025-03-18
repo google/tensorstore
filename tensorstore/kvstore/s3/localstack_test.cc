@@ -31,7 +31,7 @@
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/internal/env.h"
-#include "tensorstore/internal/http/curl_transport.h"
+#include "tensorstore/internal/http/default_transport.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/http/transport_test_utils.h"
@@ -113,7 +113,7 @@ namespace {
 static constexpr char kAwsAccessKeyId[] = "LSIAQAAAAAAVNCBMPNSG";
 static constexpr char kAwsSecretKeyId[] = "localstackdontcare";
 
-/// sha256 hash of an empty string
+// sha256 hash of an empty string
 static constexpr char kEmptySha256[] =
     "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
@@ -133,6 +133,7 @@ SubprocessOptions SetupLocalstackOptions(int http_port) {
       absl::StrFormat("localhost.localstack.cloud:%d", http_port);
   env["SERVICES"] = "s3";
   env["AWS_DEFAULT_REGION"] = Region();
+  env["PYTHONUNBUFFERED"] = "1";
   return options;
 }
 
@@ -145,6 +146,7 @@ SubprocessOptions SetupMotoOptions(int http_port) {
   auto& env = *options.env;
   ABSL_CHECK(!Region().empty());
   env["AWS_DEFAULT_REGION"] = Region();
+  env["PYTHONUNBUFFERED"] = "1";
   return options;
 }
 
@@ -195,6 +197,7 @@ class LocalStackProcess {
         return;
       }
       // TODO: Also check the http port?
+      //  * Running on http://127.0.0.1:46471
     }
 
     // Deadline has expired & there's nothing to show for it.

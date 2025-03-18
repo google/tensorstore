@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_HTTP_CURL_TRANSPORT_H_
-#define TENSORSTORE_INTERNAL_HTTP_CURL_TRANSPORT_H_
+#ifndef TENSORSTORE_INTERNAL_CURL_CURL_TRANSPORT_H_
+#define TENSORSTORE_INTERNAL_CURL_CURL_TRANSPORT_H_
 
 #include <memory>
 
-#include "tensorstore/internal/http/curl_factory.h"
-#include "tensorstore/internal/http/curl_handle.h"
+#include "tensorstore/internal/curl/curl_factory.h"
+#include "tensorstore/internal/curl/curl_handle.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_transport.h"
 
@@ -48,13 +48,9 @@ class CurlTransport : public HttpTransport {
   std::shared_ptr<Impl> impl_;
 };
 
-/// Returns the default CurlTransport.
-std::shared_ptr<HttpTransport> GetDefaultHttpTransport();
-
-/// Sets the default CurlTransport. Exposed for test mocking.
-void SetDefaultHttpTransport(std::shared_ptr<HttpTransport> t);
+std::shared_ptr<HttpTransport> GetDefaultCurlTransport();
 
 }  // namespace internal_http
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_HTTP_CURL_TRANSPORT_H_
+#endif  // TENSORSTORE_INTERNAL_CURL_CURL_TRANSPORT_H_

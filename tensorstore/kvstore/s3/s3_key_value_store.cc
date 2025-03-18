@@ -39,7 +39,7 @@
 #include "tensorstore/context.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/digest/sha256.h"
-#include "tensorstore/internal/http/curl_transport.h"
+#include "tensorstore/internal/http/default_transport.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
@@ -145,16 +145,16 @@ auto s3_metrics = []() -> S3Metrics {
 
 ABSL_CONST_INIT internal_log::VerboseFlag s3_logging("s3");
 
-/// S3 strings
+// S3 strings
 static constexpr char kUriScheme[] = "s3";
 
-/// sha256 hash of an empty string
+// sha256 hash of an empty string
 static constexpr char kEmptySha256[] =
     "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
 static constexpr size_t kMaxS3PutSize = size_t{5} * 1024 * 1024 * 1024;  // 5GB
 
-/// Adds the generation header to the provided builder.
+// Adds the generation header to the provided builder.
 bool AddGenerationHeader(S3RequestBuilder* builder, std::string_view header,
                          const StorageGeneration& gen) {
   if (StorageGeneration::IsUnknown(gen)) {
@@ -370,8 +370,8 @@ class S3KeyValueStore
   Future<const S3EndpointRegion> resolve_ehr_;
 };
 
-/// A ReadTask is a function object used to satisfy a
-/// S3KeyValueStore::Read request.
+// A ReadTask is a function object used to satisfy a
+// S3KeyValueStore::Read request.
 struct ReadTask : public RateLimiterNode,
                   public internal::AtomicReferenceCount<ReadTask> {
   IntrusivePtr<S3KeyValueStore> owner;
@@ -1033,7 +1033,7 @@ Future<TimestampedStorageGeneration> S3KeyValueStore::Write(
   return std::move(op.future);
 }
 
-/// ListTask implements the ListImpl execution flow.
+// ListTask implements the ListImpl execution flow.
 struct ListTask : public RateLimiterNode,
                   public internal::AtomicReferenceCount<ListTask> {
   internal::IntrusivePtr<S3KeyValueStore> owner_;

@@ -1207,7 +1207,7 @@ pybind11_cc_library(
         ":tensorstore_module_components",
         "//tensorstore/internal:global_initializer",
         "//tensorstore/internal/http",
-        "//tensorstore/internal/http:curl_transport",
+        "//tensorstore/internal/http:default_transport",
         "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/internal/metrics:collect",
         "//tensorstore/internal/metrics:prometheus",

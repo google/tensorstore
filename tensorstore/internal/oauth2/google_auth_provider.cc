@@ -74,13 +74,13 @@ constexpr char kWellKnownCredentialsFile[] =
 // refresh token.
 constexpr char kOAuthV3Url[] = "https://www.googleapis.com/oauth2/v3/token";
 
-/// Returns whether the given path points to a readable file.
+// Returns whether the given path points to a readable file.
 bool IsFile(const std::string& filename) {
   std::ifstream fstream(filename.c_str());
   return fstream.good();
 }
 
-/// Returns the credentials file name from the env variable.
+// Returns the credentials file name from the env variable.
 Result<std::string> GetEnvironmentVariableFileName() {
   auto env = GetEnv(kGoogleApplicationCredentials);
   if (!env || !IsFile(*env)) {
@@ -90,7 +90,7 @@ Result<std::string> GetEnvironmentVariableFileName() {
   return *env;
 }
 
-/// Returns the well known file produced by command 'gcloud auth login'.
+// Returns the well known file produced by command 'gcloud auth login'.
 Result<std::string> GetWellKnownFileName() {
   std::string result;
 
@@ -199,17 +199,6 @@ Result<std::unique_ptr<AuthProvider>> GetDefaultGoogleAuthProvider(
       "Could not locate the credentials file and not running on GCE.");
 }
 
-struct SharedGoogleAuthProviderState {
-  absl::Mutex mutex;
-  std::optional<Result<std::shared_ptr<AuthProvider>>> auth_provider
-      ABSL_GUARDED_BY(mutex);
-};
-
-SharedGoogleAuthProviderState& GetSharedGoogleAuthProviderState() {
-  static absl::NoDestructor<SharedGoogleAuthProviderState> state;
-  return *state;
-}
-
 }  // namespace
 
 void RegisterGoogleAuthProvider(GoogleAuthProvider provider, int priority) {
@@ -231,21 +220,6 @@ Result<std::unique_ptr<AuthProvider>> GetGoogleAuthProvider(
     }
   }
   return internal_oauth2::GetDefaultGoogleAuthProvider(std::move(transport));
-}
-
-Result<std::shared_ptr<AuthProvider>> GetSharedGoogleAuthProvider() {
-  auto& state = GetSharedGoogleAuthProviderState();
-  absl::MutexLock lock(&state.mutex);
-  if (!state.auth_provider) {
-    state.auth_provider.emplace(GetGoogleAuthProvider());
-  }
-  return *state.auth_provider;
-}
-
-void ResetSharedGoogleAuthProvider() {
-  auto& state = GetSharedGoogleAuthProviderState();
-  absl::MutexLock lock(&state.mutex);
-  state.auth_provider = std::nullopt;
 }
 
 }  // namespace internal_oauth2

@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_HTTP_CURL_HANDLE_H_
-#define TENSORSTORE_INTERNAL_HTTP_CURL_HANDLE_H_
+#ifndef TENSORSTORE_INTERNAL_CURL_CURL_HANDLE_H_
+#define TENSORSTORE_INTERNAL_CURL_CURL_HANDLE_H_
 
 #include <stddef.h>
 #include <stdint.h>
@@ -21,8 +21,8 @@
 #include <cstddef>  // std::nullptr_t
 
 #include "absl/log/absl_check.h"
-#include "tensorstore/internal/http/curl_factory.h"
-#include "tensorstore/internal/http/curl_wrappers.h"
+#include "tensorstore/internal/curl/curl_factory.h"
+#include "tensorstore/internal/curl/curl_wrappers.h"
 #include "tensorstore/internal/source_location.h"
 
 namespace tensorstore {
@@ -90,4 +90,4 @@ class CurlHandle {
 }  // namespace internal_http
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_HTTP_CURL_HANDLE_H_
+#endif  // TENSORSTORE_INTERNAL_CURL_CURL_HANDLE_H_

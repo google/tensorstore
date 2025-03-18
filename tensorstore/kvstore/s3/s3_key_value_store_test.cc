@@ -21,7 +21,7 @@
 #include "absl/strings/cord.h"
 #include "absl/strings/match.h"
 #include "tensorstore/context.h"
-#include "tensorstore/internal/http/curl_transport.h"
+#include "tensorstore/internal/http/default_transport.h"
 #include "tensorstore/internal/http/http_header.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
@@ -67,6 +67,14 @@ Context DefaultTestContext() {
                               })
           .value()};
 }
+
+struct DefaultHttpTransportSetter {
+  DefaultHttpTransportSetter(std::shared_ptr<HttpTransport> transport) {
+    old_transport = SetDefaultHttpTransport(transport);
+  }
+  ~DefaultHttpTransportSetter() { SetDefaultHttpTransport(old_transport); }
+  std::shared_ptr<HttpTransport> old_transport;
+};
 
 TEST(S3KeyValueStoreTest, BadBucketNames) {
   auto context = DefaultTestContext();
@@ -124,13 +132,6 @@ TEST(S3KeyValueStoreTest, InvalidSpec) {
 }
 
 // Mock-based tests for s3.
-
-struct DefaultHttpTransportSetter {
-  DefaultHttpTransportSetter(std::shared_ptr<HttpTransport> transport) {
-    SetDefaultHttpTransport(transport);
-  }
-  ~DefaultHttpTransportSetter() { SetDefaultHttpTransport(nullptr); }
-};
 
 // TODO: Add tests for various responses
 TEST(S3KeyValueStoreTest, SimpleMock_VirtualHost) {

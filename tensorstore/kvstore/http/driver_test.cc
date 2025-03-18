@@ -25,7 +25,7 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/batch.h"
-#include "tensorstore/internal/http/curl_transport.h"
+#include "tensorstore/internal/http/default_transport.h"
 #include "tensorstore/internal/http/http_header.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
@@ -60,7 +60,6 @@ using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_http::HttpResponseHandler;
 using ::tensorstore::internal_http::HttpTransport;
 using ::tensorstore::internal_http::IssueRequestOptions;
-using ::tensorstore::internal_http::SetDefaultHttpTransport;
 using ::testing::ElementsAre;
 using ::testing::Pair;
 using ::testing::UnorderedElementsAre;
@@ -87,16 +86,16 @@ class MyMockTransport : public HttpTransport {
 
 class HttpKeyValueStoreTest : public ::testing::Test {
  public:
-  ~HttpKeyValueStoreTest() { mock_transport->Reset(); }
+  HttpKeyValueStoreTest()
+      : mock_transport(std::make_shared<MyMockTransport>()) {
+    old_transport_ = SetDefaultHttpTransport(mock_transport);
+  }
 
-  static void SetUpTestSuite() { SetDefaultHttpTransport(mock_transport); }
-  static void TearDownTestSuite() { SetDefaultHttpTransport(nullptr); }
+  ~HttpKeyValueStoreTest() { SetDefaultHttpTransport(old_transport_); }
 
-  static std::shared_ptr<MyMockTransport> mock_transport;
+  std::shared_ptr<MyMockTransport> mock_transport;
+  std::shared_ptr<HttpTransport> old_transport_;
 };
-
-std::shared_ptr<MyMockTransport> HttpKeyValueStoreTest::mock_transport =
-    std::make_shared<MyMockTransport>();
 
 TEST(DescribeKeyTest, Basic) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(

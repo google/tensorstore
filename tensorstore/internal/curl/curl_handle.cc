@@ -12,12 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/http/curl_handle.h"
+#include "tensorstore/internal/curl/curl_handle.h"
 
 #include <stdint.h>
 
+#include <utility>
+
+#include "absl/base/macros.h"
 #include <curl/curl.h>
-#include "tensorstore/internal/http/curl_factory.h"
+#include "tensorstore/internal/curl/curl_factory.h"
+#include "tensorstore/internal/curl/curl_wrappers.h"
 
 namespace tensorstore {
 namespace internal_http {
