@@ -54,7 +54,7 @@ TestHttpServer& GetHttpServer() {
 
 std::shared_ptr<HttpTransport> GetTransport() {
   auto config = DefaultCurlHandleFactory::Config();
-  config.ca_bundle = absl::StrCat(GetHttpServer().root_path(), "/test.crt");
+  config.ca_bundle = GetHttpServer().GetCertPath();
   config.verify_host = false;
   return std::make_shared<CurlTransport>(
       std::make_shared<DefaultCurlHandleFactory>(std::move(config)));

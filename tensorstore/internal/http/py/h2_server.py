@@ -315,13 +315,14 @@ class H2Protocol(asyncio.Protocol):
       self.flow_control_futures = {}
 
 
-def run(port):
-  path = os.path.dirname(__file__)
+def run(port, cert_path):
+  if cert_path is None:
+    cert_path = os.path.dirname(__file__)
   ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
   ssl_context.options |= ssl.OP_NO_COMPRESSION
   ssl_context.load_cert_chain(
-      certfile=os.path.join(path, 'test.crt'),
-      keyfile=os.path.join(path, 'test.key'),
+      certfile=os.path.join(cert_path, 'test.crt'),
+      keyfile=os.path.join(cert_path, 'test.key'),
   )
   ssl_context.set_alpn_protocols(['h2'])
 
@@ -357,6 +358,7 @@ def run(port):
 if __name__ == '__main__':
   p = argparse.ArgumentParser()
   p.add_argument('--port', type=int, default=0)
+  p.add_argument('--cert_path', type=str, default=None)
   v, _ = p.parse_known_args(sys.argv[1:])
   print(f'Starting h2_server with --port={v.port}')
-  sys.exit(run(v.port))
+  sys.exit(run(v.port, v.cert_path))

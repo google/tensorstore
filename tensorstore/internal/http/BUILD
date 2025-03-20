@@ -144,10 +144,12 @@ tensorstore_cc_library(
     srcs = ["test_httpserver.cc"],
     hdrs = ["test_httpserver.h"],
     deps = [
+        ":self_signed_cert",
         ":transport_test_utils",
         "//tensorstore/internal:path",
         "//tensorstore/internal/os:file_util",
         "//tensorstore/internal/os:subprocess",
+        "//tensorstore/internal/testing:scoped_directory",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
@@ -155,6 +157,7 @@ tensorstore_cc_library(
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/time",
         "@com_google_re2//:re2",
@@ -178,4 +181,29 @@ tensorstore_cc_library(
         "@com_google_absl//absl/random:distributions",
     ],
     alwayslink = 1,
+)
+
+tensorstore_cc_library(
+    name = "self_signed_cert",
+    srcs = ["self_signed_cert.cc"],
+    hdrs = ["self_signed_cert.h"],
+    deps = [
+        "//tensorstore/internal:source_location",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "@com_google_absl//absl/log:absl_check",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_boringssl//:crypto",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "self_signed_cert_test",
+    srcs = ["self_signed_cert_test.cc"],
+    deps = [
+        ":self_signed_cert",
+        "//tensorstore/util:status_testutil",
+        "@com_google_googletest//:gtest_main",
+    ],
 )

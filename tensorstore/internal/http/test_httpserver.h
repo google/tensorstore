@@ -19,6 +19,7 @@
 #include <string>
 
 #include "tensorstore/internal/os/subprocess.h"
+#include "tensorstore/internal/testing/scoped_directory.h"
 
 namespace tensorstore {
 namespace internal_http {
@@ -32,13 +33,18 @@ class TestHttpServer {
   // Spawns the subprocess and sets the http address.
   void SpawnProcess();
 
+  // Returns the http address of the server.
   std::string http_address() { return http_address_; }
 
-  const std::string& root_path() { return root_path_; }
+  // Returns the path to the certificate file.
+  std::string GetCertPath();
 
  private:
+  void InitializeCertificates();
+
   std::string http_address_;
   std::string root_path_;
+  std::optional<internal_testing::ScopedTemporaryDirectory> cert_dir_;
   std::optional<internal::Subprocess> child_;
 };
 

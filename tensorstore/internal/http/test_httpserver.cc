@@ -26,10 +26,12 @@
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "re2/re2.h"
+#include "tensorstore/internal/http/self_signed_cert.h"
 #include "tensorstore/internal/os/file_util.h"
 #include "tensorstore/internal/os/subprocess.h"
 #include "tensorstore/internal/path.h"
@@ -43,6 +45,8 @@ ABSL_FLAG(std::string, test_httpserver_binary, "",
 using ::tensorstore::internal::SpawnSubprocess;
 using ::tensorstore::internal::SubprocessOptions;
 using ::tensorstore::internal_os::AwaitReadablePipe;
+using ::tensorstore::internal_os::OpenFileWrapper;
+using ::tensorstore::internal_os::OpenFlags;
 using ::tensorstore::internal_os::ReadFromFile;
 
 namespace tensorstore {
@@ -61,15 +65,44 @@ TestHttpServer::~TestHttpServer() {
   }
 }
 
+std::string TestHttpServer::GetCertPath() {
+  ABSL_CHECK(cert_dir_);
+  return absl::StrCat(cert_dir_->path(), "/test.crt");
+}
+
+void TestHttpServer::InitializeCertificates() {
+  if (cert_dir_) return;
+
+  TENSORSTORE_CHECK_OK_AND_ASSIGN(auto cert, GenerateSelfSignedCerts());
+
+  cert_dir_.emplace();
+
+  auto write_to_file = [&](std::string_view filename, std::string_view data) {
+    auto fd = OpenFileWrapper(absl::StrCat(cert_dir_->path(), "/", filename),
+                              OpenFlags::DefaultWrite);
+    if (!fd.ok()) {
+      ABSL_LOG(FATAL) << "Failed to open temporary file: " << fd.status();
+    }
+    internal_os::WriteToFile(fd->get(), data.data(), data.size())
+        .IgnoreResult();
+  };
+
+  write_to_file("test.key", cert.key_pem);
+  write_to_file("test.crt", cert.cert_pem);
+}
+
 // Spawns the subprocess and sets the http address.
 void TestHttpServer::SpawnProcess() {
   if (child_) return;
+
+  InitializeCertificates();
 
   root_path_ =
       internal::PathDirnameBasename(absl::GetFlag(FLAGS_test_httpserver_binary))
           .first;
 
-  SubprocessOptions options{absl::GetFlag(FLAGS_test_httpserver_binary)};
+  SubprocessOptions options{absl::GetFlag(FLAGS_test_httpserver_binary),
+                            {absl::StrCat("--cert_path=", cert_dir_->path())}};
   options.stdout_action = SubprocessOptions::Pipe{};
 
   TENSORSTORE_CHECK_OK_AND_ASSIGN(auto spawn_proc, SpawnSubprocess(options));
