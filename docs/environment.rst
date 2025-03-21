@@ -134,7 +134,15 @@ Google Cloud Storage
 .. envvar:: TENSORSTORE_GCS_HTTP_URL
 
    Specifies to connect to an alternative server in place of
-   ``https://storage.googleapis.com``.  Note that the normal Google oauth2
+   ``https://storage.googleapis.com`` for the ``gcs`` driver (HTTP-based).
+   Note that the normal Google oauth2 credentials *are* included in requests,
+   and therefore only trusted servers should be used.
+
+.. envvar:: TENSORSTORE_GCS_GRPC_ENDPOINT
+
+   Specifies to connect to an alternative gRPC endpoint in place of the default
+   ``dns:///storage.googleapis.com`` or ``google-c2p:///storage.googleapis.com``
+   (on GCE VMs) for the ``gcs_grpc`` driver. Note that the normal Google oauth2
    credentials *are* included in requests, and therefore only trusted servers
    should be used.
 
@@ -142,6 +150,12 @@ Google Cloud Storage
 
    Specifies the concurrency level used by the shared Context
    :json:schema:`Context.gcs_request_concurrency` resource. Defaults to 32.
+
+.. envvar:: TENSORSTORE_GCS_GRPC_CHANNELS
+
+   Specifies the number of gRPC channels to use for the ``gcs_grpc`` driver.
+   Default is to use the number of CPU cores (at least 4) for regular endpoints,
+   or 1 for directpath endpoints.
 
 
 .. envvar:: TENSORSTORE_HTTP2_MAX_CONCURRENT_STREAMS
