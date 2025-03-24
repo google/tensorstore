@@ -247,7 +247,7 @@ class StorageImpl {
   static_assert(InlineSize == ActualInlineSize(InlineSize));
 
  public:
-  /// Selects the approriate operations for Self based on inline size, etc.
+  /// Selects the appropriate operations for Self based on inline size, etc.
   template <typename T>
   using Ops =
       std::conditional_t<(sizeof(T) <= InlineSize && CanBeStoredInline<T>),
@@ -269,7 +269,7 @@ class StorageImpl {
 
   bool null() const { return vtable_->type == GetTypeId<void>; }
 
-  void* storage() const { return const_cast<char*>(&storage_[0]); }
+  void* storage() const { return const_cast<unsigned char*>(&storage_[0]); }
   const VTable* vtable() const { return vtable_; }
 
   template <typename T>
@@ -298,7 +298,7 @@ class StorageImpl {
 
  private:
   // Local-storage for the type-erased object when small and trivial enough
-  alignas(kAlignment) char storage_[InlineSize];
+  alignas(kAlignment) unsigned char storage_[InlineSize];
   const VTable* vtable_ = &NullVTable::vtable;
 };
 

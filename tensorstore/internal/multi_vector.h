@@ -128,7 +128,8 @@ class MultiVectorStorageImpl {
   /// Resizes the vectors.  This is a no op.
   void InternalResize(StaticRank<Extent>) {}
 
-  alignas(Offsets::kAlignment) char data_[Offsets::GetTotalSize(Extent)];
+  alignas(
+      Offsets::kAlignment) unsigned char data_[Offsets::GetTotalSize(Extent)];
 };
 
 /// Specialization of `MultiVectorStorageImpl` for a static `Extent == 0`.
@@ -198,7 +199,7 @@ class MultiVectorStorageImpl<dynamic_rank, InlineSize, Ts...> {
     if (new_extent > InlineSize) {
       void* new_data = ::operator new(Offsets::GetTotalSize(new_extent));
       if (extent_ > InlineSize) ::operator delete(data_.pointer);
-      data_.pointer = static_cast<char*>(new_data);
+      data_.pointer = static_cast<unsigned char*>(new_data);
     } else if (extent_ > InlineSize) {
       ::operator delete(data_.pointer);
     }
@@ -210,8 +211,8 @@ class MultiVectorStorageImpl<dynamic_rank, InlineSize, Ts...> {
   constexpr static ptrdiff_t kInlineBytes =
       InlineSize == 0 ? 1 : Offsets::GetTotalSize(InlineSize);
   union Data {
-    char* pointer;
-    alignas(kAlignment) char inline_data[kInlineBytes];
+    unsigned char* pointer;
+    alignas(kAlignment) unsigned char inline_data[kInlineBytes];
   };
   Data data_;
   ptrdiff_t extent_ = 0;

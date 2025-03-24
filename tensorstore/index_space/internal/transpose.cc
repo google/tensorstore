@@ -22,6 +22,7 @@
 
 #include "absl/container/fixed_array.h"
 #include "tensorstore/container_kind.h"
+#include "tensorstore/contiguous_layout.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dimension_permutation.h"
@@ -187,7 +188,8 @@ TransformRep::Ptr<> PermuteOutputDimsInplace(
   const DimensionIndex output_rank = rep->output_rank;
   assert(permutation.size() == output_rank);
 
-  alignas(OutputIndexMap) char temp_buf[sizeof(OutputIndexMap) * kMaxRank];
+  alignas(
+      OutputIndexMap) unsigned char temp_buf[sizeof(OutputIndexMap) * kMaxRank];
   OutputIndexMap* output_index_maps = rep->output_index_maps().data();
   OutputIndexMap* temp_index_maps = reinterpret_cast<OutputIndexMap*>(temp_buf);
   memcpy(static_cast<void*>(temp_index_maps),
