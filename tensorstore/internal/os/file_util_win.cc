@@ -151,7 +151,7 @@ inline ::OVERLAPPED GetLockOverlapped() {
 
 bool RenameFilePosix(FileDescriptor fd, const std::wstring& new_name) {
   LoggedTraceSpan tspan(__func__, detail_logging.Level(1));
-  alignas(::FILE_RENAME_INFO) char
+  alignas(::FILE_RENAME_INFO) unsigned char
       file_rename_info_buffer[sizeof(::FILE_RENAME_INFO) + kMaxWindowsPathSize -
                               1];
   auto* rename_info = new (file_rename_info_buffer)::FILE_RENAME_INFO{};

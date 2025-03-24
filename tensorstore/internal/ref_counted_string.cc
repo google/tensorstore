@@ -16,6 +16,7 @@
 
 #include <cstring>
 #include <new>
+#include <string_view>
 
 namespace tensorstore {
 namespace internal {
