@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_KVSTORE_S3_AWS_HTTP_MOCKING_H_
-#define TENSORSTORE_KVSTORE_S3_AWS_HTTP_MOCKING_H_
+#ifndef TENSORSTORE_INTERNAL_AWS_HTTP_MOCKING_H_
+#define TENSORSTORE_INTERNAL_AWS_HTTP_MOCKING_H_
 
 #include <string>
 #include <utility>
@@ -23,7 +23,7 @@
 #include "tensorstore/internal/http/http_response.h"
 
 namespace tensorstore {
-namespace internal_kvstore_s3 {
+namespace internal_aws {
 
 aws_auth_http_system_vtable* GetAwsHttpMockingIfEnabled();
 
@@ -38,7 +38,7 @@ void EnableAwsHttpMocking(AwsHttpMockingResponses responses);
 /// Disables mocking of AWS HTTP requests.
 void DisableAwsHttpMocking();
 
-}  // namespace internal_kvstore_s3
+}  // namespace internal_aws
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_KVSTORE_S3_AWS_HTTP_MOCKING_H_
+#endif  // TENSORSTORE_INTERNAL_AWS_HTTP_MOCKING_H_

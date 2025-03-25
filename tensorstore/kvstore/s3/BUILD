@@ -17,7 +17,6 @@ tensorstore_cc_library(
     name = "s3",
     srcs = ["s3_key_value_store.cc"],
     deps = [
-        ":aws_credentials",
         ":aws_credentials_resource",
         ":aws_credentials_spec",
         ":s3_endpoint",
@@ -32,6 +31,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:source_location",
         "//tensorstore/internal:uri_utils",
+        "//tensorstore/internal/aws:aws_credentials",
         "//tensorstore/internal/cache_key",
         "//tensorstore/internal/digest:sha256",
         "//tensorstore/internal/http",
@@ -193,9 +193,9 @@ tensorstore_cc_library(
         "s3_request_builder.h",
     ],
     deps = [
-        ":aws_credentials",
         ":s3_uri_utils",
         "//tensorstore/internal:uri_utils",
+        "//tensorstore/internal/aws:aws_credentials",
         "//tensorstore/internal/digest:sha256",
         "//tensorstore/internal/http",
         "//tensorstore/internal/log:verbose_flag",
@@ -215,8 +215,8 @@ tensorstore_cc_test(
     size = "small",
     srcs = ["s3_request_builder_test.cc"],
     deps = [
-        ":aws_credentials",
         ":s3_request_builder",
+        "//tensorstore/internal/aws:aws_credentials",
         "//tensorstore/internal/http",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
@@ -338,7 +338,6 @@ tensorstore_cc_test(
         "skip-cmake",
     ],
     deps = [
-        ":aws_credentials",
         ":s3",
         ":s3_request_builder",
         ":use_conditional_write",
@@ -346,6 +345,8 @@ tensorstore_cc_test(
         "//tensorstore:json_serialization_options_base",
         "//tensorstore/internal:env",
         "//tensorstore/internal:json_gtest",
+        "//tensorstore/internal/aws:aws_credentials",
+        "//tensorstore/internal/aws/credentials:common",
         "//tensorstore/internal/curl:curl_transport",
         "//tensorstore/internal/http",
         "//tensorstore/internal/http:default_transport",
@@ -354,7 +355,6 @@ tensorstore_cc_test(
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:batch_util",
         "//tensorstore/kvstore:test_util",
-        "//tensorstore/kvstore/s3/credentials:common",
         "//tensorstore/util:future",
         "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
@@ -393,77 +393,18 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
-    name = "aws_api",
-    srcs = [
-        "aws_api.cc",
-    ],
-    hdrs = ["aws_api.h"],
-    deps = [
-        "//tensorstore/internal/log:verbose_flag",
-        "@aws_c_auth",
-        "@aws_c_common",
-        "@aws_c_io",
-        "@com_google_absl//absl/base",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/base:log_severity",
-        "@com_google_absl//absl/debugging:leak_check",
-        "@com_google_absl//absl/log:absl_log",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "aws_api_test",
-    size = "small",
-    srcs = ["aws_api_test.cc"],
-    # args = ["--tensorstore_verbose_logging=aws"],
-    deps = [
-        ":aws_api",
-        "@aws_c_common",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
-    name = "aws_credentials",
-    srcs = ["aws_credentials.cc"],
-    hdrs = ["aws_credentials.h"],
-    deps = [
-        ":aws_api",
-        "//tensorstore/internal:intrusive_ptr",
-        "//tensorstore/util:future",
-        "@aws_c_auth",
-        "@aws_c_common",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/time",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "aws_credentials_test",
-    srcs = ["aws_credentials_test.cc"],
-    args = ["--tensorstore_verbose_logging=aws"],
-    deps = [
-        ":aws_credentials",
-        "//tensorstore/util:status_testutil",
-        "@com_google_absl//absl/time",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
     name = "aws_credentials_spec",
     srcs = ["aws_credentials_spec.cc"],
     hdrs = ["aws_credentials_spec.h"],
     deps = [
-        ":aws_credentials",
         "//tensorstore:json_serialization_options_base",
         "//tensorstore/internal:type_traits",
         "//tensorstore/internal:uri_utils",
+        "//tensorstore/internal/aws:aws_credentials",
+        "//tensorstore/internal/aws/credentials:common",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:absl_time",
         "//tensorstore/internal/json_binding:bindable",
-        "//tensorstore/kvstore/s3/credentials:common",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
@@ -486,26 +427,5 @@ tensorstore_cc_test(
         "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
-    name = "aws_http_mocking",
-    srcs = ["aws_http_mocking.cc"],
-    hdrs = ["aws_http_mocking.h"],
-    deps = [
-        ":aws_api",
-        "//tensorstore/internal/http",
-        "//tensorstore/internal/http:http_header",
-        "//tensorstore/internal/log:verbose_flag",
-        "@aws_c_auth",
-        "@aws_c_common",
-        "@aws_c_http",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/debugging:leak_check",
-        "@com_google_absl//absl/log:absl_log",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_absl//absl/synchronization",
     ],
 )

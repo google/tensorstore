@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/kvstore/s3/aws_api.h"
+#include "tensorstore/internal/aws/aws_api.h"
 
 #include <stdint.h>
 
@@ -28,7 +28,6 @@
 #include "absl/log/absl_log.h"
 #include <aws/auth/auth.h>
 #include <aws/common/allocator.h>
-#include <aws/common/byte_buf.h>
 #include <aws/common/common.h>
 #include <aws/common/error.h>
 #include <aws/common/logging.h>
@@ -38,10 +37,11 @@
 #include <aws/io/host_resolver.h>
 #include <aws/io/io.h>
 #include <aws/io/tls_channel_handler.h>
+#include "tensorstore/internal/aws/tls_ctx.h"
 #include "tensorstore/internal/log/verbose_flag.h"
 
 namespace tensorstore {
-namespace internal_kvstore_s3 {
+namespace internal_aws {
 namespace {
 
 constexpr int kLogBufSize = 2000;
@@ -49,7 +49,7 @@ constexpr int kLogBufSize = 2000;
 // Hook AWS logging into absl logging.
 ABSL_CONST_INIT internal_log::VerboseFlag aws_logging("aws");
 
-int absl_log(struct aws_logger *logger, enum aws_log_level log_level,
+int absl_log(aws_logger *logger, aws_log_level log_level,
              aws_log_subject_t subject, const char *format, ...) {
   absl::LogSeverity severity = absl::LogSeverity::kInfo;
   if (log_level <= AWS_LL_FATAL) {
@@ -89,7 +89,7 @@ int absl_log(struct aws_logger *logger, enum aws_log_level log_level,
   return AWS_OP_SUCCESS;
 };
 
-enum aws_log_level absl_get_log_level(struct aws_logger *logger,
+enum aws_log_level absl_get_log_level(aws_logger *logger,
                                       aws_log_subject_t subject) {
   uintptr_t lvl = reinterpret_cast<uintptr_t>(logger->p_impl);
   if (lvl != 0) {
@@ -105,7 +105,7 @@ enum aws_log_level absl_get_log_level(struct aws_logger *logger,
   return AWS_LL_INFO;
 }
 
-int absl_set_log_level(struct aws_logger *logger, enum aws_log_level lvl) {
+int absl_set_log_level(aws_logger *logger, aws_log_level lvl) {
   if (lvl == AWS_LL_NONE) {
     reinterpret_cast<uintptr_t &>(logger->p_impl) = 0;
   } else {
@@ -115,7 +115,7 @@ int absl_set_log_level(struct aws_logger *logger, enum aws_log_level lvl) {
   return AWS_OP_SUCCESS;
 }
 
-void absl_clean_up(struct aws_logger *logger) { (void)logger; }
+void absl_clean_up(aws_logger *logger) { (void)logger; }
 
 static aws_logger_vtable s_absl_vtable = {
     /*log =*/absl_log,
@@ -177,15 +177,12 @@ void InitAwsTls() {
                     << aws_error_debug_str(aws_last_error());
   }
 
-  aws_tls_ctx_options tls_options;
-  aws_tls_ctx_options_init_default_client(&tls_options, g_allocator);
-  aws_tls_ctx *tls_ctx = aws_tls_client_ctx_new(g_allocator, &tls_options);
-  aws_tls_ctx_options_clean_up(&tls_options);
+  AwsTlsCtx tls_ctx = AwsTlsCtxBuilder(g_allocator).Build();
   if (tls_ctx == nullptr) {
     ABSL_LOG(FATAL) << "ERROR initializing TLS context: "
                     << aws_error_debug_str(aws_last_error());
   }
-  g_tls_ctx = tls_ctx;
+  g_tls_ctx = tls_ctx.release();
 }
 
 }  // namespace
@@ -207,5 +204,5 @@ aws_tls_ctx *GetAwsTlsCtx() {
   return g_tls_ctx;
 }
 
-}  // namespace internal_kvstore_s3
+}  // namespace internal_aws
 }  // namespace tensorstore

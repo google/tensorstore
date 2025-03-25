@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/kvstore/s3/aws_credentials.h"
+#include "tensorstore/internal/aws/aws_credentials.h"
 
 #include <stdint.h>
 
@@ -27,12 +27,13 @@
 #include "absl/time/time.h"
 #include <aws/auth/credentials.h>
 #include <aws/common/error.h>
+#include "tensorstore/internal/aws/aws_api.h"
+#include "tensorstore/internal/aws/string_view.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/kvstore/s3/aws_api.h"
 #include "tensorstore/util/future.h"
 
 namespace tensorstore {
-namespace internal_kvstore_s3 {
+namespace internal_aws {
 namespace {
 
 struct CallbackData {
@@ -132,5 +133,5 @@ AwsCredentials AwsCredentials::Make(std::string_view access_key_id,
       internal::adopt_object_ref);
 }
 
-}  // namespace internal_kvstore_s3
+}  // namespace internal_aws
 }  // namespace tensorstore

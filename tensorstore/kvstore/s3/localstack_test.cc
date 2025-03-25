@@ -30,6 +30,8 @@
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
+#include "tensorstore/internal/aws/aws_credentials.h"
+#include "tensorstore/internal/aws/credentials/common.h"
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/http/default_transport.h"
 #include "tensorstore/internal/http/http_response.h"
@@ -40,8 +42,6 @@
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/kvstore.h"
-#include "tensorstore/kvstore/s3/aws_credentials.h"
-#include "tensorstore/kvstore/s3/credentials/common.h"
 #include "tensorstore/kvstore/s3/s3_request_builder.h"
 #include "tensorstore/kvstore/s3/use_conditional_write.h"
 #include "tensorstore/kvstore/spec.h"
@@ -98,11 +98,11 @@ using ::tensorstore::internal::SetEnv;
 using ::tensorstore::internal::SpawnSubprocess;
 using ::tensorstore::internal::Subprocess;
 using ::tensorstore::internal::SubprocessOptions;
+using ::tensorstore::internal_aws::AwsCredentials;
+using ::tensorstore::internal_aws::GetAwsCredentials;
 using ::tensorstore::internal_http::GetDefaultHttpTransport;
 using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_http::IssueRequestOptions;
-using ::tensorstore::internal_kvstore_s3::AwsCredentials;
-using ::tensorstore::internal_kvstore_s3::GetAwsCredentials;
 using ::tensorstore::internal_kvstore_s3::IsAwsS3Endpoint;
 using ::tensorstore::internal_kvstore_s3::S3RequestBuilder;
 using ::tensorstore::transport_test_utils::TryPickUnusedPort;
@@ -274,7 +274,7 @@ class LocalStackFixture : public ::testing::Test {
   }
 
   static AwsCredentials GetEnvironmentCredentials() {
-    auto provider = tensorstore::internal_kvstore_s3::MakeEnvironment();
+    auto provider = tensorstore::internal_aws::MakeEnvironment();
     auto credentials_future = GetAwsCredentials(provider.get());
     ABSL_CHECK(credentials_future.status().ok());
 

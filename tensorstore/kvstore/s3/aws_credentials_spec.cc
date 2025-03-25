@@ -26,13 +26,13 @@
 #include "absl/strings/str_cat.h"
 #include <aws/common/error.h>
 #include <nlohmann/json_fwd.hpp>
+#include "tensorstore/internal/aws/aws_credentials.h"
+#include "tensorstore/internal/aws/credentials/common.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/json_serialization_options_base.h"
-#include "tensorstore/kvstore/s3/aws_credentials.h"
-#include "tensorstore/kvstore/s3/credentials/common.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
@@ -45,6 +45,15 @@
 #include "tensorstore/internal/json_binding/std_variant.h"  // IWYU pragma: keep
 
 using Spec = ::tensorstore::internal_kvstore_s3::AwsCredentialsSpec;
+
+using ::tensorstore::internal_aws::AwsCredentialsProvider;
+using ::tensorstore::internal_aws::MakeAnonymous;
+using ::tensorstore::internal_aws::MakeCache;
+using ::tensorstore::internal_aws::MakeDefault;
+using ::tensorstore::internal_aws::MakeEcsRole;
+using ::tensorstore::internal_aws::MakeEnvironment;
+using ::tensorstore::internal_aws::MakeImds;
+using ::tensorstore::internal_aws::MakeProfile;
 
 namespace jb = ::tensorstore::internal_json_binding;
 

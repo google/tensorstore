@@ -65,6 +65,30 @@ TestHttpServer::~TestHttpServer() {
   }
 }
 
+void TestHttpServer::MaybeLogStdoutPipe() {
+  if (!child_) return;
+  auto fd = child_->stdout_pipe();
+  if (fd == internal_os::FileDescriptorTraits::Invalid()) {
+    return;
+  }
+
+  char buf[4096];
+  while (true) {
+    if (!AwaitReadablePipe(fd, absl::InfinitePast()).ok()) {
+      break;
+    }
+    auto maybe_n = ReadFromFile(fd, tensorstore::span(buf));
+    if (!maybe_n.ok()) {
+      ABSL_LOG(ERROR) << "Failed to read from test_httpserver subprocess: "
+                      << maybe_n.status();
+      break;
+    }
+    if (*maybe_n == 0) break;
+
+    ABSL_LOG(INFO) << "<stdout>\n" << std::string_view(buf, *maybe_n);
+  }
+}
+
 std::string TestHttpServer::GetCertPath() {
   ABSL_CHECK(cert_dir_);
   return absl::StrCat(cert_dir_->path(), "/test.crt");
@@ -137,6 +161,8 @@ void TestHttpServer::SpawnProcess() {
       break;
     }
   }
+
+  ABSL_LOG(INFO) << "<stdout>\n" << std::string_view(buf, offset);
 
   // Check to see if the process has terminated; it should be running.
   auto join_result = spawn_proc.Join(/*block=*/false);

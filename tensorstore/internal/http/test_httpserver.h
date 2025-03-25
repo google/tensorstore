@@ -39,6 +39,9 @@ class TestHttpServer {
   // Returns the path to the certificate file.
   std::string GetCertPath();
 
+  // If available, dumps the stdout pipe of the child process to INFO.
+  void MaybeLogStdoutPipe();
+
  private:
   void InitializeCertificates();
 

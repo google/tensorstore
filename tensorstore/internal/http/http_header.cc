@@ -24,6 +24,7 @@
 #include <utility>
 
 #include "absl/container/btree_map.h"
+#include "absl/functional/function_ref.h"
 #include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "absl/strings/ascii.h"
@@ -135,7 +136,10 @@ Result<std::pair<std::string_view, std::string_view>> ValidateHttpHeader(
   return ValidateHttpHeader(header.substr(0, idx), header.substr(idx + 1));
 }
 
-size_t AppendHeaderData(HeaderMap& headers, std::string_view data) {
+size_t ParseAndSetHeaders(std::string_view data,
+                          absl::FunctionRef<void(std::string_view field_name,
+                                                 std::string_view field_value)>
+                              set_header) {
   // Header fields must be separated in CRLF; thus data must end in LF,
   // and the individual fields are split on LF.
   if (data.empty() || *data.rbegin() != '\n') return data.size();
@@ -161,7 +165,7 @@ size_t AppendHeaderData(HeaderMap& headers, std::string_view data) {
     // Transform the value by dropping OWS in the field value prefix.
     field.remove_prefix(field_name.size() + 1);
     while (!field.empty() && IsOWS(*field.begin())) field.remove_prefix(1);
-    headers.CombineHeader(absl::AsciiStrToLower(field_name), field);
+    set_header(absl::AsciiStrToLower(field_name), field);
   }
   return data.size();
 }

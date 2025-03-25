@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/kvstore/s3/credentials/test_utils.h"
+#include "tensorstore/internal/aws/credentials/test_utils.h"
 
 #include <string>
 #include <utility>
@@ -25,7 +25,7 @@
 #include "tensorstore/internal/http/http_response.h"
 
 namespace tensorstore {
-namespace internal_kvstore_s3 {
+namespace internal_aws {
 
 using ::tensorstore::internal_http::HeaderMap;
 
@@ -67,5 +67,5 @@ DefaultImdsCredentialFlow(const std::string& api_token,
            HeaderMap{{"x-aws-ec2-metadata-token", api_token}}}}};
 }
 
-}  // namespace internal_kvstore_s3
+}  // namespace internal_aws
 }  // namespace tensorstore

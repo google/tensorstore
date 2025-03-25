@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/kvstore/s3/credentials/common.h"
+#include "tensorstore/internal/aws/credentials/common.h"
 
 #include <cassert>
 #include <string>
@@ -24,14 +24,15 @@
 #include <aws/common/allocator.h>
 #include <aws/common/atomics.h>
 #include <aws/common/zero.h>
+#include "tensorstore/internal/aws/aws_api.h"
+#include "tensorstore/internal/aws/aws_credentials.h"
+#include "tensorstore/internal/aws/http_mocking.h"
+#include "tensorstore/internal/aws/string_view.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/uri_utils.h"
-#include "tensorstore/kvstore/s3/aws_api.h"
-#include "tensorstore/kvstore/s3/aws_credentials.h"
-#include "tensorstore/kvstore/s3/aws_http_mocking.h"
 
 namespace tensorstore {
-namespace internal_kvstore_s3 {
+namespace internal_aws {
 namespace {
 
 inline AwsCredentialsProvider AsProvider(aws_credentials_provider* p) {
@@ -167,5 +168,5 @@ AwsCredentialsProvider MakeEcsRole(std::string_view endpoint,
   return AsProvider(aws_credentials_provider_new_ecs(allocator, &options));
 }
 
-}  // namespace internal_kvstore_s3
+}  // namespace internal_aws
 }  // namespace tensorstore

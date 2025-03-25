@@ -47,6 +47,7 @@
 #include "tensorstore/internal/curl/curl_wrappers.h"
 #include "tensorstore/internal/curl/default_factory.h"
 #include "tensorstore/internal/env.h"
+#include "tensorstore/internal/http/http_header.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/metrics/counter.h"
@@ -291,7 +292,12 @@ struct CurlRequestState {
     auto data =
         std::string_view(static_cast<char const*>(contents), size * nmemb);
     if (self->MaybeSetStatusAndProcess()) {
-      self->response_handler_->OnResponseHeader(data);
+      auto* h = self->response_handler_;
+      ParseAndSetHeaders(
+          data, [h](std::string_view field_name, std::string_view field_value) {
+            h->OnResponseHeader(field_name, field_value);
+          });
+      h->OnHeaderBlockDone();
     }
     return data.size();
   }

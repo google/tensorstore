@@ -50,7 +50,9 @@ class LegacyHttpResponseHandler : public HttpResponseHandler {
   void OnFailure(absl::Status status) override;
 
   void OnStatus(int32_t status_code) override;
-  void OnResponseHeader(std::string_view data) override;
+  void OnResponseHeader(std::string_view field_name,
+                        std::string_view field_value) override;
+  void OnHeaderBlockDone() override;
   void OnResponseBody(std::string_view data) override;
   void OnComplete() override;
 
@@ -69,8 +71,12 @@ void LegacyHttpResponseHandler::OnStatus(int32_t status_code) {
   status_code_ = status_code;
 }
 
-void LegacyHttpResponseHandler::OnResponseHeader(std::string_view data) {
-  AppendHeaderData(headers_, data);
+void LegacyHttpResponseHandler::OnResponseHeader(std::string_view field_name,
+                                                 std::string_view field_value) {
+  headers_.CombineHeader(field_name, field_value);
+}
+
+void LegacyHttpResponseHandler::OnHeaderBlockDone() {
   auto content_length = TryGetContentLength(headers_);
   if (content_length) {
     writer_.SetWriteSizeHint(*content_length);

@@ -19,6 +19,7 @@
 
 #include <cstring>
 #include <ostream>
+#include <string>
 #include <string_view>
 #include <utility>
 
@@ -42,7 +43,16 @@ std::string_view CanonicalGeneration(std::string_view generation) {
 }  // namespace
 
 std::ostream& operator<<(std::ostream& os, const StorageGeneration& g) {
-  return os << QuoteString(g.value);
+  if (StorageGeneration::IsUnknown(g)) {
+    os << "StorageGeneration::Unknown()";
+  } else if (StorageGeneration::IsNoValue(g)) {
+    os << "StorageGeneration::NoValue()";
+  } else if (g.value.empty()) {
+    os << "StorageGeneration::Invalid()";
+  } else {
+    os << QuoteString(g.value);
+  }
+  return os;
 }
 
 std::ostream& operator<<(std::ostream& os,
@@ -94,8 +104,8 @@ StorageGeneration StorageGeneration::FromUint64(uint64_t n) {
 StorageGeneration StorageGeneration::FromString(std::string_view s) {
   StorageGeneration generation;
   generation.value.reserve(s.size() + 1);
-  generation.value += s;
-  generation.value += kBaseGeneration;
+  generation.value.append(s);
+  generation.value.push_back(kBaseGeneration);
   return generation;
 }
 

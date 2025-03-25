@@ -17,6 +17,7 @@
 #include <stddef.h>
 
 #include <optional>
+#include <string_view>
 #include <tuple>
 
 #include <gmock/gmock.h>
@@ -27,8 +28,8 @@
 namespace {
 
 using ::tensorstore::MatchesStatus;
-using ::tensorstore::internal_http::AppendHeaderData;
 using ::tensorstore::internal_http::HeaderMap;
+using ::tensorstore::internal_http::ParseAndSetHeaders;
 using ::tensorstore::internal_http::TryParseContentRangeHeader;
 using ::tensorstore::internal_http::ValidateHttpHeader;
 using ::testing::ElementsAre;
@@ -75,12 +76,14 @@ TEST(CombineHeaderTest, Basic) {
 
 TEST(AppendHeaderData, BadHeaders) {
   HeaderMap headers;
-
-  EXPECT_EQ(0, AppendHeaderData(headers, ""));           // empty
-  EXPECT_EQ(2, AppendHeaderData(headers, "\r\n"));       // empty
-  EXPECT_EQ(8, AppendHeaderData(headers, "foo: bar"));   // no CRLF
-  EXPECT_EQ(5, AppendHeaderData(headers, "foo\r\n"));    // no :
-  EXPECT_EQ(7, AppendHeaderData(headers, "fo@: \r\n"));  // invalid token
+  auto set_header = [&](auto name, auto value) {
+    headers.CombineHeader(name, value);
+  };
+  EXPECT_EQ(0, ParseAndSetHeaders("", set_header));           // empty
+  EXPECT_EQ(2, ParseAndSetHeaders("\r\n", set_header));       // empty
+  EXPECT_EQ(8, ParseAndSetHeaders("foo: bar", set_header));   // no CRLF
+  EXPECT_EQ(5, ParseAndSetHeaders("foo\r\n", set_header));    // no :
+  EXPECT_EQ(7, ParseAndSetHeaders("fo@: \r\n", set_header));  // invalid token
 
   EXPECT_TRUE(headers.empty());
 }
@@ -89,7 +92,10 @@ TEST(AppendHeaderData, GoodHeaders) {
   // Default
   {
     HeaderMap headers;
-    EXPECT_EQ(10, AppendHeaderData(headers, "bar: baz\r\n"));
+    EXPECT_EQ(10,
+              ParseAndSetHeaders("bar: baz\r\n", [&](auto name, auto value) {
+                headers.CombineHeader(name, value);
+              }));
 
     EXPECT_THAT(headers, ElementsAre(Pair("bar", "baz")));
   }
@@ -97,7 +103,9 @@ TEST(AppendHeaderData, GoodHeaders) {
   // No value is fine, too.
   {
     HeaderMap headers;
-    EXPECT_EQ(6, AppendHeaderData(headers, "foo:\r\n"));
+    EXPECT_EQ(6, ParseAndSetHeaders("foo:\r\n", [&](auto name, auto value) {
+                headers.CombineHeader(name, value);
+              }));
 
     EXPECT_THAT(headers, ElementsAre(Pair("foo", "")));
   }
@@ -105,7 +113,10 @@ TEST(AppendHeaderData, GoodHeaders) {
   // Remove OWS in field-value.
   {
     HeaderMap headers;
-    EXPECT_EQ(16, AppendHeaderData(headers, "bAr: \t  baz  \t\r\n"));
+    EXPECT_EQ(16, ParseAndSetHeaders("bAr: \t  baz  \t\r\n",
+                                     [&](auto name, auto value) {
+                                       headers.CombineHeader(name, value);
+                                     }));
 
     EXPECT_THAT(headers, ElementsAre(Pair("bar", "baz")));
   }
@@ -113,8 +124,14 @@ TEST(AppendHeaderData, GoodHeaders) {
   // Order is preserved.
   {
     HeaderMap headers;
-    EXPECT_EQ(16, AppendHeaderData(headers, "bAr: \t  one  \t\r\n"));
-    EXPECT_EQ(10, AppendHeaderData(headers, "bar: two\r\n"));
+    EXPECT_EQ(16, ParseAndSetHeaders("bAr: \t  one  \t\r\n",
+                                     [&](auto name, auto value) {
+                                       headers.CombineHeader(name, value);
+                                     }));
+    EXPECT_EQ(10,
+              ParseAndSetHeaders("bar: two\r\n", [&](auto name, auto value) {
+                headers.CombineHeader(name, value);
+              }));
 
     EXPECT_THAT(headers, ElementsAre(Pair("bar", "one,two")));
   }

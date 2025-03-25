@@ -54,6 +54,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:env",
         "//tensorstore/internal/container:circular_queue",
         "//tensorstore/internal/http",
+        "//tensorstore/internal/http:http_header",
         "//tensorstore/internal/metrics",
         "//tensorstore/internal/metrics:metadata",
         "//tensorstore/internal/thread",

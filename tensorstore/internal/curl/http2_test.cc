@@ -63,6 +63,7 @@ std::shared_ptr<HttpTransport> GetTransport() {
 TEST(HttpserverTest, Basic) {
   auto base_url = absl::StrFormat("https://%s", GetHttpServer().http_address());
   auto transport = GetTransport();
+  GetHttpServer().MaybeLogStdoutPipe();
 
   // Issue request 1.
   // Using SetHttpVersion adds the HTTP1.1 to HTTP2 upgrade headers.
@@ -84,6 +85,7 @@ TEST(HttpserverTest, Basic) {
     EXPECT_EQ(200, response.value().status_code);
     EXPECT_EQ("Received 5 bytes\n", response.value().payload);
   }
+  GetHttpServer().MaybeLogStdoutPipe();
 
   {
     auto response = transport->IssueRequest(
@@ -99,6 +101,7 @@ TEST(HttpserverTest, Basic) {
     EXPECT_EQ(404, response.value().status_code);
     EXPECT_EQ("Not Found: /missing\n", response.value().payload);
   }
+  GetHttpServer().MaybeLogStdoutPipe();
 }
 
 }  // namespace

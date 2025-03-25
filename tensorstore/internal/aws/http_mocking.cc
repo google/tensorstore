@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/kvstore/s3/aws_http_mocking.h"
+#include "tensorstore/internal/aws/http_mocking.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -39,14 +39,14 @@
 #include <aws/common/zero.h>
 #include <aws/http/connection_manager.h>
 #include <aws/http/request_response.h>
+#include "tensorstore/internal/aws/string_view.h"
 #include "tensorstore/internal/http/http_header.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/log/verbose_flag.h"
-#include "tensorstore/kvstore/s3/aws_api.h"
 
 namespace tensorstore {
-namespace internal_kvstore_s3 {
+namespace internal_aws {
 namespace {
 
 // Hook AWS logging into absl logging.
@@ -306,5 +306,5 @@ void EnableAwsHttpMocking(
 
 void DisableAwsHttpMocking() { g_use_mock.store(false); }
 
-}  // namespace internal_kvstore_s3
+}  // namespace internal_aws
 }  // namespace tensorstore
