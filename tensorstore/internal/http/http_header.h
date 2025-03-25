@@ -26,6 +26,7 @@
 #include <utility>
 
 #include "absl/container/btree_map.h"
+#include "absl/functional/function_ref.h"
 #include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
 #include "tensorstore/util/result.h"
@@ -160,9 +161,12 @@ Result<std::pair<std::string_view, std::string_view>> ValidateHttpHeader(
 Result<std::pair<std::string_view, std::string_view>> ValidateHttpHeader(
     std::string_view header);
 
-/// AppendHeaderData parses `data` as a header and append to the set of
-/// `headers`.
-size_t AppendHeaderData(HeaderMap& headers, std::string_view data);
+/// Parses `data` as a header block and calls `set_header` for each header
+/// field. Returns the number of bytes consumed from `data`.
+size_t ParseAndSetHeaders(std::string_view data,
+                          absl::FunctionRef<void(std::string_view field_name,
+                                                 std::string_view field_value)>
+                              set_header);
 
 /// Parses the "content-range" header, which can be used to determine the
 /// portion of an object returned by an HTTP request (with status code 206).

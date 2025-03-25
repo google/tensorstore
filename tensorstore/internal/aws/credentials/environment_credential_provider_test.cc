@@ -17,9 +17,9 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/time/time.h"
+#include "tensorstore/internal/aws/aws_credentials.h"
+#include "tensorstore/internal/aws/credentials/common.h"
 #include "tensorstore/internal/env.h"
-#include "tensorstore/kvstore/s3/aws_credentials.h"
-#include "tensorstore/kvstore/s3/credentials/common.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -27,9 +27,9 @@ namespace {
 using ::tensorstore::IsOk;
 using ::tensorstore::internal::SetEnv;
 using ::tensorstore::internal::UnsetEnv;
-using ::tensorstore::internal_kvstore_s3::AwsCredentialsProvider;
-using ::tensorstore::internal_kvstore_s3::GetAwsCredentials;
-using ::tensorstore::internal_kvstore_s3::MakeEnvironment;
+using ::tensorstore::internal_aws::AwsCredentialsProvider;
+using ::tensorstore::internal_aws::GetAwsCredentials;
+using ::tensorstore::internal_aws::MakeEnvironment;
 
 class EnvironmentCredentialProviderTest : public ::testing::Test {
  protected:

@@ -46,10 +46,9 @@ void ApplyResponseToHandler(const HttpResponse& response,
   handler->OnStatus(response.status_code);
   std::string headers_str;
   for (const auto& kv : response.headers) {
-    absl::StrAppend(&headers_str, kv.first, ": ", kv.second, "\r\n");
+    handler->OnResponseHeader(kv.first, kv.second);
   }
-  handler->OnResponseHeader(headers_str);
-
+  handler->OnHeaderBlockDone();
   auto end = response.payload.chunk_end();
   for (auto it = response.payload.chunk_begin(); it != end; ++it) {
     handler->OnResponseBody(*it);

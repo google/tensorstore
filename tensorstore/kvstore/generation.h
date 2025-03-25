@@ -15,10 +15,13 @@
 #ifndef TENSORSTORE_KVSTORE_GENERATION_H_
 #define TENSORSTORE_KVSTORE_GENERATION_H_
 
+#include <stdint.h>
+
 #include <cstring>
 #include <iosfwd>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 
 #include "absl/time/time.h"

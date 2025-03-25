@@ -21,12 +21,12 @@
 #include "absl/status/status.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "tensorstore/internal/aws/aws_credentials.h"
+#include "tensorstore/internal/aws/credentials/common.h"
+#include "tensorstore/internal/aws/http_mocking.h"
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
-#include "tensorstore/kvstore/s3/aws_credentials.h"
-#include "tensorstore/kvstore/s3/aws_http_mocking.h"
-#include "tensorstore/kvstore/s3/credentials/common.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -36,11 +36,11 @@ using ::tensorstore::MatchesStatus;
 using ::tensorstore::internal::JoinPath;
 using ::tensorstore::internal::SetEnv;
 using ::tensorstore::internal::UnsetEnv;
-using ::tensorstore::internal_kvstore_s3::AwsCredentialsProvider;
-using ::tensorstore::internal_kvstore_s3::DisableAwsHttpMocking;
-using ::tensorstore::internal_kvstore_s3::EnableAwsHttpMocking;
-using ::tensorstore::internal_kvstore_s3::GetAwsCredentials;
-using ::tensorstore::internal_kvstore_s3::MakeDefault;
+using ::tensorstore::internal_aws::AwsCredentialsProvider;
+using ::tensorstore::internal_aws::DisableAwsHttpMocking;
+using ::tensorstore::internal_aws::EnableAwsHttpMocking;
+using ::tensorstore::internal_aws::GetAwsCredentials;
+using ::tensorstore::internal_aws::MakeDefault;
 
 static constexpr char kAccessKeyId[] = "ASIA1234567890";
 static constexpr char kSecretKey[] = "1234567890abcdef";

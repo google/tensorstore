@@ -1,4 +1,4 @@
-// Copyright 2023 The TensorStore Authors
+// Copyright 2025 The TensorStore Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 #include "tensorstore/util/future.h"
 
 namespace tensorstore {
-namespace internal_kvstore_s3 {
+namespace internal_aws {
 
 /// IntrusivePtr traits for aws_credentials_provider.
 struct AwsCredentialsProviderTraits {
@@ -56,10 +56,9 @@ struct AwsCredentialsTraits {
 
 /// Wrapper for an aws_credentials.
 ///
-/// Contains the access key, secret key, session token and expiry
-/// An empty access key implies anonymous access,
-/// while the presence of a session token implies the use of
-/// short-lived STS credentials
+/// Contains the access key, secret key, session token and expiry.
+/// An empty access key implies anonymous access, while the presence of a
+/// session token implies the use of short-lived STS credentials
 /// https://docs.aws.amazon.com/STS/latest/APIReference/welcome.html
 class AwsCredentials
     : public internal::IntrusivePtr<aws_credentials, AwsCredentialsTraits> {
@@ -86,7 +85,7 @@ class AwsCredentials
 /// Retrieves AWS credentials from an AWS credentials provider.
 Future<AwsCredentials> GetAwsCredentials(aws_credentials_provider *provider);
 
-}  // namespace internal_kvstore_s3
+}  // namespace internal_aws
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_KVSTORE_S3_CREDENTIALS_AWS_CREDENTIALS_H_

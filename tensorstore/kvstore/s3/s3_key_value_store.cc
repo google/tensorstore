@@ -37,6 +37,7 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/context.h"
+#include "tensorstore/internal/aws/aws_credentials.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/digest/sha256.h"
 #include "tensorstore/internal/http/default_transport.h"
@@ -62,7 +63,6 @@
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/registry.h"
-#include "tensorstore/kvstore/s3/aws_credentials.h"
 #include "tensorstore/kvstore/s3/aws_credentials_resource.h"
 #include "tensorstore/kvstore/s3/aws_credentials_spec.h"
 #include "tensorstore/kvstore/s3/s3_endpoint.h"
@@ -99,14 +99,14 @@ using ::tensorstore::internal::RateLimiter;
 using ::tensorstore::internal::RateLimiterNode;
 using ::tensorstore::internal::ScheduleAt;
 using ::tensorstore::internal::SHA256Digester;
+using ::tensorstore::internal_aws::AwsCredentials;
+using ::tensorstore::internal_aws::AwsCredentialsProvider;
+using ::tensorstore::internal_aws::GetAwsCredentials;
 using ::tensorstore::internal_http::HttpRequest;
 using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_http::HttpTransport;
-using ::tensorstore::internal_kvstore_s3::AwsCredentials;
-using ::tensorstore::internal_kvstore_s3::AwsCredentialsProvider;
 using ::tensorstore::internal_kvstore_s3::AwsCredentialsResource;
 using ::tensorstore::internal_kvstore_s3::AwsHttpResponseToStatus;
-using ::tensorstore::internal_kvstore_s3::GetAwsCredentials;
 using ::tensorstore::internal_kvstore_s3::GetNodeInt;
 using ::tensorstore::internal_kvstore_s3::GetNodeText;
 using ::tensorstore::internal_kvstore_s3::IsValidBucketName;

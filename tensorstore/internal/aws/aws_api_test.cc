@@ -12,15 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/kvstore/s3/aws_api.h"
+#include "tensorstore/internal/aws/aws_api.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <aws/common/logging.h>
 
-using ::tensorstore::internal_kvstore_s3::GetAwsAllocator;
-using ::tensorstore::internal_kvstore_s3::GetAwsClientBootstrap;
-using ::tensorstore::internal_kvstore_s3::GetAwsTlsCtx;
+using ::tensorstore::internal_aws::GetAwsAllocator;
+using ::tensorstore::internal_aws::GetAwsClientBootstrap;
+using ::tensorstore::internal_aws::GetAwsTlsCtx;
 
 namespace {
 

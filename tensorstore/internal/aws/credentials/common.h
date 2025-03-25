@@ -17,10 +17,10 @@
 
 #include <string_view>
 
-#include "tensorstore/kvstore/s3/aws_credentials.h"
+#include "tensorstore/internal/aws/aws_credentials.h"
 
 namespace tensorstore {
-namespace internal_kvstore_s3 {
+namespace internal_aws {
 
 /// Returns a credentials provider that uses the AWS default credentials chain.
 AwsCredentialsProvider MakeDefault(std::string_view profile_name_override);
@@ -51,7 +51,7 @@ AwsCredentialsProvider MakeEcsRole(std::string_view endpoint,
 /// Returns a credentials provider that caches the credentials.
 AwsCredentialsProvider MakeCache(AwsCredentialsProvider provider);
 
-}  // namespace internal_kvstore_s3
+}  // namespace internal_aws
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_KVSTORE_S3_CREDENTIALS_COMMON_H_

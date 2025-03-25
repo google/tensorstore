@@ -78,7 +78,10 @@ class HttpResponseHandler {
   // OnResponseHeader/OnResponseBody/OnComplete.
   virtual void OnStatus(int32_t status_code) = 0;
   // Raw header content is available. May be called multiple times.
-  virtual void OnResponseHeader(std::string_view data) = 0;
+  virtual void OnResponseHeader(std::string_view field_name,
+                                std::string_view field_value) = 0;
+  // Invoked after a header block is fully parsed.
+  virtual void OnHeaderBlockDone() = 0;
   // Raw body content is available. May be called multiple times.
   virtual void OnResponseBody(std::string_view data) = 0;
   // Request has completed with the provided http status code.

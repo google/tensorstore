@@ -20,27 +20,27 @@
 #include "absl/strings/cord.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "tensorstore/internal/aws/aws_credentials.h"
+#include "tensorstore/internal/aws/credentials/common.h"
+#include "tensorstore/internal/aws/credentials/test_utils.h"
+#include "tensorstore/internal/aws/http_mocking.h"
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/http/http_header.h"
 #include "tensorstore/internal/http/http_response.h"
-#include "tensorstore/kvstore/s3/aws_credentials.h"
-#include "tensorstore/kvstore/s3/aws_http_mocking.h"
-#include "tensorstore/kvstore/s3/credentials/common.h"
-#include "tensorstore/kvstore/s3/credentials/test_utils.h"
 #include "tensorstore/util/status_testutil.h"
 
 using ::tensorstore::IsOk;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::internal::SetEnv;
 using ::tensorstore::internal::UnsetEnv;
+using ::tensorstore::internal_aws::AwsCredentialsProvider;
+using ::tensorstore::internal_aws::DefaultImdsCredentialFlow;
+using ::tensorstore::internal_aws::DisableAwsHttpMocking;
+using ::tensorstore::internal_aws::EnableAwsHttpMocking;
+using ::tensorstore::internal_aws::GetAwsCredentials;
+using ::tensorstore::internal_aws::MakeImds;
 using ::tensorstore::internal_http::HeaderMap;
 using ::tensorstore::internal_http::HttpResponse;
-using ::tensorstore::internal_kvstore_s3::AwsCredentialsProvider;
-using ::tensorstore::internal_kvstore_s3::DefaultImdsCredentialFlow;
-using ::tensorstore::internal_kvstore_s3::DisableAwsHttpMocking;
-using ::tensorstore::internal_kvstore_s3::EnableAwsHttpMocking;
-using ::tensorstore::internal_kvstore_s3::GetAwsCredentials;
-using ::tensorstore::internal_kvstore_s3::MakeImds;
 
 namespace {
 

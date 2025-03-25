@@ -20,12 +20,12 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "tensorstore/internal/aws/aws_credentials.h"
+#include "tensorstore/internal/aws/credentials/common.h"
+#include "tensorstore/internal/aws/http_mocking.h"
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
-#include "tensorstore/kvstore/s3/aws_credentials.h"
-#include "tensorstore/kvstore/s3/aws_http_mocking.h"
-#include "tensorstore/kvstore/s3/credentials/common.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -34,11 +34,11 @@ using ::tensorstore::IsOk;
 using ::tensorstore::internal::JoinPath;
 using ::tensorstore::internal::SetEnv;
 using ::tensorstore::internal::UnsetEnv;
-using ::tensorstore::internal_kvstore_s3::AwsCredentialsProvider;
-using ::tensorstore::internal_kvstore_s3::DisableAwsHttpMocking;
-using ::tensorstore::internal_kvstore_s3::EnableAwsHttpMocking;
-using ::tensorstore::internal_kvstore_s3::GetAwsCredentials;
-using ::tensorstore::internal_kvstore_s3::MakeProfile;
+using ::tensorstore::internal_aws::AwsCredentialsProvider;
+using ::tensorstore::internal_aws::DisableAwsHttpMocking;
+using ::tensorstore::internal_aws::EnableAwsHttpMocking;
+using ::tensorstore::internal_aws::GetAwsCredentials;
+using ::tensorstore::internal_aws::MakeProfile;
 
 class TestData
     : public tensorstore::internal_testing::ScopedTemporaryDirectory {

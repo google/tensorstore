@@ -22,10 +22,10 @@
 #include "absl/strings/str_format.h"
 #include "absl/time/civil_time.h"
 #include "absl/time/time.h"
+#include "tensorstore/internal/aws/aws_credentials.h"
 #include "tensorstore/internal/http/http_request.h"
-#include "tensorstore/kvstore/s3/aws_credentials.h"
 
-using ::tensorstore::internal_kvstore_s3::AwsCredentials;
+using ::tensorstore::internal_aws::AwsCredentials;
 using ::tensorstore::internal_kvstore_s3::S3RequestBuilder;
 using ::testing::Contains;
 using ::testing::Not;

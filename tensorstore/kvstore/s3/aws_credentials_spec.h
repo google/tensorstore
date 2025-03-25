@@ -22,8 +22,8 @@
 
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
+#include "tensorstore/internal/aws/aws_credentials.h"
 #include "tensorstore/json_serialization_options_base.h"
-#include "tensorstore/kvstore/s3/aws_credentials.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
@@ -139,7 +139,7 @@ class AwsCredentialsSpec final {
   Config config;
 };
 
-Result<AwsCredentialsProvider> MakeAwsCredentialsProvider(
+Result<internal_aws::AwsCredentialsProvider> MakeAwsCredentialsProvider(
     const AwsCredentialsSpec& spec);
 
 }  // namespace internal_kvstore_s3

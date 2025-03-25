@@ -23,7 +23,7 @@
 #include "tensorstore/internal/http/http_response.h"
 
 namespace tensorstore {
-namespace internal_kvstore_s3 {
+namespace internal_aws {
 
 /// Return a Default EC2 Metadata Credential Retrieval Flow, suitable
 /// for passing to EC2MetadataMockTransport
@@ -34,7 +34,7 @@ DefaultImdsCredentialFlow(const std::string& api_token,
                           const std::string& session_token,
                           const absl::Time& expires_at);
 
-}  // namespace internal_kvstore_s3
+}  // namespace internal_aws
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_KVSTORE_S3_CREDENTIALS_TEST_UTILS_H_

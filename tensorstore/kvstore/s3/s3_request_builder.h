@@ -24,9 +24,9 @@
 #include <vector>
 
 #include "absl/time/time.h"
+#include "tensorstore/internal/aws/aws_credentials.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/kvstore/byte_range.h"
-#include "tensorstore/kvstore/s3/aws_credentials.h"
 #include "tensorstore/kvstore/s3/s3_uri_utils.h"
 
 namespace tensorstore {
@@ -123,11 +123,11 @@ class S3RequestBuilder {
   /// `credentials` contains the keys required to construct an Authorization
   /// header with an AWS4 signature. An empty access key on `credentials`
   /// implies anonymous access.
-  internal_http::HttpRequest BuildRequest(std::string_view host_header,
-                                          const AwsCredentials& credentials,
-                                          std::string_view aws_region,
-                                          std::string_view payload_sha256_hash,
-                                          const absl::Time& time);
+  internal_http::HttpRequest BuildRequest(
+      std::string_view host_header,
+      const internal_aws::AwsCredentials& credentials,
+      std::string_view aws_region, std::string_view payload_sha256_hash,
+      const absl::Time& time);
 
  private:
   std::string canonical_request_;
