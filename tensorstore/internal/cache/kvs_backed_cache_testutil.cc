@@ -71,8 +71,9 @@ void KvsBackedTestCache::Entry::DoDecode(std::optional<absl::Cord> value,
     return execution::set_error(
         receiver, absl::FailedPreconditionError("existing value contains Z"));
   }
-  execution::set_value(
-      receiver, std::make_shared<absl::Cord>(value.value_or(absl::Cord())));
+  auto value_ptr = value ? std::make_shared<absl::Cord>(*std::move(value))
+                         : std::make_shared<absl::Cord>();
+  return execution::set_value(receiver, value_ptr);
 }
 
 void KvsBackedTestCache::Entry::DoEncode(std::shared_ptr<const absl::Cord> data,

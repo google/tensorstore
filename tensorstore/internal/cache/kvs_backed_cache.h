@@ -43,6 +43,7 @@
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/future_sender.h"  // IWYU pragma: keep
+#include "tensorstore/util/future.h"
 #include "tensorstore/util/status.h"
 
 namespace tensorstore {
