@@ -21,39 +21,63 @@
 /// shared by multiple independent arrays) and one key-value store entry per
 /// chunk.
 
+#include <stddef.h>
+
+#include <functional>
 #include <memory>
+#include <optional>
+#include <string>
 #include <string_view>
+#include <utility>
 
 #include "absl/status/status.h"
+#include "absl/strings/cord.h"
+#include "absl/time/time.h"
+#include <nlohmann/json_fwd.hpp>
+#include "tensorstore/batch.h"
 #include "tensorstore/box.h"
+#include "tensorstore/chunk_layout.h"
+#include "tensorstore/context.h"
 #include "tensorstore/driver/chunk_cache_driver.h"
 #include "tensorstore/driver/driver.h"
+#include "tensorstore/driver/driver_spec.h"
 #include "tensorstore/driver/registry.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/cache/aggregate_writeback_cache.h"
 #include "tensorstore/internal/cache/async_cache.h"
 #include "tensorstore/internal/cache/async_initialized_cache_mixin.h"
+#include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/cache/cache_pool_resource.h"
-#include "tensorstore/internal/cache/chunk_cache.h"
 #include "tensorstore/internal/cache/kvs_backed_cache.h"
 #include "tensorstore/internal/cache/kvs_backed_chunk_cache.h"
 #include "tensorstore/internal/chunk_grid_specification.h"
 #include "tensorstore/internal/context_binding.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
+#include "tensorstore/internal/estimate_heap_usage/estimate_heap_usage.h"
 #include "tensorstore/internal/estimate_heap_usage/std_vector.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/open_mode_spec.h"
 #include "tensorstore/internal/type_traits.h"
+#include "tensorstore/json_serialization_options.h"
+#include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/kvstore.h"
+#include "tensorstore/kvstore/spec.h"
 #include "tensorstore/open_mode.h"
+#include "tensorstore/open_options.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/serialization/absl_time.h"  // IWYU pragma: keep
 #include "tensorstore/serialization/std_optional.h"  // IWYU pragma: keep
-#include "tensorstore/spec.h"
+#include "tensorstore/staleness_bound.h"
+#include "tensorstore/transaction.h"
+#include "tensorstore/util/dimension_set.h"
+#include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/garbage_collection/garbage_collection.h"
 #include "tensorstore/util/garbage_collection/std_optional.h"  // IWYU pragma: keep
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 namespace internal_kvs_backed_chunk_driver {

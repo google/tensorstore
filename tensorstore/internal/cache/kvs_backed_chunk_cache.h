@@ -15,6 +15,8 @@
 #ifndef TENSORSTORE_INTERNAL_CACHE_KVS_BACKED_CHUNK_CACHE_H_
 #define TENSORSTORE_INTERNAL_CACHE_KVS_BACKED_CHUNK_CACHE_H_
 
+#include <stddef.h>
+
 #include <memory>
 #include <optional>
 #include <string>
@@ -23,6 +25,7 @@
 #include "absl/strings/cord.h"
 #include "tensorstore/array.h"
 #include "tensorstore/index.h"
+#include "tensorstore/internal/cache/async_cache.h"
 #include "tensorstore/internal/cache/chunk_cache.h"
 #include "tensorstore/internal/cache/kvs_backed_cache.h"
 #include "tensorstore/util/result.h"

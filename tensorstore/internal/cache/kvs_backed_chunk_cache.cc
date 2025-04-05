@@ -23,6 +23,7 @@
 #include <string>
 #include <utility>
 
+#include "absl/base/attributes.h"
 #include "absl/container/fixed_array.h"
 #include "absl/container/inlined_vector.h"
 #include "absl/strings/cord.h"
@@ -32,7 +33,9 @@
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/cache/chunk_cache.h"
 #include "tensorstore/internal/cache/kvs_backed_cache.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/memory.h"
+#include "tensorstore/internal/tracing/logged_trace_span.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
@@ -41,6 +44,10 @@
 
 namespace tensorstore {
 namespace internal {
+namespace {
+ABSL_CONST_INIT internal_log::VerboseFlag verbose_logging(
+    "kvs_backed_chunk_cache");
+}
 
 std::string KvsBackedChunkCache::Entry::GetKeyValueStoreKey() {
   auto& cache = GetOwningCache(*this);
@@ -56,12 +63,16 @@ void KvsBackedChunkCache::Entry::DoDecode(std::optional<absl::Cord> value,
       return;
     }
     auto& cache = GetOwningCache(*this);
+    internal_tracing::LoggedTraceSpan trace_span(
+        __func__, verbose_logging.Level(2),
+        {{"cache", static_cast<void*>(&cache)}});
     auto decoded_result =
         cache.DecodeChunk(this->cell_indices(), *std::move(value));
     if (!decoded_result.ok()) {
-      execution::set_error(receiver,
-                           internal::ConvertInvalidArgumentToFailedPrecondition(
-                               std::move(decoded_result).status()));
+      auto status = internal::ConvertInvalidArgumentToFailedPrecondition(
+          std::move(decoded_result).status());
+      execution::set_error(
+          receiver, std::move(trace_span).EndWithStatus(std::move(status)));
       return;
     }
     const size_t num_components = this->component_specs().size();
@@ -80,8 +91,12 @@ void KvsBackedChunkCache::Entry::DoEncode(std::shared_ptr<const ReadData> data,
     execution::set_value(receiver, std::nullopt);
     return;
   }
+
   auto& entry = GetOwningEntry(*this);
   auto& cache = GetOwningCache(entry);
+  internal_tracing::LoggedTraceSpan trace_span(
+      __func__, verbose_logging.Level(2),
+      {{"cache", static_cast<void*>(&cache)}});
   // Convert from array of `SharedArray<const void>` to array of
   // `SharedArrayView<const void>`.
   auto* components = data.get();
@@ -101,7 +116,9 @@ void KvsBackedChunkCache::Entry::DoEncode(std::shared_ptr<const ReadData> data,
   }
   auto encoded_result = cache.EncodeChunk(cell_indices, component_arrays);
   if (!encoded_result.ok()) {
-    execution::set_error(receiver, std::move(encoded_result).status());
+    execution::set_error(
+        receiver, std::move(trace_span)
+                      .EndWithStatus(std::move(encoded_result).status()));
     return;
   }
   execution::set_value(receiver, *std::move(encoded_result));
