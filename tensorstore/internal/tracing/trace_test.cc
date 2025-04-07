@@ -22,16 +22,17 @@
 #include "absl/base/log_severity.h"
 #include "absl/log/scoped_mock_log.h"
 #include "absl/status/status.h"
+#include "tensorstore/internal/tracing/local_trace_span.h"
 #include "tensorstore/internal/tracing/logged_trace_span.h"
+#include "tensorstore/internal/tracing/operation_trace_span.h"
 #include "tensorstore/internal/tracing/span_attribute.h"
 #include "tensorstore/internal/tracing/trace_context.h"
-#include "tensorstore/internal/tracing/trace_span.h"
 
 namespace {
 
+using ::tensorstore::internal_tracing::LocalTraceSpan;
 using ::tensorstore::internal_tracing::LoggedTraceSpan;
 using ::tensorstore::internal_tracing::SpanAttribute;
-using ::tensorstore::internal_tracing::TraceSpan;
 using ::testing::_;
 using ::testing::HasSubstr;
 
@@ -42,19 +43,18 @@ TEST(TraceTest, SwapContext) {
   tensorstore::internal_tracing::SwapCurrentTraceContext(&tc);
 }
 
-TEST(TraceTest, Span) {
-  TraceSpan span("TraceSpan",
-                 {
-                     SpanAttribute{"int", 1},
-                     SpanAttribute{"string", "hello"},
-                     SpanAttribute{"uint", 1ull},
-                     SpanAttribute{"bool", true},
-                     SpanAttribute{"double", 1.0},
-                     SpanAttribute{"string_view", std::string_view("hello")},
-                     SpanAttribute{"void*", (void*)0},
-                 });
-
-  EXPECT_EQ(span.method(), "TraceSpan");
+TEST(TraceTest, LocalTraceSpan) {
+  LocalTraceSpan span(
+      "TraceSpan", {
+                       SpanAttribute{"int", 1},
+                       SpanAttribute{"string", "hello"},
+                       SpanAttribute{"uint", 1ull},
+                       SpanAttribute{"bool", true},
+                       SpanAttribute{"double", 1.0},
+                       SpanAttribute{"string_view", std::string_view("hello")},
+                       SpanAttribute{"void*", (void*)0},
+                   });
+  EXPECT_NE(&span, nullptr);
 }
 
 TEST(TraceTest, LoggedSpan) {
@@ -84,11 +84,15 @@ TEST(TraceTest, LoggedSpan) {
                              {"void*", (void*)0},
                          });
 
-    EXPECT_EQ(span.method(), "LoggedTraceSpan");
     span.Log("hello", "world");
 
     std::move(span).EndWithStatus(absl::OkStatus()).IgnoreError();
   }
+}
+
+TEST(TraceTest, OperationTraceSpan) {
+  tensorstore::internal_tracing::OperationTraceSpan span("TraceSpan");
+  EXPECT_NE(&span, nullptr);
 }
 
 }  // namespace

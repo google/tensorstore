@@ -15,6 +15,7 @@
 #include "tensorstore/driver/driver.h"
 
 #include <cassert>
+#include <memory>
 #include <string_view>
 #include <utility>
 
@@ -35,6 +36,7 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/tagged_ptr.h"
+#include "tensorstore/internal/tracing/operation_trace_span.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/open_options.h"
@@ -89,10 +91,11 @@ Future<Driver::Handle> OpenDriver(OpenTransactionPtr transaction, Batch batch,
 Future<Driver::Handle> OpenDriver(TransformedDriverSpec bound_spec,
                                   DriverOpenRequest request) {
   DriverSpecPtr ptr = bound_spec.driver_spec;
-
+  auto open_span = std::make_unique<internal_tracing::OperationTraceSpan>(
+      "tensorstore.Open");
   return MapFuture(
       InlineExecutor{},
-      [bound_spec = std::move(bound_spec)](
+      [bound_spec = std::move(bound_spec), open_span = std::move(open_span)](
           Result<Driver::Handle>& handle) mutable -> Result<Driver::Handle> {
         absl::Status status;
         if (!handle.ok()) {
