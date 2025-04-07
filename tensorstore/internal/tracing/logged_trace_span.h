@@ -27,22 +27,23 @@
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
 #include "tensorstore/internal/source_location.h"
+#include "tensorstore/internal/tracing/local_trace_span.h"
 #include "tensorstore/internal/tracing/span_attribute.h"
-#include "tensorstore/internal/tracing/trace_span.h"
 #include "tensorstore/util/span.h"
 
 namespace tensorstore {
 namespace internal_tracing {
 
 /// A TraceSpan which optionally includes scoped logging to ABSL INFO.
-class LoggedTraceSpan : public TraceSpan {
+class LoggedTraceSpan : public LocalTraceSpan {
   // Generates a random ID for logging the Begin/End log messages.
   static uint64_t random_id();
 
  public:
   LoggedTraceSpan(std::string_view method, bool log,
                   const SourceLocation& location = SourceLocation::current())
-      : TraceSpan(method, location),
+      : LocalTraceSpan(method, location),
+        method_(method),
         location_(location),
         id_(log ? random_id() : 0) {
     if (id_)
@@ -53,7 +54,8 @@ class LoggedTraceSpan : public TraceSpan {
   LoggedTraceSpan(std::string_view method, bool log,
                   tensorstore::span<const SpanAttribute> attributes,
                   const SourceLocation& location = SourceLocation::current())
-      : TraceSpan(method, attributes, location),
+      : LocalTraceSpan(method, attributes, location),
+        method_(method),
         location_(location),
         id_(log ? random_id() : 0) {
     if (id_)
@@ -99,7 +101,7 @@ class LoggedTraceSpan : public TraceSpan {
     return status;
   }
 
-  using TraceSpan::method;
+  std::string_view method() const { return method_; }
 
  private:
   void BeginLog(std::ostream& stream);
@@ -124,6 +126,7 @@ class LoggedTraceSpan : public TraceSpan {
     stream << absl::StreamFormat("%x: %s=", id_, name) << val;
   }
 
+  std::string_view method_;
   SourceLocation location_;
   uint64_t id_ = 0;
 };

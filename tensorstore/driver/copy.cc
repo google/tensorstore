@@ -35,7 +35,7 @@
 #include "tensorstore/internal/nditerable_data_type_conversion.h"
 #include "tensorstore/internal/nditerable_util.h"
 #include "tensorstore/internal/tagged_ptr.h"
-#include "tensorstore/internal/tracing/trace_span.h"
+#include "tensorstore/internal/tracing/operation_trace_span.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/progress.h"
 #include "tensorstore/read_write_options.h"
@@ -141,7 +141,7 @@ struct CopyState : public internal::AtomicReferenceCount<CopyState> {
   Promise<void> copy_promise;
   Promise<void> commit_promise;
   IntrusivePtr<CommitState> commit_state{new CommitState};
-  internal_tracing::TraceSpan tspan{"tensorstore.Copy"};
+  internal_tracing::OperationTraceSpan tspan{"tensorstore.Copy"};
 
   void SetError(absl::Status error) {
     SetDeferredResult(copy_promise, std::move(error));

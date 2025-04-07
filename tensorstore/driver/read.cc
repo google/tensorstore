@@ -42,7 +42,7 @@
 #include "tensorstore/internal/nditerable_transformed_array.h"
 #include "tensorstore/internal/nditerable_util.h"
 #include "tensorstore/internal/tagged_ptr.h"
-#include "tensorstore/internal/tracing/trace_span.h"
+#include "tensorstore/internal/tracing/operation_trace_span.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/progress.h"
@@ -110,7 +110,7 @@ struct ReadState
   Promise<PromiseValue> promise;
   std::atomic<Index> copied_elements{0};
   Index total_elements;
-  internal_tracing::TraceSpan tspan{"tensorstore.Read"};
+  internal_tracing::OperationTraceSpan tspan{"tensorstore.Read"};
 
   void SetError(absl::Status error) {
     SetDeferredResult(promise, std::move(error));

@@ -1,4 +1,4 @@
-// Copyright 2023 The TensorStore Authors
+// Copyright 2025 The TensorStore Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,30 +12,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_TRACING_TRACE_CONTEXT_H_
-#define TENSORSTORE_INTERNAL_TRACING_TRACE_CONTEXT_H_
+#ifndef TENSORSTORE_INTERNAL_TRACING_OPERATION_TRACE_SPAN_H_
+#define TENSORSTORE_INTERNAL_TRACING_OPERATION_TRACE_SPAN_H_
 
-#include <utility>
+#include <stddef.h>
+#include <stdint.h>
+
+#include <string_view>
+
+#include "tensorstore/internal/source_location.h"
 
 namespace tensorstore {
 namespace internal_tracing {
 
-struct TraceContext {
-  struct ThreadInitType {};
-  inline static constexpr ThreadInitType kThread{};
+/// An OperationTraceSpan is an operation trace annotation used to tag
+/// asynchronous operations which may be long running.
+class OperationTraceSpan {
+ public:
+  OperationTraceSpan(std::string_view method,
+                     const SourceLocation& location = SourceLocation::current())
+  {}
 
-  TraceContext() = delete;
-  explicit TraceContext(ThreadInitType) {}
+  ~OperationTraceSpan() = default;
 
-  TraceContext(TraceContext&&) = default;
-  TraceContext& operator=(TraceContext&&) = default;
-  TraceContext(const TraceContext&) = default;
-  TraceContext& operator=(const TraceContext&) = default;
+ private:
 };
-
-inline void SwapCurrentTraceContext(TraceContext* context) {}
 
 }  // namespace internal_tracing
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_TRACING_TRACE_CONTEXT_H_
+#endif  // TENSORSTORE_INTERNAL_TRACING_OPERATION_TRACE_SPAN_H_
