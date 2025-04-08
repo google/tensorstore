@@ -114,6 +114,7 @@ struct ResolveHost {
           default_aws_region,
       });
     }
+    // TODO: Get the message from the response body, if any.
     promise.SetResult(absl::FailedPreconditionError(tensorstore::StrCat(
         "Failed to resolve aws_region for bucket ", QuoteString(bucket))));
   }
@@ -201,21 +202,20 @@ Future<S3EndpointRegion> ResolveEndpointRegion(
   assert(IsValidBucketName(bucket));
 
   // TODO: Handle retries, and sign the request.
-
   if (endpoint.empty()) {
     // Use a HEAD request on bucket.s3.amazonaws.com to acquire the aws_region
     // does not work when there is a . in the bucket name; for now require the
     // aws_region to be set.
     if (!absl::StrContains(bucket, ".")) {
-      std::string url = absl::StrFormat("https://%s.s3.amazonaws.com", bucket);
+      auto request =
+          HttpRequestBuilder(
+              "HEAD", absl::StrFormat("https://%s.s3.amazonaws.com", bucket))
+              .AddHostHeader(host_header)
+              .BuildRequest();
       return PromiseFuturePair<S3EndpointRegion>::Link(
                  ResolveHost<S3VirtualHostFormatter>{
                      std::move(bucket), {}, S3VirtualHostFormatter{}},
-                 transport->IssueRequest(
-                     HttpRequestBuilder("HEAD", std::move(url))
-                         .AddHostHeader(host_header)
-                         .BuildRequest(),
-                     {}))
+                 transport->IssueRequest(std::move(request), {}))
           .future;
     }
 
@@ -224,30 +224,30 @@ Future<S3EndpointRegion> ResolveEndpointRegion(
     // zone. The response will be a 301 request with an 'x-amz-bucket-region'
     // header. We might be able to just do a signed HEAD request against an
     // possibly non-existent file... But try this later.
-    std::string url =
-        absl::StrFormat("https://s3.us-east-1.amazonaws.com/%s", bucket);
+    auto request =
+        HttpRequestBuilder(
+            "HEAD",
+            absl::StrFormat("https://s3.us-east-1.amazonaws.com/%s", bucket))
+            .AddHostHeader(host_header)
+            .BuildRequest();
     return PromiseFuturePair<S3EndpointRegion>::Link(
                ResolveHost<S3PathFormatter>{
                    std::move(bucket), {}, S3PathFormatter{}},
-               transport->IssueRequest(
-                   HttpRequestBuilder("HEAD", std ::move(url))
-                       .AddHostHeader(host_header)
-                       .BuildRequest(),
-                   {}))
+               transport->IssueRequest(std::move(request), {}))
         .future;
   }
 
   // Issue a HEAD request against the endpoint+bucket, which should work for
   // mock S3 backends like localstack or minio.
-  std::string url = absl::StrFormat("%s/%s", endpoint, bucket);
+  auto request =
+      HttpRequestBuilder("HEAD", absl::StrFormat("%s/%s", endpoint, bucket))
+          .AddHostHeader(host_header)
+          .BuildRequest();
   return PromiseFuturePair<S3EndpointRegion>::Link(
              ResolveHost<S3CustomFormatter>{
                  std::move(bucket), "us-east-1",
                  S3CustomFormatter{std::string(endpoint)}},
-             transport->IssueRequest(HttpRequestBuilder("HEAD", std::move(url))
-                                         .AddHostHeader(host_header)
-                                         .BuildRequest(),
-                                     {}))
+             transport->IssueRequest(std::move(request), {}))
       .future;
 }
 

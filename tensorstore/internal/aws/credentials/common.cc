@@ -54,7 +54,7 @@ AwsCredentialsProvider MakeCache(AwsCredentialsProvider provider) {
 AwsCredentialsProvider MakeDefault(std::string_view profile_name_override) {
   aws_allocator* allocator = GetAwsAllocator();
 
-  struct aws_credentials_provider_chain_default_options options;
+  aws_credentials_provider_chain_default_options options;
   AWS_ZERO_STRUCT(options);
   options.bootstrap = GetAwsClientBootstrap();
   options.tls_ctx = GetAwsTlsCtx();
@@ -65,6 +65,26 @@ AwsCredentialsProvider MakeDefault(std::string_view profile_name_override) {
   // options.function_table = GetAwsHttpMockingIfEnabled();
   return AsProvider(
       aws_credentials_provider_new_chain_default(allocator, &options));
+}
+
+AwsCredentialsProvider MakeDefaultWithAnonymous(
+    std::string_view profile_name_override) {
+  aws_allocator* allocator = GetAwsAllocator();
+
+  auto default_provider = MakeDefault(profile_name_override);
+  auto anonymous_provider = MakeAnonymous();
+
+  aws_credentials_provider* providers[2];
+  AWS_ZERO_ARRAY(providers);
+  providers[0] = default_provider.get();
+  providers[1] = anonymous_provider.get();
+
+  aws_credentials_provider_chain_options options;
+  AWS_ZERO_STRUCT(options);
+  options.provider_count = 2;
+  options.providers = providers;
+
+  return AsProvider(aws_credentials_provider_new_chain(allocator, &options));
 }
 
 AwsCredentialsProvider MakeAnonymous() {

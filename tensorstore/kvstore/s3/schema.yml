@@ -210,6 +210,8 @@ definitions:
     description: |-
       Source credentials using the `default AWS credentials chain
       <https://github.com/aws/aws-sdk-cpp/blob/main/docs/Credentials_Providers.md>`__.
+      If the default credentials chain cannot resolve credentials then anonymous credentials
+      will be used.
     allOf:
     - $ref: Context.aws_credentials
     - type: object

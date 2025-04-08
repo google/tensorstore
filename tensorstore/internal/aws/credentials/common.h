@@ -25,6 +25,11 @@ namespace internal_aws {
 /// Returns a credentials provider that uses the AWS default credentials chain.
 AwsCredentialsProvider MakeDefault(std::string_view profile_name_override);
 
+/// Returns a credentials provider that uses the AWS default credentials chain
+/// with anonymous credentials as a fallback.
+AwsCredentialsProvider MakeDefaultWithAnonymous(
+    std::string_view profile_name_override);
+
 /// Returns anonymous credentials.
 AwsCredentialsProvider MakeAnonymous();
 
