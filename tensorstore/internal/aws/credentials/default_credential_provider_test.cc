@@ -40,7 +40,9 @@ using ::tensorstore::internal_aws::AwsCredentialsProvider;
 using ::tensorstore::internal_aws::DisableAwsHttpMocking;
 using ::tensorstore::internal_aws::EnableAwsHttpMocking;
 using ::tensorstore::internal_aws::GetAwsCredentials;
+using ::tensorstore::internal_aws::MakeAnonymous;
 using ::tensorstore::internal_aws::MakeDefault;
+using ::tensorstore::internal_aws::MakeDefaultWithAnonymous;
 
 static constexpr char kAccessKeyId[] = "ASIA1234567890";
 static constexpr char kSecretKey[] = "1234567890abcdef";
@@ -100,11 +102,25 @@ class DefaultCredentialProviderTest : public ::testing::Test {
   absl::Time expiry;
 };
 
-TEST_F(DefaultCredentialProviderTest, Basic) {
+TEST_F(DefaultCredentialProviderTest, Anonymous) {
+  AwsCredentialsProvider provider = MakeAnonymous();
+  auto credentials_future = GetAwsCredentials(provider.get());
+  ASSERT_THAT(credentials_future, IsOk());
+  EXPECT_TRUE(credentials_future.result()->IsAnonymous());
+}
+
+TEST_F(DefaultCredentialProviderTest, DefaultWithoutFallback) {
   AwsCredentialsProvider provider = MakeDefault({});
   auto credentials_future = GetAwsCredentials(provider.get());
   ASSERT_THAT(credentials_future,
               MatchesStatus(absl::StatusCode::kInternal, ".*aws-c-.*"));
+}
+
+TEST_F(DefaultCredentialProviderTest, DefaultWithFallback) {
+  AwsCredentialsProvider provider = MakeDefaultWithAnonymous({});
+  auto credentials_future = GetAwsCredentials(provider.get());
+  ASSERT_THAT(credentials_future, IsOk());
+  EXPECT_TRUE(credentials_future.result()->IsAnonymous());
 }
 
 TEST_F(DefaultCredentialProviderTest, FromEnvironment) {

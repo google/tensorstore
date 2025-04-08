@@ -49,7 +49,7 @@ using Spec = ::tensorstore::internal_kvstore_s3::AwsCredentialsSpec;
 using ::tensorstore::internal_aws::AwsCredentialsProvider;
 using ::tensorstore::internal_aws::MakeAnonymous;
 using ::tensorstore::internal_aws::MakeCache;
-using ::tensorstore::internal_aws::MakeDefault;
+using ::tensorstore::internal_aws::MakeDefaultWithAnonymous;
 using ::tensorstore::internal_aws::MakeEcsRole;
 using ::tensorstore::internal_aws::MakeEnvironment;
 using ::tensorstore::internal_aws::MakeImds;
@@ -152,7 +152,9 @@ Result<AwsCredentialsProvider> MakeAwsCredentialsProvider(const Spec& spec) {
   struct MakeCredentialsVisitor {
     using R = AwsCredentialsProvider;
 
-    R operator()(const Spec::Default& v) { return MakeDefault(v.profile); }
+    R operator()(const Spec::Default& v) {
+      return MakeDefaultWithAnonymous(v.profile);
+    }
     R operator()(const Spec::Anonymous&) { return MakeAnonymous(); }
     R operator()(const Spec::Environment&) { return MakeEnvironment(); }
     R operator()(const Spec::Imds&) { return MakeImds(); }
