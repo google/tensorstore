@@ -16,6 +16,7 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -29,11 +30,65 @@
 using ::tensorstore::internal_http::DefaultMockHttpTransport;
 using ::tensorstore::internal_http::HeaderMap;
 using ::tensorstore::internal_http::HttpResponse;
+using ::tensorstore::internal_kvstore_s3::ConditionalWriteMode;
+using ::tensorstore::internal_kvstore_s3::IsAwsS3Endpoint;
 using ::tensorstore::internal_kvstore_s3::ResolveEndpointRegion;
 using ::tensorstore::internal_kvstore_s3::S3EndpointRegion;
 using ::tensorstore::internal_kvstore_s3::ValidateEndpoint;
 
 namespace {
+
+TEST(IsAwsS3Endpoint, PositiveExamples) {
+  for (
+      std::string_view uri : {
+          "http://s3.amazonaws.com",         //
+          "http://s3.amazonaws.com/bucket",  //
+          "http://bucket.s3.amazonaws.com/path",
+          "https://bucket.s3.amazonaws.com/path",
+          // https://docs.aws.amazon.com/general/latest/gr/s3.html
+          "http://s3.us-west-2.amazonaws.com",
+          "http://s3.dualstack.us-west-2.amazonaws.com",
+          "http://s3-fips.dualstack.us-west-2.amazonaws.com",
+          "http://s3-fips.us-west-2.amazonaws.com",
+          "http://s3.us-west-2.amazonaws.com/bucket",
+          "http://s3.dualstack.us-west-2.amazonaws.com/bucket",
+          "http://s3-fips.dualstack.us-west-2.amazonaws.com/bucket",
+          "http://s3-fips.us-west-2.amazonaws.com/bucket",
+          "http://foo.bar.com.s3.us-west-2.amazonaws.com",
+          "http://foo.bar.com.s3.dualstack.us-west-2.amazonaws.com",
+          "http://foo.bar.com.s3-fips.dualstack.us-west-2.amazonaws.com",
+          "http://foo.bar.com.s3-fips.us-west-2.amazonaws.com",
+          // gov-cloud examples
+          "http://s3.us-gov-west-1.amazonaws.com",
+          "http://s3-fips.dualstack.us-gov-west-1.amazonaws.com",
+          "http://s3.dualstack.us-gov-west-1.amazonaws.com",
+          "http://s3-fips.us-gov-west-1.amazonaws.com",
+          "http://s3.us-gov-west-1.amazonaws.com/bucket",
+          "http://s3-fips.dualstack.us-gov-west-1.amazonaws.com/bucket",
+          "http://s3.dualstack.us-gov-west-1.amazonaws.com/bucket",
+          "http://s3-fips.us-gov-west-1.amazonaws.com/bucket",
+          "http://foo-bar-com.s3.us-gov-west-1.amazonaws.com",
+          "http://foo-bar-com.s3-fips.dualstack.us-gov-west-1.amazonaws.com",
+          "http://foo-bar-com.s3.dualstack.us-gov-west-1.amazonaws.com",
+          "http://foo-bar-com.s3-fips.us-gov-west-1.amazonaws.com",
+          // https://docs.aws.amazon.com/AmazonS3/latest/userguide/VirtualHosting.html
+          "http://amzn-s3-demo-bucket1.s3.eu-west-1.amazonaws.com/",
+          // The s3 bucket looks like the s3 amazonaws host name.
+          "http://s3.fakehoster.com.s3.us-west-2.amazonaws.com",
+      }) {
+    EXPECT_TRUE(IsAwsS3Endpoint(uri)) << uri;
+  }
+}
+
+TEST(IsAwsS3Endpoint, NegativeExamples) {
+  for (std::string_view uri : {
+           "http://localhost:1234/path",
+           "http://bard.amazonaws.com/bucket",         //
+           "https://s3.fakehoster.com.amazonaws.com",  //
+       }) {
+    EXPECT_FALSE(IsAwsS3Endpoint(uri)) << uri;
+  }
+}
 
 TEST(ValidateEndpointTest, Basic) {
   // {bucket} => Ok (must be resolved later)
@@ -61,12 +116,14 @@ TEST(ValidateEndpointTest, Basic) {
 
   EXPECT_THAT(ValidateEndpoint("testbucket", "region", "http://my.host", {}),
               ::testing::VariantWith<S3EndpointRegion>(
-                  S3EndpointRegion{"http://my.host/testbucket", "region"}));
+                  S3EndpointRegion{"http://my.host/testbucket", "region",
+                                   ConditionalWriteMode::kDefault}));
 
   EXPECT_THAT(
       ValidateEndpoint("testbucket", "region", "http://my.host", "my.header"),
       ::testing::VariantWith<S3EndpointRegion>(
-          S3EndpointRegion{"http://my.host/testbucket", "region"}));
+          S3EndpointRegion{"http://my.host/testbucket", "region",
+                           ConditionalWriteMode::kDefault}));
 
   // error: host header with empty endpoint
   EXPECT_THAT(ValidateEndpoint("testbucket", {}, {}, "my.header"),
@@ -92,6 +149,12 @@ TEST(ResolveEndpointRegion, Basic) {
            HttpResponse{200, absl::Cord(),
                         HeaderMap{{"x-amz-bucket-region", "us-east-1"}}}},
 
+          // x-amz-request-id ends with -ceph3
+          {"HEAD http://localhost.ceph/test.bucket",
+           HttpResponse{
+               200, absl::Cord(),
+               HeaderMap{{"x-amz-bucket-region", "us-east-1"},
+                         {"x-amz-request-id", "tx000001abcdef-prod1-ceph3"}}}},
           // DELETE 404 => absl::OkStatus()
       });
 
@@ -102,6 +165,7 @@ TEST(ResolveEndpointRegion, Basic) {
 
   EXPECT_THAT(ehr.endpoint, "https://testbucket.s3.us-east-1.amazonaws.com");
   EXPECT_THAT(ehr.aws_region, "us-east-1");
+  EXPECT_THAT(ehr.write_mode, ConditionalWriteMode::kEnabled);
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       ehr,
@@ -109,6 +173,7 @@ TEST(ResolveEndpointRegion, Basic) {
 
   EXPECT_THAT(ehr.endpoint, "https://s3.us-east-1.amazonaws.com/test.bucket");
   EXPECT_THAT(ehr.aws_region, "us-east-1");
+  EXPECT_THAT(ehr.write_mode, ConditionalWriteMode::kEnabled);
 
   // With endpoint
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -118,6 +183,7 @@ TEST(ResolveEndpointRegion, Basic) {
 
   EXPECT_THAT(ehr.endpoint, "http://localhost:1234/test.bucket");
   EXPECT_THAT(ehr.aws_region, "us-east-1");
+  EXPECT_THAT(ehr.write_mode, ConditionalWriteMode::kDefault);
 
   // With endpoint & host_header
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -127,6 +193,17 @@ TEST(ResolveEndpointRegion, Basic) {
 
   EXPECT_THAT(ehr.endpoint, "http://localhost:1234/test.bucket");
   EXPECT_THAT(ehr.aws_region, "us-east-1");
+  EXPECT_THAT(ehr.write_mode, ConditionalWriteMode::kDefault);
+
+  // With ceph endpoint
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      ehr, ResolveEndpointRegion("test.bucket", "http://localhost.ceph", {},
+                                 mock_transport)
+               .result());
+
+  EXPECT_THAT(ehr.endpoint, "http://localhost.ceph/test.bucket");
+  EXPECT_THAT(ehr.aws_region, "us-east-1");
+  EXPECT_THAT(ehr.write_mode, ConditionalWriteMode::kDisabled);
 }
 
 }  // namespace

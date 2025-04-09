@@ -42,8 +42,8 @@
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/kvstore.h"
+#include "tensorstore/kvstore/s3/s3_endpoint.h"
 #include "tensorstore/kvstore/s3/s3_request_builder.h"
-#include "tensorstore/kvstore/s3/use_conditional_write.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/util/future.h"
@@ -394,7 +394,7 @@ TEST_F(LocalStackFixture, ConcurrentWrites) {
   // NOTE: Some S3-compatible object stores don't support if-match,
   // so only enable the concurrent test when the UseConditionalWrite heuristic
   // is true.
-  if (!tensorstore::internal_kvstore_s3::UseConditionalWrite(endpoint_url())) {
+  if (!IsAwsS3Endpoint(endpoint_url())) {
     GTEST_SKIP() << "Concurrent writes test skipped for " << endpoint_url();
     return;
   }

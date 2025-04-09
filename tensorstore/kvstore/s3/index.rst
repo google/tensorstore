@@ -119,7 +119,3 @@ without credentials.  Otherwise amazon credentials are required:
    Specifies the concurrency level used by the shared Context
    :json:schema:`Context.s3_request_concurrency` resource. Defaults to 32.
 
-.. envvar:: TENSORSTORE_S3_USE_CONDITIONAL_WRITE
-
-   Enables conditional writes for the S3 driver.  This is experimental and
-   may be changed or removed in the future.
