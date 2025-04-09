@@ -18,6 +18,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <variant>
 
 #include "absl/status/status.h"
@@ -28,11 +29,25 @@
 namespace tensorstore {
 namespace internal_kvstore_s3 {
 
+/// The conditional write mode for an S3 endpoint.
+enum class ConditionalWriteMode {
+  kDisabled,  // Disable conditional writes. Writes are non-atomic.
+  kDefault,   // Use the non-atomic write operation, however add conditional
+              // write headers.  Writes may be atomic if the object store
+              // supports it.
+  kEnabled,   // Enable conditional writes.  Writes should be atomic.
+};
+
 /// Resolved S3 endpoint, host header, and aws_regions.
-///  This is used to issue
-///. re
-///
 struct S3EndpointRegion {
+  S3EndpointRegion() = default;
+
+  S3EndpointRegion(std::string endpoint, std::string aws_region,
+                   ConditionalWriteMode write_mode)
+      : endpoint(std::move(endpoint)),
+        aws_region(std::move(aws_region)),
+        write_mode(std::move(write_mode)) {}
+
   /// The base http-endpoint used to access an S3 bucket. This is a url and
   /// optional path prefix for accessing a bucket.
   std::string endpoint;
@@ -40,6 +55,9 @@ struct S3EndpointRegion {
   /// The AWS region for the S3 bucket, which is required for constructing a
   /// request signature.
   std::string aws_region;
+
+  /// The mode for using conditional writes.
+  ConditionalWriteMode write_mode;
 
   template <typename Sink>
   friend void AbslStringify(Sink& sink, const S3EndpointRegion& ehr) {
@@ -55,6 +73,9 @@ struct S3EndpointRegion {
     return !(a == b);
   }
 };
+
+/// Returns true if the given endpoint is an AWS S3 endpoint.
+bool IsAwsS3Endpoint(std::string_view endpoint);
 
 /// Validate the bucket, endpoint and host_header parameters.
 /// When possible, constructs an S3EndpointRegion from the driver config.

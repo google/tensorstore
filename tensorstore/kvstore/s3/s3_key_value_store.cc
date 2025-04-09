@@ -70,7 +70,6 @@
 #include "tensorstore/kvstore/s3/s3_request_builder.h"
 #include "tensorstore/kvstore/s3/s3_resource.h"
 #include "tensorstore/kvstore/s3/s3_uri_utils.h"
-#include "tensorstore/kvstore/s3/use_conditional_write.h"
 #include "tensorstore/kvstore/s3/validate.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/url_registry.h"
@@ -107,6 +106,7 @@ using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_http::HttpTransport;
 using ::tensorstore::internal_kvstore_s3::AwsCredentialsResource;
 using ::tensorstore::internal_kvstore_s3::AwsHttpResponseToStatus;
+using ::tensorstore::internal_kvstore_s3::ConditionalWriteMode;
 using ::tensorstore::internal_kvstore_s3::GetNodeInt;
 using ::tensorstore::internal_kvstore_s3::GetNodeText;
 using ::tensorstore::internal_kvstore_s3::IsValidBucketName;
@@ -120,7 +120,6 @@ using ::tensorstore::internal_kvstore_s3::S3RequestBuilder;
 using ::tensorstore::internal_kvstore_s3::S3RequestRetries;
 using ::tensorstore::internal_kvstore_s3::S3UriEncode;
 using ::tensorstore::internal_kvstore_s3::StorageGenerationFromHeaders;
-using ::tensorstore::internal_kvstore_s3::UseConditionalWrite;
 using ::tensorstore::kvstore::Key;
 using ::tensorstore::kvstore::ListEntry;
 using ::tensorstore::kvstore::ListOptions;
@@ -206,6 +205,7 @@ struct S3KeyValueStoreSpecData {
   std::optional<std::string> endpoint;
   std::optional<std::string> host_header;
   std::string aws_region;
+  std::optional<bool> use_conditional_write;
 
   Context::Resource<AwsCredentialsResource> aws_credentials;
   Context::Resource<S3ConcurrencyResource> request_concurrency;
@@ -215,8 +215,9 @@ struct S3KeyValueStoreSpecData {
 
   constexpr static auto ApplyMembers = [](auto& x, auto f) {
     return f(x.bucket, x.requester_pays, x.endpoint, x.host_header,
-             x.aws_region, x.aws_credentials, x.request_concurrency,
-             x.rate_limiter, x.retries, x.data_copy_concurrency);
+             x.aws_region, x.use_conditional_write, x.aws_credentials,
+             x.request_concurrency, x.rate_limiter, x.retries,
+             x.data_copy_concurrency);
   };
 
   constexpr static auto default_json_binder = jb::Object(
@@ -241,6 +242,9 @@ struct S3KeyValueStoreSpecData {
       jb::Member("aws_region",
                  jb::Projection<&S3KeyValueStoreSpecData::aws_region>(
                      jb::DefaultValue([](auto* v) { *v = ""; }))),
+      jb::Member(
+          "use_conditional_write",
+          jb::Projection<&S3KeyValueStoreSpecData::use_conditional_write>()),
       jb::Member(AwsCredentialsResource::id,
                  jb::Projection<&S3KeyValueStoreSpecData::aws_credentials>()),
       jb::Member(
@@ -588,7 +592,6 @@ struct WriteTask : public RateLimiterNode,
   absl::Cord value_;
   AwsCredentials credentials_;
   Promise<TimestampedStorageGeneration> promise;
-
   int attempt_ = 0;
   absl::Time start_time_;
 
@@ -636,15 +639,15 @@ struct WriteTask : public RateLimiterNode,
     if (IsCancelled()) {
       return;
     }
-    if (UseConditionalWrite(endpoint_region_.value().endpoint) ||
+    const auto& ehr = endpoint_region_.value();
+    if (owner->spec_.use_conditional_write.value_or(
+            ehr.write_mode == ConditionalWriteMode::kEnabled) ||
         StorageGeneration::IsUnknown(options_.generation_conditions.if_equal)) {
       AfterHeadRequest();
       return;
     }
 
     start_time_ = absl::Now();
-    const auto& ehr = endpoint_region_.value();
-
     auto builder = S3RequestBuilder("HEAD", object_url_);
     AddGenerationHeader(&builder, "if-match",
                         options_.generation_conditions.if_equal);
@@ -709,11 +712,17 @@ struct WriteTask : public RateLimiterNode,
     builder.AddHeader("content-type", "application/octet-stream")
         .AddHeader("content-length", absl::StrCat(value_.size()))
         .MaybeAddRequesterPayer(owner->spec_.requester_pays);
-    if (StorageGeneration::IsNoValue(options_.generation_conditions.if_equal)) {
-      builder.AddHeader("if-none-match", "*");
-    } else {
-      AddGenerationHeader(&builder, "if-match",
-                          options_.generation_conditions.if_equal);
+    if (owner->spec_.use_conditional_write.value_or(
+            ehr.write_mode != ConditionalWriteMode::kDisabled) &&
+        !StorageGeneration::IsUnknown(
+            options_.generation_conditions.if_equal)) {
+      if (StorageGeneration::IsNoValue(
+              options_.generation_conditions.if_equal)) {
+        builder.AddHeader("if-none-match", "*");
+      } else {
+        AddGenerationHeader(&builder, "if-match",
+                            options_.generation_conditions.if_equal);
+      }
     }
     auto request =
         builder.BuildRequest(owner->host_header_, credentials_, ehr.aws_region,

@@ -24,7 +24,6 @@ tensorstore_cc_library(
         ":s3_request_builder",
         ":s3_resource",
         ":s3_uri_utils",
-        ":use_conditional_write",
         ":validate",
         "//tensorstore:context",
         "//tensorstore/internal:data_copy_concurrency_resource",
@@ -259,6 +258,7 @@ tensorstore_cc_library(
         ":validate",
         "//tensorstore/internal:uri_utils",
         "//tensorstore/internal/http",
+        "//tensorstore/internal/http:http_header",
         "//tensorstore/util:future",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:str_cat",
@@ -266,6 +266,7 @@ tensorstore_cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
+        "@com_google_re2//:re2",
     ],
 )
 
@@ -339,8 +340,8 @@ tensorstore_cc_test(
     ],
     deps = [
         ":s3",
+        ":s3_endpoint",
         ":s3_request_builder",
-        ":use_conditional_write",
         "//tensorstore:context",
         "//tensorstore:json_serialization_options_base",
         "//tensorstore/internal:env",
@@ -367,27 +368,6 @@ tensorstore_cc_test(
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/time",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
-    name = "use_conditional_write",
-    srcs = ["use_conditional_write.cc"],
-    hdrs = ["use_conditional_write.h"],
-    deps = [
-        "//tensorstore/internal:env",
-        "@com_google_absl//absl/flags:flag",
-        "@com_google_absl//absl/strings",
-        "@com_google_re2//:re2",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "use_conditional_write_test",
-    srcs = ["use_conditional_write_test.cc"],
-    deps = [
-        ":use_conditional_write",
         "@com_google_googletest//:gtest_main",
     ],
 )

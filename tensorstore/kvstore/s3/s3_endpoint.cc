@@ -25,6 +25,10 @@
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/str_split.h"
+#include "absl/strings/strip.h"
+#include "re2/re2.h"
+#include "tensorstore/internal/http/http_header.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
@@ -48,6 +52,7 @@ namespace internal_kvstore_s3 {
 namespace {
 
 static constexpr char kAmzBucketRegionHeader[] = "x-amz-bucket-region";
+static constexpr char kAmzRequestIdHeader[] = "x-amz-request-id";
 
 // https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-bucket-intro.html
 //
@@ -90,6 +95,17 @@ struct S3CustomFormatter {
   }
 };
 
+ConditionalWriteMode ConditionalWriteHeuristic(
+    std::string_view endpoint, std::string_view amz_request_id) {
+  if (IsAwsS3Endpoint(endpoint)) {
+    return ConditionalWriteMode::kEnabled;
+  }
+  if (!amz_request_id.empty() && absl::EndsWith(amz_request_id, "-ceph3")) {
+    return ConditionalWriteMode::kDisabled;
+  }
+  return ConditionalWriteMode::kDefault;
+}
+
 template <typename Formatter>
 struct ResolveHost {
   std::string bucket;
@@ -102,25 +118,51 @@ struct ResolveHost {
     // TODO: Handle retries.
 
     auto& headers = ready.value().headers;
-    if (auto it = headers.find(kAmzBucketRegionHeader); it != headers.end()) {
-      promise.SetResult(S3EndpointRegion{
-          formatter.GetEndpoint(bucket, it->second),
-          it->second,
-      });
+    auto bucket_region_it = headers.find(kAmzBucketRegionHeader);
+    if (bucket_region_it == headers.end() && default_aws_region.empty()) {
+      // TODO: Get the message from the response body, if any.
+      promise.SetResult(absl::FailedPreconditionError(tensorstore::StrCat(
+          "Failed to resolve aws_region for bucket ", QuoteString(bucket))));
+      return;
     }
-    if (!default_aws_region.empty()) {
-      promise.SetResult(S3EndpointRegion{
-          formatter.GetEndpoint(bucket, default_aws_region),
-          default_aws_region,
-      });
-    }
-    // TODO: Get the message from the response body, if any.
-    promise.SetResult(absl::FailedPreconditionError(tensorstore::StrCat(
-        "Failed to resolve aws_region for bucket ", QuoteString(bucket))));
+
+    std::string_view aws_region =
+        bucket_region_it == headers.end()
+            ? default_aws_region
+            : std::string_view(bucket_region_it->second);
+
+    std::string endpoint = formatter.GetEndpoint(bucket, aws_region);
+
+    auto amz_request_id = headers.find(kAmzRequestIdHeader);
+    auto write_mode = ConditionalWriteHeuristic(
+        endpoint, amz_request_id == headers.end()
+                      ? std::string_view{}
+                      : std::string_view(amz_request_id->second));
+
+    promise.SetResult(S3EndpointRegion{
+        std::move(endpoint),
+        std::string(aws_region),
+        write_mode,
+    });
   }
 };
 
 }  // namespace
+
+bool IsAwsS3Endpoint(std::string_view endpoint) {
+  static LazyRE2 kIsAwsS3Endpoint = {
+      "(^|[.])"
+      "s3(-fips|-accesspoint|-accesspoint-fips)?[.]"
+      "(dualstack[.])?"
+      "([^.]+[.])?"
+      "amazonaws[.]com$"};
+
+  endpoint = absl::StripPrefix(endpoint, "https://");
+  endpoint = absl::StripPrefix(endpoint, "http://");
+  if (endpoint.empty()) return false;
+  return RE2::PartialMatch(*absl::StrSplit(endpoint, '/').begin(),
+                           *kIsAwsS3Endpoint);
+}
 
 std::variant<absl::Status, S3EndpointRegion> ValidateEndpoint(
     std::string_view bucket, std::string aws_region, std::string_view endpoint,
@@ -147,18 +189,23 @@ std::variant<absl::Status, S3EndpointRegion> ValidateEndpoint(
     if (!aws_region.empty()) {
       if (!absl::StrContains(bucket, ".")) {
         // Use virtual host addressing.
-        S3VirtualHostFormatter formatter;
+        std::string endpoint =
+            S3VirtualHostFormatter{}.GetEndpoint(bucket, aws_region);
+        auto write_mode = ConditionalWriteHeuristic(endpoint, {});
         return S3EndpointRegion{
-            formatter.GetEndpoint(bucket, aws_region),
+            std::move(endpoint),
             aws_region,
+            write_mode,
         };
       }
 
       // https://aws.amazon.com/blogs/aws/amazon-s3-path-deprecation-plan-the-rest-of-the-story/
-      S3PathFormatter formatter;
+      std::string endpoint = S3PathFormatter{}.GetEndpoint(bucket, aws_region);
+      auto write_mode = ConditionalWriteHeuristic(endpoint, {});
       return S3EndpointRegion{
-          formatter.GetEndpoint(bucket, aws_region),
+          std::move(endpoint),
           aws_region,
+          write_mode,
       };
     }
 
@@ -188,6 +235,7 @@ std::variant<absl::Status, S3EndpointRegion> ValidateEndpoint(
     return S3EndpointRegion{
         formatter.GetEndpoint(bucket, aws_region),
         aws_region,
+        ConditionalWriteHeuristic(endpoint, {}),
     };
   }
 

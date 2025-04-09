@@ -40,6 +40,13 @@ allOf:
         `localstack <https://localstack.cloud/>`__."
       examples:
       - "mybucket.s3.af-south-1.localstack.localhost.com"
+    use_conditional_write:
+      type: boolean
+      title: Override S3 conditional write default behavior.
+      description: |-
+        Allows setting conditional writes to enabled or disabled. Unless detected or set, the
+        default conditional write behavior is to use non-atomic HEAD requests for version checks,
+        but to also add conditional write headers for the actual write requests.
     aws_credentials:
       $ref: ContextResource
       description: |-
