@@ -820,6 +820,13 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#json-kvstore/s3.use_conditional_write" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/s3.use_conditional_write (JSON member) — Override S3 conditional write default behavior." class="md-ellipsis">use_<wbr>conditional_<wbr>write</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#json-kvstore/s3.aws_credentials" class="md-nav__link">
     <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/s3.aws_credentials (JSON member)" class="md-ellipsis">aws_<wbr>credentials</span>
   </a>
@@ -1432,13 +1439,6 @@
           <li class="md-nav__item">
   <a href="#envvar-TENSORSTORE_S3_REQUEST_CONCURRENCY" class="md-nav__link">
     <span aria-label="environment variable" class="objinfo-icon objinfo-icon__alias" title="environment variable">$</span><span title="TENSORSTORE_S3_REQUEST_CONCURRENCY (environment variable) — Specifies the concurrency level used by the shared Context Context.s3_request_concurrency resource. Defaults to 32." class="md-ellipsis">TENSORSTORE_<wbr>S3_<wbr>REQUEST_<wbr>CONCURRENCY</span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#envvar-TENSORSTORE_S3_USE_CONDITIONAL_WRITE" class="md-nav__link">
-    <span aria-label="environment variable" class="objinfo-icon objinfo-icon__alias" title="environment variable">$</span><span title="TENSORSTORE_S3_USE_CONDITIONAL_WRITE (environment variable) — Enables conditional writes for the S3 driver.  This is experimental and may be changed or removed in the future." class="md-ellipsis">TENSORSTORE_<wbr>S3_<wbr>USE_<wbr>CONDITIONAL_<wbr>WRITE</span>
   </a>
   
 </li>
@@ -1643,6 +1643,13 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#json-kvstore/s3.use_conditional_write" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/s3.use_conditional_write (JSON member) — Override S3 conditional write default behavior." class="md-ellipsis">use_<wbr>conditional_<wbr>write</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#json-kvstore/s3.aws_credentials" class="md-nav__link">
     <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/s3.aws_credentials (JSON member)" class="md-ellipsis">aws_<wbr>credentials</span>
   </a>
@@ -2259,13 +2266,6 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#envvar-TENSORSTORE_S3_USE_CONDITIONAL_WRITE" class="md-nav__link">
-    <span aria-label="environment variable" class="objinfo-icon objinfo-icon__alias" title="environment variable">$</span><span title="TENSORSTORE_S3_USE_CONDITIONAL_WRITE (environment variable) — Enables conditional writes for the S3 driver.  This is experimental and may be changed or removed in the future." class="md-ellipsis">TENSORSTORE_<wbr>S3_<wbr>USE_<wbr>CONDITIONAL_<wbr>WRITE</span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
@@ -2386,6 +2386,15 @@ than specified in <a class="reference internal" href="#json-kvstore/s3.endpoint"
 </code></pre></div>
 </div>
 </div>
+</dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-kvstore/s3.use_conditional_write">
+<span class="sig-name descname"><span class="pre">use_conditional_write</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">boolean</span></span><a class="headerlink" href="#json-kvstore/s3.use_conditional_write" title="Link to this definition">¶</a></dt>
+<dd><span><p>Override S3 conditional write default behavior.</p>
+  </span><p>Allows setting conditional writes to enabled or disabled. Unless detected or set, the
+default conditional write behavior is to use non-atomic HEAD requests for version checks,
+but to also add conditional write headers for the actual write requests.</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
@@ -2851,13 +2860,6 @@ See &lt;<a class="reference external" href="https://docs.aws.amazon.com/sdkref/l
 <span class="sig-name descname"><span class="pre">TENSORSTORE_S3_REQUEST_CONCURRENCY</span></span><a class="headerlink" href="#envvar-TENSORSTORE_S3_REQUEST_CONCURRENCY" title="Link to this definition">¶</a></dt>
 <dd><p>Specifies the concurrency level used by the shared Context
 <a class="reference internal" href="#json-Context.s3_request_concurrency" title="Context.s3_request_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.s3_request_concurrency</span></code></a> resource. Defaults to 32.</p>
-</dd></dl>
-
-<dl class="std envvar objdesc">
-<dt class="sig sig-object highlight std" id="envvar-TENSORSTORE_S3_USE_CONDITIONAL_WRITE">
-<span class="sig-name descname"><span class="pre">TENSORSTORE_S3_USE_CONDITIONAL_WRITE</span></span><a class="headerlink" href="#envvar-TENSORSTORE_S3_USE_CONDITIONAL_WRITE" title="Link to this definition">¶</a></dt>
-<dd><p>Enables conditional writes for the S3 driver.  This is experimental and
-may be changed or removed in the future.</p>
 </dd></dl>
 
 
