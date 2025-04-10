@@ -14,6 +14,7 @@
 
 #include "tensorstore/internal/aws/aws_api.h"
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include <cstdarg>
@@ -27,11 +28,13 @@
 #include "absl/debugging/leak_check.h"
 #include "absl/log/absl_log.h"
 #include <aws/auth/auth.h>
+#include <aws/cal/cal.h>
 #include <aws/common/allocator.h>
 #include <aws/common/common.h>
 #include <aws/common/error.h>
 #include <aws/common/logging.h>
 #include <aws/common/zero.h>
+#include <aws/http/http.h>
 #include <aws/io/channel_bootstrap.h>
 #include <aws/io/event_loop.h>
 #include <aws/io/host_resolver.h>
@@ -117,67 +120,76 @@ int absl_set_log_level(aws_logger *logger, aws_log_level lvl) {
 
 void absl_clean_up(aws_logger *logger) { (void)logger; }
 
-static aws_logger_vtable s_absl_vtable = {
-    /*log =*/absl_log,
-    /*get_log_level =*/absl_get_log_level,
-    /*clean_up =*/absl_clean_up,
-    /*set_log_level =*/absl_set_log_level,
+// Some C++ compiler targets don't like designated initializers in C++, until
+// they are supported static_assert() on the offsets
+static_assert(offsetof(aws_logger_vtable, log) == 0);
+static_assert(offsetof(aws_logger_vtable, get_log_level) == sizeof(void *));
+static_assert(offsetof(aws_logger_vtable, clean_up) == 2 * sizeof(void *));
+static_assert(offsetof(aws_logger_vtable, set_log_level) == 3 * sizeof(void *));
+
+static_assert(offsetof(aws_logger, vtable) == 0);
+static_assert(offsetof(aws_logger, allocator) == sizeof(void *));
+static_assert(offsetof(aws_logger, p_impl) == 2 * sizeof(void *));
+
+ABSL_CONST_INIT aws_logger_vtable s_absl_vtable{
+    /*.log=*/absl_log,
+    /*.get_log_level=*/absl_get_log_level,
+    /*.clean_up=*/absl_clean_up,
+    /*.set_log_level=*/absl_set_log_level,
 };
 
-static aws_logger s_absl_logger = {
-    /*vtable =*/&s_absl_vtable,
-    /*.allocator =*/nullptr,
-    /*.p_impl =*/0,
+aws_logger s_absl_logger{
+    /*.vtable=*/&s_absl_vtable,
+    /*.allocator=*/nullptr,
+    /*.p_impl=*/nullptr,
 };
 
 // AWS apis rely on global initialization; do that here.
-absl::once_flag g_init_global;
-aws_allocator *g_allocator = nullptr;
+ABSL_CONST_INIT absl::once_flag g_init;
 
-void InitAwsGlobal() {
-  absl::LeakCheckDisabler disabler;
-  aws_logger_set(&s_absl_logger);
-  g_allocator = aws_default_allocator();
-
-  // Initialize the AWS APIs used.
-  aws_common_library_init(g_allocator);
-  aws_io_library_init(g_allocator);
-  aws_auth_library_init(g_allocator);
-}
-
-// Also initialize a global client bootstrap and TLS context.
-absl::once_flag g_init_tls;
 aws_event_loop_group *g_event_loop_group = nullptr;
 aws_host_resolver *g_resolver = nullptr;
 aws_client_bootstrap *g_client_bootstrap = nullptr;
 aws_tls_ctx *g_tls_ctx = nullptr;
 
-void InitAwsTls() {
+void InitAwsLibraries() {
   absl::LeakCheckDisabler disabler;
+
+  auto *allocator = GetAwsAllocator();
+
+  /* Initialize AWS libraries.*/
+  aws_common_library_init(allocator);
+
+  s_absl_logger.allocator = allocator;
+  aws_logger_set(&s_absl_logger);
+
+  aws_cal_library_init(allocator);
+  aws_io_library_init(allocator);
+  aws_http_library_init(allocator);
+  aws_auth_library_init(allocator);
+
   /* event loop */
-  g_event_loop_group =
-      aws_event_loop_group_new_default(g_allocator, 0, nullptr);
+  g_event_loop_group = aws_event_loop_group_new_default(allocator, 0, nullptr);
 
   /* resolver */
   aws_host_resolver_default_options resolver_options;
   AWS_ZERO_STRUCT(resolver_options);
   resolver_options.el_group = g_event_loop_group;
   resolver_options.max_entries = 32;  // defaults to 8?
-  g_resolver = aws_host_resolver_new_default(g_allocator, &resolver_options);
+  g_resolver = aws_host_resolver_new_default(allocator, &resolver_options);
 
   /* client bootstrap */
   aws_client_bootstrap_options bootstrap_options;
   AWS_ZERO_STRUCT(bootstrap_options);
   bootstrap_options.event_loop_group = g_event_loop_group;
   bootstrap_options.host_resolver = g_resolver;
-  g_client_bootstrap =
-      aws_client_bootstrap_new(g_allocator, &bootstrap_options);
+  g_client_bootstrap = aws_client_bootstrap_new(allocator, &bootstrap_options);
   if (g_client_bootstrap == nullptr) {
     ABSL_LOG(FATAL) << "ERROR initializing client bootstrap: "
                     << aws_error_debug_str(aws_last_error());
   }
 
-  AwsTlsCtx tls_ctx = AwsTlsCtxBuilder(g_allocator).Build();
+  AwsTlsCtx tls_ctx = AwsTlsCtxBuilder(allocator).Build();
   if (tls_ctx == nullptr) {
     ABSL_LOG(FATAL) << "ERROR initializing TLS context: "
                     << aws_error_debug_str(aws_last_error());
@@ -188,19 +200,17 @@ void InitAwsTls() {
 }  // namespace
 
 aws_allocator *GetAwsAllocator() {
-  absl::call_once(g_init_global, InitAwsGlobal);
-  return g_allocator;
+  // The default allocator is used for all AWS API objects.
+  return aws_default_allocator();
 }
 
 aws_client_bootstrap *GetAwsClientBootstrap() {
-  absl::call_once(g_init_global, InitAwsGlobal);
-  absl::call_once(g_init_tls, InitAwsTls);
+  absl::call_once(g_init, InitAwsLibraries);
   return g_client_bootstrap;
 }
 
 aws_tls_ctx *GetAwsTlsCtx() {
-  absl::call_once(g_init_global, InitAwsGlobal);
-  absl::call_once(g_init_tls, InitAwsTls);
+  absl::call_once(g_init, InitAwsLibraries);
   return g_tls_ctx;
 }
 
