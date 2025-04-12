@@ -26,6 +26,8 @@
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/util/future.h"
 #include "absl/status/status.h"
+#include "riegeli/bytes/cord_reader.h"
+
 
 namespace tensorstore {
 namespace internal_tiff_kvstore {
@@ -118,6 +120,38 @@ struct ReadDirectoryOp : public internal::AtomicReferenceCount<ReadDirectoryOp> 
       } else {
         result.full_read = is_full_read_;
       }
+
+    // Create a riegeli reader from the cord
+    riegeli::CordReader cord_reader(&result.raw_data);
+    
+    // Parse TIFF header
+    Endian endian;
+    uint64_t first_ifd_offset;
+    auto status = ParseTiffHeader(cord_reader, endian, first_ifd_offset);
+    if (!status.ok()) {
+      entry_->ReadError(status);
+      return;
+    }
+    
+    // Parse TIFF directory at the given offset
+    TiffDirectory directory;
+    status = ParseTiffDirectory(
+        cord_reader, endian, first_ifd_offset, 
+        result.raw_data.size() - first_ifd_offset, directory);
+    if (!status.ok()) {
+      entry_->ReadError(status);
+      return;
+    }
+    
+    // Store the IFD entries
+    result.ifd_entries = std::move(directory.entries);
+    
+    // Parse the ImageDirectory from the IFD entries
+    status = ParseImageDirectory(result.ifd_entries, result.image_directory);
+    if (!status.ok()) {
+      entry_->ReadError(status);
+      return;
+    }
   
     entry_->ReadSuccess(TiffDirectoryCache::ReadState{
         std::make_shared<TiffDirectoryParseResult>(std::move(result)),

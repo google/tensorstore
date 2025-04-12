@@ -21,6 +21,7 @@
 #include "tensorstore/internal/cache/async_cache.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/util/executor.h"
+#include "tensorstore/kvstore/tiff/tiff_details.h"  // Add include for IfdEntry and ImageDirectory
 
 namespace tensorstore {
 namespace internal_tiff_kvstore {
@@ -32,6 +33,10 @@ struct TiffDirectoryParseResult {
   // For step-1 this just captures the raw bytes we read.
   absl::Cord raw_data;
   bool full_read = false;  // identical meaning to zip cache.
+  
+  // Added in step-2c: Parsed TIFF metadata
+  std::vector<IfdEntry> ifd_entries;
+  ImageDirectory image_directory;
 };
 
 class TiffDirectoryCache : public internal::AsyncCache {  

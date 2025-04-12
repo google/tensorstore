@@ -8,11 +8,9 @@ tensorstore_cc_library(
     name = "tiff_key_value_store",
     srcs = [
         "tiff_key_value_store.cc",
-        "tiff_parser.cc",
     ],
     hdrs = [
         "tiff_key_value_store.h",
-        "tiff_parser.h",
     ],
     deps = [
         "//tensorstore/kvstore",
@@ -49,6 +47,7 @@ tensorstore_cc_library(
     srcs = ["tiff_dir_cache.cc"],
     hdrs = ["tiff_dir_cache.h"],
     deps = [
+        ":tiff_details",
         "//tensorstore/internal/cache:async_cache",
         "//tensorstore/internal/cache:cache",
         "//tensorstore/internal/estimate_heap_usage",
@@ -59,6 +58,7 @@ tensorstore_cc_library(
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/strings:cord",
+        "@com_google_riegeli//riegeli/bytes:cord_reader",
     ],
 )
 
