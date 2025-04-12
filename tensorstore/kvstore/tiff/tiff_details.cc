@@ -26,10 +26,12 @@
 #include "riegeli/bytes/reader.h"
 #include "riegeli/endian/endian_reading.h"
 #include "tensorstore/internal/log/verbose_flag.h"
+#include "tensorstore/util/status.h"  // for TENSORSTORE_RETURN_IF_ERROR
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_tiff_kvstore {
+
 namespace {
 
 using ::riegeli::ReadBigEndian16;
@@ -54,6 +56,52 @@ bool ReadEndian(riegeli::Reader& reader, Endian endian, T& value) {
     if constexpr (sizeof(T) == 8) return ReadBigEndian64(reader, value);
   }
   return false;
+}
+
+// Helper to find an IFD entry by tag
+const IfdEntry* GetIfdEntry(Tag tag, const std::vector<IfdEntry>& entries) {
+  const IfdEntry* found = nullptr;
+  for (const auto& entry : entries) {
+    if (entry.tag == tag) {
+      if (found) {
+        return nullptr;  // Duplicate tag
+      }
+      found = &entry;
+    }
+  }
+  return found;
+}
+
+// Helper to parse a uint32 value from an IFD entry
+absl::Status ParseUint32Value(const IfdEntry* entry, uint32_t& out) {
+  if (!entry) {
+    return absl::NotFoundError("Required tag missing");
+  }
+  if (entry->count != 1) {
+    return absl::InvalidArgumentError("Expected count of 1");
+  }
+  if (entry->type != TiffDataType::kShort && entry->type != TiffDataType::kLong) {
+    return absl::InvalidArgumentError("Expected SHORT or LONG type");
+  }
+  out = static_cast<uint32_t>(entry->value_or_offset);
+  return absl::OkStatus();
+}
+
+// Helper to parse array of uint64 values from an IFD entry
+absl::Status ParseUint64Array(const IfdEntry* entry, std::vector<uint64_t>& out) {
+  if (!entry) {
+    return absl::NotFoundError("Required tag missing");
+  }
+  if (entry->type != TiffDataType::kShort && entry->type != TiffDataType::kLong) {
+    return absl::InvalidArgumentError("Expected SHORT or LONG type");
+  }
+  // For now, we only support inline values
+  if (entry->count > 1) {
+    return absl::UnimplementedError("Only inline values supported");
+  }
+  out.resize(entry->count);
+  out[0] = entry->value_or_offset;
+  return absl::OkStatus();
 }
 
 }  // namespace
@@ -149,10 +197,12 @@ absl::Status ParseTiffDirectory(
     IfdEntry entry;
     
     // Read tag
-    if (!ReadEndian(reader, endian, entry.tag)) {
+    uint16_t tag_value;  // Temporary variable for reading the tag
+    if (!ReadEndian(reader, endian, tag_value)) {
       return absl::InvalidArgumentError(
           absl::StrFormat("Failed to read tag for IFD entry %d", i));
     }
+    entry.tag = static_cast<Tag>(tag_value);  // Assign to enum
 
     // Read type
     uint16_t type_raw;
@@ -196,6 +246,43 @@ absl::Status ParseTiffDirectory(
   ABSL_LOG_IF(INFO, tiff_logging)
       << "Read IFD with " << num_entries << " entries"
       << ", next_ifd_offset=" << out.next_ifd_offset;
+
+  return absl::OkStatus();
+}
+
+absl::Status ParseImageDirectory(
+    const std::vector<IfdEntry>& entries,
+    ImageDirectory& out) {
+  // Required fields for all TIFF files
+  TENSORSTORE_RETURN_IF_ERROR(
+      ParseUint32Value(GetIfdEntry(Tag::kImageWidth, entries), out.width));
+  TENSORSTORE_RETURN_IF_ERROR(
+      ParseUint32Value(GetIfdEntry(Tag::kImageLength, entries), out.height));
+
+  // Check for tile-based organization
+  const IfdEntry* tile_offsets = GetIfdEntry(Tag::kTileOffsets, entries);
+  if (tile_offsets) {
+    // Tiled TIFF
+    TENSORSTORE_RETURN_IF_ERROR(
+        ParseUint32Value(GetIfdEntry(Tag::kTileWidth, entries), out.tile_width));
+    TENSORSTORE_RETURN_IF_ERROR(
+        ParseUint32Value(GetIfdEntry(Tag::kTileLength, entries), out.tile_height));
+    TENSORSTORE_RETURN_IF_ERROR(
+        ParseUint64Array(tile_offsets, out.tile_offsets));
+    TENSORSTORE_RETURN_IF_ERROR(
+        ParseUint64Array(GetIfdEntry(Tag::kTileByteCounts, entries),
+                        out.tile_bytecounts));
+  } else {
+    // Strip-based TIFF
+    TENSORSTORE_RETURN_IF_ERROR(
+        ParseUint32Value(GetIfdEntry(Tag::kRowsPerStrip, entries), out.rows_per_strip));
+    TENSORSTORE_RETURN_IF_ERROR(
+        ParseUint64Array(GetIfdEntry(Tag::kStripOffsets, entries),
+                        out.strip_offsets));
+    TENSORSTORE_RETURN_IF_ERROR(
+        ParseUint64Array(GetIfdEntry(Tag::kStripByteCounts, entries),
+                        out.strip_bytecounts));
+  }
 
   return absl::OkStatus();
 }

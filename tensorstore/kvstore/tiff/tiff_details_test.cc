@@ -36,6 +36,9 @@ using ::tensorstore::internal_tiff_kvstore::ParseTiffDirectory;
 using ::tensorstore::internal_tiff_kvstore::ParseTiffHeader;
 using ::tensorstore::internal_tiff_kvstore::TiffDataType;
 using ::tensorstore::internal_tiff_kvstore::TiffDirectory;
+using ::tensorstore::internal_tiff_kvstore::ImageDirectory;
+using ::tensorstore::internal_tiff_kvstore::ParseImageDirectory;
+using ::tensorstore::internal_tiff_kvstore::Tag;
 
 TEST(TiffDetailsTest, ParseValidTiffHeader) {
   // Create a minimal valid TIFF header (II, 42, offset 8)
@@ -94,7 +97,7 @@ TEST(TiffDetailsTest, ParseValidDirectory) {
   // Create a minimal valid IFD with one entry
   static constexpr unsigned char kIfd[] = {
       1, 0,                // Number of entries
-      1, 0,                // Tag (ImageWidth)
+      0, 1,                // Tag (ImageWidth = 256)
       3, 0,                // Type (SHORT)
       1, 0, 0, 0,         // Count
       100, 0, 0, 0,       // Value (100)
@@ -112,7 +115,7 @@ TEST(TiffDetailsTest, ParseValidDirectory) {
   EXPECT_EQ(dir.next_ifd_offset, 0);
   
   const auto& entry = dir.entries[0];
-  EXPECT_EQ(entry.tag, 1);
+  EXPECT_EQ(entry.tag, Tag::kImageWidth);
   EXPECT_EQ(entry.type, TiffDataType::kShort);
   EXPECT_EQ(entry.count, 1);
   EXPECT_EQ(entry.value_or_offset, 100);
@@ -133,6 +136,76 @@ TEST(TiffDetailsTest, ParseTruncatedDirectory) {
   EXPECT_THAT(
       ParseTiffDirectory(reader, Endian::kLittle, 0, sizeof(kTruncatedIfd), dir),
       ::tensorstore::MatchesStatus(absl::StatusCode::kDataLoss));
+}
+
+TEST(TiffDetailsTest, ParseImageDirectory_Tiled_InlineOffsets_Success) {
+  std::vector<IfdEntry> entries = {
+    {Tag::kImageWidth, TiffDataType::kLong, 1, 800},        // ImageWidth
+    {Tag::kImageLength, TiffDataType::kLong, 1, 600},        // ImageLength
+    {Tag::kTileWidth, TiffDataType::kLong, 1, 256},        // TileWidth
+    {Tag::kTileLength, TiffDataType::kLong, 1, 256},        // TileLength
+    {Tag::kTileOffsets, TiffDataType::kLong, 1, 1000},       // TileOffsets
+    {Tag::kTileByteCounts, TiffDataType::kLong, 1, 65536},      // TileByteCounts
+  };
+
+  ImageDirectory dir;
+  ASSERT_THAT(ParseImageDirectory(entries, dir), ::tensorstore::IsOk());
+  
+  EXPECT_EQ(dir.width, 800);
+  EXPECT_EQ(dir.height, 600);
+  EXPECT_EQ(dir.tile_width, 256);
+  EXPECT_EQ(dir.tile_height, 256);
+  ASSERT_EQ(dir.tile_offsets.size(), 1);
+  EXPECT_EQ(dir.tile_offsets[0], 1000);
+  ASSERT_EQ(dir.tile_bytecounts.size(), 1);
+  EXPECT_EQ(dir.tile_bytecounts[0], 65536);
+}
+
+TEST(TiffDetailsTest, ParseImageDirectory_Stripped_InlineOffsets_Success) {
+  std::vector<IfdEntry> entries = {
+    {Tag::kImageWidth, TiffDataType::kLong, 1, 800},       // ImageWidth
+    {Tag::kImageLength, TiffDataType::kLong, 1, 600},       // ImageLength
+    {Tag::kRowsPerStrip, TiffDataType::kLong, 1, 100},       // RowsPerStrip
+    {Tag::kStripOffsets, TiffDataType::kLong, 1, 1000},      // StripOffsets
+    {Tag::kStripByteCounts, TiffDataType::kLong, 1, 8192},      // StripByteCounts
+  };
+
+  ImageDirectory dir;
+  ASSERT_THAT(ParseImageDirectory(entries, dir), ::tensorstore::IsOk());
+  
+  EXPECT_EQ(dir.width, 800);
+  EXPECT_EQ(dir.height, 600);
+  EXPECT_EQ(dir.rows_per_strip, 100);
+  ASSERT_EQ(dir.strip_offsets.size(), 1);
+  EXPECT_EQ(dir.strip_offsets[0], 1000);
+  ASSERT_EQ(dir.strip_bytecounts.size(), 1);
+  EXPECT_EQ(dir.strip_bytecounts[0], 8192);
+}
+
+TEST(TiffDetailsTest, ParseImageDirectory_Unsupported_OffsetToOffsets) {
+  std::vector<IfdEntry> entries = {
+    {Tag::kImageWidth, TiffDataType::kLong, 1, 800},       // ImageWidth
+    {Tag::kImageLength, TiffDataType::kLong, 1, 600},       // ImageLength
+    {Tag::kRowsPerStrip, TiffDataType::kLong, 1, 100},       // RowsPerStrip
+    {Tag::kStripOffsets, TiffDataType::kLong, 2, 1000},      // StripOffsets (offset to array)
+    {Tag::kStripByteCounts, TiffDataType::kLong, 2, 1100},      // StripByteCounts (offset to array)
+  };
+
+  ImageDirectory dir;
+  EXPECT_THAT(ParseImageDirectory(entries, dir),
+              ::tensorstore::MatchesStatus(absl::StatusCode::kUnimplemented));
+}
+
+TEST(TiffDetailsTest, ParseImageDirectory_DuplicateTags) {
+  std::vector<IfdEntry> entries = {
+    {Tag::kImageWidth, TiffDataType::kLong, 1, 800},       // ImageWidth
+    {Tag::kImageWidth, TiffDataType::kLong, 1, 1024},      // Duplicate ImageWidth
+    {Tag::kImageLength, TiffDataType::kLong, 1, 600},       // ImageLength
+  };
+
+  ImageDirectory dir;
+  EXPECT_THAT(ParseImageDirectory(entries, dir),
+              ::tensorstore::MatchesStatus(absl::StatusCode::kNotFound));
 }
 
 }  // namespace

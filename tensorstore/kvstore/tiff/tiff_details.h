@@ -33,6 +33,21 @@ enum class Endian {
   kBig,
 };
 
+enum Tag : uint16_t {
+  kImageWidth        = 256,
+  kImageLength       = 257,
+  kBitsPerSample     = 258,
+  kCompression       = 259,
+  kPhotometric       = 262,
+  kStripOffsets      = 273,
+  kRowsPerStrip      = 278,
+  kStripByteCounts   = 279,
+  kTileWidth         = 322,
+  kTileLength        = 323,
+  kTileOffsets       = 324,
+  kTileByteCounts    = 325,
+};
+
 // TIFF data types
 enum class TiffDataType : uint16_t {
   kByte = 1,      // 8-bit unsigned integer
@@ -55,7 +70,7 @@ enum class TiffDataType : uint16_t {
 
 // IFD entry in a TIFF file
 struct IfdEntry {
-  uint16_t tag;
+  Tag      tag;
   TiffDataType type;
   uint64_t count;
   uint64_t value_or_offset;  // For values that fit in 4/8 bytes, this is the value
@@ -73,6 +88,18 @@ struct TiffDirectory {
   std::vector<IfdEntry> entries;
 };
 
+struct ImageDirectory {
+  uint32_t width = 0;
+  uint32_t height = 0;
+  uint32_t tile_width = 0;
+  uint32_t tile_height = 0;
+  uint32_t rows_per_strip = 0;
+  std::vector<uint64_t> strip_offsets;
+  std::vector<uint64_t> strip_bytecounts;
+  std::vector<uint64_t> tile_offsets;
+  std::vector<uint64_t> tile_bytecounts;
+};
+
 // Parse the TIFF header at the current position
 absl::Status ParseTiffHeader(
     riegeli::Reader& reader,
@@ -86,6 +113,11 @@ absl::Status ParseTiffDirectory(
     uint64_t directory_offset,
     size_t available_size,
     TiffDirectory& out);
+
+// Parse IFD entries into an ImageDirectory structure
+absl::Status ParseImageDirectory(
+    const std::vector<IfdEntry>& entries,
+    ImageDirectory& out);
 
 }  // namespace internal_tiff_kvstore
 }  // namespace tensorstore
