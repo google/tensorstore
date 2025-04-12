@@ -80,3 +80,33 @@ tensorstore_cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+tensorstore_cc_library(
+    name = "tiff_details",
+    srcs = ["tiff_details.cc"],
+    hdrs = ["tiff_details.h"],
+    deps = [
+        "//tensorstore/internal/log:verbose_flag",
+        "//tensorstore/util:status",
+        "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/log:absl_log",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:str_format",
+        "@com_google_riegeli//riegeli/bytes:reader",
+        "@com_google_riegeli//riegeli/endian:endian_reading",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "tiff_details_test",
+    size = "small",
+    srcs = ["tiff_details_test.cc"],
+    deps = [
+        ":tiff_details",
+        "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/status",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_riegeli//riegeli/bytes:cord_reader",
+        "@com_google_riegeli//riegeli/bytes:string_reader",
+    ],
+)
