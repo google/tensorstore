@@ -43,3 +43,40 @@ tensorstore_cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+tensorstore_cc_library(
+    name = "tiff_dir_cache",
+    srcs = ["tiff_dir_cache.cc"],
+    hdrs = ["tiff_dir_cache.h"],
+    deps = [
+        "//tensorstore/internal/cache:async_cache",
+        "//tensorstore/internal/cache:cache",
+        "//tensorstore/internal/estimate_heap_usage",
+        "//tensorstore/kvstore",
+        "//tensorstore/kvstore:byte_range",
+        "//tensorstore/util:executor",
+        "//tensorstore/util:future",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/log:absl_log",
+        "@com_google_absl//absl/strings:cord",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "tiff_dir_cache_test",
+    srcs = ["tiff_dir_cache_test.cc"],
+    deps = [
+        ":tiff_dir_cache",
+        "//tensorstore:context",
+        "//tensorstore/internal/cache",
+        "//tensorstore/internal/cache:cache_pool_resource",
+        "//tensorstore/kvstore",
+        "//tensorstore/kvstore/memory",
+        "//tensorstore/kvstore:test_util",
+        "//tensorstore/util:executor",
+        "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/time",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
