@@ -20,6 +20,7 @@
 #include "absl/strings/cord.h"
 #include "tensorstore/internal/cache/async_cache.h"
 #include "tensorstore/kvstore/driver.h"
+#include "tensorstore/kvstore/generation.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/kvstore/tiff/tiff_details.h"  // Add include for IfdEntry and ImageDirectory
 
@@ -37,6 +38,9 @@ struct TiffDirectoryParseResult {
   // Added in step-2c: Parsed TIFF metadata
   std::vector<IfdEntry> ifd_entries;
   ImageDirectory image_directory;
+
+  // Added in step-5: Endian order for the TIFF file
+  Endian endian;
 };
 
 class TiffDirectoryCache : public internal::AsyncCache {  
@@ -52,6 +56,11 @@ class TiffDirectoryCache : public internal::AsyncCache {
     using OwningCache = TiffDirectoryCache;
     size_t ComputeReadDataSizeInBytes(const void* read_data) final;
     void DoRead(AsyncCacheReadRequest request) final;
+  
+    // Load external arrays identified during IFD parsing
+    Future<void> LoadExternalArrays(
+        std::shared_ptr<TiffDirectoryParseResult> parse_result,
+        tensorstore::TimestampedStorageGeneration stamp);
   };
 
   Entry* DoAllocateEntry() final;

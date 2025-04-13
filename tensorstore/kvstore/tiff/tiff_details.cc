@@ -92,19 +92,71 @@ absl::Status ParseUint64Array(const IfdEntry* entry, std::vector<uint64_t>& out)
   if (!entry) {
     return absl::NotFoundError("Required tag missing");
   }
-  if (entry->type != TiffDataType::kShort && entry->type != TiffDataType::kLong) {
-    return absl::InvalidArgumentError("Expected SHORT or LONG type");
+  
+  if (entry->type != TiffDataType::kShort && 
+      entry->type != TiffDataType::kLong &&
+      entry->type != TiffDataType::kLong8) {
+    return absl::InvalidArgumentError("Expected SHORT, LONG, or LONG8 type");
   }
-  // For now, we only support inline values
-  if (entry->count > 1) {
-    return absl::UnimplementedError("Only inline values supported");
+
+  // If this is an external array, it must be loaded separately
+  if (entry->is_external_array) {
+    // Initialize the output array with the correct size
+    out.resize(entry->count);
+    return absl::OkStatus();
+  } else {
+    // Inline value - parse it directly
+    out.resize(entry->count);
+    if (entry->count == 1) {
+      out[0] = entry->value_or_offset;
+      return absl::OkStatus();
+    } else {
+      // This shouldn't happen as we've checked is_external_array above
+      return absl::InternalError("Inconsistent state: multi-value array marked as inline");
+    }
   }
-  out.resize(entry->count);
-  out[0] = entry->value_or_offset;
-  return absl::OkStatus();
 }
 
 }  // namespace
+
+// Get the size in bytes for a given TIFF data type
+size_t GetTiffDataTypeSize(TiffDataType type) {
+  switch (type) {
+    case TiffDataType::kByte:
+    case TiffDataType::kAscii:
+    case TiffDataType::kSbyte:
+    case TiffDataType::kUndefined:
+      return 1;
+    case TiffDataType::kShort:
+    case TiffDataType::kSshort:
+      return 2;
+    case TiffDataType::kLong:
+    case TiffDataType::kSlong:
+    case TiffDataType::kFloat:
+    case TiffDataType::kIfd:
+      return 4;
+    case TiffDataType::kRational:
+    case TiffDataType::kSrational:
+    case TiffDataType::kDouble:
+    case TiffDataType::kLong8:
+    case TiffDataType::kSlong8:
+    case TiffDataType::kIfd8:
+      return 8;
+    default:
+      return 0;  // Unknown type
+  }
+}
+
+// Determine if an entry represents an external array based on type and count
+bool IsExternalArray(TiffDataType type, uint64_t count) {
+  // Calculate how many bytes the value would take
+  size_t type_size = GetTiffDataTypeSize(type);
+  size_t total_size = type_size * count;
+  
+  // If the total size is more than 4 bytes, it's stored externally
+  // (4 bytes is the size of the value_or_offset field in standard TIFF)
+  return (total_size > 4);
+}
 
 absl::Status ParseTiffHeader(
     riegeli::Reader& reader,
@@ -228,10 +280,13 @@ absl::Status ParseTiffDirectory(
     }
     entry.value_or_offset = value32;
 
+    // Determine if this is an external array
+    entry.is_external_array = IsExternalArray(entry.type, entry.count);
+
     ABSL_LOG_IF(INFO, tiff_logging)
-        << absl::StrFormat("IFD entry %d: tag=0x%x type=%d count=%d value=%d",
+        << absl::StrFormat("IFD entry %d: tag=0x%x type=%d count=%d value=%d external=%d",
                           i, entry.tag, static_cast<int>(entry.type),
-                          entry.count, entry.value_or_offset);
+                          entry.count, entry.value_or_offset, entry.is_external_array);
 
     out.entries.push_back(entry);
   }
@@ -247,6 +302,67 @@ absl::Status ParseTiffDirectory(
       << "Read IFD with " << num_entries << " entries"
       << ", next_ifd_offset=" << out.next_ifd_offset;
 
+  return absl::OkStatus();
+}
+
+absl::Status ParseExternalArray(
+    riegeli::Reader& reader,
+    Endian endian,
+    uint64_t offset,
+    uint64_t count,
+    TiffDataType data_type,
+    std::vector<uint64_t>& out) {
+  
+  // Ensure output vector has the right size
+  out.resize(count);
+  
+  // Seek to the offset
+  if (!reader.Seek(offset)) {
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Failed to seek to external array at offset %llu", offset));
+  }
+  
+  // Read based on data type
+  for (uint64_t i = 0; i < count; ++i) {
+    switch (data_type) {
+      case TiffDataType::kShort: {
+        uint16_t value;
+        if (!ReadEndian(reader, endian, value)) {
+          return absl::DataLossError(absl::StrFormat(
+              "Failed to read SHORT value %llu in external array", i));
+        }
+        out[i] = value;
+        break;
+      }
+      case TiffDataType::kLong: {
+        uint32_t value;
+        if (!ReadEndian(reader, endian, value)) {
+          return absl::DataLossError(absl::StrFormat(
+              "Failed to read LONG value %llu in external array", i));
+        }
+        out[i] = value;
+        break;
+      }
+      case TiffDataType::kLong8: {
+        uint64_t value;
+        if (!ReadEndian(reader, endian, value)) {
+          return absl::DataLossError(absl::StrFormat(
+              "Failed to read LONG8 value %llu in external array", i));
+        }
+        out[i] = value;
+        break;
+      }
+      default:
+        return absl::InvalidArgumentError(absl::StrFormat(
+            "Unsupported data type %d for external array",
+            static_cast<int>(data_type)));
+    }
+  }
+  
+  ABSL_LOG_IF(INFO, tiff_logging)
+      << absl::StrFormat("Read external array: offset=%llu, count=%llu",
+                        offset, count);
+  
   return absl::OkStatus();
 }
 
@@ -269,19 +385,22 @@ absl::Status ParseImageDirectory(
         ParseUint32Value(GetIfdEntry(Tag::kTileLength, entries), out.tile_height));
     TENSORSTORE_RETURN_IF_ERROR(
         ParseUint64Array(tile_offsets, out.tile_offsets));
+    
+    const IfdEntry* tile_bytecounts = GetIfdEntry(Tag::kTileByteCounts, entries);
     TENSORSTORE_RETURN_IF_ERROR(
-        ParseUint64Array(GetIfdEntry(Tag::kTileByteCounts, entries),
-                        out.tile_bytecounts));
+        ParseUint64Array(tile_bytecounts, out.tile_bytecounts));
   } else {
     // Strip-based TIFF
     TENSORSTORE_RETURN_IF_ERROR(
         ParseUint32Value(GetIfdEntry(Tag::kRowsPerStrip, entries), out.rows_per_strip));
+    
+    const IfdEntry* strip_offsets = GetIfdEntry(Tag::kStripOffsets, entries);
     TENSORSTORE_RETURN_IF_ERROR(
-        ParseUint64Array(GetIfdEntry(Tag::kStripOffsets, entries),
-                        out.strip_offsets));
+        ParseUint64Array(strip_offsets, out.strip_offsets));
+    
+    const IfdEntry* strip_bytecounts = GetIfdEntry(Tag::kStripByteCounts, entries);
     TENSORSTORE_RETURN_IF_ERROR(
-        ParseUint64Array(GetIfdEntry(Tag::kStripByteCounts, entries),
-                        out.strip_bytecounts));
+        ParseUint64Array(strip_bytecounts, out.strip_bytecounts));
   }
 
   return absl::OkStatus();

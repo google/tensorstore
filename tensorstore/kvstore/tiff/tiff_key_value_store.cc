@@ -469,7 +469,7 @@ Future<kvstore::DriverPtr> Spec::DoOpen() const {
                           drv->header_raw_    = hdr_rr.value;
                           drv->header_parsed_ = hdr;
                           drv->first_ifd_     = std::move(dir);
-                          ABSL_LOG(INFO) << "TIFF open: "
+                          ABSL_LOG_IF(INFO, tiff_logging) << "TIFF open: "
                                          << drv->first_ifd_.width << "x"
                                          << drv->first_ifd_.height
                                          << (drv->first_ifd_.tiled?" tiled":" stripped");

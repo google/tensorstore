@@ -75,6 +75,9 @@ struct IfdEntry {
   uint64_t count;
   uint64_t value_or_offset;  // For values that fit in 4/8 bytes, this is the value
                             // Otherwise, this is an offset to the data
+  
+  // Flag to indicate if this entry references an external array
+  bool is_external_array = false;
 };
 
 // Represents a TIFF Image File Directory (IFD)
@@ -118,6 +121,21 @@ absl::Status ParseTiffDirectory(
 absl::Status ParseImageDirectory(
     const std::vector<IfdEntry>& entries,
     ImageDirectory& out);
+
+// Parse an external array from a reader
+absl::Status ParseExternalArray(
+    riegeli::Reader& reader,
+    Endian endian,
+    uint64_t offset,
+    uint64_t count,
+    TiffDataType data_type,
+    std::vector<uint64_t>& out);
+
+// Determine if an IFD entry represents an external array based on type and count
+bool IsExternalArray(TiffDataType type, uint64_t count);
+
+// Get the size in bytes for a given TIFF data type
+size_t GetTiffDataTypeSize(TiffDataType type);
 
 }  // namespace internal_tiff_kvstore
 }  // namespace tensorstore
