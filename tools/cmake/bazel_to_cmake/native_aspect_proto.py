@@ -171,7 +171,7 @@ VERBATIM
 # Single Protoaspect details
 ##############################################################################
 #
-# Bazel proto_libraries() can reference soruce files multiple times, so
+# Bazel proto_libraries() can reference source files multiple times, so
 # the aspect actually needs to generate a target per source file.
 #
 def _assert_is_proto(src: TargetId):

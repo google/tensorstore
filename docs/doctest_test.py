@@ -327,7 +327,7 @@ def _ast_asyncify(code: str, wrapper_name: str) -> ast.Module:
   This is derived from a similar workaround in IPython.
 
   Args:
-    code: Python source code to pase.
+    code: Python source code to pass.
     wrapper_name: Name to use for function.
 
   Returns:
