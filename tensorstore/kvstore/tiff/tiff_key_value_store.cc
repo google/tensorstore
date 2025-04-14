@@ -184,9 +184,8 @@ struct ReadState : public internal::AtomicReferenceCount<ReadState> {
     // Set options for the chunk read request
     kvstore::ReadOptions options;
     options.staleness_bound = options_.staleness_bound;
-    options.byte_range = OptionalByteRangeRequest{};
     
-    // Store original byte range for later use
+    // Store original byte range for later adjustment if needed
     OptionalByteRangeRequest original_byte_range = options_.byte_range;
 
     {
@@ -247,18 +246,38 @@ struct ReadState : public internal::AtomicReferenceCount<ReadState> {
         return;
       }
       
-      options.byte_range = OptionalByteRangeRequest::Range(
-          offset, offset + byte_count);
+      // Apply byte range optimization - calculate the actual bytes to read
+      uint64_t start_offset = offset;
+      uint64_t end_offset = offset + byte_count;
+      
+      if (!original_byte_range.IsFull()) {
+        // Validate the byte range against the chunk size
+        auto byte_range_result = original_byte_range.Validate(byte_count);
+        if (!byte_range_result.ok()) {
+          promise.SetResult(std::move(byte_range_result.status()));
+          return;
+        }
+        
+        // Calculate the actual byte range to read from the file
+        ByteRange byte_range = byte_range_result.value();
+        start_offset = offset + byte_range.inclusive_min;
+        end_offset = offset + byte_range.exclusive_max;
+        
+        // Clear the original byte range since we're applying it directly to the read request
+        original_byte_range = OptionalByteRangeRequest{};
+      }
+      
+      // Set the exact byte range to read from the underlying storage
+      options.byte_range = OptionalByteRangeRequest::Range(start_offset, end_offset);
     }
 
     options.generation_conditions.if_equal = stamp.generation;
     
-    // Issue read for the tile/strip data
+    // Issue read for the exact bytes needed
     auto future = owner_->base_.driver->Read(owner_->base_.path, std::move(options));
     future.Force();
     future.ExecuteWhenReady(
         [self = internal::IntrusivePtr<ReadState>(this), 
-         original_byte_range = std::move(original_byte_range),
          promise = std::move(promise)](
             ReadyFuture<kvstore::ReadResult> ready) mutable {
           if (!ready.result().ok()) {
@@ -270,25 +289,6 @@ struct ReadState : public internal::AtomicReferenceCount<ReadState> {
           if (!read_result.has_value()) {
             promise.SetResult(std::move(read_result));
             return;
-          }
-          
-          // Apply byte range to the result if needed
-          if (!original_byte_range.IsFull()) {
-            // Validate the byte range against the actual size of the data
-            auto size = read_result.value.size();
-            auto byte_range_result = original_byte_range.Validate(size);
-            
-            if (!byte_range_result.ok()) {
-              promise.SetResult(std::move(byte_range_result.status()));
-              return;
-            }
-            
-            // Apply the validated byte range
-            ByteRange byte_range = byte_range_result.value();
-            if (byte_range.inclusive_min > 0 || byte_range.exclusive_max < size) {
-              read_result.value = read_result.value.Subcord(
-                  byte_range.inclusive_min, byte_range.size());
-            }
           }
           
           promise.SetResult(std::move(read_result));
