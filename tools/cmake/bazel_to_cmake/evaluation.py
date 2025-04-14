@@ -523,7 +523,7 @@ class EvaluationState:
     Loads it if not already loaded in the current phase.  Libraries are loaded
     separately for the workspace loading and package loading phases.
 
-    1. If the target has been overriden by a call to `register_bzl_library` or
+    1. If the target has been overridden by a call to `register_bzl_library` or
        has been added as an ignored library to the workspace, the overridden
        implementation will be used.
 

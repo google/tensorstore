@@ -80,7 +80,7 @@ function(dump_cmake_targets directory)
 endfunction()
 
 
-# Get all propreties that cmake supports
+# Get all properties that cmake supports
 if(NOT CMAKE_PROPERTY_LIST)
     execute_process(COMMAND cmake --help-property-list OUTPUT_VARIABLE CMAKE_PROPERTY_LIST)
 

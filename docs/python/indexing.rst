@@ -423,7 +423,7 @@ Ellipsis
 
 Specifying the special `Ellipsis` value (:python:`...`) is equivalent
 to specifying as many full slices :python:`:` as needed to consume the
-remaining dimensions of the original domin not consumed by other
+remaining dimensions of the original domain not consumed by other
 indexing terms:
 
 .. doctest::

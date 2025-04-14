@@ -13,7 +13,7 @@ allOf:
       title: Google Cloud Storage bucket to use.
       description: |
         The Google Cloud account that is used must have appropriate permissions
-        on the bucket.  If the bucket has `Requestor Pays
+        on the bucket.  If the bucket has `Requester Pays
         <https://cloud.google.com/kvstore/docs/requester-pays>`_ enabled, either
         additional permissions are required or a separate billing project must
         be specified using `Context.gcs_user_project`.
@@ -82,7 +82,7 @@ definitions:
     description: |
       Specifies a Google Cloud project to bill for Google Cloud Storage
       requests.  If a `project_id` is not specified, requests are
-      billed to the project that owns the bucket by default.  For `Requestor
+      billed to the project that owns the bucket by default.  For `Requester
       Pays <https://cloud.google.com/kvstore/docs/requester-pays>`_ buckets,
       however, requests without a `.project_id` specified will fail
       unless the Google Cloud account has additional permissions.

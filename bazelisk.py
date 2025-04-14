@@ -177,7 +177,7 @@ def get_version_history(bazelisk_directory):
             if not release["prerelease"]
         ),
         # This only handles versions with numeric components, but that is fine
-        # since prerelease verisons have been excluded.
+        # since prerelease versions have been excluded.
         key=lambda version: tuple(int(component)
                                   for component in version.split('.')),
         reverse=True,

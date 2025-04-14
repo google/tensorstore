@@ -37,7 +37,7 @@ def run_during_finalization():
     async def test_read():
       t = ts.array([1, 2, 3], dtype=ts.int64)
       await asyncio.wait_for(t.read(), timeout=1)
-      # Normally, await won't suceed.  However, await may still succeed, if it
+      # Normally, await won't succeed.  However, await may still succeed, if it
       # happens that the read completed before the call to `await`.
       os._exit(0)
 

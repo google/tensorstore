@@ -22,7 +22,7 @@
 namespace tensorstore {
 namespace internal {
 
-/// Schedule an executor tast to run near a target time.
+/// Schedule an executor task to run near a target time.
 /// Long-running tasks should use WithExecutor() to avoid blocking the thread.
 ///
 /// \ingroup async

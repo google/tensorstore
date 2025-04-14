@@ -1481,7 +1481,7 @@ bool GetShardChunkHierarchy(const ShardingSpec& sharding_spec,
                             ShardChunkHierarchy& hierarchy) {
   if (sharding_spec.hash_function != ShardingSpec::HashFunction::identity) {
     // For non-identity hash functions, the number of chunks per shard is not
-    // predicable and the shard doesn't correspond to a rectangular region
+    // predictable and the shard doesn't correspond to a rectangular region
     // anyway.
     return false;
   }

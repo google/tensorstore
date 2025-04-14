@@ -52,7 +52,7 @@ message LeaseResponse {
   // Address (hostname:port) of the owner.
   optional bytes owner = 1;
 
-  // Indicates if the requestor is the owner.
+  // Indicates if the requester is the owner.
   optional bool is_owner = 2;
 
   // Expiration time of the lease.

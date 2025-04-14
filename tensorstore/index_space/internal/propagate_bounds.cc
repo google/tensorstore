@@ -92,7 +92,7 @@ absl::Status PropagateBoundsImpl(BoxView<> b,
   for (DimensionIndex b_dim = 0; b_dim < b.rank(); ++b_dim) {
     auto& map = maps[b_dim];
     const Index output_stride = map.stride();
-    // We dont't validate or propagate bounds for array-based output index maps.
+    // We don't validate or propagate bounds for array-based output index maps.
     if (map.method() == OutputIndexMethod::array) continue;
     OptionallyImplicitIndexInterval b_bounds_oi{b[b_dim],
                                                 b_implicit_lower_bounds[b_dim],

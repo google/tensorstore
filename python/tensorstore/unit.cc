@@ -54,7 +54,7 @@ The quantity is specified as the combination of:
 
 - A numerical :py:obj:`.multiplier`, represented as a
   `double-precision floating-point number <https://en.wikipedia.org/wiki/Double-precision_floating-point_format>`_.
-  A multiplier of :python:`1` may be used to indicate a quanity equal to a
+  A multiplier of :python:`1` may be used to indicate a quantity equal to a
   single base unit.
 
 - A :py:obj:`.base_unit`, represented as a string.  An empty string may be used

@@ -50,7 +50,7 @@ TEST(IsValidUtf8Test, Empty) {
 
 TEST(IsValidUtf8Test, Ascii) {
   EXPECT_TRUE(IsValidUtf8("ascii"));
-  // Singe NUL byte
+  // Single NUL byte
   EXPECT_TRUE(IsValidUtf8(std::string_view("\0", 1)));
 }
 

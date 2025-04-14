@@ -552,7 +552,7 @@ void ListAndReadNumberedManifests(
 
       if (cached_manifest &&
           cached_manifest->latest_generation() == generation_number) {
-        // No newer version is present, just re-use cached manifest.
+        // No newer version is present, just reuse cached manifest.
         ABSL_LOG_IF(INFO, ocdbt_logging)
             << "Using cached numbered manifest: " << generation_number;
         numbered_manifest->manifest = std::move(cached_manifest);

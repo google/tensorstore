@@ -96,7 +96,7 @@ Debugging
    Enables debug logging for tensorstore internal subsystems.  Set to comma
    separated list of values, where each value is one of ``name=int`` or just
    ``name``. When ``all`` is, present, then verbose logging will be enabled for
-   each subsytem, otherwise logging is set only for those subsystems present in
+   each subsystem, otherwise logging is set only for those subsystems present in
    the list.
 
    Verbose flag values include: ``curl``, ``distributed``, ``file``,

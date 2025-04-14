@@ -510,7 +510,7 @@ class BatchReadTask final
         exclusive_max = std::max(exclusive_max, byte_range.exclusive_max);
         total_size += byte_range.size();
       }
-      // Normalize the minium bound to be a multiple of the page size.
+      // Normalize the minimum bound to be a multiple of the page size.
       if (inclusive_min < internal_os::GetDefaultPageSize()) {
         inclusive_min = 0;
       } else {

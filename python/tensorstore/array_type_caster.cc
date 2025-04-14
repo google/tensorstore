@@ -277,7 +277,7 @@ pybind11::object GetNumpyArrayImpl(SharedArrayView<const void> value,
   auto obj = py::reinterpret_steal<py::array>(PyArray_NewFromDescr(
       /*subtype=*/&PyArray_Type,
       /*descr=*/reinterpret_cast<PyArray_Descr*>(py_dtype.release().ptr()),
-      /*nd=*/static_cast<int>(value.rank()),
+      /*nd=*/static_cast<int>(value.rank()),  // codespell:ignore nd
       /*dims=*/shape,
       /*strides=*/strides,
       /*data=*/const_cast<void*>(value.data()), flags, nullptr));

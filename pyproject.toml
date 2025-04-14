@@ -39,3 +39,11 @@ version_scheme = "no-guess-dev"
 # Test PyPI does not support local versions.
 local_scheme = "no-local-version"
 fallback_version = "0.0.0"
+
+[tool.codespell]
+# Ref: https://github.com/codespell-project/codespell#using-a-config-file
+skip = '.git*,third_party'
+check-hidden = true
+# Do not bother with mixed case words -- variables, and test lines
+ignore-regex = '\b[a-zA-Z]+[A-Z][a-z]*\b|\bEXPECT_.*'
+ignore-words-list = 'ehr,ans'

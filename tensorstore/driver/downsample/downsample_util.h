@@ -61,8 +61,8 @@ struct PropagatedIndexTransformDownsampling {
 ///
 /// is equivalent to:
 ///
-///   transforming `b` by `propgated.transform` and then downsampling by
-///   `propgated.input_downsample_factors` (and possibly "squeezing" some
+///   transforming `b` by `propagated.transform` and then downsampling by
+///   `propagated.input_downsample_factors` (and possibly "squeezing" some
 ///   singleton dimensions that were added).
 ///
 /// Note that this function assumes downsampling is performed using a method

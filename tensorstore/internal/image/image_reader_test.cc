@@ -207,7 +207,7 @@ TEST_P(ReaderTest, ReadImageTruncated) {
 }
 
 // Most images generated via tiffcp <source> <options> <dest>.
-// Query image paramters using tiffinfo <image>
+// Query image parameters using tiffinfo <image>
 std ::vector<V> GetD75_08_Values() {
   return {
       // upper-left corner: hw=0,0   => 151,75,83

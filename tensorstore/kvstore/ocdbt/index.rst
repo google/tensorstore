@@ -287,7 +287,7 @@ Zstd compression configuration
 .. _ocdbt-config-zstd-level:
 
 ``level``
-  Compresion level to use when writing.
+  Compression level to use when writing.
 
 .. _ocdbt-manifest-version-tree:
 
@@ -520,7 +520,7 @@ Version tree leaf node entries format (``height = 0``)
 The same encoded representation is used for both the entries of a leaf
 :ref:`version tree node<ocdbt-version-tree>` and for the
 :ref:`ocdbt-manifest-version-tree-inline-versions` specified in the
-:ref:`manfiest<ocdbt-manifest-version-tree>`.
+:ref:`manifest<ocdbt-manifest-version-tree>`.
 
 .. |data_file_id_format| replace:: |varint|
 
@@ -577,7 +577,7 @@ The same encoded representation is used for both the entries of a leaf
      The same computation of ``num_versions`` applies to both leaf node entries
      included in a :ref:`version tree node<ocdbt-version-tree>`, and
      :ref:`ocdbt-manifest-version-tree-inline-versions` included in the
-     :ref:`manfiest<ocdbt-manifest-version-tree>`.  In the former case, the and
+     :ref:`manifest<ocdbt-manifest-version-tree>`.  In the former case, the and
      :ref:`ocdbt-version-tree-version-tree-arity-log2` value is obtained from
      the version node.  In the latter case, the
      :ref:`ocdbt-config-version-tree-arity-log2` value is taken from the
@@ -649,7 +649,7 @@ Interior version tree node entries (``height > 0``)
 The same encoded representation is used for both the entries of an interior
 :ref:`version tree node<ocdbt-version-tree>` and for the
 :ref:`ocdbt-manifest-version-tree-version-nodes` version tree nodes specified in
-the :ref:`manfiest<ocdbt-manifest-version-tree>`, but the interpretation
+the :ref:`manifest<ocdbt-manifest-version-tree>`, but the interpretation
 differs, as described below.
 
 +----------------------------------------------------+--------------------------+-----------------------------------------------+
@@ -753,7 +753,7 @@ additional field:
   :ref:`ocdbt-manifest-version-tree-version-nodes` in the manifest.  The heights
   must be decreasing, i.e. ``entry_height[i] > entry_height[j]`` if ``i < j``.
 
-  When the encoded representaiton is used to specify the entries of an interior
+  When the encoded representation is used to specify the entries of an interior
   version tree node, this field is not present and instead, for the purpose of
   this specification, ``entry_height[i]`` is implicitly equal to ``height - 1``,
   where :ref:`ocdbt-version-tree-height` is obtained from the version tree node.

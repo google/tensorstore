@@ -160,7 +160,7 @@ def _get_action_env():
   Unfortunately there is no kosher way to detect the PEP517 build environment,
   so this is a heuristic approach based on inspection of the PATH variable
   passed to the build and review of the PIP sources. The source, as reviewed,
-  creates a temporary directory inclusing pip-{kind}, where kind=build-env.
+  creates a temporary directory including pip-{kind}, where kind=build-env.
 
   See: dist-packages/pip/_internal/utils/temp_dir.py
   Also: https://github.com/bazelbuild/bazel/issues/18809
@@ -178,7 +178,7 @@ def _get_action_env():
   if not build_env:
     return []
 
-  # There may be mutliple path entries added under the build-env directory,
+  # There may be multiple path entries added under the build-env directory,
   # so remove them all.
   while 'pip-build-env' in os.path.dirname(build_env):
     build_env = os.path.dirname(build_env)
@@ -216,7 +216,7 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
         # from the PATH as bazel is already hermetic to improve cache use.
         action_env = _get_action_env()
 
-        # Ensure python_configure.bzl finds the correct Python verison.
+        # Ensure python_configure.bzl finds the correct Python version.
         os.environ['PYTHON_BIN_PATH'] = sys.executable
 
         # Ensure it is built against the version of `numpy` in the current

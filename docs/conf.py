@@ -363,7 +363,7 @@ external_cpp_references = {
         'desc': 'C++ class',
     },
     'absl::StatusOr': {
-        'url': 'https://abseil.io/docs/cpp/guides/statuss#returning-a-status-or-a-value',
+        'url': 'https://abseil.io/docs/cpp/guides/status#returning-a-status-or-a-value',
         'object_type': 'class',
         'desc': 'C++ class',
     },

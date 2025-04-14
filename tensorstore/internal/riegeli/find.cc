@@ -34,7 +34,7 @@ bool StartsWith(riegeli::Reader &reader, std::string_view needle) {
          memcmp(reader.cursor(), needle.data(), needle.size()) == 0;
 }
 
-/// Seeks for the first occurence of data string starting from the current pos.
+/// Seeks for the first occurrence of data string starting from the current pos.
 /// This works well enough for ZIP archives, since the tags do not have
 /// internal repetition.
 bool FindFirst(riegeli::Reader &reader, std::string_view needle) {

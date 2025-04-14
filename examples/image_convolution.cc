@@ -34,7 +34,7 @@ tensorstore::SharedArray<int, 2> ApplyKernel(
     const tensorstore::ArrayView<const int, 2> in,
     const tensorstore::ArrayView<const double, 2> kernel) {
   // Compute bounds for the offset.
-  // FIXME: It's akward that we cannot do this:
+  // FIXME: It's awkward that we cannot do this:
   //   std::array<Index, 2> k(kernel.shape());
   //
   std::array<Index, 2> k;
@@ -80,7 +80,7 @@ tensorstore::SharedArray<int, 2> ApplyKernel(
               }
             });
 
-        // Again, the most intutive way to write an array value
+        // Again, the most intuitive way to write an array value
         // is not permitted:
         //
         //   dest[indices] = (sum / count);  // error: no viable overloaded '='
@@ -154,7 +154,7 @@ void AffineWarpGrid(size_t xmax, size_t ymax,
 }
 
 // AffineWarpInverseGrid computes the inverse mapping from AffineWarpGrid,
-// so it can be used to map from a destination image to a souce image.
+// so it can be used to map from a destination image to a source image.
 void AffineWarpInverseGrid(size_t xmax, size_t ymax,
                            tensorstore::span<const double, 6> M,
                            AffineWarpGridFunction fn) {
@@ -237,7 +237,7 @@ void PrintCSVArray(tensorstore::ArrayView<T, N> data) {
   // reference for every element.
   //
   // There is a streaming operator already, but the output is
-  // this is equvalent to:
+  // this is equivalent to:
   // for (int x = 0; x < data.shape()[0]; x++)
   //  for (int y = 0; y < data.shape()[1]; y++) {
   //     ... body ...

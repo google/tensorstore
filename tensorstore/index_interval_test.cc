@@ -387,7 +387,7 @@ TEST(IndexIntervalTest, IntersectPreferringExplicit) {
           OIII{IndexInterval::UncheckedClosed(0, 10), false, false}),
       ::testing::Eq(OIII{IndexInterval::UncheckedClosed(0, 10), false, false}));
 
-  // These may surprise you!  explicit takes prededence over implicit!
+  // These may surprise you!  explicit takes precedence over implicit!
   EXPECT_THAT(
       IntersectPreferringExplicit(
           OIII{IndexInterval::UncheckedClosed(-kInfIndex, kMaxFiniteIndex),

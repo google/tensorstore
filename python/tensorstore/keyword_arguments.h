@@ -23,7 +23,7 @@
 /// This mechanism allows individual keyword arguments to be defined as
 /// `ParamDef` types, that specifies the name, documentation, argument type, and
 /// operation to perform to "apply" the argument.  These `ParamDef` types can
-/// then be re-used by multiple pybind11 functions while avoiding duplication.
+/// then be reused by multiple pybind11 functions while avoiding duplication.
 ///
 /// Each `ParamDef` type should be a struct with the following members, and no
 /// non-static data members (i.e. it should be empty):

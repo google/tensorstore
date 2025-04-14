@@ -180,7 +180,7 @@ struct ReadDirectoryOp
         !ready.value().has_value()) {
       // Any non-value is an error.
       entry_->ReadError(
-          absl::InvalidArgumentError("Faild to read ZIP directory"));
+          absl::InvalidArgumentError("Failed to read ZIP directory"));
       return;
     }
 

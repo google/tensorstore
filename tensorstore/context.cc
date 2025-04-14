@@ -392,7 +392,7 @@ class ResourceReference : public ResourceSpecImplBase {
   ResourceSpecImplPtr UnbindContext(
       const internal::ContextSpecBuilder& spec_builder) final {
     auto& builder_impl = *internal_context::Access::impl(spec_builder);
-    // Ensure the referent is not re-used as an identifier for another resource.
+    // Ensure the referent is not reused as an identifier for another resource.
     ++builder_impl.ids_[referent_];
     return ResourceSpecImplPtr(this);
   }

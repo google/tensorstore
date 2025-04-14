@@ -9,7 +9,7 @@ Keys directly correspond to paths within an S3 bucket.
 .. warning::
 
    The ``s3`` key-value store driver does not provide all the atomicity
-   guarantees required by tensorstore.  On AWS, specfically, DELETE is not
+   guarantees required by tensorstore.  On AWS, specifically, DELETE is not
    atomic, which leads to race conditions.  On other S3-compatible object
    stores even PUT may not be atomic.
 

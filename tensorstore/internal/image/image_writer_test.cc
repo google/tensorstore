@@ -234,7 +234,7 @@ TEST_P(WriterTest, RoundTrip) {
 
   double rmse = ComputeRMSE(decoded.data(), source.data(), source.size());
 
-  /// When RMSE is not 0, verify that the actual value is witin 5%.
+  /// When RMSE is not 0, verify that the actual value is within 5%.
   if (GetParam().rmse_error_limit == 0) {
     EXPECT_EQ(0, rmse) << "\nA: " << source_info << " "
                        << "\nB: " << decoded_info;

@@ -264,7 +264,7 @@ The following CMake generators are supported:
 - Ninja and Ninja Multi-Config
 - Makefile generators
 - Visual Studio generators
-- Xcode (targetting arm64 only)
+- Xcode (targeting arm64 only)
 
 The Ninja generator is recommended because it provides the fastest builds.
 

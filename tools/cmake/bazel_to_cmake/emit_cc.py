@@ -269,7 +269,7 @@ def construct_cc_includes(
   if include_prefix is not None:
     # The prefix to add to the paths of the headers of this rule.
     #
-    # "When set, the headers in the hdrs attribute of this rule are accessable
+    # "When set, the headers in the hdrs attribute of this rule are accessible
     # at is the value of this attribute prepended to their repository-relative
     # path."
     #
