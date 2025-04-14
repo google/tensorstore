@@ -1097,7 +1097,7 @@ MultiPhaseMutation::ReadModifyWriteStatus MultiPhaseMutation::ReadModifyWrite(
   }
   existing_entry->key_ = KeyRange::Successor(entry->key_);
   if (existing_entry->key_ != existing_entry->exclusive_max_) {
-    // "Right" interval is non-empty.  Re-use the existing entry for the
+    // "Right" interval is non-empty.  Reuse the existing entry for the
     // right interval.
     single_phase_mutation.entries_.Insert({entry, MutationEntryTree::kRight},
                                           *existing_entry);

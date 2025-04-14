@@ -111,7 +111,7 @@ namespace internal {
 ///    `OpenTransactionPtr` smart pointer is destroyed.
 ///
 ///    - If the chunk was already modified in the transaction by a prior write,
-///      the existing transaction node will be re-used.  The existing
+///      the existing transaction node will be reused.  The existing
 ///      transaction node is located in the red-black tree of transaction nodes
 ///      (keyed by their associated `TransactionState` pointers) stored within
 ///      the `AsyncCache::Entry`.
@@ -182,7 +182,7 @@ namespace internal {
 ///    calling `GetTransactionNode`.
 ///
 ///    - If the chunk has an existing implicit transaction node that is still
-///      open (i.e. not already being committed), it is re-used.
+///      open (i.e. not already being committed), it is reused.
 ///
 ///    - Otherwise, a new implicit transaction node is created, but not yet
 ///      associated with a transaction.  When the new transaction node is
@@ -213,8 +213,8 @@ namespace internal {
 ///    node.
 ///
 ///    - If there is already an open implicit transaction node associated with
-///      the shard that contains the chunk, it is re-used, and the associated
-///      implicit transaction is re-used by the upstream transaction node in the
+///      the shard that contains the chunk, it is reused, and the associated
+///      implicit transaction is reused by the upstream transaction node in the
 ///      `ChunkCache`.
 ///
 ///    - Otherwise, a new implicit transaction node is created for the shard,

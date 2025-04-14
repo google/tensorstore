@@ -80,7 +80,7 @@ definitions:
       - A numerical :literal:`multiplier`, represented as a `double-precision
         floating-point number
         <https://en.wikipedia.org/wiki/Double-precision_floating-point_format>`_.
-        A multiplier of ``1`` may be used to indicate a quanity equal to a
+        A multiplier of ``1`` may be used to indicate a quantity equal to a
         single base unit.
 
       - A :literal:`base_unit`, represented as a string.  An empty string may be used

@@ -70,7 +70,7 @@ class TestCache : public Cache {
     std::deque<std::string> entry_allocate_log;
     // Log of calls to DoDeleteEntry.  Contains the cache key and entry key.
     std::deque<std::pair<std::string, std::string>> entry_destroy_log;
-    // Log of calls to GetTestCache (defined below).  ontains the cache key.
+    // Log of calls to GetTestCache (defined below).  contains the cache key.
     std::deque<std::string> cache_allocate_log;
     // Log of calls to TestCache destructor.  Contains the cache key.
     std::deque<std::string> cache_destroy_log;

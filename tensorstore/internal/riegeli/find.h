@@ -30,7 +30,7 @@ bool StartsWith(riegeli::Reader &reader, std::string_view needle);
 
 /// FindFirst()
 ///
-/// Seeks for the first occurence of data string starting from the current
+/// Seeks for the first occurrence of data string starting from the current
 /// pos. Implementation note: This implements a naive approach, not
 /// Knuth-Morris-Pratt, and is intended to be used for relatively short
 /// strings.
@@ -38,7 +38,7 @@ bool FindFirst(riegeli::Reader &reader, std::string_view needle);
 
 /// FindLast()
 ///
-/// Seeks for the last occurence of data string starting from reader.
+/// Seeks for the last occurrence of data string starting from reader.
 bool FindLast(riegeli::Reader &reader, std::string_view needle);
 
 }  // namespace internal

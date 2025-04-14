@@ -281,7 +281,7 @@ void GetIndexedInputDims(const NumpyIndexingSpec& spec,
   }
   input_dims_per_intermediate_dim[intermediate_rank] = input_dim;
 
-  // Compute `indexed_input_dims` by reodering `input_dims_per_intermediate_dim`
+  // Compute `indexed_input_dims` by reordering `input_dims_per_intermediate_dim`
   // by `selected_dims`.
   for (const DimensionIndex intermediate_dim : selected_dims) {
     for (DimensionIndex

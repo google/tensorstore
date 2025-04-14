@@ -16,7 +16,7 @@
 This allows doctest examples to be conveniently updated in case of changes to
 the output format.
 
-After commiting or staging changes, you can run this with the `--in-place`
+After committing or staging changes, you can run this with the `--in-place`
 option and then inspect the diff.
 
 This supports top-level `await` in tests, since that provides a convenient way

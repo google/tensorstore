@@ -407,7 +407,7 @@ Future<const void> AddCopySubtree(
     BtreeWriter::CopySubtreeOptions&& options) {
   // TODO(jbms): Currently this implementation avoids copying indirect values,
   // but never reuses B+tree nodes.  A more efficient implementation that
-  // re-uses B+tree nodes in many cases is possible.
+  // reuses B+tree nodes in many cases is possible.
   ABSL_LOG_IF(INFO, ocdbt_logging)
       << "CopySubtree: " << options.node
       << ", height=" << static_cast<int>(options.node_height)

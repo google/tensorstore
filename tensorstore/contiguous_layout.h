@@ -148,7 +148,7 @@ bool PermutationMatchesOrder(span<const DimensionIndex> permutation,
 void InvertPermutation(DimensionIndex rank, const DimensionIndex* perm,
                        DimensionIndex* inverse_perm);
 
-/// Normalizes `source` to a permutation if it is not already a permuation.
+/// Normalizes `source` to a permutation if it is not already a permutation.
 ///
 /// \relates ContiguousLayoutPermutation
 template <typename LayoutOrder, DimensionIndex Rank>

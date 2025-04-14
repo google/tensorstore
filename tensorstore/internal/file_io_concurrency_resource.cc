@@ -27,7 +27,7 @@ namespace {
 struct FileIoConcurrencyResourceTraits
     : public ConcurrencyResourceTraits,
       public ContextResourceTraits<FileIoConcurrencyResource> {
-  // TODO(jbms): use beter method of picking concurrency limit
+  // TODO(jbms): use better method of picking concurrency limit
   FileIoConcurrencyResourceTraits()
       : ConcurrencyResourceTraits(
             std::max(size_t(4), size_t(std::thread::hardware_concurrency()))) {}
