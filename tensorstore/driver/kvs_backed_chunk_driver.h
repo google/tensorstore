@@ -853,7 +853,7 @@ class OpenState : public MetadataOpenState {
 ///    is compatible with the open request by calling
 ///    `open_state->GetComponentIndex`.
 ///
-///    - If it is, either re-uses an existing `DataCache` with a cache key that
+///    - If it is, either reuses an existing `DataCache` with a cache key that
 ///      matches `open_state->GetDataCacheKey`, or obtain a new `DataCache` from
 ///      `open_state->GetDataCache`.
 ///

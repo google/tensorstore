@@ -368,8 +368,8 @@ inline void NormalizeImplicitBounds(TransformRep& rep) {
 // Check that OutputIndexMap and std::string don't have a greater alignment
 // value than Index, as that would require more complicated logic for accessing
 // the variable length fields than is currently implemented.  In practice these
-// constraints should always be satisified.  If this code needs to work on a
-// platform that doesn't satisfy these contraints, the more complicated logic
+// constraints should always be satisfied.  If this code needs to work on a
+// platform that doesn't satisfy these constraints, the more complicated logic
 // could be implemented.
 static_assert(alignof(OutputIndexMap) <= sizeof(Index),
               "Platform has unsupported alignment.");

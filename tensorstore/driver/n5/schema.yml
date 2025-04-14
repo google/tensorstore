@@ -9,7 +9,7 @@ allOf:
     metadata:
       title: N5 array metadata.
       description: |
-        Specifies constraints on the metdata of a dataset exactly as in the
+        Specifies constraints on the metadata of a dataset exactly as in the
         `attributes.json file
         <https://github.com/saalfeldlab/n5#file-system-specification-version-203-snapshot>`_,
         except that all members are optional.  When creating a new array, the

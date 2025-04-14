@@ -30,7 +30,7 @@ namespace internal_storage_gcs {
 /// Optionally specifies a project to which all requests are billed.
 ///
 /// If not specified, requests to normal buckets are billed to the project
-/// that owns the bucket, and requests to "requestor pays"-enabled buckets
+/// that owns the bucket, and requests to "requester pays"-enabled buckets
 /// fail.
 struct GcsUserProjectResource
     : public internal::ContextResourceTraits<GcsUserProjectResource> {

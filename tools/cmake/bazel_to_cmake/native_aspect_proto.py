@@ -376,7 +376,7 @@ def aspect_genproto_library_target(
   proto_library_provider = proto_target_info.get(ProtoLibraryProvider)
   assert proto_library_provider is not None
 
-  # Resovle aspect deps, excluding self.
+  # Resolve aspect deps, excluding self.
   aspect_deps: Set[TargetId] = set()
   aspect_deps.update(plugin_settings.aspectdeps(proto_target))
   for d in proto_library_provider.deps:
