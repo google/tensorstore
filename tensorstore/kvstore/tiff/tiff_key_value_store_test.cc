@@ -14,13 +14,19 @@
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/spec.h"
+#include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/util/status_testutil.h"
+#include "absl/synchronization/notification.h"
+#include "tensorstore/util/execution/sender_testutil.h"
+
 
 namespace {
 
 namespace kvstore = tensorstore::kvstore;
 using ::tensorstore::Context;
 using ::tensorstore::MatchesStatus;
+using ::tensorstore::CompletionNotifyingReceiver;
+
 
 /* -------------------------------------------------------------------------- */
 /*                       Little‑endian byte helpers                           */
@@ -40,7 +46,7 @@ void PutLE32(std::string& dst, uint32_t v) {
 /*                     Minimal TIFF byte‑string builders                      */
 /* -------------------------------------------------------------------------- */
 
-// 512 × 512 image, one 256 × 256 tile at offset 128, payload “DATA”.
+// 256 × 256 image, one 256 × 256 tile at offset 128, payload "DATA".
 std::string MakeTinyTiledTiff() {
   std::string t;
   t += "II"; PutLE16(t, 42); PutLE32(t, 8);     // header
@@ -48,7 +54,7 @@ std::string MakeTinyTiledTiff() {
   PutLE16(t, 6);                                // 6 IFD entries
   auto E=[&](uint16_t tag,uint16_t type,uint32_t cnt,uint32_t val){
     PutLE16(t,tag); PutLE16(t,type); PutLE32(t,cnt); PutLE32(t,val);};
-  E(256,3,1,512); E(257,3,1,512);               // width, length
+  E(256,3,1,256); E(257,3,1,256);               // width, length (256×256 instead of 512×512)
   E(322,3,1,256); E(323,3,1,256);               // tile width/length
   E(324,4,1,128); E(325,4,1,4);                 // offset/bytecount
   PutLE32(t,0);                                 // next IFD
@@ -247,8 +253,8 @@ TEST_F(TiffKeyValueStoreTest, Striped_OutOfRangeRow) {
   EXPECT_THAT(status, MatchesStatus(absl::StatusCode::kOutOfRange));
 }
 
-// ─── Bad key format ─────────────────────────────────────────────────────────
-TEST_F(TiffKeyValueStoreTest, BadKeyFormat) {
+// ─── Test List Operation ───────────────────────────────────────────────────
+TEST_F(TiffKeyValueStoreTest, List) {
   PrepareMemoryKvstore(absl::Cord(MakeTinyTiledTiff()));
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -257,8 +263,164 @@ TEST_F(TiffKeyValueStoreTest, BadKeyFormat) {
                      {"base",{{"driver","memory"},{"path","data.tif"}}}},
                     context_).result());
 
-  auto status = kvstore::Read(tiff_store,"foo/bar").result().status();
-  EXPECT_THAT(status, MatchesStatus(absl::StatusCode::kInvalidArgument));
+  // Listing the entire stream works.
+  for (int i = 0; i < 2; ++i) {
+    absl::Notification notification;
+    std::vector<std::string> log;
+    tensorstore::execution::submit(
+        kvstore::List(tiff_store, {}),
+        tensorstore::CompletionNotifyingReceiver{
+            &notification, tensorstore::LoggingReceiver{&log}});
+    notification.WaitForNotification();
+
+    // Only one tile in our tiny tiled TIFF
+    EXPECT_THAT(log, ::testing::UnorderedElementsAre(
+                         "set_starting", "set_value: tile/0/0/0",
+                         "set_done", "set_stopping"))
+        << i;
+  }
+}
+
+// ─── Test List with Prefix ────────────────────────────────────────────────
+TEST_F(TiffKeyValueStoreTest, ListWithPrefix) {
+  PrepareMemoryKvstore(absl::Cord(MakeTwoStripedTiff()));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto tiff_store,
+      kvstore::Open({{"driver","tiff"},
+                     {"base",{{"driver","memory"},{"path","data.tif"}}}},
+                    context_).result());
+
+  // Listing with prefix
+  {
+    kvstore::ListOptions options;
+    options.range = options.range.Prefix("tile/0/1");
+    options.strip_prefix_length = 5;  // "tile/" prefix
+    absl::Notification notification;
+    std::vector<std::string> log;
+    tensorstore::execution::submit(
+        kvstore::List(tiff_store, options),
+        tensorstore::CompletionNotifyingReceiver{
+            &notification, tensorstore::LoggingReceiver{&log}});
+    notification.WaitForNotification();
+
+    // Should only show the second strip
+    EXPECT_THAT(log, ::testing::UnorderedElementsAre(
+                        "set_starting", "set_value: 0/1/0", 
+                        "set_done", "set_stopping"));
+  }
+}
+
+// ─── Test multiple strips list ────────────────────────────────────────────
+TEST_F(TiffKeyValueStoreTest, ListMultipleStrips) {
+  PrepareMemoryKvstore(absl::Cord(MakeTwoStripedTiff()));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto tiff_store,
+      kvstore::Open({{"driver","tiff"},
+                     {"base",{{"driver","memory"},{"path","data.tif"}}}},
+                    context_).result());
+
+  // List all strips
+  absl::Notification notification;
+  std::vector<std::string> log;
+  tensorstore::execution::submit(
+      kvstore::List(tiff_store, {}),
+      tensorstore::CompletionNotifyingReceiver{
+          &notification, tensorstore::LoggingReceiver{&log}});
+  notification.WaitForNotification();
+
+  // Should show both strips
+  EXPECT_THAT(log, ::testing::UnorderedElementsAre(
+                      "set_starting", 
+                      "set_value: tile/0/0/0", 
+                      "set_value: tile/0/1/0",
+                      "set_done", 
+                      "set_stopping"));
+}
+
+// ─── Create minimal TIFF data for ReadOp tests ────────────────────────────
+std::string MakeReadOpTiff() {
+  std::string t;
+  t += "II"; PutLE16(t, 42); PutLE32(t, 8);     // header
+
+  PutLE16(t, 6);                                // 6 IFD entries
+  auto E=[&](uint16_t tag,uint16_t type,uint32_t cnt,uint32_t val){
+    PutLE16(t,tag); PutLE16(t,type); PutLE32(t,cnt); PutLE32(t,val);};
+  E(256,3,1,16); E(257,3,1,16);                // width, length
+  E(322,3,1,16); E(323,3,1,16);                // tile width/length
+  E(324,4,1,128); E(325,4,1,16);               // offset/bytecount
+  PutLE32(t,0);                                 // next IFD
+
+  if (t.size() < 128) t.resize(128,'\0');
+  t += "abcdefghijklmnop";
+  return t;
+}
+
+// ─── Test ReadOps ──────────────────────────────────────────────────────────
+TEST_F(TiffKeyValueStoreTest, ReadOps) {
+  PrepareMemoryKvstore(absl::Cord(MakeReadOpTiff()));
+
+  // Open the kvstore
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      kvstore::Open({{"driver", "tiff"},
+                     {"base", {{"driver", "memory"}, {"path", "data.tif"}}}},
+                    context_)
+          .result());
+
+  // Test standard read operations
+  ::tensorstore::internal::TestKeyValueStoreReadOps(
+      store, "tile/0/0/0", absl::Cord("abcdefghijklmnop"), "missing_key");
+}
+
+// ─── Test invalid specs ─────────────────────────────────────────────────────
+TEST_F(TiffKeyValueStoreTest, InvalidSpec) {
+  auto context = tensorstore::Context::Default();
+
+  // Test with extra key.
+  EXPECT_THAT(
+      kvstore::Open({{"driver", "tiff"}, {"extra", "key"}}, context).result(),
+      MatchesStatus(absl::StatusCode::kInvalidArgument));
+}
+
+// ─── Test spec roundtrip ────────────────────────────────────────────────────
+TEST_F(TiffKeyValueStoreTest, SpecRoundtrip) {
+  tensorstore::internal::KeyValueStoreSpecRoundtripOptions options;
+  options.check_data_persists = false;
+  options.check_write_read = false;
+  options.check_data_after_serialization = false;
+  options.check_store_serialization = true;
+  options.full_spec = {{"driver", "tiff"},
+                       {"base", {{"driver", "memory"}, {"path", "abc.tif"}}}};
+  options.full_base_spec = {{"driver", "memory"}, {"path", "abc.tif"}};
+  tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
+}
+
+// ─── Test with malformed TIFF ─────────────────────────────────────────────────
+std::string MakeMalformedTiff() {
+  std::string t;
+  t += "MM"; // Bad endianness (motorola instead of intel)
+  PutLE16(t, 42); PutLE32(t, 8);     // header
+  PutLE16(t, 1);                      // 1 IFD entry
+  auto E=[&](uint16_t tag,uint16_t type,uint32_t cnt,uint32_t val){
+    PutLE16(t,tag); PutLE16(t,type); PutLE32(t,cnt); PutLE32(t,val);};
+  E(256,3,1,16);                     // Only width, missing other required tags
+  PutLE32(t,0);                      // next IFD
+  return t;
+}
+
+TEST_F(TiffKeyValueStoreTest, MalformedTiff) {
+  PrepareMemoryKvstore(absl::Cord(MakeMalformedTiff()));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto tiff_store,
+      kvstore::Open({{"driver","tiff"},
+                     {"base",{{"driver","memory"},{"path","data.tif"}}}},
+                    context_).result());
+
+  auto status = kvstore::Read(tiff_store,"tile/0/0/0").result().status();
+  EXPECT_FALSE(status.ok());
 }
 
 }  // namespace

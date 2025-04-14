@@ -13,6 +13,8 @@ tensorstore_cc_library(
         "tiff_key_value_store.h",
     ],
     deps = [
+        ":tiff_details",
+        ":tiff_dir_cache",
         "//tensorstore/kvstore",
         "//tensorstore/util:future",
         "//tensorstore/internal:data_copy_concurrency_resource",
