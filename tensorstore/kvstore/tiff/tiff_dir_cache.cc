@@ -362,6 +362,7 @@ struct ReadDirectoryOp : public internal::AtomicReferenceCount<ReadDirectoryOp> 
     // Also check entries for external arrays.
     for (size_t i = 0; i < parse_result_->directories.size(); ++i) {
       // Parse the IFD into parse_result_->image_directories[i].
+      ABSL_LOG(INFO) << "Parsing image metadata from IFD #" << i << " for key: " << entry_->key();
       absl::Status s = ParseImageDirectory(
           parse_result_->directories[i].entries,
           parse_result_->image_directories[i]);
