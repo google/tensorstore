@@ -39,13 +39,53 @@ enum Tag : uint16_t {
   kBitsPerSample     = 258,
   kCompression       = 259,
   kPhotometric       = 262,
-  kStripOffsets      = 273,
+  kSamplesPerPixel   = 277,
   kRowsPerStrip      = 278,
+  kStripOffsets      = 273,
   kStripByteCounts   = 279,
+  kPlanarConfig      = 284,
   kTileWidth         = 322,
   kTileLength        = 323,
   kTileOffsets       = 324,
   kTileByteCounts    = 325,
+  kSampleFormat      = 339,
+};
+
+// Common compression types
+enum class CompressionType : uint16_t {
+  kNone       = 1,
+  kCCITTGroup3 = 2,
+  kCCITTGroup4 = 3,
+  kLZW        = 5,
+  kJPEG       = 6,
+  kDeflate    = 8,
+  kPackBits   = 32773,
+};
+
+// Photometric interpretations
+enum class PhotometricType : uint16_t {
+  kWhiteIsZero = 0,
+  kBlackIsZero = 1,
+  kRGB        = 2,
+  kPalette    = 3,
+  kTransparencyMask = 4,
+  kCMYK       = 5,
+  kYCbCr      = 6,
+  kCIELab     = 8,
+};
+
+// Planar configurations
+enum class PlanarConfigType : uint16_t {
+  kChunky     = 1,  // RGBRGBRGB...
+  kPlanar     = 2,  // RRR...GGG...BBB...
+};
+
+// Sample formats
+enum class SampleFormatType : uint16_t {
+  kUnsignedInteger  = 1,
+  kSignedInteger    = 2,
+  kIEEEFloat        = 3,
+  kUndefined        = 4,
 };
 
 // TIFF data types
@@ -97,6 +137,12 @@ struct ImageDirectory {
   uint32_t tile_width = 0;
   uint32_t tile_height = 0;
   uint32_t rows_per_strip = 0;
+  uint16_t samples_per_pixel = 1;  // Default to 1 sample per pixel
+  uint16_t compression = static_cast<uint16_t>(CompressionType::kNone);  // Default to uncompressed
+  uint16_t photometric = 0;
+  uint16_t planar_config = static_cast<uint16_t>(PlanarConfigType::kChunky);  // Default to chunky
+  std::vector<uint16_t> bits_per_sample;  // Bits per sample for each channel
+  std::vector<uint16_t> sample_format;    // Format type for each channel
   std::vector<uint64_t> strip_offsets;
   std::vector<uint64_t> strip_bytecounts;
   std::vector<uint64_t> tile_offsets;
@@ -130,6 +176,14 @@ absl::Status ParseExternalArray(
     uint64_t count,
     TiffDataType data_type,
     std::vector<uint64_t>& out);
+
+// Parse a uint16_t array from an IFD entry
+absl::Status ParseUint16Array(
+    riegeli::Reader& reader,
+    Endian endian,
+    uint64_t offset,
+    uint64_t count,
+    std::vector<uint16_t>& out);
 
 // Determine if an IFD entry represents an external array based on type and count
 bool IsExternalArray(TiffDataType type, uint64_t count);

@@ -417,7 +417,7 @@ Future<void> TiffDirectoryCache::Entry::LoadExternalArrays(
     uint64_t count;
     // Instead of a single array, we also track which index in image_directories we belong to.
     size_t image_index;
-    // We’ll store into either tile_offsets, strip_offsets, etc. based on the tag.
+    // We'll store into either tile_offsets, strip_offsets, etc. based on the tag.
   };
   
   std::vector<ExternalArrayInfo> external_arrays;
@@ -509,46 +509,77 @@ Future<void> TiffDirectoryCache::Entry::LoadExternalArrays(
             return;
           }
 
-          // We'll parse the data into the image directory’s appropriate field.
+          // We'll parse the data into the image directory's appropriate field.
           // Grab the corresponding ImageDirectory.
           auto& img_dir = parse_result->image_directories[array_info.image_index];
 
           // Create a reader for the data
           riegeli::CordReader cord_reader(&rr->value);
+          
+          // Determine how to parse the array based on the tag and type
+          absl::Status parse_status;
+          
+          // Handle uint16_t arrays differently than uint64_t arrays
+          if (array_info.type == TiffDataType::kShort && 
+              (array_info.tag == Tag::kBitsPerSample || 
+               array_info.tag == Tag::kSampleFormat)) {
+            
+            // Parse uint16_t arrays
+            std::vector<uint16_t>* uint16_array = nullptr;
+            
+            switch (array_info.tag) {
+              case Tag::kBitsPerSample:
+                uint16_array = &img_dir.bits_per_sample;
+                break;
+              case Tag::kSampleFormat:
+                uint16_array = &img_dir.sample_format;
+                break;
+              default:
+                break;
+            }
+            
+            if (uint16_array) {
+              parse_status = ParseUint16Array(
+                  cord_reader,
+                  parse_result->endian, 
+                  /*offset=*/0,
+                  array_info.count,
+                  *uint16_array);
+            } else {
+              parse_status = absl::OkStatus();  // Skip unhandled uint16_t array
+            }
+          } else {
+            // Handle uint64_t arrays
+            std::vector<uint64_t>* output_array = nullptr;
+            switch (array_info.tag) {
+              case Tag::kStripOffsets:
+                output_array = &img_dir.strip_offsets;
+                break;
+              case Tag::kStripByteCounts:
+                output_array = &img_dir.strip_bytecounts;
+                break;
+              case Tag::kTileOffsets:
+                output_array = &img_dir.tile_offsets;
+                break;
+              case Tag::kTileByteCounts:
+                output_array = &img_dir.tile_bytecounts;
+                break;
+              default:
+                break;  // Skip unhandled uint64_t array
+            }
 
-          // We need a temporary buffer (vector<uint64_t>&, etc.) depending on tag:
-          std::vector<uint64_t>* output_array = nullptr;
-          switch (array_info.tag) {
-            case Tag::kStripOffsets:
-              output_array = &img_dir.strip_offsets;
-              break;
-            case Tag::kStripByteCounts:
-              output_array = &img_dir.strip_bytecounts;
-              break;
-            case Tag::kTileOffsets:
-              output_array = &img_dir.tile_offsets;
-              break;
-            case Tag::kTileByteCounts:
-              output_array = &img_dir.tile_bytecounts;
-              break;
-            default:
-              // Possibly skip or store in a custom field if needed
-              break;
+            if (output_array) {
+              parse_status = ParseExternalArray(
+                  cord_reader,
+                  parse_result->endian, 
+                  /*offset=*/0,
+                  array_info.count,
+                  array_info.type,
+                  *output_array);
+            } else {
+              parse_status = absl::OkStatus();  // Skip unhandled tag
+            }
           }
-
-          if (!output_array) {
-            ls->CompleteOne(absl::OkStatus());  // Not needed for this tag
-            return;
-          }
-
-          // Actually parse the external array
-          absl::Status parse_status = ParseExternalArray(
-              cord_reader,
-              parse_result->endian, 
-              /*offset=*/0,
-              array_info.count,
-              array_info.type,
-              *output_array);
 
           ls->CompleteOne(parse_status);
         });

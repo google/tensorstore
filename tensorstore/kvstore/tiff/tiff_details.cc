@@ -117,7 +117,84 @@ absl::Status ParseUint64Array(const IfdEntry* entry, std::vector<uint64_t>& out)
   }
 }
 
+// Helper to parse a uint16 value from an IFD entry
+absl::Status ParseUint16Value(const IfdEntry* entry, uint16_t& out) {
+  if (!entry) {
+    return absl::NotFoundError("Required tag missing");
+  }
+  if (entry->count != 1) {
+    return absl::InvalidArgumentError("Expected count of 1");
+  }
+  if (entry->type != TiffDataType::kShort) {
+    return absl::InvalidArgumentError("Expected SHORT type");
+  }
+  out = static_cast<uint16_t>(entry->value_or_offset);
+  return absl::OkStatus();
+}
+
+// Helper function to parse array of uint16 values from an IFD entry
+absl::Status ParseUint16Array(const IfdEntry* entry, std::vector<uint16_t>& out) {
+  if (!entry) {
+    return absl::NotFoundError("Required tag missing");
+  }
+  
+  if (entry->type != TiffDataType::kShort) {
+    return absl::InvalidArgumentError("Expected SHORT type");
+  }
+
+  // If this is an external array, it must be loaded separately
+  if (entry->is_external_array) {
+    // Initialize the output array with the correct size
+    out.resize(entry->count);
+    return absl::OkStatus();
+  } else {
+    // Inline value - parse it directly
+    out.resize(entry->count);
+    if (entry->count == 1) {
+      out[0] = static_cast<uint16_t>(entry->value_or_offset);
+      return absl::OkStatus();
+    } else {
+      // This shouldn't happen as we've checked is_external_array above
+      return absl::InternalError("Inconsistent state: multi-value array marked as inline");
+    }
+  }
+}
+
 }  // namespace
+
+// Implementation of the ParseUint16Array function to read arrays of uint16_t values
+absl::Status ParseUint16Array(
+  riegeli::Reader& reader,
+  Endian endian,
+  uint64_t offset,
+  uint64_t count,
+  std::vector<uint16_t>& out) {
+
+// Ensure output vector has the right size
+out.resize(count);
+
+// Seek to the offset
+if (!reader.Seek(offset)) {
+  return absl::InvalidArgumentError(absl::StrFormat(
+      "Failed to seek to external array at offset %llu", offset));
+}
+
+// Read uint16 values
+for (uint64_t i = 0; i < count; ++i) {
+  uint16_t value;
+  if (!ReadEndian(reader, endian, value)) {
+    return absl::DataLossError(absl::StrFormat(
+        "Failed to read SHORT value %llu in external array", i));
+  }
+  out[i] = value;
+}
+
+ABSL_LOG_IF(INFO, tiff_logging)
+    << absl::StrFormat("Read uint16 external array: offset=%llu, count=%llu",
+                      offset, count);
+
+return absl::OkStatus();
+}
 
 // Get the size in bytes for a given TIFF data type
 size_t GetTiffDataTypeSize(TiffDataType type) {
@@ -374,6 +451,57 @@ absl::Status ParseImageDirectory(
       ParseUint32Value(GetIfdEntry(Tag::kImageWidth, entries), out.width));
   TENSORSTORE_RETURN_IF_ERROR(
       ParseUint32Value(GetIfdEntry(Tag::kImageLength, entries), out.height));
+
+  // Parse optional fields
+
+  // Samples Per Pixel
+  const IfdEntry* samples_per_pixel = GetIfdEntry(Tag::kSamplesPerPixel, entries);
+  if (samples_per_pixel) {
+    TENSORSTORE_RETURN_IF_ERROR(
+        ParseUint16Value(samples_per_pixel, out.samples_per_pixel));
+  }
+
+  // Bits Per Sample
+  const IfdEntry* bits_per_sample = GetIfdEntry(Tag::kBitsPerSample, entries);
+  if (bits_per_sample) {
+    TENSORSTORE_RETURN_IF_ERROR(
+        ParseUint16Array(bits_per_sample, out.bits_per_sample));
+  } else {
+    // Default to 1 sample with 1 bit if not specified
+    out.bits_per_sample.resize(out.samples_per_pixel, 1);
+  }
+
+  // Compression
+  const IfdEntry* compression = GetIfdEntry(Tag::kCompression, entries);
+  if (compression) {
+    TENSORSTORE_RETURN_IF_ERROR(
+        ParseUint16Value(compression, out.compression));
+  }
+
+  // Photometric Interpretation
+  const IfdEntry* photometric = GetIfdEntry(Tag::kPhotometric, entries);
+  if (photometric) {
+    TENSORSTORE_RETURN_IF_ERROR(
+        ParseUint16Value(photometric, out.photometric));
+  }
+
+  // Planar Configuration
+  const IfdEntry* planar_config = GetIfdEntry(Tag::kPlanarConfig, entries);
+  if (planar_config) {
+    TENSORSTORE_RETURN_IF_ERROR(
+        ParseUint16Value(planar_config, out.planar_config));
+  }
+
+  // Sample Format
+  const IfdEntry* sample_format = GetIfdEntry(Tag::kSampleFormat, entries);
+  if (sample_format) {
+    TENSORSTORE_RETURN_IF_ERROR(
+        ParseUint16Array(sample_format, out.sample_format));
+  } else {
+    // Default to unsigned integer for all samples if not specified
+    out.sample_format.resize(out.samples_per_pixel, 
+                            static_cast<uint16_t>(SampleFormatType::kUnsignedInteger));
+  }
 
   // Check for tile-based organization
   const IfdEntry* tile_offsets = GetIfdEntry(Tag::kTileOffsets, entries);

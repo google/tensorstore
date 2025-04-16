@@ -39,6 +39,10 @@ using ::tensorstore::internal_tiff_kvstore::TiffDirectory;
 using ::tensorstore::internal_tiff_kvstore::ImageDirectory;
 using ::tensorstore::internal_tiff_kvstore::ParseImageDirectory;
 using ::tensorstore::internal_tiff_kvstore::Tag;
+using ::tensorstore::internal_tiff_kvstore::GetTiffDataTypeSize;
+using ::tensorstore::internal_tiff_kvstore::IsExternalArray;
+using ::tensorstore::internal_tiff_kvstore::ParseExternalArray;
+using ::tensorstore::internal_tiff_kvstore::ParseUint16Array;
 
 TEST(TiffDetailsTest, ParseValidTiffHeader) {
   // Create a minimal valid TIFF header (II, 42, offset 8)
@@ -182,20 +186,6 @@ TEST(TiffDetailsTest, ParseImageDirectory_Stripped_InlineOffsets_Success) {
   EXPECT_EQ(dir.strip_bytecounts[0], 8192);
 }
 
-TEST(TiffDetailsTest, ParseImageDirectory_Unsupported_OffsetToOffsets) {
-  std::vector<IfdEntry> entries = {
-    {Tag::kImageWidth, TiffDataType::kLong, 1, 800},       // ImageWidth
-    {Tag::kImageLength, TiffDataType::kLong, 1, 600},       // ImageLength
-    {Tag::kRowsPerStrip, TiffDataType::kLong, 1, 100},       // RowsPerStrip
-    {Tag::kStripOffsets, TiffDataType::kLong, 2, 1000},      // StripOffsets (offset to array)
-    {Tag::kStripByteCounts, TiffDataType::kLong, 2, 1100},      // StripByteCounts (offset to array)
-  };
-
-  ImageDirectory dir;
-  EXPECT_THAT(ParseImageDirectory(entries, dir),
-              ::tensorstore::MatchesStatus(absl::StatusCode::kUnimplemented));
-}
-
 TEST(TiffDetailsTest, ParseImageDirectory_DuplicateTags) {
   std::vector<IfdEntry> entries = {
     {Tag::kImageWidth, TiffDataType::kLong, 1, 800},       // ImageWidth
@@ -206,6 +196,187 @@ TEST(TiffDetailsTest, ParseImageDirectory_DuplicateTags) {
   ImageDirectory dir;
   EXPECT_THAT(ParseImageDirectory(entries, dir),
               ::tensorstore::MatchesStatus(absl::StatusCode::kNotFound));
+}
+
+TEST(TiffDetailsTest, GetTiffDataTypeSize) {
+  // Test size of various TIFF data types
+  EXPECT_EQ(GetTiffDataTypeSize(TiffDataType::kByte), 1);
+  EXPECT_EQ(GetTiffDataTypeSize(TiffDataType::kAscii), 1);
+  EXPECT_EQ(GetTiffDataTypeSize(TiffDataType::kShort), 2);
+  EXPECT_EQ(GetTiffDataTypeSize(TiffDataType::kLong), 4);
+  EXPECT_EQ(GetTiffDataTypeSize(TiffDataType::kRational), 8);
+  EXPECT_EQ(GetTiffDataTypeSize(TiffDataType::kSbyte), 1);
+  EXPECT_EQ(GetTiffDataTypeSize(TiffDataType::kUndefined), 1);
+  EXPECT_EQ(GetTiffDataTypeSize(TiffDataType::kSshort), 2);
+  EXPECT_EQ(GetTiffDataTypeSize(TiffDataType::kSlong), 4);
+  EXPECT_EQ(GetTiffDataTypeSize(TiffDataType::kSrational), 8);
+  EXPECT_EQ(GetTiffDataTypeSize(TiffDataType::kFloat), 4);
+  EXPECT_EQ(GetTiffDataTypeSize(TiffDataType::kDouble), 8);
+  EXPECT_EQ(GetTiffDataTypeSize(TiffDataType::kIfd), 4);
+  EXPECT_EQ(GetTiffDataTypeSize(TiffDataType::kLong8), 8);
+  EXPECT_EQ(GetTiffDataTypeSize(TiffDataType::kSlong8), 8);
+  EXPECT_EQ(GetTiffDataTypeSize(TiffDataType::kIfd8), 8);
+  
+  // Test with invalid type
+  EXPECT_EQ(GetTiffDataTypeSize(static_cast<TiffDataType>(999)), 0);
+}
+
+TEST(TiffDetailsTest, IsExternalArray) {
+  // Test with data that fits in 4 bytes (inline)
+  EXPECT_FALSE(IsExternalArray(TiffDataType::kLong, 1));     // 4 bytes
+  EXPECT_FALSE(IsExternalArray(TiffDataType::kShort, 2));    // 4 bytes
+  EXPECT_FALSE(IsExternalArray(TiffDataType::kByte, 4));     // 4 bytes
+  
+  // Test with data that doesn't fit in 4 bytes (external)
+  EXPECT_TRUE(IsExternalArray(TiffDataType::kLong, 2));      // 8 bytes
+  EXPECT_TRUE(IsExternalArray(TiffDataType::kShort, 3));     // 6 bytes
+  EXPECT_TRUE(IsExternalArray(TiffDataType::kByte, 5));      // 5 bytes
+  EXPECT_TRUE(IsExternalArray(TiffDataType::kRational, 1));  // 8 bytes
+}
+
+TEST(TiffDetailsTest, ParseExternalArray) {
+  // Create a buffer with four uint32 values in little-endian format
+  static constexpr unsigned char kBuffer[] = {
+      100, 0, 0, 0,    // 100 (uint32, little endian)
+      200, 0, 0, 0,    // 200
+      150, 0, 0, 0,    // 150
+      250, 0, 0, 0,    // 250
+  };
+  
+  riegeli::StringReader reader(
+      std::string_view(reinterpret_cast<const char*>(kBuffer), sizeof(kBuffer)));
+  
+  std::vector<uint64_t> values;
+  ASSERT_THAT(ParseExternalArray(reader, Endian::kLittle, 0, 4, 
+                                TiffDataType::kLong, values),
+              ::tensorstore::IsOk());
+  
+  ASSERT_EQ(values.size(), 4);
+  EXPECT_EQ(values[0], 100);
+  EXPECT_EQ(values[1], 200);
+  EXPECT_EQ(values[2], 150);
+  EXPECT_EQ(values[3], 250);
+}
+
+TEST(TiffDetailsTest, ParseExternalArray_SeekFail) {
+  // Create a small buffer to test seek failure
+  static constexpr unsigned char kBuffer[] = {1, 2, 3, 4};
+  
+  riegeli::StringReader reader(
+      std::string_view(reinterpret_cast<const char*>(kBuffer), sizeof(kBuffer)));
+  
+  std::vector<uint64_t> values;
+  // Try to seek beyond the buffer size
+  EXPECT_THAT(ParseExternalArray(reader, Endian::kLittle, 100, 1, 
+                                TiffDataType::kLong, values),
+              ::tensorstore::MatchesStatus(absl::StatusCode::kInvalidArgument));
+}
+
+TEST(TiffDetailsTest, ParseExternalArray_ReadFail) {
+  // Create a buffer with incomplete data
+  static constexpr unsigned char kBuffer[] = {100, 0, 0};  // Only 3 bytes
+  
+  riegeli::StringReader reader(
+      std::string_view(reinterpret_cast<const char*>(kBuffer), sizeof(kBuffer)));
+  
+  std::vector<uint64_t> values;
+  // Try to read a uint32 from a 3-byte buffer
+  EXPECT_THAT(ParseExternalArray(reader, Endian::kLittle, 0, 1, 
+                                TiffDataType::kLong, values),
+              ::tensorstore::MatchesStatus(absl::StatusCode::kDataLoss));
+}
+
+TEST(TiffDetailsTest, ParseExternalArray_InvalidType) {
+  // Create a small valid buffer
+  static constexpr unsigned char kBuffer[] = {1, 2, 3, 4};
+  
+  riegeli::StringReader reader(
+      std::string_view(reinterpret_cast<const char*>(kBuffer), sizeof(kBuffer)));
+  
+  std::vector<uint64_t> values;
+  // Try with an unsupported type
+  EXPECT_THAT(ParseExternalArray(reader, Endian::kLittle, 0, 1, 
+                                TiffDataType::kRational, values),
+              ::tensorstore::MatchesStatus(absl::StatusCode::kInvalidArgument));
+}
+
+TEST(TiffDetailsTest, ParseUint16Array) {
+  // Create a buffer with four uint16 values in little-endian format
+  static constexpr unsigned char kBuffer[] = {
+      100, 0,    // 100 (uint16, little endian)
+      200, 0,    // 200
+      150, 0,    // 150
+      250, 0,    // 250
+  };
+  
+  riegeli::StringReader reader(
+      std::string_view(reinterpret_cast<const char*>(kBuffer), sizeof(kBuffer)));
+  
+  std::vector<uint16_t> values;
+  ASSERT_THAT(ParseUint16Array(reader, Endian::kLittle, 0, 4, values),
+              ::tensorstore::IsOk());
+  
+  ASSERT_EQ(values.size(), 4);
+  EXPECT_EQ(values[0], 100);
+  EXPECT_EQ(values[1], 200);
+  EXPECT_EQ(values[2], 150);
+  EXPECT_EQ(values[3], 250);
+}
+
+TEST(TiffDetailsTest, ParseUint16Array_SeekFail) {
+  // Create a small buffer to test seek failure
+  static constexpr unsigned char kBuffer[] = {1, 2, 3, 4};
+  
+  riegeli::StringReader reader(
+      std::string_view(reinterpret_cast<const char*>(kBuffer), sizeof(kBuffer)));
+  
+  std::vector<uint16_t> values;
+  // Try to seek beyond the buffer size
+  EXPECT_THAT(ParseUint16Array(reader, Endian::kLittle, 100, 1, values),
+              ::tensorstore::MatchesStatus(absl::StatusCode::kInvalidArgument));
+}
+
+TEST(TiffDetailsTest, ParseUint16Array_ReadFail) {
+  // Create a buffer with incomplete data
+  static constexpr unsigned char kBuffer[] = {100};  // Only 1 byte
+  
+  riegeli::StringReader reader(
+      std::string_view(reinterpret_cast<const char*>(kBuffer), sizeof(kBuffer)));
+  
+  std::vector<uint16_t> values;
+  // Try to read a uint16 from a 1-byte buffer
+  EXPECT_THAT(ParseUint16Array(reader, Endian::kLittle, 0, 1, values),
+              ::tensorstore::MatchesStatus(absl::StatusCode::kDataLoss));
+}
+
+// Test for ParseImageDirectory with external arrays
+TEST(TiffDetailsTest, ParseImageDirectory_ExternalArrays) {
+  // Setup IFD entries with external arrays
+  std::vector<IfdEntry> entries = {
+    {Tag::kImageWidth, TiffDataType::kLong, 1, 800},       // ImageWidth
+    {Tag::kImageLength, TiffDataType::kLong, 1, 600},       // ImageLength
+    {Tag::kTileWidth, TiffDataType::kLong, 1, 256},        // TileWidth
+    {Tag::kTileLength, TiffDataType::kLong, 1, 256},        // TileLength
+    // External arrays (is_external_array = true)
+    {Tag::kTileOffsets, TiffDataType::kLong, 4, 1000, true},      // TileOffsets (external)
+    {Tag::kTileByteCounts, TiffDataType::kLong, 4, 2000, true},   // TileByteCounts (external)
+    {Tag::kBitsPerSample, TiffDataType::kShort, 3, 3000, true},   // BitsPerSample (external)
+    {Tag::kSamplesPerPixel, TiffDataType::kShort, 1, 3},         // SamplesPerPixel (inline)
+  };
+
+  ImageDirectory dir;
+  ASSERT_THAT(ParseImageDirectory(entries, dir), ::tensorstore::IsOk());
+  
+  EXPECT_EQ(dir.width, 800);
+  EXPECT_EQ(dir.height, 600);
+  EXPECT_EQ(dir.tile_width, 256);
+  EXPECT_EQ(dir.tile_height, 256);
+  EXPECT_EQ(dir.samples_per_pixel, 3);
+  
+  // External arrays should have the correct size but not be loaded yet
+  ASSERT_EQ(dir.tile_offsets.size(), 4);
+  ASSERT_EQ(dir.tile_bytecounts.size(), 4);
+  ASSERT_EQ(dir.bits_per_sample.size(), 3);
 }
 
 }  // namespace
