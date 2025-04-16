@@ -21,8 +21,8 @@
 #include "tensorstore/internal/cache/async_cache.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
-#include "tensorstore/util/executor.h"
 #include "tensorstore/kvstore/tiff/tiff_details.h"  // Add include for IfdEntry and ImageDirectory
+#include "tensorstore/util/executor.h"
 
 namespace tensorstore {
 namespace internal_tiff_kvstore {
@@ -34,19 +34,20 @@ struct TiffParseResult {
   // For step-1 this just captures the raw bytes we read.
   absl::Cord raw_data;
   bool full_read = false;  // identical meaning to zip cache.
-  
+
   // Store the endian order for the TIFF file
   Endian endian;
-  
+
   // Store all IFD directories in the TIFF file
   std::vector<TiffDirectory> directories;
-  
+
   // Store all parsed image directories
   std::vector<ImageDirectory> image_directories;
 };
 
-class TiffDirectoryCache : public internal::AsyncCache {  
+class TiffDirectoryCache : public internal::AsyncCache {
   using Base = internal::AsyncCache;
+
  public:
   using ReadData = TiffParseResult;
 
@@ -58,7 +59,7 @@ class TiffDirectoryCache : public internal::AsyncCache {
     using OwningCache = TiffDirectoryCache;
     size_t ComputeReadDataSizeInBytes(const void* read_data) final;
     void DoRead(AsyncCacheReadRequest request) final;
-  
+
     // Load external arrays identified during IFD parsing
     Future<void> LoadExternalArrays(
         std::shared_ptr<TiffParseResult> parse_result,

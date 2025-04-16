@@ -80,7 +80,8 @@ absl::Status ParseUint32Value(const IfdEntry* entry, uint32_t& out) {
   if (entry->count != 1) {
     return absl::InvalidArgumentError("Expected count of 1");
   }
-  if (entry->type != TiffDataType::kShort && entry->type != TiffDataType::kLong) {
+  if (entry->type != TiffDataType::kShort &&
+      entry->type != TiffDataType::kLong) {
     return absl::InvalidArgumentError("Expected SHORT or LONG type");
   }
   out = static_cast<uint32_t>(entry->value_or_offset);
@@ -88,12 +89,13 @@ absl::Status ParseUint32Value(const IfdEntry* entry, uint32_t& out) {
 }
 
 // Helper to parse array of uint64 values from an IFD entry
-absl::Status ParseUint64Array(const IfdEntry* entry, std::vector<uint64_t>& out) {
+absl::Status ParseUint64Array(const IfdEntry* entry,
+                              std::vector<uint64_t>& out) {
   if (!entry) {
     return absl::NotFoundError("Required tag missing");
   }
-  
-  if (entry->type != TiffDataType::kShort && 
+
+  if (entry->type != TiffDataType::kShort &&
       entry->type != TiffDataType::kLong &&
       entry->type != TiffDataType::kLong8) {
     return absl::InvalidArgumentError("Expected SHORT, LONG, or LONG8 type");
@@ -112,7 +114,8 @@ absl::Status ParseUint64Array(const IfdEntry* entry, std::vector<uint64_t>& out)
       return absl::OkStatus();
     } else {
       // This shouldn't happen as we've checked is_external_array above
-      return absl::InternalError("Inconsistent state: multi-value array marked as inline");
+      return absl::InternalError(
+          "Inconsistent state: multi-value array marked as inline");
     }
   }
 }
@@ -133,11 +136,12 @@ absl::Status ParseUint16Value(const IfdEntry* entry, uint16_t& out) {
 }
 
 // Helper function to parse array of uint16 values from an IFD entry
-absl::Status ParseUint16Array(const IfdEntry* entry, std::vector<uint16_t>& out) {
+absl::Status ParseUint16Array(const IfdEntry* entry,
+                              std::vector<uint16_t>& out) {
   if (!entry) {
     return absl::NotFoundError("Required tag missing");
   }
-  
+
   if (entry->type != TiffDataType::kShort) {
     return absl::InvalidArgumentError("Expected SHORT type");
   }
@@ -155,45 +159,42 @@ absl::Status ParseUint16Array(const IfdEntry* entry, std::vector<uint16_t>& out)
       return absl::OkStatus();
     } else {
       // This shouldn't happen as we've checked is_external_array above
-      return absl::InternalError("Inconsistent state: multi-value array marked as inline");
+      return absl::InternalError(
+          "Inconsistent state: multi-value array marked as inline");
     }
   }
 }
 
 }  // namespace
 
-// Implementation of the ParseUint16Array function to read arrays of uint16_t values
-absl::Status ParseUint16Array(
-  riegeli::Reader& reader,
-  Endian endian,
-  uint64_t offset,
-  uint64_t count,
-  std::vector<uint16_t>& out) {
+// Implementation of the ParseUint16Array function to read arrays of uint16_t
+// values
+absl::Status ParseUint16Array(riegeli::Reader& reader, Endian endian,
+                              uint64_t offset, uint64_t count,
+                              std::vector<uint16_t>& out) {
+  // Ensure output vector has the right size
+  out.resize(count);
 
-// Ensure output vector has the right size
-out.resize(count);
-
-// Seek to the offset
-if (!reader.Seek(offset)) {
-  return absl::InvalidArgumentError(absl::StrFormat(
-      "Failed to seek to external array at offset %llu", offset));
-}
-
-// Read uint16 values
-for (uint64_t i = 0; i < count; ++i) {
-  uint16_t value;
-  if (!ReadEndian(reader, endian, value)) {
-    return absl::DataLossError(absl::StrFormat(
-        "Failed to read SHORT value %llu in external array", i));
+  // Seek to the offset
+  if (!reader.Seek(offset)) {
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Failed to seek to external array at offset %llu", offset));
   }
-  out[i] = value;
-}
 
-ABSL_LOG_IF(INFO, tiff_logging)
-    << absl::StrFormat("Read uint16 external array: offset=%llu, count=%llu",
-                      offset, count);
+  // Read uint16 values
+  for (uint64_t i = 0; i < count; ++i) {
+    uint16_t value;
+    if (!ReadEndian(reader, endian, value)) {
+      return absl::DataLossError(absl::StrFormat(
+          "Failed to read SHORT value %llu in external array", i));
+    }
+    out[i] = value;
+  }
 
-return absl::OkStatus();
+  ABSL_LOG_IF(INFO, tiff_logging) << absl::StrFormat(
+      "Read uint16 external array: offset=%llu, count=%llu", offset, count);
+
+  return absl::OkStatus();
 }
 
 // Get the size in bytes for a given TIFF data type
@@ -229,17 +230,14 @@ bool IsExternalArray(TiffDataType type, uint64_t count) {
   // Calculate how many bytes the value would take
   size_t type_size = GetTiffDataTypeSize(type);
   size_t total_size = type_size * count;
-  
+
   // If the total size is more than 4 bytes, it's stored externally
   // (4 bytes is the size of the value_or_offset field in standard TIFF)
   return (total_size > 4);
 }
 
-absl::Status ParseTiffHeader(
-    riegeli::Reader& reader,
-    Endian& endian,
-    uint64_t& first_ifd_offset) {
-  
+absl::Status ParseTiffHeader(riegeli::Reader& reader, Endian& endian,
+                             uint64_t& first_ifd_offset) {
   // Pull first 8 bytes which contain the header info
   if (!reader.Pull(8)) {
     return absl::InvalidArgumentError(
@@ -258,39 +256,33 @@ absl::Status ParseTiffHeader(
   } else if (byte_order[0] == 'M' && byte_order[1] == 'M') {
     endian = Endian::kBig;
   } else {
-    return absl::InvalidArgumentError(
-        "Invalid TIFF byte order mark");
+    return absl::InvalidArgumentError("Invalid TIFF byte order mark");
   }
 
   // Read magic number (42 for standard TIFF)
   uint16_t magic;
   if (!ReadEndian(reader, endian, magic) || magic != 42) {
-    return absl::InvalidArgumentError(
-        "Invalid TIFF magic number");
+    return absl::InvalidArgumentError("Invalid TIFF magic number");
   }
 
   // Read offset to first IFD
   uint32_t offset32;
   if (!ReadEndian(reader, endian, offset32)) {
-    return absl::InvalidArgumentError(
-        "Failed to read first IFD offset");
+    return absl::InvalidArgumentError("Failed to read first IFD offset");
   }
   first_ifd_offset = offset32;
 
   ABSL_LOG_IF(INFO, tiff_logging)
-      << "TIFF header: endian=" << (endian == Endian::kLittle ? "little" : "big")
+      << "TIFF header: endian="
+      << (endian == Endian::kLittle ? "little" : "big")
       << " first_ifd_offset=" << first_ifd_offset;
 
   return absl::OkStatus();
 }
 
-absl::Status ParseTiffDirectory(
-    riegeli::Reader& reader,
-    Endian endian,
-    uint64_t directory_offset,
-    size_t available_size,
-    TiffDirectory& out) {
-  
+absl::Status ParseTiffDirectory(riegeli::Reader& reader, Endian endian,
+                                uint64_t directory_offset,
+                                size_t available_size, TiffDirectory& out) {
   // Position reader at directory offset
   if (!reader.Seek(directory_offset)) {
     return absl::InvalidArgumentError(absl::StrFormat(
@@ -307,7 +299,8 @@ absl::Status ParseTiffDirectory(
     return absl::InvalidArgumentError("Failed to read IFD entry count");
   }
 
-  // Each entry is 12 bytes, plus 2 bytes for count and 4 bytes for next IFD offset
+  // Each entry is 12 bytes, plus 2 bytes for count and 4 bytes for next IFD
+  // offset
   size_t required_size = 2 + (num_entries * 12) + 4;
   if (available_size < required_size) {
     return absl::DataLossError(absl::StrFormat(
@@ -324,7 +317,7 @@ absl::Status ParseTiffDirectory(
   // Read each entry
   for (uint16_t i = 0; i < num_entries; ++i) {
     IfdEntry entry;
-    
+
     // Read tag
     uint16_t tag_value;  // Temporary variable for reading the tag
     if (!ReadEndian(reader, endian, tag_value)) {
@@ -360,10 +353,10 @@ absl::Status ParseTiffDirectory(
     // Determine if this is an external array
     entry.is_external_array = IsExternalArray(entry.type, entry.count);
 
-    ABSL_LOG_IF(INFO, tiff_logging)
-        << absl::StrFormat("IFD entry %d: tag=0x%x type=%d count=%d value=%d external=%d",
-                          i, entry.tag, static_cast<int>(entry.type),
-                          entry.count, entry.value_or_offset, entry.is_external_array);
+    ABSL_LOG_IF(INFO, tiff_logging) << absl::StrFormat(
+        "IFD entry %d: tag=0x%x type=%d count=%d value=%d external=%d", i,
+        entry.tag, static_cast<int>(entry.type), entry.count,
+        entry.value_or_offset, entry.is_external_array);
 
     out.entries.push_back(entry);
   }
@@ -382,23 +375,19 @@ absl::Status ParseTiffDirectory(
   return absl::OkStatus();
 }
 
-absl::Status ParseExternalArray(
-    riegeli::Reader& reader,
-    Endian endian,
-    uint64_t offset,
-    uint64_t count,
-    TiffDataType data_type,
-    std::vector<uint64_t>& out) {
-  
+absl::Status ParseExternalArray(riegeli::Reader& reader, Endian endian,
+                                uint64_t offset, uint64_t count,
+                                TiffDataType data_type,
+                                std::vector<uint64_t>& out) {
   // Ensure output vector has the right size
   out.resize(count);
-  
+
   // Seek to the offset
   if (!reader.Seek(offset)) {
     return absl::InvalidArgumentError(absl::StrFormat(
         "Failed to seek to external array at offset %llu", offset));
   }
-  
+
   // Read based on data type
   for (uint64_t i = 0; i < count; ++i) {
     switch (data_type) {
@@ -430,22 +419,20 @@ absl::Status ParseExternalArray(
         break;
       }
       default:
-        return absl::InvalidArgumentError(absl::StrFormat(
-            "Unsupported data type %d for external array",
-            static_cast<int>(data_type)));
+        return absl::InvalidArgumentError(
+            absl::StrFormat("Unsupported data type %d for external array",
+                            static_cast<int>(data_type)));
     }
   }
-  
-  ABSL_LOG_IF(INFO, tiff_logging)
-      << absl::StrFormat("Read external array: offset=%llu, count=%llu",
-                        offset, count);
-  
+
+  ABSL_LOG_IF(INFO, tiff_logging) << absl::StrFormat(
+      "Read external array: offset=%llu, count=%llu", offset, count);
+
   return absl::OkStatus();
 }
 
-absl::Status ParseImageDirectory(
-    const std::vector<IfdEntry>& entries,
-    ImageDirectory& out) {
+absl::Status ParseImageDirectory(const std::vector<IfdEntry>& entries,
+                                 ImageDirectory& out) {
   // Required fields for all TIFF files
   TENSORSTORE_RETURN_IF_ERROR(
       ParseUint32Value(GetIfdEntry(Tag::kImageWidth, entries), out.width));
@@ -455,7 +442,8 @@ absl::Status ParseImageDirectory(
   // Parse optional fields
 
   // Samples Per Pixel
-  const IfdEntry* samples_per_pixel = GetIfdEntry(Tag::kSamplesPerPixel, entries);
+  const IfdEntry* samples_per_pixel =
+      GetIfdEntry(Tag::kSamplesPerPixel, entries);
   if (samples_per_pixel) {
     TENSORSTORE_RETURN_IF_ERROR(
         ParseUint16Value(samples_per_pixel, out.samples_per_pixel));
@@ -474,15 +462,13 @@ absl::Status ParseImageDirectory(
   // Compression
   const IfdEntry* compression = GetIfdEntry(Tag::kCompression, entries);
   if (compression) {
-    TENSORSTORE_RETURN_IF_ERROR(
-        ParseUint16Value(compression, out.compression));
+    TENSORSTORE_RETURN_IF_ERROR(ParseUint16Value(compression, out.compression));
   }
 
   // Photometric Interpretation
   const IfdEntry* photometric = GetIfdEntry(Tag::kPhotometric, entries);
   if (photometric) {
-    TENSORSTORE_RETURN_IF_ERROR(
-        ParseUint16Value(photometric, out.photometric));
+    TENSORSTORE_RETURN_IF_ERROR(ParseUint16Value(photometric, out.photometric));
   }
 
   // Planar Configuration
@@ -499,34 +485,37 @@ absl::Status ParseImageDirectory(
         ParseUint16Array(sample_format, out.sample_format));
   } else {
     // Default to unsigned integer for all samples if not specified
-    out.sample_format.resize(out.samples_per_pixel, 
-                            static_cast<uint16_t>(SampleFormatType::kUnsignedInteger));
+    out.sample_format.resize(
+        out.samples_per_pixel,
+        static_cast<uint16_t>(SampleFormatType::kUnsignedInteger));
   }
 
   // Check for tile-based organization
   const IfdEntry* tile_offsets = GetIfdEntry(Tag::kTileOffsets, entries);
   if (tile_offsets) {
     // Tiled TIFF
-    TENSORSTORE_RETURN_IF_ERROR(
-        ParseUint32Value(GetIfdEntry(Tag::kTileWidth, entries), out.tile_width));
-    TENSORSTORE_RETURN_IF_ERROR(
-        ParseUint32Value(GetIfdEntry(Tag::kTileLength, entries), out.tile_height));
+    TENSORSTORE_RETURN_IF_ERROR(ParseUint32Value(
+        GetIfdEntry(Tag::kTileWidth, entries), out.tile_width));
+    TENSORSTORE_RETURN_IF_ERROR(ParseUint32Value(
+        GetIfdEntry(Tag::kTileLength, entries), out.tile_height));
     TENSORSTORE_RETURN_IF_ERROR(
         ParseUint64Array(tile_offsets, out.tile_offsets));
-    
-    const IfdEntry* tile_bytecounts = GetIfdEntry(Tag::kTileByteCounts, entries);
+
+    const IfdEntry* tile_bytecounts =
+        GetIfdEntry(Tag::kTileByteCounts, entries);
     TENSORSTORE_RETURN_IF_ERROR(
         ParseUint64Array(tile_bytecounts, out.tile_bytecounts));
   } else {
     // Strip-based TIFF
-    TENSORSTORE_RETURN_IF_ERROR(
-        ParseUint32Value(GetIfdEntry(Tag::kRowsPerStrip, entries), out.rows_per_strip));
-    
+    TENSORSTORE_RETURN_IF_ERROR(ParseUint32Value(
+        GetIfdEntry(Tag::kRowsPerStrip, entries), out.rows_per_strip));
+
     const IfdEntry* strip_offsets = GetIfdEntry(Tag::kStripOffsets, entries);
     TENSORSTORE_RETURN_IF_ERROR(
         ParseUint64Array(strip_offsets, out.strip_offsets));
-    
-    const IfdEntry* strip_bytecounts = GetIfdEntry(Tag::kStripByteCounts, entries);
+
+    const IfdEntry* strip_bytecounts =
+        GetIfdEntry(Tag::kStripByteCounts, entries);
     TENSORSTORE_RETURN_IF_ERROR(
         ParseUint64Array(strip_bytecounts, out.strip_bytecounts));
   }
