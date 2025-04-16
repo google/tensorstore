@@ -52,6 +52,7 @@ tensorstore_cc_library(
         ":tiff_details",
         "//tensorstore/internal/cache:async_cache",
         "//tensorstore/internal/cache:cache",
+        "//tensorstore/internal/cache_key",
         "//tensorstore/internal/estimate_heap_usage",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:byte_range",
@@ -61,6 +62,8 @@ tensorstore_cc_library(
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/strings:cord",
         "@com_google_riegeli//riegeli/bytes:cord_reader",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/hash",
     ],
 )
 

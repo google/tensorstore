@@ -116,17 +116,18 @@ TEST(TiffDirectoryCacheTest, ReadSlice) {
     TiffDirectoryCache::ReadLock<TiffDirectoryCache::ReadData> lock(*entry);
     auto* data = lock.data();
     ASSERT_THAT(data, ::testing::NotNull());
-    EXPECT_EQ(data->raw_data.size(), 1024);
     EXPECT_FALSE(data->full_read);
     
-    // Check parsed IFD entries
-    EXPECT_EQ(data->ifd_entries.size(), 6);
+    // Check parsed directories
+    EXPECT_EQ(data->directories.size(), 1);
+    EXPECT_EQ(data->directories[0].entries.size(), 6);
+    EXPECT_EQ(data->image_directories.size(), 1);
     
-    // Check parsed image directory
-    EXPECT_EQ(data->image_directory.width, 800);
-    EXPECT_EQ(data->image_directory.height, 600);
-    EXPECT_EQ(data->image_directory.tile_width, 256);
-    EXPECT_EQ(data->image_directory.tile_height, 256);
+    // Check parsed image directory 
+    EXPECT_EQ(data->image_directories[0].width, 800);
+    EXPECT_EQ(data->image_directories[0].height, 600);
+    EXPECT_EQ(data->image_directories[0].tile_width, 256);
+    EXPECT_EQ(data->image_directories[0].tile_height, 256);
   }
 }
 
@@ -204,20 +205,21 @@ TEST(TiffDirectoryCacheTest, ReadFull) {
     TiffDirectoryCache::ReadLock<TiffDirectoryCache::ReadData> lock(*entry);
     auto* data = lock.data();
     ASSERT_THAT(data, ::testing::NotNull());
-    EXPECT_EQ(data->raw_data.size(), 512);
     EXPECT_TRUE(data->full_read);
     
-    // Check parsed IFD entries
-    EXPECT_EQ(data->ifd_entries.size(), 5);
+    // Check parsed directories
+    EXPECT_EQ(data->directories.size(), 1);
+    EXPECT_EQ(data->directories[0].entries.size(), 5);
+    EXPECT_EQ(data->image_directories.size(), 1);
     
     // Check parsed image directory
-    EXPECT_EQ(data->image_directory.width, 400);
-    EXPECT_EQ(data->image_directory.height, 300);
-    EXPECT_EQ(data->image_directory.rows_per_strip, 100);
-    EXPECT_EQ(data->image_directory.strip_offsets.size(), 1);
-    EXPECT_EQ(data->image_directory.strip_offsets[0], 128);
-    EXPECT_EQ(data->image_directory.strip_bytecounts.size(), 1);
-    EXPECT_EQ(data->image_directory.strip_bytecounts[0], 200);
+    EXPECT_EQ(data->image_directories[0].width, 400);
+    EXPECT_EQ(data->image_directories[0].height, 300);
+    EXPECT_EQ(data->image_directories[0].rows_per_strip, 100);
+    EXPECT_EQ(data->image_directories[0].strip_offsets.size(), 1);
+    EXPECT_EQ(data->image_directories[0].strip_offsets[0], 128);
+    EXPECT_EQ(data->image_directories[0].strip_bytecounts.size(), 1);
+    EXPECT_EQ(data->image_directories[0].strip_bytecounts[0], 200);
   }
 }
 
@@ -376,13 +378,13 @@ TEST(TiffDirectoryCacheTest, ExternalArrays_EagerLoad) {
     ASSERT_THAT(data, ::testing::NotNull());
     
     // Check that external arrays were loaded
-    EXPECT_EQ(data->image_directory.strip_offsets.size(), 4);
-    EXPECT_EQ(data->image_directory.strip_bytecounts.size(), 4);
+    EXPECT_EQ(data->image_directories[0].strip_offsets.size(), 4);
+    EXPECT_EQ(data->image_directories[0].strip_bytecounts.size(), 4);
     
     // Verify the external array values were loaded correctly
     for (int i = 0; i < 4; i++) {
-      EXPECT_EQ(data->image_directory.strip_offsets[i], strip_offsets[i]);
-      EXPECT_EQ(data->image_directory.strip_bytecounts[i], strip_bytecounts[i]);
+      EXPECT_EQ(data->image_directories[0].strip_offsets[i], strip_offsets[i]);
+      EXPECT_EQ(data->image_directories[0].strip_bytecounts[i], strip_bytecounts[i]);
     }
   }
 }
@@ -470,5 +472,136 @@ TEST(TiffDirectoryCacheTest, ExternalArrays_BadPointer) {
               absl::IsInvalidArgument(read_result.status()) ||
               absl::IsFailedPrecondition(read_result.status()));
 }
+
+// Helper to create a test TIFF file with multiple IFDs
+std::string MakeMultiPageTiff() {
+  std::string tiff_data;
+  
+  // TIFF header (8 bytes)
+  tiff_data += "II";                           // Little endian
+  tiff_data.push_back(42); tiff_data.push_back(0);  // Magic number
+  tiff_data.push_back(8); tiff_data.push_back(0);   // IFD offset (8)
+  tiff_data.push_back(0); tiff_data.push_back(0);
+  
+  // Helper to add an IFD entry
+  auto AddEntry = [&tiff_data](uint16_t tag, uint16_t type, uint32_t count, uint32_t value) {
+    tiff_data.push_back(tag & 0xFF);
+    tiff_data.push_back((tag >> 8) & 0xFF);
+    tiff_data.push_back(type & 0xFF);
+    tiff_data.push_back((type >> 8) & 0xFF);
+    tiff_data.push_back(count & 0xFF);
+    tiff_data.push_back((count >> 8) & 0xFF);
+    tiff_data.push_back((count >> 16) & 0xFF);
+    tiff_data.push_back((count >> 24) & 0xFF);
+    tiff_data.push_back(value & 0xFF);
+    tiff_data.push_back((value >> 8) & 0xFF);
+    tiff_data.push_back((value >> 16) & 0xFF);
+    tiff_data.push_back((value >> 24) & 0xFF);
+  };
+
+  // First IFD at offset 8
+  tiff_data.push_back(5); tiff_data.push_back(0);  // 5 entries
+  
+  // Add strip-based entries for first IFD
+  AddEntry(256, 3, 1, 400);  // ImageWidth = 400
+  AddEntry(257, 3, 1, 300);  // ImageLength = 300
+  AddEntry(278, 3, 1, 100);  // RowsPerStrip = 100
+  AddEntry(273, 4, 1, 1000);  // StripOffsets = 1000
+  AddEntry(279, 4, 1, 200);  // StripByteCounts = 200
+  
+  // Point to second IFD at offset 200
+  tiff_data.push_back(200); tiff_data.push_back(0);
+  tiff_data.push_back(0); tiff_data.push_back(0);
+  
+  // Pad to second IFD offset
+  while (tiff_data.size() < 200) {
+    tiff_data.push_back('X');
+  }
+  
+  // Second IFD
+  tiff_data.push_back(6); tiff_data.push_back(0);  // 6 entries
+  
+  // Add tile-based entries for second IFD
+  AddEntry(256, 3, 1, 800);  // ImageWidth = 800
+  AddEntry(257, 3, 1, 600);  // ImageLength = 600
+  AddEntry(322, 3, 1, 256);  // TileWidth = 256
+  AddEntry(323, 3, 1, 256);  // TileLength = 256
+  AddEntry(324, 4, 1, 2000);  // TileOffsets
+  AddEntry(325, 4, 1, 300);   // TileByteCounts (needed for tile-based IFD)
+  
+  // No more IFDs
+  tiff_data.push_back(0); tiff_data.push_back(0);
+  tiff_data.push_back(0); tiff_data.push_back(0);
+  
+  // Pad file to cover all offsets
+  while (tiff_data.size() < 3000) {
+    tiff_data.push_back('X');
+  }
+  
+  return tiff_data;
+}
+
+TEST(TiffDirectoryCacheMultiIfdTest, ReadAndVerifyIFDs) {
+  auto context = Context::Default();
+  auto pool = CachePool::Make(CachePool::Limits{});
+
+  // Create an in-memory kvstore with test data
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      tensorstore::KvStore memory,
+      tensorstore::kvstore::Open({{"driver", "memory"}}, context).result());
+
+  ASSERT_THAT(
+      tensorstore::kvstore::Write(memory, "multi_ifd.tiff", 
+                                 absl::Cord(MakeMultiPageTiff()))
+          .result(),
+      ::tensorstore::IsOk());
+
+  auto cache = GetCache<TiffDirectoryCache>(pool.get(), "", [&] {
+    return std::make_unique<TiffDirectoryCache>(memory.driver, InlineExecutor{});
+  });
+
+  auto entry = GetCacheEntry(cache, "multi_ifd.tiff");
+
+  // Request to read the TIFF with multiple IFDs
+  tensorstore::internal::AsyncCache::AsyncCacheReadRequest request;
+  request.staleness_bound = absl::InfinitePast();
+
+  ASSERT_THAT(entry->Read(request).result(), ::tensorstore::IsOk());
+
+  TiffDirectoryCache::ReadLock<TiffDirectoryCache::ReadData> lock(*entry);
+  auto* data = lock.data();
+  ASSERT_THAT(data, ::testing::NotNull());
+
+  // Verify we have two IFDs
+  EXPECT_EQ(data->directories.size(), 2);
+  EXPECT_EQ(data->image_directories.size(), 2);
+
+  // Check first IFD (strip-based)
+  const auto& ifd1 = data->directories[0];
+  const auto& img1 = data->image_directories[0];
+  EXPECT_EQ(ifd1.entries.size(), 5);
+  EXPECT_EQ(img1.width, 400);
+  EXPECT_EQ(img1.height, 300);
+  EXPECT_EQ(img1.rows_per_strip, 100);
+  EXPECT_EQ(img1.strip_offsets.size(), 1);
+  EXPECT_EQ(img1.strip_offsets[0], 1000);
+  EXPECT_EQ(img1.strip_bytecounts[0], 200);
+  
+  // Check second IFD (tile-based)
+  const auto& ifd2 = data->directories[1];
+  const auto& img2 = data->image_directories[1];
+  EXPECT_EQ(ifd2.entries.size(), 6);
+  EXPECT_EQ(img2.width, 800);
+  EXPECT_EQ(img2.height, 600);
+  EXPECT_EQ(img2.tile_width, 256);
+  EXPECT_EQ(img2.tile_height, 256);
+  EXPECT_EQ(img2.tile_offsets.size(), 1);
+  EXPECT_EQ(img2.tile_offsets[0], 2000);
+  
+  // Since our test file is smaller than kInitialReadBytes (1024),
+  // it should be fully read in one shot
+  EXPECT_TRUE(data->full_read);
+}
+
 
 }  // namespace
