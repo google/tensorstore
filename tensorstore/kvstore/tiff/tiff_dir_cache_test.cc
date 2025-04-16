@@ -598,10 +598,107 @@ TEST(TiffDirectoryCacheMultiIfdTest, ReadAndVerifyIFDs) {
   EXPECT_EQ(img2.tile_offsets.size(), 1);
   EXPECT_EQ(img2.tile_offsets[0], 2000);
   
-  // Since our test file is smaller than kInitialReadBytes (1024),
-  // it should be fully read in one shot
-  EXPECT_TRUE(data->full_read);
+  // Since our test file is larger than kInitialReadBytes (1024),
+  // it should be not be fully read in one shot
+  EXPECT_FALSE(data->full_read);
 }
 
+TEST(TiffDirectoryCacheMultiIfdTest, ReadLargeMultiPageTiff) {
+  auto context = Context::Default();
+  auto pool = CachePool::Make(CachePool::Limits{});
+
+  // Create an in-memory kvstore with test data
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      tensorstore::KvStore memory,
+      tensorstore::kvstore::Open({{"driver", "memory"}}, context).result());
+
+  // Create a TIFF file larger than kInitialReadBytes
+  std::string tiff_data;
+  
+  // TIFF header (8 bytes)
+  tiff_data += "II";                           // Little endian
+  tiff_data.push_back(42); tiff_data.push_back(0);  // Magic number
+  tiff_data.push_back(8); tiff_data.push_back(0);   // IFD offset (8)
+  tiff_data.push_back(0); tiff_data.push_back(0);
+  
+  auto AddEntry = [&tiff_data](uint16_t tag, uint16_t type, uint32_t count, uint32_t value) {
+    tiff_data.push_back(tag & 0xFF);
+    tiff_data.push_back((tag >> 8) & 0xFF);
+    tiff_data.push_back(type & 0xFF);
+    tiff_data.push_back((type >> 8) & 0xFF);
+    tiff_data.push_back(count & 0xFF);
+    tiff_data.push_back((count >> 8) & 0xFF);
+    tiff_data.push_back((count >> 16) & 0xFF);
+    tiff_data.push_back((count >> 24) & 0xFF);
+    tiff_data.push_back(value & 0xFF);
+    tiff_data.push_back((value >> 8) & 0xFF);
+    tiff_data.push_back((value >> 16) & 0xFF);
+    tiff_data.push_back((value >> 24) & 0xFF);
+  };
+
+  // First IFD
+  tiff_data.push_back(5); tiff_data.push_back(0);  // 5 entries
+  AddEntry(256, 3, 1, 400);  // ImageWidth = 400 
+  AddEntry(257, 3, 1, 300);  // ImageLength = 300
+  AddEntry(278, 3, 1, 100);  // RowsPerStrip = 100
+  AddEntry(273, 4, 1, 1024); // StripOffsets = 1024 (just after initial read)
+  AddEntry(279, 4, 1, 200);  // StripByteCounts = 200
+  
+  // Point to second IFD at offset 2048 (well beyond initial read)
+  tiff_data.push_back(0x00); tiff_data.push_back(0x08);
+  tiff_data.push_back(0x00); tiff_data.push_back(0x00);
+  
+  // Pad to second IFD offset
+  while (tiff_data.size() < 2048) {
+    tiff_data.push_back('X');
+  }
+  
+  // Second IFD
+  tiff_data.push_back(6); tiff_data.push_back(0);  // 6 entries
+  AddEntry(256, 3, 1, 800);  // ImageWidth = 800
+  AddEntry(257, 3, 1, 600);  // ImageLength = 600
+  AddEntry(322, 3, 1, 256);  // TileWidth = 256
+  AddEntry(323, 3, 1, 256);  // TileLength = 256
+  AddEntry(324, 4, 1, 3000); // TileOffsets
+  AddEntry(325, 4, 1, 300);  // TileByteCounts (needed for tile-based IFD)
+  
+  // No more IFDs
+  tiff_data.push_back(0); tiff_data.push_back(0);
+  tiff_data.push_back(0); tiff_data.push_back(0);
+  
+  // Pad file to cover all offsets
+  while (tiff_data.size() < 4096) {
+    tiff_data.push_back('X');
+  }
+
+  ASSERT_THAT(
+      tensorstore::kvstore::Write(memory, "large_multi_ifd.tiff", 
+                                 absl::Cord(tiff_data))
+          .result(),
+      ::tensorstore::IsOk());
+
+  auto cache = GetCache<TiffDirectoryCache>(pool.get(), "", [&] {
+    return std::make_unique<TiffDirectoryCache>(memory.driver, InlineExecutor{});
+  });
+
+  auto entry = GetCacheEntry(cache, "large_multi_ifd.tiff");
+
+  tensorstore::internal::AsyncCache::AsyncCacheReadRequest request;
+  request.staleness_bound = absl::InfinitePast();
+
+  ASSERT_THAT(entry->Read(request).result(), ::tensorstore::IsOk());
+
+  TiffDirectoryCache::ReadLock<TiffDirectoryCache::ReadData> lock(*entry);
+  auto* data = lock.data();
+  ASSERT_THAT(data, ::testing::NotNull());
+
+  // Verify we have two IFDs
+  EXPECT_EQ(data->directories.size(), 2);
+  EXPECT_EQ(data->image_directories.size(), 2);
+
+  // Verify both IFDs were correctly parsed despite being in different chunks
+  EXPECT_EQ(data->image_directories[0].width, 400);
+  EXPECT_EQ(data->image_directories[1].width, 800);
+}
 
 }  // namespace

@@ -193,14 +193,19 @@ struct ReadState : public internal::AtomicReferenceCount<ReadState> {
           *(owner_->cache_entry_));
       stamp = lock.stamp();
 
-      // Get directory data and verify ifd_ is valid (only ifd 0 for now)
+      // Get directory data and verify ifd_ is valid
       assert(lock.data());
-      const auto& dir = lock.data()->image_directory;
       
-      if (ifd_ != 0) {
-        promise.SetResult(absl::UnimplementedError("Only IFD 0 implemented"));
+      // Check if the requested IFD exists
+      if (ifd_ >= lock.data()->image_directories.size()) {
+        promise.SetResult(absl::NotFoundError(
+          absl::StrFormat("IFD %d not found, only %d IFDs available", 
+                        ifd_, lock.data()->image_directories.size())));
         return;
       }
+      
+      // Get the image directory for the requested IFD
+      const auto& dir = lock.data()->image_directories[ifd_];
 
       // Check if tile/strip indices are in bounds
       uint32_t chunk_rows, chunk_cols;
@@ -334,48 +339,61 @@ struct ListState : public internal::AtomicReferenceCount<ListState> {
       
     // Get directory information
     assert(lock.data());
-    const auto& dir = lock.data()->image_directory;
-    
-    // Currently only support IFD 0
-    // Determine number of tiles/strips
-    uint32_t chunk_rows, chunk_cols;
-    if (dir.tile_width > 0) {
-      // Tiled TIFF
-      chunk_rows = (dir.height + dir.tile_height - 1) / dir.tile_height;
-      chunk_cols = (dir.width + dir.tile_width - 1) / dir.tile_width;
-    } else {
-      // Strip-based TIFF
-      chunk_rows = dir.strip_offsets.size();
-      chunk_cols = 1;
-    }
-    
-    // Generate tile/strip keys that match our range constraints
-    for (uint32_t row = 0; row < chunk_rows; ++row) {
-      for (uint32_t col = 0; col < chunk_cols; ++col) {
-        // Create key in "tile/0/%d/%d" format
-        std::string key = absl::StrFormat("tile/0/%d/%d", row, col);
-        
-        // Check if key is in the requested range
-        if (tensorstore::Contains(options_.range, key)) {
-          // For strips, get size from strip_bytecounts
-          // For tiles, get size from tile_bytecounts
-          size_t size;
-          if (dir.tile_width > 0) {
-            size_t index = row * chunk_cols + col;
-            size = dir.tile_bytecounts[index];
-          } else {
-            size = dir.strip_bytecounts[row];
-          }
+
+    // Process each IFD in the TIFF file
+    for (size_t ifd_index = 0; ifd_index < lock.data()->image_directories.size(); ++ifd_index) {
+      const auto& dir = lock.data()->image_directories[ifd_index];
+      
+      // Determine number of tiles/strips for this IFD
+      uint32_t chunk_rows, chunk_cols;
+      if (dir.tile_width > 0) {
+        // Tiled TIFF
+        chunk_rows = (dir.height + dir.tile_height - 1) / dir.tile_height;
+        chunk_cols = (dir.width + dir.tile_width - 1) / dir.tile_width;
+      } else {
+        // Strip-based TIFF
+        chunk_rows = dir.strip_offsets.size();
+        chunk_cols = 1;
+      }
+      
+      // Generate tile/strip keys that match our range constraints
+      for (uint32_t row = 0; row < chunk_rows; ++row) {
+        for (uint32_t col = 0; col < chunk_cols; ++col) {
+          // Create key in "tile/%d/%d/%d" format
+          std::string key = absl::StrFormat("tile/%d/%d/%d", ifd_index, row, col);
           
-          // Strip prefix if needed
-          std::string adjusted_key = key;
-          if (options_.strip_prefix_length > 0 && 
-              options_.strip_prefix_length < key.size()) {
-            adjusted_key = key.substr(options_.strip_prefix_length);
+          // Check if key is in the requested range
+          if (tensorstore::Contains(options_.range, key)) {
+            // For strips, get size from strip_bytecounts
+            // For tiles, get size from tile_bytecounts
+            size_t size;
+            if (dir.tile_width > 0) {
+              size_t index = row * chunk_cols + col;
+              if (index < dir.tile_bytecounts.size()) {
+                size = dir.tile_bytecounts[index];
+              } else {
+                // Skip invalid indices
+                continue;
+              }
+            } else {
+              if (row < dir.strip_bytecounts.size()) {
+                size = dir.strip_bytecounts[row];
+              } else {
+                // Skip invalid indices
+                continue;
+              }
+            }
+            
+            // Strip prefix if needed
+            std::string adjusted_key = key;
+            if (options_.strip_prefix_length > 0 && 
+                options_.strip_prefix_length < key.size()) {
+              adjusted_key = key.substr(options_.strip_prefix_length);
+            }
+            
+            execution::set_value(receiver_, 
+                                ListEntry{adjusted_key, ListEntry::checked_size(size)});
           }
-          
-          execution::set_value(receiver_, 
-                              ListEntry{adjusted_key, ListEntry::checked_size(size)});
         }
       }
     }

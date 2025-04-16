@@ -56,9 +56,9 @@ struct ReadDirectoryOp : public internal::AtomicReferenceCount<ReadDirectoryOp> 
 
   void StartTiffRead() {
     auto& cache = internal::GetOwningCache(*entry_);
-    ABSL_LOG_IF(INFO, tiff_logging)
+    ABSL_LOG(INFO)
         << "StartTiffRead " << entry_->key() << " with byte range: " << options_.byte_range;
-    
+
     // 1.  Default to the "slice‑first" strategy -----------------------------
     is_full_read_ = false;
     file_offset_ = 0;  // We’re reading from the start.
@@ -75,12 +75,12 @@ struct ReadDirectoryOp : public internal::AtomicReferenceCount<ReadDirectoryOp> 
     }
 
     auto future = cache.kvstore_driver_->Read(std::string(entry_->key()), options_);
-    ABSL_LOG_IF(INFO, tiff_logging) << "Issued initial read request for key: " << entry_->key();
+    ABSL_LOG(INFO) << "Issued initial read request for key: " << entry_->key() << " with byte range: " << options_.byte_range;
     future.Force();
     future.ExecuteWhenReady(
         [self = internal::IntrusivePtr<ReadDirectoryOp>(this)](
             ReadyFuture<kvstore::ReadResult> ready) {
-          ABSL_LOG_IF(INFO, tiff_logging) << "Initial read completed for key: " << self->entry_->key();
+          ABSL_LOG(INFO) << "Initial read completed for key: " << self->entry_->key();
           self->OnHeaderReadComplete(std::move(ready));
         });
   }
@@ -88,14 +88,15 @@ struct ReadDirectoryOp : public internal::AtomicReferenceCount<ReadDirectoryOp> 
   // Called after the initial read completes (the read that tries to parse the TIFF header).
   void OnHeaderReadComplete(ReadyFuture<kvstore::ReadResult> ready) {
     const auto& r = ready.result();
-    ABSL_LOG_IF(INFO, tiff_logging) << "OnHeaderReadComplete called for key: " << entry_->key();
+    ABSL_LOG(INFO) << "OnHeaderReadComplete called for key: " << entry_->key();
 
     if (!r.ok()) {
-      ABSL_LOG_IF(WARNING, tiff_logging) << "Read failed with status: " << r.status();
+      ABSL_LOG(WARNING) << "Read failed with status: " << r.status();
       // Possibly partial read overshot the file
       if (!is_full_read_ && absl::IsOutOfRange(r.status())) {
         is_full_read_ = true;
         // Switch to a full read
+        ABSL_LOG(INFO) << "Overshot file. Issuing a full read for key: " << entry_->key();
         options_.byte_range = {};
         auto& cache = internal::GetOwningCache(*entry_);
         auto retry_future = cache.kvstore_driver_->Read(std::string(entry_->key()), options_);
@@ -113,7 +114,7 @@ struct ReadDirectoryOp : public internal::AtomicReferenceCount<ReadDirectoryOp> 
     }
 
     if (r->not_found()) {
-      ABSL_LOG_IF(WARNING, tiff_logging) << "File not found for key: " << entry_->key();
+      ABSL_LOG(WARNING) << "File not found for key: " << entry_->key();
       entry_->ReadError(absl::NotFoundError("File not found"));
       return;
     }
@@ -144,11 +145,11 @@ struct ReadDirectoryOp : public internal::AtomicReferenceCount<ReadDirectoryOp> 
     Endian endian;
     absl::Status header_status = ParseTiffHeader(cord_reader, endian, next_ifd_offset_);
     if (!header_status.ok()) {
-      ABSL_LOG_IF(WARNING, tiff_logging) << "Failed to parse TIFF header: " << header_status;
+      ABSL_LOG(WARNING) << "Failed to parse TIFF header: " << header_status;
       entry_->ReadError(header_status);
       return;
     }
-    ABSL_LOG_IF(INFO, tiff_logging) << "TIFF header parsed successfully."
+    ABSL_LOG(INFO) << "TIFF header parsed successfully."
                                     << ", Next IFD offset: " << next_ifd_offset_;
     parse_result_->endian = endian;
 
@@ -192,7 +193,7 @@ struct ReadDirectoryOp : public internal::AtomicReferenceCount<ReadDirectoryOp> 
   // This attempts to parse one IFD at next_ifd_offset_ using our current buffer. 
   // If that offset is beyond the buffer range, returns OutOfRangeError. If success, updates parse_result_, next_ifd_offset_.
   absl::Status ParseOneIFD() {
-    ABSL_LOG_IF(INFO, tiff_logging) << "Parsing IFD at offset: " << next_ifd_offset_
+    ABSL_LOG(INFO) << "Parsing IFD at offset: " << next_ifd_offset_
                                     << " for key: " << entry_->key();
     // 1. We slice the buffer so that raw_data[0] corresponds to next_ifd_offset_ in the file if it’s inside the current buffer’s range.
     //    The difference is next_ifd_offset_ - file_offset_.
@@ -204,8 +205,8 @@ struct ReadDirectoryOp : public internal::AtomicReferenceCount<ReadDirectoryOp> 
     uint64_t buffer_size = parse_result_->raw_data.size();
 
     if (relative_pos > buffer_size) {
-      ABSL_LOG_IF(WARNING, tiff_logging) << "Buffer underflow while parsing IFD. Needed offset: "
-                                         << relative_pos << ", Buffer size: " << buffer_size;
+      ABSL_LOG(WARNING) << "Buffer underflow while parsing IFD. Needed next_ifd_offset: "
+                                         << relative_pos << ", Max available offset: " << file_offset_ + buffer_size;
       // We’re missing data
       return absl::OutOfRangeError("Next IFD is outside our current buffer range.");
     }
@@ -226,7 +227,7 @@ struct ReadDirectoryOp : public internal::AtomicReferenceCount<ReadDirectoryOp> 
                                         parse_result_->raw_data.size(), 
                                         dir);
     if (!s.ok()) {
-      ABSL_LOG_IF(WARNING, tiff_logging) << "Failed to parse IFD: " << s;
+      ABSL_LOG(WARNING) << "Failed to parse IFD: " << s;
       return s; // Could be OutOfRange, parse error, etc.
     }
 
@@ -235,14 +236,14 @@ struct ReadDirectoryOp : public internal::AtomicReferenceCount<ReadDirectoryOp> 
 
     // Update next_ifd_offset_ to the directory’s next offset
     next_ifd_offset_ = dir.next_ifd_offset;
-    ABSL_LOG_IF(INFO, tiff_logging) << "Parsed IFD successfully. Next IFD offset: " << dir.next_ifd_offset;
+    ABSL_LOG(INFO) << "Parsed IFD successfully. Next IFD offset: " << dir.next_ifd_offset;
     return absl::OkStatus();
   }
 
   /// If we discover we need more data to parse the next IFD, we read newer bytes from the file.
   /// Suppose we read from [file_offset_ + buffer.size(), file_offset_ + buffer.size() + chunk).
   void RequestMoreData(tensorstore::TimestampedStorageGeneration stamp) {
-    ABSL_LOG_IF(INFO, tiff_logging) << "Requesting more data for key: " << entry_->key()
+    ABSL_LOG(INFO) << "Requesting more data for key: " << entry_->key()
                                     << ". Current buffer size: " << parse_result_->raw_data.size()
                                     << ", Full read: " << parse_result_->full_read;
     if (parse_result_->full_read) {
@@ -252,13 +253,11 @@ struct ReadDirectoryOp : public internal::AtomicReferenceCount<ReadDirectoryOp> 
     }
 
     if (!is_full_read_) {
-      // Expand by doubling or jump to the next IFD offset. 
-      // For simplicity, let’s do “extend the buffer by kInitialReadBytes again.”
-      size_t new_chunk_size = parse_result_->raw_data.size() + kInitialReadBytes;
-      // But the actual file offset we want is from [file_offset_ + parse_result_->raw_data.size()]
-      uint64_t read_begin = file_offset_ + parse_result_->raw_data.size();
-      uint64_t read_end = read_begin + new_chunk_size;
-
+      uint64_t current_data_end = file_offset_ + parse_result_->raw_data.size();
+      // Start from the next IFD offset if it's beyond what we already have:
+      uint64_t read_begin = std::max(current_data_end, next_ifd_offset_);
+      uint64_t read_end = read_begin + kInitialReadBytes;
+  
       // If that end is some large threshold, we might want to do a full read:
       if (read_end > (16 * 1024 * 1024)) {  // example threshold
         is_full_read_ = true;
@@ -275,13 +274,13 @@ struct ReadDirectoryOp : public internal::AtomicReferenceCount<ReadDirectoryOp> 
 
     auto& cache = internal::GetOwningCache(*entry_);
     auto fut = cache.kvstore_driver_->Read(std::string(entry_->key()), options_);
-    ABSL_LOG_IF(INFO, tiff_logging) << "Issued additional read request for key: " << entry_->key()
+    ABSL_LOG(INFO) << "Issued additional read request for key: " << entry_->key()
                                     << " with byte range: " << options_.byte_range;
     fut.Force();
     fut.ExecuteWhenReady(
         [self = internal::IntrusivePtr<ReadDirectoryOp>(this), s=std::move(stamp)]
         (ReadyFuture<kvstore::ReadResult> ready) mutable {
-          ABSL_LOG_IF(INFO, tiff_logging) << "Additional read completed for key: " << self->entry_->key();
+          ABSL_LOG(INFO) << "Additional read completed for key: " << self->entry_->key();
           self->OnAdditionalDataRead(std::move(ready), std::move(s));
         });
   }
@@ -324,17 +323,25 @@ struct ReadDirectoryOp : public internal::AtomicReferenceCount<ReadDirectoryOp> 
       return;
     }
 
-    // Append new data to parse_result_->raw_data
-    size_t old_size = parse_result_->raw_data.size();
-    parse_result_->raw_data.Append(rr.value);
-    size_t new_size = parse_result_->raw_data.size();
-
-    // If we got less data than requested, treat it as a full read
-    if (!is_full_read_ && (new_size - old_size) < (options_.byte_range.size() - old_size)) {
-      parse_result_->full_read = true;
+    // If we're reading from next_ifd_offset directly (which is far away from our buffer end),
+    // we should reset our buffer instead of appending.
+    if (options_.byte_range.inclusive_min >= file_offset_ + parse_result_->raw_data.size()) {
+      // This is a non-contiguous read, so replace buffer instead of appending
+      parse_result_->raw_data = std::move(rr.value);
+      file_offset_ = options_.byte_range.inclusive_min;  // Update file offset to match new data
     } else {
-      parse_result_->full_read = is_full_read_;
+      // Append new data to parse_result_->raw_data (contiguous read)
+      size_t old_size = parse_result_->raw_data.size();
+      parse_result_->raw_data.Append(rr.value);
+      size_t new_size = parse_result_->raw_data.size();
+
+      // If we got less data than requested, treat it as a full read
+      if (!is_full_read_ && (new_size - old_size) < (options_.byte_range.size() - old_size)) {
+        parse_result_->full_read = true;
+      }
     }
+    
+    parse_result_->full_read = parse_result_->full_read || is_full_read_;
 
     // We can now try parsing the same IFD offset again
     StartParsingIFDs(std::move(stamp));
@@ -342,7 +349,7 @@ struct ReadDirectoryOp : public internal::AtomicReferenceCount<ReadDirectoryOp> 
 
  /// Called when we exhaust next_ifd_offset_ (i.e., reached offset=0 in the chain). We parse the final directory or load external arrays, etc.
   void OnAllIFDsDone(tensorstore::TimestampedStorageGeneration stamp) {
-    ABSL_LOG_IF(INFO, tiff_logging) << "All IFDs parsed successfully for key: " << entry_->key()
+    ABSL_LOG(INFO) << "All IFDs parsed successfully for key: " << entry_->key()
                                     << ". Total directories: " << parse_result_->directories.size();
     // We now have parse_result_->directories for all IFDs.
     // Reserve space for a matching list of ImageDirectory objects.
@@ -372,7 +379,7 @@ struct ReadDirectoryOp : public internal::AtomicReferenceCount<ReadDirectoryOp> 
     }
 
     if (!has_external_arrays) {
-      ABSL_LOG_IF(INFO, tiff_logging) << "No external arrays found for key: " << entry_->key();
+      ABSL_LOG(INFO) << "No external arrays found for key: " << entry_->key();
       // We’re done
       entry_->ReadSuccess(TiffDirectoryCache::ReadState{
           std::move(parse_result_), std::move(stamp)});
@@ -383,14 +390,14 @@ struct ReadDirectoryOp : public internal::AtomicReferenceCount<ReadDirectoryOp> 
     auto future = entry_->LoadExternalArrays(parse_result_, stamp);
     future.Force();
     future.ExecuteWhenReady(
-        [self = internal::IntrusivePtr<ReadDirectoryOp>(this)](ReadyFuture<void> load_done) {
+        [self = internal::IntrusivePtr<ReadDirectoryOp>(this), stamp](ReadyFuture<void> load_done) {
           if (!load_done.result().ok()) {
             self->entry_->ReadError(load_done.result().status());
             return;
           }
           // Done
           self->entry_->ReadSuccess(TiffDirectoryCache::ReadState{
-              std::move(self->parse_result_), {}});
+              std::move(self->parse_result_), std::move(stamp)});
         });
   }
 };
@@ -400,7 +407,7 @@ struct ReadDirectoryOp : public internal::AtomicReferenceCount<ReadDirectoryOp> 
 Future<void> TiffDirectoryCache::Entry::LoadExternalArrays(
     std::shared_ptr<TiffParseResult> parse_result,
     tensorstore::TimestampedStorageGeneration stamp) {
-  ABSL_LOG_IF(INFO, tiff_logging) << "Loading external arrays for key: " << this->key();
+  ABSL_LOG(INFO) << "Loading external arrays for key: " << this->key();
   // Collect all external arrays that need to be loaded
   struct ExternalArrayInfo {
     Tag tag;
@@ -468,7 +475,7 @@ Future<void> TiffDirectoryCache::Entry::LoadExternalArrays(
 
   // Issue read operations for each external array in parallel.
   for (const auto& array_info : external_arrays) {
-    ABSL_LOG_IF(INFO, tiff_logging) << "Reading external array for tag: " << static_cast<int>(array_info.tag)
+    ABSL_LOG(INFO) << "Reading external array for tag: " << static_cast<int>(array_info.tag)
                                     << ", Offset: " << array_info.offset
                                     << ", Count: " << array_info.count;
     // Compute the byte range.
@@ -480,7 +487,7 @@ Future<void> TiffDirectoryCache::Entry::LoadExternalArrays(
     read_opts.byte_range = OptionalByteRangeRequest::Range(
         array_info.offset, array_info.offset + byte_count);
 
-    ABSL_LOG_IF(INFO, tiff_logging)
+    ABSL_LOG(INFO)
         << "Reading external array for tag " << static_cast<int>(array_info.tag)
         << " at offset " << array_info.offset << " size " << byte_count;
 
