@@ -701,7 +701,6 @@ TEST(TiffDirectoryCacheMultiIfdTest, ReadLargeMultiPageTiff) {
   EXPECT_EQ(data->image_directories[1].width, 800);
 }
 
-// ...existing code...
 TEST(TiffDirectoryCacheMultiIfdTest, ExternalArraysMultiIfdTest) {
   auto context = Context::Default();
   auto pool = CachePool::Make(CachePool::Limits{});
