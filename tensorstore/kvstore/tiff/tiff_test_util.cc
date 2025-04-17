@@ -147,7 +147,7 @@ std::string MakeTwoStripedTiff() {
              .AddUint32Array({4, 4})  // Strip byte counts
              .PadTo(200)
              .Build() +
-         "AAAA" + std::string(, '\0') + "BBBB";
+         "AAAA" + std::string(4, '\0') + "BBBB";
 }
 
 std::string MakeReadOpTiff() {

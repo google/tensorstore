@@ -1,7 +1,16 @@
-// tensorstore/kvstore/tiff/tiff_key_value_store_test.cc
+// Copyright 2025 The TensorStore Authors
 //
-// Tests for the TIFF kv‑store adapter, patterned after
-// zip_key_value_store_test.cc.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include "tensorstore/kvstore/tiff/tiff_key_value_store.h"
 
@@ -44,26 +53,25 @@ class TiffKeyValueStoreTest : public ::testing::Test {
  public:
   TiffKeyValueStoreTest() : context_(Context::Default()) {}
 
-  // Writes `value` to the in‑memory store at key "data.tif".
+  // Writes `value` to the in‑memory store at key "data.tiff".
   void PrepareMemoryKvstore(absl::Cord value) {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         tensorstore::KvStore memory,
         kvstore::Open({{"driver", "memory"}}, context_).result());
 
-    TENSORSTORE_CHECK_OK(kvstore::Write(memory, "data.tif", value).result());
+    TENSORSTORE_CHECK_OK(kvstore::Write(memory, "data.tiff", value).result());
   }
 
   tensorstore::Context context_;
 };
 
-// ─── Tiled TIFF ──────────────────────────────────────────────────────────────
 TEST_F(TiffKeyValueStoreTest, Tiled_ReadSuccess) {
   PrepareMemoryKvstore(absl::Cord(MakeTinyTiledTiff()));
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto tiff_store,
       kvstore::Open({{"driver", "tiff"},
-                     {"base", {{"driver", "memory"}, {"path", "data.tif"}}}},
+                     {"base", {{"driver", "memory"}, {"path", "data.tiff"}}}},
                     context_)
           .result());
 
@@ -78,7 +86,7 @@ TEST_F(TiffKeyValueStoreTest, Tiled_OutOfRange) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto tiff_store,
       kvstore::Open({{"driver", "tiff"},
-                     {"base", {{"driver", "memory"}, {"path", "data.tif"}}}},
+                     {"base", {{"driver", "memory"}, {"path", "data.tiff"}}}},
                     context_)
           .result());
 
@@ -86,14 +94,13 @@ TEST_F(TiffKeyValueStoreTest, Tiled_OutOfRange) {
   EXPECT_THAT(status, MatchesStatus(absl::StatusCode::kOutOfRange));
 }
 
-// ─── Striped TIFF ────────────────────────────────────────────────────────────
 TEST_F(TiffKeyValueStoreTest, Striped_ReadOneStrip) {
   PrepareMemoryKvstore(absl::Cord(MakeTinyStripedTiff()));
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto tiff_store,
       kvstore::Open({{"driver", "tiff"},
-                     {"base", {{"driver", "memory"}, {"path", "data.tif"}}}},
+                     {"base", {{"driver", "memory"}, {"path", "data.tiff"}}}},
                     context_)
           .result());
 
@@ -108,7 +115,7 @@ TEST_F(TiffKeyValueStoreTest, Striped_ReadSecondStrip) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto tiff_store,
       kvstore::Open({{"driver", "tiff"},
-                     {"base", {{"driver", "memory"}, {"path", "data.tif"}}}},
+                     {"base", {{"driver", "memory"}, {"path", "data.tiff"}}}},
                     context_)
           .result());
 
@@ -123,7 +130,7 @@ TEST_F(TiffKeyValueStoreTest, Striped_OutOfRangeRow) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto tiff_store,
       kvstore::Open({{"driver", "tiff"},
-                     {"base", {{"driver", "memory"}, {"path", "data.tif"}}}},
+                     {"base", {{"driver", "memory"}, {"path", "data.tiff"}}}},
                     context_)
           .result());
 
@@ -131,14 +138,13 @@ TEST_F(TiffKeyValueStoreTest, Striped_OutOfRangeRow) {
   EXPECT_THAT(status, MatchesStatus(absl::StatusCode::kOutOfRange));
 }
 
-// ─── Test List Operation ───────────────────────────────────────────────────
 TEST_F(TiffKeyValueStoreTest, List) {
   PrepareMemoryKvstore(absl::Cord(MakeTinyTiledTiff()));
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto tiff_store,
       kvstore::Open({{"driver", "tiff"},
-                     {"base", {{"driver", "memory"}, {"path", "data.tif"}}}},
+                     {"base", {{"driver", "memory"}, {"path", "data.tiff"}}}},
                     context_)
           .result());
 
@@ -160,14 +166,13 @@ TEST_F(TiffKeyValueStoreTest, List) {
   }
 }
 
-// ─── Test List with Prefix ────────────────────────────────────────────────
 TEST_F(TiffKeyValueStoreTest, ListWithPrefix) {
   PrepareMemoryKvstore(absl::Cord(MakeTwoStripedTiff()));
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto tiff_store,
       kvstore::Open({{"driver", "tiff"},
-                     {"base", {{"driver", "memory"}, {"path", "data.tif"}}}},
+                     {"base", {{"driver", "memory"}, {"path", "data.tiff"}}}},
                     context_)
           .result());
 
@@ -191,14 +196,13 @@ TEST_F(TiffKeyValueStoreTest, ListWithPrefix) {
   }
 }
 
-// ─── Test multiple strips list ────────────────────────────────────────────
 TEST_F(TiffKeyValueStoreTest, ListMultipleStrips) {
   PrepareMemoryKvstore(absl::Cord(MakeTwoStripedTiff()));
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto tiff_store,
       kvstore::Open({{"driver", "tiff"},
-                     {"base", {{"driver", "memory"}, {"path", "data.tif"}}}},
+                     {"base", {{"driver", "memory"}, {"path", "data.tiff"}}}},
                     context_)
           .result());
 
@@ -217,7 +221,6 @@ TEST_F(TiffKeyValueStoreTest, ListMultipleStrips) {
                        "set_value: tile/0/1/0", "set_done", "set_stopping"));
 }
 
-// ─── Test ReadOps ──────────────────────────────────────────────────────────
 TEST_F(TiffKeyValueStoreTest, ReadOps) {
   PrepareMemoryKvstore(absl::Cord(MakeReadOpTiff()));
 
@@ -225,7 +228,7 @@ TEST_F(TiffKeyValueStoreTest, ReadOps) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
       kvstore::Open({{"driver", "tiff"},
-                     {"base", {{"driver", "memory"}, {"path", "data.tif"}}}},
+                     {"base", {{"driver", "memory"}, {"path", "data.tiff"}}}},
                     context_)
           .result());
 
@@ -234,7 +237,6 @@ TEST_F(TiffKeyValueStoreTest, ReadOps) {
       store, "tile/0/0/0", absl::Cord("abcdefghijklmnop"), "missing_key");
 }
 
-// ─── Test invalid specs ─────────────────────────────────────────────────────
 TEST_F(TiffKeyValueStoreTest, InvalidSpec) {
   auto context = tensorstore::Context::Default();
 
@@ -244,7 +246,6 @@ TEST_F(TiffKeyValueStoreTest, InvalidSpec) {
       MatchesStatus(absl::StatusCode::kInvalidArgument));
 }
 
-// ─── Test spec roundtrip ────────────────────────────────────────────────────
 TEST_F(TiffKeyValueStoreTest, SpecRoundtrip) {
   tensorstore::internal::KeyValueStoreSpecRoundtripOptions options;
   options.check_data_persists = false;
@@ -263,7 +264,7 @@ TEST_F(TiffKeyValueStoreTest, MalformedTiff) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto tiff_store,
       kvstore::Open({{"driver", "tiff"},
-                     {"base", {{"driver", "memory"}, {"path", "data.tif"}}}},
+                     {"base", {{"driver", "memory"}, {"path", "data.tiff"}}}},
                     context_)
           .result());
 
@@ -271,14 +272,13 @@ TEST_F(TiffKeyValueStoreTest, MalformedTiff) {
   EXPECT_FALSE(status.ok());
 }
 
-// 1. Test Invalid Key Formats
 TEST_F(TiffKeyValueStoreTest, InvalidKeyFormats) {
   PrepareMemoryKvstore(absl::Cord(MakeTinyTiledTiff()));
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto tiff_store,
       kvstore::Open({{"driver", "tiff"},
-                     {"base", {{"driver", "memory"}, {"path", "data.tif"}}}},
+                     {"base", {{"driver", "memory"}, {"path", "data.tiff"}}}},
                     context_)
           .result());
 
@@ -301,14 +301,13 @@ TEST_F(TiffKeyValueStoreTest, InvalidKeyFormats) {
   EXPECT_THAT(test_key("tile/0/0/0/extra"), MatchesKvsReadResultNotFound());
 }
 
-// 2. Test Multiple IFDs
 TEST_F(TiffKeyValueStoreTest, MultipleIFDs) {
   PrepareMemoryKvstore(absl::Cord(MakeMultiIfdTiff()));
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto tiff_store,
       kvstore::Open({{"driver", "tiff"},
-                     {"base", {{"driver", "memory"}, {"path", "data.tif"}}}},
+                     {"base", {{"driver", "memory"}, {"path", "data.tiff"}}}},
                     context_)
           .result());
 
@@ -327,14 +326,13 @@ TEST_F(TiffKeyValueStoreTest, MultipleIFDs) {
   EXPECT_THAT(status, MatchesStatus(absl::StatusCode::kNotFound));
 }
 
-// 3. Test Byte Range Reads
 TEST_F(TiffKeyValueStoreTest, ByteRangeReads) {
   PrepareMemoryKvstore(absl::Cord(MakeReadOpTiff()));
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto tiff_store,
       kvstore::Open({{"driver", "tiff"},
-                     {"base", {{"driver", "memory"}, {"path", "data.tif"}}}},
+                     {"base", {{"driver", "memory"}, {"path", "data.tiff"}}}},
                     context_)
           .result());
 
@@ -367,14 +365,13 @@ TEST_F(TiffKeyValueStoreTest, ByteRangeReads) {
   EXPECT_FALSE(status.ok());
 }
 
-// 4. Test Missing Required Tags
 TEST_F(TiffKeyValueStoreTest, MissingRequiredTags) {
   PrepareMemoryKvstore(absl::Cord(MakeTiffMissingHeight()));
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto tiff_store,
       kvstore::Open({{"driver", "tiff"},
-                     {"base", {{"driver", "memory"}, {"path", "data.tif"}}}},
+                     {"base", {{"driver", "memory"}, {"path", "data.tiff"}}}},
                     context_)
           .result());
 
@@ -389,7 +386,7 @@ TEST_F(TiffKeyValueStoreTest, StalenessBound) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto tiff_store,
       kvstore::Open({{"driver", "tiff"},
-                     {"base", {{"driver", "memory"}, {"path", "data.tif"}}}},
+                     {"base", {{"driver", "memory"}, {"path", "data.tiff"}}}},
                     context_)
           .result());
 
@@ -406,14 +403,13 @@ TEST_F(TiffKeyValueStoreTest, StalenessBound) {
               ::tensorstore::IsOk());
 }
 
-// 6. Test List with Range Constraints
 TEST_F(TiffKeyValueStoreTest, ListWithComplexRange) {
   PrepareMemoryKvstore(absl::Cord(MakeTwoStripedTiff()));
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto tiff_store,
       kvstore::Open({{"driver", "tiff"},
-                     {"base", {{"driver", "memory"}, {"path", "data.tif"}}}},
+                     {"base", {{"driver", "memory"}, {"path", "data.tiff"}}}},
                     context_)
           .result());
 

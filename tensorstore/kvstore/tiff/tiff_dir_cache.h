@@ -21,7 +21,7 @@
 #include "tensorstore/internal/cache/async_cache.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
-#include "tensorstore/kvstore/tiff/tiff_details.h"  // Add include for IfdEntry and ImageDirectory
+#include "tensorstore/kvstore/tiff/tiff_details.h"
 #include "tensorstore/util/executor.h"
 
 namespace tensorstore {
@@ -31,9 +31,8 @@ namespace internal_tiff_kvstore {
 inline constexpr std::size_t kInitialReadBytes = 1024;
 
 struct TiffParseResult {
-  // For step-1 this just captures the raw bytes we read.
   absl::Cord raw_data;
-  bool full_read = false;  // identical meaning to zip cache.
+  bool full_read = false; // Indicates if the entire file was read
 
   // Store the endian order for the TIFF file
   Endian endian;

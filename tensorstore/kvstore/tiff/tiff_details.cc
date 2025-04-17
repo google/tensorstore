@@ -1,4 +1,4 @@
-// Copyright 2023 The TensorStore Authors
+// Copyright 2025 The TensorStore Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@
 #include "riegeli/bytes/reader.h"
 #include "riegeli/endian/endian_reading.h"
 #include "tensorstore/internal/log/verbose_flag.h"
-#include "tensorstore/util/status.h"  // for TENSORSTORE_RETURN_IF_ERROR
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {

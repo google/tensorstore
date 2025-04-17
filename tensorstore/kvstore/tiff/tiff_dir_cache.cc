@@ -64,7 +64,6 @@ struct ReadDirectoryOp
         << "StartTiffRead " << entry_->key()
         << " with byte range: " << options_.byte_range;
 
-    // 1.  Default to the "slice‑first" strategy -----------------------------
     is_full_read_ = false;
     file_offset_ = 0;  // We’re reading from the start.
     parse_result_ = std::make_shared<TiffParseResult>();

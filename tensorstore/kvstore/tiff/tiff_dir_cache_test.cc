@@ -1,6 +1,6 @@
 // Copyright 2025 The TensorStore Authors
 //
-// Licensed under the Apache License, Version .0 (the "License");
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
@@ -330,7 +330,6 @@ TEST(TiffDirectoryCacheTest, ExternalArrays_BadPointer) {
   auto read_result = entry->Read(request).result();
   EXPECT_THAT(read_result.status(), ::testing::Not(::tensorstore::IsOk()));
 
-  std::cout << "Status: " << read_result.status() << std::endl;
   // Should fail with OutOfRange, InvalidArgument, or DataLoss error
   EXPECT_TRUE(absl::IsOutOfRange(read_result.status()) ||
               absl::IsDataLoss(read_result.status()) ||

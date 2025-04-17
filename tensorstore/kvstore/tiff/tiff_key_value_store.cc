@@ -1,4 +1,4 @@
-// Copyright 2024 The TensorStore Authors
+// Copyright 2025 The TensorStore Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// -----------------------------------------------------------------------------
-// TIFF key‑value‑store adapter
-//   * read‑only
-//   * uses TiffDirectoryCache for parsing TIFF file structure
-//   * supports tile or strip-based TIFF files
-// -----------------------------------------------------------------------------
-
 #include "tensorstore/kvstore/tiff/tiff_key_value_store.h"
 
 #include <memory>
@@ -30,7 +23,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_format.h"
-#include "absl/strings/strip.h"  // For ConsumePrefix
+#include "absl/strings/strip.h"
 #include "tensorstore/context.h"
 #include "tensorstore/internal/cache/async_cache.h"
 #include "tensorstore/internal/cache/cache.h"
@@ -97,9 +90,6 @@ absl::Status ParseTileKey(std::string_view key, uint32_t& ifd, uint32_t& row,
   return absl::OkStatus();
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Spec‑data (JSON parameters)
-// ─────────────────────────────────────────────────────────────────────────────
 struct TiffKvStoreSpecData {
   kvstore::Spec base;
   Context::Resource<internal::CachePoolResource> cache_pool;
@@ -119,9 +109,6 @@ struct TiffKvStoreSpecData {
           jb::Projection<&TiffKvStoreSpecData::data_copy_concurrency>()));
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Spec
-// ─────────────────────────────────────────────────────────────────────────────
 struct Spec
     : public internal_kvstore::RegisteredDriverSpec<Spec, TiffKvStoreSpecData> {
   static constexpr char id[] = "tiff";
@@ -136,9 +123,6 @@ struct Spec
   }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Driver
-// ─────────────────────────────────────────────────────────────────────────────
 class TiffKeyValueStore
     : public internal_kvstore::RegisteredDriver<TiffKeyValueStore, Spec> {
  public:
@@ -410,9 +394,6 @@ struct ListState : public internal::AtomicReferenceCount<ListState> {
   }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Spec::DoOpen
-// ─────────────────────────────────────────────────────────────────────────────
 Future<kvstore::DriverPtr> Spec::DoOpen() const {
   return MapFutureValue(
       InlineExecutor{},
