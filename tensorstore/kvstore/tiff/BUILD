@@ -36,6 +36,7 @@ tensorstore_cc_test(
     srcs = ["tiff_key_value_store_test.cc"],
     deps = [
         ":tiff_key_value_store",
+        ":tiff_test_util",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:test_util",
         "//tensorstore/kvstore/memory",
@@ -72,6 +73,7 @@ tensorstore_cc_test(
     srcs = ["tiff_dir_cache_test.cc"],
     deps = [
         ":tiff_dir_cache",
+        ":tiff_test_util",
         "//tensorstore:context",
         "//tensorstore/internal/cache",
         "//tensorstore/internal/cache:cache_pool_resource",
@@ -114,4 +116,10 @@ tensorstore_cc_test(
         "@com_google_riegeli//riegeli/bytes:cord_reader",
         "@com_google_riegeli//riegeli/bytes:string_reader",
     ],
+)
+
+tensorstore_cc_library(
+    name = "tiff_test_util",
+    srcs = ["tiff_test_util.cc"],
+    hdrs = ["tiff_test_util.h"],
 )

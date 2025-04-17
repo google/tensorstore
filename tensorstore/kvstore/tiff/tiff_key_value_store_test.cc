@@ -19,6 +19,7 @@
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/test_matchers.h"
 #include "tensorstore/kvstore/test_util.h"
+#include "tensorstore/kvstore/tiff/tiff_test_util.h"
 #include "tensorstore/util/execution/sender_testutil.h"
 #include "tensorstore/util/status_testutil.h"
 
@@ -30,154 +31,14 @@ using ::tensorstore::Context;
 using ::tensorstore::KeyRange;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
-
-/* -------------------------------------------------------------------------- */
-/*                       Little‑endian byte helpers                           */
-/* -------------------------------------------------------------------------- */
-void PutLE16(std::string& dst, uint16_t v) {
-  dst.push_back(static_cast<char>(v & 0xff));
-  dst.push_back(static_cast<char>(v >> 8));
-}
-void PutLE32(std::string& dst, uint32_t v) {
-  dst.push_back(static_cast<char>(v & 0xff));
-  dst.push_back(static_cast<char>(v >> 8));
-  dst.push_back(static_cast<char>(v >> 16));
-  dst.push_back(static_cast<char>(v >> 24));
-}
-
-/* -------------------------------------------------------------------------- */
-/*                     Minimal TIFF byte‑string builders                      */
-/* -------------------------------------------------------------------------- */
-
-// 256 × 256 image, one 256 × 256 tile at offset 128, payload "DATA".
-std::string MakeTinyTiledTiff() {
-  std::string t;
-  t += "II";
-  PutLE16(t, 42);
-  PutLE32(t, 8);  // header
-
-  PutLE16(t, 6);  // 6 IFD entries
-  auto E = [&](uint16_t tag, uint16_t type, uint32_t cnt, uint32_t val) {
-    PutLE16(t, tag);
-    PutLE16(t, type);
-    PutLE32(t, cnt);
-    PutLE32(t, val);
-  };
-  E(256, 3, 1, 256);
-  E(257, 3, 1, 256);  // width, length (256×256 instead of 512×512)
-  E(322, 3, 1, 256);
-  E(323, 3, 1, 256);  // tile width/length
-  E(324, 4, 1, 128);
-  E(325, 4, 1, 4);  // offset/bytecount
-  PutLE32(t, 0);    // next IFD
-
-  if (t.size() < 128) t.resize(128, '\0');
-  t += "DATA";
-  return t;
-}
-
-std::string MakeTinyStripedTiff() {
-  std::string t;
-
-  // TIFF header
-  t += "II";
-  PutLE16(t, 42);
-  PutLE32(t, 8);
-
-  // IFD
-  PutLE16(t, 5);  // 5 IFD entries
-  auto E = [&](uint16_t tag, uint16_t type, uint32_t cnt, uint32_t val) {
-    PutLE16(t, tag);
-    PutLE16(t, type);
-    PutLE32(t, cnt);
-    PutLE32(t, val);
-  };
-
-  // entries
-  E(256, 3, 1, 4);    // ImageWidth = 4
-  E(257, 3, 1, 8);    // ImageLength = 8
-  E(278, 3, 1, 8);    // RowsPerStrip = 8  (entire image = 1 strip)
-  E(273, 4, 1, 128);  // StripOffsets = 128 (pointing to the data)
-  E(279, 4, 1, 8);    // StripByteCounts = 8 bytes (DATASTR)
-  PutLE32(t, 0);      // next IFD = 0 (no more IFDs)
-
-  // Add padding up to offset 128
-  if (t.size() < 128) t.resize(128, '\0');
-
-  // The actual strip data (8 bytes)
-  t += "DATASTR!";  // Example: 8 bytes of data
-
-  return t;
-}
-
-std::string MakeTwoStripedTiff() {
-  std::string t;
-
-  // ─── Header: II + magic 42 + IFD at byte 8
-  t += "II";
-  PutLE16(t, 42);  // magic
-  PutLE32(t, 8);   // first IFD offset
-
-  // ─── IFD entry count = 6
-  PutLE16(t, 6);
-
-  // Helper: write one entry
-  auto E = [&](uint16_t tag, uint16_t type, uint32_t count, uint32_t value) {
-    PutLE16(t, tag);
-    PutLE16(t, type);
-    PutLE32(t, count);
-    PutLE32(t, value);
-  };
-
-  // 1) ImageWidth=4, 2) ImageLength=8
-  E(256, 3, 1, 4);  // SHORT=3
-  E(257, 3, 1, 8);  // SHORT=3
-
-  // 3) RowsPerStrip=4 => 2 total strips
-  E(278, 3, 1, 4);
-
-  // 4) StripOffsets array => 2 LONG => at offset 128
-  E(273, 4, 2, 128);
-
-  // 5) StripByteCounts => 2 LONG => at offset 136
-  E(279, 4, 2, 136);
-
-  // 6) Compression => none=1
-  E(259, 3, 1, 1);
-
-  // next‑IFD offset = 0
-  PutLE32(t, 0);
-
-  // ─── Arrive at offset 128
-  if (t.size() < 128) t.resize(128, '\0');
-
-  // two 4‑byte offsets in array => total 8 bytes
-  // let’s say strip #0 data at offset=200, strip #1 at offset=208
-  PutLE32(t, 200);  // 1st strip offset
-  PutLE32(t, 208);  // 2nd strip offset
-
-  // ─── Arrive at offset 136
-  if (t.size() < 136) t.resize(136, '\0');
-
-  // two 4‑byte bytecounts => total 8 bytes
-  // each strip = 4
-  PutLE32(t, 4);  // strip #0 size
-  PutLE32(t, 4);  // strip #1 size
-
-  // ─── Pad to 200, then write "AAAA"
-  if (t.size() < 200) t.resize(200, '\0');
-  t.replace(200, 4, "AAAA");
-
-  // ─── Pad to 208, then write "BBBB"
-  if (t.size() < 208) t.resize(208, '\0');
-  t.replace(208, 4, "BBBB");
-
-  return t;
-}
-
-/* -------------------------------------------------------------------------- */
-/*                            Test‑fixture class                              */
-/* -------------------------------------------------------------------------- */
+using ::tensorstore::internal_tiff_kvstore::testing::MakeMalformedTiff;
+using ::tensorstore::internal_tiff_kvstore::testing::MakeMultiIfdTiff;
+using ::tensorstore::internal_tiff_kvstore::testing::MakeReadOpTiff;
+using ::tensorstore::internal_tiff_kvstore::testing::MakeTiffMissingHeight;
+using ::tensorstore::internal_tiff_kvstore::testing::MakeTinyStripedTiff;
+using ::tensorstore::internal_tiff_kvstore::testing::MakeTinyTiledTiff;
+using ::tensorstore::internal_tiff_kvstore::testing::MakeTwoStripedTiff;
+using ::tensorstore::internal_tiff_kvstore::testing::TiffBuilder;
 
 class TiffKeyValueStoreTest : public ::testing::Test {
  public:
@@ -194,10 +55,6 @@ class TiffKeyValueStoreTest : public ::testing::Test {
 
   tensorstore::Context context_;
 };
-
-/* -------------------------------------------------------------------------- */
-/*                                 Tests                                      */
-/* -------------------------------------------------------------------------- */
 
 // ─── Tiled TIFF ──────────────────────────────────────────────────────────────
 TEST_F(TiffKeyValueStoreTest, Tiled_ReadSuccess) {
@@ -360,33 +217,6 @@ TEST_F(TiffKeyValueStoreTest, ListMultipleStrips) {
                        "set_value: tile/0/1/0", "set_done", "set_stopping"));
 }
 
-// ─── Create minimal TIFF data for ReadOp tests ────────────────────────────
-std::string MakeReadOpTiff() {
-  std::string t;
-  t += "II";
-  PutLE16(t, 42);
-  PutLE32(t, 8);  // header
-
-  PutLE16(t, 6);  // 6 IFD entries
-  auto E = [&](uint16_t tag, uint16_t type, uint32_t cnt, uint32_t val) {
-    PutLE16(t, tag);
-    PutLE16(t, type);
-    PutLE32(t, cnt);
-    PutLE32(t, val);
-  };
-  E(256, 3, 1, 16);
-  E(257, 3, 1, 16);  // width, length
-  E(322, 3, 1, 16);
-  E(323, 3, 1, 16);  // tile width/length
-  E(324, 4, 1, 128);
-  E(325, 4, 1, 16);  // offset/bytecount
-  PutLE32(t, 0);     // next IFD
-
-  if (t.size() < 128) t.resize(128, '\0');
-  t += "abcdefghijklmnop";
-  return t;
-}
-
 // ─── Test ReadOps ──────────────────────────────────────────────────────────
 TEST_F(TiffKeyValueStoreTest, ReadOps) {
   PrepareMemoryKvstore(absl::Cord(MakeReadOpTiff()));
@@ -425,87 +255,6 @@ TEST_F(TiffKeyValueStoreTest, SpecRoundtrip) {
                        {"base", {{"driver", "memory"}, {"path", "abc.tif"}}}};
   options.full_base_spec = {{"driver", "memory"}, {"path", "abc.tif"}};
   tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
-}
-
-// ─── Test with malformed TIFF
-// ─────────────────────────────────────────────────
-std::string MakeMalformedTiff() {
-  std::string t;
-  t += "MM";  // Bad endianness (motorola instead of intel)
-  PutLE16(t, 42);
-  PutLE32(t, 8);  // header
-  PutLE16(t, 1);  // 1 IFD entry
-  auto E = [&](uint16_t tag, uint16_t type, uint32_t cnt, uint32_t val) {
-    PutLE16(t, tag);
-    PutLE16(t, type);
-    PutLE32(t, cnt);
-    PutLE32(t, val);
-  };
-  E(256, 3, 1, 16);  // Only width, missing other required tags
-  PutLE32(t, 0);     // next IFD
-  return t;
-}
-
-// Create a TIFF with multiple Image File Directories (IFDs)
-std::string MakeMultiIfdTiff() {
-  std::string t;
-  t += "II";
-  PutLE16(t, 42);
-  PutLE32(t, 8);  // header
-
-  // First IFD - starts at offset 8
-  PutLE16(t, 6);  // 6 IFD entries
-  auto E = [&](uint16_t tag, uint16_t type, uint32_t cnt, uint32_t val) {
-    PutLE16(t, tag);
-    PutLE16(t, type);
-    PutLE32(t, cnt);
-    PutLE32(t, val);
-  };
-  E(256, 3, 1, 256);
-  E(257, 3, 1, 256);  // width, length (256×256)
-  E(322, 3, 1, 256);
-  E(323, 3, 1, 256);  // tile width/length
-  E(324, 4, 1, 200);
-  E(325, 4, 1, 5);  // offset/bytecount for IFD 0
-  PutLE32(t, 86);   // next IFD offset = 72
-
-  // Second IFD - starts at offset 86
-  PutLE16(t, 6);  // 6 IFD entries
-  E(256, 3, 1, 128);
-  E(257, 3, 1, 128);  // width, length (128×128)
-  E(322, 3, 1, 128);
-  E(323, 3, 1, 128);  // tile width/length
-  E(324, 4, 1, 208);
-  E(325, 4, 1, 5);  // offset/bytecount for IFD 1
-  PutLE32(t, 0);    // next IFD = 0 (end of IFDs)
-
-  // Pad to offset 200, then add first tile data
-  if (t.size() < 200) t.resize(200, '\0');
-  t += "DATA1";
-
-  // Pad to offset 208, then add second tile data
-  if (t.size() < 208) t.resize(208, '\0');
-  t += "DATA2";
-
-  return t;
-}
-
-// Creates a TIFF file missing the required ImageLength tag
-std::string MakeTiffMissingHeight() {
-  std::string t;
-  t += "II";
-  PutLE16(t, 42);
-  PutLE32(t, 8);  // header
-  PutLE16(t, 1);  // 1 IFD entry
-  auto E = [&](uint16_t tag, uint16_t type, uint32_t cnt, uint32_t val) {
-    PutLE16(t, tag);
-    PutLE16(t, type);
-    PutLE32(t, cnt);
-    PutLE32(t, val);
-  };
-  E(256, 3, 1, 16);  // Width but no Height
-  PutLE32(t, 0);     // next IFD
-  return t;
 }
 
 TEST_F(TiffKeyValueStoreTest, MalformedTiff) {

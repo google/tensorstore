@@ -27,6 +27,7 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
+#include "tensorstore/kvstore/tiff/tiff_test_util.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
@@ -38,6 +39,7 @@ using ::tensorstore::InlineExecutor;
 using ::tensorstore::internal::CachePool;
 using ::tensorstore::internal::GetCache;
 using ::tensorstore::internal_tiff_kvstore::TiffDirectoryCache;
+using ::tensorstore::internal_tiff_kvstore::testing::TiffBuilder;
 
 TEST(TiffDirectoryCacheTest, ReadSlice) {
   auto context = Context::Default();
@@ -49,58 +51,21 @@ TEST(TiffDirectoryCacheTest, ReadSlice) {
       tensorstore::kvstore::Open({{"driver", "memory"}}, context).result());
 
   // Create a small TIFF file with a valid header and IFD
-  std::string tiff_data;
-
-  // TIFF header (8 bytes)
-  tiff_data += "II";  // Little endian
-  tiff_data.push_back(42);
-  tiff_data.push_back(0);  // Magic number
-  tiff_data.push_back(8);
-  tiff_data.push_back(0);  // IFD offset (8)
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-
-  // IFD with 5 entries
-  tiff_data.push_back(6);
-  tiff_data.push_back(0);  // 5 entries
-
-  // Helper to add an IFD entry
-  auto AddEntry = [&tiff_data](uint16_t tag, uint16_t type, uint32_t count,
-                               uint32_t value) {
-    tiff_data.push_back(tag & 0xFF);
-    tiff_data.push_back((tag >> 8) & 0xFF);
-    tiff_data.push_back(type & 0xFF);
-    tiff_data.push_back((type >> 8) & 0xFF);
-    tiff_data.push_back(count & 0xFF);
-    tiff_data.push_back((count >> 8) & 0xFF);
-    tiff_data.push_back((count >> 16) & 0xFF);
-    tiff_data.push_back((count >> 24) & 0xFF);
-    tiff_data.push_back(value & 0xFF);
-    tiff_data.push_back((value >> 8) & 0xFF);
-    tiff_data.push_back((value >> 16) & 0xFF);
-    tiff_data.push_back((value >> 24) & 0xFF);
-  };
-
-  // Width and height
-  AddEntry(256, 3, 1, 800);  // ImageWidth = 800
-  AddEntry(257, 3, 1, 600);  // ImageLength = 600
-
-  // Tile info
-  AddEntry(322, 3, 1, 256);  // TileWidth = 256
-  AddEntry(323, 3, 1, 256);  // TileLength = 256
-  AddEntry(324, 4, 1, 128);  // TileOffsets = 128
-  AddEntry(325, 4, 1, 256);  // TileByteCounts = 256
-
-  // No more IFDs
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-
-  // Pad to 2048 bytes (more than kInitialReadBytes)
-  while (tiff_data.size() < 2048) {
-    tiff_data.push_back('X');
-  }
+  TiffBuilder builder;
+  auto tiff_data =
+      builder
+          .StartIfd(6)  // 6 entries
+          // Width and height
+          .AddEntry(256, 3, 1, 800)  // ImageWidth = 800
+          .AddEntry(257, 3, 1, 600)  // ImageLength = 600
+          // Tile info
+          .AddEntry(322, 3, 1, 256)  // TileWidth = 256
+          .AddEntry(323, 3, 1, 256)  // TileLength = 256
+          .AddEntry(324, 4, 1, 128)  // TileOffsets = 128
+          .AddEntry(325, 4, 1, 256)  // TileByteCounts = 256
+          .EndIfd()                  // No more IFDs
+          .PadTo(2048)  // Pad to 2048 bytes (more than kInitialReadBytes)
+          .Build();
 
   ASSERT_THAT(
       tensorstore::kvstore::Write(memory, "test.tiff", absl::Cord(tiff_data))
@@ -150,55 +115,18 @@ TEST(TiffDirectoryCacheTest, ReadFull) {
 
   // Create a small TIFF file with a valid header and IFD - similar to above but
   // smaller
-  std::string tiff_data;
-
-  // TIFF header (8 bytes)
-  tiff_data += "II";  // Little endian
-  tiff_data.push_back(42);
-  tiff_data.push_back(0);  // Magic number
-  tiff_data.push_back(8);
-  tiff_data.push_back(0);  // IFD offset (8)
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-
-  // IFD with 5 entries
-  tiff_data.push_back(5);
-  tiff_data.push_back(0);  // 5 entries
-
-  // Helper to add an IFD entry
-  auto AddEntry = [&tiff_data](uint16_t tag, uint16_t type, uint32_t count,
-                               uint32_t value) {
-    tiff_data.push_back(tag & 0xFF);
-    tiff_data.push_back((tag >> 8) & 0xFF);
-    tiff_data.push_back(type & 0xFF);
-    tiff_data.push_back((type >> 8) & 0xFF);
-    tiff_data.push_back(count & 0xFF);
-    tiff_data.push_back((count >> 8) & 0xFF);
-    tiff_data.push_back((count >> 16) & 0xFF);
-    tiff_data.push_back((count >> 24) & 0xFF);
-    tiff_data.push_back(value & 0xFF);
-    tiff_data.push_back((value >> 8) & 0xFF);
-    tiff_data.push_back((value >> 16) & 0xFF);
-    tiff_data.push_back((value >> 24) & 0xFF);
-  };
-
-  // Add strip-based entries
-  AddEntry(256, 3, 1, 400);  // ImageWidth = 400
-  AddEntry(257, 3, 1, 300);  // ImageLength = 300
-  AddEntry(278, 3, 1, 100);  // RowsPerStrip = 100
-  AddEntry(273, 4, 1, 128);  // StripOffsets = 128
-  AddEntry(279, 4, 1, 200);  // StripByteCounts = 200
-
-  // No more IFDs
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-
-  // Pad to fill data
-  while (tiff_data.size() < 512) {
-    tiff_data.push_back('X');
-  }
+  TiffBuilder builder;
+  auto tiff_data = builder
+                       .StartIfd(5)  // 5 entries
+                       // Add strip-based entries
+                       .AddEntry(256, 3, 1, 400)  // ImageWidth = 400
+                       .AddEntry(257, 3, 1, 300)  // ImageLength = 300
+                       .AddEntry(278, 3, 1, 100)  // RowsPerStrip = 100
+                       .AddEntry(273, 4, 1, 128)  // StripOffsets = 128
+                       .AddEntry(279, 4, 1, 200)  // StripByteCounts = 200
+                       .EndIfd()                  // No more IFDs
+                       .PadTo(512)                // Pad to fill data
+                       .Build();
 
   ASSERT_THAT(
       tensorstore::kvstore::Write(memory, "test.tiff", absl::Cord(tiff_data))
@@ -250,34 +178,12 @@ TEST(TiffDirectoryCacheTest, BadIfdFailsParse) {
       tensorstore::kvstore::Open({{"driver", "memory"}}, context).result());
 
   // Create a corrupt TIFF file with invalid IFD
-  std::string corrupt_tiff;
-
-  // Valid TIFF header
-  corrupt_tiff += "II";  // Little endian
-  corrupt_tiff.push_back(42);
-  corrupt_tiff.push_back(0);  // Magic number
-  corrupt_tiff.push_back(8);
-  corrupt_tiff.push_back(0);  // IFD offset (8)
-  corrupt_tiff.push_back(0);
-  corrupt_tiff.push_back(0);
-
-  // Corrupt IFD - claim 10 entries but only provide data for 1
-  corrupt_tiff.push_back(10);
-  corrupt_tiff.push_back(0);  // 10 entries (too many)
-
-  // Only one entry (not enough data for 10)
-  corrupt_tiff.push_back(1);
-  corrupt_tiff.push_back(1);  // tag
-  corrupt_tiff.push_back(1);
-  corrupt_tiff.push_back(0);  // type
-  corrupt_tiff.push_back(1);
-  corrupt_tiff.push_back(0);  // count
-  corrupt_tiff.push_back(0);
-  corrupt_tiff.push_back(0);
-  corrupt_tiff.push_back(0);
-  corrupt_tiff.push_back(0);  // value
-  corrupt_tiff.push_back(0);
-  corrupt_tiff.push_back(0);
+  TiffBuilder builder;
+  auto corrupt_tiff = builder
+                          .StartIfd(10)  // Claim 10 entries (too many)
+                          // Only provide data for 1 entry
+                          .AddEntry(1, 1, 1, 0)
+                          .Build();
 
   ASSERT_THAT(tensorstore::kvstore::Write(memory, "corrupt.tiff",
                                           absl::Cord(corrupt_tiff))
@@ -311,87 +217,33 @@ TEST(TiffDirectoryCacheTest, ExternalArrays_EagerLoad) {
       tensorstore::kvstore::Open({{"driver", "memory"}}, context).result());
 
   // Create a TIFF file with external array references
-  std::string tiff_data;
-
-  // TIFF header (8 bytes)
-  tiff_data += "II";  // Little endian
-  tiff_data.push_back(42);
-  tiff_data.push_back(0);  // Magic number
-  tiff_data.push_back(8);
-  tiff_data.push_back(0);  // IFD offset (8)
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-
-  // IFD with 5 entries
-  tiff_data.push_back(5);
-  tiff_data.push_back(0);  // 5 entries
-
-  // Helper to add an IFD entry
-  auto AddEntry = [&tiff_data](uint16_t tag, uint16_t type, uint32_t count,
-                               uint32_t value) {
-    tiff_data.push_back(tag & 0xFF);
-    tiff_data.push_back((tag >> 8) & 0xFF);
-    tiff_data.push_back(type & 0xFF);
-    tiff_data.push_back((type >> 8) & 0xFF);
-    tiff_data.push_back(count & 0xFF);
-    tiff_data.push_back((count >> 8) & 0xFF);
-    tiff_data.push_back((count >> 16) & 0xFF);
-    tiff_data.push_back((count >> 24) & 0xFF);
-    tiff_data.push_back(value & 0xFF);
-    tiff_data.push_back((value >> 8) & 0xFF);
-    tiff_data.push_back((value >> 16) & 0xFF);
-    tiff_data.push_back((value >> 24) & 0xFF);
-  };
-
-  // Basic image info
-  AddEntry(256, 3, 1, 800);  // ImageWidth = 800
-  AddEntry(257, 3, 1, 600);  // ImageLength = 600
-  AddEntry(278, 3, 1, 100);  // RowsPerStrip = 100
-
-  // External strip offsets array (4 strips)
-  uint32_t strip_offsets_offset = 200;  // Position of external array in file
-  AddEntry(273, 4, 4,
-           strip_offsets_offset);  // StripOffsets - points to external array
-
-  // External strip bytecounts array (4 strips)
+  uint32_t strip_offsets_offset = 200;     // Position of external array in file
   uint32_t strip_bytecounts_offset = 216;  // Position of external array in file
-  AddEntry(
-      279, 4, 4,
-      strip_bytecounts_offset);  // StripByteCounts - points to external array
-
-  // No more IFDs
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-
-  // Pad to 200 bytes to reach strip_offsets_offset
-  while (tiff_data.size() < strip_offsets_offset) {
-    tiff_data.push_back('X');
-  }
-
-  // Write the strip offsets external array (4 strips)
   uint32_t strip_offsets[4] = {1000, 2000, 3000, 4000};
-  for (uint32_t offset : strip_offsets) {
-    tiff_data.push_back(offset & 0xFF);
-    tiff_data.push_back((offset >> 8) & 0xFF);
-    tiff_data.push_back((offset >> 16) & 0xFF);
-    tiff_data.push_back((offset >> 24) & 0xFF);
-  }
-
-  // Write the strip bytecounts external array (4 strips)
   uint32_t strip_bytecounts[4] = {500, 600, 700, 800};
-  for (uint32_t bytecount : strip_bytecounts) {
-    tiff_data.push_back(bytecount & 0xFF);
-    tiff_data.push_back((bytecount >> 8) & 0xFF);
-    tiff_data.push_back((bytecount >> 16) & 0xFF);
-    tiff_data.push_back((bytecount >> 24) & 0xFF);
-  }
 
-  // Pad the file to ensure it's large enough
-  while (tiff_data.size() < 4096) {
-    tiff_data.push_back('X');
-  }
+  TiffBuilder builder;
+  auto tiff_data =
+      builder
+          .StartIfd(5)  // 5 entries
+          // Basic image info
+          .AddEntry(256, 3, 1, 800)  // ImageWidth = 800
+          .AddEntry(257, 3, 1, 600)  // ImageLength = 600
+          .AddEntry(278, 3, 1, 100)  // RowsPerStrip = 100
+          // External arrays
+          .AddEntry(273, 4, 4,
+                    strip_offsets_offset)  // StripOffsets - external array
+          .AddEntry(
+              279, 4, 4,
+              strip_bytecounts_offset)  // StripByteCounts - external array
+          .EndIfd()                     // No more IFDs
+          .PadTo(strip_offsets_offset)  // Pad to external array location
+          .AddUint32Array({strip_offsets[0], strip_offsets[1], strip_offsets[2],
+                           strip_offsets[3]})
+          .AddUint32Array({strip_bytecounts[0], strip_bytecounts[1],
+                           strip_bytecounts[2], strip_bytecounts[3]})
+          .PadTo(4096)  // Pad the file to ensure it's large enough
+          .Build();
 
   ASSERT_THAT(tensorstore::kvstore::Write(memory, "external_arrays.tiff",
                                           absl::Cord(tiff_data))
@@ -439,61 +291,25 @@ TEST(TiffDirectoryCacheTest, ExternalArrays_BadPointer) {
       tensorstore::kvstore::Open({{"driver", "memory"}}, context).result());
 
   // Create a TIFF file with an invalid external array reference
-  std::string tiff_data;
-
-  // TIFF header (8 bytes)
-  tiff_data += "II";  // Little endian
-  tiff_data.push_back(42);
-  tiff_data.push_back(0);  // Magic number
-  tiff_data.push_back(8);
-  tiff_data.push_back(0);  // IFD offset (8)
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-
-  // IFD with 5 entries
-  tiff_data.push_back(5);
-  tiff_data.push_back(0);  // 5 entries
-
-  // Helper to add an IFD entry
-  auto AddEntry = [&tiff_data](uint16_t tag, uint16_t type, uint32_t count,
-                               uint32_t value) {
-    tiff_data.push_back(tag & 0xFF);
-    tiff_data.push_back((tag >> 8) & 0xFF);
-    tiff_data.push_back(type & 0xFF);
-    tiff_data.push_back((type >> 8) & 0xFF);
-    tiff_data.push_back(count & 0xFF);
-    tiff_data.push_back((count >> 8) & 0xFF);
-    tiff_data.push_back((count >> 16) & 0xFF);
-    tiff_data.push_back((count >> 24) & 0xFF);
-    tiff_data.push_back(value & 0xFF);
-    tiff_data.push_back((value >> 8) & 0xFF);
-    tiff_data.push_back((value >> 16) & 0xFF);
-    tiff_data.push_back((value >> 24) & 0xFF);
-  };
-
-  // Basic image info
-  AddEntry(256, 3, 1, 800);  // ImageWidth = 800
-  AddEntry(257, 3, 1, 600);  // ImageLength = 600
-  AddEntry(278, 3, 1, 100);  // RowsPerStrip = 100
-
-  // External strip offsets array with INVALID OFFSET - points beyond file end
   uint32_t invalid_offset = 50000;  // Far beyond our file size
-  AddEntry(273, 4, 4,
-           invalid_offset);  // StripOffsets - points to invalid location
 
-  // Valid strip bytecounts
-  AddEntry(279, 4, 1, 500);  // StripByteCounts - inline value
-
-  // No more IFDs
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-
-  // Pad the file to a reasonable size, but less than invalid_offset
-  while (tiff_data.size() < 1000) {
-    tiff_data.push_back('X');
-  }
+  TiffBuilder builder;
+  auto tiff_data =
+      builder
+          .StartIfd(5)  // 5 entries
+          // Basic image info
+          .AddEntry(256, 3, 1, 800)  // ImageWidth = 800
+          .AddEntry(257, 3, 1, 600)  // ImageLength = 600
+          .AddEntry(278, 3, 1, 100)  // RowsPerStrip = 100
+          // External strip offsets array with INVALID OFFSET
+          .AddEntry(273, 4, 4,
+                    invalid_offset)  // StripOffsets - invalid location
+          // Valid strip bytecounts
+          .AddEntry(279, 4, 1, 500)  // StripByteCounts - inline value
+          .EndIfd()                  // No more IFDs
+          .PadTo(
+              1000)  // Pad to a reasonable size, but less than invalid_offset
+          .Build();
 
   ASSERT_THAT(tensorstore::kvstore::Write(memory, "bad_external_array.tiff",
                                           absl::Cord(tiff_data))
@@ -524,80 +340,31 @@ TEST(TiffDirectoryCacheTest, ExternalArrays_BadPointer) {
 
 // Helper to create a test TIFF file with multiple IFDs
 std::string MakeMultiPageTiff() {
-  std::string tiff_data;
-
-  // TIFF header (8 bytes)
-  tiff_data += "II";  // Little endian
-  tiff_data.push_back(42);
-  tiff_data.push_back(0);  // Magic number
-  tiff_data.push_back(8);
-  tiff_data.push_back(0);  // IFD offset (8)
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-
-  // Helper to add an IFD entry
-  auto AddEntry = [&tiff_data](uint16_t tag, uint16_t type, uint32_t count,
-                               uint32_t value) {
-    tiff_data.push_back(tag & 0xFF);
-    tiff_data.push_back((tag >> 8) & 0xFF);
-    tiff_data.push_back(type & 0xFF);
-    tiff_data.push_back((type >> 8) & 0xFF);
-    tiff_data.push_back(count & 0xFF);
-    tiff_data.push_back((count >> 8) & 0xFF);
-    tiff_data.push_back((count >> 16) & 0xFF);
-    tiff_data.push_back((count >> 24) & 0xFF);
-    tiff_data.push_back(value & 0xFF);
-    tiff_data.push_back((value >> 8) & 0xFF);
-    tiff_data.push_back((value >> 16) & 0xFF);
-    tiff_data.push_back((value >> 24) & 0xFF);
-  };
+  TiffBuilder builder;
 
   // First IFD at offset 8
-  tiff_data.push_back(5);
-  tiff_data.push_back(0);  // 5 entries
-
-  // Add strip-based entries for first IFD
-  AddEntry(256, 3, 1, 400);   // ImageWidth = 400
-  AddEntry(257, 3, 1, 300);   // ImageLength = 300
-  AddEntry(278, 3, 1, 100);   // RowsPerStrip = 100
-  AddEntry(273, 4, 1, 1000);  // StripOffsets = 1000
-  AddEntry(279, 4, 1, 200);   // StripByteCounts = 200
-
-  // Point to second IFD at offset 200
-  tiff_data.push_back(200);
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-
-  // Pad to second IFD offset
-  while (tiff_data.size() < 200) {
-    tiff_data.push_back('X');
-  }
-
-  // Second IFD
-  tiff_data.push_back(6);
-  tiff_data.push_back(0);  // 6 entries
-
-  // Add tile-based entries for second IFD
-  AddEntry(256, 3, 1, 800);   // ImageWidth = 800
-  AddEntry(257, 3, 1, 600);   // ImageLength = 600
-  AddEntry(322, 3, 1, 256);   // TileWidth = 256
-  AddEntry(323, 3, 1, 256);   // TileLength = 256
-  AddEntry(324, 4, 1, 2000);  // TileOffsets
-  AddEntry(325, 4, 1, 300);   // TileByteCounts (needed for tile-based IFD)
-
-  // No more IFDs
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-
-  // Pad file to cover all offsets
-  while (tiff_data.size() < 3000) {
-    tiff_data.push_back('X');
-  }
-
-  return tiff_data;
+  return builder
+      .StartIfd(5)  // 5 entries
+      // Add strip-based entries for first IFD
+      .AddEntry(256, 3, 1, 400)   // ImageWidth = 400
+      .AddEntry(257, 3, 1, 300)   // ImageLength = 300
+      .AddEntry(278, 3, 1, 100)   // RowsPerStrip = 100
+      .AddEntry(273, 4, 1, 1000)  // StripOffsets = 1000
+      .AddEntry(279, 4, 1, 200)   // StripByteCounts = 200
+      .EndIfd(200)                // Point to second IFD at offset 200
+      .PadTo(200)                 // Pad to second IFD offset
+      // Second IFD
+      .StartIfd(6)  // 6 entries
+      // Add tile-based entries for second IFD
+      .AddEntry(256, 3, 1, 800)   // ImageWidth = 800
+      .AddEntry(257, 3, 1, 600)   // ImageLength = 600
+      .AddEntry(322, 3, 1, 256)   // TileWidth = 256
+      .AddEntry(323, 3, 1, 256)   // TileLength = 256
+      .AddEntry(324, 4, 1, 2000)  // TileOffsets
+      .AddEntry(325, 4, 1, 300)   // TileByteCounts
+      .EndIfd()                   // No more IFDs
+      .PadTo(3000)                // Pad file to cover all offsets
+      .Build();
 }
 
 TEST(TiffDirectoryCacheMultiIfdTest, ReadAndVerifyIFDs) {
@@ -672,73 +439,31 @@ TEST(TiffDirectoryCacheMultiIfdTest, ReadLargeMultiPageTiff) {
       tensorstore::kvstore::Open({{"driver", "memory"}}, context).result());
 
   // Create a TIFF file larger than kInitialReadBytes
-  std::string tiff_data;
-
-  // TIFF header (8 bytes)
-  tiff_data += "II";  // Little endian
-  tiff_data.push_back(42);
-  tiff_data.push_back(0);  // Magic number
-  tiff_data.push_back(8);
-  tiff_data.push_back(0);  // IFD offset (8)
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-
-  auto AddEntry = [&tiff_data](uint16_t tag, uint16_t type, uint32_t count,
-                               uint32_t value) {
-    tiff_data.push_back(tag & 0xFF);
-    tiff_data.push_back((tag >> 8) & 0xFF);
-    tiff_data.push_back(type & 0xFF);
-    tiff_data.push_back((type >> 8) & 0xFF);
-    tiff_data.push_back(count & 0xFF);
-    tiff_data.push_back((count >> 8) & 0xFF);
-    tiff_data.push_back((count >> 16) & 0xFF);
-    tiff_data.push_back((count >> 24) & 0xFF);
-    tiff_data.push_back(value & 0xFF);
-    tiff_data.push_back((value >> 8) & 0xFF);
-    tiff_data.push_back((value >> 16) & 0xFF);
-    tiff_data.push_back((value >> 24) & 0xFF);
-  };
-
-  // First IFD
-  tiff_data.push_back(5);
-  tiff_data.push_back(0);     // 5 entries
-  AddEntry(256, 3, 1, 400);   // ImageWidth = 400
-  AddEntry(257, 3, 1, 300);   // ImageLength = 300
-  AddEntry(278, 3, 1, 100);   // RowsPerStrip = 100
-  AddEntry(273, 4, 1, 1024);  // StripOffsets = 1024 (just after initial read)
-  AddEntry(279, 4, 1, 200);   // StripByteCounts = 200
-
-  // Point to second IFD at offset 2048 (well beyond initial read)
-  tiff_data.push_back(0x00);
-  tiff_data.push_back(0x08);
-  tiff_data.push_back(0x00);
-  tiff_data.push_back(0x00);
-
-  // Pad to second IFD offset
-  while (tiff_data.size() < 2048) {
-    tiff_data.push_back('X');
-  }
-
-  // Second IFD
-  tiff_data.push_back(6);
-  tiff_data.push_back(0);     // 6 entries
-  AddEntry(256, 3, 1, 800);   // ImageWidth = 800
-  AddEntry(257, 3, 1, 600);   // ImageLength = 600
-  AddEntry(322, 3, 1, 256);   // TileWidth = 256
-  AddEntry(323, 3, 1, 256);   // TileLength = 256
-  AddEntry(324, 4, 1, 3000);  // TileOffsets
-  AddEntry(325, 4, 1, 300);   // TileByteCounts (needed for tile-based IFD)
-
-  // No more IFDs
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-
-  // Pad file to cover all offsets
-  while (tiff_data.size() < 4096) {
-    tiff_data.push_back('X');
-  }
+  TiffBuilder builder;
+  auto tiff_data =
+      builder
+          // First IFD
+          .StartIfd(5)               // 5 entries
+          .AddEntry(256, 3, 1, 400)  // ImageWidth = 400
+          .AddEntry(257, 3, 1, 300)  // ImageLength = 300
+          .AddEntry(278, 3, 1, 100)  // RowsPerStrip = 100
+          .AddEntry(273, 4, 1,
+                    1024)  // StripOffsets = 1024 (just after initial read)
+          .AddEntry(279, 4, 1, 200)  // StripByteCounts = 200
+          .EndIfd(2048)  // Point to second IFD at offset 2048 (well beyond
+                         // initial read)
+          .PadTo(2048)   // Pad to second IFD offset
+          // Second IFD
+          .StartIfd(6)                // 6 entries
+          .AddEntry(256, 3, 1, 800)   // ImageWidth = 800
+          .AddEntry(257, 3, 1, 600)   // ImageLength = 600
+          .AddEntry(322, 3, 1, 256)   // TileWidth = 256
+          .AddEntry(323, 3, 1, 256)   // TileLength = 256
+          .AddEntry(324, 4, 1, 3000)  // TileOffsets
+          .AddEntry(325, 4, 1, 300)   // TileByteCounts
+          .EndIfd()                   // No more IFDs
+          .PadTo(4096)                // Pad file to cover all offsets
+          .Build();
 
   ASSERT_THAT(tensorstore::kvstore::Write(memory, "large_multi_ifd.tiff",
                                           absl::Cord(tiff_data))
@@ -778,108 +503,56 @@ TEST(TiffDirectoryCacheMultiIfdTest, ExternalArraysMultiIfdTest) {
       tensorstore::kvstore::Open({{"driver", "memory"}}, context).result());
 
   // Build a TIFF file with two IFDs, each referencing external arrays
-  std::string tiff_data;
-  tiff_data += "II";  // Little endian
-  tiff_data.push_back(42);
-  tiff_data.push_back(0);  // Magic number
-  tiff_data.push_back(8);
-  tiff_data.push_back(0);  // First IFD offset
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
+  std::vector<uint32_t> offsets1 = {1000, 2000, 3000, 4000};
+  std::vector<uint32_t> bytecounts1 = {50, 60, 70, 80};
+  std::vector<uint32_t> offsets2 = {5000, 5004, 5008, 5012};
+  std::vector<uint32_t> bytecounts2 = {100, 200, 300, 400};
 
-  auto AddEntry = [&](uint16_t tag, uint16_t type, uint32_t count,
-                      uint32_t value) {
-    tiff_data.push_back(tag & 0xFF);
-    tiff_data.push_back((tag >> 8) & 0xFF);
-    tiff_data.push_back(type & 0xFF);
-    tiff_data.push_back((type >> 8) & 0xFF);
-    tiff_data.push_back(count & 0xFF);
-    tiff_data.push_back((count >> 8) & 0xFF);
-    tiff_data.push_back((count >> 16) & 0xFF);
-    tiff_data.push_back((count >> 24) & 0xFF);
-    tiff_data.push_back(value & 0xFF);
-    tiff_data.push_back((value >> 8) & 0xFF);
-    tiff_data.push_back((value >> 16) & 0xFF);
-    tiff_data.push_back((value >> 24) & 0xFF);
-  };
+  TiffBuilder builder;
+  auto tiff_data =
+      builder
+          // First IFD with external arrays
+          .StartIfd(5)               // 5 entries
+          .AddEntry(256, 3, 1, 400)  // ImageWidth
+          .AddEntry(257, 3, 1, 300)  // ImageLength
+          .AddEntry(278, 3, 1, 100)  // RowsPerStrip = 100
+          .AddEntry(273, 4, 4,
+                    512)  // StripOffsets array (points to offset 512)
+          .AddEntry(279, 4, 4,
+                    528)  // StripByteCounts array (points to offset 528)
+          .EndIfd(600)    // Second IFD offset at 600
+          .PadTo(512)     // Pad to 512
+          // External arrays for first IFD
+          .AddUint32Array(offsets1)
+          .AddUint32Array(bytecounts1)
+          .PadTo(600)  // Pad to second IFD offset
+          // Second IFD with external arrays
+          .StartIfd(6)               // 6 entries
+          .AddEntry(256, 3, 1, 800)  // ImageWidth
+          .AddEntry(257, 3, 1, 600)  // ImageLength
+          .AddEntry(322, 3, 1, 256)  // TileWidth
+          .AddEntry(323, 3, 1, 256)  // TileLength
+          .AddEntry(324, 4, 4, 700)  // TileOffsets array (offset 700)
+          .AddEntry(325, 4, 4, 716)  // TileByteCounts array (offset 716)
+          .EndIfd()                  // No more IFDs
+          .PadTo(700)                // Pad to external arrays for second IFD
+          .AddUint32Array(offsets2)
+          .AddUint32Array(bytecounts2)
+          .Build();
 
-  // First IFD with external arrays
-  tiff_data.push_back(5);
-  tiff_data.push_back(0);    // 5 entries
-  AddEntry(256, 3, 1, 400);  // ImageWidth
-  AddEntry(257, 3, 1, 300);  // ImageLength
-  AddEntry(278, 3, 1, 100);  // RowsPerStrip = 100
-  AddEntry(273, 4, 4, 512);  // StripOffsets array (points to offset 512)
-  AddEntry(279, 4, 4, 528);  // StripByteCounts array (points to offset 528)
-
-  // Second IFD offset at 600
-  tiff_data.push_back(0x58);
-  tiff_data.push_back(0x02);
-  tiff_data.push_back(0x00);
-  tiff_data.push_back(0x00);
-
-  // Pad to 512
-  while (tiff_data.size() < 512) tiff_data.push_back('X');
-
-  // External arrays for first IFD (4 entries each)
-  uint32_t offsets1[4] = {1000, 2000, 3000, 4000};
-  for (uint32_t val : offsets1) {
-    for (int i = 0; i < 4; i++) {
-      tiff_data.push_back((val >> (8 * i)) & 0xFF);
-    }
-  }
-  uint32_t bytecounts1[4] = {50, 60, 70, 80};
-  for (uint32_t val : bytecounts1) {
-    for (int i = 0; i < 4; i++) {
-      tiff_data.push_back((val >> (8 * i)) & 0xFF);
-    }
-  }
-
-  // Pad to second IFD offset (600)
-  while (tiff_data.size() < 600) tiff_data.push_back('X');
-
-  // Second IFD with external arrays
-  tiff_data.push_back(6);
-  tiff_data.push_back(0);    // 6 entries
-  AddEntry(256, 3, 1, 800);  // ImageWidth
-  AddEntry(257, 3, 1, 600);  // ImageLength
-  AddEntry(322, 3, 1, 256);  // TileWidth
-  AddEntry(323, 3, 1, 256);  // TileLength
-  AddEntry(324, 4, 4, 700);  // TileOffsets array (offset 700)
-  AddEntry(325, 4, 4, 716);  // TileByteCounts array (offset 716)
-  // No more IFDs
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-
-  // Pad to external arrays for second IFD
-  while (tiff_data.size() < 700) tiff_data.push_back('X');
-  uint32_t offsets2[4] = {5000, 5004, 5008, 5012};
-  for (auto val : offsets2) {
-    for (int i = 0; i < 4; i++) {
-      tiff_data.push_back((val >> (8 * i)) & 0xFF);
-    }
-  }
-  uint32_t bytecounts2[4] = {100, 200, 300, 400};
-  for (auto val : bytecounts2) {
-    for (int i = 0; i < 4; i++) {
-      tiff_data.push_back((val >> (8 * i)) & 0xFF);
-    }
-  }
-
-  // Write the file
   ASSERT_THAT(tensorstore::kvstore::Write(memory, "multi_ifd_external.tiff",
                                           absl::Cord(tiff_data))
                   .result(),
               ::tensorstore::IsOk());
 
-  // Read back with TiffDirectoryCache
   auto cache = GetCache<TiffDirectoryCache>(pool.get(), "", [&] {
     return std::make_unique<TiffDirectoryCache>(memory.driver,
                                                 InlineExecutor{});
   });
+
   auto entry = GetCacheEntry(cache, "multi_ifd_external.tiff");
+
+  // Read back with TiffDirectoryCache
   tensorstore::internal::AsyncCache::AsyncCacheReadRequest request;
   request.staleness_bound = absl::InfinitePast();
 
@@ -915,91 +588,39 @@ TEST(TiffDirectoryCacheTest, ExternalArrays_Uint16Arrays) {
 
   // Create a TIFF file with uint16_t external arrays (BitsPerSample and
   // SampleFormat)
-  std::string tiff_data;
-
-  // TIFF header (8 bytes)
-  tiff_data += "II";  // Little endian
-  tiff_data.push_back(42);
-  tiff_data.push_back(0);  // Magic number
-  tiff_data.push_back(8);
-  tiff_data.push_back(0);  // IFD offset (8)
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-
-  // IFD with 8 entries
-  tiff_data.push_back(8);
-  tiff_data.push_back(0);  // 8 entries
-
-  // Helper to add an IFD entry
-  auto AddEntry = [&tiff_data](uint16_t tag, uint16_t type, uint32_t count,
-                               uint32_t value) {
-    tiff_data.push_back(tag & 0xFF);
-    tiff_data.push_back((tag >> 8) & 0xFF);
-    tiff_data.push_back(type & 0xFF);
-    tiff_data.push_back((type >> 8) & 0xFF);
-    tiff_data.push_back(count & 0xFF);
-    tiff_data.push_back((count >> 8) & 0xFF);
-    tiff_data.push_back((count >> 16) & 0xFF);
-    tiff_data.push_back((count >> 24) & 0xFF);
-    tiff_data.push_back(value & 0xFF);
-    tiff_data.push_back((value >> 8) & 0xFF);
-    tiff_data.push_back((value >> 16) & 0xFF);
-    tiff_data.push_back((value >> 24) & 0xFF);
-  };
-
-  // Basic image info
-  AddEntry(256, 3, 1, 800);  // ImageWidth = 800
-  AddEntry(257, 3, 1, 600);  // ImageLength = 600
-  AddEntry(277, 3, 1, 3);    // SamplesPerPixel = 3 (RGB)
-  AddEntry(278, 3, 1, 100);  // RowsPerStrip = 100
-
-  // External BitsPerSample array (3 values for RGB)
   uint32_t bits_per_sample_offset = 200;
-  AddEntry(258, 3, 3,
-           bits_per_sample_offset);  // BitsPerSample - external array
-
-  // External SampleFormat array (3 values for RGB)
   uint32_t sample_format_offset = 212;
-  AddEntry(339, 3, 3, sample_format_offset);  // SampleFormat - external array
+  std::vector<uint16_t> bits_values = {8, 8, 8};  // 8 bits per channel
+  std::vector<uint16_t> sample_format_values = {1, 1,
+                                                1};  // 1 = unsigned integer
 
-  // Add a StripOffsets and StripByteCounts entry to make this a valid TIFF
-  AddEntry(273, 4, 1, 1000);   // StripOffsets = 1000
-  AddEntry(279, 4, 1, 30000);  // StripByteCounts = 30000
-
-  // No more IFDs
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-
-  // Pad to BitsPerSample external array location
-  while (tiff_data.size() < bits_per_sample_offset) {
-    tiff_data.push_back('X');
-  }
-
-  // Write BitsPerSample external array - 3 uint16_t values for RGB
-  uint16_t bits_values[3] = {8, 8, 8};  // 8 bits per channel
-  for (uint16_t val : bits_values) {
-    tiff_data.push_back(val & 0xFF);
-    tiff_data.push_back((val >> 8) & 0xFF);
-  }
-
-  // Make sure we're at the sample_format_offset
-  while (tiff_data.size() < sample_format_offset) {
-    tiff_data.push_back('X');
-  }
-
-  // Write SampleFormat external array - 3 uint16_t values for RGB
-  uint16_t sample_format_values[3] = {1, 1, 1};  // 1 = unsigned integer
-  for (uint16_t val : sample_format_values) {
-    tiff_data.push_back(val & 0xFF);
-    tiff_data.push_back((val >> 8) & 0xFF);
-  }
-
-  // Pad the file to ensure it's large enough
-  while (tiff_data.size() < 2048) {
-    tiff_data.push_back('X');
-  }
+  TiffBuilder builder;
+  auto tiff_data =
+      builder
+          .StartIfd(8)  // 8 entries
+          // Basic image info
+          .AddEntry(256, 3, 1, 800)  // ImageWidth = 800
+          .AddEntry(257, 3, 1, 600)  // ImageLength = 600
+          .AddEntry(277, 3, 1, 3)    // SamplesPerPixel = 3 (RGB)
+          .AddEntry(278, 3, 1, 100)  // RowsPerStrip = 100
+          // External arrays
+          .AddEntry(258, 3, 3,
+                    bits_per_sample_offset)  // BitsPerSample - external array
+          .AddEntry(339, 3, 3,
+                    sample_format_offset)  // SampleFormat - external array
+          // Required entries
+          .AddEntry(273, 4, 1, 1000)      // StripOffsets = 1000
+          .AddEntry(279, 4, 1, 30000)     // StripByteCounts = 30000
+          .EndIfd()                       // No more IFDs
+          .PadTo(bits_per_sample_offset)  // Pad to BitsPerSample external array
+                                          // location
+          .AddUint16Array(bits_values)    // Write BitsPerSample external array
+          .PadTo(sample_format_offset)    // Make sure we're at the
+                                          // sample_format_offset
+          .AddUint16Array(
+              sample_format_values)  // Write SampleFormat external array
+          .PadTo(2048)               // Pad the file to ensure it's large enough
+          .Build();
 
   ASSERT_THAT(tensorstore::kvstore::Write(memory, "uint16_arrays.tiff",
                                           absl::Cord(tiff_data))
@@ -1056,61 +677,25 @@ TEST(TiffDirectoryCacheTest, ComprehensiveTiffTagsTest) {
       tensorstore::kvstore::Open({{"driver", "memory"}}, context).result());
 
   // Create a TIFF file with all supported tags
-  std::string tiff_data;
-
-  // TIFF header (8 bytes)
-  tiff_data += "II";  // Little endian
-  tiff_data.push_back(42);
-  tiff_data.push_back(0);  // Magic number
-  tiff_data.push_back(8);
-  tiff_data.push_back(0);  // IFD offset (8)
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-
-  // IFD with 11 entries (all standard tags we support)
-  tiff_data.push_back(11);
-  tiff_data.push_back(0);  // 11 entries
-
-  // Helper to add an IFD entry
-  auto AddEntry = [&tiff_data](uint16_t tag, uint16_t type, uint32_t count,
-                               uint32_t value) {
-    tiff_data.push_back(tag & 0xFF);
-    tiff_data.push_back((tag >> 8) & 0xFF);
-    tiff_data.push_back(type & 0xFF);
-    tiff_data.push_back((type >> 8) & 0xFF);
-    tiff_data.push_back(count & 0xFF);
-    tiff_data.push_back((count >> 8) & 0xFF);
-    tiff_data.push_back((count >> 16) & 0xFF);
-    tiff_data.push_back((count >> 24) & 0xFF);
-    tiff_data.push_back(value & 0xFF);
-    tiff_data.push_back((value >> 8) & 0xFF);
-    tiff_data.push_back((value >> 16) & 0xFF);
-    tiff_data.push_back((value >> 24) & 0xFF);
-  };
-
-  // Add all standard tags with their test values
-  AddEntry(256, 3, 1, 1024);   // ImageWidth = 1024
-  AddEntry(257, 3, 1, 768);    // ImageLength = 768
-  AddEntry(258, 3, 1, 16);     // BitsPerSample = 16 (single value, inline)
-  AddEntry(259, 3, 1, 1);      // Compression = 1 (none)
-  AddEntry(262, 3, 1, 2);      // PhotometricInterpretation = 2 (RGB)
-  AddEntry(277, 3, 1, 1);      // SamplesPerPixel = 1
-  AddEntry(278, 3, 1, 128);    // RowsPerStrip = 128
-  AddEntry(273, 4, 1, 1000);   // StripOffsets = 1000
-  AddEntry(279, 4, 1, 65536);  // StripByteCounts = 65536
-  AddEntry(284, 3, 1, 1);      // PlanarConfiguration = 1 (chunky)
-  AddEntry(339, 3, 1, 1);      // SampleFormat = 1 (unsigned)
-
-  // No more IFDs
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-
-  // Pad the file to ensure it's large enough
-  while (tiff_data.size() < 2048) {
-    tiff_data.push_back('X');
-  }
+  TiffBuilder builder;
+  auto tiff_data =
+      builder
+          .StartIfd(11)  // 11 entries (all standard tags we support)
+          // Add all standard tags with their test values
+          .AddEntry(256, 3, 1, 1024)  // ImageWidth = 1024
+          .AddEntry(257, 3, 1, 768)   // ImageLength = 768
+          .AddEntry(258, 3, 1, 16)  // BitsPerSample = 16 (single value, inline)
+          .AddEntry(259, 3, 1, 1)   // Compression = 1 (none)
+          .AddEntry(262, 3, 1, 2)   // PhotometricInterpretation = 2 (RGB)
+          .AddEntry(277, 3, 1, 1)   // SamplesPerPixel = 1
+          .AddEntry(278, 3, 1, 128)    // RowsPerStrip = 128
+          .AddEntry(273, 4, 1, 1000)   // StripOffsets = 1000
+          .AddEntry(279, 4, 1, 65536)  // StripByteCounts = 65536
+          .AddEntry(284, 3, 1, 1)      // PlanarConfiguration = 1 (chunky)
+          .AddEntry(339, 3, 1, 1)      // SampleFormat = 1 (unsigned)
+          .EndIfd()                    // No more IFDs
+          .PadTo(2048)  // Pad the file to ensure it's large enough
+          .Build();
 
   ASSERT_THAT(tensorstore::kvstore::Write(memory, "comprehensive_tags.tiff",
                                           absl::Cord(tiff_data))
@@ -1164,64 +749,29 @@ TEST(TiffDirectoryCacheTest, TiledTiffWithAllTags) {
       tensorstore::kvstore::Open({{"driver", "memory"}}, context).result());
 
   // Create a tiled TIFF file with all supported tags
-  std::string tiff_data;
-
-  // TIFF header (8 bytes)
-  tiff_data += "II";  // Little endian
-  tiff_data.push_back(42);
-  tiff_data.push_back(0);  // Magic number
-  tiff_data.push_back(8);
-  tiff_data.push_back(0);  // IFD offset (8)
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-
-  // IFD with 12 entries (all standard tags we support for tiled TIFF)
-  tiff_data.push_back(12);
-  tiff_data.push_back(0);  // 12 entries
-
-  // Helper to add an IFD entry
-  auto AddEntry = [&tiff_data](uint16_t tag, uint16_t type, uint32_t count,
-                               uint32_t value) {
-    tiff_data.push_back(tag & 0xFF);
-    tiff_data.push_back((tag >> 8) & 0xFF);
-    tiff_data.push_back(type & 0xFF);
-    tiff_data.push_back((type >> 8) & 0xFF);
-    tiff_data.push_back(count & 0xFF);
-    tiff_data.push_back((count >> 8) & 0xFF);
-    tiff_data.push_back((count >> 16) & 0xFF);
-    tiff_data.push_back((count >> 24) & 0xFF);
-    tiff_data.push_back(value & 0xFF);
-    tiff_data.push_back((value >> 8) & 0xFF);
-    tiff_data.push_back((value >> 16) & 0xFF);
-    tiff_data.push_back((value >> 24) & 0xFF);
-  };
-
-  // Add all standard tags with their test values for a tiled TIFF
-  AddEntry(256, 3, 1, 2048);  // ImageWidth = 2048
-  AddEntry(257, 3, 1, 2048);  // ImageLength = 2048
-  AddEntry(258, 3, 1, 32);    // BitsPerSample = 32
-  AddEntry(259, 3, 1, 8);     // Compression = 8 (Deflate)
-  AddEntry(262, 3, 1, 1);     // PhotometricInterpretation = 1 (BlackIsZero)
-  AddEntry(277, 3, 1, 1);     // SamplesPerPixel = 1
-  AddEntry(284, 3, 1, 1);     // PlanarConfiguration = 1 (chunky)
-  AddEntry(339, 3, 1, 3);     // SampleFormat = 3 (IEEE float)
-
-  // Tile-specific tags
-  AddEntry(322, 3, 1, 256);    // TileWidth = 256
-  AddEntry(323, 3, 1, 256);    // TileLength = 256
-  AddEntry(324, 4, 1, 1000);   // TileOffsets = 1000
-  AddEntry(325, 4, 1, 10000);  // TileByteCounts = 10000
-
-  // No more IFDs
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-  tiff_data.push_back(0);
-
-  // Pad the file to ensure it's large enough
-  while (tiff_data.size() < 2048) {
-    tiff_data.push_back('X');
-  }
+  TiffBuilder builder;
+  auto tiff_data =
+      builder
+          .StartIfd(
+              12)  // 12 entries (all standard tags we support for tiled TIFF)
+          // Add all standard tags with their test values for a tiled TIFF
+          .AddEntry(256, 3, 1, 2048)  // ImageWidth = 2048
+          .AddEntry(257, 3, 1, 2048)  // ImageLength = 2048
+          .AddEntry(258, 3, 1, 32)    // BitsPerSample = 32
+          .AddEntry(259, 3, 1, 8)     // Compression = 8 (Deflate)
+          .AddEntry(262, 3, 1,
+                    1)  // PhotometricInterpretation = 1 (BlackIsZero)
+          .AddEntry(277, 3, 1, 1)  // SamplesPerPixel = 1
+          .AddEntry(284, 3, 1, 1)  // PlanarConfiguration = 1 (chunky)
+          .AddEntry(339, 3, 1, 3)  // SampleFormat = 3 (IEEE float)
+          // Tile-specific tags
+          .AddEntry(322, 3, 1, 256)    // TileWidth = 256
+          .AddEntry(323, 3, 1, 256)    // TileLength = 256
+          .AddEntry(324, 4, 1, 1000)   // TileOffsets = 1000
+          .AddEntry(325, 4, 1, 10000)  // TileByteCounts = 10000
+          .EndIfd()                    // No more IFDs
+          .PadTo(2048)  // Pad the file to ensure it's large enough
+          .Build();
 
   ASSERT_THAT(tensorstore::kvstore::Write(memory, "tiled_tiff_all_tags.tiff",
                                           absl::Cord(tiff_data))
