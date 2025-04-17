@@ -28,6 +28,9 @@
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/util/future.h"
 
+// specializations
+#include "tensorstore/internal/estimate_heap_usage/std_vector.h"  // IWYU pragma: keep
+
 namespace tensorstore {
 namespace internal_tiff_kvstore {
 
@@ -49,9 +52,10 @@ struct ReadDirectoryOp
   // entries, etc.
   std::shared_ptr<TiffParseResult> parse_result_;
 
-  // The offset in the file that corresponds to parse_result_->raw_data[0].
-  // If file_offset_ is 1000, then parse_result_->raw_data’s index 0 is byte
-  // 1000 in the TIFF file.
+  // Buffer for storing raw file data during reading and parsing operations
+  absl::Cord buffer;
+
+  // The offset in the file that corresponds to buffer[0].
   uint64_t file_offset_;
 
   // The next IFD offset we expect to parse. If 0, we have no more IFDs in the
@@ -145,8 +149,8 @@ struct ReadDirectoryOp
     }
 
     // We now have partial data at offsets [0..someSize).
-    parse_result_->raw_data = std::move(r->value);
-    uint64_t bytes_received = parse_result_->raw_data.size();
+    buffer = std::move(r->value);
+    uint64_t bytes_received = buffer.size();
 
     // If we got less data than requested, treat it as a full read.
     if (!is_full_read_ && bytes_received < kInitialReadBytes) {
@@ -156,7 +160,7 @@ struct ReadDirectoryOp
     }
 
     // Parse the header
-    riegeli::CordReader cord_reader(&parse_result_->raw_data);
+    riegeli::CordReader cord_reader(&buffer);
     Endian endian;
     absl::Status header_status =
         ParseTiffHeader(cord_reader, endian, next_ifd_offset_);
@@ -171,9 +175,6 @@ struct ReadDirectoryOp
         << ", Next IFD offset: " << next_ifd_offset_;
     parse_result_->endian = endian;
 
-    // Now parse the first IFD at next_ifd_offset_ if it’s nonzero. Then
-    // traverse the rest. Because we’re at file_offset_ = 0, next_ifd_offset_ is
-    // within the buffer if next_ifd_offset_ < bytes_received.
     StartParsingIFDs(std::move(r->stamp));
   }
 
@@ -205,9 +206,7 @@ struct ReadDirectoryOp
       return;
     }
 
-    // “Recursive” or iterative approach: parse the next IFD in the chain.
-    // We could do a loop here, but we’ll just call StartParsingIFDs again
-    // until we either run out of data or IFDs.
+    // Parse the next IFD in the chain.
     StartParsingIFDs(std::move(stamp));
   }
 
@@ -218,9 +217,7 @@ struct ReadDirectoryOp
     ABSL_LOG_IF(INFO, tiff_logging)
         << "Parsing IFD at offset: " << next_ifd_offset_
         << " for key: " << entry_->key();
-    // 1. We slice the buffer so that raw_data[0] corresponds to
-    // next_ifd_offset_ in the file if it’s inside the current buffer’s range.
-    //    The difference is next_ifd_offset_ - file_offset_.
+
     if (next_ifd_offset_ < file_offset_) {
       return absl::DataLossError(
           "IFD offset is behind our current buffer offset, which is "
@@ -228,7 +225,7 @@ struct ReadDirectoryOp
     }
 
     uint64_t relative_pos = next_ifd_offset_ - file_offset_;
-    uint64_t buffer_size = parse_result_->raw_data.size();
+    uint64_t buffer_size = buffer.size();
 
     if (relative_pos > buffer_size) {
       ABSL_LOG_IF(WARNING, tiff_logging)
@@ -241,20 +238,14 @@ struct ReadDirectoryOp
     }
 
     // Slice off everything before relative_pos, because we no longer need it.
-    // For absl::Cord, we can do subcord. Suppose subcord(offset, npos).
-    // Then we update file_offset_ to next_ifd_offset_.
-    // Example approach:
-    parse_result_->raw_data = parse_result_->raw_data.Subcord(
-        relative_pos, buffer_size - relative_pos);
+    buffer = buffer.Subcord(relative_pos, buffer_size - relative_pos);
     file_offset_ = next_ifd_offset_;
 
-    // Now parse from the beginning of parse_result_->raw_data as offset=0 in
-    // the local sense.
-    riegeli::CordReader reader(&parse_result_->raw_data);
+    // Now parse from the beginning of buffer as offset=0 in the local sense.
+    riegeli::CordReader reader(&buffer);
     TiffDirectory dir;
     absl::Status s = ParseTiffDirectory(reader, parse_result_->endian,
-                                        /*local_offset=*/0,
-                                        parse_result_->raw_data.size(), dir);
+                                        /*local_offset=*/0, buffer.size(), dir);
     if (!s.ok()) {
       ABSL_LOG_IF(WARNING, tiff_logging) << "Failed to parse IFD: " << s;
       return s;  // Could be OutOfRange, parse error, etc.
@@ -276,7 +267,7 @@ struct ReadDirectoryOp
   void RequestMoreData(tensorstore::TimestampedStorageGeneration stamp) {
     ABSL_LOG_IF(INFO, tiff_logging)
         << "Requesting more data for key: " << entry_->key()
-        << ". Current buffer size: " << parse_result_->raw_data.size()
+        << ". Current buffer size: " << buffer.size()
         << ", Full read: " << parse_result_->full_read;
     if (parse_result_->full_read) {
       // We’re already in full read mode and still are outOfRange => truncated
@@ -287,7 +278,7 @@ struct ReadDirectoryOp
     }
 
     if (!is_full_read_) {
-      uint64_t current_data_end = file_offset_ + parse_result_->raw_data.size();
+      uint64_t current_data_end = file_offset_ + buffer.size();
       // Start from the next IFD offset if it's beyond what we already have:
       uint64_t read_begin = std::max(current_data_end, next_ifd_offset_);
       uint64_t read_end = read_begin + kInitialReadBytes;
@@ -325,7 +316,7 @@ struct ReadDirectoryOp
   }
 
   /// Called once more data arrives. We append that data to
-  /// parse_result_->raw_data and attempt parsing the IFD again.
+  /// buffer and attempt parsing the IFD again.
   void OnAdditionalDataRead(ReadyFuture<kvstore::ReadResult> ready,
                             tensorstore::TimestampedStorageGeneration stamp) {
     const auto& r = ready.result();
@@ -369,18 +360,17 @@ struct ReadDirectoryOp
 
     // If we're reading from next_ifd_offset directly (which is far away from
     // our buffer end), we should reset our buffer instead of appending.
-    if (options_.byte_range.inclusive_min >=
-        file_offset_ + parse_result_->raw_data.size()) {
+    if (options_.byte_range.inclusive_min >= file_offset_ + buffer.size()) {
       // This is a non-contiguous read, so replace buffer instead of appending
-      parse_result_->raw_data = std::move(rr.value);
+      buffer = std::move(rr.value);
       file_offset_ =
           options_.byte_range
               .inclusive_min;  // Update file offset to match new data
     } else {
-      // Append new data to parse_result_->raw_data (contiguous read)
-      size_t old_size = parse_result_->raw_data.size();
-      parse_result_->raw_data.Append(rr.value);
-      size_t new_size = parse_result_->raw_data.size();
+      // Append new data to buffer (contiguous read)
+      size_t old_size = buffer.size();
+      buffer.Append(rr.value);
+      size_t new_size = buffer.size();
 
       // If we got less data than requested, treat it as a full read
       if (!is_full_read_ &&
@@ -647,7 +637,7 @@ Future<void> TiffDirectoryCache::Entry::LoadExternalArrays(
 
 size_t TiffDirectoryCache::Entry::ComputeReadDataSizeInBytes(
     const void* read_data) {
-  return static_cast<const ReadData*>(read_data)->raw_data.size();
+  return internal::EstimateHeapUsage(*static_cast<const ReadData*>(read_data));
 }
 
 void TiffDirectoryCache::Entry::DoRead(AsyncCacheReadRequest request) {

@@ -31,8 +31,7 @@ namespace internal_tiff_kvstore {
 inline constexpr std::size_t kInitialReadBytes = 1024;
 
 struct TiffParseResult {
-  absl::Cord raw_data;
-  bool full_read = false; // Indicates if the entire file was read
+  bool full_read = false;  // Indicates if the entire file was read
 
   // Store the endian order for the TIFF file
   Endian endian;
@@ -42,6 +41,10 @@ struct TiffParseResult {
 
   // Store all parsed image directories
   std::vector<ImageDirectory> image_directories;
+
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.full_read, x.endian, x.directories, x.image_directories);
+  };
 };
 
 class TiffDirectoryCache : public internal::AsyncCache {

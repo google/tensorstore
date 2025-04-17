@@ -118,6 +118,10 @@ struct IfdEntry {
 
   // Flag to indicate if this entry references an external array
   bool is_external_array = false;
+
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.tag, x.type, x.count, x.value_or_offset, x.is_external_array);
+  };
 };
 
 // Represents a TIFF Image File Directory (IFD)
@@ -129,6 +133,10 @@ struct TiffDirectory {
 
   // Entries in this IFD
   std::vector<IfdEntry> entries;
+
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.endian, x.directory_offset, x.next_ifd_offset, x.entries);
+  };
 };
 
 struct ImageDirectory {
@@ -149,6 +157,13 @@ struct ImageDirectory {
   std::vector<uint64_t> strip_bytecounts;
   std::vector<uint64_t> tile_offsets;
   std::vector<uint64_t> tile_bytecounts;
+
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.width, x.height, x.tile_width, x.tile_height, x.rows_per_strip,
+             x.samples_per_pixel, x.compression, x.photometric, x.planar_config,
+             x.bits_per_sample, x.sample_format, x.strip_offsets,
+             x.strip_bytecounts, x.tile_offsets, x.tile_bytecounts);
+  };
 };
 
 // Parse the TIFF header at the current position
