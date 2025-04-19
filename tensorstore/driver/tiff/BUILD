@@ -41,3 +41,25 @@ tensorstore_cc_library(
     ],
     alwayslink = 1,
 )
+
+tensorstore_cc_test(
+    name = "metadata_test",
+    size = "small",
+    srcs = ["metadata_test.cc"],
+    deps = [
+        ":metadata",
+        "//tensorstore:array",
+        "//tensorstore:codec_spec",
+        "//tensorstore:data_type",
+        "//tensorstore:index",
+        "//tensorstore/kvstore/tiff:tiff_details",
+        "//tensorstore/kvstore/tiff:tiff_dir_cache",
+        "//tensorstore/internal:json_gtest",
+        "//tensorstore/internal/json_binding:gtest",
+        "//tensorstore/util:status_testutil",
+        "@com_github_nlohmann_json//:json",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

@@ -111,6 +111,16 @@ Result<std::shared_ptr<TiffMetadata>> CreateMetadataFromParseResult(
     const internal_tiff_kvstore::TiffParseResult& parse_result,
     uint32_t ifd_index);
 
+/// Validates that the resolved `TiffMetadata` is compatible with Schema
+/// constraints.
+/// This is typically called after the final metadata object is resolved.
+///
+/// \param metadata The resolved TIFF metadata.
+/// \param schema The schema constraints to validate against.
+/// \error `absl::StatusCode::kFailedPrecondition` if constraints are violated.
+absl::Status ValidateMetadataSchema(const TiffMetadata& metadata,
+                                    const Schema& schema);
+
 }  // namespace internal_tiff
 }  // namespace tensorstore
 

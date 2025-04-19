@@ -23,13 +23,18 @@
 #include "tensorstore/codec_spec.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dimension_units.h"
 #include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_domain_builder.h"
+#include "tensorstore/internal/json_binding/bindable.h"
+#include "tensorstore/internal/json_binding/data_type.h"
+#include "tensorstore/internal/json_binding/dimension_indexed.h"
 #include "tensorstore/internal/json_binding/json_binding.h"  // For AnyCodecSpec
 #include "tensorstore/kvstore/tiff/tiff_details.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/schema.h"
+#include "tensorstore/serialization/json_bindable.h"
 #include "tensorstore/util/constant_vector.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
@@ -160,6 +165,28 @@ Result<std::vector<DimensionIndex>> GetInnerOrderFromTiff(
 }
 }  // namespace
 
+// Implement JSON binder for TiffMetadataConstraints here
+TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
+    TiffMetadataConstraints,
+    [](auto is_loading, const auto& options, auto* obj, auto* j) {
+      using T = absl::remove_cvref_t<decltype(*obj)>;
+      DimensionIndex* rank_ptr = nullptr;
+      if constexpr (is_loading.value) {  // Check if loading JSON
+        rank_ptr = &obj->rank;
+      }
+      return jb::Object(
+          jb::Member("dtype", jb::Projection<&T::dtype>(
+                                  jb::Optional(jb::DataTypeJsonBinder))),
+          // Pass the potentially non-const rank_ptr to ShapeVector
+          jb::Member("shape", jb::Projection<&T::shape>(
+                                  jb::Optional(jb::ShapeVector(rank_ptr)))),
+          jb::Member("ifd_index",
+                     jb::Projection<&T::ifd_index>(DefaultValue(
+                         [](auto* x) { *x = 0; }, jb::DefaultBinder<uint32_t>)))
+          // No need to explicitly bind 'rank', as ShapeVector manages it.
+          )(is_loading, options, obj, j);
+    })
+
 Result<std::shared_ptr<TiffMetadata>> CreateMetadataFromParseResult(
     const TiffParseResult& parse_result, uint32_t ifd_index) {
   auto metadata = std::make_shared<TiffMetadata>();
@@ -249,14 +276,22 @@ absl::Status ValidateMetadataSchema(const TiffMetadata& metadata,
   if (schema.domain().valid()) {
     IndexDomainBuilder builder(metadata.rank);
     builder.shape(metadata.shape);
-    // TODO: Add labels if supported
     builder.implicit_upper_bounds(
         true);  // Assuming TIFF dims are typically resizable
     TENSORSTORE_ASSIGN_OR_RETURN(auto domain_from_metadata, builder.Finalize());
-    TENSORSTORE_RETURN_IF_ERROR(
-        MergeIndexDomains(schema.domain(), domain_from_metadata),
-        MaybeAnnotateStatus(
-            _, "Mismatch between schema domain and resolved TIFF dimensions"));
+
+    // Check if the metadata domain satisfies the schema constraint domain.
+    // The schema domain must be contained within the metadata domain.
+    // We check this dimension by dimension using IndexInterval::Contains.
+    for (DimensionIndex i = 0; i < metadata.rank; ++i) {
+      if (!tensorstore::Contains(domain_from_metadata[i].interval(),
+                                 schema.domain()[i].interval())) {
+        return absl::FailedPreconditionError(tensorstore::StrCat(
+            "Schema domain ", schema.domain(),
+            " is not contained within metadata domain ", domain_from_metadata,
+            " (mismatch in dimension ", i, ")"));
+      }
+    }
   }
 
   // Data Type
@@ -275,9 +310,10 @@ absl::Status ValidateMetadataSchema(const TiffMetadata& metadata,
   // Compatibility was checked during ResolveMetadata when merging schema
   // constraints.
 
-  // Fill Value
-  // Compatibility was checked during ResolveMetadata when setting the fill
-  // value. Remove the incorrect ValidateFillValue call.
+  if (schema.fill_value().valid()) {
+    return absl::InvalidArgumentError(
+        "fill_value not supported by TIFF format");
+  }
 
   // Dimension Units
   if (schema.dimension_units().valid()) {
@@ -300,3 +336,8 @@ absl::Status ValidateMetadataSchema(const TiffMetadata& metadata,
 
 }  // namespace internal_tiff
 }  // namespace tensorstore
+
+TENSORSTORE_DEFINE_SERIALIZER_SPECIALIZATION(
+    tensorstore::internal_tiff::TiffMetadataConstraints,
+    tensorstore::serialization::JsonBindableSerializer<
+        tensorstore::internal_tiff::TiffMetadataConstraints>())
