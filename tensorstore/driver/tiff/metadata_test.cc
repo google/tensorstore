@@ -20,6 +20,8 @@
 #include <utility>
 #include <vector>
 
+#include "riegeli/bytes/cord_reader.h"
+#include "riegeli/bytes/cord_writer.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/codec_spec.h"
 #include "tensorstore/data_type.h"
@@ -28,25 +30,39 @@
 #include "tensorstore/index_space/dimension_units.h"
 #include "tensorstore/internal/json_binding/gtest.h"
 #include "tensorstore/internal/json_gtest.h"
+#include "tensorstore/internal/riegeli/array_endian_codec.h"
 #include "tensorstore/kvstore/tiff/tiff_details.h"
 #include "tensorstore/kvstore/tiff/tiff_dir_cache.h"
 #include "tensorstore/schema.h"
+#include "tensorstore/util/endian.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
 
 namespace jb = tensorstore::internal_json_binding;
+
+using ::tensorstore::AllocateArray;
 using ::tensorstore::Box;
 using ::tensorstore::ChunkLayout;
 using ::tensorstore::CodecSpec;
+using ::tensorstore::ContiguousLayoutOrder;
+using ::tensorstore::DataType;
+using ::tensorstore::DimensionIndex;
 using ::tensorstore::dtype_v;
 using ::tensorstore::dynamic_rank;
+using ::tensorstore::endian;
+using ::tensorstore::GetConstantVector;
+using ::tensorstore::Index;
 using ::tensorstore::IndexDomain;
+using ::tensorstore::MakeArray;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::RankConstraint;
 using ::tensorstore::Result;
 using ::tensorstore::Schema;
+using ::tensorstore::SharedArray;
+using ::tensorstore::SharedArrayView;
+using ::tensorstore::span;
 using ::tensorstore::TestJsonBinderRoundTrip;
 using ::tensorstore::TestJsonBinderRoundTripJsonOnly;
 using ::tensorstore::internal::CodecDriverSpec;
@@ -56,6 +72,7 @@ using ::tensorstore::internal_tiff::TiffMetadata;
 using ::tensorstore::internal_tiff::TiffMetadataConstraints;
 using ::tensorstore::internal_tiff::TiffSpecOptions;
 using ::tensorstore::internal_tiff_kvstore::CompressionType;
+using ::tensorstore::internal_tiff_kvstore::Endian;
 using ::tensorstore::internal_tiff_kvstore::ImageDirectory;
 using ::tensorstore::internal_tiff_kvstore::PlanarConfigType;
 using ::tensorstore::internal_tiff_kvstore::SampleFormatType;
@@ -741,6 +758,214 @@ TEST(GetEffectiveTest, Codec) {
   ASSERT_NE(codec_ptr, nullptr);
   EXPECT_THAT(codec_ptr->compression_type,
               ::testing::Optional(CompressionType::kLZW));
+}
+
+// Helper function to encode an array to a Cord for testing DecodeChunk
+Result<absl::Cord> EncodeArrayToCord(SharedArrayView<const void> array,
+                                     tensorstore::endian source_endian,
+                                     ContiguousLayoutOrder order) {
+  absl::Cord cord;
+  riegeli::CordWriter<> writer(&cord);
+  if (!tensorstore::internal::EncodeArrayEndian(array, source_endian, order,
+                                                writer)) {
+    return writer.status();
+  }
+  if (!writer.Close()) {
+    return writer.status();
+  }
+  return cord;
+}
+
+// Test fixture for DecodeChunk tests
+class DecodeChunkTest : public ::testing::Test {
+ protected:
+  // Helper to create metadata for testing
+  TiffMetadata CreateMetadata(
+      DataType dtype, span<const Index> shape, span<const Index> chunk_shape,
+      ContiguousLayoutOrder layout_order = ContiguousLayoutOrder::c,
+      Endian endian = Endian::kLittle,
+      CompressionType compression = CompressionType::kNone) {
+    TiffMetadata metadata;
+    metadata.dtype = dtype;
+    metadata.rank = shape.size();
+    metadata.shape.assign(shape.begin(), shape.end());
+    metadata.endian = endian;
+    metadata.compression_type = compression;
+    // metadata.compressor = nullptr;  // Assume no compressor for now
+
+    // Set chunk layout properties
+    TENSORSTORE_CHECK_OK(
+        metadata.chunk_layout.Set(RankConstraint{metadata.rank}));
+    TENSORSTORE_CHECK_OK(metadata.chunk_layout.Set(
+        ChunkLayout::ChunkShape(chunk_shape, /*hard=*/true)));
+    TENSORSTORE_CHECK_OK(metadata.chunk_layout.Set(ChunkLayout::GridOrigin(
+        GetConstantVector<Index, 0>(metadata.rank), /*hard=*/true)));
+    std::vector<DimensionIndex> inner_order(metadata.rank);
+    tensorstore::SetPermutation(layout_order, span(inner_order));
+    TENSORSTORE_CHECK_OK(metadata.chunk_layout.Set(
+        ChunkLayout::InnerOrder(inner_order, /*hard=*/true)));
+    TENSORSTORE_CHECK_OK(metadata.chunk_layout.Finalize());
+
+    // Set the resolved layout enum based on the finalized order
+    metadata.layout_order = layout_order;
+
+    return metadata;
+  }
+};
+
+TEST_F(DecodeChunkTest, UncompressedUint8CorderLittleEndian) {
+  const Index shape[] = {2, 3};
+  auto metadata = CreateMetadata(dtype_v<uint8_t>, shape, shape,
+                                 ContiguousLayoutOrder::c, Endian::kLittle);
+  auto expected_array = MakeArray<uint8_t>({{1, 2, 3}, {4, 5, 6}});
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto input_cord, EncodeArrayToCord(expected_array, endian::little,
+                                         ContiguousLayoutOrder::c));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto decoded_array_void,
+                                   DecodeChunk(metadata, input_cord));
+  SharedArray<const uint8_t> decoded_array(
+      std::static_pointer_cast<const uint8_t>(decoded_array_void.pointer()),
+      expected_array.layout());
+  EXPECT_EQ(decoded_array, expected_array);
+}
+
+TEST_F(DecodeChunkTest, UncompressedUint16FortranOrderBigEndian) {
+  const Index shape[] = {2, 3};
+  auto metadata = CreateMetadata(dtype_v<uint16_t>, shape, shape,
+                                 ContiguousLayoutOrder::fortran, Endian::kBig);
+  auto expected_array = tensorstore::MakeCopy(
+      MakeArray<uint16_t>({{100, 200, 300}, {400, 500, 600}}),
+      ContiguousLayoutOrder::fortran);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto input_cord, EncodeArrayToCord(expected_array, endian::big,
+                                         ContiguousLayoutOrder::fortran));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto decoded_array_void,
+                                   DecodeChunk(metadata, input_cord));
+  SharedArray<const uint16_t> decoded_array(
+      std::static_pointer_cast<const uint16_t>(decoded_array_void.pointer()),
+      expected_array.layout());
+
+  EXPECT_EQ(decoded_array, expected_array);
+}
+
+TEST_F(DecodeChunkTest, UncompressedFloat32CorderBigEndianToNative) {
+  const Index shape[] = {2, 2};
+  // Native endian might be little, source is big
+  auto metadata = CreateMetadata(dtype_v<float>, shape, shape,
+                                 ContiguousLayoutOrder::c, Endian::kBig);
+  auto expected_array = MakeArray<float>({{1.0f, 2.5f}, {-3.0f, 4.75f}});
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto input_cord,
+      EncodeArrayToCord(expected_array, endian::big, ContiguousLayoutOrder::c));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto decoded_array_void,
+                                   DecodeChunk(metadata, input_cord));
+  // Cast the void result to the expected type, preserving layout
+  SharedArray<const float> decoded_array(
+      std::static_pointer_cast<const float>(decoded_array_void.pointer()),
+      expected_array.layout());
+
+  EXPECT_EQ(decoded_array, expected_array);
+}
+
+TEST_F(DecodeChunkTest, UncompressedRank3) {
+  const Index shape[] = {2, 3, 2};  // Y, X, C
+  auto metadata = CreateMetadata(dtype_v<int16_t>, shape, shape,
+                                 ContiguousLayoutOrder::c, Endian::kLittle);
+  auto expected_array = MakeArray<int16_t>(
+      {{{1, 2}, {3, 4}, {5, 6}}, {{7, 8}, {9, 10}, {11, 12}}});
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto input_cord, EncodeArrayToCord(expected_array, endian::little,
+                                         ContiguousLayoutOrder::c));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto decoded_array_void,
+                                   DecodeChunk(metadata, input_cord));
+  // Cast the void result to the expected type, preserving layout
+  SharedArray<const int16_t> decoded_array(
+      std::static_pointer_cast<const int16_t>(decoded_array_void.pointer()),
+      expected_array.layout());
+
+  EXPECT_EQ(decoded_array, expected_array);
+}
+
+TEST_F(DecodeChunkTest, ErrorInputTooSmall) {
+  const Index shape[] = {2, 3};
+  auto metadata = CreateMetadata(dtype_v<uint16_t>, shape, shape,
+                                 ContiguousLayoutOrder::c, Endian::kLittle);
+  auto expected_array = MakeArray<uint16_t>({{1, 2, 3}, {4, 5, 6}});
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto input_cord, EncodeArrayToCord(expected_array, endian::little,
+                                         ContiguousLayoutOrder::c));
+
+  // Truncate the cord
+  absl::Cord truncated_cord = input_cord.Subcord(0, input_cord.size() - 1);
+
+  EXPECT_THAT(
+      DecodeChunk(metadata, truncated_cord),
+      MatchesStatus(absl::StatusCode::kInvalidArgument, ".*Not enough data.*"));
+}
+
+TEST_F(DecodeChunkTest, ErrorExcessData) {
+  const Index shape[] = {2, 3};
+  auto metadata = CreateMetadata(dtype_v<uint8_t>, shape, shape,
+                                 ContiguousLayoutOrder::c, Endian::kLittle);
+  auto expected_array = MakeArray<uint8_t>({{1, 2, 3}, {4, 5, 6}});
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto input_cord, EncodeArrayToCord(expected_array, endian::little,
+                                         ContiguousLayoutOrder::c));
+
+  // Add extra data
+  input_cord.Append("extra");
+
+  EXPECT_THAT(DecodeChunk(metadata, input_cord),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            ".*End of data expected.*"));
+}
+
+// --- Placeholder Tests for Compression ---
+// These require compressor implementations to be registered and potentially
+// pre-compressed "golden" data.
+TEST_F(DecodeChunkTest, DISABLED_CompressedDeflate) {
+  // 1. Register Deflate compressor (implementation needed separately)
+  //    RegisterTiffCompressor<DeflateCompressor>("deflate", ...);
+
+  // 2. Create metadata with deflate compression
+  const Index shape[] = {4, 5};
+  auto metadata =
+      CreateMetadata(dtype_v<uint16_t>, shape, shape, ContiguousLayoutOrder::c,
+                     Endian::kLittle, CompressionType::kDeflate);
+  // Get compressor instance via ResolveMetadata or manually for test
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      metadata.compressor,
+      Compressor::FromJson({{"type", "deflate"}}));  // Assumes registration
+
+  // 3. Create expected *decoded* array
+  auto expected_array =
+      AllocateArray<uint16_t>(shape, ContiguousLayoutOrder::c, tensorstore::value_init);
+  // Fill with some data...
+  for (Index i = 0; i < 4; ++i)
+    for (Index j = 0; j < 5; ++j) expected_array(i, j) = i * 10 + j;
+
+  // 4. Create *compressed* input cord (requires deflate implementation or
+  // golden data) Example using golden data (replace hex string with actual
+  // compressed bytes) std::string compressed_hex = "789c...";
+  // TENSORSTORE_ASSERT_OK_AND_ASSIGN(absl::Cord input_cord,
+  // HexToCord(compressed_hex));
+  absl::Cord input_cord;  // Placeholder - needs real compressed data
+  GTEST_SKIP()
+      << "Skipping compressed test until compressor impl/data is available.";
+
+  // 5. Call DecodeChunk and verify
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto decoded_array_void,
+                                   DecodeChunk(metadata, input_cord));
+  // Cast the void result to the expected type, preserving layout
+  SharedArray<const uint16_t> decoded_array(
+      std::static_pointer_cast<const uint16_t>(decoded_array_void.pointer()),
+      expected_array.layout());
+
+  EXPECT_EQ(decoded_array, expected_array);
 }
 
 }  // namespace

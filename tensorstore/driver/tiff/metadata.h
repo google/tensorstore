@@ -83,9 +83,13 @@ struct TiffMetadata {
   DimensionUnitsVector dimension_units;
 
   // Information retained from TIFF for reference/logic
+  internal_tiff_kvstore::Endian endian;
   internal_tiff_kvstore::CompressionType compression_type;
   internal_tiff_kvstore::PlanarConfigType planar_config;
   uint16_t samples_per_pixel;
+
+  // Pre-calculated layout order enum (C or Fortran) based on finalized chunk_layout.inner_order
+  ContiguousLayoutOrder layout_order = ContiguousLayoutOrder::c;
 
   // TODO: Add fields for parsed OME-XML metadata if needed in the future.
   // std::shared_ptr<OmeXmlStruct> ome_metadata;
@@ -217,6 +221,14 @@ Result<DimensionUnitsVector> GetEffectiveDimensionUnits(
 ///     input specifies a data type. Returns an error if constraints conflict.
 Result<DataType> GetEffectiveDataType(
     const TiffMetadataConstraints& constraints, const Schema& schema);
+
+/// Decodes a raw (potentially compressed) chunk buffer based on TIFF metadata.
+///
+/// \param metadata The resolved metadata for the TIFF dataset.
+/// \param buffer The raw Cord containing the bytes for a single tile/strip.
+/// \returns The decoded chunk as a SharedArray, or an error.
+Result<SharedArray<const void>> DecodeChunk(const TiffMetadata& metadata,
+                                            absl::Cord buffer);
 
 }  // namespace internal_tiff
 }  // namespace tensorstore

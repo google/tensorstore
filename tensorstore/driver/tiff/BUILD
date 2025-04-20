@@ -37,10 +37,12 @@ tensorstore_cc_library(
         "//tensorstore:codec_spec",
         "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/index_space:dimension_units",
+        "//tensorstore/internal/riegeli:array_endian_codec",
         "//tensorstore/kvstore/tiff:tiff_details",
         "//tensorstore/kvstore/tiff:tiff_dir_cache",
         "@com_google_absl//absl/log:absl_log",
         "@com_github_nlohmann_json//:json",
+        "@com_google_riegeli//riegeli/bytes:cord_reader",
     ],
     alwayslink = 1,
 )
@@ -58,6 +60,7 @@ tensorstore_cc_test(
         "//tensorstore:index",
         "//tensorstore/kvstore/tiff:tiff_details",
         "//tensorstore/kvstore/tiff:tiff_dir_cache",
+        "//tensorstore/internal/riegeli:array_endian_codec",
         "//tensorstore/internal:json_gtest",
         "//tensorstore/internal/json_binding:gtest",
         "//tensorstore/util:status_testutil",
@@ -65,6 +68,8 @@ tensorstore_cc_test(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:cord",
         "@com_google_googletest//:gtest_main",
+        "@com_google_riegeli//riegeli/bytes:cord_reader",
+        "@com_google_riegeli//riegeli/bytes:cord_writer",
     ],
 )
 

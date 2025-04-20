@@ -21,6 +21,7 @@
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
+#include "riegeli/bytes/cord_reader.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/codec_spec.h"
 #include "tensorstore/codec_spec_registry.h"
@@ -36,11 +37,13 @@
 #include "tensorstore/internal/json_binding/enum.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/log/verbose_flag.h"
+#include "tensorstore/internal/riegeli/array_endian_codec.h"
 #include "tensorstore/kvstore/tiff/tiff_details.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/serialization/json_bindable.h"
 #include "tensorstore/util/constant_vector.h"
+#include "tensorstore/util/endian.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
@@ -254,6 +257,26 @@ Result<std::vector<DimensionIndex>> GetInnerOrderFromTiff(DimensionIndex rank) {
   return inner_order;
 }
 
+Result<ContiguousLayoutOrder> GetLayoutOrderFromInnerOrder(
+    tensorstore::span<const DimensionIndex> inner_order) {
+  if (inner_order.empty()) {
+    return absl::InternalError("Finalized chunk layout has empty inner_order");
+  }
+
+  if (PermutationMatchesOrder(inner_order, ContiguousLayoutOrder::c)) {
+    return ContiguousLayoutOrder::c;
+  } else if (PermutationMatchesOrder(inner_order,
+                                     ContiguousLayoutOrder::fortran)) {
+    return ContiguousLayoutOrder::fortran;
+  } else {
+    // If the resolved layout is neither C nor Fortran, it's an error
+    // because DecodeChunk currently relies on passing the enum.
+    return absl::InvalidArgumentError(
+        StrCat("Resolved TIFF inner_order ", tensorstore::span(inner_order),
+               " is not supported (must be C or Fortran order)"));
+  }
+}
+
 // Helper to convert CompressionType enum to string ID for registry lookup
 Result<std::string_view> CompressionTypeToStringId(CompressionType type) {
   // Use a map for easy extension
@@ -442,7 +465,7 @@ Result<std::shared_ptr<const TiffMetadata>> ResolveMetadata(
     // Create a temporary TiffCodecSpec representing the file's compression
     auto file_codec_spec = internal::CodecDriverSpec::Make<TiffCodecSpec>();
     file_codec_spec->compression_type = metadata->compression_type;
-    
+
     // Attempt to merge the user's schema codec into the file's codec spec.
     // This validates compatibility.
     TENSORSTORE_RETURN_IF_ERROR(
@@ -465,6 +488,10 @@ Result<std::shared_ptr<const TiffMetadata>> ResolveMetadata(
   // 7. Finalize Layout
   TENSORSTORE_RETURN_IF_ERROR(metadata->chunk_layout.Finalize());
 
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      metadata->layout_order,
+      GetLayoutOrderFromInnerOrder(metadata->chunk_layout.inner_order()));
+
   // 8. Final Consistency Checks (Optional, depends on complexity added)
   // e.g., Check if final chunk shape is compatible with final shape
 
@@ -473,7 +500,10 @@ Result<std::shared_ptr<const TiffMetadata>> ResolveMetadata(
       << ", shape=" << tensorstore::span(metadata->shape)
       << ", dtype=" << metadata->dtype
       << ", chunk_shape=" << metadata->chunk_layout.read_chunk().shape()
-      << ", compression=" << static_cast<int>(metadata->compression_type);
+      << ", compression=" << static_cast<int>(metadata->compression_type)
+      << ", layout_enum=" << metadata->layout_order << ", endian="
+      << (metadata->endian == internal_tiff_kvstore::Endian::kLittle ? "little"
+                                                                     : "big");
 
   // Return the final immutable metadata object
   return std::const_pointer_cast<const TiffMetadata>(metadata);
@@ -708,6 +738,72 @@ Result<DimensionUnitsVector> GetEffectiveDimensionUnits(
   // constraints.dimension_units));
 
   return units;
+}
+
+Result<SharedArray<const void>> DecodeChunk(const TiffMetadata& metadata,
+                                            absl::Cord buffer) {
+  // 1. Setup Riegeli reader for the input buffer
+  riegeli::CordReader<> base_reader(&buffer);
+  riegeli::Reader* data_reader = &base_reader;  // Start with base reader
+
+  // 2. Apply Decompression if needed
+  std::unique_ptr<riegeli::Reader> decompressor_reader;
+  if (metadata.compressor) {
+    // Get the appropriate decompressor reader from the Compressor instance
+    // The compressor instance was resolved based on metadata.compression_type
+    // during ResolveMetadata.
+    decompressor_reader =
+        metadata.compressor->GetReader(base_reader, metadata.dtype.size());
+    if (!decompressor_reader) {
+      return absl::InvalidArgumentError(StrCat(
+          "Failed to create decompressor reader for TIFF compression type: ",
+          static_cast<int>(metadata.compression_type)));
+    }
+    data_reader = decompressor_reader.get();  // Use the decompressing reader
+    ABSL_LOG_IF(INFO, tiff_metadata_logging)
+        << "Applied decompressor for type "
+        << static_cast<int>(metadata.compression_type);
+  } else {
+    ABSL_LOG_IF(INFO, tiff_metadata_logging)
+        << "No decompression needed (raw).";
+    // data_reader remains &base_reader
+  }
+
+  // 3. Determine target array properties
+  // Use read_chunk_shape() for the expected shape of this chunk
+  span<const Index> chunk_shape = metadata.chunk_layout.read_chunk_shape();
+  DataType dtype = metadata.dtype;
+
+  // 4. Allocate destination array
+  SharedArray<void> dest_array =
+      AllocateArray(chunk_shape, metadata.layout_order, value_init, dtype);
+  if (!dest_array.valid()) {
+    return absl::ResourceExhaustedError("Failed to allocate memory for chunk");
+  }
+
+  // 5. Determine Endianness for decoding
+  endian source_endian =
+      (metadata.endian == internal_tiff_kvstore::Endian::kLittle)
+          ? endian::little
+          : endian::big;
+
+  // 6. Decode data from the reader into the array, handling endianness
+  // internal::DecodeArrayEndian handles reading from the Riegeli reader.
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto decoded_array,
+      internal::DecodeArrayEndian(*data_reader, metadata.dtype, chunk_shape,
+                                  source_endian, metadata.layout_order));
+
+  // 7. Verify reader reached end (important for compressed streams)
+  if (!data_reader->VerifyEndAndClose()) {
+    // Note: Closing the decompressor_reader also closes the base_reader.
+    // If no decompressor was used, this closes base_reader directly.
+    return absl::DataLossError(
+        StrCat("Error reading chunk data: ", data_reader->status().message()));
+  }
+
+  // 8. Return the decoded array (cast to const void)
+  return decoded_array;
 }
 
 }  // namespace internal_tiff
