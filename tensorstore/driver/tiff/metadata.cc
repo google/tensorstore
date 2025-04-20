@@ -531,55 +531,56 @@ Result<IndexDomain<>> GetEffectiveDomain(
 }
 
 Result<ChunkLayout> GetEffectiveChunkLayout(
-  const TiffSpecOptions& options,
-  const TiffMetadataConstraints& constraints,
-  const Schema& schema) {
-
+    const TiffSpecOptions& options, const TiffMetadataConstraints& constraints,
+    const Schema& schema) {
   // Determine rank first
   DimensionIndex rank = dynamic_rank;
-   if (constraints.rank != dynamic_rank) rank = constraints.rank;
-   if (schema.rank() != dynamic_rank) {
-       if (rank != dynamic_rank && rank != schema.rank()) {
-            return absl::InvalidArgumentError("Rank conflict for chunk layout");
-       }
-       rank = schema.rank();
-   }
-   if (constraints.shape.has_value()) {
-        if (rank != dynamic_rank && rank != constraints.shape->size()) {
-              return absl::InvalidArgumentError("Rank conflict for chunk layout (shape)");
-        }
-        rank = constraints.shape->size();
-   }
-   // Cannot determine layout without rank
-   if (rank == dynamic_rank) return ChunkLayout{};
-
+  if (constraints.rank != dynamic_rank) rank = constraints.rank;
+  if (schema.rank() != dynamic_rank) {
+    if (rank != dynamic_rank && rank != schema.rank()) {
+      return absl::InvalidArgumentError("Rank conflict for chunk layout");
+    }
+    rank = schema.rank();
+  }
+  if (constraints.shape.has_value()) {
+    if (rank != dynamic_rank && rank != constraints.shape->size()) {
+      return absl::InvalidArgumentError(
+          "Rank conflict for chunk layout (shape)");
+    }
+    rank = constraints.shape->size();
+  }
+  // Cannot determine layout without rank
+  if (rank == dynamic_rank) return ChunkLayout{};
 
   ChunkLayout layout;
   TENSORSTORE_RETURN_IF_ERROR(layout.Set(RankConstraint{rank}));
 
-  // Apply TIFF defaults (inner order and grid origin) as SOFT constraints first.
-  TENSORSTORE_ASSIGN_OR_RETURN(auto default_inner_order, GetInnerOrderFromTiff(rank));
+  // Apply TIFF defaults (inner order and grid origin) as SOFT constraints
+  // first.
+  TENSORSTORE_ASSIGN_OR_RETURN(auto default_inner_order,
+                               GetInnerOrderFromTiff(rank));
   TENSORSTORE_RETURN_IF_ERROR(layout.Set(
       ChunkLayout::InnerOrder(default_inner_order, /*hard_constraint=*/false)));
-  TENSORSTORE_RETURN_IF_ERROR(layout.Set(
-      ChunkLayout::GridOrigin(GetConstantVector<Index, 0>(rank), /*hard_constraint=*/false)));
+  TENSORSTORE_RETURN_IF_ERROR(layout.Set(ChunkLayout::GridOrigin(
+      GetConstantVector<Index, 0>(rank), /*hard_constraint=*/false)));
 
-  // Apply schema constraints using component-wise Set, potentially overriding soft defaults.
+  // Apply schema constraints using component-wise Set, potentially overriding
+  // soft defaults.
   const ChunkLayout& schema_layout = schema.chunk_layout();
-   if (schema_layout.rank() != dynamic_rank) {
-       // Re-check rank compatibility if schema specifies rank
-       TENSORSTORE_RETURN_IF_ERROR(layout.Set(RankConstraint{schema_layout.rank()}));
-   }
-   if (!schema_layout.inner_order().empty()) {
-       TENSORSTORE_RETURN_IF_ERROR(layout.Set(schema_layout.inner_order()));
-   }
-    if (!schema_layout.grid_origin().empty()) {
-       TENSORSTORE_RETURN_IF_ERROR(layout.Set(schema_layout.grid_origin()));
-   }
-   TENSORSTORE_RETURN_IF_ERROR(layout.Set(schema_layout.write_chunk()));
-   TENSORSTORE_RETURN_IF_ERROR(layout.Set(schema_layout.read_chunk()));
-   TENSORSTORE_RETURN_IF_ERROR(layout.Set(schema_layout.codec_chunk()));
-
+  if (schema_layout.rank() != dynamic_rank) {
+    // Re-check rank compatibility if schema specifies rank
+    TENSORSTORE_RETURN_IF_ERROR(
+        layout.Set(RankConstraint{schema_layout.rank()}));
+  }
+  if (!schema_layout.inner_order().empty()) {
+    TENSORSTORE_RETURN_IF_ERROR(layout.Set(schema_layout.inner_order()));
+  }
+  if (!schema_layout.grid_origin().empty()) {
+    TENSORSTORE_RETURN_IF_ERROR(layout.Set(schema_layout.grid_origin()));
+  }
+  TENSORSTORE_RETURN_IF_ERROR(layout.Set(schema_layout.write_chunk()));
+  TENSORSTORE_RETURN_IF_ERROR(layout.Set(schema_layout.read_chunk()));
+  TENSORSTORE_RETURN_IF_ERROR(layout.Set(schema_layout.codec_chunk()));
 
   // Apply constraints from TiffMetadataConstraints (if chunk_shape is added)
   // if (constraints.chunk_shape.has_value()) {
