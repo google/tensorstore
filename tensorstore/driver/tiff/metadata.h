@@ -23,12 +23,13 @@
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/codec_spec.h"
 #include "tensorstore/data_type.h"
+#include "tensorstore/driver/tiff/compressor.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dimension_units.h"
 #include "tensorstore/kvstore/tiff/tiff_details.h"
 #include "tensorstore/kvstore/tiff/tiff_dir_cache.h"
 #include "tensorstore/rank.h"
-#include "tensorstore/schema.h"  // Needed for ValidateMetadataSchema declaration
+#include "tensorstore/schema.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
@@ -73,7 +74,7 @@ struct TiffMetadata {
   ChunkLayout chunk_layout;
 
   // Represents compression
-  CodecSpec codec_spec;
+  Compressor compressor;
 
   // From user spec or default
   SharedArray<const void> fill_value;
@@ -104,6 +105,34 @@ struct TiffMetadataConstraints {
                                           internal_json_binding::NoOptions,
                                           tensorstore::IncludeDefaults)
 };
+
+// Represents the codec specification specifically for the TIFF driver.
+// It primarily stores the compression type used.
+class TiffCodecSpec : public internal::CodecDriverSpec {
+ public:
+  // Unique identifier for the TIFF codec driver spec.
+  constexpr static char id[] = "tiff";
+
+  // Specifies the compression type, if constrained by the spec.
+  // If std::nullopt, the compression type is unconstrained by this spec.
+  std::optional<internal_tiff_kvstore::CompressionType> compression_type;
+
+  // Virtual method overrides from CodecDriverSpec
+  CodecSpec Clone() const override;
+  absl::Status DoMergeFrom(
+      const internal::CodecDriverSpec& other_base) override;
+
+  // JSON Binding support
+  TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(TiffCodecSpec, FromJsonOptions,
+                                          ToJsonOptions,
+                                          ::nlohmann::json::object_t)
+
+  friend bool operator==(const TiffCodecSpec& a, const TiffCodecSpec& b);
+};
+
+inline bool operator!=(const TiffCodecSpec& a, const TiffCodecSpec& b) {
+  return !(a == b);
+}
 
 /// Resolves the final metadata by interpreting parsed TIFF data according
 /// to spec options and merging with schema constraints.
@@ -163,9 +192,9 @@ Result<ChunkLayout> GetEffectiveChunkLayout(
 /// \param schema General schema constraints (e.g., codec spec).
 /// \returns The best estimate of the codec spec based on the spec, or an error
 ///     if constraints conflict.
-Result<CodecSpec> GetEffectiveCodec(const TiffSpecOptions& options,
-                                    const TiffMetadataConstraints& constraints,
-                                    const Schema& schema);
+Result<internal::CodecDriverSpec::PtrT<TiffCodecSpec>> GetEffectiveCodec(
+    const TiffSpecOptions& options, const TiffMetadataConstraints& constraints,
+    const Schema& schema);
 
 /// Computes the effective dimension units based on spec options, constraints,
 /// and schema.

@@ -29,6 +29,7 @@ tensorstore_cc_library(
     srcs = ["metadata.cc"],
     hdrs = ["metadata.h"],
     deps = [
+        ":compressor",
         "//tensorstore:index",
         "//tensorstore:schema",
         "//tensorstore:data_type",
@@ -50,6 +51,7 @@ tensorstore_cc_test(
     srcs = ["metadata_test.cc"],
     deps = [
         ":metadata",
+        ":compressor",
         "//tensorstore:array",
         "//tensorstore:codec_spec",
         "//tensorstore:data_type",
