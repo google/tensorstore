@@ -65,3 +65,17 @@ tensorstore_cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+tensorstore_cc_library(
+    name = "compressor",
+    srcs = ["compressor.cc"],
+    hdrs = [
+        "compressor_registry.h",
+        "compressor.h",
+    ],
+    deps = [
+        "//tensorstore/kvstore/tiff:tiff_details",
+        "//tensorstore/internal:json_registry",
+        "//tensorstore/internal/compression:json_specified_compressor",
+    ],
+)
