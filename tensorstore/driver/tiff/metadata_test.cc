@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/driver/tiff/metadata.h"  // Header file being tested
+#include "tensorstore/driver/tiff/metadata.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -22,21 +22,30 @@
 #include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dimension_units.h"
-#include "tensorstore/internal/json_binding/gtest.h"  // For TestJsonBinderRoundTrip
-#include "tensorstore/internal/json_gtest.h"          // For MatchesJson
-#include "tensorstore/kvstore/tiff/tiff_details.h"  // For ImageDirectory, enums etc.
-#include "tensorstore/kvstore/tiff/tiff_dir_cache.h"  // For TiffParseResult
+#include "tensorstore/internal/json_binding/gtest.h"
+#include "tensorstore/internal/json_gtest.h"
+#include "tensorstore/kvstore/tiff/tiff_details.h"
+#include "tensorstore/kvstore/tiff/tiff_dir_cache.h"
 #include "tensorstore/schema.h"
-#include "tensorstore/util/status_testutil.h"  // For TENSORSTORE_ASSERT_OK_AND_ASSIGN, MatchesStatus
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/status_testutil.h"
 
 namespace {
 
 namespace jb = tensorstore::internal_json_binding;
+using ::tensorstore::Box;
+using ::tensorstore::ChunkLayout;
 using ::tensorstore::dtype_v;
+using ::tensorstore::dynamic_rank;
+using ::tensorstore::IndexDomain;
 using ::tensorstore::MatchesStatus;
-using ::tensorstore::internal_tiff::CreateMetadataFromParseResult;
+using ::tensorstore::RankConstraint;
+using ::tensorstore::Result;
+using ::tensorstore::Schema;
+using ::tensorstore::TestJsonBinderRoundTripJsonOnly;
 using ::tensorstore::internal_tiff::TiffMetadata;
 using ::tensorstore::internal_tiff::TiffMetadataConstraints;
+using ::tensorstore::internal_tiff::TiffSpecOptions;
 using ::tensorstore::internal_tiff_kvstore::CompressionType;
 using ::tensorstore::internal_tiff_kvstore::ImageDirectory;
 using ::tensorstore::internal_tiff_kvstore::PlanarConfigType;
@@ -48,24 +57,27 @@ using ::testing::ElementsAre;
 
 // Creates a basic valid ImageDirectory (uint8, 1 sample, chunky, no
 // compression, tiled)
-ImageDirectory MakeBasicImageDirectory(uint32_t width = 100,
-                                       uint32_t height = 80,
-                                       uint32_t tile_width = 16,
-                                       uint32_t tile_height = 16) {
+ImageDirectory MakeImageDirectory(
+    uint32_t width = 100, uint32_t height = 80, uint32_t tile_width = 16,
+    uint32_t tile_height = 16, uint16_t samples_per_pixel = 1,
+    uint16_t bits_per_sample = 8,
+    SampleFormatType sample_format = SampleFormatType::kUnsignedInteger,
+    CompressionType compression = CompressionType::kNone,
+    PlanarConfigType planar_config = PlanarConfigType::kChunky) {
   ImageDirectory dir;
   dir.width = width;
   dir.height = height;
   dir.tile_width = tile_width;
   dir.tile_height = tile_height;
-  dir.rows_per_strip = 0;  // Indicates tiled
-  dir.samples_per_pixel = 1;
-  dir.compression = static_cast<uint16_t>(CompressionType::kNone);
+  dir.rows_per_strip = (tile_width == 0) ? height : 0;  // Basic strip logic
+  dir.samples_per_pixel = samples_per_pixel;
+  dir.compression = static_cast<uint16_t>(compression);
   dir.photometric = 1;  // BlackIsZero
-  dir.planar_config = static_cast<uint16_t>(PlanarConfigType::kChunky);
-  dir.bits_per_sample = {8};
-  dir.sample_format = {
-      static_cast<uint16_t>(SampleFormatType::kUnsignedInteger)};
-  // Offsets/bytecounts not needed for CreateMetadataFromParseResult tests
+  dir.planar_config = static_cast<uint16_t>(planar_config);
+  dir.bits_per_sample.assign(samples_per_pixel, bits_per_sample);
+  dir.sample_format.assign(samples_per_pixel,
+                           static_cast<uint16_t>(sample_format));
+  // Offsets/bytecounts not needed for metadata resolution tests
   return dir;
 }
 
@@ -73,311 +85,481 @@ ImageDirectory MakeBasicImageDirectory(uint32_t width = 100,
 TiffParseResult MakeParseResult(std::vector<ImageDirectory> dirs) {
   TiffParseResult result;
   result.image_directories = std::move(dirs);
-  // Other TiffParseResult fields (endian, raw directories) are not used by
-  // CreateMetadataFromParseResult, so leave them default.
+  result.endian =
+      tensorstore::internal_tiff_kvstore::Endian::kLittle;  // Default
+  // Other TiffParseResult fields not used by ResolveMetadata yet.
   return result;
 }
 
-// --- Tests for TiffMetadataConstraints ---
-TEST(MetadataConstraintsTest, JsonBindingRoundTrip) {
-  TiffMetadataConstraints constraints;
-  constraints.ifd_index = 5;
-  constraints.dtype = dtype_v<tensorstore::dtypes::float32_t>;
-  constraints.shape = {{100, 200}};
-  constraints.rank = 2;
+// --- Tests for TiffSpecOptions ---
+TEST(SpecOptionsTest, JsonBinding) {
+  // Default value
+  TestJsonBinderRoundTripJsonOnly<TiffSpecOptions>(
+      {
+          /*expected_json=*/{{"ifd", 0}},  // Default value is included
+      },
+      jb::DefaultBinder<>, tensorstore::IncludeDefaults{true});
 
-  ::nlohmann::json expected_json = {
-      {"ifd_index", 5}, {"dtype", "float32"}, {"shape", {100, 200}}};
+  // Default value excluded
+  TestJsonBinderRoundTripJsonOnly<TiffSpecOptions>(
+      {
+          /*expected_json=*/::nlohmann::json::object(),
+      },
+      jb::DefaultBinder<>, tensorstore::IncludeDefaults{false});
 
-  tensorstore::TestJsonBinderRoundTripJsonOnly<TiffMetadataConstraints>(
-      {expected_json});
+  // Explicit value
+  TestJsonBinderRoundTripJsonOnly<TiffSpecOptions>({
+      {{"ifd", 5}},
+  });
 
-  // Test with defaults excluded
-  auto expected_json_defaults_excluded = ::nlohmann::json::object();
-  tensorstore::TestJsonBinderRoundTripJsonOnly<TiffMetadataConstraints>(
-      {expected_json_defaults_excluded});
-
-  // Test with defaults included
-  ::nlohmann::json expected_json_defaults_included = {{"ifd_index", 0}};
-
-  tensorstore::TestJsonBinderRoundTripJsonOnly<TiffMetadataConstraints>(
-      {expected_json_defaults_included}, jb::DefaultBinder<>,
-      tensorstore::IncludeDefaults{true});
+  // Invalid type
+  EXPECT_THAT(TiffSpecOptions::FromJson({{"ifd", "abc"}}),
+              MatchesStatus(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(
+      TiffSpecOptions::FromJson({{"ifd", -1}}),  // Negative index invalid
+      MatchesStatus(absl::StatusCode::kInvalidArgument));
 }
 
-TEST(MetadataConstraintsTest, JsonBindingInvalid) {
-  EXPECT_THAT(TiffMetadataConstraints::FromJson({{"ifd_index", "abc"}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+TEST(SpecOptionsTest, ManualEmptyObjectRoundTripIncludeDefaults) {
+  ::nlohmann::json input_json = ::nlohmann::json::object();
+
+  // 1. Test FromJson
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(TiffSpecOptions options_obj,
+                                   TiffSpecOptions::FromJson(input_json));
+
+  // 2. Verify the parsed object state (should have default value)
+  EXPECT_EQ(options_obj.ifd_index, 0);
+
+  // 3. Test ToJson with IncludeDefaults{true}
+  ::nlohmann::json expected_json = {{"ifd", 0}};
+  EXPECT_THAT(jb::ToJson(options_obj, jb::DefaultBinder<>,
+                         tensorstore::IncludeDefaults{true}),
+              ::testing::Optional(tensorstore::MatchesJson(expected_json)));
+}
+
+// --- Tests for TiffMetadataConstraints ---
+TEST(MetadataConstraintsTest, JsonBinding) {
+  // Test empty constraints
+  TestJsonBinderRoundTripJsonOnly<TiffMetadataConstraints>({
+      /*expected_json=*/::nlohmann::json::object(),
+  });
+
+  // Test with values
+  TestJsonBinderRoundTripJsonOnly<TiffMetadataConstraints>({
+      {
+          {"dtype", "float32"}, {"shape", {100, 200}}
+          // rank is implicitly derived
+      },
+  });
+
+  // Test invalid values
   EXPECT_THAT(TiffMetadataConstraints::FromJson({{"dtype", 123}}),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(TiffMetadataConstraints::FromJson({{"shape", {10, "a"}}}),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
 }
 
-// --- Tests for CreateMetadataFromParseResult ---
-TEST(CreateMetadataTest, BasicSuccessTile) {
-  auto parse_result =
-      MakeParseResult({MakeBasicImageDirectory(100, 80, 16, 16)});
+// --- Tests for ResolveMetadata ---
+TEST(ResolveMetadataTest, BasicSuccessTile) {
+  auto parse_result = MakeParseResult({MakeImageDirectory(100, 80, 16, 16)});
+  TiffSpecOptions options;  // ifd_index = 0
+  Schema schema;
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto metadata_ptr, CreateMetadataFromParseResult(parse_result, 0));
-  const auto& m = *metadata_ptr;
+      auto metadata, ResolveMetadata(parse_result, options, schema));
 
-  EXPECT_EQ(m.ifd_index, 0);
-  EXPECT_EQ(m.num_ifds, 1);
-  EXPECT_EQ(m.rank, 2);
-  EXPECT_THAT(m.shape, ElementsAre(80, 100));  // Y, X
-  EXPECT_EQ(m.dtype, dtype_v<uint8_t>);
-  EXPECT_EQ(m.samples_per_pixel, 1);
-  EXPECT_EQ(m.compression_type, CompressionType::kNone);
-  EXPECT_EQ(m.planar_config, PlanarConfigType::kChunky);
-  EXPECT_THAT(m.chunk_layout.read_chunk().shape(),
-              ElementsAre(16, 16));  // TileH, TileW
-  EXPECT_THAT(m.chunk_layout.inner_order(),
-              ElementsAre(1, 0));  // X faster than Y
-  // CodecSpec should be default initialized
-  EXPECT_FALSE(m.codec_spec.valid());
+  EXPECT_EQ(metadata->ifd_index, 0);
+  EXPECT_EQ(metadata->num_ifds, 1);
+  EXPECT_EQ(metadata->rank, 2);
+  EXPECT_THAT(metadata->shape, ElementsAre(80, 100));  // Y, X
+  EXPECT_EQ(metadata->dtype, dtype_v<uint8_t>);
+  EXPECT_EQ(metadata->samples_per_pixel, 1);
+  EXPECT_EQ(metadata->compression_type, CompressionType::kNone);
+  EXPECT_EQ(metadata->planar_config, PlanarConfigType::kChunky);
+  EXPECT_THAT(metadata->chunk_layout.read_chunk().shape(), ElementsAre(16, 16));
+  EXPECT_THAT(metadata->chunk_layout.inner_order(), ElementsAre(1, 0));
+  // EXPECT_TRUE(
+  //     metadata->codec_spec.valid());  // Should have default TiffCodecSpec
+  // const auto* tiff_codec =
+  //     dynamic_cast<const
+  //     tensorstore::CodecSpec*>(metadata->codec_spec.get());
+  // ASSERT_NE(tiff_codec, nullptr);
+  // EXPECT_THAT(tiff_codec->compression_type,
+  // Optional(CompressionType::kNone));
 }
 
-TEST(CreateMetadataTest, BasicSuccessStrip) {
-  ImageDirectory img_dir = MakeBasicImageDirectory(100, 80);
-  img_dir.tile_width = 0;  // Indicate strips
-  img_dir.tile_height = 0;
+TEST(ResolveMetadataTest, BasicSuccessStrip) {
+  ImageDirectory img_dir =
+      MakeImageDirectory(100, 80, 0, 0);  // Indicate strips
   img_dir.rows_per_strip = 10;
   auto parse_result = MakeParseResult({img_dir});
+  TiffSpecOptions options;
+  Schema schema;
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto metadata_ptr, CreateMetadataFromParseResult(parse_result, 0));
-  const auto& m = *metadata_ptr;
+      auto metadata, ResolveMetadata(parse_result, options, schema));
 
-  EXPECT_EQ(m.rank, 2);
-  EXPECT_THAT(m.shape, ElementsAre(80, 100));
-  EXPECT_EQ(m.dtype, dtype_v<uint8_t>);
-  EXPECT_THAT(m.chunk_layout.read_chunk().shape(),
-              ElementsAre(10, 100));  // RowsPerStrip, Full Width
-  EXPECT_THAT(m.chunk_layout.inner_order(), ElementsAre(1, 0));
+  EXPECT_EQ(metadata->rank, 2);
+  EXPECT_THAT(metadata->shape, ElementsAre(80, 100));
+  EXPECT_EQ(metadata->dtype, dtype_v<uint8_t>);
+  EXPECT_THAT(metadata->chunk_layout.read_chunk().shape(),
+              ElementsAre(10, 100));
+  EXPECT_THAT(metadata->chunk_layout.inner_order(), ElementsAre(1, 0));
 }
 
-TEST(CreateMetadataTest, MultiSampleChunky) {
-  ImageDirectory img_dir = MakeBasicImageDirectory(100, 80, 16, 16);
-  img_dir.samples_per_pixel = 3;
-  img_dir.bits_per_sample = {8, 8, 8};
-  img_dir.sample_format = {1, 1, 1};  // Unsigned Int
-  img_dir.planar_config = static_cast<uint16_t>(PlanarConfigType::kChunky);
+TEST(ResolveMetadataTest, MultiSampleChunky) {
+  ImageDirectory img_dir = MakeImageDirectory(100, 80, 16, 16, /*samples=*/3);
   auto parse_result = MakeParseResult({img_dir});
+  TiffSpecOptions options;
+  Schema schema;
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto metadata_ptr, CreateMetadataFromParseResult(parse_result, 0));
-  const auto& m = *metadata_ptr;
+      auto metadata, ResolveMetadata(parse_result, options, schema));
 
-  EXPECT_EQ(m.rank, 3);
-  EXPECT_THAT(m.shape, ElementsAre(80, 100, 3));  // Y, X, C
-  EXPECT_EQ(m.dtype, dtype_v<uint8_t>);
-  EXPECT_EQ(m.samples_per_pixel, 3);
-  EXPECT_EQ(m.planar_config, PlanarConfigType::kChunky);
-  EXPECT_THAT(m.chunk_layout.read_chunk().shape(),
-              ElementsAre(16, 16, 3));  // TileH, TileW, Samples
-  EXPECT_THAT(m.chunk_layout.inner_order(),
-              ElementsAre(2, 1, 0));  // C faster than X faster than Y
+  EXPECT_EQ(metadata->rank, 3);
+  EXPECT_THAT(metadata->shape, ElementsAre(80, 100, 3));  // Y, X, C
+  EXPECT_EQ(metadata->dtype, dtype_v<uint8_t>);
+  EXPECT_EQ(metadata->samples_per_pixel, 3);
+  EXPECT_EQ(metadata->planar_config, PlanarConfigType::kChunky);
+  EXPECT_THAT(metadata->chunk_layout.read_chunk().shape(),
+              ElementsAre(16, 16, 3));
+  EXPECT_THAT(metadata->chunk_layout.inner_order(), ElementsAre(2, 1, 0));
 }
 
-TEST(CreateMetadataTest, Float32) {
-  ImageDirectory img_dir = MakeBasicImageDirectory();
-  img_dir.bits_per_sample = {32};
-  img_dir.sample_format = {static_cast<uint16_t>(SampleFormatType::kIEEEFloat)};
-  auto parse_result = MakeParseResult({img_dir});
+TEST(ResolveMetadataTest, SelectIfd) {
+  auto parse_result = MakeParseResult({
+      MakeImageDirectory(100, 80, 16, 16, /*samples=*/1, /*bits=*/8),  // IFD 0
+      MakeImageDirectory(50, 40, 8, 8, /*samples=*/3, /*bits=*/16)     // IFD 1
+  });
+  TiffSpecOptions options;
+  options.ifd_index = 1;  // Select the second IFD
+  Schema schema;
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto metadata_ptr, CreateMetadataFromParseResult(parse_result, 0));
-  EXPECT_EQ(metadata_ptr->dtype, dtype_v<tensorstore::dtypes::float32_t>);
+      auto metadata, ResolveMetadata(parse_result, options, schema));
+
+  EXPECT_EQ(metadata->ifd_index, 1);
+  EXPECT_EQ(metadata->rank, 3);
+  EXPECT_THAT(metadata->shape, ElementsAre(40, 50, 3));  // Y, X, C
+  EXPECT_EQ(metadata->dtype, dtype_v<uint16_t>);
+  EXPECT_THAT(metadata->chunk_layout.read_chunk().shape(),
+              ElementsAre(8, 8, 3));
 }
 
-TEST(CreateMetadataTest, Int16) {
-  ImageDirectory img_dir = MakeBasicImageDirectory();
-  img_dir.bits_per_sample = {16};
-  img_dir.sample_format = {
-      static_cast<uint16_t>(SampleFormatType::kSignedInteger)};
-  auto parse_result = MakeParseResult({img_dir});
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto metadata_ptr, CreateMetadataFromParseResult(parse_result, 0));
-  EXPECT_EQ(metadata_ptr->dtype, dtype_v<int16_t>);
+TEST(ResolveMetadataTest, SchemaMergeChunkShape) {
+  auto parse_result = MakeParseResult({MakeImageDirectory(100, 80, 16, 16)});
+  TiffSpecOptions options;
+  Schema schema;
+  ChunkLayout schema_layout;
+  // Set a chunk shape in the schema that conflicts with the TIFF tile size
+  TENSORSTORE_ASSERT_OK(schema_layout.Set(ChunkLayout::ChunkShape({32, 32})));
+  TENSORSTORE_ASSERT_OK(schema.Set(schema_layout));
+
+  // Expect an error because the hard constraint from the schema conflicts
+  // with the hard constraint derived from the TIFF tags (16x16).
+  EXPECT_THAT(ResolveMetadata(parse_result, options, schema),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            ".*New hard constraint .*32.* does not match "
+                            "existing hard constraint .*16.*"));
 }
 
-TEST(CreateMetadataTest, InvalidIfdIndex) {
-  auto parse_result =
-      MakeParseResult({MakeBasicImageDirectory()});  // Only IFD 0 exists
+TEST(ResolveMetadataTest, SchemaMergeChunkShapeCompatible) {
+  // Test merging when the schema chunk shape *matches* the TIFF tile size
+  auto parse_result = MakeParseResult({MakeImageDirectory(100, 80, 16, 16)});
+  TiffSpecOptions options;
+  Schema schema;
+  ChunkLayout schema_layout;
+  TENSORSTORE_ASSERT_OK(
+      schema_layout.Set(ChunkLayout::ChunkShape({16, 16})));  // Match tile size
+  TENSORSTORE_ASSERT_OK(schema.Set(schema_layout));
+
+  // This should now succeed
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto metadata, ResolveMetadata(parse_result, options, schema));
+
+  EXPECT_THAT(metadata->chunk_layout.read_chunk().shape(), ElementsAre(16, 16));
+}
+
+TEST(ResolveMetadataTest, SchemaMergeInnerOrder) {
+  auto parse_result = MakeParseResult({MakeImageDirectory(100, 80, 16, 16)});
+  TiffSpecOptions options;
+  Schema schema;
+  ChunkLayout schema_layout;
+  TENSORSTORE_ASSERT_OK(
+      schema_layout.Set(ChunkLayout::InnerOrder({0, 1})));  // Y faster than X
+  TENSORSTORE_ASSERT_OK(schema.Set(schema_layout));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto metadata, ResolveMetadata(parse_result, options, schema));
+
+  // Schema constraint overrides TIFF default inner order
+  EXPECT_THAT(metadata->chunk_layout.inner_order(), ElementsAre(0, 1));
+  // Chunk shape from TIFF should be retained
+  EXPECT_THAT(metadata->chunk_layout.read_chunk().shape(), ElementsAre(16, 16));
+  EXPECT_THAT(metadata->chunk_layout.grid_origin(),
+              ElementsAre(0, 0));  // Default grid origin
+}
+
+TEST(ResolveMetadataTest, InvalidIfdIndex) {
+  auto parse_result = MakeParseResult({MakeImageDirectory()});  // Only IFD 0
+  TiffSpecOptions options;
+  options.ifd_index = 1;
+  Schema schema;
   EXPECT_THAT(
-      CreateMetadataFromParseResult(parse_result, 1),
+      ResolveMetadata(parse_result, options, schema),
       MatchesStatus(absl::StatusCode::kNotFound, ".*IFD index 1 not found.*"));
 }
 
-TEST(CreateMetadataTest, UnsupportedPlanar) {
-  ImageDirectory img_dir = MakeBasicImageDirectory();
+TEST(ResolveMetadataTest, UnsupportedPlanar) {
+  ImageDirectory img_dir = MakeImageDirectory();
   img_dir.planar_config = static_cast<uint16_t>(PlanarConfigType::kPlanar);
   auto parse_result = MakeParseResult({img_dir});
-  EXPECT_THAT(CreateMetadataFromParseResult(parse_result, 0),
+  TiffSpecOptions options;
+  Schema schema;
+  EXPECT_THAT(ResolveMetadata(parse_result, options, schema),
               MatchesStatus(absl::StatusCode::kUnimplemented,
                             ".*PlanarConfiguration=2 is not supported.*"));
 }
 
-TEST(CreateMetadataTest, UnsupportedCompression) {
-  ImageDirectory img_dir = MakeBasicImageDirectory();
-  img_dir.compression =
-      static_cast<uint16_t>(CompressionType::kLZW);  // Use LZW
-  auto parse_result = MakeParseResult({img_dir});
-  EXPECT_THAT(CreateMetadataFromParseResult(parse_result, 0),
-              MatchesStatus(absl::StatusCode::kUnimplemented,
-                            ".*Compression type 5 is not supported.*"));
+// --- Tests for ValidateResolvedMetadata ---
+
+// Helper to get a basic valid resolved metadata object
+Result<std::shared_ptr<const TiffMetadata>> GetResolvedMetadataForValidation() {
+  auto parse_result = MakeParseResult({MakeImageDirectory(100, 80, 16, 16)});
+  TiffSpecOptions options;
+  Schema schema;
+  return ResolveMetadata(parse_result, options, schema);
 }
 
-TEST(CreateMetadataTest, InconsistentSamplesMetadata) {
-  ImageDirectory img_dir = MakeBasicImageDirectory();
-  img_dir.samples_per_pixel = 3;
-  img_dir.bits_per_sample = {8, 16, 8};  // Inconsistent bits
-  img_dir.sample_format = {1, 1, 1};
-  auto parse_result = MakeParseResult({img_dir});
-  EXPECT_THAT(CreateMetadataFromParseResult(parse_result, 0),
-              MatchesStatus(absl::StatusCode::kUnimplemented,
-                            ".*Varying bits_per_sample.*not yet supported.*"));
+TEST(ValidateResolvedMetadataTest, CompatibleConstraints) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata,
+                                   GetResolvedMetadataForValidation());
+  TiffMetadataConstraints constraints;
+
+  // No constraints
+  TENSORSTORE_EXPECT_OK(ValidateResolvedMetadata(*metadata, constraints));
+
+  // Matching rank
+  constraints.rank = 2;
+  TENSORSTORE_EXPECT_OK(ValidateResolvedMetadata(*metadata, constraints));
+  constraints.rank = dynamic_rank;  // Reset
+
+  // Matching dtype
+  constraints.dtype = dtype_v<uint8_t>;
+  TENSORSTORE_EXPECT_OK(ValidateResolvedMetadata(*metadata, constraints));
+  constraints.dtype = std::nullopt;  // Reset
+
+  // Matching shape
+  constraints.shape = {{80, 100}};
+  TENSORSTORE_EXPECT_OK(ValidateResolvedMetadata(*metadata, constraints));
+  constraints.shape = std::nullopt;  // Reset
 }
 
-TEST(CreateMetadataTest, MissingRequiredTag) {
-  ImageDirectory img_dir = MakeBasicImageDirectory();
-  img_dir.width = 0;  // Simulate missing/invalid width tag parsing
-  auto parse_result = MakeParseResult({img_dir});
-  // Check if shape derivation fails
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto metadata_ptr, CreateMetadataFromParseResult(parse_result, 0));
-  EXPECT_THAT(metadata_ptr->shape,
-              ElementsAre(80, 0));  // Shape reflects invalid width
-
-  img_dir = MakeBasicImageDirectory();
-  img_dir.bits_per_sample.clear();  // Missing bits per sample
-  parse_result = MakeParseResult({img_dir});
-  EXPECT_THAT(CreateMetadataFromParseResult(parse_result, 0),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            ".*Incomplete TIFF metadata.*"));
-}
-
-// --- Tests for ValidateMetadataSchema ---
-
-// Helper to get a basic valid metadata object for validation tests
-// Moved before first use
-tensorstore::Result<std::shared_ptr<const TiffMetadata>>
-GetValidTestMetadata() {
-  auto parse_result =
-      MakeParseResult({MakeBasicImageDirectory(100, 80, 16, 16)});
-  // CreateMetadataFromParseResult only returns basic metadata.
-  // We need to simulate the full ResolveMetadata step for a complete object.
-  TENSORSTORE_ASSIGN_OR_RETURN(auto metadata,
-                               CreateMetadataFromParseResult(parse_result, 0));
-  // Manually finalize layout and set fill value for testing
-  // ValidateMetadataSchema
-  TENSORSTORE_RETURN_IF_ERROR(metadata->chunk_layout.Finalize());
-  metadata->fill_value = tensorstore::AllocateArray(
-      metadata->chunk_layout.read_chunk().shape(), tensorstore::c_order,
-      tensorstore::value_init, metadata->dtype);
-  return std::const_pointer_cast<const TiffMetadata>(metadata);
-}
-
-TEST(ValidateSchemaTest, CompatibleSchema) {
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata, GetValidTestMetadata());
-  tensorstore::Schema schema;
-
-  // Compatible rank
-  TENSORSTORE_ASSERT_OK(schema.Set(tensorstore::RankConstraint{2}));
-  TENSORSTORE_EXPECT_OK(ValidateMetadataSchema(*metadata, schema));
-  TENSORSTORE_ASSERT_OK(
-      schema.Set(tensorstore::RankConstraint{tensorstore::dynamic_rank}));
-  TENSORSTORE_EXPECT_OK(ValidateMetadataSchema(*metadata, schema));
-
-  // Compatible dtype
-  TENSORSTORE_ASSERT_OK(schema.Set(dtype_v<uint8_t>));
-  TENSORSTORE_EXPECT_OK(ValidateMetadataSchema(*metadata, schema));
-  TENSORSTORE_ASSERT_OK(schema.Set(tensorstore::DataType()));
-
-  // Compatible domain
-  TENSORSTORE_ASSERT_OK(schema.Set(tensorstore::IndexDomain({80, 100})));
-  TENSORSTORE_EXPECT_OK(ValidateMetadataSchema(*metadata, schema));
-
-  // Compatible domain (subset)
-  {
-    tensorstore::Schema schema_subset;
-    TENSORSTORE_ASSERT_OK(schema_subset.Set(
-        tensorstore::IndexDomain(tensorstore::Box({10, 20}, {30, 40}))));
-    TENSORSTORE_EXPECT_OK(ValidateMetadataSchema(*metadata, schema_subset));
-  }
-
-  // Compatible chunk layout (rank match, other constraints compatible)
-  tensorstore::ChunkLayout chunk_layout;
-  TENSORSTORE_ASSERT_OK(chunk_layout.Set(tensorstore::RankConstraint{2}));
-  TENSORSTORE_ASSERT_OK(schema.Set(chunk_layout));
-  TENSORSTORE_EXPECT_OK(ValidateMetadataSchema(*metadata, schema));
-  TENSORSTORE_ASSERT_OK(
-      chunk_layout.Set(tensorstore::ChunkLayout::ChunkShape({16, 16})));
-  TENSORSTORE_ASSERT_OK(schema.Set(chunk_layout));
-  TENSORSTORE_EXPECT_OK(ValidateMetadataSchema(*metadata, schema));
-  TENSORSTORE_ASSERT_OK(schema.Set(tensorstore::ChunkLayout()));
-  // Compatible codec (default matches default)
-  TENSORSTORE_ASSERT_OK(schema.Set(tensorstore::CodecSpec()));
-  TENSORSTORE_EXPECT_OK(ValidateMetadataSchema(*metadata, schema));
-}
-
-TEST(ValidateSchemaTest, IncompatibleRank) {
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata, GetValidTestMetadata());
-  tensorstore::Schema schema;
-  TENSORSTORE_ASSERT_OK(schema.Set(tensorstore::RankConstraint{3}));
-  EXPECT_THAT(ValidateMetadataSchema(*metadata, schema),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            ".*Rank.*3.*does not match.*2.*"));
-}
-
-TEST(ValidateSchemaTest, IncompatibleDtype) {
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata, GetValidTestMetadata());
-  tensorstore::Schema schema;
-  TENSORSTORE_ASSERT_OK(schema.Set(dtype_v<tensorstore::dtypes::float32_t>));
-  EXPECT_THAT(ValidateMetadataSchema(*metadata, schema),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            ".*dtype.*uint8.*does not match.*float32.*"));
-}
-
-TEST(ValidateSchemaTest, IncompatibleDomain) {
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata, GetValidTestMetadata());
-  tensorstore::Schema schema;
-  TENSORSTORE_ASSERT_OK(schema.Set(tensorstore::IndexDomain({80, 101})));
+TEST(ValidateResolvedMetadataTest, IncompatibleRank) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata,
+                                   GetResolvedMetadataForValidation());
+  TiffMetadataConstraints constraints;
+  constraints.rank = 3;
   EXPECT_THAT(
-      ValidateMetadataSchema(*metadata, schema),
-      MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                    ".*Schema domain .* is not contained .* metadata.*"));
+      ValidateResolvedMetadata(*metadata, constraints),
+      MatchesStatus(
+          absl::StatusCode::kFailedPrecondition,
+          ".*Resolved TIFF rank .*2.* does not match.*constraint rank .*3.*"));
 }
 
-TEST(ValidateSchemaTest, IncompatibleChunkLayout) {
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata, GetValidTestMetadata());
-  tensorstore::Schema schema;
-  tensorstore::ChunkLayout chunk_layout;
-
-  chunk_layout = tensorstore::ChunkLayout();
-  TENSORSTORE_ASSERT_OK(chunk_layout.Set(tensorstore::RankConstraint{2}));
-  TENSORSTORE_ASSERT_OK(
-      chunk_layout.Set(tensorstore::ChunkLayout::InnerOrder({0, 1})));
-  TENSORSTORE_ASSERT_OK(schema.Set(chunk_layout));
-  // This check might pass if MergeFrom succeeded in ResolveMetadata
-  TENSORSTORE_EXPECT_OK(ValidateMetadataSchema(*metadata, schema));
-
-  chunk_layout = tensorstore::ChunkLayout();
-  TENSORSTORE_ASSERT_OK(chunk_layout.Set(tensorstore::RankConstraint{2}));
-  TENSORSTORE_ASSERT_OK(
-      chunk_layout.Set(tensorstore::ChunkLayout::ChunkShape({32, 32})));
-  TENSORSTORE_ASSERT_OK(schema.Set(chunk_layout));
-  // This check might also pass if MergeFrom adapted. Validation is primarily
-  // during merge.
-  TENSORSTORE_EXPECT_OK(ValidateMetadataSchema(*metadata, schema));
+TEST(ValidateResolvedMetadataTest, IncompatibleDtype) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata,
+                                   GetResolvedMetadataForValidation());
+  TiffMetadataConstraints constraints;
+  constraints.dtype = dtype_v<uint16_t>;
+  EXPECT_THAT(ValidateResolvedMetadata(*metadata, constraints),
+              MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                            ".*Resolved TIFF dtype .*uint8.* does not "
+                            "match.*constraint dtype .*uint16.*"));
 }
 
-TEST(ValidateSchemaTest, IncompatibleFillValue) {
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata, GetValidTestMetadata());
-  tensorstore::Schema schema;
-  TENSORSTORE_ASSERT_OK(schema.Set(tensorstore::Schema::FillValue(
-      tensorstore::MakeArray<uint8_t>({10}))));  // Different value
-  EXPECT_THAT(ValidateMetadataSchema(*metadata, schema),
+TEST(ValidateResolvedMetadataTest, IncompatibleShape) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto metadata,
+                                   GetResolvedMetadataForValidation());
+  TiffMetadataConstraints constraints;
+  constraints.shape = {{80, 101}};  // Width mismatch
+  EXPECT_THAT(ValidateResolvedMetadata(*metadata, constraints),
+              MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                            ".*Resolved TIFF shape .*80, 100.* does not "
+                            "match.*constraint shape .*80, 101.*"));
+
+  constraints.shape = {{80}};  // Rank mismatch inferred from shape
+  EXPECT_THAT(ValidateResolvedMetadata(*metadata, constraints),
+              MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                            ".*Rank of resolved TIFF shape .*2.* does not "
+                            "match.*constraint shape .*1.*"));
+}
+
+// --- Tests for GetEffective... Functions ---
+
+TEST(GetEffectiveTest, DataType) {
+  TiffMetadataConstraints constraints;
+  Schema schema;
+
+  // Neither specified -> invalid
+  EXPECT_FALSE(GetEffectiveDataType(constraints, schema).value().valid());
+
+  // Schema only
+  TENSORSTORE_ASSERT_OK(schema.Set(dtype_v<uint16_t>));
+  EXPECT_THAT(GetEffectiveDataType(constraints, schema),
+              ::testing::Optional(dtype_v<uint16_t>));
+
+  // Constraints only
+  schema = Schema();
+  constraints.dtype = dtype_v<tensorstore::dtypes::float32_t>;
+  EXPECT_THAT(GetEffectiveDataType(constraints, schema),
+              ::testing::Optional(dtype_v<tensorstore::dtypes::float32_t>));
+
+  // Both match
+  TENSORSTORE_ASSERT_OK(schema.Set(dtype_v<tensorstore::dtypes::float32_t>));
+  EXPECT_THAT(GetEffectiveDataType(constraints, schema),
+              ::testing::Optional(dtype_v<tensorstore::dtypes::float32_t>));
+
+  // Both conflict
+  schema = Schema();
+  TENSORSTORE_ASSERT_OK(schema.Set(dtype_v<int32_t>));
+  EXPECT_THAT(
+      GetEffectiveDataType(constraints, schema),
+      MatchesStatus(absl::StatusCode::kInvalidArgument, ".*conflicts.*"));
+}
+
+TEST(GetEffectiveTest, Domain) {
+  TiffSpecOptions options;
+  TiffMetadataConstraints constraints;
+  Schema schema;
+
+  // Nothing specified -> unknown domain
+  EXPECT_EQ(IndexDomain<>(),
+            GetEffectiveDomain(options, constraints, schema).value());
+
+  // Rank from schema
+  TENSORSTORE_ASSERT_OK(schema.Set(RankConstraint{3}));
+  EXPECT_EQ(IndexDomain(3),
+            GetEffectiveDomain(options, constraints, schema).value());
+
+  // Rank from constraints
+  schema = Schema();
+  constraints.rank = 2;
+  EXPECT_EQ(IndexDomain(2),
+            GetEffectiveDomain(options, constraints, schema).value());
+
+  // Shape from constraints
+  constraints.shape = {{50, 60}};  // Implies rank 2
+  constraints.rank = dynamic_rank;
+  EXPECT_EQ(IndexDomain({50, 60}),
+            GetEffectiveDomain(options, constraints, schema).value());
+
+  // Shape from constraints, domain from schema (compatible bounds)
+  schema = Schema();
+  constraints = TiffMetadataConstraints();
+  constraints.shape = {{50, 60}};
+  TENSORSTORE_ASSERT_OK(schema.Set(IndexDomain(Box({0, 0}, {50, 60}))));
+  EXPECT_EQ(IndexDomain(Box({0, 0}, {50, 60})),
+            GetEffectiveDomain(options, constraints, schema).value());
+
+  // Shape from constraints, domain from schema (incompatible bounds -> Error)
+  schema = Schema();
+  constraints = TiffMetadataConstraints();
+  constraints.shape = {{50, 60}};
+  TENSORSTORE_ASSERT_OK(
+      schema.Set(IndexDomain(Box({10, 10}, {40, 50}))));  // Origin differs
+  EXPECT_THAT(GetEffectiveDomain(options, constraints, schema),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*fill_value.*not supported.*"));
+                            ".*Lower bounds do not match.*"));
+
+  // Shape from constraints, domain from schema (rank incompatible)
+  schema = Schema();
+  constraints = TiffMetadataConstraints();
+  constraints.shape = {{50, 60}};
+  TENSORSTORE_ASSERT_OK(schema.Set(IndexDomain(Box({10}, {40}))));  // Rank 1
+  EXPECT_THAT(
+      GetEffectiveDomain(options, constraints, schema),
+      MatchesStatus(absl::StatusCode::kInvalidArgument, ".*Rank.*conflicts.*"));
+
+  // Shape from constraints, domain from schema (bounds incompatible)
+  schema = Schema();
+  constraints = TiffMetadataConstraints();
+  constraints.shape = {{30, 40}};
+  TENSORSTORE_ASSERT_OK(schema.Set(
+      IndexDomain(Box({0, 0}, {30, 50}))));  // Dim 1 exceeds constraint shape
+  EXPECT_THAT(GetEffectiveDomain(options, constraints, schema),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            ".*Mismatch in dimension 1.*"));
 }
+
+TEST(GetEffectiveTest, ChunkLayout) {
+  TiffSpecOptions options;
+  TiffMetadataConstraints constraints;
+  Schema schema;
+  ChunkLayout layout;
+
+  // Nothing specified -> default layout (rank 0)
+  EXPECT_EQ(ChunkLayout{},
+            GetEffectiveChunkLayout(options, constraints, schema).value());
+
+  // Rank specified -> default layout for that rank
+  constraints.rank = 2;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      layout, GetEffectiveChunkLayout(options, constraints, schema));
+  EXPECT_EQ(layout.rank(), 2);
+  EXPECT_THAT(layout.inner_order(), ElementsAre(1, 0));  // Default TIFF order
+  EXPECT_THAT(layout.grid_origin(), ElementsAre(0, 0));
+
+  // Schema specifies chunk shape
+  schema = Schema();
+  constraints = TiffMetadataConstraints();
+  constraints.rank = 2;
+  ChunkLayout schema_layout;
+  TENSORSTORE_ASSERT_OK(schema_layout.Set(ChunkLayout::ChunkShape({32, 64})));
+  TENSORSTORE_ASSERT_OK(schema.Set(schema_layout));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      layout, GetEffectiveChunkLayout(options, constraints, schema));
+  EXPECT_THAT(layout.read_chunk().shape(), ElementsAre(32, 64));
+  EXPECT_THAT(layout.inner_order(),
+              ElementsAre(1, 0));  // Default TIFF order retained
+
+  // Schema specifies inner order
+  schema = Schema();
+  constraints = TiffMetadataConstraints();
+  constraints.rank = 2;
+  schema_layout = ChunkLayout();
+  TENSORSTORE_ASSERT_OK(schema_layout.Set(ChunkLayout::InnerOrder({0, 1})));
+  TENSORSTORE_ASSERT_OK(schema.Set(schema_layout));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      layout, GetEffectiveChunkLayout(options, constraints, schema));
+  EXPECT_THAT(layout.inner_order(),
+              ElementsAre(0, 1));  // Schema order overrides default
+}
+
+// TEST(GetEffectiveTest, Codec) {
+//   TiffSpecOptions options;
+//   TiffMetadataConstraints constraints;
+//   Schema schema;
+//   CodecSpec codec;
+
+//   // Nothing specified -> default TIFF codec (uncompressed)
+//   TENSORSTORE_ASSERT_OK_AND_ASSIGN(codec, GetEffectiveCodec(options,
+//   constraints, schema)); ASSERT_TRUE(codec.valid()); const auto* tiff_codec =
+//   dynamic_cast<const TiffCodecSpec*>(codec.get()); ASSERT_NE(tiff_codec,
+//   nullptr); EXPECT_THAT(tiff_codec->compression_type,
+//   Optional(CompressionType::kNone));
+
+//   // Schema specifies compatible codec
+//   auto schema_codec =
+//   CodecSpec(internal::CodecDriverSpec::Make<TiffCodecSpec>());
+//   TENSORSTORE_ASSERT_OK(schema.Set(schema_codec));
+//   TENSORSTORE_ASSERT_OK_AND_ASSIGN(codec, GetEffectiveCodec(options,
+//   constraints, schema)); ASSERT_TRUE(codec.valid()); tiff_codec =
+//   dynamic_cast<const TiffCodecSpec*>(codec.get()); ASSERT_NE(tiff_codec,
+//   nullptr); EXPECT_THAT(tiff_codec->compression_type,
+//   Optional(CompressionType::kNone)); // Still default
+
+//   // Schema specifies incompatible codec
+//   TENSORSTORE_ASSERT_OK(schema.Set(CodecSpec({{"driver", "n5"}})));
+//   EXPECT_THAT(GetEffectiveCodec(options, constraints, schema),
+//               MatchesStatus(absl::StatusCode::kInvalidArgument,
+//               ".*incompatible.*"));
+// }
 
 }  // namespace

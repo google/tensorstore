@@ -34,6 +34,23 @@
 namespace tensorstore {
 namespace internal_tiff {
 
+/// Options specified in the `TiffDriverSpec` that guide interpretation.
+struct TiffSpecOptions {
+  // Specifies which IFD (Image File Directory) to open. Defaults to 0.
+  uint32_t ifd_index = 0;
+
+  // --- Future extensions ---
+  // enum class IfdHandling { kSingle, kStackZ } ifd_handling =
+  // IfdHandling::kSingle; bool use_ome_metadata = true; // Default to using OME
+  // if present?
+
+  // --- JSON Binding ---
+  // Make options configurable via JSON in the driver spec.
+  TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(TiffSpecOptions,
+                                          internal_json_binding::NoOptions,
+                                          tensorstore::IncludeDefaults)
+};
+
 /// Represents the resolved and interpreted metadata for a TIFF TensorStore.
 /// This structure holds the information needed by the driver after parsing
 /// TIFF tags, potentially OME-XML, and applying user specifications.
@@ -45,14 +62,13 @@ struct TiffMetadata {
   uint32_t num_ifds = 1;
 
   // Core TensorStore Schema components
-  /// Length of `shape`, `axes` and `chunk_shape` if any are specified.  If none
-  /// are specified, equal to `dynamic_rank`.
-  DimensionIndex rank;
+  DimensionIndex rank = dynamic_rank;
 
   // Derived shape (e.g. [C,Y,X] or [Y,X,C] or [Y,X], ...)
   std::vector<Index> shape;
 
   DataType dtype;
+
   // Derived chunk layout including order.
   ChunkLayout chunk_layout;
 
@@ -83,43 +99,95 @@ struct TiffMetadataConstraints {
   std::optional<DataType> dtype;
   std::optional<std::vector<Index>> shape;
   DimensionIndex rank = dynamic_rank;  // Track rank from constraints
-  std::vector<std::string> axes;
-  std::vector<Index> chunk_shape;
-
-  // Specifies which IFD (Image File Directory) to open. Defaults to 0.
-  uint32_t ifd_index = 0;
 
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(TiffMetadataConstraints,
                                           internal_json_binding::NoOptions,
                                           tensorstore::IncludeDefaults)
 };
 
-/// Creates a basic `TiffMetadata` object by interpreting a single IFD
-/// from the parsed TIFF structure. Performs initial checks for unsupported
-/// features based solely on the TIFF tags.
+/// Resolves the final metadata by interpreting parsed TIFF data according
+/// to spec options and merging with schema constraints.
 ///
-/// \param parse_result The result of parsing the TIFF structure via
-/// TiffDirectoryCache.
-/// \param ifd_index The specific IFD to interpret.
-/// \returns A shared pointer to the basic metadata object.
-/// \error `absl::StatusCode::kNotFound` if `ifd_index` is invalid.
-/// \error `absl::StatusCode::kUnimplemented` if unsupported features are
-/// detected.
-/// \error `absl::StatusCode::kInvalidArgument` if required tags are missing or
-//      inconsistent within the IFD.
-Result<std::shared_ptr<TiffMetadata>> CreateMetadataFromParseResult(
-    const internal_tiff_kvstore::TiffParseResult& parse_result,
-    uint32_t ifd_index);
+/// \param source The parsed TIFF directory structure.
+/// \param options User-specified interpretation options from the driver spec.
+/// \param schema General TensorStore schema constraints.
+/// \returns The final, resolved metadata for the driver.
+Result<std::shared_ptr<const TiffMetadata>> ResolveMetadata(
+    const internal_tiff_kvstore::TiffParseResult& source,
+    const TiffSpecOptions& options, const Schema& schema);
 
-/// Validates that the resolved `TiffMetadata` is compatible with Schema
-/// constraints.
-/// This is typically called after the final metadata object is resolved.
+/// Validates the final resolved metadata against explicit user constraints
+/// provided in the driver spec.
 ///
-/// \param metadata The resolved TIFF metadata.
-/// \param schema The schema constraints to validate against.
+/// \param resolved_metadata The final metadata produced by `ResolveMetadata`.
+/// \param user_constraints Constraints provided by the user in the spec.
 /// \error `absl::StatusCode::kFailedPrecondition` if constraints are violated.
-absl::Status ValidateMetadataSchema(const TiffMetadata& metadata,
+absl::Status ValidateResolvedMetadata(
+    const TiffMetadata& resolved_metadata,
+    const TiffMetadataConstraints& user_constraints);
+
+/// Computes the effective domain based on spec options, constraints, and
+/// schema. If the rank or shape cannot be determined from the inputs, returns
+/// an unknown domain.
+///
+/// \param options TIFF-specific interpretation options (currently unused here).
+/// \param constraints User constraints on the final metadata (e.g., shape).
+/// \param schema General schema constraints (e.g., domain, rank).
+/// \returns The best estimate of the domain based on the spec, or an error if
+///     constraints conflict.
+Result<IndexDomain<>> GetEffectiveDomain(
+    const TiffSpecOptions& options, const TiffMetadataConstraints& constraints,
+    const Schema& schema);
+
+/// Computes the effective chunk layout based on spec options, constraints, and
+/// schema.
+///
+/// \param options TIFF-specific interpretation options (currently unused here).
+/// \param constraints User constraints on the final metadata (e.g.,
+/// chunk_shape).
+/// \param schema General schema constraints (e.g., chunk layout).
+/// \returns The best estimate of the chunk layout based on the spec, or an
+/// error if constraints conflict. Returns a default layout if rank is unknown.
+Result<ChunkLayout> GetEffectiveChunkLayout(
+    const TiffSpecOptions& options, const TiffMetadataConstraints& constraints,
+    const Schema& schema);
+
+/// Computes the effective codec spec based on spec options, constraints, and
+/// schema.
+///
+/// Returns a default TIFF codec (uncompressed) if no constraints are provided.
+///
+/// \param options TIFF-specific interpretation options (currently unused here).
+/// \param constraints User constraints on the final metadata (e.g.,
+/// compression).
+/// \param schema General schema constraints (e.g., codec spec).
+/// \returns The best estimate of the codec spec based on the spec, or an error
+///     if constraints conflict.
+Result<CodecSpec> GetEffectiveCodec(const TiffSpecOptions& options,
+                                    const TiffMetadataConstraints& constraints,
                                     const Schema& schema);
+
+/// Computes the effective dimension units based on spec options, constraints,
+/// and schema.
+///
+/// \param options TIFF-specific interpretation options (currently unused here).
+/// \param constraints User constraints on the final metadata (e.g., units).
+/// \param schema General schema constraints (e.g., dimension_units).
+/// \returns The best estimate of the dimension units based on the spec, or an
+///     error if constraints conflict. Returns unknown units if rank is unknown
+///     or units are unspecified.
+Result<DimensionUnitsVector> GetEffectiveDimensionUnits(
+    const TiffSpecOptions& options, const TiffMetadataConstraints& constraints,
+    const Schema& schema);
+
+/// Computes the effective data type based on constraints and schema.
+///
+/// \param constraints User constraints on the final metadata (e.g., dtype).
+/// \param schema General schema constraints (e.g., dtype).
+/// \returns The effective data type. Returns `DataType()` (invalid) if neither
+///     input specifies a data type. Returns an error if constraints conflict.
+Result<DataType> GetEffectiveDataType(
+    const TiffMetadataConstraints& constraints, const Schema& schema);
 
 }  // namespace internal_tiff
 }  // namespace tensorstore
