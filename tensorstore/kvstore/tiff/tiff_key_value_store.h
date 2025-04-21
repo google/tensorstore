@@ -15,8 +15,12 @@
 #ifndef TENSORSTORE_KVSTORE_TIFF_TIFF_KEY_VALUE_STORE_H_
 #define TENSORSTORE_KVSTORE_TIFF_TIFF_KEY_VALUE_STORE_H_
 
+#include <memory>
+
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/kvstore.h"
+#include "tensorstore/kvstore/tiff/tiff_dir_cache.h"
+#include "tensorstore/util/future.h"
 
 namespace tensorstore {
 namespace kvstore {
@@ -26,6 +30,19 @@ namespace tiff_kvstore {
 /// @param base_kvstore Base kvstore (e.g., local file, GCS, HTTP-backed).
 /// @returns DriverPtr wrapping the TIFF store.
 DriverPtr GetTiffKeyValueStore(DriverPtr base_kvstore);
+
+/// Gets the parsed TIFF structure for the TIFF file represented by this driver.
+///
+/// \param kvstore The TiffKvStore.
+/// \param key The key representing the TIFF file
+/// \param staleness_bound Time bound for reading the underlying file.
+/// \returns A Future that resolves to the parsed result or an error.
+///     Returns NotFoundError if the underlying file doesn't exist or initial
+///     parse fails.
+Future<
+    std::shared_ptr<const tensorstore::internal_tiff_kvstore::TiffParseResult>>
+GetParseResult(DriverPtr kvstore, std::string_view key,
+               absl::Time staleness_bound);
 
 }  // namespace tiff_kvstore
 }  // namespace kvstore

@@ -55,6 +55,7 @@ namespace jb = ::tensorstore::internal_json_binding;
 
 using ::tensorstore::internal_tiff_kvstore::ImageDirectory;
 using ::tensorstore::internal_tiff_kvstore::TiffDirectoryCache;
+using ::tensorstore::internal_tiff_kvstore::TiffParseResult;
 using ::tensorstore::kvstore::ListEntry;
 using ::tensorstore::kvstore::ListReceiver;
 
@@ -497,6 +498,34 @@ DriverPtr GetTiffKeyValueStore(DriverPtr base_kvstore) {
   driver->cache_entry_ = GetCacheEntry(directory_cache, driver->base_.path);
 
   return driver;
+}
+
+Future<std::shared_ptr<const TiffParseResult>> GetParseResult(
+    DriverPtr kvstore, std::string_view key, absl::Time staleness_bound) {
+  auto tiff_store = dynamic_cast<const TiffKeyValueStore*>(kvstore.get());
+  if (tiff_store == nullptr) {
+    return MakeReadyFuture<std::shared_ptr<const TiffParseResult>>(
+        absl::InvalidArgumentError("Invalid kvstore type"));
+  }
+
+  auto& cache_entry = tiff_store->cache_entry_;
+  if (!cache_entry) {
+    return MakeReadyFuture<std::shared_ptr<const TiffParseResult>>(
+        absl::InternalError("TiffDirectoryCache entry not initialized in "
+                            "TiffKeyValueStore::GetParseResult"));
+  }
+
+  auto read_future = cache_entry->Read({staleness_bound});
+  return MapFuture(
+      tiff_store->executor(),  // Use the member function to get the executor
+      [cache_entry, entry_key = std::string(key)](
+          const Result<void>&) -> std::shared_ptr<const TiffParseResult> {
+        TiffDirectoryCache::ReadLock<TiffParseResult> lock(
+            *cache_entry);  // Use captured this->cache_entry_
+        assert(lock.data());
+        return lock.shared_data();
+      },
+      std::move(read_future));
 }
 
 }  // namespace tensorstore::kvstore::tiff_kvstore
