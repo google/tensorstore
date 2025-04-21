@@ -23,10 +23,12 @@
 #include <string_view>
 
 #include "absl/base/attributes.h"
-#include "absl/base/call_once.h"
 #include "absl/base/log_severity.h"
+#include "absl/base/no_destructor.h"
+#include "absl/base/thread_annotations.h"
 #include "absl/debugging/leak_check.h"
 #include "absl/log/absl_log.h"
+#include "absl/synchronization/mutex.h"
 #include <aws/auth/auth.h>
 #include <aws/cal/cal.h>
 #include <aws/common/allocator.h>
@@ -145,74 +147,104 @@ aws_logger s_absl_logger{
 };
 
 // AWS apis rely on global initialization; do that here.
-ABSL_CONST_INIT absl::once_flag g_init;
+class AwsApi {
+ public:
+  AwsApi() : allocator_(aws_default_allocator()) {
+    absl::LeakCheckDisabler disabler;
 
-aws_event_loop_group *g_event_loop_group = nullptr;
-aws_host_resolver *g_resolver = nullptr;
-aws_client_bootstrap *g_client_bootstrap = nullptr;
-aws_tls_ctx *g_tls_ctx = nullptr;
+    /* Initialize AWS libraries.*/
+    aws_common_library_init(allocator_);
 
-void InitAwsLibraries() {
-  absl::LeakCheckDisabler disabler;
+    s_absl_logger.allocator = allocator_;
+    aws_logger_set(&s_absl_logger);
 
-  auto *allocator = GetAwsAllocator();
-
-  /* Initialize AWS libraries.*/
-  aws_common_library_init(allocator);
-
-  s_absl_logger.allocator = allocator;
-  aws_logger_set(&s_absl_logger);
-
-  aws_cal_library_init(allocator);
-  aws_io_library_init(allocator);
-  aws_http_library_init(allocator);
-  aws_auth_library_init(allocator);
-
-  /* event loop */
-  g_event_loop_group = aws_event_loop_group_new_default(allocator, 0, nullptr);
-
-  /* resolver */
-  aws_host_resolver_default_options resolver_options;
-  AWS_ZERO_STRUCT(resolver_options);
-  resolver_options.el_group = g_event_loop_group;
-  resolver_options.max_entries = 32;  // defaults to 8?
-  g_resolver = aws_host_resolver_new_default(allocator, &resolver_options);
-
-  /* client bootstrap */
-  aws_client_bootstrap_options bootstrap_options;
-  AWS_ZERO_STRUCT(bootstrap_options);
-  bootstrap_options.event_loop_group = g_event_loop_group;
-  bootstrap_options.host_resolver = g_resolver;
-  g_client_bootstrap = aws_client_bootstrap_new(allocator, &bootstrap_options);
-  if (g_client_bootstrap == nullptr) {
-    ABSL_LOG(FATAL) << "ERROR initializing client bootstrap: "
-                    << aws_error_debug_str(aws_last_error());
+    aws_cal_library_init(allocator_);
+    aws_io_library_init(allocator_);
+    aws_http_library_init(allocator_);
+    aws_auth_library_init(allocator_);
   }
 
-  AwsTlsCtx tls_ctx = AwsTlsCtxBuilder(allocator).Build();
-  if (tls_ctx == nullptr) {
-    ABSL_LOG(FATAL) << "ERROR initializing TLS context: "
-                    << aws_error_debug_str(aws_last_error());
+  aws_allocator *allocator() { return allocator_; }
+
+  aws_client_bootstrap *client_bootstrap() ABSL_LOCKS_EXCLUDED(mutex_) {
+    absl::MutexLock l(&mutex_);
+    init_client_bootstrap();
+    return client_bootstrap_;
   }
-  g_tls_ctx = tls_ctx.release();
+
+  aws_tls_ctx *tls_ctx() ABSL_LOCKS_EXCLUDED(mutex_) {
+    absl::MutexLock l(&mutex_);
+    init_tls_ctx();
+    return tls_ctx_;
+  }
+
+ private:
+  void init_event_loop_group() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
+    if (event_loop_group_ != nullptr) return;
+    event_loop_group_ =
+        aws_event_loop_group_new_default(allocator_, 0, nullptr);
+  }
+
+  void init_resolver() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
+    if (resolver_ != nullptr) return;
+    init_event_loop_group();
+
+    aws_host_resolver_default_options resolver_options;
+    AWS_ZERO_STRUCT(resolver_options);
+    resolver_options.el_group = event_loop_group_;
+    resolver_options.max_entries = 32;  // defaults to 8?
+    resolver_ = aws_host_resolver_new_default(allocator_, &resolver_options);
+  }
+
+  void init_client_bootstrap() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
+    if (client_bootstrap_ != nullptr) return;
+    init_event_loop_group();
+    init_resolver();
+
+    aws_client_bootstrap_options bootstrap_options;
+    AWS_ZERO_STRUCT(bootstrap_options);
+    bootstrap_options.event_loop_group = event_loop_group_;
+    bootstrap_options.host_resolver = resolver_;
+    client_bootstrap_ =
+        aws_client_bootstrap_new(allocator_, &bootstrap_options);
+    if (client_bootstrap_ == nullptr) {
+      ABSL_LOG(FATAL) << "ERROR initializing client bootstrap: "
+                      << aws_error_debug_str(aws_last_error());
+    }
+  }
+
+  void init_tls_ctx() ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_) {
+    if (tls_ctx_ != nullptr) return;
+    auto my_tls_ctx = AwsTlsCtxBuilder(allocator_).Build();
+    if (my_tls_ctx == nullptr) {
+      ABSL_LOG(FATAL) << "ERROR initializing TLS context: "
+                      << aws_error_debug_str(aws_last_error());
+    }
+    tls_ctx_ = my_tls_ctx.release();
+  }
+
+  absl::Mutex mutex_;
+  aws_allocator *allocator_ = nullptr;
+  aws_event_loop_group *event_loop_group_ ABSL_GUARDED_BY(mutex_) = nullptr;
+  aws_host_resolver *resolver_ ABSL_GUARDED_BY(mutex_) = nullptr;
+  aws_client_bootstrap *client_bootstrap_ ABSL_GUARDED_BY(mutex_) = nullptr;
+  aws_tls_ctx *tls_ctx_ ABSL_GUARDED_BY(mutex_) = nullptr;
+};
+
+AwsApi &GetAwsApi() {
+  static absl::NoDestructor<AwsApi> aws_api;
+  return *aws_api;
 }
 
 }  // namespace
 
-aws_allocator *GetAwsAllocator() {
-  // The default allocator is used for all AWS API objects.
-  return aws_default_allocator();
-}
+aws_allocator *GetAwsAllocator() { return GetAwsApi().allocator(); }
 
 aws_client_bootstrap *GetAwsClientBootstrap() {
-  absl::call_once(g_init, InitAwsLibraries);
-  return g_client_bootstrap;
+  return GetAwsApi().client_bootstrap();
 }
 
-aws_tls_ctx *GetAwsTlsCtx() {
-  absl::call_once(g_init, InitAwsLibraries);
-  return g_tls_ctx;
-}
+aws_tls_ctx *GetAwsTlsCtx() { return GetAwsApi().tls_ctx(); }
 
 }  // namespace internal_aws
 }  // namespace tensorstore

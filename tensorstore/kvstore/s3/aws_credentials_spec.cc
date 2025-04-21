@@ -26,6 +26,7 @@
 #include "absl/strings/str_cat.h"
 #include <aws/common/error.h>
 #include <nlohmann/json_fwd.hpp>
+#include "tensorstore/internal/aws/aws_api.h"
 #include "tensorstore/internal/aws/aws_credentials.h"
 #include "tensorstore/internal/aws/credentials/common.h"
 #include "tensorstore/internal/json_binding/bindable.h"
@@ -166,6 +167,7 @@ Result<AwsCredentialsProvider> MakeAwsCredentialsProvider(const Spec& spec) {
     }
   };
 
+  (void)internal_aws::GetAwsAllocator();  // Force AWS library initialization.
   AwsCredentialsProvider credentials_provider =
       std::visit(MakeCredentialsVisitor{}, spec.config);
 

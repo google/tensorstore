@@ -37,6 +37,7 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/context.h"
+#include "tensorstore/internal/aws/aws_api.h"
 #include "tensorstore/internal/aws/aws_credentials.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/digest/sha256.h"
@@ -1342,6 +1343,7 @@ Future<const S3EndpointRegion> S3KeyValueStore::MaybeResolveRegion() {
 }
 
 Future<kvstore::DriverPtr> S3KeyValueStoreSpec::DoOpen() const {
+  (void)internal_aws::GetAwsAllocator();  // Force AWS library initialization.
   // TODO: The transport should support the AWS_CA_BUNDLE environment
   // variable.
   TENSORSTORE_ASSIGN_OR_RETURN(
