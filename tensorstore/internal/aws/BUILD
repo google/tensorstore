@@ -20,11 +20,12 @@ tensorstore_cc_library(
         "@aws_c_common",
         "@aws_c_http",
         "@aws_c_io",
-        "@com_google_absl//absl/base",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/base:log_severity",
+        "@com_google_absl//absl/base:no_destructor",
         "@com_google_absl//absl/debugging:leak_check",
         "@com_google_absl//absl/log:absl_log",
+        "@com_google_absl//absl/synchronization",
     ],
 )
 
