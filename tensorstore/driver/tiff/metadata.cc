@@ -55,6 +55,7 @@ namespace jb = tensorstore::internal_json_binding;
 using ::tensorstore::internal_tiff_kvstore::CompressionType;
 using ::tensorstore::internal_tiff_kvstore::ImageDirectory;
 using ::tensorstore::internal_tiff_kvstore::PlanarConfigType;
+using ::tensorstore::internal_tiff_kvstore::SampleFormatType;
 using ::tensorstore::internal_tiff_kvstore::TiffParseResult;
 
 ABSL_CONST_INIT internal_log::VerboseFlag tiff_metadata_logging(
@@ -121,120 +122,141 @@ Result<DataType> GetDataTypeFromTiff(const ImageDirectory& dir) {
     return absl::FailedPreconditionError(
         "Incomplete TIFF metadata for data type");
   }
-  // Assume uniform bits/format per sample for simplicity in this scaffold.
-  uint16_t bits = dir.bits_per_sample[0];
-  uint16_t format = dir.sample_format[0];
-
-  // Check consistency if multiple samples exist
+  // Accept either identical (most files) or uniformly 8‑bit unsigned channels
+  auto uniform_bits = dir.bits_per_sample[0];
+  auto uniform_format = dir.sample_format[0];
   for (size_t i = 1; i < dir.samples_per_pixel; ++i) {
-    if (i >= dir.bits_per_sample.size() || i >= dir.sample_format.size() ||
-        dir.bits_per_sample[i] != bits || dir.sample_format[i] != format) {
+    if (dir.bits_per_sample[i] != uniform_bits ||
+        dir.sample_format[i] != uniform_format) {
+      // allow common RGB 8‑bit + Alpha 8‑bit case
+      if (uniform_bits == 8 && dir.bits_per_sample[i] == 8 &&
+          uniform_format ==
+              static_cast<uint16_t>(SampleFormatType::kUnsignedInteger) &&
+          dir.sample_format[i] == uniform_format) {
+        continue;
+      }
       return absl::UnimplementedError(
-          "Varying bits_per_sample or sample_format per channel not yet "
-          "supported");
+          "Mixed bits/sample or sample_format is not supported yet");
     }
   }
 
-  switch (format) {
-    case static_cast<uint16_t>(
-        internal_tiff_kvstore::SampleFormatType::kUnsignedInteger):
-      if (bits == 8) return dtype_v<uint8_t>;
-      if (bits == 16) return dtype_v<uint16_t>;
-      if (bits == 32) return dtype_v<uint32_t>;
-      if (bits == 64) return dtype_v<uint64_t>;
+  switch (uniform_format) {
+    case static_cast<uint16_t>(SampleFormatType::kUnsignedInteger):
+      if (uniform_bits == 8) return dtype_v<uint8_t>;
+      if (uniform_bits == 16) return dtype_v<uint16_t>;
+      if (uniform_bits == 32) return dtype_v<uint32_t>;
+      if (uniform_bits == 64) return dtype_v<uint64_t>;
+      break;
+    case static_cast<uint16_t>(SampleFormatType::kSignedInteger):
+      if (uniform_bits == 8) return dtype_v<int8_t>;
+      if (uniform_bits == 16) return dtype_v<int16_t>;
+      if (uniform_bits == 32) return dtype_v<int32_t>;
+      if (uniform_bits == 64) return dtype_v<int64_t>;
+      break;
+    case static_cast<uint16_t>(SampleFormatType::kIEEEFloat):
+      if (uniform_bits == 32) return dtype_v<tensorstore::dtypes::float32_t>;
+      if (uniform_bits == 64) return dtype_v<tensorstore::dtypes::float64_t>;
       break;
     case static_cast<uint16_t>(
-        internal_tiff_kvstore::SampleFormatType::kSignedInteger):
-      if (bits == 8) return dtype_v<int8_t>;
-      if (bits == 16) return dtype_v<int16_t>;
-      if (bits == 32) return dtype_v<int32_t>;
-      if (bits == 64) return dtype_v<int64_t>;
-      break;
-    case static_cast<uint16_t>(
-        internal_tiff_kvstore::SampleFormatType::kIEEEFloat):
-      if (bits == 32) return dtype_v<tensorstore::dtypes::float32_t>;
-      if (bits == 64) return dtype_v<tensorstore::dtypes::float64_t>;
-      break;
-    case static_cast<uint16_t>(
-        internal_tiff_kvstore::SampleFormatType::
-            kUndefined):  // Might be complex, not standard TIFF
-      break;              // Fall through to error
+        SampleFormatType::kUndefined):  // Might be complex, not standard TIFF
+      break;                            // Fall through to error
     default:
       break;
   }
   return absl::InvalidArgumentError(
-      StrCat("Unsupported TIFF data type: bits=", bits, ", format=", format));
+      StrCat("Unsupported TIFF data type: bits=", uniform_bits,
+             ", format=", uniform_format));
 }
 
-// Gets the rank based on the ImageDirectory and PlanarConfiguration.
-// Returns dynamic_rank on error/unsupported config.
-DimensionIndex GetRankFromTiff(const ImageDirectory& dir) {
-  // Only support chunky for now
-  if (static_cast<PlanarConfigType>(dir.planar_config) !=
-      PlanarConfigType::kChunky) {
-    ABSL_LOG_IF(ERROR, tiff_metadata_logging)
-        << "Unsupported planar configuration: " << dir.planar_config;
-    return dynamic_rank;
-  }
-  // Rank is 2 (Y, X) if samples_per_pixel is 1, otherwise 3 (Y, X, C)
-  return (dir.samples_per_pixel > 1) ? 3 : 2;
-}
+// Gets the shape and sets rank based on the ImageDirectory and
+// PlanarConfiguration.
+Result<std::vector<Index>> GetShapeAndRankFromTiff(const ImageDirectory& dir,
+                                                   DimensionIndex& rank) {
+  const bool chunky =
+      dir.planar_config == static_cast<uint16_t>(PlanarConfigType::kChunky);
+  const bool multi_channel = dir.samples_per_pixel > 1;
 
-// Gets the shape based on the ImageDirectory and PlanarConfiguration.
-Result<std::vector<Index>> GetShapeFromTiff(const ImageDirectory& dir,
-                                            DimensionIndex rank) {
-  if (rank == dynamic_rank) {
-    return absl::InvalidArgumentError(
-        "Cannot determine shape for dynamic rank");
+  if (chunky) {
+    rank = multi_channel ? 3 : 2;
+    std::vector<Index> shape = {static_cast<Index>(dir.height),
+                                static_cast<Index>(dir.width)};
+    if (multi_channel)
+      shape.push_back(static_cast<Index>(dir.samples_per_pixel));
+    return shape;
+  } else {                         // planar == 2
+    rank = multi_channel ? 3 : 2;  // (rare but legal: planar 1‑sample strips)
+    std::vector<Index> shape;
+    if (multi_channel)
+      shape.push_back(static_cast<Index>(dir.samples_per_pixel));
+    shape.push_back(static_cast<Index>(dir.height));
+    shape.push_back(static_cast<Index>(dir.width));
+    return shape;
   }
-  if (static_cast<PlanarConfigType>(dir.planar_config) !=
-      PlanarConfigType::kChunky) {
-    return absl::InternalError(
-        "GetShapeFromTiff called with unsupported planar config");
-  }
-  std::vector<Index> shape;
-  shape = {static_cast<Index>(dir.height),
-           static_cast<Index>(dir.width)};  // Y, X
-  if (rank == 3) {
-    shape.push_back(static_cast<Index>(dir.samples_per_pixel));  // C
-  } else if (rank != 2) {
-    return absl::InternalError(
-        StrCat("Unexpected rank ", rank, " for shape derivation"));
-  }
-  return shape;
 }
 
 // Gets chunk shape based on ImageDirectory and PlanarConfiguration.
-Result<std::vector<Index>> GetChunkShapeFromTiff(const ImageDirectory& dir,
-                                                 DimensionIndex rank) {
-  if (rank == dynamic_rank) {
+// Determines the chunk‑shape implied by the TIFF tags.
+//
+// For planar‑configuration images the channel dimension is represented
+// as a size‑1 chunk axis so that every chunk contains a single C‑plane.
+Result<std::vector<Index>> GetChunkShapeFromTiff(
+    const ImageDirectory& directory, DimensionIndex resolved_rank,
+    bool planar_dimension_leading) {
+  Index tile_height = 0;
+  Index tile_width = 0;
+
+  if (directory.tile_width > 0 && directory.tile_height > 0) {
+    tile_height = static_cast<Index>(directory.tile_height);
+    tile_width = static_cast<Index>(directory.tile_width);
+  } else {
+    // Classic strips
+    if (directory.rows_per_strip == 0) {
+      return absl::InvalidArgumentError(
+          "RowsPerStrip tag is zero while TileWidth/TileLength missing");
+    }
+    tile_height = static_cast<Index>(directory.rows_per_strip);
+    tile_width = static_cast<Index>(directory.width);
+
+    // RowsPerStrip must evenly partition the image height.
+    if (directory.height % tile_height != 0) {
+      return absl::InvalidArgumentError(StrCat("RowsPerStrip (", tile_height,
+                                               ") must divide ImageLength (",
+                                               directory.height, ")"));
+    }
+  }
+
+  if (tile_height <= 0 || tile_width <= 0) {
     return absl::InvalidArgumentError(
-        "Cannot determine chunk shape for dynamic rank");
+        StrCat("Invalid tile/strip dimensions: height=", tile_height,
+               ", width=", tile_width));
   }
-  if (static_cast<PlanarConfigType>(dir.planar_config) !=
-      PlanarConfigType::kChunky) {
-    return absl::InternalError(
-        "GetChunkShapeFromTiff called with unsupported planar config");
+  if (tile_height > directory.height || tile_width > directory.width) {
+    return absl::InvalidArgumentError(
+        "Tile/strip size exceeds image dimensions");
   }
+
   std::vector<Index> chunk_shape;
-  // Determine tile height: use TileLength if tiled, else RowsPerStrip
-  Index tile_h = dir.tile_height > 0 ? static_cast<Index>(dir.tile_height)
-                                     : static_cast<Index>(dir.rows_per_strip);
-  // Determine tile width: use TileWidth if tiled, else ImageWidth
-  Index tile_w = dir.tile_width > 0 ? static_cast<Index>(dir.tile_width)
-                                    : static_cast<Index>(dir.width);
+  chunk_shape.reserve(resolved_rank);
 
-  if (tile_h <= 0 || tile_w <= 0) {
-    return absl::InvalidArgumentError(StrCat(
-        "Invalid tile/strip dimensions: height=", tile_h, ", width=", tile_w));
+  const bool multi_channel = directory.samples_per_pixel > 1;
+
+  if (planar_dimension_leading && multi_channel) {
+    chunk_shape.push_back(1);  // leading C‑slice per chunk
   }
 
-  chunk_shape = {tile_h, tile_w};  // Y, X
-  if (rank == 3) {
-    chunk_shape.push_back(static_cast<Index>(dir.samples_per_pixel));  // C
-  } else if (rank != 2) {
+  chunk_shape.push_back(tile_height);  // Y
+  chunk_shape.push_back(tile_width);   // X
+
+  if (!planar_dimension_leading && multi_channel) {
+    chunk_shape.push_back(
+        directory.samples_per_pixel);  // trailing C‑slice per chunk
+  }
+
+  // Final invariant check
+  if (static_cast<DimensionIndex>(chunk_shape.size()) != resolved_rank) {
     return absl::InternalError(
-        StrCat("Unexpected rank ", rank, " for chunk shape derivation"));
+        StrCat("Derived chunk_shape rank (", chunk_shape.size(),
+               ") does not match resolved rank (", resolved_rank, ")"));
   }
   return chunk_shape;
 }
@@ -257,24 +279,20 @@ Result<std::vector<DimensionIndex>> GetInnerOrderFromTiff(DimensionIndex rank) {
   return inner_order;
 }
 
+// Returns ContiguousLayoutOrder::c  or  ContiguousLayoutOrder::fortran
+// for a given permutation.  Any mixed/blocked order is rejected.
 Result<ContiguousLayoutOrder> GetLayoutOrderFromInnerOrder(
-    tensorstore::span<const DimensionIndex> inner_order) {
-  if (inner_order.empty()) {
-    return absl::InternalError("Finalized chunk layout has empty inner_order");
-  }
-
+    span<const DimensionIndex> inner_order) {
   if (PermutationMatchesOrder(inner_order, ContiguousLayoutOrder::c)) {
     return ContiguousLayoutOrder::c;
-  } else if (PermutationMatchesOrder(inner_order,
-                                     ContiguousLayoutOrder::fortran)) {
-    return ContiguousLayoutOrder::fortran;
-  } else {
-    // If the resolved layout is neither C nor Fortran, it's an error
-    // because DecodeChunk currently relies on passing the enum.
-    return absl::InvalidArgumentError(
-        StrCat("Resolved TIFF inner_order ", tensorstore::span(inner_order),
-               " is not supported (must be C or Fortran order)"));
   }
+  if (PermutationMatchesOrder(inner_order, ContiguousLayoutOrder::fortran)) {
+    return ContiguousLayoutOrder::fortran;
+  }
+  return absl::UnimplementedError(
+      StrCat("Inner order ", inner_order,
+             " is not a pure C or Fortran permutation; "
+             "mixed-strides currently unimplemented"));
 }
 
 // Helper to convert CompressionType enum to string ID for registry lookup
@@ -349,6 +367,7 @@ Result<std::shared_ptr<const TiffMetadata>> ResolveMetadata(
   auto metadata = std::make_shared<TiffMetadata>();
   metadata->ifd_index = options.ifd_index;
   metadata->num_ifds = 1;  // Stacking not implemented
+  metadata->endian = source.endian;
 
   // Validate Planar Configuration and Compression early
   metadata->planar_config =
@@ -363,20 +382,25 @@ Result<std::shared_ptr<const TiffMetadata>> ResolveMetadata(
       static_cast<CompressionType>(img_dir.compression);
 
   // Determine rank, shape, dtype
-  metadata->rank = GetRankFromTiff(img_dir);
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      metadata->shape, GetShapeAndRankFromTiff(img_dir, metadata->rank));
+
   if (metadata->rank == dynamic_rank) {
     return absl::InvalidArgumentError("Could not determine rank from TIFF IFD");
   }
-  TENSORSTORE_ASSIGN_OR_RETURN(metadata->shape,
-                               GetShapeFromTiff(img_dir, metadata->rank));
+
   TENSORSTORE_ASSIGN_OR_RETURN(metadata->dtype, GetDataTypeFromTiff(img_dir));
   metadata->samples_per_pixel = img_dir.samples_per_pixel;
 
   // 3. Initial Chunk Layout
   ChunkLayout& layout = metadata->chunk_layout;
   TENSORSTORE_RETURN_IF_ERROR(layout.Set(RankConstraint{metadata->rank}));
-  TENSORSTORE_ASSIGN_OR_RETURN(std::vector<Index> chunk_shape,
-                               GetChunkShapeFromTiff(img_dir, metadata->rank));
+
+  bool planar_lead = (metadata->planar_config != PlanarConfigType::kChunky);
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto chunk_shape,
+      GetChunkShapeFromTiff(img_dir, metadata->rank, planar_lead));
+
   TENSORSTORE_RETURN_IF_ERROR(layout.Set(ChunkLayout::ChunkShape(chunk_shape)));
   TENSORSTORE_RETURN_IF_ERROR(layout.Set(
       ChunkLayout::GridOrigin(GetConstantVector<Index, 0>(metadata->rank))));
@@ -492,8 +516,16 @@ Result<std::shared_ptr<const TiffMetadata>> ResolveMetadata(
       metadata->layout_order,
       GetLayoutOrderFromInnerOrder(metadata->chunk_layout.inner_order()));
 
-  // 8. Final Consistency Checks (Optional, depends on complexity added)
-  // e.g., Check if final chunk shape is compatible with final shape
+  // 8. Final consistency: chunk_shape must divide shape
+  // NB: Not a given apparently...
+  // const auto& cs = metadata->chunk_layout.read_chunk().shape();
+  // for (DimensionIndex d = 0; d < metadata->rank; ++d) {
+  //   if (metadata->shape[d] % cs[d] != 0) {
+  //     return absl::FailedPreconditionError(
+  //         StrCat("Chunk shape ", cs, " does not evenly divide image shape ",
+  //                metadata->shape));
+  //   }
+  // }
 
   ABSL_LOG_IF(INFO, tiff_metadata_logging)
       << "Resolved TiffMetadata: rank=" << metadata->rank

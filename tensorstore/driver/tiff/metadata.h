@@ -30,6 +30,7 @@
 #include "tensorstore/kvstore/tiff/tiff_dir_cache.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/schema.h"
+#include "tensorstore/util/endian.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
@@ -88,8 +89,17 @@ struct TiffMetadata {
   internal_tiff_kvstore::PlanarConfigType planar_config;
   uint16_t samples_per_pixel;
 
-  // Pre-calculated layout order enum (C or Fortran) based on finalized chunk_layout.inner_order
+  // Pre-calculated layout order enum (C or Fortran) based on finalized
+  // chunk_layout.inner_order
   ContiguousLayoutOrder layout_order = ContiguousLayoutOrder::c;
+
+  // Returns `true` if a byte‑swap is required on this platform.
+  bool NeedByteSwap() const {
+    constexpr bool kHostIsBig =
+        (tensorstore::endian::native == tensorstore::endian::big);
+
+    return (endian == internal_tiff_kvstore::Endian::kBig) ^ kHostIsBig;
+  }
 
   // TODO: Add fields for parsed OME-XML metadata if needed in the future.
   // std::shared_ptr<OmeXmlStruct> ome_metadata;
