@@ -29,6 +29,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include <openssl/crypto.h>
+#include <openssl/err.h>
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 #include <openssl/rand.h>
@@ -59,7 +60,14 @@ namespace py = ::pybind11;
 ///    but unpickling legitimate exception values is unlikely to have harmful
 ///    side effects.
 struct StatusPayloadKeys {
-  StatusPayloadKeys() { ABSL_CHECK_EQ(1, RAND_bytes(keys, kTotalKeyLength)); }
+  StatusPayloadKeys() {
+    if (int success = RAND_bytes(keys, kTotalKeyLength); success != 1) {
+      // Only some implementations of RAND_bytes fail; if so, log a fatal error.
+      char buf[256];
+      ERR_error_string_n(ERR_get_error(), buf, sizeof(buf));
+      ABSL_CHECK_EQ(success, 1) << "RAND_bytes " << buf;
+    }
+  }
 
   /// Size of key used as the payload identifier.
   constexpr static size_t kPayloadIdSize = 32;
