@@ -21,6 +21,7 @@
 
 #include "absl/flags/marshalling.h"
 #include "absl/status/status.h"
+#include "absl/strings/ascii.h"
 #include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/json_binding/bindable.h"
@@ -58,22 +59,28 @@ struct JsonAbslFlag {
 
   friend bool AbslParseFlag(std::string_view in, JsonAbslFlag* out,
                             std::string* error) {
+    // Whitespace is removed from JSON values: https://www.json.org/
+    in = absl::StripAsciiWhitespace(in);
     if (in.empty()) {
-      // empty string yields a default-constructed flag value.
       out->value = {};
       return true;
     }
 
     ::nlohmann::json j = ::nlohmann::json::parse(in, nullptr, false);
     if (j.is_discarded()) {
-      *error = absl::StrFormat("Failed to parse JSON: '%s'", in);
-      return false;
+      if (in[0] == '"' || in[0] == '{' || in[0] == '[') {
+        *error = absl::StrFormat("Failed to parse JSON: '%s'", in);
+        return false;
+      }
+      j = ::nlohmann::json(std::string(in));
     }
+
     T new_value = {};
     absl::Status status = internal_json_binding::DefaultBinder<>(
         std::true_type{}, internal_json_binding::NoOptions{}, &new_value, &j);
     if (!status.ok()) {
-      *error = absl::StrFormat("Failed to bind JSON: %s", status.message());
+      *error =
+          absl::StrFormat("Failed to parse or bind JSON: %s", status.message());
       return false;
     }
     out->value = std::move(new_value);

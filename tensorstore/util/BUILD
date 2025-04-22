@@ -438,6 +438,7 @@ tensorstore_cc_library(
         "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/flags:marshalling",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
     ],
 )

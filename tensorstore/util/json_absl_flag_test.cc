@@ -18,8 +18,9 @@
 
 #include <string>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/internal/json_binding/json_binding.h"  // IWYU pragma: keep
 #include "tensorstore/kvstore/spec.h"
 
 namespace {
@@ -27,22 +28,43 @@ namespace {
 TEST(JsonAbslFlag, IntFlag) {
   // Validate that the default value can roundtrip.
   tensorstore::JsonAbslFlag<int64_t> flag = {};
-  std::string default_value = AbslUnparseFlag(flag);
+  EXPECT_THAT(AbslUnparseFlag(flag), ::testing::StrEq("0"));
 
   std::string error;
-  EXPECT_TRUE(AbslParseFlag(default_value, &flag, &error));
+  EXPECT_TRUE(AbslParseFlag("", &flag, &error));
   EXPECT_TRUE(error.empty());
+
+  EXPECT_TRUE(AbslParseFlag("1", &flag, &error));
+  EXPECT_TRUE(error.empty()) << error;
 }
 
 TEST(JsonAbslFlag, KvStoreSpecFlag) {
   // Validate that the default value can roundtrip.
   tensorstore::JsonAbslFlag<tensorstore::kvstore::Spec> flag = {};
-  std::string default_value = AbslUnparseFlag(flag);
+  EXPECT_THAT(AbslUnparseFlag(flag), ::testing::IsEmpty());
 
+  // Try to parse as an empty value JSON string.
   std::string error;
-  EXPECT_TRUE(AbslParseFlag(default_value, &flag, &error))
-      << "value: " << default_value;
+  EXPECT_TRUE(AbslParseFlag("", &flag, &error));
   EXPECT_TRUE(error.empty()) << error;
+
+  EXPECT_TRUE(AbslParseFlag("  ", &flag, &error));
+  EXPECT_TRUE(error.empty()) << error;
+
+  // Try to parse a bad json object.
+  error.clear();
+  EXPECT_FALSE(AbslParseFlag("{ \"driver\": \"memory\" ", &flag, &error));
+  EXPECT_THAT(error, testing::HasSubstr("Failed to parse JSON"));
+
+  // Try to parse as a json object.
+  error.clear();
+  EXPECT_FALSE(AbslParseFlag("{ \"driver\": \"memory\" }", &flag, &error));
+  EXPECT_THAT(error, testing::HasSubstr("Failed to parse or bind JSON"));
+
+  // Try to parse as a raw string.
+  error.clear();
+  EXPECT_FALSE(AbslParseFlag("memory://", &flag, &error));
+  EXPECT_THAT(error, testing::HasSubstr("Failed to parse or bind JSON"));
 }
 
 }  // namespace
