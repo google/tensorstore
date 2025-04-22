@@ -120,7 +120,7 @@ e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
 
 TEST(S3RequestBuilderTest, AWS4SignatureGetExample) {
   // https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
-  // These values from worked exapmle in "Example: GET Object" Section
+  // These values from worked example in "Example: GET Object" Section
   const auto credentials = AwsCredentials::Make(
       "AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", "");
 

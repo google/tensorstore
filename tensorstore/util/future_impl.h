@@ -1377,7 +1377,7 @@ class FutureLink<Policy, Deleter, Callback, PromiseValue,
 
 enum class FutureErrorPropagationResult { kReady, kNotReady, kError };
 
-/// Evaluate the curent set of Futures against the FutureLinkPolicy before
+/// Evaluate the current set of Futures against the FutureLinkPolicy before
 /// constructing a link to see if a link is necessary.
 ///
 /// \return FutureErrorPropagationResult::kNotReady when a link must be created.
@@ -1426,7 +1426,7 @@ CallbackPointer MakeLink(Callback&& callback, Promise<PromiseValue> promise,
       assert(promise.ready());
       return {};
     case FutureErrorPropagationResult::kReady:
-      // The Policy is immediately invokable, avoid creating a link and invoke
+      // The Policy is immediately invocable, avoid creating a link and invoke
       // the callback directly. The callback should set the promise value.
       std::forward<Callback>(callback)(
           std::move(promise),

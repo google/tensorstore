@@ -103,7 +103,7 @@ using std::in_place_t;
 /// function which may fail.
 ///
 /// Initialization with a non-error `absl::Status` is only allowed for
-/// `Result<void>`, otherwise non-error `absl::Status` initilization is
+/// `Result<void>`, otherwise non-error `absl::Status` initialization is
 /// nonsensical because it does not provide a value.
 ///
 /// Conversion from `Result<T>` to `Result<void>` is allowed; the status

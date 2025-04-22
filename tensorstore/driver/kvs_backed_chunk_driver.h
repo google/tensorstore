@@ -55,7 +55,7 @@
 #include "tensorstore/internal/context_binding.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/estimate_heap_usage/estimate_heap_usage.h"
-#include "tensorstore/internal/estimate_heap_usage/std_vector.h"
+#include "tensorstore/internal/estimate_heap_usage/std_vector.h"  // IWYU pragma: keep
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/open_mode_spec.h"
@@ -853,7 +853,7 @@ class OpenState : public MetadataOpenState {
 ///    is compatible with the open request by calling
 ///    `open_state->GetComponentIndex`.
 ///
-///    - If it is, either re-uses an existing `DataCache` with a cache key that
+///    - If it is, either reuses an existing `DataCache` with a cache key that
 ///      matches `open_state->GetDataCacheKey`, or obtain a new `DataCache` from
 ///      `open_state->GetDataCache`.
 ///

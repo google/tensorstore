@@ -378,7 +378,7 @@ class AsyncCache : public Cache {
     /// \param transaction[in,out] Transaction associated with the entry.  If
     ///     non-null, must specify an explicit transaction, and an associated
     ///     transaction node will be created if one does not already exist.  In
-    ///     this case, the `tranaction` pointer itself will not be modified.  An
+    ///     this case, the `transaction` pointer itself will not be modified. An
     ///     implicit transaction node associated with a new implicit transaction
     ///     is requested by specifying `transaction` initially equally to
     ///     `nullptr`.  Upon return, `transaction` will hold an open transaction

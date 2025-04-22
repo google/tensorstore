@@ -88,7 +88,7 @@ Overload:
     //     Args:
     //       required_arg: This is required
     //
-    //       a: Specifies a.  This documentaiton string is allowed
+    //       a: Specifies a.  This documentation string is allowed
     //         to be more than one line.
     //       b: Specifies b.
     //

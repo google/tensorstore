@@ -18,10 +18,14 @@
 #include <iosfwd>
 
 #include "absl/container/inlined_vector.h"
+#include "absl/status/status.h"
 #include "tensorstore/box.h"
 #include "tensorstore/downsample_method.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/util/iterate.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 
@@ -61,8 +65,8 @@ struct PropagatedIndexTransformDownsampling {
 ///
 /// is equivalent to:
 ///
-///   transforming `b` by `propgated.transform` and then downsampling by
-///   `propgated.input_downsample_factors` (and possibly "squeezing" some
+///   transforming `b` by `propagated.transform` and then downsampling by
+///   `propagated.input_downsample_factors` (and possibly "squeezing" some
 ///   singleton dimensions that were added).
 ///
 /// Note that this function assumes downsampling is performed using a method

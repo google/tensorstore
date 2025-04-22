@@ -23,7 +23,7 @@
 /// This mechanism allows individual keyword arguments to be defined as
 /// `ParamDef` types, that specifies the name, documentation, argument type, and
 /// operation to perform to "apply" the argument.  These `ParamDef` types can
-/// then be re-used by multiple pybind11 functions while avoiding duplication.
+/// then be reused by multiple pybind11 functions while avoiding duplication.
 ///
 /// Each `ParamDef` type should be a struct with the following members, and no
 /// non-static data members (i.e. it should be empty):
@@ -52,12 +52,13 @@
 #include <pybind11/pybind11.h>
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
+#include <string>
 #include <string_view>
 
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_split.h"
 #include "python/tensorstore/status.h"
-#include "python/tensorstore/type_name_override.h"
+#include "python/tensorstore/type_name_override.h"  // IWYU pragma: keep
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 

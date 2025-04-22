@@ -19,10 +19,8 @@
 
 #include <algorithm>
 #include <cassert>
-#include <memory>
 #include <numeric>
 #include <string>
-#include <type_traits>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -281,8 +279,8 @@ void GetIndexedInputDims(const NumpyIndexingSpec& spec,
   }
   input_dims_per_intermediate_dim[intermediate_rank] = input_dim;
 
-  // Compute `indexed_input_dims` by reodering `input_dims_per_intermediate_dim`
-  // by `selected_dims`.
+  // Compute `indexed_input_dims` by reordering
+  // `input_dims_per_intermediate_dim` by `selected_dims`.
   for (const DimensionIndex intermediate_dim : selected_dims) {
     for (DimensionIndex
              input_dim = input_dims_per_intermediate_dim[intermediate_dim],
@@ -626,7 +624,7 @@ Result<IndexTransform<>> ToIndexTransform(
       return absl::InvalidArgumentError(
           tensorstore::StrCat("Dimension ", x, " specified more than once"));
     }
-    selected_intermediate_dim_mask |= uint32_t(1) << x;
+    selected_intermediate_dim_mask |= static_cast<uint32_t>(1) << x;
     return absl::OkStatus();
   };
 

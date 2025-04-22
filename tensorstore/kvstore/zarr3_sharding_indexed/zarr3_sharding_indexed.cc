@@ -792,7 +792,7 @@ class ShardedKeyValueStore
   // Constructs the key value store.
   //
   // Args:
-  //   params: Parmaeters for opening.
+  //   params: Parameters for opening.
   //   shared_cache_key: Cache key to use.  Set when opened directly from a JSON
   //     spec, but not used when opened by the zarr v3 driver.
   explicit ShardedKeyValueStore(ShardedKeyValueStoreParameters&& params,

@@ -207,7 +207,7 @@ struct SubmitMutationBatchOperation
         << "] SendToPeer: " << state->node_identifier;
     auto* state_ptr = state.get();
     // Construct a new `grpc::ClientContext` for this RPC request.  It is not
-    // permitted to re-use a `ClientContext` for multiple RPC requests.
+    // permitted to reuse a `ClientContext` for multiple RPC requests.
     state->client_context.emplace();
     state->request.Clear();
     state->request.set_lease_key(state->lease_node->key);

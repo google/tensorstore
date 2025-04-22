@@ -23,7 +23,7 @@ namespace internal_http {
 /// CurlHandleFactory creates and cleans up CURL* (CurlPtr) handles
 /// and CURLM* (CurlMulti) handles.
 ///
-/// NOTE: These methods are virtual so that a curl factory can re-use
+/// NOTE: These methods are virtual so that a curl factory can reuse
 /// curl handles.
 class CurlHandleFactory {
  public:

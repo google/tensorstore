@@ -16,7 +16,7 @@
 This allows doctest examples to be conveniently updated in case of changes to
 the output format.
 
-After commiting or staging changes, you can run this with the `--in-place`
+After committing or staging changes, you can run this with the `--in-place`
 option and then inspect the diff.
 
 This supports top-level `await` in tests, since that provides a convenient way
@@ -327,7 +327,7 @@ def _ast_asyncify(code: str, wrapper_name: str) -> ast.Module:
   This is derived from a similar workaround in IPython.
 
   Args:
-    code: Python source code to pase.
+    code: Python source code to pass.
     wrapper_name: Name to use for function.
 
   Returns:
