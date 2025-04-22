@@ -170,18 +170,19 @@ def read_remote_text_file(url):
 
 
 def get_version_history(bazelisk_directory):
-    return sorted(
-        (
-            release["tag_name"]
-            for release in get_releases_json(bazelisk_directory)
-            if not release["prerelease"]
-        ),
-        # This only handles versions with numeric components, but that is fine
-        # since prerelease verisons have been excluded.
-        key=lambda version: tuple(int(component)
-                                  for component in version.split('.')),
-        reverse=True,
-    )
+  return sorted(
+      (
+          release["tag_name"]
+          for release in get_releases_json(bazelisk_directory)
+          if not release["prerelease"]
+      ),
+      # This only handles versions with numeric components, but that is fine
+      # since prerelease versions have been excluded.
+      key=lambda version: tuple(
+          int(component) for component in version.split(".")
+      ),
+      reverse=True,
+  )
 
 
 def resolve_latest_version(version_history, offset):

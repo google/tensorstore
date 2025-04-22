@@ -346,7 +346,7 @@ struct Aggregate {
 };
 
 TEST(ResultTest, Aggregate) {
-  // NOTE: c++ does not treate Aggregate initialization as a constructor,
+  // NOTE: c++ does not treat Aggregate initialization as a constructor,
   // so we cannot use emplace or in_place_t constructors here.
   Result<Aggregate> a(Aggregate{1, 2, 3});
   ASSERT_TRUE(a.has_value());

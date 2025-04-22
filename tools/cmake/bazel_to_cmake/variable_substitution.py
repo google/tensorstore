@@ -254,7 +254,7 @@ def apply_location_substitutions(
     relative_to: str,
     add_dependencies: Optional[List[CMakeTarget]] = None,
 ) -> str:
-  """Substitues $(location) references in `cmd`.
+  """Substitutes $(location) references in `cmd`.
 
   https://bazel.build/reference/be/make-variables#predefined_label_variables
 

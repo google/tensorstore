@@ -57,7 +57,7 @@ class GCSMockStorageBucket {
   ///
   /// \param bucket The bucket name.
   /// \param requestor_pays_project_id If not `std::nullopt`, this bucket
-  ///     behaves as requestor pays and furthermore validates that the
+  ///     behaves as requester pays and furthermore validates that the
   ///     requestor_pays project id is equal to the specified value.  The check
   ///     for an exact project id is a mock version of the actual check done by
   ///     GCS that the specified project ID has billing enabled.

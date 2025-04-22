@@ -548,7 +548,7 @@ struct ReadTask : public RateLimiterNode,
                        options.generation_conditions.if_equal);
 
     // Assume that if the user_project field is set, that we want to provide
-    // it on the uri for a requestor pays bucket.
+    // it on the uri for a requester pays bucket.
     AddUserProjectParam(&media_url, true, owner->encoded_user_project());
 
     AddUniqueQueryParameterToDisableCaching(media_url);
@@ -751,7 +751,7 @@ struct WriteTask : public RateLimiterNode,
                        options.generation_conditions.if_equal);
 
     // Assume that if the user_project field is set, that we want to provide
-    // it on the uri for a requestor pays bucket.
+    // it on the uri for a requester pays bucket.
     AddUserProjectParam(&upload_url, true, owner->encoded_user_project());
 
     auto maybe_auth_header = owner->GetAuthHeader();
@@ -906,7 +906,7 @@ struct DeleteTask : public RateLimiterNode,
                                         options.generation_conditions.if_equal);
 
     // Assume that if the user_project field is set, that we want to provide
-    // it on the uri for a requestor pays bucket.
+    // it on the uri for a requester pays bucket.
     AddUserProjectParam(&delete_url, has_query, owner->encoded_user_project());
 
     auto maybe_auth_header = owner->GetAuthHeader();

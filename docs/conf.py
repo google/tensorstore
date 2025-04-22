@@ -363,7 +363,9 @@ external_cpp_references = {
         'desc': 'C++ class',
     },
     'absl::StatusOr': {
-        'url': 'https://abseil.io/docs/cpp/guides/statuss#returning-a-status-or-a-value',
+        'url': (
+            'https://abseil.io/docs/cpp/guides/status#returning-a-status-or-a-value'
+        ),
         'object_type': 'class',
         'desc': 'C++ class',
     },
@@ -378,22 +380,30 @@ external_cpp_references = {
         'desc': 'C++ enumeration',
     },
     'absl::Time': {
-        'url': 'https://abseil.io/docs/cpp/guides/time#absolute-times-with-absltime',
+        'url': (
+            'https://abseil.io/docs/cpp/guides/time#absolute-times-with-absltime'
+        ),
         'object_type': 'class',
         'desc': 'C++ class',
     },
     'absl::InfiniteFuture': {
-        'url': 'https://abseil.io/docs/cpp/guides/time#absolute-times-with-absltime',
+        'url': (
+            'https://abseil.io/docs/cpp/guides/time#absolute-times-with-absltime'
+        ),
         'object_type': 'function',
         'desc': 'C++ function',
     },
     'absl::InfinitePast': {
-        'url': 'https://abseil.io/docs/cpp/guides/time#absolute-times-with-absltime',
+        'url': (
+            'https://abseil.io/docs/cpp/guides/time#absolute-times-with-absltime'
+        ),
         'object_type': 'function',
         'desc': 'C++ function',
     },
     'absl::Now': {
-        'url': 'https://abseil.io/docs/cpp/guides/time#absolute-times-with-absltime',
+        'url': (
+            'https://abseil.io/docs/cpp/guides/time#absolute-times-with-absltime'
+        ),
         'object_type': 'function',
         'desc': 'C++ function',
     },
@@ -403,12 +413,16 @@ external_cpp_references = {
         'desc': 'C++ class',
     },
     'absl::Cord': {
-        'url': 'https://github.com/abseil/abseil-cpp/blob/master/absl/strings/cord.h',
+        'url': (
+            'https://github.com/abseil/abseil-cpp/blob/master/absl/strings/cord.h'
+        ),
         'object_type': 'class',
         'desc': 'C++ class',
     },
     'absl::AnyInvocable': {
-        'url': 'https://github.com/abseil/abseil-cpp/blob/master/absl/functional/any_invocable.h',
+        'url': (
+            'https://github.com/abseil/abseil-cpp/blob/master/absl/functional/any_invocable.h'
+        ),
         'object_type': 'class',
         'desc': 'C++ class',
     },

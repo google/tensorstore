@@ -484,7 +484,7 @@ constexpr auto Projection(Proj projection, Binder binder = DefaultBinder<>) {
   };
 }
 
-/// Binder adapter that projects the parsed representation using gettter/setter
+/// Binder adapter that projects the parsed representation using getter/setter
 /// functions.
 ///
 /// Commonly this is used with `Member`, in order to bind a
