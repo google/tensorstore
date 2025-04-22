@@ -1464,7 +1464,7 @@ safely allow concurrent access from multiple machines.</p>
 <span class="sig-name descname"><span class="pre">bucket</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><a class="headerlink" href="#json-kvstore/gcs.bucket" title="Link to this definition">¶</a></dt>
 <dd><span><p>Google Cloud Storage bucket to use.</p>
   </span><p>The Google Cloud account that is used must have appropriate permissions
-on the bucket.  If the bucket has <a class="reference external" href="https://cloud.google.com/kvstore/docs/requester-pays">Requestor Pays</a> enabled, either
+on the bucket.  If the bucket has <a class="reference external" href="https://cloud.google.com/kvstore/docs/requester-pays">Requester Pays</a> enabled, either
 additional permissions are required or a separate billing project must
 be specified using <a class="reference internal" href="#json-Context.gcs_user_project" title="Context.gcs_user_project (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.gcs_user_project</span></code></a>.</p>
 </dd></dl>
@@ -1517,7 +1517,7 @@ should end with <code class="code highlight json docutils literal highlight-json
 <em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">Context.gcs_user_project</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-Context.gcs_user_project" title="Link to this definition">¶</a></dt>
 <dd><p>Specifies a Google Cloud project to bill for Google Cloud Storage
 requests.  If a <a class="reference internal" href="#json-Context.gcs_user_project.project_id" title="Context.gcs_user_project.project_id (JSON member) — Google Cloud project id, e.g. &quot;my-project&quot;.  The Google Cloud account that is used must have appropriate permissions to bill to the specified project."><code class="xref json json-schema docutils literal notranslate"><span class="pre">project_id</span></code></a> is not specified, requests are
-billed to the project that owns the bucket by default.  For <a class="reference external" href="https://cloud.google.com/kvstore/docs/requester-pays">Requestor
+billed to the project that owns the bucket by default.  For <a class="reference external" href="https://cloud.google.com/kvstore/docs/requester-pays">Requester
 Pays</a> buckets,
 however, requests without a <a class="reference internal" href="#json-Context.gcs_user_project.project_id" title="Context.gcs_user_project.project_id (JSON member) — Google Cloud project id, e.g. &quot;my-project&quot;.  The Google Cloud account that is used must have appropriate permissions to bill to the specified project."><code class="xref json json-schema docutils literal notranslate"><span class="pre">project_id</span></code></a> specified will fail
 unless the Google Cloud account has additional permissions.</p>

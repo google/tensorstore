@@ -2402,7 +2402,7 @@ the method-specific configuration.</p>
 </tbody>
 </table>
 <dl class="simple" id="ocdbt-config-zstd-level">
-<dt><code class="docutils literal notranslate"><span class="pre">level</span></code></dt><dd><p>Compresion level to use when writing.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">level</span></code></dt><dd><p>Compression level to use when writing.</p>
 </dd>
 </dl>
 <h4 id="manifest-version-tree"><span id="ocdbt-manifest-version-tree"></span>Manifest version tree<a class="headerlink" href="#manifest-version-tree" title="Link to this heading">¶</a></h4>
@@ -2630,7 +2630,7 @@ specified in the manifest from which this node was reached.</p>
 <p>The same encoded representation is used for both the entries of a leaf
 <a class="reference internal" href="#ocdbt-version-tree"><span class="std std-ref">version tree node</span></a> and for the
 <a class="reference internal" href="#ocdbt-manifest-version-tree-inline-versions"><span class="std std-ref">inline_versions</span></a> specified in the
-<a class="reference internal" href="#ocdbt-manifest-version-tree"><span class="std std-ref">manfiest</span></a>.</p>
+<a class="reference internal" href="#ocdbt-manifest-version-tree"><span class="std std-ref">manifest</span></a>.</p>
 <table class="docutils data align-default">
 <thead>
 <tr class="row-odd"><th class="head"><p>Field</p></th>
@@ -2696,7 +2696,7 @@ number referenced from the version tree node, and
 <p>The same computation of <code class="docutils literal notranslate"><span class="pre">num_versions</span></code> applies to both leaf node entries
 included in a <a class="reference internal" href="#ocdbt-version-tree"><span class="std std-ref">version tree node</span></a>, and
 <a class="reference internal" href="#ocdbt-manifest-version-tree-inline-versions"><span class="std std-ref">inline_versions</span></a> included in the
-<a class="reference internal" href="#ocdbt-manifest-version-tree"><span class="std std-ref">manfiest</span></a>.  In the former case, the and
+<a class="reference internal" href="#ocdbt-manifest-version-tree"><span class="std std-ref">manifest</span></a>.  In the former case, the and
 <a class="reference internal" href="#ocdbt-version-tree-version-tree-arity-log2"><span class="std std-ref">version_tree_arity_log2</span></a> value is obtained from
 the version node.  In the latter case, the
 <a class="reference internal" href="#ocdbt-config-version-tree-arity-log2"><span class="std std-ref">version_tree_arity_log2</span></a> value is taken from the
@@ -2757,7 +2757,7 @@ size is counted multiple times.</p>
 <p>The same encoded representation is used for both the entries of an interior
 <a class="reference internal" href="#ocdbt-version-tree"><span class="std std-ref">version tree node</span></a> and for the
 <a class="reference internal" href="#ocdbt-manifest-version-tree-version-nodes"><span class="std std-ref">version_nodes</span></a> version tree nodes specified in
-the <a class="reference internal" href="#ocdbt-manifest-version-tree"><span class="std std-ref">manfiest</span></a>, but the interpretation
+the <a class="reference internal" href="#ocdbt-manifest-version-tree"><span class="std std-ref">manifest</span></a>, but the interpretation
 differs, as described below.</p>
 <table class="docutils data align-default">
 <thead>
@@ -2876,7 +2876,7 @@ queries for the latest generation with <code class="docutils literal notranslate
 <p>This field is only present when the encoded representation is used to specify
 <a class="reference internal" href="#ocdbt-manifest-version-tree-version-nodes"><span class="std std-ref">version_nodes</span></a> in the manifest.  The heights
 must be decreasing, i.e. <code class="docutils literal notranslate"><span class="pre">entry_height[i]</span> <span class="pre">&gt;</span> <span class="pre">entry_height[j]</span></code> if <code class="docutils literal notranslate"><span class="pre">i</span> <span class="pre">&lt;</span> <span class="pre">j</span></code>.</p>
-<p>When the encoded representaiton is used to specify the entries of an interior
+<p>When the encoded representation is used to specify the entries of an interior
 version tree node, this field is not present and instead, for the purpose of
 this specification, <code class="docutils literal notranslate"><span class="pre">entry_height[i]</span></code> is implicitly equal to <code class="docutils literal notranslate"><span class="pre">height</span> <span class="pre">-</span> <span class="pre">1</span></code>,
 where <a class="reference internal" href="#ocdbt-version-tree-height"><span class="std std-ref">height</span></a> is obtained from the version tree node.</p>
