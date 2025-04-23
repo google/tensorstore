@@ -2303,11 +2303,6 @@ present.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">version</span></code></dt><dd><p>Must equal <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p>
 </dd>
 </dl>
-<dl class="simple" id="ocdbt-manifest-crc32c-checksum">
-<dt><code class="docutils literal notranslate"><span class="pre">crc32c_checksum</span></code></dt><dd><p>CRC32C checksum of entire manifest, Length in bytes of entire manifest, including <a class="reference internal" href="#ocdbt-manifest-header"><span class="std std-ref">this
-header</span></a>.</p>
-</dd>
-</dl>
 <dl class="simple" id="ocdbt-manifest-compression-format">
 <dt><code class="docutils literal notranslate"><span class="pre">compression_format</span></code></dt><dd><p><code class="docutils literal notranslate"><span class="pre">0</span></code> for uncompressed, <code class="docutils literal notranslate"><span class="pre">1</span></code> for zstd.</p>
 </dd>
@@ -2329,7 +2324,7 @@ header</span></a>.</p>
 <tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-config-max-inline-value-bytes"><span class="std std-ref">max_inline_value_bytes</span></a></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-config-max-decoded-node-bytes"><span class="std std-ref">max_decoded_note_bytes</span></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-config-max-decoded-node-bytes"><span class="std std-ref">max_decoded_node_bytes</span></a></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-config-version-tree-arity-log2"><span class="std std-ref">version_tree_arity_log2</span></a></p></td>
@@ -2374,7 +2369,7 @@ tree</span></a> must be retrieved from the numbered
 </dd>
 </dl>
 <dl class="simple" id="ocdbt-config-max-decoded-node-bytes">
-<dt><code class="docutils literal notranslate"><span class="pre">max_decoded_note_bytes</span></code></dt><dd><p>Maximum (uncompressed) size of a B+Tree node.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">max_decoded_node_bytes</span></code></dt><dd><p>Maximum (uncompressed) size of a B+Tree node.</p>
 </dd>
 </dl>
 <dl class="simple" id="ocdbt-config-version-tree-arity-log2">
@@ -2456,7 +2451,7 @@ referenced from <a class="reference internal" href="#ocdbt-manifest-version-tree
 </tr>
 </tbody>
 </table>
-<dl class="simple" id="ocdbt-manifest-crc32-checksum">
+<dl class="simple" id="ocdbt-manifest-crc32c-checksum">
 <dt><code class="docutils literal notranslate"><span class="pre">crc32c_checksum</span></code></dt><dd><p>CRC-32C checksum of the entire manifest, excluding the checksum itself.</p>
 </dd>
 </dl>
@@ -2860,7 +2855,7 @@ tree node.</p>
 </dl>
 <dl id="ocdbt-version-tree-interior-commit-time">
 <dt><code class="docutils literal notranslate"><span class="pre">commit_time[i]</span></code></dt><dd><p>Commit time, in milliseconds since the Unix epoch (excluding leap
-seconds), of the earlier B+tree root referenced within this subtree.</p>
+seconds), of the earliest B+tree root referenced within this subtree.</p>
 <div class="note admonition">
 <p class="admonition-title">Note</p>
 <p>This is the <em>earliest</em> commit time referenced within this subtree, in
