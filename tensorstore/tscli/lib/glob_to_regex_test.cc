@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/tscli/args.h"
+#include "tensorstore/tscli/lib/glob_to_regex.h"
 
 #include <gtest/gtest.h>
 
-using ::tensorstore::cli::GlobToRegex;
-
 namespace {
+
+using ::tensorstore::cli::GlobToRegex;
 
 TEST(GlobToRegex, Basic) {
   EXPECT_EQ(GlobToRegex("a*b"), "^a[^/]*b$");
@@ -32,6 +32,20 @@ TEST(GlobToRegex, Basic) {
 
   EXPECT_EQ(GlobToRegex("a.+{}()|^$b"), "^a\\.\\+\\{\\}\\(\\)\\|\\^\\$b$");
   EXPECT_EQ(GlobToRegex("a\\-b\\"), "^a\\-b\\\\$");
+
+  // See, for example: https://code.visualstudio.com/docs/editor/glob-patterns
+
+  //  [] to declare a range of characters to match (example.[0-9] to match on
+  //  example.0, example.1, …)
+  EXPECT_EQ(GlobToRegex("example.[0-9]"), "^example\\.[0-9]$");
+
+  //  [!...] to negate a range of characters to match (example.[!0-9] to match
+  //  on example.a, example.b, but not example.0)
+  EXPECT_EQ(GlobToRegex("example.[!0-9]"), "^example\\.[^/0-9]$");
+
+  // NOTE: {} to group conditions is not supported.
+  EXPECT_EQ(GlobToRegex("**/{*.html,*.txt}"),
+            "^.*/\\{[^/]*\\.html,[^/]*\\.txt\\}$");
 }
 
 }  // namespace

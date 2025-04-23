@@ -12,37 +12,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "tensorstore/tscli/lib/kvstore_copy.h"
+
 #include <iostream>
 #include <optional>
 #include <string>
-#include <string_view>
 #include <vector>
 
 #include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/context.h"
-#include "tensorstore/internal/json_binding/std_optional.h"  // IWYU pragma: keep
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/spec.h"
-#include "tensorstore/tscli/args.h"
-#include "tensorstore/tscli/cli.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
-#include "tensorstore/util/json_absl_flag.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace cli {
 
 absl::Status KvstoreCopy(Context context,
                          tensorstore::kvstore::Spec source_spec,
-                         tensorstore::kvstore::Spec target_spec) {
+                         tensorstore::kvstore::Spec target_spec,
+                         std::ostream& output) {
   static absl::Mutex log_mutex;
 
   TENSORSTORE_ASSIGN_OR_RETURN(auto source,
@@ -62,15 +58,15 @@ absl::Status KvstoreCopy(Context context,
         [&](const Result<kvstore::ReadResult>& read_result) -> Future<void> {
           if (!read_result.ok()) {
             absl::MutexLock lock(&log_mutex);
-            std::cout << "Error reading: " << tensorstore::QuoteString(key)
-                      << ": " << read_result.status() << std::endl;
+            output << "Error reading: " << tensorstore::QuoteString(key) << ": "
+                   << read_result.status() << std::endl;
           }
           if (!read_result->has_value()) {
             return absl::OkStatus();
           }
           {
             absl::MutexLock lock(&log_mutex);
-            std::cout << "Read: " << tensorstore::QuoteString(key) << std::endl;
+            output << "Read: " << tensorstore::QuoteString(key) << std::endl;
           }
           return MapFuture(
               InlineExecutor{},
@@ -78,15 +74,14 @@ absl::Status KvstoreCopy(Context context,
                   -> Result<void> {
                 if (!stamp.ok()) {
                   absl::MutexLock lock(&log_mutex);
-                  std::cout
-                      << "Error writing: " << tensorstore::QuoteString(key)
-                      << ": " << stamp.status() << std::endl;
+                  output << "Error writing: " << tensorstore::QuoteString(key)
+                         << ": " << stamp.status() << std::endl;
                   return stamp.status();
                 }
                 {
                   absl::MutexLock lock(&log_mutex);
-                  std::cout << "Wrote: " << tensorstore::QuoteString(key)
-                            << std::endl;
+                  output << "Wrote: " << tensorstore::QuoteString(key)
+                         << std::endl;
                 }
                 return absl::OkStatus();
               },
@@ -101,44 +96,6 @@ absl::Status KvstoreCopy(Context context,
     status.Update(result.status());
   }
   return status;
-}
-
-absl::Status RunKvstoreCopy(Context::Spec context_spec, CommandFlags flags) {
-  tensorstore::JsonAbslFlag<std::optional<tensorstore::kvstore::Spec>> source;
-  tensorstore::JsonAbslFlag<std::optional<tensorstore::kvstore::Spec>> target;
-
-  std::vector<LongOption> options({
-      LongOption{"--source",
-                 [&](std::string_view value) {
-                   std::string error;
-                   if (!AbslParseFlag(value, &source, &error)) {
-                     return absl::InvalidArgumentError(error);
-                   }
-                   return absl::OkStatus();
-                 }},
-      LongOption{"--target",
-                 [&](std::string_view value) {
-                   std::string error;
-                   if (!AbslParseFlag(value, &target, &error)) {
-                     return absl::InvalidArgumentError(error);
-                   }
-                   return absl::OkStatus();
-                 }},
-  });
-
-  TENSORSTORE_RETURN_IF_ERROR(TryParseOptions(flags, options, {}));
-
-  if (!source.value) {
-    return absl::InvalidArgumentError("Must specify --source");
-  }
-  if (!target.value) {
-    return absl::InvalidArgumentError("Must specify --target");
-  }
-
-  tensorstore::Context context(context_spec);
-
-  // TODO: Use positional args as optional keys.
-  return KvstoreCopy(context, *source.value, *target.value);
 }
 
 }  // namespace cli

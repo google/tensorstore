@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <algorithm>
+#include <array>
 #include <iostream>
 #include <optional>
 #include <string>
@@ -21,6 +22,7 @@
 #include <vector>
 
 #include "absl/base/log_severity.h"  // IWYU pragma: keep
+#include "absl/base/no_destructor.h"
 #include "absl/flags/flag.h"
 #include "absl/flags/parse.h"
 #include "absl/log/globals.h"     // IWYU pragma: keep
@@ -30,10 +32,17 @@
 #include "absl/flags/parse.h"
 #include "tensorstore/internal/metrics/collect.h"
 #include "tensorstore/internal/metrics/registry.h"
-#include "tensorstore/tscli/args.h"
-#include "tensorstore/tscli/cli.h"
+#include "tensorstore/tscli/command.h"
+#include "tensorstore/tscli/command_parser.h"
+#include "tensorstore/tscli/copy_command.h"
+#include "tensorstore/tscli/list_command.h"
+#include "tensorstore/tscli/print_spec_command.h"
+#include "tensorstore/tscli/print_stats_command.h"
+#include "tensorstore/tscli/search_command.h"
 #include "tensorstore/util/json_absl_flag.h"
+#include "tensorstore/util/span.h"
 
+using ::tensorstore::cli::Command;
 using ::tensorstore::internal_metrics::FormatCollectedMetric;
 using ::tensorstore::internal_metrics::GetMetricRegistry;
 
@@ -48,42 +57,16 @@ ABSL_FLAG(tensorstore::JsonAbslFlag<tensorstore::Context::Spec>, context_spec,
 
 namespace {
 
-const char kUsage[] =
-    "Usage:\n"
-    "  tscli [global options..] <command> [command args]\n\n"
-    "Commands:\n"
-    "  copy\n"
-    "      Copies keys from one kvstore to another.\n"
-    "  copy --source <source-kvstore-spec> --target <target-kvstore-spec>\n"
-    "\n"
-    "  list [-h/--human][-b/--brief]\n"
-    "      List keys in a kvstore.\n"
-    "  list --source <source-kvstore-spec> [glob...]\n"
-    "  list [spec...]\n"
-    "\n"
-    "  search [-b/--brief][-f/--full]\n"
-    "      Search for tensorstores in a kvstore.\n"
-    "  search --source=<source-kvstore-spec> \n"
-    "  search [spec...]\n"
-    "\n"
-    "  print_spec [--include_defaults]\n"
-    "      Print the spec for a tensorstore.\n"
-    "  print --spec=<tensorstore-spec>\n"
-    "  print [spec...]\n"
-    "\n"
-    "  print_stats [-b/--brief][-f/--full]\n"
-    "      Print storage statistics for a tensorstore.\n"
-    "  print_stats --spec=<tensorstore-spec> [box...]\n"
-    "  print_stats [spec...]\n"
-    "\n"
-    "  help\n";
+tensorstore::span<Command*> AllCommands() {
+  static absl::NoDestructor<::tensorstore::cli::CopyCommand> copy;
+  static absl::NoDestructor<::tensorstore::cli::ListCommand> list;
+  static absl::NoDestructor<::tensorstore::cli::SearchCommand> search;
+  static absl::NoDestructor<::tensorstore::cli::PrintSpecCommand> print_spec;
+  static absl::NoDestructor<::tensorstore::cli::PrintStatsCommand> print_stats;
 
-void PrintShortHelp(std::string_view program) {
-  std::cerr << program << "\n" << kUsage << std::endl;
-}
-
-void PrintHelp(std::string_view program) {
-  std::cerr << program << "\n" << kUsage << std::endl;
+  static std::array<Command*, 5> commands{copy.get(), list.get(), search.get(),
+                                          print_spec.get(), print_stats.get()};
+  return commands;
 }
 
 void DumpMetrics(std::string_view prefix) {
@@ -103,48 +86,53 @@ void DumpMetrics(std::string_view prefix) {
   std::cerr << std::endl;
 }
 
-}  // namespace
+// Generate the program usage message.
+void OutputUsageMessage(std::string_view program, std::ostream& out) {
+  auto idx = program.find_last_of("/\\");
+  if (idx != std::string_view::npos) program.remove_prefix(idx + 1);
+  out << "Usage:\n  " << program
+      << " [absl options...] <command> [command args]\n\n";
+  out << "Commands:\n";
+  for (const auto& command : AllCommands()) {
+    command->parser().PrintHelp(std::cerr);
+    out << "\n";
+  }
+}
 
-int main(int argc, char** argv) {
+int RealMain(int argc, char** argv) {
   absl::InitializeLog();
   absl::SetStderrThreshold(absl::LogSeverityAtLeast::kInfo);
 
-  ::tensorstore::cli::CommandFlags flags;
-  flags.argv = std::vector<char*>(argv, argv + argc);
-
   std::vector<char*> positional_args;
-  absl::ParseAbseilFlagsOnly(argc, argv, positional_args,
-                             flags.unrecognized_flags);
+  std::vector<absl::UnrecognizedFlag> unrecognized_flags;
+  absl::ParseAbseilFlagsOnly(argc, argv, positional_args, unrecognized_flags);
 
   if (positional_args.size() < 2) {
-    PrintShortHelp(argv[0]);
+    OutputUsageMessage(argv[0], std::cerr);
     return 1;
   }
+
   std::string_view command = positional_args[1];
-  flags.positional_args.assign(positional_args.begin() + 2,
-                               positional_args.end());
+  std::reverse(positional_args.begin(), positional_args.end());
+  positional_args.pop_back();
+  positional_args.pop_back();
+  std::reverse(positional_args.begin(), positional_args.end());
 
   if (command == "help") {
-    PrintHelp(argv[0]);
+    OutputUsageMessage(argv[0], std::cerr);
     return 0;
   }
 
   absl::Status status;
-  if (command == "copy") {
-    status = ::tensorstore::cli::RunKvstoreCopy(
-        absl::GetFlag(FLAGS_context_spec).value, std::move(flags));
-  } else if (command == "ls" || command == "list") {
-    status = ::tensorstore::cli::RunKvstoreList(
-        absl::GetFlag(FLAGS_context_spec).value, std::move(flags));
-  } else if (command == "search") {
-    status = ::tensorstore::cli::RunTsSearch(
-        absl::GetFlag(FLAGS_context_spec).value, std::move(flags));
-  } else if (command == "print_spec") {
-    status = ::tensorstore::cli::RunTsPrintSpec(
-        absl::GetFlag(FLAGS_context_spec).value, std::move(flags));
-  } else if (command == "print_stats") {
-    status = ::tensorstore::cli::RunTsPrintStorageStatistics(
-        absl::GetFlag(FLAGS_context_spec).value, std::move(flags));
+  for (const auto& x : AllCommands()) {
+    if (!x->MatchesCommand(command)) continue;
+
+    status = x->parser().TryParse(tensorstore::span<char*>(argv, argc),
+                                  positional_args);
+    if (status.ok()) {
+      status = x->Run(absl::GetFlag(FLAGS_context_spec).value);
+    }
+    break;
   }
 
   if (absl::GetFlag(FLAGS_metrics_prefix).has_value()) {
@@ -155,7 +143,14 @@ int main(int argc, char** argv) {
 
   std::cerr << status << std::endl;
   if (absl::IsInvalidArgument(status)) {
-    PrintHelp(argv[0]);
+    OutputUsageMessage(argv[0], std::cerr);
   }
   return 1;
+}
+
+}  // namespace
+
+int main(int argc, char** argv) {
+  // Run the main function.
+  return RealMain(argc, argv);
 }

@@ -1,4 +1,4 @@
-// Copyright 2024 The TensorStore Authors
+// Copyright 2025 The TensorStore Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,26 +12,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_TSCLI_CLI_H_
-#define TENSORSTORE_TSCLI_CLI_H_
+#ifndef TENSORSTORE_TSCLI_PRINT_SPEC_COMMAND_H_
+#define TENSORSTORE_TSCLI_PRINT_SPEC_COMMAND_H_
+
+#include <vector>
 
 #include "absl/status/status.h"
 #include "tensorstore/context.h"
-#include "tensorstore/tscli/args.h"
+#include "tensorstore/json_serialization_options_base.h"
+#include "tensorstore/spec.h"
+#include "tensorstore/tscli/command.h"
 
 namespace tensorstore {
 namespace cli {
 
-// Kvstore commands
-absl::Status RunKvstoreCopy(Context::Spec context_spec, CommandFlags flags);
-absl::Status RunKvstoreList(Context::Spec context_spec, CommandFlags flags);
+// Print a TensorStore spec.
+class PrintSpecCommand : public Command {
+ public:
+  PrintSpecCommand();
 
-// Tensorstore commands
-absl::Status RunTsSearch(Context::Spec context_spec, CommandFlags flags);
-absl::Status RunTsPrintSpec(Context::Spec context_spec, CommandFlags flags);
-absl::Status RunTsPrintStorageStatistics(Context::Spec context_spec,
-                                         CommandFlags flags);
+  absl::Status Run(Context::Spec context_spec) override;
+
+ private:
+  std::vector<tensorstore::Spec> specs_;
+
+  IncludeDefaults include_defaults_{false};
+};
+
 }  // namespace cli
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_TSCLI_CLI_H_
+#endif  // TENSORSTORE_TSCLI_PRINT_SPEC_COMMAND_H_

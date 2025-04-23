@@ -12,114 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/tscli/args.h"
+#include "tensorstore/tscli/lib/glob_to_regex.h"
 
-#include <stdint.h>
-
-#include <cassert>
-#include <functional>
 #include <string>
 #include <string_view>
-#include <vector>
 
-#include "absl/container/flat_hash_map.h"
-#include "absl/container/flat_hash_set.h"
-#include "absl/status/status.h"
 #include "absl/strings/ascii.h"
-#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
-#include "absl/strings/strip.h"
-#include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace cli {
-
-absl::Status TryParseOptions(CommandFlags& flags,
-                             tensorstore::span<LongOption> long_options,
-                             tensorstore::span<BoolOption> bool_options) {
-  absl::flat_hash_set<uintptr_t> handled;
-  absl::flat_hash_map<char, std::function<void()>> shortmapping;
-  for (auto& opt : bool_options) {
-    if (absl::StartsWith(opt.boolname, "--")) continue;
-    // A Short option may start with -- or -; when using - it must be a single
-    // letter.
-    assert(absl::StartsWith(opt.boolname, "-"));
-    assert(opt.boolname.size() == 2);
-    shortmapping[opt.boolname[1]] = opt.found;
-  }
-
-  auto it = flags.argv.begin() + 1;
-  while (it != flags.argv.end()) {
-    bool parsed = false;
-    std::string_view it_str = *it;
-
-    if (absl::StartsWith(it_str, "--")) {
-      // Try to parse as a long option.
-      for (auto& opt : long_options) {
-        if (opt.longname.empty()) continue;
-        std::string_view arg = it_str;
-        if (!absl::ConsumePrefix(&arg, opt.longname)) continue;
-        if (arg.empty()) {
-          parsed = true;
-          std::string_view value;
-          if (it + 1 != flags.argv.end()) {
-            value = *(it + 1);
-            handled.insert(reinterpret_cast<uintptr_t>(*it));
-            it++;
-          }
-          handled.insert(reinterpret_cast<uintptr_t>(*it));
-          TENSORSTORE_RETURN_IF_ERROR(opt.parse(value));
-        } else if (absl::ConsumePrefix(&arg, "=")) {
-          parsed = true;
-          TENSORSTORE_RETURN_IF_ERROR(opt.parse(arg));
-          handled.insert(reinterpret_cast<uintptr_t>(*it));
-        }
-      }
-      if (parsed) break;
-      for (auto& opt : bool_options) {
-        if (opt.boolname.empty()) continue;
-        std::string_view arg = it_str;
-        if (!absl::ConsumePrefix(&arg, opt.boolname)) continue;
-        if (arg.empty()) {
-          parsed = true;
-          handled.insert(reinterpret_cast<uintptr_t>(*it));
-          opt.found();
-          break;
-        }
-      }
-      if (parsed) break;
-    } else if (absl::StartsWith(it_str, "-")) {
-      // Try to parse as a short option, which may be combined.
-      handled.insert(reinterpret_cast<uintptr_t>(*it));
-      parsed = true;
-      for (int i = 1; i < it_str.size(); ++i) {
-        char c = it_str[i];
-        assert(c != '-');
-        auto it = shortmapping.find(c);
-        if (it == shortmapping.end()) {
-          return absl::InvalidArgumentError(
-              absl::StrCat("Unknown short option: ", it_str));
-        }
-        it->second();
-      }
-    }
-    it++;
-  }
-
-  // Erase any additionally used values from positional args.
-  auto i = flags.positional_args.begin();
-  for (auto j = flags.positional_args.begin(); j != flags.positional_args.end();
-       ++j) {
-    if (handled.contains(reinterpret_cast<uintptr_t>(j->data()))) {
-      continue;
-    }
-    *i++ = *j;
-  }
-  flags.positional_args.erase(i, flags.positional_args.end());
-  return absl::OkStatus();
-}
 
 std::string GlobToRegex(std::string_view glob) {
   std::string re;
@@ -199,10 +102,15 @@ std::string GlobToRegex(std::string_view glob) {
         glob.remove_prefix(1);
         break;
       }
+      case '{':
+      case '}': {
+        // TODO: Support {} grouping.
+        re.push_back('\\');
+        re.push_back(c);
+        break;
+      }
       case '.':
       case '+':
-      case '{':
-      case '}':
       case '(':
       case ')':
       case '|':
@@ -225,7 +133,6 @@ std::string GlobToRegex(std::string_view glob) {
           // ignore.
         }
         break;
-
       default:
         re.push_back(c);
         break;
