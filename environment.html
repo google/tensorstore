@@ -590,8 +590,91 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#envvar-TENSORSTORE_GCS_RATE_LIMITER_DOUBLING_TIME" class="md-nav__link">
+    <span aria-label="environment variable" class="objinfo-icon objinfo-icon__alias" title="environment variable">$</span><span title="TENSORSTORE_GCS_RATE_LIMITER_DOUBLING_TIME (environment variable) — Specifies the doubling time for the gcs rate-limiter. Defaults to not setting a doubleing time." class="md-ellipsis">TENSORSTORE_<wbr>GCS_<wbr>RATE_<wbr>LIMITER_<wbr>DOUBLING_<wbr>TIME</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#envvar-TENSORSTORE_GCS_GRPC_CHANNELS" class="md-nav__link">
+    <span aria-label="environment variable" class="objinfo-icon objinfo-icon__alias" title="environment variable">$</span><span title="TENSORSTORE_GCS_GRPC_CHANNELS (environment variable) — Specifies the number of gRPC channels to use for the gcs_grpc driver. Default is to use the number of CPU cores (at least 4) for regular endpoints, or 1 for directpath endpoints." class="md-ellipsis">TENSORSTORE_<wbr>GCS_<wbr>GRPC_<wbr>CHANNELS</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#envvar-TENSORSTORE_GCS_HTTP_VERSION" class="md-nav__link">
+    <span aria-label="environment variable" class="objinfo-icon objinfo-icon__alias" title="environment variable">$</span><span title="TENSORSTORE_GCS_HTTP_VERSION (environment variable) — Forces the HTTP version to use for Google Cloud Storage requests.  Valid values are 1 and 2." class="md-ellipsis">TENSORSTORE_<wbr>GCS_<wbr>HTTP_<wbr>VERSION</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#envvar-GOOGLE_CLOUD_DISABLE_DIRECT_PATH" class="md-nav__link">
+    <span aria-label="environment variable" class="objinfo-icon objinfo-icon__alias" title="environment variable">$</span><span title="GOOGLE_CLOUD_DISABLE_DIRECT_PATH (environment variable) — Disables the use of directpath endpoints for Google Cloud Storage requests, even if otherwise allowed." class="md-ellipsis">GOOGLE_<wbr>CLOUD_<wbr>DISABLE_<wbr>DIRECT_<wbr>PATH</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tensorstore-curl-options" class="md-nav__link">
+    <span class="md-ellipsis">Tensorstore Curl Options</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tensorstore Curl Options">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#envvar-SSL_CERT_FILE" class="md-nav__link">
+    <span aria-label="environment variable" class="objinfo-icon objinfo-icon__alias" title="environment variable">$</span><span title="SSL_CERT_FILE (environment variable) — Sets the certificate file to use for TLS connections.  Takes precedence over SSL_CERT_DIR." class="md-ellipsis">SSL_<wbr>CERT_<wbr>FILE</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#envvar-SSL_CERT_DIR" class="md-nav__link">
+    <span aria-label="environment variable" class="objinfo-icon objinfo-icon__alias" title="environment variable">$</span><span title="SSL_CERT_DIR (environment variable) — Sets the certificate directory to use for TLS connections." class="md-ellipsis">SSL_<wbr>CERT_<wbr>DIR</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#envvar-TENSORSTORE_USE_FALLBACK_SSL_CERTS" class="md-nav__link">
+    <span aria-label="environment variable" class="objinfo-icon objinfo-icon__alias" title="environment variable">$</span><span title="TENSORSTORE_USE_FALLBACK_SSL_CERTS (environment variable) — Enables or disables searching for SSL certificates in common locations. Defaults to allowed." class="md-ellipsis">TENSORSTORE_<wbr>USE_<wbr>FALLBACK_<wbr>SSL_<wbr>CERTS</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#envvar-TENSORSTORE_CURL_LOW_SPEED_LIMIT_BYTES" class="md-nav__link">
+    <span aria-label="environment variable" class="objinfo-icon objinfo-icon__alias" title="environment variable">$</span><span title="TENSORSTORE_CURL_LOW_SPEED_LIMIT_BYTES (environment variable) — If set to a postive value, then curl HTTP requests will be set with the CURLOPT_LOW_SPEED_LIMIT option to detect stalled connections." class="md-ellipsis">TENSORSTORE_<wbr>CURL_<wbr>LOW_<wbr>SPEED_<wbr>LIMIT_<wbr>BYTES</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#envvar-TENSORSTORE_CURL_LOW_SPEED_TIME_SECONDS" class="md-nav__link">
+    <span aria-label="environment variable" class="objinfo-icon objinfo-icon__alias" title="environment variable">$</span><span title="TENSORSTORE_CURL_LOW_SPEED_TIME_SECONDS (environment variable) — If set to a postive value, then curl HTTP requests will be set with the CURLOPT_LOW_SPEED_TIME option to detect stalled connections." class="md-ellipsis">TENSORSTORE_<wbr>CURL_<wbr>LOW_<wbr>SPEED_<wbr>TIME_<wbr>SECONDS</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#envvar-TENSORSTORE_HTTP2_MAX_CONCURRENT_STREAMS" class="md-nav__link">
     <span aria-label="environment variable" class="objinfo-icon objinfo-icon__alias" title="environment variable">$</span><span title="TENSORSTORE_HTTP2_MAX_CONCURRENT_STREAMS (environment variable) — Specifies the maximum number of concurrent streams per HTTP/2 connection, without limiting the total number of active connections.  When unset, a default of 4 concurrent streams are permitted." class="md-ellipsis">TENSORSTORE_<wbr>HTTP2_<wbr>MAX_<wbr>CONCURRENT_<wbr>STREAMS</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#envvar-TENSORSTORE_HTTP_THREADS" class="md-nav__link">
+    <span aria-label="environment variable" class="objinfo-icon objinfo-icon__alias" title="environment variable">$</span><span title="TENSORSTORE_HTTP_THREADS (environment variable) — Specifies the number of threads to use for HTTP requests.  When unset, a default of 4 threads are used." class="md-ellipsis">TENSORSTORE_<wbr>HTTP_<wbr>THREADS</span>
   </a>
   
 </li>
@@ -926,8 +1009,91 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#envvar-TENSORSTORE_GCS_RATE_LIMITER_DOUBLING_TIME" class="md-nav__link">
+    <span aria-label="environment variable" class="objinfo-icon objinfo-icon__alias" title="environment variable">$</span><span title="TENSORSTORE_GCS_RATE_LIMITER_DOUBLING_TIME (environment variable) — Specifies the doubling time for the gcs rate-limiter. Defaults to not setting a doubleing time." class="md-ellipsis">TENSORSTORE_<wbr>GCS_<wbr>RATE_<wbr>LIMITER_<wbr>DOUBLING_<wbr>TIME</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#envvar-TENSORSTORE_GCS_GRPC_CHANNELS" class="md-nav__link">
+    <span aria-label="environment variable" class="objinfo-icon objinfo-icon__alias" title="environment variable">$</span><span title="TENSORSTORE_GCS_GRPC_CHANNELS (environment variable) — Specifies the number of gRPC channels to use for the gcs_grpc driver. Default is to use the number of CPU cores (at least 4) for regular endpoints, or 1 for directpath endpoints." class="md-ellipsis">TENSORSTORE_<wbr>GCS_<wbr>GRPC_<wbr>CHANNELS</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#envvar-TENSORSTORE_GCS_HTTP_VERSION" class="md-nav__link">
+    <span aria-label="environment variable" class="objinfo-icon objinfo-icon__alias" title="environment variable">$</span><span title="TENSORSTORE_GCS_HTTP_VERSION (environment variable) — Forces the HTTP version to use for Google Cloud Storage requests.  Valid values are 1 and 2." class="md-ellipsis">TENSORSTORE_<wbr>GCS_<wbr>HTTP_<wbr>VERSION</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#envvar-GOOGLE_CLOUD_DISABLE_DIRECT_PATH" class="md-nav__link">
+    <span aria-label="environment variable" class="objinfo-icon objinfo-icon__alias" title="environment variable">$</span><span title="GOOGLE_CLOUD_DISABLE_DIRECT_PATH (environment variable) — Disables the use of directpath endpoints for Google Cloud Storage requests, even if otherwise allowed." class="md-ellipsis">GOOGLE_<wbr>CLOUD_<wbr>DISABLE_<wbr>DIRECT_<wbr>PATH</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tensorstore-curl-options" class="md-nav__link">
+    <span class="md-ellipsis">Tensorstore Curl Options</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tensorstore Curl Options">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#envvar-SSL_CERT_FILE" class="md-nav__link">
+    <span aria-label="environment variable" class="objinfo-icon objinfo-icon__alias" title="environment variable">$</span><span title="SSL_CERT_FILE (environment variable) — Sets the certificate file to use for TLS connections.  Takes precedence over SSL_CERT_DIR." class="md-ellipsis">SSL_<wbr>CERT_<wbr>FILE</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#envvar-SSL_CERT_DIR" class="md-nav__link">
+    <span aria-label="environment variable" class="objinfo-icon objinfo-icon__alias" title="environment variable">$</span><span title="SSL_CERT_DIR (environment variable) — Sets the certificate directory to use for TLS connections." class="md-ellipsis">SSL_<wbr>CERT_<wbr>DIR</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#envvar-TENSORSTORE_USE_FALLBACK_SSL_CERTS" class="md-nav__link">
+    <span aria-label="environment variable" class="objinfo-icon objinfo-icon__alias" title="environment variable">$</span><span title="TENSORSTORE_USE_FALLBACK_SSL_CERTS (environment variable) — Enables or disables searching for SSL certificates in common locations. Defaults to allowed." class="md-ellipsis">TENSORSTORE_<wbr>USE_<wbr>FALLBACK_<wbr>SSL_<wbr>CERTS</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#envvar-TENSORSTORE_CURL_LOW_SPEED_LIMIT_BYTES" class="md-nav__link">
+    <span aria-label="environment variable" class="objinfo-icon objinfo-icon__alias" title="environment variable">$</span><span title="TENSORSTORE_CURL_LOW_SPEED_LIMIT_BYTES (environment variable) — If set to a postive value, then curl HTTP requests will be set with the CURLOPT_LOW_SPEED_LIMIT option to detect stalled connections." class="md-ellipsis">TENSORSTORE_<wbr>CURL_<wbr>LOW_<wbr>SPEED_<wbr>LIMIT_<wbr>BYTES</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#envvar-TENSORSTORE_CURL_LOW_SPEED_TIME_SECONDS" class="md-nav__link">
+    <span aria-label="environment variable" class="objinfo-icon objinfo-icon__alias" title="environment variable">$</span><span title="TENSORSTORE_CURL_LOW_SPEED_TIME_SECONDS (environment variable) — If set to a postive value, then curl HTTP requests will be set with the CURLOPT_LOW_SPEED_TIME option to detect stalled connections." class="md-ellipsis">TENSORSTORE_<wbr>CURL_<wbr>LOW_<wbr>SPEED_<wbr>TIME_<wbr>SECONDS</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#envvar-TENSORSTORE_HTTP2_MAX_CONCURRENT_STREAMS" class="md-nav__link">
     <span aria-label="environment variable" class="objinfo-icon objinfo-icon__alias" title="environment variable">$</span><span title="TENSORSTORE_HTTP2_MAX_CONCURRENT_STREAMS (environment variable) — Specifies the maximum number of concurrent streams per HTTP/2 connection, without limiting the total number of active connections.  When unset, a default of 4 concurrent streams are permitted." class="md-ellipsis">TENSORSTORE_<wbr>HTTP2_<wbr>MAX_<wbr>CONCURRENT_<wbr>STREAMS</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#envvar-TENSORSTORE_HTTP_THREADS" class="md-nav__link">
+    <span aria-label="environment variable" class="objinfo-icon objinfo-icon__alias" title="environment variable">$</span><span title="TENSORSTORE_HTTP_THREADS (environment variable) — Specifies the number of threads to use for HTTP requests.  When unset, a default of 4 threads are used." class="md-ellipsis">TENSORSTORE_<wbr>HTTP_<wbr>THREADS</span>
   </a>
   
 </li>
@@ -1090,11 +1256,82 @@ should be used.</p>
 </dd></dl>
 
 <dl class="std envvar objdesc">
+<dt class="sig sig-object highlight std" id="envvar-TENSORSTORE_GCS_RATE_LIMITER_DOUBLING_TIME">
+<span class="sig-name descname"><span class="pre">TENSORSTORE_GCS_RATE_LIMITER_DOUBLING_TIME</span></span><a class="headerlink" href="#envvar-TENSORSTORE_GCS_RATE_LIMITER_DOUBLING_TIME" title="Link to this definition">¶</a></dt>
+<dd><p>Specifies the doubling time for the gcs rate-limiter.
+Defaults to not setting a doubleing time.</p>
+</dd></dl>
+
+<dl class="std envvar objdesc">
+<dt class="sig sig-object highlight std" id="envvar-TENSORSTORE_GCS_GRPC_CHANNELS">
+<span class="sig-name descname"><span class="pre">TENSORSTORE_GCS_GRPC_CHANNELS</span></span><a class="headerlink" href="#envvar-TENSORSTORE_GCS_GRPC_CHANNELS" title="Link to this definition">¶</a></dt>
+<dd><p>Specifies the number of gRPC channels to use for the <code class="docutils literal notranslate"><span class="pre">gcs_grpc</span></code> driver.
+Default is to use the number of CPU cores (at least 4) for regular endpoints,
+or 1 for directpath endpoints.</p>
+</dd></dl>
+
+<dl class="std envvar objdesc">
+<dt class="sig sig-object highlight std" id="envvar-TENSORSTORE_GCS_HTTP_VERSION">
+<span class="sig-name descname"><span class="pre">TENSORSTORE_GCS_HTTP_VERSION</span></span><a class="headerlink" href="#envvar-TENSORSTORE_GCS_HTTP_VERSION" title="Link to this definition">¶</a></dt>
+<dd><p>Forces the HTTP version to use for Google Cloud Storage requests.  Valid
+values are <code class="docutils literal notranslate"><span class="pre">1</span></code> and <code class="docutils literal notranslate"><span class="pre">2</span></code>.</p>
+</dd></dl>
+
+<dl class="std envvar objdesc">
+<dt class="sig sig-object highlight std" id="envvar-GOOGLE_CLOUD_DISABLE_DIRECT_PATH">
+<span class="sig-name descname"><span class="pre">GOOGLE_CLOUD_DISABLE_DIRECT_PATH</span></span><a class="headerlink" href="#envvar-GOOGLE_CLOUD_DISABLE_DIRECT_PATH" title="Link to this definition">¶</a></dt>
+<dd><p>Disables the use of directpath endpoints for Google Cloud Storage requests,
+even if otherwise allowed.</p>
+</dd></dl>
+
+<h2 id="tensorstore-curl-options">Tensorstore Curl Options<a class="headerlink" href="#tensorstore-curl-options" title="Link to this heading">¶</a></h2>
+<dl class="std envvar objdesc">
+<dt class="sig sig-object highlight std" id="envvar-SSL_CERT_FILE">
+<span class="sig-name descname"><span class="pre">SSL_CERT_FILE</span></span><a class="headerlink" href="#envvar-SSL_CERT_FILE" title="Link to this definition">¶</a></dt>
+<dd><p>Sets the certificate file to use for TLS connections.  Takes precedence over
+<span class="target" id="index-6"></span><a class="reference internal" href="#envvar-SSL_CERT_DIR" title="SSL_CERT_DIR (environment variable) — Sets the certificate directory to use for TLS connections."><code class="xref std std-envvar docutils literal notranslate"><span class="pre">SSL_CERT_DIR</span></code></a>.</p>
+</dd></dl>
+
+<dl class="std envvar objdesc">
+<dt class="sig sig-object highlight std" id="envvar-SSL_CERT_DIR">
+<span class="sig-name descname"><span class="pre">SSL_CERT_DIR</span></span><a class="headerlink" href="#envvar-SSL_CERT_DIR" title="Link to this definition">¶</a></dt>
+<dd><p>Sets the certificate directory to use for TLS connections.</p>
+</dd></dl>
+
+<dl class="std envvar objdesc">
+<dt class="sig sig-object highlight std" id="envvar-TENSORSTORE_USE_FALLBACK_SSL_CERTS">
+<span class="sig-name descname"><span class="pre">TENSORSTORE_USE_FALLBACK_SSL_CERTS</span></span><a class="headerlink" href="#envvar-TENSORSTORE_USE_FALLBACK_SSL_CERTS" title="Link to this definition">¶</a></dt>
+<dd><p>Enables or disables searching for SSL certificates in common locations.
+Defaults to allowed.</p>
+</dd></dl>
+
+<dl class="std envvar objdesc">
+<dt class="sig sig-object highlight std" id="envvar-TENSORSTORE_CURL_LOW_SPEED_LIMIT_BYTES">
+<span class="sig-name descname"><span class="pre">TENSORSTORE_CURL_LOW_SPEED_LIMIT_BYTES</span></span><a class="headerlink" href="#envvar-TENSORSTORE_CURL_LOW_SPEED_LIMIT_BYTES" title="Link to this definition">¶</a></dt>
+<dd><p>If set to a postive value, then curl HTTP requests will be set with the
+<code class="docutils literal notranslate"><span class="pre">CURLOPT_LOW_SPEED_LIMIT</span></code> option to detect stalled connections.</p>
+</dd></dl>
+
+<dl class="std envvar objdesc">
+<dt class="sig sig-object highlight std" id="envvar-TENSORSTORE_CURL_LOW_SPEED_TIME_SECONDS">
+<span class="sig-name descname"><span class="pre">TENSORSTORE_CURL_LOW_SPEED_TIME_SECONDS</span></span><a class="headerlink" href="#envvar-TENSORSTORE_CURL_LOW_SPEED_TIME_SECONDS" title="Link to this definition">¶</a></dt>
+<dd><p>If set to a postive value, then curl HTTP requests will be set with the
+<code class="docutils literal notranslate"><span class="pre">CURLOPT_LOW_SPEED_TIME</span></code> option to detect stalled connections.</p>
+</dd></dl>
+
+<dl class="std envvar objdesc">
 <dt class="sig sig-object highlight std" id="envvar-TENSORSTORE_HTTP2_MAX_CONCURRENT_STREAMS">
 <span class="sig-name descname"><span class="pre">TENSORSTORE_HTTP2_MAX_CONCURRENT_STREAMS</span></span><a class="headerlink" href="#envvar-TENSORSTORE_HTTP2_MAX_CONCURRENT_STREAMS" title="Link to this definition">¶</a></dt>
 <dd><p>Specifies the maximum number of concurrent streams per HTTP/2 connection,
 without limiting the total number of active connections.  When unset, a
 default of 4 concurrent streams are permitted.</p>
+</dd></dl>
+
+<dl class="std envvar objdesc">
+<dt class="sig sig-object highlight std" id="envvar-TENSORSTORE_HTTP_THREADS">
+<span class="sig-name descname"><span class="pre">TENSORSTORE_HTTP_THREADS</span></span><a class="headerlink" href="#envvar-TENSORSTORE_HTTP_THREADS" title="Link to this definition">¶</a></dt>
+<dd><p>Specifies the number of threads to use for HTTP requests.  When unset, a
+default of 4 threads are used.</p>
 </dd></dl>
 
 
