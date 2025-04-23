@@ -201,6 +201,7 @@ tensorstore_cc_library(
         "//tensorstore/util/execution",
         "//tensorstore/util/execution:any_receiver",
         "//tensorstore/util/execution:any_sender",
+        "//tensorstore/util/execution:flow_sender_operation_state",
         "//tensorstore/util/execution:future_collecting_receiver",
         "//tensorstore/util/execution:future_sender",
         "//tensorstore/util/execution:sender",
@@ -335,6 +336,7 @@ tensorstore_cc_test(
     deps = [
         ":byte_range",
         ":generation",
+        ":key_range",
         ":kvstore",
         ":mock_kvstore",
         ":test_matchers",

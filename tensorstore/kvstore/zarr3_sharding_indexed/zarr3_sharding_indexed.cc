@@ -17,6 +17,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <atomic>
 #include <cassert>
 #include <memory>
 #include <optional>
@@ -70,6 +71,8 @@
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/flow_sender_operation_state.h"
+#include "tensorstore/util/execution/sender.h"
+#include "tensorstore/util/execution/sender_util.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
@@ -230,6 +233,75 @@ class ShardIndexCache
   Executor executor_;
   ShardIndexParameters shard_index_params_;
 };
+
+namespace {
+
+// Asynchronous operation state for `ShardedKeyValueStore::ListImpl`.
+struct ListOperationState
+    : public internal::FlowSenderOperationState<kvstore::ListEntry> {
+  using Base = internal::FlowSenderOperationState<kvstore::ListEntry>;
+
+  using Base::Base;
+
+  internal::PinnedCacheEntry<ShardIndexCache> shard_index_cache_entry_;
+  kvstore::ListOptions options_;
+  bool internal_keys_;
+
+  static void Start(ShardIndexCache& cache, kvstore::ListOptions&& options,
+                    ListReceiver&& receiver, bool internal_keys) {
+    if (!internal_keys) {
+      options.range = KeyRangeToInternalKeyRange(
+          options.range, cache.shard_index_params().grid_shape());
+    }
+    auto self =
+        internal::MakeIntrusivePtr<ListOperationState>(std::move(receiver));
+    self->options_ = std::move(options);
+    self->internal_keys_ = internal_keys;
+    self->shard_index_cache_entry_ = GetCacheEntry(&cache, std::string_view{});
+    auto shard_index_read_future =
+        self->shard_index_cache_entry_->Read({self->options_.staleness_bound});
+    auto* self_ptr = self.get();
+    LinkValue(
+        WithExecutor(cache.executor(),
+                     [self = std::move(self)](Promise<void> promise,
+                                              ReadyFuture<const void> future) {
+                       if (self->cancelled()) return;
+                       self->OnShardIndexReady();
+                     }),
+        self_ptr->promise, std::move(shard_index_read_future));
+  }
+
+  void OnShardIndexReady() {
+    auto shard_index =
+        internal::AsyncCache::ReadLock<ShardIndex>(*shard_index_cache_entry_)
+            .shared_data();
+    if (!shard_index) {
+      // Shard is not present, no entries to list.
+      return;
+    }
+    const auto& shard_index_params =
+        GetOwningCache(*shard_index_cache_entry_).shard_index_params();
+    span<const Index> grid_shape = shard_index_params.grid_shape();
+    auto [start_index, end_index] = InternalKeyRangeToEntryRange(
+        options_.range.inclusive_min, options_.range.exclusive_max,
+        shard_index_params.num_entries);
+    auto& receiver = shared_receiver->receiver;
+    for (EntryId i = start_index; i < end_index; ++i) {
+      auto index_entry = (*shard_index)[i];
+      if (index_entry.IsMissing()) continue;
+      auto key = internal_keys_ ? EntryIdToInternalKey(i)
+                                : EntryIdToKey(i, grid_shape);
+      key.erase(0, options_.strip_prefix_length);
+      execution::set_value(receiver,
+                           ListEntry{
+                               std::move(key),
+                               ListEntry::checked_size(index_entry.length),
+                           });
+    }
+  }
+};
+
+}  // namespace
 
 /// Cache used to buffer writes.
 ///
@@ -476,6 +548,78 @@ class ShardedKeyValueStoreWriteCache
                                    byte_range.Validate(value.size()));
       value = internal::GetSubCord(value, resolved_byte_range);
       return kvstore::ReadResult::Value(std::move(value), std::move(stamp));
+    }
+
+    void ListUnderlying(kvstore::ListOptions options,
+                        kvstore::ListReceiver receiver) final {
+      if (this->reads_committed_) {
+        std::shared_ptr<const ShardEntries> entries;
+        {
+          AsyncCache::ReadLock<ShardEntries> lock{*this};
+          if (lock.data() && lock.stamp().time >= options.staleness_bound) {
+            entries = lock.shared_data();
+          }
+        }
+        if (entries) {
+          ListFromEntries(*entries, std::move(options), std::move(receiver));
+          return;
+        }
+        ListOperationState::Start(*GetOwningCache(*this).shard_index_cache(),
+                                  std::move(options), std::move(receiver),
+                                  /*internal_keys=*/true);
+        return;
+      }
+      this->AsyncCache::TransactionNode::Read({options.staleness_bound})
+          .ExecuteWhenReady(WithExecutor(
+              GetOwningCache(*this).executor(),
+              [self = internal::OpenTransactionNodePtr<TransactionNode>(this),
+               options = std::move(options), receiver = std::move(receiver)](
+                  ReadyFuture<const void> future) mutable {
+                if (!future.result().ok()) {
+                  execution::submit(
+                      FlowSingleSender{ErrorSender{future.status()}},
+                      std::move(receiver));
+                  return;
+                }
+                self->HandleShardReadSuccessForList(std::move(options),
+                                                    std::move(receiver));
+              }));
+    }
+
+    void HandleShardReadSuccessForList(kvstore::ListOptions options,
+                                       kvstore::ListReceiver receiver) {
+      std::shared_ptr<const ShardEntries> entries;
+      {
+        AsyncCache::ReadLock<ShardEntries> lock{*this};
+        entries = lock.shared_data();
+      }
+      ListFromEntries(*entries, std::move(options), std::move(receiver));
+    }
+
+    void ListFromEntries(const ShardEntries& entries,
+                         kvstore::ListOptions options,
+                         kvstore::ListReceiver receiver) {
+      auto [begin_id, end_id] = InternalKeyRangeToEntryRange(
+          options.range.inclusive_min, options.range.exclusive_max,
+          entries.entries.size());
+
+      // Strip prefix length handled externally.
+      assert(options.strip_prefix_length == 0);
+
+      std::atomic<bool> cancel{false};
+      execution::set_starting(
+          receiver, [&] { cancel.store(true, std::memory_order_relaxed); });
+      for (auto i = begin_id; i < end_id; ++i) {
+        if (cancel.load(std::memory_order_relaxed)) break;
+        const auto& entry = entries.entries[i];
+        if (!entry) continue;
+        kvstore::ListEntry list_entry;
+        list_entry.key = EntryIdToInternalKey(i);
+        list_entry.size = entry->size();
+        execution::set_value(receiver, std::move(list_entry));
+      }
+      execution::set_done(receiver);
+      execution::set_stopping(receiver);
     }
 
     // The receiver argument for the current pending call to `DoApply`.
@@ -837,6 +981,10 @@ class ShardedKeyValueStore
       ReadOptions options) override;
 
   void ListImpl(ListOptions options, ListReceiver receiver) override;
+
+  void TransactionalListImpl(const internal::OpenTransactionPtr& transaction,
+                             ListOptions options,
+                             ListReceiver receiver) override;
 
   Future<TimestampedStorageGeneration> Write(Key key,
                                              std::optional<Value> value,
@@ -1204,69 +1352,49 @@ Future<kvstore::ReadResult> ShardedKeyValueStore::Read(Key key,
   return std::move(future);
 }
 
-// Asynchronous operation state for `ShardedKeyValueStore::ListImpl`.
-struct ListOperationState
-    : public internal::FlowSenderOperationState<kvstore::ListEntry> {
-  using Base = internal::FlowSenderOperationState<kvstore::ListEntry>;
-
-  using Base::Base;
-
-  internal::PinnedCacheEntry<ShardIndexCache> shard_index_cache_entry_;
-  kvstore::ListOptions options_;
-
-  static void Start(ShardedKeyValueStore& store, kvstore::ListOptions&& options,
-                    ListReceiver&& receiver) {
-    options.range = KeyRangeToInternalKeyRange(
-        options.range, store.shard_index_params().grid_shape());
-    auto self =
-        internal::MakeIntrusivePtr<ListOperationState>(std::move(receiver));
-    self->options_ = std::move(options);
-    self->shard_index_cache_entry_ =
-        GetCacheEntry(store.shard_index_cache(), std::string_view{});
-    auto shard_index_read_future =
-        self->shard_index_cache_entry_->Read({self->options_.staleness_bound});
-    auto* self_ptr = self.get();
-    LinkValue(
-        WithExecutor(store.executor(),
-                     [self = std::move(self)](Promise<void> promise,
-                                              ReadyFuture<const void> future) {
-                       if (self->cancelled()) return;
-                       self->OnShardIndexReady();
-                     }),
-        self_ptr->promise, std::move(shard_index_read_future));
-  }
-
-  void OnShardIndexReady() {
-    auto shard_index =
-        internal::AsyncCache::ReadLock<ShardIndex>(*shard_index_cache_entry_)
-            .shared_data();
-    if (!shard_index) {
-      // Shard is not present, no entries to list.
-      return;
-    }
-    const auto& shard_index_params =
-        GetOwningCache(*shard_index_cache_entry_).shard_index_params();
-    span<const Index> grid_shape = shard_index_params.grid_shape();
-    auto start_index = InternalKeyToEntryId(options_.range.inclusive_min);
-    auto end_index = InternalKeyToEntryId(options_.range.exclusive_max);
-    auto& receiver = shared_receiver->receiver;
-    for (EntryId i = start_index; i < end_index; ++i) {
-      auto index_entry = (*shard_index)[i];
-      if (index_entry.IsMissing()) continue;
-      auto key = EntryIdToKey(i, grid_shape);
-      key.erase(0, options_.strip_prefix_length);
-      execution::set_value(receiver,
-                           ListEntry{
-                               std::move(key),
-                               ListEntry::checked_size(index_entry.length),
-                           });
-    }
-  }
-};
-
 void ShardedKeyValueStore::ListImpl(ListOptions options,
                                     ListReceiver receiver) {
-  ListOperationState::Start(*this, std::move(options), std::move(receiver));
+  ListOperationState::Start(*shard_index_cache(), std::move(options),
+                            std::move(receiver), /*internal_keys=*/false);
+}
+
+void ShardedKeyValueStore::TransactionalListImpl(
+    const internal::OpenTransactionPtr& transaction, ListOptions options,
+    ListReceiver receiver) {
+  options.range = KeyRangeToInternalKeyRange(options.range,
+                                             shard_index_params().grid_shape());
+  auto entry = GetCacheEntry(write_cache_, std::string_view{});
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto node, GetWriteLockedTransactionNode(*entry, transaction),
+      execution::submit(FlowSingleSender{ErrorSender{std::move(_)}},
+                        std::move(receiver)));
+
+  struct ReceiverAdapter {
+    internal::IntrusivePtr<ShardedKeyValueStore> driver_;
+    ListReceiver receiver_;
+    size_t strip_prefix_length_;
+    span<const Index> grid_shape_;
+    void set_starting(AnyCancelReceiver cancel) {
+      execution::set_starting(receiver_, std::move(cancel));
+    }
+    void set_stopping() { execution::set_stopping(receiver_); }
+    void set_done() { execution::set_done(receiver_); }
+    void set_error(absl::Status error) {
+      execution::set_error(receiver_, std::move(error));
+    }
+    void set_value(kvstore::ListEntry entry) {
+      entry.key = EntryIdToKey(InternalKeyToEntryId(entry.key), grid_shape_);
+      entry.key.erase(0, strip_prefix_length_);
+      execution::set_value(receiver_, std::move(entry));
+    }
+  };
+  size_t strip_prefix_length = std::exchange(options.strip_prefix_length, 0);
+  auto* multi_phase_mutation = &*node;
+  multi_phase_mutation->ListImpl(
+      node.unlock(), std::move(options),
+      ReceiverAdapter{internal::IntrusivePtr<ShardedKeyValueStore>(this),
+                      std::move(receiver), strip_prefix_length,
+                      shard_index_params().grid_shape()});
 }
 
 Future<TimestampedStorageGeneration> ShardedKeyValueStore::Write(

@@ -250,12 +250,20 @@ class Driver {
   /// Implementation of `List` that driver implementations must define.
   virtual void ListImpl(ListOptions options, ListReceiver receiver);
 
+  /// Implementation of transactional `List` that driver implementations must
+  /// define.
+  virtual void TransactionalListImpl(
+      const internal::OpenTransactionPtr& transaction, ListOptions options,
+      ListReceiver receiver);
+
   /// List keys in the key-value store.
   ///
   /// The keys are emitted in arbitrary order.
   ///
-  /// This simply forwards to `ListImpl`.
+  /// This simply forwards to `ListImpl` or `TransactionalListImpl`.
   ListSender List(ListOptions options);
+  ListSender List(ListOptions options,
+                  const internal::OpenTransactionPtr& transaction);
 
   /// Returns a Spec that can be used to re-open this key-value store.
   ///

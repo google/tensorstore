@@ -114,6 +114,31 @@ TEST_F(KvStackTest, List) {
   tensorstore::internal::TestKeyValueStoreList(store);
 }
 
+TEST_F(KvStackTest, TransactionalList) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store, KvStoreOpen());
+
+  const absl::Cord value("xyz");
+
+  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "/a", value));
+  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "a/b", value));
+  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "a/d", value));
+  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "aa/b", value));
+  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "b", value));
+
+  auto transaction = tensorstore::Transaction(tensorstore::isolated);
+
+  store.transaction = transaction;
+
+  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "b1", value));
+  TENSORSTORE_EXPECT_OK(kvstore::Delete(store, "b"));
+
+  EXPECT_THAT(kvstore::ListFuture(store).result(),
+              ::testing::Optional(::testing::UnorderedElementsAre(
+                  MatchesListEntry("/a", 3), MatchesListEntry("a/b", 3),
+                  MatchesListEntry("a/d", 3), MatchesListEntry("aa/b", 3),
+                  MatchesListEntry("b1", -1))));
+}
+
 TEST_F(KvStackTest, PrefixCheck) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto base, kvstore::Open({{"driver", "memory"}}, context_).result());

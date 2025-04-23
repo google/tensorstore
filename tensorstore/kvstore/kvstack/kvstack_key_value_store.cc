@@ -243,6 +243,10 @@ class KvStack
 
   void ListImpl(ListOptions options, ListReceiver receiver) override;
 
+  void TransactionalListImpl(const internal::OpenTransactionPtr& transaction,
+                             ListOptions options,
+                             ListReceiver receiver) override;
+
   /// Obtains a `BoundSpec` representation from an open `Driver`.
   absl::Status GetBoundSpecData(KvStackSpecData& spec) const {
     // `spec` is returned via an out parameter rather than returned via a
@@ -440,6 +444,7 @@ struct KvStackListState final
     std::string prefix_to_add;
   };
 
+  internal::OpenTransactionPtr transaction_;
   ListOptions options_;
   ListReceiver receiver_;
   std::vector<V> ranges_;
@@ -448,10 +453,13 @@ struct KvStackListState final
   absl::Mutex mutex_;
   std::optional<AnyCancelReceiver> cancel_ ABSL_GUARDED_BY(mutex_);
 
-  KvStackListState(KvStack& driver, ListOptions options, ListReceiver receiver)
-      : options_(std::move(options)), receiver_(std::move(receiver)) {
+  KvStackListState(KvStack& driver, internal::OpenTransactionPtr transaction,
+                   ListOptions options, ListReceiver receiver)
+      : transaction_(std::move(transaction)),
+        options_(std::move(options)),
+        receiver_(std::move(receiver)) {
     // Note that List doesn't guarantee any particular order so it would be
-    // fine to list all intersecting layers.
+    // fine to list all intersecting layers in parallel.
     driver.layers_.VisitRange(
         options_.range, [this](KeyRange intersect, auto& mapped) {
           std::string prefix_to_add =
@@ -522,10 +530,19 @@ struct KvStackListState final
     }
     if (idx < state->ranges_.size()) {
       auto& v = state->ranges_[idx];
-      ListOptions options = state->options_;
-      options.range = v.range;
-      kvstore::List(v.kvstore, std::move(options),
-                    Receiver{std::move(state), &v});
+      ListOptions options;
+      options.range = KeyRange::AddPrefix(v.kvstore.path, v.range);
+      options.strip_prefix_length =
+          state->options_.strip_prefix_length + v.kvstore.path.size();
+      options.staleness_bound = state->options_.staleness_bound;
+      if (state->transaction_) {
+        const auto& transaction = state->transaction_;
+        v.kvstore.driver->TransactionalListImpl(transaction, std::move(options),
+                                                Receiver{std::move(state), &v});
+      } else {
+        v.kvstore.driver->ListImpl(std::move(options),
+                                   Receiver{std::move(state), &v});
+      }
     } else if (idx == state->ranges_.size()) {
       execution::set_done(state->receiver_);
     }
@@ -536,7 +553,17 @@ void KvStack::ListImpl(ListOptions options, ListReceiver receiver) {
   // Ownership of the pointer is transferred to the kvstore::List calls via
   // the sequence of StartNextRange() calls.
   KvStackListState::StartNextRange(internal::MakeIntrusivePtr<KvStackListState>(
-      *this, std::move(options), std::move(receiver)));
+      *this, internal::OpenTransactionPtr{}, std::move(options),
+      std::move(receiver)));
+}
+
+void KvStack::TransactionalListImpl(
+    const internal::OpenTransactionPtr& transaction, ListOptions options,
+    ListReceiver receiver) {
+  // Ownership of the pointer is transferred to the kvstore::List calls via
+  // the sequence of StartNextRange() calls.
+  KvStackListState::StartNextRange(internal::MakeIntrusivePtr<KvStackListState>(
+      *this, transaction, std::move(options), std::move(receiver)));
 }
 
 }  // namespace

@@ -28,6 +28,7 @@
 #include <vector>
 
 #include "absl/base/internal/endian.h"
+#include "absl/base/optimization.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/synchronization/mutex.h"
@@ -67,6 +68,8 @@
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
+#include "tensorstore/util/execution/sender.h"
+#include "tensorstore/util/execution/sender_util.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
@@ -650,6 +653,11 @@ class ShardedKeyValueStoreWriteCache
       }
     }
 
+    void ListUnderlying(kvstore::ListOptions options,
+                        kvstore::ListReceiver receiver) override {
+      ABSL_UNREACHABLE();
+    }
+
     void Writeback(internal_kvstore::ReadModifyWriteEntry& entry,
                    internal_kvstore::ReadModifyWriteEntry& source_entry,
                    kvstore::ReadResult&& read_result) override {
@@ -1072,6 +1080,15 @@ class ShardedKeyValueStore
           },
           state->promise_, entry->Read({absl::InfiniteFuture()}));
     }
+  }
+
+  void TransactionalListImpl(const internal::OpenTransactionPtr& transaction,
+                             ListOptions options,
+                             ListReceiver receiver) override {
+    execution::submit(FlowSingleSender{ErrorSender{absl::UnimplementedError(
+                          "neuroglancer_uint64_sharded does not support "
+                          "transactional listing")}},
+                      std::move(receiver));
   }
 
   Future<TimestampedStorageGeneration> Write(Key key,

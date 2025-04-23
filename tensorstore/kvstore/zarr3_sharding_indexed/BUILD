@@ -64,6 +64,8 @@ tensorstore_cc_library(
         "//tensorstore/util/execution:any_receiver",
         "//tensorstore/util/execution:flow_sender_operation_state",
         "//tensorstore/util/execution:result_sender",
+        "//tensorstore/util/execution:sender",
+        "//tensorstore/util/execution:sender_util",
         "//tensorstore/util/garbage_collection",
         "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/base:core_headers",

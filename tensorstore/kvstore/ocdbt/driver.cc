@@ -437,6 +437,17 @@ absl::Status OcdbtDriver::TransactionalDeleteRange(
                                         std::move(range));
 }
 
+void OcdbtDriver::TransactionalListImpl(
+    const internal::OpenTransactionPtr& transaction,
+    kvstore::ListOptions options, kvstore::ListReceiver receiver) {
+  if (!transaction->atomic() || coordinator_->address) {
+    return kvstore::Driver::TransactionalListImpl(
+        transaction, std::move(options), std::move(receiver));
+  }
+  return internal_ocdbt::TransactionalListImpl(
+      this, transaction, std::move(options), std::move(receiver));
+}
+
 Future<kvstore::ReadResult> OcdbtDriver::TransactionalRead(
     const internal::OpenTransactionPtr& transaction, Key key,
     ReadOptions options) {
