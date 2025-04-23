@@ -42,6 +42,7 @@
 #include "tensorstore/internal/compression/zlib.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
 #include "tensorstore/internal/thread/thread_pool.h"
 #include "tensorstore/kvstore/byte_range.h"
@@ -68,6 +69,7 @@ namespace kvstore = ::tensorstore::kvstore;
 
 using ::tensorstore::Batch;
 using ::tensorstore::Future;
+using ::tensorstore::JsonSubValuesMatch;
 using ::tensorstore::KvStore;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::OptionalByteRangeRequest;
@@ -264,16 +266,12 @@ TEST_F(RawEncodingTest, MultipleUnconditionalWrites) {
   // it is ever actually committed to the `base_kv_store`.
   EXPECT_THAT(
       results,
-      ::testing::UnorderedElementsAre(
+      ::testing::ElementsAre(
           MatchesTimestampedStorageGeneration(StorageGeneration::Invalid()),
           MatchesTimestampedStorageGeneration(StorageGeneration::Invalid()),
           MatchesTimestampedStorageGeneration(shard_read.stamp.generation)));
-  for (size_t i = 0; i < results.size(); ++i) {
-    if (results[i] && results[i]->generation == shard_read.stamp.generation) {
-      EXPECT_THAT(store->Read(key).result(),
-                  MatchesKvsReadResult(values[i], results[i]->generation));
-    }
-  }
+  EXPECT_THAT(store->Read(key).result(),
+              MatchesKvsReadResult(values.back(), shard_read.stamp.generation));
 }
 
 TEST_F(RawEncodingTest, List) {
@@ -357,10 +355,7 @@ TEST_F(RawEncodingTest, WritesAndDeletes) {
               MatchesKvsReadResult(absl::Cord("zz")));
 }
 
-// The order in which multiple requests for the same `ChunkId` are attempted
-// depends on the order produced by `std::sort`, which is unspecified.  To
-// ensure we test both possibilities, we run the test with both orders.  This
-// assumes that `std::sort` is deterministic.
+// Attempt with both orderings of two different operations.
 std::vector<std::vector<Result<TimestampedStorageGeneration>>>
 TestOrderDependentWrites(
     std::function<void()> init,
@@ -420,9 +415,7 @@ TEST_F(RawEncodingTest, MultipleDeleteExisting) {
                 {/*.if_equal=*/StorageGeneration::NoValue()});
           },
           /*finalize=*/[&] { txn.CommitAsync().IgnoreFuture(); }),
-      // Test we covered each of the two cases (corresponding to different sort
-      // orders) exactly once.
-      ::testing::UnorderedElementsAre(
+      ::testing::ElementsAre(
           ::testing::ElementsAre(
               MatchesTimestampedStorageGeneration(StorageGeneration::Invalid()),
               MatchesTimestampedStorageGeneration(
@@ -477,7 +470,7 @@ TEST_F(RawEncodingTest, MultipleDeleteNonExisting) {
   std::vector results{futures[0].result(), futures[1].result()};
   EXPECT_THAT(
       results,
-      ::testing::UnorderedElementsAre(
+      ::testing::ElementsAre(
           MatchesTimestampedStorageGeneration(StorageGeneration::Invalid()),
           MatchesTimestampedStorageGeneration(StorageGeneration::NoValue())));
 }
@@ -1539,7 +1532,10 @@ TEST_F(UnderlyingKeyValueStoreTest, DeleteRangeUnimplemented) {
 
 TEST_F(UnderlyingKeyValueStoreTest, TransactionalDeleteRangeUnimplemented) {
   EXPECT_THAT(
-      store->TransactionalDeleteRange({}, tensorstore::KeyRange::Prefix("abc")),
+      kvstore::DeleteRange(
+          KvStore(store, tensorstore::Transaction(tensorstore::isolated)),
+          tensorstore::KeyRange::Prefix("abc"))
+          .result(),
       MatchesStatus(absl::StatusCode::kUnimplemented));
 }
 
@@ -1725,6 +1721,9 @@ class ReadModifyWriteTest : public ::testing::Test {
 };
 
 TEST_F(ReadModifyWriteTest, MultipleCaches) {
+  mock_store->log_requests = true;
+  mock_store->forward_to = memory_store;
+
   auto cache1 = GetKvsBackedCache();
   auto cache2 = GetKvsBackedCache();
   auto transaction = Transaction(tensorstore::isolated);
@@ -1738,21 +1737,27 @@ TEST_F(ReadModifyWriteTest, MultipleCaches) {
                               ->Modify(open_transaction, false, "def"));
     auto read_future =
         GetCacheEntry(cache1, GetChunkKey(0x0))->ReadValue(open_transaction);
+    EXPECT_THAT(read_future.result(),
+                ::testing::Optional(absl::Cord("abcdef")));
+
     // Currently, reading a modified shard is not optimized, such that we end up
     // performing one read of the entire shard, and also one read of the single
     // modified chunk.
-    mock_store->read_requests.pop()(memory_store);
-    mock_store->read_requests.pop()(memory_store);
-    EXPECT_THAT(read_future.result(),
-                ::testing::Optional(absl::Cord("abcdef")));
+    EXPECT_THAT(
+        mock_store->request_log.pop_all(),
+        ::testing::ElementsAre(JsonSubValuesMatch({{"/type", "read"}}),
+                               JsonSubValuesMatch({{"/type", "read"}})));
   }
   transaction.CommitAsync().IgnoreFuture();
-  auto write_req = mock_store->write_requests.pop();
-  write_req(memory_store);
   TENSORSTORE_EXPECT_OK(transaction.future());
+  EXPECT_THAT(mock_store->request_log.pop_all(),
+              ::testing::ElementsAre(JsonSubValuesMatch({{"/type", "write"}})));
 }
 
 TEST_F(ReadModifyWriteTest, MultiplePhasesMultipleCaches) {
+  mock_store->log_requests = true;
+  mock_store->forward_to = memory_store;
+
   auto cache1 = GetKvsBackedCache();
   auto cache2 = GetKvsBackedCache();
   auto transaction = Transaction(tensorstore::isolated);
@@ -1771,26 +1776,33 @@ TEST_F(ReadModifyWriteTest, MultiplePhasesMultipleCaches) {
                               ->Modify(open_transaction, false, "jkl"));
     auto read_future =
         GetCacheEntry(cache1, GetChunkKey(0x0))->ReadValue(open_transaction);
+    EXPECT_THAT(read_future.result(),
+                ::testing::Optional(absl::Cord("abcdefghijkl")));
+
     // Currently, reading a modified shard is not optimized, such that we end up
     // performing one read of the entire shard, and also one read of the single
     // modified chunk.
-    mock_store->read_requests.pop()(memory_store);
-    mock_store->read_requests.pop()(memory_store);
-    EXPECT_THAT(read_future.result(),
-                ::testing::Optional(absl::Cord("abcdefghijkl")));
+    EXPECT_THAT(
+        mock_store->request_log.pop_all(),
+        ::testing::ElementsAre(JsonSubValuesMatch({{"/type", "read"}}),
+                               JsonSubValuesMatch({{"/type", "read"}})));
   }
   transaction.CommitAsync().IgnoreFuture();
-  // Handle write request for first phase.
-  mock_store->write_requests.pop()(memory_store);
-  // Currently, invalidation after the commit of the first phase is not
-  // optimized.  We therefore have to re-read the contents of chunk 0, which
-  // involves 3 read requests to the underlying key value store (shard index,
-  // minishard index, chunk).
-  mock_store->read_requests.pop()(memory_store);
-  mock_store->read_requests.pop()(memory_store);
-  mock_store->read_requests.pop()(memory_store);
-  // Handle write request for second phase.
-  mock_store->write_requests.pop()(memory_store);
+  TENSORSTORE_EXPECT_OK(transaction.future());
+
+  EXPECT_THAT(mock_store->request_log.pop_all(),
+              ::testing::ElementsAre(
+                  // Handle write request for first phase.
+                  JsonSubValuesMatch({{"/type", "write"}}),
+                  // Currently, invalidation after the commit of the first phase
+                  // is not optimized. We therefore re-read the contents of the
+                  // entire shard, and then re-validate it.
+                  JsonSubValuesMatch(
+                      {{"/type", "read"},
+                       {"/if_not_equal", StorageGeneration::NoValue().value}}),
+                  JsonSubValuesMatch({{"/type", "read"}}),
+                  // Handle write request for second phase.
+                  JsonSubValuesMatch({{"/type", "write"}})));
   TENSORSTORE_EXPECT_OK(transaction.future());
 }
 

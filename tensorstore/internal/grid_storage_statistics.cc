@@ -185,7 +185,7 @@ void GetStorageStatisticsForRegularGridWithSemiLexicographicalKeys(
           "Integer overflow computing number of chunks");
     }
     kvstore::ReadOptions read_options;
-    read_options.byte_range = OptionalByteRangeRequest(0, 0);
+    read_options.byte_range = OptionalByteRangeRequest::Stat();
     read_options.staleness_bound = staleness_bound;
     LinkValue(
         [handler, grid_indices = std::vector<Index>(grid_indices.begin(),

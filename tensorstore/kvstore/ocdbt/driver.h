@@ -138,6 +138,10 @@ class OcdbtDriver
 
   void ListImpl(ListOptions options, ListReceiver receiver) override;
 
+  Future<ReadResult> TransactionalRead(
+      const internal::OpenTransactionPtr& transaction, Key key,
+      ReadOptions options) override;
+
   absl::Status GetBoundSpecData(OcdbtDriverSpecData& spec) const;
 
   kvstore::SupportedFeatures GetSupportedFeatures(

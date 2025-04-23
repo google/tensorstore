@@ -120,14 +120,18 @@ class JsonCache
                                                *std::move(decode_result)));
           });
     }
-    void DoEncode(std::shared_ptr<const ReadData> data,
+    void DoEncode(EncodeOptions options, std::shared_ptr<const ReadData> data,
                   EncodeReceiver receiver) override {
       const auto& json_value = *data;
       if (json_value.is_discarded()) {
         execution::set_value(receiver, std::nullopt);
         return;
       }
-      execution::set_value(receiver, absl::Cord(json_value.dump()));
+      absl::Cord encoded;
+      if (options.encode_mode != EncodeOptions::kValueDiscarded) {
+        encoded = absl::Cord(json_value.dump());
+      }
+      execution::set_value(receiver, std::move(encoded));
     }
   };
 
@@ -143,58 +147,53 @@ class JsonCache
 
       // Asynchronous continuation run once the read of the existing state, if
       // needed, has completed.
-      auto continuation =
-          [this, receiver = std::move(receiver), unconditional, unmodified,
-           specify_unchanged =
-               (options.apply_mode == ApplyOptions::kSpecifyUnchanged)](
-              ReadyFuture<const void> future) mutable {
-            if (!future.result().ok()) {
-              // Propagate read error.
-              execution::set_error(receiver, future.result().status());
-              return;
-            }
+      auto continuation = [this, receiver = std::move(receiver), unconditional,
+                           unmodified](ReadyFuture<const void> future) mutable {
+        if (!future.result().ok()) {
+          // Propagate read error.
+          execution::set_error(receiver, future.result().status());
+          return;
+        }
 
-            AsyncCache::ReadState read_state;
-            if (unconditional || (unmodified && !specify_unchanged)) {
-              read_state.stamp = TimestampedStorageGeneration::Unconditional();
-            } else {
-              read_state = AsyncCache::ReadLock<void>(*this).read_state();
-            }
+        AsyncCache::ReadState read_state;
+        if (unconditional || unmodified) {
+          read_state.stamp = TimestampedStorageGeneration::Unconditional();
+        } else {
+          read_state = AsyncCache::ReadLock<void>(*this).read_state();
+        }
 
-            if (!unmodified) {
-              auto* existing_json =
-                  static_cast<const ::nlohmann::json*>(read_state.data.get());
-              ::nlohmann::json new_json;
-              // Apply changes.  If `existing_state` is non-null (equivalent to
-              // `unconditional == false`), provide it to `Apply`.  Otherwise,
-              // pass in a placeholder value (which won't be used).
-              auto result = changes_.Apply(
-                  existing_json
-                      ? *existing_json
-                      : ::nlohmann::json(::nlohmann::json::value_t::discarded));
-              if (result.ok()) {
-                new_json = *std::move(result);
-              } else {
-                execution::set_error(receiver, std::move(result).status());
-                return;
-              }
-              // For conditional states, only mark dirty if it differs from the
-              // existing state, since otherwise the writeback can be skipped
-              // (and instead the state can just be verified).
-              if (!existing_json ||
-                  !internal_json::JsonSame(new_json, *existing_json)) {
-                read_state.stamp.generation.MarkDirty();
-                read_state.data =
-                    std::make_shared<::nlohmann::json>(std::move(new_json));
-              }
-            }
-            execution::set_value(receiver, std::move(read_state));
-          };
-      auto future = ((unconditional ||
-                      (unmodified &&
-                       options.apply_mode != ApplyOptions::kSpecifyUnchanged))
-                         ? MakeReadyFuture()
-                         : this->Read({options.staleness_bound}));
+        if (!unmodified) {
+          auto* existing_json =
+              static_cast<const ::nlohmann::json*>(read_state.data.get());
+          ::nlohmann::json new_json;
+          // Apply changes.  If `existing_state` is non-null (equivalent to
+          // `unconditional == false`), provide it to `Apply`.  Otherwise,
+          // pass in a placeholder value (which won't be used).
+          auto result = changes_.Apply(
+              existing_json
+                  ? *existing_json
+                  : ::nlohmann::json(::nlohmann::json::value_t::discarded));
+          if (result.ok()) {
+            new_json = *std::move(result);
+          } else {
+            execution::set_error(receiver, std::move(result).status());
+            return;
+          }
+          // For conditional states, only mark dirty if it differs from the
+          // existing state, since otherwise the writeback can be skipped
+          // (and instead the state can just be verified).
+          if (!existing_json ||
+              !internal_json::JsonSame(new_json, *existing_json)) {
+            read_state.stamp.generation.MarkDirty(mutation_id_);
+            read_state.data =
+                std::make_shared<::nlohmann::json>(std::move(new_json));
+          }
+        }
+        execution::set_value(receiver, std::move(read_state));
+      };
+      auto future = (unconditional || unmodified)
+                        ? MakeReadyFuture()
+                        : this->Read({options.staleness_bound});
       future.Force();
       std::move(future).ExecuteWhenReady(WithExecutor(
           GetOwningCache(*this).executor(), std::move(continuation)));

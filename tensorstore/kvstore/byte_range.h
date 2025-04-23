@@ -110,6 +110,9 @@ struct OptionalByteRangeRequest {
   /// specified.
   bool IsSuffix() const { return exclusive_max == -1 && inclusive_min > 0; }
 
+  /// Checks if this is a "stat" request.
+  bool IsStat() const { return inclusive_min == 0 && exclusive_max == 0; }
+
   /// Constructs a request for an explicit range.
   static OptionalByteRangeRequest Range(int64_t inclusive_min,
                                         int64_t exclusive_max) {
@@ -129,6 +132,12 @@ struct OptionalByteRangeRequest {
   static OptionalByteRangeRequest Suffix(int64_t inclusive_min) {
     assert(inclusive_min >= 0);
     return OptionalByteRangeRequest{inclusive_min, -1};
+  }
+
+  /// Constructs a request for a zero-byte range, i.e. a "stat" request used to
+  /// check only if a key exists.
+  static OptionalByteRangeRequest Stat() {
+    return OptionalByteRangeRequest{0, 0};
   }
 
   /// Specifies the starting byte if non-negative, or suffix length if negative.

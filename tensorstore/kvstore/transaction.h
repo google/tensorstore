@@ -98,6 +98,7 @@
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/container/intrusive_red_black_tree.h"
+#include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/tagged_ptr.h"
 #include "tensorstore/kvstore/driver.h"
@@ -283,20 +284,29 @@ class ReadModifyWriteEntry : public MutationEntry,
   /// `SinglePhaseMutation::entries_` tree or a `DeleteRangeEntry::supereseded_`
   /// tree.
   ReadModifyWriteEntry* next_read_modify_write() const {
-    if (!next_ || (flags_ & kDeleted)) return nullptr;
+    if (!next_ || (flags_.load(std::memory_order_relaxed) & kDeleted)) {
+      return nullptr;
+    }
     return static_cast<ReadModifyWriteEntry*>(next_);
   }
 
   // Bit vector of flags, see flag definitions below.
-  using Flags = uint8_t;
+  using Flags = uint16_t;
 
-  Flags flags_ = 0;
+  // Writing to `flags_` requires that `this->multi_phase().mutex()` is locked,
+  // and are done using relaxed operations.
+  //
+  // Certain flags indicated in the
+  // descriptions below are not modified after the entry is first initialized
+  // and may be safely read using relaxed atomic reads without locking the
+  // mutex.
+  std::atomic<Flags> flags_ = 0;
 
   /// Indicates whether `ReadModifyWriteSource::Writeback` was called (and has
   /// completed) on `source_`.
   constexpr static Flags kWritebackProvided = 1;
 
-  /// Indicates whether a prior call to `RReadMOdifyWriteSource::Writeback` on
+  /// Indicates whether a prior call to `ReadModifyWriteSource::Writeback` on
   /// this entry's `_source_` or that of a direct or indirect predecessor (via
   /// `prev_`) has returned an unconditional generation, which indicates that
   /// the writeback result is not conditional on the existing read state.  In
@@ -304,10 +314,6 @@ class ReadModifyWriteEntry : public MutationEntry,
   /// successor entry is also unconditional), `ReadModifyWriteSource::Writeback`
   /// won't be called again merely to validate the existing read state.
   constexpr static Flags kTransitivelyUnconditional = 2;
-
-  /// Only meaningful if `kWritebackProvided` is also set.  Indicates that the
-  /// most recent writeback actually modified the input.
-  constexpr static Flags kDirty = 4;
 
   /// Indicates that this entry supersedes a prior `TransactionalDeleteRange`
   /// operation that affected the same key, and therefore the input is always a
@@ -334,17 +340,40 @@ class ReadModifyWriteEntry : public MutationEntry,
   /// writeback completed with a state not equal to `ReadResult::kUnspecified`.
   constexpr static Flags kTransitivelyDirty = 64;
 
+  /// Indicates that `source_->KvsRevoke()` has already been called.
+  constexpr static Flags kRevoked = 128;
+
+  /// Indicates that if this node successfully returns a desired writeback
+  /// state, but then the writeback fails due to a generation mismatch, that
+  /// writeback should not be retried because the desired writeback state will
+  /// not change.
+  ///
+  /// This flag must NOT be modified after the entry is initialized, and may
+  /// safely be read without locking `this->multi_phase().mutex()`.
+  ///
+  /// TODO(jbms): Currently this flag is only respected for non-atomic commits.
+  constexpr static Flags kNonRetryable = 256;
+
+  /// Indicates that `source_->KvsWriteback` supports the `byte_range` option.
+  ///
+  /// This flag must NOT be modified after the entry is initialized, and may
+  /// safely be read without locking `this->multi_phase().mutex()`.
+  constexpr static Flags kSupportsByteRangeReads = 512;
+
   // Implementation of `ReadModifyWriteTarget` interface:
 
   /// Satisfies a read request by requesting a writeback of `prev_`, or by
   /// calling `MultiPhaseMutation::Read` if there is no previous operation.
-  void KvsRead(TransactionalReadOptions options,
+  void KvsRead(ReadModifyWriteTarget::ReadModifyWriteReadOptions options,
                ReadReceiver receiver) override;
 
   /// Returns `false` if `prev_` is not null, or if
   /// `MultiPhaseMutation::MultiPhaseReadsCommitted` returns `false`.
   /// Otherwise, returns `true`.
   bool KvsReadsCommitted() override;
+
+  /// Calls `source_->KvsRevoke()` if not already called.
+  void EnsureRevoked();
 
   virtual ~ReadModifyWriteEntry() = default;
 };
@@ -415,7 +444,8 @@ void WritebackError(SinglePhaseMutation& single_phase_mutation);
 
 void WritebackSuccess(DeleteRangeEntry& entry);
 void WritebackSuccess(ReadModifyWriteEntry& entry,
-                      TimestampedStorageGeneration new_stamp);
+                      TimestampedStorageGeneration new_stamp,
+                      const StorageGeneration& orig_generation);
 void InvalidateReadState(SinglePhaseMutation& single_phase_mutation);
 
 class MultiPhaseMutation {
@@ -442,11 +472,10 @@ class MultiPhaseMutation {
   /// `AllocateReadModifyWriteEntry` is overridden.
   virtual void FreeReadModifyWriteEntry(ReadModifyWriteEntry* entry);
 
-  /// Reads from the underlying storage.  This is called when a
-  /// `ReadModifyWriteSource` requests a read that cannot be satisfied by a
-  /// prior (superseded) entry.
-  virtual void Read(ReadModifyWriteEntry& entry,
-                    ReadModifyWriteTarget::TransactionalReadOptions&& options,
+  /// Reads from the underlying storage. This is called when a read that cannot
+  /// be satisfied by a prior (superseded) entry.
+  virtual void Read(std::string_view key,
+                    ReadModifyWriteTarget::ReadModifyWriteReadOptions&& options,
                     ReadModifyWriteTarget::ReadReceiver&& receiver) = 0;
 
   /// Called when the writeback result for a chain of entries for a given key is
@@ -498,6 +527,9 @@ class MultiPhaseMutation {
   ReadModifyWriteStatus ReadModifyWrite(size_t& phase, Key key,
                                         ReadModifyWriteSource& source);
 
+  virtual absl::Status ValidateReadModifyWriteStatus(
+      ReadModifyWriteStatus rmw_status) = 0;
+
   /// Registers a `DeleteRange` operation for the specified `range`.
   ///
   /// This is normally called by implementations of `Driver::DeleteRange`.
@@ -505,6 +537,11 @@ class MultiPhaseMutation {
   /// \pre Must be called with `mutex()` held.
   /// \param range The range to delete.
   void DeleteRange(KeyRange range);
+
+  Future<ReadResult> ReadImpl(internal::OpenTransactionNodePtr<> node,
+                              kvstore::Driver* driver, Key&& key,
+                              kvstore::ReadOptions&& options,
+                              absl::FunctionRef<void()> unlock);
 
   /// Returns a description of the first entry, used for error messages in the
   /// case that an atomic transaction is requested but is not supported.
@@ -541,12 +578,22 @@ class AtomicMultiPhaseMutationBase : public MultiPhaseMutation {
     }
     TimestampedStorageGeneration& stamp() { return stamp_; }
 
+    // Before writeback completes `stamp_` indicates the writeback request (i.e.
+    // base generation + mutation tags) and staleness and `orig_generation_` is
+    // ignored.
+    //
+    // After writeback completes successfully, the writeback request generation
+    // is moved to `orig_generation_` and `stamp_` stores the new committed
+    // generation and timestamp.
     TimestampedStorageGeneration stamp_;
+    StorageGeneration orig_generation_;
   };
   void RetryAtomicWriteback(absl::Time staleness_bound);
   void WritebackDelete(DeleteRangeEntry& entry) override;
   void AtomicCommitWritebackSuccess();
   void RevokeAllEntries();
+  absl::Status ValidateReadModifyWriteStatus(
+      ReadModifyWriteStatus rmw_status) final;
 
  protected:
   ~AtomicMultiPhaseMutationBase() = default;
@@ -571,8 +618,8 @@ class AtomicMultiPhaseMutation : public AtomicMultiPhaseMutationBase {
   ~AtomicMultiPhaseMutation() = default;
 };
 
-void ReadDirectly(Driver* driver, ReadModifyWriteEntry& entry,
-                  ReadModifyWriteTarget::TransactionalReadOptions&& options,
+void ReadDirectly(Driver* driver, std::string_view key,
+                  ReadModifyWriteTarget::ReadModifyWriteReadOptions&& options,
                   ReadModifyWriteTarget::ReadReceiver&& receiver);
 
 void WritebackDirectly(Driver* driver, ReadModifyWriteEntry& entry,
@@ -601,10 +648,10 @@ class TransactionNodeBase : public internal::TransactionState::Node,
     return this->driver()->DescribeKey(key);
   }
 
-  void Read(ReadModifyWriteEntry& entry,
-            ReadModifyWriteTarget::TransactionalReadOptions&& options,
+  void Read(std::string_view key,
+            ReadModifyWriteTarget::ReadModifyWriteReadOptions&& options,
             ReadModifyWriteTarget::ReadReceiver&& receiver) override {
-    internal_kvstore::ReadDirectly(driver(), entry, std::move(options),
+    internal_kvstore::ReadDirectly(driver(), key, std::move(options),
                                    std::move(receiver));
   }
 
@@ -649,6 +696,9 @@ class NonAtomicTransactionNode
   void WritebackDelete(DeleteRangeEntry& entry) override {
     internal_kvstore::WritebackDirectly(driver(), entry);
   }
+
+  absl::Status ValidateReadModifyWriteStatus(
+      ReadModifyWriteStatus rmw_status) final;
 };
 
 using AtomicTransactionNode = TransactionNodeBase<AtomicMultiPhaseMutation>;
@@ -663,6 +713,13 @@ Result<internal::OpenTransactionNodePtr<TransactionNode>> GetTransactionNode(
                                          driver, std::forward<Arg>(arg)...);
                                    }));
   return internal::static_pointer_cast<TransactionNode>(std::move(node));
+}
+
+template <typename TransactionNode>
+internal::OpenTransactionNodePtr<TransactionNode> GetExistingTransactionNode(
+    Driver* driver, const internal::OpenTransactionPtr& transaction) {
+  return internal::static_pointer_cast<TransactionNode>(
+      transaction->GetExistingMultiPhaseNode(driver));
 }
 
 template <typename TransactionNode, typename... Arg>
@@ -691,6 +748,35 @@ absl::Status AddDeleteRange(Driver* driver,
   return absl::OkStatus();
 }
 
+template <typename TransactionNode, typename... Arg>
+Future<ReadResult> TransactionalReadImpl(
+    Driver* driver, const internal::OpenTransactionPtr& transaction, Key&& key,
+    kvstore::ReadOptions&& options, Arg&&... arg) {
+  assert(transaction);
+  auto node = internal_kvstore::GetExistingTransactionNode<TransactionNode>(
+      driver, transaction);
+  if (!node && !(transaction->mode() & repeatable_read)) {
+    // Just perform a regular read.
+    return driver->Read(std::move(key), std::move(options));
+  }
+  if (!node) {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        node, internal_kvstore::GetTransactionNode<TransactionNode>(
+                  driver,
+                  // const_cast is safe because `transaction` is guaranteed to
+                  // be non-null, and `GetTransactionNode` only modifies it if
+                  // it is null.
+                  const_cast<internal::OpenTransactionPtr&>(transaction),
+                  std::forward<Arg>(arg)...));
+  }
+  MultiPhaseMutation* multi_phase_mutation = node.get();
+  auto& mutex = multi_phase_mutation->mutex();
+  UniqueWriterLock<absl::Mutex> lock(mutex);
+  return multi_phase_mutation->ReadImpl(std::move(node), driver, std::move(key),
+                                        std::move(options),
+                                        [&lock] { lock.unlock(); });
+}
+
 /// Performs a read via a `ReadModifyWrite` operation in an existing
 /// transaction.
 ///
@@ -713,7 +799,8 @@ Future<ReadResult> ReadViaExistingTransaction(
 /// transaction.
 Future<TimestampedStorageGeneration> WriteViaExistingTransaction(
     Driver* driver, internal::OpenTransactionPtr& transaction, size_t& phase,
-    Key key, std::optional<Value> value, WriteOptions options);
+    Key key, std::optional<Value> value, WriteOptions options,
+    bool fail_transaction_on_mismatch, StorageGeneration* out_generation);
 
 /// Performs a write via a `ReadModifyWrite` operation in a new transaction.
 ///

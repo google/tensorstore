@@ -311,6 +311,13 @@ class RegisteredMockKeyValueStore
     return base()->Read(std::move(key), std::move(options));
   }
 
+  Future<ReadResult> TransactionalRead(
+      const internal::OpenTransactionPtr& transaction, Key key,
+      ReadOptions options) override {
+    return base()->TransactionalRead(transaction, std::move(key),
+                                     std::move(options));
+  }
+
   Future<TimestampedStorageGeneration> Write(Key key,
                                              std::optional<Value> value,
                                              WriteOptions options) override {
@@ -323,6 +330,12 @@ class RegisteredMockKeyValueStore
 
   Future<const void> DeleteRange(KeyRange range) override {
     return base()->DeleteRange(std::move(range));
+  }
+
+  absl::Status TransactionalDeleteRange(
+      const internal::OpenTransactionPtr& transaction,
+      KeyRange range) override {
+    return base()->TransactionalDeleteRange(transaction, std::move(range));
   }
 
   absl::Status ReadModifyWrite(internal::OpenTransactionPtr& transaction,

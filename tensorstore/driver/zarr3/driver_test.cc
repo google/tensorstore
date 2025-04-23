@@ -49,6 +49,7 @@
 #include "tensorstore/kvstore/memory/memory_key_value_store.h"
 #include "tensorstore/kvstore/mock_kvstore.h"
 #include "tensorstore/kvstore/operations.h"
+#include "tensorstore/kvstore/test_matchers.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
@@ -57,6 +58,7 @@
 #include "tensorstore/spec.h"
 #include "tensorstore/staleness_bound.h"
 #include "tensorstore/tensorstore.h"
+#include "tensorstore/transaction.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
@@ -76,6 +78,7 @@ using ::tensorstore::Schema;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::TimestampedStorageGeneration;
 using ::tensorstore::internal::GetMap;
+using ::tensorstore::internal::MatchesKvsReadResult;
 using ::tensorstore::internal::TestSpecSchema;
 using ::tensorstore::internal::TestTensorStoreCreateCheckSchema;
 using ::tensorstore::internal::TestTensorStoreCreateWithSchema;
@@ -1622,6 +1625,42 @@ TEST(DriverTest, StoreDataEqualToFillValueSharding) {
                       ::testing::Pair("zarr.json", ::testing::_))));
     }
   }
+}
+
+TEST(DriverTest, TransactionalZeroByteReadAfterWritingChunk) {
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto mock_key_value_store_resource,
+      context.GetResource<tensorstore::internal::MockKeyValueStoreResource>());
+  auto mock_kvstore = *mock_key_value_store_resource;
+  mock_kvstore->forward_to = tensorstore::GetMemoryKeyValueStore();
+  mock_kvstore->log_requests = true;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open({{"driver", "zarr3"},
+                         {"kvstore", {{"driver", "mock_key_value_store"}}},
+                         {"store_data_equal_to_fill_value", true}},
+                        tensorstore::dtype_v<uint8_t>,
+                        tensorstore::Schema::Shape({}),
+                        tensorstore::OpenMode::create, context)
+          .result());
+
+  mock_kvstore->request_log.pop_all();
+
+  tensorstore::Transaction txn(tensorstore::isolated);
+  TENSORSTORE_ASSERT_OK(tensorstore::Write(
+      tensorstore::MakeScalarArray<uint8_t>(42), store | txn));
+
+  {
+    tensorstore::kvstore::ReadOptions options;
+    options.byte_range = tensorstore::OptionalByteRangeRequest::Stat();
+    EXPECT_THAT(tensorstore::kvstore::Read((store | txn)->kvstore(), "c",
+                                           std::move(options))
+                    .result(),
+                MatchesKvsReadResult(absl::Cord()));
+  }
+
+  EXPECT_THAT(mock_kvstore->request_log.pop_all(), ::testing::ElementsAre());
 }
 
 }  // namespace

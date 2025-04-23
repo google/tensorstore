@@ -40,9 +40,11 @@ inline ::testing::Matcher<StorageGeneration> MatchesStorageGeneration(
 
 /// GMock matcher for `StorageGeneration` values that correspond to a
 /// successfully-written value.
+///
+/// Note: This non-clean generations because it is used with transactional
+/// tests.
 MATCHER(IsRegularStorageGeneration, "") {
-  return StorageGeneration::IsClean(arg) &&
-         arg != StorageGeneration::Invalid() &&
+  return arg != StorageGeneration::Invalid() &&
          !StorageGeneration::IsNoValue(arg);
 }
 

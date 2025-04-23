@@ -98,6 +98,17 @@ class KvsBackedCache : public Parent {
 
   class TransactionNode;
 
+  struct EncodeOptions {
+    enum EncodeMode {
+      // Normal encoding.
+      kNormal,
+      // The content of the returned `absl::Cord` is ignored, only whether it
+      // is `std::nullopt` is relevant.
+      kValueDiscarded
+    };
+    EncodeMode encode_mode = kNormal;
+  };
+
   class Entry : public Parent::Entry {
    public:
     using OwningCache = KvsBackedCache;
@@ -196,10 +207,10 @@ class KvsBackedCache : public Parent {
     /// Encodes a `ReadData` object into a value to write back to the
     /// kvstore.
     ///
-    /// The derived class implementation should synchronously perform any
-    /// operations that require the lock be held , and then use a separate
-    /// executor for any expensive computations.
+    /// The derived class implementation should use a separate executor for any
+    /// expensive computations.
     virtual void DoEncode(
+        EncodeOptions options,
         std::shared_ptr<const typename Derived::ReadData> read_data,
         EncodeReceiver receiver) {
       ABSL_UNREACHABLE();  // COV_NF_LINE
@@ -235,7 +246,7 @@ class KvsBackedCache : public Parent {
 
     void DoRead(AsyncCache::AsyncCacheReadRequest request) final {
       auto read_state = AsyncCache::ReadLock<void>(*this).read_state();
-      kvstore::TransactionalReadOptions kvstore_options;
+      ReadModifyWriteTarget::ReadModifyWriteReadOptions kvstore_options;
       kvstore_options.generation_conditions.if_not_equal =
           std::move(read_state.stamp.generation);
       kvstore_options.staleness_bound = request.staleness_bound;
@@ -270,19 +281,57 @@ class KvsBackedCache : public Parent {
           << options.generation_conditions.if_not_equal
           << ", staleness_bound=" << options.staleness_bound
           << ", mode=" << options.writeback_mode;
-      auto read_state = AsyncCache::ReadLock<void>(*this).read_state();
+      AsyncCache::ReadState read_state;
+      StorageGeneration new_data_generation;
+      {
+        AsyncCache::ReadLock<void> lock(*this);
+        read_state = lock.read_state();
+        new_data_generation = this->new_data_generation_;
+      }
+      // If `if_not_equal` is specified, skip computing the result if its
+      // generation is known to be equal (subject to `options.staleness_bound`).
+      //
+      // The generation from the previous writeback request, if any, is stored
+      // in `new_data_generation`, while `read_state` holds the current cached
+      // read state, if any.
+      //
+      // If `new_data_generation` does NOT match `if_not_equal`, then a new
+      // writeback result must necessarily be computed. Even if it does match,
+      // however, there are still some constraints depending on what the
+      // generation is:
+      //
+      // - If `new_data_generation` is unconditional, then a new writeback
+      //   result is NOT needed.
+      //
+      // - Otherwise, `read_state.stamp.time` must satisfy
+      //   `options.staleness_bound` and `new_data_generation` must be
+      //   *compatible* with `read_state.stamp.generation`. Specifically,
+      //   `new_data_generation` must match either:
+      //
+      //   - `read_state.stamp.generation` (meaning this transaction node
+      //     left the state unmodified); or
+      //
+      //   - `Dirty(read_state.stamp.generation, mutation_id_)` (meaning this
+      //     transaction node modified the state).
       if (!StorageGeneration::IsUnknown(
               options.generation_conditions.if_not_equal) &&
-          options.generation_conditions.if_not_equal ==
-              read_state.stamp.generation &&
-          read_state.stamp.time >= options.staleness_bound) {
+          options.generation_conditions.if_not_equal == new_data_generation &&
+          (!StorageGeneration::IsConditional(new_data_generation) ||
+           ((new_data_generation == read_state.stamp.generation ||
+             StorageGeneration::IsDirtyOf(new_data_generation,
+                                          read_state.stamp.generation,
+                                          this->mutation_id_)) &&
+            read_state.stamp.time >= options.staleness_bound))) {
         ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
             << *this << "KvsWriteback: skipping because condition is satisfied";
-        return execution::set_value(receiver, kvstore::ReadResult::Unspecified(
-                                                  std::move(read_state.stamp)));
+        return execution::set_value(
+            receiver,
+            kvstore::ReadResult::Unspecified(TimestampedStorageGeneration(
+                std::move(new_data_generation), read_state.stamp.time)));
       }
       if (!StorageGeneration::IsUnknown(require_repeatable_read_) &&
-          read_state.stamp.time < options.staleness_bound) {
+          read_state.stamp.time < options.staleness_bound &&
+          this->transaction()->commit_started()) {
         // Read required to validate repeatable read.
         auto read_future = this->Read({options.staleness_bound});
         read_future.Force();
@@ -315,6 +364,7 @@ class KvsBackedCache : public Parent {
       struct ApplyReceiverImpl {
         TransactionNode* self_;
         StorageGeneration if_not_equal_;
+        absl::Time staleness_bound_;
         ReadModifyWriteSource::WritebackMode writeback_mode_;
         ReadModifyWriteSource::WritebackReceiver receiver_;
         void set_error(absl::Status error) {
@@ -322,7 +372,30 @@ class KvsBackedCache : public Parent {
         }
         void set_cancel() { ABSL_UNREACHABLE(); }  // COV_NF_LINE
         void set_value(AsyncCache::ReadState update) {
-          if (!StorageGeneration::IsUnknown(self_->require_repeatable_read_)) {
+          if ((writeback_mode_ ==
+                   ReadModifyWriteSource::kSpecifyUnchangedWriteback ||
+               writeback_mode_ ==
+                   ReadModifyWriteSource::kValueDiscardedSpecifyUnchanged) &&
+              StorageGeneration::IsUnknown(update.stamp.generation)) {
+            auto read_future = self_->Read({staleness_bound_});
+            read_future.Force();
+            read_future.ExecuteWhenReady(
+                [receiver_impl =
+                     std::move(*this)](Future<const void> future) mutable {
+                  TENSORSTORE_RETURN_IF_ERROR(
+                      future.status(),
+                      execution::set_error(receiver_impl, std::move(_)));
+                  auto update = AsyncCache::ReadLock<void>{*receiver_impl.self_}
+                                    .read_state();
+                  execution::set_value(receiver_impl, std::move(update));
+                });
+            return;
+          }
+
+          if (writeback_mode_ != ReadModifyWriteSource::kValueDiscarded &&
+              writeback_mode_ !=
+                  ReadModifyWriteSource::kValueDiscardedSpecifyUnchanged &&
+              !StorageGeneration::IsUnknown(self_->require_repeatable_read_)) {
             if (!StorageGeneration::IsConditional(update.stamp.generation)) {
               update.stamp.generation = StorageGeneration::Condition(
                   update.stamp.generation, self_->require_repeatable_read_);
@@ -333,9 +406,10 @@ class KvsBackedCache : public Parent {
                 return;
               }
               update.stamp.time = read_stamp.time;
-            } else if (!StorageGeneration::IsConditionalOn(
+            } else if (!StorageGeneration::IsDirtyOf(
                            update.stamp.generation,
-                           self_->require_repeatable_read_)) {
+                           self_->require_repeatable_read_,
+                           self_->mutation_id_)) {
               execution::set_error(receiver_, GetGenerationMismatchError());
               return;
             }
@@ -353,9 +427,9 @@ class KvsBackedCache : public Parent {
                 << *self_ << "DoApply: if_not_equal=" << if_not_equal_
                 << ", mode=" << writeback_mode_
                 << ", unmodified: " << update.stamp;
-            if (StorageGeneration::IsUnknown(update.stamp.generation)) {
-              self_->new_data_ = std::nullopt;
-            } else {
+            {
+              absl::MutexLock lock(&self_->mutex());
+              self_->new_data_generation_ = update.stamp.generation;
               self_->new_data_ = std::move(update.data);
             }
             return execution::set_value(
@@ -366,14 +440,24 @@ class KvsBackedCache : public Parent {
               << *self_ << "DoApply: if_not_equal=" << if_not_equal_
               << ", mode=" << writeback_mode_ << ", encoding: " << update.stamp
               << ", commit_started=" << self_->transaction()->commit_started();
-          self_->new_data_ = update.data;
+          {
+            absl::MutexLock lock(&self_->mutex());
+            self_->new_data_ = update.data;
+            self_->new_data_generation_ = update.stamp.generation;
+          }
           ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
               << *self_ << "DoEncode";
           auto update_data =
               std::static_pointer_cast<const typename Derived::ReadData>(
                   std::move(update.data));
+          EncodeOptions encode_options;
+          if (writeback_mode_ == ReadModifyWriteSource::kValueDiscarded ||
+              writeback_mode_ ==
+                  ReadModifyWriteSource::kValueDiscardedSpecifyUnchanged) {
+            encode_options.encode_mode = EncodeOptions::kValueDiscarded;
+          }
           GetOwningEntry(*self_).DoEncode(
-              std::move(update_data),
+              encode_options, std::move(update_data),
               EncodeReceiverImpl{self_, std::move(update.stamp),
                                  std::move(receiver_)});
         }
@@ -386,27 +470,35 @@ class KvsBackedCache : public Parent {
               AsyncCache::TransactionNode::ApplyOptions::kValidateOnly;
           break;
         case ReadModifyWriteSource::kSpecifyUnchangedWriteback:
-          apply_options.apply_mode =
-              AsyncCache::TransactionNode::ApplyOptions::kSpecifyUnchanged;
-          break;
         case ReadModifyWriteSource::kNormalWriteback:
           apply_options.apply_mode =
               AsyncCache::TransactionNode::ApplyOptions::kNormal;
+          break;
+        case ReadModifyWriteSource::kValueDiscarded:
+        case ReadModifyWriteSource::kValueDiscardedSpecifyUnchanged:
+          apply_options.apply_mode =
+              AsyncCache::TransactionNode::ApplyOptions::kValueDiscarded;
           break;
       }
       this->DoApply(
           std::move(apply_options),
           ApplyReceiverImpl{
               this, std::move(options.generation_conditions.if_not_equal),
-              options.writeback_mode, std::move(receiver)});
+              options.staleness_bound, options.writeback_mode,
+              std::move(receiver)});
     }
 
-    void KvsWritebackSuccess(TimestampedStorageGeneration new_stamp) override {
-      if (new_data_) {
+    void KvsWritebackSuccess(
+        TimestampedStorageGeneration new_stamp,
+        const StorageGeneration& orig_generation) override {
+      if (orig_generation.LastMutatedBy(this->mutation_id_) ||
+          (!StorageGeneration::IsUnknown(new_data_generation_) &&
+           StorageGeneration::Condition(new_data_generation_,
+                                        orig_generation) == orig_generation)) {
         this->WritebackSuccess(
-            AsyncCache::ReadState{*std::move(new_data_), std::move(new_stamp)});
+            AsyncCache::ReadState{std::move(new_data_), std::move(new_stamp)});
       } else {
-        // Unmodified.
+        // Umodified or overwritten during commit.
         this->WritebackSuccess(AsyncCache::ReadState{});
       }
     }
@@ -441,18 +533,25 @@ class KvsBackedCache : public Parent {
     ReadModifyWriteTarget* target_;
 
     // New data for the cache if the writeback completes successfully.
-    std::optional<std::shared_ptr<const void>> new_data_;
+    //
+    // Protected by `mutex()`.
+    std::shared_ptr<const void> new_data_;
+    StorageGeneration new_data_generation_;
 
-    // If not `StorageGeneration::Unknown()`, requires that the prior generation
-    // match this generation when the transaction is committed.
+    // If not `StorageGeneration::Unknown()`, requires that the prior
+    // generation match this generation when the transaction is committed.
+    //
+    // Note: Before `Revoke()` is called, this must only be accessed with
+    // `mutex()` held, and may be written. After `Revoke()` is called, this must
+    // not be modified, and may be safely read without holding `mutex()`.
     StorageGeneration require_repeatable_read_;
   };
 
   /// Returns the associated `kvstore::Driver`.
   kvstore::Driver* kvstore_driver() { return kvstore_driver_.get(); }
 
-  /// Sets the `kvstore::Driver`.  The caller is responsible for ensuring there
-  /// are no concurrent read or write operations.
+  /// Sets the `kvstore::Driver`.  The caller is responsible for ensuring
+  /// there are no concurrent read or write operations.
   void SetKvStoreDriver(kvstore::DriverPtr driver) {
     if (driver) {
       this->SetBatchNestingDepth(driver->BatchNestingDepth() + 1);

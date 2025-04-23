@@ -76,7 +76,8 @@ void KvsBackedTestCache::Entry::DoDecode(std::optional<absl::Cord> value,
   return execution::set_value(receiver, value_ptr);
 }
 
-void KvsBackedTestCache::Entry::DoEncode(std::shared_ptr<const absl::Cord> data,
+void KvsBackedTestCache::Entry::DoEncode(EncodeOptions options,
+                                         std::shared_ptr<const absl::Cord> data,
                                          EncodeReceiver receiver) {
   if (!data) {
     execution::set_value(receiver, std::nullopt);
@@ -169,7 +170,7 @@ void KvsBackedTestCache::TransactionNode::DoApply(ApplyOptions options,
       encoded = absl::Cord();
     }
     if (cleared || !value.empty()) {
-      read_state.stamp.generation.MarkDirty();
+      read_state.stamp.generation.MarkDirty(mutation_id_);
     }
     encoded.Append(value);
     read_state.data = std::make_shared<absl::Cord>(encoded);

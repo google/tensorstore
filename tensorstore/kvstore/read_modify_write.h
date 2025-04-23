@@ -50,12 +50,31 @@ class ReadModifyWriteTarget {
       ::tensorstore::kvstore::TransactionalReadOptions;
   using ReadReceiver = AnyReceiver<absl::Status, ReadResult>;
 
+  enum ReadMode {
+    /// Normal read request.
+    kNormalRead,
+
+    /// Only the `ReadResult::State` must be meaningful. Used for transactional
+    /// listing. A state of `kUnspecified` may be returned to indicate that the
+    /// value is unchanged.
+    kValueDiscarded,
+
+    /// Only the `ReadResult::State` must be meaningful. A state of
+    /// `kUnspecified` must NOT be returned to indicate that the value is
+    /// unchanged.
+    kValueDiscardedSpecifyUnchanged,
+  };
+
+  struct ReadModifyWriteReadOptions : public TransactionalReadOptions {
+    ReadMode read_mode = kNormalRead;
+  };
+
   /// Reads from the KeyValueStore.
   ///
   /// The result should reflect the current committed state as of the
   /// specified `staleness_bound`, and should also reflect any previous
   /// read-modify-write operations made in the current transaction.
-  virtual void KvsRead(TransactionalReadOptions options,
+  virtual void KvsRead(ReadModifyWriteReadOptions options,
                        ReadReceiver receiver) = 0;
 
   /// Returns `true` if `Read` returns the same result as calling
@@ -77,15 +96,21 @@ class ReadModifyWriteSource {
   using WritebackReceiver = AnyReceiver<absl::Status, ReadResult>;
 
   enum WritebackMode {
-    /// Request a value to writeback.  If this read-modify-write operation
-    /// would leave the existing value unchanged, it is permitted to return a
-    /// `ReadResult` with a state of `kUnspecified`.
+    /// Request a value to writeback. If this read-modify-write operation would
+    /// leave the existing value unchanged, it is permitted to return a
+    /// `ReadResult` with a state of `kUnspecified`. Note that it is okay to
+    /// return `kUnspecified` even if a prior source in the chain modifies the
+    /// value; during writeback, those prior modifications will still be taken
+    /// into account.
+    ///
+    /// This mode must *not* be specified in conjunction with `if_not_equal`.
     kNormalWriteback,
 
-    /// Same as `kNormalWriteback`, but a known writeback value must always be
-    /// specified.  It must not return a `ReadResult` in a
-    /// state of `kUnspecified` even if this read-modify-write operation would
-    /// leave the existing value unchanged.
+    /// Requests the value to writeback. Unlike `kNormalWriteback`, the source
+    /// must *not* return a `ReadResult` in a state of `kUnspecified` to
+    /// indicate that this read-modify-write operation would leave the existing
+    /// value unchanged.  However, the source may return `kUnspecified` if
+    /// `if_not_equal` is specified.
     ///
     /// This is specified when the writeback was requested due to a read from
     /// a subsequent read-modify-write operation layered on top of this
@@ -104,6 +129,42 @@ class ReadModifyWriteSource {
     /// on the value from this operation (e.g. an unconditional delete or
     /// overwrite).
     kValidateOnly,
+
+    /// Request the `ReadResult::State` that would be produced by a normal
+    /// writeback. It is not necessary to do any repeated-read validation, and
+    /// only the returned `ReadResult::State` must be meaningful: `kUnspecified`
+    /// means the value is unchanged, `kMissing` means the writeback ensures the
+    /// value is deleted, `kValue` means the writeback ensures the value is
+    /// present. This is used for transactional listing.
+    ///
+    /// This mode must *not* be specified in conjunction with `if_not_equal`.
+    ///
+    /// Unlike `kNormalWriteback`, this must *not* return `kUnspecified` unless
+    /// all prior sources in the chain also leave the value unspecified, i.e. it
+    /// must only return `kUnspecified` if both:
+    ///
+    /// 1. This source leaves the value unmodified;
+    ///
+    /// 2. `KvsRead` with a mode of ReadModifyWriteTarget::kValueDiscarded
+    ///    returns `kUnspecified`.
+    ///
+    /// This mode is used for querying modified keys when performing a
+    /// transactional list operation.
+    kValueDiscarded,
+
+    /// Request the `ReadResult::State` that would be produced by a normal
+    /// writeback. It is not necessary to do any repeated-read validation, and
+    /// only the returned `ReadResult::State` must be meaningful: `kMissing`
+    /// means the writeback ensures the value is deleted, `kValue` means the
+    /// writeback ensures the value is present. `kUnspecified` must not be
+    /// returned to indicate that the value is unchanged.  However, if
+    /// `if_not_equal` is specified, `kUnspecified` may be
+    /// returned to indicate that the `if_not_equal` condition was not
+    /// satisfied.
+    ///
+    /// This mode is used to satisfy a read request with a byte range of 0-0,
+    /// i.e. a "stat" request.
+    kValueDiscardedSpecifyUnchanged,
   };
 
   /// Specifies options for requesting a writeback value.
@@ -154,6 +215,9 @@ class ReadModifyWriteSource {
   /// Indicates that the most recently-provided writeback value was
   /// successfully committed.
   ///
+  /// `orig_generation` specifies the generation previously returned from
+  /// `KvsWriteback` corresponding to `new_stamp`, if applicable.
+  ///
   /// If `new_stamp.generation` is not `StorageGeneration::Unknown()`, it
   /// indicates that the writeback value was committed with the specified
   /// generation, and may safely be cached.
@@ -165,7 +229,9 @@ class ReadModifyWriteSource {
   ///
   /// This is a terminal method: no further methods will be called after this
   /// one.
-  virtual void KvsWritebackSuccess(TimestampedStorageGeneration new_stamp) = 0;
+  virtual void KvsWritebackSuccess(
+      TimestampedStorageGeneration new_stamp,
+      const StorageGeneration& orig_generation) = 0;
 
   /// Indicates that an error occurred during commit of this read-modify-write
   /// operation.  The actual error information is set as an error on the

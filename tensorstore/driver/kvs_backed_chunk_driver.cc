@@ -1174,10 +1174,15 @@ std::string MetadataCache::Entry::GetKeyValueStoreKey() {
 
 void MetadataCache::TransactionNode::DoApply(ApplyOptions options,
                                              ApplyReceiver receiver) {
-  if (this->pending_writes.empty() &&
-      options.apply_mode != ApplyOptions::kSpecifyUnchanged) {
+  if (this->pending_writes.empty()) {
     execution::set_value(
         receiver, ReadState{{}, TimestampedStorageGeneration::Unconditional()});
+    return;
+  }
+  if (options.apply_mode == ApplyOptions::kValueDiscarded) {
+    ReadState read_state;
+    read_state.stamp.generation.MarkDirty(mutation_id_);
+    execution::set_value(receiver, std::move(read_state));
     return;
   }
   auto continuation = [this, receiver = std::move(receiver)](
@@ -1196,7 +1201,7 @@ void MetadataCache::TransactionNode::DoApply(ApplyOptions options,
       return;
     }
     if (new_data != read_state.data) {
-      read_state.stamp.generation.MarkDirty();
+      read_state.stamp.generation.MarkDirty(mutation_id_);
       read_state.data = std::move(new_data);
     }
     execution::set_value(receiver, std::move(read_state));
@@ -1213,8 +1218,15 @@ void MetadataCache::TransactionNode::InvalidateReadState() {
   this->updated_metadata_ = nullptr;
 }
 
-void MetadataCache::Entry::DoEncode(std::shared_ptr<const void> data,
+void MetadataCache::Entry::DoEncode(EncodeOptions options,
+                                    std::shared_ptr<const void> data,
                                     EncodeReceiver receiver) {
+  if (options.encode_mode == EncodeOptions::kValueDiscarded) {
+    // Encoded metadata is always a non-deleted value.
+    execution::set_value(receiver, absl::Cord());
+    return;
+  }
+
   ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
       << *this << "Encoding metadata";
   auto& entry = GetOwningEntry(*this);

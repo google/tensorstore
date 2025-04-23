@@ -90,6 +90,7 @@ tensorstore_cc_test(
         "//tensorstore/driver/zarr3/codec:crc32c",
         "//tensorstore/internal:global_initializer",
         "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/internal:json_gtest",
         "//tensorstore/internal/cache",
         "//tensorstore/internal/cache:kvs_backed_cache_testutil",
         "//tensorstore/internal/riegeli:digest_suffixed_writer",

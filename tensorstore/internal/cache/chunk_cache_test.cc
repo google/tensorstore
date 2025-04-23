@@ -205,7 +205,7 @@ class TestCache
     }
 
     // DoEncode implementation required by `KvsBackedCache`.
-    void DoEncode(std::shared_ptr<const ReadData> data,
+    void DoEncode(EncodeOptions options, std::shared_ptr<const ReadData> data,
                   EncodeReceiver receiver) override {
       std::optional<absl::Cord> encoded;
       if (data) {

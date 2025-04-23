@@ -250,6 +250,7 @@ tensorstore_cc_library(
         "//tensorstore:transaction",
         "//tensorstore/internal:mutex",
         "//tensorstore/kvstore",
+        "//tensorstore/kvstore:byte_range",
         "//tensorstore/kvstore:generation",
         "//tensorstore/kvstore:key_range",
         "//tensorstore/kvstore/ocdbt:btree_writer",

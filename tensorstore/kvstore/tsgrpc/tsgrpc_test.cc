@@ -101,7 +101,7 @@ TEST_F(TsGrpcMockTest, Read) {
     state: 2
     value_part: '1234'
     generation_and_timestamp {
-      generation: '1\001'
+      generation: '\x001'
       timestamp { seconds: 1634327736 nanos: 123456 }
     }
   )pb");
@@ -132,8 +132,8 @@ TEST_F(TsGrpcMockTest, Read) {
 TEST_F(TsGrpcMockTest, ReadWithOptions) {
   ReadRequest expected_request = ParseTextProtoOrDie(R"pb(
     key: "abc"
-    generation_if_not_equal: "abc\001"
-    generation_if_equal: "xyz\001"
+    generation_if_not_equal: "\x00abc"
+    generation_if_equal: "\x00xyz"
     byte_range { inclusive_min: 1 exclusive_max: 10 }
   )pb");
 
@@ -167,7 +167,7 @@ TEST_F(TsGrpcMockTest, ReadMultipart) {
         state: 2
         value_part: '1234'
         generation_and_timestamp {
-          generation: '1\001'
+          generation: '\x001'
           timestamp { seconds: 1634327736 nanos: 123456 }
         }
       )pb"),
@@ -212,7 +212,7 @@ TEST_F(TsGrpcMockTest, Write) {
 
   WriteResponse response = ParseTextProtoOrDie(R"pb(
     generation_and_timestamp {
-      generation: '1\001'
+      generation: '\x001'
       timestamp { seconds: 1634327736 nanos: 123456 }
     }
   )pb");
@@ -243,12 +243,12 @@ TEST_F(TsGrpcMockTest, Write) {
 TEST_F(TsGrpcMockTest, WriteEmpty) {
   WriteRequest expected_request = ParseTextProtoOrDie(R"pb(
     key: 'abc'
-    generation_if_equal: '\005'
+    generation_if_equal: '\x02'
   )pb");
 
   WriteResponse response = ParseTextProtoOrDie(R"pb(
     generation_and_timestamp {
-      generation: '1\001'
+      generation: '\x001'
       timestamp { seconds: 1634327736 nanos: 123456 }
     }
   )pb");
@@ -280,12 +280,12 @@ TEST_F(TsGrpcMockTest, WriteWithOptions) {
   WriteRequest expected_request = ParseTextProtoOrDie(R"pb(
     key: 'abc'
     value_part: '1234'
-    generation_if_equal: "abc\001"
+    generation_if_equal: "\x00abc"
   )pb");
 
   WriteResponse response = ParseTextProtoOrDie(R"pb(
     generation_and_timestamp {
-      generation: '1\001'
+      generation: '\x001'
       timestamp { seconds: 1634327736 nanos: 123456 }
     }
   )pb");
@@ -317,12 +317,12 @@ TEST_F(TsGrpcMockTest, WriteWithOptions) {
 TEST_F(TsGrpcMockTest, WriteNullopt) {
   DeleteRequest expected_request = ParseTextProtoOrDie(R"pb(
     key: 'abc'
-    generation_if_equal: '\005'
+    generation_if_equal: '\x02'
   )pb");
 
   DeleteResponse response = ParseTextProtoOrDie(R"pb(
     generation_and_timestamp {
-      generation: '1\001'
+      generation: '\x001'
       timestamp { seconds: 1634327736 nanos: 123456 }
     }
   )pb");
@@ -352,7 +352,7 @@ TEST_F(TsGrpcMockTest, WriteMultipart) {
 
   WriteResponse response = ParseTextProtoOrDie(R"pb(
     generation_and_timestamp {
-      generation: '1\001'
+      generation: '\x001'
       timestamp { seconds: 1634327736 nanos: 123456 }
     }
   )pb");
@@ -387,7 +387,7 @@ TEST_F(TsGrpcMockTest, Delete) {
 
   DeleteResponse response = ParseTextProtoOrDie(R"pb(
     generation_and_timestamp {
-      generation: '1\001'
+      generation: '\x001'
       timestamp { seconds: 1634327736 nanos: 123456 }
     }
   )pb");
@@ -407,12 +407,12 @@ TEST_F(TsGrpcMockTest, Delete) {
 TEST_F(TsGrpcMockTest, DeleteWithOptions) {
   DeleteRequest expected_request = ParseTextProtoOrDie(R"pb(
     key: 'abc'
-    generation_if_equal: "abc\001"
+    generation_if_equal: "\x00abc"
   )pb");
 
   DeleteResponse response = ParseTextProtoOrDie(R"pb(
     generation_and_timestamp {
-      generation: '1\001'
+      generation: '\x001'
       timestamp { seconds: 1634327736 nanos: 123456 }
     }
   )pb");

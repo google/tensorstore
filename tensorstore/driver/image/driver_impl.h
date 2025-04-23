@@ -201,6 +201,7 @@ class ImageCache : public internal::KvsBackedCache<ImageCache<Specialization>,
   using ReadData = tensorstore::SharedArray<const uint8_t, 3>;
   using CacheType = ImageCache<Specialization>;
   using LockType = internal::AsyncCache::ReadLock<typename CacheType::ReadData>;
+  using EncodeOptions = typename Base::EncodeOptions;
 
   ImageCache() : Base(kvstore::DriverPtr()) {}
 
@@ -232,7 +233,7 @@ class ImageCache : public internal::KvsBackedCache<ImageCache<Specialization>,
           });
     }
 
-    void DoEncode(std::shared_ptr<const ReadData> data,
+    void DoEncode(EncodeOptions options, std::shared_ptr<const ReadData> data,
                   EncodeReceiver receiver) override {
       auto encode_result =
           GetOwningCache(*this).specialization_.EncodeImage(*data);
@@ -472,7 +473,7 @@ ImageDriver<Specialization>::GetStorageStatistics(
   // TODO(jbms): integrate this with the cache
   auto& cache = GetOwningCache(*cache_entry_);
   kvstore::ReadOptions read_options;
-  read_options.byte_range = OptionalByteRangeRequest(0, 0);
+  read_options.byte_range = OptionalByteRangeRequest::Stat();
   read_options.staleness_bound = data_staleness_.time;
   read_options.batch = std::move(request.options.batch);
   return MapFutureValue(

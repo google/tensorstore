@@ -72,6 +72,7 @@
 #include <stddef.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cassert>
 #include <optional>
 #include <string>
@@ -85,6 +86,7 @@
 #include "absl/strings/cord.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/mutex.h"
+#include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
@@ -95,6 +97,7 @@
 #include "tensorstore/kvstore/ocdbt/non_distributed/btree_writer_commit_operation.h"
 #include "tensorstore/kvstore/ocdbt/non_distributed/list.h"
 #include "tensorstore/kvstore/ocdbt/non_distributed/storage_generation.h"
+#include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_modify_write.h"
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/transaction.h"
@@ -270,7 +273,8 @@ void BtreeWriterTransactionNode::CommitSuccessful(absl::Time time) {
           break;
       }
       internal_kvstore::WritebackSuccess(
-          static_cast<ReadModifyWriteEntry&>(entry), std::move(stamp));
+          static_cast<ReadModifyWriteEntry&>(entry), std::move(stamp),
+          entry.stamp_.generation);
     }
   }
   MultiPhaseMutation::AllEntriesDone(GetCommittingPhase());
@@ -293,6 +297,14 @@ absl::Status AddDeleteRange(kvstore::Driver* driver, const IoHandle& io_handle,
       driver, transaction, std::move(range), io_handle);
 }
 
+Future<kvstore::ReadResult> TransactionalReadImpl(
+    kvstore::Driver* driver, const IoHandle& io_handle,
+    const internal::OpenTransactionPtr& transaction, kvstore::Key key,
+    kvstore::ReadOptions options) {
+  return internal_kvstore::TransactionalReadImpl<BtreeWriterTransactionNode>(
+      driver, transaction, std::move(key), std::move(options), io_handle);
+}
+
 namespace {
 
 struct IndirectValueReadModifyWriteSource final
@@ -300,19 +312,21 @@ struct IndirectValueReadModifyWriteSource final
   void KvsSetTarget(kvstore::ReadModifyWriteTarget& target) override {
     target_ =
         static_cast<BtreeWriterTransactionNode::ReadModifyWriteEntry*>(&target);
+    target_->flags_.fetch_or(BtreeWriterTransactionNode::ReadModifyWriteEntry::
+                                 kSupportsByteRangeReads,
+                             std::memory_order_relaxed);
   }
 
   void KvsInvalidateReadState() override {}
 
   void KvsWriteback(WritebackOptions options,
                     WritebackReceiver receiver) override {
-    if (options.writeback_mode == WritebackMode::kNormalWriteback ||
-        options.writeback_mode == WritebackMode::kValidateOnly) {
+    if (options.writeback_mode != WritebackMode::kSpecifyUnchangedWriteback) {
       // Just return an empty string.  The actual value will be obtained by
       // calling `IsSpecialSource()`.
       TimestampedStorageGeneration stamp;
       stamp.time = absl::InfiniteFuture();
-      stamp.generation.MarkDirty();
+      stamp.generation.MarkDirty(mutation_id_);
       execution::set_value(
           std::move(receiver),
           kvstore::ReadResult::Value(absl::Cord(), std::move(stamp)));
@@ -332,21 +346,30 @@ struct IndirectValueReadModifyWriteSource final
       }
     }
     if (auto* value_ptr = std::get_if<absl::Cord>(&value_ref_)) {
+      // Value stored directly in btree node.
       auto generation = internal_ocdbt::ComputeStorageGeneration(value_ref_);
-
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          auto byte_range, options.byte_range.Validate(value_ptr->size()),
+          execution::set_error(receiver, std::move(_)));
       execution::set_value(
-          receiver,
-          kvstore::ReadResult::Value(
-              *value_ptr, TimestampedStorageGeneration(
-                              std::move(generation), absl::InfiniteFuture())));
+          receiver, kvstore::ReadResult::Value(
+                        internal::GetSubCord(*value_ptr, byte_range),
+                        TimestampedStorageGeneration(std::move(generation),
+                                                     absl::InfiniteFuture())));
       return;
     }
+
+    // Value stored indirectly.
+    kvstore::ReadOptions read_options;
+    read_options.byte_range = options.byte_range;
     execution::submit(writer.io_handle_->ReadIndirectData(
-                          std::get<IndirectDataReference>(value_ref_), {}),
+                          std::get<IndirectDataReference>(value_ref_),
+                          std::move(read_options)),
                       std::move(receiver));
   }
 
-  void KvsWritebackSuccess(TimestampedStorageGeneration new_stamp) override {
+  void KvsWritebackSuccess(TimestampedStorageGeneration new_stamp,
+                           const StorageGeneration& orig_generation) override {
     delete this;
   }
 
@@ -358,6 +381,8 @@ struct IndirectValueReadModifyWriteSource final
 
   LeafNodeValueReference value_ref_;
   BtreeWriterTransactionNode::ReadModifyWriteEntry* target_;
+  const StorageGeneration::MutationId mutation_id_ =
+      StorageGeneration::AllocateMutationId();
 };
 
 struct CopySubtreeListReceiver {

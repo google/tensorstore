@@ -82,6 +82,8 @@ tensorstore_cc_library(
         "//tensorstore/serialization",
         "//tensorstore/serialization:absl_time",
         "//tensorstore/util:quote_string",
+        "@com_google_absl//absl/base:endian",
+        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
     ],
 )
@@ -92,8 +94,8 @@ tensorstore_cc_test(
     srcs = ["generation_test.cc"],
     deps = [
         ":generation",
-        "//tensorstore/serialization",
         "//tensorstore/serialization:test_util",
+        "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -176,6 +178,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:context_binding",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:json_registry",
+        "//tensorstore/internal:mutex",
         "//tensorstore/internal:path",
         "//tensorstore/internal:source_location",
         "//tensorstore/internal:tagged_ptr",
@@ -338,6 +341,7 @@ tensorstore_cc_test(
         ":test_util",
         "//tensorstore:transaction",
         "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/internal:json_gtest",
         "//tensorstore/kvstore/memory",
         "//tensorstore/util:status_testutil",
         "@com_google_absl//absl/status",

@@ -231,6 +231,10 @@ class KvStack
 
   Future<ReadResult> Read(Key key, ReadOptions options) override;
 
+  Future<ReadResult> TransactionalRead(
+      const internal::OpenTransactionPtr& transaction, Key key,
+      ReadOptions options) override;
+
   Future<TimestampedStorageGeneration> Write(Key key,
                                              std::optional<Value> value,
                                              WriteOptions options) override;
@@ -345,8 +349,24 @@ Future<ReadResult> KvStack::Read(Key key, ReadOptions options) {
   if (it == layers_.end()) {
     return ReadResult::Missing(absl::InfiniteFuture());
   }
-  key = key.substr(it->value.strip_prefix_length);
-  return kvstore::Read(it->value.kvstore, std::move(key), std::move(options));
+  return it->value.kvstore.driver->Read(
+      tensorstore::StrCat(it->value.kvstore.path,
+                          key.substr(it->value.strip_prefix_length)),
+      std::move(options));
+}
+
+Future<ReadResult> KvStack::TransactionalRead(
+    const internal::OpenTransactionPtr& transaction, Key key,
+    ReadOptions options) {
+  auto it = layers_.range_containing(key);
+  if (it == layers_.end()) {
+    return ReadResult::Missing(absl::InfiniteFuture());
+  }
+  return it->value.kvstore.driver->TransactionalRead(
+      transaction,
+      tensorstore::StrCat(it->value.kvstore.path,
+                          key.substr(it->value.strip_prefix_length)),
+      std::move(options));
 }
 
 Future<TimestampedStorageGeneration> KvStack::Write(Key key,

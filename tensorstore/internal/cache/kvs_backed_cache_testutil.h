@@ -49,7 +49,6 @@
 namespace tensorstore {
 namespace internal {
 
-
 /// Cache that may be used for testing `KvsBackedCache` and transactional
 /// `KeyValueStore` operations.
 ///
@@ -109,7 +108,7 @@ class KvsBackedTestCache
     void DoDecode(std::optional<absl::Cord> value,
                   DecodeReceiver receiver) override;
 
-    void DoEncode(std::shared_ptr<const absl::Cord> data,
+    void DoEncode(EncodeOptions options, std::shared_ptr<const absl::Cord> data,
                   EncodeReceiver receiver) override;
   };
 

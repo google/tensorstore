@@ -47,6 +47,7 @@
 #include "tensorstore/internal/cache/kvs_backed_cache_testutil.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/riegeli/digest_suffixed_writer.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
 #include "tensorstore/internal/thread/thread_pool.h"
@@ -78,6 +79,7 @@ using ::tensorstore::Batch;
 using ::tensorstore::Executor;
 using ::tensorstore::Future;
 using ::tensorstore::Index;
+using ::tensorstore::JsonSubValuesMatch;
 using ::tensorstore::KvStore;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::OptionalByteRangeRequest;
@@ -273,6 +275,43 @@ TEST_F(RawEncodingTest, List) {
               ::testing::Optional(::testing::ElementsAreArray(values)));
 }
 
+TEST_F(RawEncodingTest, ConditionalWrites) {
+  std::vector<Index> grid_shape{100};
+  kvstore::DriverPtr store = GetStore(grid_shape);
+  StorageGeneration gen2;
+  {
+    tensorstore::Transaction txn(tensorstore::isolated);
+    auto init_future2 = kvstore::WriteCommitted(
+        KvStore{store, txn}, EntryIdToKey(2, grid_shape), absl::Cord("bc"));
+    txn.CommitAsync().IgnoreFuture();
+
+    gen2 = init_future2.value().generation;
+  }
+
+  tensorstore::Transaction txn(tensorstore::isolated);
+
+  // Conditional write with matching generation.
+  auto future2 =
+      kvstore::WriteCommitted(KvStore{store, txn}, EntryIdToKey(2, grid_shape),
+                              absl::Cord("ww"), {gen2});
+  auto future3 =
+      kvstore::WriteCommitted(KvStore{store, txn}, EntryIdToKey(2, grid_shape),
+                              absl::Cord("xx"), {gen2});
+
+  txn.CommitAsync().IgnoreFuture();
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto shard_read,
+                                   base_kv_store->Read("shard_path").result());
+
+  EXPECT_THAT(future2.result(),
+              MatchesTimestampedStorageGeneration(shard_read.stamp.generation));
+  EXPECT_THAT(future3.result(), MatchesTimestampedStorageGeneration(
+                                    StorageGeneration::Unknown()));
+
+  EXPECT_THAT(store->Read(EntryIdToKey(2, grid_shape)).result(),
+              MatchesKvsReadResult(absl::Cord("ww")));
+}
+
 TEST_F(RawEncodingTest, WritesAndDeletes) {
   std::vector<Index> grid_shape{100};
   kvstore::DriverPtr store = GetStore(grid_shape);
@@ -324,21 +363,15 @@ TEST_F(RawEncodingTest, WritesAndDeletes) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto shard_read,
                                    base_kv_store->Read("shard_path").result());
 
-  // Exactly one of `future2` and `future3` succeeds, and the other is aborted
-  // due to generation mismatch.
-  EXPECT_THAT(
-      std::vector({future2.result(), future3.result()}),
-      ::testing::UnorderedElementsAre(
-          MatchesTimestampedStorageGeneration(StorageGeneration::Unknown()),
-          MatchesTimestampedStorageGeneration(shard_read.stamp.generation)));
+  EXPECT_THAT(future2.result(),
+              MatchesTimestampedStorageGeneration(shard_read.stamp.generation));
+  EXPECT_THAT(future3.result(), MatchesTimestampedStorageGeneration(
+                                    StorageGeneration::Unknown()));
 
   EXPECT_THAT(store->Read(EntryIdToKey(1, grid_shape)).result(),
               MatchesKvsReadResult(absl::Cord("a")));
   EXPECT_THAT(store->Read(EntryIdToKey(2, grid_shape)).result(),
-              MatchesKvsReadResult(
-                  !StorageGeneration::IsUnknown(future2.result()->generation)
-                      ? absl::Cord("ww")
-                      : absl::Cord("xx")));
+              MatchesKvsReadResult(absl::Cord("ww")));
   EXPECT_THAT(store->Read(EntryIdToKey(3, grid_shape)).result(),
               MatchesKvsReadResultNotFound());
   EXPECT_THAT(store->Read(EntryIdToKey(4, grid_shape)).result(),
@@ -1347,6 +1380,9 @@ TEST_F(ReadModifyWriteTest, MultipleCaches) {
 }
 
 TEST_F(ReadModifyWriteTest, MultiplePhasesMultipleCaches) {
+  mock_store->log_requests = true;
+  mock_store->forward_to = memory_store;
+
   std::vector<Index> grid_shape{100};
   auto cache1 = GetKvsBackedCache();
   auto cache2 = GetKvsBackedCache();
@@ -1366,27 +1402,33 @@ TEST_F(ReadModifyWriteTest, MultiplePhasesMultipleCaches) {
                               ->Modify(open_transaction, false, "jkl"));
     auto read_future = GetCacheEntry(cache1, EntryIdToKey(0x0, grid_shape))
                            ->ReadValue(open_transaction);
+    EXPECT_THAT(read_future.result(),
+                ::testing::Optional(absl::Cord("abcdefghijkl")));
+
     // Currently, reading a modified shard is not optimized, such that we end up
     // performing one read of the entire shard, and also one read of the single
     // modified chunk.
-    mock_store->read_requests.pop()(memory_store);
-    mock_store->read_requests.pop()(memory_store);
-    EXPECT_THAT(read_future.result(),
-                ::testing::Optional(absl::Cord("abcdefghijkl")));
+    EXPECT_THAT(
+        mock_store->request_log.pop_all(),
+        ::testing::ElementsAre(JsonSubValuesMatch({{"/type", "read"}}),
+                               JsonSubValuesMatch({{"/type", "read"}})));
   }
   transaction.CommitAsync().IgnoreFuture();
-  // Handle write request for first phase.
-  mock_store->write_requests.pop()(memory_store);
-  // Currently, invalidation after the commit of the first phase is not
-  // optimized.  We therefore have to re-read the contents of chunk 0, which
-  // involves 3 read requests to the underlying key value store (shard index,
-  // minishard index, chunk).
-  mock_store->read_requests.pop()(memory_store);
-  mock_store->read_requests.pop()(memory_store);
-  mock_store->read_requests.pop()(memory_store);
-  // Handle write request for second phase.
-  mock_store->write_requests.pop()(memory_store);
   TENSORSTORE_EXPECT_OK(transaction.future());
+
+  EXPECT_THAT(mock_store->request_log.pop_all(),
+              ::testing::ElementsAre(
+                  // Handle write request for first phase.
+                  JsonSubValuesMatch({{"/type", "write"}}),
+                  // Currently, invalidation after the commit of the first phase
+                  // is not optimized. We therefore re-read the contents of the
+                  // entire shard, and then re-validate it.
+                  JsonSubValuesMatch(
+                      {{"/type", "read"},
+                       {"/if_not_equal", StorageGeneration::NoValue().value}}),
+                  JsonSubValuesMatch({{"/type", "read"}}),
+                  // Handle write request for second phase.
+                  JsonSubValuesMatch({{"/type", "write"}})));
 }
 
 TENSORSTORE_GLOBAL_INITIALIZER {

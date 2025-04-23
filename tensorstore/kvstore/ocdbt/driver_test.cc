@@ -20,6 +20,7 @@
 #include <memory>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
@@ -767,6 +768,17 @@ TEST(OcdbtTest, TransactionalCopyRange) {
         store.WithPathSuffix("x/"), transactional_store.WithPathSuffix("z/")));
     EXPECT_THAT(kvstore::Read(transactional_store, "y/a").result(),
                 MatchesKvsReadResult(absl::Cord("value_a")));
+
+    // Check that byte range reads for entries resulting from a
+    // transactional `CopyRange` are handled correctly.
+    {
+      kvstore::ReadOptions options;
+      options.byte_range = tensorstore::OptionalByteRangeRequest{1, 3};
+      EXPECT_THAT(kvstore::Read(transactional_store, "y/a", std::move(options))
+                      .result(),
+                  MatchesKvsReadResult(absl::Cord("al")));
+    }
+
     TENSORSTORE_ASSERT_OK(transaction.CommitAsync());
   }
   EXPECT_THAT(GetMap(store), ::testing::Optional(::testing::ElementsAreArray({

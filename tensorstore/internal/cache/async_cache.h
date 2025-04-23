@@ -709,31 +709,39 @@ class AsyncCache : public Cache {
     using ApplyReceiver = AnyReceiver<absl::Status, ReadState>;
 
     struct ApplyOptions {
-      // Returned `ReadStateUpdate` must reflect an existing read state that is
+      // Returned `ReadState` must reflect an existing read state that is
       // current as of `staleness_bound`.
       absl::Time staleness_bound;
 
       enum ApplyMode {
         // The `stamp` field of the `ReadState` may be set to
         // `TimestampedStorageGeneration::Unconditional()` to indicate that this
-        // transaction node does nothing (e.g. read-only and does not
+        // transaction node does nothing (e.g. read-only and does no
         // validation).  In this case the `data` returned in the `ReadState`
         // will be ignored.  Otherwise, the `stamp` must not be
         // `StorageGeneration::Unknown()`, and should be marked "dirty" if the
         // data has been modified by this transaction node.
         kNormal,
 
-        // The `data` returned in the `ReadState` must be valid even if this
-        // transaction node does not modify it.  The `stamp` field of the
-        // `ReadState` must not be
-        // `TimestampedStorageGeneration::Unconditional()`.
-        kSpecifyUnchanged,
-
         // The `data` returned in the `ReadState` will be ignored.  This option
         // is used if `DoApply` is called solely to validate the read state.  If
         // no validation is necessary, the `stamp` field of the `ReadState` may
         // be set to `TimestampedStorageGeneration::Unconditional()`.
         kValidateOnly,
+
+        // No validation (e.g. for repeated reads) needs to be done and the
+        // caller promises to mostly ignore the `data` returned in the
+        // `ReadState`, except for some limited information (as defined by the
+        // particular derived class). In particular, when used with
+        // KvsBackedCache, `ApplyMode::kValueDiscarded` need only produce a
+        // `data` value that is compatible with `EncodeMode::kValueDiscarded`.
+        // Like `kNormal`, the `stamp` field of the `ReadState` may be set to
+        // `TimestampedStorageGeneration::Unconditional()` to indicate that this
+        // transaction node does nothing (e.g. read-only and does no
+        // validation). Otherwise, the `stamp` must not be
+        // `StorageGeneration::Unknown()`, and should be marked "dirty" if the
+        // data has been modified by this transaction node.
+        kValueDiscarded,
       };
 
       ApplyMode apply_mode = kNormal;
@@ -888,6 +896,10 @@ class AsyncCache : public Cache {
     // mutex, reads may occur without holding the entry's mutex.
     std::atomic<PrepareForCommitState> prepare_for_commit_state_{
         PrepareForCommitState::kNone};
+
+    // Mutation id for dirty generations resulting from this transaction node.
+    const StorageGeneration::MutationId mutation_id_ =
+        StorageGeneration::AllocateMutationId();
 
     // AbslStringify is used to dump the TransactionNode to the ABSL_LOG sink.
     // Example:

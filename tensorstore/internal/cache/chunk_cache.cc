@@ -632,18 +632,46 @@ void ChunkCache::TransactionNode::DoApply(ApplyOptions options,
         receiver, ReadState{{}, TimestampedStorageGeneration::Unconditional()});
     return;
   }
+  if (options.apply_mode == ApplyOptions::kValueDiscarded &&
+      this->is_modified) {
+    // Check if we can determine that the chunk will definitely be written (as
+    // opposed to deleted) regardless of the existing value, even though the
+    // contents is conditional on the existing value.
+    bool chunk_will_be_written = false;
+    auto& entry = GetOwningEntry(*this);
+    auto& grid = GetOwningCache(entry).grid();
+    {
+      UniqueWriterLock<AsyncCache::TransactionNode> lock(*this);
+      for (size_t component_i = 0; component_i < grid.components.size();
+           ++component_i) {
+        auto& component = this->components()[component_i];
+        if (!component.write_state.IsUnmodified() &&
+            component.write_state.array.valid() &&
+            component.write_state.store_if_equal_to_fill_value) {
+          // Will be written unconditionally.
+          chunk_will_be_written = true;
+          break;
+        }
+      }
+    }
+    if (chunk_will_be_written) {
+      AsyncCache::ReadState read_state;
+      read_state.stamp.generation.MarkDirty(mutation_id_);
+      read_state.data = internal::make_shared_for_overwrite<ReadData[]>(
+          grid.components.size());
+      execution::set_value(receiver, std::move(read_state));
+      return;
+    }
+  }
   auto continuation = WithExecutor(
       GetOwningCache(*this).executor(),
-      [this, receiver = std::move(receiver),
-       specify_unchanged =
-           options.apply_mode == ApplyOptions::kSpecifyUnchanged](
+      [this, receiver = std::move(receiver)](
           tensorstore::ReadyFuture<const void> future) mutable {
         if (!future.result().ok()) {
           return execution::set_error(receiver, future.result().status());
         }
         AsyncCache::ReadState read_state;
-        if (this->IsUnconditional() ||
-            (!this->is_modified && !specify_unchanged)) {
+        if (this->IsUnconditional() || !this->is_modified) {
           read_state.stamp = TimestampedStorageGeneration::Unconditional();
         } else {
           read_state = AsyncCache::ReadLock<void>(*this).read_state();
@@ -655,18 +683,16 @@ void ChunkCache::TransactionNode::DoApply(ApplyOptions options,
           WritebackSnapshot snapshot(
               *this, AsyncCache::ReadView<ReadData>(read_state));
           read_state.data = std::move(snapshot.new_read_data());
-          read_state.stamp.generation.MarkDirty();
+          read_state.stamp.generation.MarkDirty(mutation_id_);
         }
         execution::set_value(receiver, std::move(read_state));
       });
-  if (this->IsUnconditional() ||
-      (!this->is_modified &&
-       options.apply_mode != ApplyOptions::kSpecifyUnchanged)) {
+  if (this->IsUnconditional() || !this->is_modified) {
     continuation(MakeReadyFuture());
-  } else {
-    this->Read({options.staleness_bound})
-        .ExecuteWhenReady(std::move(continuation));
+    return;
   }
+  this->Read({options.staleness_bound})
+      .ExecuteWhenReady(std::move(continuation));
 }
 
 void ChunkCache::TransactionNode::InvalidateReadState() {

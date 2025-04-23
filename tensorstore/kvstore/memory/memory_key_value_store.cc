@@ -351,19 +351,22 @@ class MemoryDriver::TransactionNode
       if (entry.entry_type() == kReadModifyWrite) {
         auto& rmw_entry = static_cast<BufferedReadModifyWriteEntry&>(entry);
         auto& stamp = rmw_entry.stamp();
+        auto& orig_generation = rmw_entry.orig_generation_;
         stamp.time = commit_time;
         auto value_state = rmw_entry.value_state_;
         if (!StorageGeneration::IsDirty(stamp.generation)) {
           // Do nothing
+          orig_generation = stamp.generation;
         } else if (value_state == ReadResult::kMissing) {
           data.values.erase(rmw_entry.key_);
-          stamp.generation = StorageGeneration::NoValue();
+          orig_generation =
+              std::exchange(stamp.generation, StorageGeneration::NoValue());
         } else {
           assert(value_state == ReadResult::kValue);
           auto& v = data.values[rmw_entry.key_];
           v.generation_number = data.next_generation_number++;
           v.value = std::move(rmw_entry.value_);
-          stamp.generation = v.generation();
+          orig_generation = std::exchange(stamp.generation, v.generation());
         }
       } else {
         auto& dr_entry = static_cast<DeleteRangeEntry&>(entry);

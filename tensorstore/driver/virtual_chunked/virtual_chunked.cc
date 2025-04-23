@@ -345,7 +345,9 @@ void VirtualChunkedCache::TransactionNode::InitiateWriteback(
             }
             WriteParameters write_params;
             write_params.if_equal_ =
-                StorageGeneration::Clean(update.stamp.generation);
+                update.stamp.generation.LastMutatedBy(node->mutation_id_)
+                    ? StorageGeneration::StripTag(update.stamp.generation)
+                    : update.stamp.generation;
             write_params.executor_ = cache.executor();
             auto write_future = cache.write_function_(std::move(partial_array),
                                                       std::move(write_params));
