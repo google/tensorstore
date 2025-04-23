@@ -12,15 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "tensorstore/driver/zarr3/codec/codec_test_util.h"
+#include "tensorstore/util/status_testutil.h"
 
 namespace {
 
+using ::tensorstore::MatchesStatus;
 using ::tensorstore::internal_zarr3::CodecRoundTripTestParams;
 using ::tensorstore::internal_zarr3::CodecSpecRoundTripTestParams;
 using ::tensorstore::internal_zarr3::GetDefaultBytesCodecJson;
 using ::tensorstore::internal_zarr3::TestCodecRoundTrip;
+using ::tensorstore::internal_zarr3::TestCodecSpecResolve;
 using ::tensorstore::internal_zarr3::TestCodecSpecRoundTrip;
 
 TEST(ZstdTest, EndianInferred) {
@@ -46,6 +51,33 @@ TEST(ZstdTest, Checksum) {
       {{"name", "zstd"}, {"configuration", {{"level", 7}, {"checksum", true}}}},
   };
   TestCodecSpecRoundTrip(p);
+}
+
+TEST(ZstdTest, ChecksumOptionalInMetadata) {
+  CodecSpecRoundTripTestParams p;
+  p.from_json_options.constraints = false;
+  p.orig_spec = {
+      GetDefaultBytesCodecJson(),
+      {{"name", "zstd"}, {"configuration", {{"level", 7}}}},
+  };
+  p.expected_spec = {
+      GetDefaultBytesCodecJson(),
+      {{"name", "zstd"},
+       {"configuration", {{"level", 7}, {"checksum", false}}}},
+  };
+  TestCodecSpecRoundTrip(p);
+}
+
+TEST(ZstdTest, LevelRequiredInMetadata) {
+  CodecSpecRoundTripTestParams p;
+  EXPECT_THAT(
+      TestCodecSpecResolve(
+          {
+              GetDefaultBytesCodecJson(),
+              {{"name", "zstd"}},
+          },
+          p.resolve_params, /*constraints=*/false),
+      MatchesStatus(absl::StatusCode::kInvalidArgument, ".*\"level\".*"));
 }
 
 TEST(ZstdTest, DefaultLevel) {

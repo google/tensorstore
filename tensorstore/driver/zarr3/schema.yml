@@ -575,6 +575,10 @@ definitions:
               description: |
                 A higher compression level provides improved density but reduced
                 compression speed.
+            checksum:
+              type: boolean
+              title: Include content checksum in Zstandard frame when writing.
+              default: false
     examples:
     - name: zstd
       configuration:
