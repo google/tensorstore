@@ -55,19 +55,65 @@ void TestKeyValueStoreReadOps(const KvStore& store, std::string key,
                               absl::Cord expected_value,
                               std::string missing_key);
 
-/// Tests all operations on `store`, which should be empty.
-///
-/// \param get_key Maps arbitrary strings (which are nonetheless valid file
-///     paths) to keys in the format expected by `store`.  For stores that
-///     support file paths as keys, `get_key` can simply be the identity
-///     function.  This function must ensure that a given input key always maps
-///     to the same output key, and distinct input keys always map to distinct
-///     output keys.
-void TestKeyValueReadWriteOps(
-    const KvStore& store, size_t value_size,
-    absl::FunctionRef<std::string(std::string key)> get_key);
+struct KeyValueStoreOpsTestParameters {
+  // Name of test suite.
+  std::string test_name;
 
-void TestKeyValueReadWriteOps(const KvStore& store, size_t value_size = 0);
+  // Function that invokes a callback with the store.
+  //
+  // The `get_store` function can perform any necessary cleanup after the
+  // callback returns.
+  std::function<void(absl::FunctionRef<void(const KvStore& store)>)> get_store;
+
+  // For kvstore adapters, returns an adapter on top of the base store.
+  //
+  // For non-kvstore adapters, should be left as a null function.
+  std::function<void(const KvStore& base,
+                     absl::FunctionRef<void(const KvStore& store)>)>
+      get_store_adapter;
+
+  // Minimum size of value to use for read/write tests.
+  size_t value_size = 0;
+
+  // Maps arbitrary strings (which are nonetheless valid file paths) to keys in
+  // the format expected by `store`. For stores that support file paths as keys,
+  // `get_key` can simply be the identity function. This function must ensure
+  // that a given input key always maps to the same output key, and distinct
+  // input keys always map to distinct output keys.
+  std::function<std::string(std::string key)> get_key;
+
+  // Perform transactional tests using an atomic_isolated transaction rather
+  // than an isolated transaction.
+  bool atomic_transaction = false;
+
+  // Include DeleteRange tests.
+  bool test_delete_range = true;
+
+  // Include CopyRange tests.
+  bool test_copy_range = false;
+
+  // Include List tests.
+  bool test_list = true;
+
+  // If `test_list == true`, test list without an extra prefix. This fails if
+  // keys remain across `get_store` calls.
+  bool test_list_without_prefix = true;
+
+  // Indicates if list is expected to return sizes.
+  bool list_match_size = true;
+
+  // If `test_list == true`, test listing with the specified prefix also.
+  std::string test_list_prefix = "p/";
+
+  // Test transactional list operations.
+  bool test_transactional_list = true;
+
+  // Test special characters in the key.
+  bool test_special_characters = true;
+};
+
+/// Registers a suite of tests according to `params`.
+void RegisterKeyValueStoreOpsTests(KeyValueStoreOpsTestParameters params);
 
 /// Tests DeleteRange on `store`, which should be empty.
 void TestKeyValueStoreDeleteRange(const KvStore& store);

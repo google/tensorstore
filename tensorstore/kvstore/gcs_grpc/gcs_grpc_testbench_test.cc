@@ -28,6 +28,7 @@
 #include "absl/log/absl_log.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
+#include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/thread/thread.h"
 #include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/gcs/gcs_testbench.h"
@@ -47,6 +48,7 @@ namespace kvstore = ::tensorstore::kvstore;
 using ::gcs_testbench::StorageTestbench;
 using ::tensorstore::KvStore;
 using ::tensorstore::StorageGeneration;
+using ::tensorstore::internal::KeyValueStoreOpsTestParameters;
 
 namespace {
 
@@ -68,51 +70,27 @@ std::string GetTestBenchEndpoint() {
   return endpoint;
 }
 
-class GcsGrpcTestbenchTest : public testing::Test {
- public:
-  tensorstore::KvStore OpenStore(std::string path = "") {
-    std::string testbench_grpc_endpoint = GetTestBenchEndpoint();
-    return kvstore::Open({{"driver", "gcs_grpc"},
-                          {"endpoint", testbench_grpc_endpoint},
-                          {"timeout", "200ms"},
-                          {"num_channels", 1},
-                          {"bucket", "test_bucket"},
-                          {"path", path}})
-        .value();
-  }
-};
-
-TEST_F(GcsGrpcTestbenchTest, Basic) {
-  auto store = OpenStore();
-  tensorstore::internal::TestKeyValueReadWriteOps(store);
+tensorstore::KvStore OpenStore(std::string path = "") {
+  std::string testbench_grpc_endpoint = GetTestBenchEndpoint();
+  return kvstore::Open({{"driver", "gcs_grpc"},
+                        {"endpoint", testbench_grpc_endpoint},
+                        {"timeout", "200ms"},
+                        {"num_channels", 1},
+                        {"bucket", "test_bucket"},
+                        {"path", path}})
+      .value();
 }
 
-TEST_F(GcsGrpcTestbenchTest, DeletePrefix) {
-  auto store = OpenStore();
-  tensorstore::internal::TestKeyValueStoreDeletePrefix(store);
+TENSORSTORE_GLOBAL_INITIALIZER {
+  KeyValueStoreOpsTestParameters params;
+  params.test_name = "Basic";
+  params.get_store = [](auto callback) { callback(OpenStore()); };
+  params.test_list_without_prefix = false;
+  params.test_list_prefix = "list/";
+  RegisterKeyValueStoreOpsTests(params);
 }
 
-TEST_F(GcsGrpcTestbenchTest, DeleteRange) {
-  auto store = OpenStore();
-  tensorstore::internal::TestKeyValueStoreDeleteRange(store);
-}
-
-TEST_F(GcsGrpcTestbenchTest, DeleteRangeToEnd) {
-  auto store = OpenStore();
-  tensorstore::internal::TestKeyValueStoreDeleteRangeToEnd(store);
-}
-
-TEST_F(GcsGrpcTestbenchTest, DeleteRangeFromBeginning) {
-  auto store = OpenStore();
-  tensorstore::internal::TestKeyValueStoreDeleteRangeFromBeginning(store);
-}
-
-TEST_F(GcsGrpcTestbenchTest, List) {
-  auto store = OpenStore("list/");
-  tensorstore::internal::TestKeyValueStoreList(store);
-}
-
-TEST_F(GcsGrpcTestbenchTest, CancellationDoesNotCrash) {
+TEST(GcsGrpcTestbenchTest, CancellationDoesNotCrash) {
   // There's no way to really test cancellation reasonably for Read/Write,
   // so this test issues a bunch of writes and reads, and then cancels them
   // by dropping the futures, and verifies that it does not crash.
@@ -146,7 +124,7 @@ TEST_F(GcsGrpcTestbenchTest, CancellationDoesNotCrash) {
   }
 }
 
-TEST_F(GcsGrpcTestbenchTest, ConcurrentWrites) {
+TEST(GcsGrpcTestbenchTest, ConcurrentWrites) {
   tensorstore::internal::TestConcurrentWritesOptions options;
   auto store = OpenStore("concurrent_writes/");
   options.get_store = [&] { return store; };
@@ -154,7 +132,7 @@ TEST_F(GcsGrpcTestbenchTest, ConcurrentWrites) {
   tensorstore::internal::TestConcurrentWrites(options);
 }
 
-TEST_F(GcsGrpcTestbenchTest, BatchRead) {
+TEST(GcsGrpcTestbenchTest, BatchRead) {
   auto store = OpenStore("batch_read/");
   tensorstore::internal::BatchReadGenericCoalescingTestOptions options;
   options.coalescing_options = tensorstore::internal_kvstore_batch::

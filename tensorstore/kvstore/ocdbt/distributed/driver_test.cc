@@ -33,6 +33,7 @@
 #include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
+#include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/testing/random_seed.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
@@ -55,16 +56,16 @@ namespace kvstore = ::tensorstore::kvstore;
 using ::tensorstore::Context;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::internal::GetMap;
+using ::tensorstore::internal::KeyValueStoreOpsTestParameters;
 using ::tensorstore::internal_ocdbt::OcdbtDriver;
 using ::tensorstore::internal_ocdbt::ReadManifest;
 using ::tensorstore::ocdbt::CoordinatorServer;
 
-class DistributedTest : public ::testing::Test {
- protected:
+struct DistributedFixture {
   CoordinatorServer coordinator_server_;
   std::string coordinator_address_;
   Context::Spec context_spec;
-  DistributedTest() {
+  DistributedFixture() {
     ::nlohmann::json security_json = ::nlohmann::json::value_t::discarded;
     {
       CoordinatorServer::Options options;
@@ -87,6 +88,8 @@ class DistributedTest : public ::testing::Test {
                                    {"security", security_json}}}}));
   }
 };
+
+class DistributedTest : public ::testing::Test, public DistributedFixture {};
 
 TEST_F(DistributedTest, WriteSingleKey) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto base_store,
@@ -120,39 +123,29 @@ TEST_F(DistributedTest, WriteTwoKeys) {
                                   ::testing::Pair("testb", absl::Cord("b"))));
 }
 
-TEST_F(DistributedTest, BasicFunctionality) {
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store, kvstore::Open({{"driver", "ocdbt"}, {"base", "memory://"}},
-                                Context(context_spec))
-                      .result());
-  tensorstore::internal::TestKeyValueReadWriteOps(store);
-}
-
-TEST_F(DistributedTest, BasicFunctionalityMinArity) {
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store,
-      tensorstore::kvstore::Open({{"driver", "ocdbt"},
-                                  {"base", "memory://"},
-                                  {"config", {{"max_decoded_node_bytes", 1}}}},
-                                 Context(context_spec))
-          .result());
-  tensorstore::internal::TestKeyValueReadWriteOps(store);
-}
-
-TEST_F(DistributedTest, BasicFunctionalityMinArityNoInline) {
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store,
-      tensorstore::kvstore::Open({{"driver", "ocdbt"},
-                                  {"base", "memory://"},
-                                  {"config",
-                                   {
-                                       {"max_decoded_node_bytes", 1},
-                                       {"max_inline_value_bytes", 0},
-                                   }}},
-                                 Context(context_spec))
-          .result());
-
-  tensorstore::internal::TestKeyValueReadWriteOps(store);
+TENSORSTORE_GLOBAL_INITIALIZER {
+  auto register_test_suite = [](std::string test_name,
+                                ::nlohmann::json config) {
+    KeyValueStoreOpsTestParameters params;
+    params.test_name = test_name;
+    params.get_store = [=](auto callback) {
+      DistributedFixture fixture;
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+          auto store,
+          kvstore::Open(
+              {{"driver", "ocdbt"}, {"base", "memory://"}, {"config", config}},
+              Context(fixture.context_spec))
+              .result());
+      callback(store);
+    };
+    RegisterKeyValueStoreOpsTests(params);
+  };
+  register_test_suite("Default", ::nlohmann::json::object_t());
+  register_test_suite("MinArity", {{"max_decoded_node_bytes", 1}});
+  register_test_suite("MinArityNoInline", {
+                                              {"max_decoded_node_bytes", 1},
+                                              {"max_inline_value_bytes", 0},
+                                          });
 }
 
 TEST_F(DistributedTest, TwoCooperators) {

@@ -137,6 +137,7 @@ tensorstore_cc_test(
     ],
     deps = [
         ":gcs_grpc",
+        "//tensorstore/internal:global_initializer",
         "//tensorstore/internal/thread",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:batch_util",

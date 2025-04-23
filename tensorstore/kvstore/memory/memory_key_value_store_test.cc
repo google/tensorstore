@@ -23,6 +23,7 @@
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/internal/cache_key/cache_key.h"
+#include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -41,45 +42,30 @@ using ::tensorstore::Context;
 using ::tensorstore::KvStore;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
+using ::tensorstore::internal::KeyValueStoreOpsTestParameters;
 using ::tensorstore::internal::MatchesKvsReadResult;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
 using ::tensorstore::serialization::SerializationRoundTrip;
 
-TEST(MemoryKeyValueStoreTest, Basic) {
-  auto store = tensorstore::GetMemoryKeyValueStore();
-  tensorstore::internal::TestKeyValueReadWriteOps(store);
-}
+TENSORSTORE_GLOBAL_INITIALIZER {
+  {
+    KeyValueStoreOpsTestParameters params;
+    params.test_name = "Atomic";
+    params.get_store = [](auto callback) {
+      callback(tensorstore::GetMemoryKeyValueStore(/*atomic=*/true));
+    };
+    params.atomic_transaction = true;
+    RegisterKeyValueStoreOpsTests(params);
+  }
 
-TEST(MemoryKeyValueStoreTest, DeletePrefix) {
-  auto store = tensorstore::GetMemoryKeyValueStore();
-  tensorstore::internal::TestKeyValueStoreDeletePrefix(store);
-}
-
-TEST(MemoryKeyValueStoreTest, DeleteRange) {
-  auto store = tensorstore::GetMemoryKeyValueStore();
-  tensorstore::internal::TestKeyValueStoreDeleteRange(store);
-}
-
-TEST(MemoryKeyValueStoreTest, DeleteRangeToEnd) {
-  auto store = tensorstore::GetMemoryKeyValueStore();
-  tensorstore::internal::TestKeyValueStoreDeleteRangeToEnd(store);
-}
-
-TEST(MemoryKeyValueStoreTest, DeleteRangeFromBeginning) {
-  auto store = tensorstore::GetMemoryKeyValueStore();
-  tensorstore::internal::TestKeyValueStoreDeleteRangeFromBeginning(store);
-}
-
-#if 0
-TEST(MemoryKeyValueStoreTest, CopyRange) {
-  auto store = tensorstore::GetMemoryKeyValueStore();
-  tensorstore::internal::TestKeyValueStoreCopyRange(store);
-}
-#endif
-
-TEST(MemoryKeyValueStoreTest, List) {
-  auto store = tensorstore::GetMemoryKeyValueStore();
-  tensorstore::internal::TestKeyValueStoreList(store);
+  {
+    KeyValueStoreOpsTestParameters params;
+    params.test_name = "NonAtomic";
+    params.get_store = [](auto callback) {
+      callback(tensorstore::GetMemoryKeyValueStore(/*atomic=*/false));
+    };
+    RegisterKeyValueStoreOpsTests(params);
+  }
 }
 
 TEST(MemoryKeyValueStoreTest, Open) {
@@ -117,15 +103,6 @@ TEST(MemoryKeyValueStoreTest, Open) {
         auto store, kvstore::Open({{"driver", "memory"}}, context).result());
     EXPECT_EQ("value", kvstore::Read(store, "key").value().value);
   }
-}
-
-TEST(MemoryKeyValueStoreTest, ListWithPath) {
-  auto context = Context::Default();
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store,
-      kvstore::Open({{"driver", "memory"}, {"path", "p/"}}, context).result());
-
-  tensorstore::internal::TestKeyValueStoreList(store);
 }
 
 TEST(MemoryKeyValueStoreTest, SpecRoundtrip) {

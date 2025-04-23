@@ -22,6 +22,7 @@
 #include "absl/flags/flag.h"
 #include "absl/strings/string_view.h"
 #include "tensorstore/context.h"
+#include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/metrics/collect.h"
 #include "tensorstore/internal/metrics/registry.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -65,20 +66,15 @@ ABSL_FLAG(tensorstore::JsonAbslFlag<tensorstore::Context::Spec>, context_spec,
 namespace {
 
 using ::tensorstore::Context;
+using ::tensorstore::internal::KeyValueStoreOpsTestParameters;
 
-class LiveKvStoreTest : public ::testing::Test {
- public:
-  Context GetContext();
-  tensorstore::kvstore::Spec GetSpec();
-};
-
-Context LiveKvStoreTest::GetContext() {
+Context GetContext() {
   static Context* context =
       new Context(absl::GetFlag(FLAGS_context_spec).value);
   return *context;
 }
 
-tensorstore::kvstore::Spec LiveKvStoreTest::GetSpec() {
+tensorstore::kvstore::Spec GetSpec() {
   auto kvstore_spec = absl::GetFlag(FLAGS_kvstore_spec).value;
   if (!kvstore_spec.path.empty() && kvstore_spec.path.back() != '/') {
     kvstore_spec.AppendSuffix("/");
@@ -86,17 +82,17 @@ tensorstore::kvstore::Spec LiveKvStoreTest::GetSpec() {
   return kvstore_spec;
 }
 
-TEST_F(LiveKvStoreTest, Basic) {
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store, tensorstore::kvstore::Open(GetSpec(), GetContext()).result());
-
-  tensorstore::internal::TestKeyValueReadWriteOps(store);
-}
-
-TEST_F(LiveKvStoreTest, DeleteRange) {
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store, tensorstore::kvstore::Open(GetSpec(), GetContext()).result());
-  tensorstore::internal::TestKeyValueStoreDeleteRange(store);
+TENSORSTORE_GLOBAL_INITIALIZER {
+  KeyValueStoreOpsTestParameters params;
+  params.test_name = "Basic";
+  params.get_store = [](auto callback) {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::kvstore::Open(GetSpec(), GetContext()).result());
+    callback(store);
+  };
+  params.test_list_without_prefix = false;
+  RegisterKeyValueStoreOpsTests(params);
 }
 
 void DumpAllMetrics() {

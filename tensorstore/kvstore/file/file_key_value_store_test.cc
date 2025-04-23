@@ -40,6 +40,7 @@
 #include "absl/synchronization/notification.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
+#include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/os/filesystem.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
 #include "tensorstore/kvstore/generation.h"
@@ -69,6 +70,7 @@ using ::tensorstore::KeyRange;
 using ::tensorstore::KvStore;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::StorageGeneration;
+using ::tensorstore::internal::KeyValueStoreOpsTestParameters;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
 using ::tensorstore::internal::MatchesListEntry;
 using ::tensorstore::internal::MatchesTimestampedStorageGeneration;
@@ -81,59 +83,76 @@ KvStore GetStore(std::string root) {
   return kvstore::Open({{"driver", "file"}, {"path", root + "/"}}).value();
 }
 
-TEST(FileKeyValueStoreTest, Basic) {
-  ScopedTemporaryDirectory tempdir;
-  std::string root = tempdir.path() + "/root";
-  auto store = GetStore(root);
-  tensorstore::internal::TestKeyValueReadWriteOps(store);
-}
+TENSORSTORE_GLOBAL_INITIALIZER {
+  const auto register_with_spec = [](std::string test_name, auto get_spec,
+                                     KeyValueStoreOpsTestParameters params) {
+    params.test_name = test_name;
+    params.get_store = [get_spec](auto callback) {
+      ScopedTemporaryDirectory tempdir;
+      std::string root = tempdir.path() + "/root";
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
+                                       kvstore::Open(get_spec(root)).result());
 
-TEST(FileKeyValueStoreTest, BasiclockfileLocking) {
-  ScopedTemporaryDirectory tempdir;
-  std::string root = tempdir.path() + "/root";
-  auto store = kvstore::Open({
-                                 {"driver", "file"},
-                                 {"path", root + "/"},
-                                 {"file_io_locking", {{"mode", "lockfile"}}},
-                             })
-                   .value();
-  tensorstore::internal::TestKeyValueReadWriteOps(store);
-}
+      callback(store);
+    };
+    RegisterKeyValueStoreOpsTests(params);
+  };
+  KeyValueStoreOpsTestParameters params;
+#ifdef _WIN32
+  params.list_match_size = true;
+#else
+  params.list_match_size = false;
+#endif
 
-TEST(FileKeyValueStoreTest, BasicNoLocking) {
-  ScopedTemporaryDirectory tempdir;
-  std::string root = tempdir.path() + "/root";
-  auto store = kvstore::Open({
-                                 {"driver", "file"},
-                                 {"path", root + "/"},
-                                 {"file_io_locking", {{"mode", "none"}}},
-                             })
-                   .value();
-  tensorstore::internal::TestKeyValueReadWriteOps(store);
-}
-
-TEST(FileKeyValueStoreTest, BasicNoSync) {
-  ScopedTemporaryDirectory tempdir;
-  std::string root = tempdir.path() + "/root";
-  auto store = kvstore::Open({
-                                 {"driver", "file"},
-                                 {"path", root + "/"},
-                                 {"file_io_sync", false},
-                             })
-                   .value();
-  tensorstore::internal::TestKeyValueReadWriteOps(store);
-}
-
-TEST(FileKeyValueStoreTest, BasicMemmap) {
-  ScopedTemporaryDirectory tempdir;
-  std::string root = tempdir.path() + "/root";
-  auto store = kvstore::Open({
-                                 {"driver", "file"},
-                                 {"path", root + "/"},
-                                 {"file_io_memmap", true},
-                             })
-                   .value();
-  tensorstore::internal::TestKeyValueReadWriteOps(store, 256 * 1024);
+  register_with_spec(
+      "Default",
+      [](std::string path) -> ::nlohmann::json {
+        return {{"driver", "file"}, {"path", path}};
+      },
+      params);
+  {
+    params.test_delete_range = false;
+    params.test_list = false;
+    params.test_transactional_list = false;
+    params.test_special_characters = false;
+    register_with_spec(
+        "Lockfile",
+        [](std::string path) -> ::nlohmann::json {
+          return {{"driver", "file"},
+                  {"path", path},
+                  {"file_io_locking", {{"mode", "lockfile"}}}};
+        },
+        params);
+    register_with_spec(
+        "NoLocking",
+        [](std::string path) -> ::nlohmann::json {
+          return {{"driver", "file"},
+                  {"path", path},
+                  {"file_io_locking", {{"mode", "none"}}}};
+        },
+        params);
+    register_with_spec(
+        "NoSync",
+        [](std::string path) -> ::nlohmann::json {
+          return {{"driver", "file"}, {"path", path}, {"file_io_sync", false}};
+        },
+        params);
+    {
+      auto p = params;
+      p.value_size = 256 * 1024;
+      register_with_spec(
+          "Memmap",
+          [](std::string path) -> ::nlohmann::json {
+            return {
+                {"driver", "file"}, {"path", path}, {"file_io_memmap", true}};
+          },
+          p);
+    }
+    register_with_spec(
+        "UrlOpen",
+        [](std::string path) -> ::nlohmann::json { return "file://" + path; },
+        params);
+  }
 }
 
 TEST(FileKeyValueStoreTest, InvalidKey) {
@@ -347,34 +366,6 @@ TEST(FileKeyValueStoreTest, Permissions) {
 }
 #endif
 
-TEST(FileKeyValueStoreTest, DeletePrefix) {
-  ScopedTemporaryDirectory tempdir;
-  std::string root = tempdir.path() + "/root";
-  auto store = GetStore(root);
-  tensorstore::internal::TestKeyValueStoreDeletePrefix(store);
-}
-
-TEST(FileKeyValueStoreTest, DeleteRange) {
-  ScopedTemporaryDirectory tempdir;
-  std::string root = tempdir.path() + "/root";
-  auto store = GetStore(root);
-  tensorstore::internal::TestKeyValueStoreDeleteRange(store);
-}
-
-TEST(FileKeyValueStoreTest, DeleteRangeToEnd) {
-  ScopedTemporaryDirectory tempdir;
-  std::string root = tempdir.path() + "/root";
-  auto store = GetStore(root);
-  tensorstore::internal::TestKeyValueStoreDeleteRangeToEnd(store);
-}
-
-TEST(FileKeyValueStoreTest, DeleteRangeFromBeginning) {
-  ScopedTemporaryDirectory tempdir;
-  std::string root = tempdir.path() + "/root";
-  auto store = GetStore(root);
-  tensorstore::internal::TestKeyValueStoreDeleteRangeFromBeginning(store);
-}
-
 #if 0
 TEST(FileKeyValueStoreTest, CopyRange) {
   ScopedTemporaryDirectory tempdir;
@@ -403,13 +394,6 @@ TEST(FileKeyValueStoreTest, ListErrors) {
                     HasSubstr("set_error: INVALID_ARGUMENT: Invalid key: "),
                     "set_stopping"));
   }
-}
-
-TEST(FileKeyValueStoreTest, List) {
-  ScopedTemporaryDirectory tempdir;
-  std::string root = tempdir.path() + "/root";
-  auto store = GetStore(root);
-  tensorstore::internal::TestKeyValueStoreList(store, /*match_size=*/false);
 }
 
 TEST(FileKeyValueStoreTest, SpecRoundtrip) {
@@ -470,15 +454,6 @@ TEST(FileKeyValueStoreTest, UrlRoundtrip) {
       {{"driver", "file"}, {"path", "/abc/"}}, "file:///abc/");
   tensorstore::internal::TestKeyValueStoreUrlRoundtrip(
       {{"driver", "file"}, {"path", "/abc def/"}}, "file:///abc%20def/");
-}
-
-TEST(FileKeyValueStoreTest, UrlOpen) {
-  ScopedTemporaryDirectory tempdir;
-  std::string root = tempdir.path() + "/root";
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
-                                   kvstore::Open("file://" + root).result());
-
-  tensorstore::internal::TestKeyValueReadWriteOps(store);
 }
 
 TEST(FileKeyValueStoreTest, InvalidUri) {

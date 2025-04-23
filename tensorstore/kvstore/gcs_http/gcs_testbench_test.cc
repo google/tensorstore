@@ -28,6 +28,7 @@
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "tensorstore/internal/env.h"
+#include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/thread/thread.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -42,6 +43,7 @@ namespace kvstore = ::tensorstore::kvstore;
 using ::gcs_testbench::StorageTestbench;
 using ::tensorstore::KvStore;
 using ::tensorstore::StorageGeneration;
+using ::tensorstore::internal::KeyValueStoreOpsTestParameters;
 
 namespace {
 
@@ -67,47 +69,23 @@ StorageTestbench& GetTestBench() {
   return *testbench;
 }
 
-class GcsTestbenchTest : public testing::Test {
- public:
-  tensorstore::KvStore OpenStore(std::string path = "") {
-    GetTestBench();
-    return kvstore::Open(
-               {{"driver", "gcs"}, {"bucket", "test_bucket"}, {"path", path}})
-        .value();
-  }
-};
-
-TEST_F(GcsTestbenchTest, Basic) {
-  auto store = OpenStore();
-  tensorstore::internal::TestKeyValueReadWriteOps(store);
+tensorstore::KvStore OpenStore(std::string path = "") {
+  GetTestBench();
+  return kvstore::Open(
+             {{"driver", "gcs"}, {"bucket", "test_bucket"}, {"path", path}})
+      .value();
 }
 
-TEST_F(GcsTestbenchTest, DeletePrefix) {
-  auto store = OpenStore();
-  tensorstore::internal::TestKeyValueStoreDeletePrefix(store);
+TENSORSTORE_GLOBAL_INITIALIZER {
+  KeyValueStoreOpsTestParameters params;
+  params.test_name = "Basic";
+  params.get_store = [](auto callback) { callback(OpenStore()); };
+  params.test_list_without_prefix = false;
+  params.test_list_prefix = "list/";
+  RegisterKeyValueStoreOpsTests(params);
 }
 
-TEST_F(GcsTestbenchTest, DeleteRange) {
-  auto store = OpenStore();
-  tensorstore::internal::TestKeyValueStoreDeleteRange(store);
-}
-
-TEST_F(GcsTestbenchTest, DeleteRangeToEnd) {
-  auto store = OpenStore();
-  tensorstore::internal::TestKeyValueStoreDeleteRangeToEnd(store);
-}
-
-TEST_F(GcsTestbenchTest, DeleteRangeFromBeginning) {
-  auto store = OpenStore();
-  tensorstore::internal::TestKeyValueStoreDeleteRangeFromBeginning(store);
-}
-
-TEST_F(GcsTestbenchTest, List) {
-  auto store = OpenStore("list/");
-  tensorstore::internal::TestKeyValueStoreList(store);
-}
-
-TEST_F(GcsTestbenchTest, CancellationDoesNotCrash) {
+TEST(GcsTestbenchTest, CancellationDoesNotCrash) {
   // There's no way to really test cancellation reasonably for Read/Write,
   // so this test issues a bunch of writes and reads, and then cancels them
   // by dropping the futures, and verifies that it does not crash.
@@ -143,7 +121,7 @@ TEST_F(GcsTestbenchTest, CancellationDoesNotCrash) {
 
 // On windows, this concurrent test is flaky when used against the gcs
 // storage-testbench.
-TEST_F(GcsTestbenchTest, ConcurrentWrites) {
+TEST(GcsTestbenchTest, ConcurrentWrites) {
   tensorstore::internal::TestConcurrentWritesOptions options;
   auto store = OpenStore("concurrent_writes/");
   options.get_store = [&] { return store; };

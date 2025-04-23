@@ -238,6 +238,13 @@ struct ListEntry {
   friend void AbslStringify(Sink& sink, const ListEntry& entry) {
     absl::Format(&sink, "%s", entry.key);
   }
+
+  friend bool operator==(const ListEntry& a, const ListEntry& b) {
+    return a.key == b.key && a.size == b.size;
+  }
+  friend bool operator!=(const ListEntry& a, const ListEntry& b) {
+    return !(a == b);
+  }
 };
 
 // gtest output formatting.

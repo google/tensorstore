@@ -346,6 +346,7 @@ tensorstore_cc_test(
         "//tensorstore:context",
         "//tensorstore:json_serialization_options_base",
         "//tensorstore/internal:env",
+        "//tensorstore/internal:global_initializer",
         "//tensorstore/internal:json_gtest",
         "//tensorstore/internal/aws:aws_credentials",
         "//tensorstore/internal/aws/credentials:common",

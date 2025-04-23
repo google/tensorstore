@@ -23,9 +23,9 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_googletest",
-        urls = ["https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/google/googletest/archive/0953a17a4281fc26831da647ad3fcd5e21e6473b.zip"],  # main(2024-09-10)
-        sha256 = "374cf3b88504f141a0da1058d8bb2cefbcd2f952037b3fc7909d6360785095e4",
-        strip_prefix = "googletest-0953a17a4281fc26831da647ad3fcd5e21e6473b",
+        urls = ["https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/google/googletest/archive/cd430b47a54841ec45d64d2377d7cabaf0eba610.zip"],  # main(2025-04-23)
+        sha256 = "0970814192d0a48be6ea6626d05569fd8587c54e874323dd0dc85d9ef36c7c86",
+        strip_prefix = "googletest-cd430b47a54841ec45d64d2377d7cabaf0eba610",
         repo_mapping = {
             "@re2": "@com_google_re2",
             "@abseil-cpp": "@com_google_absl",

@@ -85,6 +85,7 @@ tensorstore_cc_test(
         ":gcs_http",
         "//tensorstore:context",
         "//tensorstore:json_serialization_options_base",
+        "//tensorstore/internal:global_initializer",
         "//tensorstore/internal:json_gtest",
         "//tensorstore/internal:uri_utils",
         "//tensorstore/internal/http",
@@ -194,6 +195,7 @@ tensorstore_cc_test(
     deps = [
         ":gcs_http",
         "//tensorstore/internal:env",
+        "//tensorstore/internal:global_initializer",
         "//tensorstore/internal/http:transport_test_utils",
         "//tensorstore/internal/thread",
         "//tensorstore/kvstore",

@@ -44,6 +44,7 @@ using ::tensorstore::IsOk;
 using ::tensorstore::KeyRange;
 using ::tensorstore::Result;
 using ::tensorstore::StatusIs;
+using ::tensorstore::internal::KeyValueStoreOpsTestParameters;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
 using ::tensorstore::internal::MatchesListEntry;
 using ::tensorstore::internal::MockKeyValueStore;
@@ -51,28 +52,30 @@ using ::tensorstore::internal::MockKeyValueStoreResource;
 using ::tensorstore::kvstore::KvStore;
 using ::testing::_;
 
+Result<KvStore> OpenBasicKvStack(Context context = Context::Default()) {
+  return kvstore::Open(
+             {{"driver", "kvstack"},
+              {"layers",
+               ::nlohmann::json::array_t{
+                   {
+                       {"base", {{"driver", "memory"}, {"path", "range/"}}},
+                   },
+                   {
+                       {"base", {{"driver", "memory"}, {"path", "prefix/"}}},
+                       {"prefix", "a"},
+                       {"strip_prefix", 0},
+                   },
+                   /**/
+               }}},
+             context)
+      .result();
+}
+
 class KvStackTest : public ::testing::Test {
  public:
   KvStackTest() : context_(Context::Default()) {}
 
-  Result<KvStore> KvStoreOpen() const {
-    return kvstore::Open(
-               {{"driver", "kvstack"},
-                {"layers",
-                 ::nlohmann::json::array_t{
-                     {
-                         {"base", {{"driver", "memory"}, {"path", "range/"}}},
-                     },
-                     {
-                         {"base", {{"driver", "memory"}, {"path", "prefix/"}}},
-                         {"prefix", "a"},
-                         {"strip_prefix", 0},
-                     },
-                     /**/
-                 }}},
-               context_)
-        .result();
-  }
+  Result<KvStore> KvStoreOpen() const { return OpenBasicKvStack(context_); }
 
   Context context_;
 };
@@ -84,34 +87,14 @@ TEST_F(KvStackTest, ReadNotFound) {
   EXPECT_THAT(read_future.result(), MatchesKvsReadResultNotFound());
 }
 
-TEST_F(KvStackTest, Basic) {
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store, KvStoreOpen());
-  tensorstore::internal::TestKeyValueReadWriteOps(store);
-}
-
-TEST_F(KvStackTest, DeletePrefix) {
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store, KvStoreOpen());
-  tensorstore::internal::TestKeyValueStoreDeletePrefix(store);
-}
-
-TEST_F(KvStackTest, DeleteRange) {
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store, KvStoreOpen());
-  tensorstore::internal::TestKeyValueStoreDeleteRange(store);
-}
-
-TEST_F(KvStackTest, DeleteRangeToEnd) {
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store, KvStoreOpen());
-  tensorstore::internal::TestKeyValueStoreDeleteRangeToEnd(store);
-}
-
-TEST_F(KvStackTest, DeleteRangeFromBeginning) {
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store, KvStoreOpen());
-  tensorstore::internal::TestKeyValueStoreDeleteRangeFromBeginning(store);
-}
-
-TEST_F(KvStackTest, List) {
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store, KvStoreOpen());
-  tensorstore::internal::TestKeyValueStoreList(store);
+TENSORSTORE_GLOBAL_INITIALIZER {
+  KeyValueStoreOpsTestParameters params;
+  params.test_name = "Basic";
+  params.get_store = [](auto callback) {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store, OpenBasicKvStack());
+    callback(store);
+  };
+  RegisterKeyValueStoreOpsTests(params);
 }
 
 TEST_F(KvStackTest, TransactionalList) {
