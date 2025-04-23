@@ -585,24 +585,9 @@
       <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
       
       <a href="#" class="md-nav__link md-nav__link--active">
-        <span aria-label="C++ member" class="objinfo-icon objinfo-icon__alias" title="C++ member">V</span><span title="tensorstore::StorageGeneration::value (C++ member) — The generation is indicated by a variable-length byte string (the &#34;generation identifier&#34;) followed by a sequence of bytes containing a bitwise-OR combination of the flags defined below:" class="md-ellipsis">value</span>
+        <span aria-label="C++ member" class="objinfo-icon objinfo-icon__alias" title="C++ member">V</span><span title="tensorstore::StorageGeneration::value (C++ member) — A storage generation is encoded as a variable-length that specifies an optional &#34;base generation&#34; and information about uncommitted modifications made within a transaction." class="md-ellipsis">value</span>
       </a>
       
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.StorageGeneration.kBaseGeneration.html" class="md-nav__link">
-        <span aria-label="C++ member" class="objinfo-icon objinfo-icon__alias" title="C++ member">V</span><span title="tensorstore::StorageGeneration::kBaseGeneration (C++ member) — Flag values specified as a suffix of value." class="md-ellipsis">k<wbr>Base<wbr>Generation</span>
-      </a>
     </li>
   
 
@@ -980,27 +965,9 @@
 </dt>
 <dt class="sig sig-object highlight cpp">
 <span class="n">std</span><span class="p">::</span><a class="desctype reference external" href="https://en.cppreference.com/w/cpp/string/basic_string" title="std::string (C++ standard type alias)"><span class="n">string</span></a><span class="w">&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span><a class="desctype reference internal" href="tensorstore.StorageGeneration.html#c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="p">::</span></span><span class="sig-name descname"><span class="n">value</span></span><span class="p">;</span></dt>
-<dd><p>The generation is indicated by a variable-length byte string (the
-“generation identifier”) followed by a sequence of bytes containing a
-bitwise-OR combination of the flags defined below:</p>
-<p>The flag bytes are parsed from the end of <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="#" title="tensorstore::StorageGeneration::value (C++ member) — The generation is indicated by a variable-length byte string (the &quot;generation identifier&quot;) followed by a sequence of bytes containing a bitwise-OR combination of the flags defined below:"><span class="n">value</span></a></code> in reverse.  The start
-of the flag bytes is indicated by a flag byte with <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.StorageGeneration.kBaseGeneration.html#c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;kBaseGeneration" title="tensorstore::StorageGeneration::kBaseGeneration (C++ member) — Flag values specified as a suffix of value."><span class="n">kBaseGeneration</span></a></code> set.
-For example, clean generation with identifier <code class="code highlight cpp docutils literal highlight-cpp"><span class="n">gen_id</span></code>:</p>
-<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><code><span class="n">gen_id</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">kBaseGeneration</span>
-</code></pre></div>
-</div>
-<p>Dirty generation with identifier <code class="code highlight cpp docutils literal highlight-cpp"><span class="n">gen_id</span></code>:</p>
-<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><code><span class="n">gen_id</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="n">kBaseGeneration</span><span class="o">|</span><span class="n">kDirty</span><span class="p">)</span>
-</code></pre></div>
-</div>
-<p>Clean “no value” generation indicating a key not present in the store:</p>
-<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><code><span class="n">gen_id</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="n">kBaseGeneration</span><span class="o">|</span><span class="n">kNoValue</span><span class="p">)</span>
-</code></pre></div>
-</div>
-<p>Dirty generation derived from “no value” generation:</p>
-<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><code><span class="n">gen_id</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="n">kBaseGeneration</span><span class="o">|</span><span class="n">kNoValue</span><span class="o">|</span><span class="n">kDirty</span><span class="p">)</span>
-</code></pre></div>
-</div>
+<dd><p>A storage generation is encoded as a variable-length that specifies an
+optional “base generation” and information about uncommitted modifications
+made within a transaction.</p>
 </dd></dl>
 
 
@@ -1045,13 +1012,13 @@ For example, clean generation with identifier <code class="code highlight cpp do
       
       
         
-        <a href="tensorstore.StorageGeneration.kBaseGeneration.html" class="md-footer__link md-footer__link--next" aria-label="Next: tensorstore::StorageGeneration::kBaseGeneration" rel="next">
+        <a href="tensorstore.StorageGeneration.operator-cast.html" class="md-footer__link md-footer__link--next" aria-label="Next: tensorstore::StorageGeneration::operator bool" rel="next">
           <div class="md-footer__title">
             <div class="md-ellipsis">
               <span class="md-footer__direction">
                 Next
               </span>
-              tensorstore::StorageGeneration::kBaseGeneration
+              tensorstore::StorageGeneration::operator bool
             </div>
           </div>
           <div class="md-footer__button md-icon">

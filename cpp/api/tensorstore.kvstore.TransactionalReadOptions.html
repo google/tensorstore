@@ -765,6 +765,21 @@
   
   
     <li class="md-nav__item">
+      <a href="tensorstore.kvstore.TransactionalReadOptions.byte_range.html" class="md-nav__link">
+        <span aria-label="C++ member" class="objinfo-icon objinfo-icon__alias" title="C++ member">V</span><span title="tensorstore::kvstore::TransactionalReadOptions::byte_range (C++ member) — Specifies the byte range." class="md-ellipsis">byte_<wbr>range</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="tensorstore.kvstore.TransactionalReadOptions.batch.html" class="md-nav__link">
         <span aria-label="C++ member" class="objinfo-icon objinfo-icon__alias" title="C++ member">V</span><span title="tensorstore::kvstore::TransactionalReadOptions::batch (C++ member) — Optional batch to use." class="md-ellipsis">batch</span>
       </a>
@@ -835,6 +850,13 @@
           <li class="md-nav__item">
   <a href="tensorstore.kvstore.TransactionalReadOptions.staleness_bound.html" class="md-nav__link">
     <span aria-label="C++ member" class="objinfo-icon objinfo-icon__alias" title="C++ member">V</span><span title="tensorstore::kvstore::TransactionalReadOptions::staleness_bound (C++ member) — Cached data may be used without validation if not older than staleness_bound.  Cached data older than staleness_bound must be validated before being returned.  A value of absl::InfiniteFuture() (the default) indicates that the result must be current as of the time the Read request was made, i.e. it is equivalent to specifying the value of absl::Now() just before invoking Read." class="md-ellipsis">staleness_<wbr>bound</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="tensorstore.kvstore.TransactionalReadOptions.byte_range.html" class="md-nav__link">
+    <span aria-label="C++ member" class="objinfo-icon objinfo-icon__alias" title="C++ member">V</span><span title="tensorstore::kvstore::TransactionalReadOptions::byte_range (C++ member) — Specifies the byte range." class="md-ellipsis">byte_<wbr>range</span>
   </a>
   
 </li>
@@ -1287,6 +1309,12 @@ validated before being returned.  A value of <code class="cpp-expr sig sig-inlin
 default) indicates that the result must be current as of the time the
 <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.kvstore.Read.html#c:&#64;N&#64;tensorstore&#64;N&#64;kvstore&#64;F&#64;Read#&amp;1$&#64;N&#64;tensorstore&#64;N&#64;kvstore&#64;S&#64;KvStore#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;basic_string_view&gt;#C#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;char_traits&gt;#C#$&#64;N&#64;tensorstore&#64;N&#64;kvstore&#64;S&#64;ReadOptions#" title="tensorstore::kvstore::Read (C++ function) — Attempts to read the value for the key store.path + key."><span class="n">Read</span></a></code> request was made, i.e. it is equivalent to specifying the value of
 <code class="cpp-expr sig sig-inline cpp highlight"><span class="n">absl</span><span class="p">::</span><a class="reference external" href="https://abseil.io/docs/cpp/guides/time#absolute-times-with-absltime" title="C++ function"><span class="n">Now</span></a><span class="p">(</span><span class="p">)</span></code> just before invoking <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.kvstore.Read.html#c:&#64;N&#64;tensorstore&#64;N&#64;kvstore&#64;F&#64;Read#&amp;1$&#64;N&#64;tensorstore&#64;N&#64;kvstore&#64;S&#64;KvStore#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;basic_string_view&gt;#C#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;char_traits&gt;#C#$&#64;N&#64;tensorstore&#64;N&#64;kvstore&#64;S&#64;ReadOptions#" title="tensorstore::kvstore::Read (C++ function) — Attempts to read the value for the key store.path + key."><span class="n">Read</span></a></code>.</p>
+</dd></dl>
+
+<dl class="cpp var summary objdesc">
+<dt class="sig sig-object highlight cpp">
+<a class="desctype reference internal" href="tensorstore.OptionalByteRangeRequest.html#c:&#64;N&#64;tensorstore&#64;S&#64;OptionalByteRangeRequest" title="tensorstore::OptionalByteRangeRequest (C++ class) — Specifies an optional byte range request."><span class="n">OptionalByteRangeRequest</span></a><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.kvstore.TransactionalReadOptions.byte_range.html"><span class="doc"><span class="pre">byte_range</span></span></a><span class="p">;</span></dt>
+<dd><p>Specifies the byte range.</p>
 </dd></dl>
 
 <dl class="cpp var summary objdesc">

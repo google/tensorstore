@@ -13,7 +13,7 @@
     
     
       
-        <title>tensorstore::StorageGeneration::Dirty - TensorStore</title>
+        <title>tensorstore::StorageGeneration::DebugString - TensorStore</title>
       
     
     
@@ -87,7 +87,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              tensorstore::StorageGeneration::Dirty
+              tensorstore::StorageGeneration::DebugString
             
           </span>
         </div>
@@ -604,6 +604,44 @@
               
   
   
+    
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      
+      <a href="#" class="md-nav__link md-nav__link--active">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::DebugString (C++ function) — Returns a debug representation of the storage generation." class="md-ellipsis">Debug<wbr>String</span>
+      </a>
+      
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.StorageGeneration.IsValid.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::IsValid (C++ function) — Check if the generation is valid, i.e. not derived from Invalid()." class="md-ellipsis">Is<wbr>Valid</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
   
   
     <li class="md-nav__item">
@@ -639,254 +677,6 @@
     <li class="md-nav__item">
       <a href="tensorstore.StorageGeneration.Invalid.html" class="md-nav__link">
         <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::Invalid (C++ function) — Returns the invalid generation value guaranteed not to equal any valid generation." class="md-ellipsis">Invalid</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.StorageGeneration.FromUint64.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::FromUint64 (C++ function) — Returns a base generation that encodes the specified 64-bit number." class="md-ellipsis">From<wbr>Uint64</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.StorageGeneration.IsUint64.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::IsUint64 (C++ function) — Validates that generation may have been constructed from FromUint64." class="md-ellipsis">Is<wbr>Uint64</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.StorageGeneration.MarkDirty.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::MarkDirty (C++ function) — Modifies this generation to set kDirty and kNewlyDirty in the last (innermost) flag byte." class="md-ellipsis">Mark<wbr>Dirty</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.StorageGeneration.FromString.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::FromString (C++ function) — Returns a base generation that encodes the specified string." class="md-ellipsis">From<wbr>String</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.StorageGeneration.IsCleanValidValue.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::IsCleanValidValue (C++ function) — Returns true if this is a clean base generation, not locally-modified, not StorageGeneration::NoValue() and not StorageGeneration::Invalid()." class="md-ellipsis">Is<wbr>Clean<wbr>Valid<wbr>Value</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.StorageGeneration.DecodeString.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::DecodeString (C++ function) — Inverse of FromString." class="md-ellipsis">Decode<wbr>String</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.StorageGeneration.FromValues.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::FromValues (C++ function) — Returns a base generation that encodes one or more trivial values via memcpy." class="md-ellipsis">From<wbr>Values</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-    
-  
-    
-  
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      
-      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
-      
-      <a href="#" class="md-nav__link md-nav__link--active">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::Dirty (C++ function) — Returns a generation that is marked as locally modified but conditioned on generation." class="md-ellipsis">Dirty</span>
-      </a>
-      
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.StorageGeneration.Clean.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::Clean (C++ function) — Returns the &#34;clean&#34; base generation on which generation is based." class="md-ellipsis">Clean</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.StorageGeneration.Equivalent.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::Equivalent (C++ function) — Determines if two generations are equivalent by comparing their canonical generations." class="md-ellipsis">Equivalent</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.StorageGeneration.IsDirty.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::IsDirty (C++ function) — Checks if generation represents a locally-modified value." class="md-ellipsis">Is<wbr>Dirty</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.StorageGeneration.IsInnerLayerDirty.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::IsInnerLayerDirty (C++ function) — Checks if the innermost layer of generation is locally-modified." class="md-ellipsis">Is<wbr>Inner<wbr>Layer<wbr>Dirty</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.StorageGeneration.Condition.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::Condition (C++ function) — Returns a new_generation for which IsDirty(new_generation) == IsDirty(generation) and Clean(new_generation) == Clean(condition)." class="md-ellipsis">Condition</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.StorageGeneration.AddLayer.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::AddLayer (C++ function) — Adds another layer of local modification to generation." class="md-ellipsis">Add<wbr>Layer</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.StorageGeneration.IsConditional.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::IsConditional (C++ function) — Checks if Clean(generation) != Unknown()." class="md-ellipsis">Is<wbr>Conditional</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.StorageGeneration.IsConditionalOn.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::IsConditionalOn (C++ function) — Checks if generation is the same as condition, ignoring dirty flags on the inner-most layer." class="md-ellipsis">Is<wbr>Conditional<wbr>On</span>
       </a>
     </li>
   
@@ -945,8 +735,8 @@
   
   
     <li class="md-nav__item">
-      <a href="tensorstore.StorageGeneration.IsClean.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::IsClean (C++ function) — Returns true if generation represents a &#34;clean&#34; state without any local modifications." class="md-ellipsis">Is<wbr>Clean</span>
+      <a href="tensorstore.StorageGeneration.IsNoValue.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::IsNoValue (C++ function) — Returns true if generation is equal to the special NoValue() generation." class="md-ellipsis">Is<wbr>No<wbr>Value</span>
       </a>
     </li>
   
@@ -960,8 +750,8 @@
   
   
     <li class="md-nav__item">
-      <a href="tensorstore.StorageGeneration.IsNoValue.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::IsNoValue (C++ function) — Returns true if generation is equal to the special NoValue() generation." class="md-ellipsis">Is<wbr>No<wbr>Value</span>
+      <a href="tensorstore.StorageGeneration.IsClean.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::IsClean (C++ function) — Returns true if generation represents a &#34;clean&#34; state without any uncommitted modifications within a transaction." class="md-ellipsis">Is<wbr>Clean</span>
       </a>
     </li>
   
@@ -1309,9 +1099,8 @@
 <code class="cpp code highlight docutils literal highlight-cpp"><span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;tensorstore/kvstore/generation.h&quot;</span></code></div>
 </dt>
 <dt class="sig sig-object highlight cpp">
-<span class="k">static</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.StorageGeneration.html#c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="w"><br></span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span><a class="desctype reference internal" href="tensorstore.StorageGeneration.html#c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="p">::</span></span><span class="sig-name descname"><span class="n">Dirty</span></span><span class="p">(</span><span><a class="desctype reference internal" href="tensorstore.StorageGeneration.html#c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="#" title="tensorstore::StorageGeneration::Dirty::generation (C++ function parameter)"><span class="n sig-param">generation</span></a></span><span class="p">)</span><span class="p">;</span></dt>
-<dd><p>Returns a generation that is marked as locally modified but conditioned on
-<code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="#" title="tensorstore::StorageGeneration::Dirty::generation (C++ function parameter)"><span class="n">generation</span></a></code>.</p>
+<span class="n">std</span><span class="p">::</span><a class="desctype reference external" href="https://en.cppreference.com/w/cpp/string/basic_string" title="std::string (C++ standard type alias)"><span class="n">string</span></a><span class="w">&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span><a class="desctype reference internal" href="tensorstore.StorageGeneration.html#c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="p">::</span></span><span class="sig-name descname"><span class="n">DebugString</span></span><span class="p">(</span><span class="p">)</span><span class="w">&nbsp;</span><span class="k">const</span><span class="p">;</span></dt>
+<dd><p>Returns a debug representation of the storage generation.</p>
 </dd></dl>
 
 
@@ -1340,7 +1129,7 @@
     <nav class="md-footer__inner md-grid" aria-label="Footer" >
       
         
-        <a href="tensorstore.StorageGeneration.FromValues.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: tensorstore::StorageGeneration::FromValues" rel="prev">
+        <a href="tensorstore.StorageGeneration.operator-cast.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: tensorstore::StorageGeneration::operator bool" rel="prev">
           <div class="md-footer__button md-icon">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
           </div>
@@ -1349,20 +1138,20 @@
               <span class="md-footer__direction">
                 Previous
               </span>
-              tensorstore::StorageGeneration::FromValues
+              tensorstore::StorageGeneration::operator bool
             </div>
           </div>
         </a>
       
       
         
-        <a href="tensorstore.StorageGeneration.Clean.html" class="md-footer__link md-footer__link--next" aria-label="Next: tensorstore::StorageGeneration::Clean" rel="next">
+        <a href="tensorstore.StorageGeneration.IsValid.html" class="md-footer__link md-footer__link--next" aria-label="Next: tensorstore::StorageGeneration::IsValid" rel="next">
           <div class="md-footer__title">
             <div class="md-ellipsis">
               <span class="md-footer__direction">
                 Next
               </span>
-              tensorstore::StorageGeneration::Clean
+              tensorstore::StorageGeneration::IsValid
             </div>
           </div>
           <div class="md-footer__button md-icon">

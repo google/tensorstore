@@ -709,6 +709,21 @@
   
   
     <li class="md-nav__item">
+      <a href="tensorstore.OptionalByteRangeRequest.IsStat.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::OptionalByteRangeRequest::IsStat (C++ function) — Checks if this is a &#34;stat&#34; request." class="md-ellipsis">Is<wbr>Stat</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="tensorstore.OptionalByteRangeRequest.Range.html" class="md-nav__link">
         <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::OptionalByteRangeRequest::Range (C++ function) — Constructs a request for an explicit range." class="md-ellipsis">Range</span>
       </a>
@@ -741,6 +756,21 @@
     <li class="md-nav__item">
       <a href="tensorstore.OptionalByteRangeRequest.Suffix.html" class="md-nav__link">
         <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::OptionalByteRangeRequest::Suffix (C++ function) — Constructs a request for a suffix starting at the specified inclusive_min." class="md-ellipsis">Suffix</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.OptionalByteRangeRequest.Stat.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::OptionalByteRangeRequest::Stat (C++ function) — Constructs a request for a zero-byte range, i.e. a &#34;stat&#34; request used to check only if a key exists." class="md-ellipsis">Stat</span>
       </a>
     </li>
   
@@ -1058,6 +1088,13 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="tensorstore.OptionalByteRangeRequest.IsStat.html" class="md-nav__link">
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::OptionalByteRangeRequest::IsStat (C++ function) — Checks if this is a &#34;stat&#34; request." class="md-ellipsis">Is<wbr>Stat</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="tensorstore.OptionalByteRangeRequest.Range.html" class="md-nav__link">
     <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::OptionalByteRangeRequest::Range (C++ function) — Constructs a request for an explicit range." class="md-ellipsis">Range</span>
   </a>
@@ -1074,6 +1111,13 @@
           <li class="md-nav__item">
   <a href="tensorstore.OptionalByteRangeRequest.Suffix.html" class="md-nav__link">
     <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::OptionalByteRangeRequest::Suffix (C++ function) — Constructs a request for a suffix starting at the specified inclusive_min." class="md-ellipsis">Suffix</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="tensorstore.OptionalByteRangeRequest.Stat.html" class="md-nav__link">
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::OptionalByteRangeRequest::Stat (C++ function) — Constructs a request for a zero-byte range, i.e. a &#34;stat&#34; request used to check only if a key exists." class="md-ellipsis">Stat</span>
   </a>
   
 </li>
@@ -1589,6 +1633,12 @@ specified.</p>
 
 <dl class="cpp function summary objdesc">
 <dt class="sig sig-object highlight cpp">
+<span class="kt">bool</span><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.OptionalByteRangeRequest.IsStat.html"><span class="doc"><span class="pre">IsStat</span></span></a><span class="p">(</span><span class="p">)</span><span class="w">&nbsp;</span><span class="k">const</span><span class="p">;</span></dt>
+<dd><p>Checks if this is a “stat” request.</p>
+</dd></dl>
+
+<dl class="cpp function summary objdesc">
+<dt class="sig sig-object highlight cpp">
 <span class="k">static</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::OptionalByteRangeRequest (C++ class) — Specifies an optional byte range request."><span class="n">OptionalByteRangeRequest</span></a><span class="w"><br></span><a class="sig-name descname reference internal" href="tensorstore.OptionalByteRangeRequest.Range.html"><span class="doc"><span class="pre">Range</span></span></a><span class="p">(</span><span><a class="desctype reference external" href="https://en.cppreference.com/w/c/types/integer" title="int64_t (C standard type alias)"><span class="n">int64_t</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.OptionalByteRangeRequest.Range.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;OptionalByteRangeRequest&#64;F&#64;Range#L#L#S" title="tensorstore::OptionalByteRangeRequest::Range::inclusive_min (C++ function parameter)"><span class="n sig-param">inclusive_min</span></a></span><span class="p">,&nbsp;</span><span><a class="desctype reference external" href="https://en.cppreference.com/w/c/types/integer" title="int64_t (C standard type alias)"><span class="n">int64_t</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.OptionalByteRangeRequest.Range.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;OptionalByteRangeRequest&#64;F&#64;Range#L#L#S" title="tensorstore::OptionalByteRangeRequest::Range::exclusive_max (C++ function parameter)"><span class="n sig-param">exclusive_max</span></a></span><span class="p">)</span><span class="p">;</span></dt>
 <dd><p>Constructs a request for an explicit range.</p>
 </dd></dl>
@@ -1604,6 +1654,13 @@ specified.</p>
 <span class="k">static</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::OptionalByteRangeRequest (C++ class) — Specifies an optional byte range request."><span class="n">OptionalByteRangeRequest</span></a><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.OptionalByteRangeRequest.Suffix.html"><span class="doc"><span class="pre">Suffix</span></span></a><span class="p">(</span><span><a class="desctype reference external" href="https://en.cppreference.com/w/c/types/integer" title="int64_t (C standard type alias)"><span class="n">int64_t</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.OptionalByteRangeRequest.Suffix.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;OptionalByteRangeRequest&#64;F&#64;Suffix#L#S" title="tensorstore::OptionalByteRangeRequest::Suffix::inclusive_min (C++ function parameter)"><span class="n sig-param">inclusive_min</span></a></span><span class="p">)</span><span class="p">;</span></dt>
 <dd><p>Constructs a request for a suffix starting at the specified
 <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.OptionalByteRangeRequest.Suffix.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;OptionalByteRangeRequest&#64;F&#64;Suffix#L#S" title="tensorstore::OptionalByteRangeRequest::Suffix::inclusive_min (C++ function parameter)"><span class="n">inclusive_min</span></a></code>.</p>
+</dd></dl>
+
+<dl class="cpp function summary objdesc">
+<dt class="sig sig-object highlight cpp">
+<span class="k">static</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::OptionalByteRangeRequest (C++ class) — Specifies an optional byte range request."><span class="n">OptionalByteRangeRequest</span></a><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.OptionalByteRangeRequest.Stat.html"><span class="doc"><span class="pre">Stat</span></span></a><span class="p">(</span><span class="p">)</span><span class="p">;</span></dt>
+<dd><p>Constructs a request for a zero-byte range, i.e. a “stat” request used to
+check only if a key exists.</p>
 </dd></dl>
 
 <dl class="cpp function summary objdesc">

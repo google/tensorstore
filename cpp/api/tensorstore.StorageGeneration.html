@@ -582,22 +582,7 @@
   
     <li class="md-nav__item">
       <a href="tensorstore.StorageGeneration.value.html" class="md-nav__link">
-        <span aria-label="C++ member" class="objinfo-icon objinfo-icon__alias" title="C++ member">V</span><span title="tensorstore::StorageGeneration::value (C++ member) — The generation is indicated by a variable-length byte string (the &#34;generation identifier&#34;) followed by a sequence of bytes containing a bitwise-OR combination of the flags defined below:" class="md-ellipsis">value</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.StorageGeneration.kBaseGeneration.html" class="md-nav__link">
-        <span aria-label="C++ member" class="objinfo-icon objinfo-icon__alias" title="C++ member">V</span><span title="tensorstore::StorageGeneration::kBaseGeneration (C++ member) — Flag values specified as a suffix of value." class="md-ellipsis">k<wbr>Base<wbr>Generation</span>
+        <span aria-label="C++ member" class="objinfo-icon objinfo-icon__alias" title="C++ member">V</span><span title="tensorstore::StorageGeneration::value (C++ member) — A storage generation is encoded as a variable-length that specifies an optional &#34;base generation&#34; and information about uncommitted modifications made within a transaction." class="md-ellipsis">value</span>
       </a>
     </li>
   
@@ -702,6 +687,36 @@
   
   
     <li class="md-nav__item">
+      <a href="tensorstore.StorageGeneration.DebugString.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::DebugString (C++ function) — Returns a debug representation of the storage generation." class="md-ellipsis">Debug<wbr>String</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.StorageGeneration.IsValid.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::IsValid (C++ function) — Check if the generation is valid, i.e. not derived from Invalid()." class="md-ellipsis">Is<wbr>Valid</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="tensorstore.StorageGeneration.Unknown.html" class="md-nav__link">
         <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::Unknown (C++ function) — Returns the special generation value that indicates the StorageGeneration is unspecified." class="md-ellipsis">Unknown</span>
       </a>
@@ -734,246 +749,6 @@
     <li class="md-nav__item">
       <a href="tensorstore.StorageGeneration.Invalid.html" class="md-nav__link">
         <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::Invalid (C++ function) — Returns the invalid generation value guaranteed not to equal any valid generation." class="md-ellipsis">Invalid</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.StorageGeneration.FromUint64.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::FromUint64 (C++ function) — Returns a base generation that encodes the specified 64-bit number." class="md-ellipsis">From<wbr>Uint64</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.StorageGeneration.IsUint64.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::IsUint64 (C++ function) — Validates that generation may have been constructed from FromUint64." class="md-ellipsis">Is<wbr>Uint64</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.StorageGeneration.MarkDirty.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::MarkDirty (C++ function) — Modifies this generation to set kDirty and kNewlyDirty in the last (innermost) flag byte." class="md-ellipsis">Mark<wbr>Dirty</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.StorageGeneration.FromString.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::FromString (C++ function) — Returns a base generation that encodes the specified string." class="md-ellipsis">From<wbr>String</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.StorageGeneration.IsCleanValidValue.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::IsCleanValidValue (C++ function) — Returns true if this is a clean base generation, not locally-modified, not StorageGeneration::NoValue() and not StorageGeneration::Invalid()." class="md-ellipsis">Is<wbr>Clean<wbr>Valid<wbr>Value</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.StorageGeneration.DecodeString.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::DecodeString (C++ function) — Inverse of FromString." class="md-ellipsis">Decode<wbr>String</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.StorageGeneration.FromValues.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::FromValues (C++ function) — Returns a base generation that encodes one or more trivial values via memcpy." class="md-ellipsis">From<wbr>Values</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.StorageGeneration.Dirty.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::Dirty (C++ function) — Returns a generation that is marked as locally modified but conditioned on generation." class="md-ellipsis">Dirty</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.StorageGeneration.Clean.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::Clean (C++ function) — Returns the &#34;clean&#34; base generation on which generation is based." class="md-ellipsis">Clean</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.StorageGeneration.Equivalent.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::Equivalent (C++ function) — Determines if two generations are equivalent by comparing their canonical generations." class="md-ellipsis">Equivalent</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.StorageGeneration.IsDirty.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::IsDirty (C++ function) — Checks if generation represents a locally-modified value." class="md-ellipsis">Is<wbr>Dirty</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.StorageGeneration.IsInnerLayerDirty.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::IsInnerLayerDirty (C++ function) — Checks if the innermost layer of generation is locally-modified." class="md-ellipsis">Is<wbr>Inner<wbr>Layer<wbr>Dirty</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.StorageGeneration.Condition.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::Condition (C++ function) — Returns a new_generation for which IsDirty(new_generation) == IsDirty(generation) and Clean(new_generation) == Clean(condition)." class="md-ellipsis">Condition</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.StorageGeneration.AddLayer.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::AddLayer (C++ function) — Adds another layer of local modification to generation." class="md-ellipsis">Add<wbr>Layer</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.StorageGeneration.IsConditional.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::IsConditional (C++ function) — Checks if Clean(generation) != Unknown()." class="md-ellipsis">Is<wbr>Conditional</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.StorageGeneration.IsConditionalOn.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::IsConditionalOn (C++ function) — Checks if generation is the same as condition, ignoring dirty flags on the inner-most layer." class="md-ellipsis">Is<wbr>Conditional<wbr>On</span>
       </a>
     </li>
   
@@ -1032,8 +807,8 @@
   
   
     <li class="md-nav__item">
-      <a href="tensorstore.StorageGeneration.IsClean.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::IsClean (C++ function) — Returns true if generation represents a &#34;clean&#34; state without any local modifications." class="md-ellipsis">Is<wbr>Clean</span>
+      <a href="tensorstore.StorageGeneration.IsNoValue.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::IsNoValue (C++ function) — Returns true if generation is equal to the special NoValue() generation." class="md-ellipsis">Is<wbr>No<wbr>Value</span>
       </a>
     </li>
   
@@ -1047,8 +822,8 @@
   
   
     <li class="md-nav__item">
-      <a href="tensorstore.StorageGeneration.IsNoValue.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::IsNoValue (C++ function) — Returns true if generation is equal to the special NoValue() generation." class="md-ellipsis">Is<wbr>No<wbr>Value</span>
+      <a href="tensorstore.StorageGeneration.IsClean.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::IsClean (C++ function) — Returns true if generation represents a &#34;clean&#34; state without any uncommitted modifications within a transaction." class="md-ellipsis">Is<wbr>Clean</span>
       </a>
     </li>
   
@@ -1101,7 +876,7 @@
   
     <li class="md-nav__item">
       <a href="tensorstore.StorageGeneration.operator-equal_to.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::operator== (C++ function) — Checks if two generations are Equivalent." class="md-ellipsis">operator==</span>
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::operator== (C++ function) — Checks if two generations are equivalent." class="md-ellipsis">operator==</span>
       </a>
     </li>
   
@@ -1117,21 +892,6 @@
     <li class="md-nav__item">
       <a href="tensorstore.StorageGeneration.operator-shift_left.html" class="md-nav__link">
         <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::operator&lt;&lt; (C++ function) — Prints a debugging string representation to an std::ostream." class="md-ellipsis">operator&lt;&lt;</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="tensorstore.StorageGeneration.AbslHashValue.html" class="md-nav__link">
-        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::AbslHashValue (C++ function) — Abseil hash support." class="md-ellipsis">Absl<wbr>Hash<wbr>Value</span>
       </a>
     </li>
   
@@ -1192,14 +952,7 @@
         
           <li class="md-nav__item">
   <a href="tensorstore.StorageGeneration.value.html" class="md-nav__link">
-    <span aria-label="C++ member" class="objinfo-icon objinfo-icon__alias" title="C++ member">V</span><span title="tensorstore::StorageGeneration::value (C++ member) — The generation is indicated by a variable-length byte string (the &#34;generation identifier&#34;) followed by a sequence of bytes containing a bitwise-OR combination of the flags defined below:" class="md-ellipsis">value</span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="tensorstore.StorageGeneration.kBaseGeneration.html" class="md-nav__link">
-    <span aria-label="C++ member" class="objinfo-icon objinfo-icon__alias" title="C++ member">V</span><span title="tensorstore::StorageGeneration::kBaseGeneration (C++ member) — Flag values specified as a suffix of value." class="md-ellipsis">k<wbr>Base<wbr>Generation</span>
+    <span aria-label="C++ member" class="objinfo-icon objinfo-icon__alias" title="C++ member">V</span><span title="tensorstore::StorageGeneration::value (C++ member) — A storage generation is encoded as a variable-length that specifies an optional &#34;base generation&#34; and information about uncommitted modifications made within a transaction." class="md-ellipsis">value</span>
   </a>
   
 </li>
@@ -1238,6 +991,20 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="tensorstore.StorageGeneration.DebugString.html" class="md-nav__link">
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::DebugString (C++ function) — Returns a debug representation of the storage generation." class="md-ellipsis">Debug<wbr>String</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="tensorstore.StorageGeneration.IsValid.html" class="md-nav__link">
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::IsValid (C++ function) — Check if the generation is valid, i.e. not derived from Invalid()." class="md-ellipsis">Is<wbr>Valid</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="tensorstore.StorageGeneration.Unknown.html" class="md-nav__link">
     <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::Unknown (C++ function) — Returns the special generation value that indicates the StorageGeneration is unspecified." class="md-ellipsis">Unknown</span>
   </a>
@@ -1254,118 +1021,6 @@
           <li class="md-nav__item">
   <a href="tensorstore.StorageGeneration.Invalid.html" class="md-nav__link">
     <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::Invalid (C++ function) — Returns the invalid generation value guaranteed not to equal any valid generation." class="md-ellipsis">Invalid</span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="tensorstore.StorageGeneration.FromUint64.html" class="md-nav__link">
-    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::FromUint64 (C++ function) — Returns a base generation that encodes the specified 64-bit number." class="md-ellipsis">From<wbr>Uint64</span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="tensorstore.StorageGeneration.IsUint64.html" class="md-nav__link">
-    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::IsUint64 (C++ function) — Validates that generation may have been constructed from FromUint64." class="md-ellipsis">Is<wbr>Uint64</span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="tensorstore.StorageGeneration.MarkDirty.html" class="md-nav__link">
-    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::MarkDirty (C++ function) — Modifies this generation to set kDirty and kNewlyDirty in the last (innermost) flag byte." class="md-ellipsis">Mark<wbr>Dirty</span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="tensorstore.StorageGeneration.FromString.html" class="md-nav__link">
-    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::FromString (C++ function) — Returns a base generation that encodes the specified string." class="md-ellipsis">From<wbr>String</span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="tensorstore.StorageGeneration.IsCleanValidValue.html" class="md-nav__link">
-    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::IsCleanValidValue (C++ function) — Returns true if this is a clean base generation, not locally-modified, not StorageGeneration::NoValue() and not StorageGeneration::Invalid()." class="md-ellipsis">Is<wbr>Clean<wbr>Valid<wbr>Value</span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="tensorstore.StorageGeneration.DecodeString.html" class="md-nav__link">
-    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::DecodeString (C++ function) — Inverse of FromString." class="md-ellipsis">Decode<wbr>String</span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="tensorstore.StorageGeneration.FromValues.html" class="md-nav__link">
-    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::FromValues (C++ function) — Returns a base generation that encodes one or more trivial values via memcpy." class="md-ellipsis">From<wbr>Values</span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="tensorstore.StorageGeneration.Dirty.html" class="md-nav__link">
-    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::Dirty (C++ function) — Returns a generation that is marked as locally modified but conditioned on generation." class="md-ellipsis">Dirty</span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="tensorstore.StorageGeneration.Clean.html" class="md-nav__link">
-    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::Clean (C++ function) — Returns the &#34;clean&#34; base generation on which generation is based." class="md-ellipsis">Clean</span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="tensorstore.StorageGeneration.Equivalent.html" class="md-nav__link">
-    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::Equivalent (C++ function) — Determines if two generations are equivalent by comparing their canonical generations." class="md-ellipsis">Equivalent</span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="tensorstore.StorageGeneration.IsDirty.html" class="md-nav__link">
-    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::IsDirty (C++ function) — Checks if generation represents a locally-modified value." class="md-ellipsis">Is<wbr>Dirty</span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="tensorstore.StorageGeneration.IsInnerLayerDirty.html" class="md-nav__link">
-    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::IsInnerLayerDirty (C++ function) — Checks if the innermost layer of generation is locally-modified." class="md-ellipsis">Is<wbr>Inner<wbr>Layer<wbr>Dirty</span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="tensorstore.StorageGeneration.Condition.html" class="md-nav__link">
-    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::Condition (C++ function) — Returns a new_generation for which IsDirty(new_generation) == IsDirty(generation) and Clean(new_generation) == Clean(condition)." class="md-ellipsis">Condition</span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="tensorstore.StorageGeneration.AddLayer.html" class="md-nav__link">
-    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::AddLayer (C++ function) — Adds another layer of local modification to generation." class="md-ellipsis">Add<wbr>Layer</span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="tensorstore.StorageGeneration.IsConditional.html" class="md-nav__link">
-    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::IsConditional (C++ function) — Checks if Clean(generation) != Unknown()." class="md-ellipsis">Is<wbr>Conditional</span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="tensorstore.StorageGeneration.IsConditionalOn.html" class="md-nav__link">
-    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::IsConditionalOn (C++ function) — Checks if generation is the same as condition, ignoring dirty flags on the inner-most layer." class="md-ellipsis">Is<wbr>Conditional<wbr>On</span>
   </a>
   
 </li>
@@ -1392,15 +1047,15 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="tensorstore.StorageGeneration.IsClean.html" class="md-nav__link">
-    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::IsClean (C++ function) — Returns true if generation represents a &#34;clean&#34; state without any local modifications." class="md-ellipsis">Is<wbr>Clean</span>
+  <a href="tensorstore.StorageGeneration.IsNoValue.html" class="md-nav__link">
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::IsNoValue (C++ function) — Returns true if generation is equal to the special NoValue() generation." class="md-ellipsis">Is<wbr>No<wbr>Value</span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="tensorstore.StorageGeneration.IsNoValue.html" class="md-nav__link">
-    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::IsNoValue (C++ function) — Returns true if generation is equal to the special NoValue() generation." class="md-ellipsis">Is<wbr>No<wbr>Value</span>
+  <a href="tensorstore.StorageGeneration.IsClean.html" class="md-nav__link">
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::IsClean (C++ function) — Returns true if generation represents a &#34;clean&#34; state without any uncommitted modifications within a transaction." class="md-ellipsis">Is<wbr>Clean</span>
   </a>
   
 </li>
@@ -1420,7 +1075,7 @@
         
           <li class="md-nav__item">
   <a href="tensorstore.StorageGeneration.operator-equal_to.html" class="md-nav__link">
-    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::operator== (C++ function) — Checks if two generations are Equivalent." class="md-ellipsis">operator==</span>
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::operator== (C++ function) — Checks if two generations are equivalent." class="md-ellipsis">operator==</span>
   </a>
   
 </li>
@@ -1428,13 +1083,6 @@
           <li class="md-nav__item">
   <a href="tensorstore.StorageGeneration.operator-shift_left.html" class="md-nav__link">
     <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::operator&lt;&lt; (C++ function) — Prints a debugging string representation to an std::ostream." class="md-ellipsis">operator&lt;&lt;</span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="tensorstore.StorageGeneration.AbslHashValue.html" class="md-nav__link">
-    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::StorageGeneration::AbslHashValue (C++ function) — Abseil hash support." class="md-ellipsis">Absl<wbr>Hash<wbr>Value</span>
   </a>
   
 </li>
@@ -1803,20 +1451,12 @@
 <dt class="sig sig-object highlight cpp">
 <span class="k">struct</span><span class="w">&nbsp;</span><span class="sig-prename descclassname"><span class="n">tensorstore</span><span class="p">::</span></span><span class="sig-name descname"><span class="n">StorageGeneration</span></span><span class="p">;</span></dt>
 <dd><p>Represents a generation identifier associated with a stored object.</p>
-<p>The generation identifier must change each time an object is updated.</p>
+<p>The generation identifier must change each time an object with a given key
+is updated. Generation identifiers are <em>not</em> comparable across keys: for two
+different keys, the same generation identifier <em>may</em> correspond to different
+values.</p>
 <p>A <code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="#" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a></code> should be treated as an opaque identifier, with its
-length and content specific to the particular storage system, except that
-there are three special values:</p>
-<blockquote>
-<div><p><code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="#" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="p">::</span><a class="reference internal" href="tensorstore.StorageGeneration.Unknown.html#c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;Unknown#S" title="tensorstore::StorageGeneration::Unknown (C++ function) — Returns the special generation value that indicates the StorageGeneration is unspecified."><span class="n">Unknown</span></a><span class="p">(</span><span class="p">)</span></code>, equal to the empty string, which can be
-used to indicate an unspecified generation.</p>
-<p><code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="#" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="p">::</span><a class="reference internal" href="tensorstore.StorageGeneration.NoValue.html#c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;NoValue#S" title="tensorstore::StorageGeneration::NoValue (C++ function) — Returns the special generation value that corresponds to an object not being present."><span class="n">NoValue</span></a><span class="p">(</span><span class="p">)</span></code>, equal to <code class="code highlight cpp docutils literal highlight-cpp"><span class="p">{</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="p">}</span></code>, which can be used to
-specify a condition that the object not exist.</p>
-<p><code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="#" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="p">::</span><a class="reference internal" href="tensorstore.StorageGeneration.Invalid.html#c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;Invalid#S" title="tensorstore::StorageGeneration::Invalid (C++ function) — Returns the invalid generation value guaranteed not to equal any valid generation."><span class="n">Invalid</span></a><span class="p">(</span><span class="p">)</span></code>, equal to <code class="code highlight cpp docutils literal highlight-cpp"><span class="p">{</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="p">}</span></code>, which must not match
-any valid generation.</p>
-</div></blockquote>
-<p>A storage implementation must ensure that the encoding of generations does
-not conflict with these two special generation values.</p>
+length and content specific to the particular storage system.</p>
 <p>For example:</p>
 <ul class="simple">
 <li><p>t=0: Object does not exist, implicitly has generation G0, which may equal
@@ -1839,23 +1479,9 @@ the generation of the shard in which the object is missing.</p>
 <dl class="cpp var summary objdesc">
 <dt class="sig sig-object highlight cpp">
 <span class="n">std</span><span class="p">::</span><a class="desctype reference external" href="https://en.cppreference.com/w/cpp/string/basic_string" title="std::string (C++ standard type alias)"><span class="n">string</span></a><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.StorageGeneration.value.html"><span class="doc"><span class="pre">value</span></span></a><span class="p">;</span></dt>
-<dd><p>The generation is indicated by a variable-length byte string (the
-“generation identifier”) followed by a sequence of bytes containing a
-bitwise-OR combination of the flags defined below:</p>
-</dd></dl>
-
-<dl class="cpp var summary objdesc">
-<dt class="sig sig-object highlight cpp">
-<span class="k">constexpr</span><span class="w">&nbsp;</span><span class="k">const</span><span class="w">&nbsp;</span><span class="kt">char</span><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.StorageGeneration.kBaseGeneration.html"><span class="doc"><span class="pre">kBaseGeneration</span></span></a><span class="w">&nbsp;</span><span class="p">=</span><span class="w">&nbsp;</span><span class="m">1</span><span class="p">;</span></dt>
-<dt class="sig sig-object highlight cpp">
-<span class="k">constexpr</span><span class="w">&nbsp;</span><span class="k">const</span><span class="w">&nbsp;</span><span class="kt">char</span><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.StorageGeneration.kBaseGeneration.html"><span class="doc"><span class="pre">kDirty</span></span></a><span class="w">&nbsp;</span><span class="p">=</span><span class="w">&nbsp;</span><span class="m">2</span><span class="p">;</span></dt>
-<dt class="sig sig-object highlight cpp">
-<span class="k">constexpr</span><span class="w">&nbsp;</span><span class="k">const</span><span class="w">&nbsp;</span><span class="kt">char</span><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.StorageGeneration.kBaseGeneration.html"><span class="doc"><span class="pre">kNewlyDirty</span></span></a><span class="w">&nbsp;</span><span class="p">=</span><span class="w">&nbsp;</span><span class="m">16</span><span class="p">;</span></dt>
-<dt class="sig sig-object highlight cpp">
-<span class="k">constexpr</span><span class="w">&nbsp;</span><span class="k">const</span><span class="w">&nbsp;</span><span class="kt">char</span><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.StorageGeneration.kBaseGeneration.html"><span class="doc"><span class="pre">kNoValue</span></span></a><span class="w">&nbsp;</span><span class="p">=</span><span class="w">&nbsp;</span><span class="m">4</span><span class="p">;</span></dt>
-<dt class="sig sig-object highlight cpp">
-<span class="k">constexpr</span><span class="w">&nbsp;</span><span class="k">const</span><span class="w">&nbsp;</span><span class="kt">char</span><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.StorageGeneration.kBaseGeneration.html"><span class="doc"><span class="pre">kInvalid</span></span></a><span class="w">&nbsp;</span><span class="p">=</span><span class="w">&nbsp;</span><span class="m">8</span><span class="p">;</span></dt>
-<dd><p>Flag values specified as a suffix of <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.StorageGeneration.value.html#c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;FI&#64;value" title="tensorstore::StorageGeneration::value (C++ member) — The generation is indicated by a variable-length byte string (the &quot;generation identifier&quot;) followed by a sequence of bytes containing a bitwise-OR combination of the flags defined below:"><span class="n">value</span></a></code>.</p>
+<dd><p>A storage generation is encoded as a variable-length that specifies an
+optional “base generation” and information about uncommitted modifications
+made within a transaction.</p>
 </dd></dl>
 
 <div class="toctree-wrapper compound">
@@ -1870,6 +1496,18 @@ bitwise-OR combination of the flags defined below:</p>
 <div class="toctree-wrapper compound">
 </div>
 <h2 id="methods">Methods<a class="headerlink" href="#methods" title="Link to this heading">¶</a></h2>
+<dl class="cpp function summary objdesc">
+<dt class="sig sig-object highlight cpp">
+<span class="n">std</span><span class="p">::</span><a class="desctype reference external" href="https://en.cppreference.com/w/cpp/string/basic_string" title="std::string (C++ standard type alias)"><span class="n">string</span></a><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.StorageGeneration.DebugString.html"><span class="doc"><span class="pre">DebugString</span></span></a><span class="p">(</span><span class="p">)</span><span class="w">&nbsp;</span><span class="k">const</span><span class="p">;</span></dt>
+<dd><p>Returns a debug representation of the storage generation.</p>
+</dd></dl>
+
+<dl class="cpp function summary objdesc">
+<dt class="sig sig-object highlight cpp">
+<span class="kt">bool</span><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.StorageGeneration.IsValid.html"><span class="doc"><span class="pre">IsValid</span></span></a><span class="p">(</span><span class="p">)</span><span class="w">&nbsp;</span><span class="k">const</span><span class="p">;</span></dt>
+<dd><p>Check if the generation is valid, i.e. not derived from <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.StorageGeneration.Invalid.html#c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;Invalid#S" title="tensorstore::StorageGeneration::Invalid (C++ function) — Returns the invalid generation value guaranteed not to equal any valid generation."><span class="n">Invalid</span></a><span class="p">(</span><span class="p">)</span></code>.</p>
+</dd></dl>
+
 <dl class="cpp function summary objdesc">
 <dt class="sig sig-object highlight cpp">
 <span class="k">static</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.StorageGeneration.Unknown.html"><span class="doc"><span class="pre">Unknown</span></span></a><span class="p">(</span><span class="p">)</span><span class="p">;</span></dt>
@@ -1893,110 +1531,6 @@ generation.</p>
 
 <dl class="cpp function summary objdesc">
 <dt class="sig sig-object highlight cpp">
-<span class="k">static</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.StorageGeneration.FromUint64.html"><span class="doc"><span class="pre">FromUint64</span></span></a><span class="p">(</span><span><a class="desctype reference external" href="https://en.cppreference.com/w/c/types/integer" title="uint64_t (C standard type alias)"><span class="n">uint64_t</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.StorageGeneration.FromUint64.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;FromUint64#l#S" title="tensorstore::StorageGeneration::FromUint64::n (C++ function parameter)"><span class="n sig-param">n</span></a></span><span class="p">)</span><span class="p">;</span></dt>
-<dd><p>Returns a base generation that encodes the specified 64-bit number.</p>
-</dd></dl>
-
-<dl class="cpp function summary objdesc">
-<dt class="sig sig-object highlight cpp">
-<span class="k">static</span><span class="w">&nbsp;</span><span class="kt">bool</span><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.StorageGeneration.IsUint64.html"><span class="doc"><span class="pre">IsUint64</span></span></a><span class="p">(</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="p">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.StorageGeneration.IsUint64.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;IsUint64#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S" title="tensorstore::StorageGeneration::IsUint64::generation (C++ function parameter)"><span class="n sig-param">generation</span></a></span><span class="p">)</span><span class="p">;</span></dt>
-<dd><p>Validates that <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.StorageGeneration.IsUint64.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;IsUint64#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S" title="tensorstore::StorageGeneration::IsUint64::generation (C++ function parameter)"><span class="n">generation</span></a></code> may have been constructed from <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.StorageGeneration.FromUint64.html#c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;FromUint64#l#S" title="tensorstore::StorageGeneration::FromUint64 (C++ function) — Returns a base generation that encodes the specified 64-bit number."><span class="n">FromUint64</span></a></code>.</p>
-</dd></dl>
-
-<dl class="cpp function summary objdesc">
-<dt class="sig sig-object highlight cpp">
-<span class="kt">void</span><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.StorageGeneration.MarkDirty.html"><span class="doc"><span class="pre">MarkDirty</span></span></a><span class="p">(</span><span class="p">)</span><span class="p">;</span></dt>
-<dd><p>Modifies this generation to set <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.StorageGeneration.kBaseGeneration.html#c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;kDirty" title="tensorstore::StorageGeneration::kDirty (C++ member) — Flag values specified as a suffix of value."><span class="n">kDirty</span></a></code> and <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.StorageGeneration.kBaseGeneration.html#c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;kNewlyDirty" title="tensorstore::StorageGeneration::kNewlyDirty (C++ member) — Flag values specified as a suffix of value."><span class="n">kNewlyDirty</span></a></code> in the last
-(innermost) flag byte.</p>
-</dd></dl>
-
-<dl class="cpp function summary objdesc">
-<dt class="sig sig-object highlight cpp">
-<span class="k">static</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.StorageGeneration.FromString.html"><span class="doc"><span class="pre">FromString</span></span></a><span class="p">(</span><span><span class="n">std</span><span class="p">::</span><a class="desctype reference external" href="https://en.cppreference.com/w/cpp/string/basic_string_view" title="std::string_view (C++17 standard type alias)"><span class="n">string_view</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.StorageGeneration.FromString.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;FromString#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;basic_string_view&gt;#C#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;char_traits&gt;#C#S" title="tensorstore::StorageGeneration::FromString::s (C++ function parameter)"><span class="n sig-param">s</span></a></span><span class="p">)</span><span class="p">;</span></dt>
-<dd><p>Returns a base generation that encodes the specified string.</p>
-</dd></dl>
-
-<dl class="cpp function summary objdesc">
-<dt class="sig sig-object highlight cpp">
-<span class="k">static</span><span class="w">&nbsp;</span><span class="kt">bool</span><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.StorageGeneration.IsCleanValidValue.html"><span class="doc"><span class="pre">IsCleanValidValue</span></span></a><span class="p">(</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="p">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.StorageGeneration.IsCleanValidValue.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;IsCleanValidValue#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S" title="tensorstore::StorageGeneration::IsCleanValidValue::generation (C++ function parameter)"><span class="n sig-param">generation</span></a></span><span class="p">)</span><span class="p">;</span></dt>
-<dd><p>Returns <code class="cpp-expr sig sig-inline cpp highlight"><span class="k">true</span></code> if this is a clean base generation, not locally-modified,
-not <code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="#" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="p">::</span><a class="reference internal" href="tensorstore.StorageGeneration.NoValue.html#c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;NoValue#S" title="tensorstore::StorageGeneration::NoValue (C++ function) — Returns the special generation value that corresponds to an object not being present."><span class="n">NoValue</span></a><span class="p">(</span><span class="p">)</span></code> and not <code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="#" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="p">::</span><a class="reference internal" href="tensorstore.StorageGeneration.Invalid.html#c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;Invalid#S" title="tensorstore::StorageGeneration::Invalid (C++ function) — Returns the invalid generation value guaranteed not to equal any valid generation."><span class="n">Invalid</span></a><span class="p">(</span><span class="p">)</span></code>.</p>
-</dd></dl>
-
-<dl class="cpp function summary objdesc">
-<dt class="sig sig-object highlight cpp">
-<span class="k">static</span><span class="w">&nbsp;</span><span class="n">std</span><span class="p">::</span><a class="desctype reference external" href="https://en.cppreference.com/w/cpp/string/basic_string_view" title="std::string_view (C++17 standard type alias)"><span class="n">string_view</span></a><span class="w"><br></span><a class="sig-name descname reference internal" href="tensorstore.StorageGeneration.DecodeString.html"><span class="doc"><span class="pre">DecodeString</span></span></a><span class="p">(</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="p">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.StorageGeneration.DecodeString.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;DecodeString#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S" title="tensorstore::StorageGeneration::DecodeString::generation (C++ function parameter)"><span class="n sig-param">generation</span></a></span><span class="p">)</span><span class="p">;</span></dt>
-<dd><p>Inverse of <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.StorageGeneration.FromString.html#c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;FromString#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;basic_string_view&gt;#C#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;char_traits&gt;#C#S" title="tensorstore::StorageGeneration::FromString (C++ function) — Returns a base generation that encodes the specified string."><span class="n">FromString</span></a></code>.</p>
-</dd></dl>
-
-<dl class="cpp function summary objdesc">
-<dt class="sig sig-object highlight cpp">
-<span class="k">static</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.StorageGeneration.FromValues.html"><span class="doc"><span class="pre">FromValues</span></span></a><span class="p">(</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.StorageGeneration.FromValues.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;FT&#64;&gt;1#pTFromValues#P&amp;1t0.0#$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S StorageGeneration" title="tensorstore::StorageGeneration::FromValues::T (C++ type template parameter)"><span class="n">T</span></a><span class="p">&amp;</span><span class="p">...</span><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.StorageGeneration.FromValues.html#c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;FT&#64;&gt;1#pTFromValues#P&amp;1t0.0#$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S StorageGeneration-p-value" title="tensorstore::StorageGeneration::FromValues::value (C++ function parameter) — Value to encode."><span class="n sig-param">value</span></a></span><span class="p">)</span><span class="p">;</span></dt>
-<dd><p>Returns a base generation that encodes one or more trivial values via
-memcpy.</p>
-</dd></dl>
-
-<dl class="cpp function summary objdesc">
-<dt class="sig sig-object highlight cpp">
-<span class="k">static</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.StorageGeneration.Dirty.html"><span class="doc"><span class="pre">Dirty</span></span></a><span class="p">(</span><span><a class="desctype reference internal" href="#" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.StorageGeneration.Dirty.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;Dirty#$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S" title="tensorstore::StorageGeneration::Dirty::generation (C++ function parameter)"><span class="n sig-param">generation</span></a></span><span class="p">)</span><span class="p">;</span></dt>
-<dd><p>Returns a generation that is marked as locally modified but conditioned on
-<code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.StorageGeneration.Dirty.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;Dirty#$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S" title="tensorstore::StorageGeneration::Dirty::generation (C++ function parameter)"><span class="n">generation</span></a></code>.</p>
-</dd></dl>
-
-<dl class="cpp function summary objdesc">
-<dt class="sig sig-object highlight cpp">
-<span class="k">static</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.StorageGeneration.Clean.html"><span class="doc"><span class="pre">Clean</span></span></a><span class="p">(</span><span><a class="desctype reference internal" href="#" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.StorageGeneration.Clean.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;Clean#$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S" title="tensorstore::StorageGeneration::Clean::generation (C++ function parameter)"><span class="n sig-param">generation</span></a></span><span class="p">)</span><span class="p">;</span></dt>
-<dd><p>Returns the “clean” base generation on which <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.StorageGeneration.Clean.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;Clean#$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S" title="tensorstore::StorageGeneration::Clean::generation (C++ function parameter)"><span class="n">generation</span></a></code> is based.</p>
-</dd></dl>
-
-<dl class="cpp function summary objdesc">
-<dt class="sig sig-object highlight cpp">
-<span class="k">static</span><span class="w">&nbsp;</span><span class="kt">bool</span><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.StorageGeneration.Equivalent.html"><span class="doc"><span class="pre">Equivalent</span></span></a><span class="p">(</span><span><span class="n">std</span><span class="p">::</span><a class="desctype reference external" href="https://en.cppreference.com/w/cpp/string/basic_string_view" title="std::string_view (C++17 standard type alias)"><span class="n">string_view</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.StorageGeneration.Equivalent.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;Equivalent#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;basic_string_view&gt;#C#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;char_traits&gt;#C#S0_#S" title="tensorstore::StorageGeneration::Equivalent::a (C++ function parameter)"><span class="n sig-param">a</span></a></span><span class="p">,&nbsp;</span><span><span class="n">std</span><span class="p">::</span><a class="desctype reference external" href="https://en.cppreference.com/w/cpp/string/basic_string_view" title="std::string_view (C++17 standard type alias)"><span class="n">string_view</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.StorageGeneration.Equivalent.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;Equivalent#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;basic_string_view&gt;#C#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;char_traits&gt;#C#S0_#S" title="tensorstore::StorageGeneration::Equivalent::b (C++ function parameter)"><span class="n sig-param">b</span></a></span><span class="p">)</span><span class="p">;</span></dt>
-<dd><p>Determines if two generations are equivalent by comparing their canonical
-generations.</p>
-</dd></dl>
-
-<dl class="cpp function summary objdesc">
-<dt class="sig sig-object highlight cpp">
-<span class="k">static</span><span class="w">&nbsp;</span><span class="kt">bool</span><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.StorageGeneration.IsDirty.html"><span class="doc"><span class="pre">IsDirty</span></span></a><span class="p">(</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="p">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.StorageGeneration.IsDirty.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;IsDirty#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S" title="tensorstore::StorageGeneration::IsDirty::generation (C++ function parameter)"><span class="n sig-param">generation</span></a></span><span class="p">)</span><span class="p">;</span></dt>
-<dd><p>Checks if <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.StorageGeneration.IsDirty.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;IsDirty#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S" title="tensorstore::StorageGeneration::IsDirty::generation (C++ function parameter)"><span class="n">generation</span></a></code> represents a locally-modified value.</p>
-</dd></dl>
-
-<dl class="cpp function summary objdesc">
-<dt class="sig sig-object highlight cpp">
-<span class="k">static</span><span class="w">&nbsp;</span><span class="kt">bool</span><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.StorageGeneration.IsInnerLayerDirty.html"><span class="doc"><span class="pre">IsInnerLayerDirty</span></span></a><span class="p">(</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="p">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.StorageGeneration.IsInnerLayerDirty.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;IsInnerLayerDirty#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S" title="tensorstore::StorageGeneration::IsInnerLayerDirty::generation (C++ function parameter)"><span class="n sig-param">generation</span></a></span><span class="p">)</span><span class="p">;</span></dt>
-<dd><p>Checks if the innermost layer of <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.StorageGeneration.IsInnerLayerDirty.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;IsInnerLayerDirty#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S" title="tensorstore::StorageGeneration::IsInnerLayerDirty::generation (C++ function parameter)"><span class="n">generation</span></a></code> is locally-modified.</p>
-</dd></dl>
-
-<dl class="cpp function summary objdesc">
-<dt class="sig sig-object highlight cpp">
-<span class="k">static</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="w"><br></span><a class="sig-name descname reference internal" href="tensorstore.StorageGeneration.Condition.html"><span class="doc"><span class="pre">Condition</span></span></a><span class="p">(</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="p">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.StorageGeneration.Condition.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;Condition#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S1_#S" title="tensorstore::StorageGeneration::Condition::generation (C++ function parameter)"><span class="n sig-param">generation</span></a></span><span class="p">,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span><a class="desctype reference internal" href="#" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.StorageGeneration.Condition.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;Condition#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S1_#S" title="tensorstore::StorageGeneration::Condition::condition (C++ function parameter)"><span class="n sig-param">condition</span></a></span><span class="p">)</span><span class="p">;</span></dt>
-<dd><p>Returns a <code class="code highlight cpp docutils literal highlight-cpp"><span class="n">new_generation</span></code> for which
-<code class="code highlight cpp docutils literal highlight-cpp"><span class="n">IsDirty</span><span class="p">(</span><span class="n">new_generation</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">IsDirty</span><span class="p">(</span><span class="n">generation</span><span class="p">)</span></code> and
-<code class="code highlight cpp docutils literal highlight-cpp"><span class="n">Clean</span><span class="p">(</span><span class="n">new_generation</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">Clean</span><span class="p">(</span><span class="n">condition</span><span class="p">)</span></code>.</p>
-</dd></dl>
-
-<dl class="cpp function summary objdesc">
-<dt class="sig sig-object highlight cpp">
-<span class="k">static</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.StorageGeneration.AddLayer.html"><span class="doc"><span class="pre">AddLayer</span></span></a><span class="p">(</span><span><a class="desctype reference internal" href="#" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.StorageGeneration.AddLayer.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;AddLayer#$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S" title="tensorstore::StorageGeneration::AddLayer::generation (C++ function parameter)"><span class="n sig-param">generation</span></a></span><span class="p">)</span><span class="p">;</span></dt>
-<dd><p>Adds another layer of local modification to <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.StorageGeneration.AddLayer.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;AddLayer#$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S" title="tensorstore::StorageGeneration::AddLayer::generation (C++ function parameter)"><span class="n">generation</span></a></code>.</p>
-</dd></dl>
-
-<dl class="cpp function summary objdesc">
-<dt class="sig sig-object highlight cpp">
-<span class="k">static</span><span class="w">&nbsp;</span><span class="kt">bool</span><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.StorageGeneration.IsConditional.html"><span class="doc"><span class="pre">IsConditional</span></span></a><span class="p">(</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="p">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.StorageGeneration.IsConditional.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;IsConditional#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S" title="tensorstore::StorageGeneration::IsConditional::generation (C++ function parameter)"><span class="n sig-param">generation</span></a></span><span class="p">)</span><span class="p">;</span></dt>
-<dd><p>Checks if <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.StorageGeneration.Clean.html#c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;Clean#$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S" title="tensorstore::StorageGeneration::Clean (C++ function) — Returns the &quot;clean&quot; base generation on which generation is based."><span class="n">Clean</span></a><span class="p">(</span><a class="reference internal" href="tensorstore.StorageGeneration.IsConditional.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;IsConditional#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S" title="tensorstore::StorageGeneration::IsConditional::generation (C++ function parameter)"><span class="n">generation</span></a><span class="p">)</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><a class="reference internal" href="tensorstore.StorageGeneration.Unknown.html#c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;Unknown#S" title="tensorstore::StorageGeneration::Unknown (C++ function) — Returns the special generation value that indicates the StorageGeneration is unspecified."><span class="n">Unknown</span></a><span class="p">(</span><span class="p">)</span></code>.</p>
-</dd></dl>
-
-<dl class="cpp function summary objdesc">
-<dt class="sig sig-object highlight cpp">
-<span class="k">static</span><span class="w">&nbsp;</span><span class="kt">bool</span><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.StorageGeneration.IsConditionalOn.html"><span class="doc"><span class="pre">IsConditionalOn</span></span></a><span class="p">(</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="p">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.StorageGeneration.IsConditionalOn.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;IsConditionalOn#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S0_#S" title="tensorstore::StorageGeneration::IsConditionalOn::generation (C++ function parameter)"><span class="n sig-param">generation</span></a></span><span class="p">,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="p">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.StorageGeneration.IsConditionalOn.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;IsConditionalOn#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S0_#S" title="tensorstore::StorageGeneration::IsConditionalOn::condition (C++ function parameter)"><span class="n sig-param">condition</span></a></span><span class="p">)</span><span class="p">;</span></dt>
-<dd><p>Checks if <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.StorageGeneration.IsConditionalOn.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;IsConditionalOn#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S0_#S" title="tensorstore::StorageGeneration::IsConditionalOn::generation (C++ function parameter)"><span class="n">generation</span></a></code> is the same as <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.StorageGeneration.IsConditionalOn.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;IsConditionalOn#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S0_#S" title="tensorstore::StorageGeneration::IsConditionalOn::condition (C++ function parameter)"><span class="n">condition</span></a></code>, ignoring dirty flags on
-the inner-most layer.</p>
-</dd></dl>
-
-<dl class="cpp function summary objdesc">
-<dt class="sig sig-object highlight cpp">
 <span class="k">static</span><span class="w">&nbsp;</span><span class="kt">bool</span><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.StorageGeneration.EqualOrUnspecified.html"><span class="doc"><span class="pre">EqualOrUnspecified</span></span></a><span class="p">(</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="p">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.StorageGeneration.EqualOrUnspecified.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;EqualOrUnspecified#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S0_#S" title="tensorstore::StorageGeneration::EqualOrUnspecified::generation (C++ function parameter)"><span class="n sig-param">generation</span></a></span><span class="p">,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="p">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.StorageGeneration.EqualOrUnspecified.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;EqualOrUnspecified#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S0_#S" title="tensorstore::StorageGeneration::EqualOrUnspecified::if_equal (C++ function parameter)"><span class="n sig-param">if_equal</span></a></span><span class="p">)</span><span class="p">;</span></dt>
 <dd><p>Checks if <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.StorageGeneration.EqualOrUnspecified.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;EqualOrUnspecified#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S0_#S" title="tensorstore::StorageGeneration::EqualOrUnspecified::if_equal (C++ function parameter)"><span class="n">if_equal</span></a></code> is unspecified, or equal to <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.StorageGeneration.EqualOrUnspecified.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;EqualOrUnspecified#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S0_#S" title="tensorstore::StorageGeneration::EqualOrUnspecified::generation (C++ function parameter)"><span class="n">generation</span></a></code>.</p>
 </dd></dl>
@@ -2016,16 +1550,16 @@ the inner-most layer.</p>
 
 <dl class="cpp function summary objdesc">
 <dt class="sig sig-object highlight cpp">
-<span class="k">static</span><span class="w">&nbsp;</span><span class="kt">bool</span><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.StorageGeneration.IsClean.html"><span class="doc"><span class="pre">IsClean</span></span></a><span class="p">(</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="p">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.StorageGeneration.IsClean.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;IsClean#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S" title="tensorstore::StorageGeneration::IsClean::generation (C++ function parameter)"><span class="n sig-param">generation</span></a></span><span class="p">)</span><span class="p">;</span></dt>
-<dd><p>Returns <code class="cpp-expr sig sig-inline cpp highlight"><span class="k">true</span></code> if <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.StorageGeneration.IsClean.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;IsClean#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S" title="tensorstore::StorageGeneration::IsClean::generation (C++ function parameter)"><span class="n">generation</span></a></code> represents a “clean” state without any
-local modifications.</p>
+<span class="k">static</span><span class="w">&nbsp;</span><span class="kt">bool</span><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.StorageGeneration.IsNoValue.html"><span class="doc"><span class="pre">IsNoValue</span></span></a><span class="p">(</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="p">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.StorageGeneration.IsNoValue.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;IsNoValue#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S" title="tensorstore::StorageGeneration::IsNoValue::generation (C++ function parameter)"><span class="n sig-param">generation</span></a></span><span class="p">)</span><span class="p">;</span></dt>
+<dd><p>Returns <code class="cpp-expr sig sig-inline cpp highlight"><span class="k">true</span></code> if <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.StorageGeneration.IsNoValue.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;IsNoValue#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S" title="tensorstore::StorageGeneration::IsNoValue::generation (C++ function parameter)"><span class="n">generation</span></a></code> is equal to the special <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.StorageGeneration.NoValue.html#c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;NoValue#S" title="tensorstore::StorageGeneration::NoValue (C++ function) — Returns the special generation value that corresponds to an object not being present."><span class="n">NoValue</span></a><span class="p">(</span><span class="p">)</span></code>
+generation.</p>
 </dd></dl>
 
 <dl class="cpp function summary objdesc">
 <dt class="sig sig-object highlight cpp">
-<span class="k">static</span><span class="w">&nbsp;</span><span class="kt">bool</span><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.StorageGeneration.IsNoValue.html"><span class="doc"><span class="pre">IsNoValue</span></span></a><span class="p">(</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="p">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.StorageGeneration.IsNoValue.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;IsNoValue#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S" title="tensorstore::StorageGeneration::IsNoValue::generation (C++ function parameter)"><span class="n sig-param">generation</span></a></span><span class="p">)</span><span class="p">;</span></dt>
-<dd><p>Returns <code class="cpp-expr sig sig-inline cpp highlight"><span class="k">true</span></code> if <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.StorageGeneration.IsNoValue.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;IsNoValue#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S" title="tensorstore::StorageGeneration::IsNoValue::generation (C++ function parameter)"><span class="n">generation</span></a></code> is equal to the special <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.StorageGeneration.NoValue.html#c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;NoValue#S" title="tensorstore::StorageGeneration::NoValue (C++ function) — Returns the special generation value that corresponds to an object not being present."><span class="n">NoValue</span></a><span class="p">(</span><span class="p">)</span></code>
-generation.</p>
+<span class="k">static</span><span class="w">&nbsp;</span><span class="kt">bool</span><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.StorageGeneration.IsClean.html"><span class="doc"><span class="pre">IsClean</span></span></a><span class="p">(</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="p">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.StorageGeneration.IsClean.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;IsClean#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S" title="tensorstore::StorageGeneration::IsClean::generation (C++ function parameter)"><span class="n sig-param">generation</span></a></span><span class="p">)</span><span class="p">;</span></dt>
+<dd><p>Returns <code class="cpp-expr sig sig-inline cpp highlight"><span class="k">true</span></code> if <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.StorageGeneration.IsClean.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;IsClean#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S" title="tensorstore::StorageGeneration::IsClean::generation (C++ function parameter)"><span class="n">generation</span></a></code> represents a “clean” state without any
+uncommitted modifications within a transaction.</p>
 </dd></dl>
 
 <div class="toctree-wrapper compound">
@@ -2044,19 +1578,13 @@ generation.</p>
 <span class="k">friend</span><span class="w">&nbsp;</span><span class="kt">bool</span><span class="w"><br></span><a class="sig-name descname reference internal" href="tensorstore.StorageGeneration.operator-equal_to.html"><span class="doc"><span class="pre">operator!=</span></span></a><span class="p">(</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="p">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.StorageGeneration.operator-equal_to.html#_CPPv4c:&#64;N&#64;tensorstore&#64;F&#64;operator!=#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;basic_string_view&gt;#C#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;char_traits&gt;#C#" title="tensorstore::StorageGeneration::operator!=::a (C++ function parameter)"><span class="n sig-param">a</span></a></span><span class="p">,&nbsp;</span><span><span class="n">std</span><span class="p">::</span><a class="desctype reference external" href="https://en.cppreference.com/w/cpp/string/basic_string_view" title="std::string_view (C++17 standard type alias)"><span class="n">string_view</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.StorageGeneration.operator-equal_to.html#_CPPv4c:&#64;N&#64;tensorstore&#64;F&#64;operator!=#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;basic_string_view&gt;#C#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;char_traits&gt;#C#" title="tensorstore::StorageGeneration::operator!=::b (C++ function parameter)"><span class="n sig-param">b</span></a></span><span class="p">)</span><span class="p">;</span></dt>
 <dt class="sig sig-object highlight cpp">
 <span class="k">friend</span><span class="w">&nbsp;</span><span class="kt">bool</span><span class="w"><br></span><a class="sig-name descname reference internal" href="tensorstore.StorageGeneration.operator-equal_to.html"><span class="doc"><span class="pre">operator!=</span></span></a><span class="p">(</span><span><span class="n">std</span><span class="p">::</span><a class="desctype reference external" href="https://en.cppreference.com/w/cpp/string/basic_string_view" title="std::string_view (C++17 standard type alias)"><span class="n">string_view</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.StorageGeneration.operator-equal_to.html#_CPPv4c:&#64;N&#64;tensorstore&#64;F&#64;operator!=#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;basic_string_view&gt;#C#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;char_traits&gt;#C#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#" title="tensorstore::StorageGeneration::operator!=::a (C++ function parameter)"><span class="n sig-param">a</span></a></span><span class="p">,&nbsp;</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="p">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.StorageGeneration.operator-equal_to.html#_CPPv4c:&#64;N&#64;tensorstore&#64;F&#64;operator!=#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;basic_string_view&gt;#C#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;char_traits&gt;#C#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#" title="tensorstore::StorageGeneration::operator!=::b (C++ function parameter)"><span class="n sig-param">b</span></a></span><span class="p">)</span><span class="p">;</span></dt>
-<dd><p>Checks if two generations are <code class="cpp-expr sig sig-inline cpp highlight"><a class="reference internal" href="tensorstore.StorageGeneration.Equivalent.html#c:&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration&#64;F&#64;Equivalent#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;basic_string_view&gt;#C#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;char_traits&gt;#C#S0_#S" title="tensorstore::StorageGeneration::Equivalent (C++ function) — Determines if two generations are equivalent by comparing their canonical generations."><span class="n">Equivalent</span></a></code>.</p>
+<dd><p>Checks if two generations are equivalent.</p>
 </dd></dl>
 
 <dl class="cpp function summary objdesc">
 <dt class="sig sig-object highlight cpp">
 <span class="k">friend</span><span class="w">&nbsp;</span><span class="n">std</span><span class="p">::</span><a class="desctype reference external" href="https://en.cppreference.com/w/cpp/io/basic_ostream" title="std::ostream (C++ standard type alias)"><span class="n">ostream</span></a><span class="p">&amp;<br></span><a class="sig-name descname reference internal" href="tensorstore.StorageGeneration.operator-shift_left.html"><span class="doc"><span class="pre">operator&lt;&lt;</span></span></a><span class="p">(</span><span><span class="n">std</span><span class="p">::</span><a class="desctype reference external" href="https://en.cppreference.com/w/cpp/io/basic_ostream" title="std::ostream (C++ standard type alias)"><span class="n">ostream</span></a><span class="p">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.StorageGeneration.operator-shift_left.html#_CPPv4c:&#64;N&#64;tensorstore&#64;F&#64;operator&lt;&lt;#&amp;$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;basic_ostream&gt;#C#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;char_traits&gt;#C#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#" title="tensorstore::StorageGeneration::operator&lt;&lt;::os (C++ function parameter)"><span class="n sig-param">os</span></a></span><span class="p">,&nbsp;</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="p">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.StorageGeneration.operator-shift_left.html#_CPPv4c:&#64;N&#64;tensorstore&#64;F&#64;operator&lt;&lt;#&amp;$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;basic_ostream&gt;#C#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;char_traits&gt;#C#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#" title="tensorstore::StorageGeneration::operator&lt;&lt;::g (C++ function parameter)"><span class="n sig-param">g</span></a></span><span class="p">)</span><span class="p">;</span></dt>
 <dd><p>Prints a debugging string representation to an <code class="cpp-expr sig sig-inline cpp highlight"><span class="n">std</span><span class="p">::</span><a class="desctype reference external" href="https://en.cppreference.com/w/cpp/io/basic_ostream" title="std::ostream (C++ standard type alias)"><span class="n">ostream</span></a></code>.</p>
-</dd></dl>
-
-<dl class="cpp function summary objdesc">
-<dt class="sig sig-object highlight cpp">
-<span class="k">friend</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.StorageGeneration.AbslHashValue.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;1#TAbslHashValue#t0.0#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S0_# H" title="tensorstore::StorageGeneration::AbslHashValue::H (C++ type template parameter)"><span class="n">H</span></a><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.StorageGeneration.AbslHashValue.html"><span class="doc"><span class="pre">AbslHashValue</span></span></a><span class="p">(</span><span><a class="desctype reference internal" href="tensorstore.StorageGeneration.AbslHashValue.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;1#TAbslHashValue#t0.0#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S0_# H" title="tensorstore::StorageGeneration::AbslHashValue::H (C++ type template parameter)"><span class="n">H</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.StorageGeneration.AbslHashValue.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;1#TAbslHashValue#t0.0#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S0_# H" title="tensorstore::StorageGeneration::AbslHashValue::h (C++ function parameter)"><span class="n sig-param">h</span></a></span><span class="p">,&nbsp;</span><span><span class="k">const</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="#" title="tensorstore::StorageGeneration (C++ class) — Represents a generation identifier associated with a stored object."><span class="n">StorageGeneration</span></a><span class="p">&amp;&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.StorageGeneration.AbslHashValue.html#_CPPv4c:&#64;N&#64;tensorstore&#64;FT&#64;&gt;1#TAbslHashValue#t0.0#&amp;1$&#64;N&#64;tensorstore&#64;S&#64;StorageGeneration#S0_# H" title="tensorstore::StorageGeneration::AbslHashValue::x (C++ function parameter)"><span class="n sig-param">x</span></a></span><span class="p">)</span><span class="p">;</span></dt>
-<dd><p>Abseil hash support.</p>
 </dd></dl>
 
 <div class="toctree-wrapper compound">
