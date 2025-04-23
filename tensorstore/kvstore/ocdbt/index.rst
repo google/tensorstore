@@ -183,12 +183,6 @@ Manifest header
 ``version``
   Must equal ``0``.
 
-.. _ocdbt-manifest-crc32c-checksum:
-
-``crc32c_checksum``
-  CRC32C checksum of entire manifest, Length in bytes of entire manifest, including `this
-  header<ocdbt-manifest-header>`.
-
 .. _ocdbt-manifest-compression-format:
 
 ``compression_format``
@@ -254,7 +248,7 @@ Manifest configuration
 
 .. _ocdbt-config-max-decoded-node-bytes:
 
-``max_decoded_note_bytes``
+``max_decoded_node_bytes``
   Maximum (uncompressed) size of a B+Tree node.
 
 .. _ocdbt-config-version-tree-arity-log2:
@@ -341,7 +335,7 @@ Manifest footer
 |:ref:`ocdbt-manifest-crc32c-checksum`||crc32c_format||
 +-------------------------------------+---------------+
 
-.. _ocdbt-manifest-crc32-checksum:
+.. _ocdbt-manifest-crc32c-checksum:
 
 ``crc32c_checksum``
   CRC-32C checksum of the entire manifest, excluding the checksum itself.
@@ -734,7 +728,7 @@ additional field:
 
 ``commit_time[i]``
   Commit time, in milliseconds since the Unix epoch (excluding leap
-  seconds), of the earlier B+tree root referenced within this subtree.
+  seconds), of the earliest B+tree root referenced within this subtree.
 
   .. note::
 
