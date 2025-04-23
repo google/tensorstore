@@ -45,6 +45,11 @@ Future<const void> AddCopySubtree(
     const internal::OpenTransactionPtr& transaction,
     BtreeWriter::CopySubtreeOptions&& options);
 
+Future<kvstore::ReadResult> TransactionalReadImpl(
+    kvstore::Driver* driver, const IoHandle& io_handle,
+    const internal::OpenTransactionPtr& transaction, kvstore::Key key,
+    kvstore::ReadOptions options);
+
 }  // namespace internal_ocdbt
 }  // namespace tensorstore
 

@@ -75,7 +75,7 @@ class KvsBackedChunkCache
     using OwningCache = KvsBackedChunkCache;
     void DoDecode(std::optional<absl::Cord> value,
                   DecodeReceiver receiver) override;
-    void DoEncode(std::shared_ptr<const ReadData> data,
+    void DoEncode(EncodeOptions options, std::shared_ptr<const ReadData> data,
                   EncodeReceiver receiver) override;
     std::string GetKeyValueStoreKey() override;
     std::string DescribeChunk() override;

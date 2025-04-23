@@ -672,7 +672,7 @@ TEST_F(MockStoreTest, MultiPhaseValidateError) {
   {
     auto read_req = mock_store->read_requests.pop();
     EXPECT_EQ("a", read_req.key);
-    EXPECT_EQ(tensorstore::OptionalByteRangeRequest(0, 0),
+    EXPECT_EQ(tensorstore::OptionalByteRangeRequest::Stat(),
               read_req.options.byte_range);
     read_req(memory_store);
   }

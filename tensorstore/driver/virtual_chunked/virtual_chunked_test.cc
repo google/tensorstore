@@ -74,8 +74,8 @@ CoordinatesView(DimensionIndex dim, Option&&... option) {
         tensorstore::IterateOverIndexRange(
             output.domain(),
             [&](span<const Index> indices) { output(indices) = indices[dim]; });
-        return TimestampedStorageGeneration{StorageGeneration::FromString(""),
-                                            absl::Now()};
+        return TimestampedStorageGeneration{
+            StorageGeneration::FromString("abc"), absl::Now()};
       }},
       std::forward<Option>(option)...);
 }
@@ -93,7 +93,7 @@ SerializableCoordinatesView(DimensionIndex dim, Option&&... option) {
                                                  output(indices) = indices[dim];
                                                });
             return TimestampedStorageGeneration{
-                StorageGeneration::FromString(""), absl::Now()};
+                StorageGeneration::FromString("abc"), absl::Now()};
           },
           dim),
       std::forward<Option>(option)...);
@@ -115,7 +115,7 @@ LoggingView(std::vector<RequestLayout>& requests, Option&&... option) {
             absl::MutexLock lock(mutex.get());
             requests.emplace_back(output.layout());
             return TimestampedStorageGeneration{
-                StorageGeneration::FromString(""), absl::Now()};
+                StorageGeneration::FromString("abc"), absl::Now()};
           }},
       std::forward<Option>(option)...);
 }
@@ -363,7 +363,7 @@ TEST(VirtualChunkedTest, RecheckCacheImmutable) {
     EXPECT_EQ(StorageGeneration::Unknown(), request.params.if_not_equal());
     request.array() = 42;
     request.promise.SetResult(TimestampedStorageGeneration(
-        StorageGeneration::FromString(""), absl::InfiniteFuture()));
+        StorageGeneration::FromString("abc"), absl::InfiniteFuture()));
   }
   EXPECT_THAT(read_future.result(),
               ::testing::Optional(tensorstore::MakeScalarArray<int>(42)));
@@ -420,14 +420,15 @@ TEST(VirtualChunkedTest, ReadWriteWrite) {
       request.array(0) = 1;
       request.array(1) = 2;
       request.promise.SetResult(TimestampedStorageGeneration(
-          StorageGeneration::FromString(""), absl::InfiniteFuture()));
+          StorageGeneration::FromString("abc"), absl::InfiniteFuture()));
     }
     {
       auto request = write_requests.pop();
-      EXPECT_EQ(StorageGeneration::FromString(""), request.params.if_equal());
+      EXPECT_EQ(StorageGeneration::FromString("abc"),
+                request.params.if_equal());
       EXPECT_EQ(tensorstore::MakeArray<int>({42, 2}), request.array);
       request.promise.SetResult(TimestampedStorageGeneration(
-          StorageGeneration::FromString(""), absl::InfiniteFuture()));
+          StorageGeneration::FromString("abc"), absl::InfiniteFuture()));
     }
     TENSORSTORE_ASSERT_OK(write_future);
   }
@@ -439,10 +440,11 @@ TEST(VirtualChunkedTest, ReadWriteWrite) {
     write_future.Force();
     {
       auto request = write_requests.pop();
-      EXPECT_EQ(StorageGeneration::FromString(""), request.params.if_equal());
+      EXPECT_EQ(StorageGeneration::FromString("abc"),
+                request.params.if_equal());
       EXPECT_EQ(tensorstore::MakeArray<int>({42, 50}), request.array);
       request.promise.SetResult(TimestampedStorageGeneration(
-          StorageGeneration::FromString(""), absl::InfiniteFuture()));
+          StorageGeneration::FromString("abc"), absl::InfiniteFuture()));
     }
     TENSORSTORE_ASSERT_OK(write_future);
   }
@@ -466,7 +468,7 @@ TEST(VirtualChunkedTest, Write) {
       EXPECT_EQ(StorageGeneration::Unknown(), request.params.if_equal());
       EXPECT_EQ(tensorstore::MakeArray<int>({42, 42, 42, 42}), request.array);
       request.promise.SetResult(TimestampedStorageGeneration(
-          StorageGeneration::FromString(""), absl::Now()));
+          StorageGeneration::FromString("abc"), absl::Now()));
     }
     TENSORSTORE_ASSERT_OK(write_future);
   }
@@ -483,7 +485,7 @@ TEST(VirtualChunkedTest, Write) {
       EXPECT_EQ(tensorstore::MakeOffsetArray<int>({4}, {42, 42}),
                 request.array);
       request.promise.SetResult(TimestampedStorageGeneration(
-          StorageGeneration::FromString(""), absl::Now()));
+          StorageGeneration::FromString("abc"), absl::Now()));
     }
     TENSORSTORE_ASSERT_OK(write_future);
   }
@@ -502,7 +504,7 @@ TEST(VirtualChunkedTest, WriteFillValue) {
     EXPECT_EQ(StorageGeneration::Unknown(), request.params.if_equal());
     EXPECT_EQ(tensorstore::MakeScalarArray<int>(0), request.array);
     request.promise.SetResult(TimestampedStorageGeneration(
-        StorageGeneration::FromString(""), absl::Now()));
+        StorageGeneration::FromString("abc"), absl::Now()));
   }
   TENSORSTORE_ASSERT_OK(write_future);
 }
@@ -539,7 +541,7 @@ TEST(VirtualChunkedTest, AtomicSingleChunk) {
     EXPECT_EQ(StorageGeneration::Unknown(), request.params.if_equal());
     EXPECT_EQ(tensorstore::MakeArray<int>({42, 42, 42, 42}), request.array);
     request.promise.SetResult(TimestampedStorageGeneration(
-        StorageGeneration::FromString(""), absl::Now()));
+        StorageGeneration::FromString("abc"), absl::Now()));
   }
 
   TENSORSTORE_ASSERT_OK(future);
@@ -576,7 +578,7 @@ TEST(VirtualChunkedTest, NonAtomicSingleChunk) {
     auto request = write_requests.pop();
     EXPECT_EQ(StorageGeneration::Unknown(), request.params.if_equal());
     request.promise.SetResult(TimestampedStorageGeneration(
-        StorageGeneration::FromString(""), absl::Now()));
+        StorageGeneration::FromString("abc"), absl::Now()));
   }
 
   TENSORSTORE_ASSERT_OK(future);

@@ -668,8 +668,16 @@ class TransactionState {
 
   /// Returns the existing node for `associated_data`.  If there is no existing
   /// node, creates a new one by calling `make_node`.
+  ///
+  /// Returns an error if an abort was requested.
   Result<OpenNodePtrT<Node>> GetOrCreateMultiPhaseNode(
       void* associated_data, absl::FunctionRef<Node*()> make_node);
+
+  /// Returns the existing node for `associated_data`, or `nullptr` if it does
+  /// not already exist.
+  ///
+  /// The caller must hold an open transaction pointer to this transaction.
+  OpenNodePtrT<Node> GetExistingMultiPhaseNode(void* associated_data);
 
  private:
   friend class tensorstore::Transaction;
@@ -823,7 +831,11 @@ class TransactionState {
   /// transaction.  The callback holds a commit reference.  This is unregistered
   /// when all other commit references have been released, in order to break the
   /// reference cycle.
-  FutureCallbackRegistration promise_callback_;
+  FutureCallbackRegistration promise_force_callback_;
+
+  /// Registration of "not needed" callback on `promise_` that aborts the
+  /// transaction.
+  FutureCallbackRegistration promise_not_needed_callback_;
 
   /// Retained until all write handles are released.
   Promise<void> promise_;
@@ -907,11 +919,11 @@ using OpenTransactionPtr = TransactionState::OpenPtr;
 /// Smart pointer that holds a weak reference to a transaction node as well as
 /// an `OpenTransactionPtr` to its associated transaction.  This should be held
 /// while performing a read or write of the node prior to commit.
-template <typename Node>
+template <typename Node = TransactionState::Node>
 using OpenTransactionNodePtr = TransactionState::OpenNodePtrT<Node>;
 
 /// Smart pointer that holds a weak reference to a transaction node.
-template <typename Node>
+template <typename Node = TransactionState::Node>
 using WeakTransactionNodePtr = TransactionState::WeakNodePtrT<Node>;
 
 /// Converts an `OpenTransactionNodePtr` to a `WeakTransactionNodePtr`.

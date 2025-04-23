@@ -283,7 +283,8 @@ class ShardedKeyValueStoreWriteCache
           });
     }
 
-    void DoEncode(std::shared_ptr<const ShardEntries> data,
+    void DoEncode(EncodeOptions options,
+                  std::shared_ptr<const ShardEntries> data,
                   EncodeReceiver receiver) override {
       // Can call `EncodeShard` synchronously without using our executor since
       // `DoEncode` is already guaranteed to be called from our executor.
@@ -395,7 +396,9 @@ class ShardedKeyValueStoreWriteCache
 
     void Revoke() override {
       Base::TransactionNode::Revoke();
-      { UniqueWriterLock(*this); }
+      {
+        UniqueWriterLock(*this);
+      }
       // At this point, no new entries may be added and we can safely traverse
       // the list of entries without a lock.
       this->RevokeAllEntries();
@@ -413,35 +416,35 @@ class ShardedKeyValueStoreWriteCache
     /// Always reads the full shard, and then decodes the individual chunk
     /// within it.
     void Read(
-        internal_kvstore::ReadModifyWriteEntry& entry,
-        kvstore::ReadModifyWriteTarget::TransactionalReadOptions&& options,
+        std::string_view key,
+        kvstore::ReadModifyWriteTarget::ReadModifyWriteReadOptions&& options,
         kvstore::ReadModifyWriteTarget::ReadReceiver&& receiver) override {
       this->AsyncCache::TransactionNode::Read({options.staleness_bound})
           .ExecuteWhenReady(WithExecutor(
               GetOwningCache(*this).executor(),
-              [&entry,
+              [this, key = std::string(key),
                if_not_equal =
                    std::move(options.generation_conditions.if_not_equal),
-               receiver = std::move(receiver)](
+               byte_range = options.byte_range, receiver = std::move(receiver)](
                   ReadyFuture<const void> future) mutable {
                 if (!future.result().ok()) {
                   execution::set_error(receiver, future.result().status());
                   return;
                 }
-                execution::submit(HandleShardReadSuccess(entry, if_not_equal),
-                                  receiver);
+                execution::submit(
+                    this->HandleShardReadSuccess(key, if_not_equal, byte_range),
+                    receiver);
               }));
     }
 
     /// Called asynchronously from `Read` when the full shard is ready.
-    static Result<kvstore::ReadResult> HandleShardReadSuccess(
-        internal_kvstore::ReadModifyWriteEntry& entry,
-        const StorageGeneration& if_not_equal) {
-      auto& self = static_cast<TransactionNode&>(entry.multi_phase());
+    Result<kvstore::ReadResult> HandleShardReadSuccess(
+        std::string_view key, const StorageGeneration& if_not_equal,
+        OptionalByteRangeRequest byte_range) {
       TimestampedStorageGeneration stamp;
       std::shared_ptr<const ShardEntries> entries;
       {
-        AsyncCache::ReadLock<ShardEntries> lock{self};
+        AsyncCache::ReadLock<ShardEntries> lock{*this};
         stamp = lock.stamp();
         entries = lock.shared_data();
       }
@@ -463,13 +466,16 @@ class ShardedKeyValueStoreWriteCache
             StorageGeneration::AddLayer(std::move(stamp.generation));
       }
 
-      auto entry_id = InternalKeyToEntryId(entry.key_);
+      auto entry_id = InternalKeyToEntryId(key);
       const auto& shard_entry = entries->entries[entry_id];
       if (!shard_entry) {
         return kvstore::ReadResult::Missing(std::move(stamp));
-      } else {
-        return kvstore::ReadResult::Value(*shard_entry, std::move(stamp));
       }
+      auto value = *shard_entry;
+      TENSORSTORE_ASSIGN_OR_RETURN(auto resolved_byte_range,
+                                   byte_range.Validate(value.size()));
+      value = internal::GetSubCord(value, resolved_byte_range);
+      return kvstore::ReadResult::Value(std::move(value), std::move(stamp));
     }
 
     // The receiver argument for the current pending call to `DoApply`.
@@ -538,6 +544,7 @@ void ShardedKeyValueStoreWriteCache::TransactionNode::AllEntriesDone(
     TimestampedStorageGeneration stamp;
     bool mismatch = false;
     bool modified = false;
+    bool at_least_one_key_present = false;
 
     int64_t num_entries = 0;
     auto& cache = GetOwningCache(self);
@@ -561,15 +568,22 @@ void ShardedKeyValueStoreWriteCache::TransactionNode::AllEntriesDone(
         modified = true;
         ++num_entries;
       }
+
+      if (buffered_entry.value_state_ == kvstore::ReadResult::kValue) {
+        at_least_one_key_present = true;
+      }
+
       auto& entry_stamp = buffered_entry.stamp();
       if (StorageGeneration::IsConditional(entry_stamp.generation)) {
+        auto base_generation =
+            StorageGeneration::StripLayer(entry_stamp.generation);
         if (!StorageGeneration::IsUnknown(stamp.generation) &&
-            StorageGeneration::Clean(stamp.generation) !=
-                StorageGeneration::Clean(entry_stamp.generation)) {
+            stamp.generation != base_generation) {
           mismatch = true;
           break;
         } else {
-          stamp = entry_stamp;
+          stamp.generation = base_generation;
+          stamp.time = entry_stamp.time;
         }
       }
     }
@@ -578,14 +592,29 @@ void ShardedKeyValueStoreWriteCache::TransactionNode::AllEntriesDone(
       // Retry with newer staleness bound to try to obtain consistent
       // conditions.
       self.apply_options_.staleness_bound = absl::Now();
-      self.StartApply();
+      GetOwningCache(self).executor()([&self] { self.StartApply(); });
       return;
     }
-    if (!modified && StorageGeneration::IsUnknown(stamp.generation) &&
-        self.apply_options_.apply_mode !=
-            ApplyOptions::ApplyMode::kSpecifyUnchanged) {
+    if (!modified && StorageGeneration::IsUnknown(stamp.generation)) {
       internal::AsyncCache::ReadState update;
       update.stamp = TimestampedStorageGeneration::Unconditional();
+      execution::set_value(std::exchange(self.apply_receiver_, {}),
+                           std::move(update));
+      return;
+    }
+    if (self.apply_options_.apply_mode == ApplyOptions::kValueDiscarded &&
+        at_least_one_key_present) {
+      // Writeback is conditional, but the shard file itself is guaranteed to
+      // exist.
+      //
+      // Create fake update that will get encoded to a non-nullopt value.
+      ShardEntries new_entries;
+      new_entries.entries.resize(num_entries_per_shard);
+      new_entries.entries[0] = absl::Cord();
+      internal::AsyncCache::ReadState update;
+      update.stamp = std::move(stamp);
+      update.stamp.generation.MarkDirty(self.mutation_id_);
+      update.data = std::make_shared<ShardEntries>(std::move(new_entries));
       execution::set_value(std::exchange(self.apply_receiver_, {}),
                            std::move(update));
       return;
@@ -614,15 +643,16 @@ void ShardedKeyValueStoreWriteCache::TransactionNode::MergeForWriteback(
   TimestampedStorageGeneration stamp;
   ShardEntries new_entries;
   if (conditional) {
-    // The new shard state depends on the existing shard state.  We will need to
-    // merge the mutations with the existing chunks.  Additionally, any
+    // The new shard state depends on the existing shard state.  We will need
+    // to merge the mutations with the existing chunks.  Additionally, any
     // conditional mutations must be consistent with `stamp.generation`.
     auto lock = internal::AsyncCache::ReadLock<ShardEntries>{*this};
     stamp = lock.stamp();
     new_entries = *lock.shared_data();
   } else {
     // The new shard state is guaranteed not to depend on the existing shard
-    // state.  We will merge the mutations into an empty set of existing chunks.
+    // state.  We will merge the mutations into an empty set of existing
+    // chunks.
     stamp = TimestampedStorageGeneration::Unconditional();
   }
 
@@ -654,8 +684,8 @@ void ShardedKeyValueStoreWriteCache::TransactionNode::MergeForWriteback(
                         BufferedReadModifyWriteEntry&>(entry);
     auto& entry_stamp = buffered_entry.stamp();
     if (StorageGeneration::IsConditional(entry_stamp.generation) &&
-        StorageGeneration::Clean(entry_stamp.generation) !=
-            StorageGeneration::Clean(stamp.generation)) {
+        StorageGeneration::StripLayer(entry_stamp.generation) !=
+            stamp.generation) {
       // This mutation is conditional, and is inconsistent with a prior
       // conditional mutation or with `existing_chunks`.
       mismatch = true;
@@ -663,8 +693,8 @@ void ShardedKeyValueStoreWriteCache::TransactionNode::MergeForWriteback(
     }
     if (buffered_entry.value_state_ == kvstore::ReadResult::kUnspecified ||
         !StorageGeneration::IsInnerLayerDirty(entry_stamp.generation)) {
-      // This is a no-op mutation; ignore it, which has the effect of retaining
-      // the existing entry with this id, if present.
+      // This is a no-op mutation; ignore it, which has the effect of
+      // retaining the existing entry with this id, if present.
       continue;
     }
     auto entry_id = InternalKeyToEntryId(buffered_entry.key_);
@@ -686,18 +716,18 @@ void ShardedKeyValueStoreWriteCache::TransactionNode::MergeForWriteback(
     // up-to-date existing shard generation, which will normally lead to a
     // consistent set.  In the rare case where there are both concurrent
     // external modifications to the existing shard, and also concurrent
-    // requests for updated writeback states, multiple retries may be required.
-    // However, even in that case, the extra retries aren't really an added
-    // cost, because those retries would still be needed anyway due to the
-    // concurrent modifications.
+    // requests for updated writeback states, multiple retries may be
+    // required. However, even in that case, the extra retries aren't really
+    // an added cost, because those retries would still be needed anyway due
+    // to the concurrent modifications.
     apply_options_.staleness_bound = absl::Now();
-    this->StartApply();
+    GetOwningCache(*this).executor()([this] { this->StartApply(); });
     return;
   }
   internal::AsyncCache::ReadState update;
   update.stamp = std::move(stamp);
   if (changed) {
-    update.stamp.generation.MarkDirty();
+    update.stamp.generation.MarkDirty(mutation_id_);
   }
   update.data = std::make_shared<ShardEntries>(std::move(new_entries));
   execution::set_value(std::exchange(apply_receiver_, {}), std::move(update));
@@ -709,9 +739,11 @@ void ShardedKeyValueStoreWriteCache::TransactionNode::WritebackSuccess(
     if (entry.entry_type() != kReadModifyWrite) {
       internal_kvstore::WritebackSuccess(static_cast<DeleteRangeEntry&>(entry));
     } else {
-      internal_kvstore::WritebackSuccess(
-          static_cast<internal_kvstore::ReadModifyWriteEntry&>(entry),
-          read_state.stamp);
+      auto& derived_entry =
+          static_cast<internal_kvstore::AtomicMultiPhaseMutationBase::
+                          ReadModifyWriteEntryWithStamp&>(entry);
+      internal_kvstore::WritebackSuccess(derived_entry, read_state.stamp,
+                                         derived_entry.stamp_.generation);
     }
   }
   internal_kvstore::DestroyPhaseEntries(phases_);
@@ -800,6 +832,10 @@ class ShardedKeyValueStore
 
   Future<ReadResult> Read(Key key, ReadOptions options) override;
 
+  Future<ReadResult> TransactionalRead(
+      const internal::OpenTransactionPtr& transaction, Key key,
+      ReadOptions options) override;
+
   void ListImpl(ListOptions options, ListReceiver receiver) override;
 
   Future<TimestampedStorageGeneration> Write(Key key,
@@ -873,7 +909,8 @@ ShardedKeyValueStore::ShardedKeyValueStore(
   );
 }
 
-/// Asynchronous state and associated methods for `ShardedKeyValueStore::Read`.
+/// Asynchronous state and associated methods for
+/// `ShardedKeyValueStore::Read`.
 class ReadOperationState;
 using ReadOperationStateBase = internal_kvstore_batch::BatchReadEntry<
     ShardedKeyValueStore, internal_kvstore_batch::ReadRequest<
@@ -1060,8 +1097,8 @@ class ReadOperationState
 
     auto successor_batch = std::move(self->successor_batch_);
     if (successor_batch) {
-      // Store successor of successor batch to use for retries due to generation
-      // mismatch.
+      // Store successor of successor batch to use for retries due to
+      // generation mismatch.
       self->successor_batch_ = Batch::New();
     }
 
@@ -1247,7 +1284,7 @@ absl::Status ShardedKeyValueStore::ReadModifyWrite(
       EntryId entry_id,
       KeyToEntryIdOrError(key, shard_index_params().grid_shape()));
   key = EntryIdToInternalKey(entry_id);
-  // We only use the single cache entry with an empty string.
+  // Only use the single cache entry with an empty string.
   auto entry = GetCacheEntry(write_cache_, std::string_view{});
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto node, GetWriteLockedTransactionNode(*entry, transaction));
@@ -1258,6 +1295,26 @@ absl::Status ShardedKeyValueStore::ReadModifyWrite(
     transaction.reset(node.unlock()->transaction());
   }
   return absl::OkStatus();
+}
+
+Future<kvstore::ReadResult> ShardedKeyValueStore::TransactionalRead(
+    const internal::OpenTransactionPtr& transaction, Key key,
+    ReadOptions options) {
+  // Convert key to internal representation used in transaction data
+  // structures.
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      EntryId entry_id,
+      KeyToEntryIdOrError(key, shard_index_params().grid_shape()));
+  key = EntryIdToInternalKey(entry_id);
+  // Only use the single cache entry with an empty string.
+  auto entry = GetCacheEntry(write_cache_, std::string_view{});
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto node, GetWriteLockedTransactionNode(*entry, transaction));
+  internal_kvstore::MultiPhaseMutation* multi_phase_mutation = &*node;
+  return multi_phase_mutation->ReadImpl(
+      internal::OpenTransactionNodePtr<
+          ShardedKeyValueStoreWriteCache::TransactionNode>(&*node),
+      this, std::move(key), std::move(options), [&node] { node.unlock(); });
 }
 
 absl::Status ShardedKeyValueStore::TransactionalDeleteRange(
@@ -1342,7 +1399,7 @@ Future<kvstore::DriverPtr> ShardedKeyValueStoreSpec::DoOpen() const {
       [spec = internal::IntrusivePtr<const ShardedKeyValueStoreSpec>(this),
        index_params =
            std::move(index_params)](kvstore::KvStore& base_kvstore) mutable
-      -> Result<kvstore::DriverPtr> {
+          -> Result<kvstore::DriverPtr> {
         std::string cache_key;
         internal::EncodeCacheKey(
             &cache_key, base_kvstore.driver, base_kvstore.path,

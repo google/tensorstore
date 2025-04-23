@@ -437,6 +437,17 @@ absl::Status OcdbtDriver::TransactionalDeleteRange(
                                         std::move(range));
 }
 
+Future<kvstore::ReadResult> OcdbtDriver::TransactionalRead(
+    const internal::OpenTransactionPtr& transaction, Key key,
+    ReadOptions options) {
+  if (!transaction->atomic() || coordinator_->address) {
+    return kvstore::Driver::TransactionalRead(transaction, std::move(key),
+                                              std::move(options));
+  }
+  return internal_ocdbt::TransactionalReadImpl(
+      this, *io_handle_, transaction, std::move(key), std::move(options));
+}
+
 }  // namespace internal_ocdbt
 }  // namespace tensorstore
 

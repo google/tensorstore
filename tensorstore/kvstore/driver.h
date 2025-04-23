@@ -160,11 +160,15 @@ class Driver {
 
   /// Attempts to read the specified key.
   ///
+  /// \param transaction Optional transaction.
   /// \param key The key to read.
   /// \param options Specifies options for reading.
   /// \returns A Future that resolves when the read completes successfully or
   ///     with an error.
   virtual Future<ReadResult> Read(Key key, ReadOptions options = {});
+  virtual Future<ReadResult> TransactionalRead(
+      const internal::OpenTransactionPtr& transaction, Key key,
+      ReadOptions options = {});
 
   /// Performs an optionally-conditional write.
   ///

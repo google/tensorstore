@@ -85,13 +85,17 @@ void KvsBackedChunkCache::Entry::DoDecode(std::optional<absl::Cord> value,
   });
 }
 
-void KvsBackedChunkCache::Entry::DoEncode(std::shared_ptr<const ReadData> data,
+void KvsBackedChunkCache::Entry::DoEncode(EncodeOptions options,
+                                          std::shared_ptr<const ReadData> data,
                                           EncodeReceiver receiver) {
   if (!data) {
     execution::set_value(receiver, std::nullopt);
     return;
   }
-
+  if (options.encode_mode == EncodeOptions::kValueDiscarded) {
+    execution::set_value(receiver, absl::Cord());
+    return;
+  }
   auto& entry = GetOwningEntry(*this);
   auto& cache = GetOwningCache(entry);
   internal_tracing::LoggedTraceSpan trace_span(

@@ -239,7 +239,7 @@ class MetadataCache
 
     void DoDecode(std::optional<absl::Cord> value,
                   DecodeReceiver receiver) override;
-    void DoEncode(std::shared_ptr<const void> data,
+    void DoEncode(EncodeOptions options, std::shared_ptr<const void> data,
                   EncodeReceiver receiver) override;
     std::string GetKeyValueStoreKey() override;
 

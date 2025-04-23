@@ -14,6 +14,8 @@
 
 #include "tensorstore/kvstore/ocdbt/non_distributed/storage_generation.h"
 
+#include <stdint.h>
+
 #include <cstring>
 #include <string>
 #include <string_view>
@@ -53,9 +55,9 @@ void UpdateBlake3FromCord(blake3_hasher& hasher, const absl::Cord& cord) {
 StorageGeneration GenerationFromHasher(blake3_hasher& hasher) {
   StorageGeneration generation;
   generation.value.resize(21);
-  generation.value[20] = StorageGeneration::kBaseGeneration;
+  generation.value[0] = 0;
   blake3_hasher_finalize(
-      &hasher, reinterpret_cast<uint8_t*>(generation.value.data()), 20);
+      &hasher, reinterpret_cast<uint8_t*>(generation.value.data() + 1), 20);
   return generation;
 }
 }  // namespace

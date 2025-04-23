@@ -23,7 +23,7 @@
 #include <utility>
 #include <vector>
 
-#include "absl/status/status.h"
+#include "absl/time/clock.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
@@ -86,25 +86,11 @@ Future<ReadResult> Read(const KvStore& store, std::string_view key,
     // Regular non-transactional read.
     return store.driver->Read(std::move(full_key), std::move(options));
   }
-  if (!StorageGeneration::IsUnknown(options.generation_conditions.if_equal)) {
-    return absl::UnimplementedError(
-        "if_equal condition not supported for transactional reads");
-  }
-  if (!options.byte_range.IsFull()) {
-    return absl::UnimplementedError(
-        "byte_range restriction not supported for transactional reads");
-  }
-  TransactionalReadOptions transactional_read_options;
-  transactional_read_options.generation_conditions.if_not_equal =
-      std::move(options.generation_conditions.if_not_equal);
-  transactional_read_options.staleness_bound = options.staleness_bound;
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto open_transaction,
       internal::AcquireOpenTransactionPtrOrError(store.transaction));
-  size_t phase;
-  return internal_kvstore::ReadViaExistingTransaction(
-      store.driver.get(), open_transaction, phase, std::move(full_key),
-      std::move(transactional_read_options));
+  return store.driver->TransactionalRead(open_transaction, std::move(full_key),
+                                         std::move(options));
 }
 
 Future<TimestampedStorageGeneration> Write(const KvStore& store,
@@ -121,21 +107,24 @@ Future<TimestampedStorageGeneration> Write(const KvStore& store,
       auto open_transaction,
       internal::AcquireOpenTransactionPtrOrError(store.transaction));
   size_t phase;
+
+  TimestampedStorageGeneration stamp;
+  stamp.time = absl::Now();
+
   // Drop the write future; the transactional write completes as soon as the
   // write is applied to the transaction.
   auto future = internal_kvstore::WriteViaExistingTransaction(
       store.driver.get(), open_transaction, phase, std::move(full_key),
-      std::move(value), std::move(options));
+      std::move(value), std::move(options),
+      /*fail_transaction_on_mismatch=*/true, &stamp.generation);
   if (future.ready()) {
-    // An error must have occurred, since a successful write can complete until
-    // the transaction is committed, and the transaction cannot commit while we
-    // hold an open transaction reference.
+    // An error must have occurred, since a successful write can't complete
+    // until the transaction is committed, and the transaction cannot commit
+    // while we hold an open transaction reference.
     assert(!future.result().ok());
     return future;
   }
-  // Just return a placeholder stamp; the actual write won't complete until the
-  // transaction is committed.
-  return TimestampedStorageGeneration();
+  return stamp;
 }
 
 Future<TimestampedStorageGeneration> WriteCommitted(const KvStore& store,
@@ -154,7 +143,8 @@ Future<TimestampedStorageGeneration> WriteCommitted(const KvStore& store,
   size_t phase;
   return internal_kvstore::WriteViaExistingTransaction(
       store.driver.get(), open_transaction, phase, std::move(full_key),
-      std::move(value), std::move(options));
+      std::move(value), std::move(options),
+      /*fail_transaction_on_mismatch=*/false, /*out_generation=*/nullptr);
 }
 
 Future<TimestampedStorageGeneration> Delete(const KvStore& store,

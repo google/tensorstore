@@ -22,9 +22,11 @@
 #include "absl/strings/cord.h"
 #include "absl/time/clock.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/kvstore.h"
+#include "tensorstore/kvstore/memory/memory_key_value_store.h"
 #include "tensorstore/kvstore/mock_kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
@@ -36,12 +38,14 @@ namespace {
 
 namespace kvstore = tensorstore::kvstore;
 
+using ::tensorstore::JsonSubValuesMatch;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::OptionalByteRangeRequest;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::TimestampedStorageGeneration;
 using ::tensorstore::Transaction;
 using ::tensorstore::internal::MatchesKvsReadResult;
+using ::tensorstore::internal::MatchesKvsReadResultNotFound;
 using ::tensorstore::internal::MockKeyValueStore;
 using ::tensorstore::kvstore::KvStore;
 using ::tensorstore::kvstore::ReadResult;
@@ -127,7 +131,7 @@ TEST(KvStoreTest, ReadWithRepeatableReadIsolation) {
   {
     auto req = mock_driver->read_requests.pop();
     EXPECT_THAT(req.key, "a");
-    EXPECT_THAT(req.options.byte_range, OptionalByteRangeRequest(0, 0));
+    EXPECT_THAT(req.options.byte_range, OptionalByteRangeRequest::Stat());
     EXPECT_THAT(req.options.generation_conditions.if_not_equal,
                 StorageGeneration::FromString("abc"));
     req.promise.SetResult(ReadResult::Unspecified(TimestampedStorageGeneration(
@@ -137,30 +141,247 @@ TEST(KvStoreTest, ReadWithRepeatableReadIsolation) {
   TENSORSTORE_ASSERT_OK(future);
 }
 
-TEST(KvStoreTest, ReadInvalidOptionIfEqual) {
+TEST(KvStoreTest, ByteRangeRead) {
   auto mock_driver = MockKeyValueStore::Make();
+  tensorstore::kvstore::DriverPtr memory_store =
+      tensorstore::GetMemoryKeyValueStore();
+  mock_driver->forward_to = memory_store;
+  mock_driver->log_requests = true;
 
   Transaction txn(tensorstore::isolated);
 
   KvStore store(mock_driver, "", txn);
-  kvstore::ReadOptions options;
-  options.generation_conditions.if_equal = StorageGeneration::FromString("abc");
 
-  EXPECT_THAT(kvstore::Read(store, "a", std::move(options)).result(),
-              MatchesStatus(absl::StatusCode::kUnimplemented));
+  {
+    kvstore::ReadOptions options;
+    options.byte_range = tensorstore::OptionalByteRangeRequest{1, 3};
+    EXPECT_THAT(kvstore::Read(store, "a", options).result(),
+                MatchesKvsReadResultNotFound());
+    EXPECT_THAT(mock_driver->request_log.pop_all(),
+                ::testing::ElementsAreArray({
+                    JsonSubValuesMatch({{"/type", "read"},
+                                        {"/key", "a"},
+                                        {"/byte_range_inclusive_min", 1},
+                                        {"/byte_range_exclusive_max", 3}}),
+                }));
+  }
+
+  TENSORSTORE_ASSERT_OK(
+      memory_store->Write("a", absl::Cord("0123456789")).result());
+
+  {
+    kvstore::ReadOptions options;
+    options.byte_range = tensorstore::OptionalByteRangeRequest{1, 3};
+    EXPECT_THAT(kvstore::Read(store, "a", options).result(),
+                MatchesKvsReadResult(absl::Cord("12")));
+    EXPECT_THAT(mock_driver->request_log.pop_all(),
+                ::testing::ElementsAreArray({
+                    JsonSubValuesMatch({{"/type", "read"},
+                                        {"/key", "a"},
+                                        {"/byte_range_inclusive_min", 1},
+                                        {"/byte_range_exclusive_max", 3}}),
+                }));
+  }
 }
 
-TEST(KvStoreTest, ReadInvalidOptionByteRange) {
+TEST(KvStoreTest, ByteRangeRepeatableReadSuccess) {
   auto mock_driver = MockKeyValueStore::Make();
+  tensorstore::kvstore::DriverPtr memory_store =
+      tensorstore::GetMemoryKeyValueStore();
+  mock_driver->forward_to = memory_store;
+  mock_driver->log_requests = true;
 
-  Transaction txn(tensorstore::isolated);
+  Transaction txn(tensorstore::isolated | tensorstore::repeatable_read);
 
   KvStore store(mock_driver, "", txn);
-  kvstore::ReadOptions options;
-  options.byte_range = OptionalByteRangeRequest{5, 10};
 
-  EXPECT_THAT(kvstore::Read(store, "a", std::move(options)).result(),
-              MatchesStatus(absl::StatusCode::kUnimplemented));
+  TENSORSTORE_ASSERT_OK(
+      memory_store->Write("a", absl::Cord("0123456789")).result());
+
+  {
+    kvstore::ReadOptions options;
+    options.byte_range = tensorstore::OptionalByteRangeRequest{1, 3};
+    EXPECT_THAT(kvstore::Read(store, "a", options).result(),
+                MatchesKvsReadResult(absl::Cord("12")));
+    EXPECT_THAT(mock_driver->request_log.pop_all(),
+                ::testing::ElementsAreArray({
+                    JsonSubValuesMatch({{"/type", "read"},
+                                        {"/key", "a"},
+                                        {"/byte_range_inclusive_min", 1},
+                                        {"/byte_range_exclusive_max", 3}}),
+                }));
+  }
+
+  {
+    kvstore::ReadOptions options;
+    options.byte_range = tensorstore::OptionalByteRangeRequest{1, 3};
+    EXPECT_THAT(kvstore::Read(store, "a", options).result(),
+                MatchesKvsReadResult(absl::Cord("12")));
+    EXPECT_THAT(mock_driver->request_log.pop_all(),
+                ::testing::ElementsAreArray({
+                    JsonSubValuesMatch({{"/type", "read"},
+                                        {"/key", "a"},
+                                        {"/byte_range_inclusive_min", 1},
+                                        {"/byte_range_exclusive_max", 3}}),
+                }));
+  }
+
+  TENSORSTORE_EXPECT_OK(txn.CommitAsync().result());
+  EXPECT_THAT(mock_driver->request_log.pop_all(),
+              ::testing::ElementsAreArray({
+                  JsonSubValuesMatch({{"/type", "read"},
+                                      {"/key", "a"},
+                                      {"/byte_range_exclusive_max", 0}}),
+              }));
+}
+
+TEST(KvStoreTest, ZeroByteRangeRepeatableReadSuccess) {
+  auto mock_driver = MockKeyValueStore::Make();
+  tensorstore::kvstore::DriverPtr memory_store =
+      tensorstore::GetMemoryKeyValueStore();
+  mock_driver->forward_to = memory_store;
+  mock_driver->log_requests = true;
+
+  Transaction txn(tensorstore::isolated | tensorstore::repeatable_read);
+
+  KvStore store(mock_driver, "", txn);
+
+  TENSORSTORE_ASSERT_OK(
+      memory_store->Write("a", absl::Cord("0123456789")).result());
+
+  {
+    kvstore::ReadOptions options;
+    options.byte_range = tensorstore::OptionalByteRangeRequest::Stat();
+    EXPECT_THAT(kvstore::Read(store, "a", options).result(),
+                MatchesKvsReadResult(absl::Cord("")));
+    EXPECT_THAT(mock_driver->request_log.pop_all(),
+                ::testing::ElementsAreArray({
+                    JsonSubValuesMatch({{"/type", "read"},
+                                        {"/key", "a"},
+                                        {"/byte_range_exclusive_max", 0}}),
+                }));
+  }
+}
+
+TEST(KvStoreTest, ZeroByteRangeRepeatableReadNotFound) {
+  auto mock_driver = MockKeyValueStore::Make();
+  tensorstore::kvstore::DriverPtr memory_store =
+      tensorstore::GetMemoryKeyValueStore();
+  mock_driver->forward_to = memory_store;
+  mock_driver->log_requests = true;
+
+  Transaction txn(tensorstore::isolated | tensorstore::repeatable_read);
+
+  KvStore store(mock_driver, "", txn);
+
+  {
+    kvstore::ReadOptions options;
+    options.byte_range = tensorstore::OptionalByteRangeRequest::Stat();
+    EXPECT_THAT(kvstore::Read(store, "a", options).result(),
+                MatchesKvsReadResultNotFound());
+    EXPECT_THAT(mock_driver->request_log.pop_all(),
+                ::testing::ElementsAreArray({
+                    JsonSubValuesMatch({{"/type", "read"},
+                                        {"/key", "a"},
+                                        {"/byte_range_exclusive_max", 0}}),
+                }));
+  }
+}
+
+TEST(KvStoreTest, ByteRangeRepeatableReadMismatchBeforeCommit) {
+  auto mock_driver = MockKeyValueStore::Make();
+  tensorstore::kvstore::DriverPtr memory_store =
+      tensorstore::GetMemoryKeyValueStore();
+  mock_driver->forward_to = memory_store;
+  mock_driver->log_requests = true;
+
+  Transaction txn(tensorstore::isolated | tensorstore::repeatable_read);
+
+  KvStore store(mock_driver, "", txn);
+
+  TENSORSTORE_ASSERT_OK(
+      memory_store->Write("a", absl::Cord("0123456789")).result());
+
+  {
+    kvstore::ReadOptions options;
+    options.byte_range = tensorstore::OptionalByteRangeRequest{1, 3};
+    EXPECT_THAT(kvstore::Read(store, "a", options).result(),
+                MatchesKvsReadResult(absl::Cord("12")));
+    EXPECT_THAT(mock_driver->request_log.pop_all(),
+                ::testing::ElementsAreArray({
+                    JsonSubValuesMatch({{"/type", "read"},
+                                        {"/key", "a"},
+                                        {"/byte_range_inclusive_min", 1},
+                                        {"/byte_range_exclusive_max", 3}}),
+                }));
+  }
+
+  TENSORSTORE_ASSERT_OK(
+      memory_store->Write("a", absl::Cord("0123456789x")).result());
+
+  {
+    kvstore::ReadOptions options;
+    options.byte_range = tensorstore::OptionalByteRangeRequest{1, 3};
+    EXPECT_THAT(
+        kvstore::Read(store, "a", options).result(),
+        MatchesStatus(absl::StatusCode::kAborted,
+                      "Generation mismatch in repeatable_read transaction"));
+    EXPECT_THAT(mock_driver->request_log.pop_all(),
+                ::testing::ElementsAreArray({
+                    JsonSubValuesMatch({{"/type", "read"},
+                                        {"/key", "a"},
+                                        {"/byte_range_inclusive_min", 1},
+                                        {"/byte_range_exclusive_max", 3}}),
+                }));
+  }
+
+  EXPECT_THAT(txn.CommitAsync().result(),
+              MatchesStatus(absl::StatusCode::kAborted,
+                            "Error reading \"a\": Generation mismatch in "
+                            "repeatable_read transaction"));
+  EXPECT_THAT(mock_driver->request_log.pop_all(), ::testing::ElementsAre());
+}
+
+TEST(KvStoreTest, ByteRangeRepeatableReadMismatchDuringCommit) {
+  auto mock_driver = MockKeyValueStore::Make();
+  tensorstore::kvstore::DriverPtr memory_store =
+      tensorstore::GetMemoryKeyValueStore();
+  mock_driver->forward_to = memory_store;
+  mock_driver->log_requests = true;
+
+  Transaction txn(tensorstore::isolated | tensorstore::repeatable_read);
+
+  KvStore store(mock_driver, "", txn);
+
+  TENSORSTORE_ASSERT_OK(
+      memory_store->Write("a", absl::Cord("0123456789")).result());
+
+  {
+    kvstore::ReadOptions options;
+    options.byte_range = tensorstore::OptionalByteRangeRequest{1, 3};
+    EXPECT_THAT(kvstore::Read(store, "a", options).result(),
+                MatchesKvsReadResult(absl::Cord("12")));
+    EXPECT_THAT(mock_driver->request_log.pop_all(),
+                ::testing::ElementsAreArray({
+                    JsonSubValuesMatch({{"/type", "read"},
+                                        {"/key", "a"},
+                                        {"/byte_range_inclusive_min", 1},
+                                        {"/byte_range_exclusive_max", 3}}),
+                }));
+  }
+
+  TENSORSTORE_ASSERT_OK(
+      memory_store->Write("a", absl::Cord("0123456789x")).result());
+
+  EXPECT_THAT(txn.CommitAsync().result(),
+              MatchesStatus(absl::StatusCode::kAborted,
+                            "Error writing \"a\": Generation mismatch"));
+  EXPECT_THAT(mock_driver->request_log.pop_all(),
+              ::testing::ElementsAreArray({
+                  JsonSubValuesMatch({{"/type", "read"},
+                                      {"/key", "a"},
+                                      {"/byte_range_exclusive_max", 0}}),
+              }));
 }
 
 TEST(KvStoreTest, ReadMismatch) {
@@ -192,20 +413,9 @@ TEST(KvStoreTest, ReadMismatch) {
   {
     auto req = mock_driver->read_requests.pop();
     EXPECT_THAT(req.key, "a");
-    EXPECT_THAT(req.options.byte_range, OptionalByteRangeRequest(0, 0));
+    EXPECT_THAT(req.options.byte_range, OptionalByteRangeRequest::Stat());
     EXPECT_THAT(req.options.generation_conditions.if_not_equal,
                 StorageGeneration::FromString("abc"));
-    req.promise.SetResult(ReadResult::Missing(TimestampedStorageGeneration(
-        StorageGeneration::FromString("def"), absl::Now())));
-  }
-
-  // Re-read by `ReadViaExistingTransaction`.  This read is actually redundant,
-  // but is required because we don't currently have a mechanism for providing
-  // an updated read result to a `ReadModifyWriteSource` in response to a failed
-  // writeback.
-  {
-    auto req = mock_driver->read_requests.pop();
-    EXPECT_THAT(req.key, "a");
     req.promise.SetResult(ReadResult::Missing(TimestampedStorageGeneration(
         StorageGeneration::FromString("def"), absl::Now())));
   }
@@ -218,7 +428,7 @@ TEST(KvStoreTest, ReadMismatch) {
 TEST(KvStoreTest, ListInvalid) {
   auto mock_driver = MockKeyValueStore::Make();
 
-  Transaction txn(tensorstore::isolated);
+  Transaction txn(tensorstore::isolated | tensorstore::repeatable_read);
   KvStore store(mock_driver, "", txn);
 
   EXPECT_THAT(kvstore::ListFuture(store).result(),

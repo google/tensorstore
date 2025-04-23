@@ -14,8 +14,9 @@
 
 #include "tensorstore/kvstore/generation.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "tensorstore/serialization/serialization.h"
+#include "absl/time/time.h"
 #include "tensorstore/serialization/test_util.h"
 
 namespace {
@@ -30,27 +31,135 @@ TEST(StorageGenerationTest, Basic) {
 
   EXPECT_FALSE(StorageGeneration::IsNoValue(StorageGeneration::Unknown()));
   EXPECT_TRUE(StorageGeneration::IsNoValue(StorageGeneration::NoValue()));
-
-  EXPECT_EQ(StorageGeneration{std::string{StorageGeneration::kDirty}},
-            StorageGeneration::Dirty(StorageGeneration::Unknown()));
-
-  StorageGeneration gen{
-      std::string{1, 2, 3, 4, 5, StorageGeneration::kBaseGeneration}};
-  StorageGeneration local_gen{std::string{
-      1, 2, 3, 4, 5,
-      StorageGeneration::kBaseGeneration | StorageGeneration::kDirty}};
-  EXPECT_FALSE(StorageGeneration::IsUnknown(gen));
-  EXPECT_FALSE(StorageGeneration::IsUnknown(local_gen));
-  EXPECT_TRUE(StorageGeneration::IsClean(gen));
-  EXPECT_FALSE(StorageGeneration::IsClean(local_gen));
-  EXPECT_FALSE(StorageGeneration::IsDirty(gen));
-  EXPECT_TRUE(StorageGeneration::IsDirty(local_gen));
-  EXPECT_EQ(local_gen, StorageGeneration::Dirty(gen));
-  EXPECT_EQ(gen, StorageGeneration::Clean(local_gen));
   EXPECT_TRUE(StorageGeneration::IsClean(StorageGeneration::NoValue()));
   EXPECT_FALSE(StorageGeneration::IsClean(StorageGeneration::Unknown()));
   EXPECT_EQ(StorageGeneration::NoValue(),
             StorageGeneration::Clean(StorageGeneration::NoValue()));
+}
+
+TEST(StorageGenerationTest, DebugString) {
+  EXPECT_THAT(StorageGeneration::Unknown().DebugString(), "Unknown");
+  EXPECT_THAT(StorageGeneration::NoValue().DebugString(), "NoValue");
+  EXPECT_THAT(StorageGeneration::Invalid().DebugString(),
+              ::testing::StartsWith("invalid:"));
+  EXPECT_THAT(
+      StorageGeneration::Dirty(StorageGeneration::Unknown(), 42).DebugString(),
+      "M42+Unknown");
+  EXPECT_THAT(
+      StorageGeneration::Dirty(
+          StorageGeneration::Dirty(StorageGeneration::Unknown(), 42), 43)
+          .DebugString(),
+      "M43+M42+Unknown");
+  EXPECT_THAT(
+      StorageGeneration::Dirty(StorageGeneration::NoValue(), 42).DebugString(),
+      "M42+NoValue");
+  EXPECT_THAT(StorageGeneration::AddLayer(
+                  StorageGeneration::Dirty(StorageGeneration::NoValue(), 42))
+                  .DebugString(),
+              "|M42+NoValue");
+  EXPECT_THAT(StorageGeneration::Dirty(
+                  StorageGeneration::AddLayer(StorageGeneration::Dirty(
+                      StorageGeneration::NoValue(), 42)),
+                  43)
+                  .DebugString(),
+              "M43+|M42+NoValue");
+}
+
+TEST(StorageGenerationTest, StripTag) {
+  for (auto base_generation :
+       {StorageGeneration::Unknown(), StorageGeneration::NoValue(),
+        StorageGeneration::FromString("abc")}) {
+    SCOPED_TRACE("base_generation=" + base_generation.DebugString());
+    auto g = StorageGeneration::Dirty(base_generation, 1);
+    EXPECT_THAT(g.DebugString(), "M1+" + base_generation.DebugString());
+    EXPECT_THAT(StorageGeneration::StripTag(g), base_generation);
+    EXPECT_THAT(StorageGeneration::Clean(g), base_generation);
+
+    auto g2 = StorageGeneration::Dirty(g, 2);
+    EXPECT_THAT(g2.DebugString(), "M2+M1+" + base_generation.DebugString());
+    EXPECT_THAT(StorageGeneration::StripTag(g2), g);
+    EXPECT_THAT(StorageGeneration::Clean(g2), base_generation);
+  }
+}
+
+TEST(StorageGenerationTest, StripLayer) {
+  for (auto base_generation :
+       {StorageGeneration::Unknown(), StorageGeneration::NoValue(),
+        StorageGeneration::FromString("abc")}) {
+    SCOPED_TRACE("base_generation=" + base_generation.DebugString());
+    EXPECT_THAT(StorageGeneration::AddLayer(base_generation).DebugString(),
+                base_generation.DebugString());
+    auto g = StorageGeneration::Dirty(base_generation, 1);
+    EXPECT_THAT(StorageGeneration::StripLayer(g), base_generation);
+
+    auto g2 = StorageGeneration::Dirty(g, 2);
+    EXPECT_THAT(StorageGeneration::StripLayer(g2), base_generation);
+
+    auto g3 = StorageGeneration::AddLayer(g2);
+    EXPECT_EQ(g3, g2);
+    EXPECT_THAT(g3.DebugString(), "|M2+M1+" + base_generation.DebugString());
+    EXPECT_THAT(StorageGeneration::StripLayer(g3).DebugString(),
+                g2.DebugString());
+
+    auto g4 = StorageGeneration::Dirty(g3, 3);
+    EXPECT_THAT(g4.DebugString(), "M3+|M2+M1+" + base_generation.DebugString());
+    EXPECT_THAT(StorageGeneration::StripLayer(g4), g2);
+
+    auto g5 = StorageGeneration::Dirty(g4, 4);
+    EXPECT_THAT(g5.DebugString(),
+                "M4+M3+|M2+M1+" + base_generation.DebugString());
+    EXPECT_THAT(StorageGeneration::StripLayer(g5), g2);
+
+    auto g6 = StorageGeneration::AddLayer(g5);
+    EXPECT_THAT(g6.DebugString(),
+                "|M4+M3+|M2+M1+" + base_generation.DebugString());
+    EXPECT_THAT(StorageGeneration::StripLayer(g6).DebugString(),
+                g5.DebugString());
+    EXPECT_THAT(StorageGeneration::Clean(g6), base_generation);
+  }
+}
+
+TEST(StorageGenerationTest, LastMutatedBy) {
+  EXPECT_TRUE(StorageGeneration::Dirty(StorageGeneration::Unknown(), 1)
+                  .LastMutatedBy(1));
+  EXPECT_FALSE(StorageGeneration::Dirty(StorageGeneration::Unknown(), 1)
+                   .LastMutatedBy(0));
+  EXPECT_FALSE(StorageGeneration::Unknown().LastMutatedBy(0));
+  EXPECT_FALSE(StorageGeneration::NoValue().LastMutatedBy(0));
+}
+
+TEST(StorageGenerationTest, Condition) {
+  EXPECT_THAT(StorageGeneration::Condition(StorageGeneration::Unknown(),
+                                           StorageGeneration::Unknown()),
+              StorageGeneration::Unknown());
+  EXPECT_THAT(StorageGeneration::Condition(StorageGeneration::Unknown(),
+                                           StorageGeneration::NoValue()),
+              StorageGeneration::NoValue());
+  EXPECT_THAT(StorageGeneration::Condition(StorageGeneration::FromString("abc"),
+                                           StorageGeneration::NoValue()),
+              StorageGeneration::FromString("abc"));
+  EXPECT_THAT(
+      StorageGeneration::Condition(
+          StorageGeneration::Unknown(),
+          StorageGeneration::Dirty(StorageGeneration::FromString("abc"), 1)),
+      StorageGeneration::FromString("abc"));
+  EXPECT_THAT(StorageGeneration::Condition(
+                  StorageGeneration::Unknown(),
+                  StorageGeneration::AddLayer(StorageGeneration::Dirty(
+                      StorageGeneration::FromString("abc"), 1)))
+                  .DebugString(),
+              "|M1+\"abc\"");
+  EXPECT_THAT(StorageGeneration::Condition(
+                  StorageGeneration::Dirty(StorageGeneration::Unknown(), 2),
+                  StorageGeneration::AddLayer(StorageGeneration::Dirty(
+                      StorageGeneration::FromString("abc"), 1)))
+                  .DebugString(),
+              "M2+|M1+\"abc\"");
+  EXPECT_THAT(StorageGeneration::Condition(
+                  StorageGeneration::Dirty(StorageGeneration::Unknown(), 2),
+                  StorageGeneration::Dirty(StorageGeneration::Unknown(), 1))
+                  .DebugString(),
+              "M2+Unknown");
 }
 
 TEST(StorageGenerationTest, Uint64) {

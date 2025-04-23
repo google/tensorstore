@@ -130,6 +130,12 @@ struct TransactionalReadGenerationConditions {
   /// `StorageGeneration::Unknown()` (the default) or
   /// `StorageGeneration::NoValue()` disable this condition.
   StorageGeneration if_not_equal;
+
+  /// Returns `true` if `generation` satisfies the constraints.
+  bool Matches(const StorageGeneration& generation) const {
+    assert(!StorageGeneration::IsUnknown(generation));
+    return generation != if_not_equal;
+  }
 };
 
 /// Read options for transactional reads.
@@ -149,6 +155,9 @@ struct TransactionalReadOptions {
   /// `Read` request was made, i.e. it is equivalent to specifying the value of
   /// `absl::Now()` just before invoking `Read`.
   absl::Time staleness_bound{absl::InfiniteFuture()};
+
+  /// Specifies the byte range.
+  OptionalByteRangeRequest byte_range;
 
   /// Optional batch to use.
   Batch batch{no_batch};
