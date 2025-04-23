@@ -15,6 +15,7 @@
 #include "tensorstore/transaction.h"
 
 #include <utility>
+#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -25,6 +26,7 @@
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/generation.h"
+#include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/memory/memory_key_value_store.h"
 #include "tensorstore/kvstore/mock_kvstore.h"
@@ -39,6 +41,8 @@ namespace {
 namespace kvstore = tensorstore::kvstore;
 
 using ::tensorstore::JsonSubValuesMatch;
+using ::tensorstore::KeyRange;
+using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::OptionalByteRangeRequest;
 using ::tensorstore::StorageGeneration;
@@ -46,6 +50,7 @@ using ::tensorstore::TimestampedStorageGeneration;
 using ::tensorstore::Transaction;
 using ::tensorstore::internal::MatchesKvsReadResult;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
+using ::tensorstore::internal::MatchesListEntry;
 using ::tensorstore::internal::MockKeyValueStore;
 using ::tensorstore::kvstore::KvStore;
 using ::tensorstore::kvstore::ReadResult;
@@ -75,6 +80,161 @@ TEST(KvStoreTest, WriteThenRead) {
   }
 
   TENSORSTORE_ASSERT_OK(future);
+}
+
+TEST(KvStoreTest, ListWithUncommittedWrite) {
+  auto mock_driver = MockKeyValueStore::Make();
+  mock_driver->log_requests = true;
+  mock_driver->forward_to = tensorstore::GetMemoryKeyValueStore();
+
+  TENSORSTORE_ASSERT_OK(
+      mock_driver->forward_to->Write("x", absl::Cord("value")));
+
+  Transaction txn(tensorstore::isolated);
+
+  KvStore store(mock_driver, "", txn);
+
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "a", absl::Cord("value")));
+
+  EXPECT_THAT(kvstore::ListFuture(store).result(),
+              ::testing::Optional(::testing::UnorderedElementsAre(
+                  MatchesListEntry("a", -1), MatchesListEntry("x", 5))));
+
+  EXPECT_THAT(mock_driver->request_log.pop_all(),
+              ::testing::ElementsAre(
+                  MatchesJson({{"type", "list"}, {"range", {"", ""}}})));
+}
+
+TEST(KvStoreTest, ListWithUncommittedWriteOutsideRange) {
+  auto mock_driver = MockKeyValueStore::Make();
+  mock_driver->log_requests = true;
+  mock_driver->forward_to = tensorstore::GetMemoryKeyValueStore();
+
+  TENSORSTORE_ASSERT_OK(
+      mock_driver->forward_to->Write("x", absl::Cord("value")));
+
+  for (const auto &write_set :
+       std::vector<std::vector<std::string>>{{}, {"a"}, {"z"}, {"a", "z"}}) {
+    Transaction txn(tensorstore::isolated);
+
+    KvStore store(mock_driver, "", txn);
+
+    for (const auto &key : write_set) {
+      TENSORSTORE_ASSERT_OK(kvstore::Write(store, key, absl::Cord("value")));
+    }
+
+    {
+      kvstore::ListOptions options;
+      options.range = KeyRange{"b", "y"};
+      EXPECT_THAT(kvstore::ListFuture(store, std::move(options)).result(),
+                  ::testing::Optional(::testing::UnorderedElementsAre(
+                      MatchesListEntry("x", 5))));
+    }
+
+    EXPECT_THAT(mock_driver->request_log.pop_all(),
+                ::testing::ElementsAre(
+                    MatchesJson({{"type", "list"}, {"range", {"b", "y"}}})));
+  }
+}
+
+TEST(KvStoreTest, ListWithUncommittedConditionalWrite) {
+  auto mock_driver = MockKeyValueStore::Make();
+  mock_driver->log_requests = true;
+  mock_driver->forward_to = tensorstore::GetMemoryKeyValueStore();
+
+  TENSORSTORE_ASSERT_OK(
+      mock_driver->forward_to->Write("x", absl::Cord("value")));
+
+  Transaction txn(tensorstore::isolated);
+
+  KvStore store(mock_driver, "", txn);
+
+  {
+    kvstore::WriteOptions options;
+    options.generation_conditions.if_equal = StorageGeneration::NoValue();
+    auto write_future = kvstore::WriteCommitted(store, "a", absl::Cord("value"),
+                                                std::move(options));
+  }
+
+  EXPECT_THAT(kvstore::ListFuture(store).result(),
+              ::testing::Optional(::testing::UnorderedElementsAre(
+                  MatchesListEntry("a", -1), MatchesListEntry("x", 5))));
+
+  EXPECT_THAT(mock_driver->request_log.pop_all(),
+              ::testing::ElementsAre(
+                  JsonSubValuesMatch({{"/type", "list"}, {"/range", {"", ""}}}),
+                  JsonSubValuesMatch({{"/type", "read"},
+                                      {"/key", "a"},
+                                      {"/byte_range_exclusive_max", 0}})));
+}
+
+TEST(KvStoreTest, ListWithCommittedAndUncommittedWrite) {
+  auto mock_driver = MockKeyValueStore::Make();
+  mock_driver->log_requests = true;
+  mock_driver->forward_to = tensorstore::GetMemoryKeyValueStore();
+
+  TENSORSTORE_ASSERT_OK(
+      mock_driver->forward_to->Write("a", absl::Cord("value")));
+  TENSORSTORE_ASSERT_OK(
+      mock_driver->forward_to->Write("b", absl::Cord("value")));
+  TENSORSTORE_ASSERT_OK(
+      mock_driver->forward_to->Write("c", absl::Cord("value")));
+
+  Transaction txn(tensorstore::isolated);
+
+  KvStore store(mock_driver, "", txn);
+
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "a", absl::Cord("value")));
+  TENSORSTORE_ASSERT_OK(kvstore::Delete(store, "b"));
+  EXPECT_THAT(kvstore::Read(store, "c").result(),
+              ::testing::Optional(MatchesKvsReadResult(absl::Cord("value"))));
+
+  EXPECT_THAT(
+      mock_driver->request_log.pop_all(),
+      ::testing::ElementsAre(MatchesJson({{"type", "read"}, {"key", "c"}})));
+
+  EXPECT_THAT(kvstore::ListFuture(store).result(),
+              ::testing::Optional(::testing::UnorderedElementsAre(
+                  MatchesListEntry("a", -1), MatchesListEntry("c", 5))));
+
+  EXPECT_THAT(mock_driver->request_log.pop_all(),
+              ::testing::ElementsAre(
+                  MatchesJson({{"type", "list"}, {"range", {"", ""}}})));
+}
+
+TEST(KvStoreTest, DeleteRangeThenList) {
+  auto mock_driver = MockKeyValueStore::Make();
+  mock_driver->log_requests = true;
+  mock_driver->forward_to = tensorstore::GetMemoryKeyValueStore();
+
+  TENSORSTORE_ASSERT_OK(
+      mock_driver->forward_to->Write("1", absl::Cord("value")));
+  TENSORSTORE_ASSERT_OK(
+      mock_driver->forward_to->Write("a1", absl::Cord("value")));
+  TENSORSTORE_ASSERT_OK(
+      mock_driver->forward_to->Write("b1", absl::Cord("value")));
+  TENSORSTORE_ASSERT_OK(
+      mock_driver->forward_to->Write("c1", absl::Cord("value")));
+  TENSORSTORE_ASSERT_OK(
+      mock_driver->forward_to->Write("d1", absl::Cord("value")));
+
+  Transaction txn(tensorstore::isolated);
+
+  KvStore store(mock_driver, "", txn);
+
+  TENSORSTORE_ASSERT_OK(kvstore::DeleteRange(store, KeyRange{"a", "b"}));
+  TENSORSTORE_ASSERT_OK(kvstore::DeleteRange(store, KeyRange{"c", "d"}));
+
+  EXPECT_THAT(kvstore::ListFuture(store).result(),
+              ::testing::Optional(::testing::UnorderedElementsAre(
+                  MatchesListEntry("1", 5), MatchesListEntry("b1", 5),
+                  MatchesListEntry("d1", 5))));
+
+  EXPECT_THAT(mock_driver->request_log.pop_all(),
+              ::testing::ElementsAre(
+                  MatchesJson({{"type", "list"}, {"range", {"", "a"}}}),
+                  MatchesJson({{"type", "list"}, {"range", {"b", "c"}}}),
+                  MatchesJson({{"type", "list"}, {"range", {"d", ""}}})));
 }
 
 TEST(KvStoreTest, ReadWithoutRepeatableReadIsolation) {

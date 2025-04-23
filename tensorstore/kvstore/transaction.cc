@@ -17,6 +17,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <algorithm>
 #include <atomic>
 #include <cassert>
 #include <iterator>
@@ -26,6 +27,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include "absl/base/optimization.h"
 #include "absl/container/btree_map.h"
@@ -48,7 +50,9 @@
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_modify_write.h"
 #include "tensorstore/transaction.h"
+#include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
+#include "tensorstore/util/execution/flow_sender_operation_state.h"
 #include "tensorstore/util/execution/future_sender.h"  // IWYU pragma: keep
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
@@ -1627,6 +1631,255 @@ Future<ReadResult> MultiPhaseMutation::ReadImpl(
   return std::move(future);
 }
 
+namespace {
+struct ListOperationState
+    : public internal::FlowSenderOperationState<kvstore::ListEntry> {
+  using Base = internal::FlowSenderOperationState<kvstore::ListEntry>;
+
+  static void Start(MultiPhaseMutation& multi_phase,
+                    internal::OpenTransactionNodePtr<> node,
+                    kvstore::ListOptions&& options,
+                    kvstore::ListReceiver&& receiver) {
+    auto [modified_keys, ranges] =
+        GetModifiedKeysAndRangesToQuery(multi_phase, options.range);
+    if (modified_keys.empty() && ranges.size() == 1) {
+      // Single range with no modified keys.  Just perform normal list.
+      options.range = std::move(ranges.front().range);
+      multi_phase.ListUnderlying(std::move(options), std::move(receiver));
+      return;
+    }
+
+    auto state = internal::MakeIntrusivePtr<ListOperationState>(
+        std::move(receiver), std::move(modified_keys), std::move(node),
+        options.strip_prefix_length);
+
+    for (auto& range : ranges) {
+      state->QueryExistingRange(multi_phase, std::move(range), options);
+    }
+
+    for (size_t i = 0, num_keys = state->modified_keys.size(); i < num_keys;
+         ++i) {
+      state->QueryModifiedKey(i, options);
+    }
+  }
+
+  struct RangeToQuery {
+    KeyRange range;
+    size_t key_begin_index, key_end_index;
+  };
+
+  static std::pair<std::vector<ReadModifyWriteEntry*>,
+                   std::vector<RangeToQuery>>
+  GetModifiedKeysAndRangesToQuery(MultiPhaseMutation& multi_phase,
+                                  const KeyRange& range) {
+    std::vector<ReadModifyWriteEntry*> modified_keys;
+    std::vector<RangeToQuery> ranges;
+
+    absl::MutexLock lock(&multi_phase.mutex());
+    auto& single_phase_mutation = GetCurrentSinglePhaseMutation(multi_phase);
+
+    // Find the first existing entry that intersects or is after `range`.  We
+    // iterate forwards starting from this entry to find all existing entries
+    // that intersect `range`.
+    auto find_result =
+        single_phase_mutation.entries_.FindBound<MutationEntryTree::kLeft>(
+            [&](MutationEntry& existing_entry) {
+              if (existing_entry.entry_type() == kReadModifyWrite) {
+                return existing_entry.key_ < range.inclusive_min;
+              } else {
+                return KeyRange::CompareExclusiveMaxAndKey(
+                           static_cast<DeleteRangeEntry&>(existing_entry)
+                               .exclusive_max_,
+                           range.inclusive_min) <= 0;
+              }
+            });
+
+    std::string cur_range_begin = range.inclusive_min;
+    size_t cur_range_key_offset = 0;
+    bool no_more_ranges = false;
+
+    for (MutationEntry *existing_entry = find_result.found_node(), *next;
+         existing_entry; existing_entry = next) {
+      if (KeyRange::CompareKeyAndExclusiveMax(existing_entry->key_,
+                                              range.exclusive_max) >= 0) {
+        break;
+      }
+      next = MutationEntryTree::Traverse(*existing_entry,
+                                         MutationEntryTree::kRight);
+      if (existing_entry->entry_type() == kReadModifyWrite) {
+        // Add to list of keys
+        auto* rmw_entry = static_cast<ReadModifyWriteEntry*>(existing_entry);
+        rmw_entry->EnsureRevoked();
+        modified_keys.push_back(rmw_entry);
+      } else {
+        auto* dr_entry = static_cast<DeleteRangeEntry*>(existing_entry);
+        // End current range due to `DeleteRangeEntry`.
+        if (existing_entry->key_ != cur_range_begin) {
+          ranges.push_back(RangeToQuery{
+              KeyRange(std::move(cur_range_begin), existing_entry->key_),
+              cur_range_key_offset, modified_keys.size()});
+          cur_range_key_offset = modified_keys.size();
+        }
+        cur_range_begin = dr_entry->exclusive_max_;
+        if (cur_range_begin.empty()) {
+          // Delete range has no upper bound.
+          no_more_ranges = true;
+          break;
+        }
+      }
+    }
+
+    if (!no_more_ranges && KeyRange::CompareKeyAndExclusiveMax(
+                               cur_range_begin, range.exclusive_max) < 0) {
+      ranges.push_back(RangeToQuery{
+          KeyRange(std::move(cur_range_begin), std::move(range.exclusive_max)),
+          cur_range_key_offset, modified_keys.size()});
+    }
+    return {std::move(modified_keys), std::move(ranges)};
+  }
+
+  ListOperationState(kvstore::ListReceiver&& base_receiver,
+                     std::vector<ReadModifyWriteEntry*>&& modified_keys,
+                     internal::OpenTransactionNodePtr<> transaction_node,
+                     size_t strip_prefix_length)
+      : Base(std::move(base_receiver)),
+        transaction_node(std::move(transaction_node)),
+        strip_prefix_length(strip_prefix_length),
+        modified_keys(std::move(modified_keys)),
+        modified_keys_info(this->modified_keys.size()) {
+    for (auto& info : modified_keys_info) {
+      info.store(kModifiedKeyUnknown, std::memory_order_relaxed);
+    }
+  }
+
+  void QueryExistingRange(MultiPhaseMutation& multi_phase, RangeToQuery&& range,
+                          const kvstore::ListOptions& options) {
+    kvstore::ListOptions sub_range_options;
+    sub_range_options.range = std::move(range.range);
+    sub_range_options.strip_prefix_length = options.strip_prefix_length;
+    sub_range_options.staleness_bound = options.staleness_bound;
+    multi_phase.ListUnderlying(
+        std::move(sub_range_options),
+        ExistingRangeListReceiver{
+            internal::IntrusivePtr<ListOperationState>(this),
+            range.key_begin_index, range.key_end_index});
+  }
+
+  struct ExistingRangeListReceiver {
+    internal::IntrusivePtr<ListOperationState> state;
+    size_t key_begin, key_end;
+    FutureCallbackRegistration cancel_registration;
+
+    void set_starting(AnyCancelReceiver cancel) {
+      cancel_registration =
+          state->promise.ExecuteWhenNotNeeded(std::move(cancel));
+    }
+    void set_stopping() { cancel_registration(); }
+    void set_done() {}
+    void set_error(absl::Status error) { state->SetError(std::move(error)); }
+    void set_value(kvstore::ListEntry entry) {
+      if (key_begin != key_end) {
+        auto& modified_keys = state->modified_keys;
+
+        struct GetKey {
+          size_t strip_prefix_length;
+
+          std::string_view operator()(std::string_view key) const {
+            return key;
+          }
+          std::string_view operator()(ReadModifyWriteEntry* entry) const {
+            std::string_view key = entry->key_;
+            key.remove_prefix(std::min(strip_prefix_length, key.size()));
+            return key;
+          }
+        };
+
+        const GetKey get_key{state->strip_prefix_length};
+        auto it = std::lower_bound(
+            modified_keys.begin() + key_begin, modified_keys.begin() + key_end,
+            std::string_view(entry.key),
+            [=](auto a, auto b) { return get_key(a) < get_key(b); });
+        if (it != modified_keys.end() && get_key(*it) == entry.key) {
+          auto& info = state->modified_keys_info[it - modified_keys.begin()];
+          int64_t expected = kModifiedKeyUnknown;
+          // Set the existing key state if the modified key state is
+          // unknown.
+          info.compare_exchange_strong(expected,
+                                       entry.size >= 0 ? entry.size : -1);
+          return;
+        }
+      }
+      execution::set_value(state->shared_receiver->receiver, std::move(entry));
+    }
+  };
+
+  void QueryModifiedKey(size_t i, const kvstore::ListOptions& options) {
+    auto* entry = modified_keys[i];
+    ReadModifyWriteSource::WritebackOptions writeback_options;
+    writeback_options.writeback_mode = ReadModifyWriteSource::kValueDiscarded;
+    writeback_options.staleness_bound = options.staleness_bound;
+    writeback_options.byte_range = OptionalByteRangeRequest::Stat();
+    entry->source_->KvsWriteback(
+        std::move(writeback_options),
+        ModifiedKeyReadReceiver{
+            internal::IntrusivePtr<ListOperationState>(this), i});
+  }
+
+  struct ModifiedKeyReadReceiver {
+    internal::IntrusivePtr<ListOperationState> state;
+    size_t key_index;
+
+    void set_value(ReadResult read_result) {
+      if (read_result.state == ReadResult::kUnspecified) {
+        return;
+      }
+      state->modified_keys_info[key_index].store(
+          (read_result.state == ReadResult::kValue) ? kModifiedKeyPresent
+                                                    : kModifiedKeyDeleted);
+    }
+    void set_error(absl::Status error) { state->SetError(std::move(error)); }
+    void set_cancel() { ABSL_UNREACHABLE(); }
+  };
+
+  ~ListOperationState() {
+    // Emit modified keys that are not deleted.
+    size_t num_keys = modified_keys.size();
+    for (size_t i = 0; i < num_keys; ++i) {
+      int64_t info = modified_keys_info[i].load(std::memory_order_relaxed);
+      if (info < kModifiedKeyPresent) continue;
+      std::string_view key;
+      key = modified_keys[i]->key_;
+      key.remove_prefix(std::min(key.size(), strip_prefix_length));
+      execution::set_value(
+          shared_receiver->receiver,
+          kvstore::ListEntry{std::string(key),
+                             std::max(info, static_cast<int64_t>(-1))});
+    }
+  }
+
+  internal::OpenTransactionNodePtr<> transaction_node;
+  size_t strip_prefix_length;
+  std::vector<ReadModifyWriteEntry*> modified_keys;
+
+  // Indicates modification status and/or existing size for each entry in
+  // `modified_keys`. Values are described below.
+  std::vector<std::atomic<int64_t>> modified_keys_info;
+
+  // == -1  -> existing key is present with unknown size
+  // >= 0   -> existing key is present with known size
+  constexpr static int64_t kModifiedKeyPresent = -2;
+  constexpr static int64_t kModifiedKeyDeleted = -3;
+  constexpr static int64_t kModifiedKeyUnknown = -4;
+};
+}  // namespace
+
+void MultiPhaseMutation::ListImpl(internal::OpenTransactionNodePtr<> node,
+                                  kvstore::ListOptions&& options,
+                                  kvstore::ListReceiver&& receiver) {
+  ListOperationState::Start(*this, std::move(node), std::move(options),
+                            std::move(receiver));
+}
+
 std::string MultiPhaseMutation::DescribeFirstEntry() {
   assert(!phases_.prev_->entries_.empty());
   return DescribeEntry(*phases_.prev_->entries_.begin());
@@ -2115,6 +2368,14 @@ Future<ReadResult> Driver::TransactionalRead(
   return internal_kvstore::TransactionalReadImpl<
       internal_kvstore::NonAtomicTransactionNode>(
       this, transaction, std::move(key), std::move(options));
+}
+
+void Driver::TransactionalListImpl(
+    const internal::OpenTransactionPtr& transaction, ListOptions options,
+    ListReceiver receiver) {
+  internal_kvstore::TransactionalListImpl<
+      internal_kvstore::NonAtomicTransactionNode>(
+      this, transaction, std::move(options), std::move(receiver));
 }
 
 }  // namespace kvstore

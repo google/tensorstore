@@ -371,6 +371,21 @@ ListSender Driver::List(ListOptions options) {
   return ListSender{IntrusivePtr<Driver>(this), std::move(options)};
 }
 
+ListSender Driver::List(ListOptions options,
+                        const internal::OpenTransactionPtr& transaction) {
+  if (!transaction) return List(std::move(options));
+  struct ListSender {
+    internal::OpenTransactionPtr transaction;
+    IntrusivePtr<Driver> self;
+    ListOptions options;
+    void submit(ListReceiver receiver) {
+      self->TransactionalListImpl(transaction, options, std::move(receiver));
+    }
+  };
+  return ListSender{std::move(transaction), IntrusivePtr<Driver>(this),
+                    std::move(options)};
+}
+
 std::string Driver::DescribeKey(std::string_view key) {
   return tensorstore::QuoteString(key);
 }

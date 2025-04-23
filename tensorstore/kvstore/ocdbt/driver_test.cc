@@ -779,6 +779,16 @@ TEST(OcdbtTest, TransactionalCopyRange) {
                   MatchesKvsReadResult(absl::Cord("al")));
     }
 
+    EXPECT_THAT(GetMap(transactional_store),
+                ::testing::Optional(::testing::UnorderedElementsAreArray({
+                    ::testing::Pair("x/a", absl::Cord("value_a")),
+                    ::testing::Pair("x/b", absl::Cord("value_b")),
+                    ::testing::Pair("y/a", absl::Cord("value_a")),
+                    ::testing::Pair("y/b", absl::Cord("value_b")),
+                    ::testing::Pair("z/a", absl::Cord("value_a")),
+                    ::testing::Pair("z/b", absl::Cord("value_b")),
+                })));
+
     TENSORSTORE_ASSERT_OK(transaction.CommitAsync());
   }
   EXPECT_THAT(GetMap(store), ::testing::Optional(::testing::ElementsAreArray({

@@ -45,6 +45,11 @@ Future<const void> AddCopySubtree(
     const internal::OpenTransactionPtr& transaction,
     BtreeWriter::CopySubtreeOptions&& options);
 
+void TransactionalListImpl(kvstore::Driver* driver,
+                           const internal::OpenTransactionPtr& transaction,
+                           kvstore::ListOptions&& options,
+                           kvstore::ListReceiver&& receiver);
+
 Future<kvstore::ReadResult> TransactionalReadImpl(
     kvstore::Driver* driver, const IoHandle& io_handle,
     const internal::OpenTransactionPtr& transaction, kvstore::Key key,

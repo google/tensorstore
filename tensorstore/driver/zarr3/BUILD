@@ -309,6 +309,7 @@ tensorstore_cc_test(
         "//tensorstore:open",
         "//tensorstore:open_mode",
         "//tensorstore:schema",
+        "//tensorstore:transaction",
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/internal:json_gtest",
         "//tensorstore/kvstore",

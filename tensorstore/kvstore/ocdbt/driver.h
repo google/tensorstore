@@ -138,6 +138,10 @@ class OcdbtDriver
 
   void ListImpl(ListOptions options, ListReceiver receiver) override;
 
+  void TransactionalListImpl(const internal::OpenTransactionPtr& transaction,
+                             ListOptions options,
+                             ListReceiver receiver) override;
+
   Future<ReadResult> TransactionalRead(
       const internal::OpenTransactionPtr& transaction, Key key,
       ReadOptions options) override;

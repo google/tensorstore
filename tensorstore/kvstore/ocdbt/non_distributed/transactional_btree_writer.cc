@@ -297,6 +297,14 @@ absl::Status AddDeleteRange(kvstore::Driver* driver, const IoHandle& io_handle,
       driver, transaction, std::move(range), io_handle);
 }
 
+void TransactionalListImpl(kvstore::Driver* driver,
+                           const internal::OpenTransactionPtr& transaction,
+                           kvstore::ListOptions&& options,
+                           kvstore::ListReceiver&& receiver) {
+  return internal_kvstore::TransactionalListImpl<BtreeWriterTransactionNode>(
+      driver, transaction, std::move(options), std::move(receiver));
+}
+
 Future<kvstore::ReadResult> TransactionalReadImpl(
     kvstore::Driver* driver, const IoHandle& io_handle,
     const internal::OpenTransactionPtr& transaction, kvstore::Key key,

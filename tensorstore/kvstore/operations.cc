@@ -201,22 +201,29 @@ void AddListOptionsPrefix(ListOptions& options, std::string_view path) {
 }  // namespace
 
 void List(const KvStore& store, ListOptions options, ListReceiver receiver) {
-  if (store.transaction != no_transaction) {
-    execution::submit(ErrorSender{absl::UnimplementedError(
-                          "transactional list not supported")},
-                      FlowSingleReceiver{std::move(receiver)});
-    return;
-  }
   AddListOptionsPrefix(options, store.path);
-  store.driver->ListImpl(std::move(options), std::move(receiver));
+  if (store.transaction != no_transaction) {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto open_transaction,
+        internal::AcquireOpenTransactionPtrOrError(store.transaction),
+        execution::submit(ErrorSender{_},
+                          FlowSingleReceiver{std::move(receiver)}));
+    store.driver->TransactionalListImpl(open_transaction, std::move(options),
+                                        std::move(receiver));
+  } else {
+    store.driver->ListImpl(std::move(options), std::move(receiver));
+  }
 }
 
 ListSender List(const KvStore& store, ListOptions options) {
-  if (store.transaction != no_transaction) {
-    return ErrorSender{
-        absl::UnimplementedError("transactional list not supported")};
-  }
   AddListOptionsPrefix(options, store.path);
+  if (store.transaction != no_transaction) {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto open_transaction,
+        internal::AcquireOpenTransactionPtrOrError(store.transaction),
+        ErrorSender{_});
+    return store.driver->List(std::move(options), std::move(open_transaction));
+  }
   return store.driver->List(std::move(options));
 }
 

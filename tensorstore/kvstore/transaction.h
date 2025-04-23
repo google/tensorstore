@@ -478,6 +478,11 @@ class MultiPhaseMutation {
                     ReadModifyWriteTarget::ReadModifyWriteReadOptions&& options,
                     ReadModifyWriteTarget::ReadReceiver&& receiver) = 0;
 
+  /// Lists the underlying storage. This is called when transactional list
+  /// request cannot be satisfied from the mutation tree alone.
+  virtual void ListUnderlying(kvstore::ListOptions options,
+                              kvstore::ListReceiver receiver) = 0;
+
   /// Called when the writeback result for a chain of entries for a given key is
   /// ready.
   ///
@@ -542,6 +547,10 @@ class MultiPhaseMutation {
                               kvstore::Driver* driver, Key&& key,
                               kvstore::ReadOptions&& options,
                               absl::FunctionRef<void()> unlock);
+
+  void ListImpl(internal::OpenTransactionNodePtr<> node,
+                kvstore::ListOptions&& options,
+                kvstore::ListReceiver&& receiver);
 
   /// Returns a description of the first entry, used for error messages in the
   /// case that an atomic transaction is requested but is not supported.
@@ -655,6 +664,11 @@ class TransactionNodeBase : public internal::TransactionState::Node,
                                    std::move(receiver));
   }
 
+  void ListUnderlying(kvstore::ListOptions options,
+                      kvstore::ListReceiver receiver) override {
+    driver()->ListImpl(std::move(options), std::move(receiver));
+  }
+
   void PhaseCommitDone(size_t next_phase) override {
     this->CommitDone(next_phase);
   }
@@ -746,6 +760,28 @@ absl::Status AddDeleteRange(Driver* driver,
   absl::MutexLock lock(&node->mutex_);
   node->DeleteRange(std::move(range));
   return absl::OkStatus();
+}
+
+template <typename TransactionNode>
+void TransactionalListImpl(Driver* driver,
+                           const internal::OpenTransactionPtr& transaction,
+                           kvstore::ListOptions&& options,
+                           kvstore::ListReceiver&& receiver) {
+  if (transaction->mode() & repeatable_read) {
+    execution::submit(ErrorSender{absl::UnimplementedError(
+                          "repeatable_read mode not supported for "
+                          "transactional list operations")},
+                      std::move(receiver));
+  }
+  auto node = internal_kvstore::GetExistingTransactionNode<TransactionNode>(
+      driver, transaction);
+  if (!node) {
+    driver->ListImpl(std::move(options), std::move(receiver));
+    return;
+  }
+  MultiPhaseMutation* multi_phase_mutation = node.get();
+  multi_phase_mutation->ListImpl(std::move(node), std::move(options),
+                                 std::move(receiver));
 }
 
 template <typename TransactionNode, typename... Arg>

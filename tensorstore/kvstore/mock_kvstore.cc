@@ -328,6 +328,13 @@ class RegisteredMockKeyValueStore
     base()->ListImpl(std::move(options), std::move(receiver));
   }
 
+  void TransactionalListImpl(const internal::OpenTransactionPtr& transaction,
+                             ListOptions options,
+                             ListReceiver receiver) override {
+    return base()->TransactionalListImpl(transaction, std::move(options),
+                                         std::move(receiver));
+  }
+
   Future<const void> DeleteRange(KeyRange range) override {
     return base()->DeleteRange(std::move(range));
   }
