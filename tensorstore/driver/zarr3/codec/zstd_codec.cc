@@ -28,7 +28,9 @@
 #include "tensorstore/driver/zarr3/codec/registry.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/internal/json_binding/std_optional.h"  // IWYU pragma: keep
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
@@ -128,10 +130,21 @@ TENSORSTORE_GLOBAL_INITIALIZER {
                          OptionalIfConstraintsBinder(jb::Integer<int>(
                              ZstdWriterBase::Options::kMinCompressionLevel,
                              ZstdWriterBase::Options::kMaxCompressionLevel)))),
-          jb::Member("checksum",
-                     jb::Projection<&Options::checksum>(
-                         OptionalIfConstraintsBinder())))  //
-                                     ));
+          jb::Member(
+              "checksum",
+              jb::Projection<&Options::checksum>(jb::Sequence(
+                  jb::DefaultBinder<>,
+                  // In the stored metadata, `checksum` is optional and
+                  // defaults to false.
+                  [](auto is_loading, const auto& options, auto* obj, auto* j) {
+                    if constexpr (is_loading) {
+                      if (!options.constraints) {
+                        if (!*obj) *obj = false;
+                      }
+                    }
+                    return absl::OkStatus();
+                  })))  //
+          )));
 }
 
 }  // namespace internal_zarr3

@@ -377,6 +377,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:global_initializer",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal/json_binding",
+        "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "@com_google_absl//absl/status",
@@ -396,6 +397,8 @@ tensorstore_cc_test(
         ":bytes",
         ":codec_test_util",
         ":zstd",
+        "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
     ],
 )
