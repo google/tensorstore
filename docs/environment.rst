@@ -143,9 +143,63 @@ Google Cloud Storage
    Specifies the concurrency level used by the shared Context
    :json:schema:`Context.gcs_request_concurrency` resource. Defaults to 32.
 
+.. envvar:: TENSORSTORE_GCS_RATE_LIMITER_DOUBLING_TIME
+
+   Specifies the doubling time for the gcs rate-limiter.
+   Defaults to not setting a doubleing time.
+
+.. envvar:: TENSORSTORE_GCS_GRPC_CHANNELS
+
+   Specifies the number of gRPC channels to use for the ``gcs_grpc`` driver.
+   Default is to use the number of CPU cores (at least 4) for regular endpoints,
+   or 1 for directpath endpoints.
+
+.. envvar:: TENSORSTORE_GCS_HTTP_VERSION
+
+   Forces the HTTP version to use for Google Cloud Storage requests.  Valid
+   values are ``1`` and ``2``.
+
+.. envvar:: GOOGLE_CLOUD_DISABLE_DIRECT_PATH
+
+   Disables the use of directpath endpoints for Google Cloud Storage requests,
+   even if otherwise allowed.
+
+
+Tensorstore Curl Options
+------------------------
+
+.. envvar:: SSL_CERT_FILE
+
+   Sets the certificate file to use for TLS connections.  Takes precedence over
+   :envvar:`SSL_CERT_DIR`.
+
+.. envvar:: SSL_CERT_DIR
+
+   Sets the certificate directory to use for TLS connections.
+
+.. envvar:: TENSORSTORE_USE_FALLBACK_SSL_CERTS
+
+   Enables or disables searching for SSL certificates in common locations.
+   Defaults to allowed.
+
+.. envvar:: TENSORSTORE_CURL_LOW_SPEED_LIMIT_BYTES
+
+   If set to a postive value, then curl HTTP requests will be set with the
+   ``CURLOPT_LOW_SPEED_LIMIT`` option to detect stalled connections.
+
+.. envvar:: TENSORSTORE_CURL_LOW_SPEED_TIME_SECONDS
+
+   If set to a postive value, then curl HTTP requests will be set with the
+   ``CURLOPT_LOW_SPEED_TIME`` option to detect stalled connections.
 
 .. envvar:: TENSORSTORE_HTTP2_MAX_CONCURRENT_STREAMS
 
    Specifies the maximum number of concurrent streams per HTTP/2 connection,
    without limiting the total number of active connections.  When unset, a
    default of 4 concurrent streams are permitted.
+
+.. envvar:: TENSORSTORE_HTTP_THREADS
+
+   Specifies the number of threads to use for HTTP requests.  When unset, a
+   default of 4 threads are used.
+

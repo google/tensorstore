@@ -119,3 +119,8 @@ without credentials.  Otherwise amazon credentials are required:
    Specifies the concurrency level used by the shared Context
    :json:schema:`Context.s3_request_concurrency` resource. Defaults to 32.
 
+.. envvar:: TENSORSTORE_S3_RATE_LIMITER_DOUBLING_TIME
+
+   Specifies the time in seconds to wait before doubling the rate limit.
+   Defaults to not setting a doubleing time.
+
