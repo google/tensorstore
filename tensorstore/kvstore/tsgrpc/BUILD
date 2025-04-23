@@ -198,6 +198,7 @@ tensorstore_cc_test(
         ":kvstore_server",
         ":tsgrpc",
         "//tensorstore:context",
+        "//tensorstore/internal:global_initializer",
         "//tensorstore/internal/http:transport_test_utils",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:key_range",

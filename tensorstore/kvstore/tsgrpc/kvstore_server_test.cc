@@ -26,6 +26,7 @@
 #include "absl/time/clock.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
+#include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
@@ -45,6 +46,7 @@ namespace kvstore = ::tensorstore::kvstore;
 using ::tensorstore::KeyRange;
 using ::tensorstore::grpc_kvstore::KvStoreServer;
 using ::tensorstore::internal::IsRegularStorageGeneration;
+using ::tensorstore::internal::KeyValueStoreOpsTestParameters;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
 using ::tensorstore::internal::MatchesTimestampedStorageGeneration;
 
@@ -82,16 +84,21 @@ class KvStoreTest : public testing::Test {
   const std::string& address() const { return GetSingleton().address(); }
 };
 
-TEST_F(KvStoreTest, Basic) {
-  auto context = tensorstore::Context::Default();
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store, tensorstore::kvstore::Open({{"driver", "tsgrpc_kvstore"},
-                                              {"address", address()},
-                                              {"path", "basic/"}},
-                                             context)
-                      .result());
-
-  tensorstore::internal::TestKeyValueReadWriteOps(store);
+TENSORSTORE_GLOBAL_INITIALIZER {
+  KeyValueStoreOpsTestParameters params;
+  params.test_name = "Basic";
+  params.get_store = [](auto callback) {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::kvstore::Open({{"driver", "tsgrpc_kvstore"},
+                                    {"address", GetSingleton().address()},
+                                    {"path", "basic/"}})
+            .result());
+    callback(store);
+  };
+  params.atomic_transaction = false;
+  params.test_list_without_prefix = false;
+  RegisterKeyValueStoreOpsTests(params);
 }
 
 TEST_F(KvStoreTest, DeleteRange) {

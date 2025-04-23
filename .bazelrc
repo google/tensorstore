@@ -15,11 +15,11 @@ build --define=absl=1
 #
 # Note: We can't use --cxxopt because of
 # https://github.com/bazelbuild/bazel/issues/15550
-build:gcc_or_clang --per_file_copt=.*\\.cc$,.*\\.cpp$@-std=c++17,-fsized-deallocation
-build:gcc_or_clang --host_per_file_copt=.*\\.cc$,.*\\.cpp$@-std=c++17,-fsized-deallocation
+build:gcc_or_clang --per_file_copt=.*\\.h$,.*\\.cc$,.*\\.cpp$@-std=c++17,-fsized-deallocation
+build:gcc_or_clang --host_per_file_copt=.*\\.h$,.*\\.cc$,.*\\.cpp$@-std=c++17,-fsized-deallocation
 
-build:msvc --per_file_copt=.*\\.cc$,.*\\.cpp$@/std:c++17
-build:msvc --host_per_file_copt=.*\\.cc$,.*\\.cpp$@/std:c++17
+build:msvc --per_file_copt=.*\\.h$,.*\\.cc$,.*\\.cpp$@/std:c++17
+build:msvc --host_per_file_copt=.*\\.h$,.*\\.cc$,.*\\.cpp$@/std:c++17
 
 # protobuf/upb has some functions where errors are incorrectly raised:
 # https://github.com/protocolbuffers/upb/blob/main/upb/message/accessors_internal.h

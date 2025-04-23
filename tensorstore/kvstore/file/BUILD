@@ -73,6 +73,7 @@ tensorstore_cc_test(
         ":file",
         "//tensorstore:context",
         "//tensorstore/internal:file_io_concurrency_resource",
+        "//tensorstore/internal:global_initializer",
         "//tensorstore/internal/os:filesystem",
         "//tensorstore/internal/testing:scoped_directory",
         "//tensorstore/kvstore",

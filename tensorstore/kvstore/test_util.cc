@@ -21,6 +21,8 @@
 #include <array>
 #include <cassert>
 #include <cstring>
+#include <functional>
+#include <iterator>
 #include <limits>
 #include <map>
 #include <optional>
@@ -43,6 +45,7 @@
 #include "absl/strings/str_format.h"
 #include "absl/synchronization/notification.h"
 #include "absl/time/clock.h"
+#include "absl/time/time.h"
 #include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
 #include "tensorstore/batch.h"
@@ -50,9 +53,11 @@
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/metrics/collect.h"
 #include "tensorstore/internal/metrics/registry.h"
+#include "tensorstore/internal/testing/dynamic.h"
 #include "tensorstore/internal/testing/random_seed.h"
 #include "tensorstore/internal/thread/thread.h"
 #include "tensorstore/kvstore/byte_range.h"
+#include "tensorstore/kvstore/driver.h"  // IWYU pragma: keep
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -60,9 +65,9 @@
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/test_matchers.h"
-#include "tensorstore/kvstore/transaction.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/serialization/test_util.h"
+#include "tensorstore/transaction.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender_testutil.h"
 #include "tensorstore/util/future.h"
@@ -79,6 +84,8 @@ namespace {
 using ::tensorstore::IsOkAndHolds;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
+using ::tensorstore::internal_testing::RegisterGoogleTestCaseDynamically;
+using ::tensorstore::kvstore::ReadResult;
 
 static const char kSep[] = "----------------------------------------------\n";
 
@@ -92,7 +99,6 @@ class Cleanup {
   void DoCleanup() {
     // Delete everything that we're going to use before starting.
     // This is helpful if, for instance, we run against a persistent
-
     // service and the test crashed half-way through last time.
     ABSL_LOG(INFO) << "Cleanup";
     for (const auto& to_remove : keys_) {
@@ -133,7 +139,6 @@ void TestKeyValueStoreWriteOps(const KvStore& store,
                                std::array<std::string, 3> key,
                                absl::Cord expected_value,
                                absl::Cord other_value) {
-  SCOPED_TRACE("TestKeyValueStoreWriteOps");
   ABSL_CHECK(expected_value.size() > 3);
 
   Cleanup cleanup(store, {key.begin(), key.end()});
@@ -243,10 +248,378 @@ void TestKeyValueStoreWriteOps(const KvStore& store,
   }
 }
 
+void TestKeyValueStoreTransactionalWriteOps(const KvStore& store,
+                                            TransactionMode transaction_mode,
+                                            std::string key,
+                                            absl::Cord expected_value,
+                                            std::string_view operation) {
+  Cleanup cleanup(store, {key});
+  Transaction txn(transaction_mode);
+  auto txn_store = (store | txn).value();
+  kvstore::WriteOptions options;
+  bool success;
+  if (operation == "Unconditional") {
+    success = true;
+  } else if (operation == "MatchingCondition") {
+    options.generation_conditions.if_equal = StorageGeneration::NoValue();
+    success = true;
+  } else if (operation == "MatchingConditionAfterWrite") {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto stamp, kvstore::Write(txn_store, key, absl::Cord()).result());
+    options.generation_conditions.if_equal = stamp.generation;
+    success = true;
+  } else if (operation == "NonMatchingCondition") {
+    options.generation_conditions.if_equal =
+        GetMismatchStorageGeneration(store);
+    success = false;
+  } else if (operation == "NonMatchingConditionAfterWrite") {
+    TENSORSTORE_ASSERT_OK(
+        kvstore::Write(txn_store, key, absl::Cord()).result());
+    options.generation_conditions.if_equal =
+        GetMismatchStorageGeneration(store);
+    success = false;
+  } else {
+    ABSL_LOG(FATAL) << "Unepxected operation: " << operation;
+  }
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto stamp_within_txn,
+      kvstore::Write(txn_store, key, expected_value, std::move(options))
+          .result());
+  EXPECT_THAT(
+      kvstore::Read(txn_store, key).result(),
+      MatchesKvsReadResult(expected_value, stamp_within_txn.generation));
+  if (success) {
+    TENSORSTORE_ASSERT_OK(txn.Commit());
+    EXPECT_THAT(
+        kvstore::Read(store, key).result(),
+        MatchesKvsReadResult(
+            expected_value,
+            ::testing::Not(::testing::Eq(stamp_within_txn.generation))));
+  } else {
+    EXPECT_THAT(txn.Commit(), MatchesStatus(absl::StatusCode::kAborted,
+                                            "Generation mismatch"));
+    EXPECT_THAT(kvstore::Read(store, key).result(),
+                MatchesKvsReadResultNotFound());
+  }
+}
+
+struct TransactionalReadOpsParameters {
+  KvStore store;
+  std::string key;
+  absl::Cord value1;
+  absl::Cord value2;
+  absl::Cord value3;
+  bool write_outside_transaction;
+  std::string_view write_operation_within_transaction;
+  tensorstore::TransactionMode transaction_mode;
+
+  // If set, `store` is an adapter kvstore. `write_to_other_node` writes the
+  // specified key/value pair to the same backing storage as `store`, but using
+  // a different write cache such that a separate `MultiPhase` instance will be
+  // created.
+  std::function<Result<TimestampedStorageGeneration>(std::string key,
+                                                     absl::Cord value)>
+      write_to_other_node;
+};
+
+void TestKeyValueStoreTransactionalReadOps(
+    const TransactionalReadOpsParameters& p) {
+  Cleanup cleanup(p.store, {p.key});
+  StorageGeneration expected_generation;
+  std::optional<absl::Cord> expected_value;
+  auto mismatch_generation = GetMismatchStorageGeneration(p.store);
+  if (p.write_outside_transaction) {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto stamp, kvstore::Write(p.store, p.key, p.value1).result());
+    expected_generation = stamp.generation;
+    expected_value = p.value1;
+  } else {
+    expected_generation = StorageGeneration::NoValue();
+  }
+
+  if (p.write_to_other_node) {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto stamp,
+                                     p.write_to_other_node(p.key, p.value3));
+    expected_value = p.value3;
+    expected_generation = stamp.generation;
+  }
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto txn_store, p.store | tensorstore::Transaction(p.transaction_mode));
+
+  if (p.write_operation_within_transaction == "Unmodified") {
+    // Do nothing
+  } else if (p.write_operation_within_transaction == "DeleteRange") {
+    TENSORSTORE_ASSERT_OK(
+        kvstore::DeleteRange(txn_store, KeyRange::Singleton(p.key)));
+    expected_value = std::nullopt;
+    expected_generation = StorageGeneration::Dirty(
+        StorageGeneration::Unknown(), StorageGeneration::kDeletionMutationId);
+  } else if (p.write_operation_within_transaction == "Delete") {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto stamp, kvstore::Delete(txn_store, p.key).result());
+    expected_value = std::nullopt;
+    expected_generation = stamp.generation;
+  } else if (p.write_operation_within_transaction == "WriteUnconditionally") {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto stamp, kvstore::Write(txn_store, p.key, p.value2).result());
+    expected_value = p.value2;
+    expected_generation = stamp.generation;
+  } else if (p.write_operation_within_transaction ==
+             "WriteWithFalseCondition") {
+    kvstore::WriteOptions options;
+    options.generation_conditions.if_equal = mismatch_generation;
+    auto future =
+        kvstore::WriteCommitted(txn_store, p.key, p.value2, std::move(options));
+    static_cast<void>(future);
+  } else if (p.write_operation_within_transaction == "WriteWithTrueCondition") {
+    kvstore::WriteOptions options;
+    options.generation_conditions.if_equal = expected_generation;
+    auto future =
+        kvstore::WriteCommitted(txn_store, p.key, p.value2, std::move(options));
+    static_cast<void>(future);
+    expected_value = p.value2;
+    expected_generation = StorageGeneration::Unknown();
+  } else {
+    ABSL_LOG(FATAL) << "Invalid write_operation_within_transaction: "
+                    << p.write_operation_within_transaction;
+  }
+
+  // Read full value unconditionally
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto read_result,
+                                     kvstore::Read(txn_store, p.key).result());
+    EXPECT_EQ(expected_value ? ReadResult::kValue : ReadResult::kMissing,
+              read_result.state);
+    EXPECT_EQ(expected_value, read_result.optional_value());
+    if (!StorageGeneration::IsUnknown(expected_generation)) {
+      EXPECT_EQ(expected_generation, read_result.stamp.generation);
+    }
+    expected_generation = read_result.stamp.generation;
+  }
+
+  // Read with if_equal (true)
+  {
+    kvstore::ReadOptions options;
+    options.generation_conditions.if_equal = expected_generation;
+    EXPECT_THAT(kvstore::Read(txn_store, p.key, std::move(options)).result(),
+                MatchesKvsReadResult(expected_value, expected_generation));
+  }
+
+  // Read with if_equal (false)
+  {
+    kvstore::ReadOptions options;
+    options.generation_conditions.if_equal = mismatch_generation;
+    if (expected_value.has_value()) {
+      EXPECT_THAT(kvstore::Read(txn_store, p.key, std::move(options)).result(),
+                  MatchesKvsReadResult(ReadResult::kUnspecified));
+    } else {
+      EXPECT_THAT(
+          kvstore::Read(txn_store, p.key, std::move(options)).result(),
+          ::testing::AnyOf(MatchesKvsReadResult(ReadResult::kUnspecified),
+                           MatchesKvsReadResultNotFound()));
+    }
+  }
+
+  // Read with if_not_equal (true)
+  {
+    kvstore::ReadOptions options;
+    options.generation_conditions.if_not_equal = mismatch_generation;
+    EXPECT_THAT(kvstore::Read(txn_store, p.key, std::move(options)).result(),
+                MatchesKvsReadResult(expected_value, expected_generation));
+  }
+
+  // Read with if_not_equal (false)
+  {
+    kvstore::ReadOptions options;
+    options.generation_conditions.if_not_equal = expected_generation;
+    if (expected_value.has_value()) {
+      EXPECT_THAT(
+          kvstore::Read(txn_store, p.key, std::move(options)).result(),
+          MatchesKvsReadResult(ReadResult::kUnspecified, expected_generation));
+    } else {
+      EXPECT_THAT(
+          kvstore::Read(txn_store, p.key, std::move(options)).result(),
+          ::testing::AnyOf(MatchesKvsReadResult(ReadResult::kUnspecified,
+                                                expected_generation),
+                           MatchesKvsReadResultNotFound()));
+    }
+  }
+
+  // Read partial byte range
+  {
+    kvstore::ReadOptions options;
+    options.byte_range = OptionalByteRangeRequest::Range(1, 3);
+    if (expected_value.has_value()) {
+      EXPECT_THAT(kvstore::Read(txn_store, p.key, std::move(options)).result(),
+                  MatchesKvsReadResult(expected_value->Subcord(1, 2),
+                                       expected_generation));
+    } else {
+      EXPECT_THAT(kvstore::Read(txn_store, p.key, std::move(options)).result(),
+                  MatchesKvsReadResultNotFound());
+    }
+  }
+
+  // Read stat byte range
+  {
+    kvstore::ReadOptions options;
+    options.byte_range = OptionalByteRangeRequest::Stat();
+    if (expected_value.has_value()) {
+      EXPECT_THAT(kvstore::Read(txn_store, p.key, std::move(options)).result(),
+                  MatchesKvsReadResult(absl::Cord(), expected_generation));
+    } else {
+      EXPECT_THAT(kvstore::Read(txn_store, p.key, std::move(options)).result(),
+                  MatchesKvsReadResultNotFound());
+    }
+  }
+}
+
+struct TransactionalListOpsParameters {
+  KvStore store;
+  std::string keys[5];
+  bool write_outside_transaction;
+  tensorstore::TransactionMode transaction_mode;
+
+  // If set, invokes callback with another store using the same backing storage
+  // as `store`, but using a different write cache such that a separate
+  // `MultiPhase` instance will be created.
+  std::function<void(absl::FunctionRef<void(const KvStore& store)>)>
+      get_other_store;
+
+  bool match_size;
+};
+
+void TestKeyValueStoreTransactionalListOps(
+    const TransactionalListOpsParameters& p) {
+  Cleanup cleanup(p.store, {std::begin(p.keys), std::end(p.keys)});
+
+  using Reference = std::map<std::string, int64_t>;
+  Reference reference;
+
+  auto do_write = [&](const KvStore& store, size_t key_idx,
+                      bool retain_size) -> absl::Status {
+    const auto& key = p.keys[key_idx];
+    TENSORSTORE_RETURN_IF_ERROR(
+        kvstore::Write(store, key, absl::Cord(std::string(key_idx + 1, 'X')))
+            .status());
+    reference[key] =
+        retain_size && p.match_size ? static_cast<int64_t>(key_idx + 1) : -1;
+    return absl::OkStatus();
+  };
+
+  auto do_delete_range = [&](const KvStore& store,
+                             const KeyRange& range) -> absl::Status {
+    TENSORSTORE_RETURN_IF_ERROR(kvstore::DeleteRange(store, range).status());
+    for (Reference::iterator it = reference.lower_bound(range.inclusive_min),
+                             next;
+         it != reference.end() && Contains(range, it->first); it = next) {
+      next = std::next(it);
+      reference.erase(it);
+    }
+    return absl::OkStatus();
+  };
+
+  auto get_reference_list =
+      [&](const KeyRange& range,
+          size_t strip_prefix_length) -> std::vector<kvstore::ListEntry> {
+    std::vector<kvstore::ListEntry> vec;
+    for (const auto& p : reference) {
+      if (!Contains(range, p.first)) continue;
+      std::string key = p.first;
+      key = key.substr(std::min(key.size(), strip_prefix_length));
+      kvstore::ListEntry entry;
+      entry.key = std::move(key);
+      entry.size = p.second;
+      vec.push_back(std::move(entry));
+    }
+    return vec;
+  };
+
+  if (p.write_outside_transaction) {
+    TENSORSTORE_ASSERT_OK(do_write(p.store, 0, /*retain_size=*/true));
+    TENSORSTORE_ASSERT_OK(do_write(p.store, 2, /*retain_size=*/true));
+    TENSORSTORE_ASSERT_OK(do_write(p.store, 4, /*retain_size=*/true));
+  }
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto txn_store, p.store | tensorstore::Transaction(p.transaction_mode));
+
+  auto get_list = [&](const KeyRange& range, size_t strip_prefix_length) {
+    kvstore::ListOptions options;
+    options.range = range;
+    options.strip_prefix_length = strip_prefix_length;
+    return kvstore::ListFuture(txn_store, std::move(options)).result();
+  };
+
+  auto verify = [&](const KeyRange& range, size_t strip_prefix_length) {
+    SCOPED_TRACE(tensorstore::StrCat(
+        "range=", range, ", strip_prefix_length=", strip_prefix_length));
+    EXPECT_THAT(get_list(range, strip_prefix_length),
+                ::testing::Optional(::testing::UnorderedElementsAreArray(
+                    get_reference_list(range, strip_prefix_length))));
+  };
+
+  auto verify_for_multiple_prefix_lengths = [&](const KeyRange& range) {
+    for (size_t strip_prefix_length : {0 /*, 1*/}) {
+      verify(range, strip_prefix_length);
+    }
+  };
+
+  auto verify_for_multiple_ranges = [&] {
+    verify_for_multiple_prefix_lengths({});
+    verify_for_multiple_prefix_lengths(KeyRange({}, p.keys[4]));
+    verify_for_multiple_prefix_lengths(KeyRange(p.keys[2], {}));
+    verify_for_multiple_prefix_lengths(KeyRange(p.keys[2], p.keys[4]));
+  };
+
+  {
+    SCOPED_TRACE("Before writing within transaction");
+    verify_for_multiple_ranges();
+  }
+
+  if (p.get_other_store) {
+    p.get_other_store([&](KvStore other) {
+      other.transaction = txn_store.transaction;
+      TENSORSTORE_ASSERT_OK(do_write(other, 0, /*retain_size=*/true));
+      TENSORSTORE_ASSERT_OK(do_write(other, 1, /*retain_size=*/true));
+      TENSORSTORE_ASSERT_OK(do_write(other, 3, /*retain_size=*/true));
+    });
+    {
+      SCOPED_TRACE("After writing to other node");
+      verify_for_multiple_ranges();
+    }
+  }
+
+  TENSORSTORE_ASSERT_OK(do_write(txn_store, 0, /*retain_size=*/false));
+  TENSORSTORE_ASSERT_OK(do_write(txn_store, 1, /*retain_size=*/false));
+  TENSORSTORE_ASSERT_OK(do_write(txn_store, 2, /*retain_size=*/false));
+
+  {
+    SCOPED_TRACE("After writing within transaction");
+    verify_for_multiple_ranges();
+  }
+
+  TENSORSTORE_ASSERT_OK(
+      do_delete_range(txn_store, KeyRange{p.keys[2], p.keys[4]}));
+  TENSORSTORE_ASSERT_OK(do_write(txn_store, 3, /*retain_size=*/false));
+
+  {
+    SCOPED_TRACE("After delete range and write");
+    verify_for_multiple_ranges();
+  }
+
+  TENSORSTORE_ASSERT_OK(do_delete_range(txn_store, KeyRange{p.keys[3], {}}));
+
+  {
+    SCOPED_TRACE("After delete range to end");
+    verify_for_multiple_ranges();
+  }
+}
+
 void TestKeyValueStoreDeleteOps(const KvStore& store,
                                 std::array<std::string, 4> key,
                                 absl::Cord expected_value) {
-  SCOPED_TRACE("TestKeyValueStoreDeleteOps");
   Cleanup cleanup(store, {key.begin(), key.end()});
 
   // Mismatch should not match any other generation.
@@ -294,9 +667,9 @@ void TestKeyValueStoreDeleteOps(const KvStore& store,
   EXPECT_THAT(kvstore::Read(store, key[3]).result(),
               MatchesKvsReadResult(expected_value));
 
-  ABSL_LOG(INFO)
-      << kSep
-      << "Test conditional delete, non-existent key StorageGeneration::NoValue";
+  ABSL_LOG(INFO) << kSep
+                 << "Test conditional delete, non-existent key "
+                    "StorageGeneration::NoValue";
   EXPECT_THAT(
       kvstore::Delete(store, key[2], {StorageGeneration::NoValue()}).result(),
       MatchesKnownTimestampedStorageGeneration());
@@ -326,7 +699,6 @@ void TestKeyValueStoreDeleteOps(const KvStore& store,
 
 void TestKeyValueStoreStalenessBoundOps(const KvStore& store, std::string key,
                                         absl::Cord value1, absl::Cord value2) {
-  SCOPED_TRACE("TestKeyValueStoreStalenessBoundOps");
   Cleanup cleanup(store, {key});
 
   kvstore::ReadOptions read_options;
@@ -355,7 +727,8 @@ void TestKeyValueStoreStalenessBoundOps(const KvStore& store, std::string key,
   EXPECT_THAT(kvstore::Read(store, key).result(),
               MatchesKvsReadResult(value1, write_result1->generation));
 
-  // Generally same-host writes should invalidate staleness_bound in a kvstore.
+  // Generally same-host writes should invalidate staleness_bound in a
+  // kvstore.
   auto write_result2 = kvstore::Write(store, key, value2).result();
   ASSERT_THAT(write_result2, MatchesRegularTimestampedStorageGeneration());
 
@@ -372,7 +745,6 @@ void TestKeyValueStoreStalenessBoundOps(const KvStore& store, std::string key,
 void TestKeyValueStoreReadOps(const KvStore& store, std::string key,
                               absl::Cord expected_value,
                               std::string missing_key) {
-  SCOPED_TRACE("TestKeyValueStoreReadOps");
   ABSL_CHECK(expected_value.size() > 3);
   ABSL_CHECK(!key.empty());
   ABSL_CHECK(!missing_key.empty());
@@ -529,7 +901,14 @@ void TestKeyValueStoreReadOps(const KvStore& store, std::string key,
     auto result = kvstore::Read(store, key, read_options).result();
     EXPECT_THAT(result, MatchesKvsReadResult(expected_value,
                                              read_result->stamp.generation));
-    EXPECT_THAT(result->stamp.time, testing::Gt(read_result->stamp.time));
+    // FIXME(jbms): Potentially unconditional writes should not produce
+    // `absl::InfiniteFuture()`, because a subsequent write could result in a
+    // different value. While this is not a problem for users of
+    // `ReadModifyWrite` it does result in behavior inconsistent with
+    // non-transactional reads and writes.
+    if (read_result->stamp.time != absl::InfiniteFuture()) {
+      EXPECT_THAT(result->stamp.time, testing::Gt(read_result->stamp.time));
+    }
   }
 
   // NOTE: Add tests for both if_equal and if_not_equal set.
@@ -649,82 +1028,6 @@ void TestKeyValueStoreBatchReadOps(const KvStore& store, std::string key,
       EXPECT_THAT(futures[read_i].result(), matchers[read_i]);
     }
   }
-}
-
-void TestKeyValueReadWriteOps(const KvStore& store, size_t value_size) {
-  return TestKeyValueReadWriteOps(store, value_size, [](std::string key) {
-    return absl::StrCat("key_", key);
-  });
-}
-
-void TestKeyValueReadWriteOps(
-    const KvStore& store, size_t value_size,
-    absl::FunctionRef<std::string(std::string key)> get_key) {
-  absl::Cord expected_value("_kvstore_value_");
-  if (value_size > expected_value.size()) {
-    expected_value.Append(std::string(value_size - expected_value.size(), '*'));
-  }
-  absl::Cord other_value("._-=+=-_.");
-  if (value_size > other_value.size()) {
-    other_value.Append(std::string(value_size - other_value.size(), '*'));
-  }
-
-  // Test read operations.
-  {
-    std::string missing_key = get_key("missing");
-    kvstore::Delete(store, missing_key).result().status().IgnoreError();
-
-    std::string key = get_key("read");
-    auto write_result = kvstore::Write(store, key, expected_value).result();
-    ASSERT_THAT(write_result, MatchesRegularTimestampedStorageGeneration());
-
-    tensorstore::internal::TestKeyValueStoreReadOps(store, key, expected_value,
-                                                    missing_key);
-
-    absl::Cord longer_expected_value;
-    for (size_t i = 0; i < 4096; ++i) {
-      char x = static_cast<char>(i);
-      longer_expected_value.Append(std::string_view(&x, 1));
-    }
-
-    ASSERT_THAT(kvstore::Write(store, key, longer_expected_value).result(),
-                MatchesRegularTimestampedStorageGeneration());
-
-    tensorstore::internal::TestKeyValueStoreBatchReadOps(store, key,
-                                                         longer_expected_value);
-
-    kvstore::Delete(store, key).result().status().IgnoreError();
-  }
-
-  // Validate write/read of special characters.
-  {
-    ABSL_LOG(INFO) << kSep << "Test read/write of non-alphanumeric key.";
-
-    std::string special_key = get_key("subdir/a!b@c$d");
-    kvstore::Delete(store, special_key).result().status().IgnoreError();
-
-    auto write_result =
-        kvstore::Write(store, special_key, expected_value).result();
-    ASSERT_THAT(write_result, MatchesRegularTimestampedStorageGeneration());
-
-    auto read_result = kvstore::Read(store, special_key).result();
-    EXPECT_THAT(read_result, MatchesKvsReadResult(expected_value, testing::_));
-
-    kvstore::Delete(store, special_key).result().status().IgnoreError();
-  }
-
-  // Test write operations.
-  TestKeyValueStoreWriteOps(
-      store, {get_key("write1"), get_key("write2"), get_key("write3")},
-      expected_value, other_value);
-
-  TestKeyValueStoreDeleteOps(
-      store,
-      {get_key("del1"), get_key("del2"), get_key("del3"), get_key("del4")},
-      expected_value);
-
-  TestKeyValueStoreStalenessBoundOps(store, get_key("stale"), expected_value,
-                                     other_value);
 }
 
 // Tests List on `store`, which should be empty.
@@ -1073,6 +1376,366 @@ void TestKeyValueStoreSpecRoundtrip(
       TENSORSTORE_ASSERT_OK(store.spec());
       EXPECT_THAT(kvstore::Read(store, options.roundtrip_key).result(),
                   MatchesKvsReadResult(options.roundtrip_value));
+    }
+  }
+}
+
+void RegisterKeyValueStoreOpsTests(KeyValueStoreOpsTestParameters params) {
+  if (!params.get_key) {
+    params.get_key = [](std::string key) { return absl::StrCat("key_", key); };
+  }
+  absl::Cord expected_value("_kvstore_value_");
+  if (params.value_size > expected_value.size()) {
+    expected_value.Append(
+        std::string(params.value_size - expected_value.size(), '*'));
+  }
+  absl::Cord other_value("._-=+=-_.");
+  if (params.value_size > other_value.size()) {
+    other_value.Append(
+        std::string(params.value_size - other_value.size(), '-'));
+  }
+  absl::Cord other_value2("ABCDEFGHIJKLMNOP");
+  if (params.value_size > other_value2.size()) {
+    other_value2.Append(
+        std::string(params.value_size - other_value2.size(), '+'));
+  }
+
+  std::vector<std::pair<std::string, tensorstore::TransactionMode>>
+      transaction_modes;
+  transaction_modes.emplace_back("NoTransaction",
+                                 tensorstore::no_transaction_mode);
+  transaction_modes.emplace_back("Isolated", tensorstore::isolated);
+  transaction_modes.emplace_back(
+      "IsolatedRepeatableRead",
+      tensorstore::isolated | tensorstore::repeatable_read);
+  if (params.atomic_transaction) {
+    transaction_modes.emplace_back("AtomicIsolated",
+                                   tensorstore::atomic_isolated);
+    transaction_modes.emplace_back(
+        "AtomicIsolatedRepeatableRead",
+        tensorstore::atomic_isolated | tensorstore::repeatable_read);
+  }
+
+  for (const auto& txn_mode_info : transaction_modes) {
+    const auto& transaction_mode_name = txn_mode_info.first;
+    const auto transaction_mode = txn_mode_info.second;
+    RegisterGoogleTestCaseDynamically(
+        params.test_name,
+        tensorstore::StrCat("ReadOps/", transaction_mode_name),
+        [get_store = params.get_store, get_key = params.get_key,
+         transaction_mode, expected_value] {
+          get_store([&](const KvStore& store) {
+            auto txn = tensorstore::Transaction(transaction_mode);
+            TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto txn_store, store | txn);
+            std::string missing_key = get_key("missing");
+            kvstore::Delete(txn_store, missing_key)
+                .result()
+                .status()
+                .IgnoreError();
+
+            std::string key = get_key("read");
+            auto write_result =
+                kvstore::Write(txn_store, key, expected_value).result();
+            ASSERT_THAT(write_result,
+                        MatchesRegularTimestampedStorageGeneration());
+
+            tensorstore::internal::TestKeyValueStoreReadOps(
+                txn_store, key, expected_value, missing_key);
+
+            kvstore::Delete(txn_store, key).result().status().IgnoreError();
+          });
+        });
+
+    RegisterGoogleTestCaseDynamically(
+        params.test_name,
+        tensorstore::StrCat("BatchReadOps/", transaction_mode_name),
+        [get_store = params.get_store, key = params.get_key("read"),
+         transaction_mode] {
+          get_store([&](const KvStore& store) {
+            absl::Cord longer_expected_value;
+            for (size_t i = 0; i < 4096; ++i) {
+              char x = static_cast<char>(i);
+              longer_expected_value.Append(std::string_view(&x, 1));
+            }
+
+            auto txn = tensorstore::Transaction(transaction_mode);
+            TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto txn_store, store | txn);
+            ASSERT_THAT(
+                kvstore::Write(txn_store, key, longer_expected_value).result(),
+                MatchesRegularTimestampedStorageGeneration());
+
+            tensorstore::internal::TestKeyValueStoreBatchReadOps(
+                txn_store, key, longer_expected_value);
+
+            kvstore::Delete(txn_store, key).result().status().IgnoreError();
+          });
+        });
+
+    if (transaction_mode != no_transaction_mode &&
+        !(transaction_mode & repeatable_read)) {
+      for (std::string_view operation :
+           {"Unconditional", "MatchingCondition", "MatchingConditionAfterWrite",
+            "NonMatchingCondition", "NonMatchingConditionAfterWrite"}) {
+        RegisterGoogleTestCaseDynamically(
+            params.test_name,
+            tensorstore::StrCat("TransactionalWriteOps/", operation),
+            [get_store = params.get_store, get_key = params.get_key,
+             expected_value, transaction_mode, operation] {
+              get_store([&](const KvStore& store) {
+                TestKeyValueStoreTransactionalWriteOps(
+                    store, transaction_mode, get_key("write1"), expected_value,
+                    operation);
+              });
+            });
+      }
+    }
+  }
+
+  RegisterGoogleTestCaseDynamically(
+      params.test_name, "WriteOps",
+      [get_store = params.get_store, get_key = params.get_key, expected_value,
+       other_value] {
+        get_store([&](const KvStore& store) {
+          TestKeyValueStoreWriteOps(
+              store, {get_key("write1"), get_key("write2"), get_key("write3")},
+              expected_value, other_value);
+        });
+      });
+
+  RegisterGoogleTestCaseDynamically(
+      params.test_name, "DeleteOps",
+      [get_store = params.get_store, get_key = params.get_key, expected_value] {
+        get_store([&](const KvStore& store) {
+          TestKeyValueStoreDeleteOps(store,
+                                     {get_key("del1"), get_key("del2"),
+                                      get_key("del3"), get_key("del4")},
+                                     expected_value);
+        });
+      });
+
+  RegisterGoogleTestCaseDynamically(
+      params.test_name, "StalenessBoundOps",
+      [get_store = params.get_store, key = params.get_key("stale"),
+       expected_value, other_value] {
+        get_store([&](const KvStore& store) {
+          TestKeyValueStoreStalenessBoundOps(store, key, expected_value,
+                                             other_value);
+        });
+      });
+
+  RegisterGoogleTestCaseDynamically(
+      params.test_name, "StalenessBoundOps",
+      [get_store = params.get_store, key = params.get_key("stale"),
+       expected_value, other_value] {
+        get_store([&](const KvStore& store) {
+          TestKeyValueStoreStalenessBoundOps(store, key, expected_value,
+                                             other_value);
+        });
+      });
+
+  if (params.test_delete_range) {
+    RegisterGoogleTestCaseDynamically(params.test_name, "DeleteRange",
+                                      [get_store = params.get_store] {
+                                        get_store([&](const KvStore& store) {
+                                          TestKeyValueStoreDeleteRange(store);
+                                        });
+                                      });
+    RegisterGoogleTestCaseDynamically(params.test_name, "DeletePrefix",
+                                      [get_store = params.get_store] {
+                                        get_store([&](const KvStore& store) {
+                                          TestKeyValueStoreDeletePrefix(store);
+                                        });
+                                      });
+    RegisterGoogleTestCaseDynamically(
+        params.test_name, "DeleteRangeToEnd", [get_store = params.get_store] {
+          get_store([&](const KvStore& store) {
+            TestKeyValueStoreDeleteRangeToEnd(store);
+          });
+        });
+    RegisterGoogleTestCaseDynamically(
+        params.test_name, "DeleteRangFromBeginning",
+        [get_store = params.get_store] {
+          get_store([&](const KvStore& store) {
+            TestKeyValueStoreDeleteRangeFromBeginning(store);
+          });
+        });
+  }
+  if (params.test_copy_range) {
+    RegisterGoogleTestCaseDynamically(
+        params.test_name, "CopyRange", [get_store = params.get_store] {
+          get_store(
+              [&](const KvStore& store) { TestKeyValueStoreCopyRange(store); });
+        });
+  }
+  if (params.test_list) {
+    if (params.test_list_without_prefix) {
+      RegisterGoogleTestCaseDynamically(
+          params.test_name, "List",
+          [get_store = params.get_store,
+           list_match_size = params.list_match_size] {
+            get_store([&](const KvStore& store) {
+              TestKeyValueStoreList(store, list_match_size);
+            });
+          });
+    }
+    if (!params.test_list_prefix.empty()) {
+      RegisterGoogleTestCaseDynamically(
+          params.test_name, "ListWithPrefix",
+          [get_store = params.get_store,
+           list_match_size = params.list_match_size,
+           test_list_prefix = params.test_list_prefix] {
+            get_store([&](KvStore store) {
+              store.path += test_list_prefix;
+              TestKeyValueStoreList(store, list_match_size);
+            });
+          });
+    }
+  }
+  if (params.test_special_characters) {
+    RegisterGoogleTestCaseDynamically(
+        params.test_name, "SpecialCharacters",
+        [get_store = params.get_store,
+         special_key = params.get_key("subdir/a!b@c$d"), expected_value] {
+          get_store([&](const KvStore& store) {
+            kvstore::Delete(store, special_key).result().status().IgnoreError();
+
+            auto write_result =
+                kvstore::Write(store, special_key, expected_value).result();
+            ASSERT_THAT(write_result,
+                        MatchesRegularTimestampedStorageGeneration());
+
+            auto read_result = kvstore::Read(store, special_key).result();
+            EXPECT_THAT(read_result,
+                        MatchesKvsReadResult(expected_value, testing::_));
+
+            kvstore::Delete(store, special_key).result().status().IgnoreError();
+          });
+        });
+  }
+  // Transactional read ops tests
+  {
+    for (std::string_view write_operation_within_transaction : {
+             "Unmodified",
+             "DeleteRange",
+             "Delete",
+             "WriteUnconditionally",
+             "WriteWithFalseCondition",
+             "WriteWithTrueCondition",
+         }) {
+      for (const auto& txn_mode_info : transaction_modes) {
+        const auto& transaction_mode_name = txn_mode_info.first;
+        const auto transaction_mode = txn_mode_info.second;
+        if (transaction_mode == no_transaction_mode) continue;
+
+        for (bool write_outside_transaction : {false, true}) {
+          auto register_with_write_to_other_node =
+              [&](bool write_to_other_node) {
+                RegisterGoogleTestCaseDynamically(
+                    params.test_name,
+                    tensorstore::StrCat(
+                        "TransactionalReadOps/", transaction_mode_name, "/",
+                        write_outside_transaction ? "WithCommittedValue"
+                                                  : "WithoutCommittedValue",
+                        "/", write_to_other_node ? "WriteToOtherNode/" : "",
+                        write_operation_within_transaction),
+                    [=, get_store = params.get_store,
+                     key = params.get_key("read"),
+                     get_store_adapter = params.get_store_adapter] {
+                      // Use `=` capture rather than `&` capture to work
+                      // around
+                      // https://developercommunity.visualstudio.com/t/Nested-lambda-fails-to-pass-as-an-argume/10159842?q=%5BFixed+In%3A+Visual+Studio+2022+version+17.4%5D
+                      // or perhaps a related bug.
+                      get_store([=](const KvStore& store) {
+                        TransactionalReadOpsParameters p;
+                        p.store = store;
+                        p.key = key;
+                        p.write_outside_transaction = write_outside_transaction;
+                        p.write_operation_within_transaction =
+                            write_operation_within_transaction;
+                        p.transaction_mode = transaction_mode;
+                        p.value1 = expected_value;
+                        p.value2 = other_value;
+                        p.value3 = other_value2;
+                        if (write_to_other_node) {
+                          TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto base,
+                                                           store.base());
+                          p.write_to_other_node = [=, base = std::move(base)](
+                                                      std::string key,
+                                                      absl::Cord value)
+                              -> Result<TimestampedStorageGeneration> {
+                            Result<TimestampedStorageGeneration> result{};
+                            get_store_adapter(base, [&](const KvStore& other) {
+                              result = kvstore::Write(other, std::move(key),
+                                                      std::move(value))
+                                           .result();
+                            });
+                            return result;
+                          };
+                        }
+                        TestKeyValueStoreTransactionalReadOps(p);
+                      });
+                    });
+              };
+          register_with_write_to_other_node(false);
+          if (params.get_store_adapter) {
+            register_with_write_to_other_node(true);
+          }
+        }
+      }
+    }
+  }
+  // Transactional list ops tests
+  if (params.test_transactional_list) {
+    for (const auto& txn_mode_info : transaction_modes) {
+      const auto& transaction_mode_name = txn_mode_info.first;
+      const auto transaction_mode = txn_mode_info.second;
+      if (transaction_mode == no_transaction_mode) continue;
+      if (transaction_mode & repeatable_read) continue;
+      for (bool write_outside_transaction : {false, true}) {
+        auto register_with_write_to_other_node = [&](bool write_to_other_node) {
+          RegisterGoogleTestCaseDynamically(
+              params.test_name,
+              tensorstore::StrCat(
+                  "TransactionalListOps/", transaction_mode_name, "/",
+                  write_outside_transaction ? "WithCommittedValue"
+                                            : "WithoutCommittedValue",
+                  write_to_other_node ? "/WriteToOtherNode/" : ""),
+              [=, get_store = params.get_store,
+               get_store_adapter = params.get_store_adapter] {
+                // Use `=` capture rather than `&` capture to work
+                // around
+                // https://developercommunity.visualstudio.com/t/Nested-lambda-fails-to-pass-as-an-argume/10159842?q=%5BFixed+In%3A+Visual+Studio+2022+version+17.4%5D
+                // or perhaps a related bug.
+                get_store([=](KvStore store) {
+                  TransactionalListOpsParameters p;
+                  if (!params.test_list_without_prefix) {
+                    store.path += params.test_list_prefix;
+                  }
+                  p.store = store;
+                  p.keys[0] = params.get_key("0");
+                  p.keys[1] = params.get_key("1");
+                  p.keys[2] = params.get_key("2");
+                  p.keys[3] = params.get_key("3");
+                  p.keys[4] = params.get_key("4");
+                  p.write_outside_transaction = write_outside_transaction;
+                  p.transaction_mode = transaction_mode;
+                  if (write_to_other_node) {
+                    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto base, store.base());
+                    p.get_other_store =
+                        [=, base = std::move(base)](auto callback) {
+                          get_store_adapter(base, std::move(callback));
+                        };
+                  }
+                  p.match_size = params.list_match_size;
+                  TestKeyValueStoreTransactionalListOps(p);
+                });
+              });
+        };
+        register_with_write_to_other_node(false);
+        if (params.get_store_adapter) {
+          register_with_write_to_other_node(true);
+        }
+      }
     }
   }
 }

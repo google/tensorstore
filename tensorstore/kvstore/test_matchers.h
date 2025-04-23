@@ -17,6 +17,7 @@
 
 #include <stdint.h>
 
+#include <optional>
 #include <string>
 #include <type_traits>
 
@@ -99,21 +100,28 @@ template <typename ValueMatcher>
     ::testing::Matcher<absl::Time> time = ::testing::_) {
   using ReadResult = kvstore::ReadResult;
   ::testing::Matcher<kvstore::ReadResult::State> state_matcher;
-  ::testing::Matcher<kvstore::Value> value_matcher;
+  ::testing::Matcher<std::optional<kvstore::Value>> value_matcher;
   if constexpr (std::is_convertible_v<ValueMatcher,
                                       ::testing::Matcher<kvstore::Value>>) {
-    value_matcher = ::testing::Matcher<kvstore::Value>(value);
+    value_matcher =
+        ::testing::Optional(::testing::Matcher<kvstore::Value>(value));
     state_matcher = kvstore::ReadResult::kValue;
+  } else if constexpr (std::is_convertible_v<
+                           ValueMatcher,
+                           ::testing::Matcher<std::optional<kvstore::Value>>>) {
+    value_matcher = ::testing::Matcher<std::optional<kvstore::Value>>(value);
+    state_matcher = ::testing::AnyOf(kvstore::ReadResult::kValue,
+                                     kvstore::ReadResult::kMissing);
   } else {
     static_assert(
         std::is_convertible_v<ValueMatcher,
                               ::testing::Matcher<kvstore::ReadResult::State>>);
-    value_matcher = absl::Cord();
+    value_matcher = std::optional<absl::Cord>();
     state_matcher = ::testing::Matcher<kvstore::ReadResult::State>(value);
   }
   return ::testing::Optional(::testing::AllOf(
       ::testing::Field("state", &ReadResult::state, state_matcher),
-      ::testing::Field("value", &ReadResult::value, value_matcher),
+      ::testing::Property("value", &ReadResult::optional_value, value_matcher),
       ::testing::Field("stamp", &ReadResult::stamp,
                        MatchesTimestampedStorageGeneration(generation, time))));
 }

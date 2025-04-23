@@ -90,6 +90,7 @@ using ::tensorstore::TimestampedStorageGeneration;
 using ::tensorstore::Transaction;
 using ::tensorstore::internal::CachePool;
 using ::tensorstore::internal::GetCache;
+using ::tensorstore::internal::KeyValueStoreOpsTestParameters;
 using ::tensorstore::internal::KvsBackedTestCache;
 using ::tensorstore::internal::MatchesKvsReadResult;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
@@ -178,20 +179,38 @@ kvstore::DriverPtr GetDefaultStore(kvstore::DriverPtr base_kvstore,
   return GetShardedKeyValueStore(std::move(params));
 }
 
-TEST(ShardedKeyValueStoreTest, BasicFunctionality) {
+TENSORSTORE_GLOBAL_INITIALIZER {
   std::vector<std::pair<std::string, tensorstore::Executor>> executors{
-      {"inline", tensorstore::InlineExecutor{}},
-      {"thread_pool", tensorstore::internal::DetachedThreadPool(2)}};
+      {"Inline", tensorstore::InlineExecutor{}},
+      {"ThreadPool", tensorstore::internal::DetachedThreadPool(2)}};
   for (const auto& [executor_name, executor] : executors) {
     for (const auto sequential_ids : {true, false}) {
-      auto cache_pool = CachePool::Make(kSmallCacheLimits);
-      auto base_kv_store = tensorstore::GetMemoryKeyValueStore();
       const int64_t num_entries = 100;
-      SCOPED_TRACE(executor_name);
-      auto store = GetDefaultStore(base_kv_store, "shard_path", executor,
-                                   cache_pool, {num_entries});
-      GetKey get_key_fn(sequential_ids, {num_entries});
-      tensorstore::internal::TestKeyValueReadWriteOps(store, 0, get_key_fn);
+      KeyValueStoreOpsTestParameters params;
+      params.test_name =
+          executor_name + (sequential_ids ? "SequentialIds" : "RandomIds");
+      params.get_key = [getter = std::make_shared<GetKey>(
+                            sequential_ids, std::vector<Index>{num_entries})](
+                           std::string x) { return (*getter)(x); };
+      auto get_store_adapter = [executor = executor, num_entries](
+                                   const KvStore& base, auto callback) {
+        auto cache_pool = CachePool::Make(kSmallCacheLimits);
+        callback(GetDefaultStore(base.driver, base.path, executor, cache_pool,
+                                 {num_entries}));
+      };
+
+      params.get_store = [=](auto callback) {
+        get_store_adapter(
+            KvStore(tensorstore::GetMemoryKeyValueStore(), "shard_path"),
+            std::move(callback));
+      };
+      params.get_store_adapter = get_store_adapter;
+      params.test_list = false;
+      params.test_transactional_list = sequential_ids;
+      params.atomic_transaction = true;
+      params.test_delete_range = false;
+      params.test_special_characters = false;
+      RegisterKeyValueStoreOpsTests(params);
     }
   }
 }
@@ -1322,6 +1341,23 @@ TEST_F(UnderlyingKeyValueStoreTest, BatchRead) {
     // Expected to result in a single request for the shard index, followed by a
     // batch request for the two present entries.
     EXPECT_THAT(mock_store->request_log.pop_all(), ::testing::SizeIs(2));
+  }
+}
+
+TEST_F(UnderlyingKeyValueStoreTest, ReadingShardDoesNotTriggerValidation) {
+  grid_shape = {1};
+  store = GetStore(grid_shape);
+  {
+    auto txn = tensorstore::Transaction(tensorstore::atomic_isolated);
+    TENSORSTORE_ASSERT_OK(tensorstore::kvstore::Write(
+        tensorstore::KvStore{store, txn}, EntryIdToKey(0, grid_shape),
+        absl::Cord("value"), {/*.if_equal=*/StorageGeneration::NoValue()}));
+    TENSORSTORE_ASSERT_OK(tensorstore::kvstore::Delete(
+        tensorstore::KvStore{store, txn}, EntryIdToKey(0, grid_shape)));
+    EXPECT_THAT(tensorstore::kvstore::Read(
+                    tensorstore::KvStore{mock_store, txn}, "shard_path")
+                    .result(),
+                MatchesKvsReadResultNotFound());
   }
 }
 

@@ -33,6 +33,7 @@
 #include "tensorstore/internal/aws/aws_credentials.h"
 #include "tensorstore/internal/aws/credentials/common.h"
 #include "tensorstore/internal/env.h"
+#include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/http/default_transport.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
@@ -94,6 +95,7 @@ using ::tensorstore::Context;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::internal::GetEnv;
 using ::tensorstore::internal::GetEnvironmentMap;
+using ::tensorstore::internal::KeyValueStoreOpsTestParameters;
 using ::tensorstore::internal::SetEnv;
 using ::tensorstore::internal::SpawnSubprocess;
 using ::tensorstore::internal::Subprocess;
@@ -239,10 +241,13 @@ Context DefaultTestContext() {
 }
 
 class LocalStackFixture : public ::testing::Test {
- protected:
-  static LocalStackProcess process;
+ public:
+  inline static LocalStackProcess process;
+  inline static bool is_set_up = false;
 
   static void SetUpTestSuite() {
+    if (is_set_up) return;
+    is_set_up = true;
     bool is_aws_endpoint =
         IsAwsS3Endpoint(absl::GetFlag(FLAGS_localstack_endpoint));
     ABSL_LOG_IF(INFO, is_aws_endpoint)
@@ -280,8 +285,6 @@ class LocalStackFixture : public ::testing::Test {
 
     return std::move(credentials_future.result()).value();
   }
-
-  static void TearDownTestSuite() { process.StopProcess(); }
 
   static std::string endpoint_url() {
     if (absl::GetFlag(FLAGS_localstack_endpoint).empty()) {
@@ -339,8 +342,7 @@ class LocalStackFixture : public ::testing::Test {
     }
   }
 
-  tensorstore::KvStore OpenStore(tensorstore::Context context,
-                                 std::string path = "") {
+  static ::nlohmann::json GetJsonSpec(std::string path = "") {
     ::nlohmann::json json_spec{
         {"driver", "s3"},                      //
         {"bucket", Bucket()},                  //
@@ -353,35 +355,37 @@ class LocalStackFixture : public ::testing::Test {
     if (!absl::GetFlag(FLAGS_host_header).empty()) {
       json_spec["host_header"] = absl::GetFlag(FLAGS_host_header);
     }
+    return json_spec;
+  }
 
-    return kvstore::Open(json_spec, context).value();
+  static tensorstore::Result<tensorstore::KvStore> OpenStore(
+      tensorstore::Context context, std::string path = "") {
+    return kvstore::Open(GetJsonSpec(path), context).result();
   }
 };
 
-LocalStackProcess LocalStackFixture::process;
-
-TEST_F(LocalStackFixture, Basic) {
-  auto context = DefaultTestContext();
-  ::nlohmann::json json_spec{
-      {"driver", "s3"},              //
-      {"bucket", Bucket()},          //
-      {"endpoint", endpoint_url()},  //
-      {"path", Path()},              //
+TENSORSTORE_GLOBAL_INITIALIZER {
+  KeyValueStoreOpsTestParameters params;
+  params.test_name = "Basic";
+  params.get_store = [](auto callback) {
+    LocalStackFixture::SetUpTestSuite();
+    auto context = DefaultTestContext();
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
+                                     LocalStackFixture::OpenStore(context));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec, store.spec());
+    EXPECT_THAT(
+        spec.ToJson(tensorstore::IncludeDefaults{false}),
+        ::testing::Optional(MatchesJson(LocalStackFixture::GetJsonSpec())));
+    callback(store);
   };
-
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
-                                   kvstore::Open(json_spec, context).result());
-
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec, store.spec());
-  EXPECT_THAT(spec.ToJson(tensorstore::IncludeDefaults{false}),
-              ::testing::Optional(MatchesJson(json_spec)));
-
-  tensorstore::internal::TestKeyValueReadWriteOps(store);
+  params.test_list_without_prefix = false;
+  RegisterKeyValueStoreOpsTests(params);
 }
 
 TEST_F(LocalStackFixture, BatchRead) {
   auto context = DefaultTestContext();
-  auto store = OpenStore(context, "batch_read/");
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
+                                   OpenStore(context, "batch_read/"));
 
   tensorstore::internal::BatchReadGenericCoalescingTestOptions options;
   options.coalescing_options = tensorstore::internal_kvstore_batch::
@@ -401,7 +405,8 @@ TEST_F(LocalStackFixture, ConcurrentWrites) {
 
   tensorstore::internal::TestConcurrentWritesOptions options;
   auto context = DefaultTestContext();
-  auto store = OpenStore(context, "concurrent_writes/");
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
+                                   OpenStore(context, "concurrent_writes/"));
   options.get_store = [&] { return store; };
   options.num_iterations = 0x7f;
   tensorstore::internal::TestConcurrentWrites(options);

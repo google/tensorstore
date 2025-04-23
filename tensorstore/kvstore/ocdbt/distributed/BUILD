@@ -303,6 +303,7 @@ tensorstore_cc_test(
     deps = [
         ":coordinator_server",
         "//tensorstore:context",
+        "//tensorstore/internal:global_initializer",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal/testing:random_seed",
         "//tensorstore/internal/testing:scoped_directory",

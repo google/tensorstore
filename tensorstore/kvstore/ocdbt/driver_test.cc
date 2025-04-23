@@ -65,6 +65,7 @@ using ::tensorstore::JsonSubValueMatches;
 using ::tensorstore::KeyRange;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::internal::GetMap;
+using ::tensorstore::internal::KeyValueStoreOpsTestParameters;
 using ::tensorstore::internal::MatchesKvsReadResult;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
 using ::tensorstore::internal::MatchesListEntry;
@@ -351,24 +352,6 @@ TEST(OcdbtTest, DeleteRangeMinArity) {
               MatchesKvsReadResultNotFound());
 }
 
-TEST(OcdbtTest, WithExperimentalSpec) {
-  ::nlohmann::json json_spec{
-      {"driver", "ocdbt"},
-      {"base", {{"driver", "memory"}}},
-      {"config", {{"max_decoded_node_bytes", 1}}},
-      {"experimental_read_coalescing_threshold_bytes", 1024},
-      {"experimental_read_coalescing_merged_bytes", 2048},
-      {"experimental_read_coalescing_interval", "10ms"},
-      {"target_data_file_size", 1024},
-  };
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store, tensorstore::kvstore::Open(json_spec).result());
-  EXPECT_THAT(store.spec().value().ToJson(tensorstore::IncludeDefaults{false}),
-              ::testing::Optional(tensorstore::MatchesJson(json_spec)));
-
-  tensorstore::internal::TestKeyValueReadWriteOps(store);
-}
-
 TEST(OcdbtTest, SpecRoundtrip) {
   tensorstore::internal::KeyValueStoreSpecRoundtripOptions options;
   options.create_spec = {
@@ -483,44 +466,23 @@ TEST(OcdbtTest, ConcurrentWritesNumbered) {
   tensorstore::internal::TestConcurrentWrites(options);
 }
 
-// TODO(jbms): Consider refactoring into TEST_P.
 TENSORSTORE_GLOBAL_INITIALIZER {
   const auto register_test_suite = [](ConfigConstraints config) {
-    const auto register_test_case = [&](std::string case_name, auto op) {
-      RegisterGoogleTestCaseDynamically(
-          "OcdbtBasicFunctionalityTest." + case_name,
-          config.ToJson().value().dump(), [config, op] {
-            TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-                auto store, tensorstore::kvstore::Open(
-                                {{"driver", "ocdbt"},
-                                 {"base", "memory://"},
-                                 {"config", config.ToJson().value()}})
-                                .result());
-            op(store);
-          });
-    };
+    KeyValueStoreOpsTestParameters params;
 
-    register_test_case("ReadWriteOps", [](auto& store) {
-      tensorstore::internal::TestKeyValueReadWriteOps(store);
-    });
-    register_test_case("DeletePrefix", [](auto& store) {
-      tensorstore::internal::TestKeyValueStoreDeletePrefix(store);
-    });
-    register_test_case("DeleteRange", [](auto& store) {
-      tensorstore::internal::TestKeyValueStoreDeleteRange(store);
-    });
-    register_test_case("DeleteRangeToEnd", [](auto& store) {
-      tensorstore::internal::TestKeyValueStoreDeleteRangeToEnd(store);
-    });
-    register_test_case("DeleteRangeFromBeginning", [](auto& store) {
-      tensorstore::internal::TestKeyValueStoreDeleteRangeFromBeginning(store);
-    });
-    register_test_case("CopyRange", [](auto& store) {
-      tensorstore::internal::TestKeyValueStoreCopyRange(store);
-    });
-    register_test_case("List", [](auto& store) {
-      tensorstore::internal::TestKeyValueStoreList(store);
-    });
+    params.test_name = "Basic/" + config.ToJson().value().dump();
+    params.atomic_transaction = true;
+    params.test_copy_range = true;
+    params.get_store = [config](auto callback) {
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+          auto store,
+          tensorstore::kvstore::Open({{"driver", "ocdbt"},
+                                      {"base", "memory://"},
+                                      {"config", config.ToJson().value()}})
+              .result());
+      callback(store);
+    };
+    RegisterKeyValueStoreOpsTests(params);
   };
   for (const auto max_decoded_node_bytes : {0, 1, 1048576}) {
     ConfigConstraints config;
@@ -563,6 +525,32 @@ TENSORSTORE_GLOBAL_INITIALIZER {
     ConfigConstraints config;
     config.manifest_kind = ManifestKind::kNumbered;
     register_test_suite(config);
+  }
+
+  {
+    KeyValueStoreOpsTestParameters params;
+    params.test_delete_range = false;
+    params.test_list = false;
+    params.test_transactional_list = false;
+    params.test_name = "WithExperimentalSpec";
+    params.get_store = [](auto callback) {
+      ::nlohmann::json json_spec{
+          {"driver", "ocdbt"},
+          {"base", {{"driver", "memory"}}},
+          {"config", {{"max_decoded_node_bytes", 1}}},
+          {"experimental_read_coalescing_threshold_bytes", 1024},
+          {"experimental_read_coalescing_merged_bytes", 2048},
+          {"experimental_read_coalescing_interval", "10ms"},
+          {"target_data_file_size", 1024},
+      };
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+          auto store, tensorstore::kvstore::Open(json_spec).result());
+      EXPECT_THAT(
+          store.spec().value().ToJson(tensorstore::IncludeDefaults{false}),
+          ::testing::Optional(tensorstore::MatchesJson(json_spec)));
+      callback(store);
+    };
+    RegisterKeyValueStoreOpsTests(params);
   }
 }
 

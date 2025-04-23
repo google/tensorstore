@@ -54,6 +54,7 @@ tensorstore_cc_test(
         ":memory",
         "//tensorstore:context",
         "//tensorstore:json_serialization_options_base",
+        "//tensorstore/internal:global_initializer",
         "//tensorstore/internal:json_gtest",
         "//tensorstore/internal/cache_key",
         "//tensorstore/kvstore",

@@ -868,7 +868,6 @@ struct ListTask {
           std::string_view path = entry.GetFullPath();
           if (tensorstore::Contains(options.range, path) &&
               !absl::EndsWith(path, kLockSuffix)) {
-            // TODO: If the file was stat'd, include length.
             path.remove_prefix(options.strip_prefix_length);
             execution::set_value(receiver,
                                  ListEntry{std::string(path), entry.GetSize()});

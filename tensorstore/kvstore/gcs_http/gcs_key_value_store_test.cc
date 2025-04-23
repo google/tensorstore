@@ -36,6 +36,7 @@
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
+#include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/http/default_transport.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
@@ -76,6 +77,7 @@ using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
 using ::tensorstore::StorageGeneration;
+using ::tensorstore::internal::KeyValueStoreOpsTestParameters;
 using ::tensorstore::internal::MatchesListEntry;
 using ::tensorstore::internal::ScheduleAt;
 using ::tensorstore::internal_http::ApplyResponseToHandler;
@@ -224,15 +226,29 @@ TEST(GcsKeyValueStoreTest, BadObjectNames) {
   }
 }
 
-TEST(GcsKeyValueStoreTest, Basic) {
-  // Setup mocks for:
-  // https://www.googleapis.com/kvstore/v1/b/my-bucket/o/test
-  auto mock_transport = std::make_shared<MyMockTransport>();
-  DefaultHttpTransportSetter mock_transport_setter{mock_transport};
+TENSORSTORE_GLOBAL_INITIALIZER {
+  KeyValueStoreOpsTestParameters params;
+  params.test_name = "Basic";
+  params.get_store = [](auto callback) {
+    // Setup mocks for:
+    // https://www.googleapis.com/kvstore/v1/b/my-bucket/o/test
+    auto mock_transport = std::make_shared<MyMockTransport>();
+    DefaultHttpTransportSetter mock_transport_setter{mock_transport};
 
-  GCSMockStorageBucket bucket("my-bucket");
-  mock_transport->buckets_.push_back(&bucket);
+    GCSMockStorageBucket bucket("my-bucket");
+    mock_transport->buckets_.push_back(&bucket);
 
+    auto context = DefaultTestContext();
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        kvstore::Open({{"driver", kDriver}, {"bucket", "my-bucket"}}, context)
+            .result());
+    callback(store);
+  };
+  RegisterKeyValueStoreOpsTests(params);
+}
+
+TEST(GcsKeyValueStoreTest, SimpleSpecToJson) {
   auto context = DefaultTestContext();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
@@ -242,7 +258,6 @@ TEST(GcsKeyValueStoreTest, Basic) {
   EXPECT_THAT(spec.ToJson(tensorstore::IncludeDefaults{false}),
               ::testing::Optional(
                   MatchesJson({{"driver", kDriver}, {"bucket", "my-bucket"}})));
-  tensorstore::internal::TestKeyValueReadWriteOps(store);
 }
 
 TEST(GcsKeyValueStoreTest, Retry) {
@@ -497,67 +512,6 @@ TEST(GcsKeyValueStoreTest, RequestorPays) {
                         {{"gcs_user_project", {{"project_id", "myproject"}}}})
                         .value()),
             absl::OkStatus());
-}
-
-TEST(GcsKeyValueStoreTest, DeletePrefix) {
-  auto mock_transport = std::make_shared<MyMockTransport>();
-  DefaultHttpTransportSetter mock_transport_setter{mock_transport};
-
-  GCSMockStorageBucket bucket("my-bucket");
-  mock_transport->buckets_.push_back(&bucket);
-
-  auto context = DefaultTestContext();
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store,
-      kvstore::Open({{"driver", kDriver}, {"bucket", "my-bucket"}}, context)
-          .result());
-  tensorstore::internal::TestKeyValueStoreDeletePrefix(store);
-}
-
-TEST(GcsKeyValueStoreTest, DeleteRange) {
-  auto mock_transport = std::make_shared<MyMockTransport>();
-  DefaultHttpTransportSetter mock_transport_setter{mock_transport};
-
-  GCSMockStorageBucket bucket("my-bucket");
-  bucket.SetErrorRate(0.02);
-  mock_transport->buckets_.push_back(&bucket);
-
-  auto context = DefaultTestContext();
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store,
-      kvstore::Open({{"driver", kDriver}, {"bucket", "my-bucket"}}, context)
-          .result());
-  tensorstore::internal::TestKeyValueStoreDeleteRange(store);
-}
-
-TEST(GcsKeyValueStoreTest, DeleteRangeToEnd) {
-  auto mock_transport = std::make_shared<MyMockTransport>();
-  DefaultHttpTransportSetter mock_transport_setter{mock_transport};
-
-  GCSMockStorageBucket bucket("my-bucket");
-  mock_transport->buckets_.push_back(&bucket);
-
-  auto context = DefaultTestContext();
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store,
-      kvstore::Open({{"driver", kDriver}, {"bucket", "my-bucket"}}, context)
-          .result());
-  tensorstore::internal::TestKeyValueStoreDeleteRangeToEnd(store);
-}
-
-TEST(GcsKeyValueStoreTest, DeleteRangeFromBeginning) {
-  auto mock_transport = std::make_shared<MyMockTransport>();
-  DefaultHttpTransportSetter mock_transport_setter{mock_transport};
-
-  GCSMockStorageBucket bucket("my-bucket");
-  mock_transport->buckets_.push_back(&bucket);
-
-  auto context = DefaultTestContext();
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store,
-      kvstore::Open({{"driver", kDriver}, {"bucket", "my-bucket"}}, context)
-          .result());
-  tensorstore::internal::TestKeyValueStoreDeleteRangeFromBeginning(store);
 }
 
 class MyDeleteRangeCancellationMockTransport : public MyMockTransport {
