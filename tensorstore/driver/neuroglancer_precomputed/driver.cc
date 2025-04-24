@@ -726,22 +726,33 @@ class RegularlyShardedDataCache : public ShardedDataCache {
     using ForwardingReceiver =
         internal::ForwardingChunkOperationReceiver<State>;
     auto state = internal::MakeIntrusivePtr<State>(std::move(receiver));
-    internal_grid_partition::RegularGridRef regular_grid{
-        shard_shape_in_elements};
-    auto status = internal::PartitionIndexTransformOverGrid(
-        chunked_to_cell_dimensions, regular_grid, transform,
-        [&](span<const Index> grid_cell_indices,
-            IndexTransformView<> cell_transform) -> absl::Status {
-          if (state->cancelled()) {
-            return absl::CancelledError("");
-          }
-          TENSORSTORE_ASSIGN_OR_RETURN(
-              auto cell_to_source,
-              ComposeTransforms(transform, cell_transform));
-          callback(std::move(cell_to_source),
-                   ForwardingReceiver{state, cell_transform});
-          return absl::OkStatus();
-        });
+
+    auto status = [&]() -> absl::Status {
+      internal_grid_partition::RegularGridRef regular_grid{
+          shard_shape_in_elements};
+
+      internal_grid_partition::PartitionIndexTransformIterator iterator(
+          chunked_to_cell_dimensions, regular_grid, transform);
+      TENSORSTORE_RETURN_IF_ERROR(iterator.Init());
+
+      while (!iterator.AtEnd()) {
+        if (state->cancelled()) {
+          return absl::CancelledError("");
+        }
+        TENSORSTORE_ASSIGN_OR_RETURN(
+            auto cell_to_source,
+            ComposeTransforms(transform, iterator.cell_transform()));
+        callback(std::move(cell_to_source),
+                 ForwardingReceiver{state, iterator.cell_transform()});
+        iterator.Advance();
+      }
+      return absl::OkStatus();
+    }();
+
+    if (!status.ok()) {
+      state->SetError(status);
+      return;
+    }
   }
 
   ShardChunkHierarchy hierarchy_;

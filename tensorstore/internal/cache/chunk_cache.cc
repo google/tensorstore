@@ -106,10 +106,9 @@ bool IsFullyOverwritten(ChunkCache::TransactionNode& node) {
 /// The `ChunkCache::Read` operation (when no transaction is specified) proceeds
 /// as follows:
 ///
-/// 1. Like the `Write` method, `Read` calls
-///    `PartitionIndexTransformOverGrid` to iterate over the set of grid
-///    cells (corresponding to cache entries) contained in the range of the
-///    user-specified `transform`.
+/// 1. Like the `Write` method, `Read` uses `PartitionIndexTransformIterator`
+///    to iterate over the set of grid cells (corresponding to cache entries)
+///    contained in the range of the user-specified `transform`.
 ///
 /// 2. For each grid cell, `Read` finds the corresponding `ChunkCache::Entry`
 ///    (creating it if it does not already exist), and constructs a `ReadChunk`
@@ -259,7 +258,7 @@ struct ReadChunkTransactionImpl {
 /// Phase I: Copying the data into the cache
 /// ----------------------------------------
 ///
-/// 1. `Write` calls `PartitionIndexTransformOverGrid` to iterate over
+/// 1. `Write` uses `PartitionIndexTransformIterator` to iterate over
 ///    the set of grid cells (corresponding to cache entries) contained in the
 ///    range of the user-specified `transform`.
 ///
@@ -271,7 +270,7 @@ struct ReadChunkTransactionImpl {
 ///    transform from a synthetic "chunk" index space to the index space over
 ///    which the array component is defined.  (This transform is obtained by
 ///    simply composing the user-specified `transform` with the `cell_transform`
-///    computed by `PartitionIndexTransformOverGrid`.  Along with the
+///    computed by `PartitionIndexTransformIterator`.  Along with the
 ///    `WriteChunk` object, the `cell_transform` is also sent to the `receiver`;
 ///    the `receiver` uses this `cell_transform` to convert from the domain of
 ///    the original input domain (i.e. the input domain of the user-specified
@@ -427,55 +426,61 @@ void ChunkCache::Read(ReadRequest request, ReadChunkReceiver receiver) {
          grid().chunk_shape.size());
   auto state = MakeIntrusivePtr<ReadOperationState>(std::move(receiver));
   internal_grid_partition::RegularGridRef regular_grid{grid().chunk_shape};
-  auto status = PartitionIndexTransformOverGrid(
-      component_spec.chunked_to_cell_dimensions, regular_grid,
-      request.transform,
-      [&](tensorstore::span<const Index> grid_cell_indices,
-          IndexTransformView<> cell_transform) {
-        if (state->cancelled()) {
-          return absl::CancelledError("");
-        }
-        num_reads.Increment();
+
+  auto status = [&]() -> absl::Status {
+    internal_grid_partition::PartitionIndexTransformIterator iterator(
+        component_spec.chunked_to_cell_dimensions, regular_grid,
+        request.transform);
+    TENSORSTORE_RETURN_IF_ERROR(iterator.Init());
+
+    while (!iterator.AtEnd()) {
+      if (state->cancelled()) {
+        return absl::CancelledError("");
+      }
+      num_reads.Increment();
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          auto cell_to_source,
+          ComposeTransforms(request.transform, iterator.cell_transform()));
+      auto entry =
+          GetEntryForGridCell(*this, iterator.output_grid_cell_indices());
+      // Arrange to call `set_value` on the receiver with a `ReadChunk`
+      // corresponding to this grid cell once the read request completes
+      // successfully.
+      ReadChunk chunk;
+      chunk.transform = std::move(cell_to_source);
+      Future<const void> read_future;
+      const auto get_cache_read_request = [&] {
+        AsyncCache::AsyncCacheReadRequest cache_request;
+        cache_request.staleness_bound = request.staleness_bound;
+        cache_request.batch = request.batch;
+        return cache_request;
+      };
+      if (request.transaction) {
         TENSORSTORE_ASSIGN_OR_RETURN(
-            auto cell_to_source,
-            ComposeTransforms(request.transform, cell_transform));
-        auto entry = GetEntryForGridCell(*this, grid_cell_indices);
-        // Arrange to call `set_value` on the receiver with a `ReadChunk`
-        // corresponding to this grid cell once the read request completes
-        // successfully.
-        ReadChunk chunk;
-        chunk.transform = std::move(cell_to_source);
-        Future<const void> read_future;
-        const auto get_cache_read_request = [&] {
-          AsyncCache::AsyncCacheReadRequest cache_request;
-          cache_request.staleness_bound = request.staleness_bound;
-          cache_request.batch = request.batch;
-          return cache_request;
-        };
-        if (request.transaction) {
-          TENSORSTORE_ASSIGN_OR_RETURN(
-              auto node, GetTransactionNode(*entry, request.transaction));
-          read_future = node->IsUnconditional()
-                            ? MakeReadyFuture()
-                            : node->Read(get_cache_read_request());
-          chunk.impl =
-              ReadChunkTransactionImpl{request.component_index, std::move(node),
-                                       request.fill_missing_data_reads};
-        } else {
-          read_future = entry->Read(get_cache_read_request());
-          chunk.impl = ReadChunkImpl{request.component_index, std::move(entry),
+            auto node, GetTransactionNode(*entry, request.transaction));
+        read_future = node->IsUnconditional()
+                          ? MakeReadyFuture()
+                          : node->Read(get_cache_read_request());
+        chunk.impl =
+            ReadChunkTransactionImpl{request.component_index, std::move(node),
                                      request.fill_missing_data_reads};
-        }
-        LinkValue(
-            [state, chunk = std::move(chunk),
-             cell_transform = IndexTransform<>(cell_transform)](
-                Promise<void> promise, ReadyFuture<const void> future) mutable {
-              execution::set_value(state->shared_receiver->receiver,
-                                   std::move(chunk), std::move(cell_transform));
-            },
-            state->promise, std::move(read_future));
-        return absl::OkStatus();
-      });
+      } else {
+        read_future = entry->Read(get_cache_read_request());
+        chunk.impl = ReadChunkImpl{request.component_index, std::move(entry),
+                                   request.fill_missing_data_reads};
+      }
+      LinkValue(
+          [state, chunk = std::move(chunk),
+           cell_transform = IndexTransform<>(iterator.cell_transform())](
+              Promise<void> promise, ReadyFuture<const void> future) mutable {
+            execution::set_value(state->shared_receiver->receiver,
+                                 std::move(chunk), std::move(cell_transform));
+          },
+          state->promise, std::move(read_future));
+      iterator.Advance();
+    }
+    return absl::OkStatus();
+  }();
   if (!status.ok()) {
     state->SetError(std::move(status));
   }
@@ -491,39 +496,46 @@ void ChunkCache::Write(WriteRequest request, WriteChunkReceiver receiver) {
   std::atomic<bool> cancelled{false};
   execution::set_starting(receiver, [&cancelled] { cancelled = true; });
   internal_grid_partition::RegularGridRef regular_grid{grid().chunk_shape};
-  absl::Status status = PartitionIndexTransformOverGrid(
-      component_spec.chunked_to_cell_dimensions, regular_grid,
-      request.transform,
-      [&](tensorstore::span<const Index> grid_cell_indices,
-          IndexTransformView<> cell_transform) {
-        if (cancelled) return absl::CancelledError("");
-        num_writes.Increment();
-        TENSORSTORE_ASSIGN_OR_RETURN(
-            auto cell_to_dest,
-            ComposeTransforms(request.transform, cell_transform));
-        ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_CHUNK_CACHE_DEBUG)
-            << "grid_cell_indices=" << grid_cell_indices
-            << ", request.transform=" << request.transform
-            << ", cell_transform=" << cell_transform
-            << ", cell_to_dest=" << cell_to_dest;
-        auto entry = GetEntryForGridCell(*this, grid_cell_indices);
-        auto transaction_copy = request.transaction;
-        TENSORSTORE_ASSIGN_OR_RETURN(
-            auto node, GetTransactionNode(*entry, transaction_copy));
-        execution::set_value(
-            receiver,
-            WriteChunk{WriteChunkImpl{request.component_index, std::move(node),
-                                      request.store_data_equal_to_fill_value},
-                       std::move(cell_to_dest)},
-            IndexTransform<>(cell_transform));
-        return absl::OkStatus();
-      });
-  if (!status.ok()) {
-    execution::set_error(receiver, status);
-  } else {
+
+  auto status = [&]() -> absl::Status {
+    internal_grid_partition::PartitionIndexTransformIterator iterator(
+        component_spec.chunked_to_cell_dimensions, regular_grid,
+        request.transform);
+    TENSORSTORE_RETURN_IF_ERROR(iterator.Init());
+
+    while (!iterator.AtEnd()) {
+      if (cancelled) return absl::CancelledError("");
+
+      num_writes.Increment();
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          auto cell_to_dest,
+          ComposeTransforms(request.transform, iterator.cell_transform()));
+      ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_CHUNK_CACHE_DEBUG)
+          << "grid_cell_indices=" << iterator.output_grid_cell_indices()
+          << ", request.transform=" << request.transform
+          << ", cell_transform=" << iterator.cell_transform()
+          << ", cell_to_dest=" << cell_to_dest;
+      auto entry =
+          GetEntryForGridCell(*this, iterator.output_grid_cell_indices());
+      auto transaction_copy = request.transaction;
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          auto node, GetTransactionNode(*entry, transaction_copy));
+      execution::set_value(
+          receiver,
+          WriteChunk{WriteChunkImpl{request.component_index, std::move(node),
+                                    request.store_data_equal_to_fill_value},
+                     std::move(cell_to_dest)},
+          IndexTransform<>(iterator.cell_transform()));
+      iterator.Advance();
+    }
+
     execution::set_done(receiver);
+    execution::set_stopping(receiver);
+    return absl::OkStatus();
+  }();
+  if (!status.ok()) {
+    execution::set_error(receiver, std::move(status));
   }
-  execution::set_stopping(receiver);
 }
 
 Future<const void> ChunkCache::DeleteCell(

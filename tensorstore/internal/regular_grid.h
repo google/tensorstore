@@ -31,7 +31,7 @@ namespace tensorstore {
 namespace internal_grid_partition {
 
 /// RegularGridRef is a functor that supplies a grid cell index as well as grid
-/// cell bounds for PartitionIndexTransformOverGrid.
+/// cell bounds for `PartitionIndexTransformIterator`.
 ///
 /// Conceptually it describes a grid which extends from -inf to +inf over all
 /// grid dimensions. The grid cell with index vector `v` corresponds to the
