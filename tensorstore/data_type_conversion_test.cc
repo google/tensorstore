@@ -535,8 +535,8 @@ template <typename InternalFloat>
 class InternalFloat8Test : public ::testing::Test {};
 
 using InternalFloat8Types =
-    ::testing::Types<float8_e4m3fn_t, float8_e4m3fnuz_t, float8_e4m3b11fnuz_t,
-                     float8_e5m2_t, float8_e5m2fnuz_t>;
+    ::testing::Types<float8_e3m4_t, float8_e4m3fn_t, float8_e4m3fnuz_t,
+                     float8_e4m3b11fnuz_t, float8_e5m2_t, float8_e5m2fnuz_t>;
 
 TYPED_TEST_SUITE(InternalFloat8Test, InternalFloat8Types);
 
@@ -556,6 +556,9 @@ TYPED_TEST(InternalFloat8Test, DataTypeConversionTest_InternalFloat8Types) {
   EXPECT_EQ(uint64_t(pos), TestConversion<uint64_t>(pos));
   EXPECT_EQ(T(pos), TestConversion<T>(pos, kSafeAndImplicit | kIdentity |
                                                kCanReinterpretCast));
+  if (!std::is_same_v<T, float8_e3m4_t>) {
+    EXPECT_EQ(float8_e3m4_t(pos), TestConversion<float8_e3m4_t>(pos));
+  }
   if (!std::is_same_v<T, float8_e4m3fn_t>) {
     EXPECT_EQ(float8_e4m3fn_t(pos), TestConversion<float8_e4m3fn_t>(pos));
   }

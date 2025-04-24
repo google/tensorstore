@@ -88,6 +88,10 @@ definitions:
       - const: "uint64"
         title: |
           64-bit unsigned integer.
+      - const: "float8_e3m4"
+        title: |
+           `8-bit floating point - Exponent: 3, Mantissa: 4, bias: 3, IEEE 754, with NaN,  with infinities
+           <https://github.com/jax-ml/ml_dtypes#float8_e3m4>`__ .
       - const: "float8_e4m3fn"
         title: |
            `8-bit floating point - Exponent: 4, Mantissa: 3, bias: 7, with NaN,  without infinities

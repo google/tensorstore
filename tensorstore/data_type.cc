@@ -139,41 +139,15 @@ struct NumberToStringCanonicalType {
   using type = T;
 };
 
-template <>
-struct NumberToStringCanonicalType<::tensorstore::dtypes::float8_e4m3fn_t> {
-  using type = float;
-};
-
-template <>
-struct NumberToStringCanonicalType<::tensorstore::dtypes::float8_e4m3fnuz_t> {
-  using type = float;
-};
-
-template <>
-struct NumberToStringCanonicalType<
-    ::tensorstore::dtypes::float8_e4m3b11fnuz_t> {
-  using type = float;
-};
-
-template <>
-struct NumberToStringCanonicalType<::tensorstore::dtypes::float8_e5m2_t> {
-  using type = float;
-};
-
-template <>
-struct NumberToStringCanonicalType<::tensorstore::dtypes::float8_e5m2fnuz_t> {
-  using type = float;
-};
-
-template <>
-struct NumberToStringCanonicalType<::tensorstore::dtypes::float16_t> {
-  using type = float;
-};
-
-template <>
-struct NumberToStringCanonicalType<::tensorstore::dtypes::bfloat16_t> {
-  using type = float;
-};
+#define TENSORSTORE_INTERNAL_NUMBER_TO_STRING_CANONICAL_TYPE_FLOAT(T, ...) \
+  template <>                                                              \
+  struct NumberToStringCanonicalType<::tensorstore::dtypes::T> {           \
+    using type = float;                                                    \
+  };                                                                       \
+  /**/
+TENSORSTORE_FOR_EACH_LOW_PRECISION_FLOAT_DATA_TYPE(
+    TENSORSTORE_INTERNAL_NUMBER_TO_STRING_CANONICAL_TYPE_FLOAT)
+#undef TENSORSTORE_INTERNAL_NUMBER_TO_STRING_CANONICAL_TYPE_FLOAT
 
 template <>
 struct NumberToStringCanonicalType<::tensorstore::dtypes::int4_t> {
@@ -413,6 +387,9 @@ TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::complex128_t, ::tensorstore::dtypes::uint64_t,
     internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::complex64_t, ::tensorstore::dtypes::float8_e3m4_t,
+    internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::complex64_t, ::tensorstore::dtypes::float8_e4m3fn_t,
     internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
@@ -441,6 +418,9 @@ TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::complex64_t, ::tensorstore::dtypes::float64_t,
+    internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::complex128_t, ::tensorstore::dtypes::float8_e3m4_t,
     internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::complex128_t, ::tensorstore::dtypes::float8_e4m3fn_t,
