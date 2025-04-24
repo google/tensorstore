@@ -85,19 +85,17 @@ TEST(ParseBaseDType, Success) {
   CheckBaseDType(">u4", dtype_v<uint32_t>, endian::big, {});
   CheckBaseDType(">u8", dtype_v<uint64_t>, endian::big, {});
 
-  CheckBaseDType("float8_e4m3fn", dtype_v<tensorstore::dtypes::float8_e4m3fn_t>,
-                 endian::little, {});
-  CheckBaseDType("float8_e4m3fnuz",
-                 dtype_v<tensorstore::dtypes::float8_e4m3fnuz_t>,
-                 endian::little, {});
-  CheckBaseDType("float8_e4m3b11fnuz",
-                 dtype_v<tensorstore::dtypes::float8_e4m3b11fnuz_t>,
-                 endian::little, {});
-  CheckBaseDType("float8_e5m2", dtype_v<tensorstore::dtypes::float8_e5m2_t>,
-                 endian::little, {});
-  CheckBaseDType("float8_e5m2fnuz",
-                 dtype_v<tensorstore::dtypes::float8_e5m2fnuz_t>,
-                 endian::little, {});
+#define TENSORSTORE_INTERNAL_DO_CHECK_BASE_DTYPE(T)                        \
+  CheckBaseDType(std::string(tensorstore::internal_data_type::GetTypeName< \
+                             tensorstore::dtypes::T>()),                   \
+                 dtype_v<tensorstore::dtypes::T>, endian::little, {});     \
+  /**/
+  TENSORSTORE_FOR_EACH_FLOAT8_DATA_TYPE(
+      TENSORSTORE_INTERNAL_DO_CHECK_BASE_DTYPE)
+  TENSORSTORE_FOR_EACH_LOW_PRECISION_INT_DATA_TYPE(
+      TENSORSTORE_INTERNAL_DO_CHECK_BASE_DTYPE)
+#undef TENSORSTORE_INTERNAL_DO_CHECK_BASE_DTYPE
+
   CheckBaseDType("<f2", dtype_v<tensorstore::dtypes::float16_t>, endian::little,
                  {});
   CheckBaseDType("bfloat16", dtype_v<tensorstore::dtypes::bfloat16_t>,
@@ -332,28 +330,21 @@ TEST(ParseDType, BytesPerOuterElementOverflow) {
 }
 
 TEST(ChooseBaseDTypeTest, RoundTrip) {
+  // clang-format off
   constexpr tensorstore::DataType kSupportedDataTypes[] = {
       dtype_v<bool>,
-      dtype_v<uint8_t>,
-      dtype_v<uint16_t>,
-      dtype_v<uint32_t>,
-      dtype_v<uint64_t>,
-      dtype_v<int8_t>,
-      dtype_v<int16_t>,
-      dtype_v<int32_t>,
-      dtype_v<int64_t>,
-      dtype_v<::tensorstore::dtypes::float8_e4m3fn_t>,
-      dtype_v<::tensorstore::dtypes::float8_e4m3fnuz_t>,
-      dtype_v<::tensorstore::dtypes::float8_e4m3b11fnuz_t>,
-      dtype_v<::tensorstore::dtypes::float8_e5m2_t>,
-      dtype_v<::tensorstore::dtypes::float8_e5m2fnuz_t>,
-      dtype_v<::tensorstore::dtypes::float16_t>,
-      dtype_v<::tensorstore::dtypes::bfloat16_t>,
-      dtype_v<::tensorstore::dtypes::float32_t>,
-      dtype_v<::tensorstore::dtypes::float64_t>,
-      dtype_v<::tensorstore::dtypes::complex64_t>,
-      dtype_v<::tensorstore::dtypes::complex128_t>,
+#define TENSORSTORE_INTERNAL_SUPPORTED_DATA_TYPE(T) \
+      dtype_v<tensorstore::dtypes::T>, \
+      /**/
+      TENSORSTORE_FOR_EACH_INT_DATA_TYPE(
+          TENSORSTORE_INTERNAL_SUPPORTED_DATA_TYPE)
+      TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(
+          TENSORSTORE_INTERNAL_SUPPORTED_DATA_TYPE)
+      TENSORSTORE_FOR_EACH_COMPLEX_DATA_TYPE(
+          TENSORSTORE_INTERNAL_SUPPORTED_DATA_TYPE)
+#undef TENSORSTORE_INTERNAL_DO_CHOOSE_BASE_DTYPE
   };
+  // clang-format on
   for (auto dtype : kSupportedDataTypes) {
     SCOPED_TRACE(tensorstore::StrCat("dtype=", dtype));
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto base_zarr_dtype,

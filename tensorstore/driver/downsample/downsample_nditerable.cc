@@ -172,40 +172,15 @@ struct MeanAccumulateElement {
   using type = void;
 };
 
-template <>
-struct MeanAccumulateElement<::tensorstore::dtypes::float8_e4m3fn_t> {
-  using type = ::tensorstore::dtypes::float32_t;
-};
-
-template <>
-struct MeanAccumulateElement<::tensorstore::dtypes::float8_e4m3fnuz_t> {
-  using type = ::tensorstore::dtypes::float32_t;
-};
-
-template <>
-struct MeanAccumulateElement<::tensorstore::dtypes::float8_e4m3b11fnuz_t> {
-  using type = ::tensorstore::dtypes::float32_t;
-};
-
-template <>
-struct MeanAccumulateElement<::tensorstore::dtypes::float8_e5m2_t> {
-  using type = ::tensorstore::dtypes::float32_t;
-};
-
-template <>
-struct MeanAccumulateElement<::tensorstore::dtypes::float8_e5m2fnuz_t> {
-  using type = ::tensorstore::dtypes::float32_t;
-};
-
-template <>
-struct MeanAccumulateElement<::tensorstore::dtypes::float16_t> {
-  using type = ::tensorstore::dtypes::float32_t;
-};
-
-template <>
-struct MeanAccumulateElement<::tensorstore::dtypes::bfloat16_t> {
-  using type = ::tensorstore::dtypes::float32_t;
-};
+#define TENSORSTORE_INTERNAL_MEAN_ACCUMULATE_ELEMENT(T, ...) \
+  template <>                                                \
+  struct MeanAccumulateElement<::tensorstore::dtypes::T> {   \
+    using type = ::tensorstore::dtypes::float32_t;           \
+  };                                                         \
+/**/
+TENSORSTORE_FOR_EACH_LOW_PRECISION_FLOAT_DATA_TYPE(
+    TENSORSTORE_INTERNAL_MEAN_ACCUMULATE_ELEMENT)
+#undef TENSORSTORE_INTERNAL_MEAN_ACCUMULATE_ELEMENT
 
 template <>
 struct MeanAccumulateElement<::tensorstore::dtypes::float32_t> {

@@ -49,11 +49,6 @@ using ::tensorstore::MakeScalarArray;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::dtypes::bfloat16_t;
 using ::tensorstore::dtypes::float16_t;
-using ::tensorstore::dtypes::float8_e4m3b11fnuz_t;
-using ::tensorstore::dtypes::float8_e4m3fn_t;
-using ::tensorstore::dtypes::float8_e4m3fnuz_t;
-using ::tensorstore::dtypes::float8_e5m2_t;
-using ::tensorstore::dtypes::float8_e5m2fnuz_t;
 using ::tensorstore::dtypes::int4_t;
 using ::tensorstore::internal_zarr::DimensionSeparator;
 using ::tensorstore::internal_zarr::DimensionSeparatorJsonBinder;
@@ -146,11 +141,17 @@ void TestFillValueRoundTripComplex(const ::nlohmann::json& dtype) {
 }
 
 TEST(ParseFillValueTest, FloatingPointSuccess) {
-  TestFillValueRoundTripFloat<float8_e4m3fn_t>("float8_e4m3fn");
-  TestFillValueRoundTripFloat<float8_e4m3fnuz_t>("float8_e4m3fnuz");
-  TestFillValueRoundTripFloat<float8_e4m3b11fnuz_t>("float8_e4m3b11fnuz");
-  TestFillValueRoundTripFloat<float8_e5m2_t>("float8_e5m2");
-  TestFillValueRoundTripFloat<float8_e5m2fnuz_t>("float8_e5m2fnuz");
+#define TENSORSTORE_INTERNAL_DO_TEST_FILL_VALUE_ROUND_TRIP_FLOAT(T)      \
+  {                                                                      \
+    std::string dtype_name(tensorstore::internal_data_type::GetTypeName< \
+                           tensorstore::dtypes::T>());                   \
+    TestFillValueRoundTripFloat<tensorstore::dtypes::T>(dtype_name);     \
+  }                                                                      \
+  /**/
+  TENSORSTORE_FOR_EACH_FLOAT8_DATA_TYPE(
+      TENSORSTORE_INTERNAL_DO_TEST_FILL_VALUE_ROUND_TRIP_FLOAT)
+#undef TENSORSTORE_INTERNAL_DO_TEST_FILL_VALUE_ROUND_TRIP_FLOAT
+
   TestFillValueRoundTripFloat<float16_t>("<f2");
   TestFillValueRoundTripFloat<float16_t>(">f2");
   TestFillValueRoundTripFloat<bfloat16_t>("bfloat16");

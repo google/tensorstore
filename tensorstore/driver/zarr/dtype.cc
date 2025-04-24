@@ -16,9 +16,12 @@
 
 #include <stddef.h>
 
+#include <string>
+
 #include "absl/base/optimization.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/util/endian.h"
 #include "tensorstore/util/extents.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/str_cat.h"
@@ -26,51 +29,24 @@
 namespace tensorstore {
 namespace internal_zarr {
 
-// Extension dtype strings for types not covered by the NumPy typestr syntax.
-// These do not explicitly indicate the byte order, but have the advantage of
-// working with the official Zarr Python library provided that correspondingly
-// named data types are registered in `numpy.typeDict`, since zarr invokes
-// `numpy.dtype` to parse data types.
-constexpr char kDtypeBfloat16[] = "bfloat16";
-constexpr char kDtypeFloat8e4m3fn[] = "float8_e4m3fn";
-constexpr char kDtypeFloat8e4m3fnuz[] = "float8_e4m3fnuz";
-constexpr char kDtypeFloat8e4m3b11fnuz[] = "float8_e4m3b11fnuz";
-constexpr char kDtypeFloat8e5m2[] = "float8_e5m2";
-constexpr char kDtypeFloat8e5m2fnuz[] = "float8_e5m2fnuz";
-constexpr char kDtypeInt4[] = "int4";
-
 Result<ZarrDType::BaseDType> ParseBaseDType(std::string_view dtype) {
   using D = ZarrDType::BaseDType;
-  if (dtype == kDtypeBfloat16) {
+
+  if (dtype == internal_data_type::GetTypeName<dtypes::bfloat16_t>()) {
     return D{std::string(dtype), dtype_v<::tensorstore::dtypes::bfloat16_t>,
              endian::little};
   }
-  if (dtype == kDtypeFloat8e4m3fn) {
-    return D{std::string(dtype),
-             dtype_v<::tensorstore::dtypes::float8_e4m3fn_t>, endian::little};
-  }
-  if (dtype == kDtypeFloat8e4m3fnuz) {
-    return D{std::string(dtype),
-             dtype_v<::tensorstore::dtypes::float8_e4m3fnuz_t>, endian::little};
-  }
-  if (dtype == kDtypeFloat8e4m3b11fnuz) {
-    return D{std::string(dtype),
-             dtype_v<::tensorstore::dtypes::float8_e4m3b11fnuz_t>,
-             endian::little};
-  }
-  if (dtype == kDtypeFloat8e5m2) {
-    return D{std::string(dtype), dtype_v<::tensorstore::dtypes::float8_e5m2_t>,
-             endian::little};
-  }
-  if (dtype == kDtypeFloat8e5m2fnuz) {
-    return D{std::string(dtype),
-             dtype_v<::tensorstore::dtypes::float8_e5m2fnuz_t>, endian::little};
-  }
-  if (dtype == kDtypeInt4) {
-    // Ditto
-    return D{std::string(dtype), dtype_v<::tensorstore::dtypes::int4_t>,
-             endian::little};
-  }
+
+#define TENSORSTORE_INTERNAL_DO_PARSE_FLOAT8(T)                       \
+  if (dtype == internal_data_type::GetTypeName<dtypes::T>()) {        \
+    return D{std::string(dtype), dtype_v<dtypes::T>, endian::little}; \
+  }                                                                   \
+  /**/
+  TENSORSTORE_FOR_EACH_FLOAT8_DATA_TYPE(TENSORSTORE_INTERNAL_DO_PARSE_FLOAT8)
+  TENSORSTORE_FOR_EACH_LOW_PRECISION_INT_DATA_TYPE(
+      TENSORSTORE_INTERNAL_DO_PARSE_FLOAT8)
+#undef TENSORSTORE_INTERNAL_DO_PARSE_FLOAT8
+
   if (dtype.size() < 3) goto error;
   {
     const char endian_indicator = dtype[0];
@@ -387,10 +363,6 @@ Result<ZarrDType::BaseDType> ChooseBaseDType(DataType dtype) {
     case DataTypeId::uint64_t:
       set_typestr("u", 8);
       break;
-    case DataTypeId::int4_t:
-      base_dtype.endian = endian::little;
-      base_dtype.encoded_dtype = kDtypeInt4;
-      break;
     case DataTypeId::int8_t:
       set_typestr("i", 1);
       break;
@@ -403,32 +375,19 @@ Result<ZarrDType::BaseDType> ChooseBaseDType(DataType dtype) {
     case DataTypeId::int64_t:
       set_typestr("i", 8);
       break;
-    case DataTypeId::float8_e4m3fn_t:
-      base_dtype.endian = endian::little;
-      base_dtype.encoded_dtype = kDtypeFloat8e4m3fn;
-      break;
-    case DataTypeId::float8_e4m3fnuz_t:
-      base_dtype.endian = endian::little;
-      base_dtype.encoded_dtype = kDtypeFloat8e4m3fnuz;
-      break;
-    case DataTypeId::float8_e4m3b11fnuz_t:
-      base_dtype.endian = endian::little;
-      base_dtype.encoded_dtype = kDtypeFloat8e4m3b11fnuz;
-      break;
-    case DataTypeId::float8_e5m2_t:
-      base_dtype.endian = endian::little;
-      base_dtype.encoded_dtype = kDtypeFloat8e5m2;
-      break;
-    case DataTypeId::float8_e5m2fnuz_t:
-      base_dtype.endian = endian::little;
-      base_dtype.encoded_dtype = kDtypeFloat8e5m2fnuz;
-      break;
+#define TENSORSTORE_INTENAL_DO_SET_TYPESTR(T)                                \
+  case DataTypeId::T:                                                        \
+    base_dtype.endian = endian::little;                                      \
+    base_dtype.encoded_dtype = internal_data_type::GetTypeName<dtypes::T>(); \
+    break;                                                                   \
+      /**/
+      TENSORSTORE_INTENAL_DO_SET_TYPESTR(bfloat16_t)
+      TENSORSTORE_FOR_EACH_FLOAT8_DATA_TYPE(TENSORSTORE_INTENAL_DO_SET_TYPESTR)
+      TENSORSTORE_FOR_EACH_LOW_PRECISION_INT_DATA_TYPE(
+          TENSORSTORE_INTENAL_DO_SET_TYPESTR)
+#undef TENSORSTORE_INTENAL_DO_SET_TYPESTR
     case DataTypeId::float16_t:
       set_typestr("f", 2);
-      break;
-    case DataTypeId::bfloat16_t:
-      base_dtype.endian = endian::little;
-      base_dtype.encoded_dtype = kDtypeBfloat16;
       break;
     case DataTypeId::float32_t:
       set_typestr("f", 4);

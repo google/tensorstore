@@ -35,6 +35,7 @@ MAP = {
         'uint64_t',
     ],
     'FLOAT': [
+        'float8_e3m4_t',
         'float8_e4m3fn_t',
         'float8_e4m3fnuz_t',
         'float8_e4m3b11fnuz_t',

@@ -148,6 +148,9 @@ using uint64_t = ::uint64_t;
 // TODO(jbms): consider adding 128-bit integer types
 ///
 /// \ingroup data types
+using float8_e3m4_t = ::tensorstore::Float8e3m4;
+///
+/// \ingroup data types
 using float8_e4m3fn_t = ::tensorstore::Float8e4m3fn;
 ///
 /// \ingroup data types
@@ -228,6 +231,7 @@ enum class DataTypeId {
   uint32_t,
   int64_t,
   uint64_t,
+  float8_e3m4_t,
   float8_e4m3fn_t,
   float8_e4m3fnuz_t,
   float8_e4m3b11fnuz_t,
@@ -259,28 +263,41 @@ inline constexpr size_t kNumDataTypeIds =
   X(byte_t, ##__VA_ARGS__)                          \
   /**/
 
-#define TENSORSTORE_FOR_EACH_INT_DATA_TYPE(X, ...) \
-  X(int4_t, ##__VA_ARGS__)                         \
-  X(int8_t, ##__VA_ARGS__)                         \
-  X(uint8_t, ##__VA_ARGS__)                        \
-  X(int16_t, ##__VA_ARGS__)                        \
-  X(uint16_t, ##__VA_ARGS__)                       \
-  X(int32_t, ##__VA_ARGS__)                        \
-  X(uint32_t, ##__VA_ARGS__)                       \
-  X(int64_t, ##__VA_ARGS__)                        \
-  X(uint64_t, ##__VA_ARGS__)                       \
+#define TENSORSTORE_FOR_EACH_LOW_PRECISION_INT_DATA_TYPE(X, ...) \
+  X(int4_t, ##__VA_ARGS__)                                       \
   /**/
 
-#define TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(X, ...) \
-  X(float8_e4m3fn_t, ##__VA_ARGS__)                  \
-  X(float8_e4m3fnuz_t, ##__VA_ARGS__)                \
-  X(float8_e4m3b11fnuz_t, ##__VA_ARGS__)             \
-  X(float8_e5m2_t, ##__VA_ARGS__)                    \
-  X(float8_e5m2fnuz_t, ##__VA_ARGS__)                \
-  X(float16_t, ##__VA_ARGS__)                        \
-  X(bfloat16_t, ##__VA_ARGS__)                       \
-  X(float32_t, ##__VA_ARGS__)                        \
-  X(float64_t, ##__VA_ARGS__)                        \
+#define TENSORSTORE_FOR_EACH_INT_DATA_TYPE(X, ...)                   \
+  TENSORSTORE_FOR_EACH_LOW_PRECISION_INT_DATA_TYPE(X, ##__VA_ARGS__) \
+  X(int8_t, ##__VA_ARGS__)                                           \
+  X(uint8_t, ##__VA_ARGS__)                                          \
+  X(int16_t, ##__VA_ARGS__)                                          \
+  X(uint16_t, ##__VA_ARGS__)                                         \
+  X(int32_t, ##__VA_ARGS__)                                          \
+  X(uint32_t, ##__VA_ARGS__)                                         \
+  X(int64_t, ##__VA_ARGS__)                                          \
+  X(uint64_t, ##__VA_ARGS__)                                         \
+  /**/
+
+#define TENSORSTORE_FOR_EACH_FLOAT8_DATA_TYPE(X, ...) \
+  X(float8_e3m4_t, ##__VA_ARGS__)                     \
+  X(float8_e4m3fn_t, ##__VA_ARGS__)                   \
+  X(float8_e4m3fnuz_t, ##__VA_ARGS__)                 \
+  X(float8_e4m3b11fnuz_t, ##__VA_ARGS__)              \
+  X(float8_e5m2_t, ##__VA_ARGS__)                     \
+  X(float8_e5m2fnuz_t, ##__VA_ARGS__)                 \
+  /**/
+
+#define TENSORSTORE_FOR_EACH_LOW_PRECISION_FLOAT_DATA_TYPE(X, ...) \
+  TENSORSTORE_FOR_EACH_FLOAT8_DATA_TYPE(X, ##__VA_ARGS__)          \
+  X(float16_t, ##__VA_ARGS__)                                      \
+  X(bfloat16_t, ##__VA_ARGS__)                                     \
+  /**/
+
+#define TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(X, ...)                   \
+  TENSORSTORE_FOR_EACH_LOW_PRECISION_FLOAT_DATA_TYPE(X, ##__VA_ARGS__) \
+  X(float32_t, ##__VA_ARGS__)                                          \
+  X(float64_t, ##__VA_ARGS__)                                          \
   /**/
 
 #define TENSORSTORE_FOR_EACH_COMPLEX_DATA_TYPE(X, ...) \

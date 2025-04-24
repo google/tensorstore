@@ -871,7 +871,8 @@ template <typename InternalFloat>
 class InternalFloat8Test : public ::testing::Test {};
 
 using InternalFloat8Types =
-    ::testing::Types<::tensorstore::dtypes::float8_e4m3fn_t,
+    ::testing::Types<::tensorstore::dtypes::float8_e3m4_t,
+                     ::tensorstore::dtypes::float8_e4m3fn_t,
                      ::tensorstore::dtypes::float8_e4m3fnuz_t,
                      ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
                      ::tensorstore::dtypes::float8_e5m2_t,
