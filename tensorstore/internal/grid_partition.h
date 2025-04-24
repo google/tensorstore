@@ -108,8 +108,7 @@ namespace internal {
 
 /// For a given DimensionIndex dimension, returns the grid cell index
 /// corresponding to the output_index, optionally filling the bounds for the
-/// cell.
-/// Implemented by `RegularGrid` and `IrregularGrid`, for example.
+/// cell. Implemented by `RegularGrid` and `IrregularGrid`, for example.
 using OutputToGridCellFn = absl::FunctionRef<Index(
     DimensionIndex grid_dim, Index output_index, IndexInterval* cell_bounds)>;
 
@@ -124,39 +123,41 @@ absl::Status GetGridCellRanges(
 namespace internal_grid_partition {
 class IndexTransformGridPartition;
 
-// Computes the set of grid cells that intersect the output range of
-// `transform`, and returns them as a set of lexicographical ranges.
-//
-// This computes the same set of grid cells as
-// `PartitionIndexTransformOverGrid`, but differs in that it does not compute
-// the `cell_transform` for each grid cell, and combines grid cells into ranges
-// when possible.
-//
-// The `cell_transform` may be obtained for a given grid cell by calling
-// `grid_partition.GetCellTransform`.
-//
-// Args:
-//   grid_partition: Must have been previously initialized by a call to
-//     `PrePartitionIndexTransformOverGrid` with the same `transform`,
-//     `grid_output_dimensions`, and `output_to_grid_cell`.
-//   grid_output_dimensions: Output dimensions of `transform` corresponding to
-//     each grid dimension.
-//   grid_bounds: Bounds of grid indices along each dimension.
-//   output_to_grid_cell: Computes the grid cell corresponding to a given output
-//     index.
-//   transform: Index transform.
-//   callback: Called for each grid cell range.  Any error return aborts
-//     iteration and is propagated.  While specified as an arbitrary box, the
-//     bounds passed to the callback are guaranteed to specify a lexicographical
-//     range that is a subset of `grid_bounds`, i.e. `bounds[i].size() == 1` for
-//     all `0 < m`, and `bounds[i] == grid_bounds[i]` for all `i >= n`, where
-//     `0 <= m <= n <= grid_bounds.rank()`.
+/// Computes the set of grid cells that intersect the output range of
+/// `transform`, and returns them as a set of lexicographical ranges.
+///
+/// This computes the same set of grid cells as
+/// `PartitionIndexTransformIterator`, but differs in that it does not compute
+/// the `cell_transform` for each grid cell, and combines grid cells into ranges
+/// when possible.
+///
+/// The `cell_transform` may be obtained for a given grid cell by calling
+/// `grid_partition.GetCellTransform`.
+///
+/// Args:
+///   grid_partition: Must have been previously initialized by a call to
+///     `PrePartitionIndexTransformOverGrid` with the same `transform`,
+///     `grid_output_dimensions`, and `output_to_grid_cell`.
+///   grid_output_dimensions: Output dimensions of `transform` corresponding to
+///     each grid dimension.
+///   grid_bounds: Bounds of grid indices along each dimension.
+///   output_to_grid_cell: Computes the grid cell corresponding to a given
+///     output index.
+///   transform: Index transform.
+///   callback: Called for each grid cell range.  Any error return aborts
+///     iteration and is propagated.  While specified as an arbitrary box, the
+///     bounds passed to the callback are guaranteed to specify a
+///     lexicographical range that is a subset of `grid_bounds`, i.e.
+///     `bounds[i].size() == 1` for all `0 < m`, and `bounds[i] ==
+///     grid_bounds[i]` for all `i >= n`, where `0 <= m <= n <=
+///     grid_bounds.rank()`.
 absl::Status GetGridCellRanges(
     const IndexTransformGridPartition& grid_partition,
     tensorstore::span<const DimensionIndex> grid_output_dimensions,
     BoxView<> grid_bounds, internal::OutputToGridCellFn output_to_grid_cell,
     IndexTransformView<> transform,
     absl::FunctionRef<absl::Status(BoxView<> bounds)> callback);
+
 }  // namespace internal_grid_partition
 
 }  // namespace tensorstore

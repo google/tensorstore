@@ -231,6 +231,7 @@ tensorstore_cc_library(
         "//tensorstore/util:future",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
+        "//tensorstore/util:status",
         "//tensorstore/util/execution:any_receiver",
         "@com_google_absl//absl/container:inlined_vector",
         "@com_google_absl//absl/status",

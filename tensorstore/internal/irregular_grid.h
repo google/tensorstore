@@ -29,7 +29,7 @@ namespace tensorstore {
 namespace internal {
 
 /// Consolidated representation of an irregular grid for
-/// PartitionIndexTransformOverGrid and other grid-based indexing methods used
+/// `PartitionIndexTransformIterator` and other grid-based indexing methods used
 /// by the "stack" driver.
 ///
 /// The grid cells have index vectors of length `rank()` in the range

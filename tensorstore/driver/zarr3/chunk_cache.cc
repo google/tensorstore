@@ -63,6 +63,7 @@
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal_zarr3 {
@@ -267,44 +268,50 @@ void ShardedReadOrWrite(
       component_spec.chunked_to_cell_dimensions;
   auto state = internal::MakeIntrusivePtr<State>(std::move(receiver));
   assert(chunked_to_cell_dimensions.size() == chunk_shape.size());
-  internal_grid_partition::RegularGridRef regular_grid{chunk_shape};
-  auto status = internal::PartitionIndexTransformOverGrid(
-      chunked_to_cell_dimensions, regular_grid, transform,
-      [&](span<const Index> grid_cell_indices,
-          IndexTransformView<> cell_transform) {
-        if (state->cancelled()) {
-          return absl::CancelledError("");
-        }
-        TENSORSTORE_ASSIGN_OR_RETURN(
-            auto cell_to_source, ComposeTransforms(transform, cell_transform));
-        TENSORSTORE_ASSIGN_OR_RETURN(
-            cell_to_source,
-            TranslateCellToSourceTransformForShard(std::move(cell_to_source),
-                                                   grid_cell_indices, grid));
-        auto entry = GetEntryForGridCell(self, grid_cell_indices);
-        if (!entry->sharding_error.ok()) {
-          return entry->sharding_error;
-        }
-        using Receiver =
-            AnyFlowReceiver<absl::Status, ChunkType, IndexTransform<>>;
-        ShardedInvokeWithArrayToArrayCodecs<Receiver&&>(
-            self,
-            /*base_func=*/get_base_func(std::move(entry)),
-            /*codec_func=*/
-            [](const ZarrArrayToArrayCodec::PreparedState& codec_state,
-               const std::function<void(IndexTransform<>, Receiver&&)>& next,
-               span<const Index> decoded_shape, IndexTransform<> transform,
-               Receiver&& receiver) {
-              (codec_state.*CodecMethod)(next, decoded_shape,
-                                         std::move(transform),
-                                         std::move(receiver));
-            },
-            std::move(cell_to_source),
-            ForwardingReceiver{state, cell_transform});
-        return absl::OkStatus();
-      });
+
+  auto status = [&]() -> absl::Status {
+    internal_grid_partition::RegularGridRef regular_grid{chunk_shape};
+    internal_grid_partition::PartitionIndexTransformIterator iterator(
+        chunked_to_cell_dimensions, regular_grid, transform);
+    TENSORSTORE_RETURN_IF_ERROR(iterator.Init());
+
+    while (!iterator.AtEnd()) {
+      if (state->cancelled()) {
+        return absl::CancelledError("");
+      }
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          auto cell_to_source,
+          ComposeTransforms(transform, iterator.cell_transform()));
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          cell_to_source, TranslateCellToSourceTransformForShard(
+                              std::move(cell_to_source),
+                              iterator.output_grid_cell_indices(), grid));
+      auto entry =
+          GetEntryForGridCell(self, iterator.output_grid_cell_indices());
+      if (!entry->sharding_error.ok()) {
+        return entry->sharding_error;
+      }
+      using Receiver =
+          AnyFlowReceiver<absl::Status, ChunkType, IndexTransform<>>;
+      ShardedInvokeWithArrayToArrayCodecs<Receiver&&>(
+          self,
+          /*base_func=*/get_base_func(std::move(entry)),
+          /*codec_func=*/
+          [](const ZarrArrayToArrayCodec::PreparedState& codec_state,
+             const std::function<void(IndexTransform<>, Receiver&&)>& next,
+             span<const Index> decoded_shape, IndexTransform<> transform,
+             Receiver&& receiver) {
+            (codec_state.*CodecMethod)(
+                next, decoded_shape, std::move(transform), std::move(receiver));
+          },
+          std::move(cell_to_source),
+          ForwardingReceiver{state, iterator.cell_transform()});
+      iterator.Advance();
+    }
+    return absl::OkStatus();
+  }();
   if (!status.ok()) {
-    state->SetError(std::move(status));
+    state->SetError(status);
   }
 }
 

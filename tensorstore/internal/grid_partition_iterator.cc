@@ -40,21 +40,32 @@ using IndexArraySet = IndexTransformGridPartition::IndexArraySet;
 using StridedSet = IndexTransformGridPartition::StridedSet;
 
 PartitionIndexTransformIterator::PartitionIndexTransformIterator(
-    internal_grid_partition::IndexTransformGridPartition&& partition_info,
     tensorstore::span<const DimensionIndex> grid_output_dimensions,
     OutputToGridCellFn output_to_grid_cell, IndexTransformView<> transform)
-    : partition_info_(std::move(partition_info)),
-      grid_output_dimensions_(grid_output_dimensions.begin(),
+    : grid_output_dimensions_(grid_output_dimensions.begin(),
                               grid_output_dimensions.end()),
       output_to_grid_cell_(std::move(output_to_grid_cell)),
       transform_(std::move(transform)),
-      at_end_(false),
-      cell_transform_(internal_grid_partition::InitializeCellTransform(
-          partition_info_, transform_)),
+      at_end_(true),
       output_grid_cell_indices_(grid_output_dimensions_.size()),
-      position_(rank()),
-      upper_bound_(rank()),
-      strided_next_position_(partition_info_.strided_sets().size()) {
+      position_(0),
+      upper_bound_(0),
+      strided_next_position_(0) {}
+
+absl::Status PartitionIndexTransformIterator::Init() {
+  TENSORSTORE_RETURN_IF_ERROR(PrePartitionIndexTransformOverGrid(
+      transform_, grid_output_dimensions_, output_to_grid_cell_,
+      partition_info_));
+  cell_transform_ = InitializeCellTransform(partition_info_, transform_);
+  InitializePositions();
+  return absl::OkStatus();
+}
+
+void PartitionIndexTransformIterator::InitializePositions() {
+  at_end_ = false;
+  position_.resize(rank());
+  upper_bound_.resize(rank());
+  strided_next_position_.resize(partition_info_.strided_sets().size());
   // Initialize the output_grid_cell_indices for the constant outputs.
   for (DimensionIndex grid_dim = 0; grid_dim < grid_output_dimensions_.size();
        ++grid_dim) {
@@ -204,30 +215,4 @@ void PartitionIndexTransformIterator::ApplyStridedSet(size_t i) {
 }
 
 }  // namespace internal_grid_partition
-namespace internal {
-
-absl::Status PartitionIndexTransformOverGrid(
-    tensorstore::span<const DimensionIndex> grid_output_dimensions,
-    internal_grid_partition::OutputToGridCellFn output_to_grid_cell,
-    IndexTransformView<> transform,
-    absl::FunctionRef<
-        absl::Status(tensorstore::span<const Index> grid_cell_indices,
-                     IndexTransformView<> cell_transform)>
-        func) {
-  internal_grid_partition::IndexTransformGridPartition partition_info;
-  auto status = internal_grid_partition::PrePartitionIndexTransformOverGrid(
-      transform, grid_output_dimensions, output_to_grid_cell, partition_info);
-
-  internal_grid_partition::PartitionIndexTransformIterator iterator(
-      std::move(partition_info), grid_output_dimensions, output_to_grid_cell,
-      transform);
-  while (!iterator.AtEnd()) {
-    TENSORSTORE_RETURN_IF_ERROR(
-        func(iterator.output_grid_cell_indices(), iterator.cell_transform()));
-    iterator.Advance();
-  }
-  return absl::OkStatus();
-}
-
-}  // namespace internal
 }  // namespace tensorstore

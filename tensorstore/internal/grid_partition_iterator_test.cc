@@ -19,6 +19,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/index.h"
@@ -27,11 +28,11 @@
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/internal/grid_partition_impl.h"
 #include "tensorstore/internal/regular_grid.h"
-#include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 
 namespace {
+
 using ::tensorstore::DimensionIndex;
 using ::tensorstore::Index;
 using ::tensorstore::IndexInterval;
@@ -46,6 +47,51 @@ using ::tensorstore::internal_grid_partition::
     PrePartitionIndexTransformOverGrid;
 using ::tensorstore::internal_grid_partition::RegularGridRef;
 using ::testing::ElementsAre;
+
+/// Partitions the input domain of a given `transform` from an input space
+/// "full" to an output space "output" based on the grid (potentially irregular)
+/// specified by `output_to_grid_cell`, which maps from a given dimension and
+/// output_index to a grid cell and optional cell bounds.
+///
+/// For each grid cell index vector `h` in `H`, calls
+///   `func(h, cell_transform[h])`.
+///
+/// To partition over a regular grid, `output_to_grid_cell` can be
+///   internal_grid_partition::RegularGridRef.
+///
+/// \param grid_output_dimensions The sequence of dimensions of the index space
+///     "output" corresponding to the grid by which to partition "full".
+/// \param output_to_grid_cell    Function returning, for the provided grid
+///     dimension, the cell index corresponding to output_index, optionally
+///     filling the bounds for the cell.
+/// \param transform The index transform from "full" to "output".  Must be
+///     valid.
+/// \param func The function to be called for each partition.  May return an
+///     error `absl::Status` to abort the iteration.
+/// \returns `absl::Status()` on success, or the last error returned by `func`.
+/// \error `absl::StatusCode::kInvalidArgument` if any input dimension of
+///     `transform` has an unbounded domain.
+/// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs.
+/// \error `absl::StatusCode::kOutOfRange` if an index array contains an
+///     out-of-bounds index.
+absl::Status PartitionIndexTransformOverGrid(
+    tensorstore::span<const DimensionIndex> grid_output_dimensions,
+    OutputToGridCellFn output_to_grid_cell, IndexTransformView<> transform,
+    absl::FunctionRef<
+        absl::Status(tensorstore::span<const Index> grid_cell_indices,
+                     IndexTransformView<> cell_transform)>
+        func) {
+  PartitionIndexTransformIterator iterator(
+      grid_output_dimensions, output_to_grid_cell, std::move(transform));
+  TENSORSTORE_RETURN_IF_ERROR(iterator.Init());
+
+  while (!iterator.AtEnd()) {
+    TENSORSTORE_RETURN_IF_ERROR(
+        func(iterator.output_grid_cell_indices(), iterator.cell_transform()));
+    iterator.Advance();
+  }
+  return absl::OkStatus();
+}
 
 /// Representation of a partition, specifically the arguments supplied to the
 /// callback passed to `PartitionIndexTransformOverRegularGrid`.  This is a
@@ -75,7 +121,7 @@ std::vector<R> GetPartitions(
   RegularGridRef grid{grid_cell_shape};
   TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverGrid(
       transform, grid_output_dimensions, grid, info));
-  TENSORSTORE_CHECK_OK(tensorstore::internal::PartitionIndexTransformOverGrid(
+  TENSORSTORE_CHECK_OK(PartitionIndexTransformOverGrid(
       grid_output_dimensions, grid, transform,
       [&](tensorstore::span<const Index> grid_cell_indices,
           IndexTransformView<> cell_transform) {
@@ -98,14 +144,11 @@ std::vector<R> GetPartitionsManual(
     const std::vector<Index>& grid_cell_shape, IndexTransformView<> transform) {
   std::vector<R> results;
 
-  IndexTransformGridPartition info;
-
   RegularGridRef grid{grid_cell_shape};
-  TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverGrid(
-      transform, grid_output_dimensions, grid, info));
+  PartitionIndexTransformIterator iterator(grid_output_dimensions, grid,
+                                           std::move(transform));
+  TENSORSTORE_CHECK_OK(iterator.Init());
 
-  PartitionIndexTransformIterator iterator(
-      std::move(info), grid_output_dimensions, grid, std::move(transform));
   while (!iterator.AtEnd()) {
     results.emplace_back(
         std::vector<Index>(iterator.output_grid_cell_indices().begin(),

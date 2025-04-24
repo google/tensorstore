@@ -709,54 +709,63 @@ struct AfterOpenOp {
   }
 };
 
-// OpenLayerOp partitions the transform by layer, invoking UnmappedOp for each
-// grid cell which is not backed by a layer, and then opens each layer and
+// OpenLayerOp partitions the transform by layer, reporting an error for
+// grid cells which are not backed by a layer, and then opens each layer and
 // and initiates OpType (one of LayerReadOp/LayerWriteOp) for each layer's
 // cells.
-template <typename StateType, typename UnmappedOpType>
+template <typename StateType>
 struct OpenLayerOp {
+  OpenLayerOp(IntrusivePtr<StateType> state)
+      : state(std::move(state)),
+        grid_output_dimensions(this->state->self->grid_.rank()) {
+    std::iota(grid_output_dimensions.begin(), grid_output_dimensions.end(),
+              DimensionIndex{0});
+  }
+
   IntrusivePtr<StateType> state;
+  std::vector<DimensionIndex> grid_output_dimensions;
 
   void operator()() {
     auto* self = state->self.get();
-    // Partition the initial transform over irregular grid space,
-    // which results in a set of transforms for each layer, and collate them
-    // by layer.
-    std::vector<DimensionIndex> dimension_order(self->grid_.rank());
-    std::iota(dimension_order.begin(), dimension_order.end(),
-              DimensionIndex{0});
 
-    UnmappedOpType unmapped{self};
     absl::flat_hash_map<size_t, std::vector<IndexTransform<>>> layers_to_load;
-    auto status = tensorstore::internal::PartitionIndexTransformOverGrid(
-        dimension_order, self->grid_, state->request.transform,
-        [&](tensorstore::span<const Index> grid_cell_indices,
-            IndexTransformView<> cell_transform) {
-          auto it = self->grid_to_layer_.find(grid_cell_indices);
-          if (it != self->grid_to_layer_.end()) {
-            const size_t layer_i = it->second;
-            const auto& layer = self->layers_[layer_i];
-            if (layer.driver) {
-              // Layer is already open, dispatch operation directly.
-              TENSORSTORE_RETURN_IF_ERROR(
-                  ComposeAndDispatchOperation(
-                      *state, layer.GetDriverHandle(state->request.transaction),
-                      std::move(cell_transform)),
-                  tensorstore::MaybeAnnotateStatus(
-                      _, absl::StrFormat("Layer %d", layer_i)));
-            } else {
-              layers_to_load[it->second].emplace_back(cell_transform);
-            }
-            return absl::OkStatus();
+
+    auto status = [&]() -> absl::Status {
+      internal_grid_partition::PartitionIndexTransformIterator iterator(
+          grid_output_dimensions, self->grid_, state->request.transform);
+      TENSORSTORE_RETURN_IF_ERROR(iterator.Init());
+
+      while (!iterator.AtEnd()) {
+        auto it =
+            self->grid_to_layer_.find(iterator.output_grid_cell_indices());
+        if (it != self->grid_to_layer_.end()) {
+          const size_t layer_i = it->second;
+          const auto& layer = self->layers_[layer_i];
+          if (layer.driver) {
+            // Layer is already open, dispatch operation directly.
+            TENSORSTORE_RETURN_IF_ERROR(
+                ComposeAndDispatchOperation(
+                    *state, layer.GetDriverHandle(state->request.transaction),
+                    iterator.cell_transform()),
+                tensorstore::MaybeAnnotateStatus(
+                    _, absl::StrFormat("Layer %d", layer_i)));
           } else {
-            return unmapped(grid_cell_indices, cell_transform);
+            layers_to_load[it->second].emplace_back(iterator.cell_transform());
           }
-        });
+        } else {
+          // This cell is not backed by a layer, so report an error.
+          auto origin =
+              self->grid_.cell_origin(iterator.output_grid_cell_indices());
+          return absl::InvalidArgumentError(tensorstore::StrCat(
+              "Cell with origin=", tensorstore::span(origin),
+              " missing layer mapping in \"stack\" driver"));
+        }
+        iterator.Advance();
+      }
+      return absl::OkStatus();
+    }();
     if (!status.ok()) {
-      state->SetError(std::move(status));
-      return;
-    }
-    if (layers_to_load.empty()) {
+      state->SetError(status);
       return;
     }
 
@@ -775,17 +784,6 @@ struct OpenLayerOp {
            internal::OpenDriver(layer.GetTransformedDriverSpec(),
                                 std::move(request)));
     }
-  }
-};
-
-struct UnmappedOp {
-  StackDriver* self;
-  absl::Status operator()(tensorstore::span<const Index> grid_cell_indices,
-                          IndexTransformView<> cell_transform) {
-    auto origin = self->grid_.cell_origin(grid_cell_indices);
-    return absl::InvalidArgumentError(
-        tensorstore::StrCat("Cell with origin=", tensorstore::span(origin),
-                            " missing layer mapping in \"stack\" driver"));
   }
 };
 
@@ -835,7 +833,7 @@ struct ReadOrWriteState : public internal::ChunkOperationState<ChunkType> {
     const auto& executor = driver.data_copy_executor();
     state->self = IntrusivePtr<StackDriver>(&driver);
     state->request = std::move(request);
-    executor(OpenLayerOp<State, UnmappedOp>{std::move(state)});
+    executor(OpenLayerOp<State>{std::move(state)});
   }
 };
 
