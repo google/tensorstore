@@ -14,8 +14,8 @@
 
 /// Basic metaprogramming facilities.
 
-#ifndef TENSORSTORE_INTERNAL_META_H_
-#define TENSORSTORE_INTERNAL_META_H_
+#ifndef TENSORSTORE_INTERNAL_META_META_H_
+#define TENSORSTORE_INTERNAL_META_META_H_
 
 namespace tensorstore {
 namespace internal {
@@ -39,4 +39,4 @@ inline int constexpr_assert_failed() noexcept { return 0; }
 }  // namespace internal
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_META_H_
+#endif  // TENSORSTORE_INTERNAL_META_META_H_

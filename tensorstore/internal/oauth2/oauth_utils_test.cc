@@ -14,11 +14,13 @@
 
 #include "tensorstore/internal/oauth2/oauth_utils.h"
 
+#include <string>
+
 #include <gtest/gtest.h>
 #include "absl/strings/escaping.h"
-#include "tensorstore/internal/json_gtest.h"
+#include "absl/time/time.h"
 #include "tensorstore/internal/oauth2/fake_private_key.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace {

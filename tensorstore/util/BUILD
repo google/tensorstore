@@ -11,7 +11,7 @@ tensorstore_cc_library(
     deps = [
         ":small_bit_set",
         ":span",
-        "//tensorstore/internal:attributes",
+        "//tensorstore/internal/meta:attributes",
         "@com_google_absl//absl/base:core_headers",
     ],
 )
@@ -74,7 +74,7 @@ tensorstore_cc_test(
     srcs = ["int4_test.cc"],
     deps = [
         ":int4",
-        "//tensorstore/internal:json_gtest",
+        "//tensorstore/internal/testing:json_gtest",
         "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/base",
         "@com_google_googletest//:gtest_main",
@@ -87,7 +87,7 @@ tensorstore_cc_test(
     srcs = ["bfloat16_test.cc"],
     deps = [
         ":bfloat16",
-        "//tensorstore/internal:json_gtest",
+        "//tensorstore/internal/testing:json_gtest",
         "@com_google_absl//absl/base",
         "@com_google_googletest//:gtest_main",
     ],
@@ -159,8 +159,8 @@ tensorstore_cc_library(
     name = "small_bit_set",
     hdrs = ["small_bit_set.h"],
     deps = [
-        "//tensorstore/internal:attributes",
-        "//tensorstore/internal:integer_types",
+        "//tensorstore/internal/meta:attributes",
+        "//tensorstore/internal/meta:integer_types",
         "@com_google_absl//absl/numeric:bits",
     ],
 )
@@ -218,9 +218,9 @@ tensorstore_cc_library(
         "//tensorstore:index",
         "//tensorstore:static_cast",
         "//tensorstore/internal:memory",
-        "//tensorstore/internal:type_traits",
         "//tensorstore/internal:unowned_to_shared",
         "//tensorstore/internal/container:compressed_tuple",
+        "//tensorstore/internal/meta:type_traits",
         "@com_google_absl//absl/meta:type_traits",
     ],
 )
@@ -293,7 +293,7 @@ tensorstore_cc_library(
         "//tensorstore:index",
         "//tensorstore:rank",
         "//tensorstore/internal:integer_overflow",
-        "//tensorstore/internal:type_traits",
+        "//tensorstore/internal/meta:type_traits",
         "@com_google_absl//absl/base:core_headers",
     ],
 )
@@ -324,12 +324,12 @@ tensorstore_cc_library(
         ":executor",
         ":result",
         ":span",
-        "//tensorstore/internal:attributes",
-        "//tensorstore/internal:integer_sequence",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:tagged_ptr",
-        "//tensorstore/internal:type_traits",
         "//tensorstore/internal/container:intrusive_linked_list",
+        "//tensorstore/internal/meta:attributes",
+        "//tensorstore/internal/meta:integer_sequence",
+        "//tensorstore/internal/meta:type_traits",
         "//tensorstore/internal/metrics",
         "//tensorstore/internal/metrics:metadata",
         "//tensorstore/internal/tracing",
@@ -397,7 +397,7 @@ tensorstore_cc_library(
         "//tensorstore:contiguous_layout",
         "//tensorstore:index",
         "//tensorstore:rank",
-        "//tensorstore/internal:void_wrapper",
+        "//tensorstore/internal/meta:void_wrapper",
     ],
 )
 
@@ -498,8 +498,8 @@ tensorstore_cc_library(
     ],
     deps = [
         ":status",
-        "//tensorstore/internal:attributes",
-        "//tensorstore/internal:type_traits",
+        "//tensorstore/internal/meta:attributes",
+        "//tensorstore/internal/meta:type_traits",
         "//tensorstore/internal/preprocessor:cat",
         "//tensorstore/internal/preprocessor:expand",
         "@com_google_absl//absl/base:core_headers",
@@ -530,7 +530,7 @@ tensorstore_cc_test(
         ":result",
         ":status",
         ":status_testutil",
-        "//tensorstore/internal:type_traits",
+        "//tensorstore/internal/meta:type_traits",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",
@@ -541,8 +541,8 @@ tensorstore_cc_library(
     name = "span",
     hdrs = ["span.h"],
     deps = [
-        "//tensorstore/internal:attributes",
         "//tensorstore/internal:gdb_scripting",
+        "//tensorstore/internal/meta:attributes",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/log:absl_log",
     ],
@@ -564,7 +564,7 @@ tensorstore_cc_test(
     deps = [
         ":span",
         ":span_json",
-        "//tensorstore/internal:json_gtest",
+        "//tensorstore/internal/testing:json_gtest",
         "@com_github_nlohmann_json//:json",
         "@com_google_googletest//:gtest_main",
     ],
@@ -648,7 +648,7 @@ tensorstore_cc_library(
     hdrs = ["str_cat.h"],
     deps = [
         ":span",
-        "//tensorstore/internal:type_traits",
+        "//tensorstore/internal/meta:type_traits",
         "@com_google_absl//absl/strings",
     ],
 )
@@ -708,9 +708,9 @@ tensorstore_cc_test(
     deps = [
         ":str_cat",
         ":unit",
-        "//tensorstore/internal:json_gtest",
         "//tensorstore/internal/json_binding:gtest",
         "//tensorstore/internal/json_binding:unit",
+        "//tensorstore/internal/testing:json_gtest",
         "//tensorstore/serialization",
         "//tensorstore/serialization:test_util",
         "@com_google_absl//absl/strings",

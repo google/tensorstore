@@ -23,8 +23,8 @@
 #include <type_traits>
 
 #include "absl/numeric/bits.h"
-#include "tensorstore/internal/attributes.h"
-#include "tensorstore/internal/integer_types.h"
+#include "tensorstore/internal/meta/attributes.h"
+#include "tensorstore/internal/meta/integer_types.h"
 
 namespace tensorstore {
 

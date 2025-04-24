@@ -30,7 +30,7 @@
 #include "tensorstore/driver/image/test_image.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
-#include "tensorstore/internal/json_gtest.h"
+#include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/open.h"

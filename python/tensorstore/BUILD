@@ -205,7 +205,7 @@ pybind11_cc_library(
     name = "subscript_method",
     hdrs = ["subscript_method.h"],
     deps = [
-        "//tensorstore/internal:type_traits",
+        "//tensorstore/internal/meta:type_traits",
         "//tensorstore/util:str_cat",
         "@com_github_pybind_pybind11//:pybind11",
     ],

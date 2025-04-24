@@ -23,7 +23,7 @@
 #include <utility>
 
 #include "absl/base/attributes.h"
-#include "tensorstore/internal/type_traits.h"
+#include "tensorstore/internal/meta/type_traits.h"
 
 namespace tensorstore {
 namespace internal_execution {

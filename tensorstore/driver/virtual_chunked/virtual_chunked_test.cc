@@ -30,7 +30,7 @@
 #include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
-#include "tensorstore/internal/queue_testutil.h"
+#include "tensorstore/internal/testing/queue_testutil.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/open_mode.h"
@@ -45,6 +45,7 @@
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/iterate_over_index_range.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
 

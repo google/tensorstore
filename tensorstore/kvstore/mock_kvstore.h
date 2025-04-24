@@ -20,7 +20,7 @@
 
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/queue_testutil.h"
+#include "tensorstore/internal/testing/queue_testutil.h"
 #include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"

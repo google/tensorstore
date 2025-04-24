@@ -28,7 +28,7 @@
 #include "tensorstore/driver/driver_testutil.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/internal/global_initializer.h"
-#include "tensorstore/internal/parse_json_matches.h"
+#include "tensorstore/internal/testing/parse_json_matches.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/memory/memory_key_value_store.h"

@@ -129,7 +129,7 @@
 
 #include "absl/base/attributes.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/type_traits.h"
+#include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/serialization/std_tuple.h"  // IWYU pragma: keep

@@ -42,7 +42,7 @@
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/internal/global_initializer.h"
-#include "tensorstore/internal/json_gtest.h"
+#include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/kvstore.h"

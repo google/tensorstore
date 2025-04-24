@@ -64,11 +64,11 @@
 #include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/internal/arena.h"
 #include "tensorstore/internal/data_type_random_generator.h"
-#include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/lock_collection.h"
 #include "tensorstore/internal/nditerable.h"
 #include "tensorstore/internal/nditerable_transformed_array.h"
 #include "tensorstore/internal/testing/dynamic.h"
+#include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/internal/testing/random_seed.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
 #include "tensorstore/json_serialization_options_base.h"
@@ -473,7 +473,7 @@ void DriverRandomOperationTester::TestBasicFunctionality(
 
     {
       SCOPED_TRACE(
-          "Switched to non-transacitonal: Compare full read result to "
+          "Switched to non-transactional: Compare full read result to "
           "expected value");
       TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto read_full_result,
                                        Read(store | no_transaction).result());

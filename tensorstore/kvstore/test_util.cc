@@ -50,10 +50,10 @@
 #include <nlohmann/json_fwd.hpp>
 #include "tensorstore/batch.h"
 #include "tensorstore/context.h"
-#include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/metrics/collect.h"
 #include "tensorstore/internal/metrics/registry.h"
 #include "tensorstore/internal/testing/dynamic.h"
+#include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/internal/testing/random_seed.h"
 #include "tensorstore/internal/thread/thread.h"
 #include "tensorstore/kvstore/byte_range.h"

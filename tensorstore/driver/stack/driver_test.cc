@@ -33,7 +33,7 @@
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_domain.h"
-#include "tensorstore/internal/json_gtest.h"
+#include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"

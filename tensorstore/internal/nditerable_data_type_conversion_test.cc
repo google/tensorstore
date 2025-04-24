@@ -17,7 +17,6 @@
 #include <stdint.h>
 
 #include <memory>
-#include <new>
 #include <string>
 #include <utility>
 
@@ -29,17 +28,15 @@
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/data_type_conversion.h"
-#include "tensorstore/index.h"
 #include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/internal/arena.h"
-#include "tensorstore/internal/memory.h"
 #include "tensorstore/internal/nditerable.h"
 #include "tensorstore/internal/nditerable_array.h"
 #include "tensorstore/internal/nditerable_copy.h"
 #include "tensorstore/internal/nditerable_transformed_array.h"
+#include "tensorstore/util/element_pointer.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {

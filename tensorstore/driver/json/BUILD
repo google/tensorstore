@@ -90,7 +90,7 @@ tensorstore_cc_test(
         "//tensorstore/driver/n5",
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/internal:global_initializer",
-        "//tensorstore/internal:parse_json_matches",
+        "//tensorstore/internal/testing:parse_json_matches",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:generation",
         "//tensorstore/kvstore:mock_kvstore",
@@ -124,8 +124,7 @@ tensorstore_cc_test(
     srcs = ["json_change_map_test.cc"],
     deps = [
         ":json_change_map",
-        "//tensorstore/internal:json_gtest",
-        "//tensorstore/util:result",
+        "//tensorstore/internal/testing:json_gtest",
         "//tensorstore/util:status_testutil",
         "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/status",

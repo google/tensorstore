@@ -33,7 +33,7 @@
 #include "tensorstore/index.h"
 #include "tensorstore/internal/container/compressed_tuple.h"
 #include "tensorstore/internal/memory.h"
-#include "tensorstore/internal/type_traits.h"
+#include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/internal/unowned_to_shared.h"
 #include "tensorstore/static_cast.h"
 #include "tensorstore/util/byte_strided_pointer.h"

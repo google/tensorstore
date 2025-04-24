@@ -19,13 +19,11 @@
 
 #include <cstddef>  // std::nullptr_t
 #include <cstdlib>
-#include <iterator>
 #include <memory>
 #include <new>
 #include <type_traits>
 #include <utility>
 
-#include "tensorstore/internal/exception_macros.h"
 
 namespace tensorstore {
 namespace internal {

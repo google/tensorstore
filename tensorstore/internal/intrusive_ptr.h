@@ -123,7 +123,7 @@
 #include <utility>
 
 #include "tensorstore/internal/memory.h"
-#include "tensorstore/internal/type_traits.h"
+#include "tensorstore/internal/meta/type_traits.h"
 
 namespace tensorstore {
 namespace internal {

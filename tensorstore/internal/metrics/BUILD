@@ -53,7 +53,7 @@ tensorstore_cc_test(
     deps = [
         ":collect",
         ":metadata",
-        "//tensorstore/internal:json_gtest",
+        "//tensorstore/internal/testing:json_gtest",
         "@com_github_nlohmann_json//:json",
         "@com_google_googletest//:gtest_main",
     ],
@@ -83,7 +83,7 @@ tensorstore_cc_library(
     hdrs = ["metric_hook.h"],
     deps = [
         ":metadata",
-        "//tensorstore/internal:type_traits",
+        "//tensorstore/internal/meta:type_traits",
     ],
 )
 
@@ -122,7 +122,7 @@ tensorstore_cc_library(
         ":metadata",
         ":metric_impl",
         ":registry",
-        "//tensorstore/internal:type_traits",
+        "//tensorstore/internal/meta:type_traits",
         "//tensorstore/util:str_cat",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/base:no_destructor",
@@ -251,7 +251,7 @@ tensorstore_cc_library(
         ":metadata",
         ":metric_impl",
         ":registry",
-        "//tensorstore/internal:type_traits",
+        "//tensorstore/internal/meta:type_traits",
         "//tensorstore/util:str_cat",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/base:no_destructor",

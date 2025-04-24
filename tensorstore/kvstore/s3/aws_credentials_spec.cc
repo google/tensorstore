@@ -31,7 +31,7 @@
 #include "tensorstore/internal/aws/credentials/common.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/type_traits.h"
+#include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/util/quote_string.h"

@@ -29,7 +29,7 @@
 #include <type_traits>
 
 #include "absl/base/attributes.h"
-#include "tensorstore/internal/attributes.h"
+#include "tensorstore/internal/meta/attributes.h"
 #include "tensorstore/util/small_bit_set.h"
 #include "tensorstore/util/span.h"
 

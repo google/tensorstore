@@ -16,10 +16,10 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "tensorstore/internal/json_gtest.h"
-#include "tensorstore/util/status.h"
+#include "absl/status/status.h"
+#include <nlohmann/json_fwd.hpp>
+#include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/json_gtest.h"
+#include "tensorstore/internal/testing/json_gtest.h"
 
 #include <sstream>
 #include <string>

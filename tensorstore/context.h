@@ -32,7 +32,7 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json/same.h"
 #include "tensorstore/internal/json_binding/bindable.h"
-#include "tensorstore/internal/type_traits.h"
+#include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/util/garbage_collection/fwd.h"

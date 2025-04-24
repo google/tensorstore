@@ -19,7 +19,7 @@
 #include "absl/status/status.h"
 #include "tensorstore/codec_spec.h"
 #include "tensorstore/driver/zarr3/codec/codec_test_util.h"
-#include "tensorstore/internal/json_gtest.h"
+#include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {

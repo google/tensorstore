@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_HALF_GTEST_H_
-#define TENSORSTORE_INTERNAL_HALF_GTEST_H_
+#ifndef TENSORSTORE_INTERNAL_TESTING_HALF_GTEST_H_
+#define TENSORSTORE_INTERNAL_TESTING_HALF_GTEST_H_
 
 #include <iosfwd>
 
@@ -29,4 +29,4 @@ inline void PrintTo(half const& h, std::ostream* os) { *os << h; }
 
 }  // namespace half_float
 
-#endif  // TENSORSTORE_INTERNAL_HALF_GTEST_H_
+#endif  // TENSORSTORE_INTERNAL_TESTING_HALF_GTEST_H_

@@ -55,7 +55,7 @@
 #include "tensorstore/internal/grid_storage_statistics.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/type_traits.h"
+#include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/open_mode.h"

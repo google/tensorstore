@@ -19,7 +19,7 @@
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/json_binding/gtest.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/json_gtest.h"
+#include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace jb = tensorstore::internal_json_binding;

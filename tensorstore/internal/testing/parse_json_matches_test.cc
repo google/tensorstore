@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/parse_json_matches.h"
+#include "tensorstore/internal/testing/parse_json_matches.h"
 
 #include <sstream>
 #include <string>

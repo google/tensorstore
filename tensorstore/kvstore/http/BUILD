@@ -64,11 +64,11 @@ tensorstore_cc_test(
     deps = [
         ":http",
         "//tensorstore:batch",
-        "//tensorstore/internal:queue_testutil",
         "//tensorstore/internal/http",
         "//tensorstore/internal/http:default_transport",
         "//tensorstore/internal/http:http_header",
         "//tensorstore/internal/http:mock_http_transport",
+        "//tensorstore/internal/testing:queue_testutil",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:generation",
         "//tensorstore/kvstore:test_matchers",

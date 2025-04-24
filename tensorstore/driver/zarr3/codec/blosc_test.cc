@@ -20,7 +20,7 @@
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/zarr3/codec/codec_chain_spec.h"
 #include "tensorstore/driver/zarr3/codec/codec_test_util.h"
-#include "tensorstore/internal/json_gtest.h"
+#include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -179,7 +179,7 @@ TEST(BloscTest, MergeBlocksizeMismatch) {
                             ".*\"blocksize\".*"));
 }
 
-TEST(BloscTest, MergeSucces) {
+TEST(BloscTest, MergeSuccess) {
   EXPECT_THAT(TestCodecMerge({{{"name", "blosc"},
                                {"configuration",
                                 {

@@ -14,8 +14,8 @@
 
 /// Type traits used in the implementation of TensorStore.
 
-#ifndef TENSORSTORE_INTERNAL_TYPE_TRAITS_H_
-#define TENSORSTORE_INTERNAL_TYPE_TRAITS_H_
+#ifndef TENSORSTORE_INTERNAL_META_TYPE_TRAITS_H_
+#define TENSORSTORE_INTERNAL_META_TYPE_TRAITS_H_
 
 #include <stddef.h>
 
@@ -409,4 +409,4 @@ using Undocumented = T;
 }  // namespace internal
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_TYPE_TRAITS_H_
+#endif  // TENSORSTORE_INTERNAL_META_TYPE_TRAITS_H_

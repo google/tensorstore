@@ -12,14 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_PARSE_JSON_MATCHES_H_
-#define TENSORSTORE_INTERNAL_PARSE_JSON_MATCHES_H_
+#ifndef TENSORSTORE_INTERNAL_TESTING_PARSE_JSON_MATCHES_H_
+#define TENSORSTORE_INTERNAL_TESTING_PARSE_JSON_MATCHES_H_
 
 #include <string>
 
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
-#include "tensorstore/internal/json_gtest.h"
 
 namespace tensorstore {
 namespace internal {
@@ -40,4 +39,4 @@ namespace internal {
 }  // namespace internal
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_PARSE_JSON_MATCHES_H_
+#endif  // TENSORSTORE_INTERNAL_TESTING_PARSE_JSON_MATCHES_H_

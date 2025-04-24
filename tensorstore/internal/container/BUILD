@@ -151,3 +151,56 @@ tensorstore_cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+tensorstore_cc_library(
+    name = "multi_vector",
+    hdrs = [
+        "multi_vector.h",
+        "multi_vector_impl.h",
+    ],
+    deps = [
+        "//tensorstore:rank",
+        "//tensorstore/internal:gdb_scripting",
+        "//tensorstore/internal/meta",
+        "//tensorstore/internal/meta:type_traits",
+        "//tensorstore/util:division",
+        "//tensorstore/util:span",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "multi_vector_test",
+    size = "small",
+    srcs = ["multi_vector_test.cc"],
+    deps = [
+        ":multi_vector",
+        "//tensorstore:rank",
+        "//tensorstore/util:span",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "multi_vector_view",
+    hdrs = ["multi_vector_view.h"],
+    deps = [
+        "//tensorstore:index",
+        "//tensorstore:rank",
+        "//tensorstore/internal:gdb_scripting",
+        "//tensorstore/internal/meta",
+        "//tensorstore/internal/meta:type_traits",
+        "//tensorstore/util:span",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "multi_vector_view_test",
+    size = "small",
+    srcs = ["multi_vector_view_test.cc"],
+    deps = [
+        ":multi_vector_view",
+        "//tensorstore:rank",
+        "//tensorstore/util:span",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

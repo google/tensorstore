@@ -38,7 +38,7 @@
 #include "tensorstore/index_space/dimension_units.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/json_binding/gtest.h"
-#include "tensorstore/internal/json_gtest.h"
+#include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/open_options.h"

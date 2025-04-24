@@ -24,7 +24,7 @@
 
 #include "absl/strings/str_join.h"
 #include "absl/synchronization/notification.h"
-#include "tensorstore/internal/type_traits.h"
+#include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sync_flow_sender.h"

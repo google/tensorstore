@@ -31,7 +31,7 @@
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/http/mock_http_transport.h"
-#include "tensorstore/internal/queue_testutil.h"
+#include "tensorstore/internal/testing/queue_testutil.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"

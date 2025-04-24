@@ -109,7 +109,7 @@
 #include "tensorstore/internal/json/same.h"
 #include "tensorstore/internal/json/value_as.h"
 #include "tensorstore/internal/json_binding/bindable.h"
-#include "tensorstore/internal/type_traits.h"
+#include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/status.h"

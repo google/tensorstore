@@ -19,7 +19,7 @@
 #include "absl/strings/str_cat.h"
 #include "tensorstore/internal/json_binding/gtest.h"
 #include "tensorstore/internal/json_binding/unit.h"
-#include "tensorstore/internal/json_gtest.h"
+#include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/serialization/test_util.h"
 #include "tensorstore/util/str_cat.h"

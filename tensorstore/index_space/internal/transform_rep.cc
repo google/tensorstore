@@ -14,20 +14,38 @@
 
 #include "tensorstore/index_space/internal/transform_rep.h"
 
+#include <stdint.h>
+
+#include <algorithm>
+#include <atomic>
+#include <cassert>
+#include <iterator>
 #include <memory>
 #include <new>
+#include <ostream>
+#include <string>
+#include <string_view>
 #include <utility>
 
 #include "absl/base/optimization.h"
 #include "absl/log/absl_check.h"
 #include "absl/status/status.h"
+#include "tensorstore/array.h"
+#include "tensorstore/box.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/internal/transform_rep_impl.h"
+#include "tensorstore/index_space/output_index_method.h"
 #include "tensorstore/internal/dimension_labels.h"
 #include "tensorstore/internal/integer_overflow.h"
+#include "tensorstore/internal/meta/exception_macros.h"
 #include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/division.h"
+#include "tensorstore/util/element_pointer.h"
 #include "tensorstore/util/quote_string.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {

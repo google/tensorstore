@@ -53,8 +53,8 @@ tensorstore_cc_library(
     deps = [
         ":serialization",
         "//tensorstore/internal:intrusive_ptr",
-        "//tensorstore/internal:type_traits",
         "//tensorstore/internal/container:heterogeneous_container",
+        "//tensorstore/internal/meta:type_traits",
         "//tensorstore/util:str_cat",
         "//tensorstore/util/garbage_collection",
         "@com_google_absl//absl/base:core_headers",
@@ -104,7 +104,7 @@ tensorstore_cc_test(
         ":json",
         ":serialization",
         ":test_util",
-        "//tensorstore/internal:json_gtest",
+        "//tensorstore/internal/testing:json_gtest",
         "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
         "@com_github_nlohmann_json//:json",
@@ -156,7 +156,6 @@ tensorstore_cc_library(
     deps = [
         ":serialization",
         ":status",
-        "//tensorstore/internal:attributes",
         "//tensorstore/util:result",
     ],
 )
@@ -193,7 +192,7 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:memory",
-        "//tensorstore/internal:type_traits",
+        "//tensorstore/internal/meta:type_traits",
         "//tensorstore/internal/poly",
         "//tensorstore/internal/riegeli:delimited",
         "//tensorstore/util:span",

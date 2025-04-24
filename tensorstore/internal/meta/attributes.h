@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_ATTRIBUTES_H_
-#define TENSORSTORE_INTERNAL_ATTRIBUTES_H_
+#ifndef TENSORSTORE_INTERNAL_META_ATTRIBUTES_H_
+#define TENSORSTORE_INTERNAL_META_ATTRIBUTES_H_
 
 #include "absl/base/attributes.h"
 
@@ -62,4 +62,4 @@ namespace tensorstore {
 constexpr inline bool ExplicitRequires(bool value) { return value; }
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_ATTRIBUTES_H_
+#endif  // TENSORSTORE_INTERNAL_META_ATTRIBUTES_H_

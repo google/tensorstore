@@ -21,7 +21,7 @@
 #include "tensorstore/box.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/index.h"
-#include "tensorstore/internal/void_wrapper.h"
+#include "tensorstore/internal/meta/void_wrapper.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/util/constant_vector.h"
 #include "tensorstore/util/iterate.h"

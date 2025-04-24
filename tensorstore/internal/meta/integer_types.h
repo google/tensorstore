@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_INTEGER_TYPES_H_
-#define TENSORSTORE_INTERNAL_INTEGER_TYPES_H_
+#ifndef TENSORSTORE_INTERNAL_META_INTEGER_TYPES_H_
+#define TENSORSTORE_INTERNAL_META_INTEGER_TYPES_H_
 
 /// \file
 /// Defines `int_t<Bits>` and `uint_t<Bits>` type aliases.
@@ -79,4 +79,4 @@ struct uint_type<64> {
 }  // namespace internal
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_INTEGER_TYPES_H_
+#endif  // TENSORSTORE_INTERNAL_META_INTEGER_TYPES_H_

@@ -29,6 +29,7 @@
 #include "absl/random/bit_gen_ref.h"
 #include "absl/random/random.h"
 #include "absl/status/status.h"
+#include <nlohmann/json_fwd.hpp>
 #include "tensorstore/box.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
@@ -39,7 +40,7 @@
 #include "tensorstore/index_space/output_index_method.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/gtest.h"
-#include "tensorstore/internal/json_gtest.h"
+#include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/internal/testing/random_seed.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/rank.h"

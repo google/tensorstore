@@ -58,8 +58,8 @@
 #include "tensorstore/internal/estimate_heap_usage/std_vector.h"  // IWYU pragma: keep
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
+#include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/internal/open_mode_spec.h"
-#include "tensorstore/internal/type_traits.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/kvstore.h"
