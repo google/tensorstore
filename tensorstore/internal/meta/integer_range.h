@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_INTEGER_RANGE_H_
-#define TENSORSTORE_INTERNAL_INTEGER_RANGE_H_
+#ifndef TENSORSTORE_INTERNAL_META_INTEGER_RANGE_H_
+#define TENSORSTORE_INTERNAL_META_INTEGER_RANGE_H_
 
 #include <stddef.h>
 
@@ -67,4 +67,4 @@ struct IntegerRange {
 }  // namespace internal
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_INTEGER_RANGE_H_
+#endif  // TENSORSTORE_INTERNAL_META_INTEGER_RANGE_H_

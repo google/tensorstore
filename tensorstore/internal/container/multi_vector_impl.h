@@ -48,7 +48,6 @@
 #include <algorithm>
 #include <array>
 
-#include "tensorstore/internal/meta.h"
 #include "tensorstore/util/division.h"
 
 namespace tensorstore {

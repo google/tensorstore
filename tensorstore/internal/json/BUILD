@@ -26,7 +26,7 @@ tensorstore_cc_library(
     srcs = ["value_as.cc"],
     hdrs = ["value_as.h"],
     deps = [
-        "//tensorstore/internal:type_traits",
+        "//tensorstore/internal/meta:type_traits",
         "//tensorstore/util:str_cat",
         "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/status",
@@ -94,7 +94,7 @@ tensorstore_cc_test(
         "//tensorstore:array",
         "//tensorstore:contiguous_layout",
         "//tensorstore:data_type",
-        "//tensorstore/internal:json_gtest",
+        "//tensorstore/internal/testing:json_gtest",
         "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
         "@com_github_nlohmann_json//:json",
@@ -109,7 +109,7 @@ tensorstore_cc_test(
     srcs = ["json_test.cc"],
     deps = [
         ":json",
-        "//tensorstore/internal:json_gtest",
+        "//tensorstore/internal/testing:json_gtest",
         "//tensorstore/util:status_testutil",
         "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/status",
@@ -123,7 +123,7 @@ tensorstore_cc_test(
     srcs = ["value_as_test.cc"],
     deps = [
         ":value_as",
-        "//tensorstore/internal:json_gtest",
+        "//tensorstore/internal/testing:json_gtest",
         "//tensorstore/util:status_testutil",
         "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/status",

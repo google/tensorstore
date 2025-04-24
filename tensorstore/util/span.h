@@ -29,8 +29,8 @@
 #include "absl/base/attributes.h"
 #include "absl/base/optimization.h"
 #include "absl/log/absl_log.h"
-#include "tensorstore/internal/attributes.h"
 #include "tensorstore/internal/gdb_scripting.h"
+#include "tensorstore/internal/meta/attributes.h"
 
 TENSORSTORE_GDB_AUTO_SCRIPT("span_gdb.py")
 

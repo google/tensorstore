@@ -51,15 +51,14 @@
 #include "tensorstore/index_space/internal/transform_rep.h"
 #include "tensorstore/internal/concurrency_resource.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
-#include "tensorstore/internal/grid_partition.h"
 #include "tensorstore/internal/grid_partition_iterator.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/irregular_grid.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/staleness_bound.h"  // IWYU pragma: keep
 #include "tensorstore/internal/json_binding/std_array.h"  // IWYU pragma: keep
+#include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/internal/tagged_ptr.h"
-#include "tensorstore/internal/type_traits.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/open_options.h"
 #include "tensorstore/rank.h"
@@ -691,7 +690,7 @@ struct AfterOpenOp {
     if (!f.result().ok()) {
       return f.result().status();
     }
-    // After opening the layer, issue reads to each of the the grid cells.
+    // After opening the layer, issue reads to each of the grid cells.
     for (auto& cell_transform : cells) {
       TENSORSTORE_RETURN_IF_ERROR(ComposeAndDispatchOperation(
           *state, f.value(), std::move(cell_transform)));

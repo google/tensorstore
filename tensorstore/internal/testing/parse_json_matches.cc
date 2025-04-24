@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/parse_json_matches.h"
+#include "tensorstore/internal/testing/parse_json_matches.h"
 
 #include <ostream>
 #include <string>
@@ -21,7 +21,7 @@
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/json_gtest.h"
+#include "tensorstore/internal/testing/json_gtest.h"
 
 namespace tensorstore {
 namespace internal {

@@ -49,7 +49,7 @@
 #include "tensorstore/index_space/internal/transform_rep.h"
 #include "tensorstore/index_space/internal/translate_op.h"
 #include "tensorstore/index_space/internal/transpose_op.h"
-#include "tensorstore/internal/type_traits.h"
+#include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/static_cast.h"
 #include "tensorstore/util/result.h"

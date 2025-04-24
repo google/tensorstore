@@ -34,7 +34,7 @@
 #include "tensorstore/internal/json_binding/gtest.h"
 #include "tensorstore/internal/json_binding/std_array.h"
 #include "tensorstore/internal/json_binding/std_optional.h"
-#include "tensorstore/internal/json_gtest.h"
+#include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"

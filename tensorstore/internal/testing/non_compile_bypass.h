@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_NON_COMPILE_BYPASS_H_
-#define TENSORSTORE_INTERNAL_NON_COMPILE_BYPASS_H_
+#ifndef TENSORSTORE_INTERNAL_TESTING_NON_COMPILE_BYPASS_H_
+#define TENSORSTORE_INTERNAL_TESTING_NON_COMPILE_BYPASS_H_
 
 /// This header is referenced by `non_compile.bzl` to bypass non-compile tests
 /// on MSVC, where function-like macros cannot be defined via command-line
 /// options.
 #define EXPECT_NON_COMPILE(...)
 
-#endif  // TENSORSTORE_INTERNAL_NON_COMPILE_BYPASS_H_
+#endif  // TENSORSTORE_INTERNAL_TESTING_NON_COMPILE_BYPASS_H_

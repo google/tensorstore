@@ -12,13 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <string>
+#include <string_view>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <nlohmann/json_fwd.hpp>
 #include "riegeli/bytes/string_reader.h"
 #include "riegeli/bytes/string_writer.h"
-#include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/riegeli/json_input.h"
 #include "tensorstore/internal/riegeli/json_output.h"
+#include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {

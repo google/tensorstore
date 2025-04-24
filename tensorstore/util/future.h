@@ -32,9 +32,9 @@
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include "absl/time/time.h"
-#include "tensorstore/internal/attributes.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/type_traits.h"
+#include "tensorstore/internal/meta/attributes.h"
+#include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future_impl.h"  // IWYU pragma: export
 #include "tensorstore/util/result.h"

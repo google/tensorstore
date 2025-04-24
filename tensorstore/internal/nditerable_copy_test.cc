@@ -14,13 +14,15 @@
 
 #include "tensorstore/internal/nditerable_copy.h"
 
+#include <stdint.h>
+
 #include <memory>
 #include <new>
 #include <string>
-#include <utility>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "tensorstore/array.h"
 #include "tensorstore/contiguous_layout.h"
@@ -30,18 +32,16 @@
 #include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/internal/arena.h"
 #include "tensorstore/internal/elementwise_function.h"
-#include "tensorstore/internal/memory.h"
-#include "tensorstore/internal/meta.h"
 #include "tensorstore/internal/nditerable.h"
 #include "tensorstore/internal/nditerable_elementwise_input_transform.h"
 #include "tensorstore/internal/nditerable_elementwise_output_transform.h"
 #include "tensorstore/internal/nditerable_transformed_array.h"
 #include "tensorstore/internal/nditerable_util.h"
 #include "tensorstore/rank.h"
+#include "tensorstore/util/element_pointer.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {

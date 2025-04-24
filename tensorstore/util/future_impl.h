@@ -33,11 +33,11 @@
 #include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
-#include "tensorstore/internal/integer_sequence.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/meta/integer_sequence.h"
+#include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/internal/tagged_ptr.h"
 #include "tensorstore/internal/tracing/trace_context.h"
-#include "tensorstore/internal/type_traits.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {

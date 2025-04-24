@@ -172,8 +172,9 @@ tensorstore_cc_test(
     deps = [
         ":json_input",
         ":json_output",
-        "//tensorstore/internal:json_gtest",
+        "//tensorstore/internal/testing:json_gtest",
         "//tensorstore/util:status_testutil",
+        "@com_github_nlohmann_json//:json",
         "@com_google_googletest//:gtest_main",
         "@com_google_riegeli//riegeli/bytes:string_reader",
         "@com_google_riegeli//riegeli/bytes:string_writer",

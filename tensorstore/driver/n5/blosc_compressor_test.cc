@@ -27,7 +27,7 @@
 #include "tensorstore/driver/n5/metadata.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/json_binding/gtest.h"
-#include "tensorstore/internal/json_gtest.h"
+#include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {

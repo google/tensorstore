@@ -23,7 +23,7 @@
 #include "absl/strings/cord.h"
 #include "absl/time/clock.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/json_gtest.h"
+#include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"

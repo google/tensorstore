@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/decoded_matches.h"
+#include "tensorstore/internal/testing/decoded_matches.h"
 
 #include <functional>
 #include <ostream>

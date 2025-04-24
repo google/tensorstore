@@ -23,7 +23,7 @@
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/index_space/dim_expression.h"
-#include "tensorstore/internal/json_gtest.h"
+#include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/schema.h"

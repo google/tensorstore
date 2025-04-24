@@ -32,8 +32,8 @@
 #include "tensorstore/context.h"
 #include "tensorstore/internal/cache/kvs_backed_cache_testutil.h"
 #include "tensorstore/internal/global_initializer.h"
-#include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/testing/dynamic.h"
+#include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/key_range.h"
@@ -75,7 +75,6 @@ using ::tensorstore::internal_ocdbt::ConfigConstraints;
 using ::tensorstore::internal_ocdbt::ManifestKind;
 using ::tensorstore::internal_ocdbt::OcdbtDriver;
 using ::tensorstore::internal_ocdbt::ReadManifest;
-using ::tensorstore::internal_testing::RegisterGoogleTestCaseDynamically;
 using ::tensorstore::kvstore::SupportedFeatures;
 
 TEST(OcdbtTest, WriteSingleKey) {

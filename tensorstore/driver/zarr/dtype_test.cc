@@ -28,7 +28,7 @@
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/zarr/metadata_testutil.h"
 #include "tensorstore/index.h"
-#include "tensorstore/internal/json_gtest.h"
+#include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/util/endian.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"

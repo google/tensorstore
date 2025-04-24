@@ -75,8 +75,8 @@
 #include <nlohmann/json.hpp>
 #include "tensorstore/index.h"
 #include "tensorstore/internal/elementwise_function.h"
-#include "tensorstore/internal/integer_types.h"
-#include "tensorstore/internal/type_traits.h"
+#include "tensorstore/internal/meta/integer_types.h"
+#include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/static_cast.h"
 #include "tensorstore/util/bfloat16.h"

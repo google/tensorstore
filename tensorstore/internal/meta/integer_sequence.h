@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_INTEGER_SEQUENCE_H_
-#define TENSORSTORE_INTERNAL_INTEGER_SEQUENCE_H_
+#ifndef TENSORSTORE_INTERNAL_META_INTEGER_SEQUENCE_H_
+#define TENSORSTORE_INTERNAL_META_INTEGER_SEQUENCE_H_
 
 // This exists to avoid clang bugs in older versions:
 // https://github.com/llvm/llvm-project/issues/42102
@@ -168,4 +168,4 @@ using index_sequence_for = make_index_sequence<sizeof...(Ts)>;
 
 #endif  // __clang__
 
-#endif  // TENSORSTORE_INTERNAL_INTEGER_SEQUENCE_H_
+#endif  // TENSORSTORE_INTERNAL_META_INTEGER_SEQUENCE_H_

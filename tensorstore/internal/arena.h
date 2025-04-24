@@ -21,8 +21,8 @@
 #include <new>
 #include <utility>
 
-#include "tensorstore/internal/exception_macros.h"
 #include "tensorstore/internal/integer_overflow.h"
+#include "tensorstore/internal/meta/exception_macros.h"
 #include "tensorstore/util/span.h"
 
 namespace tensorstore {

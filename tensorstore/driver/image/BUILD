@@ -29,7 +29,6 @@ tensorstore_cc_library(
         "//tensorstore/internal:lock_collection",
         "//tensorstore/internal:nditerable",
         "//tensorstore/internal:nditerable_transformed_array",
-        "//tensorstore/internal:type_traits",
         "//tensorstore/internal/cache",
         "//tensorstore/internal/cache:async_cache",
         "//tensorstore/internal/cache:async_initialized_cache_mixin",
@@ -38,6 +37,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/cache_key",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:staleness_bound",
+        "//tensorstore/internal/meta:type_traits",
         "//tensorstore/kvstore",
         "//tensorstore/serialization:absl_time",
         "//tensorstore/util:executor",
@@ -81,7 +81,7 @@ tensorstore_cc_test(
         "//tensorstore/driver/image/tiff",  # build_cleaner: keep
         "//tensorstore/driver/image/webp",  # build_cleaner: keep
         "//tensorstore/index_space:dim_expression",
-        "//tensorstore/internal:json_gtest",
+        "//tensorstore/internal/testing:json_gtest",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore/memory",  # build_cleaner: keep
         "//tensorstore/util:result",

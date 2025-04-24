@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_JSON_GTEST_H_
-#define TENSORSTORE_INTERNAL_JSON_GTEST_H_
+#ifndef TENSORSTORE_INTERNAL_TESTING_JSON_GTEST_H_
+#define TENSORSTORE_INTERNAL_TESTING_JSON_GTEST_H_
 
 #include <ostream>
 #include <string>
@@ -82,4 +82,4 @@ namespace tensorstore {
 
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_JSON_GTEST_H_
+#endif  // TENSORSTORE_INTERNAL_TESTING_JSON_GTEST_H_

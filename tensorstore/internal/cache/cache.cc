@@ -39,10 +39,10 @@
 #include "tensorstore/internal/cache/cache_pool_limits.h"
 #include "tensorstore/internal/container/intrusive_linked_list.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/mutex.h"
-#include "tensorstore/internal/type_traits.h"
 
 // A CacheEntry owns a strong reference to the Cache that contains it only
 // if its reference count is > 0.

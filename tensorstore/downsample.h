@@ -23,7 +23,7 @@
 #include "tensorstore/downsample_method.h"
 #include "tensorstore/driver/downsample/downsample.h"
 #include "tensorstore/index.h"
-#include "tensorstore/internal/type_traits.h"
+#include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/spec.h"

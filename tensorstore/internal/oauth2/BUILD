@@ -230,10 +230,10 @@ tensorstore_cc_test(
     deps = [
         ":fake_private_key",
         ":oauth_utils",
-        "//tensorstore/internal:json_gtest",
-        "//tensorstore/util:status",
+        "//tensorstore/internal/testing:json_gtest",
         "//tensorstore/util:str_cat",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest_main",
     ],
 )

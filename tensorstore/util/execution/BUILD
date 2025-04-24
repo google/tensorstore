@@ -8,7 +8,7 @@ tensorstore_cc_library(
     name = "execution",
     hdrs = ["execution.h"],
     deps = [
-        "//tensorstore/internal:type_traits",
+        "//tensorstore/internal/meta:type_traits",
         "@com_google_absl//absl/base:core_headers",
     ],
 )
@@ -75,7 +75,7 @@ tensorstore_cc_test(
         ":execution",
         ":sender",
         ":sender_testutil",
-        "//tensorstore/internal:type_traits",
+        "//tensorstore/internal/meta:type_traits",
         "//tensorstore/util:executor",
         "@com_google_googletest//:gtest_main",
     ],
@@ -95,7 +95,7 @@ tensorstore_cc_library(
         ":any_receiver",
         ":execution",
         ":sync_flow_sender",
-        "//tensorstore/internal:type_traits",
+        "//tensorstore/internal/meta:type_traits",
         "//tensorstore/util:str_cat",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/synchronization",

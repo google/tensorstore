@@ -46,7 +46,7 @@
 #include "tensorstore/internal/json_binding/std_array.h"
 #include "tensorstore/internal/json_binding/std_optional.h"
 #include "tensorstore/internal/json_binding/unit.h"  // IWYU pragma: keep
-#include "tensorstore/internal/type_traits.h"
+#include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/serialization/fwd.h"

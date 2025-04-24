@@ -47,11 +47,11 @@ def cc_with_non_compile_test(
             "//conditions:default": ["EXPECT_NON_COMPILE(...)="],
         }),
         copts = copts + select({
-            msvc_config_setting: ["/FItensorstore/internal/non_compile_bypass.h"],
+            msvc_config_setting: ["/FItensorstore/internal/testing/non_compile_bypass.h"],
             "//conditions:default": [],
         }),
         deps = deps + select({
-            msvc_config_setting: ["@tensorstore//tensorstore/internal:non_compile_bypass"],
+            msvc_config_setting: ["@tensorstore//tensorstore/internal/testing:non_compile_bypass"],
             "//conditions:default": [],
         }),
         **kwargs

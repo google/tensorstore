@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_DECODED_MATCHES_H_
-#define TENSORSTORE_INTERNAL_DECODED_MATCHES_H_
+#ifndef TENSORSTORE_INTERNAL_TESTING_DECODED_MATCHES_H_
+#define TENSORSTORE_INTERNAL_TESTING_DECODED_MATCHES_H_
 
 #include <functional>
 #include <string>
@@ -45,4 +45,4 @@ namespace internal {
 }  // namespace internal
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_DECODED_MATCHES_H_
+#endif  // TENSORSTORE_INTERNAL_TESTING_DECODED_MATCHES_H_

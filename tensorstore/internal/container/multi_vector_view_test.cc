@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/multi_vector_view.h"
+#include "tensorstore/internal/container/multi_vector_view.h"
 
 #include <stddef.h>
 

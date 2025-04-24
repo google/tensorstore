@@ -24,10 +24,10 @@
 #include "absl/log/absl_log.h"
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
-#include "tensorstore/internal/attributes.h"
+#include "tensorstore/internal/meta/attributes.h"
+#include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/internal/preprocessor/cat.h"
 #include "tensorstore/internal/preprocessor/expand.h"
-#include "tensorstore/internal/type_traits.h"
 #include "tensorstore/util/result_impl.h"  // IWYU pragma: export
 #include "tensorstore/util/status.h"
 

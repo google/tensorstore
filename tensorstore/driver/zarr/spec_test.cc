@@ -21,13 +21,19 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include <nlohmann/json.hpp>
+#include "tensorstore/array.h"
+#include "tensorstore/chunk_layout.h"
 #include "tensorstore/codec_spec.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/driver/zarr/dtype.h"
 #include "tensorstore/driver/zarr/metadata.h"
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/internal/json_binding/gtest.h"
-#include "tensorstore/internal/json_gtest.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/internal/testing/json_gtest.h"
+#include "tensorstore/schema.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {

@@ -40,7 +40,7 @@
 #include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/transformed_array.h"
-#include "tensorstore/internal/queue_testutil.h"
+#include "tensorstore/internal/testing/queue_testutil.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/open_options.h"

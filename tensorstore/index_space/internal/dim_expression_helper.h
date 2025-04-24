@@ -27,7 +27,7 @@
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_vector_or_scalar.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
-#include "tensorstore/internal/meta.h"
+#include "tensorstore/internal/meta/meta.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"

@@ -121,7 +121,6 @@ tensorstore_cc_library(
     defines = GCS_CREDENTIALS_DEFINES,
     deps = GCS_CREDENTIALS_DEPS + [
         "//tensorstore:json_serialization_options_base",
-        "//tensorstore/internal:type_traits",
         "//tensorstore/internal/grpc/clientauth:authentication_strategy",
         "//tensorstore/internal/grpc/clientauth:call_authentication",
         "//tensorstore/internal/grpc/clientauth:channel_authentication",
@@ -129,6 +128,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:absl_time",
         "//tensorstore/internal/json_binding:bindable",
+        "//tensorstore/internal/meta:type_traits",
         "//tensorstore/internal/os:file_util",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
@@ -145,7 +145,7 @@ tensorstore_cc_test(
     deps = [
         ":exp_credentials_spec",
         "//tensorstore:json_serialization_options_base",
-        "//tensorstore/internal:json_gtest",
+        "//tensorstore/internal/testing:json_gtest",
         "//tensorstore/util:status_testutil",
         "@com_github_grpc_grpc//:grpc++",
         "@com_github_nlohmann_json//:json",

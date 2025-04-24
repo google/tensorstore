@@ -13,7 +13,6 @@ tensorstore_cc_library(
     deps = [
         ":storage_generation",
         "//tensorstore/internal:intrusive_ptr",
-        "//tensorstore/internal:type_traits",
         "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:byte_range",

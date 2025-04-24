@@ -28,7 +28,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/numbers.h"
 #include <nlohmann/json.hpp>
-#include "tensorstore/internal/type_traits.h"
+#include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {

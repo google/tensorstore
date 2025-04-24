@@ -27,7 +27,7 @@
 #include "tensorstore/index_space/dimension_identifier.h"
 #include "tensorstore/index_space/dimension_index_buffer.h"
 #include "tensorstore/index_space/index_transform.h"
-#include "tensorstore/internal/meta.h"
+#include "tensorstore/internal/meta/meta.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"

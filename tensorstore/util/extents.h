@@ -24,7 +24,7 @@
 #include "absl/base/optimization.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/integer_overflow.h"
-#include "tensorstore/internal/type_traits.h"
+#include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/util/span.h"
 

@@ -144,8 +144,8 @@
 #include "absl/meta/type_traits.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/integer_overflow.h"
-#include "tensorstore/internal/type_traits.h"
-#include "tensorstore/internal/void_wrapper.h"
+#include "tensorstore/internal/meta/type_traits.h"
+#include "tensorstore/internal/meta/void_wrapper.h"
 #include "tensorstore/util/byte_strided_pointer.h"
 
 namespace tensorstore {

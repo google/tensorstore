@@ -12,12 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <string>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include "tensorstore/driver/zarr/compressor.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/json_gtest.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -30,7 +33,8 @@ TEST(Bzip2CompressorTest, SmallRoundtrip) {
   auto compressor = Compressor::FromJson({{"id", "bz2"}, {"level", 6}}).value();
   const absl::Cord input("The quick brown fox jumped over the lazy dog.");
   absl::Cord encode_result, decode_result;
-  TENSORSTORE_ASSERT_OK(compressor->Encode(input, &encode_result, 1));
+  TENSORSTORE_ASSERT_OK(
+      compressor->Encode(input, &encode_result, /*num_threads=*/1));
   TENSORSTORE_ASSERT_OK(compressor->Decode(encode_result, &decode_result, 1));
   EXPECT_EQ(input, decode_result);
 }
@@ -47,7 +51,7 @@ TEST(Bzip2CompressorTest, LargeRoundtrip) {
   auto compressor = Compressor::FromJson({{"id", "bz2"}, {"level", 6}}).value();
   absl::Cord encode_result, decode_result;
   TENSORSTORE_ASSERT_OK(
-      compressor->Encode(absl::Cord(input), &encode_result, 1));
+      compressor->Encode(absl::Cord(input), &encode_result, /*num_threads=*/1));
   TENSORSTORE_ASSERT_OK(compressor->Decode(encode_result, &decode_result, 1));
   EXPECT_EQ(input, decode_result);
 }

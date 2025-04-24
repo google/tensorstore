@@ -128,9 +128,9 @@
 #include "riegeli/bytes/writer.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/memory.h"
+#include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/internal/poly/poly.h"
 #include "tensorstore/internal/riegeli/delimited.h"
-#include "tensorstore/internal/type_traits.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/util/apply_members/apply_members.h"
 

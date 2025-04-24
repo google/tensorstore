@@ -38,7 +38,7 @@
 #include "tensorstore/index_space/index_transform_testutil.h"
 #include "tensorstore/index_space/json.h"
 #include "tensorstore/internal/json_binding/gtest.h"
-#include "tensorstore/internal/json_gtest.h"
+#include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/internal/testing/random_seed.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/rank.h"

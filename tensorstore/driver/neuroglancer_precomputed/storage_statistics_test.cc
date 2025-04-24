@@ -19,7 +19,7 @@
 #include "tensorstore/context.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/index_space/dim_expression.h"
-#include "tensorstore/internal/json_gtest.h"
+#include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/kvstore/memory/memory_key_value_store.h"
 #include "tensorstore/kvstore/mock_kvstore.h"
 #include "tensorstore/open.h"

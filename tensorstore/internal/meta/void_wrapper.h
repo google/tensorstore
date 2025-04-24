@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_VOID_WRAPPER_H_
-#define TENSORSTORE_INTERNAL_VOID_WRAPPER_H_
+#ifndef TENSORSTORE_INTERNAL_META_VOID_WRAPPER_H_
+#define TENSORSTORE_INTERNAL_META_VOID_WRAPPER_H_
 
 #include <type_traits>
 #include <utility>
@@ -40,7 +40,7 @@ namespace internal {
 ///
 /// Example usage:
 ///
-/// \snippet tensorstore/internal/void_wrapper_test.cc Repeat example
+/// \snippet tensorstore/internal/meta/void_wrapper_test.cc Repeat example
 struct Void {
   explicit operator bool() const { return true; }
 
@@ -84,4 +84,4 @@ struct Void {
 }  // namespace internal
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_VOID_WRAPPER_H_
+#endif  // TENSORSTORE_INTERNAL_META_VOID_WRAPPER_H_

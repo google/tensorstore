@@ -23,7 +23,7 @@
 #include <string_view>
 
 #include "absl/status/status.h"
-#include "tensorstore/internal/type_traits.h"
+#include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/kvstore/ocdbt/format/data_file_id.h"
 #include "tensorstore/util/result.h"
 

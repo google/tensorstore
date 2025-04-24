@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_EXCEPTION_MACROS_H_
-#define TENSORSTORE_INTERNAL_EXCEPTION_MACROS_H_
+#ifndef TENSORSTORE_INTERNAL_META_EXCEPTION_MACROS_H_
+#define TENSORSTORE_INTERNAL_META_EXCEPTION_MACROS_H_
 
 #include "absl/base/macros.h"
 #include "absl/log/absl_check.h"
@@ -24,4 +24,4 @@
 #define TENSORSTORE_THROW_BAD_ALLOC ABSL_CHECK(false && "Out of memory.")
 #endif
 
-#endif  // TENSORSTORE_INTERNAL_EXCEPTION_MACROS_H_
+#endif  // TENSORSTORE_INTERNAL_META_EXCEPTION_MACROS_H_
