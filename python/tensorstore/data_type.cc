@@ -73,21 +73,21 @@ class CustomDTypes {
     *datatype_to_numpy_map_ = {
         {DataTypeId::bfloat16_t,
          py::dtype::from_args(ml_dtypes.attr("bfloat16")).num()},
-        {DataTypeId::float8_e4m3fn_t,
-         py::dtype::from_args(ml_dtypes.attr("float8_e4m3fn")).num()},
-        {DataTypeId::float8_e4m3fnuz_t,
-         py::dtype::from_args(ml_dtypes.attr("float8_e4m3fnuz")).num()},
-        {DataTypeId::float8_e4m3b11fnuz_t,
-         py::dtype::from_args(ml_dtypes.attr("float8_e4m3b11fnuz")).num()},
-        {DataTypeId::float8_e5m2_t,
-         py::dtype::from_args(ml_dtypes.attr("float8_e5m2")).num()},
-        {DataTypeId::float8_e5m2fnuz_t,
-         py::dtype::from_args(ml_dtypes.attr("float8_e5m2fnuz")).num()},
-        {DataTypeId::int4_t,
-         py::dtype::from_args(ml_dtypes.attr("int4")).num()},
-        // TODO(ChromeHearts) implement uint4
-        // {DataTypeId::uint4_t, py::dtype::from_args(ml_dtypes.attr("uint4"))},
     };
+
+#define TENSORSTORE_INTERNAL_DO_ADD_TO_MAP(T)                           \
+  {                                                                     \
+    std::string type_name(                                              \
+        internal_data_type::GetTypeName<tensorstore::dtypes::T>());     \
+    datatype_to_numpy_map_->emplace(                                    \
+        DataTypeId::T,                                                  \
+        py::dtype::from_args(ml_dtypes.attr(type_name.c_str())).num()); \
+  }                                                                     \
+  /**/
+    TENSORSTORE_FOR_EACH_FLOAT8_DATA_TYPE(TENSORSTORE_INTERNAL_DO_ADD_TO_MAP)
+    TENSORSTORE_FOR_EACH_LOW_PRECISION_INT_DATA_TYPE(
+        TENSORSTORE_INTERNAL_DO_ADD_TO_MAP)
+#undef TENSORSTORE_INTERNAL_DO_ADD_TO_MAP
 
     for (auto [k, v] : *datatype_to_numpy_map_) {
       numpy_to_datatype_map_->emplace(v, k);
@@ -144,15 +144,16 @@ int GetNumpyTypeNum(DataType dtype) {
   switch (id) {
     case DataTypeId::custom:
       return -1;
-    case DataTypeId::bfloat16_t:
-    case DataTypeId::float8_e4m3fn_t:
-    case DataTypeId::float8_e4m3fnuz_t:
-    case DataTypeId::float8_e4m3b11fnuz_t:
-    case DataTypeId::float8_e5m2_t:
-    case DataTypeId::float8_e5m2fnuz_t:
-    case DataTypeId::int4_t:
-      // case DataTypeId::uint4_t: // TODO (ChromeHearts) implement uint4
-      return CustomDTypes::GetNumpyTypeNum(id);
+#define TENSORSTORE_INTERNAL_DO_GET_NPY_TYPE_NUM_CASE(T) \
+  case DataTypeId::T:                                    \
+    return CustomDTypes::GetNumpyTypeNum(id);            \
+    /**/
+      TENSORSTORE_INTERNAL_DO_GET_NPY_TYPE_NUM_CASE(bfloat16_t)
+      TENSORSTORE_FOR_EACH_FLOAT8_DATA_TYPE(
+          TENSORSTORE_INTERNAL_DO_GET_NPY_TYPE_NUM_CASE)
+      TENSORSTORE_FOR_EACH_LOW_PRECISION_INT_DATA_TYPE(
+          TENSORSTORE_INTERNAL_DO_GET_NPY_TYPE_NUM_CASE)
+#undef TENSORSTORE_INTERNAL_DO_GET_NPY_TYPE_NUM_CASE
     default:
       return kNumpyTypeNumForDataTypeId[static_cast<size_t>(id)];
   }
