@@ -167,6 +167,16 @@ Group:
   Data types
 """
 
+float8_e3m4: dtype
+"""8-bit floating-point data type.
+
+Details in https://github.com/jax-ml/ml_dtypes#float8_e3m4
+
+Group:
+  Data types
+"""
+
+
 float8_e4m3fn: dtype
 """8-bit floating-point data type.
 

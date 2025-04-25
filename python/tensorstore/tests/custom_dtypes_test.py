@@ -21,6 +21,8 @@ import tensorstore as ts
 TESTING_DTYPES = [
     ml_dtypes.int4.dtype,
     # ml_dtypes.uint4, # TODO(ChromeHearts) implement uint4
+    ml_dtypes.float8_e3m4.dtype,
+    ml_dtypes.float8_e4m3fn.dtype,
     ml_dtypes.float8_e4m3fn.dtype,
     ml_dtypes.float8_e4m3fnuz.dtype,
     ml_dtypes.float8_e4m3b11fnuz.dtype,
@@ -28,6 +30,7 @@ TESTING_DTYPES = [
     ml_dtypes.float8_e5m2fnuz.dtype,
     ml_dtypes.bfloat16.dtype,
     ts.int4.numpy_dtype,
+    ts.float8_e3m4.numpy_dtype,
     ts.float8_e4m3fn.numpy_dtype,
     ts.float8_e4m3fnuz.numpy_dtype,
     ts.float8_e4m3b11fnuz.numpy_dtype,
@@ -35,6 +38,7 @@ TESTING_DTYPES = [
     ts.float8_e5m2fnuz.numpy_dtype,
     ts.bfloat16.numpy_dtype,
     np.dtype("int4"),
+    np.dtype("float8_e3m4"),
     np.dtype("float8_e4m3fn"),
     np.dtype("float8_e4m3fnuz"),
     np.dtype("float8_e4m3b11fnuz"),
