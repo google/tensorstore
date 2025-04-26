@@ -115,6 +115,23 @@ bool operator==(const TiffCodecSpec& a, const TiffCodecSpec& b) {
 namespace {
 const internal::CodecSpecRegistration<TiffCodecSpec> registration;
 
+constexpr std::array kSupportedDataTypes{
+  DataTypeId::uint8_t,   DataTypeId::uint16_t,  DataTypeId::uint32_t,
+  DataTypeId::uint64_t,  DataTypeId::int8_t,    DataTypeId::int16_t,
+  DataTypeId::int32_t,   DataTypeId::int64_t,   DataTypeId::float32_t,
+  DataTypeId::float64_t,
+  // Note: Complex types are typically not standard TIFF.
+  // Note: Boolean might be mapped to uint8 with specific interpretation,
+  //       but let's require explicit numeric types for now.
+};
+
+std::string GetSupportedDataTypes() {
+  return absl::StrJoin(
+      kSupportedDataTypes, ", ", [](std::string* out, DataTypeId id) {
+        absl::StrAppend(out, kDataTypes[static_cast<int>(id)].name());
+      });
+}
+
 // Maps TIFF SampleFormat and BitsPerSample to TensorStore DataType.
 Result<DataType> GetDataTypeFromTiff(const ImageDirectory& dir) {
   if (dir.samples_per_pixel == 0 || dir.bits_per_sample.empty() ||
@@ -836,6 +853,17 @@ Result<SharedArray<const void>> DecodeChunk(const TiffMetadata& metadata,
 
   // 8. Return the decoded array (cast to const void)
   return decoded_array;
+}
+
+// Validates that dtype is supported by the TIFF driver implementation.
+absl::Status ValidateDataType(DataType dtype) {
+  ABSL_CHECK(dtype.valid()); // Ensure dtype is valid before checking ID
+  if (!absl::c_linear_search(kSupportedDataTypes, dtype.id())) {
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        dtype, " data type is not one of the supported TIFF data types: ",
+        GetSupportedDataTypes()));
+  }
+  return absl::OkStatus();
 }
 
 }  // namespace internal_tiff

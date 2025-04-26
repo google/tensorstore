@@ -240,6 +240,13 @@ Result<DataType> GetEffectiveDataType(
 Result<SharedArray<const void>> DecodeChunk(const TiffMetadata& metadata,
                                             absl::Cord buffer);
 
+
+/// Validates that `dtype` is supported by the TIFF driver.
+///
+/// Checks if the data type corresponds to a standard TIFF SampleFormat
+/// and BitsPerSample combination (uint8/16/32/64, int8/16/32/64, float32/64).
+absl::Status ValidateDataType(DataType dtype);
+
 }  // namespace internal_tiff
 }  // namespace tensorstore
 
