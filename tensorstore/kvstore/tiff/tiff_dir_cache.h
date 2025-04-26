@@ -85,4 +85,7 @@ class TiffDirectoryCache : public internal::AsyncCache {
 }  // namespace internal_tiff_kvstore
 }  // namespace tensorstore
 
+TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(
+    tensorstore::internal_tiff_kvstore::TiffDirectoryCache::Entry)
+
 #endif  // TENSORSTORE_KVSTORE_TIFF_TIFF_DIR_CACHE_H_
