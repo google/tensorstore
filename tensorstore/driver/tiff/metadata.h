@@ -109,6 +109,20 @@ struct TiffMetadata {
   TiffMetadata() = default;
 };
 
+/// Stores information about the mapping between TensorStore dimensions
+/// and logical TIFF spatial/stack dimensions, derived from TiffMetadata.
+struct TiffGridMappingInfo {
+  /// TensorStore dimension index corresponding to logical Height (Y). -1 if
+  /// N/A.
+  DimensionIndex ts_y_dim = -1;
+  /// TensorStore dimension index corresponding to logical Width (X). -1 if N/A.
+  DimensionIndex ts_x_dim = -1;
+  /// TensorStore dimension index corresponding to IFD/Z stack. -1 if N/A.
+  DimensionIndex ts_ifd_dim = -1;
+  /// True if the underlying TIFF uses tiles, false if it uses strips.
+  bool is_tiled = false;
+};
+
 /// Specifies constraints on the TIFF metadata required when opening.
 struct TiffMetadataConstraints {
   std::optional<DataType> dtype;
@@ -240,12 +254,21 @@ Result<DataType> GetEffectiveDataType(
 Result<SharedArray<const void>> DecodeChunk(const TiffMetadata& metadata,
                                             absl::Cord buffer);
 
-
 /// Validates that `dtype` is supported by the TIFF driver.
 ///
 /// Checks if the data type corresponds to a standard TIFF SampleFormat
 /// and BitsPerSample combination (uint8/16/32/64, int8/16/32/64, float32/64).
 absl::Status ValidateDataType(DataType dtype);
+
+/// Analyzes TiffMetadata to determine key dimension mappings and tiling status.
+///
+/// This interprets the rank, shape, and chunk_layout.inner_order from metadata
+/// to identify which dimensions represent Y, X, and potentially IFD/Z, and
+/// whether the storage uses tiles or strips.
+///
+/// \param metadata The resolved TiffMetadata to analyze.
+/// \returns Information about the dimension mapping and tiling.
+TiffGridMappingInfo GetTiffGridMappingInfo(const TiffMetadata& metadata);
 
 }  // namespace internal_tiff
 }  // namespace tensorstore

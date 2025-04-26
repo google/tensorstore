@@ -116,13 +116,13 @@ namespace {
 const internal::CodecSpecRegistration<TiffCodecSpec> registration;
 
 constexpr std::array kSupportedDataTypes{
-  DataTypeId::uint8_t,   DataTypeId::uint16_t,  DataTypeId::uint32_t,
-  DataTypeId::uint64_t,  DataTypeId::int8_t,    DataTypeId::int16_t,
-  DataTypeId::int32_t,   DataTypeId::int64_t,   DataTypeId::float32_t,
-  DataTypeId::float64_t,
-  // Note: Complex types are typically not standard TIFF.
-  // Note: Boolean might be mapped to uint8 with specific interpretation,
-  //       but let's require explicit numeric types for now.
+    DataTypeId::uint8_t,   DataTypeId::uint16_t, DataTypeId::uint32_t,
+    DataTypeId::uint64_t,  DataTypeId::int8_t,   DataTypeId::int16_t,
+    DataTypeId::int32_t,   DataTypeId::int64_t,  DataTypeId::float32_t,
+    DataTypeId::float64_t,
+    // Note: Complex types are typically not standard TIFF.
+    // Note: Boolean might be mapped to uint8 with specific interpretation,
+    //       but let's require explicit numeric types for now.
 };
 
 std::string GetSupportedDataTypes() {
@@ -857,13 +857,114 @@ Result<SharedArray<const void>> DecodeChunk(const TiffMetadata& metadata,
 
 // Validates that dtype is supported by the TIFF driver implementation.
 absl::Status ValidateDataType(DataType dtype) {
-  ABSL_CHECK(dtype.valid()); // Ensure dtype is valid before checking ID
+  ABSL_CHECK(dtype.valid());  // Ensure dtype is valid before checking ID
   if (!absl::c_linear_search(kSupportedDataTypes, dtype.id())) {
     return absl::InvalidArgumentError(tensorstore::StrCat(
         dtype, " data type is not one of the supported TIFF data types: ",
         GetSupportedDataTypes()));
   }
   return absl::OkStatus();
+}
+
+TiffGridMappingInfo GetTiffGridMappingInfo(const TiffMetadata& metadata) {
+  TiffGridMappingInfo info;
+  const DimensionIndex metadata_rank = metadata.rank;
+
+  if (metadata_rank == 0) {
+    // Rank 0 has no dimensions or tiling.
+    return info;
+  }
+
+  // --- Determine logical Y and X dimensions in the TensorStore array ---
+  const auto& inner_order = metadata.chunk_layout.inner_order();
+
+  // Check if inner_order is valid and fully specified
+  bool known_order =
+      !inner_order.empty() && inner_order.size() == metadata_rank;
+  // TODO(user): Add IsValidPermutation check if needed, though ResolveMetadata
+  // should ensure it.
+
+  if (known_order) {
+    // Find dimensions corresponding to the last two values in the permutation
+    // Assumes C-order like interpretation where last is fastest (X), second
+    // last is second fastest (Y)
+    DimensionIndex x_perm_val = metadata_rank - 1;
+    DimensionIndex y_perm_val = metadata_rank - 2;  // Only valid if rank >= 2
+    for (DimensionIndex i = 0; i < metadata_rank; ++i) {
+      if (inner_order[i] == x_perm_val) info.ts_x_dim = i;
+      if (metadata_rank >= 2 && inner_order[i] == y_perm_val) info.ts_y_dim = i;
+    }
+  } else {
+    // Fallback: Assume standard C order if inner_order is missing or invalid
+    // size Log a warning? ResolvedMetadata should ideally always set it.
+    if (metadata_rank >= 2) {
+      info.ts_y_dim = metadata_rank - 2;
+      info.ts_x_dim = metadata_rank - 1;
+    } else if (metadata_rank == 1) {
+      info.ts_x_dim = 0;  // Rank 1 only has an X dimension conceptually
+    }
+  }
+  ABSL_CHECK(info.ts_x_dim != -1)
+      << "Could not determine X dimension index from metadata";
+  ABSL_CHECK(metadata_rank < 2 || info.ts_y_dim != -1)
+      << "Could not determine Y dimension index from metadata";
+
+  // --- Determine logical IFD/Z dimension ---
+  if (metadata.num_ifds > 1) {
+    // Assume the IFD/Z dimension is the one *not* identified as X or Y.
+    // This requires rank >= 3 for a ZYX or ZXY layout.
+    // TODO: Enhance this logic based on actual OME-TIFF dimension order parsing
+    // later.
+    ABSL_CHECK(metadata_rank >= 3) << "Multi-IFD requires metadata rank >= 3";
+    for (DimensionIndex i = 0; i < metadata_rank; ++i) {
+      if (i != info.ts_x_dim && i != info.ts_y_dim) {
+        // Assume the first dimension found that isn't X or Y is IFD/Z
+        info.ts_ifd_dim = i;
+        break;
+      }
+    }
+    ABSL_CHECK(info.ts_ifd_dim != -1)
+        << "Could not determine IFD/Z dimension index";
+  }
+
+  // --- Determine if Tiled or Stripped ---
+  const auto& read_chunk_shape = metadata.chunk_layout.read_chunk_shape();
+  // If rank is < 2, ts_y_dim is -1, but it behaves like strips
+  // (width=image_width). Check only if X dimension exists.
+  if (info.ts_x_dim != -1) {
+    const Index chunk_width = read_chunk_shape[info.ts_x_dim];
+    const Index image_width = metadata.shape[info.ts_x_dim];
+    // Consider it tiled if chunk width is less than image width.
+    info.is_tiled = (chunk_width < image_width);
+
+    // Sanity check for strips: chunk width should equal image width
+    if (!info.is_tiled) {
+      ABSL_CHECK(chunk_width == image_width)
+          << "Chunk width does not match image width for inferred stripped "
+             "layout.";
+      // Also check Y dimension if it exists
+      if (info.ts_y_dim != -1) {
+        const Index chunk_height = read_chunk_shape[info.ts_y_dim];
+        const Index image_height = metadata.shape[info.ts_y_dim];
+        ABSL_CHECK(chunk_height > 0 && chunk_height <= image_height)
+            << "Invalid chunk height for stripped layout.";
+      }
+    } else {
+      // Sanity check for tiles: chunk height should also be less than image
+      // height (if Y exists)
+      if (info.ts_y_dim != -1) {
+        const Index chunk_height = read_chunk_shape[info.ts_y_dim];
+        const Index image_height = metadata.shape[info.ts_y_dim];
+        ABSL_CHECK(chunk_height < image_height)
+            << "Chunk height equals image height for inferred tiled layout.";
+      }
+    }
+  } else {
+    // Rank 1 case is considered not tiled (like a single column strip)
+    info.is_tiled = false;
+  }
+
+  return info;
 }
 
 }  // namespace internal_tiff
