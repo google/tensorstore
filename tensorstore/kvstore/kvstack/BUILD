@@ -43,11 +43,11 @@ tensorstore_cc_library(
         "//tensorstore/util/execution",
         "//tensorstore/util/execution:any_receiver",
         "//tensorstore/util/garbage_collection",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/log:absl_log",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/synchronization",
-        "@com_google_absl//absl/time",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/log:absl_log",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/synchronization",
+        "@abseil-cpp//absl/time",
     ],
     alwayslink = True,
 )
@@ -70,11 +70,11 @@ tensorstore_cc_test(
         "//tensorstore/util:future",
         "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_absl//absl/strings:str_format",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/strings:str_format",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -83,7 +83,7 @@ tensorstore_cc_library(
     hdrs = ["key_range_map.h"],
     deps = [
         "//tensorstore/kvstore:key_range",
-        "@com_google_absl//absl/container:btree",
+        "@abseil-cpp//absl/container:btree",
     ],
 )
 
@@ -93,7 +93,7 @@ tensorstore_cc_test(
     deps = [
         ":key_range_map",
         "//tensorstore/kvstore:key_range",
-        "@com_google_absl//absl/log:absl_log",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/log:absl_log",
+        "@googletest//:gtest_main",
     ],
 )

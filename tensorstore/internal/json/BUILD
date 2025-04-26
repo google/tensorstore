@@ -14,10 +14,10 @@ tensorstore_cc_library(
         "//tensorstore/util:quote_string",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_absl//absl/functional:function_ref",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
+        "@abseil-cpp//absl/functional:function_ref",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -28,9 +28,9 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore/internal/meta:type_traits",
         "//tensorstore/util:str_cat",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -41,8 +41,8 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore/util:result",
         "//tensorstore/util:str_cat",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_absl//absl/strings",
+        "@abseil-cpp//absl/strings",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -66,9 +66,9 @@ tensorstore_cc_library(
         "//tensorstore/util:span",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_absl//absl/functional:function_ref",
-        "@com_google_absl//absl/status",
+        "@abseil-cpp//absl/functional:function_ref",
+        "@abseil-cpp//absl/status",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -78,9 +78,9 @@ tensorstore_cc_test(
     srcs = ["pprint_python_test.cc"],
     deps = [
         ":pprint_python",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_absl//absl/status",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/status",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -97,9 +97,9 @@ tensorstore_cc_test(
         "//tensorstore/internal/testing:json_gtest",
         "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_absl//absl/status",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/status",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -111,9 +111,9 @@ tensorstore_cc_test(
         ":json",
         "//tensorstore/internal/testing:json_gtest",
         "//tensorstore/util:status_testutil",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_absl//absl/status",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/status",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -125,9 +125,9 @@ tensorstore_cc_test(
         ":value_as",
         "//tensorstore/internal/testing:json_gtest",
         "//tensorstore/util:status_testutil",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_absl//absl/status",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/status",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -136,8 +136,8 @@ tensorstore_cc_library(
     srcs = ["same.cc"],
     hdrs = ["same.h"],
     deps = [
-        "@com_github_nlohmann_json//:json",
-        "@com_google_absl//absl/container:inlined_vector",
+        "@abseil-cpp//absl/container:inlined_vector",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -147,7 +147,7 @@ tensorstore_cc_test(
     srcs = ["same_test.cc"],
     deps = [
         ":same",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
     ],
 )

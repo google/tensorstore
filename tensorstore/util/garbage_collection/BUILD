@@ -21,9 +21,9 @@ tensorstore_cc_library(
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/util:result",
         "//tensorstore/util/apply_members",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_absl//absl/time",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/time",
     ],
 )
 
@@ -32,7 +32,7 @@ tensorstore_cc_library(
     hdrs = ["json.h"],
     deps = [
         ":garbage_collection",
-        "@com_github_nlohmann_json//:json",
+        "@nlohmann_json//:json",
     ],
 )
 

@@ -15,9 +15,9 @@ tensorstore_cc_library(
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/util:result",
-        "@com_github_grpc_grpc//:grpc++",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/synchronization",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/synchronization",
+        "@grpc//:grpc++",
     ],
 )
 
@@ -28,9 +28,9 @@ tensorstore_cc_test(
         ":client_credentials",
         "//tensorstore:context",
         "//tensorstore/util:result",
-        "@com_github_grpc_grpc//:grpc++",
-        "@com_github_grpc_grpc//:grpc_security_base",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
+        "@grpc//:grpc++",
+        "@grpc//:grpc_security_base",
     ],
 )
 
@@ -42,10 +42,10 @@ tensorstore_cc_library(
         ":utils",
         "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/proto:proto_util",
-        "@com_github_grpc_grpc//:grpc++",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/log:absl_log",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/log:absl_log",
         "@com_google_protobuf//:protobuf",
+        "@grpc//:grpc++",
     ],
 )
 
@@ -60,9 +60,9 @@ tensorstore_cc_library(
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/util:result",
-        "@com_github_grpc_grpc//:grpc++",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/synchronization",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/synchronization",
+        "@grpc//:grpc++",
     ],
 )
 
@@ -73,8 +73,8 @@ tensorstore_cc_test(
         ":server_credentials",
         "//tensorstore:context",
         "//tensorstore/util:result",
-        "@com_github_grpc_grpc//:grpc++",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
+        "@grpc//:grpc++",
     ],
 )
 
@@ -85,9 +85,9 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore/internal:source_location",
         "//tensorstore/util:status",
-        "@com_github_grpc_grpc//:grpc++",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:cord",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
+        "@grpc//:grpc++",
     ],
 )
 
@@ -96,9 +96,9 @@ tensorstore_cc_test(
     srcs = ["utils_test.cc"],
     deps = [
         ":utils",
-        "@com_github_grpc_grpc//:grpc++",
-        "@com_google_absl//absl/status",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/status",
+        "@googletest//:gtest_main",
+        "@grpc//:grpc++",
     ],
 )
 
@@ -107,13 +107,13 @@ tensorstore_cc_library(
     testonly = 1,
     hdrs = ["grpc_mock.h"],
     deps = [
-        "@com_github_grpc_grpc//:gpr",
-        "@com_github_grpc_grpc//:grpc++",
-        "@com_github_grpc_grpc//:grpc_security_base",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/strings:str_format",
-        "@com_google_absl//absl/time",
-        "@com_google_googletest//:gtest",
+        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/strings:str_format",
+        "@abseil-cpp//absl/time",
+        "@googletest//:gtest",
+        "@grpc//:gpr",
+        "@grpc//:grpc++",
+        "@grpc//:grpc_security_base",
     ],
 )
 
@@ -124,8 +124,8 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore/util:result",
         "//tensorstore/util:str_cat",
-        "@com_github_grpc_grpc//:grpc++",
-        "@com_google_absl//absl/status",
-        "@com_google_re2//:re2",
+        "@abseil-cpp//absl/status",
+        "@grpc//:grpc++",
+        "@re2",
     ],
 )

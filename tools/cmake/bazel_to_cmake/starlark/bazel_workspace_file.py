@@ -28,6 +28,9 @@ class BazelNativeWorkspaceRules:
   def bind(self, *args, **kwargs):
     pass
 
+  def existing_rule(self, *args, **kwargs):
+    return False
+
 
 class BazelWorkspaceGlobals(BazelGlobals):
   """Globals for WORKSPACE file and .bzl libraries loaded from the WORKSPACE."""

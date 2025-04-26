@@ -31,16 +31,17 @@ def repo():
             "@com_envoyproxy_protoc_gen_validate": "@local_proto_mirror",
             "@io_bazel_rules_go": "@local_proto_mirror",
             "@opencensus_proto": "@local_proto_mirror",
-            "@com_github_cncf_xds": "@com_github_cncf_udpa",
+            "@com_github_cncf_xds": "@xds",
+            "@com_google_googleapis": "@googleapis",
+            "@com_github_grpc_grpc": "@grpc",
         },
-
         # CMake options
         cmake_name = "envoy",
         cmake_extra_build_file = Label("//third_party:envoy_api/cmake_extra.BUILD.bazel"),
         bazel_to_cmake = {
             "args": [
                 "--ignore-library=//bazel/cc_proto_descriptor_library:builddefs.bzl",
-                "--ignore-library=@com_github_grpc_grpc//bazel:python_rules.bzl",
+                "--ignore-library=@grpc//bazel:python_rules.bzl",
             ] + ["--target=" + p + ":all" for p in _PACKAGES],
         },
     )

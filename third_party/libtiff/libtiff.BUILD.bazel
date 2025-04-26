@@ -87,10 +87,10 @@ cc_library(
     includes = ["libtiff"],
     visibility = ["//visibility:public"],
     deps = [
-        "@jpeg",
-        "@net_zlib//:zlib",
-        "@net_zstd//:zstdlib",
-        "@org_tukaani_xz//:liblzma",
+        "@libjpeg_turbo//:jpeg",
+        "@zlib//:zlib",
+        "@zstd//:zstdlib",
+        "@xz//:liblzma",
     ],
 )
 

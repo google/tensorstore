@@ -51,7 +51,7 @@ cc_library(
     }),
     deps = [
         "@aws_c_common",
-        "@com_google_boringssl//:crypto",
+        "@boringssl//:crypto",
     ],
 )
 

@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# buildifier: disable=module-docstring
+
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load("//third_party:repo.bzl", "third_party_http_archive")
 
@@ -31,8 +33,8 @@ def repo():
         ],
         patch_args = ["-p1"],
         repo_mapping = {
-            "@zlib": "@net_zlib",
             "@utf8_range": "@com_google_protobuf_utf8_range",
+            "@com_google_absl": "@abseil-cpp",
         },
         # https://cmake.org/cmake/help/latest/module/FindProtobuf.html
         # https://github.com/protocolbuffers/protobuf/blob/master/CMakeLists.txt

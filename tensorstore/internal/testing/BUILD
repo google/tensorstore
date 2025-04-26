@@ -16,8 +16,8 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore/internal:multi_barrier",
         "//tensorstore/internal/thread",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/log:absl_log",
+        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/log:absl_log",
     ],
 )
 
@@ -26,9 +26,9 @@ tensorstore_cc_test(
     srcs = ["concurrent_test.cc"],
     deps = [
         ":concurrent",
-        "@com_google_absl//absl/log:absl_log",
-        "@com_google_absl//absl/synchronization",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/log:absl_log",
+        "@abseil-cpp//absl/synchronization",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -39,9 +39,9 @@ tensorstore_cc_library(
     hdrs = ["decoded_matches.h"],
     deps = [
         "//tensorstore/util:result",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_googletest//:gtest",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
+        "@googletest//:gtest",
     ],
 )
 
@@ -52,9 +52,9 @@ tensorstore_cc_test(
     deps = [
         ":decoded_matches",
         "//tensorstore/util:result",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -65,7 +65,7 @@ tensorstore_cc_library(
     hdrs = ["dynamic.h"],
     deps = [
         "//tensorstore/internal:source_location",
-        "@com_google_googletest//:gtest",
+        "@googletest//:gtest",
     ],
 )
 
@@ -85,8 +85,8 @@ tensorstore_cc_library(
         "//tensorstore/internal:json_pointer",
         "//tensorstore/internal/json:same",
         "//tensorstore/util:quote_string",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_googletest//:gtest",
+        "@googletest//:gtest",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -96,8 +96,8 @@ tensorstore_cc_test(
     srcs = ["json_gtest_test.cc"],
     deps = [
         ":json_gtest",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -115,8 +115,8 @@ tensorstore_cc_library(
     deps = [
         ":json_gtest",
         "//tensorstore/internal/json_binding",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_googletest//:gtest",
+        "@googletest//:gtest",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -126,8 +126,8 @@ tensorstore_cc_test(
     srcs = ["parse_json_matches_test.cc"],
     deps = [
         ":parse_json_matches",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -136,9 +136,9 @@ tensorstore_cc_library(
     testonly = 1,
     hdrs = ["queue_testutil.h"],
     deps = [
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/synchronization",
-        "@com_google_absl//absl/time",
+        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/synchronization",
+        "@abseil-cpp//absl/time",
     ],
 )
 
@@ -149,8 +149,8 @@ tensorstore_cc_library(
     hdrs = ["random_seed.h"],
     deps = [
         "//tensorstore/internal:env",
-        "@com_google_absl//absl/log:absl_log",
-        "@com_google_absl//absl/strings",
+        "@abseil-cpp//absl/log:absl_log",
+        "@abseil-cpp//absl/strings",
     ],
 )
 
@@ -166,8 +166,8 @@ tensorstore_cc_library(
         "//tensorstore/internal/os:filesystem",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
-        "@com_google_absl//absl/random",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
+        "@abseil-cpp//absl/random",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
     ],
 )

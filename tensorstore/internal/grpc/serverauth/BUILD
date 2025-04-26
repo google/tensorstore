@@ -5,7 +5,7 @@ package(default_visibility = ["//tensorstore:internal_packages"])
 tensorstore_cc_library(
     name = "strategy",
     hdrs = ["strategy.h"],
-    deps = ["@com_github_grpc_grpc//:grpc++"],
+    deps = ["@grpc//:grpc++"],
 )
 
 tensorstore_cc_library(
@@ -14,6 +14,6 @@ tensorstore_cc_library(
     hdrs = ["default_strategy.h"],
     deps = [
         ":strategy",
-        "@com_github_grpc_grpc//:grpc++",
+        "@grpc//:grpc++",
     ],
 )

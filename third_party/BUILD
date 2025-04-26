@@ -11,7 +11,7 @@ filegroup(
 )
 
 # Expose files named *.template and **.h. This is used by the org_aomedia_aom build and
-# the com_github_cares_cares build.
+# the c-ares build.
 filegroup(
     name = "templates",
     srcs = glob([

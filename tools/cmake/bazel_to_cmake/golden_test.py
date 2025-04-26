@@ -125,7 +125,7 @@ def add_repositories(workspace: Workspace):
   )
   workspace.add_cmake_repository(
       CMakeRepository(
-          RepositoryId('com_github_grpc_grpc'),
+          RepositoryId('grpc'),
           CMakePackage('gRPC'),
           pathlib.PurePosixPath('grpc_src'),
           pathlib.PurePosixPath('grpc_build'),
@@ -175,12 +175,12 @@ def add_repositories(workspace: Workspace):
 
   # gRPC
   persist_cmake_name(
-      '@com_github_grpc_grpc//:grpc++_codegen_proto',
+      '@grpc//:grpc++_codegen_proto',
       CMakeTarget('gRPC::gRPC_codegen'),
   )
 
   persist_cmake_name(
-      '@com_github_grpc_grpc//src/compiler:grpc_cpp_plugin',
+      '@grpc//src/compiler:grpc_cpp_plugin',
       CMakeTarget('gRPC::grpc_cpp_plugin'),
   )
 

@@ -9,8 +9,8 @@ tensorstore_cc_library(
     srcs = ["sha256.cc"],
     hdrs = ["sha256.h"],
     deps = [
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_boringssl//:crypto",
+        "@abseil-cpp//absl/strings:cord",
+        "@boringssl//:crypto",
     ],
 )
 
@@ -19,7 +19,7 @@ tensorstore_cc_test(
     srcs = ["sha256_test.cc"],
     deps = [
         ":sha256",
-        "@com_google_absl//absl/strings",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/strings",
+        "@googletest//:gtest_main",
     ],
 )

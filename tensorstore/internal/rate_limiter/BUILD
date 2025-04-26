@@ -11,8 +11,8 @@ tensorstore_cc_library(
     deps = [
         ":rate_limiter",
         "//tensorstore/internal/container:intrusive_linked_list",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/synchronization",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/synchronization",
     ],
 )
 
@@ -24,7 +24,7 @@ tensorstore_cc_test(
         ":rate_limiter",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/util:executor",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -34,8 +34,8 @@ tensorstore_cc_library(
     hdrs = ["scaling_rate_limiter.h"],
     deps = [
         ":token_bucket_rate_limiter",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/time",
+        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/time",
     ],
 )
 
@@ -47,8 +47,8 @@ tensorstore_cc_test(
         ":scaling_rate_limiter",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/util:executor",
-        "@com_google_absl//absl/time",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/time",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -65,7 +65,7 @@ tensorstore_cc_test(
     deps = [
         ":rate_limiter",
         "//tensorstore/internal:intrusive_ptr",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -78,9 +78,9 @@ tensorstore_cc_library(
         "//tensorstore/internal/container:intrusive_linked_list",
         "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/internal/thread:schedule_at",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/log:absl_log",
-        "@com_google_absl//absl/synchronization",
-        "@com_google_absl//absl/time",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/log:absl_log",
+        "@abseil-cpp//absl/synchronization",
+        "@abseil-cpp//absl/time",
     ],
 )

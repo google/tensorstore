@@ -403,7 +403,7 @@ libraries:
 
 .. code-block:: shell
 
-   export TENSORSTORE_SYSTEM_LIBS=se_curl,jpeg,com_google_boringssl
+   export TENSORSTORE_SYSTEM_LIBS=curl,jpeg,boringssl
    python3 bazelisk.py test //...
 
 .. _cmake-build-requirements:

@@ -13,7 +13,7 @@ tensorstore_cc_library(
         "std_pair.h",
         "std_tuple.h",
     ],
-    deps = ["@com_google_absl//absl/base:core_headers"],
+    deps = ["@abseil-cpp//absl/base:core_headers"],
 )
 
 tensorstore_cc_test(
@@ -22,6 +22,6 @@ tensorstore_cc_test(
     srcs = ["apply_members_test.cc"],
     deps = [
         ":apply_members",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )

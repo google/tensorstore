@@ -18,17 +18,17 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore/util:result",
         "//tensorstore/util:str_cat",
-        "@com_google_absl//absl/functional:function_ref",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_absl//absl/strings:string_view",
-        "@com_google_absl//absl/types:optional",
-        "@com_google_riegeli//riegeli/base:types",
-        "@com_google_riegeli//riegeli/bytes:cord_writer",
-        "@com_google_riegeli//riegeli/bytes:read_all",
-        "@com_google_riegeli//riegeli/bytes:reader",
-        "@com_google_riegeli//riegeli/bytes:writer",
+        "@abseil-cpp//absl/functional:function_ref",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/strings:string_view",
+        "@abseil-cpp//absl/types:optional",
         "@org_blosc_cblosc//:blosc",
+        "@riegeli//riegeli/base:types",
+        "@riegeli//riegeli/bytes:cord_writer",
+        "@riegeli//riegeli/bytes:read_all",
+        "@riegeli//riegeli/bytes:reader",
+        "@riegeli//riegeli/bytes:writer",
     ],
 )
 
@@ -43,10 +43,10 @@ tensorstore_cc_library(
         "//tensorstore/internal/json_binding",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:str_cat",
-        "@com_google_absl//absl/status",
-        "@com_google_riegeli//riegeli/bytes:reader",
-        "@com_google_riegeli//riegeli/bytes:writer",
+        "@abseil-cpp//absl/status",
         "@org_blosc_cblosc//:blosc",
+        "@riegeli//riegeli/bytes:reader",
+        "@riegeli//riegeli/bytes:writer",
     ],
 )
 
@@ -57,8 +57,8 @@ tensorstore_cc_test(
     deps = [
         ":blosc",
         "//tensorstore/util:status_testutil",
-        "@com_google_absl//absl/status",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/status",
+        "@googletest//:gtest_main",
         "@org_blosc_cblosc//:blosc",
     ],
 )
@@ -69,10 +69,10 @@ tensorstore_cc_library(
     hdrs = ["bzip2_compressor.h"],
     deps = [
         ":json_specified_compressor",
-        "@com_google_riegeli//riegeli/bytes:reader",
-        "@com_google_riegeli//riegeli/bytes:writer",
-        "@com_google_riegeli//riegeli/bzip2:bzip2_reader",
-        "@com_google_riegeli//riegeli/bzip2:bzip2_writer",
+        "@riegeli//riegeli/bytes:reader",
+        "@riegeli//riegeli/bytes:writer",
+        "@riegeli//riegeli/bzip2:bzip2_reader",
+        "@riegeli//riegeli/bzip2:bzip2_writer",
     ],
 )
 
@@ -81,7 +81,7 @@ tensorstore_cc_library(
     hdrs = ["cord_stream_manager.h"],
     visibility = ["//visibility:private"],
     deps = [
-        "@com_google_absl//absl/strings:cord",
+        "@abseil-cpp//absl/strings:cord",
     ],
 )
 
@@ -94,15 +94,15 @@ tensorstore_cc_library(
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:json_registry",
         "//tensorstore/util:status",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_riegeli//riegeli/bytes:cord_reader",
-        "@com_google_riegeli//riegeli/bytes:cord_writer",
-        "@com_google_riegeli//riegeli/bytes:read_all",
-        "@com_google_riegeli//riegeli/bytes:reader",
-        "@com_google_riegeli//riegeli/bytes:write",
-        "@com_google_riegeli//riegeli/bytes:writer",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
+        "@riegeli//riegeli/bytes:cord_reader",
+        "@riegeli//riegeli/bytes:cord_writer",
+        "@riegeli//riegeli/bytes:read_all",
+        "@riegeli//riegeli/bytes:reader",
+        "@riegeli//riegeli/bytes:write",
+        "@riegeli//riegeli/bytes:writer",
     ],
 )
 
@@ -111,8 +111,8 @@ tensorstore_cc_library(
     srcs = ["neuroglancer_compressed_segmentation.cc"],
     hdrs = ["neuroglancer_compressed_segmentation.h"],
     deps = [
-        "@com_google_absl//absl/base:endian",
-        "@com_google_absl//absl/container:flat_hash_map",
+        "@abseil-cpp//absl/base:endian",
+        "@abseil-cpp//absl/container:flat_hash_map",
     ],
 )
 
@@ -122,8 +122,8 @@ tensorstore_cc_test(
     srcs = ["neuroglancer_compressed_segmentation_test.cc"],
     deps = [
         ":neuroglancer_compressed_segmentation",
-        "@com_google_absl//absl/random",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/random",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -133,13 +133,13 @@ tensorstore_cc_library(
     hdrs = ["xz_compressor.h"],
     deps = [
         ":json_specified_compressor",
-        "@com_google_riegeli//riegeli/bytes:cord_reader",
-        "@com_google_riegeli//riegeli/bytes:cord_writer",
-        "@com_google_riegeli//riegeli/bytes:reader",
-        "@com_google_riegeli//riegeli/bytes:writer",
-        "@com_google_riegeli//riegeli/xz:xz_reader",
-        "@com_google_riegeli//riegeli/xz:xz_writer",
-        "@org_tukaani_xz//:liblzma",
+        "@riegeli//riegeli/bytes:cord_reader",
+        "@riegeli//riegeli/bytes:cord_writer",
+        "@riegeli//riegeli/bytes:reader",
+        "@riegeli//riegeli/bytes:writer",
+        "@riegeli//riegeli/xz:xz_reader",
+        "@riegeli//riegeli/xz:xz_writer",
+        "@xz//:liblzma",
     ],
 )
 
@@ -150,10 +150,10 @@ tensorstore_cc_test(
     deps = [
         ":xz_compressor",
         "//tensorstore/util:status_testutil",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_absl//absl/strings:cord_test_helpers",
-        "@com_google_googletest//:gtest_main",
-        "@org_tukaani_xz//:liblzma",
+        "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/strings:cord_test_helpers",
+        "@googletest//:gtest_main",
+        "@xz//:liblzma",
     ],
 )
 
@@ -163,11 +163,11 @@ tensorstore_cc_library(
     hdrs = ["zlib.h"],
     deps = [
         ":cord_stream_manager",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:cord",
-        "@net_zlib//:zlib",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
+        "@zlib",
     ],
 )
 
@@ -178,10 +178,10 @@ tensorstore_cc_library(
     deps = [
         ":json_specified_compressor",
         ":zlib",
-        "@com_google_riegeli//riegeli/bytes:reader",
-        "@com_google_riegeli//riegeli/bytes:writer",
-        "@com_google_riegeli//riegeli/zlib:zlib_reader",
-        "@com_google_riegeli//riegeli/zlib:zlib_writer",
+        "@riegeli//riegeli/bytes:reader",
+        "@riegeli//riegeli/bytes:writer",
+        "@riegeli//riegeli/zlib:zlib_reader",
+        "@riegeli//riegeli/zlib:zlib_writer",
     ],
 )
 
@@ -192,10 +192,10 @@ tensorstore_cc_test(
     deps = [
         ":zlib",
         "//tensorstore/util:status_testutil",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_absl//absl/strings:cord_test_helpers",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/strings:cord_test_helpers",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -205,10 +205,10 @@ tensorstore_cc_library(
     hdrs = ["zstd_compressor.h"],
     deps = [
         ":json_specified_compressor",
-        "@com_google_riegeli//riegeli/bytes:reader",
-        "@com_google_riegeli//riegeli/bytes:writer",
-        "@com_google_riegeli//riegeli/zstd:zstd_reader",
-        "@com_google_riegeli//riegeli/zstd:zstd_writer",
+        "@riegeli//riegeli/bytes:reader",
+        "@riegeli//riegeli/bytes:writer",
+        "@riegeli//riegeli/zstd:zstd_reader",
+        "@riegeli//riegeli/zstd:zstd_writer",
     ],
 )
 
@@ -222,21 +222,21 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/log",
-        "@com_google_absl//absl/log:absl_log",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/strings:str_format",
-        "@com_google_absl//absl/time",
-        "@com_google_riegeli//riegeli/bytes:limiting_reader",
-        "@com_google_riegeli//riegeli/bytes:prefix_limiting_reader",
-        "@com_google_riegeli//riegeli/bytes:reader",
-        "@com_google_riegeli//riegeli/bzip2:bzip2_reader",
-        "@com_google_riegeli//riegeli/endian:endian_reading",
-        "@com_google_riegeli//riegeli/xz:xz_reader",
-        "@com_google_riegeli//riegeli/zlib:zlib_reader",
-        "@com_google_riegeli//riegeli/zstd:zstd_reader",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/log",
+        "@abseil-cpp//absl/log:absl_log",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
+        "@abseil-cpp//absl/time",
+        "@riegeli//riegeli/bytes:limiting_reader",
+        "@riegeli//riegeli/bytes:prefix_limiting_reader",
+        "@riegeli//riegeli/bytes:reader",
+        "@riegeli//riegeli/bzip2:bzip2_reader",
+        "@riegeli//riegeli/endian:endian_reading",
+        "@riegeli//riegeli/xz:xz_reader",
+        "@riegeli//riegeli/zlib:zlib_reader",
+        "@riegeli//riegeli/zstd:zstd_reader",
     ],
 )
 
@@ -252,16 +252,16 @@ tensorstore_cc_test(
         "//tensorstore/internal/riegeli:find",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
-        "@com_google_absl//absl/flags:flag",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_absl//absl/time",
-        "@com_google_googletest//:gtest_main",
-        "@com_google_riegeli//riegeli/bytes:cord_reader",
-        "@com_google_riegeli//riegeli/bytes:fd_reader",
-        "@com_google_riegeli//riegeli/bytes:read_all",
-        "@com_google_riegeli//riegeli/bytes:reader",
-        "@com_google_riegeli//riegeli/bytes:string_reader",
+        "@abseil-cpp//absl/flags:flag",
+        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/time",
+        "@googletest//:gtest_main",
+        "@riegeli//riegeli/bytes:cord_reader",
+        "@riegeli//riegeli/bytes:fd_reader",
+        "@riegeli//riegeli/bytes:read_all",
+        "@riegeli//riegeli/bytes:reader",
+        "@riegeli//riegeli/bytes:string_reader",
     ],
 )

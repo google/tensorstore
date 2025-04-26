@@ -1,0 +1,101 @@
+load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
+
+licenses(["notice"])  # BSD/MIT-like license
+
+exports_files(["LICENSE"])
+
+libpng_local_defines = select(
+    {
+        "@platforms//os:windows": ["PNG_INTEL_SSE_OPT=1"],
+        "//conditions:default": [],
+    },
+)
+
+libpng_linkopts = select(
+    {
+        "@platforms//os:windows": [],
+        "//conditions:default": ["-lm"],
+    },
+)
+
+cc_library(
+    name = "png",
+    srcs = [
+        "png.c",
+        "pngdebug.h",
+        "pngerror.c",
+        "pngget.c",
+        "pnginfo.h",
+        "pnglibconf.h",
+        "pngmem.c",
+        "pngpread.c",
+        "pngpriv.h",
+        "pngread.c",
+        "pngrio.c",
+        "pngrtran.c",
+        "pngrutil.c",
+        "pngset.c",
+        "pngstruct.h",
+        "pngtrans.c",
+        "pngwio.c",
+        "pngwrite.c",
+        "pngwtran.c",
+        "pngwutil.c",
+    ] + select(
+        {
+            "@platforms//os:windows": [
+                "intel/filter_sse2_intrinsics.c",
+                "intel/intel_init.c",
+            ],
+            "@platforms//cpu:ppc": [
+                "powerpc/filter_vsx_intrinsics.c",
+                "powerpc/powerpc_init.c",
+            ],
+            "@platforms//cpu:arm64": [
+                "arm/arm_init.c",
+                "arm/filter_neon.S",
+                "arm/filter_neon_intrinsics.c",
+                "arm/palette_neon_intrinsics.c",
+            ],
+            "//conditions:default": [],
+        },
+    ),
+    hdrs = [
+        "png.h",
+        "pngconf.h",
+    ],
+    copts = select(
+        {
+            ":compiler_msvc": [],
+            "//conditions:default": ["-Wno-unused-but-set-variable"],
+        },
+    ),
+    implementation_deps = ["@zlib//:zlib"],
+    includes = ["."],
+    linkopts = libpng_linkopts,
+    local_defines = libpng_local_defines,
+    visibility = ["//visibility:public"],
+)
+
+PNG_IN_SUBSTITUTIONS = {
+    # Leave PNG_ZLIB_VERNUM set to 0 to disable zlib version consistency
+    # checking.  Bazel should already provide sufficient assurance of build
+    # consistency.
+}
+
+expand_template(
+    name = "png_config",
+    out = "pnglibconf.h",
+    substitutions = PNG_IN_SUBSTITUTIONS,
+    template = "scripts/pnglibconf.h.prebuilt",
+)
+
+[
+    alias(
+        name = name,
+        actual = "@tensorstore//:{target}".format(target = name),
+    )
+    for name in [
+        "compiler_msvc",
+    ]
+]

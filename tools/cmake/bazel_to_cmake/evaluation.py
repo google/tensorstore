@@ -452,7 +452,7 @@ class EvaluationState:
   ) -> CMakeTargetPair:
     repo = self.workspace.all_repositories.get(target_id.repository_id)
     if repo is None:
-      raise ValueError(f"Unknown repo in target {target_id.as_label()}")
+      raise ValueError(f"Unknown repository {target_id.repository_id} in target {target_id.as_label()}")
     cmake_target_pair = repo.get_cmake_target_pair(target_id)
     if alias:
       return cmake_target_pair

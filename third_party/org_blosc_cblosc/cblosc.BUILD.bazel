@@ -171,10 +171,10 @@ cc_library(
     deps = [
         ":blosc_common",
         ":shuffle",
-        "@com_google_snappy//:snappy",
-        "@net_zlib//:zlib",
-        "@net_zstd//:zstdlib",
-        "@org_lz4//:lz4",
+        "@snappy//:snappy",
+        "@zlib//:zlib",
+        "@zstd//:zstdlib",
+        "@lz4//:lz4",
     ] + select(
         {
             "@platforms//os:windows": [":win32"],

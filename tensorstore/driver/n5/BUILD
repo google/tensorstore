@@ -58,10 +58,10 @@ tensorstore_cc_test(
         "//tensorstore/internal/json_binding:gtest",
         "//tensorstore/internal/testing:json_gtest",
         "//tensorstore/util:status_testutil",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -90,9 +90,9 @@ tensorstore_cc_test(
         "//tensorstore/internal/testing:json_gtest",
         "//tensorstore/util:span",
         "//tensorstore/util:status_testutil",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -108,7 +108,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/compression:json_specified_compressor",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
-        "@com_google_absl//absl/base:no_destructor",
+        "@abseil-cpp//absl/base:no_destructor",
     ],
 )
 
@@ -151,10 +151,10 @@ tensorstore_cc_test(
         "//tensorstore/util:span",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -182,9 +182,9 @@ tensorstore_cc_test(
         "//tensorstore/internal:path",
         "//tensorstore/kvstore/file",
         "//tensorstore/util:status_testutil",
-        "@com_google_absl//absl/flags:flag",
-        "@com_google_absl//absl/log:absl_log",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/flags:flag",
+        "@abseil-cpp//absl/log:absl_log",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -211,9 +211,9 @@ tensorstore_cc_test(
         "//tensorstore:index",
         "//tensorstore/internal/json_binding:gtest",
         "//tensorstore/util:status_testutil",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -256,18 +256,18 @@ tensorstore_cc_library(
         "//tensorstore/util:str_cat",
         "//tensorstore/util:unit",
         "//tensorstore/util/garbage_collection",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_absl//absl/algorithm:container",
-        "@com_google_absl//absl/meta:type_traits",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_riegeli//riegeli/bytes:cord_reader",
-        "@com_google_riegeli//riegeli/bytes:cord_writer",
-        "@com_google_riegeli//riegeli/bytes:reader",
-        "@com_google_riegeli//riegeli/bytes:writer",
-        "@com_google_riegeli//riegeli/endian:endian_reading",
-        "@com_google_riegeli//riegeli/endian:endian_writing",
+        "@abseil-cpp//absl/algorithm:container",
+        "@abseil-cpp//absl/meta:type_traits",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:cord",
+        "@nlohmann_json//:json",
+        "@riegeli//riegeli/bytes:cord_reader",
+        "@riegeli//riegeli/bytes:cord_writer",
+        "@riegeli//riegeli/bytes:reader",
+        "@riegeli//riegeli/bytes:writer",
+        "@riegeli//riegeli/endian:endian_reading",
+        "@riegeli//riegeli/endian:endian_writing",
     ],
     alwayslink = 1,
 )
@@ -286,10 +286,10 @@ tensorstore_cc_test(
         "//tensorstore/internal/json_binding:gtest",
         "//tensorstore/internal/testing:json_gtest",
         "//tensorstore/util:status_testutil",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -333,10 +333,10 @@ tensorstore_cc_library(
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "//tensorstore/util/garbage_collection",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_absl//absl/container:inlined_vector",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:cord",
+        "@abseil-cpp//absl/container:inlined_vector",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
+        "@nlohmann_json//:json",
     ],
     alwayslink = 1,
 )
@@ -376,9 +376,9 @@ tensorstore_cc_test(
         "//tensorstore/internal/testing:json_gtest",
         "//tensorstore/util:span",
         "//tensorstore/util:status_testutil",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -389,7 +389,7 @@ tensorstore_cc_library(
         ":compressor",
         "//tensorstore/internal/compression:zstd_compressor",
         "//tensorstore/internal/json_binding",
-        "@com_google_riegeli//riegeli/zstd:zstd_writer",
+        "@riegeli//riegeli/zstd:zstd_writer",
     ],
     alwayslink = 1,
 )
@@ -401,10 +401,10 @@ tensorstore_cc_test(
         ":compressor",
         ":zstd_compressor",
         "//tensorstore/util:status_testutil",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -415,6 +415,6 @@ tensorstore_cc_test(
     deps = [
         ":driver",
         "//tensorstore/driver/zarr:storage_statistics_test_util",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )

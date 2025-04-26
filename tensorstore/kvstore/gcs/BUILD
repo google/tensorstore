@@ -33,11 +33,11 @@ tensorstore_cc_library(
         "//tensorstore/internal/json",
         "//tensorstore/kvstore:generation",
         "//tensorstore/util:status",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_absl//absl/strings:str_format",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/strings:str_format",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -47,7 +47,7 @@ tensorstore_cc_test(
     srcs = ["validate_test.cc"],
     deps = [
         ":validate",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -81,16 +81,16 @@ tensorstore_cc_library(
         "//tensorstore/proto:parse_text_proto_or_die",
         "//tensorstore/util:future",
         "//tensorstore/util:result",
-        "@com_github_grpc_grpc//:grpc++",
-        "@com_google_absl//absl/flags:flag",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/log:absl_log",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/strings:str_format",
-        "@com_google_absl//absl/time",
-        "@com_google_googleapis//google/storage/v2:storage_cc_grpc",
-        "@com_google_googleapis//google/storage/v2:storage_cc_proto",
+        "@abseil-cpp//absl/flags:flag",
+        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/log:absl_log",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
+        "@abseil-cpp//absl/time",
+        "@googleapis//google/storage/v2:storage_cc_grpc",
+        "@googleapis//google/storage/v2:storage_cc_proto",
+        "@grpc//:grpc++",
     ],
 )
 
@@ -134,8 +134,8 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_absl//absl/status",
+        "@abseil-cpp//absl/status",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -147,8 +147,8 @@ tensorstore_cc_test(
         "//tensorstore:json_serialization_options_base",
         "//tensorstore/internal/testing:json_gtest",
         "//tensorstore/util:status_testutil",
-        "@com_github_grpc_grpc//:grpc++",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
+        "@grpc//:grpc++",
+        "@nlohmann_json//:json",
     ],
 )

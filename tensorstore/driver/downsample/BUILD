@@ -71,10 +71,10 @@ tensorstore_cc_library(
         "//tensorstore/util/execution",
         "//tensorstore/util/execution:sender_util",
         "//tensorstore/util/garbage_collection",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/container:inlined_vector",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/synchronization",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/container:inlined_vector",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/synchronization",
     ],
     alwayslink = True,
 )
@@ -99,7 +99,7 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
-        "@com_google_absl//absl/status",
+        "@abseil-cpp//absl/status",
     ],
 )
 
@@ -117,8 +117,8 @@ tensorstore_cc_test(
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/index_space:transformed_array",
         "//tensorstore/util:span",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -141,10 +141,10 @@ tensorstore_cc_library(
         "//tensorstore/util:iterate",
         "//tensorstore/util:span",
         "//tensorstore/util:str_cat",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_absl//absl/log:absl_log",
-        "@com_google_absl//absl/numeric:int128",
-        "@com_google_absl//absl/status",
+        "@abseil-cpp//absl/log:absl_log",
+        "@abseil-cpp//absl/numeric:int128",
+        "@abseil-cpp//absl/status",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -164,9 +164,9 @@ tensorstore_cc_binary(
         "//tensorstore/internal:data_type_random_generator",
         "//tensorstore/internal:global_initializer",
         "//tensorstore/util:str_cat",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/random",
-        "@com_google_benchmark//:benchmark_main",
+        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/random",
+        "@google_benchmark//:benchmark_main",
     ],
 )
 
@@ -207,9 +207,9 @@ tensorstore_cc_test(
         "//tensorstore/util:unit",
         "//tensorstore/util/execution",
         "//tensorstore/util/execution:sender_util",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_absl//absl/status",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/status",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -234,10 +234,10 @@ tensorstore_cc_library(
         "//tensorstore/util:span",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/container:inlined_vector",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/container:inlined_vector",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
     ],
 )
 
@@ -263,10 +263,10 @@ tensorstore_cc_test(
         "//tensorstore/util:span",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",
-        "@com_google_absl//absl/random",
-        "@com_google_absl//absl/random:bit_gen_ref",
-        "@com_google_absl//absl/status",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/random",
+        "@abseil-cpp//absl/random:bit_gen_ref",
+        "@abseil-cpp//absl/status",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -294,7 +294,7 @@ tensorstore_cc_library(
         "//tensorstore:rank",
         "//tensorstore/util:iterate",
         "//tensorstore/util:span",
-        "@com_google_absl//absl/container:flat_hash_map",
+        "@abseil-cpp//absl/container:flat_hash_map",
     ],
 )
 
@@ -306,6 +306,6 @@ tensorstore_cc_test(
         ":grid_occupancy_map",
         "//tensorstore:box",
         "//tensorstore:index",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )

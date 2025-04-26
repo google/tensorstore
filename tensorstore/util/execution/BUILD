@@ -9,7 +9,7 @@ tensorstore_cc_library(
     hdrs = ["execution.h"],
     deps = [
         "//tensorstore/internal/meta:type_traits",
-        "@com_google_absl//absl/base:core_headers",
+        "@abseil-cpp//absl/base:core_headers",
     ],
 )
 
@@ -20,7 +20,7 @@ tensorstore_cc_library(
         ":execution",
         ":sender",
         "//tensorstore/internal/poly",
-        "@com_google_absl//absl/base:core_headers",
+        "@abseil-cpp//absl/base:core_headers",
     ],
 )
 
@@ -32,7 +32,7 @@ tensorstore_cc_test(
         ":execution",
         ":sender",
         ":sender_testutil",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -44,7 +44,7 @@ tensorstore_cc_library(
         ":execution",
         ":sender",
         "//tensorstore/internal/poly",
-        "@com_google_absl//absl/base:core_headers",
+        "@abseil-cpp//absl/base:core_headers",
     ],
 )
 
@@ -57,7 +57,7 @@ tensorstore_cc_test(
         ":sender",
         ":sender_testutil",
         "//tensorstore/util:executor",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -77,7 +77,7 @@ tensorstore_cc_test(
         ":sender_testutil",
         "//tensorstore/internal/meta:type_traits",
         "//tensorstore/util:executor",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -97,8 +97,8 @@ tensorstore_cc_library(
         ":sync_flow_sender",
         "//tensorstore/internal/meta:type_traits",
         "//tensorstore/util:str_cat",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/synchronization",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/synchronization",
     ],
 )
 
@@ -121,8 +121,8 @@ tensorstore_cc_test(
         ":sender_testutil",
         ":sender_util",
         "//tensorstore/util:span",
-        "@com_google_absl//absl/strings",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/strings",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -131,7 +131,7 @@ tensorstore_cc_library(
     hdrs = ["sync_flow_sender.h"],
     deps = [
         ":execution",
-        "@com_google_absl//absl/synchronization",
+        "@abseil-cpp//absl/synchronization",
     ],
 )
 
@@ -144,7 +144,7 @@ tensorstore_cc_test(
         ":sender_testutil",
         ":sync_flow_sender",
         "//tensorstore/internal/thread",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -158,7 +158,7 @@ tensorstore_cc_test(
         ":sender",
         ":sender_testutil",
         ":sender_util",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -168,7 +168,7 @@ tensorstore_cc_library(
     deps = [
         ":execution",
         "//tensorstore/util:future",
-        "@com_google_absl//absl/status",
+        "@abseil-cpp//absl/status",
     ],
 )
 
@@ -184,8 +184,8 @@ tensorstore_cc_test(
         ":sender_testutil",
         "//tensorstore/util:future",
         "//tensorstore/util:result",
-        "@com_google_absl//absl/status",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/status",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -195,7 +195,7 @@ tensorstore_cc_library(
     deps = [
         ":execution",
         "//tensorstore/util:result",
-        "@com_google_absl//absl/status",
+        "@abseil-cpp//absl/status",
     ],
 )
 
@@ -210,8 +210,8 @@ tensorstore_cc_test(
         ":sender_testutil",
         "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
-        "@com_google_absl//absl/status",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/status",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -221,7 +221,7 @@ tensorstore_cc_library(
     deps = [
         ":execution",
         "//tensorstore/util:future",
-        "@com_google_absl//absl/status",
+        "@abseil-cpp//absl/status",
     ],
 )
 
@@ -236,8 +236,8 @@ tensorstore_cc_test(
         ":sender_util",
         "//tensorstore/util:span",
         "//tensorstore/util:status_testutil",
-        "@com_google_absl//absl/status",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/status",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -253,6 +253,6 @@ tensorstore_cc_library(
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/util:future",
         "//tensorstore/util:result",
-        "@com_google_absl//absl/status",
+        "@abseil-cpp//absl/status",
     ],
 )

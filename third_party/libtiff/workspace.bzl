@@ -27,13 +27,14 @@ def repo():
             "https://storage.googleapis.com/tensorstore-bazel-mirror/download.osgeo.org/libtiff/tiff-4.7.0.tar.gz",
         ],
         sha256 = "67160e3457365ab96c5b3286a0903aa6e78bdc44c4bc737d2e486bcecb6ba976",
+        doc_version = "4.7.0",
         strip_prefix = "tiff-4.7.0",
         build_file = Label("//third_party:libtiff/libtiff.BUILD.bazel"),
         system_build_file = Label("//third_party:libtiff/system.BUILD.bazel"),
         remove_paths = ["VERSION"],
         cmake_name = "TIFF",
         cmake_target_mapping = {
-            "@libtiff//:tiff": "TIFF::TIFF",
+            "//:tiff": "TIFF::TIFF",
         },
         bazel_to_cmake = {},
     )

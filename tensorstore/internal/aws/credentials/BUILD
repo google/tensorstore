@@ -15,9 +15,9 @@ tensorstore_cc_library(
         "//tensorstore/internal/aws:aws_credentials",
         "//tensorstore/internal/aws:http_mocking",
         "//tensorstore/internal/aws:string_view",
+        "@abseil-cpp//absl/strings",
         "@aws_c_auth",
         "@aws_c_common",
-        "@com_google_absl//absl/strings",
     ],
 )
 
@@ -29,9 +29,9 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore/internal/http",
         "//tensorstore/internal/http:http_header",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_absl//absl/strings:str_format",
-        "@com_google_absl//absl/time",
+        "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/strings:str_format",
+        "@abseil-cpp//absl/time",
     ],
 )
 
@@ -48,9 +48,9 @@ tensorstore_cc_test(
         "//tensorstore/internal/aws:http_mocking",
         "//tensorstore/internal/testing:scoped_directory",
         "//tensorstore/util:status_testutil",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/time",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/time",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -64,8 +64,8 @@ tensorstore_cc_test(
         "//tensorstore/internal:env",
         "//tensorstore/internal/aws:aws_credentials",
         "//tensorstore/util:status_testutil",
-        "@com_google_absl//absl/time",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/time",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -82,7 +82,7 @@ tensorstore_cc_test(
         "//tensorstore/internal/aws:http_mocking",
         "//tensorstore/internal/testing:scoped_directory",
         "//tensorstore/util:status_testutil",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -100,9 +100,9 @@ tensorstore_cc_test(
         "//tensorstore/internal/http",
         "//tensorstore/internal/http:http_header",
         "//tensorstore/util:status_testutil",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_absl//absl/time",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/time",
+        "@googletest//:gtest_main",
     ],
 )
