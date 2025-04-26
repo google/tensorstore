@@ -57,10 +57,10 @@ tensorstore_cc_library(
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "//tensorstore/util/garbage_collection",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/meta:type_traits",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/time",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/meta:type_traits",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/time",
     ],
 )
 
@@ -93,9 +93,9 @@ tensorstore_cc_test(
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status_testutil",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/synchronization",
-        "@com_google_absl//absl/time",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/synchronization",
+        "@abseil-cpp//absl/time",
+        "@googletest//:gtest_main",
     ],
 )

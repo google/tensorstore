@@ -30,6 +30,7 @@ def repo():
         ],
         repo_mapping = {
             "@io_bazel_rules_go": "@local_proto_mirror",
+            "@com_google_googleapis": "@googleapis",
         },
         cmake_name = "cel-spec",
         bazel_to_cmake = {

@@ -21,9 +21,9 @@ tensorstore_cc_library(
     deps = [
         ":http",
         "//tensorstore/internal/curl:curl_transport",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/base:no_destructor",
-        "@com_google_absl//absl/synchronization",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/base:no_destructor",
+        "@abseil-cpp//absl/synchronization",
     ],
     alwayslink = 1,
 )
@@ -51,17 +51,17 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/functional:function_ref",
-        "@com_google_absl//absl/log:absl_log",
-        "@com_google_absl//absl/log:check",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_absl//absl/strings:str_format",
-        "@com_google_absl//absl/time",
-        "@com_google_re2//:re2",
-        "@com_google_riegeli//riegeli/bytes:cord_writer",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/functional:function_ref",
+        "@abseil-cpp//absl/log:absl_log",
+        "@abseil-cpp//absl/log:check",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/strings:str_format",
+        "@abseil-cpp//absl/time",
+        "@re2",
+        "@riegeli//riegeli/bytes:cord_writer",
     ],
 )
 
@@ -74,12 +74,12 @@ tensorstore_cc_library(
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
         "//tensorstore/util:str_cat",
-        "@com_google_absl//absl/container:btree",
-        "@com_google_absl//absl/functional:function_ref",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
-        "@com_google_re2//:re2",
+        "@abseil-cpp//absl/container:btree",
+        "@abseil-cpp//absl/functional:function_ref",
+        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@re2",
     ],
 )
 
@@ -90,8 +90,8 @@ tensorstore_cc_test(
     deps = [
         ":http_header",
         "//tensorstore/util:status_testutil",
-        "@com_google_absl//absl/status",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/status",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -104,8 +104,8 @@ tensorstore_cc_test(
     deps = [
         ":http",
         "//tensorstore/kvstore:byte_range",
-        "@com_google_absl//absl/time",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/time",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -117,9 +117,9 @@ tensorstore_cc_test(
     ],
     deps = [
         ":http",
-        "@com_google_absl//absl/container:flat_hash_set",
-        "@com_google_absl//absl/status",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/container:flat_hash_set",
+        "@abseil-cpp//absl/status",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -131,11 +131,11 @@ tensorstore_cc_library(
     deps = [
         ":http",
         "//tensorstore/util:result",
-        "@com_google_absl//absl/log:absl_log",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_absl//absl/synchronization",
+        "@abseil-cpp//absl/log:absl_log",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/synchronization",
     ],
 )
 
@@ -154,14 +154,14 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
-        "@com_google_absl//absl/flags:flag",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/log:absl_log",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/strings:str_format",
-        "@com_google_absl//absl/time",
-        "@com_google_re2//:re2",
+        "@abseil-cpp//absl/flags:flag",
+        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/log:absl_log",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
+        "@abseil-cpp//absl/time",
+        "@re2",
     ],
 )
 
@@ -174,12 +174,12 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore/internal:global_initializer",
         "//tensorstore/util:str_cat",
-        "@com_google_absl//absl/base:no_destructor",
-        "@com_google_absl//absl/container:flat_hash_set",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/log:absl_log",
-        "@com_google_absl//absl/random",
-        "@com_google_absl//absl/random:distributions",
+        "@abseil-cpp//absl/base:no_destructor",
+        "@abseil-cpp//absl/container:flat_hash_set",
+        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/log:absl_log",
+        "@abseil-cpp//absl/random",
+        "@abseil-cpp//absl/random:distributions",
     ],
     alwayslink = 1,
 )
@@ -192,10 +192,10 @@ tensorstore_cc_library(
         "//tensorstore/internal:source_location",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
-        "@com_google_boringssl//:crypto",
+        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@boringssl//:crypto",
     ],
 )
 
@@ -205,6 +205,6 @@ tensorstore_cc_test(
     deps = [
         ":self_signed_cert",
         "//tensorstore/util:status_testutil",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )

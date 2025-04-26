@@ -68,8 +68,8 @@ tensorstore_cc_library(
         "//tensorstore/util:str_cat",
         "//tensorstore/util/execution",
         "//tensorstore/util/garbage_collection",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/synchronization",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/synchronization",
     ],
     alwayslink = 1,
 )
@@ -105,8 +105,8 @@ tensorstore_cc_test(
         "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:unit",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_absl//absl/status",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/status",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
     ],
 )

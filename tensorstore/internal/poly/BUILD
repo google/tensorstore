@@ -12,7 +12,7 @@ tensorstore_cc_library(
     hdrs = ["poly.h"],
     deps = [
         ":storage",
-        "@com_google_absl//absl/meta:type_traits",
+        "@abseil-cpp//absl/meta:type_traits",
     ],
 )
 
@@ -23,8 +23,8 @@ tensorstore_cc_test(
     deps = [
         ":poly",
         "//tensorstore/util:result",
-        "@com_google_absl//absl/functional:function_ref",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/functional:function_ref",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -39,6 +39,6 @@ tensorstore_cc_test(
     srcs = ["storage_test.cc"],
     deps = [
         ":storage",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )

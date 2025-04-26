@@ -29,10 +29,10 @@ tensorstore_cc_library(
         ":span_attribute",
         "//tensorstore/internal:source_location",
         "//tensorstore/util:span",
-        "@com_google_absl//absl/log:log_streamer",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:str_format",
-        "@com_google_absl//absl/time",
+        "@abseil-cpp//absl/log:log_streamer",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:str_format",
+        "@abseil-cpp//absl/time",
     ],
 )
 
@@ -42,9 +42,9 @@ tensorstore_cc_test(
     deps = [
         ":span_attribute",
         ":tracing",
-        "@com_google_absl//absl/base:log_severity",
-        "@com_google_absl//absl/log:scoped_mock_log",
-        "@com_google_absl//absl/status",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/base:log_severity",
+        "@abseil-cpp//absl/log:scoped_mock_log",
+        "@abseil-cpp//absl/status",
+        "@googletest//:gtest_main",
     ],
 )

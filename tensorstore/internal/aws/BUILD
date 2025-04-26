@@ -15,17 +15,17 @@ tensorstore_cc_library(
     deps = [
         ":tls_ctx",
         "//tensorstore/internal/log:verbose_flag",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/base:log_severity",
+        "@abseil-cpp//absl/base:no_destructor",
+        "@abseil-cpp//absl/debugging:leak_check",
+        "@abseil-cpp//absl/log:absl_log",
+        "@abseil-cpp//absl/synchronization",
         "@aws_c_auth",
         "@aws_c_cal",
         "@aws_c_common",
         "@aws_c_http",
         "@aws_c_io",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/base:log_severity",
-        "@com_google_absl//absl/base:no_destructor",
-        "@com_google_absl//absl/debugging:leak_check",
-        "@com_google_absl//absl/log:absl_log",
-        "@com_google_absl//absl/synchronization",
     ],
 )
 
@@ -37,7 +37,7 @@ tensorstore_cc_test(
     deps = [
         ":aws_api",
         "@aws_c_common",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -50,11 +50,11 @@ tensorstore_cc_library(
         ":string_view",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/util:future",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/time",
         "@aws_c_auth",
         "@aws_c_common",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/time",
     ],
 )
 
@@ -67,15 +67,15 @@ tensorstore_cc_library(
         "//tensorstore/internal/http",
         "//tensorstore/internal/http:http_header",
         "//tensorstore/internal/log:verbose_flag",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/debugging:leak_check",
+        "@abseil-cpp//absl/log:absl_log",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/synchronization",
         "@aws_c_auth",
         "@aws_c_common",
         "@aws_c_http",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/debugging:leak_check",
-        "@com_google_absl//absl/log:absl_log",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_absl//absl/synchronization",
     ],
 )
 

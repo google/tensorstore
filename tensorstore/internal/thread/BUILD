@@ -22,12 +22,12 @@ tensorstore_cc_library(
         "//tensorstore/internal/os:fork_detection",
         "//tensorstore/internal/tracing",
         "//tensorstore/util:stop_token",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/base:no_destructor",
-        "@com_google_absl//absl/functional:any_invocable",
-        "@com_google_absl//absl/synchronization",
-        "@com_google_absl//absl/time",
-        "@com_google_absl//absl/types:compare",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/base:no_destructor",
+        "@abseil-cpp//absl/functional:any_invocable",
+        "@abseil-cpp//absl/synchronization",
+        "@abseil-cpp//absl/time",
+        "@abseil-cpp//absl/types:compare",
     ],
 )
 
@@ -38,9 +38,9 @@ tensorstore_cc_test(
     deps = [
         ":schedule_at",
         "//tensorstore/util:stop_token",
-        "@com_google_absl//absl/synchronization",
-        "@com_google_absl//absl/time",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/synchronization",
+        "@abseil-cpp//absl/time",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -52,8 +52,8 @@ tensorstore_cc_library(
     hdrs = ["thread.h"],
     deps = [
         "//tensorstore/internal/os:fork_detection",
-        "@com_google_absl//absl/functional:any_invocable",
-        "@com_google_absl//absl/log:absl_check",
+        "@abseil-cpp//absl/functional:any_invocable",
+        "@abseil-cpp//absl/log:absl_check",
     ],
 )
 
@@ -62,7 +62,7 @@ tensorstore_cc_test(
     srcs = ["thread_test.cc"],
     deps = [
         ":thread",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -83,8 +83,8 @@ tensorstore_cc_library(
         "//tensorstore/internal/os:fork_detection",
         "//tensorstore/internal/tracing",
         "//tensorstore/util:executor",
-        "@com_google_absl//absl/base:no_destructor",
-        "@com_google_absl//absl/log:absl_log",
+        "@abseil-cpp//absl/base:no_destructor",
+        "@abseil-cpp//absl/log:absl_log",
     ],
 )
 
@@ -97,10 +97,10 @@ tensorstore_cc_library(
         "//tensorstore/internal/metrics:collect",
         "//tensorstore/internal/metrics:registry",
         "//tensorstore/util:executor",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/random",
-        "@com_google_absl//absl/synchronization",
-        "@com_google_benchmark//:benchmark",  # build_cleaner: keep
+        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/random",
+        "@abseil-cpp//absl/synchronization",
+        "@google_benchmark//:benchmark",  # build_cleaner: keep
     ],
 )
 
@@ -111,9 +111,9 @@ tensorstore_cc_binary(
     deps = [
         ":thread_pool",
         ":thread_pool_benchmark_inc",
-        "@com_google_absl//absl/flags:commandlineflag",
-        "@com_google_absl//absl/flags:reflection",
-        "@com_google_benchmark//:benchmark_main",
+        "@abseil-cpp//absl/flags:commandlineflag",
+        "@abseil-cpp//absl/flags:reflection",
+        "@google_benchmark//:benchmark_main",
     ],
 )
 
@@ -123,10 +123,10 @@ tensorstore_cc_library(
     textual_hdrs = ["thread_pool_test.inc"],
     deps = [
         "//tensorstore/util:executor",
-        "@com_google_absl//absl/random",
-        "@com_google_absl//absl/synchronization",
-        "@com_google_absl//absl/time",
-        "@com_google_googletest//:gtest",
+        "@abseil-cpp//absl/random",
+        "@abseil-cpp//absl/synchronization",
+        "@abseil-cpp//absl/time",
+        "@googletest//:gtest",
     ],
 )
 
@@ -137,9 +137,9 @@ tensorstore_cc_test(
     deps = [
         ":thread_pool",
         ":thread_pool_test_inc",
-        "@com_google_absl//absl/flags:commandlineflag",
-        "@com_google_absl//absl/flags:reflection",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/flags:commandlineflag",
+        "@abseil-cpp//absl/flags:reflection",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -148,9 +148,9 @@ tensorstore_cc_library(
     hdrs = ["task.h"],
     deps = [
         "//tensorstore/internal/tracing",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/functional:any_invocable",
-        "@com_google_absl//absl/time",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/functional:any_invocable",
+        "@abseil-cpp//absl/time",
     ],
 )
 
@@ -172,11 +172,11 @@ tensorstore_cc_library(
         "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/internal/metrics",
         "//tensorstore/internal/metrics:metadata",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/container:flat_hash_set",
-        "@com_google_absl//absl/log:absl_log",
-        "@com_google_absl//absl/synchronization",
-        "@com_google_absl//absl/time",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/container:flat_hash_set",
+        "@abseil-cpp//absl/log:absl_log",
+        "@abseil-cpp//absl/synchronization",
+        "@abseil-cpp//absl/time",
     ],
 )
 
@@ -190,9 +190,9 @@ tensorstore_cc_test(
         ":task_provider",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal/tracing",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/synchronization",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/synchronization",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -211,8 +211,8 @@ tensorstore_cc_library(
         "//tensorstore/internal/metrics:metadata",
         "//tensorstore/internal/os:fork_detection",
         "//tensorstore/util:span",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/synchronization",
-        "@com_google_absl//absl/time",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/synchronization",
+        "@abseil-cpp//absl/time",
     ],
 )

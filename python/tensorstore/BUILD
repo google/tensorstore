@@ -60,10 +60,10 @@ pybind11_py_extension(
         ":virtual_chunked",
         ":write_futures",
         "//tensorstore:all_drivers",
+        "@abseil-cpp//absl/base:log_severity",
+        "@abseil-cpp//absl/log:globals",
+        "@abseil-cpp//absl/log:initialize",
         "@com_github_pybind_pybind11//:pybind11",
-        "@com_google_absl//absl/base:log_severity",
-        "@com_google_absl//absl/log:globals",
-        "@com_google_absl//absl/log:initialize",
     ],
 )
 
@@ -73,8 +73,8 @@ pybind11_cc_library(
     hdrs = ["tensorstore_module_components.h"],
     deps = [
         "//tensorstore/util:executor",
+        "@abseil-cpp//absl/base:no_destructor",
         "@com_github_pybind_pybind11//:pybind11",
-        "@com_google_absl//absl/base:no_destructor",
     ],
 )
 
@@ -216,8 +216,8 @@ pybind11_cc_library(
     srcs = ["json_type_caster.cc"],
     hdrs = ["json_type_caster.h"],
     deps = [
-        "@com_github_nlohmann_json//:json",
         "@com_github_pybind_pybind11//:pybind11",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -227,12 +227,12 @@ pybind11_cc_library(
     hdrs = ["status.h"],
     deps = [
         ":python_imports",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
+        "@boringssl//:crypto",
         "@com_github_pybind_pybind11//:pybind11",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_boringssl//:crypto",
     ],
 )
 
@@ -305,12 +305,12 @@ pybind11_cc_library(
         "//tensorstore/util:span",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/container:inlined_vector",
+        "@abseil-cpp//absl/meta:type_traits",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
         "@com_github_pybind_pybind11//:pybind11",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/container:inlined_vector",
-        "@com_google_absl//absl/meta:type_traits",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
     ],
     alwayslink = True,
 )
@@ -367,10 +367,10 @@ pybind11_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:str_cat",
-        "@com_github_nlohmann_json//:json",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/meta:type_traits",
         "@com_github_pybind_pybind11//:pybind11",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/meta:type_traits",
+        "@nlohmann_json//:json",
     ],
     alwayslink = True,
 )
@@ -464,10 +464,10 @@ pybind11_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:str_cat",
         "//tensorstore/util:unit",
-        "@com_github_nlohmann_json//:json",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/time",
         "@com_github_pybind_pybind11//:pybind11",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/time",
+        "@nlohmann_json//:json",
     ],
     alwayslink = True,
 )
@@ -490,10 +490,10 @@ pybind11_cc_library(
         "//tensorstore/util:executor",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:str_cat",
+        "@abseil-cpp//absl/base:no_destructor",
+        "@abseil-cpp//absl/container:flat_hash_map",
+        "@abseil-cpp//absl/hash",
         "@com_github_pybind_pybind11//:pybind11",
-        "@com_google_absl//absl/base:no_destructor",
-        "@com_google_absl//absl/container:flat_hash_map",
-        "@com_google_absl//absl/hash",
         "@pypa_numpy//:headers",
     ],
     alwayslink = True,
@@ -559,9 +559,9 @@ pybind11_cc_library(
         "//tensorstore/util:executor",
         "//tensorstore/util:future",
         "//tensorstore/util:unit",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:str_format",
         "@com_github_pybind_pybind11//:pybind11",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:str_format",
     ],
     alwayslink = True,
 )
@@ -598,10 +598,10 @@ pybind11_cc_library(
         ":python_imports",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/util/garbage_collection",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/synchronization",
         "@com_github_pybind_pybind11//:pybind11",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/synchronization",
     ],
 )
 
@@ -618,8 +618,8 @@ pybind11_cc_library(
         "//tensorstore/internal:tagged_ptr",
         "//tensorstore/util:executor",
         "//tensorstore/util/garbage_collection",
+        "@abseil-cpp//absl/container:flat_hash_set",
         "@com_github_pybind_pybind11//:pybind11",
-        "@com_google_absl//absl/container:flat_hash_set",
     ],
     alwayslink = True,
 )
@@ -644,10 +644,10 @@ pybind11_cc_library(
         "//tensorstore/util:executor",
         "//tensorstore/util:future",
         "//tensorstore/util:result",
+        "@abseil-cpp//absl/functional:function_ref",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/time",
         "@com_github_pybind_pybind11//:pybind11",
-        "@com_google_absl//absl/functional:function_ref",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/time",
     ],
     alwayslink = True,
 )
@@ -717,9 +717,9 @@ pybind11_cc_library(
         "//tensorstore/util:iterate",
         "//tensorstore/util:span",
         "//tensorstore/util:str_cat",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/status",
         "@com_github_pybind_pybind11//:pybind11",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/status",
     ],
 )
 
@@ -805,7 +805,7 @@ pybind11_cc_googletest_test(
     deps = [
         ":index",
         "//tensorstore:index",
-        "@com_google_googletest//:gtest",
+        "@googletest//:gtest",
     ],
 )
 
@@ -970,8 +970,8 @@ pybind11_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
+        "@abseil-cpp//absl/status",
         "@com_github_pybind_pybind11//:pybind11",
-        "@com_google_absl//absl/status",
     ],
     alwayslink = True,
 )
@@ -984,8 +984,8 @@ pybind11_cc_library(
         ":type_name_override",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
+        "@abseil-cpp//absl/strings",
         "@com_github_pybind_pybind11//:pybind11",
-        "@com_google_absl//absl/strings",
     ],
 )
 
@@ -1046,17 +1046,17 @@ pybind11_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/base:no_destructor",
+        "@abseil-cpp//absl/container:flat_hash_map",
+        "@abseil-cpp//absl/functional:function_ref",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
         "@com_github_pybind_pybind11//:pybind11",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/base:no_destructor",
-        "@com_google_absl//absl/container:flat_hash_map",
-        "@com_google_absl//absl/functional:function_ref",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_riegeli//riegeli/bytes:cord_writer",
-        "@com_google_riegeli//riegeli/bytes:string_reader",
-        "@com_google_riegeli//riegeli/bytes:writer",
         "@local_config_python//:python_headers",  # build_cleaner: keep
+        "@riegeli//riegeli/bytes:cord_writer",
+        "@riegeli//riegeli/bytes:string_reader",
+        "@riegeli//riegeli/bytes:writer",
     ],
     alwayslink = True,
 )
@@ -1093,10 +1093,10 @@ pybind11_cc_library(
         "//tensorstore/util:future",
         "//tensorstore/util:str_cat",
         "//tensorstore/util/garbage_collection",
-        "@com_github_nlohmann_json//:json",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
         "@com_github_pybind_pybind11//:pybind11",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:cord",
+        "@nlohmann_json//:json",
     ],
     alwayslink = True,
 )
@@ -1115,7 +1115,7 @@ tensorstore_cc_library(
     name = "time",
     srcs = ["time.cc"],
     hdrs = ["time.h"],
-    deps = ["@com_google_absl//absl/time"],
+    deps = ["@abseil-cpp//absl/time"],
 )
 
 pybind11_cc_library(
@@ -1137,9 +1137,9 @@ pybind11_cc_library(
         "//tensorstore/util:executor",
         "//tensorstore/util:future",
         "//tensorstore/util/garbage_collection:json",
-        "@com_github_nlohmann_json//:json",
+        "@abseil-cpp//absl/strings:cord",
         "@com_github_pybind_pybind11//:pybind11",
-        "@com_google_absl//absl/strings:cord",
+        "@nlohmann_json//:json",
     ],
     alwayslink = True,
 )
@@ -1178,10 +1178,10 @@ pybind11_cc_library(
         "//tensorstore/util:executor",
         "//tensorstore/util:future",
         "//tensorstore/util:result",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/time",
         "@com_github_pybind_pybind11//:pybind11",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/time",
     ],
     alwayslink = True,
 )
@@ -1216,10 +1216,10 @@ pybind11_cc_library(
         "//tensorstore/util:future",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
-        "@com_github_nlohmann_json//:json",
+        "@abseil-cpp//absl/flags:parse",
+        "@abseil-cpp//absl/strings:cord",
         "@com_github_pybind_pybind11//:pybind11",
-        "@com_google_absl//absl/flags:parse",
-        "@com_google_absl//absl/strings:cord",
+        "@nlohmann_json//:json",
     ],
     alwayslink = True,
 )

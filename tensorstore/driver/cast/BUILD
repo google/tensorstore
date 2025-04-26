@@ -60,7 +60,7 @@ tensorstore_cc_library(
         "//tensorstore/util:str_cat",
         "//tensorstore/util/execution",
         "//tensorstore/util/execution:any_receiver",
-        "@com_google_absl//absl/status",
+        "@abseil-cpp//absl/status",
     ],
     alwayslink = 1,
 )
@@ -94,8 +94,8 @@ tensorstore_cc_test(
         "//tensorstore/kvstore/memory",
         "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_absl//absl/status",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/status",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
     ],
 )

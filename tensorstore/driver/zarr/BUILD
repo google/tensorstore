@@ -51,10 +51,10 @@ tensorstore_cc_test(
         ":blosc_compressor",
         ":compressor",
         "//tensorstore/util:status_testutil",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
         "@org_blosc_cblosc//:blosc",
     ],
 )
@@ -80,9 +80,9 @@ tensorstore_cc_test(
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/testing:json_gtest",
         "//tensorstore/util:status_testutil",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -98,7 +98,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/compression:json_specified_compressor",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
-        "@com_google_absl//absl/base:no_destructor",
+        "@abseil-cpp//absl/base:no_destructor",
     ],
 )
 
@@ -112,8 +112,8 @@ tensorstore_cc_test(
         "//tensorstore/internal/testing:json_gtest",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -138,8 +138,8 @@ tensorstore_cc_test(
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status_testutil",
-        "@com_google_absl//absl/status",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/status",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -190,12 +190,12 @@ tensorstore_cc_test(
         "//tensorstore/util:span",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_absl//absl/time",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/time",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -212,8 +212,8 @@ tensorstore_cc_library(
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
         "//tensorstore/util:str_cat",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_absl//absl/base:core_headers",
+        "@abseil-cpp//absl/base:core_headers",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -230,9 +230,9 @@ tensorstore_cc_test(
         "//tensorstore/util:endian",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_absl//absl/status",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/status",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -274,19 +274,19 @@ tensorstore_cc_library(
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "//tensorstore/util/garbage_collection",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/container:inlined_vector",
-        "@com_google_absl//absl/meta:type_traits",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_riegeli//riegeli/bytes:cord_reader",
-        "@com_google_riegeli//riegeli/bytes:cord_writer",
-        "@com_google_riegeli//riegeli/bytes:read_all",
-        "@com_google_riegeli//riegeli/bytes:reader",
-        "@com_google_riegeli//riegeli/bytes:write",
-        "@com_google_riegeli//riegeli/bytes:writer",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/container:inlined_vector",
+        "@abseil-cpp//absl/meta:type_traits",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:cord",
+        "@nlohmann_json//:json",
+        "@riegeli//riegeli/bytes:cord_reader",
+        "@riegeli//riegeli/bytes:cord_writer",
+        "@riegeli//riegeli/bytes:read_all",
+        "@riegeli//riegeli/bytes:reader",
+        "@riegeli//riegeli/bytes:write",
+        "@riegeli//riegeli/bytes:writer",
     ],
 )
 
@@ -307,9 +307,9 @@ tensorstore_cc_test(
         "//tensorstore/util:endian",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_absl//absl/status",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/status",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -321,8 +321,8 @@ tensorstore_cc_library(
     deps = [
         ":metadata",
         "//tensorstore/internal/meta:type_traits",
-        "@com_google_absl//absl/meta:type_traits",
-        "@com_google_googletest//:gtest",
+        "@abseil-cpp//absl/meta:type_traits",
+        "@googletest//:gtest",
     ],
 )
 
@@ -356,8 +356,8 @@ tensorstore_cc_library(
         "//tensorstore/util:span",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_absl//absl/status",
+        "@abseil-cpp//absl/status",
+        "@nlohmann_json//:json",
     ],
     alwayslink = True,
 )
@@ -380,9 +380,9 @@ tensorstore_cc_test(
         "//tensorstore/internal/testing:json_gtest",
         "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_absl//absl/status",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/status",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -430,9 +430,9 @@ tensorstore_cc_library(
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "//tensorstore/util/garbage_collection",
-        "@com_google_absl//absl/container:inlined_vector",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:cord",
+        "@abseil-cpp//absl/container:inlined_vector",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
     ],
     alwayslink = 1,
 )
@@ -456,10 +456,10 @@ tensorstore_cc_test(
         ":compressor",
         ":zlib_compressor",
         "//tensorstore/util:status_testutil",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -470,7 +470,7 @@ tensorstore_cc_library(
         ":compressor",
         "//tensorstore/internal/compression:zstd_compressor",
         "//tensorstore/internal/json_binding",
-        "@com_google_riegeli//riegeli/zstd:zstd_writer",
+        "@riegeli//riegeli/zstd:zstd_writer",
     ],
     alwayslink = 1,
 )
@@ -483,10 +483,10 @@ tensorstore_cc_test(
         ":compressor",
         ":zstd_compressor",
         "//tensorstore/util:status_testutil",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -512,8 +512,8 @@ tensorstore_cc_library(
         "//tensorstore/kvstore/memory",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_googletest//:gtest",
+        "@googletest//:gtest",
+        "@nlohmann_json//:json",
     ],
     alwayslink = True,
 )
@@ -525,6 +525,6 @@ tensorstore_cc_test(
     deps = [
         ":driver",
         ":storage_statistics_test_util",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )

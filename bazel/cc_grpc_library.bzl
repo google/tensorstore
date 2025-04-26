@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Variation of @com_github_grpc_grpc//:bazel/cc_grpc_library.bzl.
+"""Variation of @grpc//:bazel/cc_grpc_library.bzl.
 
 This version only generates the gRPC target and the grpc.cc and grpc.h
 files, and relies on a separate proto_library() target (as when grpc_only=True).
@@ -21,7 +21,7 @@ It also adds support for service_namesspace in the grpc targets.
 TODO: Try and upstream changes to make this file unnecessary.
 """
 
-load("@com_github_grpc_grpc//bazel:generate_cc.bzl", "generate_cc")
+load("@grpc//bazel:generate_cc.bzl", "generate_cc")
 
 def cc_grpc_library(
         name,
@@ -67,7 +67,7 @@ def cc_grpc_library(
         name = codegen_grpc_target,
         visibility = ["//visibility:private"],
         srcs = srcs,
-        plugin = "@com_github_grpc_grpc//src/compiler:grpc_cpp_plugin",
+        plugin = "@grpc//src/compiler:grpc_cpp_plugin",
         flags = flags,
         **kwargs
     )
@@ -79,7 +79,7 @@ def cc_grpc_library(
         srcs = [":" + codegen_grpc_target],
         hdrs = [":" + codegen_grpc_target],
         features = features,
-        deps = ["@com_github_grpc_grpc//:grpc++_codegen_proto"] + deps,
+        deps = ["@grpc//:grpc++_codegen_proto"] + deps,
         visibility = visibility,
         **kwargs
     )

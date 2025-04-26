@@ -1,4 +1,4 @@
-load("@com_github_grpc_grpc//bazel:generate_cc.bzl", "generate_cc")
+load("@grpc//bazel:generate_cc.bzl", "generate_cc")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -19,7 +19,7 @@ generate_cc(
     name = "cc__grpc_codegen",
     srcs = [":c_proto"],
     flags = ["services_namespace=grpc_gen"],
-    plugin = "@com_github_grpc_grpc//src/compiler:grpc_cpp_plugin",
+    plugin = "@grpc//src/compiler:grpc_cpp_plugin",
     visibility = ["//visibility:private"],
     well_known_protos = False,
 )
@@ -28,5 +28,5 @@ cc_library(
     name = "cc_grpc",
     srcs = [":cc__grpc_codegen"],
     hdrs = [":cc__grpc_codegen"],
-    deps = ["@com_github_grpc_grpc//:grpc++_codegen_proto"],
+    deps = ["@grpc//:grpc++_codegen_proto"],
 )

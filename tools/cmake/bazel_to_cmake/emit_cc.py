@@ -221,7 +221,7 @@ def construct_cc_includes(
     # the CMake build, so remove them.
     if (
         current_package_id.repository_id.repository_name
-        == "com_github_grpc_grpc"
+        == "grpc"
         and include
         in ["src/core/ext/upb-generated", "src/core/ext/upbdefs-generated"]
     ):

@@ -16,7 +16,7 @@ tensorstore_cc_library(
     ],
     deps = [
         "//tensorstore/util/apply_members",
-        "@com_google_absl//absl/strings:cord",
+        "@abseil-cpp//absl/strings:cord",
     ],
 )
 
@@ -27,7 +27,7 @@ tensorstore_cc_test(
         ":estimate_heap_usage",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/util/apply_members",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/strings:cord",
+        "@googletest//:gtest_main",
     ],
 )

@@ -7,7 +7,7 @@ licenses(["notice"])
 tensorstore_cc_library(
     name = "access_token",
     hdrs = ["access_token.h"],
-    deps = ["@com_google_absl//absl/time"],
+    deps = ["@abseil-cpp//absl/time"],
 )
 
 tensorstore_cc_library(
@@ -25,12 +25,12 @@ tensorstore_cc_library(
         "//tensorstore/util:future",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
-        "@com_github_grpc_grpc//:grpc++",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/time",
-        "@com_google_googleapis//google/iam/credentials/v1:credentials_cc_grpc",
-        "@com_google_googleapis//google/iam/credentials/v1:credentials_cc_proto",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/time",
+        "@googleapis//google/iam/credentials/v1:credentials_cc_grpc",
+        "@googleapis//google/iam/credentials/v1:credentials_cc_proto",
+        "@grpc//:grpc++",
     ],
 )
 
@@ -41,8 +41,8 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore/internal/os:file_util",
         "//tensorstore/util:future",
-        "@com_github_grpc_grpc//:grpc++",
-        "@com_google_absl//absl/log:absl_log",
+        "@abseil-cpp//absl/log:absl_log",
+        "@grpc//:grpc++",
     ],
 )
 
@@ -54,9 +54,9 @@ tensorstore_cc_library(
         ":access_token",
         "//tensorstore/util:future",
         "//tensorstore/util:result",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/synchronization",
-        "@com_google_absl//absl/time",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/synchronization",
+        "@abseil-cpp//absl/time",
     ],
 )
 
@@ -67,7 +67,7 @@ tensorstore_cc_library(
     deps = [
         ":authentication_strategy",
         "//tensorstore/util:future",
-        "@com_github_grpc_grpc//:grpc++",
+        "@grpc//:grpc++",
     ],
 )
 
@@ -78,7 +78,7 @@ tensorstore_cc_library(
     deps = [
         ":authentication_strategy",
         "//tensorstore/util:future",
-        "@com_github_grpc_grpc//:grpc++",
+        "@grpc//:grpc++",
     ],
 )
 
@@ -94,11 +94,11 @@ tensorstore_cc_library(
         "//tensorstore/util:executor",
         "//tensorstore/util:future",
         "//tensorstore/util:result",
-        "@com_github_grpc_grpc//:grpc++",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/synchronization",
-        "@com_google_absl//absl/time",
-        "@com_google_googleapis//google/iam/credentials/v1:credentials_cc_proto",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/synchronization",
+        "@abseil-cpp//absl/time",
+        "@googleapis//google/iam/credentials/v1:credentials_cc_proto",
+        "@grpc//:grpc++",
     ],
 )
 
@@ -108,8 +108,8 @@ tensorstore_cc_test(
     deps = [
         ":call_authentication",
         "//tensorstore/util:status_testutil",
-        "@com_github_grpc_grpc//:grpc++",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
+        "@grpc//:grpc++",
     ],
 )
 
@@ -119,8 +119,8 @@ tensorstore_cc_test(
     deps = [
         ":channel_authentication",
         "//tensorstore/util:status_testutil",
-        "@com_github_grpc_grpc//:grpc++",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
+        "@grpc//:grpc++",
     ],
 )
 
@@ -131,6 +131,6 @@ tensorstore_cc_library(
     deps = [
         ":authentication_strategy",
         "//tensorstore/internal/grpc:logging_interceptor",
-        "@com_github_grpc_grpc//:grpc++",
+        "@grpc//:grpc++",
     ],
 )

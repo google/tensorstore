@@ -75,11 +75,11 @@ tensorstore_cc_library(
         "//tensorstore/util:str_cat",
         "//tensorstore/util/execution:any_receiver",
         "//tensorstore/util/garbage_collection",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_absl//absl/time",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/time",
+        "@nlohmann_json//:json",
     ],
     alwayslink = True,
 )
@@ -132,14 +132,14 @@ tensorstore_cc_library(
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "//tensorstore/util/garbage_collection",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_absl//absl/algorithm:container",
-        "@com_google_absl//absl/base",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/meta:type_traits",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/strings:str_format",
+        "@abseil-cpp//absl/algorithm:container",
+        "@abseil-cpp//absl/base",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/meta:type_traits",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -185,12 +185,12 @@ tensorstore_cc_test(
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_absl//absl/strings:str_format",
-        "@com_google_absl//absl/time",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/strings:str_format",
+        "@abseil-cpp//absl/time",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -233,11 +233,11 @@ tensorstore_cc_library(
         "//tensorstore/util:span",
         "//tensorstore/util:status",
         "//tensorstore/util/execution:any_receiver",
-        "@com_google_absl//absl/container:inlined_vector",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_absl//absl/synchronization",
-        "@com_google_absl//absl/time",
+        "@abseil-cpp//absl/container:inlined_vector",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/synchronization",
+        "@abseil-cpp//absl/time",
     ],
 )
 
@@ -263,8 +263,8 @@ tensorstore_cc_binary(
         "//tensorstore/util:future",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_benchmark//:benchmark_main",
+        "@google_benchmark//:benchmark_main",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -289,9 +289,9 @@ tensorstore_cc_test(
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:unit",
-        "@com_google_absl//absl/base",
-        "@com_google_absl//absl/status",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/base",
+        "@abseil-cpp//absl/status",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -318,7 +318,7 @@ tensorstore_cc_test(
         "//tensorstore/kvstore/memory",
         "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -328,6 +328,6 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore:data_type",
         "//tensorstore/util:float8",
-        "@com_google_absl//absl/base",
+        "@abseil-cpp//absl/base",
     ],
 )

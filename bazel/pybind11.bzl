@@ -175,7 +175,7 @@ def pybind11_cc_googletest_test(name, **kwargs):
         pybind11_py_extension_rule = pybind11_py_extension,
         googletest_deps = [
             "@com_github_pybind_pybind11//:pybind11",
-            "@com_google_googletest//:gtest",
+            "@googletest//:gtest",
         ],
         **kwargs
     )

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 """
-Replacement for @com_github_cncf_udpa//bazel:api_build_system.bzl used by bazel_to_cmake
+Replacement for @xds//bazel:api_build_system.bzl used by bazel_to_cmake
 to simplify the CMake target generation.
 
 This does not provide all the functionality used by the cncf/xds repository.
@@ -25,7 +25,7 @@ load(
     _tensorstore_proto_library = "tensorstore_proto_library",
 )
 
-_GAPI = "@com_google_googleapis//google/api"
+_GAPI = "@googleapis//google/api"
 
 # This maps from the Bazel proto_library target to the C++ language binding target for external dependencies.
 EXTERNAL_PROTO_CC_BAZEL_DEP_MAP = {
@@ -45,8 +45,8 @@ _COMMON_PROTO_DEPS = [
     "@com_google_protobuf//:struct_proto",
     "@com_google_protobuf//:timestamp_proto",
     "@com_google_protobuf//:wrappers_proto",
-    "@com_google_googleapis//google/api:http_proto",
-    "@com_google_googleapis//google/rpc:status_proto",
+    "@googleapis//google/api:http_proto",
+    "@googleapis//google/rpc:status_proto",
     "@com_envoyproxy_protoc_gen_validate//validate:validate_proto",
 ]
 
@@ -80,9 +80,9 @@ def xds_proto_package(
     _tensorstore_cc_proto_library(
         name = name + _CC_PROTO_SUFFIX,
         cc_deps = [_cc_proto_mapping(dep) for dep in deps] + [
-            "@com_google_googleapis//google/api:http_cc_proto",
-            "@com_google_googleapis//google/api:httpbody_cc_proto",
-            "@com_google_googleapis//google/rpc:status_cc_proto",
+            "@googleapis//google/api:http_cc_proto",
+            "@googleapis//google/api:httpbody_cc_proto",
+            "@googleapis//google/rpc:status_cc_proto",
         ],
         deps = [name],
         visibility = ["//visibility:public"],

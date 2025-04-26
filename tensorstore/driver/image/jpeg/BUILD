@@ -39,9 +39,9 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_riegeli//riegeli/bytes:cord_reader",
-        "@com_google_riegeli//riegeli/bytes:cord_writer",
+        "@abseil-cpp//absl/strings:cord",
+        "@riegeli//riegeli/bytes:cord_reader",
+        "@riegeli//riegeli/bytes:cord_writer",
     ],
     alwayslink = True,
 )

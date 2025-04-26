@@ -16,8 +16,8 @@ tensorstore_cc_library(
     ],
     deps = [
         "//tensorstore/util/apply_members",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/time",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/time",
     ],
 )
 
@@ -26,8 +26,8 @@ tensorstore_cc_test(
     srcs = ["cache_key_test.cc"],
     deps = [
         ":cache_key",
-        "@com_google_absl//absl/time",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/time",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -36,6 +36,6 @@ tensorstore_cc_library(
     hdrs = ["json.h"],
     deps = [
         ":cache_key",
-        "@com_github_nlohmann_json//:json",
+        "@nlohmann_json//:json",
     ],
 )

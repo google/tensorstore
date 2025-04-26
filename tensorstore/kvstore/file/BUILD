@@ -52,15 +52,15 @@ tensorstore_cc_library(
         "//tensorstore/util:status",
         "//tensorstore/util/execution",
         "//tensorstore/util/garbage_collection",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/functional:function_ref",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/log:absl_log",
-        "@com_google_absl//absl/random",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_absl//absl/time",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/functional:function_ref",
+        "@abseil-cpp//absl/log:absl_check",
+        "@abseil-cpp//absl/log:absl_log",
+        "@abseil-cpp//absl/random",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/time",
     ],
     alwayslink = 1,
 )
@@ -85,12 +85,12 @@ tensorstore_cc_test(
         "//tensorstore/util:status_testutil",
         "//tensorstore/util/execution",
         "//tensorstore/util/execution:sender_testutil",
-        "@com_github_nlohmann_json//:json",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_absl//absl/synchronization",
-        "@com_google_absl//absl/time",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/synchronization",
+        "@abseil-cpp//absl/time",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -105,7 +105,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/json_binding:absl_time",
         "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/util:result",
-        "@com_google_absl//absl/time",
+        "@abseil-cpp//absl/time",
     ],
     alwayslink = 1,
 )
@@ -116,7 +116,7 @@ tensorstore_cc_library(
     hdrs = ["util.h"],
     deps = [
         "//tensorstore/kvstore:key_range",
-        "@com_google_absl//absl/strings",
+        "@abseil-cpp//absl/strings",
     ],
 )
 
@@ -127,6 +127,6 @@ tensorstore_cc_test(
     deps = [
         ":util",
         "//tensorstore/kvstore:key_range",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )

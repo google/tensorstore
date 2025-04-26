@@ -231,7 +231,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 --------------------------------------------------------------------------------
 
-Files: third_party/com_google_snappy/bundled.BUILD.bazel
+Files: third_party/snappy/bundled.BUILD.bazel
 
 Copyright 2011 Google Inc. All Rights Reserved.
 Author: sesse@google.com (Steinar H. Gunderson)

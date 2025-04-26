@@ -10,13 +10,13 @@ tensorstore_cc_library(
     hdrs = ["verbose_flag.h"],
     deps = [
         "//tensorstore/internal:env",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/base:no_destructor",
-        "@com_google_absl//absl/container:flat_hash_map",
-        "@com_google_absl//absl/flags:flag",
-        "@com_google_absl//absl/log:absl_log",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/synchronization",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/base:no_destructor",
+        "@abseil-cpp//absl/container:flat_hash_map",
+        "@abseil-cpp//absl/flags:flag",
+        "@abseil-cpp//absl/log:absl_log",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/synchronization",
     ],
 )
 
@@ -25,7 +25,7 @@ tensorstore_cc_test(
     srcs = ["verbose_flag_test.cc"],
     deps = [
         ":verbose_flag",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_googletest//:gtest_main",
+        "@abseil-cpp//absl/base:core_headers",
+        "@googletest//:gtest_main",
     ],
 )

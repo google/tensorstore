@@ -39,7 +39,7 @@ from ..starlark.select import Configurable
 from ..util import quote_path_list
 from .upb_proto_library import UPB_PLUGIN  # pylint: disable=unused-import
 
-GRPC_REPO = RepositoryId("com_github_grpc_grpc")
+GRPC_REPO = RepositoryId("grpc")
 
 _SEP = "\n        "
 
@@ -60,7 +60,7 @@ _GRPC = PluginSettings(
 
 
 @register_bzl_library(
-    "@com_github_grpc_grpc//bazel:generate_cc.bzl", build=True
+    "@grpc//bazel:generate_cc.bzl", build=True
 )
 class GrpcGenerateCcLibrary(BazelGlobals):
 

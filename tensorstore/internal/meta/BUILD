@@ -7,15 +7,15 @@ licenses(["notice"])
 tensorstore_cc_library(
     name = "attributes",
     hdrs = ["attributes.h"],
-    deps = ["@com_google_absl//absl/base:core_headers"],
+    deps = ["@abseil-cpp//absl/base:core_headers"],
 )
 
 tensorstore_cc_library(
     name = "exception_macros",
     hdrs = ["exception_macros.h"],
     deps = [
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/log:absl_check",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/log:absl_check",
     ],
 )
 
@@ -45,7 +45,7 @@ tensorstore_cc_test(
     srcs = ["meta_test.cc"],
     deps = [
         ":meta",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -54,7 +54,7 @@ tensorstore_cc_library(
     hdrs = ["type_traits.h"],
     deps = [
         "//tensorstore:index",
-        "@com_google_absl//absl/meta:type_traits",
+        "@abseil-cpp//absl/meta:type_traits",
     ],
 )
 
@@ -64,14 +64,14 @@ tensorstore_cc_test(
     srcs = ["type_traits_test.cc"],
     deps = [
         ":type_traits",
-        "@com_google_googletest//:gtest_main",  # buildcleaner: keep
+        "@googletest//:gtest_main",  # buildcleaner: keep
     ],
 )
 
 tensorstore_cc_library(
     name = "void_wrapper",
     hdrs = ["void_wrapper.h"],
-    deps = ["@com_google_absl//absl/status"],
+    deps = ["@abseil-cpp//absl/status"],
 )
 
 tensorstore_cc_test(
@@ -81,6 +81,6 @@ tensorstore_cc_test(
     deps = [
         ":type_traits",
         ":void_wrapper",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )

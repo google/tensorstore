@@ -1,4 +1,4 @@
-# Rules used by com_google_googleapis to build additional targets.
+# Rules used by googleapis to build additional targets.
 # See: https://github.com/googleapis/googleapis/blob/master/repository_rules.bzl
 
 load(
