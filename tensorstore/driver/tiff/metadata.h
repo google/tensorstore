@@ -274,7 +274,11 @@ TiffGridMappingInfo GetTiffGridMappingInfo(const TiffMetadata& metadata);
 }  // namespace tensorstore
 
 TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(
+    tensorstore::internal_tiff::TiffSpecOptions)
+
+TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(
     tensorstore::internal_tiff::TiffMetadataConstraints)
+
 TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(
     tensorstore::internal_tiff::TiffMetadataConstraints)
 

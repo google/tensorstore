@@ -971,6 +971,11 @@ TiffGridMappingInfo GetTiffGridMappingInfo(const TiffMetadata& metadata) {
 }  // namespace tensorstore
 
 TENSORSTORE_DEFINE_SERIALIZER_SPECIALIZATION(
+    tensorstore::internal_tiff::TiffSpecOptions,
+    tensorstore::serialization::JsonBindableSerializer<
+        tensorstore::internal_tiff::TiffSpecOptions>())
+
+TENSORSTORE_DEFINE_SERIALIZER_SPECIALIZATION(
     tensorstore::internal_tiff::TiffMetadataConstraints,
     tensorstore::serialization::JsonBindableSerializer<
         tensorstore::internal_tiff::TiffMetadataConstraints>())

@@ -19,6 +19,7 @@
 
 #include "absl/strings/cord.h"
 #include "tensorstore/internal/cache/async_cache.h"
+#include "tensorstore/internal/cache/async_initialized_cache_mixin.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/tiff/tiff_details.h"
@@ -47,7 +48,8 @@ struct TiffParseResult {
   };
 };
 
-class TiffDirectoryCache : public internal::AsyncCache {
+class TiffDirectoryCache : public internal::AsyncCache,
+                           public internal::AsyncInitializedCacheMixin {
   using Base = internal::AsyncCache;
 
  public:
@@ -66,6 +68,11 @@ class TiffDirectoryCache : public internal::AsyncCache {
     Future<void> LoadExternalArrays(
         std::shared_ptr<TiffParseResult> parse_result,
         tensorstore::TimestampedStorageGeneration stamp);
+
+    absl::Status AnnotateError(const absl::Status& error, bool reading) {
+      return GetOwningCache(*this).kvstore_driver_->AnnotateError(
+          this->key(), reading ? "reading" : "writing", error);
+    }
   };
 
   Entry* DoAllocateEntry() final;
