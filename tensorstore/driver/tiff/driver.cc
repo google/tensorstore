@@ -89,6 +89,8 @@ class TiffChunkCache : public internal::KvsBackedChunkCache {
   const Executor& executor() const override { return executor_; }
 
   std::string GetChunkStorageKey(span<const Index> cell_indices) override {
+    ABSL_LOG(INFO) << "GetChunkStorageKey called with cell_indices: "
+                   << absl::StrJoin(cell_indices, ", ");
     const auto& metadata = *resolved_metadata_;
     const auto& grid = grid_;  // Get the grid spec stored in the cache
 
@@ -612,6 +614,7 @@ class TiffDriver final : public TiffDriverBase {
   Result<IndexTransform<>> GetBoundSpecData(
       internal::OpenTransactionPtr transaction, TiffDriverSpec& spec,
       IndexTransformView<> transform) {
+    ABSL_LOG(INFO) << "GetBoundSpecData called for TiffDriver";
     // Get the metadata snapshot associated with this driver instance.
     // For generating a spec, using the initial metadata snapshot is
     // appropriate. Note: `GetMetadata()` uses `initial_metadata_` and is
@@ -933,6 +936,7 @@ void TiffOpenState::OnDirCacheRead(
     return;
   }
 
+  ABSL_LOG(INFO) << "TiffOpenState::OnDirCacheRead Resolving metadata";
   // 3. Resolve the final TiffMetadata
   Result<std::shared_ptr<const TiffMetadata>> metadata_result =
       internal_tiff::ResolveMetadata(*parse_result, tiff_options_, schema_);
@@ -941,6 +945,8 @@ void TiffOpenState::OnDirCacheRead(
     return;
   }
   std::shared_ptr<const TiffMetadata> metadata = *std::move(metadata_result);
+
+  ABSL_LOG(INFO) << "TiffOpenState::OnDirCacheRead Resolved metadata";
 
   // 4. Validate the resolved metadata against user-provided constraints.
   absl::Status validate_status =
@@ -1061,6 +1067,7 @@ void TiffOpenState::OnDirCacheRead(
                                       std::move(request_.transaction))};
 
   promise_.SetResult(std::move(handle));
+  ABSL_LOG(INFO) << "TiffOpenState::OnDirCacheRead completed successfully";
 }
 
 Future<internal::Driver::Handle> TiffDriverSpec::Open(

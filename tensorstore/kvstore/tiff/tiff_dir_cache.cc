@@ -140,6 +140,9 @@ struct ReadDirectoryOp
     if (r->aborted()) {
       if (existing_read_data_) {
         // Return existing data
+        ABSL_LOG_IF(INFO, tiff_logging)
+            << "Read aborted, returning existing data for key: "
+            << entry_->key();
         entry_->ReadSuccess(TiffDirectoryCache::ReadState{existing_read_data_,
                                                           std::move(r->stamp)});
       } else {

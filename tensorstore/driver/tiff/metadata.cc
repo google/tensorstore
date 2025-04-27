@@ -870,44 +870,57 @@ TiffGridMappingInfo GetTiffGridMappingInfo(const TiffMetadata& metadata) {
     return info;
   }
 
-  // --- Determine logical Y and X dimensions in the TensorStore array ---
-  const auto& inner_order = metadata.chunk_layout.inner_order();
+  // For TIFF, the tiling/stripping is fundamentally 2D (Y, X).
+  // We assume the TensorStore dimensions corresponding to these are the
+  // first two dimensions OR the last two if channels come first.
+  // Let's assume a standard image layout like (..., Y, X) or (..., Y, X, C)
+  // where Y and X are the tiled/stripped dimensions.
 
-  // Check if inner_order is valid and fully specified
-  bool known_order =
-      !inner_order.empty() && inner_order.size() == metadata_rank;
+  // TODO(hsidky): This assumption might need refinement if complex dimension
+  // orders (e.g., from OME-TIFF like XYCZT) are needed later. For now,
+  // assume Y and X are the dimensions corresponding to ImageLength
+  // and ImageWidth respectively, and appear contiguously in the rank.
 
-  if (known_order) {
-    // Find dimensions corresponding to the last two values in the permutation
-    // Assumes C-order like interpretation where last is fastest (X), second
-    // last is second fastest (Y)
-    DimensionIndex x_perm_val = metadata_rank - 1;
-    DimensionIndex y_perm_val = metadata_rank - 2;  // Only valid if rank >= 2
-    for (DimensionIndex i = 0; i < metadata_rank; ++i) {
-      if (inner_order[i] == x_perm_val) info.ts_x_dim = i;
-      if (metadata_rank >= 2 && inner_order[i] == y_perm_val) info.ts_y_dim = i;
-    }
-  } else {
-    // Fallback: Assume standard C order if inner_order is missing or invalid
-    // size Log a warning? ResolvedMetadata should ideally always set it.
-    if (metadata_rank >= 2) {
-      info.ts_y_dim = metadata_rank - 2;
-      info.ts_x_dim = metadata_rank - 1;
-    } else if (metadata_rank == 1) {
-      info.ts_x_dim = 0;  // Rank 1 only has an X dimension conceptually
+  if (metadata_rank >= 1) {
+    // Assume the last dimension corresponds to ImageWidth (X)
+    info.ts_x_dim = metadata_rank - 1;
+  }
+  if (metadata_rank >= 2) {
+    // Assume the second-to-last dimension corresponds to ImageLength (Y)
+    info.ts_y_dim = metadata_rank - 2;
+  }
+
+  // Handle the case where SamplesPerPixel > 1 and PlanarConfiguration is chunky
+  // The channel dimension is typically added *last* in TensorStore for chunky.
+  if (metadata.samples_per_pixel > 1 &&
+      metadata.planar_config ==
+          internal_tiff_kvstore::PlanarConfigType::kChunky) {
+    // Check if the inferred X dim is actually the channel dim
+    if (info.ts_x_dim == metadata_rank - 1) {
+      // Shift Y and X assumptions back by one if the last dim is channels
+      if (metadata_rank >= 2) {
+        info.ts_x_dim = metadata_rank - 2;
+      } else {
+        info.ts_x_dim =
+            -1;  // Rank 1 with channels doesn't make sense for YX grid
+      }
+      if (metadata_rank >= 3) {
+        info.ts_y_dim = metadata_rank - 3;
+      } else {
+        info.ts_y_dim = -1;
+      }
     }
   }
-  ABSL_CHECK(info.ts_x_dim != -1)
-      << "Could not determine X dimension index from metadata";
+
+  // Ensure X and Y (if applicable) were found based on rank
+  ABSL_CHECK(metadata_rank < 1 || info.ts_x_dim != -1)
+      << "Could not determine X dimension index from metadata (rank >= 1)";
   ABSL_CHECK(metadata_rank < 2 || info.ts_y_dim != -1)
-      << "Could not determine Y dimension index from metadata";
+      << "Could not determine Y dimension index from metadata (rank >= 2)";
 
   // --- Determine logical IFD/Z dimension ---
   if (metadata.num_ifds > 1) {
     // Assume the IFD/Z dimension is the one *not* identified as X or Y.
-    // This requires rank >= 3 for a ZYX or ZXY layout.
-    // TODO: Enhance this logic based on actual OME-TIFF dimension order parsing
-    // later.
     ABSL_CHECK(metadata_rank >= 3) << "Multi-IFD requires metadata rank >= 3";
     for (DimensionIndex i = 0; i < metadata_rank; ++i) {
       if (i != info.ts_x_dim && i != info.ts_y_dim) {
@@ -917,9 +930,9 @@ TiffGridMappingInfo GetTiffGridMappingInfo(const TiffMetadata& metadata) {
       }
     }
     ABSL_CHECK(info.ts_ifd_dim != -1)
-        << "Could not determine IFD/Z dimension index";
+        << "Could not determine IFD/Z dimension index for multi-IFD metadata";
   }
-  
+
   return info;
 }
 

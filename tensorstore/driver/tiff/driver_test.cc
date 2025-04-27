@@ -20,6 +20,7 @@
 #include <stdint.h>
 
 #include <algorithm>
+#include <cstring>
 #include <nlohmann/json.hpp>
 #include <string>
 #include <utility>
@@ -77,6 +78,15 @@ using ::testing::Optional;
 class TiffDriverTest : public ::testing::Test {
  protected:
   Context context_ = Context::Default();
+
+  // Helper to write float bytes in Little Endian
+  static void PutLEFloat32(std::string& dst, float f) {
+    static_assert(sizeof(float) == sizeof(uint32_t));
+    uint32_t bits;
+    // issues
+    std::memcpy(&bits, &f, sizeof(float));
+    PutLE32(dst, bits);
+  }
 
   // Helper to write TIFF data to memory kvstore
   void WriteTiffData(std::string_view key, const std::string& tiff_data) {
@@ -174,6 +184,333 @@ class TiffDriverTest : public ::testing::Test {
     append_tile(tile1_data);
     append_tile(tile2_data);
     append_tile(tile3_data);
+
+    return builder.Build();
+  }
+
+  // Generates a 6x8 uint8 image with 3 strips (RowsPerStrip = 2)
+  std::string MakeStrippedTiff() {
+    const uint32_t image_width = 8;
+    const uint32_t image_height = 6;
+    const uint32_t rows_per_strip = 2;
+    const uint32_t num_strips =
+        (image_height + rows_per_strip - 1) / rows_per_strip;  // Should be 3
+    const uint32_t bytes_per_strip =
+        rows_per_strip * image_width * sizeof(uint8_t);  // 2 * 8 * 1 = 16
+
+    const uint16_t num_ifd_entries = 10;
+
+    TiffBuilder builder;
+    builder.StartIfd(num_ifd_entries)
+        .AddEntry(256, 3, 1, image_width)   // ImageWidth
+        .AddEntry(257, 3, 1, image_height)  // ImageLength
+        .AddEntry(277, 3, 1, 1)             // SamplesPerPixel = 1
+        .AddEntry(258, 3, 1, 8)             // BitsPerSample = 8
+        .AddEntry(339, 3, 1, 1)             // SampleFormat = uint
+        .AddEntry(259, 3, 1, 1)             // Compression = None
+        .AddEntry(262, 3, 1, 1)  // PhotometricInterpretation = MinIsBlack
+        .AddEntry(278, 3, 1, rows_per_strip);  // RowsPerStrip
+
+    // Calculate where the external arrays *will* be placed after the IFD
+    size_t header_size = 8;
+    size_t ifd_block_size = 2 + (num_ifd_entries * 12) + 4;  // IFD block size
+    size_t end_of_ifd_offset = header_size + ifd_block_size;
+
+    size_t strip_offsets_array_start_offset = end_of_ifd_offset;
+    size_t strip_offsets_array_size =
+        num_strips * sizeof(uint32_t);  // 3 * 4 = 12
+    size_t strip_bytecounts_array_start_offset =
+        strip_offsets_array_start_offset + strip_offsets_array_size;
+    size_t strip_bytecounts_array_size =
+        num_strips * sizeof(uint32_t);  // 3 * 4 = 12
+    size_t strip_data_start_offset =
+        strip_bytecounts_array_start_offset + strip_bytecounts_array_size;
+
+    // Calculate the actual offset values for each strip
+    std::vector<uint32_t> strip_offsets;
+    std::vector<uint32_t> strip_bytecounts;
+    for (uint32_t i = 0; i < num_strips; ++i) {
+      strip_offsets.push_back(strip_data_start_offset + i * bytes_per_strip);
+      strip_bytecounts.push_back(bytes_per_strip);
+    }
+
+    // Add IFD entries pointing to the *correct future locations* of the arrays
+    builder.AddEntry(273, 4, strip_offsets.size(),
+                     strip_offsets_array_start_offset);  // StripOffsets
+    builder.AddEntry(279, 4, strip_bytecounts.size(),
+                     strip_bytecounts_array_start_offset);  // StripByteCounts
+
+    // Finish IFD and add the actual array data at the calculated offsets
+    builder.EndIfd(0)
+        .AddUint32Array(strip_offsets)      // Adds data at offset 134
+        .AddUint32Array(strip_bytecounts);  // Adds data at offset 146
+
+    // Add strip data (pattern: strip_index * 10 + element_index_within_strip)
+    for (uint32_t s = 0; s < num_strips; ++s) {
+      for (uint32_t i = 0; i < bytes_per_strip; ++i) {
+        builder.data_.push_back(static_cast<char>(s * 10 + i));
+      }
+    }
+
+    return builder.Build();
+  }
+
+  // Generates a 2x3 float32 image with 1x1 tiles
+  std::string MakeFloatTiff() {
+    const uint32_t image_width = 3;
+    const uint32_t image_height = 2;
+    const uint32_t tile_width = 1;
+    const uint32_t tile_height = 1;
+    const uint32_t num_tiles =
+        (image_height / tile_height) * (image_width / tile_width);
+    const uint32_t bytes_per_tile = tile_height * tile_width * sizeof(float);
+
+    const uint16_t num_ifd_entries = 11;
+
+    TiffBuilder builder;
+    builder.StartIfd(num_ifd_entries)
+        .AddEntry(256, 3, 1, image_width)   // ImageWidth
+        .AddEntry(257, 3, 1, image_height)  // ImageLength
+        .AddEntry(277, 3, 1, 1)             // SamplesPerPixel = 1
+        .AddEntry(258, 3, 1, 32)            // BitsPerSample = 32
+        .AddEntry(339, 3, 1, 3)             // SampleFormat = IEEEFloat (3)
+        .AddEntry(259, 3, 1, 1)             // Compression = None
+        .AddEntry(262, 3, 1, 1)  // PhotometricInterpretation = MinIsBlack
+        .AddEntry(322, 3, 1, tile_width)    // TileWidth
+        .AddEntry(323, 3, 1, tile_height);  // TileLength
+
+    // Calculate where the external arrays *will* be placed after the IFD
+    size_t header_size = 8;
+    size_t ifd_block_size =
+        2 + (num_ifd_entries * 12) + 4;  // Size of IFD block
+    size_t end_of_ifd_offset = header_size + ifd_block_size;
+
+    size_t tile_offsets_array_start_offset = end_of_ifd_offset;
+    size_t tile_offsets_array_size =
+        num_tiles * sizeof(uint32_t);  // 6 * 4 = 24
+    size_t tile_bytecounts_array_start_offset =
+        tile_offsets_array_start_offset + tile_offsets_array_size;
+    size_t tile_bytecounts_array_size =
+        num_tiles * sizeof(uint32_t);  // 6 * 4 = 24
+    size_t tile_data_start_offset =
+        tile_bytecounts_array_start_offset + tile_bytecounts_array_size;
+
+    // Calculate the actual offset values for each tile
+    std::vector<uint32_t> tile_offsets;
+    std::vector<uint32_t> tile_bytecounts;
+    for (uint32_t i = 0; i < num_tiles; ++i) {
+      tile_offsets.push_back(tile_data_start_offset + i * bytes_per_tile);
+      tile_bytecounts.push_back(bytes_per_tile);
+    }
+
+    // Add IFD entries pointing to the *correct future locations* of the arrays
+    builder.AddEntry(324, 4, tile_offsets.size(),
+                     tile_offsets_array_start_offset);  // TileOffsets
+    builder.AddEntry(325, 4, tile_bytecounts.size(),
+                     tile_bytecounts_array_start_offset);  // TileByteCounts
+
+    // Finish IFD and add the actual array data at the calculated offsets
+    builder.EndIfd(0)
+        .AddUint32Array(tile_offsets)
+        .AddUint32Array(tile_bytecounts);
+
+    // Add tile data (simple float values)
+    const std::vector<float> values = {1.1f, 2.2f, 3.3f, 4.4f, 5.5f, 6.6f};
+    for (float val : values) {
+      PutLEFloat32(builder.data_, val);
+    }
+
+    return builder.Build();
+  }
+
+  // Generates a 2x3 uint8 RGB image with 1x1 tiles (Chunky config)
+  std::string MakeMultiChannelTiff() {
+    const uint32_t image_width = 3;
+    const uint32_t image_height = 2;
+    const uint32_t samples_per_pixel = 3;  // RGB
+    const uint32_t tile_width = 1;
+    const uint32_t tile_height = 1;
+    const uint32_t num_tiles =
+        (image_height / tile_height) * (image_width / tile_width);
+    const uint32_t bytes_per_tile =
+        tile_height * tile_width * samples_per_pixel * sizeof(uint8_t);
+
+    const uint16_t num_ifd_entries = 12;
+
+    std::vector<uint16_t> bits_per_sample_data = {8, 8, 8};
+    std::vector<uint16_t> sample_format_data = {1, 1, 1};  // 1 = uint
+
+    TiffBuilder builder;
+    builder.StartIfd(num_ifd_entries)
+        .AddEntry(256, 3, 1, image_width)        // ImageWidth
+        .AddEntry(257, 3, 1, image_height)       // ImageLength
+        .AddEntry(277, 3, 1, samples_per_pixel)  // SamplesPerPixel
+        .AddEntry(284, 3, 1, 1)           // PlanarConfiguration = Chunky (1)
+        .AddEntry(259, 3, 1, 1)           // Compression = None
+        .AddEntry(262, 3, 1, 2)           // PhotometricInterpretation = RGB (2)
+        .AddEntry(322, 3, 1, tile_width)  // TileWidth
+        .AddEntry(323, 3, 1, tile_height);  // TileLength
+
+    // Calculate where all external arrays will be placed after the IFD
+    size_t header_size = 8;
+    size_t ifd_block_size = 2 + (num_ifd_entries * 12) + 4;
+    size_t current_offset = header_size + ifd_block_size;
+    size_t bps_array_offset = current_offset;
+    size_t bps_array_size = bits_per_sample_data.size() * sizeof(uint16_t);
+    current_offset += bps_array_size;
+
+    size_t sf_array_offset = current_offset;
+    size_t sf_array_size = sample_format_data.size() * sizeof(uint16_t);
+    current_offset += sf_array_size;
+
+    size_t tile_offsets_array_offset = current_offset;
+    size_t tile_offsets_array_size = num_tiles * sizeof(uint32_t);
+    current_offset += tile_offsets_array_size;
+
+    size_t tile_bytecounts_array_offset = current_offset;
+    size_t tile_bytecounts_array_size = num_tiles * sizeof(uint32_t);
+    current_offset += tile_bytecounts_array_size;
+
+    size_t tile_data_start_offset = current_offset;
+
+    // Calculate the actual offset values for each tile
+    std::vector<uint32_t> tile_offsets;
+    std::vector<uint32_t> tile_bytecounts;
+    for (uint32_t i = 0; i < num_tiles; ++i) {
+      tile_offsets.push_back(tile_data_start_offset + i * bytes_per_tile);
+      tile_bytecounts.push_back(bytes_per_tile);
+    }
+
+    // Add entries pointing to the external arrays now
+    builder.AddEntry(258, 3, samples_per_pixel, bps_array_offset);
+    builder.AddEntry(339, 3, samples_per_pixel, sf_array_offset);
+    builder.AddEntry(324, 4, tile_offsets.size(), tile_offsets_array_offset);
+    builder.AddEntry(325, 4, tile_bytecounts.size(),
+                     tile_bytecounts_array_offset);
+
+    // Finish IFD and add the actual array data
+    builder.EndIfd(0);
+
+    // Add the external array data in the correct order
+    builder.AddUint16Array(bits_per_sample_data);
+    builder.AddUint16Array(sample_format_data);
+    builder.AddUint32Array(tile_offsets);
+    builder.AddUint32Array(tile_bytecounts);
+
+    const std::vector<uint8_t> tile_values = {
+        1, 2, 3, 2, 3, 4, 3, 4, 5, 11, 12, 13, 12, 13, 14, 13, 14, 15,
+    };
+    for (uint8_t val : tile_values) {
+      builder.data_.push_back(static_cast<char>(val));
+    }
+
+    return builder.Build();
+  }
+
+  // Generates a TIFF with two IFDs:
+  // IFD 0: 2x2 uint8 image, filled with 5
+  // IFD 1: 3x3 uint16 image, filled with 99
+  std::string MakeMultiIFDTiff() {
+    TiffBuilder builder;
+
+    const uint32_t ifd0_width = 2;
+    const uint32_t ifd0_height = 2;
+    const uint32_t ifd0_num_tiles = 4;
+    const uint32_t ifd0_bytes_per_tile = 1 * 1 * 1 * sizeof(uint8_t);
+    const uint16_t ifd0_num_entries = 11;
+    std::vector<uint8_t> ifd0_pixel_data(ifd0_num_tiles * ifd0_bytes_per_tile,
+                                         5);
+
+    const uint32_t ifd1_width = 3;
+    const uint32_t ifd1_height = 3;
+    const uint32_t ifd1_num_tiles = 9;
+    const uint32_t ifd1_bytes_per_tile = 1 * 1 * 1 * sizeof(uint16_t);  // 2
+    const uint16_t ifd1_num_entries = 11;
+    std::vector<uint16_t> ifd1_pixel_data(
+        ifd1_num_tiles * (ifd1_bytes_per_tile / sizeof(uint16_t)), 99);
+
+    size_t header_size = 8;
+    size_t ifd0_block_size = 2 + ifd0_num_entries * 12 + 4;  // 138
+    size_t ifd1_block_size = 2 + ifd1_num_entries * 12 + 4;  // 138
+
+    size_t ifd0_start_offset = header_size;  // 8
+    size_t ifd1_start_offset =
+        ifd0_start_offset + ifd0_block_size;  // 8 + 138 = 146
+    size_t end_of_ifds_offset =
+        ifd1_start_offset + ifd1_block_size;  // 146 + 138 = 284
+
+    size_t ifd0_offsets_loc = end_of_ifds_offset;
+    size_t ifd0_offsets_size = ifd0_num_tiles * sizeof(uint32_t);
+    size_t ifd0_counts_loc = ifd0_offsets_loc + ifd0_offsets_size;
+    size_t ifd0_counts_size = ifd0_num_tiles * sizeof(uint32_t);
+    size_t ifd0_data_loc = ifd0_counts_loc + ifd0_counts_size;
+    size_t ifd0_data_size = ifd0_pixel_data.size();
+    size_t ifd1_offsets_loc = ifd0_data_loc + ifd0_data_size;
+    size_t ifd1_offsets_size = ifd1_num_tiles * sizeof(uint32_t);
+    size_t ifd1_counts_loc = ifd1_offsets_loc + ifd1_offsets_size;
+    size_t ifd1_counts_size = ifd1_num_tiles * sizeof(uint32_t);
+    size_t ifd1_data_loc = ifd1_counts_loc + ifd1_counts_size;
+
+    std::vector<uint32_t> ifd0_tile_offsets;
+    std::vector<uint32_t> ifd0_tile_counts;
+    for (uint32_t i = 0; i < ifd0_num_tiles; ++i) {
+      ifd0_tile_offsets.push_back(ifd0_data_loc + i * ifd0_bytes_per_tile);
+      ifd0_tile_counts.push_back(ifd0_bytes_per_tile);
+    }
+
+    std::vector<uint32_t> ifd1_tile_offsets;
+    std::vector<uint32_t> ifd1_tile_counts;
+    for (uint32_t i = 0; i < ifd1_num_tiles; ++i) {
+      ifd1_tile_offsets.push_back(ifd1_data_loc + i * ifd1_bytes_per_tile);
+      ifd1_tile_counts.push_back(ifd1_bytes_per_tile);
+    }
+
+    // --- Build IFD 0 ---
+    builder.StartIfd(ifd0_num_entries)
+        .AddEntry(256, 3, 1, ifd0_width)
+        .AddEntry(257, 3, 1, ifd0_height)
+        .AddEntry(277, 3, 1, 1)
+        .AddEntry(258, 3, 1, 8)
+        .AddEntry(339, 3, 1, 1)
+        .AddEntry(259, 3, 1, 1)
+        .AddEntry(262, 3, 1, 1)
+        .AddEntry(322, 3, 1, 1)
+        .AddEntry(323, 3, 1, 1)
+        .AddEntry(324, 4, ifd0_num_tiles, ifd0_offsets_loc)
+        .AddEntry(325, 4, ifd0_num_tiles, ifd0_counts_loc);
+    builder.EndIfd(ifd1_start_offset);
+
+    // --- Build IFD 1 ---
+    builder.PadTo(ifd1_start_offset);
+    builder.StartIfd(ifd1_num_entries)
+        .AddEntry(256, 3, 1, ifd1_width)
+        .AddEntry(257, 3, 1, ifd1_height)
+        .AddEntry(277, 3, 1, 1)
+        .AddEntry(258, 3, 1, 16)
+        .AddEntry(339, 3, 1, 1)
+        .AddEntry(259, 3, 1, 1)
+        .AddEntry(262, 3, 1, 1)
+        .AddEntry(322, 3, 1, 1)
+        .AddEntry(323, 3, 1, 1)
+        .AddEntry(324, 4, ifd1_num_tiles, ifd1_offsets_loc)
+        .AddEntry(325, 4, ifd1_num_tiles, ifd1_counts_loc);
+    builder.EndIfd(0);
+
+    // --- Add External Arrays and Data ---
+    builder.PadTo(end_of_ifds_offset);
+    builder.AddUint32Array(ifd0_tile_offsets);
+    builder.AddUint32Array(ifd0_tile_counts);
+
+    for (uint8_t val : ifd0_pixel_data) {
+      builder.data_.push_back(static_cast<char>(val));
+    }
+
+    builder.AddUint32Array(ifd1_tile_offsets);
+    builder.AddUint32Array(ifd1_tile_counts);
+
+    for (uint16_t val : ifd1_pixel_data) {
+      PutLE16(builder.data_, val);
+    }
 
     return builder.Build();
   }
@@ -571,4 +908,166 @@ TEST_F(TiffDriverTest, Properties) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto layout2, store2.chunk_layout());
   EXPECT_EQ(layout, layout2);
 }
+
+TEST_F(TiffDriverTest, ReadStrippedTiff) {
+  WriteTiffData("stripped.tif", MakeStrippedTiff());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(
+          {{"driver", "tiff"}, {"kvstore", "memory://stripped.tif"}}, context_)
+          .result());
+
+  // Verify properties inferred from stripped TIFF
+  EXPECT_EQ(dtype_v<uint8_t>, store.dtype());
+  EXPECT_EQ(2, store.rank());
+  EXPECT_THAT(store.domain().origin(), ::testing::ElementsAre(0, 0));
+  EXPECT_THAT(store.domain().shape(),
+              ::testing::ElementsAre(6, 8));  // 6x8 image
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto layout, store.chunk_layout());
+  // For strips, read chunk height = RowsPerStrip, read chunk width = ImageWidth
+  EXPECT_THAT(layout.read_chunk_shape(), ::testing::ElementsAre(2, 8));
+  // Write chunk shape defaults to read chunk shape here
+  EXPECT_THAT(layout.write_chunk_shape(), ::testing::ElementsAre(2, 8));
+  // Should still be C-order default
+  EXPECT_THAT(layout.inner_order(), ::testing::ElementsAre(0, 1));
+
+  // Define the expected data array based on the pattern used in
+  // MakeStrippedTiff
+  auto expected_array = tensorstore::MakeArray<uint8_t>(
+      {{0, 1, 2, 3, 4, 5, 6, 7},  // Strip 0 data
+       {8, 9, 10, 11, 12, 13, 14, 15},
+       {10, 11, 12, 13, 14, 15, 16, 17},  // Strip 1 data
+       {18, 19, 20, 21, 22, 23, 24, 25},
+       {20, 21, 22, 23, 24, 25, 26, 27},  // Strip 2 data
+       {28, 29, 30, 31, 32, 33, 34, 35}});
+
+  // Read the full store and compare
+  EXPECT_THAT(tensorstore::Read(store).result(), Optional(expected_array));
+
+  // Slice spanning multiple strips.
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto slice_view,
+      store | tensorstore::Dims(0, 1).SizedInterval({1, 2}, {3, 4}));
+
+  auto expected_slice_array = tensorstore::MakeOffsetArray<uint8_t>(
+      {1, 2},  // Origin of the slice
+      {{10, 11, 12, 13}, {12, 13, 14, 15}, {20, 21, 22, 23}});
+
+  EXPECT_THAT(tensorstore::Read(slice_view).result(),
+              Optional(expected_slice_array));
+}
+
+TEST_F(TiffDriverTest, ReadFloatTiff) {
+  WriteTiffData("float_test.tif", MakeFloatTiff());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::Open({{"driver", "tiff"},
+                                     {"kvstore", "memory://float_test.tif"}},
+                                    context_)
+                      .result());
+
+  // Verify properties inferred from float TIFF
+  EXPECT_EQ(dtype_v<float>, store.dtype());  // Expect float32
+  EXPECT_EQ(2, store.rank());
+  EXPECT_THAT(store.domain().origin(), ::testing::ElementsAre(0, 0));
+  EXPECT_THAT(store.domain().shape(),
+              ::testing::ElementsAre(2, 3));  // 2x3 image
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto layout, store.chunk_layout());
+  EXPECT_THAT(layout.read_chunk_shape(),
+              ::testing::ElementsAre(1, 1));  // 1x1 tiles
+  EXPECT_THAT(layout.write_chunk_shape(), ::testing::ElementsAre(1, 1));
+  EXPECT_THAT(layout.inner_order(), ::testing::ElementsAre(0, 1));  // C-order
+
+  // Define the expected data array
+  auto expected_array =
+      tensorstore::MakeArray<float>({{1.1f, 2.2f, 3.3f}, {4.4f, 5.5f, 6.6f}});
+
+  // Read the full store and compare
+  // Use Pointwise/FloatEq for safer floating-point comparison
+  EXPECT_THAT(tensorstore::Read(store).result(), Optional(expected_array));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto slice_view, store | tensorstore::Dims(0, 1).SizedInterval(
+                                   {1, 1}, {1, 2})  // Row 1, Cols 1-2
+  );
+
+  auto expected_slice_array =
+      tensorstore::MakeOffsetArray<float>({1, 1},  // Origin of the slice
+                                          {{5.5f, 6.6f}});
+  EXPECT_THAT(tensorstore::Read(slice_view).result(), expected_slice_array);
+}
+
+TEST_F(TiffDriverTest, ReadMultiChannelTiff) {
+  WriteTiffData("multi_channel.tif", MakeMultiChannelTiff());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::Open({{"driver", "tiff"},
+                                     {"kvstore", "memory://multi_channel.tif"}},
+                                    context_)
+                      .result());
+
+  // Verify properties inferred from multi-channel TIFF
+  EXPECT_EQ(dtype_v<uint8_t>, store.dtype());
+  // Expect Rank 3: Y, X, C (assuming default C-order interpretation)
+  EXPECT_EQ(3, store.rank());
+  EXPECT_THAT(store.domain().origin(), ::testing::ElementsAre(0, 0, 0));
+  EXPECT_THAT(store.domain().shape(),
+              ::testing::ElementsAre(2, 3, 3));  // 2x3 image, 3 channels
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto layout, store.chunk_layout());
+  // Chunk shape should be {TileH, TileW, SamplesPerPixel}
+  EXPECT_THAT(layout.read_chunk_shape(), ::testing::ElementsAre(1, 1, 3));
+  EXPECT_THAT(layout.write_chunk_shape(), ::testing::ElementsAre(1, 1, 3));
+  // C-order default for Rank 3 is {0, 1, 2}
+  EXPECT_THAT(layout.inner_order(), ::testing::ElementsAre(0, 1, 2));
+
+  // Define the expected data array (Y, X, C)
+  auto expected_array = tensorstore::MakeArray<uint8_t>({
+      {{1, 2, 3}, {2, 3, 4}, {3, 4, 5}},          // Row 0
+      {{11, 12, 13}, {12, 13, 14}, {13, 14, 15}}  // Row 1
+  });
+
+  // Read the full store and compare
+  EXPECT_THAT(tensorstore::Read(store).result(), Optional(expected_array));
+
+  // Read single pixel.
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto pixel_view,
+      store | tensorstore::Dims(0, 1).IndexSlice({1, 2})  // Pixel at Y=1, X=2
+  );
+  auto expected_pixel_array = tensorstore::MakeArray<uint8_t>({13, 14, 15});
+
+  EXPECT_THAT(tensorstore::Read(pixel_view).result(),
+              Optional(expected_pixel_array));
+}
+
+TEST_F(TiffDriverTest, ReadNonZeroIFD) {
+  WriteTiffData("multi_ifd.tif", MakeMultiIFDTiff());
+
+  // Specify opening IFD 1 in the spec
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::Open({{"driver", "tiff"},
+                                     {"kvstore", "memory://multi_ifd.tif"},
+                                     {"tiff", {{"ifd", 1}}}},
+                                    context_)
+                      .result());
+
+  // Verify properties match IFD 1
+  EXPECT_EQ(dtype_v<uint16_t>, store.dtype());
+  EXPECT_EQ(2, store.rank());
+  EXPECT_THAT(store.domain().origin(), ::testing::ElementsAre(0, 0));
+  EXPECT_THAT(store.domain().shape(), ::testing::ElementsAre(3, 3));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto layout, store.chunk_layout());
+  EXPECT_THAT(layout.read_chunk_shape(), ::testing::ElementsAre(1, 1));
+  EXPECT_THAT(layout.inner_order(), ::testing::ElementsAre(0, 1));
+
+  auto expected_array = tensorstore::AllocateArray<uint16_t>(
+      {3, 3}, tensorstore::ContiguousLayoutOrder::c, tensorstore::value_init);
+  for (Index i = 0; i < 3; ++i)
+    for (Index j = 0; j < 3; ++j) expected_array(i, j) = 99;
+
+  EXPECT_THAT(tensorstore::Read(store).result(), Optional(expected_array));
+}
+
 }  // namespace
