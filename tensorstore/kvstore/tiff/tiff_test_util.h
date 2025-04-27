@@ -52,7 +52,8 @@ class TiffBuilder {
   // Get the final TIFF data
   std::string Build() const;
 
- private:
+  size_t CurrentOffset() const { return data_.size(); }
+
   std::string data_;
 };
 

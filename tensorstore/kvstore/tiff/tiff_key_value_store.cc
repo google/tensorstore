@@ -475,29 +475,42 @@ void TiffKeyValueStore::ListImpl(ListOptions options, ListReceiver receiver) {
 }  // namespace
 
 // GetTiffKeyValueStore factory function implementation
-DriverPtr GetTiffKeyValueStore(DriverPtr base_kvstore) {
+Result<DriverPtr> GetTiffKeyValueStoreDriver(
+    DriverPtr base_kvstore,  // Base driver (e.g., file, memory)
+    std::string path,        // Path within the base driver
+    const Context::Resource<internal::CachePoolResource>& cache_pool_res,
+    const Context::Resource<internal::DataCopyConcurrencyResource>&
+        data_copy_res,
+    const internal::PinnedCacheEntry<internal_tiff_kvstore::TiffDirectoryCache>&
+        dir_cache_entry) {
+  // Check if resources are valid before dereferencing
+  if (!cache_pool_res.has_resource()) {
+    return absl::InvalidArgumentError("Cache pool resource is not available");
+  }
+  if (!data_copy_res.has_resource()) {
+    return absl::InvalidArgumentError(
+        "Data copy concurrency resource is not available");
+  }
+  if (!dir_cache_entry) {
+    return absl::InvalidArgumentError(
+        "TIFF directory cache entry is not valid");
+  }
+  // Optional: check if dir_cache_entry->key() matches path
+
   auto driver = internal::MakeIntrusivePtr<TiffKeyValueStore>();
-  driver->base_ = KvStore(base_kvstore);
-  driver->spec_data_.data_copy_concurrency =
-      Context::Resource<internal::DataCopyConcurrencyResource>::DefaultSpec();
-  driver->spec_data_.cache_pool =
-      Context::Resource<internal::CachePoolResource>::DefaultSpec();
+  driver->base_ = KvStore(base_kvstore, std::move(path));  // Use provided path
 
-  auto& cache_pool = *driver->spec_data_.cache_pool;
-  std::string cache_key;
-  internal::EncodeCacheKey(&cache_key, driver->base_.driver, driver->base_.path,
-                           driver->spec_data_.data_copy_concurrency);
+  // Assign the provided *resolved* resource handles
+  driver->spec_data_.cache_pool = cache_pool_res;
+  driver->spec_data_.data_copy_concurrency = data_copy_res;
 
-  auto directory_cache =
-      internal::GetCache<TiffDirectoryCache>(cache_pool.get(), cache_key, [&] {
-        return std::make_unique<TiffDirectoryCache>(
-            driver->base_.driver,
-            driver->spec_data_.data_copy_concurrency->executor);
-      });
+  // Assign the provided cache entry
+  driver->cache_entry_ = dir_cache_entry;
 
-  driver->cache_entry_ = GetCacheEntry(directory_cache, driver->base_.path);
+  // No need to call internal::GetCache or internal::EncodeCacheKey here,
+  // as the cache_entry is provided directly by the caller.
 
-  return driver;
+  return DriverPtr(std::move(driver));
 }
 
 Future<std::shared_ptr<const TiffParseResult>> GetParseResult(

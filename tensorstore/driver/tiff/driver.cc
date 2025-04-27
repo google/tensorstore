@@ -34,6 +34,7 @@
 #include "tensorstore/internal/cache/async_cache.h"  // For AsyncCache, AsyncCache::Entry, ReadData
 #include "tensorstore/internal/cache/cache.h"  // For CachePool, GetOwningCache
 #include "tensorstore/internal/cache/kvs_backed_chunk_cache.h"  // For KvsBackedCache base class
+#include "tensorstore/internal/json_binding/staleness_bound.h"  // IWYU: pragma keep
 #include "tensorstore/kvstore/driver.h"      // For kvstore::DriverPtr
 #include "tensorstore/kvstore/generation.h"  // For TimestampedStorageGeneration
 #include "tensorstore/kvstore/kvstore.h"
@@ -86,8 +87,6 @@ class TiffChunkCache : public internal::KvsBackedChunkCache {
 
   const Executor& executor() const override { return executor_; }
 
-  // TODO(hsidky): Refactor this out into metadata. Especially when we change
-  // the kvstore to index based.
   std::string GetChunkStorageKey(span<const Index> cell_indices) override {
     const auto& metadata = *resolved_metadata_;
     const auto& grid = grid_;  // Get the grid spec stored in the cache
@@ -145,18 +144,6 @@ class TiffChunkCache : public internal::KvsBackedChunkCache {
       ifd = static_cast<uint32_t>(cell_indices[grid_dim_for_ifd]);
       row_idx = static_cast<uint32_t>(cell_indices[grid_dim_for_y]);
       col_idx = static_cast<uint32_t>(cell_indices[grid_dim_for_x]);
-    }
-
-    // Handle stripped images: column index is always 0
-    if (!mapping_info.is_tiled) {
-      // Grid dim for X must exist if rank > 0
-      ABSL_CHECK(grid_dim_for_x != -1);
-      // Check grid configuration consistency for strips
-      ABSL_CHECK(grid.chunk_shape[grid_dim_for_x] == 1)
-          << "Grid shape for X dimension should be 1 for stripped TIFF";
-      ABSL_CHECK(cell_indices[grid_dim_for_x] == 0)
-          << "Cell index for X dimension should be 0 for stripped TIFF";
-      col_idx = 0;
     }
 
     // Format the final key
@@ -257,14 +244,34 @@ class TiffDriverSpec
   // (Also OpenModeSpec members: open, create, delete_existing, etc.)
 
   static inline const auto default_json_binder = jb::Sequence(
-      jb::Validate(
-          [](const auto& options, auto* obj) {
-            if (obj->schema.dtype().valid()) {
-              return ValidateDataType(obj->schema.dtype());
-            }
-            return absl::OkStatus();
-          },
-          internal_kvs_backed_chunk_driver::SpecJsonBinder),
+      jb::Member(internal::DataCopyConcurrencyResource::id,
+                 jb::Projection<&KvsDriverSpec::data_copy_concurrency>()),
+      jb::Member(internal::CachePoolResource::id,
+                 jb::Projection<&KvsDriverSpec::cache_pool>()),
+      jb::Member("metadata_cache_pool",
+                 jb::Projection<&KvsDriverSpec::metadata_cache_pool>()),
+      jb::Projection<&KvsDriverSpec::store>(jb::KvStoreSpecAndPathJsonBinder),
+      jb::Initialize([](auto* obj) { return absl::OkStatus(); }),
+      jb::Projection<&KvsDriverSpec::staleness>(jb::Sequence(
+          jb::Member("recheck_cached_metadata",
+                     jb::Projection(&StalenessBounds::metadata,
+                                    jb::DefaultValue([](auto* obj) {
+                                      obj->bounded_by_open_time = true;
+                                    }))),
+          jb::Member("recheck_cached_data",
+                     jb::Projection(&StalenessBounds::data,
+                                    jb::DefaultInitializedValue())))),
+      jb::Projection<&KvsDriverSpec::fill_value_mode>(jb::Sequence(
+          jb::Member("fill_missing_data_reads",
+                     jb::Projection<&internal_kvs_backed_chunk_driver::
+                                        FillValueMode::fill_missing_data_reads>(
+                         jb::DefaultValue([](auto* obj) { *obj = true; }))),
+          jb::Member(
+              "store_data_equal_to_fill_value",
+              jb::Projection<&internal_kvs_backed_chunk_driver::FillValueMode::
+                                 store_data_equal_to_fill_value>(
+                  jb::DefaultInitializedValue())))),
+      internal::OpenModeSpecJsonBinder,
       jb::Member(
           "metadata",
           jb::Validate(
@@ -438,8 +445,7 @@ class TiffDriver final : public TiffDriverBase {
 
   Result<SharedArray<const void>> GetFillValue(
       IndexTransformView<> transform) override {
-    // TIFF doesn't intrinsically have a fill value. Return default (null).
-    return SharedArray<const void>();
+    return {std::in_place};
   }
 
   Result<DimensionUnitsVector> GetDimensionUnits() override {
@@ -952,13 +958,21 @@ void TiffOpenState::OnDirCacheRead(
   // ---- 6. Create TiffChunkCache ----
 
   // 6a. Get the TiffKeyValueStore driver instance.
-  auto tiff_kvstore_driver =
-      kvstore::tiff_kvstore::GetTiffKeyValueStore(base_kvstore.driver);
-  if (!tiff_kvstore_driver) {
-    promise_.SetResult(
-        absl::InternalError("Failed to get TiffKeyValueStore driver"));
+  Result<kvstore::DriverPtr> tiff_kvstore_driver_result =
+      kvstore::tiff_kvstore::GetTiffKeyValueStoreDriver(
+          base_kvstore.driver,     // Pass the base KvStore driver
+          base_kvstore.path,       // Pass the path from the KvStore object
+          cache_pool_,             // Pass the resolved cache pool handle
+          data_copy_concurrency_,  // Pass the resolved data copy handle
+          metadata_cache_entry     // Pass the resolved metadata cache entry
+      );
+
+  if (!tiff_kvstore_driver_result.ok()) {
+    promise_.SetResult(std::move(tiff_kvstore_driver_result).status());
     return;
   }
+  kvstore::DriverPtr tiff_kvstore_driver =
+      *std::move(tiff_kvstore_driver_result);
 
   // 6b. Get the ChunkGridSpecification.
   TiffGridMappingInfo mapping_info = GetTiffGridMappingInfo(*metadata);

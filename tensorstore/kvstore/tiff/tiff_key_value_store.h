@@ -20,16 +20,28 @@
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/tiff/tiff_dir_cache.h"
+#include "tensorstore/context.h"                               // Add include
+#include "tensorstore/internal/cache/cache.h"                  // Add include
+#include "tensorstore/internal/cache/cache_pool_resource.h"    // Add include
+#include "tensorstore/internal/data_copy_concurrency_resource.h" // Add include
 #include "tensorstore/util/future.h"
 
 namespace tensorstore {
 namespace kvstore {
 namespace tiff_kvstore {
 
-/// Opens a TIFF-backed KeyValueStore treating each tile as a separate key.
-/// @param base_kvstore Base kvstore (e.g., local file, GCS, HTTP-backed).
-/// @returns DriverPtr wrapping the TIFF store.
-DriverPtr GetTiffKeyValueStore(DriverPtr base_kvstore);
+/// Creates a TiffKeyValueStore driver instance using resolved resources.
+///
+/// This function assumes the provided resources (cache_pool_res, data_copy_res)
+/// have already been resolved/bound using a Context.
+Result<DriverPtr> GetTiffKeyValueStoreDriver(
+    DriverPtr base_kvstore,  // Base driver (e.g., file, memory)
+    std::string path,        // Path within the base driver
+    const Context::Resource<internal::CachePoolResource>& cache_pool_res,
+    const Context::Resource<internal::DataCopyConcurrencyResource>&
+        data_copy_res,
+    const internal::PinnedCacheEntry<internal_tiff_kvstore::TiffDirectoryCache>&
+        dir_cache_entry);
 
 /// Gets the parsed TIFF structure for the TIFF file represented by this driver.
 ///

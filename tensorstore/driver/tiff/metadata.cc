@@ -881,8 +881,6 @@ TiffGridMappingInfo GetTiffGridMappingInfo(const TiffMetadata& metadata) {
   // Check if inner_order is valid and fully specified
   bool known_order =
       !inner_order.empty() && inner_order.size() == metadata_rank;
-  // TODO(user): Add IsValidPermutation check if needed, though ResolveMetadata
-  // should ensure it.
 
   if (known_order) {
     // Find dimensions corresponding to the last two values in the permutation
@@ -926,44 +924,7 @@ TiffGridMappingInfo GetTiffGridMappingInfo(const TiffMetadata& metadata) {
     ABSL_CHECK(info.ts_ifd_dim != -1)
         << "Could not determine IFD/Z dimension index";
   }
-
-  // --- Determine if Tiled or Stripped ---
-  const auto& read_chunk_shape = metadata.chunk_layout.read_chunk_shape();
-  // If rank is < 2, ts_y_dim is -1, but it behaves like strips
-  // (width=image_width). Check only if X dimension exists.
-  if (info.ts_x_dim != -1) {
-    const Index chunk_width = read_chunk_shape[info.ts_x_dim];
-    const Index image_width = metadata.shape[info.ts_x_dim];
-    // Consider it tiled if chunk width is less than image width.
-    info.is_tiled = (chunk_width < image_width);
-
-    // Sanity check for strips: chunk width should equal image width
-    if (!info.is_tiled) {
-      ABSL_CHECK(chunk_width == image_width)
-          << "Chunk width does not match image width for inferred stripped "
-             "layout.";
-      // Also check Y dimension if it exists
-      if (info.ts_y_dim != -1) {
-        const Index chunk_height = read_chunk_shape[info.ts_y_dim];
-        const Index image_height = metadata.shape[info.ts_y_dim];
-        ABSL_CHECK(chunk_height > 0 && chunk_height <= image_height)
-            << "Invalid chunk height for stripped layout.";
-      }
-    } else {
-      // Sanity check for tiles: chunk height should also be less than image
-      // height (if Y exists)
-      if (info.ts_y_dim != -1) {
-        const Index chunk_height = read_chunk_shape[info.ts_y_dim];
-        const Index image_height = metadata.shape[info.ts_y_dim];
-        ABSL_CHECK(chunk_height < image_height)
-            << "Chunk height equals image height for inferred tiled layout.";
-      }
-    }
-  } else {
-    // Rank 1 case is considered not tiled (like a single column strip)
-    info.is_tiled = false;
-  }
-
+  
   return info;
 }
 

@@ -119,8 +119,6 @@ struct TiffGridMappingInfo {
   DimensionIndex ts_x_dim = -1;
   /// TensorStore dimension index corresponding to IFD/Z stack. -1 if N/A.
   DimensionIndex ts_ifd_dim = -1;
-  /// True if the underlying TIFF uses tiles, false if it uses strips.
-  bool is_tiled = false;
 };
 
 /// Specifies constraints on the TIFF metadata required when opening.
