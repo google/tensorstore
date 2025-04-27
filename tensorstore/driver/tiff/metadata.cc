@@ -174,9 +174,8 @@ Result<DataType> GetDataTypeFromTiff(const ImageDirectory& dir) {
       if (uniform_bits == 32) return dtype_v<tensorstore::dtypes::float32_t>;
       if (uniform_bits == 64) return dtype_v<tensorstore::dtypes::float64_t>;
       break;
-    case static_cast<uint16_t>(
-        SampleFormatType::kUndefined):  // Might be complex, not standard TIFF
-      break;                            // Fall through to error
+    case static_cast<uint16_t>(SampleFormatType::kUndefined):
+      break;
     default:
       break;
   }
@@ -309,7 +308,6 @@ Result<ContiguousLayoutOrder> GetLayoutOrderFromInnerOrder(
 
 // Helper to convert CompressionType enum to string ID for registry lookup
 Result<std::string_view> CompressionTypeToStringId(CompressionType type) {
-  // Use a map for easy extension
   static const absl::flat_hash_map<CompressionType, std::string_view> kMap = {
       {CompressionType::kNone, "raw"},
       {CompressionType::kLZW, "lzw"},
@@ -333,30 +331,23 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
     [](auto is_loading, const auto& options, auto* obj, auto* j) {
       using T = absl::remove_cvref_t<decltype(*obj)>;
       DimensionIndex* rank = nullptr;
-      if constexpr (is_loading.value) {  // Check if loading JSON
+      if constexpr (is_loading.value) {
         rank = &obj->rank;
       }
       return jb::Object(
           jb::Member("dtype", jb::Projection<&T::dtype>(
                                   jb::Optional(jb::DataTypeJsonBinder))),
-          // Pass the potentially non-const rank to ShapeVector
           jb::Member("shape", jb::Projection<&T::shape>(
-                                  jb::Optional(jb::ShapeVector(rank))))
-          // No need to explicitly bind 'rank', as ShapeVector manages it.
-          )(is_loading, options, obj, j);
+                                  jb::Optional(jb::ShapeVector(rank)))))(
+          is_loading, options, obj, j);
     })
 
 TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
     tensorstore::internal_tiff::TiffSpecOptions,
     jb::Object(jb::Member(
-        "ifd",  // Use "ifd" as the JSON key for ifd_index
+        "ifd",
         jb::Projection<&tensorstore::internal_tiff::TiffSpecOptions::ifd_index>(
-            jb::DefaultValue([](auto* v) { *v = 0; })))
-               // Add future options here, e.g.:
-               // jb::Member("ifd_handling",
-               // jb::Projection<&T::ifd_handling>(jb::Enum<...>(...))),
-               // jb::Member("use_ome", jb::Projection<&T::use_ome_metadata>())
-               ))
+            jb::DefaultValue([](auto* v) { *v = 0; })))))
 
 // --- ResolveMetadata Implementation ---
 Result<std::shared_ptr<const TiffMetadata>> ResolveMetadata(
@@ -549,7 +540,6 @@ Result<std::shared_ptr<const TiffMetadata>> ResolveMetadata(
       << (metadata->endian == internal_tiff_kvstore::Endian::kLittle ? "little"
                                                                      : "big");
 
-  // Return the final immutable metadata object
   return std::const_pointer_cast<const TiffMetadata>(metadata);
 }
 
@@ -593,9 +583,11 @@ absl::Status ValidateResolvedMetadata(
   }
 
   // Validate Axes (if added to constraints)
+  // TODO: Implement axis validation
   // if (user_constraints.axes.has_value()) { ... }
 
   // Validate Chunk Shape (if added to constraints)
+  // TODO: Implement chunk shape validation
   // if (user_constraints.chunk_shape.has_value()) { ... }
 
   return absl::OkStatus();
@@ -659,7 +651,6 @@ Result<IndexDomain<>> GetEffectiveDomain(
   }
 
   // 3. Merge with schema domain
-  // MergeIndexDomains handles compatibility checks (rank, bounds, etc.)
   TENSORSTORE_ASSIGN_OR_RETURN(
       IndexDomain<> effective_domain,
       MergeIndexDomains(domain_from_constraints, schema.domain()));
@@ -767,8 +758,7 @@ Result<DimensionUnitsVector> GetEffectiveDimensionUnits(
     rank = constraints.shape->size();
   }
 
-  DimensionUnitsVector units(
-      rank == dynamic_rank ? 0 : rank);  // Initialize with unknown units
+  DimensionUnitsVector units(rank == dynamic_rank ? 0 : rank);
 
   // Merge schema units
   if (schema.dimension_units().valid()) {
@@ -846,13 +836,13 @@ Result<SharedArray<const void>> DecodeChunk(const TiffMetadata& metadata,
         StrCat("Error reading chunk data: ", data_reader->status().message()));
   }
 
-  // 8. Return the decoded array (cast to const void)
+  // 8. Return the decoded array
   return decoded_array;
 }
 
 // Validates that dtype is supported by the TIFF driver implementation.
 absl::Status ValidateDataType(DataType dtype) {
-  ABSL_CHECK(dtype.valid());  // Ensure dtype is valid before checking ID
+  ABSL_CHECK(dtype.valid());  
   if (!absl::c_linear_search(kSupportedDataTypes, dtype.id())) {
     return absl::InvalidArgumentError(tensorstore::StrCat(
         dtype, " data type is not one of the supported TIFF data types: ",

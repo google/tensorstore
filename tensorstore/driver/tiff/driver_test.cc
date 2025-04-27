@@ -35,23 +35,23 @@
 #include "tensorstore/context.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
-#include "tensorstore/driver/driver_testutil.h"  // For TestTensorStoreDriverSpecRoundtrip
+#include "tensorstore/driver/driver_testutil.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_domain_builder.h"
-#include "tensorstore/internal/global_initializer.h"  // For TENSORSTORE_GLOBAL_INITIALIZER
+#include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/json_gtest.h"
-#include "tensorstore/kvstore/kvstore.h"  // For kvstore::Write
-#include "tensorstore/kvstore/memory/memory_key_value_store.h"  // For GetMemoryKeyValueStore
-#include "tensorstore/kvstore/test_matchers.h"  // For kvstore testing matchers if needed
-#include "tensorstore/kvstore/tiff/tiff_test_util.h"  // For TiffBuilder
+#include "tensorstore/kvstore/kvstore.h"
+#include "tensorstore/kvstore/memory/memory_key_value_store.h"
+#include "tensorstore/kvstore/test_matchers.h"
+#include "tensorstore/kvstore/tiff/tiff_test_util.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/spec.h"
-#include "tensorstore/tensorstore.h"  // For TensorStore
+#include "tensorstore/tensorstore.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status_testutil.h"  // For MatchesStatus, TENSORSTORE_ASSERT_OK
+#include "tensorstore/util/status_testutil.h"
 
 namespace {
 namespace kvstore = tensorstore::kvstore;
@@ -99,9 +99,7 @@ class TiffDriverTest : public ::testing::Test {
   std::string MakeMinimalTiff() {
     // 10x20 uint8, 1 channel, chunky, 10x10 tiles
     TiffBuilder builder;
-    builder
-        .StartIfd(
-            10)  // W, H, SPP, BPS, Comp, Photo, TW, TL, TileOffsets/Counts
+    builder.StartIfd(10)
         .AddEntry(256, 3, 1, 10)   // ImageWidth = 10
         .AddEntry(257, 3, 1, 20)   // ImageLength = 20
         .AddEntry(277, 3, 1, 1)    // SamplesPerPixel = 1
@@ -211,7 +209,6 @@ class TiffDriverTest : public ::testing::Test {
         .AddEntry(262, 3, 1, 1)  // PhotometricInterpretation = MinIsBlack
         .AddEntry(278, 3, 1, rows_per_strip);  // RowsPerStrip
 
-    // Calculate where the external arrays *will* be placed after the IFD
     size_t header_size = 8;
     size_t ifd_block_size = 2 + (num_ifd_entries * 12) + 4;  // IFD block size
     size_t end_of_ifd_offset = header_size + ifd_block_size;
@@ -236,16 +233,15 @@ class TiffDriverTest : public ::testing::Test {
 
     // Add IFD entries pointing to the *correct future locations* of the arrays
     builder.AddEntry(273, 4, strip_offsets.size(),
-                     strip_offsets_array_start_offset);  // StripOffsets
+                     strip_offsets_array_start_offset);
     builder.AddEntry(279, 4, strip_bytecounts.size(),
-                     strip_bytecounts_array_start_offset);  // StripByteCounts
+                     strip_bytecounts_array_start_offset);
 
     // Finish IFD and add the actual array data at the calculated offsets
     builder.EndIfd(0)
         .AddUint32Array(strip_offsets)      // Adds data at offset 134
         .AddUint32Array(strip_bytecounts);  // Adds data at offset 146
 
-    // Add strip data (pattern: strip_index * 10 + element_index_within_strip)
     for (uint32_t s = 0; s < num_strips; ++s) {
       for (uint32_t i = 0; i < bytes_per_strip; ++i) {
         builder.data_.push_back(static_cast<char>(s * 10 + i));
@@ -303,11 +299,10 @@ class TiffDriverTest : public ::testing::Test {
       tile_bytecounts.push_back(bytes_per_tile);
     }
 
-    // Add IFD entries pointing to the *correct future locations* of the arrays
     builder.AddEntry(324, 4, tile_offsets.size(),
-                     tile_offsets_array_start_offset);  // TileOffsets
+                     tile_offsets_array_start_offset);
     builder.AddEntry(325, 4, tile_bytecounts.size(),
-                     tile_bytecounts_array_start_offset);  // TileByteCounts
+                     tile_bytecounts_array_start_offset);
 
     // Finish IFD and add the actual array data at the calculated offsets
     builder.EndIfd(0)
@@ -351,7 +346,6 @@ class TiffDriverTest : public ::testing::Test {
         .AddEntry(322, 3, 1, tile_width)  // TileWidth
         .AddEntry(323, 3, 1, tile_height);  // TileLength
 
-    // Calculate where all external arrays will be placed after the IFD
     size_t header_size = 8;
     size_t ifd_block_size = 2 + (num_ifd_entries * 12) + 4;
     size_t current_offset = header_size + ifd_block_size;
@@ -521,8 +515,6 @@ TEST_F(TiffDriverTest, SpecFromJsonMinimal) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto spec,
       Spec::FromJson({{"driver", "tiff"}, {"kvstore", "memory://test/"}}));
-  // Access spec members directly for verification (requires public access or
-  // friend declaration if needed) For now, just check parsing success
   EXPECT_TRUE(spec.valid());
 }
 
@@ -545,12 +537,10 @@ TEST_F(TiffDriverTest, SpecFromJsonWithOptions) {
            {"kvstore", "memory://test/"},
            {"tiff", {{"ifd", 5}}},
            {"metadata", {{"dtype", "uint16"}, {"shape", {30, 40}}}}}));
-  // Check properties via Schema methods where possible
+
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto schema, spec.schema());
   EXPECT_EQ(dtype_v<uint16_t>, schema.dtype());
   EXPECT_EQ(2, schema.rank());
-  // Cannot directly access tiff_options from public Spec API easily
-  // Cannot directly access metadata_constraints from public Spec API easily
 }
 
 TEST_F(TiffDriverTest, SpecToJsonWithOptions) {
@@ -562,7 +552,6 @@ TEST_F(TiffDriverTest, SpecToJsonWithOptions) {
            {"tiff", {{"ifd", 5}}},
            {"metadata", {{"dtype", "uint16"}, {"shape", {30, 40}}}}}));
 
-  // Define the EXPECTED json based on the ACTUAL output from the failure log
   ::nlohmann::json expected_json = {
       {"driver", "tiff"},
       {"kvstore",
@@ -571,22 +560,15 @@ TEST_F(TiffDriverTest, SpecToJsonWithOptions) {
         {"atomic", true},
         {"memory_key_value_store", "memory_key_value_store"},
         {"context", ::nlohmann::json({})}}},
-      {"dtype",
-       "uint16"},  // dtype is now a top-level key from KvsDriverSpec binder
-      {"schema",
-       {// Schema is inferred and added
-        {"dtype", "uint16"},
-        {"rank", 2}}},
+      {"dtype", "uint16"},
+      {"schema", {{"dtype", "uint16"}, {"rank", 2}}},
       {"transform",
-       {// Default transform is added
-        {"input_inclusive_min", {0, 0}},
-        {"input_exclusive_max", {30, 40}}}},
-      {"context", ::nlohmann::json({})},  // Default empty context braces
-      {"cache_pool", "cache_pool"},       // Default context resource names
-      {"data_copy_concurrency",
-       "data_copy_concurrency"},            // Default context resource names
-      {"recheck_cached_data", true},        // Check actual default
-      {"recheck_cached_metadata", "open"},  // Check actual default
+       {{"input_inclusive_min", {0, 0}}, {"input_exclusive_max", {30, 40}}}},
+      {"context", ::nlohmann::json({})},
+      {"cache_pool", "cache_pool"},
+      {"data_copy_concurrency", "data_copy_concurrency"},
+      {"recheck_cached_data", true},
+      {"recheck_cached_metadata", "open"},
       {"delete_existing", false},
       {"assume_metadata", false},
       {"assume_cached_metadata", false},
@@ -595,7 +577,6 @@ TEST_F(TiffDriverTest, SpecToJsonWithOptions) {
       {"tiff", {{"ifd", 5}}},
       {"metadata", {{"dtype", "uint16"}, {"shape", {30, 40}}}}};
 
-  // Convert back to JSON including defaults to verify all fields
   EXPECT_THAT(spec.ToJson(tensorstore::IncludeDefaults{true}),
               Optional(MatchesJson(expected_json)));
 }
@@ -608,10 +589,7 @@ TEST_F(TiffDriverTest, InvalidSpecExtraMember) {
                     "Object includes extra members: \"extra\""));
 }
 
-// Use TestSpecSchema for basic schema property inference from spec
 TEST_F(TiffDriverTest, TestSpecSchemaDtype) {
-  // Test that specifying dtype also includes the default tiff codec in the
-  // schema
   TestSpecSchema({{"driver", "tiff"},
                   {"kvstore", "memory://"},
                   {"metadata", {{"dtype", "uint16"}}}},
@@ -626,19 +604,16 @@ TEST_F(TiffDriverTest, TestSpecSchemaRank) {
        {"kvstore", "memory://"},
        {"metadata", {{"shape", {10, 20, 30}}}}},
       // Expected schema now includes rank, domain, default layout, and codec:
-      {
-          {"rank", 3},
-          {"domain",
-           {{"inclusive_min", {0, 0, 0}}, {"exclusive_max", {10, 20, 30}}}},
-          {"chunk_layout",
-           {{"inner_order_soft_constraint", {0, 1, 2}},    // Default C order
-            {"grid_origin_soft_constraint", {0, 0, 0}}}},  // Default origin
-          {"codec", {{"driver", "tiff"}}}                  // Default codec
-      });
+      {{"rank", 3},
+       {"domain",
+        {{"inclusive_min", {0, 0, 0}}, {"exclusive_max", {10, 20, 30}}}},
+       {"chunk_layout",
+        {{"inner_order_soft_constraint", {0, 1, 2}},
+         {"grid_origin_soft_constraint", {0, 0, 0}}}},
+       {"codec", {{"driver", "tiff"}}}});
 }
 
 // --- Open Tests ---
-
 TEST_F(TiffDriverTest, InvalidOpenMissingKvstore) {
   // FromJson should succeed structurally, even if kvstore is missing.
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
@@ -670,7 +645,6 @@ TEST_F(TiffDriverTest, OpenMinimalTiff) {
           context_)
           .result());
 
-  // Use public API to check properties
   EXPECT_EQ(dtype_v<uint8_t>, store.dtype());
   EXPECT_EQ(2, store.rank());
   EXPECT_THAT(store.domain().shape(), ::testing::ElementsAre(20, 10));
@@ -858,10 +832,7 @@ TEST_F(TiffDriverTest, Properties) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto minimal_json, bound_spec.ToJson());
   EXPECT_THAT(minimal_json, MatchesJson(expected_minimal_json));
 
-  // Optional: Check the full JSON representation (IncludeDefaults=true)
-  // This would include default tiff options, schema defaults, context resources
-  // etc. Example (adjust based on actual defaults set by
-  // KvsDriverSpec/TiffDriverSpec):
+  // Check the full JSON representation (IncludeDefaults=true)
   ::nlohmann::json expected_full_json = {
       {"driver", "tiff"},
       {"kvstore",
@@ -873,19 +844,11 @@ TEST_F(TiffDriverTest, Properties) {
       {"dtype", "uint16"},
       {"transform",
        {{"input_inclusive_min", {0, 0}}, {"input_exclusive_max", {4, 6}}}},
-      {"metadata",
-       {
-           {"dtype", "uint16"}, {"shape", {4, 6}}
-           // May include other resolved metadata if GetBoundSpecData adds more
-       }},
+      {"metadata", {{"dtype", "uint16"}, {"shape", {4, 6}}}},
       {"tiff", {{"ifd", 0}}},  // Default ifd included
-      {"schema",
-       {// Includes defaults inferred or set
-        {"rank", 2},
-        {"dtype", "uint16"}}},
-      // Default context resource names/specs might appear here too
-      {"recheck_cached_data", true},        // Example default
-      {"recheck_cached_metadata", "open"},  // Example default
+      {"schema", {{"rank", 2}, {"dtype", "uint16"}}},
+      {"recheck_cached_data", true},
+      {"recheck_cached_metadata", "open"},
       {"delete_existing", false},
       {"assume_metadata", false},
       {"assume_cached_metadata", false},
@@ -925,15 +888,12 @@ TEST_F(TiffDriverTest, ReadStrippedTiff) {
               ::testing::ElementsAre(6, 8));  // 6x8 image
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto layout, store.chunk_layout());
-  // For strips, read chunk height = RowsPerStrip, read chunk width = ImageWidth
   EXPECT_THAT(layout.read_chunk_shape(), ::testing::ElementsAre(2, 8));
   // Write chunk shape defaults to read chunk shape here
   EXPECT_THAT(layout.write_chunk_shape(), ::testing::ElementsAre(2, 8));
   // Should still be C-order default
   EXPECT_THAT(layout.inner_order(), ::testing::ElementsAre(0, 1));
 
-  // Define the expected data array based on the pattern used in
-  // MakeStrippedTiff
   auto expected_array = tensorstore::MakeArray<uint8_t>(
       {{0, 1, 2, 3, 4, 5, 6, 7},  // Strip 0 data
        {8, 9, 10, 11, 12, 13, 14, 15},
@@ -983,8 +943,6 @@ TEST_F(TiffDriverTest, ReadFloatTiff) {
   auto expected_array =
       tensorstore::MakeArray<float>({{1.1f, 2.2f, 3.3f}, {4.4f, 5.5f, 6.6f}});
 
-  // Read the full store and compare
-  // Use Pointwise/FloatEq for safer floating-point comparison
   EXPECT_THAT(tensorstore::Read(store).result(), Optional(expected_array));
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(

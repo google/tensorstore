@@ -30,16 +30,12 @@ namespace internal_tiff {
 
 namespace jb = tensorstore::internal_json_binding;
 
-// Define the static registry instance.
 internal::JsonSpecifiedCompressor::Registry& GetTiffCompressorRegistry() {
   static absl::NoDestructor<internal::JsonSpecifiedCompressor::Registry>
       registry;
   return *registry;
 }
 
-// --- Implement JSON Binder for tiff::Compressor ---
-// This binder handles the "type" member, maps "raw" to nullptr,
-// and uses the registry for other types.
 TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(Compressor, [](auto is_loading,
                                                       const auto& options,
                                                       auto* obj, auto* j) {
@@ -50,7 +46,6 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(Compressor, [](auto is_loading,
                      registry.KeyBinder(),
                      // Map "raw" to a default-constructed Compressor (nullptr)
                      std::make_pair(Compressor{}, std::string("raw")))),
-      // Use the registry's binder to handle registered types (like "lzw")
       registry.RegisteredObjectBinder())(is_loading, options, obj, j);
 })
 

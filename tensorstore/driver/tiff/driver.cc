@@ -15,33 +15,33 @@
 #include "tensorstore/driver/driver.h"
 
 #include <cassert>
-#include <memory>    // For std::shared_ptr, std::move
-#include <optional>  // For std::optional
+#include <memory>
+#include <optional>
 #include <string>
-#include <utility>  // For std::move
+#include <utility>
 
-#include "absl/log/absl_log.h"  // For logging
+#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "tensorstore/array.h"
 #include "tensorstore/chunk_layout.h"
-#include "tensorstore/driver/chunk_cache_driver.h"  // For ChunkGridSpecificationDriver, ChunkCacheReadWriteDriverMixin, ChunkCacheDriverInitializer
+#include "tensorstore/driver/chunk_cache_driver.h"
 #include "tensorstore/driver/driver_spec.h"
-#include "tensorstore/driver/kvs_backed_chunk_driver.h"  // For KvsDriverSpec, SpecJsonBinder
+#include "tensorstore/driver/kvs_backed_chunk_driver.h"
 #include "tensorstore/driver/registry.h"
-#include "tensorstore/driver/tiff/metadata.h"  // For TiffMetadata, DecodeChunk
+#include "tensorstore/driver/tiff/metadata.h"
 #include "tensorstore/index_space/index_domain_builder.h"
-#include "tensorstore/index_space/internal/propagate_bounds.h"  // For PropagateBoundsToTransform
-#include "tensorstore/internal/cache/async_cache.h"  // For AsyncCache, AsyncCache::Entry, ReadData
-#include "tensorstore/internal/cache/cache.h"  // For CachePool, GetOwningCache
-#include "tensorstore/internal/cache/kvs_backed_chunk_cache.h"  // For KvsBackedCache base class
+#include "tensorstore/index_space/internal/propagate_bounds.h"
+#include "tensorstore/internal/cache/async_cache.h"
+#include "tensorstore/internal/cache/cache.h"
+#include "tensorstore/internal/cache/kvs_backed_chunk_cache.h"
 #include "tensorstore/internal/json_binding/staleness_bound.h"  // IWYU: pragma keep
-#include "tensorstore/kvstore/driver.h"      // For kvstore::DriverPtr
-#include "tensorstore/kvstore/generation.h"  // For TimestampedStorageGeneration
+#include "tensorstore/kvstore/driver.h"
+#include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/tiff/tiff_key_value_store.h"
-#include "tensorstore/util/execution/any_receiver.h"  // For DecodeReceiver etc.
-#include "tensorstore/util/execution/execution.h"  // For execution::set_value/error
+#include "tensorstore/util/execution/any_receiver.h"
+#include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
@@ -92,7 +92,7 @@ class TiffChunkCache : public internal::KvsBackedChunkCache {
     ABSL_LOG(INFO) << "GetChunkStorageKey called with cell_indices: "
                    << absl::StrJoin(cell_indices, ", ");
     const auto& metadata = *resolved_metadata_;
-    const auto& grid = grid_;  // Get the grid spec stored in the cache
+    const auto& grid = grid_;
 
     const DimensionIndex grid_rank = grid.grid_rank();
     ABSL_CHECK(cell_indices.size() == grid_rank);
@@ -156,8 +156,6 @@ class TiffChunkCache : public internal::KvsBackedChunkCache {
   // Decodes chunk data (called by Entry::DoDecode indirectly).
   Result<absl::InlinedVector<SharedArray<const void>, 1>> DecodeChunk(
       span<const Index> chunk_indices, absl::Cord data) override {
-    // This method is required by the base class. We delegate to the
-    // already-existing global DecodeChunk function.
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto decoded_chunk,
         internal_tiff::DecodeChunk(*resolved_metadata_, std::move(data)));
@@ -200,8 +198,7 @@ class TiffChunkCache : public internal::KvsBackedChunkCache {
       return GetOwningCache(*this).kvstore_driver_->AnnotateError(
           this->GetKeyValueStoreKey(), reading ? "reading" : "writing", error);
     }
-
-  };  // End Entry definition
+  };
 
   // --- Required Allocation Methods ---
   Entry* DoAllocateEntry() final { return new Entry; }
@@ -216,8 +213,7 @@ class TiffChunkCache : public internal::KvsBackedChunkCache {
   std::shared_ptr<const TiffMetadata> resolved_metadata_;
   internal::ChunkGridSpecification grid_;
   Executor executor_;
-
-};  // End TiffChunkCache definition
+};
 
 // TiffDriverSpec: Defines the specification for opening a TIFF TensorStore.
 class TiffDriverSpec
@@ -226,27 +222,17 @@ class TiffDriverSpec
   constexpr static char id[] = "tiff";
   using Base = internal::RegisteredDriverSpec<TiffDriverSpec, KvsDriverSpec>;
 
-  // --- Members ---
-  TiffSpecOptions tiff_options;  // e.g. ifd_index
-  TiffMetadataConstraints
-      metadata_constraints;  // e.g. shape, dtype constraints
+  TiffSpecOptions tiff_options;
+  TiffMetadataConstraints metadata_constraints;
 
   constexpr static auto ApplyMembers = [](auto& x, auto f) {
     return f(internal::BaseCast<KvsDriverSpec>(x), x.tiff_options,
              x.metadata_constraints);
   };
 
-  // Inherited members from KvsDriverSpec:
-  // kvstore::Spec store;
-  // Schema schema;
-  // Context::Resource<...> data_copy_concurrency;
-  // Context::Resource<...> cache_pool;
-  // std::optional<Context::Resource<...>> metadata_cache_pool;
-  // StalenessBounds staleness;
-  // internal_kvs_backed_chunk_driver::FillValueMode fill_value_mode;
-  // (Also OpenModeSpec members: open, create, delete_existing, etc.)
-
   static inline const auto default_json_binder = jb::Sequence(
+      // Copied from kvs_backed_chunk_driver::KvsDriverSpec because
+      // KvsDriverSpec::store initializer was enforcing directory path.
       jb::Member(internal::DataCopyConcurrencyResource::id,
                  jb::Projection<&KvsDriverSpec::data_copy_concurrency>()),
       jb::Member(internal::CachePoolResource::id,
@@ -290,7 +276,6 @@ class TiffDriverSpec
       jb::Member("tiff", jb::Projection<&TiffDriverSpec::tiff_options>(
                              jb::DefaultValue([](auto* v) { *v = {}; }))));
 
-  // --- Overrides from DriverSpec ---
   Result<IndexDomain<>> GetDomain() const override {
     return internal_tiff::GetEffectiveDomain(tiff_options, metadata_constraints,
                                              schema);
@@ -300,7 +285,6 @@ class TiffDriverSpec
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto codec_spec_ptr, internal_tiff::GetEffectiveCodec(
                                  tiff_options, metadata_constraints, schema));
-    // Wrap the driver-specific spec ptr in the generic CodecSpec
     return CodecSpec(std::move(codec_spec_ptr));
   }
 
@@ -334,12 +318,9 @@ class TiffDriverSpec
     return absl::OkStatus();
   }
 
-  // --- Open method ---
-  // Implementation will be provided later, after TiffDriver is defined.
   Future<internal::Driver::Handle> Open(
       internal::DriverOpenRequest request) const override;
-
-};  // End TiffDriverSpec
+};
 
 // Initializer structure for TiffDriver
 struct TiffDriverInitializer {
@@ -356,13 +337,10 @@ struct TiffDriverInitializer {
   Context::Resource<internal::DataCopyConcurrencyResource>
       data_copy_concurrency;
   Context::Resource<internal::CachePoolResource> cache_pool;
-  // Use optional for metadata pool resource, as it might be the same as
-  // cache_pool
   std::optional<Context::Resource<internal::CachePoolResource>>
       metadata_cache_pool;
 };
 
-// Forward declare TiffDriver if needed before the using alias
 class TiffDriver;
 
 using TiffDriverBase = internal::RegisteredDriver<
@@ -394,10 +372,6 @@ class TiffDriver final : public TiffDriverBase {
     return initial_metadata_;
   }
 
-  // --- Overrides from internal::Driver ---
-
-  // dtype() and rank() are provided by ChunkGridSpecificationDriver base
-
   Result<internal::TransformedDriverSpec> GetBoundSpec(
       internal::OpenTransactionPtr transaction,
       IndexTransformView<> transform) override {
@@ -414,9 +388,7 @@ class TiffDriver final : public TiffDriverBase {
 
   void GarbageCollectionVisit(
       garbage_collection::GarbageCollectionVisitor& visitor) const override {
-    // Visit the base members (includes the cache ptr)
     Base::GarbageCollectionVisit(visitor);
-    // Visit the metadata cache entry
     garbage_collection::GarbageCollectionVisit(visitor, metadata_cache_entry_);
   }
 
@@ -475,8 +447,6 @@ class TiffDriver final : public TiffDriverBase {
     return internal::DriverHandle();
   }
 
-  // data_copy_executor() is provided by ChunkGridSpecificationDriver base
-
   void Read(ReadRequest request, ReadChunkReceiver receiver) override {
     // Replicate logic from ChunkCacheReadWriteDriverMixin
     cache()->Read({std::move(request), component_index(),
@@ -519,9 +489,7 @@ class TiffDriver final : public TiffDriverBase {
 
           if (!(options.mode & fix_resizable_bounds)) {
             // If fix_resizable_bounds is *not* set, treat upper bounds
-            // as implicit, For TIFF, where bounds are usually fixed, this
-            // might be debatable, but let's follow the pattern unless
-            // fix_resizable_bounds is set.
+            // as implicit. Questionable for TIFF...
             implicit_upper_bounds = true;
           }
 
@@ -540,7 +508,7 @@ class TiffDriver final : public TiffDriverBase {
 
   Future<ArrayStorageStatistics> GetStorageStatistics(
       GetStorageStatisticsRequest request) override {
-    // TODO(hsidky): Implement GetStorageStatistics if desired.
+    // TODO(hsidky): Implement GetStorageStatistics.
     // Might involve iterating keys in TiffKvStore? Complex.
     return absl::UnimplementedError("GetStorageStatistics not implemented");
   }
@@ -548,25 +516,19 @@ class TiffDriver final : public TiffDriverBase {
   // --- Helper for potentially stale metadata access ---
   Future<std::shared_ptr<const TiffMetadata>> ResolveMetadata(
       internal::OpenTransactionPtr transaction) {
-    // Asynchronously read the directory cache entry, respecting staleness
-    // bounds. Note: Transactions are not currently applied to metadata cache
-    // reads here,
-    //       pass `transaction` to Read if/when supported. For now, use nullptr.
+    // TODO: Transactions are not currently applied to metadata cache
     auto read_future =
         metadata_cache_entry_->Read({metadata_staleness_bound_.time});
 
     // Chain the metadata resolution logic onto the future.
     return MapFuture(
         this->data_copy_executor(),
-        // Capture necessary members by value for the lambda.
         [this, tiff_options = this->tiff_options_,
          schema = this->schema_](const Result<void>& read_result)
             -> Result<std::shared_ptr<const TiffMetadata>> {
-          // Check if the directory cache read succeeded.
           TENSORSTORE_RETURN_IF_ERROR(read_result);
 
           // Lock the directory cache entry to get the TiffParseResult.
-          // Use the correct ReadData type for TiffDirectoryCache.
           auto lock = AsyncCache::ReadLock<
               const internal_tiff_kvstore::TiffParseResult>(
               *this->metadata_cache_entry_);
@@ -608,25 +570,16 @@ class TiffDriver final : public TiffDriverBase {
   }
 
  private:
-  friend class TiffDriverSpec;  // Allow Spec to call constructor/access members
+  friend class TiffDriverSpec;
 
-  // Add as a private method to TiffDriver class:
   Result<IndexTransform<>> GetBoundSpecData(
       internal::OpenTransactionPtr transaction, TiffDriverSpec& spec,
       IndexTransformView<> transform) {
     ABSL_LOG(INFO) << "GetBoundSpecData called for TiffDriver";
     // Get the metadata snapshot associated with this driver instance.
-    // For generating a spec, using the initial metadata snapshot is
-    // appropriate. Note: `GetMetadata()` uses `initial_metadata_` and is
-    // synchronous.
     TENSORSTORE_ASSIGN_OR_RETURN(auto metadata, GetMetadata());
 
-    // --- Populate Base KvsDriverSpec Members ---
     spec.context_binding_state_ = ContextBindingState::bound;
-
-    // Get base KvStore spec from the TiffDirectoryCache driver
-    // The TiffDirectoryCache holds the driver for the *underlying* store (e.g.,
-    // file)
     auto& dir_cache = internal::GetOwningCache(*metadata_cache_entry_);
     TENSORSTORE_ASSIGN_OR_RETURN(spec.store.driver,
                                  dir_cache.kvstore_driver_->GetBoundSpec());
@@ -637,8 +590,7 @@ class TiffDriver final : public TiffDriverBase {
     // Copy stored context resources into the spec
     spec.data_copy_concurrency = this->data_copy_concurrency_;
     spec.cache_pool = this->cache_pool_;
-    spec.metadata_cache_pool =
-        this->metadata_cache_pool_;  // Copy optional resource
+    spec.metadata_cache_pool = this->metadata_cache_pool_;
 
     // Copy staleness bounds and fill mode from driver state
     spec.staleness.data = this->data_staleness_bound();
@@ -656,15 +608,9 @@ class TiffDriver final : public TiffDriverBase {
       TENSORSTORE_RETURN_IF_ERROR(
           spec.schema.Set(Schema::FillValue(this->schema_.fill_value())));
     }
-    // Note: We don't copy chunk_layout, codec, units directly here. They are
-    // part of the overall schema constraints potentially stored in
-    // `this->schema_` but are usually better represented via the
-    // `GetChunkLayout()`, etc. overrides on the spec itself, which use the
-    // `GetEffective...` functions.
 
-    // --- Populate Derived TiffDriverSpec Members ---
-    spec.tiff_options =
-        this->tiff_options_;  // Copy original TIFF-specific options
+    // Copy original TIFF-specific options
+    spec.tiff_options = this->tiff_options_;
 
     // Populate metadata constraints based on the *resolved* metadata state
     // This ensures the spec reflects the actual properties of the opened
@@ -672,19 +618,15 @@ class TiffDriver final : public TiffDriverBase {
     spec.metadata_constraints.rank = metadata->rank;
     spec.metadata_constraints.shape = metadata->shape;
     spec.metadata_constraints.dtype = metadata->dtype;
-    // Note: Other constraints (chunking, units) aren't typically back-filled
-    // from resolved metadata into the constraints section of the spec.
 
-    // --- Calculate Final Transform ---
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto external_to_internal,
         GetExternalToInternalTransform(*metadata, component_index()));
 
     IndexTransform<> final_transform = transform;  // Create mutable copy
 
-    // If the driver uses an internal transform (e.g., due to origin offsets
-    // or dimension reordering not captured by the base TensorStore view),
-    // compose the inverse of that transform with the input transform.
+    // If the driver uses an internal transform compose the inverse of that
+    // transform with the input transform.
     if (external_to_internal.valid()) {
       TENSORSTORE_ASSIGN_OR_RETURN(auto internal_to_external,
                                    InverseTransform(external_to_internal));
@@ -693,8 +635,6 @@ class TiffDriver final : public TiffDriverBase {
           ComposeTransforms(internal_to_external, std::move(final_transform)));
     }
 
-    // Return the adjusted transform that maps from the user-specified domain
-    // to the domain represented by the populated `driver_spec`.
     return final_transform;
   }
 
@@ -710,7 +650,7 @@ class TiffDriver final : public TiffDriverBase {
   Context::Resource<internal::CachePoolResource> cache_pool_;
   std::optional<Context::Resource<internal::CachePoolResource>>
       metadata_cache_pool_;
-};  // End TiffDriver
+};
 
 // Helper function to create the ChunkGridSpecification from metadata.
 // Constructs the grid based on logical dimensions identified by mapping_info.
@@ -719,7 +659,6 @@ Result<internal::ChunkGridSpecification> GetGridSpec(
   internal::ChunkGridSpecification::ComponentList components;
   const DimensionIndex metadata_rank = metadata.rank;
 
-  // --- Determine mapping from grid dimensions to component dimensions ---
   std::vector<DimensionIndex> chunked_to_cell_dims_vector;
 
   // Build chunked_to_cell_dims_vector based on identified logical dims
@@ -739,26 +678,19 @@ Result<internal::ChunkGridSpecification> GetGridSpec(
   }
   // Rank 0 case results in empty chunked_to_cell_dims_vector (grid_rank = 0)
 
-  // --- Prepare Component Specification ---
-
   // Create the fill value array
   SharedArray<const void> fill_value;
   if (metadata.fill_value.valid()) {
     fill_value = metadata.fill_value;
   } else {
-    // Create a default (value-initialized) scalar fill value
+    // Create a default scalar fill value
     fill_value = AllocateArray(/*shape=*/span<const Index>{}, c_order,
                                value_init, metadata.dtype);
   }
-  // Broadcast fill value to the full metadata shape
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto fill_value_array,  // SharedArray<const void>
       BroadcastArray(std::move(fill_value), BoxView<>(metadata.shape)));
-
-  // Convert fill_value_array (zero-origin) to SharedOffsetArray
   SharedOffsetArray<const void> offset_fill_value(std::move(fill_value_array));
-
-  // Determine layout order for the component data within chunks
   ContiguousLayoutOrder component_layout_order = metadata.layout_order;
 
   // Create the AsyncWriteArray::Spec
@@ -773,13 +705,9 @@ Result<internal::ChunkGridSpecification> GetGridSpec(
       metadata.chunk_layout.read_chunk_shape().end());
 
   // Add the single component to the list
-  components.emplace_back(
-      std::move(array_spec), std::move(component_chunk_shape_vec),
-      std::move(chunked_to_cell_dims_vector)  // Pass the mapping
-  );
-
-  // Construct ChunkGridSpecification using the single-argument constructor
-  // It will deduce the grid's chunk_shape from the component list.
+  components.emplace_back(std::move(array_spec),
+                          std::move(component_chunk_shape_vec),
+                          std::move(chunked_to_cell_dims_vector));
   return internal::ChunkGridSpecification(std::move(components));
 }
 
@@ -821,7 +749,7 @@ struct TiffOpenState : public internal::AtomicReferenceCount<TiffOpenState> {
 
   // Callback when TiffDirectoryCache entry read is complete
   void OnDirCacheRead(
-      KvStore base_kvstore,  // Pass needed results explicitly
+      KvStore base_kvstore,
       internal::PinnedCacheEntry<internal_tiff_kvstore::TiffDirectoryCache>
           metadata_cache_entry,
       ReadyFuture<const void> future);
@@ -847,7 +775,7 @@ void TiffOpenState::Start(Promise<internal::Driver::Handle> promise) {
 
 void TiffOpenState::OnKvStoreOpen(ReadyFuture<KvStore> future) {
   ABSL_LOG(INFO) << "TiffOpenState::OnKvStoreOpen";
-  // Check if opening the base KvStore failed.
+
   Result<KvStore> base_kvstore_result = future.result();
   if (!base_kvstore_result.ok()) {
     promise_.SetResult(std::move(base_kvstore_result).status());
@@ -892,7 +820,6 @@ void TiffOpenState::OnKvStoreOpen(ReadyFuture<KvStore> future) {
   // Link the next step (OnDirCacheRead) to the completion of the read.
   LinkValue(
       WithExecutor(data_copy_concurrency_->executor,
-                   // ---- FIX 2: Capture metadata_cache_entry by move ----
                    [self = internal::IntrusivePtr<TiffOpenState>(this),
                     base_kvstore = std::move(base_kvstore),
                     metadata_cache_entry = std::move(metadata_cache_entry)](
@@ -914,7 +841,6 @@ void TiffOpenState::OnDirCacheRead(
   ABSL_LOG(INFO) << "TiffOpenState::OnDirCacheRead";
 
   // 1. Check if reading the directory cache failed.
-  //    (Error already propagated by LinkError/LinkValue, but check anyway)
   if (!future.result().ok()) {
     // Error should have already been set on promise_, but double-check.
     if (promise_.result_needed()) {
@@ -937,6 +863,7 @@ void TiffOpenState::OnDirCacheRead(
   }
 
   ABSL_LOG(INFO) << "TiffOpenState::OnDirCacheRead Resolving metadata";
+
   // 3. Resolve the final TiffMetadata
   Result<std::shared_ptr<const TiffMetadata>> metadata_result =
       internal_tiff::ResolveMetadata(*parse_result, tiff_options_, schema_);
@@ -957,7 +884,7 @@ void TiffOpenState::OnDirCacheRead(
     return;
   }
 
-  // 5. Validate against read/write mode (TIFF is read-only for now)
+  // 5. Validate against read/write mode (TIFF is read-only)
   if (request_.read_write_mode != ReadWriteMode::read &&
       request_.read_write_mode != ReadWriteMode::dynamic) {
     promise_.SetResult(
@@ -967,16 +894,11 @@ void TiffOpenState::OnDirCacheRead(
   ReadWriteMode driver_read_write_mode = ReadWriteMode::read;  // Hardcoded
 
   // ---- 6. Create TiffChunkCache ----
-
   // 6a. Get the TiffKeyValueStore driver instance.
   Result<kvstore::DriverPtr> tiff_kvstore_driver_result =
       kvstore::tiff_kvstore::GetTiffKeyValueStoreDriver(
-          base_kvstore.driver,     // Pass the base KvStore driver
-          base_kvstore.path,       // Pass the path from the KvStore object
-          cache_pool_,             // Pass the resolved cache pool handle
-          data_copy_concurrency_,  // Pass the resolved data copy handle
-          metadata_cache_entry     // Pass the resolved metadata cache entry
-      );
+          base_kvstore.driver, base_kvstore.path, cache_pool_,
+          data_copy_concurrency_, metadata_cache_entry);
 
   if (!tiff_kvstore_driver_result.ok()) {
     promise_.SetResult(std::move(tiff_kvstore_driver_result).status());
@@ -998,27 +920,19 @@ void TiffOpenState::OnDirCacheRead(
   // 6c. Create the cache key for TiffChunkCache.
   std::string chunk_cache_key;
   // Simple key based on the metadata cache entry key and metadata properties.
-
   std::string metadata_compat_key = absl::StrFormat(
       "ifd%d_dtype%s_comp%d_planar%d_spp%d", metadata->ifd_index,
       metadata->dtype.name(), static_cast<int>(metadata->compression_type),
       static_cast<int>(metadata->planar_config), metadata->samples_per_pixel);
 
-  internal::EncodeCacheKey(
-      &chunk_cache_key,
-      metadata_cache_entry->key(),  // Use original path key
-      metadata_compat_key,
-      cache_pool_->get());  // Include data cache pool
+  internal::EncodeCacheKey(&chunk_cache_key, metadata_cache_entry->key(),
+                           metadata_compat_key, cache_pool_->get());
 
   // 6d. Get or create the TiffChunkCache.
   auto chunk_cache = internal::GetCache<TiffChunkCache>(
       cache_pool_->get(), chunk_cache_key, [&] {
-        // Factory to create the TiffChunkCache.
-        // Pass copies/moved values needed by the cache constructor.
         return std::make_unique<TiffChunkCache>(
-            tiff_kvstore_driver,  // Use the specific TIFF KvStore driver
-            metadata,             // Pass the resolved metadata
-            grid_spec,            // Pass the generated grid spec
+            tiff_kvstore_driver, metadata, grid_spec,
             data_copy_concurrency_->executor);
       });
   if (!chunk_cache) {
@@ -1033,8 +947,7 @@ void TiffOpenState::OnDirCacheRead(
       /*.component_index=*/0,  // Always 0 for TIFF
       /*.data_staleness_bound=*/staleness_.data.BoundAtOpen(open_time_),
       /*.metadata_staleness_bound=*/staleness_.metadata.BoundAtOpen(open_time_),
-      /*.metadata_cache_entry=*/std::move(metadata_cache_entry),  // Move
-                                                                  // ownership
+      /*.metadata_cache_entry=*/std::move(metadata_cache_entry),
       /*.fill_value_mode=*/fill_value_mode_,
       /*.initial_metadata=*/metadata,  // Store the resolved metadata
       /*.tiff_options=*/tiff_options_,
@@ -1043,7 +956,6 @@ void TiffOpenState::OnDirCacheRead(
       /*.cache_pool=*/cache_pool_,
       /*.metadata_cache_pool=*/metadata_cache_pool_};
 
-  // Use MakeIntrusivePtr for the driver
   auto driver =
       internal::MakeIntrusivePtr<TiffDriver>(std::move(driver_initializer));
 
@@ -1052,8 +964,7 @@ void TiffOpenState::OnDirCacheRead(
   // Get the initial transform (likely identity for TIFF base driver).
   // Use the resolved metadata stored within the newly created driver instance.
   Result<IndexTransform<>> transform_result =
-      driver->GetExternalToInternalTransform(
-          *metadata, 0);  // Use metadata passed to driver
+      driver->GetExternalToInternalTransform(*metadata, 0);
   if (!transform_result.ok()) {
     promise_.SetResult(std::move(transform_result).status());
     return;

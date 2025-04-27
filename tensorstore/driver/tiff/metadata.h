@@ -41,13 +41,6 @@ struct TiffSpecOptions {
   // Specifies which IFD (Image File Directory) to open. Defaults to 0.
   uint32_t ifd_index = 0;
 
-  // --- Future extensions ---
-  // enum class IfdHandling { kSingle, kStackZ } ifd_handling =
-  // IfdHandling::kSingle; bool use_ome_metadata = true; // Default to using OME
-  // if present?
-
-  // --- JSON Binding ---
-  // Make options configurable via JSON in the driver spec.
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(TiffSpecOptions,
                                           internal_json_binding::NoOptions,
                                           tensorstore::IncludeDefaults)
@@ -104,8 +97,6 @@ struct TiffMetadata {
   // TODO: Add fields for parsed OME-XML metadata if needed in the future.
   // std::shared_ptr<OmeXmlStruct> ome_metadata;
 
-  // TODO: Add fields representing user overrides/interpretations if needed.
-  // e.g., bool ifd_is_z_dimension;
   TiffMetadata() = default;
 };
 

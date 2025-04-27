@@ -28,7 +28,6 @@
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/util/future.h"
 
-// specializations
 #include "tensorstore/internal/estimate_heap_usage/std_vector.h"  // IWYU pragma: keep
 
 namespace tensorstore {
@@ -44,7 +43,6 @@ struct ReadDirectoryOp
   std::shared_ptr<const TiffParseResult> existing_read_data_;
   kvstore::ReadOptions options_;
 
-  // True if we have switched to reading the entire file or recognized that no
   // partial reads are needed.
   bool is_full_read_;
 
@@ -287,7 +285,7 @@ struct ReadDirectoryOp
       uint64_t read_end = read_begin + kInitialReadBytes;
 
       // If that end is some large threshold, we might want to do a full read:
-      if (read_end > (16 * 1024 * 1024)) {  // example threshold
+      if (read_end > (16 * 1024 * 1024)) { 
         is_full_read_ = true;
         options_.byte_range = OptionalByteRangeRequest(file_offset_);
       } else {
@@ -366,9 +364,7 @@ struct ReadDirectoryOp
     if (options_.byte_range.inclusive_min >= file_offset_ + buffer.size()) {
       // This is a non-contiguous read, so replace buffer instead of appending
       buffer = std::move(rr.value);
-      file_offset_ =
-          options_.byte_range
-              .inclusive_min;  // Update file offset to match new data
+      file_offset_ = options_.byte_range.inclusive_min;
     } else {
       // Append new data to buffer (contiguous read)
       size_t old_size = buffer.size();
@@ -462,11 +458,7 @@ Future<void> TiffDirectoryCache::Entry::LoadExternalArrays(
     TiffDataType type;
     uint64_t offset;
     uint64_t count;
-    // Instead of a single array, we also track which index in image_directories
-    // we belong to.
     size_t image_index;
-    // We'll store into either tile_offsets, strip_offsets, etc. based on the
-    // tag.
   };
 
   std::vector<ExternalArrayInfo> external_arrays;
@@ -493,7 +485,6 @@ Future<void> TiffDirectoryCache::Entry::LoadExternalArrays(
     return MakeReadyFuture<void>();
   }
 
-  // For concurrency, we make a Promise/Future pair to track all loads.
   auto [promise, future] = PromiseFuturePair<void>::Make();
   auto& cache = internal::GetOwningCache(*this);
 

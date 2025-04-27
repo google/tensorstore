@@ -433,25 +433,4 @@ TEST_F(TiffKeyValueStoreTest, ListWithComplexRange) {
                                                    "set_done", "set_stopping"));
 }
 
-TEST_F(TiffKeyValueStoreTest, GetParseResult) {
-  PrepareMemoryKvstore(absl::Cord(MakeTinyTiledTiff()));
-
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto tiff_store,
-      kvstore::Open({{"driver", "tiff"},
-                     {"base", {{"driver", "memory"}, {"path", "data.tiff"}}}},
-                    context_)
-          .result());
-
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto parse_result,
-      kvstore::tiff_kvstore::GetParseResult(tiff_store.driver, "tile/0/0/0",
-                                            absl::InfinitePast())
-          .result());
-  EXPECT_EQ(parse_result->image_directories.size(), 1);
-  EXPECT_EQ(parse_result->image_directories[0].tile_offsets.size(), 1);
-  EXPECT_EQ(parse_result->image_directories[0].tile_width, 256);
-  EXPECT_EQ(parse_result->image_directories[0].tile_height, 256);
-}
-
 }  // namespace

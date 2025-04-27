@@ -17,13 +17,13 @@
 
 #include <memory>
 
+#include "tensorstore/context.h"
+#include "tensorstore/internal/cache/cache.h"
+#include "tensorstore/internal/cache/cache_pool_resource.h"
+#include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/tiff/tiff_dir_cache.h"
-#include "tensorstore/context.h"                               // Add include
-#include "tensorstore/internal/cache/cache.h"                  // Add include
-#include "tensorstore/internal/cache/cache_pool_resource.h"    // Add include
-#include "tensorstore/internal/data_copy_concurrency_resource.h" // Add include
 #include "tensorstore/util/future.h"
 
 namespace tensorstore {
@@ -42,19 +42,6 @@ Result<DriverPtr> GetTiffKeyValueStoreDriver(
         data_copy_res,
     const internal::PinnedCacheEntry<internal_tiff_kvstore::TiffDirectoryCache>&
         dir_cache_entry);
-
-/// Gets the parsed TIFF structure for the TIFF file represented by this driver.
-///
-/// \param kvstore The TiffKvStore.
-/// \param key The key representing the TIFF file
-/// \param staleness_bound Time bound for reading the underlying file.
-/// \returns A Future that resolves to the parsed result or an error.
-///     Returns NotFoundError if the underlying file doesn't exist or initial
-///     parse fails.
-Future<
-    std::shared_ptr<const tensorstore::internal_tiff_kvstore::TiffParseResult>>
-GetParseResult(DriverPtr kvstore, std::string_view key,
-               absl::Time staleness_bound);
 
 }  // namespace tiff_kvstore
 }  // namespace kvstore

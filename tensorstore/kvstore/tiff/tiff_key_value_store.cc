@@ -182,7 +182,6 @@ struct ReadState : public internal::AtomicReferenceCount<ReadState> {
           *(owner_->cache_entry_));
       stamp = lock.stamp();
 
-      // Get directory data and verify ifd_ is valid
       assert(lock.data());
 
       // Check if the requested IFD exists
@@ -474,10 +473,8 @@ void TiffKeyValueStore::ListImpl(ListOptions options, ListReceiver receiver) {
 
 }  // namespace
 
-// GetTiffKeyValueStore factory function implementation
 Result<DriverPtr> GetTiffKeyValueStoreDriver(
-    DriverPtr base_kvstore,  // Base driver (e.g., file, memory)
-    std::string path,        // Path within the base driver
+    DriverPtr base_kvstore, std::string path,
     const Context::Resource<internal::CachePoolResource>& cache_pool_res,
     const Context::Resource<internal::DataCopyConcurrencyResource>&
         data_copy_res,
@@ -495,10 +492,9 @@ Result<DriverPtr> GetTiffKeyValueStoreDriver(
     return absl::InvalidArgumentError(
         "TIFF directory cache entry is not valid");
   }
-  // Optional: check if dir_cache_entry->key() matches path
 
   auto driver = internal::MakeIntrusivePtr<TiffKeyValueStore>();
-  driver->base_ = KvStore(base_kvstore, std::move(path));  // Use provided path
+  driver->base_ = KvStore(base_kvstore, std::move(path));
 
   // Assign the provided *resolved* resource handles
   driver->spec_data_.cache_pool = cache_pool_res;
@@ -507,38 +503,7 @@ Result<DriverPtr> GetTiffKeyValueStoreDriver(
   // Assign the provided cache entry
   driver->cache_entry_ = dir_cache_entry;
 
-  // No need to call internal::GetCache or internal::EncodeCacheKey here,
-  // as the cache_entry is provided directly by the caller.
-
   return DriverPtr(std::move(driver));
-}
-
-Future<std::shared_ptr<const TiffParseResult>> GetParseResult(
-    DriverPtr kvstore, std::string_view key, absl::Time staleness_bound) {
-  auto tiff_store = dynamic_cast<const TiffKeyValueStore*>(kvstore.get());
-  if (tiff_store == nullptr) {
-    return MakeReadyFuture<std::shared_ptr<const TiffParseResult>>(
-        absl::InvalidArgumentError("Invalid kvstore type"));
-  }
-
-  auto& cache_entry = tiff_store->cache_entry_;
-  if (!cache_entry) {
-    return MakeReadyFuture<std::shared_ptr<const TiffParseResult>>(
-        absl::InternalError("TiffDirectoryCache entry not initialized in "
-                            "TiffKeyValueStore::GetParseResult"));
-  }
-
-  auto read_future = cache_entry->Read({staleness_bound});
-  return MapFuture(
-      tiff_store->executor(),  // Use the member function to get the executor
-      [cache_entry, entry_key = std::string(key)](
-          const Result<void>&) -> std::shared_ptr<const TiffParseResult> {
-        TiffDirectoryCache::ReadLock<TiffParseResult> lock(
-            *cache_entry);  // Use captured this->cache_entry_
-        assert(lock.data());
-        return lock.shared_data();
-      },
-      std::move(read_future));
 }
 
 }  // namespace tensorstore::kvstore::tiff_kvstore
@@ -546,9 +511,6 @@ Future<std::shared_ptr<const TiffParseResult>> GetParseResult(
 TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(
     tensorstore::kvstore::tiff_kvstore::TiffKeyValueStore)
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Registration
-// ─────────────────────────────────────────────────────────────────────────────
 namespace {
 const tensorstore::internal_kvstore::DriverRegistration<
     tensorstore::kvstore::tiff_kvstore::Spec>

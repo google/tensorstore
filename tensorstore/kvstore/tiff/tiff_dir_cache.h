@@ -79,7 +79,7 @@ class TiffDirectoryCache : public internal::AsyncCache,
   size_t DoGetSizeofEntry() final;
 
   TransactionNode* DoAllocateTransactionNode(AsyncCache::Entry& entry) final {
-    ABSL_UNREACHABLE();  // Not implemented for step-1
+    ABSL_UNREACHABLE();  // Not implemented.
     return nullptr;
   }
 
