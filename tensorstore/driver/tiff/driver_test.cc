@@ -55,6 +55,7 @@
 namespace {
 namespace kvstore = tensorstore::kvstore;
 
+using ::tensorstore::CodecSpec;
 using ::tensorstore::Context;
 using ::tensorstore::DimensionIndex;
 using ::tensorstore::dtype_v;
@@ -89,7 +90,8 @@ class TiffDriverTest : public ::testing::Test {
     // 10x20 uint8, 1 channel, chunky, 10x10 tiles
     TiffBuilder builder;
     builder
-        .StartIfd(10)  // W, H, SPP, BPS, Comp, Photo, TW, TL, TileOffsets/Counts
+        .StartIfd(
+            10)  // W, H, SPP, BPS, Comp, Photo, TW, TL, TileOffsets/Counts
         .AddEntry(256, 3, 1, 10)   // ImageWidth = 10
         .AddEntry(257, 3, 1, 20)   // ImageLength = 20
         .AddEntry(277, 3, 1, 1)    // SamplesPerPixel = 1
@@ -125,7 +127,7 @@ class TiffDriverTest : public ::testing::Test {
     size_t tile_size_bytes = 6 * sizeof(uint16_t);
 
     TiffBuilder builder;
-    builder.StartIfd(9)
+    builder.StartIfd(10)
         .AddEntry(256, 3, 1, 6)   // Width = 6
         .AddEntry(257, 3, 1, 4)   // Height = 4
         .AddEntry(277, 3, 1, 1)   // SamplesPerPixel = 1
@@ -135,20 +137,29 @@ class TiffDriverTest : public ::testing::Test {
         .AddEntry(322, 3, 1, 3)   // TileWidth = 3
         .AddEntry(323, 3, 1, 2);  // TileLength = 2
 
-    size_t data_start_offset =
-        builder.CurrentOffset() + 12 * 9 + 4 +
-        4 * 4;  // After IFD, next ptr, offset array, count array
+    size_t header_size = 8;
+    size_t ifd_block_size = 2 + (10 * 12) + 4;  // Size of IFD block
+    size_t end_of_ifd_offset = header_size + ifd_block_size;
+
+    size_t tile_offsets_array_start_offset = end_of_ifd_offset;
+    size_t tile_offsets_array_size = 4 * sizeof(uint32_t);  // 4 tiles
+    size_t tile_bytecounts_array_start_offset =
+        tile_offsets_array_start_offset + tile_offsets_array_size;
+    size_t tile_bytecounts_array_size = 4 * sizeof(uint32_t);  // 4 tiles
+    size_t tile_data_start_offset =
+        tile_bytecounts_array_start_offset + tile_bytecounts_array_size;
+
     std::vector<uint32_t> tile_offsets = {
-        (uint32_t)(data_start_offset + 0 * tile_size_bytes),
-        (uint32_t)(data_start_offset + 1 * tile_size_bytes),
-        (uint32_t)(data_start_offset + 2 * tile_size_bytes),
-        (uint32_t)(data_start_offset + 3 * tile_size_bytes)};
+        (uint32_t)(tile_data_start_offset + 0 * tile_size_bytes),
+        (uint32_t)(tile_data_start_offset + 1 * tile_size_bytes),
+        (uint32_t)(tile_data_start_offset + 2 * tile_size_bytes),
+        (uint32_t)(tile_data_start_offset + 3 * tile_size_bytes)};
     std::vector<uint32_t> tile_bytecounts(4, tile_size_bytes);
 
-    size_t offset_array_offset = builder.CurrentOffset() + 12 * 9 + 4;
-    builder.AddEntry(324, 4, tile_offsets.size(), offset_array_offset);
-    size_t count_array_offset = offset_array_offset + tile_offsets.size() * 4;
-    builder.AddEntry(325, 4, tile_bytecounts.size(), count_array_offset);
+    builder.AddEntry(324, 4, tile_offsets.size(),
+                     tile_offsets_array_start_offset);
+    builder.AddEntry(325, 4, tile_bytecounts.size(),
+                     tile_bytecounts_array_start_offset);
 
     builder.EndIfd(0)
         .AddUint32Array(tile_offsets)
@@ -283,7 +294,7 @@ TEST_F(TiffDriverTest, TestSpecSchemaRank) {
           {"domain",
            {{"inclusive_min", {0, 0, 0}}, {"exclusive_max", {10, 20, 30}}}},
           {"chunk_layout",
-           {{"inner_order_soft_constraint", {2, 1, 0}},    // Default C order
+           {{"inner_order_soft_constraint", {0, 1, 2}},    // Default C order
             {"grid_origin_soft_constraint", {0, 0, 0}}}},  // Default origin
           {"codec", {{"driver", "tiff"}}}                  // Default codec
       });
@@ -333,4 +344,231 @@ TEST_F(TiffDriverTest, OpenMinimalTiff) {
   EXPECT_THAT(layout.read_chunk_shape(), ::testing::ElementsAre(10, 10));
 }
 
+TEST_F(TiffDriverTest, OpenWithMatchingMetadataConstraint) {
+  WriteTiffData("minimal.tif", MakeMinimalTiff());
+  TENSORSTORE_EXPECT_OK(
+      tensorstore::Open(
+          {{"driver", "tiff"},
+           {"kvstore", "memory://minimal.tif"},
+           // Check that constraints match what's in the file
+           {"metadata", {{"dtype", "uint8"}, {"shape", {20, 10}}}}},
+          context_)
+          .result());
+}
+
+TEST_F(TiffDriverTest, OpenWithMismatchedDtypeConstraint) {
+  WriteTiffData("minimal.tif", MakeMinimalTiff());
+  EXPECT_THAT(tensorstore::Open(
+                  {
+                      {"driver", "tiff"},
+                      {"kvstore", "memory://minimal.tif"},
+                      {"metadata", {{"dtype", "uint16"}}}  // Mismatch
+                  },
+                  context_)
+                  .result(),
+              MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                            ".*Schema dtype uint16 is incompatible .*"
+                            "TIFF dtype uint8.*"));
+}
+
+TEST_F(TiffDriverTest, OpenWithMismatchedShapeConstraint) {
+  WriteTiffData("minimal.tif", MakeMinimalTiff());
+  EXPECT_THAT(tensorstore::Open(
+                  {
+                      {"driver", "tiff"},
+                      {"kvstore", "memory://minimal.tif"},
+                      {"metadata", {{"shape", {20, 11}}}}  // Mismatch
+                  },
+                  context_)
+                  .result(),
+              MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                            ".*Resolved TIFF shape .*20, 10.* does not match "
+                            "user constraint shape .*20, 11.*"));
+}
+
+TEST_F(TiffDriverTest, OpenWithSchemaDtypeMismatch) {
+  WriteTiffData("minimal.tif", MakeMinimalTiff());
+  EXPECT_THAT(
+      tensorstore::Open(
+          {
+              {"driver", "tiff"},
+              {"kvstore", "memory://minimal.tif"},
+              {"schema", {{"dtype", "int16"}}}  // Mismatch
+          },
+          context_)
+          .result(),
+      // This error comes from ResolveMetadata comparing schema and TIFF data
+      MatchesStatus(
+          absl::StatusCode::kFailedPrecondition,
+          ".*Schema dtype int16 is incompatible with TIFF dtype uint8.*"));
+}
+
+TEST_F(TiffDriverTest, OpenInvalidTiffHeader) {
+  WriteTiffData("invalid_header.tif", "Not a valid TIFF file");
+  EXPECT_THAT(tensorstore::Open({{"driver", "tiff"},
+                                 {"kvstore", "memory://invalid_header.tif"}},
+                                context_)
+                  .result(),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            ".*Invalid TIFF byte order mark.*"));
+}
+
+TEST_F(TiffDriverTest, OpenInvalidIfdIndex) {
+  WriteTiffData("minimal.tif", MakeMinimalTiff());
+  EXPECT_THAT(tensorstore::Open(
+                  {
+                      {"driver", "tiff"},
+                      {"kvstore", "memory://minimal.tif"},
+                      {"tiff", {{"ifd", 1}}}  // Request IFD 1
+                  },
+                  context_)
+                  .result(),
+              MatchesStatus(absl::StatusCode::kNotFound,
+                            ".*Requested IFD index 1 not found.*"));
+}
+
+// --- Read Tests ---
+TEST_F(TiffDriverTest, ReadFull) {
+  WriteTiffData("read_test.tif", MakeReadTestTiff());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(
+          {{"driver", "tiff"}, {"kvstore", "memory://read_test.tif"}}, context_)
+          .result());
+
+  EXPECT_THAT(
+      tensorstore::Read(store).result(),
+      Optional(tensorstore::MakeArray<uint16_t>({{1, 2, 3, 4, 5, 6},
+                                                 {7, 8, 9, 10, 11, 12},
+                                                 {13, 14, 15, 16, 17, 18},
+                                                 {19, 20, 21, 22, 23, 24}})));
+}
+
+TEST_F(TiffDriverTest, ReadSlice) {
+  WriteTiffData("read_test.tif", MakeReadTestTiff());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(
+          {{"driver", "tiff"}, {"kvstore", "memory://read_test.tif"}}, context_)
+          .result());
+
+  // Read a slice covering parts of tiles 0 and 1
+  // Dims(0, 1).IndexSlice({1, 2}) -> Element at row 1, col 2 -> value 9
+  EXPECT_THAT(
+      tensorstore::Read(store | tensorstore::Dims(0, 1).IndexSlice({1, 2}))
+          .result(),
+      Optional(tensorstore::MakeScalarArray<uint16_t>(9)));
+
+  // Read a slice within a single tile (tile 2)
+  // Dims(0, 1).SizedInterval({2, 1}, {1, 2}) -> Start at row 2, col 1; size 1
+  // row, 2 cols
+  EXPECT_THAT(
+      tensorstore::Read(store |
+                        tensorstore::Dims(0, 1).SizedInterval({2, 1}, {1, 2}))
+          .result(),
+      Optional(tensorstore::MakeOffsetArray<uint16_t>({2, 1}, {{14, 15}})));
+}
+
+// --- Metadata / Property Tests ---
+TEST_F(TiffDriverTest, Properties) {
+  WriteTiffData("read_test.tif", MakeReadTestTiff());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(
+          {{"driver", "tiff"}, {"kvstore", "memory://read_test.tif"}}, context_)
+          .result());
+
+  EXPECT_EQ(dtype_v<uint16_t>, store.dtype());
+  EXPECT_EQ(2, store.rank());
+  EXPECT_THAT(store.domain().origin(), ::testing::ElementsAre(0, 0));
+  EXPECT_THAT(store.domain().shape(), ::testing::ElementsAre(4, 6));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto layout, store.chunk_layout());
+  EXPECT_THAT(layout.read_chunk_shape(), ::testing::ElementsAre(2, 3));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto codec, store.codec());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto expected_codec,
+      CodecSpec::FromJson({{"driver", "tiff"}, {"compression", "raw"}}));
+  EXPECT_EQ(expected_codec, codec);
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto units, store.dimension_units());
+  EXPECT_THAT(units, ::testing::ElementsAre(std::nullopt, std::nullopt));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto fill_value, store.fill_value());
+  EXPECT_FALSE(fill_value.valid());
+
+  // Test ResolveBounds
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto resolved_store,
+                                   ResolveBounds(store).result());
+  EXPECT_EQ(store.domain(), resolved_store.domain());
+
+  // Test GetBoundSpec
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto bound_spec, store.spec());
+  ASSERT_TRUE(bound_spec.valid());
+
+  // Check the minimal JSON representation (IncludeDefaults=false)
+  ::nlohmann::json expected_minimal_json = {
+      {"driver", "tiff"},
+      {"kvstore", {{"driver", "memory"}, {"path", "read_test.tif"}}},
+      {"dtype", "uint16"},
+      {"transform",
+       {// Includes the resolved domain
+        {"input_inclusive_min", {0, 0}},
+        {"input_exclusive_max", {4, 6}}}},
+      {"metadata", {{"dtype", "uint16"}, {"shape", {4, 6}}}}};
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto minimal_json, bound_spec.ToJson());
+  EXPECT_THAT(minimal_json, MatchesJson(expected_minimal_json));
+
+  // Optional: Check the full JSON representation (IncludeDefaults=true)
+  // This would include default tiff options, schema defaults, context resources
+  // etc. Example (adjust based on actual defaults set by
+  // KvsDriverSpec/TiffDriverSpec):
+  ::nlohmann::json expected_full_json = {
+      {"driver", "tiff"},
+      {"kvstore",
+       {{"driver", "memory"},
+        {"path", "read_test.tif"},
+        {"atomic", true},
+        {"context", ::nlohmann::json({})},
+        {"memory_key_value_store", "memory_key_value_store"}}},
+      {"dtype", "uint16"},
+      {"transform",
+       {{"input_inclusive_min", {0, 0}}, {"input_exclusive_max", {4, 6}}}},
+      {"metadata",
+       {
+           {"dtype", "uint16"}, {"shape", {4, 6}}
+           // May include other resolved metadata if GetBoundSpecData adds more
+       }},
+      {"tiff", {{"ifd", 0}}},  // Default ifd included
+      {"schema",
+       {// Includes defaults inferred or set
+        {"rank", 2},
+        {"dtype", "uint16"}}},
+      // Default context resource names/specs might appear here too
+      {"recheck_cached_data", true},        // Example default
+      {"recheck_cached_metadata", "open"},  // Example default
+      {"delete_existing", false},
+      {"assume_metadata", false},
+      {"assume_cached_metadata", false},
+      {"fill_missing_data_reads", true},
+      {"store_data_equal_to_fill_value", false},
+      {"cache_pool", "cache_pool"},
+      {"context", ::nlohmann::json({})},
+      {"data_copy_concurrency", "data_copy_concurrency"}};
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto full_json, bound_spec.ToJson(tensorstore::IncludeDefaults{true}));
+  EXPECT_THAT(full_json, MatchesJson(expected_full_json));
+
+  // Test re-opening from the minimal spec
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store2, tensorstore::Open(bound_spec, context_).result());
+  EXPECT_EQ(store.dtype(), store2.dtype());
+  EXPECT_EQ(store.domain(), store2.domain());
+  EXPECT_EQ(store.rank(), store2.rank());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto layout2, store2.chunk_layout());
+  EXPECT_EQ(layout, layout2);
+}
 }  // namespace

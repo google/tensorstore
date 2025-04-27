@@ -30,6 +30,7 @@
 #include "tensorstore/driver/kvs_backed_chunk_driver.h"  // For KvsDriverSpec, SpecJsonBinder
 #include "tensorstore/driver/registry.h"
 #include "tensorstore/driver/tiff/metadata.h"  // For TiffMetadata, DecodeChunk
+#include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/internal/propagate_bounds.h"  // For PropagateBoundsToTransform
 #include "tensorstore/internal/cache/async_cache.h"  // For AsyncCache, AsyncCache::Entry, ReadData
 #include "tensorstore/internal/cache/cache.h"  // For CachePool, GetOwningCache
@@ -596,8 +597,12 @@ class TiffDriver final : public TiffDriverBase {
   // view. For the base TIFF driver, this is typically identity.
   Result<IndexTransform<>> GetExternalToInternalTransform(
       const TiffMetadata& metadata, size_t component_index) const {
-    ABSL_CHECK(component_index == 0);  // Expect only one component
-    return IdentityTransform(metadata.rank);
+    ABSL_CHECK(component_index == 0);
+    // Assumes zero origin, adjust if needed for OME-TIFF etc. later.
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto domain,
+        IndexDomainBuilder(metadata.rank).shape(metadata.shape).Finalize());
+    return IdentityTransform(domain);
   }
 
  private:

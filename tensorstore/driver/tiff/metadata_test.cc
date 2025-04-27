@@ -326,7 +326,7 @@ TEST(ResolveMetadataTest, BasicSuccessTile) {
   EXPECT_EQ(metadata->compression_type, CompressionType::kNone);
   EXPECT_EQ(metadata->planar_config, PlanarConfigType::kChunky);
   EXPECT_THAT(metadata->chunk_layout.read_chunk().shape(), ElementsAre(16, 16));
-  EXPECT_THAT(metadata->chunk_layout.inner_order(), ElementsAre(1, 0));
+  EXPECT_THAT(metadata->chunk_layout.inner_order(), ElementsAre(0, 1));
   EXPECT_EQ(metadata->compressor, nullptr);
 }
 
@@ -345,7 +345,7 @@ TEST(ResolveMetadataTest, BasicSuccessStrip) {
   EXPECT_EQ(metadata->dtype, dtype_v<uint8_t>);
   EXPECT_THAT(metadata->chunk_layout.read_chunk().shape(),
               ElementsAre(10, 100));
-  EXPECT_THAT(metadata->chunk_layout.inner_order(), ElementsAre(1, 0));
+  EXPECT_THAT(metadata->chunk_layout.inner_order(), ElementsAre(0, 1));
 }
 
 TEST(ResolveMetadataTest, MultiSampleChunky) {
@@ -363,7 +363,7 @@ TEST(ResolveMetadataTest, MultiSampleChunky) {
   EXPECT_EQ(metadata->planar_config, PlanarConfigType::kChunky);
   EXPECT_THAT(metadata->chunk_layout.read_chunk().shape(),
               ElementsAre(16, 16, 3));
-  EXPECT_THAT(metadata->chunk_layout.inner_order(), ElementsAre(2, 1, 0));
+  EXPECT_THAT(metadata->chunk_layout.inner_order(), ElementsAre(0, 1, 2));
 }
 
 TEST(ResolveMetadataTest, SelectIfd) {
@@ -699,7 +699,7 @@ TEST(GetEffectiveTest, ChunkLayout) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       layout, GetEffectiveChunkLayout(options, constraints, schema));
   EXPECT_EQ(layout.rank(), 2);
-  EXPECT_THAT(layout.inner_order(), ElementsAre(1, 0));  // Default TIFF order
+  EXPECT_THAT(layout.inner_order(), ElementsAre(0, 1));
   EXPECT_THAT(layout.grid_origin(), ElementsAre(0, 0));
 
   // Schema specifies chunk shape
@@ -713,7 +713,7 @@ TEST(GetEffectiveTest, ChunkLayout) {
       layout, GetEffectiveChunkLayout(options, constraints, schema));
   EXPECT_THAT(layout.read_chunk().shape(), ElementsAre(32, 64));
   EXPECT_THAT(layout.inner_order(),
-              ElementsAre(1, 0));  // Default TIFF order retained
+              ElementsAre(0, 1)); 
 
   // Schema specifies inner order
   schema = Schema();

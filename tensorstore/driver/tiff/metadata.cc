@@ -278,20 +278,15 @@ Result<std::vector<Index>> GetChunkShapeFromTiff(
   return chunk_shape;
 }
 
-// Gets inner order based on ImageDirectory and PlanarConfiguration. (Fastest
-// varying last)
+// Gets inner order based on ImageDirectory and PlanarConfiguration.
 Result<std::vector<DimensionIndex>> GetInnerOrderFromTiff(DimensionIndex rank) {
   if (rank == dynamic_rank) {
     return absl::InvalidArgumentError(
         "Could not determine rank for inner order");
   }
   std::vector<DimensionIndex> inner_order(rank);
-  // TIFF stores chunky data as Y,X,C with C varying fastest.
-  // TensorStore uses C-order (last index fastest) by default.
-  // So, the natural inner order is [C, X, Y] -> [2, 1, 0] for rank 3
-  // or [X, Y] -> [1, 0] for rank 2.
   for (DimensionIndex i = 0; i < rank; ++i) {
-    inner_order[i] = rank - 1 - i;
+    inner_order[i] = i;
   }
   return inner_order;
 }
