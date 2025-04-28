@@ -1,10 +1,10 @@
-load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
-load("@bazel_skylib//rules:write_file.bzl", "write_file")
-
 # Bazel BUILD file for dav1d.
 #
 # Canonical location for dav1d codec is https://code.videolan.org/videolan/dav1d
 #
+
+load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("@tensorstore//bazel:rules_nasm.bzl", "nasm_library")
 
 package(default_visibility = ["//visibility:private"])
@@ -217,7 +217,7 @@ cc_library(
     hdrs = [
         "build/config.h",
         "build/vcs_version.h",
-        "build/version.h",
+        "include/dav1d/version.h",
         "include/dav1d/common.h",
         "include/dav1d/data.h",
         "include/dav1d/dav1d.h",
@@ -242,17 +242,6 @@ cc_library(
         ":compiler_msvc": ["include/compat/msvc"],
         "//conditions:default": [],
     }),
-)
-
-expand_template(
-    name = "build_version_h",
-    out = "build/version.h",
-    substitutions = {
-        "@DAV1D_API_VERSION_MAJOR@": "6",
-        "@DAV1D_API_VERSION_MINOR@": "6",
-        "@DAV1D_API_VERSION_PATCH@": "0",
-    },
-    template = "include/dav1d/version.h.in",
 )
 
 expand_template(
@@ -387,12 +376,9 @@ write_file(
     newline = "unix",
 )
 
-[
-    alias(
-        name = name,
-        actual = "@tensorstore//:{target}".format(target = name),
-    )
-    for name in [
-        "compiler_msvc",
-    ]
-]
+config_setting(
+    name = "compiler_msvc",
+    flag_values = {
+        "@bazel_tools//tools/cpp:compiler": "msvc-cl",
+    },
+)

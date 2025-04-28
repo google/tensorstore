@@ -226,8 +226,6 @@ write_file(
         "x86_64_gcc_or_clang",
         "x86_64_msvc",
         "x86_64_mingw_gcc",
-        "compiler_mingw_gcc",
-        "compiler_msvc",
     ]
 ]
 
@@ -246,4 +244,18 @@ alias(
         # Enable by default on x86_64.
         "//conditions:default": "@platforms//cpu:x86_64",
     }),
+)
+
+config_setting(
+    name = "compiler_mingw_gcc",
+    flag_values = {
+        "@bazel_tools//tools/cpp:compiler": "mingw-gcc",
+    },
+)
+
+config_setting(
+    name = "compiler_msvc",
+    flag_values = {
+        "@bazel_tools//tools/cpp:compiler": "msvc-cl",
+    },
 )

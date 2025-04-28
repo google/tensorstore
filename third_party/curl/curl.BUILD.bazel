@@ -21,6 +21,20 @@ config_setting(
     visibility = ["//visibility:private"],
 )
 
+config_setting(
+    name = "compiler_mingw_gcc",
+    flag_values = {
+        "@bazel_tools//tools/cpp:compiler": "mingw-gcc",
+    },
+)
+
+config_setting(
+    name = "compiler_msvc",
+    flag_values = {
+        "@bazel_tools//tools/cpp:compiler": "msvc-cl",
+    },
+)
+
 LOCAL_DEFINES = (
     [
         "BUILDING_LIBCURL",
@@ -436,14 +450,3 @@ write_file(
     ],
     newline = "unix",
 )
-
-[
-    alias(
-        name = name,
-        actual = "@tensorstore//:{target}".format(target = name),
-    )
-    for name in [
-        "compiler_mingw_gcc",
-        "compiler_msvc",
-    ]
-]

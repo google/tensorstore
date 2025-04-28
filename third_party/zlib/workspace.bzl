@@ -28,12 +28,12 @@ def repo():
         name = "zlib",
         # We use the chromium fork of zlib, but generally it tracks here:
         doc_name = "chromium-zlib",
-        doc_version = "1.3.0.1-20240223",
+        doc_version = "1.3.1.1-20250425",
         doc_homepage = "https://chromium.googlesource.com/chromium/src/third_party/zlib/",
         # googlesource does not cache archive files; the sha256 is only valid for the mirror.
-        sha256 = "096325e0c605fcb23aa578e9d259f5e577da1f1d0bdd68e9887974072c120a09",
+        sha256 = "eafdc0818f091a50b0ebf439f92bce28fd5f324e93ef8644f7d8fe6c103ddf35",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/chromium.googlesource.com/chromium/src/third_party/zlib/+archive/3787595bbbd3a374613713164db935e8331f5825.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/chromium.googlesource.com/chromium/src/third_party/zlib/+archive/a26c752876190c456e44188db38931561bfa7064.tar.gz",  # main(2025-04-25)
         ],
         build_file = Label("//third_party:zlib/zlib.BUILD.bazel"),
         system_build_file = Label("//third_party:zlib/system.BUILD.bazel"),

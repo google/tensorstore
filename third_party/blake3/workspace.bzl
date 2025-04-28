@@ -21,10 +21,10 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "blake3",
-        strip_prefix = "BLAKE3-1.5.4",
-        sha256 = "ddd24f26a31d23373e63d9be2e723263ac46c8b6d49902ab08024b573fd2a416",
+        strip_prefix = "BLAKE3-1.8.2",
+        sha256 = "6b51aefe515969785da02e87befafc7fdc7a065cd3458cf1141f29267749e81f",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/BLAKE3-team/BLAKE3/archive/1.5.4.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/BLAKE3-team/BLAKE3/archive/1.8.2.tar.gz",
         ],
         build_file = Label("//third_party:blake3/blake3.BUILD.bazel"),
         system_build_file = Label("//third_party:blake3/system.BUILD.bazel"),

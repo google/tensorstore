@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# buildifier: disable=module-docstring
+
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load(
     "//third_party:repo.bzl",
@@ -22,12 +24,13 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "libwebp",
+        doc_version = "1.5.0",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/webmproject/libwebp/archive/v1.4.0.tar.gz",
-            "https://github.com/webmproject/libwebp/archive/v1.4.0.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/webmproject/libwebp/archive/v1.5.0.tar.gz",
+            "https://github.com/webmproject/libwebp/archive/v1.5.0.tar.gz",
         ],
-        sha256 = "12af50c45530f0a292d39a88d952637e43fb2d4ab1883c44ae729840f7273381",
-        strip_prefix = "libwebp-1.4.0",
+        sha256 = "668c9aba45565e24c27e17f7aaf7060a399f7f31dba6c97a044e1feacb930f37",
+        strip_prefix = "libwebp-1.5.0",
         build_file = Label("//third_party:libwebp/libwebp.BUILD.bazel"),
         system_build_file = Label("//third_party:libwebp/system.BUILD.bazel"),
         cmake_name = "WebP",

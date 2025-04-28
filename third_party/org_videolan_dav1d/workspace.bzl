@@ -23,10 +23,10 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "org_videolan_dav1d",
-        sha256 = "88a023e58d955e0886faf49c72940e0e90914a948a8e60c1326ce3e09e7a6099",
-        strip_prefix = "dav1d-1.4.3",
+        sha256 = "fa635e2bdb25147b1384007c83e15de44c589582bb3b9a53fc1579cb9d74b695",
+        strip_prefix = "dav1d-1.5.1",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/videolan/dav1d/archive/1.4.3.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/videolan/dav1d/archive/1.5.1.tar.gz",
         ],
         build_file = Label("//third_party:org_videolan_dav1d/dav1d.BUILD.bazel"),
         cmake_name = "dav1d",

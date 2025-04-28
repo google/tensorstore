@@ -4,6 +4,13 @@ licenses(["notice"])  # BSD-like licence
 
 exports_files(["COPYRIGHT"])
 
+config_setting(
+    name = "compiler_msvc",
+    flag_values = {
+        "@bazel_tools//tools/cpp:compiler": "msvc-cl",
+    },
+)
+
 cc_library(
     name = "tiff",
     srcs = [
@@ -240,13 +247,3 @@ write_file(
     ],
     newline = "unix",
 )
-
-[
-    alias(
-        name = name,
-        actual = "@tensorstore//:{target}".format(target = name),
-    )
-    for name in [
-        "compiler_msvc",
-    ]
-]

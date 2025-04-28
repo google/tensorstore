@@ -15,6 +15,8 @@
 # Examples of building libavif using bazel are hard to find.
 # https://github.com/tensorflow/io
 
+# buildifier: disable=module-docstring
+
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load(
     "//third_party:repo.bzl",
@@ -26,10 +28,10 @@ def repo():
         third_party_http_archive,
         name = "org_aomedia_avif",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/AOMediaCodec/libavif/archive/v1.0.4.tar.gz",  # 1.0.1(2023-08-30)
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/AOMediaCodec/libavif/archive/v1.2.1.tar.gz",
         ],
-        sha256 = "dc56708c83a4b934a8af2b78f67f866ba2fb568605c7cf94312acf51ee57d146",
-        strip_prefix = "libavif-1.0.4",
+        sha256 = "9c859c7c12ccb0f407511bfe303e6a7247f5f6738f54852662c6df8048daddf4",
+        strip_prefix = "libavif-1.2.1",
         build_file = Label("//third_party:org_aomedia_avif/libavif.BUILD.bazel"),
         system_build_file = Label("//third_party:org_aomedia_avif/system.BUILD.bazel"),
         cmake_name = "AVIF",

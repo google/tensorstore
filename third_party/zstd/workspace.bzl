@@ -24,11 +24,13 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "zstd",
-        strip_prefix = "zstd-1.5.6",
+        doc_homepage = "https://github.com/facebook/zstd",
+        doc_version = "1.5.7",
+        strip_prefix = "zstd-1.5.7",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/facebook/zstd/archive/v1.5.6.zip",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/facebook/zstd/archive/v1.5.7.zip",
         ],
-        sha256 = "3b1c3b46e416d36931efd34663122d7f51b550c87f74de2d38249516fe7d8be5",
+        sha256 = "7897bc5d620580d9b7cd3539c44b59d78f3657d33663fe97a145e07b4ebd69a4",
         build_file = Label("//third_party:zstd/zstd.BUILD.bazel"),
         system_build_file = Label("//third_party:zstd/system.BUILD.bazel"),
         cmake_name = "Zstd",

@@ -26,25 +26,21 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "boringssl",
-        strip_prefix = "boringssl-098695591f3a2665fccef83a3732ecfc99acdcdd",
+        strip_prefix = "boringssl-0.20250415.0",
+        doc_version = "0.20250415",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/google/boringssl/archive/098695591f3a2665fccef83a3732ecfc99acdcdd.tar.gz",  # master-with-bazel(2022-07-20)
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/google/boringssl/archive/refs/tags/0.20250415.0.tar.gz",  # 0.20250415.0
         ],
-        sha256 = "e141448cf6f686b6e9695f6b6459293fd602c8d51efe118a83106752cf7e1280",
-        doc_version = "20220719-0986955",
+        sha256 = "b2d64c4d52c505d60b0fb86833568dc4762445910d7a7757ff9b172e5556cb01",
         system_build_file = Label("//third_party:boringssl/system.BUILD.bazel"),
-        patches = [
-            # boringssl sets -Werror by default.  That makes the build fragile
-            # and likely to break with new compiler versions.
-            Label("//third_party:boringssl/patches/no-Werror.diff"),
-        ],
-        patch_args = ["-p1"],
         cmake_name = "OpenSSL",
         cmake_target_mapping = {
             "//:crypto": "OpenSSL::Crypto",
             "//:ssl": "OpenSSL::SSL",
         },
-        bazel_to_cmake = {},
+        bazel_to_cmake = {
+            "aliased_targets_only": True,
+        },
         cmake_package_redirect_libraries = {
             "OPENSSL_CRYPTO": "OpenSSL::Crypto",
             "OPENSSL_SSL": "OpenSSL::SSL",

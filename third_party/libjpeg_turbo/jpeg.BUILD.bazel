@@ -9,6 +9,20 @@ licenses(["notice"])
 
 exports_files(["LICENSE.md"])
 
+# Config settings.
+# TODO(jbms): replace with suitable @platforms constraint.
+config_setting(
+    name = "armeabi-v7a",
+    values = {"cpu": "armeabi-v7a"},
+)
+
+config_setting(
+    name = "compiler_msvc",
+    flag_values = {
+        "@bazel_tools//tools/cpp:compiler": "msvc-cl",
+    },
+)
+
 WITH_SIMD_COPTS = ["-DWITH_SIMD"]
 
 LIBJPEGTURBO_COPTS = select(
@@ -575,20 +589,3 @@ write_file(
     ],
     newline = "unix",
 )
-
-# Config settings.
-# TODO(jbms): replace with suitable @platforms constraint.
-config_setting(
-    name = "armeabi-v7a",
-    values = {"cpu": "armeabi-v7a"},
-)
-
-[
-    alias(
-        name = name,
-        actual = "@tensorstore//:{target}".format(target = name),
-    )
-    for name in [
-        "compiler_msvc",
-    ]
-]

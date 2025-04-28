@@ -21,11 +21,13 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "libyuv",
+        doc_name = "libyuv",
+        doc_homepage = "https://chromium.googlesource.com/libyuv/libyuv/",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/chromium.googlesource.com/libyuv/libyuv/+archive/61bf0b61f7799c02eddc87b65c0fc542011cfd2b.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/chromium.googlesource.com/libyuv/libyuv/+archive/1e40e34573c3861480d107cd4a4ce290df79951f.tar.gz",  # main(2025-04-26)
         ],
         # googlesource does not cache archive files; the sha256 is only valid for the mirror.
-        sha256 = "a869a841acb0579d85354a227562b15a603e35f5112394a48955eda20d736f46",
+        sha256 = "dc032a4462e6ce994c2c0f01d07a8742f0355661d4f9716ddb621f4578a4f4fc",
         build_file = Label("//third_party:libyuv/libyuv.BUILD.bazel"),
         cmake_name = "libyuv",
         cmake_target_mapping = {
