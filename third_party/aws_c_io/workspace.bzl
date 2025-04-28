@@ -21,10 +21,10 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "aws_c_io",
-        sha256 = "e5202033b09df61ffb2a57284a04735ac013296decc107de1c4abd1ce7d5cfda",
-        strip_prefix = "aws-c-io-0.15.4",
+        sha256 = "65d275bbde1a1d287cdcde62164dc015b9613a5525fe688e972111d8a3b568fb",
+        strip_prefix = "aws-c-io-0.18.1",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/awslabs/aws-c-io/archive/v0.15.4.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/awslabs/aws-c-io/archive/v0.18.1.tar.gz",
         ],
         build_file = Label("//third_party:aws_c_io/aws_c_io.BUILD.bazel"),
         cmake_name = "aws_c_io",

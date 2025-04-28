@@ -7,10 +7,19 @@ package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])  # Apache 2.0
 
+config_setting(
+    name = "compiler_mingw_gcc",
+    flag_values = {
+        "@bazel_tools//tools/cpp:compiler": "mingw-gcc",
+    },
+)
+
 cc_library(
     name = "aws_c_cal",
     srcs = glob([
         "source/*.c",
+        "source/shared/ed25519.c",
+        "source/shared/lccrypto_common.c",
     ]) + select({
         "@platforms//os:windows": glob([
             "source/windows/*.c",
@@ -54,13 +63,3 @@ cc_library(
         "@boringssl//:crypto",
     ],
 )
-
-[
-    alias(
-        name = name,
-        actual = "@tensorstore//:{target}".format(target = name),
-    )
-    for name in [
-        "compiler_mingw_gcc",
-    ]
-]

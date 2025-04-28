@@ -21,16 +21,15 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "xz",
-        strip_prefix = "xz-5.3.3alpha",
+        strip_prefix = "xz-5.8.1",
+        doc_homepage = "https://tukaani.org/xz/",
+        doc_version = "5.8.1",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/tukaani.org/xz/xz-5.3.3alpha.tar.gz",
-            "https://tukaani.org/xz/xz-5.3.3alpha.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/tukaani-project/xz/releases/download/v5.8.1/xz-5.8.1.tar.gz",
         ],
-        sha256 = "c6d4789a79bab565440784db2e132d6bf03b2e75dd6d66a8102cf002d8dfe926",
+        sha256 = "507825b599356c10dca1cd720c9d0d0c9d5400b9de300af00e4d1ea150795543",
         build_file = Label("//third_party:xz/xz.BUILD.bazel"),
         system_build_file = Label("//third_party:xz/system.BUILD.bazel"),
-        doc_homepage = "https://tukaani.org/xz/",
-        doc_version = "5.3.3alpha",
         cmake_name = "LibLZMA",
         cmake_target_mapping = {
             "//:liblzma": "LibLZMA::LibLZMA",

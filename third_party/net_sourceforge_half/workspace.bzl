@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# buildifier: disable=module-docstring
+
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load(
     "//third_party:repo.bzl",
@@ -23,16 +25,11 @@ def repo():
         third_party_http_archive,
         name = "net_sourceforge_half",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/sourceforge.net/projects/half/files/half/2.1.0/half-2.1.0.zip",
-            "https://sourceforge.net/projects/half/files/half/2.1.0/half-2.1.0.zip",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/sourceforge.net/projects/half/files/half/2.2.1/half-2.2.1.zip",
+            "https://sourceforge.net/projects/half/files/half/2.2.1/half-2.2.1.zip",
         ],
-        sha256 = "ad1788afe0300fa2b02b0d1df128d857f021f92ccf7c8bddd07812685fa07a25",
+        sha256 = "76ddbf406e9d9b772ec73af2bf925b38b290b4390cc4064720a08d4b4bca0aa9",
         build_file = Label("//third_party:net_sourceforge_half/half.BUILD.bazel"),
-        patches = [
-            # https://sourceforge.net/p/half/discussion/general/thread/86298c105c/
-            Label("//third_party:net_sourceforge_half/patches/detail_raise.patch"),
-        ],
-        patch_args = ["-p1"],
         cmake_name = "half",
         cmake_target_mapping = {
             "@net_sourceforge_half//:half": "half::half",

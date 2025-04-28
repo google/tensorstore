@@ -21,10 +21,10 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "aws_s2n_tls",
-        sha256 = "5690f030da35f86e3b5d61d1de150b5b52c84eef383799f7a706bdf21227417e",
-        strip_prefix = "s2n-tls-1.5.11",
+        sha256 = "3ab786720ac23b35bcf6f4354659652e2ec8eb20b1a3989e7be93c3e7985ea5e",
+        strip_prefix = "s2n-tls-1.5.17",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/aws/s2n-tls/archive/v1.5.11.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/aws/s2n-tls/archive/v1.5.17.tar.gz",
         ],
         build_file = Label("//third_party:aws_s2n_tls/aws_s2n_tls.BUILD.bazel"),
         cmake_name = "s2n_tls",

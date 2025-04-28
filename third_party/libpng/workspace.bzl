@@ -29,12 +29,12 @@ def repo():
         # "org_libjpng" because this repository may actually refer to the
         # system png.
         name = "libpng",
+        doc_version = "1.6.47",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/glennrp/libpng/archive/v1.6.42.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/pnggroup/libpng/archive/refs/tags/v1.6.47.tar.gz",
         ],
-        sha256 = "fe89de292e223829859d21990d9c4d6b7e30e295a268f6a53a022611aa98bd67",
-        doc_version = "1.6.42",
-        strip_prefix = "libpng-1.6.42",
+        sha256 = "631a4c58ea6c10c81f160c4b21fa8495b715d251698ebc2552077e8450f30454",
+        strip_prefix = "libpng-1.6.47",
         build_file = Label("//third_party:libpng/png.BUILD.bazel"),
         system_build_file = Label("//third_party:libpng/system.BUILD.bazel"),
         cmake_name = "PNG",

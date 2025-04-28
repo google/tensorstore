@@ -22,10 +22,10 @@ def repo():
         third_party_http_archive,
         name = "google_benchmark",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/google/benchmark/archive/v1.9.0.zip",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/google/benchmark/archive/v1.9.2.zip",
         ],
-        sha256 = "1a6f0678cbcac65a12e2178d77d3c97d050d173389220c9df57e9249a40827ec",
-        strip_prefix = "benchmark-1.9.0",
+        sha256 = "a13cdcd3b0e3725e371f977a2855fecd651fc0236c67da16e325b726057b15b4",
+        strip_prefix = "benchmark-1.9.2",
         patches = [
             Label("//third_party:google_benchmark/patches/fix_mingw.diff"),
         ],

@@ -1,7 +1,7 @@
 diff -Nur a/BUILD.bazel b/BUILD.bazel
 --- a/BUILD.bazel
 +++ b/BUILD.bazel
-@@ -42,6 +42,13 @@
+@@ -30,6 +30,20 @@
  )
 
  config_setting(
@@ -12,10 +12,26 @@ diff -Nur a/BUILD.bazel b/BUILD.bazel
 +)
 +
 +config_setting(
++    name = "msvc",
++    flag_values = {
++        "@bazel_tools//tools/cpp:compiler": "msvc-cl",
++    },
++)
++
++config_setting(
      name = "perfcounters",
      define_values = {
          "pfm": "1",
-@@ -77,6 +84,9 @@
+@@ -51,7 +65,7 @@
+         "include/benchmark/export.h",
+     ],
+     copts = select({
+-        ":windows": MSVC_COPTS,
++        ":msvc": MSVC_COPTS,
+         "//conditions:default": COPTS,
+     }),
+     defines = [
+@@ -65,6 +79,9 @@
      linkopts = select({
          ":windows": ["-DEFAULTLIB:shlwapi.lib"],
          "//conditions:default": ["-pthread"],

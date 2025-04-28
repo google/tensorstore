@@ -22,11 +22,11 @@ def repo():
         third_party_http_archive,
         name = "envoy_api",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/envoyproxy/data-plane-api/archive/19420fea29dd86aa3b25172151f0311476a66599.tar.gz",  # main(2024-09-11)
-            "https://github.com/envoyproxy/data-plane-api/archive/19420fea29dd86aa3b25172151f0311476a66599.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/envoyproxy/data-plane-api/archive/d9c5e84658eef279e9a021ff0517f8f8ee35d79a.tar.gz",  # main(2025-04-26)
+            "https://github.com/envoyproxy/data-plane-api/archive/d9c5e84658eef279e9a021ff0517f8f8ee35d79a.tar.gz",
         ],
-        sha256 = "d84dcb4d88a961fcf6aa5ea1ff479180bd9e58e41ad82d8dca3beacac2fb3bdc",
-        strip_prefix = "data-plane-api-19420fea29dd86aa3b25172151f0311476a66599",
+        sha256 = "a9f1eb76c8e8153ec81ce04403c8829b42786060b7bb1dcc91b597220b71eaf6",
+        strip_prefix = "data-plane-api-d9c5e84658eef279e9a021ff0517f8f8ee35d79a",
         repo_mapping = {
             "@com_envoyproxy_protoc_gen_validate": "@local_proto_mirror",
             "@io_bazel_rules_go": "@local_proto_mirror",

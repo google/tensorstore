@@ -22,10 +22,10 @@ def repo():
         third_party_http_archive,
         name = "xds",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/cncf/xds/archive/b4127c9b8d78b77423fd25169f05b7476b6ea932.tar.gz",  # main(2024-09-11)
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/cncf/xds/archive/ae57f3c0d45fc76d0b323b79e8299a83ccb37a49.tar.gz",  # main(2025-04-26)
         ],
-        sha256 = "aa5f1596bbef3f277dcf4700e4c1097b34301ae66f3b79cd731e3adfbaff2f8f",
-        strip_prefix = "xds-b4127c9b8d78b77423fd25169f05b7476b6ea932",
+        sha256 = "557cb4aecb5dde1fee6a9eda2ce18704226d2b8aa279892dd1327526259e086a",
+        strip_prefix = "xds-ae57f3c0d45fc76d0b323b79e8299a83ccb37a49",
         repo_mapping = {
             "@io_bazel_rules_go": "@local_proto_mirror",
             "@com_envoyproxy_protoc_gen_validate": "@local_proto_mirror",

@@ -5,20 +5,6 @@ package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])  # Apache 2.0
 
-# Ensure that ws2_32.lib is linked for mingw.
-# copybara:strip_begin
-_WS2_32_LINKOPTS = []
-# copybara:strip_end_and_replace_begin
-# _WS2_32_LINKOPTS = select({
-#     "@tensorstore//:compiler_mingw_gcc": [
-#         "-DEFAULTLIB:ws2_32.lib",
-#         "-lws2_32",
-#     ],
-#     "@tensorstore//:compiler_msvc": ["-DEFAULTLIB:ws2_32.lib"],
-#     "//conditions:default": [],
-# })
-# copybara:replace_end
-
 cc_library(
     name = "aws_c_io",
     srcs = glob([
@@ -34,6 +20,7 @@ cc_library(
         "@platforms//os:osx": glob([
             "source/bsd/*.c",
             "source/darwin/*.c",
+            "source/darwin/*.h",
             "source/posix/*.c",
         ]),
         "//conditions:default": glob([
@@ -48,26 +35,26 @@ cc_library(
     ]),
     includes = ["include"],
     linkopts = select({
-        "@platforms//os:windows": [
+        ":compiler_msvc": [
             "-DEFAULTLIB:ncrypt.lib",
             "-DEFAULTLIB:ws2_32.lib",
             "-DEFAULTLIB:secur32.lib",
             "-DEFAULTLIB:crypt32.lib",
             "-DEFAULTLIB:kernel32.lib",
         ],
-        "//conditions:default": [
-            "-ldl",
-            "-lpthread",
-        ],
-    }) + select({
         ":compiler_mingw_gcc": [
             "-lncrypt",
             "-lws2_32",
             "-lsecur32",
             "-lcrypt32",
             "-lkernel32",
+            "-ldl",
+            "-lpthread",
         ],
-        "//conditions:default": [],
+        "//conditions:default": [
+            "-ldl",
+            "-lpthread",
+        ],
     }),
     local_defines = ["AWS_S2N_INSOURCE_PATH"] + select({
         "@platforms//os:windows": [
@@ -94,12 +81,16 @@ cc_library(
     }),
 )
 
-[
-    alias(
-        name = name,
-        actual = "@tensorstore//:{target}".format(target = name),
-    )
-    for name in [
-        "compiler_mingw_gcc",
-    ]
-]
+config_setting(
+    name = "compiler_mingw_gcc",
+    flag_values = {
+        "@bazel_tools//tools/cpp:compiler": "mingw-gcc",
+    },
+)
+
+config_setting(
+    name = "compiler_msvc",
+    flag_values = {
+        "@bazel_tools//tools/cpp:compiler": "msvc-cl",
+    },
+)

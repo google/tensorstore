@@ -21,12 +21,12 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "snappy",
-        urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/google/snappy/archive/32ded457c0b1fe78ceb8397632c416568d6714a0.tar.gz",  # main(2024-09-10)
-        ],
-        sha256 = "677d1dd8172bac1862e6c8d7bbe1fe9fb2320cfd11ee04756b1ef8b3699c6135",
         doc_version = "1.2.1-20240817-32ded45",
-        strip_prefix = "snappy-32ded457c0b1fe78ceb8397632c416568d6714a0",
+        urls = [
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/google/snappy/archive/6af9287fbdb913f0794d0148c6aa43b58e63c8e3.tar.gz",  # main(2025-04-26)
+        ],
+        sha256 = "31c566ed653abfa68963232e52a97b9b89841d5255dad3c88bd9d74db3039d28",
+        strip_prefix = "snappy-6af9287fbdb913f0794d0148c6aa43b58e63c8e3",
         build_file = Label("//third_party:snappy/snappy.BUILD.bazel"),
         system_build_file = Label("//third_party:snappy/system.BUILD.bazel"),
         cmake_name = "Snappy",

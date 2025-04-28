@@ -7,6 +7,13 @@ licenses(["notice"])
 
 exports_files(["LICENSE"])
 
+config_setting(
+    name = "compiler_msvc",
+    flag_values = {
+        "@bazel_tools//tools/cpp:compiler": "msvc-cl",
+    },
+)
+
 cc_library(
     name = "avif",
     srcs = glob(
@@ -19,6 +26,7 @@ cc_library(
             "src/codec_libgav1.c",
             "src/codec_rav1e.c",
             "src/codec_svt.c",
+            "src/sampletransform.c",
         ],
     ),
     hdrs = glob(
@@ -52,13 +60,3 @@ cc_library(
         "@org_videolan_dav1d//:dav1d",
     ],
 )
-
-[
-    alias(
-        name = name,
-        actual = "@tensorstore//:{target}".format(target = name),
-    )
-    for name in [
-        "compiler_msvc",
-    ]
-]
