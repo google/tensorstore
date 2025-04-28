@@ -22,10 +22,10 @@ def repo():
         http_archive,
         name = "rules_cc",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/bazelbuild/rules_cc/releases/download/0.0.13/rules_cc-0.0.13.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/bazelbuild/rules_cc/archive/0.1.1.tar.gz",
         ],
-        strip_prefix = "rules_cc-0.0.13",
-        sha256 = "d9bdd3ec66b6871456ec9c965809f43a0901e692d754885e89293807762d3d80",
+        strip_prefix = "rules_cc-0.1.1",
+        sha256 = "712d77868b3152dd618c4d64faaddefcc5965f90f5de6e6dd1d5ddcd0be82d42",
         repo_mapping = {
             "@protobuf": "@com_google_protobuf",
         },
