@@ -1881,6 +1881,25 @@ TEST(FutureTest, Live) {
              registry.Collect("/tensorstore/futures/live")->values[0].value));
 }
 
+TEST(FutureTest, LinkValueTwoErrors) {
+  auto [promise3, future3] = PromiseFuturePair<void>::Make();
+  auto [promise1, future1] = PromiseFuturePair<void>::Make();
+  auto [promise2, future2] = PromiseFuturePair<void>::Make();
+  {
+    auto [promise, future] = PromiseFuturePair<int64_t>::Make();
+
+    LinkValue([](Promise<int64_t> promise, ReadyFuture<void> future1,
+                 ReadyFuture<void> future2) { promise.SetResult(5); },
+              std::move(promise), std::move(future1), std::move(future2));
+
+    LinkResult(std::move(promise3), std::move(future));
+  }
+
+  promise1.SetResult(absl::FailedPreconditionError(""));
+
+  EXPECT_FALSE(future3.result().ok());
+}
+
 static void BM_Future_ExecuteWhenReady(benchmark::State& state) {
   int num_callbacks = state.range(0);
   for (auto _ : state) {
