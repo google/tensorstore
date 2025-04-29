@@ -949,6 +949,11 @@ struct FutureLinkPropagateFirstErrorPolicy {
   static bool OnFutureReady(FutureStateBase* future_state,
                             FutureState<PromiseValue>* promise_state) {
     if (future_state->has_value()) return true;
+    // Hold reference to `promise_state` while calling `SetResult`.
+    // Otherwise, calling `promise_state->SetResult` can trigger
+    // `promise_state` being destroyed while `SetResult` is still
+    // invoking callbacks.
+    PromiseStatePointer promise_state_ptr(promise_state);
     promise_state->SetResult(future_state->status());
     return false;
   }
