@@ -8,7 +8,7 @@ licenses(["unencumbered"])
 exports_files(["COPYING"])
 
 cc_library(
-    name = "liblzma",
+    name = "lzma",
     srcs = glob(
         [
             "src/common/*.c",

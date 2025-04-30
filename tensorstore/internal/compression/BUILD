@@ -139,7 +139,7 @@ tensorstore_cc_library(
         "@riegeli//riegeli/bytes:writer",
         "@riegeli//riegeli/xz:xz_reader",
         "@riegeli//riegeli/xz:xz_writer",
-        "@xz//:liblzma",
+        "@xz//:lzma",
     ],
 )
 
@@ -153,7 +153,7 @@ tensorstore_cc_test(
         "@abseil-cpp//absl/strings:cord",
         "@abseil-cpp//absl/strings:cord_test_helpers",
         "@googletest//:gtest_main",
-        "@xz//:liblzma",
+        "@xz//:lzma",
     ],
 )
 

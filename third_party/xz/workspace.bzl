@@ -32,7 +32,7 @@ def repo():
         system_build_file = Label("//third_party:xz/system.BUILD.bazel"),
         cmake_name = "LibLZMA",
         cmake_target_mapping = {
-            "//:liblzma": "LibLZMA::LibLZMA",
+            "//:lzma": "LibLZMA::LibLZMA",
         },
         bazel_to_cmake = {},
     )

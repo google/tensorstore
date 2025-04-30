@@ -96,8 +96,8 @@ cc_library(
     deps = [
         "@libjpeg_turbo//:jpeg",
         "@zlib//:zlib",
-        "@zstd//:zstdlib",
-        "@xz//:liblzma",
+        "@zstd//:zstd",
+        "@xz//:lzma",
     ],
 )
 
