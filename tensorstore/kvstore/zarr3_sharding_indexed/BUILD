@@ -137,12 +137,12 @@ tensorstore_cc_library(
         "//tensorstore:index",
         "//tensorstore:rank",
         "//tensorstore/kvstore:key_range",
+        "//tensorstore/util:endian",
         "//tensorstore/util:extents",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:str_cat",
-        "@abseil-cpp//absl/base:endian",
         "@abseil-cpp//absl/status",
     ],
 )

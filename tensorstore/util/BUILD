@@ -258,8 +258,18 @@ tensorstore_cc_library(
     name = "endian",
     hdrs = ["endian.h"],
     deps = [
+        "@abseil-cpp//absl/base:config",
         "@abseil-cpp//absl/base:core_headers",
-        "@abseil-cpp//absl/base:endian",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "endian_test",
+    srcs = ["endian_test.cc"],
+    deps = [
+        ":endian",
+        "@abseil-cpp//absl/base:config",
+        "@googletest//:gtest_main",
     ],
 )
 

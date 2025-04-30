@@ -21,7 +21,6 @@
 #include <string>
 #include <utility>
 
-#include "absl/base/internal/endian.h"
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
@@ -29,6 +28,7 @@
 #include "tensorstore/internal/flat_cord_builder.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/neuroglancer_uint64_sharded/uint64_sharded.h"
+#include "tensorstore/util/endian.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
@@ -44,12 +44,11 @@ absl::Cord EncodeMinishardIndex(
   int64_t prev_offset = 0;
   for (ptrdiff_t i = 0; i < minishard_index.size(); ++i) {
     const auto& e = minishard_index[i];
-    absl::little_endian::Store64(builder.data() + i * 8,
-                                 e.chunk_id.value - prev_chunk_id.value);
-    absl::little_endian::Store64(
-        builder.data() + minishard_index.size() * 8 + i * 8,
-        e.byte_range.inclusive_min - prev_offset);
-    absl::little_endian::Store64(
+    little_endian::Store64(builder.data() + i * 8,
+                           e.chunk_id.value - prev_chunk_id.value);
+    little_endian::Store64(builder.data() + minishard_index.size() * 8 + i * 8,
+                           e.byte_range.inclusive_min - prev_offset);
+    little_endian::Store64(
         builder.data() + minishard_index.size() * 16 + i * 8,
         e.byte_range.exclusive_max - e.byte_range.inclusive_min);
     prev_chunk_id = e.chunk_id;
@@ -62,8 +61,8 @@ absl::Cord EncodeShardIndex(span<const ShardIndexEntry> shard_index) {
   internal::FlatCordBuilder builder(shard_index.size() * 16);
   for (ptrdiff_t i = 0; i < shard_index.size(); ++i) {
     const auto& e = shard_index[i];
-    absl::little_endian::Store64(builder.data() + i * 16, e.inclusive_min);
-    absl::little_endian::Store64(builder.data() + i * 16 + 8, e.exclusive_max);
+    little_endian::Store64(builder.data() + i * 16, e.inclusive_min);
+    little_endian::Store64(builder.data() + i * 16 + 8, e.exclusive_max);
   }
   return std::move(builder).Build();
 }

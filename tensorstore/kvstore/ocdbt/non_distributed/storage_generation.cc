@@ -21,12 +21,12 @@
 #include <string_view>
 #include <variant>
 
-#include "absl/base/internal/endian.h"
 #include "absl/strings/cord.h"
 #include <blake3.h>
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
+#include "tensorstore/util/endian.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
@@ -35,12 +35,12 @@ namespace {
 void EncodeIndirectDataReference(blake3_hasher& hasher,
                                  const IndirectDataReference& ref) {
   char header[32];
-  absl::little_endian::Store64(&header[0], ref.offset);
-  absl::little_endian::Store64(&header[8], ref.length);
+  little_endian::Store64(&header[0], ref.offset);
+  little_endian::Store64(&header[8], ref.length);
   const size_t base_path_size = ref.file_id.base_path.size();
-  absl::little_endian::Store64(&header[16], base_path_size);
+  little_endian::Store64(&header[16], base_path_size);
   const size_t relative_path_size = ref.file_id.relative_path.size();
-  absl::little_endian::Store64(&header[24], relative_path_size);
+  little_endian::Store64(&header[24], relative_path_size);
   blake3_hasher_update(&hasher, header, sizeof(header));
   blake3_hasher_update(&hasher, ref.file_id.base_path.data(), base_path_size);
   blake3_hasher_update(&hasher, ref.file_id.relative_path.data(),
