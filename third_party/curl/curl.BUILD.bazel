@@ -142,7 +142,7 @@ cc_library(
     defines = ["CURL_STATICLIB"],
     implementation_deps = [
         "@zlib//:zlib",
-        "@zstd//:zstdlib",
+        "@zstd//:zstd",
         "@brotli//:brotlidec",
         # "@c-ares//:ares",
         "@org_nghttp2//:nghttp2",

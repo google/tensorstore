@@ -35,6 +35,8 @@ def repo():
         patches = [
             # Use absl crc32c rather than separate crc32c library.
             Label("//third_party:riegeli/patches/absl-crc32c.diff"),
+            # zstd, bzip2, xz library names have changed.
+            Label("//third_party:riegeli/patches/build.diff"),
         ],
         repo_mapping = {
             "@net_zstd": "@zstd",

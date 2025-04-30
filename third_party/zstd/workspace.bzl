@@ -37,7 +37,7 @@ def repo():
         bazel_to_cmake = {},
         cmake_languages = ["C", "ASM"],
         cmake_target_mapping = {
-            "//:zstdlib": "Zstd::Zstd",
+            "//:zstd": "Zstd::Zstd",
         },
         cmake_package_redirect_libraries = {
             "Zstd": "Zstd::Zstd",

@@ -26,7 +26,7 @@ LOCAL_DEFINES = [
 )
 
 cc_library(
-    name = "zstdlib",
+    name = "zstd",
     srcs = ZSTD_SRCS +
            select(
                {
