@@ -154,7 +154,7 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore/kvstore:key_range",
         "//tensorstore/kvstore/ocdbt/format",
-        "@abseil-cpp//absl/base:endian",
+        "//tensorstore/util:endian",
         "@blake3",
     ],
 )

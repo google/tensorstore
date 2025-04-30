@@ -22,7 +22,6 @@
 #include <string_view>
 #include <variant>
 
-#include "absl/base/internal/endian.h"
 #include "absl/crc/crc32c.h"
 #include "absl/functional/function_ref.h"
 #include "absl/log/absl_check.h"
@@ -44,6 +43,7 @@
 #include "riegeli/zstd/zstd_reader.h"
 #include "riegeli/zstd/zstd_writer.h"
 #include "tensorstore/kvstore/ocdbt/format/config.h"
+#include "tensorstore/util/endian.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
@@ -221,7 +221,7 @@ Result<absl::Cord> EncodeWithOptionalCompression(
 
     // Complete `header` by filling in length.
     auto length = writer.pos() + 4;
-    absl::little_endian::Store64(header + 4, length);
+    little_endian::Store64(header + 4, length);
 
     std::string_view header_string_view(header, sizeof(header));
 

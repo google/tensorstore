@@ -26,12 +26,12 @@
 #include <string_view>
 #include <utility>
 
-#include "absl/base/internal/endian.h"
 #include "absl/strings/str_cat.h"
 #include "absl/time/time.h"
 #include "tensorstore/serialization/absl_time.h"  // IWYU pragma: keep
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/serialization/serialization.h"
+#include "tensorstore/util/endian.h"
 #include "tensorstore/util/quote_string.h"
 
 namespace tensorstore {
@@ -97,7 +97,7 @@ std::string StorageGeneration::DebugString() const {
         absl::StrAppend(&output, "|");
       }
       assert(i + 8 <= value.size());  // Already ensured by `Validate()`
-      uint64_t id = absl::little_endian::Load64(&value[i]);
+      uint64_t id = little_endian::Load64(&value[i]);
       i += 8;
       absl::StrAppend(&output, "M", id);
     }
@@ -179,23 +179,23 @@ StorageGeneration StorageGeneration::Clean(StorageGeneration generation) {
 
 bool StorageGeneration::LastMutatedBy(MutationId id) const {
   return value.size() >= 9 && (value[0] & kMutation) &&
-         absl::little_endian::Load64(&value[1]) == id;
+         little_endian::Load64(&value[1]) == id;
 }
 
 void StorageGeneration::MarkDirty(MutationId mutation_id) {
   if (value.empty()) {
     value.resize(9);
-    absl::little_endian::Store64(&value[1], mutation_id);
+    little_endian::Store64(&value[1], mutation_id);
     value[0] = kMutation;
   } else {
     if (value[0] & kMutation) {
       char buffer[9];
       buffer[0] = kMutation | kAdditionalTags;
-      absl::little_endian::Store64(&buffer[1], mutation_id);
+      little_endian::Store64(&buffer[1], mutation_id);
       value.insert(0, buffer, 9);
     } else {
       char buffer[8];
-      absl::little_endian::Store64(&buffer[0], mutation_id);
+      little_endian::Store64(&buffer[0], mutation_id);
       value.insert(1, buffer, 8);
       value[0] |= kMutation;
     }

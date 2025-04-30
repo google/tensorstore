@@ -27,7 +27,6 @@
 #include <utility>
 #include <vector>
 
-#include "absl/base/internal/endian.h"
 #include "absl/base/optimization.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"

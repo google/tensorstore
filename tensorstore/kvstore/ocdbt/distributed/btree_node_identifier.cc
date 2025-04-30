@@ -14,13 +14,15 @@
 
 #include "tensorstore/kvstore/ocdbt/distributed/btree_node_identifier.h"
 
+#include <stdint.h>
+
 #include <ostream>
 #include <string>
 #include <string_view>
 
-#include "absl/base/internal/endian.h"
 #include <blake3.h>
 #include "tensorstore/kvstore/key_range.h"
+#include "tensorstore/util/endian.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
@@ -38,7 +40,7 @@ std::string BtreeNodeIdentifier::GetKey(
                        database_identifier.size());
   char header[3];
   header[0] = static_cast<char>(range.full() ? 0 : height);
-  absl::little_endian::Store16(&header[1], range.inclusive_min.size());
+  little_endian::Store16(&header[1], range.inclusive_min.size());
   blake3_hasher_update(&hasher, header, 3);
   blake3_hasher_update(&hasher, range.inclusive_min.data(),
                        range.inclusive_min.size());

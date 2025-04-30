@@ -25,12 +25,12 @@
 #include <string_view>
 #include <utility>
 
-#include "absl/base/internal/endian.h"
 #include "absl/status/status.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/index.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/rank.h"
+#include "tensorstore/util/endian.h"
 #include "tensorstore/util/extents.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
@@ -44,7 +44,7 @@ std::string IndicesToKey(span<const Index> grid_cell_indices) {
   std::string key;
   key.resize(grid_cell_indices.size() * 4);
   for (DimensionIndex i = 0; i < grid_cell_indices.size(); ++i) {
-    absl::big_endian::Store32(key.data() + i * 4, grid_cell_indices[i]);
+    big_endian::Store32(key.data() + i * 4, grid_cell_indices[i]);
   }
   return key;
 }
@@ -54,7 +54,7 @@ bool KeyToIndices(std::string_view key, span<Index> grid_cell_indices) {
     return false;
   }
   for (DimensionIndex i = 0; i < grid_cell_indices.size(); ++i) {
-    grid_cell_indices[i] = absl::big_endian::Load32(key.data() + i * 4);
+    grid_cell_indices[i] = big_endian::Load32(key.data() + i * 4);
   }
   return true;
 }
@@ -65,7 +65,7 @@ std::optional<EntryId> KeyToEntryId(std::string_view key,
   if (rank * sizeof(uint32_t) != key.size()) return {};
   EntryId id = 0;
   for (DimensionIndex i = 0; i < rank; ++i) {
-    auto index = absl::big_endian::Load32(key.data() + i * 4);
+    auto index = big_endian::Load32(key.data() + i * 4);
     if (index >= grid_shape[i]) return {};
     id *= grid_shape[i];
     id += index;
@@ -87,7 +87,7 @@ std::string EntryIdToKey(EntryId entry_id, span<const Index> grid_shape) {
   key.resize(grid_shape.size() * 4);
   for (DimensionIndex i = grid_shape.size(); i--;) {
     const Index size = grid_shape[i];
-    absl::big_endian::Store32(key.data() + i * 4, entry_id % size);
+    big_endian::Store32(key.data() + i * 4, entry_id % size);
     entry_id /= size;
   }
   return key;
@@ -107,7 +107,7 @@ EntryId LowerBoundToEntryId(std::string_view key,
   for (DimensionIndex i = 0; i < grid_shape.size(); ++i) {
     const EntryId size = grid_shape[i];
     max_entry_id *= size;
-    EntryId index = absl::big_endian::Load32(&key_padded[i * 4]);
+    EntryId index = big_endian::Load32(&key_padded[i * 4]);
     entry_id *= size;
     if (index >= size) {
       entry_id += (size & remaining_indices_mask);
@@ -143,7 +143,7 @@ EntryId InternalKeyLowerBoundToEntryId(std::string_view key,
   char key_bytes[4] = {};
   std::memcpy(key_bytes, key.data(),
               std::min(static_cast<size_t>(4), key.size()));
-  EntryId entry_id = absl::big_endian::Load32(key_bytes);
+  EntryId entry_id = big_endian::Load32(key_bytes);
   if (entry_id > num_entries_per_shard) {
     entry_id = num_entries_per_shard;
   }
@@ -165,13 +165,13 @@ std::pair<EntryId, EntryId> InternalKeyRangeToEntryRange(
 std::string EntryIdToInternalKey(EntryId entry_id) {
   std::string key;
   key.resize(4);
-  absl::big_endian::Store32(key.data(), entry_id);
+  big_endian::Store32(key.data(), entry_id);
   return key;
 }
 
 EntryId InternalKeyToEntryId(std::string_view key) {
   assert(key.size() == 4);
-  return static_cast<EntryId>(absl::big_endian::Load32(key.data()));
+  return static_cast<EntryId>(big_endian::Load32(key.data()));
 }
 
 KeyRange KeyRangeToInternalKeyRange(const KeyRange& range,

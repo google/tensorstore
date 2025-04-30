@@ -21,7 +21,7 @@
 #include <ostream>
 
 #include "absl/base/attributes.h"
-#include "absl/base/internal/endian.h"
+#include "absl/base/config.h"
 
 namespace tensorstore {
 
@@ -44,6 +44,156 @@ inline std::ostream& operator<<(std::ostream& os, endian e) {
   return os << (e == endian::little ? '<' : '>');
 }
 
+namespace endian_internal {
+
+// clang-format off
+inline uint64_t gbswap_64(uint64_t x) {
+#if ABSL_HAVE_BUILTIN(__builtin_bswap64) || defined(__GNUC__)
+  return __builtin_bswap64(x);
+#else
+  return (((x & uint64_t{0xFF}) << 56) |
+          ((x & uint64_t{0xFF00}) << 40) |
+          ((x & uint64_t{0xFF0000}) << 24) |
+          ((x & uint64_t{0xFF000000}) << 8) |
+          ((x & uint64_t{0xFF00000000}) >> 8) |
+          ((x & uint64_t{0xFF0000000000}) >> 24) |
+          ((x & uint64_t{0xFF000000000000}) >> 40) |
+          ((x & uint64_t{0xFF00000000000000}) >> 56));
+#endif
+}
+
+inline uint32_t gbswap_32(uint32_t x) {
+#if ABSL_HAVE_BUILTIN(__builtin_bswap32) || defined(__GNUC__)
+  return __builtin_bswap32(x);
+#else
+  return (((x & uint32_t{0xFF}) << 24) |
+          ((x & uint32_t{0xFF00}) << 8) |
+          ((x & uint32_t{0xFF0000}) >> 8) |
+          ((x & uint32_t{0xFF000000}) >> 24));
+#endif
+}
+
+inline uint16_t gbswap_16(uint16_t x) {
+#if ABSL_HAVE_BUILTIN(__builtin_bswap16) || defined(__GNUC__)
+  return __builtin_bswap16(x);
+#else
+  return (((x & uint16_t{0xFF}) << 8) | ((x & uint16_t{0xFF00}) >> 8));
+#endif
+}
+// clang-format on
+
+}  // namespace endian_internal
+
+// Utilities to convert numbers between the current hosts's native byte
+// order and little-endian / big-endian byte order
+//
+// Load/Store methods are alignment safe
+#ifdef ABSL_IS_LITTLE_ENDIAN
+namespace little_endian {
+#else
+namespace big_endian {
+#endif
+
+inline uint16_t FromHost16(uint16_t x) { return x; }
+inline uint16_t ToHost16(uint16_t x) { return x; }
+
+inline uint32_t FromHost32(uint32_t x) { return x; }
+inline uint32_t ToHost32(uint32_t x) { return x; }
+
+inline uint64_t FromHost64(uint64_t x) { return x; }
+inline uint64_t ToHost64(uint64_t x) { return x; }
+
+// Functions to do unaligned loads and stores.
+inline uint16_t Load16(const void* p) {
+  uint16_t v;
+  memcpy(&v, p, sizeof v);
+  return ToHost16(v);
+}
+
+inline void Store16(void* p, uint16_t v) {
+  v = FromHost16(v);
+  memcpy(p, &v, sizeof v);
+}
+
+inline uint32_t Load32(const void* p) {
+  uint32_t v;
+  memcpy(&v, p, sizeof v);
+  return ToHost32(v);
+}
+
+inline void Store32(void* p, uint32_t v) {
+  v = FromHost32(v);
+  memcpy(p, &v, sizeof v);
+}
+
+inline uint64_t Load64(const void* p) {
+  uint64_t v;
+  memcpy(&v, p, sizeof v);
+  return ToHost64(v);
+}
+
+inline void Store64(void* p, uint64_t v) {
+  v = FromHost64(v);
+  memcpy(p, &v, sizeof v);
+}
+
+}  // namespace little_endian/big_endian
+
+// Utilities to convert numbers between the current hosts's native byte
+// order and little-endian / big-endian byte order
+//
+// Load/Store methods are alignment safe
+#ifdef ABSL_IS_LITTLE_ENDIAN
+namespace big_endian {
+#else
+namespace little_endian {
+#endif
+
+inline uint16_t FromHost16(uint16_t x) { return endian_internal::gbswap_16(x); }
+inline uint16_t ToHost16(uint16_t x) { return endian_internal::gbswap_16(x); }
+
+inline uint32_t FromHost32(uint32_t x) { return endian_internal::gbswap_32(x); }
+inline uint32_t ToHost32(uint32_t x) { return endian_internal::gbswap_32(x); }
+
+inline uint64_t FromHost64(uint64_t x) { return endian_internal::gbswap_64(x); }
+inline uint64_t ToHost64(uint64_t x) { return endian_internal::gbswap_64(x); }
+
+// Functions to do unaligned loads and stores.
+inline uint16_t Load16(const void* p) {
+  uint16_t v;
+  memcpy(&v, p, sizeof v);
+  return ToHost16(v);
+}
+
+inline void Store16(void* p, uint16_t v) {
+  v = FromHost16(v);
+  memcpy(p, &v, sizeof v);
+}
+
+inline uint32_t Load32(const void* p) {
+  uint32_t v;
+  memcpy(&v, p, sizeof v);
+  return ToHost32(v);
+}
+
+inline void Store32(void* p, uint32_t v) {
+  v = FromHost32(v);
+  memcpy(p, &v, sizeof v);
+}
+
+inline uint64_t Load64(const void* p) {
+  uint64_t v;
+  memcpy(&v, p, sizeof v);
+  return ToHost64(v);
+}
+
+inline void Store64(void* p, uint64_t v) {
+  v = FromHost64(v);
+  memcpy(p, &v, sizeof v);
+}
+
+}  // namespace little_endian/big_endian
+
 namespace internal {
 
 /// Swaps endianness of a single 1-, 2-, 4-, or 8-byte value.
@@ -64,17 +214,17 @@ inline ABSL_ATTRIBUTE_ALWAYS_INLINE void SwapEndianUnaligned(const void* source,
   } else if constexpr (ElementSize == 2) {
     uint16_t temp;
     std::memcpy(&temp, source, ElementSize);
-    temp = absl::gbswap_16(temp);
+    temp = endian_internal::gbswap_16(temp);
     std::memcpy(dest, &temp, ElementSize);
   } else if constexpr (ElementSize == 4) {
     uint32_t temp;
     std::memcpy(&temp, source, ElementSize);
-    temp = absl::gbswap_32(temp);
+    temp = endian_internal::gbswap_32(temp);
     std::memcpy(dest, &temp, ElementSize);
   } else if constexpr (ElementSize == 8) {
     uint64_t temp;
     std::memcpy(&temp, source, ElementSize);
-    temp = absl::gbswap_64(temp);
+    temp = endian_internal::gbswap_64(temp);
     std::memcpy(dest, &temp, ElementSize);
   }
 }

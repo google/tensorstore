@@ -23,8 +23,8 @@
 #include <string_view>
 #include <vector>
 
-#include "absl/base/internal/endian.h"
 #include "absl/container/flat_hash_map.h"
+#include "tensorstore/util/endian.h"
 
 namespace tensorstore {
 namespace neuroglancer_compressed_segmentation {
@@ -34,10 +34,9 @@ constexpr size_t kBlockHeaderSize = 2;
 void WriteBlockHeader(size_t encoded_value_base_offset,
                       size_t table_base_offset, size_t encoding_bits,
                       void* output) {
-  absl::little_endian::Store32(output,
-                               table_base_offset | (encoding_bits << 24));
-  absl::little_endian::Store32(static_cast<char*>(output) + 4,
-                               encoded_value_base_offset);
+  little_endian::Store32(output, table_base_offset | (encoding_bits << 24));
+  little_endian::Store32(static_cast<char*>(output) + 4,
+                         encoded_value_base_offset);
 }
 
 template <typename Label>
@@ -136,9 +135,9 @@ void EncodeBlock(const Label* input, const ptrdiff_t input_shape[3],
     uint32_t index = seen_values.at(value);
     size_t output_offset = x + block_shape[2] * (y + block_shape[1] * z);
     void* cur_ptr = output_ptr + output_offset * encoded_bits / 32 * 4;
-    absl::little_endian::Store32(
-        cur_ptr, absl::little_endian::Load32(cur_ptr) |
-                     (index << (output_offset * encoded_bits % 32)));
+    little_endian::Store32(cur_ptr,
+                           little_endian::Load32(cur_ptr) |
+                               (index << (output_offset * encoded_bits % 32)));
   });
 
   // Write table
@@ -147,9 +146,8 @@ void EncodeBlock(const Label* input, const ptrdiff_t input_shape[3],
         output->data() + encoded_value_base_offset + encoded_size_32bits * 4;
     for (auto value : seen_values_inv) {
       for (size_t word_i = 0; word_i < num_32bit_words_per_label; ++word_i) {
-        absl::little_endian::Store32(
-            output_ptr + word_i * 4,
-            static_cast<uint32_t>(value >> (32 * word_i)));
+        little_endian::Store32(output_ptr + word_i * 4,
+                               static_cast<uint32_t>(value >> (32 * word_i)));
       }
       output_ptr += num_32bit_words_per_label * 4;
     }
@@ -206,8 +204,8 @@ void EncodeChannels(const Label* input, const ptrdiff_t input_shape[3 + 1],
   const size_t base_offset = output->size();
   output->resize(base_offset + input_shape[0] * 4);
   for (ptrdiff_t channel_i = 0; channel_i < input_shape[0]; ++channel_i) {
-    absl::little_endian::Store32(output->data() + base_offset + channel_i * 4,
-                                 (output->size() - base_offset) / 4);
+    little_endian::Store32(output->data() + base_offset + channel_i * 4,
+                           (output->size() - base_offset) / 4);
     EncodeChannel(
         reinterpret_cast<const Label*>(reinterpret_cast<const char*>(input) +
                                        input_byte_strides[0] * channel_i),
@@ -217,7 +215,7 @@ void EncodeChannels(const Label* input, const ptrdiff_t input_shape[3 + 1],
 
 void ReadBlockHeader(const void* header, size_t* encoded_value_base_offset,
                      size_t* table_base_offset, size_t* encoding_bits) {
-  auto h = absl::little_endian::Load64(header);
+  auto h = little_endian::Load64(header);
   *table_base_offset = h & 0xffffff;
   *encoding_bits = (h >> 24) & 0xff;
   *encoded_value_base_offset = (h >> 32) & 0xffffff;
@@ -258,9 +256,9 @@ bool DecodeBlock(size_t encoded_bits, const char* encoded_input,
   // Returns the label at the specified table index.
   const auto read_label = [&](size_t index) -> Label {
     if constexpr (sizeof(Label) == 4) {
-      return absl::little_endian::Load32(table_input + index * sizeof(Label));
+      return little_endian::Load32(table_input + index * sizeof(Label));
     } else {
-      return absl::little_endian::Load64(table_input + index * sizeof(Label));
+      return little_endian::Load64(table_input + index * sizeof(Label));
     }
   };
 
@@ -279,7 +277,7 @@ bool DecodeBlock(size_t encoded_bits, const char* encoded_input,
   return for_each_position([&](Label& output_label, ptrdiff_t z, ptrdiff_t y,
                                ptrdiff_t x) {
     size_t encoded_offset = x + block_shape[2] * (y + block_shape[1] * z);
-    auto index = absl::little_endian::Load32(
+    auto index = little_endian::Load32(
                      encoded_input + encoded_offset * encoded_bits / 32 * 4) >>
                      (encoded_offset * encoded_bits % 32) &
                  encoded_value_mask;
@@ -368,8 +366,7 @@ bool DecodeChannels(std::string_view input, const ptrdiff_t block_shape[3],
     return false;
   }
   for (ptrdiff_t channel_i = 0; channel_i < output_shape[0]; ++channel_i) {
-    const size_t offset =
-        absl::little_endian::Load32(input.data() + channel_i * 4);
+    const size_t offset = little_endian::Load32(input.data() + channel_i * 4);
     if (offset > input.size() / 4) {
       // channel offset is invalid
       return false;

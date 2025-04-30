@@ -23,13 +23,13 @@
 #include <vector>
 
 #include "absl/algorithm/container.h"
-#include "absl/base/internal/endian.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "tensorstore/internal/compression/zlib.h"
 #include "tensorstore/internal/cord_util.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/neuroglancer_uint64_sharded/uint64_sharded.h"
+#include "tensorstore/util/endian.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
@@ -57,13 +57,13 @@ Result<std::vector<MinishardIndexEntry>> DecodeMinishardIndex(
   uint64_t byte_offset = 0;
   for (size_t i = 0; i < result.size(); ++i) {
     auto& entry = result[i];
-    chunk_id.value += absl::little_endian::Load64(decoded_flat.data() + i * 8);
+    chunk_id.value += little_endian::Load64(decoded_flat.data() + i * 8);
     entry.chunk_id = chunk_id;
-    byte_offset += absl::little_endian::Load64(decoded_flat.data() + i * 8 +
-                                               8 * result.size());
+    byte_offset +=
+        little_endian::Load64(decoded_flat.data() + i * 8 + 8 * result.size());
     entry.byte_range.inclusive_min = byte_offset;
-    byte_offset += absl::little_endian::Load64(decoded_flat.data() + i * 8 +
-                                               16 * result.size());
+    byte_offset +=
+        little_endian::Load64(decoded_flat.data() + i * 8 + 16 * result.size());
     entry.byte_range.exclusive_max = byte_offset;
     if (!entry.byte_range.SatisfiesInvariants()) {
       return absl::InvalidArgumentError(tensorstore::StrCat(
@@ -108,8 +108,8 @@ Result<ByteRange> DecodeShardIndexEntry(std::string_view input) {
         "Expected 16 bytes, but received: ", input.size(), " bytes"));
   }
   ByteRange r;
-  r.inclusive_min = absl::little_endian::Load64(input.data());
-  r.exclusive_max = absl::little_endian::Load64(input.data() + 8);
+  r.inclusive_min = little_endian::Load64(input.data());
+  r.exclusive_max = little_endian::Load64(input.data() + 8);
   if (!r.SatisfiesInvariants()) {
     return absl::FailedPreconditionError(
         tensorstore::StrCat("Shard index specified invalid byte range: ", r));

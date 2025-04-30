@@ -199,7 +199,7 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore/kvstore:generation",
         "//tensorstore/kvstore/ocdbt/format",
-        "@abseil-cpp//absl/base:endian",
+        "//tensorstore/util:endian",
         "@abseil-cpp//absl/strings:cord",
         "@blake3",
     ],

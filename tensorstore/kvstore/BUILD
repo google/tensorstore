@@ -81,8 +81,8 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore/serialization",
         "//tensorstore/serialization:absl_time",
+        "//tensorstore/util:endian",
         "//tensorstore/util:quote_string",
-        "@abseil-cpp//absl/base:endian",
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/time",
     ],
