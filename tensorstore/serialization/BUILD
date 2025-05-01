@@ -120,8 +120,8 @@ tensorstore_cc_library(
         ":serialization",
         "@abseil-cpp//absl/status",
         "@com_google_protobuf//:protobuf_lite",
-        "@riegeli//riegeli/messages:message_parse",
-        "@riegeli//riegeli/messages:message_serialize",
+        "@riegeli//riegeli/messages:parse_message",
+        "@riegeli//riegeli/messages:serialize_message",
     ],
 )
 

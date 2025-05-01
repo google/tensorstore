@@ -22,6 +22,7 @@
 
 #include "absl/base/attributes.h"
 #include "absl/base/config.h"
+#include "absl/base/nullability.h"
 
 namespace tensorstore {
 
@@ -47,7 +48,7 @@ inline std::ostream& operator<<(std::ostream& os, endian e) {
 namespace endian_internal {
 
 // clang-format off
-inline uint64_t gbswap_64(uint64_t x) {
+inline ABSL_ATTRIBUTE_ALWAYS_INLINE uint64_t gbswap_64(uint64_t x) {
 #if ABSL_HAVE_BUILTIN(__builtin_bswap64) || defined(__GNUC__)
   return __builtin_bswap64(x);
 #else
@@ -62,7 +63,7 @@ inline uint64_t gbswap_64(uint64_t x) {
 #endif
 }
 
-inline uint32_t gbswap_32(uint32_t x) {
+inline ABSL_ATTRIBUTE_ALWAYS_INLINE uint32_t gbswap_32(uint32_t x) {
 #if ABSL_HAVE_BUILTIN(__builtin_bswap32) || defined(__GNUC__)
   return __builtin_bswap32(x);
 #else
@@ -73,7 +74,7 @@ inline uint32_t gbswap_32(uint32_t x) {
 #endif
 }
 
-inline uint16_t gbswap_16(uint16_t x) {
+inline ABSL_ATTRIBUTE_ALWAYS_INLINE uint16_t gbswap_16(uint16_t x) {
 #if ABSL_HAVE_BUILTIN(__builtin_bswap16) || defined(__GNUC__)
   return __builtin_bswap16(x);
 #else
@@ -104,35 +105,35 @@ inline uint64_t FromHost64(uint64_t x) { return x; }
 inline uint64_t ToHost64(uint64_t x) { return x; }
 
 // Functions to do unaligned loads and stores.
-inline uint16_t Load16(const void* p) {
+inline uint16_t Load16(const void* absl_nonnull p) {
   uint16_t v;
   memcpy(&v, p, sizeof v);
   return ToHost16(v);
 }
 
-inline void Store16(void* p, uint16_t v) {
+inline void Store16(void* absl_nonnull p, uint16_t v) {
   v = FromHost16(v);
   memcpy(p, &v, sizeof v);
 }
 
-inline uint32_t Load32(const void* p) {
+inline uint32_t Load32(const void* absl_nonnull p) {
   uint32_t v;
   memcpy(&v, p, sizeof v);
   return ToHost32(v);
 }
 
-inline void Store32(void* p, uint32_t v) {
+inline void Store32(void* absl_nonnull p, uint32_t v) {
   v = FromHost32(v);
   memcpy(p, &v, sizeof v);
 }
 
-inline uint64_t Load64(const void* p) {
+inline uint64_t Load64(const void* absl_nonnull p) {
   uint64_t v;
   memcpy(&v, p, sizeof v);
   return ToHost64(v);
 }
 
-inline void Store64(void* p, uint64_t v) {
+inline void Store64(void* absl_nonnull p, uint64_t v) {
   v = FromHost64(v);
   memcpy(p, &v, sizeof v);
 }
@@ -159,35 +160,35 @@ inline uint64_t FromHost64(uint64_t x) { return endian_internal::gbswap_64(x); }
 inline uint64_t ToHost64(uint64_t x) { return endian_internal::gbswap_64(x); }
 
 // Functions to do unaligned loads and stores.
-inline uint16_t Load16(const void* p) {
+inline uint16_t Load16(const void* absl_nonnull p) {
   uint16_t v;
   memcpy(&v, p, sizeof v);
   return ToHost16(v);
 }
 
-inline void Store16(void* p, uint16_t v) {
+inline void Store16(void* absl_nonnull p, uint16_t v) {
   v = FromHost16(v);
   memcpy(p, &v, sizeof v);
 }
 
-inline uint32_t Load32(const void* p) {
+inline uint32_t Load32(const void* absl_nonnull p) {
   uint32_t v;
   memcpy(&v, p, sizeof v);
   return ToHost32(v);
 }
 
-inline void Store32(void* p, uint32_t v) {
+inline void Store32(void* absl_nonnull p, uint32_t v) {
   v = FromHost32(v);
   memcpy(p, &v, sizeof v);
 }
 
-inline uint64_t Load64(const void* p) {
+inline uint64_t Load64(const void* absl_nonnull p) {
   uint64_t v;
   memcpy(&v, p, sizeof v);
   return ToHost64(v);
 }
 
-inline void Store64(void* p, uint64_t v) {
+inline void Store64(void* absl_nonnull p, uint64_t v) {
   v = FromHost64(v);
   memcpy(p, &v, sizeof v);
 }
@@ -204,8 +205,8 @@ namespace internal {
 /// \param source Pointer to source element of `ElementSize` bytes.
 /// \param dest Pointer to destination element of `ElementSize` bytes.
 template <size_t ElementSize>
-inline ABSL_ATTRIBUTE_ALWAYS_INLINE void SwapEndianUnaligned(const void* source,
-                                                             void* dest) {
+inline ABSL_ATTRIBUTE_ALWAYS_INLINE void SwapEndianUnaligned(
+    const void* absl_nonnull source, void* absl_nonnull dest) {
   static_assert((ElementSize == 1 || ElementSize == 2 || ElementSize == 4 ||
                  ElementSize == 8),
                 "ElementSize must be 1, 2, 4, or 8.");
@@ -243,8 +244,8 @@ inline ABSL_ATTRIBUTE_ALWAYS_INLINE void SwapEndianUnaligned(const void* source,
 /// \param source Pointer to source array of `SubElementSize*Count` bytes.
 /// \param dest Pointer to destination array of `SubElementSize*Count` bytes.
 template <size_t SubElementSize, size_t Count>
-inline ABSL_ATTRIBUTE_ALWAYS_INLINE void SwapEndianUnaligned(const void* source,
-                                                             void* dest) {
+inline ABSL_ATTRIBUTE_ALWAYS_INLINE void SwapEndianUnaligned(
+    const void* absl_nonnull source, void* absl_nonnull dest) {
   if constexpr (SubElementSize == 1) {
     std::memcpy(dest, source, Count);
   } else {
@@ -263,7 +264,7 @@ inline ABSL_ATTRIBUTE_ALWAYS_INLINE void SwapEndianUnaligned(const void* source,
 /// This is equivalent to `SwapEndianUnaligned<ElementSize>(data, data)`.
 template <size_t ElementSize>
 inline ABSL_ATTRIBUTE_ALWAYS_INLINE void SwapEndianUnalignedInplace(
-    void* data) {
+    void* absl_nonnull data) {
   SwapEndianUnaligned<ElementSize>(data, data);
 }
 
@@ -275,7 +276,7 @@ inline ABSL_ATTRIBUTE_ALWAYS_INLINE void SwapEndianUnalignedInplace(
 /// `SwapEndianUnaligned<SubElementSize, Count>(data, data)`.
 template <size_t SubElementSize, size_t Count>
 inline ABSL_ATTRIBUTE_ALWAYS_INLINE void SwapEndianUnalignedInplace(
-    void* data) {
+    void* absl_nonnull data) {
   SwapEndianUnaligned<SubElementSize, Count>(data, data);
 }
 

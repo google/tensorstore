@@ -260,6 +260,7 @@ tensorstore_cc_library(
     deps = [
         "@abseil-cpp//absl/base:config",
         "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/base:nullability",
     ],
 )
 

@@ -29,6 +29,7 @@
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
+#include "riegeli/base/byte_fill.h"
 #include "riegeli/bytes/writer.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/image/image_info.h"
@@ -110,11 +111,12 @@ toff_t SeekProc(thandle_t data, toff_t pos, int whence) {
   }
 
   // libtiff assumes that seek works like a file; so if the target_pos is beyond
-  // EOF, the writer needs to be extended and the simplest way is WriteZeros.
+  // EOF, the writer needs to be extended and the simplest way is to write
+  // a ByteFill.
   if (target_pos > writer_size.value_or(0)) {
     uint64_t zeros = target_pos - writer_size.value_or(0);
     writer->Seek(writer_size.value_or(0));
-    writer->WriteZeros(zeros);
+    writer->Write(riegeli::ByteFill(zeros));
   } else {
     writer->Seek(target_pos);
   }

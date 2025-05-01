@@ -28,6 +28,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_format.h"
+#include "riegeli/base/byte_fill.h"
 #include "riegeli/bytes/cord_reader.h"
 #include "riegeli/bytes/cord_writer.h"
 #include "riegeli/bytes/limiting_reader.h"
@@ -193,7 +194,7 @@ Result<absl::Cord> EncodeWithOptionalCompression(
     absl::big_endian::Store32(header, magic);
 
     // Leave 12-byte placeholder to be filled in later.
-    if (!writer.WriteZeros(12)) return false;
+    if (!writer.Write(riegeli::ByteFill(12))) return false;
 
     // Compute CRC-32C digest of remaining data.
     riegeli::DigestingWriter digesting_writer(&writer,

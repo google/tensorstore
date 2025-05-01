@@ -26,6 +26,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "riegeli/base/chain.h"
+#include "riegeli/base/external_ref.h"
 #include "riegeli/bytes/copy_all.h"
 #include "riegeli/bytes/limiting_reader.h"
 #include "riegeli/bytes/writer.h"
@@ -75,12 +76,10 @@ auto& noncontiguous_bytes = internal_metrics::Counter<int64_t>::New(
       IsContiguousLayout(decoded, order)) {
     // Data is contiguous and no endian conversion is needed.
     const size_t length = decoded.num_elements() * decoded.dtype().size();
-    if (writer.PrefersCopying()) {
-      return writer.Write(std::string_view(
-          reinterpret_cast<const char*>(decoded.data()), length));
-    }
-    return writer.Write(
-        internal::MakeCordFromSharedPtr(std::move(decoded.pointer()), length));
+    return writer.Write(riegeli::ExternalRef(
+        std::move(decoded.pointer()),
+        std::string_view(reinterpret_cast<const char*>(decoded.data()),
+                         length)));
   }
 
   // Copying (and possibly endian conversion) is required.
