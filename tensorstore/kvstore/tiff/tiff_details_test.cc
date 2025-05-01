@@ -143,8 +143,8 @@ TEST(TiffDetailsTest, ParseTruncatedDirectory) {
 
 TEST(TiffDetailsTest, ParseImageDirectory_Tiled_InlineOffsets_Success) {
   std::vector<IfdEntry> entries = {
-      {Tag::kImageWidth, TiffDataType::kLong, 1, 800},        // ImageWidth
-      {Tag::kImageLength, TiffDataType::kLong, 1, 600},       // ImageLength
+      {Tag::kImageWidth, TiffDataType::kLong, 1, 256},        // ImageWidth
+      {Tag::kImageLength, TiffDataType::kLong, 1, 256},       // ImageLength
       {Tag::kTileWidth, TiffDataType::kLong, 1, 256},         // TileWidth
       {Tag::kTileLength, TiffDataType::kLong, 1, 256},        // TileLength
       {Tag::kTileOffsets, TiffDataType::kLong, 1, 1000},      // TileOffsets
@@ -154,14 +154,14 @@ TEST(TiffDetailsTest, ParseImageDirectory_Tiled_InlineOffsets_Success) {
   ImageDirectory dir;
   ASSERT_THAT(ParseImageDirectory(entries, dir), ::tensorstore::IsOk());
 
-  EXPECT_EQ(dir.width, 800);
-  EXPECT_EQ(dir.height, 600);
-  EXPECT_EQ(dir.tile_width, 256);
-  EXPECT_EQ(dir.tile_height, 256);
-  ASSERT_EQ(dir.tile_offsets.size(), 1);
-  EXPECT_EQ(dir.tile_offsets[0], 1000);
-  ASSERT_EQ(dir.tile_bytecounts.size(), 1);
-  EXPECT_EQ(dir.tile_bytecounts[0], 65536);
+  EXPECT_EQ(dir.width, 256);
+  EXPECT_EQ(dir.height, 256);
+  EXPECT_EQ(dir.chunk_width, 256);
+  EXPECT_EQ(dir.chunk_height, 256);
+  ASSERT_EQ(dir.chunk_offsets.size(), 1);
+  EXPECT_EQ(dir.chunk_offsets[0], 1000);
+  ASSERT_EQ(dir.chunk_bytecounts.size(), 1);
+  EXPECT_EQ(dir.chunk_bytecounts[0], 65536);
 }
 
 TEST(TiffDetailsTest, ParseImageDirectory_Stripped_InlineOffsets_Success) {
@@ -178,11 +178,12 @@ TEST(TiffDetailsTest, ParseImageDirectory_Stripped_InlineOffsets_Success) {
 
   EXPECT_EQ(dir.width, 800);
   EXPECT_EQ(dir.height, 600);
-  EXPECT_EQ(dir.rows_per_strip, 100);
-  ASSERT_EQ(dir.strip_offsets.size(), 1);
-  EXPECT_EQ(dir.strip_offsets[0], 1000);
-  ASSERT_EQ(dir.strip_bytecounts.size(), 1);
-  EXPECT_EQ(dir.strip_bytecounts[0], 8192);
+  EXPECT_FALSE(dir.is_tiled);
+  EXPECT_EQ(dir.chunk_height, 100);
+  ASSERT_EQ(dir.chunk_offsets.size(), 1);
+  EXPECT_EQ(dir.chunk_offsets[0], 1000);
+  ASSERT_EQ(dir.chunk_bytecounts.size(), 1);
+  EXPECT_EQ(dir.chunk_bytecounts[0], 8192);
 }
 
 TEST(TiffDetailsTest, ParseImageDirectory_DuplicateTags) {
@@ -352,8 +353,8 @@ TEST(TiffDetailsTest, ParseUint16Array_ReadFail) {
 TEST(TiffDetailsTest, ParseImageDirectory_ExternalArrays) {
   // Setup IFD entries with external arrays
   std::vector<IfdEntry> entries = {
-      {Tag::kImageWidth, TiffDataType::kLong, 1, 800},   // ImageWidth
-      {Tag::kImageLength, TiffDataType::kLong, 1, 600},  // ImageLength
+      {Tag::kImageWidth, TiffDataType::kLong, 1, 512},   // ImageWidth
+      {Tag::kImageLength, TiffDataType::kLong, 1, 512},  // ImageLength
       {Tag::kTileWidth, TiffDataType::kLong, 1, 256},    // TileWidth
       {Tag::kTileLength, TiffDataType::kLong, 1, 256},   // TileLength
       // External arrays (is_external_array = true)
@@ -370,15 +371,16 @@ TEST(TiffDetailsTest, ParseImageDirectory_ExternalArrays) {
   ImageDirectory dir;
   ASSERT_THAT(ParseImageDirectory(entries, dir), ::tensorstore::IsOk());
 
-  EXPECT_EQ(dir.width, 800);
-  EXPECT_EQ(dir.height, 600);
-  EXPECT_EQ(dir.tile_width, 256);
-  EXPECT_EQ(dir.tile_height, 256);
+  EXPECT_EQ(dir.width, 512);
+  EXPECT_EQ(dir.height, 512);
+  EXPECT_TRUE(dir.is_tiled);
+  EXPECT_EQ(dir.chunk_width, 256);
+  EXPECT_EQ(dir.chunk_height, 256);
   EXPECT_EQ(dir.samples_per_pixel, 3);
 
   // External arrays should have the correct size but not be loaded yet
-  ASSERT_EQ(dir.tile_offsets.size(), 4);
-  ASSERT_EQ(dir.tile_bytecounts.size(), 4);
+  ASSERT_EQ(dir.chunk_offsets.size(), 4);
+  ASSERT_EQ(dir.chunk_bytecounts.size(), 4);
   ASSERT_EQ(dir.bits_per_sample.size(), 3);
 }
 

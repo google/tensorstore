@@ -165,6 +165,19 @@ absl::Status ParseUint16Array(const IfdEntry* entry,
   }
 }
 
+// Helper to calculate the number of chunks/tiles/strips
+std::tuple<uint64_t, uint32_t, uint32_t> CalculateChunkCounts(
+    uint32_t image_width, uint32_t image_height, uint32_t chunk_width,
+    uint32_t chunk_height) {
+  if (chunk_width == 0 || chunk_height == 0) {
+    return {0, 0, 0};
+  }
+  uint32_t num_cols = (image_width + chunk_width - 1) / chunk_width;
+  uint32_t num_rows = (image_height + chunk_height - 1) / chunk_height;
+  uint64_t num_chunks = static_cast<uint64_t>(num_rows) * num_cols;
+  return {num_chunks, num_rows, num_cols};
+}
+
 }  // namespace
 
 // Implementation of the ParseUint16Array function to read arrays of uint16_t
@@ -441,83 +454,168 @@ absl::Status ParseImageDirectory(const std::vector<IfdEntry>& entries,
 
   // Parse optional fields
 
-  // Samples Per Pixel
-  const IfdEntry* samples_per_pixel =
-      GetIfdEntry(Tag::kSamplesPerPixel, entries);
-  if (samples_per_pixel) {
+  // Samples Per Pixel (defaults to 1 if missing)
+  const IfdEntry* spp_entry = GetIfdEntry(Tag::kSamplesPerPixel, entries);
+  if (spp_entry) {
     TENSORSTORE_RETURN_IF_ERROR(
-        ParseUint16Value(samples_per_pixel, out.samples_per_pixel));
-  }
-
-  // Bits Per Sample
-  const IfdEntry* bits_per_sample = GetIfdEntry(Tag::kBitsPerSample, entries);
-  if (bits_per_sample) {
-    TENSORSTORE_RETURN_IF_ERROR(
-        ParseUint16Array(bits_per_sample, out.bits_per_sample));
+        ParseUint16Value(spp_entry, out.samples_per_pixel));
   } else {
-    // Default to 1 sample with 1 bit if not specified
-    out.bits_per_sample.resize(out.samples_per_pixel, 1);
+    out.samples_per_pixel = 1;
   }
 
-  // Compression
-  const IfdEntry* compression = GetIfdEntry(Tag::kCompression, entries);
-  if (compression) {
-    TENSORSTORE_RETURN_IF_ERROR(ParseUint16Value(compression, out.compression));
-  }
-
-  // Photometric Interpretation
-  const IfdEntry* photometric = GetIfdEntry(Tag::kPhotometric, entries);
-  if (photometric) {
-    TENSORSTORE_RETURN_IF_ERROR(ParseUint16Value(photometric, out.photometric));
-  }
-
-  // Planar Configuration
-  const IfdEntry* planar_config = GetIfdEntry(Tag::kPlanarConfig, entries);
-  if (planar_config) {
+  // Bits Per Sample (defaults to 1 bit per sample if missing)
+  const IfdEntry* bps_entry = GetIfdEntry(Tag::kBitsPerSample, entries);
+  if (bps_entry) {
     TENSORSTORE_RETURN_IF_ERROR(
-        ParseUint16Value(planar_config, out.planar_config));
-  }
-
-  // Sample Format
-  const IfdEntry* sample_format = GetIfdEntry(Tag::kSampleFormat, entries);
-  if (sample_format) {
-    TENSORSTORE_RETURN_IF_ERROR(
-        ParseUint16Array(sample_format, out.sample_format));
+        ParseUint16Array(bps_entry, out.bits_per_sample));
+    // Validate size matches SamplesPerPixel
+    if (out.bits_per_sample.size() != out.samples_per_pixel &&
+        out.bits_per_sample.size() !=
+            1) {  // Allow single value for all samples
+      return absl::InvalidArgumentError(
+          "BitsPerSample count does not match SamplesPerPixel");
+    }
+    // If only one value provided, replicate it for all samples
+    if (out.bits_per_sample.size() == 1 && out.samples_per_pixel > 1) {
+      out.bits_per_sample.resize(out.samples_per_pixel, out.bits_per_sample[0]);
+    }
   } else {
-    // Default to unsigned integer for all samples if not specified
-    out.sample_format.resize(
+    out.bits_per_sample.assign(out.samples_per_pixel, 1);
+  }
+
+  // Compression (defaults to None if missing)
+  const IfdEntry* comp_entry = GetIfdEntry(Tag::kCompression, entries);
+  if (comp_entry) {
+    TENSORSTORE_RETURN_IF_ERROR(ParseUint16Value(comp_entry, out.compression));
+  } else {
+    out.compression = static_cast<uint16_t>(CompressionType::kNone);
+  }
+
+  // Photometric Interpretation (defaults to 0 if missing)
+  const IfdEntry* photo_entry = GetIfdEntry(Tag::kPhotometric, entries);
+  if (photo_entry) {
+    TENSORSTORE_RETURN_IF_ERROR(ParseUint16Value(photo_entry, out.photometric));
+  } else {
+    out.photometric = 0;  // Default WhiteIsZero
+  }
+
+  // Planar Configuration (defaults to Chunky if missing)
+  const IfdEntry* planar_entry = GetIfdEntry(Tag::kPlanarConfig, entries);
+  if (planar_entry) {
+    TENSORSTORE_RETURN_IF_ERROR(
+        ParseUint16Value(planar_entry, out.planar_config));
+  } else {
+    out.planar_config = static_cast<uint16_t>(PlanarConfigType::kChunky);
+  }
+
+  // Sample Format (defaults to Unsigned Integer if missing)
+  const IfdEntry* format_entry = GetIfdEntry(Tag::kSampleFormat, entries);
+  if (format_entry) {
+    TENSORSTORE_RETURN_IF_ERROR(
+        ParseUint16Array(format_entry, out.sample_format));
+    // Validate size matches SamplesPerPixel
+    if (out.sample_format.size() != out.samples_per_pixel &&
+        out.sample_format.size() != 1) {  // Allow single value for all samples
+      return absl::InvalidArgumentError(
+          "SampleFormat count does not match SamplesPerPixel");
+    }
+    // If only one value provided, replicate it for all samples
+    if (out.sample_format.size() == 1 && out.samples_per_pixel > 1) {
+      out.sample_format.resize(out.samples_per_pixel, out.sample_format[0]);
+    }
+  } else {
+    out.sample_format.assign(
         out.samples_per_pixel,
         static_cast<uint16_t>(SampleFormatType::kUnsignedInteger));
   }
 
-  // Check for tile-based organization
-  const IfdEntry* tile_offsets = GetIfdEntry(Tag::kTileOffsets, entries);
-  if (tile_offsets) {
-    // Tiled TIFF
-    TENSORSTORE_RETURN_IF_ERROR(ParseUint32Value(
-        GetIfdEntry(Tag::kTileWidth, entries), out.tile_width));
-    TENSORSTORE_RETURN_IF_ERROR(ParseUint32Value(
-        GetIfdEntry(Tag::kTileLength, entries), out.tile_height));
-    TENSORSTORE_RETURN_IF_ERROR(
-        ParseUint64Array(tile_offsets, out.tile_offsets));
+  // Determine Tiled vs. Stripped and Parse Chunk Info
+  const IfdEntry* tile_width_entry = GetIfdEntry(Tag::kTileWidth, entries);
+  const IfdEntry* rows_per_strip_entry =
+      GetIfdEntry(Tag::kRowsPerStrip, entries);
 
-    const IfdEntry* tile_bytecounts =
-        GetIfdEntry(Tag::kTileByteCounts, entries);
+  if (tile_width_entry) {
+    out.is_tiled = true;
+    if (rows_per_strip_entry) {
+      ABSL_LOG_IF(WARNING, tiff_logging)
+          << "Both TileWidth and RowsPerStrip present; ignoring RowsPerStrip.";
+    }
+
     TENSORSTORE_RETURN_IF_ERROR(
-        ParseUint64Array(tile_bytecounts, out.tile_bytecounts));
+        ParseUint32Value(tile_width_entry, out.chunk_width));
+    TENSORSTORE_RETURN_IF_ERROR(ParseUint32Value(
+        GetIfdEntry(Tag::kTileLength, entries), out.chunk_height));
+
+    const IfdEntry* offsets_entry = GetIfdEntry(Tag::kTileOffsets, entries);
+    const IfdEntry* counts_entry = GetIfdEntry(Tag::kTileByteCounts, entries);
+
+    if (!offsets_entry)
+      return absl::NotFoundError("TileOffsets tag missing for tiled image");
+    if (!counts_entry)
+      return absl::NotFoundError("TileByteCounts tag missing for tiled image");
+
+    TENSORSTORE_RETURN_IF_ERROR(
+        ParseUint64Array(offsets_entry, out.chunk_offsets));
+    TENSORSTORE_RETURN_IF_ERROR(
+        ParseUint64Array(counts_entry, out.chunk_bytecounts));
+
+    // Validate counts
+    auto [num_chunks, num_rows, num_cols] = CalculateChunkCounts(
+        out.width, out.height, out.chunk_width, out.chunk_height);
+    if (out.chunk_offsets.size() != num_chunks) {
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "TileOffsets count (%d) does not match expected number of tiles (%d)",
+          out.chunk_offsets.size(), num_chunks));
+    }
+    if (out.chunk_bytecounts.size() != num_chunks) {
+      return absl::InvalidArgumentError(
+          absl::StrFormat("TileByteCounts count (%d) does not match expected "
+                          "number of tiles (%d)",
+                          out.chunk_bytecounts.size(), num_chunks));
+    }
+
   } else {
-    // Strip-based TIFF
-    TENSORSTORE_RETURN_IF_ERROR(ParseUint32Value(
-        GetIfdEntry(Tag::kRowsPerStrip, entries), out.rows_per_strip));
+    // Stripped Mode
+    out.is_tiled = false;
+    if (!rows_per_strip_entry) {
+      // Neither TileWidth nor RowsPerStrip found
+      return absl::NotFoundError(
+          "Neither TileWidth nor RowsPerStrip tag found");
+    }
 
-    const IfdEntry* strip_offsets = GetIfdEntry(Tag::kStripOffsets, entries);
     TENSORSTORE_RETURN_IF_ERROR(
-        ParseUint64Array(strip_offsets, out.strip_offsets));
+        ParseUint32Value(rows_per_strip_entry, out.chunk_height));
+    // Strip width is always the image width
+    out.chunk_width = out.width;
 
-    const IfdEntry* strip_bytecounts =
-        GetIfdEntry(Tag::kStripByteCounts, entries);
+    const IfdEntry* offsets_entry = GetIfdEntry(Tag::kStripOffsets, entries);
+    const IfdEntry* counts_entry = GetIfdEntry(Tag::kStripByteCounts, entries);
+
+    if (!offsets_entry)
+      return absl::NotFoundError("StripOffsets tag missing for stripped image");
+    if (!counts_entry)
+      return absl::NotFoundError(
+          "StripByteCounts tag missing for stripped image");
+
     TENSORSTORE_RETURN_IF_ERROR(
-        ParseUint64Array(strip_bytecounts, out.strip_bytecounts));
+        ParseUint64Array(offsets_entry, out.chunk_offsets));
+    TENSORSTORE_RETURN_IF_ERROR(
+        ParseUint64Array(counts_entry, out.chunk_bytecounts));
+
+    // Validate counts
+    auto [num_chunks, num_rows, num_cols] = CalculateChunkCounts(
+        out.width, out.height, out.chunk_width, out.chunk_height);
+
+    if (out.chunk_offsets.size() != out.chunk_bytecounts.size()) {
+      return absl::InvalidArgumentError(
+          "StripOffsets and StripByteCounts have different counts");
+    }
+    if (out.chunk_offsets.size() != num_chunks) {
+      ABSL_LOG_IF(WARNING, tiff_logging) << absl::StrFormat(
+          "StripOffsets/Counts size (%d) does not match expected number of "
+          "strips (%d) based on RowsPerStrip",
+          out.chunk_offsets.size(), num_chunks);
+    }
   }
 
   return absl::OkStatus();

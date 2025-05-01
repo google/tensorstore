@@ -142,9 +142,8 @@ struct TiffDirectory {
 struct ImageDirectory {
   uint32_t width = 0;
   uint32_t height = 0;
-  uint32_t tile_width = 0;
-  uint32_t tile_height = 0;
-  uint32_t rows_per_strip = 0;
+  uint32_t chunk_width = 0;
+  uint32_t chunk_height = 0;
   uint16_t samples_per_pixel = 1;  // Default to 1 sample per pixel
   uint16_t compression =
       static_cast<uint16_t>(CompressionType::kNone);  // Default to uncompressed
@@ -153,16 +152,16 @@ struct ImageDirectory {
       static_cast<uint16_t>(PlanarConfigType::kChunky);  // Default to chunky
   std::vector<uint16_t> bits_per_sample;  // Bits per sample for each channel
   std::vector<uint16_t> sample_format;    // Format type for each channel
-  std::vector<uint64_t> strip_offsets;
-  std::vector<uint64_t> strip_bytecounts;
-  std::vector<uint64_t> tile_offsets;
-  std::vector<uint64_t> tile_bytecounts;
+  std::vector<uint64_t> chunk_offsets;
+  std::vector<uint64_t> chunk_bytecounts;
+
+  bool is_tiled = false;
 
   constexpr static auto ApplyMembers = [](auto&& x, auto f) {
-    return f(x.width, x.height, x.tile_width, x.tile_height, x.rows_per_strip,
+    return f(x.width, x.height, x.chunk_width, x.chunk_height,
              x.samples_per_pixel, x.compression, x.photometric, x.planar_config,
-             x.bits_per_sample, x.sample_format, x.strip_offsets,
-             x.strip_bytecounts, x.tile_offsets, x.tile_bytecounts);
+             x.bits_per_sample, x.sample_format, x.chunk_offsets,
+             x.chunk_bytecounts, x.is_tiled);
   };
 };
 
