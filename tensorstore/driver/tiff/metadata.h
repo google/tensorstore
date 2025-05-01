@@ -38,23 +38,98 @@ namespace internal_tiff {
 
 /// Options specified in the `TiffDriverSpec` that guide interpretation.
 struct TiffSpecOptions {
-  // Specifies which IFD (Image File Directory) to open. Defaults to 0.
+  /// Options specific to multi-IFD stacking mode.
+  struct IfdStackingOptions {
+    // Specifies the labels for the dimensions represented by the IFD sequence.
+    // Required if `ifd_stacking` is specified.
+    std::vector<std::string> dimensions;
+
+    // Explicitly defines the size of each corresponding dimension in
+    // `dimensions`. Must have the same length as `dimensions`. Required if
+    // `dimensions.size() > 1` and OME-XML is not used/found. Optional if
+    // `dimensions.size() == 1` (can use `ifd_count` instead).
+    std::optional<std::vector<Index>> dimension_sizes;
+
+    // Specifies the total number of IFDs involved in the stack OR the size of
+    // the single dimension if `dimensions.size() == 1` and `dimension_sizes`
+    // is absent. If specified along with `dimension_sizes`, their product must
+    // match `ifd_count`.
+    std::optional<uint32_t> ifd_count;
+
+    // Specifies the order of stacked dimensions within the flat IFD sequence.
+    // Must be a permutation of `dimensions`. Defaults to the order in
+    // `dimensions` with the last dimension varying fastest.
+    std::optional<std::vector<std::string>> ifd_sequence_order;
+
+    // Member binding for serialization/reflection (used internally)
+    constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+      return f(x.dimensions, x.dimension_sizes, x.ifd_count,
+               x.ifd_sequence_order);
+    };
+  };
+
+  // Use EITHER ifd_index OR ifd_stacking. Default is single IFD mode
+  // (ifd_index=0). The JSON binder will enforce mutual exclusion.
+
+  // Option A: Single IFD Mode (default behavior if ifd_stacking is absent)
+  // Specifies which IFD to open.
   uint32_t ifd_index = 0;
+
+  // Option B: Multi-IFD Stacking Mode
+  // Interprets a sequence of IFDs as additional TensorStore dimensions.
+  std::optional<IfdStackingOptions> ifd_stacking;
+
+  // Optional Sample Dimension Label
+  // Specifies the conceptual label for the dimension derived from
+  // SamplesPerPixel when SamplesPerPixel > 1. If omitted, a default ('c') is
+  // used internally.
+  std::optional<std::string> sample_dimension_label;
+
+  // Future: OME-XML Control
+  // bool use_ome_xml = true;
 
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(TiffSpecOptions,
                                           internal_json_binding::NoOptions,
                                           tensorstore::IncludeDefaults)
+
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.ifd_index, x.ifd_stacking, x.sample_dimension_label);
+  };
+};
+
+/// Stores information about the mapping between final TensorStore dimensions.
+struct TiffDimensionMapping {
+  /// TensorStore dimension index corresponding to logical height (Y).
+  std::optional<DimensionIndex> ts_y_dim;
+  /// TensorStore dimension index corresponding to logical width (X).
+  std::optional<DimensionIndex> ts_x_dim;
+  /// TensorStore dimension index corresponding to the sample dimension (if spp
+  /// > 1).
+  std::optional<DimensionIndex> ts_sample_dim;
+
+  /// Maps stacked dimension labels (from ifd_stacking.dimensions) to their
+  /// corresponding TensorStore dimension indices.
+  std::map<std::string, DimensionIndex> ts_stacked_dims;
+
+  /// Maps TensorStore dimension indices back to conceptual labels (e.g., "z",
+  /// "t", "y", "x", "c") Useful for debugging or potentially reconstructing
+  /// spec.
+  std::vector<std::string> labels_by_ts_dim;
 };
 
 /// Represents the resolved and interpreted metadata for a TIFF TensorStore.
 /// This structure holds the information needed by the driver after parsing
 /// TIFF tags, potentially OME-XML, and applying user specifications.
 struct TiffMetadata {
-  // Which IFD this metadata corresponds to.
-  uint32_t ifd_index;
+  // Which IFD was used as the base (0 unless single IFD mode requested specific
+  // one).
+  uint32_t base_ifd_index;
 
-  // Number of IFDs represented (1 for single IFD mode, >1 for stacked mode).
-  uint32_t num_ifds = 1;
+  // Number of IFDs used (1 for single IFD mode, >1 for stacked mode).
+  uint32_t num_ifds_read = 1;  // Reflects IFDs actually parsed/validated
+
+  // Parsed stacking options, if multi-IFD mode was used.
+  std::optional<TiffSpecOptions::IfdStackingOptions> stacking_info;
 
   // Core TensorStore Schema components
   DimensionIndex rank = dynamic_rank;
@@ -76,11 +151,20 @@ struct TiffMetadata {
   // Derived from TIFF/OME/user spec
   DimensionUnitsVector dimension_units;
 
+  std::vector<std::string> dimension_labels;
+
+  // Dimension mapping.
+  TiffDimensionMapping dimension_mapping;
+
   // Information retained from TIFF for reference/logic
   internal_tiff_kvstore::Endian endian;
   internal_tiff_kvstore::CompressionType compression_type;
   internal_tiff_kvstore::PlanarConfigType planar_config;
   uint16_t samples_per_pixel;
+
+  // Chunk sizes from base IFD.
+  uint32_t ifd0_chunk_width;
+  uint32_t ifd0_chunk_height;
 
   // Pre-calculated layout order enum (C or Fortran) based on finalized
   // chunk_layout.inner_order
@@ -98,18 +182,6 @@ struct TiffMetadata {
   // std::shared_ptr<OmeXmlStruct> ome_metadata;
 
   TiffMetadata() = default;
-};
-
-/// Stores information about the mapping between TensorStore dimensions
-/// and logical TIFF spatial/stack dimensions, derived from TiffMetadata.
-struct TiffGridMappingInfo {
-  /// TensorStore dimension index corresponding to logical Height (Y). -1 if
-  /// N/A.
-  DimensionIndex ts_y_dim = -1;
-  /// TensorStore dimension index corresponding to logical Width (X). -1 if N/A.
-  DimensionIndex ts_x_dim = -1;
-  /// TensorStore dimension index corresponding to IFD/Z stack. -1 if N/A.
-  DimensionIndex ts_ifd_dim = -1;
 };
 
 /// Specifies constraints on the TIFF metadata required when opening.
@@ -172,59 +244,23 @@ absl::Status ValidateResolvedMetadata(
     const TiffMetadata& resolved_metadata,
     const TiffMetadataConstraints& user_constraints);
 
-/// Computes the effective domain based on spec options, constraints, and
-/// schema. If the rank or shape cannot be determined from the inputs, returns
-/// an unknown domain.
+/// Computes the effective compressor object by merging the compression type
+/// derived from TIFF tags with constraints from the schema's CodecSpec.
 ///
-/// \param options TIFF-specific interpretation options (currently unused here).
-/// \param constraints User constraints on the final metadata (e.g., shape).
-/// \param schema General schema constraints (e.g., domain, rank).
-/// \returns The best estimate of the domain based on the spec, or an error if
-///     constraints conflict.
-Result<IndexDomain<>> GetEffectiveDomain(
-    const TiffSpecOptions& options, const TiffMetadataConstraints& constraints,
-    const Schema& schema);
-
-/// Computes the effective chunk layout based on spec options, constraints, and
-/// schema.
-///
-/// \param options TIFF-specific interpretation options (currently unused here).
-/// \param constraints User constraints on the final metadata (e.g.,
-/// chunk_shape).
-/// \param schema General schema constraints (e.g., chunk layout).
-/// \returns The best estimate of the chunk layout based on the spec, or an
-/// error if constraints conflict. Returns a default layout if rank is unknown.
-Result<ChunkLayout> GetEffectiveChunkLayout(
-    const TiffSpecOptions& options, const TiffMetadataConstraints& constraints,
-    const Schema& schema);
-
-/// Computes the effective codec spec based on spec options, constraints, and
-/// schema.
-///
-/// Returns a default TIFF codec (uncompressed) if no constraints are provided.
-///
-/// \param options TIFF-specific interpretation options (currently unused here).
-/// \param constraints User constraints on the final metadata (e.g.,
-/// compression).
-/// \param schema General schema constraints (e.g., codec spec).
-/// \returns The best estimate of the codec spec based on the spec, or an error
-///     if constraints conflict.
-Result<internal::CodecDriverSpec::PtrT<TiffCodecSpec>> GetEffectiveCodec(
-    const TiffSpecOptions& options, const TiffMetadataConstraints& constraints,
-    const Schema& schema);
-
-/// Computes the effective dimension units based on spec options, constraints,
-/// and schema.
-///
-/// \param options TIFF-specific interpretation options (currently unused here).
-/// \param constraints User constraints on the final metadata (e.g., units).
-/// \param schema General schema constraints (e.g., dimension_units).
-/// \returns The best estimate of the dimension units based on the spec, or an
-///     error if constraints conflict. Returns unknown units if rank is unknown
-///     or units are unspecified.
-Result<DimensionUnitsVector> GetEffectiveDimensionUnits(
-    const TiffSpecOptions& options, const TiffMetadataConstraints& constraints,
-    const Schema& schema);
+/// \param compression_type The compression type read from the TIFF file's tags.
+/// \param schema_codec The CodecSpec provided via the Schema object, which may
+///     contain constraints or overrides.
+/// \returns The resolved Compressor object (JsonSpecifiedCompressor::Ptr),
+/// which
+///     will be nullptr if the final resolved type is kNone (raw) or if an
+///     unsupported/unregistered compressor type is specified.
+/// \error `absl::StatusCode::kInvalidArgument` if `schema_codec` conflicts with
+///     `compression_type`.
+/// \error `absl::StatusCode::kUnimplemented` if the resolved compressor type
+///     is not supported by the current build.
+Result<Compressor> GetEffectiveCompressor(
+    internal_tiff_kvstore::CompressionType compression_type,
+    const CodecSpec& schema_codec);
 
 /// Computes the effective data type based on constraints and schema.
 ///
@@ -249,20 +285,17 @@ Result<SharedArray<const void>> DecodeChunk(const TiffMetadata& metadata,
 /// and BitsPerSample combination (uint8/16/32/64, int8/16/32/64, float32/64).
 absl::Status ValidateDataType(DataType dtype);
 
-/// Analyzes TiffMetadata to determine key dimension mappings and tiling status.
-///
-/// This interprets the rank, shape, and chunk_layout.inner_order from metadata
-/// to identify which dimensions represent Y, X, and potentially IFD/Z, and
-/// whether the storage uses tiles or strips.
-///
-/// \param metadata The resolved TiffMetadata to analyze.
-/// \returns Information about the dimension mapping and tiling.
-TiffGridMappingInfo GetTiffGridMappingInfo(const TiffMetadata& metadata);
-
 }  // namespace internal_tiff
 }  // namespace tensorstore
 
 TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(
+    tensorstore::internal_tiff::TiffSpecOptions::IfdStackingOptions)
+TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(
+    tensorstore::internal_tiff::TiffSpecOptions::IfdStackingOptions)
+
+TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(
+    tensorstore::internal_tiff::TiffSpecOptions)
+TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(
     tensorstore::internal_tiff::TiffSpecOptions)
 
 TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(
