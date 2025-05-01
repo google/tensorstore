@@ -14,10 +14,12 @@
 
 #include "tensorstore/serialization/protobuf.h"
 
+#include <utility>
+
 #include "absl/status/status.h"
 #include "google/protobuf/message_lite.h"
-#include "riegeli/messages/message_parse.h"
-#include "riegeli/messages/message_serialize.h"
+#include "riegeli/messages/parse_message.h"
+#include "riegeli/messages/serialize_message.h"
 #include "tensorstore/serialization/serialization.h"
 
 namespace tensorstore {
@@ -25,7 +27,7 @@ namespace serialization {
 
 bool ProtobufSerializer::Encode(EncodeSink& sink,
                                 const google::protobuf::MessageLite& value) {
-  auto status = riegeli::SerializeLengthPrefixedToWriter(
+  auto status = riegeli::SerializeLengthPrefixedMessage(
       value, sink.writer(), riegeli::SerializeOptions().set_partial(true));
   if (!status.ok()) {
     sink.Fail(std::move(status));
@@ -36,7 +38,7 @@ bool ProtobufSerializer::Encode(EncodeSink& sink,
 
 bool ProtobufSerializer::Decode(DecodeSource& source,
                                 google::protobuf::MessageLite& value) {
-  auto status = riegeli::ParseLengthPrefixedFromReader(
+  auto status = riegeli::ParseLengthPrefixedMessage(
       source.reader(), value, riegeli::ParseOptions().set_partial(true));
   if (!status.ok()) {
     source.Fail(std::move(status));

@@ -1,0 +1,276 @@
+diff -Nur a/riegeli/base/background_cleaning.cc b/riegeli/base/background_cleaning.cc
+--- a/riegeli/base/background_cleaning.cc	2025-04-28 02:54:55.000000000 +0000
++++ b/riegeli/base/background_cleaning.cc	2025-04-30 20:00:45.964552578 +0000
+@@ -21,9 +21,17 @@
+ #include "absl/time/time.h"
+ #include "riegeli/base/assert.h"
+ #include "riegeli/base/parallelism.h"
++#include "riegeli/base/global.h"
++#include "riegeli/base/maker.h"
+ 
+ namespace riegeli {
+ 
++// Returns a default global `BackgroundCleaner`.
++BackgroundCleaner& BackgroundCleaner::global() {
++  static global_internal::NoDestructor<BackgroundCleaner> kCleaner;
++  return kCleaner.object();
++}
++
+ BackgroundCleanee::~BackgroundCleanee() = default;  // Key method.
+ 
+ BackgroundCleaner::Token BackgroundCleaner::Register(
+diff -Nur a/riegeli/base/background_cleaning.h b/riegeli/base/background_cleaning.h
+--- a/riegeli/base/background_cleaning.h	2025-04-28 02:54:55.000000000 +0000
++++ b/riegeli/base/background_cleaning.h	2025-04-30 21:16:15.092841680 +0000
+@@ -21,8 +21,6 @@
+ #include "absl/synchronization/mutex.h"
+ #include "absl/time/clock.h"
+ #include "absl/time/time.h"
+-#include "riegeli/base/global.h"
+-#include "riegeli/base/maker.h"
+ 
+ namespace riegeli {
+ 
+@@ -76,6 +74,8 @@
+ 
+   BackgroundCleaner() = default;
+ 
++  BackgroundCleaner(BackgroundCleaner&&) = default;
++  BackgroundCleaner& operator=(BackgroundCleaner&&) = default;
+   BackgroundCleaner(const BackgroundCleaner&) = delete;
+   BackgroundCleaner& operator=(const BackgroundCleaner&) = delete;
+ 
+@@ -83,9 +83,7 @@
+   ~BackgroundCleaner();
+ 
+   // Returns a default global `BackgroundCleaner`.
+-  static BackgroundCleaner& global() {
+-    return Global([] { return riegeli::OwningMaker<BackgroundCleaner>(); });
+-  }
++  static BackgroundCleaner& global();
+ 
+   // Registers the cleanee, allowing `ScheduleCleaning()` calls.
+   //
+diff -Nur a/riegeli/base/BUILD b/riegeli/base/BUILD
+--- a/riegeli/base/BUILD	2025-04-28 02:54:55.000000000 +0000
++++ b/riegeli/base/BUILD	2025-04-30 19:42:56.267382746 +0000
+@@ -193,6 +193,7 @@
+         ":arithmetic",
+         ":assert",
+         ":type_traits",
++        "@com_google_absl//absl/base",
+         "@com_google_absl//absl/base:core_headers",
+         "@com_google_absl//absl/base:nullability",
+         "@com_google_absl//absl/meta:type_traits",
+diff -Nur a/riegeli/base/chain.cc b/riegeli/base/chain.cc
+--- a/riegeli/base/chain.cc	2025-04-28 02:54:55.000000000 +0000
++++ b/riegeli/base/chain.cc	2025-04-30 18:18:03.804035769 +0000
+@@ -71,8 +71,27 @@
+ // flat `absl::Cord`.
+ class FlatCordBlock {
+  public:
+-  explicit FlatCordBlock(Initializer<absl::Cord> src);
++  explicit FlatCordBlock(absl::Cord src) : src_(std::move(src)) {
++    RIEGELI_ASSERT(src_.TryFlat() != absl::nullopt)
++        << "Failed precondition of FlatCordBlock::FlatCordBlock(): "
++           "Cord is not flat";
++  }
++
++  explicit FlatCordBlock(Initializer<absl::Cord> src)
++      : FlatCordBlock(std::move(src).Construct()) {}
++
++  template <
++      typename T,
++      std::enable_if_t<
++          (!std::is_same_v<std::decay_t<T>, absl::Cord> &&
++           !std::is_same_v<std::decay_t<T>, Initializer<absl::Cord>> &&
++           !std::is_same_v<std::decay_t<T>, FlatCordBlock> &&
++           std::is_constructible_v<Initializer<absl::Cord>, T>)>* = nullptr>
++  explicit FlatCordBlock(T&& arg)
++      : FlatCordBlock(Initializer<absl::Cord>(std::forward<T>(arg))) {}
+ 
++  FlatCordBlock(FlatCordBlock&&) = default;
++  FlatCordBlock& operator=(FlatCordBlock&&) = default;
+   FlatCordBlock(const FlatCordBlock&) = delete;
+   FlatCordBlock& operator=(const FlatCordBlock&) = delete;
+ 
+@@ -98,19 +117,10 @@
+   absl::Cord src_;
+ };
+ 
+-inline FlatCordBlock::FlatCordBlock(Initializer<absl::Cord> src)
+-    : src_(std::move(src)) {
+-  RIEGELI_ASSERT(src_.TryFlat() != absl::nullopt)
+-      << "Failed precondition of FlatCordBlock::FlatCordBlock(): "
+-         "Cord is not flat";
+-}
+-
+ inline FlatCordBlock::operator absl::string_view() const {
+-  {
+-    const absl::optional<absl::string_view> flat = src_.TryFlat();
+-    if (flat != absl::nullopt) {
+-      return *flat;
+-    }
++  if (const absl::optional<absl::string_view> flat = src_.TryFlat();
++      flat != absl::nullopt) {
++    return *flat;
+   }
+   RIEGELI_ASSUME_UNREACHABLE()
+       << "Failed invariant of FlatCordBlock: Cord is not flat";
+@@ -1884,6 +1894,14 @@
+ 
+ void Chain::AppendFrom(absl::Cord::CharIterator& iter, size_t length,
+                        Options options) {
++  struct AdvanceAndReadFn {
++    absl::Cord::CharIterator* iter;
++    size_t size;
++    absl::Cord operator()() const {
++      return absl::Cord::AdvanceAndRead(iter, size);
++    }
++  };
++
+   // Avoid creating wasteful blocks and then rewriting them: append copied
+   // fragments when their accumulated size is known, tweaking `size_hint` for
+   // block sizing.
+@@ -1904,9 +1922,7 @@
+       }
+       copied_fragments.clear();
+       Append(Block(riegeli::Maker<FlatCordBlock>(
+-                 riegeli::Invoker([&iter, size = fragment.size()]() {
+-                   return absl::Cord::AdvanceAndRead(&iter, size);
+-                 }))),
++                 riegeli::Invoker(AdvanceAndReadFn{&iter, fragment.size()}))),
+              options);
+       copy_options.set_size_hint(size());
+     }
+diff -Nur a/riegeli/base/parallelism.cc b/riegeli/base/parallelism.cc
+--- a/riegeli/base/parallelism.cc	2025-04-28 02:54:55.000000000 +0000
++++ b/riegeli/base/parallelism.cc	2025-04-30 21:11:07.701632595 +0000
+@@ -74,7 +74,8 @@
+ }
+ 
+ ThreadPool& ThreadPool::global() {
+-  return Global([] { return riegeli::OwningMaker<ThreadPool>(); });
++  static global_internal::NoDestructor<ThreadPool> kThreadPool;
++  return kThreadPool.object();
+ }
+ 
+ }  // namespace internal
+diff -Nur a/riegeli/base/recycling_pool.h b/riegeli/base/recycling_pool.h
+--- a/riegeli/base/recycling_pool.h	2025-04-28 02:54:55.000000000 +0000
++++ b/riegeli/base/recycling_pool.h	2025-04-30 22:52:18.870743785 +0000
+@@ -521,10 +521,10 @@
+                            ? 0
+                            : recycling_pool_internal::CurrentThreadNumber() &
+                                  (options.thread_shards() - 1);
+-  return Global([] {
+-           return riegeli::OwningMaker<
+-               std::array<Pools, RecyclingPoolOptions::kDefaultThreadShards>>();
+-         })[shard % RecyclingPoolOptions::kDefaultThreadShards]
++  static global_internal::NoDestructor<
++      std::array<Pools, RecyclingPoolOptions::kDefaultThreadShards>>
++      kPools;
++  return kPools.object()[shard % RecyclingPoolOptions::kDefaultThreadShards]
+       .GetPool(shard, options);
+ }
+ 
+@@ -736,10 +736,10 @@
+                            ? 0
+                            : recycling_pool_internal::CurrentThreadNumber() &
+                                  (options.thread_shards() - 1);
+-  return Global([] {
+-           return riegeli::OwningMaker<
+-               std::array<Pools, RecyclingPoolOptions::kDefaultThreadShards>>();
+-         })[shard % RecyclingPoolOptions::kDefaultThreadShards]
++  static global_internal::NoDestructor<
++      std::array<Pools, RecyclingPoolOptions::kDefaultThreadShards>>
++      kPools;
++  return kPools.object()[shard % RecyclingPoolOptions::kDefaultThreadShards]
+       .GetPool(shard, options);
+ }
+ 
+diff -Nur a/riegeli/base/type_erased_ref.h b/riegeli/base/type_erased_ref.h
+--- a/riegeli/base/type_erased_ref.h	2025-04-28 02:54:55.000000000 +0000
++++ b/riegeli/base/type_erased_ref.h	2025-04-30 21:32:26.750343982 +0000
+@@ -23,6 +23,7 @@
+ 
+ #include "absl/base/attributes.h"
+ #include "absl/base/nullability.h"
++#include "absl/base/casts.h"
+ #include "absl/meta/type_traits.h"
+ #include "riegeli/base/arithmetic.h"
+ #include "riegeli/base/assert.h"
+@@ -53,6 +54,9 @@
+   template <typename T>
+   struct IsFunctionRef<T&> : std::is_function<T> {};
+ 
++  using Repr =
++      std::array<unsigned char, UnsignedMax(sizeof(void*), sizeof(void (*)()))>;
++
+  public:
+   // Creates an empty `TypeErasedRef`.
+   TypeErasedRef() = default;
+@@ -66,9 +70,9 @@
+                                   absl::negation<IsFunctionRef<T>>>::value,
+                 int> = 0>
+   explicit TypeErasedRef(T&& value ABSL_ATTRIBUTE_LIFETIME_BOUND)
+-      : ptr_(const_cast<absl::remove_cvref_t<T>*>(std::addressof(value))) {
+-    RIEGELI_ASSERT(repr_ != Repr())
+-        << "A non-empty pointer is assumed to have a non-zero representation";
++      : repr_(absl::bit_cast<Repr>(std::addressof(value))) {
++    RIEGELI_ASSERT(*this != nullptr)
++        << "A non-empty pointer must have a non-zero representation";
+   }
+ 
+   // Wraps a function reference.
+@@ -78,39 +82,31 @@
+                 // reference, so it is never `TypeErasedRef`.
+                 IsFunctionRef<T>::value, int> = 0>
+   explicit TypeErasedRef(T&& value)
+-      : function_ptr_(reinterpret_cast<void (*)()>(&value)) {
+-    RIEGELI_ASSERT(repr_ != Repr())
+-        << "A non-empty pointer is assumed to have a non-zero representation";
++      : repr_(absl::bit_cast<Repr>(std::addressof(value))) {
++    RIEGELI_ASSERT(*this != nullptr)
++        << "A non-empty pointer must have a non-zero representation";
+   }
+ 
++  TypeErasedRef(TypeErasedRef&&) = default;
++  TypeErasedRef& operator=(TypeErasedRef&&) = default;
+   TypeErasedRef(const TypeErasedRef& that) = default;
+   TypeErasedRef& operator=(const TypeErasedRef& that) = default;
+ 
+   // Recovers the `T&&`.
+-  template <typename T, std::enable_if_t<!IsFunctionRef<T>::value, int> = 0>
+-  T&& Cast() const {
+-    return std::forward<T>(
+-        *reinterpret_cast<std::remove_reference_t<T>*>(ptr_));
+-  }
+-
+-  // Recovers a function reference.
+-  template <typename T, std::enable_if_t<IsFunctionRef<T>::value, int> = 0>
++  template <typename T>
+   T&& Cast() const {
+-    return *reinterpret_cast<std::remove_reference_t<T>*>(function_ptr_);
++    return std::forward<T>(*absl::bit_cast<std::remove_reference_t<T>*>(repr_));
+   }
+ 
+   friend bool operator==(TypeErasedRef a, std::nullptr_t) {
+     return a.repr_ == Repr();
+   }
++  friend bool operator!=(TypeErasedRef a, std::nullptr_t) {
++    return a.repr_ != Repr();
++  }
+ 
+  private:
+-  using Repr = std::array<char, UnsignedMax(sizeof(void*), sizeof(void (*)()))>;
+-
+-  union {
+-    void* ptr_;
+-    void (*function_ptr_)();
+-    Repr repr_ = {};
+-  };
++  Repr repr_ = {};
+ };
+ 
+ }  // namespace riegeli

@@ -26,10 +26,9 @@
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
-#include "absl/strings/cord.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
-#include "riegeli/base/buffering.h"
+#include "riegeli/base/external_ref.h"
 #include "riegeli/bytes/writer.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/image/avif_common.h"
@@ -244,13 +243,14 @@ absl::Status AvifFinish(avifEncoder* encoder, riegeli::Writer* writer) {
                            avif_output.size);
   bool ok;
 
-  if (buffer.size() <= riegeli::kMaxBytesToCopy || writer->PrefersCopying()) {
-    ok = writer->Write(buffer);
-    avifRWDataFree(&avif_output);
-  } else {
-    ok = writer->Write(absl::MakeCordFromExternal(
-        buffer, [data = avif_output]() mutable { avifRWDataFree(&data); }));
-  }
+  ok = writer->Write(riegeli::ExternalRef::From(
+      [](absl::string_view buffer) {
+        avifRWData avif_output = {
+            reinterpret_cast<uint8_t*>(const_cast<char*>(buffer.data())),
+            buffer.size()};
+        avifRWDataFree(&avif_output);
+      },
+      buffer));
   if (!ok) {
     if (!writer->ok()) {
       return MaybeAnnotateStatus(writer->status(), "Encoding AVIF");

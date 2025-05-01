@@ -23,11 +23,18 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "abseil-cpp",
-        strip_prefix = "abseil-cpp-20250127.1",
+        doc_version = "20250429-5f3435aba",
+        doc_homepage = "https://abseil.io/",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/abseil/abseil-cpp/archive/20250127.1.tar.gz",  # lts_2024_01_16(2023-09-19)
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/abseil/abseil-cpp/archive/5f3435aba00bcd7f12062d2e8e1839b4eaf1a575.tar.gz",  # master(2025-04-29)
         ],
-        sha256 = "b396401fd29e2e679cace77867481d388c807671dc2acc602a0259eeb79b7811",
+        sha256 = "7cef7cd3560de3a079caa84846127ed0fce6c6847734a10ac91ef66bc700235f",
+        strip_prefix = "abseil-cpp-5f3435aba00bcd7f12062d2e8e1839b4eaf1a575",
+        patches = [
+            # Ancient protobuf version requires if_constexpr.
+            Label("//third_party:abseil_cpp/patches/if_constexpr.diff"),
+        ],
+        patch_args = ["-p1"],
         repo_mapping = {
             "@com_google_googletest": "@googletest",
         },
@@ -53,6 +60,7 @@ ABSL_CMAKE_MAPPING = {
     "//absl/base:log_severity": "absl::log_severity",
     "//absl/base:prefetch": "absl::prefetch",
     "//absl/base:no_destructor": "absl::no_destructor",
+    "//absl/base:nullability": "absl::nullability",
     "//absl/cleanup:cleanup": "absl::cleanup",
     "//absl/container:btree": "absl::btree",
     "//absl/container:fixed_array": "absl::fixed_array",
@@ -124,7 +132,6 @@ ABSL_CMAKE_MAPPING = {
     "//absl/utility:utility": "absl::utility",
     "//absl/utility:if_constexpr": "absl::if_constexpr",
     # Internal targets mapping
-    "//absl/base:endian": "absl::endian",
     "//absl/base:config": "absl::config",
     "//absl/container:layout": "absl::layout",
     "//absl/strings:internal": "absl::strings_internal",

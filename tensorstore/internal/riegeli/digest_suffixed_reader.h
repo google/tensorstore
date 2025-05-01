@@ -20,7 +20,6 @@
 #include <stddef.h>
 
 #include <optional>
-#include <tuple>
 #include <utility>
 
 #include "absl/status/status.h"
@@ -28,6 +27,7 @@
 #include "absl/strings/str_format.h"
 #include "absl/types/optional.h"
 #include "riegeli/base/arithmetic.h"
+#include "riegeli/base/maker.h"
 #include "riegeli/base/object.h"
 #include "riegeli/base/types.h"
 #include "riegeli/bytes/cord_reader.h"
@@ -120,11 +120,9 @@ class DigestSuffixedReader
       }
       inner_limit = limit - digest_size;
     }
-    Base::Reset(
-        std::tuple
-        (src,
-         riegeli::LimitingReaderBase::Options().set_exact_length(inner_limit)),
-        std::forward<DigesterArg>(digester_arg)...);
+    Base::Reset(riegeli::Maker(src, riegeli::LimitingReaderBase::Options()
+                                        .set_exact_length(inner_limit)),
+                std::forward<DigesterArg>(digester_arg)...);
   }
 
   bool SupportsSize() override { return Base::is_open(); }
