@@ -333,7 +333,7 @@ following C++ compilers:
 
 - GCC 10 or later (Linux)
 - Clang 8 or later (Linux)
-- Microsoft Visual Studio 2019 version 16.10 (MSVC 14.29.30037) or later
+- Microsoft Visual Studio 2022 version 17.0 (MSVC 14.30.30705) or later
 - Clang-cl 9 or later (Windows)
 - Mingw64 GCC 12 or later (Windows); CMake only, Bazel is not supported, and
   ``lld`` is recommended over ``ld`` for speed.
