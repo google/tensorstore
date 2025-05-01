@@ -34,13 +34,12 @@ Example JSON specifications
 Key Format
 ----------
 
-Keys are formatted as: ``tile/<ifd>/<row>/<col>``
+Keys are formatted as: ``chunk/<ifd>/<index>``
 
 * ``<ifd>``: The Image File Directory (IFD) index (0-based).
-* ``<row>``: Row index for the tile/strip (0-based)
-* ``<col>``: Column index for the tile (always 0 for stripped TIFFs)
+* ``<index>``: Linear index for the tile/strip (0-based)
 
-For example, the key ``tile/0/3/2`` refers to the tile at row 3, column 2 in the first IFD.
+For example, the key ``chunk/0/3`` refers to the third tile/strip in the first IFD.
 
 Features
 --------

@@ -14,6 +14,7 @@
 
 #include "tensorstore/kvstore/tiff/tiff_key_value_store.h"
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -63,9 +64,9 @@ namespace {
 
 ABSL_CONST_INIT internal_log::VerboseFlag tiff_logging("tiff");
 
-// Expected key: "tile/<ifd>/<row>/<col>"
-absl::Status ParseTileKey(std::string_view key, uint32_t& ifd, uint32_t& row,
-                          uint32_t& col) {
+// Expected key: "chunk/<ifd>/<chunk_index>"
+absl::Status ParseChunkKey(std::string_view key, uint32_t& ifd,
+                           uint32_t& linear_index) {
   auto eat_number = [&](std::string_view& s, uint32_t& out) -> bool {
     if (s.empty()) return false;
     uint32_t v = 0;
@@ -80,14 +81,38 @@ absl::Status ParseTileKey(std::string_view key, uint32_t& ifd, uint32_t& row,
     return true;
   };
 
-  if (!absl::ConsumePrefix(&key, "tile/")) {
-    return absl::InvalidArgumentError("Key must start with \"tile/\"");
+  if (!absl::ConsumePrefix(&key, "chunk/")) {
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "Invalid chunk key format: expected prefix 'chunk/' in '", key, "'"));
   }
-  if (!eat_number(key, ifd) || !absl::ConsumePrefix(&key, "/") ||
-      !eat_number(key, row) || !absl::ConsumePrefix(&key, "/") ||
-      !eat_number(key, col) || !key.empty()) {
-    return absl::InvalidArgumentError("Bad tile key format");
+
+  // Parse IFD index
+  if (!eat_number(key, ifd)) {
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "Invalid chunk key format: expected numeric IFD index in '", key, "'"));
   }
+
+  // Consume separator '/'
+  if (!absl::ConsumePrefix(&key, "/")) {
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "Invalid chunk key format: expected '/' after IFD index in '", key,
+        "'"));
+  }
+
+  // Parse linear index
+  if (!eat_number(key, linear_index)) {
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "Invalid chunk key format: expected numeric linear chunk index in '",
+        key, "'"));
+  }
+
+  // Ensure no trailing characters remain
+  if (!key.empty()) {
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "Invalid chunk key format: unexpected trailing characters '", key,
+        "'"));
+  }
+
   return absl::OkStatus();
 }
 
@@ -165,112 +190,76 @@ struct ReadState : public internal::AtomicReferenceCount<ReadState> {
   internal::IntrusivePtr<TiffKeyValueStore> owner_;
   kvstore::Key key_;
   kvstore::ReadOptions options_;
-  uint32_t ifd_, row_, col_;
+  uint32_t ifd_;
+  uint32_t linear_index_;
 
   void OnDirectoryReady(Promise<kvstore::ReadResult> promise) {
-    TimestampedStorageGeneration stamp;
-
-    // Set options for the chunk read request
-    kvstore::ReadOptions options;
-    options.staleness_bound = options_.staleness_bound;
-
-    // Store original byte range for later adjustment if needed
-    OptionalByteRangeRequest original_byte_range = options_.byte_range;
+    TimestampedStorageGeneration dir_stamp;
+    uint64_t chunk_offset;
+    uint64_t chunk_byte_count;
 
     {
       TiffDirectoryCache::ReadLock<TiffDirectoryCache::ReadData> lock(
           *(owner_->cache_entry_));
-      stamp = lock.stamp();
 
-      assert(lock.data());
+      if (!lock.data()) {
+        promise.SetResult(owner_->cache_entry_->AnnotateError(
+            absl::FailedPreconditionError(
+                "TIFF directory cache data is null after read attempt"),
+            true));
+        return;
+      }
+      dir_stamp = lock.stamp();
+      const auto& parse_result = *lock.data();
 
-      // Check if the requested IFD exists
-      if (ifd_ >= lock.data()->image_directories.size()) {
+      if (ifd_ >= parse_result.image_directories.size()) {
         promise.SetResult(absl::NotFoundError(
             absl::StrFormat("IFD %d not found, only %d IFDs available", ifd_,
                             lock.data()->image_directories.size())));
         return;
       }
 
-      // Get the image directory for the requested IFD
-      const auto& dir = lock.data()->image_directories[ifd_];
+      const auto& dir = parse_result.image_directories[ifd_];
 
-      // Check if tile/strip indices are in bounds
-      uint32_t chunk_rows, chunk_cols;
-      uint64_t offset, byte_count;
-
-      if (dir.tile_width > 0) {
-        // Tiled TIFF
-        chunk_rows = (dir.height + dir.tile_height - 1) / dir.tile_height;
-        chunk_cols = (dir.width + dir.tile_width - 1) / dir.tile_width;
-
-        if (row_ >= chunk_rows || col_ >= chunk_cols) {
-          promise.SetResult(absl::OutOfRangeError("Tile index out of range"));
-          return;
-        }
-
-        // Calculate tile index and get offset/size
-        size_t tile_index = row_ * chunk_cols + col_;
-        if (tile_index >= dir.tile_offsets.size()) {
-          promise.SetResult(absl::OutOfRangeError("Tile index out of range"));
-          return;
-        }
-
-        offset = dir.tile_offsets[tile_index];
-        byte_count = dir.tile_bytecounts[tile_index];
-      } else {
-        // Strip-based TIFF
-        chunk_rows = dir.strip_offsets.size();
-        chunk_cols = 1;
-
-        if (row_ >= chunk_rows || col_ != 0) {
-          promise.SetResult(absl::OutOfRangeError("Strip index out of range"));
-          return;
-        }
-
-        // Get strip offset/size
-        offset = dir.strip_offsets[row_];
-        byte_count = dir.strip_bytecounts[row_];
-      }
-
-      // Check if_equal and if_not_equal conditions
-      if (!options_.generation_conditions.Matches(stamp.generation)) {
-        promise.SetResult(kvstore::ReadResult::Unspecified(std::move(stamp)));
+      if (linear_index_ >= dir.chunk_offsets.size() ||
+          linear_index_ >= dir.chunk_bytecounts.size()) {
+        promise.SetResult(absl::OutOfRangeError(
+            absl::StrFormat("Linear chunk index %d out of range for IFD %d "
+                            "(valid range [0, %d))",
+                            linear_index_, ifd_, dir.chunk_offsets.size())));
         return;
       }
 
-      // Apply byte range optimization - calculate the actual bytes to read
-      uint64_t start_offset = offset;
-      uint64_t end_offset = offset + byte_count;
+      chunk_offset = dir.chunk_offsets[linear_index_];
+      chunk_byte_count = dir.chunk_bytecounts[linear_index_];
 
-      if (!original_byte_range.IsFull()) {
-        // Validate the byte range against the chunk size
-        auto byte_range_result = original_byte_range.Validate(byte_count);
-        if (!byte_range_result.ok()) {
-          promise.SetResult(std::move(byte_range_result.status()));
-          return;
-        }
-
-        // Calculate the actual byte range to read from the file
-        ByteRange byte_range = byte_range_result.value();
-        start_offset = offset + byte_range.inclusive_min;
-        end_offset = offset + byte_range.exclusive_max;
-
-        // Clear the original byte range since we're applying it directly to the
-        // read request
-        original_byte_range = OptionalByteRangeRequest{};
+      if (!options_.generation_conditions.Matches(dir_stamp.generation)) {
+        promise.SetResult(
+            kvstore::ReadResult::Unspecified(std::move(dir_stamp)));
+        return;
       }
-
-      // Set the exact byte range to read from the underlying storage
-      options.byte_range =
-          OptionalByteRangeRequest::Range(start_offset, end_offset);
     }
 
-    options.generation_conditions.if_equal = stamp.generation;
+    kvstore::ReadOptions chunk_read_options;
+    chunk_read_options.staleness_bound = options_.staleness_bound;
+    chunk_read_options.byte_range = options_.byte_range;
+    chunk_read_options.generation_conditions = options_.generation_conditions;
 
-    // Issue read for the exact bytes needed
-    auto future =
-        owner_->base_.driver->Read(owner_->base_.path, std::move(options));
+    // Calculate the absolute byte range needed from the base store
+    Result<ByteRange> absolute_byte_range_result =
+        chunk_read_options.byte_range.Validate(chunk_byte_count);
+    if (!absolute_byte_range_result.ok()) {
+      promise.SetResult(std::move(absolute_byte_range_result).status());
+      return;
+    }
+    ByteRange absolute_byte_range = absolute_byte_range_result.value();
+    absolute_byte_range.inclusive_min += chunk_offset;
+    absolute_byte_range.exclusive_max += chunk_offset;
+    chunk_read_options.byte_range = absolute_byte_range;
+
+    // Issue read for the chunk data bytes from the base kvstore
+    auto future = owner_->base_.driver->Read(owner_->base_.path,
+                                             std::move(chunk_read_options));
     future.Force();
     future.ExecuteWhenReady(
         [self = internal::IntrusivePtr<ReadState>(this),
@@ -328,69 +317,71 @@ struct ListState : public internal::AtomicReferenceCount<ListState> {
     TiffDirectoryCache::ReadLock<TiffDirectoryCache::ReadData> lock(
         *(owner_->cache_entry_));
 
-    // Get directory information
-    assert(lock.data());
+    if (!lock.data()) {
+      promise_.SetResult(owner_->cache_entry_->AnnotateError(
+          absl::FailedPreconditionError(
+              "TIFF directory cache data is null after read attempt"),
+          true));
+      return;
+    }
 
-    // Process each IFD in the TIFF file
+    const auto& parse_result = *lock.data();
     for (size_t ifd_index = 0;
-         ifd_index < lock.data()->image_directories.size(); ++ifd_index) {
-      const auto& dir = lock.data()->image_directories[ifd_index];
+         ifd_index < parse_result.image_directories.size(); ++ifd_index) {
+      const auto& dir = parse_result.image_directories[ifd_index];
 
-      // Determine number of tiles/strips for this IFD
-      uint32_t chunk_rows, chunk_cols;
-      if (dir.tile_width > 0) {
-        // Tiled TIFF
-        chunk_rows = (dir.height + dir.tile_height - 1) / dir.tile_height;
-        chunk_cols = (dir.width + dir.tile_width - 1) / dir.tile_width;
-      } else {
-        // Strip-based TIFF
-        chunk_rows = dir.strip_offsets.size();
-        chunk_cols = 1;
+      const size_t num_chunks = dir.chunk_offsets.size();
+      if (num_chunks != dir.chunk_bytecounts.size()) {
+        promise_.SetResult(absl::InternalError(absl::StrFormat(
+            "Inconsistent chunk offset/bytecount array sizes for IFD %d",
+            ifd_index)));
+        return;
       }
 
-      // Generate tile/strip keys that match our range constraints
-      for (uint32_t row = 0; row < chunk_rows; ++row) {
-        for (uint32_t col = 0; col < chunk_cols; ++col) {
-          // Create key in "tile/%d/%d/%d" format
-          std::string key =
-              absl::StrFormat("tile/%d/%d/%d", ifd_index, row, col);
+      for (uint64_t linear_index = 0; linear_index < num_chunks;
+           ++linear_index) {
+        std::string key =
+            absl::StrFormat("chunk/%d/%d", ifd_index, linear_index);
 
-          // Check if key is in the requested range
-          if (tensorstore::Contains(options_.range, key)) {
-            // For strips, get size from strip_bytecounts
-            // For tiles, get size from tile_bytecounts
-            size_t size;
-            if (dir.tile_width > 0) {
-              size_t index = row * chunk_cols + col;
-              if (index < dir.tile_bytecounts.size()) {
-                size = dir.tile_bytecounts[index];
-              } else {
-                // Skip invalid indices
-                continue;
-              }
-            } else {
-              if (row < dir.strip_bytecounts.size()) {
-                size = dir.strip_bytecounts[row];
-              } else {
-                // Skip invalid indices
-                continue;
-              }
-            }
+        if (tensorstore::Contains(options_.range, key)) {
+          size_t chunk_size = dir.chunk_bytecounts[linear_index];
 
-            // Strip prefix if needed
-            std::string adjusted_key = key;
-            if (options_.strip_prefix_length > 0 &&
-                options_.strip_prefix_length < key.size()) {
-              adjusted_key = key.substr(options_.strip_prefix_length);
-            }
-
-            execution::set_value(
-                receiver_,
-                ListEntry{adjusted_key, ListEntry::checked_size(size)});
+          // Apply prefix stripping if requested
+          std::string_view adjusted_key = key;
+          if (options_.strip_prefix_length > 0 &&
+              options_.strip_prefix_length <= key.size()) {
+            adjusted_key =
+                std::string_view(key).substr(options_.strip_prefix_length);
+          } else if (options_.strip_prefix_length > key.size()) {
+            adjusted_key = "";  // Strip entire key
           }
+
+          // Send the entry to the receiver
+          execution::set_value(receiver_,
+                               ListEntry{std::string(adjusted_key),
+                                         ListEntry::checked_size(chunk_size)});
+
+          // Check if cancellation was requested by the receiver downstream
+          if (!promise_.result_needed()) {
+            return;
+          }
+        } else if (key >= options_.range.exclusive_max &&
+                   !options_.range.exclusive_max.empty()) {
+          // If current key is already past the requested range's end,
+          // we can potentially optimize by stopping early for this IFD,
+          // assuming keys are generated in lexicographical order.
+          break;
         }
       }
-    }
+
+      // Check again for cancellation after processing an IFD
+      if (!promise_.result_needed()) {
+        return;
+      }
+
+    }  // End loop over IFDs
+
+    promise_.SetResult(absl::OkStatus());
   }
 };
 
@@ -428,8 +419,8 @@ Future<kvstore::DriverPtr> Spec::DoOpen() const {
 }
 
 Future<ReadResult> TiffKeyValueStore::Read(Key key, ReadOptions options) {
-  uint32_t ifd, row, col;
-  if (auto st = ParseTileKey(key, ifd, row, col); !st.ok()) {
+  uint32_t ifd, linear_index;
+  if (auto st = ParseChunkKey(key, ifd, linear_index); !st.ok()) {
     // Instead of returning the error, return a "missing" result
     return MakeReadyFuture<ReadResult>(
         kvstore::ReadResult::Missing(TimestampedStorageGeneration{
@@ -441,8 +432,7 @@ Future<ReadResult> TiffKeyValueStore::Read(Key key, ReadOptions options) {
   state->key_ = std::move(key);
   state->options_ = options;
   state->ifd_ = ifd;
-  state->row_ = row;
-  state->col_ = col;
+  state->linear_index_ = linear_index;
 
   return PromiseFuturePair<kvstore::ReadResult>::LinkValue(
              WithExecutor(

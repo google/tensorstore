@@ -56,8 +56,8 @@ TEST(TiffDirectoryCacheTest, ReadSlice) {
       builder
           .StartIfd(6)  // 6 entries
           // Width and height
-          .AddEntry(256, 3, 1, 800)  // ImageWidth = 800
-          .AddEntry(257, 3, 1, 600)  // ImageLength = 600
+          .AddEntry(256, 3, 1, 256)
+          .AddEntry(257, 3, 1, 256)
           // Tile info
           .AddEntry(322, 3, 1, 256)  // TileWidth = 256
           .AddEntry(323, 3, 1, 256)  // TileLength = 256
@@ -97,10 +97,11 @@ TEST(TiffDirectoryCacheTest, ReadSlice) {
     EXPECT_EQ(data->image_directories.size(), 1);
 
     // Check parsed image directory
-    EXPECT_EQ(data->image_directories[0].width, 800);
-    EXPECT_EQ(data->image_directories[0].height, 600);
-    EXPECT_EQ(data->image_directories[0].tile_width, 256);
-    EXPECT_EQ(data->image_directories[0].tile_height, 256);
+    EXPECT_EQ(data->image_directories[0].width, 256);
+    EXPECT_EQ(data->image_directories[0].height, 256);
+    EXPECT_EQ(data->image_directories[0].is_tiled, true);
+    EXPECT_EQ(data->image_directories[0].chunk_width, 256);
+    EXPECT_EQ(data->image_directories[0].chunk_height, 256);
   }
 }
 
@@ -160,11 +161,12 @@ TEST(TiffDirectoryCacheTest, ReadFull) {
     // Check parsed image directory
     EXPECT_EQ(data->image_directories[0].width, 400);
     EXPECT_EQ(data->image_directories[0].height, 300);
-    EXPECT_EQ(data->image_directories[0].rows_per_strip, 100);
-    EXPECT_EQ(data->image_directories[0].strip_offsets.size(), 1);
-    EXPECT_EQ(data->image_directories[0].strip_offsets[0], 128);
-    EXPECT_EQ(data->image_directories[0].strip_bytecounts.size(), 1);
-    EXPECT_EQ(data->image_directories[0].strip_bytecounts[0], 200);
+    EXPECT_EQ(data->image_directories[0].is_tiled, false);
+    EXPECT_EQ(data->image_directories[0].chunk_height, 100);
+    EXPECT_EQ(data->image_directories[0].chunk_offsets.size(), 1);
+    EXPECT_EQ(data->image_directories[0].chunk_offsets[0], 128);
+    EXPECT_EQ(data->image_directories[0].chunk_bytecounts.size(), 1);
+    EXPECT_EQ(data->image_directories[0].chunk_bytecounts[0], 200);
   }
 }
 
@@ -269,13 +271,13 @@ TEST(TiffDirectoryCacheTest, ExternalArrays_EagerLoad) {
     ASSERT_THAT(data, ::testing::NotNull());
 
     // Check that external arrays were loaded
-    EXPECT_EQ(data->image_directories[0].strip_offsets.size(), 4);
-    EXPECT_EQ(data->image_directories[0].strip_bytecounts.size(), 4);
+    EXPECT_EQ(data->image_directories[0].chunk_offsets.size(), 4);
+    EXPECT_EQ(data->image_directories[0].chunk_bytecounts.size(), 4);
 
     // Verify the external array values were loaded correctly
     for (int i = 0; i < 4; i++) {
-      EXPECT_EQ(data->image_directories[0].strip_offsets[i], strip_offsets[i]);
-      EXPECT_EQ(data->image_directories[0].strip_bytecounts[i],
+      EXPECT_EQ(data->image_directories[0].chunk_offsets[i], strip_offsets[i]);
+      EXPECT_EQ(data->image_directories[0].chunk_bytecounts[i],
                 strip_bytecounts[i]);
     }
   }
@@ -346,7 +348,7 @@ std::string MakeMultiPageTiff() {
       .StartIfd(5)  // 5 entries
       // Add strip-based entries for first IFD
       .AddEntry(256, 3, 1, 400)   // ImageWidth = 400
-      .AddEntry(257, 3, 1, 300)   // ImageLength = 300
+      .AddEntry(257, 3, 1, 100)   // ImageLength = 100
       .AddEntry(278, 3, 1, 100)   // RowsPerStrip = 100
       .AddEntry(273, 4, 1, 1000)  // StripOffsets = 1000
       .AddEntry(279, 4, 1, 200)   // StripByteCounts = 200
@@ -355,8 +357,8 @@ std::string MakeMultiPageTiff() {
       // Second IFD
       .StartIfd(6)  // 6 entries
       // Add tile-based entries for second IFD
-      .AddEntry(256, 3, 1, 800)   // ImageWidth = 800
-      .AddEntry(257, 3, 1, 600)   // ImageLength = 600
+      .AddEntry(256, 3, 1, 256)   // ImageWidth = 800
+      .AddEntry(257, 3, 1, 256)   // ImageLength = 600
       .AddEntry(322, 3, 1, 256)   // TileWidth = 256
       .AddEntry(323, 3, 1, 256)   // TileLength = 256
       .AddEntry(324, 4, 1, 2000)  // TileOffsets
@@ -406,22 +408,24 @@ TEST(TiffDirectoryCacheMultiIfdTest, ReadAndVerifyIFDs) {
   const auto& img1 = data->image_directories[0];
   EXPECT_EQ(ifd1.entries.size(), 5);
   EXPECT_EQ(img1.width, 400);
-  EXPECT_EQ(img1.height, 300);
-  EXPECT_EQ(img1.rows_per_strip, 100);
-  EXPECT_EQ(img1.strip_offsets.size(), 1);
-  EXPECT_EQ(img1.strip_offsets[0], 1000);
-  EXPECT_EQ(img1.strip_bytecounts[0], 200);
+  EXPECT_EQ(img1.height, 100);
+  EXPECT_EQ(img1.is_tiled, false);
+  EXPECT_EQ(img1.chunk_height, 100);
+  EXPECT_EQ(img1.chunk_offsets.size(), 1);
+  EXPECT_EQ(img1.chunk_offsets[0], 1000);
+  EXPECT_EQ(img1.chunk_bytecounts[0], 200);
 
   // Check second IFD (tile-based)
   const auto& ifd2 = data->directories[1];
   const auto& img2 = data->image_directories[1];
   EXPECT_EQ(ifd2.entries.size(), 6);
-  EXPECT_EQ(img2.width, 800);
-  EXPECT_EQ(img2.height, 600);
-  EXPECT_EQ(img2.tile_width, 256);
-  EXPECT_EQ(img2.tile_height, 256);
-  EXPECT_EQ(img2.tile_offsets.size(), 1);
-  EXPECT_EQ(img2.tile_offsets[0], 2000);
+  EXPECT_EQ(img2.width, 256);
+  EXPECT_EQ(img2.height, 256);
+  EXPECT_EQ(img2.is_tiled, true);
+  EXPECT_EQ(img2.chunk_width, 256);
+  EXPECT_EQ(img2.chunk_height, 256);
+  EXPECT_EQ(img2.chunk_offsets.size(), 1);
+  EXPECT_EQ(img2.chunk_offsets[0], 2000);
 
   // Since our test file is larger than kInitialReadBytes (1024),
   // it should be not be fully read in one shot
@@ -454,8 +458,8 @@ TEST(TiffDirectoryCacheMultiIfdTest, ReadLargeMultiPageTiff) {
           .PadTo(2048)   // Pad to second IFD offset
           // Second IFD
           .StartIfd(6)                // 6 entries
-          .AddEntry(256, 3, 1, 800)   // ImageWidth = 800
-          .AddEntry(257, 3, 1, 600)   // ImageLength = 600
+          .AddEntry(256, 3, 1, 256)   // ImageWidth = 256
+          .AddEntry(257, 3, 1, 256)   // ImageLength = 256
           .AddEntry(322, 3, 1, 256)   // TileWidth = 256
           .AddEntry(323, 3, 1, 256)   // TileLength = 256
           .AddEntry(324, 4, 1, 3000)  // TileOffsets
@@ -491,7 +495,7 @@ TEST(TiffDirectoryCacheMultiIfdTest, ReadLargeMultiPageTiff) {
 
   // Verify both IFDs were correctly parsed despite being in different chunks
   EXPECT_EQ(data->image_directories[0].width, 400);
-  EXPECT_EQ(data->image_directories[1].width, 800);
+  EXPECT_EQ(data->image_directories[1].width, 256);
 }
 
 TEST(TiffDirectoryCacheMultiIfdTest, ExternalArraysMultiIfdTest) {
@@ -527,8 +531,8 @@ TEST(TiffDirectoryCacheMultiIfdTest, ExternalArraysMultiIfdTest) {
           .PadTo(600)  // Pad to second IFD offset
           // Second IFD with external arrays
           .StartIfd(6)               // 6 entries
-          .AddEntry(256, 3, 1, 800)  // ImageWidth
-          .AddEntry(257, 3, 1, 600)  // ImageLength
+          .AddEntry(256, 3, 1, 512)  // ImageWidth
+          .AddEntry(257, 3, 1, 512)  // ImageLength
           .AddEntry(322, 3, 1, 256)  // TileWidth
           .AddEntry(323, 3, 1, 256)  // TileLength
           .AddEntry(324, 4, 4, 700)  // TileOffsets array (offset 700)
@@ -566,14 +570,14 @@ TEST(TiffDirectoryCacheMultiIfdTest, ExternalArraysMultiIfdTest) {
   EXPECT_EQ(data->image_directories.size(), 2);
 
   // Check external arrays in IFD #1
-  EXPECT_EQ(data->image_directories[0].strip_offsets.size(), 4);
-  EXPECT_EQ(data->image_directories[0].strip_bytecounts.size(), 4);
+  EXPECT_EQ(data->image_directories[0].chunk_offsets.size(), 4);
+  EXPECT_EQ(data->image_directories[0].chunk_bytecounts.size(), 4);
 
   // Check external arrays in IFD #2
   // (Tile offsets and bytecounts are stored, but the key is that they got
   // parsed)
-  EXPECT_EQ(data->image_directories[1].tile_offsets.size(), 4);
-  EXPECT_EQ(data->image_directories[1].tile_bytecounts.size(), 4);
+  EXPECT_EQ(data->image_directories[1].chunk_offsets.size(), 4);
+  EXPECT_EQ(data->image_directories[1].chunk_bytecounts.size(), 4);
 }
 
 TEST(TiffDirectoryCacheTest, ExternalArrays_Uint16Arrays) {
@@ -650,7 +654,7 @@ TEST(TiffDirectoryCacheTest, ExternalArrays_Uint16Arrays) {
   EXPECT_EQ(img_dir.samples_per_pixel, 3);
 
   // Check RowsPerStrip
-  EXPECT_EQ(img_dir.rows_per_strip, 100);
+  EXPECT_EQ(img_dir.chunk_height, 100);
 
   // Check BitsPerSample array
   ASSERT_EQ(img_dir.bits_per_sample.size(), 3);
@@ -727,11 +731,12 @@ TEST(TiffDirectoryCacheTest, ComprehensiveTiffTagsTest) {
   EXPECT_EQ(img_dir.compression, 1);  // None
   EXPECT_EQ(img_dir.photometric, 2);  // RGB
   EXPECT_EQ(img_dir.samples_per_pixel, 1);
-  EXPECT_EQ(img_dir.rows_per_strip, 128);
-  ASSERT_EQ(img_dir.strip_offsets.size(), 1);
-  EXPECT_EQ(img_dir.strip_offsets[0], 1000);
-  ASSERT_EQ(img_dir.strip_bytecounts.size(), 1);
-  EXPECT_EQ(img_dir.strip_bytecounts[0], 65536);
+  EXPECT_EQ(img_dir.is_tiled, false);
+  EXPECT_EQ(img_dir.chunk_height, 128);
+  ASSERT_EQ(img_dir.chunk_offsets.size(), 1);
+  EXPECT_EQ(img_dir.chunk_offsets[0], 1000);
+  ASSERT_EQ(img_dir.chunk_bytecounts.size(), 1);
+  EXPECT_EQ(img_dir.chunk_bytecounts[0], 65536);
   EXPECT_EQ(img_dir.planar_config, 1);  // Chunky
   ASSERT_EQ(img_dir.sample_format.size(), 1);
   EXPECT_EQ(img_dir.sample_format[0], 1);  // Unsigned integer
@@ -754,8 +759,8 @@ TEST(TiffDirectoryCacheTest, TiledTiffWithAllTags) {
           .StartIfd(
               12)  // 12 entries (all standard tags we support for tiled TIFF)
           // Add all standard tags with their test values for a tiled TIFF
-          .AddEntry(256, 3, 1, 2048)  // ImageWidth = 2048
-          .AddEntry(257, 3, 1, 2048)  // ImageLength = 2048
+          .AddEntry(256, 3, 1, 256)  // ImageWidth = 256
+          .AddEntry(257, 3, 1, 256)  // ImageLength = 256
           .AddEntry(258, 3, 1, 32)    // BitsPerSample = 32
           .AddEntry(259, 3, 1, 8)     // Compression = 8 (Deflate)
           .AddEntry(262, 3, 1,
@@ -798,8 +803,8 @@ TEST(TiffDirectoryCacheTest, TiledTiffWithAllTags) {
   const auto& img_dir = data->image_directories[0];
 
   // Basic image properties
-  EXPECT_EQ(img_dir.width, 2048);
-  EXPECT_EQ(img_dir.height, 2048);
+  EXPECT_EQ(img_dir.width, 256);
+  EXPECT_EQ(img_dir.height, 256);
   ASSERT_EQ(img_dir.bits_per_sample.size(), 1);
   EXPECT_EQ(img_dir.bits_per_sample[0], 32);
   EXPECT_EQ(img_dir.compression, 8);  // Deflate
@@ -810,12 +815,12 @@ TEST(TiffDirectoryCacheTest, TiledTiffWithAllTags) {
   EXPECT_EQ(img_dir.sample_format[0], 3);  // IEEE float
 
   // Tile-specific properties
-  EXPECT_EQ(img_dir.tile_width, 256);
-  EXPECT_EQ(img_dir.tile_height, 256);
-  ASSERT_EQ(img_dir.tile_offsets.size(), 1);
-  EXPECT_EQ(img_dir.tile_offsets[0], 1000);
-  ASSERT_EQ(img_dir.tile_bytecounts.size(), 1);
-  EXPECT_EQ(img_dir.tile_bytecounts[0], 10000);
+  EXPECT_EQ(img_dir.chunk_width, 256);
+  EXPECT_EQ(img_dir.chunk_height, 256);
+  ASSERT_EQ(img_dir.chunk_offsets.size(), 1);
+  EXPECT_EQ(img_dir.chunk_offsets[0], 1000);
+  ASSERT_EQ(img_dir.chunk_bytecounts.size(), 1);
+  EXPECT_EQ(img_dir.chunk_bytecounts[0], 10000);
 }
 
 }  // namespace

@@ -597,16 +597,16 @@ Future<void> TiffDirectoryCache::Entry::LoadExternalArrays(
             std::vector<uint64_t>* output_array = nullptr;
             switch (array_info.tag) {
               case Tag::kStripOffsets:
-                output_array = &img_dir.strip_offsets;
+                output_array = &img_dir.chunk_offsets;
                 break;
               case Tag::kStripByteCounts:
-                output_array = &img_dir.strip_bytecounts;
+                output_array = &img_dir.chunk_bytecounts;
                 break;
               case Tag::kTileOffsets:
-                output_array = &img_dir.tile_offsets;
+                output_array = &img_dir.chunk_offsets;
                 break;
               case Tag::kTileByteCounts:
-                output_array = &img_dir.tile_bytecounts;
+                output_array = &img_dir.chunk_bytecounts;
                 break;
               default:
                 break;  // Skip unhandled uint64_t array

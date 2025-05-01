@@ -76,7 +76,7 @@ TEST_F(TiffKeyValueStoreTest, Tiled_ReadSuccess) {
           .result());
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto rr, kvstore::Read(tiff_store, "tile/0/0/0").result());
+      auto rr, kvstore::Read(tiff_store, "chunk/0/0").result());
   EXPECT_EQ(std::string(rr.value), "DATA");
 }
 
@@ -90,7 +90,7 @@ TEST_F(TiffKeyValueStoreTest, Tiled_OutOfRange) {
                     context_)
           .result());
 
-  auto status = kvstore::Read(tiff_store, "tile/0/9/9").result().status();
+  auto status = kvstore::Read(tiff_store, "chunk/0/81").result().status();
   EXPECT_THAT(status, MatchesStatus(absl::StatusCode::kOutOfRange));
 }
 
@@ -105,7 +105,7 @@ TEST_F(TiffKeyValueStoreTest, Striped_ReadOneStrip) {
           .result());
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto rr, kvstore::Read(tiff_store, "tile/0/0/0").result());
+      auto rr, kvstore::Read(tiff_store, "chunk/0/0").result());
   EXPECT_EQ(std::string(rr.value), "DATASTR!");
 }
 
@@ -120,7 +120,7 @@ TEST_F(TiffKeyValueStoreTest, Striped_ReadSecondStrip) {
           .result());
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto rr, kvstore::Read(tiff_store, "tile/0/1/0").result());
+      auto rr, kvstore::Read(tiff_store, "chunk/0/1").result());
   EXPECT_EQ(std::string(rr.value), "BBBB");
 }
 
@@ -134,7 +134,7 @@ TEST_F(TiffKeyValueStoreTest, Striped_OutOfRangeRow) {
                     context_)
           .result());
 
-  auto status = kvstore::Read(tiff_store, "tile/0/2/0").result().status();
+  auto status = kvstore::Read(tiff_store, "chunk/0/2").result().status();
   EXPECT_THAT(status, MatchesStatus(absl::StatusCode::kOutOfRange));
 }
 
@@ -160,7 +160,7 @@ TEST_F(TiffKeyValueStoreTest, List) {
 
     // Only one tile in our tiny tiled TIFF
     EXPECT_THAT(log, ::testing::UnorderedElementsAre(
-                         "set_starting", "set_value: tile/0/0/0", "set_done",
+                         "set_starting", "set_value: chunk/0/0", "set_done",
                          "set_stopping"))
         << i;
   }
@@ -179,8 +179,8 @@ TEST_F(TiffKeyValueStoreTest, ListWithPrefix) {
   // Listing with prefix
   {
     kvstore::ListOptions options;
-    options.range = options.range.Prefix("tile/0/1");
-    options.strip_prefix_length = 5;  // "tile/" prefix
+    options.range = options.range.Prefix("chunk/0/1");
+    options.strip_prefix_length = 6;  
     absl::Notification notification;
     std::vector<std::string> log;
     tensorstore::execution::submit(
@@ -191,7 +191,7 @@ TEST_F(TiffKeyValueStoreTest, ListWithPrefix) {
 
     // Should only show the second strip
     EXPECT_THAT(
-        log, ::testing::UnorderedElementsAre("set_starting", "set_value: 0/1/0",
+        log, ::testing::UnorderedElementsAre("set_starting", "set_value: 0/1",
                                              "set_done", "set_stopping"));
   }
 }
@@ -217,8 +217,8 @@ TEST_F(TiffKeyValueStoreTest, ListMultipleStrips) {
 
   // Should show both strips
   EXPECT_THAT(log, ::testing::UnorderedElementsAre(
-                       "set_starting", "set_value: tile/0/0/0",
-                       "set_value: tile/0/1/0", "set_done", "set_stopping"));
+                       "set_starting", "set_value: chunk/0/0",
+                       "set_value: chunk/0/1", "set_done", "set_stopping"));
 }
 
 TEST_F(TiffKeyValueStoreTest, ReadOps) {
@@ -234,7 +234,7 @@ TEST_F(TiffKeyValueStoreTest, ReadOps) {
 
   // Test standard read operations
   ::tensorstore::internal::TestKeyValueStoreReadOps(
-      store, "tile/0/0/0", absl::Cord("abcdefghijklmnop"), "missing_key");
+      store, "chunk/0/0", absl::Cord("abcdefghijklmnop"), "missing_key");
 }
 
 TEST_F(TiffKeyValueStoreTest, InvalidSpec) {
@@ -268,7 +268,7 @@ TEST_F(TiffKeyValueStoreTest, MalformedTiff) {
                     context_)
           .result());
 
-  auto status = kvstore::Read(tiff_store, "tile/0/0/0").result().status();
+  auto status = kvstore::Read(tiff_store, "chunk/0/0").result().status();
   EXPECT_FALSE(status.ok());
 }
 
@@ -291,14 +291,14 @@ TEST_F(TiffKeyValueStoreTest, InvalidKeyFormats) {
   EXPECT_THAT(test_key("wrong/0/0/0"), MatchesKvsReadResultNotFound());
 
   // Missing components
-  EXPECT_THAT(test_key("tile/0"), MatchesKvsReadResultNotFound());
-  EXPECT_THAT(test_key("tile/0/0"), MatchesKvsReadResultNotFound());
+  EXPECT_THAT(test_key("chunk/"), MatchesKvsReadResultNotFound());
+  EXPECT_THAT(test_key("chunk/0"), MatchesKvsReadResultNotFound());
 
   // Non-numeric components
-  EXPECT_THAT(test_key("tile/a/0/0"), MatchesKvsReadResultNotFound());
+  EXPECT_THAT(test_key("chunk/a/0"), MatchesKvsReadResultNotFound());
 
   // Extra components
-  EXPECT_THAT(test_key("tile/0/0/0/extra"), MatchesKvsReadResultNotFound());
+  EXPECT_THAT(test_key("chunk/0/0/0/extra"), MatchesKvsReadResultNotFound());
 }
 
 TEST_F(TiffKeyValueStoreTest, MultipleIFDs) {
@@ -313,16 +313,16 @@ TEST_F(TiffKeyValueStoreTest, MultipleIFDs) {
 
   // Read from the first IFD
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto rr1, kvstore::Read(tiff_store, "tile/0/0/0").result());
+      auto rr1, kvstore::Read(tiff_store, "chunk/0/0").result());
   EXPECT_EQ(std::string(rr1.value), "DATA1");
 
   // Read from the second IFD
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto rr2, kvstore::Read(tiff_store, "tile/1/0/0").result());
+      auto rr2, kvstore::Read(tiff_store, "chunk/1/0").result());
   EXPECT_EQ(std::string(rr2.value), "DATA2");
 
   // Test invalid IFD index
-  auto status = kvstore::Read(tiff_store, "tile/2/0/0").result().status();
+  auto status = kvstore::Read(tiff_store, "chunk/2/0").result().status();
   EXPECT_THAT(status, MatchesStatus(absl::StatusCode::kNotFound));
 }
 
@@ -338,7 +338,7 @@ TEST_F(TiffKeyValueStoreTest, ByteRangeReads) {
 
   // Full read for reference
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto full_read, kvstore::Read(tiff_store, "tile/0/0/0").result());
+      auto full_read, kvstore::Read(tiff_store, "chunk/0/0").result());
   EXPECT_EQ(std::string(full_read.value), "abcdefghijklmnop");
 
   // Partial read - first half
@@ -346,7 +346,7 @@ TEST_F(TiffKeyValueStoreTest, ByteRangeReads) {
   options1.byte_range = tensorstore::OptionalByteRangeRequest::Range(0, 8);
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto partial1,
-      kvstore::Read(tiff_store, "tile/0/0/0", options1).result());
+      kvstore::Read(tiff_store, "chunk/0/0", options1).result());
   EXPECT_EQ(std::string(partial1.value), "abcdefgh");
 
   // Partial read - second half
@@ -354,14 +354,14 @@ TEST_F(TiffKeyValueStoreTest, ByteRangeReads) {
   options2.byte_range = tensorstore::OptionalByteRangeRequest::Range(8, 16);
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto partial2,
-      kvstore::Read(tiff_store, "tile/0/0/0", options2).result());
+      kvstore::Read(tiff_store, "chunk/0/0", options2).result());
   EXPECT_EQ(std::string(partial2.value), "ijklmnop");
 
   // Out-of-range byte range
   kvstore::ReadOptions options3;
   options3.byte_range = tensorstore::OptionalByteRangeRequest::Range(0, 20);
   auto status =
-      kvstore::Read(tiff_store, "tile/0/0/0", options3).result().status();
+      kvstore::Read(tiff_store, "chunk/0/0", options3).result().status();
   EXPECT_FALSE(status.ok());
 }
 
@@ -375,7 +375,7 @@ TEST_F(TiffKeyValueStoreTest, MissingRequiredTags) {
                     context_)
           .result());
 
-  auto status = kvstore::Read(tiff_store, "tile/0/0/0").result().status();
+  auto status = kvstore::Read(tiff_store, "chunk/0/0").result().status();
   EXPECT_FALSE(status.ok());
 }
 
@@ -393,13 +393,13 @@ TEST_F(TiffKeyValueStoreTest, StalenessBound) {
   // Read with infinite past staleness bound (should work)
   kvstore::ReadOptions options_past;
   options_past.staleness_bound = absl::InfinitePast();
-  EXPECT_THAT(kvstore::Read(tiff_store, "tile/0/0/0", options_past).result(),
+  EXPECT_THAT(kvstore::Read(tiff_store, "chunk/0/0", options_past).result(),
               ::tensorstore::IsOk());
 
   // Read with infinite future staleness bound (should work)
   kvstore::ReadOptions options_future;
   options_future.staleness_bound = absl::InfiniteFuture();
-  EXPECT_THAT(kvstore::Read(tiff_store, "tile/0/0/0", options_future).result(),
+  EXPECT_THAT(kvstore::Read(tiff_store, "chunk/0/0", options_future).result(),
               ::tensorstore::IsOk());
 }
 
@@ -417,7 +417,7 @@ TEST_F(TiffKeyValueStoreTest, ListWithComplexRange) {
   kvstore::ListOptions options;
   // Fix: Use KeyRange constructor directly with the successor of the first key
   // to create an exclusive lower bound
-  options.range = KeyRange(KeyRange::Successor("tile/0/0/0"), "tile/0/2/0");
+  options.range = KeyRange(KeyRange::Successor("chunk/0/0"), "chunk/0/2");
 
   absl::Notification notification;
   std::vector<std::string> log;
@@ -427,9 +427,9 @@ TEST_F(TiffKeyValueStoreTest, ListWithComplexRange) {
           &notification, tensorstore::LoggingReceiver{&log}});
   notification.WaitForNotification();
 
-  // Should only show the middle strip (tile/0/1/0)
+  // Should only show the middle strip (chunk/0/1)
   EXPECT_THAT(log, ::testing::UnorderedElementsAre("set_starting",
-                                                   "set_value: tile/0/1/0",
+                                                   "set_value: chunk/0/1",
                                                    "set_done", "set_stopping"));
 }
 
