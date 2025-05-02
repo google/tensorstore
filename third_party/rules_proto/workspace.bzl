@@ -21,9 +21,9 @@ def repo():
     maybe(
         http_archive,
         name = "rules_proto",
-        strip_prefix = "rules_proto-6.0.2",
+        strip_prefix = "rules_proto-7.1.0",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/bazelbuild/rules_proto/archive/6.0.2.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/bazelbuild/rules_proto/archive/7.1.0.tar.gz",
         ],
-        sha256 = "6fb6767d1bef535310547e03247f7518b03487740c11b6c6adb7952033fe1295",
+        sha256 = "14a225870ab4e91869652cfd69ef2028277fc1dc4910d65d353b62d6e0ae21f4",
     )

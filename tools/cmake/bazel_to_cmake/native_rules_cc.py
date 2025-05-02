@@ -215,7 +215,7 @@ def _cc_binary_impl(_context: InvocationContext, _target: TargetId, **kwargs):
               cmake_target_pair,
               CMakePackageDepsProvider,
               CMakeExecutableTargetProvider,
-          )
+          ),
       ),
   )
 

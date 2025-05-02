@@ -110,13 +110,6 @@ class MockGrpcServer {
  private:
   // Setup the gRPC server.
   void BuildServer() {
-    // When gRPC version is updated to the latest version, the build will fail
-    // because gpr_set_log_verbosity will be deleted. Since in the latest
-    // version of gRPC uses absl internally, you don't explicitly need to set
-    // the verbosity. You can safely delete gpr_set_log_verbosity statement when
-    // your build fails.
-    gpr_set_log_verbosity(GPR_LOG_SEVERITY_INFO);
-
     assert(!server_);
 
     ::grpc::ServerBuilder builder;
