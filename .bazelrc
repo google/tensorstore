@@ -24,11 +24,11 @@ build:msvc --host_per_file_copt=.*\\.h$,.*\\.cc$,.*\\.cpp$@/std:c++17
 # protobuf/upb has some functions where errors are incorrectly raised:
 # https://github.com/protocolbuffers/upb/blob/main/upb/message/accessors_internal.h
 
-build:gcc_or_clang --per_file_copt=upb/.*\\.c$@-Wno-array-bounds,-Wno-stringop-overflow,-Wno-stringop-overread
-build:gcc_or_clang --host_per_file_copt=upb/.*\\.c$@-Wno-array-bounds,-Wno-stringop-overflow,-Wno-stringop-overread
+build:gcc_or_clang --per_file_copt=upb/.*\\.c$@-Wno-array-bounds,-Wno-stringop-overread
+build:gcc_or_clang --host_per_file_copt=upb/.*\\.c$@-Wno-array-bounds,-Wno-stringop-overread
 
-build:gcc_or_clang --per_file_copt=upbc/.*\\.cc$@-Wno-array-bounds,-Wno-stringop-overflow,-Wno-stringop-overread
-build:gcc_or_clang --host_per_file_copt=upbc/.*\\.cc$@-Wno-array-bounds,-Wno-stringop-overflow,-Wno-stringop-overread
+build:gcc_or_clang --per_file_copt=upbc/.*\\.cc$@-Wno-array-bounds,-Wno-stringop-overread
+build:gcc_or_clang --host_per_file_copt=upbc/.*\\.cc$@-Wno-array-bounds,-Wno-stringop-overread
 
 build:gcc_or_clang --per_file_copt=grpc/src/.*\\.cc$@-Wno-attributes
 build:gcc_or_clang --host_per_file_copt=grpc/src/.*\\.cc$@-Wno-attributes
@@ -58,6 +58,10 @@ build:gcc_or_clang --host_copt='-Wno-sequence-point'
 # disable warnings from clang about unknown warnings
 build:gcc_or_clang --copt='-Wno-unknown-warning-option'
 build:gcc_or_clang --host_copt='-Wno-unknown-warning-option'
+
+# disable warnings from clang about stringof-overflow
+build:gcc_or_clang --copt='-Wno-stringop-overflow'
+build:gcc_or_clang --host_copt='-Wno-stringop-overflow'
 
 # ----------------------------------------
 # Linux and FreeBSD configuration settings

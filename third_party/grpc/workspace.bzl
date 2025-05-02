@@ -24,12 +24,14 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "grpc",
-        sha256 = "79ed4ab72fa9589b20f8b0b76c16e353e4cfec1d773d33afad605d97b5682c61",
-        strip_prefix = "grpc-1.66.1",
+        sha256 = "4a8aa99d5e24f80ea6b7ec95463e16af5bd91aa805e26c661ef6491ae3d2d23c",
+        strip_prefix = "grpc-1.72.0",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/grpc/grpc/archive/v1.66.1.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/grpc/grpc/archive/v1.72.0.tar.gz",
         ],
         patches = [
+            # Adds #include <grpcpp/support/ports_def.inc> to the generated .cc files
+            Label("//third_party:grpc/patches/add_ports_def.diff"),
             # Fixes, including https://github.com/grpc/grpc/issues/34482
             Label("//third_party:grpc/patches/update_build_system.diff"),
         ],
@@ -56,6 +58,9 @@ def repo():
                 "--ignore-library=//bazel:generate_objc.bzl",
                 "--ignore-library=//bazel:python_rules.bzl",
                 "--ignore-library=@rules_fuzzing//fuzzing:cc_defs.bzl",
+                "--ignore-library=@build_bazel_rules_apple//apple:ios.bzl",
+                "--ignore-library=@build_bazel_rules_apple//apple/testing/default_runner:ios_test_runner.bzl",
+                "--ignore-library=@rules_license//rules:license.bzl",
                 "--exclude-target=//:grpc_cel_engine",
                 "--target=//:grpc",
                 "--target=//:grpc++",

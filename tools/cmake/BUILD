@@ -10,6 +10,7 @@ licenses(["notice"])
 SRCS = [
     "bazel_to_cmake/__init__.py",
     "bazel_to_cmake/bzl_library/__init__.py",
+    "bazel_to_cmake/bzl_library/all.py",
     "bazel_to_cmake/bzl_library/bazel_skylib.py",
     "bazel_to_cmake/bzl_library/bazel_tools_repo_utils.py",
     "bazel_to_cmake/bzl_library/default.py",

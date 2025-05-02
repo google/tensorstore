@@ -92,11 +92,7 @@ bazel_to_cmake(
   --ignore-library "@com_google_protobuf//:protobuf.bzl"
   --ignore-library "@rules_python//python:packaging.bzl"
   --bazelrc .bazelrc
-  --module bazel_to_cmake.bzl_library.grpc_generate_cc
-  --module bazel_to_cmake.bzl_library.local_mirror
-  --module bazel_to_cmake.bzl_library.rules_nasm
-  --module bazel_to_cmake.bzl_library.third_party_http_archive
-  --module bazel_to_cmake.bzl_library.upb_proto_library
+  --module bazel_to_cmake.bzl_library.all
 )
 
 if(TENSORSTORE_DEBUG_DUMP_TARGETS)

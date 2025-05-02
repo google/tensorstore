@@ -227,18 +227,26 @@ class EvaluationState:
         it is a dependency of another target being analyzed.
     """
     assert isinstance(rule_id, TargetId), f"Requires TargetId: {repr(rule_id)}"
-    if rule_id in self._all_rules:
-      raise ValueError(f"Duplicate rule: {rule_id.as_label()}")
+    # kind is assigned from caller function name
     if outs is None:
       outs = []
-    # kind is assigned from caller function name
     r = RuleInfo(_mnemonic, _callers, outs=outs, impl=impl)
+    if rule_id in self._all_rules:
+      raise ValueError(
+          f"Duplicate rule: {rule_id.as_label()} from {r}\n"
+          f"Existing rule: {self._all_rules[rule_id]}"
+      )
     self._all_rules[rule_id] = r
     self._unanalyzed_rules.add(rule_id)
     self._unanalyzed_targets[rule_id] = rule_id
     for out_id in r.outs:
       if out_id in self._unanalyzed_targets or out_id in self._analyzed_targets:
-        raise ValueError(f"Duplicate output: {out_id.as_label()}")
+        detail = ""
+        if out_id in self._all_rules:
+          detail = f"\nExisting rule: {self._all_rules[out_id]}"
+        raise ValueError(
+            f"Duplicate output: {out_id.as_label()} from {r}{detail}"
+        )
       self._unanalyzed_targets[out_id] = rule_id
     if analyze_by_default:
       self._targets_to_analyze.add(rule_id)
@@ -452,7 +460,10 @@ class EvaluationState:
   ) -> CMakeTargetPair:
     repo = self.workspace.all_repositories.get(target_id.repository_id)
     if repo is None:
-      raise ValueError(f"Unknown repository {target_id.repository_id} in target {target_id.as_label()}")
+      raise ValueError(
+          f"Unknown repository {target_id.repository_id} in target"
+          f" {target_id.as_label()}"
+      )
     cmake_target_pair = repo.get_cmake_target_pair(target_id)
     if alias:
       return cmake_target_pair
