@@ -17,6 +17,7 @@
 
 #include <nlohmann/json.hpp>
 #include <optional>
+#include <utility>
 #include <vector>
 
 #include "tensorstore/array.h"
@@ -270,6 +271,54 @@ Result<Compressor> GetEffectiveCompressor(
 ///     input specifies a data type. Returns an error if constraints conflict.
 Result<DataType> GetEffectiveDataType(
     const TiffMetadataConstraints& constraints, const Schema& schema);
+
+/// Merges initial domain properties with schema constraints.
+/// \returns A pair containing the merged IndexDomain and the final vector of
+///     dimension labels.
+Result<std::pair<IndexDomain<>, std::vector<std::string>>> GetEffectiveDomain(
+    DimensionIndex initial_rank, span<const Index> initial_shape,
+    span<const std::string> initial_labels, const Schema& schema);
+
+/// Merges an initial ChunkLayout derived from TIFF properties with schema
+/// constraints.
+Result<ChunkLayout> GetEffectiveChunkLayout(ChunkLayout initial_layout,
+                                            const Schema& schema);
+
+/// Computes the effective dimension units, merging potential initial units
+/// (e.g., from OME-XML in the future) with schema constraints.
+Result<DimensionUnitsVector> GetEffectiveDimensionUnits(
+    DimensionIndex rank, /* const DimensionUnitsVector& initial_units, */
+    const Schema& schema);
+
+/// Creates an initial ChunkLayout based on TIFF tags before schema merging.
+Result<ChunkLayout> GetInitialChunkLayout(
+    const internal_tiff_kvstore::ImageDirectory& base_ifd,
+    DimensionIndex initial_rank,
+    internal_tiff_kvstore::PlanarConfigType planar_config,
+    uint16_t samples_per_pixel);
+
+/// Creates an initial ChunkLayout based on TIFF tags and the initial
+/// structure, before merging with schema constraints.
+///
+/// This determines the chunk shape, grid origin (always {0,...}), and default
+/// inner order (C-order) based on the representative IFD and the initial
+/// dimension structure derived from stacking/sample options. Shape and origin
+/// are hard constraints; inner order is a soft constraint.
+///
+/// \param base_ifd The representative Image File Directory.
+/// \param initial_rank The total rank determined from IFD+stacking+samples.
+/// \param initial_labels The conceptual dimension labels determined initially
+///     (e.g., {"z", "y", "x", "c"}). Needed to map Y/X/Sample dimensions.
+/// \param initial_planar_config The planar configuration from the IFD.
+/// \param initial_samples_per_pixel SamplesPerPixel from the IFD.
+/// \param sample_label The actual label used for the sample dimension (if any).
+/// \returns The initial ChunkLayout.
+Result<ChunkLayout> GetInitialChunkLayout(
+    const internal_tiff_kvstore::ImageDirectory& base_ifd,
+    DimensionIndex initial_rank, span<const std::string> initial_labels,
+    internal_tiff_kvstore::PlanarConfigType initial_planar_config,
+    uint16_t initial_samples_per_pixel,
+    std::string_view sample_label);  // Pass the determined sample label
 
 /// Decodes a raw (potentially compressed) chunk buffer based on TIFF metadata.
 ///
