@@ -1047,21 +1047,19 @@ Result<IndexDomain<>> GetEffectiveDomain(
   if (rank == dynamic_rank && schema.domain().valid()) {
     rank = schema.domain().rank();
   }
-  if (rank == dynamic_rank && !schema.domain().valid() &&
-      !constraints.shape.has_value()) {
-    return IndexDomain<>(dynamic_rank);
-  }
+  // If rank is still dynamic after checking all available sources in the spec
+  // and constraints, return a dynamic_rank domain.
   if (rank == dynamic_rank) {
-    return absl::InvalidArgumentError(
-        "Cannot determine rank from schema or metadata constraints");
+    return IndexDomain<>();
   }
 
   IndexDomainBuilder builder(rank);
   if (constraints.shape) {
     if (constraints.shape->size() != rank) {
       return absl::InvalidArgumentError(tensorstore::StrCat(
-          "Metadata constraints shape rank (", constraints.shape->size(),
-          ") conflicts with effective rank (", rank, ")"));
+          "Internal error: Metadata constraints shape rank (",
+          constraints.shape->size(), ") conflicts with effective rank (", rank,
+          ")"));
     }
     builder.shape(*constraints.shape);
     builder.implicit_lower_bounds(false);
@@ -1303,33 +1301,20 @@ Result<SharedArray<const void>> DecodeChunk(const TiffMetadata& metadata,
     // Find sample dimension index from mapping
     DimensionIndex sample_dim =
         metadata.dimension_mapping.ts_sample_dim.value_or(-1);
-    if (sample_dim == -1)
+    if (sample_dim == -1 && metadata.samples_per_pixel > 1)
       return absl::InternalError(
-          "Planar config without sample dimension in mapping");
+          "Planar config with spp > 1 requires a sample dimension in mapping");
     // Assume chunk shape from layout reflects the grid {1, stack..., h, w}
     buffer_data_shape_vec.assign(chunk_shape.begin(), chunk_shape.end());
-
   } else {  // Chunky or single sample
-    // Find sample dimension index (if exists)
-    DimensionIndex sample_dim =
-        metadata.dimension_mapping.ts_sample_dim.value_or(-1);
     // Grid chunk shape is {stack..., h, w}. Component shape has spp at the end.
     buffer_data_shape_vec.assign(chunk_shape.begin(), chunk_shape.end());
-    if (sample_dim != -1) {
-      // Ensure rank matches
-      if (static_cast<DimensionIndex>(buffer_data_shape_vec.size()) !=
-          metadata.rank - 1) {
-        return absl::InternalError(
-            "Rank mismatch constructing chunky buffer shape");
-      }
-      buffer_data_shape_vec.push_back(
-          static_cast<Index>(metadata.samples_per_pixel));
-    } else {
-      if (static_cast<DimensionIndex>(buffer_data_shape_vec.size()) !=
-          metadata.rank) {
-        return absl::InternalError(
-            "Rank mismatch constructing single sample buffer shape");
-      }
+    if (static_cast<DimensionIndex>(buffer_data_shape_vec.size()) !=
+        metadata.rank) {
+      return absl::InternalError(StrCat(
+          "Internal consistency error: Buffer data shape rank (",
+          buffer_data_shape_vec.size(), ") does not match component rank (",
+          metadata.rank, ") in chunky mode"));
     }
   }
   tensorstore::span<const Index> buffer_data_shape = buffer_data_shape_vec;

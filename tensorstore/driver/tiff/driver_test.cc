@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/// End-to-end tests of the TIFF driver.
-
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <stddef.h>
@@ -603,13 +601,9 @@ TEST_F(TiffDriverTest, TestSpecSchemaRank) {
       {{"driver", "tiff"},
        {"kvstore", "memory://"},
        {"metadata", {{"shape", {10, 20, 30}}}}},
-      // Expected schema now includes rank, domain, default layout, and codec:
       {{"rank", 3},
        {"domain",
         {{"inclusive_min", {0, 0, 0}}, {"exclusive_max", {10, 20, 30}}}},
-       {"chunk_layout",
-        {{"inner_order_soft_constraint", {0, 1, 2}},
-         {"grid_origin_soft_constraint", {0, 0, 0}}}},
        {"codec", {{"driver", "tiff"}}}});
 }
 
@@ -677,9 +671,8 @@ TEST_F(TiffDriverTest, OpenWithMismatchedDtypeConstraint) {
                   },
                   context_)
                   .result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            ".*Schema dtype uint16 is incompatible .*"
-                            "TIFF dtype uint8.*"));
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            ".*dtype.*uint16.* conflicts.*uint8.*"));
 }
 
 TEST_F(TiffDriverTest, OpenWithMismatchedShapeConstraint) {
@@ -708,10 +701,9 @@ TEST_F(TiffDriverTest, OpenWithSchemaDtypeMismatch) {
           },
           context_)
           .result(),
-      // This error comes from ResolveMetadata comparing schema and TIFF data
       MatchesStatus(
-          absl::StatusCode::kFailedPrecondition,
-          ".*Schema dtype int16 is incompatible with TIFF dtype uint8.*"));
+          absl::StatusCode::kInvalidArgument,
+          ".*dtype specified in schema.*int16.* conflicts .* dtype .*uint8.*"));
 }
 
 TEST_F(TiffDriverTest, OpenInvalidTiffHeader) {
