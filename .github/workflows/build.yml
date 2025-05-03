@@ -13,7 +13,7 @@ jobs:
           - os: "arm-ubuntu-arm-22.04-8core"
             cibw_build: "*"
             wheel_identifier: linux_arm64
-          - os: "windows-2019"
+          - os: "windows-2022"
             # Revert to windows-latest after: https://github.com/actions/runner-images/issues/7662
             cibw_build: "*"
             wheel_identifier: windows
