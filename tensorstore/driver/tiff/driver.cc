@@ -20,6 +20,7 @@
 #include <string>
 #include <utility>
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
@@ -35,6 +36,7 @@
 #include "tensorstore/internal/cache/async_cache.h"
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/cache/kvs_backed_chunk_cache.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/staleness_bound.h"  // IWYU: pragma keep
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
@@ -89,68 +91,141 @@ class TiffChunkCache : public internal::KvsBackedChunkCache {
   const Executor& executor() const override { return executor_; }
 
   std::string GetChunkStorageKey(span<const Index> cell_indices) override {
-    ABSL_LOG(INFO) << "GetChunkStorageKey called with cell_indices: "
-                   << absl::StrJoin(cell_indices, ", ");
+    using internal_tiff_kvstore::PlanarConfigType;
+    ABSL_LOG(INFO)
+        << "TiffChunkCache::GetChunkStorageKey called with cell_indices: "
+        << cell_indices;
+
     const auto& metadata = *resolved_metadata_;
-    const auto& grid = grid_;
+    const auto& mapping = metadata.dimension_mapping;
+    const auto& grid_spec = this->grid();
+    const DimensionIndex grid_rank = grid_spec.grid_rank();
 
-    const DimensionIndex grid_rank = grid.grid_rank();
-    ABSL_CHECK(cell_indices.size() == grid_rank);
-    ABSL_CHECK(grid.components.size() == 1);  // Expect single component view
+    ABSL_CHECK(static_cast<DimensionIndex>(cell_indices.size()) == grid_rank);
 
-    // Get dimension mapping information from the helper
-    TiffGridMappingInfo mapping_info = GetTiffGridMappingInfo(metadata);
+    // Find the grid dimension index corresponding to each conceptual role
+    DimensionIndex y_grid_dim = -1, x_grid_dim = -1, sample_grid_dim = -1;
+    absl::flat_hash_map<std::string, DimensionIndex> stack_label_to_grid_dim;
 
-    uint32_t ifd = 0;
-    uint32_t row_idx = 0;
-    uint32_t col_idx = 0;
-
-    const auto& chunked_to_cell = grid.components[0].chunked_to_cell_dimensions;
-    ABSL_CHECK(chunked_to_cell.size() == grid_rank);
-
-    // Find the grid dimensions corresponding to the logical dimensions
-    DimensionIndex grid_dim_for_y = -1;
-    DimensionIndex grid_dim_for_x = -1;
-    DimensionIndex grid_dim_for_ifd = -1;
-
+    const auto& chunked_to_cell =
+        grid_spec.components[0].chunked_to_cell_dimensions;
     for (DimensionIndex grid_i = 0; grid_i < grid_rank; ++grid_i) {
-      DimensionIndex ts_dim = chunked_to_cell[grid_i];
-      if (ts_dim == mapping_info.ts_y_dim) grid_dim_for_y = grid_i;
-      if (ts_dim == mapping_info.ts_x_dim) grid_dim_for_x = grid_i;
-      if (ts_dim == mapping_info.ts_ifd_dim) grid_dim_for_ifd = grid_i;
+      DimensionIndex final_ts_dim = chunked_to_cell[grid_i];
+      if (mapping.ts_y_dim == final_ts_dim) {
+        y_grid_dim = grid_i;
+      } else if (mapping.ts_x_dim == final_ts_dim) {
+        x_grid_dim = grid_i;
+      } else if (mapping.ts_sample_dim == final_ts_dim) {
+        // Should only be grid dim if planar
+        assert(metadata.planar_config == PlanarConfigType::kPlanar);
+        sample_grid_dim = grid_i;
+      } else {
+        // Check if it's a known stacking dimension
+        for (const auto& [label, ts_dim] : mapping.ts_stacked_dims) {
+          if (ts_dim == final_ts_dim) {
+            stack_label_to_grid_dim[label] = grid_i;
+            break;
+          }
+        }
+        // If it wasn't Y, X, Sample(planar), or Stacked, it's an unexpected
+        // grid dimension. This might indicate an issue in GetGridSpec's
+        // construction of chunked_to_cell_dimensions.
+        assert(stack_label_to_grid_dim.count(
+            mapping.labels_by_ts_dim[final_ts_dim]));
+      }
     }
 
-    // Extract indices based on the mapping found
-    if (metadata.num_ifds == 1) {
-      ifd = metadata.ifd_index;
-      // Grid must map Y (if rank >= 2) and X dimensions
-      ABSL_CHECK(grid_rank >= 1);  // Must have at least X dimension chunked
-      ABSL_CHECK(metadata.rank < 2 || grid_dim_for_y != -1)
-          << "Grid mapping for Y dim missing in single IFD mode";
-      ABSL_CHECK(grid_dim_for_x != -1)
-          << "Grid mapping for X dim missing in single IFD mode";
+    // Calculate Target IFD Index
+    uint32_t target_ifd = metadata.base_ifd_index;
+    if (metadata.stacking_info) {
+      const auto& stacking = *metadata.stacking_info;
+      const auto& sequence =
+          stacking.ifd_sequence_order.value_or(stacking.dimensions);
+      const auto& sizes = *stacking.dimension_sizes;
+      uint64_t ifd_offset = 0;
+      uint64_t stride = 1;
+      for (int i = sequence.size() - 1; i >= 0; --i) {
+        const std::string& label = sequence[i];
+        auto it = stack_label_to_grid_dim.find(label);
+        if (it == stack_label_to_grid_dim.end()) {
+          ABSL_LOG(FATAL)
+              << "Stacking dimension '" << label
+              << "' not found in grid dimensions during key generation.";
+          return "error_key";
+        }
+        DimensionIndex grid_dim = it->second;
+        Index stack_index = cell_indices[grid_dim];
+        ifd_offset += static_cast<uint64_t>(stack_index) * stride;
 
-      row_idx = (grid_dim_for_y != -1)
-                    ? static_cast<uint32_t>(cell_indices[grid_dim_for_y])
-                    : 0;
-      col_idx = static_cast<uint32_t>(cell_indices[grid_dim_for_x]);
-
-    } else {  // Multi-IFD case
-      ABSL_CHECK(grid_rank == 3) << "Expected grid rank 3 for multi-IFD mode";
-      ABSL_CHECK(grid_dim_for_ifd != -1)
-          << "Grid mapping for IFD/Z dim missing in multi-IFD mode";
-      ABSL_CHECK(grid_dim_for_y != -1)
-          << "Grid mapping for Y dim missing in multi-IFD mode";
-      ABSL_CHECK(grid_dim_for_x != -1)
-          << "Grid mapping for X dim missing in multi-IFD mode";
-
-      ifd = static_cast<uint32_t>(cell_indices[grid_dim_for_ifd]);
-      row_idx = static_cast<uint32_t>(cell_indices[grid_dim_for_y]);
-      col_idx = static_cast<uint32_t>(cell_indices[grid_dim_for_x]);
+        Index dim_size = -1;
+        for (size_t j = 0; j < stacking.dimensions.size(); ++j) {
+          if (stacking.dimensions[j] == label) {
+            dim_size = sizes[j];
+            break;
+          }
+        }
+        assert(dim_size > 0);
+        stride *= static_cast<uint64_t>(dim_size);
+      }
+      target_ifd += static_cast<uint32_t>(ifd_offset);
     }
 
-    // Format the final key
-    return absl::StrFormat("tile/%d/%d/%d", ifd, row_idx, col_idx);
+    // Calculate Linear Index within IFD
+    uint64_t linear_index = 0;
+
+    Index y_chunk_idx = (y_grid_dim != -1) ? cell_indices[y_grid_dim] : 0;
+    Index x_chunk_idx = (x_grid_dim != -1) ? cell_indices[x_grid_dim] : 0;
+
+    Index image_height = 0, image_width = 0;
+    if (mapping.ts_y_dim.has_value())
+      image_height = metadata.shape[*mapping.ts_y_dim];
+    if (mapping.ts_x_dim.has_value())
+      image_width = metadata.shape[*mapping.ts_x_dim];
+
+    const Index chunk_height = metadata.ifd0_chunk_height;
+    const Index chunk_width = metadata.ifd0_chunk_width;
+
+    if (chunk_height <= 0) {
+      ABSL_LOG(FATAL) << "Invalid chunk height in metadata: " << chunk_height;
+      return "error_key";
+    }
+    if (x_grid_dim != -1 && chunk_width <= 0) {
+      ABSL_LOG(FATAL) << "Invalid chunk width in metadata: " << chunk_width;
+      return "error_key";
+    }
+
+    if (metadata.is_tiled) {
+      Index num_cols = (image_width + chunk_width - 1) / chunk_width;
+      Index tile_row = y_chunk_idx;
+      Index tile_col = x_chunk_idx;
+      linear_index = static_cast<uint64_t>(tile_row) * num_cols + tile_col;
+    } else {
+      assert(x_grid_dim == -1 || x_chunk_idx == 0);
+      linear_index = static_cast<uint64_t>(y_chunk_idx);
+    }
+
+    // Adjust for planar configuration
+    if (metadata.planar_config == PlanarConfigType::kPlanar &&
+        metadata.samples_per_pixel > 1) {
+      assert(sample_grid_dim != -1);
+      Index sample_plane_idx = cell_indices[sample_grid_dim];
+      Index num_chunks_per_plane = 0;
+      if (metadata.is_tiled) {
+        Index num_rows = (image_height + chunk_height - 1) / chunk_height;
+        Index num_cols = (image_width + chunk_width - 1) / chunk_width;
+        num_chunks_per_plane = num_rows * num_cols;
+      } else {
+        num_chunks_per_plane = (image_height + chunk_height - 1) / chunk_height;
+      }
+      // Planar stores Plane 0 Chunks, then Plane 1 Chunks, ...
+      linear_index =
+          static_cast<uint64_t>(sample_plane_idx) * num_chunks_per_plane +
+          linear_index;
+    }
+
+    std::string key = absl::StrFormat("chunk/%d/%d", target_ifd, linear_index);
+    ABSL_LOG(INFO) << "  Formatted key: " << key;
+    return key;
   }
 
   // Decodes chunk data (called by Entry::DoDecode indirectly).
@@ -215,6 +290,15 @@ class TiffChunkCache : public internal::KvsBackedChunkCache {
   Executor executor_;
 };
 
+// Validator function for positive integers
+template <typename T>
+absl::Status ValidatePositive(const T& value) {
+  if (value <= 0) {
+    return absl::InvalidArgumentError("Value must be positive");
+  }
+  return absl::OkStatus();
+}
+
 // TiffDriverSpec: Defines the specification for opening a TIFF TensorStore.
 class TiffDriverSpec
     : public internal::RegisteredDriverSpec<TiffDriverSpec, KvsDriverSpec> {
@@ -230,67 +314,108 @@ class TiffDriverSpec
              x.metadata_constraints);
   };
 
-  static inline const auto default_json_binder = jb::Sequence(
-      // Copied from kvs_backed_chunk_driver::KvsDriverSpec because
-      // KvsDriverSpec::store initializer was enforcing directory path.
-      jb::Member(internal::DataCopyConcurrencyResource::id,
-                 jb::Projection<&KvsDriverSpec::data_copy_concurrency>()),
-      jb::Member(internal::CachePoolResource::id,
-                 jb::Projection<&KvsDriverSpec::cache_pool>()),
-      jb::Member("metadata_cache_pool",
-                 jb::Projection<&KvsDriverSpec::metadata_cache_pool>()),
-      jb::Projection<&KvsDriverSpec::store>(jb::KvStoreSpecAndPathJsonBinder),
-      jb::Initialize([](auto* obj) { return absl::OkStatus(); }),
-      jb::Projection<&KvsDriverSpec::staleness>(jb::Sequence(
-          jb::Member("recheck_cached_metadata",
-                     jb::Projection(&StalenessBounds::metadata,
-                                    jb::DefaultValue([](auto* obj) {
-                                      obj->bounded_by_open_time = true;
-                                    }))),
-          jb::Member("recheck_cached_data",
-                     jb::Projection(&StalenessBounds::data,
-                                    jb::DefaultInitializedValue())))),
-      jb::Projection<&KvsDriverSpec::fill_value_mode>(jb::Sequence(
-          jb::Member("fill_missing_data_reads",
-                     jb::Projection<&internal_kvs_backed_chunk_driver::
-                                        FillValueMode::fill_missing_data_reads>(
-                         jb::DefaultValue([](auto* obj) { *obj = true; }))),
+  static inline const auto default_json_binder =
+      jb::Sequence(
+          // Copied from kvs_backed_chunk_driver::KvsDriverSpec because
+          // KvsDriverSpec::store initializer was enforcing directory path.
+          jb::Member(internal::DataCopyConcurrencyResource::id,
+                     jb::Projection<&KvsDriverSpec::data_copy_concurrency>()),
+          jb::Member(internal::CachePoolResource::id,
+                     jb::Projection<&KvsDriverSpec::cache_pool>()),
+          jb::Member("metadata_cache_pool",
+                     jb::Projection<&KvsDriverSpec::metadata_cache_pool>()),
+          jb::Projection<&KvsDriverSpec::store>(
+              jb::KvStoreSpecAndPathJsonBinder),
+          jb::Initialize([](auto* obj) { return absl::OkStatus(); }),
+          jb::Projection<&KvsDriverSpec::staleness>(jb::Sequence(
+              jb::Member("recheck_cached_metadata",
+                         jb::Projection(&StalenessBounds::metadata,
+                                        jb::DefaultValue([](auto* obj) {
+                                          obj->bounded_by_open_time = true;
+                                        }))),
+              jb::Member("recheck_cached_data",
+                         jb::Projection(&StalenessBounds::data,
+                                        jb::DefaultInitializedValue())))),
+          jb::Projection<&KvsDriverSpec::fill_value_mode>(
+              jb::Sequence(
+                  jb::Member(
+                      "fill_missing_data_reads",
+                      jb::Projection<
+                          &internal_kvs_backed_chunk_driver::FillValueMode::
+                              fill_missing_data_reads>(
+                          jb::DefaultValue([](auto* obj) { *obj = true; }))),
+                  jb::Member(
+                      "store_data_equal_to_fill_value",
+                      jb::Projection<
+                          &internal_kvs_backed_chunk_driver::FillValueMode::
+                              store_data_equal_to_fill_value>(
+                          jb::DefaultInitializedValue())))),
+          internal::OpenModeSpecJsonBinder,
           jb::Member(
-              "store_data_equal_to_fill_value",
-              jb::Projection<&internal_kvs_backed_chunk_driver::FillValueMode::
-                                 store_data_equal_to_fill_value>(
-                  jb::DefaultInitializedValue())))),
-      internal::OpenModeSpecJsonBinder,
-      jb::Member(
-          "metadata",
-          jb::Validate(
-              [](const auto& options, auto* obj) {
-                TENSORSTORE_RETURN_IF_ERROR(obj->schema.Set(
-                    obj->metadata_constraints.dtype.value_or(DataType())));
-                TENSORSTORE_RETURN_IF_ERROR(obj->schema.Set(
-                    RankConstraint{obj->metadata_constraints.rank}));
-                return absl::OkStatus();
-              },
-              jb::Projection<&TiffDriverSpec::metadata_constraints>(
-                  jb::DefaultInitializedValue()))),
-      jb::Member("tiff", jb::Projection<&TiffDriverSpec::tiff_options>(
-                             jb::DefaultValue([](auto* v) { *v = {}; }))));
+              "metadata",
+              jb::Validate(
+                  [](const auto& options, auto* obj) {
+                    TENSORSTORE_RETURN_IF_ERROR(obj->schema.Set(
+                        obj->metadata_constraints.dtype.value_or(DataType())));
+                    TENSORSTORE_RETURN_IF_ERROR(obj->schema.Set(
+                        RankConstraint{obj->metadata_constraints.rank}));
+                    return absl::OkStatus();
+                  },
+                  jb::Projection<&TiffDriverSpec::metadata_constraints>(
+                      jb::DefaultInitializedValue()))),
+          jb::Member("tiff", jb::
+                                 Projection<&TiffDriverSpec::tiff_options>(
+                                     jb::DefaultValue(
+                                         [](auto* v) { *v = {}; }))) /*,
+  // Final validation combining spec parts
+  jb::Validate([](const auto& options, auto* obj) -> absl::Status {
+    // Enforce mutual exclusion: if ifd_stacking is present, ifd_index must
+    // be 0. Note: binder for "ifd" already ensures it's >= 0.
+    if (obj->tiff_options.ifd_stacking &&
+        obj->tiff_options.ifd_index != 0) {
+      return absl::InvalidArgumentError(
+          "Cannot specify both \"ifd\" (non-zero) and \"ifd_stacking\" in "
+          "\"tiff\" options");
+    }
+    // Validate sample_dimension_label against stacking dimensions
+    if (obj->tiff_options.ifd_stacking &&
+        obj->tiff_options.sample_dimension_label) {
+      const auto& stack_dims = obj->tiff_options.ifd_stacking->dimensions;
+      if (std::find(stack_dims.begin(), stack_dims.end(),
+                    *obj->tiff_options.sample_dimension_label) !=
+          stack_dims.end()) {
+        return absl::InvalidArgumentError(tensorstore::StrCat(
+            "\"sample_dimension_label\" (\"",
+            *obj->tiff_options.sample_dimension_label,
+            "\") conflicts with a label in \"ifd_stacking.dimensions\""));
+      }
+    }
+    // Validate schema dtype if specified
+    if (obj->schema.dtype().valid()) {
+      TENSORSTORE_RETURN_IF_ERROR(ValidateDataType(obj->schema.dtype()));
+    }
+    return absl::OkStatus();
+  })*/);
 
   Result<IndexDomain<>> GetDomain() const override {
-    return internal_tiff::GetEffectiveDomain(tiff_options, metadata_constraints,
-                                             schema);
+    return internal_tiff::GetEffectiveDomain(metadata_constraints, schema);
   }
 
   Result<CodecSpec> GetCodec() const override {
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto codec_spec_ptr, internal_tiff::GetEffectiveCodec(
-                                 tiff_options, metadata_constraints, schema));
-    return CodecSpec(std::move(codec_spec_ptr));
+    CodecSpec codec_constraint = schema.codec();
+    auto tiff_codec = internal::CodecDriverSpec::Make<TiffCodecSpec>();
+
+    if (codec_constraint.valid()) {
+      TENSORSTORE_RETURN_IF_ERROR(
+          tiff_codec->MergeFrom(codec_constraint),
+          MaybeAnnotateStatus(
+              _, "Cannot merge schema codec constraints with tiff driver"));
+    }
+    return CodecSpec(std::move(tiff_codec));
   }
 
   Result<ChunkLayout> GetChunkLayout() const override {
-    return internal_tiff::GetEffectiveChunkLayout(tiff_options,
-                                                  metadata_constraints, schema);
+    return schema.chunk_layout();
   }
 
   Result<SharedArray<const void>> GetFillValue(
@@ -303,8 +428,23 @@ class TiffDriverSpec
   }
 
   Result<DimensionUnitsVector> GetDimensionUnits() const override {
-    return internal_tiff::GetEffectiveDimensionUnits(
-        tiff_options, metadata_constraints, schema);
+    DimensionIndex rank = schema.rank().rank;
+    if (metadata_constraints.rank != dynamic_rank) {
+      if (rank != dynamic_rank && rank != metadata_constraints.rank) {
+        return absl::InvalidArgumentError(tensorstore::StrCat(
+            "Rank specified in schema (", rank,
+            ") conflicts with rank specified in metadata constraints (",
+            metadata_constraints.rank, ")"));
+      }
+      rank = metadata_constraints.rank;
+    }
+    if (rank == dynamic_rank && metadata_constraints.shape.has_value()) {
+      rank = metadata_constraints.shape->size();
+    }
+    if (rank == dynamic_rank && schema.domain().valid()) {
+      rank = schema.domain().rank();
+    }
+    return internal_tiff::GetEffectiveDimensionUnits(rank, schema);
   }
 
   absl::Status ApplyOptions(SpecOptions&& options) override {
@@ -652,33 +792,78 @@ class TiffDriver final : public TiffDriverBase {
       metadata_cache_pool_;
 };
 
-// Helper function to create the ChunkGridSpecification from metadata.
-// Constructs the grid based on logical dimensions identified by mapping_info.
+/// Creates the ChunkGridSpecification based on the resolved TIFF metadata.
+///
+/// This defines how the TensorStore dimensions map to the chunk cache grid
+/// and specifies properties of the single data component.
 Result<internal::ChunkGridSpecification> GetGridSpec(
-    const TiffMetadata& metadata, const TiffGridMappingInfo& mapping_info) {
-  internal::ChunkGridSpecification::ComponentList components;
-  const DimensionIndex metadata_rank = metadata.rank;
+    const TiffMetadata& metadata) {
+  using internal::AsyncWriteArray;
+  using internal::ChunkGridSpecification;
+  using internal_tiff_kvstore::PlanarConfigType;
 
-  std::vector<DimensionIndex> chunked_to_cell_dims_vector;
+  const DimensionIndex rank = metadata.rank;
+  if (rank == dynamic_rank) {
+    return absl::InvalidArgumentError(
+        "Cannot determine grid with unknown rank");
+  }
 
-  // Build chunked_to_cell_dims_vector based on identified logical dims
-  // Order matters here: determines the order of grid dimensions
-  if (mapping_info.ts_ifd_dim != -1) {  // IFD/Z dimension (if present)
-    ABSL_CHECK(metadata.num_ifds > 1);
-    chunked_to_cell_dims_vector.push_back(mapping_info.ts_ifd_dim);
-  }
-  if (mapping_info.ts_y_dim != -1) {  // Y dimension (if present)
-    chunked_to_cell_dims_vector.push_back(mapping_info.ts_y_dim);
-  }
-  if (mapping_info.ts_x_dim != -1) {  // X dimension (if present)
-    chunked_to_cell_dims_vector.push_back(mapping_info.ts_x_dim);
-  } else if (metadata_rank > 0 && mapping_info.ts_y_dim == -1) {
-    // Handle Rank 1 case where X is the only dimension
-    chunked_to_cell_dims_vector.push_back(0);
-  }
-  // Rank 0 case results in empty chunked_to_cell_dims_vector (grid_rank = 0)
+  ChunkGridSpecification::ComponentList components;
+  std::vector<DimensionIndex> chunked_to_cell_dimensions;
 
-  // Create the fill value array
+  // Determine which final dimensions correspond to the grid axes.
+  // Order: Stacked dims, Y, X, Sample (if planar)
+  if (metadata.stacking_info) {
+    // Use the sequence order if specified, otherwise use dimension order
+    const auto& stack_dims_in_final_order = metadata.stacking_info->dimensions;
+    const auto& sequence = metadata.stacking_info->ifd_sequence_order.value_or(
+        stack_dims_in_final_order);
+    for (const auto& label : sequence) {
+      auto it = metadata.dimension_mapping.ts_stacked_dims.find(label);
+      if (it != metadata.dimension_mapping.ts_stacked_dims.end()) {
+        chunked_to_cell_dimensions.push_back(it->second);
+      } else {
+        // This indicates an inconsistency between stacking_info and
+        // dimension_mapping
+        return absl::InternalError(tensorstore::StrCat(
+            "Stacking dimension '", label,
+            "' specified in sequence_order/dimensions not found in "
+            "final mapping"));
+      }
+    }
+  }
+  if (metadata.dimension_mapping.ts_y_dim.has_value()) {
+    chunked_to_cell_dimensions.push_back(*metadata.dimension_mapping.ts_y_dim);
+  }
+  if (metadata.dimension_mapping.ts_x_dim.has_value()) {
+    chunked_to_cell_dimensions.push_back(*metadata.dimension_mapping.ts_x_dim);
+  }
+  // Add Sample dimension to the grid ONLY if Planar
+  if (metadata.planar_config == PlanarConfigType::kPlanar &&
+      metadata.dimension_mapping.ts_sample_dim.has_value()) {
+    chunked_to_cell_dimensions.push_back(
+        *metadata.dimension_mapping.ts_sample_dim);
+  }
+
+  const DimensionIndex grid_rank = chunked_to_cell_dimensions.size();
+  if (grid_rank == 0 && rank > 0) {
+    // Check if the only dimension is a non-grid Sample dimension (chunky, spp >
+    // 1, rank 1)
+    if (rank == 1 && metadata.dimension_mapping.ts_sample_dim.has_value() &&
+        metadata.planar_config == PlanarConfigType::kChunky) {
+      // This is valid (e.g., just a list of RGB values), grid rank is 0
+    } else {
+      return absl::InternalError(
+          "Calculated grid rank is 0 but overall rank > 0 and not solely a "
+          "sample dimension");
+    }
+  }
+  if (grid_rank > rank) {
+    // Sanity check
+    return absl::InternalError("Calculated grid rank exceeds overall rank");
+  }
+
+  // Define the component
   SharedArray<const void> fill_value;
   if (metadata.fill_value.valid()) {
     fill_value = metadata.fill_value;
@@ -688,27 +873,28 @@ Result<internal::ChunkGridSpecification> GetGridSpec(
                                value_init, metadata.dtype);
   }
   TENSORSTORE_ASSIGN_OR_RETURN(
-      auto fill_value_array,  // SharedArray<const void>
+      auto fill_value_array,
       BroadcastArray(std::move(fill_value), BoxView<>(metadata.shape)));
   SharedOffsetArray<const void> offset_fill_value(std::move(fill_value_array));
+
+  Box<> component_bounds(rank);
+
   ContiguousLayoutOrder component_layout_order = metadata.layout_order;
 
-  // Create the AsyncWriteArray::Spec
-  internal::AsyncWriteArray::Spec array_spec{
-      std::move(offset_fill_value),
-      Box<>(metadata_rank),  // Component bounds (unbounded)
-      component_layout_order};
+  AsyncWriteArray::Spec array_spec{std::move(offset_fill_value),
+                                   std::move(component_bounds),
+                                   component_layout_order};
 
-  // Create the component's full chunk shape vector
   std::vector<Index> component_chunk_shape_vec(
       metadata.chunk_layout.read_chunk_shape().begin(),
       metadata.chunk_layout.read_chunk_shape().end());
 
-  // Add the single component to the list
   components.emplace_back(std::move(array_spec),
                           std::move(component_chunk_shape_vec),
-                          std::move(chunked_to_cell_dims_vector));
-  return internal::ChunkGridSpecification(std::move(components));
+                          std::move(chunked_to_cell_dimensions));
+
+  // The overall grid chunk shape contains only the dimensions part of the grid.
+  return ChunkGridSpecification(std::move(components));
 }
 
 struct TiffOpenState : public internal::AtomicReferenceCount<TiffOpenState> {
@@ -908,9 +1094,8 @@ void TiffOpenState::OnDirCacheRead(
       *std::move(tiff_kvstore_driver_result);
 
   // 6b. Get the ChunkGridSpecification.
-  TiffGridMappingInfo mapping_info = GetTiffGridMappingInfo(*metadata);
-  Result<internal::ChunkGridSpecification> grid_spec_result =
-      GetGridSpec(*metadata, mapping_info);
+  auto grid_spec_result = GetGridSpec(*metadata);
+
   if (!grid_spec_result.ok()) {
     promise_.SetResult(std::move(grid_spec_result).status());
     return;
@@ -919,14 +1104,51 @@ void TiffOpenState::OnDirCacheRead(
 
   // 6c. Create the cache key for TiffChunkCache.
   std::string chunk_cache_key;
-  // Simple key based on the metadata cache entry key and metadata properties.
-  std::string metadata_compat_key = absl::StrFormat(
-      "ifd%d_dtype%s_comp%d_planar%d_spp%d", metadata->ifd_index,
-      metadata->dtype.name(), static_cast<int>(metadata->compression_type),
-      static_cast<int>(metadata->planar_config), metadata->samples_per_pixel);
+  std::string metadata_compat_part;
+
+  // Convert read chunk shape span to string first
+  std::string read_shape_str = tensorstore::StrCat(
+      tensorstore::span(metadata->chunk_layout.read_chunk_shape()));
+
+  if (metadata->stacking_info) {
+    // FIX 1: Explicitly serialize stacking_info to JSON
+    auto json_result = jb::ToJson(*metadata->stacking_info);
+    if (!json_result.ok()) {
+      promise_.SetResult(std::move(json_result).status());
+      return;
+    }
+    auto stacking_json = *std::move(json_result);
+
+    metadata_compat_part = absl::StrCat(
+        "stack",
+        stacking_json.dump(
+            -1, ' ', false,
+            nlohmann::json::error_handler_t::replace),  // Use dumped JSON
+                                                        // string (replace
+                                                        // ensures valid string)
+        "_dtype", metadata->dtype.name(), "_comp",
+        static_cast<int>(metadata->compression_type), "_planar",
+        static_cast<int>(metadata->planar_config), "_spp",
+        metadata->samples_per_pixel, "_endian",
+        static_cast<int>(metadata->endian), "_readshape",
+        read_shape_str  // Use pre-formatted shape string
+    );
+  } else {
+    // FIX 2: Use StrCat for building the key, passing pre-formatted string for
+    // shape Using absl::StrFormat here is okay since all args are primitive or
+    // string-like
+    metadata_compat_part = absl::StrFormat(
+        "ifd%d_dtype%s_comp%d_planar%d_spp%d_endian%d_readshape%s",
+        metadata->base_ifd_index, metadata->dtype.name(),
+        static_cast<int>(metadata->compression_type),
+        static_cast<int>(metadata->planar_config), metadata->samples_per_pixel,
+        static_cast<int>(metadata->endian),
+        read_shape_str  // Use pre-formatted shape string
+    );
+  }
 
   internal::EncodeCacheKey(&chunk_cache_key, metadata_cache_entry->key(),
-                           metadata_compat_key, cache_pool_->get());
+                           metadata_compat_part, cache_pool_->get());
 
   // 6d. Get or create the TiffChunkCache.
   auto chunk_cache = internal::GetCache<TiffChunkCache>(

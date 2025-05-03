@@ -401,7 +401,7 @@ absl::Status SetChunkLayoutFromTiffMetadata(
   return absl::OkStatus();
 }
 
-auto IfdStackingOptionsBinder = jb::Validate(
+auto ifd_stacking_options_binder = jb::Validate(
     [](const auto& options, auto* obj) -> absl::Status {
       if (obj->dimensions.empty()) {
         return absl::InvalidArgumentError(
@@ -526,20 +526,22 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
           is_loading, options, obj, j);
     })
 
+TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(TiffSpecOptions::IfdStackingOptions,
+                                       ifd_stacking_options_binder);
+
 TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
     TiffSpecOptions,
     jb::Object(
         jb::Member("ifd",
                    jb::Projection<&TiffSpecOptions::ifd_index>(jb::DefaultValue(
                        [](auto* v) { *v = 0; }, jb::Integer<uint32_t>(0)))),
-        jb::Member("ifd_stacking",
-                   jb::Projection<&TiffSpecOptions::ifd_stacking>(
-                       jb::Optional(IfdStackingOptionsBinder))),
+        jb::Member(
+            "ifd_stacking",
+            jb::Projection<&TiffSpecOptions::ifd_stacking>(jb::Optional(
+                jb::DefaultBinder<TiffSpecOptions::IfdStackingOptions>))),
         jb::Member("sample_dimension_label",
                    jb::Projection<&TiffSpecOptions::sample_dimension_label>(
                        jb::Optional(jb::NonEmptyStringBinder)))))
-
-// In tensorstore/driver/tiff/metadata.cc
 
 Result<std::shared_ptr<const TiffMetadata>> ResolveMetadata(
     const internal_tiff_kvstore::TiffParseResult& source,
@@ -643,7 +645,7 @@ Result<std::shared_ptr<const TiffMetadata>> ResolveMetadata(
   }
   const ImageDirectory& base_ifd = *base_ifd_ptr;
 
-  // --- 2. Determine Initial Structure (Inlined) ---
+  // --- 2. Determine Initial Structure ---
   DimensionIndex initial_rank = dynamic_rank;
   std::vector<Index> initial_shape;
   std::vector<std::string> initial_labels;
@@ -777,6 +779,7 @@ Result<std::shared_ptr<const TiffMetadata>> ResolveMetadata(
   metadata->num_ifds_read = num_ifds_read;
   metadata->stacking_info = validated_stacking_info;
   metadata->endian = source.endian;
+  metadata->is_tiled = base_ifd.is_tiled;
   // Store the actual planar config from the IFD, not the potentially overridden
   // one used for layout
   metadata->planar_config =
@@ -941,8 +944,6 @@ Result<Compressor> GetEffectiveCompressor(CompressionType compression_type,
   return final_compressor;
 }
 
-// In metadata.cc within internal_tiff namespace...
-
 Result<std::pair<IndexDomain<>, std::vector<std::string>>> GetEffectiveDomain(
     DimensionIndex initial_rank, span<const Index> initial_shape,
     span<const std::string> initial_labels, const Schema& schema) {
@@ -1026,6 +1027,70 @@ Result<std::pair<IndexDomain<>, std::vector<std::string>>> GetEffectiveDomain(
   // The merged domain already has the final labels due to steps 3 & 4.
   return std::make_pair(std::move(merged_domain_bounds_only),
                         std::move(final_labels));
+}
+
+Result<IndexDomain<>> GetEffectiveDomain(
+    const TiffMetadataConstraints& constraints, const Schema& schema) {
+  DimensionIndex rank = schema.rank().rank;
+  if (constraints.rank != dynamic_rank) {
+    if (rank != dynamic_rank && rank != constraints.rank) {
+      return absl::InvalidArgumentError(tensorstore::StrCat(
+          "Rank specified in schema (", rank,
+          ") conflicts with rank specified in metadata constraints (",
+          constraints.rank, ")"));
+    }
+    rank = constraints.rank;
+  }
+  if (rank == dynamic_rank && constraints.shape.has_value()) {
+    rank = constraints.shape->size();
+  }
+  if (rank == dynamic_rank && schema.domain().valid()) {
+    rank = schema.domain().rank();
+  }
+  if (rank == dynamic_rank && !schema.domain().valid() &&
+      !constraints.shape.has_value()) {
+    return IndexDomain<>(dynamic_rank);
+  }
+  if (rank == dynamic_rank) {
+    return absl::InvalidArgumentError(
+        "Cannot determine rank from schema or metadata constraints");
+  }
+
+  IndexDomainBuilder builder(rank);
+  if (constraints.shape) {
+    if (constraints.shape->size() != rank) {
+      return absl::InvalidArgumentError(tensorstore::StrCat(
+          "Metadata constraints shape rank (", constraints.shape->size(),
+          ") conflicts with effective rank (", rank, ")"));
+    }
+    builder.shape(*constraints.shape);
+    builder.implicit_lower_bounds(false);
+    builder.implicit_upper_bounds(false);
+  } else {
+    builder.implicit_lower_bounds(true);
+    builder.implicit_upper_bounds(true);
+  }
+
+  // Apply labels from schema if available
+  if (schema.domain().valid() && !schema.domain().labels().empty()) {
+    if (static_cast<DimensionIndex>(schema.domain().labels().size()) != rank) {
+      return absl::InvalidArgumentError(tensorstore::StrCat(
+          "Schema domain labels rank (", schema.domain().labels().size(),
+          ") does not match effective rank (", rank, ")"));
+    }
+    builder.labels(schema.domain().labels());
+  }
+
+  TENSORSTORE_ASSIGN_OR_RETURN(auto domain_from_constraints,
+                               builder.Finalize());
+
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      IndexDomain<> merged_domain,
+      MergeIndexDomains(schema.domain(), domain_from_constraints),
+      tensorstore::MaybeAnnotateStatus(
+          _, "Conflict between schema domain and metadata constraints"));
+
+  return merged_domain;
 }
 
 Result<ChunkLayout> GetEffectiveChunkLayout(ChunkLayout initial_layout,
@@ -1304,6 +1369,11 @@ absl::Status ValidateDataType(DataType dtype) {
 
 }  // namespace internal_tiff
 }  // namespace tensorstore
+
+TENSORSTORE_DEFINE_SERIALIZER_SPECIALIZATION(
+    tensorstore::internal_tiff::TiffSpecOptions::IfdStackingOptions,
+    tensorstore::serialization::JsonBindableSerializer<
+        tensorstore::internal_tiff::TiffSpecOptions::IfdStackingOptions>())
 
 TENSORSTORE_DEFINE_SERIALIZER_SPECIALIZATION(
     tensorstore::internal_tiff::TiffSpecOptions,

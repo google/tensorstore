@@ -62,6 +62,10 @@ struct TiffSpecOptions {
     // `dimensions` with the last dimension varying fastest.
     std::optional<std::vector<std::string>> ifd_sequence_order;
 
+    TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(IfdStackingOptions,
+      internal_json_binding::NoOptions,
+      tensorstore::IncludeDefaults)
+
     // Member binding for serialization/reflection (used internally)
     constexpr static auto ApplyMembers = [](auto&& x, auto f) {
       return f(x.dimensions, x.dimension_sizes, x.ifd_count,
@@ -166,6 +170,9 @@ struct TiffMetadata {
   // Chunk sizes from base IFD.
   uint32_t ifd0_chunk_width;
   uint32_t ifd0_chunk_height;
+
+  // Whether the IFD is tiled or not.
+  bool is_tiled = false;
 
   // Pre-calculated layout order enum (C or Fortran) based on finalized
   // chunk_layout.inner_order
@@ -278,6 +285,9 @@ Result<DataType> GetEffectiveDataType(
 Result<std::pair<IndexDomain<>, std::vector<std::string>>> GetEffectiveDomain(
     DimensionIndex initial_rank, span<const Index> initial_shape,
     span<const std::string> initial_labels, const Schema& schema);
+
+Result<IndexDomain<>> GetEffectiveDomain(
+    const TiffMetadataConstraints& constraints, const Schema& schema);
 
 /// Merges an initial ChunkLayout derived from TIFF properties with schema
 /// constraints.
