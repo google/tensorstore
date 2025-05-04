@@ -53,7 +53,6 @@ class TiffKeyValueStoreTest : public ::testing::Test {
  public:
   TiffKeyValueStoreTest() : context_(Context::Default()) {}
 
-  // Writes `value` to the in‑memory store at key "data.tiff".
   void PrepareMemoryKvstore(absl::Cord value) {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         tensorstore::KvStore memory,
@@ -176,11 +175,10 @@ TEST_F(TiffKeyValueStoreTest, ListWithPrefix) {
                     context_)
           .result());
 
-  // Listing with prefix
   {
     kvstore::ListOptions options;
     options.range = options.range.Prefix("chunk/0/1");
-    options.strip_prefix_length = 6;  
+    options.strip_prefix_length = 6;
     absl::Notification notification;
     std::vector<std::string> log;
     tensorstore::execution::submit(
@@ -189,7 +187,6 @@ TEST_F(TiffKeyValueStoreTest, ListWithPrefix) {
             &notification, tensorstore::LoggingReceiver{&log}});
     notification.WaitForNotification();
 
-    // Should only show the second strip
     EXPECT_THAT(
         log, ::testing::UnorderedElementsAre("set_starting", "set_value: 0/1",
                                              "set_done", "set_stopping"));
@@ -206,7 +203,6 @@ TEST_F(TiffKeyValueStoreTest, ListMultipleStrips) {
                     context_)
           .result());
 
-  // List all strips
   absl::Notification notification;
   std::vector<std::string> log;
   tensorstore::execution::submit(
@@ -215,7 +211,6 @@ TEST_F(TiffKeyValueStoreTest, ListMultipleStrips) {
           &notification, tensorstore::LoggingReceiver{&log}});
   notification.WaitForNotification();
 
-  // Should show both strips
   EXPECT_THAT(log, ::testing::UnorderedElementsAre(
                        "set_starting", "set_value: chunk/0/0",
                        "set_value: chunk/0/1", "set_done", "set_stopping"));
@@ -224,7 +219,6 @@ TEST_F(TiffKeyValueStoreTest, ListMultipleStrips) {
 TEST_F(TiffKeyValueStoreTest, ReadOps) {
   PrepareMemoryKvstore(absl::Cord(MakeReadOpTiff()));
 
-  // Open the kvstore
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
       kvstore::Open({{"driver", "tiff"},
@@ -232,7 +226,6 @@ TEST_F(TiffKeyValueStoreTest, ReadOps) {
                     context_)
           .result());
 
-  // Test standard read operations
   ::tensorstore::internal::TestKeyValueStoreReadOps(
       store, "chunk/0/0", absl::Cord("abcdefghijklmnop"), "missing_key");
 }
@@ -240,7 +233,6 @@ TEST_F(TiffKeyValueStoreTest, ReadOps) {
 TEST_F(TiffKeyValueStoreTest, InvalidSpec) {
   auto context = tensorstore::Context::Default();
 
-  // Test with extra key.
   EXPECT_THAT(
       kvstore::Open({{"driver", "tiff"}, {"extra", "key"}}, context).result(),
       MatchesStatus(absl::StatusCode::kInvalidArgument));
@@ -282,7 +274,6 @@ TEST_F(TiffKeyValueStoreTest, InvalidKeyFormats) {
                     context_)
           .result());
 
-  // Test various invalid key formats
   auto test_key = [&](std::string key) {
     return kvstore::Read(tiff_store, key).result();
   };
@@ -345,16 +336,14 @@ TEST_F(TiffKeyValueStoreTest, ByteRangeReads) {
   kvstore::ReadOptions options1;
   options1.byte_range = tensorstore::OptionalByteRangeRequest::Range(0, 8);
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto partial1,
-      kvstore::Read(tiff_store, "chunk/0/0", options1).result());
+      auto partial1, kvstore::Read(tiff_store, "chunk/0/0", options1).result());
   EXPECT_EQ(std::string(partial1.value), "abcdefgh");
 
   // Partial read - second half
   kvstore::ReadOptions options2;
   options2.byte_range = tensorstore::OptionalByteRangeRequest::Range(8, 16);
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto partial2,
-      kvstore::Read(tiff_store, "chunk/0/0", options2).result());
+      auto partial2, kvstore::Read(tiff_store, "chunk/0/0", options2).result());
   EXPECT_EQ(std::string(partial2.value), "ijklmnop");
 
   // Out-of-range byte range
@@ -379,7 +368,6 @@ TEST_F(TiffKeyValueStoreTest, MissingRequiredTags) {
   EXPECT_FALSE(status.ok());
 }
 
-// 5. Test Staleness Bound
 TEST_F(TiffKeyValueStoreTest, StalenessBound) {
   PrepareMemoryKvstore(absl::Cord(MakeTinyTiledTiff()));
 
@@ -415,8 +403,6 @@ TEST_F(TiffKeyValueStoreTest, ListWithComplexRange) {
 
   // Test listing with exclusive range
   kvstore::ListOptions options;
-  // Fix: Use KeyRange constructor directly with the successor of the first key
-  // to create an exclusive lower bound
   options.range = KeyRange(KeyRange::Successor("chunk/0/0"), "chunk/0/2");
 
   absl::Notification notification;
@@ -427,7 +413,6 @@ TEST_F(TiffKeyValueStoreTest, ListWithComplexRange) {
           &notification, tensorstore::LoggingReceiver{&log}});
   notification.WaitForNotification();
 
-  // Should only show the middle strip (chunk/0/1)
   EXPECT_THAT(log, ::testing::UnorderedElementsAre("set_starting",
                                                    "set_value: chunk/0/1",
                                                    "set_done", "set_stopping"));

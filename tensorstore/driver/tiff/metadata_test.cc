@@ -153,13 +153,11 @@ TiffParseResult MakeParseResult(std::vector<ImageDirectory> dirs,
   TiffParseResult result;
   result.image_directories = std::move(dirs);
   result.endian = endian;
-  result.full_read = true;  // Assume fully parsed for tests
-  // Other TiffParseResult fields not used by ResolveMetadata yet.
+  result.full_read = true;  
   return result;
 }
 // --- Tests for TiffSpecOptions ---
 TEST(SpecOptionsTest, JsonBindingDefault) {
-  // Default is single IFD 0
   TestJsonBinderRoundTripJsonOnly<TiffSpecOptions>(
       {
           /*expected_json=*/{{"ifd", 0}},

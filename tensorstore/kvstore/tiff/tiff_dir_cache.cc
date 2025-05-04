@@ -22,13 +22,12 @@
 #include "riegeli/bytes/cord_reader.h"
 #include "tensorstore/internal/cache/async_cache.h"
 #include "tensorstore/internal/estimate_heap_usage/estimate_heap_usage.h"
+#include "tensorstore/internal/estimate_heap_usage/std_vector.h"  // IWYU pragma: keep
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/util/future.h"
-
-#include "tensorstore/internal/estimate_heap_usage/std_vector.h"  // IWYU pragma: keep
 
 namespace tensorstore {
 namespace internal_tiff_kvstore {
@@ -46,8 +45,7 @@ struct ReadDirectoryOp
   // partial reads are needed.
   bool is_full_read_;
 
-  // The resulting parse data we will build up. This includes raw file data, IFD
-  // entries, etc.
+  // The resulting parse data we will build up.
   std::shared_ptr<TiffParseResult> parse_result_;
 
   // Buffer for storing raw file data during reading and parsing operations
@@ -56,8 +54,7 @@ struct ReadDirectoryOp
   // The offset in the file that corresponds to buffer[0].
   uint64_t file_offset_;
 
-  // The next IFD offset we expect to parse. If 0, we have no more IFDs in the
-  // chain.
+  // The next IFD offset we expect to parse. If 0, we have no more IFDs.
   uint64_t next_ifd_offset_;
 
   void StartTiffRead() {
@@ -67,15 +64,14 @@ struct ReadDirectoryOp
         << " with byte range: " << options_.byte_range;
 
     is_full_read_ = false;
-    file_offset_ = 0;  // We’re reading from the start.
+    file_offset_ = 0;
     parse_result_ = std::make_shared<TiffParseResult>();
 
-    // Honour any *caller‑supplied* range that is smaller than the slice.
     if (!options_.byte_range.IsFull() &&
         options_.byte_range.size() <= kInitialReadBytes) {
-      // Caller already requested an explicit (small) range → keep it.
+      // Caller already requested an explicit (small) range. Keep it.
     } else {
-      // Otherwise issue our standard 0‑1023 probe.
+      // Otherwise issue our standard 0‑kInitialReadBytes probe.
       options_.byte_range =
           OptionalByteRangeRequest::Range(0, kInitialReadBytes);
     }
@@ -95,8 +91,7 @@ struct ReadDirectoryOp
         });
   }
 
-  // Called after the initial read completes (the read that tries to parse the
-  // TIFF header).
+  // Called after the initial read completes.
   void OnHeaderReadComplete(ReadyFuture<kvstore::ReadResult> ready) {
     const auto& r = ready.result();
     ABSL_LOG_IF(INFO, tiff_logging)
@@ -108,7 +103,6 @@ struct ReadDirectoryOp
       // Possibly partial read overshot the file
       if (!is_full_read_ && absl::IsOutOfRange(r.status())) {
         is_full_read_ = true;
-        // Switch to a full read
         ABSL_LOG_IF(INFO, tiff_logging)
             << "Overshot file. Issuing a full read for key: " << entry_->key();
         options_.byte_range = {};
@@ -123,7 +117,6 @@ struct ReadDirectoryOp
             });
         return;
       }
-      // Some other error
       entry_->ReadError(
           internal::ConvertInvalidArgumentToFailedPrecondition(r.status()));
       return;
@@ -137,7 +130,6 @@ struct ReadDirectoryOp
     }
     if (r->aborted()) {
       if (existing_read_data_) {
-        // Return existing data
         ABSL_LOG_IF(INFO, tiff_logging)
             << "Read aborted, returning existing data for key: "
             << entry_->key();
@@ -160,7 +152,6 @@ struct ReadDirectoryOp
       parse_result_->full_read = is_full_read_;
     }
 
-    // Parse the header
     riegeli::CordReader cord_reader(&buffer);
     Endian endian;
     absl::Status header_status =
@@ -188,15 +179,15 @@ struct ReadDirectoryOp
       return;
     }
 
-    absl::Status s = ParseOneIFD();
-    if (absl::IsOutOfRange(s)) {
+    absl::Status status = ParseOneIFD();
+    if (absl::IsOutOfRange(status)) {
       // Means we need more data
       RequestMoreData(std::move(stamp));
       return;
     }
-    if (!s.ok()) {
+    if (!status.ok()) {
       // Some other error
-      entry_->ReadError(s);
+      entry_->ReadError(status);
       return;
     }
 
@@ -245,11 +236,12 @@ struct ReadDirectoryOp
     // Now parse from the beginning of buffer as offset=0 in the local sense.
     riegeli::CordReader reader(&buffer);
     TiffDirectory dir;
-    absl::Status s = ParseTiffDirectory(reader, parse_result_->endian,
-                                        /*local_offset=*/0, buffer.size(), dir);
-    if (!s.ok()) {
-      ABSL_LOG_IF(WARNING, tiff_logging) << "Failed to parse IFD: " << s;
-      return s;  // Could be OutOfRange, parse error, etc.
+    absl::Status status =
+        ParseTiffDirectory(reader, parse_result_->endian,
+                           /*local_offset=*/0, buffer.size(), dir);
+    if (!status.ok()) {
+      ABSL_LOG_IF(WARNING, tiff_logging) << "Failed to parse IFD: " << status;
+      return status;
     }
 
     // Store the IFD’s entries in parse_result_->ifd_entries (or directories).
@@ -284,8 +276,9 @@ struct ReadDirectoryOp
       uint64_t read_begin = std::max(current_data_end, next_ifd_offset_);
       uint64_t read_end = read_begin + kInitialReadBytes;
 
-      // If that end is some large threshold, we might want to do a full read:
-      if (read_end > (16 * 1024 * 1024)) { 
+      // If we need to request more than some large threshold,
+      // we might want to do a full read.
+      if (read_end - read_begin > (32 * 1024 * 1024)) {
         is_full_read_ = true;
         options_.byte_range = OptionalByteRangeRequest(file_offset_);
       } else {
@@ -296,18 +289,18 @@ struct ReadDirectoryOp
       // We set parse_result_->full_read but apparently we didn’t get enough
       // data. That’s an error or truncated file.
       entry_->ReadError(absl::DataLossError(
-          "Need more data after already in full‑read mode."));
+          "Need more data after already in full-read mode."));
       return;
     }
 
     auto& cache = internal::GetOwningCache(*entry_);
-    auto fut =
+    auto future =
         cache.kvstore_driver_->Read(std::string(entry_->key()), options_);
     ABSL_LOG_IF(INFO, tiff_logging)
         << "Issued additional read request for key: " << entry_->key()
         << " with byte range: " << options_.byte_range;
-    fut.Force();
-    fut.ExecuteWhenReady(
+    future.Force();
+    future.ExecuteWhenReady(
         [self = internal::IntrusivePtr<ReadDirectoryOp>(this),
          s = std::move(stamp)](ReadyFuture<kvstore::ReadResult> ready) mutable {
           ABSL_LOG_IF(INFO, tiff_logging)
@@ -332,9 +325,9 @@ struct ReadDirectoryOp
         future.Force();
         future.ExecuteWhenReady(
             [self = internal::IntrusivePtr<ReadDirectoryOp>(this),
-             st =
+             stamp =
                  std::move(stamp)](ReadyFuture<kvstore::ReadResult> f) mutable {
-              self->OnAdditionalDataRead(std::move(f), std::move(st));
+              self->OnAdditionalDataRead(std::move(f), std::move(stamp));
             });
         return;
       }
@@ -362,7 +355,6 @@ struct ReadDirectoryOp
     // If we're reading from next_ifd_offset directly (which is far away from
     // our buffer end), we should reset our buffer instead of appending.
     if (options_.byte_range.inclusive_min >= file_offset_ + buffer.size()) {
-      // This is a non-contiguous read, so replace buffer instead of appending
       buffer = std::move(rr.value);
       file_offset_ = options_.byte_range.inclusive_min;
     } else {
@@ -400,14 +392,13 @@ struct ReadDirectoryOp
     // Parse each TiffDirectory into a corresponding ImageDirectory.
     // Also check entries for external arrays.
     for (size_t i = 0; i < parse_result_->directories.size(); ++i) {
-      // Parse the IFD into parse_result_->image_directories[i].
       ABSL_LOG_IF(INFO, tiff_logging) << "Parsing image metadata from IFD #"
                                       << i << " for key: " << entry_->key();
-      absl::Status s =
+      absl::Status status =
           ParseImageDirectory(parse_result_->directories[i].entries,
                               parse_result_->image_directories[i]);
-      if (!s.ok()) {
-        entry_->ReadError(s);
+      if (!status.ok()) {
+        entry_->ReadError(status);
         return;
       }
 
@@ -557,17 +548,11 @@ Future<void> TiffDirectoryCache::Entry::LoadExternalArrays(
           }
 
           // We'll parse the data into the image directory's appropriate field.
-          // Grab the corresponding ImageDirectory.
           auto& img_dir =
               parse_result->image_directories[array_info.image_index];
 
-          // Create a reader for the data
           riegeli::CordReader cord_reader(&rr->value);
-
-          // Determine how to parse the array based on the tag and type
           absl::Status parse_status;
-
-          // Handle uint16_t arrays differently than uint64_t arrays
           if (array_info.type == TiffDataType::kShort &&
               (array_info.tag == Tag::kBitsPerSample ||
                array_info.tag == Tag::kSampleFormat)) {
@@ -593,7 +578,7 @@ Future<void> TiffDirectoryCache::Entry::LoadExternalArrays(
               parse_status = absl::OkStatus();  // Skip unhandled uint16_t array
             }
           } else {
-            // Handle uint64_t arrays
+            // Parse uint64_t arrays
             std::vector<uint64_t>* output_array = nullptr;
             switch (array_info.tag) {
               case Tag::kStripOffsets:

@@ -112,7 +112,6 @@ absl::Status ParseUint64Array(const IfdEntry* entry,
       out[0] = entry->value_or_offset;
       return absl::OkStatus();
     } else {
-      // This shouldn't happen as we've checked is_external_array above
       return absl::InternalError(
           "Inconsistent state: multi-value array marked as inline");
     }
@@ -156,7 +155,6 @@ absl::Status ParseUint16Array(const IfdEntry* entry,
       out[0] = static_cast<uint16_t>(entry->value_or_offset);
       return absl::OkStatus();
     } else {
-      // This shouldn't happen as we've checked is_external_array above
       return absl::InternalError(
           "Inconsistent state: multi-value array marked as inline");
     }

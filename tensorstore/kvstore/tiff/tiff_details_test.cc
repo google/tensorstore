@@ -199,7 +199,6 @@ TEST(TiffDetailsTest, ParseImageDirectory_DuplicateTags) {
 }
 
 TEST(TiffDetailsTest, GetTiffDataTypeSize) {
-  // Test size of various TIFF data types
   EXPECT_EQ(GetTiffDataTypeSize(TiffDataType::kByte), 1);
   EXPECT_EQ(GetTiffDataTypeSize(TiffDataType::kAscii), 1);
   EXPECT_EQ(GetTiffDataTypeSize(TiffDataType::kShort), 2);
@@ -223,24 +222,21 @@ TEST(TiffDetailsTest, GetTiffDataTypeSize) {
 
 TEST(TiffDetailsTest, IsExternalArray) {
   // Test with data that fits in 4 bytes (inline)
-  EXPECT_FALSE(IsExternalArray(TiffDataType::kLong, 1));   // 4 bytes
-  EXPECT_FALSE(IsExternalArray(TiffDataType::kShort, 2));  // 4 bytes
-  EXPECT_FALSE(IsExternalArray(TiffDataType::kByte, 4));   // 4 bytes
+  EXPECT_FALSE(IsExternalArray(TiffDataType::kLong, 1));
+  EXPECT_FALSE(IsExternalArray(TiffDataType::kShort, 2));
+  EXPECT_FALSE(IsExternalArray(TiffDataType::kByte, 4));
 
   // Test with data that doesn't fit in 4 bytes (external)
-  EXPECT_TRUE(IsExternalArray(TiffDataType::kLong, 2));      // 8 bytes
-  EXPECT_TRUE(IsExternalArray(TiffDataType::kShort, 3));     // 6 bytes
-  EXPECT_TRUE(IsExternalArray(TiffDataType::kByte, 5));      // 5 bytes
-  EXPECT_TRUE(IsExternalArray(TiffDataType::kRational, 1));  // 8 bytes
+  EXPECT_TRUE(IsExternalArray(TiffDataType::kLong, 2));
+  EXPECT_TRUE(IsExternalArray(TiffDataType::kShort, 3));
+  EXPECT_TRUE(IsExternalArray(TiffDataType::kByte, 5));
+  EXPECT_TRUE(IsExternalArray(TiffDataType::kRational, 1));
 }
 
 TEST(TiffDetailsTest, ParseExternalArray) {
   // Create a buffer with four uint32 values in little-endian format
   static constexpr unsigned char kBuffer[] = {
-      100, 0, 0, 0,  // 100 (uint32, little endian)
-      200, 0, 0, 0,  // 200
-      150, 0, 0, 0,  // 150
-      250, 0, 0, 0,  // 250
+      100, 0, 0, 0, 200, 0, 0, 0, 150, 0, 0, 0, 250, 0, 0, 0,
   };
 
   riegeli::StringReader reader(std::string_view(
@@ -274,39 +270,32 @@ TEST(TiffDetailsTest, ParseExternalArray_SeekFail) {
 
 TEST(TiffDetailsTest, ParseExternalArray_ReadFail) {
   // Create a buffer with incomplete data
-  static constexpr unsigned char kBuffer[] = {100, 0, 0};  // Only 3 bytes
+  static constexpr unsigned char kBuffer[] = {100, 0, 0};
 
   riegeli::StringReader reader(std::string_view(
       reinterpret_cast<const char*>(kBuffer), sizeof(kBuffer)));
 
   std::vector<uint64_t> values;
-  // Try to read a uint32 from a 3-byte buffer
   EXPECT_THAT(ParseExternalArray(reader, Endian::kLittle, 0, 1,
                                  TiffDataType::kLong, values),
               ::tensorstore::MatchesStatus(absl::StatusCode::kDataLoss));
 }
 
 TEST(TiffDetailsTest, ParseExternalArray_InvalidType) {
-  // Create a small valid buffer
   static constexpr unsigned char kBuffer[] = {1, 2, 3, 4};
 
   riegeli::StringReader reader(std::string_view(
       reinterpret_cast<const char*>(kBuffer), sizeof(kBuffer)));
 
   std::vector<uint64_t> values;
-  // Try with an unsupported type
   EXPECT_THAT(ParseExternalArray(reader, Endian::kLittle, 0, 1,
                                  TiffDataType::kRational, values),
               ::tensorstore::MatchesStatus(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(TiffDetailsTest, ParseUint16Array) {
-  // Create a buffer with four uint16 values in little-endian format
   static constexpr unsigned char kBuffer[] = {
-      100, 0,  // 100 (uint16, little endian)
-      200, 0,  // 200
-      150, 0,  // 150
-      250, 0,  // 250
+      100, 0, 200, 0, 150, 0, 250, 0,
   };
 
   riegeli::StringReader reader(std::string_view(
@@ -324,7 +313,6 @@ TEST(TiffDetailsTest, ParseUint16Array) {
 }
 
 TEST(TiffDetailsTest, ParseUint16Array_SeekFail) {
-  // Create a small buffer to test seek failure
   static constexpr unsigned char kBuffer[] = {1, 2, 3, 4};
 
   riegeli::StringReader reader(std::string_view(
@@ -338,34 +326,26 @@ TEST(TiffDetailsTest, ParseUint16Array_SeekFail) {
 
 TEST(TiffDetailsTest, ParseUint16Array_ReadFail) {
   // Create a buffer with incomplete data
-  static constexpr unsigned char kBuffer[] = {100};  // Only 1 byte
+  static constexpr unsigned char kBuffer[] = {100};
 
   riegeli::StringReader reader(std::string_view(
       reinterpret_cast<const char*>(kBuffer), sizeof(kBuffer)));
 
   std::vector<uint16_t> values;
-  // Try to read a uint16 from a 1-byte buffer
   EXPECT_THAT(ParseUint16Array(reader, Endian::kLittle, 0, 1, values),
               ::tensorstore::MatchesStatus(absl::StatusCode::kDataLoss));
 }
 
-// Test for ParseImageDirectory with external arrays
 TEST(TiffDetailsTest, ParseImageDirectory_ExternalArrays) {
-  // Setup IFD entries with external arrays
   std::vector<IfdEntry> entries = {
-      {Tag::kImageWidth, TiffDataType::kLong, 1, 512},   // ImageWidth
-      {Tag::kImageLength, TiffDataType::kLong, 1, 512},  // ImageLength
-      {Tag::kTileWidth, TiffDataType::kLong, 1, 256},    // TileWidth
-      {Tag::kTileLength, TiffDataType::kLong, 1, 256},   // TileLength
-      // External arrays (is_external_array = true)
-      {Tag::kTileOffsets, TiffDataType::kLong, 4, 1000,
-       true},  // TileOffsets (external)
-      {Tag::kTileByteCounts, TiffDataType::kLong, 4, 2000,
-       true},  // TileByteCounts (external)
-      {Tag::kBitsPerSample, TiffDataType::kShort, 3, 3000,
-       true},  // BitsPerSample (external)
-      {Tag::kSamplesPerPixel, TiffDataType::kShort, 1,
-       3},  // SamplesPerPixel (inline)
+      {Tag::kImageWidth, TiffDataType::kLong, 1, 512},
+      {Tag::kImageLength, TiffDataType::kLong, 1, 512},
+      {Tag::kTileWidth, TiffDataType::kLong, 1, 256},
+      {Tag::kTileLength, TiffDataType::kLong, 1, 256},
+      {Tag::kTileOffsets, TiffDataType::kLong, 4, 1000, true},
+      {Tag::kTileByteCounts, TiffDataType::kLong, 4, 2000, true},
+      {Tag::kBitsPerSample, TiffDataType::kShort, 3, 3000, true},
+      {Tag::kSamplesPerPixel, TiffDataType::kShort, 1, 3},
   };
 
   ImageDirectory dir;
