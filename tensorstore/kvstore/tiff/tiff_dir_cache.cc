@@ -540,7 +540,7 @@ Future<void> TiffDirectoryCache::Entry::LoadExternalArrays(
     read_future.Force();
 
     read_future.ExecuteWhenReady(
-        [ls = load_state, &parse_result, array_info,
+        [ls = load_state, parse_result, array_info,
          stamp](ReadyFuture<kvstore::ReadResult> ready) mutable {
           auto& rr = ready.result();
           if (!rr.ok()) {
