@@ -149,8 +149,9 @@ class TiffChunkCache : public internal::KvsBackedChunkCache {
     if (metadata.stacking_info) {
       const auto& stacking_info = *metadata.stacking_info;
       const auto& sizes = *stacking_info.dimension_sizes;
-      const auto& order =
-          stacking_info.ifd_sequence_order.value_or(stacking_info.dimensions);
+      const auto& order = stacking_info.ifd_sequence_order
+                              ? *stacking_info.ifd_sequence_order
+                              : stacking_info.dimensions;
 
       uint64_t stride = 1;
       for (int i = static_cast<int>(order.size()) - 1; i >= 0; --i) {

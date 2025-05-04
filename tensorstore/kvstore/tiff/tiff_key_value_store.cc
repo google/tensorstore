@@ -257,7 +257,6 @@ struct ReadState : public internal::AtomicReferenceCount<ReadState> {
     absolute_byte_range.exclusive_max += chunk_offset;
     chunk_read_options.byte_range = absolute_byte_range;
 
-    // Issue read for the chunk data bytes from the base kvstore
     auto future = owner_->base_.driver->Read(owner_->base_.path,
                                              std::move(chunk_read_options));
     future.Force();
@@ -361,7 +360,6 @@ struct ListState : public internal::AtomicReferenceCount<ListState> {
                                ListEntry{std::string(adjusted_key),
                                          ListEntry::checked_size(chunk_size)});
 
-          // Check if cancellation was requested by the receiver downstream
           if (!promise_.result_needed()) {
             return;
           }
@@ -378,8 +376,7 @@ struct ListState : public internal::AtomicReferenceCount<ListState> {
       if (!promise_.result_needed()) {
         return;
       }
-
-    }  // End loop over IFDs
+    }
 
     promise_.SetResult(absl::OkStatus());
   }
@@ -391,7 +388,6 @@ Future<kvstore::DriverPtr> Spec::DoOpen() const {
       [spec = internal::IntrusivePtr<const Spec>(this)](
           kvstore::KvStore& base_kvstore) mutable
           -> Result<kvstore::DriverPtr> {
-        // Create cache key from base kvstore and executor
         std::string cache_key;
         internal::EncodeCacheKey(&cache_key, base_kvstore.driver,
                                  base_kvstore.path,
@@ -486,11 +482,8 @@ Result<DriverPtr> GetTiffKeyValueStoreDriver(
   auto driver = internal::MakeIntrusivePtr<TiffKeyValueStore>();
   driver->base_ = KvStore(base_kvstore, std::move(path));
 
-  // Assign the provided *resolved* resource handles
   driver->spec_data_.cache_pool = cache_pool_res;
   driver->spec_data_.data_copy_concurrency = data_copy_res;
-
-  // Assign the provided cache entry
   driver->cache_entry_ = dir_cache_entry;
 
   return DriverPtr(std::move(driver));
