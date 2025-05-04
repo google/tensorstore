@@ -562,11 +562,13 @@ TEST_F(TiffDriverTest, InvalidSpecExtraMember) {
 }
 
 TEST_F(TiffDriverTest, TestSpecSchemaDtype) {
-  TestSpecSchema({{"driver", "tiff"},
-                  {"kvstore", "memory://"},
-                  {"metadata", {{"dtype", "uint16"}}}},
-                 // Expected schema now includes the default codec:
-                 {{"dtype", "uint16"}, {"codec", {{"driver", "tiff"}}}});
+  TestSpecSchema(
+      {{"driver", "tiff"},
+       {"kvstore", "memory://"},
+       {"metadata", {{"dtype", "uint16"}}}},
+      // Expected schema now includes the default codec:
+      {{"dtype", "uint16"},
+       {"codec", {{"driver", "tiff"}, {"compression", {{"type", "raw"}}}}}});
 }
 
 TEST_F(TiffDriverTest, TestSpecSchemaRank) {
@@ -751,7 +753,8 @@ TEST_F(TiffDriverTest, Properties) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto codec, store.codec());
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto expected_codec,
-      CodecSpec::FromJson({{"driver", "tiff"}, {"compression", "raw"}}));
+      CodecSpec::FromJson(
+          {{"driver", "tiff"}, {"compression", {{"type", "raw"}}}}));
   EXPECT_EQ(expected_codec, codec);
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto units, store.dimension_units());

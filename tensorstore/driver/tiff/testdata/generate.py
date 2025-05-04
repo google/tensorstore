@@ -21,8 +21,17 @@ def generate_coordinate_array(shape, dtype=np.uint16):
     it = np.nditer(arr, flags=["multi_index"], op_flags=["readwrite"])
     count = 1
     while not it.finished:
-        max_val = np.iinfo(dtype).max if np.issubdtype(dtype, np.integer) else 65535
-        arr[it.multi_index] = count % max_val
+        if np.issubdtype(dtype, np.integer):
+            iinfo = np.iinfo(dtype)
+            modulo_base = int(iinfo.max) + 1
+            if modulo_base > 0:
+                current_val = count % modulo_base
+            else:
+                current_val = count
+        else:
+            current_val = count
+
+        arr[it.multi_index] = current_val
         count += 1
         it.iternext()
     return arr
@@ -49,7 +58,7 @@ def write_tiff(
         f"  Stack: {stack_dims or 'None'}, SPP: {spp}, Planar: {planar_config_str}, Dtype: {dtype.__name__}, Tile: {tile_shape}"
     )
 
-    stack_dims = stack_dims or {}  
+    stack_dims = stack_dims or {}
 
     if not stack_dims:
         stack_labels_numpy_order = []
@@ -210,5 +219,16 @@ write_tiff(
     ifd_sequence_order=["z", "t"],  # T fastest
     description="Z=2, T=3, SPP=1, int16, Contig, Tile=16x16. T fastest IFD order",
 )
+
+# --- Test Case 8: single‑image, Zstd‑compressed ---
+write_tiff(
+    filename=OUTPUT_DIR / "single_zstd_uint8.tif",
+    base_shape=(BASE_HEIGHT, BASE_WIDTH),
+    dtype=np.uint8,
+    stack_dims=None,
+    compression="zstd",
+    description="Single IFD, uint8, Zstd compression, Tile=16x16",
+)
+
 
 logging.info(f"Finished generating TIFF files in {OUTPUT_DIR}")

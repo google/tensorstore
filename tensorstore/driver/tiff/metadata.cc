@@ -33,6 +33,8 @@
 #include "tensorstore/codec_spec.h"
 #include "tensorstore/codec_spec_registry.h"
 #include "tensorstore/data_type.h"
+#include "tensorstore/driver/tiff/compressor.h"
+#include "tensorstore/driver/tiff/compressor_registry.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dimension_units.h"
@@ -80,24 +82,18 @@ absl::Status TiffCodecSpec::DoMergeFrom(
     return absl::InvalidArgumentError("Cannot merge non-TIFF codec spec");
   }
   const auto& other = static_cast<const TiffCodecSpec&>(other_base);
-
-  if (other.compression_type.has_value()) {
-    if (!compression_type.has_value()) {
-      compression_type = other.compression_type;
-    } else if (*compression_type != *other.compression_type) {
-      // Allow merging if one specifies 'raw' (kNone) and the other doesn't
-      // specify? Or require exact match or one empty? Let's require exact match
-      // or one empty.
-      if (*compression_type != CompressionType::kNone &&
-          *other.compression_type != CompressionType::kNone) {
+  if (other.compressor) {
+    if (!this->compressor) {
+      this->compressor = other.compressor;
+    } else {
+      TENSORSTORE_ASSIGN_OR_RETURN(auto this_json,
+                                   jb::ToJson(this->compressor));
+      TENSORSTORE_ASSIGN_OR_RETURN(auto other_json,
+                                   jb::ToJson(other.compressor));
+      if (!internal_json::JsonSame(this_json, other_json)) {
         return absl::InvalidArgumentError(tensorstore::StrCat(
-            "TIFF compression type mismatch: existing=",
-            static_cast<int>(*compression_type),
-            ", new=", static_cast<int>(*other.compression_type)));
-      }
-      // If one is kNone and the other isn't, take the non-kNone one.
-      if (*compression_type == CompressionType::kNone) {
-        compression_type = other.compression_type;
+            "TIFF compression type mismatch: existing=", this_json.dump(),
+            ", new=", other_json.dump()));
       }
     }
   }
@@ -106,18 +102,14 @@ absl::Status TiffCodecSpec::DoMergeFrom(
 
 TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
     TiffCodecSpec,
-    jb::Object(jb::Member(
-        "compression", jb::Projection<&TiffCodecSpec::compression_type>(
-                           jb::Optional(jb::Enum<CompressionType, std::string>({
-                               {CompressionType::kNone, "raw"},
-                               {CompressionType::kLZW, "lzw"},
-                               {CompressionType::kDeflate, "deflate"},
-                               {CompressionType::kPackBits, "packbits"}
-                               // TODO: Add other supported types
-                           }))))))
+    jb::Member("compression", jb::Projection<&TiffCodecSpec::compressor>(
+                                  jb::DefaultValue([](auto* v) {}))))
 
 bool operator==(const TiffCodecSpec& a, const TiffCodecSpec& b) {
-  return a.compression_type == b.compression_type;
+  auto a_json = jb::ToJson(a.compressor);
+  auto b_json = jb::ToJson(b.compressor);
+  return (a_json.ok() == b_json.ok()) &&
+         (!a_json.ok() || internal_json::JsonSame(*a_json, *b_json));
 }
 
 namespace {
@@ -203,23 +195,6 @@ Result<ContiguousLayoutOrder> GetLayoutOrderFromInnerOrder(
       StrCat("Inner order ", inner_order,
              " is not a pure C or Fortran permutation; "
              "mixed-strides currently unimplemented"));
-}
-
-// Helper to convert CompressionType enum to string ID for registry lookup
-Result<std::string_view> CompressionTypeToStringId(CompressionType type) {
-  static const absl::flat_hash_map<CompressionType, std::string_view> kMap = {
-      {CompressionType::kNone, "raw"},
-      {CompressionType::kLZW, "lzw"},
-      {CompressionType::kDeflate, "deflate"},
-      {CompressionType::kPackBits, "packbits"},
-  };
-  auto it = kMap.find(type);
-  if (it == kMap.end()) {
-    return absl::UnimplementedError(
-        tensorstore::StrCat("TIFF compression type ", static_cast<int>(type),
-                            " not mapped to string ID"));
-  }
-  return it->second;
 }
 
 // Helper to check IFD uniformity for multi-IFD stacking
@@ -694,6 +669,30 @@ Result<std::shared_ptr<const TiffMetadata>> ResolveMetadata(
                             ifd_planar_config, initial_samples_per_pixel,
                             sample_label));
 
+  // 3.5 Determine Compressor from TIFF tag using the reverse map and registry
+  Compressor resolved_compressor;
+  auto const& compression_map = GetTiffCompressionMap();
+  auto it = compression_map.find(initial_compression_type);
+  if (it == compression_map.end()) {
+    // If the tag value isn't in our map, it's unsupported (or kNone/raw)
+    if (initial_compression_type != CompressionType::kNone) {
+      return absl::UnimplementedError(
+          StrCat("Unsupported TIFF compression type tag: ",
+                 static_cast<int>(initial_compression_type)));
+    }
+  } else {
+    // Found in map, get string ID and create Compressor via registry
+    std::string_view type_id = it->second;
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        resolved_compressor, Compressor::FromJson({{"type", type_id}}),
+        MaybeAnnotateStatus(
+            _, "Failed to create compressor instance from TIFF tag"));
+    if (!resolved_compressor && type_id != "raw") {
+      return absl::InternalError(StrCat("Compressor type '", type_id,
+                                        "' resolved to null unexpectedly"));
+    }
+  }
+
   // 4. Merge with Schema
   Schema merged_schema = schema;
 
@@ -717,10 +716,6 @@ Result<std::shared_ptr<const TiffMetadata>> ResolveMetadata(
   TENSORSTORE_RETURN_IF_ERROR(final_layout.Finalize());
 
   TENSORSTORE_ASSIGN_OR_RETURN(
-      Compressor final_compressor,
-      GetEffectiveCompressor(initial_compression_type, merged_schema.codec()));
-
-  TENSORSTORE_ASSIGN_OR_RETURN(
       DimensionUnitsVector final_units,
       GetEffectiveDimensionUnits(final_rank, merged_schema));
 
@@ -728,6 +723,36 @@ Result<std::shared_ptr<const TiffMetadata>> ResolveMetadata(
     return absl::InvalidArgumentError(
         "fill_value not supported by TIFF format");
   }
+
+  // 4.5 Merge with Schema Codec constraints.
+  CodecSpec schema_codec = merged_schema.codec();
+  if (schema_codec.valid()) {
+    const internal::CodecDriverSpec* schema_driver_spec_ptr =
+        schema_codec.get();
+
+    if (schema_driver_spec_ptr == nullptr ||
+        dynamic_cast<const TiffCodecSpec*>(schema_driver_spec_ptr) != nullptr) {
+      auto temp_codec_spec = internal::CodecDriverSpec::Make<TiffCodecSpec>();
+      temp_codec_spec->compressor = resolved_compressor;
+      TENSORSTORE_RETURN_IF_ERROR(
+          temp_codec_spec->MergeFrom(schema_codec),
+          MaybeAnnotateStatus(
+              _,
+              "Schema codec constraints conflict with TIFF file compression"));
+      resolved_compressor = temp_codec_spec->compressor;
+    } else {
+      std::string schema_driver_id = "<unknown>";
+      if (auto j_result = schema_codec.ToJson(); j_result.ok() &&
+                                                 j_result->is_object() &&
+                                                 j_result->contains("driver")) {
+        schema_driver_id = j_result->value("driver", "<unknown>");
+      }
+      return absl::InvalidArgumentError(
+          StrCat("Schema codec driver \"", schema_driver_id,
+                 "\" is incompatible with tiff driver"));
+    }
+  }
+  Compressor final_compressor = std::move(resolved_compressor);
 
   // 5. Build Final TiffMetadata
   auto metadata = std::make_shared<TiffMetadata>();
@@ -742,8 +767,7 @@ Result<std::shared_ptr<const TiffMetadata>> ResolveMetadata(
   metadata->ifd0_chunk_width = base_ifd.chunk_width;
   metadata->ifd0_chunk_height = base_ifd.chunk_height;
   metadata->compressor = std::move(final_compressor);
-  metadata->compression_type =
-      metadata->compressor ? initial_compression_type : CompressionType::kNone;
+  metadata->compression_type = initial_compression_type;
   metadata->rank = final_rank;
   metadata->shape.assign(final_domain.shape().begin(),
                          final_domain.shape().end());
@@ -833,61 +857,6 @@ Result<DataType> GetEffectiveDataType(
   }
   if (dtype.valid()) TENSORSTORE_RETURN_IF_ERROR(ValidateDataType(dtype));
   return dtype;
-}
-
-// Helper to get the effective compressor based on type and codec spec options
-Result<Compressor> GetEffectiveCompressor(CompressionType compression_type,
-                                          const CodecSpec& schema_codec) {
-  // Determine initial compressor type from TIFF tag
-  // TENSORSTORE_ASSIGN_OR_RETURN(std::string_view type_id,
-  //                              CompressionTypeToStringId(compression_type));
-
-  auto initial_codec_spec = internal::CodecDriverSpec::Make<TiffCodecSpec>();
-  initial_codec_spec->compression_type = compression_type;
-
-  // Merge with schema codec spec
-  if (schema_codec.valid()) {
-    TENSORSTORE_RETURN_IF_ERROR(
-        initial_codec_spec->MergeFrom(schema_codec),
-        tensorstore::MaybeAnnotateStatus(
-            _, "Schema codec is incompatible with TIFF file compression"));
-    // If schema specified options for the *same* compression type, they would
-    // be merged here (currently only type is stored).
-  }
-
-  auto final_compression_type =
-      initial_codec_spec->compression_type.value_or(CompressionType::kNone);
-
-  if (final_compression_type == CompressionType::kNone) {
-    return Compressor{nullptr};
-  }
-
-  // Re-lookup the type ID in case merging changed the type
-  TENSORSTORE_ASSIGN_OR_RETURN(
-      std::string_view final_type_id,
-      CompressionTypeToStringId(final_compression_type));
-
-  // Create the JSON spec for the final compressor type
-  ::nlohmann::json final_compressor_json = {{"type", final_type_id}};
-  // TODO: Incorporate options from the potentially merged schema_codec if
-  // drivers support it. E.g., if schema_codec was {"driver":"tiff",
-  // "compression":"deflate", "level": 9} and final_compression_type is Deflate,
-  // we'd want to add {"level": 9} to final_compressor_json. This requires
-  // parsing the schema_codec.
-
-  TENSORSTORE_ASSIGN_OR_RETURN(
-      auto final_compressor,
-      Compressor::FromJson(
-          std::move(final_compressor_json),
-          internal::JsonSpecifiedCompressor::FromJsonOptions{}));
-
-  if (!final_compressor && final_compression_type != CompressionType::kNone) {
-    return absl::UnimplementedError(tensorstore::StrCat(
-        "TIFF compression type ", static_cast<int>(final_compression_type),
-        " (", final_type_id, ") is not supported by this driver build."));
-  }
-
-  return final_compressor;
 }
 
 Result<std::pair<IndexDomain<>, std::vector<std::string>>> GetEffectiveDomain(

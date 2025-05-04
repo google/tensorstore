@@ -550,13 +550,9 @@ class TiffDriver final : public TiffDriverBase {
   }
 
   Result<CodecSpec> GetCodec() override {
-    TENSORSTORE_ASSIGN_OR_RETURN(auto metadata, GetMetadata());
-    // TODO(hsidky): Create TiffCodecSpec based on
-    // metadata->compressor/compression_type
-    //             and return CodecSpec(std::move(tiff_codec_spec_ptr))
-    // For now, return default/unimplemented.
+    const auto& metadata = *initial_metadata_;
     auto codec_spec = internal::CodecDriverSpec::Make<TiffCodecSpec>();
-    codec_spec->compression_type = metadata->compression_type;
+    codec_spec->compressor = metadata.compressor;
     return CodecSpec(std::move(codec_spec));
   }
 

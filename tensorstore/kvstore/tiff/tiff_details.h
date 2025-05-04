@@ -59,6 +59,7 @@ enum class CompressionType : uint16_t {
   kLZW = 5,
   kJPEG = 6,
   kDeflate = 8,
+  kZStd = 50000,
   kPackBits = 32773,
 };
 

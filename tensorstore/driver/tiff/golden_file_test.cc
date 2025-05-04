@@ -256,5 +256,12 @@ INSTANTIATE_TEST_SUITE_P(
             {2, 3, H, W},          // Expected Shape (Z, T, Y, X)
             {"z", "t", "y", "x"},  // Expected Labels
             {1, 1, TH, TW}         // Expected Chunk Shape (Z, T, TileH, TileW)
-        }));
+        },
+        // Case 9: Single IFD, uint8 -> Rank 2 (Y, X), ZStd compressed.
+        TestCaseInfo{"raw/single_zstd_uint8.tif",
+                     nlohmann::json{{"tiff", nlohmann::json::object()}},
+                     dtype_v<std::uint8_t>,
+                     {H, W},
+                     {"y", "x"},
+                     {TH, TW}}));
 }  // namespace

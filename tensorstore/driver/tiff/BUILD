@@ -11,6 +11,7 @@ tensorstore_cc_library(
     deps = [
         ":compressor",
         ":metadata",
+        ":zstd_compressor",
         "//tensorstore:array",
         "//tensorstore:chunk_layout",
         "//tensorstore:index",
@@ -43,6 +44,7 @@ tensorstore_cc_library(
     hdrs = ["metadata.h"],
     deps = [
         ":compressor",
+        ":zstd_compressor",
         "//tensorstore:chunk_layout",
         "//tensorstore:codec_spec",
         "//tensorstore:data_type",
@@ -98,6 +100,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:json_registry",
         "//tensorstore/internal/compression:json_specified_compressor",
         "//tensorstore/kvstore/tiff:tiff_details",
+        "@com_google_absl//absl/container:flat_hash_map",
     ],
 )
 
@@ -168,4 +171,15 @@ filegroup(
         ],
         exclude = ["testdata/*.py"],
     ),
+)
+
+tensorstore_cc_library(
+    name = "zstd_compressor",
+    srcs = ["zstd_compressor.cc"],
+    deps = [
+        ":compressor",
+        "//tensorstore/internal/compression:zstd_compressor",
+        "//tensorstore/internal/json_binding",
+    ],
+    alwayslink = 1,
 )

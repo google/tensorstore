@@ -71,7 +71,6 @@ using ::tensorstore::TestJsonBinderRoundTripJsonOnly;
 using ::tensorstore::internal::CodecDriverSpec;
 using ::tensorstore::internal_tiff::Compressor;
 using ::tensorstore::internal_tiff::GetEffectiveChunkLayout;
-using ::tensorstore::internal_tiff::GetEffectiveCompressor;
 using ::tensorstore::internal_tiff::GetEffectiveDimensionUnits;
 using ::tensorstore::internal_tiff::GetEffectiveDomain;
 using ::tensorstore::internal_tiff::GetInitialChunkLayout;
@@ -153,7 +152,7 @@ TiffParseResult MakeParseResult(std::vector<ImageDirectory> dirs,
   TiffParseResult result;
   result.image_directories = std::move(dirs);
   result.endian = endian;
-  result.full_read = true;  
+  result.full_read = true;
   return result;
 }
 // --- Tests for TiffSpecOptions ---
@@ -322,106 +321,44 @@ TEST(MetadataConstraintsTest, JsonBinding) {
               MatchesStatus(absl::StatusCode::kInvalidArgument));
 }
 
-// --- Tests for TiffCodecSpec ---
-TEST(TiffCodecSpecJsonTest, RoundTrip) {
-  const std::vector<std::pair<TiffCodecSpec, ::nlohmann::json>> cases = {
-      // Test empty/default (unconstrained)
-      {{}, ::nlohmann::json::object()},
-      // Test raw
-      {[] {
-         TiffCodecSpec spec;
-         spec.compression_type = CompressionType::kNone;
-         return spec;
-       }(),
-       {{"compression", "raw"}}},
-      // Test LZW
-      {[] {
-         TiffCodecSpec spec;
-         spec.compression_type = CompressionType::kLZW;
-         return spec;
-       }(),
-       {{"compression", "lzw"}}},
-      // Test Deflate
-      {[] {
-         TiffCodecSpec spec;
-         spec.compression_type = CompressionType::kDeflate;
-         return spec;
-       }(),
-       {{"compression", "deflate"}}},
-      // Add other compression types here as needed
-  };
+// --- Tests for Compressor ---
+TEST(CompressorFromJsonTest, CreateRaw) {
+  ::nlohmann::json raw_json = {{"type", "raw"}};
 
-  for (auto& [value, expected_json] : cases) {
-    // Test ToJson (CANT GET THIS TO BUILD. TODO: FIX)
-    // EXPECT_THAT(jb::ToJson(value),
-    // ::testing::Optional(tensorstore::MatchesJson(expected_json)));
-    // Test FromJson
-    EXPECT_THAT(TiffCodecSpec::FromJson(expected_json),
-                ::testing::Optional(value));
-  }
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(Compressor compressor,
+                                   Compressor::FromJson(raw_json));
 
-  // Test invalid string
-  EXPECT_THAT(
-      TiffCodecSpec::FromJson({{"compression", "invalid"}}),
-      MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    ".*Expected one of .* but received: \"invalid\".*"));
-  // Test invalid type
-  EXPECT_THAT(TiffCodecSpec::FromJson({{"compression", 123}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*Expected one of .* but received: 123.*"));
+  EXPECT_THAT(compressor, testing::IsNull());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto round_trip_json,
+                                   jb::ToJson(compressor));
+  EXPECT_THAT(round_trip_json, tensorstore::MatchesJson(raw_json));
 }
 
-TEST(TiffCodecSpecMergeTest, Merging) {
-  auto ptr_lzw = CodecDriverSpec::Make<TiffCodecSpec>();
-  ptr_lzw->compression_type = CompressionType::kLZW;
+TEST(CompressorFromJsonTest, CreateZstd) {
+  ::nlohmann::json zstd_json = {{"type", "zstd"}};
 
-  auto ptr_deflate = CodecDriverSpec::Make<TiffCodecSpec>();
-  ptr_deflate->compression_type = CompressionType::kDeflate;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(Compressor compressor,
+                                   Compressor::FromJson(zstd_json));
 
-  auto ptr_empty = CodecDriverSpec::Make<TiffCodecSpec>();
+  EXPECT_THAT(compressor, testing::NotNull());
 
-  auto ptr_none = CodecDriverSpec::Make<TiffCodecSpec>();
-  ptr_none->compression_type = CompressionType::kNone;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto round_trip_json,
+                                   jb::ToJson(compressor));
+  EXPECT_THAT(round_trip_json, tensorstore::MatchesJson({{"type", "zstd"}}));
+}
 
-  // Test merging INTO spec_lzw
-  TiffCodecSpec target;
-  target.compression_type = CompressionType::kLZW;
+TEST(CompressorFromJsonTest, CreateUnsupported) {
+  ::nlohmann::json unknown_json = {{"type", "nonexistent_compressor"}};
 
-  TiffCodecSpec target_copy = target;
-  TENSORSTORE_EXPECT_OK(target_copy.DoMergeFrom(*ptr_empty));
-  EXPECT_THAT(target_copy.compression_type,
-              ::testing::Optional(CompressionType::kLZW));
+  Result<Compressor> result = Compressor::FromJson(unknown_json);
 
-  target_copy = target;
-  TENSORSTORE_EXPECT_OK(target_copy.DoMergeFrom(*ptr_lzw));
-  EXPECT_THAT(target_copy.compression_type,
-              ::testing::Optional(CompressionType::kLZW));
-
-  target_copy = target;
-  TENSORSTORE_EXPECT_OK(target_copy.DoMergeFrom(*ptr_none));
-  EXPECT_THAT(target_copy.compression_type,
-              ::testing::Optional(CompressionType::kLZW));
-
-  // Test the failing case
-  target_copy = target;
-  absl::Status merge_status = target_copy.DoMergeFrom(*ptr_deflate);
-  ASSERT_FALSE(merge_status.ok());
-  EXPECT_EQ(merge_status.code(), absl::StatusCode::kInvalidArgument);
-  EXPECT_THAT(merge_status.message(),
-              ::testing::HasSubstr("TIFF compression type mismatch"));
-
-  // Test merging inro spec_empty
-  target_copy = TiffCodecSpec{};
-  TENSORSTORE_EXPECT_OK(target_copy.DoMergeFrom(*ptr_lzw));
-  EXPECT_THAT(target_copy.compression_type,
-              ::testing::Optional(CompressionType::kLZW));
-
-  // Test merging INTO spec_none---
-  target_copy = TiffCodecSpec{};
-  target_copy.compression_type = CompressionType::kNone;
-  TENSORSTORE_EXPECT_OK(target_copy.DoMergeFrom(*ptr_lzw));
-  EXPECT_THAT(target_copy.compression_type,
-              ::testing::Optional(CompressionType::kLZW));
+  // Expect an error because the type isn't registered
+  EXPECT_FALSE(result.ok());
+  EXPECT_THAT(
+      result.status(),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    ".*\"nonexistent_compressor\".* is not registered.*"));
 }
 
 // --- Tests for GetInitialChunkLayout ---
@@ -872,32 +809,6 @@ TEST(GetEffectiveDimensionUnitsTest, SchemaRankMismatch) {
                             ".*Schema dimension_units rank.*"));
 }
 
-TEST(GetEffectiveCompressorTest, InitialOnlyRaw) {
-  Schema schema;
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto compressor,
-      GetEffectiveCompressor(CompressionType::kNone, schema.codec()));
-  EXPECT_EQ(compressor, nullptr);
-}
-
-TEST(GetEffectiveCompressorTest, InitialOnlyDeflate) {
-  Schema schema;
-  EXPECT_THAT(GetEffectiveCompressor(CompressionType::kDeflate, schema.codec()),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*deflate.*not registered.*"));
-}
-
-TEST(GetEffectiveCompressorTest, SchemaMatchesDeflate) {
-  Schema schema;
-  TENSORSTORE_ASSERT_OK(schema.Set(
-      CodecSpec::FromJson({{"driver", "tiff"}, {"compression", "deflate"}})
-          .value()));
-
-  EXPECT_THAT(GetEffectiveCompressor(CompressionType::kDeflate, schema.codec()),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*deflate.*not registered.*"));
-}
-
 TEST(GetEffectiveDataTypeTest, ManyChecks) {
   TiffMetadataConstraints constraints;
   Schema schema;
@@ -1197,6 +1108,56 @@ TEST(ResolveMetadataTest, StackNonUniformIFDs) {
       ResolveMetadata(parse_result, options, schema),
       MatchesStatus(absl::StatusCode::kInvalidArgument,
                     ".*IFD 2 dimensions \\(32 x 65\\) do not match IFD 0.*"));
+}
+
+// --- Tests for resolving compression ---
+TEST(ResolveMetadataCompressionTest, TiffRawSchemaNone) {
+  auto parse_result = MakeParseResult({MakeImageDirectory(
+      100, 80, 16, 16, true, 1, 8, SampleFormatType::kUnsignedInteger,
+      CompressionType::kNone, PlanarConfigType::kChunky)});
+  TiffSpecOptions options;
+  Schema schema;
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto metadata, ResolveMetadata(parse_result, options, schema));
+
+  EXPECT_EQ(metadata->compressor, nullptr);
+  EXPECT_EQ(metadata->compression_type, CompressionType::kNone);
+}
+
+TEST(ResolveMetadataCompressionTest, TiffDeflateUnsupportedSchemaNone) {
+  auto parse_result = MakeParseResult({MakeImageDirectory(
+      100, 80, 16, 16, true, 1, 8, SampleFormatType::kUnsignedInteger,
+      CompressionType::kDeflate, PlanarConfigType::kChunky)});
+  TiffSpecOptions options;
+  Schema schema;
+
+  EXPECT_THAT(ResolveMetadata(parse_result, options, schema),
+              MatchesStatus(absl::StatusCode::kUnimplemented,
+                            ".*Unsupported TIFF compression type tag: 8.*"));
+}
+
+TEST(ResolveMetadataCompressionTest, TiffRawSchemaZstd) {
+  auto parse_result = MakeParseResult({MakeImageDirectory(
+      100, 80, 16, 16, true, 1, 8, SampleFormatType::kUnsignedInteger,
+      CompressionType::kNone, PlanarConfigType::kChunky)});
+  TiffSpecOptions options;
+  Schema schema;
+  TENSORSTORE_ASSERT_OK(
+      schema.Set(CodecSpec::FromJson(
+                     {{"driver", "tiff"}, {"compression", {{"type", "zstd"}}}})
+                     .value()));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto metadata, ResolveMetadata(parse_result, options, schema));
+
+  // Expect Zstd compressor (schema overrides raw) but original tag type.
+  ASSERT_NE(metadata->compressor, nullptr);
+  EXPECT_EQ(metadata->compression_type,
+            CompressionType::kNone);  // Original tag
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto json_repr,
+                                   jb::ToJson(metadata->compressor));
+  EXPECT_THAT(json_repr, tensorstore::MatchesJson({{"type", "zstd"}}));
 }
 
 // --- Tests for ValidateResolvedMetadata ---

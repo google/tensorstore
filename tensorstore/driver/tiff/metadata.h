@@ -201,9 +201,8 @@ class TiffCodecSpec : public internal::CodecDriverSpec {
  public:
   constexpr static char id[] = "tiff";
 
-  // Specifies the compression type, if constrained by the spec.
-  // If std::nullopt, the compression type is unconstrained by this spec.
-  std::optional<internal_tiff_kvstore::CompressionType> compression_type;
+  // Stores the compressor constraint, potentially including parameters.
+  Compressor compressor;
 
   CodecSpec Clone() const override;
   absl::Status DoMergeFrom(
@@ -239,17 +238,6 @@ Result<std::shared_ptr<const TiffMetadata>> ResolveMetadata(
 absl::Status ValidateResolvedMetadata(
     const TiffMetadata& resolved_metadata,
     const TiffMetadataConstraints& user_constraints);
-
-/// Computes the effective compressor object by merging the compression type
-/// derived from TIFF tags with constraints from the schema's CodecSpec.
-///
-/// \param compression_type The compression type read from the TIFF file's tags.
-/// \param schema_codec The CodecSpec provided via the Schema object, which may
-///     contain constraints or overrides.
-/// \returns The resolved Compressor object (JsonSpecifiedCompressor::Ptr),
-Result<Compressor> GetEffectiveCompressor(
-    internal_tiff_kvstore::CompressionType compression_type,
-    const CodecSpec& schema_codec);
 
 /// Computes the effective data type based on constraints and schema.
 ///

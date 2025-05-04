@@ -15,8 +15,12 @@
 #ifndef TENSORSTORE_DRIVER_TIFF_COMPRESSOR_REGISTRY_H_
 #define TENSORSTORE_DRIVER_TIFF_COMPRESSOR_REGISTRY_H_
 
+#include <string_view>
+
+#include "absl/container/flat_hash_map.h"
 #include "tensorstore/internal/compression/json_specified_compressor.h"
-#include "tensorstore/internal/json_registry.h" 
+#include "tensorstore/internal/json_registry.h"
+#include "tensorstore/kvstore/tiff/tiff_details.h"
 
 namespace tensorstore {
 namespace internal_tiff {
@@ -25,6 +29,16 @@ namespace internal_tiff {
 // This registry maps string IDs (like "lzw", "deflate") to factories/binders
 // capable of creating JsonSpecifiedCompressor instances.
 internal::JsonSpecifiedCompressor::Registry& GetTiffCompressorRegistry();
+
+// Returns the map from TIFF Compression tag enum to string ID.
+const absl::flat_hash_map<internal_tiff_kvstore::CompressionType,
+                          std::string_view>&
+GetTiffCompressionMap();
+
+template <typename T, typename Binder>
+void RegisterCompressor(std::string_view id, Binder binder) {
+  GetTiffCompressorRegistry().Register<T>(id, binder);
+}
 
 }  // namespace internal_tiff
 }  // namespace tensorstore
