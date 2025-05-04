@@ -25,6 +25,7 @@ tensorstore_cc_library(
         "//tensorstore/kvstore/tiff:tiff_key_value_store",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
+        "//tensorstore/util:str_cat",
         "//tensorstore/util/execution",
         "//tensorstore/util/execution:any_receiver",
         "//tensorstore/util/garbage_collection",

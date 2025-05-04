@@ -20,10 +20,12 @@
 #include <string>
 #include <utility>
 
+#include "absl/base/optimization.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/string_view.h"
 #include "tensorstore/array.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/driver/chunk_cache_driver.h"
@@ -47,6 +49,7 @@
 #include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_tiff {
@@ -68,6 +71,26 @@ using ::tensorstore::internal_kvs_backed_chunk_driver::KvsDriverSpec;
 // This cache handles reading raw tile/strip data from the TiffKeyValueStore
 // and decoding it.
 class TiffChunkCache : public internal::KvsBackedChunkCache {
+  // Hot‑path data we compute once and then reuse for every call.
+  struct FastPath {
+    DimensionIndex y_grid_dim = -1;
+    DimensionIndex x_grid_dim = -1;
+    DimensionIndex sample_grid_dim = -1;
+
+    //  Stack label to grid dimension
+    absl::flat_hash_map<std::string_view, DimensionIndex> stack_to_grid;
+
+    //  Stack label to size
+    absl::flat_hash_map<std::string_view, Index> stack_size;
+
+    //  Stack label to stride
+    absl::flat_hash_map<std::string_view, uint64_t> stack_stride;
+
+    //  Geometry derived from metadata
+    Index num_cols = 0;              // tiles/strips per row
+    Index num_chunks_per_plane = 0;  // planar‑config adjustment
+  };
+
  public:
   using Base = internal::KvsBackedChunkCache;
   using ReadData = ChunkCache::ReadData;
@@ -90,138 +113,127 @@ class TiffChunkCache : public internal::KvsBackedChunkCache {
 
   const Executor& executor() const override { return executor_; }
 
-  std::string GetChunkStorageKey(span<const Index> cell_indices) override {
-    using internal_tiff_kvstore::PlanarConfigType;
-
+  void InitFastPath() {
+    fast_ = std::make_unique<FastPath>();
     const auto& metadata = *resolved_metadata_;
-    const auto& mapping = metadata.dimension_mapping;
     const auto& grid_spec = this->grid();
+    const auto& mapping = metadata.dimension_mapping;
     const DimensionIndex grid_rank = grid_spec.grid_rank();
-
-    ABSL_CHECK(static_cast<DimensionIndex>(cell_indices.size()) == grid_rank);
-
-    // Find the grid dimension index corresponding to each label.
-    DimensionIndex y_grid_dim = -1, x_grid_dim = -1, sample_grid_dim = -1;
-    absl::flat_hash_map<std::string, DimensionIndex> stack_label_to_grid_dim;
 
     const auto& chunked_to_cell =
         grid_spec.components[0].chunked_to_cell_dimensions;
-    for (DimensionIndex grid_i = 0; grid_i < grid_rank; ++grid_i) {
-      DimensionIndex final_ts_dim = chunked_to_cell[grid_i];
-      if (mapping.ts_y_dim == final_ts_dim) {
-        y_grid_dim = grid_i;
-      } else if (mapping.ts_x_dim == final_ts_dim) {
-        x_grid_dim = grid_i;
-      } else if (mapping.ts_sample_dim == final_ts_dim) {
-        // Should only be grid dim if planar
-        assert(metadata.planar_config == PlanarConfigType::kPlanar);
-        sample_grid_dim = grid_i;
+
+    // Helper lambda to find index of a label in a vector
+    auto find_index = [](const std::vector<std::string>& vec,
+                         std::string_view label) {
+      return static_cast<size_t>(std::find(vec.begin(), vec.end(), label) -
+                                 vec.begin());
+    };
+
+    // Classify grid dimensions
+    for (DimensionIndex g = 0; g < grid_rank; ++g) {
+      const DimensionIndex ts_dim = chunked_to_cell[g];
+      if (mapping.ts_y_dim == ts_dim) {
+        fast_->y_grid_dim = g;
+      } else if (mapping.ts_x_dim == ts_dim) {
+        fast_->x_grid_dim = g;
+      } else if (mapping.ts_sample_dim == ts_dim) {
+        fast_->sample_grid_dim = g;
       } else {
-        // Check if it's a known stacking dimension
-        for (const auto& [label, ts_dim] : mapping.ts_stacked_dims) {
-          if (ts_dim == final_ts_dim) {
-            stack_label_to_grid_dim[label] = grid_i;
-            break;
-          }
-        }
-        // If it wasn't Y, X, Sample(planar), or Stacked, it's an unexpected
-        // grid dimension. This might indicate an issue in GetGridSpec's
-        // construction of chunked_to_cell_dimensions.
-        assert(stack_label_to_grid_dim.count(
-            mapping.labels_by_ts_dim[final_ts_dim]));
+        std::string_view label = mapping.labels_by_ts_dim[ts_dim];
+        fast_->stack_to_grid[label] = g;
       }
     }
 
-    // Calculate Target IFD Index
-    uint32_t target_ifd = metadata.base_ifd_index;
+    // Pre‑compute strides for stacked dimensions
     if (metadata.stacking_info) {
-      const auto& stacking = *metadata.stacking_info;
-      const auto& sequence =
-          stacking.ifd_sequence_order.value_or(stacking.dimensions);
-      const auto& sizes = *stacking.dimension_sizes;
-      uint64_t ifd_offset = 0;
+      const auto& stacking_info = *metadata.stacking_info;
+      const auto& sizes = *stacking_info.dimension_sizes;
+      const auto& order =
+          stacking_info.ifd_sequence_order.value_or(stacking_info.dimensions);
+
       uint64_t stride = 1;
-      for (int i = sequence.size() - 1; i >= 0; --i) {
-        const std::string& label = sequence[i];
-        auto it = stack_label_to_grid_dim.find(label);
-        if (it == stack_label_to_grid_dim.end()) {
-          ABSL_LOG(FATAL)
-              << "Stacking dimension '" << label
-              << "' not found in grid dimensions during key generation.";
-          return "error_key";
-        }
-        DimensionIndex grid_dim = it->second;
-        Index stack_index = cell_indices[grid_dim];
-        ifd_offset += static_cast<uint64_t>(stack_index) * stride;
-
-        Index dim_size = -1;
-        for (size_t j = 0; j < stacking.dimensions.size(); ++j) {
-          if (stacking.dimensions[j] == label) {
-            dim_size = sizes[j];
-            break;
-          }
-        }
-        assert(dim_size > 0);
-        stride *= static_cast<uint64_t>(dim_size);
+      for (int i = static_cast<int>(order.size()) - 1; i >= 0; --i) {
+        std::string_view label = order[i];
+        fast_->stack_stride[label] = stride;
+        size_t idx = find_index(stacking_info.dimensions, label);
+        fast_->stack_size[label] = sizes[idx];
+        stride *= static_cast<uint64_t>(sizes[idx]);
       }
-      target_ifd += static_cast<uint32_t>(ifd_offset);
     }
 
-    // Calculate Linear Index within IFD
-    uint64_t linear_index = 0;
-
-    Index y_chunk_idx = (y_grid_dim != -1) ? cell_indices[y_grid_dim] : 0;
-    Index x_chunk_idx = (x_grid_dim != -1) ? cell_indices[x_grid_dim] : 0;
-
-    Index image_height = 0, image_width = 0;
-    if (mapping.ts_y_dim.has_value())
-      image_height = metadata.shape[*mapping.ts_y_dim];
-    if (mapping.ts_x_dim.has_value())
-      image_width = metadata.shape[*mapping.ts_x_dim];
-
-    const Index chunk_height = metadata.ifd0_chunk_height;
+    // Geometry that never changes
     const Index chunk_width = metadata.ifd0_chunk_width;
+    const Index chunk_height = metadata.ifd0_chunk_height;
+    const Index image_width = metadata.shape[*mapping.ts_x_dim];
+    const Index image_height = metadata.shape[*mapping.ts_y_dim];
 
-    if (chunk_height <= 0) {
-      ABSL_LOG(FATAL) << "Invalid chunk height in metadata: " << chunk_height;
-      return "error_key";
-    }
-    if (x_grid_dim != -1 && chunk_width <= 0) {
-      ABSL_LOG(FATAL) << "Invalid chunk width in metadata: " << chunk_width;
-      return "error_key";
-    }
-
+    fast_->num_cols = (image_width + chunk_width - 1) / chunk_width;
     if (metadata.is_tiled) {
-      Index num_cols = (image_width + chunk_width - 1) / chunk_width;
-      Index tile_row = y_chunk_idx;
-      Index tile_col = x_chunk_idx;
-      linear_index = static_cast<uint64_t>(tile_row) * num_cols + tile_col;
+      const Index num_rows = (image_height + chunk_height - 1) / chunk_height;
+      fast_->num_chunks_per_plane = num_rows * fast_->num_cols;
     } else {
-      assert(x_grid_dim == -1 || x_chunk_idx == 0);
-      linear_index = static_cast<uint64_t>(y_chunk_idx);
+      fast_->num_chunks_per_plane =
+          (image_height + chunk_height - 1) / chunk_height;
+    }
+  }
+
+  std::string GetChunkStorageKey(span<const Index> cell_indices) override {
+    using internal_tiff_kvstore::PlanarConfigType;
+    if (!fast_) {
+      InitFastPath();
     }
 
-    // Adjust for planar configuration
+    const FastPath& fast = *fast_;
+    const auto& metadata = *resolved_metadata_;
+
+    // Determine the target IFD index.
+    uint32_t target_ifd_index = metadata.base_ifd_index;
+
+    if (metadata.stacking_info) {
+      const auto& stacking_info = *metadata.stacking_info;
+      const auto& ifd_iteration_order =
+          stacking_info.ifd_sequence_order.value_or(stacking_info.dimensions);
+
+      for (std::string_view stack_label : ifd_iteration_order) {
+        auto grid_dim_it = fast.stack_to_grid.find(stack_label);
+        if (ABSL_PREDICT_FALSE(grid_dim_it == fast.stack_to_grid.end())) {
+          ABSL_LOG(FATAL) << "Stacking dimension label '" << stack_label
+                          << "' not found in grid specification.";
+        }
+
+        DimensionIndex grid_dimension_index = grid_dim_it->second;
+        uint64_t dimension_stride = fast.stack_stride.find(stack_label)->second;
+
+        target_ifd_index += static_cast<uint32_t>(
+            cell_indices[grid_dimension_index] * dimension_stride);
+      }
+    }
+
+    // Compute the linear chunk index within the chosen IFD.
+    Index y_chunk_index =
+        (fast.y_grid_dim >= 0) ? cell_indices[fast.y_grid_dim] : 0;
+    Index x_chunk_index =
+        (fast.x_grid_dim >= 0) ? cell_indices[fast.x_grid_dim] : 0;
+
+    uint64_t linear_chunk_index =
+        metadata.is_tiled
+            ? static_cast<uint64_t>(y_chunk_index) * fast.num_cols +
+                  x_chunk_index
+            : static_cast<uint64_t>(y_chunk_index);
+
+    // Planar‑configuration adjustment: add an offset for the sample plane.
     if (metadata.planar_config == PlanarConfigType::kPlanar &&
         metadata.samples_per_pixel > 1) {
-      assert(sample_grid_dim != -1);
-      Index sample_plane_idx = cell_indices[sample_grid_dim];
-      Index num_chunks_per_plane = 0;
-      if (metadata.is_tiled) {
-        Index num_rows = (image_height + chunk_height - 1) / chunk_height;
-        Index num_cols = (image_width + chunk_width - 1) / chunk_width;
-        num_chunks_per_plane = num_rows * num_cols;
-      } else {
-        num_chunks_per_plane = (image_height + chunk_height - 1) / chunk_height;
-      }
-      // Planar stores Plane 0 Chunks, then Plane 1 Chunks, ...
-      linear_index =
-          static_cast<uint64_t>(sample_plane_idx) * num_chunks_per_plane +
-          linear_index;
+      Index sample_plane_index = cell_indices[fast.sample_grid_dim];
+      linear_chunk_index +=
+          static_cast<uint64_t>(sample_plane_index) * fast.num_chunks_per_plane;
     }
 
-    std::string key = absl::StrFormat("chunk/%d/%d", target_ifd, linear_index);
-    return key;
+    // Assemble the final storage‑key string.
+    auto storage_key = tensorstore::StrCat("chunk/", target_ifd_index, "/",
+                                           linear_chunk_index);
+    return storage_key;
   }
 
   // Decodes chunk data (called by Entry::DoDecode indirectly).
@@ -284,6 +296,7 @@ class TiffChunkCache : public internal::KvsBackedChunkCache {
   std::shared_ptr<const TiffMetadata> resolved_metadata_;
   internal::ChunkGridSpecification grid_;
   Executor executor_;
+  std::unique_ptr<FastPath> fast_;
 };
 
 // Validator function for positive integers
