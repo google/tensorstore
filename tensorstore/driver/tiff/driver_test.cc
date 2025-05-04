@@ -106,21 +106,16 @@ class TiffDriverTest : public ::testing::Test {
         .AddEntry(262, 3, 1, 1)    // PhotometricInterpretation = MinIsBlack
         .AddEntry(322, 3, 1, 10)   // TileWidth = 10
         .AddEntry(323, 3, 1, 10);  // TileLength = 10
-    // Fake tile data offsets/counts (points past end of current data)
-    size_t data_start = builder.CurrentOffset() + 12 * 9 + 4 +
-                        4 * 4;  // IFD + next_offset + arrays
-    builder.AddEntry(324, 4, 2,
-                     builder.CurrentOffset() + 12 * 9 + 4);  // TileOffsets
-    builder.AddEntry(
-        325, 4, 2,
-        builder.CurrentOffset() + 12 * 9 + 4 + 4 * 2);  // TileByteCounts
+    // Fake tile data offsets/counts
+    size_t data_start = builder.CurrentOffset() + 12 * 9 + 4 + 4 * 4;
+    builder.AddEntry(324, 4, 2, builder.CurrentOffset() + 12 * 9 + 4);
+    builder.AddEntry(325, 4, 2, builder.CurrentOffset() + 12 * 9 + 4 + 4 * 2);
     builder.EndIfd(0);
     builder.AddUint32Array(
-        {(uint32_t)data_start,
-         (uint32_t)(data_start + 100)});  // Offsets for 2 10x10 tiles
-    builder.AddUint32Array({100, 100});   // ByteCounts
-    builder.data_.append(100, '\1');      // Tile 1 data (non-zero)
-    builder.data_.append(100, '\2');      // Tile 2 data (non-zero)
+        {(uint32_t)data_start, (uint32_t)(data_start + 100)});
+    builder.AddUint32Array({100, 100});
+    builder.data_.append(100, '\1');
+    builder.data_.append(100, '\2');
     return builder.Build();
   }
 
@@ -144,14 +139,14 @@ class TiffDriverTest : public ::testing::Test {
         .AddEntry(323, 3, 1, 2);  // TileLength = 2
 
     size_t header_size = 8;
-    size_t ifd_block_size = 2 + (10 * 12) + 4;  // Size of IFD block
+    size_t ifd_block_size = 2 + (10 * 12) + 4;
     size_t end_of_ifd_offset = header_size + ifd_block_size;
 
     size_t tile_offsets_array_start_offset = end_of_ifd_offset;
-    size_t tile_offsets_array_size = 4 * sizeof(uint32_t);  // 4 tiles
+    size_t tile_offsets_array_size = 4 * sizeof(uint32_t);
     size_t tile_bytecounts_array_start_offset =
         tile_offsets_array_start_offset + tile_offsets_array_size;
-    size_t tile_bytecounts_array_size = 4 * sizeof(uint32_t);  // 4 tiles
+    size_t tile_bytecounts_array_size = 4 * sizeof(uint32_t);
     size_t tile_data_start_offset =
         tile_bytecounts_array_start_offset + tile_bytecounts_array_size;
 
@@ -190,9 +185,9 @@ class TiffDriverTest : public ::testing::Test {
     const uint32_t image_height = 6;
     const uint32_t rows_per_strip = 2;
     const uint32_t num_strips =
-        (image_height + rows_per_strip - 1) / rows_per_strip;  // Should be 3
+        (image_height + rows_per_strip - 1) / rows_per_strip;
     const uint32_t bytes_per_strip =
-        rows_per_strip * image_width * sizeof(uint8_t);  // 2 * 8 * 1 = 16
+        rows_per_strip * image_width * sizeof(uint8_t);
 
     const uint16_t num_ifd_entries = 10;
 
@@ -208,20 +203,17 @@ class TiffDriverTest : public ::testing::Test {
         .AddEntry(278, 3, 1, rows_per_strip);  // RowsPerStrip
 
     size_t header_size = 8;
-    size_t ifd_block_size = 2 + (num_ifd_entries * 12) + 4;  // IFD block size
+    size_t ifd_block_size = 2 + (num_ifd_entries * 12) + 4;
     size_t end_of_ifd_offset = header_size + ifd_block_size;
 
     size_t strip_offsets_array_start_offset = end_of_ifd_offset;
-    size_t strip_offsets_array_size =
-        num_strips * sizeof(uint32_t);  // 3 * 4 = 12
+    size_t strip_offsets_array_size = num_strips * sizeof(uint32_t);
     size_t strip_bytecounts_array_start_offset =
         strip_offsets_array_start_offset + strip_offsets_array_size;
-    size_t strip_bytecounts_array_size =
-        num_strips * sizeof(uint32_t);  // 3 * 4 = 12
+    size_t strip_bytecounts_array_size = num_strips * sizeof(uint32_t);
     size_t strip_data_start_offset =
         strip_bytecounts_array_start_offset + strip_bytecounts_array_size;
 
-    // Calculate the actual offset values for each strip
     std::vector<uint32_t> strip_offsets;
     std::vector<uint32_t> strip_bytecounts;
     for (uint32_t i = 0; i < num_strips; ++i) {
@@ -229,16 +221,14 @@ class TiffDriverTest : public ::testing::Test {
       strip_bytecounts.push_back(bytes_per_strip);
     }
 
-    // Add IFD entries pointing to the *correct future locations* of the arrays
     builder.AddEntry(273, 4, strip_offsets.size(),
                      strip_offsets_array_start_offset);
     builder.AddEntry(279, 4, strip_bytecounts.size(),
                      strip_bytecounts_array_start_offset);
 
-    // Finish IFD and add the actual array data at the calculated offsets
     builder.EndIfd(0)
-        .AddUint32Array(strip_offsets)      // Adds data at offset 134
-        .AddUint32Array(strip_bytecounts);  // Adds data at offset 146
+        .AddUint32Array(strip_offsets)
+        .AddUint32Array(strip_bytecounts);
 
     for (uint32_t s = 0; s < num_strips; ++s) {
       for (uint32_t i = 0; i < bytes_per_strip; ++i) {
@@ -273,23 +263,18 @@ class TiffDriverTest : public ::testing::Test {
         .AddEntry(322, 3, 1, tile_width)    // TileWidth
         .AddEntry(323, 3, 1, tile_height);  // TileLength
 
-    // Calculate where the external arrays *will* be placed after the IFD
     size_t header_size = 8;
-    size_t ifd_block_size =
-        2 + (num_ifd_entries * 12) + 4;  // Size of IFD block
+    size_t ifd_block_size = 2 + (num_ifd_entries * 12) + 4;
     size_t end_of_ifd_offset = header_size + ifd_block_size;
 
     size_t tile_offsets_array_start_offset = end_of_ifd_offset;
-    size_t tile_offsets_array_size =
-        num_tiles * sizeof(uint32_t);  // 6 * 4 = 24
+    size_t tile_offsets_array_size = num_tiles * sizeof(uint32_t);
     size_t tile_bytecounts_array_start_offset =
         tile_offsets_array_start_offset + tile_offsets_array_size;
-    size_t tile_bytecounts_array_size =
-        num_tiles * sizeof(uint32_t);  // 6 * 4 = 24
+    size_t tile_bytecounts_array_size = num_tiles * sizeof(uint32_t);
     size_t tile_data_start_offset =
         tile_bytecounts_array_start_offset + tile_bytecounts_array_size;
 
-    // Calculate the actual offset values for each tile
     std::vector<uint32_t> tile_offsets;
     std::vector<uint32_t> tile_bytecounts;
     for (uint32_t i = 0; i < num_tiles; ++i) {
@@ -302,12 +287,10 @@ class TiffDriverTest : public ::testing::Test {
     builder.AddEntry(325, 4, tile_bytecounts.size(),
                      tile_bytecounts_array_start_offset);
 
-    // Finish IFD and add the actual array data at the calculated offsets
     builder.EndIfd(0)
         .AddUint32Array(tile_offsets)
         .AddUint32Array(tile_bytecounts);
 
-    // Add tile data (simple float values)
     const std::vector<float> values = {1.1f, 2.2f, 3.3f, 4.4f, 5.5f, 6.6f};
     for (float val : values) {
       PutLEFloat32(builder.data_, val);
@@ -331,7 +314,7 @@ class TiffDriverTest : public ::testing::Test {
     const uint16_t num_ifd_entries = 12;
 
     std::vector<uint16_t> bits_per_sample_data = {8, 8, 8};
-    std::vector<uint16_t> sample_format_data = {1, 1, 1};  // 1 = uint
+    std::vector<uint16_t> sample_format_data = {1, 1, 1};
 
     TiffBuilder builder;
     builder.StartIfd(num_ifd_entries)
@@ -365,7 +348,6 @@ class TiffDriverTest : public ::testing::Test {
 
     size_t tile_data_start_offset = current_offset;
 
-    // Calculate the actual offset values for each tile
     std::vector<uint32_t> tile_offsets;
     std::vector<uint32_t> tile_bytecounts;
     for (uint32_t i = 0; i < num_tiles; ++i) {
@@ -373,17 +355,14 @@ class TiffDriverTest : public ::testing::Test {
       tile_bytecounts.push_back(bytes_per_tile);
     }
 
-    // Add entries pointing to the external arrays now
     builder.AddEntry(258, 3, samples_per_pixel, bps_array_offset);
     builder.AddEntry(339, 3, samples_per_pixel, sf_array_offset);
     builder.AddEntry(324, 4, tile_offsets.size(), tile_offsets_array_offset);
     builder.AddEntry(325, 4, tile_bytecounts.size(),
                      tile_bytecounts_array_offset);
 
-    // Finish IFD and add the actual array data
     builder.EndIfd(0);
 
-    // Add the external array data in the correct order
     builder.AddUint16Array(bits_per_sample_data);
     builder.AddUint16Array(sample_format_data);
     builder.AddUint32Array(tile_offsets);
@@ -422,14 +401,12 @@ class TiffDriverTest : public ::testing::Test {
         ifd1_num_tiles * (ifd1_bytes_per_tile / sizeof(uint16_t)), 99);
 
     size_t header_size = 8;
-    size_t ifd0_block_size = 2 + ifd0_num_entries * 12 + 4;  // 138
-    size_t ifd1_block_size = 2 + ifd1_num_entries * 12 + 4;  // 138
+    size_t ifd0_block_size = 2 + ifd0_num_entries * 12 + 4;
+    size_t ifd1_block_size = 2 + ifd1_num_entries * 12 + 4;
 
-    size_t ifd0_start_offset = header_size;  // 8
-    size_t ifd1_start_offset =
-        ifd0_start_offset + ifd0_block_size;  // 8 + 138 = 146
-    size_t end_of_ifds_offset =
-        ifd1_start_offset + ifd1_block_size;  // 146 + 138 = 284
+    size_t ifd0_start_offset = header_size;
+    size_t ifd1_start_offset = ifd0_start_offset + ifd0_block_size;
+    size_t end_of_ifds_offset = ifd1_start_offset + ifd1_block_size;
 
     size_t ifd0_offsets_loc = end_of_ifds_offset;
     size_t ifd0_offsets_size = ifd0_num_tiles * sizeof(uint32_t);
@@ -457,7 +434,6 @@ class TiffDriverTest : public ::testing::Test {
       ifd1_tile_counts.push_back(ifd1_bytes_per_tile);
     }
 
-    // --- Build IFD 0 ---
     builder.StartIfd(ifd0_num_entries)
         .AddEntry(256, 3, 1, ifd0_width)
         .AddEntry(257, 3, 1, ifd0_height)
@@ -472,7 +448,6 @@ class TiffDriverTest : public ::testing::Test {
         .AddEntry(325, 4, ifd0_num_tiles, ifd0_counts_loc);
     builder.EndIfd(ifd1_start_offset);
 
-    // --- Build IFD 1 ---
     builder.PadTo(ifd1_start_offset);
     builder.StartIfd(ifd1_num_entries)
         .AddEntry(256, 3, 1, ifd1_width)
@@ -488,7 +463,6 @@ class TiffDriverTest : public ::testing::Test {
         .AddEntry(325, 4, ifd1_num_tiles, ifd1_counts_loc);
     builder.EndIfd(0);
 
-    // --- Add External Arrays and Data ---
     builder.PadTo(end_of_ifds_offset);
     builder.AddUint32Array(ifd0_tile_offsets);
     builder.AddUint32Array(ifd0_tile_counts);
@@ -663,13 +637,10 @@ TEST_F(TiffDriverTest, OpenWithMatchingMetadataConstraint) {
 
 TEST_F(TiffDriverTest, OpenWithMismatchedDtypeConstraint) {
   WriteTiffData("minimal.tif", MakeMinimalTiff());
-  EXPECT_THAT(tensorstore::Open(
-                  {
-                      {"driver", "tiff"},
-                      {"kvstore", "memory://minimal.tif"},
-                      {"metadata", {{"dtype", "uint16"}}}  // Mismatch
-                  },
-                  context_)
+  EXPECT_THAT(tensorstore::Open({{"driver", "tiff"},
+                                 {"kvstore", "memory://minimal.tif"},
+                                 {"metadata", {{"dtype", "uint16"}}}},
+                                context_)
                   .result(),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             ".*dtype.*uint16.* conflicts.*uint8.*"));
@@ -677,13 +648,10 @@ TEST_F(TiffDriverTest, OpenWithMismatchedDtypeConstraint) {
 
 TEST_F(TiffDriverTest, OpenWithMismatchedShapeConstraint) {
   WriteTiffData("minimal.tif", MakeMinimalTiff());
-  EXPECT_THAT(tensorstore::Open(
-                  {
-                      {"driver", "tiff"},
-                      {"kvstore", "memory://minimal.tif"},
-                      {"metadata", {{"shape", {20, 11}}}}  // Mismatch
-                  },
-                  context_)
+  EXPECT_THAT(tensorstore::Open({{"driver", "tiff"},
+                                 {"kvstore", "memory://minimal.tif"},
+                                 {"metadata", {{"shape", {20, 11}}}}},
+                                context_)
                   .result(),
               MatchesStatus(absl::StatusCode::kFailedPrecondition,
                             ".*Resolved TIFF shape .*20, 10.* does not match "
@@ -693,13 +661,10 @@ TEST_F(TiffDriverTest, OpenWithMismatchedShapeConstraint) {
 TEST_F(TiffDriverTest, OpenWithSchemaDtypeMismatch) {
   WriteTiffData("minimal.tif", MakeMinimalTiff());
   EXPECT_THAT(
-      tensorstore::Open(
-          {
-              {"driver", "tiff"},
-              {"kvstore", "memory://minimal.tif"},
-              {"schema", {{"dtype", "int16"}}}  // Mismatch
-          },
-          context_)
+      tensorstore::Open({{"driver", "tiff"},
+                         {"kvstore", "memory://minimal.tif"},
+                         {"schema", {{"dtype", "int16"}}}},
+                        context_)
           .result(),
       MatchesStatus(
           absl::StatusCode::kInvalidArgument,
@@ -718,13 +683,10 @@ TEST_F(TiffDriverTest, OpenInvalidTiffHeader) {
 
 TEST_F(TiffDriverTest, OpenInvalidIfdIndex) {
   WriteTiffData("minimal.tif", MakeMinimalTiff());
-  EXPECT_THAT(tensorstore::Open(
-                  {
-                      {"driver", "tiff"},
-                      {"kvstore", "memory://minimal.tif"},
-                      {"tiff", {{"ifd", 1}}}  // Request IFD 1
-                  },
-                  context_)
+  EXPECT_THAT(tensorstore::Open({{"driver", "tiff"},
+                                 {"kvstore", "memory://minimal.tif"},
+                                 {"tiff", {{"ifd", 1}}}},
+                                context_)
                   .result(),
               MatchesStatus(absl::StatusCode::kNotFound,
                             ".*Requested IFD index 1 not found.*"));
@@ -756,15 +718,12 @@ TEST_F(TiffDriverTest, ReadSlice) {
           .result());
 
   // Read a slice covering parts of tiles 0 and 1
-  // Dims(0, 1).IndexSlice({1, 2}) -> Element at row 1, col 2 -> value 9
   EXPECT_THAT(
       tensorstore::Read(store | tensorstore::Dims(0, 1).IndexSlice({1, 2}))
           .result(),
       Optional(tensorstore::MakeScalarArray<uint16_t>(9)));
 
   // Read a slice within a single tile (tile 2)
-  // Dims(0, 1).SizedInterval({2, 1}, {1, 2}) -> Start at row 2, col 1; size 1
-  // row, 2 cols
   EXPECT_THAT(
       tensorstore::Read(store |
                         tensorstore::Dims(0, 1).SizedInterval({2, 1}, {1, 2}))
@@ -801,12 +760,10 @@ TEST_F(TiffDriverTest, Properties) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto fill_value, store.fill_value());
   EXPECT_FALSE(fill_value.valid());
 
-  // Test ResolveBounds
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto resolved_store,
                                    ResolveBounds(store).result());
   EXPECT_EQ(store.domain(), resolved_store.domain());
 
-  // Test GetBoundSpec
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto bound_spec, store.spec());
   ASSERT_TRUE(bound_spec.valid());
 
@@ -817,6 +774,7 @@ TEST_F(TiffDriverTest, Properties) {
       {"dtype", "uint16"},
       {"transform",
        {// Includes the resolved domain
+        {"input_labels", {"y", "x"}},
         {"input_inclusive_min", {0, 0}},
         {"input_exclusive_max", {4, 6}}}},
       {"metadata", {{"dtype", "uint16"}, {"shape", {4, 6}}}}};
@@ -835,7 +793,9 @@ TEST_F(TiffDriverTest, Properties) {
         {"memory_key_value_store", "memory_key_value_store"}}},
       {"dtype", "uint16"},
       {"transform",
-       {{"input_inclusive_min", {0, 0}}, {"input_exclusive_max", {4, 6}}}},
+       {{"input_inclusive_min", {0, 0}},
+        {"input_exclusive_max", {4, 6}},
+        {"input_labels", {"y", "x"}}}},
       {"metadata", {{"dtype", "uint16"}, {"shape", {4, 6}}}},
       {"tiff", {{"ifd", 0}}},  // Default ifd included
       {"schema", {{"rank", 2}, {"dtype", "uint16"}}},
@@ -872,29 +832,24 @@ TEST_F(TiffDriverTest, ReadStrippedTiff) {
           {{"driver", "tiff"}, {"kvstore", "memory://stripped.tif"}}, context_)
           .result());
 
-  // Verify properties inferred from stripped TIFF
   EXPECT_EQ(dtype_v<uint8_t>, store.dtype());
   EXPECT_EQ(2, store.rank());
   EXPECT_THAT(store.domain().origin(), ::testing::ElementsAre(0, 0));
-  EXPECT_THAT(store.domain().shape(),
-              ::testing::ElementsAre(6, 8));  // 6x8 image
+  EXPECT_THAT(store.domain().shape(), ::testing::ElementsAre(6, 8));
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto layout, store.chunk_layout());
   EXPECT_THAT(layout.read_chunk_shape(), ::testing::ElementsAre(2, 8));
-  // Write chunk shape defaults to read chunk shape here
   EXPECT_THAT(layout.write_chunk_shape(), ::testing::ElementsAre(2, 8));
-  // Should still be C-order default
   EXPECT_THAT(layout.inner_order(), ::testing::ElementsAre(0, 1));
 
-  auto expected_array = tensorstore::MakeArray<uint8_t>(
-      {{0, 1, 2, 3, 4, 5, 6, 7},  // Strip 0 data
-       {8, 9, 10, 11, 12, 13, 14, 15},
-       {10, 11, 12, 13, 14, 15, 16, 17},  // Strip 1 data
-       {18, 19, 20, 21, 22, 23, 24, 25},
-       {20, 21, 22, 23, 24, 25, 26, 27},  // Strip 2 data
-       {28, 29, 30, 31, 32, 33, 34, 35}});
+  auto expected_array =
+      tensorstore::MakeArray<uint8_t>({{0, 1, 2, 3, 4, 5, 6, 7},
+                                       {8, 9, 10, 11, 12, 13, 14, 15},
+                                       {10, 11, 12, 13, 14, 15, 16, 17},
+                                       {18, 19, 20, 21, 22, 23, 24, 25},
+                                       {20, 21, 22, 23, 24, 25, 26, 27},
+                                       {28, 29, 30, 31, 32, 33, 34, 35}});
 
-  // Read the full store and compare
   EXPECT_THAT(tensorstore::Read(store).result(), Optional(expected_array));
 
   // Slice spanning multiple strips.
@@ -903,8 +858,7 @@ TEST_F(TiffDriverTest, ReadStrippedTiff) {
       store | tensorstore::Dims(0, 1).SizedInterval({1, 2}, {3, 4}));
 
   auto expected_slice_array = tensorstore::MakeOffsetArray<uint8_t>(
-      {1, 2},  // Origin of the slice
-      {{10, 11, 12, 13}, {12, 13, 14, 15}, {20, 21, 22, 23}});
+      {1, 2}, {{10, 11, 12, 13}, {12, 13, 14, 15}, {20, 21, 22, 23}});
 
   EXPECT_THAT(tensorstore::Read(slice_view).result(),
               Optional(expected_slice_array));
@@ -918,33 +872,26 @@ TEST_F(TiffDriverTest, ReadFloatTiff) {
                                     context_)
                       .result());
 
-  // Verify properties inferred from float TIFF
-  EXPECT_EQ(dtype_v<float>, store.dtype());  // Expect float32
+  EXPECT_EQ(dtype_v<float>, store.dtype());
   EXPECT_EQ(2, store.rank());
   EXPECT_THAT(store.domain().origin(), ::testing::ElementsAre(0, 0));
-  EXPECT_THAT(store.domain().shape(),
-              ::testing::ElementsAre(2, 3));  // 2x3 image
+  EXPECT_THAT(store.domain().shape(), ::testing::ElementsAre(2, 3));
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto layout, store.chunk_layout());
-  EXPECT_THAT(layout.read_chunk_shape(),
-              ::testing::ElementsAre(1, 1));  // 1x1 tiles
+  EXPECT_THAT(layout.read_chunk_shape(), ::testing::ElementsAre(1, 1));
   EXPECT_THAT(layout.write_chunk_shape(), ::testing::ElementsAre(1, 1));
-  EXPECT_THAT(layout.inner_order(), ::testing::ElementsAre(0, 1));  // C-order
-
-  // Define the expected data array
+  EXPECT_THAT(layout.inner_order(), ::testing::ElementsAre(0, 1));
   auto expected_array =
       tensorstore::MakeArray<float>({{1.1f, 2.2f, 3.3f}, {4.4f, 5.5f, 6.6f}});
 
   EXPECT_THAT(tensorstore::Read(store).result(), Optional(expected_array));
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto slice_view, store | tensorstore::Dims(0, 1).SizedInterval(
-                                   {1, 1}, {1, 2})  // Row 1, Cols 1-2
-  );
+      auto slice_view,
+      store | tensorstore::Dims(0, 1).SizedInterval({1, 1}, {1, 2}));
 
   auto expected_slice_array =
-      tensorstore::MakeOffsetArray<float>({1, 1},  // Origin of the slice
-                                          {{5.5f, 6.6f}});
+      tensorstore::MakeOffsetArray<float>({1, 1}, {{5.5f, 6.6f}});
   EXPECT_THAT(tensorstore::Read(slice_view).result(), expected_slice_array);
 }
 
@@ -956,35 +903,25 @@ TEST_F(TiffDriverTest, ReadMultiChannelTiff) {
                                     context_)
                       .result());
 
-  // Verify properties inferred from multi-channel TIFF
   EXPECT_EQ(dtype_v<uint8_t>, store.dtype());
-  // Expect Rank 3: Y, X, C (assuming default C-order interpretation)
   EXPECT_EQ(3, store.rank());
   EXPECT_THAT(store.domain().origin(), ::testing::ElementsAre(0, 0, 0));
-  EXPECT_THAT(store.domain().shape(),
-              ::testing::ElementsAre(2, 3, 3));  // 2x3 image, 3 channels
+  EXPECT_THAT(store.domain().shape(), ::testing::ElementsAre(2, 3, 3));
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto layout, store.chunk_layout());
-  // Chunk shape should be {TileH, TileW, SamplesPerPixel}
   EXPECT_THAT(layout.read_chunk_shape(), ::testing::ElementsAre(1, 1, 3));
   EXPECT_THAT(layout.write_chunk_shape(), ::testing::ElementsAre(1, 1, 3));
-  // C-order default for Rank 3 is {0, 1, 2}
   EXPECT_THAT(layout.inner_order(), ::testing::ElementsAre(0, 1, 2));
 
-  // Define the expected data array (Y, X, C)
-  auto expected_array = tensorstore::MakeArray<uint8_t>({
-      {{1, 2, 3}, {2, 3, 4}, {3, 4, 5}},          // Row 0
-      {{11, 12, 13}, {12, 13, 14}, {13, 14, 15}}  // Row 1
-  });
+  auto expected_array = tensorstore::MakeArray<uint8_t>(
+      {{{1, 2, 3}, {2, 3, 4}, {3, 4, 5}},
+       {{11, 12, 13}, {12, 13, 14}, {13, 14, 15}}});
 
-  // Read the full store and compare
   EXPECT_THAT(tensorstore::Read(store).result(), Optional(expected_array));
 
   // Read single pixel.
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto pixel_view,
-      store | tensorstore::Dims(0, 1).IndexSlice({1, 2})  // Pixel at Y=1, X=2
-  );
+      auto pixel_view, store | tensorstore::Dims(0, 1).IndexSlice({1, 2}));
   auto expected_pixel_array = tensorstore::MakeArray<uint8_t>({13, 14, 15});
 
   EXPECT_THAT(tensorstore::Read(pixel_view).result(),
@@ -994,7 +931,6 @@ TEST_F(TiffDriverTest, ReadMultiChannelTiff) {
 TEST_F(TiffDriverTest, ReadNonZeroIFD) {
   WriteTiffData("multi_ifd.tif", MakeMultiIFDTiff());
 
-  // Specify opening IFD 1 in the spec
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store, tensorstore::Open({{"driver", "tiff"},
                                      {"kvstore", "memory://multi_ifd.tif"},
@@ -1002,7 +938,6 @@ TEST_F(TiffDriverTest, ReadNonZeroIFD) {
                                     context_)
                       .result());
 
-  // Verify properties match IFD 1
   EXPECT_EQ(dtype_v<uint16_t>, store.dtype());
   EXPECT_EQ(2, store.rank());
   EXPECT_THAT(store.domain().origin(), ::testing::ElementsAre(0, 0));

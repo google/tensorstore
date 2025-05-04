@@ -63,18 +63,14 @@ struct TiffSpecOptions {
     std::optional<std::vector<std::string>> ifd_sequence_order;
 
     TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(IfdStackingOptions,
-      internal_json_binding::NoOptions,
-      tensorstore::IncludeDefaults)
+                                            internal_json_binding::NoOptions,
+                                            tensorstore::IncludeDefaults)
 
-    // Member binding for serialization/reflection (used internally)
     constexpr static auto ApplyMembers = [](auto&& x, auto f) {
       return f(x.dimensions, x.dimension_sizes, x.ifd_count,
                x.ifd_sequence_order);
     };
   };
-
-  // Use EITHER ifd_index OR ifd_stacking. Default is single IFD mode
-  // (ifd_index=0). The JSON binder will enforce mutual exclusion.
 
   // Option A: Single IFD Mode (default behavior if ifd_stacking is absent)
   // Specifies which IFD to open.
@@ -123,15 +119,13 @@ struct TiffDimensionMapping {
 };
 
 /// Represents the resolved and interpreted metadata for a TIFF TensorStore.
-/// This structure holds the information needed by the driver after parsing
-/// TIFF tags, potentially OME-XML, and applying user specifications.
 struct TiffMetadata {
   // Which IFD was used as the base (0 unless single IFD mode requested specific
   // one).
   uint32_t base_ifd_index;
 
   // Number of IFDs used (1 for single IFD mode, >1 for stacked mode).
-  uint32_t num_ifds_read = 1;  // Reflects IFDs actually parsed/validated
+  uint32_t num_ifds_read = 1;
 
   // Parsed stacking options, if multi-IFD mode was used.
   std::optional<TiffSpecOptions::IfdStackingOptions> stacking_info;
@@ -139,7 +133,7 @@ struct TiffMetadata {
   // Core TensorStore Schema components
   DimensionIndex rank = dynamic_rank;
 
-  // Derived shape (e.g. [C,Y,X] or [Y,X,C] or [Y,X], ...)
+  // Derived shape
   std::vector<Index> shape;
 
   DataType dtype;
@@ -174,8 +168,7 @@ struct TiffMetadata {
   // Whether the IFD is tiled or not.
   bool is_tiled = false;
 
-  // Pre-calculated layout order enum (C or Fortran) based on finalized
-  // chunk_layout.inner_order
+  // Pre-calculated layout order enum
   ContiguousLayoutOrder layout_order = ContiguousLayoutOrder::c;
 
   // Returns `true` if a byte‑swap is required on this platform.
@@ -196,30 +189,26 @@ struct TiffMetadata {
 struct TiffMetadataConstraints {
   std::optional<DataType> dtype;
   std::optional<std::vector<Index>> shape;
-  DimensionIndex rank = dynamic_rank;  // Track rank from constraints
+  DimensionIndex rank = dynamic_rank;
 
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(TiffMetadataConstraints,
                                           internal_json_binding::NoOptions,
                                           tensorstore::IncludeDefaults)
 };
 
-// Represents the codec specification specifically for the TIFF driver.
-// It primarily stores the compression type used.
+// Codec specification specifically for the TIFF driver.
 class TiffCodecSpec : public internal::CodecDriverSpec {
  public:
-  // Unique identifier for the TIFF codec driver spec.
   constexpr static char id[] = "tiff";
 
   // Specifies the compression type, if constrained by the spec.
   // If std::nullopt, the compression type is unconstrained by this spec.
   std::optional<internal_tiff_kvstore::CompressionType> compression_type;
 
-  // Virtual method overrides from CodecDriverSpec
   CodecSpec Clone() const override;
   absl::Status DoMergeFrom(
       const internal::CodecDriverSpec& other_base) override;
 
-  // JSON Binding support
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(TiffCodecSpec, FromJsonOptions,
                                           ToJsonOptions,
                                           ::nlohmann::json::object_t)
@@ -247,7 +236,6 @@ Result<std::shared_ptr<const TiffMetadata>> ResolveMetadata(
 ///
 /// \param resolved_metadata The final metadata produced by `ResolveMetadata`.
 /// \param user_constraints Constraints provided by the user in the spec.
-/// \error `absl::StatusCode::kFailedPrecondition` if constraints are violated.
 absl::Status ValidateResolvedMetadata(
     const TiffMetadata& resolved_metadata,
     const TiffMetadataConstraints& user_constraints);
@@ -259,13 +247,6 @@ absl::Status ValidateResolvedMetadata(
 /// \param schema_codec The CodecSpec provided via the Schema object, which may
 ///     contain constraints or overrides.
 /// \returns The resolved Compressor object (JsonSpecifiedCompressor::Ptr),
-/// which
-///     will be nullptr if the final resolved type is kNone (raw) or if an
-///     unsupported/unregistered compressor type is specified.
-/// \error `absl::StatusCode::kInvalidArgument` if `schema_codec` conflicts with
-///     `compression_type`.
-/// \error `absl::StatusCode::kUnimplemented` if the resolved compressor type
-///     is not supported by the current build.
 Result<Compressor> GetEffectiveCompressor(
     internal_tiff_kvstore::CompressionType compression_type,
     const CodecSpec& schema_codec);
@@ -327,10 +308,9 @@ Result<ChunkLayout> GetInitialChunkLayout(
     const internal_tiff_kvstore::ImageDirectory& base_ifd,
     DimensionIndex initial_rank, span<const std::string> initial_labels,
     internal_tiff_kvstore::PlanarConfigType initial_planar_config,
-    uint16_t initial_samples_per_pixel,
-    std::string_view sample_label);  // Pass the determined sample label
+    uint16_t initial_samples_per_pixel, std::string_view sample_label);
 
-/// Decodes a raw (potentially compressed) chunk buffer based on TIFF metadata.
+/// Decodes a raw chunk buffer based on TIFF metadata.
 ///
 /// \param metadata The resolved metadata for the TIFF dataset.
 /// \param buffer The raw Cord containing the bytes for a single tile/strip.

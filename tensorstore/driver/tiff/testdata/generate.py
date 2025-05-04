@@ -12,11 +12,10 @@ logging.basicConfig(
 OUTPUT_DIR = Path("raw")
 BASE_HEIGHT = 32
 BASE_WIDTH = 48
-TILE_SHAPE = (16, 16)  # (H, W) - Use None for stripped
+TILE_SHAPE = (16, 16)
 
 
 def generate_coordinate_array(shape, dtype=np.uint16):
-    """Creates a numpy array where each element contains a unique value based on its index."""
     shape = tuple(shape)
     arr = np.zeros(shape, dtype=dtype)
     it = np.nditer(arr, flags=["multi_index"], op_flags=["readwrite"])
@@ -50,9 +49,8 @@ def write_tiff(
         f"  Stack: {stack_dims or 'None'}, SPP: {spp}, Planar: {planar_config_str}, Dtype: {dtype.__name__}, Tile: {tile_shape}"
     )
 
-    stack_dims = stack_dims or {}  # Ensure it's a dict
+    stack_dims = stack_dims or {}  
 
-    # Determine stack order for numpy array construction
     if not stack_dims:
         stack_labels_numpy_order = []
         stack_shape_numpy_order = []

@@ -90,8 +90,6 @@ using ::testing::ElementsAre;
 using ::testing::ElementsAreArray;
 using ::testing::Optional;
 
-// --- Helper functions to create test data ---
-
 // Helper to calculate the number of chunks/tiles/strips
 std::tuple<uint64_t, uint32_t, uint32_t> CalculateChunkCounts(
     uint32_t image_width, uint32_t image_height, uint32_t chunk_width,
@@ -132,7 +130,6 @@ ImageDirectory MakeImageDirectory(
   dir.sample_format.assign(samples_per_pixel,
                            static_cast<uint16_t>(sample_format));
 
-  // Calculate number of chunks and populate dummy offset/counts
   uint64_t num_chunks;
   uint32_t num_rows, num_cols;
   std::tie(num_chunks, num_rows, num_cols) = CalculateChunkCounts(
@@ -143,7 +140,6 @@ ImageDirectory MakeImageDirectory(
     num_chunks *= samples_per_pixel;
   }
 
-  // Dummy offset and size.
   dir.chunk_offsets.assign(num_chunks, 1000);
   dir.chunk_bytecounts.assign(
       num_chunks, dir.chunk_width * dir.chunk_height * bits_per_sample / 8);
@@ -254,7 +250,7 @@ TEST(SpecOptionsTest, JsonBindingInvalidStackingSizeMismatch) {
                     {{"dimensions", {"t", "c"}}, {"dimension_sizes", {5}}}}}),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             ".*\"dimension_sizes\" length \\(1\\) must match "
-                            "\"dimensions\" length \\(2\\).*"));  // KEEP
+                            "\"dimensions\" length \\(2\\).*"));
   // ifd_count mismatch with dim_sizes product
   EXPECT_THAT(
       TiffSpecOptions::FromJson({{"ifd_stacking",
@@ -378,7 +374,6 @@ TEST(TiffCodecSpecJsonTest, RoundTrip) {
 }
 
 TEST(TiffCodecSpecMergeTest, Merging) {
-  // Create heap-allocated objects managed by IntrusivePtr (like CodecSpec does)
   auto ptr_lzw = CodecDriverSpec::Make<TiffCodecSpec>();
   ptr_lzw->compression_type = CompressionType::kLZW;
 
@@ -390,7 +385,7 @@ TEST(TiffCodecSpecMergeTest, Merging) {
   auto ptr_none = CodecDriverSpec::Make<TiffCodecSpec>();
   ptr_none->compression_type = CompressionType::kNone;
 
-  // --- Test merging INTO spec_lzw ---
+  // Test merging INTO spec_lzw
   TiffCodecSpec target;
   target.compression_type = CompressionType::kLZW;
 
@@ -411,21 +406,20 @@ TEST(TiffCodecSpecMergeTest, Merging) {
 
   // Test the failing case
   target_copy = target;
-  // Call DoMergeFrom directly
   absl::Status merge_status = target_copy.DoMergeFrom(*ptr_deflate);
   ASSERT_FALSE(merge_status.ok());
   EXPECT_EQ(merge_status.code(), absl::StatusCode::kInvalidArgument);
   EXPECT_THAT(merge_status.message(),
               ::testing::HasSubstr("TIFF compression type mismatch"));
 
-  // --- Test merging INTO spec_empty ---
-  target_copy = TiffCodecSpec{};  // Empty target
+  // Test merging inro spec_empty
+  target_copy = TiffCodecSpec{};
   TENSORSTORE_EXPECT_OK(target_copy.DoMergeFrom(*ptr_lzw));
   EXPECT_THAT(target_copy.compression_type,
               ::testing::Optional(CompressionType::kLZW));
 
-  // --- Test merging INTO spec_none ---
-  target_copy = TiffCodecSpec{};  // None target
+  // Test merging INTO spec_none---
+  target_copy = TiffCodecSpec{};
   target_copy.compression_type = CompressionType::kNone;
   TENSORSTORE_EXPECT_OK(target_copy.DoMergeFrom(*ptr_lzw));
   EXPECT_THAT(target_copy.compression_type,
@@ -433,7 +427,6 @@ TEST(TiffCodecSpecMergeTest, Merging) {
 }
 
 // --- Tests for GetInitialChunkLayout ---
-
 TEST(GetInitialChunkLayoutTest, TiledChunkySpp1) {
   ImageDirectory ifd =
       MakeImageDirectory(/*width=*/60, /*height=*/40,
@@ -441,7 +434,7 @@ TEST(GetInitialChunkLayoutTest, TiledChunkySpp1) {
                          /*is_tiled=*/true, /*spp=*/1);
   DimensionIndex initial_rank = 2;
   std::vector<std::string> initial_labels = {"y", "x"};
-  std::string sample_label = "c";  // Irrelevant here
+  std::string sample_label = "c";
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       ChunkLayout layout,
@@ -449,29 +442,23 @@ TEST(GetInitialChunkLayoutTest, TiledChunkySpp1) {
                             PlanarConfigType::kChunky, 1, sample_label));
 
   EXPECT_EQ(layout.rank(), 2);
-  auto expected_hard_constraints =
-      DimensionSet::UpTo(initial_rank);  // Correct expected value
+  auto expected_hard_constraints = DimensionSet::UpTo(initial_rank);
 
   EXPECT_THAT(layout.grid_origin(), ElementsAre(0, 0));
-  // Check hard_constraint by comparing with DimensionSet::UpTo(rank)
   EXPECT_EQ(layout.grid_origin().hard_constraint, expected_hard_constraints);
 
   EXPECT_THAT(span<const Index>(layout.read_chunk_shape()),
               ElementsAre(8, 16));  // {y, x} order
-  // Check hard_constraint by comparing with DimensionSet::UpTo(rank)
   EXPECT_EQ(layout.read_chunk_shape().hard_constraint,
             expected_hard_constraints);
 
-  // Check write/codec shapes and their hard constraints
   EXPECT_THAT(span<const Index>(layout.write_chunk_shape()),
               ElementsAre(8, 16));
-  // Check hard_constraint by comparing with DimensionSet::UpTo(rank)
   EXPECT_EQ(layout.write_chunk_shape().hard_constraint,
             expected_hard_constraints);
 
   EXPECT_THAT(span<const Index>(layout.codec_chunk_shape()),
               ElementsAre(8, 16));
-  // Check hard_constraint by comparing with DimensionSet::UpTo(rank)
   EXPECT_EQ(layout.codec_chunk_shape().hard_constraint,
             expected_hard_constraints);
 
@@ -496,20 +483,19 @@ TEST(GetInitialChunkLayoutTest, StrippedChunkySpp1) {
 
   EXPECT_EQ(layout.rank(), 2);
   EXPECT_THAT(layout.grid_origin(), ElementsAre(0, 0));
-  EXPECT_EQ(layout.grid_origin().hard_constraint,
-            expected_hard_constraints);  // Corrected check
+  EXPECT_EQ(layout.grid_origin().hard_constraint, expected_hard_constraints);
   EXPECT_THAT(span<const Index>(layout.read_chunk_shape()),
               ElementsAre(10, 50));
   EXPECT_EQ(layout.read_chunk_shape().hard_constraint,
-            expected_hard_constraints);  // Corrected check
+            expected_hard_constraints);
   EXPECT_THAT(span<const Index>(layout.write_chunk_shape()),
               ElementsAre(10, 50));
   EXPECT_EQ(layout.write_chunk_shape().hard_constraint,
-            expected_hard_constraints);  // Corrected check
+            expected_hard_constraints);
   EXPECT_THAT(span<const Index>(layout.codec_chunk_shape()),
               ElementsAre(10, 50));
   EXPECT_EQ(layout.codec_chunk_shape().hard_constraint,
-            expected_hard_constraints);  // Corrected check
+            expected_hard_constraints);
 
   EXPECT_THAT(layout.inner_order(), ElementsAre(0, 1));
   EXPECT_FALSE(layout.inner_order().hard_constraint);
@@ -532,20 +518,19 @@ TEST(GetInitialChunkLayoutTest, TiledChunkySpp3) {
 
   EXPECT_EQ(layout.rank(), 3);
   EXPECT_THAT(layout.grid_origin(), ElementsAre(0, 0, 0));
-  EXPECT_EQ(layout.grid_origin().hard_constraint,
-            expected_hard_constraints);  // Corrected check
+  EXPECT_EQ(layout.grid_origin().hard_constraint, expected_hard_constraints);
   EXPECT_THAT(span<const Index>(layout.read_chunk_shape()),
               ElementsAre(8, 16, 3));
   EXPECT_EQ(layout.read_chunk_shape().hard_constraint,
-            expected_hard_constraints);  // Corrected check
+            expected_hard_constraints);
   EXPECT_THAT(span<const Index>(layout.write_chunk_shape()),
               ElementsAre(8, 16, 3));
   EXPECT_EQ(layout.write_chunk_shape().hard_constraint,
-            expected_hard_constraints);  // Corrected check
+            expected_hard_constraints);
   EXPECT_THAT(span<const Index>(layout.codec_chunk_shape()),
               ElementsAre(8, 16, 3));
   EXPECT_EQ(layout.codec_chunk_shape().hard_constraint,
-            expected_hard_constraints);  // Corrected check
+            expected_hard_constraints);
 
   EXPECT_THAT(layout.inner_order(), ElementsAre(0, 1, 2));
   EXPECT_FALSE(layout.inner_order().hard_constraint);
@@ -568,20 +553,19 @@ TEST(GetInitialChunkLayoutTest, TiledChunkySpp3YXOrder) {
 
   EXPECT_EQ(layout.rank(), 3);
   EXPECT_THAT(layout.grid_origin(), ElementsAre(0, 0, 0));
-  EXPECT_EQ(layout.grid_origin().hard_constraint,
-            expected_hard_constraints);  // Corrected check
+  EXPECT_EQ(layout.grid_origin().hard_constraint, expected_hard_constraints);
   EXPECT_THAT(span<const Index>(layout.read_chunk_shape()),
               ElementsAre(3, 8, 16));
   EXPECT_EQ(layout.read_chunk_shape().hard_constraint,
-            expected_hard_constraints);  // Corrected check
+            expected_hard_constraints);
   EXPECT_THAT(span<const Index>(layout.write_chunk_shape()),
               ElementsAre(3, 8, 16));
   EXPECT_EQ(layout.write_chunk_shape().hard_constraint,
-            expected_hard_constraints);  // Corrected check
+            expected_hard_constraints);
   EXPECT_THAT(span<const Index>(layout.codec_chunk_shape()),
               ElementsAre(3, 8, 16));
   EXPECT_EQ(layout.codec_chunk_shape().hard_constraint,
-            expected_hard_constraints);  // Corrected check
+            expected_hard_constraints);
 
   EXPECT_THAT(layout.inner_order(), ElementsAre(0, 1, 2));
   EXPECT_FALSE(layout.inner_order().hard_constraint);
@@ -606,20 +590,19 @@ TEST(GetInitialChunkLayoutTest, TiledPlanarSpp3) {
 
   EXPECT_EQ(layout.rank(), 3);
   EXPECT_THAT(layout.grid_origin(), ElementsAre(0, 0, 0));
-  EXPECT_EQ(layout.grid_origin().hard_constraint,
-            expected_hard_constraints);  // Corrected check
+  EXPECT_EQ(layout.grid_origin().hard_constraint, expected_hard_constraints);
   EXPECT_THAT(span<const Index>(layout.read_chunk_shape()),
               ElementsAre(1, 8, 16));
   EXPECT_EQ(layout.read_chunk_shape().hard_constraint,
-            expected_hard_constraints);  // Corrected check
+            expected_hard_constraints);
   EXPECT_THAT(span<const Index>(layout.write_chunk_shape()),
               ElementsAre(1, 8, 16));
   EXPECT_EQ(layout.write_chunk_shape().hard_constraint,
-            expected_hard_constraints);  // Corrected check
+            expected_hard_constraints);
   EXPECT_THAT(span<const Index>(layout.codec_chunk_shape()),
               ElementsAre(1, 8, 16));
   EXPECT_EQ(layout.codec_chunk_shape().hard_constraint,
-            expected_hard_constraints);  // Corrected check
+            expected_hard_constraints);
 
   EXPECT_THAT(layout.inner_order(), ElementsAre(0, 1, 2));
   EXPECT_FALSE(layout.inner_order().hard_constraint);
@@ -642,20 +625,19 @@ TEST(GetInitialChunkLayoutTest, StackedTiledChunkySpp1) {
 
   EXPECT_EQ(layout.rank(), 3);
   EXPECT_THAT(layout.grid_origin(), ElementsAre(0, 0, 0));
-  EXPECT_EQ(layout.grid_origin().hard_constraint,
-            expected_hard_constraints);  // Corrected check
+  EXPECT_EQ(layout.grid_origin().hard_constraint, expected_hard_constraints);
   EXPECT_THAT(span<const Index>(layout.read_chunk_shape()),
               ElementsAre(1, 8, 16));
   EXPECT_EQ(layout.read_chunk_shape().hard_constraint,
-            expected_hard_constraints);  // Corrected check
+            expected_hard_constraints);
   EXPECT_THAT(span<const Index>(layout.write_chunk_shape()),
               ElementsAre(1, 8, 16));
   EXPECT_EQ(layout.write_chunk_shape().hard_constraint,
-            expected_hard_constraints);  // Corrected check
+            expected_hard_constraints);
   EXPECT_THAT(span<const Index>(layout.codec_chunk_shape()),
               ElementsAre(1, 8, 16));
   EXPECT_EQ(layout.codec_chunk_shape().hard_constraint,
-            expected_hard_constraints);  // Corrected check
+            expected_hard_constraints);
 
   EXPECT_THAT(layout.inner_order(), ElementsAre(0, 1, 2));
   EXPECT_FALSE(layout.inner_order().hard_constraint);
@@ -672,7 +654,7 @@ TEST(GetEffectiveChunkLayoutTest, InitialOnly) {
       ChunkLayout initial_layout,
       GetInitialChunkLayout(ifd, rank, labels, PlanarConfigType::kChunky, 1,
                             "c"));
-  Schema schema;  // Empty schema
+  Schema schema;
   DimensionSet expected_hard_constraints = DimensionSet::UpTo(rank);
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -683,10 +665,10 @@ TEST(GetEffectiveChunkLayoutTest, InitialOnly) {
   EXPECT_THAT(span<const Index>(effective_layout.read_chunk_shape()),
               ElementsAre(8, 16));
   EXPECT_EQ(effective_layout.read_chunk_shape().hard_constraint,
-            expected_hard_constraints);  // Corrected check
+            expected_hard_constraints);
   EXPECT_THAT(effective_layout.grid_origin(), ElementsAre(0, 0));
   EXPECT_EQ(effective_layout.grid_origin().hard_constraint,
-            expected_hard_constraints);  // Corrected check
+            expected_hard_constraints);
   EXPECT_THAT(effective_layout.inner_order(), ElementsAre(0, 1));
   EXPECT_EQ(effective_layout.inner_order().hard_constraint,
             initial_layout.inner_order().hard_constraint);
@@ -714,14 +696,12 @@ TEST(GetEffectiveChunkLayoutTest, SchemaHardInnerOrder) {
   EXPECT_THAT(span<const Index>(effective_layout.read_chunk_shape()),
               ElementsAre(8, 16));
   EXPECT_EQ(effective_layout.read_chunk_shape().hard_constraint,
-            expected_hard_constraints);  // Corrected check
+            expected_hard_constraints);
   EXPECT_THAT(effective_layout.grid_origin(), ElementsAre(0, 0));
   EXPECT_EQ(effective_layout.grid_origin().hard_constraint,
-            expected_hard_constraints);  // Corrected check
-  EXPECT_THAT(effective_layout.inner_order(),
-              ElementsAre(1, 0));  // Order from Schema
-  EXPECT_TRUE(effective_layout.inner_order()
-                  .hard_constraint);  // Hard constraint from schema
+            expected_hard_constraints);
+  EXPECT_THAT(effective_layout.inner_order(), ElementsAre(1, 0));
+  EXPECT_TRUE(effective_layout.inner_order().hard_constraint);
 }
 
 TEST(GetEffectiveChunkLayoutTest, SchemaSoftInnerOrder) {
@@ -746,10 +726,10 @@ TEST(GetEffectiveChunkLayoutTest, SchemaSoftInnerOrder) {
   EXPECT_THAT(span<const Index>(effective_layout.read_chunk_shape()),
               ElementsAre(8, 16));
   EXPECT_EQ(effective_layout.read_chunk_shape().hard_constraint,
-            expected_hard_constraints);  // Corrected check
+            expected_hard_constraints);
   EXPECT_THAT(effective_layout.grid_origin(), ElementsAre(0, 0));
   EXPECT_EQ(effective_layout.grid_origin().hard_constraint,
-            expected_hard_constraints);  // Corrected check
+            expected_hard_constraints);
   EXPECT_THAT(effective_layout.inner_order(), ElementsAre(1, 0));
   EXPECT_FALSE(effective_layout.inner_order().hard_constraint);  // Still soft
 }
@@ -784,7 +764,7 @@ TEST(GetEffectiveDomainTest, InitialOnly) {
   DimensionIndex rank = 3;
   std::vector<Index> shape = {10, 20, 30};
   std::vector<std::string> labels = {"z", "y", "x"};
-  Schema schema;  // Empty schema
+  Schema schema;
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto result, GetEffectiveDomain(rank, shape, labels, schema));
@@ -794,7 +774,7 @@ TEST(GetEffectiveDomainTest, InitialOnly) {
       IndexDomainBuilder(3).shape(shape).labels(labels).Finalize());
 
   EXPECT_EQ(result.first, expected_domain);
-  EXPECT_EQ(result.second, labels);  // Labels remain unchanged
+  EXPECT_EQ(result.second, labels);
 }
 
 TEST(GetEffectiveDomainTest, SchemaRankOnly) {
@@ -821,18 +801,15 @@ TEST(GetEffectiveDomainTest, SchemaDomainOverridesLabels) {
   std::vector<std::string> initial_labels = {"z", "y", "x"};
   Schema schema;
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto schema_domain, IndexDomainBuilder(3)
-                              .shape(shape)
-                              .labels({"Z", "Y", "X"})  // Different labels
-                              .Finalize());
+      auto schema_domain,
+      IndexDomainBuilder(3).shape(shape).labels({"Z", "Y", "X"}).Finalize());
   TENSORSTORE_ASSERT_OK(schema.Set(schema_domain));
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto result, GetEffectiveDomain(rank, shape, initial_labels, schema));
 
-  EXPECT_EQ(result.first, schema_domain);  // Domain taken from schema
-  EXPECT_THAT(result.second,
-              ElementsAre("Z", "Y", "X"));  // Labels taken from schema
+  EXPECT_EQ(result.first, schema_domain);                  // Domain from schema
+  EXPECT_THAT(result.second, ElementsAre("Z", "Y", "X"));  // Labels from schema
 }
 
 TEST(GetEffectiveDomainTest, SchemaDomainIncompatibleShape) {
@@ -842,7 +819,7 @@ TEST(GetEffectiveDomainTest, SchemaDomainIncompatibleShape) {
   Schema schema;
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto schema_domain,
                                    IndexDomainBuilder(3)
-                                       .shape({10, 20, 31})  // Different shape
+                                       .shape({10, 20, 31})
                                        .labels(initial_labels)
                                        .Finalize());
   TENSORSTORE_ASSERT_OK(schema.Set(schema_domain));
@@ -866,7 +843,7 @@ TEST(GetEffectiveDomainTest, SchemaRankIncompatible) {
 
 TEST(GetEffectiveDimensionUnitsTest, InitialOnly) {
   DimensionIndex rank = 3;
-  Schema schema;  // Empty schema
+  Schema schema;
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto units,
                                    GetEffectiveDimensionUnits(rank, schema));
@@ -889,8 +866,8 @@ TEST(GetEffectiveDimensionUnitsTest, SchemaOnly) {
 TEST(GetEffectiveDimensionUnitsTest, SchemaRankMismatch) {
   DimensionIndex rank = 3;  // TIFF implies rank 3
   Schema schema;
-  TENSORSTORE_ASSERT_OK(schema.Set(
-      Schema::DimensionUnits({"nm", "um"})));  // Schema implies rank 2
+  TENSORSTORE_ASSERT_OK(
+      schema.Set(Schema::DimensionUnits({"nm", "um"})));  // Implies rank 2
 
   EXPECT_THAT(GetEffectiveDimensionUnits(rank, schema),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
@@ -926,23 +903,20 @@ TEST(GetEffectiveCompressorTest, SchemaMatchesDeflate) {
 TEST(GetEffectiveDataTypeTest, ManyChecks) {
   TiffMetadataConstraints constraints;
   Schema schema;
-  EXPECT_FALSE(GetEffectiveDataType(constraints, schema)
-                   .value()
-                   .valid());  // Neither specified
+  EXPECT_FALSE(GetEffectiveDataType(constraints, schema).value().valid());
   TENSORSTORE_ASSERT_OK(schema.Set(dtype_v<uint16_t>));
   EXPECT_THAT(GetEffectiveDataType(constraints, schema),
-              Optional(dtype_v<uint16_t>));  // Schema only
+              Optional(dtype_v<uint16_t>));
   schema = Schema();
   constraints.dtype = dtype_v<float>;
   EXPECT_THAT(GetEffectiveDataType(constraints, schema),
-              Optional(dtype_v<float>));  // Constraints only
+              Optional(dtype_v<float>));
   TENSORSTORE_ASSERT_OK(schema.Set(dtype_v<float>));
   EXPECT_THAT(GetEffectiveDataType(constraints, schema),
-              Optional(dtype_v<float>));  // Both match
+              Optional(dtype_v<float>));
 }
 
 // --- Tests for ResolveMetadata ---
-
 // Helper to check basic metadata properties
 void CheckBaseMetadata(
     const TiffMetadata& md, uint32_t expected_ifd, uint32_t expected_num_ifds,
@@ -963,7 +937,6 @@ void CheckBaseMetadata(
               ElementsAreArray(expected_read_chunk_shape));
   EXPECT_THAT(md.chunk_layout.inner_order(),
               ElementsAreArray(expected_inner_order));
-  // Basic check on dimension mapping size
   EXPECT_EQ(md.dimension_mapping.labels_by_ts_dim.size(), expected_rank);
 }
 
@@ -1026,10 +999,9 @@ TEST(ResolveMetadataTest, BasicSuccessTileChunkySpp3) {
 }
 
 TEST(ResolveMetadataTest, SelectIfd) {
-  auto parse_result = MakeParseResult({
-      MakeImageDirectory(100, 80, 16, 16, true, 1, 8),  // IFD 0
-      MakeImageDirectory(50, 40, 8, 8, true, 3, 16)     // IFD 1
-  });
+  auto parse_result =
+      MakeParseResult({MakeImageDirectory(100, 80, 16, 16, true, 1, 8),
+                       MakeImageDirectory(50, 40, 8, 8, true, 3, 16)});
   TiffSpecOptions options;
   options.ifd_index = 1;
   Schema schema;
@@ -1044,7 +1016,7 @@ TEST(ResolveMetadataTest, SelectIfd) {
 }
 
 TEST(ResolveMetadataTest, InvalidIfdIndex) {
-  auto parse_result = MakeParseResult({MakeImageDirectory()});  // Only IFD 0
+  auto parse_result = MakeParseResult({MakeImageDirectory()});
   TiffSpecOptions options;
   options.ifd_index = 1;
   Schema schema;
@@ -1097,13 +1069,12 @@ TEST(ResolveMetadataTest, SchemaOverrideLabels) {
                                        .labels({"height", "width", "channel"})
                                        .Finalize());
 
-  // Set the domain constraint on the schema
   TENSORSTORE_ASSERT_OK(schema.Set(desired_domain));
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto metadata, ResolveMetadata(parse_result, options, schema));
 
-  // Now check that ResolveMetadata respected the schema's domain labels
+  // Check that ResolveMetadata respected the schema's domain labels
   EXPECT_THAT(metadata->dimension_labels,
               ElementsAre("height", "width", "channel"));
 
@@ -1119,7 +1090,7 @@ TEST(ResolveMetadataTest, SchemaOverrideLabels) {
               ElementsAre("y", "x", "c"));  // Conceptual order still y,x,c
 
   // Check that chunk layout inner order reflects the final dimension order
-  // The default soft inner order is still {0, 1, 2} relative to the *final*
+  // The default soft inner order is still {0, 1, 2} relative to the final
   // axes
   EXPECT_THAT(metadata->chunk_layout.inner_order(), ElementsAre(0, 1, 2));
 }
@@ -1128,15 +1099,14 @@ TEST(ResolveMetadataTest, SchemaUseSampleDimensionLabel) {
   auto parse_result =
       MakeParseResult({MakeImageDirectory(100, 80, 16, 16, true, 3)});
   TiffSpecOptions options;
-  options.sample_dimension_label = "comp";  // Use "comp" instead of "c"
+  options.sample_dimension_label = "comp";
   Schema schema;
 
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto desired_domain,
-      IndexDomainBuilder(3)
-          .shape({80, 100, 3})
-          .labels({"y", "x", "comp"})  // Expect y, x, comp final order
-          .Finalize());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto desired_domain,
+                                   IndexDomainBuilder(3)
+                                       .shape({80, 100, 3})
+                                       .labels({"y", "x", "comp"})
+                                       .Finalize());
   TENSORSTORE_ASSERT_OK(schema.Set(desired_domain));
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -1280,18 +1250,14 @@ Result<absl::Cord> EncodeArrayToCord(SharedArrayView<const void> array,
 // Test fixture for DecodeChunk tests
 class DecodeChunkTest : public ::testing::Test {
  protected:
-  // Helper to create metadata for testing
-  // Needs updating to set the unified chunk shape correctly
   TiffMetadata CreateMetadata(
       DataType dtype, span<const Index> shape,
-      span<const Index> grid_chunk_shape,  // Shape of the GRID cell
+      span<const Index> grid_chunk_shape,
       ContiguousLayoutOrder layout_order = ContiguousLayoutOrder::c,
       Endian endian = Endian::kLittle,
       CompressionType compression = CompressionType::kNone,
-      uint16_t samples_per_pixel = 1,  // Added SPP
-      PlanarConfigType planar_config =
-          PlanarConfigType::kChunky  // Added Planar Config
-  ) {
+      uint16_t samples_per_pixel = 1,
+      PlanarConfigType planar_config = PlanarConfigType::kChunky) {
     TiffMetadata metadata;
     metadata.dtype = dtype;
     metadata.rank = shape.size();
@@ -1302,10 +1268,8 @@ class DecodeChunkTest : public ::testing::Test {
     metadata.planar_config = planar_config;
     metadata.compressor = Compressor{nullptr};
 
-    // Set chunk layout properties based on GRID shape
     TENSORSTORE_CHECK_OK(
         metadata.chunk_layout.Set(RankConstraint{metadata.rank}));
-    // Set the GRID shape
     TENSORSTORE_CHECK_OK(metadata.chunk_layout.Set(
         ChunkLayout::ChunkShape(grid_chunk_shape, /*hard=*/true)));
     TENSORSTORE_CHECK_OK(metadata.chunk_layout.Set(ChunkLayout::GridOrigin(
@@ -1316,18 +1280,14 @@ class DecodeChunkTest : public ::testing::Test {
         ChunkLayout::InnerOrder(inner_order, /*hard=*/true)));
     TENSORSTORE_CHECK_OK(metadata.chunk_layout.Finalize());
 
-    // Set the resolved layout enum based on the finalized order
     metadata.layout_order = layout_order;
 
-    // Manually set ifd0_chunk dims for consistency if needed (though
-    // DecodeChunk doesn't use them)
     if (!grid_chunk_shape.empty()) {
-      metadata.ifd0_chunk_height = (metadata.rank > 0)
-                                       ? grid_chunk_shape[metadata.rank - 2]
-                                       : 0;  // Assuming Y is second last
-      metadata.ifd0_chunk_width = (metadata.rank > 0)
-                                      ? grid_chunk_shape.back()
-                                      : 0;  // Assuming X is last
+      metadata.ifd0_chunk_height =
+          (metadata.rank > 0) ? grid_chunk_shape[metadata.rank - 2] : 0;
+      // Assuming X is last
+      metadata.ifd0_chunk_width =
+          (metadata.rank > 0) ? grid_chunk_shape.back() : 0;
       if (planar_config == PlanarConfigType::kPlanar && metadata.rank > 0) {
         metadata.ifd0_chunk_height =
             (metadata.rank > 1) ? grid_chunk_shape[metadata.rank - 2] : 0;  // Y
@@ -1381,8 +1341,7 @@ TEST_F(DecodeChunkTest, UncompressedUint8CorderLittleEndianChunkySpp3) {
       std::static_pointer_cast<const uint8_t>(decoded_array_void.pointer()),
       expected_array.layout());
 
-  EXPECT_THAT(decoded_array.shape(),
-              ElementsAre(2, 3, 3));  // Verify shape decoded correctly
+  EXPECT_THAT(decoded_array.shape(), ElementsAre(2, 3, 3));
   EXPECT_EQ(decoded_array, expected_array);
 }
 
@@ -1390,8 +1349,7 @@ TEST_F(DecodeChunkTest, UncompressedUint16FortranOrderBigEndian) {
   const Index shape[] = {2, 3};
   const Index grid_chunk_shape[] = {2, 3};
   auto metadata = CreateMetadata(dtype_v<uint16_t>, shape, grid_chunk_shape,
-                                 ContiguousLayoutOrder::fortran,
-                                 Endian::kBig);  // Default chunky, spp=1
+                                 ContiguousLayoutOrder::fortran, Endian::kBig);
   auto expected_array = tensorstore::MakeCopy(
       MakeArray<uint16_t>({{100, 200, 300}, {400, 500, 600}}),
       ContiguousLayoutOrder::fortran);
@@ -1420,7 +1378,6 @@ TEST_F(DecodeChunkTest, UncompressedFloat32CorderBigEndianToNative) {
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto decoded_array_void,
                                    DecodeChunk(metadata, input_cord));
-  // Cast the void result to the expected type, preserving layout
   SharedArray<const float> decoded_array(
       std::static_pointer_cast<const float>(decoded_array_void.pointer()),
       expected_array.layout());
@@ -1440,7 +1397,6 @@ TEST_F(DecodeChunkTest, UncompressedRank3) {
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto decoded_array_void,
                                    DecodeChunk(metadata, input_cord));
-  // Cast the void result to the expected type, preserving layout
   SharedArray<const int16_t> decoded_array(
       std::static_pointer_cast<const int16_t>(decoded_array_void.pointer()),
       expected_array.layout());

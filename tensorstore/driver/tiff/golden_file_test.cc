@@ -63,14 +63,10 @@ tensorstore::SharedArray<T> MakeExpectedArray(
 
   constexpr bool use_modulo = std::is_integral_v<T>;
   T max_val = std::numeric_limits<T>::max();
-  // Calculate the actual value to use for modulo (max_val + 1), careful of
-  // overflow For uint8, max_val=255, divisor=256. For uint16, max_val=65535,
-  // divisor=65536.
   size_t modulo_divisor = 0;
   if (use_modulo) {
-    // Use unsigned arithmetic to handle potential max_val+1 overflow correctly
     uint64_t divisor_calc = static_cast<uint64_t>(max_val) + 1;
-    if (divisor_calc > 0) {  // Avoid modulo by zero if max_val was max size_t
+    if (divisor_calc > 0) {
       modulo_divisor = static_cast<size_t>(divisor_calc);
     }
   }
@@ -83,14 +79,12 @@ tensorstore::SharedArray<T> MakeExpectedArray(
           // C++:   1%256=1, 255%256=255, 256%256=0, 257%256=1
           current_val = static_cast<T>(count % modulo_divisor);
         } else {
-          // Assign the incrementing count directly for non-integer types
-          // (float)
           current_val = static_cast<T>(count);
         }
         *(element_ptr.data()) = current_val;
         count++;
       },
-      /*constraints=*/{}, array);  // Iterate over the whole array
+      /*constraints=*/{}, array);
   return array;
 }
 
@@ -164,15 +158,12 @@ TEST_P(TiffGoldenFileTest, ReadAndVerify) {
   EXPECT_EQ(expected_data, read_data);
 }
 
-// --- Instantiate Test Cases ---
-
 // Base dimensions H=32, W=48, Tile=16x16
 const Index H = 32;
 const Index W = 48;
 const Index TH = 16;
 const Index TW = 16;
 
-// Use {} for default tiff options if none are needed for opening.
 const ::nlohmann::json kDefaultTiffSpec = {
     {"tiff", ::nlohmann::json::object()}};
 

@@ -103,7 +103,6 @@ absl::Status ParseUint64Array(const IfdEntry* entry,
 
   // If this is an external array, it must be loaded separately
   if (entry->is_external_array) {
-    // Initialize the output array with the correct size
     out.resize(entry->count);
     return absl::OkStatus();
   } else {
@@ -148,7 +147,6 @@ absl::Status ParseUint16Array(const IfdEntry* entry,
 
   // If this is an external array, it must be loaded separately
   if (entry->is_external_array) {
-    // Initialize the output array with the correct size
     out.resize(entry->count);
     return absl::OkStatus();
   } else {
@@ -180,21 +178,16 @@ std::tuple<uint64_t, uint32_t, uint32_t> CalculateChunkCounts(
 
 }  // namespace
 
-// Implementation of the ParseUint16Array function to read arrays of uint16_t
-// values
 absl::Status ParseUint16Array(riegeli::Reader& reader, Endian endian,
                               uint64_t offset, uint64_t count,
                               std::vector<uint16_t>& out) {
-  // Ensure output vector has the right size
   out.resize(count);
 
-  // Seek to the offset
   if (!reader.Seek(offset)) {
     return absl::InvalidArgumentError(absl::StrFormat(
         "Failed to seek to external array at offset %llu", offset));
   }
 
-  // Read uint16 values
   for (uint64_t i = 0; i < count; ++i) {
     uint16_t value;
     if (!ReadEndian(reader, endian, value)) {
@@ -240,7 +233,6 @@ size_t GetTiffDataTypeSize(TiffDataType type) {
 
 // Determine if an entry represents an external array based on type and count
 bool IsExternalArray(TiffDataType type, uint64_t count) {
-  // Calculate how many bytes the value would take
   size_t type_size = GetTiffDataTypeSize(type);
   size_t total_size = type_size * count;
 
@@ -296,13 +288,11 @@ absl::Status ParseTiffHeader(riegeli::Reader& reader, Endian& endian,
 absl::Status ParseTiffDirectory(riegeli::Reader& reader, Endian endian,
                                 uint64_t directory_offset,
                                 size_t available_size, TiffDirectory& out) {
-  // Position reader at directory offset
   if (!reader.Seek(directory_offset)) {
     return absl::InvalidArgumentError(absl::StrFormat(
         "Failed to seek to IFD at offset %d", directory_offset));
   }
 
-  // Read number of directory entries (2 bytes)
   if (available_size < 2) {
     return absl::DataLossError("Insufficient data to read IFD entry count");
   }
@@ -321,23 +311,21 @@ absl::Status ParseTiffDirectory(riegeli::Reader& reader, Endian endian,
         required_size, available_size));
   }
 
-  // Initialize directory fields
   out.endian = endian;
   out.directory_offset = directory_offset;
   out.entries.clear();
   out.entries.reserve(num_entries);
 
-  // Read each entry
   for (uint16_t i = 0; i < num_entries; ++i) {
     IfdEntry entry;
 
     // Read tag
-    uint16_t tag_value;  // Temporary variable for reading the tag
+    uint16_t tag_value;
     if (!ReadEndian(reader, endian, tag_value)) {
       return absl::InvalidArgumentError(
           absl::StrFormat("Failed to read tag for IFD entry %d", i));
     }
-    entry.tag = static_cast<Tag>(tag_value);  // Assign to enum
+    entry.tag = static_cast<Tag>(tag_value);
 
     // Read type
     uint16_t type_raw;
@@ -392,16 +380,13 @@ absl::Status ParseExternalArray(riegeli::Reader& reader, Endian endian,
                                 uint64_t offset, uint64_t count,
                                 TiffDataType data_type,
                                 std::vector<uint64_t>& out) {
-  // Ensure output vector has the right size
   out.resize(count);
 
-  // Seek to the offset
   if (!reader.Seek(offset)) {
     return absl::InvalidArgumentError(absl::StrFormat(
         "Failed to seek to external array at offset %llu", offset));
   }
 
-  // Read based on data type
   for (uint64_t i = 0; i < count; ++i) {
     switch (data_type) {
       case TiffDataType::kShort: {
@@ -468,7 +453,6 @@ absl::Status ParseImageDirectory(const std::vector<IfdEntry>& entries,
   if (bps_entry) {
     TENSORSTORE_RETURN_IF_ERROR(
         ParseUint16Array(bps_entry, out.bits_per_sample));
-    // Validate size matches SamplesPerPixel
     if (out.bits_per_sample.size() != out.samples_per_pixel &&
         out.bits_per_sample.size() !=
             1) {  // Allow single value for all samples
@@ -508,14 +492,14 @@ absl::Status ParseImageDirectory(const std::vector<IfdEntry>& entries,
     out.planar_config = static_cast<uint16_t>(PlanarConfigType::kChunky);
   }
 
-  // Sample Format (defaults to Unsigned Integer if missing)
+  // Sample Format (defaults to uint if missing)
   const IfdEntry* format_entry = GetIfdEntry(Tag::kSampleFormat, entries);
   if (format_entry) {
     TENSORSTORE_RETURN_IF_ERROR(
         ParseUint16Array(format_entry, out.sample_format));
     // Validate size matches SamplesPerPixel
     if (out.sample_format.size() != out.samples_per_pixel &&
-        out.sample_format.size() != 1) {  // Allow single value for all samples
+        out.sample_format.size() != 1) {
       return absl::InvalidArgumentError(
           "SampleFormat count does not match SamplesPerPixel");
     }
@@ -529,7 +513,7 @@ absl::Status ParseImageDirectory(const std::vector<IfdEntry>& entries,
         static_cast<uint16_t>(SampleFormatType::kUnsignedInteger));
   }
 
-  // Determine Tiled vs. Stripped and Parse Chunk Info
+  // Determine tiled vs. stripped and parse chunk info
   const IfdEntry* tile_width_entry = GetIfdEntry(Tag::kTileWidth, entries);
   const IfdEntry* rows_per_strip_entry =
       GetIfdEntry(Tag::kRowsPerStrip, entries);

@@ -117,7 +117,6 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
                            }))))))
 
 bool operator==(const TiffCodecSpec& a, const TiffCodecSpec& b) {
-  // Two specs are equal if their compression_type members are equal.
   return a.compression_type == b.compression_type;
 }
 
@@ -129,9 +128,6 @@ constexpr std::array kSupportedDataTypes{
     DataTypeId::uint64_t,  DataTypeId::int8_t,   DataTypeId::int16_t,
     DataTypeId::int32_t,   DataTypeId::int64_t,  DataTypeId::float32_t,
     DataTypeId::float64_t,
-    // Note: Complex types are typically not standard TIFF.
-    // Note: Boolean might be mapped to uint8 with specific interpretation,
-    //       but let's require explicit numeric types for now.
 };
 
 std::string GetSupportedDataTypes() {
@@ -273,31 +269,26 @@ absl::Status CheckIfdUniformity(const ImageDirectory& base_ifd,
 }
 
 // Helper to build the dimension mapping struct
-// In metadata.cc within internal_tiff namespace...
 TiffDimensionMapping BuildDimensionMapping(
-    span<const std::string> final_labels,  // Use span
+    tensorstore::span<const std::string> final_labels,
     const std::optional<TiffSpecOptions::IfdStackingOptions>& stacking_info,
     const std::optional<std::string>& options_sample_label,
-    span<const std::string> initial_conceptual_labels,  // Use span
+    tensorstore::span<const std::string> initial_conceptual_labels,
     uint16_t samples_per_pixel) {
   TiffDimensionMapping mapping;
   const DimensionIndex final_rank = final_labels.size();
   if (final_rank == 0) return mapping;
 
   mapping.labels_by_ts_dim.resize(final_rank);
-
-  // Create map from FINAL label to FINAL index.
   absl::flat_hash_map<std::string_view, DimensionIndex> final_label_to_index;
   for (DimensionIndex i = 0; i < final_rank; ++i) {
     final_label_to_index[final_labels[i]] = i;
   }
 
-  // Determine the actual conceptual sample label used.
   const std::string default_sample_label = "c";
   const std::string& conceptual_sample_label =
       options_sample_label.value_or(default_sample_label);
 
-  // Create a set of conceptual stacking labels for efficient lookup
   std::set<std::string_view> conceptual_stack_labels;
   if (stacking_info) {
     for (const auto& label : stacking_info->dimensions) {
@@ -305,7 +296,6 @@ TiffDimensionMapping BuildDimensionMapping(
     }
   }
 
-  // Define conceptual Y and X labels
   const std::string conceptual_y_label = "y";
   const std::string conceptual_x_label = "x";
 
@@ -314,18 +304,13 @@ TiffDimensionMapping BuildDimensionMapping(
 
   // Map FINAL indices back to INITIAL conceptual labels and identify roles.
   for (DimensionIndex final_idx = 0; final_idx < final_rank; ++final_idx) {
-    // Assuming MergeIndexDomains preserves correspondence based on initial
-    // index
-    DimensionIndex initial_idx = final_idx;  // **Critical assumption**
+    DimensionIndex initial_idx = final_idx;
 
-    // Check if the initial index is valid
     if (initial_idx >= 0 && initial_idx < initial_conceptual_labels.size()) {
       const std::string& conceptual_label =
           initial_conceptual_labels[initial_idx];
-      mapping.labels_by_ts_dim[final_idx] =
-          conceptual_label;  // Map final index to conceptual label
+      mapping.labels_by_ts_dim[final_idx] = conceptual_label;
 
-      // Check the role based on the conceptual label
       if (conceptual_label == conceptual_y_label) {
         mapping.ts_y_dim = final_idx;
       } else if (conceptual_label == conceptual_x_label) {
@@ -334,8 +319,6 @@ TiffDimensionMapping BuildDimensionMapping(
                  conceptual_label == conceptual_sample_label) {
         mapping.ts_sample_dim = final_idx;
       } else if (conceptual_stack_labels.count(conceptual_label)) {
-        // Use the conceptual label (which matches the final label if not
-        // overridden) as the key in the stacked dimensions map.
         mapping.ts_stacked_dims[conceptual_label] = final_idx;
       }
     } else {
@@ -346,23 +329,17 @@ TiffDimensionMapping BuildDimensionMapping(
   return mapping;
 }
 
-// Helper to apply TIFF-derived layout constraints (chunk shape, origin, inner
-// order) onto an existing layout object (which may already contain schema
-// constraints). This mirrors the N5 SetChunkLayoutFromMetadata logic but adapts
-// defaults for TIFF.
-absl::Status SetChunkLayoutFromTiffMetadata(
-    DimensionIndex rank,
-    ChunkLayout initial_layout,    // Layout derived from TIFF tags
-    ChunkLayout& merged_layout) {  // Layout to merge into
-
+// Helper to apply TIFF-derived layout constraints onto an existing layout
+// object.
+absl::Status SetChunkLayoutFromTiffMetadata(DimensionIndex rank,
+                                            ChunkLayout initial_layout,
+                                            ChunkLayout& merged_layout) {
   TENSORSTORE_RETURN_IF_ERROR(merged_layout.Set(RankConstraint{rank}));
   if (merged_layout.rank() == dynamic_rank) {
-    // Cannot set constraints if final rank is unknown.
     return absl::OkStatus();
   }
   assert(merged_layout.rank() == rank);
 
-  // Apply hard constraints from initial_layout (derived from TIFF tags):
   // - Chunk Shape (TIFF tile/strip size is a hard constraint)
   TENSORSTORE_RETURN_IF_ERROR(merged_layout.Set(ChunkLayout::ChunkShape(
       initial_layout.read_chunk_shape(), /*hard_constraint=*/true)));
@@ -371,15 +348,11 @@ absl::Status SetChunkLayoutFromTiffMetadata(
   TENSORSTORE_RETURN_IF_ERROR(merged_layout.Set(ChunkLayout::GridOrigin(
       initial_layout.grid_origin(), /*hard_constraint=*/true)));
 
-  // Apply soft constraints from initial_layout (derived from TIFF tags):
   // - Inner Order (TIFF doesn't mandate an order, use C as soft default)
-  // Only apply if schema hasn't already set a hard constraint.
   TENSORSTORE_RETURN_IF_ERROR(merged_layout.Set(ChunkLayout::InnerOrder(
       initial_layout.inner_order(), /*hard_constraint=*/false)));
 
-  // Apply other constraints (aspect ratio, elements) from initial_layout as
-  // soft constraints These typically aren't derived directly from standard TIFF
-  // tags but might be defaults.
+  // Apply other constraints from initial_layout as. soft constraints.
   TENSORSTORE_RETURN_IF_ERROR(merged_layout.Set(ChunkLayout::WriteChunkElements(
       initial_layout.write_chunk_elements().value, /*hard=*/false)));
   TENSORSTORE_RETURN_IF_ERROR(merged_layout.Set(ChunkLayout::ReadChunkElements(
@@ -426,7 +399,6 @@ auto ifd_stacking_options_binder = jb::Validate(
         }
       }
 
-      // Validate relationship between dimension_sizes and ifd_count
       if (obj->dimensions.size() == 1) {
         if (!obj->dimension_sizes && !obj->ifd_count) {
           return absl::InvalidArgumentError(
@@ -470,7 +442,6 @@ auto ifd_stacking_options_binder = jb::Validate(
         }
       }
 
-      // Validate ifd_sequence_order
       if (obj->ifd_sequence_order) {
         if (obj->ifd_sequence_order->size() != obj->dimensions.size()) {
           return absl::InvalidArgumentError(
@@ -479,7 +450,6 @@ auto ifd_stacking_options_binder = jb::Validate(
                                   ") must match \"dimensions\" length (",
                                   obj->dimensions.size(), ")"));
         }
-        // Check if it's a permutation of dimensions
         std::set<std::string_view> order_set(obj->ifd_sequence_order->begin(),
                                              obj->ifd_sequence_order->end());
         if (order_set != dim_set) {
@@ -509,7 +479,6 @@ auto ifd_stacking_options_binder = jb::Validate(
                 jb::Optional(jb::DefaultBinder<>)))));
 }  // namespace
 
-// Implement JSON binder for TiffMetadataConstraints here
 TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
     TiffMetadataConstraints,
     [](auto is_loading, const auto& options, auto* obj, auto* j) {
@@ -550,15 +519,14 @@ Result<std::shared_ptr<const TiffMetadata>> ResolveMetadata(
       << "Resolving TIFF metadata. Options: "
       << jb::ToJson(options).value_or(::nlohmann::json::object());
 
-  // --- 1. Initial Setup & IFD Selection/Validation (Inlined) ---
+  // 1. Initial Setup & IFD Selection/Validation
   const ImageDirectory* base_ifd_ptr = nullptr;
   uint32_t base_ifd_index = 0;
   uint32_t num_ifds_read = 0;
   std::optional<TiffSpecOptions::IfdStackingOptions> validated_stacking_info;
-  std::vector<Index> stack_sizes_vec;  // Only used if stacking
+  std::vector<Index> stack_sizes_vec;
 
   if (options.ifd_stacking) {
-    // --- Multi-IFD Stacking Mode Logic ---
     validated_stacking_info = *options.ifd_stacking;
     const auto& stacking = *validated_stacking_info;
     size_t num_stack_dims = stacking.dimensions.size();
@@ -566,7 +534,6 @@ Result<std::shared_ptr<const TiffMetadata>> ResolveMetadata(
       return absl::InvalidArgumentError(
           "ifd_stacking.dimensions cannot be empty");
 
-    // Calculate total IFDs needed and validate/populate stack_sizes_vec
     uint64_t total_ifds_needed = 0;
     if (stacking.dimension_sizes) {
       if (stacking.dimension_sizes->size() != num_stack_dims) {
@@ -582,7 +549,6 @@ Result<std::shared_ptr<const TiffMetadata>> ResolveMetadata(
           return absl::InvalidArgumentError(
               "\"dimension_sizes\" must be positive");
         uint64_t u_size = static_cast<uint64_t>(size);
-        // Check for overflow before multiplication
         if (total_ifds_needed > max_val / u_size) {
           return absl::InvalidArgumentError(
               "Product of dimension_sizes overflows uint64_t");
@@ -624,14 +590,13 @@ Result<std::shared_ptr<const TiffMetadata>> ResolveMetadata(
     }
     base_ifd_ptr = &source.image_directories[0];
 
-    // Check IFD uniformity
     for (size_t i = 1; i < num_ifds_read; ++i) {
       TENSORSTORE_RETURN_IF_ERROR(
           CheckIfdUniformity(*base_ifd_ptr, source.image_directories[i], i));
     }
 
   } else {
-    // --- Single IFD Mode Logic ---
+    // Single IFD Mode Logic
     base_ifd_index = options.ifd_index;
     num_ifds_read = 1;
     validated_stacking_info = std::nullopt;
@@ -645,7 +610,7 @@ Result<std::shared_ptr<const TiffMetadata>> ResolveMetadata(
   }
   const ImageDirectory& base_ifd = *base_ifd_ptr;
 
-  // --- 2. Determine Initial Structure ---
+  // 2. Determine Initial Structure
   DimensionIndex initial_rank = dynamic_rank;
   std::vector<Index> initial_shape;
   std::vector<std::string> initial_labels;
@@ -662,20 +627,17 @@ Result<std::shared_ptr<const TiffMetadata>> ResolveMetadata(
   initial_shape.clear();
   initial_labels.clear();
 
-  // Handle Planar Config Check / Initial Dimension Order
   if (initial_planar_config != PlanarConfigType::kChunky) {
     if (initial_samples_per_pixel <= 1) {
       // Treat Planar with SPP=1 as Chunky for layout purposes.
       ABSL_LOG_IF(WARNING, tiff_metadata_logging)
           << "PlanarConfiguration=2 with SamplesPerPixel<=1; treating as "
              "Chunky.";
-      initial_planar_config =
-          PlanarConfigType::kChunky;  // Override locally for layout
-      // Fallthrough to Chunky logic below...
+      initial_planar_config = PlanarConfigType::kChunky;
     } else if (validated_stacking_info) {
-      // Stacking + Planar is not supported yet.
+      // Stacking + Planar is not supported (yet).
       return absl::UnimplementedError(
-          "PlanarConfiguration=2 is not supported with ifd_stacking yet.");
+          "PlanarConfiguration=2 is not supported with ifd_stacking.");
     } else {
       // Single IFD Planar: Use {Sample, Y, X} initial order
       initial_shape.push_back(static_cast<Index>(initial_samples_per_pixel));
@@ -688,8 +650,6 @@ Result<std::shared_ptr<const TiffMetadata>> ResolveMetadata(
     }
   }
 
-  // Handle Chunky Config / Default Dimension Order (also handles planar case if
-  // overridden above)
   if (initial_planar_config == PlanarConfigType::kChunky) {
     // Add stacked dimensions first
     if (validated_stacking_info) {
@@ -699,7 +659,6 @@ Result<std::shared_ptr<const TiffMetadata>> ResolveMetadata(
                             validated_stacking_info->dimensions.begin(),
                             validated_stacking_info->dimensions.end());
     }
-    // Add Y and X dimensions
     initial_shape.push_back(static_cast<Index>(base_ifd.height));
     initial_labels.push_back(implicit_y_label);
     initial_shape.push_back(static_cast<Index>(base_ifd.width));
@@ -712,7 +671,6 @@ Result<std::shared_ptr<const TiffMetadata>> ResolveMetadata(
     initial_rank = initial_shape.size();
   }
 
-  // Validate label uniqueness (common to both paths)
   std::set<std::string_view> label_set;
   for (const auto& label : initial_labels) {
     if (!label_set.insert(label).second) {
@@ -722,13 +680,12 @@ Result<std::shared_ptr<const TiffMetadata>> ResolveMetadata(
     }
   }
 
-  // --- 3. Determine Initial Properties ---
+  // 3. Determine Initial Properties
   TENSORSTORE_ASSIGN_OR_RETURN(DataType initial_dtype,
                                GetDataTypeFromTiff(base_ifd));
   TENSORSTORE_RETURN_IF_ERROR(ValidateDataType(initial_dtype));
   CompressionType initial_compression_type =
       static_cast<CompressionType>(base_ifd.compression);
-  // Pass the *actual* planar config read from the IFD to GetInitialChunkLayout
   PlanarConfigType ifd_planar_config =
       static_cast<PlanarConfigType>(base_ifd.planar_config);
   TENSORSTORE_ASSIGN_OR_RETURN(
@@ -737,8 +694,8 @@ Result<std::shared_ptr<const TiffMetadata>> ResolveMetadata(
                             ifd_planar_config, initial_samples_per_pixel,
                             sample_label));
 
-  // --- 4. Merge with Schema ---
-  Schema merged_schema = schema;  // Start with user-provided schema
+  // 4. Merge with Schema
+  Schema merged_schema = schema;
 
   TENSORSTORE_ASSIGN_OR_RETURN(
       DataType effective_dtype,
@@ -752,8 +709,7 @@ Result<std::shared_ptr<const TiffMetadata>> ResolveMetadata(
                          merged_schema));
   const IndexDomain<>& final_domain = final_domain_pair.first;
   const std::vector<std::string>& final_labels = final_domain_pair.second;
-  const DimensionIndex final_rank =
-      final_domain.rank();  // Use rank from final domain
+  const DimensionIndex final_rank = final_domain.rank();
 
   TENSORSTORE_ASSIGN_OR_RETURN(
       ChunkLayout final_layout,
@@ -773,15 +729,13 @@ Result<std::shared_ptr<const TiffMetadata>> ResolveMetadata(
         "fill_value not supported by TIFF format");
   }
 
-  // --- 5. Build Final TiffMetadata ---
+  // 5. Build Final TiffMetadata
   auto metadata = std::make_shared<TiffMetadata>();
   metadata->base_ifd_index = base_ifd_index;
   metadata->num_ifds_read = num_ifds_read;
   metadata->stacking_info = validated_stacking_info;
   metadata->endian = source.endian;
   metadata->is_tiled = base_ifd.is_tiled;
-  // Store the actual planar config from the IFD, not the potentially overridden
-  // one used for layout
   metadata->planar_config =
       static_cast<PlanarConfigType>(base_ifd.planar_config);
   metadata->samples_per_pixel = initial_samples_per_pixel;
@@ -820,7 +774,6 @@ Result<std::shared_ptr<const TiffMetadata>> ResolveMetadata(
   return metadata;
 }
 
-// --- ValidateResolvedMetadata Implementation ---
 absl::Status ValidateResolvedMetadata(
     const TiffMetadata& resolved_metadata,
     const TiffMetadataConstraints& user_constraints) {
@@ -832,7 +785,6 @@ absl::Status ValidateResolvedMetadata(
         ") does not match user constraint rank (", user_constraints.rank, ")"));
   }
 
-  // Validate Data Type
   if (user_constraints.dtype.has_value() &&
       resolved_metadata.dtype != *user_constraints.dtype) {
     return absl::FailedPreconditionError(
@@ -841,7 +793,6 @@ absl::Status ValidateResolvedMetadata(
                *user_constraints.dtype, ")"));
   }
 
-  // Validate Shape
   if (user_constraints.shape.has_value()) {
     if (resolved_metadata.rank != user_constraints.shape->size()) {
       return absl::FailedPreconditionError(
@@ -861,11 +812,9 @@ absl::Status ValidateResolvedMetadata(
 
   // Validate Axes (if added to constraints)
   // TODO: Implement axis validation
-  // if (user_constraints.axes.has_value()) { ... }
 
   // Validate Chunk Shape (if added to constraints)
   // TODO: Implement chunk shape validation
-  // if (user_constraints.chunk_shape.has_value()) { ... }
 
   return absl::OkStatus();
 }
@@ -893,7 +842,6 @@ Result<Compressor> GetEffectiveCompressor(CompressionType compression_type,
   // TENSORSTORE_ASSIGN_OR_RETURN(std::string_view type_id,
   //                              CompressionTypeToStringId(compression_type));
 
-  // Create a TiffCodecSpec representing the TIFF file's compression
   auto initial_codec_spec = internal::CodecDriverSpec::Make<TiffCodecSpec>();
   initial_codec_spec->compression_type = compression_type;
 
@@ -907,12 +855,11 @@ Result<Compressor> GetEffectiveCompressor(CompressionType compression_type,
     // be merged here (currently only type is stored).
   }
 
-  // Get the final compression type after merging
   auto final_compression_type =
       initial_codec_spec->compression_type.value_or(CompressionType::kNone);
 
   if (final_compression_type == CompressionType::kNone) {
-    return Compressor{nullptr};  // Explicitly return null pointer for raw
+    return Compressor{nullptr};
   }
 
   // Re-lookup the type ID in case merging changed the type
@@ -934,7 +881,6 @@ Result<Compressor> GetEffectiveCompressor(CompressionType compression_type,
           std::move(final_compressor_json),
           internal::JsonSpecifiedCompressor::FromJsonOptions{}));
 
-  // Check if the factory actually supports this type
   if (!final_compressor && final_compression_type != CompressionType::kNone) {
     return absl::UnimplementedError(tensorstore::StrCat(
         "TIFF compression type ", static_cast<int>(final_compression_type),
@@ -947,7 +893,7 @@ Result<Compressor> GetEffectiveCompressor(CompressionType compression_type,
 Result<std::pair<IndexDomain<>, std::vector<std::string>>> GetEffectiveDomain(
     DimensionIndex initial_rank, span<const Index> initial_shape,
     span<const std::string> initial_labels, const Schema& schema) {
-  // --- 1. Validate Rank Compatibility & Determine Final Rank ---
+  // 1. Validate Rank Compatibility & Determine Final Rank
   if (!RankConstraint::EqualOrUnspecified(initial_rank, schema.rank())) {
     return absl::FailedPreconditionError(
         tensorstore::StrCat("Schema rank constraint ", schema.rank(),
@@ -964,7 +910,7 @@ Result<std::pair<IndexDomain<>, std::vector<std::string>>> GetEffectiveDomain(
         "Rank mismatch after effective rank determination");
   }
 
-  // --- 2. Determine Final Labels ---
+  // 2. Determine Final Labels
   std::vector<std::string> final_labels;
   bool schema_has_labels =
       schema.domain().valid() && !schema.domain().labels().empty();
@@ -985,22 +931,21 @@ Result<std::pair<IndexDomain<>, std::vector<std::string>>> GetEffectiveDomain(
     final_labels.assign(initial_labels.begin(), initial_labels.end());
   }
 
-  // --- 3. Build Initial Domain (with final labels for merge compatibility) ---
+  // 3. Build Initial Domain (with final labels for merge compatibility)
   IndexDomainBuilder initial_builder(rank);
   initial_builder.shape(initial_shape);
-  initial_builder.labels(final_labels);  // Use FINAL labels now
+  initial_builder.labels(final_labels);
   initial_builder.implicit_lower_bounds(false);
   initial_builder.implicit_upper_bounds(false);
   TENSORSTORE_ASSIGN_OR_RETURN(auto initial_domain, initial_builder.Finalize());
 
-  // --- 4. Build Effective Schema Domain (with final labels for merge
-  // compatibility) ---
+  //  4. Build Effective Schema Domain (with final labels)
   IndexDomain<> effective_schema_domain;
   if (schema.domain().valid()) {
     IndexDomainBuilder schema_builder(rank);
-    schema_builder.origin(schema.domain().origin());  // Copy bounds
-    schema_builder.shape(schema.domain().shape());    // Copy bounds
-    schema_builder.labels(final_labels);              // Apply FINAL labels
+    schema_builder.origin(schema.domain().origin());
+    schema_builder.shape(schema.domain().shape());
+    schema_builder.labels(final_labels);
     schema_builder.implicit_lower_bounds(
         schema.domain().implicit_lower_bounds());
     schema_builder.implicit_upper_bounds(
@@ -1008,23 +953,19 @@ Result<std::pair<IndexDomain<>, std::vector<std::string>>> GetEffectiveDomain(
     TENSORSTORE_ASSIGN_OR_RETURN(effective_schema_domain,
                                  schema_builder.Finalize());
   } else {
-    // If schema domain was invalid, create one with correct rank/labels
-    // and implicit bounds to allow merging.
     TENSORSTORE_ASSIGN_OR_RETURN(
         effective_schema_domain,
         IndexDomainBuilder(rank).labels(final_labels).Finalize());
   }
 
-  // --- 5. Merge Domains (Focusing on Bounds) ---
+  // 5. Merge Domains
   TENSORSTORE_ASSIGN_OR_RETURN(
-      IndexDomain<> merged_domain_bounds_only,  // Result has final_labels now
+      IndexDomain<> merged_domain_bounds_only,
       MergeIndexDomains(effective_schema_domain, initial_domain),
       tensorstore::MaybeAnnotateStatus(_,
                                        "Mismatch between TIFF-derived domain "
                                        "and schema domain bounds/shape"));
 
-  // --- 6. Return Final Domain and Labels ---
-  // The merged domain already has the final labels due to steps 3 & 4.
   return std::make_pair(std::move(merged_domain_bounds_only),
                         std::move(final_labels));
 }
@@ -1069,7 +1010,6 @@ Result<IndexDomain<>> GetEffectiveDomain(
     builder.implicit_upper_bounds(true);
   }
 
-  // Apply labels from schema if available
   if (schema.domain().valid() && !schema.domain().labels().empty()) {
     if (static_cast<DimensionIndex>(schema.domain().labels().size()) != rank) {
       return absl::InvalidArgumentError(tensorstore::StrCat(
@@ -1106,14 +1046,10 @@ Result<DimensionUnitsVector> GetEffectiveDimensionUnits(
   // Start with schema units.
   DimensionUnitsVector final_units(schema.dimension_units());
 
-  // Ensure rank consistency
   if (final_units.empty() && rank != dynamic_rank) {
-    final_units.resize(rank);  // Initialize with unknown units if rank is known
+    final_units.resize(rank);
   } else if (!final_units.empty() &&
              static_cast<DimensionIndex>(final_units.size()) != rank) {
-    // This case implies schema had units with a rank different from the
-    // TIFF-derived rank, which should likely be caught earlier during
-    // domain merging, but check again.
     return absl::InvalidArgumentError(
         tensorstore::StrCat("Schema dimension_units rank (", final_units.size(),
                             ") conflicts with TIFF-derived rank (", rank, ")"));
@@ -1134,11 +1070,10 @@ Result<ChunkLayout> GetInitialChunkLayout(
   ChunkLayout layout;
   TENSORSTORE_RETURN_IF_ERROR(layout.Set(RankConstraint{initial_rank}));
   if (initial_rank == dynamic_rank || initial_rank == 0) {
-    // Handle rank 0 or unknown rank.
-    TENSORSTORE_RETURN_IF_ERROR(layout.Set(
-        ChunkLayout::ChunkShape({}, /*hard=*/true)));  // Applies to read/write
-    TENSORSTORE_RETURN_IF_ERROR(layout.Set(ChunkLayout::CodecChunkShape(
-        {}, /*hard=*/true)));  // Explicitly set codec
+    TENSORSTORE_RETURN_IF_ERROR(
+        layout.Set(ChunkLayout::ChunkShape({}, /*hard=*/true)));
+    TENSORSTORE_RETURN_IF_ERROR(
+        layout.Set(ChunkLayout::CodecChunkShape({}, /*hard=*/true)));
     TENSORSTORE_RETURN_IF_ERROR(
         layout.Set(ChunkLayout::GridOrigin({}, /*hard=*/true)));
     TENSORSTORE_RETURN_IF_ERROR(
@@ -1146,29 +1081,26 @@ Result<ChunkLayout> GetInitialChunkLayout(
     return layout;
   }
 
-  // --- 1. Set Grid Origin (Hard Constraint) ---
-  // Explicitly create a DimensionSet marked as hard for all dimensions.
+  // 1. Set Grid Origin (Hard Constraint)
   DimensionSet all_dims_hard = DimensionSet::UpTo(initial_rank);
-  TENSORSTORE_RETURN_IF_ERROR(layout.Set(
-      ChunkLayout::GridOrigin(GetConstantVector<Index, 0>(initial_rank),
-                              all_dims_hard)));  // Use DimensionSet
+  TENSORSTORE_RETURN_IF_ERROR(layout.Set(ChunkLayout::GridOrigin(
+      GetConstantVector<Index, 0>(initial_rank), all_dims_hard)));
 
-  // --- 2. Set Default Inner Order (Soft Constraint) ---
+  // 2. Set Default Inner Order (Soft Constraint)
   std::vector<DimensionIndex> default_inner_order(initial_rank);
   std::iota(default_inner_order.begin(), default_inner_order.end(), 0);
   TENSORSTORE_RETURN_IF_ERROR(layout.Set(
       ChunkLayout::InnerOrder(default_inner_order, /*hard_constraint=*/false)));
 
-  // --- 3. Determine Initial Chunk Shape (Hard Constraint) ---
+  // 3. Determine Initial Chunk Shape (Hard Constraint)
   std::vector<Index> initial_chunk_shape(initial_rank);
 
-  // Build map for efficient label lookup
   absl::flat_hash_map<std::string_view, DimensionIndex> label_to_index;
   for (DimensionIndex i = 0; i < initial_rank; ++i) {
     label_to_index[initial_labels[i]] = i;
   }
 
-  // Find indices corresponding to conceptual Y, X, and Sample dimensions
+  // Find indices corresponding to conceptual Y, X, and sample dimensions
   DimensionIndex y_dim_idx = -1;
   DimensionIndex x_dim_idx = -1;
   DimensionIndex sample_dim_idx = -1;
@@ -1221,19 +1153,16 @@ Result<ChunkLayout> GetInitialChunkLayout(
       if (initial_chunk_shape[i] <= 0)
         return absl::InvalidArgumentError("SamplesPerPixel must be positive");
     } else {
-      initial_chunk_shape[i] =
-          1;  // Assume stacked dimensions are chunked at size 1
+      initial_chunk_shape[i] = 1;  // Assume stacked dims are chunked at size 1
     }
   }
 
-  // Set the shape derived from TIFF tags as a hard constraint for *all* usages
-  // initially.
-  TENSORSTORE_RETURN_IF_ERROR(layout.Set(ChunkLayout::ChunkShape(
-      initial_chunk_shape, all_dims_hard)));  // Sets read/write
-  TENSORSTORE_RETURN_IF_ERROR(layout.Set(ChunkLayout::CodecChunkShape(
-      initial_chunk_shape, all_dims_hard)));  // Explicitly set codec shape
+  TENSORSTORE_RETURN_IF_ERROR(
+      layout.Set(ChunkLayout::ChunkShape(initial_chunk_shape, all_dims_hard)));
+  TENSORSTORE_RETURN_IF_ERROR(layout.Set(
+      ChunkLayout::CodecChunkShape(initial_chunk_shape, all_dims_hard)));
 
-  // --- 4. Set Other Defaults (Soft Constraints) ---
+  // 4. Set Other Defaults (Soft Constraints)
   TENSORSTORE_RETURN_IF_ERROR(layout.Set(ChunkLayout::WriteChunkElements(
       ChunkLayout::kDefaultShapeValue, /*hard=*/false)));
   TENSORSTORE_RETURN_IF_ERROR(layout.Set(ChunkLayout::ReadChunkElements(
@@ -1258,16 +1187,11 @@ Result<ChunkLayout> GetInitialChunkLayout(
 
 Result<SharedArray<const void>> DecodeChunk(const TiffMetadata& metadata,
                                             absl::Cord buffer) {
-  // 1. Setup Riegeli reader for the input buffer
   riegeli::CordReader<> base_reader(&buffer);
-  riegeli::Reader* data_reader = &base_reader;  // Start with base reader
+  riegeli::Reader* data_reader = &base_reader;
 
-  // 2. Apply Decompression if needed
   std::unique_ptr<riegeli::Reader> decompressor_reader;
   if (metadata.compressor) {
-    // Get the appropriate decompressor reader from the Compressor instance
-    // The compressor instance was resolved based on metadata.compression_type
-    // during ResolveMetadata.
     decompressor_reader =
         metadata.compressor->GetReader(base_reader, metadata.dtype.size());
     if (!decompressor_reader) {
@@ -1275,26 +1199,18 @@ Result<SharedArray<const void>> DecodeChunk(const TiffMetadata& metadata,
           "Failed to create decompressor reader for TIFF compression type: ",
           static_cast<int>(metadata.compression_type)));
     }
-    data_reader = decompressor_reader.get();  // Use the decompressing reader
+    data_reader = decompressor_reader.get();
     ABSL_LOG_IF(INFO, tiff_metadata_logging)
         << "Applied decompressor for type "
         << static_cast<int>(metadata.compression_type);
   } else {
     ABSL_LOG_IF(INFO, tiff_metadata_logging)
         << "No decompression needed (raw).";
-    // data_reader remains &base_reader
   }
 
-  // 3. Determine target array properties
-  // Use read_chunk_shape() for the expected shape of this chunk
   tensorstore::span<const Index> chunk_shape =
       metadata.chunk_layout.read_chunk_shape();
 
-  // DecodeArrayEndian needs the shape of the data *as laid out in
-  // the buffer.
-  // For chunky: This is {stack..., h, w, spp} potentially permuted by
-  // layout_order. For planar: This is {1, stack..., h, w} potentially permuted
-  // by layout_order.
   std::vector<Index> buffer_data_shape_vec;
   buffer_data_shape_vec.reserve(metadata.rank);
   if (metadata.planar_config == PlanarConfigType::kPlanar) {
@@ -1319,25 +1235,21 @@ Result<SharedArray<const void>> DecodeChunk(const TiffMetadata& metadata,
   }
   tensorstore::span<const Index> buffer_data_shape = buffer_data_shape_vec;
 
-  // 5. Determine Endianness for decoding
   endian source_endian =
       (metadata.endian == internal_tiff_kvstore::Endian::kLittle)
           ? endian::little
           : endian::big;
 
-  // 6. Decode data from the reader into the array, handling endianness
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto decoded_array, internal::DecodeArrayEndian(
                               *data_reader, metadata.dtype, buffer_data_shape,
                               source_endian, metadata.layout_order));
 
-  // 7. Verify reader reached end (important for compressed streams)
   if (!data_reader->VerifyEndAndClose()) {
     return absl::DataLossError(
         StrCat("Error reading chunk data: ", data_reader->status().message()));
   }
 
-  // 8. Return the decoded array
   return decoded_array;
 }
 

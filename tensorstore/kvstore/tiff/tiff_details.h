@@ -113,8 +113,9 @@ struct IfdEntry {
   Tag tag;
   TiffDataType type;
   uint64_t count;
-  uint64_t value_or_offset;  // For values that fit in 4/8 bytes, this is the
-                             // value Otherwise, this is an offset to the data
+  // For values that fit in 4/8 bytes, this is the value.
+  // Otherwise, this is an offset to the data.
+  uint64_t value_or_offset;
 
   // Flag to indicate if this entry references an external array
   bool is_external_array = false;
@@ -144,14 +145,12 @@ struct ImageDirectory {
   uint32_t height = 0;
   uint32_t chunk_width = 0;
   uint32_t chunk_height = 0;
-  uint16_t samples_per_pixel = 1;  // Default to 1 sample per pixel
-  uint16_t compression =
-      static_cast<uint16_t>(CompressionType::kNone);  // Default to uncompressed
+  uint16_t samples_per_pixel = 1;
+  uint16_t compression = static_cast<uint16_t>(CompressionType::kNone);
   uint16_t photometric = 0;
-  uint16_t planar_config =
-      static_cast<uint16_t>(PlanarConfigType::kChunky);  // Default to chunky
-  std::vector<uint16_t> bits_per_sample;  // Bits per sample for each channel
-  std::vector<uint16_t> sample_format;    // Format type for each channel
+  uint16_t planar_config = static_cast<uint16_t>(PlanarConfigType::kChunky);
+  std::vector<uint16_t> bits_per_sample;
+  std::vector<uint16_t> sample_format;
   std::vector<uint64_t> chunk_offsets;
   std::vector<uint64_t> chunk_bytecounts;
 
