@@ -132,3 +132,39 @@ tensorstore_cc_test(
         "@com_google_riegeli//riegeli/bytes:cord_writer",
     ],
 )
+
+tensorstore_cc_test(
+    name = "golden_file_test",
+    size = "small",
+    srcs = ["golden_file_test.cc"],
+    args = [
+        "--tensorstore_test_data_dir=" +
+        package_name() + "/testdata",
+    ],
+    data = [":testdata"],
+    deps = [
+        ":driver",
+        "//tensorstore",
+        "//tensorstore:array",
+        "//tensorstore:context",
+        "//tensorstore:index",
+        "//tensorstore:open",
+        "//tensorstore:open_mode",
+        "//tensorstore/internal:path",
+        "//tensorstore/kvstore/file",
+        "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/log:absl_log",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+filegroup(
+    name = "testdata",
+    srcs = glob(
+        include = [
+            "testdata/**",
+        ],
+        exclude = ["testdata/*.py"],
+    ),
+)

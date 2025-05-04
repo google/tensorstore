@@ -703,9 +703,11 @@ class TiffDriver final : public TiffDriverBase {
       const TiffMetadata& metadata, size_t component_index) const {
     ABSL_CHECK(component_index == 0);
     // Assumes zero origin, adjust if needed for OME-TIFF etc. later.
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto domain,
-        IndexDomainBuilder(metadata.rank).shape(metadata.shape).Finalize());
+    TENSORSTORE_ASSIGN_OR_RETURN(auto domain,
+                                 IndexDomainBuilder(metadata.rank)
+                                     .shape(metadata.shape)
+                                     .labels(metadata.dimension_labels)
+                                     .Finalize());
     return IdentityTransform(domain);
   }
 
