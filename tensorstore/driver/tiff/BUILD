@@ -1,18 +1,39 @@
-load("//bazel:tensorstore.bzl", "tensorstore_cc_binary", "tensorstore_cc_library", "tensorstore_cc_test")
+load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
 load("//docs:doctest.bzl", "doctest_test")
 
 package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 
+DOCTEST_SOURCES = glob([
+    "**/*.rst",
+    "**/*.yml",
+])
+
+doctest_test(
+    name = "doctest_test",
+    srcs = DOCTEST_SOURCES,
+)
+
+filegroup(
+    name = "doc_sources",
+    srcs = DOCTEST_SOURCES,
+)
+
+tensorstore_cc_library(
+    name = "tiff",
+    deps = [
+        ":driver",
+        ":zlib_compressor",
+        ":zstd_compressor",
+    ],
+)
+
 tensorstore_cc_library(
     name = "driver",
     srcs = ["driver.cc"],
     deps = [
-        ":compressor",
         ":metadata",
-        ":zlib_compressor",
-        ":zstd_compressor",
         "//tensorstore:array",
         "//tensorstore:chunk_layout",
         "//tensorstore:index",
