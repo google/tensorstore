@@ -1128,13 +1128,13 @@ TEST(ResolveMetadataCompressionTest, TiffRawSchemaNone) {
 TEST(ResolveMetadataCompressionTest, TiffDeflateUnsupportedSchemaNone) {
   auto parse_result = MakeParseResult({MakeImageDirectory(
       100, 80, 16, 16, true, 1, 8, SampleFormatType::kUnsignedInteger,
-      CompressionType::kDeflate, PlanarConfigType::kChunky)});
+      CompressionType::kCCITTGroup4, PlanarConfigType::kChunky)});
   TiffSpecOptions options;
   Schema schema;
 
   EXPECT_THAT(ResolveMetadata(parse_result, options, schema),
               MatchesStatus(absl::StatusCode::kUnimplemented,
-                            ".*Unsupported TIFF compression type tag: 8.*"));
+                            ".*Unsupported TIFF compression type tag: 3.*"));
 }
 
 TEST(ResolveMetadataCompressionTest, TiffRawSchemaZstd) {

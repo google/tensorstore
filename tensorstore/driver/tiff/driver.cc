@@ -324,7 +324,35 @@ class TiffDriverSpec
              x.metadata_constraints);
   };
 
-  static inline const auto default_json_binder =
+  static inline const auto default_json_binder = jb::Validate(
+      [](const auto& options, auto* obj) -> absl::Status {
+        // Enforce mutual exclusion: if ifd_stacking is present,
+        // ifd_index must be 0.
+        if (obj->tiff_options.ifd_stacking &&
+            obj->tiff_options.ifd_index != 0) {
+          return absl::InvalidArgumentError(
+              "Cannot specify both \"ifd\" (non-zero) and \"ifd_stacking\" in "
+              "\"tiff\" options");
+        }
+        // Validate sample_dimension_label against stacking dimensions
+        if (obj->tiff_options.ifd_stacking &&
+            obj->tiff_options.sample_dimension_label) {
+          const auto& stack_dims = obj->tiff_options.ifd_stacking->dimensions;
+          if (std::find(stack_dims.begin(), stack_dims.end(),
+                        *obj->tiff_options.sample_dimension_label) !=
+              stack_dims.end()) {
+            return absl::InvalidArgumentError(tensorstore::StrCat(
+                "\"sample_dimension_label\" (\"",
+                *obj->tiff_options.sample_dimension_label,
+                "\") conflicts with a label in \"ifd_stacking.dimensions\""));
+          }
+        }
+        // Validate schema dtype if specified
+        if (obj->schema.dtype().valid()) {
+          TENSORSTORE_RETURN_IF_ERROR(ValidateDataType(obj->schema.dtype()));
+        }
+        return absl::OkStatus();
+      },
       jb::Sequence(
           // Copied from kvs_backed_chunk_driver::KvsDriverSpec because
           // KvsDriverSpec::store initializer was enforcing directory path.
@@ -346,20 +374,17 @@ class TiffDriverSpec
               jb::Member("recheck_cached_data",
                          jb::Projection(&StalenessBounds::data,
                                         jb::DefaultInitializedValue())))),
-          jb::Projection<&KvsDriverSpec::fill_value_mode>(
-              jb::Sequence(
-                  jb::Member(
-                      "fill_missing_data_reads",
-                      jb::Projection<
-                          &internal_kvs_backed_chunk_driver::FillValueMode::
-                              fill_missing_data_reads>(
-                          jb::DefaultValue([](auto* obj) { *obj = true; }))),
-                  jb::Member(
-                      "store_data_equal_to_fill_value",
-                      jb::Projection<
-                          &internal_kvs_backed_chunk_driver::FillValueMode::
-                              store_data_equal_to_fill_value>(
-                          jb::DefaultInitializedValue())))),
+          jb::Projection<&KvsDriverSpec::fill_value_mode>(jb::Sequence(
+              jb::Member(
+                  "fill_missing_data_reads",
+                  jb::Projection<&internal_kvs_backed_chunk_driver::
+                                     FillValueMode::fill_missing_data_reads>(
+                      jb::DefaultValue([](auto* obj) { *obj = true; }))),
+              jb::Member("store_data_equal_to_fill_value",
+                         jb::Projection<
+                             &internal_kvs_backed_chunk_driver::FillValueMode::
+                                 store_data_equal_to_fill_value>(
+                             jb::DefaultInitializedValue())))),
           internal::OpenModeSpecJsonBinder,
           jb::Member(
               "metadata",
@@ -373,39 +398,8 @@ class TiffDriverSpec
                   },
                   jb::Projection<&TiffDriverSpec::metadata_constraints>(
                       jb::DefaultInitializedValue()))),
-          jb::Member("tiff", jb::
-                                 Projection<&TiffDriverSpec::tiff_options>(
-                                     jb::DefaultValue(
-                                         [](auto* v) { *v = {}; }))) /*,
-  // Final validation combining spec parts
-  jb::Validate([](const auto& options, auto* obj) -> absl::Status {
-    // Enforce mutual exclusion: if ifd_stacking is present, ifd_index must
-    // be 0. Note: binder for "ifd" already ensures it's >= 0.
-    if (obj->tiff_options.ifd_stacking &&
-        obj->tiff_options.ifd_index != 0) {
-      return absl::InvalidArgumentError(
-          "Cannot specify both \"ifd\" (non-zero) and \"ifd_stacking\" in "
-          "\"tiff\" options");
-    }
-    // Validate sample_dimension_label against stacking dimensions
-    if (obj->tiff_options.ifd_stacking &&
-        obj->tiff_options.sample_dimension_label) {
-      const auto& stack_dims = obj->tiff_options.ifd_stacking->dimensions;
-      if (std::find(stack_dims.begin(), stack_dims.end(),
-                    *obj->tiff_options.sample_dimension_label) !=
-          stack_dims.end()) {
-        return absl::InvalidArgumentError(tensorstore::StrCat(
-            "\"sample_dimension_label\" (\"",
-            *obj->tiff_options.sample_dimension_label,
-            "\") conflicts with a label in \"ifd_stacking.dimensions\""));
-      }
-    }
-    // Validate schema dtype if specified
-    if (obj->schema.dtype().valid()) {
-      TENSORSTORE_RETURN_IF_ERROR(ValidateDataType(obj->schema.dtype()));
-    }
-    return absl::OkStatus();
-  })*/);
+          jb::Member("tiff", jb::Projection<&TiffDriverSpec::tiff_options>(
+                                 jb::DefaultValue([](auto* v) { *v = {}; })))));
 
   Result<IndexDomain<>> GetDomain() const override {
     return internal_tiff::GetEffectiveDomain(metadata_constraints, schema);
