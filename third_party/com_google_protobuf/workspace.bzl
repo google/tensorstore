@@ -30,6 +30,8 @@ def repo():
         patches = [
             # protobuf uses rules_python, but we just use the native python rules.
             Label("//third_party:com_google_protobuf/patches/remove_rules_python_dependency.diff"),
+            # Fixes windows infinity on upb
+            Label("//third_party:com_google_protobuf/patches/win_infinity.diff"),
         ],
         patch_args = ["-p1"],
         repo_mapping = {
