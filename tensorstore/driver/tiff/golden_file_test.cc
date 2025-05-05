@@ -172,7 +172,7 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Values(
         // Case 1: Z=5, SPP=1, uint8 -> Rank 3 (Z, Y, X)
         TestCaseInfo{
-            "raw/stack_z5_spp1_uint8.tif",
+            "single/stack_z5_spp1_uint8.tif",
             {{"tiff",
               {{"ifd_stacking", {{"dimensions", {"z"}}, {"ifd_count", 5}}}}}},
             dtype_v<uint8_t>,
@@ -182,7 +182,7 @@ INSTANTIATE_TEST_SUITE_P(
         },
         // Case 2: Z=4, SPP=3 (RGB), uint16 -> Rank 4 (Z, Y, X, C)
         TestCaseInfo{
-            "raw/stack_z4_spp3_rgb_uint16.tif",
+            "single/stack_z4_spp3_rgb_uint16.tif",
             {{
                 "tiff",
                 {{"ifd_stacking", {{"dimensions", {"z"}}, {"ifd_count", 4}}},
@@ -197,7 +197,7 @@ INSTANTIATE_TEST_SUITE_P(
         // Case 3: T=2, C=3, SPP=1, float32 -> Rank 4 (T, C, Y, X) - Assuming
         // default label order t,c
         TestCaseInfo{
-            "raw/stack_t2_c3_spp1_float32.tif",
+            "single/stack_t2_c3_spp1_float32.tif",
             {{"tiff",
               {{"ifd_stacking",
                 {{"dimensions", {"t", "c"}}, {"dimension_sizes", {2, 3}}}}}}},
@@ -208,7 +208,7 @@ INSTANTIATE_TEST_SUITE_P(
         },
         // Case 4: C=3, T=2, SPP=1, uint8, T fastest -> Rank 4 (C, T, Y, X)
         TestCaseInfo{
-            "raw/stack_c3_t2_spp1_t_fastest.tif",
+            "single/stack_c3_t2_spp1_t_fastest.tif",
             {{"tiff",
               {{"ifd_stacking",
                 {{"dimensions", {"c", "t"}},
@@ -220,7 +220,7 @@ INSTANTIATE_TEST_SUITE_P(
             {1, 1, TH, TW}         // Expected Chunk Shape (C, T, TileH, TileW)
         },
         TestCaseInfo{
-            "raw/stack_z3_spp1_uint8_stripped.tif",
+            "single/stack_z3_spp1_uint8_stripped.tif",
             {{"tiff",
               {{"ifd_stacking", {{"dimensions", {"z"}}, {"ifd_count", 3}}}}}},
             dtype_v<uint8_t>,
@@ -229,7 +229,7 @@ INSTANTIATE_TEST_SUITE_P(
             {1, 32, W}},
         // Case 6: Single IFD, SPP=4 (RGBA), uint8 -> Rank 3 (Y, X, C)
         TestCaseInfo{
-            "raw/single_spp4_rgba_uint8.tif",
+            "single/single_spp4_rgba_uint8.tif",
             {
                 {"tiff",
                  {{"sample_dimension_label",
@@ -246,7 +246,7 @@ INSTANTIATE_TEST_SUITE_P(
         },
         // Case 8: Z=2, T=3, SPP=1, int16, T fastest -> Rank 4 (Z, T, Y, X)
         TestCaseInfo{
-            "raw/stack_z2_t3_spp1_int16.tif",
+            "single/stack_z2_t3_spp1_int16.tif",
             {{"tiff",
               {{"ifd_stacking",
                 {{"dimensions", {"z", "t"}},
@@ -258,14 +258,14 @@ INSTANTIATE_TEST_SUITE_P(
             {1, 1, TH, TW}         // Expected Chunk Shape (Z, T, TileH, TileW)
         },
         // Case 9: Single IFD, uint8 -> Rank 2 (Y, X), ZStd compressed.
-        TestCaseInfo{"raw/single_zstd_uint8.tif",
+        TestCaseInfo{"single/single_zstd_uint8.tif",
                      nlohmann::json{{"tiff", nlohmann::json::object()}},
                      dtype_v<std::uint8_t>,
                      {H, W},
                      {"y", "x"},
                      {TH, TW}},
         // Case 10: Single IFD, uint8 -> Rank 2 (Y, X), Zlib compressed.
-        TestCaseInfo{"raw/single_zlib_uint8.tif",
+        TestCaseInfo{"single/single_zlib_uint8.tif",
                      nlohmann::json{{"tiff", nlohmann::json::object()}},
                      dtype_v<std::uint8_t>,
                      {H, W},

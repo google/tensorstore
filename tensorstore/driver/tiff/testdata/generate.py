@@ -9,7 +9,7 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-OUTPUT_DIR = Path("raw")
+OUTPUT_DIR = Path("single")
 BASE_HEIGHT = 32
 BASE_WIDTH = 48
 TILE_SHAPE = (16, 16)
