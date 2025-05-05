@@ -230,5 +230,14 @@ write_tiff(
     description="Single IFD, uint8, Zstd compression, Tile=16x16",
 )
 
+# --- Test Case 8: single‑image, zlib‑compressed ---
+write_tiff(
+    filename=OUTPUT_DIR / "single_zlib_uint8.tif",
+    base_shape=(BASE_HEIGHT, BASE_WIDTH),
+    dtype=np.uint8,
+    stack_dims=None,
+    compression="zlib",
+    description="Single IFD, uint8, zlib compression, Tile=16x16",
+)
 
 logging.info(f"Finished generating TIFF files in {OUTPUT_DIR}")

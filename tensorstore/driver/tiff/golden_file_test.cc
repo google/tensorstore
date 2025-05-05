@@ -263,5 +263,12 @@ INSTANTIATE_TEST_SUITE_P(
                      dtype_v<std::uint8_t>,
                      {H, W},
                      {"y", "x"},
+                     {TH, TW}},
+        // Case 10: Single IFD, uint8 -> Rank 2 (Y, X), Zlib compressed.
+        TestCaseInfo{"raw/single_zlib_uint8.tif",
+                     nlohmann::json{{"tiff", nlohmann::json::object()}},
+                     dtype_v<std::uint8_t>,
+                     {H, W},
+                     {"y", "x"},
                      {TH, TW}}));
 }  // namespace

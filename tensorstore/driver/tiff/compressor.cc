@@ -44,10 +44,9 @@ internal::JsonSpecifiedCompressor::Registry& GetTiffCompressorRegistry() {
 // for compressor registration and CodecSpec JSON representation.
 const static auto* const kCompressionTypeToStringIdMap =
     new absl::flat_hash_map<CompressionType, std::string_view>{
-        {CompressionType::kNone, "raw"},   // No compression
-        {CompressionType::kZStd, "zstd"},  // Zstandard compression
-                                           // { CompressionType::kLZW, "lzw" },
-        // { CompressionType::kDeflate, "deflate" },
+        {CompressionType::kNone, "raw"},         // No compression
+        {CompressionType::kZStd, "zstd"},        // Zstandard compression
+        {CompressionType::kDeflate, "zlib"},  // Deflate/Zlib compression.
         // { CompressionType::kPackBits, "packbits" },
     };
 

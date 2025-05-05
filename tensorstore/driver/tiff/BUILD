@@ -11,6 +11,7 @@ tensorstore_cc_library(
     deps = [
         ":compressor",
         ":metadata",
+        ":zlib_compressor",
         ":zstd_compressor",
         "//tensorstore:array",
         "//tensorstore:chunk_layout",
@@ -44,6 +45,7 @@ tensorstore_cc_library(
     hdrs = ["metadata.h"],
     deps = [
         ":compressor",
+        ":zlib_compressor",
         ":zstd_compressor",
         "//tensorstore:chunk_layout",
         "//tensorstore:codec_spec",
@@ -179,6 +181,17 @@ tensorstore_cc_library(
     deps = [
         ":compressor",
         "//tensorstore/internal/compression:zstd_compressor",
+        "//tensorstore/internal/json_binding",
+    ],
+    alwayslink = 1,
+)
+
+tensorstore_cc_library(
+    name = "zlib_compressor",
+    srcs = ["zlib_compressor.cc"],
+    deps = [
+        ":compressor",
+        "//tensorstore/internal/compression:zlib_compressor",
         "//tensorstore/internal/json_binding",
     ],
     alwayslink = 1,
