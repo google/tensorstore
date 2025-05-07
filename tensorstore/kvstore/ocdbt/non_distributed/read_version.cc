@@ -16,17 +16,17 @@
 
 #include <cassert>
 #include <memory>
+#include <optional>
 #include <utility>
 #include <variant>
 
 #include "absl/base/attributes.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
-#include "absl/strings/str_format.h"
+#include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/log/verbose_flag.h"
-#include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
 #include "tensorstore/kvstore/ocdbt/format/manifest.h"
 #include "tensorstore/kvstore/ocdbt/format/version_tree.h"
 #include "tensorstore/kvstore/ocdbt/io_handle.h"
@@ -58,10 +58,11 @@ ABSL_CONST_INIT internal_log::VerboseFlag ocdbt_logging("ocdbt");
 struct ReadVersionOperation
     : public internal::AtomicReferenceCount<ReadVersionOperation> {
   using Ptr = internal::IntrusivePtr<ReadVersionOperation>;
-  using PromiseType = Promise<BtreeGenerationReference>;
+  using PromiseType = Promise<ReadVersionResponse>;
   ReadonlyIoHandle::Ptr io_handle;
   VersionSpec version_spec;
   absl::Time staleness_bound;
+  ManifestWithTime manifest_with_time;
 
   // Initiates the asynchronous read operation.
   //
@@ -73,15 +74,17 @@ struct ReadVersionOperation
   //
   // Returns:
   //   Futures that resolves when the read completes.
-  static Future<BtreeGenerationReference> Start(ReadonlyIoHandle::Ptr io_handle,
-                                                VersionSpec version_spec,
-                                                absl::Time staleness_bound) {
+  static Future<ReadVersionResponse> Start(ReadonlyIoHandle::Ptr io_handle,
+                                           VersionSpec version_spec,
+                                           absl::Time staleness_bound) {
     auto op = internal::MakeIntrusivePtr<ReadVersionOperation>();
     op->io_handle = std::move(io_handle);
     op->version_spec = version_spec;
+    if (staleness_bound == absl::InfiniteFuture()) {
+      staleness_bound = absl::Now();
+    }
     op->staleness_bound = staleness_bound;
-    auto [promise, future] =
-        PromiseFuturePair<BtreeGenerationReference>::Make();
+    auto [promise, future] = PromiseFuturePair<ReadVersionResponse>::Make();
     // First attempt to use any cached manifest.  If the result cannot be
     // determined definitively from the cached manifest, take `staleness_bound`
     // into account.
@@ -91,6 +94,9 @@ struct ReadVersionOperation
 
   static void RequestManifest(ReadVersionOperation::Ptr op, PromiseType promise,
                               absl::Time staleness_bound) {
+    ABSL_LOG_IF(INFO, ocdbt_logging)
+        << "ReadVersion: " << FormatVersionSpec(op->version_spec)
+        << ", request manifest with staleness_bound=" << staleness_bound;
     auto* op_ptr = op.get();
     LinkValue(
         WithExecutor(op_ptr->io_handle->executor,
@@ -106,6 +112,7 @@ struct ReadVersionOperation
   // Called when the manifest lookup has completed.
   static void ManifestReady(ReadVersionOperation::Ptr op, PromiseType promise,
                             const ManifestWithTime& manifest_with_time) {
+    op->manifest_with_time = manifest_with_time;
     if (!manifest_with_time.manifest ||
         CompareVersionSpecToVersion(
             op->version_spec, manifest_with_time.manifest->latest_version()) >
@@ -130,7 +137,8 @@ struct ReadVersionOperation
       // Generation is inline in manifest if present.
       if (auto* ref = internal_ocdbt::FindVersion(manifest.versions,
                                                   op->version_spec)) {
-        promise.SetResult(*ref);
+        promise.SetResult(
+            ReadVersionResponse{std::move(op->manifest_with_time), *ref});
         return;
       }
       op->VersionNotPresent(promise);
@@ -150,8 +158,8 @@ struct ReadVersionOperation
 
   // Completes the read request, indicating that the version is missing.
   void VersionNotPresent(const PromiseType& promise) {
-    promise.SetResult(absl::NotFoundError(absl::StrFormat(
-        "Version where %s not present", FormatVersionSpec(version_spec))));
+    promise.SetResult(
+        ReadVersionResponse{std::move(manifest_with_time), std::nullopt});
   }
 
   // Recursively descends the version tree.
@@ -222,22 +230,36 @@ struct ReadVersionOperation
       op->VersionNotPresent(std::move(promise));
       return;
     }
-    promise.SetResult(*ref);
+    promise.SetResult(
+        ReadVersionResponse{std::move(op->manifest_with_time), *ref});
   }
 };
 
 }  // namespace
 
-Future<BtreeGenerationReference> ReadVersion(ReadonlyIoHandle::Ptr io_handle,
-                                             VersionSpec version_spec,
-                                             absl::Time staleness_bound) {
+Future<ReadVersionResponse> ReadVersion(ReadonlyIoHandle::Ptr io_handle,
+                                        std::optional<VersionSpec> version_spec,
+                                        absl::Time staleness_bound) {
+  if (!version_spec) {
+    return MapFutureValue(
+        InlineExecutor{},
+        [](const ManifestWithTime& manifest_with_time) {
+          ReadVersionResponse response;
+          response.manifest_with_time = manifest_with_time;
+          if (manifest_with_time.manifest) {
+            response.generation = manifest_with_time.manifest->latest_version();
+          }
+          return response;
+        },
+        io_handle->GetManifest(staleness_bound));
+  }
   if (const GenerationNumber* generation_number =
-          std::get_if<GenerationNumber>(&version_spec)) {
+          std::get_if<GenerationNumber>(&*version_spec)) {
     if (*generation_number == 0) {
       return absl::InvalidArgumentError("Generation number must be positive");
     }
   }
-  return ReadVersionOperation::Start(std::move(io_handle), version_spec,
+  return ReadVersionOperation::Start(std::move(io_handle), *version_spec,
                                      std::move(staleness_bound));
 }
 

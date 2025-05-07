@@ -61,6 +61,7 @@
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
@@ -362,9 +363,16 @@ class IoHandleImpl : public IoHandle {
           self, new_manifest->latest_generation(), time);
       LinkValue(
           [self = std::move(self), new_manifest = std::move(new_manifest)](
-              PromiseType promise,
-              ReadyFuture<BtreeGenerationReference> future) {
-            auto& ref = future.value();
+              PromiseType promise, ReadyFuture<ReadVersionResponse> future) {
+            auto& response = future.value();
+            if (!response.generation) {
+              promise.SetResult(
+                  absl::FailedPreconditionError(tensorstore::StrCat(
+                      "No version matching newly-written generation=",
+                      new_manifest->latest_generation())));
+              return;
+            }
+            auto& ref = *response.generation;
             bool success = (ref == new_manifest->latest_version());
 
             absl::Time time;

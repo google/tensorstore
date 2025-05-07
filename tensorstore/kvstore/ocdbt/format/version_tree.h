@@ -247,6 +247,17 @@ absl::Status ValidateVersionTreeNodeReference(
 // Specifies an inclusive upper bound on a version's commit time.
 struct CommitTimeUpperBound {
   CommitTime commit_time;
+
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.commit_time);
+  };
+
+  friend bool operator==(CommitTimeUpperBound a, CommitTimeUpperBound b) {
+    return a.commit_time == b.commit_time;
+  }
+  friend bool operator!=(CommitTimeUpperBound a, CommitTimeUpperBound b) {
+    return !(a == b);
+  }
 };
 
 // Specifies a version.
@@ -264,7 +275,23 @@ inline bool IsVersionSpecExact(VersionSpec version_spec) {
   return !std::holds_alternative<CommitTimeUpperBound>(version_spec);
 }
 
+// Formats `VersionSpec` for debugging.
 std::string FormatVersionSpec(VersionSpec version_spec);
+
+// Formats `VersionSpec` for inclusion in the KvStore URL representation.
+//
+// `GenerationNumber` -> "vN"
+// `CommitTime` and `CommitTimeUpperBound` -> "%Y-%m-%dT%H:%M:%E*SZ"
+std::string FormatVersionSpecForUrl(VersionSpec version_spec);
+
+// Format commit time as "%Y-%m-%dT%H:%M:%E*SZ".
+std::string FormatCommitTimeForUrl(CommitTime commit_time);
+
+// Inverse of `FormatVersionSpecForUrl`.
+Result<VersionSpec> ParseVersionSpecFromUrl(std::string_view s);
+
+// Inverse of `FormatCommitTimeForUrl`.
+Result<CommitTime> ParseCommitTimeFromUrl(std::string_view s);
 
 // Compares `version_spec` to `ref`.
 //

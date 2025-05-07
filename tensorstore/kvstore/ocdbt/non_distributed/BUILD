@@ -11,6 +11,7 @@ tensorstore_cc_library(
     srcs = ["read.cc"],
     hdrs = ["read.h"],
     deps = [
+        ":read_version",
         ":storage_generation",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal/log:verbose_flag",
@@ -26,8 +27,10 @@ tensorstore_cc_library(
         "//tensorstore/util:status",
         "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/log:absl_log",
+        "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/time",
     ],
 )
@@ -47,7 +50,6 @@ tensorstore_cc_library(
         "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/log:absl_log",
         "@abseil-cpp//absl/status",
-        "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/time",
     ],
 )
@@ -57,6 +59,7 @@ tensorstore_cc_library(
     srcs = ["list.cc"],
     hdrs = ["list.h"],
     deps = [
+        ":read_version",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/kvstore",
@@ -76,6 +79,8 @@ tensorstore_cc_library(
         "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/log:absl_log",
         "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:str_format",
+        "@abseil-cpp//absl/time",
     ],
 )
 

@@ -90,6 +90,7 @@ struct OcdbtDriverSpecData {
   std::optional<size_t> target_data_file_size;
   bool assume_config = false;
   Context::Resource<OcdbtCoordinatorResource> coordinator;
+  std::optional<VersionSpec> version_spec;
 
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(OcdbtDriverSpecData,
                                           internal_json_binding::NoOptions,
@@ -102,7 +103,7 @@ struct OcdbtDriverSpecData {
              x.experimental_read_coalescing_threshold_bytes,
              x.experimental_read_coalescing_merged_bytes,
              x.experimental_read_coalescing_interval, x.target_data_file_size,
-             x.coordinator);
+             x.coordinator, x.version_spec);
   };
 };
 
@@ -176,6 +177,7 @@ class OcdbtDriver
   std::optional<absl::Duration> experimental_read_coalescing_interval_;
   std::optional<size_t> target_data_file_size_;
   Context::Resource<OcdbtCoordinatorResource> coordinator_;
+  std::optional<VersionSpec> version_spec_;
 };
 
 }  // namespace internal_ocdbt

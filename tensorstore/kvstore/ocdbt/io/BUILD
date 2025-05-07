@@ -145,6 +145,7 @@ tensorstore_cc_library(
         "//tensorstore/util:executor",
         "//tensorstore/util:future",
         "//tensorstore/util:status",
+        "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/log:absl_check",
         "@abseil-cpp//absl/log:absl_log",
