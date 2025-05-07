@@ -217,12 +217,12 @@ from ..cmake_repository import make_repo_mapping
 from ..cmake_target import CMakePackage
 from ..cmake_target import CMakeTarget
 from ..evaluation import EvaluationState
-from ..starlark.bazel_globals import BazelGlobals
-from ..starlark.bazel_globals import register_bzl_library
+from ..starlark.bazel_library import register_bzl_library
 from ..starlark.bazel_target import parse_absolute_target
 from ..starlark.bazel_target import RepositoryId
 from ..starlark.invocation_context import InvocationContext
 from ..starlark.label import Label
+from ..starlark.scope_common import ScopeCommon
 from ..util import cmake_is_true
 from ..util import quote_list
 from ..util import quote_path
@@ -233,7 +233,7 @@ from .helpers import write_bazel_to_cmake_cmakelists
 
 
 @register_bzl_library("@tensorstore//third_party:repo.bzl", workspace=True)
-class ThirdPartyRepoLibrary(BazelGlobals):
+class ThirdPartyRepoLibrary(ScopeCommon):
 
   def bazel_third_party_http_archive(self, **kwargs):
     _third_party_http_archive_impl(self._context, **kwargs)

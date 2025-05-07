@@ -26,8 +26,7 @@ from ..cmake_provider import CMakeAddDependenciesProvider
 from ..cmake_provider import default_providers
 from ..cmake_target import CMakeTarget
 from ..evaluation import EvaluationState
-from ..starlark.bazel_globals import BazelGlobals
-from ..starlark.bazel_globals import register_bzl_library
+from ..starlark.bazel_library import register_bzl_library
 from ..starlark.bazel_target import TargetId
 from ..starlark.common_providers import BuildSettingProvider
 from ..starlark.common_providers import ConditionProvider
@@ -35,6 +34,7 @@ from ..starlark.common_providers import FilesProvider
 from ..starlark.invocation_context import InvocationContext
 from ..starlark.invocation_context import RelativeLabel
 from ..starlark.provider import TargetInfo
+from ..starlark.scope_common import ScopeCommon
 from ..starlark.select import Configurable
 from ..starlark.select import Select
 from ..starlark.toolchain import CMAKE_TOOLCHAIN
@@ -139,7 +139,7 @@ def _config_settings_group_impl(
 
 
 @register_bzl_library("@bazel_skylib//lib:selects.bzl", build=True)
-class BazelSkylibSelectsLibrary(BazelGlobals):
+class BazelSkylibSelectsLibrary(ScopeCommon):
 
   @property
   def bazel_selects(self):
@@ -147,7 +147,7 @@ class BazelSkylibSelectsLibrary(BazelGlobals):
 
 
 @register_bzl_library("@bazel_skylib//rules:expand_template.bzl", build=True)
-class BazelSkylibExpandTemplateLibrary(BazelGlobals):
+class BazelSkylibExpandTemplateLibrary(ScopeCommon):
 
   def bazel_expand_template(
       self,
@@ -240,7 +240,7 @@ add_custom_target({cmake_target_pair.target} DEPENDS {quote_path(out_file)})
 
 
 @register_bzl_library("@bazel_skylib//rules:copy_file.bzl", build=True)
-class BazelSkylibCopyFileLibrary(BazelGlobals):
+class BazelSkylibCopyFileLibrary(ScopeCommon):
 
   def bazel_copy_file(
       self,
@@ -264,7 +264,7 @@ class BazelSkylibCopyFileLibrary(BazelGlobals):
 
 
 @register_bzl_library("@bazel_skylib//rules:write_file.bzl", build=True)
-class BazelSkylibWriteFileLibrary(BazelGlobals):
+class BazelSkylibWriteFileLibrary(ScopeCommon):
 
   def bazel_write_file(
       self,
@@ -330,7 +330,7 @@ def _write_file_impl(
 
 
 @register_bzl_library("@bazel_skylib//rules:common_settings.bzl", build=True)
-class BazelSkylibCommonSettingsLibrary(BazelGlobals):
+class BazelSkylibCommonSettingsLibrary(ScopeCommon):
 
   def bazel_bool_flag(
       self,

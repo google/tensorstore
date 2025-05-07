@@ -15,39 +15,11 @@
 
 # pylint: disable=invalid-name,missing-function-docstring,relative-beyond-top-level,g-importing-member
 
-from .bazel_globals import BazelGlobals
-from .invocation_context import InvocationContext
-
-
-class BazelNativeWorkspaceRules:
-  """Defines the `native` global accessible when evaluating WORKSPACE files."""
-
-  def __init__(self, context: InvocationContext):
-    self._context = context
-
-  def bind(self, *args, **kwargs):
-    pass
-
-  def existing_rule(self, *args, **kwargs):
-    return False
-
-
-class BazelWorkspaceGlobals(BazelGlobals):
-  """Globals for WORKSPACE file and .bzl libraries loaded from the WORKSPACE."""
-
-  def bazel_workspace(self, *args, **kwargs):
-    pass
-
-  def bazel_register_toolchains(self, *args, **kwargs):
-    pass
-
-  @property
-  def bazel_native(self):
-    return BazelNativeWorkspaceRules(self._context)
+from .scope_common import ScopeCommon
 
 
 # https://bazel.build/rules/lib/globals/module
-class BazelModuleGlobals(BazelGlobals):
+class ScopeBzlmodFile(ScopeCommon):
   """Globals for WORKSPACE file and .bzl libraries loaded from the WORKSPACE."""
 
   def bazel_archive_override(
@@ -138,15 +110,3 @@ class BazelModuleGlobals(BazelGlobals):
 
   def bazel_use_repo_rule(self, repo_rule_bzl_file, repo_rule_name):
     pass
-
-
-def register_native_workspace_rule(impl):
-  name = impl.__name__
-
-  def wrapper(self, *args, **kwargs):
-    self._context.record_rule_location(name)  # pylint: disable=protected-access
-    return impl(self._context, *args, **kwargs)  # pylint: disable=protected-access
-
-  setattr(BazelNativeWorkspaceRules, name, wrapper)
-  setattr(BazelWorkspaceGlobals, f'bazel_{name}', wrapper)
-  return impl

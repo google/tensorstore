@@ -23,7 +23,6 @@ import pathlib
 from typing import Any, Callable, Dict, List, NamedTuple, Optional, cast
 
 from ..util import write_file_if_not_already_equal
-from .bazel_build_file import BuildFileLibraryGlobals
 from .bazel_target import TargetId
 from .common_providers import ConditionProvider
 from .common_providers import FilesProvider
@@ -32,6 +31,7 @@ from .invocation_context import InvocationContext
 from .label import Label
 from .label import RelativeLabel
 from .provider import TargetInfo
+from .scope_build_file import ScopeBuildBzlFile
 from .select import Configurable
 
 
@@ -357,7 +357,7 @@ def _rule_impl(
 
 
 def rule(
-    self: BuildFileLibraryGlobals,
+    self: ScopeBuildBzlFile,
     implementation: Callable[[RuleCtx], Any],
     *,
     attrs: Optional[Dict[str, Attr]] = None,
@@ -400,14 +400,11 @@ def rule(
   return rule_func
 
 
-class PlatformCommonModule:
-  ConstraintValueInfo = ConditionProvider
-
-
-setattr(BuildFileLibraryGlobals, "bazel_attr", AttrModule)
-setattr(BuildFileLibraryGlobals, "bazel_rule", rule)
-setattr(BuildFileLibraryGlobals, "bazel_platform_common", PlatformCommonModule)
-setattr(BuildFileLibraryGlobals, "bazel_CcInfo", IgnoredObject())
-setattr(BuildFileLibraryGlobals, "bazel_ProtoInfo", IgnoredObject())
-setattr(BuildFileLibraryGlobals, "bazel_DefaultInfo", IgnoredObject())
 setattr(AttrModule, "bool", AttrModule.bool_)
+
+
+setattr(ScopeBuildBzlFile, "bazel_attr", AttrModule)
+setattr(ScopeBuildBzlFile, "bazel_rule", rule)
+setattr(ScopeBuildBzlFile, "bazel_CcInfo", IgnoredObject())
+setattr(ScopeBuildBzlFile, "bazel_ProtoInfo", IgnoredObject())
+setattr(ScopeBuildBzlFile, "bazel_DefaultInfo", IgnoredObject())

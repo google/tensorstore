@@ -18,7 +18,7 @@ https://bazel.build/rules/lib/globals/bzl.html#aspect
 Aspects in bazel_to_cmake are non-functional.
 """
 
-from .bazel_build_file import BuildFileLibraryGlobals
+from .scope_build_file import ScopeBuildBzlFile
 
 
 class Aspect:
@@ -28,18 +28,18 @@ class Aspect:
 
 
 def aspect(
-    self: BuildFileLibraryGlobals,
+    self: ScopeBuildBzlFile,
     implementation,
-    attr_aspects=[],
-    toolchains_aspects=[],
+    attr_aspects=None,
+    toolchains_aspects=None,
     attrs=None,
-    required_providers=[],
-    required_aspect_providers=[],
-    provides=[],
-    requires=[],
-    fragments=[],
-    host_fragments=[],
-    toolchains=[],
+    required_providers=None,
+    required_aspect_providers=None,
+    provides=None,
+    requires=None,
+    fragments=None,
+    host_fragments=None,
+    toolchains=None,
     incompatible_use_toolchain_transition=False,
     doc=None,
     **kwargs,
@@ -62,4 +62,4 @@ def aspect(
   return Aspect()
 
 
-setattr(BuildFileLibraryGlobals, "bazel_aspect", aspect)
+setattr(ScopeBuildBzlFile, "bazel_aspect", aspect)

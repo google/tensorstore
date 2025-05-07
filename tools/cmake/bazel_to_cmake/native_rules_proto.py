@@ -67,7 +67,6 @@ from .emit_cc import construct_cc_includes
 from .emit_filegroup import emit_filegroup
 from .evaluation import EvaluationState
 from .native_aspect import invoke_proto_aspects
-from .starlark.bazel_build_file import register_native_build_rule
 from .starlark.bazel_target import RepositoryId
 from .starlark.bazel_target import TargetId
 from .starlark.common_providers import FilesProvider
@@ -75,6 +74,7 @@ from .starlark.common_providers import ProtoLibraryProvider
 from .starlark.invocation_context import InvocationContext
 from .starlark.label import RelativeLabel
 from .starlark.provider import TargetInfo
+from .starlark.scope_build_file import register_native_build_rule
 
 PROTO_REPO = RepositoryId("com_google_protobuf")
 

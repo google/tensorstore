@@ -58,12 +58,12 @@ from .evaluation import EvaluationState
 from .native_aspect import add_proto_aspect
 from .native_aspect_proto import aspect_genproto_library_target
 from .native_aspect_proto import PluginSettings
-from .starlark.bazel_build_file import register_native_build_rule
 from .starlark.bazel_target import RepositoryId
 from .starlark.bazel_target import TargetId
 from .starlark.invocation_context import InvocationContext
 from .starlark.label import RelativeLabel
 from .starlark.provider import TargetInfo
+from .starlark.scope_build_file import register_native_build_rule
 
 PROTO_REPO = RepositoryId("com_google_protobuf")
 PROTO_RUNTIME = PROTO_REPO.parse_target("//:protobuf")

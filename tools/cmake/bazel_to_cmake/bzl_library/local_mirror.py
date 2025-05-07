@@ -27,10 +27,10 @@ from ..cmake_repository import CMakeRepository
 from ..cmake_repository import make_repo_mapping
 from ..cmake_target import CMakePackage
 from ..evaluation import EvaluationState
-from ..starlark.bazel_globals import BazelGlobals
-from ..starlark.bazel_globals import register_bzl_library
+from ..starlark.bazel_library import register_bzl_library
 from ..starlark.bazel_target import RepositoryId
 from ..starlark.invocation_context import InvocationContext
+from ..starlark.scope_common import ScopeCommon
 from ..util import quote_path
 from ..util import quote_string
 from .helpers import update_target_mapping
@@ -38,14 +38,14 @@ from .helpers import write_bazel_to_cmake_cmakelists
 
 
 @register_bzl_library("@tensorstore//bazel:local_mirror.bzl", workspace=True)
-class ThirdPartyLocalMirrorLibrary(BazelGlobals):
+class ThirdPartyLocalMirrorLibrary(ScopeCommon):
 
   def bazel_local_mirror(self, **kwargs):
     _local_mirror_impl(self, self._context, **kwargs)
 
 
 def _local_mirror_impl(
-    _globals: BazelGlobals, _context: InvocationContext, **kwargs
+    _globals: ScopeCommon, _context: InvocationContext, **kwargs
 ):
   if "cmake_name" not in kwargs:
     return

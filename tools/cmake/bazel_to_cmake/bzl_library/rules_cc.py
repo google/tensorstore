@@ -17,12 +17,12 @@
 
 from .. import native_rules_cc
 from .. import native_rules_cc_proto
-from ..starlark.bazel_globals import BazelGlobals
-from ..starlark.bazel_globals import register_bzl_library
+from ..starlark.bazel_library import register_bzl_library
+from ..starlark.scope_common import ScopeCommon
 
 
 @register_bzl_library("@rules_cc//cc:defs.bzl", build=True)
-class RulesCcDefsLibrary(BazelGlobals):
+class RulesCcDefsLibrary(ScopeCommon):
 
   def bazel_cc_library(self, **kwargs):
     return native_rules_cc.cc_library(self._context, **kwargs)

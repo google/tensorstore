@@ -19,13 +19,13 @@ See: https://github.com/bazelbuild/rules_proto/blob/master/proto/defs.bzl
 # pylint: disable=relative-beyond-top-level
 
 from .. import native_rules_proto
-from ..starlark.bazel_globals import BazelGlobals
-from ..starlark.bazel_globals import register_bzl_library
+from ..starlark.bazel_library import register_bzl_library
 from ..starlark.ignored import IgnoredObject
+from ..starlark.scope_common import ScopeCommon
 
 
 @register_bzl_library("@rules_proto//proto:defs.bzl", build=True)
-class RulesProtoDefsLibrary(BazelGlobals):
+class RulesProtoDefsLibrary(ScopeCommon):
 
   def bazel_proto_library(self, **kwargs):
     return native_rules_proto.proto_library(self._context, **kwargs)
