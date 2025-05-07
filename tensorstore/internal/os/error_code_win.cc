@@ -38,7 +38,6 @@
 
 namespace tensorstore {
 namespace internal {
-namespace {
 
 absl::StatusCode GetOsErrorStatusCode(OsErrorCode error) {
   switch (error) {
@@ -73,6 +72,8 @@ absl::StatusCode GetOsErrorStatusCode(OsErrorCode error) {
       return absl::StatusCode::kFailedPrecondition;
   }
 }
+
+namespace {
 
 const char* OsErrorToCString(OsErrorCode error) {
   switch (error) {
@@ -137,14 +138,16 @@ std::string GetOsErrorMessage(OsErrorCode error) {
   return std::string(buf, size);
 }
 
-absl::Status StatusFromOsError(OsErrorCode error_code, std::string_view a,
+absl::Status StatusFromOsError(absl::StatusCode status_code,
+                               OsErrorCode error_code, std::string_view a,
                                std::string_view b, std::string_view c,
                                std::string_view d, std::string_view e,
                                std::string_view f, SourceLocation loc) {
-  absl::Status status(GetOsErrorStatusCode(error_code),
-                      tensorstore::StrCat(a, b, c, d, " [OS error ", error_code,
-                                          ": ", OsErrorToCString(error_code),
-                                          GetOsErrorMessage(error_code), "]"));
+  absl::Status status(
+      status_code,
+      tensorstore::StrCat(a, b, c, d, e, f, " [OS error ", error_code, ": ",
+                          OsErrorToCString(error_code),
+                          GetOsErrorMessage(error_code), "]"));
   MaybeAddSourceLocation(status, loc);
   return status;
 }

@@ -252,8 +252,15 @@ Result<UniqueFileDescriptor> OpenFileWrapper(const std::string& path,
 #endif
 
   if (fd == FileDescriptorTraits::Invalid()) {
-    auto status =
-        StatusFromOsError(errno, "Failed to open: ", QuoteString(path));
+    absl::StatusCode status_code;
+    if (((flags & OpenFlags::ReadWriteMask) == OpenFlags::OpenReadOnly) &&
+        (errno == ENOTDIR)) {
+      status_code = absl::StatusCode::kNotFound;
+    } else {
+      status_code = internal::GetOsErrorStatusCode(errno);
+    }
+    auto status = StatusFromOsError(status_code, errno,
+                                    "Failed to open: ", QuoteString(path));
     return std::move(tspan).EndWithStatus(std::move(status));
   } else {
     tspan.Log("fd", fd);

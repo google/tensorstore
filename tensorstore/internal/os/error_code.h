@@ -48,8 +48,21 @@ inline OsErrorCode GetLastErrorCode() {
 /// Returns the error message associated with a system error code.
 std::string GetOsErrorMessage(OsErrorCode error);
 
+absl::StatusCode GetOsErrorStatusCode(OsErrorCode error);
+
+#ifndef _WIN32
+inline absl::StatusCode GetOsErrorStatusCode(OsErrorCode error) {
+  return absl::ErrnoToStatusCode(error);
+}
+#endif
+
 /// Returns an `absl::Status` from an OS error. The message is composed by
 /// catenation of the provided string parts.
+absl::Status StatusFromOsError(
+    absl::StatusCode status_code, OsErrorCode error_code,
+    std::string_view a = {}, std::string_view b = {}, std::string_view c = {},
+    std::string_view d = {}, std::string_view e = {}, std::string_view f = {},
+    SourceLocation loc = tensorstore::SourceLocation::current());
 absl::Status StatusFromOsError(
     OsErrorCode error_code, std::string_view a = {}, std::string_view b = {},
     std::string_view c = {}, std::string_view d = {}, std::string_view e = {},
