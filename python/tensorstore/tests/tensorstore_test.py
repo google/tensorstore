@@ -610,3 +610,15 @@ async def test_write_batch():
   with ts.Batch() as batch:
     write_future = store.write(ts.array(42, dtype=np.uint8), batch=batch)
   await write_future
+
+
+async def test_open_with_open_kvstore():
+  kvstore = await ts.KvStore.open("memory://")
+  store = await ts.open(
+      {"driver": "zarr3"},
+      dtype=ts.uint8,
+      shape=[],
+      kvstore=kvstore,
+      create=True,
+  )
+  assert "zarr.json" in kvstore

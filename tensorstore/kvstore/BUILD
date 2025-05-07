@@ -232,7 +232,9 @@ tensorstore_cc_test(
     deps = [
         ":kvstore",
         "//tensorstore:context",
+        "//tensorstore:transaction",
         "//tensorstore/driver/json",
+        "//tensorstore/kvstore/memory",
         "//tensorstore/util:status_testutil",
         "@abseil-cpp//absl/status",
         "@googletest//:gtest_main",

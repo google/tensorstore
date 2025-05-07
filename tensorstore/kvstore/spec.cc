@@ -30,6 +30,7 @@
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/serialization/registry.h"
 #include "tensorstore/serialization/serialization.h"
+#include "tensorstore/util/future.h"
 #include "tensorstore/util/garbage_collection/garbage_collection.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
@@ -40,6 +41,16 @@ using ::tensorstore::internal::IntrusivePtr;
 
 namespace tensorstore {
 namespace kvstore {
+
+absl::Status SpecConvertOptions::Set(Context value) {
+  if (value) {
+    if (context && context != value) {
+      return absl::InvalidArgumentError("Inconsistent contexts specified");
+    }
+    context = std::move(value);
+  }
+  return absl::OkStatus();
+}
 
 void intrusive_ptr_increment(const DriverSpec* p) {
   intrusive_ptr_increment(
@@ -196,6 +207,46 @@ bool operator==(const Spec& a, const Spec& b) {
 }
 
 }  // namespace kvstore
+
+namespace internal_kvstore {
+class DriverWrapperSpec : public kvstore::DriverSpec {
+ public:
+  explicit DriverWrapperSpec(DriverPtr driver) : driver_(std::move(driver)) {}
+
+  absl::Status BindContext(
+      const Context& context) override {  // Can't bind context of open kvstore.
+    return absl::OkStatus();
+  }
+  void UnbindContext(const internal::ContextSpecBuilder& builder) {
+    // Can't unbind context of open kvstore.
+  }
+  void StripContext() {
+    // Can't strip context of open kvstore.
+  }
+
+  void EncodeCacheKey(std::string* out) const override {
+    out->append(driver_->cache_identifier_);
+  }
+
+  std::string_view driver_id() const { return driver_->driver_id(); }
+
+  Future<DriverPtr> DoOpen() const override { return driver_; }
+
+  DriverSpecPtr Clone() const { return DriverSpecPtr(this); }
+
+  void GarbageCollectionVisit(
+      garbage_collection::GarbageCollectionVisitor& visitor) const override {
+    driver_->GarbageCollectionVisit(visitor);
+  }
+
+ private:
+  DriverPtr driver_;
+};
+
+kvstore::DriverSpecPtr WrapDriverAsDriverSpec(kvstore::DriverPtr driver) {
+  return internal::MakeIntrusivePtr<DriverWrapperSpec>(std::move(driver));
+}
+}  // namespace internal_kvstore
 
 namespace serialization {
 

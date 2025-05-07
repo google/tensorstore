@@ -138,7 +138,7 @@ constexpr auto ForwardOpenSetters = [](auto callback, auto... other_param) {
       open_setters::SetDeleteExisting{}, open_setters::SetAssumeMetadata{},
       open_setters::SetAssumeCachedMetadata{}, open_setters::SetContext{},
       open_setters::SetTransaction{}, open_setters::SetBatch{},
-      spec_setters::SetKvstore{}, spec_setters::SetRecheckCachedMetadata{},
+      open_setters::SetKvstore{}, spec_setters::SetRecheckCachedMetadata{},
       spec_setters::SetRecheckCachedData{}, spec_setters::SetRecheckCached{});
 };
 

@@ -19,6 +19,7 @@
 #include "absl/status/status.h"
 #include "tensorstore/context.h"
 #include "tensorstore/kvstore/spec.h"
+#include "tensorstore/transaction.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -41,6 +42,14 @@ TEST(KeyValueStoreTest, OpenInvalid) {
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Error parsing object member \"driver\": "
                             "\"invalid\" is not a registered KvStore driver"));
+}
+
+TEST(KeyValueStoreTest, OpenInconsistentTransactions) {
+  auto txn1 = tensorstore::Transaction(tensorstore::isolated);
+  auto txn2 = tensorstore::Transaction(tensorstore::isolated);
+  EXPECT_THAT(kvstore::Open({{"driver", "memory"}}, txn1, txn2).result(),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Inconsistent transactions specified"));
 }
 
 TEST(KeyValueStoreTest, EmptyUrl) {

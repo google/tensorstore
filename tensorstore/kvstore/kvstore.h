@@ -214,10 +214,7 @@ struct DriverOpenOptions {
   template <typename T>
   constexpr static bool IsOption = false;
 
-  absl::Status Set(Context value) {
-    context = std::move(value);
-    return absl::OkStatus();
-  }
+  absl::Status Set(Context value);
 };
 
 /// Driver-agnostic options that may be specified when opening a `KvStore`.
@@ -233,10 +230,7 @@ struct OpenOptions : public DriverOpenOptions {
 
   using DriverOpenOptions::Set;
 
-  absl::Status Set(Transaction transaction) {
-    this->transaction = std::move(transaction);
-    return absl::OkStatus();
-  }
+  absl::Status Set(Transaction value);
 };
 
 template <>
@@ -270,7 +264,8 @@ static std::enable_if_t<IsCompatibleOptionSequence<OpenOptions, Option...>,
                         Future<KvStore>>
 Open(Spec spec, Option&&... option) {
   OpenOptions options;
-  internal::SetAll(options, std::forward<Option>(option)...).IgnoreError();
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal::SetAll(options, std::forward<Option>(option)...));
   return kvstore::Open(std::move(spec), std::move(options));
 }
 template <typename... Option>
@@ -278,7 +273,8 @@ static std::enable_if_t<IsCompatibleOptionSequence<OpenOptions, Option...>,
                         Future<KvStore>>
 Open(::nlohmann::json j, Option&&... option) {
   OpenOptions options;
-  internal::SetAll(options, std::forward<Option>(option)...).IgnoreError();
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal::SetAll(options, std::forward<Option>(option)...));
   return kvstore::Open(std::move(j), std::move(options));
 }
 

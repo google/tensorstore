@@ -111,6 +111,8 @@ Result<DriverSpecPtr> Driver::spec(SpecRequestOptions&& options) const {
   return spec;
 }
 
+std::string_view Driver::driver_id() const { return {}; }
+
 Result<DriverSpecPtr> Driver::GetBoundSpec() const {
   return absl::UnimplementedError(
       "KeyValueStore does not support JSON representation");
@@ -147,6 +149,25 @@ serialization::GetRegistry<internal::IntrusivePtr<const kvstore::DriverSpec>>();
 namespace kvstore {
 
 Driver::~Driver() = default;
+
+absl::Status DriverOpenOptions::Set(Context value) {
+  if (value && !context) {
+    // No error if `context` is already set, because binding a context after a
+    // context has already been bound is just a no op.
+    context = std::move(value);
+  }
+  return absl::OkStatus();
+}
+
+absl::Status OpenOptions::Set(Transaction value) {
+  if (value != no_transaction) {
+    if (transaction != no_transaction && transaction != value) {
+      return absl::InvalidArgumentError("Inconsistent transactions specified");
+    }
+    transaction = std::move(value);
+  }
+  return absl::OkStatus();
+}
 
 Future<KvStore> Open(Spec spec, OpenOptions&& options) {
   if (!spec.valid()) {

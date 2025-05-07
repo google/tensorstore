@@ -288,6 +288,9 @@ class Driver {
   /// \param option Options that may modify the returned `Spec`.
   Result<DriverSpecPtr> spec(SpecRequestOptions&& options) const;
 
+  /// Returns the driver identifier.
+  virtual std::string_view driver_id() const;
+
   /// Encodes relevant state as a cache key.
   ///
   /// Typically this should be called indirectly via

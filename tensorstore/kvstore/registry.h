@@ -200,6 +200,8 @@ class RegisteredDriver : public Parent {
  public:
   using SpecData = typename DerivedSpec::SpecData;
 
+  std::string_view driver_id() const override { return DerivedSpec::id; }
+
   void EncodeCacheKey(std::string* out) const override {
     // Generates a cache key by obtaining the `SpecData` representation,
     // then computing the cache key from that.

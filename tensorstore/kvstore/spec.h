@@ -83,10 +83,7 @@ struct SpecConvertOptions : public DriverSpecOptions {
 
   using DriverSpecOptions::Set;
 
-  absl::Status Set(Context value) {
-    context = std::move(value);
-    return absl::OkStatus();
-  }
+  absl::Status Set(Context value);
   absl::Status Set(ContextBindingMode value) {
     if (value > context_binding_mode) context_binding_mode = value;
     return absl::OkStatus();
@@ -309,6 +306,18 @@ class Spec {
 };
 
 }  // namespace kvstore
+
+namespace internal_kvstore {
+// Returns a `DriverSpecPtr` that returns the specified `driver` when opened.
+//
+// The returned `DriverSpecPtr` should not be retained beyond the lifetime of a
+// single asynchronous operation or exposed to users and is subject to the
+// following limitations:
+//
+// - Conversion to JSON returns an error.
+// - Context binding operations are no-ops.
+kvstore::DriverSpecPtr WrapDriverAsDriverSpec(kvstore::DriverPtr driver);
+}  // namespace internal_kvstore
 
 namespace internal {
 
