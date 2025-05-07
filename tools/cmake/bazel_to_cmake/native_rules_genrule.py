@@ -36,12 +36,12 @@ from .emit_filegroup import emit_filegroup
 from .emit_filegroup import emit_genrule
 from .evaluation import EvaluationState
 from .starlark import rule  # pylint: disable=unused-import
-from .starlark.bazel_build_file import register_native_build_rule
 from .starlark.bazel_target import TargetId
 from .starlark.common_providers import FilesProvider
 from .starlark.invocation_context import InvocationContext
 from .starlark.label import RelativeLabel
 from .starlark.provider import TargetInfo
+from .starlark.scope_build_file import register_native_build_rule
 from .starlark.select import Configurable
 from .util import quote_path_list
 from .variable_substitution import apply_location_and_make_variable_substitutions

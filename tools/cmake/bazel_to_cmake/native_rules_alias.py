@@ -25,13 +25,13 @@ from .cmake_provider import CMakeLinkLibrariesProvider
 from .cmake_target import CMakeTarget
 from .cmake_target import CMakeTargetPair
 from .evaluation import EvaluationState
-from .starlark.bazel_build_file import register_native_build_rule
 from .starlark.bazel_target import TargetId
 from .starlark.common_providers import BuildSettingProvider
 from .starlark.common_providers import ConditionProvider
 from .starlark.invocation_context import InvocationContext
 from .starlark.label import RelativeLabel
 from .starlark.provider import TargetInfo
+from .starlark.scope_build_file import register_native_build_rule
 from .starlark.select import Configurable
 
 

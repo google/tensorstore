@@ -1,3 +1,4 @@
+# Placeholder: load py_library
 load("//bazel:pytest.bzl", "tensorstore_pytest_test")
 
 licenses(["notice"])
@@ -6,10 +7,8 @@ licenses(["notice"])
 # perhaps because glob() stops when it encounters a BUILD file?
 
 # glob(["bazel_to_cmake/*.py", "bazel_to_cmake/bzl_library/*.py", "bazel_to_cmake/starlark/*.py"], allow_empty=False)
-# find bazel_to_cmake -type f | grep py$ | grep -v testdata | awk '{ print( "    \"" $0 "\"," ) }'
+# find bazel_to_cmake -type f | grep py$ | grep -v test.py$ | grep -v testdata | awk '{ print( "    \"" $0 "\"," ) }' | sort
 SRCS = [
-    "bazel_to_cmake/__init__.py",
-    "bazel_to_cmake/bzl_library/__init__.py",
     "bazel_to_cmake/bzl_library/all.py",
     "bazel_to_cmake/bzl_library/bazel_skylib.py",
     "bazel_to_cmake/bzl_library/bazel_tools_repo_utils.py",
@@ -17,6 +16,7 @@ SRCS = [
     "bazel_to_cmake/bzl_library/expand_template.py",
     "bazel_to_cmake/bzl_library/grpc_generate_cc.py",
     "bazel_to_cmake/bzl_library/helpers.py",
+    "bazel_to_cmake/bzl_library/__init__.py",
     "bazel_to_cmake/bzl_library/local_mirror.py",
     "bazel_to_cmake/bzl_library/rules_cc.py",
     "bazel_to_cmake/bzl_library/rules_nasm.py",
@@ -25,16 +25,14 @@ SRCS = [
     "bazel_to_cmake/bzl_library/upb_proto_library.py",
     "bazel_to_cmake/cmake_builder.py",
     "bazel_to_cmake/cmake_provider.py",
-    "bazel_to_cmake/cmake_repository_test.py",
     "bazel_to_cmake/cmake_repository.py",
     "bazel_to_cmake/cmake_target.py",
     "bazel_to_cmake/emit_alias.py",
-    "bazel_to_cmake/emit_cc_test.py",
     "bazel_to_cmake/emit_cc.py",
     "bazel_to_cmake/emit_filegroup.py",
     "bazel_to_cmake/evaluation.py",
-    "bazel_to_cmake/golden_test.py",
-    "bazel_to_cmake/main.py",
+    "bazel_to_cmake/__init__.py",
+    # "bazel_to_cmake/main.py",
     "bazel_to_cmake/native_aspect_proto.py",
     "bazel_to_cmake/native_aspect.py",
     "bazel_to_cmake/native_rules_alias.py",
@@ -42,48 +40,48 @@ SRCS = [
     "bazel_to_cmake/native_rules_cc.py",
     "bazel_to_cmake/native_rules_config.py",
     "bazel_to_cmake/native_rules_genrule.py",
-    "bazel_to_cmake/native_rules_proto.py",
     "bazel_to_cmake/native_rules_platform.py",
+    "bazel_to_cmake/native_rules_proto.py",
     "bazel_to_cmake/native_rules.py",
     "bazel_to_cmake/package.py",
     "bazel_to_cmake/platforms.py",
     "bazel_to_cmake/provider_util.py",
-    "bazel_to_cmake/starlark/__init__.py",
     "bazel_to_cmake/starlark/aspect.py",
-    "bazel_to_cmake/starlark/bazel_build_file.py",
-    "bazel_to_cmake/starlark/bazel_glob_test.py",
     "bazel_to_cmake/starlark/bazel_glob.py",
-    "bazel_to_cmake/starlark/bazel_globals_test.py",
-    "bazel_to_cmake/starlark/bazel_globals.py",
-    "bazel_to_cmake/starlark/bazel_target_test.py",
+    "bazel_to_cmake/starlark/bazel_library.py",
     "bazel_to_cmake/starlark/bazel_target.py",
-    "bazel_to_cmake/starlark/bazel_workspace_file.py",
     "bazel_to_cmake/starlark/common_providers.py",
-    "bazel_to_cmake/starlark/depset_test.py",
     "bazel_to_cmake/starlark/depset.py",
     "bazel_to_cmake/starlark/dict_polyfill.py",
-    "bazel_to_cmake/starlark/ignored_test.py",
+    "bazel_to_cmake/starlark/exec.py",
     "bazel_to_cmake/starlark/ignored.py",
+    "bazel_to_cmake/starlark/__init__.py",
     "bazel_to_cmake/starlark/invocation_context.py",
     "bazel_to_cmake/starlark/label.py",
-    "bazel_to_cmake/starlark/provider_test.py",
+    "bazel_to_cmake/starlark/module_cc_common.py",
+    "bazel_to_cmake/starlark/module_config_common.py",
+    "bazel_to_cmake/starlark/module_platform_common.py",
     "bazel_to_cmake/starlark/provider.py",
-    "bazel_to_cmake/starlark/rule_test.py",
     "bazel_to_cmake/starlark/rule.py",
-    "bazel_to_cmake/starlark/select_test.py",
+    "bazel_to_cmake/starlark/scope_build_file.py",
+    "bazel_to_cmake/starlark/scope_bzlmod_file.py",
+    "bazel_to_cmake/starlark/scope_common.py",
+    "bazel_to_cmake/starlark/scope_workspace_file.py",
     "bazel_to_cmake/starlark/select.py",
-    "bazel_to_cmake/starlark/struct_test.py",
     "bazel_to_cmake/starlark/struct.py",
     "bazel_to_cmake/starlark/toolchain.py",
-    "bazel_to_cmake/util_test.py",
     "bazel_to_cmake/util.py",
-    "bazel_to_cmake/variable_substitution_test.py",
     "bazel_to_cmake/variable_substitution.py",
     "bazel_to_cmake/workspace.py",
 ]
 
+py_library(
+    name = "bazel_to_cmake",
+    srcs = SRCS,
+)
+
 # glob(["bazel_to_cmake/testdata/**"]),
-# find bazel_to_cmake/testdata -type f | awk '{ print( "    \"" $0 "\"," ) }'
+# find bazel_to_cmake/testdata -type f | awk '{ print( "    \"" $0 "\"," ) }' | sort
 TESTDATA = [
     "bazel_to_cmake/testdata/bazel_skylib/BUILD.bazel",
     "bazel_to_cmake/testdata/bazel_skylib/config.json",
@@ -101,8 +99,8 @@ TESTDATA = [
     "bazel_to_cmake/testdata/cc_includes/WORKSPACE.bazel",
     "bazel_to_cmake/testdata/grpc_generate_cc/a.cc",
     "bazel_to_cmake/testdata/grpc_generate_cc/BUILD.bazel",
-    "bazel_to_cmake/testdata/grpc_generate_cc/c.proto",
     "bazel_to_cmake/testdata/grpc_generate_cc/config.json",
+    "bazel_to_cmake/testdata/grpc_generate_cc/c.proto",
     "bazel_to_cmake/testdata/grpc_generate_cc/golden/_srcdir/build_rules.cmake",
     "bazel_to_cmake/testdata/grpc_generate_cc/WORKSPACE.bazel",
     "bazel_to_cmake/testdata/local_mirror/a.cc",
@@ -112,16 +110,16 @@ TESTDATA = [
     "bazel_to_cmake/testdata/local_mirror/golden/_bindir/_local_mirror/lpm-src/b.h",
     "bazel_to_cmake/testdata/local_mirror/golden/_bindir/_local_mirror/lpm-src/BUILD.bazel",
     "bazel_to_cmake/testdata/local_mirror/golden/_bindir/_local_mirror/lpm-src/CMakeLists.txt",
-    "bazel_to_cmake/testdata/local_mirror/golden/_srcdir/_find_pkg_redirects_/lpm-config.cmake",
     "bazel_to_cmake/testdata/local_mirror/golden/_srcdir/build_rules.cmake",
+    "bazel_to_cmake/testdata/local_mirror/golden/_srcdir/_find_pkg_redirects_/lpm-config.cmake",
     "bazel_to_cmake/testdata/local_mirror/WORKSPACE.bazel",
-    "bazel_to_cmake/testdata/native_rules/.bazelrc",
     "bazel_to_cmake/testdata/native_rules/a.cc",
-    "bazel_to_cmake/testdata/native_rules/b.h",
+    "bazel_to_cmake/testdata/native_rules/.bazelrc",
     "bazel_to_cmake/testdata/native_rules/b.cc",
+    "bazel_to_cmake/testdata/native_rules/b.h",
     "bazel_to_cmake/testdata/native_rules/BUILD.bazel",
-    "bazel_to_cmake/testdata/native_rules/c.proto",
     "bazel_to_cmake/testdata/native_rules/config.json",
+    "bazel_to_cmake/testdata/native_rules/c.proto",
     "bazel_to_cmake/testdata/native_rules/golden/_srcdir/build_rules.cmake",
     "bazel_to_cmake/testdata/native_rules/subdir/BUILD.bazel",
     "bazel_to_cmake/testdata/native_rules/subdir/x.cc",
@@ -140,8 +138,8 @@ TESTDATA = [
     "bazel_to_cmake/testdata/rules_proto/a.proto",
     "bazel_to_cmake/testdata/rules_proto/b.proto",
     "bazel_to_cmake/testdata/rules_proto/BUILD.bazel",
-    "bazel_to_cmake/testdata/rules_proto/c.proto",
     "bazel_to_cmake/testdata/rules_proto/config.json",
+    "bazel_to_cmake/testdata/rules_proto/c.proto",
     "bazel_to_cmake/testdata/rules_proto/d.proto",
     "bazel_to_cmake/testdata/rules_proto/golden/_srcdir/build_rules.cmake",
     "bazel_to_cmake/testdata/rules_proto/src/subdir/y.proto",
@@ -152,28 +150,61 @@ TESTDATA = [
     "bazel_to_cmake/testdata/third_party_http_archive/config.json",
     "bazel_to_cmake/testdata/third_party_http_archive/golden/_bindir/third_party/CMakeLists.txt",
     "bazel_to_cmake/testdata/third_party_http_archive/golden/_bindir/third_party/half-proxy-CMakeLists.txt",
+    "bazel_to_cmake/testdata/third_party_http_archive/golden/_srcdir/build_rules.cmake",
     "bazel_to_cmake/testdata/third_party_http_archive/golden/_srcdir/_find_pkg_redirects_/half-extra.cmake",
     "bazel_to_cmake/testdata/third_party_http_archive/golden/_srcdir/_find_pkg_redirects_/whole-config.cmake",
-    "bazel_to_cmake/testdata/third_party_http_archive/golden/_srcdir/build_rules.cmake",
     "bazel_to_cmake/testdata/third_party_http_archive/half.BUILD.bazel",
     "bazel_to_cmake/testdata/third_party_http_archive/WORKSPACE.bazel",
     "bazel_to_cmake/testdata/upb_proto_library/a.proto",
     "bazel_to_cmake/testdata/upb_proto_library/b.proto",
     "bazel_to_cmake/testdata/upb_proto_library/BUILD.bazel",
-    "bazel_to_cmake/testdata/upb_proto_library/c.proto",
     "bazel_to_cmake/testdata/upb_proto_library/config.json",
+    "bazel_to_cmake/testdata/upb_proto_library/c.proto",
     "bazel_to_cmake/testdata/upb_proto_library/golden/_srcdir/build_rules.cmake",
     "bazel_to_cmake/testdata/upb_proto_library/WORKSPACE.bazel",
     "bazel_to_cmake/testdata/upb_proto_library/x.cc",
 ]
 
+# find bazel_to_cmake -type f | grep test.py$ |grep -v testdata | awk '{ print( "    \"" $0 "\"," ) }' | sort
+TESTS = [
+    "bazel_to_cmake/cmake_repository_test.py",
+    "bazel_to_cmake/emit_cc_test.py",
+    # "bazel_to_cmake/golden_test.py"
+    "bazel_to_cmake/starlark/bazel_glob_test.py",
+    "bazel_to_cmake/starlark/bazel_target_test.py",
+    "bazel_to_cmake/starlark/depset_test.py",
+    "bazel_to_cmake/starlark/ignored_test.py",
+    "bazel_to_cmake/starlark/provider_test.py",
+    "bazel_to_cmake/starlark/rule_test.py",
+    "bazel_to_cmake/starlark/scope_test.py",
+    "bazel_to_cmake/starlark/select_test.py",
+    "bazel_to_cmake/starlark/struct_test.py",
+    "bazel_to_cmake/util_test.py",
+    "bazel_to_cmake/variable_substitution_test.py",
+]
+
+[
+    tensorstore_pytest_test(
+        name = x.replace(".py", "").replace("/", "_"),
+        size = "small",
+        srcs = [x],
+        tags = [
+            "skip-cmake",
+            "skip-windows",  # path canonicalization isn't correct when testing on windows.
+        ],
+        deps = [":bazel_to_cmake"],
+    )
+    for x in TESTS
+]
+
 tensorstore_pytest_test(
-    name = "bazel_to_cmake_test",
+    name = "golden_test",
     size = "small",
-    srcs = SRCS,
+    srcs = ["bazel_to_cmake/golden_test.py"],
     data = TESTDATA,
     tags = [
         "skip-cmake",
         "skip-windows",  # path canonicalization isn't correct when testing on windows.
     ],
+    deps = [":bazel_to_cmake"],
 )

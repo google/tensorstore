@@ -34,10 +34,10 @@ from . import native_rules_proto  # pylint: disable=unused-import
 from .evaluation import EvaluationState
 from .package import Visibility
 from .starlark import rule  # pylint: disable=unused-import
-from .starlark.bazel_build_file import register_native_build_rule
 from .starlark.bazel_glob import glob as starlark_glob
 from .starlark.invocation_context import InvocationContext
 from .starlark.label import RelativeLabel
+from .starlark.scope_build_file import register_native_build_rule
 
 
 @register_native_build_rule

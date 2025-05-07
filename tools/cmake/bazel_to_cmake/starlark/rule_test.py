@@ -16,15 +16,16 @@
 
 from typing import Any, Dict, List, Optional
 
-from .bazel_build_file import BuildFileGlobals
-from .bazel_build_file import BuildFileLibraryGlobals
 from .bazel_target import RepositoryId
 from .bazel_target import TargetId
+from .exec import compile_and_exec
 from .ignored import IgnoredLibrary
 from .invocation_context import InvocationContext
 from .invocation_context import RuleImpl
 from .provider import TargetInfo
 from .rule import *
+from .scope_build_file import ScopeBuildBzlFile
+from .scope_build_file import ScopeBuildFile
 
 RULE_BZL = """
 
@@ -68,10 +69,10 @@ class MyRuleContext(InvocationContext):
   def __init__(self):
     self.output = []
     self.rule_target = TargetId.parse("@foo//:rule.bzl")
-    self.rule_scope = BuildFileLibraryGlobals(self, self.rule_target, "")
+    self.rule_scope = ScopeBuildBzlFile(self, self.rule_target, "")
     self.rule_scope["print"] = self._my_print
     self.build_target = TargetId.parse("@bar//:BUILD.bazel")
-    self.build_scope = BuildFileGlobals(self, self.build_target, "")
+    self.build_scope = ScopeBuildFile(self, self.build_target, "")
     self.build_scope["print"] = self._my_print
     self.rules: Dict[TargetId, RuleImpl] = {}
 
@@ -124,10 +125,10 @@ def test_rule():
   ctx = MyRuleContext()
 
   # Compile the .bzl library
-  exec(compile(RULE_BZL, "rule", "exec"), ctx.rule_scope)  # pylint: disable=exec-used
+  compile_and_exec(RULE_BZL, "rule", ctx.rule_scope)
 
   # Compile the BUILD file.
-  exec(compile(BUILD_BAZEL, "build", "exec"), ctx.build_scope)  # pylint: disable=exec-used
+  compile_and_exec(BUILD_BAZEL, "build", ctx.build_scope)
 
   for _, impl in ctx.rules.items():
     impl()

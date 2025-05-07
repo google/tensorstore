@@ -26,8 +26,7 @@ from ..native_aspect_proto import aspect_genproto_library_target
 from ..native_aspect_proto import PluginSettings
 from ..native_rules_cc_proto import cc_proto_library_impl
 from ..starlark.aspect import aspect
-from ..starlark.bazel_globals import BazelGlobals
-from ..starlark.bazel_globals import register_bzl_library
+from ..starlark.bazel_library import register_bzl_library
 from ..starlark.bazel_target import RepositoryId
 from ..starlark.bazel_target import TargetId
 from ..starlark.invocation_context import InvocationContext
@@ -36,6 +35,7 @@ from ..starlark.provider import Provider
 from ..starlark.provider import provider
 from ..starlark.rule import AttrModule
 from ..starlark.rule import rule
+from ..starlark.scope_common import ScopeCommon
 
 UPB_REPO = RepositoryId("com_google_protobuf")
 
@@ -224,7 +224,7 @@ class UpbMinitableCcInfo(Provider):
 @register_bzl_library(
     "@com_google_protobuf//bazel:upb_minitable_proto_library.bzl", build=True
 )
-class UpbMinitableProtoLibrary(BazelGlobals):
+class UpbMinitableProtoLibrary(ScopeCommon):
 
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
@@ -260,7 +260,7 @@ class UpbMinitableProtoLibrary(BazelGlobals):
 @register_bzl_library(
     "@com_google_protobuf//bazel:upb_proto_reflection_library.bzl", build=True
 )
-class UpbProtoReflectionLibrary(BazelGlobals):
+class UpbProtoReflectionLibrary(ScopeCommon):
 
   def bazel_upb_proto_reflection_library(
       self,
@@ -302,7 +302,7 @@ class UpbWrappedCcInfo(Provider):
 @register_bzl_library(
     "@com_google_protobuf//bazel:upb_c_proto_library.bzl", build=True
 )
-class UpbCProtoLibrary(BazelGlobals):
+class UpbCProtoLibrary(ScopeCommon):
 
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
@@ -370,7 +370,7 @@ HpbProtoLibraryCoptsInfo = provider(
 @register_bzl_library(
     "@com_google_protobuf//hpb/bazel:hpb_proto_library.bzl", build=True
 )
-class HpbProtoLibrary(BazelGlobals):
+class HpbProtoLibrary(ScopeCommon):
 
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)

@@ -27,16 +27,16 @@ from typing import Dict, List, Optional
 from .evaluation import EvaluationState
 from .provider_util import ProviderCollection
 from .starlark import rule  # pylint: disable=unused-import
-from .starlark.bazel_build_file import register_native_build_rule
 from .starlark.bazel_target import TargetId
 from .starlark.common_providers import BuildSettingProvider
 from .starlark.common_providers import ConditionProvider
-from .starlark.common_providers import ConstraintSettingInfo
-from .starlark.common_providers import ConstraintValueInfo
-from .starlark.common_providers import PlatformInfo
 from .starlark.invocation_context import InvocationContext
 from .starlark.label import RelativeLabel
+from .starlark.module_platform_common import ConstraintSettingInfo
+from .starlark.module_platform_common import ConstraintValueInfo
+from .starlark.module_platform_common import PlatformInfo
 from .starlark.provider import TargetInfo
+from .starlark.scope_build_file import register_native_build_rule
 
 
 @register_native_build_rule

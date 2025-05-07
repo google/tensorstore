@@ -20,8 +20,8 @@ from typing import Dict, List, Tuple
 from .starlark.bazel_target import parse_absolute_target
 from .starlark.common_providers import BuildSettingProvider
 from .starlark.common_providers import ConditionProvider
-from .starlark.common_providers import ConstraintSettingInfo
-from .starlark.common_providers import ConstraintValueInfo
+from .starlark.module_platform_common import ConstraintSettingInfo
+from .starlark.module_platform_common import ConstraintValueInfo
 from .starlark.provider import TargetInfo
 from .util import cmake_is_true
 from .workspace import Workspace

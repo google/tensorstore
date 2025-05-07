@@ -35,7 +35,10 @@ class Struct(object):
     kwargs_repr = ','.join(
         f'{k}={repr(self.__dict__.get(k))}' for k in self._fields
     )
-    return f'struct({kwargs_repr})'
+    fn = self.__class__.__name__
+    if fn == 'Struct' or fn == 'GenericProvider':
+      fn = 'struct'
+    return f'{fn}({kwargs_repr})'
 
   def __add__(self, addend: 'Struct'):
     """In Starlark, struct + struct = struct."""
@@ -62,14 +65,7 @@ class Struct(object):
     return True
 
   def __ne__(self, other):
-    if not isinstance(other, Struct):
-      return True
-    if self._fields != other._fields:
-      return True
-    for x in self._fields:
-      if self.__dict__.get(x) != other.__dict__.get(x):
-        return True
-    return False
+    return not self.__eq__(other)
 
   def __setattr__(self, *ignored):
     raise NotImplementedError

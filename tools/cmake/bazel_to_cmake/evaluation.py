@@ -68,7 +68,6 @@ Similar to the real Bazel, evaluation is performed in several phases:
 
 # pylint: disable=relative-beyond-top-level,protected-access,missing-function-docstring,invalid-name,g-doc-args,g-doc-return-or-yield
 
-import ast
 import collections
 import copy
 import enum
@@ -89,21 +88,21 @@ from .cmake_target import CMakeTargetPair
 from .package import Package
 from .package import Visibility
 from .provider_util import ProviderCollection
-from .starlark import dict_polyfill
-from .starlark.bazel_build_file import BuildFileGlobals
-from .starlark.bazel_build_file import BuildFileLibraryGlobals
-from .starlark.bazel_globals import get_bazel_library
+from .starlark.bazel_library import get_bazel_library
 from .starlark.bazel_target import PackageId
 from .starlark.bazel_target import RepositoryId
 from .starlark.bazel_target import TargetId
-from .starlark.bazel_workspace_file import BazelWorkspaceGlobals
 from .starlark.common_providers import BuildSettingProvider
 from .starlark.common_providers import ConditionProvider
 from .starlark.common_providers import FilesProvider
+from .starlark.exec import compile_and_exec
 from .starlark.ignored import IgnoredLibrary
 from .starlark.invocation_context import InvocationContext
 from .starlark.label import RelativeLabel
 from .starlark.provider import TargetInfo
+from .starlark.scope_build_file import ScopeBuildBzlFile
+from .starlark.scope_build_file import ScopeBuildFile
+from .starlark.scope_workspace_file import ScopeWorkspaceFile
 from .starlark.select import Configurable
 from .starlark.select import Select
 from .starlark.select import SelectExpression
@@ -577,9 +576,7 @@ class EvaluationState:
     if self.verbose:
       print(f"Loading library: {target_id.as_label()} at {library_path}")
 
-    scope_type = (
-        BazelWorkspaceGlobals if is_workspace else BuildFileLibraryGlobals
-    )
+    scope_type = ScopeWorkspaceFile if is_workspace else ScopeBuildBzlFile
     library = scope_type(
         self._evaluation_context, target_id, library_path.as_posix()
     )
@@ -595,7 +592,7 @@ class EvaluationState:
     self.loaded_files.add(library_path.as_posix())
 
     # Load, parse and evaluate the starlark script as a library.
-    _exec_module(
+    compile_and_exec(
         None,
         library_path.as_posix(),
         library,
@@ -641,12 +638,12 @@ class EvaluationState:
     build_target = package.package_id.get_target_id(build_file_path.name)
     self._evaluation_context.update_current_package(package=package)
 
-    scope = BuildFileGlobals(
+    scope = ScopeBuildFile(
         self._evaluation_context, build_target, build_file_path.as_posix()
     )
 
     # Load, parse and evaluate the starlark script as a library.
-    _exec_module(
+    compile_and_exec(
         content,
         build_file_path.as_posix(),
         scope,
@@ -692,13 +689,13 @@ class EvaluationState:
     self._evaluation_context.update_current_package(
         package_id=workspace_target_id.package_id
     )
-    scope = BazelWorkspaceGlobals(
+    scope = ScopeWorkspaceFile(
         self._evaluation_context,
         workspace_target_id,
         workspace_file_path.as_posix(),
     )
 
-    _exec_module(
+    compile_and_exec(
         content,
         workspace_file_path.as_posix(),
         scope,
@@ -891,30 +888,3 @@ class EvaluationContext(InvocationContext):
 
   def evaluate_configurable(self, configurable: Configurable[T]) -> T:
     return self._state.evaluate_configurable(configurable)
-
-
-def _exec_module(
-    source: Optional[str],
-    filename: str,
-    scope: Dict[str, Any],
-    extra: Optional[str] = None,
-) -> None:
-  """Executes Python code with the specified `scope`.
-
-  Polyfills support for dict union operator (PEP 584) on Python 3.8.
-  """
-  if extra is None:
-    extra = ""
-  try:
-    if source is None:
-      source = pathlib.Path(filename).read_text(encoding="utf-8")
-
-    tree = ast.parse(source, filename)
-    # Apply AST transformations to support `dict.__or__`. (PEP 584)
-    tree = ast.fix_missing_locations(dict_polyfill.ASTTransformer().visit(tree))
-    code = compile(tree, filename=filename, mode="exec")
-    exec(code, scope)  # pylint: disable=exec-used
-  except Exception as e:
-    raise RuntimeError(
-        f"While evaluating {filename} {extra} with content:\n{source}"
-    ) from e

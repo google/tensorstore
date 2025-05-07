@@ -15,9 +15,6 @@
 
 # pylint: disable=invalid-name,missing-function-docstring,relative-beyond-top-level,g-importing-member
 
-from typing import Dict, Optional, Tuple, Type
-
-from .bazel_target import parse_absolute_target
 from .bazel_target import TargetId
 from .depset import DepSet
 from .dict_polyfill import DictWithUnion
@@ -27,7 +24,7 @@ from .label import RelativeLabel
 from .struct import Struct
 
 
-class BazelGlobals(dict):
+class ScopeCommon(dict):
   """Base class for scope dict objects used when evaluating Starlark.
 
   Derived classes can define a `bazel_<name>` property/method to implement the
@@ -109,28 +106,3 @@ class BazelGlobals(dict):
 
   bazel_depset = staticmethod(DepSet)  # type: ignore[not-callable]
   bazel_struct = staticmethod(Struct)  # type: ignore[not-callable]
-
-
-_BZL_LIBRARIES: Dict[Tuple[TargetId, bool], Type[BazelGlobals]] = {}
-
-
-def get_bazel_library(
-    key: Tuple[TargetId, bool],
-) -> Optional[Type[BazelGlobals]]:
-  """Returns the target library, if registered."""
-  return _BZL_LIBRARIES.get(key)
-
-
-def register_bzl_library(
-    target: str, workspace: bool = False, build: bool = False
-):
-  target_id = parse_absolute_target(target)
-
-  def register(library: Type[BazelGlobals]):
-    if workspace:
-      _BZL_LIBRARIES[(target_id, True)] = library
-    if build:
-      _BZL_LIBRARIES[(target_id, False)] = library
-    return library
-
-  return register

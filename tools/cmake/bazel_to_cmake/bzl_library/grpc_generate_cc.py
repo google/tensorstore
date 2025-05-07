@@ -26,8 +26,8 @@ from ..native_aspect_proto import btc_protobuf
 from ..native_aspect_proto import plugin_generated_files
 from ..native_aspect_proto import PluginSettings
 from ..native_aspect_proto import maybe_augment_output_dir
-from ..starlark.bazel_globals import BazelGlobals
-from ..starlark.bazel_globals import register_bzl_library
+from ..starlark.scope_common import ScopeCommon
+from ..starlark.bazel_library import register_bzl_library
 from ..starlark.bazel_target import RepositoryId
 from ..starlark.bazel_target import TargetId
 from ..starlark.common_providers import FilesProvider
@@ -62,7 +62,7 @@ _GRPC = PluginSettings(
 @register_bzl_library(
     "@grpc//bazel:generate_cc.bzl", build=True
 )
-class GrpcGenerateCcLibrary(BazelGlobals):
+class GrpcGenerateCcLibrary(ScopeCommon):
 
   def bazel_generate_cc(
       self,

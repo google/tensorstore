@@ -16,12 +16,14 @@
 # pylint: disable=invalid-name,missing-function-docstring,relative-beyond-top-level,g-importing-member
 from typing import Dict, TypeVar
 
-from .bazel_globals import BazelGlobals
 from .invocation_context import InvocationContext
 from .label import RelativeLabel
+from .module_cc_common import BazelModuleCcCommon
+from .module_config_common import BazelModuleConfigCommon
+from .module_platform_common import BazelModulePlatformCommon
 from .provider import provider
+from .scope_common import ScopeCommon
 from .select import Select
-
 
 T = TypeVar('T')
 
@@ -33,17 +35,25 @@ class BazelNativeBuildRules:
     self._context = context
 
 
-class CcCommonModule:
-  do_not_use_tools_cpp_compiler_present = True
-
-
 # https://bazel.build/rules/lib/globals/build
-class BuildFileLibraryGlobals(BazelGlobals):
+class ScopeBuildBzlFile(ScopeCommon):
   """Global scope used for .bzl libraries loaded from BUILD files."""
 
   @property
   def bazel_native(self):
     return BazelNativeBuildRules(self._context)
+
+  @property
+  def bazel_cc_common(self):
+    return BazelModuleCcCommon
+
+  @property
+  def bazel_platform_common(self):
+    return BazelModulePlatformCommon
+
+  @property
+  def bazel_config_common(self):
+    return BazelModuleConfigCommon
 
   def bazel_select(self, conditions: Dict[RelativeLabel, T]) -> Select[T]:
     return Select({
@@ -72,17 +82,13 @@ class BuildFileLibraryGlobals(BazelGlobals):
     del kwargs
     pass
 
-  @property
-  def bazel_cc_common(self):
-    return CcCommonModule
-
   # Missing:
   # * existing_rules
   # * subpackages
   # * package_relative_label
 
 
-class BuildFileGlobals(BuildFileLibraryGlobals):
+class ScopeBuildFile(ScopeBuildBzlFile):
   """Global scope used for BUILD files themselves."""
 
   def bazel_licenses(self, *args, **kwargs):
@@ -96,6 +102,9 @@ def register_native_build_rule(impl):
     self._context.record_rule_location(name)  # pylint: disable=protected-access
     return impl(self._context, *args, **kwargs)  # pylint: disable=protected-access
 
+  if hasattr(BazelNativeBuildRules, name):
+    print(f'Rule {name} already registered.')
+
   setattr(BazelNativeBuildRules, name, wrapper)
-  setattr(BuildFileGlobals, f'bazel_{name}', wrapper)
+  setattr(ScopeBuildFile, f'bazel_{name}', wrapper)
   return impl

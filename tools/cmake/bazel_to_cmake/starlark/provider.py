@@ -20,6 +20,8 @@ https://bazel.build/rules/lib/globals#provider
 
 from typing import Optional, Tuple, Type, TypeVar, cast
 
+from .struct import Struct
+
 
 class Provider:
   __slots__ = ()
@@ -58,62 +60,27 @@ class TargetInfo:
     )
 
 
-class GenericProvider(Provider):
+def _make_provider(cls, fields, **kwargs):
 
-  def __init__(self, **kwargs):
-    self.__dict__['_hidden_fields'] = sorted(kwargs.keys())
-    self.__dict__.update(kwargs)
-
-  @property
-  def _fields(self):
-    return self.__dict__['_hidden_fields']
-
-  def __repr__(self):
-    kwargs_repr = ','.join(
-        f'{k}={repr(self.__dict__.get(k))}' for k in self._fields
-    )
-    return f'struct({kwargs_repr})'
-
-  def __eq__(self, other):
-    if not isinstance(other, Provider):
-      return False
-    if self._fields != other._fields:
-      return False
-    for x in self._fields:
-      if self.__dict__.get(x) != other.__dict__.get(x):
-        return False
-    return True
-
-  def __ne__(self, other):
-    if not isinstance(other, Provider):
-      return True
-    if self._fields != other._fields:
-      return True
-    for x in self._fields:
-      if self.__dict__.get(x) != other.__dict__.get(x):
-        return True
-    return False
-
-  def __setattr__(self, *ignored):
-    raise NotImplementedError
-
-  def __delattr__(self, *ignored):
-    raise NotImplementedError
-
-
-def _make_provider(fields, **kwargs):
   if fields is not None:
     # Validate kwargs
     for k in kwargs:
       if k not in fields:
         raise AttributeError(f'field {k} not allowed in provider')
-  return GenericProvider(**kwargs)
+
+  return cls(**kwargs)
 
 
 def provider(doc='', *, fields=None, init=None):
   """Returns a Starlark 'provider' callable."""
   del doc
-  provider_lambda = lambda **kwargs: _make_provider(fields, **kwargs)
+
+  class GenericProvider(Provider, Struct):
+    pass
+
+  provider_lambda = lambda **kwargs: _make_provider(
+      GenericProvider, fields, **kwargs
+  )
 
   # Maybe instantiate the type.
   if init is None:

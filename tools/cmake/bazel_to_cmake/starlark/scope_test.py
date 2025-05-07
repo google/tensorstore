@@ -17,14 +17,15 @@
 import pathlib
 from typing import Any, Dict, List, Optional
 
-from .bazel_build_file import BuildFileLibraryGlobals
 from .bazel_target import PackageId
 from .bazel_target import RepositoryId
 from .bazel_target import TargetId
-from .bazel_workspace_file import BazelWorkspaceGlobals
+from .exec import compile_and_exec
 from .ignored import IgnoredLibrary
 from .invocation_context import InvocationContext
 from .invocation_context import RuleImpl
+from .scope_build_file import ScopeBuildFile
+from .scope_workspace_file import ScopeWorkspaceFile
 
 WORKSPACE_GLOBALS = """
 
@@ -107,28 +108,28 @@ class MyContext(InvocationContext):
 
 
 def test_workspace_globals():
-  scope = BazelWorkspaceGlobals(
+  scope = ScopeWorkspaceFile(
       MyContext(), TargetId.parse("@foo//:WORKSPACE"), "foo/WORKSPACE"
   )
 
   output: List[str] = []
   scope["print"] = output.append
 
-  exec(compile(WORKSPACE_GLOBALS, "foo", "exec"), scope)  # pylint: disable=exec-used
+  compile_and_exec(WORKSPACE_GLOBALS, "foo/WORKSPACE", scope)
 
   scope["print_stuff"]("x")
   assert "\n".join(repr(x) for x in output) == WORKSPACE_OUTPUT
 
 
 def test_build_file_library_globals():
-  scope = BuildFileLibraryGlobals(
+  scope = ScopeBuildFile(
       MyContext(), TargetId.parse("@foo//:file.bzl"), "foo/file.bzl"
   )
 
   output: List[str] = []
   scope["print"] = output.append
 
-  exec(compile(WORKSPACE_GLOBALS, "foo", "exec"), scope)  # pylint: disable=exec-used
+  compile_and_exec(WORKSPACE_GLOBALS, "foo/file.bzl", scope)
 
   scope["print_stuff"]("x")
   assert "\n".join(repr(x) for x in output) == WORKSPACE_OUTPUT

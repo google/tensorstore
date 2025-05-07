@@ -1,4 +1,4 @@
-# Copyright 2022 The TensorStore Authors
+# Copyright 2025 The TensorStore Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,18 +11,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""CMake implementation of "@bazel_tools//tools/build_defs/repo:utils.bzl"."""
 
-# pylint: disable=invalid-name,missing-function-docstring,relative-beyond-top-level,g-long-lambda
-
-from ..starlark.bazel_library import register_bzl_library
-from ..starlark.scope_common import ScopeCommon
+from .provider import Provider
+from .struct import Struct
 
 
-@register_bzl_library(
-    "@bazel_tools//tools/build_defs/repo:utils.bzl", workspace=True
-)
-class BazelToolsRepoUtilsLibrary(ScopeCommon):
+class FeatureFlagInfo(Provider):
 
-  def bazel_maybe(self, fn, **kwargs):
-    fn(**kwargs)
+  pass
+
+
+class BazelModuleConfigCommon:
+
+  FeatureFlagInfo = staticmethod(FeatureFlagInfo)  # type: ignore[not-callable]
+
+  def toolchain_type(self, name, *, mandatory=True):
+    return Struct(toolchain_type=name, mandatory=mandatory)

@@ -34,7 +34,7 @@ import ast
 class DictWithUnion(dict):
   """dict wrapper that adds union operator.
 
-  bazel_globals.py defines two globals, `dict` and `__DictWithUnion`, that refer
+  scope_common.py defines two globals, `dict` and `__DictWithUnion`, that refer
   to this class.
   """
 

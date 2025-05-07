@@ -129,7 +129,11 @@ def add_repositories(workspace: Workspace):
           CMakePackage('gRPC'),
           pathlib.PurePosixPath('grpc_src'),
           pathlib.PurePosixPath('grpc_build'),
-          repo_mapping={'@com_google_protobuf': '@com_google_protobuf'},
+          repo_mapping={
+              RepositoryId('com_google_protobuf'): RepositoryId(
+                  'com_google_protobuf'
+              )
+          },
           persisted_canonical_name={},
       )
   )
