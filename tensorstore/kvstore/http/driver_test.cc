@@ -510,6 +510,7 @@ TEST(SpecTest, SpecRoundtrip) {
                        {"base_url", "https://example.com?query"},
                        {"headers", {"a: b"}},
                        {"path", "/abc"}};
+  options.url = "https://example.com/abc?query";
   tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
 }
 

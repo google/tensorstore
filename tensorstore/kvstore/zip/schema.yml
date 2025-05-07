@@ -3,28 +3,68 @@ $id: kvstore/zip
 title: Read-only adapter for the ZIP archive format.
 description: JSON specification of the key-value store.
 allOf:
-- $ref: KvStore
-- type: object
-  properties:
-    driver:
-      const: zip
-    base:
-      $ref: KvStore
-      title: Underlying key-value store with path to a ZIP file.
-    cache_pool:
-      $ref: ContextResource
-      description: |-
-        Specifies or references a previously defined `Context.cache_pool`.  It
-        is typically more convenient to specify a default `~Context.cache_pool`
-        in the `.context`.
-      default: cache_pool
-    data_copy_concurrency:
-      $ref: ContextResource
-      description: |-
-        Specifies or references a previously defined
-        `Context.data_copy_concurrency`.  It is typically more
-        convenient to specify a default `~Context.data_copy_concurrency` in
-        the `.context`.
-      default: data_copy_concurrency
-  required:
-  - base
+  - $ref: KvStore
+  - type: object
+    properties:
+      driver:
+        const: zip
+      base:
+        $ref: KvStore
+        title: Underlying key-value store with path to a ZIP file.
+      cache_pool:
+        $ref: ContextResource
+        description: |-
+          Specifies or references a previously defined `Context.cache_pool`.  It
+          is typically more convenient to specify a default `~Context.cache_pool`
+          in the `.context`.
+        default: cache_pool
+      data_copy_concurrency:
+        $ref: ContextResource
+        description: |-
+          Specifies or references a previously defined
+          `Context.data_copy_concurrency`.  It is typically more
+          convenient to specify a default `~Context.data_copy_concurrency` in
+          the `.context`.
+        default: data_copy_concurrency
+    required:
+      - base
+definitions:
+  url:
+    $id: KvStoreUrl/zip
+    type: string
+    allOf:
+      - $ref: KvStoreUrl
+      - type: string
+    title: |
+      :literal:`zip:` KvStore URL scheme
+    description: |
+      Zip key-value store adapters may be specified using the
+      :file:`zip:{path}` URL syntax.
+
+      .. admonition:: Examples
+         :class: example
+
+         .. list-table::
+            :header-rows: 1
+            :widths: auto
+
+            * - URL representation
+              - JSON representation
+            * - ``"file:///tmp/archive.zip|zip:path/within/archive"``
+              - .. code-block:: json
+
+                   {"driver": "zip",
+                    "path": "path/within/archive",
+                    "base": {"driver": "file",
+                             "path": "/tmp/archive.zip"}
+                   }
+            * - ``"file:///tmp/archive.zip|zip:nested.zip|zip:path/within/inner_zip"``
+              - .. code-block:: json
+
+                   {"driver": "zip",
+                    "path": "path/within/inner_zip",
+                    "base": {"driver": "zip",
+                             "path": "nested.zip",
+                             "base": {"driver": "file",
+                                      "path": "/tmp/archive.zip"}}
+                   }

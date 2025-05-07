@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "tensorstore/context.h"
+#include "tensorstore/kvstore/spec.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -40,6 +41,12 @@ TEST(KeyValueStoreTest, OpenInvalid) {
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Error parsing object member \"driver\": "
                             "\"invalid\" is not a registered KvStore driver"));
+}
+
+TEST(KeyValueStoreTest, EmptyUrl) {
+  EXPECT_THAT(kvstore::Spec::FromJson(""),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "URL must be non-empty"));
 }
 
 }  // namespace

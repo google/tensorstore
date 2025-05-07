@@ -23,6 +23,7 @@
 #include <string>
 #include <string_view>
 
+#include "absl/status/status.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
 #include "tensorstore/internal/ascii_set.h"
@@ -87,17 +88,18 @@ void PercentDecodeAppend(std::string_view src, std::string& dest) {
   }
 }
 
-ParsedGenericUri ParseGenericUri(std::string_view uri) {
-  static constexpr std::string_view kSchemeSep("://");
+namespace {
+ParsedGenericUri ParseGenericUriImpl(std::string_view uri,
+                                     std::string_view scheme_delimiter) {
   ParsedGenericUri result;
-  const auto scheme_start = uri.find(kSchemeSep);
+  const auto scheme_start = uri.find(scheme_delimiter);
   std::string_view uri_suffix;
   if (scheme_start == std::string_view::npos) {
     // No scheme
     uri_suffix = uri;
   } else {
     result.scheme = uri.substr(0, scheme_start);
-    uri_suffix = uri.substr(scheme_start + kSchemeSep.size());
+    uri_suffix = uri.substr(scheme_start + scheme_delimiter.size());
   }
   const auto fragment_start = uri_suffix.find('#');
   const auto query_start = uri_suffix.substr(0, fragment_start).find('?');
@@ -126,6 +128,32 @@ ParsedGenericUri ParseGenericUri(std::string_view uri) {
     result.fragment = uri_suffix.substr(fragment_start + 1);
   }
   return result;
+}
+}  // namespace
+
+ParsedGenericUri ParseGenericUri(std::string_view uri) {
+  return ParseGenericUriImpl(uri, "://");
+}
+
+ParsedGenericUri ParseGenericUriWithoutSlashSlash(std::string_view uri) {
+  return ParseGenericUriImpl(uri, ":");
+}
+
+absl::Status EnsureNoQueryOrFragment(const ParsedGenericUri& parsed_uri) {
+  if (!parsed_uri.query.empty()) {
+    return absl::InvalidArgumentError("Query string not supported");
+  }
+  if (!parsed_uri.fragment.empty()) {
+    return absl::InvalidArgumentError("Fragment identifier not supported");
+  }
+  return absl::OkStatus();
+}
+
+absl::Status EnsureNoPathOrQueryOrFragment(const ParsedGenericUri& parsed_uri) {
+  if (!parsed_uri.authority_and_path.empty()) {
+    return absl::InvalidArgumentError("Path not supported");
+  }
+  return EnsureNoQueryOrFragment(parsed_uri);
 }
 
 std::optional<HostPort> SplitHostPort(std::string_view host_port) {

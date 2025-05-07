@@ -40,7 +40,6 @@
 #include "absl/random/random.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
-#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/synchronization/notification.h"
@@ -124,9 +123,9 @@ StorageGeneration GetStorageGeneration(const KvStore& store, std::string key) {
 
 // Return a highly-improbable storage generation
 StorageGeneration GetMismatchStorageGeneration(const KvStore& store) {
-  const auto& url_result = store.ToUrl();
+  auto spec_result = store.spec();
 
-  if (url_result.ok() && absl::StrContains(url_result.value(), "s3://")) {
+  if (spec_result.ok() && spec_result->driver->driver_id() == "s3") {
     return StorageGeneration::FromString("\"abcdef1234567890\"");
   }
 
@@ -1262,6 +1261,12 @@ void TestKeyValueStoreSpecRoundtrip(
   ASSERT_TRUE(options.check_store_serialization ||
               !options.check_data_after_serialization);
 
+  if (!options.url.empty()) {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec_obj,
+                                     kvstore::Spec::FromJson(create_spec));
+    EXPECT_THAT(spec_obj.ToUrl(), ::testing::Optional(options.url));
+  }
+
   // Open and populate roundtrip_key.
   {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -1325,6 +1330,12 @@ void TestKeyValueStoreSpecRoundtrip(
     EXPECT_THAT(serialized_spec.ToJson(options.json_serialization_options),
                 IsOkAndHolds(MatchesJson(options.full_spec)));
 
+    if (options.url.empty()) {
+      EXPECT_THAT(spec.ToUrl(), ::testing::Not(tensorstore::IsOk()));
+    } else {
+      EXPECT_THAT(spec.ToUrl(), ::testing::Optional(options.url));
+    }
+
     auto minimal_spec_obj = spec;
     TENSORSTORE_ASSERT_OK(minimal_spec_obj.Set(tensorstore::MinimalSpec{true}));
     EXPECT_THAT(minimal_spec_obj.ToJson(options.json_serialization_options),
@@ -1373,6 +1384,15 @@ void TestKeyValueStoreSpecRoundtrip(
     {
       TENSORSTORE_ASSERT_OK_AND_ASSIGN(
           auto store, kvstore::Open(serialized_spec, context).result());
+      TENSORSTORE_ASSERT_OK(store.spec());
+      EXPECT_THAT(kvstore::Read(store, options.roundtrip_key).result(),
+                  MatchesKvsReadResult(options.roundtrip_value));
+    }
+
+    // Reopen with url
+    if (!options.url.empty()) {
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+          auto store, kvstore::Open(options.url, context).result());
       TENSORSTORE_ASSERT_OK(store.spec());
       EXPECT_THAT(kvstore::Read(store, options.roundtrip_key).result(),
                   MatchesKvsReadResult(options.roundtrip_value));

@@ -112,6 +112,7 @@ TEST(MemoryKeyValueStoreTest, SpecRoundtrip) {
   };
   // Not possible with "memory" driver.
   options.check_data_after_serialization = false;
+  options.url = "memory://";
   tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
 }
 
@@ -131,6 +132,7 @@ TEST(MemoryKeyValueStoreTest, SpecRoundtripWithContextSpec) {
   options.check_data_persists = false;
   // Not possible with "memory" driver.
   options.check_data_after_serialization = false;
+  options.url = "memory://";
   tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
 }
 

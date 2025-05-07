@@ -1272,12 +1272,7 @@ Future<const void> GcsKeyValueStore::DeleteRange(KeyRange range) {
 Result<kvstore::Spec> ParseGcsUrl(std::string_view url) {
   auto parsed = internal::ParseGenericUri(url);
   assert(parsed.scheme == kUriScheme);
-  if (!parsed.query.empty()) {
-    return absl::InvalidArgumentError("Query string not supported");
-  }
-  if (!parsed.fragment.empty()) {
-    return absl::InvalidArgumentError("Fragment identifier not supported");
-  }
+  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
   if (!IsValidBucketName(parsed.authority)) {
     return absl::InvalidArgumentError(absl::StrCat(
         "Invalid GCS bucket name: ", QuoteString(parsed.authority)));

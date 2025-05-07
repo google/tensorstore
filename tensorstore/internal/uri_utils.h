@@ -22,6 +22,7 @@
 #include <string>
 #include <string_view>
 
+#include "absl/status/status.h"
 #include "tensorstore/internal/ascii_set.h"
 
 namespace tensorstore {
@@ -120,9 +121,20 @@ struct ParsedGenericUri {
 };
 
 /// Parses a "generic" URI of the form
-/// `<scheme>://<authority-and-path>?<query>#<fragment>` where the `?<query>`
-/// and `#<fragment>` portions are optional.
+/// `<scheme><scheme_delimiter>//<authority-and-path>?<query>#<fragment>`
+/// where the `?<query>` and `#<fragment>` portions are optional.
+///
+/// `<scheme_delimiter>`  is:
+/// - "://" for `ParseGenericUri`
+/// - ":" for `ParseGenericUriWithoutSlashSlash`
 ParsedGenericUri ParseGenericUri(std::string_view uri);
+ParsedGenericUri ParseGenericUriWithoutSlashSlash(std::string_view uri);
+
+// Returns an error if there is a query or fragment.
+absl::Status EnsureNoQueryOrFragment(const ParsedGenericUri& parsed_uri);
+
+// Returns an error if there is a path, query or fragment.
+absl::Status EnsureNoPathOrQueryOrFragment(const ParsedGenericUri& parsed_uri);
 
 struct HostPort {
   std::string_view host;

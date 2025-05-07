@@ -24,6 +24,7 @@
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "riegeli/bytes/cord_reader.h"
 #include "tensorstore/context.h"
@@ -37,6 +38,7 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/log/verbose_flag.h"
+#include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/common_metrics.h"
 #include "tensorstore/kvstore/driver.h"
@@ -48,6 +50,7 @@
 #include "tensorstore/kvstore/registry.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/supported_features.h"
+#include "tensorstore/kvstore/url_registry.h"
 #include "tensorstore/kvstore/zip/zip_dir_cache.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/execution/execution.h"
@@ -73,6 +76,7 @@ using ::tensorstore::kvstore::ListEntry;
 using ::tensorstore::kvstore::ListReceiver;
 
 namespace tensorstore {
+namespace internal_zip_kvstore {
 namespace {
 
 namespace jb = tensorstore::internal_json_binding;
@@ -118,6 +122,13 @@ class ZipKvStoreSpec
   Result<kvstore::Spec> GetBase(std::string_view path) const override {
     return data_.base;
   }
+
+  Result<std::string> ToUrl(std::string_view path) const override {
+    TENSORSTORE_ASSIGN_OR_RETURN(auto base_url,
+                                 data_.base.driver->ToUrl(data_.base.path));
+    return absl::StrCat(base_url, "|", id, ":",
+                        internal::PercentEncodeUriPath(path));
+  }
 };
 
 /// Defines the "zip" key value store.
@@ -162,7 +173,7 @@ Future<kvstore::DriverPtr> ZipKvStoreSpec::DoOpen() const {
       InlineExecutor{},
       [spec = internal::IntrusivePtr<const ZipKvStoreSpec>(this)](
           kvstore::KvStore& base_kvstore) mutable
-      -> Result<kvstore::DriverPtr> {
+          -> Result<kvstore::DriverPtr> {
         std::string cache_key;
         internal::EncodeCacheKey(&cache_key, base_kvstore.driver,
                                  base_kvstore.path,
@@ -397,15 +408,36 @@ void ZipKvStore::ListImpl(ListOptions options, ListReceiver receiver) {
             cache_entry_->Read({state_ptr->options_.staleness_bound}));
 }
 
+Result<kvstore::Spec> ParseZipUrl(std::string_view url, kvstore::Spec base) {
+  auto parsed = internal::ParseGenericUriWithoutSlashSlash(url);
+  assert(parsed.scheme == ZipKvStoreSpec::id);
+  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
+  std::string path = internal::PercentDecode(parsed.authority_and_path);
+  auto driver_spec = internal::MakeIntrusivePtr<ZipKvStoreSpec>();
+  driver_spec->data_.base = std::move(base);
+  driver_spec->data_.cache_pool =
+      Context::Resource<internal::CachePoolResource>::DefaultSpec();
+  driver_spec->data_.data_copy_concurrency =
+      Context::Resource<internal::DataCopyConcurrencyResource>::DefaultSpec();
+  return {std::in_place, std::move(driver_spec), std::move(path)};
+}
+
 }  // namespace
+}  // namespace internal_zip_kvstore
 }  // namespace tensorstore
 
-TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(tensorstore::ZipKvStore)
+TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(
+    tensorstore::internal_zip_kvstore::ZipKvStore)
 
 // Registers the driver.
 namespace {
 const tensorstore::internal_kvstore::DriverRegistration<
-    tensorstore::ZipKvStoreSpec>
+    tensorstore::internal_zip_kvstore::ZipKvStoreSpec>
     registration;
+
+const tensorstore::internal_kvstore::UrlSchemeRegistration
+    url_scheme_registration{
+        tensorstore::internal_zip_kvstore::ZipKvStoreSpec::id,
+        tensorstore::internal_zip_kvstore::ParseZipUrl};
 
 }  // namespace

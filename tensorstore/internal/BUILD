@@ -1612,6 +1612,7 @@ tensorstore_cc_library(
     hdrs = ["uri_utils.h"],
     deps = [
         ":ascii_set",
+        "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
     ],
 )

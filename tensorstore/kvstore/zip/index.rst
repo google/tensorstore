@@ -4,11 +4,13 @@
 ``zip`` Key-Value Store driver
 ======================================================
 
-The ``zip`` driver implements support for reading from 
+The ``zip`` driver implements support for reading from
 `ZIP <https://en.wikipedia.org/wiki/ZIP_(file_format)>`_ format
 files on top of a base key-value store. (Not all ZIP features are supported.)
 
 .. json:schema:: kvstore/zip
+
+.. json:schema:: KvStoreUrl/zip
 
 Example JSON specifications
 ---------------------------

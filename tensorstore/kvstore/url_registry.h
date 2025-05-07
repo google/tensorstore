@@ -1,4 +1,4 @@
-// Copyright 2021 The TensorStore Authors
+// Copyright 2025 The TensorStore Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,17 +23,23 @@
 namespace tensorstore {
 namespace internal_kvstore {
 
-using UrlSchemeHandler = Result<kvstore::Spec> (*)(std::string_view url);
+using UrlSchemeRootHandler = Result<kvstore::Spec> (*)(std::string_view url);
+using UrlSchemeAdapterHandler = Result<kvstore::Spec> (*)(std::string_view url,
+                                                          kvstore::Spec base);
 
 /// Registers a kvstore URL handler for the specified `scheme`.
-///
-/// This handler is used for URLs that start with `scheme + "://"`.
 ///
 /// This is intended to be defined as a global/namespace-scope constant.
 class UrlSchemeRegistration {
  public:
-  UrlSchemeRegistration(std::string_view scheme, UrlSchemeHandler handler);
+  UrlSchemeRegistration(std::string_view scheme, UrlSchemeRootHandler handler);
+  UrlSchemeRegistration(std::string_view scheme,
+                        UrlSchemeAdapterHandler handler);
 };
+
+Result<kvstore::Spec> GetRootSpecFromUrl(std::string_view url);
+Result<kvstore::Spec> GetAdapterSpecFromUrl(std::string_view url,
+                                            kvstore::Spec &&base);
 
 }  // namespace internal_kvstore
 }  // namespace tensorstore
