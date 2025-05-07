@@ -232,7 +232,7 @@ class GcsGrpcKeyValueStoreSpec
           "URL representation does not support test endpoints");
     }
     return tensorstore::StrCat(kUriScheme, "://", data_.bucket, "/",
-                               internal::PercentEncodeUriPath(path));
+                               internal::PercentEncodeKvStoreUriPath(path));
   }
 };
 

@@ -169,7 +169,8 @@ class MemoryDriverSpec
   Future<kvstore::DriverPtr> DoOpen() const override;
 
   Result<std::string> ToUrl(std::string_view path) const override {
-    return tensorstore::StrCat(id, "://", internal::PercentEncodeUriPath(path));
+    return tensorstore::StrCat(id, "://",
+                               internal::PercentEncodeKvStoreUriPath(path));
   }
 };
 

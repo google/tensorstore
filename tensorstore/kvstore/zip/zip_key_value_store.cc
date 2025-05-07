@@ -127,7 +127,7 @@ class ZipKvStoreSpec
     TENSORSTORE_ASSIGN_OR_RETURN(auto base_url,
                                  data_.base.driver->ToUrl(data_.base.path));
     return absl::StrCat(base_url, "|", id, ":",
-                        internal::PercentEncodeUriPath(path));
+                        internal::PercentEncodeKvStoreUriPath(path));
   }
 };
 

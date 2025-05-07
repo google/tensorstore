@@ -40,6 +40,16 @@ static inline constexpr AsciiSet kUriPathUnreservedChars{
     "0123456789"
     "-_.!~*'():@&=+$,;/"};
 
+// Same as kUriPathUnreservedChars except that "@" is excluded.
+//
+// This is used when encoding kvstore URLs in order to reserve @ for specifying
+// versions, e.g. for OCDBT.
+static inline constexpr AsciiSet kKvStoreUriPathUnreservedChars{
+    "abcdefghijklmnopqrstuvwxyz"
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    "0123456789"
+    "-_.!~*'():&=+$,;/"};
+
 /// Percent encodes any characters in `src` that are not in `unreserved`.
 void PercentEncodeReserved(std::string_view src, std::string& dest,
                            AsciiSet unreserved);
@@ -74,6 +84,14 @@ inline std::string PercentEncodeReserved(std::string_view src,
 ///   "/"
 inline std::string PercentEncodeUriPath(std::string_view src) {
   return PercentEncodeReserved(src, kUriPathUnreservedChars);
+}
+
+/// Percent-encodes characters not allowed in KvStore URI paths.
+///
+/// "@" is percent-encoded in order to allow it to be used to indicate a
+/// version.
+inline std::string PercentEncodeKvStoreUriPath(std::string_view src) {
+  return PercentEncodeReserved(src, kKvStoreUriPathUnreservedChars);
 }
 
 /// Percent-encodes characters not in the unreserved set, as defined by RFC2396:
