@@ -28,11 +28,12 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_format.h"
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/internal/cache/kvs_backed_cache_testutil.h"
 #include "tensorstore/internal/global_initializer.h"
-#include "tensorstore/internal/testing/dynamic.h"
 #include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
 #include "tensorstore/json_serialization_options_base.h"
@@ -70,12 +71,106 @@ using ::tensorstore::internal::MatchesKvsReadResult;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
 using ::tensorstore::internal::MatchesListEntry;
 using ::tensorstore::internal::MockKeyValueStore;
+using ::tensorstore::internal::UniqueNow;
+using ::tensorstore::internal_ocdbt::CommitTime;
 using ::tensorstore::internal_ocdbt::Config;
 using ::tensorstore::internal_ocdbt::ConfigConstraints;
+using ::tensorstore::internal_ocdbt::FormatCommitTimeForUrl;
 using ::tensorstore::internal_ocdbt::ManifestKind;
 using ::tensorstore::internal_ocdbt::OcdbtDriver;
 using ::tensorstore::internal_ocdbt::ReadManifest;
 using ::tensorstore::kvstore::SupportedFeatures;
+
+TEST(OcdbtTest, ReadWithoutManifest) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      kvstore::Open({{"driver", "ocdbt"}, {"base", "memory://"}}).result());
+  auto time = absl::Now();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto read_result,
+                                   kvstore::Read(store, "key").result());
+  EXPECT_THAT(read_result.stamp.time, ::testing::Ge(time));
+}
+
+TEST(OcdbtTest, ReadVersioned) {
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store, kvstore::Open(
+                                                   {
+                                                       {"driver", "ocdbt"},
+                                                       {"base", "memory://"},
+                                                       {"assume_config", true},
+                                                   },
+                                                   context)
+                                                   .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto stamp, kvstore::Write(store, "a", absl::Cord("value")).result());
+  auto after_write = UniqueNow();
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto stamp2, kvstore::Write(store, "a", absl::Cord("value2")).result());
+
+  auto after_write2 = UniqueNow();
+
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto versioned_store,
+                                     kvstore::Open(
+                                         {
+                                             {"driver", "ocdbt"},
+                                             {"base", "memory://"},
+                                             {"assume_config", true},
+                                             {"version", 1},
+                                         },
+                                         context)
+                                         .result());
+    // Explicit version number has a timestamp of infinite future because it
+    // won't be invalidated by subsequent writes.
+    EXPECT_THAT(kvstore::Read(versioned_store, "a").result(),
+                MatchesKvsReadResult(absl::Cord("value"), stamp.generation,
+                                     absl::InfiniteFuture()));
+  }
+
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto versioned_store,
+        kvstore::Open(
+            {
+                {"driver", "ocdbt"},
+                {"base", "memory://"},
+                {"assume_config", true},
+                {"version", FormatCommitTimeForUrl(
+                                CommitTime::FromAbslTime(after_write).value())},
+            },
+            context)
+            .result());
+    // Explicit commit time has a timestamp of infinite future because it
+    // won't be invalidated by subsequent writes.
+    EXPECT_THAT(kvstore::Read(versioned_store, "a").result(),
+                MatchesKvsReadResult(absl::Cord("value"), stamp.generation,
+                                     absl::InfiniteFuture()));
+  }
+
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto versioned_store,
+        kvstore::Open(
+            {
+                {"driver", "ocdbt"},
+                {"base", "memory://"},
+                {"assume_config", true},
+                {"version",
+                 FormatCommitTimeForUrl(
+                     CommitTime::FromAbslTime(after_write2).value())},
+            },
+            context)
+            .result());
+    // Explicit commit time has a timestamp of infinite future because it
+    // won't be invalidated by subsequent writes.
+    EXPECT_THAT(kvstore::Read(versioned_store, "a").result(),
+                MatchesKvsReadResult(
+                    absl::Cord("value2"), stamp2.generation,
+                    ::testing::AllOf(::testing::Lt(absl::InfiniteFuture()),
+                                     ::testing::Gt(after_write2))));
+  }
+}
 
 TEST(OcdbtTest, WriteSingleKey) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -939,6 +1034,37 @@ TENSORSTORE_GLOBAL_INITIALIZER {
   options.delete_range_supported = true;
   options.multi_key_atomic_supported = true;
   RegisterKvsBackedCacheBasicTransactionalTest(options);
+}
+
+TEST(OcdbtTest, VersionedOpenReadOnly) {
+  auto context = Context::Default();
+  // Write something to ensure OCDBT database is created.
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      kvstore::Open({{"driver", "ocdbt"}, {"base", "memory://"}}, context)
+          .result());
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "a", absl::Cord("x")));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto versioned_store,
+      kvstore::Open(
+          {{"driver", "ocdbt"}, {"base", "memory://"}, {"version", 1}}, context)
+          .result());
+  const auto read_only_error_matcher =
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    "Writing is not supported with version=v1 specified");
+  EXPECT_THAT(kvstore::Delete(versioned_store, "a").result(),
+              read_only_error_matcher);
+  EXPECT_THAT(kvstore::DeleteRange(versioned_store, {}).result(),
+              read_only_error_matcher);
+  {
+    auto txn = tensorstore::Transaction(tensorstore::atomic_isolated);
+    EXPECT_THAT(kvstore::Delete((versioned_store | txn).value(), "a").result(),
+                read_only_error_matcher);
+    EXPECT_THAT(
+        kvstore::DeleteRange((versioned_store | txn).value(), {}).result(),
+        read_only_error_matcher);
+  }
 }
 
 }  // namespace

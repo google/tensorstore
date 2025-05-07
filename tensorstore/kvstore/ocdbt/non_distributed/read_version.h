@@ -25,9 +25,26 @@
 namespace tensorstore {
 namespace internal_ocdbt {
 
+struct ReadVersionResponse {
+  // `manifest_with_time.time` will always be valid in a successful response.
+  // `manifest_with_time.manifest` will be null if the manifest was not found.
+  ManifestWithTime manifest_with_time;
+
+  // Set if the requested version was found.  Always `std::nullopt` if
+  // `manifest_with_time.manifest` is null.
+  std::optional<BtreeGenerationReference> generation;
+};
+
 // Returns the root for the specified version.
-Future<BtreeGenerationReference> ReadVersion(
-    ReadonlyIoHandle::Ptr io_handle, VersionSpec version_spec,
+//
+// If `version_spec` is `std::nullopt`, returns the latest version.
+//
+// If an I/O error occurs, returns an error.
+//
+// A `ReadVersionResponse` is returned even if the manifest or requested version
+// is not found.
+Future<ReadVersionResponse> ReadVersion(
+    ReadonlyIoHandle::Ptr io_handle, std::optional<VersionSpec> version_spec,
     absl::Time staleness_bound = absl::Now());
 
 }  // namespace internal_ocdbt

@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -26,16 +27,17 @@
 #include "absl/base/attributes.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
+#include "absl/time/time.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
-#include "tensorstore/kvstore/ocdbt/format/manifest.h"
 #include "tensorstore/kvstore/ocdbt/format/version_tree.h"
 #include "tensorstore/kvstore/ocdbt/io_handle.h"
+#include "tensorstore/kvstore/ocdbt/non_distributed/read_version.h"
 #include "tensorstore/kvstore/operations.h"
-#include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/flow_sender_operation_state.h"
@@ -95,25 +97,17 @@ struct ListOperation
     return op;
   }
 
-  // Called when the manifest lookup has completed.
-  struct ManifestReadyCallback {
-    ListOperation::Ptr op;
-    void operator()(Promise<void> promise,
-                    ReadyFuture<const ManifestWithTime> read_future) {
-      TENSORSTORE_ASSIGN_OR_RETURN(auto manifest_with_time,
-                                   read_future.result(), op->SetError(_));
-      const auto* manifest = manifest_with_time.manifest.get();
-      if (!manifest || manifest->latest_version().root.location.IsMissing()) {
-        // Manifest not present or btree is empty.
-        return;
-      }
-      auto& latest_version = manifest->versions.back();
-      VisitSubtree(std::move(op), latest_version.root,
-                   latest_version.root_height,
-                   /*inclusive_min_key=*/{},
-                   /*subtree_common_prefix_length=*/0);
+  // Called when the requested version has been resolved.
+  static void GenerationReferenceReady(
+      ListOperation::Ptr op, const BtreeGenerationReference& generation_ref) {
+    if (generation_ref.root.location.IsMissing()) {
+      // Btree is empty.
+      return;
     }
-  };
+    VisitSubtree(std::move(op), generation_ref.root, generation_ref.root_height,
+                 /*inclusive_min_key=*/{},
+                 /*subtree_common_prefix_length=*/0);
+  }
 
   // Emit all matches within a subtree.
   //
@@ -272,15 +266,39 @@ struct KeyReceiverAdapter {
 }  // namespace
 
 void NonDistributedList(ReadonlyIoHandle::Ptr io_handle,
+                        std::optional<VersionSpec> version_spec,
                         kvstore::ListOptions options, ListReceiver&& receiver) {
   auto op = ListOperation::Initialize(
       std::move(io_handle), std::move(options.range),
       KeyReceiverAdapter{std::move(receiver), options.strip_prefix_length});
   auto* op_ptr = op.get();
-  Link(WithExecutor(op_ptr->io_handle->executor,
-                    ListOperation::ManifestReadyCallback{std::move(op)}),
-       op_ptr->promise,
-       op_ptr->io_handle->GetManifest(options.staleness_bound));
+  LinkValue(
+      WithExecutor(op_ptr->io_handle->executor,
+                   [op = std::move(op), version_spec](
+                       Promise<void> promise,
+                       ReadyFuture<ReadVersionResponse> future) mutable {
+                     auto& response = future.value();
+                     if (!version_spec && !response.generation) {
+                       // Silently return empty list response.
+                       return;
+                     }
+                     if (!response.manifest_with_time.manifest) {
+                       promise.SetResult(
+                           absl::NotFoundError("OCDBT manifest not found"));
+                       return;
+                     }
+                     if (version_spec && !response.generation) {
+                       promise.SetResult(absl::NotFoundError(absl::StrFormat(
+                           "Version where %s not present",
+                           FormatVersionSpecForUrl(*version_spec))));
+                       return;
+                     }
+                     ListOperation::GenerationReferenceReady(
+                         std::move(op), *response.generation);
+                   }),
+      op_ptr->promise,
+      internal_ocdbt::ReadVersion(op_ptr->io_handle, version_spec,
+                                  options.staleness_bound));
 }
 
 void NonDistributedListSubtree(

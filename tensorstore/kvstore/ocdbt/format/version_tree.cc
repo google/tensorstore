@@ -14,6 +14,10 @@
 
 #include "tensorstore/kvstore/ocdbt/format/version_tree.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
+#include <algorithm>
 #include <cassert>
 #include <limits>
 #include <ostream>
@@ -23,7 +27,9 @@
 #include <vector>
 
 #include "absl/status/status.h"
+#include "absl/strings/ascii.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/numbers.h"
 #include "absl/strings/str_format.h"
 #include "absl/time/time.h"
 #include "riegeli/bytes/reader.h"
@@ -31,10 +37,12 @@
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
 #include "tensorstore/kvstore/ocdbt/format/codec_util.h"
 #include "tensorstore/kvstore/ocdbt/format/config.h"
+#include "tensorstore/kvstore/ocdbt/format/data_file_id.h"
 #include "tensorstore/kvstore/ocdbt/format/data_file_id_codec.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference_codec.h"
 #include "tensorstore/kvstore/ocdbt/format/version_tree_codec.h"
+#include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
@@ -442,6 +450,64 @@ std::string FormatVersionSpec(CommitTimeUpperBound commit_time) {
 std::string FormatVersionSpec(VersionSpec version_spec) {
   return std::visit([&](auto version) { return FormatVersionSpec(version); },
                     version_spec);
+}
+
+std::string FormatVersionSpecForUrl(VersionSpec version_spec) {
+  struct Visitor {
+    std::string operator()(GenerationNumber generation_number) {
+      return absl::StrFormat("v%d", generation_number);
+    }
+    std::string operator()(CommitTime commit_time) {
+      return FormatCommitTimeForUrl(commit_time);
+    }
+    std::string operator()(CommitTimeUpperBound commit_time) {
+      return FormatCommitTimeForUrl(commit_time.commit_time);
+    }
+  };
+  return std::visit(Visitor{}, version_spec);
+}
+
+static constexpr std::string_view kCommitTimeFormat = "%Y-%m-%dT%H:%M:%E*SZ";
+
+std::string FormatCommitTimeForUrl(CommitTime commit_time) {
+  return absl::FormatTime(kCommitTimeFormat,
+                          static_cast<absl::Time>(commit_time),
+                          absl::UTCTimeZone());
+}
+
+Result<VersionSpec> ParseVersionSpecFromUrl(std::string_view s) {
+  auto get_result = [&]() -> Result<VersionSpec> {
+    if (!s.empty() && s[0] == 'v') {
+      auto v = s;
+      v.remove_prefix(1);
+      GenerationNumber generation;
+      if (!std::all_of(v.begin(), v.end(),
+                       [](char x) { return absl::ascii_isdigit(x); }) ||
+          !absl::SimpleAtoi(v, &generation) || generation == 0) {
+        return absl::InvalidArgumentError("Invalid generation number");
+      }
+      return generation;
+    }
+    TENSORSTORE_ASSIGN_OR_RETURN(auto commit_time, ParseCommitTimeFromUrl(s));
+    return CommitTimeUpperBound{commit_time};
+  };
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto version_spec, get_result(),
+      tensorstore::MaybeAnnotateStatus(
+          _, tensorstore::StrCat("Invalid OCDBT version: ",
+                                 tensorstore::QuoteString(s))));
+  return version_spec;
+}
+
+Result<CommitTime> ParseCommitTimeFromUrl(std::string_view s) {
+  absl::Time time;
+  std::string error;
+  if (!absl::ParseTime(kCommitTimeFormat, s, &time, &error)) {
+    return absl::InvalidArgumentError(
+        tensorstore::StrCat("Invalid OCDBT commit time ",
+                            tensorstore::QuoteString(s), ": ", error));
+  }
+  return CommitTime::FromAbslTime(time);
 }
 
 int CompareVersionSpecToVersion(VersionSpec version_spec,

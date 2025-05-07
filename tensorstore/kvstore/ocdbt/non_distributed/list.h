@@ -21,6 +21,7 @@
 #include "absl/status/status.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
+#include "tensorstore/kvstore/ocdbt/format/version_tree.h"
 #include "tensorstore/kvstore/ocdbt/io_handle.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/util/execution/any_receiver.h"
@@ -30,6 +31,7 @@ namespace tensorstore {
 namespace internal_ocdbt {
 
 void NonDistributedList(ReadonlyIoHandle::Ptr io_handle,
+                        std::optional<VersionSpec> version_spec,
                         kvstore::ListOptions options,
                         kvstore::ListReceiver&& receiver);
 

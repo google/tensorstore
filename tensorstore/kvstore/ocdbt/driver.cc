@@ -49,6 +49,7 @@
 #include "tensorstore/kvstore/ocdbt/distributed/rpc_security.h"
 #include "tensorstore/kvstore/ocdbt/distributed/rpc_security_registry.h"
 #include "tensorstore/kvstore/ocdbt/format/manifest.h"
+#include "tensorstore/kvstore/ocdbt/format/version_tree.h"
 #include "tensorstore/kvstore/ocdbt/io/io_handle_impl.h"
 #include "tensorstore/kvstore/ocdbt/io_handle.h"
 #include "tensorstore/kvstore/ocdbt/non_distributed/btree_writer.h"
@@ -73,6 +74,7 @@
 #include "tensorstore/internal/cache_key/std_optional.h"  // IWYU pragma: keep
 #include "tensorstore/internal/json_binding/absl_time.h"  // IWYU pragma: keep
 #include "tensorstore/internal/json_binding/std_optional.h"  // IWYU pragma: keep
+#include "tensorstore/internal/json_binding/std_variant.h"  // IWYU pragma: keep
 
 using ::tensorstore::kvstore::ListReceiver;
 
@@ -120,6 +122,28 @@ struct OcdbtCoordinatorResourceTraits
 
 const internal::ContextResourceRegistration<OcdbtCoordinatorResourceTraits>
     registration;
+
+constexpr auto VersionSpecJsonBinder = [](auto is_loading, const auto& options,
+                                          auto* obj, auto* j) {
+  if constexpr (is_loading) {
+    if (auto* s = j->template get_ptr<const std::string*>()) {
+      TENSORSTORE_ASSIGN_OR_RETURN(auto commit_time,
+                                   ParseCommitTimeFromUrl(*s));
+      *obj = CommitTimeUpperBound{commit_time};
+      return absl::OkStatus();
+    } else {
+      return jb::Integer<GenerationNumber>(1)(
+          is_loading, options, &obj->template emplace<GenerationNumber>(), j);
+    }
+  } else {
+    if (auto* v = std::get_if<GenerationNumber>(obj)) {
+      *j = *v;
+    } else {
+      *j = FormatVersionSpecForUrl(*obj);
+    }
+    return absl::OkStatus();
+  }
+};
 
 }  // namespace
 
@@ -172,7 +196,10 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
                    jb::Projection<&OcdbtDriverSpecData::cache_pool>()),
         jb::Member(
             internal::DataCopyConcurrencyResource::id,
-            jb::Projection<&OcdbtDriverSpecData::data_copy_concurrency>())));
+            jb::Projection<&OcdbtDriverSpecData::data_copy_concurrency>()),
+        jb::Member("version",
+                   jb::Projection<&OcdbtDriverSpecData::version_spec>(
+                       jb::Optional(VersionSpecJsonBinder)))));
 
 Result<kvstore::Spec> OcdbtDriverSpec::GetBase(std::string_view path) const {
   return data_.base;
@@ -206,6 +233,7 @@ Future<kvstore::DriverPtr> OcdbtDriverSpec::DoOpen() const {
         driver->experimental_read_coalescing_interval_ =
             spec->data_.experimental_read_coalescing_interval;
         driver->target_data_file_size_ = spec->data_.target_data_file_size;
+        driver->version_spec_ = spec->data_.version_spec;
 
         std::optional<ReadCoalesceOptions> read_coalesce_options;
         if (driver->experimental_read_coalescing_threshold_bytes_ ||
@@ -238,12 +266,12 @@ Future<kvstore::DriverPtr> OcdbtDriverSpec::DoOpen() const {
             std::move(config_state), driver->data_file_prefixes_,
             driver->target_data_file_size_.value_or(kDefaultTargetBufferSize),
             std::move(read_coalesce_options));
-        driver->btree_writer_ =
-            MakeNonDistributedBtreeWriter(driver->io_handle_);
         driver->coordinator_ = spec->data_.coordinator;
-        if (!driver->coordinator_->address) {
-          driver->btree_writer_ =
-              MakeNonDistributedBtreeWriter(driver->io_handle_);
+        if (!driver->coordinator_->address || driver->version_spec_) {
+          if (!driver->version_spec_) {
+            driver->btree_writer_ =
+                MakeNonDistributedBtreeWriter(driver->io_handle_);
+          }
           return driver;
         }
 
@@ -301,6 +329,7 @@ absl::Status OcdbtDriver::GetBoundSpecData(OcdbtDriverSpecData& spec) const {
       experimental_read_coalescing_interval_;
   spec.target_data_file_size = target_data_file_size_;
   spec.coordinator = coordinator_;
+  spec.version_spec = version_spec_;
   return absl::Status();
 }
 
@@ -313,25 +342,39 @@ kvstore::SupportedFeatures OcdbtDriver::GetSupportedFeatures(
 Future<kvstore::ReadResult> OcdbtDriver::Read(kvstore::Key key,
                                               kvstore::ReadOptions options) {
   ocdbt_metrics.read.Increment();
-  return internal_ocdbt::NonDistributedRead(io_handle_, std::move(key),
-                                            std::move(options));
+  return internal_ocdbt::NonDistributedRead(io_handle_, version_spec_,
+                                            std::move(key), std::move(options));
 }
 
 void OcdbtDriver::ListImpl(kvstore::ListOptions options,
                            ListReceiver receiver) {
   ocdbt_metrics.list.Increment();
-  return internal_ocdbt::NonDistributedList(io_handle_, std::move(options),
-                                            std::move(receiver));
+  return internal_ocdbt::NonDistributedList(
+      io_handle_, version_spec_, std::move(options), std::move(receiver));
 }
+
+namespace {
+absl::Status GetReadOnlyError(OcdbtDriver& driver) {
+  return absl::InvalidArgumentError(tensorstore::StrCat(
+      "Writing is not supported with version=",
+      FormatVersionSpecForUrl(*driver.version_spec_), " specified"));
+}
+}  // namespace
 
 Future<TimestampedStorageGeneration> OcdbtDriver::Write(
     Key key, std::optional<Value> value, WriteOptions options) {
+  if (version_spec_) {
+    return GetReadOnlyError(*this);
+  }
   ocdbt_metrics.write.Increment();
   return btree_writer_->Write(std::move(key), std::move(value),
                               std::move(options));
 }
 
 Future<const void> OcdbtDriver::DeleteRange(KeyRange range) {
+  if (version_spec_) {
+    return GetReadOnlyError(*this);
+  }
   ocdbt_metrics.delete_range.Increment();
   return btree_writer_->DeleteRange(std::move(range));
 }
@@ -339,6 +382,9 @@ Future<const void> OcdbtDriver::DeleteRange(KeyRange range) {
 Future<const void> OcdbtDriver::ExperimentalCopyRangeFrom(
     const internal::OpenTransactionPtr& transaction, const KvStore& source,
     std::string target_prefix, kvstore::CopyRangeOptions options) {
+  if (version_spec_) {
+    return GetReadOnlyError(*this);
+  }
   if (typeid(*source.driver) == typeid(OcdbtDriver)) {
     auto& source_driver = static_cast<OcdbtDriver&>(*source.driver);
     if (source.transaction != no_transaction) {
@@ -406,9 +452,13 @@ Future<const void> OcdbtDriver::ExperimentalCopyRangeFrom(
 }
 
 std::string OcdbtDriver::DescribeKey(std::string_view key) {
-  return tensorstore::StrCat(tensorstore::QuoteString(key),
-                             " in OCDBT database at ",
-                             io_handle_->DescribeLocation());
+  return tensorstore::StrCat(
+      tensorstore::QuoteString(key), " in ",
+      version_spec_
+          ? tensorstore::StrCat("version ",
+                                FormatVersionSpecForUrl(*version_spec_), " of ")
+          : std::string{},
+      "OCDBT database at ", io_handle_->DescribeLocation());
 }
 
 Result<KvStore> OcdbtDriver::GetBase(std::string_view path,
@@ -419,6 +469,9 @@ Result<KvStore> OcdbtDriver::GetBase(std::string_view path,
 absl::Status OcdbtDriver::ReadModifyWrite(
     internal::OpenTransactionPtr& transaction, size_t& phase, Key key,
     ReadModifyWriteSource& source) {
+  if (version_spec_) {
+    return GetReadOnlyError(*this);
+  }
   if (!transaction || !transaction->atomic() || coordinator_->address) {
     return kvstore::Driver::ReadModifyWrite(transaction, phase, std::move(key),
                                             source);
@@ -429,6 +482,9 @@ absl::Status OcdbtDriver::ReadModifyWrite(
 
 absl::Status OcdbtDriver::TransactionalDeleteRange(
     const internal::OpenTransactionPtr& transaction, KeyRange range) {
+  if (version_spec_) {
+    return GetReadOnlyError(*this);
+  }
   if (!transaction->atomic() || coordinator_->address) {
     return kvstore::Driver::TransactionalDeleteRange(transaction,
                                                      std::move(range));

@@ -165,3 +165,15 @@ tensorstore_cc_test(
         "@riegeli//riegeli/varint:varint_writing",
     ],
 )
+
+tensorstore_cc_test(
+    name = "version_tree_test",
+    size = "small",
+    srcs = ["version_tree_test.cc"],
+    deps = [
+        ":format",
+        "//tensorstore/util:status_testutil",
+        "@abseil-cpp//absl/status",
+        "@googletest//:gtest_main",
+    ],
+)

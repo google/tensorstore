@@ -17,6 +17,7 @@
 #include <stddef.h>
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -25,8 +26,10 @@
 
 #include "absl/base/attributes.h"
 #include "absl/log/absl_log.h"
+#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/match.h"
+#include "absl/strings/str_format.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/log/verbose_flag.h"
@@ -34,9 +37,9 @@
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
-#include "tensorstore/kvstore/ocdbt/format/manifest.h"
 #include "tensorstore/kvstore/ocdbt/format/version_tree.h"
 #include "tensorstore/kvstore/ocdbt/io_handle.h"
+#include "tensorstore/kvstore/ocdbt/non_distributed/read_version.h"
 #include "tensorstore/kvstore/ocdbt/non_distributed/storage_generation.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
@@ -92,9 +95,9 @@ struct ReadOperation : public internal::AtomicReferenceCount<ReadOperation> {
   //
   // Returns:
   //   Futures that resolves when the read completes.
-  static Future<kvstore::ReadResult> Start(ReadonlyIoHandle::Ptr io_handle,
-                                           kvstore::Key&& key,
-                                           kvstore::ReadOptions&& options) {
+  static Future<kvstore::ReadResult> Start(
+      ReadonlyIoHandle::Ptr io_handle, std::optional<VersionSpec> version_spec,
+      kvstore::Key&& key, kvstore::ReadOptions&& options) {
     auto op = internal::MakeIntrusivePtr<ReadOperation>();
     op->io_handle = std::move(io_handle);
     op->generation_conditions = std::move(options.generation_conditions);
@@ -104,30 +107,56 @@ struct ReadOperation : public internal::AtomicReferenceCount<ReadOperation> {
     return PromiseFuturePair<kvstore::ReadResult>::LinkValue(
                WithExecutor(
                    op_ptr->io_handle->executor,
-                   [op = std::move(op)](
+                   [op = std::move(op), version_spec](
                        Promise<kvstore::ReadResult> promise,
-                       ReadyFuture<const ManifestWithTime> future) mutable {
-                     ManifestReady(std::move(op), std::move(promise),
-                                   future.value());
+                       ReadyFuture<ReadVersionResponse> future) mutable {
+                     auto& response = future.value();
+                     if (!version_spec) {
+                       op->time = response.manifest_with_time.time;
+                       if (!response.manifest_with_time.manifest) {
+                         op->KeyNotPresent(promise);
+                         return;
+                       }
+                     } else {
+                       if (!response.manifest_with_time.manifest) {
+                         promise.SetResult(absl::NotFoundError(
+                             absl::StrFormat("OCDBT manifest not present")));
+                         return;
+                       }
+                       if (!response.generation) {
+                         promise.SetResult(absl::NotFoundError(absl::StrFormat(
+                             "Version where %s not present",
+                             FormatVersionSpec(*version_spec))));
+                         return;
+                       }
+                       auto& generation = *response.generation;
+                       if (auto* t = std::get_if<CommitTimeUpperBound>(
+                               &*version_spec);
+                           generation.generation_number ==
+                               response.manifest_with_time.manifest
+                                   ->latest_generation() &&
+                           t && t->commit_time > generation.commit_time) {
+                         op->time = response.manifest_with_time.time;
+                       } else {
+                         op->time = absl::InfiniteFuture();
+                       }
+                     }
+                     GenerationReferenceReady(std::move(op), std::move(promise),
+                                              *response.generation);
                    }),
-               op_ptr->io_handle->GetManifest(options.staleness_bound))
+               internal_ocdbt::ReadVersion(op_ptr->io_handle, version_spec,
+                                           options.staleness_bound))
         .future;
   }
 
-  // Called when the manifest lookup has completed.
-  static void ManifestReady(ReadOperation::Ptr op,
-                            Promise<kvstore::ReadResult> promise,
-                            const ManifestWithTime& manifest_with_time) {
-    op->time = manifest_with_time.time;
-    auto* manifest = manifest_with_time.manifest.get();
-    if (!manifest || manifest->latest_version().root.location.IsMissing()) {
-      // Manifest not preset or btree is empty.
-      op->KeyNotPresent(promise);
-      return;
+  static void GenerationReferenceReady(
+      ReadOperation::Ptr op, Promise<kvstore::ReadResult> promise,
+      BtreeGenerationReference generation_ref) {
+    if (generation_ref.root.location.IsMissing()) {
+      return op->KeyNotPresent(promise);
     }
-    auto& latest_version = manifest->versions.back();
-    LookupNodeReference(std::move(op), std::move(promise), latest_version.root,
-                        latest_version.root_height,
+    LookupNodeReference(std::move(op), std::move(promise), generation_ref.root,
+                        generation_ref.root_height,
                         /*inclusive_min_key=*/{});
   }
 
@@ -285,11 +314,11 @@ struct ReadOperation : public internal::AtomicReferenceCount<ReadOperation> {
 
 }  // namespace
 
-Future<kvstore::ReadResult> NonDistributedRead(ReadonlyIoHandle::Ptr io_handle,
-                                               kvstore::Key key,
-                                               kvstore::ReadOptions options) {
-  return ReadOperation::Start(std::move(io_handle), std::move(key),
-                              std::move(options));
+Future<kvstore::ReadResult> NonDistributedRead(
+    ReadonlyIoHandle::Ptr io_handle, std::optional<VersionSpec> version_spec,
+    kvstore::Key key, kvstore::ReadOptions options) {
+  return ReadOperation::Start(std::move(io_handle), version_spec,
+                              std::move(key), std::move(options));
 }
 
 }  // namespace internal_ocdbt

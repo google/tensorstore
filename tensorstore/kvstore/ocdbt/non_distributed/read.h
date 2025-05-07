@@ -15,6 +15,7 @@
 #ifndef TENSORSTORE_KVSTORE_OCDBT_NON_DISTRIBUTED_READ_H_
 #define TENSORSTORE_KVSTORE_OCDBT_NON_DISTRIBUTED_READ_H_
 
+#include "tensorstore/kvstore/ocdbt/format/version_tree.h"
 #include "tensorstore/kvstore/ocdbt/io_handle.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
@@ -23,9 +24,9 @@
 namespace tensorstore {
 namespace internal_ocdbt {
 
-Future<kvstore::ReadResult> NonDistributedRead(ReadonlyIoHandle::Ptr io_handle,
-                                               kvstore::Key key,
-                                               kvstore::ReadOptions options);
+Future<kvstore::ReadResult> NonDistributedRead(
+    ReadonlyIoHandle::Ptr io_handle, std::optional<VersionSpec> version_spec,
+    kvstore::Key key, kvstore::ReadOptions options);
 
 }  // namespace internal_ocdbt
 }  // namespace tensorstore
