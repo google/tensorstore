@@ -31,6 +31,7 @@
 #include "absl/status/status.h"
 #include "tensorstore/context.h"
 #include "tensorstore/internal/context_binding.h"
+#include "tensorstore/internal/driver_kind_registry.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_registry.h"
 #include "tensorstore/json_serialization_options.h"
@@ -244,6 +245,7 @@ template <typename Derived>
 class DriverRegistration {
  public:
   DriverRegistration() {
+    internal::RegisterDriverKind(Derived::id, internal::DriverKind::kKvStore);
     GetDriverRegistry().Register<Derived>(
         Derived::id, internal_json_binding::Projection<&Derived::data_>());
     serialization::Register<internal::IntrusivePtr<const DriverSpec>,

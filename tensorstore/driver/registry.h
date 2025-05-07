@@ -29,6 +29,7 @@
 #include "tensorstore/context.h"
 #include "tensorstore/driver/driver_spec.h"
 #include "tensorstore/internal/context_binding.h"
+#include "tensorstore/internal/driver_kind_registry.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_registry.h"
 #include "tensorstore/json_serialization_options.h"
@@ -153,6 +154,8 @@ class DriverRegistration {
       : DriverRegistration(
             /*aliases=*/tensorstore::span<const std::string_view>{}) {}
   DriverRegistration(tensorstore::span<const std::string_view> aliases) {
+    internal::RegisterDriverKind(Spec::id, internal::DriverKind::kTensorStore,
+                                 aliases);
     GetDriverRegistry().Register<Spec>(
         Spec::id, internal_json_binding::DefaultBinder<>, aliases);
     serialization::Register<DriverSpecPtr, Spec>();
