@@ -94,7 +94,8 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
         jb::Member("filters", jb::Projection(&ZarrCodecSpec::filters))))
 
 namespace {
-const internal::CodecSpecRegistration<ZarrCodecSpec> encoding_registration;
+const internal::CodecSpecRegistration<ZarrCodecSpec> encoding_registration{
+    {{"zarr2"}}};
 
 }  // namespace
 

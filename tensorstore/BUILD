@@ -976,6 +976,7 @@ tensorstore_cc_library(
         "//tensorstore/serialization",
         "//tensorstore/serialization:json",
         "//tensorstore/util:result",
+        "//tensorstore/util:span",
         "//tensorstore/util/garbage_collection",
         "@abseil-cpp//absl/base:no_destructor",
         "@abseil-cpp//absl/status",

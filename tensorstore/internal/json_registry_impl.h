@@ -83,8 +83,13 @@ class JsonRegistryImpl {
 
   /// Registers an object type.
   ///
-  /// Logs a fatal error if the type or id is already registered.
-  void Register(std::unique_ptr<Entry> entry);
+  /// Logs a fatal error if the id is already registered.
+  ///
+  /// If `alias==false`, logs a fatal error if the type is already
+  /// registered.
+  ///
+  /// If `alias==true`, does not register the type, only the id.
+  void Register(std::unique_ptr<Entry> entry, bool alias);
 
   /// Initializes a `BasePtr` from a JSON representation of the object
   /// identifier.

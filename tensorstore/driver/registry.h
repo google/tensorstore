@@ -34,6 +34,7 @@
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/serialization/registry.h"
 #include "tensorstore/util/garbage_collection/garbage_collection.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 namespace internal {
@@ -148,9 +149,12 @@ class RegisteredDriver : public Parent {
 template <typename Spec>
 class DriverRegistration {
  public:
-  DriverRegistration() {
-    GetDriverRegistry().Register<Spec>(Spec::id,
-                                       internal_json_binding::DefaultBinder<>);
+  DriverRegistration()
+      : DriverRegistration(
+            /*aliases=*/tensorstore::span<const std::string_view>{}) {}
+  DriverRegistration(tensorstore::span<const std::string_view> aliases) {
+    GetDriverRegistry().Register<Spec>(
+        Spec::id, internal_json_binding::DefaultBinder<>, aliases);
     serialization::Register<DriverSpecPtr, Spec>();
   }
 };

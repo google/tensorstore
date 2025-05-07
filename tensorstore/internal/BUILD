@@ -731,6 +731,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/poly",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
+        "//tensorstore/util:span",
         "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/container:flat_hash_set",
