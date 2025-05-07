@@ -697,6 +697,54 @@ Group:
 )");
 
   cls.def(
+      "__contains__",
+      [](Self& self, std::string_view key) {
+        kvstore::ReadOptions options;
+        options.byte_range = OptionalByteRangeRequest::Stat();
+        auto result = ValueOrThrow(InterruptibleWait(
+            kvstore::Read(self.value, key, std::move(options))));
+        return result.has_value();
+      },
+      py::arg("key"), R"(
+Synchronously checks if the given key is present.
+
+Example:
+
+    >>> store = ts.KvStore.open({'driver': 'memory'}).result()
+    >>> store[b'a'] = b'value'
+    >>> b'a' in store
+    True
+    >>> b'b' in store
+    False
+
+Args:
+
+  key: The key to check.  This is appended (without any separator) to the
+    existing :py:obj:`.path`, if any.
+
+Returns:
+
+  `True` if the key is present.
+
+Raises:
+
+  Exception: If an I/O error occurs.
+
+Note:
+
+  The current thread is blocked until the read completes, but computations in
+  other threads may continue.
+
+See also:
+
+  - :py:obj:`.read`
+  - :py:obj:`.__getitem__`
+
+Group:
+  Synchronous I/O
+)");
+
+  cls.def(
       "write",
       [](Self& self, std::string_view key,
          std::optional<std::string_view> value,
