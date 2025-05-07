@@ -27,6 +27,7 @@
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/context.h"
+#include "tensorstore/driver/driver_testutil.h"
 #include "tensorstore/driver/image/test_image.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
@@ -50,6 +51,7 @@ using ::tensorstore::DimensionIndex;
 using ::tensorstore::Index;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
+using ::tensorstore::internal::TestTensorStoreUrlRoundtrip;
 
 struct P {
   std::string driver;
@@ -163,6 +165,17 @@ TEST_P(ImageDriverReadTest, OpenAndResolveBounds) {
              }},
         })));
   }
+}
+
+TEST_P(ImageDriverReadTest, UrlRoundtrip) {
+  TestTensorStoreUrlRoundtrip(
+      {{"driver", GetParam().driver},
+       {"dtype", "uint8"},
+       {"rank", 3},
+       {"schema", {{"domain", {{"inclusive_min", {0, 0, 0}}}}}},
+       {"kvstore", {{"driver", "memory"}, {"path", GetParam().path}}}},
+      tensorstore::StrCat("memory://", GetParam().path, "|", GetParam().driver,
+                          ":"));
 }
 
 TEST_P(ImageDriverReadTest, OpenSchemaDomainTooSmall) {

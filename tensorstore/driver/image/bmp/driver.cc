@@ -71,6 +71,9 @@ struct BmpSpecialization {
 const internal::DriverRegistration<ImageDriverSpec<BmpSpecialization>>
     bmp_driver_registration;
 
+const ImageDriverSpec<BmpSpecialization>::UrlSchemeRegistration
+    bmp_driver_url_registration;
+
 }  // namespace
 }  // namespace internal_image_driver
 }  // namespace tensorstore

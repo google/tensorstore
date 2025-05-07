@@ -190,6 +190,9 @@ class DriverSpec : public internal::AtomicReferenceCount<DriverSpec> {
   virtual Result<TransformedDriverSpec> GetBase(
       IndexTransformView<> transform) const;
 
+  // Returns the URL.
+  virtual Result<std::string> ToUrl() const;
+
   virtual void GarbageCollectionVisit(
       garbage_collection::GarbageCollectionVisitor& visitor) const = 0;
 
@@ -292,6 +295,9 @@ Result<DimensionUnitsVector> GetEffectiveDimensionUnits(
 Result<Schema> GetEffectiveSchema(const TransformedDriverSpec& spec);
 
 DimensionIndex GetRank(const TransformedDriverSpec& spec);
+
+Result<TransformedDriverSpec> GetTransformedDriverSpecFromUrl(
+    std::string_view url);
 
 /// JSON binder for TensorStore specification.
 TENSORSTORE_DECLARE_JSON_BINDER(TransformedDriverSpecJsonBinder,

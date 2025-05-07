@@ -265,4 +265,44 @@ definitions:
       cname: blosclz
       clevel: 9
       shuffle: 2
+  url:
+    $id: TensorStoreUrl/n5
+    type: string
+    allOf:
+      - $ref: TensorStoreUrl
+      - type: string
+    title: |
+      :literal:`n5:` TensorStore URL scheme
+    description: |
+      N5 arrays may be specified using the :file:`n5:{path}`
+      URL syntax.
 
+      The :file:`{path}`, if any, specified within the
+      :file:`n5:{path}` URL component is simply joined with the
+      path specified by the base KvStore URL, but is intended to be
+      used only for specifying the path to an array *within* an n5
+      hierarchy.
+
+      .. admonition:: Examples
+         :class: example
+
+         .. list-table::
+            :header-rows: 1
+            :widths: auto
+
+            * - URL representation
+              - JSON representation
+            * - ``"file:///tmp/dataset.n5/|n5:"``
+              - .. code-block:: json
+
+                   {"driver": "n5",
+                    "kvstore": {"driver": "file",
+                                "path": "/tmp/dataset.n5/"}
+                   }
+            * - ``"file:///tmp/dataset.n5|n5:path/within/hierarchy"``
+              - .. code-block:: json
+
+                   {"driver": "n5",
+                    "kvstore": {"driver": "file",
+                                "path": "/tmp/dataset.n5/path/within/hierarchy/"}
+                   }

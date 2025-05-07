@@ -67,6 +67,7 @@ using ::tensorstore::internal::GetCastDataTypeConversions;
 using ::tensorstore::internal::GetCastMode;
 using ::tensorstore::internal::TestSpecSchema;
 using ::tensorstore::internal::TestTensorStoreCreateCheckSchema;
+using ::tensorstore::internal::TestTensorStoreUrlRoundtrip;
 
 #ifndef _MSC_VER
 // This test if an expression is constexpr does not work on MSVC in optimized
@@ -718,6 +719,16 @@ TENSORSTORE_GLOBAL_INITIALIZER {
   options.supported_transaction_modes = {};
   tensorstore::internal::RegisterTensorStoreDriverSpecRoundtripTest(
       std::move(options));
+}
+
+TEST(CastTest, UrlSchemeRoundtrip) {
+  TestTensorStoreUrlRoundtrip(
+      {{"driver", "cast"},
+       {"dtype", "int32"},
+       {"base",
+        {{"driver", "zarr"},
+         {"kvstore", {{"driver", "memory"}, {"path", "abc.zarr/"}}}}}},
+      "memory://abc.zarr/|zarr2:|cast:int32");
 }
 
 }  // namespace

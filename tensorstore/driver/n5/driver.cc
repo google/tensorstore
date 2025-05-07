@@ -40,6 +40,7 @@
 #include "tensorstore/driver/kvs_backed_chunk_driver.h"
 #include "tensorstore/driver/n5/metadata.h"
 #include "tensorstore/driver/registry.h"
+#include "tensorstore/driver/url_registry.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dimension_units.h"
@@ -51,15 +52,15 @@
 #include "tensorstore/internal/cache_key/cache_key.h"
 #include "tensorstore/internal/chunk_grid_specification.h"
 #include "tensorstore/internal/grid_storage_statistics.h"
+#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/open_options.h"
 #include "tensorstore/rank.h"
-#include "tensorstore/strided_layout.h"
 #include "tensorstore/transaction.h"
-#include "tensorstore/util/constant_vector.h"
 #include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
@@ -152,6 +153,11 @@ class N5DriverSpec
     return GetEffectiveDimensionUnits(metadata_constraints.rank,
                                       metadata_constraints.units_and_resolution,
                                       schema.dimension_units());
+  }
+
+  Result<std::string> ToUrl() const override {
+    TENSORSTORE_ASSIGN_OR_RETURN(auto base_url, store.ToUrl());
+    return tensorstore::StrCat(base_url, "|", id, ":");
   }
 
   Future<internal::Driver::Handle> Open(
@@ -470,6 +476,16 @@ Future<internal::Driver::Handle> N5DriverSpec::Open(
   return N5Driver::Open(this, std::move(request));
 }
 
+Result<internal::TransformedDriverSpec> ParseN5Url(std::string_view url,
+                                                   kvstore::Spec&& base) {
+  auto parsed = internal::ParseGenericUriWithoutSlashSlash(url);
+  assert(parsed.scheme == N5DriverSpec::id);
+  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
+  auto driver_spec = internal::MakeIntrusivePtr<N5DriverSpec>();
+  driver_spec->InitializeFromUrl(std::move(base), parsed.authority_and_path);
+  return internal::TransformedDriverSpec{std::move(driver_spec)};
+}
+
 #ifndef _MSC_VER
 }  // namespace
 #endif
@@ -489,4 +505,9 @@ namespace {
 const tensorstore::internal::DriverRegistration<
     tensorstore::internal_n5::N5DriverSpec>
     registration;
+
+const tensorstore::internal::UrlSchemeRegistration url_scheme_registration(
+    tensorstore::internal_n5::N5DriverSpec::id,
+    tensorstore::internal_n5::ParseN5Url);
+
 }  // namespace

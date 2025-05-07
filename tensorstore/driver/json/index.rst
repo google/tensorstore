@@ -18,3 +18,5 @@ non-overlapping pointers within the same JSON file, it is guaranteed that
 neither write will be lost.
 
 .. json:schema:: driver/json
+
+.. json:schema:: TensorStoreUrl/json

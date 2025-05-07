@@ -17,11 +17,13 @@
 
 #include <assert.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #include <algorithm>
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include "absl/status/status.h"
@@ -29,6 +31,7 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/array.h"
+#include "tensorstore/array_storage_statistics.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/codec_spec.h"
 #include "tensorstore/context.h"
@@ -38,6 +41,7 @@
 #include "tensorstore/driver/driver_handle.h"
 #include "tensorstore/driver/driver_spec.h"
 #include "tensorstore/driver/registry.h"
+#include "tensorstore/driver/url_registry.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_domain_builder.h"
@@ -58,10 +62,14 @@
 #include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/internal/nditerable.h"
 #include "tensorstore/internal/nditerable_transformed_array.h"
+#include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/kvstore.h"
+#include "tensorstore/kvstore/operations.h"
+#include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/open_mode.h"
+#include "tensorstore/open_options.h"
 #include "tensorstore/resize_options.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/serialization/absl_time.h"  // IWYU pragma: keep
@@ -185,6 +193,35 @@ class ImageDriverSpec
   kvstore::Spec GetKvstore() const override { return store; }
 
   OpenMode open_mode() const override { return OpenMode::open; }
+
+  Result<std::string> ToUrl() const override {
+    TENSORSTORE_ASSIGN_OR_RETURN(auto base_url, store.ToUrl());
+    return tensorstore::StrCat(base_url, "|", id, ":");
+  }
+
+  static Result<internal::TransformedDriverSpec> ParseUrl(
+      std::string_view url, kvstore::Spec&& base) {
+    auto parsed = internal::ParseGenericUriWithoutSlashSlash(url);
+    assert(parsed.scheme == id);
+    TENSORSTORE_RETURN_IF_ERROR(
+        internal::EnsureNoPathOrQueryOrFragment(parsed));
+
+    auto driver_spec = internal::MakeIntrusivePtr<SpecType>();
+    TENSORSTORE_RETURN_IF_ERROR(
+        driver_spec->ValidateSchema(driver_spec->schema));
+    driver_spec->store = std::move(base);
+    driver_spec->data_copy_concurrency =
+        decltype(driver_spec->data_copy_concurrency)::DefaultSpec();
+    driver_spec->cache_pool = decltype(driver_spec->cache_pool)::DefaultSpec();
+    driver_spec->data_staleness.bounded_by_open_time = true;
+    return internal::TransformedDriverSpec{std::move(driver_spec)};
+  }
+
+  struct UrlSchemeRegistration : public internal::UrlSchemeRegistration {
+    UrlSchemeRegistration()
+        : internal::UrlSchemeRegistration::UrlSchemeRegistration(id, ParseUrl) {
+    }
+  };
 
   Future<internal::Driver::Handle> Open(
       internal::DriverOpenRequest request) const override;

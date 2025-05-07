@@ -11,6 +11,8 @@ creating new arrays, and resizing arrays.
 
 .. json:schema:: driver/zarr3
 
+.. json:schema:: TensorStoreUrl/zarr3
+
 .. json:schema:: driver/zarr3/Metadata
 
 

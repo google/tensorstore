@@ -9,3 +9,4 @@ The ``bmp`` driver is experimental.
 
 .. json:schema:: driver/bmp
 
+.. json:schema:: TensorStoreUrl/bmp

@@ -103,6 +103,9 @@ struct WebPSpecialization : public WebPWriterOptions {
 const internal::DriverRegistration<ImageDriverSpec<WebPSpecialization>>
     webp_driver_registration;
 
+const ImageDriverSpec<WebPSpecialization>::UrlSchemeRegistration
+    webp_driver_url_registration;
+
 }  // namespace
 }  // namespace internal_image_driver
 }  // namespace tensorstore

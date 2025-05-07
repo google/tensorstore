@@ -83,6 +83,8 @@ using ::tensorstore::internal::MatchesKvsReadResultNotFound;
 using ::tensorstore::internal::TestSpecSchema;
 using ::tensorstore::internal::TestTensorStoreCreateCheckSchema;
 using ::tensorstore::internal::TestTensorStoreCreateWithSchema;
+using ::tensorstore::internal::TestTensorStoreSpecRoundtripNormalize;
+using ::tensorstore::internal::TestTensorStoreUrlRoundtrip;
 using ::tensorstore::internal_zarr3::GetDefaultBytesCodecJson;
 
 ::nlohmann::json GetJsonSpec() {
@@ -1200,6 +1202,7 @@ TENSORSTORE_GLOBAL_INITIALIZER {
         {"input_inclusive_min", {0, 0, 0}}}},
   };
   options.check_serialization = true;
+  options.url = "file://${TEMPDIR}/prefix/|zarr3:";
   tensorstore::internal::RegisterTensorStoreDriverSpecRoundtripTest(
       std::move(options));
 }
@@ -1728,6 +1731,17 @@ TEST(DriverTest, TransactionalZeroByteReadAfterWritingChunk) {
   }
 
   EXPECT_THAT(mock_kvstore->request_log.pop_all(), ::testing::ElementsAre());
+}
+
+TEST(DriverTest, UrlSchemeRoundtrip) {
+  TestTensorStoreUrlRoundtrip(
+      {{"driver", "zarr3"},
+       {"kvstore", {{"driver", "memory"}, {"path", "abc.zarr3/"}}}},
+      "memory://abc.zarr3/|zarr3:");
+  TestTensorStoreSpecRoundtripNormalize(
+      "memory://abc.zarr3|zarr3:def",
+      {{"driver", "zarr3"},
+       {"kvstore", {{"driver", "memory"}, {"path", "abc.zarr3/def/"}}}});
 }
 
 }  // namespace

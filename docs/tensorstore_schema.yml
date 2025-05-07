@@ -147,3 +147,25 @@ definitions:
       - const: "json"
         title: |
           `JSON <https://en.wikipedia.org/wiki/JSON>`__ value.
+  url:
+    $id: TensorStoreUrl
+    type: string
+    title: URL representation of a TensorStore to open.
+    description: |
+      In addition to the `JSON object<TensorStore>` representation, a
+      TensorStore backed by a key-value store may be specified more
+      concisely by a *URL pipeline* consisting of one or more
+      :literal:`|`-separated *components*.
+
+      The start of the URL pipeline must be a valid
+      :json:schema:`KvStoreUrl`.  This may be followed by a component
+      specifying a key-value store-backed TensorStore, such as
+      :ref:`zarr3<zarr3-driver>`, and then finally zero or more
+      TensorStore adapters, such as :ref:`cast<driver/cast>`.
+
+      .. warning::
+
+         The URL representation of a TensorStore specification
+         excludes any index transform and parameters such as
+         concurrency limits, cache options, and metadata and schema
+         constraints.

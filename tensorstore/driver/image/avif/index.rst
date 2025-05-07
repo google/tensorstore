@@ -13,3 +13,4 @@ Grey/GreyA/RGB/RGBA equivalent image.
 
 .. json:schema:: driver/avif
 
+.. json:schema:: TensorStoreUrl/avif

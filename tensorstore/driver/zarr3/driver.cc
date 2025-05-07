@@ -42,6 +42,7 @@
 #include "tensorstore/driver/driver_spec.h"
 #include "tensorstore/driver/kvs_backed_chunk_driver.h"
 #include "tensorstore/driver/registry.h"
+#include "tensorstore/driver/url_registry.h"
 #include "tensorstore/driver/zarr3/chunk_cache.h"
 #include "tensorstore/driver/zarr3/metadata.h"
 #include "tensorstore/index.h"
@@ -59,6 +60,7 @@
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/lexicographical_grid_index_key.h"
 #include "tensorstore/internal/storage_statistics.h"
+#include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/open_options.h"
 #include "tensorstore/rank.h"
@@ -163,6 +165,11 @@ class ZarrDriverSpec
 
   Result<ChunkLayout> GetChunkLayout() const override {
     return GetEffectiveChunkLayout(metadata_constraints, schema);
+  }
+
+  Result<std::string> ToUrl() const override {
+    TENSORSTORE_ASSIGN_OR_RETURN(auto base_url, store.ToUrl());
+    return tensorstore::StrCat(base_url, "|", id, ":");
   }
 
   Future<internal::Driver::Handle> Open(
@@ -608,6 +615,16 @@ Future<internal::Driver::Handle> ZarrDriverSpec::Open(
   return ZarrDriver::Open(this, std::move(request));
 }
 
+Result<internal::TransformedDriverSpec> ParseZarr3Url(std::string_view url,
+                                                      kvstore::Spec&& base) {
+  auto parsed = internal::ParseGenericUriWithoutSlashSlash(url);
+  assert(parsed.scheme == ZarrDriverSpec::id);
+  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
+  auto driver_spec = internal::MakeIntrusivePtr<ZarrDriverSpec>();
+  driver_spec->InitializeFromUrl(std::move(base), parsed.authority_and_path);
+  return internal::TransformedDriverSpec{std::move(driver_spec)};
+}
+
 #ifndef _MSC_VER
 }  // namespace
 #endif
@@ -627,4 +644,8 @@ namespace {
 const tensorstore::internal::DriverRegistration<
     tensorstore::internal_zarr3::ZarrDriverSpec>
     registration;
+
+const tensorstore::internal::UrlSchemeRegistration url_scheme_registration(
+    tensorstore::internal_zarr3::ZarrDriverSpec::id,
+    tensorstore::internal_zarr3::ParseZarr3Url);
 }  // namespace

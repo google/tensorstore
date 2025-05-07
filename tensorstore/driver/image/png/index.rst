@@ -8,3 +8,4 @@ The read volume is indexed by "height" (y), "width" (x), "channel".
 
 .. json:schema:: driver/png
 
+.. json:schema:: TensorStoreUrl/png

@@ -19,6 +19,8 @@ separately.
 
 .. json:schema:: driver/zarr2
 
+.. json:schema:: TensorStoreUrl/zarr2
+
 Compressors
 -----------
 

@@ -21,6 +21,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -53,12 +54,13 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/json_binding/staleness_bound.h"  // IWYU: pragma keep
-#include "tensorstore/internal/json_binding/std_optional.h"
+#include "tensorstore/internal/json_binding/staleness_bound.h"  // IWYU pragma: keep
+#include "tensorstore/internal/json_binding/std_optional.h"  // IWYU pragma: keep
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/open_mode_spec.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/unowned_to_shared.h"
+#include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
@@ -765,6 +767,22 @@ Result<IndexTransform<>> KvsMetadataDriverBase::GetBoundSpecData(
   }
 
   return transform;
+}
+
+void KvsDriverSpec::InitializeFromUrl(kvstore::Spec&& base,
+                                      std::string_view encoded_path) {
+  store = std::move(base);
+  internal::EnsureDirectoryPath(store.path);
+  if (!encoded_path.empty()) {
+    store.path += internal::PercentDecode(encoded_path);
+    internal::EnsureDirectoryPath(store.path);
+  }
+  data_copy_concurrency = decltype(data_copy_concurrency)::DefaultSpec();
+  cache_pool = decltype(cache_pool)::DefaultSpec();
+  staleness.metadata.bounded_by_open_time = true;
+  fill_value_mode.fill_missing_data_reads = true;
+  fill_value_mode.store_data_equal_to_fill_value = false;
+  this->open = true;
 }
 
 absl::Status KvsDriverSpec::ApplyOptions(SpecOptions&& options) {

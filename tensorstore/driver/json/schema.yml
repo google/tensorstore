@@ -1,88 +1,125 @@
 $schema: http://json-schema.org/draft-07/schema#
 $id: driver/json
 allOf:
-- $ref: TensorStore
-- type: object
-  properties:
-    driver:
-      const: json
-    dtype:
-      const: json
-      description: |
-        Optional.  If specified, must be :json:`"json"`.
-    rank:
-      const: 0
-      description: |
-        Optional.  If specified, must be :json:`0`.
-    kvstore:
-      oneOf:
-      - $ref: KvStore
-      - $ref: KvStoreUrl
-      description: |-
-        Specifies the underlying storage mechanism.
-    path:
-      type: string
-      examples:
-      - path/to/data.json
-      deprecated: true
-      title: |
-        Additional path to the JSON file within the `KvStore` specified by
-        `.kvstore`.
-      description: |-
-        This is joined as an additional :json:`"/"`-separated path component
-        after any :json:schema:`~KvStore.path` member directly within
-        `.kvstore`.  This is supported for backwards compatibility only; the
-        :json:schema:`KvStore.path` member should be used instead.
-    cache_pool:
-      $ref: ContextResource
-      description: |-
-        Specifies or references a previously defined `Context.cache_pool`.  It
-        is normally more convenient to specify a default `~Context.cache_pool`
-        in the `.context`.
-      default: cache_pool
-    data_copy_concurrency:
-      $ref: ContextResource
-      description: |-
-        Specifies or references a previously defined
-        `Context.data_copy_concurrency`.  It is normally more
-        convenient to specify a default `~Context.data_copy_concurrency` in
-        the `.context`.
-      default: data_copy_concurrency
-    recheck_cached_data:
-      $ref: CacheRevalidationBound
-      default: "open"
-      description: |
-        Time after which cached data is assumed to be fresh.  Cached data older
-        than the specified time is revalidated prior to being returned from a
-        read operation.  Writes are always consistent regardless of the value of
-        this option.
+  - $ref: TensorStore
+  - type: object
+    properties:
+      driver:
+        const: json
+      dtype:
+        const: json
+        description: |
+          Optional.  If specified, must be :json:`"json"`.
+      rank:
+        const: 0
+        description: |
+          Optional.  If specified, must be :json:`0`.
+      kvstore:
+        oneOf:
+          - $ref: KvStore
+          - $ref: KvStoreUrl
+        description: |-
+          Specifies the underlying storage mechanism.
+      path:
+        type: string
+        examples:
+          - path/to/data.json
+        deprecated: true
+        title: |
+          Additional path to the JSON file within the `KvStore` specified by
+          `.kvstore`.
+        description: |-
+          This is joined as an additional :json:`"/"`-separated path component
+          after any :json:schema:`~KvStore.path` member directly within
+          `.kvstore`.  This is supported for backwards compatibility only; the
+          :json:schema:`KvStore.path` member should be used instead.
+      cache_pool:
+        $ref: ContextResource
+        description: |-
+          Specifies or references a previously defined `Context.cache_pool`.  It
+          is normally more convenient to specify a default `~Context.cache_pool`
+          in the `.context`.
+        default: cache_pool
+      data_copy_concurrency:
+        $ref: ContextResource
+        description: |-
+          Specifies or references a previously defined
+          `Context.data_copy_concurrency`.  It is normally more
+          convenient to specify a default `~Context.data_copy_concurrency` in
+          the `.context`.
+        default: data_copy_concurrency
+      recheck_cached_data:
+        $ref: CacheRevalidationBound
+        default: "open"
+        description: |
+          Time after which cached data is assumed to be fresh.  Cached data older
+          than the specified time is revalidated prior to being returned from a
+          read operation.  Writes are always consistent regardless of the value of
+          this option.
 
-        Specifying :json:`true` means that the data will be revalidated prior to
-        every read operation.  With the default value of :json:`"open"`, any
-        cached data is revalidated when the TensorStore is opened but is not
-        rechecked for each read operation.
-    json_pointer:
-      type: string
-      default: ""
-      description: |
-        JSON Pointer (:rfc:`6901`) specifying a path within the JSON file.  With
-        the default value of :json:`""`, read and write operations apply to the
-        entire JSON file.  Specifying a non-empty pointer permits
-        reading/writing a sub-value within the full JSON file.  For example, if
-        the full JSON file contains :json:`{"a": {"b": 42}}`, specifying a
-        `.json_pointer` of :json:`"/a/b"` refers to the value
-        :json:`42`.  If the pointer refers to a non-existent member, read
-        operations return an error.  Write operations attempt to create the
-        member (and any ancestor objects), and return an error if the pointer is
-        inconsistent with the existing value; for example, it is an error to
-        write to a pointer that references a member of a non-object, non-array
-        value.
-  required:
-  - kvstore
+          Specifying :json:`true` means that the data will be revalidated prior to
+          every read operation.  With the default value of :json:`"open"`, any
+          cached data is revalidated when the TensorStore is opened but is not
+          rechecked for each read operation.
+      json_pointer:
+        type: string
+        default: ""
+        description: |
+          JSON Pointer (:rfc:`6901`) specifying a path within the JSON file.  With
+          the default value of :json:`""`, read and write operations apply to the
+          entire JSON file.  Specifying a non-empty pointer permits
+          reading/writing a sub-value within the full JSON file.  For example, if
+          the full JSON file contains :json:`{"a": {"b": 42}}`, specifying a
+          `.json_pointer` of :json:`"/a/b"` refers to the value
+          :json:`42`.  If the pointer refers to a non-existent member, read
+          operations return an error.  Write operations attempt to create the
+          member (and any ancestor objects), and return an error if the pointer is
+          inconsistent with the existing value; for example, it is an error to
+          write to a pointer that references a member of a non-object, non-array
+          value.
+    required:
+      - kvstore
 examples:
-- driver: json
-  "kvstore":
-    driver: gcs
-    bucket: my-bucket
-  path: path/to/attributes.json
-  json_pointer: "/a/2/b"
+  - driver: json
+    "kvstore":
+      driver: gcs
+      bucket: my-bucket
+    path: path/to/attributes.json
+    json_pointer: "/a/2/b"
+definitions:
+  url:
+    $id: TensorStoreUrl/json
+    type: string
+    allOf:
+      - $ref: TensorStoreUrl
+      - type: string
+    title: |
+      :literal:`json:` TensorStore URL scheme
+    description: |
+      JSON TensorStores may be specified using the :file:`json:{json_pointer}`
+      URL syntax.
+
+      .. admonition:: Examples
+         :class: example
+
+         .. list-table::
+            :header-rows: 1
+            :widths: auto
+
+            * - URL representation
+              - JSON representation
+            * - ``"file:///tmp/file.json/|json:"``
+              - .. code-block:: json
+
+                   {"driver": "json",
+                    "kvstore": {"driver": "file",
+                                "path": "/tmp/file.json"}
+                   }
+            * - ``"file:///tmp/file.json/|json:/path/within/json"``
+              - .. code-block:: json
+
+                   {"driver": "json",
+                    "json_pointer": "/path/within/json",
+                    "kvstore": {"driver": "file",
+                                "path": "/tmp/file.json"}
+                   }

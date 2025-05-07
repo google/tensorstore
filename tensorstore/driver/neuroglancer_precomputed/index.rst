@@ -11,6 +11,8 @@ Multiscale volumes are supported, but each scale must be opened individually.
 
 .. json:schema:: driver/neuroglancer_precomputed
 
+.. json:schema:: TensorStoreUrl/neuroglancer-precomputed
+
 Example JSON specifications
 ---------------------------
 

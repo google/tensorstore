@@ -16,11 +16,13 @@
 
 #include <cassert>
 #include <memory>
+#include <string>
 #include <string_view>
 #include <utility>
 
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include <nlohmann/json_fwd.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/array_storage_statistics.h"
 #include "tensorstore/batch.h"
@@ -41,7 +43,6 @@
 #include "tensorstore/open_mode.h"
 #include "tensorstore/open_options.h"
 #include "tensorstore/rank.h"
-#include "tensorstore/resize_options.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/serialization/serialization.h"
@@ -275,6 +276,13 @@ Result<TransformedDriverSpec> GetTransformedDriverSpec(
   TENSORSTORE_RETURN_IF_ERROR(internal::TransformAndApplyOptions(
       transformed_driver_spec, std::move(options)));
   return transformed_driver_spec;
+}
+
+Result<std::string> GetUrl(const DriverHandle& handle) {
+  SpecRequestOptions options;
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto spec, GetTransformedDriverSpec(handle, std::move(options)));
+  return spec.driver_spec->ToUrl();
 }
 
 absl::Status SetReadWriteMode(DriverHandle& handle, ReadWriteMode new_mode) {

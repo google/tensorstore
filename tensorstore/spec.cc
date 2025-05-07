@@ -14,13 +14,31 @@
 
 #include "tensorstore/spec.h"
 
+#include <ostream>
+#include <string>
+#include <string_view>
+#include <utility>
+
 #include "absl/status/status.h"
+#include "tensorstore/array.h"
+#include "tensorstore/chunk_layout.h"
+#include "tensorstore/codec_spec.h"
 #include "tensorstore/context.h"
 #include "tensorstore/driver/driver.h"
-#include "tensorstore/index_space/json.h"
-#include "tensorstore/internal/json/json.h"
+#include "tensorstore/driver/driver_handle.h"
+#include "tensorstore/driver/driver_spec.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_space/dimension_units.h"
+#include "tensorstore/index_space/index_domain.h"
+#include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/json.h"  // IWYU pragma: keep
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/json_serialization_options.h"
+#include "tensorstore/kvstore/spec.h"
 #include "tensorstore/open_options.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/schema.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/garbage_collection/garbage_collection.h"
 #include "tensorstore/util/result.h"
@@ -141,6 +159,15 @@ void Spec::UnbindContext(const internal::ContextSpecBuilder& context_builder) {
 
 void Spec::StripContext() {
   return internal::DriverSpecStripContext(impl_.driver_spec);
+}
+
+Result<std::string> Spec::ToUrl() const { return impl_.driver_spec->ToUrl(); }
+
+Result<Spec> Spec::FromUrl(std::string_view url) {
+  Spec spec;
+  TENSORSTORE_ASSIGN_OR_RETURN(spec.impl_,
+                               internal::GetTransformedDriverSpecFromUrl(url));
+  return spec;
 }
 
 namespace internal {

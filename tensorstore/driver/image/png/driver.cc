@@ -99,6 +99,9 @@ struct PngSpecialization : public PngWriterOptions {
 const internal::DriverRegistration<ImageDriverSpec<PngSpecialization>>
     png_driver_registration;
 
+const ImageDriverSpec<PngSpecialization>::UrlSchemeRegistration
+    png_driver_url_registration;
+
 }  // namespace
 }  // namespace internal_image_driver
 }  // namespace tensorstore

@@ -11,3 +11,4 @@ Lossy WebP images are encoded as YUV 422, incurring some perceptual loss.
 
 .. json:schema:: driver/webp
 
+.. json:schema:: TensorStoreUrl/webp

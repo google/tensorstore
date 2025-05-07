@@ -1631,7 +1631,9 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
 
 namespace {
 const internal::CodecSpecRegistration<NeuroglancerPrecomputedCodecSpec>
-    encoding_registration;
+    encoding_registration{
+        // Also allow neuroglancer-precomputed as alias to match URL scheme.
+        {{"neuroglancer-precomputed"}}};
 }  // namespace
 
 }  // namespace internal_neuroglancer_precomputed

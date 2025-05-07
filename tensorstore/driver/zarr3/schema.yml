@@ -583,3 +583,43 @@ definitions:
     - name: zstd
       configuration:
         level: 6
+  url:
+    $id: TensorStoreUrl/zarr3
+    type: string
+    allOf:
+      - $ref: TensorStoreUrl
+      - type: string
+    title: |
+      :literal:`zarr3:` TensorStore URL scheme
+    description: |
+      zarr v3 arrays may be specified using the :file:`zarr3:{path}`
+      URL syntax.
+
+      Currently, the :file:`{path}`, if any, is simply joined with the
+      path specified by the base KvStore URL, but is intended to be
+      used only for specifying the path to an array *within* a zarr v3
+      hierarchy.
+
+      .. admonition:: Examples
+         :class: example
+
+         .. list-table::
+            :header-rows: 1
+            :widths: auto
+
+            * - URL representation
+              - JSON representation
+            * - ``"file:///tmp/dataset.zarr/|zarr3:"``
+              - .. code-block:: json
+
+                   {"driver": "zarr3",
+                    "kvstore": {"driver": "file",
+                                "path": "/tmp/dataset.zarr/"}
+                   }
+            * - ``"file:///tmp/dataset.zarr|zarr3:path/within/hierarchy"``
+              - .. code-block:: json
+
+                   {"driver": "zarr3",
+                    "kvstore": {"driver": "file",
+                                "path": "/tmp/dataset.zarr/path/within/hierarchy/"}
+                   }

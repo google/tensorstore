@@ -53,6 +53,8 @@ using ::tensorstore::internal::GetMap;
 using ::tensorstore::internal::ParseJsonMatches;
 using ::tensorstore::internal::TestSpecSchema;
 using ::tensorstore::internal::TestTensorStoreCreateCheckSchema;
+using ::tensorstore::internal::TestTensorStoreSpecRoundtripNormalize;
+using ::tensorstore::internal::TestTensorStoreUrlRoundtrip;
 using ::testing::Optional;
 using ::testing::Pair;
 
@@ -366,6 +368,7 @@ TENSORSTORE_GLOBAL_INITIALIZER {
   options.check_not_found_before_create = false;
   options.check_not_found_before_commit = false;
   options.check_serialization = true;
+  options.url = "file://${TEMPDIR}/" + GetPath() + "|json:";
   tensorstore::internal::RegisterTensorStoreDriverSpecRoundtripTest(
       std::move(options));
 }
@@ -455,6 +458,22 @@ TENSORSTORE_GLOBAL_INITIALIZER {
         .result();
   };
   tensorstore::internal::RegisterTensorStoreRepeatableReadTest(options);
+}
+
+TEST(JsonDriverTest, UrlSchemeRoundtrip) {
+  TestTensorStoreUrlRoundtrip(
+      {{"driver", "json"},
+       {"kvstore", {{"driver", "memory"}, {"path", "abc.json"}}}},
+      "memory://abc.json|json:");
+  TestTensorStoreUrlRoundtrip(
+      {{"driver", "json"},
+       {"kvstore", {{"driver", "memory"}, {"path", "abc.json"}}},
+       {"json_pointer", "/x/y/z"}},
+      "memory://abc.json|json:/x/y/z");
+  TestTensorStoreSpecRoundtripNormalize(
+      "memory://abc.json|json",
+      {{"driver", "json"},
+       {"kvstore", {{"driver", "memory"}, {"path", "abc.json"}}}});
 }
 
 }  // namespace

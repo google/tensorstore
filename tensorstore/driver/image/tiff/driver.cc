@@ -135,6 +135,9 @@ struct TiffSpecialization : public TiffReadOptions {
 const internal::DriverRegistration<ImageDriverSpec<TiffSpecialization>>
     tiff_driver_registration;
 
+const ImageDriverSpec<TiffSpecialization>::UrlSchemeRegistration
+    tiff_driver_url_registration;
+
 }  // namespace
 }  // namespace internal_image_driver
 }  // namespace tensorstore

@@ -105,6 +105,10 @@ struct KvsDriverSpec : public internal::DriverSpec,
   StalenessBounds staleness;
   FillValueMode fill_value_mode;
 
+  // Initialize from a URL with the specified base kvstore and
+  // optional encoded path.
+  void InitializeFromUrl(kvstore::Spec&& base, std::string_view encoded_path);
+
   static constexpr auto ApplyMembers = [](auto& x, auto f) {
     return f(internal::BaseCast<internal::DriverSpec>(x),
              internal::BaseCast<internal::OpenModeSpec>(x), x.store,

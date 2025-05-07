@@ -9,6 +9,8 @@ writing, creating new datasets, and resizing datasets.
 
 .. json:schema:: driver/n5
 
+.. json:schema:: TensorStoreUrl/n5
+
 Compression
 -----------
 

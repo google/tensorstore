@@ -223,3 +223,37 @@ definitions:
             enum:
             - raw
             - gzip
+  url:
+    $id: TensorStoreUrl/neuroglancer-precomputed
+    type: string
+    allOf:
+      - $ref: TensorStoreUrl
+      - type: string
+    title: |
+      :literal:`neuroglancer-precomputed:` TensorStore URL scheme
+    description: |
+      Neuroglancer Precomputed-format arrays may be specified using
+      the :file:`neuroglancer-precomputed:` URL syntax.
+
+      .. note::
+
+         Currently, only the base scale level (with
+         `~driver/neuroglancer_precomputed.scale_index` of 0) may be
+         specified using the URL syntax.
+
+      .. admonition:: Examples
+         :class: example
+
+         .. list-table::
+            :header-rows: 1
+            :widths: auto
+
+            * - URL representation
+              - JSON representation
+            * - ``"file:///tmp/dataset/|neuroglancer-precomputed:"``
+              - .. code-block:: json
+
+                   {"driver": "neuroglancer-precomputed",
+                    "kvstore": {"driver": "file",
+                                "path": "/tmp/dataset/"}
+                   }

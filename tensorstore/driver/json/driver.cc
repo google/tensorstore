@@ -34,6 +34,7 @@
 #include "tensorstore/driver/driver_spec.h"
 #include "tensorstore/driver/json/json_change_map.h"
 #include "tensorstore/driver/registry.h"
+#include "tensorstore/driver/url_registry.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_transform.h"
@@ -48,13 +49,14 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json/same.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/json_binding/staleness_bound.h"
+#include "tensorstore/internal/json_binding/staleness_bound.h"  // IWYU pragma: keep
 #include "tensorstore/internal/json_pointer.h"
 #include "tensorstore/internal/lock_collection.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/nditerable.h"
 #include "tensorstore/internal/nditerable_transformed_array.h"
 #include "tensorstore/internal/unowned_to_shared.h"
+#include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -74,6 +76,7 @@
 #include "tensorstore/util/garbage_collection/garbage_collection.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal {
@@ -303,6 +306,13 @@ class JsonDriverSpec
   }
 
   kvstore::Spec GetKvstore() const override { return store; }
+
+  Result<std::string> ToUrl() const override {
+    TENSORSTORE_ASSIGN_OR_RETURN(auto base_url, store.ToUrl());
+    return tensorstore::StrCat(
+        base_url, "|", id, ":",
+        internal::PercentEncodeKvStoreUriPath(json_pointer));
+  }
 
   Future<internal::Driver::Handle> Open(
       internal::DriverOpenRequest request) const override;
@@ -597,6 +607,24 @@ void JsonDriver::Write(WriteRequest request, WriteChunkReceiver receiver) {
       std::move(cell_transform));
 }
 
+Result<internal::TransformedDriverSpec> ParseJsonUrl(std::string_view url,
+                                                     kvstore::Spec&& base) {
+  auto parsed = internal::ParseGenericUriWithoutSlashSlash(url);
+  assert(parsed.scheme == JsonDriverSpec::id);
+  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
+  auto driver_spec = internal::MakeIntrusivePtr<JsonDriverSpec>();
+  driver_spec->store = std::move(base);
+  driver_spec->data_copy_concurrency =
+      decltype(driver_spec->data_copy_concurrency)::DefaultSpec();
+  driver_spec->cache_pool = decltype(driver_spec->cache_pool)::DefaultSpec();
+  driver_spec->data_staleness.bounded_by_open_time = true;
+  driver_spec->json_pointer =
+      internal::PercentDecode(parsed.authority_and_path);
+  TENSORSTORE_RETURN_IF_ERROR(
+      tensorstore::json_pointer::Validate(driver_spec->json_pointer));
+  return internal::TransformedDriverSpec{std::move(driver_spec)};
+}
+
 }  // namespace
 }  // namespace internal
 
@@ -616,6 +644,10 @@ namespace internal {
 namespace {
 
 const internal::DriverRegistration<JsonDriverSpec> driver_registration;
+
+const tensorstore::internal::UrlSchemeRegistration url_scheme_registration(
+    tensorstore::internal::JsonDriverSpec::id,
+    tensorstore::internal::ParseJsonUrl);
 
 }  // namespace
 

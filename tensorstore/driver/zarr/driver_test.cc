@@ -98,6 +98,8 @@ using ::tensorstore::internal::ParseJsonMatches;
 using ::tensorstore::internal::TestSpecSchema;
 using ::tensorstore::internal::TestTensorStoreCreateCheckSchema;
 using ::tensorstore::internal::TestTensorStoreCreateWithSchema;
+using ::tensorstore::internal::TestTensorStoreSpecRoundtripNormalize;
+using ::tensorstore::internal::TestTensorStoreUrlRoundtrip;
 using ::testing::ElementsAreArray;
 using ::testing::Pair;
 using ::testing::UnorderedElementsAreArray;
@@ -2288,6 +2290,7 @@ TENSORSTORE_GLOBAL_INITIALIZER {
         {"input_inclusive_min", {0, 0}}}},
   };
   options.check_serialization = true;
+  options.url = "file://${TEMPDIR}/prefix/|zarr2:";
   tensorstore::internal::RegisterTensorStoreDriverSpecRoundtripTest(
       std::move(options));
 }
@@ -3459,6 +3462,17 @@ TEST(DriverTest, AssumeCachedMetadataMismatch) {
 
   EXPECT_THAT(tensorstore::ResolveBounds(store).result(),
               MatchesStatus(absl::StatusCode::kFailedPrecondition));
+}
+
+TEST(DriverTest, UrlSchemeRoundtrip) {
+  TestTensorStoreUrlRoundtrip(
+      {{"driver", "zarr"},
+       {"kvstore", {{"driver", "memory"}, {"path", "abc.zarr/"}}}},
+      "memory://abc.zarr/|zarr2:");
+  TestTensorStoreSpecRoundtripNormalize(
+      "memory://abc.zarr|zarr2:def",
+      {{"driver", "zarr"},
+       {"kvstore", {{"driver", "memory"}, {"path", "abc.zarr/def/"}}}});
 }
 
 }  // namespace
