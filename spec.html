@@ -572,6 +572,26 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#json-TensorStoreUrl" class="md-nav__link">
+    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="TensorStoreUrl (JSON type) — URL representation of a TensorStore to open." class="md-ellipsis">Tensor<wbr>Store<wbr>Url</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="TensorStoreUrl">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#subtypes-json-TensorStoreUrl" class="md-nav__link">
+    <span class="md-ellipsis">Subtypes</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#json-dtype" class="md-nav__link">
     <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="dtype (JSON type) — Specifies a TensorStore data type." class="md-ellipsis">dtype</span>
   </a>
@@ -991,6 +1011,26 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#json-TensorStoreUrl" class="md-nav__link">
+    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="TensorStoreUrl (JSON type) — URL representation of a TensorStore to open." class="md-ellipsis">Tensor<wbr>Store<wbr>Url</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="TensorStoreUrl">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#subtypes-json-TensorStoreUrl" class="md-nav__link">
+    <span class="md-ellipsis">Subtypes</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#json-dtype" class="md-nav__link">
     <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="dtype (JSON type) — Specifies a TensorStore data type." class="md-ellipsis">dtype</span>
   </a>
@@ -1298,6 +1338,58 @@ automatically based on the specified schema constraints in combination
 with any driver-specific constraints.</p>
 </dd></dl>
 
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-TensorStoreUrl">
+<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">TensorStoreUrl</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><a class="headerlink" href="#json-TensorStoreUrl" title="Link to this definition">¶</a></dt>
+<dd><span><p>URL representation of a TensorStore to open.</p>
+  </span><p>In addition to the <a class="reference internal" href="#json-TensorStore" title="TensorStore (JSON type) — Specifies a TensorStore to open/create."><code class="xref json json-schema docutils literal notranslate"><span class="pre">JSON</span> <span class="pre">object</span></code></a> representation, a
+TensorStore backed by a key-value store may be specified more
+concisely by a <em>URL pipeline</em> consisting of one or more
+<code class="docutils literal notranslate"><span class="pre">|</span></code>-separated <em>components</em>.</p>
+<p>The start of the URL pipeline must be a valid
+<a class="reference internal" href="kvstore/index.html#json-KvStoreUrl" title="KvStoreUrl (JSON type) — URL representation of a key-value store."><code class="xref json json-schema docutils literal notranslate"><span class="pre">KvStoreUrl</span></code></a>.  This may be followed by a component
+specifying a key-value store-backed TensorStore, such as
+<a class="reference internal" href="driver/zarr3/index.html#zarr3-driver"><span class="std std-ref">zarr3</span></a>, and then finally zero or more
+TensorStore adapters, such as <a class="reference internal" href="driver/cast/index.html#driver-cast"><span class="std std-ref">cast</span></a>.</p>
+<div class="warning admonition">
+<p class="admonition-title">Warning</p>
+<p>The URL representation of a TensorStore specification
+excludes any index transform and parameters such as
+concurrency limits, cache options, and metadata and schema
+constraints.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd" id="subtypes-json-TensorStoreUrl">Subtypes<span class="colon">:</span><a class="headerlink" href="#subtypes-json-TensorStoreUrl" title="Permalink to this headline">¶</a></dt>
+<dd class="field-odd noindent"><ul class="simple">
+<li><p><a class="reference internal" href="driver/image/avif/index.html#json-TensorStoreUrl/avif" title="TensorStoreUrl/avif (JSON type) — avif: TensorStore URL scheme"><code class="xref json json-schema docutils literal notranslate"><span class="pre">TensorStoreUrl/avif</span></code></a> — <code class="docutils literal notranslate"><span class="pre">avif:</span></code> TensorStore URL scheme
+</p></li>
+<li><p><a class="reference internal" href="driver/image/bmp/index.html#json-TensorStoreUrl/bmp" title="TensorStoreUrl/bmp (JSON type) — bmp: TensorStore URL scheme"><code class="xref json json-schema docutils literal notranslate"><span class="pre">TensorStoreUrl/bmp</span></code></a> — <code class="docutils literal notranslate"><span class="pre">bmp:</span></code> TensorStore URL scheme
+</p></li>
+<li><p><a class="reference internal" href="driver/cast/index.html#json-TensorStoreUrl/cast" title="TensorStoreUrl/cast (JSON type) — cast: TensorStore URL scheme"><code class="xref json json-schema docutils literal notranslate"><span class="pre">TensorStoreUrl/cast</span></code></a> — <code class="docutils literal notranslate"><span class="pre">cast:</span></code> TensorStore URL scheme
+</p></li>
+<li><p><a class="reference internal" href="driver/image/jpeg/index.html#json-TensorStoreUrl/jpeg" title="TensorStoreUrl/jpeg (JSON type) — jpeg: TensorStore URL scheme"><code class="xref json json-schema docutils literal notranslate"><span class="pre">TensorStoreUrl/jpeg</span></code></a> — <code class="docutils literal notranslate"><span class="pre">jpeg:</span></code> TensorStore URL scheme
+</p></li>
+<li><p><a class="reference internal" href="driver/json/index.html#json-TensorStoreUrl/json" title="TensorStoreUrl/json (JSON type) — json: TensorStore URL scheme"><code class="xref json json-schema docutils literal notranslate"><span class="pre">TensorStoreUrl/json</span></code></a> — <code class="docutils literal notranslate"><span class="pre">json:</span></code> TensorStore URL scheme
+</p></li>
+<li><p><a class="reference internal" href="driver/n5/index.html#json-TensorStoreUrl/n5" title="TensorStoreUrl/n5 (JSON type) — n5: TensorStore URL scheme"><code class="xref json json-schema docutils literal notranslate"><span class="pre">TensorStoreUrl/n5</span></code></a> — <code class="docutils literal notranslate"><span class="pre">n5:</span></code> TensorStore URL scheme
+</p></li>
+<li><p><a class="reference internal" href="driver/neuroglancer_precomputed/index.html#json-TensorStoreUrl/neuroglancer-precomputed" title="TensorStoreUrl/neuroglancer-precomputed (JSON type) — neuroglancer-precomputed: TensorStore URL scheme"><code class="xref json json-schema docutils literal notranslate"><span class="pre">TensorStoreUrl/neuroglancer-precomputed</span></code></a> — <code class="docutils literal notranslate"><span class="pre">neuroglancer-precomputed:</span></code> TensorStore URL scheme
+</p></li>
+<li><p><a class="reference internal" href="driver/image/png/index.html#json-TensorStoreUrl/png" title="TensorStoreUrl/png (JSON type) — png: TensorStore URL scheme"><code class="xref json json-schema docutils literal notranslate"><span class="pre">TensorStoreUrl/png</span></code></a> — <code class="docutils literal notranslate"><span class="pre">png:</span></code> TensorStore URL scheme
+</p></li>
+<li><p><a class="reference internal" href="driver/image/tiff/index.html#json-TensorStoreUrl/tiff" title="TensorStoreUrl/tiff (JSON type) — tiff: TensorStore URL scheme"><code class="xref json json-schema docutils literal notranslate"><span class="pre">TensorStoreUrl/tiff</span></code></a> — <code class="docutils literal notranslate"><span class="pre">tiff:</span></code> TensorStore URL scheme
+</p></li>
+<li><p><a class="reference internal" href="driver/image/webp/index.html#json-TensorStoreUrl/webp" title="TensorStoreUrl/webp (JSON type) — webp: TensorStore URL scheme"><code class="xref json json-schema docutils literal notranslate"><span class="pre">TensorStoreUrl/webp</span></code></a> — <code class="docutils literal notranslate"><span class="pre">webp:</span></code> TensorStore URL scheme
+</p></li>
+<li><p><a class="reference internal" href="driver/zarr/index.html#json-TensorStoreUrl/zarr2" title="TensorStoreUrl/zarr2 (JSON type) — zarr2: TensorStore URL scheme"><code class="xref json json-schema docutils literal notranslate"><span class="pre">TensorStoreUrl/zarr2</span></code></a> — <code class="docutils literal notranslate"><span class="pre">zarr2:</span></code> TensorStore URL scheme
+</p></li>
+<li><p><a class="reference internal" href="driver/zarr3/index.html#json-TensorStoreUrl/zarr3" title="TensorStoreUrl/zarr3 (JSON type) — zarr3: TensorStore URL scheme"><code class="xref json json-schema docutils literal notranslate"><span class="pre">TensorStoreUrl/zarr3</span></code></a> — <code class="docutils literal notranslate"><span class="pre">zarr3:</span></code> TensorStore URL scheme
+</p></li>
+</ul>
 </dd>
 </dl>
 </dd></dl>

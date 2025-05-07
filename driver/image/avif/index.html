@@ -805,6 +805,26 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#json-TensorStoreUrl/avif" class="md-nav__link">
+    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="TensorStoreUrl/avif (JSON type) — avif: TensorStore URL scheme" class="md-ellipsis">Tensor<wbr>Store<wbr>Url/avif</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="TensorStoreUrl/avif">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#extends-json-TensorStoreUrl/avif" class="md-nav__link">
+    <span class="md-ellipsis">Extends</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1090,6 +1110,26 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#json-TensorStoreUrl/avif" class="md-nav__link">
+    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="TensorStoreUrl/avif (JSON type) — avif: TensorStore URL scheme" class="md-ellipsis">Tensor<wbr>Store<wbr>Url/avif</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="TensorStoreUrl/avif">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#extends-json-TensorStoreUrl/avif" class="md-nav__link">
+    <span class="md-ellipsis">Extends</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1213,6 +1253,43 @@ the <a class="reference internal" href="#json-driver/avif.context" title="driver
 </code></pre></div>
 </div>
 </div>
+</dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-TensorStoreUrl/avif">
+<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">TensorStoreUrl/avif</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><a class="headerlink" href="#json-TensorStoreUrl/avif" title="Link to this definition">¶</a></dt>
+<dd><span><p><code class="docutils literal notranslate"><span class="pre">avif:</span></code> TensorStore URL scheme</p>
+  </span><p>AVIF TensorStores may be specified using the <code class="file docutils literal notranslate"><span class="pre">avif:</span></code>
+URL syntax.</p>
+<div class="example admonition">
+<p class="admonition-title">Examples</p>
+<table class="docutils data align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>URL representation</p></th>
+<th class="head"><p>JSON representation</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;gs://my-bucket/path-to-image.avif/|avif:&quot;</span></code></p></td>
+<td><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;avif&quot;</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">&quot;kvstore&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gcs&quot;</span><span class="p">,</span>
+<span class="w">             </span><span class="nt">&quot;bucket&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my-bucket&quot;</span><span class="p">,</span>
+<span class="w">             </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path-to-image.avif&quot;</span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd" id="extends-json-TensorStoreUrl/avif">Extends<span class="colon">:</span><a class="headerlink" href="#extends-json-TensorStoreUrl/avif" title="Permalink to this headline">¶</a></dt>
+<dd class="field-odd noindent"><ul class="simple">
+<li><p><a class="reference internal" href="../../../spec.html#json-TensorStoreUrl" title="TensorStoreUrl (JSON type) — URL representation of a TensorStore to open."><code class="xref json json-schema docutils literal notranslate"><span class="pre">TensorStoreUrl</span></code></a> — URL representation of a TensorStore to open.</p></li>
+</ul>
+</dd>
+</dl>
 </dd></dl>
 
 

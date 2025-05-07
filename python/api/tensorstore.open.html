@@ -658,6 +658,13 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#opening-by-url" class="md-nav__link">
+    <span class="md-ellipsis">Opening by URL</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#creating-a-new-tensorstore" class="md-nav__link">
     <span class="md-ellipsis">Creating a new Tensor<wbr>Store</span>
   </a>
@@ -1285,6 +1292,13 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#opening-by-url" class="md-nav__link">
+    <span class="md-ellipsis">Opening by URL</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#creating-a-new-tensorstore" class="md-nav__link">
     <span class="md-ellipsis">Creating a new Tensor<wbr>Store</span>
   </a>
@@ -1370,7 +1384,8 @@
 <dl class="field-list simple">
 <dt class="field-odd" id="parameters">Parameters<span class="colon">:</span><a class="headerlink" href="#parameters" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd"><dl class="simple api-field highlight">
-<dt id="p-spec"><span class="n sig-name">spec</span><span class="p">:</span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference internal" href="tensorstore.Spec.html" title="tensorstore.Spec (Python class) — Specification for opening or creating a TensorStore.">Spec</a><span class="w"> </span><span class="p">|</span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)">Any</a></span></span><a class="headerlink" href="#p-spec" title="Permalink to this definition">¶</a></dt><dd><p>TensorStore Spec to open.  May also be specified as <a class="reference internal" href="../../spec.html#json-TensorStore" title="TensorStore (JSON type) — Specifies a TensorStore to open/create."><code class="xref json json-schema docutils literal notranslate"><span class="pre">JSON</span></code></a>.</p>
+<dt id="p-spec"><span class="n sig-name">spec</span><span class="p">:</span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference internal" href="tensorstore.Spec.html" title="tensorstore.Spec (Python class) — Specification for opening or creating a TensorStore.">Spec</a><span class="w"> </span><span class="p">|</span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)">Any</a></span></span><a class="headerlink" href="#p-spec" title="Permalink to this definition">¶</a></dt><dd><p>TensorStore Spec to open.  May also be specified as
+<a class="reference internal" href="../../spec.html#json-TensorStore" title="TensorStore (JSON type) — Specifies a TensorStore to open/create."><code class="xref json json-schema docutils literal notranslate"><span class="pre">JSON</span></code></a> or a <a class="reference internal" href="../../spec.html#json-TensorStoreUrl" title="TensorStoreUrl (JSON type) — URL representation of a TensorStore to open."><code class="xref json json-schema docutils literal notranslate"><span class="pre">URL</span></code></a>.</p>
 </dd>
 <dt id="p-read"><span class="n sig-name">read</span><span class="p">:</span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)">bool</a><span class="w"> </span><span class="p">|</span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)">None</a></span></span><span class="w"> </span><span class="o">=</span><span class="w"> </span><code class="code python default_value docutils literal highlight highlight-python"><span class="kc">None</span></code><a class="headerlink" href="#p-read" title="Permalink to this definition">¶</a></dt><dd><p>Allow read access.  Defaults to <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.11)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a> if neither <code class="code highlight python docutils literal highlight-python"><span class="n">read</span></code> nor <code class="code highlight python docutils literal highlight-python"><span class="n">write</span></code> is specified.</p>
 </dd>
@@ -1586,6 +1601,19 @@ like the data type, domain, and chunk layout, may be omitted:</p>
 <span class="go">  },</span>
 <span class="go">})</span>
 </code></pre></div>
+</div>
+<h3 id="opening-by-url">Opening by URL<a class="headerlink" href="#opening-by-url" title="Link to this heading">¶</a></h3>
+<p>The same TensorStore opened in the previous section can be specified more concisely using a
+<a class="reference internal" href="../../spec.html#json-TensorStoreUrl" title="TensorStoreUrl (JSON type) — URL representation of a TensorStore to open."><code class="xref json json-schema docutils literal notranslate"><span class="pre">TensorStore</span> <span class="pre">URL</span></code></a>:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">store</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="s1">&#39;gs://neuroglancer-janelia-flyem-hemibrain/v1.2/segmentation/|neuroglancer-precomputed:&#39;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">read</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</code></pre></div>
+</div>
+<div class="note admonition">
+<p class="admonition-title">Note</p>
+<p>The URL syntax is very limited in the options and parameters that may be
+specified but is convenient in simple cases.</p>
 </div>
 <h3 id="creating-a-new-tensorstore">Creating a new TensorStore<a class="headerlink" href="#creating-a-new-tensorstore" title="Link to this heading">¶</a></h3>
 <p>To create a new TensorStore, you must specify required driver-specific options,

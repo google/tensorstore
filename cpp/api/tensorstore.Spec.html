@@ -852,6 +852,36 @@
 
             
           
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.Spec.FromUrl.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Spec::FromUrl (C++ function) — Parses a Spec from its URL representation." class="md-ellipsis">From<wbr>Url</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.Spec.ToUrl.html" class="md-nav__link">
+        <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Spec::ToUrl (C++ function) — Returns the URL representation of this spec, if supported." class="md-ellipsis">To<wbr>Url</span>
+      </a>
+    </li>
+  
+
+            
+          
         </ul>
       </nav>
     </li>
@@ -1392,6 +1422,20 @@
           <li class="md-nav__item">
   <a href="tensorstore.Spec.GetTransformForIndexingOperation.html" class="md-nav__link">
     <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Spec::GetTransformForIndexingOperation (C++ function) — Returns a transform that may be used for apply a DimExpression." class="md-ellipsis">Get<wbr>Transform<wbr>For<wbr>Indexing<wbr>Operation</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="tensorstore.Spec.FromUrl.html" class="md-nav__link">
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Spec::FromUrl (C++ function) — Parses a Spec from its URL representation." class="md-ellipsis">From<wbr>Url</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="tensorstore.Spec.ToUrl.html" class="md-nav__link">
+    <span aria-label="C++ function" class="objinfo-icon objinfo-icon__procedure" title="C++ function">F</span><span title="tensorstore::Spec::ToUrl (C++ function) — Returns the URL representation of this spec, if supported." class="md-ellipsis">To<wbr>Url</span>
   </a>
   
 </li>
@@ -2091,6 +2135,18 @@ already-unbound context resources remain unmodified.</p>
 <dt class="sig sig-object highlight cpp">
 <a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result" title="tensorstore::Result (C++ class) — Result&lt;T&gt; implements a value-or-error concept providing a discriminated union of a usable value, T, or an absl::Status error describing why the value is not present. Result&lt;void&gt; is permitted, which becomes a wrapper for absl::Status, and which enables use of Result&lt;T&gt; in a wide variety of template contexts."><span class="n">Result</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="tensorstore.IndexTransform.html#c:&#64;N&#64;tensorstore&#64;ST&gt;3#NL#NL#N$&#64;N&#64;tensorstore&#64;E&#64;ContainerKind&#64;IndexTransform" title="tensorstore::IndexTransform (C++ class) — Transform from an input index space to an output index space."><span class="n">IndexTransform</span></a><span class="p">&lt;</span><span class="p">&gt;</span><span class="p">&gt;</span><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.Spec.GetTransformForIndexingOperation.html"><span class="doc"><span class="pre">GetTransformForIndexingOperation</span></span></a><span class="p">(</span><span class="p">)</span><span class="w">&nbsp;</span><span class="k">const</span><span class="p">;</span></dt>
 <dd><p>Returns a transform that may be used for apply a DimExpression.</p>
+</dd></dl>
+
+<dl class="cpp function summary objdesc">
+<dt class="sig sig-object highlight cpp">
+<span class="k">static</span><span class="w">&nbsp;</span><a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result" title="tensorstore::Result (C++ class) — Result&lt;T&gt; implements a value-or-error concept providing a discriminated union of a usable value, T, or an absl::Status error describing why the value is not present. Result&lt;void&gt; is permitted, which becomes a wrapper for absl::Status, and which enables use of Result&lt;T&gt; in a wide variety of template contexts."><span class="n">Result</span></a><span class="p">&lt;</span><a class="desctype reference internal" href="#" title="tensorstore::Spec (C++ class) — Specifies the parameters necessary to open or create a TensorStore."><span class="n">Spec</span></a><span class="p">&gt;</span><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.Spec.FromUrl.html"><span class="doc"><span class="pre">FromUrl</span></span></a><span class="p">(</span><span><span class="n">std</span><span class="p">::</span><a class="desctype reference external" href="https://en.cppreference.com/w/cpp/string/basic_string_view" title="std::string_view (C++17 standard type alias)"><span class="n">string_view</span></a><span class="w">&nbsp;</span><a class="n sig-param reference internal" href="tensorstore.Spec.FromUrl.html#_CPPv4c:&#64;N&#64;tensorstore&#64;S&#64;Spec&#64;F&#64;FromUrl#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;basic_string_view&gt;#C#$&#64;N&#64;std&#64;N&#64;__1&#64;S&#64;char_traits&gt;#C#S" title="tensorstore::Spec::FromUrl::url (C++ function parameter)"><span class="n sig-param">url</span></a></span><span class="p">)</span><span class="p">;</span></dt>
+<dd><p>Parses a <code class="cpp-expr sig sig-inline cpp highlight"><a class="desctype reference internal" href="#" title="tensorstore::Spec (C++ class) — Specifies the parameters necessary to open or create a TensorStore."><span class="n">Spec</span></a></code> from its URL representation.</p>
+</dd></dl>
+
+<dl class="cpp function summary objdesc">
+<dt class="sig sig-object highlight cpp">
+<a class="desctype reference internal" href="tensorstore.Result.html#c:&#64;N&#64;tensorstore&#64;ST&gt;1#T&#64;Result" title="tensorstore::Result (C++ class) — Result&lt;T&gt; implements a value-or-error concept providing a discriminated union of a usable value, T, or an absl::Status error describing why the value is not present. Result&lt;void&gt; is permitted, which becomes a wrapper for absl::Status, and which enables use of Result&lt;T&gt; in a wide variety of template contexts."><span class="n">Result</span></a><span class="p">&lt;</span><span class="n">std</span><span class="p">::</span><a class="desctype reference external" href="https://en.cppreference.com/w/cpp/string/basic_string" title="std::string (C++ standard type alias)"><span class="n">string</span></a><span class="p">&gt;</span><span class="w">&nbsp;</span><a class="sig-name descname reference internal" href="tensorstore.Spec.ToUrl.html"><span class="doc"><span class="pre">ToUrl</span></span></a><span class="p">(</span><span class="p">)</span><span class="w">&nbsp;</span><span class="k">const</span><span class="p">;</span></dt>
+<dd><p>Returns the URL representation of this spec, if supported.</p>
 </dd></dl>
 
 <div class="toctree-wrapper compound">

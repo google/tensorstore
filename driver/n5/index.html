@@ -974,6 +974,26 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#json-TensorStoreUrl/n5" class="md-nav__link">
+    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="TensorStoreUrl/n5 (JSON type) — n5: TensorStore URL scheme" class="md-ellipsis">Tensor<wbr>Store<wbr>Url/n5</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="TensorStoreUrl/n5">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#extends-json-TensorStoreUrl/n5" class="md-nav__link">
+    <span class="md-ellipsis">Extends</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#compression" class="md-nav__link">
     <span class="md-ellipsis">Compression</span>
   </a>
@@ -1868,6 +1888,26 @@
         
       </ul>
     </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#json-TensorStoreUrl/n5" class="md-nav__link">
+    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="TensorStoreUrl/n5 (JSON type) — n5: TensorStore URL scheme" class="md-ellipsis">Tensor<wbr>Store<wbr>Url/n5</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="TensorStoreUrl/n5">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#extends-json-TensorStoreUrl/n5" class="md-nav__link">
+    <span class="md-ellipsis">Extends</span>
+  </a>
   
 </li>
         
@@ -2786,6 +2826,56 @@ unspecified.</p>
 </dl>
 </dd></dl>
 
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-TensorStoreUrl/n5">
+<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">TensorStoreUrl/n5</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><a class="headerlink" href="#json-TensorStoreUrl/n5" title="Link to this definition">¶</a></dt>
+<dd><span><p><code class="docutils literal notranslate"><span class="pre">n5:</span></code> TensorStore URL scheme</p>
+  </span><p>N5 arrays may be specified using the <code class="file docutils literal notranslate"><span class="pre">n5:</span><em><span class="pre">path</span></em></code>
+URL syntax.</p>
+<p>The <code class="file docutils literal notranslate"><em><span class="pre">path</span></em></code>, if any, specified within the
+<code class="file docutils literal notranslate"><span class="pre">n5:</span><em><span class="pre">path</span></em></code> URL component is simply joined with the
+path specified by the base KvStore URL, but is intended to be
+used only for specifying the path to an array <em>within</em> an n5
+hierarchy.</p>
+<div class="example admonition">
+<p class="admonition-title">Examples</p>
+<table class="docutils data align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>URL representation</p></th>
+<th class="head"><p>JSON representation</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;file:///tmp/dataset.n5/|n5:&quot;</span></code></p></td>
+<td><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;n5&quot;</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">&quot;kvstore&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;file&quot;</span><span class="p">,</span>
+<span class="w">             </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/tmp/dataset.n5/&quot;</span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+</div>
+</td>
+</tr>
+<tr class="row-odd"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;file:///tmp/dataset.n5|n5:path/within/hierarchy&quot;</span></code></p></td>
+<td><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;n5&quot;</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">&quot;kvstore&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;file&quot;</span><span class="p">,</span>
+<span class="w">             </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/tmp/dataset.n5/path/within/hierarchy/&quot;</span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd" id="extends-json-TensorStoreUrl/n5">Extends<span class="colon">:</span><a class="headerlink" href="#extends-json-TensorStoreUrl/n5" title="Permalink to this headline">¶</a></dt>
+<dd class="field-odd noindent"><ul class="simple">
+<li><p><a class="reference internal" href="../../spec.html#json-TensorStoreUrl" title="TensorStoreUrl (JSON type) — URL representation of a TensorStore to open."><code class="xref json json-schema docutils literal notranslate"><span class="pre">TensorStoreUrl</span></code></a> — URL representation of a TensorStore to open.</p></li>
+</ul>
 </dd>
 </dl>
 </dd></dl>
