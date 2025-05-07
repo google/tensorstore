@@ -195,13 +195,18 @@ FileDescriptor OpenFileImpl(const std::wstring& wpath, OpenFlags flags) {
   LoggedTraceSpan tspan(__func__, detail_logging.Level(1));
   // Setup Win32 flags to somewhat mimic the POSIX flags.
   DWORD access = 0;
-  if ((flags & OpenFlags::OpenReadOnly) == OpenFlags::OpenReadOnly) {
-    access = GENERIC_READ;
-  } else if ((flags & OpenFlags::OpenWriteOnly) == OpenFlags::OpenWriteOnly) {
-    access = GENERIC_WRITE | DELETE;
-  } else if ((flags & OpenFlags::OpenReadWrite) == OpenFlags::OpenReadWrite) {
-    access = GENERIC_READ | GENERIC_WRITE | DELETE;
+  switch (flags & OpenFlags::ReadWriteMask) {
+    case OpenFlags::OpenReadOnly:
+      access = GENERIC_READ;
+      break;
+    case OpenFlags::OpenWriteOnly:
+      access = GENERIC_WRITE | DELETE;
+      break;
+    case OpenFlags::OpenReadWrite:
+      access = GENERIC_READ | GENERIC_WRITE | DELETE;
+      break;
   }
+
   if ((flags & OpenFlags::Create) == OpenFlags::Create) {
     access |= GENERIC_WRITE | DELETE;
   }

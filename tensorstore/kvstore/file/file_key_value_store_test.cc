@@ -89,7 +89,7 @@ TENSORSTORE_GLOBAL_INITIALIZER {
     params.test_name = test_name;
     params.get_store = [get_spec](auto callback) {
       ScopedTemporaryDirectory tempdir;
-      std::string root = tempdir.path() + "/root";
+      std::string root = tempdir.path() + "/root/";
       TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
                                        kvstore::Open(get_spec(root)).result());
 
@@ -398,7 +398,7 @@ TEST(FileKeyValueStoreTest, ListErrors) {
 
 TEST(FileKeyValueStoreTest, SpecRoundtrip) {
   ScopedTemporaryDirectory tempdir;
-  std::string root = tempdir.path() + "/root";
+  std::string root = tempdir.path() + "/root/";
   tensorstore::internal::KeyValueStoreSpecRoundtripOptions options;
   options.full_spec = {{"driver", "file"}, {"path", root}};
   options.url = "file://" + root;
@@ -407,7 +407,7 @@ TEST(FileKeyValueStoreTest, SpecRoundtrip) {
 
 TEST(FileKeyValueStoreTest, SpecRoundtripSync) {
   ScopedTemporaryDirectory tempdir;
-  std::string root = tempdir.path() + "/root";
+  std::string root = tempdir.path() + "/root/";
   tensorstore::internal::KeyValueStoreSpecRoundtripOptions options;
   options.full_spec = {
       {"driver", "file"},
@@ -427,7 +427,7 @@ TEST(FileKeyValueStoreTest, SpecRoundtripSync) {
 
 TEST(FileKeyValueStoreTest, InvalidSpec) {
   ScopedTemporaryDirectory tempdir;
-  std::string root = tempdir.path() + "/root";
+  std::string root = tempdir.path() + "/root/";
   auto context = tensorstore::Context::Default();
 
   // Test with extra key.
@@ -496,7 +496,7 @@ TEST(FileKeyValueStoreTest, BatchRead) {
 // TODO: Make this test reasonable for mmap cases.
 TEST(FileKeyValueStoreTest, BatchReadMemmap) {
   ScopedTemporaryDirectory tempdir;
-  std::string root = tempdir.path() + "/root";
+  std::string root = tempdir.path() + "/root/";
   auto store = kvstore::Open({
                                  {"driver", "file"},
                                  {"path", root + "/"},
@@ -511,5 +511,27 @@ TEST(FileKeyValueStoreTest, BatchReadMemmap) {
   tensorstore::internal::TestBatchReadGenericCoalescing(store, options);
 }
 #endif
+
+TEST(FileKeyValueStoreTest, DirectoryInPath) {
+  ScopedTemporaryDirectory tempdir;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      kvstore::Open({{"driver", "file"}, {"path", tempdir.path() + "/"}})
+          .result());
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "a/b", absl::Cord("")).result());
+#ifndef _WIN32
+  EXPECT_THAT(kvstore::Read(store, "a").result(),
+              MatchesKvsReadResultNotFound());
+#else
+  // On Windows, attempting to open a directory as a file results in
+  // `ERROR_ACCESS_DENIED`.  This can't unambiguously be converted to
+  // `absl::StatusCode::kNotFound`. Instead it is generically translated to
+  // `absl::StatusCode::kPermissionDenied`.
+  EXPECT_THAT(kvstore::Read(store, "a").result(),
+              MatchesStatus(absl::StatusCode::kPermissionDenied));
+#endif
+  EXPECT_THAT(kvstore::Read(store, "a/b/c").result(),
+              MatchesKvsReadResultNotFound());
+}
 
 }  // namespace

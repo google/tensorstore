@@ -390,7 +390,7 @@ Result<UniqueFileDescriptor> OpenValueFile(const std::string& path,
                                            int64_t* size = nullptr) {
   auto fd = internal_os::OpenFileWrapper(path, OpenFlags::DefaultRead);
   if (!fd.ok()) {
-    // Map not found to an empty file.
+    // Map not found to a missing value.
     if (absl::IsNotFound(fd.status())) {
       *generation = StorageGeneration::NoValue();
       return UniqueFileDescriptor{};
@@ -400,8 +400,8 @@ Result<UniqueFileDescriptor> OpenValueFile(const std::string& path,
   FileInfo info;
   TENSORSTORE_RETURN_IF_ERROR(internal_os::GetFileInfo(fd->get(), &info));
   if (!internal_os::IsRegularFile(info)) {
-    return absl::FailedPreconditionError(
-        absl::StrCat("Not a regular file: ", QuoteString(path)));
+    *generation = StorageGeneration::NoValue();
+    return UniqueFileDescriptor{};
   }
   if (size) *size = internal_os::GetSize(info);
   *generation = GetFileGeneration(info);

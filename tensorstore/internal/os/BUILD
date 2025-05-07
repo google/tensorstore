@@ -21,7 +21,7 @@ tensorstore_cc_library(
 
 tensorstore_cc_library(
     name = "error_code",
-    srcs = select({
+    srcs = ["error_code.cc"] + select({
         "@platforms//os:windows": ["error_code_win.cc"],
         "//conditions:default": ["error_code_posix.cc"],
     }),

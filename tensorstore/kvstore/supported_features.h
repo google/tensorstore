@@ -20,6 +20,10 @@
 namespace tensorstore {
 namespace kvstore {
 
+// Specifies supported features of a key range within a key-value
+// store.
+//
+// Must always be positive capabilities.
 enum class SupportedFeatures : uint64_t {
   kNone = 0,
 

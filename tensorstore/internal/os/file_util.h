@@ -120,6 +120,7 @@ enum class OpenFlags : int {
   Append = O_APPEND,
   Exclusive = O_EXCL,
   CloseOnExec = O_CLOEXEC,
+  ReadWriteMask = O_RDONLY | O_WRONLY | O_RDWR,
 
   DefaultRead = O_RDONLY | O_CLOEXEC,
   DefaultWrite = O_CREAT | O_WRONLY | O_CLOEXEC,
