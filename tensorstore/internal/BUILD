@@ -278,6 +278,20 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
+    name = "driver_kind_registry",
+    srcs = ["driver_kind_registry.cc"],
+    hdrs = ["driver_kind_registry.h"],
+    deps = [
+        "//tensorstore/util:span",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/base:no_destructor",
+        "@abseil-cpp//absl/container:flat_hash_map",
+        "@abseil-cpp//absl/log:absl_log",
+        "@abseil-cpp//absl/synchronization",
+    ],
+)
+
+tensorstore_cc_library(
     name = "element_copy_function",
     hdrs = ["element_copy_function.h"],
     deps = [

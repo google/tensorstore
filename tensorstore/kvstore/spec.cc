@@ -21,6 +21,7 @@
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
+#include "tensorstore/internal/driver_kind_registry.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
@@ -30,8 +31,10 @@
 #include "tensorstore/serialization/registry.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/garbage_collection/garbage_collection.h"
+#include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
 
 using ::tensorstore::internal::IntrusivePtr;
 
@@ -94,7 +97,19 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(Spec, [](auto is_loading,
   namespace jb = tensorstore::internal_json_binding;
   auto& registry = internal_kvstore::GetDriverRegistry();
   return jb::NestedContextJsonBinder(jb::Object(
-      jb::Member("driver", jb::Projection<&Spec::driver>(registry.KeyBinder())),
+      jb::Member("driver",
+                 jb::Projection<&Spec::driver>(
+                     registry.KeyBinder([](std::string_view unregistered_id) {
+                       auto kind = internal::GetDriverKind(unregistered_id);
+                       if (kind) {
+                         return absl::InvalidArgumentError(tensorstore::StrCat(
+                             tensorstore::QuoteString(unregistered_id),
+                             " is a ", *kind, " driver, not a KvStore driver"));
+                       }
+                       return absl::InvalidArgumentError(tensorstore::StrCat(
+                           tensorstore::QuoteString(unregistered_id),
+                           " is not a registered KvStore driver"));
+                     }))),
       jb::Initialize([](Spec* p) {
         const_cast<DriverSpec&>(*p->driver).context_binding_state_ =
             ContextBindingState::unbound;

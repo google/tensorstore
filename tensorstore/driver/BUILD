@@ -138,6 +138,7 @@ tensorstore_cc_library(
         "//tensorstore/index_space:transform_broadcastable_array",
         "//tensorstore/index_space:transformed_array",
         "//tensorstore/internal:context_binding",
+        "//tensorstore/internal:driver_kind_registry",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:json_registry",
         "//tensorstore/internal:lock_collection",
