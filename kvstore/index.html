@@ -1202,15 +1202,8 @@ should end with <code class="code highlight json docutils literal highlight-json
 <dt class="sig sig-object highlight json" id="json-KvStoreUrl">
 <em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">KvStoreUrl</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><a class="headerlink" href="#json-KvStoreUrl" title="Link to this definition">¶</a></dt>
 <dd><span><p>URL representation of a key-value store.</p>
-  </span><p>In addition to the <a class="reference internal" href="#json-KvStore" title="KvStore (JSON type) — Key-value store specification."><code class="xref json json-schema docutils literal notranslate"><span class="pre">JSON</span> <span class="pre">object</span></code></a> representation, a
-key-value store may be specified more concisely by a <em>URL
-pipeline</em> consisting of one or more <code class="docutils literal notranslate"><span class="pre">|</span></code>-separated
-<em>components</em>.</p>
-<p>The first component specifies a root key-value store (such as
-<a class="reference internal" href="file/index.html#file-kvstore-driver"><span class="std std-ref">file</span></a>) that directly accesses
-storage.  Subsequent components, if any, must be key-value store
-adapters such as <a class="reference internal" href="zip/index.html#zip-kvstore-driver"><span class="std std-ref">zip</span></a> or
-<a class="reference internal" href="ocdbt/index.html#ocdbt-kvstore-driver"><span class="std std-ref">ocdbt</span></a>.</p>
+  </span><p>In addition to the <a class="reference internal" href="#json-KvStore" title="KvStore (JSON type) — Key-value store specification."><code class="xref json json-schema docutils literal notranslate"><span class="pre">JSON</span> <span class="pre">object</span></code></a> representation, a key-value
+store may be specified more concisely by a URL.</p>
 <div class="warning admonition">
 <p class="admonition-title">Warning</p>
 <p>The URL representation of a key-value store specification may exclude
@@ -1228,8 +1221,6 @@ certain parameters, such as concurrency limits.</p>
 <li><p><a class="reference internal" href="memory/index.html#json-KvStoreUrl/memory" title="KvStoreUrl/memory (JSON type) — memory:// KvStore URL scheme"><code class="xref json json-schema docutils literal notranslate"><span class="pre">KvStoreUrl/memory</span></code></a> — <code class="docutils literal notranslate"><span class="pre">memory://</span></code> KvStore URL scheme
 </p></li>
 <li><p><a class="reference internal" href="s3/index.html#json-KvStoreUrl/s3" title="KvStoreUrl/s3 (JSON type) — s3:// KvStore URL scheme"><code class="xref json json-schema docutils literal notranslate"><span class="pre">KvStoreUrl/s3</span></code></a> — <code class="docutils literal notranslate"><span class="pre">s3://</span></code> KvStore URL scheme</p></li>
-<li><p><a class="reference internal" href="zip/index.html#json-KvStoreUrl/zip" title="KvStoreUrl/zip (JSON type) — zip: KvStore URL scheme"><code class="xref json json-schema docutils literal notranslate"><span class="pre">KvStoreUrl/zip</span></code></a> — <code class="docutils literal notranslate"><span class="pre">zip:</span></code> KvStore URL scheme
-</p></li>
 </ul>
 </dd>
 </dl>

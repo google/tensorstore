@@ -861,26 +861,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#json-KvStoreUrl/zip" class="md-nav__link">
-    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="KvStoreUrl/zip (JSON type) — zip: KvStore URL scheme" class="md-ellipsis">Kv<wbr>Store<wbr>Url/zip</span>
-  </a>
-  
-    <nav class="md-nav" aria-label="KvStoreUrl/zip">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#extends-json-KvStoreUrl/zip" class="md-nav__link">
-    <span class="md-ellipsis">Extends</span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#example-json-specifications" class="md-nav__link">
     <span class="md-ellipsis">Example JSON specifications</span>
   </a>
@@ -1040,26 +1020,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#json-KvStoreUrl/zip" class="md-nav__link">
-    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="KvStoreUrl/zip (JSON type) — zip: KvStore URL scheme" class="md-ellipsis">Kv<wbr>Store<wbr>Url/zip</span>
-  </a>
-  
-    <nav class="md-nav" aria-label="KvStoreUrl/zip">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#extends-json-KvStoreUrl/zip" class="md-nav__link">
-    <span class="md-ellipsis">Extends</span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#example-json-specifications" class="md-nav__link">
     <span class="md-ellipsis">Example JSON specifications</span>
   </a>
@@ -1151,55 +1111,6 @@ convenient to specify a default <a class="reference internal" href="../tsgrpc/in
 the <a class="reference internal" href="#json-kvstore/zip.context" title="kvstore/zip.context (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">context</span></code></a>.</p>
 </dd></dl>
 
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="json schema objdesc">
-<dt class="sig sig-object highlight json" id="json-KvStoreUrl/zip">
-<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">KvStoreUrl/zip</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><a class="headerlink" href="#json-KvStoreUrl/zip" title="Link to this definition">¶</a></dt>
-<dd><span><p><code class="docutils literal notranslate"><span class="pre">zip:</span></code> KvStore URL scheme</p>
-  </span><p>Zip key-value store adapters may be specified using the
-<code class="file docutils literal notranslate"><span class="pre">zip:</span><em><span class="pre">path</span></em></code> URL syntax.</p>
-<div class="example admonition">
-<p class="admonition-title">Examples</p>
-<table class="docutils data align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>URL representation</p></th>
-<th class="head"><p>JSON representation</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;file:///tmp/archive.zip|zip:path/within/archive&quot;</span></code></p></td>
-<td><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;zip&quot;</span><span class="p">,</span>
-<span class="w"> </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path/within/archive&quot;</span><span class="p">,</span>
-<span class="w"> </span><span class="nt">&quot;base&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;file&quot;</span><span class="p">,</span>
-<span class="w">          </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/tmp/archive.zip&quot;</span><span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
-</div>
-</td>
-</tr>
-<tr class="row-odd"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;file:///tmp/archive.zip|zip:nested.zip|zip:path/within/inner_zip&quot;</span></code></p></td>
-<td><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;zip&quot;</span><span class="p">,</span>
-<span class="w"> </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path/within/inner_zip&quot;</span><span class="p">,</span>
-<span class="w"> </span><span class="nt">&quot;base&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;zip&quot;</span><span class="p">,</span>
-<span class="w">          </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;nested.zip&quot;</span><span class="p">,</span>
-<span class="w">          </span><span class="nt">&quot;base&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;file&quot;</span><span class="p">,</span>
-<span class="w">                   </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/tmp/archive.zip&quot;</span><span class="p">}}</span>
-<span class="p">}</span>
-</code></pre></div>
-</div>
-</td>
-</tr>
-</tbody>
-</table>
-</div>
-<dl class="field-list simple">
-<dt class="field-odd" id="extends-json-KvStoreUrl/zip">Extends<span class="colon">:</span><a class="headerlink" href="#extends-json-KvStoreUrl/zip" title="Permalink to this headline">¶</a></dt>
-<dd class="field-odd noindent"><ul class="simple">
-<li><p><a class="reference internal" href="../index.html#json-KvStoreUrl" title="KvStoreUrl (JSON type) — URL representation of a key-value store."><code class="xref json json-schema docutils literal notranslate"><span class="pre">KvStoreUrl</span></code></a> — URL representation of a key-value store.</p></li>
-</ul>
 </dd>
 </dl>
 </dd></dl>
