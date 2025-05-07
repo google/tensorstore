@@ -20,6 +20,7 @@
 #include "absl/status/status.h"
 #include "tensorstore/batch.h"
 #include "tensorstore/context.h"
+#include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/schema.h"
@@ -69,12 +70,7 @@ struct SpecOptions : public Schema {
     return absl::OkStatus();
   }
 
-  absl::Status Set(kvstore::Spec value) {
-    if (value.valid()) {
-      kvstore = std::move(value);
-    }
-    return absl::OkStatus();
-  }
+  absl::Status Set(kvstore::Spec value);
 };
 
 // While C++17 allows these explicit specialization to be defined at class
@@ -135,10 +131,7 @@ struct SpecConvertOptions : public SpecRequestOptions {
 
   // Additionally supports `Context`.
 
-  absl::Status Set(Context value) {
-    context = std::move(value);
-    return absl::OkStatus();
-  }
+  absl::Status Set(Context value);
 };
 
 template <>
@@ -188,6 +181,9 @@ constexpr inline bool OpenOptions::IsOption<kvstore::Spec> = true;
 
 /// Options for opening a `Spec` with optional transaction and optional batch.
 ///
+/// Allows the key-value store to be specified as either a `kvstore::Spec` or an
+/// already-open `KvStore`.
+///
 /// \relates Spec
 struct TransactionalOpenOptions : public OpenOptions {
   Transaction transaction{no_transaction};
@@ -199,16 +195,16 @@ struct TransactionalOpenOptions : public OpenOptions {
   using OpenOptions::Set;
 
   // Additionally supports `Transaction`.
-  absl::Status Set(Transaction value) {
-    transaction = std::move(value);
-    return absl::OkStatus();
-  }
+  absl::Status Set(Transaction value);
 
   // Additionally supports `Batch`.
   absl::Status Set(Batch value) {
     batch = std::move(value);
     return absl::OkStatus();
   }
+
+  // Additionally supports already-open `KvStore`.
+  absl::Status Set(KvStore value);
 };
 
 template <>
@@ -219,6 +215,9 @@ constexpr inline bool TransactionalOpenOptions::IsOption<Batch> = true;
 
 template <>
 constexpr inline bool TransactionalOpenOptions::IsOption<Batch::View> = true;
+
+template <>
+constexpr inline bool TransactionalOpenOptions::IsOption<KvStore> = true;
 
 }  // namespace tensorstore
 

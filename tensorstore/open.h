@@ -40,28 +40,29 @@ namespace tensorstore {
 ///
 /// Supported option types include:
 ///
-/// - Context: Shared resource context to use.  Defaults to
+/// - `Context`: Shared resource context to use.  Defaults to
 ///   `Context::Default()`.
 ///
-/// - Transaction: Transaction to use for opening.  Defaults to
+/// - `Transaction`: Transaction to use for opening.  Defaults to
 ///   `no_transaction`.
 ///
-/// - Batch: Batch to use for read operations performed when opening.  Defaults
-///   to no/implicit batching.
+/// - `Batch`: Batch to use for read operations performed when
+///   opening.  Defaults to no/implicit batching.
 ///
-/// - ReadWriteMode: specifies whether reading and/or writing is supported.
-///   Defaults to `Mode`.  Specifying multiple modes as separate options is
-///   equivalent to ORing them together.
+/// - `ReadWriteMode`: specifies whether reading and/or writing is
+///   supported.  Defaults to `Mode`.  Specifying multiple modes as
+///   separate options is equivalent to ORing them together.
 ///
-/// - OpenMode: specifies the open mode (overriding any open mode set on
-///   `spec`).  Specifying multiple modes as separate options is equivalent to
-///   ORing them together.
+/// - `OpenMode`: specifies the open mode (overriding any open mode
+///   set on `spec`).  Specifying multiple modes as separate options
+///   is equivalent to ORing them together.
 ///
-/// - RecheckCached, RecheckCachedData, RecheckCachedMetadata: specifies cache
-///   staleness bounds, overriding the corresponding bound or default from
-///   `spec`.
+/// - `RecheckCached`, `RecheckCachedData`, `RecheckCachedMetadata`:
+///   specifies cache staleness bounds, overriding the corresponding
+///   bound or default from `spec`.
 ///
-/// - kvstore::Spec: specifies the underlying storage, if applicable.
+/// - `kvstore::Spec` or `KvStore`: specifies the underlying storage, if
+///   applicable.
 ///
 /// For option types other than `ReadWriteMode` and `OpenMode` (for which
 /// multiple modes are ORed together), if the same option type is specified more

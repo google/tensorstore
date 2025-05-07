@@ -135,6 +135,26 @@ Batch to use for reading any metadata required for opening.
   }
 };
 
+struct SetKvstore {
+  using type = std::variant<PythonKvStoreSpecObject*, PythonKvStoreObject*>;
+  static constexpr const char* name = "kvstore";
+  static constexpr const char* doc = R"(
+
+Sets the associated key-value store used as the underlying storage.
+
+If the :py:obj:`~tensorstore.Spec.kvstore` has already been set, it is
+overridden.
+
+It is an error to specify this if the TensorStore driver does not use a
+key-value store.
+
+)";
+  template <typename Self>
+  static absl::Status Apply(Self& self, type value) {
+    return std::visit([&](auto* p) { return self.Set(p->value); }, value);
+  }
+};
+
 }  // namespace open_setters
 
 namespace write_setters {

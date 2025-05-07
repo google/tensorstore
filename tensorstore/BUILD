@@ -588,6 +588,7 @@ tensorstore_cc_test(
 
 tensorstore_cc_library(
     name = "open_options",
+    srcs = ["open_options.cc"],
     hdrs = ["open_options.h"],
     deps = [
         ":batch",
