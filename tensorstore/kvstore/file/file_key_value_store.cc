@@ -260,7 +260,7 @@ class FileKeyValueStoreSpec
   Future<kvstore::DriverPtr> DoOpen() const override;
 
   Result<std::string> ToUrl(std::string_view path) const override {
-    return absl::StrCat(id, "://", internal::PercentEncodeUriPath(path));
+    return absl::StrCat(id, "://", internal::PercentEncodeKvStoreUriPath(path));
   }
 };
 

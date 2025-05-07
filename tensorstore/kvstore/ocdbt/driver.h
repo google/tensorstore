@@ -118,6 +118,8 @@ class OcdbtDriverSpec
   absl::Status ApplyOptions(kvstore::DriverSpecOptions&& options) override;
 
   Result<kvstore::Spec> GetBase(std::string_view path) const override;
+
+  Result<std::string> ToUrl(std::string_view path) const override;
 };
 
 class OcdbtDriver

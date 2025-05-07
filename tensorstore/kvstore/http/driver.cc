@@ -188,7 +188,7 @@ struct HttpKeyValueStoreSpecData {
     auto parsed = internal::ParseGenericUri(base_url);
     return tensorstore::StrCat(parsed.scheme, "://", parsed.authority_and_path,
                                absl::StartsWith(path, "/") ? "" : "/",
-                               internal::PercentEncodeUriPath(path),
+                               internal::PercentEncodeKvStoreUriPath(path),
                                parsed.query.empty() ? "" : "?", parsed.query);
   }
 };

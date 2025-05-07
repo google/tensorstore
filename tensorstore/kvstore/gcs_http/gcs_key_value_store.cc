@@ -299,7 +299,7 @@ struct GcsKeyValueStoreSpecData {
 
 std::string GetGcsUrl(std::string_view bucket, std::string_view path) {
   return absl::StrCat(kUriScheme, "://", bucket, "/",
-                      internal::PercentEncodeUriPath(path));
+                      internal::PercentEncodeKvStoreUriPath(path));
 }
 
 class GcsKeyValueStoreSpec

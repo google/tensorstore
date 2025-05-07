@@ -19,6 +19,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <cassert>
 #include <cstring>
 #include <optional>
 #include <string>
@@ -27,6 +28,7 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
+#include "absl/strings/str_cat.h"
 #include "absl/time/time.h"
 #include "tensorstore/context.h"
 #include "tensorstore/context_resource_provider.h"
@@ -38,6 +40,7 @@
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/ref_counted_string.h"
+#include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/common_metrics.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
@@ -61,12 +64,14 @@
 #include "tensorstore/kvstore/registry.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/supported_features.h"
+#include "tensorstore/kvstore/url_registry.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 // specializations
@@ -145,6 +150,8 @@ constexpr auto VersionSpecJsonBinder = [](auto is_loading, const auto& options,
   }
 };
 
+constexpr std::string_view kDefaultDataPrefix = "d/";
+
 }  // namespace
 
 TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
@@ -165,13 +172,19 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
         jb::Projection<&OcdbtDriverSpecData::data_file_prefixes>(jb::Sequence(
             jb::Member("value_data_prefix",
                        jb::Projection<&DataFilePrefixes::value>(
-                           jb::DefaultValue([](auto* v) { *v = "d/"; }))),
+                           jb::DefaultValue([](auto* v) {
+                             *v = kDefaultDataPrefix;
+                           }))),
             jb::Member("btree_node_data_prefix",
                        jb::Projection<&DataFilePrefixes::btree_node>(
-                           jb::DefaultValue([](auto* v) { *v = "d/"; }))),
+                           jb::DefaultValue([](auto* v) {
+                             *v = kDefaultDataPrefix;
+                           }))),
             jb::Member("version_tree_node_data_prefix",
                        jb::Projection<&DataFilePrefixes::version_tree_node>(
-                           jb::DefaultValue([](auto* v) { *v = "d/"; }))))),
+                           jb::DefaultValue([](auto* v) {
+                             *v = kDefaultDataPrefix;
+                           }))))),
         jb::Member("assume_config",
                    jb::Projection<&OcdbtDriverSpecData::assume_config>(
                        jb::DefaultInitializedValue())),
@@ -203,6 +216,22 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
 
 Result<kvstore::Spec> OcdbtDriverSpec::GetBase(std::string_view path) const {
   return data_.base;
+}
+
+Result<std::string> OcdbtDriverSpec::ToUrl(std::string_view path) const {
+  if (data_.manifest) {
+    return absl::InvalidArgumentError(
+        "OCDBT URL syntax not supported with separate manifest kvstore");
+  }
+  TENSORSTORE_ASSIGN_OR_RETURN(auto base_url,
+                               data_.base.driver->ToUrl(data_.base.path));
+  std::string version_string;
+  if (data_.version_spec) {
+    version_string = FormatVersionSpecForUrl(*data_.version_spec);
+  }
+  return absl::StrCat(base_url, "|", id, ":", version_string.empty() ? "" : "@",
+                      version_string, version_string.empty() ? "" : "/",
+                      internal::PercentEncodeKvStoreUriPath(path));
 }
 
 Future<kvstore::DriverPtr> OcdbtDriverSpec::DoOpen() const {
@@ -515,6 +544,40 @@ Future<kvstore::ReadResult> OcdbtDriver::TransactionalRead(
       this, *io_handle_, transaction, std::move(key), std::move(options));
 }
 
+namespace {
+Result<kvstore::Spec> ParseOcdbtUrl(std::string_view url, kvstore::Spec base) {
+  auto parsed = internal::ParseGenericUriWithoutSlashSlash(url);
+  assert(parsed.scheme == OcdbtDriverSpec::id);
+  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
+  std::string_view encoded_path = parsed.authority_and_path;
+  std::optional<VersionSpec> version_spec;
+  if (!encoded_path.empty() && encoded_path[0] == '@') {
+    size_t version_end = encoded_path.find('/');
+    std::string_view version_string = encoded_path.substr(1, version_end - 1);
+    TENSORSTORE_ASSIGN_OR_RETURN(version_spec,
+                                 ParseVersionSpecFromUrl(version_string));
+    encoded_path = (version_end == std::string_view::npos)
+                       ? std::string_view{}
+                       : encoded_path.substr(version_end + 1);
+  }
+  std::string path = internal::PercentDecode(encoded_path);
+  auto driver_spec = internal::MakeIntrusivePtr<OcdbtDriverSpec>();
+  internal::EnsureDirectoryPath(base.path);
+  driver_spec->data_.base = std::move(base);
+  driver_spec->data_.cache_pool =
+      Context::Resource<internal::CachePoolResource>::DefaultSpec();
+  driver_spec->data_.data_copy_concurrency =
+      Context::Resource<internal::DataCopyConcurrencyResource>::DefaultSpec();
+  driver_spec->data_.coordinator =
+      Context::Resource<OcdbtCoordinatorResource>::DefaultSpec();
+  driver_spec->data_.version_spec = version_spec;
+  driver_spec->data_.data_file_prefixes.value = kDefaultDataPrefix;
+  driver_spec->data_.data_file_prefixes.btree_node = kDefaultDataPrefix;
+  driver_spec->data_.data_file_prefixes.version_tree_node = kDefaultDataPrefix;
+  return {std::in_place, std::move(driver_spec), std::move(path)};
+}
+}  // namespace
+
 }  // namespace internal_ocdbt
 }  // namespace tensorstore
 
@@ -523,4 +586,9 @@ namespace {
 const tensorstore::internal_kvstore::DriverRegistration<
     tensorstore::internal_ocdbt::OcdbtDriverSpec>
     registration;
+
+const tensorstore::internal_kvstore::UrlSchemeRegistration
+    url_scheme_registration{tensorstore::internal_ocdbt::OcdbtDriverSpec::id,
+                            tensorstore::internal_ocdbt::ParseOcdbtUrl};
+
 }  // namespace

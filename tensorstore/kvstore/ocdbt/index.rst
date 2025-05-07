@@ -8,6 +8,8 @@ The ``ocdbt`` driver implements an Optionally-Cooperative Distributed B+Tree
 
 .. json:schema:: kvstore/ocdbt
 
+.. json:schema:: KvStoreUrl/ocdbt
+
 .. json:schema:: kvstore/ocdbt/Compression/zstd
 
 .. json:schema:: Context.ocdbt_coordinator

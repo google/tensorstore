@@ -27,6 +27,7 @@ using ::tensorstore::internal::AsciiSet;
 using ::tensorstore::internal::HostPort;
 using ::tensorstore::internal::ParseGenericUri;
 using ::tensorstore::internal::PercentDecode;
+using ::tensorstore::internal::PercentEncodeKvStoreUriPath;
 using ::tensorstore::internal::PercentEncodeReserved;
 using ::tensorstore::internal::PercentEncodeUriComponent;
 using ::tensorstore::internal::PercentEncodeUriPath;
@@ -94,6 +95,27 @@ TEST(PercentEncodeUriPathTest, Percent) {
 
 TEST(PercentEncodeUriPathTest, NonAscii) {
   EXPECT_THAT(PercentEncodeUriPath("\xff"), ::testing::Eq("%FF"));
+}
+
+TEST(PercentEncodeKvStoreUriPathTest, NoOp) {
+  std::string_view s =
+      "abcdefghijklmnopqrstuvwxyz"
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      "0123456789"
+      "-_.!~*'():&=+$,;/";
+  EXPECT_THAT(PercentEncodeKvStoreUriPath(s), ::testing::Eq(s));
+}
+
+TEST(PercentEncodeKvStoreUriPathTest, Percent) {
+  EXPECT_THAT(PercentEncodeKvStoreUriPath("%"), ::testing::Eq("%25"));
+}
+
+TEST(PercentEncodeKvStoreUriPathTest, NonAscii) {
+  EXPECT_THAT(PercentEncodeKvStoreUriPath("\xff"), ::testing::Eq("%FF"));
+}
+
+TEST(PercentEncodeKvStoreUriPathTest, At) {
+  EXPECT_THAT(PercentEncodeKvStoreUriPath("@"), ::testing::Eq("%40"));
 }
 
 TEST(PercentEncodeUriComponentTest, NoOp) {

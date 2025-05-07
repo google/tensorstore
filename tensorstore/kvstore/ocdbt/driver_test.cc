@@ -473,6 +473,7 @@ TEST(OcdbtTest, SpecRoundtrip) {
       {"base", {{"driver", "memory"}}},
   };
   options.check_data_after_serialization = false;
+  options.url = "memory://|ocdbt:";
   tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
 }
 
@@ -503,6 +504,7 @@ TEST(OcdbtTest, SpecRoundtripFile) {
       {"driver", "ocdbt"},
       {"base", options.full_base_spec},
   };
+  options.url = "file://" + tempdir.path() + "/|ocdbt:";
   tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
 }
 
@@ -1065,6 +1067,71 @@ TEST(OcdbtTest, VersionedOpenReadOnly) {
         kvstore::DeleteRange((versioned_store | txn).value(), {}).result(),
         read_only_error_matcher);
   }
+}
+
+TEST(OcdbtTest, UrlRoundtrip) {
+  tensorstore::internal::TestKeyValueStoreUrlRoundtrip(
+      {{"driver", "ocdbt"},
+       {"base", {{"driver", "memory"}, {"path", "abc.ocdbt/"}}}},
+      "memory://abc.ocdbt/|ocdbt:");
+  tensorstore::internal::TestKeyValueStoreUrlRoundtrip(
+      {{"driver", "ocdbt"},
+       {"path", "xyz"},
+       {"base", {{"driver", "memory"}, {"path", "abc.ocdbt/"}}}},
+      "memory://abc.ocdbt/|ocdbt:xyz");
+  tensorstore::internal::TestKeyValueStoreUrlRoundtrip(
+      {{"driver", "ocdbt"},
+       {"path", "xy z"},
+       {"base", {{"driver", "memory"}, {"path", "abc.ocdbt/"}}}},
+      "memory://abc.ocdbt/|ocdbt:xy%20z");
+  tensorstore::internal::TestKeyValueStoreUrlRoundtrip(
+      {{"driver", "ocdbt"},
+       {"path", "@xyz"},
+       {"base", {{"driver", "memory"}, {"path", "abc.ocdbt/"}}}},
+      "memory://abc.ocdbt/|ocdbt:%40xyz");
+  tensorstore::internal::TestKeyValueStoreUrlRoundtrip(
+      {{"driver", "ocdbt"},
+       {"path", "xyz"},
+       {"base",
+        {{"driver", "ocdbt"},
+         {"path", "nested.ocdbt/"},
+         {"base", {{"driver", "memory"}, {"path", "abc.ocdbt/"}}}}}},
+      "memory://abc.ocdbt/|ocdbt:nested.ocdbt/|ocdbt:xyz");
+
+  // With versions
+  tensorstore::internal::TestKeyValueStoreUrlRoundtrip(
+      {{"driver", "ocdbt"},
+       {"version", 1},
+       {"base", {{"driver", "memory"}, {"path", "abc.ocdbt/"}}}},
+      "memory://abc.ocdbt/|ocdbt:@v1/");
+  tensorstore::internal::TestKeyValueStoreUrlRoundtrip(
+      {{"driver", "ocdbt"},
+       {"version", "2025-04-01T01:23:45Z"},
+       {"base", {{"driver", "memory"}, {"path", "abc.ocdbt/"}}}},
+      "memory://abc.ocdbt/|ocdbt:@2025-04-01T01:23:45Z/");
+}
+
+TEST(OcdbtTest, NormalizeUrl) {
+  tensorstore::internal::TestKeyValueStoreSpecRoundtripNormalize(
+      "memory://abc.ocdbt|ocdbt",
+      {{"driver", "ocdbt"},
+       {"base", {{"driver", "memory"}, {"path", "abc.ocdbt/"}}}});
+  tensorstore::internal::TestKeyValueStoreSpecRoundtripNormalize(
+      "memory://abc.ocdbt|ocdbt:@2025-04-01T01:23:45Z",
+      {{"driver", "ocdbt"},
+       {"version", "2025-04-01T01:23:45Z"},
+       {"base", {{"driver", "memory"}, {"path", "abc.ocdbt/"}}}});
+}
+
+TEST(OcdbtTest, UrlErrors) {
+  EXPECT_THAT(
+      kvstore::Spec::FromJson("memory://abc.ocdbt/|ocdbt:@v"),
+      MatchesStatus(
+          absl::StatusCode::kInvalidArgument,
+          ".*: Invalid OCDBT version: \"v\": Invalid generation number"));
+  EXPECT_THAT(kvstore::Spec::FromJson("memory://abc.ocdbt/|ocdbt:@x"),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            ".*: Invalid OCDBT commit time \"x\": .*"));
 }
 
 }  // namespace

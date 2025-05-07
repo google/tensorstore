@@ -179,3 +179,50 @@ definitions:
         title: |
           Duration of lease to request from coordinator for B+tree key ranges.
         default: "10s"
+  url:
+    $id: KvStoreUrl/ocdbt
+    type: string
+    allOf:
+      - $ref: KvStoreUrl
+      - type: string
+    title: |
+      :literal:`ocdbt:` KvStore URL scheme
+    description: |
+      OCDBT key-value store adapters may be specified using the
+      :file:`ocdbt:{path}` or :file:`ocdbt:@{version}/{path}` URL syntax.
+
+      .. admonition:: Examples
+         :class: example
+
+         .. list-table::
+            :header-rows: 1
+            :widths: auto
+
+            * - URL representation
+              - JSON representation
+            * - ``"file:///tmp/db.ocdbt/|ocdbt:path/within/database"``
+              - .. code-block:: json
+
+                   {"driver": "ocdbt",
+                    "path": "path/within/database",
+                    "base": {"driver": "file",
+                             "path": "/tmp/db.ocdbt/"}
+                   }
+            * - ``"file:///tmp/db.ocdbt/|ocdbt:@v1/path/within/database"``
+              - .. code-block:: json
+
+                   {"driver": "ocdbt",
+                    "path": "path/within/database",
+                    "version": 1,
+                    "base": {"driver": "file",
+                             "path": "/tmp/db.ocdbt/"}
+                   }
+            * - ``"file:///tmp/db.ocdbt/|ocdbt:@2025-01-01T01:23:45.678Z/path/within/database"``
+              - .. code-block:: json
+
+                   {"driver": "ocdbt",
+                    "path": "path/within/database",
+                    "version": "2025-01-01T01:23:45.678Z",
+                    "base": {"driver": "file",
+                             "path": "/tmp/db.ocdbt/"}
+                   }
