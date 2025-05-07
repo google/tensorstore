@@ -27,6 +27,7 @@
 #include "tensorstore/internal/testing/json_gtest.h"  // IWYU pragma: keep
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/util/status_testutil.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -57,14 +58,22 @@ Registry& GetRegistry() {
   return *registry;
 }
 
+namespace jb = tensorstore::internal_json_binding;
+
 TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(MyInterfacePtr, [](auto is_loading,
                                                           const auto& options,
                                                           auto* obj,
                                                           ::nlohmann::json* j) {
-  namespace jb = tensorstore::internal_json_binding;
   return jb::Object(GetRegistry().MemberBinder("id"))(is_loading, options, obj,
                                                       j);
 })
+
+auto GetBinderWithCustomError() {
+  return jb::Object(GetRegistry().MemberBinder("id", [](std::string_view id) {
+    return absl::InvalidArgumentError(
+        tensorstore::StrCat("custom error: ", id));
+  }));
+}
 
 class FooImpl : public MyInterface {
  public:
@@ -128,6 +137,14 @@ TEST(RegistryTest, Unknown) {
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Error parsing object member \"id\": "
                             "\"baz\" is not registered"));
+}
+
+TEST(RegistryTest, UnknownCustomError) {
+  EXPECT_THAT(jb::FromJson<MyInterfacePtr>({{"id", "baz"}, {"y", 42.5}},
+                                           GetBinderWithCustomError()),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Error parsing object member \"id\": "
+                            "custom error: baz"));
 }
 
 }  // namespace

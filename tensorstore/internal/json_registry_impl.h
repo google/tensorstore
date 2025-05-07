@@ -25,6 +25,7 @@
 #include <typeinfo>
 
 #include "absl/base/thread_annotations.h"
+#include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/container/heterogeneous_container.h"
@@ -97,7 +98,12 @@ class JsonRegistryImpl {
   /// \param obj Non-null pointer to `BasePtr`.
   /// \param j Non-null JSON object assumed to specify the string object
   ///     identifier.
-  absl::Status LoadKey(void* obj, ::nlohmann::json* j) const;
+  /// \param handle_unregistered Function to generate the error if the
+  ///     identifier is not registered.
+  absl::Status LoadKey(
+      void* obj, ::nlohmann::json* j,
+      absl::FunctionRef<absl::Status(std::string_view unregistered_key)>
+          handle_unregistered) const;
 
   /// Converts a `BasePtr` to a JSON representation of the object identifier.
   ///
