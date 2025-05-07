@@ -426,7 +426,7 @@ TEST(GcsKeyValueStoreTest, SpecRoundtrip) {
 
   tensorstore::internal::KeyValueStoreSpecRoundtripOptions options;
   options.full_spec = {{"driver", kDriver}, {"bucket", "my-bucket"}};
-
+  options.url = "gs://my-bucket/";
   tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
 }
 

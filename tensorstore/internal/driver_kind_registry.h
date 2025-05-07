@@ -54,6 +54,53 @@ void RegisterDriverKind(std::string_view id, DriverKind kind,
 // registered.
 std::optional<DriverKind> GetDriverKind(std::string_view id);
 
+// Indicates the kind of a registered URL scheme in the tensorstore library.
+//
+// The kvstore URL scheme handlers are registered in
+// tensorstore/kvstore/registry.h and the TensorStore URL scheme
+// handlers are registered in tensorstore/driver/registry.h.
+enum class UrlSchemeKind {
+  // KvStore driver that directly accesses storage, e.g. "file"
+  //
+  // This must be first in a URL pipeline.
+  kKvStoreRoot,
+  // KvStore driver that adapts a base kvstore, e.g. "zip" or "ocdbt".
+  //
+  // This must immediately follow a `kKvStoreBase` component in a URL pipeline.
+  kKvStoreAdapter,
+  // TensorStore driver that directly accesses storage.
+  //
+  // This must be first in a URL pipeline.
+  kTensorStoreRoot,
+  // TensorStore driver that adapts a base kvstore, e.g. "zarr3"
+  //
+  // This must immediately follow a `kKvStoreBase` component in a URL pipeline.
+  kTensorStoreKvStoreAdapter,
+  // TensorStore driver that adapts a base TensorStore, e.g. "cast"
+  //
+  // This must immediately follow a `kTensorStoreBase` or
+  // `kTensorStoreKvStoreAdapter` component in a URL pipeline.
+  kTensorStoreAdapter,
+};
+
+// Returns the name of a URL scheme kind for use in error messages.
+std::string_view UrlSchemeKindToStringView(UrlSchemeKind x);
+
+template <typename Sink>
+void AbslStringify(Sink& sink, UrlSchemeKind x) {
+  return sink.Append(UrlSchemeKindToStringView(x));
+}
+std::ostream& operator<<(std::ostream& os, UrlSchemeKind x);
+
+// Registers a URL scheme.  This is called automatically by
+// `internal_kvstore::UrlSchemeRegistration` and
+// `internal::UrlSchemeRegistration`.
+void RegisterUrlSchemeKind(std::string_view scheme, UrlSchemeKind scheme_kind);
+
+// Returns the kind of a registered URL scheme, or `std::nullopt` if not
+// registered.
+std::optional<UrlSchemeKind> GetUrlSchemeKind(std::string_view scheme);
+
 }  // namespace internal
 }  // namespace tensorstore
 

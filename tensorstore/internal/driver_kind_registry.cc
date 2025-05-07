@@ -35,6 +35,8 @@ struct DriverKindRegistry {
   absl::Mutex mutex;
   absl::flat_hash_map<std::string, DriverKind> driver_kinds
       ABSL_GUARDED_BY(mutex);
+  absl::flat_hash_map<std::string, UrlSchemeKind> scheme_kinds
+      ABSL_GUARDED_BY(mutex);
 };
 
 DriverKindRegistry& GetDriverKindRegistry() {
@@ -82,6 +84,45 @@ std::string_view DriverKindToStringView(DriverKind x) {
 
 std::ostream& operator<<(std::ostream& os, DriverKind x) {
   return os << DriverKindToStringView(x);
+}
+
+void RegisterUrlSchemeKind(std::string_view scheme, UrlSchemeKind scheme_kind) {
+  auto& registry = GetDriverKindRegistry();
+  absl::MutexLock lock(&registry.mutex);
+  if (auto result = registry.scheme_kinds.emplace(scheme, scheme_kind);
+      !result.second) {
+    ABSL_LOG(FATAL) << scheme << " already registered as "
+                    << result.first->second;
+  }
+}
+
+std::optional<UrlSchemeKind> GetUrlSchemeKind(std::string_view scheme) {
+  auto& registry = GetDriverKindRegistry();
+  absl::MutexLock lock(&registry.mutex);
+  auto it = registry.scheme_kinds.find(scheme);
+  if (it == registry.scheme_kinds.end()) return std::nullopt;
+  return it->second;
+}
+
+std::string_view UrlSchemeKindToStringView(UrlSchemeKind x) {
+  switch (x) {
+    case UrlSchemeKind::kKvStoreRoot:
+      return "root kvstore";
+    case UrlSchemeKind::kKvStoreAdapter:
+      return "kvstore adapter";
+    case UrlSchemeKind::kTensorStoreRoot:
+      return "root TensorStore";
+    case UrlSchemeKind::kTensorStoreKvStoreAdapter:
+      return "kvstore-based TensorStore";
+    case UrlSchemeKind::kTensorStoreAdapter:
+      return "TensorStore adapter";
+    default:
+      ABSL_UNREACHABLE();
+  }
+}
+
+std::ostream& operator<<(std::ostream& os, UrlSchemeKind x) {
+  return os << UrlSchemeKindToStringView(x);
 }
 
 }  // namespace internal

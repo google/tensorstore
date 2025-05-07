@@ -258,8 +258,8 @@ constexpr inline bool OpenOptions::IsOption<Transaction> = true;
 ///   Currently this does not affect the open operation itself.
 ///
 /// \param spec KvStore specification.
-/// \param json_spec JSON value (which may be a string URL) to be parsed as a
-///     `Spec`.
+/// \param json_spec JSON value (which may be a string
+///     :json:schema:`URL<KvStoreUrl>`) to be parsed as a `Spec`.
 /// \param option Any option compatible with `OpenOptions`.
 /// \param options Options for opening the spec.
 /// \relates KvStore

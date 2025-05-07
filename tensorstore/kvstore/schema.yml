@@ -29,8 +29,16 @@ definitions:
     type: string
     title: URL representation of a key-value store.
     description: |
-      In addition to the `JSON object<KvStore>` representation, a key-value
-      store may be specified more concisely by a URL.
+      In addition to the `JSON object<KvStore>` representation, a
+      key-value store may be specified more concisely by a *URL
+      pipeline* consisting of one or more :literal:`|`-separated
+      *components*.
+
+      The first component specifies a root key-value store (such as
+      :ref:`file<file-kvstore-driver>`) that directly accesses
+      storage.  Subsequent components, if any, must be key-value store
+      adapters such as :ref:`zip<zip-kvstore-driver>` or
+      :ref:`ocdbt<ocdbt-kvstore-driver>`.
 
       .. warning::
 

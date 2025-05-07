@@ -108,6 +108,18 @@ TEST(S3KeyValueStoreTest, SpecRoundtrip) {
   options.check_data_persists = false;
   options.check_data_after_serialization = false;
   options.full_spec = {{"driver", "s3"}, {"bucket", "mybucket"}};
+  options.url = "s3://mybucket/";
+  tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
+}
+
+TEST(S3KeyValueStoreTest, SpecRoundtripCustomEndpoint) {
+  tensorstore::internal::KeyValueStoreSpecRoundtripOptions options;
+  options.check_write_read = false;
+  options.check_data_persists = false;
+  options.check_data_after_serialization = false;
+  options.full_spec = {{"driver", "s3"},
+                       {"bucket", "mybucket"},
+                       {"endpoint", "https://myendpoint"}};
   tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
 }
 

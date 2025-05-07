@@ -31,6 +31,7 @@
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
+#include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/test_matchers.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/util/execution/execution.h"
@@ -200,7 +201,47 @@ TEST_F(ZipKeyValueStoreTest, SpecRoundtrip) {
   options.full_spec = {{"driver", "zip"},
                        {"base", {{"driver", "memory"}, {"path", "abc.zip"}}}};
   options.full_base_spec = {{"driver", "memory"}, {"path", "abc.zip"}};
+  options.url = "memory://abc.zip|zip:";
   tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
+}
+
+TEST_F(ZipKeyValueStoreTest, UrlRoundtrip) {
+  tensorstore::internal::TestKeyValueStoreUrlRoundtrip(
+      {{"driver", "zip"},
+       {"base", {{"driver", "memory"}, {"path", "abc.zip"}}}},
+      "memory://abc.zip|zip:");
+  tensorstore::internal::TestKeyValueStoreUrlRoundtrip(
+      {{"driver", "zip"},
+       {"path", "xyz"},
+       {"base", {{"driver", "memory"}, {"path", "abc.zip"}}}},
+      "memory://abc.zip|zip:xyz");
+  tensorstore::internal::TestKeyValueStoreUrlRoundtrip(
+      {{"driver", "zip"},
+       {"path", "xy z"},
+       {"base", {{"driver", "memory"}, {"path", "abc.zip"}}}},
+      "memory://abc.zip|zip:xy%20z");
+  tensorstore::internal::TestKeyValueStoreUrlRoundtrip(
+      {{"driver", "zip"},
+       {"path", "xyz"},
+       {"base",
+        {{"driver", "zip"},
+         {"path", "nested.zip"},
+         {"base", {{"driver", "memory"}, {"path", "abc.zip"}}}}}},
+      "memory://abc.zip|zip:nested.zip|zip:xyz");
+}
+
+TEST_F(ZipKeyValueStoreTest, NormalizeUrl) {
+  tensorstore::internal::TestKeyValueStoreSpecRoundtripNormalize(
+      "memory://abc.zip|zip",
+      {{"driver", "zip"},
+       {"base", {{"driver", "memory"}, {"path", "abc.zip"}}}});
+}
+
+TEST(UrlTest, NoRootKvStore) {
+  EXPECT_THAT(kvstore::Spec::FromJson("zip:abc"),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "\"zip\" is a kvstore adapter URL scheme: "
+                            "unsupported URL scheme \"zip\" in \"zip:abc\""));
 }
 
 }  // namespace

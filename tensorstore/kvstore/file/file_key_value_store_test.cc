@@ -401,6 +401,7 @@ TEST(FileKeyValueStoreTest, SpecRoundtrip) {
   std::string root = tempdir.path() + "/root";
   tensorstore::internal::KeyValueStoreSpecRoundtripOptions options;
   options.full_spec = {{"driver", "file"}, {"path", root}};
+  options.url = "file://" + root;
   tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
 }
 
@@ -419,6 +420,7 @@ TEST(FileKeyValueStoreTest, SpecRoundtripSync) {
            {"file_io_locking", {{"mode", "lockfile"}}},
        }},
   };
+  options.url = "file://" + root;
   options.spec_request_options.Set(tensorstore::retain_context).IgnoreError();
   tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
 }

@@ -172,6 +172,11 @@ struct KeyValueStoreSpecRoundtripOptions {
 
   std::string roundtrip_key = "mykey";
   absl::Cord roundtrip_value = absl::Cord("myvalue");
+
+  // Check that store round trips through the specified URL.
+  //
+  // If not specified, checks that `ToUrl()` returns an error.
+  std::string url;
 };
 
 /// Tests that the KvStore spec round-trips in several ways.

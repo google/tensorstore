@@ -910,12 +910,7 @@ Future<kvstore::DriverPtr> FileKeyValueStoreSpec::DoOpen() const {
 Result<kvstore::Spec> ParseFileUrl(std::string_view url) {
   auto parsed = internal::ParseGenericUri(url);
   assert(parsed.scheme == internal_file_kvstore::FileKeyValueStoreSpec::id);
-  if (!parsed.query.empty()) {
-    return absl::InvalidArgumentError("Query string not supported");
-  }
-  if (!parsed.fragment.empty()) {
-    return absl::InvalidArgumentError("Fragment identifier not supported");
-  }
+  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
   std::string path = internal::PercentDecode(parsed.authority_and_path);
   auto driver_spec = internal::MakeIntrusivePtr<FileKeyValueStoreSpec>();
   driver_spec->data_.file_io_concurrency =

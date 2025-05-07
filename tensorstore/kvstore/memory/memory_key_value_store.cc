@@ -33,11 +33,9 @@
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
-#include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/context_resource_provider.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/uri_utils.h"
@@ -57,6 +55,7 @@
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -507,12 +506,7 @@ absl::Status MemoryDriver::TransactionalDeleteRange(
 Result<kvstore::Spec> ParseMemoryUrl(std::string_view url) {
   auto parsed = internal::ParseGenericUri(url);
   assert(parsed.scheme == tensorstore::MemoryDriverSpec::id);
-  if (!parsed.query.empty()) {
-    return absl::InvalidArgumentError("Query string not supported");
-  }
-  if (!parsed.fragment.empty()) {
-    return absl::InvalidArgumentError("Fragment identifier not supported");
-  }
+  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
   auto driver_spec = internal::MakeIntrusivePtr<MemoryDriverSpec>();
   driver_spec->data_.memory_key_value_store =
       Context::Resource<MemoryKeyValueStoreResource>::DefaultSpec();

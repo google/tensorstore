@@ -274,6 +274,10 @@ class S3KeyValueStoreSpec
   Future<kvstore::DriverPtr> DoOpen() const override;
 
   Result<std::string> ToUrl(std::string_view path) const override {
+    if (data_.endpoint) {
+      return absl::UnimplementedError(
+          "S3 URL syntax not supported with explicit endpoint");
+    }
     return GetS3Url(data_.bucket, path);
   }
 };
@@ -1376,12 +1380,7 @@ Future<kvstore::DriverPtr> S3KeyValueStoreSpec::DoOpen() const {
 Result<kvstore::Spec> ParseS3Url(std::string_view url) {
   auto parsed = internal::ParseGenericUri(url);
   assert(parsed.scheme == kUriScheme);
-  if (!parsed.query.empty()) {
-    return absl::InvalidArgumentError("Query string not supported");
-  }
-  if (!parsed.fragment.empty()) {
-    return absl::InvalidArgumentError("Fragment identifier not supported");
-  }
+  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
   if (!IsValidBucketName(parsed.authority)) {
     return absl::InvalidArgumentError(tensorstore::StrCat(
         "Invalid S3 bucket name: ", QuoteString(parsed.authority)));
