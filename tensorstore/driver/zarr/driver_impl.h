@@ -88,6 +88,8 @@ class ZarrDriverSpec
 
   Future<internal::Driver::Handle> Open(
       DriverOpenRequest request) const override;
+
+  Result<std::string> ToUrl() const override;
 };
 
 class DataCache : public internal_kvs_backed_chunk_driver::DataCache {

@@ -105,6 +105,9 @@ struct AvifSpecialization : public AvifWriterOptions {
 const internal::DriverRegistration<ImageDriverSpec<AvifSpecialization>>
     avif_driver_registration;
 
+const ImageDriverSpec<AvifSpecialization>::UrlSchemeRegistration
+    avif_driver_url_registration;
+
 }  // namespace
 }  // namespace internal_image_driver
 }  // namespace tensorstore

@@ -16,6 +16,7 @@
 
 #include <assert.h>
 
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -39,7 +40,6 @@
 #include "tensorstore/internal/json_binding/data_type.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_registry.h"
-#include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/open_options.h"
@@ -93,6 +93,10 @@ kvstore::Spec DriverSpec::GetKvstore() const { return {}; }
 Result<TransformedDriverSpec> DriverSpec::GetBase(
     IndexTransformView<> transform) const {
   return {std::in_place};
+}
+
+Result<std::string> DriverSpec::ToUrl() const {
+  return absl::UnimplementedError("URL representation not supported");
 }
 
 absl::Status ApplyOptions(DriverSpec::Ptr& spec, SpecOptions&& options) {
@@ -241,6 +245,13 @@ TENSORSTORE_DEFINE_JSON_BINDER(
     TransformedDriverSpecJsonBinder,
     [](auto is_loading, const auto& options, auto* obj,
        ::nlohmann::json* j) -> absl::Status {
+      if constexpr (is_loading) {
+        if (auto* s = j->template get_ptr<const std::string*>()) {
+          TENSORSTORE_ASSIGN_OR_RETURN(*obj,
+                                       GetTransformedDriverSpecFromUrl(*s));
+          return absl::OkStatus();
+        }
+      }
       auto& registry = internal::GetDriverRegistry();
       return jb::NestedContextJsonBinder(jb::Object(
           jb::Member("driver",

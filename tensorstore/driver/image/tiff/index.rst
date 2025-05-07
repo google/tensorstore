@@ -12,3 +12,4 @@ of TIFF files.
 
 .. json:schema:: driver/tiff
 
+.. json:schema:: TensorStoreUrl/tiff

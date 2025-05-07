@@ -54,9 +54,9 @@
 #include "tensorstore/driver/neuroglancer_precomputed/chunk_encoding.h"
 #include "tensorstore/driver/neuroglancer_precomputed/metadata.h"
 #include "tensorstore/driver/registry.h"
+#include "tensorstore/driver/url_registry.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
-#include "tensorstore/index_space/dimension_permutation.h"
 #include "tensorstore/index_space/dimension_units.h"
 #include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_transform.h"
@@ -65,13 +65,14 @@
 #include "tensorstore/internal/cache_key/cache_key.h"
 #include "tensorstore/internal/chunk_grid_specification.h"
 #include "tensorstore/internal/grid_chunk_key_ranges_base10.h"
-#include "tensorstore/internal/grid_partition.h"
 #include "tensorstore/internal/grid_partition_iterator.h"
 #include "tensorstore/internal/grid_storage_statistics.h"
+#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/lexicographical_grid_index_key.h"
 #include "tensorstore/internal/regular_grid.h"
+#include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/neuroglancer_uint64_sharded/neuroglancer_uint64_sharded.h"
 #include "tensorstore/kvstore/spec.h"
@@ -101,6 +102,8 @@ namespace internal_neuroglancer_precomputed {
 #ifndef _MSC_VER
 namespace {
 #endif
+
+constexpr char kUrlScheme[] = "neuroglancer-precomputed";
 
 namespace jb = tensorstore::internal_json_binding;
 
@@ -170,6 +173,38 @@ class NeuroglancerPrecomputedDriverSpec
     return GetEffectiveDimensionUnits(open_constraints, schema);
   }
 
+  Result<std::string> ToUrl() const override {
+    // Only `scale_index=0` can currently be represented as a URL.
+    //
+    // If `scale_index=0` is specified, ignore
+    // `ScaleMetadataConstraints::key` and
+    // `ScaleMetadataConstraints::resolution` under the assumption
+    // that they are consistent with `scale_index=0`.
+    //
+    // Otherwise, fail if:
+    // - `scale_index!=0` is specified
+    // - `scale_index` is unspecified but `key` or `resolution` is specified.
+    if (open_constraints.scale_index.value_or(0) != 0) {
+      if (open_constraints.scale_index.has_value()) {
+        return absl::InvalidArgumentError(
+            "neuroglancer-precomputed URL syntax not supported with non-zero "
+            "scale_index");
+      }
+      if (open_constraints.scale.key.has_value()) {
+        return absl::InvalidArgumentError(
+            "neuroglancer-precomputed URL syntax not supported with scale.key "
+            "specified");
+      }
+      if (open_constraints.scale.resolution.has_value()) {
+        return absl::InvalidArgumentError(
+            "neuroglancer-precomputed URL syntax not supported with "
+            "scale.resolution specified");
+      }
+    }
+    TENSORSTORE_ASSIGN_OR_RETURN(auto base_url, store.ToUrl());
+    return tensorstore::StrCat(base_url, "|", kUrlScheme, ":");
+  }
+
   Future<internal::Driver::Handle> Open(
       internal::DriverOpenRequest request) const override;
 };
@@ -215,9 +250,10 @@ class MetadataCache : public internal_kvs_backed_chunk_driver::MetadataCache {
 /// In the metadata `"size"` and `"chunk_sizes"` fields, dimensions are listed
 /// in `(x, y, z)` order, and in the chunk keys, dimensions are also listed in
 /// `(x, y, z)` order.  Within encoded chunks, data is stored in
-/// `(x, y, z, channel)` Fortran order.  For consistency, the default dimension
-/// order exposed to users is also `(x, y, z, channel)`.  Because the chunk
-/// cache always stores each chunk component in C order, we use the reversed
+/// `(x, y, z, channel)` Fortran order.  For consistency, the default
+/// dimension order exposed to users is also `(x, y, z, channel)`.  Because
+/// the chunk cache always stores each chunk component in C order, we use the
+/// reversed
 /// `(channel, z, y, x)` order for the component, and then permute the
 /// dimensions in `{Ex,In}ternalizeTransform`.
 class DataCacheBase : public internal_kvs_backed_chunk_driver::DataCache {
@@ -391,7 +427,8 @@ class DataCacheBase : public internal_kvs_backed_chunk_driver::DataCache {
   Result<ChunkLayout> GetBaseChunkLayout(const MultiscaleMetadata& metadata,
                                          ChunkLayout::Usage base_usage) {
     ChunkLayout layout;
-    // Leave origin set at zero; origin is accounted for by the index transform.
+    // Leave origin set at zero; origin is accounted for by the index
+    // transform.
     TENSORSTORE_RETURN_IF_ERROR(
         layout.Set(ChunkLayout::GridOrigin(GetConstantVector<Index, 0>(4))));
     const auto& scale = metadata.scales[scale_index_];
@@ -947,6 +984,17 @@ Future<internal::Driver::Handle> NeuroglancerPrecomputedDriverSpec::Open(
   return NeuroglancerPrecomputedDriver::Open(this, std::move(request));
 }
 
+Result<internal::TransformedDriverSpec> ParseNeuroglancerPrecomputedUrl(
+    std::string_view url, kvstore::Spec&& base) {
+  auto parsed = internal::ParseGenericUriWithoutSlashSlash(url);
+  assert(parsed.scheme == kUrlScheme);
+  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoPathOrQueryOrFragment(parsed));
+  auto driver_spec =
+      internal::MakeIntrusivePtr<NeuroglancerPrecomputedDriverSpec>();
+  driver_spec->InitializeFromUrl(std::move(base), {});
+  return internal::TransformedDriverSpec{std::move(driver_spec)};
+}
+
 #ifndef _MSC_VER
 }  // namespace
 #endif
@@ -969,5 +1017,12 @@ namespace {
 const tensorstore::internal::DriverRegistration<
     tensorstore::internal_neuroglancer_precomputed::
         NeuroglancerPrecomputedDriverSpec>
-    registration;
+    registration{
+        // Also allow neuroglancer-precomputed as alias to match URL scheme.
+        {{"neuroglancer-precomputed"}}};
+
+const tensorstore::internal::UrlSchemeRegistration url_scheme_registration(
+    tensorstore::internal_neuroglancer_precomputed::kUrlScheme,
+    tensorstore::internal_neuroglancer_precomputed::
+        ParseNeuroglancerPrecomputedUrl);
 }  // namespace

@@ -627,6 +627,31 @@ Example:
 Group:
   Accessors
 
+       )");
+
+  cls.def_property_readonly(
+      "url",
+      [](Self& self) -> std::string {
+        return ValueOrThrow(self.value.ToUrl());
+      },
+      R"(
+:json:schema:`URL representation<TensorStoreUrl>` of the TensorStore specification.
+
+Example:
+
+    >>> spec = ts.Spec({
+    ...     'driver': 'n5',
+    ...     'kvstore': {
+    ...         'driver': 'gcs',
+    ...         'bucket': 'my-bucket',
+    ...         'path': 'path/to/array/'
+    ...     }
+    ... })
+    >>> spec.url
+    'gs://my-bucket/path/to/array/|n5:'
+
+Group:
+  Accessors
 )");
 
   cls.def_property_readonly(

@@ -77,6 +77,8 @@ using ::tensorstore::internal::MatchesListEntry;
 using ::tensorstore::internal::ParseJsonMatches;
 using ::tensorstore::internal::TestSpecSchema;
 using ::tensorstore::internal::TestTensorStoreCreateCheckSchema;
+using ::tensorstore::internal::TestTensorStoreSpecRoundtripNormalize;
+using ::tensorstore::internal::TestTensorStoreUrlRoundtrip;
 using ::testing::Pair;
 using ::testing::UnorderedElementsAreArray;
 
@@ -914,6 +916,7 @@ TENSORSTORE_GLOBAL_INITIALIZER {
   };
   options.to_json_options = tensorstore::IncludeDefaults{false};
   options.check_serialization = true;
+  options.url = "file://${TEMPDIR}/prefix/|n5:";
   tensorstore::internal::RegisterTensorStoreDriverSpecRoundtripTest(
       std::move(options));
 }
@@ -1881,6 +1884,17 @@ TEST(DriverTest, StoreDataEqualToFillValue) {
                       Pair("attributes.json", ::testing::_))));
     }
   }
+}
+
+TEST(DriverTest, UrlSchemeRoundtrip) {
+  TestTensorStoreUrlRoundtrip(
+      {{"driver", "n5"},
+       {"kvstore", {{"driver", "memory"}, {"path", "abc.n5/"}}}},
+      "memory://abc.n5/|n5:");
+  TestTensorStoreSpecRoundtripNormalize(
+      "memory://abc.n5|n5:def",
+      {{"driver", "n5"},
+       {"kvstore", {{"driver", "memory"}, {"path", "abc.n5/def/"}}}});
 }
 
 }  // namespace

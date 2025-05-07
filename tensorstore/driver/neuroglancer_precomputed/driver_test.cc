@@ -1284,6 +1284,7 @@ TENSORSTORE_GLOBAL_INITIALIZER {
                            {{"input_labels", {"x", "y", "z", "channel"}},
                             {"input_exclusive_max", {11, 101, 101, 4}},
                             {"input_inclusive_min", {1, 2, 3, 0}}}}};
+  options.url = "memory://prefix/|neuroglancer-precomputed:";
   tensorstore::internal::RegisterTensorStoreDriverSpecRoundtripTest(
       std::move(options));
 }
@@ -1341,6 +1342,7 @@ TENSORSTORE_GLOBAL_INITIALIZER {
         {"input_exclusive_max", {11, 101, 101, 4}},
         {"input_inclusive_min", {1, 2, 3, 0}}}},
   };
+  options.url = "memory://prefix/|neuroglancer-precomputed:";
   tensorstore::internal::RegisterTensorStoreDriverSpecRoundtripTest(
       std::move(options));
 }
@@ -1392,6 +1394,7 @@ TENSORSTORE_GLOBAL_INITIALIZER {
         {"input_exclusive_max", {11, 101, 101, 4}},
         {"input_inclusive_min", {1, 2, 3, 0}}}},
   };
+  options.url = "memory://prefix/|neuroglancer-precomputed:";
   tensorstore::internal::RegisterTensorStoreDriverSpecRoundtripTest(
       std::move(options));
 }

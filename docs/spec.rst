@@ -6,4 +6,6 @@ parameters necessary for opening or creating a TensorStore.
 
 .. json:schema:: TensorStore
 
+.. json:schema:: TensorStoreUrl
+
 .. json:schema:: dtype

@@ -320,6 +320,9 @@ Future<ArrayStorageStatistics> GetStorageStatistics(
 Result<TransformedDriverSpec> GetTransformedDriverSpec(
     const DriverHandle& handle, SpecRequestOptions&& options);
 
+// Implementation of  `TensorStore::GetUrl`.
+Result<std::string> GetUrl(const DriverHandle& handle);
+
 // Updates the read-write mode, or returns an error if incompatible with the
 // existing mode.
 //

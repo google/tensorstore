@@ -17,3 +17,5 @@ with the :json:schema:`TensorStore.transform`, if any, specified on
 :json:schema:`~driver/cast.base`.
 
 .. json:schema:: driver/cast
+
+.. json:schema:: TensorStoreUrl/cast

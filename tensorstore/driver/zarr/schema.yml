@@ -303,3 +303,44 @@ definitions:
     examples:
       - id: zstd
         level: 6
+  url:
+    $id: TensorStoreUrl/zarr2
+    type: string
+    allOf:
+      - $ref: TensorStoreUrl
+      - type: string
+    title: |
+      :literal:`zarr2:` TensorStore URL scheme
+    description: |
+      zarr v2 arrays may be specified using the :file:`zarr2:{path}`
+      URL syntax.
+
+      The :file:`{path}`, if any, specified within the
+      :file:`zarr2:{path}` URL component is simply joined with the
+      path specified by the base KvStore URL, but is intended to be
+      used only for specifying the path to an array *within* a zarr v2
+      hierarchy.
+
+      .. admonition:: Examples
+         :class: example
+
+         .. list-table::
+            :header-rows: 1
+            :widths: auto
+
+            * - URL representation
+              - JSON representation
+            * - ``"file:///tmp/dataset.zarr/|zarr2:"``
+              - .. code-block:: json
+
+                   {"driver": "zarr2",
+                    "kvstore": {"driver": "file",
+                                "path": "/tmp/dataset.zarr/"}
+                   }
+            * - ``"file:///tmp/dataset.zarr|zarr2:path/within/hierarchy"``
+              - .. code-block:: json
+
+                   {"driver": "zarr2",
+                    "kvstore": {"driver": "file",
+                                "path": "/tmp/dataset.zarr/path/within/hierarchy/"}
+                   }

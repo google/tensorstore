@@ -9,12 +9,14 @@ tensorstore_cc_library(
     hdrs = ["driver_impl.h"],
     deps = [
         "//tensorstore:array",
+        "//tensorstore:array_storage_statistics",
         "//tensorstore:chunk_layout",
         "//tensorstore:codec_spec",
         "//tensorstore:context",
         "//tensorstore:data_type",
         "//tensorstore:index",
         "//tensorstore:open_mode",
+        "//tensorstore:open_options",
         "//tensorstore:resize_options",
         "//tensorstore:schema",
         "//tensorstore:staleness_bound",
@@ -29,6 +31,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:lock_collection",
         "//tensorstore/internal:nditerable",
         "//tensorstore/internal:nditerable_transformed_array",
+        "//tensorstore/internal:uri_utils",
         "//tensorstore/internal/cache",
         "//tensorstore/internal/cache:async_cache",
         "//tensorstore/internal/cache:async_initialized_cache_mixin",
@@ -74,6 +77,7 @@ tensorstore_cc_test(
         "//tensorstore:open_mode",
         "//tensorstore:strided_layout",
         "//tensorstore:transaction",
+        "//tensorstore/driver:driver_testutil",
         "//tensorstore/driver/image/avif",  # build_cleaner: keep
         "//tensorstore/driver/image/bmp",  # build_cleaner: keep
         "//tensorstore/driver/image/jpeg",  # build_cleaner: keep

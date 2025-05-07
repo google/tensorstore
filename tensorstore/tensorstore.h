@@ -238,6 +238,9 @@ class TensorStore {
     return internal::GetSpec(handle_, std::move(options));
   }
 
+  /// Returns the URL representation of the spec, if supported.
+  Result<std::string> ToUrl() const { return internal::GetUrl(handle_); }
+
   /// Returns the storage layout of this TensorStore, which can be used to
   /// determine efficient read/write access patterns.
   ///

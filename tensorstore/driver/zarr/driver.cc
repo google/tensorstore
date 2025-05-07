@@ -28,16 +28,18 @@
 #include "absl/container/inlined_vector.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include <nlohmann/json_fwd.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/array_storage_statistics.h"
 #include "tensorstore/box.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/codec_spec.h"
-#include "tensorstore/context.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
+#include "tensorstore/driver/driver_spec.h"
 #include "tensorstore/driver/kvs_backed_chunk_driver.h"
 #include "tensorstore/driver/registry.h"
+#include "tensorstore/driver/url_registry.h"
 #include "tensorstore/driver/zarr/driver_impl.h"
 #include "tensorstore/driver/zarr/metadata.h"
 #include "tensorstore/driver/zarr/spec.h"
@@ -49,19 +51,18 @@
 #include "tensorstore/index_space/transform_broadcastable_array.h"
 #include "tensorstore/internal/async_write_array.h"
 #include "tensorstore/internal/cache/cache.h"
-#include "tensorstore/internal/cache/chunk_cache.h"
 #include "tensorstore/internal/cache_key/cache_key.h"
 #include "tensorstore/internal/chunk_grid_specification.h"
 #include "tensorstore/internal/grid_storage_statistics.h"
+#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/meta/type_traits.h"
+#include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/open_options.h"
 #include "tensorstore/rank.h"
-#include "tensorstore/tensorstore.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/executor.h"
@@ -82,6 +83,7 @@ namespace jb = tensorstore::internal_json_binding;
 using ::tensorstore::internal_kvs_backed_chunk_driver::KvsDriverSpec;
 
 constexpr const char kDefaultMetadataKey[] = ".zarray";
+constexpr std::string_view kUrlScheme = "zarr2";
 
 inline char GetDimensionSeparatorChar(DimensionSeparator dimension_separator) {
   return dimension_separator == DimensionSeparator::kDotSeparated ? '.' : '/';
@@ -404,6 +406,19 @@ Future<internal::Driver::Handle> ZarrDriverSpec::Open(
   return ZarrDriver::Open(this, std::move(request));
 }
 
+Result<std::string> ZarrDriverSpec::ToUrl() const {
+  if (metadata_key != kDefaultMetadataKey) {
+    return absl::InvalidArgumentError(
+        "zarr2 URL syntax not supported with non-default metadata_key");
+  }
+  if (!selected_field.empty()) {
+    return absl::InvalidArgumentError(
+        "zarr2 URL syntax not supported with selected_field specified");
+  }
+  TENSORSTORE_ASSIGN_OR_RETURN(auto base_url, store.ToUrl());
+  return tensorstore::StrCat(base_url, "|", kUrlScheme, ":");
+}
+
 Future<ArrayStorageStatistics> ZarrDriver::GetStorageStatistics(
     GetStorageStatisticsRequest request) {
   auto* cache = static_cast<DataCache*>(this->cache());
@@ -518,6 +533,19 @@ std::string EncodeChunkIndices(span<const Index> indices,
   return key;
 }
 
+namespace {
+Result<internal::TransformedDriverSpec> ParseZarrUrl(std::string_view url,
+                                                     kvstore::Spec&& base) {
+  auto parsed = internal::ParseGenericUriWithoutSlashSlash(url);
+  assert(parsed.scheme == kUrlScheme);
+  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
+  auto driver_spec = internal::MakeIntrusivePtr<ZarrDriverSpec>();
+  driver_spec->InitializeFromUrl(std::move(base), parsed.authority_and_path);
+  driver_spec->metadata_key = kDefaultMetadataKey;
+  return internal::TransformedDriverSpec{std::move(driver_spec)};
+}
+}  // namespace
+
 }  // namespace internal_zarr
 }  // namespace tensorstore
 
@@ -531,4 +559,8 @@ namespace {
 const tensorstore::internal::DriverRegistration<
     tensorstore::internal_zarr::ZarrDriverSpec>
     registration{{{"zarr2"}}};
+
+const tensorstore::internal::UrlSchemeRegistration url_scheme_registration(
+    tensorstore::internal_zarr::kUrlScheme,
+    tensorstore::internal_zarr::ParseZarrUrl);
 }  // namespace

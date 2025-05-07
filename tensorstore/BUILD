@@ -708,7 +708,6 @@ tensorstore_cc_library(
         "//tensorstore/driver",
         "//tensorstore/index_space:dimension_units",
         "//tensorstore/index_space:index_transform",
-        "//tensorstore/internal/json",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/internal/meta:type_traits",

@@ -1158,6 +1158,35 @@ Example:
 
 Group:
   Accessors
+       )");
+
+  cls.def_property_readonly(
+      "url",
+      [](Self& self) -> std::string {
+        return ValueOrThrow(self.value.ToUrl());
+      },
+      R"(
+:json:schema:`URL representation<TensorStoreUrl>` of the TensorStore specification.
+
+Example:
+
+    >>> store = await ts.open(
+    ...     {
+    ...         'driver': 'n5',
+    ...         'kvstore': {
+    ...             'driver': 'memory',
+    ...             'path': 'abc/',
+    ...         }
+    ...     },
+    ...     create=True,
+    ...     shape=[100, 200],
+    ...     dtype=ts.uint32,
+    ... )
+    >>> store.url
+    'memory://abc/|n5:'
+
+Group:
+  Accessors
 )");
 
   cls.def_property_readonly(
@@ -2384,7 +2413,8 @@ Opens or creates a :py:class:`TensorStore` from a :py:class:`Spec`.
     })
 
 Args:
-  spec: TensorStore Spec to open.  May also be specified as :json:schema:`JSON<TensorStore>`.
+  spec: TensorStore Spec to open.  May also be specified as
+    :json:schema:`JSON<TensorStore>` or a :json:schema:`URL<TensorStoreUrl>`.
 
 )";
     AppendKeywordArgumentDocs(doc, param_def...);
@@ -2453,6 +2483,21 @@ like the data type, domain, and chunk layout, may be omitted:
         'input_labels': ['x', 'y', 'z', 'channel'],
       },
     })
+
+Opening by URL
+--------------
+
+The same TensorStore opened in the previous section can be specified more concisely using a
+:json:schema:`TensorStore URL<TensorStoreUrl>`:
+
+    >>> store = await ts.open(
+    ...     'gs://neuroglancer-janelia-flyem-hemibrain/v1.2/segmentation/|neuroglancer-precomputed:',
+    ...     read=True)
+
+.. note::
+
+   The URL syntax is very limited in the options and parameters that may be
+   specified but is convenient in simple cases.
 
 Creating a new TensorStore
 --------------------------

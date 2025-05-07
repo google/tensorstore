@@ -15,9 +15,12 @@
 #include "tensorstore/driver/cast/cast.h"
 
 #include <cassert>
+#include <string>
+#include <string_view>
 #include <utility>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "tensorstore/array.h"
 #include "tensorstore/array_storage_statistics.h"
 #include "tensorstore/chunk_layout.h"
@@ -30,6 +33,7 @@
 #include "tensorstore/driver/driver_handle.h"
 #include "tensorstore/driver/driver_spec.h"
 #include "tensorstore/driver/registry.h"
+#include "tensorstore/driver/url_registry.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dimension_units.h"
 #include "tensorstore/index_space/index_domain.h"
@@ -39,7 +43,9 @@
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/lock_collection.h"
 #include "tensorstore/internal/meta/type_traits.h"
+#include "tensorstore/internal/nditerable.h"
 #include "tensorstore/internal/nditerable_data_type_conversion.h"
+#include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/spec.h"
@@ -54,6 +60,7 @@
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/iterate.h"
+#include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
@@ -162,6 +169,16 @@ class CastDriverSpec
         ComposeOptionalTransforms(base.transform, transform));
     new_base.driver_spec = base.driver_spec;
     return new_base;
+  }
+
+  Result<std::string> ToUrl() const override {
+    auto target_dtype = schema.dtype();
+    if (!target_dtype.valid()) {
+      return absl::InvalidArgumentError(
+          "cast URL requires target dtype to be specified");
+    }
+    TENSORSTORE_ASSIGN_OR_RETURN(auto base_url, base.driver_spec->ToUrl());
+    return tensorstore::StrCat(base_url, "|", id, ":", target_dtype);
   }
 
   Future<internal::Driver::Handle> Open(
@@ -473,6 +490,22 @@ Result<TransformedDriverSpec> MakeCastDriverSpec(TransformedDriverSpec base,
   return base;
 }
 
+namespace {
+Result<internal::TransformedDriverSpec> ParseCastUrl(
+    std::string_view url, TransformedDriverSpec&& base) {
+  auto parsed = internal::ParseGenericUriWithoutSlashSlash(url);
+  assert(parsed.scheme == internal_cast_driver::CastDriverSpec::id);
+  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
+  auto dtype = GetDataType(parsed.authority_and_path);
+  if (!dtype.valid()) {
+    return absl::InvalidArgumentError(
+        absl::StrCat("Unsuppported data type: ",
+                     tensorstore::QuoteString(parsed.authority_and_path)));
+  }
+  return MakeCastDriverSpec(std::move(base), dtype);
+}
+}  // namespace
+
 }  // namespace internal
 
 Result<Spec> Cast(const Spec& base_spec, DataType target_dtype) {
@@ -485,3 +518,9 @@ Result<Spec> Cast(const Spec& base_spec, DataType target_dtype) {
 }
 
 }  // namespace tensorstore
+
+namespace {
+const tensorstore::internal::UrlSchemeRegistration url_scheme_registration(
+    tensorstore::internal_cast_driver::CastDriverSpec::id,
+    tensorstore::internal::ParseCastUrl);
+}

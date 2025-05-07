@@ -95,6 +95,9 @@ struct JpegSpecialization : public JpegWriterOptions {
 const internal::DriverRegistration<ImageDriverSpec<JpegSpecialization>>
     jpeg_driver_registration;
 
+const ImageDriverSpec<JpegSpecialization>::UrlSchemeRegistration
+    jpeg_driver_url_registration;
+
 }  // namespace
 }  // namespace internal_image_driver
 }  // namespace tensorstore

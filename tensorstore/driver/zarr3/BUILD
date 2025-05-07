@@ -63,6 +63,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:lexicographical_grid_index_key",
         "//tensorstore/internal:storage_statistics",
+        "//tensorstore/internal:uri_utils",
         "//tensorstore/internal/cache",
         "//tensorstore/internal/cache_key",
         "//tensorstore/internal/json_binding",
