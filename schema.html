@@ -1349,7 +1349,7 @@ be represented in a driver-independent way as a <em>chunk layout</em>.</p>
 <ul class="simple">
 <li><p>The <em>write</em> level, the top-most level, specifies the grid to which writes
 should be aligned.  Writes of individual chunkss at this level may be
-performed without amplification.  For the <a class="reference internal" href="driver/zarr/index.html#zarr-driver"><span class="std std-ref">zarr Driver</span></a>, <a class="reference internal" href="driver/n5/index.html#n5-driver"><span class="std std-ref">n5 Driver</span></a>
+performed without amplification.  For the <a class="reference internal" href="driver/zarr/index.html#zarr-driver"><span class="std std-ref">zarr2 Driver</span></a>, <a class="reference internal" href="driver/n5/index.html#n5-driver"><span class="std std-ref">n5 Driver</span></a>
 and the <a class="reference internal" href="driver/neuroglancer_precomputed/index.html#neuroglancer-precomputed-driver"><span class="std std-ref">neuroglancer_precomputed Driver</span></a> using the unsharded format, the
 write level is also the only level; each write chunk corresponds to a single
 key in the underlying <a class="reference internal" href="kvstore/index.html#key-value-store"><span class="std std-ref">Key-Value Storage Layer</span></a>.  For the
@@ -1359,7 +1359,7 @@ chunk corresponds to an entire shard.</p></li>
 grid.  Reads of individual chunks at this level may be performed without
 amplification.  Every write chunk boundary must be aligned to a read chunk
 boundary.  If reads and writes may be performed at the same granularity, such
-as with the <a class="reference internal" href="driver/zarr/index.html#zarr-driver"><span class="std std-ref">zarr Driver</span></a>, <a class="reference internal" href="driver/n5/index.html#n5-driver"><span class="std std-ref">n5 Driver</span></a>, and the
+as with the <a class="reference internal" href="driver/zarr/index.html#zarr-driver"><span class="std std-ref">zarr2 Driver</span></a>, <a class="reference internal" href="driver/n5/index.html#n5-driver"><span class="std std-ref">n5 Driver</span></a>, and the
 <a class="reference internal" href="driver/neuroglancer_precomputed/index.html#neuroglancer-precomputed-driver"><span class="std std-ref">neuroglancer_precomputed Driver</span></a> using the unsharded format, there is no
 additional read grid; a read chunk is the same size as a write chunk.  For the
 <a class="reference internal" href="driver/neuroglancer_precomputed/index.html#neuroglancer-precomputed-driver"><span class="std std-ref">neuroglancer_precomputed Driver</span></a> using the sharded format, each read
@@ -1564,7 +1564,7 @@ driver-specific properties.</p>
 <dd class="field-odd noindent"><ul class="simple">
 <li><p><a class="reference internal" href="driver/n5/index.html#json-driver/n5/Codec" title="driver/n5/Codec (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/n5/Codec</span></code></a></p></li>
 <li><p><a class="reference internal" href="driver/neuroglancer_precomputed/index.html#json-driver/neuroglancer_precomputed/Codec" title="driver/neuroglancer_precomputed/Codec (JSON type) — Neuroglancer Precomputed Codec"><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/neuroglancer_precomputed/Codec</span></code></a> — Neuroglancer Precomputed Codec</p></li>
-<li><p><a class="reference internal" href="driver/zarr/index.html#json-driver/zarr/Codec" title="driver/zarr/Codec (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/zarr/Codec</span></code></a></p></li>
+<li><p><a class="reference internal" href="driver/zarr/index.html#json-driver/zarr2/Codec" title="driver/zarr2/Codec (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/zarr2/Codec</span></code></a></p></li>
 <li><p><a class="reference internal" href="driver/zarr3/index.html#json-driver/zarr3/Codec" title="driver/zarr3/Codec (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/zarr3/Codec</span></code></a></p></li>
 </ul>
 </dd>
