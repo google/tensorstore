@@ -19,10 +19,13 @@
 ///
 /// Interface for registering an `internal::CodecDriverSpec`.
 
+#include <string_view>
+
 #include "tensorstore/codec_spec.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_registry.h"
 #include "tensorstore/json_serialization_options.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 namespace internal {
@@ -70,9 +73,12 @@ class CodecSpecRegistration {
   static_assert(std::is_base_of_v<internal::CodecDriverSpec, Derived>);
 
  public:
-  CodecSpecRegistration() {
-    GetCodecSpecRegistry().Register<Derived>(Derived::id,
-                                             Derived::default_json_binder);
+  CodecSpecRegistration()
+      : CodecSpecRegistration(
+            /*aliases=*/tensorstore::span<const std::string_view>{}) {}
+  CodecSpecRegistration(tensorstore::span<const std::string_view> aliases) {
+    GetCodecSpecRegistry().Register<Derived>(
+        Derived::id, Derived::default_json_binder, aliases);
   }
 };
 

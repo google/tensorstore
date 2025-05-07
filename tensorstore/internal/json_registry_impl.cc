@@ -42,9 +42,9 @@ absl::Status GetJsonUnregisteredError(std::string_view id) {
       tensorstore::StrCat(QuoteString(id), " is not registered"));
 }
 
-void JsonRegistryImpl::Register(std::unique_ptr<Entry> entry) {
+void JsonRegistryImpl::Register(std::unique_ptr<Entry> entry, bool alias) {
   absl::WriterMutexLock lock(&mutex_);
-  {
+  if (!alias) {
     auto [it, inserted] = entries_by_type_.insert(entry.get());
     if (!inserted) {
       ABSL_LOG(FATAL) << (*it)->type->name() << " already registered";

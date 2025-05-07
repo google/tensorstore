@@ -530,5 +530,5 @@ TENSORSTORE_DEFINE_GARBAGE_COLLECTION_SPECIALIZATION(
 namespace {
 const tensorstore::internal::DriverRegistration<
     tensorstore::internal_zarr::ZarrDriverSpec>
-    registration;
+    registration{{{"zarr2"}}};
 }  // namespace

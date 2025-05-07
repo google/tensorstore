@@ -1,13 +1,13 @@
 .. _zarr-driver:
 
-``zarr`` Driver
-===============
+``zarr2`` Driver
+================
 
 `Zarr v2 <https://github.com/zarr-developers/zarr-python>`_ is a chunked
 array storage format based on the `NumPy data type model
 <https://zarr.readthedocs.io/en/stable/spec/v2.html#data-type-encoding>`_.
 
-The ``zarr`` driver provides access to Zarr-v2-format arrays backed by any
+The ``zarr2`` driver provides access to Zarr-v2-format arrays backed by any
 supported :ref:`key_value_store`.  It supports reading, writing, creating new
 arrays, and resizing arrays.
 
@@ -17,22 +17,22 @@ specifying multiple named fields that are packed together.
 TensorStore fully supports such arrays, but each field must be opened
 separately.
 
-.. json:schema:: driver/zarr
+.. json:schema:: driver/zarr2
 
 Compressors
 -----------
 
 Chunk data is encoded according to the
-:json:schema:`driver/zarr.metadata.compressor` specified in the metadata.
+:json:schema:`driver/zarr2.metadata.compressor` specified in the metadata.
 
-.. json:schema:: driver/zarr/Compressor
+.. json:schema:: driver/zarr2/Compressor
 
 The following compressors are supported:
 
-.. json:schema:: driver/zarr/Compressor/zlib
-.. json:schema:: driver/zarr/Compressor/blosc
-.. json:schema:: driver/zarr/Compressor/bz2
-.. json:schema:: driver/zarr/Compressor/zstd
+.. json:schema:: driver/zarr2/Compressor/zlib
+.. json:schema:: driver/zarr2/Compressor/blosc
+.. json:schema:: driver/zarr2/Compressor/bz2
+.. json:schema:: driver/zarr2/Compressor/zstd
 
 Mapping to TensorStore Schema
 -----------------------------
@@ -40,7 +40,7 @@ Mapping to TensorStore Schema
 .. admonition:: Example with scalar data type
    :class: example
 
-   For the following zarr :json:schema:`~driver/zarr.metadata`:
+   For the following zarr :json:schema:`~driver/zarr2.metadata`:
 
    .. doctest-output:: code-block json
 
@@ -56,7 +56,7 @@ Mapping to TensorStore Schema
       ...         context=context).result().write(metadata).result()
       ...     return ts.open(
       ...         {
-      ...             'driver': 'zarr',
+      ...             'driver': 'zarr2',
       ...             'kvstore': kvstore,
       ...             'field': field,
       ...         },
@@ -96,7 +96,7 @@ Mapping to TensorStore Schema
 .. admonition:: Example with `structured data type <https://zarr.readthedocs.io/en/stable/spec/v2.html#data-type-encoding>`_
    :class: example
 
-   For the following zarr :json:schema:`~driver/zarr.metadata`:
+   For the following zarr :json:schema:`~driver/zarr2.metadata`:
 
    .. doctest-output:: code-block json
 
@@ -114,7 +114,7 @@ Mapping to TensorStore Schema
       }
 
    the corresponding :json:schema:`Schema` for the :json:`"x"`
-   :json:schema:`~driver/zarr.field` is:
+   :json:schema:`~driver/zarr2.field` is:
 
    .. doctest-output:: code-block json
 
@@ -141,7 +141,7 @@ Mapping to TensorStore Schema
       }
 
    and the corresponding :json:schema:`Schema` for the :json:`"y"`
-   :json:schema:`~driver/zarr.field` is:
+   :json:schema:`~driver/zarr2.field` is:
 
    .. doctest-output:: code-block json
 
@@ -227,12 +227,12 @@ Zarr `structured data types
 supported, but are represented in TensorStore as scalar arrays with additional
 dimensions.
 
-When creating a new array, if a :json:schema:`driver/zarr.metadata.dtype` is not
+When creating a new array, if a :json:schema:`driver/zarr2.metadata.dtype` is not
 specified explicitly, a scalar Zarr data type with the native endianness is
 chosen based on the :json:schema:`Schema.dtype`.  To create an array with
 non-native endianness or a `structured data type
 <https://zarr.readthedocs.io/en/stable/spec/v2.html#data-type-encoding>`_, the
-zarr :json:schema:`driver/zarr.metadata.dtype` must be specified explicitly.
+zarr :json:schema:`driver/zarr2.metadata.dtype` must be specified explicitly.
 
 .. note::
 
@@ -258,15 +258,15 @@ any *subarray* dimensions in the case of a `structured data type
 .. admonition:: Example with scalar data type
    :class: example
 
-   If the :json:schema:`driver/zarr.metadata.dtype` is :json:`"<u2"` and the
-   :json:schema:`driver/zarr.metadata.shape` is :json:`[100, 200]`, then the
+   If the :json:schema:`driver/zarr2.metadata.dtype` is :json:`"<u2"` and the
+   :json:schema:`driver/zarr2.metadata.shape` is :json:`[100, 200]`, then the
    :json:schema:`Schema.domain` is :json:`{"shape": [[100], [200]]}`.
 
 .. admonition:: Example with structured data type
    :class: example
 
-   If the :json:schema:`driver/zarr.metadata.dtype` is :json:`[["x", "<u2", [2,
-   3]]]`, and the :json:schema:`driver/zarr.metadata.shape` is :json:`[100,
+   If the :json:schema:`driver/zarr2.metadata.dtype` is :json:`[["x", "<u2", [2,
+   3]]]`, and the :json:schema:`driver/zarr2.metadata.shape` is :json:`[100,
    200]`, then the :json:schema:`Schema.domain` is :json:`{"shape": [[100],
    [200], 2, 3]}`.
 
@@ -285,7 +285,7 @@ opening using a :json:schema:`~TensorStore.transform`.
 Chunk layout
 ~~~~~~~~~~~~
 
-The zarr format supports a single :json:schema:`driver/zarr.metadata.chunks`
+The zarr format supports a single :json:schema:`driver/zarr2.metadata.chunks`
 property that corresponds to the :json:schema:`ChunkLayout/Grid.shape`
 constraint.  As with the :json:schema:`Schema.domain`, the
 :json:schema:`Schema.chunk_layout` includes both the chunked dimensions as well
@@ -296,15 +296,15 @@ chunk size for subarray dimensions is always the full extent.
 .. admonition:: Example with scalar data type
    :class: example
 
-   If the :json:schema:`driver/zarr.metadata.dtype` is :json:`"<u2"` and
-   :json:schema:`driver/zarr.metadata.chunks` is :json:`[100, 200]`, then the
+   If the :json:schema:`driver/zarr2.metadata.dtype` is :json:`"<u2"` and
+   :json:schema:`driver/zarr2.metadata.chunks` is :json:`[100, 200]`, then the
    :json:schema:`ChunkLayout/Grid.shape` is :json:`[100, 200]`.
 
 .. admonition:: Example with structured data type
    :class: example
 
-   If the :json:schema:`driver/zarr.metadata.dtype` is :json:`[["x", "<u2", [2,
-   3]]]`, and :json:schema:`driver/zarr.metadata.chunks` is :json:`[100, 200]`,
+   If the :json:schema:`driver/zarr2.metadata.dtype` is :json:`[["x", "<u2", [2,
+   3]]]`, and :json:schema:`driver/zarr2.metadata.chunks` is :json:`[100, 200]`,
    then the :json:schema:`ChunkLayout/Grid.shape` is :json:`[100, 200, 2, 3]`.
 
 As the zarr format supports only a single level of chunking, the
@@ -315,38 +315,38 @@ constraints are combined, and hard constraints on
 The :json:schema:`ChunkLayout.grid_origin` is always all-zero.
 
 The :json:schema:`ChunkLayout.inner_order` corresponds to
-:json:schema:`driver/zarr.metadata.order`, but also includes the subarray
+:json:schema:`driver/zarr2.metadata.order`, but also includes the subarray
 dimensions, which are always the inner-most dimensions.
 
 .. admonition:: Example with scalar data type and C order
    :class: example
 
-   If the :json:schema:`driver/zarr.metadata.dtype` is :json:`"<u2"`,
-   :json:schema:`driver/zarr.metadata.order` is :json:`"C"`, and there are 3
+   If the :json:schema:`driver/zarr2.metadata.dtype` is :json:`"<u2"`,
+   :json:schema:`driver/zarr2.metadata.order` is :json:`"C"`, and there are 3
    chunked dimensions, then the :json:schema:`ChunkLayout.inner_order` is
    :json:`[0, 1, 2]`.
 
 .. admonition:: Example with scalar data type and Fortran order
    :class: example
 
-   If the :json:schema:`driver/zarr.metadata.dtype` is :json:`"<u2"`,
-   :json:schema:`driver/zarr.metadata.order` is :json:`"F"`, and there are 3
+   If the :json:schema:`driver/zarr2.metadata.dtype` is :json:`"<u2"`,
+   :json:schema:`driver/zarr2.metadata.order` is :json:`"F"`, and there are 3
    chunked dimensions, then the :json:schema:`ChunkLayout.inner_order` is
    :json:`[2, 1, 0]`.
 
 .. admonition:: Example with structured data type and C order
    :class: example
 
-   If the :json:schema:`driver/zarr.metadata.dtype` is :json:`[["x", "<u2", [2,
-   3]]]`, :json:schema:`driver/zarr.metadata.order` is :json:`"C"`, and there
+   If the :json:schema:`driver/zarr2.metadata.dtype` is :json:`[["x", "<u2", [2,
+   3]]]`, :json:schema:`driver/zarr2.metadata.order` is :json:`"C"`, and there
    are 3 chunked dimensions, then the :json:schema:`ChunkLayout.inner_order` is
    :json:`[0, 1, 2, 3, 4]`.
 
 .. admonition:: Example with structured data type and Fortran order
    :class: example
 
-   If the :json:schema:`driver/zarr.metadata.dtype` is :json:`[["x", "<u2", [2,
-   3]]]`, :json:schema:`driver/zarr.metadata.order` is :json:`"F"`, and there
+   If the :json:schema:`driver/zarr2.metadata.dtype` is :json:`[["x", "<u2", [2,
+   3]]]`, :json:schema:`driver/zarr2.metadata.order` is :json:`"F"`, and there
    are 3 chunked dimensions, then the :json:schema:`ChunkLayout.inner_order` is
    :json:`[2, 1, 0, 3, 4]`.
 
@@ -447,9 +447,9 @@ Codec
 ~~~~~
 
 Within the :json:schema:`Schema.codec`, the compression parameters are
-represented in the same way as in the :json:schema:`~driver/zarr.metadata`:
+represented in the same way as in the :json:schema:`~driver/zarr2.metadata`:
 
-.. json:schema:: driver/zarr/Codec
+.. json:schema:: driver/zarr2/Codec
 
 It is an error to specify any other :json:schema:`Codec.driver`.
 
@@ -465,7 +465,7 @@ As an optimization, chunks that are entirely equal to the fill value are not
 stored.
 
 The zarr format allows the fill value to be unspecified, indicated by a
-:json:schema:`driver/zarr.metadata.fill_value` of :json:`null`.  In that case,
+:json:schema:`driver/zarr2.metadata.fill_value` of :json:`null`.  In that case,
 TensorStore always uses a fill value of :json:`0`.  However, in this case
 explicitly-written all-zero chunks are still stored.
 

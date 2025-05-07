@@ -14,6 +14,8 @@
 
 #include "tensorstore/internal/json_registry.h"
 
+#include <string_view>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/base/no_destructor.h"
@@ -22,7 +24,7 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/testing/json_gtest.h"
+#include "tensorstore/internal/testing/json_gtest.h"  // IWYU pragma: keep
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/util/status_testutil.h"
 
@@ -80,7 +82,8 @@ struct FooRegistration {
   FooRegistration() {
     namespace jb = tensorstore::internal_json_binding;
     GetRegistry().Register<FooImpl>(
-        "foo", jb::Object(jb::Member("x", jb::Projection(&FooImpl::x))));
+        "foo", jb::Object(jb::Member("x", jb::Projection(&FooImpl::x))),
+        {{"foo_alias1", "foo_alias2"}});
   }
 } foo_registration;
 
@@ -97,6 +100,20 @@ TEST(RegistryTest, Foo) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto obj, MyInterfacePtr::FromJson(j));
   EXPECT_EQ(10, obj->Whatever());
   EXPECT_EQ(j, obj.ToJson());
+
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto obj_alias,
+        MyInterfacePtr::FromJson({{"id", "foo_alias1"}, {"x", 10}}));
+    EXPECT_EQ(j, obj_alias.ToJson());
+  }
+
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto obj_alias,
+        MyInterfacePtr::FromJson({{"id", "foo_alias2"}, {"x", 10}}));
+    EXPECT_EQ(j, obj_alias.ToJson());
+  }
 }
 
 TEST(RegistryTest, Bar) {
