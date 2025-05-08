@@ -217,7 +217,6 @@ from ..cmake_repository import make_repo_mapping
 from ..cmake_target import CMakePackage
 from ..cmake_target import CMakeTarget
 from ..evaluation import EvaluationState
-from ..starlark.bazel_library import register_bzl_library
 from ..starlark.bazel_target import parse_absolute_target
 from ..starlark.bazel_target import RepositoryId
 from ..starlark.invocation_context import InvocationContext
@@ -230,6 +229,7 @@ from ..util import quote_string
 from ..workspace import Repository
 from .helpers import update_target_mapping
 from .helpers import write_bazel_to_cmake_cmakelists
+from .register import register_bzl_library
 
 
 @register_bzl_library("@tensorstore//third_party:repo.bzl", workspace=True)

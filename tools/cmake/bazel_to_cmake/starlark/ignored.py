@@ -15,7 +15,6 @@
 
 # pylint: disable=missing-function-docstring,relative-beyond-top-level
 
-
 class IgnoredObject:
 
   def __call__(self, *args, **kwargs):
@@ -30,6 +29,9 @@ class IgnoredLibrary(dict):
 
   All attributes evaluate to a no-op function.
   """
+
+  def __init__(self, *args):
+    pass
 
   def __missing__(self, key):
     return IgnoredObject()

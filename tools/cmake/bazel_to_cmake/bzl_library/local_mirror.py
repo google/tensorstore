@@ -27,7 +27,6 @@ from ..cmake_repository import CMakeRepository
 from ..cmake_repository import make_repo_mapping
 from ..cmake_target import CMakePackage
 from ..evaluation import EvaluationState
-from ..starlark.bazel_library import register_bzl_library
 from ..starlark.bazel_target import RepositoryId
 from ..starlark.invocation_context import InvocationContext
 from ..starlark.scope_common import ScopeCommon
@@ -35,6 +34,7 @@ from ..util import quote_path
 from ..util import quote_string
 from .helpers import update_target_mapping
 from .helpers import write_bazel_to_cmake_cmakelists
+from .register import register_bzl_library
 
 
 @register_bzl_library("@tensorstore//bazel:local_mirror.bzl", workspace=True)

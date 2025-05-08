@@ -19,13 +19,13 @@ See: https://github.com/bazelbuild/rules_proto/blob/master/proto/defs.bzl
 # pylint: disable=relative-beyond-top-level
 
 from .. import native_rules_proto
-from ..starlark.bazel_library import register_bzl_library
 from ..starlark.ignored import IgnoredObject
 from ..starlark.scope_common import ScopeCommon
+from .register import register_bzl_library
 
 
-@register_bzl_library("@rules_proto//proto:defs.bzl", build=True)
-class RulesProtoDefsLibrary(ScopeCommon):
+@register_bzl_library("@rules_proto//proto:defs.bzl")
+class RulesProtoDefs(ScopeCommon):
 
   def bazel_proto_library(self, **kwargs):
     return native_rules_proto.proto_library(self._context, **kwargs)
@@ -41,3 +41,24 @@ class RulesProtoDefsLibrary(ScopeCommon):
   def bazel_ProtoInfo(self, **kwargs):
     del kwargs
     return IgnoredObject()
+
+
+@register_bzl_library("@rules_proto//proto:proto_toolchain.bzl")
+class RulesProtoProtoToolchain(ScopeCommon):
+
+  def bazel_proto_toolchain(self, **kwargs):
+    del kwargs
+
+
+@register_bzl_library("@rules_proto//proto:toolchains.bzl")
+class RulesProtoToolchains(ScopeCommon):
+
+  def bazel_proto_toolchains(self, **kwargs):
+    del kwargs
+
+
+@register_bzl_library("@rules_proto//proto:proto_lang_toolchain.bzl")
+class RulesProtoProtoLangToolchain(ScopeCommon):
+
+  def bazel_proto_lang_toolchain(self, **kwargs):
+    del kwargs
