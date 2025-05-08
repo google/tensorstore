@@ -78,6 +78,7 @@ import pathlib
 from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Tuple, Type, TypeVar, cast
 
 from . import cmake_builder
+from .bzl_library.register import get_bzl_library
 from .cmake_builder import CMakeBuilder
 from .cmake_provider import CMakeExecutableTargetProvider
 from .cmake_provider import CMakeHallucinatedTarget
@@ -88,7 +89,6 @@ from .cmake_target import CMakeTargetPair
 from .package import Package
 from .package import Visibility
 from .provider_util import ProviderCollection
-from .starlark.bazel_library import get_bazel_library
 from .starlark.bazel_target import PackageId
 from .starlark.bazel_target import RepositoryId
 from .starlark.bazel_target import TargetId
@@ -314,11 +314,13 @@ class EvaluationState:
         return None
       if source_path is None:
         raise ValueError(
-            f"Error analyzing {target_id.as_label()}: Unknown repository"
+            f"Error analyzing {target_id.as_label()}: Unknown repository\n"
+            f"{self._all_rules.get(target_id, None)}"
         )
       raise ValueError(
-          f"Error analyzing {target_id.as_label()}: File not found"
-          f" {source_path}"
+          f"Error analyzing {target_id.as_label()}: File not found "
+          f"{source_path}\n"
+          f"{self._all_rules.get(target_id, None)}"
       )
 
     # At this point a rule_info instance is expected.
@@ -556,7 +558,7 @@ class EvaluationState:
       self._loaded_libraries[key] = library
       return library
 
-    library_type = get_bazel_library(key)
+    library_type = get_bzl_library(key)
     if library_type is not None:
       if self.verbose:
         print(f"Builtin library: {target_id.as_label()}")

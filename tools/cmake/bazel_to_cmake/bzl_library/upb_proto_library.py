@@ -26,7 +26,6 @@ from ..native_aspect_proto import aspect_genproto_library_target
 from ..native_aspect_proto import PluginSettings
 from ..native_rules_cc_proto import cc_proto_library_impl
 from ..starlark.aspect import aspect
-from ..starlark.bazel_library import register_bzl_library
 from ..starlark.bazel_target import RepositoryId
 from ..starlark.bazel_target import TargetId
 from ..starlark.invocation_context import InvocationContext
@@ -36,6 +35,7 @@ from ..starlark.provider import provider
 from ..starlark.rule import AttrModule
 from ..starlark.rule import rule
 from ..starlark.scope_common import ScopeCommon
+from .register import register_bzl_library
 
 UPB_REPO = RepositoryId("com_google_protobuf")
 
@@ -222,7 +222,7 @@ class UpbMinitableCcInfo(Provider):
 
 
 @register_bzl_library(
-    "@com_google_protobuf//bazel:upb_minitable_proto_library.bzl", build=True
+    "@com_google_protobuf//bazel:upb_minitable_proto_library.bzl"
 )
 class UpbMinitableProtoLibrary(ScopeCommon):
 
@@ -258,7 +258,7 @@ class UpbMinitableProtoLibrary(ScopeCommon):
 
 
 @register_bzl_library(
-    "@com_google_protobuf//bazel:upb_proto_reflection_library.bzl", build=True
+    "@com_google_protobuf//bazel:upb_proto_reflection_library.bzl"
 )
 class UpbProtoReflectionLibrary(ScopeCommon):
 
@@ -299,9 +299,7 @@ class UpbWrappedCcInfo(Provider):
     return f"{self.__class__.__name__}({repr(self.cc_info)},{repr(self.cc_info_with_thunks)})"
 
 
-@register_bzl_library(
-    "@com_google_protobuf//bazel:upb_c_proto_library.bzl", build=True
-)
+@register_bzl_library("@com_google_protobuf//bazel:upb_c_proto_library.bzl")
 class UpbCProtoLibrary(ScopeCommon):
 
   def __init__(self, *args, **kwargs):
@@ -335,9 +333,7 @@ class UpbCProtoLibrary(ScopeCommon):
 #############################################################################
 
 
-@register_bzl_library(
-    "@com_google_protobuf//bazel:upb_proto_library.bzl", build=True
-)
+@register_bzl_library("@com_google_protobuf//bazel:upb_proto_library.bzl")
 class UpbProtoLibrary(UpbCProtoLibrary, UpbProtoReflectionLibrary):
 
   def __init__(self, *args, **kwargs):
@@ -367,9 +363,7 @@ HpbProtoLibraryCoptsInfo = provider(
 )
 
 
-@register_bzl_library(
-    "@com_google_protobuf//hpb/bazel:hpb_proto_library.bzl", build=True
-)
+@register_bzl_library("@com_google_protobuf//hpb/bazel:hpb_proto_library.bzl")
 class HpbProtoLibrary(ScopeCommon):
 
   def __init__(self, *args, **kwargs):

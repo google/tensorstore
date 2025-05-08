@@ -25,5 +25,5 @@ class BazelModuleConfigCommon:
 
   FeatureFlagInfo = staticmethod(FeatureFlagInfo)  # type: ignore[not-callable]
 
-  def toolchain_type(self, name, *, mandatory=True):
+  def toolchain_type(self, name, *, mandatory=True, visibility=None):
     return Struct(toolchain_type=name, mandatory=mandatory)

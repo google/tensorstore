@@ -15,32 +15,39 @@
 
 # pylint: disable=invalid-name,missing-function-docstring,relative-beyond-top-level,g-importing-member
 
-from typing import Dict, Optional, Tuple, Type
+from typing import Dict, Optional, Set, Tuple, Type
 
-from .bazel_target import parse_absolute_target
-from .bazel_target import TargetId
-from .scope_common import ScopeCommon
-
-_BZL_LIBRARIES: Dict[Tuple[TargetId, bool], Type[ScopeCommon]] = {}
+from ..starlark.bazel_target import parse_absolute_target
+from ..starlark.bazel_target import TargetId
+from ..starlark.ignored import IgnoredLibrary
 
 
-def get_bazel_library(
-    key: Tuple[TargetId, bool],
-) -> Optional[Type[ScopeCommon]]:
+_BZL_LIBRARIES: Dict[Tuple[TargetId, bool], Type[Dict]] = {}
+
+_IGNORED: Set[TargetId] = set()
+
+
+def get_bzl_library(key: Tuple[TargetId, bool]) -> Optional[Type[Dict]]:
   """Returns the target library, if registered."""
+  if key[0] in _IGNORED:
+    return IgnoredLibrary
+
   return _BZL_LIBRARIES.get(key)
 
 
 def register_bzl_library(
-    target: str, workspace: bool = False, build: bool = False
+    target: str,
+    workspace: bool = False,
 ):
   target_id = parse_absolute_target(target)
 
-  def register(library: Type[ScopeCommon]):
-    if workspace:
-      _BZL_LIBRARIES[(target_id, True)] = library
-    if build:
-      _BZL_LIBRARIES[(target_id, False)] = library
+  def register(library: Type[Dict]):
+    _BZL_LIBRARIES[(target_id, workspace)] = library
     return library
 
   return register
+
+
+def ignore_bzl_library(target: str):
+  target_id = parse_absolute_target(target)
+  _IGNORED.add(target_id)

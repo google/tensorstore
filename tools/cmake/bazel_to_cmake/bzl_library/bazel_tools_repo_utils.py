@@ -15,8 +15,8 @@
 
 # pylint: disable=invalid-name,missing-function-docstring,relative-beyond-top-level,g-long-lambda
 
-from ..starlark.bazel_library import register_bzl_library
 from ..starlark.scope_common import ScopeCommon
+from .register import register_bzl_library
 
 
 @register_bzl_library(

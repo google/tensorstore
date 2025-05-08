@@ -25,6 +25,7 @@ from .provider import provider
 from .scope_common import ScopeCommon
 from .select import Select
 
+
 T = TypeVar('T')
 
 
@@ -45,15 +46,15 @@ class ScopeBuildBzlFile(ScopeCommon):
 
   @property
   def bazel_cc_common(self):
-    return BazelModuleCcCommon
+    return BazelModuleCcCommon()
 
   @property
   def bazel_platform_common(self):
-    return BazelModulePlatformCommon
+    return BazelModulePlatformCommon()
 
   @property
   def bazel_config_common(self):
-    return BazelModuleConfigCommon
+    return BazelModuleConfigCommon()
 
   def bazel_select(self, conditions: Dict[RelativeLabel, T]) -> Select[T]:
     return Select({
@@ -62,6 +63,11 @@ class ScopeBuildBzlFile(ScopeCommon):
     })
 
   bazel_provider = staticmethod(provider)
+
+  def bazel_toolchain_type(self, name, *, mandatory=True, visibility=None):
+    return self.bazel_config_common.toolchain_type(
+        name, mandatory=mandatory, visibility=visibility
+    )
 
   def bazel_module_name(self):
     # For modules, return the registered name.

@@ -26,7 +26,6 @@ from ..cmake_provider import default_providers
 from ..cmake_target import CMakeTarget
 from ..emit_alias import emit_library_alias
 from ..evaluation import EvaluationState
-from ..starlark.bazel_library import register_bzl_library
 from ..starlark.bazel_target import TargetId
 from ..starlark.invocation_context import InvocationContext
 from ..starlark.invocation_context import RelativeLabel
@@ -38,6 +37,7 @@ from ..util import quote_list
 from ..util import quote_path
 from ..util import quote_path_list
 from ..util import quote_string
+from .register import register_bzl_library
 
 
 _EMIT_YASM_CHECK = """
@@ -50,7 +50,7 @@ unset(_nasm_compiler_barename)
 """
 
 
-@register_bzl_library("@tensorstore//bazel:rules_nasm.bzl", build=True)
+@register_bzl_library("@tensorstore//bazel:rules_nasm.bzl")
 class RulesNasmLibrary(ScopeCommon):
 
   def bazel_nasm_library(

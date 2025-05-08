@@ -26,13 +26,13 @@ from ..cmake_provider import CMakeAddDependenciesProvider
 from ..cmake_provider import default_providers
 from ..cmake_target import CMakeTarget
 from ..evaluation import EvaluationState
-from ..starlark.bazel_library import register_bzl_library
 from ..starlark.bazel_target import TargetId
 from ..starlark.common_providers import BuildSettingProvider
 from ..starlark.common_providers import ConditionProvider
 from ..starlark.common_providers import FilesProvider
 from ..starlark.invocation_context import InvocationContext
 from ..starlark.invocation_context import RelativeLabel
+from ..starlark.provider import provider
 from ..starlark.provider import TargetInfo
 from ..starlark.scope_common import ScopeCommon
 from ..starlark.select import Configurable
@@ -44,9 +44,13 @@ from ..util import quote_list
 from ..util import quote_path
 from ..util import quote_string
 from ..util import write_file_if_not_already_equal
-
+from .register import ignore_bzl_library
+from .register import register_bzl_library
 
 T = TypeVar("T")
+
+
+ignore_bzl_library("@bazel_skylib//:bzl_library.bzl")
 
 
 class BazelSelectsWrapper:
@@ -138,7 +142,7 @@ def _config_settings_group_impl(
   )
 
 
-@register_bzl_library("@bazel_skylib//lib:selects.bzl", build=True)
+@register_bzl_library("@bazel_skylib//lib:selects.bzl")
 class BazelSkylibSelectsLibrary(ScopeCommon):
 
   @property
@@ -146,7 +150,7 @@ class BazelSkylibSelectsLibrary(ScopeCommon):
     return BazelSelectsWrapper(self._context)
 
 
-@register_bzl_library("@bazel_skylib//rules:expand_template.bzl", build=True)
+@register_bzl_library("@bazel_skylib//rules:expand_template.bzl")
 class BazelSkylibExpandTemplateLibrary(ScopeCommon):
 
   def bazel_expand_template(
@@ -239,7 +243,7 @@ add_custom_target({cmake_target_pair.target} DEPENDS {quote_path(out_file)})
   )
 
 
-@register_bzl_library("@bazel_skylib//rules:copy_file.bzl", build=True)
+@register_bzl_library("@bazel_skylib//rules:copy_file.bzl")
 class BazelSkylibCopyFileLibrary(ScopeCommon):
 
   def bazel_copy_file(
@@ -263,7 +267,7 @@ class BazelSkylibCopyFileLibrary(ScopeCommon):
     )
 
 
-@register_bzl_library("@bazel_skylib//rules:write_file.bzl", build=True)
+@register_bzl_library("@bazel_skylib//rules:write_file.bzl")
 class BazelSkylibWriteFileLibrary(ScopeCommon):
 
   def bazel_write_file(
@@ -329,8 +333,23 @@ def _write_file_impl(
   )
 
 
-@register_bzl_library("@bazel_skylib//rules:common_settings.bzl", build=True)
+@register_bzl_library("@bazel_skylib//rules:common_settings.bzl")
 class BazelSkylibCommonSettingsLibrary(ScopeCommon):
+
+  BuildSettingInfo = provider(
+      doc="A singleton provider that contains the raw value of a build setting",
+      fields={
+          "value": (
+              "The value of the build setting in the current configuration. "
+              "This value may come from the command line or an upstream "
+              "transition, or else it will be the build setting's default."
+          ),
+      },
+  )
+
+  @property
+  def bazel_BuildSettingInfo(self):
+    return self.BuildSettingInfo
 
   def bazel_bool_flag(
       self,

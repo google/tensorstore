@@ -27,7 +27,6 @@ from ..native_aspect_proto import plugin_generated_files
 from ..native_aspect_proto import PluginSettings
 from ..native_aspect_proto import maybe_augment_output_dir
 from ..starlark.scope_common import ScopeCommon
-from ..starlark.bazel_library import register_bzl_library
 from ..starlark.bazel_target import RepositoryId
 from ..starlark.bazel_target import TargetId
 from ..starlark.common_providers import FilesProvider
@@ -37,6 +36,7 @@ from ..starlark.invocation_context import RelativeLabel
 from ..starlark.provider import TargetInfo
 from ..starlark.select import Configurable
 from ..util import quote_path_list
+from .register import register_bzl_library
 from .upb_proto_library import UPB_PLUGIN  # pylint: disable=unused-import
 
 GRPC_REPO = RepositoryId("grpc")
@@ -59,9 +59,7 @@ _GRPC = PluginSettings(
 )
 
 
-@register_bzl_library(
-    "@grpc//bazel:generate_cc.bzl", build=True
-)
+@register_bzl_library("@grpc//bazel:generate_cc.bzl")
 class GrpcGenerateCcLibrary(ScopeCommon):
 
   def bazel_generate_cc(
