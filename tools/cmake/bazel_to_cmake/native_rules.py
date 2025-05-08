@@ -94,27 +94,6 @@ def glob(
 
 
 @register_native_build_rule
-def py_library(self: InvocationContext, name: str, **kwargs):
-  del self
-  del name
-  del kwargs
-
-
-@register_native_build_rule
-def py_test(self: InvocationContext, name: str, **kwargs):
-  del self
-  del name
-  del kwargs
-
-
-@register_native_build_rule
-def py_binary(self: InvocationContext, name: str, **kwargs):
-  del self
-  del name
-  del kwargs
-
-
-@register_native_build_rule
 def py_proto_library(self: InvocationContext, name: str, **kwargs):
   del self
   del name
@@ -225,8 +204,3 @@ def sh_test(self: InvocationContext, name: str, **kwargs):
   del name
   del kwargs
 
-
-@register_native_build_rule
-def toolchain(self: InvocationContext, **kwargs):
-  del self
-  del kwargs

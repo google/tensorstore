@@ -12,6 +12,7 @@ SRCS = [
     "bazel_to_cmake/bzl_library/all.py",
     "bazel_to_cmake/bzl_library/bazel_skylib.py",
     "bazel_to_cmake/bzl_library/bazel_tools_repo_utils.py",
+    "bazel_to_cmake/bzl_library/com_google_protobuf.py",
     "bazel_to_cmake/bzl_library/default.py",
     "bazel_to_cmake/bzl_library/expand_template.py",
     "bazel_to_cmake/bzl_library/grpc_generate_cc.py",

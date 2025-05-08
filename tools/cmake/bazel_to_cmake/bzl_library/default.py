@@ -19,3 +19,4 @@ from . import bazel_skylib  # pylint: disable=unused-import
 from . import bazel_tools_repo_utils  # pylint: disable=unused-import
 from . import rules_cc  # pylint: disable=unused-import
 from . import rules_proto  # pylint: disable=unused-import
+from . import rules_python  # pylint: disable=unused-import

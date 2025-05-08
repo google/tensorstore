@@ -30,11 +30,6 @@ def repo():
         ],
         sha256 = "7cef7cd3560de3a079caa84846127ed0fce6c6847734a10ac91ef66bc700235f",
         strip_prefix = "abseil-cpp-5f3435aba00bcd7f12062d2e8e1839b4eaf1a575",
-        patches = [
-            # Ancient protobuf version requires if_constexpr.
-            Label("//third_party:abseil_cpp/patches/if_constexpr.diff"),
-        ],
-        patch_args = ["-p1"],
         repo_mapping = {
             "@com_google_googletest": "@googletest",
         },
@@ -86,6 +81,7 @@ ABSL_CMAKE_MAPPING = {
     "//absl/functional:any_invocable": "absl::any_invocable",
     "//absl/functional:bind_front": "absl::bind_front",
     "//absl/functional:function_ref": "absl::function_ref",
+    "//absl/functional:overload": "absl::overload",
     "//absl/hash:hash": "absl::hash",
     "//absl/log:absl_check": "absl::absl_check",
     "//absl/log:absl_log": "absl::absl_log",

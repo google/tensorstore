@@ -34,6 +34,7 @@ def repo():
             "@com_github_cncf_xds": "@xds",
             "@com_google_googleapis": "@googleapis",
             "@com_github_grpc_grpc": "@grpc",
+            "@rules_python": "@local_proto_mirror",
         },
         # CMake options
         cmake_name = "envoy",
@@ -41,6 +42,8 @@ def repo():
         bazel_to_cmake = {
             "args": [
                 "--ignore-library=//bazel/cc_proto_descriptor_library:builddefs.bzl",
+                "--ignore-library=@io_bazel_rules_go//go:def.bzl",
+                "--ignore-library=@io_bazel_rules_go//proto:def.bzl",
                 "--ignore-library=@grpc//bazel:python_rules.bzl",
             ] + ["--target=" + p + ":all" for p in _PACKAGES],
         },

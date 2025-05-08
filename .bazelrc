@@ -10,6 +10,7 @@ build --platform_mappings=tools/bazel_platforms/platform_mappings
 
 # Use absl with googletest
 build --define=absl=1
+build --define=protobuf_allow_msvc=true
 
 # Configure C++17 mode
 #

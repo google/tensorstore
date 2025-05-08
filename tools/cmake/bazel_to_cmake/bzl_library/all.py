@@ -17,6 +17,7 @@
 
 from . import bazel_skylib  # pylint: disable=unused-import
 from . import bazel_tools_repo_utils  # pylint: disable=unused-import
+from . import com_google_protobuf  # pylint: disable=unused-import
 from . import grpc_generate_cc  # pylint: disable=unused-import
 from . import local_mirror  # pylint: disable=unused-import
 from . import rules_cc  # pylint: disable=unused-import
