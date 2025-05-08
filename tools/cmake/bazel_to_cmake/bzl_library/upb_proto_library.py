@@ -85,7 +85,7 @@ _UPB_MINITABLE = PluginSettings(
     name="upb_minitable",
     language="upb_minitable",
     plugin=UPB_REPO.parse_target(
-        "//upb_generator:protoc-gen-upb_minitable_stage1"
+        "//upb_generator/minitable:protoc-gen-upb_minitable_stage1"
     ),
     exts=[".upb_minitable.h", ".upb_minitable.c"],
     runtime=[
@@ -101,7 +101,7 @@ _UPB_MINITABLE = PluginSettings(
 _UPB_STAGE1 = PluginSettings(
     name="upb",
     language="upb",
-    plugin=UPB_REPO.parse_target("//upb_generator:protoc-gen-upb_stage1"),
+    plugin=UPB_REPO.parse_target("//upb_generator/c:protoc-gen-upb_stage1"),
     exts=[".upb.h", ".upb.c"],
     runtime=[
         UPB_REPO.parse_target(
@@ -115,7 +115,9 @@ _UPB_STAGE1 = PluginSettings(
 _UPBDEFS = PluginSettings(
     name="upbdefs",
     language="upbdefs",
-    plugin=UPB_REPO.parse_target("//upb_generator:protoc-gen-upbdefs"),
+    plugin=UPB_REPO.parse_target(
+        "//upb_generator/reflection:protoc-gen-upbdefs"
+    ),
     exts=[".upbdefs.h", ".upbdefs.c"],
     runtime=[
         UPB_REPO.parse_target(
@@ -129,7 +131,7 @@ _UPBDEFS = PluginSettings(
 UPB_PLUGIN = PluginSettings(
     name="upb",
     language="upb",
-    plugin=UPB_REPO.parse_target("//upb_generator:protoc-gen-upb"),
+    plugin=UPB_REPO.parse_target("//upb_generator/c:protoc-gen-upb"),
     exts=[".upb.h", ".upb.c"],
     runtime=[
         UPB_REPO.parse_target(

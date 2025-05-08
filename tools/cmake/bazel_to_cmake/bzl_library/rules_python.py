@@ -78,3 +78,19 @@ PyInfo = provider(
 class RulesPythonPyRuntime(ScopeCommon):
 
   bazel_PyInfo = PyInfo
+
+
+@register_bzl_library('@rules_python//python:packaging.bzl')
+class RulesPythonPackaging(ScopeCommon):
+
+  def bazel_py_package(self, name: str, **kwargs):
+    pass
+
+  def bazel_py_wheel_dist(self, name: str, **kwargs):
+    pass
+
+  def bazel_py_wheel(self, name: str, **kwargs):
+    pass
+
+  def bazel_py_wheel_rule(self, name: str, **kwargs):
+    pass

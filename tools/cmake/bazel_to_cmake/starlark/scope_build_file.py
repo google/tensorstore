@@ -35,6 +35,21 @@ class BazelNativeBuildRules:
   def __init__(self, context: InvocationContext):
     self._context = context
 
+  def py_library(self, **kwargs):
+    del kwargs
+    pass
+
+  def py_test(self, **kwargs):
+    del kwargs
+    pass
+
+  def py_binary(self, **kwargs):
+    del kwargs
+    pass
+
+  def toolchain(self, **kwargs):
+    del kwargs
+
 
 # https://bazel.build/rules/lib/globals/build
 class ScopeBuildBzlFile(ScopeCommon):
@@ -80,13 +95,23 @@ class ScopeBuildBzlFile(ScopeCommon):
   def bazel_exports_files(self, *args, **kwargs):
     del args
     del kwargs
-    pass
 
   def bazel_test_suite(self, name, **kwargs):
     """https://bazel.build/reference/be/general#test_suite"""
     del name
     del kwargs
-    pass
+
+  def bazel_py_library(self, **kwargs):
+    del kwargs
+
+  def bazel_py_test(self, **kwargs):
+    del kwargs
+
+  def bazel_py_binary(self, **kwargs):
+    del kwargs
+
+  def bazel_toolchain(self, **kwargs):
+    del kwargs
 
   # Missing:
   # * existing_rules
