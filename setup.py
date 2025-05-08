@@ -292,6 +292,12 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
                 f'--macos_cpus={darwin_cpu}',
             ]
         if sys.platform == 'win32':
+          # Disable the constexpr mutex constructor which is incompatible with
+          # older versions of msvcp140.dll.
+          #
+          # https://developercommunity.visualstudio.com/t/Access-violation-with-std::mutex::lock-a/10664660#T-N10668856
+          build_command += ['--copt=/D_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR']
+
           # Disable newer exception handling from Visual Studio 2019, since it
           # requires a newer C++ runtime than shipped with Python.
           #
