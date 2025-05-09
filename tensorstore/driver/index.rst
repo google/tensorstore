@@ -37,6 +37,7 @@ Chunked storage drivers
    zarr3/index
    n5/index
    neuroglancer_precomputed/index
+   tiff/index
 
 .. json:schema:: KeyValueStoreBackedChunkDriver
 
