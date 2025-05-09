@@ -141,14 +141,14 @@ def btc_protobuf(
       mkdirs.add(pathlib.PurePath(x).parent)
       yield x
 
-  quoted_paths = quote_path_list(_generated_files(), separator=_sep)
+  quoted_paths = [quote_path(x) for x in _generated_files()]
 
   # Emit.
   if mkdirs:
     out.write(f"file(MAKE_DIRECTORY {quote_path_list(sorted(mkdirs))})\n")
   out.write(f"""add_custom_command(
 OUTPUT
-    {quoted_paths}
+    {_sep.join(quoted_paths)}
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional{plugin}""")
   for x in sorted(set(import_targets)):
@@ -159,12 +159,16 @@ COMMAND $<TARGET_FILE:protobuf::protoc>
   out.write(f"""
     {quote_string(flags)}
     {quote_path(proto_src)}
+COMMAND_EXPAND_LISTS
+VERBATIM
 DEPENDS
     {quote_list(sorted(cmake_depends), separator=_sep)}
 COMMENT "Running protoc {plugin_settings.name} on {proto_src}"
-COMMAND_EXPAND_LISTS
-VERBATIM
-)\n""")
+)
+set_source_files_properties(
+    {_sep.join(quoted_paths)}
+PROPERTIES GENERATED TRUE)
+""")
 
 
 ##############################################################################
@@ -289,6 +293,8 @@ def aspect_genproto_singleproto(
   output_dir = maybe_augment_output_dir(
       _context, proto_library_provider, output_dir
   )
+  # Replace with cmake macro directories.
+  macro_generated_files = repo.replace_with_cmake_macro_dirs(generated_files)
 
   # Emit.
   out = io.StringIO()
@@ -302,19 +308,16 @@ def aspect_genproto_singleproto(
       plugin_settings=plugin_settings,
       # varname=str(cmake_target_pair.target),
       proto_src=proto_src_files[0],
-      generated_files=generated_files,
+      generated_files=macro_generated_files,
       import_targets=import_targets,
       cmake_depends=sorted(src_collector.add_dependencies()),
       output_dir=repo.replace_with_cmake_macro_dirs([output_dir])[0],
   )
+  out.write(f"add_custom_target({cmake_target_pair.target} DEPENDS")
+  for x in macro_generated_files:
+    out.write(f"\n    {quote_path(x)}")
+  out.write(")\n")
 
-  sep = "\n    "
-  quoted_outputs = quote_path_list(
-      repo.replace_with_cmake_macro_dirs(generated_files), sep
-  )
-  out.write(
-      f"add_custom_target({cmake_target_pair.target} DEPENDS{sep}{quoted_outputs})\n"
-  )
   _context.access(CMakeBuilder).addtext(out.getvalue())
 
   _context.add_analyzed_target(
@@ -403,9 +406,10 @@ def aspect_genproto_library_target(
         output_dir=output_dir,
     )
 
-  aspect_dir = repo.replace_with_cmake_macro_dirs(
-      [maybe_augment_output_dir(_context, proto_library_provider, output_dir)]
-  )[0]
+  aspect_dir = maybe_augment_output_dir(
+      _context, proto_library_provider, output_dir
+  )
+  aspect_dir = repo.replace_with_cmake_macro_dirs([aspect_dir])[0]
 
   # Now emit a cc_library for each proto_library
   srcs_collector = state.collect_targets(aspect_srcs)
@@ -436,11 +440,12 @@ def aspect_genproto_library_target(
       f"\n# {target.as_label()}"
       f"\n# aspect {plugin_settings.name} {proto_target.as_label()}"
   )
+  public_srcs = repo.replace_with_cmake_macro_dirs(sorted(split_srcs[0]))
   emit_cc_library(
       out,
       cmake_target_pair,
       hdrs=split_srcs[0],
-      public_srcs=repo.replace_with_cmake_macro_dirs(sorted(split_srcs[0])),
+      public_srcs=public_srcs,
       **common_options,
   )
   _context.access(CMakeBuilder).addtext(out.getvalue())

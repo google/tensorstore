@@ -2,13 +2,15 @@
 # genrule(@cc_includes_test_repo//parent:c_inc)
 file(MAKE_DIRECTORY "${TEST_BINDIR}/parent/child")
 add_custom_command(
-  OUTPUT
+OUTPUT
     "${TEST_BINDIR}/parent/child/c.inc"
-  
-  COMMAND echo "// c.inc" > "${TEST_BINDIR}/parent/child/c.inc"
-  VERBATIM
-  WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+COMMAND echo "// c.inc" > "${TEST_BINDIR}/parent/child/c.inc"
+VERBATIM
+WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
+set_source_files_properties(
+    "${TEST_BINDIR}/parent/child/c.inc"
+PROPERTIES GENERATED TRUE)
 add_custom_target(genrule__CMakeProject_parent_c_inc DEPENDS
     "${TEST_BINDIR}/parent/child/c.inc")
 add_library(CMakeProject_parent_c_inc INTERFACE)

@@ -21,15 +21,18 @@ target_include_directories(CMakeProject_subdir_z INTERFACE
 
 # genrule(@native_rules_test_repo//:h_file)
 add_custom_command(
-  OUTPUT
+OUTPUT
     "${TEST_BINDIR}/a.h"
-  DEPENDS
+COMMAND $<TARGET_FILE:CMakeProject::bb> ./a .  -I${TEST_BINDIR}/foo -Isubdir/../..  "x.h" "${TEST_BINDIR}/a.h"
+VERBATIM
+DEPENDS
     "${TEST_SRCDIR}/x.h"
     "CMakeProject::bb"
-  COMMAND $<TARGET_FILE:CMakeProject::bb> ./a .  -I${TEST_BINDIR}/foo -Isubdir/../..  "x.h" "${TEST_BINDIR}/a.h"
-  VERBATIM
-  WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
+set_source_files_properties(
+    "${TEST_BINDIR}/a.h"
+PROPERTIES GENERATED TRUE)
 add_custom_target(genrule__CMakeProject_h_file DEPENDS
     "${TEST_BINDIR}/a.h")
 add_library(CMakeProject_h_file INTERFACE)
@@ -71,24 +74,28 @@ add_library(CMakeProject::c_proto ALIAS CMakeProject_c_proto)
 
 # @native_rules_test_repo//:aspect_cpp__2c7be24c
 # genproto cpp @native_rules_test_repo//:c.proto
-file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_cpp")
+file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/_gen_cpp")
 add_custom_command(
 OUTPUT
-    "${TEST_BINDIR}/_gen_cpp/c.pb.cc"
-    "${TEST_BINDIR}/_gen_cpp/c.pb.h"
+    "${PROJECT_BINARY_DIR}/_gen_cpp/c.pb.cc"
+    "${PROJECT_BINARY_DIR}/_gen_cpp/c.pb.h"
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional
     "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_c_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
     "-I$<JOIN:$<TARGET_PROPERTY:Protobuf_timestamp_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
     "--cpp_out=${PROJECT_BINARY_DIR}/_gen_cpp"
     "${TEST_SRCDIR}/c.proto"
+COMMAND_EXPAND_LISTS
+VERBATIM
 DEPENDS
     "${TEST_SRCDIR}/c.proto"
     "protobuf::protoc"
 COMMENT "Running protoc cpp on ${TEST_SRCDIR}/c.proto"
-COMMAND_EXPAND_LISTS
-VERBATIM
 )
+set_source_files_properties(
+    "${PROJECT_BINARY_DIR}/_gen_cpp/c.pb.cc"
+    "${PROJECT_BINARY_DIR}/_gen_cpp/c.pb.h"
+PROPERTIES GENERATED TRUE)
 add_custom_target(CMakeProject_aspect_cpp__2c7be24c DEPENDS
     "${PROJECT_BINARY_DIR}/_gen_cpp/c.pb.h"
     "${PROJECT_BINARY_DIR}/_gen_cpp/c.pb.cc")
@@ -208,14 +215,17 @@ add_library(CMakeProject::subdir_x ALIAS CMakeProject_subdir_x)
 # genrule(@native_rules_test_repo//subdir:make_ycc)
 file(MAKE_DIRECTORY "${TEST_BINDIR}/subdir")
 add_custom_command(
-  OUTPUT
+OUTPUT
     "${TEST_BINDIR}/subdir/y.cc"
-  DEPENDS
+COMMAND $<TARGET_FILE:CMakeProject::bb> "${TEST_BINDIR}/subdir/y.cc"
+VERBATIM
+DEPENDS
     "CMakeProject::bb"
-  COMMAND $<TARGET_FILE:CMakeProject::bb> "${TEST_BINDIR}/subdir/y.cc"
-  VERBATIM
-  WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
+set_source_files_properties(
+    "${TEST_BINDIR}/subdir/y.cc"
+PROPERTIES GENERATED TRUE)
 add_custom_target(genrule__CMakeProject_subdir_make_ycc DEPENDS
     "${TEST_BINDIR}/subdir/y.cc")
 add_library(CMakeProject_subdir_make_ycc INTERFACE)
@@ -228,14 +238,17 @@ add_dependencies(CMakeProject_subdir_make_ycc genrule__CMakeProject_subdir_make_
 # genrule(@native_rules_test_repo//subdir:make_y)
 file(MAKE_DIRECTORY "${TEST_BINDIR}/subdir")
 add_custom_command(
-  OUTPUT
+OUTPUT
     "${TEST_BINDIR}/subdir/y.h"
-  DEPENDS
+COMMAND $<TARGET_FILE:CMakeProject::bb> "${TEST_BINDIR}/subdir/y.h"
+VERBATIM
+DEPENDS
     "CMakeProject::bb"
-  COMMAND $<TARGET_FILE:CMakeProject::bb> "${TEST_BINDIR}/subdir/y.h"
-  VERBATIM
-  WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
+set_source_files_properties(
+    "${TEST_BINDIR}/subdir/y.h"
+PROPERTIES GENERATED TRUE)
 add_custom_target(genrule__CMakeProject_subdir_make_y DEPENDS
     "${TEST_BINDIR}/subdir/y.h")
 add_library(CMakeProject_subdir_make_y INTERFACE)
@@ -326,23 +339,27 @@ add_library(CMakeProject::subdir_z_proto ALIAS CMakeProject_subdir_z_proto)
 
 # @native_rules_test_repo//subdir:aspect_cpp__2eff1b8c
 # genproto cpp @native_rules_test_repo//subdir:z.proto
-file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_cpp/subdir")
+file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/_gen_cpp/subdir")
 add_custom_command(
 OUTPUT
-    "${TEST_BINDIR}/_gen_cpp/subdir/z.pb.cc"
-    "${TEST_BINDIR}/_gen_cpp/subdir/z.pb.h"
+    "${PROJECT_BINARY_DIR}/_gen_cpp/subdir/z.pb.cc"
+    "${PROJECT_BINARY_DIR}/_gen_cpp/subdir/z.pb.h"
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional
     "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_subdir_z_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
     "--cpp_out=${PROJECT_BINARY_DIR}/_gen_cpp"
     "${TEST_SRCDIR}/subdir/z.proto"
+COMMAND_EXPAND_LISTS
+VERBATIM
 DEPENDS
     "${TEST_SRCDIR}/subdir/z.proto"
     "protobuf::protoc"
 COMMENT "Running protoc cpp on ${TEST_SRCDIR}/subdir/z.proto"
-COMMAND_EXPAND_LISTS
-VERBATIM
 )
+set_source_files_properties(
+    "${PROJECT_BINARY_DIR}/_gen_cpp/subdir/z.pb.cc"
+    "${PROJECT_BINARY_DIR}/_gen_cpp/subdir/z.pb.h"
+PROPERTIES GENERATED TRUE)
 add_custom_target(CMakeProject_subdir_aspect_cpp__2eff1b8c DEPENDS
     "${PROJECT_BINARY_DIR}/_gen_cpp/subdir/z.pb.h"
     "${PROJECT_BINARY_DIR}/_gen_cpp/subdir/z.pb.cc")

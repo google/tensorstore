@@ -10,23 +10,27 @@ add_library(CMakeProject::a_proto ALIAS CMakeProject_a_proto)
 
 # @rules_proto_test_repo//:aspect_cpp__43b0bcf1
 # genproto cpp @rules_proto_test_repo//:a.proto
-file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_cpp")
+file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/_gen_cpp")
 add_custom_command(
 OUTPUT
-    "${TEST_BINDIR}/_gen_cpp/a.pb.cc"
-    "${TEST_BINDIR}/_gen_cpp/a.pb.h"
+    "${PROJECT_BINARY_DIR}/_gen_cpp/a.pb.cc"
+    "${PROJECT_BINARY_DIR}/_gen_cpp/a.pb.h"
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional
     "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_a_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
     "--cpp_out=${PROJECT_BINARY_DIR}/_gen_cpp"
     "${TEST_SRCDIR}/a.proto"
+COMMAND_EXPAND_LISTS
+VERBATIM
 DEPENDS
     "${TEST_SRCDIR}/a.proto"
     "protobuf::protoc"
 COMMENT "Running protoc cpp on ${TEST_SRCDIR}/a.proto"
-COMMAND_EXPAND_LISTS
-VERBATIM
 )
+set_source_files_properties(
+    "${PROJECT_BINARY_DIR}/_gen_cpp/a.pb.cc"
+    "${PROJECT_BINARY_DIR}/_gen_cpp/a.pb.h"
+PROPERTIES GENERATED TRUE)
 add_custom_target(CMakeProject_aspect_cpp__43b0bcf1 DEPENDS
     "${PROJECT_BINARY_DIR}/_gen_cpp/a.pb.h"
     "${PROJECT_BINARY_DIR}/_gen_cpp/a.pb.cc")
@@ -51,25 +55,29 @@ add_library(CMakeProject::a_proto__cpp_library ALIAS CMakeProject_a_proto__cpp_l
 
 # @rules_proto_test_repo//:aspect_upb_minitable__43b0bcf1
 # genproto upb_minitable @rules_proto_test_repo//:a.proto
-file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_upb_minitable")
+file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/_gen_upb_minitable")
 add_custom_command(
 OUTPUT
-    "${TEST_BINDIR}/_gen_upb_minitable/a.upb_minitable.c"
-    "${TEST_BINDIR}/_gen_upb_minitable/a.upb_minitable.h"
+    "${PROJECT_BINARY_DIR}/_gen_upb_minitable/a.upb_minitable.c"
+    "${PROJECT_BINARY_DIR}/_gen_upb_minitable/a.upb_minitable.h"
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional
-    --plugin=protoc-gen-upb_minitable=$<TARGET_FILE:protobuf::protoc_gen_upb_minitable_stage1>
+    --plugin=protoc-gen-upb_minitable=$<TARGET_FILE:Protobuf::upb_generator_minitable_protoc-gen-upb_minitable_stage1>
     "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_a_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
     "--upb_minitable_out=${PROJECT_BINARY_DIR}/_gen_upb_minitable"
     "${TEST_SRCDIR}/a.proto"
-DEPENDS
-    "${TEST_SRCDIR}/a.proto"
-    "protobuf::protoc"
-    "protobuf::protoc_gen_upb_minitable_stage1"
-COMMENT "Running protoc upb_minitable on ${TEST_SRCDIR}/a.proto"
 COMMAND_EXPAND_LISTS
 VERBATIM
+DEPENDS
+    "${TEST_SRCDIR}/a.proto"
+    "Protobuf::upb_generator_minitable_protoc-gen-upb_minitable_stage1"
+    "protobuf::protoc"
+COMMENT "Running protoc upb_minitable on ${TEST_SRCDIR}/a.proto"
 )
+set_source_files_properties(
+    "${PROJECT_BINARY_DIR}/_gen_upb_minitable/a.upb_minitable.c"
+    "${PROJECT_BINARY_DIR}/_gen_upb_minitable/a.upb_minitable.h"
+PROPERTIES GENERATED TRUE)
 add_custom_target(CMakeProject_aspect_upb_minitable__43b0bcf1 DEPENDS
     "${PROJECT_BINARY_DIR}/_gen_upb_minitable/a.upb_minitable.h"
     "${PROJECT_BINARY_DIR}/_gen_upb_minitable/a.upb_minitable.c")
@@ -94,25 +102,29 @@ add_library(CMakeProject::a_proto__minitable_library ALIAS CMakeProject_a_proto_
 
 # @rules_proto_test_repo//:aspect_upb__43b0bcf1
 # genproto upb @rules_proto_test_repo//:a.proto
-file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_upb")
+file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/_gen_upb")
 add_custom_command(
 OUTPUT
-    "${TEST_BINDIR}/_gen_upb/a.upb.c"
-    "${TEST_BINDIR}/_gen_upb/a.upb.h"
+    "${PROJECT_BINARY_DIR}/_gen_upb/a.upb.c"
+    "${PROJECT_BINARY_DIR}/_gen_upb/a.upb.h"
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional
-    --plugin=protoc-gen-upb=$<TARGET_FILE:protobuf::protoc_gen_upb>
+    --plugin=protoc-gen-upb=$<TARGET_FILE:Protobuf::upb_generator_c_protoc-gen-upb>
     "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_a_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
     "--upb_out=${PROJECT_BINARY_DIR}/_gen_upb"
     "${TEST_SRCDIR}/a.proto"
-DEPENDS
-    "${TEST_SRCDIR}/a.proto"
-    "protobuf::protoc"
-    "protobuf::protoc_gen_upb"
-COMMENT "Running protoc upb on ${TEST_SRCDIR}/a.proto"
 COMMAND_EXPAND_LISTS
 VERBATIM
+DEPENDS
+    "${TEST_SRCDIR}/a.proto"
+    "Protobuf::upb_generator_c_protoc-gen-upb"
+    "protobuf::protoc"
+COMMENT "Running protoc upb on ${TEST_SRCDIR}/a.proto"
 )
+set_source_files_properties(
+    "${PROJECT_BINARY_DIR}/_gen_upb/a.upb.c"
+    "${PROJECT_BINARY_DIR}/_gen_upb/a.upb.h"
+PROPERTIES GENERATED TRUE)
 add_custom_target(CMakeProject_aspect_upb__43b0bcf1 DEPENDS
     "${PROJECT_BINARY_DIR}/_gen_upb/a.upb.h"
     "${PROJECT_BINARY_DIR}/_gen_upb/a.upb.c")
@@ -138,25 +150,29 @@ add_library(CMakeProject::a_proto__upb_library ALIAS CMakeProject_a_proto__upb_l
 
 # @rules_proto_test_repo//:aspect_upbdefs__43b0bcf1
 # genproto upbdefs @rules_proto_test_repo//:a.proto
-file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_upbdefs")
+file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/_gen_upbdefs")
 add_custom_command(
 OUTPUT
-    "${TEST_BINDIR}/_gen_upbdefs/a.upbdefs.c"
-    "${TEST_BINDIR}/_gen_upbdefs/a.upbdefs.h"
+    "${PROJECT_BINARY_DIR}/_gen_upbdefs/a.upbdefs.c"
+    "${PROJECT_BINARY_DIR}/_gen_upbdefs/a.upbdefs.h"
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional
-    --plugin=protoc-gen-upbdefs=$<TARGET_FILE:protobuf::protoc_gen_upbdefs>
+    --plugin=protoc-gen-upbdefs=$<TARGET_FILE:Protobuf::upb_generator_reflection_protoc-gen-upbdefs>
     "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_a_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
     "--upbdefs_out=${PROJECT_BINARY_DIR}/_gen_upbdefs"
     "${TEST_SRCDIR}/a.proto"
-DEPENDS
-    "${TEST_SRCDIR}/a.proto"
-    "protobuf::protoc"
-    "protobuf::protoc_gen_upbdefs"
-COMMENT "Running protoc upbdefs on ${TEST_SRCDIR}/a.proto"
 COMMAND_EXPAND_LISTS
 VERBATIM
+DEPENDS
+    "${TEST_SRCDIR}/a.proto"
+    "Protobuf::upb_generator_reflection_protoc-gen-upbdefs"
+    "protobuf::protoc"
+COMMENT "Running protoc upbdefs on ${TEST_SRCDIR}/a.proto"
 )
+set_source_files_properties(
+    "${PROJECT_BINARY_DIR}/_gen_upbdefs/a.upbdefs.c"
+    "${PROJECT_BINARY_DIR}/_gen_upbdefs/a.upbdefs.h"
+PROPERTIES GENERATED TRUE)
 add_custom_target(CMakeProject_aspect_upbdefs__43b0bcf1 DEPENDS
     "${PROJECT_BINARY_DIR}/_gen_upbdefs/a.upbdefs.h"
     "${PROJECT_BINARY_DIR}/_gen_upbdefs/a.upbdefs.c")
@@ -192,23 +208,27 @@ add_library(CMakeProject::ab_proto ALIAS CMakeProject_ab_proto)
 
 # @rules_proto_test_repo//:aspect_cpp__3daadd2b
 # genproto cpp @rules_proto_test_repo//:b.proto
-file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_cpp")
+file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/_gen_cpp")
 add_custom_command(
 OUTPUT
-    "${TEST_BINDIR}/_gen_cpp/b.pb.cc"
-    "${TEST_BINDIR}/_gen_cpp/b.pb.h"
+    "${PROJECT_BINARY_DIR}/_gen_cpp/b.pb.cc"
+    "${PROJECT_BINARY_DIR}/_gen_cpp/b.pb.h"
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional
     "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_ab_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
     "--cpp_out=${PROJECT_BINARY_DIR}/_gen_cpp"
     "${TEST_SRCDIR}/b.proto"
+COMMAND_EXPAND_LISTS
+VERBATIM
 DEPENDS
     "${TEST_SRCDIR}/b.proto"
     "protobuf::protoc"
 COMMENT "Running protoc cpp on ${TEST_SRCDIR}/b.proto"
-COMMAND_EXPAND_LISTS
-VERBATIM
 )
+set_source_files_properties(
+    "${PROJECT_BINARY_DIR}/_gen_cpp/b.pb.cc"
+    "${PROJECT_BINARY_DIR}/_gen_cpp/b.pb.h"
+PROPERTIES GENERATED TRUE)
 add_custom_target(CMakeProject_aspect_cpp__3daadd2b DEPENDS
     "${PROJECT_BINARY_DIR}/_gen_cpp/b.pb.h"
     "${PROJECT_BINARY_DIR}/_gen_cpp/b.pb.cc")
@@ -235,50 +255,58 @@ add_library(CMakeProject::ab_proto__cpp_library ALIAS CMakeProject_ab_proto__cpp
 
 # @rules_proto_test_repo//:aspect_upb__3daadd2b
 # genproto upb @rules_proto_test_repo//:b.proto
-file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_upb")
+file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/_gen_upb")
 add_custom_command(
 OUTPUT
-    "${TEST_BINDIR}/_gen_upb/b.upb.c"
-    "${TEST_BINDIR}/_gen_upb/b.upb.h"
+    "${PROJECT_BINARY_DIR}/_gen_upb/b.upb.c"
+    "${PROJECT_BINARY_DIR}/_gen_upb/b.upb.h"
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional
-    --plugin=protoc-gen-upb=$<TARGET_FILE:protobuf::protoc_gen_upb>
+    --plugin=protoc-gen-upb=$<TARGET_FILE:Protobuf::upb_generator_c_protoc-gen-upb>
     "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_ab_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
     "--upb_out=${PROJECT_BINARY_DIR}/_gen_upb"
     "${TEST_SRCDIR}/b.proto"
-DEPENDS
-    "${TEST_SRCDIR}/b.proto"
-    "protobuf::protoc"
-    "protobuf::protoc_gen_upb"
-COMMENT "Running protoc upb on ${TEST_SRCDIR}/b.proto"
 COMMAND_EXPAND_LISTS
 VERBATIM
+DEPENDS
+    "${TEST_SRCDIR}/b.proto"
+    "Protobuf::upb_generator_c_protoc-gen-upb"
+    "protobuf::protoc"
+COMMENT "Running protoc upb on ${TEST_SRCDIR}/b.proto"
 )
+set_source_files_properties(
+    "${PROJECT_BINARY_DIR}/_gen_upb/b.upb.c"
+    "${PROJECT_BINARY_DIR}/_gen_upb/b.upb.h"
+PROPERTIES GENERATED TRUE)
 add_custom_target(CMakeProject_aspect_upb__3daadd2b DEPENDS
     "${PROJECT_BINARY_DIR}/_gen_upb/b.upb.h"
     "${PROJECT_BINARY_DIR}/_gen_upb/b.upb.c")
 
 # @rules_proto_test_repo//:aspect_upb_minitable__3daadd2b
 # genproto upb_minitable @rules_proto_test_repo//:b.proto
-file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_upb_minitable")
+file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/_gen_upb_minitable")
 add_custom_command(
 OUTPUT
-    "${TEST_BINDIR}/_gen_upb_minitable/b.upb_minitable.c"
-    "${TEST_BINDIR}/_gen_upb_minitable/b.upb_minitable.h"
+    "${PROJECT_BINARY_DIR}/_gen_upb_minitable/b.upb_minitable.c"
+    "${PROJECT_BINARY_DIR}/_gen_upb_minitable/b.upb_minitable.h"
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional
-    --plugin=protoc-gen-upb_minitable=$<TARGET_FILE:protobuf::protoc_gen_upb_minitable_stage1>
+    --plugin=protoc-gen-upb_minitable=$<TARGET_FILE:Protobuf::upb_generator_minitable_protoc-gen-upb_minitable_stage1>
     "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_ab_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
     "--upb_minitable_out=${PROJECT_BINARY_DIR}/_gen_upb_minitable"
     "${TEST_SRCDIR}/b.proto"
-DEPENDS
-    "${TEST_SRCDIR}/b.proto"
-    "protobuf::protoc"
-    "protobuf::protoc_gen_upb_minitable_stage1"
-COMMENT "Running protoc upb_minitable on ${TEST_SRCDIR}/b.proto"
 COMMAND_EXPAND_LISTS
 VERBATIM
+DEPENDS
+    "${TEST_SRCDIR}/b.proto"
+    "Protobuf::upb_generator_minitable_protoc-gen-upb_minitable_stage1"
+    "protobuf::protoc"
+COMMENT "Running protoc upb_minitable on ${TEST_SRCDIR}/b.proto"
 )
+set_source_files_properties(
+    "${PROJECT_BINARY_DIR}/_gen_upb_minitable/b.upb_minitable.c"
+    "${PROJECT_BINARY_DIR}/_gen_upb_minitable/b.upb_minitable.h"
+PROPERTIES GENERATED TRUE)
 add_custom_target(CMakeProject_aspect_upb_minitable__3daadd2b DEPENDS
     "${PROJECT_BINARY_DIR}/_gen_upb_minitable/b.upb_minitable.h"
     "${PROJECT_BINARY_DIR}/_gen_upb_minitable/b.upb_minitable.c")
@@ -326,25 +354,29 @@ add_library(CMakeProject::ab_proto__upb_library ALIAS CMakeProject_ab_proto__upb
 
 # @rules_proto_test_repo//:aspect_upbdefs__3daadd2b
 # genproto upbdefs @rules_proto_test_repo//:b.proto
-file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_upbdefs")
+file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/_gen_upbdefs")
 add_custom_command(
 OUTPUT
-    "${TEST_BINDIR}/_gen_upbdefs/b.upbdefs.c"
-    "${TEST_BINDIR}/_gen_upbdefs/b.upbdefs.h"
+    "${PROJECT_BINARY_DIR}/_gen_upbdefs/b.upbdefs.c"
+    "${PROJECT_BINARY_DIR}/_gen_upbdefs/b.upbdefs.h"
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional
-    --plugin=protoc-gen-upbdefs=$<TARGET_FILE:protobuf::protoc_gen_upbdefs>
+    --plugin=protoc-gen-upbdefs=$<TARGET_FILE:Protobuf::upb_generator_reflection_protoc-gen-upbdefs>
     "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_ab_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
     "--upbdefs_out=${PROJECT_BINARY_DIR}/_gen_upbdefs"
     "${TEST_SRCDIR}/b.proto"
-DEPENDS
-    "${TEST_SRCDIR}/b.proto"
-    "protobuf::protoc"
-    "protobuf::protoc_gen_upbdefs"
-COMMENT "Running protoc upbdefs on ${TEST_SRCDIR}/b.proto"
 COMMAND_EXPAND_LISTS
 VERBATIM
+DEPENDS
+    "${TEST_SRCDIR}/b.proto"
+    "Protobuf::upb_generator_reflection_protoc-gen-upbdefs"
+    "protobuf::protoc"
+COMMENT "Running protoc upbdefs on ${TEST_SRCDIR}/b.proto"
 )
+set_source_files_properties(
+    "${PROJECT_BINARY_DIR}/_gen_upbdefs/b.upbdefs.c"
+    "${PROJECT_BINARY_DIR}/_gen_upbdefs/b.upbdefs.h"
+PROPERTIES GENERATED TRUE)
 add_custom_target(CMakeProject_aspect_upbdefs__3daadd2b DEPENDS
     "${PROJECT_BINARY_DIR}/_gen_upbdefs/b.upbdefs.h"
     "${PROJECT_BINARY_DIR}/_gen_upbdefs/b.upbdefs.c")
@@ -407,11 +439,11 @@ add_library(CMakeProject::abcd_proto ALIAS CMakeProject_abcd_proto)
 
 # @rules_proto_test_repo//:aspect_cpp__84819b61
 # genproto cpp @rules_proto_test_repo//:c.proto
-file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_cpp")
+file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/_gen_cpp")
 add_custom_command(
 OUTPUT
-    "${TEST_BINDIR}/_gen_cpp/c.pb.cc"
-    "${TEST_BINDIR}/_gen_cpp/c.pb.h"
+    "${PROJECT_BINARY_DIR}/_gen_cpp/c.pb.cc"
+    "${PROJECT_BINARY_DIR}/_gen_cpp/c.pb.h"
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional
     "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject::ab_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
@@ -419,36 +451,44 @@ COMMAND $<TARGET_FILE:protobuf::protoc>
     "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_abcd_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
     "--cpp_out=${PROJECT_BINARY_DIR}/_gen_cpp"
     "${TEST_SRCDIR}/c.proto"
+COMMAND_EXPAND_LISTS
+VERBATIM
 DEPENDS
     "${TEST_SRCDIR}/c.proto"
     "protobuf::protoc"
 COMMENT "Running protoc cpp on ${TEST_SRCDIR}/c.proto"
-COMMAND_EXPAND_LISTS
-VERBATIM
 )
+set_source_files_properties(
+    "${PROJECT_BINARY_DIR}/_gen_cpp/c.pb.cc"
+    "${PROJECT_BINARY_DIR}/_gen_cpp/c.pb.h"
+PROPERTIES GENERATED TRUE)
 add_custom_target(CMakeProject_aspect_cpp__84819b61 DEPENDS
     "${PROJECT_BINARY_DIR}/_gen_cpp/c.pb.h"
     "${PROJECT_BINARY_DIR}/_gen_cpp/c.pb.cc")
 
 # @rules_proto_test_repo//:aspect_cpp__ae7c401d
 # genproto cpp @rules_proto_test_repo//:d.proto
-file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_cpp")
+file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/_gen_cpp")
 add_custom_command(
 OUTPUT
-    "${TEST_BINDIR}/_gen_cpp/d.pb.cc"
-    "${TEST_BINDIR}/_gen_cpp/d.pb.h"
+    "${PROJECT_BINARY_DIR}/_gen_cpp/d.pb.cc"
+    "${PROJECT_BINARY_DIR}/_gen_cpp/d.pb.h"
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional
     "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_d_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
     "--cpp_out=${PROJECT_BINARY_DIR}/_gen_cpp"
     "${TEST_SRCDIR}/d.proto"
+COMMAND_EXPAND_LISTS
+VERBATIM
 DEPENDS
     "${TEST_SRCDIR}/d.proto"
     "protobuf::protoc"
 COMMENT "Running protoc cpp on ${TEST_SRCDIR}/d.proto"
-COMMAND_EXPAND_LISTS
-VERBATIM
 )
+set_source_files_properties(
+    "${PROJECT_BINARY_DIR}/_gen_cpp/d.pb.cc"
+    "${PROJECT_BINARY_DIR}/_gen_cpp/d.pb.h"
+PROPERTIES GENERATED TRUE)
 add_custom_target(CMakeProject_aspect_cpp__ae7c401d DEPENDS
     "${PROJECT_BINARY_DIR}/_gen_cpp/d.pb.h"
     "${PROJECT_BINARY_DIR}/_gen_cpp/d.pb.cc")
@@ -493,52 +533,89 @@ add_library(CMakeProject::abcd_proto__cpp_library ALIAS CMakeProject_abcd_proto_
 
 # @rules_proto_test_repo//:aspect_upb__84819b61
 # genproto upb @rules_proto_test_repo//:c.proto
-file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_upb")
+file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/_gen_upb")
 add_custom_command(
 OUTPUT
-    "${TEST_BINDIR}/_gen_upb/c.upb.c"
-    "${TEST_BINDIR}/_gen_upb/c.upb.h"
+    "${PROJECT_BINARY_DIR}/_gen_upb/c.upb.c"
+    "${PROJECT_BINARY_DIR}/_gen_upb/c.upb.h"
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional
-    --plugin=protoc-gen-upb=$<TARGET_FILE:protobuf::protoc_gen_upb>
+    --plugin=protoc-gen-upb=$<TARGET_FILE:Protobuf::upb_generator_c_protoc-gen-upb>
     "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject::ab_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
     "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject::d_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
     "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_abcd_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
     "--upb_out=${PROJECT_BINARY_DIR}/_gen_upb"
     "${TEST_SRCDIR}/c.proto"
-DEPENDS
-    "${TEST_SRCDIR}/c.proto"
-    "protobuf::protoc"
-    "protobuf::protoc_gen_upb"
-COMMENT "Running protoc upb on ${TEST_SRCDIR}/c.proto"
 COMMAND_EXPAND_LISTS
 VERBATIM
+DEPENDS
+    "${TEST_SRCDIR}/c.proto"
+    "Protobuf::upb_generator_c_protoc-gen-upb"
+    "protobuf::protoc"
+COMMENT "Running protoc upb on ${TEST_SRCDIR}/c.proto"
 )
+set_source_files_properties(
+    "${PROJECT_BINARY_DIR}/_gen_upb/c.upb.c"
+    "${PROJECT_BINARY_DIR}/_gen_upb/c.upb.h"
+PROPERTIES GENERATED TRUE)
 add_custom_target(CMakeProject_aspect_upb__84819b61 DEPENDS
     "${PROJECT_BINARY_DIR}/_gen_upb/c.upb.h"
     "${PROJECT_BINARY_DIR}/_gen_upb/c.upb.c")
 
-# @rules_proto_test_repo//:aspect_upb_minitable__ae7c401d
-# genproto upb_minitable @rules_proto_test_repo//:d.proto
-file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_upb_minitable")
+# @rules_proto_test_repo//:aspect_upb__ae7c401d
+# genproto upb @rules_proto_test_repo//:d.proto
+file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/_gen_upb")
 add_custom_command(
 OUTPUT
-    "${TEST_BINDIR}/_gen_upb_minitable/d.upb_minitable.c"
-    "${TEST_BINDIR}/_gen_upb_minitable/d.upb_minitable.h"
+    "${PROJECT_BINARY_DIR}/_gen_upb/d.upb.c"
+    "${PROJECT_BINARY_DIR}/_gen_upb/d.upb.h"
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional
-    --plugin=protoc-gen-upb_minitable=$<TARGET_FILE:protobuf::protoc_gen_upb_minitable_stage1>
+    --plugin=protoc-gen-upb=$<TARGET_FILE:Protobuf::upb_generator_c_protoc-gen-upb>
+    "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_d_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
+    "--upb_out=${PROJECT_BINARY_DIR}/_gen_upb"
+    "${TEST_SRCDIR}/d.proto"
+COMMAND_EXPAND_LISTS
+VERBATIM
+DEPENDS
+    "${TEST_SRCDIR}/d.proto"
+    "Protobuf::upb_generator_c_protoc-gen-upb"
+    "protobuf::protoc"
+COMMENT "Running protoc upb on ${TEST_SRCDIR}/d.proto"
+)
+set_source_files_properties(
+    "${PROJECT_BINARY_DIR}/_gen_upb/d.upb.c"
+    "${PROJECT_BINARY_DIR}/_gen_upb/d.upb.h"
+PROPERTIES GENERATED TRUE)
+add_custom_target(CMakeProject_aspect_upb__ae7c401d DEPENDS
+    "${PROJECT_BINARY_DIR}/_gen_upb/d.upb.h"
+    "${PROJECT_BINARY_DIR}/_gen_upb/d.upb.c")
+
+# @rules_proto_test_repo//:aspect_upb_minitable__ae7c401d
+# genproto upb_minitable @rules_proto_test_repo//:d.proto
+file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/_gen_upb_minitable")
+add_custom_command(
+OUTPUT
+    "${PROJECT_BINARY_DIR}/_gen_upb_minitable/d.upb_minitable.c"
+    "${PROJECT_BINARY_DIR}/_gen_upb_minitable/d.upb_minitable.h"
+COMMAND $<TARGET_FILE:protobuf::protoc>
+    --experimental_allow_proto3_optional
+    --plugin=protoc-gen-upb_minitable=$<TARGET_FILE:Protobuf::upb_generator_minitable_protoc-gen-upb_minitable_stage1>
     "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_d_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
     "--upb_minitable_out=${PROJECT_BINARY_DIR}/_gen_upb_minitable"
     "${TEST_SRCDIR}/d.proto"
-DEPENDS
-    "${TEST_SRCDIR}/d.proto"
-    "protobuf::protoc"
-    "protobuf::protoc_gen_upb_minitable_stage1"
-COMMENT "Running protoc upb_minitable on ${TEST_SRCDIR}/d.proto"
 COMMAND_EXPAND_LISTS
 VERBATIM
+DEPENDS
+    "${TEST_SRCDIR}/d.proto"
+    "Protobuf::upb_generator_minitable_protoc-gen-upb_minitable_stage1"
+    "protobuf::protoc"
+COMMENT "Running protoc upb_minitable on ${TEST_SRCDIR}/d.proto"
 )
+set_source_files_properties(
+    "${PROJECT_BINARY_DIR}/_gen_upb_minitable/d.upb_minitable.c"
+    "${PROJECT_BINARY_DIR}/_gen_upb_minitable/d.upb_minitable.h"
+PROPERTIES GENERATED TRUE)
 add_custom_target(CMakeProject_aspect_upb_minitable__ae7c401d DEPENDS
     "${PROJECT_BINARY_DIR}/_gen_upb_minitable/d.upb_minitable.h"
     "${PROJECT_BINARY_DIR}/_gen_upb_minitable/d.upb_minitable.c")
@@ -561,29 +638,52 @@ target_sources(CMakeProject_d_proto__minitable_library PRIVATE
         "${PROJECT_BINARY_DIR}/_gen_upb_minitable/d.upb_minitable.c")
 add_library(CMakeProject::d_proto__minitable_library ALIAS CMakeProject_d_proto__minitable_library)
 
+# @rules_proto_test_repo//:d_proto__upb_library
+# aspect upb @rules_proto_test_repo//:d_proto
+add_library(CMakeProject_d_proto__upb_library)
+set_property(TARGET CMakeProject_d_proto__upb_library PROPERTY LINKER_LANGUAGE "CXX")
+target_link_libraries(CMakeProject_d_proto__upb_library PUBLIC
+        "CMakeProject::d_proto__minitable_library"
+        "Threads::Threads"
+        "m"
+        "protobuf::upb_generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me")
+target_include_directories(CMakeProject_d_proto__upb_library PUBLIC
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upb>")
+target_compile_features(CMakeProject_d_proto__upb_library PUBLIC cxx_std_17)
+add_dependencies(CMakeProject_d_proto__upb_library "CMakeProject_aspect_upb__ae7c401d")
+target_sources(CMakeProject_d_proto__upb_library PUBLIC
+        "${PROJECT_BINARY_DIR}/_gen_upb/d.upb.h")
+target_sources(CMakeProject_d_proto__upb_library PRIVATE
+        "${PROJECT_BINARY_DIR}/_gen_upb/d.upb.c")
+add_library(CMakeProject::d_proto__upb_library ALIAS CMakeProject_d_proto__upb_library)
+
 # @rules_proto_test_repo//:aspect_upb_minitable__84819b61
 # genproto upb_minitable @rules_proto_test_repo//:c.proto
-file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_upb_minitable")
+file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/_gen_upb_minitable")
 add_custom_command(
 OUTPUT
-    "${TEST_BINDIR}/_gen_upb_minitable/c.upb_minitable.c"
-    "${TEST_BINDIR}/_gen_upb_minitable/c.upb_minitable.h"
+    "${PROJECT_BINARY_DIR}/_gen_upb_minitable/c.upb_minitable.c"
+    "${PROJECT_BINARY_DIR}/_gen_upb_minitable/c.upb_minitable.h"
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional
-    --plugin=protoc-gen-upb_minitable=$<TARGET_FILE:protobuf::protoc_gen_upb_minitable_stage1>
+    --plugin=protoc-gen-upb_minitable=$<TARGET_FILE:Protobuf::upb_generator_minitable_protoc-gen-upb_minitable_stage1>
     "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject::ab_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
     "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject::d_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
     "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_abcd_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
     "--upb_minitable_out=${PROJECT_BINARY_DIR}/_gen_upb_minitable"
     "${TEST_SRCDIR}/c.proto"
-DEPENDS
-    "${TEST_SRCDIR}/c.proto"
-    "protobuf::protoc"
-    "protobuf::protoc_gen_upb_minitable_stage1"
-COMMENT "Running protoc upb_minitable on ${TEST_SRCDIR}/c.proto"
 COMMAND_EXPAND_LISTS
 VERBATIM
+DEPENDS
+    "${TEST_SRCDIR}/c.proto"
+    "Protobuf::upb_generator_minitable_protoc-gen-upb_minitable_stage1"
+    "protobuf::protoc"
+COMMENT "Running protoc upb_minitable on ${TEST_SRCDIR}/c.proto"
 )
+set_source_files_properties(
+    "${PROJECT_BINARY_DIR}/_gen_upb_minitable/c.upb_minitable.c"
+    "${PROJECT_BINARY_DIR}/_gen_upb_minitable/c.upb_minitable.h"
+PROPERTIES GENERATED TRUE)
 add_custom_target(CMakeProject_aspect_upb_minitable__84819b61 DEPENDS
     "${PROJECT_BINARY_DIR}/_gen_upb_minitable/c.upb_minitable.h"
     "${PROJECT_BINARY_DIR}/_gen_upb_minitable/c.upb_minitable.c")
@@ -607,50 +707,6 @@ target_sources(CMakeProject_abcd_proto__minitable_library PUBLIC
 target_sources(CMakeProject_abcd_proto__minitable_library PRIVATE
         "${PROJECT_BINARY_DIR}/_gen_upb_minitable/c.upb_minitable.c")
 add_library(CMakeProject::abcd_proto__minitable_library ALIAS CMakeProject_abcd_proto__minitable_library)
-
-# @rules_proto_test_repo//:aspect_upb__ae7c401d
-# genproto upb @rules_proto_test_repo//:d.proto
-file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_upb")
-add_custom_command(
-OUTPUT
-    "${TEST_BINDIR}/_gen_upb/d.upb.c"
-    "${TEST_BINDIR}/_gen_upb/d.upb.h"
-COMMAND $<TARGET_FILE:protobuf::protoc>
-    --experimental_allow_proto3_optional
-    --plugin=protoc-gen-upb=$<TARGET_FILE:protobuf::protoc_gen_upb>
-    "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_d_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
-    "--upb_out=${PROJECT_BINARY_DIR}/_gen_upb"
-    "${TEST_SRCDIR}/d.proto"
-DEPENDS
-    "${TEST_SRCDIR}/d.proto"
-    "protobuf::protoc"
-    "protobuf::protoc_gen_upb"
-COMMENT "Running protoc upb on ${TEST_SRCDIR}/d.proto"
-COMMAND_EXPAND_LISTS
-VERBATIM
-)
-add_custom_target(CMakeProject_aspect_upb__ae7c401d DEPENDS
-    "${PROJECT_BINARY_DIR}/_gen_upb/d.upb.h"
-    "${PROJECT_BINARY_DIR}/_gen_upb/d.upb.c")
-
-# @rules_proto_test_repo//:d_proto__upb_library
-# aspect upb @rules_proto_test_repo//:d_proto
-add_library(CMakeProject_d_proto__upb_library)
-set_property(TARGET CMakeProject_d_proto__upb_library PROPERTY LINKER_LANGUAGE "CXX")
-target_link_libraries(CMakeProject_d_proto__upb_library PUBLIC
-        "CMakeProject::d_proto__minitable_library"
-        "Threads::Threads"
-        "m"
-        "protobuf::upb_generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me")
-target_include_directories(CMakeProject_d_proto__upb_library PUBLIC
-        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/_gen_upb>")
-target_compile_features(CMakeProject_d_proto__upb_library PUBLIC cxx_std_17)
-add_dependencies(CMakeProject_d_proto__upb_library "CMakeProject_aspect_upb__ae7c401d")
-target_sources(CMakeProject_d_proto__upb_library PUBLIC
-        "${PROJECT_BINARY_DIR}/_gen_upb/d.upb.h")
-target_sources(CMakeProject_d_proto__upb_library PRIVATE
-        "${PROJECT_BINARY_DIR}/_gen_upb/d.upb.c")
-add_library(CMakeProject::d_proto__upb_library ALIAS CMakeProject_d_proto__upb_library)
 
 # @rules_proto_test_repo//:abcd_proto__upb_library
 # aspect upb @rules_proto_test_repo//:abcd_proto
@@ -677,52 +733,60 @@ add_library(CMakeProject::abcd_proto__upb_library ALIAS CMakeProject_abcd_proto_
 
 # @rules_proto_test_repo//:aspect_upbdefs__84819b61
 # genproto upbdefs @rules_proto_test_repo//:c.proto
-file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_upbdefs")
+file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/_gen_upbdefs")
 add_custom_command(
 OUTPUT
-    "${TEST_BINDIR}/_gen_upbdefs/c.upbdefs.c"
-    "${TEST_BINDIR}/_gen_upbdefs/c.upbdefs.h"
+    "${PROJECT_BINARY_DIR}/_gen_upbdefs/c.upbdefs.c"
+    "${PROJECT_BINARY_DIR}/_gen_upbdefs/c.upbdefs.h"
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional
-    --plugin=protoc-gen-upbdefs=$<TARGET_FILE:protobuf::protoc_gen_upbdefs>
+    --plugin=protoc-gen-upbdefs=$<TARGET_FILE:Protobuf::upb_generator_reflection_protoc-gen-upbdefs>
     "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject::ab_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
     "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject::d_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
     "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_abcd_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
     "--upbdefs_out=${PROJECT_BINARY_DIR}/_gen_upbdefs"
     "${TEST_SRCDIR}/c.proto"
-DEPENDS
-    "${TEST_SRCDIR}/c.proto"
-    "protobuf::protoc"
-    "protobuf::protoc_gen_upbdefs"
-COMMENT "Running protoc upbdefs on ${TEST_SRCDIR}/c.proto"
 COMMAND_EXPAND_LISTS
 VERBATIM
+DEPENDS
+    "${TEST_SRCDIR}/c.proto"
+    "Protobuf::upb_generator_reflection_protoc-gen-upbdefs"
+    "protobuf::protoc"
+COMMENT "Running protoc upbdefs on ${TEST_SRCDIR}/c.proto"
 )
+set_source_files_properties(
+    "${PROJECT_BINARY_DIR}/_gen_upbdefs/c.upbdefs.c"
+    "${PROJECT_BINARY_DIR}/_gen_upbdefs/c.upbdefs.h"
+PROPERTIES GENERATED TRUE)
 add_custom_target(CMakeProject_aspect_upbdefs__84819b61 DEPENDS
     "${PROJECT_BINARY_DIR}/_gen_upbdefs/c.upbdefs.h"
     "${PROJECT_BINARY_DIR}/_gen_upbdefs/c.upbdefs.c")
 
 # @rules_proto_test_repo//:aspect_upbdefs__ae7c401d
 # genproto upbdefs @rules_proto_test_repo//:d.proto
-file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_upbdefs")
+file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/_gen_upbdefs")
 add_custom_command(
 OUTPUT
-    "${TEST_BINDIR}/_gen_upbdefs/d.upbdefs.c"
-    "${TEST_BINDIR}/_gen_upbdefs/d.upbdefs.h"
+    "${PROJECT_BINARY_DIR}/_gen_upbdefs/d.upbdefs.c"
+    "${PROJECT_BINARY_DIR}/_gen_upbdefs/d.upbdefs.h"
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional
-    --plugin=protoc-gen-upbdefs=$<TARGET_FILE:protobuf::protoc_gen_upbdefs>
+    --plugin=protoc-gen-upbdefs=$<TARGET_FILE:Protobuf::upb_generator_reflection_protoc-gen-upbdefs>
     "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_d_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
     "--upbdefs_out=${PROJECT_BINARY_DIR}/_gen_upbdefs"
     "${TEST_SRCDIR}/d.proto"
-DEPENDS
-    "${TEST_SRCDIR}/d.proto"
-    "protobuf::protoc"
-    "protobuf::protoc_gen_upbdefs"
-COMMENT "Running protoc upbdefs on ${TEST_SRCDIR}/d.proto"
 COMMAND_EXPAND_LISTS
 VERBATIM
+DEPENDS
+    "${TEST_SRCDIR}/d.proto"
+    "Protobuf::upb_generator_reflection_protoc-gen-upbdefs"
+    "protobuf::protoc"
+COMMENT "Running protoc upbdefs on ${TEST_SRCDIR}/d.proto"
 )
+set_source_files_properties(
+    "${PROJECT_BINARY_DIR}/_gen_upbdefs/d.upbdefs.c"
+    "${PROJECT_BINARY_DIR}/_gen_upbdefs/d.upbdefs.h"
+PROPERTIES GENERATED TRUE)
 add_custom_target(CMakeProject_aspect_upbdefs__ae7c401d DEPENDS
     "${PROJECT_BINARY_DIR}/_gen_upbdefs/d.upbdefs.h"
     "${PROJECT_BINARY_DIR}/_gen_upbdefs/d.upbdefs.c")
@@ -881,52 +945,60 @@ add_library(CMakeProject::x_proto ALIAS CMakeProject_x_proto)
 
 # @rules_proto_test_repo//:aspect_upb__a1bf1338
 # genproto upb @rules_proto_test_repo//:x.proto
-file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_upb")
+file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/_gen_upb")
 add_custom_command(
 OUTPUT
-    "${TEST_BINDIR}/_gen_upb/x.upb.c"
-    "${TEST_BINDIR}/_gen_upb/x.upb.h"
+    "${PROJECT_BINARY_DIR}/_gen_upb/x.upb.c"
+    "${PROJECT_BINARY_DIR}/_gen_upb/x.upb.h"
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional
-    --plugin=protoc-gen-upb=$<TARGET_FILE:protobuf::protoc_gen_upb>
+    --plugin=protoc-gen-upb=$<TARGET_FILE:Protobuf::upb_generator_c_protoc-gen-upb>
     "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_x_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
     "-I$<JOIN:$<TARGET_PROPERTY:Protobuf_any_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
     "--upb_out=${PROJECT_BINARY_DIR}/_gen_upb"
     "${TEST_SRCDIR}/x.proto"
-DEPENDS
-    "${TEST_SRCDIR}/x.proto"
-    "protobuf::protoc"
-    "protobuf::protoc_gen_upb"
-COMMENT "Running protoc upb on ${TEST_SRCDIR}/x.proto"
 COMMAND_EXPAND_LISTS
 VERBATIM
+DEPENDS
+    "${TEST_SRCDIR}/x.proto"
+    "Protobuf::upb_generator_c_protoc-gen-upb"
+    "protobuf::protoc"
+COMMENT "Running protoc upb on ${TEST_SRCDIR}/x.proto"
 )
+set_source_files_properties(
+    "${PROJECT_BINARY_DIR}/_gen_upb/x.upb.c"
+    "${PROJECT_BINARY_DIR}/_gen_upb/x.upb.h"
+PROPERTIES GENERATED TRUE)
 add_custom_target(CMakeProject_aspect_upb__a1bf1338 DEPENDS
     "${PROJECT_BINARY_DIR}/_gen_upb/x.upb.h"
     "${PROJECT_BINARY_DIR}/_gen_upb/x.upb.c")
 
 # @rules_proto_test_repo//:aspect_upb_minitable__a1bf1338
 # genproto upb_minitable @rules_proto_test_repo//:x.proto
-file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_upb_minitable")
+file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/_gen_upb_minitable")
 add_custom_command(
 OUTPUT
-    "${TEST_BINDIR}/_gen_upb_minitable/x.upb_minitable.c"
-    "${TEST_BINDIR}/_gen_upb_minitable/x.upb_minitable.h"
+    "${PROJECT_BINARY_DIR}/_gen_upb_minitable/x.upb_minitable.c"
+    "${PROJECT_BINARY_DIR}/_gen_upb_minitable/x.upb_minitable.h"
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional
-    --plugin=protoc-gen-upb_minitable=$<TARGET_FILE:protobuf::protoc_gen_upb_minitable_stage1>
+    --plugin=protoc-gen-upb_minitable=$<TARGET_FILE:Protobuf::upb_generator_minitable_protoc-gen-upb_minitable_stage1>
     "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_x_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
     "-I$<JOIN:$<TARGET_PROPERTY:Protobuf_any_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
     "--upb_minitable_out=${PROJECT_BINARY_DIR}/_gen_upb_minitable"
     "${TEST_SRCDIR}/x.proto"
-DEPENDS
-    "${TEST_SRCDIR}/x.proto"
-    "protobuf::protoc"
-    "protobuf::protoc_gen_upb_minitable_stage1"
-COMMENT "Running protoc upb_minitable on ${TEST_SRCDIR}/x.proto"
 COMMAND_EXPAND_LISTS
 VERBATIM
+DEPENDS
+    "${TEST_SRCDIR}/x.proto"
+    "Protobuf::upb_generator_minitable_protoc-gen-upb_minitable_stage1"
+    "protobuf::protoc"
+COMMENT "Running protoc upb_minitable on ${TEST_SRCDIR}/x.proto"
 )
+set_source_files_properties(
+    "${PROJECT_BINARY_DIR}/_gen_upb_minitable/x.upb_minitable.c"
+    "${PROJECT_BINARY_DIR}/_gen_upb_minitable/x.upb_minitable.h"
+PROPERTIES GENERATED TRUE)
 add_custom_target(CMakeProject_aspect_upb_minitable__a1bf1338 DEPENDS
     "${PROJECT_BINARY_DIR}/_gen_upb_minitable/x.upb_minitable.h"
     "${PROJECT_BINARY_DIR}/_gen_upb_minitable/x.upb_minitable.c")
@@ -973,26 +1045,30 @@ add_library(CMakeProject::x_proto__upb_library ALIAS CMakeProject_x_proto__upb_l
 
 # @rules_proto_test_repo//:aspect_upbdefs__a1bf1338
 # genproto upbdefs @rules_proto_test_repo//:x.proto
-file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_upbdefs")
+file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/_gen_upbdefs")
 add_custom_command(
 OUTPUT
-    "${TEST_BINDIR}/_gen_upbdefs/x.upbdefs.c"
-    "${TEST_BINDIR}/_gen_upbdefs/x.upbdefs.h"
+    "${PROJECT_BINARY_DIR}/_gen_upbdefs/x.upbdefs.c"
+    "${PROJECT_BINARY_DIR}/_gen_upbdefs/x.upbdefs.h"
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional
-    --plugin=protoc-gen-upbdefs=$<TARGET_FILE:protobuf::protoc_gen_upbdefs>
+    --plugin=protoc-gen-upbdefs=$<TARGET_FILE:Protobuf::upb_generator_reflection_protoc-gen-upbdefs>
     "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_x_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
     "-I$<JOIN:$<TARGET_PROPERTY:Protobuf_any_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
     "--upbdefs_out=${PROJECT_BINARY_DIR}/_gen_upbdefs"
     "${TEST_SRCDIR}/x.proto"
-DEPENDS
-    "${TEST_SRCDIR}/x.proto"
-    "protobuf::protoc"
-    "protobuf::protoc_gen_upbdefs"
-COMMENT "Running protoc upbdefs on ${TEST_SRCDIR}/x.proto"
 COMMAND_EXPAND_LISTS
 VERBATIM
+DEPENDS
+    "${TEST_SRCDIR}/x.proto"
+    "Protobuf::upb_generator_reflection_protoc-gen-upbdefs"
+    "protobuf::protoc"
+COMMENT "Running protoc upbdefs on ${TEST_SRCDIR}/x.proto"
 )
+set_source_files_properties(
+    "${PROJECT_BINARY_DIR}/_gen_upbdefs/x.upbdefs.c"
+    "${PROJECT_BINARY_DIR}/_gen_upbdefs/x.upbdefs.h"
+PROPERTIES GENERATED TRUE)
 add_custom_target(CMakeProject_aspect_upbdefs__a1bf1338 DEPENDS
     "${PROJECT_BINARY_DIR}/_gen_upbdefs/x.upbdefs.h"
     "${PROJECT_BINARY_DIR}/_gen_upbdefs/x.upbdefs.c")
@@ -1021,24 +1097,28 @@ add_library(CMakeProject::x_proto__upbdefs_library ALIAS CMakeProject_x_proto__u
 
 # @rules_proto_test_repo//:aspect_cpp__a1bf1338
 # genproto cpp @rules_proto_test_repo//:x.proto
-file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_cpp")
+file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/_gen_cpp")
 add_custom_command(
 OUTPUT
-    "${TEST_BINDIR}/_gen_cpp/x.pb.cc"
-    "${TEST_BINDIR}/_gen_cpp/x.pb.h"
+    "${PROJECT_BINARY_DIR}/_gen_cpp/x.pb.cc"
+    "${PROJECT_BINARY_DIR}/_gen_cpp/x.pb.h"
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional
     "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_x_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
     "-I$<JOIN:$<TARGET_PROPERTY:Protobuf_any_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
     "--cpp_out=${PROJECT_BINARY_DIR}/_gen_cpp"
     "${TEST_SRCDIR}/x.proto"
+COMMAND_EXPAND_LISTS
+VERBATIM
 DEPENDS
     "${TEST_SRCDIR}/x.proto"
     "protobuf::protoc"
 COMMENT "Running protoc cpp on ${TEST_SRCDIR}/x.proto"
-COMMAND_EXPAND_LISTS
-VERBATIM
 )
+set_source_files_properties(
+    "${PROJECT_BINARY_DIR}/_gen_cpp/x.pb.cc"
+    "${PROJECT_BINARY_DIR}/_gen_cpp/x.pb.h"
+PROPERTIES GENERATED TRUE)
 add_custom_target(CMakeProject_aspect_cpp__a1bf1338 DEPENDS
     "${PROJECT_BINARY_DIR}/_gen_cpp/x.pb.h"
     "${PROJECT_BINARY_DIR}/_gen_cpp/x.pb.cc")
@@ -1087,23 +1167,27 @@ add_library(CMakeProject::y_proto ALIAS CMakeProject_y_proto)
 
 # @rules_proto_test_repo//:aspect_cpp__9651e148
 # genproto cpp @rules_proto_test_repo//:src/subdir/y.proto
-file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_cpp/src/subdir")
+file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/_gen_cpp/src/subdir")
 add_custom_command(
 OUTPUT
-    "${TEST_BINDIR}/_gen_cpp/src/subdir/y.pb.cc"
-    "${TEST_BINDIR}/_gen_cpp/src/subdir/y.pb.h"
+    "${PROJECT_BINARY_DIR}/_gen_cpp/src/subdir/y.pb.cc"
+    "${PROJECT_BINARY_DIR}/_gen_cpp/src/subdir/y.pb.h"
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional
     "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_y_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
     "--cpp_out=${PROJECT_BINARY_DIR}/_gen_cpp/src"
     "${TEST_SRCDIR}/src/subdir/y.proto"
+COMMAND_EXPAND_LISTS
+VERBATIM
 DEPENDS
     "${TEST_SRCDIR}/src/subdir/y.proto"
     "protobuf::protoc"
 COMMENT "Running protoc cpp on ${TEST_SRCDIR}/src/subdir/y.proto"
-COMMAND_EXPAND_LISTS
-VERBATIM
 )
+set_source_files_properties(
+    "${PROJECT_BINARY_DIR}/_gen_cpp/src/subdir/y.pb.cc"
+    "${PROJECT_BINARY_DIR}/_gen_cpp/src/subdir/y.pb.h"
+PROPERTIES GENERATED TRUE)
 add_custom_target(CMakeProject_aspect_cpp__9651e148 DEPENDS
     "${PROJECT_BINARY_DIR}/_gen_cpp/src/subdir/y.pb.h"
     "${PROJECT_BINARY_DIR}/_gen_cpp/src/subdir/y.pb.cc")
@@ -1128,50 +1212,58 @@ add_library(CMakeProject::y_proto__cpp_library ALIAS CMakeProject_y_proto__cpp_l
 
 # @rules_proto_test_repo//:aspect_upb__9651e148
 # genproto upb @rules_proto_test_repo//:src/subdir/y.proto
-file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_upb/src/subdir")
+file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/_gen_upb/src/subdir")
 add_custom_command(
 OUTPUT
-    "${TEST_BINDIR}/_gen_upb/src/subdir/y.upb.c"
-    "${TEST_BINDIR}/_gen_upb/src/subdir/y.upb.h"
+    "${PROJECT_BINARY_DIR}/_gen_upb/src/subdir/y.upb.c"
+    "${PROJECT_BINARY_DIR}/_gen_upb/src/subdir/y.upb.h"
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional
-    --plugin=protoc-gen-upb=$<TARGET_FILE:protobuf::protoc_gen_upb>
+    --plugin=protoc-gen-upb=$<TARGET_FILE:Protobuf::upb_generator_c_protoc-gen-upb>
     "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_y_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
     "--upb_out=${PROJECT_BINARY_DIR}/_gen_upb/src"
     "${TEST_SRCDIR}/src/subdir/y.proto"
-DEPENDS
-    "${TEST_SRCDIR}/src/subdir/y.proto"
-    "protobuf::protoc"
-    "protobuf::protoc_gen_upb"
-COMMENT "Running protoc upb on ${TEST_SRCDIR}/src/subdir/y.proto"
 COMMAND_EXPAND_LISTS
 VERBATIM
+DEPENDS
+    "${TEST_SRCDIR}/src/subdir/y.proto"
+    "Protobuf::upb_generator_c_protoc-gen-upb"
+    "protobuf::protoc"
+COMMENT "Running protoc upb on ${TEST_SRCDIR}/src/subdir/y.proto"
 )
+set_source_files_properties(
+    "${PROJECT_BINARY_DIR}/_gen_upb/src/subdir/y.upb.c"
+    "${PROJECT_BINARY_DIR}/_gen_upb/src/subdir/y.upb.h"
+PROPERTIES GENERATED TRUE)
 add_custom_target(CMakeProject_aspect_upb__9651e148 DEPENDS
     "${PROJECT_BINARY_DIR}/_gen_upb/src/subdir/y.upb.h"
     "${PROJECT_BINARY_DIR}/_gen_upb/src/subdir/y.upb.c")
 
 # @rules_proto_test_repo//:aspect_upb_minitable__9651e148
 # genproto upb_minitable @rules_proto_test_repo//:src/subdir/y.proto
-file(MAKE_DIRECTORY "${TEST_BINDIR}/_gen_upb_minitable/src/subdir")
+file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/_gen_upb_minitable/src/subdir")
 add_custom_command(
 OUTPUT
-    "${TEST_BINDIR}/_gen_upb_minitable/src/subdir/y.upb_minitable.c"
-    "${TEST_BINDIR}/_gen_upb_minitable/src/subdir/y.upb_minitable.h"
+    "${PROJECT_BINARY_DIR}/_gen_upb_minitable/src/subdir/y.upb_minitable.c"
+    "${PROJECT_BINARY_DIR}/_gen_upb_minitable/src/subdir/y.upb_minitable.h"
 COMMAND $<TARGET_FILE:protobuf::protoc>
     --experimental_allow_proto3_optional
-    --plugin=protoc-gen-upb_minitable=$<TARGET_FILE:protobuf::protoc_gen_upb_minitable_stage1>
+    --plugin=protoc-gen-upb_minitable=$<TARGET_FILE:Protobuf::upb_generator_minitable_protoc-gen-upb_minitable_stage1>
     "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_y_proto,INTERFACE_INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
     "--upb_minitable_out=${PROJECT_BINARY_DIR}/_gen_upb_minitable/src"
     "${TEST_SRCDIR}/src/subdir/y.proto"
-DEPENDS
-    "${TEST_SRCDIR}/src/subdir/y.proto"
-    "protobuf::protoc"
-    "protobuf::protoc_gen_upb_minitable_stage1"
-COMMENT "Running protoc upb_minitable on ${TEST_SRCDIR}/src/subdir/y.proto"
 COMMAND_EXPAND_LISTS
 VERBATIM
+DEPENDS
+    "${TEST_SRCDIR}/src/subdir/y.proto"
+    "Protobuf::upb_generator_minitable_protoc-gen-upb_minitable_stage1"
+    "protobuf::protoc"
+COMMENT "Running protoc upb_minitable on ${TEST_SRCDIR}/src/subdir/y.proto"
 )
+set_source_files_properties(
+    "${PROJECT_BINARY_DIR}/_gen_upb_minitable/src/subdir/y.upb_minitable.c"
+    "${PROJECT_BINARY_DIR}/_gen_upb_minitable/src/subdir/y.upb_minitable.h"
+PROPERTIES GENERATED TRUE)
 add_custom_target(CMakeProject_aspect_upb_minitable__9651e148 DEPENDS
     "${PROJECT_BINARY_DIR}/_gen_upb_minitable/src/subdir/y.upb_minitable.h"
     "${PROJECT_BINARY_DIR}/_gen_upb_minitable/src/subdir/y.upb_minitable.c")

@@ -426,3 +426,17 @@ tensorstore_cc_library(
         "//tensorstore/index_space:index_transform",
     ],
 )
+
+tensorstore_cc_test(
+    name = "all_drivers_test",
+    srcs = ["all_drivers_test.cc"],
+    deps = [
+        ":all_drivers",  # buildcleaner: keep
+        "//tensorstore:open",
+        "//tensorstore:open_mode",
+        "//tensorstore/kvstore/memory",  # buildcleaner: keep
+        "//tensorstore/util:status_testutil",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
+    ],
+)
