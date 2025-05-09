@@ -15,6 +15,7 @@
 
 # pylint: disable=invalid-name,relative-beyond-top-level,missing-function-docstring,missing-class-docstring,g-long-lambda
 
+import io
 import itertools
 import json
 import pathlib
@@ -223,20 +224,27 @@ def _expand_template_impl(
   add_dependencies.add(CMakeTarget(script_path.as_posix()))
   add_dependencies.add(CMakeTarget(subs_path.as_posix()))
 
-  builder: CMakeBuilder = _context.access(CMakeBuilder)
-  builder.addtext(f"""
+  quoted_output = quote_path(out_file)
+
+  out = io.StringIO()
+
+  out.write(f"""
 # expand_template({_target.as_label()})
 add_custom_command(
-OUTPUT {quote_path(out_file)}
+OUTPUT {quoted_output}
 COMMAND ${{Python3_EXECUTABLE}} {quote_path(script_path)}
         {quote_path(template_path)}
         {quote_path(subs_path)}
-        {quote_path(out_file)}
-DEPENDS {quote_list(sorted(add_dependencies))}
+        {quoted_output}
 VERBATIM
+DEPENDS {quote_list(sorted(add_dependencies))}
+COMMENT "Generating {out_file}"
 )
-add_custom_target({cmake_target_pair.target} DEPENDS {quote_path(out_file)})
+set_source_files_properties({quoted_output} PROPERTIES GENERATED TRUE)
+add_custom_target({cmake_target_pair.target} DEPENDS {quoted_output})
 """)
+
+  _context.access(CMakeBuilder).addtext(out.getvalue())
   _context.add_analyzed_target(
       _target,
       TargetInfo(*default_providers(cmake_target_pair)),

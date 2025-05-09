@@ -35,7 +35,7 @@ from ..starlark.invocation_context import InvocationContext
 from ..starlark.invocation_context import RelativeLabel
 from ..starlark.provider import TargetInfo
 from ..starlark.select import Configurable
-from ..util import quote_path_list
+from ..util import quote_path
 from .register import register_bzl_library
 from .upb_proto_library import UPB_PLUGIN  # pylint: disable=unused-import
 
@@ -205,11 +205,9 @@ def _generate_grpc_cc_impl(
       flags=flags,
       output_dir=repo.replace_with_cmake_macro_dirs([output_dir])[0],
   )
-  sep = "\n    "
-
-  out.write(
-      f"add_custom_target({cmake_target_pair.target} DEPENDS\n"
-      f"  {quote_path_list(generated_files, separator=sep)})\n"
-  )
+  out.write(f"add_custom_target({cmake_target_pair.target} DEPENDS")
+  for x in generated_files:
+    out.write(f"\n    {quote_path(x)}")
+  out.write(")\n")
 
   _context.access(CMakeBuilder).addtext(out.getvalue())

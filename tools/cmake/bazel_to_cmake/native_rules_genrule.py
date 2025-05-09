@@ -43,7 +43,7 @@ from .starlark.label import RelativeLabel
 from .starlark.provider import TargetInfo
 from .starlark.scope_build_file import register_native_build_rule
 from .starlark.select import Configurable
-from .util import quote_path_list
+from .util import quote_path
 from .variable_substitution import apply_location_and_make_variable_substitutions
 from .variable_substitution import do_bash_command_replacement
 from .variable_substitution import generate_substitutions
@@ -243,7 +243,8 @@ def _genrule_impl(
 
   out.write(f"\n# genrule({_target.as_label()})\n")
   if out_dirs:
-    out.write(f"file(MAKE_DIRECTORY {quote_path_list(sorted(out_dirs))})\n")
+    quoted_out_dirs = " ".join(quote_path(x) for x in sorted(out_dirs))
+    out.write(f"file(MAKE_DIRECTORY {quoted_out_dirs})\n")
 
   emit_genrule(
       out,

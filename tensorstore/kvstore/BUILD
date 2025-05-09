@@ -427,3 +427,14 @@ tensorstore_cc_library(
         "//tensorstore/internal/metrics:metadata",
     ],
 )
+
+tensorstore_cc_test(
+    name = "all_kvstores_test",
+    srcs = ["all_kvstores_test.cc"],
+    deps = [
+        ":all_drivers",  # buildcleaner: keep
+        ":kvstore",
+        "//tensorstore/util:status_testutil",
+        "@googletest//:gtest_main",
+    ],
+)

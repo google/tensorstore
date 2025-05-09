@@ -24,7 +24,7 @@ from .cmake_repository import PROJECT_SOURCE_DIR
 from .cmake_target import CMakeTarget
 from .util import make_relative_path
 from .util import quote_list
-from .util import quote_path_list
+from .util import quote_path
 from .util import quote_string
 
 
@@ -67,7 +67,7 @@ def emit_filegroup(
         includes.add(c)
 
   sep = "\n    "
-  quoted_srcs = quote_path_list(sorted(filegroup_files), sep)
+  quoted_srcs = [quote_path(x) for x in sorted(filegroup_files)]
 
   quoted_includes = None
   if includes and (has_ch or has_proto):
@@ -77,7 +77,9 @@ def emit_filegroup(
     quoted_libraries = quote_list(sorted(link_libraries), sep)
 
   out.write(f"add_library({cmake_name} INTERFACE)\n")
-  out.write(f"target_sources({cmake_name} INTERFACE{sep}{quoted_srcs})\n")
+  out.write(
+      f"target_sources({cmake_name} INTERFACE{sep}{sep.join(quoted_srcs)})\n"
+  )
   if quoted_includes and (has_ch or has_proto):
     out.write(
         f"target_include_directories({cmake_name} INTERFACE{sep}{quoted_includes})\n"
@@ -102,22 +104,29 @@ def emit_genrule(
 ):
   cmd_text = cmd_text.strip()
   if message:
-    optional_message_text = f"COMMENT {quote_string(message)}\n  "
+    optional_message_text = f"COMMENT {quote_string(message)}\n"
   else:
     optional_message_text = ""
 
+  quoted_outputs = [quote_path(x) for x in generated_files]
+
   sep = "\n    "
-  quoted_outputs = quote_list(generated_files, sep)
   deps_str = quote_list(sorted(set(add_dependencies)), sep)
   if deps_str:
-    deps_str = f"DEPENDS{sep}{deps_str}"
+    deps_str = f"DEPENDS{sep}{deps_str}\n"
+  else:
+    deps_str = ""
 
   out.write(f"""add_custom_command(
-  OUTPUT{sep}{quoted_outputs}
-  {deps_str}
-  COMMAND {cmd_text}
-  {optional_message_text}VERBATIM
-  WORKING_DIRECTORY "${{CMAKE_CURRENT_SOURCE_DIR}}"
-)
-add_custom_target({cmake_name} DEPENDS{sep}{quoted_outputs})
+OUTPUT
+    {sep.join(quoted_outputs)}
+COMMAND {cmd_text}
+VERBATIM
+{deps_str}WORKING_DIRECTORY "${{CMAKE_CURRENT_SOURCE_DIR}}"
+{optional_message_text})
+set_source_files_properties(
+    {sep.join(quoted_outputs)}
+PROPERTIES GENERATED TRUE)
+add_custom_target({cmake_name} DEPENDS
+    {sep.join(quoted_outputs)})
 """)
