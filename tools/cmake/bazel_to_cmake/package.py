@@ -16,9 +16,9 @@
 import enum
 from typing import List, Optional
 
+from .active_repository import Repository
 from .starlark.bazel_target import TargetId
 from .util import cmake_is_true
-from .workspace import Repository
 
 
 class AnalyzeMode(enum.Enum):

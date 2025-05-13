@@ -78,6 +78,7 @@ import pathlib
 from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Tuple, Type, TypeVar, cast
 
 from . import cmake_builder
+from .active_repository import Repository
 from .bzl_library.register import get_bzl_library
 from .cmake_builder import CMakeBuilder
 from .cmake_provider import CMakeExecutableTargetProvider
@@ -108,7 +109,6 @@ from .starlark.select import Select
 from .starlark.select import SelectExpression
 from .util import cmake_is_true
 from .util import is_relative_to
-from .workspace import Repository
 from .workspace import Workspace
 
 T = TypeVar("T")
@@ -550,7 +550,7 @@ class EvaluationState:
     if library is not None:
       return library
 
-    if target_id in self.workspace.ignored_libraries:
+    if target_id in self.active_repo.ignored_libraries:
       # Specifically ignored.
       if self.verbose:
         print(f"Ignoring library: {target_id.as_label()}")

@@ -1,7 +1,7 @@
 # Description:
 #   AWS s2n tls
 
-package(default_visibility = ["//visibility:public"])
+package(default_visibility = ["//visibility:private"])
 
 licenses(["notice"])  # Apache 2.0
 
@@ -10,6 +10,12 @@ cc_library(
     hdrs = glob(["api/**/*.h"]),
     includes = ["api"],
     deps = [":s2n_tls_impl"],
+    visibility = ["//visibility:public"],
+)
+
+exports_files(
+    ["utils/s2n_prelude.h"],
+    visibility = ["//visibility:public"],
 )
 
 cc_library(
@@ -29,20 +35,10 @@ cc_library(
     hdrs = glob(["api/**/*.h"]),
     includes = ["api", "."],
     copts = select({
-        ":compiler_msvc": ["/FI$(location :utils/s2n_prelude.h)"],
+        "@rules_cc//cc/compiler:msvc-cl": ["/FI$(location :utils/s2n_prelude.h)"],
         "//conditions:default": [
             "-include$(location :utils/s2n_prelude.h)",
         ],
     }),
-    visibility = ["//visibility:private"],
     deps = ["@boringssl//:crypto"],
-)
-
-exports_files(["utils/s2n_prelude.h"])
-
-config_setting(
-    name = "compiler_msvc",
-    flag_values = {
-        "@bazel_tools//tools/cpp:compiler": "msvc-cl",
-    },
 )

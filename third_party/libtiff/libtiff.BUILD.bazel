@@ -4,13 +4,6 @@ licenses(["notice"])  # BSD-like licence
 
 exports_files(["COPYRIGHT"])
 
-config_setting(
-    name = "compiler_msvc",
-    flag_values = {
-        "@bazel_tools//tools/cpp:compiler": "msvc-cl",
-    },
-)
-
 cc_library(
     name = "tiff",
     srcs = [
@@ -246,4 +239,9 @@ write_file(
         "#endif // _TIFF_CONFIG_H_",
     ],
     newline = "unix",
+)
+
+alias(
+    name = "compiler_msvc",
+    actual = "@rules_cc//cc/compiler:msvc-cl",
 )

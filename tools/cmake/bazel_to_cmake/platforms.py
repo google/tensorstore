@@ -77,6 +77,16 @@ _CMAKE_SYSTEM_PROCESSOR_CONFIG_SETTINGS: Dict[str, List[str]] = {
     "armv7l": ["@platforms//cpu:arm"],
 }
 
+# Config settings for @rules_cc//cc/compiler/BUILD
+_RULES_CC_COMPILER_CONFIG_SETTINGS: List[str] = [
+    "clang",
+    "clang-cl",
+    "gcc",
+    "mingw-gcc",
+    "msvc-cl",
+    "emscripten",
+]
+
 ValueList = List[Tuple[str, str]]
 
 _CMAKE_SYSTEM_PROCESSOR_VALUES: Dict[str, ValueList] = {
@@ -114,6 +124,13 @@ def add_platform_constraints(workspace: Workspace) -> None:
       TargetInfo(BuildSettingProvider(bazel_compiler)),
   )
 
+  workspace.set_persistent_target_info(
+      parse_absolute_target("@rules_cc//cc/private/toolchain:compiler"),
+      TargetInfo(BuildSettingProvider(bazel_compiler)),
+  )
+  
+  
+
   # See bazel_tools/tools/cpp:BUILD
   cc_compiler = parse_absolute_target("@bazel_tools//tools/cpp:cc_compiler")
   workspace.set_persistent_target_info(
@@ -135,6 +152,7 @@ def add_platform_constraints(workspace: Workspace) -> None:
   )
 
   config_settings: Dict[str, bool] = {}
+  config_settings["@platforms//:incompatible"] = False
   for setting_list in _CMAKE_SYSTEM_NAME_CONFIG_SETTINGS.values():
     for setting in setting_list:
       config_settings[setting] = False
@@ -142,6 +160,11 @@ def add_platform_constraints(workspace: Workspace) -> None:
   for setting_list in _CMAKE_SYSTEM_PROCESSOR_CONFIG_SETTINGS.values():
     for setting in setting_list:
       config_settings[setting] = False
+
+  for compiler in _RULES_CC_COMPILER_CONFIG_SETTINGS:
+    config_settings["@rules_cc//cc/compiler:" + compiler] = (
+        compiler == bazel_compiler
+    )
 
   for setting in _CMAKE_SYSTEM_NAME_CONFIG_SETTINGS.get(
       cmake_system_name, []

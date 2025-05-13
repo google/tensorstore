@@ -376,9 +376,7 @@ write_file(
     newline = "unix",
 )
 
-config_setting(
+alias(
     name = "compiler_msvc",
-    flag_values = {
-        "@bazel_tools//tools/cpp:compiler": "msvc-cl",
-    },
+    actual = "@rules_cc//cc/compiler:msvc-cl",
 )

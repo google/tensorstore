@@ -183,6 +183,11 @@ def cmake_logging_verbose_level(value: Optional[str]) -> int:
 def _get_build_patterns(package_patterns: List[str]):
   patterns = []
   for package_pattern in package_patterns:
+    if package_pattern.endswith("BUILD") or package_pattern.endswith(
+        "BUILD.bazel"
+    ):
+      patterns.append(package_pattern)
+      continue
     pattern = package_pattern
     if pattern:
       pattern += "/"
@@ -195,6 +200,7 @@ def get_matching_build_files(
     root_dir: pathlib.PurePath,
     include_packages: List[str],
     exclude_packages: List[str],
+    verbose: bool = False,
 ) -> List[str]:
   """Returns the relative path of matching BUILD files.
 
@@ -221,6 +227,9 @@ def get_matching_build_files(
       )
       + ")"
   )
+
+  if verbose:
+    print(f"include_patterns: {include_patterns}")
 
   build_file_set: set[str] = set()
   for pattern in include_patterns:

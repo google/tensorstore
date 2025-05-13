@@ -22,13 +22,6 @@ config_setting(
     visibility = ["//visibility:private"],
 )
 
-config_setting(
-    name = "compiler_msvc",
-    flag_values = {
-        "@bazel_tools//tools/cpp:compiler": "msvc-cl",
-    },
-)
-
 LOCAL_DEFINES = [
     "BUILDING_NGHTTP2",
     "HAVE_CONFIG_H",
@@ -56,7 +49,7 @@ cc_library(
         "-I" + package_relative_path("lib/includes"),
     ] + select(
         {
-            ":compiler_msvc": [],
+            "@rules_cc//cc/compiler:msvc-cl": [],
             "//conditions:default": [
                 "-Wno-string-plus-int",
             ],

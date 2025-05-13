@@ -4,13 +4,6 @@ licenses(["notice"])  # BSD/MIT-like license
 
 exports_files(["LICENSE"])
 
-config_setting(
-    name = "compiler_msvc",
-    flag_values = {
-        "@bazel_tools//tools/cpp:compiler": "msvc-cl",
-    },
-)
-
 libpng_local_defines = select(
     {
         "@platforms//os:windows": ["PNG_INTEL_SSE_OPT=1"],
@@ -95,4 +88,9 @@ expand_template(
     out = "pnglibconf.h",
     substitutions = PNG_IN_SUBSTITUTIONS,
     template = "scripts/pnglibconf.h.prebuilt",
+)
+
+alias(
+    name = "compiler_msvc",
+    actual = "@rules_cc//cc/compiler:msvc-cl",
 )

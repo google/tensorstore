@@ -297,13 +297,7 @@ config_setting(
     constraint_values = ["@platforms//os:macos"],
 )
 
-# Config settings
-[
-    alias(
-        name = name,
-        actual = "@tensorstore//:{target}".format(target = name),
-    )
-    for name in [
-        "compiler_msvc",
-    ]
-]
+alias(
+    name = "compiler_msvc",
+    actual = "@rules_cc//cc/compiler:msvc-cl",
+)
