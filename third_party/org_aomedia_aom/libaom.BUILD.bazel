@@ -573,19 +573,6 @@ GENERATED_CONFIGS = [
     ]
 ]
 
-# Config settings
-[
-    alias(
-        name = name,
-        actual = "@tensorstore//:{target}".format(target = name),
-    )
-    for name in [
-        "compiler_msvc",
-        "compiler_mingw_gcc",
-        "compiler_clang",
-    ]
-]
-
 # Constraint that indicates whether avx2 intrinsics can be used (subject to
 # runtime CPU detection).
 alias(
@@ -595,10 +582,14 @@ alias(
         # avx2 intrinsics unusable.
         #
         # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=54412
-        #
-        # In this case map to `:compiler_msvc` which we know to be unsatisfied.
-        ":compiler_mingw_gcc": ":compiler_msvc",
+        "@rules_cc//cc/compiler:mingw-gcc": "@platforms//:incompatible",
+
         # Enable by default on x86_64.
         "//conditions:default": "@platforms//cpu:x86_64",
     }),
+)
+
+alias(
+    name = "compiler_msvc",
+    actual = "@rules_cc//cc/compiler:msvc-cl",
 )

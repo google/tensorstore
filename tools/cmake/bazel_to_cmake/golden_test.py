@@ -25,6 +25,7 @@ from typing import Any, Dict, List, Tuple, Union
 import pytest
 
 from . import native_rules  # pylint: disable=unused-import
+from .active_repository import Repository
 from .cmake_repository import CMakeRepository
 from .cmake_repository import make_repo_mapping
 from .cmake_target import CMakePackage
@@ -36,7 +37,6 @@ from .starlark import rule  # pylint: disable=unused-import
 from .starlark.bazel_target import RepositoryId
 from .starlark.bazel_target import TargetId
 from .util import is_relative_to
-from .workspace import Repository
 from .workspace import Workspace
 
 # NOTE: Consider adding failure tests as well as the success tests.
@@ -269,10 +269,11 @@ def test_golden(test_name: str, config: Dict[str, Any], tmpdir):
     root_repository.repo_mapping[RepositoryId(x[0])] = RepositoryId(x[1])
 
   # Workspace setup
-  workspace = Workspace(root_repository, CMAKE_VARS)
+  workspace = Workspace(repository_id, CMAKE_VARS)
   workspace.save_workspace = '_workspace.pickle'
   workspace.host_platform_name = 'linux'
   workspace._verbose = 3
+  workspace.add_cmake_repository(root_repository)
 
   add_platform_constraints(workspace)
   add_repositories(workspace)
@@ -290,7 +291,7 @@ def test_golden(test_name: str, config: Dict[str, Any], tmpdir):
   # Setup active repository
   active_repo = Repository(
       workspace=workspace,
-      repository=root_repository,
+      repository_id=repository_id,
       bindings={},
       top_level=True,
   )

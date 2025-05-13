@@ -7,13 +7,6 @@ licenses(["notice"])
 
 exports_files(["LICENSE"])
 
-config_setting(
-    name = "compiler_msvc",
-    flag_values = {
-        "@bazel_tools//tools/cpp:compiler": "msvc-cl",
-    },
-)
-
 cc_library(
     name = "avif",
     srcs = glob(
@@ -59,4 +52,9 @@ cc_library(
         "@org_aomedia_aom//:libaom",
         "@org_videolan_dav1d//:dav1d",
     ],
+)
+
+alias(
+    name = "compiler_msvc",
+    actual = "@rules_cc//cc/compiler:msvc-cl",
 )

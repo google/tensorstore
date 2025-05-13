@@ -21,9 +21,10 @@ import os
 import pathlib
 import pickle
 import sys
-from typing import List, Set, Union, Dict
+from typing import Dict, List, Set, Union
 
 from . import native_rules  # pylint: disable=unused-import
+from .active_repository import Repository
 from .bzl_library import default as _  # pylint: disable=unused-import
 from .cmake_repository import CMakeRepository
 from .cmake_repository import make_repo_mapping
@@ -38,7 +39,6 @@ from .starlark.common_providers import ConditionProvider
 from .starlark.provider import TargetInfo
 from .util import get_matching_build_files
 from .util import quote_list
-from .workspace import Repository
 from .workspace import Workspace
 
 
@@ -63,8 +63,8 @@ def maybe_expand_special_targets(
 
 
 def get_bindings_from_args(
-    repository_id: RepositoryId,
     args: argparse.Namespace,
+    repository_id: RepositoryId,
 ) -> Dict[TargetId, TargetId]:
   # Add repository bindings. These provide the "native.bind" equivalent,
   # and are resolved after repo mappings. Unlike native.bind, they are
@@ -82,95 +82,62 @@ def get_bindings_from_args(
   return bindings
 
 
-def run_main(args: argparse.Namespace):
-  assert args.bazel_repo_name
-  repository_id: RepositoryId = RepositoryId(args.bazel_repo_name)
-  current_repository: CMakeRepository = CMakeRepository(
-      repository_id=repository_id,
-      cmake_project_name=CMakePackage(args.cmake_project_name),
-      source_directory=pathlib.PurePath(os.getcwd()),
-      cmake_binary_dir=pathlib.PurePath(args.cmake_binary_dir),
-      repo_mapping=make_repo_mapping(repository_id, args.repo_mapping),
-      persisted_canonical_name={},
+def create_root_workspace(
+    args: argparse.Namespace,
+    repository_id: RepositoryId,
+):
+  """Creates a workspace for the root repository."""
+  assert args.cmake_vars is not None
+  try:
+    with open(args.cmake_vars, "r", encoding="utf-8") as f:
+      cmake_vars = json.load(f)
+  except Exception as e:
+    raise ValueError(
+        f"Failed to decode cmake_vars as JSON: {args.cmake_vars}"
+    ) from e
+  assert isinstance(cmake_vars, dict)
+
+  workspace = Workspace(
+      root_repository_id=repository_id,
+      cmake_vars=cmake_vars,
+      save_workspace=args.save_workspace,
   )
+  # pylint: disable-next=protected-access
+  workspace._verbose = args.verbose
 
-  if args.load_workspace:
-    # This is a dependency.  Load the workspace from the top-level project in
-    # order to be able to access targets (such as `config_setting` targets) that
-    # it defined, and to load `.bzl` libraries from it.  Note that `.bzl`
-    # libraries themselves are not stored in the pickled data, simply the source
-    # directory path of the top-level repository.
-    with open(args.load_workspace, "rb") as f:
-      workspace = pickle.load(f)
-      assert isinstance(workspace, Workspace)
+  add_platform_constraints(workspace)
+  workspace.values.update(("define", x) for x in args.define)
 
-    assert repository_id in workspace.all_repositories
-    loaded: CMakeRepository = workspace.all_repositories[repository_id]
+  for bazelrc in args.bazelrc:
+    workspace.load_bazelrc(bazelrc)
+  for module in args.module:
+    workspace.add_module(module)
+  for target in args.ignore_library:
+    workspace.global_ignored_libraries.add(repository_id.parse_target(target))
+  return workspace
 
-    assert loaded.cmake_project_name == current_repository.cmake_project_name
-    if (
-        loaded.source_directory.as_posix()
-        != current_repository.source_directory.as_posix()
-        or loaded.cmake_binary_dir.as_posix()
-        != current_repository.cmake_binary_dir.as_posix()
-    ):
-      print(
-          "WARNING: bazel_to_cmake repository configuration mismatch for:"
-          f" {repository_id}\n"
-          f"From workspace:\n{loaded}\n"
-          f"From commandline:\n{current_repository}"
-      )
-      assert False
 
-    current_repository = loaded
-  else:
-    # This is the root repository.
-    assert args.cmake_vars is not None
-    try:
-      with open(args.cmake_vars, "r", encoding="utf-8") as f:
-        cmake_vars = json.load(f)
-    except Exception as e:
-      raise ValueError(
-          f"Failed to decode cmake_vars as JSON: {args.cmake_vars}"
-      ) from e
-    assert isinstance(cmake_vars, dict)
-
-    workspace = Workspace(
-        root_repository=current_repository,
-        cmake_vars=cmake_vars,
-        save_workspace=args.save_workspace,
-    )
-    add_platform_constraints(workspace)
-    workspace.values.update(("define", x) for x in args.define)
-
-    for bazelrc in args.bazelrc:
-      workspace.load_bazelrc(bazelrc)
-
-    for module in args.module:
-      workspace.add_module(module)
+def load_root_workspace(
+    args: argparse.Namespace,
+):
+  """Unpickles a workspace and loads the repository from it."""
+  with open(args.load_workspace, "rb") as f:
+    workspace = pickle.load(f)
+    assert isinstance(workspace, Workspace)
 
   # pylint: disable-next=protected-access
   if args.verbose > workspace._verbose:
     # pylint: disable-next=protected-access
     workspace._verbose = args.verbose
 
-  workspace.load_modules()
+  return workspace
 
-  for target in args.ignore_library:
-    workspace.ignore_library(repository_id.parse_target(target))
 
-  active_repo = Repository(
-      workspace=workspace,
-      repository=current_repository,
-      bindings=get_bindings_from_args(repository_id, args),
-      top_level=args.save_workspace is not None,
-  )
-  state = EvaluationState(active_repo)
-
-  if active_repo.top_level:
-    # Load the WORKSPACE file
-    state.process_workspace()
-
+def do_process_build_files(
+    args: argparse.Namespace,
+    active_repo: Repository,
+    state: EvaluationState,
+):
   # Load build files.
   include_packages = args.include_package or ["**"]
   exclude_packages = args.exclude_package or []
@@ -178,6 +145,7 @@ def run_main(args: argparse.Namespace):
       root_dir=active_repo.source_directory,
       include_packages=include_packages,
       exclude_packages=exclude_packages,
+      verbose=active_repo.workspace.verbose,
   )
   if args.extra_build:
     build_files.extend(args.extra_build)
@@ -212,6 +180,83 @@ def run_main(args: argparse.Namespace):
       ):
         targets_to_analyze.discard(u)
 
+  return targets_to_analyze
+
+
+def run_main(args: argparse.Namespace):
+  assert args.bazel_repo_name
+  repository_id: RepositoryId = RepositoryId(args.bazel_repo_name)
+
+  if not args.load_workspace:
+    # This is the root repository.
+    workspace = create_root_workspace(args, repository_id)
+
+    command_line_source_directory = pathlib.PurePath(os.getcwd())
+    command_line_cmake_binary_dir = pathlib.PurePath(args.cmake_binary_dir)
+    workspace.add_cmake_repository(
+        CMakeRepository(
+            repository_id=repository_id,
+            cmake_project_name=CMakePackage(args.cmake_project_name),
+            source_directory=command_line_source_directory,
+            cmake_binary_dir=command_line_cmake_binary_dir,
+            repo_mapping=make_repo_mapping(repository_id, args.repo_mapping),
+            persisted_canonical_name={},
+        )
+    )
+
+  else:
+    # This is a dependency.  Load the workspace from the top-level project in
+    # order to be able to access targets (such as `config_setting` targets) that
+    # it defined, and to load `.bzl` libraries from it.  Note that `.bzl`
+    # libraries themselves are not stored in the pickled data, simply the source
+    # directory path of the top-level repository.
+    workspace = load_root_workspace(args)
+
+    assert repository_id in workspace.all_repositories
+    loaded: CMakeRepository = workspace.all_repositories[repository_id]
+    # Verify that the repository configuration matches the command-line
+    # arguments.
+    assert loaded.cmake_project_name == CMakePackage(args.cmake_project_name)
+    command_line_source_directory = pathlib.PurePath(os.getcwd())
+    command_line_cmake_binary_dir = pathlib.PurePath(args.cmake_binary_dir)
+    if (
+        loaded.source_directory.as_posix()
+        != command_line_source_directory.as_posix()
+        or loaded.cmake_binary_dir.as_posix()
+        != command_line_cmake_binary_dir.as_posix()
+    ):
+      print(
+          "WARNING: bazel_to_cmake repository configuration mismatch for:"
+          f" {repository_id}\n"  #
+          f"workspace.source_directory: {loaded.source_directory.as_posix()}\n"
+          f"   vs command-line: {command_line_source_directory.as_posix()}\n"
+          f"workspace.cmake_binary_dir: {loaded.cmake_binary_dir.as_posix()}\n"
+          f"   vs command-line: {command_line_cmake_binary_dir.as_posix()}\n"
+      )
+      assert False
+    del loaded
+
+  if workspace.verbose:
+    print(f"Loading workspace {repository_id}")
+
+  workspace.load_modules()
+
+  active_repo = Repository(
+      workspace=workspace,
+      repository_id=repository_id,
+      bindings=get_bindings_from_args(args, repository_id),
+      top_level=args.save_workspace is not None,
+  )
+  for target in args.ignore_library:
+    active_repo.ignore_library(repository_id.parse_target(target))
+
+  state = EvaluationState(active_repo)
+
+  if active_repo.top_level:
+    # Load the WORKSPACE file
+    state.process_workspace()
+
+  targets_to_analyze = do_process_build_files(args, active_repo, state)
   state.analyze(sorted(targets_to_analyze))
 
   # In verbose mode, print any global targets that have not been analyzed.
@@ -276,7 +321,7 @@ bazel_to_cmake.py encountered errors
 
     # * third_party cmake target names.
     def _persist_cmakepairs(target: TargetId, cmake_pair: CMakeTargetPair):
-      if target.repository_id != current_repository.repository_id:
+      if target.repository_id != repository_id:
         workspace.all_repositories[
             target.repository_id
         ].set_persisted_canonical_name(target, cmake_pair)
@@ -298,34 +343,33 @@ bazel_to_cmake.py encountered errors
 
 def main():
   ap = argparse.ArgumentParser()
-  # Used for top-level project and dependencies.
+  # Used for sub-projects only.
+  ap.add_argument("--load-workspace")
+  # Used for the top-level project only.
+  ap.add_argument("--save-workspace")
+  ap.add_argument("--define", action="append", default=[])
+  ap.add_argument("--cmake-vars")
+  ap.add_argument("--bazelrc", action="append", default=[])
+  ap.add_argument("--module", action="append", default=[])
+  # Used for both top-level project and dependencies.
   ap.add_argument("--bazel-repo-name", required=True)
   ap.add_argument("--cmake-project-name", required=True)
   ap.add_argument("--build-rules-output")
   ap.add_argument("--cmake-binary-dir")
-  ap.add_argument("--include-package", action="append", default=[])
-  ap.add_argument("--exclude-package", action="append", default=[])
   ap.add_argument("--repo-mapping", nargs=2, action="append", default=[])
-  ap.add_argument("--extra-build", action="append", default=[])
-  ap.add_argument("--exclude-target", action="append", default=[])
-  ap.add_argument("--bind", action="append", default=[])
-
-  # Used for sub-projects only.
-  ap.add_argument("--load-workspace")
-  ap.add_argument("--target", action="append", default=[])
-
-  # Used for the top-level project only.
-  ap.add_argument("--save-workspace")
-  ap.add_argument("--define", action="append", default=[])
-  ap.add_argument("--ignore-library", action="append", default=[])
-  ap.add_argument("--cmake-vars")
-  ap.add_argument("--bazelrc", action="append", default=[])
-  ap.add_argument("--module", action="append", default=[])
   ap.add_argument(
       "--verbose",
       type=int,
       default=int(os.getenv("BAZEL_TO_CMAKE_VERBOSE", "0")),
   )
+  # Args used when parsing packages or build files.
+  ap.add_argument("--include-package", action="append", default=[])
+  ap.add_argument("--exclude-package", action="append", default=[])
+  ap.add_argument("--bind", action="append", default=[])
+  ap.add_argument("--ignore-library", action="append", default=[])
+  ap.add_argument("--target", action="append", default=[])
+  ap.add_argument("--exclude-target", action="append", default=[])
+  ap.add_argument("--extra-build", action="append", default=[])
 
   args = ap.parse_args()
   return run_main(args)

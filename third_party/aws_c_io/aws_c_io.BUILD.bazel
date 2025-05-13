@@ -35,14 +35,14 @@ cc_library(
     ]),
     includes = ["include"],
     linkopts = select({
-        ":compiler_msvc": [
+        "@rules_cc//cc/compiler:msvc-cl": [
             "-DEFAULTLIB:ncrypt.lib",
             "-DEFAULTLIB:ws2_32.lib",
             "-DEFAULTLIB:secur32.lib",
             "-DEFAULTLIB:crypt32.lib",
             "-DEFAULTLIB:kernel32.lib",
         ],
-        ":compiler_mingw_gcc": [
+        "@rules_cc//cc/compiler:mingw-gcc": [
             "-lncrypt",
             "-lws2_32",
             "-lsecur32",
@@ -79,18 +79,4 @@ cc_library(
             "@aws_s2n_tls//:s2n_tls",
         ],
     }),
-)
-
-config_setting(
-    name = "compiler_mingw_gcc",
-    flag_values = {
-        "@bazel_tools//tools/cpp:compiler": "mingw-gcc",
-    },
-)
-
-config_setting(
-    name = "compiler_msvc",
-    flag_values = {
-        "@bazel_tools//tools/cpp:compiler": "msvc-cl",
-    },
 )

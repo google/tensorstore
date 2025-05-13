@@ -7,13 +7,6 @@ package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])  # Apache 2.0
 
-config_setting(
-    name = "compiler_mingw_gcc",
-    flag_values = {
-        "@bazel_tools//tools/cpp:compiler": "mingw-gcc",
-    },
-)
-
 cc_library(
     name = "aws_c_cal",
     srcs = glob([
@@ -53,7 +46,7 @@ cc_library(
         ],
         "//conditions:default": [],
     }) + select({
-        ":compiler_mingw_gcc": [
+        "@rules_cc//cc/compiler:mingw-gcc": [
             "-lbcrypt",
         ],
         "//conditions:default": [],

@@ -79,12 +79,14 @@ class Select(_ConfigurableBase[T]):
       if test_condition(condition):
         matches.append((condition, value))
     if len(matches) > 1:
-      raise ValueError(f"More than one matching condition: {matches!r}")
+      raise ValueError(
+          f"More than one matching condition in {repr(self)}: {matches!r}"
+      )
     if len(matches) == 1:
       return matches[0][1]
     if has_default:
       return cast(T, default_value)
-    raise ValueError("No matching condition")
+    raise ValueError(f"No matching conditions {repr(self)}")
 
 
 class SelectExpression(_ConfigurableBase[T]):

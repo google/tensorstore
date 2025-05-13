@@ -1,9 +1,10 @@
 # Description:
 #   AWS CheckSums
 
+load("@bazel_skylib//lib:selects.bzl", "selects")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 
-package(default_visibility = ["//visibility:public"])
+package(default_visibility = ["//visibility:private"])
 
 licenses(["notice"])  # Apache 2.0
 
@@ -53,17 +54,40 @@ cc_library(
     deps = [
         "@aws_c_common",
     ],
+    visibility = ["//visibility:public"],
 )
 
 [
-    alias(
-        name = name,
-        actual = "@tensorstore//:{target}".format(target = name),
+    selects.config_setting_group(
+        name = os + "_" + cpu,
+        match_all = [
+            "@platforms//os:" + os,
+            "@platforms//cpu:" + cpu,
+        ],
     )
-    for name in [
-        "arm64_gcc_or_clang",
-        "arm64_msvc",
-        "x86_64_gcc_or_clang",
-        "x86_64_msvc",
+    for os in ["linux", "macos", "windows"]
+    for cpu in ["arm64", "x86_64"]
+]
+
+selects.config_setting_group(
+    name = "compiler_gcc_or_clang",
+    match_any = [
+        "@rules_cc//cc/compiler:gcc",
+        "@rules_cc//cc/compiler:clang",
+    ],
+)
+
+[
+    selects.config_setting_group(
+        name = cpu_os + "_" + compiler[0],
+        match_all = [
+            "@platforms//cpu:" + cpu,
+            compiler[1],
+        ],
+    )
+    for compiler in [
+        ("gcc_or_clang", ":compiler_gcc_or_clang"),
+        ("msvc", "@rules_cc//cc/compiler:msvc-cl"),
     ]
+    for cpu in ["arm64", "x86_64"]
 ]

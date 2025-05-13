@@ -265,16 +265,12 @@ cc_library(
     ],
 )
 
-config_setting(
+alias(
     name = "compiler_mingw_gcc",
-    flag_values = {
-        "@bazel_tools//tools/cpp:compiler": "mingw-gcc",
-    },
+    actual = "@rules_cc//cc/compiler:mingw-gcc",
 )
 
-config_setting(
+alias(
     name = "compiler_msvc",
-    flag_values = {
-        "@bazel_tools//tools/cpp:compiler": "msvc-cl",
-    },
+    actual = "@rules_cc//cc/compiler:msvc-cl",
 )

@@ -1,4 +1,3 @@
-load("@bazel_skylib//lib:selects.bzl", "selects")
 load("@tensorstore//bazel:utils.bzl", "package_relative_path")
 
 package(default_visibility = ["//visibility:public"])
@@ -18,22 +17,18 @@ ZSTD_SRCS = glob(
 
 LOCAL_DEFINES = [
     "XXH_NAMESPACE=ZSTD_",
-] + select(
-    {
-        ":zstd_asm_supported": [],
-        "//conditions:default": ["ZSTD_DISABLE_ASM=1"],
-    },
-)
+] + select({
+    ":zstd_asm_supported": [],
+    "//conditions:default": ["ZSTD_DISABLE_ASM=1"],
+})
 
 cc_library(
     name = "zstd",
     srcs = ZSTD_SRCS +
-           select(
-               {
-                   ":zstd_asm_supported": ["lib/decompress/huf_decompress_amd64.S"],
-                   "//conditions:default": [],
-               },
-           ),
+           select({
+               ":zstd_asm_supported": ["lib/decompress/huf_decompress_amd64.S"],
+               "//conditions:default": [],
+           }),
     hdrs = ["lib/zstd.h"],
     copts = ["-I" + package_relative_path("lib/common")],
     defines = [
@@ -46,27 +41,14 @@ cc_library(
     local_defines = LOCAL_DEFINES,
 )
 
-# Config settings
-
-# See common/portability_macros.h for ZSTD ASM detection.
-# Requires  gcc/clang, and linux or apple.
-selects.config_setting_group(
+# Constraint that indicates whether asm is supported by zstd
+alias(
     name = "zstd_asm_supported",
-    match_any = [
-        ":linux_x86_64_clang",
-        ":linux_x86_64_gcc",
-        ":macos_x86_64",
-    ],
-)
+    actual = select({
+        # Disable for msvc.
+        "@rules_cc//cc/compiler:msvc-cl": "@platforms//:incompatible",
 
-[
-    alias(
-        name = name,
-        actual = "@tensorstore//:{target}".format(target = name),
-    )
-    for name in [
-        "linux_x86_64_clang",
-        "linux_x86_64_gcc",
-        "macos_x86_64",
-    ]
-]
+        # Enable condition on x86_64.
+        "//conditions:default": "@platforms//cpu:x86_64",
+    }),
+)

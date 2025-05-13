@@ -206,6 +206,7 @@ import os
 import pathlib
 from typing import Any, Dict, List, Optional
 
+from ..active_repository import Repository
 from ..cmake_builder import CMakeBuilder
 from ..cmake_builder import ENABLE_LANGUAGES_SECTION
 from ..cmake_builder import FETCH_CONTENT_DECLARE_SECTION
@@ -226,7 +227,6 @@ from ..util import cmake_is_true
 from ..util import quote_list
 from ..util import quote_path
 from ..util import quote_string
-from ..workspace import Repository
 from .helpers import update_target_mapping
 from .helpers import write_bazel_to_cmake_cmakelists
 from .register import register_bzl_library
@@ -248,77 +248,86 @@ def _get_third_party_dir(repo: CMakeRepository) -> str:
   return os.path.join(repo.cmake_binary_dir, "third_party")
 
 
-def _get_fetch_content_invocation(
-    _context: InvocationContext,
-    _active_repo: Repository,
-    _builder: CMakeBuilder,
-    name: str,
-    cmake_name: str,
-    _cmake_reverse_target_mapping: Dict[CMakeTarget, str],
-    urls: Optional[List[str]] = None,
-    sha256: Optional[str] = None,
-    patch_args: Optional[List[str]] = None,
-    patches: Optional[List[Label]] = None,
-    patch_cmds: Optional[List[str]] = None,
-    remove_paths: Optional[List[str]] = None,
-    **kwargs,
-) -> str:
-  """Convert `third_party_http_archive` options to CMake FetchContent invocation."""
-  out = io.StringIO()
-  out.write(f"FetchContent_Declare({cmake_name}")
-  if urls:
-    out.write(f"\n    URL {quote_string(urls[0])}")
-  if sha256:
-    hash_str = f"SHA256={sha256}"
-    out.write(f"\n    URL_HASH {quote_string(hash_str)}")
+class _CollectPatchCommands:
 
-  patch_commands = []
-  for patch in patches or ():
-    # Labelize build file.
-    patch_path = _context.get_source_file_path(
-        _context.resolve_target_or_label(patch)
-    )
+  def __init__(self):
+    self._patch_commands = []
 
-    assert patch_path is not None
-    quoted_patch_path = quote_path(patch_path)
-    patch_commands.append(
-        f"""${{Patch_EXECUTABLE}} --binary {" ".join(patch_args or ())} < {quoted_patch_path}"""
+  @property
+  def requires_patch_package(self) -> bool:
+    for x in self._patch_commands:
+      if "Patch_EXECUTABLE" in x:
+        return True
+    return False
+
+  @property
+  def patch_command(self) -> bool:
+    if not self._patch_commands:
+      return ""
+    return " && ".join(self._patch_commands)
+
+  def process_patch_commands(
+      self,
+      _context: InvocationContext,
+      *,
+      patch_args: Optional[List[str]] = None,
+      patches: Optional[List[Label]] = None,
+      patch_cmds: Optional[List[str]] = None,
+      remove_paths: Optional[List[str]] = None,
+      **kwargs,
+  ):
+    for patch in patches or ():
+      self.has_patches = True
+      # Labelize build file.
+      patch_path = _context.get_source_file_path(
+          _context.resolve_target_or_label(patch)
+      )
+
+      assert patch_path is not None
+      quoted_patch_path = quote_path(patch_path)
+      self._patch_commands.append(
+          f"""${{Patch_EXECUTABLE}} --binary {" ".join(patch_args or ())} < {quoted_patch_path}"""
+      )
+    if patch_cmds:
+      self._patch_commands.extend(patch_cmds)
+    if remove_paths:
+      remove_arg = " ".join(quote_path(path) for path in remove_paths)
+      self._patch_commands.append(f"${{CMAKE_COMMAND}} -E rm -rf {remove_arg}")
+
+  def add_new_cmakelists_path(
+      self,
+      _context: InvocationContext,
+      _active_repo: Repository,
+      *,
+      cmake_name: str,
+      name: str,
+      **kwargs,
+  ):
+    new_cmakelists_path = os.path.join(
+        _get_third_party_dir(_active_repo.repository),
+        f"{cmake_name}-proxy-CMakeLists.txt",
     )
-  if patches:
-    _builder.find_package("Patch")
-  if patch_cmds:
-    patch_commands.extend(patch_cmds)
-  if remove_paths:
-    remove_arg = " ".join(quote_path(path) for path in remove_paths)
-    patch_commands.append(f"${{CMAKE_COMMAND}} -E rm -rf {remove_arg}")
-  new_cmakelists_path = os.path.join(
-      _get_third_party_dir(_active_repo.repository),
-      f"{cmake_name}-proxy-CMakeLists.txt",
-  )
-  pathlib.Path(new_cmakelists_path).write_text(
-      _get_subproject_cmakelists(
-          _context=_context,
-          _repo=_active_repo.repository,
-          _patch_commands=patch_commands,
-          name=name,
-          cmake_name=cmake_name,
-          **kwargs,
-      ),
-      encoding="utf-8",
-  )
-  patch_commands.append(
-      f"""${{CMAKE_COMMAND}} -E copy {quote_path(new_cmakelists_path)} CMakeLists.txt"""
-  )
-  patch_command = " && ".join(patch_commands)
-  out.write(f"\n    PATCH_COMMAND {patch_command}")
-  out.write("\n    OVERRIDE_FIND_PACKAGE)\n")
-  return out.getvalue()
+    pathlib.Path(new_cmakelists_path).write_text(
+        _get_subproject_cmakelists(
+            _context=_context,
+            _repo=_active_repo.repository,
+            _patch_commands=self._patch_commands,
+            name=name,
+            cmake_name=cmake_name,
+            **kwargs,
+        ),
+        encoding="utf-8",
+    )
+    self._patch_commands.append(
+        f"""${{CMAKE_COMMAND}} -E copy {quote_path(new_cmakelists_path)} CMakeLists.txt"""
+    )
 
 
 def _get_subproject_cmakelists(
     _context: InvocationContext,
     _repo: CMakeRepository,
     _patch_commands: List[str],
+    *,
     name: str,
     cmake_name: str,
     cmakelists_prefix: Optional[str] = None,
@@ -419,14 +428,7 @@ endif()
 _FETCH_CONTENT_PACKAGES_KEY = "fetch_content_packages"
 
 
-def _third_party_http_archive_impl(_context: InvocationContext, **kwargs):
-  if "cmake_name" not in kwargs:
-    return
-  if "urls" not in kwargs:
-    return
-
-  state = _context.access(EvaluationState)
-
+def _get_fetch_content_base_dir(state: EvaluationState) -> pathlib.PurePath:
   # The details here depend a bit on how we configure fetch-content.
   # https://github.com/Kitware/CMake/blob/master/Modules/FetchContent.cmake
   #
@@ -440,17 +442,25 @@ def _third_party_http_archive_impl(_context: InvocationContext, **kwargs):
       "FETCHCONTENT_BASE_DIR"
   )
   if fetch_content_base_dir:
-    fetch_content_base_dir = pathlib.PurePath(fetch_content_base_dir)
-  else:
-    fetch_content_base_dir = (
-        state.active_repo.repository.cmake_binary_dir.joinpath("_deps")
-    )
+    return pathlib.PurePath(fetch_content_base_dir)
+  return state.active_repo.repository.cmake_binary_dir.joinpath("_deps")
 
-  cmake_name = CMakePackage(kwargs["cmake_name"])
+
+def _third_party_http_archive_impl(_context: InvocationContext, **kwargs):
+  if "urls" not in kwargs:
+    return
+
+  if "cmake_name" not in kwargs:
+    return
+
+  cmake_name = kwargs["cmake_name"]
   repository_id = RepositoryId(kwargs["name"])
+
+  state = _context.access(EvaluationState)
+  fetch_content_base_dir = _get_fetch_content_base_dir(state)
   new_repository = CMakeRepository(
       repository_id=repository_id,
-      cmake_project_name=cmake_name,
+      cmake_project_name=CMakePackage(cmake_name),
       source_directory=fetch_content_base_dir.joinpath(
           f"{cmake_name.lower()}-src"
       ),
@@ -462,10 +472,18 @@ def _third_party_http_archive_impl(_context: InvocationContext, **kwargs):
       ),
       persisted_canonical_name={},
   )
+
+  _emit_fetch_content_impl(_context, new_repository, **kwargs)
+
+
+def _emit_fetch_content_impl(
+    _context: InvocationContext, new_repository: CMakeRepository, **kwargs
+):
+  state = _context.access(EvaluationState)
+  cmake_name = new_repository.cmake_project_name
   reverse_target_mapping: Dict[CMakeTarget, str] = update_target_mapping(
       new_repository, kwargs
   )
-
   state.workspace.add_cmake_repository(new_repository)
 
   # TODO(jbms): Use some criteria (e.g. presence of system_build_file option) to
@@ -515,19 +533,34 @@ def _third_party_http_archive_impl(_context: InvocationContext, **kwargs):
     state.call_after_analysis(
         lambda: _emit_fetch_content_make_available(_context)
     )
-  fetch_content_packages.append(cmake_name)
+  fetch_content_packages.append(new_repository.cmake_project_name)
+
+  collect_patch_commands = _CollectPatchCommands()
+  collect_patch_commands.process_patch_commands(_context, **kwargs)
+  collect_patch_commands.add_new_cmakelists_path(
+      _context, state.active_repo, **kwargs
+  )
+  if collect_patch_commands.requires_patch_package:
+    builder.find_package("Patch")
+
+  urls = kwargs.get("urls", [])
+  sha256 = kwargs.get("sha256", "")
+  patch_command = collect_patch_commands.patch_command
+
+  out = io.StringIO()
+  out.write(f"# Loading {new_repository.repository_id.repository_name}\n")
+  out.write(f"FetchContent_Declare({cmake_name}")
+  if urls:
+    out.write(f"\n    URL {quote_string(urls[0])}")
+  if sha256:
+    hash_str = f"SHA256={sha256}"
+    out.write(f"\n    URL_HASH {quote_string(hash_str)}")
+  if patch_command:
+    out.write(f"\n    PATCH_COMMAND {patch_command}")
+  out.write("\n    OVERRIDE_FIND_PACKAGE)\n")
 
   builder.addtext(
-      f"# Loading {new_repository.repository_id.repository_name}\n",
-      section=FETCH_CONTENT_DECLARE_SECTION,
-  )
-  builder.addtext(
-      _get_fetch_content_invocation(
-          _context=_context,
-          _builder=builder,
-          _active_repo=state.active_repo,
-          **kwargs,
-      ),
+      out.getvalue(),
       section=FETCH_CONTENT_DECLARE_SECTION,
   )
 
@@ -561,9 +594,11 @@ find_dependency({cmake_name})
       "cmake_package_redirect_libraries", {}
   )
   if extra or package_aliases or cmake_package_redirect_libraries:
-    extra_aliases = ""
+    out = io.StringIO()
+    out.write(extra)
+    out.write("\n")
     for alias in package_aliases:
-      extra_aliases += f"set({alias}_FOUND ON)\n"
+      out.write(f"set({alias}_FOUND ON)\n")
     for var_prefix, cmake_target in cmake_package_redirect_libraries.items():
       # When using bazel_to_cmake, map `target` to the non-aliased target.
       t: Optional[str] = reverse_target_mapping.get(cmake_target)
@@ -573,18 +608,16 @@ find_dependency({cmake_name})
         ).target
 
       for suffix in ("LIBRARY", "LIBRARIES"):
-        extra_aliases += f"set({var_prefix}_{suffix} {cmake_target})\n"
+        out.write(f"set({var_prefix}_{suffix} {cmake_target})\n")
         if var_prefix != var_prefix.upper():
-          extra_aliases += (
-              f"set({var_prefix.upper()}_{suffix} {cmake_target})\n"
-          )
+          out.write(f"set({var_prefix.upper()}_{suffix} {cmake_target})\n")
       for suffix in ("INCLUDE_DIR", "INCLUDE_DIRS"):
-        extra_aliases += (
+        out.write(
             f"get_property({var_prefix}_{suffix} TARGET {cmake_target} PROPERTY"
             " INTERFACE_INCLUDE_DIRECTORIES)\n"
         )
         if var_prefix != var_prefix.upper():
-          extra_aliases += (
+          out.write(
               f"get_property({var_prefix.upper()}_{suffix} TARGET"
               f" {cmake_target} PROPERTY INTERFACE_INCLUDE_DIRECTORIES)\n"
           )
@@ -595,9 +628,7 @@ find_dependency({cmake_name})
         cmake_find_package_redirects_dir, f"{cmake_name}Extra.cmake"
     )
     if not os.path.exists(extra_path) and not os.path.exists(extra_path_alt):
-      pathlib.Path(extra_path).write_text(
-          extra + "\n" + extra_aliases, encoding="utf-8"
-      )
+      pathlib.Path(extra_path).write_text(out.getvalue(), encoding="utf-8")
 
 
 def _emit_fetch_content_make_available(_context: InvocationContext):

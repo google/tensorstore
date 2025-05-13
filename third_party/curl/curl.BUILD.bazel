@@ -21,20 +21,6 @@ config_setting(
     visibility = ["//visibility:private"],
 )
 
-config_setting(
-    name = "compiler_mingw_gcc",
-    flag_values = {
-        "@bazel_tools//tools/cpp:compiler": "mingw-gcc",
-    },
-)
-
-config_setting(
-    name = "compiler_msvc",
-    flag_values = {
-        "@bazel_tools//tools/cpp:compiler": "msvc-cl",
-    },
-)
-
 LOCAL_DEFINES = (
     [
         "BUILDING_LIBCURL",
@@ -472,4 +458,14 @@ write_file(
         "#endif  // EXTERNAL_CURL_INCLUDE_CURL_CONFIG_H_",
     ],
     newline = "unix",
+)
+
+alias(
+    name = "compiler_mingw_gcc",
+    actual = "@rules_cc//cc/compiler:mingw-gcc",
+)
+
+alias(
+    name = "compiler_msvc",
+    actual = "@rules_cc//cc/compiler:msvc-cl",
 )

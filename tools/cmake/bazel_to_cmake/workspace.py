@@ -25,7 +25,6 @@ import shlex
 from typing import Dict, List, Optional, Set, Tuple, Union
 
 from .cmake_repository import CMakeRepository
-from .cmake_target import CMakePackage
 from .cmake_target import CMakeTargetPair
 from .starlark.bazel_target import PackageId
 from .starlark.bazel_target import RepositoryId
@@ -69,21 +68,19 @@ class Workspace:
 
   def __init__(
       self,
-      root_repository: CMakeRepository,
+      root_repository_id: RepositoryId,
       cmake_vars: Dict[str, str],
       save_workspace: Optional[str] = None,
   ):
     # Known repositories.
-    self.root_repository: CMakeRepository = root_repository
+    self.root_repository_id: RepositoryId = root_repository_id
     self.all_repositories: Dict[RepositoryId, CMakeRepository] = {}
-    self.all_repositories[root_repository.repository_id] = root_repository
 
     # Variables provided by CMake.
     self.cmake_vars: Dict[str, str] = cmake_vars
     self.save_workspace = save_workspace
 
     # Maps bazel repo names to CMake project name/prefix.
-    self.active_repository: Optional["Repository"] = None
     self.host_platform_name = _PLATFORM_NAME_TO_BAZEL_PLATFORM.get(
         platform.system()
     )
@@ -91,8 +88,9 @@ class Workspace:
     self.copts: List[str] = []
     self.cxxopts: List[str] = []
     self.cdefines: List[str] = []
-    self.ignored_libraries: Set[TargetId] = set()
     self._modules: Set[str] = set()
+
+    self.global_ignored_libraries: Set[TargetId] = set()
 
     # _persisted_targets persist TargetInfo; these are resolved through
     # EvaluationState.get_optional_target_info() and provide a TargetInfo.
@@ -108,6 +106,10 @@ class Workspace:
   @property
   def verbose(self) -> int:
     return self._verbose
+
+  @property
+  def root_repository(self) -> CMakeRepository:
+    return self.all_repositories[self.root_repository_id]
 
   def add_cmake_repository(self, repository: CMakeRepository):
     """Adds a repository to the workspace."""
@@ -157,18 +159,6 @@ class Workspace:
       if self._verbose > 1:
         print(f"Persisting {target} => {repr(info)}")
       self._persisted_target_info[target] = info
-
-  def ignore_library(self, target: TargetId) -> None:
-    """Marks a bzl library to be ignored.
-
-    When requested via a `load` call, a placeholder object will be returned
-    instead.
-
-    Like all `Workspace` state, this also propagates to bazel_to_cmake
-    invocations for dependencies.
-    """
-    assert isinstance(target, TargetId)
-    self.ignored_libraries.add(target)
 
   def load_bazelrc(self, path: str) -> None:
     """Loads options from a `.bazelrc` file.
@@ -256,70 +246,3 @@ class Workspace:
         importlib.import_module(module_name, package=__package__)
       else:
         importlib.import_module(module_name)
-
-
-class Repository:
-  """Represents a single Bazel repository and corresponding CMake project.
-
-  This associates the source and output directories with a repository.
-
-  Each run of `bazel_to_cmake` operates on just a single primary repository, but
-  may load bzl libraries for the top-level repository as well.
-
-  The `Workspace` holds a mapping of repository names to `Repository` objects.
-  In the top-level invocation of `bazel_to_cmake`, only the top-level repository
-  is present.  When invoked on dependencies, both the top-level repository and
-  the dependency currently being processed are present.
-  """
-
-  def __init__(
-      self,
-      workspace: Workspace,
-      repository: CMakeRepository,
-      bindings: Dict[TargetId, TargetId],
-      top_level: bool,
-  ):
-    self._workspace: Workspace = workspace
-    self._repository: CMakeRepository = repository
-    self._bindings: Dict[TargetId, TargetId] = bindings
-    self.top_level: bool = top_level
-
-    # Check fidelity of workspace.
-    assert repository.repository_id in workspace.all_repositories
-    assert workspace.all_repositories[repository.repository_id] == repository
-
-    workspace.active_repository = self
-    if workspace.verbose:
-      print(f"ActiveRepository: {repr(self)}")
-
-  @property
-  def workspace(self) -> Workspace:
-    return self._workspace
-
-  @property
-  def repository(self) -> CMakeRepository:
-    return self._repository
-
-  @property
-  def bindings(self) -> Dict[TargetId, TargetId]:
-    return self._bindings
-
-  @property
-  def repository_id(self) -> RepositoryId:
-    return self._repository.repository_id
-
-  @property
-  def cmake_project_name(self) -> CMakePackage:
-    return self._repository.cmake_project_name
-
-  @property
-  def source_directory(self) -> pathlib.PurePath:
-    return self._repository.source_directory
-
-  @property
-  def cmake_binary_dir(self) -> pathlib.PurePath:
-    return self._repository.cmake_binary_dir
-
-  @property
-  def repo_mapping(self) -> Dict[RepositoryId, RepositoryId]:
-    return self._repository.repo_mapping

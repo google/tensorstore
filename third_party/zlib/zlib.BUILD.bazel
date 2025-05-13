@@ -5,47 +5,50 @@ package(default_visibility = ["//visibility:private"])
 licenses(["notice"])  # BSD/MIT-like license (for zlib)
 
 ZLIB_LOCAL_DEFINES = (
-    select(
-        {
-            "@platforms//cpu:x86_64": ["UNALIGNED_OK"],
-            "//conditions:default": [],
-        },
-    ) +
-    select(
-        {
-            "@platforms//os:windows": [
-                "_CRT_SECURE_NO_DEPRECATE",
-                "_CRT_NONSTDC_NO_DEPRECATE",
-                "X86_WINDOWS",
-            ],
-            "//conditions:default": [
-                "HAVE_UNISTD_H",
-                "HAVE_STDINT_H",
-                "HAVE_STDDEF_H",
-                "X86_NOT_WINDOWS",
-            ],
-        },
-    ) +
-    select(
-        {
-            ":zlib_x86_optimizations": [
-                "ADLER32_SIMD_SSSE3",
-                "CRC32_SIMD_SSE42_PCLMUL",
-                "INFLATE_CHUNK_SIMD_SSE2",
-                "INFLATE_CHUNK_READ_64LE",  # requires x86_64
-                "DEFLATE_SLIDE_HASH_SSE2",
-            ],
-            ":zlib_arm64_optimizations": [
-                "ADLER32_SIMD_NEON",
-                "CRC32_ARMV8_CRC32",
-                "INFLATE_CHUNK_SIMD_NEON",
-                "INFLATE_CHUNK_READ_64LE",  # requires arm64
-                "DEFLATE_SLIDE_HASH_NEON",
-            ],
-            "//conditions:default": [],
-        },
-    )
+    select({
+        "@platforms//cpu:x86_64": ["UNALIGNED_OK"],
+        "//conditions:default": [],
+    }) +
+    select({
+        "@platforms//os:windows": [
+            "_CRT_SECURE_NO_DEPRECATE",
+            "_CRT_NONSTDC_NO_DEPRECATE",
+            "X86_WINDOWS",
+        ],
+        "//conditions:default": [
+            "HAVE_UNISTD_H",
+            "HAVE_STDINT_H",
+            "HAVE_STDDEF_H",
+            "X86_NOT_WINDOWS",
+        ],
+    }) +
+    select({
+        ":zlib_x86_optimizations": [
+            "ADLER32_SIMD_SSSE3",
+            "CRC32_SIMD_SSE42_PCLMUL",
+            "INFLATE_CHUNK_SIMD_SSE2",
+            "INFLATE_CHUNK_READ_64LE",  # requires x86_64
+            "DEFLATE_SLIDE_HASH_SSE2",
+        ],
+        ":zlib_arm64_optimizations": [
+            "ADLER32_SIMD_NEON",
+            "CRC32_ARMV8_CRC32",
+            "INFLATE_CHUNK_SIMD_NEON",
+            "INFLATE_CHUNK_READ_64LE",  # requires arm64
+            "DEFLATE_SLIDE_HASH_NEON",
+        ],
+        "//conditions:default": [],
+    })
 )
+
+_SRCS_OPT = [
+    "adler32_simd.c",
+    "contrib/optimizations/inffast_chunk.c",
+    "contrib/optimizations/inflate.c",
+    "cpu_features.c",
+    "crc32_simd.c",
+    "crc_folding.c",
+]
 
 cc_library(
     name = "zlib",
@@ -64,54 +67,41 @@ cc_library(
         "trees.c",
         "uncompr.c",
         "zutil.c",
-    ] + select(
-        {
-            "//conditions:default": [
-                "contrib/optimizations/insert_string.h",
-                "inflate.c",
-            ],
-            ":zlib_optimizations": [
-                "adler32_simd.c",
-                "contrib/optimizations/inffast_chunk.c",
-                "contrib/optimizations/inflate.c",
-                "cpu_features.c",
-                "crc32_simd.c",
-                "crc_folding.c",
-            ],
-        },
-    ),
+    ] + select({
+        ":zlib_arm64_optimizations": _SRCS_OPT,
+        ":zlib_x86_optimizations": _SRCS_OPT,
+        "//conditions:default": [
+            "contrib/optimizations/insert_string.h",
+            "inflate.c",
+        ],
+    }),
     hdrs = [
         "zconf.h",
         "zlib.h",
     ],
-    copts = select(
-                {
-                    ":x86_64_gcc_or_clang": [
-                        "-mssse3",
-                        "-msse4.2",
-                        "-mpclmul",
-                    ],
-                    ":arm64_gcc_or_clang": [
-                        "-march=armv8-a+crc+crypto",
-                    ],
-                    "//conditions:default": [],
-                },
-            ) +
-            select(
-                {
-                    ":compiler_clang": [
-                        "-Wno-deprecated-non-prototype",
-                    ],
-                    "//conditions:default": [],
-                },
-            ),
+    copts = select({
+                ":use_x86_gcc_flags": [
+                    "-mssse3",
+                    "-msse4.2",
+                    "-mpclmul",
+                ],
+                ":use_arm64_gcc_flags": [
+                    "-march=armv8-a+crc+crypto",
+                ],
+                "//conditions:default": [],
+            }) +
+            select({
+                "@rules_cc//cc/compiler:clang": [
+                    "-Wno-deprecated-non-prototype",
+                ],
+                "//conditions:default": [],
+            }),
     defines = ["CHROMIUM_ZLIB_NO_CHROMECONF"],
-    implementation_deps = select(
-        {
-            "//conditions:default": [],
-            ":zlib_optimizations": [":zlib_opt_includes"],
-        },
-    ),
+    implementation_deps = select({
+        ":zlib_arm64_optimizations": [":zlib_opt_includes"],
+        ":zlib_x86_optimizations": [":zlib_opt_includes"],
+        "//conditions:default": [],
+    }),
     includes = ["."],
     local_defines = ZLIB_LOCAL_DEFINES,
     visibility = ["//visibility:public"],
@@ -127,14 +117,6 @@ cc_library(
 )
 
 # config for enabling optimized inflate routines.
-selects.config_setting_group(
-    name = "zlib_optimizations",
-    match_any = [
-        ":zlib_arm64_optimizations",
-        ":zlib_x86_optimizations",
-    ],
-)
-
 alias(
     name = "zlib_x86_optimizations",
     actual = "@platforms//cpu:x86_64",
@@ -145,17 +127,23 @@ alias(
     actual = "@platforms//cpu:arm64",
 )
 
-[
-    alias(
-        name = name,
-        actual = "@tensorstore//:{target}".format(target = name),
-    )
-    for name in [
-        "compiler_clang",
-        "compiler_gcc",
-        "compiler_msvc",
-        "compiler_gcc_or_clang",
-        "arm64_gcc_or_clang",
-        "x86_64_gcc_or_clang",
-    ]
-]
+# Constraint that indicates whether gcc-style flags should be used.
+alias(
+    name = "use_x86_gcc_flags",
+    actual = select({
+        "@rules_cc//cc/compiler:msvc-cl": "@platforms//:incompatible",
+
+        # Otherwise condition on x86_64.
+        "//conditions:default": "@platforms//cpu:x86_64",
+    }),
+)
+
+alias(
+    name = "use_arm64_gcc_flags",
+    actual = select({
+        "@rules_cc//cc/compiler:msvc-cl": "@platforms//:incompatible",
+
+        # Otherwise condition on arm64.
+        "//conditions:default": "@platforms//cpu:arm64",
+    }),
+)

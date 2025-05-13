@@ -16,6 +16,7 @@
 # pylint: disable=invalid-name,missing-function-docstring,relative-beyond-top-level,g-importing-member
 from typing import Dict, TypeVar
 
+from .ignored import IgnoredObject
 from .invocation_context import InvocationContext
 from .label import RelativeLabel
 from .module_cc_common import BazelModuleCcCommon
@@ -24,7 +25,6 @@ from .module_platform_common import BazelModulePlatformCommon
 from .provider import provider
 from .scope_common import ScopeCommon
 from .select import Select
-
 
 T = TypeVar('T')
 
@@ -50,6 +50,9 @@ class BazelNativeBuildRules:
   def toolchain(self, **kwargs):
     del kwargs
 
+  def label_flag(self, **kwargs):
+    del kwargs
+
 
 # https://bazel.build/rules/lib/globals/build
 class ScopeBuildBzlFile(ScopeCommon):
@@ -70,6 +73,10 @@ class ScopeBuildBzlFile(ScopeCommon):
   @property
   def bazel_config_common(self):
     return BazelModuleConfigCommon()
+
+  @property
+  def bazel_DebugPackageInfo(self):
+    return IgnoredObject()
 
   def bazel_select(self, conditions: Dict[RelativeLabel, T]) -> Select[T]:
     return Select({
@@ -113,10 +120,20 @@ class ScopeBuildBzlFile(ScopeCommon):
   def bazel_toolchain(self, **kwargs):
     del kwargs
 
-  # Missing:
-  # * existing_rules
-  # * subpackages
-  # * package_relative_label
+  def bazel_label_flag(self, **kwargs):
+    del kwargs
+
+  def bazel_cc_toolchain_alias(self, **kwargs):
+    del kwargs
+
+  def bazel_cc_libc_top_alias(self, **kwargs):
+    del kwargs
+
+
+# Missing:
+# * existing_rules
+# * subpackages
+# * package_relative_label
 
 
 class ScopeBuildFile(ScopeBuildBzlFile):
