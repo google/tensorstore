@@ -149,10 +149,15 @@ TENSORSTORE_FOR_EACH_LOW_PRECISION_FLOAT_DATA_TYPE(
     TENSORSTORE_INTERNAL_NUMBER_TO_STRING_CANONICAL_TYPE_FLOAT)
 #undef TENSORSTORE_INTERNAL_NUMBER_TO_STRING_CANONICAL_TYPE_FLOAT
 
-template <>
-struct NumberToStringCanonicalType<::tensorstore::dtypes::int4_t> {
-  using type = int16_t;
-};
+#define TENSORSTORE_INTERNAL_NUMBER_TO_STRING_CANONICAL_TYPE_INT(T, ...) \
+  template <>                                                            \
+  struct NumberToStringCanonicalType<::tensorstore::dtypes::T> {         \
+    using type = int16_t;                                                \
+  };                                                                     \
+  /**/
+TENSORSTORE_FOR_EACH_LOW_PRECISION_INT_DATA_TYPE(
+    TENSORSTORE_INTERNAL_NUMBER_TO_STRING_CANONICAL_TYPE_INT)
+#undef TENSORSTORE_INTERNAL_NUMBER_TO_STRING_CANONICAL_TYPE_INT
 
 template <>
 struct NumberToStringCanonicalType<int8_t> {
@@ -333,6 +338,9 @@ TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(TENSORSTORE_INTERNAL_CONVERT_FLOAT)
 // [BEGIN GENERATED: generate_data_type.py]
 
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::complex64_t, ::tensorstore::dtypes::int2_t,
+    internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::complex64_t, ::tensorstore::dtypes::int4_t,
     internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
@@ -358,6 +366,9 @@ TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::complex64_t, ::tensorstore::dtypes::uint64_t,
+    internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::complex128_t, ::tensorstore::dtypes::int2_t,
     internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::complex128_t, ::tensorstore::dtypes::int4_t,

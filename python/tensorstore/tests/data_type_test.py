@@ -24,6 +24,7 @@ import tensorstore as ts
         "bool",
         "char",
         "byte",
+        "int2",
         "int4",
         # TODO(summivox): b/295577703
         "int8",
@@ -58,6 +59,7 @@ def test_dtype_init_name(name):
     "name",
     [
         "bool",
+        "int2",
         "int4",
         # TODO(summivox): b/295577703
         "int8",
@@ -117,6 +119,15 @@ def test_dtype_init_bool():
   assert type(ts.bool(True)) is np.bool_
   assert ts.bool(True) == True
   assert ts.bool(False) == False
+
+
+def test_dtype_init_int2():
+  v = ts.int2(1)
+  t = type(v)
+  assert ts.dtype(t) == ts.int2
+  assert ts.int2.type is t
+  assert ts.int2(1) == 1
+  assert ts.int2(-2) == -2
 
 
 def test_dtype_init_int4():

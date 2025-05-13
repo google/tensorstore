@@ -207,10 +207,15 @@ struct MeanAccumulateElement<bool> {
   using type = int64_t;
 };
 
-template <>
-struct MeanAccumulateElement<::tensorstore::dtypes::int4_t> {
-  using type = int64_t;
-};
+#define TENSORSTORE_INTERNAL_MEAN_ACCUMULATE_ELEMENT(T, ...) \
+  template <>                                                \
+  struct MeanAccumulateElement<::tensorstore::dtypes::T> {   \
+    using type = int64_t;                                    \
+  };                                                         \
+/**/
+TENSORSTORE_FOR_EACH_LOW_PRECISION_INT_DATA_TYPE(
+    TENSORSTORE_INTERNAL_MEAN_ACCUMULATE_ELEMENT)
+#undef TENSORSTORE_INTERNAL_MEAN_ACCUMULATE_ELEMENT
 
 // TODO(summivox): b/295577703: uint4_t
 

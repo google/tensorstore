@@ -81,6 +81,25 @@ tensorstore_cc_test(
     ],
 )
 
+tensorstore_cc_library(
+    name = "int2",
+    hdrs = ["int2.h"],
+    deps = ["@nlohmann_json//:json"],
+)
+
+tensorstore_cc_test(
+    name = "int2_test",
+    size = "small",
+    srcs = ["int2_test.cc"],
+    deps = [
+        ":int2",
+        "//tensorstore/internal/testing:json_gtest",
+        "@abseil-cpp//absl/base",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
+    ],
+)
+
 tensorstore_cc_test(
     name = "bfloat16_test",
     size = "small",

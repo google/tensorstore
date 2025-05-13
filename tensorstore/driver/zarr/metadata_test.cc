@@ -49,6 +49,7 @@ using ::tensorstore::MakeScalarArray;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::dtypes::bfloat16_t;
 using ::tensorstore::dtypes::float16_t;
+using ::tensorstore::dtypes::int2_t;
 using ::tensorstore::dtypes::int4_t;
 using ::tensorstore::internal_zarr::DimensionSeparator;
 using ::tensorstore::internal_zarr::DimensionSeparatorJsonBinder;
@@ -208,6 +209,10 @@ TEST(ParseFillValueTest, IntegerSuccess) {
                          {MakeScalarArray<int4_t>(static_cast<int4_t>(-1))});
   TestFillValueRoundTrip("int4", 1,
                          {MakeScalarArray<int4_t>(static_cast<int4_t>(1))});
+  TestFillValueRoundTrip("int2", -1,
+                         {MakeScalarArray<int2_t>(static_cast<int2_t>(-1))});
+  TestFillValueRoundTrip("int2", 1,
+                         {MakeScalarArray<int2_t>(static_cast<int2_t>(1))});
 
   TestFillValueRoundTrip("|i1", -124, {MakeScalarArray<int8_t>(-124)});
   TestFillValueRoundTrip("|i1", 124, {MakeScalarArray<int8_t>(124)});

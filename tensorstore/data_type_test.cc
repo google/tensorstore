@@ -475,6 +475,7 @@ TEST(DataTypeTest, Name) {
   EXPECT_EQ("byte", DataType(dtype_v<byte_t>).name());
   EXPECT_EQ("char", DataType(dtype_v<char_t>).name());
   EXPECT_EQ("int4", DataType(dtype_v<int4_t>).name());
+  EXPECT_EQ("int2", DataType(dtype_v<int2_t>).name());
   // TODO(summivox): b/295577703 uint4
   EXPECT_EQ("int8", DataType(dtype_v<int8_t>).name());
   EXPECT_EQ("uint8", DataType(dtype_v<uint8_t>).name());
@@ -502,6 +503,7 @@ TEST(DataTypeTest, PrintToOstream) {
 TEST(DataTypeTest, GetDataType) {
   using ::tensorstore::GetDataType;
   EXPECT_EQ(dtype_v<int4_t>, GetDataType("int4"));
+  EXPECT_EQ(dtype_v<int2_t>, GetDataType("int2"));
   // TODO(summivox): b/295577703 uint4
   EXPECT_EQ(dtype_v<int8_t>, GetDataType("int8"));
   EXPECT_EQ(dtype_v<uint8_t>, GetDataType("uint8"));
@@ -568,6 +570,7 @@ TEST(SerializationTest, Invalid) {
 }
 
 static_assert(IsTrivial<bool>);
+static_assert(IsTrivial<int2_t>);
 static_assert(IsTrivial<int4_t>);
 static_assert(IsTrivial<bfloat16_t>);
 static_assert(IsTrivial<float16_t>);

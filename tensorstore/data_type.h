@@ -81,6 +81,7 @@
 #include "tensorstore/static_cast.h"
 #include "tensorstore/util/bfloat16.h"
 #include "tensorstore/util/float8.h"
+#include "tensorstore/util/int2.h"
 #include "tensorstore/util/int4.h"
 #include "tensorstore/util/str_cat.h"
 #include "tensorstore/util/utf8_string.h"
@@ -105,6 +106,10 @@ using char_t = char;
 using byte_t = ::std::byte;
 
 /// Signed and unsigned integer types.
+///
+/// \ingroup data types
+using int2_t = ::tensorstore::Int2Padded;
+
 ///
 /// \ingroup data types
 using int4_t = ::tensorstore::Int4Padded;
@@ -222,6 +227,7 @@ enum class DataTypeId {
   bool_t,
   char_t,
   byte_t,
+  int2_t,
   int4_t,
   int8_t,
   uint8_t,
@@ -264,6 +270,7 @@ inline constexpr size_t kNumDataTypeIds =
   /**/
 
 #define TENSORSTORE_FOR_EACH_LOW_PRECISION_INT_DATA_TYPE(X, ...) \
+  X(int2_t, ##__VA_ARGS__)                                       \
   X(int4_t, ##__VA_ARGS__)                                       \
   /**/
 
