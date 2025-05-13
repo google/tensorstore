@@ -61,6 +61,9 @@ definitions:
       - const: "byte"
         title: |
           Single byte.
+      - const: "int2"
+        title: |
+          2-bit signed `two's-complement <https://en.wikipedia.org/wiki/Two%27s_complement>`__ integer, internally stored as its 8-bit signed integer equivalent (i.e. sign-extended).
       - const: "int4"
         title: |
           4-bit signed `two's-complement <https://en.wikipedia.org/wiki/Two%27s_complement>`__ integer, internally stored as its 8-bit signed integer equivalent (i.e. sign-extended).

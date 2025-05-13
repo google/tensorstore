@@ -77,8 +77,8 @@ allOf:
                   :json:`"float8_e4m3b11fnuz"`, :json:`"float8_e5m2"`, :json:`"float8_e5m2fnuz"` 
                   described in `ml_dtypes <https://github.com/jax-ml/ml_dtypes#float8_e4m3b11fnuz>`_ 
                   with little endian byte order.
-                  4-bit integer type padded to 1 byte is supported as :json:`"int4"` by 
-                  specifying `int4 <https://github.com/jax-ml/ml_dtypes#int4-and-uint4>`_.
+                  2/4-bit integer type padded to 1 byte is supported as :json:`"int2"` and :json:`"int4"` by 
+                  specifying `int2/int4 <https://github.com/jax-ml/ml_dtypes#int2-int4-uint2-and-uint4>`_.
               fill_value:
                 title: Specifies the fill value.
                 description: When creating a new array, defaults to :json:`null`.

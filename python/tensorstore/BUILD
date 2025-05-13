@@ -821,6 +821,17 @@ tensorstore_pytest_test(
 )
 
 tensorstore_pytest_test(
+    name = "int2_test",
+    size = "small",
+    srcs = ["tests/int2_test.py"],
+    deps = [
+        ":conftest",
+        ":tensorstore",
+        "@pypa_numpy//:numpy",
+    ],
+)
+
+tensorstore_pytest_test(
     name = "int4_test",
     size = "small",
     srcs = ["tests/int4_test.py"],

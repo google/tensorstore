@@ -431,6 +431,7 @@ tensorstore_cc_library(
         "//tensorstore/util:bfloat16",
         "//tensorstore/util:division",
         "//tensorstore/util:float8",
+        "//tensorstore/util:int2",
         "//tensorstore/util:int4",
         "//tensorstore/util:result",
         "//tensorstore/util:str_cat",

@@ -135,7 +135,7 @@ char GetTypeIndicator(const std::string& encoded_dtype) {
   if (absl::StartsWith(encoded_dtype, "float8") ||
       encoded_dtype == "bfloat16") {
     return 'f';
-  } else if (encoded_dtype == "int4") {
+  } else if (encoded_dtype == "int4" || encoded_dtype == "int2") {
     return 'i';
   } else if (encoded_dtype == "uint4") {
     return 'u';
