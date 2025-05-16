@@ -152,6 +152,7 @@ tensorstore_cc_test(
         ":zarr3",
         "//tensorstore",
         "//tensorstore:array",
+        "//tensorstore:batch",
         "//tensorstore:box",
         "//tensorstore:cast",
         "//tensorstore:chunk_layout",
