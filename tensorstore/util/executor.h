@@ -97,7 +97,7 @@ class ExecutorBoundFunction {
   /// Function object.
   ABSL_ATTRIBUTE_NO_UNIQUE_ADDRESS Function function;
 
-  /// Trace context.
+  // Trace context.
   ABSL_ATTRIBUTE_NO_UNIQUE_ADDRESS mutable internal_tracing::TraceContext tc_;
 };
 

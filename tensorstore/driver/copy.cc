@@ -62,20 +62,22 @@ namespace {
 ///
 /// 2. Validates that the resolved source and target bounds match.
 ///
-/// 3. Calls `Driver::Read` on the `source_driver` with a
-///    `CopyReadChunkReceiver` to initiate the actual read over the resolved
-///    `source_transform` bounds.  `CopyReadChunkReceiver` ensures that the read
-///    is canceled if `copy_promise.result_needed()` becomes `false`.
+/// 3. Calls `Driver::Write` on the `target_driver` with a
+///    `CopyWriteChunkReceiver` to initiate the actual write over the resolved
+///    `target_transform` bounds.  `CopyWriteChunkReceiver` ensures that the
+///    write is canceled if `copy_promise.result_needed()` becomes `false`.
 ///
-/// 4. For each `ReadChunk` received, `CopyReadChunkReceiver` invokes
-///    `CopyInitiateWriteOp` using `executor`: `CopyInitiateWriteOp` calls
-///    `Driver::Write` on `target_driver` with a `CopyWriteChunkReceiver` to
-///    initiate the write to the portion of `target_driver` corresponding to the
-///    `ReadChunk`.  `CopyWriteChunkReceiver` ensures that the write is canceled
-///    if `copy_promise.result_needed()` becomes `false`.
+/// 4. For each `WriteChunk` received, `CopyWriteChunkReceiver` invokes
+///    `CopyInitiateReadOp` using `executor`: `CopyInitiateReadOp` calls
+///    `Driver::Read` on `source_driver` with a `CopyReadChunkReceiver` to
+///    initiate the read from the portion of `source_driver` corresponding to
+///    the `WriteChunk`. If a transaction was not specified by the user, for
+///    each `WriteChunk`, a new implicit transaction is created.
+///    m`CopyReadChunkReceiver` ensures that the read is canceled if
+///    `copy_promise.result_needed()` becomes `false`.
 ///
-/// 5. For each `WriteChunk` received, `CopyWriteChunkReceiver` invokes
-///    `CopyChunkOp` using executor to copy the data from the appropriate
+/// 5. For each `ReadChunk` received, `CopyReadChunkReceiver` invokes
+///    `CopyChunkOp` using `executor` to copy the data from the appropriate
 ///    portion of the `ReadChunk` to the `WriteChunk`.
 ///
 /// 6. `CopyChunkOp` links the writeback `Future` returned from the write
@@ -136,7 +138,7 @@ struct CopyState : public internal::AtomicReferenceCount<CopyState> {
   DataTypeConversionLookupResult data_type_conversion;
   DriverPtr target_driver;
   internal::OpenTransactionPtr target_transaction;
-  IndexTransform<> target_transform;
+  IndexTransform<> source_transform;
   DomainAlignmentOptions alignment_options;
   Promise<void> copy_promise;
   Promise<void> commit_promise;
@@ -152,8 +154,8 @@ struct CopyState : public internal::AtomicReferenceCount<CopyState> {
 /// data from the relevant portion of a single `ReadChunk` to a `WriteChunk`.
 struct CopyChunkOp {
   IntrusivePtr<CopyState> state;
-  ReadChunk adjusted_read_chunk;
-  WriteChunk write_chunk;
+  ReadChunk read_chunk;
+  WriteChunk adjusted_write_chunk;
   void operator()() {
     DefaultNDIterableArena arena;
 
@@ -162,43 +164,43 @@ struct CopyChunkOp {
     absl::Status copy_status;
     Future<const void> commit_future;
     {
-      TENSORSTORE_ASSIGN_OR_RETURN(
-          auto guard,
-          LockChunks(lock_collection, adjusted_read_chunk.impl,
-                     write_chunk.impl),
-          state->SetError(_));
+      TENSORSTORE_ASSIGN_OR_RETURN(auto guard,
+                                   LockChunks(lock_collection, read_chunk.impl,
+                                              adjusted_write_chunk.impl),
+                                   state->SetError(_));
 
       TENSORSTORE_ASSIGN_OR_RETURN(
           auto source_iterable,
-          adjusted_read_chunk.impl(ReadChunk::BeginRead{},
-                                   std::move(adjusted_read_chunk.transform),
-                                   arena),
+          read_chunk.impl(ReadChunk::BeginRead{},
+                          std::move(read_chunk.transform), arena),
           state->SetError(_));
 
       TENSORSTORE_ASSIGN_OR_RETURN(
           auto target_iterable,
-          write_chunk.impl(WriteChunk::BeginWrite{}, write_chunk.transform,
-                           arena),
+          adjusted_write_chunk.impl(WriteChunk::BeginWrite{},
+                                    adjusted_write_chunk.transform, arena),
           state->SetError(_));
 
       source_iterable = GetConvertedInputNDIterable(
           std::move(source_iterable), target_iterable->dtype(),
           state->data_type_conversion);
 
-      copy_status = NDIterableCopier(*source_iterable, *target_iterable,
-                                     write_chunk.transform.input_shape(), arena)
-                        .Copy();
+      copy_status =
+          NDIterableCopier(*source_iterable, *target_iterable,
+                           adjusted_write_chunk.transform.input_shape(), arena)
+              .Copy();
 
-      auto end_write_result =
-          write_chunk.impl(WriteChunk::EndWrite{}, write_chunk.transform,
-                           copy_status.ok(), arena);
+      auto end_write_result = adjusted_write_chunk.impl(
+          WriteChunk::EndWrite{}, adjusted_write_chunk.transform,
+          copy_status.ok(), arena);
       commit_future = std::move(end_write_result.commit_future);
       if (copy_status.ok()) {
         copy_status = std::move(end_write_result.copy_status);
       }
     }
     if (copy_status.ok()) {
-      const Index num_elements = write_chunk.transform.domain().num_elements();
+      const Index num_elements =
+          adjusted_write_chunk.transform.domain().num_elements();
       state->commit_state->UpdateCopyProgress(num_elements);
       struct CommitCallback {
         IntrusivePtr<CopyState::CommitState> state;
@@ -220,12 +222,12 @@ struct CopyChunkOp {
   }
 };
 
-/// FlowReceiver used by `CopyReadChunkReceiver` to copy data from a given
+/// FlowReceiver used by `CopyWriteChunkReceiver` to copy data from a given
 /// `read_chunk` to the target `write_chunk` chunks as the target chunks become
 /// available.
-struct CopyWriteChunkReceiver {
+struct CopyReadChunkReceiver {
   IntrusivePtr<CopyState> state;
-  ReadChunk read_chunk;
+  WriteChunk write_chunk;
   FutureCallbackRegistration cancel_registration;
   void set_starting(AnyCancelReceiver cancel) {
     cancel_registration =
@@ -234,59 +236,63 @@ struct CopyWriteChunkReceiver {
   void set_stopping() { cancel_registration(); }
   void set_done() {}
   void set_error(absl::Status error) { state->SetError(std::move(error)); }
-  void set_value(WriteChunk write_chunk, IndexTransform<> cell_transform) {
-    // Map the portion of the `read_chunk` that corresponds to this
-    // `write_chunk` to the index space expected by `write_chunk`, and produce
-    // an `adjusted_read_chunk`.
+  void set_value(ReadChunk read_chunk, IndexTransform<> cell_transform) {
+    state->commit_state->UpdateReadProgress(
+        cell_transform.input_domain().num_elements());
+
+    // Map the portion of the `write_chunk` that corresponds to this
+    // `read_chunk` to the index space expected by `read_chunk`, and produce
+    // an `adjusted_write_chunk`.
     //
     // We do this immediately, rather than deferring it to an executor, in order
-    // to avoid having to make an extra copy of `read_chunk.transform`.
+    // to avoid having to make an extra copy of `write_chunk.transform`.
     TENSORSTORE_ASSIGN_OR_RETURN(
-        auto read_chunk_transform,
-        ComposeTransforms(read_chunk.transform, std::move(cell_transform)),
+        auto write_chunk_transform,
+        ComposeTransforms(write_chunk.transform, std::move(cell_transform)),
         state->SetError(_));
-    ReadChunk adjusted_read_chunk{read_chunk.impl,
-                                  std::move(read_chunk_transform)};
+    WriteChunk adjusted_write_chunk{write_chunk.impl,
+                                    std::move(write_chunk_transform)};
     // Defer the actual copying to the executor.
     //
     // Don't move `state` since `set_value` may be called multiple times.
-    state->executor(CopyChunkOp{state, std::move(adjusted_read_chunk),
-                                std::move(write_chunk)});
+    state->executor(CopyChunkOp{state, std::move(read_chunk),
+                                std::move(adjusted_write_chunk)});
   }
 };
 
-/// Callback invoked by `CopyReadChunkReceiver` (using the executor) to initiate
-/// the `Driver::Write` operation on the `target` driver corresponding to a
-/// single `ReadChunk` from the `source` driver.
-struct CopyInitiateWriteOp {
+/// Callback invoked by `CopyWriteChunkReceiver` (using the executor) to
+/// initiate the `Driver::Read` operation on the `source` driver corresponding
+/// to a single `WriteChunk` from the `target` driver.
+struct CopyInitiateReadOp {
   IntrusivePtr<CopyState> state;
-  ReadChunk chunk;
+  WriteChunk chunk;
   IndexTransform<> cell_transform;
+  Batch source_batch;
   void operator()() {
     // Map the portion of the target TensorStore corresponding to this source
     // `chunk` to the index space expected by `chunk`.
     TENSORSTORE_ASSIGN_OR_RETURN(
-        auto write_transform,
-        ComposeTransforms(state->target_transform, cell_transform),
+        auto read_transform,
+        ComposeTransforms(state->source_transform, cell_transform),
         state->SetError(_));
-    state->commit_state->UpdateReadProgress(
-        cell_transform.input_domain().num_elements());
 
-    // Initiate a write for the portion of the target TensorStore
-    // corresponding to this source `chunk`.
-    Driver::WriteRequest request;
-    request.transaction = state->target_transaction;
-    request.transform = std::move(write_transform);
-    state->target_driver->Write(
-        std::move(request), CopyWriteChunkReceiver{state, std::move(chunk)});
+    // Initiate a read for the portion of the source TensorStore
+    // corresponding to this target `chunk`.
+    Driver::ReadRequest request;
+    request.transaction = state->source_transaction;
+    request.transform = std::move(read_transform);
+    request.batch = std::move(source_batch);
+    state->source_driver->Read(std::move(request),
+                               CopyReadChunkReceiver{state, std::move(chunk)});
   }
 };
 
-/// FlowReceiver used by `DriverCopy` that receives source chunks as they become
-/// available for reading, and initiates a write on the target driver for each
+/// FlowReceiver used by `DriverCopy` that receives target chunks as they become
+/// available for writing, and initiates a read from the source driver for each
 /// chunk received.
-struct CopyReadChunkReceiver {
+struct CopyWriteChunkReceiver {
   IntrusivePtr<CopyState> state;
+  Batch source_batch;
   FutureCallbackRegistration cancel_registration;
   void set_starting(AnyCancelReceiver cancel) {
     cancel_registration =
@@ -295,12 +301,12 @@ struct CopyReadChunkReceiver {
   void set_stopping() { cancel_registration(); }
   void set_done() {}
   void set_error(absl::Status error) { state->SetError(std::move(error)); }
-  void set_value(ReadChunk chunk, IndexTransform<> cell_transform) {
+  void set_value(WriteChunk chunk, IndexTransform<> cell_transform) {
     // Defer actual work to executor.
     //
     // Don't move `state` since `set_value` may be called multiple times.
-    state->executor(CopyInitiateWriteOp{state, std::move(chunk),
-                                        std::move(cell_transform)});
+    state->executor(CopyInitiateReadOp{
+        state, std::move(chunk), std::move(cell_transform), source_batch});
   }
 };
 
@@ -325,16 +331,17 @@ struct DriverCopyInitiateOp {
     state->commit_state->total_elements =
         target_transform.input_domain().num_elements();
     state->copy_promise = std::move(promise);
-    state->target_transform = std::move(target_transform);
+    state->source_transform = std::move(source_transform);
 
     // Initiate the read operation on the source driver.
-    auto source_driver = std::move(state->source_driver);
-    Driver::ReadRequest request;
-    request.transaction = std::move(state->source_transaction);
-    request.batch = std::move(state->source_batch);
-    request.transform = std::move(source_transform);
-    source_driver->Read(std::move(request),
-                        CopyReadChunkReceiver{std::move(state)});
+    auto target_driver = std::move(state->target_driver);
+    Driver::WriteRequest request;
+    request.transaction = std::move(state->target_transaction);
+    request.transform = std::move(target_transform);
+    auto source_batch = std::move(state->source_batch);
+    target_driver->Write(
+        std::move(request),
+        CopyWriteChunkReceiver{std::move(state), std::move(source_batch)});
   }
 };
 
