@@ -1,4 +1,4 @@
-# Placeholder: load py_library
+load("@rules_python//python:py_library.bzl", "py_library")
 load("//bazel:pytest.bzl", "tensorstore_pytest_test")
 
 licenses(["notice"])

@@ -21,7 +21,7 @@ the entry point (`cc_test_driver.cc`), and use a Python script
 module.
 """
 
-# Placeholder: load py_test
+load("@rules_python//python:py_test.bzl", _plain_py_test = "py_test")
 
 CC_DRIVER_SRC = "//python/tensorstore:cc_test_driver.cc"
 PYTHON_DRIVER_SRC = "//python/tensorstore:cc_test_driver_main.py"
@@ -109,7 +109,7 @@ def pybind11_cc_googletest_test(
         out = driver_module_py_src,
     )
 
-    native.py_test(
+    _plain_py_test(
         name = name,
         size = size,
         srcs = [driver_module_py_src],

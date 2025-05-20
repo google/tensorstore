@@ -1,4 +1,4 @@
-# Placeholder: load py_library
+load("@rules_python//python:py_library.bzl", "py_library")
 load(
     "//bazel:pybind11.bzl",
     "pybind11_cc_googletest_test",

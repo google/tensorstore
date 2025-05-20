@@ -18,7 +18,7 @@ This is invoked by `//third_party/repo.bzl:third_party_python_package`.
 
 To support namespace packages such as sphinxcontrib, __init__.py files must be
 written as well, as in:
-https://github.com/bazelbuild/rules_python/commit/5f78b4a04a50d660ec346df1a1ab76b02130c304
+https://github.com/bazel-contrib/rules_python/commit/5f78b4a04a50d660ec346df1a1ab76b02130c304
 
 This re-creates the entry point scripts as Python scripts on all platforms,
 since `pip install` creates them as a executables on Windows.
