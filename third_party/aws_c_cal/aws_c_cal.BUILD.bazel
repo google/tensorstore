@@ -1,8 +1,6 @@
 # Description:
 #   AWS s2n tls
 
-load("@tensorstore//bazel:utils.bzl", "package_relative_path")
-
 package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])  # Apache 2.0
@@ -29,12 +27,6 @@ cc_library(
         "include/aws/cal/*.h",
         "include/aws/cal/private/*.h",
     ]),
-    copts = select({
-        "@platforms//os:osx": [
-            "-I" + package_relative_path("source/darwin"),
-        ],
-        "//conditions:default": [],
-    }),
     includes = ["include"],
     linkopts = select({
         "@platforms//os:windows": [
@@ -54,5 +46,15 @@ cc_library(
     deps = [
         "@aws_c_common",
         "@boringssl//:crypto",
+        ":darwin_headers",
     ],
+)
+
+cc_library(
+    name = "darwin_headers",
+    hdrs = glob([
+        "source/darwin/**/*.h",
+    ]),
+    strip_include_prefix = "source/darwin",
+    visibility = ["//visibility:private"],
 )

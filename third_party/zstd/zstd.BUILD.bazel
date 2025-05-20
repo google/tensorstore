@@ -1,22 +1,46 @@
-load("@tensorstore//bazel:utils.bzl", "package_relative_path")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
-package(default_visibility = ["//visibility:public"])
+package(default_visibility = ["//visibility:private"])
 
-ZSTD_SRCS = glob(
-    [
-        "lib/*.h",
-        "lib/common/*.h",
+filegroup(
+    name = "common_sources",
+    srcs = glob([
         "lib/common/*.c",
-        "lib/compress/*.h",
+        "lib/common/*.h",
+    ]),
+)
+
+filegroup(
+    name = "compress_sources",
+    srcs = glob([
         "lib/compress/*.c",
-        "lib/decompress/*.h",
+        "lib/compress/*.h",
+    ]),
+)
+
+filegroup(
+    name = "decompress_sources",
+    srcs = glob([
         "lib/decompress/*.c",
-    ],
-    exclude = ["lib/zstd.h"],
+        "lib/decompress/*.h",
+    ]) + select({
+        ":zstd_asm_supported": glob(["lib/decompress/*.S"]),
+        "//conditions:default": [],
+    }),
+)
+
+filegroup(
+    name = "dictbuilder_sources",
+    srcs = glob([
+        "lib/dictBuilder/*.c",
+        "lib/dictBuilder/*.h",
+    ]),
 )
 
 LOCAL_DEFINES = [
     "XXH_NAMESPACE=ZSTD_",
+    "ZSTD_BUILD_SHARED=OFF",
+    "ZSTD_BUILD_STATIC=ON",
 ] + select({
     ":zstd_asm_supported": [],
     "//conditions:default": ["ZSTD_DISABLE_ASM=1"],
@@ -24,21 +48,26 @@ LOCAL_DEFINES = [
 
 cc_library(
     name = "zstd",
-    srcs = ZSTD_SRCS +
-           select({
-               ":zstd_asm_supported": ["lib/decompress/huf_decompress_amd64.S"],
-               "//conditions:default": [],
-           }),
-    hdrs = ["lib/zstd.h"],
-    copts = ["-I" + package_relative_path("lib/common")],
+    srcs = [
+        ":common_sources",
+        ":compress_sources",
+        ":decompress_sources",
+        ":dictbuilder_sources",
+    ],
+    hdrs = [
+        "lib/zdict.h",
+        "lib/zstd.h",
+        "lib/zstd_errors.h",
+    ],
+    includes = ["lib"],
+    local_defines = LOCAL_DEFINES,
     defines = [
         # Since this rule is used to build a static library, prevent ZSTD from
         # overriding global `-fvisibility=hidden` setting.
         "ZSTDLIB_VISIBLE=",
         "ZSTDLIB_HIDDEN=",
     ],
-    includes = ["lib"],
-    local_defines = LOCAL_DEFINES,
+    visibility = ["//visibility:public"],
 )
 
 # Constraint that indicates whether asm is supported by zstd

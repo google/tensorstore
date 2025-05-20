@@ -1,5 +1,3 @@
-load("@tensorstore//bazel:utils.bzl", "package_relative_path")
-
 package(default_visibility = ["//visibility:private"])
 
 licenses(["notice"])
@@ -28,7 +26,7 @@ cc_library(
         "lib/lz4frame.h",
         "lib/lz4hc.h",
     ],
-    copts = ["-I" + package_relative_path("lib")],
+    strip_include_prefix = "lib",
     defines = [
         # Since this rule is used to build a static library, prevent LZ4 from
         # overriding global `-fvisibility=hidden` setting.

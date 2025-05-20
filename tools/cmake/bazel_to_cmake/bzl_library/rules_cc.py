@@ -35,3 +35,24 @@ class RulesCcDefsLibrary(ScopeCommon):
 
   def bazel_cc_proto_library(self, **kwargs):
     return native_rules_cc_proto.cc_proto_library(self._context, **kwargs)
+
+
+@register_bzl_library("@rules_cc//cc:cc_library.bzl")
+class RulesCcLibraryLibrary(ScopeCommon):
+
+  def bazel_cc_library(self, **kwargs):
+    return native_rules_cc.cc_library(self._context, **kwargs)
+
+
+@register_bzl_library("@rules_cc//cc:cc_binary.bzl")
+class RulesCcBinaryLibrary(ScopeCommon):
+
+  def bazel_cc_binary(self, **kwargs):
+    return native_rules_cc.cc_binary(self._context, **kwargs)
+
+
+@register_bzl_library("@rules_cc//cc:cc_test.bzl")
+class RulesCcTestLibrary(ScopeCommon):
+
+  def bazel_cc_test(self, **kwargs):
+    return native_rules_cc.cc_test(self._context, **kwargs)
