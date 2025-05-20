@@ -1,7 +1,8 @@
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
-load("@tensorstore//bazel:utils.bzl", "package_relative_path")
+
+package(default_visibility = ["//visibility:private"])
 
 licenses(["notice"])
 
@@ -22,53 +23,73 @@ config_setting(
     visibility = ["//visibility:private"],
 )
 
-LOCAL_DEFINES = [
-    "BUILDING_NGHTTP2",
-    "HAVE_CONFIG_H",
-] + select(
-    {
-        ":debug_setting": ["DEBUGBUILD"],
-        "//conditions:default": [],
-    },
-)
-
 cc_library(
     name = "nghttp2",
-    srcs = glob(
-        [
-            "lib/*.h",
-            "lib/*.c",
-        ],
-    ),
-    hdrs = glob(["lib/includes/nghttp2/*.h"]) + [
-        "lib/includes/config.h",
+    hdrs = [
+        "lib/includes/nghttp2/nghttp2.h",
         "lib/includes/nghttp2/nghttp2ver.h",
     ],
-    copts = [
-        "-I" + package_relative_path("lib"),
-        "-I" + package_relative_path("lib/includes"),
-    ] + select(
-        {
-            "@rules_cc//cc/compiler:msvc-cl": [],
-            "//conditions:default": [
-                "-Wno-string-plus-int",
-            ],
-        },
-    ),
+    strip_include_prefix = "lib/includes",
+    deps = [
+        ":nghttp2_impl",
+    ],
     defines = [
         "NGHTTP2_STATICLIB",
     ],
-    includes = ["lib/includes"],
-    local_defines = LOCAL_DEFINES,
     visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "nghttp2_impl",
+    srcs = glob(["lib/*.c"]),
+    hdrs = glob(["lib/*.h"]),
+    copts = select({
+        "@rules_cc//cc/compiler:msvc-cl": [],
+        "//conditions:default": [
+            "-Wno-string-plus-int",
+        ],
+    }),
+    local_defines = [
+        "BUILDING_NGHTTP2",
+        "HAVE_CONFIG_H",
+    ] + select(
+        {
+            ":debug_setting": ["DEBUGBUILD"],
+            "//conditions:default": [],
+        },
+    ),
+    deps = [
+        ":nghttp2_headers",
+        ":nghttp2_config",
+    ],
+)
+
+cc_library(
+    name = "nghttp2_headers",
+    hdrs = [
+        "lib/includes/nghttp2/nghttp2.h",
+        "lib/includes/nghttp2/nghttp2ver.h",
+    ],
+    defines = [
+        "NGHTTP2_STATICLIB",
+    ],
+    strip_include_prefix = "lib/includes",
+)
+
+cc_library(
+    name = "nghttp2_config",
+    hdrs = [
+        "lib/config.h",
+    ],
+    strip_include_prefix = "lib",
 )
 
 expand_template(
     name = "nghttp2ver_h",
     out = "lib/includes/nghttp2/nghttp2ver.h",
     substitutions = {
-        "@PACKAGE_VERSION@": "1.55.0",
-        "@PACKAGE_VERSION_NUM@": "0x013700",
+        "@PACKAGE_VERSION@": "1.65.0",
+        "@PACKAGE_VERSION_NUM@": "0x014100",
     },
     template = "lib/includes/nghttp2/nghttp2ver.h.in",
 )
@@ -77,7 +98,7 @@ expand_template(
 # May need to be updated in future versions.
 write_file(
     name = "configure",
-    out = "lib/includes/config.h",
+    out = "lib/config.h",
     content = [
         "#ifndef EXTERNAL_NGHTTP2_CONFIG_H_",
         "#define EXTERNAL_NGHTTP2_CONFIG_H_",

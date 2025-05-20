@@ -3,7 +3,6 @@
 
 load("@bazel_skylib//lib:selects.bzl", "selects")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
-load("@tensorstore//bazel:utils.bzl", "package_relative_path")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -13,18 +12,15 @@ exports_files(["LICENSE"])
 
 _LOCAL_DEFINES = select({
     "@platforms//os:windows": [
-        "CJSON_HIDE_SYMBOLS",
         "AWS_AFFINITY_METHOD=AWS_AFFINITY_METHOD_NONE",
         "PSAPI_VERSION=1",
     ],
     "@platforms//os:macos": [
-        "CJSON_HIDE_SYMBOLS",
         "AWS_AFFINITY_METHOD=AWS_AFFINITY_METHOD_NONE",
         "AWS_PTHREAD_GETNAME_TAKES_3ARGS",
         "HAVE_SYSCONF",
     ],
     "//conditions:default": [
-        "CJSON_HIDE_SYMBOLS",
         "AWS_AFFINITY_METHOD=AWS_AFFINITY_METHOD_PTHREAD_ATTR",  # or AWS_AFFINITY_METHOD_PTHREAD
         "AWS_PTHREAD_GETNAME_TAKES_3ARGS",
         "AWS_PTHREAD_SETNAME_TAKES_2ARGS",
@@ -38,8 +34,6 @@ _LOCAL_DEFINES = select({
 _SRCS = glob([
     "include/aws/common/external/*.h",
     "source/*.c",
-    "source/external/**/*.h",
-    "source/external/**/*.c",
 ]) + select({
     "@platforms//os:windows": glob([
         "source/windows/*.c",
@@ -86,6 +80,18 @@ _X86_GCC_COPTS = [
     "-mavx2",
 ]
 
+_COPTS = select({
+    ":x86_64_msvc": ["/arch:AVX2"],
+    ":x86_64_gcc_or_clang": _X86_GCC_COPTS,
+    ":x86_64_mingw_gcc": _X86_GCC_COPTS,
+    ":arm64_msvc": [],
+    ":arm64_gcc_or_clang": [
+        "-march=armv8-a+crc+crypto",
+        "-mtune=neoverse-v1",
+    ],
+    "//conditions:default": [],
+})
+
 cc_library(
     name = "aws_c_common",
     srcs = _SRCS,
@@ -95,20 +101,7 @@ cc_library(
     ]) + [
         "include/aws/common/config.h",
     ],
-    copts = select({
-        ":x86_64_msvc": ["/arch:AVX2"],
-        ":x86_64_gcc_or_clang": _X86_GCC_COPTS,
-        ":x86_64_mingw_gcc": _X86_GCC_COPTS,
-        ":arm64_msvc": [],
-        ":arm64_gcc_or_clang": [
-            "-march=armv8-a+crc+crypto",
-            "-mtune=neoverse-v1",
-        ],
-        "//conditions:default": [],
-    }) + [
-        "-I" + package_relative_path("source/external"),
-        "-I" + package_relative_path("source/external/libcbor"),
-    ],
+    copts = _COPTS,
     defines = [
         "INTEL_NO_ITTNOTIFY_API",
     ],
@@ -145,6 +138,33 @@ cc_library(
         "include/**/*.inl",
     ]),
     visibility = ["//visibility:public"],
+    deps = [
+        ":external_cjson",
+        ":external_libcbor",
+    ],
+)
+
+cc_library(
+    name = "external_cjson",
+    srcs = ["source/external/cJSON.c"],
+    hdrs = ["source/external/cJSON.h"],
+    strip_include_prefix = "source",
+    defines = ["CJSON_HIDE_SYMBOLS"],
+    visibility = ["//visibility:private"],
+    copts = _COPTS,
+)
+
+cc_library(
+    name = "external_libcbor",
+    srcs = glob([
+        "source/external/libcbor/**/*.c",
+    ]),
+    hdrs = glob([
+        "source/external/libcbor/**/*.h",
+    ]),
+    copts = _COPTS,
+    strip_include_prefix = "source/external/libcbor",
+    visibility = ["//visibility:private"],
 )
 
 _CONFIG = [
