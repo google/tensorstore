@@ -1,0 +1,33 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: kvstore/tiff
+title: Read-only adapter for accessing tiles/strips within TIFF images.
+description: JSON specification of the TIFF key-value store.
+allOf:
+- $ref: KvStore
+- type: object
+  properties:
+    driver:
+      const: tiff
+    base:
+      $ref: KvStore
+      title: Underlying key-value store with path to a TIFF file.
+      description: |-
+        Key-value store that provides access to the TIFF file.
+        Each key in this store corresponds to a TIFF file.
+    cache_pool:
+      $ref: ContextResource
+      description: |-
+        Specifies or references a previously defined `Context.cache_pool`.  It
+        is typically more convenient to specify a default `~Context.cache_pool`
+        in the `.context`.
+      default: cache_pool
+    data_copy_concurrency:
+      $ref: ContextResource
+      description: |-
+        Specifies or references a previously defined
+        `Context.data_copy_concurrency`.  It is typically more
+        convenient to specify a default `~Context.data_copy_concurrency` in
+        the `.context`.
+      default: data_copy_concurrency
+  required:
+  - base

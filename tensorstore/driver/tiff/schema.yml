@@ -1,0 +1,166 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: driver/tiff
+title: Read-only TIFF driver
+description: |
+  Provides read-only access to TIFF files or sequences of IFDs backed by a KeyValueStore.
+  Creation of new TIFF files is not supported.
+allOf:
+- $ref: KeyValueStoreBackedChunkDriver
+- type: object
+  properties:
+    driver:
+      const: tiff
+      description: Specifies the use of the read-only TIFF driver.
+    metadata:
+      title: TIFF dataset metadata constraints.
+      description: |
+        Specifies constraints that are validated against the metadata read
+        from the existing TIFF file. All members are optional. If specified,
+        they must match the corresponding properties inferred from the TIFF tags
+        and interpretation options.
+      allOf:
+      - type: object
+        properties:
+          dtype:
+            $ref: DataType
+            title: Data type constraint.
+            description: Constrains the expected data type of the TIFF dataset.
+          shape:
+            type: array
+            items:
+              type: integer
+              minimum: 0
+            title: Shape constraint.
+            description: |
+              Constrains the expected shape (dimensions) of the TIFF dataset. Length must match the rank.
+            examples:
+            - [ 1024, 1024, 50 ]
+    tiff:
+      title: TIFF-specific interpretation options.
+      description: Options controlling how the existing TIFF file or IFD sequence is interpreted.
+      type: object
+      properties:
+        ifd:
+          type: integer
+          minimum: 0
+          default: 0
+          title: Image File Directory (IFD) index.
+          description: |
+            Specifies which IFD to open when not using IFD stacking. Defaults to 0.
+            Cannot be non-zero if `ifd_stacking` is also specified.
+        ifd_stacking:
+          type: object
+          title: IFD Stacking Options.
+          description: |
+            Configures interpretation of a sequence of IFDs as additional TensorStore dimensions.
+            Cannot be specified if `ifd` is non-zero.
+          properties:
+            dimensions:
+              type: array
+              items:
+                type: string
+              minItems: 1
+              uniqueItems: true
+              title: Labels for stacked dimensions.
+              description: |
+                Required if `ifd_stacking` is used. Specifies the labels for the 
+                dimensions represented by the IFD sequence (e.g., ["z", "t"]).
+            dimension_sizes:
+              type: array
+              items:
+                type: integer
+                minimum: 1
+              title: Sizes of stacked dimensions.
+              description: |
+                Optional. Must match the length of `dimensions`. Required if `dimensions` 
+                has more than one entry. If only one dimension is specified, `ifd_count` can 
+                be used instead. If both are specified, their product must match `ifd_count`.
+            ifd_count:
+              type: integer
+              minimum: 1
+              title: Total number of IFDs in the stack.
+              description: |
+                Optional. Specifies the total number of IFDs involved in the stack.
+                Required if `dimension_sizes` is not specified for a single stack dimension.
+                If specified along with `dimension_sizes`, their product must match `ifd_count`.
+            ifd_sequence_order:
+              type: array
+              items:
+                type: string
+              uniqueItems: true
+              title: IFD sequence iteration order.
+              description: |
+                Optional. Specifies the order of stacked dimensions within the flat IFD sequence. 
+                Must be a permutation of `dimensions`. Defaults to the order in `dimensions`, with 
+                the last dimension varying fastest.
+          required:
+          - dimensions
+        sample_dimension_label:
+          type: string
+          minLength: 1
+          title: Label for the sample dimension.
+          description: |
+            Optional. Specifies the label for the dimension derived from the TIFF SamplesPerPixel 
+            tag when it's greater than 1 (e.g., "c", "channel", "rgba"). Defaults internally to "c". 
+            Cannot conflict with labels in `ifd_stacking.dimensions`.
+      additionalProperties: false
+
+# Definitions for TIFF-specific codec components
+definitions:
+  codec-properties:
+    $id: '#codec-properties'
+    type: object
+    properties:
+      compression:
+        $ref: '#/definitions/compression'
+        title: Specifies the expected chunk compression method.
+  codec:
+    $id: 'driver/tiff/Codec'
+    allOf:
+    - $ref: Codec
+    - type: object
+      properties:
+        driver:
+          const: "tiff"
+    - $ref: "#/definitions/codec-properties"
+  compression:
+    $id: 'driver/tiff/Compression'
+    type: object
+    description: |
+      The `.type` member identifies the compression method found in the TIFF file.
+      The remaining members are specific to the compression method. Corresponds to 
+      the TIFF Compression tag.
+    properties:
+      type:
+        type: string
+        description: Identifies the compressor used in the TIFF file.
+    required:
+    - type
+  compression-raw:
+    $id: 'driver/tiff/Compression/raw'
+    description: Chunks are stored uncompressed (TIFF Compression=1 or None).
+    allOf:
+    - $ref: "#/definitions/compression"
+    - type: object
+      properties:
+        type:
+          const: raw
+  compression-zlib:
+    $id: 'driver/tiff/Compression/zlib'
+    description: |
+      Specifies `zlib`/deflate compression (TIFF Compression=8 or 32946).
+    allOf:
+    - $ref: "#/definitions/compression"
+    - type: object
+      properties:
+        type:
+          const: zlib
+  compression-zstd:
+    $id: 'driver/tiff/Compression/zstd'
+    description: Specifies `zstd` compression (TIFF Compression=50000).
+    allOf:
+    - $ref: "#/definitions/compression"
+    - type: object
+      properties:
+        type:
+          const: zstd
