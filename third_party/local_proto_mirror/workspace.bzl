@@ -34,12 +34,6 @@ From: https://github.com/census-instrumentation/opencensus-proto
     opencensus/proto/trace/v1/trace.proto
     opencensus/proto/trace/v1/trace_config.proto
 
-From: https://github.com/bazelbuild/rules_python/
-
-    python/defs.bzl
-    python/py_test.bzl
-    python/py_info.bzl
-
 """
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
@@ -70,11 +64,6 @@ def repo():
             "bazel/pgv_proto_library.bzl": "//third_party:local_proto_mirror/src/bazel/pgv_proto_library.bzl",
             "validate/BUILD.bazel": "//third_party:local_proto_mirror/src/validate/lpm.BUILD.bazel",
             "validate/validate.proto": "//third_party:local_proto_mirror/src/validate/validate.proto",
-            # rules_python
-            "python/defs.bzl": "//third_party:local_proto_mirror/src/python/defs.bzl",
-            "python/py_test.bzl": "//third_party:local_proto_mirror/src/python/py_test.bzl",
-            "python/py_info.bzl": "//third_party:local_proto_mirror/src/python/py_info.bzl",
-            "python/BUILD.bazel": "//third_party:local_proto_mirror/src/python/lpm.BUILD.bazel",
         },
 
         # Downloaded files

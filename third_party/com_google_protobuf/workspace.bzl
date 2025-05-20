@@ -36,7 +36,6 @@ def repo():
         repo_mapping = {
             "@com_google_absl": "@abseil-cpp",
             "@proto_bazel_features": "@bazel_features",
-            "@rules_python": "@local_proto_mirror",
         },
         # https://cmake.org/cmake/help/latest/module/FindProtobuf.html
         # https://github.com/protocolbuffers/protobuf/blob/master/CMakeLists.txt

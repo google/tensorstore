@@ -34,7 +34,6 @@ def repo():
             "@com_github_cncf_xds": "@xds",
             "@com_google_googleapis": "@googleapis",
             "@com_github_grpc_grpc": "@grpc",
-            "@rules_python": "@local_proto_mirror",
         },
         # CMake options
         cmake_name = "envoy",

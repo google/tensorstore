@@ -1,4 +1,4 @@
-# Placeholder: load py_binary
+load("@rules_python//python:py_binary.bzl", "py_binary")
 load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
 
 package(default_visibility = ["//visibility:public"])
