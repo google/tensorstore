@@ -1,0 +1,1618 @@
+
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      <link rel="icon" href="../../_static/logo.svg">
+    
+    
+      
+        <title>auto Driver - TensorStore</title>
+      
+    
+    
+      
+        
+        
+      
+      
+
+    
+    
+    
+      
+        
+        
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+        <link rel="stylesheet" type="text/css" href="../../_static/sphinx_immaterial_theme.7bd354e4b491c0f94.min.css?v=5c86b5f6" />
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="green" data-md-color-accent="light-blue">
+  
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&"object"==typeof palette.color)for(var key of Object.keys(palette.color))document.body.setAttribute("data-md-color-"+key,palette.color[key])</script>
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#json-driver/auto" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../index.html" title="TensorStore" class="md-header__button md-logo" aria-label="TensorStore" data-md-component="logo">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 132.0 132.0"><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="2.0" x2="130.8" y2="2.0"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="16.2" x2="130.8" y2="16.2"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="30.4" x2="130.8" y2="30.4"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="44.7" x2="130.8" y2="44.7"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="58.9" x2="130.8" y2="58.9"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="73.1" x2="130.8" y2="73.1"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="87.3" x2="130.8" y2="87.3"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="101.6" x2="130.8" y2="101.6"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="115.8" x2="130.8" y2="115.8"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="130.0" x2="130.8" y2="130.0"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="2.0" y2="130.0" x2="2.0"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="16.2" y2="130.0" x2="16.2"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="30.4" y2="130.0" x2="30.4"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="44.7" y2="130.0" x2="44.7"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="58.9" y2="130.0" x2="58.9"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="73.1" y2="130.0" x2="73.1"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="87.3" y2="130.0" x2="87.3"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="101.6" y2="130.0" x2="101.6"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="115.8" y2="130.0" x2="115.8"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="130.0" y2="130.0" x2="130.0"/><rect fill="currentColor" x="3.5" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="17.7" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="46.2" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="60.4" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="17.7" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="74.6" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="88.8" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="103.1" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="46.2" width="11.2" height="11.2"/><rect fill="currentColor" x="60.4" y="46.2" width="11.2" height="11.2"/><rect fill="currentColor" x="117.3" y="46.2" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="60.4" width="11.2" height="11.2"/><rect fill="currentColor" x="74.6" y="60.4" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="74.6" width="11.2" height="11.2"/><rect fill="currentColor" x="88.8" y="74.6" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="88.8" width="11.2" height="11.2"/><rect fill="currentColor" x="103.1" y="88.8" width="11.2" height="11.2"/><rect fill="currentColor" x="60.4" y="103.1" width="11.2" height="11.2"/><rect fill="currentColor" x="117.3" y="103.1" width="11.2" height="11.2"/><rect fill="currentColor" x="74.6" y="117.3" width="11.2" height="11.2"/><rect fill="currentColor" x="88.8" y="117.3" width="11.2" height="11.2"/><rect fill="currentColor" x="103.1" y="117.3" width="11.2" height="11.2"/></svg>
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            TensorStore
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              auto Driver
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      <form class="md-header__option" data-md-component="palette">
+        
+          
+          
+          <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="green" data-md-color-accent="light-blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+          
+            <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_2" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7M9 21a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1H9v1Z"/></svg>
+            </label>
+          
+        
+          
+          
+          <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="green" data-md-color-accent="light-blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_2">
+          
+            <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7M9 21v-1h6v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1m3-17a5 5 0 0 0-5 5c0 2.05 1.23 3.81 3 4.58V16h4v-2.42c1.77-.77 3-2.53 3-4.58a5 5 0 0 0-5-5Z"/></svg>
+            </label>
+          
+        
+      </form>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/google/tensorstore/" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    tensorstore
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../index.html" title="TensorStore" class="md-nav__button md-logo" aria-label="TensorStore" data-md-component="logo">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 132.0 132.0"><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="2.0" x2="130.8" y2="2.0"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="16.2" x2="130.8" y2="16.2"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="30.4" x2="130.8" y2="30.4"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="44.7" x2="130.8" y2="44.7"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="58.9" x2="130.8" y2="58.9"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="73.1" x2="130.8" y2="73.1"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="87.3" x2="130.8" y2="87.3"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="101.6" x2="130.8" y2="101.6"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="115.8" x2="130.8" y2="115.8"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="130.0" x2="130.8" y2="130.0"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="2.0" y2="130.0" x2="2.0"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="16.2" y2="130.0" x2="16.2"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="30.4" y2="130.0" x2="30.4"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="44.7" y2="130.0" x2="44.7"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="58.9" y2="130.0" x2="58.9"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="73.1" y2="130.0" x2="73.1"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="87.3" y2="130.0" x2="87.3"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="101.6" y2="130.0" x2="101.6"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="115.8" y2="130.0" x2="115.8"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="130.0" y2="130.0" x2="130.0"/><rect fill="currentColor" x="3.5" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="17.7" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="46.2" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="60.4" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="17.7" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="74.6" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="88.8" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="103.1" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="46.2" width="11.2" height="11.2"/><rect fill="currentColor" x="60.4" y="46.2" width="11.2" height="11.2"/><rect fill="currentColor" x="117.3" y="46.2" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="60.4" width="11.2" height="11.2"/><rect fill="currentColor" x="74.6" y="60.4" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="74.6" width="11.2" height="11.2"/><rect fill="currentColor" x="88.8" y="74.6" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="88.8" width="11.2" height="11.2"/><rect fill="currentColor" x="103.1" y="88.8" width="11.2" height="11.2"/><rect fill="currentColor" x="60.4" y="103.1" width="11.2" height="11.2"/><rect fill="currentColor" x="117.3" y="103.1" width="11.2" height="11.2"/><rect fill="currentColor" x="74.6" y="117.3" width="11.2" height="11.2"/><rect fill="currentColor" x="88.8" y="117.3" width="11.2" height="11.2"/><rect fill="currentColor" x="103.1" y="117.3" width="11.2" height="11.2"/></svg>
+    </a>
+    TensorStore
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/google/tensorstore/" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    tensorstore
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+      
+
+  
+  
+  
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_1" type="checkbox" id="__nav_1" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_1">
+          <span class="md-ellipsis">Python API</span>
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Python API" data-md-level="1">
+        <label class="md-nav__title" for="__nav_1">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">Python API</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/tutorial.html" class="md-nav__link">
+        <span class="md-ellipsis">Tutorial</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/indexing.html" class="md-nav__link">
+        <span class="md-ellipsis">Indexing</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/api/index.html" class="md-nav__link">
+        <span class="md-ellipsis">API reference</span>
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_2" type="checkbox" id="__nav_2" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_2">
+          <span class="md-ellipsis">C++ API</span>
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="C++ API" data-md-level="1">
+        <label class="md-nav__title" for="__nav_2">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">C++ API</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cpp/api/index.html" class="md-nav__link">
+        <span class="md-ellipsis">API reference</span>
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_3" type="checkbox" id="__nav_3" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3">
+          <span class="md-ellipsis">Setup</span>
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Setup" data-md-level="1">
+        <label class="md-nav__title" for="__nav_3">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">Setup</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation.html" class="md-nav__link">
+        <span class="md-ellipsis">Building and Installing</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../environment.html" class="md-nav__link">
+        <span class="md-ellipsis">Environment variables</span>
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+    
+      
+      
+      
+
+  
+  
+    
+  
+  
+    
+      
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4" type="checkbox" id="__nav_4" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_4">
+          <span class="md-ellipsis">JSON</span>
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="JSON" data-md-level="1">
+        <label class="md-nav__title" for="__nav_4">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">JSON</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../spec.html" class="md-nav__link">
+        <span class="md-ellipsis">JSON Spec</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../index_space.html" class="md-nav__link">
+        <span class="md-ellipsis">Index space</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../schema.html" class="md-nav__link">
+        <span class="md-ellipsis">Schema</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../context.html" class="md-nav__link">
+        <span class="md-ellipsis">Context framework</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4_5" type="checkbox" id="__nav_4_5" checked>
+      
+      
+      
+        
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="../index.html"><span class="md-ellipsis">Drivers</span></a>
+          
+            <label for="__nav_4_5">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
+          
+        </div>
+      
+      <nav class="md-nav" aria-label="Drivers" data-md-level="2">
+        <label class="md-nav__title" for="__nav_4_5">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">Drivers</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+    
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          <span class="md-ellipsis">auto Driver</span>
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="#" class="md-nav__link md-nav__link--active">
+        <span class="md-ellipsis">auto Driver</span>
+      </a>
+      
+        
+
+  
+
+<nav class="md-nav md-nav--secondary">
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      <span class="md-ellipsis">auto Driver</span>
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#json-driver/auto" class="md-nav__link">
+    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="driver/auto (JSON type)" class="md-ellipsis">driver/auto</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="driver/auto">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#extends-json-driver/auto" class="md-nav__link">
+    <span class="md-ellipsis">Extends</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#required-members-json-driver/auto" class="md-nav__link">
+    <span class="md-ellipsis">Required members</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Required members">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#json-driver/auto.driver" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/auto.driver (JSON member)" class="md-ellipsis">driver</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-driver/auto.kvstore" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/auto.kvstore (JSON member)" class="md-ellipsis">kvstore</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#optional-members-json-driver/auto" class="md-nav__link">
+    <span class="md-ellipsis">Optional members</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Optional members">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#json-driver/auto.context" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/auto.context (JSON member) — Specifies context resources that augment/override the parent context." class="md-ellipsis">context</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-driver/auto.dtype" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/auto.dtype (JSON member) — Specifies the data type." class="md-ellipsis">dtype</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-driver/auto.rank" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/auto.rank (JSON member) — Specifies the rank of the TensorStore." class="md-ellipsis">rank</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-driver/auto.transform" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/auto.transform (JSON member) — Specifies a transform." class="md-ellipsis">transform</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-driver/auto.schema" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/auto.schema (JSON member) — Specifies constraints on the schema." class="md-ellipsis">schema</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-driver/auto.<resource-type>" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/auto.&lt;resource-type&gt; (JSON member) — Specifies a context resource for use by the detected format drivers." class="md-ellipsis">&lt;resource-<wbr>type&gt;</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#json-TensorStoreUrl/auto" class="md-nav__link">
+    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="TensorStoreUrl/auto (JSON type) — auto: TensorStore URL scheme" class="md-ellipsis">Tensor<wbr>Store<wbr>Url/auto</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="TensorStoreUrl/auto">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#extends-json-TensorStoreUrl/auto" class="md-nav__link">
+    <span class="md-ellipsis">Extends</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#examples" class="md-nav__link">
+    <span class="md-ellipsis">Examples</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Examples">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#auto-detecting-an-array" class="md-nav__link">
+    <span class="md-ellipsis">Auto-<wbr>detecting an array</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#chaining-tensorstore-adapters" class="md-nav__link">
+    <span class="md-ellipsis">Chaining Tensor<wbr>Store adapters</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#multiple-auto-detection-steps" class="md-nav__link">
+    <span class="md-ellipsis">Multiple auto-<wbr>detection steps</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multi-step-auto-detection-algorithm" class="md-nav__link">
+    <span title="multi-step-auto-detection-algorithm (reference label)" class="md-ellipsis">Multi-<wbr>step auto-<wbr>detection algorithm</span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#single-step-auto-detection-algorithm" class="md-nav__link">
+    <span class="md-ellipsis">Single-<wbr>step auto-<wbr>detection algorithm</span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../array/index.html" class="md-nav__link">
+        <span class="md-ellipsis">array Driver</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../index.html#chunked-storage-drivers" class="md-nav__link">
+        <span class="md-ellipsis">Chunked storage drivers</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../index.html#single-file-drivers" class="md-nav__link">
+        <span class="md-ellipsis">Single file drivers</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../index.html#adapters" class="md-nav__link">
+        <span class="md-ellipsis">Adapters</span>
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../kvstore/index.html" class="md-nav__link">
+        <span class="md-ellipsis">Key-<wbr>Value Storage Layer</span>
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+  
+
+<nav class="md-nav md-nav--secondary">
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      <span class="md-ellipsis">auto Driver</span>
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#json-driver/auto" class="md-nav__link">
+    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="driver/auto (JSON type)" class="md-ellipsis">driver/auto</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="driver/auto">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#extends-json-driver/auto" class="md-nav__link">
+    <span class="md-ellipsis">Extends</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#required-members-json-driver/auto" class="md-nav__link">
+    <span class="md-ellipsis">Required members</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Required members">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#json-driver/auto.driver" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/auto.driver (JSON member)" class="md-ellipsis">driver</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-driver/auto.kvstore" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/auto.kvstore (JSON member)" class="md-ellipsis">kvstore</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#optional-members-json-driver/auto" class="md-nav__link">
+    <span class="md-ellipsis">Optional members</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Optional members">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#json-driver/auto.context" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/auto.context (JSON member) — Specifies context resources that augment/override the parent context." class="md-ellipsis">context</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-driver/auto.dtype" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/auto.dtype (JSON member) — Specifies the data type." class="md-ellipsis">dtype</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-driver/auto.rank" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/auto.rank (JSON member) — Specifies the rank of the TensorStore." class="md-ellipsis">rank</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-driver/auto.transform" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/auto.transform (JSON member) — Specifies a transform." class="md-ellipsis">transform</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-driver/auto.schema" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/auto.schema (JSON member) — Specifies constraints on the schema." class="md-ellipsis">schema</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-driver/auto.<resource-type>" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/auto.&lt;resource-type&gt; (JSON member) — Specifies a context resource for use by the detected format drivers." class="md-ellipsis">&lt;resource-<wbr>type&gt;</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#json-TensorStoreUrl/auto" class="md-nav__link">
+    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="TensorStoreUrl/auto (JSON type) — auto: TensorStore URL scheme" class="md-ellipsis">Tensor<wbr>Store<wbr>Url/auto</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="TensorStoreUrl/auto">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#extends-json-TensorStoreUrl/auto" class="md-nav__link">
+    <span class="md-ellipsis">Extends</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#examples" class="md-nav__link">
+    <span class="md-ellipsis">Examples</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Examples">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#auto-detecting-an-array" class="md-nav__link">
+    <span class="md-ellipsis">Auto-<wbr>detecting an array</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#chaining-tensorstore-adapters" class="md-nav__link">
+    <span class="md-ellipsis">Chaining Tensor<wbr>Store adapters</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#multiple-auto-detection-steps" class="md-nav__link">
+    <span class="md-ellipsis">Multiple auto-<wbr>detection steps</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multi-step-auto-detection-algorithm" class="md-nav__link">
+    <span title="multi-step-auto-detection-algorithm (reference label)" class="md-ellipsis">Multi-<wbr>step auto-<wbr>detection algorithm</span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#single-step-auto-detection-algorithm" class="md-nav__link">
+    <span class="md-ellipsis">Single-<wbr>step auto-<wbr>detection algorithm</span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset" role="main">
+                  
+
+
+<h1 id="auto-driver"><span id="driver-auto"></span><code class="docutils literal notranslate"><span class="pre">auto</span></code> Driver<a class="headerlink" href="#auto-driver" title="Link to this heading">¶</a></h1>
+<p>Many of the supported <a class="reference internal" href="../index.html#tensorstore-drivers"><span class="std std-ref">TensorStore drivers</span></a>
+support format auto-detection: an existing TensorStore can be opened
+by specifying just a <a class="reference internal" href="../../kvstore/index.html#key-value-store"><span class="std std-ref">key-value store</span></a>, and the
+appropriate TensorStore driver is determined automatically.</p>
+<p>Both TensorStore drivers, such as <a class="reference internal" href="../zarr3/index.html#driver-zarr3"><span class="std std-ref">zarr3</span></a> or
+<a class="reference internal" href="../image/jpeg/index.html#driver-jpeg"><span class="std std-ref">jpeg</span></a>, and key-value store drivers, such as
+<a class="reference internal" href="../../kvstore/zip/index.html#kvstore-zip"><span class="std std-ref">zip</span></a> or <a class="reference internal" href="../../kvstore/ocdbt/index.html#kvstore-ocdbt"><span class="std std-ref">ocdbt</span></a>,
+can be auto-detected.</p>
+<p>Format auto-detection is used implicitly whenever a
+<a class="reference internal" href="../../kvstore/index.html#json-KvStore" title="KvStore (JSON type) — Key-value store specification."><code class="xref json json-schema docutils literal notranslate"><span class="pre">KvStore</span> <span class="pre">JSON</span> <span class="pre">spec</span></code></a> or <a class="reference internal" href="../../kvstore/index.html#json-KvStoreUrl" title="KvStoreUrl (JSON type) — URL representation of a key-value store."><code class="xref json json-schema docutils literal notranslate"><span class="pre">KvStore</span>
+<span class="pre">URL</span></code></a> is specified in place of a <a class="reference internal" href="../../spec.html#json-TensorStore" title="TensorStore (JSON type) — Specifies a TensorStore to open/create."><code class="xref json json-schema docutils literal notranslate"><span class="pre">TensorStore</span>
+<span class="pre">JSON</span> <span class="pre">spec</span></code></a>.</p>
+<p>Format auto-detection can also be requested explicitly using the
+<a class="reference internal" href="#json-driver/auto" title="driver/auto (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">auto</span> <span class="pre">driver</span> <span class="pre">identifier</span></code></a> or the
+<a class="reference internal" href="#json-TensorStoreUrl/auto" title="TensorStoreUrl/auto (JSON type) — auto: TensorStore URL scheme"><code class="xref json json-schema docutils literal notranslate"><span class="pre">TensorStoreUrl/auto</span></code></a>.</p>
+<div class="note admonition">
+<p class="admonition-title">Note</p>
+<p>Auto-detection is performed when opening the TensorStore.  The
+detected driver can be determined by querying the Spec of the open
+TensorStore.</p>
+</div>
+<div class="warning admonition">
+<p class="admonition-title">Warning</p>
+<p>Auto-detection involves additional read requests to determine the
+format and adds latency to the open operation.  While the number of
+bytes read is small, in cases where limiting the number of read
+requests, and/or limiting the latency of open operations is
+important, auto-detection should be avoided.</p>
+</div>
+<div class="hint admonition">
+<p class="admonition-title">Hint</p>
+<p>In distributed execution settings, where the same TensorStore may
+be opened concurrently by many processes, if auto-detection is
+required, it is recommended to first auto-detect the format from a
+single process (e.g. a controller process) and then use the
+resolved spec to open the TensorStore from worker processes.</p>
+</div>
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-driver/auto">
+<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">driver/auto</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-driver/auto" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd" id="extends-json-driver/auto">Extends<span class="colon">:</span><a class="headerlink" href="#extends-json-driver/auto" title="Permalink to this headline">¶</a></dt>
+<dd class="field-odd noindent"><ul class="simple">
+<li><p><a class="reference internal" href="../../spec.html#json-TensorStore" title="TensorStore (JSON type) — Specifies a TensorStore to open/create."><code class="xref json json-schema docutils literal notranslate"><span class="pre">TensorStore</span></code></a> — Specifies a TensorStore to open/create.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="field-list">
+<dt class="field-odd" id="required-members-json-driver/auto">Required members<span class="colon">:</span><a class="headerlink" href="#required-members-json-driver/auto" title="Permalink to this headline">¶</a></dt>
+<dd class="field-odd noindent"><dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-driver/auto.driver">
+<span class="sig-name descname"><span class="pre">driver</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;auto&quot;</span></code><a class="headerlink" href="#json-driver/auto.driver" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-driver/auto.kvstore">
+<span class="sig-name descname"><span class="pre">kvstore</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../kvstore/index.html#json-KvStore" title="KvStore (JSON type) — Key-value store specification."><span class="pre">KvStore</span></a></span><span class="p"> <span class="pre">|</span> </span><span class="desctype"><a class="reference internal" href="../../kvstore/index.html#json-KvStoreUrl" title="KvStoreUrl (JSON type) — URL representation of a key-value store."><span class="pre">KvStoreUrl</span></a></span><a class="headerlink" href="#json-driver/auto.kvstore" title="Link to this definition">¶</a></dt>
+<dd><p>Specifies the underlying storage mechanism.</p>
+</dd></dl>
+
+</dd>
+</dl>
+<dl class="field-list">
+<dt class="field-odd" id="optional-members-json-driver/auto">Optional members<span class="colon">:</span><a class="headerlink" href="#optional-members-json-driver/auto" title="Permalink to this headline">¶</a></dt>
+<dd class="field-odd noindent"><dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-driver/auto.context">
+<span class="sig-name descname"><span class="pre">context</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-Context" title="Context (JSON type)"><span class="pre">Context</span></a></span><a class="headerlink" href="#json-driver/auto.context" title="Link to this definition">¶</a></dt>
+<dd><span><p>Specifies context resources that augment/override the parent context.</p>
+  </span></dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-driver/auto.dtype">
+<span class="sig-name descname"><span class="pre">dtype</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../spec.html#json-dtype" title="dtype (JSON type) — Specifies a TensorStore data type."><span class="pre">dtype</span></a></span><a class="headerlink" href="#json-driver/auto.dtype" title="Link to this definition">¶</a></dt>
+<dd><span><p>Specifies the data type.</p>
+  </span></dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-driver/auto.rank">
+<span class="sig-name descname"><span class="pre">rank</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">0</span></code><span class="p"><span class="pre">,</span> </span><code class="code json docutils literal highlight highlight-json"><span class="mi">32</span></code><span class="p"><span class="pre">]</span></span></sub><a class="headerlink" href="#json-driver/auto.rank" title="Link to this definition">¶</a></dt>
+<dd><span><p>Specifies the rank of the TensorStore.</p>
+  </span><p>If <a class="reference internal" href="#json-driver/auto.transform" title="driver/auto.transform (JSON member) — Specifies a transform."><code class="xref json json-schema docutils literal notranslate"><span class="pre">transform</span></code></a> is also specified, the input rank must match.  Otherwise,
+the rank constraint applies to the driver directly.</p>
+</dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-driver/auto.transform">
+<span class="sig-name descname"><span class="pre">transform</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../index_space.html#json-IndexTransform" title="IndexTransform (JSON type)"><span class="pre">IndexTransform</span></a></span><a class="headerlink" href="#json-driver/auto.transform" title="Link to this definition">¶</a></dt>
+<dd><span><p>Specifies a transform.</p>
+  </span></dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-driver/auto.schema">
+<span class="sig-name descname"><span class="pre">schema</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../schema.html#json-Schema" title="Schema (JSON type)"><span class="pre">Schema</span></a></span><a class="headerlink" href="#json-driver/auto.schema" title="Link to this definition">¶</a></dt>
+<dd><span><p>Specifies constraints on the schema.</p>
+  </span><p>When opening an existing array, specifies constraints on the existing
+schema; opening will fail if the constraints do not match.  Any soft
+constraints specified in the <a class="reference internal" href="../../schema.html#json-Schema.chunk_layout" title="Schema.chunk_layout (JSON member) — Data storage layout constraints."><code class="xref json json-schema docutils literal notranslate"><span class="pre">chunk_layout</span></code></a> are
+ignored.  When creating a new array, a suitable schema will be selected
+automatically based on the specified schema constraints in combination
+with any driver-specific constraints.</p>
+</dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-driver/auto.&lt;resource-type&gt;">
+<span class="sig-name descname"><span class="pre">&lt;resource-type&gt;</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><a class="headerlink" href="#json-driver/auto.<resource-type>" title="Link to this definition">¶</a></dt>
+<dd><span><p>Specifies a context resource for use by the detected format drivers.</p>
+  </span><p>Unlike <a class="reference internal" href="#json-driver/auto.context" title="driver/auto.context (JSON member) — Specifies context resources that augment/override the parent context."><code class="xref json json-schema docutils literal notranslate"><span class="pre">context</span></code></a>, these resources do not also apply to
+<a class="reference internal" href="#json-driver/auto.kvstore" title="driver/auto.kvstore (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">kvstore</span></code></a>.  In almost all cases, <a class="reference internal" href="#json-driver/auto.context" title="driver/auto.context (JSON member) — Specifies context resources that augment/override the parent context."><code class="xref json json-schema docutils literal notranslate"><span class="pre">context</span></code></a> can be used
+instead.  This additional override is needed solely to allow
+certain edge cases to be correctly represented as JSON.</p>
+</dd></dl>
+
+</dd>
+</dl>
+<div class="example admonition">
+<p class="admonition-title">Example</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;auto&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;kvstore&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gcs&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;bucket&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my-bucket&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path/to/dataset.zarr/&quot;</span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+</div>
+</div>
+</dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-TensorStoreUrl/auto">
+<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">TensorStoreUrl/auto</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><a class="headerlink" href="#json-TensorStoreUrl/auto" title="Link to this definition">¶</a></dt>
+<dd><span><p><code class="docutils literal notranslate"><span class="pre">auto:</span></code> TensorStore URL scheme</p>
+  </span><p>Automatic format detection may be specified using the <code class="file docutils literal notranslate"><span class="pre">auto:</span></code>
+URL syntax.</p>
+<p>This URL scheme is used implicitly if a KvStore URL is specified
+when a TensorStore URL is required, and does not normally need
+to be included explicitly.</p>
+<div class="example admonition">
+<p class="admonition-title">Examples</p>
+<table class="docutils data align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>URL representation</p></th>
+<th class="head"><p>JSON representation</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;file:///tmp/dataset.zarr/|auto:&quot;</span></code></p></td>
+<td><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;auto&quot;</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">&quot;kvstore&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;file&quot;</span><span class="p">,</span>
+<span class="w">             </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/tmp/dataset.zarr/&quot;</span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+</div>
+</td>
+</tr>
+<tr class="row-odd"><td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;file:///tmp/dataset.zarr/|auto:|cast:uint32&quot;</span></code></p></td>
+<td><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cast&quot;</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">&quot;dtype&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;uint32&quot;</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">&quot;base&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;auto&quot;</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">&quot;kvstore&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;file&quot;</span><span class="p">,</span>
+<span class="w">                      </span><span class="nt">&quot;path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/tmp/dataset.zarr/&quot;</span><span class="p">}}</span>
+<span class="p">}</span>
+</code></pre></div>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd" id="extends-json-TensorStoreUrl/auto">Extends<span class="colon">:</span><a class="headerlink" href="#extends-json-TensorStoreUrl/auto" title="Permalink to this headline">¶</a></dt>
+<dd class="field-odd noindent"><ul class="simple">
+<li><p><a class="reference internal" href="../../spec.html#json-TensorStoreUrl" title="TensorStoreUrl (JSON type) — URL representation of a TensorStore to open."><code class="xref json json-schema docutils literal notranslate"><span class="pre">TensorStoreUrl</span></code></a> — URL representation of a TensorStore to open.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<h2 id="examples">Examples<a class="headerlink" href="#examples" title="Link to this heading">¶</a></h2>
+<h3 id="auto-detecting-an-array">Auto-detecting an array<a class="headerlink" href="#auto-detecting-an-array" title="Link to this heading">¶</a></h3>
+<p>A <a class="reference internal" href="../zarr3/index.html#driver-zarr3"><span class="std std-ref">zarr3</span></a> TensorStore can be detected from its path:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Create new array</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;file://tmp/dataset.zarr|zarr3&quot;</span><span class="p">,</span>
+<span class="gp">... </span>              <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;int32&quot;</span><span class="p">,</span>
+<span class="gp">... </span>              <span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="mi">5</span><span class="p">],</span>
+<span class="gp">... </span>              <span class="n">create</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;context&#39;: {</span>
+<span class="go">    &#39;cache_pool&#39;: {},</span>
+<span class="go">    &#39;data_copy_concurrency&#39;: {},</span>
+<span class="go">    &#39;file_io_concurrency&#39;: {},</span>
+<span class="go">    &#39;file_io_locking&#39;: {},</span>
+<span class="go">    &#39;file_io_memmap&#39;: False,</span>
+<span class="go">    &#39;file_io_sync&#39;: True,</span>
+<span class="go">  },</span>
+<span class="go">  &#39;driver&#39;: &#39;zarr3&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;kvstore&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;tmp/dataset.zarr/&#39;},</span>
+<span class="go">  &#39;metadata&#39;: {</span>
+<span class="go">    &#39;chunk_grid&#39;: {&#39;configuration&#39;: {&#39;chunk_shape&#39;: [5]}, &#39;name&#39;: &#39;regular&#39;},</span>
+<span class="go">    &#39;chunk_key_encoding&#39;: {&#39;name&#39;: &#39;default&#39;},</span>
+<span class="go">    &#39;codecs&#39;: [{&#39;configuration&#39;: {&#39;endian&#39;: &#39;little&#39;}, &#39;name&#39;: &#39;bytes&#39;}],</span>
+<span class="go">    &#39;data_type&#39;: &#39;int32&#39;,</span>
+<span class="go">    &#39;fill_value&#39;: 0,</span>
+<span class="go">    &#39;node_type&#39;: &#39;array&#39;,</span>
+<span class="go">    &#39;shape&#39;: [5],</span>
+<span class="go">    &#39;zarr_format&#39;: 3,</span>
+<span class="go">  },</span>
+<span class="go">  &#39;transform&#39;: {&#39;input_exclusive_max&#39;: [[5]], &#39;input_inclusive_min&#39;: [0]},</span>
+<span class="go">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Open with auto-detection</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;file://tmp/dataset.zarr&quot;</span><span class="p">)</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;context&#39;: {</span>
+<span class="go">    &#39;cache_pool&#39;: {},</span>
+<span class="go">    &#39;data_copy_concurrency&#39;: {},</span>
+<span class="go">    &#39;file_io_concurrency&#39;: {},</span>
+<span class="go">    &#39;file_io_locking&#39;: {},</span>
+<span class="go">    &#39;file_io_memmap&#39;: False,</span>
+<span class="go">    &#39;file_io_sync&#39;: True,</span>
+<span class="go">  },</span>
+<span class="go">  &#39;driver&#39;: &#39;zarr3&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;kvstore&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;tmp/dataset.zarr/&#39;},</span>
+<span class="go">  &#39;metadata&#39;: {</span>
+<span class="go">    &#39;chunk_grid&#39;: {&#39;configuration&#39;: {&#39;chunk_shape&#39;: [5]}, &#39;name&#39;: &#39;regular&#39;},</span>
+<span class="go">    &#39;chunk_key_encoding&#39;: {&#39;name&#39;: &#39;default&#39;},</span>
+<span class="go">    &#39;codecs&#39;: [{&#39;configuration&#39;: {&#39;endian&#39;: &#39;little&#39;}, &#39;name&#39;: &#39;bytes&#39;}],</span>
+<span class="go">    &#39;data_type&#39;: &#39;int32&#39;,</span>
+<span class="go">    &#39;fill_value&#39;: 0,</span>
+<span class="go">    &#39;node_type&#39;: &#39;array&#39;,</span>
+<span class="go">    &#39;shape&#39;: [5],</span>
+<span class="go">    &#39;zarr_format&#39;: 3,</span>
+<span class="go">  },</span>
+<span class="go">  &#39;transform&#39;: {&#39;input_exclusive_max&#39;: [[5]], &#39;input_inclusive_min&#39;: [0]},</span>
+<span class="go">})</span>
+</code></pre></div>
+</div>
+<p>Explicitly constructing a <a class="reference internal" href="../../python/api/tensorstore.Spec.html" title="tensorstore.Spec (Python class) — Specification for opening or creating a TensorStore."><code class="xref py py-obj docutils literal notranslate"><span class="pre">Spec</span></code></a> demonstrates the
+explicit syntax for using the <code class="docutils literal notranslate"><span class="pre">auto</span></code> driver:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">Spec</span><span class="p">(</span><span class="s2">&quot;file://tmp/dataset|auto&quot;</span><span class="p">)</span>
+<span class="go">Spec({&#39;driver&#39;: &#39;auto&#39;, &#39;kvstore&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;tmp/dataset&#39;}})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">Spec</span><span class="p">(</span><span class="s2">&quot;file://tmp/dataset&quot;</span><span class="p">)</span>
+<span class="go">Spec({&#39;driver&#39;: &#39;auto&#39;, &#39;kvstore&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;tmp/dataset&#39;}})</span>
+</code></pre></div>
+</div>
+<h3 id="chaining-tensorstore-adapters">Chaining TensorStore adapters<a class="headerlink" href="#chaining-tensorstore-adapters" title="Link to this heading">¶</a></h3>
+<p>TensorStore adapters like <a class="reference internal" href="../cast/index.html#driver-cast"><span class="std std-ref">cast</span></a> can also be
+used in conjunction with format auto-detection:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">Spec</span><span class="p">(</span><span class="s2">&quot;file://tmp/dataset.zarr|cast:int64&quot;</span><span class="p">)</span>
+<span class="go">Spec({</span>
+<span class="go">  &#39;base&#39;: {</span>
+<span class="go">    &#39;driver&#39;: &#39;auto&#39;,</span>
+<span class="go">    &#39;kvstore&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;tmp/dataset.zarr&#39;},</span>
+<span class="go">  },</span>
+<span class="go">  &#39;driver&#39;: &#39;cast&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int64&#39;,</span>
+<span class="go">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">Spec</span><span class="p">(</span><span class="s2">&quot;file://tmp/dataset.zarr|auto|cast:int64&quot;</span><span class="p">)</span>
+<span class="go">Spec({</span>
+<span class="go">  &#39;base&#39;: {</span>
+<span class="go">    &#39;driver&#39;: &#39;auto&#39;,</span>
+<span class="go">    &#39;kvstore&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;tmp/dataset.zarr&#39;},</span>
+<span class="go">  },</span>
+<span class="go">  &#39;driver&#39;: &#39;cast&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int64&#39;,</span>
+<span class="go">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;file://tmp/dataset.zarr|cast:int64&quot;</span><span class="p">)</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;base&#39;: {</span>
+<span class="go">    &#39;driver&#39;: &#39;zarr3&#39;,</span>
+<span class="go">    &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">    &#39;kvstore&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;tmp/dataset.zarr/&#39;},</span>
+<span class="go">    &#39;metadata&#39;: {</span>
+<span class="go">      &#39;chunk_grid&#39;: {</span>
+<span class="go">        &#39;configuration&#39;: {&#39;chunk_shape&#39;: [5]},</span>
+<span class="go">        &#39;name&#39;: &#39;regular&#39;,</span>
+<span class="go">      },</span>
+<span class="go">      &#39;chunk_key_encoding&#39;: {&#39;name&#39;: &#39;default&#39;},</span>
+<span class="go">      &#39;codecs&#39;: [{&#39;configuration&#39;: {&#39;endian&#39;: &#39;little&#39;}, &#39;name&#39;: &#39;bytes&#39;}],</span>
+<span class="go">      &#39;data_type&#39;: &#39;int32&#39;,</span>
+<span class="go">      &#39;fill_value&#39;: 0,</span>
+<span class="go">      &#39;node_type&#39;: &#39;array&#39;,</span>
+<span class="go">      &#39;shape&#39;: [5],</span>
+<span class="go">      &#39;zarr_format&#39;: 3,</span>
+<span class="go">    },</span>
+<span class="go">  },</span>
+<span class="go">  &#39;context&#39;: {</span>
+<span class="go">    &#39;cache_pool&#39;: {},</span>
+<span class="go">    &#39;data_copy_concurrency&#39;: {},</span>
+<span class="go">    &#39;file_io_concurrency&#39;: {},</span>
+<span class="go">    &#39;file_io_locking&#39;: {},</span>
+<span class="go">    &#39;file_io_memmap&#39;: False,</span>
+<span class="go">    &#39;file_io_sync&#39;: True,</span>
+<span class="go">  },</span>
+<span class="go">  &#39;driver&#39;: &#39;cast&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int64&#39;,</span>
+<span class="go">  &#39;transform&#39;: {&#39;input_exclusive_max&#39;: [[5]], &#39;input_inclusive_min&#39;: [0]},</span>
+<span class="go">})</span>
+</code></pre></div>
+</div>
+<h3 id="multiple-auto-detection-steps">Multiple auto-detection steps<a class="headerlink" href="#multiple-auto-detection-steps" title="Link to this heading">¶</a></h3>
+<p>Multiple steps of auto-detection are also possible.  Here, a
+<a class="reference internal" href="../zarr3/index.html#driver-zarr3"><span class="std std-ref">zarr3</span></a> TensorStore at the root of an
+<a class="reference internal" href="../../kvstore/ocdbt/index.html#kvstore-ocdbt"><span class="std std-ref">OCDBT</span></a> database can also be detected just
+from the path to the OCDBT database.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Create new array within new OCDBT database</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;file://tmp/dataset.ocdbt|ocdbt|zarr3&quot;</span><span class="p">,</span>
+<span class="gp">... </span>              <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;int32&quot;</span><span class="p">,</span>
+<span class="gp">... </span>              <span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="mi">5</span><span class="p">],</span>
+<span class="gp">... </span>              <span class="n">create</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;context&#39;: {</span>
+<span class="go">    &#39;cache_pool&#39;: {},</span>
+<span class="go">    &#39;data_copy_concurrency&#39;: {},</span>
+<span class="go">    &#39;file_io_concurrency&#39;: {},</span>
+<span class="go">    &#39;file_io_locking&#39;: {},</span>
+<span class="go">    &#39;file_io_memmap&#39;: False,</span>
+<span class="go">    &#39;file_io_sync&#39;: True,</span>
+<span class="go">    &#39;ocdbt_coordinator&#39;: {},</span>
+<span class="go">  },</span>
+<span class="go">  &#39;driver&#39;: &#39;zarr3&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;kvstore&#39;: {</span>
+<span class="go">    &#39;base&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;tmp/dataset.ocdbt/&#39;},</span>
+<span class="go">    &#39;config&#39;: {</span>
+<span class="go">      &#39;compression&#39;: {&#39;id&#39;: &#39;zstd&#39;},</span>
+<span class="go">      &#39;max_decoded_node_bytes&#39;: 8388608,</span>
+<span class="go">      &#39;max_inline_value_bytes&#39;: 100,</span>
+<span class="go">      &#39;uuid&#39;: &#39;...&#39;,</span>
+<span class="go">      &#39;version_tree_arity_log2&#39;: 4,</span>
+<span class="go">    },</span>
+<span class="go">    &#39;driver&#39;: &#39;ocdbt&#39;,</span>
+<span class="go">  },</span>
+<span class="go">  &#39;metadata&#39;: {</span>
+<span class="go">    &#39;chunk_grid&#39;: {&#39;configuration&#39;: {&#39;chunk_shape&#39;: [5]}, &#39;name&#39;: &#39;regular&#39;},</span>
+<span class="go">    &#39;chunk_key_encoding&#39;: {&#39;name&#39;: &#39;default&#39;},</span>
+<span class="go">    &#39;codecs&#39;: [{&#39;configuration&#39;: {&#39;endian&#39;: &#39;little&#39;}, &#39;name&#39;: &#39;bytes&#39;}],</span>
+<span class="go">    &#39;data_type&#39;: &#39;int32&#39;,</span>
+<span class="go">    &#39;fill_value&#39;: 0,</span>
+<span class="go">    &#39;node_type&#39;: &#39;array&#39;,</span>
+<span class="go">    &#39;shape&#39;: [5],</span>
+<span class="go">    &#39;zarr_format&#39;: 3,</span>
+<span class="go">  },</span>
+<span class="go">  &#39;transform&#39;: {&#39;input_exclusive_max&#39;: [[5]], &#39;input_inclusive_min&#39;: [0]},</span>
+<span class="go">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Open with auto-detection</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;file://tmp/dataset.ocdbt&quot;</span><span class="p">)</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;context&#39;: {</span>
+<span class="go">    &#39;cache_pool&#39;: {},</span>
+<span class="go">    &#39;data_copy_concurrency&#39;: {},</span>
+<span class="go">    &#39;file_io_concurrency&#39;: {},</span>
+<span class="go">    &#39;file_io_locking&#39;: {},</span>
+<span class="go">    &#39;file_io_memmap&#39;: False,</span>
+<span class="go">    &#39;file_io_sync&#39;: True,</span>
+<span class="go">    &#39;ocdbt_coordinator&#39;: {},</span>
+<span class="go">  },</span>
+<span class="go">  &#39;driver&#39;: &#39;zarr3&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;kvstore&#39;: {</span>
+<span class="go">    &#39;base&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;tmp/dataset.ocdbt/&#39;},</span>
+<span class="go">    &#39;config&#39;: {</span>
+<span class="go">      &#39;compression&#39;: {&#39;id&#39;: &#39;zstd&#39;},</span>
+<span class="go">      &#39;max_decoded_node_bytes&#39;: 8388608,</span>
+<span class="go">      &#39;max_inline_value_bytes&#39;: 100,</span>
+<span class="go">      &#39;uuid&#39;: &#39;...&#39;,</span>
+<span class="go">      &#39;version_tree_arity_log2&#39;: 4,</span>
+<span class="go">    },</span>
+<span class="go">    &#39;driver&#39;: &#39;ocdbt&#39;,</span>
+<span class="go">  },</span>
+<span class="go">  &#39;metadata&#39;: {</span>
+<span class="go">    &#39;chunk_grid&#39;: {&#39;configuration&#39;: {&#39;chunk_shape&#39;: [5]}, &#39;name&#39;: &#39;regular&#39;},</span>
+<span class="go">    &#39;chunk_key_encoding&#39;: {&#39;name&#39;: &#39;default&#39;},</span>
+<span class="go">    &#39;codecs&#39;: [{&#39;configuration&#39;: {&#39;endian&#39;: &#39;little&#39;}, &#39;name&#39;: &#39;bytes&#39;}],</span>
+<span class="go">    &#39;data_type&#39;: &#39;int32&#39;,</span>
+<span class="go">    &#39;fill_value&#39;: 0,</span>
+<span class="go">    &#39;node_type&#39;: &#39;array&#39;,</span>
+<span class="go">    &#39;shape&#39;: [5],</span>
+<span class="go">    &#39;zarr_format&#39;: 3,</span>
+<span class="go">  },</span>
+<span class="go">  &#39;transform&#39;: {&#39;input_exclusive_max&#39;: [[5]], &#39;input_inclusive_min&#39;: [0]},</span>
+<span class="go">})</span>
+</code></pre></div>
+</div>
+<p>Note that auto-detection fails if the zarr array is <em>not</em> at the root
+of the OCDBT database:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Create new array within new OCDBT database</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="s2">&quot;file://tmp/dataset2.ocdbt|ocdbt:path/within/database|zarr3&quot;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;int32&quot;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="mi">5</span><span class="p">],</span>
+<span class="gp">... </span>    <span class="n">create</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;context&#39;: {</span>
+<span class="go">    &#39;cache_pool&#39;: {},</span>
+<span class="go">    &#39;data_copy_concurrency&#39;: {},</span>
+<span class="go">    &#39;file_io_concurrency&#39;: {},</span>
+<span class="go">    &#39;file_io_locking&#39;: {},</span>
+<span class="go">    &#39;file_io_memmap&#39;: False,</span>
+<span class="go">    &#39;file_io_sync&#39;: True,</span>
+<span class="go">    &#39;ocdbt_coordinator&#39;: {},</span>
+<span class="go">  },</span>
+<span class="go">  &#39;driver&#39;: &#39;zarr3&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;kvstore&#39;: {</span>
+<span class="go">    &#39;base&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;tmp/dataset2.ocdbt/&#39;},</span>
+<span class="go">    &#39;config&#39;: {</span>
+<span class="go">      &#39;compression&#39;: {&#39;id&#39;: &#39;zstd&#39;},</span>
+<span class="go">      &#39;max_decoded_node_bytes&#39;: 8388608,</span>
+<span class="go">      &#39;max_inline_value_bytes&#39;: 100,</span>
+<span class="go">      &#39;uuid&#39;: &#39;...&#39;,</span>
+<span class="go">      &#39;version_tree_arity_log2&#39;: 4,</span>
+<span class="go">    },</span>
+<span class="go">    &#39;driver&#39;: &#39;ocdbt&#39;,</span>
+<span class="go">    &#39;path&#39;: &#39;path/within/database/&#39;,</span>
+<span class="go">  },</span>
+<span class="go">  &#39;metadata&#39;: {</span>
+<span class="go">    &#39;chunk_grid&#39;: {&#39;configuration&#39;: {&#39;chunk_shape&#39;: [5]}, &#39;name&#39;: &#39;regular&#39;},</span>
+<span class="go">    &#39;chunk_key_encoding&#39;: {&#39;name&#39;: &#39;default&#39;},</span>
+<span class="go">    &#39;codecs&#39;: [{&#39;configuration&#39;: {&#39;endian&#39;: &#39;little&#39;}, &#39;name&#39;: &#39;bytes&#39;}],</span>
+<span class="go">    &#39;data_type&#39;: &#39;int32&#39;,</span>
+<span class="go">    &#39;fill_value&#39;: 0,</span>
+<span class="go">    &#39;node_type&#39;: &#39;array&#39;,</span>
+<span class="go">    &#39;shape&#39;: [5],</span>
+<span class="go">    &#39;zarr_format&#39;: 3,</span>
+<span class="go">  },</span>
+<span class="go">  &#39;transform&#39;: {&#39;input_exclusive_max&#39;: [[5]], &#39;input_inclusive_min&#39;: [0]},</span>
+<span class="go">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Open with auto-detection</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;file://tmp/dataset2.ocdbt&quot;</span><span class="p">)</span>
+<span class="gt">Traceback (most recent call last):</span>
+<span class="w">    </span><span class="o">...</span>
+<span class="gr">ValueError</span>: <span class="n">FAILED_PRECONDITION: Error opening &quot;auto&quot; driver: Failed to detect format for &quot;&quot; in OCDBT database at local file &quot;tmp/dataset2.ocdbt/&quot;...</span>
+</code></pre></div>
+</div>
+<h2 id="multi-step-auto-detection-algorithm"><span id="id1"></span>Multi-step auto-detection algorithm<a class="headerlink" href="#multi-step-auto-detection-algorithm" title="Link to this heading">¶</a></h2>
+<p>Given a base key-value store, auto-detection of the final TensorStore
+driver proceeds as follows:</p>
+<ol class="arabic simple">
+<li><p>A <a class="reference internal" href="#single-auto-detection-step"><span class="std std-ref">single auto-detection step</span></a> is
+applied to the current base key-value store, which results in a
+list of candidate formats.</p></li>
+<li><p>There are no candidate formats, or more than one candidate format,
+auto-detection fails with an error.</p></li>
+<li><p>Two kinds of drivers can be detected:</p>
+<ol class="loweralpha simple">
+<li><p>If the detected format is a TensorStore driver, it is applied to
+the current base key-value store, opened, and auto-detection is
+complete.</p></li>
+<li><p>If the detected format is a key-value store adapter driver, it
+is applied to the current base key-value store, and opened.  The
+adapted key-value store becomes the new base key-value store and
+detection continues at step 1.</p></li>
+</ol>
+</li>
+</ol>
+<h2 id="single-step-auto-detection-algorithm"><span id="single-auto-detection-step"></span>Single-step auto-detection algorithm<a class="headerlink" href="#single-step-auto-detection-algorithm" title="Link to this heading">¶</a></h2>
+<ol class="arabic simple">
+<li><p>If the base key-value store potentially specifies a single file
+(i.e. it has a non-empty path not ending <code class="docutils literal notranslate"><span class="pre">/</span></code>), <em>single
+file-format detection</em> is attempted.</p>
+<ol class="loweralpha simple">
+<li><p>Each single-file format that supports auto-detection specifies
+the number of bytes at the beginning and end of the file that
+are required for auto-detection.</p></li>
+<li><p>The prefix and suffix of the file is requested, using the
+maximum prefix/suffix length required by any format for
+auto-detection.</p></li>
+<li><p>If the file is not found, directory format detection continues
+at step 2.</p></li>
+<li><p>If the file is found, the single-file formats that match the
+prefix and suffix read from the file are returned as candidates.</p></li>
+</ol>
+</li>
+<li><p>If the base key-value store refers to a directory, <em>directory
+format detection</em> is attempted.</p>
+<ol class="loweralpha simple">
+<li><p>Each directory format that supports auto-detection specifies one
+or more relative paths that should be checked to determine if
+they are present.</p></li>
+<li><p>The complete set of relative paths required by any directory
+format is checked.</p></li>
+<li><p>The directory formats that match (based on the set of relative
+paths that are present) are returned as candidates.</p></li>
+</ol>
+</li>
+</ol>
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+        </div>
+        
+          <a href="#" class="md-top md-icon" data-md-component="top" hidden>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12Z"/></svg>
+            Back to top
+          </a>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+    <nav class="md-footer__inner md-grid" aria-label="Footer" >
+      
+        
+        <a href="../index.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: Drivers" rel="prev">
+          <div class="md-footer__button md-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+          </div>
+          <div class="md-footer__title">
+            <div class="md-ellipsis">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              Drivers
+            </div>
+          </div>
+        </a>
+      
+      
+        
+        <a href="../array/index.html" class="md-footer__link md-footer__link--next" aria-label="Next: array Driver" rel="next">
+          <div class="md-footer__title">
+            <div class="md-ellipsis">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              array Driver
+            </div>
+          </div>
+          <div class="md-footer__button md-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4Z"/></svg>
+          </div>
+        </a>
+      
+    </nav>
+  
+  
+  
+  <div class="md-footer-meta md-typeset">
+    
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.expand", "navigation.sections", "navigation.top", "toc.follow", "toc.sticky"], "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "Search", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version.title": "Select version"}}</script>
+    
+      
+        <script src="../../_static/sphinx_immaterial_theme.f9d9eeeb247ace16c.min.js?v=8ec58cb5"></script>
+    
+  </body>
+</html>

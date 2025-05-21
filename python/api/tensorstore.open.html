@@ -665,6 +665,13 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#opening-with-format-auto-detection" class="md-nav__link">
+    <span class="md-ellipsis">Opening with format auto-<wbr>detection</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#creating-a-new-tensorstore" class="md-nav__link">
     <span class="md-ellipsis">Creating a new Tensor<wbr>Store</span>
   </a>
@@ -1299,6 +1306,13 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#opening-with-format-auto-detection" class="md-nav__link">
+    <span class="md-ellipsis">Opening with format auto-<wbr>detection</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#creating-a-new-tensorstore" class="md-nav__link">
     <span class="md-ellipsis">Creating a new Tensor<wbr>Store</span>
   </a>
@@ -1615,6 +1629,28 @@ like the data type, domain, and chunk layout, may be omitted:</p>
 <p>The URL syntax is very limited in the options and parameters that may be
 specified but is convenient in simple cases.</p>
 </div>
+<h3 id="opening-with-format-auto-detection">Opening with format auto-detection<a class="headerlink" href="#opening-with-format-auto-detection" title="Link to this heading">¶</a></h3>
+<p>Many formats can be <a class="reference internal" href="../../driver/auto/index.html#driver-auto"><span class="std std-ref">auto-detected</span></a> from a
+<a class="reference internal" href="../../kvstore/index.html#json-KvStoreUrl" title="KvStoreUrl (JSON type) — URL representation of a key-value store."><code class="xref json json-schema docutils literal notranslate"><span class="pre">KvStore</span> <span class="pre">URL</span></code></a> alone:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">store</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="s1">&#39;gs://neuroglancer-janelia-flyem-hemibrain/v1.2/segmentation/&#39;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">read</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">store</span><span class="o">.</span><span class="n">url</span>
+<span class="go">&#39;gs://neuroglancer-janelia-flyem-hemibrain/v1.2/segmentation/|neuroglancer-precomputed:&#39;</span>
+</code></pre></div>
+</div>
+<p>A full <a class="reference internal" href="../../kvstore/index.html#json-KvStore" title="KvStore (JSON type) — Key-value store specification."><code class="xref json json-schema docutils literal notranslate"><span class="pre">KvStore</span> <span class="pre">JSON</span> <span class="pre">spec</span></code></a> can also be specified instead of a URL:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">store</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="p">{</span>
+<span class="gp">... </span>        <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;gcs&#39;</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="s1">&#39;bucket&#39;</span><span class="p">:</span> <span class="s1">&#39;neuroglancer-janelia-flyem-hemibrain&#39;</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="s1">&#39;path&#39;</span><span class="p">:</span> <span class="s1">&#39;v1.2/segmentation/&#39;</span>
+<span class="gp">... </span>    <span class="p">},</span>
+<span class="gp">... </span>    <span class="n">read</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">store</span><span class="o">.</span><span class="n">url</span>
+<span class="go">&#39;gs://neuroglancer-janelia-flyem-hemibrain/v1.2/segmentation/|neuroglancer-precomputed:&#39;</span>
+</code></pre></div>
+</div>
 <h3 id="creating-a-new-tensorstore">Creating a new TensorStore<a class="headerlink" href="#creating-a-new-tensorstore" title="Link to this heading">¶</a></h3>
 <p>To create a new TensorStore, you must specify required driver-specific options,
 like the storage location, as well as <a class="reference internal" href="tensorstore.Schema.html" title="tensorstore.Schema (Python class) — Driver-independent options for defining a TensorStore schema."><code class="xref py py-class docutils literal notranslate"><span class="pre">Schema</span></code></a> constraints like the
@@ -1814,7 +1850,7 @@ schema constraints:</p>
 </div>
 <h3 id="using-assume-metadata-for-improved-concurrent-open-efficiency"><span id="python-open-assume-metadata"></span>Using <a class="reference internal" href="#p-assume_metadata" title="tensorstore.open.assume_metadata (Python parameter) — Neither read nor write stored metadata."><code class="xref py py-param docutils literal notranslate"><span class="pre">assume_metadata</span></code></a> for improved concurrent open efficiency<a class="headerlink" href="#using-assume-metadata-for-improved-concurrent-open-efficiency" title="Link to this heading">¶</a></h3>
 <p>Normally, when opening or creating a chunked format like
-<a class="reference internal" href="../../driver/zarr/index.html#zarr-driver"><span class="std std-ref">zarr</span></a>, TensorStore first attempts to read the existing
+<a class="reference internal" href="../../driver/zarr/index.html#driver-zarr2"><span class="std std-ref">zarr</span></a>, TensorStore first attempts to read the existing
 metadata (and confirms that it matches any specified constraints), or (if
 creating is allowed) creates a new metadata file based on any specified
 constraints.</p>

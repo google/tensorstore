@@ -543,6 +543,98 @@
   
   
     <li class="md-nav__item">
+      <a href="../auto/index.html" class="md-nav__link">
+        <span class="md-ellipsis">auto Driver</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../array/index.html" class="md-nav__link">
+        <span class="md-ellipsis">array Driver</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../index.html#chunked-storage-drivers" class="md-nav__link">
+        <span class="md-ellipsis">Chunked storage drivers</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../index.html#single-file-drivers" class="md-nav__link">
+        <span class="md-ellipsis">Single file drivers</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4_5_5" type="checkbox" id="__nav_4_5_5" checked>
+      
+      
+      
+        
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="../index.html#adapters"><span class="md-ellipsis">Adapters</span></a>
+          
+            <label for="__nav_4_5_5">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
+          
+        </div>
+      
+      <nav class="md-nav" aria-label="Adapters" data-md-level="3">
+        <label class="md-nav__title" for="__nav_4_5_5">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">Adapters</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../cast/index.html" class="md-nav__link">
         <span class="md-ellipsis">cast Driver</span>
       </a>
@@ -622,7 +714,7 @@
         
           <li class="md-nav__item">
   <a href="#json-driver/downsample.base" class="md-nav__link">
-    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/downsample.base (JSON member) — Base TensorStore to downsample." class="md-ellipsis">base</span>
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/downsample.base (JSON member) — Base TensorStore to adapt." class="md-ellipsis">base</span>
   </a>
   
 </li>
@@ -767,25 +859,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#downsampling-origin" class="md-nav__link">
+    <span class="md-ellipsis">Downsampling origin</span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
       
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../array/index.html" class="md-nav__link">
-        <span class="md-ellipsis">array Driver</span>
-      </a>
     </li>
   
 
@@ -806,32 +890,10 @@
 
             
           
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../index.html#single-file-drivers" class="md-nav__link">
-        <span class="md-ellipsis">Single file drivers</span>
-      </a>
+        </ul>
+      </nav>
     </li>
   
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../index.html#chunked-storage-drivers" class="md-nav__link">
-        <span class="md-ellipsis">Chunked storage drivers</span>
-      </a>
-    </li>
   
 
             
@@ -923,7 +985,7 @@
         
           <li class="md-nav__item">
   <a href="#json-driver/downsample.base" class="md-nav__link">
-    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/downsample.base (JSON member) — Base TensorStore to downsample." class="md-ellipsis">base</span>
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/downsample.base (JSON member) — Base TensorStore to adapt." class="md-ellipsis">base</span>
   </a>
   
 </li>
@@ -1068,6 +1130,13 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#downsampling-origin" class="md-nav__link">
+    <span class="md-ellipsis">Downsampling origin</span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1092,7 +1161,8 @@ downsampled view that are read.</p>
 <dd><dl class="field-list simple">
 <dt class="field-odd" id="extends-json-driver/downsample">Extends<span class="colon">:</span><a class="headerlink" href="#extends-json-driver/downsample" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><ul class="simple">
-<li><p><a class="reference internal" href="../../spec.html#json-TensorStore" title="TensorStore (JSON type) — Specifies a TensorStore to open/create."><code class="xref json json-schema docutils literal notranslate"><span class="pre">TensorStore</span></code></a> — Specifies a TensorStore to open/create.</p></li>
+<li><p><a class="reference internal" href="../index.html#json-TensorStoreAdapter" title="TensorStoreAdapter (JSON type) — Specifies a TensorStore that adapts a base TensorStore."><code class="xref json json-schema docutils literal notranslate"><span class="pre">TensorStoreAdapter</span></code></a> — Specifies a TensorStore that adapts a base TensorStore.
+</p></li>
 </ul>
 </dd>
 </dl>
@@ -1105,24 +1175,18 @@ downsampled view that are read.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/downsample.base">
-<span class="sig-name descname"><span class="pre">base</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../spec.html#json-TensorStore" title="TensorStore (JSON type) — Specifies a TensorStore to open/create."><span class="pre">TensorStore</span></a></span><a class="headerlink" href="#json-driver/downsample.base" title="Link to this definition">¶</a></dt>
-<dd><span><p>Base TensorStore to downsample.</p>
-  </span><p>Downsampling is always performed with respect to an origin of 0 in all
-dimensions in the <a class="reference internal" href="#json-driver/downsample.base" title="driver/downsample.base (JSON member) — Base TensorStore to downsample."><code class="xref json json-schema docutils literal notranslate"><span class="pre">base</span></code></a> TensorStore.  To use a different origin,
-translate the domain by specifying an <a class="reference internal" href="../../index_space.html#json-IndexTransform" title="IndexTransform (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">IndexTransform</span></code></a> via
-the <a class="reference internal" href="../../spec.html#json-TensorStore.transform" title="TensorStore.transform (JSON member) — Specifies a transform."><code class="xref json json-schema docutils literal notranslate"><span class="pre">TensorStore.transform</span></code></a> property of <a class="reference internal" href="#json-driver/downsample.base" title="driver/downsample.base (JSON member) — Base TensorStore to downsample."><code class="xref json json-schema docutils literal notranslate"><span class="pre">base</span></code></a>.</p>
-<p>Translating the domain of the downsampled view by a given <code class="docutils literal notranslate"><span class="pre">offset</span></code> is
-equivalent to translating the domain of <a class="reference internal" href="#json-driver/downsample.base" title="driver/downsample.base (JSON member) — Base TensorStore to downsample."><code class="xref json json-schema docutils literal notranslate"><span class="pre">base</span></code></a> by <code class="code highlight python docutils literal highlight-python"><span class="n">offset</span> <span class="o">*</span>
-<span class="n">downsample_factors</span></code>.  However, there is no translation of the
-downsampled view that is exactly equivalent to translating the domain of
-<a class="reference internal" href="#json-driver/downsample.base" title="driver/downsample.base (JSON member) — Base TensorStore to downsample."><code class="xref json json-schema docutils literal notranslate"><span class="pre">base</span></code></a> by an offset that is not a multiple of <a class="reference internal" href="#json-driver/downsample.downsample_factors" title="driver/downsample.downsample_factors (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">downsample_factors</span></code></a>.</p>
+<span class="sig-name descname"><span class="pre">base</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../spec.html#json-TensorStore" title="TensorStore (JSON type) — Specifies a TensorStore to open/create."><span class="pre">TensorStore</span></a></span><span class="p"> <span class="pre">|</span> </span><span class="desctype"><a class="reference internal" href="../../kvstore/index.html#json-KvStore" title="KvStore (JSON type) — Key-value store specification."><span class="pre">KvStore</span></a></span><span class="p"> <span class="pre">|</span> </span><span class="desctype"><a class="reference internal" href="../../spec.html#json-TensorStoreUrl" title="TensorStoreUrl (JSON type) — URL representation of a TensorStore to open."><span class="pre">TensorStoreUrl</span></a></span><a class="headerlink" href="#json-driver/downsample.base" title="Link to this definition">¶</a></dt>
+<dd><span><p>Base TensorStore to adapt.</p>
+  </span><p>If a <a class="reference internal" href="../../kvstore/index.html#json-KvStore" title="KvStore (JSON type) — Key-value store specification."><code class="xref json json-schema docutils literal notranslate"><span class="pre">KvStore</span></code></a> or <a class="reference internal" href="../../kvstore/index.html#json-KvStoreUrl" title="KvStoreUrl (JSON type) — URL representation of a key-value store."><code class="xref json json-schema docutils literal notranslate"><span class="pre">KvStoreUrl</span></code></a> is specified, the <a class="reference internal" href="../auto/index.html#driver-auto"><span class="std std-ref">auto
+driver</span></a> is used implicitly to auto-detect the
+format.</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/downsample.downsample_factors">
 <span class="sig-name descname"><span class="pre">downsample_factors</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">1</span></code><span class="p"><span class="pre">,</span> </span><span class="o"><span class="pre">+∞</span></span><span class="p"><span class="pre">)</span></span></sub><a class="headerlink" href="#json-driver/downsample.downsample_factors" title="Link to this definition">¶</a></dt>
-<dd><p>Factors by which to downsample each dimension of <a class="reference internal" href="#json-driver/downsample.base" title="driver/downsample.base (JSON member) — Base TensorStore to downsample."><code class="xref json json-schema docutils literal notranslate"><span class="pre">base</span></code></a>.
-The length must match the rank of <a class="reference internal" href="#json-driver/downsample.base" title="driver/downsample.base (JSON member) — Base TensorStore to downsample."><code class="xref json json-schema docutils literal notranslate"><span class="pre">base</span></code></a>.  Specifying a
+<dd><p>Factors by which to downsample each dimension of <a class="reference internal" href="#json-driver/downsample.base" title="driver/downsample.base (JSON member) — Base TensorStore to adapt."><code class="xref json json-schema docutils literal notranslate"><span class="pre">base</span></code></a>.
+The length must match the rank of <a class="reference internal" href="#json-driver/downsample.base" title="driver/downsample.base (JSON member) — Base TensorStore to adapt."><code class="xref json json-schema docutils literal notranslate"><span class="pre">base</span></code></a>.  Specifying a
 factor of 1 indicates not to downsample a given dimension.</p>
 <div class="example admonition">
 <p class="admonition-title">Example</p>
@@ -1209,14 +1273,14 @@ with any driver-specific constraints.</p>
 reading <code class="code highlight python docutils literal highlight-python"><span class="n">position</span> <span class="o">*</span> <span class="n">downsample_factors</span></code> in the original view.
 This method supports all data types and is quite efficient (there is
 no additional buffering of data).  It is equivalent to applying a
-striding index transform to <a class="reference internal" href="#json-driver/downsample.base" title="driver/downsample.base (JSON member) — Base TensorStore to downsample."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/downsample.base</span></code></a>; while it offers no
+striding index transform to <a class="reference internal" href="#json-driver/downsample.base" title="driver/downsample.base (JSON member) — Base TensorStore to adapt."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/downsample.base</span></code></a>; while it offers no
 additional functionality, it offers uniformity with other methods
 and may be simpler to specify.</p>
 <p>Note that striding is always with respect to an origin of 0 in all
 dimensions.  For example, downsampling a 1-dimensional TensorStore
 with a factor of 3 reads from positions <code class="code highlight json docutils literal highlight-json"><span class="mi">0</span></code>, <code class="code highlight json docutils literal highlight-json"><span class="mi">3</span></code>, <code class="code highlight json docutils literal highlight-json"><span class="mi">6</span></code>, etc.  To
 use a different offset, translate the domain of
-<a class="reference internal" href="#json-driver/downsample.base" title="driver/downsample.base (JSON member) — Base TensorStore to downsample."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/downsample.base</span></code></a>.</p>
+<a class="reference internal" href="#json-driver/downsample.base" title="driver/downsample.base (JSON member) — Base TensorStore to adapt."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/downsample.base</span></code></a>.</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
@@ -1264,7 +1328,7 @@ mode is chosen.</p>
 all dimensions.  For example, downsampling a 1-dimensional TensorStore
 with a downsample factor of 3 averages the intervals <code class="code highlight python docutils literal highlight-python"><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span></code>,
 <code class="code highlight python docutils literal highlight-python"><span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">6</span><span class="p">)</span></code>, <code class="code highlight python docutils literal highlight-python"><span class="p">[</span><span class="mi">6</span><span class="p">,</span> <span class="mi">9</span><span class="p">)</span></code>, etc.  To use a different offset,
-translate the domain of <a class="reference internal" href="#json-driver/downsample.base" title="driver/downsample.base (JSON member) — Base TensorStore to downsample."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/downsample.base</span></code></a>.</p>
+translate the domain of <a class="reference internal" href="#json-driver/downsample.base" title="driver/downsample.base (JSON member) — Base TensorStore to adapt."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/downsample.base</span></code></a>.</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
@@ -1291,6 +1355,20 @@ non-complex numeric data types and bool are supported.</p>
 </dl>
 </dd></dl>
 
+<h2 id="downsampling-origin">Downsampling origin<a class="headerlink" href="#downsampling-origin" title="Link to this heading">¶</a></h2>
+<p>Downsampling is always performed with respect to an origin of 0 in all
+dimensions in the <a class="reference internal" href="#json-driver/downsample.base" title="driver/downsample.base (JSON member) — Base TensorStore to adapt."><code class="xref json json-schema docutils literal notranslate"><span class="pre">base</span></code></a> TensorStore.
+To use a different origin, translate the domain by specifying an
+<a class="reference internal" href="../../index_space.html#json-IndexTransform" title="IndexTransform (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">IndexTransform</span></code></a> via the
+<a class="reference internal" href="../../spec.html#json-TensorStore.transform" title="TensorStore.transform (JSON member) — Specifies a transform."><code class="xref json json-schema docutils literal notranslate"><span class="pre">TensorStore.transform</span></code></a> property of
+<a class="reference internal" href="#json-driver/downsample.base" title="driver/downsample.base (JSON member) — Base TensorStore to adapt."><code class="xref json json-schema docutils literal notranslate"><span class="pre">base</span></code></a>.</p>
+<p>Translating the domain of the downsampled view by a given
+<code class="docutils literal notranslate"><span class="pre">offset</span></code> is equivalent to translating the domain of
+<a class="reference internal" href="#json-driver/downsample.base" title="driver/downsample.base (JSON member) — Base TensorStore to adapt."><code class="xref json json-schema docutils literal notranslate"><span class="pre">base</span></code></a> by <code class="code highlight python docutils literal highlight-python"><span class="n">offset</span> <span class="o">*</span>
+<span class="n">downsample_factors</span></code>.  However, there is no translation of the
+downsampled view that is exactly equivalent to translating the domain
+of <a class="reference internal" href="#json-driver/downsample.base" title="driver/downsample.base (JSON member) — Base TensorStore to adapt."><code class="xref json json-schema docutils literal notranslate"><span class="pre">base</span></code></a> by an offset that is not a
+multiple of <a class="reference internal" href="#json-driver/downsample.downsample_factors" title="driver/downsample.downsample_factors (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">downsample_factors</span></code></a>.</p>
 
 
 
@@ -1333,13 +1411,13 @@ non-complex numeric data types and bool are supported.</p>
       
       
         
-        <a href="../array/index.html" class="md-footer__link md-footer__link--next" aria-label="Next: array Driver" rel="next">
+        <a href="../stack/index.html" class="md-footer__link md-footer__link--next" aria-label="Next: stack Driver" rel="next">
           <div class="md-footer__title">
             <div class="md-ellipsis">
               <span class="md-footer__direction">
                 Next
               </span>
-              array Driver
+              stack Driver
             </div>
           </div>
           <div class="md-footer__button md-icon">

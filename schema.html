@@ -1349,24 +1349,24 @@ be represented in a driver-independent way as a <em>chunk layout</em>.</p>
 <ul class="simple">
 <li><p>The <em>write</em> level, the top-most level, specifies the grid to which writes
 should be aligned.  Writes of individual chunkss at this level may be
-performed without amplification.  For the <a class="reference internal" href="driver/zarr/index.html#zarr-driver"><span class="std std-ref">zarr2 Driver</span></a>, <a class="reference internal" href="driver/n5/index.html#n5-driver"><span class="std std-ref">n5 Driver</span></a>
-and the <a class="reference internal" href="driver/neuroglancer_precomputed/index.html#neuroglancer-precomputed-driver"><span class="std std-ref">neuroglancer_precomputed Driver</span></a> using the unsharded format, the
+performed without amplification.  For the <a class="reference internal" href="driver/zarr/index.html#driver-zarr2"><span class="std std-ref">zarr2 Driver</span></a>, <a class="reference internal" href="driver/n5/index.html#driver-n5"><span class="std std-ref">n5 Driver</span></a>
+and the <a class="reference internal" href="driver/neuroglancer_precomputed/index.html#driver-neuroglancer-precomputed"><span class="std std-ref">neuroglancer_precomputed Driver</span></a> using the unsharded format, the
 write level is also the only level; each write chunk corresponds to a single
 key in the underlying <a class="reference internal" href="kvstore/index.html#key-value-store"><span class="std std-ref">Key-Value Storage Layer</span></a>.  For the
-<a class="reference internal" href="driver/neuroglancer_precomputed/index.html#neuroglancer-precomputed-driver"><span class="std std-ref">neuroglancer_precomputed Driver</span></a> using the sharded format, each write
+<a class="reference internal" href="driver/neuroglancer_precomputed/index.html#driver-neuroglancer-precomputed"><span class="std std-ref">neuroglancer_precomputed Driver</span></a> using the sharded format, each write
 chunk corresponds to an entire shard.</p></li>
 <li><p>The <em>read</em> level evenly subdivides <em>write</em> chunks by an additional regular
 grid.  Reads of individual chunks at this level may be performed without
 amplification.  Every write chunk boundary must be aligned to a read chunk
 boundary.  If reads and writes may be performed at the same granularity, such
-as with the <a class="reference internal" href="driver/zarr/index.html#zarr-driver"><span class="std std-ref">zarr2 Driver</span></a>, <a class="reference internal" href="driver/n5/index.html#n5-driver"><span class="std std-ref">n5 Driver</span></a>, and the
-<a class="reference internal" href="driver/neuroglancer_precomputed/index.html#neuroglancer-precomputed-driver"><span class="std std-ref">neuroglancer_precomputed Driver</span></a> using the unsharded format, there is no
+as with the <a class="reference internal" href="driver/zarr/index.html#driver-zarr2"><span class="std std-ref">zarr2 Driver</span></a>, <a class="reference internal" href="driver/n5/index.html#driver-n5"><span class="std std-ref">n5 Driver</span></a>, and the
+<a class="reference internal" href="driver/neuroglancer_precomputed/index.html#driver-neuroglancer-precomputed"><span class="std std-ref">neuroglancer_precomputed Driver</span></a> using the unsharded format, there is no
 additional read grid; a read chunk is the same size as a write chunk.  For the
-<a class="reference internal" href="driver/neuroglancer_precomputed/index.html#neuroglancer-precomputed-driver"><span class="std std-ref">neuroglancer_precomputed Driver</span></a> using the sharded format, each read
+<a class="reference internal" href="driver/neuroglancer_precomputed/index.html#driver-neuroglancer-precomputed"><span class="std std-ref">neuroglancer_precomputed Driver</span></a> using the sharded format, each read
 chunk corresponds to a base chunk as defined by the format.</p></li>
 <li><p>The <em>codec</em> level further subdivides the read level into codec chunks.  For
 formats that make use of it, the codec chunk shape may affect the compression
-rate.  For the <a class="reference internal" href="driver/neuroglancer_precomputed/index.html#neuroglancer-precomputed-driver"><span class="std std-ref">neuroglancer_precomputed Driver</span></a> when using the
+rate.  For the <a class="reference internal" href="driver/neuroglancer_precomputed/index.html#driver-neuroglancer-precomputed"><span class="std std-ref">neuroglancer_precomputed Driver</span></a> when using the
 compressed segmentation encoding, the codec chunk shape specifies the
 compressed segmentation block shape.  The codec block shape does <em>not</em>
 necessarily evenly subdivide the read chunk shape.  (The precise offset of the

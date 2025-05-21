@@ -555,6 +555,21 @@
               
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../index.html#root-drivers" class="md-nav__link">
+        <span class="md-ellipsis">Root drivers</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
     
   
   
@@ -562,24 +577,24 @@
     <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4_6_1" type="checkbox" id="__nav_4_6_1" checked>
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4_6_2" type="checkbox" id="__nav_4_6_2" checked>
       
       
       
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../index.html#drivers"><span class="md-ellipsis">Drivers</span></a>
+          <a href="../index.html#adapters"><span class="md-ellipsis">Adapters</span></a>
           
-            <label for="__nav_4_6_1">
+            <label for="__nav_4_6_2">
               <span class="md-nav__icon md-icon"></span>
             </label>
           
         </div>
       
-      <nav class="md-nav" aria-label="Drivers" data-md-level="3">
-        <label class="md-nav__title" for="__nav_4_6_1">
+      <nav class="md-nav" aria-label="Adapters" data-md-level="3">
+        <label class="md-nav__title" for="__nav_4_6_2">
           <span class="md-nav__icon md-icon"></span>
-          <span class="md-ellipsis">Drivers</span>
+          <span class="md-ellipsis">Adapters</span>
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
           
@@ -590,68 +605,8 @@
   
   
     <li class="md-nav__item">
-      <a href="../file/index.html" class="md-nav__link">
-        <span class="md-ellipsis">file Key-<wbr>Value Store driver</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../gcs/index.html" class="md-nav__link">
-        <span class="md-ellipsis">gcs Key-<wbr>Value Store driver</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../http/index.html" class="md-nav__link">
-        <span class="md-ellipsis">http Key-<wbr>Value Store driver</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../kvstack/index.html" class="md-nav__link">
         <span class="md-ellipsis">kvstack Key-<wbr>Value Store driver</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../memory/index.html" class="md-nav__link">
-        <span class="md-ellipsis">memory Key-<wbr>Value Store driver</span>
       </a>
     </li>
   
@@ -744,7 +699,7 @@
         
           <li class="md-nav__item">
   <a href="#json-kvstore/ocdbt.base" class="md-nav__link">
-    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.base (JSON member) — Underlying key-value store." class="md-ellipsis">base</span>
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.base (JSON member) — Base key-value store to adapt." class="md-ellipsis">base</span>
   </a>
   
 </li>
@@ -772,6 +727,13 @@
           <li class="md-nav__item">
   <a href="#json-kvstore/ocdbt.context" class="md-nav__link">
     <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.context (JSON member)" class="md-ellipsis">context</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt.manifest" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.manifest (JSON member) — Optional key-value store used instead of base only for accessing the manifest file or files." class="md-ellipsis">manifest</span>
   </a>
   
 </li>
@@ -1267,40 +1229,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#auto-detection" class="md-nav__link">
+    <span class="md-ellipsis">Auto detection</span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
       
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../s3/index.html" class="md-nav__link">
-        <span class="md-ellipsis">s3 Key-<wbr>Value Store driver</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../tsgrpc/index.html" class="md-nav__link">
-        <span class="md-ellipsis">tsgrpc_<wbr>kvstore Key-<wbr>Value Store driver</span>
-      </a>
     </li>
   
 
@@ -1416,7 +1355,7 @@
         
           <li class="md-nav__item">
   <a href="#json-kvstore/ocdbt.base" class="md-nav__link">
-    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.base (JSON member) — Underlying key-value store." class="md-ellipsis">base</span>
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.base (JSON member) — Base key-value store to adapt." class="md-ellipsis">base</span>
   </a>
   
 </li>
@@ -1444,6 +1383,13 @@
           <li class="md-nav__item">
   <a href="#json-kvstore/ocdbt.context" class="md-nav__link">
     <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.context (JSON member)" class="md-ellipsis">context</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt.manifest" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.manifest (JSON member) — Optional key-value store used instead of base only for accessing the manifest file or files." class="md-ellipsis">manifest</span>
   </a>
   
 </li>
@@ -1939,6 +1885,13 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#auto-detection" class="md-nav__link">
+    <span class="md-ellipsis">Auto detection</span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1953,18 +1906,17 @@
                   
 
 
-<h1 id="ocdbt-key-value-store-driver"><span id="ocdbt-kvstore-driver"></span><code class="docutils literal notranslate"><span class="pre">ocdbt</span></code> Key-Value Store driver<a class="headerlink" href="#ocdbt-key-value-store-driver" title="Link to this heading">¶</a></h1>
+<h1 id="ocdbt-key-value-store-driver"><span id="kvstore-ocdbt"></span><code class="docutils literal notranslate"><span class="pre">ocdbt</span></code> Key-Value Store driver<a class="headerlink" href="#ocdbt-key-value-store-driver" title="Link to this heading">¶</a></h1>
 <p>The <code class="docutils literal notranslate"><span class="pre">ocdbt</span></code> driver implements an Optionally-Cooperative Distributed B+Tree
 (OCDBT) on top of a base key-value store.</p>
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-kvstore/ocdbt">
 <em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">kvstore/ocdbt</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-kvstore/ocdbt" title="Link to this definition">¶</a></dt>
 <dd><span><p>Read/write adapter for the OCDBT format.</p>
-  </span><p>JSON specification of the key-value store.</p>
-<dl class="field-list simple">
+  </span><dl class="field-list simple">
 <dt class="field-odd" id="extends-json-kvstore/ocdbt">Extends<span class="colon">:</span><a class="headerlink" href="#extends-json-kvstore/ocdbt" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><ul class="simple">
-<li><p><a class="reference internal" href="../index.html#json-KvStore" title="KvStore (JSON type) — Key-value store specification."><code class="xref json json-schema docutils literal notranslate"><span class="pre">KvStore</span></code></a> — Key-value store specification.</p></li>
+<li><p><a class="reference internal" href="../index.html#json-KvStoreAdapter" title="KvStoreAdapter (JSON type) — Key-value store adapter that adapts a single base key-value store."><code class="xref json json-schema docutils literal notranslate"><span class="pre">KvStoreAdapter</span></code></a> — Key-value store adapter that adapts a single base key-value store.</p></li>
 </ul>
 </dd>
 </dl>
@@ -1977,8 +1929,8 @@
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-kvstore/ocdbt.base">
-<span class="sig-name descname"><span class="pre">base</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../index.html#json-KvStore" title="KvStore (JSON type) — Key-value store specification."><span class="pre">KvStore</span></a></span><a class="headerlink" href="#json-kvstore/ocdbt.base" title="Link to this definition">¶</a></dt>
-<dd><span><p>Underlying key-value store.</p>
+<span class="sig-name descname"><span class="pre">base</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../index.html#json-KvStore" title="KvStore (JSON type) — Key-value store specification."><span class="pre">KvStore</span></a></span><span class="p"> <span class="pre">|</span> </span><span class="desctype"><a class="reference internal" href="../index.html#json-KvStoreUrl" title="KvStoreUrl (JSON type) — URL representation of a key-value store."><span class="pre">KvStoreUrl</span></a></span><a class="headerlink" href="#json-kvstore/ocdbt.base" title="Link to this definition">¶</a></dt>
+<dd><span><p>Base key-value store to adapt.</p>
   </span></dd></dl>
 
 </dd>
@@ -1997,6 +1949,13 @@ should end with <code class="code highlight json docutils literal highlight-json
 <dt class="sig sig-object highlight json" id="json-kvstore/ocdbt.context">
 <span class="sig-name descname"><span class="pre">context</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-Context" title="Context (JSON type)"><span class="pre">Context</span></a></span><a class="headerlink" href="#json-kvstore/ocdbt.context" title="Link to this definition">¶</a></dt>
 <dd><p>Specifies context resources that augment/override the parent context.</p>
+</dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-kvstore/ocdbt.manifest">
+<span class="sig-name descname"><span class="pre">manifest</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../index.html#json-KvStore" title="KvStore (JSON type) — Key-value store specification."><span class="pre">KvStore</span></a></span><span class="p"> <span class="pre">|</span> </span><span class="desctype"><a class="reference internal" href="../index.html#json-KvStoreUrl" title="KvStoreUrl (JSON type) — URL representation of a key-value store."><span class="pre">KvStoreUrl</span></a></span><a class="headerlink" href="#json-kvstore/ocdbt.manifest" title="Link to this definition">¶</a></dt>
+<dd><span><p>Optional key-value store used instead of <a class="reference internal" href="#json-kvstore/ocdbt.base" title="kvstore/ocdbt.base (JSON member) — Base key-value store to adapt."><code class="xref json json-schema docutils literal notranslate"><span class="pre">base</span></code></a> only for accessing the manifest file or files.</p>
+  </span><p>This should normally be left unspecified; it is intended only for specialized use cases.</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
@@ -2156,8 +2115,8 @@ in the <a class="reference internal" href="#json-kvstore/ocdbt.context" title="k
 <dt class="sig sig-object highlight json" id="json-kvstore/ocdbt.data_copy_concurrency">
 <span class="sig-name descname"><span class="pre">data_copy_concurrency</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;data_copy_concurrency&quot;</span></code><a class="headerlink" href="#json-kvstore/ocdbt.data_copy_concurrency" title="Link to this definition">¶</a></dt>
 <dd><p>Specifies or references a previously defined
-<a class="reference internal" href="../../context.html#json-Context.data_copy_concurrency" title="Context.data_copy_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.data_copy_concurrency</span></code></a>.  It is typically more
-convenient to specify a default <a class="reference internal" href="../../context.html#json-Context.data_copy_concurrency" title="Context.data_copy_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">data_copy_concurrency</span></code></a> in
+<a class="reference internal" href="../tsgrpc/index.html#json-Context.data_copy_concurrency" title="Context.data_copy_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.data_copy_concurrency</span></code></a>.  It is typically more
+convenient to specify a default <a class="reference internal" href="../tsgrpc/index.html#json-Context.data_copy_concurrency" title="Context.data_copy_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">data_copy_concurrency</span></code></a> in
 the <a class="reference internal" href="#json-kvstore/ocdbt.context" title="kvstore/ocdbt.context (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">context</span></code></a>.</p>
 </dd></dl>
 
@@ -2342,8 +2301,8 @@ each commit to the database.</p>
 <p>This is the most efficient method, but is only safe for concurrent writes if the
 underlying key-value store supports atomic writes to a single key.</p>
 <p>Supported base key-value stores include:
-- <a class="reference internal" href="../file/index.html#file-kvstore-driver"><span class="std std-ref">file</span></a>
-- <a class="reference internal" href="../gcs/index.html#gcs-kvstore-driver"><span class="std std-ref">gcs</span></a></p>
+- <a class="reference internal" href="../file/index.html#kvstore-file"><span class="std std-ref">file</span></a>
+- <a class="reference internal" href="../gcs/index.html#kvstore-gcs"><span class="std std-ref">gcs</span></a></p>
 <h4 id="numbered-file"><span id="ocdbt-manifest-kind-numbered"></span>Numbered file<a class="headerlink" href="#numbered-file" title="Link to this heading">¶</a></h4>
 <p>The <em>numbered file</em> method stores the database configuration in the
 <code class="file docutils literal notranslate"><span class="pre">manifest.ocdbt</span></code> file, while the version tree is stored in
@@ -3322,6 +3281,9 @@ from multiple keys, its size is counted multiple times.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">crc32c_checksum</span></code></dt><dd><p>CRC-32C checksum of the entire B+tree node, excluding the checksum itself.</p>
 </dd>
 </dl>
+<h2 id="auto-detection">Auto detection<a class="headerlink" href="#auto-detection" title="Link to this heading">¶</a></h2>
+<p>This driver supports <a class="reference internal" href="../../driver/auto/index.html#driver-auto"><span class="std std-ref">auto-detection</span></a> based on the
+presence of the <code class="file docutils literal notranslate"><span class="pre">manifest.ocdbt</span></code> file.</p>
 
 
 
@@ -3364,13 +3326,13 @@ from multiple keys, its size is counted multiple times.</p>
       
       
         
-        <a href="../s3/index.html" class="md-footer__link md-footer__link--next" aria-label="Next: s3 Key-Value Store driver" rel="next">
+        <a href="../zarr3_sharding_indexed/index.html" class="md-footer__link md-footer__link--next" aria-label="Next: zarr3_sharding_indexed Key-Value Store driver" rel="next">
           <div class="md-footer__title">
             <div class="md-ellipsis">
               <span class="md-footer__direction">
                 Next
               </span>
-              s3 Key-Value Store driver
+              zarr3_sharding_indexed Key-Value Store driver
             </div>
           </div>
           <div class="md-footer__button md-icon">

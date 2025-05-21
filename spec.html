@@ -1286,18 +1286,14 @@ the <a class="reference internal" href="driver/index.html#tensorstore-drivers"><
 <dl class="field-list simple">
 <dt class="field-odd" id="subtypes-json-TensorStore">Subtypes<span class="colon">:</span><a class="headerlink" href="#subtypes-json-TensorStore" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><ul class="simple">
-<li><p><a class="reference internal" href="driver/index.html#json-KeyValueStoreBackedChunkDriver" title="KeyValueStoreBackedChunkDriver (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">KeyValueStoreBackedChunkDriver</span></code></a></p></li>
+<li><p><a class="reference internal" href="driver/index.html#json-TensorStoreAdapter" title="TensorStoreAdapter (JSON type) — Specifies a TensorStore that adapts a base TensorStore."><code class="xref json json-schema docutils literal notranslate"><span class="pre">TensorStoreAdapter</span></code></a> — Specifies a TensorStore that adapts a base TensorStore.
+</p></li>
+<li><p><a class="reference internal" href="driver/index.html#json-TensorStoreKvStoreAdapter" title="TensorStoreKvStoreAdapter (JSON type) — Specifies a TensorStore stored using a base key-value store."><code class="xref json json-schema docutils literal notranslate"><span class="pre">TensorStoreKvStoreAdapter</span></code></a> — Specifies a TensorStore stored using a base <a class="reference internal" href="kvstore/index.html#key-value-store"><span class="std std-ref">key-value
+store</span></a>.
+</p></li>
 <li><p><a class="reference internal" href="driver/array/index.html#json-driver/array" title="driver/array (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/array</span></code></a></p></li>
-<li><p><a class="reference internal" href="driver/image/avif/index.html#json-driver/avif" title="driver/avif (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/avif</span></code></a></p></li>
-<li><p><a class="reference internal" href="driver/image/bmp/index.html#json-driver/bmp" title="driver/bmp (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/bmp</span></code></a></p></li>
-<li><p><a class="reference internal" href="driver/cast/index.html#json-driver/cast" title="driver/cast (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/cast</span></code></a></p></li>
-<li><p><a class="reference internal" href="driver/downsample/index.html#json-driver/downsample" title="driver/downsample (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/downsample</span></code></a></p></li>
-<li><p><a class="reference internal" href="driver/image/jpeg/index.html#json-driver/jpeg" title="driver/jpeg (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/jpeg</span></code></a></p></li>
-<li><p><a class="reference internal" href="driver/json/index.html#json-driver/json" title="driver/json (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/json</span></code></a></p></li>
-<li><p><a class="reference internal" href="driver/image/png/index.html#json-driver/png" title="driver/png (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/png</span></code></a></p></li>
+<li><p><a class="reference internal" href="driver/auto/index.html#json-driver/auto" title="driver/auto (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/auto</span></code></a></p></li>
 <li><p><a class="reference internal" href="driver/stack/index.html#json-driver/stack" title="driver/stack (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/stack</span></code></a></p></li>
-<li><p><a class="reference internal" href="driver/image/tiff/index.html#json-driver/tiff" title="driver/tiff (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/tiff</span></code></a></p></li>
-<li><p><a class="reference internal" href="driver/image/webp/index.html#json-driver/webp" title="driver/webp (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/webp</span></code></a></p></li>
 </ul>
 </dd>
 </dl>
@@ -1367,7 +1363,7 @@ concisely by a <em>URL pipeline</em> consisting of one or more
 <p>The start of the URL pipeline must be a valid
 <a class="reference internal" href="kvstore/index.html#json-KvStoreUrl" title="KvStoreUrl (JSON type) — URL representation of a key-value store."><code class="xref json json-schema docutils literal notranslate"><span class="pre">KvStoreUrl</span></code></a>.  This may be followed by a component
 specifying a key-value store-backed TensorStore, such as
-<a class="reference internal" href="driver/zarr3/index.html#zarr3-driver"><span class="std std-ref">zarr3</span></a>, and then finally zero or more
+<a class="reference internal" href="driver/zarr3/index.html#driver-zarr3"><span class="std std-ref">zarr3</span></a>, and then finally zero or more
 TensorStore adapters, such as <a class="reference internal" href="driver/cast/index.html#driver-cast"><span class="std std-ref">cast</span></a>.</p>
 <div class="warning admonition">
 <p class="admonition-title">Warning</p>
@@ -1379,6 +1375,8 @@ constraints.</p>
 <dl class="field-list simple">
 <dt class="field-odd" id="subtypes-json-TensorStoreUrl">Subtypes<span class="colon">:</span><a class="headerlink" href="#subtypes-json-TensorStoreUrl" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><ul class="simple">
+<li><p><a class="reference internal" href="driver/auto/index.html#json-TensorStoreUrl/auto" title="TensorStoreUrl/auto (JSON type) — auto: TensorStore URL scheme"><code class="xref json json-schema docutils literal notranslate"><span class="pre">TensorStoreUrl/auto</span></code></a> — <code class="docutils literal notranslate"><span class="pre">auto:</span></code> TensorStore URL scheme
+</p></li>
 <li><p><a class="reference internal" href="driver/image/avif/index.html#json-TensorStoreUrl/avif" title="TensorStoreUrl/avif (JSON type) — avif: TensorStore URL scheme"><code class="xref json json-schema docutils literal notranslate"><span class="pre">TensorStoreUrl/avif</span></code></a> — <code class="docutils literal notranslate"><span class="pre">avif:</span></code> TensorStore URL scheme
 </p></li>
 <li><p><a class="reference internal" href="driver/image/bmp/index.html#json-TensorStoreUrl/bmp" title="TensorStoreUrl/bmp (JSON type) — bmp: TensorStore URL scheme"><code class="xref json json-schema docutils literal notranslate"><span class="pre">TensorStoreUrl/bmp</span></code></a> — <code class="docutils literal notranslate"><span class="pre">bmp:</span></code> TensorStore URL scheme
