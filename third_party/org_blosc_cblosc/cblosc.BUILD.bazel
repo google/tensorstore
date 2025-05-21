@@ -1,9 +1,43 @@
-load("@tensorstore//bazel:utils.bzl", "package_relative_path")
-
 package(default_visibility = ["//visibility:private"])
 
-BLOSC_LOCAL_DEFINES = select(
-    {
+_BLOSC_LOCAL_DEFINES = [
+    # This makes the BLOSC_NO_EXPORT macro, which would otherwise make internal
+    # functions have hidden visibility, a no-op.  Hidden visibility isn't
+    # compatible with using multiple cc_library rules to compile this library,
+    # which is done in order to compile the AVX2 code with different compiler
+    # options.
+    "BLOSC_TESTING=1",
+]
+
+cc_library(
+    name = "blosc",
+    srcs = [
+        "blosc/blosc.c",
+        "blosc/blosclz.c",
+        "blosc/blosclz.h",
+        "blosc/fastcopy.c",
+        "blosc/fastcopy.h",
+        "blosc/shuffle.c",
+        "blosc/shuffle.h",
+    ],
+    hdrs = [
+        "blosc/blosc.h",
+        "blosc/blosc-export.h",
+    ],
+    copts = select({
+        "@rules_cc//cc/compiler:msvc-cl": [],
+        "//conditions:default": [
+            "-Wno-unused-but-set-variable",
+            "-Wno-unused-function",
+        ],
+    }),
+    strip_include_prefix = "blosc",
+    local_defines = _BLOSC_LOCAL_DEFINES + [
+        "HAVE_ZLIB",
+        "HAVE_LZ4",
+        "HAVE_ZSTD",
+        "HAVE_SNAPPY",
+    ] + select({
         "@platforms//cpu:x86_64": [
             "SHUFFLE_SSE2_ENABLED",
             # Always build AVX2 support.  It is only used at runtime if the CPU
@@ -11,54 +45,43 @@ BLOSC_LOCAL_DEFINES = select(
             "SHUFFLE_AVX2_ENABLED",
         ],
         "//conditions:default": [],
-    },
-) + [
-    # This makes the BLOSC_NO_EXPORT macro, which would otherwise make internal
-    # functions have hidden visibility, a no-op.  Hidden visibility isn't
-    # compatible with using multiple cc_library rules to compile this library,
-    # which is done in order to compile the AVX2 code with different compiler
-    # options.
-    "BLOSC_TESTING=1",
-    # Enable support for all of the compression libraries.
-    "HAVE_ZLIB",
-    "HAVE_LZ4",
-    "HAVE_ZSTD",
-    "HAVE_SNAPPY",
-]
-
-BLOSC_COPTS = ["-I" + package_relative_path("blosc")] + select(
-    {
-        ":compiler_msvc": [],
-        "//conditions:default": ["-Wno-unused-function"],
-    },
+    }),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":shuffle_common",
+        "@snappy//:snappy",
+        "@zlib//:zlib",
+        "@zstd//:zstd",
+        "@lz4//:lz4",
+    ] + select(
+        {
+            "@platforms//os:windows": [":win32"],
+            "//conditions:default": [],
+        },
+    ) + select({
+        "@platforms//cpu:x86_64": [
+            ":shuffle_sse2",
+            ":shuffle_avx2",
+        ],
+        "//conditions:default": [],
+    }),
 )
 
 cc_library(
-    name = "blosc_common",
+    name = "shuffle_common",
     hdrs = [
         "blosc/blosc-common.h",
         "blosc/blosc-comp-features.h",
         "blosc/blosc-export.h",
+        "blosc/bitshuffle-generic.h",
+        "blosc/shuffle-generic.h",
     ],
-    copts = BLOSC_COPTS,
-    local_defines = BLOSC_LOCAL_DEFINES,
-)
-
-cc_library(
-    name = "shuffle_generic",
     srcs = [
         "blosc/bitshuffle-generic.c",
         "blosc/shuffle-generic.c",
     ],
-    hdrs = [
-        "blosc/bitshuffle-generic.h",
-        "blosc/shuffle-generic.h",
-    ],
-    copts = BLOSC_COPTS,
-    local_defines = BLOSC_LOCAL_DEFINES,
-    deps = [
-        ":blosc_common",
-    ],
+    local_defines = _BLOSC_LOCAL_DEFINES,
+    strip_include_prefix = "blosc",
 )
 
 cc_library(
@@ -71,12 +94,15 @@ cc_library(
         "blosc/bitshuffle-sse2.h",
         "blosc/shuffle-sse2.h",
     ],
-    copts = BLOSC_COPTS,
-    local_defines = BLOSC_LOCAL_DEFINES,
+    local_defines = _BLOSC_LOCAL_DEFINES,
+    includes = ["blosc"],
     target_compatible_with = ["@platforms//cpu:x86_64"],
+    copts = select({
+        "@rules_cc//cc/compiler:msvc-cl": ["/arch:SSE2"],
+        "//conditions:default": ["-msse2"],
+    }),
     deps = [
-        ":blosc_common",
-        ":shuffle_generic",
+        ":shuffle_common",
     ],
 )
 
@@ -90,100 +116,27 @@ cc_library(
         "blosc/bitshuffle-avx2.h",
         "blosc/shuffle-avx2.h",
     ],
-    copts = BLOSC_COPTS +
-            select(
-                {
-                    ":compiler_msvc": ["/arch:AVX2"],
-                    "//conditions:default": ["-mavx2"],
-                },
-            ),
-    local_defines = BLOSC_LOCAL_DEFINES,
+    local_defines = _BLOSC_LOCAL_DEFINES,
+    includes = ["blosc"],
+    copts = select({
+        "@rules_cc//cc/compiler:msvc-cl": ["/arch:AVX2"],
+        "//conditions:default": ["-mavx2"],
+    }),
     target_compatible_with = ["@platforms//cpu:x86_64"],
     deps = [
-        ":blosc_common",
-        ":shuffle_generic",
+        ":shuffle_common",
         ":shuffle_sse2",
     ],
 )
 
 cc_library(
-    name = "shuffle",
-    srcs = [
-        "blosc/shuffle.c",
-    ],
-    hdrs = ["blosc/shuffle.h"],
-    copts = BLOSC_COPTS,
-    local_defines = BLOSC_LOCAL_DEFINES,
-    deps = [
-        ":blosc_common",
-        ":shuffle_generic",
-    ] + select(
-        {
-            "@platforms//cpu:x86_64": [
-                ":shuffle_avx2",
-                ":shuffle_sse2",
-            ],
-            "//conditions:default": [],
-        },
-    ) + select(
-        {
-            "@platforms//os:windows": [":win32"],
-            "//conditions:default": [],
-        },
-    ),
-)
-
-cc_library(
     name = "win32",
     hdrs = [
-        "blosc/win32/pthread.c",
         "blosc/win32/pthread.h",
         "blosc/win32/stdint-windows.h",
     ],
-    copts = BLOSC_COPTS,
-    local_defines = BLOSC_LOCAL_DEFINES,
-    target_compatible_with = ["@platforms//os:windows"],
-)
-
-cc_library(
-    name = "blosc",
     srcs = [
-        "blosc/blosc.c",
-        "blosc/blosclz.c",
-        "blosc/blosclz.h",
-        "blosc/fastcopy.c",
-        "blosc/fastcopy.h",
+        "blosc/win32/pthread.c",
     ],
-    hdrs = [
-        "blosc/blosc.h",
-        "blosc/blosc-export.h",
-    ],
-    copts = BLOSC_COPTS +
-            select(
-                {
-                    ":compiler_msvc": [],
-                    "//conditions:default": ["-Wno-unused-but-set-variable"],
-                },
-            ),
-    includes = ["blosc"],
-    local_defines = BLOSC_LOCAL_DEFINES,
-    visibility = ["//visibility:public"],
-    deps = [
-        ":blosc_common",
-        ":shuffle",
-        "@snappy//:snappy",
-        "@zlib//:zlib",
-        "@zstd//:zstd",
-        "@lz4//:lz4",
-    ] + select(
-        {
-            "@platforms//os:windows": [":win32"],
-            "//conditions:default": [],
-        },
-    ),
-)
-
-alias(
-    name = "compiler_msvc",
-    actual = "@rules_cc//cc/compiler:msvc-cl",
+    target_compatible_with = ["@platforms//os:windows"],
 )
