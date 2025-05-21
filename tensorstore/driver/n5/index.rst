@@ -1,4 +1,4 @@
-.. _n5-driver:
+.. _driver/n5:
 
 ``n5`` Driver
 =============
@@ -307,7 +307,7 @@ unspecified are assigned a dimensionless unit of :json:`1`.
 Auto detection
 --------------
 
-This driver supports :ref:`auto-detection<auto-driver>` based on the
+This driver supports :ref:`auto-detection<driver/auto>` based on the
 presence of the :file:`attributes.json` file.
 
 Limitations

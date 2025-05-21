@@ -1,47 +1,41 @@
 $schema: http://json-schema.org/draft-07/schema#
 $id: driver/downsample
 allOf:
-- $ref: TensorStore
-- type: object
-  properties:
-    driver:
-      const: downsample
-    base:
-      $ref: TensorStore
-      title: Base TensorStore to downsample.
-      description: |
-        Downsampling is always performed with respect to an origin of 0 in all
-        dimensions in the `.base` TensorStore.  To use a different origin,
-        translate the domain by specifying an `IndexTransform` via
-        the `TensorStore.transform` property of `.base`.
-
-        Translating the domain of the downsampled view by a given :literal:`offset` is
-        equivalent to translating the domain of `.base` by :python:`offset *
-        downsample_factors`.  However, there is no translation of the
-        downsampled view that is exactly equivalent to translating the domain of
-        `.base` by an offset that is not a multiple of `.downsample_factors`.
-    downsample_factors:
-      type: array
-      items:
-        type: integer
-        minimum: 1
-      description: |
-        Factors by which to downsample each dimension of `base`.
-        The length must match the rank of `.base`.  Specifying a
-        factor of 1 indicates not to downsample a given dimension.
-      examples:
-        - [2, 2]
-    downsample_method:
-      $ref: "DownsampleMethod"
-  required:
-    - base
-    - downsample_factors
-    - downsample_method
+  - $ref: TensorStoreAdapter
+  - type: object
+    properties:
+      driver:
+        const: downsample
+      downsample_factors:
+        type: array
+        items:
+          type: integer
+          minimum: 1
+        description: |
+          Factors by which to downsample each dimension of `base`.
+          The length must match the rank of `.base`.  Specifying a
+          factor of 1 indicates not to downsample a given dimension.
+        examples:
+          - [2, 2]
+      downsample_method:
+        $ref: "DownsampleMethod"
+    required:
+      - downsample_factors
+      - downsample_method
 examples:
-  - {"driver": "downsample", "downsample_factors": [1, 2, 2], "downsample_method": "mean", "base": {"driver": "zarr", "kvstore": {"driver": "gcs", "bucket": "my-bucket"}}}
+  - {
+      "driver": "downsample",
+      "downsample_factors": [1, 2, 2],
+      "downsample_method": "mean",
+      "base":
+        {
+          "driver": "zarr",
+          "kvstore": { "driver": "gcs", "bucket": "my-bucket" },
+        },
+    }
 definitions:
   method:
-    $id: 'DownsampleMethod'
+    $id: "DownsampleMethod"
     title: Downsample method
     oneOf:
       - const: "stride"

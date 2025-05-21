@@ -1,16 +1,13 @@
 $schema: http://json-schema.org/draft-07/schema#
 $id: kvstore/zarr3_sharding_indexed
-title: Read/write adapter for the :ref:`zarr v3<zarr3-driver>` sharded_indexed format.
+title: Read/write adapter for the :ref:`zarr v3<driver/zarr3>` sharded_indexed format.
 description: JSON specification of the key-value store.
 allOf:
-  - $ref: KvStore
+  - $ref: KvStoreAdapter
   - type: object
     properties:
       driver:
         const: zarr3_sharding_indexed
-      base:
-        $ref: KvStore
-        title: Underlying key-value store with path to shard.
       grid_shape:
         type: array
         items:
@@ -48,6 +45,5 @@ allOf:
           the `.context`.
         default: data_copy_concurrency
     required:
-      - base
       - grid_shape
       - index_codecs

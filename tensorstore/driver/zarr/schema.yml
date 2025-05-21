@@ -1,7 +1,7 @@
 $schema: http://json-schema.org/draft-07/schema#
 $id: driver/zarr2
 allOf:
-  - $ref: KeyValueStoreBackedChunkDriver
+  - $ref: ChunkedTensorStoreKvStoreAdapter
   - type: object
     properties:
       driver:

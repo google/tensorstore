@@ -459,8 +459,8 @@ Underlying key-value store, if this is a key-value store adapter.
 
 Adapter key-value stores include:
 
-- :ref:`ocdbt-kvstore-driver`
-- :ref:`neuroglancer-uint64-sharded-kvstore-driver`
+- :ref:`kvstore/ocdbt`
+- :ref:`kvstore/neuroglancer_uint64_sharded`
 
 For regular, non-adapter key-value stores, this is :python:`None`.
 
@@ -1439,8 +1439,8 @@ Underlying key-value store, if this is a key-value store adapter.
 
 Adapter key-value stores include:
 
-- :ref:`OCDBT<ocdbt-kvstore-driver>`
-- :ref:`neuroglancer_uint64_sharded<neuroglancer-uint64-sharded-kvstore-driver>`
+- :ref:`OCDBT<kvstore/ocdbt>`
+- :ref:`neuroglancer_uint64_sharded<kvstore/neuroglancer_uint64_sharded>`
 
 For regular, non-adapter key-value stores, this is :python:`None`.
 

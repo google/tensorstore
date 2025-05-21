@@ -1,4 +1,4 @@
-.. _zarr-driver:
+.. _driver/zarr2:
 
 ``zarr2`` Driver
 ================
@@ -476,7 +476,7 @@ explicitly-written all-zero chunks are still stored.
 Auto detection
 --------------
 
-This driver supports :ref:`auto-detection<auto-driver>` based on the
+This driver supports :ref:`auto-detection<driver/auto>` based on the
 presence of the :file:`.zarray` file.
 
 Limitations

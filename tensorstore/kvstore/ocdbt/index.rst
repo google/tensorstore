@@ -1,4 +1,4 @@
-.. _ocdbt-kvstore-driver:
+.. _kvstore/ocdbt:
 
 ``ocdbt`` Key-Value Store driver
 ================================
@@ -104,8 +104,8 @@ This is the most efficient method, but is only safe for concurrent writes if the
 underlying key-value store supports atomic writes to a single key.
 
 Supported base key-value stores include:
-- :ref:`file<file-kvstore-driver>`
-- :ref:`gcs<gcs-kvstore-driver>`
+- :ref:`file<kvstore/file>`
+- :ref:`gcs<kvstore/gcs>`
 
 .. _ocdbt-manifest-kind-numbered:
 
@@ -1089,5 +1089,5 @@ B+tree node footer
 Auto detection
 --------------
 
-This driver supports :ref:`auto-detection<auto-driver>` based on the
+This driver supports :ref:`auto-detection<driver/auto>` based on the
 presence of the :file:`manifest.ocdbt` file.

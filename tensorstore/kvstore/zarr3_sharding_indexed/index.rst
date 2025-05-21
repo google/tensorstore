@@ -1,4 +1,4 @@
-.. _zarr3-sharding-indexed-kvstore-driver:
+.. _kvstore/zarr3_sharding_indexed:
 
 ``zarr3_sharding_indexed`` Key-Value Store driver
 ======================================================

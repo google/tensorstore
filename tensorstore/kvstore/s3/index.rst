@@ -1,4 +1,4 @@
-.. _s3-kvstore-driver:
+.. _kvstore/s3:
 
 ``s3`` Key-Value Store driver
 ===============================

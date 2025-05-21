@@ -3,14 +3,11 @@ $id: kvstore/zip
 title: Read-only adapter for the ZIP archive format.
 description: JSON specification of the key-value store.
 allOf:
-  - $ref: KvStore
+  - $ref: KvStoreAdapter
   - type: object
     properties:
       driver:
         const: zip
-      base:
-        $ref: KvStore
-        title: Underlying key-value store with path to a ZIP file.
       cache_pool:
         $ref: ContextResource
         description: |-

@@ -1,4 +1,4 @@
-.. _file-kvstore-driver:
+.. _kvstore/file:
 
 ``file`` Key-Value Store driver
 ===============================

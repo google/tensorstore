@@ -1,4 +1,4 @@
-.. _gcs-kvstore-driver:
+.. _kvstore/gcs:
 
 ``gcs`` Key-Value Store driver
 ===============================

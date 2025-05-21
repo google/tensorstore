@@ -22,7 +22,7 @@ properties:
     $ref: Context
     description: Specifies context resources that augment/override the parent context.
 required:
-- driver
+  - driver
 definitions:
   url:
     $id: KvStoreUrl
@@ -35,12 +35,26 @@ definitions:
       *components*.
 
       The first component specifies a root key-value store (such as
-      :ref:`file<file-kvstore-driver>`) that directly accesses
-      storage.  Subsequent components, if any, must be key-value store
-      adapters such as :ref:`zip<zip-kvstore-driver>` or
-      :ref:`ocdbt<ocdbt-kvstore-driver>`.
+      :ref:`file<kvstore/file>`) that directly accesses
+      storage.  Subsequent components, if any, must be :json:schema:`key-value store
+      adapters<KvStoreAdapter>` such as :ref:`zip<kvstore/zip>` or
+      :ref:`ocdbt<kvstore/ocdbt>`.
 
       .. warning::
 
          The URL representation of a key-value store specification may exclude
          certain parameters, such as concurrency limits.
+  KvStoreAdapter:
+    $id: KvStoreAdapter
+    title: Key-value store adapter that adapts a single base key-value store.
+    allOf:
+      - $ref: KvStore
+      - type: object
+        properties:
+          base:
+            oneOf:
+              - $ref: KvStore
+              - $ref: KvStoreUrl
+            title: Base key-value store to adapt.
+        required:
+          - "base"

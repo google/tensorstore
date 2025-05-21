@@ -652,11 +652,11 @@ future becomes ready only once the data has been durably committed by the
 underlying storage layer.  The precise durability guarantees depend on the
 driver, but for example:
 
-- when using the :ref:`file-kvstore-driver`, the data is only considered
+- when using the :ref:`kvstore/file`, the data is only considered
   committed once the ``fsync`` system call completes, which should normally
   guarantee that it will survive a system crash;
 
-- when using the :ref:`gcs-kvstore-driver`, the data is only considered
+- when using the :ref:`kvstore/gcs`, the data is only considered
   committed once the write is acknowledged and durability is guaranteed by
   Google Cloud Storage.
 
@@ -2502,7 +2502,7 @@ The same TensorStore opened in the previous section can be specified more concis
 Opening with format auto-detection
 ----------------------------------
 
-Many formats can be :ref:`auto-detected<auto-driver>` from a
+Many formats can be :ref:`auto-detected<driver/auto>` from a
 :json:schema:`KvStore URL<KvStoreUrl>` alone:
 
     >>> store = await ts.open(
@@ -2729,7 +2729,7 @@ Using :py:param:`.assume_metadata` for improved concurrent open efficiency
 --------------------------------------------------------------------------
 
 Normally, when opening or creating a chunked format like
-:ref:`zarr<zarr-driver>`, TensorStore first attempts to read the existing
+:ref:`zarr<driver/zarr2>`, TensorStore first attempts to read the existing
 metadata (and confirms that it matches any specified constraints), or (if
 creating is allowed) creates a new metadata file based on any specified
 constraints.

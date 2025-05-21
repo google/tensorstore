@@ -1,4 +1,4 @@
-.. _stack-driver:
+.. _driver/stack:
 
 ``stack`` Driver
 ================

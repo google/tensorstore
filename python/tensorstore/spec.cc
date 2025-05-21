@@ -1465,7 +1465,7 @@ the metadata.
 
 When opening an existing TensorStore, the specified units serve as a constraint,
 to ensure the units are as expected.  Additionally, for drivers like
-:ref:`neuroglancer_precomputed<neuroglancer-precomputed-driver>` that support
+:ref:`neuroglancer_precomputed<driver/neuroglancer_precomputed>` that support
 multiple scales, the desired scale can be selected by specifying constraints on
 the units.
 

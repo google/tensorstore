@@ -1,5 +1,5 @@
 
-.. _zip-kvstore-driver:
+.. _kvstore/zip:
 
 ``zip`` Key-Value Store driver
 ======================================================
@@ -23,7 +23,7 @@ Example JSON specifications
 Auto detection
 --------------
 
-This driver supports :ref:`auto-detection<auto-driver>` based on the
+This driver supports :ref:`auto-detection<driver/auto>` based on the
 signature at the end of the file.
 
 .. warning::

@@ -1,4 +1,4 @@
-.. _tsgrpc_kvstore-kvstore-driver:
+.. _kvstore/tsgrpc_kvstore:
 
 ``tsgrpc_kvstore`` Key-Value Store driver
 =========================================

@@ -13,5 +13,5 @@ The read volume is indexed by "height" (y), "width" (x), "channel".
 Auto detection
 --------------
 
-This driver supports :ref:`auto-detection<auto-driver>` based on the
+This driver supports :ref:`auto-detection<driver/auto>` based on the
 signature at the start of the file.

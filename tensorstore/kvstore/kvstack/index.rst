@@ -1,4 +1,4 @@
-.. _kvstack-kvstore-driver:
+.. _kvstore/kvstack:
 
 ``kvstack`` Key-Value Store driver
 ==================================

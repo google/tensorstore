@@ -1,47 +1,43 @@
 $schema: http://json-schema.org/draft-07/schema#
 $id: kvstore/neuroglancer_uint64_sharded
-title: Read/write adapter for the :ref:`Neuroglancer Precomputed<neuroglancer-precomputed-driver>` sharded format.
+title: Read/write adapter for the :ref:`Neuroglancer Precomputed<driver/neuroglancer_precomputed>` sharded format.
 description: JSON specification of the key-value store.
 allOf:
-- $ref: KvStore
-- type: object
-  properties:
-    driver:
-      const: neuroglancer_uint64_sharded
-    base:
-      $ref: KvStore
-      title: Underlying key-value store.
-    metadata:
-      type: object
-      title: "Specifies the sharding format."
-      $ref: kvstore/neuroglancer_uint64_sharded/ShardingSpec
-    cache_pool:
-      $ref: ContextResource
-      description: |
-        Specifies or references a previously defined `Context.cache_pool`.  It
-        is normally more convenient to specify a default `~Context.cache_pool`
-        in the `.context`.
+  - $ref: KvStoreAdapter
+  - type: object
+    properties:
+      driver:
+        const: neuroglancer_uint64_sharded
+      metadata:
+        type: object
+        title: "Specifies the sharding format."
+        $ref: kvstore/neuroglancer_uint64_sharded/ShardingSpec
+      cache_pool:
+        $ref: ContextResource
+        description: |
+          Specifies or references a previously defined `Context.cache_pool`.  It
+          is normally more convenient to specify a default `~Context.cache_pool`
+          in the `.context`.
 
-        .. important::
+          .. important::
 
-           It is very helpful to specify a cache pool with a non-zero
-           `~Context.cache_pool.total_bytes_limit` value.  Otherwise, every read
-           operation will require 2 additional reads, to read the shard index
-           and the minishard index.
-      default: cache_pool
-    data_copy_concurrency:
-      $ref: ContextResource
-      description: |-
-        Specifies or references a previously defined `Context.data_copy_concurrency`.
-        It is normally more convenient to specify a default `~Context.data_copy_concurrency` in
-        the `.context`.
-      default: data_copy_concurrency
-  required:
-  - base
-  - metadata
+             It is very helpful to specify a cache pool with a non-zero
+             `~Context.cache_pool.total_bytes_limit` value.  Otherwise, every read
+             operation will require 2 additional reads, to read the shard index
+             and the minishard index.
+        default: cache_pool
+      data_copy_concurrency:
+        $ref: ContextResource
+        description: |-
+          Specifies or references a previously defined `Context.data_copy_concurrency`.
+          It is normally more convenient to specify a default `~Context.data_copy_concurrency` in
+          the `.context`.
+        default: data_copy_concurrency
+    required:
+      - metadata
 definitions:
   sharding-spec:
-    $id: 'kvstore/neuroglancer_uint64_sharded/ShardingSpec'
+    $id: "kvstore/neuroglancer_uint64_sharded/ShardingSpec"
     title: Sharding metadata
     type: object
     description: |-
@@ -49,7 +45,7 @@ definitions:
       `kvstore/neuroglancer_uint64_sharded.metadata` and
       `driver/neuroglancer_precomputed.scale_metadata` properties.
     properties:
-      '@type':
+      "@type":
         const: neuroglancer_uint64_sharded_v1
       preshift_bits:
         type: integer
@@ -60,8 +56,8 @@ definitions:
         maximum: 64
       hash:
         enum:
-        - identity
-        - murmurhash3_x86_128
+          - identity
+          - murmurhash3_x86_128
         title: |-
           Specifies the hash function used to map chunk IDs to shards.
       minishard_bits:
@@ -91,8 +87,8 @@ definitions:
         description: |-
           Normally ``"gzip"`` is a good choice.
         enum:
-        - raw
-        - gzip
+          - raw
+          - gzip
         default: raw
       data_encoding:
         title: |-
@@ -101,13 +97,12 @@ definitions:
           Normally ``"gzip"`` is a good choice, unless the volume uses
           ``"jpeg"`` `~driver/neuroglancer_precomputed.scale_metadata.encoding`.
         enum:
-        - raw
-        - gzip
+          - raw
+          - gzip
         default: raw
     required:
-    - '@type'
-    - preshift_bits
-    - hash
-    - minishard_bits
-    - shard_bits
-
+      - "@type"
+      - preshift_bits
+      - hash
+      - minishard_bits
+      - shard_bits
