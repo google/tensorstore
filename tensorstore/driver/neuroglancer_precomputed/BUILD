@@ -247,6 +247,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/kvstore",
+        "//tensorstore/kvstore:auto_detect",
         "//tensorstore/kvstore/neuroglancer_uint64_sharded",
         "//tensorstore/util:constant_vector",
         "//tensorstore/util:dimension_set",

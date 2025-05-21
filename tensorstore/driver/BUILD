@@ -8,6 +8,7 @@ licenses(["notice"])
 
 DRIVERS = [
     "array",
+    "auto",
     "cast",
     "downsample",
     "image/avif",
@@ -216,6 +217,7 @@ tensorstore_cc_library(
         "//tensorstore",
         "//tensorstore:array",
         "//tensorstore:array_testutil",
+        "//tensorstore:auto",
         "//tensorstore:box",
         "//tensorstore:chunk_layout",
         "//tensorstore:context",

@@ -87,6 +87,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/internal/metrics",
         "//tensorstore/kvstore",
+        "//tensorstore/kvstore:auto_detect",
         "//tensorstore/kvstore:common_metrics",
         "//tensorstore/kvstore:generation",
         "//tensorstore/kvstore:key_range",

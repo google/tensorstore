@@ -474,6 +474,7 @@ TEST(OcdbtTest, SpecRoundtrip) {
   };
   options.check_data_after_serialization = false;
   options.url = "memory://|ocdbt:";
+  options.check_auto_detect = true;
   tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
 }
 
@@ -505,6 +506,7 @@ TEST(OcdbtTest, SpecRoundtripFile) {
       {"base", options.full_base_spec},
   };
   options.url = "file://" + tempdir.path() + "/|ocdbt:";
+  options.check_auto_detect = true;
   tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
 }
 

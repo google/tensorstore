@@ -2499,6 +2499,31 @@ The same TensorStore opened in the previous section can be specified more concis
    The URL syntax is very limited in the options and parameters that may be
    specified but is convenient in simple cases.
 
+Opening with format auto-detection
+----------------------------------
+
+Many formats can be :ref:`auto-detected<auto-driver>` from a
+:json:schema:`KvStore URL<KvStoreUrl>` alone:
+
+    >>> store = await ts.open(
+    ...     'gs://neuroglancer-janelia-flyem-hemibrain/v1.2/segmentation/',
+    ...     read=True)
+    >>> store.url
+    'gs://neuroglancer-janelia-flyem-hemibrain/v1.2/segmentation/|neuroglancer-precomputed:'
+
+A full :json:schema:`KvStore JSON spec<KvStore>` can also be specified instead of a URL:
+
+
+    >>> store = await ts.open(
+    ...     {
+    ...         'driver': 'gcs',
+    ...         'bucket': 'neuroglancer-janelia-flyem-hemibrain',
+    ...         'path': 'v1.2/segmentation/'
+    ...     },
+    ...     read=True)
+    >>> store.url
+    'gs://neuroglancer-janelia-flyem-hemibrain/v1.2/segmentation/|neuroglancer-precomputed:'
+
 Creating a new TensorStore
 --------------------------
 

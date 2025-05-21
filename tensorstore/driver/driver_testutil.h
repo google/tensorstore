@@ -91,6 +91,9 @@ struct TestTensorStoreDriverSpecRoundtripOptions {
   // Check reading after opening via url.  Ignored if `url` is the
   // empty string.
   bool check_read_after_url_open = true;
+
+  // Check format auto-detection.
+  bool check_auto_detect = false;
 };
 
 /// Tests that a TensorStore can be successfully created from `full_spec`, that

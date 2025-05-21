@@ -20,6 +20,8 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
+#include <vector>
 
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
@@ -39,6 +41,7 @@
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/kvstore/auto_detect.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/common_metrics.h"
 #include "tensorstore/kvstore/driver.h"
@@ -422,6 +425,29 @@ Result<kvstore::Spec> ParseZipUrl(std::string_view url, kvstore::Spec base) {
   return {std::in_place, std::move(driver_spec), std::move(path)};
 }
 
+std::vector<internal_kvstore::AutoDetectMatch> MatchZipFormat(
+    const internal_kvstore::AutoDetectFileOptions& options) {
+  riegeli::CordReader reader{options.suffix};
+  internal_zip::ZipEOCD zip_eocd;
+  auto result =
+      internal_zip::TryReadFullEOCD(reader, zip_eocd, /*offset_adjustment=*/0);
+  std::vector<internal_kvstore::AutoDetectMatch> matches;
+  if (auto* status = std::get_if<absl::Status>(&result);
+      status && status->ok()) {
+    matches.push_back(internal_kvstore::AutoDetectMatch{ZipKvStoreSpec::id});
+  }
+  return matches;
+}
+
+internal_kvstore::AutoDetectFileSpec GetAutoDetectSpec() {
+  internal_kvstore::AutoDetectFileSpec spec;
+  // To avoid excessive reads for auto-detection, only support comments up to
+  // 4096 bytes rather than the full 65535 bytes permitted.
+  spec.suffix_length = 4096 + 48;
+  spec.match = MatchZipFormat;
+  return spec;
+}
+
 }  // namespace
 }  // namespace internal_zip_kvstore
 }  // namespace tensorstore
@@ -439,5 +465,9 @@ const tensorstore::internal_kvstore::UrlSchemeRegistration
     url_scheme_registration{
         tensorstore::internal_zip_kvstore::ZipKvStoreSpec::id,
         tensorstore::internal_zip_kvstore::ParseZipUrl};
+
+const tensorstore::internal_kvstore::AutoDetectRegistration
+    auto_detect_registration{
+        tensorstore::internal_zip_kvstore::GetAutoDetectSpec()};
 
 }  // namespace

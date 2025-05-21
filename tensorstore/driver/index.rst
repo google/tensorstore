@@ -6,6 +6,7 @@ Drivers
 .. toctree::
    :maxdepth: 1
 
+   auto/index
    cast/index
    downsample/index
    array/index

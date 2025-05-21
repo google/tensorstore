@@ -873,6 +873,53 @@ TENSORSTORE_GLOBAL_INITIALIZER {
   tensorstore::internal::TestTensorStoreDriverSpecRoundtripOptions options;
   options.test_name = "n5";
   options.create_spec = GetJsonSpec();
+  options.full_spec = {
+      {"dtype", "int16"},
+      {"driver", "n5"},
+      {"metadata",
+       {{"blockSize", {3, 2}},
+        {"compression", {{"type", "raw"}}},
+        {"dataType", "int16"},
+        {"dimensions", {10, 11}},
+        {"units", {"s", "m"}},
+        {"resolution", {2, 3}},
+        {"axes", {"x", "y"}}}},
+      {"kvstore",
+       {
+           {"driver", "file"},
+           {"path", "${TEMPDIR}/prefix/"},
+       }},
+      {"transform",
+       {{"input_labels", {"x", "y"}},
+        {"input_exclusive_max", {{10}, {11}}},
+        {"input_inclusive_min", {0, 0}}}},
+  };
+
+  options.minimal_spec = {
+      {"dtype", "int16"},
+      {"driver", "n5"},
+      {"kvstore",
+       {
+           {"driver", "file"},
+           {"path", "${TEMPDIR}/prefix/"},
+       }},
+      {"transform",
+       {{"input_labels", {"x", "y"}},
+        {"input_exclusive_max", {{10}, {11}}},
+        {"input_inclusive_min", {0, 0}}}},
+  };
+  options.to_json_options = tensorstore::IncludeDefaults{false};
+  options.check_serialization = true;
+  options.url = "file://${TEMPDIR}/prefix/|n5:";
+  options.check_auto_detect = true;
+  tensorstore::internal::RegisterTensorStoreDriverSpecRoundtripTest(
+      std::move(options));
+}
+
+TENSORSTORE_GLOBAL_INITIALIZER {
+  tensorstore::internal::TestTensorStoreDriverSpecRoundtripOptions options;
+  options.test_name = "n5WithFillValueOptions";
+  options.create_spec = GetJsonSpec();
   options.create_spec["fill_missing_data_reads"] = false;
   options.create_spec["store_data_equal_to_fill_value"] = true;
   options.full_spec = {

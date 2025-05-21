@@ -304,6 +304,12 @@ dimensions unspecified.  When creating a new dataset, if dimension units are
 specified for at least one dimension, any dimensions for which the unit is
 unspecified are assigned a dimensionless unit of :json:`1`.
 
+Auto detection
+--------------
+
+This driver supports :ref:`auto-detection<auto-driver>` based on the
+presence of the :file:`attributes.json` file.
+
 Limitations
 -----------
 

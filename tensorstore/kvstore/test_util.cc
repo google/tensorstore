@@ -55,6 +55,7 @@
 #include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/internal/testing/random_seed.h"
 #include "tensorstore/internal/thread/thread.h"
+#include "tensorstore/kvstore/auto_detect.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"  // IWYU pragma: keep
 #include "tensorstore/kvstore/generation.h"
@@ -69,6 +70,7 @@
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender_testutil.h"
+#include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
@@ -1356,9 +1358,19 @@ void TestKeyValueStoreSpecRoundtrip(
       TENSORSTORE_ASSERT_OK_AND_ASSIGN(
           auto store_base_reopened, kvstore::Open(spec_base, context).result());
       EXPECT_EQ(store_base_reopened, store_base);
+
+      if (options.check_auto_detect) {
+        EXPECT_THAT(
+            internal_kvstore::AutoDetectFormat(InlineExecutor{}, store_base)
+                .result(),
+            ::testing::Optional(
+                ::testing::ElementsAre(internal_kvstore::AutoDetectMatch{
+                    std::string(spec.driver->driver_id())})));
+      }
     } else {
       EXPECT_THAT(options.full_base_spec,
                   MatchesJson(::nlohmann::json::value_t::discarded));
+      ASSERT_FALSE(options.check_auto_detect);
     }
   }
 

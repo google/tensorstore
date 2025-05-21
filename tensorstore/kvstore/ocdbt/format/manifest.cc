@@ -248,7 +248,7 @@ std::ostream& operator<<(std::ostream& os, const Manifest& e) {
 }
 
 std::string GetManifestPath(std::string_view base_path) {
-  return tensorstore::StrCat(base_path, "manifest.ocdbt");
+  return tensorstore::StrCat(base_path, kManifestFilename);
 }
 
 std::string GetNumberedManifestPath(std::string_view base_path,

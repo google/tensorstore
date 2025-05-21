@@ -193,15 +193,18 @@ TEST_F(ZipKeyValueStoreTest, InvalidSpec) {
 }
 
 TEST_F(ZipKeyValueStoreTest, SpecRoundtrip) {
+  PrepareMemoryKvstore(GetTestZipFileData());
   tensorstore::internal::KeyValueStoreSpecRoundtripOptions options;
+  options.context = context_;
   options.check_data_persists = false;
   options.check_write_read = false;
   options.check_data_after_serialization = false;
   options.check_store_serialization = true;
   options.full_spec = {{"driver", "zip"},
-                       {"base", {{"driver", "memory"}, {"path", "abc.zip"}}}};
-  options.full_base_spec = {{"driver", "memory"}, {"path", "abc.zip"}};
-  options.url = "memory://abc.zip|zip:";
+                       {"base", {{"driver", "memory"}, {"path", "data.zip"}}}};
+  options.full_base_spec = {{"driver", "memory"}, {"path", "data.zip"}};
+  options.url = "memory://data.zip|zip:";
+  options.check_auto_detect = true;
   tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
 }
 

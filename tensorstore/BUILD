@@ -140,6 +140,16 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
+    name = "auto",
+    hdrs = ["auto.h"],
+    deps = [
+        ":spec",
+        "//tensorstore/driver/auto",
+        "//tensorstore/kvstore",
+    ],
+)
+
+tensorstore_cc_library(
     name = "batch",
     srcs = ["batch.cc"],
     hdrs = [
@@ -864,6 +874,7 @@ tensorstore_cc_library(
         ":strided_layout",
         ":transaction",
         "//tensorstore/driver",
+        "//tensorstore/driver/auto",
         "//tensorstore/index_space:dimension_units",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/index_space:transformed_array",

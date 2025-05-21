@@ -137,6 +137,8 @@ Future<kvstore::ReadResult> MockKeyValueStore::Read(Key key,
             std::move(request_batch)};
         if (driver.forward_to) {
           batch_request(driver.forward_to);
+        } else if (driver.batch_read_handler) {
+          driver.batch_read_handler(std::move(batch_request));
         } else {
           driver.batch_read_requests.push(std::move(batch_request));
         }
@@ -162,7 +164,13 @@ Future<kvstore::ReadResult> MockKeyValueStore::Read(Key key,
     return forward_to->Read(std::move(key), std::move(options));
   }
   auto [promise, future] = PromiseFuturePair<ReadResult>::Make();
-  read_requests.push({std::move(promise), std::move(key), std::move(options)});
+  ReadRequest read_request{std::move(promise), std::move(key),
+                           std::move(options)};
+  if (read_handler) {
+    read_handler(std::move(read_request));
+  } else {
+    read_requests.push(std::move(read_request));
+  }
   return future;
 }
 
@@ -193,8 +201,13 @@ Future<TimestampedStorageGeneration> MockKeyValueStore::Write(
   }
   auto [promise, future] =
       PromiseFuturePair<TimestampedStorageGeneration>::Make();
-  write_requests.push({std::move(promise), std::move(key), std::move(value),
-                       std::move(options)});
+  WriteRequest write_request{std::move(promise), std::move(key),
+                             std::move(value), std::move(options)};
+  if (write_handler) {
+    write_handler(std::move(write_request));
+  } else {
+    write_requests.push(std::move(write_request));
+  }
   return future;
 }
 
@@ -218,7 +231,12 @@ void MockKeyValueStore::ListImpl(ListOptions options, ListReceiver receiver) {
     forward_to->ListImpl(std::move(options), std::move(receiver));
     return;
   }
-  list_requests.push({options, std::move(receiver)});
+  ListRequest list_request{options, std::move(receiver)};
+  if (list_handler) {
+    list_handler(std::move(list_request));
+  } else {
+    list_requests.push(std::move(list_request));
+  }
 }
 
 Future<const void> MockKeyValueStore::DeleteRange(KeyRange range) {
@@ -233,7 +251,12 @@ Future<const void> MockKeyValueStore::DeleteRange(KeyRange range) {
     return forward_to->DeleteRange(std::move(range));
   }
   auto [promise, future] = PromiseFuturePair<void>::Make();
-  delete_range_requests.push({std::move(promise), std::move(range)});
+  DeleteRangeRequest delete_range_request{std::move(promise), std::move(range)};
+  if (delete_range_handler) {
+    delete_range_handler(std::move(delete_range_request));
+  } else {
+    delete_range_requests.push(std::move(delete_range_request));
+  }
   return future;
 }
 

@@ -177,6 +177,10 @@ struct KeyValueStoreSpecRoundtripOptions {
   //
   // If not specified, checks that `ToUrl()` returns an error.
   std::string url;
+
+  // Check that kvstore auto-detection on `full_base_spec` results in
+  // `minimal_spec`.  Requires `check_data_persists=true`.
+  bool check_auto_detect = false;
 };
 
 /// Tests that the KvStore spec round-trips in several ways.

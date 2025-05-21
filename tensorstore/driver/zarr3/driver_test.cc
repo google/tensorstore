@@ -1229,6 +1229,7 @@ TENSORSTORE_GLOBAL_INITIALIZER {
   };
   options.check_serialization = true;
   options.url = "file://${TEMPDIR}/prefix/|zarr3:";
+  options.check_auto_detect = true;
   tensorstore::internal::RegisterTensorStoreDriverSpecRoundtripTest(
       std::move(options));
 }

@@ -17,6 +17,7 @@
 #include <assert.h>
 
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -35,6 +36,7 @@
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/json.h"
 #include "tensorstore/index_space/transform_broadcastable_array.h"
+#include "tensorstore/internal/driver_kind_registry.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/data_type.h"
@@ -49,6 +51,7 @@
 #include "tensorstore/serialization/registry.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/garbage_collection/garbage_collection.h"
+#include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
@@ -253,10 +256,24 @@ TENSORSTORE_DEFINE_JSON_BINDER(
         }
       }
       auto& registry = internal::GetDriverRegistry();
-      return jb::NestedContextJsonBinder(jb::Object(
+      bool retry_as_kvstore_spec = false;
+      auto handle_unregistered = [&](std::string_view unregistered_id) {
+        if (internal::GetDriverKind(unregistered_id) == DriverKind::kKvStore) {
+          // "driver" member was extracted, put
+          // it back to allow the spec to be
+          // re-parsed as a KvStore spec.
+          (*j)["driver"] = std::string(unregistered_id);
+          retry_as_kvstore_spec = true;
+          return absl::CancelledError();
+        }
+        return absl::InvalidArgumentError(
+            tensorstore::StrCat(tensorstore::QuoteString(unregistered_id),
+                                " is not a registered TensorStore driver"));
+      };
+      auto binder = jb::NestedContextJsonBinder(jb::Object(
           jb::Member("driver",
                      jb::Projection(&TransformedDriverSpec::driver_spec,
-                                    registry.KeyBinder())),
+                                    registry.KeyBinder(handle_unregistered))),
           jb::Projection(
               [](auto& obj) -> DriverSpec& {
                 return const_cast<DriverSpec&>(*obj.driver_spec);
@@ -318,7 +335,21 @@ TENSORSTORE_DEFINE_JSON_BINDER(
           jb::Initialize([](auto* obj) {
             if (obj->transform.valid()) return absl::OkStatus();
             return MaybeDeriveTransform(obj->driver_spec, obj->transform);
-          })))(is_loading, options, obj, j);
+          })));
+      while (true) {
+        auto status = binder(is_loading, options, obj, j);
+        if constexpr (is_loading) {
+          if (retry_as_kvstore_spec) {
+            auto auto_spec = ::nlohmann::json::object_t();
+            auto_spec.emplace("driver", "auto");
+            auto_spec.emplace("kvstore", std::move(*j));
+            *j = std::move(auto_spec);
+            retry_as_kvstore_spec = false;
+            continue;
+          }
+        }
+        return status;
+      }
     })
 
 absl::Status DriverSpecBindContext(DriverSpecPtr& spec,

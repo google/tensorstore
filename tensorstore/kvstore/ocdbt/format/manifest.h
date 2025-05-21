@@ -40,6 +40,8 @@
 namespace tensorstore {
 namespace internal_ocdbt {
 
+constexpr inline std::string_view kManifestFilename = "manifest.ocdbt";
+
 /// Returns the path to the manifest given a base directory path.
 ///
 /// Equal to `base_path + "manifest"`.

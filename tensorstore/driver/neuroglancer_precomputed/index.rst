@@ -624,6 +624,12 @@ specified, a unit of :json:`"1nm"` is used by default.
 When opening an existing scale, the scale to open may be selected based on the
 specified :json:schema:`~Schema.dimension_units`.
 
+Auto detection
+--------------
+
+This driver supports :ref:`auto-detection<auto-driver>` based on the
+presence of the :file:`info` file.
+
 Limitations
 -----------
 

@@ -61,6 +61,7 @@
 #include "tensorstore/internal/lexicographical_grid_index_key.h"
 #include "tensorstore/internal/storage_statistics.h"
 #include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/kvstore/auto_detect.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/open_options.h"
 #include "tensorstore/rank.h"
@@ -648,4 +649,10 @@ const tensorstore::internal::DriverRegistration<
 const tensorstore::internal::UrlSchemeRegistration url_scheme_registration(
     tensorstore::internal_zarr3::ZarrDriverSpec::id,
     tensorstore::internal_zarr3::ParseZarr3Url);
+
+const tensorstore::internal_kvstore::AutoDetectRegistration
+    auto_detect_registration{
+        tensorstore::internal_kvstore::AutoDetectDirectorySpec::SingleFile(
+            tensorstore::internal_zarr3::ZarrDriverSpec::id,
+            tensorstore::internal_zarr3::kMetadataKey)};
 }  // namespace
