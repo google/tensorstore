@@ -29,6 +29,7 @@
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_join.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
@@ -513,8 +514,12 @@ Context Context::Default() {
   return context;
 }
 
-Context::Context(const Context::Spec& spec, Context parent)
-    : impl_(new internal_context::ContextImpl) {
+Context::Context(const Context::Spec& spec, Context parent) {
+  if (parent.impl_ && !spec.impl_) {
+    impl_ = parent.impl_;
+    return;
+  }
+  impl_.reset(new internal_context::ContextImpl);
   impl_->spec_ = spec.impl_;
   impl_->parent_ = std::move(parent.impl_);
   if (impl_->parent_) {
@@ -778,6 +783,159 @@ ResourceOrSpecPtr AddResourceOrSpec(const internal::ContextSpecBuilder& builder,
     return new_ptr;
   }
 }
+}  // namespace internal_context
+
+namespace internal {
+
+TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
+    AllContextResources,
+    [](auto is_loading, const auto& options, auto* obj, auto* j) {
+      if constexpr (is_loading) {
+        obj->context = {};
+        if (j->empty()) {
+          obj->spec = {};
+        } else {
+          auto& spec_impl = internal_context::Access::impl(obj->spec);
+          spec_impl.reset(new internal_context::ContextSpecImpl);
+          spec_impl->resources_.reserve(j->size());
+
+          for (const auto& [key, value] : *j) {
+            if (absl::StrContains(key, '#')) {
+              return absl::InvalidArgumentError(tensorstore::StrCat(
+                  "Context resource identifier must not contain \"#\": ",
+                  tensorstore::QuoteString(key)));
+            }
+            TENSORSTORE_ASSIGN_OR_RETURN(
+                auto resource, internal_context::ResourceSpecFromJsonWithKey(
+                                   key, value, options));
+            spec_impl->resources_.insert(std::move(resource));
+          }
+          j->clear();
+        }
+      } else {
+        auto& spec_impl = internal_context::Access::impl(obj->spec);
+        if (!spec_impl) return absl::OkStatus();
+        for (const auto& resource_spec : spec_impl->resources_) {
+          TENSORSTORE_ASSIGN_OR_RETURN(auto resource_spec_json,
+                                       resource_spec->ToJson(options));
+          assert(!resource_spec_json.is_discarded());
+          if (auto* s =
+                  resource_spec_json.template get_ptr<const std::string*>();
+              s && *s == resource_spec->provider_->id_) {
+            continue;
+          }
+          j->emplace(resource_spec->key_, std::move(resource_spec_json));
+        }
+      }
+      return absl::OkStatus();
+    });
+
+absl::Status AllContextResources::BindContext(const Context& context) {
+  if (!this->context) {
+    this->context = Context(this->spec, context);
+  }
+  this->spec = {};
+  return absl::OkStatus();
+}
+
+void AllContextResources::UnbindContext(
+    const internal::ContextSpecBuilder& context_spec_builder) {
+  // TODO(jbms): This implementation has a number of inefficiencies
+  // (see other TODO notes below), but this function is unlikely to be
+  // performance sensitive.
+  if (!context) return;
+
+  auto& spec_impl = internal_context::Access::impl(this->spec);
+  spec_impl.reset(new internal_context::ContextSpecImpl);
+
+  auto& context_impl = *internal_context::Access::impl(this->context);
+  // Any resource requested under its default identifier,
+  // i.e. `"<resource-name>"` without a "#id" suffix, should resolve
+  // after unbinding to the same spec as it would now.
+  //
+  // Currently the only way to accomplish that is to explicitly
+  // include every registered resource type in the resultant unbound
+  // context spec, because any unspecified resource is implicitly
+  // inherited.  Explicitly specifying a resource, even with its
+  // default spec (typically an empty object), is not the same as
+  // inheriting it.
+  //
+  // TODO(jbms): implement support for an `"inherit": [...]` property
+  // within the JSON context spec in order to limit which resource
+  // identifiers, if any, may be inherited.  In the normal case,
+  // unbind could then emit `"inherit": []` in the top-level `context`
+  // and could skip any context resources with a default spec.  A
+  // non-empty list would be included in `inherit` only when unbinding
+  // a partially-bound spec, where there are unresolved references to
+  // context resources.  A partially-bound spec can be created,
+  // e.g. by leaving the kvstore unspecified, binding with a context,
+  // and then specifying a kvstore spec where the context is not
+  // bound.
+  {
+    auto& registry = internal_context::GetRegistry();
+    absl::ReaderMutexLock lock(&registry.mutex_);
+    for (const auto& provider : registry.providers_) {
+      internal_context::ResourceSpecImplPtr resource_spec_impl(
+          new internal_context::ResourceReference(std::string(provider->id_)));
+      resource_spec_impl->provider_ = provider.get();
+      // Logically, we need to include in `spec` the unbound
+      // representation of each resource.
+      //
+      // Each resource falls into one of 3 categories:
+      //
+      // 1. Already loaded, or being loaded concurrently by another thread.
+      // 2. Not loaded, but specified in the spec.
+      // 3. Not specified in the spec, equivalent to the default value.
+      //
+      // For case 1 the resource itself (blocking if necessary for it
+      // to finish loading) can be handled directly via
+      // `internal_context::AddResource`.
+      //
+      // For cases 2 and 3, in principle it would be better to avoid
+      // loading the context resource just to unbind it back to a
+      // spec.  However, because the spec could reference another
+      // resource, which needs to get resolved properly, and the same
+      // (under object identity) spec could be referred to elsewhere
+      // by this same `context_spec_builder`, we can't just trivially
+      // copy the existing spec to `this->spec`.  For simplicity,
+      // therefore, all cases are currently handled by first
+      // requesting the context resource, and then unbinding it.
+      auto result = GetOrCreateResource(context_impl, *resource_spec_impl,
+                                        /*trigger=*/nullptr);
+      if (!result.ok()) {
+        // TODO(jbms): For now just skip resources that can't be
+        // created.  The more correct behavior would be to preserve
+        // the invalid spec in such a way that it results in an error
+        // only if it is actually bound and then requested later.
+        continue;
+      }
+      auto unbound_resource_spec =
+          internal_context::AddResource(context_spec_builder, result->get());
+
+      // Note: `unbound_resource_spec` is itself a
+      // `BuilderResourceSpec` but is shared and therefore `key_` must
+      // not be set on it.  Instead, it must be wrapped in a new
+      // `BuilderResourceSpec` so that `key_` can be set in order to
+      // insert it into `spec_impl->resources_`.
+      internal::IntrusivePtr<internal_context::BuilderResourceSpec>
+          builder_spec(new internal_context::BuilderResourceSpec);
+      builder_spec->provider_ = provider.get();
+      builder_spec->underlying_spec_ = std::move(unbound_resource_spec);
+      builder_spec->key_ = provider->id_;
+
+      spec_impl->resources_.insert(std::move(builder_spec));
+    }
+  }
+}
+
+void AllContextResources::StripContext() {
+  this->context = {};
+  this->spec = {};
+}
+
+}  // namespace internal
+
+namespace internal_context {
 
 absl::Status ResourceSpecFromJsonWithDefaults(
     std::string_view provider_id, const JsonSerializationOptions& options,

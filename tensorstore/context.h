@@ -385,6 +385,30 @@ constexpr ContextBindingMode strip_context = ContextBindingMode::strip;
 
 namespace internal {
 
+/// Used to capture all context resources during binding, when the
+/// set of context resources that will be required cannot be
+/// determined until after binding, e.g. because I/O is required to determine
+/// which context resources are required.  This is used by the "auto"
+/// driver.
+class AllContextResources {
+ public:
+  constexpr static auto ApplyMembers = [](auto& x, auto f) {
+    return f(x.spec, x.context);
+  };
+
+  Context::Spec spec;
+  Context context;
+
+  TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(AllContextResources,
+                                          JsonSerializationOptions,
+                                          JsonSerializationOptions,
+                                          ::nlohmann::json::object_t)
+
+  absl::Status BindContext(const Context& context);
+  void UnbindContext(const internal::ContextSpecBuilder& context_spec_builder);
+  void StripContext();
+};
+
 /// Used to create a `ContextSpec` from an existing collection of
 /// `Context::Resource` objects.
 ///
@@ -433,6 +457,8 @@ class ContextSpecBuilder {
         internal_context::AddResourceOrSpec(*this, resource.impl_.get());
     return resource_spec;
   }
+
+  void UnbindAll(const Context& context, Context::Spec& context_spec) const;
 
   /// Returns the `Context::Spec` that defines the shared resources registered
   /// with this builder or a descendant builder.  Also includes all resources

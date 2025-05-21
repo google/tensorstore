@@ -199,6 +199,21 @@ struct ContextBindingTraits<std::optional<Spec>> {
   }
 };
 
+/// Specialization of `ContextBindingTraits` for `AllContextResources`.
+template <>
+struct ContextBindingTraits<AllContextResources> {
+  static absl::Status Bind(AllContextResources& spec, const Context& context) {
+    return spec.BindContext(context);
+  }
+
+  static void Unbind(AllContextResources& spec,
+                     const ContextSpecBuilder& builder) {
+    return spec.UnbindContext(builder);
+  }
+
+  static void Strip(AllContextResources& spec) { spec.StripContext(); }
+};
+
 }  // namespace internal
 }  // namespace tensorstore
 

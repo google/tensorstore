@@ -64,6 +64,7 @@ using ::tensorstore::IncludeDefaults;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
+using ::tensorstore::internal::AllContextResources;
 using ::tensorstore::internal::ContextResourceCreationContext;
 using ::tensorstore::internal::ContextResourceRegistration;
 using ::tensorstore::internal::ContextResourceTraits;
@@ -963,6 +964,46 @@ TEST(ContextTest, ConcurrentCreateInParent) {
         Context child({}, context);
         TENSORSTORE_EXPECT_OK(child.GetResource<IntResource>());
       });
+}
+
+TEST(ContextTest, AllContextResources) {
+  auto all_binder = jb::Object(jb::DefaultBinder<>);
+  EXPECT_THAT(jb::FromJson<AllContextResources>(
+                  {{"int_resource#a", {{"value", 5}}}}, all_binder),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Context resource identifier must not contain "
+                            "\"#\": \"int_resource#a\""));
+  EXPECT_THAT(
+      jb::FromJson<AllContextResources>({{"foo", {{"value", 5}}}}, all_binder),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    "Invalid context resource identifier: \"foo\""));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto all_resources, jb::FromJson<AllContextResources>(
+                              {{"int_resource", {{"value", 5}}}}, all_binder));
+
+  EXPECT_THAT(
+      all_resources.spec.ToJson(),
+      ::testing::Optional(MatchesJson({{"int_resource", {{"value", 5}}}})));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto context, Context::FromJson({{"int_resource", {{"value", 6}}},
+                                       {"int_config_resource", 50}}));
+  TENSORSTORE_ASSERT_OK(all_resources.BindContext(context));
+  Context::Spec new_spec;
+  {
+    auto builder = ContextSpecBuilder::Make();
+    new_spec = builder.spec();
+    all_resources.UnbindContext(builder);
+  }
+  EXPECT_THAT(all_resources.ToJson(),
+              ::testing::Optional(MatchesJson(::nlohmann::json::object_t())));
+  EXPECT_THAT(new_spec.ToJson(),
+              ::testing::Optional(MatchesJson(
+                  {{"int_resource", {{"value", 5}}},
+                   {"int_config_resource", 50},
+                   {"nested_resource", ::nlohmann::json::object_t()},
+                   {"optional_resource", ::nlohmann::json::object_t()},
+                   {"strongref", {{"value", 42}}}})));
 }
 
 }  // namespace
