@@ -105,7 +105,7 @@ Args:
         doc += R"(
 
 See also:
-  - :ref:`stack-driver`
+  - :ref:`driver/stack`
   - :py:obj:`tensorstore.stack`
   - :py:obj:`tensorstore.concat`
 
@@ -229,7 +229,7 @@ Args:
 
 See also:
   - :py:obj:`numpy.stack`
-  - :ref:`stack-driver`
+  - :ref:`driver/stack`
   - :py:obj:`tensorstore.overlay`
   - :py:obj:`tensorstore.concat`
 
@@ -401,7 +401,7 @@ Args:
 
 See also:
   - :py:obj:`numpy.concatenate`
-  - :ref:`stack-driver`
+  - :ref:`driver/stack`
   - :py:obj:`tensorstore.overlay`
   - :py:obj:`tensorstore.stack`
 

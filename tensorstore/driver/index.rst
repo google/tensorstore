@@ -7,10 +7,24 @@ Drivers
    :maxdepth: 1
 
    auto/index
-   cast/index
-   downsample/index
    array/index
-   stack/index
+
+.. _chunked-drivers:
+
+Chunked storage drivers
+-----------------------
+
+.. toctree::
+   :maxdepth: 1
+
+   zarr/index
+   zarr3/index
+   n5/index
+   neuroglancer_precomputed/index
+
+.. json:schema:: ChunkedTensorStoreKvStoreAdapter
+
+.. json:schema:: CacheRevalidationBound
 
 Single file drivers
 -------------------
@@ -26,19 +40,16 @@ Single file drivers
    image/tiff/index
    image/webp/index
 
-.. _chunked-drivers:
+.. json:schema:: TensorStoreKvStoreAdapter
 
-Chunked storage drivers
------------------------
+Adapters
+--------
 
 .. toctree::
    :maxdepth: 1
 
-   zarr/index
-   zarr3/index
-   n5/index
-   neuroglancer_precomputed/index
+   cast/index
+   downsample/index
+   stack/index
 
-.. json:schema:: KeyValueStoreBackedChunkDriver
-
-.. json:schema:: CacheRevalidationBound
+.. json:schema:: TensorStoreAdapter

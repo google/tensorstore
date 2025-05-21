@@ -140,7 +140,7 @@ def _write_third_party_libraries_summary(runfiles_dir: str, output_path: str):
 
       for url in args['urls']:
         url = _remove_mirror(url)
-        m = re.search('([^/]+)-([^-]*)(\.zip|\.tar|\.tgz|\.tar\.gz)$', url)
+        m = re.search(r'([^/]+)-([^-]*)(\.zip|\.tar|\.tgz|\.tar\.gz)$', url)
         if m is not None:
           name = m.group(1)
           version = m.group(2)

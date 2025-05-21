@@ -1,4 +1,4 @@
-.. _zarr3-driver:
+.. _driver/zarr3:
 
 ``zarr3`` Driver
 ================
@@ -347,5 +347,5 @@ is used directly; it is not converted in any way.
 Auto detection
 --------------
 
-This driver supports :ref:`auto-detection<auto-driver>` based on the
+This driver supports :ref:`auto-detection<driver/auto>` based on the
 presence of the :file:`zarr.json` file.

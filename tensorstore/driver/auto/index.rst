@@ -1,4 +1,4 @@
-.. _auto-driver:
+.. _driver/auto:
 
 ``auto`` Driver
 ===============
@@ -8,9 +8,9 @@ support format auto-detection: an existing TensorStore can be opened
 by specifying just a :ref:`key-value store<key_value_store>`, and the
 appropriate TensorStore driver is determined automatically.
 
-Both TensorStore drivers, such as :ref:`zarr3<zarr3-driver>` or
-:ref:`jpeg<jpeg-driver>`, and key-value store drivers, such as
-:ref:`zip<zip-kvstore-driver>` or :ref:`ocdbt<ocdbt-kvstore-driver>`,
+Both TensorStore drivers, such as :ref:`zarr3<driver/zarr3>` or
+:ref:`jpeg<driver/jpeg>`, and key-value store drivers, such as
+:ref:`zip<kvstore/zip>` or :ref:`ocdbt<kvstore/ocdbt>`,
 can be auto-detected.
 
 Format auto-detection is used implicitly whenever a
@@ -54,7 +54,7 @@ Examples
 Auto-detecting an array
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-A :ref:`zarr3<zarr3-driver>` TensorStore can be detected from its path:
+A :ref:`zarr3<driver/zarr3>` TensorStore can be detected from its path:
 
   >>> # Create new array
   >>> await ts.open("file://tmp/dataset.zarr|zarr3",
@@ -123,7 +123,7 @@ explicit syntax for using the ``auto`` driver:
 Chaining TensorStore adapters
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-TensorStore adapters like :ref:`cast<cast-driver>` can also be
+TensorStore adapters like :ref:`cast<driver/cast>` can also be
 used in conjunction with format auto-detection:
 
   >>> ts.Spec("file://tmp/dataset.zarr|cast:int64")
@@ -181,8 +181,8 @@ Multiple auto-detection steps
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Multiple steps of auto-detection are also possible.  Here, a
-:ref:`zarr3<zarr3-driver>` TensorStore at the root of an
-:ref:`OCDBT<ocdbt-kvstore-driver>` database can also be detected just
+:ref:`zarr3<driver/zarr3>` TensorStore at the root of an
+:ref:`OCDBT<kvstore/ocdbt>` database can also be detected just
 from the path to the OCDBT database.
 
   >>> # Create new array within new OCDBT database

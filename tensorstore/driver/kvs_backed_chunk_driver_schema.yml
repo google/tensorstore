@@ -1,31 +1,11 @@
 $schema: http://json-schema.org/draft-07/schema#
-$id: KeyValueStoreBackedChunkDriver
+$id: ChunkedTensorStoreKvStoreAdapter
 description: |-
   Common options supported by all chunked storage drivers.
 allOf:
-  - $ref: TensorStore
+  - $ref: TensorStoreKvStoreAdapter
   - type: object
     properties:
-      kvstore:
-        oneOf:
-          - $ref: KvStore
-          - $ref: KvStoreUrl
-        description: |-
-          Specifies the underlying storage mechanism.
-      path:
-        type: string
-        default: ""
-        examples:
-          - path/to/data
-        deprecated: true
-        title: |
-          Additional path within the `KvStore` specified by
-          `.kvstore`.
-        description: |-
-          This is joined as an additional ``"/"``-separated path component
-          after any `~KvStore.path` member directly within
-          `.kvstore`.  This is supported for backwards compatibility only; the
-          `KvStore.path` member should be used instead.
       open:
         type: boolean
         description: |-
@@ -86,15 +66,6 @@ allOf:
              not match the stored metadata, or multiple concurrent writers use
              different assumed metadata.
         default: false
-      cache_pool:
-        $ref: ContextResource
-        title: Cache pool for data.
-        description: |-
-          Specifies or references a previously defined
-          `Context.cache_pool`.  It is normally more convenient to
-          specify a default `~Context.cache_pool` in the
-          `.context`.
-        default: cache_pool
       metadata_cache_pool:
         $ref: ContextResource
         title: Cache pool for metadata only.
@@ -102,13 +73,6 @@ allOf:
           Specifies or references a previously defined
           `Context.cache_pool`.  If not specified, defaults to the value of
           `.cache_pool`.
-      data_copy_concurrency:
-        $ref: ContextResource
-        description: |-
-          Specifies or references a previously defined
-          `Context.data_copy_concurrency`.  It is normally more convenient to
-          specify a default `~Context.data_copy_concurrency` in the `.context`.
-        default: data_copy_concurrency
       recheck_cached_metadata:
         $ref: CacheRevalidationBound
         default: open
@@ -122,7 +86,6 @@ allOf:
           ``"open"``, any cached metadata is revalidated when the TensorStore
           is opened but is not rechecked for each read or write operation.
       recheck_cached_data:
-        $ref: CacheRevalidationBound
         default: true
         description: |
           Time after which cached data is assumed to be fresh.  Cached data older

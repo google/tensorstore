@@ -4,8 +4,8 @@ Tutorial
 Reading and writing a local N5 dataset
 --------------------------------------
 
-Create a new :ref:`N5<n5-driver>` dataset on the local filesystem using the
-:ref:`file-kvstore-driver`:
+Create a new :ref:`N5<driver/n5>` dataset on the local filesystem using the
+:ref:`kvstore/file`:
 
    >>> import tensorstore as ts
    >>> import numpy as np
@@ -57,9 +57,9 @@ Reading the Janelia FlyEM Hemibrain dataset
 
 This example demonstrates accessing the `Janelia FlyeEM Hemibrain 1.1
 segmentation <https://www.janelia.org/project-team/flyem/hemibrain>`_ using the
-:ref:`neuroglancer-precomputed-driver`.
+:ref:`driver/neuroglancer_precomputed`.
 
-While this dataset is public, the :ref:`gcs-kvstore-driver` currently requires
+While this dataset is public, the :ref:`kvstore/gcs` currently requires
 that you supply :ref:`Google Cloud credentials<gcs-authentication>`.
 
 Open the dataset asynchronously to obtain a :py:obj:`tensorstore.Future`:

@@ -1,4 +1,4 @@
-.. _memory-kvstore-driver:
+.. _kvstore/memory:
 
 ``memory`` Key-Value Store driver
 =================================

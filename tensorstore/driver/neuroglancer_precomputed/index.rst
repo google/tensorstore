@@ -1,4 +1,4 @@
-.. _neuroglancer-precomputed-driver:
+.. _driver/neuroglancer_precomputed:
 
 ``neuroglancer_precomputed`` Driver
 ===================================
@@ -627,7 +627,7 @@ specified :json:schema:`~Schema.dimension_units`.
 Auto detection
 --------------
 
-This driver supports :ref:`auto-detection<auto-driver>` based on the
+This driver supports :ref:`auto-detection<driver/auto>` based on the
 presence of the :file:`info` file.
 
 Limitations

@@ -1,4 +1,4 @@
-.. _neuroglancer-uint64-sharded-kvstore-driver:
+.. _kvstore/neuroglancer_uint64_sharded:
 
 ``neuroglancer_uint64_sharded`` Key-Value Store driver
 ======================================================

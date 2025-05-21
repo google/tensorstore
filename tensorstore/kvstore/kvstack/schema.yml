@@ -14,7 +14,7 @@ allOf:
         An ordered list of mappings from a key or range to a base kvstore driver.
       type: array
       items:
-      - type: object
+        type: object
         properties:
           base:
             $ref: KvStore

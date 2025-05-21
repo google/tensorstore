@@ -1,4 +1,4 @@
-.. _http-kvstore-driver:
+.. _kvstore/http:
 
 ``http`` Key-Value Store driver
 ===============================

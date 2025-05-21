@@ -16,5 +16,5 @@ Lossy WebP images are encoded as YUV 422, incurring some perceptual loss.
 Auto detection
 --------------
 
-This driver supports :ref:`auto-detection<auto-driver>` based on the
+This driver supports :ref:`auto-detection<driver/auto>` based on the
 signature at the start of the file.
