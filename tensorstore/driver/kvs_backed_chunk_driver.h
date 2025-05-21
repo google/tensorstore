@@ -241,6 +241,9 @@ class MetadataCache
 
     Result<MetadataPtr> GetMetadata(internal::OpenTransactionPtr transaction);
 
+    Future<MetadataPtr> ReadMetadata(internal::OpenTransactionPtr transaction,
+                                     AsyncCacheReadRequest request);
+
     void DoDecode(std::optional<absl::Cord> value,
                   DecodeReceiver receiver) override;
     void DoEncode(EncodeOptions options, std::shared_ptr<const void> data,

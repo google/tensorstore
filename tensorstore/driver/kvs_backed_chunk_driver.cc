@@ -437,37 +437,17 @@ Future<MetadataPtr> KvsMetadataDriverBase::ResolveMetadata(
     return ValidateNewMetadata(*this, std::move(transaction));
   }
   auto* cache = this->cache();
-  if (transaction) {
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto node,
-        GetTransactionNode(*cache->metadata_cache_entry_, transaction));
-    auto read_future = node->Read({metadata_staleness_bound});
-    return MapFuture(
-        cache->executor(),
-        [cache = DataCacheBase::Ptr(cache), node = std::move(node)](
-            const Result<void>& result) -> Result<MetadataPtr> {
-          TENSORSTORE_RETURN_IF_ERROR(result);
-          TENSORSTORE_ASSIGN_OR_RETURN(
-              auto new_metadata, node->GetUpdatedMetadata(),
-              cache->metadata_cache_entry_->AnnotateError(_,
-                                                          /*reading=*/false));
-          TENSORSTORE_RETURN_IF_ERROR(
-              ValidateNewMetadata(cache.get(), new_metadata.get()));
-          return new_metadata;
-        },
-        std::move(read_future));
-  }
-  return MapFuture(
+  auto read_future = cache->metadata_cache_entry_->ReadMetadata(
+      std::move(transaction), {metadata_staleness_bound});
+  return MapFutureValue(
       cache->executor(),
       [cache = DataCacheBase::Ptr(cache)](
-          const Result<void>& result) -> Result<MetadataPtr> {
-        TENSORSTORE_RETURN_IF_ERROR(result);
-        auto new_metadata = cache->metadata_cache_entry_->GetMetadata();
+          MetadataPtr new_metadata) -> Result<MetadataPtr> {
         TENSORSTORE_RETURN_IF_ERROR(
             ValidateNewMetadata(cache.get(), new_metadata.get()));
         return new_metadata;
       },
-      cache->metadata_cache_entry_->Read({metadata_staleness_bound}));
+      std::move(read_future));
 }
 
 Future<IndexTransform<>> KvsMetadataDriverBase::ResolveBounds(
@@ -992,18 +972,10 @@ void CreateMetadata(MetadataOpenState::Ptr state,
 struct HandleReadMetadata {
   MetadataOpenState::Ptr state;
   void operator()(Promise<internal::Driver::Handle> promise,
-                  ReadyFuture<const void> metadata_future) {
+                  ReadyFuture<const MetadataPtr> metadata_future) {
     auto& base = *(PrivateOpenState*)state.get();  // Cast to private base
-    std::shared_ptr<const void> metadata;
-    if (auto result =
-            base.metadata_cache_entry_->GetMetadata(base.transaction_);
-        result.ok()) {
-      metadata = *std::move(result);
-    } else {
-      promise.SetResult(std::move(result).status());
-      return;
-    }
-    auto handle_result = state->CreateDriverHandleFromMetadata(metadata);
+    auto handle_result =
+        state->CreateDriverHandleFromMetadata(metadata_future.value());
     if (handle_result) {
       promise.SetResult(std::move(handle_result));
       return;
@@ -1036,14 +1008,15 @@ struct GetMetadataForOpen {
             state->CreateDriverHandleFromMetadata(std::move(metadata)));
         return;
       }
-      LinkValue(
-          WithExecutor(state_ptr->executor(),
-                       HandleReadMetadata{std::move(state)}),
-          std::move(promise),
-          base.metadata_cache_entry_->Read(
-              {base.spec_->staleness.metadata.BoundAtOpen(base.request_time_)
-                   .time,
-               batch}));
+
+      LinkValue(WithExecutor(state_ptr->executor(),
+                             HandleReadMetadata{std::move(state)}),
+                std::move(promise),
+                base.metadata_cache_entry_->ReadMetadata(
+                    base.transaction_, {base.spec_->staleness.metadata
+                                            .BoundAtOpen(base.request_time_)
+                                            .time,
+                                        batch}));
       return;
     }
     // `tensorstore::Open` ensures that at least one of `OpenMode::create` and
@@ -1122,6 +1095,36 @@ Result<MetadataCache::MetadataPtr> MetadataCache::Entry::GetMetadata(
   TENSORSTORE_ASSIGN_OR_RETURN(auto metadata, node->GetUpdatedMetadata(),
                                this->AnnotateError(_, /*reading=*/false));
   return metadata;
+}
+
+Future<MetadataPtr> MetadataCache::Entry::ReadMetadata(
+    internal::OpenTransactionPtr transaction, AsyncCacheReadRequest request) {
+  auto& cache = GetOwningCache(*this);
+  if (transaction) {
+    TENSORSTORE_ASSIGN_OR_RETURN(auto node,
+                                 GetTransactionNode(*this, transaction));
+    auto read_future = node->Read(request);
+    return MapFuture(
+        cache.executor(),
+        [node = std::move(node)](
+            const Result<void>& result) -> Result<MetadataPtr> {
+          TENSORSTORE_RETURN_IF_ERROR(result);
+          TENSORSTORE_ASSIGN_OR_RETURN(
+              auto new_metadata, node->GetUpdatedMetadata(),
+              GetOwningEntry(*node).AnnotateError(_,
+                                                  /*reading=*/false));
+          return new_metadata;
+        },
+        std::move(read_future));
+  }
+  return MapFuture(
+      cache.executor(),
+      [entry = internal::PinnedCacheEntry<MetadataCache>(this)](
+          const Result<void>& result) -> Result<MetadataPtr> {
+        TENSORSTORE_RETURN_IF_ERROR(result);
+        return entry->GetMetadata();
+      },
+      this->Read(request));
 }
 
 Result<MetadataCache::MetadataPtr>
