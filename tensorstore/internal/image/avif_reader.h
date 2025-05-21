@@ -74,6 +74,9 @@ class AvifReader : public ImageReader {
     return DecodeImpl(dest, options);
   }
 
+  constexpr static size_t SIGNATURE_SIZE = 12;
+  static bool CheckSignature(std::string_view signature);
+
  private:
   absl::Status DecodeImpl(tensorstore::span<unsigned char> dest,
                           const AvifReaderOptions& options);

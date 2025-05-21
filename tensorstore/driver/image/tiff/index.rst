@@ -13,3 +13,9 @@ of TIFF files.
 .. json:schema:: driver/tiff
 
 .. json:schema:: TensorStoreUrl/tiff
+
+Auto detection
+--------------
+
+This driver supports :ref:`auto-detection<auto-driver>` based on the
+signature at the start of the file.

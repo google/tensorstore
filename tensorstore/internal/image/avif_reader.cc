@@ -19,12 +19,12 @@
 #include <string.h>
 
 #include <algorithm>
+#include <array>
 #include <memory>
-#include <string>
+#include <string_view>
 #include <utility>
 
 #include "absl/log/absl_check.h"
-#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/types/optional.h"
 #include "riegeli/bytes/reader.h"
@@ -306,6 +306,15 @@ absl::Status AvifDefaultDecode(avifDecoder* decoder,
 
 }  // namespace
 
+bool AvifReader::CheckSignature(std::string_view signature) {
+  if (signature.size() < SIGNATURE_SIZE) return false;
+  return memcmp("ftypavif", signature.data() + 4, 8) == 0 ||
+         memcmp("ftypheic", signature.data() + 4, 8) == 0 ||
+         memcmp("ftypheix", signature.data() + 4, 8) == 0 ||
+         memcmp("ftypmif1", signature.data() + 4, 8) == 0 ||
+         memcmp("ftypmsf1", signature.data() + 4, 8) == 0;
+}
+
 absl::Status AvifReader::Initialize(riegeli::Reader* reader) {
   ABSL_CHECK(reader != nullptr);
 
@@ -313,12 +322,7 @@ absl::Status AvifReader::Initialize(riegeli::Reader* reader) {
 
   /// Check the signature. (offset 4) "ftypavif", etc.
   if (!reader->Pull(12) ||
-      (  //
-          memcmp("ftypavif", reader->cursor() + 4, 8) == 0 &&
-          memcmp("ftypheic", reader->cursor() + 4, 8) == 0 &&
-          memcmp("ftypheix", reader->cursor() + 4, 8) == 0 &&
-          memcmp("ftypmif1", reader->cursor() + 4, 8) == 0 &&
-          memcmp("ftypmsf1", reader->cursor() + 4, 8) == 0)) {
+      !CheckSignature(std::string_view(reader->cursor(), SIGNATURE_SIZE))) {
     return absl::InvalidArgumentError(
         "Failed to decode AVIF: missing AVIF signature");
   }

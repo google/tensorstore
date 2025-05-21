@@ -14,3 +14,9 @@ Grey/GreyA/RGB/RGBA equivalent image.
 .. json:schema:: driver/avif
 
 .. json:schema:: TensorStoreUrl/avif
+
+Auto detection
+--------------
+
+This driver supports :ref:`auto-detection<auto-driver>` based on the
+signature at the start of the file.

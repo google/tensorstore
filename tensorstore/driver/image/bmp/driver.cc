@@ -13,19 +13,22 @@
 // limitations under the License.
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <array>
 
+#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "riegeli/bytes/cord_reader.h"
 #include "riegeli/bytes/cord_writer.h"
 #include "tensorstore/array.h"
-#include "tensorstore/data_type.h"
 #include "tensorstore/driver/image/driver_impl.h"
 #include "tensorstore/driver/registry.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/image/bmp_reader.h"
+#include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/kvstore/auto_detect.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
@@ -74,6 +77,9 @@ const internal::DriverRegistration<ImageDriverSpec<BmpSpecialization>>
 const ImageDriverSpec<BmpSpecialization>::UrlSchemeRegistration
     bmp_driver_url_registration;
 
+const internal_kvstore::AutoDetectRegistration auto_detect_registration{
+    internal_kvstore::AutoDetectFileSpec::PrefixSignature(BmpSpecialization::id,
+                                                          "BM")};
 }  // namespace
 }  // namespace internal_image_driver
 }  // namespace tensorstore

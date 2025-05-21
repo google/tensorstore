@@ -190,6 +190,7 @@ tensorstore_cc_library(
     deps = [
         ":image",
         "//tensorstore:data_type",
+        "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
         "@abseil-cpp//absl/base:core_headers",
