@@ -119,6 +119,30 @@ TEST(ZarrDriverTest, OpenNonExisting) {
                     "Metadata at \"prefix/zarr\\.json\" does not exist"));
 }
 
+TEST(ZarrDriverTest, OpenTransactional) {
+  auto context = Context::Default();
+  auto transaction = tensorstore::Transaction(tensorstore::isolated);
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open({{"driver", "zarr3"}, {"kvstore", "memory://"}},
+                          dtype_v<uint8_t>, tensorstore::Schema::Shape({1}),
+                          transaction, context, tensorstore::OpenMode::create)
+            .result());
+    // Reading `zarr.json` directly revokes the metadata cache entry.
+    EXPECT_THAT(
+        tensorstore::kvstore::Read(store.kvstore(), "zarr.json").result(),
+        MatchesKvsReadResult(::testing::Matcher<absl::Cord>(::testing::_)));
+  }
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open({{"driver", "zarr3"}, {"kvstore", "memory://"}},
+                          transaction, context)
+            .result());
+  }
+}
+
 TEST(ZarrDriverTest, OpenWithOpenKvStore) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto kvs, tensorstore::kvstore::Open("memory://").result());
