@@ -52,6 +52,9 @@ class WebPReader : public ImageReader {
     return DecodeImpl(dest, options);
   }
 
+  static constexpr size_t SIGNATURE_SIZE = 32;
+  static bool CheckSignature(std::string_view signature);
+
  private:
   absl::Status DecodeImpl(tensorstore::span<unsigned char> dest,
                           const WebPReaderOptions& options);

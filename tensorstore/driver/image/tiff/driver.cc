@@ -13,8 +13,11 @@
 // limitations under the License.
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <array>
+#include <optional>
+#include <utility>
 
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
@@ -25,10 +28,12 @@
 #include "tensorstore/driver/image/driver_impl.h"
 #include "tensorstore/driver/registry.h"
 #include "tensorstore/index.h"
+#include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/internal/image/tiff_reader.h"
 #include "tensorstore/internal/image/tiff_writer.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/std_optional.h"  // IWYU pragma: keep
+#include "tensorstore/kvstore/auto_detect.h"
 #include "tensorstore/serialization/std_optional.h"  // IWYU pragma: keep
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
@@ -137,6 +142,11 @@ const internal::DriverRegistration<ImageDriverSpec<TiffSpecialization>>
 
 const ImageDriverSpec<TiffSpecialization>::UrlSchemeRegistration
     tiff_driver_url_registration;
+
+const internal_kvstore::AutoDetectRegistration auto_detect_registration{
+    internal_kvstore::AutoDetectFileSpec::PrefixSignature(
+        TiffSpecialization::id, TiffReader::SIGNATURE_SIZE,
+        &TiffReader::CheckSignature)};
 
 }  // namespace
 }  // namespace internal_image_driver

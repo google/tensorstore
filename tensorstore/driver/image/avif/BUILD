@@ -36,6 +36,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/image",
         "//tensorstore/internal/image:avif",
         "//tensorstore/internal/json_binding",
+        "//tensorstore/kvstore:auto_detect",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",

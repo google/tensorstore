@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <array>
 
@@ -25,9 +26,11 @@
 #include "tensorstore/driver/image/driver_impl.h"
 #include "tensorstore/driver/registry.h"
 #include "tensorstore/index.h"
+#include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/internal/image/webp_reader.h"
 #include "tensorstore/internal/image/webp_writer.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/kvstore/auto_detect.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
@@ -105,6 +108,11 @@ const internal::DriverRegistration<ImageDriverSpec<WebPSpecialization>>
 
 const ImageDriverSpec<WebPSpecialization>::UrlSchemeRegistration
     webp_driver_url_registration;
+
+const internal_kvstore::AutoDetectRegistration auto_detect_registration{
+    internal_kvstore::AutoDetectFileSpec::PrefixSignature(
+        WebPSpecialization::id, WebPReader::SIGNATURE_SIZE,
+        &WebPReader::CheckSignature)};
 
 }  // namespace
 }  // namespace internal_image_driver

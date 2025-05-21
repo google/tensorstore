@@ -10,3 +10,9 @@ The ``bmp`` driver is experimental.
 .. json:schema:: driver/bmp
 
 .. json:schema:: TensorStoreUrl/bmp
+
+Auto detection
+--------------
+
+This driver supports :ref:`auto-detection<auto-driver>` based on the
+signature at the start of the file.

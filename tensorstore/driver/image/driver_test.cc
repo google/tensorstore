@@ -106,12 +106,25 @@ class ImageDriverReadTest : public ::testing::TestWithParam<P> {
     };
   }
 
+  ::nlohmann::json GetFullSpec() {
+    return ::nlohmann::json{
+        {"driver", GetParam().driver},
+        {"dtype", "uint8"},
+        {"kvstore", {{"driver", "memory"}, {"path", GetParam().path}}},
+        {"transform",
+         {
+             {"input_exclusive_max", {256, 256, 3}},
+             {"input_inclusive_min", {0, 0, 0}},
+         }},
+    };
+  }
+
   tensorstore::Result<tensorstore::Context> PrepareTest(
-      ::nlohmann::json& spec) {
+      const ::nlohmann::json& spec) {
     auto context = tensorstore::Context::Default();
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto kvs,
-        tensorstore::kvstore::Open(spec["kvstore"], context).result());
+        tensorstore::kvstore::Open(spec.at("kvstore"), context).result());
     TENSORSTORE_RETURN_IF_ERROR(
         tensorstore::kvstore::Write(kvs, {}, GetParam().data));
     return context;
@@ -132,18 +145,7 @@ TEST_P(ImageDriverReadTest, OpenAndResolveBounds) {
 
   {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec, store.spec());
-    EXPECT_THAT(
-        spec.ToJson(),
-        ::testing::Optional(MatchesJson({
-            {"driver", GetParam().driver},
-            {"dtype", "uint8"},
-            {"kvstore", {{"driver", "memory"}, {"path", GetParam().path}}},
-            {"transform",
-             {
-                 {"input_exclusive_max", {256, 256, 3}},
-                 {"input_inclusive_min", {0, 0, 0}},
-             }},
-        })));
+    EXPECT_THAT(spec.ToJson(), ::testing::Optional(MatchesJson(GetFullSpec())));
   }
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto resolved,
@@ -152,18 +154,7 @@ TEST_P(ImageDriverReadTest, OpenAndResolveBounds) {
   // Bounds are effectively resolved at open.
   {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec, resolved.spec());
-    EXPECT_THAT(
-        spec.ToJson(),
-        ::testing::Optional(MatchesJson({
-            {"driver", GetParam().driver},
-            {"dtype", "uint8"},
-            {"kvstore", {{"driver", "memory"}, {"path", GetParam().path}}},
-            {"transform",
-             {
-                 {"input_exclusive_max", {256, 256, 3}},
-                 {"input_inclusive_min", {0, 0, 0}},
-             }},
-        })));
+    EXPECT_THAT(spec.ToJson(), ::testing::Optional(MatchesJson(GetFullSpec())));
   }
 }
 
@@ -176,6 +167,18 @@ TEST_P(ImageDriverReadTest, UrlRoundtrip) {
        {"kvstore", {{"driver", "memory"}, {"path", GetParam().path}}}},
       tensorstore::StrCat("memory://", GetParam().path, "|", GetParam().driver,
                           ":"));
+}
+
+TEST_P(ImageDriverReadTest, AutoDetect) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto context, PrepareTest(GetSpec()));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(tensorstore::StrCat("memory://", GetParam().path),
+                        context)
+          .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec_obj, store.spec());
+  EXPECT_THAT(spec_obj.ToJson(),
+              ::testing::Optional(MatchesJson(GetFullSpec())));
 }
 
 TEST_P(ImageDriverReadTest, OpenSchemaDomainTooSmall) {

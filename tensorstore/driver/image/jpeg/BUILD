@@ -27,7 +27,6 @@ tensorstore_cc_library(
     copts = NO_STRINGOP_OVERLOAD,
     deps = [
         "//tensorstore:array",
-        "//tensorstore:data_type",
         "//tensorstore:index",
         "//tensorstore/driver",
         "//tensorstore/driver/image:driver_impl",
@@ -36,6 +35,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/image",
         "//tensorstore/internal/image:jpeg",
         "//tensorstore/internal/json_binding",
+        "//tensorstore/kvstore:auto_detect",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",

@@ -13,9 +13,11 @@
 // limitations under the License.
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <array>
 
+#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "riegeli/bytes/cord_reader.h"
 #include "riegeli/bytes/cord_writer.h"
@@ -24,9 +26,11 @@
 #include "tensorstore/driver/image/driver_impl.h"
 #include "tensorstore/driver/registry.h"
 #include "tensorstore/index.h"
+#include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/internal/image/png_reader.h"
 #include "tensorstore/internal/image/png_writer.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/kvstore/auto_detect.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
@@ -102,6 +106,10 @@ const internal::DriverRegistration<ImageDriverSpec<PngSpecialization>>
 const ImageDriverSpec<PngSpecialization>::UrlSchemeRegistration
     png_driver_url_registration;
 
+// https://en.wikipedia.org/wiki/PNG#File_header
+const internal_kvstore::AutoDetectRegistration auto_detect_registration{
+    internal_kvstore::AutoDetectFileSpec::PrefixSignature(
+        PngSpecialization::id, "\x89\x50\x4e\x47\xd\xa\x1a\xa")};
 }  // namespace
 }  // namespace internal_image_driver
 }  // namespace tensorstore

@@ -163,8 +163,8 @@ absl::Status WebPReader::Initialize(riegeli::Reader* reader) {
   ABSL_CHECK(reader != nullptr);
 
   /// Check the signature. "RIFF....WEBP", etc.
-  if (!reader->Pull(12) || (memcmp("RIFF", reader->cursor(), 4) != 0 ||
-                            memcmp("WEBP", reader->cursor() + 8, 4) != 0)) {
+  if (!reader->Pull(SIGNATURE_SIZE) ||
+      !CheckSignature(std::string_view(reader->cursor(), SIGNATURE_SIZE))) {
     return absl::InvalidArgumentError(
         "Failed to decode WEBP: missing WEBP signature");
   }
@@ -187,6 +187,13 @@ absl::Status WebPReader::DecodeImpl(tensorstore::span<unsigned char> dest,
   }
   auto context = std::move(context_);
   return context->Decode(dest, options);
+}
+
+bool WebPReader::CheckSignature(std::string_view signature) {
+  if (signature.size() < SIGNATURE_SIZE) return false;
+  WebPBitstreamFeatures features;
+  return WebPGetFeatures(reinterpret_cast<const uint8_t*>(signature.data()),
+                         SIGNATURE_SIZE, &features) == VP8_STATUS_OK;
 }
 
 }  // namespace internal_image

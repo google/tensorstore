@@ -30,6 +30,7 @@
 #include "tensorstore/internal/image/avif_writer.h"
 #include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/kvstore/auto_detect.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
@@ -107,6 +108,11 @@ const internal::DriverRegistration<ImageDriverSpec<AvifSpecialization>>
 
 const ImageDriverSpec<AvifSpecialization>::UrlSchemeRegistration
     avif_driver_url_registration;
+
+const internal_kvstore::AutoDetectRegistration auto_detect_registration{
+    internal_kvstore::AutoDetectFileSpec::PrefixSignature(
+        AvifSpecialization::id, AvifReader::SIGNATURE_SIZE,
+        &AvifReader::CheckSignature)};
 
 }  // namespace
 }  // namespace internal_image_driver

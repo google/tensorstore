@@ -17,24 +17,25 @@
 #include <assert.h>
 #include <errno.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 
 #include <algorithm>
 #include <cstring>
 #include <memory>
 #include <optional>
-#include <string>
+#include <string_view>
 #include <utility>
 
 #include "absl/base/attributes.h"
 #include "absl/log/absl_check.h"
-#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
 #include "riegeli/bytes/reader.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/internal/image/image_view.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 
@@ -535,6 +536,16 @@ absl::Status TiffReader::DecodeImpl(tensorstore::span<unsigned char> dest,
     return absl::InternalError("No TIFF file to decode");
   }
   return context_->DefaultDecode(dest);
+}
+
+bool TiffReader::CheckSignature(std::string_view signature) {
+  // Based on:
+  // https://github.com/opencv/opencv/blob/b5d38ea4cbfdb911155ed674b7a535839bc3d6f8/modules/imgcodecs/src/grfmt_tiff.cpp#L136
+  if (signature.size() < SIGNATURE_SIZE) return false;
+  return memcmp(signature.data(), "II\x2a\x00", 4) == 0 ||
+         memcmp(signature.data(), "MM\x00\x2a", 4) == 0 ||
+         memcmp(signature.data(), "II\x2b\x00", 4) == 0 ||
+         memcmp(signature.data(), "MM\x00\x2b", 4) == 0;
 }
 
 }  // namespace internal_image

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <array>
 
@@ -20,7 +21,6 @@
 #include "riegeli/bytes/cord_reader.h"
 #include "riegeli/bytes/cord_writer.h"
 #include "tensorstore/array.h"
-#include "tensorstore/data_type.h"
 #include "tensorstore/driver/image/driver_impl.h"
 #include "tensorstore/driver/registry.h"
 #include "tensorstore/index.h"
@@ -28,6 +28,7 @@
 #include "tensorstore/internal/image/jpeg_reader.h"
 #include "tensorstore/internal/image/jpeg_writer.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/kvstore/auto_detect.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
@@ -98,6 +99,9 @@ const internal::DriverRegistration<ImageDriverSpec<JpegSpecialization>>
 const ImageDriverSpec<JpegSpecialization>::UrlSchemeRegistration
     jpeg_driver_url_registration;
 
+const internal_kvstore::AutoDetectRegistration auto_detect_registration{
+    internal_kvstore::AutoDetectFileSpec::PrefixSignature(
+        JpegSpecialization::id, "\xff\xd8\xff")};
 }  // namespace
 }  // namespace internal_image_driver
 }  // namespace tensorstore
