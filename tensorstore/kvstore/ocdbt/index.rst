@@ -1085,3 +1085,9 @@ B+tree node footer
 
 ``crc32c_checksum``
   CRC-32C checksum of the entire B+tree node, excluding the checksum itself.
+
+Auto detection
+--------------
+
+This driver supports :ref:`auto-detection<auto-driver>` based on the
+presence of the :file:`manifest.ocdbt` file.

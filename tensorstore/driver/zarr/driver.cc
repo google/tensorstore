@@ -58,6 +58,7 @@
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/kvstore/auto_detect.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/open_mode.h"
@@ -563,4 +564,10 @@ const tensorstore::internal::DriverRegistration<
 const tensorstore::internal::UrlSchemeRegistration url_scheme_registration(
     tensorstore::internal_zarr::kUrlScheme,
     tensorstore::internal_zarr::ParseZarrUrl);
+
+const tensorstore::internal_kvstore::AutoDetectRegistration
+    auto_detect_registration{
+        tensorstore::internal_kvstore::AutoDetectDirectorySpec::SingleFile(
+            tensorstore::internal_zarr::kUrlScheme,
+            tensorstore::internal_zarr::kDefaultMetadataKey)};
 }  // namespace

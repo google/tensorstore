@@ -114,6 +114,21 @@ class MockKeyValueStore : public kvstore::Driver {
   ConcurrentQueue<ListRequest> list_requests;
   ConcurrentQueue<DeleteRangeRequest> delete_range_requests;
 
+  using ReadHandler = std::function<void(ReadRequest)>;
+  ReadHandler read_handler;
+
+  using BatchReadHandler = std::function<void(BatchReadRequest)>;
+  BatchReadHandler batch_read_handler;
+
+  using WriteHandler = std::function<void(WriteRequest)>;
+  WriteHandler write_handler;
+
+  using ListHandler = std::function<void(ListRequest)>;
+  ListHandler list_handler;
+
+  using DeleteRangeHandler = std::function<void(DeleteRangeRequest)>;
+  DeleteRangeHandler delete_range_handler;
+
   // If set to `true`, all requests are logged to `request_log`.  In conjunction
   // with `forward_to`, tests can set this option and then validate that
   // `request_log.pop_all()` contains the expected sequence of operations.

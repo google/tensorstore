@@ -159,6 +159,18 @@ Result<TransformedDriverSpec> GetTransformedDriverSpecFromUrl(
     std::string_view url) {
   std::variant<std::monostate, kvstore::Spec, TransformedDriverSpec> spec;
 
+  auto maybe_apply_auto = [&]() -> absl::Status {
+    if (auto* kvstore_spec = std::get_if<kvstore::Spec>(&spec)) {
+      // Attempt to use `auto` driver if it is linked in.
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          spec,
+          GetTransformedDriverKvStoreAdapterSpecFromUrl(
+              "auto", std::move(*kvstore_spec)),
+          absl::UnimplementedError("\"auto\" driver not included in build"));
+    }
+    return absl::OkStatus();
+  };
+
   auto apply_component = [&](std::string_view component) -> absl::Status {
     auto scheme = static_cast<std::array<std::string_view, 1>>(
         absl::StrSplit(component, ':'))[0];
@@ -209,7 +221,8 @@ Result<TransformedDriverSpec> GetTransformedDriverSpecFromUrl(
           return fail();
         }
         break;
-      case UrlSchemeKind::kTensorStoreAdapter:
+      case UrlSchemeKind::kTensorStoreAdapter: {
+        TENSORSTORE_RETURN_IF_ERROR(maybe_apply_auto());
         if (auto* transformed_driver_spec =
                 std::get_if<TransformedDriverSpec>(&spec)) {
           TENSORSTORE_ASSIGN_OR_RETURN(
@@ -219,6 +232,7 @@ Result<TransformedDriverSpec> GetTransformedDriverSpecFromUrl(
           return fail();
         }
         break;
+      }
       case UrlSchemeKind::kTensorStoreKvStoreAdapter:
         if (auto* kvstore_spec = std::get_if<kvstore::Spec>(&spec)) {
           TENSORSTORE_ASSIGN_OR_RETURN(
@@ -242,10 +256,7 @@ Result<TransformedDriverSpec> GetTransformedDriverSpecFromUrl(
     return absl::InvalidArgumentError("Non-empty URL must be specified");
   }
 
-  if (std::holds_alternative<kvstore::Spec>(spec)) {
-    return absl::UnimplementedError(
-        "KvStore-based TensorStore format auto-detection not implemented");
-  }
+  TENSORSTORE_RETURN_IF_ERROR(maybe_apply_auto());
 
   return std::move(std::get<TransformedDriverSpec>(spec));
 }

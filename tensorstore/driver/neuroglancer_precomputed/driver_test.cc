@@ -1285,6 +1285,7 @@ TENSORSTORE_GLOBAL_INITIALIZER {
                             {"input_exclusive_max", {11, 101, 101, 4}},
                             {"input_inclusive_min", {1, 2, 3, 0}}}}};
   options.url = "memory://prefix/|neuroglancer-precomputed:";
+  options.check_auto_detect = true;
   tensorstore::internal::RegisterTensorStoreDriverSpecRoundtripTest(
       std::move(options));
 }

@@ -45,6 +45,7 @@
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/array_testutil.h"
+#include "tensorstore/auto.h"
 #include "tensorstore/box.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/context.h"
@@ -302,6 +303,25 @@ void TestTensorStoreDriverSpecRoundtrip(
           ::testing::Optional(value_to_create));
     }
     EXPECT_THAT(store_from_url.ToUrl(), ::testing::Optional(options.url));
+  }
+
+  if (options.check_auto_detect) {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec_obj,
+                                     Spec::FromJson(options.minimal_spec));
+    auto kvstore_spec = spec_obj.kvstore();
+    ASSERT_TRUE(kvstore_spec.valid());
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open(AutoSpec(kvstore_spec), context).result());
+    if (write_value) {
+      EXPECT_THAT(tensorstore::Read(store | tensorstore::AllDims().IndexSlice(
+                                                domain.origin()))
+                      .result(),
+                  ::testing::Optional(value_to_create));
+    }
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto roundtrip_spec_obj, store.spec());
+    EXPECT_THAT(roundtrip_spec_obj.ToJson(),
+                ::testing::Optional(MatchesJson(options.full_spec)));
   }
 }
 }  // namespace

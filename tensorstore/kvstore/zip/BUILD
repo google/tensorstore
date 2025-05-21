@@ -39,6 +39,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/kvstore",
+        "//tensorstore/kvstore:auto_detect",
         "//tensorstore/kvstore:byte_range",
         "//tensorstore/kvstore:common_metrics",
         "//tensorstore/kvstore:generation",

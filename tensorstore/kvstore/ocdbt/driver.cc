@@ -41,6 +41,7 @@
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/ref_counted_string.h"
 #include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/kvstore/auto_detect.h"
 #include "tensorstore/kvstore/common_metrics.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
@@ -591,4 +592,9 @@ const tensorstore::internal_kvstore::UrlSchemeRegistration
     url_scheme_registration{tensorstore::internal_ocdbt::OcdbtDriverSpec::id,
                             tensorstore::internal_ocdbt::ParseOcdbtUrl};
 
+const tensorstore::internal_kvstore::AutoDetectRegistration
+    auto_detect_registration{
+        tensorstore::internal_kvstore::AutoDetectDirectorySpec::SingleFile(
+            tensorstore::internal_ocdbt::OcdbtDriverSpec::id,
+            tensorstore::internal_ocdbt::kManifestFilename)};
 }  // namespace

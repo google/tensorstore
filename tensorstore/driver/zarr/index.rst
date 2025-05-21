@@ -473,6 +473,12 @@ The zarr format allows the fill value to be unspecified, indicated by a
 TensorStore always uses a fill value of :json:`0`.  However, in this case
 explicitly-written all-zero chunks are still stored.
 
+Auto detection
+--------------
+
+This driver supports :ref:`auto-detection<auto-driver>` based on the
+presence of the :file:`.zarray` file.
+
 Limitations
 -----------
 

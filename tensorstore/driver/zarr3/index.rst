@@ -343,3 +343,9 @@ The :json:schema:`Schema.dimension_units` property corresponds to the
 :json:schema:`~driver/zarr3/Metadata.attributes.dimension_units` and
 :json:schema:`~driver/n5.metadata.resolution` metadata property.  The base unit
 is used directly; it is not converted in any way.
+
+Auto detection
+--------------
+
+This driver supports :ref:`auto-detection<auto-driver>` based on the
+presence of the :file:`zarr.json` file.
