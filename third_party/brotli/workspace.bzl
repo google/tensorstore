@@ -21,11 +21,11 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "brotli",
+        doc_version = "1.1.0-20250426-440e036",
         urls = [
             "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/google/brotli/archive/440e03642b891968a76b6d088d70f01f06e0c349.zip",  # master(2025-04-26)
         ],
         sha256 = "1c8d49d72f5cb1ca892ca4bc38021c7bd94a74f10cc493b6756b8dd550701189",
-        doc_version = "1.0.9-20240910-39bcecf",
         strip_prefix = "brotli-440e03642b891968a76b6d088d70f01f06e0c349",
         patches = [
             Label("//third_party:brotli/patches/fix_ror.diff"),
