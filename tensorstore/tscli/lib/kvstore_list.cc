@@ -102,7 +102,7 @@ absl::Status KvstoreList(
   }
   for (const auto& entry : list_entries) {
     if (re_string.empty() || RE2::FullMatch(entry.key, re2)) {
-      output << formatter(max_width, entry);
+      output << formatter(max_width, entry) << std::endl;
     }
   }
 

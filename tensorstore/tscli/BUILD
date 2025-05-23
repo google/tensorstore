@@ -38,6 +38,7 @@ tensorstore_cc_library(
     srcs = [
         "copy_command.cc",
         "list_command.cc",
+        "ocdbt_dump_command.cc",
         "print_spec_command.cc",
         "print_stats_command.cc",
         "search_command.cc",
@@ -45,6 +46,7 @@ tensorstore_cc_library(
     hdrs = [
         "copy_command.h",
         "list_command.h",
+        "ocdbt_dump_command.h",
         "print_spec_command.h",
         "print_stats_command.h",
         "search_command.h",
@@ -60,6 +62,7 @@ tensorstore_cc_library(
         "//tensorstore/kvstore",
         "//tensorstore/tscli/lib:kvstore_copy",
         "//tensorstore/tscli/lib:kvstore_list",
+        "//tensorstore/tscli/lib:ocdbt_dump",
         "//tensorstore/tscli/lib:ts_print_spec",
         "//tensorstore/tscli/lib:ts_print_stats",
         "//tensorstore/tscli/lib:ts_search",

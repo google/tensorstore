@@ -37,6 +37,26 @@ namespace tensorstore {
 namespace cli {
 namespace {
 
+static constexpr const char kCommand[] = R"(List the contents of a kvstore
+
+At least one spec must be provided either as a positional argument or via
+the --source flag.
+)";
+
+static constexpr const char kSource[] = R"(Source kvstore spec.)";
+
+static constexpr const char kMatch[] = R"(Glob matching patterns.
+
+Kvstore values are listed if they match any of the patterns.
+When not specified, all keys are listed.
+)";
+
+static constexpr const char kPosition[] = R"(Spec or glob matching pattern.
+
+When --source is not provided, positional arguments are treated as kvstore specs.
+Otherwise, positional arguments are treated as glob matching patterns.
+)";
+
 std::string FormatBytesHumanReadable(int64_t num_bytes) {
   if (num_bytes < 0) return "";
 
@@ -80,7 +100,7 @@ struct Formatter {
 
 }  // namespace
 
-ListCommand::ListCommand() : Command("list", "List the contents of a kvstore") {
+ListCommand::ListCommand() : Command("list", kCommand) {
   AddAlias("ls");
 
   auto set_brief = [this]() {
@@ -97,39 +117,38 @@ ListCommand::ListCommand() : Command("list", "List the contents of a kvstore") {
   parser().AddBoolOption("-b", "Brief", set_brief);
   parser().AddBoolOption("--brief", "Brief", set_brief);
 
-  parser().AddLongOption(
-      "--source", "Source kvstore spec", [this](std::string_view value) {
-        tensorstore::JsonAbslFlag<tensorstore::kvstore::Spec> spec;
-        std::string error;
-        if (!AbslParseFlag(value, &spec, &error)) {
-          return absl::InvalidArgumentError(
-              absl::StrCat("Invalid spec: ", value, " ", error));
-        }
-        has_source_ = true;
-        sources_.push_back(spec.value);
-        return absl::OkStatus();
-      });
-
-  parser().AddLongOption("--match", "Glob matching patterns",
-                         [this](std::string_view value) {
-                           match_args_.push_back(value);
-                           return absl::OkStatus();
-                         });
-
-  parser().AddPositionalArgs("spec/match", [this](std::string_view value) {
-    if (has_source_) {
-      match_args_.push_back(value);
-      return absl::OkStatus();
-    }
+  parser().AddLongOption("--source", kSource, [this](std::string_view value) {
     tensorstore::JsonAbslFlag<tensorstore::kvstore::Spec> spec;
     std::string error;
     if (!AbslParseFlag(value, &spec, &error)) {
       return absl::InvalidArgumentError(
           absl::StrCat("Invalid spec: ", value, " ", error));
     }
+    has_source_ = true;
     sources_.push_back(spec.value);
     return absl::OkStatus();
   });
+
+  parser().AddLongOption("--match", kMatch, [this](std::string_view value) {
+    match_args_.push_back(value);
+    return absl::OkStatus();
+  });
+
+  parser().AddPositionalArgs(
+      "spec/match", kPosition, [this](std::string_view value) {
+        if (has_source_) {
+          match_args_.push_back(value);
+          return absl::OkStatus();
+        }
+        tensorstore::JsonAbslFlag<tensorstore::kvstore::Spec> spec;
+        std::string error;
+        if (!AbslParseFlag(value, &spec, &error)) {
+          return absl::InvalidArgumentError(
+              absl::StrCat("Invalid spec: ", value, " ", error));
+        }
+        sources_.push_back(spec.value);
+        return absl::OkStatus();
+      });
 }
 
 absl::Status ListCommand::Run(Context::Spec context_spec) {

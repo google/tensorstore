@@ -29,13 +29,25 @@
 
 namespace tensorstore {
 namespace cli {
+namespace {
 
-PrintSpecCommand::PrintSpecCommand()
-    : Command("print_spec", "Print the spec of a TensorStore") {
-  parser().AddBoolOption("--include_defaults", "Include defaults", [this]() {
+static constexpr const char kCommand[] = R"(Print a tensorstore spec.)";
+
+static constexpr const char kIncludeDefaults[] = R"(Include defaults.
+
+Passes the IncludeDefaults argument to the underlying tensorstore's spec
+serialization.
+)";
+
+static constexpr const char kNoIncludeDefaults[] = "Include defaults.";
+
+}  // namespace
+
+PrintSpecCommand::PrintSpecCommand() : Command("print_spec", kCommand) {
+  parser().AddBoolOption("--include_defaults", kIncludeDefaults, [this]() {
     include_defaults_ = IncludeDefaults(true);
   });
-  parser().AddBoolOption("--noinclude_defaults", "Include defaults", [this]() {
+  parser().AddBoolOption("--noinclude_defaults", kNoIncludeDefaults, [this]() {
     include_defaults_ = IncludeDefaults(false);
   });
 
@@ -51,7 +63,8 @@ PrintSpecCommand::PrintSpecCommand()
   };
 
   parser().AddLongOption("--spec", "Tensorstore spec", parse_spec);
-  parser().AddPositionalArgs("tensorstore spec", parse_spec);
+  parser().AddPositionalArgs("tensorstore spec", "Tensorstore spec",
+                             parse_spec);
 }
 
 absl::Status PrintSpecCommand::Run(Context::Spec context_spec) {

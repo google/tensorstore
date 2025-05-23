@@ -16,6 +16,7 @@
 #define TENSORSTORE_TSCLI_ARGS_H_
 
 #include <functional>
+#include <optional>
 #include <ostream>
 #include <string_view>
 #include <vector>
@@ -52,7 +53,8 @@ class CommandParser {
                      ParseBoolOption fn);
 
   // Adds a function to consume positional arguments.
-  void AddPositionalArgs(std::string_view name, ParseLongOption fn);
+  void AddPositionalArgs(std::string_view name, std::string_view description,
+                         ParseLongOption fn);
 
   void PrintHelp(std::ostream& out);
 
@@ -60,6 +62,8 @@ class CommandParser {
                         tensorstore::span<char*> positional_args);
 
  private:
+  std::string_view description() const { return description_; }
+
   // Representation of a "long" cli option--one which takes a value.
   struct LongOption {
     // Long option name. Should begin with a "--" prefix.
@@ -80,14 +84,20 @@ class CommandParser {
     ParseBoolOption found;
   };
 
-  std::string_view short_description() const { return description_; }
+  struct PositionalArg {
+    // Name of the positional argument. Should be a single word.
+    std::string_view name;
+    // Description of the positional argument.
+    std::string_view description;
+    // Parsing function.
+    ParsePositionalArg parse;
+  };
 
   std::string_view name_;
   std::string_view description_;
   std::vector<LongOption> long_options_;
   std::vector<BoolOption> bool_options_;
-  std::string_view positional_name_;
-  ParsePositionalArg positional_fn_;
+  std::optional<PositionalArg> positional_;
 };
 
 }  // namespace cli

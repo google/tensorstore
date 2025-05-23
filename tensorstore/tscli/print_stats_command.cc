@@ -59,26 +59,27 @@ PrintStatsCommand::PrintStatsCommand()
         return absl::OkStatus();
       });
 
-  parser().AddPositionalArgs("spec/box", [this](std::string_view value) {
-    if (has_spec_) {
-      tensorstore::JsonAbslFlag<Box<>> box_flag;
-      std::string error;
-      if (!AbslParseFlag(value, &box_flag, &error)) {
-        return absl::InvalidArgumentError(
-            absl::StrCat("Invalid box: ", value, " ", error));
-      }
-      boxes_.push_back(std::move(box_flag).value);
-      return absl::OkStatus();
-    }
-    tensorstore::JsonAbslFlag<tensorstore::Spec> arg_spec;
-    std::string error;
-    if (!AbslParseFlag(value, &arg_spec, &error)) {
-      return absl::InvalidArgumentError(
-          absl::StrCat("Invalid spec: ", value, " ", error));
-    }
-    specs_.push_back(arg_spec.value);
-    return absl::OkStatus();
-  });
+  parser().AddPositionalArgs(
+      "spec/box", "Tensorstore spec or box", [this](std::string_view value) {
+        if (has_spec_) {
+          tensorstore::JsonAbslFlag<Box<>> box_flag;
+          std::string error;
+          if (!AbslParseFlag(value, &box_flag, &error)) {
+            return absl::InvalidArgumentError(
+                absl::StrCat("Invalid box: ", value, " ", error));
+          }
+          boxes_.push_back(std::move(box_flag).value);
+          return absl::OkStatus();
+        }
+        tensorstore::JsonAbslFlag<tensorstore::Spec> arg_spec;
+        std::string error;
+        if (!AbslParseFlag(value, &arg_spec, &error)) {
+          return absl::InvalidArgumentError(
+              absl::StrCat("Invalid spec: ", value, " ", error));
+        }
+        specs_.push_back(arg_spec.value);
+        return absl::OkStatus();
+      });
 }
 
 absl::Status PrintStatsCommand::Run(Context::Spec context_spec) {
