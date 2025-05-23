@@ -18,7 +18,7 @@
 import io
 import itertools
 import pathlib
-from typing import Any, Collection, Dict, Iterable, List, Optional, cast
+from typing import Any, Collection, Dict, Iterable, List, NamedTuple, Optional, cast
 
 from .cmake_repository import CMakeRepository
 from .cmake_repository import PROJECT_BINARY_DIR
@@ -46,6 +46,13 @@ _HEADER_SRC_PATTERN = r"\.(?:h|hpp|inc)$"
 _ASM_SRC_PATTERN = r"\.(?:s|S|asm)$"
 
 
+class TargetIncludes(NamedTuple):
+
+  system: set[pathlib.PurePath | str]
+  public: set[pathlib.PurePath | str]
+  private: set[pathlib.PurePath | str]
+
+
 def default_asm_dialect(workspace: Workspace) -> str:
   """Returns the ASM dialect to use for ASM `srcs` to `cc_*`."""
   if workspace.cmake_vars["CMAKE_CXX_COMPILER_ID"] == "MSVC":
@@ -64,6 +71,7 @@ def _emit_cc_common_options(
     defines: Optional[Iterable[str]] = None,
     local_defines: Optional[Iterable[str]] = None,
     includes: Optional[Iterable[str]] = None,
+    system_includes: Optional[Iterable[str]] = None,
     private_includes: Optional[Iterable[str]] = None,
     add_dependencies: Optional[Iterable[str]] = None,
     extra_public_compile_options: Optional[Iterable[str]] = None,
@@ -104,37 +112,58 @@ def _emit_cc_common_options(
         link_options.append(x)
     if link_libs:
       out.write(
-          f"target_link_libraries({target_name} {public_context}{_SEP}{quote_list(link_libs, separator=_SEP)})\n"
+          f"target_link_libraries({target_name} {public_context}{_SEP}"
+          f"{quote_list(link_libs, separator=_SEP)})\n"
       )
     if link_options:
       out.write(
-          f"target_link_options({target_name} {public_context}{_SEP}{quote_list(link_options, separator=_SEP)})\n"
+          f"target_link_options({target_name} {public_context}{_SEP}"
+          f"{quote_list(link_options, separator=_SEP)})\n"
       )
 
   if private_link_libraries:
     private_link_libs: List[str] = sorted(private_link_libraries)
+    assert not interface_only, (
+        f"{target_name}: interface_only cannot be set with"
+        " private_link_libraries"
+    )
     out.write(
-        f"target_link_libraries({target_name} PRIVATE{_SEP}{quote_list(private_link_libs, separator=_SEP)})\n"
+        f"target_link_libraries({target_name} PRIVATE{_SEP}"
+        f"{quote_list(private_link_libs, separator=_SEP)})\n"
     )
 
-  include_dirs = [
-      f"$<BUILD_INTERFACE:{include_dir}>"
-      for include_dir in sorted(set(includes))
-  ]
-  if include_dirs:
-    out.write(
-        f"target_include_directories({target_name} {public_context}"
-        f"{_SEP}{quote_path_list(include_dirs, separator=_SEP)})\n"
-    )
+  # Only add the include dirs to one of SYSTEM, PUBLIC, or PRIVATE.
+  seen_include_dirs = set()
+
+  def _make_include_dirs(includes: Iterable[str]) -> List[str]:
+    nonlocal seen_include_dirs
+    for x in includes:
+      if x not in seen_include_dirs:
+        seen_include_dirs.add(x)
+        yield f"$<BUILD_INTERFACE:{x}>"
+
+  if system_includes:
+    ordered = [x for x in _make_include_dirs(sorted(set(system_includes)))]
+    if ordered:
+      out.write(
+          f"target_include_directories({target_name} SYSTEM {public_context}"
+          f"{_SEP}{quote_path_list(ordered, separator=_SEP)})\n"
+      )
+
+  if includes:
+    ordered = [x for x in _make_include_dirs(sorted(set(includes)))]
+    if ordered:
+      out.write(
+          f"target_include_directories({target_name} {public_context}"
+          f"{_SEP}{quote_path_list(ordered, separator=_SEP)})\n"
+      )
+
   if not interface_only and private_includes:
-    include_dirs = [
-        f"$<BUILD_INTERFACE:{include_dir}>"
-        for include_dir in sorted(set(private_includes))
-    ]
-    if include_dirs:
+    ordered = [x for x in _make_include_dirs(sorted(set(private_includes)))]
+    if ordered:
       out.write(
           f"target_include_directories({target_name} PRIVATE"
-          f"{_SEP}{quote_path_list(include_dirs, separator=_SEP)})\n"
+          f"{_SEP}{quote_path_list(ordered, separator=_SEP)})\n"
       )
 
   out.write(
@@ -187,8 +216,8 @@ def construct_cc_includes(
     include_prefix: Optional[str] = None,
     strip_include_prefix: Optional[str] = None,
     known_include_files: Optional[PathCollection] = None,
-) -> set[pathlib.PurePath]:
-  """Returns the list of system includes for the configuration.
+) -> TargetIncludes:
+  """Returns the set of system and public includes for the configuration.
 
   By default Bazel generates private includes (-iquote) for the SRCDIR
   and a few other directories.  When `includes` is set, then bazel generates
@@ -201,7 +230,10 @@ def construct_cc_includes(
   if known_include_files is None:
     known_include_files = []
 
-  include_dirs: set[pathlib.PurePath] = set()
+  system: set[pathlib.PurePath] = set()
+  public: set[pathlib.PurePath] = set()
+  private: set[pathlib.PurePath] = set()
+
   current_package_path = pathlib.PurePosixPath(current_package_id.package_name)
 
   # This include manipulation is a best effort that works for known cases.
@@ -220,8 +252,7 @@ def construct_cc_includes(
     # all targets; bazel currently requires them, however they interfere in
     # the CMake build, so remove them.
     if (
-        current_package_id.repository_id.repository_name
-        == "grpc"
+        current_package_id.repository_id.repository_name == "grpc"
         and include
         in ["src/core/ext/upb-generated", "src/core/ext/upbdefs-generated"]
     ):
@@ -231,8 +262,8 @@ def construct_cc_includes(
     if constructed[0] == "/":
       constructed = constructed[1:]
 
-    include_dirs.add(source_directory.joinpath(constructed))
-    include_dirs.add(cmake_binary_dir.joinpath(constructed))
+    system.add(source_directory.joinpath(constructed))
+    system.add(cmake_binary_dir.joinpath(constructed))
 
   # For the package foo/bar
   #  - default include path is foo/bar/file.h
@@ -264,7 +295,7 @@ def construct_cc_includes(
     for x in known_include_files:
       (c, _) = make_relative_path(x, (src_path, src_path), (bin_path, bin_path))
       if c is not None:
-        include_dirs.add(c)
+        public.add(c)
 
   if include_prefix is not None:
     # The prefix to add to the paths of the headers of this rule.
@@ -290,19 +321,28 @@ def construct_cc_includes(
             x, (src_path, src_path), (bin_path, bin_path)
         )
         if c is not None:
-          include_dirs.add(c)
+          public.add(c)
 
   # HACK: Bazel does not add such a fallback, but since three are potential
   # includes CMake needs to include SRC/BIN as interface includes.
-  if not include_dirs:
+  if not public and not system:
     src_path = source_directory
     bin_path = cmake_binary_dir
     for x in known_include_files:
       (c, _) = make_relative_path(x, (src_path, src_path), (bin_path, bin_path))
       if c is not None:
-        include_dirs.add(c)
+        public.add(c)
 
-  return include_dirs
+  if PROJECT_SOURCE_DIR not in public and PROJECT_SOURCE_DIR not in system:
+    private.add(PROJECT_SOURCE_DIR)
+  if PROJECT_BINARY_DIR not in public and PROJECT_BINARY_DIR not in system:
+    for x in known_include_files:
+      x_path = pathlib.PurePath(x)
+      if is_relative_to(x_path, cmake_binary_dir):
+        private.add(PROJECT_BINARY_DIR)
+        break
+
+  return TargetIncludes(system, public, private)
 
 
 def construct_cc_private_includes(
@@ -327,7 +367,7 @@ def construct_cc_private_includes(
 
 def handle_cc_common_options(
     _context: InvocationContext,
-    src_required=False,
+    _src_required=False,
     add_dependencies: Optional[Collection[CMakeTarget]] = None,
     srcs: Optional[Collection[TargetId]] = None,
     deps: Optional[Collection[TargetId]] = None,
@@ -357,7 +397,7 @@ def handle_cc_common_options(
   srcs_collector = state.collect_targets(srcs)
   srcs_file_paths = list(srcs_collector.file_paths())
 
-  if src_required and not srcs_file_paths:
+  if _src_required and not srcs_file_paths:
     srcs_file_paths = [state.get_placeholder_source()]
 
   deps_collector = state.collect_deps(deps)
@@ -441,23 +481,23 @@ def handle_cc_common_options(
   )
 
   includes = apply_substitutions("includes", includes)
-  result["includes"] = repo.replace_with_cmake_macro_dirs(
-      construct_cc_includes(
-          _context.caller_package_id,
-          source_directory=_source_directory,
-          cmake_binary_dir=_cmake_binary_dir,
-          includes=includes,
-          include_prefix=include_prefix,
-          strip_include_prefix=strip_include_prefix,
-          known_include_files=known_include_files,
-      )
-  )
 
-  result["private_includes"] = construct_cc_private_includes(
-      repo,
-      includes=result["includes"],
+  target_includes = construct_cc_includes(
+      _context.caller_package_id,
+      source_directory=_source_directory,
+      cmake_binary_dir=_cmake_binary_dir,
+      includes=includes,
+      include_prefix=include_prefix,
+      strip_include_prefix=strip_include_prefix,
       known_include_files=known_include_files,
   )
+  result["includes"] = repo.replace_with_cmake_macro_dirs(
+      target_includes.public
+  )
+  result["system_includes"] = repo.replace_with_cmake_macro_dirs(
+      target_includes.system
+  )
+  result["private_includes"] = target_includes.private
 
   return result
 

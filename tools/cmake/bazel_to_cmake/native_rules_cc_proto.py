@@ -180,7 +180,7 @@ def cc_proto_library_impl(
 
   common_options = handle_cc_common_options(
       _context,
-      src_required=True,
+      _src_required=True,
       srcs=[],
       deps=aspect_deps,
       includes=None,

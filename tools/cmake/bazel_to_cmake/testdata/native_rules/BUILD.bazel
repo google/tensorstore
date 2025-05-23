@@ -10,9 +10,22 @@ cc_library(
 
 cc_library(
     name = "b",
-    hdrs = ["b.h"],
     srcs = ["b.cc"],
+    hdrs = ["b.h"],
     implementation_deps = [":a"],
+)
+
+cc_library(
+    name = "b_public",
+    hdrs = ["b.h"],
+    implementation_deps = [":a"],
+)
+
+cc_library(
+    name = "b_public_isystem",
+    hdrs = ["b.h"],
+    implementation_deps = [":a"],
+    includes = ["."],
 )
 
 cc_binary(

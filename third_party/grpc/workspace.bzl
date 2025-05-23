@@ -39,7 +39,7 @@ def repo():
         repo_mapping = {
             "@com_github_cares_cares": "@c-ares",
             "@com_github_cncf_xds": "@xds",
-            "@com_github_google_benchmark": "@com_google_benchmark",
+            "@com_github_google_benchmark": "@google_benchmark",
             "@com_google_absl": "@abseil-cpp",
             "@com_google_googleapis": "@googleapis",
             "@com_google_googletest": "@googletest",

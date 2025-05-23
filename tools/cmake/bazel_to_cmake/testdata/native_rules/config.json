@@ -5,6 +5,8 @@
     "//:a_alias",
     "//:a_test",
     "//:b",
+    "//:b_public",
+    "//:b_public_isystem",
     "//:bb",
     "//:c_proto",
     "//:c_proto_2",

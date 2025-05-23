@@ -138,8 +138,16 @@ def _cc_library_impl(
 
   cmake_target_pair = state.generate_cmake_target_pair(_target)
 
+  # If the library is alwayslink or has implementation_deps, then it
+  # cannot be a CMake INTERFACE library and must have a source file.
+  src_required: bool = bool(
+      kwargs.get("alwayslink", False)
+      or kwargs.get("implementation_deps", False)
+  )
+
   common_options = handle_cc_common_options(
       _context,
+      _src_required=src_required,
       add_dependencies=add_dependencies,
       hdrs_file_paths=list(hdrs_collector.file_paths()),
       textual_hdrs_file_paths=list(textual_hdrs_collector.file_paths()),
@@ -197,7 +205,7 @@ def _cc_binary_impl(_context: InvocationContext, _target: TargetId, **kwargs):
   ).generate_cmake_target_pair(_target)
 
   common_options = handle_cc_common_options(
-      _context, src_required=True, **kwargs
+      _context, _src_required=True, **kwargs
   )
 
   out = io.StringIO()
@@ -266,7 +274,7 @@ def _cc_test_impl(
   ]
 
   common_options = handle_cc_common_options(
-      _context, src_required=True, **kwargs
+      _context, _src_required=True, **kwargs
   )
   # Translate tags to CMake properties.
   # https://cmake.org/cmake/help/latest/manual/cmake-properties.7.html#test-properties
