@@ -160,17 +160,18 @@ def _proto_library_impl(
   assert repo is not None
 
   # strip_import_prefix and import_prefix behave the same as for cc_library
-  includes = repo.replace_with_cmake_macro_dirs(
-      construct_cc_includes(
-          _context.caller_package_id,
-          source_directory=repo.source_directory,
-          cmake_binary_dir=repo.cmake_binary_dir,
-          includes=None,
-          include_prefix=import_prefix,
-          strip_include_prefix=strip_import_prefix,
-          known_include_files=proto_src_files,
-      )
+  target_includes = construct_cc_includes(
+      _context.caller_package_id,
+      source_directory=repo.source_directory,
+      cmake_binary_dir=repo.cmake_binary_dir,
+      includes=None,
+      include_prefix=import_prefix,
+      strip_include_prefix=strip_import_prefix,
+      known_include_files=proto_src_files,
   )
+  includes = set(repo.replace_with_cmake_macro_dirs(
+      target_includes.public | target_includes.system
+  ))
 
   # Sanity check; if there are sources, then there should be includes.
   if proto_src_files:
@@ -186,7 +187,7 @@ def _proto_library_impl(
       cmake_binary_dir=repo.cmake_binary_dir,
       add_dependencies=list(srcs_collector.add_dependencies()),
       link_libraries=deps_collector.link_libraries(),
-      includes=set(includes),
+      includes=includes,
   )
   if cmake_target_pair.alias is not None:
     out.write(

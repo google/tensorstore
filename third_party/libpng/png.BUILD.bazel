@@ -1,21 +1,25 @@
-load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_license//rules:license.bzl", "license")
 
-licenses(["notice"])  # BSD/MIT-like license
-
-exports_files(["LICENSE"])
-
-libpng_local_defines = select(
-    {
-        "@platforms//os:windows": ["PNG_INTEL_SSE_OPT=1"],
-        "//conditions:default": [],
-    },
+package(
+    default_applicable_licenses = [":license"],
 )
 
-libpng_linkopts = select(
-    {
-        "@platforms//os:windows": [],
-        "//conditions:default": ["-lm"],
-    },
+exports_files([
+    "LICENSE",
+])
+
+license(
+    name = "license",
+    license_kinds = ["@rules_license//licenses/spdx:libpng-2.0"],
+    license_text = "LICENSE",
+)
+
+copy_file(
+    name = "pnglibconf",
+    out = "pnglibconf.h",
+    src = "scripts/pnglibconf.h.prebuilt",
 )
 
 cc_library(
@@ -41,56 +45,74 @@ cc_library(
         "pngwrite.c",
         "pngwtran.c",
         "pngwutil.c",
-    ] + select(
-        {
-            "@platforms//os:windows": [
-                "intel/filter_sse2_intrinsics.c",
-                "intel/intel_init.c",
-            ],
-            "@platforms//cpu:ppc": [
-                "powerpc/filter_vsx_intrinsics.c",
-                "powerpc/powerpc_init.c",
-            ],
-            "@platforms//cpu:arm64": [
-                "arm/arm_init.c",
-                "arm/filter_neon.S",
-                "arm/filter_neon_intrinsics.c",
-                "arm/palette_neon_intrinsics.c",
-            ],
-            "//conditions:default": [],
-        },
-    ),
+    ] + select({
+        "@platforms//cpu:x86_64": [
+            "intel/intel_init.c",
+            "intel/filter_sse2_intrinsics.c",
+        ],
+        "@platforms//cpu:ppc": [
+            "powerpc/filter_vsx_intrinsics.c",
+            "powerpc/powerpc_init.c",
+        ],
+        "@platforms//cpu:arm64": [
+            "arm/arm_init.c",
+            "arm/filter_neon_intrinsics.c",
+            "arm/palette_neon_intrinsics.c",
+        ],
+        "//conditions:default": [],
+    }),
     hdrs = [
         "png.h",
         "pngconf.h",
     ],
-    copts = select(
-        {
-            ":compiler_msvc": [],
-            "//conditions:default": ["-Wno-unused-but-set-variable"],
-        },
-    ),
-    implementation_deps = ["@zlib//:zlib"],
+    linkopts = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["-lm"],
+    }),
     includes = ["."],
-    linkopts = libpng_linkopts,
-    local_defines = libpng_local_defines,
     visibility = ["//visibility:public"],
-)
-
-PNG_IN_SUBSTITUTIONS = {
-    # Leave PNG_ZLIB_VERNUM set to 0 to disable zlib version consistency
-    # checking.  Bazel should already provide sufficient assurance of build
-    # consistency.
-}
-
-expand_template(
-    name = "png_config",
-    out = "pnglibconf.h",
-    substitutions = PNG_IN_SUBSTITUTIONS,
-    template = "scripts/pnglibconf.h.prebuilt",
+    deps = ["@zlib"],
+    local_defines = select({
+        "@platforms//cpu:arm64": ["PNG_ARM_NEON_OPT=2"],
+        "@platforms//cpu:x86_64": ["PNG_INTEL_SSE_OPT=1"],
+        "@platforms//cpu:ppc": ["PNG_POWERPC_VSX_OPT=2"],
+        "//conditions:default": [],
+    }),
+    copts = select({
+        ":use_x86_gcc_flags": [
+            "-mpclmul",
+            "-msse2",
+        ],
+        "//conditions:default": [],
+    }) + select({
+        ":use_x86_msvc_flags": ["/arch:AVX"],
+        "//conditions:default": [],
+    }),
 )
 
 alias(
-    name = "compiler_msvc",
-    actual = "@rules_cc//cc/compiler:msvc-cl",
+    name = "libpng",
+    actual = ":png",
+    visibility = ["//visibility:public"],
+)
+
+# Constraint that indicates whether gcc-style flags should be used.
+alias(
+    name = "use_x86_gcc_flags",
+    actual = select({
+        "@rules_cc//cc/compiler:msvc-cl": "@platforms//:incompatible",
+
+        # Otherwise condition on x86_64.
+        "//conditions:default": "@platforms//cpu:x86_64",
+    }),
+)
+
+alias(
+    name = "use_x86_msvc_flags",
+    actual = select({
+        "@rules_cc//cc/compiler:msvc-cl": "@platforms//cpu:x86_64",
+
+        # Otherwise condition on x86_64.
+        "//conditions:default": "@platforms//:incompatible",
+    }),
 )

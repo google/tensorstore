@@ -21,7 +21,7 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "snappy",
-        doc_version = "1.2.1-20240817-32ded45",
+        doc_version = "1.2.2-20250426-6af9287",
         urls = [
             "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/google/snappy/archive/6af9287fbdb913f0794d0148c6aa43b58e63c8e3.tar.gz",  # main(2025-04-26)
         ],
@@ -33,8 +33,9 @@ def repo():
         bazel_to_cmake = {},
         cmake_target_mapping = {
             "//:snappy": "Snappy::Snappy",
+            "//:snappy-c": "Snappy::Snappy_c",
         },
         cmake_package_redirect_libraries = {
-            "Snappy": "Snappy::Snappy",
+            "Snappy": "Snappy::Snappy_c",
         },
     )

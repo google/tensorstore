@@ -165,6 +165,37 @@ target_sources(CMakeProject_b PRIVATE
         "${PROJECT_SOURCE_DIR}/b.cc")
 add_library(CMakeProject::b ALIAS CMakeProject_b)
 
+# cc_library(@native_rules_test_repo//:b_public)
+add_library(CMakeProject_b_public)
+set_property(TARGET CMakeProject_b_public PROPERTY LINKER_LANGUAGE "CXX")
+target_link_libraries(CMakeProject_b_public PUBLIC
+        "Threads::Threads"
+        "m")
+target_link_libraries(CMakeProject_b_public PRIVATE
+        "CMakeProject::a")
+target_include_directories(CMakeProject_b_public PUBLIC
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
+target_compile_features(CMakeProject_b_public PUBLIC cxx_std_17)
+target_sources(CMakeProject_b_public PRIVATE
+        "${PROJECT_BINARY_DIR}/bazel_to_cmake_empty_source.cc")
+add_library(CMakeProject::b_public ALIAS CMakeProject_b_public)
+
+# cc_library(@native_rules_test_repo//:b_public_isystem)
+add_library(CMakeProject_b_public_isystem)
+set_property(TARGET CMakeProject_b_public_isystem PROPERTY LINKER_LANGUAGE "CXX")
+target_link_libraries(CMakeProject_b_public_isystem PUBLIC
+        "Threads::Threads"
+        "m")
+target_link_libraries(CMakeProject_b_public_isystem PRIVATE
+        "CMakeProject::a")
+target_include_directories(CMakeProject_b_public_isystem SYSTEM PUBLIC
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
+target_compile_features(CMakeProject_b_public_isystem PUBLIC cxx_std_17)
+target_sources(CMakeProject_b_public_isystem PRIVATE
+        "${PROJECT_BINARY_DIR}/bazel_to_cmake_empty_source.cc")
+add_library(CMakeProject::b_public_isystem ALIAS CMakeProject_b_public_isystem)
+
 # proto_library(@native_rules_test_repo//:c_proto_2)
 add_library(CMakeProject_c_proto_2 INTERFACE)
 target_sources(CMakeProject_c_proto_2 INTERFACE
@@ -300,7 +331,7 @@ set_property(TARGET CMakeProject_subdir_y_includes PROPERTY LINKER_LANGUAGE "CXX
 target_link_libraries(CMakeProject_subdir_y_includes PUBLIC
         "Threads::Threads"
         "m")
-target_include_directories(CMakeProject_subdir_y_includes PUBLIC
+target_include_directories(CMakeProject_subdir_y_includes SYSTEM PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/subdir>"
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/subdir>")
 target_include_directories(CMakeProject_subdir_y_includes PRIVATE

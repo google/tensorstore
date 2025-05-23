@@ -41,7 +41,7 @@ set_property(TARGET CMakeProject_parent_a_dot PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_parent_a_dot PUBLIC
         "Threads::Threads"
         "m")
-target_include_directories(CMakeProject_parent_a_dot PUBLIC
+target_include_directories(CMakeProject_parent_a_dot SYSTEM PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/parent>"
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/parent>")
 target_include_directories(CMakeProject_parent_a_dot PRIVATE
@@ -59,7 +59,7 @@ set_property(TARGET CMakeProject_parent_a_child PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_parent_a_child PUBLIC
         "Threads::Threads"
         "m")
-target_include_directories(CMakeProject_parent_a_child PUBLIC
+target_include_directories(CMakeProject_parent_a_child SYSTEM PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/parent/child>"
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/parent/child>")
 target_include_directories(CMakeProject_parent_a_child PRIVATE
@@ -75,7 +75,7 @@ set_property(TARGET CMakeProject_parent_a_parent PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_parent_a_parent PUBLIC
         "Threads::Threads"
         "m")
-target_include_directories(CMakeProject_parent_a_parent PUBLIC
+target_include_directories(CMakeProject_parent_a_parent SYSTEM PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/parent>"
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/parent>")
 target_include_directories(CMakeProject_parent_a_parent PRIVATE

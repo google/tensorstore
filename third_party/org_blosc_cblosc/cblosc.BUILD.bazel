@@ -47,9 +47,9 @@ cc_library(
         "//conditions:default": [],
     }),
     visibility = ["//visibility:public"],
-    deps = [
+    implementation_deps = [
         ":shuffle_common",
-        "@snappy//:snappy",
+        "@snappy//:snappy-c",
         "@zlib//:zlib",
         "@zstd//:zstd",
         "@lz4//:lz4",

@@ -1,58 +1,42 @@
 load("@bazel_skylib//lib:selects.bzl", "selects")
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 
 package(default_visibility = ["//visibility:private"])
 
 licenses(["notice"])  # BSD/MIT-like license (for zlib)
 
-ZLIB_LOCAL_DEFINES = (
-    select({
-        "@platforms//cpu:x86_64": ["UNALIGNED_OK"],
-        "//conditions:default": [],
-    }) +
-    select({
-        "@platforms//os:windows": [
-            "_CRT_SECURE_NO_DEPRECATE",
-            "_CRT_NONSTDC_NO_DEPRECATE",
-            "X86_WINDOWS",
-        ],
-        "//conditions:default": [
-            "HAVE_UNISTD_H",
-            "HAVE_STDINT_H",
-            "HAVE_STDDEF_H",
-            "X86_NOT_WINDOWS",
-        ],
-    }) +
-    select({
-        ":zlib_x86_optimizations": [
-            "ADLER32_SIMD_SSSE3",
-            "CRC32_SIMD_SSE42_PCLMUL",
-            "INFLATE_CHUNK_SIMD_SSE2",
-            "INFLATE_CHUNK_READ_64LE",  # requires x86_64
-            "DEFLATE_SLIDE_HASH_SSE2",
-        ],
-        ":zlib_arm64_optimizations": [
-            "ADLER32_SIMD_NEON",
-            "CRC32_ARMV8_CRC32",
-            "INFLATE_CHUNK_SIMD_NEON",
-            "INFLATE_CHUNK_READ_64LE",  # requires arm64
-            "DEFLATE_SLIDE_HASH_NEON",
-        ],
-        "//conditions:default": [],
-    })
+cc_library(
+    name = "zlib",
+    hdrs = [
+        "zlib.h",
+        "zconf.h",
+    ],
+    includes = ["."],  # for include <zlib.h>
+    defines = ["CHROMIUM_ZLIB_NO_CHROMECONF"],
+    visibility = ["//visibility:public"],
+    implementation_deps = [":zlib_impl"],
 )
 
-_SRCS_OPT = [
+###############################################
+
+_SIMD_SRCS = [
     "adler32_simd.c",
+    "adler32_simd.h",
+    "contrib/optimizations/chunkcopy.h",
     "contrib/optimizations/inffast_chunk.c",
+    "contrib/optimizations/inffast_chunk.h",
     "contrib/optimizations/inflate.c",
     "cpu_features.c",
-    "crc32_simd.c",
+    "cpu_features.h",
     "crc_folding.c",
+    "crc32_simd.c",
+    "crc32_simd.h",
+    "slide_hash_simd.h",
 ]
 
 cc_library(
-    name = "zlib",
-    srcs = glob(["*.h"]) + [
+    name = "zlib_impl",
+    srcs = [
         "adler32.c",
         "compress.c",
         "crc32.c",
@@ -68,63 +52,137 @@ cc_library(
         "uncompr.c",
         "zutil.c",
     ] + select({
-        ":zlib_arm64_optimizations": _SRCS_OPT,
-        ":zlib_x86_optimizations": _SRCS_OPT,
+        "@platforms//cpu:arm64": _SIMD_SRCS,
+        "@platforms//cpu:x86_64": _SIMD_SRCS,
         "//conditions:default": [
-            "contrib/optimizations/insert_string.h",
             "inflate.c",
         ],
     }),
     hdrs = [
+        "crc32.h",
+        "deflate.h",
+        "gzguts.h",
+        "inffast.h",
+        "inffixed.h",
+        "inflate.h",
+        "inftrees.h",
+        "trees.h",
+        "zutil.h",
+        "contrib/optimizations/insert_string.h",
+    ],
+    copts = select({
+        ":use_x86_msvc_flags": ["/arch:AVX"],
+        "//conditions:default": [],
+    }) + select({
+        ":use_x86_gcc_flags": [
+            "-mssse3",
+            "-msse4.2",
+            "-mpclmul",
+            "-msse2",
+        ],
+        "//conditions:default": [],
+    }) + select({
+        ":use_arm64_gcc_flags": [
+            "-march=armv8-a+crc+crypto",
+        ],
+        "//conditions:default": [],
+    }) + select({
+        "@rules_cc//cc/compiler:msvc-cl": [
+            "/wd4244",
+            "/wd4100",
+            "/wd4702",
+            "/wd4127",
+        ],
+        "@rules_cc//cc/compiler:clang": [
+            "-Wno-deprecated-non-prototype",
+            "-Wno-incompatible-pointer-types",
+            "-Wunused-variable",
+        ],
+        "//conditions:default": [
+            "-Wno-incompatible-pointer-types",
+            "-Wunused-variable",
+        ],
+    }),
+    deps = select({
+        "@platforms//cpu:arm64": [":zlib_defines_arm"],
+        "@platforms//cpu:x86_64": [":zlib_defines_x86"],
+        "//conditions:default": [":zlib_defines_common"],
+    }),
+)
+
+# These targets exist mainly to inject defines into the actual zlib build
+# based on the target architecture and compiler.
+cc_library(
+    name = "zlib_defines_arm",
+    hdrs = [
         "zconf.h",
         "zlib.h",
     ],
-    copts = select({
-                ":use_x86_gcc_flags": [
-                    "-mssse3",
-                    "-msse4.2",
-                    "-mpclmul",
-                ],
-                ":use_arm64_gcc_flags": [
-                    "-march=armv8-a+crc+crypto",
-                ],
-                "//conditions:default": [],
-            }) +
-            select({
-                "@rules_cc//cc/compiler:clang": [
-                    "-Wno-deprecated-non-prototype",
-                ],
-                "//conditions:default": [],
-            }),
-    defines = ["CHROMIUM_ZLIB_NO_CHROMECONF"],
-    implementation_deps = select({
-        ":zlib_arm64_optimizations": [":zlib_opt_includes"],
-        ":zlib_x86_optimizations": [":zlib_opt_includes"],
+    defines = [
+        "CHROMIUM_ZLIB_NO_CHROMECONF",
+        "ADLER32_SIMD_NEON",
+        "INFLATE_CHUNK_SIMD_NEON",
+        "INFLATE_CHUNK_READ_64LE",
+        "DEFLATE_SLIDE_HASH_NEON",
+        "CRC32_ARMV8_CRC32",
+    ] + select({
+        "@platforms//os:linux": ["ARMV8_OS_LINUX"],
+        "@platforms//os:macos": ["ARMV8_OS_MACOS"],
+        "@platforms//os:windows": ["ARMV8_OS_WINDOWS"],
         "//conditions:default": [],
+    }) + select({
+        "@platforms//os:windows": [],
+        "//conditions:default": [
+            "HAVE_UNISTD_H",
+            "HAVE_STDINT_H",
+            "HAVE_STDDEF_H",
+        ],
     }),
-    includes = ["."],
-    local_defines = ZLIB_LOCAL_DEFINES,
-    visibility = ["//visibility:public"],
 )
 
 cc_library(
-    name = "zlib_opt_includes",
-    hdrs = glob(["contrib/optimizations/*.h"]),
-    defines = ["CHROMIUM_ZLIB_NO_CHROMECONF"],
-    includes = ["contrib/optimizations"],
-    local_defines = ZLIB_LOCAL_DEFINES,
-    visibility = ["//visibility:private"],
+    name = "zlib_defines_x86",
+    hdrs = [
+        "zconf.h",
+        "zlib.h",
+    ],
+    defines = [
+        "CHROMIUM_ZLIB_NO_CHROMECONF",
+        "ADLER32_SIMD_SSSE3",
+        "INFLATE_CHUNK_SIMD_SSE2",
+        "INFLATE_CHUNK_READ_64LE",
+        "DEFLATE_SLIDE_HASH_SSE2",
+        "CRC32_SIMD_SSE42_PCLMUL",
+    ] + select({
+        "@platforms//os:windows": [
+            "_CRT_SECURE_NO_DEPRECATE",
+            "_CRT_NONSTDC_NO_DEPRECATE",
+            "X86_WINDOWS",
+        ],
+        "//conditions:default": [
+            "HAVE_UNISTD_H",
+            "HAVE_STDINT_H",
+            "HAVE_STDDEF_H",
+            "X86_NOT_WINDOWS",
+        ],
+    }) + select({
+        "@platforms//cpu:x86_64": ["UNALIGNED_OK"],
+        "//conditions:default": [],
+    }),
 )
 
-# config for enabling optimized inflate routines.
-alias(
-    name = "zlib_x86_optimizations",
-    actual = "@platforms//cpu:x86_64",
-)
-
-alias(
-    name = "zlib_arm64_optimizations",
-    actual = "@platforms//cpu:arm64",
+cc_library(
+    name = "zlib_defines_common",
+    hdrs = [
+        "zconf.h",
+        "zlib.h",
+    ],
+    defines = [
+        "CHROMIUM_ZLIB_NO_CHROMECONF",
+        "HAVE_UNISTD_H",
+        "HAVE_STDINT_H",
+        "HAVE_STDDEF_H",
+    ],
 )
 
 # Constraint that indicates whether gcc-style flags should be used.
@@ -145,5 +203,15 @@ alias(
 
         # Otherwise condition on arm64.
         "//conditions:default": "@platforms//cpu:arm64",
+    }),
+)
+
+alias(
+    name = "use_x86_msvc_flags",
+    actual = select({
+        "@rules_cc//cc/compiler:msvc-cl": "@platforms//cpu:x86_64",
+
+        # Otherwise condition on x86_64.
+        "//conditions:default": "@platforms//:incompatible",
     }),
 )

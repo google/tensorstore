@@ -419,7 +419,7 @@ def aspect_genproto_library_target(
 
   common_options = handle_cc_common_options(
       _context,
-      src_required=True,
+      _src_required=True,
       add_dependencies=set(srcs_collector.add_dependencies()),
       srcs=aspect_srcs,
       deps=aspect_deps,
