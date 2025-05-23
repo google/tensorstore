@@ -16,7 +16,6 @@
 
 #include <iostream>
 #include <optional>
-#include <string>
 #include <vector>
 
 #include "absl/status/status.h"
@@ -50,12 +49,13 @@ absl::Status KvstoreCopy(Context context,
                                kvstore::ListFuture(source).result());
 
   std::vector<Future<const void>> write_futures;
+  write_futures.reserve(list_entries.size());
 
   for (const auto& entry : list_entries) {
-    std::string key = entry.key;
     write_futures.push_back(MapFutureValue(
         InlineExecutor{},
-        [&](const Result<kvstore::ReadResult>& read_result) -> Future<void> {
+        [&output, &target, key = entry.key](
+            const Result<kvstore::ReadResult>& read_result) -> Future<void> {
           if (!read_result.ok()) {
             absl::MutexLock lock(&log_mutex);
             output << "Error reading: " << tensorstore::QuoteString(key) << ": "
@@ -70,7 +70,7 @@ absl::Status KvstoreCopy(Context context,
           }
           return MapFuture(
               InlineExecutor{},
-              [&](const Result<TimestampedStorageGeneration>& stamp)
+              [&output, key](const Result<TimestampedStorageGeneration>& stamp)
                   -> Result<void> {
                 if (!stamp.ok()) {
                   absl::MutexLock lock(&log_mutex);
@@ -87,7 +87,7 @@ absl::Status KvstoreCopy(Context context,
               },
               kvstore::Write(target, key, read_result->value));
         },
-        kvstore::Read(source, key)));
+        kvstore::Read(source, entry.key)));
   }
 
   absl::Status status = absl::OkStatus();

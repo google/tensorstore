@@ -47,7 +47,7 @@ SearchCommand::SearchCommand() : Command("search", "Search for TensorStores") {
   };
 
   parser().AddLongOption("--source", "Source kvstore spec", parse_spec);
-  parser().AddPositionalArgs("kvstore spec", parse_spec);
+  parser().AddPositionalArgs("kvstore spec", "Source kvstore spec", parse_spec);
 }
 
 absl::Status SearchCommand::Run(Context::Spec context_spec) {

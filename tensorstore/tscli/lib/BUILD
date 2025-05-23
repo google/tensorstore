@@ -119,3 +119,21 @@ tensorstore_cc_library(
         "@nlohmann_json//:json",
     ],
 )
+
+tensorstore_cc_library(
+    name = "ocdbt_dump",
+    srcs = ["ocdbt_dump.cc"],
+    hdrs = ["ocdbt_dump.h"],
+    deps = [
+        "//tensorstore:context",
+        "//tensorstore/internal/json:pprint_python",
+        "//tensorstore/kvstore",
+        "//tensorstore/kvstore/ocdbt:dump_util",
+        "//tensorstore/kvstore/ocdbt/format:dump",
+        "//tensorstore/util:result",
+        "//tensorstore/util:span",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings:cord",
+        "@nlohmann_json//:json",
+    ],
+)

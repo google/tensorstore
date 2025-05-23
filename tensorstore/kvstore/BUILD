@@ -358,27 +358,6 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_binary(
-    name = "copy",
-    srcs = ["copy.cc"],
-    deps = [
-        ":all_drivers",
-        ":generation",
-        ":kvstore",
-        "//tensorstore/internal:path",
-        "//tensorstore/internal/json_binding",
-        "//tensorstore/util:executor",
-        "//tensorstore/util:future",
-        "//tensorstore/util:json_absl_flag",
-        "//tensorstore/util:quote_string",
-        "//tensorstore/util:result",
-        "@abseil-cpp//absl/flags:flag",
-        "@abseil-cpp//absl/flags:parse",
-        "@abseil-cpp//absl/status",
-        "@abseil-cpp//absl/synchronization",
-    ],
-)
-
-tensorstore_cc_binary(
     name = "live_kvstore_test",
     testonly = 1,
     srcs = ["live_kvstore_test.cc"],

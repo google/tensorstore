@@ -36,6 +36,7 @@
 #include "tensorstore/tscli/command_parser.h"
 #include "tensorstore/tscli/copy_command.h"
 #include "tensorstore/tscli/list_command.h"
+#include "tensorstore/tscli/ocdbt_dump_command.h"
 #include "tensorstore/tscli/print_spec_command.h"
 #include "tensorstore/tscli/print_stats_command.h"
 #include "tensorstore/tscli/search_command.h"
@@ -63,9 +64,11 @@ tensorstore::span<Command*> AllCommands() {
   static absl::NoDestructor<::tensorstore::cli::SearchCommand> search;
   static absl::NoDestructor<::tensorstore::cli::PrintSpecCommand> print_spec;
   static absl::NoDestructor<::tensorstore::cli::PrintStatsCommand> print_stats;
+  static absl::NoDestructor<::tensorstore::cli::OcdbtDumpCommand> ocdbt_dump;
 
-  static std::array<Command*, 5> commands{copy.get(), list.get(), search.get(),
-                                          print_spec.get(), print_stats.get()};
+  static std::array<Command*, 6> commands{copy.get(),        list.get(),
+                                          search.get(),      print_spec.get(),
+                                          print_stats.get(), ocdbt_dump.get()};
   return commands;
 }
 

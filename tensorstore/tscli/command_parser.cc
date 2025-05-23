@@ -14,6 +14,7 @@
 
 #include "tensorstore/tscli/command_parser.h"
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include <cassert>
@@ -27,20 +28,35 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/log/absl_check.h"
 #include "absl/status/status.h"
+#include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/str_split.h"
 #include "absl/strings/strip.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace cli {
+namespace {
+
+std::pair<std::string_view, std::string_view> SplitDescription(
+    std::string_view description) {
+  std::pair<std::string_view, std::string_view> desc_parts =
+      absl::StrSplit(description, absl::MaxSplits("\n\n", 1));
+  desc_parts.first = absl::StripAsciiWhitespace(desc_parts.first);
+  desc_parts.second = absl::StripAsciiWhitespace(desc_parts.second);
+  return desc_parts;
+}
+
+}  // namespace
 
 void CommandParser::AddLongOption(std::string_view name,
                                   std::string_view description,
                                   ParseLongOption fn) {
   ABSL_CHECK(absl::StartsWith(name, "--"));
+  ABSL_CHECK(name.size() > 2);
   long_options_.push_back(LongOption{name, description, fn});
 }
 
@@ -59,40 +75,110 @@ void CommandParser::AddBoolOption(std::string_view name,
 }
 
 void CommandParser::AddPositionalArgs(std::string_view name,
+                                      std::string_view description,
                                       ParseLongOption fn) {
-  positional_name_ = name;
-  positional_fn_ = std::move(fn);
+  ABSL_CHECK(!positional_.has_value());
+  positional_ = PositionalArg{name, description, fn};
 }
 
 void CommandParser::PrintHelp(std::ostream& out) {
   // Group options by description.
   absl::flat_hash_map<std::string_view, std::vector<std::string_view>>
-      desc_to_option;
-  for (const auto& opt : bool_options_) {
-    desc_to_option[opt.description].push_back(opt.boolname);
-  }
+      shortdesc_to_name;
+  ;
+  absl::flat_hash_set<std::string_view> has_longdesc;
+
+  auto build_maps = [&](std::string_view name, std::string_view desc) {
+    auto desc_parts = SplitDescription(desc);
+    shortdesc_to_name[desc_parts.first].push_back(name);
+    if (!desc_parts.second.empty()) {
+      has_longdesc.insert(name);
+    }
+  };
   for (const auto& opt : long_options_) {
-    desc_to_option[opt.description].push_back(opt.longname);
+    build_maps(opt.longname, opt.description);
+  }
+  for (const auto& opt : bool_options_) {
+    build_maps(opt.boolname, opt.description);
   }
 
   out << "  " << name();
-  for (const auto& desc_and_options : desc_to_option) {
+  for (const auto& desc_and_options : shortdesc_to_name) {
     out << " [" << absl::StrJoin(desc_and_options.second, "/") << "]";
   }
-  if (!positional_name_.empty()) {
-    out << " <" << positional_name_ << "...>";
+  if (positional_) {
+    out << " <" << positional_->name << "...>";
   }
-  out << "\n";
-  out << "    " << short_description() << "\n\n";
 
-  for (const auto& desc_and_options : desc_to_option) {
+  auto desc_parts = SplitDescription(description());
+  out << "\n";
+  out << "    " << desc_parts.first << "\n";
+
+  // output options grouped by description.
+  if (!shortdesc_to_name.empty()) {
+    out << "\n";
+  }
+  for (const auto& desc_and_options : shortdesc_to_name) {
     out << "    [" << absl::StrJoin(desc_and_options.second, "/") << "] "
         << desc_and_options.first << "\n";
   }
+  if (positional_) {
+    auto desc_parts = SplitDescription(positional_->description);
+    if (!desc_parts.first.empty()) {
+      out << "    <" << positional_->name << "...> " << desc_parts.first
+          << "\n";
+    }
+  }
 
-  // TODO: Print verbose description.
+  bool sep_output = false;
+  auto maybe_output_sep = [&]() {
+    if (sep_output) return;
+    out << "\n    Detailed options:\n";
+    sep_output = true;
+  };
 
-  out << "\n";
+  // Output long argument descriptions.
+  auto output_option_long = [&](std::string_view name,
+                                std::string_view description) {
+    if (!has_longdesc.contains(name)) return;
+    auto desc_parts = SplitDescription(description);
+    maybe_output_sep();
+    out << "    [" << name << "] " << desc_parts.first << "\n";
+    if (!desc_parts.second.empty()) {
+      for (std::string_view part : absl::StrSplit(desc_parts.second, '\n')) {
+        out << "      " << absl::StripAsciiWhitespace(part) << "\n";
+      }
+      out << "\n";
+    }
+  };
+
+  // Output long options.
+  for (const auto& opt : long_options_) {
+    output_option_long(opt.longname, opt.description);
+  }
+  for (const auto& opt : bool_options_) {
+    output_option_long(opt.boolname, opt.description);
+  }
+  if (positional_) {
+    auto desc_parts = SplitDescription(positional_->description);
+    if (!desc_parts.second.empty()) {
+      maybe_output_sep();
+      out << "    <" << positional_->name << "...> " << desc_parts.first
+          << "\n";
+      for (std::string_view part : absl::StrSplit(desc_parts.second, '\n')) {
+        out << "      " << absl::StripAsciiWhitespace(part) << "\n";
+      }
+      out << "\n";
+    }
+  }
+
+  // Output long description.
+  if (!desc_parts.second.empty()) {
+    maybe_output_sep();
+    for (std::string_view part : absl::StrSplit(desc_parts.second, '\n'))
+      out << "    " << absl::StripAsciiWhitespace(part) << "\n";
+    out << "\n";
+  }
 }
 
 absl::Status CommandParser::TryParse(tensorstore::span<char*> argv,
@@ -104,51 +190,73 @@ absl::Status CommandParser::TryParse(tensorstore::span<char*> argv,
     shortmapping[opt.boolname[1]] = opt.found;
   }
 
-  absl::flat_hash_set<uintptr_t> handled;
-  auto it = argv.begin() + 1;
-  while (it != argv.end()) {
-    bool parsed = false;
-    std::string_view it_str = *it;
+  // Stop processing at the first "--" argument.
+  const size_t end = [argv]() {
+    size_t end = argv.size();
+    for (size_t i = 1; i < end; ++i) {
+      if (std::string_view(argv[i]) == "--") {
+        return i - 1;
+      }
+    }
+    return end;
+  }();
 
+  // Keep track of which arguments have been handled.  The positional arguments
+  // include values from the argv array, so when a long option is split by a
+  // a separator we need to keep track of both.
+  absl::flat_hash_set<uintptr_t> handled;
+  auto try_parse_long_option = [&](size_t i) -> absl::Status {
+    std::string_view it_str = argv[i];
+
+    // Try to parse as a long option.
+    if (!absl::StartsWith(it_str, "--")) return absl::OkStatus();
+
+    for (auto& opt : long_options_) {
+      if (opt.longname.empty()) continue;
+      std::string_view arg = it_str;
+      if (!absl::ConsumePrefix(&arg, opt.longname)) continue;
+
+      if (absl::ConsumePrefix(&arg, "=")) {
+        // Long option with --name=value.
+        handled.insert(reinterpret_cast<uintptr_t>(argv[i]));
+        return opt.parse(arg);
+      }
+      if (!arg.empty()) continue;
+      // Long option with --name value.
+      if (i + 1 >= end) {
+        return absl::InvalidArgumentError(
+            absl::StrCat("Expected value for option: ", opt.longname));
+      }
+      handled.insert(reinterpret_cast<uintptr_t>(argv[i]));
+      handled.insert(reinterpret_cast<uintptr_t>(argv[i + 1]));
+      std::string_view value = argv[i + 1];
+      TENSORSTORE_RETURN_IF_ERROR(opt.parse(value));
+      return absl::OkStatus();
+    }
+    for (auto& opt : bool_options_) {
+      if (opt.boolname.empty()) continue;
+      std::string_view arg = it_str;
+      if (!absl::ConsumePrefix(&arg, opt.boolname)) continue;
+      if (arg.empty()) {
+        handled.insert(reinterpret_cast<uintptr_t>(argv[i]));
+        opt.found();
+        return absl::OkStatus();
+      }
+    }
+
+    return absl::OkStatus();
+  };
+
+  // Parse all the arguments.
+  for (size_t i = 1; i < end; ++i) {
+    if (handled.count(reinterpret_cast<uintptr_t>(argv[i]))) {
+      continue;
+    }
+    std::string_view it_str = argv[i];
     if (absl::StartsWith(it_str, "--")) {
-      // Try to parse as a long option.
-      for (auto& opt : long_options_) {
-        if (opt.longname.empty()) continue;
-        std::string_view arg = it_str;
-        if (!absl::ConsumePrefix(&arg, opt.longname)) continue;
-        if (arg.empty()) {
-          parsed = true;
-          std::string_view value;
-          if (it + 1 != argv.end()) {
-            value = *(it + 1);
-            handled.insert(reinterpret_cast<uintptr_t>(*it));
-            it++;
-          }
-          handled.insert(reinterpret_cast<uintptr_t>(*it));
-          TENSORSTORE_RETURN_IF_ERROR(opt.parse(value));
-        } else if (absl::ConsumePrefix(&arg, "=")) {
-          parsed = true;
-          TENSORSTORE_RETURN_IF_ERROR(opt.parse(arg));
-          handled.insert(reinterpret_cast<uintptr_t>(*it));
-        }
-      }
-      if (parsed) break;
-      for (auto& opt : bool_options_) {
-        if (opt.boolname.empty()) continue;
-        std::string_view arg = it_str;
-        if (!absl::ConsumePrefix(&arg, opt.boolname)) continue;
-        if (arg.empty()) {
-          parsed = true;
-          handled.insert(reinterpret_cast<uintptr_t>(*it));
-          opt.found();
-          break;
-        }
-      }
-      if (parsed) break;
+      TENSORSTORE_RETURN_IF_ERROR(try_parse_long_option(i));
     } else if (absl::StartsWith(it_str, "-")) {
-      // Try to parse as a short option, which may be combined.
-      handled.insert(reinterpret_cast<uintptr_t>(*it));
-      parsed = true;
+      handled.insert(reinterpret_cast<uintptr_t>(argv[i]));
       for (int i = 1; i < it_str.size(); ++i) {
         char c = it_str[i];
         assert(c != '-');
@@ -160,16 +268,15 @@ absl::Status CommandParser::TryParse(tensorstore::span<char*> argv,
         it->second();
       }
     }
-    it++;
   }
 
   // Handle any remaining positional arguments.
-  if (positional_fn_) {
-    for (auto j = positional_args.begin(); j != positional_args.end(); ++j) {
-      if (handled.contains(reinterpret_cast<uintptr_t>(j))) {
+  if (positional_) {
+    for (char* x : positional_args) {
+      if (handled.count(reinterpret_cast<uintptr_t>(x))) {
         continue;
       }
-      TENSORSTORE_RETURN_IF_ERROR(positional_fn_(*j));
+      TENSORSTORE_RETURN_IF_ERROR(positional_->parse(x));
     }
   }
   return absl::OkStatus();
