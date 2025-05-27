@@ -1,0 +1,412 @@
+diff --git a/nasm/BUILD.bazel b/nasm/BUILD.bazel
+index 8945e78..447a98d 100644
+--- a/nasm/BUILD.bazel
++++ b/nasm/BUILD.bazel
+@@ -6,6 +6,26 @@ toolchain_type(
+     visibility = ["//visibility:public"],
+ )
+ 
++current_nasm_assembler(
++    name = "current_nasm_assembler",
++    visibility = ["//visibility:public"],
++)
++
++alias(
++    name = "assembler",
++    actual = ":current_nasm_assembler",
++    visibility = ["//visibility:public"],
++)
++
++exports_files([
++    "defs.bzl",
++    "nasm_cc_binary.bzl",
++    "nasm_cc_library.bzl",
++    "nasm_cc_test.bzl",
++    "nasm_library.bzl",
++    "nasm_toolchain.bzl",
++])
++
+ bzl_library(
+     name = "defs",
+     srcs = ["defs.bzl"],
+@@ -16,17 +36,47 @@ bzl_library(
+     ],
+ )
+ 
+-exports_files([
+-    "defs.bzl",
+-])
++bzl_library(
++    name = "nasm_cc_binary",
++    srcs = ["nasm_cc_binary.bzl"],
++    visibility = ["//visibility:public"],
++    deps = [
++        "//nasm/private:cc_rules",
++    ],
++)
+ 
+-current_nasm_assembler(
+-    name = "current_nasm_assembler",
++bzl_library(
++    name = "nasm_cc_library",
++    srcs = ["nasm_cc_library.bzl"],
+     visibility = ["//visibility:public"],
++    deps = [
++        "//nasm/private:cc_rules",
++    ],
+ )
+ 
+-alias(
+-    name = "assembler",
+-    actual = ":current_nasm_assembler",
++bzl_library(
++    name = "nasm_cc_test",
++    srcs = ["nasm_cc_test.bzl"],
+     visibility = ["//visibility:public"],
++    deps = [
++        "//nasm/private:cc_rules",
++    ],
++)
++
++bzl_library(
++    name = "nasm_library",
++    srcs = ["nasm_library.bzl"],
++    visibility = ["//visibility:public"],
++    deps = [
++        "//nasm/private/rules:library",
++    ],
++)
++
++bzl_library(
++    name = "nasm_toolchain",
++    srcs = ["nasm_toolchain.bzl"],
++    visibility = ["//visibility:public"],
++    deps = [
++        "//nasm/private:nasm_toolchain",
++    ],
+ )
+diff --git a/nasm/nasm_cc_binary.bzl b/nasm/nasm_cc_binary.bzl
+new file mode 100644
+index 0000000..10096ec
+--- /dev/null
++++ b/nasm/nasm_cc_binary.bzl
+@@ -0,0 +1,7 @@
++load(
++    "//nasm/private:cc_rules.bzl",
++    _nasm_cc_binary = "nasm_cc_binary",
++)
++
++def nasm_cc_binary(**kwargs):
++    _nasm_cc_binary(**kwargs)
+diff --git a/nasm/nasm_cc_library.bzl b/nasm/nasm_cc_library.bzl
+new file mode 100644
+index 0000000..7ae53c8
+--- /dev/null
++++ b/nasm/nasm_cc_library.bzl
+@@ -0,0 +1,7 @@
++load(
++    "//nasm/private:cc_rules.bzl",
++    _nasm_cc_library = "nasm_cc_library",
++)
++
++def nasm_cc_library(**kwargs):
++    _nasm_cc_library(**kwargs)
+diff --git a/nasm/nasm_cc_test.bzl b/nasm/nasm_cc_test.bzl
+new file mode 100644
+index 0000000..d6b6bc2
+--- /dev/null
++++ b/nasm/nasm_cc_test.bzl
+@@ -0,0 +1,7 @@
++load(
++    "//nasm/private:cc_rules.bzl",
++    _nasm_cc_test = "nasm_cc_test",
++)
++
++def nasm_cc_test(**kwargs):
++    _nasm_cc_test(**kwargs)
+diff --git a/nasm/nasm_library.bzl b/nasm/nasm_library.bzl
+new file mode 100644
+index 0000000..0e01d6c
+--- /dev/null
++++ b/nasm/nasm_library.bzl
+@@ -0,0 +1,7 @@
++load(
++    "//nasm/private/rules:library.bzl",
++    _nasm_library = "nasm_library",
++)
++
++def nasm_library(**kwargs):
++    _nasm_library(**kwargs)
+diff --git a/nasm/nasm_toolchain.bzl b/nasm/nasm_toolchain.bzl
+new file mode 100644
+index 0000000..c30de94
+--- /dev/null
++++ b/nasm/nasm_toolchain.bzl
+@@ -0,0 +1,7 @@
++load(
++    "//nasm/private:nasm_toolchain.bzl",
++    _nasm_toolchain = "nasm_toolchain",
++)
++
++def nasm_toolchain(**kwargs):
++    _nasm_toolchain(**kwargs)
+diff --git a/nasm/private/cc_rules.bzl b/nasm/private/cc_rules.bzl
+index cfdf1e0..662edd2 100644
+--- a/nasm/private/cc_rules.bzl
++++ b/nasm/private/cc_rules.bzl
+@@ -13,6 +13,7 @@ def nasm_cc_rule(
+         name,
+         srcs,
+         hdrs = None,
++        copts = None,
+         preincs = None,
+         includes = None,
+         **kwargs):
+@@ -23,13 +24,16 @@ def nasm_cc_rule(
+         name: A unique name for this target.
+         srcs: The assembly source files.
+         hdrs: Other assembly sources which may be included by `srcs`.
++        copts: Additional compilation flags to `nasm`.
+         preincs: Assembly sources which will be included and processed before the source file.
+                Sources will be included in the order listed.
+         includes: Directories which will be added to the search path for include files.
+         **kwargs: Additional keyword arguments passed to the `cc_library` rule.
+     """
+-    tags = kwargs.pop("tags", [])
++    if copts == None:
++        copts = []
+ 
++    tags = kwargs.pop("tags", [])
+     nasm_args = {}
+     for arg in [
+         "compatible_with",
+@@ -46,6 +50,7 @@ def nasm_cc_rule(
+         hdrs = hdrs,
+         preincs = preincs,
+         includes = includes,
++        copts = copts,
+         tags = depset(tags + ["manual"]).to_list(),
+         visibility = ["//visibility:private"],
+         **nasm_args
+diff --git a/nasm/private/nasm_toolchain.bzl b/nasm/private/nasm_toolchain.bzl
+index ad136c1..117d136 100644
+--- a/nasm/private/nasm_toolchain.bzl
++++ b/nasm/private/nasm_toolchain.bzl
+@@ -30,13 +30,14 @@ A toolchain can be defined by adding a snippet like the following
+ somewhere in a `BUILD.bazel` file within your workspace.
+ 
+ ```python
+-load("@rules_nasm//nasm:defs.bzl", "nasm_toolchain")
++load("@rules_nasm//nasm:nasm_toolchain.bzl", "nasm_toolchain")
+ 
+ nasm_toolchain(
+     name = "nasm_toolchain",
+     copts = select({
+-        "//nasm:elf64": ["-felf64"],
+-        "//nasm:macho64": ["-fmacho64"],
++        "@rules_nasm//nasm/toolchain:elf64": ["-felf64"],
++        "@rules_nasm//nasm/toolchain:win64": ["-fwin64"],
++        "@rules_nasm//nasm/toolchain:macho64": ["-fmacho64"],
+         "//conditions:default": [],
+     }),
+     nasm = "@nasm",
+@@ -54,7 +55,7 @@ toolchain(
+ Once the toolchain is defined, it will need to be registered in the `MODULE.bazel` file.
+ 
+ ```python
+-register_toolchains("//:nasm_toolchain")
++register_toolchains("//:toolchain")
+ ```
+ """,
+     implementation = _nasm_toolchain_impl,
+@@ -67,6 +68,7 @@ register_toolchains("//:nasm_toolchain")
+             cfg = "exec",
+             allow_files = True,
+             executable = True,
++            mandatory = True,
+         ),
+     },
+ )
+diff --git a/nasm/private/rules/BUILD.bazel b/nasm/private/rules/BUILD.bazel
+index 3cf78ef..34aefa8 100644
+--- a/nasm/private/rules/BUILD.bazel
++++ b/nasm/private/rules/BUILD.bazel
+@@ -11,5 +11,8 @@ bzl_library(
+     name = "library",
+     srcs = ["library.bzl"],
+     visibility = ["//:__subpackages__"],
+-    deps = [":rules_cc"],
++    deps = [
++        ":rules_cc",
++        "@bazel_skylib//lib:paths",
++    ],
+ )
+diff --git a/nasm/private/rules/library.bzl b/nasm/private/rules/library.bzl
+index d6e3865..332e025 100644
+--- a/nasm/private/rules/library.bzl
++++ b/nasm/private/rules/library.bzl
+@@ -2,6 +2,8 @@
+ 
+ """Rules for assembling object files."""
+ 
++load("@bazel_skylib//lib:paths.bzl", "paths")
++
+ def nasm_assemble(
+         *,
+         ctx,
+@@ -25,35 +27,50 @@ def nasm_assemble(
+     Returns:
+         File: The compiled object file.
+     """
++    suffix = ".o"
++    if nasm_toolchain.compiler.basename.endswith(".exe"):
++        suffix = ".obj"
++
+     basename, _, _ = src.basename.rpartition(".")
+-    out = ctx.actions.declare_file("{}/_obj/{}/{}.o".format(
+-        ctx.label.package,
+-        ctx.label.name,
+-        basename,
+-    ))
++    out_name = paths.join("_obj", ctx.label.package, ctx.label.name, basename + suffix)
++    out = ctx.actions.declare_file(paths.normalize(out_name))
+ 
+     workspace_root = src.owner.workspace_root
+     if workspace_root:
+         workspace_root = workspace_root + "/"
+-    package_path = workspace_root + src.owner.package
++    gen_root = ctx.genfiles_dir.path + "/" + workspace_root
+ 
+-    args = ctx.actions.args()
+-    args.add_all(nasm_toolchain.copts)
+-    args.add("-I", src.dirname + "/")
++    relative_path = ""
++    if src.owner.package:
++        relative_path = src.owner.package + "/"
+ 
++    # Generate the set of -I paths.
++    # set() doesn't exist until recent starlark/bazel
++    raw_includes = {}
+     if workspace_root:
+-        args.add("-I", workspace_root)
+-
+-    args.add_all(
+-        [
+-            "%s/%s" % (package_path, inc)
+-            for inc in includes
+-        ],
+-        before_each = "-I",
+-    )
+-    args.add("-o", out)
++        raw_includes[workspace_root] = None
++    raw_includes[gen_root] = None
++    for inc in includes:
++        # When inc begins with "/" it is treated as a workspace-relative path, otherwise
++        # it is treated as a package-relative path. Joining with "/" ensures a trailing slash.
++        # Both source and generated include paths are constructed for each element.
++        path = paths.join(relative_path, inc).lstrip("/")
++        raw_includes[paths.join(workspace_root, path, "")] = None
++        raw_includes[paths.join(gen_root, path, "")] = None
++
++    # The prior rules auto-added source-relative -I paths...
++    # Typically bazel rules assume includes use workspace-relative paths, so
++    # this should be removed and includes = ["."] should be added to the rules
++    # which depend on having import "foo.i" read from the current directory.
++    raw_includes[src.dirname + "/"] = None
++
++    # Generate the actual args.
++    args = ctx.actions.args()
++    args.add_all(nasm_toolchain.copts)
++    args.add_all(raw_includes.keys(), before_each = "-I")
+     args.add_all(preincs, before_each = "-p")
+     args.add_all(copts)
++    args.add("-o", out)
+     args.add(src)
+ 
+     inputs = depset([src] + preincs, transitive = [hdrs])
+@@ -65,34 +82,37 @@ def nasm_assemble(
+         inputs = inputs,
+         outputs = [out],
+         tools = nasm_toolchain.all_files,
++        use_default_shell_env = True,
+     )
+ 
+     return out
+ 
+-_NASM_EXTENSIONS = [".asm", ".nasm", ".s", ".i"]
++_NASM_EXTENSIONS = [".asm", ".nasm", ".s"]
++_NASM_INCLUDES = _NASM_EXTENSIONS + [".i", ".inc", ".inc.h"]
+ 
+ NASM_ATTRS = {
+     "copts": attr.string_list(
+         doc = "Additional compilation flags to `nasm`.",
+     ),
+     "hdrs": attr.label_list(
+-        allow_files = _NASM_EXTENSIONS,
++        allow_files = _NASM_INCLUDES,
+         doc = (
+             "Other assembly sources which may be included by `src`. " +
+             "Must have an extension of %s." % (
+-                ", ".join(_NASM_EXTENSIONS)
++                ", ".join(_NASM_INCLUDES)
+             )
+         ),
+     ),
+     "includes": attr.string_list(
+-        doc = ("Directories which will be added to the search path for include files."),
++        doc = ("Directories which will be added to the search path for include files." +
++               "Directories beginning with / are workspace-relative, otherwise they are package-relative."),
+     ),
+     "preincs": attr.label_list(
+-        allow_files = _NASM_EXTENSIONS,
++        allow_files = _NASM_INCLUDES,
+         doc = (
+             "Assembly sources which will be included and processed before the source file. " +
+             "Sources will be included in the order listed. Must have an extension of %s." % (
+-                ", ".join(_NASM_EXTENSIONS)
++                ", ".join(_NASM_INCLUDES)
+             )
+         ),
+     ),
+diff --git a/nasm/toolchain/BUILD.bazel b/nasm/toolchain/BUILD.bazel
+index d16668e..def8ed4 100644
+--- a/nasm/toolchain/BUILD.bazel
++++ b/nasm/toolchain/BUILD.bazel
+@@ -1,4 +1,4 @@
+-load("//nasm:defs.bzl", "nasm_toolchain")
++load("//nasm:nasm_toolchain.bzl", "nasm_toolchain")
+ 
+ config_setting(
+     # doc = "Target supports ELF64 binaries (linux x86-64)",
+diff --git a/platforms/BUILD.bazel b/platforms/BUILD.bazel
+index ec60e43..1a43bf4 100644
+--- a/platforms/BUILD.bazel
++++ b/platforms/BUILD.bazel
+@@ -18,3 +18,11 @@ platform(
+         "@platforms//cpu:x86_64",
+     ],
+ )
++
++platform(
++    name = "macho64",
++    constraint_values = [
++        "@platforms//os:macos",
++        "@platforms//cpu:x86_64",
++    ],
++)
+diff --git a/tests/BUILD.bazel b/tests/BUILD.bazel
+index 3b6ca80..66a1b88 100644
+--- a/tests/BUILD.bazel
++++ b/tests/BUILD.bazel
+@@ -79,3 +79,11 @@ nasm_cc_test(
+     hdrs = ["includes/includes_inc.asm"],
+     includes = ["includes"],
+ )
++
++nasm_cc_test(
++    name = "includes_path_test_root",
++    size = "small",
++    srcs = ["includes_main.asm"],
++    hdrs = ["includes/includes_inc.asm"],
++    includes = ["/tests/includes"],
++)

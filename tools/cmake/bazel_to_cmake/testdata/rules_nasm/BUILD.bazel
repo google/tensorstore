@@ -1,4 +1,5 @@
-load("@tensorstore//bazel:rules_nasm.bzl", "nasm_library")
+load("@rules_nasm//nasm:nasm_cc_library.bzl", "nasm_cc_library")
+load("@rules_nasm//nasm:nasm_library.bzl", "nasm_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -17,15 +18,41 @@ nasm_library(
     srcs = [
         "a.asm",
     ],
-    flags = NASM_FLAGS,
+    copts = [
+        "-w+all",
+        "-D__x86_64__",
+        "-DELF",
+        "-DPIC",
+    ],
     includes = [
-        "include/b.inc",
+        "include",
     ],
 )
 
 cc_library(
     name = "a",
-    srcs = ["a.cc"],
+    srcs = [
+        "a.cc",
+        ":asm_library",
+    ],
     hdrs = ["a.h"],
     deps = [":asm_library"],
+)
+
+nasm_cc_library(
+    name = "cc_library",
+    srcs = ["a.asm"],
+    hdrs = [
+        "include/b.inc",
+    ],
+    copts = [
+        "-s",
+        "-w-macro-params-legacy",
+        "-w-orphan-labels",
+    ],
+    includes = [
+        "include",
+    ],
+    linkstatic = 1,
+    alwayslink = 1,
 )

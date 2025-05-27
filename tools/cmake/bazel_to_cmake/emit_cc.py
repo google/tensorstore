@@ -20,7 +20,6 @@ import itertools
 import pathlib
 from typing import Any, Collection, Dict, Iterable, List, NamedTuple, Optional, cast
 
-from .cmake_repository import CMakeRepository
 from .cmake_repository import PROJECT_BINARY_DIR
 from .cmake_repository import PROJECT_SOURCE_DIR
 from .cmake_target import CMakeTarget
@@ -44,6 +43,7 @@ from .workspace import Workspace
 _SEP = "\n        "
 _HEADER_SRC_PATTERN = r"\.(?:h|hpp|inc)$"
 _ASM_SRC_PATTERN = r"\.(?:s|S|asm)$"
+_OBJ_SRC_PATTERN = r"\.(?:o|obj)$"
 
 
 class TargetIncludes(NamedTuple):
@@ -345,26 +345,6 @@ def construct_cc_includes(
   return TargetIncludes(system, public, private)
 
 
-def construct_cc_private_includes(
-    repo: CMakeRepository,
-    *,
-    includes: Optional[List[str]] = None,
-    known_include_files: Optional[Iterable[str]] = None,
-) -> List[str]:
-  if not includes:
-    includes = []
-  result: List[str] = []
-  if PROJECT_SOURCE_DIR not in includes:
-    result.append(PROJECT_SOURCE_DIR)
-  if PROJECT_BINARY_DIR not in includes:
-    for x in known_include_files:
-      x_path = pathlib.PurePath(x)
-      if is_relative_to(x_path, repo.cmake_binary_dir):
-        result.append(PROJECT_BINARY_DIR)
-        break
-  return result
-
-
 def handle_cc_common_options(
     _context: InvocationContext,
     _src_required=False,
@@ -399,6 +379,13 @@ def handle_cc_common_options(
 
   if _src_required and not srcs_file_paths:
     srcs_file_paths = [state.get_placeholder_source()]
+  elif srcs_file_paths:
+    # On Windows, CMake does not correctly handle linking libraries containing
+    # only nasm (.obj) sources.  Also, when not using the builtin rule,
+    # CMake does not handle a library containing only object file as sources.
+    # As a workaround, add a placeholder C file.
+    if not partition_by(srcs_file_paths, pattern=_OBJ_SRC_PATTERN)[1]:
+      srcs_file_paths.append(state.get_placeholder_source())
 
   deps_collector = state.collect_deps(deps)
 

@@ -1,7 +1,7 @@
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
-load("@tensorstore//bazel:rules_nasm.bzl", "nasm_library")
+load("@rules_nasm//nasm:nasm_library.bzl", "nasm_library")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -209,36 +209,14 @@ cc_library(
     name = "simd_x86_64",
     srcs = [
         "simd/x86_64/jsimd.c",
+        ":simd_x86_64_asm",
     ],
     copts = LIBJPEGTURBO_COPTS,
     linkstatic = 1,
     target_compatible_with = ["@platforms//cpu:x86_64"],
     deps = [
         ":simd_common",
-        ":simd_x86_64_asm",
     ],
-)
-
-NASM_FLAGS = [
-    "-w+all",
-    "-D__x86_64__",
-] + select(
-    {
-        "@platforms//os:windows": [
-            "-fwin64",
-            "-DWIN64",
-        ],
-        "@platforms//os:macos": [
-            "-fmacho64",
-            "-DMACHO",
-            "-DPIC",
-        ],
-        "//conditions:default": [
-            "-felf64",
-            "-DELF",
-            "-DPIC",
-        ],
-    },
 )
 
 nasm_library(
@@ -272,8 +250,23 @@ nasm_library(
         "simd/x86_64/jquanti-sse2.asm",
         "simd/x86_64/jsimdcpu.asm",
     ],
-    flags = NASM_FLAGS,
-    includes = [
+    copts = [
+        "-w+all",
+        "-D__x86_64__",
+    ] + select({
+        "@platforms//os:windows": [
+            "-DWIN64",
+        ],
+        "@platforms//os:macos": [
+            "-DMACHO",
+            "-DPIC",
+        ],
+        "//conditions:default": [
+            "-DELF",
+            "-DPIC",
+        ],
+    }),
+    hdrs = [
         "simd/nasm/jcolsamp.inc",
         "simd/nasm/jdct.inc",
         "simd/nasm/jsimdcfg.inc",
@@ -289,7 +282,11 @@ nasm_library(
         "simd/x86_64/jdmrgext-avx2.asm",
         "simd/x86_64/jdmrgext-sse2.asm",
     ],
-    deps = [":simd_common"],
+    includes = [
+        "simd/nasm",
+        "simd/x86_64",
+    ],
+    target_compatible_with = ["@platforms//cpu:x86_64"],
 )
 
 expand_template(
@@ -348,12 +345,13 @@ cc_library(
     hdrs = [
         "simd/arm/align.h",
         "simd/arm/jchuff.h",
+        "neon-compat.h",
     ],
     copts = LIBJPEGTURBO_COPTS,
-    # target_compatible_with = [
-    #     ":armeabi-v7a",
-    #     "@platforms//cpu:arm64",
-    # ],
+    #target_compatible_with = [
+    #    ":armeabi-v7a",
+    #    "@platforms//cpu:arm64",
+    #],
     textual_hdrs = [
         "simd/arm/jcgryext-neon.c",
         "simd/arm/jdcolext-neon.c",
@@ -369,10 +367,7 @@ cc_library(
             "//conditions:default": [],
         },
     ),
-    deps = [
-        ":neon-compat_hdr",
-        ":simd_common",
-    ],
+    deps = [":simd_common"],
 )
 
 # libjpeg-turbo configure rules
