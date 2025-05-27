@@ -45,3 +45,6 @@ llvm_toolchain(
 load("@llvm_toolchain//:toolchains.bzl", "llvm_register_toolchains")
 
 llvm_register_toolchains()
+
+# Register the default @rules_nasm toolchain.
+register_toolchains("@rules_nasm//nasm/toolchain")

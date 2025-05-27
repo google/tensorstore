@@ -430,7 +430,9 @@ class EvaluationState:
       try:
         target_info = self.get_target_info(t)
         collector.collect(t, target_info)
-        assert target_info.get(FilesProvider) is not None
+        assert (
+            target_info.get(FilesProvider) is not None
+        ), f"No FilesProvider for target: {t.as_label()} {target_info}"
       except Exception as e:
         e.args = (e.args if e.args else tuple()) + (
             f"collecting target {t.as_label()}",

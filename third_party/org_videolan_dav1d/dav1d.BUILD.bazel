@@ -5,7 +5,7 @@
 
 load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
-load("@tensorstore//bazel:rules_nasm.bzl", "nasm_library")
+load("@rules_nasm//nasm:nasm_cc_library.bzl", "nasm_cc_library")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -30,15 +30,6 @@ cc_library(
         "@platforms//cpu:ppc": [],
         "@platforms//cpu:x86_64": [":dav1d_asm_x86"],
     }),
-)
-
-X86_ASM_SRCS = glob(
-    [
-        "src/x86/*.asm",
-    ],
-    exclude = [
-        "src/x86/filmgrain_common.asm",
-    ],
 )
 
 ARM_ASM_SRCS = glob(
@@ -181,31 +172,21 @@ cc_library(
     alwayslink = 1,
 )
 
-NASM_FLAGS = [
-    "-w-macro-params-legacy",
-    "-w-orphan-labels",
-] + select({
-    "@platforms//os:windows": ["-fwin64"],
-    "@platforms//os:macos": ["-fmacho64"],
-    "//conditions:default": ["-felf64"],
-})
-
-nasm_library(
+nasm_cc_library(
     name = "dav1d_asm_x86",
-    srcs = X86_ASM_SRCS,
-    flags = [
+    srcs = glob(
+        include = ["src/x86/*.asm"],
+        exclude = ["src/x86/filmgrain_common.asm"],
+    ),
+    copts = [
         "-s",
         "-w-macro-params-legacy",
         "-w-orphan-labels",
-    ] + select({
-        "@platforms//os:windows": ["-fwin64"],
-        "@platforms//os:macos": ["-fmacho64"],
-        "//conditions:default": ["-felf64"],
-    }),
-    includes = [
+    ],
+    includes = ["src", "build"],
+    hdrs = [
         "build/config.asm",
         "src/ext/x86/x86inc.asm",
-        "src/meson.build",  # To get -Isrc/, as that is the root of the exports.
         "src/x86/filmgrain_common.asm",
     ],
     linkstatic = 1,
