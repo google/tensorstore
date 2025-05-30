@@ -11,7 +11,6 @@ cc_library(
         "source/*.h",
         "source/*.c",
         "source/pkcs11/**/*.h",
-        "source/pkcs11/**/*.c",
     ]) + select({
         "@platforms//os:windows": glob([
             "source/windows/*.c",
