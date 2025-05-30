@@ -2,13 +2,19 @@
 #   AWS C Common
 
 load("@bazel_skylib//lib:selects.bzl", "selects")
-load("@bazel_skylib//rules:write_file.bzl", "write_file")
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 
 package(default_visibility = ["//visibility:private"])
 
 licenses(["notice"])  # Apache 2.0
 
 exports_files(["LICENSE"])
+
+copy_file(
+    name = "config_linux",
+    src = "@tensorstore//third_party:aws_c_common/config/common_config.h",
+    out = "include/aws/common/config.h",
+)
 
 _LOCAL_DEFINES = select({
     "@platforms//os:windows": [
@@ -165,73 +171,6 @@ cc_library(
     copts = _COPTS,
     strip_include_prefix = "source/external/libcbor",
     visibility = ["//visibility:private"],
-)
-
-_CONFIG = [
-    "#ifndef AWS_COMMON_CONFIG_H",
-    "#define AWS_COMMON_CONFIG_H",
-    "",
-    "#if (defined(__x86_64__) || defined(__i386__) || defined(_M_X64) || defined(_M_IX86))",
-    "#define  AWS_ARCH_INTEL",
-    "#endif",
-    "",
-    "#if (defined(__x86_64__) || defined(_M_X64))",
-    "#define  AWS_ARCH_INTEL_X64",
-    "#endif",
-    "",
-    "#if (defined(__aarch64__) || defined(_M_ARM64))",
-    "#define  AWS_ARCH_ARM64",
-    "#endif",
-    "",
-    "#if (defined(__arm__) || defined(_M_ARM))",
-    "#define  AWS_ARCH_ARM32",
-    "#endif",
-    "",
-    "#if defined(_MSC_VER)",
-    "#define AWS_HAVE_MSVC_INTRINSICS_X64",
-    "#endif",
-] + select({
-    ":compiler_gcc_or_clang": [
-        "#define AWS_HAVE_GCC_OVERFLOW_MATH_EXTENSIONS",
-        "#define AWS_HAVE_GCC_INLINE_ASM",
-    ],
-    "//conditions:default": [],
-}) + select({
-    "@platforms//os:windows": ["#define AWS_HAVE_WINAPI_DESKTOP"],
-    "@platforms//os:linux": [
-        "#define AWS_HAVE_POSIX_LARGE_FILE_SUPPORT",
-        "#define AWS_HAVE_EXECINFO",
-        "#define AWS_HAVE_LINUX_IF_LINK_H",
-    ],
-    "@platforms//os:osx": [
-        "#define AWS_HAVE_POSIX_LARGE_FILE_SUPPORT",
-        "#define AWS_HAVE_EXECINFO",
-    ],
-    "//conditions:default": [],
-}) + select({
-    ":have_avx2_intrinsics": ["#define AWS_HAVE_AVX2_INTRINSICS"],
-    "//conditions:default": [],
-}) + select({
-    "@platforms//cpu:x86_64": [
-        "#define AWS_HAVE_MM256_EXTRACT_EPI64",
-        "#define AWS_HAVE_CLMUL",
-        "#define AWS_USE_CPU_EXTENSIONS",
-    ],
-    "@platforms//cpu:arm64": [
-        "#define AWS_HAVE_ARM32_CRC",
-        "#define AWS_HAVE_ARMv8_1",
-    ],
-    "//conditions:default": [],
-}) + [
-    "",
-    "#endif  // AWS_COMMON_CONFIG_H",
-]
-
-write_file(
-    name = "write_config_h",
-    out = "include/aws/common/config.h",
-    content = _CONFIG,
-    newline = "auto",
 )
 
 # Constraint that indicates whether avx2 intrinsics can be used (subject to

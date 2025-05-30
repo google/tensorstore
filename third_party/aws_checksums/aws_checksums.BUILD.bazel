@@ -2,7 +2,6 @@
 #   AWS CheckSums
 
 load("@bazel_skylib//lib:selects.bzl", "selects")
-load("@bazel_skylib//rules:write_file.bzl", "write_file")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -79,7 +78,7 @@ selects.config_setting_group(
 
 [
     selects.config_setting_group(
-        name = cpu_os + "_" + compiler[0],
+        name = cpu + "_" + compiler[0],
         match_all = [
             "@platforms//cpu:" + cpu,
             compiler[1],
