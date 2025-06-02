@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# buildifier: disable=module-docstring
+
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load("//third_party:repo.bzl", "third_party_http_archive")
 
@@ -20,11 +22,11 @@ def repo():
         third_party_http_archive,
         name = "nasm",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/www.nasm.us/pub/nasm/releasebuilds/2.15.05/nasm-2.15.05.tar.bz2",
-            # "https://www.nasm.us/pub/nasm/releasebuilds/2.15.05/nasm-2.15.05.tar.bz2",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/www.nasm.us/pub/nasm/releasebuilds/2.16.03/nasm-2.16.03.tar.gz",
+            # "https://www.nasm.us/pub/nasm/releasebuilds/2.16.03/nasm-2.16.03.tar.gz",
         ],
-        sha256 = "3c4b8339e5ab54b1bcb2316101f8985a5da50a3f9e504d43fa6f35668bee2fd0",
-        strip_prefix = "nasm-2.15.05",
+        sha256 = "5bc940dd8a4245686976a8f7e96ba9340a0915f2d5b88356874890e207bdb581",
+        strip_prefix = "nasm-2.16.03",
         build_file = Label("//third_party:nasm/nasm.BUILD.bazel"),
         system_build_file = Label("//third_party:nasm/system.BUILD.bazel"),
     )

@@ -75,6 +75,7 @@ LIBAOM_HEADERS = select({
             "**/*sse4_1.h",
             "**/*ssse3.h",
         ],
+        allow_empty = True,
     ),
 })
 
@@ -240,7 +241,10 @@ cc_library(
 nasm_cc_library(
     name = "av1_x86_asm",
     srcs = AV1_ASM,
-    copts = ["-w+all"],
+    copts = [
+        "-w+all",
+        "-w-reloc-rel-dword",
+    ],
     hdrs = NASM_HDRS,
     alwayslink = 1,
 )
@@ -312,7 +316,10 @@ cc_library(
 nasm_cc_library(
     name = "dsp_x86_asm",
     srcs = DSP_ASM,
-    copts = ["-w+all"],
+    copts = [
+        "-w+all",
+        "-w-reloc-rel-dword",
+    ],
     hdrs = NASM_HDRS,
     alwayslink = 1,
 )
@@ -407,7 +414,10 @@ nasm_cc_library(
     srcs = [
         "aom_ports/float.asm",
     ],
-    copts = ["-w+all"],
+    copts = [
+        "-w+all",
+        "-w-reloc-rel-dword",
+    ],
     hdrs = NASM_HDRS,
     alwayslink = 1,
 )

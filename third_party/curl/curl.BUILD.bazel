@@ -1,6 +1,8 @@
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 
+package(default_visibility = ["//visibility:private"])
+
 licenses(["notice"])
 
 exports_files(["COPYING"])
@@ -17,7 +19,6 @@ config_setting(
     flag_values = {
         ":debug": "True",
     },
-    visibility = ["//visibility:private"],
 )
 
 LOCAL_DEFINES = (
