@@ -26,17 +26,12 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "riegeli",
-        doc_version = "20250415-9da769a3",
+        doc_version = "20250607-c4d1f27",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/google/riegeli/archive/bcae1d3b1f6da547e77119c463bcab67d7f785d3.tar.gz",  # master(2025-04-29)
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/google/riegeli/archive/c4d1f275ed44db839385e494c3a969ae232d6e10.tar.gz",  # master(2025-06-07)
         ],
-        sha256 = "b45c9b8b3f96b68272b9fa1bc543e7c286717b54a36e877115f39c69a0abf346",
-        strip_prefix = "riegeli-bcae1d3b1f6da547e77119c463bcab67d7f785d3",
-        patches = [
-            # Riegeli patch to build on MSVC
-            Label("//third_party:riegeli/patches/chain.diff"),
-        ],
-        patch_args = ["-p1"],
+        sha256 = "0ca5be90a2e184fc2a9590e804c476a004f04b48c40ca488a6b608fcd224b32f",
+        strip_prefix = "riegeli-c4d1f275ed44db839385e494c3a969ae232d6e10",
         repo_mapping = {
             "@net_zstd": "@zstd",
             "@com_google_googleapis": "@googleapis",
