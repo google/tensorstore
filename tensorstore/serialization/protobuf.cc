@@ -28,7 +28,8 @@ namespace serialization {
 bool ProtobufSerializer::Encode(EncodeSink& sink,
                                 const google::protobuf::MessageLite& value) {
   auto status = riegeli::SerializeLengthPrefixedMessage(
-      value, sink.writer(), riegeli::SerializeOptions().set_partial(true));
+      value, sink.writer(),
+      riegeli::SerializeMessageOptions().set_partial(true));
   if (!status.ok()) {
     sink.Fail(std::move(status));
     return false;
@@ -39,7 +40,7 @@ bool ProtobufSerializer::Encode(EncodeSink& sink,
 bool ProtobufSerializer::Decode(DecodeSource& source,
                                 google::protobuf::MessageLite& value) {
   auto status = riegeli::ParseLengthPrefixedMessage(
-      source.reader(), value, riegeli::ParseOptions().set_partial(true));
+      source.reader(), value, riegeli::ParseMessageOptions().set_partial(true));
   if (!status.ok()) {
     source.Fail(std::move(status));
     return false;
