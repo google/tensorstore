@@ -15,8 +15,12 @@
 #ifndef TENSORSTORE_KVSTORE_OCDBT_FORMAT_DATA_FILE_ID_CODEC_H_
 #define TENSORSTORE_KVSTORE_OCDBT_FORMAT_DATA_FILE_ID_CODEC_H_
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <vector>
 
+#include "absl/container/flat_hash_map.h"
 #include "riegeli/bytes/reader.h"
 #include "riegeli/bytes/writer.h"
 #include "tensorstore/kvstore/ocdbt/format/codec_util.h"

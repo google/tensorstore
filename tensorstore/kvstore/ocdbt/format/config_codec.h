@@ -19,6 +19,8 @@
 ///
 /// Internal codecs for `Config`, used by the manifest codec.
 
+#include <stdint.h>
+
 #include "riegeli/bytes/reader.h"
 #include "riegeli/bytes/writer.h"
 #include "tensorstore/kvstore/ocdbt/format/codec_util.h"

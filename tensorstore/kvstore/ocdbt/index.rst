@@ -261,7 +261,7 @@ Manifest configuration
 .. _ocdbt-config-compression-method:
 
 ``compression_method``
-  ``0`` for compressed, ``1`` for Zstandard.
+  ``0`` for uncompressed, ``1`` for Zstandard.
 
 .. _ocdbt-config-compression-configuration:
 
