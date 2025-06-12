@@ -14,6 +14,8 @@
 
 #include "tensorstore/kvstore/ocdbt/format/manifest.h"
 
+#include <stdint.h>
+
 #include <cassert>
 #include <ostream>
 #include <string>
@@ -31,6 +33,7 @@
 #include "tensorstore/kvstore/ocdbt/format/config.h"
 #include "tensorstore/kvstore/ocdbt/format/config_codec.h"
 #include "tensorstore/kvstore/ocdbt/format/data_file_id_codec.h"
+#include "tensorstore/kvstore/ocdbt/format/indirect_data_reference_codec.h"
 #include "tensorstore/kvstore/ocdbt/format/version_tree.h"
 #include "tensorstore/kvstore/ocdbt/format/version_tree_codec.h"
 #include "tensorstore/util/result.h"
