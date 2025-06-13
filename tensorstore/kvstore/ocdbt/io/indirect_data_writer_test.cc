@@ -23,7 +23,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/strings/cord.h"
-#include "tensorstore/internal/flat_cord_builder.h"
+#include "riegeli/base/byte_fill.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/memory/memory_key_value_store.h"
 #include "tensorstore/kvstore/mock_kvstore.h"
@@ -33,19 +33,12 @@
 #include "tensorstore/util/status_testutil.h"
 
 using ::tensorstore::Future;
-using ::tensorstore::internal::FlatCordBuilder;
 using ::tensorstore::internal::MockKeyValueStore;
 using ::tensorstore::internal_ocdbt::IndirectDataReference;
 using ::tensorstore::internal_ocdbt::MakeIndirectDataWriter;
 using ::tensorstore::internal_ocdbt::Write;
 
 namespace {
-
-absl::Cord GetCord(size_t size) {
-  FlatCordBuilder cord_builder(size);
-  memset(cord_builder.data(), 0x37, cord_builder.size());
-  return std::move(cord_builder).Build();
-}
 
 template <typename T>
 std::vector<std::string> ListEntriesToFiles(T& entries) {
@@ -59,7 +52,7 @@ std::vector<std::string> ListEntriesToFiles(T& entries) {
 }
 
 TEST(IndirectDataWriter, UnlimitedSize) {
-  auto data = GetCord(260);
+  absl::Cord data(riegeli::ByteFill(260, 0x37));
 
   auto memory_store = tensorstore::GetMemoryKeyValueStore();
   auto mock_key_value_store = MockKeyValueStore::Make();
@@ -107,7 +100,7 @@ TEST(IndirectDataWriter, UnlimitedSize) {
 TEST(IndirectDataWriter, LimitedSize) {
   constexpr size_t kTargetSize = 1024;
 
-  auto data = GetCord(260);
+  absl::Cord data(riegeli::ByteFill(260, 0x37));
 
   auto memory_store = tensorstore::GetMemoryKeyValueStore();
   auto mock_key_value_store = MockKeyValueStore::Make();

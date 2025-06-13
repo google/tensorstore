@@ -27,6 +27,7 @@
 #include "absl/strings/str_format.h"
 #include "absl/types/optional.h"
 #include "riegeli/base/arithmetic.h"
+#include "riegeli/base/initializer.h"
 #include "riegeli/base/maker.h"
 #include "riegeli/base/object.h"
 #include "riegeli/base/types.h"
@@ -85,11 +86,10 @@ class DigestSuffixedReader
 
  public:
   using typename Base::DigestType;
-  template <typename... DigesterArg>
-  explicit DigestSuffixedReader(riegeli::Reader* src,
-                                std::optional<size_t> payload_size = {},
-                                DigesterArg&&... digester_arg)
-      : Base(riegeli::Closed{}) {
+  explicit DigestSuffixedReader(
+      riegeli::Reader* src, std::optional<size_t> payload_size = {},
+      riegeli::Initializer<Digester> digester = riegeli::Maker())
+      : Base(riegeli::kClosed) {
     size_t inner_limit;
     if (payload_size) {
       inner_limit = *payload_size;
@@ -122,7 +122,7 @@ class DigestSuffixedReader
     }
     Base::Reset(riegeli::Maker(src, riegeli::LimitingReaderBase::Options()
                                         .set_exact_length(inner_limit)),
-                std::forward<DigesterArg>(digester_arg)...);
+                std::move(digester));
   }
 
   bool SupportsSize() override { return Base::is_open(); }

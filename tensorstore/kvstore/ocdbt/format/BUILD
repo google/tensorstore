@@ -61,6 +61,7 @@ tensorstore_cc_library(
         "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/time",
         "@boringssl//:crypto",
+        "@riegeli//riegeli/base:byte_fill",
         "@riegeli//riegeli/bytes:cord_reader",
         "@riegeli//riegeli/bytes:cord_writer",
         "@riegeli//riegeli/bytes:limiting_reader",

@@ -31,12 +31,14 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
+#include "riegeli/base/byte_fill.h"
 #include "tensorstore/context.h"
 #include "tensorstore/internal/cache/kvs_backed_cache_testutil.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
 #include "tensorstore/json_serialization_options_base.h"
+#include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/mock_kvstore.h"
@@ -53,6 +55,7 @@
 #include "tensorstore/kvstore/supported_features.h"
 #include "tensorstore/kvstore/test_matchers.h"
 #include "tensorstore/kvstore/test_util.h"
+#include "tensorstore/open_mode.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
@@ -975,7 +978,7 @@ TEST(OcdbtTest, AssumeConfigMismatch) {
                          context)
                          .result());
     auto write_future =
-        kvstore::Write(store2, "b", absl::Cord(std::string(200, 0)));
+        kvstore::Write(store2, "b", absl::Cord(riegeli::ByteFill(200)));
 
     if (assume_config) {
       auto req = mock_key_value_store->write_requests.pop();

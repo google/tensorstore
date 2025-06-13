@@ -213,6 +213,8 @@ tensorstore_cc_test(
         "//tensorstore/kvstore/file",
         "//tensorstore/kvstore/memory",
         "//tensorstore/util:executor",
+        "//tensorstore/util:future",
+        "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",
         "@abseil-cpp//absl/container:flat_hash_map",
