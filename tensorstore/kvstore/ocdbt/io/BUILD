@@ -184,7 +184,6 @@ tensorstore_cc_test(
     srcs = ["indirect_data_writer_test.cc"],
     deps = [
         ":indirect_data_writer",
-        "//tensorstore/internal:flat_cord_builder",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:mock_kvstore",
         "//tensorstore/kvstore/memory",
@@ -193,6 +192,7 @@ tensorstore_cc_test(
         "//tensorstore/util:status_testutil",
         "@abseil-cpp//absl/strings:cord",
         "@googletest//:gtest_main",
+        "@riegeli//riegeli/base:byte_fill",
     ],
 )
 

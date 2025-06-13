@@ -170,12 +170,14 @@ tensorstore_cc_test(
         ":test_util",
         "//tensorstore:context",
         "//tensorstore:json_serialization_options_base",
+        "//tensorstore:open_mode",
         "//tensorstore:transaction",
         "//tensorstore/internal:global_initializer",
         "//tensorstore/internal/cache:kvs_backed_cache_testutil",
         "//tensorstore/internal/testing:json_gtest",
         "//tensorstore/internal/testing:scoped_directory",
         "//tensorstore/kvstore",
+        "//tensorstore/kvstore:byte_range",
         "//tensorstore/kvstore:key_range",
         "//tensorstore/kvstore:mock_kvstore",
         "//tensorstore/kvstore:test_matchers",
@@ -192,6 +194,7 @@ tensorstore_cc_test(
         "@abseil-cpp//absl/time",
         "@googletest//:gtest_main",
         "@nlohmann_json//:json",
+        "@riegeli//riegeli/base:byte_fill",
     ],
 )
 

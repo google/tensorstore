@@ -23,6 +23,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -109,7 +110,8 @@ using ::tensorstore::zarr3_sharding_indexed::ShardIndexLocation;
 constexpr CachePool::Limits kSmallCacheLimits{10000000};
 
 absl::Cord Bytes(std::initializer_list<unsigned char> x) {
-  return absl::Cord(std::string(x.begin(), x.end()));
+  return absl::Cord(
+      std::string_view(reinterpret_cast<const char*>(x.begin()), x.size()));
 }
 
 absl::Cord WithCrc32c(absl::Cord input) {

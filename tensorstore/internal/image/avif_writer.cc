@@ -241,21 +241,15 @@ absl::Status AvifFinish(avifEncoder* encoder, riegeli::Writer* writer) {
   }
   absl::string_view buffer(reinterpret_cast<const char*>(avif_output.data),
                            avif_output.size);
-  bool ok;
-
-  ok = writer->Write(riegeli::ExternalRef::From(
-      [](absl::string_view buffer) {
-        avifRWData avif_output = {
-            reinterpret_cast<uint8_t*>(const_cast<char*>(buffer.data())),
-            buffer.size()};
-        avifRWDataFree(&avif_output);
-      },
-      buffer));
-  if (!ok) {
-    if (!writer->ok()) {
-      return MaybeAnnotateStatus(writer->status(), "Encoding AVIF");
-    }
-    return absl::InternalError("Encoding AVIF");
+  if (!writer->Write(riegeli::ExternalRef::From(
+          [](absl::string_view buffer) {
+            avifRWData avif_output = {
+                reinterpret_cast<uint8_t*>(const_cast<char*>(buffer.data())),
+                buffer.size()};
+            avifRWDataFree(&avif_output);
+          },
+          buffer))) {
+    return MaybeAnnotateStatus(writer->status(), "Encoding AVIF");
   }
   return absl::OkStatus();
 }

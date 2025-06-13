@@ -47,6 +47,7 @@
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
 #include <nlohmann/json_fwd.hpp>
+#include "riegeli/base/byte_fill.h"
 #include "tensorstore/batch.h"
 #include "tensorstore/context.h"
 #include "tensorstore/internal/metrics/collect.h"
@@ -502,7 +503,8 @@ void TestKeyValueStoreTransactionalListOps(
                       bool retain_size) -> absl::Status {
     const auto& key = p.keys[key_idx];
     TENSORSTORE_RETURN_IF_ERROR(
-        kvstore::Write(store, key, absl::Cord(std::string(key_idx + 1, 'X')))
+        kvstore::Write(store, key,
+                       absl::Cord(riegeli::ByteFill(key_idx + 1, 'X')))
             .status());
     reference[key] =
         retain_size && p.match_size ? static_cast<int64_t>(key_idx + 1) : -1;
@@ -1921,20 +1923,17 @@ void TestBatchReadGenericCoalescing(
       auto x_stamp,
       kvstore::Write(
           store, "x",
-          absl::Cord(std::string(
-              std::max(int64_t{8192},
-                       (has_target_coalesced_size
-                            ? coalescing_options.target_coalesced_size
-                            : coalescing_options.max_extra_read_bytes) +
-                           1),
-              '\0')))
+          absl::Cord(riegeli::ByteFill(std::max(
+              int64_t{8192}, (has_target_coalesced_size
+                                  ? coalescing_options.target_coalesced_size
+                                  : coalescing_options.max_extra_read_bytes) +
+                                 1))))
           .result());
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto y_stamp,
-      kvstore::Write(
-          store, "y",
-          absl::Cord(std::string(
-              2 * (1 + coalescing_options.max_extra_read_bytes), '\0')))
+      kvstore::Write(store, "y",
+                     absl::Cord(riegeli::ByteFill(
+                         2 * (1 + coalescing_options.max_extra_read_bytes))))
           .result());
 
   const auto get_metrics =

@@ -301,6 +301,7 @@ tensorstore_cc_library(
         "@abseil-cpp//absl/time",
         "@googletest//:gtest",
         "@nlohmann_json//:json",
+        "@riegeli//riegeli/base:byte_fill",
     ],
     alwayslink = True,
 )

@@ -59,6 +59,8 @@
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/executor.h"
+#include "tensorstore/util/future.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -95,7 +97,8 @@ using ::tensorstore::neuroglancer_uint64_sharded::ShardingSpec;
 constexpr CachePool::Limits kSmallCacheLimits{10000000};
 
 absl::Cord Bytes(std::initializer_list<unsigned char> x) {
-  return absl::Cord(std::string(x.begin(), x.end()));
+  return absl::Cord(
+      std::string_view(reinterpret_cast<const char*>(x.begin()), x.size()));
 }
 
 std::string GetChunkKey(uint64_t chunk_id) { return ChunkIdToKey({chunk_id}); }
