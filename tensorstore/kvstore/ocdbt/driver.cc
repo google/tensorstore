@@ -547,10 +547,13 @@ Future<kvstore::ReadResult> OcdbtDriver::TransactionalRead(
 
 namespace {
 Result<kvstore::Spec> ParseOcdbtUrl(std::string_view url, kvstore::Spec base) {
-  auto parsed = internal::ParseGenericUriWithoutSlashSlash(url);
-  assert(parsed.scheme == OcdbtDriverSpec::id);
+  auto parsed = internal::ParseGenericUri(url);
+  if (parsed.scheme != OcdbtDriverSpec::id) {
+    return absl::InvalidArgumentError(absl::StrCat(
+        "Scheme \"", OcdbtDriverSpec::id, ":\" not present in url"));
+  }
   TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
-  std::string_view encoded_path = parsed.authority_and_path;
+  std::string_view encoded_path = parsed.path;
   std::optional<VersionSpec> version_spec;
   if (!encoded_path.empty() && encoded_path[0] == '@') {
     size_t version_end = encoded_path.find('/');

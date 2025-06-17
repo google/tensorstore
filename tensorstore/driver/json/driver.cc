@@ -20,6 +20,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include "absl/status/status.h"
@@ -609,8 +610,9 @@ void JsonDriver::Write(WriteRequest request, WriteChunkReceiver receiver) {
 
 Result<internal::TransformedDriverSpec> ParseJsonUrl(std::string_view url,
                                                      kvstore::Spec&& base) {
-  auto parsed = internal::ParseGenericUriWithoutSlashSlash(url);
-  assert(parsed.scheme == JsonDriverSpec::id);
+  auto parsed = internal::ParseGenericUri(url);
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal::EnsureSchema(parsed, JsonDriverSpec::id));
   TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
   auto driver_spec = internal::MakeIntrusivePtr<JsonDriverSpec>();
   driver_spec->store = std::move(base);

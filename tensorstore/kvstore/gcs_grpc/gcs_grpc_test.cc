@@ -637,6 +637,8 @@ TEST(GcsGrpcUrlTest, UrlRoundtrip) {
 }
 
 TEST(GcsGrpcUrlTest, InvalidUri) {
+  EXPECT_THAT(kvstore::Spec::FromUrl("gcs_grpc:foo"),
+              MatchesStatus(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(kvstore::Spec::FromUrl("gcs_grpc://"),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(kvstore::Spec::FromUrl("gcs_grpc:///"),

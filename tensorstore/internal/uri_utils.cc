@@ -17,7 +17,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <algorithm>
 #include <cassert>
 #include <optional>
 #include <string>
@@ -26,6 +25,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
+#include "absl/strings/str_cat.h"
 #include "tensorstore/internal/ascii_set.h"
 
 namespace tensorstore {
@@ -45,6 +45,12 @@ inline char IntToHexDigit(int x) {
   assert(x >= 0 && x < 16);
   return "0123456789ABCDEF"[x];
 }
+
+static inline constexpr AsciiSet kSchemeChars{
+    "abcdefghijklmnopqrstuvwxyz"
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    "0123456789"
+    "+-._"};  // NOTE: rfc3986 scheme do not allow '_'
 
 }  // namespace
 
@@ -88,55 +94,74 @@ void PercentDecodeAppend(std::string_view src, std::string& dest) {
   }
 }
 
-namespace {
-ParsedGenericUri ParseGenericUriImpl(std::string_view uri,
-                                     std::string_view scheme_delimiter) {
+ParsedGenericUri ParseGenericUri(std::string_view uri) {
   ParsedGenericUri result;
-  const auto scheme_start = uri.find(scheme_delimiter);
-  std::string_view uri_suffix;
-  if (scheme_start == std::string_view::npos) {
-    // No scheme
-    uri_suffix = uri;
-  } else {
-    result.scheme = uri.substr(0, scheme_start);
-    uri_suffix = uri.substr(scheme_start + scheme_delimiter.size());
-  }
-  const auto fragment_start = uri_suffix.find('#');
-  const auto query_start = uri_suffix.substr(0, fragment_start).find('?');
-  const auto path_end = std::min(query_start, fragment_start);
-  // Note: Since substr clips out-of-range count, this works even if
-  // `path_end == npos`.
-  result.authority_and_path = uri_suffix.substr(0, path_end);
+  std::string_view unparsed_uri = uri;
 
-  if (const auto path_start = result.authority_and_path.find('/');
-      path_start == 0 || result.authority_and_path.empty()) {
-    result.authority = {};
-    result.path = result.authority_and_path;
-  } else if (path_start != std::string_view::npos) {
-    result.authority = result.authority_and_path.substr(0, path_start);
-    result.path = result.authority_and_path.substr(path_start);
-  } else {
-    result.authority = result.authority_and_path;
-    result.path = {};
+  if (uri.empty()) return result;
+
+  // Parse the scheme.
+  for (size_t i = 0; i < uri.size(); ++i) {
+    if (i == 0 && !absl::ascii_isalpha(uri[i])) break;
+    if (kSchemeChars.Test(uri[i])) continue;
+    if (uri[i] == ':') {
+      result.scheme = uri.substr(0, i);
+      unparsed_uri = uri.substr(i + 1);
+    }
+    break;
   }
 
-  if (query_start != std::string_view::npos) {
-    result.query =
-        uri_suffix.substr(query_start + 1, fragment_start - query_start - 1);
-  }
+  // Parse the query parts and fragment.
+  const auto fragment_start = unparsed_uri.find('#');
   if (fragment_start != std::string_view::npos) {
-    result.fragment = uri_suffix.substr(fragment_start + 1);
+    result.fragment = unparsed_uri.substr(fragment_start + 1);
+    unparsed_uri = unparsed_uri.substr(0, fragment_start);
+  }
+  const auto query_start = unparsed_uri.substr(0, fragment_start).find('?');
+  if (query_start != std::string_view::npos) {
+    result.query = unparsed_uri.substr(query_start + 1);
+    unparsed_uri = unparsed_uri.substr(0, query_start);
+  }
+
+  // Maybe parse the authority from the hier-part.
+  if (absl::StartsWith(unparsed_uri, "//")) {
+    result.has_authority_delimiter = true;
+    unparsed_uri = unparsed_uri.substr(2);
+    result.authority_and_path = unparsed_uri;
+
+    // TODO: Actually parse the authority and path
+    if (const auto path_start = unparsed_uri.find('/');
+        path_start != std::string_view::npos) {
+      result.authority = unparsed_uri.substr(0, path_start);
+      result.path = unparsed_uri.substr(path_start);
+    } else {
+      result.authority = unparsed_uri;
+      result.path = {};
+    }
+  } else {
+    result.authority_and_path = unparsed_uri;
+    result.authority = {};
+    result.path = unparsed_uri;
   }
   return result;
 }
-}  // namespace
 
-ParsedGenericUri ParseGenericUri(std::string_view uri) {
-  return ParseGenericUriImpl(uri, "://");
+absl::Status EnsureSchema(const ParsedGenericUri& parsed_uri,
+                          std::string_view scheme) {
+  if (parsed_uri.scheme != scheme) {
+    return absl::InvalidArgumentError(
+        absl::StrCat("Scheme \"", scheme, ":\" not present in url"));
+  }
+  return absl::OkStatus();
 }
 
-ParsedGenericUri ParseGenericUriWithoutSlashSlash(std::string_view uri) {
-  return ParseGenericUriImpl(uri, ":");
+absl::Status EnsureSchemaWithAuthorityDelimiter(
+    const ParsedGenericUri& parsed_uri, std::string_view scheme) {
+  if (parsed_uri.scheme != scheme || !parsed_uri.has_authority_delimiter) {
+    return absl::InvalidArgumentError(
+        absl::StrCat("Scheme \"", scheme, "://\" not present in url"));
+  }
+  return absl::OkStatus();
 }
 
 absl::Status EnsureNoQueryOrFragment(const ParsedGenericUri& parsed_uri) {
@@ -150,8 +175,11 @@ absl::Status EnsureNoQueryOrFragment(const ParsedGenericUri& parsed_uri) {
 }
 
 absl::Status EnsureNoPathOrQueryOrFragment(const ParsedGenericUri& parsed_uri) {
-  if (!parsed_uri.authority_and_path.empty()) {
+  if (!parsed_uri.path.empty()) {
     return absl::InvalidArgumentError("Path not supported");
+  }
+  if (!parsed_uri.authority.empty()) {
+    return absl::InvalidArgumentError("Query string not supported");
   }
   return EnsureNoQueryOrFragment(parsed_uri);
 }

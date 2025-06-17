@@ -537,8 +537,8 @@ std::string EncodeChunkIndices(span<const Index> indices,
 namespace {
 Result<internal::TransformedDriverSpec> ParseZarrUrl(std::string_view url,
                                                      kvstore::Spec&& base) {
-  auto parsed = internal::ParseGenericUriWithoutSlashSlash(url);
-  assert(parsed.scheme == kUrlScheme);
+  auto parsed = internal::ParseGenericUri(url);
+  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureSchema(parsed, kUrlScheme));
   TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
   auto driver_spec = internal::MakeIntrusivePtr<ZarrDriverSpec>();
   driver_spec->InitializeFromUrl(std::move(base), parsed.authority_and_path);

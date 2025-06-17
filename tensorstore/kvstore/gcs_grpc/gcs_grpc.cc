@@ -1025,7 +1025,8 @@ Future<kvstore::DriverPtr> GcsGrpcKeyValueStoreSpec::DoOpen() const {
 
 Result<kvstore::Spec> ParseGcsGrpcUrl(std::string_view url) {
   auto parsed = internal::ParseGenericUri(url);
-  assert(parsed.scheme == kUriScheme);
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal::EnsureSchemaWithAuthorityDelimiter(parsed, kUriScheme));
   TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
   if (!IsValidBucketName(parsed.authority)) {
     return absl::InvalidArgumentError(tensorstore::StrCat(

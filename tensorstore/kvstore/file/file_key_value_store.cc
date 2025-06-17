@@ -909,7 +909,8 @@ Future<kvstore::DriverPtr> FileKeyValueStoreSpec::DoOpen() const {
 
 Result<kvstore::Spec> ParseFileUrl(std::string_view url) {
   auto parsed = internal::ParseGenericUri(url);
-  assert(parsed.scheme == internal_file_kvstore::FileKeyValueStoreSpec::id);
+  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureSchemaWithAuthorityDelimiter(
+      parsed, FileKeyValueStoreSpec::id));
   TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
   std::string path = internal::PercentDecode(parsed.authority_and_path);
   auto driver_spec = internal::MakeIntrusivePtr<FileKeyValueStoreSpec>();

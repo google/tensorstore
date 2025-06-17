@@ -135,14 +135,36 @@ TEST(PercentEncodeUriComponentTest, NonAscii) {
   EXPECT_THAT(PercentEncodeUriComponent("\xff"), ::testing::Eq("%FF"));
 }
 
-TEST(ParseGenericUriTest, PathOnly) {
+TEST(ParseGenericUriTest, InvalidPathOnly) {
   auto parsed = ParseGenericUri("/abc/def");
   EXPECT_EQ("", parsed.scheme);
-  EXPECT_EQ("/abc/def", parsed.authority_and_path);
   EXPECT_EQ("", parsed.authority);
+  EXPECT_EQ("/abc/def", parsed.authority_and_path);
   EXPECT_EQ("/abc/def", parsed.path);
   EXPECT_EQ("", parsed.query);
   EXPECT_EQ("", parsed.fragment);
+  EXPECT_FALSE(parsed.has_authority_delimiter);
+}
+
+TEST(ParseGenericUriTest, FileScheme1) {
+  auto parsed = ParseGenericUri("file:///abc/def");
+  EXPECT_EQ("file", parsed.scheme);
+  EXPECT_EQ("", parsed.authority);
+  EXPECT_EQ("/abc/def", parsed.authority_and_path);
+  EXPECT_EQ("/abc/def", parsed.path);
+  EXPECT_EQ("", parsed.query);
+  EXPECT_EQ("", parsed.fragment);
+  EXPECT_TRUE(parsed.has_authority_delimiter);
+}
+TEST(ParseGenericUriTest, FileScheme2) {
+  auto parsed = ParseGenericUri("file:/abc/def");
+  EXPECT_EQ("file", parsed.scheme);
+  EXPECT_EQ("", parsed.authority);
+  EXPECT_EQ("/abc/def", parsed.authority_and_path);
+  EXPECT_EQ("/abc/def", parsed.path);
+  EXPECT_EQ("", parsed.query);
+  EXPECT_EQ("", parsed.fragment);
+  EXPECT_FALSE(parsed.has_authority_delimiter);
 }
 
 TEST(ParseGenericUriTest, GsScheme) {
@@ -153,6 +175,7 @@ TEST(ParseGenericUriTest, GsScheme) {
   EXPECT_EQ("/path", parsed.path);
   EXPECT_EQ("", parsed.query);
   EXPECT_EQ("", parsed.fragment);
+  EXPECT_TRUE(parsed.has_authority_delimiter);
 }
 
 TEST(ParseGenericUriTest, SchemeAuthorityNoPath) {
@@ -163,6 +186,7 @@ TEST(ParseGenericUriTest, SchemeAuthorityNoPath) {
   EXPECT_EQ("", parsed.path);
   EXPECT_EQ("", parsed.query);
   EXPECT_EQ("", parsed.fragment);
+  EXPECT_TRUE(parsed.has_authority_delimiter);
 }
 
 TEST(ParseGenericUriTest, SchemeAuthorityRootPath) {
@@ -173,6 +197,7 @@ TEST(ParseGenericUriTest, SchemeAuthorityRootPath) {
   EXPECT_EQ("/", parsed.path);
   EXPECT_EQ("", parsed.query);
   EXPECT_EQ("", parsed.fragment);
+  EXPECT_TRUE(parsed.has_authority_delimiter);
 }
 
 TEST(ParseGenericUriTest, SchemeAuthorityPathQuery) {
@@ -183,6 +208,7 @@ TEST(ParseGenericUriTest, SchemeAuthorityPathQuery) {
   EXPECT_EQ("/path", parsed.path);
   EXPECT_EQ("query", parsed.query);
   EXPECT_EQ("", parsed.fragment);
+  EXPECT_TRUE(parsed.has_authority_delimiter);
 }
 
 TEST(ParseGenericUriTest, SchemeAuthorityPathFragment) {
@@ -193,6 +219,7 @@ TEST(ParseGenericUriTest, SchemeAuthorityPathFragment) {
   EXPECT_EQ("/path", parsed.path);
   EXPECT_EQ("", parsed.query);
   EXPECT_EQ("fragment", parsed.fragment);
+  EXPECT_TRUE(parsed.has_authority_delimiter);
 }
 
 TEST(ParseGenericUriTest, SchemeAuthorityPathQueryFragment) {
@@ -203,6 +230,7 @@ TEST(ParseGenericUriTest, SchemeAuthorityPathQueryFragment) {
   EXPECT_EQ("/path", parsed.path);
   EXPECT_EQ("query", parsed.query);
   EXPECT_EQ("fragment", parsed.fragment);
+  EXPECT_TRUE(parsed.has_authority_delimiter);
 }
 
 // Tests that any "?" after the first "#" is treated as part of the fragment.
@@ -214,6 +242,7 @@ TEST(ParseGenericUriTest, SchemeAuthorityPathFragmentQuery) {
   EXPECT_EQ("/path", parsed.path);
   EXPECT_EQ("", parsed.query);
   EXPECT_EQ("fragment?query", parsed.fragment);
+  EXPECT_TRUE(parsed.has_authority_delimiter);
 }
 
 TEST(ParseGenericUriTest, S3Scheme) {
@@ -224,6 +253,7 @@ TEST(ParseGenericUriTest, S3Scheme) {
   EXPECT_EQ("/path", parsed.path);
   EXPECT_EQ("", parsed.query);
   EXPECT_EQ("", parsed.fragment);
+  EXPECT_TRUE(parsed.has_authority_delimiter);
 }
 
 TEST(ParseGenericUriTest, Basic) {

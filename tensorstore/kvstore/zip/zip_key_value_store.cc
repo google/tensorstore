@@ -412,10 +412,13 @@ void ZipKvStore::ListImpl(ListOptions options, ListReceiver receiver) {
 }
 
 Result<kvstore::Spec> ParseZipUrl(std::string_view url, kvstore::Spec base) {
-  auto parsed = internal::ParseGenericUriWithoutSlashSlash(url);
-  assert(parsed.scheme == ZipKvStoreSpec::id);
+  auto parsed = internal::ParseGenericUri(url);
+  if (parsed.scheme != ZipKvStoreSpec::id || parsed.has_authority_delimiter) {
+    return absl::InvalidArgumentError(absl::StrCat(
+        "Scheme \"", ZipKvStoreSpec::id, ":\" not present in url"));
+  }
   TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
-  std::string path = internal::PercentDecode(parsed.authority_and_path);
+  std::string path = internal::PercentDecode(parsed.path);
   auto driver_spec = internal::MakeIntrusivePtr<ZipKvStoreSpec>();
   driver_spec->data_.base = std::move(base);
   driver_spec->data_.cache_pool =
