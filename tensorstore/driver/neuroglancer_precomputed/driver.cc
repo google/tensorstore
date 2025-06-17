@@ -987,8 +987,8 @@ Future<internal::Driver::Handle> NeuroglancerPrecomputedDriverSpec::Open(
 
 Result<internal::TransformedDriverSpec> ParseNeuroglancerPrecomputedUrl(
     std::string_view url, kvstore::Spec&& base) {
-  auto parsed = internal::ParseGenericUriWithoutSlashSlash(url);
-  assert(parsed.scheme == kUrlScheme);
+  auto parsed = internal::ParseGenericUri(url);
+  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureSchema(parsed, kUrlScheme));
   TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoPathOrQueryOrFragment(parsed));
   auto driver_spec =
       internal::MakeIntrusivePtr<NeuroglancerPrecomputedDriverSpec>();

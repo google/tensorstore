@@ -292,6 +292,9 @@ TEST(MemoryKeyValueStoreTest, InvalidUri) {
   EXPECT_THAT(kvstore::Spec::FromUrl("memory://abc#fragment"),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             ".*: Fragment identifier not supported"));
+  EXPECT_THAT(kvstore::Spec::FromUrl("memory:abc~xyz"),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            ".*: Scheme \"memory://\" not present in url"));
 }
 
 }  // namespace

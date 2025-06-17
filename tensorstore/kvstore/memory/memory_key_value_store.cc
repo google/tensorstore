@@ -506,7 +506,8 @@ absl::Status MemoryDriver::TransactionalDeleteRange(
 
 Result<kvstore::Spec> ParseMemoryUrl(std::string_view url) {
   auto parsed = internal::ParseGenericUri(url);
-  assert(parsed.scheme == tensorstore::MemoryDriverSpec::id);
+  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureSchemaWithAuthorityDelimiter(
+      parsed, MemoryDriverSpec::id));
   TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
   auto driver_spec = internal::MakeIntrusivePtr<MemoryDriverSpec>();
   driver_spec->data_.memory_key_value_store =

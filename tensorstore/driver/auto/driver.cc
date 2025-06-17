@@ -260,8 +260,9 @@ internal::TransformedDriverSpec MakeAutoSpec(kvstore::Spec&& base) {
 
 Result<internal::TransformedDriverSpec> ParseAutoUrl(std::string_view url,
                                                      kvstore::Spec&& base) {
-  auto parsed = internal::ParseGenericUriWithoutSlashSlash(url);
-  assert(parsed.scheme == AutoDriverSpec::id);
+  auto parsed = internal::ParseGenericUri(url);
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal::EnsureSchema(parsed, AutoDriverSpec::id));
   TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoPathOrQueryOrFragment(parsed));
   return MakeAutoSpec(std::move(base));
 }

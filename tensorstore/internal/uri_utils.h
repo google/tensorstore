@@ -122,31 +122,38 @@ inline std::string PercentDecode(std::string_view src) {
 }
 
 struct ParsedGenericUri {
-  /// Portion of URI before the initial "://", or empty if there is no "://".
+  /// Portion of URI before the initial ":", or empty if there is no ":".
   std::string_view scheme;
-  /// Portion of URI after the initial "://" (or from the beginning if there is
-  /// no "://") and before the first `?` or `#`.  Not percent decoded.
+  /// Portion of URI after the initial ":" or "://" (if present) and before the
+  /// first `?` or `#`.  Not percent decoded.
   std::string_view authority_and_path;
-  /// Authority portion of authority_and_path.
+  /// Authority portion of uri; empty when there is no authority.
   std::string_view authority;
-  /// Path portion of authority_and_path; when non-empty, begins with "/".
+  /// Path portion of uri.
   std::string_view path;
   /// Portion of URI after the first `?` but before the first `#`.
   /// Not percent decoded.
   std::string_view query;
   /// Portion of URI after the first `#`.  Not percent decoded.
   std::string_view fragment;
+  /// Whether the URI has a "://" authority delimiter.
+  bool has_authority_delimiter = false;
 };
 
 /// Parses a "generic" URI of the form
-/// `<scheme><scheme_delimiter>//<authority-and-path>?<query>#<fragment>`
+/// `<scheme>:<//<authority>><path>?<query>#<fragment>`
 /// where the `?<query>` and `#<fragment>` portions are optional.
 ///
 /// `<scheme_delimiter>`  is:
 /// - "://" for `ParseGenericUri`
 /// - ":" for `ParseGenericUriWithoutSlashSlash`
 ParsedGenericUri ParseGenericUri(std::string_view uri);
-ParsedGenericUri ParseGenericUriWithoutSlashSlash(std::string_view uri);
+
+/// Returns an error if the schema doesn't match.
+absl::Status EnsureSchema(const ParsedGenericUri& parsed_uri,
+                          std::string_view scheme);
+absl::Status EnsureSchemaWithAuthorityDelimiter(
+    const ParsedGenericUri& parsed_uri, std::string_view scheme);
 
 // Returns an error if there is a query or fragment.
 absl::Status EnsureNoQueryOrFragment(const ParsedGenericUri& parsed_uri);

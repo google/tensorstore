@@ -493,8 +493,9 @@ Result<TransformedDriverSpec> MakeCastDriverSpec(TransformedDriverSpec base,
 namespace {
 Result<internal::TransformedDriverSpec> ParseCastUrl(
     std::string_view url, TransformedDriverSpec&& base) {
-  auto parsed = internal::ParseGenericUriWithoutSlashSlash(url);
-  assert(parsed.scheme == internal_cast_driver::CastDriverSpec::id);
+  auto parsed = internal::ParseGenericUri(url);
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal::EnsureSchema(parsed, internal_cast_driver::CastDriverSpec::id));
   TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
   auto dtype = GetDataType(parsed.authority_and_path);
   if (!dtype.valid()) {

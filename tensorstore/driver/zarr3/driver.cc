@@ -82,6 +82,7 @@ namespace internal_zarr3 {
 // Avoid anonymous namespace to workaround MSVC bug.
 //
 // https://developercommunity.visualstudio.com/t/Bug-involving-virtual-functions-templat/10424129
+// NOTE: Fixed after Oct 28, 2024; Likely 17.6.20 or later.
 #ifndef _MSC_VER
 namespace {
 #endif
@@ -618,8 +619,9 @@ Future<internal::Driver::Handle> ZarrDriverSpec::Open(
 
 Result<internal::TransformedDriverSpec> ParseZarr3Url(std::string_view url,
                                                       kvstore::Spec&& base) {
-  auto parsed = internal::ParseGenericUriWithoutSlashSlash(url);
-  assert(parsed.scheme == ZarrDriverSpec::id);
+  auto parsed = internal::ParseGenericUri(url);
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal::EnsureSchema(parsed, ZarrDriverSpec::id));
   TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
   auto driver_spec = internal::MakeIntrusivePtr<ZarrDriverSpec>();
   driver_spec->InitializeFromUrl(std::move(base), parsed.authority_and_path);

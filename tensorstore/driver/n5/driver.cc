@@ -479,8 +479,8 @@ Future<internal::Driver::Handle> N5DriverSpec::Open(
 
 Result<internal::TransformedDriverSpec> ParseN5Url(std::string_view url,
                                                    kvstore::Spec&& base) {
-  auto parsed = internal::ParseGenericUriWithoutSlashSlash(url);
-  assert(parsed.scheme == N5DriverSpec::id);
+  auto parsed = internal::ParseGenericUri(url);
+  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureSchema(parsed, N5DriverSpec::id));
   TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
   auto driver_spec = internal::MakeIntrusivePtr<N5DriverSpec>();
   driver_spec->InitializeFromUrl(std::move(base), parsed.authority_and_path);

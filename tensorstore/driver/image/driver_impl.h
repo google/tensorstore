@@ -201,8 +201,8 @@ class ImageDriverSpec
 
   static Result<internal::TransformedDriverSpec> ParseUrl(
       std::string_view url, kvstore::Spec&& base) {
-    auto parsed = internal::ParseGenericUriWithoutSlashSlash(url);
-    assert(parsed.scheme == id);
+    auto parsed = internal::ParseGenericUri(url);
+    TENSORSTORE_RETURN_IF_ERROR(internal::EnsureSchema(parsed, id));
     TENSORSTORE_RETURN_IF_ERROR(
         internal::EnsureNoPathOrQueryOrFragment(parsed));
 
