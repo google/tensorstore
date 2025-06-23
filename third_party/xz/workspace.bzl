@@ -28,6 +28,10 @@ def repo():
             "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/tukaani-project/xz/releases/download/v5.8.1/xz-5.8.1.tar.gz",
         ],
         sha256 = "507825b599356c10dca1cd720c9d0d0c9d5400b9de300af00e4d1ea150795543",
+        patches = [
+            Label("//third_party:xz/patches/remove_have_config.diff"),
+        ],
+        patch_args = ["-p1"],
         build_file = Label("//third_party:xz/xz.BUILD.bazel"),
         system_build_file = Label("//third_party:xz/system.BUILD.bazel"),
         cmake_name = "LibLZMA",
