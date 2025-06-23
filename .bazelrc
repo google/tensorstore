@@ -1,3 +1,6 @@
+# Transparently attempt to use the tensorstore mirror for bazel downloads
+common  --experimental_downloader_config=bazel/rewrite.config
+
 # Enable using platform specific build settings
 build --enable_platform_specific_config
 
