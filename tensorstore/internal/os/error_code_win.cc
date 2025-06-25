@@ -23,15 +23,10 @@
 #include "tensorstore/internal/os/error_code.h"
 // Normal include order here
 
-#include <cerrno>
 #include <string>
-#include <string_view>
 
 #include "absl/base/optimization.h"
 #include "absl/status/status.h"
-#include "tensorstore/internal/source_location.h"
-#include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 // Include system headers last to reduce impact of macros.
 #include "tensorstore/internal/os/include_windows.h"
@@ -73,9 +68,7 @@ absl::StatusCode GetOsErrorStatusCode(OsErrorCode error) {
   }
 }
 
-namespace {
-
-const char* OsErrorToCString(OsErrorCode error) {
+const char* OsErrorCodeLiteral(OsErrorCode error) {
   switch (error) {
     case ERROR_FILE_EXISTS:
       return "ERROR_FILE_EXISTS ";
@@ -123,8 +116,6 @@ const char* OsErrorToCString(OsErrorCode error) {
   ABSL_UNREACHABLE();
 }
 
-}  // namespace
-
 std::string GetOsErrorMessage(OsErrorCode error) {
   char buf[4096];
   DWORD size = ::FormatMessageA(
@@ -136,20 +127,6 @@ std::string GetOsErrorMessage(OsErrorCode error) {
       /*nSize=*/std::size(buf),
       /*Arguments=*/nullptr);
   return std::string(buf, size);
-}
-
-absl::Status StatusFromOsError(absl::StatusCode status_code,
-                               OsErrorCode error_code, std::string_view a,
-                               std::string_view b, std::string_view c,
-                               std::string_view d, std::string_view e,
-                               std::string_view f, SourceLocation loc) {
-  absl::Status status(
-      status_code,
-      tensorstore::StrCat(a, b, c, d, e, f, " [OS error ", error_code, ": ",
-                          OsErrorToCString(error_code),
-                          GetOsErrorMessage(error_code), "]"));
-  MaybeAddSourceLocation(status, loc);
-  return status;
 }
 
 }  // namespace internal

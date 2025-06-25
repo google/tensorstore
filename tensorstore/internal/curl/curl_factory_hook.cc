@@ -23,7 +23,7 @@
 #include "tensorstore/internal/curl/curl_factory.h"
 #include "tensorstore/internal/curl/curl_wrappers.h"
 #include "tensorstore/internal/env.h"
-#include "tensorstore/internal/os/file_util.h"
+#include "tensorstore/internal/os/file_info.h"
 
 #ifndef _WIN32
 // boringssl / openssl is not used in windows; in mingw it currently
@@ -120,11 +120,11 @@ void CurlPtrHook(CurlPtr& handle) {
     internal_os::FileInfo info;
     auto try_file = [&info](const std::string& filepath) {
       return !filepath.empty() && GetFileInfo(filepath, &info).ok() &&
-             internal_os::IsRegularFile(info) && internal_os::GetSize(info) > 0;
+             info.IsRegularFile() && info.GetSize() > 0;
     };
     auto try_dir = [&info](const std::string& dirpath) {
       return !dirpath.empty() && GetFileInfo(dirpath, &info).ok() &&
-             internal_os::IsDirectory(info);
+             info.IsDirectory();
     };
 
 #ifdef TENSORSTORE_LOOKUP_X509_PATHS

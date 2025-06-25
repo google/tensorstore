@@ -55,8 +55,10 @@
 #include "tensorstore/internal/metrics/gauge.h"
 #include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/os/error_code.h"
+#include "tensorstore/internal/os/file_descriptor.h"
 #include "tensorstore/internal/os/memory_region.h"
 #include "tensorstore/internal/os/potentially_blocking_region.h"
+#include "tensorstore/internal/os/wstring.h"
 #include "tensorstore/internal/tracing/logged_trace_span.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
@@ -76,6 +78,7 @@
 
 using ::tensorstore::internal::PotentiallyBlockingRegion;
 using ::tensorstore::internal::StatusFromOsError;
+using ::tensorstore::internal::StatusWithOsError;
 using ::tensorstore::internal_tracing::LoggedTraceSpan;
 
 // On FreeBSD and Mac OS X, `flock` can safely be used instead of open file
@@ -167,19 +170,6 @@ void UnlockFlockLock(FileDescriptor fd) {
 
 }  // namespace
 
-void FileDescriptorTraits::Close(FileDescriptor fd) {
-  LoggedTraceSpan tspan(__func__, detail_logging.Level(1), {{"fd", fd}});
-
-  while (true) {
-    if (::close(fd) == 0) {
-      return;
-    }
-    if (errno == EINTR) continue;
-    tspan.Log("errno", errno);
-    return;
-  }
-}
-
 Result<UnlockFn> AcquireFdLock(FileDescriptor fd) {
   LoggedTraceSpan tspan(__func__, detail_logging.Level(1), {{"fd", fd}});
 
@@ -259,13 +249,27 @@ Result<UniqueFileDescriptor> OpenFileWrapper(const std::string& path,
     } else {
       status_code = internal::GetOsErrorStatusCode(errno);
     }
-    auto status = StatusFromOsError(status_code, errno,
+    auto status = StatusWithOsError(status_code, errno,
                                     "Failed to open: ", QuoteString(path));
     return std::move(tspan).EndWithStatus(std::move(status));
-  } else {
-    tspan.Log("fd", fd);
-    return UniqueFileDescriptor(fd);
   }
+
+  tspan.Log("fd", fd);
+  return UniqueFileDescriptor(fd);
+}
+
+absl::Status SetFileFlags(FileDescriptor fd, OpenFlags flags) {
+  int old_flags = ::fcntl(fd, F_GETFL, 0);
+  if (old_flags == -1) {
+    return StatusFromOsError(errno, "Failed to get flags");
+  }
+  if (static_cast<int>(flags) == old_flags) {
+    return absl::OkStatus();
+  }
+  if (::fcntl(fd, F_SETFL, static_cast<int>(flags)) == -1) {
+    return StatusFromOsError(errno, "Failed to get flags");
+  }
+  return absl::OkStatus();
 }
 
 Result<ptrdiff_t> ReadFromFile(FileDescriptor fd,
@@ -301,7 +305,8 @@ Result<ptrdiff_t> PReadFromFile(FileDescriptor fd,
   if (n >= 0) {
     return n;
   }
-  auto status = StatusFromOsError(errno, "Failed to read from file");
+  auto status = StatusFromOsError(errno, "Failed to read ", buffer.size(),
+                                  " from file at offset ", offset);
   return std::move(tspan).EndWithStatus(std::move(status));
 }
 
@@ -320,7 +325,7 @@ Result<ptrdiff_t> WriteToFile(FileDescriptor fd, const void* buf,
   } else if (n >= 0) {
     return n;
   }
-  auto status = StatusFromOsError(errno, "Failed to write to file");
+  auto status = StatusFromOsError(errno, "Failed to write ", count, " to file");
   return std::move(tspan).EndWithStatus(std::move(status));
 }
 
@@ -347,7 +352,8 @@ Result<ptrdiff_t> WriteCordToFile(FileDescriptor fd, absl::Cord value) {
   } else if (n >= 0) {
     return n;
   }
-  auto status = StatusFromOsError(errno, "Failed to write to file");
+  auto status =
+      StatusFromOsError(errno, "Failed to write ", value.size(), " to file");
   return std::move(tspan).EndWithStatus(std::move(status));
 }
 
@@ -435,7 +441,7 @@ Result<MemoryRegion> MemmapFileReadOnly(FileDescriptor fd, size_t offset,
           StatusFromOsError(errno, "Failed to stat"));
     }
 
-    uint64_t file_size = GetSize(info);
+    uint64_t file_size = info.st_size;
     if (offset + size > file_size) {
       return std::move(tspan).EndWithStatus(absl::OutOfRangeError(
           absl::StrCat("Requested offset ", offset, " + size ", size,
@@ -493,28 +499,6 @@ absl::Status AwaitReadablePipe(FileDescriptor fd, absl::Time deadline) {
     return StatusFromOsError(errno, "Failed to poll file");
   }
   return absl::OkStatus();
-}
-
-absl::Status GetFileInfo(FileDescriptor fd, FileInfo* info) {
-  LoggedTraceSpan tspan(__func__, detail_logging.Level(1), {{"fd", fd}});
-
-  PotentiallyBlockingRegion region;
-  if (::fstat(fd, info) == 0) {
-    return absl::OkStatus();
-  }
-  auto status = StatusFromOsError(errno, "Failed to get file info");
-  return std::move(tspan).EndWithStatus(std::move(status));
-}
-
-absl::Status GetFileInfo(const std::string& path, FileInfo* info) {
-  LoggedTraceSpan tspan(__func__, detail_logging.Level(1), {{"path", path}});
-
-  PotentiallyBlockingRegion region;
-  if (::stat(path.c_str(), info) == 0) {
-    return absl::OkStatus();
-  }
-  auto status = StatusFromOsError(errno);
-  return std::move(tspan).EndWithStatus(std::move(status));
 }
 
 Result<UniqueFileDescriptor> OpenDirectoryDescriptor(const std::string& path) {

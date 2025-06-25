@@ -110,13 +110,14 @@
 #include "tensorstore/batch.h"
 #include "tensorstore/context.h"
 #include "tensorstore/internal/file_io_concurrency_resource.h"
-#include "tensorstore/internal/flat_cord_builder.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/os/error_code.h"
+#include "tensorstore/internal/os/file_descriptor.h"
+#include "tensorstore/internal/os/file_info.h"
 #include "tensorstore/internal/os/unique_handle.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/uri_utils.h"
@@ -159,6 +160,8 @@
 using ::tensorstore::internal::OsErrorCode;
 using ::tensorstore::internal_file_util::IsKeyValid;
 using ::tensorstore::internal_file_util::LongestDirectoryPrefix;
+using ::tensorstore::internal_file_util::OpenParentDirectory;
+using ::tensorstore::internal_file_util::ReadFromFileDescriptor;
 using ::tensorstore::internal_os::AcquireExclusiveFile;
 using ::tensorstore::internal_os::AcquireFileLock;
 using ::tensorstore::internal_os::FileDescriptor;
@@ -321,66 +324,8 @@ absl::Status ValidateKeyRange(const KeyRange& range) {
 
 // Encode in the generation fields that uniquely identify the file.
 StorageGeneration GetFileGeneration(const FileInfo& info) {
-  return StorageGeneration::FromValues(
-      internal_os::GetDeviceId(info), internal_os::GetFileId(info),
-      absl::ToUnixNanos(internal_os::GetMTime(info)));
-}
-
-/// Creates any directory ancestors of `path` that do not exist, and returns an
-/// open file descriptor to the parent directory of `path`.
-Result<UniqueFileDescriptor> OpenParentDirectory(std::string path) {
-  size_t end_pos = path.size();
-  Result<UniqueFileDescriptor> fd;
-  // Remove path components until we find a directory that exists.
-  while (true) {
-    // Loop backward until we reach a directory we can open (or .).
-    // Loop forward, making directories, until we are done.
-    size_t separator_pos = end_pos;
-    while (separator_pos != 0 &&
-           !internal_os::IsDirSeparator(path[separator_pos - 1])) {
-      --separator_pos;
-    }
-    --separator_pos;
-    const char* dir_path;
-    if (separator_pos == std::string::npos) {
-      dir_path = ".";
-    } else if (separator_pos == 0) {
-      dir_path = "/";
-    } else {
-      // Temporarily modify path to make `path.c_str()` a NULL-terminated string
-      // containing the current ancestor directory path.
-      path[separator_pos] = '\0';
-      dir_path = path.c_str();
-      end_pos = separator_pos;
-    }
-    fd = internal_os::OpenDirectoryDescriptor(dir_path);
-    if (!fd.ok()) {
-      if (absl::IsNotFound(fd.status())) {
-        assert(separator_pos != 0 && separator_pos != std::string::npos);
-        end_pos = separator_pos - 1;
-        continue;
-      }
-      return fd.status();
-    }
-    // Revert the change to `path`.
-    if (dir_path == path.c_str()) path[separator_pos] = '/';
-    break;
-  }
-
-  // Add path components and attempt to `mkdir` until we have reached the full
-  // path.
-  while (true) {
-    size_t separator_pos = path.find('\0', end_pos);
-    if (separator_pos == std::string::npos) {
-      // No more ancestors remain.
-      return fd;
-    }
-    TENSORSTORE_RETURN_IF_ERROR(internal_os::MakeDirectory(path));
-    fd = internal_os::OpenDirectoryDescriptor(path);
-    TENSORSTORE_RETURN_IF_ERROR(fd.status());
-    path[separator_pos] = '/';
-    end_pos = separator_pos + 1;
-  }
+  return StorageGeneration::FromValues(info.GetDeviceId(), info.GetFileId(),
+                                       absl::ToUnixNanos(info.GetMTime()));
 }
 
 /// ----------------------------------------------------------------------------
@@ -399,40 +344,13 @@ Result<UniqueFileDescriptor> OpenValueFile(const std::string& path,
   }
   FileInfo info;
   TENSORSTORE_RETURN_IF_ERROR(internal_os::GetFileInfo(fd->get(), &info));
-  if (!internal_os::IsRegularFile(info)) {
+  if (!info.IsRegularFile()) {
     *generation = StorageGeneration::NoValue();
     return UniqueFileDescriptor{};
   }
-  if (size) *size = internal_os::GetSize(info);
+  if (size) *size = info.GetSize();
   *generation = GetFileGeneration(info);
   return fd;
-}
-
-Result<absl::Cord> ReadFromFileDescriptor(FileDescriptor fd,
-                                          ByteRange byte_range) {
-  assert(fd != internal_os::FileDescriptorTraits::Invalid());
-  file_metrics.batch_read.Increment();
-  absl::Time start_time = absl::Now();
-  // Large reads could use hugepage-aware memory allocations.
-  internal::FlatCordBuilder buffer(byte_range.size(), 0);
-  size_t offset = 0;
-  while (buffer.available() > 0) {
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto n, internal_os::PReadFromFile(fd, buffer.available_span(),
-                                           byte_range.inclusive_min + offset));
-    if (n > 0) {
-      file_metrics.bytes_read.IncrementBy(n);
-      offset += n;
-      buffer.set_inuse(offset);
-      continue;
-    }
-    if (n == 0) {
-      return absl::UnavailableError("Length changed while reading");
-    }
-  }
-  file_metrics.read_latency_ms.Observe(
-      absl::ToInt64Milliseconds(absl::Now() - start_time));
-  return std::move(buffer).Build();
 }
 
 class BatchReadTask;
@@ -467,11 +385,19 @@ class BatchReadTask final
   }
 
   Result<kvstore::ReadResult> DoByteRangeRead(ByteRange byte_range) {
-    absl::Cord value;
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        value, ReadFromFileDescriptor(fd_.get(), byte_range),
-        tensorstore::MaybeAnnotateStatus(_, "Error reading from open file"));
-    return kvstore::ReadResult::Value(std::move(value), stamp_);
+    file_metrics.batch_read.Increment();
+    absl::Time start_time = absl::Now();
+
+    auto read_result = ReadFromFileDescriptor(fd_.get(), byte_range);
+    if (!read_result.ok()) {
+      return tensorstore::MaybeAnnotateStatus(std::move(read_result).status(),
+                                              "Error reading from open file");
+    }
+    file_metrics.bytes_read.IncrementBy(read_result->size());
+    file_metrics.read_latency_ms.Observe(
+        absl::ToInt64Milliseconds(absl::Now() - start_time));
+
+    return kvstore::ReadResult::Value(std::move(read_result).value(), stamp_);
   }
 
   void ProcessBatch() {

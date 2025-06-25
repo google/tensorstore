@@ -36,7 +36,7 @@ def cc_with_non_compile_test(
     if deps == None:
         deps = []
 
-    msvc_config_setting = "@tensorstore//:compiler_msvc"
+    msvc_config_setting = "@rules_cc//cc/compiler:msvc-cl"
 
     # This just turns it into a regular test.
     tensorstore_cc_test(

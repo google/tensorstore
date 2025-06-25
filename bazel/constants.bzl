@@ -13,6 +13,7 @@
 # limitations under the License.
 
 NO_STRINGOP_OVERLOAD = select({
-    "@tensorstore//:compiler_gcc": ["-Wno-stringop-overload"],
+    "@rules_cc//cc/compiler:gcc": ["-Wno-stringop-overload"],
+    "@rules_cc//cc/compiler:mingw-gcc": ["-Wno-stringop-overload"],
     "//conditions:default": [],
 })

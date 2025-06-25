@@ -4,13 +4,15 @@ package(default_visibility = ["//tensorstore:internal_packages"])
 
 licenses(["notice"])
 
-# Ensure that ws2_32.lib is linked for mingw.
+# Ensure that ws2_32.lib is linked for mingw/msvc.
 _WS2_32_LINKOPTS = select({
-    "@tensorstore//:compiler_mingw_gcc": [
+    "@rules_cc//cc/compiler:mingw-gcc": [
         "-DEFAULTLIB:ws2_32.lib",
         "-lws2_32",
     ],
-    "@tensorstore//:compiler_msvc": ["-DEFAULTLIB:ws2_32.lib"],
+    "@rules_cc//cc/compiler:msvc-cl": [
+        "-DEFAULTLIB:ws2_32.lib",
+    ],
     "//conditions:default": [],
 })
 

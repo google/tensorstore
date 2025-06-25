@@ -24,6 +24,7 @@
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "tensorstore/internal/env.h"
+#include "tensorstore/internal/os/file_info.h"
 #include "tensorstore/internal/os/file_lister.h"
 #include "tensorstore/internal/os/file_util.h"
 #include "tensorstore/util/status.h"
@@ -38,7 +39,7 @@ std::string TemporaryDirectoryPath() {
     auto env = internal::GetEnv(variable);
     internal_os::FileInfo info;
     if (env && internal_os::GetFileInfo(*env, &info).ok() &&
-        IsDirectory(info)) {
+        info.IsDirectory()) {
       return *env;
     }
   }

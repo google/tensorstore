@@ -21,6 +21,8 @@
 
 #include "absl/status/status.h"
 #include "tensorstore/internal/source_location.h"
+#include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
 
 // Include system headers last to reduce impact of macros.
 #include "tensorstore/internal/os/include_windows.h"
@@ -45,29 +47,52 @@ inline OsErrorCode GetLastErrorCode() {
 #endif
 }
 
-/// Returns the error message associated with a system error code.
-std::string GetOsErrorMessage(OsErrorCode error);
-
+/// Returns the absl::StatusCode for a given OS error code.
+#ifdef _WIN32
 absl::StatusCode GetOsErrorStatusCode(OsErrorCode error);
-
-#ifndef _WIN32
+#else
 inline absl::StatusCode GetOsErrorStatusCode(OsErrorCode error) {
   return absl::ErrnoToStatusCode(error);
 }
 #endif
 
+/// Returns a literal of the os error code.
+const char* OsErrorCodeLiteral(OsErrorCode error);
+
+/// Returns the error message associated with a system error code.
+std::string GetOsErrorMessage(OsErrorCode error);
+
+/// Returns an `absl::Status` with an OS error. The message is composed by
+/// catenation of the provided parts {a .. f}
+template <typename A = std::string_view, typename B = std::string_view,
+          typename C = std::string_view, typename D = std::string_view,
+          typename E = std::string_view, typename F = std::string_view>
+absl::Status StatusWithOsError(
+    absl::StatusCode status_code, OsErrorCode error_code,  //
+    A a = {}, B b = {}, C c = {}, D d = {}, E e = {}, F f = {},
+    SourceLocation loc = tensorstore::SourceLocation::current()) {
+  absl::Status status(
+      status_code,
+      tensorstore::StrCat(a, b, c, d, e, f, " [OS error ", error_code, ": ",
+                          OsErrorCodeLiteral(error_code),
+                          GetOsErrorMessage(error_code), "]"));
+  MaybeAddSourceLocation(status, loc);
+  return status;
+}
+
 /// Returns an `absl::Status` from an OS error. The message is composed by
-/// catenation of the provided string parts.
+/// catenation of the provided parts {a .. f}
+template <typename A = std::string_view, typename B = std::string_view,
+          typename C = std::string_view, typename D = std::string_view,
+          typename E = std::string_view, typename F = std::string_view>
 absl::Status StatusFromOsError(
-    absl::StatusCode status_code, OsErrorCode error_code,
-    std::string_view a = {}, std::string_view b = {}, std::string_view c = {},
-    std::string_view d = {}, std::string_view e = {}, std::string_view f = {},
-    SourceLocation loc = tensorstore::SourceLocation::current());
-absl::Status StatusFromOsError(
-    OsErrorCode error_code, std::string_view a = {}, std::string_view b = {},
-    std::string_view c = {}, std::string_view d = {}, std::string_view e = {},
-    std::string_view f = {},
-    SourceLocation loc = tensorstore::SourceLocation::current());
+    OsErrorCode error_code,  //
+    A a = {}, B b = {}, C c = {}, D d = {}, E e = {}, F f = {},
+    SourceLocation loc = tensorstore::SourceLocation::current()) {
+  return StatusWithOsError(GetOsErrorStatusCode(error_code), error_code,
+                           std::move(a), std::move(b), std::move(c),
+                           std::move(d), std::move(e), std::move(f), loc);
+}
 
 }  // namespace internal
 }  // namespace tensorstore
