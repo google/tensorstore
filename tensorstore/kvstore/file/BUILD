@@ -25,7 +25,6 @@ tensorstore_cc_library(
         "//tensorstore:batch",
         "//tensorstore:context",
         "//tensorstore/internal:file_io_concurrency_resource",
-        "//tensorstore/internal:flat_cord_builder",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:path",
         "//tensorstore/internal:uri_utils",
@@ -34,6 +33,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/internal/metrics",
         "//tensorstore/internal/os:error_code",
+        "//tensorstore/internal/os:file_descriptor",
         "//tensorstore/internal/os:file_lister",
         "//tensorstore/internal/os:file_lock",
         "//tensorstore/internal/os:file_util",
@@ -115,8 +115,16 @@ tensorstore_cc_library(
     srcs = ["util.cc"],
     hdrs = ["util.h"],
     deps = [
+        "//tensorstore/internal:flat_cord_builder",
+        "//tensorstore/internal/os:file_descriptor",
+        "//tensorstore/internal/os:file_util",
+        "//tensorstore/kvstore:byte_range",
         "//tensorstore/kvstore:key_range",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:cord",
     ],
 )
 

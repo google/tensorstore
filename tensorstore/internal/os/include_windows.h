@@ -17,10 +17,19 @@
 
 #ifdef _WIN32
 
+// -----------------------------------------------------------------------------
+// Architecture Checks
+// -----------------------------------------------------------------------------
+
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
-#include <windows.h>  // IWYU pragma: export
+
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
+#include <windows.h>
 
 namespace tensorstore {
 namespace internal_os {

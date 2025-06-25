@@ -14,6 +14,7 @@
 
 #include "tensorstore/internal/os/file_util.h"
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include <memory>
@@ -28,6 +29,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "tensorstore/internal/os/file_info.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
@@ -41,16 +43,9 @@ using ::tensorstore::internal_os::DeleteFile;
 using ::tensorstore::internal_os::DeleteOpenFile;
 using ::tensorstore::internal_os::FileInfo;
 using ::tensorstore::internal_os::FsyncFile;
-using ::tensorstore::internal_os::GetCTime;
 using ::tensorstore::internal_os::GetDefaultPageSize;
-using ::tensorstore::internal_os::GetDeviceId;
-using ::tensorstore::internal_os::GetFileId;
 using ::tensorstore::internal_os::GetFileInfo;
-using ::tensorstore::internal_os::GetMode;
-using ::tensorstore::internal_os::GetMTime;
-using ::tensorstore::internal_os::GetSize;
 using ::tensorstore::internal_os::IsDirSeparator;
-using ::tensorstore::internal_os::IsRegularFile;
 using ::tensorstore::internal_os::MemmapFileReadOnly;
 using ::tensorstore::internal_os::OpenFileWrapper;
 using ::tensorstore::internal_os::OpenFlags;
@@ -103,20 +98,19 @@ TEST(FileUtilTest, Basics) {
 
     EXPECT_THAT(ReadFromFile(f->get(), tensorstore::span(buf, 3)),
                 IsOkAndHolds(3));
+    EXPECT_THAT(std::string_view(buf, 3), testing::StrEq("foo"));
     EXPECT_THAT(PReadFromFile(f->get(), tensorstore::span(buf, 3), 0),
                 IsOkAndHolds(3));
+    EXPECT_THAT(std::string_view(buf, 3), testing::StrEq("foo"));
 
     // Check the file info
     FileInfo info;
     EXPECT_THAT(GetFileInfo(f->get(), &info), IsOk());
-    EXPECT_TRUE(IsRegularFile(info));
-    EXPECT_THAT(GetSize(info), 6);
-    EXPECT_TRUE(IsRegularFile(info));
-    EXPECT_THAT(GetFileId(info), ::testing::Ne(0));
-    EXPECT_THAT(GetDeviceId(info), ::testing::Ne(0));
-    EXPECT_THAT(GetMTime(info), ::testing::Ge(now));
-    EXPECT_THAT(GetCTime(info), ::testing::Ge(now));
-    EXPECT_THAT(GetMode(info) & 0600, ::testing::Eq(0600));
+    EXPECT_TRUE(info.IsRegularFile());
+    EXPECT_THAT(info.GetSize(), 6);
+    EXPECT_THAT(info.GetMTime(), ::testing::Ge(now));
+    EXPECT_THAT(info.GetCTime(), ::testing::Ge(now));
+    EXPECT_THAT(info.GetMode() & 0600, ::testing::Eq(0600));
 
     EXPECT_THAT(RenameOpenFile(f->get(), foo_txt, renamed_txt), IsOk());
   }

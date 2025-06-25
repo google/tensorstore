@@ -62,6 +62,9 @@
 #define NTDDI_VERSION 0x0A000002
 #endif
 
+// Not your standard include order.
+#include "tensorstore/internal/os/file_util.h"
+
 // Maintain include ordering here:
 
 #include <stddef.h>
@@ -71,7 +74,6 @@
 #include <cstdio>
 #include <cstring>
 #include <limits>
-#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -92,6 +94,7 @@
 #include "tensorstore/internal/metrics/gauge.h"
 #include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/os/error_code.h"
+#include "tensorstore/internal/os/file_descriptor.h"
 #include "tensorstore/internal/os/memory_region.h"
 #include "tensorstore/internal/os/potentially_blocking_region.h"
 #include "tensorstore/internal/os/wstring.h"
@@ -100,9 +103,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-
-// Not your standard include order.
-#include "tensorstore/internal/os/file_util.h"
 
 // Include system headers last to reduce impact of macros.
 #include "tensorstore/internal/os/include_windows.h"
@@ -226,22 +226,17 @@ FileDescriptor OpenFileImpl(const std::wstring& wpath, OpenFlags flags) {
     createmode = OPEN_EXISTING;
   }
 
+  DWORD flags_and_attributes = 0;
   return ::CreateFileW(
       wpath.c_str(), /*dwDesiredAccess=*/access,
       /*dwShareMode=*/FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE,
       /*lpSecurityAttributes=*/nullptr,
       /*dwCreationDisposition=*/createmode,
-      /*dwFlagsAndAttributes=*/0,
+      /*dwFlagsAndAttributes=*/flags_and_attributes,
       /*hTemplateFile=*/nullptr);
 }
 
 }  // namespace
-
-void FileDescriptorTraits::Close(FileDescriptor fd) {
-  LoggedTraceSpan tspan(__func__, detail_logging.Level(1), {{"handle", fd}});
-
-  ::CloseHandle(fd);
-}
 
 Result<UnlockFn> AcquireFdLock(FileDescriptor fd) {
   LoggedTraceSpan tspan(__func__, detail_logging.Level(1), {{"handle", fd}});
@@ -274,6 +269,10 @@ Result<UniqueFileDescriptor> OpenFileWrapper(const std::string& path,
   }
   tspan.Log("fd", fd);
   return UniqueFileDescriptor(fd);
+}
+
+absl::Status SetFileFlags(FileDescriptor fd, OpenFlags flags) {
+  return absl::UnimplementedError("Not implemented");
 }
 
 Result<ptrdiff_t> ReadFromFile(FileDescriptor fd,
@@ -513,8 +512,8 @@ Result<MemoryRegion> MemmapFileReadOnly(FileDescriptor fd, size_t offset,
     return std::move(tspan).EndWithStatus(StatusFromOsError(
         ::GetLastError(), "Failed in GetFileInformationByHandle"));
   }
-
-  uint64_t file_size = GetSize(info);
+  uint64_t file_size = (static_cast<int64_t>(info.nFileSizeHigh) << 32) +
+                       static_cast<int64_t>(info.nFileSizeLow);
   if (offset + size > file_size) {
     return std::move(tspan).EndWithStatus(absl::OutOfRangeError(
         absl::StrCat("Requested offset ", offset, " + size ", size,
@@ -589,40 +588,6 @@ absl::Status AwaitReadablePipe(FileDescriptor fd, absl::Time deadline) {
     }
     absl::SleepFor(absl::Milliseconds(10));
   }
-}
-
-absl::Status GetFileInfo(FileDescriptor fd, FileInfo* info) {
-  LoggedTraceSpan tspan(__func__, detail_logging.Level(1), {{"handle", fd}});
-
-  if (::GetFileInformationByHandle(fd, info)) {
-    return absl::OkStatus();
-  }
-  auto status = StatusFromOsError(::GetLastError());
-  return std::move(tspan).EndWithStatus(std::move(status));
-}
-
-absl::Status GetFileInfo(const std::string& path, FileInfo* info) {
-  LoggedTraceSpan tspan(__func__, detail_logging.Level(1), {{"path", path}});
-
-  // The typedef uses BY_HANDLE_FILE_INFO, which includes device and index
-  // metadata, and requires an open handle.
-  std::wstring wpath;
-  TENSORSTORE_RETURN_IF_ERROR(ConvertUTF8ToWindowsWide(path, wpath));
-  UniqueFileDescriptor stat_fd(::CreateFileW(
-      wpath.c_str(), /*dwDesiredAccess=*/GENERIC_READ,
-      /*dwShareMode=*/FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE,
-      /*lpSecurityAttributes=*/nullptr,
-      /*dwCreationDisposition=*/OPEN_EXISTING,
-      /*dwFlagsAndAttributes=*/FILE_FLAG_BACKUP_SEMANTICS,
-      /*hTemplateFile=*/nullptr));
-  if (stat_fd.valid()) {
-    if (::GetFileInformationByHandle(stat_fd.get(), info)) {
-      return absl::OkStatus();
-    }
-  }
-  auto status = StatusFromOsError(::GetLastError(),
-                                  "Failed to stat file: ", QuoteString(path));
-  return std::move(tspan).EndWithStatus(std::move(status));
 }
 
 Result<UniqueFileDescriptor> OpenDirectoryDescriptor(const std::string& path) {

@@ -28,6 +28,7 @@
 #include "absl/time/time.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/metadata.h"
+#include "tensorstore/internal/os/file_info.h"
 #include "tensorstore/internal/os/file_util.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
@@ -76,7 +77,7 @@ Result<FileLock> AcquireFileLock(std::string lock_path) {
 
   // Is this a network filesystem?
   TENSORSTORE_RETURN_IF_ERROR(GetFileInfo(fd.get(), info));
-  if (!IsRegularFile(*info)) {
+  if (!info->IsRegularFile()) {
     return absl::FailedPreconditionError(
         absl::StrCat("Not a regular file: ", lock_path));
   }
@@ -97,7 +98,7 @@ Result<FileLock> AcquireFileLock(std::string lock_path) {
 
     FileInfo* other_info = info == &a ? &b : &a;
     TENSORSTORE_RETURN_IF_ERROR(GetFileInfo(other_fd.get(), other_info));
-    if (GetDeviceId(a) == GetDeviceId(b) && GetFileId(a) == GetFileId(b)) {
+    if (a.GetDeviceId() == b.GetDeviceId() && a.GetFileId() == b.GetFileId()) {
       // Lock was acquired successfully.
       return FileLock(private_t(), std::move(lock_path), fd.release(),
                       std::move(unlock_fn));
@@ -125,15 +126,15 @@ Result<FileLock> AcquireExclusiveFile(std::string lock_path,
         lock_path, OpenFlags::OpenReadOnly | OpenFlags::CloseOnExec);
     if (read_fd.ok()) {
       TENSORSTORE_RETURN_IF_ERROR(GetFileInfo(read_fd->get(), &info));
-      if (!IsRegularFile(info)) {
+      if (!info.IsRegularFile()) {
         // A lock file must be a regular file, not a symlink or directory.
         return absl::FailedPreconditionError(
             absl::StrCat("Not a regular file: ", lock_path));
       }
-      if (GetMTime(info) < (start - timeout)) {
+      if (info.GetMTime() < (start - timeout)) {
         // NOTE: Automatic cleanup of stale lock could be added.
         ABSL_LOG(WARNING) << "Potential stale lock file: " << lock_path
-                          << " with mtime: " << GetMTime(info);
+                          << " with mtime: " << info.GetMTime();
       }
     }
     return absl::OkStatus();

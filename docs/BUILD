@@ -214,7 +214,7 @@ cc_preprocessed_output(
     name = "cpp_api_preprocessed.cc",
     testonly = True,
     cpp_compiler_constraint = select({
-        "//:compiler_clang": "@platforms//host",
+        "@rules_cc//cc/compiler:clang": "@platforms//host",
         "//conditions:default": ":docs_toolchain_platform",
     }),
     flags_output = "compiler_flags.json",

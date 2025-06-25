@@ -15,7 +15,7 @@
 #include "tensorstore/internal/os/memory_region.h"
 
 #include <stddef.h>
-#include <stdio.h>
+#include <stdint.h>
 
 #include <cstdlib>
 #include <string_view>

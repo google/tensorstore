@@ -4,6 +4,17 @@ package(default_visibility = ["//tensorstore:internal_packages"])
 
 licenses(["notice"])
 
+_LINKOPTS = select({
+    "@rules_cc//cc/compiler:mingw-gcc": [
+        "-DEFAULTLIB:kernel32.lib",
+        "-lkernel32",
+    ],
+    "@rules_cc//cc/compiler:msvc-cl": [
+        "-DEFAULTLIB:kernel32.lib",
+    ],
+    "//conditions:default": [],
+})
+
 tensorstore_cc_library(
     name = "cwd",
     srcs = ["cwd.cc"],
@@ -21,11 +32,12 @@ tensorstore_cc_library(
 
 tensorstore_cc_library(
     name = "error_code",
-    srcs = ["error_code.cc"] + select({
+    srcs = select({
         "@platforms//os:windows": ["error_code_win.cc"],
         "//conditions:default": ["error_code_posix.cc"],
     }),
     hdrs = ["error_code.h"],
+    linkopts = _LINKOPTS,
     tags = ["msvc"],
     deps = [
         ":include_windows",
@@ -54,22 +66,44 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
+    name = "file_descriptor",
+    srcs = ["file_descriptor.cc"],
+    hdrs = ["file_descriptor.h"],
+    linkopts = _LINKOPTS,
+    deps = [
+        ":include_windows",
+        ":unique_handle",
+        "//tensorstore/internal/log:verbose_flag",
+        "//tensorstore/internal/tracing",
+        "@abseil-cpp//absl/base:core_headers",
+    ],
+)
+
+tensorstore_cc_library(
     name = "file_util",
-    srcs = ["file_util.cc"] + select({
+    srcs = [
+        "file_util.cc",
+    ] + select({
         "@platforms//os:windows": [
+            "file_info_win.cc",
             "file_util_win.cc",
         ],
         "//conditions:default": [
+            "file_info_posix.cc",
             "file_util_posix.cc",
         ],
     }),
-    hdrs = ["file_util.h"],
+    hdrs = [
+        "file_info.h",
+        "file_util.h",
+    ],
+    linkopts = _LINKOPTS,
     deps = [
         ":error_code",
+        ":file_descriptor",
         ":include_windows",
         ":memory_region",
         ":potentially_blocking_region",
-        ":unique_handle",
         ":wstring",  # build_cleaner: keep
         "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/internal/metrics",
@@ -134,6 +168,18 @@ tensorstore_cc_test(
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:cord",
+        "@abseil-cpp//absl/time",
+        "@googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "file_info_test",
+    srcs = ["file_info_test.cc"],
+    deps = [
+        ":file_util",
+        "//tensorstore/internal/testing:scoped_directory",
+        "//tensorstore/util:status_testutil",
         "@abseil-cpp//absl/time",
         "@googletest//:gtest_main",
     ],

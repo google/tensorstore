@@ -24,9 +24,6 @@
 
 #include "absl/base/optimization.h"
 #include "absl/status/status.h"
-#include "tensorstore/internal/source_location.h"
-#include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal {
@@ -59,8 +56,10 @@ namespace {
   return buf;
 }
 
+}  // namespace
+
 // Returns the string representation of the given error number.
-const char* ErrnoToCString(int error_number) {
+const char* OsErrorCodeLiteral(int error_number) {
   switch (error_number) {
     case EINVAL:
       return "EINVAL ";
@@ -262,26 +261,10 @@ const char* ErrnoToCString(int error_number) {
   ABSL_UNREACHABLE();
 }
 
-}  // namespace
-
 std::string GetOsErrorMessage(OsErrorCode error) {
   char buf[4096];
   buf[0] = 0;
   return GetStrerrorResult(buf, ::strerror_r(error, buf, std::size(buf)));
-}
-
-absl::Status StatusFromOsError(absl::StatusCode status_code,
-                               OsErrorCode error_code, std::string_view a,
-                               std::string_view b, std::string_view c,
-                               std::string_view d, std::string_view e,
-                               std::string_view f, SourceLocation loc) {
-  absl::Status status(
-      status_code,
-      tensorstore::StrCat(a, b, c, d, e, f, " [OS error ", error_code, ": ",
-                          ErrnoToCString(error_code),
-                          GetOsErrorMessage(error_code), "]"));
-  MaybeAddSourceLocation(status, loc);
-  return status;
 }
 
 }  // namespace internal

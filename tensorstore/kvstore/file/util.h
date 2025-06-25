@@ -15,9 +15,14 @@
 #ifndef TENSORSTORE_KVSTORE_FILE_UTIL_H_
 #define TENSORSTORE_KVSTORE_FILE_UTIL_H_
 
+#include <string>
 #include <string_view>
 
+#include "absl/strings/cord.h"
+#include "tensorstore/internal/os/file_descriptor.h"
+#include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/key_range.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace internal_file_util {
@@ -29,6 +34,14 @@ bool IsKeyValid(std::string_view key, std::string_view lock_suffix);
 
 /// Returns the longest directory prefix of a key range.
 std::string_view LongestDirectoryPrefix(const KeyRange& range);
+
+/// Creates any directory ancestors of `path` that do not exist, and returns an
+/// open file descriptor to the parent directory of `path`.
+Result<internal_os::UniqueFileDescriptor> OpenParentDirectory(std::string path);
+
+/// Reads a range of bytes from an open file descriptor.
+Result<absl::Cord> ReadFromFileDescriptor(internal_os::FileDescriptor fd,
+                                          ByteRange byte_range);
 
 }  // namespace internal_file_util
 }  // namespace tensorstore

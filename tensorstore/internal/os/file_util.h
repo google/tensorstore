@@ -20,7 +20,6 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include <sys/types.h>
 
 #include <string>
 #include <string_view>
@@ -28,8 +27,8 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/time/time.h"
+#include "tensorstore/internal/os/file_descriptor.h"
 #include "tensorstore/internal/os/memory_region.h"
-#include "tensorstore/internal/os/unique_handle.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 
@@ -37,6 +36,7 @@
 #ifndef _WIN32
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
 #endif
@@ -47,49 +47,17 @@
 namespace tensorstore {
 namespace internal_os {
 
-#ifdef _WIN32
 // Specializations for Windows.
-
-/// Representation of open file/directory.
-using FileDescriptor = HANDLE;  // HANDLE
-
-/// File descriptor traits for use with `UniqueHandle`.
-struct FileDescriptorTraits {
-  static FileDescriptor Invalid() { return ((FileDescriptor)-1); }
-  static void Close(FileDescriptor fd);
-};
-
-/// Representation of file metadata.
-using FileInfo = ::BY_HANDLE_FILE_INFORMATION;
-
-constexpr inline bool IsDirSeparator(char c) { return c == '\\' || c == '/'; }
-
+constexpr inline bool IsDirSeparator(char c) {
+#ifdef _WIN32
+  return c == '\\' || c == '/';
 #else
-// Specializations for Posix.
-
-/// Representation of open file/directory.
-using FileDescriptor = int;
-
-/// File descriptor traits for use with `UniqueHandle`.
-struct FileDescriptorTraits {
-  static FileDescriptor Invalid() { return -1; }
-  static void Close(FileDescriptor fd);
-};
-
-/// Representation of file metadata.
-typedef struct ::stat FileInfo;
-
-constexpr inline bool IsDirSeparator(char c) { return c == '/'; }
-
+  return c == '/';
 #endif
+}
 
 /// Suffix used for lock files.
 inline constexpr std::string_view kLockSuffix = ".__lock";
-
-/// Unique handle to an open file descriptor.
-///
-/// The file descriptor is closed automatically by the destructor.
-using UniqueFileDescriptor = UniqueHandle<FileDescriptor, FileDescriptorTraits>;
 
 /// --------------------------------------------------------------------------
 
@@ -126,10 +94,10 @@ enum class OpenFlags : int {
   DefaultWrite = O_CREAT | O_WRONLY | O_CLOEXEC,
 };
 
-inline OpenFlags operator|(OpenFlags a, OpenFlags b) {
+inline constexpr OpenFlags operator|(OpenFlags a, OpenFlags b) {
   return static_cast<OpenFlags>(static_cast<int>(a) | static_cast<int>(b));
 }
-inline OpenFlags operator&(OpenFlags a, OpenFlags b) {
+inline constexpr OpenFlags operator&(OpenFlags a, OpenFlags b) {
   return static_cast<OpenFlags>(static_cast<int>(a) & static_cast<int>(b));
 }
 
@@ -138,6 +106,11 @@ inline OpenFlags operator&(OpenFlags a, OpenFlags b) {
 /// \returns The open file descriptor or a failure absl::Status code.
 Result<UniqueFileDescriptor> OpenFileWrapper(const std::string& path,
                                              OpenFlags flags);
+
+/// Attempt to set the flags on an open file descriptor.
+///
+/// \returns `absl::OkStatus` on success, or a failure absl::Status code.
+absl::Status SetFileFlags(FileDescriptor fd, OpenFlags flags);
 
 /// Reads from an open file.
 ///
@@ -220,126 +193,6 @@ Result<UnlockFn> AcquireFdLock(FileDescriptor fd);
 /// \param deadline When not absl::InfiniteFuture(), if supported, waits util
 ///     deadline for a read.
 absl::Status AwaitReadablePipe(FileDescriptor fd, absl::Time deadline);
-
-/// --------------------------------------------------------------------------
-
-/// Retrieves the metadata for an open file.
-///
-/// \param fd Open file descriptor.
-/// \param info[out] Non-null pointer to location where metadata will be stored.
-/// \returns `absl::OkStatus` on success, or a failure absl::Status code.
-absl::Status GetFileInfo(FileDescriptor fd, FileInfo* info);
-
-/// Retrieves the metadata for a file.
-absl::Status GetFileInfo(const std::string& path, FileInfo* info);
-
-/// Returns `true` if `info` is the metadata of a regular file (rather than a
-/// directory or other special file).
-inline bool IsRegularFile(const FileInfo& info) {
-#ifdef _WIN32
-  return !(info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY);
-#else
-  return S_ISREG(info.st_mode);
-#endif
-}
-
-/// Returns `true` if `info` is the metadata of a regular file (rather than a
-/// directory or other special file).
-inline bool IsDirectory(const FileInfo& info) {
-#ifdef _WIN32
-  return (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY);
-#else
-  return S_ISDIR(info.st_mode);
-#endif
-}
-
-/// Returns the size in bytes.
-inline uint64_t GetSize(const FileInfo& info) {
-#ifdef _WIN32
-  return (static_cast<int64_t>(info.nFileSizeHigh) << 32) +
-         static_cast<int64_t>(info.nFileSizeLow);
-#else
-  return info.st_size;
-#endif
-}
-
-/// Returns a unique identifier of the device/filesystem.
-inline auto GetDeviceId(const FileInfo& info) {
-#ifdef _WIN32
-  return info.dwVolumeSerialNumber;
-#else
-  return info.st_dev;
-#endif
-}
-
-/// Returns a unique identifier of the file (within the filesystem/device).
-inline uint64_t GetFileId(const FileInfo& info) {
-#ifdef _WIN32
-  return (static_cast<uint64_t>(info.nFileIndexHigh) << 32) |
-         static_cast<uint64_t>(info.nFileIndexLow);
-#else
-  return info.st_ino;
-#endif
-}
-
-/// Returns the last modified time.
-inline absl::Time GetMTime(const FileInfo& info) {
-#ifdef _WIN32
-  // Windows FILETIME is the number of 100-nanosecond intervals since the
-  // Windows epoch (1601-01-01) which is 11644473600 seconds before the unix
-  // epoch (1970-01-01).
-  uint64_t windowsTicks =
-      (static_cast<uint64_t>(info.ftLastWriteTime.dwHighDateTime) << 32) |
-      static_cast<uint64_t>(info.ftLastWriteTime.dwLowDateTime);
-
-  return absl::UnixEpoch() +
-         absl::Seconds((windowsTicks / 10000000) - 11644473600ULL) +
-         absl::Nanoseconds(windowsTicks % 10000000);
-#else
-#if defined(__APPLE__)
-  const struct ::timespec t = info.st_mtimespec;
-#else
-  const struct ::timespec t = info.st_mtim;
-#endif
-  return absl::FromTimeT(t.tv_sec) + absl::Nanoseconds(t.tv_nsec);
-#endif
-}
-
-/// Returns the creation time.
-inline absl::Time GetCTime(const FileInfo& info) {
-#ifdef _WIN32
-  // Windows FILETIME is the number of 100-nanosecond intervals since the
-  // Windows epoch (1601-01-01) which is 11644473600 seconds before the unix
-  // epoch (1970-01-01).
-  uint64_t windowsTicks =
-      (static_cast<uint64_t>(info.ftCreationTime.dwHighDateTime) << 32) |
-      static_cast<uint64_t>(info.ftCreationTime.dwLowDateTime);
-
-  return absl::UnixEpoch() +
-         absl::Seconds((windowsTicks / 10000000) - 11644473600ULL) +
-         absl::Nanoseconds(windowsTicks % 10000000);
-#else
-#if defined(__APPLE__)
-  const struct ::timespec t = info.st_ctimespec;
-#else
-  const struct ::timespec t = info.st_ctim;
-#endif
-  return absl::FromTimeT(t.tv_sec) + absl::Nanoseconds(t.tv_nsec);
-#endif
-}
-
-/// Returns the mode bits.
-inline uint32_t GetMode(const FileInfo& info) {
-#ifdef _WIN32
-  if (info.dwFileAttributes & FILE_ATTRIBUTE_READONLY) {
-    return 0444;  // read-only
-  } else {
-    return 0666;  // read/write
-  }
-#else
-  return info.st_mode;
-#endif
-}
 
 /// --------------------------------------------------------------------------
 

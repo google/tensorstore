@@ -20,6 +20,7 @@
 #include <cstring>
 #include <string>
 
+#include "tensorstore/internal/os/file_info.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
@@ -35,7 +36,7 @@ Result<std::string> ReadAllToString(const std::string& path) {
   TENSORSTORE_RETURN_IF_ERROR(GetFileInfo(fd.get(), &info));
 
   // Handle the case where the file is empty.
-  std::string result(internal_os::GetSize(info), 0);
+  std::string result(info.GetSize(), 0);
   if (result.empty()) {
     result.resize(4096);
   }
