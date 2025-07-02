@@ -589,6 +589,47 @@ TEST(S3KeyValueStoreTest, SimpleMock_RetryTimesOut) {
   EXPECT_THAT(read_result, StatusIs(absl::StatusCode::kAborted));
 }
 
+TEST(S3KeyValueStoreTest, SimpleMock_RetryResolveEhr) {
+  // Mocks for s3
+  auto mock_transport = std::make_shared<DefaultMockHttpTransport>(
+      DefaultMockHttpTransport::Responses{
+          // initial HEAD request fails.
+          {"HEAD https://localhost:1234/base/my-bucket",
+           absl::InternalError("Mock error")},
+          // Subsequent HEAD responds with an x-amz-bucket-region header.
+          {"HEAD https://localhost:1234/base/my-bucket",
+           HttpResponse{200, absl::Cord(),
+                        HeaderMap{{"x-amz-bucket-region", "us-east-1"}}}},
+
+          {"GET https://localhost:1234/base/my-bucket/tmp:1/key_read",
+           HttpResponse{
+               200, absl::Cord("abcd"),
+               HeaderMap{{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""}}}},
+      });
+
+  DefaultHttpTransportSetter mock_transport_setter{mock_transport};
+
+  // Opens the s3 driver with small exponential backoff values.
+  auto context = DefaultTestContext();
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, kvstore::Open({{"driver", "s3"},
+                                 {"bucket", "my-bucket"},
+                                 {"endpoint", "https://localhost:1234/base"},
+                                 {"path", "tmp:1/"}},
+                                context)
+                      .result());
+
+  auto read_result1 = kvstore::Read(store, "key_read").result();
+  EXPECT_THAT(read_result1, StatusIs(absl::StatusCode::kInternal));
+
+  auto read_result = kvstore::Read(store, "key_read").result();
+  EXPECT_THAT(read_result, MatchesKvsReadResult(
+                               absl::Cord("abcd"),
+                               StorageGeneration::FromString(
+                                   "\"900150983cd24fb0d6963f7d28e17f72\"")));
+}
+
 // TODO: Add mocking to satisfy kvstore testing methods, such as:
 // tensorstore::internal::TestKeyValueStoreReadOps
 // tensorstore::internal::TestKeyValueReadWriteOps

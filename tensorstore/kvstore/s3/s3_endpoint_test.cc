@@ -132,7 +132,6 @@ TEST(ValidateEndpointTest, Basic) {
 }
 
 // Mock-based tests for s3.
-
 TEST(ResolveEndpointRegion, Basic) {
   auto mock_transport = std::make_shared<DefaultMockHttpTransport>(
       DefaultMockHttpTransport::Responses{
@@ -204,6 +203,16 @@ TEST(ResolveEndpointRegion, Basic) {
   EXPECT_THAT(ehr.endpoint, "http://localhost.ceph/test.bucket");
   EXPECT_THAT(ehr.aws_region, "us-east-1");
   EXPECT_THAT(ehr.write_mode, ConditionalWriteMode::kDisabled);
+}
+
+TEST(ResolveEndpointRegion, Error) {
+  auto mock_transport = std::make_shared<DefaultMockHttpTransport>(
+      DefaultMockHttpTransport::Responses{
+          {"HEAD https://testbucket.s3.amazonaws.com",
+           absl::InternalError("Mock error")}});
+  EXPECT_THAT(
+      ResolveEndpointRegion("testbucket", {}, {}, mock_transport).result(),
+      tensorstore::StatusIs(absl::StatusCode::kInternal, "Mock error"));
 }
 
 }  // namespace

@@ -15,8 +15,11 @@
 #ifndef TENSORSTORE_INTERNAL_HTTP_MOCK_HTTP_TRANSPORT_H_
 #define TENSORSTORE_INTERNAL_HTTP_MOCK_HTTP_TRANSPORT_H_
 
+#include <stdint.h>
+
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "absl/status/status.h"
@@ -46,8 +49,12 @@ void ApplyResponseToHandler(const Result<HttpResponse>& response,
 /// The first matching pair will be returned for each call, then expired.
 class DefaultMockHttpTransport : public internal_http::HttpTransport {
  public:
-  using Responses =
-      std::vector<std::pair<std::string, internal_http::HttpResponse>>;
+  struct MockResponse {
+    std::string url;
+    std::variant<internal_http::HttpResponse, absl::Status> response;
+    uint32_t count = 1;
+  };
+  using Responses = std::vector<MockResponse>;
 
   /// Construct a DefaultMockHttpTransport that returns 404 for all requests.
   DefaultMockHttpTransport() = default;
@@ -73,7 +80,7 @@ class DefaultMockHttpTransport : public internal_http::HttpTransport {
  private:
   absl::Mutex mutex_;
   std::vector<HttpRequest> requests_;
-  Responses url_to_response_;
+  std::vector<MockResponse> mock_responses_;
 };
 
 }  // namespace internal_http
