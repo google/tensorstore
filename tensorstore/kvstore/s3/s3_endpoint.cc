@@ -260,7 +260,7 @@ Future<S3EndpointRegion> ResolveEndpointRegion(
               "HEAD", absl::StrFormat("https://%s.s3.amazonaws.com", bucket))
               .AddHostHeader(host_header)
               .BuildRequest();
-      return PromiseFuturePair<S3EndpointRegion>::Link(
+      return PromiseFuturePair<S3EndpointRegion>::LinkValue(
                  ResolveHost<S3VirtualHostFormatter>{
                      std::move(bucket), {}, S3VirtualHostFormatter{}},
                  transport->IssueRequest(std::move(request), {}))
@@ -278,7 +278,7 @@ Future<S3EndpointRegion> ResolveEndpointRegion(
             absl::StrFormat("https://s3.us-east-1.amazonaws.com/%s", bucket))
             .AddHostHeader(host_header)
             .BuildRequest();
-    return PromiseFuturePair<S3EndpointRegion>::Link(
+    return PromiseFuturePair<S3EndpointRegion>::LinkValue(
                ResolveHost<S3PathFormatter>{
                    std::move(bucket), {}, S3PathFormatter{}},
                transport->IssueRequest(std::move(request), {}))
@@ -291,7 +291,7 @@ Future<S3EndpointRegion> ResolveEndpointRegion(
       HttpRequestBuilder("HEAD", absl::StrFormat("%s/%s", endpoint, bucket))
           .AddHostHeader(host_header)
           .BuildRequest();
-  return PromiseFuturePair<S3EndpointRegion>::Link(
+  return PromiseFuturePair<S3EndpointRegion>::LinkValue(
              ResolveHost<S3CustomFormatter>{
                  std::move(bucket), "us-east-1",
                  S3CustomFormatter{std::string(endpoint)}},

@@ -16,6 +16,7 @@
 
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "absl/log/absl_log.h"
@@ -70,18 +71,20 @@ void ApplyResponseToHandler(const Result<HttpResponse>& response,
   }
 }
 
-void DefaultMockHttpTransport::Reset(Responses url_to_response,
+void DefaultMockHttpTransport::Reset(std::vector<MockResponse> url_to_response,
                                      bool add_headers) {
   if (add_headers) {
     // Add additional headers to the response.
     for (auto& kv : url_to_response) {
-      AddDefaultHeaders(kv.second);
+      if (std::holds_alternative<HttpResponse>(kv.response)) {
+        AddDefaultHeaders(std::get<HttpResponse>(kv.response));
+      }
     }
   }
 
   absl::MutexLock l(&mutex_);
   requests_.clear();
-  url_to_response_ = std::move(url_to_response);
+  mock_responses_ = std::move(url_to_response);
 }
 
 void DefaultMockHttpTransport::IssueRequestWithHandler(
@@ -92,12 +95,17 @@ void DefaultMockHttpTransport::IssueRequestWithHandler(
   absl::MutexLock l(&mutex_);
   requests_.push_back(request);
 
-  for (auto& kv : url_to_response_) {
-    if (!kv.first.empty() && kv.first == key) {
-      ApplyResponseToHandler(kv.second, response_handler);
-      kv.first.clear();
-      return;
+  for (auto& mock : mock_responses_) {
+    if (mock.count == 0 || mock.url != key) continue;
+    if (std::holds_alternative<absl::Status>(mock.response)) {
+      ApplyResponseToHandler(std::get<absl::Status>(mock.response),
+                             response_handler);
+    } else {
+      ApplyResponseToHandler(std::get<HttpResponse>(mock.response),
+                             response_handler);
     }
+    mock.count--;
+    return;
   }
 
   ABSL_LOG(INFO) << "Returning 404 for: " << request;
