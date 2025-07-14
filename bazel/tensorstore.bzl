@@ -15,6 +15,9 @@
 """Rule definitions for TensorStore targets."""
 
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 load(
     "//bazel:cc_grpc_library.bzl",
     _cc_grpc_library = "cc_grpc_library",
@@ -24,26 +27,26 @@ def _get_tensorstore_copts(copts):
     return (copts or []) + []
 
 def tensorstore_cc_library(copts = None, **kwargs):
-    native.cc_library(
+    cc_library(
         copts = _get_tensorstore_copts(copts),
         **kwargs
     )
 
 def tensorstore_cc_test(copts = None, **kwargs):
-    native.cc_test(
+    cc_test(
         copts = _get_tensorstore_copts(copts),
         **kwargs
     )
 
 def tensorstore_cc_binary(copts = None, **kwargs):
-    native.cc_binary(
+    cc_binary(
         copts = _get_tensorstore_copts(copts),
         **kwargs
     )
 
 def tensorstore_cc_compile_test(name, copts = None, **kwargs):
     lib_name = name + "__lib"
-    native.cc_library(
+    cc_library(
         name = lib_name,
         copts = _get_tensorstore_copts(copts),
         **kwargs

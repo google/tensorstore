@@ -15,6 +15,8 @@
 """Supports pybind11 extension modules"""
 
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load(
     "//bazel:pybind11_cc_test.bzl",
     _pybind11_cc_googletest_test = "pybind11_cc_googletest_test",
@@ -55,8 +57,7 @@ def py_extension(
     linker_script_name = name + ".lds"
     linker_script_name_rule = name + "_lds"
     shared_objects_name = name + "__shared_objects"
-
-    native.cc_library(
+    cc_library(
         name = cc_library_name,
         srcs = srcs,
         hdrs = hdrs,
@@ -113,7 +114,7 @@ def py_extension(
                 "@platforms//os:macos": [],
                 "//conditions:default": [linker_script_name],
             })
-        native.cc_binary(
+        cc_binary(
             name = cc_binary_name,
             linkshared = True,
             #linkstatic = True,
@@ -166,7 +167,7 @@ def pybind11_py_extension(**kwargs):
     py_extension(**_get_pybind11_build_options(**kwargs))
 
 def pybind11_cc_library(**kwargs):
-    native.cc_library(**_get_pybind11_build_options(**kwargs))
+    cc_library(**_get_pybind11_build_options(**kwargs))
 
 def pybind11_cc_googletest_test(name, **kwargs):
     _pybind11_cc_googletest_test(
