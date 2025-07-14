@@ -22,6 +22,7 @@ TODO: Try and upstream changes to make this file unnecessary.
 """
 
 load("@grpc//bazel:generate_cc.bzl", "generate_cc")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
 def cc_grpc_library(
         name,
@@ -73,8 +74,7 @@ def cc_grpc_library(
     )
 
     features = ["-layering_check", "-parse_headers", "-no_undefined"]
-
-    native.cc_library(
+    cc_library(
         name = name,
         srcs = [":" + codegen_grpc_target],
         hdrs = [":" + codegen_grpc_target],
