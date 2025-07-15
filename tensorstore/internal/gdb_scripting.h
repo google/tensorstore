@@ -18,4 +18,7 @@
 // GDB script registration not supported.
 #define TENSORSTORE_GDB_AUTO_SCRIPT(name)  // noop
 
+// LLDB script registration not supported.
+#define TENSORSTORE_LLDB_AUTO_SCRIPT(name)  // noop
+
 #endif  // TENSORSTORE_INTERNAL_GDB_SCRIPTING_H_
