@@ -401,7 +401,9 @@ tensorstore_cc_library(
 tensorstore_cc_library(
     name = "gdb_scripting",
     hdrs = ["gdb_scripting.h"],
-    deps = ["@abseil-cpp//absl/base:core_headers"],
+    deps = [
+        "@abseil-cpp//absl/base:core_headers",
+    ],
 )
 
 tensorstore_cc_library(
