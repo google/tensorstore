@@ -16,7 +16,6 @@
 
 #include <stddef.h>
 
-#include <array>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -92,18 +91,21 @@ Result<TransformedDriverSpec> GetTransformedDriverSpecFromUrlImpl(
     return absl::InvalidArgumentError("URL must be non-empty");
   }
   std::string buffer;
-  auto end_of_scheme = url.find(':');
-  if (end_of_scheme == std::string_view::npos) {
-    if constexpr (!RequireColon) {
-      end_of_scheme = url.size();
-      buffer = tensorstore::StrCat(url, ":");
-      url = buffer;
-    } else {
+  std::string_view scheme =
+      *(absl::StrSplit(url, absl::MaxSplits(':', 1)).begin());
+
+  if (scheme.size() == url.size()) {
+    if constexpr (RequireColon) {
       return absl::InvalidArgumentError(tensorstore::StrCat(
           "URL scheme must be specified in ", tensorstore::QuoteString(url)));
+    } else {
+      // Add a colon to the end of `url`; The compound url syntax does not
+      // require a colon after the scheme, however registered drivers do.
+      buffer = tensorstore::StrCat(url, ":");
+      url = buffer;
     }
   }
-  auto scheme = url.substr(0, end_of_scheme);
+
   Handler handler;
   {
     auto& registry = GetUrlSchemeRegistry();
@@ -157,6 +159,10 @@ Result<TransformedDriverSpec> GetTransformedDriverKvStoreAdapterSpecFromUrl(
 
 Result<TransformedDriverSpec> GetTransformedDriverSpecFromUrl(
     std::string_view url) {
+  if (url.empty()) {
+    return absl::InvalidArgumentError("URL must be non-empty");
+  }
+
   std::variant<std::monostate, kvstore::Spec, TransformedDriverSpec> spec;
 
   auto maybe_apply_auto = [&]() -> absl::Status {
@@ -172,8 +178,8 @@ Result<TransformedDriverSpec> GetTransformedDriverSpecFromUrl(
   };
 
   auto apply_component = [&](std::string_view component) -> absl::Status {
-    auto scheme = static_cast<std::array<std::string_view, 1>>(
-        absl::StrSplit(component, ':'))[0];
+    std::string_view scheme =
+        *(absl::StrSplit(component, absl::MaxSplits(':', 1)).begin());
     auto scheme_kind = internal::GetUrlSchemeKind(scheme);
     auto fail = [&]() -> absl::Status {
       if (!scheme_kind) {
@@ -247,7 +253,12 @@ Result<TransformedDriverSpec> GetTransformedDriverSpecFromUrl(
   };
 
   for (std::string_view component : absl::StrSplit(url, '|')) {
-    TENSORSTORE_RETURN_IF_ERROR(apply_component(component));
+    if (auto status = apply_component(component); !status.ok()) {
+      return tensorstore::MaybeAnnotateStatus(
+          std::move(status),
+          tensorstore::StrCat("Parsing spec from url: ",
+                              tensorstore::QuoteString(url)));
+    }
   }
 
   if (std::holds_alternative<std::monostate>(spec)) {
@@ -256,8 +267,11 @@ Result<TransformedDriverSpec> GetTransformedDriverSpecFromUrl(
     return absl::InvalidArgumentError("Non-empty URL must be specified");
   }
 
-  TENSORSTORE_RETURN_IF_ERROR(maybe_apply_auto());
-
+  if (auto status = maybe_apply_auto(); !status.ok()) {
+    return tensorstore::MaybeAnnotateStatus(
+        std::move(status), tensorstore::StrCat("Parsing spec from url: ",
+                                               tensorstore::QuoteString(url)));
+  }
   return std::move(std::get<TransformedDriverSpec>(spec));
 }
 

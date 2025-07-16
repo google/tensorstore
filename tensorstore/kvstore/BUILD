@@ -468,3 +468,21 @@ tensorstore_cc_test(
         "@nlohmann_json//:json",
     ],
 )
+
+tensorstore_cc_test(
+    name = "url_registry_test",
+    srcs = ["url_registry_test.cc"],
+    deps = [
+        ":kvstore",
+        "//tensorstore:context",
+        "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/util:future",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status_testutil",
+        "//tensorstore/util/garbage_collection",
+        "@abseil-cpp//absl/log:absl_log",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@googletest//:gtest_main",
+    ],
+)

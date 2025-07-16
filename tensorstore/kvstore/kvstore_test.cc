@@ -62,7 +62,7 @@ TEST(KeyValueStoreTest, TensorStoreUrl) {
   EXPECT_THAT(
       kvstore::Spec::FromJson("json:"),
       MatchesStatus(absl::StatusCode::kInvalidArgument,
-                    "\"json\" is a kvstore-based TensorStore URL scheme: "
+                    ".*\"json\" is a kvstore-based TensorStore URL scheme: "
                     "unsupported URL scheme \"json\" in \"json:\""));
 }
 

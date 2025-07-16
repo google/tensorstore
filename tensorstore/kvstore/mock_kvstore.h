@@ -15,6 +15,7 @@
 #ifndef TENSORSTORE_KVSTORE_MOCK_KVSTORE_H_
 #define TENSORSTORE_KVSTORE_MOCK_KVSTORE_H_
 
+#include <functional>
 #include <optional>
 #include <utility>
 
