@@ -65,6 +65,7 @@ tensorstore_cc_test(
         "//tensorstore:spec",
         "//tensorstore:transaction",
         "//tensorstore/driver/zarr3",
+        "//tensorstore/internal/os:file_util",
         "//tensorstore/internal/testing:json_gtest",
         "//tensorstore/internal/testing:scoped_directory",
         "//tensorstore/kvstore",

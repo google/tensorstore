@@ -243,7 +243,7 @@ TEST_F(ZipKeyValueStoreTest, NormalizeUrl) {
 TEST(UrlTest, NoRootKvStore) {
   EXPECT_THAT(kvstore::Spec::FromJson("zip:abc"),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "\"zip\" is a kvstore adapter URL scheme: "
+                            ".*\"zip\" is a kvstore adapter URL scheme: "
                             "unsupported URL scheme \"zip\" in \"zip:abc\""));
 }
 

@@ -84,18 +84,21 @@ Result<kvstore::Spec> GetSpecFromUrlImpl(std::string_view url, Arg&&... arg) {
     return absl::InvalidArgumentError("URL must be non-empty");
   }
   std::string buffer;
-  auto end_of_scheme = url.find(':');
-  if (end_of_scheme == std::string_view::npos) {
-    if constexpr (!RequireColon) {
-      end_of_scheme = url.size();
-      buffer = tensorstore::StrCat(url, ":");
-      url = buffer;
-    } else {
+  std::string_view scheme =
+      *(absl::StrSplit(url, absl::MaxSplits(':', 1)).begin());
+
+  if (scheme.size() == url.size()) {
+    if constexpr (RequireColon) {
       return absl::InvalidArgumentError(tensorstore::StrCat(
           "URL scheme must be specified in ", tensorstore::QuoteString(url)));
+    } else {
+      // Add a colon to the end of `url`; The compound url syntax does not
+      // require a colon after the scheme, however registered drivers do.
+      buffer = tensorstore::StrCat(url, ":");
+      url = buffer;
     }
   }
-  auto scheme = url.substr(0, end_of_scheme);
+
   Handler handler;
   {
     auto& registry = internal_kvstore::GetUrlSchemeRegistry();
@@ -118,10 +121,15 @@ Result<kvstore::Spec> GetSpecFromUrlImpl(std::string_view url, Arg&&... arg) {
   }
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto spec, handler(url, std::forward<Arg>(arg)...),
-      tensorstore::MaybeAnnotateStatus(std::move(_),
-                                       tensorstore::StrCat(tensorstore::StrCat(
-                                           "Invalid kvstore URL component ",
-                                           tensorstore::QuoteString(url)))));
+      tensorstore::MaybeAnnotateStatus(
+          std::move(_), tensorstore::StrCat("Invalid kvstore URL component ",
+                                            tensorstore::QuoteString(url))));
+  if (!spec.valid()) {
+    // This should never happen with correct kvstore drivers, but as Spec
+    // permits invalid state, check here and error about it.
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "Invalid kvstore URL component ", tensorstore::QuoteString(url)));
+  }
   TENSORSTORE_RETURN_IF_ERROR(
       const_cast<kvstore::DriverSpec&>(*spec.driver).NormalizeSpec(spec.path));
   return spec;
@@ -144,18 +152,24 @@ Result<kvstore::Spec> GetAdapterSpecFromUrl(std::string_view url,
 namespace kvstore {
 
 Result<Spec> Spec::FromUrl(std::string_view url) {
-  auto splitter = absl::StrSplit(url, '|');
-  auto it = splitter.begin();
-  if (it == splitter.end()) {
-    // Note: `absl::StrSplit` returns either zero or one component for
-    // an empty string, depending on whether `url.data() == nullptr`.
+  // Note: `absl::StrSplit` returns either zero or one component for
+  // an empty string, depending on whether `url.data() == nullptr`,
+  // so check for empty explicitly.
+  if (url.empty()) {
     return absl::InvalidArgumentError("URL must be non-empty");
   }
-  TENSORSTORE_ASSIGN_OR_RETURN(auto spec,
-                               internal_kvstore::GetRootSpecFromUrl(*it));
+  auto splitter = absl::StrSplit(url, '|');
+  auto it = splitter.begin();
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto spec, internal_kvstore::GetRootSpecFromUrl(*it),
+      tensorstore::MaybeAnnotateStatus(
+          _, tensorstore::StrCat("Parsing spec from url: ", QuoteString(url))));
   while (++it != splitter.end()) {
     TENSORSTORE_ASSIGN_OR_RETURN(
-        spec, internal_kvstore::GetAdapterSpecFromUrl(*it, std::move(spec)));
+        spec, internal_kvstore::GetAdapterSpecFromUrl(*it, std::move(spec)),
+        tensorstore::MaybeAnnotateStatus(
+            _,
+            tensorstore::StrCat("Parsing spec from url: ", QuoteString(url))));
   }
   return spec;
 }

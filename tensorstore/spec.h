@@ -16,6 +16,8 @@
 #define TENSORSTORE_SPEC_H_
 
 #include <iosfwd>
+#include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 
