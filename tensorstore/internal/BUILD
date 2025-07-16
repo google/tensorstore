@@ -1632,7 +1632,10 @@ tensorstore_cc_test(
 tensorstore_cc_library(
     name = "compare",
     hdrs = ["compare.h"],
-    deps = ["@abseil-cpp//absl/types:compare"],
+    deps = [
+        "@abseil-cpp//absl/meta:type_traits",
+        "@abseil-cpp//absl/types:compare",
+    ],
 )
 
 tensorstore_cc_test(
