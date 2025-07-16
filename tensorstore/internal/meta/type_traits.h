@@ -203,7 +203,7 @@ using CopyQualifiers =
 /// for specifying default argument values.
 template <typename T>
 inline T& GetLValue(T&& x) {
-  return x;
+  return static_cast<T&>(x);
 }
 
 /// Type alias that evaluates to its first argument.  Additional type arguments,

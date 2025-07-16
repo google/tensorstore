@@ -17,6 +17,7 @@
 
 #include <type_traits>
 
+#include "absl/meta/type_traits.h"
 #include "absl/types/compare.h"
 
 namespace tensorstore {
@@ -42,7 +43,7 @@ constexpr inline absl::weak_ordering CompareResultAsWeakOrdering(
 // integer value, as in `std::string_view::compare`.
 template <
     typename Compare, typename K, typename LK,
-    std::enable_if_t<!std::is_same<bool, std::result_of_t<Compare(
+    std::enable_if_t<!std::is_same<bool, absl::result_of_t<Compare(
                                              const K &, const LK &)>>::value,
                      int> = 0>
 constexpr absl::weak_ordering DoThreeWayComparison(const Compare &compare,
@@ -52,7 +53,7 @@ constexpr absl::weak_ordering DoThreeWayComparison(const Compare &compare,
 
 template <
     typename Compare, typename K, typename LK,
-    std::enable_if_t<std::is_same<bool, std::result_of_t<Compare(
+    std::enable_if_t<std::is_same<bool, absl::result_of_t<Compare(
                                             const K &, const LK &)>>::value,
                      int> = 0>
 constexpr absl::weak_ordering DoThreeWayComparison(const Compare &compare,
