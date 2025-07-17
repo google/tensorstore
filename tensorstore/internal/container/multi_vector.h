@@ -30,7 +30,7 @@
 #include "tensorstore/rank.h"
 #include "tensorstore/util/span.h"
 
-TENSORSTORE_GDB_AUTO_SCRIPT("multi_vector_gdb.py")
+TENSORSTORE_LLDB_AUTO_SCRIPT("multi_vector_lldb.py")
 
 namespace tensorstore {
 namespace internal {
