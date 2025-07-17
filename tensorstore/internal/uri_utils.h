@@ -170,6 +170,12 @@ struct HostPort {
 /// Only minimal validation is performed.
 std::optional<HostPort> SplitHostPort(std::string_view host_port);
 
+/// Returns a uri-style path from an os-style path.
+std::string OsPathToUriPath(std::string_view path);
+
+/// Returns an os-style path from a uri-style path.
+std::string UriPathToOsPath(std::string_view path);
+
 }  // namespace internal
 }  // namespace tensorstore
 

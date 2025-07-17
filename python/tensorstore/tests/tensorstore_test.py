@@ -14,11 +14,10 @@
 """Tests for tensorstore.TensorStore."""
 
 import copy
+import pathlib
 import pickle
 import re
 import tempfile
-import time
-
 import numpy as np
 import pytest
 import tensorstore as ts
@@ -592,8 +591,10 @@ async def test_recheck_cached(key, value):
 
 
 async def test_non_utf8_error():
-  with pytest.raises(ValueError, match='.*local file "\\\\xfa.*'):
-    await ts.open({"driver": "zarr", "kvstore": "file://%fa"})
+  with tempfile.TemporaryDirectory() as dir_path:
+    base_url = pathlib.Path(dir_path).resolve()
+    with pytest.raises(ValueError, match='.*local file ".*\\\\xfa.*'):
+      await ts.open({"driver": "zarr", "kvstore": base_url.as_uri() + "/%fa"})
 
 
 async def test_write_batch():

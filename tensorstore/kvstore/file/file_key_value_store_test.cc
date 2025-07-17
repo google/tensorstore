@@ -15,9 +15,6 @@
 #include <errno.h>
 #include <stddef.h>
 
-#include "absl/time/clock.h"
-#include "absl/time/time.h"
-
 #ifdef _WIN32
 #include <sys/utime.h>
 #include <time.h>
@@ -30,6 +27,7 @@
 #include <cstring>
 #include <fstream>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <vector>
 
@@ -37,12 +35,17 @@
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "absl/synchronization/notification.h"
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/os/filesystem.h"
+#include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
+#include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -68,12 +71,14 @@ using ::tensorstore::CompletionNotifyingReceiver;
 using ::tensorstore::IsOkAndHolds;
 using ::tensorstore::KeyRange;
 using ::tensorstore::KvStore;
+using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::internal::KeyValueStoreOpsTestParameters;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
 using ::tensorstore::internal::MatchesListEntry;
 using ::tensorstore::internal::MatchesTimestampedStorageGeneration;
+using ::tensorstore::internal::OsPathToUriPath;
 using ::tensorstore::internal_os::GetDirectoryContents;
 using ::tensorstore::internal_testing::ScopedCurrentWorkingDirectory;
 using ::tensorstore::internal_testing::ScopedTemporaryDirectory;
@@ -81,6 +86,9 @@ using ::testing::HasSubstr;
 
 KvStore GetStore(std::string root) {
   return kvstore::Open({{"driver", "file"}, {"path", root + "/"}}).value();
+}
+std::string AsFileUri(std::string_view path) {
+  return absl::StrCat("file://", OsPathToUriPath(path));
 }
 
 TENSORSTORE_GLOBAL_INITIALIZER {
@@ -150,7 +158,7 @@ TENSORSTORE_GLOBAL_INITIALIZER {
     }
     register_with_spec(
         "UrlOpen",
-        [](std::string path) -> ::nlohmann::json { return "file://" + path; },
+        [](std::string path) -> ::nlohmann::json { return AsFileUri(path); },
         params);
   }
 }
@@ -398,16 +406,16 @@ TEST(FileKeyValueStoreTest, ListErrors) {
 
 TEST(FileKeyValueStoreTest, SpecRoundtrip) {
   ScopedTemporaryDirectory tempdir;
-  std::string root = tempdir.path() + "/root/";
+  std::string root = absl::StrCat(tempdir.path(), "/root/");
   tensorstore::internal::KeyValueStoreSpecRoundtripOptions options;
   options.full_spec = {{"driver", "file"}, {"path", root}};
-  options.url = "file://" + root;
+  options.url = AsFileUri(root);
   tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
 }
 
 TEST(FileKeyValueStoreTest, SpecRoundtripSync) {
   ScopedTemporaryDirectory tempdir;
-  std::string root = tempdir.path() + "/root/";
+  std::string root = absl::StrCat(tempdir.path(), "/root/");
   tensorstore::internal::KeyValueStoreSpecRoundtripOptions options;
   options.full_spec = {
       {"driver", "file"},
@@ -420,14 +428,14 @@ TEST(FileKeyValueStoreTest, SpecRoundtripSync) {
            {"file_io_locking", {{"mode", "lockfile"}}},
        }},
   };
-  options.url = "file://" + root;
+  options.url = AsFileUri(root);
   options.spec_request_options.Set(tensorstore::retain_context).IgnoreError();
   tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
 }
 
 TEST(FileKeyValueStoreTest, InvalidSpec) {
   ScopedTemporaryDirectory tempdir;
-  std::string root = tempdir.path() + "/root/";
+  std::string root = absl::StrCat(tempdir.path(), "/root/");
   auto context = tensorstore::Context::Default();
 
   // Test with extra key.
@@ -450,26 +458,58 @@ TEST(FileKeyValueStoreTest, InvalidSpec) {
 }
 
 TEST(FileKeyValueStoreTest, UrlRoundtrip) {
+  // Creates a spec with a / path:
+  EXPECT_THAT(kvstore::Spec::FromUrl("file:///"), tensorstore::IsOk());
+  // Creates a spec with an empty path:
+  EXPECT_THAT(kvstore::Spec::FromUrl("file://"), tensorstore::IsOk());
+
   tensorstore::internal::TestKeyValueStoreUrlRoundtrip({{"driver", "file"}},
                                                        "file://");
+  tensorstore::internal::TestKeyValueStoreUrlRoundtrip(
+      {{"driver", "file"}, {"path", "/"}}, "file:///");
+
   tensorstore::internal::TestKeyValueStoreUrlRoundtrip(
       {{"driver", "file"}, {"path", "/abc/"}}, "file:///abc/");
   tensorstore::internal::TestKeyValueStoreUrlRoundtrip(
       {{"driver", "file"}, {"path", "/abc def/"}}, "file:///abc%20def/");
+
+  // With localhost authority
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto spec_from_url, kvstore::Spec::FromUrl("file://localhost/abc"));
+    EXPECT_THAT(
+        spec_from_url.ToJson(),
+        IsOkAndHolds(MatchesJson({{"driver", "file"}, {"path", "/abc"}})));
+    EXPECT_THAT(spec_from_url.ToUrl(), IsOkAndHolds("file:///abc"));
+  }
+
+  // Windows-specific path. This works in both Windows and Linux.
+  tensorstore::internal::TestKeyValueStoreUrlRoundtrip(
+      {{"driver", "file"}, {"path", "C:/tmp/"}}, "file:///C:/tmp/");
+
+#ifdef _WIN32
+  {
+    // Windows-specific path. This works only in Windows.
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto spec_from_json,
+        kvstore::Spec::FromJson({{"driver", "file"}, {"path", "C:\\tmp\\"}}));
+    EXPECT_THAT(spec_from_json.ToUrl(), IsOkAndHolds("file:///C:/tmp/"));
+  }
+#endif
 }
 
 TEST(FileKeyValueStoreTest, InvalidUri) {
-  EXPECT_THAT(kvstore::Spec::FromUrl("file:///"), tensorstore::IsOk());
-  // Currently valid, should it be?
-  EXPECT_THAT(kvstore::Spec::FromUrl("file://"), tensorstore::IsOk());
-
-  EXPECT_THAT(kvstore::Spec::FromUrl("file://abc?query"),
+  EXPECT_THAT(kvstore::Spec::FromUrl("file:///abc?query"),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             ".*: Query string not supported"));
-  EXPECT_THAT(kvstore::Spec::FromUrl("file://abc#fragment"),
+  EXPECT_THAT(kvstore::Spec::FromUrl("file:///abc#fragment"),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             ".*: Fragment identifier not supported"));
-  EXPECT_THAT(kvstore::Spec::FromUrl("file://abc/../b/"),
+  EXPECT_THAT(kvstore::Spec::FromUrl("file://authority/path/to/resource"),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            ".*file uris do not support authority.*"));
+
+  EXPECT_THAT(kvstore::Spec::FromUrl("file:///abc/../b/"),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             ".*Invalid file path.*"));
 }
@@ -479,6 +519,10 @@ TEST(FileKeyValueStoreTest, RelativePath) {
   ScopedCurrentWorkingDirectory scoped_cwd(tempdir.path());
   auto store = GetStore("tmp/dataset");
   TENSORSTORE_EXPECT_OK(kvstore::Write(store, "abc", {}).result());
+
+  EXPECT_THAT(store.ToUrl(),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            ".*file: URIs do not support relative paths.*"));
 }
 
 TEST(FileKeyValueStoreTest, BatchRead) {

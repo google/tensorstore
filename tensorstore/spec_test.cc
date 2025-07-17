@@ -39,7 +39,6 @@ namespace {
 
 using ::nlohmann::json;
 using ::tensorstore::DimensionIndex;
-using ::tensorstore::dtype_v;
 using ::tensorstore::IsOkAndHolds;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
@@ -400,13 +399,13 @@ TEST(SpecTest, FromUrlErrors) {
 }
 
 TEST(SpecTest, FromUrl) {
-  EXPECT_THAT(Spec::FromUrl("file://C:/tmp/|zarr"),
+  EXPECT_THAT(Spec::FromUrl("file:///C:/tmp/|zarr"),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             ".*unsupported URL scheme: .zarr.*"));
   // This relies on zarr2 being linked in.  If it is not linked in, then the
   // driver will not be found and the call will fail.
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
-                                   Spec::FromUrl("file://C:/tmp/|zarr2"));
+                                   Spec::FromUrl("file:///C:/tmp/|zarr2"));
 
   EXPECT_THAT(spec.ToJson(),  //
               ::testing::Optional(MatchesJson({
@@ -419,17 +418,17 @@ TEST(SpecTest, FromUrl) {
               })));
 
   EXPECT_THAT(spec.ToUrl(),
-              IsOkAndHolds(::testing::StrEq("file://C:/tmp/|zarr2:")));
+              IsOkAndHolds(::testing::StrEq("file:///C:/tmp/|zarr2:")));
 }
 
 TEST(SpecTest, FromJsonString) {
-  EXPECT_THAT(Spec::FromJson("file://C:/tmp/|zarr"),
+  EXPECT_THAT(Spec::FromJson("file:///C:/tmp/|zarr"),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             ".*unsupported URL scheme: .zarr.*"));
   // This relies on zarr2 being linked in.  If it is not linked in, then the
   // driver will not be found and the call will fail.
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
-                                   Spec::FromJson("file://C:/tmp/|zarr2"));
+                                   Spec::FromJson("file:///C:/tmp/|zarr2"));
 
   EXPECT_THAT(spec.ToJson(),  //
               ::testing::Optional(MatchesJson({
@@ -442,7 +441,7 @@ TEST(SpecTest, FromJsonString) {
               })));
 
   EXPECT_THAT(spec.ToUrl(),
-              IsOkAndHolds(::testing::StrEq("file://C:/tmp/|zarr2:")));
+              IsOkAndHolds(::testing::StrEq("file:///C:/tmp/|zarr2:")));
 }
 
 TEST(SpecSerializationTest, Invalid) {
