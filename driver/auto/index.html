@@ -1233,7 +1233,7 @@ to be included explicitly.</p>
 <h3 id="auto-detecting-an-array">Auto-detecting an array<a class="headerlink" href="#auto-detecting-an-array" title="Link to this heading">¶</a></h3>
 <p>A <a class="reference internal" href="../zarr3/index.html#driver-zarr3"><span class="std std-ref">zarr3</span></a> TensorStore can be detected from its path:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Create new array</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;file://tmp/dataset.zarr|zarr3&quot;</span><span class="p">,</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;file:///tmp/dataset.zarr|zarr3&quot;</span><span class="p">,</span>
 <span class="gp">... </span>              <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;int32&quot;</span><span class="p">,</span>
 <span class="gp">... </span>              <span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="mi">5</span><span class="p">],</span>
 <span class="gp">... </span>              <span class="n">create</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -1248,7 +1248,7 @@ to be included explicitly.</p>
 <span class="go">  },</span>
 <span class="go">  &#39;driver&#39;: &#39;zarr3&#39;,</span>
 <span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
-<span class="go">  &#39;kvstore&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;tmp/dataset.zarr/&#39;},</span>
+<span class="go">  &#39;kvstore&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;/tmp/dataset.zarr/&#39;},</span>
 <span class="go">  &#39;metadata&#39;: {</span>
 <span class="go">    &#39;chunk_grid&#39;: {&#39;configuration&#39;: {&#39;chunk_shape&#39;: [5]}, &#39;name&#39;: &#39;regular&#39;},</span>
 <span class="go">    &#39;chunk_key_encoding&#39;: {&#39;name&#39;: &#39;default&#39;},</span>
@@ -1262,7 +1262,7 @@ to be included explicitly.</p>
 <span class="go">  &#39;transform&#39;: {&#39;input_exclusive_max&#39;: [[5]], &#39;input_inclusive_min&#39;: [0]},</span>
 <span class="go">})</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="c1"># Open with auto-detection</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;file://tmp/dataset.zarr&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;file:///tmp/dataset.zarr&quot;</span><span class="p">)</span>
 <span class="go">TensorStore({</span>
 <span class="go">  &#39;context&#39;: {</span>
 <span class="go">    &#39;cache_pool&#39;: {},</span>
@@ -1274,7 +1274,7 @@ to be included explicitly.</p>
 <span class="go">  },</span>
 <span class="go">  &#39;driver&#39;: &#39;zarr3&#39;,</span>
 <span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
-<span class="go">  &#39;kvstore&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;tmp/dataset.zarr/&#39;},</span>
+<span class="go">  &#39;kvstore&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;/tmp/dataset.zarr/&#39;},</span>
 <span class="go">  &#39;metadata&#39;: {</span>
 <span class="go">    &#39;chunk_grid&#39;: {&#39;configuration&#39;: {&#39;chunk_shape&#39;: [5]}, &#39;name&#39;: &#39;regular&#39;},</span>
 <span class="go">    &#39;chunk_key_encoding&#39;: {&#39;name&#39;: &#39;default&#39;},</span>
@@ -1291,39 +1291,39 @@ to be included explicitly.</p>
 </div>
 <p>Explicitly constructing a <a class="reference internal" href="../../python/api/tensorstore.Spec.html" title="tensorstore.Spec (Python class) — Specification for opening or creating a TensorStore."><code class="xref py py-obj docutils literal notranslate"><span class="pre">Spec</span></code></a> demonstrates the
 explicit syntax for using the <code class="docutils literal notranslate"><span class="pre">auto</span></code> driver:</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">Spec</span><span class="p">(</span><span class="s2">&quot;file://tmp/dataset|auto&quot;</span><span class="p">)</span>
-<span class="go">Spec({&#39;driver&#39;: &#39;auto&#39;, &#39;kvstore&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;tmp/dataset&#39;}})</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">Spec</span><span class="p">(</span><span class="s2">&quot;file://tmp/dataset&quot;</span><span class="p">)</span>
-<span class="go">Spec({&#39;driver&#39;: &#39;auto&#39;, &#39;kvstore&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;tmp/dataset&#39;}})</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">Spec</span><span class="p">(</span><span class="s2">&quot;file:///tmp/dataset|auto&quot;</span><span class="p">)</span>
+<span class="go">Spec({&#39;driver&#39;: &#39;auto&#39;, &#39;kvstore&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;/tmp/dataset&#39;}})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">Spec</span><span class="p">(</span><span class="s2">&quot;file:///tmp/dataset&quot;</span><span class="p">)</span>
+<span class="go">Spec({&#39;driver&#39;: &#39;auto&#39;, &#39;kvstore&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;/tmp/dataset&#39;}})</span>
 </code></pre></div>
 </div>
 <h3 id="chaining-tensorstore-adapters">Chaining TensorStore adapters<a class="headerlink" href="#chaining-tensorstore-adapters" title="Link to this heading">¶</a></h3>
 <p>TensorStore adapters like <a class="reference internal" href="../cast/index.html#driver-cast"><span class="std std-ref">cast</span></a> can also be
 used in conjunction with format auto-detection:</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">Spec</span><span class="p">(</span><span class="s2">&quot;file://tmp/dataset.zarr|cast:int64&quot;</span><span class="p">)</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">Spec</span><span class="p">(</span><span class="s2">&quot;file:///tmp/dataset.zarr|cast:int64&quot;</span><span class="p">)</span>
 <span class="go">Spec({</span>
 <span class="go">  &#39;base&#39;: {</span>
 <span class="go">    &#39;driver&#39;: &#39;auto&#39;,</span>
-<span class="go">    &#39;kvstore&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;tmp/dataset.zarr&#39;},</span>
+<span class="go">    &#39;kvstore&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;/tmp/dataset.zarr&#39;},</span>
 <span class="go">  },</span>
 <span class="go">  &#39;driver&#39;: &#39;cast&#39;,</span>
 <span class="go">  &#39;dtype&#39;: &#39;int64&#39;,</span>
 <span class="go">})</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">Spec</span><span class="p">(</span><span class="s2">&quot;file://tmp/dataset.zarr|auto|cast:int64&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">Spec</span><span class="p">(</span><span class="s2">&quot;file:///tmp/dataset.zarr|auto|cast:int64&quot;</span><span class="p">)</span>
 <span class="go">Spec({</span>
 <span class="go">  &#39;base&#39;: {</span>
 <span class="go">    &#39;driver&#39;: &#39;auto&#39;,</span>
-<span class="go">    &#39;kvstore&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;tmp/dataset.zarr&#39;},</span>
+<span class="go">    &#39;kvstore&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;/tmp/dataset.zarr&#39;},</span>
 <span class="go">  },</span>
 <span class="go">  &#39;driver&#39;: &#39;cast&#39;,</span>
 <span class="go">  &#39;dtype&#39;: &#39;int64&#39;,</span>
 <span class="go">})</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;file://tmp/dataset.zarr|cast:int64&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;file:///tmp/dataset.zarr|cast:int64&quot;</span><span class="p">)</span>
 <span class="go">TensorStore({</span>
 <span class="go">  &#39;base&#39;: {</span>
 <span class="go">    &#39;driver&#39;: &#39;zarr3&#39;,</span>
 <span class="go">    &#39;dtype&#39;: &#39;int32&#39;,</span>
-<span class="go">    &#39;kvstore&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;tmp/dataset.zarr/&#39;},</span>
+<span class="go">    &#39;kvstore&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;/tmp/dataset.zarr/&#39;},</span>
 <span class="go">    &#39;metadata&#39;: {</span>
 <span class="go">      &#39;chunk_grid&#39;: {</span>
 <span class="go">        &#39;configuration&#39;: {&#39;chunk_shape&#39;: [5]},</span>
@@ -1358,7 +1358,7 @@ used in conjunction with format auto-detection:</p>
 <a class="reference internal" href="../../kvstore/ocdbt/index.html#kvstore-ocdbt"><span class="std std-ref">OCDBT</span></a> database can also be detected just
 from the path to the OCDBT database.</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Create new array within new OCDBT database</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;file://tmp/dataset.ocdbt|ocdbt|zarr3&quot;</span><span class="p">,</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;file:///tmp/dataset.ocdbt|ocdbt|zarr3&quot;</span><span class="p">,</span>
 <span class="gp">... </span>              <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;int32&quot;</span><span class="p">,</span>
 <span class="gp">... </span>              <span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="mi">5</span><span class="p">],</span>
 <span class="gp">... </span>              <span class="n">create</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -1375,7 +1375,7 @@ from the path to the OCDBT database.</p>
 <span class="go">  &#39;driver&#39;: &#39;zarr3&#39;,</span>
 <span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
 <span class="go">  &#39;kvstore&#39;: {</span>
-<span class="go">    &#39;base&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;tmp/dataset.ocdbt/&#39;},</span>
+<span class="go">    &#39;base&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;/tmp/dataset.ocdbt/&#39;},</span>
 <span class="go">    &#39;config&#39;: {</span>
 <span class="go">      &#39;compression&#39;: {&#39;id&#39;: &#39;zstd&#39;},</span>
 <span class="go">      &#39;max_decoded_node_bytes&#39;: 8388608,</span>
@@ -1398,7 +1398,7 @@ from the path to the OCDBT database.</p>
 <span class="go">  &#39;transform&#39;: {&#39;input_exclusive_max&#39;: [[5]], &#39;input_inclusive_min&#39;: [0]},</span>
 <span class="go">})</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="c1"># Open with auto-detection</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;file://tmp/dataset.ocdbt&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;file:///tmp/dataset.ocdbt&quot;</span><span class="p">)</span>
 <span class="go">TensorStore({</span>
 <span class="go">  &#39;context&#39;: {</span>
 <span class="go">    &#39;cache_pool&#39;: {},</span>
@@ -1412,7 +1412,7 @@ from the path to the OCDBT database.</p>
 <span class="go">  &#39;driver&#39;: &#39;zarr3&#39;,</span>
 <span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
 <span class="go">  &#39;kvstore&#39;: {</span>
-<span class="go">    &#39;base&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;tmp/dataset.ocdbt/&#39;},</span>
+<span class="go">    &#39;base&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;/tmp/dataset.ocdbt/&#39;},</span>
 <span class="go">    &#39;config&#39;: {</span>
 <span class="go">      &#39;compression&#39;: {&#39;id&#39;: &#39;zstd&#39;},</span>
 <span class="go">      &#39;max_decoded_node_bytes&#39;: 8388608,</span>
@@ -1440,7 +1440,7 @@ from the path to the OCDBT database.</p>
 of the OCDBT database:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Create new array within new OCDBT database</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span>
-<span class="gp">... </span>    <span class="s2">&quot;file://tmp/dataset2.ocdbt|ocdbt:path/within/database|zarr3&quot;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s2">&quot;file:///tmp/dataset2.ocdbt|ocdbt:path/within/database|zarr3&quot;</span><span class="p">,</span>
 <span class="gp">... </span>    <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;int32&quot;</span><span class="p">,</span>
 <span class="gp">... </span>    <span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="mi">5</span><span class="p">],</span>
 <span class="gp">... </span>    <span class="n">create</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -1457,7 +1457,7 @@ of the OCDBT database:</p>
 <span class="go">  &#39;driver&#39;: &#39;zarr3&#39;,</span>
 <span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
 <span class="go">  &#39;kvstore&#39;: {</span>
-<span class="go">    &#39;base&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;tmp/dataset2.ocdbt/&#39;},</span>
+<span class="go">    &#39;base&#39;: {&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;/tmp/dataset2.ocdbt/&#39;},</span>
 <span class="go">    &#39;config&#39;: {</span>
 <span class="go">      &#39;compression&#39;: {&#39;id&#39;: &#39;zstd&#39;},</span>
 <span class="go">      &#39;max_decoded_node_bytes&#39;: 8388608,</span>
@@ -1481,10 +1481,10 @@ of the OCDBT database:</p>
 <span class="go">  &#39;transform&#39;: {&#39;input_exclusive_max&#39;: [[5]], &#39;input_inclusive_min&#39;: [0]},</span>
 <span class="go">})</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="c1"># Open with auto-detection</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;file://tmp/dataset2.ocdbt&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;file:///tmp/dataset2.ocdbt&quot;</span><span class="p">)</span>
 <span class="gt">Traceback (most recent call last):</span>
 <span class="w">    </span><span class="o">...</span>
-<span class="gr">ValueError</span>: <span class="n">FAILED_PRECONDITION: Error opening &quot;auto&quot; driver: Failed to detect format for &quot;&quot; in OCDBT database at local file &quot;tmp/dataset2.ocdbt/&quot;...</span>
+<span class="gr">ValueError</span>: <span class="n">FAILED_PRECONDITION: Error opening &quot;auto&quot; driver: Failed to detect format for &quot;&quot; in OCDBT database at local file &quot;/tmp/dataset2.ocdbt/&quot;...</span>
 </code></pre></div>
 </div>
 <h2 id="multi-step-auto-detection-algorithm"><span id="id1"></span>Multi-step auto-detection algorithm<a class="headerlink" href="#multi-step-auto-detection-algorithm" title="Link to this heading">¶</a></h2>
