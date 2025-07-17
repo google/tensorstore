@@ -245,6 +245,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:lock_collection",
         "//tensorstore/internal:nditerable",
         "//tensorstore/internal:nditerable_transformed_array",
+        "//tensorstore/internal:uri_utils",
         "//tensorstore/internal/testing:dynamic",
         "//tensorstore/internal/testing:json_gtest",
         "//tensorstore/internal/testing:queue_testutil",

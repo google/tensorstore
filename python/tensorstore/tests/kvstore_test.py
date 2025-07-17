@@ -14,6 +14,7 @@
 """Tests for tensorstore.KvStore."""
 
 import copy
+import pathlib
 import pickle
 import tempfile
 
@@ -103,9 +104,10 @@ def test_copy_range_to_ocdbt_memory():
 def test_copy_range_to_ocdbt_file():
   context = ts.Context()
   with tempfile.TemporaryDirectory() as dir_path:
+    base_url = pathlib.Path(dir_path).resolve().as_uri()
     child_spec = {
         'driver': 'ocdbt',
-        'base': f'file://{dir_path}/child',
+        'base': f'{base_url}/child',
     }
     child = ts.KvStore.open(child_spec, context=context).result()
     for k in ['a', 'b', 'c']:
@@ -113,7 +115,7 @@ def test_copy_range_to_ocdbt_file():
 
     parent_spec = {
         'driver': 'ocdbt',
-        'base': f'file://{dir_path}',
+        'base': base_url,
     }
     parent = ts.KvStore.open(parent_spec, context=context).result()
     child.experimental_copy_range_to(parent).result()
@@ -134,12 +136,11 @@ def test_copy_range_to_memory_fails():
 def test_copy_range_to_file_fails():
   context = ts.Context()
   with tempfile.TemporaryDirectory() as dir_path:
-    child = ts.KvStore.open(
-        f'file://{dir_path}/child/', context=context
-    ).result()
+    base_url = pathlib.Path(dir_path).resolve().as_uri()
+    child = ts.KvStore.open(f'{base_url}/child/', context=context).result()
     for k in ['a', 'b', 'c']:
       child[k] = f'value_{k}'
-    parent = ts.KvStore.open(f'file://{dir_path}', context=context).result()
+    parent = ts.KvStore.open(base_url, context=context).result()
     with pytest.raises(NotImplementedError):
       child.experimental_copy_range_to(parent).result()
 

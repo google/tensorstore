@@ -26,6 +26,8 @@
 #include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
+#include "absl/strings/str_split.h"
 #include "tensorstore/internal/ascii_set.h"
 
 namespace tensorstore {
@@ -222,6 +224,34 @@ std::optional<HostPort> SplitHostPort(std::string_view host_port) {
   }
 
   return HostPort{host_port.substr(0, colon), host_port.substr(colon + 1)};
+}
+
+std::string OsPathToUriPath(std::string_view path) {
+  bool is_root_path =
+      (path.size() > 2 && absl::ascii_isalpha(path[0]) && path[1] == ':') ||
+      (!path.empty() && path[0] == '/');
+#ifdef _WIN32
+  constexpr const char kPathSeparator[] = "/\\";
+#else
+  constexpr const char kPathSeparator[] = "/";
+#endif
+  auto splitter = absl::StrSplit(path, absl::ByAnyChar(kPathSeparator));
+  auto it = splitter.begin();
+  if (it->empty()) it++;
+  std::string joined_path = absl::StrJoin(it, splitter.end(), "/");
+  if (is_root_path) {
+    joined_path.insert(0, 1, '/');
+  }
+  return PercentEncodeUriPath(joined_path);
+}
+
+std::string UriPathToOsPath(std::string_view path) {
+  std::string result = PercentDecode(path);
+  if (result.size() > 3 && result[0] == '/' && absl::ascii_isalpha(result[1]) &&
+      result[2] == ':') {
+    return result.substr(1);
+  }
+  return result;
 }
 
 }  // namespace internal

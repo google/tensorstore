@@ -57,7 +57,7 @@ Auto-detecting an array
 A :ref:`zarr3<driver/zarr3>` TensorStore can be detected from its path:
 
   >>> # Create new array
-  >>> await ts.open("file://tmp/dataset.zarr|zarr3",
+  >>> await ts.open("file:///tmp/dataset.zarr|zarr3",
   ...               dtype="int32",
   ...               shape=[5],
   ...               create=True)
@@ -72,7 +72,7 @@ A :ref:`zarr3<driver/zarr3>` TensorStore can be detected from its path:
     },
     'driver': 'zarr3',
     'dtype': 'int32',
-    'kvstore': {'driver': 'file', 'path': 'tmp/dataset.zarr/'},
+    'kvstore': {'driver': 'file', 'path': '/tmp/dataset.zarr/'},
     'metadata': {
       'chunk_grid': {'configuration': {'chunk_shape': [5]}, 'name': 'regular'},
       'chunk_key_encoding': {'name': 'default'},
@@ -86,7 +86,7 @@ A :ref:`zarr3<driver/zarr3>` TensorStore can be detected from its path:
     'transform': {'input_exclusive_max': [[5]], 'input_inclusive_min': [0]},
   })
   >>> # Open with auto-detection
-  >>> await ts.open("file://tmp/dataset.zarr")
+  >>> await ts.open("file:///tmp/dataset.zarr")
   TensorStore({
     'context': {
       'cache_pool': {},
@@ -98,7 +98,7 @@ A :ref:`zarr3<driver/zarr3>` TensorStore can be detected from its path:
     },
     'driver': 'zarr3',
     'dtype': 'int32',
-    'kvstore': {'driver': 'file', 'path': 'tmp/dataset.zarr/'},
+    'kvstore': {'driver': 'file', 'path': '/tmp/dataset.zarr/'},
     'metadata': {
       'chunk_grid': {'configuration': {'chunk_shape': [5]}, 'name': 'regular'},
       'chunk_key_encoding': {'name': 'default'},
@@ -115,10 +115,10 @@ A :ref:`zarr3<driver/zarr3>` TensorStore can be detected from its path:
 Explicitly constructing a :py:obj:`~tensorstore.Spec` demonstrates the
 explicit syntax for using the ``auto`` driver:
 
-  >>> ts.Spec("file://tmp/dataset|auto")
-  Spec({'driver': 'auto', 'kvstore': {'driver': 'file', 'path': 'tmp/dataset'}})
-  >>> ts.Spec("file://tmp/dataset")
-  Spec({'driver': 'auto', 'kvstore': {'driver': 'file', 'path': 'tmp/dataset'}})
+  >>> ts.Spec("file:///tmp/dataset|auto")
+  Spec({'driver': 'auto', 'kvstore': {'driver': 'file', 'path': '/tmp/dataset'}})
+  >>> ts.Spec("file:///tmp/dataset")
+  Spec({'driver': 'auto', 'kvstore': {'driver': 'file', 'path': '/tmp/dataset'}})
 
 Chaining TensorStore adapters
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -126,30 +126,30 @@ Chaining TensorStore adapters
 TensorStore adapters like :ref:`cast<driver/cast>` can also be
 used in conjunction with format auto-detection:
 
-  >>> ts.Spec("file://tmp/dataset.zarr|cast:int64")
+  >>> ts.Spec("file:///tmp/dataset.zarr|cast:int64")
   Spec({
     'base': {
       'driver': 'auto',
-      'kvstore': {'driver': 'file', 'path': 'tmp/dataset.zarr'},
+      'kvstore': {'driver': 'file', 'path': '/tmp/dataset.zarr'},
     },
     'driver': 'cast',
     'dtype': 'int64',
   })
-  >>> ts.Spec("file://tmp/dataset.zarr|auto|cast:int64")
+  >>> ts.Spec("file:///tmp/dataset.zarr|auto|cast:int64")
   Spec({
     'base': {
       'driver': 'auto',
-      'kvstore': {'driver': 'file', 'path': 'tmp/dataset.zarr'},
+      'kvstore': {'driver': 'file', 'path': '/tmp/dataset.zarr'},
     },
     'driver': 'cast',
     'dtype': 'int64',
   })
-  >>> await ts.open("file://tmp/dataset.zarr|cast:int64")
+  >>> await ts.open("file:///tmp/dataset.zarr|cast:int64")
   TensorStore({
     'base': {
       'driver': 'zarr3',
       'dtype': 'int32',
-      'kvstore': {'driver': 'file', 'path': 'tmp/dataset.zarr/'},
+      'kvstore': {'driver': 'file', 'path': '/tmp/dataset.zarr/'},
       'metadata': {
         'chunk_grid': {
           'configuration': {'chunk_shape': [5]},
@@ -186,7 +186,7 @@ Multiple steps of auto-detection are also possible.  Here, a
 from the path to the OCDBT database.
 
   >>> # Create new array within new OCDBT database
-  >>> await ts.open("file://tmp/dataset.ocdbt|ocdbt|zarr3",
+  >>> await ts.open("file:///tmp/dataset.ocdbt|ocdbt|zarr3",
   ...               dtype="int32",
   ...               shape=[5],
   ...               create=True)
@@ -203,7 +203,7 @@ from the path to the OCDBT database.
     'driver': 'zarr3',
     'dtype': 'int32',
     'kvstore': {
-      'base': {'driver': 'file', 'path': 'tmp/dataset.ocdbt/'},
+      'base': {'driver': 'file', 'path': '/tmp/dataset.ocdbt/'},
       'config': {
         'compression': {'id': 'zstd'},
         'max_decoded_node_bytes': 8388608,
@@ -226,7 +226,7 @@ from the path to the OCDBT database.
     'transform': {'input_exclusive_max': [[5]], 'input_inclusive_min': [0]},
   })
   >>> # Open with auto-detection
-  >>> await ts.open("file://tmp/dataset.ocdbt")
+  >>> await ts.open("file:///tmp/dataset.ocdbt")
   TensorStore({
     'context': {
       'cache_pool': {},
@@ -240,7 +240,7 @@ from the path to the OCDBT database.
     'driver': 'zarr3',
     'dtype': 'int32',
     'kvstore': {
-      'base': {'driver': 'file', 'path': 'tmp/dataset.ocdbt/'},
+      'base': {'driver': 'file', 'path': '/tmp/dataset.ocdbt/'},
       'config': {
         'compression': {'id': 'zstd'},
         'max_decoded_node_bytes': 8388608,
@@ -268,7 +268,7 @@ of the OCDBT database:
 
   >>> # Create new array within new OCDBT database
   >>> await ts.open(
-  ...     "file://tmp/dataset2.ocdbt|ocdbt:path/within/database|zarr3",
+  ...     "file:///tmp/dataset2.ocdbt|ocdbt:path/within/database|zarr3",
   ...     dtype="int32",
   ...     shape=[5],
   ...     create=True)
@@ -285,7 +285,7 @@ of the OCDBT database:
     'driver': 'zarr3',
     'dtype': 'int32',
     'kvstore': {
-      'base': {'driver': 'file', 'path': 'tmp/dataset2.ocdbt/'},
+      'base': {'driver': 'file', 'path': '/tmp/dataset2.ocdbt/'},
       'config': {
         'compression': {'id': 'zstd'},
         'max_decoded_node_bytes': 8388608,
@@ -309,10 +309,10 @@ of the OCDBT database:
     'transform': {'input_exclusive_max': [[5]], 'input_inclusive_min': [0]},
   })
   >>> # Open with auto-detection
-  >>> await ts.open("file://tmp/dataset2.ocdbt")
+  >>> await ts.open("file:///tmp/dataset2.ocdbt")
   Traceback (most recent call last):
       ...
-  ValueError: FAILED_PRECONDITION: Error opening "auto" driver: Failed to detect format for "" in OCDBT database at local file "tmp/dataset2.ocdbt/"...
+  ValueError: FAILED_PRECONDITION: Error opening "auto" driver: Failed to detect format for "" in OCDBT database at local file "/tmp/dataset2.ocdbt/"...
 
 .. _multi-step-auto-detection-algorithm:
 

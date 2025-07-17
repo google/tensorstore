@@ -72,6 +72,7 @@
 #include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/internal/testing/random_seed.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
+#include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/memory/memory_key_value_store.h"
@@ -168,8 +169,11 @@ void TestTensorStoreDriverSpecRoundtrip(
     ReplaceStringInJson(options.create_spec, tempdir_key, tempdir->path());
     ReplaceStringInJson(options.minimal_spec, tempdir_key, tempdir->path());
     ReplaceStringInJson(options.full_base_spec, tempdir_key, tempdir->path());
-    options.url =
-        absl::StrReplaceAll(options.url, {{tempdir_key, tempdir->path()}});
+
+    // For the URL, the tempdir path must begin with a leading slash.
+    options.url = absl::StrReplaceAll(
+        options.url,
+        {{tempdir_key, internal::OsPathToUriPath(tempdir->path())}});
   }
   Transaction transaction(mode);
   auto context = Context::Default();

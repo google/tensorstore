@@ -25,6 +25,7 @@
 
 using ::tensorstore::internal::AsciiSet;
 using ::tensorstore::internal::HostPort;
+using ::tensorstore::internal::OsPathToUriPath;
 using ::tensorstore::internal::ParseGenericUri;
 using ::tensorstore::internal::PercentDecode;
 using ::tensorstore::internal::PercentEncodeKvStoreUriPath;
@@ -32,6 +33,7 @@ using ::tensorstore::internal::PercentEncodeReserved;
 using ::tensorstore::internal::PercentEncodeUriComponent;
 using ::tensorstore::internal::PercentEncodeUriPath;
 using ::tensorstore::internal::SplitHostPort;
+using ::tensorstore::internal::UriPathToOsPath;
 
 namespace tensorstore::internal {
 
@@ -156,9 +158,10 @@ TEST(ParseGenericUriTest, FileScheme1) {
   EXPECT_EQ("", parsed.fragment);
   EXPECT_TRUE(parsed.has_authority_delimiter);
 }
-TEST(ParseGenericUriTest, FileScheme2) {
-  auto parsed = ParseGenericUri("file:/abc/def");
-  EXPECT_EQ("file", parsed.scheme);
+
+TEST(ParseGenericUriTest, FooScheme) {
+  auto parsed = ParseGenericUri("foo:/abc/def");
+  EXPECT_EQ("foo", parsed.scheme);
   EXPECT_EQ("", parsed.authority);
   EXPECT_EQ("/abc/def", parsed.authority_and_path);
   EXPECT_EQ("/abc/def", parsed.path);
@@ -295,6 +298,31 @@ TEST(ParseHostPortTest, Basic) {
               ::testing::Optional(HostPort{"[::1]", "1"}));
   EXPECT_THAT(SplitHostPort("[::1"), ::testing::Eq(std::nullopt));
   EXPECT_THAT(SplitHostPort("[::1]::1"), ::testing::Eq(std::nullopt));
+}
+
+TEST(OsPathToUriPathTest, Basic) {
+  EXPECT_EQ(OsPathToUriPath(""), "");
+  EXPECT_EQ(OsPathToUriPath("foo"), "foo");    // NOTE: Not a valid URI path.
+  EXPECT_EQ(OsPathToUriPath("foo/"), "foo/");  // NOTE: Not a valid URI path.
+  EXPECT_EQ(OsPathToUriPath("/"), "/");
+  EXPECT_EQ(OsPathToUriPath("/foo"), "/foo");
+  EXPECT_EQ(OsPathToUriPath("/foo/"), "/foo/");
+  EXPECT_EQ(OsPathToUriPath("c:/tmp"), "/c:/tmp");
+  EXPECT_EQ(OsPathToUriPath("c:/tmp/"), "/c:/tmp/");
+#ifdef _WIN32
+  EXPECT_EQ(OsPathToUriPath("c:\\tmp\\foo"), "/c:/tmp/foo");
+#endif
+}
+
+TEST(UriPathToOsPathTest, Basic) {
+  EXPECT_EQ(UriPathToOsPath(""), "");
+  EXPECT_EQ(UriPathToOsPath("foo"), "foo");    // NOTE: Not a valid URI path.
+  EXPECT_EQ(UriPathToOsPath("foo/"), "foo/");  // NOTE: Not a valid URI path.
+  EXPECT_EQ(UriPathToOsPath("/"), "/");
+  EXPECT_EQ(UriPathToOsPath("/foo"), "/foo");
+  EXPECT_EQ(UriPathToOsPath("/foo/"), "/foo/");
+  EXPECT_EQ(UriPathToOsPath("/c:/tmp"), "c:/tmp");
+  EXPECT_EQ(UriPathToOsPath("/c:/tmp/"), "c:/tmp/");
 }
 
 }  // namespace

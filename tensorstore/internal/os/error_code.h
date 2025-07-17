@@ -15,6 +15,7 @@
 #ifndef TENSORSTORE_INTERNAL_OS_ERROR_CODE_H_
 #define TENSORSTORE_INTERNAL_OS_ERROR_CODE_H_
 
+#include <cassert>
 #include <cerrno>
 #include <string>
 #include <string_view>
@@ -71,6 +72,7 @@ absl::Status StatusWithOsError(
     absl::StatusCode status_code, OsErrorCode error_code,  //
     A a = {}, B b = {}, C c = {}, D d = {}, E e = {}, F f = {},
     SourceLocation loc = tensorstore::SourceLocation::current()) {
+  assert(status_code != absl::StatusCode::kOk);
   absl::Status status(
       status_code,
       tensorstore::StrCat(a, b, c, d, e, f, " [OS error ", error_code, ": ",

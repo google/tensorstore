@@ -27,6 +27,7 @@
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
@@ -37,6 +38,7 @@
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
+#include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/key_range.h"
@@ -74,6 +76,7 @@ using ::tensorstore::internal::MatchesKvsReadResult;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
 using ::tensorstore::internal::MatchesListEntry;
 using ::tensorstore::internal::MockKeyValueStore;
+using ::tensorstore::internal::OsPathToUriPath;
 using ::tensorstore::internal::UniqueNow;
 using ::tensorstore::internal_ocdbt::CommitTime;
 using ::tensorstore::internal_ocdbt::Config;
@@ -508,7 +511,8 @@ TEST(OcdbtTest, SpecRoundtripFile) {
       {"driver", "ocdbt"},
       {"base", options.full_base_spec},
   };
-  options.url = "file://" + tempdir.path() + "/|ocdbt:";
+  options.url =
+      absl::StrCat("file://", OsPathToUriPath(tempdir.path()), "/|ocdbt:");
   options.check_auto_detect = true;
   tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
 }
