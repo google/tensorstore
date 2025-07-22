@@ -37,7 +37,6 @@
 #include "tensorstore/index_space/internal/transpose.h"
 #include "tensorstore/index_space/output_index_map.h"
 #include "tensorstore/index_space/transform_array_constraints.h"
-#include "tensorstore/internal/gdb_scripting.h"
 #include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/internal/string_like.h"
 #include "tensorstore/rank.h"
@@ -49,8 +48,6 @@
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
-
-TENSORSTORE_GDB_AUTO_SCRIPT("index_space_gdb.py")
 
 namespace tensorstore {
 

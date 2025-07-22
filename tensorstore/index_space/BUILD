@@ -392,7 +392,6 @@ tensorstore_cc_library(
         "//tensorstore:strided_layout",
         "//tensorstore/internal:dimension_labels",
         "//tensorstore/internal:elementwise_function",
-        "//tensorstore/internal:gdb_scripting",
         "//tensorstore/internal:integer_overflow",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:string_like",

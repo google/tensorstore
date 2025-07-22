@@ -29,7 +29,6 @@
 #include "tensorstore/index_space/internal/identity_transform.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
 #include "tensorstore/index_space/internal/transpose.h"
-#include "tensorstore/internal/gdb_scripting.h"
 #include "tensorstore/internal/string_like.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/serialization/fwd.h"
@@ -38,8 +37,6 @@
 #include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
-
-TENSORSTORE_GDB_AUTO_SCRIPT("index_space_gdb.py")
 
 namespace tensorstore {
 
