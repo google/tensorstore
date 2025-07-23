@@ -12,13 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_GDB_SCRIPTING_H_
-#define TENSORSTORE_INTERNAL_GDB_SCRIPTING_H_
-
-// GDB script registration not supported.
-#define TENSORSTORE_GDB_AUTO_SCRIPT(name)  // noop
+#ifndef TENSORSTORE_INTERNAL_LLDB_SCRIPTING_H_
+#define TENSORSTORE_INTERNAL_LLDB_SCRIPTING_H_
 
 // LLDB script registration not supported.
 #define TENSORSTORE_LLDB_AUTO_SCRIPT(name)  // noop
 
-#endif  // TENSORSTORE_INTERNAL_GDB_SCRIPTING_H_
+#endif  // TENSORSTORE_INTERNAL_LLDB_SCRIPTING_H_
