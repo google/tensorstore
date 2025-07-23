@@ -31,7 +31,7 @@
 #include "tensorstore/index_interval.h"
 #include "tensorstore/internal/container/multi_vector.h"
 #include "tensorstore/internal/container/multi_vector_view.h"
-#include "tensorstore/internal/gdb_scripting.h"
+#include "tensorstore/internal/lldb_scripting.h"
 #include "tensorstore/internal/meta/attributes.h"
 #include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/rank.h"

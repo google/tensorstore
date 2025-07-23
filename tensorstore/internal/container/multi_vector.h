@@ -24,7 +24,7 @@
 #include <utility>
 
 #include "tensorstore/internal/container/multi_vector_impl.h"  // IWYU pragma: export
-#include "tensorstore/internal/gdb_scripting.h"
+#include "tensorstore/internal/lldb_scripting.h"
 #include "tensorstore/internal/meta/meta.h"
 #include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/rank.h"

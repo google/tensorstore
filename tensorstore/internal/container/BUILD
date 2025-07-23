@@ -160,7 +160,7 @@ tensorstore_cc_library(
     ],
     deps = [
         "//tensorstore:rank",
-        "//tensorstore/internal:gdb_scripting",
+        "//tensorstore/internal:lldb_scripting",
         "//tensorstore/internal/meta",
         "//tensorstore/internal/meta:type_traits",
         "//tensorstore/util:division",
@@ -186,7 +186,7 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore:index",
         "//tensorstore:rank",
-        "//tensorstore/internal:gdb_scripting",
+        "//tensorstore/internal:lldb_scripting",
         "//tensorstore/internal/meta",
         "//tensorstore/internal/meta:type_traits",
         "//tensorstore/util:span",

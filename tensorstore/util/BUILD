@@ -571,7 +571,7 @@ tensorstore_cc_library(
     name = "span",
     hdrs = ["span.h"],
     deps = [
-        "//tensorstore/internal:gdb_scripting",
+        "//tensorstore/internal:lldb_scripting",
         "//tensorstore/internal/meta:attributes",
         "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/log:absl_log",
