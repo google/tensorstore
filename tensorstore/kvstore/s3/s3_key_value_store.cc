@@ -437,8 +437,12 @@ struct ReadTask : public RateLimiterNode,
 
     if (options.byte_range.size() != 0) {
       request_builder.MaybeAddRangeHeader(options.byte_range);
+      if (options.byte_range.IsFull()) {
+        // Checksum validation is only supported when reading the entire object,
+        // and when the object was not written with a chunked upload.
+        request_builder.AddHeader("x-amz-checksum-mode", "ENABLED");
+      }
     }
-    request_builder.AddHeader("x-amz-checksum-mode", "ENABLED");
 
     const auto& ehr = endpoint_region_.value();
     start_time_ = absl::Now();
@@ -515,13 +519,22 @@ struct ReadTask : public RateLimiterNode,
             options.generation_conditions.if_not_equal, start_time_});
     }
 
-    // Validate checksum if present.
-    if (auto it = httpresponse.headers.find("x-amz-checksum-sha256");
-        it != httpresponse.headers.end()) {
-      auto payload_sha256 = PayloadSha256Base64(httpresponse.payload);
-      if (payload_sha256 != it->second) {
-        return absl::DataLossError(absl::StrFormat(
-            "Content hash mismatch: %s vs %s", payload_sha256, it->second));
+    // Validate checksum if possible.
+    if (auto checksum_sha256 =
+            httpresponse.headers.find("x-amz-checksum-sha256");
+        checksum_sha256 != httpresponse.headers.end()) {
+      if (auto checksum_type = httpresponse.headers.find("x-amz-checksum-type");
+          checksum_type == httpresponse.headers.end() ||
+          checksum_type->second == "FULL_OBJECT") {
+        // Only validate the payload checksum if the header indicates a full
+        // object checksum was sent; multi-part uploads need to be validated
+        // using the etag and multi-part configuration.
+        auto payload_sha256 = PayloadSha256Base64(httpresponse.payload);
+        if (payload_sha256 != checksum_sha256->second) {
+          return absl::DataLossError(
+              absl::StrFormat("Content hash mismatch: %s vs %s", payload_sha256,
+                              checksum_sha256->second));
+        }
       }
     }
 

@@ -155,26 +155,46 @@ TEST(S3KeyValueStoreTest, SimpleMock_VirtualHost) {
        HttpResponse{200, absl::Cord(),
                     HeaderMap{{"x-amz-bucket-region", "us-east-1"}}}},
 
-      {"GET https://my-bucket.s3.us-east-1.amazonaws.com/tmp:1/key_read",
+      {"GET https://my-bucket.s3.us-east-1.amazonaws.com/tmp:1/key_read1",
        HttpResponse{
            200, absl::Cord("abcd"),
            HeaderMap{{"etag", "\"900150983cd24fb0d6963f7d28e17f72\""},
                      {"x-amz-checksum-sha256",
                       "iNQmb9TmM40TuEX88olXnSCciXgjuSF9o+Fhk28DFYk="}}}},
 
-      {"GET https://my-bucket.s3.us-east-1.amazonaws.com/tmp:1/empty_read",
+      {"GET https://my-bucket.s3.us-east-1.amazonaws.com/tmp:1/key_read2",
+       HttpResponse{200, absl::Cord("abcd"),
+                    HeaderMap{
+                        {"etag", "\"900150983cd24fb0d6963f7d28e17f72\""},
+                        {"x-amz-checksum-sha256",
+                         "iNQmb9TmM40TuEX88olXnSCciXgjuSF9o+Fhk28DFYk="},
+                        {"x-amz-checksum-type", "FULL_OBJECT"},
+                    }}},
+
+      {"GET https://my-bucket.s3.us-east-1.amazonaws.com/tmp:1/key_read3",
        HttpResponse{
-           200, absl::Cord(),
-           HeaderMap{{"etag", "\"900150983cd24fb0d6963f7d28e17f73\""},
-                     {"x-amz-checksum-sha256",
-                      "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="}}}},
+           200, absl::Cord("abcd"),
+           HeaderMap{
+               {"etag", "\"900150983cd24fb0d6963f7d28e17f72\""},
+               {"x-amz-checksum-sha256",
+                "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="},  // mismatch
+               {"x-amz-checksum-type", "COMPOSITE"},  // not FULL_OBJECT
+           }}},
+
+      {"GET https://my-bucket.s3.us-east-1.amazonaws.com/tmp:1/empty_read",
+       HttpResponse{200, absl::Cord(),
+                    HeaderMap{
+                        {"etag", "\"900150983cd24fb0d6963f7d28e17f73\""},
+                        {"x-amz-checksum-sha256",
+                         "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="},
+                    }}},
 
       {"GET https://my-bucket.s3.us-east-1.amazonaws.com/tmp:1/sha_mismatch",
-       HttpResponse{
-           200, absl::Cord("xyz"),
-           HeaderMap{{"etag", "\"900150983cd24fb0d6963f7d28e17f73\""},
-                     {"x-amz-checksum-sha256",
-                      "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="}}}},
+       HttpResponse{200, absl::Cord("xyz"),
+                    HeaderMap{{"etag", "\"900150983cd24fb0d6963f7d28e17f73\""},
+                              {"x-amz-checksum-sha256",
+                               "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="},
+                              {"x-amz-checksum-type", "FULL_OBJECT"}}}},
 
       {"PUT https://my-bucket.s3.us-east-1.amazonaws.com/tmp:1/key_write",
        HttpResponse{
@@ -197,7 +217,19 @@ TEST(S3KeyValueStoreTest, SimpleMock_VirtualHost) {
           .result());
 
   EXPECT_THAT(
-      kvstore::Read(store, "key_read").result(),
+      kvstore::Read(store, "key_read1").result(),
+      MatchesKvsReadResult(absl::Cord("abcd"),
+                           StorageGeneration::FromString(
+                               "\"900150983cd24fb0d6963f7d28e17f72\"")));
+
+  EXPECT_THAT(
+      kvstore::Read(store, "key_read2").result(),
+      MatchesKvsReadResult(absl::Cord("abcd"),
+                           StorageGeneration::FromString(
+                               "\"900150983cd24fb0d6963f7d28e17f72\"")));
+
+  EXPECT_THAT(
+      kvstore::Read(store, "key_read3").result(),
       MatchesKvsReadResult(absl::Cord("abcd"),
                            StorageGeneration::FromString(
                                "\"900150983cd24fb0d6963f7d28e17f72\"")));
