@@ -61,6 +61,9 @@ struct FileDispositionInfoExData {
 #if !defined(O_APPEND)
 #define O_APPEND 0x400
 #endif
+#if !defined(O_DIRECT)
+#define O_DIRECT 0x4000
+#endif
 #if !defined(O_CLOEXEC)
 #define O_CLOEXEC 0x80000
 #endif

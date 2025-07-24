@@ -219,10 +219,14 @@ Result<UniqueFileDescriptor> OpenFileWrapper(const std::string& path,
                                              OpenFlags flags) {
   LoggedTraceSpan tspan(__func__, detail_logging.Level(1), {{"path", path}});
 
+  int actual_flags = static_cast<int>(flags);
+#if !defined(O_DIRECT)
+  actual_flags = actual_flags & ~(static_cast<int>(OpenFlags::Direct));
+#endif
   FileDescriptor fd = FileDescriptorTraits::Invalid();
   const auto attempt_open = [&] {
     PotentiallyBlockingRegion region;
-    fd = ::open(path.c_str(), static_cast<int>(flags) | O_CLOEXEC, 0666);
+    fd = ::open(path.c_str(), actual_flags | O_CLOEXEC, 0666);
   };
 #ifndef __APPLE__
   attempt_open();
@@ -254,11 +258,24 @@ Result<UniqueFileDescriptor> OpenFileWrapper(const std::string& path,
     return std::move(tspan).EndWithStatus(std::move(status));
   }
 
+#if defined(__APPLE__) && !defined(O_DIRECT)
+  if ((flags & OpenFlags::Direct) == OpenFlags::Direct) {
+    if (fcntl(fd, F_NOCACHE, 1) == -1) {
+      ABSL_LOG(WARNING) << StatusFromOsError(errno, "Failed to set F_NOCACHE");
+    }
+  }
+#endif
+
   tspan.Log("fd", fd);
   return UniqueFileDescriptor(fd);
 }
 
 absl::Status SetFileFlags(FileDescriptor fd, OpenFlags flags) {
+#if !defined(O_DIRECT)
+  if ((flags & OpenFlags::Direct) == OpenFlags::Direct) {
+    return absl::UnimplementedError("Setting Direct IO flags not supported");
+  }
+#endif
   int old_flags = ::fcntl(fd, F_GETFL, 0);
   if (old_flags == -1) {
     return StatusFromOsError(errno, "Failed to get flags");
@@ -413,6 +430,20 @@ uint32_t GetDefaultPageSize() {
     return sysconf(_SC_PAGE_SIZE);
   }();
   return kDefaultPageSize;
+}
+
+size_t GetDirectIoBlockAlignment(FileDescriptor fd) {
+#if defined(STATX_DIOALIGN)
+  PotentiallyBlockingRegion region;
+  struct ::statx statxbuf;
+  if (::statx(fd, "", /*flags=*/AT_EMPTY_PATH,
+              /*mask=*/STATX_BASIC_STATS | STATX_DIOALIGN, &statxbuf) == 0) {
+    return std::max(statxbuf.stx_dio_mem_align, statxbuf.stx_dio_offset_align);
+  }
+#endif
+  // Linux may use either 512 (logical block size)or 4096 as the default
+  // direct IO block size. We'll use the larger of the two.
+  return 4096;
 }
 
 namespace {

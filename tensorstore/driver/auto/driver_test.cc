@@ -128,7 +128,7 @@ TEST(AutoTest, UnbindContextSimple) {
                 {"cache_pool", {{"total_bytes_limit", 1000}}},
                 {"file_io_concurrency", ::nlohmann::json::object_t()},
                 {"file_io_locking", ::nlohmann::json::object_t()},
-                {"file_io_memmap", false},
+                {"file_io_mode", ::nlohmann::json::object_t()},
                 {"file_io_sync", true},
                 {"ocdbt_coordinator", ::nlohmann::json::object_t()},
             }}})));
@@ -165,7 +165,7 @@ TEST(AutoTest, UnbindContext1) {
                 {"cache_pool", {{"total_bytes_limit", 1000}}},
                 {"file_io_concurrency", ::nlohmann::json::object_t()},
                 {"file_io_locking", ::nlohmann::json::object_t()},
-                {"file_io_memmap", false},
+                {"file_io_mode", ::nlohmann::json::object_t()},
                 {"file_io_sync", true},
                 {"ocdbt_coordinator", ::nlohmann::json::object_t()},
             }}})));

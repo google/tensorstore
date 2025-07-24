@@ -16,6 +16,28 @@ _LINKOPTS = select({
 })
 
 tensorstore_cc_library(
+    name = "aligned_alloc",
+    srcs = ["aligned_alloc.cc"],
+    hdrs = ["aligned_alloc.h"],
+    deps = [
+        ":include_windows",
+        ":memory_region",
+        "@abseil-cpp//absl/log:absl_log",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "aligned_alloc_test",
+    srcs = ["aligned_alloc_test.cc"],
+    deps = [
+        ":aligned_alloc",
+        ":memory_region",
+        "@abseil-cpp//absl/strings:cord",
+        "@googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
     name = "cwd",
     srcs = ["cwd.cc"],
     hdrs = ["cwd.h"],
@@ -161,10 +183,12 @@ tensorstore_cc_test(
     name = "file_util_test",
     srcs = ["file_util_test.cc"],
     deps = [
+        ":aligned_alloc",
         ":file_util",
         "//tensorstore/internal/testing:scoped_directory",
         "//tensorstore/util:span",
         "//tensorstore/util:status_testutil",
+        "@abseil-cpp//absl/log:absl_log",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:cord",

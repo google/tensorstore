@@ -15,6 +15,8 @@
 #ifndef TENSORSTORE_KVSTORE_FILE_UTIL_H_
 #define TENSORSTORE_KVSTORE_FILE_UTIL_H_
 
+#include <stdint.h>
+
 #include <string>
 #include <string_view>
 
@@ -39,9 +41,14 @@ std::string_view LongestDirectoryPrefix(const KeyRange& range);
 /// open file descriptor to the parent directory of `path`.
 Result<internal_os::UniqueFileDescriptor> OpenParentDirectory(std::string path);
 
-/// Reads a range of bytes from an open file descriptor.
+/// Reads a range of bytes from a file descriptor.
+///
+/// If `block_alignment` is non-zero, then the read range and underlying buffer
+/// allocation will be aligned to the block size, which is required for DirectIO
+/// reads.
 Result<absl::Cord> ReadFromFileDescriptor(internal_os::FileDescriptor fd,
-                                          ByteRange byte_range);
+                                          ByteRange byte_range,
+                                          int64_t block_alignment);
 
 }  // namespace internal_file_util
 }  // namespace tensorstore

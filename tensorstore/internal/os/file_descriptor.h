@@ -17,6 +17,9 @@
 
 #include "tensorstore/internal/os/unique_handle.h"
 
+// Include system headers last to reduce impact of macros.
+#include "tensorstore/internal/os/include_windows.h"
+
 namespace tensorstore {
 namespace internal_os {
 
@@ -24,19 +27,27 @@ namespace internal_os {
 // Specializations for Windows.
 
 /// Representation of open file/directory.
-using FileDescriptor = void*;  // HANDLE
+using FileDescriptor = HANDLE;  // HANDLE
+
+/// File descriptor traits for use with `UniqueHandle`.
+struct FileDescriptorTraits {
+  static FileDescriptor Invalid() { return INVALID_HANDLE_VALUE; }
+  static void Close(FileDescriptor fd);
+};
+
 #else
 // Specializations for Posix.
 
 /// Representation of open file/directory.
 using FileDescriptor = int;
-#endif
 
 /// File descriptor traits for use with `UniqueHandle`.
 struct FileDescriptorTraits {
-  static FileDescriptor Invalid() { return ((FileDescriptor)-1); }
+  static FileDescriptor Invalid() { return -1; }
   static void Close(FileDescriptor fd);
 };
+
+#endif
 
 /// Unique handle to an open file descriptor.
 ///

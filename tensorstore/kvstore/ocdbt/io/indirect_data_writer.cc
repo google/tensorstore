@@ -25,6 +25,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/synchronization/mutex.h"
+#include "riegeli/base/byte_fill.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/histogram.h"
@@ -56,15 +57,17 @@ class IndirectDataWriter
     : public internal::AtomicReferenceCount<IndirectDataWriter> {
  public:
   explicit IndirectDataWriter(kvstore::KvStore kvstore, std::string prefix,
-                              size_t target_size)
+                              size_t target_size, size_t write_alignment)
       : kvstore_(std::move(kvstore)),
         prefix_(std::move(prefix)),
-        target_size_(target_size) {}
+        target_size_(target_size),
+        write_alignment_(write_alignment) {}
 
   // Treat as private:
   kvstore::KvStore kvstore_;
   std::string prefix_;
   size_t target_size_;
+  size_t write_alignment_;
   absl::Mutex mutex_;
 
   // Count of in-flight flush operations.
@@ -119,6 +122,14 @@ void MaybeFlush(IndirectDataWriter& self, UniqueWriterLock<absl::Mutex> lock) {
   absl::Cord buffer = std::exchange(self.buffer_, {});
   DataFileId data_file_id = self.data_file_id_;
   lock.unlock();
+
+  // zero-pad up to the block boundary to allow for potential direct io reads.
+  if (self.write_alignment_ > 1 &&
+      (buffer.size() % self.write_alignment_) > 0) {
+    size_t pad_size =
+        self.write_alignment_ - (buffer.size() % self.write_alignment_);
+    riegeli::ByteFill(pad_size, 0).AppendTo(buffer);
+  }
 
   indirect_data_writer_histogram.Observe(buffer.size());
   ABSL_LOG_IF(INFO, ocdbt_logging)
@@ -197,8 +208,10 @@ Future<const void> Write(IndirectDataWriter& self, absl::Cord data,
 IndirectDataWriterPtr MakeIndirectDataWriter(kvstore::KvStore kvstore,
                                              std::string prefix,
                                              size_t target_size) {
+  // Align output up to 4k to allow for potential direct io reads.
   return internal::MakeIntrusivePtr<IndirectDataWriter>(
-      std::move(kvstore), std::move(prefix), target_size);
+      std::move(kvstore), std::move(prefix), target_size,
+      /*write_alignment=*/4096);
 }
 
 }  // namespace internal_ocdbt

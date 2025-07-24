@@ -317,7 +317,7 @@ TEST(SpecTest, SetContextAndKvstoreIncludeDefaults) {
                {"file_io_concurrency", {"file_io_concurrency#a"}},
                {"file_io_sync", {"file_io_sync"}},
                {"file_io_locking", {"file_io_locking"}},
-               {"file_io_memmap", {"file_io_memmap"}},
+               {"file_io_mode", {"file_io_mode"}},
            }},
           {"schema",
            {{"dtype", "uint8"},
@@ -331,8 +331,8 @@ TEST(SpecTest, SetContextAndKvstoreIncludeDefaults) {
                {"cache_pool", {{"total_bytes_limit", 0}}},
                {"file_io_concurrency#a", {{"limit", 5}}},
                {"file_io_locking", ::nlohmann::json::object_t()},
-               {"file_io_memmap", false},
                {"file_io_sync", true},
+               {"file_io_mode", ::nlohmann::json::object_t()},
            }},
       })));
 }
@@ -367,7 +367,7 @@ TEST(SpecTest, SetContextAndKvstore) {
                {"file_io_concurrency", {"file_io_concurrency#a"}},
                {"file_io_sync", {"file_io_sync"}},
                {"file_io_locking", {"file_io_locking"}},
-               {"file_io_memmap", {"file_io_memmap"}},
+               {"file_io_mode", {"file_io_mode"}},
            }},
           {"dtype", "uint8"},
           {"cache_pool", {"cache_pool"}},
@@ -383,7 +383,7 @@ TEST(SpecTest, SetContextAndKvstore) {
                {"file_io_concurrency#a", {{"limit", 5}}},
                {"file_io_locking", ::nlohmann::json::object_t()},
                {"file_io_sync", true},
-               {"file_io_memmap", false},
+               {"file_io_mode", ::nlohmann::json::object_t()},
            }},
       })));
 }

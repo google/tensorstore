@@ -176,6 +176,7 @@ tensorstore_cc_library(
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings:cord",
         "@abseil-cpp//absl/synchronization",
+        "@riegeli//riegeli/base:byte_fill",
     ],
 )
 

@@ -73,6 +73,7 @@ class MemoryRegion {
   friend Result<MemoryRegion> MemmapFileReadOnly(void*, size_t, size_t);
   friend Result<MemoryRegion> MemmapFileReadOnly(int, size_t, size_t);
   friend MemoryRegion AllocateHeapRegion(size_t);
+  friend MemoryRegion AllocatePageAlignedRegion(size_t, size_t);
 
   char* data_;
   size_t size_;
