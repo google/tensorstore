@@ -24,11 +24,13 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "tensorstore/internal/os/aligned_alloc.h"
 #include "tensorstore/internal/os/file_info.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
 #include "tensorstore/util/span.h"
@@ -39,11 +41,13 @@ namespace {
 using ::tensorstore::IsOk;
 using ::tensorstore::IsOkAndHolds;
 using ::tensorstore::StatusIs;
+using ::tensorstore::internal_os::AllocatePageAlignedRegion;
 using ::tensorstore::internal_os::DeleteFile;
 using ::tensorstore::internal_os::DeleteOpenFile;
 using ::tensorstore::internal_os::FileInfo;
 using ::tensorstore::internal_os::FsyncFile;
 using ::tensorstore::internal_os::GetDefaultPageSize;
+using ::tensorstore::internal_os::GetDirectIoBlockAlignment;
 using ::tensorstore::internal_os::GetFileInfo;
 using ::tensorstore::internal_os::IsDirSeparator;
 using ::tensorstore::internal_os::MemmapFileReadOnly;
@@ -228,6 +232,58 @@ TEST(FileUtilTest, MemmapFileReadOnly) {
       EXPECT_EQ(data.as_string_view().size(), 128);
       EXPECT_THAT(data.as_string_view(), expected.substr(offset, 128));
     }
+  }
+}
+
+TEST(FileUtilTest, OpenDirect) {
+  tensorstore::internal_testing::ScopedTemporaryDirectory tempdir;
+  std::string foo_txt = absl::StrCat(tempdir.path(), "/baz.txt",
+                                     tensorstore::internal_os::kLockSuffix);
+
+  size_t alignment = 0;
+
+  // Allocate two pages and fill them with a-z.
+  std::string expected(4096, 'a');
+  for (uint32_t i = 0; i < expected.size(); ++i) {
+    expected[i] = 'a' + (i % 26);
+  }
+
+  // Write a file:
+  {
+    auto f = OpenFileWrapper(foo_txt, OpenFlags::DefaultWrite);
+    EXPECT_THAT(f, IsOk());
+    alignment = GetDirectIoBlockAlignment(f->get());
+
+    EXPECT_THAT(WriteToFile(f->get(), expected.data(), expected.size()),
+                IsOkAndHolds(expected.size()));
+  }
+  if (alignment == 0) {
+    // Skip the rest if the file system doesn't support direct IO.
+    return;
+  }
+
+  EXPECT_THAT(alignment, ::testing::Gt(0));
+  EXPECT_THAT(alignment, ::testing::Le(4096));
+
+  // Use 512 as the default alignment if the file system doesn't support
+  // STATX_DIOALIGN.
+  if (alignment == 0) alignment = 512;
+
+  // For direct IO, all reads and buffers must be aligned to the block size.
+  auto allocation = AllocatePageAlignedRegion(alignment, expected.size());
+  tensorstore::span<char> buffer(allocation.data(), expected.size());
+  std::string_view read_buffer(allocation.data(), expected.size());
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto fd,
+        OpenFileWrapper(foo_txt, OpenFlags::OpenReadOnly | OpenFlags::Direct));
+
+    EXPECT_THAT(ReadFromFile(fd.get(), buffer), IsOkAndHolds(expected.size()));
+    EXPECT_THAT(read_buffer, testing::StrEq(expected));
+
+    EXPECT_THAT(PReadFromFile(fd.get(), buffer, 0),
+                IsOkAndHolds(expected.size()));
+    EXPECT_THAT(read_buffer, testing::StrEq(expected));
   }
 }
 

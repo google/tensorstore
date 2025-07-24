@@ -15,6 +15,7 @@
 #include "tensorstore/kvstore/file/util.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <cassert>
 #include <string>
@@ -26,14 +27,18 @@
 #include "absl/strings/match.h"
 #include "absl/strings/str_split.h"
 #include "tensorstore/internal/flat_cord_builder.h"
+#include "tensorstore/internal/os/aligned_alloc.h"
 #include "tensorstore/internal/os/file_descriptor.h"
 #include "tensorstore/internal/os/file_util.h"
+#include "tensorstore/internal/os/memory_region.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/key_range.h"
+#include "tensorstore/util/division.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
 using ::tensorstore::internal_os::FileDescriptor;
+using ::tensorstore::internal_os::FileDescriptorTraits;
 using ::tensorstore::internal_os::UniqueFileDescriptor;
 
 namespace tensorstore {
@@ -131,25 +136,44 @@ Result<UniqueFileDescriptor> OpenParentDirectory(std::string path) {
 }
 
 Result<absl::Cord> ReadFromFileDescriptor(FileDescriptor fd,
-                                          ByteRange byte_range) {
-  assert(fd != internal_os::FileDescriptorTraits::Invalid());
-  // Large reads could use hugepage-aware memory allocations.
-  internal::FlatCordBuilder buffer(byte_range.size(), 0);
+                                          ByteRange byte_range,
+                                          int64_t block_alignment) {
+  assert(fd != FileDescriptorTraits::Invalid());
+
+  ByteRange adjusted_byte_range = byte_range;
+  if (block_alignment > 1) {
+    adjusted_byte_range = ByteRange{
+        byte_range.inclusive_min - (byte_range.inclusive_min % block_alignment),
+        RoundUpTo<int64_t>(byte_range.exclusive_max, block_alignment)};
+  }
+  internal::FlatCordBuilder buffer(
+      (block_alignment > 1)
+          ? internal_os::AllocatePageAlignedRegion(block_alignment,
+                                                   adjusted_byte_range.size())
+          : internal_os::AllocateHeapRegion(adjusted_byte_range.size()),
+      0);
+
   size_t offset = 0;
-  while (buffer.available() > 0) {
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto n, internal_os::PReadFromFile(fd, buffer.available_span(),
-                                           byte_range.inclusive_min + offset));
-    if (n > 0) {
-      offset += n;
-      buffer.set_inuse(offset);
-      continue;
+  while (!buffer.available_span().empty()) {
+    auto n =
+        internal_os::PReadFromFile(fd, buffer.available_span(),
+                                   adjusted_byte_range.inclusive_min + offset);
+    if (!n.ok()) {
+      return MaybeAnnotateStatus(std::move(n).status(),
+                                 "Failed to read from file");
     }
-    if (n == 0) {
-      return absl::UnavailableError("Length changed while reading");
+    if (auto read = *n; read > 0) {
+      offset += read;
+      buffer.set_inuse(offset);
+    } else {
+      // EOF.
+      return absl::UnavailableError(
+          "Unexpected EOF encountered reading from file.");
     }
   }
-  return std::move(buffer).Build();
+  return std::move(buffer).Build().Subcord(
+      byte_range.inclusive_min - adjusted_byte_range.inclusive_min,
+      byte_range.size());
 }
 
 }  // namespace internal_file_util

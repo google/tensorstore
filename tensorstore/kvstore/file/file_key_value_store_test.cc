@@ -145,14 +145,25 @@ TENSORSTORE_GLOBAL_INITIALIZER {
           return {{"driver", "file"}, {"path", path}, {"file_io_sync", false}};
         },
         params);
+#ifndef __APPLE__
+    register_with_spec(
+        "Direct",
+        [](std::string path) -> ::nlohmann::json {
+          return {{"driver", "file"},
+                  {"path", path},
+                  {"file_io_mode", {{"mode", "direct"}}}};
+        },
+        params);
+#endif
     {
       auto p = params;
       p.value_size = 256 * 1024;
       register_with_spec(
           "Memmap",
           [](std::string path) -> ::nlohmann::json {
-            return {
-                {"driver", "file"}, {"path", path}, {"file_io_memmap", true}};
+            return {{"driver", "file"},
+                    {"path", path},
+                    {"file_io_mode", {{"mode", "memmap"}}}};
           },
           p);
     }
@@ -424,7 +435,7 @@ TEST(FileKeyValueStoreTest, SpecRoundtripSync) {
       {"context",
        {
            {"file_io_concurrency", ::nlohmann::json::object_t()},
-           {"file_io_memmap", false},
+           {"file_io_mode", ::nlohmann::json::object_t()},
            {"file_io_locking", {{"mode", "lockfile"}}},
        }},
   };
@@ -544,7 +555,7 @@ TEST(FileKeyValueStoreTest, BatchReadMemmap) {
   auto store = kvstore::Open({
                                  {"driver", "file"},
                                  {"path", root + "/"},
-                                 {"file_io_memmap", true},
+                                 {"file_io_mode", "memmap"},
                              })
                    .value();
 

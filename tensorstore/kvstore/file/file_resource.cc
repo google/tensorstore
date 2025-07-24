@@ -25,11 +25,11 @@ const tensorstore::internal::ContextResourceRegistration<
     file_io_sync_registration;
 
 const tensorstore::internal::ContextResourceRegistration<
-    tensorstore::internal_file_kvstore::FileIoMemmapResource>
-    file_io_memmap_registration;
+    tensorstore::internal_file_kvstore::FileIoLockingResource>
+    file_io_locking_registration;
 
 const tensorstore::internal::ContextResourceRegistration<
-    tensorstore::internal_file_kvstore::FileIoLockingResource>
-    file_io_registration;
+    tensorstore::internal_file_kvstore::FileIoModeResource>
+    file_io_mode_registration;
 
 }  // namespace

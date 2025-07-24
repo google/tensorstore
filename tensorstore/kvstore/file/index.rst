@@ -22,7 +22,7 @@ machines to a network filesystem is also safe.
 
 .. json:schema:: Context.file_io_locking
 
-.. json:schema:: Context.file_io_memmap
+.. json:schema:: Context.file_io_mode
 
 Durability of writes
 --------------------

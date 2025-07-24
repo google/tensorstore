@@ -227,6 +227,11 @@ FileDescriptor OpenFileImpl(const std::wstring& wpath, OpenFlags flags) {
   }
 
   DWORD flags_and_attributes = 0;
+  if ((flags & OpenFlags::Direct) == OpenFlags::Direct) {
+    // Disables file buffering.
+    // https://learn.microsoft.com/en-us/windows/win32/fileio/file-buffering
+    flags_and_attributes = FILE_FLAG_NO_BUFFERING;
+  }
   return ::CreateFileW(
       wpath.c_str(), /*dwDesiredAccess=*/access,
       /*dwShareMode=*/FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE,
@@ -486,6 +491,11 @@ uint32_t GetDefaultPageSize() {
     return sysinfo.dwAllocationGranularity;
   }();
   return kDefaultPageSize;
+}
+
+size_t GetDirectIoBlockAlignment(FileDescriptor fd) {
+  // Windows assumes filesystem blocks are 512 byte aligned.
+  return 512;
 }
 
 namespace {
