@@ -34,14 +34,7 @@ LOCAL_DEFINES = (
         # "USE_ARES",  # TODO: Enable c-ares; after debugging broken test.
     ] + select(
         {
-            "@platforms//os:windows": [
-                "CURL_DISABLE_PROXY",
-                # Defining _USING_V110_SDK71_ is hackery to defeat curl's incorrect
-                # detection of what OS releases we can build on with VC 2012. This
-                # may not be needed (or may have to change) if the WINVER setting
-                # changes in //third_party/msvc/vc_12_0/CROSSTOOL.
-                "_USING_V110_SDK71_",
-            ],
+            "@platforms//os:windows": [],
             "//conditions:default": ["_GNU_SOURCE"],
         },
     ) + select(

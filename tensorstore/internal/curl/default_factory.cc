@@ -147,19 +147,31 @@ CurlPtr DefaultCurlHandleFactory::CreateHandle() {
       ABSL_LOG_IF(INFO, curl_logging.Level(1)) << "Setting ca_path " << *x;
       ABSL_CHECK_EQ(CURLE_OK,
                     curl_easy_setopt(handle.get(), CURLOPT_CAPATH, x->c_str()));
+      ABSL_CHECK_EQ(
+          CURLE_OK,
+          curl_easy_setopt(handle.get(), CURLOPT_PROXY_CAPATH, x->c_str()));
     }
     if (auto& x = config_.ca_bundle) {
       ABSL_LOG_IF(INFO, curl_logging.Level(1)) << "Setting ca_bundle " << *x;
       ABSL_CHECK_EQ(CURLE_OK,
                     curl_easy_setopt(handle.get(), CURLOPT_CAINFO, x->c_str()));
+      ABSL_CHECK_EQ(
+          CURLE_OK,
+          curl_easy_setopt(handle.get(), CURLOPT_PROXY_CAINFO, x->c_str()));
     }
   }
+
   // Disable host verification if requested.
   if (!config_.verify_host) {
+    ABSL_LOG_IF(INFO, curl_logging.Level(1)) << "Disabling host verification";
     ABSL_CHECK_EQ(CURLE_OK,
                   curl_easy_setopt(handle.get(), CURLOPT_SSL_VERIFYHOST, 0L));
     ABSL_CHECK_EQ(CURLE_OK,
                   curl_easy_setopt(handle.get(), CURLOPT_SSL_VERIFYPEER, 0L));
+    ABSL_CHECK_EQ(CURLE_OK, curl_easy_setopt(handle.get(),
+                                             CURLOPT_PROXY_SSL_VERIFYHOST, 0L));
+    ABSL_CHECK_EQ(CURLE_OK, curl_easy_setopt(handle.get(),
+                                             CURLOPT_PROXY_SSL_VERIFYPEER, 0L));
   }
   return handle;
 };

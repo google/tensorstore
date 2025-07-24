@@ -16,20 +16,25 @@
 #include <string>
 #include <utility>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/base/call_once.h"
 #include "absl/base/no_destructor.h"
 #include "absl/log/absl_log.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/curl/curl_transport.h"
 #include "tensorstore/internal/curl/default_factory.h"
+#include "tensorstore/internal/env.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/http/test_httpserver.h"
+#include "tensorstore/util/status_testutil.h"
 
+using ::tensorstore::internal::SetEnv;
 using ::tensorstore::internal_http::CurlTransport;
 using ::tensorstore::internal_http::DefaultCurlHandleFactory;
 using ::tensorstore::internal_http::HttpRequestBuilder;
@@ -80,7 +85,7 @@ TEST(HttpserverTest, Basic) {
             .SetRequestTimeout(absl::Seconds(10)));
 
     // Waits for the response.
-    ABSL_LOG(INFO) << response.status();
+    response.Wait();
 
     EXPECT_EQ(200, response.value().status_code);
     EXPECT_EQ("Received 5 bytes\n", response.value().payload);
@@ -96,11 +101,39 @@ TEST(HttpserverTest, Basic) {
             .SetRequestTimeout(absl::Seconds(10)));
 
     // Waits for the response.
-    ABSL_LOG(INFO) << response.status();
+    response.Wait();
 
     EXPECT_EQ(404, response.value().status_code);
     EXPECT_EQ("Not Found: /missing\n", response.value().payload);
   }
+  GetHttpServer().MaybeLogStdoutPipe();
+}
+
+TEST(HttpserverTest, WithProxy) {
+  auto base_url = absl::StrFormat("https://%s", GetHttpServer().http_address());
+  auto transport = GetTransport();
+  GetHttpServer().MaybeLogStdoutPipe();
+
+  SetEnv("https_proxy", base_url.c_str());
+  SetEnv("http_proxy", base_url.c_str());
+
+  // Issue request.
+  {
+    auto request = HttpRequestBuilder("GET", absl::StrCat(base_url, "/proxy"))
+                       .BuildRequest();
+    auto options = IssueRequestOptions()
+                       .SetConnectTimeout(absl::Seconds(10))
+                       .SetRequestTimeout(absl::Seconds(10));
+    auto response = transport->IssueRequest(request, options);
+
+    // Waits for the response.
+    response.Wait();
+
+    // TestHttpServer is not a proxy; should return a curl error.
+    EXPECT_THAT(response.status(),
+                tensorstore::MatchesStatus(absl::StatusCode::kUnavailable));
+  }
+
   GetHttpServer().MaybeLogStdoutPipe();
 }
 

@@ -42,7 +42,6 @@
 
 #if defined(_WIN32)
 #include "lib/config-win32.h"
-#define BUILDING_LIBCURL 1
 #define CURL_DISABLE_CRYPTO_AUTH 1
 #define CURL_PULL_WS2TCPIP_H 1
 #define CURL_PULL_WS2TCPIP_H 1
