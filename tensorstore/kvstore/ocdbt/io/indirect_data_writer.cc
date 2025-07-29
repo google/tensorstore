@@ -51,6 +51,11 @@ auto& indirect_data_writer_histogram =
 
 ABSL_CONST_INIT internal_log::VerboseFlag ocdbt_logging("ocdbt");
 
+// Direct IO is only useful on larger files.
+// These are the values where block padding will be applied.
+constexpr size_t kMinPaddingSize = 1024 * 1024 * 4;
+constexpr size_t kDefaultPaddingAlignment = 4096;
+
 }  // namespace
 
 class IndirectDataWriter
@@ -123,8 +128,9 @@ void MaybeFlush(IndirectDataWriter& self, UniqueWriterLock<absl::Mutex> lock) {
   DataFileId data_file_id = self.data_file_id_;
   lock.unlock();
 
-  // zero-pad up to the block boundary to allow for potential direct io reads.
-  if (self.write_alignment_ > 1 &&
+  // zero-pad up to the block boundary to allow for potential direct io reads
+  // on larger files.
+  if (self.write_alignment_ > 1 && buffer.size() > kMinPaddingSize &&
       (buffer.size() % self.write_alignment_) > 0) {
     size_t pad_size =
         self.write_alignment_ - (buffer.size() % self.write_alignment_);
@@ -211,7 +217,7 @@ IndirectDataWriterPtr MakeIndirectDataWriter(kvstore::KvStore kvstore,
   // Align output up to 4k to allow for potential direct io reads.
   return internal::MakeIntrusivePtr<IndirectDataWriter>(
       std::move(kvstore), std::move(prefix), target_size,
-      /*write_alignment=*/4096);
+      /*write_alignment=*/kDefaultPaddingAlignment);
 }
 
 }  // namespace internal_ocdbt
