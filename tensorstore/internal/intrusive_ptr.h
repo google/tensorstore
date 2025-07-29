@@ -356,14 +356,24 @@ class IntrusivePtr {
     return *this;
   }
 
+  /// Copy constructs from `rhs` which is an IntrusivePtr of a convertible type.
+  /// If `rhs` is not null, acquires a new reference to `rhs.get()` by calling
+  /// `R::increment(rhs.get())`.
   template <typename U,
-            std::enable_if_t<std::is_convertible_v<
-                typename R::template pointer<U>, pointer>>* = nullptr>
+            std::enable_if_t<
+                // https://developercommunity.visualstudio.com/t/10939927
+                !std::is_same_v<T, U> &&
+                std::is_convertible_v<typename R::template pointer<U>,
+                                      pointer>>* = nullptr>
   IntrusivePtr(const IntrusivePtr<U, R>& rhs) noexcept
       : IntrusivePtr(rhs.get(), acquire_object_ref) {}
 
-  template <typename U, typename = std::enable_if_t<std::is_convertible_v<
-                            typename R::template pointer<U>, pointer>>>
+  template <
+      typename U,
+      typename = std::enable_if_t<
+          // https://developercommunity.visualstudio.com/t/10939927
+          !std::is_same_v<T, U> &&
+          std::is_convertible_v<typename R::template pointer<U>, pointer>>>
   IntrusivePtr& operator=(const IntrusivePtr<U, R>& rhs) noexcept {
     IntrusivePtr(rhs).swap(*this);
     return *this;
@@ -379,14 +389,24 @@ class IntrusivePtr {
     return *this;
   }
 
+  /// Move constructs from `rhs` which is an IntrusivePtr of a convertible type.
+  /// If `rhs` is not null, transfers ownership of
+  /// a reference from `rhs` to `*this`.
   template <typename U,
-            std::enable_if_t<std::is_convertible_v<
-                typename R::template pointer<U>, pointer>>* = nullptr>
+            std::enable_if_t<
+                // https://developercommunity.visualstudio.com/t/10939927
+                !std::is_same_v<T, U> &&
+                std::is_convertible_v<typename R::template pointer<U>,
+                                      pointer>>* = nullptr>
   constexpr IntrusivePtr(IntrusivePtr<U, R>&& rhs) noexcept
       : IntrusivePtr(rhs.release(), adopt_object_ref) {}
 
-  template <typename U, typename = std::enable_if_t<std::is_convertible_v<
-                            typename R::template pointer<U>, pointer>>>
+  template <
+      typename U,
+      typename = std::enable_if_t<
+          // https://developercommunity.visualstudio.com/t/10939927
+          !std::is_same_v<T, U> &&
+          std::is_convertible_v<typename R::template pointer<U>, pointer>>>
   constexpr IntrusivePtr& operator=(IntrusivePtr<U, R>&& rhs) noexcept {
     IntrusivePtr(std::move(rhs)).swap(*this);
     return *this;
