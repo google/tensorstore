@@ -20,7 +20,7 @@
 /// Context implementation details and forward declarations required by
 /// `context.h`.
 
-// IWYU pragma: private, include "third_party/tensorstore/context.h"
+// IWYU pragma: private, include "tensorstore/context.h"
 
 #include <stdint.h>
 

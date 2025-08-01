@@ -22,7 +22,7 @@
 #include "absl/status/status.h"
 #include "tensorstore/internal/meta/type_traits.h"
 
-// IWYU pragma: private, include "third_party/tensorstore/util/result.h"
+// IWYU pragma: private, include "tensorstore/util/result.h"
 
 namespace tensorstore {
 

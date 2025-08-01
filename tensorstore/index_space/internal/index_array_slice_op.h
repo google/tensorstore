@@ -20,7 +20,7 @@
 /// DimExpression::IndexVectorArraySlice, and
 /// DimExpression::OuterIndexArraySlice operations.
 
-// IWYU pragma: private, include "third_party/tensorstore/index_space/dim_expression.h"
+// IWYU pragma: private, include "tensorstore/index_space/dim_expression.h"
 
 #include "tensorstore/array.h"
 #include "tensorstore/index_space/dimension_index_buffer.h"

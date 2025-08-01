@@ -98,7 +98,7 @@ def main():
   out.write("""
 
 // Defines MatchesArray overloads for multi-dimensional arrays of rank 2 to {max_rank}.
-#include "third_party/tensorstore/array_testutil_matches_array.inc"
+#include "tensorstore/array_testutil_matches_array.inc"
 """.format(max_rank=max_rank))
 
   update_generated_source_code.update_generated_content(

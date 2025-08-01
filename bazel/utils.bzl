@@ -17,7 +17,7 @@ load("@bazel_skylib//lib:selects.bzl", "selects")
 def _sorted_unique_strings(x):
     return sorted({k: True for k in x}.keys())
 
-def escape_target_name(name):
+def _escape_target_name(name):
     name = name.replace("~", "~~")
     name = name.replace(":", "~c")
     name = name.replace("/", "~/")
@@ -30,34 +30,13 @@ def all_conditions(conditions):
         return "//conditions:default"
     if len(conditions) == 1:
         return conditions[0]
-    name = "all=" + ",".join([escape_target_name(x) for x in conditions])
+    name = "all=" + ",".join([_escape_target_name(x) for x in conditions])
     if native.existing_rule(name) == None:
         selects.config_setting_group(
             name = name,
             match_all = conditions,
         )
     return name
-
-def repository_source_root():
-    return Label(native.repository_name() + "//:fake_target").workspace_root
-
-def package_source_root():
-    root = repository_source_root()
-    p = native.package_name()
-    if root != "" and p != "":
-        root += "/"
-    p = root + p
-    return p
-
-def package_relative_path(path):
-    root = package_source_root()
-    if path == ".":
-        path = root
-    else:
-        path = root + "/" + path
-    if path == "":
-        path = "."
-    return path
 
 # Used to emit combined settings for os / cpu / compiler.
 def emit_os_cpu_compiler_group(os, cpu, compiler):

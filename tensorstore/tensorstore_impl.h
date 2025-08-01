@@ -15,7 +15,7 @@
 #ifndef TENSORSTORE_TENSORSTORE_IMPL_H_
 #define TENSORSTORE_TENSORSTORE_IMPL_H_
 
-// IWYU pragma: private, include "third_party/tensorstore/tensorstore.h"
+// IWYU pragma: private, include "tensorstore/tensorstore.h"
 
 #include <string>
 #include <type_traits>

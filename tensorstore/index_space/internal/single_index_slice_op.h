@@ -18,7 +18,7 @@
 /// \file
 /// Implementation of the DimExpression::IndexSlice operation.
 
-// IWYU pragma: private, include "third_party/tensorstore/index_space/dim_expression.h"
+// IWYU pragma: private, include "tensorstore/index_space/dim_expression.h"
 
 #include "tensorstore/index_space/dimension_index_buffer.h"
 #include "tensorstore/index_space/index_transform.h"

@@ -21,7 +21,7 @@
 ///
 /// See `transaction.h` for the public API.
 
-// IWYU pragma: private, include "third_party/tensorstore/transaction.h"
+// IWYU pragma: private, include "tensorstore/transaction.h"
 
 #include <stddef.h>
 #include <stdint.h>

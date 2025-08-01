@@ -15,7 +15,7 @@
 #ifndef TENSORSTORE_UTIL_FUTURE_IMPL_H_
 #define TENSORSTORE_UTIL_FUTURE_IMPL_H_
 
-// IWYU pragma: private, include "third_party/tensorstore/util/future.h"
+// IWYU pragma: private, include "tensorstore/util/future.h"
 
 #include <stddef.h>
 #include <stdint.h>

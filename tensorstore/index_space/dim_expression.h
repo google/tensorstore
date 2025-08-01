@@ -20,7 +20,7 @@
 /// A DimExpression represents an ordered "selection" of dimensions of an index
 /// space and a sequence of "operations" to apply to those dimensions.
 ///
-/// Most users should #include  "third_party/tensorstore/index_space.h" instead.
+/// Most users should #include  "tensorstore/index_space.h" instead.
 
 #include <array>
 #include <optional>

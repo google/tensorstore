@@ -18,7 +18,7 @@
 /// \file
 /// Implementation details for bit_vec.h.
 
-// IWYU pragma: private, include "third_party/tensorstore/util/bit_vec.h"
+// IWYU pragma: private, include "tensorstore/util/bit_vec.h"
 
 #include <stddef.h>
 #include <stdint.h>
