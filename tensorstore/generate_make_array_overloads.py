@@ -231,7 +231,7 @@ def main():
 
 // Defines MakeArray, MakeArrayView, MakeOffsetAray, and MakeOffsetArrayView
 // overloads for multi-dimensional arrays of rank 2 to {max_rank}.
-#include "third_party/tensorstore/make_array.inc"
+#include "tensorstore/make_array.inc"
 """.format(max_rank=max_rank))
 
   update_generated_source_code.update_generated_content(

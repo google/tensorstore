@@ -18,7 +18,7 @@
 /// \file
 /// Implementation details of grid_partition.h exposed for testing.
 
-// IWYU pragma: private, include "third_party/tensorstore/internal/grid_partition.h"
+// IWYU pragma: private, include "tensorstore/internal/grid_partition.h"
 
 #include <vector>
 

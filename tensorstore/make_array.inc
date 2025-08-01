@@ -2,7 +2,7 @@
 #error "Do not include this file directly, include array.h instead."
 #endif
 
-// IWYU pragma: private, include "third_party/tensorstore/array.h"
+// IWYU pragma: private, include "tensorstore/array.h"
 
 /// Defines additional MakeArray, MakeArrayView, MakeOffsetArray and
 /// MakeOffsetArrayView overloads.

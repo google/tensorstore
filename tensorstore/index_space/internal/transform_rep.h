@@ -100,7 +100,7 @@ static_assert(alignof(IndexArrayData) >= 2,
 ///
 /// This type is not exposed as part of the public API, because it operates at
 /// too low of level to be used safely/conveniently.  Instead,
-/// third_party/tensorstore/index_space/output_index_map.h defines a public API
+/// tensorstore/index_space/output_index_map.h defines a public API
 /// that wraps this type.
 class OutputIndexMap {
  public:

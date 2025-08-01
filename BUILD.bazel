@@ -11,7 +11,7 @@ exports_files(glob(["*"]))
 #[
 #    alias(
 #        name = name,
-#        actual = "@tensorstore//:{target}".format(target = name),
+#        actual = "//:{target}".format(target = name),
 #    )
 #    for name in [
 #        "arm64_clang",

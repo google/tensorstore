@@ -19,7 +19,7 @@
 #define TENSORSTORE_CACHE_REFCOUNT_DEBUG 0
 #endif
 
-// IWYU pragma: private, include "third_party/tensorstore/internal/cache/cache.h"
+// IWYU pragma: private, include "tensorstore/internal/cache/cache.h"
 
 #include <stddef.h>
 #include <stdint.h>

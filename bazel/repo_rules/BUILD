@@ -6,3 +6,8 @@ filegroup(
     name = "_bazel_sources",
     srcs = glob(["*.bzl"]),
 )
+
+filegroup(
+    name = "_py_scrpts",
+    srcs = glob(["*.py"]),
+)

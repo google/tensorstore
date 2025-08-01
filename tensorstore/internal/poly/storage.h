@@ -33,7 +33,7 @@
 ///   3. Derived VTableBase functions include function pointers for other
 ///      poly operations.
 
-// IWYU pragma: private, include "third_party/tensorstore/internal/poly/poly.h"
+// IWYU pragma: private, include "tensorstore/internal/poly/poly.h"
 
 #include <stddef.h>
 

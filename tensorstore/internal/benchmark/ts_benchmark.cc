@@ -68,7 +68,7 @@ bazel run -c opt \
 # Using a file driver and mis-aligned chunks
 
 bazel run -c opt \
-  /third_party/tensorstore/internal/benchmark:ts_benchmark -- \
+  //tensorstore/internal/benchmark:ts_benchmark -- \
   --alsologtostderr              \
   --strategy=random              \
   --total_read_bytes=-10         \

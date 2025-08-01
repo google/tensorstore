@@ -21,6 +21,8 @@
   * `PYTHON_BIN_PATH`: location of python binary.
 """
 
+load("//bazel/repo_rules:repo_utils.bzl", "repo_utils")
+
 _PYTHON_BIN_PATH = "PYTHON_BIN_PATH"
 _TENSORSTORE_PYTHON_CONFIG_REPO = "TENSORSTORE_PYTHON_CONFIG_REPO"
 
@@ -29,13 +31,6 @@ def _fail(msg):
     red = "\033[0;31m"
     no_color = "\033[0m"
     fail("%sPython Configuration Error:%s %s\n" % (red, no_color, msg))
-
-def _is_windows(repository_ctx):
-    """Returns true if the host operating system is windows."""
-    os_name = repository_ctx.os.name.lower()
-    if os_name.find("windows") != -1:
-        return True
-    return False
 
 def _execute(
         repository_ctx,
@@ -72,7 +67,7 @@ def _read_dir(repository_ctx, src_dir):
     symlinks. The returned string contains the full path of all files
     separated by line breaks.
     """
-    if _is_windows(repository_ctx):
+    if repo_utils.is_windows(repository_ctx):
         src_dir = src_dir.replace("/", "\\")
         cmd_path = repository_ctx.which("cmd.exe")
         if cmd_path == None:
@@ -171,7 +166,7 @@ def get_python_bin(repository_ctx):
     if python_bin != None:
         return python_bin
     python_bin_path = repository_ctx.which("python3")
-    if python_bin_path == None and _is_windows(repository_ctx):
+    if python_bin_path == None and repo_utils.is_windows(repository_ctx):
         python_bin_path = repository_ctx.which("py")
     if python_bin_path != None:
         return str(python_bin_path)
@@ -181,6 +176,7 @@ def get_python_bin(repository_ctx):
               _PYTHON_BIN_PATH,
               repository_ctx.os.environ.get("PATH", ""),
           ))
+    return None
 
 def _run_python_script(repository_ctx, python_bin, script_code):
     """Returns output of running Python script.
@@ -285,7 +281,7 @@ def _create_local_python_repository(repository_ctx):
 
     # To build Python C/C++ extension on Windows, we need to link to python import library pythonXY.lib
     # See https://docs.python.org/3/extending/windows.html
-    if _is_windows(repository_ctx):
+    if repo_utils.is_windows(repository_ctx):
         python_import_lib_name = _get_python_import_lib_name(repository_ctx, python_bin)
         python_import_lib_src = python_include.rsplit("/", 1)[0] + "/libs/" + python_import_lib_name
         python_import_lib_genrule = _get_copy_directory_rule(
@@ -328,13 +324,18 @@ python_env_vars = [
     _TENSORSTORE_PYTHON_CONFIG_REPO,
 ]
 
+_python_configure_attrs = {
+    "_rule_name": attr.string(default = "python_configure"),
+}
+
 python_configure = repository_rule(
     implementation = _python_autoconf_impl,
     local = True,
     configure = True,
     environ = python_env_vars,
-)
-"""Detects and configures the local Python.
+    attrs = _python_configure_attrs,
+    doc = """\
+Detects and configures the local Python.
 
 Add the following to your WORKSPACE FILE:
 
@@ -344,4 +345,5 @@ python_configure(name = "local_config_python")
 
 Args:
   name: A unique name for this workspace rule.
-"""
+""",
+)

@@ -58,7 +58,7 @@
 /// `S1...`, is not supported without double wrapping, even though it could be
 /// done by constructing a vtable at run time.
 
-// IWYU pragma: private, include "third_party/tensorstore/internal/poly/poly.h"
+// IWYU pragma: private, include "tensorstore/internal/poly/poly.h"
 
 #include <stddef.h>
 

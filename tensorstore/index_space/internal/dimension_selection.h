@@ -15,7 +15,7 @@
 #ifndef TENSORSTORE_INDEX_SPACE_INTERNAL_DIMENSION_SELECTION_H_
 #define TENSORSTORE_INDEX_SPACE_INTERNAL_DIMENSION_SELECTION_H_
 
-// IWYU pragma: private, include "third_party/tensorstore/index_space/dim_expression.h"
+// IWYU pragma: private, include "tensorstore/index_space/dim_expression.h"
 
 #include "absl/status/status.h"
 #include "tensorstore/index.h"

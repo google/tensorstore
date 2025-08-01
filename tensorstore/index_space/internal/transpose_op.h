@@ -19,7 +19,7 @@
 /// Implementation of the DimExpression::Transpose and
 /// DimExpression::MoveTo{,Front,Back} operations.
 
-// IWYU pragma: private, include "third_party/tensorstore/index_space/dim_expression.h"
+// IWYU pragma: private, include "tensorstore/index_space/dim_expression.h"
 
 #include <utility>
 

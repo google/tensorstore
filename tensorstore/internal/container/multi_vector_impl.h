@@ -41,7 +41,7 @@
 /// ourselves.  This functionality is provided by the `GetVectorOffset` function
 /// defined below.
 
-// IWYU pragma: private, include "third_party/tensorstore/internal/multi_vector.h"
+// IWYU pragma: private, include "tensorstore/internal/multi_vector.h"
 
 #include <stddef.h>
 

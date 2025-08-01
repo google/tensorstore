@@ -26,7 +26,7 @@
 /// DimExpression::{{Translate,}{Closed,HalfOpen,Sized}Interval,Stride}
 /// operations.
 
-// IWYU pragma: private, include "third_party/tensorstore/index_space/dim_expression.h"
+// IWYU pragma: private, include "tensorstore/index_space/dim_expression.h"
 
 namespace tensorstore {
 namespace internal_index_space {
