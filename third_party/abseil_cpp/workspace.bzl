@@ -23,13 +23,13 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "abseil-cpp",
-        doc_version = "20250429-5f3435aba",
+        doc_version = "20250811-274c81389",
         doc_homepage = "https://abseil.io/",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/abseil/abseil-cpp/archive/5f3435aba00bcd7f12062d2e8e1839b4eaf1a575.tar.gz",  # master(2025-04-29)
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/abseil/abseil-cpp/archive/274c81389f97afc612d76dc7cb5d38144cd9647f.tar.gz",  # master(2025-08-11)
         ],
-        sha256 = "7cef7cd3560de3a079caa84846127ed0fce6c6847734a10ac91ef66bc700235f",
-        strip_prefix = "abseil-cpp-5f3435aba00bcd7f12062d2e8e1839b4eaf1a575",
+        sha256 = "fb285607088cde65b5849b57dff42342a26e4e3e578e1f64fa2f895d04b0fe85",
+        strip_prefix = "abseil-cpp-274c81389f97afc612d76dc7cb5d38144cd9647f",
         repo_mapping = {
             "@com_google_googletest": "@googletest",
         },
