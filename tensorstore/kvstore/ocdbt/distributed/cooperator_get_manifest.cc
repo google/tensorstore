@@ -93,7 +93,7 @@ Future<const absl::Time> GetManifestAvailableFuture(
   Future<const absl::Time> manifest_available_future;
   Promise<absl::Time> manifest_available_promise;
   {
-    absl::MutexLock lock(&server->mutex_);
+    absl::MutexLock lock(server->mutex_);
     manifest_available_future = server->manifest_available_;
     if (manifest_available_future.null()) {
       auto [promise, future] = PromiseFuturePair<absl::Time>::Make();

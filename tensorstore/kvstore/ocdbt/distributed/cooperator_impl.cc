@@ -95,7 +95,7 @@ Cooperator::GetNodeMutationRequests(
     internal_ocdbt::BtreeNodeHeight node_height) {
   internal::IntrusivePtr<NodeMutationRequests> mutation_requests;
   {
-    absl::MutexLock lock(&mutex_);
+    absl::MutexLock lock(mutex_);
     auto it = node_mutation_map_.find(
         NodeMutationRequests::NodeKey(lease_node.key, node_height));
     if (it == node_mutation_map_.end()) {

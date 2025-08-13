@@ -452,7 +452,7 @@ void NodeCommitOperation::Done() {
 }
 
 void NodeCommitOperation::StagePending() {
-  absl::MutexLock lock(&mutation_requests->mutex);
+  absl::MutexLock lock(mutation_requests->mutex);
   ABSL_LOG_IF(INFO, ocdbt_logging)
       << "[Port=" << server->listening_port_
       << "] StagePending: initial staged=" << staged.requests.size()
@@ -855,7 +855,7 @@ void MaybeCommit(Cooperator& server,
   while (mutation_requests->pending.requests.empty()) {
     // Attempt to remove.
     lock.unlock();
-    absl::MutexLock server_lock(&server.mutex_);
+    absl::MutexLock server_lock(server.mutex_);
     if (mutation_requests->use_count() == 2) {
       // Remove from map.
       server.node_mutation_map_.erase(mutation_requests->node_key());

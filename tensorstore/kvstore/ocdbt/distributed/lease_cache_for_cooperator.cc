@@ -85,7 +85,7 @@ class LeaseCacheForCooperator::Impl
 
 std::shared_ptr<grpc_gen::Cooperator::StubInterface>
 LeaseCacheForCooperator::Impl::GetCooperatorStub(const std::string& address) {
-  absl::MutexLock lock(&mutex_);
+  absl::MutexLock lock(mutex_);
   auto& stub = peer_stub_cache_[address];
   if (stub) return stub;
   // Disable gRPC automatic retries, since cooperators are expected to go down
@@ -101,7 +101,7 @@ LeaseCacheForCooperator::Impl::GetCooperatorStub(const std::string& address) {
 Future<const LeaseCacheForCooperator::LeaseNode::Ptr>
 LeaseCacheForCooperator::FindLease(std::string_view key) const {
   assert(impl_);
-  absl::MutexLock lock(&impl_->mutex_);
+  absl::MutexLock lock(impl_->mutex_);
   auto it = impl_->leases_by_key_.find(key);
   if (it != impl_->leases_by_key_.end()) {
     return it->second;
@@ -141,7 +141,7 @@ void FinishLeaseRequest(internal::IntrusivePtr<LeaseRequestState> state,
     state->promise.SetResult(status);
     // Remove from cache due to error.
     auto& owner = *state->owner;
-    absl::MutexLock lock(&owner.mutex_);
+    absl::MutexLock lock(owner.mutex_);
     auto it = owner.leases_by_key_.find(state->request.key());
     if (it != owner.leases_by_key_.end() &&
         HaveSameSharedState(state->promise, it->second)) {
@@ -191,7 +191,7 @@ LeaseCacheForCooperator::GetLease(std::string_view key,
 
   PromiseFuturePair<LeaseNode::Ptr> promise_future;
   {
-    absl::MutexLock lock(&impl_->mutex_);
+    absl::MutexLock lock(impl_->mutex_);
     auto it = impl_->leases_by_key_.find(key);
     if (it != impl_->leases_by_key_.end()) {
       auto& future = it->second;
