@@ -40,7 +40,7 @@ FlushPromise& FlushPromise::operator=(FlushPromise&& other) noexcept {
 void FlushPromise::Link(Future<const void> future) {
   if (future.null()) return;
   {
-    absl::MutexLock lock(&mutex_);
+    absl::MutexLock lock(mutex_);
     if (HaveSameSharedState(future, prev_linked_future_)) return;
     if (prev_linked_future_.null()) {
       // This is the first call to `Link` with a non-null `future`.
@@ -78,7 +78,7 @@ void FlushPromise::Link(FlushPromise&& other) {
   }
   Future<const void> future_to_link;
   {
-    absl::MutexLock lock(&mutex_);
+    absl::MutexLock lock(mutex_);
     if (prev_linked_future_.null()) {
       // No futures have been linked to `*this`.
       *this = std::move(other);
