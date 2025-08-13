@@ -100,7 +100,7 @@ CallbackPointer FutureStateBase::RegisterReadyCallback(
     ReadyCallbackBase* callback) {
   assert(callback->reference_count_.load(std::memory_order_relaxed) >= 2);
   {
-    absl::MutexLock lock(GetMutex(this));
+    absl::MutexLock lock(*GetMutex(this));
     future_ready_callbacks.Increment();
     if (!this->ready()) {
       InsertBefore(CallbackListAccessor{}, &ready_callbacks_, callback);
@@ -115,7 +115,7 @@ CallbackPointer FutureStateBase::RegisterNotNeededCallback(
     ResultNotNeededCallbackBase* callback) {
   assert(callback->reference_count_.load(std::memory_order_relaxed) >= 2);
   {
-    absl::MutexLock lock(GetMutex(this));
+    absl::MutexLock lock(*GetMutex(this));
     future_not_needed_callbacks.Increment();
     if (result_needed()) {
       InsertBefore(CallbackListAccessor{}, &promise_callbacks_, callback);
@@ -131,7 +131,7 @@ CallbackPointer FutureStateBase::RegisterForceCallback(
   assert(callback->reference_count_.load(std::memory_order_relaxed) >= 2);
   auto* mutex = GetMutex(this);
   {
-    absl::MutexLock lock(mutex);
+    absl::MutexLock lock(*mutex);
     future_force_callbacks.Increment();
     const auto state = state_.load(std::memory_order_acquire);
     if ((state & kResultLocked) != 0 || !has_future()) {
@@ -149,7 +149,7 @@ CallbackPointer FutureStateBase::RegisterForceCallback(
 already_forced:
   callback->OnForced();
   if (callback->callback_type() == CallbackBase::kLinkCallback) {
-    absl::MutexLock lock(mutex);
+    absl::MutexLock lock(*mutex);
     // For a `kLinkCallback` callback, if the result is still needed, register
     // the callback.
     if (result_needed()) {
@@ -174,7 +174,7 @@ void CallbackBase::Unregister(bool block) noexcept {
   auto* shared_state = this->shared_state();
   auto* mutex = GetMutex(shared_state);
   {
-    absl::MutexLock lock(mutex);
+    absl::MutexLock lock(*mutex);
     if (next == this) {
       // Already unregistered, do nothing.
       return;
@@ -240,7 +240,7 @@ inline void RunAndReleaseCallbacks(FutureStateBase* shared_state,
   while (true) {
     CallbackListNode* next_node;
     {
-      absl::MutexLock lock(mutex);
+      absl::MutexLock lock(*mutex);
       if (prev_node != nullptr) {
         // Reset prev_node->next pointer, which marks that the callback has
         // finished running.
@@ -317,7 +317,7 @@ void RunForceCallbacks(FutureStateBase* shared_state) {
   while (true) {
     CallbackListNode* next_node;
     {
-      absl::MutexLock lock(mutex);
+      absl::MutexLock lock(*mutex);
       if (prev_node) {
         // Reset prev_node->next pointer, which marks that the callback has
         // finished running.
@@ -332,9 +332,9 @@ void RunForceCallbacks(FutureStateBase* shared_state) {
             // may be blocked waiting for this callback to be unregistered by
             // another thread.
             prev_node->next = prev_node.get();
-            mutex->Unlock();
+            mutex->unlock();
             static_cast<CallbackBase*>(prev_node.get())->OnUnregistered();
-            mutex->Lock();
+            mutex->lock();
           } else {
             // Add back to promise_callbacks_ list.
             prev_node->running_callback_thread.~Id();
@@ -488,7 +488,7 @@ bool FutureStateBase::WaitFor(absl::Duration duration) noexcept {
   absl::Mutex* mutex = GetMutex(this);
   bool is_ready = mutex->LockWhenWithTimeout(
       absl::Condition(this, &FutureStateBase::ready), duration);
-  mutex->Unlock();
+  mutex->unlock();
   return is_ready;
 }
 
@@ -498,7 +498,7 @@ bool FutureStateBase::WaitUntil(absl::Time deadline) noexcept {
   absl::Mutex* mutex = GetMutex(this);
   bool is_ready = mutex->LockWhenWithDeadline(
       absl::Condition(this, &FutureStateBase::ready), deadline);
-  mutex->Unlock();
+  mutex->unlock();
   return is_ready;
 }
 
@@ -507,7 +507,7 @@ void FutureStateBase::Wait() noexcept {
   Force();
   absl::Mutex* mutex = GetMutex(this);
   mutex->LockWhen(absl::Condition(this, &FutureStateBase::ready));
-  mutex->Unlock();
+  mutex->unlock();
 }
 
 FutureStateBase::~FutureStateBase() {

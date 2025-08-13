@@ -39,7 +39,7 @@ bool StopState::RequestStop() {
   StopCallbackInvocationState invocation_state{
       /*thread_id=*/std::this_thread::get_id(), /*callback_destroyed=*/false};
 
-  absl::MutexLock lock(&mutex_);
+  absl::MutexLock lock(mutex_);
   if (stop_requested_) return false;
   stop_requested_ = true;
 
@@ -66,9 +66,9 @@ bool StopState::RequestStop() {
 
     // Invoke the callback with the mutex unlocked.
     {
-      mutex_.Unlock();
+      mutex_.unlock();
       cur_callback->invoker_(*cur_callback);
-      mutex_.Lock();
+      mutex_.lock();
     }
 
     if (invocation_state.callback_destroyed) {
@@ -93,7 +93,7 @@ bool StopState::RequestStop() {
 
 void StopState::UnregisterImpl(StopCallbackBase& callback) {
   {
-    absl::MutexLock lock(&mutex_);
+    absl::MutexLock lock(mutex_);
 
     if (callback.next != nullptr) {
       // Callback has not yet been invoked; it's safe to remove.
@@ -131,7 +131,7 @@ void StopState::UnregisterImpl(StopCallbackBase& callback) {
 void StopState::RegisterImpl(StopCallbackBase& callback) {
   bool stop_requested;
   {
-    absl::MutexLock lock(&mutex_);
+    absl::MutexLock lock(mutex_);
     stop_requested = stop_requested_;
     if (!stop_requested) {
       intrusive_ptr_increment(this);
