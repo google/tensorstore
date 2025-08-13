@@ -1064,10 +1064,10 @@ pybind11_cc_library(
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings:cord",
         "@com_github_pybind_pybind11//:pybind11",
-        "@local_config_python//:python_headers",  # build_cleaner: keep
         "@riegeli//riegeli/bytes:cord_writer",
         "@riegeli//riegeli/bytes:string_reader",
         "@riegeli//riegeli/bytes:writer",
+        "@rules_python//python/cc:current_py_cc_headers",  # build_cleaner: keep
     ],
     alwayslink = True,
 )

@@ -1,4 +1,5 @@
 # Copyright 2025 The TensorStore Authors
+# Copyright 2024 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,7 +29,6 @@ and @rules_python/python/private/local_runtime_repo.bzl
    The environment variable `TENSORSTORE_PYTHON_CONFIG_REPO` overrides local configuration.
 
 2. It happens before the @rules_python is loaded, so it cannot reference rules python.
-
 """
 
 load(
@@ -50,20 +50,69 @@ package(
     default_visibility = ["//visibility:public"],
 )
 
-load("@rules_python//python/private:local_runtime_repo_setup.bzl", "define_local_runtime_toolchain_impl")
+load(
+    "@tensorstore//bazel/repo_rules:local_runtime_repo_setup.bzl",
+    "define_local_runtime_toolchain_impl",
+)
 
 define_local_runtime_toolchain_impl(
     name = "local_runtime",
-    lib_ext = "{lib_ext}",
     major = "{major}",
     minor = "{minor}",
     micro = "{micro}",
     interpreter_path = "{interpreter_path}",
+    interface_library = {interface_library},
+    libraries = {libraries},
     implementation_name = "{implementation_name}",
     os = "{os}",
 )
-
 """
+
+def _expand_incompatible_template():
+    return _TOOLCHAIN_IMPL_TEMPLATE.format(
+        interpreter_path = "/incompatible",
+        implementation_name = "incompatible",
+        interface_library = "None",
+        libraries = "[]",
+        major = "0",
+        minor = "0",
+        micro = "0",
+        os = "@platforms//:incompatible",
+    )
+
+def _symlink_first_library(rctx, logger, libraries):
+    """Symlinks the shared libraries into the lib/ directory.
+
+    Args:
+        rctx: A repository_ctx object
+        logger: A repo_utils.logger object
+        libraries: A list of static library paths to potentially symlink.
+    Returns:
+        A single library path linked by the action.
+
+    The specific files are symlinked instead of the whole directory because
+    shared_lib_dirs contains multiple search paths for the shared libraries,
+    and the python files may be missing from any of those directories, and
+    any of those directories may include non-python runtime libraries,
+    as would be the case if LIBDIR were, for example, /usr/lib.
+    """
+    linked = None
+    for target in libraries:
+        origin = rctx.path(target)
+        if not origin.exists:
+            # The reported names don't always exist; it depends on the particulars
+            # of the runtime installation.
+            continue
+        if target.endswith("/Python"):
+            linked = "lib/{}.dylib".format(origin.basename)
+        else:
+            linked = "lib/{}".format(origin.basename)
+        logger.debug("Symlinking {} to {}".format(origin, linked))
+        repo_utils.watch(rctx, origin)
+        rctx.symlink(origin, linked)
+        break
+
+    return linked
 
 def _local_python_repo_impl(rctx):
     """Implementation of the local_python_repo repository rule."""
@@ -74,10 +123,22 @@ def _local_python_repo_impl(rctx):
 
     # Otherwise creates the repository containing files set up to build with Python."""
     logger = repo_utils.logger(rctx)
+    on_failure = rctx.attr.on_failure
+
+    def _emit_log(msg):
+        if on_failure == "fail":
+            logger.fail(msg)
+        elif on_failure == "warn":
+            logger.warn(msg)
+        else:
+            logger.debug(msg)
 
     result = py_utils.get_python_interpreter(rctx, rctx.attr.interpreter_path)
     if not result.resolved_path:
-        logger.fail(lambda: "interpreter not found: {}".format(result.describe_failure()))
+        _emit_log(lambda: "interpreter not found: {}".format(result.describe_failure()))
+
+        # else, on_failure must be skip
+        rctx.file("BUILD.bazel", _expand_incompatible_template())
         return
     else:
         interpreter_path = result.resolved_path
@@ -88,27 +149,14 @@ def _local_python_repo_impl(rctx):
         logger = logger,
     )
     if not result.info:
-        logger.fail(lambda: "GetPythonInfo failed: {}".format(result.describe_failure()))
+        _emit_log(lambda: "GetPythonInfo failed: {}".format(result.describe_failure()))
+
+        # else, on_failure must be skip
+        rctx.file("BUILD.bazel", _expand_incompatible_template())
         return
     else:
         info = result.info
 
-    # Example of a GetPythonInfo result from macos:
-    # {
-    #    "major": 3,
-    #    "minor": 12,
-    #    "micro": 10,
-    #    "implementation_name": "cpython",
-    #    "base_executable": "/Library/Frameworks/Python.framework/Versions/3.12/bin/python3.12",
-    #    "include": "/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12",
-    #    "numpy_include": "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/numpy/_core/include",
-    #    "LDLIBRARY": "Python.framework/Versions/3.12/Python",
-    #    "LIBDIR": "/Library/Frameworks/Python.framework/Versions/3.12/lib",
-    #    "INSTSONAME": "Python.framework/Versions/3.12/Python",
-    #    "PY3LIBRARY": "",
-    #    "SHLIB_SUFFIX": ".so",
-    # }
-    #
     # We use base_executable because we want the path within a Python
     # installation directory ("PYTHONHOME"). The problems with sys.executable
     # are:
@@ -122,9 +170,18 @@ def _local_python_repo_impl(rctx):
     # but we don't realpath() it to respect what it has decided is the
     # appropriate path.
     interpreter_path = info["base_executable"]
+    logger.info("Found external Python interpreter {}".format(interpreter_path))
 
     # NOTE: Keep in sync with recursive glob in define_local_runtime_toolchain_impl
-    repo_utils.watch_tree(rctx, rctx.path(info["include"]))
+    include_path = rctx.path(info["include"])
+
+    # The reported include path may not exist, and watching a non-existant
+    # path is an error. Silently skip, since includes are only necessary
+    # if C extensions are built.
+    if include_path.exists and include_path.is_dir:
+        repo_utils.watch_tree(rctx, include_path)
+    else:
+        pass
 
     # The cc_library.includes values have to be non-absolute paths, otherwise
     # the toolchain will give an error. Work around this error by making them
@@ -137,45 +194,35 @@ def _local_python_repo_impl(rctx):
         dest = src.replace(include_src, "include")
         rctx.symlink(src, dest)
 
-    shared_lib_names = [
-        info["PY3LIBRARY"],
-        info["LDLIBRARY"],
-        info["INSTSONAME"],
-    ]
-
-    # In some cases, the value may be empty. Not clear why.
-    shared_lib_names = [v for v in shared_lib_names if v]
-
-    # In some cases, the same value is returned for multiple keys. Not clear why.
-    shared_lib_names = {v: None for v in shared_lib_names}.keys()
-    shared_lib_dir = info["LIBDIR"]
-
-    # The specific files are symlinked instead of the whole directory
-    # because it can point to a directory that has more than just
-    # the Python runtime shared libraries, e.g. /usr/lib, or a Python
-    # specific directory with pip-installed shared libraries.
     rctx.report_progress("Symlinking external Python shared libraries")
-    for name in shared_lib_names:
-        origin = rctx.path("{}/{}".format(shared_lib_dir, name))
+    interface_library = _symlink_first_library(rctx, logger, info["interface_libraries"])
+    shared_library = _symlink_first_library(rctx, logger, info["dynamic_libraries"])
+    static_library = _symlink_first_library(rctx, logger, info["static_libraries"])
 
-        # The reported names don't always exist; it depends on the particulars
-        # of the runtime installation.
-        if origin.exists:
-            repo_utils.watch(rctx, origin)
-            rctx.symlink(origin, "lib/" + name)
+    libraries = []
+    if shared_library:
+        libraries.append(shared_library)
+    elif static_library:
+        libraries.append(static_library)
+    else:
+        logger.warn("No external python libraries found.")
+
+    build_bazel = _TOOLCHAIN_IMPL_TEMPLATE.format(
+        major = info["major"],
+        minor = info["minor"],
+        micro = info["micro"],
+        interpreter_path = repo_utils.norm_path(interpreter_path),
+        interface_library = repr(interface_library),
+        libraries = repr(libraries),
+        implementation_name = info["implementation_name"],
+        os = "@platforms//os:{}".format(repo_utils.get_platforms_os_name(rctx)),
+    )
+    logger.debug("BUILD.bazel\n{}".format(build_bazel))
 
     rctx.file("WORKSPACE", "")
     rctx.file("MODULE.bazel", "")
     rctx.file("REPO.bazel", "")
-    rctx.file("BUILD.bazel", _TOOLCHAIN_IMPL_TEMPLATE.format(
-        major = info["major"],
-        minor = info["minor"],
-        micro = info["micro"],
-        interpreter_path = interpreter_path,
-        lib_ext = info["SHLIB_SUFFIX"],
-        implementation_name = info["implementation_name"],
-        os = "@platforms//os:{}".format(repo_utils.get_platforms_os_name(rctx)),
-    ))
+    rctx.file("BUILD.bazel", build_bazel)
 
 # Public python attributes.
 python_attrs = {
@@ -190,9 +237,27 @@ Note that, when a plain program name is used, the path to the interpreter is
 resolved at repository evalution time, not runtime of any resulting binaries.
 """,
     ),
+    "on_failure": attr.string(
+        default = "skip",
+        values = ["fail", "skip", "warn"],
+        doc = """
+How to handle errors when trying to automatically determine settings.
+
+* `skip` will silently skip creating a runtime. Instead, a non-functional
+  runtime will be generated and marked as incompatible so it cannot be used.
+  This is best if a local runtime is known not to work or be available
+  in certain cases and that's OK. e.g., one use windows paths when there
+  are people running on linux.
+* `warn` will print a warning message. This is useful when you expect
+  a runtime to be available, but are OK with it missing and falling back
+  to some other runtime.
+* `fail` will result in a failure. This is only recommended if you must
+  ensure the runtime is available.
+""",
+    ),
     "_get_runtime_info": attr.label(
         allow_single_file = True,
-        default = "//bazel/repo_rules:get_local_runtime_info.py",
+        default = Label("//bazel/repo_rules:get_local_runtime_info.py"),
     ),
 }
 
