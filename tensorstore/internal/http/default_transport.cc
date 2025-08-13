@@ -32,12 +32,12 @@ struct GlobalTransport {
   std::shared_ptr<HttpTransport> transport_ ABSL_GUARDED_BY(mu_);
 
   std::shared_ptr<HttpTransport> Get() {
-    absl::MutexLock l(&mu_);
+    absl::MutexLock l(mu_);
     return transport_;
   }
 
   std::shared_ptr<HttpTransport> Set(std::shared_ptr<HttpTransport> transport) {
-    absl::MutexLock l(&mu_);
+    absl::MutexLock l(mu_);
     auto t = std::move(transport_);
     transport_ = std::move(transport);
     return t;
