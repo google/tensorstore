@@ -398,7 +398,7 @@ MultiTransportImpl::~MultiTransportImpl() {
   // Wake everything...
   for (size_t i = 0; i < threads_.size(); ++i) {
     auto& thread_data = thread_data_[i];
-    absl::MutexLock l(&thread_data.mutex);
+    absl::MutexLock l(thread_data.mutex);
     thread_data.done = true;
     curl_multi_wakeup(thread_data.multi.get());
   }
@@ -433,7 +433,7 @@ void MultiTransportImpl::EnqueueRequest(const HttpRequest& request,
   }
 
   auto& selected = thread_data_[selected_index];
-  absl::MutexLock l(&selected.mutex);
+  absl::MutexLock l(selected.mutex);
   selected.pending.push_back(std::move(state));
   selected.count++;
   curl_multi_wakeup(selected.multi.get());
@@ -487,7 +487,7 @@ void MultiTransportImpl::Run(ThreadData& thread_data) {
 
     if (thread_data.count == 0) {
       // There are no active requests; wait for active requests or shutdown.
-      absl::MutexLock l(&thread_data.mutex);
+      absl::MutexLock l(thread_data.mutex);
       if (thread_data.done) break;
       thread_data.mutex.Await(absl::Condition(
           +[](ThreadData* td) { return !td->pending.empty() || td->done; },
@@ -534,7 +534,7 @@ void MultiTransportImpl::Run(ThreadData& thread_data) {
 }
 
 void MultiTransportImpl::MaybeAddPendingTransfers(ThreadData& thread_data) {
-  absl::MutexLock l(&thread_data.mutex);
+  absl::MutexLock l(thread_data.mutex);
   while (!thread_data.pending.empty()) {
     std::unique_ptr<CurlRequestState> state =
         std::move(thread_data.pending.front());
