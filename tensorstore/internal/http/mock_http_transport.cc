@@ -82,7 +82,7 @@ void DefaultMockHttpTransport::Reset(std::vector<MockResponse> url_to_response,
     }
   }
 
-  absl::MutexLock l(&mutex_);
+  absl::MutexLock l(mutex_);
   requests_.clear();
   mock_responses_ = std::move(url_to_response);
 }
@@ -92,7 +92,7 @@ void DefaultMockHttpTransport::IssueRequestWithHandler(
     HttpResponseHandler* response_handler) {
   std::string key = absl::StrCat(request.method, " ", request.url);
   ABSL_LOG(INFO) << key;
-  absl::MutexLock l(&mutex_);
+  absl::MutexLock l(mutex_);
   requests_.push_back(request);
 
   for (auto& mock : mock_responses_) {
