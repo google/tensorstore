@@ -440,7 +440,7 @@ void WriterCommitOperation::CommitFailed(const absl::Status& error) {
     // which assuming the error persists, would result in an infinite loop.
     PendingDistributedRequests pending;
     {
-      absl::MutexLock lock(&writer_->mutex_);
+      absl::MutexLock lock(writer_->mutex_);
       std::swap(pending, writer_->pending_);
       writer_->commit_in_progress_ = false;
     }
@@ -454,7 +454,7 @@ void WriterCommitOperation::CommitFailed(const absl::Status& error) {
 void WriterCommitOperation::StagePending() {
   PendingDistributedRequests pending;
   {
-    absl::MutexLock lock(&writer_->mutex_);
+    absl::MutexLock lock(writer_->mutex_);
     std::swap(pending, writer_->pending_);
     writer_->commit_in_progress_ = false;
   }

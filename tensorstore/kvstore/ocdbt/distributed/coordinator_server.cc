@@ -156,7 +156,7 @@ grpc::ServerUnaryReactor* CoordinatorServer::Impl::RequestLease(
 
   // Lookup lease.
   {
-    absl::MutexLock lock(&mutex_);
+    absl::MutexLock lock(mutex_);
     PurgeExpiredLeases();
     LeaseNode* node;
     bool assign_new_lease = false;
