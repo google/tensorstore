@@ -146,13 +146,32 @@ def _get_python_info(ctx, *, interpreter_path, logger):
     #    "implementation_name": "cpython",
     #    "base_executable": "/Library/Frameworks/Python.framework/Versions/3.12/bin/python3.12",
     #    "include": "/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12",
-    #    "numpy_include": "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/numpy/_core/include",
     #    "LDLIBRARY": "Python.framework/Versions/3.12/Python",
     #    "LIBDIR": "/Library/Frameworks/Python.framework/Versions/3.12/lib",
     #    "INSTSONAME": "Python.framework/Versions/3.12/Python",
     #    "PY3LIBRARY": "",
     #    "SHLIB_SUFFIX": ".so",
     # }
+    # Examples of GetPythonInfo result from windows:
+    # {
+    #    "major": 3,
+    #    "minor": 13,
+    #    "micro": 1,
+    #    "include": "T:\\build_temp\\home\\kokoro_deps\\python_4379bdec28bdff81a567a01c9b8cf10e3856c8c966e4fe53945bedea6338b416\\tools\\Include",
+    #    "implementation_name": "cpython",
+    #    "base_executable": "T:\\build_temp\\home\\kokoro_deps\\python_4379bdec28bdff81a567a01c9b8cf10e3856c8c966e4fe53945bedea6338b416\\tools\\python.exe",
+    #    "LDLIBRARY": "python313.dll",
+    #    "LIBDIR": "T:\\build_temp\\home\\kokoro_deps\\python_4379bdec28bdff81a567a01c9b8cf10e3856c8c966e4fe53945bedea6338b416\\tools\\libs",
+    # }
+    #{
+    #    "major": 3,
+    #    "minor": 11,
+    #    "micro": 6,
+    #    "include": "T:\\build_temp\\home\\kokoro_deps\\python_d53c38cd9cbdd499aaa4e077410275fff170b9c36b607976131e957f9d8013cd\\tools\\Include",
+    #    "implementation_name": "cpython",
+    #    "base_executable": "T:\\build_temp\\home\\kokoro_deps\\python_d53c38cd9cbdd499aaa4e077410275fff170b9c36b607976131e957f9d8013cd\\tools\\python.exe",
+    #}
+
     if not logger:
         fail("logger must be specified")
 

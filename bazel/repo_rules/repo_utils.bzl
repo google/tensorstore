@@ -86,7 +86,7 @@ def _logger(mrctx = None, name = None, verbosity_level = None):
             message = message_cb_or_str()
 
         # NOTE: printer may be the `fail` function.
-        printer("\ttensorstore:{} {}:".format(
+        printer("\t{} {}:".format(
             name,
             level.upper(),
         ), message)  # buildifier: disable=print

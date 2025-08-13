@@ -10,7 +10,32 @@ load("@bazel_features//:deps.bzl", "bazel_features_deps")
 
 bazel_features_deps()
 
-register_toolchains("@local_config_python//:py_toolchain")
+# @rules_python configuration for local python runtime / toolchain.
+#
+# py_repositories() creates internal repositories for python, and use of rules_python
+# fails when they are not present.
+load("@rules_python//python:repositories.bzl", "py_repositories")
+
+py_repositories()
+
+# Register the local toolchains for python:
+#
+# Step 1: Define the python runtime.
+#  This is done by local_python_runtime() in tensorstore_dependencies()
+#
+# Step 2: Create toolchains for the runtimes
+#  This is done by local_runtime_toolchains_repo()
+#
+# Step 3: Register the toolchains
+#  This is done by register_toolchains()
+load("@rules_python//python/local_toolchains:repos.bzl", "local_runtime_toolchains_repo")
+
+local_runtime_toolchains_repo(
+    name = "local_toolchains",
+    runtimes = ["local_config_python"],
+)
+
+register_toolchains("@local_toolchains//:all")
 
 # Register proto toolchains.
 load("@rules_proto//proto:toolchains.bzl", "rules_proto_toolchains")

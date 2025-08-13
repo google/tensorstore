@@ -20,8 +20,14 @@ to a comma-separated list of the repo names, e.g.
 `TENSORSTORE_SYSTEM_LIBS=zlib,curl` to use system-provided zlib and libcurl.
 """
 
-load("//bazel/repo_rules:third_party_http_archive.bzl", _http_archive = "third_party_http_archive")
-load("//bazel/repo_rules:third_party_python_package.bzl", _python_package = "third_party_python_package")
+load(
+    "//bazel/repo_rules:third_party_http_archive.bzl",
+    _http_archive = "third_party_http_archive",
+)
+load(
+    "//bazel/repo_rules:third_party_pypa_package.bzl",
+    _python_package = "third_party_pypa_package",
+)
 
 third_party_http_archive = _http_archive
 third_party_python_package = _python_package

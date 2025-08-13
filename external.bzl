@@ -12,9 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("//third_party:python/python_configure.bzl", "python_configure")
+load(
+    "//bazel/repo_rules:local_python_runtime.bzl",
+    "local_python_runtime",
+)
 load("//third_party:third_party.bzl", "third_party_dependencies")
 
 def tensorstore_dependencies():
-    python_configure(name = "local_config_python")
+    local_python_runtime(name = "local_config_python")
     third_party_dependencies()
