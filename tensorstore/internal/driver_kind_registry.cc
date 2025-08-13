@@ -47,7 +47,7 @@ DriverKindRegistry& GetDriverKindRegistry() {
 
 void RegisterDriverKind(std::string_view driver_id, DriverKind driver_kind) {
   auto& registry = GetDriverKindRegistry();
-  absl::MutexLock lock(&registry.mutex);
+  absl::MutexLock lock(registry.mutex);
   if (auto result = registry.driver_kinds.emplace(driver_id, driver_kind);
       !result.second) {
     ABSL_LOG(FATAL) << driver_id << " already registered as "
@@ -65,7 +65,7 @@ void RegisterDriverKind(std::string_view id, DriverKind kind,
 
 std::optional<DriverKind> GetDriverKind(std::string_view id) {
   auto& registry = GetDriverKindRegistry();
-  absl::MutexLock lock(&registry.mutex);
+  absl::MutexLock lock(registry.mutex);
   auto it = registry.driver_kinds.find(id);
   if (it == registry.driver_kinds.end()) return std::nullopt;
   return it->second;
@@ -88,7 +88,7 @@ std::ostream& operator<<(std::ostream& os, DriverKind x) {
 
 void RegisterUrlSchemeKind(std::string_view scheme, UrlSchemeKind scheme_kind) {
   auto& registry = GetDriverKindRegistry();
-  absl::MutexLock lock(&registry.mutex);
+  absl::MutexLock lock(registry.mutex);
   if (auto result = registry.scheme_kinds.emplace(scheme, scheme_kind);
       !result.second) {
     ABSL_LOG(FATAL) << scheme << " already registered as "
@@ -98,7 +98,7 @@ void RegisterUrlSchemeKind(std::string_view scheme, UrlSchemeKind scheme_kind) {
 
 std::optional<UrlSchemeKind> GetUrlSchemeKind(std::string_view scheme) {
   auto& registry = GetDriverKindRegistry();
-  absl::MutexLock lock(&registry.mutex);
+  absl::MutexLock lock(registry.mutex);
   auto it = registry.scheme_kinds.find(scheme);
   if (it == registry.scheme_kinds.end()) return std::nullopt;
   return it->second;
