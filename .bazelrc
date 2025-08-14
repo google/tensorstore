@@ -37,6 +37,9 @@ build:gcc_or_clang --host_per_file_copt=upbc/.*\\.cc$@-Wno-array-bounds,-Wno-str
 build:gcc_or_clang --per_file_copt=grpc/src/.*\\.cc$@-Wno-attributes
 build:gcc_or_clang --host_per_file_copt=grpc/src/.*\\.cc$@-Wno-attributes
 
+build:msvc --per_file_copt=.*\\.upb\\.h$,.*\\.upb\\.c$$@/wd5287
+build:msvc --host_per_file_copt=.*\\.upb\\.h$,.*\\.upb\\.c$$@/wd5287
+
 # Use colors
 build:gcc_or_clang --copt=-fdiagnostics-color=always
 build:gcc_or_clang --host_copt=-fdiagnostics-color=always
