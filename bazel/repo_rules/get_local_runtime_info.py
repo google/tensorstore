@@ -55,19 +55,21 @@ def _search_directories(get_config):
       if config_value and not config_value.endswith(multiarch):
         lib_dirs.append(os.path.join(config_value, multiarch))
 
-  if _IS_WINDOWS:
-    # On Windows DLLs go in the same directory as the executable, while .lib
-    # files live in the lib/ or libs/ subdirectory.
-    lib_dirs.append(get_config("BINDIR"))
-    lib_dirs.append(os.path.join(os.path.dirname(sys.executable)))
-    lib_dirs.append(os.path.join(os.path.dirname(sys.executable), "lib"))
-    lib_dirs.append(os.path.join(os.path.dirname(sys.executable), "libs"))
-  elif not _IS_DARWIN:
-    # On most systems the executable is in a bin/ directory and the libraries
-    # are in a sibling lib/ directory.
-    lib_dirs.append(
-        os.path.join(os.path.dirname(os.path.dirname(sys.executable)), "lib")
-    )
+  for exec_dir in (
+      os.path.dirname(sys._base_executable),
+      os.path.dirname(sys.executable),
+      get_config("BINDIR"),
+  ):
+    if _IS_WINDOWS:
+      # On Windows DLLs go in the same directory as the executable, while .lib
+      # files live in the lib/ or libs/ subdirectory.
+      lib_dirs.append(exec_dir)
+      lib_dirs.append(os.path.join(exec_dir, "lib"))
+      lib_dirs.append(os.path.join(exec_dir, "libs"))
+    elif not _IS_DARWIN:
+      # On most systems the executable is in a bin/ directory and the libraries
+      # are in a sibling lib/ directory.
+      lib_dirs.append(os.path.join(os.path.dirname(exec_dir), "lib"))
 
   # Dedup and remove empty values, keeping the order.
   lib_dirs = [v for v in lib_dirs if v]
