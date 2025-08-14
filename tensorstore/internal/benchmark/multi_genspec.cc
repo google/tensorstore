@@ -361,7 +361,7 @@ void SetExistingChunkArrayBoxes(ShardVariable& var,
             auto promise, ReadyFuture<ArrayStorageStatistics> f) {
           ABSL_LOG(INFO) << var.name << " " << b
                          << (f.value().not_stored ? " <missing>" : "");
-          absl::MutexLock lock(&mutex);
+          absl::MutexLock lock(mutex);
           if (!f.value().not_stored) {
             array_boxes.push_back(std::move(b));
           }
