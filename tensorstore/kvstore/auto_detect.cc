@@ -65,7 +65,7 @@ AutoDetectRegistry& GetAutoDetectRegistry() {
 std::pair<size_t, size_t> GetFilePrefixAndSuffixLength() {
   size_t prefix_length, suffix_length;
   auto& registry = GetAutoDetectRegistry();
-  absl::ReaderMutexLock lock(&registry.mutex);
+  absl::ReaderMutexLock lock(registry.mutex);
   prefix_length = registry.prefix_length;
   suffix_length = registry.suffix_length;
   return {prefix_length, suffix_length};
@@ -76,7 +76,7 @@ std::vector<AutoDetectMatch> EvaluateFileOrDirectoryMatches(
     const Options& options) {
   std::vector<AutoDetectMatch> matches;
   auto& registry = GetAutoDetectRegistry();
-  absl::ReaderMutexLock lock(&registry.mutex);
+  absl::ReaderMutexLock lock(registry.mutex);
   for (const auto& matcher : registry.*MatchersMember) {
     auto cur_matches = matcher(options);
     if (matches.empty()) {
@@ -249,7 +249,7 @@ struct AutoDetectOperationState {
     absl::btree_set<std::string> filenames;
     {
       auto& registry = GetAutoDetectRegistry();
-      absl::ReaderMutexLock lock(&registry.mutex);
+      absl::ReaderMutexLock lock(registry.mutex);
       filenames = registry.filenames;
     }
     if (filenames.empty()) {
@@ -395,7 +395,7 @@ AutoDetectFileSpec AutoDetectFileSpec::SuffixSignature(
 
 AutoDetectRegistration::AutoDetectRegistration(AutoDetectFileSpec&& file_spec) {
   auto& registry = GetAutoDetectRegistry();
-  absl::MutexLock lock(&registry.mutex);
+  absl::MutexLock lock(registry.mutex);
   registry.prefix_length =
       std::max(registry.prefix_length, file_spec.prefix_length);
   registry.suffix_length =
@@ -406,7 +406,7 @@ AutoDetectRegistration::AutoDetectRegistration(AutoDetectFileSpec&& file_spec) {
 AutoDetectRegistration::AutoDetectRegistration(
     AutoDetectDirectorySpec&& directory_spec) {
   auto& registry = GetAutoDetectRegistry();
-  absl::MutexLock lock(&registry.mutex);
+  absl::MutexLock lock(registry.mutex);
   for (auto& filename : directory_spec.filenames) {
     registry.filenames.insert(std::move(filename));
   }
@@ -415,7 +415,7 @@ AutoDetectRegistration::AutoDetectRegistration(
 
 void AutoDetectRegistration::ClearRegistrations() {
   auto& registry = GetAutoDetectRegistry();
-  absl::MutexLock lock(&registry.mutex);
+  absl::MutexLock lock(registry.mutex);
   registry.filenames.clear();
   registry.directory_matchers.clear();
   registry.file_matchers.clear();
