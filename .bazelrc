@@ -47,6 +47,15 @@ build:msvc --host_per_file_copt=.*\\.upbdefs\\.c$@/wd5287
 build:msvc --per_file_copt=.*\\.upb_minitable\\.c$@/wd5287
 build:msvc --host_per_file_copt=.*\\.upb_minitable\\.c@/wd5287
 
+# gRPC has some errors on windows as well
+
+build:msvc --per_file_copt=grpc/.*\\.cc$@/wd4624
+build:msvc --host_per_file_copt=grpc/.*\\.cc$@/wd4624
+build:msvc --per_file_copt=grpc/.*\\.cc$@/wd4244
+build:msvc --host_per_file_copt=grpc/.*\\.cc$@/wd4244
+build:msvc --per_file_copt=external/xds/.*\\.cc$@/wd4244
+build:msvc --host_per_file_copt=external/xds/.*\\.cc$@/wd4244
+
 # Use colors
 build:gcc_or_clang --copt=-fdiagnostics-color=always
 build:gcc_or_clang --host_copt=-fdiagnostics-color=always
