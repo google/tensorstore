@@ -5,7 +5,7 @@ common  --experimental_downloader_config=bazel/rewrite.config
 build --enable_platform_specific_config
 
 # Disable bzlmod to suppress a warning since we don't yet support it.
-build --noenable_bzlmod
+build --noenable_bzlmod --enable_workspace
 
 # Specify platform mapping to ensure "platforms" and --cpu flags are
 # in sync.
