@@ -107,11 +107,14 @@ def _try_sys_pypa_package(ctx, target, interpreter_path, logger):
         logger.warn(lambda: "numpy_include not found: {}".format(result.describe_failure()))
         return None
     else:
-        numpy_include = repo_utils.norm_path(result.numpy_include)
+        numpy_include = result.numpy_include
 
     # Link the numpy headers from the system Python installation.
-    repo_utils.watch_tree(ctx, ctx.path(numpy_include))
-    ctx.symlink(ctx.path(numpy_include), "numpy_include")
+    numpy_include_path = ctx.path(numpy_include)
+    logger.debug(lambda: "numpy_include: {}".format(numpy_include_path))
+
+    repo_utils.watch_tree(ctx, numpy_include_path)
+    ctx.symlink(numpy_include_path, "numpy_include")
     return _SYS_NUMPY_BUILD_FILE_TEMPLATE.format(target = target)
 
 def _pip_install(
@@ -155,10 +158,10 @@ def _pip_install(
     ctx.delete(temp_requirements_filename)
     if exec_result.return_code != 0:
         logger.fail(
-            lambda: "PipInstall({}) failed:".format(
+            lambda: "PipInstall({}) failed: {}".format(
                 requirement,
+                exec_result.describe_failure(),
             ),
-            exec_result.describe_failure(),
         )
 
     # Create missing __init__.py files in order to support namespace
@@ -237,8 +240,10 @@ _third_party_pypa_package_attrs = python_attrs | {
 third_party_pypa_package = repository_rule(
     implementation = _third_party_pypa_package_impl,
     attrs = _third_party_pypa_package_attrs,
+    configure = True,
+    local = True,
     # toolchains = ["@rules_python//python:current_py_toolchain"],
-    environ = [
+    environ = PYTHON_ENV_VARS + [
         _TENSORSTORE_SYSTEM_PYTHON_LIBS,
-    ] + PYTHON_ENV_VARS,
+    ],
 )
