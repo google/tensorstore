@@ -117,7 +117,7 @@ void ReadState::StartNextRead(tensorstore::Promise<void> promise) {
   // until the test has completed.
   std::string_view key;
   {
-    absl::MutexLock l(&mu);
+    absl::MutexLock l(mu);
     key = keys[absl::Uniform(gen, 0u, keys.size())];
   }
 

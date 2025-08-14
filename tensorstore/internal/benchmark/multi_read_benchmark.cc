@@ -162,7 +162,7 @@ static bool StartNextRead(tensorstore::Promise<void> promise,
   Future<SharedOffsetArray<void>> read_future;
 
   {
-    absl::MutexLock lock(&self->mutex);
+    absl::MutexLock lock(self->mutex);
     if (finish) {
       self->in_flight -= finish;
     }
