@@ -31,7 +31,7 @@ RefreshableAuthProvider::RefreshableAuthProvider(
     : clock_(clock ? std::move(clock) : &absl::Now) {}
 
 Result<BearerTokenWithExpiration> RefreshableAuthProvider::GetToken() {
-  absl::MutexLock lock(&mutex_);
+  absl::MutexLock lock(mutex_);
   if (IsValidInternal()) {
     return token_;
   }

@@ -203,7 +203,7 @@ Result<std::unique_ptr<AuthProvider>> GetDefaultGoogleAuthProvider(
 
 void RegisterGoogleAuthProvider(GoogleAuthProvider provider, int priority) {
   auto& registry = GetGoogleAuthProviderRegistry();
-  absl::WriterMutexLock lock(&registry.mutex);
+  absl::WriterMutexLock lock(registry.mutex);
   registry.providers.emplace_back(priority, std::move(provider));
   std::sort(registry.providers.begin(), registry.providers.end(),
             [](const auto& a, const auto& b) { return a.first < b.first; });
@@ -213,7 +213,7 @@ Result<std::unique_ptr<AuthProvider>> GetGoogleAuthProvider(
     std::shared_ptr<internal_http::HttpTransport> transport) {
   {
     auto& registry = GetGoogleAuthProviderRegistry();
-    absl::ReaderMutexLock lock(&registry.mutex);
+    absl::ReaderMutexLock lock(registry.mutex);
     for (const auto& provider : registry.providers) {
       auto auth_result = provider.second();
       if (auth_result.ok()) return auth_result;
