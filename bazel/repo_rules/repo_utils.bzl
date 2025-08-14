@@ -35,6 +35,7 @@ def _is_repo_debug_enabled(mrctx):
     Returns:
         True if enabled, False if not.
     """
+    return True
     return _getenv(mrctx, _REPO_DEBUG_ENV_VAR) == "1"
 
 def _logger(mrctx = None, name = None, verbosity_level = None):
