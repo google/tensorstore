@@ -146,11 +146,6 @@ def _get_python_info(ctx, *, interpreter_path, logger):
     #    "implementation_name": "cpython",
     #    "base_executable": "/Library/Frameworks/Python.framework/Versions/3.12/bin/python3.12",
     #    "include": "/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12",
-    #    "LDLIBRARY": "Python.framework/Versions/3.12/Python",
-    #    "LIBDIR": "/Library/Frameworks/Python.framework/Versions/3.12/lib",
-    #    "INSTSONAME": "Python.framework/Versions/3.12/Python",
-    #    "PY3LIBRARY": "",
-    #    "SHLIB_SUFFIX": ".so",
     # }
     # Examples of GetPythonInfo result from windows:
     # {
@@ -160,8 +155,6 @@ def _get_python_info(ctx, *, interpreter_path, logger):
     #    "include": "T:\\build_temp\\home\\kokoro_deps\\python_4379bdec28bdff81a567a01c9b8cf10e3856c8c966e4fe53945bedea6338b416\\tools\\Include",
     #    "implementation_name": "cpython",
     #    "base_executable": "T:\\build_temp\\home\\kokoro_deps\\python_4379bdec28bdff81a567a01c9b8cf10e3856c8c966e4fe53945bedea6338b416\\tools\\python.exe",
-    #    "LDLIBRARY": "python313.dll",
-    #    "LIBDIR": "T:\\build_temp\\home\\kokoro_deps\\python_4379bdec28bdff81a567a01c9b8cf10e3856c8c966e4fe53945bedea6338b416\\tools\\libs",
     # }
     #{
     #    "major": 3,
@@ -240,6 +233,8 @@ def _get_numpy_info(ctx, *, interpreter_path, logger):
             numpy_include = None,
             describe_failure = lambda: "GetNumpyInfo failed: {}".format(exec_result.describe_failure()),
         )
+
+    logger.info(lambda: "GetNumpyInfo result:\n{}".format(exec_result.stdout))
     return struct(
         numpy_include = exec_result.stdout.splitlines()[0],
         describe_failure = None,

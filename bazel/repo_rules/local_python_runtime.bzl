@@ -107,7 +107,7 @@ def _symlink_first_library(rctx, logger, libraries):
             linked = "lib/{}.dylib".format(origin.basename)
         else:
             linked = "lib/{}".format(origin.basename)
-        logger.debug("Symlinking {} to {}".format(origin, linked))
+        logger.debug(lambda: "Symlinking {} to {}".format(origin, linked))
         repo_utils.watch(rctx, origin)
         rctx.symlink(origin, linked)
         break
@@ -170,7 +170,7 @@ def _local_python_repo_impl(rctx):
     # but we don't realpath() it to respect what it has decided is the
     # appropriate path.
     interpreter_path = info["base_executable"]
-    logger.info("Found external Python interpreter {}".format(interpreter_path))
+    logger.info(lambda: "Found external Python interpreter {}".format(interpreter_path))
 
     # NOTE: Keep in sync with recursive glob in define_local_runtime_toolchain_impl
     include_path = rctx.path(info["include"])
@@ -186,13 +186,8 @@ def _local_python_repo_impl(rctx):
     # The cc_library.includes values have to be non-absolute paths, otherwise
     # the toolchain will give an error. Work around this error by making them
     # appear as part of this repo.
-    include_src = repo_utils.norm_path(info["include"])
-    numpy_include_src = include_src + "/numpy/"
-    for src in sorted(repo_utils.read_dir(rctx, include_src, logger)):
-        if src.startswith(numpy_include_src):
-            continue
-        dest = src.replace(include_src, "include")
-        rctx.symlink(src, dest)
+    logger.debug(lambda: "Symlinking {} to include".format(include_path))
+    rctx.symlink(include_path, "include")
 
     rctx.report_progress("Symlinking external Python shared libraries")
     interface_library = _symlink_first_library(rctx, logger, info["interface_libraries"])
@@ -217,7 +212,7 @@ def _local_python_repo_impl(rctx):
         implementation_name = info["implementation_name"],
         os = "@platforms//os:{}".format(repo_utils.get_platforms_os_name(rctx)),
     )
-    logger.debug("BUILD.bazel\n{}".format(build_bazel))
+    logger.debug(lambda: "BUILD.bazel\n{}".format(build_bazel))
 
     rctx.file("WORKSPACE", "")
     rctx.file("MODULE.bazel", "")

@@ -83,9 +83,9 @@ def define_local_runtime_toolchain_impl(
         name = "_python_headers",
         # NOTE: Keep in sync with watch_tree() called in local_runtime_repo
         srcs = native.glob(
-            ["include/**/*.h"],
-            # A Python install may not have C headers
-            allow_empty = True,
+            include = ["include/**/*.h"],
+            exclude = ["include/numpy/**"],  # numpy headers are handled separately
+            allow_empty = True,  # A Python install may not have C headers
         ),
         deps = import_deps,
         includes = ["include"],

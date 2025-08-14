@@ -471,48 +471,6 @@ def _use_system_lib(ctx, name, env_var):
             return True
     return False
 
-def _read_dir(ctx, src_dir, logger):
-    """Returns a list of strings with all files in a directory.
-
-    Args:
-        ctx: A repository ctx object
-        src_dir: The directory to read.
-        logger: A repo_utils.logger object.
-
-    Returns:
-        A list of strings with all files in a directory.
-    """
-    if not src_dir:
-        fail("src_dir must be specified")
-    if not logger:
-        fail("logger must be specified")
-
-    src_dir = _norm_path(src_dir)
-    if _is_windows(ctx):
-        src_dir = src_dir.replace("/", "\\")
-        cmd_path = ctx.which("cmd.exe")
-        if cmd_path == None:
-            cmd_path = "cmd.exe"
-        arguments = [cmd_path, "/c", "dir", src_dir, "/b", "/s", "/a-d"]
-    else:
-        arguments = ["find", src_dir, "-follow", "-type", "f"]
-
-    exec_result = _execute_unchecked(
-        ctx,
-        op = "ReadDir({})".format(src_dir),
-        arguments = arguments,
-        quiet = True,
-        logger = logger,
-    )
-
-    if exec_result.return_code != 0:
-        logger.fail(lambda: "ReadDir failed: {}".format(exec_result.describe_failure()))
-
-    if _is_windows(ctx):
-        return exec_result.stdout.replace("\\", "/").splitlines()
-    else:
-        return exec_result.stdout.splitlines()
-
 ENV_VARS = [
     # Debug environment variables.
     _REPO_DEBUG_ENV_VAR,
@@ -532,7 +490,6 @@ repo_utils = struct(
     is_windows = _is_windows,
     logger = _logger,
     norm_path = _norm_path,
-    read_dir = _read_dir,
     use_system_lib = _use_system_lib,
     watch = _watch,
     watch_tree = _watch_tree,
