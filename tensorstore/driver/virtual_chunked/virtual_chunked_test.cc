@@ -113,7 +113,7 @@ LoggingView(std::vector<RequestLayout>& requests, Option&&... option) {
           [mutex, &requests](auto output, auto read_params)
               -> Future<TimestampedStorageGeneration> {
             tensorstore::InitializeArray(output);
-            absl::MutexLock lock(mutex.get());
+            absl::MutexLock lock(*mutex.get());
             requests.emplace_back(output.layout());
             return TimestampedStorageGeneration{
                 StorageGeneration::FromString("abc"), absl::Now()};
