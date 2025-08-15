@@ -5,7 +5,7 @@ common  --experimental_downloader_config=bazel/rewrite.config
 build --enable_platform_specific_config
 
 # Disable bzlmod to suppress a warning since we don't yet support it.
-build --noenable_bzlmod
+build --noenable_bzlmod --enable_workspace
 
 # Specify platform mapping to ensure "platforms" and --cpu flags are
 # in sync.
@@ -36,6 +36,25 @@ build:gcc_or_clang --host_per_file_copt=upbc/.*\\.cc$@-Wno-array-bounds,-Wno-str
 
 build:gcc_or_clang --per_file_copt=grpc/src/.*\\.cc$@-Wno-attributes
 build:gcc_or_clang --host_per_file_copt=grpc/src/.*\\.cc$@-Wno-attributes
+
+build:msvc --per_file_copt=upb/.*\\.c$@/wd5287
+build:msvc --host_per_file_copt=upb/.*\\.c$@/wd5287
+
+build:msvc --per_file_copt=.*\\.upb\\.c$@/wd5287
+build:msvc --host_per_file_copt=.*\\.upb\\.c@/wd5287
+build:msvc --per_file_copt=.*\\.upbdefs\\.c$@/wd5287
+build:msvc --host_per_file_copt=.*\\.upbdefs\\.c$@/wd5287
+build:msvc --per_file_copt=.*\\.upb_minitable\\.c$@/wd5287
+build:msvc --host_per_file_copt=.*\\.upb_minitable\\.c@/wd5287
+
+# gRPC has some errors on windows as well
+
+build:msvc --per_file_copt=grpc/.*\\.cc$@/wd4624
+build:msvc --host_per_file_copt=grpc/.*\\.cc$@/wd4624
+build:msvc --per_file_copt=grpc/.*\\.cc$@/wd4244
+build:msvc --host_per_file_copt=grpc/.*\\.cc$@/wd4244
+build:msvc --per_file_copt=external/xds/.*\\.cc$@/wd4244
+build:msvc --host_per_file_copt=external/xds/.*\\.cc$@/wd4244
 
 # Use colors
 build:gcc_or_clang --copt=-fdiagnostics-color=always
