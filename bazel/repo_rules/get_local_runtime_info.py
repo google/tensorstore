@@ -23,7 +23,7 @@ _IS_WINDOWS = sys.platform == "win32"
 _IS_DARWIN = sys.platform == "darwin"
 
 
-def _search_directories(get_config):
+def _search_directories(get_config, base_executable):
   """Returns a list of library directories to search for shared libraries."""
   # There's several types of libraries with different names and a plethora
   # of settings, and many different config variables to check:
@@ -55,19 +55,23 @@ def _search_directories(get_config):
       if config_value and not config_value.endswith(multiarch):
         lib_dirs.append(os.path.join(config_value, multiarch))
 
-  if _IS_WINDOWS:
-    # On Windows DLLs go in the same directory as the executable, while .lib
-    # files live in the lib/ or libs/ subdirectory.
-    lib_dirs.append(get_config("BINDIR"))
-    lib_dirs.append(os.path.join(os.path.dirname(sys.executable)))
-    lib_dirs.append(os.path.join(os.path.dirname(sys.executable), "lib"))
-    lib_dirs.append(os.path.join(os.path.dirname(sys.executable), "libs"))
-  elif not _IS_DARWIN:
-    # On most systems the executable is in a bin/ directory and the libraries
-    # are in a sibling lib/ directory.
-    lib_dirs.append(
-        os.path.join(os.path.dirname(os.path.dirname(sys.executable)), "lib")
-    )
+  if not _IS_DARWIN:
+    for exec_dir in (
+        os.path.dirname(base_executable) if base_executable else None,
+        get_config("BINDIR"),
+    ):
+      if not exec_dir:
+        continue
+      if _IS_WINDOWS:
+        # On Windows DLLs go in the same directory as the executable, while .lib
+        # files live in the lib/ or libs/ subdirectory.
+        lib_dirs.append(exec_dir)
+        lib_dirs.append(os.path.join(exec_dir, "lib"))
+        lib_dirs.append(os.path.join(exec_dir, "libs"))
+      else:
+        # On most non-windows systems the executable is in a bin/ directory and
+        # the libraries are in a sibling lib/ directory.
+        lib_dirs.append(os.path.join(os.path.dirname(exec_dir), "lib"))
 
   # Dedup and remove empty values, keeping the order.
   lib_dirs = [v for v in lib_dirs if v]
@@ -128,7 +132,7 @@ def _search_library_names(get_config):
   return {k: None for k in lib_names}.keys()
 
 
-def _get_python_library_info():
+def _get_python_library_info(base_executable):
   """Returns a dictionary with the static and dynamic python libraries."""
   config_vars = sysconfig.get_config_vars()
 
@@ -144,7 +148,7 @@ def _get_python_library_info():
           f"{sys.version_info.major}.{sys.version_info.minor}"
       )
 
-  search_directories = _search_directories(config_vars.get)
+  search_directories = _search_directories(config_vars.get, base_executable)
   search_libnames = _search_library_names(config_vars.get)
 
   def _add_if_exists(target, path):
@@ -191,13 +195,23 @@ def _get_python_library_info():
   }
 
 
+def _get_base_executable():
+  """Returns the base executable path."""
+  try:
+    if sys._base_executable:  # pylint: disable=protected-access
+      return sys._base_executable  # pylint: disable=protected-access
+  except AttributeError:
+    pass
+  return sys.executable
+
+
 data = {
     "major": sys.version_info.major,
     "minor": sys.version_info.minor,
     "micro": sys.version_info.micro,
     "include": sysconfig.get_path("include"),
     "implementation_name": sys.implementation.name,
-    "base_executable": sys._base_executable,
+    "base_executable": _get_base_executable(),
 }
-data.update(_get_python_library_info())
+data.update(_get_python_library_info(_get_base_executable()))
 print(json.dumps(data))
