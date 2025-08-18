@@ -15,6 +15,8 @@
 #ifndef TENSORSTORE_UTIL_EXECUTION_FLOW_SENDER_OPERATION_STATE_H_
 #define TENSORSTORE_UTIL_EXECUTION_FLOW_SENDER_OPERATION_STATE_H_
 
+#include <utility>
+
 #include "absl/status/status.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/util/execution/any_receiver.h"
