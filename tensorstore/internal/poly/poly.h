@@ -99,11 +99,11 @@
 
 #include <cstddef>  // std::nullptr_t
 #include <type_traits>
-#include <typeinfo>
 #include <utility>
 
 #include "absl/meta/type_traits.h"
 #include "tensorstore/internal/poly/poly_impl.h"  // IWYU pragma: export
+#include "tensorstore/internal/poly/storage.h"
 
 namespace tensorstore {
 namespace poly {
