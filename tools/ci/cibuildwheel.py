@@ -144,7 +144,6 @@ def run(args, extra_args):
   env["CIBW_BEFORE_BUILD"] = " && ".join([
       (
           "pip install "
-          "-r {package}/third_party/pypa/build_requirements_frozen.txt "
           "-r {package}/third_party/pypa/wheel_requirements_frozen.txt"
       ),
   ])

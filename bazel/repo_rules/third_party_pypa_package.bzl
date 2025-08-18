@@ -31,28 +31,6 @@ load(
     "repo_utils",
 )
 
-# Packages included in TENSORSTORE_SYSTEM_PYTHON_LIBS will use system installed packages,
-# others will be installed from pypa using pip.
-_TENSORSTORE_SYSTEM_PYTHON_LIBS = "TENSORSTORE_SYSTEM_PYTHON_LIBS"
-
-_SYS_BUILD_FILE_TEMPLATE = """
-py_library(
-  name = "{target}",
-  visibility = ["//visibility:public"],
-)
-"""
-
-_SYS_NUMPY_BUILD_FILE_TEMPLATE = _SYS_BUILD_FILE_TEMPLATE + """
-
-cc_library(
-  name = "headers",
-  srcs = glob(["numpy_include/**/*.h"]),
-  includes = ["numpy_include"],
-  visibility = ["//visibility:public"],
-)
-
-"""
-
 _PYPA_BUILD_FILE_TEMPLATE = """
 
 py_library(
@@ -79,7 +57,7 @@ SCRIPT_SUFFIX = ".py"
 ]
 """
 
-_PYPA_NUMPY_BUILD_FILE_TEMPLATE = _PYPA_BUILD_FILE_TEMPLATE + """
+_NUMPY_HEADERS_TEMPLATE = """
 cc_library(
   name = "headers",
   hdrs = glob(["numpy/_core/include/**/*.h"]),
@@ -87,35 +65,6 @@ cc_library(
   visibility = ["//visibility:public"],
 )
 """
-
-def _try_sys_pypa_package(ctx, target, interpreter_path, logger):
-    if not repo_utils.use_system_lib(ctx, target, _TENSORSTORE_SYSTEM_PYTHON_LIBS):
-        return None
-
-    if target != "numpy":
-        return _SYS_BUILD_FILE_TEMPLATE.format(target = target)
-
-    # For numpy we need to make sure that numpy headers are available in the
-    # system Python installation.  However the current toolchain may not be a
-    # local python toolchain, so in that case warn and then give up.
-    result = py_utils.get_numpy_info(
-        ctx,
-        interpreter_path = interpreter_path,
-        logger = logger,
-    )
-    if not result.numpy_include:
-        logger.warn(lambda: "numpy_include not found: {}".format(result.describe_failure()))
-        return None
-    else:
-        numpy_include = result.numpy_include
-
-    # Link the numpy headers from the system Python installation.
-    numpy_include_path = ctx.path(numpy_include)
-    logger.debug(lambda: "numpy_include: {}".format(numpy_include_path))
-
-    repo_utils.watch_tree(ctx, numpy_include_path)
-    ctx.symlink(numpy_include_path, "numpy_include")
-    return _SYS_NUMPY_BUILD_FILE_TEMPLATE.format(target = target)
 
 def _pip_install(
         ctx,
@@ -197,28 +146,21 @@ def _third_party_pypa_package_impl(ctx):
     else:
         interpreter_path = result.resolved_path
 
-    build_file_content = _try_sys_pypa_package(ctx, target, interpreter_path, logger)
-    if build_file_content == None:
-        # Write requirements to a temporary file because pip does not support `--hash` on
-        # the command-line.
-        _pip_install(
-            ctx,
-            requirement = ctx.attr.requirement,
-            postinstall_fix = ctx.attr._postinstall_fix,
-            interpreter_path = interpreter_path,
-            logger = logger,
-        )
+    _pip_install(
+        ctx,
+        requirement = ctx.attr.requirement,
+        postinstall_fix = ctx.attr._postinstall_fix,
+        interpreter_path = interpreter_path,
+        logger = logger,
+    )
 
-        if target == "numpy":
-            build_file_content = _PYPA_NUMPY_BUILD_FILE_TEMPLATE.format(
-                target = ctx.attr.target,
-                deps = repr(ctx.attr.deps),
-            )
-        else:
-            build_file_content = _PYPA_BUILD_FILE_TEMPLATE.format(
-                target = ctx.attr.target,
-                deps = repr(ctx.attr.deps),
-            )
+    build_file_content = _PYPA_BUILD_FILE_TEMPLATE.format(
+        target = ctx.attr.target,
+        deps = repr(ctx.attr.deps),
+    )
+    if target == "numpy":
+        build_file_content = build_file_content + _NUMPY_HEADERS_TEMPLATE
+        logger.debug(lambda: "numpy BUILD.bazel:\n{}".format(build_file_content))
 
     ctx.file(
         "BUILD.bazel",
@@ -243,7 +185,5 @@ third_party_pypa_package = repository_rule(
     configure = True,
     local = True,
     # toolchains = ["@rules_python//python:current_py_toolchain"],
-    environ = PYTHON_ENV_VARS + [
-        _TENSORSTORE_SYSTEM_PYTHON_LIBS,
-    ],
+    environ = PYTHON_ENV_VARS,
 )
