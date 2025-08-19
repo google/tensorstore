@@ -17,6 +17,7 @@
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load(
     "//third_party:repo.bzl",
+    "mirror_url",
     "third_party_http_archive",
 )
 
@@ -30,9 +31,7 @@ def repo():
         # system png.
         name = "libpng",
         doc_version = "1.6.47",
-        urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/pnggroup/libpng/archive/refs/tags/v1.6.47.tar.gz",
-        ],
+        urls = mirror_url("https://github.com/pnggroup/libpng/archive/refs/tags/v1.6.47.tar.gz"),
         sha256 = "631a4c58ea6c10c81f160c4b21fa8495b715d251698ebc2552077e8450f30454",
         strip_prefix = "libpng-1.6.47",
         build_file = Label("//third_party:libpng/png.BUILD.bazel"),

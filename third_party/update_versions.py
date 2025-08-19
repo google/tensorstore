@@ -158,6 +158,10 @@ class WorkspaceDict(dict):
     self['repo']()
     return self.maybe_args
 
+  def mirror_url(self, url: str) -> list[str]:
+    self.mirror_url_args = url
+    return [url]
+
 
 class WorkspaceFile:
   """Holds the contents of a workspace.bzl file and the parse methods."""

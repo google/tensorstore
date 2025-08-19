@@ -15,7 +15,11 @@
 # buildifier: disable=module-docstring
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//third_party:repo.bzl", "third_party_http_archive")
+load(
+    "//third_party:repo.bzl",
+    "mirror_url",
+    "third_party_http_archive",
+)
 
 def repo():
     maybe(
@@ -23,9 +27,7 @@ def repo():
         name = "aws_checksums",
         sha256 = "178e8398d98111f29150f7813a70c20ad97ab30be0de02525440355fe84ccb1d",
         strip_prefix = "aws-checksums-0.2.7",
-        urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/awslabs/aws-checksums/archive/v0.2.7.tar.gz",
-        ],
+        urls = mirror_url("https://github.com/awslabs/aws-checksums/archive/v0.2.7.tar.gz"),
         build_file = Label("//third_party:aws_checksums/aws_checksums.BUILD.bazel"),
         cmake_name = "aws_checksums",
         cmake_target_mapping = {

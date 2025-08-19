@@ -17,6 +17,7 @@
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load(
     "//third_party:repo.bzl",
+    "mirror_url",
     "third_party_http_archive",
 )
 
@@ -24,10 +25,7 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "net_sourceforge_half",
-        urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/sourceforge.net/projects/half/files/half/2.2.1/half-2.2.1.zip",
-            "https://sourceforge.net/projects/half/files/half/2.2.1/half-2.2.1.zip",
-        ],
+        urls = mirror_url("https://sourceforge.net/projects/half/files/half/2.2.1/half-2.2.1.zip"),
         sha256 = "76ddbf406e9d9b772ec73af2bf925b38b290b4390cc4064720a08d4b4bca0aa9",
         build_file = Label("//third_party:net_sourceforge_half/half.BUILD.bazel"),
         cmake_name = "half",

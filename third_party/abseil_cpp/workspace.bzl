@@ -15,7 +15,11 @@
 # buildifier: disable=module-docstring
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//third_party:repo.bzl", "third_party_http_archive")
+load(
+    "//third_party:repo.bzl",
+    "mirror_url",
+    "third_party_http_archive",
+)
 
 # REPO_BRANCH = master
 
@@ -25,9 +29,7 @@ def repo():
         name = "abseil-cpp",
         doc_version = "20250811-274c81389",
         doc_homepage = "https://abseil.io/",
-        urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/abseil/abseil-cpp/archive/274c81389f97afc612d76dc7cb5d38144cd9647f.tar.gz",  # master(2025-08-11)
-        ],
+        urls = mirror_url("https://github.com/abseil/abseil-cpp/archive/274c81389f97afc612d76dc7cb5d38144cd9647f.tar.gz"),  # master(2025-08-11)
         sha256 = "fb285607088cde65b5849b57dff42342a26e4e3e578e1f64fa2f895d04b0fe85",
         strip_prefix = "abseil-cpp-274c81389f97afc612d76dc7cb5d38144cd9647f",
         repo_mapping = {

@@ -16,6 +16,10 @@
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
+load(
+    "//third_party:repo.bzl",
+    "mirror_url",
+)
 
 def repo():
     maybe(
@@ -23,7 +27,5 @@ def repo():
         name = "bazel_features",
         sha256 = "bdc12fcbe6076180d835c9dd5b3685d509966191760a0eb10b276025fcb76158",
         strip_prefix = "bazel_features-1.17.0",
-        urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/bazel-contrib/bazel_features/archive/v1.17.0.tar.gz",
-        ],
+        urls = mirror_url("https://github.com/bazel-contrib/bazel_features/archive/v1.17.0.tar.gz"),
     )

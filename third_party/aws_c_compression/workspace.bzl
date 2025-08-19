@@ -15,7 +15,11 @@
 # buildifier: disable=module-docstring
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//third_party:repo.bzl", "third_party_http_archive")
+load(
+    "//third_party:repo.bzl",
+    "mirror_url",
+    "third_party_http_archive",
+)
 
 def repo():
     maybe(
@@ -23,9 +27,7 @@ def repo():
         name = "aws_c_compression",
         sha256 = "d89fca17a37de762dc34f332d2da402343078da8dbd2224c46a11a88adddf754",
         strip_prefix = "aws-c-compression-0.3.1",
-        urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/awslabs/aws-c-compression/archive/v0.3.1.tar.gz",
-        ],
+        urls = mirror_url("https://github.com/awslabs/aws-c-compression/archive/v0.3.1.tar.gz"),
         build_file = Label("//third_party:aws_c_compression/aws_c_compression.BUILD.bazel"),
         cmake_name = "aws_c_compression",
         cmake_target_mapping = {

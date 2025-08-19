@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""CMake implementation of "@tensorstore//third_party:repo.bzl".
+"""CMake implementation of "@tensorstore//bazel/repo_rules:third_party_http_archive.bzl".
 
 The following parameters of `third_party_http_archive` are supported:
 
@@ -232,16 +232,14 @@ from .helpers import write_bazel_to_cmake_cmakelists
 from .register import register_bzl_library
 
 
-@register_bzl_library("@tensorstore//third_party:repo.bzl", workspace=True)
+@register_bzl_library(
+    "@tensorstore//bazel/repo_rules:third_party_http_archive.bzl",
+    workspace=True,
+)
 class ThirdPartyRepoLibrary(ScopeCommon):
 
   def bazel_third_party_http_archive(self, **kwargs):
     _third_party_http_archive_impl(self._context, **kwargs)
-
-  def bazel_third_party_python_package(self, *args, **kwargs):
-    del args
-    del kwargs
-    pass
 
 
 def _get_third_party_dir(repo: CMakeRepository) -> str:

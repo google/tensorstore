@@ -15,15 +15,17 @@
 # buildifier: disable=module-docstring
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//third_party:repo.bzl", "third_party_http_archive")
+load(
+    "//third_party:repo.bzl",
+    "mirror_url",
+    "third_party_http_archive",
+)
 
 def repo():
     maybe(
         third_party_http_archive,
         name = "xds",
-        urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/cncf/xds/archive/ae57f3c0d45fc76d0b323b79e8299a83ccb37a49.tar.gz",  # main(2025-04-26)
-        ],
+        urls = mirror_url("https://github.com/cncf/xds/archive/ae57f3c0d45fc76d0b323b79e8299a83ccb37a49.tar.gz"),  # main(2025-04-26)
         sha256 = "557cb4aecb5dde1fee6a9eda2ce18704226d2b8aa279892dd1327526259e086a",
         strip_prefix = "xds-ae57f3c0d45fc76d0b323b79e8299a83ccb37a49",
         repo_mapping = {

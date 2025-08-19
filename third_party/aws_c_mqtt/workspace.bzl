@@ -15,7 +15,11 @@
 # buildifier: disable=module-docstring
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//third_party:repo.bzl", "third_party_http_archive")
+load(
+    "//third_party:repo.bzl",
+    "mirror_url",
+    "third_party_http_archive",
+)
 
 def repo():
     maybe(
@@ -23,9 +27,7 @@ def repo():
         name = "aws_c_mqtt",
         sha256 = "c2ea5d3b34692c5b71ec4ff3efd8277af01f16706970e8851373c361abaf1d72",
         strip_prefix = "aws-c-mqtt-0.12.3",
-        urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/awslabs/aws-c-mqtt/archive/v0.12.3.tar.gz",
-        ],
+        urls = mirror_url("https://github.com/awslabs/aws-c-mqtt/archive/v0.12.3.tar.gz"),
         build_file = Label("//third_party:aws_c_mqtt/aws_c_mqtt.BUILD.bazel"),
         cmake_name = "aws_c_mqtt",
         cmake_target_mapping = {

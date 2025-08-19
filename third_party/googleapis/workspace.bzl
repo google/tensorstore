@@ -15,16 +15,18 @@
 # buildifier: disable=module-docstring
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//third_party:repo.bzl", "third_party_http_archive")
+load(
+    "//third_party:repo.bzl",
+    "mirror_url",
+    "third_party_http_archive",
+)
 
 def repo():
     maybe(
         third_party_http_archive,
         name = "googleapis",
         strip_prefix = "googleapis-32bc03653260356351854429bd7e2dfbf670d352",
-        urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/googleapis/googleapis/archive/32bc03653260356351854429bd7e2dfbf670d352.tar.gz",  # master(2024-09-10)
-        ],
+        urls = mirror_url("https://github.com/googleapis/googleapis/archive/32bc03653260356351854429bd7e2dfbf670d352.tar.gz"),  # master(2024-09-10)
         sha256 = "46ca6d9a6349c3845334dde2d55d482a11e7c1072a9085b89b6c1e94cdeb2d3e",
         repo_mapping = {
             "@com_google_googleapis_imports": "@local_proto_mirror",

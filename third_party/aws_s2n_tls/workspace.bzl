@@ -15,7 +15,11 @@
 # buildifier: disable=module-docstring
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//third_party:repo.bzl", "third_party_http_archive")
+load(
+    "//third_party:repo.bzl",
+    "mirror_url",
+    "third_party_http_archive",
+)
 
 def repo():
     maybe(
@@ -23,9 +27,7 @@ def repo():
         name = "aws_s2n_tls",
         sha256 = "3ab786720ac23b35bcf6f4354659652e2ec8eb20b1a3989e7be93c3e7985ea5e",
         strip_prefix = "s2n-tls-1.5.17",
-        urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/aws/s2n-tls/archive/v1.5.17.tar.gz",
-        ],
+        urls = mirror_url("https://github.com/aws/s2n-tls/archive/v1.5.17.tar.gz"),
         build_file = Label("//third_party:aws_s2n_tls/aws_s2n_tls.BUILD.bazel"),
         cmake_name = "s2n_tls",
         cmake_target_mapping = {

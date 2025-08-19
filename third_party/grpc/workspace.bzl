@@ -15,7 +15,11 @@
 # buildifier: disable=module-docstring
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//third_party:repo.bzl", "third_party_http_archive")
+load(
+    "//third_party:repo.bzl",
+    "mirror_url",
+    "third_party_http_archive",
+)
 
 # NOTE: Switch back to a tagged release with darwin-arm64
 # NOTE: When updating grpc, also update:
@@ -26,9 +30,7 @@ def repo():
         name = "grpc",
         sha256 = "4a8aa99d5e24f80ea6b7ec95463e16af5bd91aa805e26c661ef6491ae3d2d23c",
         strip_prefix = "grpc-1.72.0",
-        urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/grpc/grpc/archive/v1.72.0.tar.gz",
-        ],
+        urls = mirror_url("https://github.com/grpc/grpc/archive/v1.72.0.tar.gz"),
         patches = [
             # Adds #include <grpcpp/support/ports_def.inc> to the generated .cc files
             Label("//third_party:grpc/patches/add_ports_def.diff"),

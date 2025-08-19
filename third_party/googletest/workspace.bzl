@@ -15,7 +15,11 @@
 # buildifier: disable=module-docstring
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//third_party:repo.bzl", "third_party_http_archive")
+load(
+    "//third_party:repo.bzl",
+    "mirror_url",
+    "third_party_http_archive",
+)
 
 # REPO_BRANCH = main
 
@@ -23,7 +27,7 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "googletest",
-        urls = ["https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/google/googletest/archive/cd430b47a54841ec45d64d2377d7cabaf0eba610.zip"],  # main(2025-04-23)
+        urls = mirror_url("https://github.com/google/googletest/archive/cd430b47a54841ec45d64d2377d7cabaf0eba610.zip"),  # main(2025-04-23)
         sha256 = "0970814192d0a48be6ea6626d05569fd8587c54e874323dd0dc85d9ef36c7c86",
         strip_prefix = "googletest-cd430b47a54841ec45d64d2377d7cabaf0eba610",
         cmake_name = "GTest",

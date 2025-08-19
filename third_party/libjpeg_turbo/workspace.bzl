@@ -17,6 +17,7 @@
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load(
     "//third_party:repo.bzl",
+    "mirror_url",
     "third_party_http_archive",
 )
 
@@ -28,9 +29,7 @@ def repo():
         # system jpeg.
         name = "libjpeg_turbo",
         strip_prefix = "libjpeg-turbo-2.1.5.1",
-        urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/libjpeg-turbo/libjpeg-turbo/archive/2.1.5.1.tar.gz",
-        ],
+        urls = mirror_url("https://github.com/libjpeg-turbo/libjpeg-turbo/archive/2.1.5.1.tar.gz"),
         sha256 = "61846251941e5791005fb7face196eec24541fce04f12570c308557529e92c75",
         doc_version = "2.1.5.1",
         build_file = Label("//third_party:libjpeg_turbo/jpeg.BUILD.bazel"),

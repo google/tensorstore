@@ -17,6 +17,7 @@
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load(
     "//third_party:repo.bzl",
+    "mirror_url",
     "third_party_http_archive",
 )
 
@@ -25,9 +26,7 @@ def repo():
         third_party_http_archive,
         name = "tinyxml2",
         strip_prefix = "tinyxml2-11.0.0",
-        urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/leethomason/tinyxml2/archive/11.0.0.tar.gz",
-        ],
+        urls = mirror_url("https://github.com/leethomason/tinyxml2/archive/11.0.0.tar.gz"),
         sha256 = "5556deb5081fb246ee92afae73efd943c889cef0cafea92b0b82422d6a18f289",
         build_file = Label("//third_party:tinyxml2/tinyxml2.BUILD.bazel"),
         system_build_file = Label("//third_party:tinyxml2/system.BUILD.bazel"),

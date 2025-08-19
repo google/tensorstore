@@ -15,16 +15,18 @@
 # buildifier: disable=module-docstring
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//third_party:repo.bzl", "third_party_http_archive")
+load(
+    "//third_party:repo.bzl",
+    "mirror_url",
+    "third_party_http_archive",
+)
 
 def repo():
     maybe(
         third_party_http_archive,
         name = "org_blosc_cblosc",
         strip_prefix = "c-blosc-1.21.6",
-        urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/Blosc/c-blosc/archive/v1.21.6.zip",
-        ],
+        urls = mirror_url("https://github.com/Blosc/c-blosc/archive/v1.21.6.zip"),
         sha256 = "1919c97d55023c04aa8771ea8235b63e9da3c22e3d2a68340b33710d19c2a2eb",
         build_file = Label("//third_party:org_blosc_cblosc/cblosc.BUILD.bazel"),
         system_build_file = Label("//third_party:org_blosc_cblosc/system.BUILD.bazel"),

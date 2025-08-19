@@ -15,15 +15,17 @@
 # buildifier: disable=module-docstring
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//third_party:repo.bzl", "third_party_http_archive")
+load(
+    "//third_party:repo.bzl",
+    "mirror_url",
+    "third_party_http_archive",
+)
 
 def repo():
     maybe(
         third_party_http_archive,
         name = "google_benchmark",
-        urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/google/benchmark/archive/v1.9.2.zip",
-        ],
+        urls = mirror_url("https://github.com/google/benchmark/archive/v1.9.2.zip"),
         sha256 = "a13cdcd3b0e3725e371f977a2855fecd651fc0236c67da16e325b726057b15b4",
         strip_prefix = "benchmark-1.9.2",
         patches = [

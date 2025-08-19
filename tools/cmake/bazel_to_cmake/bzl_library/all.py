@@ -25,4 +25,5 @@ from . import rules_nasm  # pylint: disable=unused-import
 from . import rules_proto  # pylint: disable=unused-import
 from . import rules_python  # pylint: disable=unused-import
 from . import third_party_http_archive  # pylint: disable=unused-import
+from . import third_party_pypa_package  # pylint: disable=unused-import
 from . import upb_proto_library  # pylint: disable=unused-import

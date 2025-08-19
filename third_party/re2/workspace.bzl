@@ -15,7 +15,11 @@
 # buildifier: disable=module-docstring
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//third_party:repo.bzl", "third_party_http_archive")
+load(
+    "//third_party:repo.bzl",
+    "mirror_url",
+    "third_party_http_archive",
+)
 
 # REPO_BRANCH = main
 
@@ -24,9 +28,7 @@ def repo():
         third_party_http_archive,
         name = "re2",
         strip_prefix = "re2-2024-07-02",
-        urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/google/re2/releases/download/2024-07-02/re2-2024-07-02.tar.gz",
-        ],
+        urls = mirror_url("https://github.com/google/re2/releases/download/2024-07-02/re2-2024-07-02.tar.gz"),
         sha256 = "eb2df807c781601c14a260a507a5bb4509be1ee626024cb45acbd57cb9d4032b",
         doc_version = "2024-07-02",
         # Cloned from the repo in place of patching the bundled BUILD.bazel

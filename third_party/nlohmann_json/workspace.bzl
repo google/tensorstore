@@ -15,16 +15,18 @@
 # buildifier: disable=module-docstring
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//third_party:repo.bzl", "third_party_http_archive")
+load(
+    "//third_party:repo.bzl",
+    "mirror_url",
+    "third_party_http_archive",
+)
 
 def repo():
     maybe(
         third_party_http_archive,
         name = "nlohmann_json",
         strip_prefix = "json-3.11.3",
-        urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/nlohmann/json/archive/v3.11.3.zip",
-        ],
+        urls = mirror_url("https://github.com/nlohmann/json/archive/v3.11.3.zip"),
         sha256 = "04022b05d806eb5ff73023c280b68697d12b93e1b7267a0b22a1a39ec7578069",
         system_build_file = Label("//third_party:nlohmann_json/system.BUILD.bazel"),
         # documentation-only

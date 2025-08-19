@@ -17,6 +17,7 @@
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load(
     "//third_party:repo.bzl",
+    "mirror_url",
     "third_party_http_archive",
 )
 
@@ -25,10 +26,7 @@ def repo():
         third_party_http_archive,
         name = "libwebp",
         doc_version = "1.5.0",
-        urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/webmproject/libwebp/archive/v1.5.0.tar.gz",
-            "https://github.com/webmproject/libwebp/archive/v1.5.0.tar.gz",
-        ],
+        urls = mirror_url("https://github.com/webmproject/libwebp/archive/v1.5.0.tar.gz"),
         sha256 = "668c9aba45565e24c27e17f7aaf7060a399f7f31dba6c97a044e1feacb930f37",
         strip_prefix = "libwebp-1.5.0",
         build_file = Label("//third_party:libwebp/libwebp.BUILD.bazel"),

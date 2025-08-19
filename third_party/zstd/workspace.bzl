@@ -17,6 +17,7 @@
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load(
     "//third_party:repo.bzl",
+    "mirror_url",
     "third_party_http_archive",
 )
 
@@ -27,9 +28,7 @@ def repo():
         doc_homepage = "https://github.com/facebook/zstd",
         doc_version = "1.5.7",
         strip_prefix = "zstd-1.5.7",
-        urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/facebook/zstd/archive/v1.5.7.zip",
-        ],
+        urls = mirror_url("https://github.com/facebook/zstd/archive/v1.5.7.zip"),
         sha256 = "7897bc5d620580d9b7cd3539c44b59d78f3657d33663fe97a145e07b4ebd69a4",
         build_file = Label("//third_party:zstd/zstd.BUILD.bazel"),
         system_build_file = Label("//third_party:zstd/system.BUILD.bazel"),

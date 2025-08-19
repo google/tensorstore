@@ -15,7 +15,11 @@
 # buildifier: disable=module-docstring
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//third_party:repo.bzl", "third_party_http_archive")
+load(
+    "//third_party:repo.bzl",
+    "mirror_url",
+    "third_party_http_archive",
+)
 
 # Homepages http://www.simplesystems.org/libtiff/
 # TODO: Use mirror the gitlab bundle: "https://gitlab.com/libtiff/libtiff"
@@ -23,9 +27,7 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "libtiff",
-        urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/download.osgeo.org/libtiff/tiff-4.7.0.tar.gz",
-        ],
+        urls = mirror_url("https://download.osgeo.org/libtiff/tiff-4.7.0.tar.gz"),
         sha256 = "67160e3457365ab96c5b3286a0903aa6e78bdc44c4bc737d2e486bcecb6ba976",
         doc_version = "4.7.0",
         strip_prefix = "tiff-4.7.0",

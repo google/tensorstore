@@ -15,7 +15,11 @@
 # buildifier: disable=module-docstring
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//third_party:repo.bzl", "third_party_http_archive")
+load(
+    "//third_party:repo.bzl",
+    "mirror_url",
+    "third_party_http_archive",
+)
 
 #   Canonical location for dav1d codec is https://code.videolan.org/videolan/dav1d
 
@@ -25,9 +29,7 @@ def repo():
         name = "org_videolan_dav1d",
         sha256 = "fa635e2bdb25147b1384007c83e15de44c589582bb3b9a53fc1579cb9d74b695",
         strip_prefix = "dav1d-1.5.1",
-        urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/videolan/dav1d/archive/1.5.1.tar.gz",
-        ],
+        urls = mirror_url("https://github.com/videolan/dav1d/archive/1.5.1.tar.gz"),
         build_file = Label("//third_party:org_videolan_dav1d/dav1d.BUILD.bazel"),
         cmake_name = "dav1d",
         bazel_to_cmake = {},

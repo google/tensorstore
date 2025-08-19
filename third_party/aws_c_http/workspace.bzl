@@ -15,7 +15,11 @@
 # buildifier: disable=module-docstring
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//third_party:repo.bzl", "third_party_http_archive")
+load(
+    "//third_party:repo.bzl",
+    "mirror_url",
+    "third_party_http_archive",
+)
 
 def repo():
     maybe(
@@ -23,9 +27,7 @@ def repo():
         name = "aws_c_http",
         sha256 = "18cb2a19a7cd80eafc4c29e6845ec97135a381a1e32fc848bdb8340cc747204a",
         strip_prefix = "aws-c-http-0.9.7",
-        urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/awslabs/aws-c-http/archive/v0.9.7.tar.gz",
-        ],
+        urls = mirror_url("https://github.com/awslabs/aws-c-http/archive/v0.9.7.tar.gz"),
         build_file = Label("//third_party:aws_c_http/aws_c_http.BUILD.bazel"),
         cmake_name = "aws_c_http",
         cmake_target_mapping = {
