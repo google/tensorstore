@@ -15,7 +15,11 @@
 # buildifier: disable=module-docstring
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//third_party:repo.bzl", "third_party_http_archive")
+load(
+    "//third_party:repo.bzl",
+    "mirror_url",
+    "third_party_http_archive",
+)
 
 # REPO_BRANCH = master
 
@@ -24,9 +28,7 @@ def repo():
         third_party_http_archive,
         name = "com_google_storagetestbench",
         strip_prefix = "storage-testbench-bc7738b9f0c737c198d67e03a12d21600c3e771b",
-        urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/googleapis/storage-testbench/archive/bc7738b9f0c737c198d67e03a12d21600c3e771b.tar.gz",  # main(2024-09-10)
-        ],
+        urls = mirror_url("https://github.com/googleapis/storage-testbench/archive/bc7738b9f0c737c198d67e03a12d21600c3e771b.tar.gz"),  # main(2024-09-10)
         sha256 = "7a71839be3c5e0502cb699f4bf6f22f878cce7af4e7a593a6b2a0d1002bee873",
         build_file = Label("//third_party:com_google_storagetestbench/storagetestbench.BUILD.bazel"),
     )

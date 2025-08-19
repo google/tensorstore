@@ -15,7 +15,11 @@
 # buildifier: disable=module-docstring
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//third_party:repo.bzl", "third_party_http_archive")
+load(
+    "//third_party:repo.bzl",
+    "mirror_url",
+    "third_party_http_archive",
+)
 
 def repo():
     maybe(
@@ -24,9 +28,7 @@ def repo():
         doc_version = "30.2",
         doc_homepage = "https://protobuf.dev/",
         strip_prefix = "protobuf-30.2",
-        urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/protocolbuffers/protobuf/archive/v30.2.tar.gz",
-        ],
+        urls = mirror_url("https://github.com/protocolbuffers/protobuf/archive/v30.2.tar.gz"),
         sha256 = "07a43d88fe5a38e434c7f94129cad56a4c43a51f99336074d0799c2f7d4e44c5",
         patches = [
             # protobuf uses rules_java, but we don't want to import it.

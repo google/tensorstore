@@ -15,7 +15,11 @@
 # buildifier: disable=module-docstring
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//third_party:repo.bzl", "third_party_http_archive")
+load(
+    "//third_party:repo.bzl",
+    "mirror_url",
+    "third_party_http_archive",
+)
 
 def repo():
     maybe(
@@ -23,9 +27,7 @@ def repo():
         name = "aws_c_event_stream",
         sha256 = "cef8b78e362836d15514110fb43a0a0c7a86b0a210d5fe25fd248a82027a7272",
         strip_prefix = "aws-c-event-stream-0.5.4",
-        urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/awslabs/aws-c-event-stream/archive/v0.5.4.tar.gz",
-        ],
+        urls = mirror_url("https://github.com/awslabs/aws-c-event-stream/archive/v0.5.4.tar.gz"),
         build_file = Label("//third_party:aws_c_event_stream/aws_c_event_stream.BUILD.bazel"),
         cmake_name = "aws_c_event_stream",
         cmake_target_mapping = {

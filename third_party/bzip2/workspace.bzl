@@ -17,6 +17,7 @@
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load(
     "//third_party:repo.bzl",
+    "mirror_url",
     "third_party_http_archive",
 )
 
@@ -24,9 +25,7 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "bzip2",
-        urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz",
-        ],
+        urls = mirror_url("https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz"),
         strip_prefix = "bzip2-1.0.8",
         sha256 = "ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269",
         doc_version = "1.0.8",

@@ -17,6 +17,7 @@
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load(
     "//third_party:repo.bzl",
+    "mirror_url",
     "third_party_http_archive",
 )
 
@@ -32,9 +33,7 @@ def repo():
         doc_homepage = "https://chromium.googlesource.com/chromium/src/third_party/zlib/",
         # googlesource does not cache archive files; the sha256 is only valid for the mirror.
         sha256 = "eafdc0818f091a50b0ebf439f92bce28fd5f324e93ef8644f7d8fe6c103ddf35",
-        urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/chromium.googlesource.com/chromium/src/third_party/zlib/+archive/a26c752876190c456e44188db38931561bfa7064.tar.gz",  # main(2025-04-25)
-        ],
+        urls = mirror_url("https://chromium.googlesource.com/chromium/src/third_party/zlib/+archive/a26c752876190c456e44188db38931561bfa7064.tar.gz"),  # main(2025-04-25)
         build_file = Label("//third_party:zlib/zlib.BUILD.bazel"),
         system_build_file = Label("//third_party:zlib/system.BUILD.bazel"),
         cmake_name = "ZLIB",

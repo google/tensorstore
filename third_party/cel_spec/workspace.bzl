@@ -15,7 +15,11 @@
 # buildifier: disable=module-docstring
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//third_party:repo.bzl", "third_party_http_archive")
+load(
+    "//third_party:repo.bzl",
+    "mirror_url",
+    "third_party_http_archive",
+)
 
 # Should be compatible with grpc/bazel/grpc_deps.bzl c-ares.
 
@@ -25,9 +29,7 @@ def repo():
         name = "cel-spec",
         sha256 = "13234d9622ef4b7660b6259498a6f02f001fd260d42fa21e67b28fd4c4e0d344",
         strip_prefix = "cel-spec-0.16.2",
-        urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/google/cel-spec/archive/v0.16.2.zip",
-        ],
+        urls = mirror_url("https://github.com/google/cel-spec/archive/v0.16.2.zip"),
         repo_mapping = {
             "@io_bazel_rules_go": "@local_proto_mirror",
             "@com_google_googleapis": "@googleapis",

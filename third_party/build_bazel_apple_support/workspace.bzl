@@ -16,13 +16,15 @@
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
+load(
+    "//third_party:repo.bzl",
+    "mirror_url",
+)
 
 def repo():
     maybe(
         http_archive,
         name = "build_bazel_apple_support",
-        urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/bazelbuild/apple_support/releases/download/1.17.1/apple_support.1.17.1.tar.gz",
-        ],
+        urls = mirror_url("https://github.com/bazelbuild/apple_support/releases/download/1.17.1/apple_support.1.17.1.tar.gz"),
         sha256 = "b53f6491e742549f13866628ddffcc75d1f3b2d6987dc4f14a16b242113c890b",
     )

@@ -77,6 +77,10 @@ class WorkspaceDict(dict):
     self['repo']()
     return self.maybe_args
 
+  def mirror_url(self, url: str) -> list[str]:
+    self.mirror_url_args = url
+    return [url]
+
 
 def _get_third_party_http_archive_args(workspace_text: str) -> dict:
   if not workspace_text:

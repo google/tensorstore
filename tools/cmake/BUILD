@@ -24,6 +24,7 @@ SRCS = [
     "bazel_to_cmake/bzl_library/rules_proto.py",
     "bazel_to_cmake/bzl_library/rules_python.py",
     "bazel_to_cmake/bzl_library/third_party_http_archive.py",
+    "bazel_to_cmake/bzl_library/third_party_pypa_package.py",
     "bazel_to_cmake/bzl_library/upb_proto_library.py",
     "bazel_to_cmake/bzl_library/register.py",
     "bazel_to_cmake/active_repository.py",

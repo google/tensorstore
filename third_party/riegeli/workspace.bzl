@@ -17,6 +17,7 @@
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load(
     "//third_party:repo.bzl",
+    "mirror_url",
     "third_party_http_archive",
 )
 
@@ -27,9 +28,7 @@ def repo():
         third_party_http_archive,
         name = "riegeli",
         doc_version = "20250607-c4d1f27",
-        urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/google/riegeli/archive/c4d1f275ed44db839385e494c3a969ae232d6e10.tar.gz",  # master(2025-06-07)
-        ],
+        urls = mirror_url("https://github.com/google/riegeli/archive/c4d1f275ed44db839385e494c3a969ae232d6e10.tar.gz"),  # master(2025-06-07)
         sha256 = "0ca5be90a2e184fc2a9590e804c476a004f04b48c40ca488a6b608fcd224b32f",
         strip_prefix = "riegeli-c4d1f275ed44db839385e494c3a969ae232d6e10",
         repo_mapping = {

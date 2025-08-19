@@ -16,14 +16,16 @@
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
+load(
+    "//third_party:repo.bzl",
+    "mirror_url",
+)
 
 def repo():
     maybe(
         http_archive,
         name = "rules_cc",
-        urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/bazelbuild/rules_cc/archive/0.1.1.tar.gz",
-        ],
+        urls = mirror_url("https://github.com/bazelbuild/rules_cc/archive/0.1.1.tar.gz"),
         strip_prefix = "rules_cc-0.1.1",
         sha256 = "712d77868b3152dd618c4d64faaddefcc5965f90f5de6e6dd1d5ddcd0be82d42",
         repo_mapping = {

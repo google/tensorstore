@@ -31,3 +31,31 @@ load(
 
 third_party_http_archive = _http_archive
 third_party_python_package = _python_package
+
+def mirror_url(url):
+    """Returns a list of mirrors for the given URL.
+
+    Args:
+        url: URL to mirror.
+
+    Returns:
+        List of URL mirrors to use.
+    """
+    if not url.startswith("http"):
+        fail("Invalid URL: %s" % url)
+
+    # Known mirrors.
+    for prefix in [
+        "https://mirror.bazel.build/",
+        "https://storage.googleapis.com/",
+    ]:
+        if url.startswith(prefix):
+            return [url]
+
+    mirror_prefix = "https://storage.googleapis.com/tensorstore-bazel-mirror/"
+    if url.startswith("https://"):
+        return [mirror_prefix + url[8:]]
+    elif url.startswith("http://"):
+        return [mirror_prefix + url[7:]]
+
+    return [url]

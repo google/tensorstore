@@ -16,14 +16,16 @@
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
+load(
+    "//third_party:repo.bzl",
+    "mirror_url",
+)
 
 def repo():
     maybe(
         http_archive,
         name = "toolchains_llvm",
-        urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/bazel-contrib/toolchains_llvm/releases/download/v1.2.0/toolchains_llvm-v1.2.0.tar.gz",
-        ],
+        urls = mirror_url("https://github.com/bazel-contrib/toolchains_llvm/releases/download/v1.2.0/toolchains_llvm-v1.2.0.tar.gz"),
         strip_prefix = "toolchains_llvm-v1.2.0",
         sha256 = "e3fb6dc6b77eaf167cb2b0c410df95d09127cbe20547e5a329c771808a816ab4",
     )

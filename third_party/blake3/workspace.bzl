@@ -15,7 +15,11 @@
 # buildifier: disable=module-docstring
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//third_party:repo.bzl", "third_party_http_archive")
+load(
+    "//third_party:repo.bzl",
+    "mirror_url",
+    "third_party_http_archive",
+)
 
 def repo():
     maybe(
@@ -23,9 +27,7 @@ def repo():
         name = "blake3",
         strip_prefix = "BLAKE3-1.8.2",
         sha256 = "6b51aefe515969785da02e87befafc7fdc7a065cd3458cf1141f29267749e81f",
-        urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/BLAKE3-team/BLAKE3/archive/1.8.2.tar.gz",
-        ],
+        urls = mirror_url("https://github.com/BLAKE3-team/BLAKE3/archive/1.8.2.tar.gz"),
         build_file = Label("//third_party:blake3/blake3.BUILD.bazel"),
         system_build_file = Label("//third_party:blake3/system.BUILD.bazel"),
         cmake_name = "BLAKE3",

@@ -15,16 +15,18 @@
 # buildifier: disable=module-docstring
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//third_party:repo.bzl", "third_party_http_archive")
+load(
+    "//third_party:repo.bzl",
+    "mirror_url",
+    "third_party_http_archive",
+)
 
 def repo():
     maybe(
         third_party_http_archive,
         name = "lz4",
         strip_prefix = "lz4-1.10.0",
-        urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/lz4/lz4/archive/v1.10.0.zip",
-        ],
+        urls = mirror_url("https://github.com/lz4/lz4/archive/v1.10.0.zip"),
         sha256 = "3224b4c80f351f194984526ef396f6079bd6332dd9825c72ac0d7a37b3cdc565",
         build_file = Label("//third_party:lz4/lz4.BUILD.bazel"),
         system_build_file = Label("//third_party:lz4/system.BUILD.bazel"),
