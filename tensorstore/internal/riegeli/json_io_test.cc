@@ -23,7 +23,6 @@
 #include "tensorstore/internal/riegeli/json_input.h"
 #include "tensorstore/internal/riegeli/json_output.h"
 #include "tensorstore/internal/testing/json_gtest.h"
-#include "tensorstore/util/status_testutil.h"
 
 namespace {
 
@@ -38,12 +37,37 @@ TEST(RiegeliJsonOutputTest, Basic) {
   EXPECT_EQ(j.dump(), s);
 }
 
+TEST(RiegeliJsonOutputTest, Cbor) {
+  std::string s;
+  riegeli::StringWriter writer(&s);
+  ::nlohmann::json j{{"a", 5}, {"b", 10}};
+  ASSERT_TRUE(tensorstore::internal::WriteCbor(writer, j));
+  ASSERT_TRUE(writer.Close());
+  EXPECT_EQ(
+      "\xA2"
+      "aa\x5"
+      "ab\n",
+      s);
+}
+
 TEST(RiegeliJsonInputTest, Basic) {
   ::nlohmann::json j{{"a", 5}, {"b", 10}};
   std::string s = j.dump();
   riegeli::StringReader<std::string_view> reader(s);
   ::nlohmann::json j2;
   EXPECT_TRUE(tensorstore::internal::ReadJson(reader, j2));
+  EXPECT_THAT(j2, MatchesJson(j));
+}
+
+TEST(RiegeliJsonInputTest, Cbor) {
+  std::string s(
+      "\xA2"
+      "aa\x5"
+      "ab\n");
+  riegeli::StringReader<std::string_view> reader(s);
+  ::nlohmann::json j2;
+  EXPECT_TRUE(tensorstore::internal::ReadCbor(reader, j2));
+  ::nlohmann::json j{{"a", 5}, {"b", 10}};
   EXPECT_THAT(j2, MatchesJson(j));
 }
 
