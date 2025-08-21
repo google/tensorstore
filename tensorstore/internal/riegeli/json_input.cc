@@ -14,6 +14,8 @@
 
 #include "tensorstore/internal/riegeli/json_input.h"
 
+#include <stddef.h>
+
 #include <string>
 
 #include "absl/status/status.h"
@@ -31,6 +33,14 @@ struct RiegeliJsonInputAdapter {
     char c;
     if (!reader.Read(c)) return std::char_traits<char>::eof();
     return std::char_traits<char>::to_int_type(c);
+  }
+
+  template <typename T>
+  size_t get_elements(T* dest) {
+    size_t read_count = 0;
+    reader.Read(sizeof(T), reinterpret_cast<char*>(dest), &read_count);
+    if (!reader.ok()) return 0;
+    return read_count;
   }
 
   riegeli::Reader& reader;
@@ -53,8 +63,15 @@ bool ReadJson(riegeli::Reader& reader, ::nlohmann::json& value,
 
 bool ReadCbor(riegeli::Reader& reader, ::nlohmann::json& value, bool strict,
               ::nlohmann::json::cbor_tag_handler_t tag_handler) {
-  ::nlohmann::detail::json_sax_dom_parser<::nlohmann::json> sdp(
-      value, /*allow_exceptions=*/false);
+#if (NLOHMANN_JSON_VERSION_MAJOR >= 3 && NLOHMANN_JSON_VERSION_MINOR >= 12)
+  using sax_dom_parser =
+      ::nlohmann::detail::json_sax_dom_parser<::nlohmann::json,
+                                              RiegeliJsonInputAdapter>;
+#else
+  using sax_dom_parser =
+      ::nlohmann::detail::json_sax_dom_parser<::nlohmann::json>;
+#endif
+  sax_dom_parser sdp(value, /*allow_exceptions=*/false);
   if (!::nlohmann::detail::binary_reader<::nlohmann::json,
                                          RiegeliJsonInputAdapter>(
            RiegeliJsonInputAdapter{reader})
