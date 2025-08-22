@@ -25,9 +25,9 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "aws_s2n_tls",
-        sha256 = "3ab786720ac23b35bcf6f4354659652e2ec8eb20b1a3989e7be93c3e7985ea5e",
-        strip_prefix = "s2n-tls-1.5.17",
-        urls = mirror_url("https://github.com/aws/s2n-tls/archive/v1.5.17.tar.gz"),
+        sha256 = "72a160498f97565d694c740901fbfa320f6fad7db4a8e946ccd5352c9472c556",
+        strip_prefix = "s2n-tls-1.5.24",
+        urls = mirror_url("https://github.com/aws/s2n-tls/archive/v1.5.24.tar.gz"),
         build_file = Label("//third_party:aws_s2n_tls/aws_s2n_tls.BUILD.bazel"),
         cmake_name = "s2n_tls",
         cmake_target_mapping = {

@@ -25,9 +25,9 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "xds",
-        urls = mirror_url("https://github.com/cncf/xds/archive/ae57f3c0d45fc76d0b323b79e8299a83ccb37a49.tar.gz"),  # main(2025-04-26)
-        sha256 = "557cb4aecb5dde1fee6a9eda2ce18704226d2b8aa279892dd1327526259e086a",
-        strip_prefix = "xds-ae57f3c0d45fc76d0b323b79e8299a83ccb37a49",
+        urls = mirror_url("https://github.com/cncf/xds/archive/2ac532fd44436293585084f8d94c6bdb17835af0.tar.gz"),  # main(2025-08-19)
+        sha256 = "790c4c83b6950bb602fec221f6a529d9f368cdc8852aae7d2592d0d04b015f37",
+        strip_prefix = "xds-2ac532fd44436293585084f8d94c6bdb17835af0",
         repo_mapping = {
             "@io_bazel_rules_go": "@local_proto_mirror",
             "@com_envoyproxy_protoc_gen_validate": "@local_proto_mirror",

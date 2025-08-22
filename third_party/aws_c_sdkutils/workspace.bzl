@@ -25,9 +25,9 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "aws_c_sdkutils",
-        sha256 = "5a0489d508341b84eea556e351717bc33524d3dfd6207ee3aba6068994ea6018",
-        strip_prefix = "aws-c-sdkutils-0.2.3",
-        urls = mirror_url("https://github.com/awslabs/aws-c-sdkutils/archive/v0.2.3.tar.gz"),
+        sha256 = "493cbed4fa57e0d4622fcff044e11305eb4fc12445f32c8861025597939175fc",
+        strip_prefix = "aws-c-sdkutils-0.2.4",
+        urls = mirror_url("https://github.com/awslabs/aws-c-sdkutils/archive/v0.2.4.tar.gz"),
         build_file = Label("//third_party:aws_c_sdkutils/aws_c_sdkutils.BUILD.bazel"),
         cmake_name = "aws_c_sdkutils",
         cmake_target_mapping = {
